@@ -1,0 +1,20 @@
+# C extensions
+*.so
+
+# Build artifacts
+build-*/
+build/
+
+# Byte-compiled files
+__pycache__
+
+# Distribution and Packaging
+*.egg-info
+*.whl
+dist/
+
+# JetBrains PyCharm IDE
+.idea/
+
+# macOS files
+.DS_Store

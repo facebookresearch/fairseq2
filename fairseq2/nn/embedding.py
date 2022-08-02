@@ -1,0 +1,133 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+from abc import ABC, abstractmethod
+from typing import Dict, Optional, final
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch import Tensor
+from torch.nn import Module, Parameter
+
+
+class Embedding(Module, ABC):
+    """Stores embeddings of a fixed dictionary.
+
+    :param num_embed:
+        The size of the embedding dictionary.
+    :param embed_dim:
+        The dimensionality of the returned embeddings.
+    :param padding_idx:
+        If not ``None``, the entries at :attr:`padding_idx` do not contribute to
+        the gradient; therefore, the embedding at :attr:`padding_idx` is not
+        updated during training.
+    """
+
+    num_embed: int
+    """The size of the embedding dictionary."""
+
+    embed_dim: int
+    """The dimensionality of the returned embeddings."""
+
+    padding_idx: Optional[int]
+    """If not ``None``, the entries at :attr:`padding_idx` do not contribute to
+    the gradient; therefore, the embedding at :attr:`padding_idx` is not updated
+    during training."""
+
+    def __init__(
+        self, num_embed: int, embed_dim: int, padding_idx: Optional[int] = None
+    ) -> None:
+        super().__init__()
+
+        self.num_embed = num_embed
+        self.embed_dim = embed_dim
+        self.padding_idx = padding_idx
+
+    @abstractmethod
+    def forward(self, x: Tensor) -> Tensor:
+        """
+        :param x:
+            The input from which to extract the indices. *Shape:* Any.
+
+        :returns:
+            The embeddings. *Shape:* :math:`(*,E)`, where :math:`*` is the input
+            shape and :math:`E` is the embedding size.
+        """
+
+
+@final
+class LocalEmbedding(Embedding):
+    """Stores embeddings of a fixed dictionary in an in-memory weight matrix.
+
+    :param num_embed:
+        The size of the embedding dictionary.
+    :param embed_dim:
+        The dimensionality of the returned embeddings.
+    :param padding_idx:
+        If not ``None``, the entries at :attr:`padding_idx` do not contribute to
+        the gradient; therefore, the embedding at :attr:`padding_idx` is not
+        updated during training.
+    :param scaled:
+        If ``True``, the embeddings will be initialized with a standard
+        deviation scaled by :math:`\\frac{1}{\\text{embed_dim}}`.
+
+    .. note::
+        This class is identical to :class:`torch.nn.Embedding`.
+    """
+
+    scaled: bool
+    """If ``True``, the embeddings have been initialized with a standard
+    deviation scaled by :math:`\\frac{1}{\\text{embed_dim}}`."""
+
+    weight: Parameter
+
+    def __init__(
+        self,
+        num_embed: int,
+        embed_dim: int,
+        padding_idx: Optional[int] = None,
+        scaled: bool = False,
+        device=None,
+        dtype=None,
+    ) -> None:
+        fct_kwargs: Dict = {"device": device, "dtype": dtype}
+
+        super().__init__(num_embed, embed_dim, padding_idx)
+
+        self.weight = Parameter(torch.empty(num_embed, embed_dim, **fct_kwargs))
+
+        self.scaled = scaled
+
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        """Resets the parameters and buffers of the module.
+
+        If :attr:`scaled` is ``True``, the embeddings will be initialized from
+        :math:`\\mathcal{N}(0, \\frac{1}{\\text{embed_dim}})`; otherwise, from
+        :math:`\\mathcal{N}(0, 1)`.
+        """
+        if self.scaled:
+            nn.init.normal_(self.weight, std=self.embed_dim**-0.5)
+        else:
+            nn.init.normal_(self.weight)
+
+        if self.padding_idx is not None:
+            with torch.no_grad():
+                self.weight[self.padding_idx].fill_(0.0)
+
+    def forward(self, x: Tensor) -> Tensor:  # override
+        return F.embedding(x, self.weight, self.padding_idx)
+
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        s = f"num_embed={self.num_embed}, embed_dim={self.embed_dim}"
+
+        if self.padding_idx is not None:
+            s += f", padding_idx={self.padding_idx}"
+
+        return s

@@ -1,0 +1,7 @@
+[flake8]
+extend-ignore =
+    # See https://github.com/psf/black/issues/280
+    E203,
+    # See https://github.com/psf/black/issues/40
+    E302,
+    E501,
