@@ -4,7 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from abc import ABC, abstractmethod
 from typing import Dict, Optional, final
 
 import torch
@@ -14,76 +13,28 @@ from torch import Tensor
 from torch.nn import Module, Parameter
 
 
-class Embedding(Module, ABC):
-    """Stores embeddings of a fixed dictionary.
-
-    :param num_embed:
-        The size of the embedding dictionary.
-    :param embed_dim:
-        The dimensionality of the returned embeddings.
-    :param padding_idx:
-        If not ``None``, the entries at :attr:`padding_idx` do not contribute to
-        the gradient; therefore, the embedding at :attr:`padding_idx` is not
-        updated during training.
-    """
+@final
+class Embedding(Module):
+    """Stores embeddings of a fixed dictionary."""
 
     num_embed: int
     """The size of the embedding dictionary."""
 
     embed_dim: int
-    """The dimensionality of the returned embeddings."""
+    """The dimensionality of returned embeddings."""
 
     padding_idx: Optional[int]
-    """If not ``None``, the entries at :attr:`padding_idx` do not contribute to
-    the gradient; therefore, the embedding at :attr:`padding_idx` is not updated
+    """If not ``None``, entries at :attr:`padding_idx` do not contribute to the
+    gradient; therefore, the embedding at :attr:`padding_idx` is not updated
     during training."""
 
-    def __init__(
-        self, num_embed: int, embed_dim: int, padding_idx: Optional[int] = None
-    ) -> None:
-        super().__init__()
-
-        self.num_embed = num_embed
-        self.embed_dim = embed_dim
-        self.padding_idx = padding_idx
-
-    @abstractmethod
-    def forward(self, x: Tensor) -> Tensor:
-        """
-        :param x:
-            The input from which to extract the indices. *Shape:* Any.
-
-        :returns:
-            The embeddings. *Shape:* :math:`(*,E)`, where :math:`*` is the input
-            shape and :math:`E` is the embedding size.
-        """
-
-
-@final
-class LocalEmbedding(Embedding):
-    """Stores embeddings of a fixed dictionary in an in-memory weight matrix.
-
-    :param num_embed:
-        The size of the embedding dictionary.
-    :param embed_dim:
-        The dimensionality of the returned embeddings.
-    :param padding_idx:
-        If not ``None``, the entries at :attr:`padding_idx` do not contribute to
-        the gradient; therefore, the embedding at :attr:`padding_idx` is not
-        updated during training.
-    :param scaled:
-        If ``True``, the embeddings will be initialized with a standard
-        deviation scaled by :math:`\\frac{1}{\\text{embed_dim}}`.
-
-    .. note::
-        This class is identical to :class:`torch.nn.Embedding`.
-    """
-
     scaled: bool
-    """If ``True``, the embeddings have been initialized with a standard
-    deviation scaled by :math:`\\frac{1}{\\text{embed_dim}}`."""
+    """If ``True``, the embeddings have been initialized from
+    :math:`\\mathcal{N}(0, \\frac{1}{\\text{embed_dim}})`; otherwise, from
+    :math:`\\mathcal{N}(0, 1)`."""
 
     weight: Parameter
+    """The learnable embeddings."""
 
     def __init__(
         self,
@@ -94,23 +45,35 @@ class LocalEmbedding(Embedding):
         device=None,
         dtype=None,
     ) -> None:
+        """
+        :param num_embed:
+            The size of the embedding dictionary.
+        :param embed_dim:
+            The dimensionality of returned embeddings.
+        :param padding_idx:
+            If not ``None``, entries at :attr:`padding_idx` do not contribute
+            to the gradient; therefore, the embedding at :attr:`padding_idx` is
+            not updated during training.
+        :param scaled:
+            If ``True``, the embeddings will be initialized from
+            :math:`\\mathcal{N}(0, \\frac{1}{\\text{embed_dim}})`; otherwise,
+            from :math:`\\mathcal{N}(0, 1)`.
+        """
         fct_kwargs: Dict = {"device": device, "dtype": dtype}
 
-        super().__init__(num_embed, embed_dim, padding_idx)
+        super().__init__()
+
+        self.num_embed = num_embed
+        self.embed_dim = embed_dim
+        self.padding_idx = padding_idx
+        self.scaled = scaled
 
         self.weight = Parameter(torch.empty(num_embed, embed_dim, **fct_kwargs))
-
-        self.scaled = scaled
 
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Resets the parameters and buffers of the module.
-
-        If :attr:`scaled` is ``True``, the embeddings will be initialized from
-        :math:`\\mathcal{N}(0, \\frac{1}{\\text{embed_dim}})`; otherwise, from
-        :math:`\\mathcal{N}(0, 1)`.
-        """
+        """Resets the parameters and buffers of the module."""
         if self.scaled:
             nn.init.normal_(self.weight, std=self.embed_dim**-0.5)
         else:
@@ -120,7 +83,15 @@ class LocalEmbedding(Embedding):
             with torch.no_grad():
                 self.weight[self.padding_idx].fill_(0.0)
 
-    def forward(self, x: Tensor) -> Tensor:  # override
+    def forward(self, x: Tensor) -> Tensor:
+        """
+        :param x:
+            The input from which to extract the indices. *Shape:* Any.
+
+        :returns:
+            The embeddings. *Shape:* :math:`(*,E)`, where :math:`*` is the input
+            shape and :math:`E` is the embedding size.
+        """
         return F.embedding(x, self.weight, self.padding_idx)
 
     def extra_repr(self) -> str:
@@ -129,5 +100,8 @@ class LocalEmbedding(Embedding):
 
         if self.padding_idx is not None:
             s += f", padding_idx={self.padding_idx}"
+
+        if self.scaled:
+            s += ", scaled=True"
 
         return s

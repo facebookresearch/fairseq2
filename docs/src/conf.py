@@ -48,6 +48,8 @@ autodoc_default_options = {
     "show-inheritance": True,
 }
 
+autoclass_content = "both"
+
 todo_include_todos = True
 
 intersphinx_mapping = {

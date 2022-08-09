@@ -11,21 +11,21 @@ import torch.nn.functional as F
 from torch import Tensor
 from torch.nn import LayerNorm, Module
 
-from ..projection import LocalProjection
+from ..projection import Linear
 from .norm_order import TransformerNormOrder
 
 
 class FeedForwardNetwork(Module, ABC):
-    """Represents a Transformer feed-forward network.
-
-    :param model_dim:
-        The dimensionality of the model (i.e. inputs and outputs).
-    """
+    """Represents a Transformer feed-forward network."""
 
     model_dim: int
     """The dimensionality of the model (i.e. inputs and outputs)."""
 
     def __init__(self, model_dim: int) -> None:
+        """
+        :param model_dim:
+            The dimensionality of the model (i.e. inputs and outputs).
+        """
         super().__init__()
 
         self.model_dim = model_dim
@@ -38,7 +38,7 @@ class FeedForwardNetwork(Module, ABC):
             model size.
 
         :returns:
-            The output. *Shape:* Same as the input.
+            The output. *Shape:* Same as ``x``.
         """
 
     def extra_repr(self) -> str:
@@ -49,26 +49,13 @@ class FeedForwardNetwork(Module, ABC):
 @final
 class StandardFeedForwardNetwork(FeedForwardNetwork):
     """Represents a Transformer feed-forward network as described in
-    :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`.
+    :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`."""
 
-    :param model_dim:
-        The dimensionality of the model (i.e. inputs and outputs).
-    :param inner_dim:
-        The dimensionality of the inner layer.
-    :param inner_activation_fn:
-        The activation to apply to the output of the inner layer. If ``None``,
-        :func:`~torch.nn.functional.relu` will be used.
-    :param inner_dropout_p:
-        The dropout probability on the output of the inner layer.
-    :param norm_order:
-        The Layer Normalization order to use.
-    """
-
-    inner_proj: LocalProjection
+    inner_proj: Linear
     inner_activation_fn: Callable[[Tensor], Tensor]
     inner_dropout_p: float
     inner_norm: Optional[LayerNorm]
-    out_proj: LocalProjection
+    out_proj: Linear
 
     def __init__(
         self,
@@ -80,11 +67,24 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         device=None,
         dtype=None,
     ) -> None:
+        """
+        :param model_dim:
+            The dimensionality of the model (i.e. inputs and outputs).
+        :param inner_dim:
+            The dimensionality of the inner layer.
+        :param inner_activation_fn:
+            The activation to apply to the outputs of the inner layer. If
+            ``None``, :func:`~torch.nn.functional.relu` will be used.
+        :param inner_dropout_p:
+            The dropout probability on the outputs of the inner layer.
+        :param norm_order:
+            The Layer Normalization order to use.
+        """
         fct_kwargs: Dict = {"device": device, "dtype": dtype}
 
         super().__init__(model_dim)
 
-        self.inner_proj = LocalProjection(model_dim, inner_dim, **fct_kwargs)
+        self.inner_proj = Linear(model_dim, inner_dim, **fct_kwargs)
 
         if inner_activation_fn is None:
             self.inner_activation_fn = F.relu  # type: ignore
@@ -98,7 +98,7 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         else:
             self.register_module("inner_norm", None)
 
-        self.out_proj = LocalProjection(inner_dim, model_dim, **fct_kwargs)
+        self.out_proj = Linear(inner_dim, model_dim, **fct_kwargs)
 
     def forward(self, x: Tensor) -> Tensor:  # override
         x = self.inner_proj(x)

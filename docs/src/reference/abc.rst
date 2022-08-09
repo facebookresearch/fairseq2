@@ -8,9 +8,9 @@ ABCs and Protocols
     :toctree: auto/abc
     :nosignatures:
 
-    nn.Embedding
     nn.PositionalEmbedding
     nn.Projection
+    nn.ResettableProjection
     nn.transformer.AttentionFunction
     nn.transformer.AttentionMaskGenerator
     nn.transformer.AttentionWeightHook

@@ -7,33 +7,34 @@
 from abc import ABC, abstractmethod
 from typing import final
 
+import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 from torch.nn import Module
 
-from ..projection import Projection
+from ..projection import Projection, ResettableProjection
 from .decoder import TransformerDecoder
 from .encoder import TransformerEncoder
 
 
 class Transformer(Module, ABC):
-    """Represents a Transformer model.
-
-    :param model_dim:
-        The dimensionality of the model (i.e. inputs and outputs).
-    :param batch_first:
-        If ``True``, the first dimension of the batched inputs and outputs
-        represents the batch; otherwise, the sequence.
-    """
+    """Represents a Transformer model."""
 
     model_dim: int
     """The dimensionality of the model (i.e. inputs and outputs)."""
 
     batch_first: bool
-    """If ``True``, the first dimension of the batched inputs and outputs
-    represents the batch; otherwise, the sequence."""
+    """If ``True``, the first dimension of batched inputs and outputs represents
+    the batch; otherwise, the sequence."""
 
     def __init__(self, model_dim: int, batch_first: bool) -> None:
+        """
+        :param model_dim:
+            The dimensionality of the model (i.e. inputs and outputs).
+        :param batch_first:
+            If ``True``, the first dimension of batched inputs and outputs
+            represents the batch; otherwise, the sequence.
+        """
         super().__init__()
 
         self.model_dim = model_dim
@@ -68,30 +69,31 @@ class Transformer(Module, ABC):
 class StandardTransformer(Transformer):
     """Represents a Transformer model as described in
     :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`.
-
-    :param encoder:
-        The encoder.
-    :param decoder:
-        The decoder.
-    :param dict_proj:
-        The dictionary projection to apply to the output of the decoder.
-    :param log_out_probs:
-        If ``True``, apply log-softmax instead of softmax to the output of the
-        dictionary projection.
     """
 
     encoder: TransformerEncoder
     decoder: TransformerDecoder
-    dict_proj: Projection
-    log_out_probs: bool
+    score_proj: Projection
+    use_log_softmax: bool
 
     def __init__(
         self,
         encoder: TransformerEncoder,
         decoder: TransformerDecoder,
-        dict_proj: Projection,
-        log_out_probs: bool = False,
+        score_proj: Projection,
+        use_log_softmax: bool = False,
     ) -> None:
+        """
+        :param encoder:
+            The encoder.
+        :param decoder:
+            The decoder.
+        :param score_proj:
+            The projection to apply to the outputs of the decoder.
+        :param use_log_softmax:
+            If ``True``, apply log-softmax instead of softmax to the scores
+            (i.e. logits) produced by ``score_proj``.
+        """
         if encoder.model_dim != decoder.model_dim:
             raise ValueError(
                 f"`model_dim` of `encoder` ({encoder.model_dim}) does not match `model_dim` of `decoder` ({decoder.model_dim})."
@@ -107,20 +109,44 @@ class StandardTransformer(Transformer):
         self.encoder = encoder
         self.decoder = decoder
 
-        self.dict_proj = dict_proj
+        self.score_proj = score_proj
 
-        self.log_out_probs = log_out_probs
+        self.use_log_softmax = use_log_softmax
 
     def forward(self, src_seq: Tensor, tgt_seq: Tensor) -> Tensor:  # override
         enc_out, enc_attn_padding_mask = self.encoder(src_seq)
 
         x = self.decoder(tgt_seq, enc_out, enc_attn_padding_mask)
 
-        x = self.dict_proj(x)
+        x = self.score_proj(x)
 
-        if self.log_out_probs:
+        if self.use_log_softmax:
             softmax = F.log_softmax
         else:
             softmax = F.softmax
 
         return softmax(x, dim=-1)
+
+
+class UntiedScoreProjection(ResettableProjection):
+    """Produces scores (i.e. logits) from the output of a Transformer decoder.
+
+    The produced scores should be forwarded to a softmax function to compute
+    predicted next-token probabilities.
+    """
+
+    def __init__(self, num_embed: int, embed_dim: int, device=None, dtype=None) -> None:
+        """
+        :param num_embed:
+            The size of the output embedding dictionary.
+        :param embed_dim:
+            The dimensionality of output embeddings.
+        """
+        super().__init__(embed_dim, num_embed, bias=False, device=device, dtype=dtype)
+
+    def reset_parameters(self) -> None:  # override
+        """Resets the parameters and buffers of the module."""
+        nn.init.normal_(self.weight, std=self.inp_dim**-0.5)
+
+        if self.bias is not None:
+            nn.init.zeros_(self.bias)

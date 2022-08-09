@@ -16,28 +16,14 @@ from torch.nn import Module, Parameter
 from torch.utils.hooks import RemovableHandle
 
 from ..incremental_state import IncrementalState, IncrementalStateBag
-from ..projection import LocalProjection, Projection
+from ..projection import Projection, ResettableProjection
 from ..utils import to_float_mask
 from .attention import AttentionFunction, scaled_dot_product_attention
 
 
 class MultiheadAttentionState(IncrementalState):
     """Holds the state of a :class:`MultiheadAttention` module during an
-    incremental evaluation.
-
-    :param k:
-        The initial projected keys. *Shape:* :math:`(N,S_{int},K_{proj})`,
-        where :math:`N` is the batch size, :math:`S_{int}` is the initial source
-        sequence length, and :math:`K_{proj}` is the projected key size.
-    :param v:
-        The initial projected values. *Shape:* :math:`(N,S_{int},V_{proj})`,
-        where :math:`N` is the batch size, :math:`S_{int}` is the initial source
-        sequence length, and :math:`V_{proj}` is the projected value size.
-    :param padding_mask:
-        The initial float key padding mask. *Shape:* :math:`(N,S_{int})`, where
-        :math:`N` is the batch size and :math:`S_{int}` is the initial source
-        sequence length.
-    """
+    incremental evaluation."""
 
     prev_k: Tensor
     """The projected keys accumulated from the previous steps. *Shape:*
@@ -62,6 +48,22 @@ class MultiheadAttentionState(IncrementalState):
         v: Tensor,
         padding_mask: Optional[Tensor] = None,
     ) -> None:
+        """
+        :param k:
+            The initial projected keys. *Shape:* :math:`(N,S_{int},K_{proj})`,
+            where :math:`N` is the batch size, :math:`S_{int}` is the initial
+            source sequence length, and :math:`K_{proj}` is the projected key
+            size.
+        :param v:
+            The initial projected values. *Shape:* :math:`(N,S_{int},V_{proj})`,
+            where :math:`N` is the batch size, :math:`S_{int}` is the initial
+            source sequence length, and :math:`V_{proj}` is the projected value
+            size.
+        :param padding_mask:
+            The initial float key padding mask. *Shape:* :math:`(N,S_{int})`,
+            where :math:`N` is the batch size and :math:`S_{int}` is the initial
+            source sequence length.
+        """
         self.prev_k = k
         self.prev_v = v
 
@@ -70,8 +72,9 @@ class MultiheadAttentionState(IncrementalState):
     def append(
         self, k: Tensor, v: Tensor, padding_mask: Optional[Tensor]
     ) -> Tuple[Tensor, Tensor, Optional[Tensor]]:
-        """Appends the projected key, value and the padding mask of the current
-        step to :attr:`prev_k`, :attr:`prev_v`, and :attr:`prev_padding_mask`.
+        """Appends the projected key, value and the float key padding mask of
+        the current step to :attr:`prev_k`, :attr:`prev_v`, and
+        :attr:`padding_mask`.
 
         :param k:
             The projected key of the current step. *Shape:*
@@ -149,16 +152,7 @@ class AttentionWeightHook(Protocol):
 
 
 class MultiheadAttention(Module, ABC):
-    """Represents a Transformer multi-head attention.
-
-    :param num_heads:
-        The number of attention heads.
-    :param model_dim:
-        The dimensionality of the model (i.e. inputs and outputs).
-    :param batch_first:
-        If ``True``, the first dimension of the batched inputs and outputs
-        represents the batch; otherwise, the sequence.
-    """
+    """Represents a Transformer multi-head attention."""
 
     num_heads: int
     """The number of attention heads."""
@@ -167,12 +161,21 @@ class MultiheadAttention(Module, ABC):
     """The dimensionality of the model (i.e. inputs and outputs)."""
 
     batch_first: bool
-    """If ``True``, the first dimension of the batched inputs and outputs
-    represents the batch; otherwise, the sequence."""
+    """If ``True``, the first dimension of batched inputs and outputs represents
+    the batch; otherwise, the sequence."""
 
     _attn_weight_hooks: Dict[int, AttentionWeightHook]
 
     def __init__(self, num_heads: int, model_dim: int, batch_first: bool) -> None:
+        """
+        :param num_heads:
+            The number of attention heads.
+        :param model_dim:
+            The dimensionality of the model (i.e. inputs and outputs).
+        :param batch_first:
+            If ``True``, the first dimension of batched inputs and outputs
+            represents the batch; otherwise, the sequence.
+        """
         super().__init__()
 
         self.num_heads = num_heads
@@ -234,7 +237,7 @@ class MultiheadAttention(Module, ABC):
 
         .. note::
             For a boolean key padding mask, a ``True`` indicates that the
-            corresponding position is not allowed to attend. For a float key
+            corresponding key position is not allowed to attend. For a float key
             padding mask, the mask values will be added to the attention
             weights.
         """
@@ -243,7 +246,7 @@ class MultiheadAttention(Module, ABC):
         """Registers an attention weight hook on the module.
 
         The hook will be called every time after :meth:`forward` has computed
-        the attention weights.
+        attention weights.
 
         :param hook:
             The hook to register.
@@ -259,10 +262,10 @@ class MultiheadAttention(Module, ABC):
         return handle
 
     def _run_attn_weight_hooks(self, attn_weights: Tensor) -> None:
-        """Runs the registered attention weight hooks.
+        """Runs registered attention weight hooks.
 
         A :class:`MultiheadAttention` implementation should call this method
-        after computing the attention weights in its :meth:`forward` method.
+        after computing attention weights in its :meth:`forward` method.
 
         :param attn_weights:
             The computed attention weights. *Shape:* :math:`(N,T,S)`, where
@@ -279,11 +282,11 @@ class MultiheadAttention(Module, ABC):
         return f"num_heads={self.num_heads}, model_dim={self.model_dim}"
 
 
-class InternalQKVProjection(LocalProjection):
+class InternalQKVProjection(ResettableProjection):
     def __init__(self, model_dim: int, device, dtype) -> None:
         super().__init__(model_dim, model_dim, bias=True, device=device, dtype=dtype)
 
-    def reset_parameters(self) -> None:
+    def reset_parameters(self) -> None:  # override
         # Empirically observed the convergence to be much better with the
         # scaled initialization.
         nn.init.xavier_uniform_(self.weight, gain=2**-0.5)
@@ -292,11 +295,11 @@ class InternalQKVProjection(LocalProjection):
             nn.init.zeros_(self.bias)
 
 
-class InternalOutProjection(LocalProjection):
+class InternalOutProjection(ResettableProjection):
     def __init__(self, v_proj_dim: int, model_dim: int, device, dtype) -> None:
         super().__init__(v_proj_dim, model_dim, bias=True, device=device, dtype=dtype)
 
-    def reset_parameters(self) -> None:
+    def reset_parameters(self) -> None:  # override
         nn.init.xavier_uniform_(self.weight)
 
         if self.bias is not None:
@@ -306,39 +309,7 @@ class InternalOutProjection(LocalProjection):
 @final
 class StandardMultiheadAttention(MultiheadAttention):
     """Represents a Transformer multi-head attention as described in
-    :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`.
-
-    :param num_heads:
-        The number of attention heads.
-    :param model_dim:
-        The dimensionality of the model (i.e. inputs and outputs); must be
-        specified if ``q_proj`` is ``None``; otherwise, will be inferred from
-        ``q_proj``.
-    :param q_proj:
-        The projection to apply to the input. If ``None``, a default projection
-        will be used.
-    :param k_proj:
-        The projection to apply to the keys. If ``None``, a default projection
-        will be used.
-    :param v_proj:
-        The projection to apply to the values. If ``None``, a default projection
-        will be used.
-    :param add_bias_kv:
-        If ``True``, extends the keys and values by a bias step.
-    :param add_zero_attn:
-        If ``True``, extends the keys and values by an empty (i.e. zero) step.
-    :param attn_fn:
-        The function to compute the head attentions. If ``None``, a default
-        implementation of the scaled dot-product attention will be used.
-    :param attn_dropout_p:
-        The dropout probability on the attention weights.
-    :param out_proj:
-        The projection to produce the final attentions. If ``None``, a default
-        projection will be used.
-    :param batch_first:
-        If ``True``, the first dimension of the batched inputs and outputs
-        represents the batch; otherwise, the sequence.
-    """
+    :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`."""
 
     q_proj: Projection
     k_proj: Projection
@@ -366,6 +337,39 @@ class StandardMultiheadAttention(MultiheadAttention):
         device=None,
         dtype=None,
     ) -> None:
+        """
+        :param num_heads:
+            The number of attention heads.
+        :param model_dim:
+            The dimensionality of the model (i.e. inputs and outputs); must be
+            specified if ``q_proj`` is ``None``; otherwise, will be inferred
+            from ``q_proj``.
+        :param q_proj:
+            The projection to apply to provided inputs before computing
+            attention. If ``None``, a default projection will be used.
+        :param k_proj:
+            The projection to apply to provided keys before computing attention.
+            If ``None``, a default projection will be used.
+        :param v_proj:
+            The projection to apply to provided values before computing
+            attention. If ``None``, a default projection will be used.
+        :param add_bias_kv:
+            If ``True``, extends provided keys and values by a bias step.
+        :param add_zero_attn:
+            If ``True``, extends provided keys and values by an empty (i.e.
+            zero) step.
+        :param attn_fn:
+            The function to compute head attentions. If ``None``, a default
+            implementation of the scaled dot-product attention will be used.
+        :param attn_dropout_p:
+            The dropout probability on attention weights.
+        :param out_proj:
+            The projection to produce final attentions. If ``None``, a
+            default projection will be used.
+        :param batch_first:
+            If ``True``, the first dimension of batched inputs and outputs
+            represents the batch; otherwise, the sequence.
+        """
         fct_kwargs: Dict = {"device": device, "dtype": dtype}
 
         if model_dim is None:

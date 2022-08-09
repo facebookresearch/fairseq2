@@ -20,23 +20,23 @@ from .norm_order import TransformerNormOrder
 
 
 class TransformerDecoderLayer(Module, ABC):
-    """Represents a Transformer decoder layer.
-
-    :param model_dim:
-        The dimensionality of the model (i.e. inputs and outputs).
-    :param batch_first:
-        If ``True``, the first dimension of the batched inputs and outputs
-        represents the batch; otherwise, the sequence.
-    """
+    """Represents a Transformer decoder layer."""
 
     model_dim: int
     """The dimensionality of the model (i.e. inputs and outputs)."""
 
     batch_first: bool
-    """If ``True``, the first dimension of the batched inputs and outputs
-    represents the batch; otherwise, the sequence."""
+    """If ``True``, the first dimension of batched inputs and outputs represents
+    the batch; otherwise, the sequence."""
 
     def __init__(self, model_dim: int, batch_first: bool) -> None:
+        """
+        :param model_dim:
+            The dimensionality of the model (i.e. inputs and outputs).
+        :param batch_first:
+            If ``True``, the first dimension of batched inputs and outputs
+            represents the batch; otherwise, the sequence.
+        """
         super().__init__()
 
         self.model_dim = model_dim
@@ -89,11 +89,11 @@ class TransformerDecoderLayer(Module, ABC):
             The state bag to use during an incremental evaluation.
 
         :returns:
-            The output. *Shape:* Same as the input.
+            The output. *Shape:* Same as ``x``.
 
         .. note::
             For a boolean key padding mask, a ``True`` indicates that the
-            corresponding position is not allowed to attend. For a float key
+            corresponding key position is not allowed to attend. For a float key
             padding mask, the mask values will be added to the attention
             weights.
         """
@@ -106,27 +106,7 @@ class TransformerDecoderLayer(Module, ABC):
 @final
 class StandardTransformerDecoderLayer(TransformerDecoderLayer):
     """Represents a Transformer decoder layer as described in
-    :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`.
-
-    :param self_attn:
-        The self attention layer.
-    :param enc_dec_attn:
-        The encoder-decoder attention layer.
-    :param ffn:
-        The feed-forward network.
-    :param scale_residual:
-        If ``True``, scales the residuals before adding them to the output of
-        the feed-forward network. See
-        :cite:t:`DBLP:journals/corr/abs-2110-09456` for more information.
-    :param dropout_p:
-        The dropout probability on the outputs of the attention layers and the
-        feed-forward network.
-    :param norm_order:
-        The Layer Normalization order to use.
-    :param norm_eps:
-        The epsilon value to add to the denominator of the
-        :class:`~torch.nn.LayerNorm` modules for numerical stability.
-    """
+    :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`."""
 
     self_attn: MultiheadAttention
     self_attn_norm: Optional[LayerNorm]
@@ -151,6 +131,26 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         device=None,
         dtype=None,
     ) -> None:
+        """
+        :param self_attn:
+            The self attention layer.
+        :param enc_dec_attn:
+            The encoder-decoder attention layer.
+        :param ffn:
+            The feed-forward network.
+        :param scale_residual:
+            If ``True``, scales residuals before adding them to the output of
+            the feed-forward network. See
+            :cite:t:`DBLP:journals/corr/abs-2110-09456` for more information.
+        :param dropout_p:
+            The dropout probability on the outputs of the attention layers and
+            the feed-forward network.
+        :param norm_order:
+            The Layer Normalization order to use.
+        :param norm_eps:
+            The epsilon value to add to the denominator of the
+            :class:`~torch.nn.LayerNorm` modules for numerical stability.
+        """
         fct_kwargs: Dict = {"device": device, "dtype": dtype}
 
         model_dim, batch_first = self_attn.model_dim, self_attn.batch_first

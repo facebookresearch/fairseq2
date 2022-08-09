@@ -16,35 +16,22 @@ from torch.nn import Module, Parameter
 
 
 class PositionalEmbedding(Module, ABC):
-    """Produces positional embeddings.
-
-    :param max_seq_len:
-        The expected maximum sequence length.
-    :param embed_dim:
-        The dimensionality of the returned positional embeddings.
-    :param padding_token_idx:
-        The index of the padding token. While producing the positional
-        embeddings, the paddings in the input sequence will be skipped and their
-        positional embeddings will be set to zero.
-    :param batch_first:
-        If ``True``, the first dimension of the batched inputs and outputs
-        represents the batch; otherwise, the sequence.
-    """
+    """Produces positional embeddings."""
 
     max_seq_len: int
     """The expected maximum sequence length."""
 
     embed_dim: int
-    """The dimensionality of the returned positional embeddings."""
+    """The dimensionality of returned positional embeddings."""
 
     padding_token_idx: Optional[int]
-    """The index of the padding token. While producing the positional
-    embeddings, the paddings in the input sequence will be skipped and their
-    positional embeddings will be set to zero."""
+    """The index of the padding token. While producing positional embeddings,
+    paddings in an input sequence will be skipped and their positional
+    embeddings will be set to zero."""
 
     batch_first: bool
-    """If ``True``, the first dimension of the batched inputs and outputs
-    represents the batch; otherwise, the sequence."""
+    """If ``True``, the first dimension of batched inputs and outputs represents
+    the batch; otherwise, the sequence."""
 
     def __init__(
         self,
@@ -53,6 +40,19 @@ class PositionalEmbedding(Module, ABC):
         padding_token_idx: Optional[int] = None,
         batch_first: bool = False,
     ) -> None:
+        """
+        :param max_seq_len:
+            The expected maximum sequence length.
+        :param embed_dim:
+            The dimensionality of returned positional embeddings.
+        :param padding_token_idx:
+            The index of the padding token. While producing positional
+            embeddings, paddings in an input sequence will be skipped and their
+            positional embeddings will be set to zero.
+        :param batch_first:
+            If ``True``, the first dimension of batched inputs and outputs
+            represents the batch; otherwise, the sequence.
+        """
         super().__init__()
 
         self.max_seq_len = max_seq_len
@@ -112,11 +112,11 @@ class PositionalEmbedding(Module, ABC):
     def _forward_core(self, seq: Tensor, incremental_eval: bool) -> Tensor:
         """
         :param seq:
-            The input sequences. *Shape:* :math:`(N,S)`, where :math:`N` is
-            the batch size and :math:`S` is the sequence length.
+            The input sequences. *Shape:* :math:`(N,S)`, where :math:`N` is the
+            batch size and :math:`S` is the sequence length.
         :param incremental_eval:
-            If ``True`` and in eval mode, an actual implementation should
-            return the positional embedding of the last step only.
+            If ``True`` and in eval mode, an actual implementation should return
+            the positional embedding of the last step only.
 
         :returns:
             The positional embeddings. *Shape:* :math:`(N,S,E_{pos})`, where
@@ -156,18 +156,6 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
     See `here <https://github.com/tensorflow/tensor2tensor/pull/177>`_ for more
     information.
 
-    :param max_seq_len:
-        The expected maximum sequence length.
-    :param embed_dim:
-        The dimensionality of the returned positional embeddings.
-    :param padding_token_idx:
-        The index of the padding token. While producing the positional
-        embeddings, the paddings in the input sequence will be skipped and their
-        positional embeddings will be set to zero.
-    :param batch_first:
-        If ``True``, the first dimension of the batched inputs and outputs
-        represents the batch; otherwise, the sequence.
-
     Usage:
 
     >>> import torch
@@ -185,7 +173,6 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
             [ 8.4147e-01,  1.0000e-04,  5.4030e-01,  1.0000e+00],  # pos 1
             [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  0.0000e+00],  # pad
             [ 9.0930e-01,  2.0000e-04, -4.1615e-01,  1.0000e+00]]) # pos 2
-
     """
 
     weight: Tensor
@@ -225,7 +212,7 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
 
         num_sin = self.embed_dim // 2
 
-        # Zero pad if the dimensionality of the embedding is odd.
+        # Zero pad if the embedding size is odd.
         if self.embed_dim > 2 * num_sin:
             out[:, -1:] = 0
 
@@ -277,21 +264,6 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
 class LearnedPositionalEmbedding(PositionalEmbedding):
     """Learns positional embeddings.
 
-    :param max_seq_len:
-        The expected maximum sequence length.
-    :param embed_dim:
-        The dimensionality of the returned positional embeddings.
-    :param padding_token_idx:
-        The index of the padding token. While producing the positional
-        embeddings, the paddings in the input sequence will be skipped and their
-        positional embeddings will be set to zero.
-    :param scaled:
-        If ``True``, the positional embeddings will be initialized with a
-        standard deviation scaled by :math:`\\frac{1}{\\text{embed_dim}}`.
-    :param batch_first:
-        If ``True``, the first dimension of the batched inputs and outputs
-        represents the batch; otherwise, the sequence.
-
     Usage:
 
     >>> import torch
@@ -309,21 +281,15 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
             [ 0.2364,  0.6009,  3.3865, -2.4810],                               # pos 1
             [ 0.0000,  0.0000,  0.0000,  0.0000],                               # pad
             [-0.4746,  0.4544,  0.2761,  0.8828]], grad_fn=<SqueezeBackward1>)  # pos 3
-
     """
 
     weight: Parameter
-
-    scaled: bool
-    """If ``True``, the positional embeddings have been initialized with a
-    standard deviation scaled by :math:`\\frac{1}{\\text{embed_dim}}`."""
 
     def __init__(
         self,
         max_seq_len: int,
         embed_dim: int,
         padding_token_idx: Optional[int] = None,
-        scaled: bool = False,
         batch_first: bool = False,
         device=None,
         dtype=None,
@@ -340,21 +306,11 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
             torch.empty(num_embed, embed_dim, device=device, dtype=dtype)
         )
 
-        self.scaled = scaled
-
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Resets the parameters and buffers of the module.
-
-        If :attr:`scaled` is ``True``, the positional embeddings will be
-        initialized from :math:`\\mathcal{N}(0, \\frac{1}{\\text{embed_dim}})`;
-        otherwise, from :math:`\\mathcal{N}(0, 1)`.
-        """
-        if self.scaled:
-            nn.init.normal_(self.weight, std=self.embed_dim**-0.5)
-        else:
-            nn.init.normal_(self.weight)
+        """Resets the parameters and buffers of the module."""
+        nn.init.normal_(self.weight)
 
         if self.padding_token_idx is not None:
             with torch.no_grad():
@@ -376,10 +332,6 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
             pad = 0
 
         return F.embedding(ind, self.weight, padding_idx=pad)
-
-    def extra_repr(self) -> str:
-        """:meta private:"""
-        return super().extra_repr() + f", scaled={self.scaled}"
 
 
 def _make_indices_with_padding(

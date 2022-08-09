@@ -15,7 +15,7 @@ from .decoder_layer import StandardTransformerDecoderLayer, TransformerDecoderLa
 from .encoder import StandardTransformerEncoder, TransformerEncoder
 from .encoder_layer import StandardTransformerEncoderLayer, TransformerEncoderLayer
 from .ffn import FeedForwardNetwork, StandardFeedForwardNetwork
-from .model import StandardTransformer, Transformer
+from .model import StandardTransformer, Transformer, UntiedScoreProjection
 from .multihead_attention import (
     AttentionWeightHook,
     MultiheadAttention,
@@ -46,5 +46,6 @@ __all__ = [
     "TransformerEncoder",
     "TransformerEncoderLayer",
     "TransformerNormOrder",
+    "UntiedScoreProjection",
     "scaled_dot_product_attention",
 ]

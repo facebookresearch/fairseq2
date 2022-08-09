@@ -10,10 +10,9 @@ import torch
 
 from fairseq2.nn import (
     Embedding,
-    LocalEmbedding,
     PositionalEmbedding,
-    SharedProjection,
     SinusoidalPositionalEmbedding,
+    TiedProjection,
 )
 from fairseq2.nn.transformer import (
     StandardFeedForwardNetwork,
@@ -50,10 +49,10 @@ num_layers = 6
 """The size of the encoder and decoder stacks is fixed to 6."""
 
 
-def load_embeddings(cfg: ModelConfig) -> LocalEmbedding:
+def load_embeddings(cfg: ModelConfig) -> Embedding:
     # Just a placeholder for demonstration purposes. A real implementation
     # would load the embedding table from a provided dictionary.
-    return LocalEmbedding(10, embed_dim=cfg.model_dim, scaled=True)
+    return Embedding(10, embed_dim=cfg.model_dim, scaled=True)
 
 
 def build_model(cfg: ModelConfig, device, dtype) -> Transformer:
@@ -77,10 +76,10 @@ def build_model(cfg: ModelConfig, device, dtype) -> Transformer:
     decoder = build_decoder(cfg, embed, positional_embed, device, dtype)
 
     # Share the weight matrix between the embedding layers and the pre-softmax
-    # linear projection as described in the original paper.
-    dict_proj = SharedProjection(embed.weight)
+    # score projection as described in the original paper.
+    score_proj = TiedProjection(embed.weight)
 
-    return StandardTransformer(encoder, decoder, dict_proj, log_out_probs=True)
+    return StandardTransformer(encoder, decoder, score_proj, use_log_softmax=True)
 
 
 def build_encoder(

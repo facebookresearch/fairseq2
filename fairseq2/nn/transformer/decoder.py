@@ -17,7 +17,7 @@ from ..embedding import Embedding
 from ..incremental_state import IncrementalStateBag
 from ..module_list import ModuleList
 from ..positional_embedding import PositionalEmbedding
-from ..projection import LocalProjection, Projection
+from ..projection import Projection, ResettableProjection
 from ..utils import to_float_mask
 from .attention_mask import AttentionMaskGenerator, CausalAttentionMaskGenerator
 from .decoder_layer import TransformerDecoderLayer
@@ -25,23 +25,23 @@ from .norm_order import TransformerNormOrder
 
 
 class TransformerDecoder(Module, ABC):
-    """Represents a Transformer decoder.
-
-    :param model_dim:
-        The dimensionality of the model (i.e. inputs and outputs).
-    :param batch_first:
-        If ``True``, the first dimension of the batched inputs and outputs
-        represents the batch; otherwise, the sequence.
-    """
+    """Represents a Transformer decoder."""
 
     model_dim: int
     """The dimensionality of the model (i.e. inputs and outputs)."""
 
     batch_first: bool
-    """If ``True``, the first dimension of the batched inputs and outputs
-    represents the batch; otherwise, the sequence."""
+    """If ``True``, the first dimension of batched inputs and outputs represents
+    the batch; otherwise, the sequence."""
 
     def __init__(self, model_dim: int, batch_first: bool) -> None:
+        """
+        :param model_dim:
+            The dimensionality of the model (i.e. inputs and outputs).
+        :param batch_first:
+            If ``True``, the first dimension of batched inputs and outputs
+            represents the batch; otherwise, the sequence.
+        """
         super().__init__()
 
         self.model_dim = model_dim
@@ -88,7 +88,7 @@ class TransformerDecoder(Module, ABC):
 
         .. note::
             For a boolean key padding mask, a ``True`` indicates that the
-            corresponding position is not allowed to attend. For a float key
+            corresponding key position is not allowed to attend. For a float key
             padding mask, the mask values will be added to the attention
             weights.
         """
@@ -98,11 +98,11 @@ class TransformerDecoder(Module, ABC):
         return f"model_dim={self.model_dim}"
 
 
-class InternalDimProjection(LocalProjection):
+class InternalDimProjection(ResettableProjection):
     def __init__(self, inp_dim: int, out_dim: int, device, dtype) -> None:
         super().__init__(inp_dim, out_dim, bias=True, device=device, dtype=dtype)
 
-    def reset_parameters(self) -> None:
+    def reset_parameters(self) -> None:  # override
         nn.init.xavier_uniform_(self.weight)
 
         if self.bias is not None:
@@ -112,34 +112,7 @@ class InternalDimProjection(LocalProjection):
 @final
 class StandardTransformerDecoder(TransformerDecoder):
     """Represents a Transformer decoder layer as described in
-    :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`.
-
-    :param embed:
-        The output embeddings.
-    :param positional_embed:
-        The positional embeddings.
-    :param layers:
-        The decoder layers.
-    :param no_scale_embed:
-        If ``True``, the output embeddings won't be scaled by the square root
-        of the embedding size.
-    :param norm_embed:
-        If ``True``, applies Layer Normalization to the sum of the output and
-        positional embeddings.
-    :param embed_dropout_p:
-        The dropout probability on the output embeddings.
-    :param self_attn_mask_gen:
-        The attention mask generator. If ``None``, an instance of
-        :class:`CausalAttentionMaskGenerator` will be used.
-    :param layer_drop_p:
-        If greater than zero, applies LayerDrop to the decoder layers as
-        described in :cite:t:`DBLP:journals/corr/abs-1909-11556`.
-    :param norm_order:
-        The Layer Normalization order to use.
-    :param norm_eps:
-        The epsilon value to add to the denominator of the
-        :class:`~torch.nn.LayerNorm` modules for numerical stability.
-    """
+    :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`."""
 
     embed: Embedding
     embed_scale: float
@@ -167,6 +140,33 @@ class StandardTransformerDecoder(TransformerDecoder):
         device=None,
         dtype=None,
     ) -> None:
+        """
+        :param embed:
+            The output embedding dictionary.
+        :param positional_embed:
+            The positional embedding dictionary.
+        :param layers:
+            The decoder layers.
+        :param no_scale_embed:
+            If ``True``, output embeddings won't be scaled by the square root
+            of the embedding size.
+        :param norm_embed:
+            If ``True``, applies Layer Normalization to the sum of output and
+            positional embeddings.
+        :param embed_dropout_p:
+            The dropout probability on output embeddings.
+        :param self_attn_mask_gen:
+            The attention mask generator. If ``None``, an instance of
+            :class:`CausalAttentionMaskGenerator` will be used.
+        :param layer_drop_p:
+            If greater than zero, applies LayerDrop to the decoder layers as
+            described in :cite:t:`DBLP:journals/corr/abs-1909-11556`.
+        :param norm_order:
+            The Layer Normalization order to use.
+        :param norm_eps:
+            The epsilon value to add to the denominator of the
+            :class:`~torch.nn.LayerNorm` modules for numerical stability.
+        """
         fct_kwargs: Dict = {"device": device, "dtype": dtype}
 
         embed_dim = embed.embed_dim
@@ -180,12 +180,12 @@ class StandardTransformerDecoder(TransformerDecoder):
         for idx, layer in enumerate(layers):
             if layer.model_dim != model_dim:
                 raise ValueError(
-                    f"`model_dim` of decoder layer {idx} ({layer.model_dim}) does not match `model_dim` ({model_dim})."
+                    f"`model_dim` of the decoder layer {idx} ({layer.model_dim}) does not match `model_dim` ({model_dim})."
                 )
 
             if layer.batch_first != batch_first:
                 raise ValueError(
-                    f"`batch_first` of decoder layer {idx} ({layer.batch_first}) does not match `batch_first` ({batch_first})."
+                    f"`batch_first` of the decoder layer {idx} ({layer.batch_first}) does not match `batch_first` ({batch_first})."
                 )
 
         super().__init__(model_dim, batch_first)
@@ -282,6 +282,11 @@ class StandardTransformerDecoder(TransformerDecoder):
     def _get_self_attn_padding_mask(self, seq: Tensor) -> Optional[Tensor]:
         if self.embed.padding_idx is not None:
             mask = seq.eq(self.embed.padding_idx)
+
+            # Applying a reduction (i.e. `any()`) and returning `None` if the
+            # mask does not contain any padding sounds like a smart idea, but
+            # doing so causes a device-to-host transfer which costs more time
+            # than applying the mask in a fused op (i.e. `baddbmm`).
 
             return to_float_mask(mask, dtype=self.embed.weight.dtype)
         else:

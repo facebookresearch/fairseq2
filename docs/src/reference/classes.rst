@@ -8,14 +8,14 @@ Classes
     :toctree: auto/classes
     :nosignatures:
 
+    nn.Embedding
     nn.IncrementalState
     nn.IncrementalStateBag
     nn.LearnedPositionalEmbedding
-    nn.LocalEmbedding
-    nn.LocalProjection
+    nn.Linear
     nn.ModuleList
-    nn.SharedProjection
     nn.SinusoidalPositionalEmbedding
+    nn.TiedProjection
     nn.transformer.ALiBiAttentionMaskGenerator
     nn.transformer.CausalAttentionMaskGenerator
     nn.transformer.MultiheadAttentionState
@@ -26,3 +26,4 @@ Classes
     nn.transformer.StandardTransformerDecoderLayer
     nn.transformer.StandardTransformerEncoder
     nn.transformer.StandardTransformerEncoderLayer
+    nn.transformer.UntiedScoreProjection
