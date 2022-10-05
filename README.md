@@ -1,180 +1,109 @@
-> **_NOTE:_**  fairseq v2 is in heavy development and at this time should not be
-> used for anything beyond testing and feedback. Note also that this is a
-> temporary repository and the final code will be hosted in the official fairseq
-> repository.
-
 <p align="center">
-  <img src="docs/src/static/img/fairseq_logo.png" width="150">
+  <img src="doc/static/img/fairseq2_logo.png" width="150">
 </p>
 
 --------------------------------------------------------------------------------
 
 [**Installation**](#installation) | [**Getting Started**](#getting-started) | [**Documentation**](#documentation)
 
-fairseq is a sequence modeling toolkit that allows researchers and developers to
-train custom models for translation, summarization, language modeling and other
-content generation tasks.
+fairseq2 is a sequence modeling toolkit that allows researchers and developers
+to train custom models for translation, summarization, language modeling, and
+other content generation tasks.
 
 ## Dependencies
-fairseq versions corresponding to each PyTorch release:
+fairseq2 versions corresponding to each PyTorch release:
 
-| `fairseq`    | `torch`     | `python`          |
+| `fairseq2`   | `torch`     | `python`          |
 | ------------ | ----------- | ----------------- |
-| `main`       | `>=1.11.0`  | `>=3.8`, `<=3.10` |
+| `main`       | `>=1.13.0`  | `>=3.8`, `<=3.10` |
 
 ## Installation
-Only Linux and macOS operating systems are supported. Please note though that
+fairseq2 supports Linux and macOS operating systems. Please note though that
 pre-built Conda and PyPI packages are *only* available for Linux. For
 installation on macOS you can follow the instructions in the
 [From Source](#from-source) section. At this time there are no plans to
 introduce Windows support.
 
 ### Conda
-Conda is the recommended way to install fairseq. Running the following command
-in a Conda environment will install fairseq and all its dependencies.
+Conda is the recommended way to install fairseq2. First follow the instructions
+[here](https://pytorch.org/get-started/locally/) to install a supported version
+of PyTorch in a Conda environment (see the compatibility matrix above); then run
+the following command to install fairseq2.
 
 **Stable**
-
-For PyTorch CPU:
 ```
-conda install -c pytorch -c conda-forge -c fairseq <TBD> cpuonly
-```
-
-For PyTorch with CUDA 10.2:
-```
-conda install -c pytorch -c conda-forge -c fairseq <TBD> cudatoolkit=10.2
-```
-
-For PyTorch with CUDA 11.3:
-```
-conda install -c pytorch -c conda-forge -c fairseq <TBD> cudatoolkit=11.3
-```
-
-For PyTorch with CUDA 11.6:
-```
-conda install -c pytorch -c conda-forge -c fairseq <TBD> cudatoolkit=11.6
+conda install -c conda-forge -c <TBD> fairseq2
 ```
 
 **Nightly**
-
-For PyTorch CPU
 ```
-conda install -c pytorch -c conda-forge -c fairseq-nightly <TBD> cpuonly
+conda install -c conda-forge -c <TBD> fairseq2
 ```
 
-For PyTorch with CUDA 10.2
-```
-conda install -c pytorch -c conda-forge -c fairseq-nightly <TBD> cudatoolkit=10.2
-```
-
-For PyTorch with CUDA 11.3
-```
-conda install -c pytorch -c conda-forge -c fairseq-nightly <TBD> cudatoolkit=11.3
-```
-
-For PyTorch with CUDA 11.6
-```
-conda install -c pytorch -c conda-forge -c fairseq-nightly <TBD> cudatoolkit=11.6
-```
 ### PyPI
 
 **Stable**
-
-For PyTorch CPU:
 ```
-pip install <TBD> --extra-index-url https://download.pytorch.org/whl/cpu
-```
-
-For PyTorch with CUDA 10.2:
-```
-pip install <TBD> --extra-index-url https://download.pytorch.org/whl/cu102
-```
-
-For PyTorch with CUDA 11.3:
-```
-pip install <TBD> --extra-index-url https://download.pytorch.org/whl/cu113
-```
-
-For PyTorch with CUDA 11.6:
-```
-pip install <TBD> --extra-index-url https://download.pytorch.org/whl/cu116
+pip install fairseq2 --extra-index-url <TBD>
 ```
 
 **Nightly**
-
-For PyTorch CPU:
 ```
-pip install <TBD> --pre --extra-index-url https://download.pytorch.org/whl/nightly/cpu
-```
-
-For PyTorch with CUDA 10.2:
-```
-pip install <TBD> --pre --extra-index-url https://download.pytorch.org/whl/nightly/cu102
-```
-
-For PyTorch with CUDA 11.3:
-```
-pip install <TBD> --pre --extra-index-url https://download.pytorch.org/whl/nightly/cu113
-```
-
-For PyTorch with CUDA 11.6:
-```
-pip install <TBD> --pre --extra-index-url https://download.pytorch.org/whl/nightly/cu116
+pip install fairseq2 --extra-index-url <TBD> --pre
 ```
 
 ### From Source
 
 #### Prerequisites
-- After cloning the repository make sure to initialize all submodules by
-  executing `git submodule update --init --recursive`.
-- Create a Python virtual environment and install the build dependencies:
- ```
-# Build against PyTorch CPU
-pip install --upgrade -r requirements.txt -r use-cpu.txt
+1. After cloning the repository make sure to initialize all submodules by
+   executing `git submodule update --init --recursive`.
+2. The build process requires CMake 3.23 or later. Please refer to your package
+   manager or to [cmake.org](https://cmake.org/download/) on how to install
+   CMake.
+3. (Optional, but strongly recommended) Create a Python virtual environment.
+4. Install a version of PyTorch that is supported by fairseq2 (see the
+   compatibility matrix above).
 
-# Build against PyTorch with CUDA 10.2
-pip install --upgrade -r requirements.txt -r use-cu102.txt
-
-# Build against PyTorch with CUDA 11.3
-pip install --upgrade -r requirements.txt -r use-cu113.txt
-
-# Build against PyTorch with CUDA 11.6
-pip install --upgrade -r requirements.txt -r use-cu116.txt
-```
-- The build process requires CMake 3.21 or later. You can install an up-to-date
-  version by executing `pip install cmake`. For other environments please refer
-  to your package manager or [cmake.org](https://cmake.org/download/).
-
-Once you have all prerequisites run the following command to install the fairseq
-Python package:
+Once you have completed all prerequisites run the following commands to install
+fairseq2:
 
 ```
+cmake -DFAIRSEQ2_INSTALL_STANDALONE=ON -B build
+cmake --build build
 pip install .
 ```
 
 #### Development
 In case you would like to contribute to the project you can slightly modify the
-command listed above:
+commands listed above:
 
 ```
+cmake -B build
+cmake --build build
 pip install -e .
 ```
+
+With `pip install -e .` you enable edit mode (a.k.a. develop mode) that allows
+you to modify Python files in-place.
+
+If you are working in C++, whenever you modify a header or implementation file,
+executing `cmake --build build` alone is sufficient. You do not have to execute
+`pip install` again.
 
 The project also comes with a [requirements-devel.txt](./requirements-devel.txt)
 to set up a Python virtual environment for development.
 
 ```
-# Build against PyTorch CPU
-pip install --upgrade -r requirements-devel.txt -r use-cpu.txt
+pip install --upgrade -r requirements-devel.txt
+```
 
-# Build against PyTorch with CUDA 10.2
-pip install --upgrade -r requirements-devel.txt -r use-cu102.txt
+#### Tip
+Note that, if you plan to work in C++, using the Ninja build system and the
+ccache tool can significatly speed up your build times. To use them you can
+replace the initial CMake command listed above with the following version:
 
-# Build against PyTorch with CUDA 11.3
-pip install --upgrade -r requirements-devel.txt -r use-cu113.txt
-
-# Build against PyTorch with CUDA 11.6
-pip install --upgrade -r requirements-devel.txt -r use-cu116.txt
+```
+cmake -GNinja -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -B build
 ```
 
 ## Getting Started

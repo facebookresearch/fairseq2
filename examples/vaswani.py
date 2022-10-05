@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from dataclasses import dataclass
+from typing import Any
 
 import torch
 
@@ -55,15 +56,15 @@ def load_embeddings(cfg: ModelConfig) -> Embedding:
     return Embedding(10, embed_dim=cfg.model_dim, scaled=True)
 
 
-def build_model(cfg: ModelConfig, device, dtype) -> Transformer:
+def build_model(cfg: ModelConfig, device: Any, dtype: Any) -> Transformer:
     """Builds a Transformer model as described in the original paper.
 
-    In fairseq v2 models are constructed by composing modules as building
-    blocks. This follows the dependency inversion principle, which means instead
-    of a model being responsible for instantiating its submodules, it expects
-    them to be provided by the user. This avoids having to subclass or copy/edit
-    entire model architectures, and gives a chance to modify the behavior of a
-    model at a much granular level.
+    In fairseq2 models are constructed by composing modules as building blocks.
+    This follows the dependency inversion principle, which means instead of a
+    model being responsible for instantiating its submodules, it expects them to
+    be provided by the user. This avoids having to subclass or copy/edit entire
+    model architectures, and gives a chance to modify the behavior of a model at
+    a much granular level.
     """
     embed = load_embeddings(cfg)
 
@@ -86,8 +87,8 @@ def build_encoder(
     cfg: ModelConfig,
     embed: Embedding,
     positional_embed: PositionalEmbedding,
-    device,
-    dtype,
+    device: Any,
+    dtype: Any,
 ) -> TransformerEncoder:
     layers = []
 
@@ -104,7 +105,9 @@ def build_encoder(
     )
 
 
-def build_encoder_layer(cfg: ModelConfig, device, dtype) -> TransformerEncoderLayer:
+def build_encoder_layer(
+    cfg: ModelConfig, device: Any, dtype: Any
+) -> TransformerEncoderLayer:
     # Teaser: the next example will mix MoE and distributed encoder layers for
     # demonstration purposes (e.g. ShardedFeedForwardNetwork)
 
@@ -135,8 +138,8 @@ def build_decoder(
     cfg: ModelConfig,
     embed: Embedding,
     positional_embed: PositionalEmbedding,
-    device,
-    dtype,
+    device: Any,
+    dtype: Any,
 ) -> TransformerDecoder:
     layers = []
 
@@ -153,7 +156,9 @@ def build_decoder(
     )
 
 
-def build_decoder_layer(cfg: ModelConfig, device, dtype) -> TransformerDecoderLayer:
+def build_decoder_layer(
+    cfg: ModelConfig, device: Any, dtype: Any
+) -> TransformerDecoderLayer:
     # Teaser: the next example will mix MoE and distributed decoder layers for
     # demonstration purposes (e.g. ShardedFeedForwardNetwork)
 
@@ -188,7 +193,7 @@ def build_decoder_layer(cfg: ModelConfig, device, dtype) -> TransformerDecoderLa
     )
 
 
-def get_config_for_big_variant():
+def get_config_for_big_variant() -> ModelConfig:
     return ModelConfig(
         model_dim=512, ffn_inner_dim=4096, num_attn_heads=16, dropout_p=0.3
     )
@@ -200,7 +205,7 @@ if __name__ == "__main__":
     cfg = get_config_for_big_variant()
 
     # Just for demonstration purposes we initialize the model on the meta
-    # device. This is now possible since all fairseq v2 modules follow the
+    # device. This is now possible since all fairseq2 modules follow the
     # device/reset_parameters convention of PyTorch. As a module author this
     # gives us a chance to modify a subset of parameters if necessary
     # (e.g. convert some projections to fp16/bf16) before materializing the

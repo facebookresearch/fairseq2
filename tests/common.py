@@ -22,6 +22,6 @@ class TestCase(TestCaseBase):
         rtol: Optional[float] = None,
         atol: Optional[float] = None,
         equal_nan: bool = False,
-        msg: str = None,
+        msg: Optional[str] = None,
     ) -> None:
         torch.testing.assert_close(a, b)

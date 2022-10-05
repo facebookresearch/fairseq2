@@ -15,7 +15,7 @@ reproduce the described issue.
 A clear and concise description of what you expected to happen.
 
 **Environment:**
-At the very least specify the versions of fairseq, PyTorch, Python, and CUDA
+At the very least specify the versions of fairseq2, PyTorch, Python, and CUDA
 along with your operating system and (if relevant) GPU model.
 
 **Additional context:**

@@ -1,20 +1,23 @@
-# C extensions
+# Materialized Setup Script
+/setup.py
+
+# Byte-Compiled Modules
+__pycache__
+
+# C Extensions
 *.so
 
-# Build artifacts
+# Build Artifacts
 build-*/
 build/
 
-# Byte-compiled files
-__pycache__
-
-# Distribution and Packaging
+# Packaging Artifacts
 *.egg-info
 *.whl
 dist/
 
-# JetBrains PyCharm IDE
+# IDE Files
 .idea/
 
-# macOS files
+# Other
 .DS_Store

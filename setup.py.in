@@ -1,0 +1,131 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+import warnings
+from typing import List, Optional
+
+from setuptools import Command, find_packages, setup
+from setuptools.command.install import install as install_base
+from setuptools.dist import Distribution as DistributionBase
+
+
+class Distribution(DistributionBase):
+    # We have to explicitly mark the distribution as non-pure since we will be
+    # injecting our pre-built extension modules into it.
+    def has_ext_modules(self) -> bool:
+        return True
+
+
+class install(install_base):
+    install_base.sub_commands.append(("install_cmake", lambda self: True))
+
+    def finalize_options(self) -> None:
+        install_base.finalize_options(self)
+
+        # Old versions of distutils incorrectly check `ext_modules` to determine
+        # whether a distribution is non-pure. We fix it here.
+        if self.distribution.has_ext_modules():  # type: ignore[attr-defined]
+            self.install_lib = self.install_platlib
+
+
+# We inject our pre-built extension modules and optionally other related
+# artifacts into the distribution by installing them via CMake.
+class install_cmake(Command):
+    description = "install CMake artifacts"
+
+    user_options = [
+        ("install-dir=", "d", "directory to install to"),
+    ]
+
+    def initialize_options(self) -> None:
+        self.install_dir: str = None  # type: ignore[assignment]
+
+    def finalize_options(self) -> None:
+        # If not specified, copy the value of `install_dir` from `install`
+        # command's `install_lib` option.
+        self.set_undefined_options("install", ("install_lib", "install_dir"))
+
+    def run(self) -> None:
+        # Inject all regular CMake artifacts (e.g. shared libraries) if the
+        # distribution is standalone.
+        if "@INSTALL_STANDALONE@" == "True":
+            self._cmake_install()
+
+        self._cmake_install(component="python_modules")
+
+    def _cmake_install(self, component: Optional[str] = None) -> None:
+        opts = ["--install", "@PROJECT_BINARY_DIR@", "--prefix", self.install_dir]
+
+        if component:
+            opts += ["--component", component]
+
+        if self.verbose:  # type: ignore[attr-defined]
+            opts += ["--verbose"]
+
+        # Run CMake in a subprocess.
+        self.spawn(["cmake"] + opts + ["--strip"])
+
+    def get_inputs(self) -> List[str]:
+        # We don't take input from other commands.
+        return []
+
+    def get_outputs(self) -> List[str]:
+        # Since we have no easy way to infer the list of files installed by
+        # CMake we don't support the `record` option.
+        warnings.warn("`install_cmake` does not support recording output files.")
+
+        return []
+
+
+def read_long_description() -> str:
+    with open("README.md") as f:
+        return f.read()
+
+
+def main() -> None:
+    setup(
+        distclass=Distribution,
+        cmdclass={
+            "install": install,  # type: ignore[dict-item]
+            "install_cmake": install_cmake,
+        },
+        name="fairseq2",
+        version="0.1.0.dev0@PEP440_LABEL@",
+        description="FAIR Sequence Modeling Toolkit",
+        long_description=read_long_description(),
+        long_description_content_type="text/markdown",
+        url="https://github.com/facebookresearch/fairseq2",
+        license="MIT",
+        author="Fundamental AI Research (FAIR) at Meta",
+        keywords=["machine learning"],
+        classifiers=[
+            "Development Status :: 3 - Alpha",
+            "Intended Audience :: Developers",
+            "Intended Audience :: Science/Research",
+            "License :: OSI Approved :: MIT License",
+            "Programming Language :: Python :: 3",
+            "Programming Language :: Python :: 3.8",
+            "Programming Language :: Python :: 3.9",
+            "Programming Language :: Python :: 3.10",
+            "Topic :: Scientific/Engineering :: Artificial Intelligence",
+        ],
+        package_dir={"": "src"},
+        packages=find_packages(where="src"),
+        package_data={"": ["py.typed", "*.pyi"]},
+        zip_safe=False,
+        python_requires=">=3.8",
+        install_requires=[
+            # PyTorch has no ABI compatibility between releases; this means we
+            # have to ensure that we depend on the exact same version that was
+            # used to build our extension modules.
+            "torch==@TORCH_PEP440_VERSION@",
+            "typing_extensions>=4.3.0",
+        ],
+    )
+
+
+if __name__ == "__main__":
+    main()

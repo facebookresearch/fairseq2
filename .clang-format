@@ -1,0 +1,29 @@
+Language: Cpp
+BasedOnStyle: LLVM
+AccessModifierOffset: -4
+AllowShortFunctionsOnASingleLine: None
+AllowShortLambdasOnASingleLine: Empty
+AlwaysBreakAfterReturnType: All
+AlwaysBreakTemplateDeclarations: Yes
+AttributeMacros: []
+BitFieldColonSpacing: After
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterFunction: true
+  SplitEmptyFunction: false
+  SplitEmptyRecord: false
+  SplitEmptyNamespace: false
+ColumnLimit: 100
+ForEachMacros: []
+IncludeIsMainRegex: "^(test_)?"
+IndentGotoLabels: false
+IndentWidth: 4
+PointerAlignment: Right
+RawStringFormats: []
+SpaceAfterCStyleCast: true
+SpaceAfterTemplateKeyword: false
+SpacesBeforeTrailingComments: 2
+SpacesInContainerLiterals: false
+StatementAttributeLikeMacros: []
+StatementMacros: []
+WhitespaceSensitiveMacros: []

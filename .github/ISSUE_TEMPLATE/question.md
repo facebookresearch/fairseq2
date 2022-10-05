@@ -1,6 +1,6 @@
 ---
 name: Question
-about: Ask a question to the fairseq users and contributors
+about: Ask a question to the fairseq2 users and contributors
 labels: 'question, needs triage'
 ---
 
