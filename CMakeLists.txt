@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-cmake_minimum_required(VERSION 3.23.0)
+cmake_minimum_required(VERSION 3.21.0)
 
 project(fairseq2 VERSION 0.1.0 LANGUAGES C CXX)
 
@@ -48,7 +48,7 @@ option(FAIRSEQ2_INSTALL_STANDALONE
     #DESCRIPTION
         "Installs with relative rpaths."
     #VALUE
-        OFF
+        ON
 )
 option(FAIRSEQ2_RUN_CLANG_TIDY
     #DESCRIPTION
@@ -164,21 +164,13 @@ fairseq2_install_package()
 # ------------------------------------------------------------
 
 if(FAIRSEQ2_INSTALL_STANDALONE)
-    set(INSTALL_STANDALONE True)
-else()
-    set(INSTALL_STANDALONE False)
-endif()
-
-if(FAIRSEQ2_USE_CUDA)
-    set(PEP440_LABEL +cu${CUDAToolkit_VERSION_MAJOR}${CUDAToolkit_VERSION_MINOR})
-else()
-    set(PEP440_LABEL +cpu)
+    set(INSTALL_STANDALONE true)
 endif()
 
 # Materialize the setup script.
 configure_file(setup.py.in setup.py @ONLY)
 
-# Copy the materialized setup script to the source tree if necessary.
+# Copy the materialized setup script to the source tree.
 add_custom_target(setup_py ALL
     COMMAND
         ${CMAKE_COMMAND} -E copy_if_different

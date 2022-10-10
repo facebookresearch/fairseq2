@@ -13,11 +13,37 @@ function(fairseq2_find_torch version)
         OUTPUT_VARIABLE
             torch_cmake_prefix_path
         OUTPUT_STRIP_TRAILING_WHITESPACE
-        COMMAND_ERROR_IS_FATAL
-            ANY
+        ERROR_QUIET
+        RESULT_VARIABLE
+            cmd_result
     )
 
+    if(NOT cmd_result EQUAL 0)
+        message(FATAL_ERROR "fairseq2 requires PyTorch ${version} or greater! Refer to pytorch.org for installation instructions.")
+    endif()
+
+    # Torch CMake package superficially has a hard dependency on cuDNN. As a
+    # workaround we override the cuDNN CMake variables with some dummy paths
+    # and effectively lie to Torch.
+    if(PROJECT_IS_TOP_LEVEL)
+        set(CUDNN_INCLUDE_PATH ${PROJECT_BINARY_DIR}/third-party/cudnn)
+        set(CUDNN_LIBRARY_PATH ${PROJECT_BINARY_DIR}/third-party/cudnn/libcudnn.so)
+
+        file(WRITE ${CUDNN_INCLUDE_PATH}/cudnn_version.h
+[=[
+#define CUDNN_MAJOR 7
+#define CUDNN_MINOR 0
+#define CUDNN_PATCH 0
+]=])
+    endif()
+
     find_package(Torch ${version} REQUIRED PATHS ${torch_cmake_prefix_path})
+
+    # Since we don't really have cuDNN we have to ensure that CMake does not
+    # attempt to link against it.
+    if(PROJECT_IS_TOP_LEVEL AND TARGET caffe2::cudnn-public)
+        set_property(TARGET caffe2::cudnn-public PROPERTY INTERFACE_LINK_LIBRARIES)
+    endif()
 
     __fairseq2_find_torch_python()
 
@@ -26,6 +52,21 @@ function(fairseq2_find_torch version)
     __fairseq2_determine_cuda_version()
 
     __fairseq2_determine_pep440_version()
+
+    # PyTorch distributions 1.12.1 and 1.11.0 were missing some header files
+    # that were transitively used by TorchScript. We store those files under
+    # our torch third-party directory so that we can build our targets.
+    #
+    # See https://github.com/pytorch/pytorch/issues/68876.
+    #
+    # TODO: The torch third-party directory should be deleted once we cease
+    # support for PyTorch 1.12.1.
+    if(TORCH_VERSION VERSION_LESS_EQUAL 1.12.1)
+        target_include_directories(torch
+            INTERFACE
+                ${PROJECT_SOURCE_DIR}/third-party/torch/include
+        )
+    endif()
 
     set(TORCH_VERSION ${Torch_VERSION} PARENT_SCOPE)
 
@@ -64,9 +105,13 @@ function(__fairseq2_determine_cxx11_abi)
         OUTPUT_VARIABLE
             use_cxx11_abi
         OUTPUT_STRIP_TRAILING_WHITESPACE
-        COMMAND_ERROR_IS_FATAL
-            ANY
+        RESULT_VARIABLE
+            cmd_result
     )
+
+    if(NOT cmd_result EQUAL 0)
+        message(FATAL_ERROR "fairseq2 cannot determine the libstdc++ ABI used by PyTorch!")
+    endif()
 
     target_compile_definitions(torch_cxx11_abi INTERFACE
         _GLIBCXX_USE_CXX11_ABI=$<BOOL:${use_cxx11_abi}>
@@ -80,9 +125,13 @@ function(__fairseq2_determine_cuda_version)
         OUTPUT_VARIABLE
             cuda_version
         OUTPUT_STRIP_TRAILING_WHITESPACE
-        COMMAND_ERROR_IS_FATAL
-            ANY
+        RESULT_VARIABLE
+            cmd_result
     )
+
+    if(NOT cmd_result EQUAL 0)
+        message(FATAL_ERROR "fairseq2 cannot determine the CUDA version used by PyTorch!")
+    endif()
 
     # We ignore the patch since it is not relevant for compatibility checks.
     if(cuda_version MATCHES "^([0-9]+)\.([0-9]+)")
@@ -99,9 +148,13 @@ function(__fairseq2_determine_pep440_version)
         OUTPUT_VARIABLE
             pep440_version
         OUTPUT_STRIP_TRAILING_WHITESPACE
-        COMMAND_ERROR_IS_FATAL
-            ANY
+        RESULT_VARIABLE
+            cmd_result
     )
+
+    if(NOT cmd_result EQUAL 0)
+        message(FATAL_ERROR "fairseq2 cannot determine the PEP 440 version of PyTorch!")
+    endif()
 
     set(TORCH_PEP440_VERSION ${pep440_version} PARENT_SCOPE)
 endfunction()

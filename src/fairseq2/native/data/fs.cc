@@ -35,7 +35,7 @@ struct fts_deleter {
 };
 
 std::vector<const char *>
-get_c_strs(c10::ArrayRef<std::string> paths)
+get_c_strs(array_view<std::string> paths)
 {
     std::vector<const char *> c_strs{};
 
@@ -52,12 +52,11 @@ get_c_strs(c10::ArrayRef<std::string> paths)
 inline int
 natural_sort(const ::FTSENT **a, const ::FTSENT **b)
 {
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-array-to-pointer-decay)
     return ::strnatcmp((*a)->fts_name, (*b)->fts_name);
 }
 
 auto
-make_fts(c10::ArrayRef<std::string> paths)
+make_fts(array_view<std::string> paths)
 {
     std::vector<const char *> c_strs = get_c_strs(paths);
 
@@ -73,12 +72,12 @@ make_fts(c10::ArrayRef<std::string> paths)
 
 }  // namespace
 
-c10::List<std::string>
-list_files(c10::ArrayRef<std::string> paths, const std::optional<std::string> &pattern)
+generic_list<std::string>
+list_files(array_view<std::string> paths, const std::optional<std::string> &pattern)
 {
     auto fts = make_fts(paths);
 
-    c10::List<std::string> result{};
+    generic_list<std::string> result{};
 
     ::FTSENT *e{};
     while ((e = ::fts_read(fts.get())) != nullptr) {

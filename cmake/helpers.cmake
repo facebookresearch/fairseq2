@@ -84,21 +84,27 @@ function(fairseq2_add_target target)
 endfunction()
 
 function(__fairseq2_set_properties)
-    target_include_directories(${target}
-        PRIVATE
-            $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
-            $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/src>
-    )
-
     if(arg_EXECUTABLE)
         set_target_properties(${target} PROPERTIES
             RUNTIME_OUTPUT_DIRECTORY
                 ${PROJECT_BINARY_DIR}/bin
         )
+
+        target_include_directories(${target}
+            PRIVATE
+                $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+                $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/src>
+        )
     elseif(arg_PYTHON_MODULE)
         set_target_properties(${target} PROPERTIES
             LIBRARY_OUTPUT_DIRECTORY
                 ${py_module_binary_dir}
+        )
+
+        target_include_directories(${target}
+            PRIVATE
+                $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+                $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/src>
         )
     else()
         set_target_properties(${target} PROPERTIES
@@ -108,13 +114,16 @@ function(__fairseq2_set_properties)
                 ${PROJECT_BINARY_DIR}/lib
         )
 
-        target_sources(${target}
+        if(PROJECT_IS_TOP_LEVEL)
+            set(system)
+        else()
+            set(system SYSTEM)
+        endif()
+
+        target_include_directories(${target} ${system}
             PUBLIC
-                FILE_SET
-                    HEADERS
-                BASE_DIRS
-                    ${PROJECT_SOURCE_DIR}/src
-                    ${PROJECT_BINARY_DIR}/src
+                $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
+                $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/src>
         )
     endif()
 
@@ -388,11 +397,39 @@ function(__fairseq2_install)
                     ${install_lib_dir}
                 COMPONENT
                     devel
-            FILE_SET HEADERS
-                DESTINATION
-                    ${install_inc_dir}
-                COMPONENT
-                    devel
+            INCLUDES DESTINATION
+                ${install_inc_dir}
+        )
+
+        cmake_path(RELATIVE_PATH CMAKE_CURRENT_SOURCE_DIR
+            BASE_DIRECTORY
+                ${PROJECT_SOURCE_DIR}/src
+            OUTPUT_VARIABLE
+                relative_inc_dir
+        )
+
+        install(
+            DIRECTORY
+                ${CMAKE_CURRENT_SOURCE_DIR}/
+            DESTINATION
+                ${install_inc_dir}/${relative_inc_dir}
+            COMPONENT
+                devel
+            FILES_MATCHING
+                PATTERN "*.h"
+            PATTERN "CMakeFiles" EXCLUDE
+        )
+
+        install(
+            DIRECTORY
+                ${CMAKE_CURRENT_BINARY_DIR}/
+            DESTINATION
+                ${install_inc_dir}/${relative_inc_dir}
+            COMPONENT
+                devel
+            FILES_MATCHING
+                PATTERN "*.h"
+            PATTERN "CMakeFiles" EXCLUDE
         )
     endif()
 endfunction()
@@ -402,9 +439,9 @@ function(__fairseq2_install_py_module)
         __fairseq2_set_install_rpath()
     endif()
 
-    cmake_path(RELATIVE_PATH py_module_binary_dir
+    cmake_path(RELATIVE_PATH py_module_source_dir
         BASE_DIRECTORY
-            ${PROJECT_BINARY_DIR}/src
+            ${PROJECT_SOURCE_DIR}/src
         OUTPUT_VARIABLE
             relative_py_module_dir
     )
@@ -429,11 +466,11 @@ function(__fairseq2_set_install_rpath)
     endif()
 
     if(arg_PYTHON_MODULE)
-        set(py_dist_dir ${PROJECT_BINARY_DIR}/src)
+        set(py_dist_dir ${PROJECT_SOURCE_DIR}/src)
 
         cmake_path(RELATIVE_PATH py_dist_dir
             BASE_DIRECTORY
-                ${py_module_binary_dir}
+                ${py_module_source_dir}
             OUTPUT_VARIABLE
                 relative_py_dist_dir
         )

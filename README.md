@@ -57,7 +57,7 @@ pip install fairseq2 --extra-index-url <TBD> --pre
 #### Prerequisites
 1. After cloning the repository make sure to initialize all submodules by
    executing `git submodule update --init --recursive`.
-2. The build process requires CMake 3.23 or later. Please refer to your package
+2. The build process requires CMake 3.21 or later. Please refer to your package
    manager or to [cmake.org](https://cmake.org/download/) on how to install
    CMake.
 3. (Optional, but strongly recommended) Create a Python virtual environment.
@@ -68,14 +68,14 @@ Once you have completed all prerequisites run the following commands to install
 fairseq2:
 
 ```
-cmake -DFAIRSEQ2_INSTALL_STANDALONE=ON -B build
+cmake -B build
 cmake --build build
 pip install .
 ```
 
 #### Development
 In case you would like to contribute to the project you can slightly modify the
-commands listed above:
+`pip` command listed above:
 
 ```
 cmake -B build

@@ -13,7 +13,7 @@ base_dir=$(cd "$(dirname "$0")" && pwd)/..
 
 function print_usage
 {
-    printf "Usage: %s PEP440_VERSION\n" "$(basename "$0")"
+    printf "Usage: %s PEP_440_VERSION\n" "$(basename "$0")"
 }
 
 function exit_with_usage
@@ -64,7 +64,7 @@ function main
 
     # Update the Python distribution.
     replace_match "$base_dir/setup.py.in"\
-                  "s/version=\".*@PEP440_LABEL@\",/version=\"$pep_ver@PEP440_LABEL@\",/"
+                  "s/version=\".*\",/version=\"$pep_ver\",/"
 
     # Update the Python package.
     replace_match "$base_dir/src/fairseq2/__init__.py"\

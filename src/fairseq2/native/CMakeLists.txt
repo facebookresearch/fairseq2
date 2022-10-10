@@ -15,19 +15,7 @@ target_sources(fairseq2
         data/data_source.cc
         data/fs.cc
         data/list_data_source.cc
-    PUBLIC
-        FILE_SET
-            HEADERS
-        FILES
-            api.h
-            data/data_source.h
-            data/fs.h
-            data/list_data_source.h
-            error.h
-        FILE_SET
-            HEADERS
-        FILES
-            ${CMAKE_CURRENT_BINARY_DIR}/config.h
+        exception.cc
 )
 
 target_compile_features(fairseq2 PUBLIC cxx_std_17)

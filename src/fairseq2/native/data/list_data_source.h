@@ -11,22 +11,29 @@
 
 namespace fairseq2 {
 
-class FAIRSEQ2_API list_data_source : public data_source {
+class FAIRSEQ2_API list_data_source final : public data_source {
 public:
-    explicit list_data_source(const c10::IValue &v) noexcept;
+    explicit list_data_source(const ivalue &v) noexcept;
 
     bool
     move_next() override;
 
-    const c10::IValue &
+    ivalue
     current() const noexcept override;
 
     void
     reset() override;
 
+    void
+    seek(std::ptrdiff_t offset, whence w) override;
+
+    bool
+    seekable() const noexcept override;
+
 private:
-    c10::List<c10::IValue> list_;
-    c10::List<c10::IValue>::iterator pos_;
+    generic_list<ivalue> list_;
+    generic_list<ivalue>::iterator pos_;
+    bool iterating_ = false;
 };
 
 }  // namespace fairseq2

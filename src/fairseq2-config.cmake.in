@@ -6,10 +6,6 @@
 
 @PACKAGE_INIT@
 
-if(CMAKE_VERSION VERSION_LESS 3.23.0)
-    message(FATAL_ERROR "fairseq2 package requires CMake 3.23.0 or greater!")
-endif()
-
 include(CMakeFindDependencyMacro)
 
 find_dependency(Torch @TORCH_VERSION@)

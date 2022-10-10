@@ -21,7 +21,6 @@ IndentWidth: 4
 PointerAlignment: Right
 RawStringFormats: []
 SpaceAfterCStyleCast: true
-SpaceAfterTemplateKeyword: false
 SpacesBeforeTrailingComments: 2
 SpacesInContainerLiterals: false
 StatementAttributeLikeMacros: []

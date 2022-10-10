@@ -47,7 +47,7 @@ autodoc_typehints_description_target = "documented_params"
 autodoc_default_options = {
     "members": True,
     "member-order": "groupwise",
-    "special-members": "__call__",
+    "special-members": "__call__,__iter__",
     "inherited-members": "Embedding,Module",
     "show-inheritance": True,
 }

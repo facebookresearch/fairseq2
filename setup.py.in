@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import warnings
+import os
 from typing import List, Optional
 
 from setuptools import Command, find_packages, setup
@@ -13,27 +13,37 @@ from setuptools.dist import Distribution as DistributionBase
 
 
 class Distribution(DistributionBase):
-    # We have to explicitly mark the distribution as non-pure since we will be
-    # injecting our pre-built extension modules into it.
+    # We have to explicitly mark the distribution as non-pure since we will
+    # inject our pre-built extension modules into it.
     def has_ext_modules(self) -> bool:
         return True
 
 
 class install(install_base):
+    distribution: Distribution
+
     install_base.sub_commands.append(("install_cmake", lambda self: True))
 
+    # Old versions of distutils incorrectly check `ext_modules` to determine
+    # whether a distribution is non-pure. We fix it here.
     def finalize_options(self) -> None:
+        # Retrieve the value of `install_lib` before it gets overriden by the
+        # base method.
+        install_lib = self.install_lib
+
         install_base.finalize_options(self)
 
-        # Old versions of distutils incorrectly check `ext_modules` to determine
-        # whether a distribution is non-pure. We fix it here.
-        if self.distribution.has_ext_modules():  # type: ignore[attr-defined]
+        # Unless the user has explicitly specified it, update `install_lib` to
+        # point to the right location.
+        if install_lib is None and self.distribution.has_ext_modules():
             self.install_lib = self.install_platlib
 
 
 # We inject our pre-built extension modules and optionally other related
 # artifacts into the distribution by installing them via CMake.
 class install_cmake(Command):
+    verbose: bool
+
     description = "install CMake artifacts"
 
     user_options = [
@@ -49,34 +59,53 @@ class install_cmake(Command):
         self.set_undefined_options("install", ("install_lib", "install_dir"))
 
     def run(self) -> None:
-        # Inject all regular CMake artifacts (e.g. shared libraries) if the
-        # distribution is standalone.
-        if "@INSTALL_STANDALONE@" == "True":
+        # Inject all CMake artifacts (e.g. shared libraries) if we have a
+        # standalone distribution.
+        if "@INSTALL_STANDALONE@" == "true":
             self._cmake_install()
 
         self._cmake_install(component="python_modules")
 
     def _cmake_install(self, component: Optional[str] = None) -> None:
-        opts = ["--install", "@PROJECT_BINARY_DIR@", "--prefix", self.install_dir]
+        cmd = ["cmake", "--install", "@PROJECT_BINARY_DIR@"]
 
         if component:
-            opts += ["--component", component]
+            cmd += ["--component", component]
 
-        if self.verbose:  # type: ignore[attr-defined]
-            opts += ["--verbose"]
+        cmd += ["--prefix", self.install_dir, "--strip"]
 
-        # Run CMake in a subprocess.
-        self.spawn(["cmake"] + opts + ["--strip"])
+        if self.verbose:
+            cmd += ["--verbose"]
 
-    def get_inputs(self) -> List[str]:
-        # We don't take input from other commands.
-        return []
+        self.spawn(cmd)
 
     def get_outputs(self) -> List[str]:
-        # Since we have no easy way to infer the list of files installed by
-        # CMake we don't support the `record` option.
-        warnings.warn("`install_cmake` does not support recording output files.")
+        outputs = []
 
+        install_root = self.get_finalized_command("install").root  # type: ignore[attr-defined]
+
+        # We have to strip the file paths to the installation root directory.
+        if os.path.isabs(install_root):
+            strip_idx = 0
+        else:
+            strip_idx = len(os.getcwd()) + 1
+
+        # We extract the list of installed files from the CMake install manifest
+        # file.
+        def load_manifest(file: str) -> None:
+            with open(os.path.join("@PROJECT_BINARY_DIR@", file)) as f:
+                for line in f:
+                    outputs.append(line[strip_idx:].rstrip())
+
+        if "@INSTALL_STANDALONE@" == "true":
+            load_manifest("install_manifest.txt")
+
+        load_manifest("install_manifest_python_modules.txt")
+
+        return outputs
+
+    def get_inputs(self) -> List[str]:
+        # We take no input from other commands.
         return []
 
 
@@ -93,7 +122,7 @@ def main() -> None:
             "install_cmake": install_cmake,
         },
         name="fairseq2",
-        version="0.1.0.dev0@PEP440_LABEL@",
+        version="0.1.0.dev0",
         description="FAIR Sequence Modeling Toolkit",
         long_description=read_long_description(),
         long_description_content_type="text/markdown",

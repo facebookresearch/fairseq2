@@ -3,6 +3,7 @@ Checks: >
     -altera-*,
     -android-*,
     -cppcoreguidelines-avoid-non-const-global-variables,
+    -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
     -cppcoreguidelines-pro-bounds-pointer-arithmetic,
     -cppcoreguidelines-pro-type-vararg,
     -darwin-*,
@@ -15,5 +16,7 @@ Checks: >
     -llvmlibc-*,
     -modernize-use-trailing-return-type,
     -readability-braces-around-statements,
+    -readability-else-after-return,
     -readability-identifier-length,
+    -readability-named-parameter,
     -zircon-*

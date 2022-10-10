@@ -8,4 +8,5 @@ Enums
     :toctree: auto/enums
     :nosignatures:
 
+    data.Whence
     nn.transformer.TransformerNormOrder
