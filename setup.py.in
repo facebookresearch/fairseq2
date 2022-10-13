@@ -91,7 +91,7 @@ class install_cmake(Command):
             strip_idx = len(os.getcwd()) + 1
 
         # We extract the list of installed files from the CMake install manifest
-        # file.
+        # file(s).
         def load_manifest(file: str) -> None:
             with open(os.path.join("@PROJECT_BINARY_DIR@", file)) as f:
                 for line in f:

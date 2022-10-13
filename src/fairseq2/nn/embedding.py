@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
+from torch import dtype as DataType
 from torch.nn import Module, Parameter
 
 
@@ -18,7 +19,7 @@ class Embedding(Module):
     """Stores embeddings of a fixed dictionary."""
 
     num_embed: int
-    """The size of the embedding dictionary."""
+    """The size of the dictionary."""
 
     embed_dim: int
     """The dimensionality of returned embeddings."""
@@ -43,7 +44,7 @@ class Embedding(Module):
         padding_idx: Optional[int] = None,
         scaled: bool = False,
         device: Any = None,
-        dtype: Any = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param num_embed:

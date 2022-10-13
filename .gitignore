@@ -4,7 +4,7 @@
 # Byte-Compiled Modules
 __pycache__
 
-# C Extensions
+# Extension Modules
 *.so
 
 # Build Artifacts

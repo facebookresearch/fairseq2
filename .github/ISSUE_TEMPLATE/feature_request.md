@@ -1,6 +1,6 @@
 ---
 name: Feature Request
-about: Submit a request for a new feature
+about: Submit a request for a new feature.
 labels: 'enhancement, needs triage'
 ---
 
@@ -11,8 +11,7 @@ A clear and concise description of what the problem is.
 A clear and concise description of what you want to happen.
 
 **Describe the alternatives you have considered:**
-A clear and concise description of any alternative solutions or features you
-have considered.
+A clear and concise description of any alternative solutions or features you have considered.
 
-**Additional context:**
+**Additional Context:**
 Add any other context about the feature request here.

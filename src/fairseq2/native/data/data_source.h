@@ -17,11 +17,7 @@
 
 namespace fairseq2 {
 
-enum class whence {
-    begin,
-    current,
-    end
-};
+enum class whence { begin, current, end };
 
 class FAIRSEQ2_API data_source : public intrusive_ptr_target {
 public:

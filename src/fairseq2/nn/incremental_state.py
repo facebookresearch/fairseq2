@@ -48,7 +48,7 @@ class IncrementalStateBag:
         self._module_states = {}
 
     def get_state(self, m: Module, kls: Type[T]) -> Optional[T]:
-        """Gets the incremental state of ``m`` or ``None`` if ``m`` is not
+        """Gets the incremental state of ``m``, or ``None`` if ``m`` is not
         present in the bag.
 
         :param m:

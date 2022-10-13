@@ -6,9 +6,9 @@
 
 #include "fairseq2/native/data/data_source.h"
 
-#include "fairseq2/native/exception.h"
 #include "fairseq2/native/data/fs.h"
 #include "fairseq2/native/data/list_data_source.h"
+#include "fairseq2/native/exception.h"
 
 namespace fairseq2 {
 

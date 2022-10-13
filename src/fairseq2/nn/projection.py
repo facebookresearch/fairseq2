@@ -12,6 +12,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
+from torch import dtype as DataType
 from torch.nn import Module, Parameter
 
 
@@ -70,7 +71,7 @@ class ResettableProjection(Projection):
         out_dim: int,
         bias: bool = False,
         device: Any = None,
-        dtype: Any = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param inp_dim:

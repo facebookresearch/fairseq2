@@ -11,17 +11,21 @@ from typing import Any, Dict, Iterable, Optional, final
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
+from torch import dtype as DataType
 from torch.nn import LayerNorm, Module
 
-from ..embedding import Embedding
-from ..incremental_state import IncrementalStateBag
-from ..module_list import ModuleList
-from ..positional_embedding import PositionalEmbedding
-from ..projection import Projection, ResettableProjection
-from ..utils import to_float_mask
-from .attention_mask import AttentionMaskGenerator, CausalAttentionMaskGenerator
-from .decoder_layer import TransformerDecoderLayer
-from .norm_order import TransformerNormOrder
+from fairseq2.nn.embedding import Embedding
+from fairseq2.nn.incremental_state import IncrementalStateBag
+from fairseq2.nn.module_list import ModuleList
+from fairseq2.nn.positional_embedding import PositionalEmbedding
+from fairseq2.nn.projection import Projection, ResettableProjection
+from fairseq2.nn.transformer.attention_mask import (
+    AttentionMaskGenerator,
+    CausalAttentionMaskGenerator,
+)
+from fairseq2.nn.transformer.decoder_layer import TransformerDecoderLayer
+from fairseq2.nn.transformer.norm_order import TransformerNormOrder
+from fairseq2.nn.utils import to_float_mask
 
 
 class TransformerDecoder(Module, ABC):
@@ -99,7 +103,9 @@ class TransformerDecoder(Module, ABC):
 
 
 class InternalDimProjection(ResettableProjection):
-    def __init__(self, inp_dim: int, out_dim: int, device: Any, dtype: Any) -> None:
+    def __init__(
+        self, inp_dim: int, out_dim: int, device: Any, dtype: Optional[DataType]
+    ) -> None:
         super().__init__(inp_dim, out_dim, bias=True, device=device, dtype=dtype)
 
     def reset_parameters(self) -> None:  # override
@@ -138,7 +144,7 @@ class StandardTransformerDecoder(TransformerDecoder):
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         norm_eps: float = 1e-5,
         device: Any = None,
-        dtype: Any = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param embed:

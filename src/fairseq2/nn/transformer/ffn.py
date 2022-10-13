@@ -9,10 +9,11 @@ from typing import Any, Callable, Dict, Optional, final
 
 import torch.nn.functional as F
 from torch import Tensor
+from torch import dtype as DataType
 from torch.nn import LayerNorm, Module
 
-from ..projection import Linear
-from .norm_order import TransformerNormOrder
+from fairseq2.nn.projection import Linear
+from fairseq2.nn.transformer.norm_order import TransformerNormOrder
 
 
 class FeedForwardNetwork(Module, ABC):
@@ -65,7 +66,7 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         inner_dropout_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         device: Any = None,
-        dtype: Any = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param model_dim:

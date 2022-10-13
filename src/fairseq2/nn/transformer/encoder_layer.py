@@ -11,11 +11,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
+from torch import dtype as DataType
 from torch.nn import LayerNorm, Module, Parameter
 
-from .ffn import FeedForwardNetwork
-from .multihead_attention import MultiheadAttention
-from .norm_order import TransformerNormOrder
+from fairseq2.nn.transformer.ffn import FeedForwardNetwork
+from fairseq2.nn.transformer.multihead_attention import MultiheadAttention
+from fairseq2.nn.transformer.norm_order import TransformerNormOrder
 
 
 class TransformerEncoderLayer(Module, ABC):
@@ -107,7 +108,7 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         norm_eps: float = 1e-5,
         device: Any = None,
-        dtype: Any = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param self_attn:

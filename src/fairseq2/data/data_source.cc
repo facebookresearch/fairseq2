@@ -90,7 +90,7 @@ R"docstr(
     Lorem ipsum
 
     :param paths:
-        List of files.
+        The list of files.
     :param pattern:
         The pattern.
 

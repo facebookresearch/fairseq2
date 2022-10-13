@@ -13,7 +13,7 @@ base_dir=$(cd "$(dirname "$0")" && pwd)/..
 
 function print_usage
 {
-    printf "Usage: %s PEP_440_VERSION\n" "$(basename "$0")"
+    printf "Usage: %s PEP440_VERSION\n" "$(basename "$0")"
 }
 
 function exit_with_usage

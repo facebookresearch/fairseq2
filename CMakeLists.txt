@@ -89,6 +89,11 @@ set(FAIRSEQ2_SANITIZERS
 
 set_property(CACHE FAIRSEQ2_SANITIZERS PROPERTY STRINGS "" "asan" "ubsan" "tsan")
 
+# By default, we build our CUDA kernels only for the Turing architecture.
+if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+    set(CMAKE_CUDA_ARCHITECTURES 70-real 70-virtual)
+endif()
+
 # ------------------------------------------------------------
 # Dependencies
 # ------------------------------------------------------------
@@ -126,20 +131,13 @@ if(FAIRSEQ2_USE_CUDA)
         message(FATAL_ERROR "fairseq2 requires a CUDA version of PyTorch when `FAIRSEQ2_USE_CUDA` is set!")
     endif()
 
-    check_language(CUDA)
+    enable_language(CUDA)
 
-    if(CMAKE_CUDA_COMPILER)
-        find_package(CUDAToolkit REQUIRED)
+    find_package(CUDAToolkit REQUIRED)
 
-        set(cuda_version ${CUDAToolkit_VERSION_MAJOR}.${CUDAToolkit_VERSION_MINOR})
-
-        if(NOT cuda_version VERSION_EQUAL TORCH_CUDA_VERSION)
-            message(FATAL_ERROR "fairseq2 requires the versions of CUDA Toolkit (${cuda_version}) and PyTorch CUDA (${TORCH_CUDA_VERSION}) to match!")
-        endif()
-
-        enable_language(CUDA)
-    else()
-        message(FATAL_ERROR "fairseq2 requires CUDA Toolkit when `FAIRSEQ2_USE_CUDA` is set!")
+    if(NOT CUDAToolkit_VERSION_MAJOR EQUAL TORCH_CUDA_VERSION_MAJOR OR
+       NOT CUDAToolkit_VERSION_MINOR EQUAL TORCH_CUDA_VERSION_MINOR)
+        message(FATAL_ERROR "fairseq2 requires the version of the CUDA Toolkit (${CUDAToolkit_VERSION}) to match the version of CUDA that was used to build PyTorch (${TORCH_CUDA_VERSION})!")
     endif()
 endif()
 

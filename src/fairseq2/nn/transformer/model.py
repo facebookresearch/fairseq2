@@ -5,16 +5,17 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import Any, final
+from typing import Any, Optional, final
 
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
+from torch import dtype as DataType
 from torch.nn import Module
 
-from ..projection import Projection, ResettableProjection
-from .decoder import TransformerDecoder
-from .encoder import TransformerEncoder
+from fairseq2.nn.projection import Projection, ResettableProjection
+from fairseq2.nn.transformer.decoder import TransformerDecoder
+from fairseq2.nn.transformer.encoder import TransformerEncoder
 
 
 class Transformer(Module, ABC):
@@ -136,7 +137,11 @@ class UntiedScoreProjection(ResettableProjection):
     """
 
     def __init__(
-        self, num_embed: int, embed_dim: int, device: Any = None, dtype: Any = None
+        self,
+        num_embed: int,
+        embed_dim: int,
+        device: Any = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param num_embed:

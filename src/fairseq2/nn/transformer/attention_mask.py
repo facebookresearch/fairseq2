@@ -51,9 +51,9 @@ class CausalAttentionMaskGenerator:
 
         :returns:
             An attention mask whose upper triangular part above the main
-            diagonal is filled with negative infinities (i.e. ``float("-inf")``)
-            while its rest is filled with zeros. *Shape:* :math:`(S,S)`, where
-            :math:`S` is the sequence length.
+            diagonal is filled with negative infinities (i.e.
+            ``float("-inf")``), while its rest is filled with zeros. *Shape:*
+            :math:`(S,S)`, where :math:`S` is the sequence length.
 
         Usage:
 

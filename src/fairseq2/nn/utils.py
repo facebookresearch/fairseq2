@@ -4,15 +4,14 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any
-
 import torch
 from torch import Tensor
+from torch import dtype as DataType
 
 neg_inf = float("-inf")
 
 
-def to_float_mask(mask: Tensor, dtype: Any = torch.float32) -> Tensor:
+def to_float_mask(mask: Tensor, dtype: DataType = torch.float32) -> Tensor:
     """Converts a boolean mask to its floating-point equivalent.
 
     If ``mask`` is of type ``torch.bool``, all its ``False`` values will be

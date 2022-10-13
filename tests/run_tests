@@ -1,0 +1,28 @@
+#!/usr/bin/env python
+
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+import os
+import sys
+from unittest import TestSuite
+from unittest.loader import defaultTestLoader
+from unittest.runner import TextTestRunner
+
+import common
+
+if __name__ == "__main__":
+    start_dir = os.path.dirname(os.path.abspath(__file__))
+
+    suite = defaultTestLoader.discover(
+        start_dir, top_level_dir=os.path.dirname(start_dir)
+    )
+
+    runner = TextTestRunner()
+
+    result = runner.run(suite)
+
+    sys.exit(not result.wasSuccessful())

@@ -12,13 +12,17 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
+from torch import dtype as DataType
 from torch.nn import Module, Parameter
 from torch.utils.hooks import RemovableHandle
 
-from ..incremental_state import IncrementalState, IncrementalStateBag
-from ..projection import Projection, ResettableProjection
-from ..utils import to_float_mask
-from .attention import AttentionFunction, scaled_dot_product_attention
+from fairseq2.nn.incremental_state import IncrementalState, IncrementalStateBag
+from fairseq2.nn.projection import Projection, ResettableProjection
+from fairseq2.nn.transformer.attention import (
+    AttentionFunction,
+    scaled_dot_product_attention,
+)
+from fairseq2.nn.utils import to_float_mask
 
 
 class MultiheadAttentionState(IncrementalState):
@@ -72,8 +76,8 @@ class MultiheadAttentionState(IncrementalState):
     def append(
         self, k: Tensor, v: Tensor, padding_mask: Optional[Tensor]
     ) -> Tuple[Tensor, Tensor, Optional[Tensor]]:
-        """Appends the projected key, value and the float key padding mask of
-        the current step to :attr:`prev_k`, :attr:`prev_v`, and
+        """Appends the projected key, the projected value, and the float key
+        padding mask of the current step to :attr:`prev_k`, :attr:`prev_v`, and
         :attr:`padding_mask`.
 
         :param k:
@@ -92,8 +96,8 @@ class MultiheadAttentionState(IncrementalState):
             :math:`S_{stp}` is the step length (i.e. 1).
 
         :returns:
-            The projected keys, values and the key padding mask that should be
-            used by the current step to compute the attentions.
+            The projected keys, the projected values, and the key padding mask
+            that should be used by the current step to compute the attentions.
         """
         seq_len = k.size(1)
 
@@ -283,7 +287,7 @@ class MultiheadAttention(Module, ABC):
 
 
 class InternalQKVProjection(ResettableProjection):
-    def __init__(self, model_dim: int, device: Any, dtype: Any) -> None:
+    def __init__(self, model_dim: int, device: Any, dtype: Optional[DataType]) -> None:
         super().__init__(model_dim, model_dim, bias=True, device=device, dtype=dtype)
 
     def reset_parameters(self) -> None:  # override
@@ -297,7 +301,7 @@ class InternalQKVProjection(ResettableProjection):
 
 class InternalOutProjection(ResettableProjection):
     def __init__(
-        self, v_proj_dim: int, model_dim: int, device: Any, dtype: Any
+        self, v_proj_dim: int, model_dim: int, device: Any, dtype: Optional[DataType]
     ) -> None:
         super().__init__(v_proj_dim, model_dim, bias=True, device=device, dtype=dtype)
 
@@ -337,7 +341,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         out_proj: Optional[Projection] = None,
         batch_first: bool = False,
         device: Any = None,
-        dtype: Any = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param num_heads:
@@ -469,7 +473,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         padding_mask: Optional[Tensor] = None,
         incremental_state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:  # override
-        padding_mask = self._prepare_padding_mask(padding_mask)
+        padding_mask = self._prepare_padding_mask(keys, padding_mask)
 
         # (*, M) -> (N, T, K_proj)
         q = self._forward_proj(self.q_proj, x)
@@ -618,9 +622,11 @@ class StandardMultiheadAttention(MultiheadAttention):
             # (S, X_proj) -> (1, S, X_proj)
             return x.unsqueeze(0)
 
-    def _prepare_padding_mask(self, mask: Optional[Tensor]) -> Optional[Tensor]:
+    def _prepare_padding_mask(
+        self, keys: Tensor, mask: Optional[Tensor]
+    ) -> Optional[Tensor]:
         if mask is not None:
-            mask = to_float_mask(mask, dtype=self.k_proj.weight.dtype)
+            mask = to_float_mask(mask, dtype=keys.dtype)
 
             if not self.batch_first:
                 # (S, N) -> (N, S)

@@ -8,8 +8,7 @@
 
 namespace fairseq2 {
 
-list_data_source::list_data_source(const ivalue &v) noexcept
-    : list_(v.toList()), pos_{list_.end()}
+list_data_source::list_data_source(const ivalue &v) noexcept : list_(v.toList()), pos_{list_.end()}
 {}
 
 bool
@@ -51,7 +50,7 @@ list_data_source::seek(std::ptrdiff_t offset, whence w)
 {
     generic_list<ivalue>::iterator pos{};
 
-    switch(w) {
+    switch (w) {
     case whence::begin:
         pos = list_.begin();
         break;

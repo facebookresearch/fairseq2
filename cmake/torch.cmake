@@ -23,8 +23,8 @@ function(fairseq2_find_torch version)
     endif()
 
     # Torch CMake package superficially has a hard dependency on cuDNN. As a
-    # workaround we override the cuDNN CMake variables with some dummy paths
-    # and effectively lie to Torch.
+    # workaround, we override the cuDNN CMake variables with some fake paths
+    # to trick Torch.
     if(PROJECT_IS_TOP_LEVEL)
         set(CUDNN_INCLUDE_PATH ${PROJECT_BINARY_DIR}/third-party/cudnn)
         set(CUDNN_LIBRARY_PATH ${PROJECT_BINARY_DIR}/third-party/cudnn/libcudnn.so)
@@ -39,7 +39,7 @@ function(fairseq2_find_torch version)
 
     find_package(Torch ${version} REQUIRED PATHS ${torch_cmake_prefix_path})
 
-    # Since we don't really have cuDNN we have to ensure that CMake does not
+    # Since we don't really have cuDNN, we have to ensure that CMake does not
     # attempt to link against it.
     if(PROJECT_IS_TOP_LEVEL AND TARGET caffe2::cudnn-public)
         set_property(TARGET caffe2::cudnn-public PROPERTY INTERFACE_LINK_LIBRARIES)
@@ -80,7 +80,7 @@ endfunction()
 function(__fairseq2_find_torch_python)
     cmake_path(GET TORCH_LIBRARY PARENT_PATH torch_library_dir)
 
-    # Torch CMake package does not export torch_python; therefore we have to
+    # Torch CMake package does not export torch_python; therefore, we have to
     # explicitly find it.
     find_library(FAIRSEQ2_TORCH_PYTHON_LIBRARY torch_python REQUIRED PATHS ${torch_library_dir})
 

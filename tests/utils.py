@@ -11,12 +11,17 @@ import torch
 
 
 @contextmanager
-def tmp_rng_seed(seed: int = 0) -> Generator:
+def tmp_rng_seed(device: torch.device, seed: int = 0) -> Generator:
     """Sets a temporary manual RNG seed.
 
     The RNG is reset to its original state once the block is exited.
     """
-    with torch.random.fork_rng():
+    if device.type == "cuda":
+        devices = [device]
+    else:
+        devices = []
+
+    with torch.random.fork_rng(devices):
         torch.manual_seed(seed)
 
         yield

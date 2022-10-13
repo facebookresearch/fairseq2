@@ -140,6 +140,8 @@ function(__fairseq2_set_properties)
             OFF
         CUDA_VISIBILITY_PRESET
             hidden
+        CUDA_SEPARABLE_COMPILATION
+            ON
         POSITION_INDEPENDENT_CODE
             ON
         EXPORT_COMPILE_COMMANDS
@@ -157,11 +159,11 @@ function(__fairseq2_set_properties)
 
     if(arg_PYTHON_MODULE AND FAIRSEQ2_DEVELOP_PYTHON)
         # We have to use absolute rpaths so that the in-source copy of the Python
-        # module can find its dependencies under the build tree.
+        # extension module can find its dependencies under the build tree.
         set_target_properties(${target} PROPERTIES BUILD_RPATH_USE_ORIGIN OFF)
 
-        # Copy the Python module to the source tree for `pip install --editable`
-        # to work.
+        # Copy the Python extension module to the source tree for
+        # `pip install --editable` to work.
         add_custom_target(${target}_devel ALL
             COMMAND
                 ${CMAKE_COMMAND} -E copy_if_different
@@ -210,7 +212,6 @@ function(__fairseq2_set_compile_options)
                 -Wswitch-enum
                 -Wunused
                 $<$<COMPILE_LANGUAGE:CXX,CUDA>:-Wnon-virtual-dtor>
-                $<$<COMPILE_LANGUAGE:CXX,CUDA>:-Wold-style-cast>
                 $<$<COMPILE_LANGUAGE:CXX,CUDA>:-Woverloaded-virtual>
                 $<$<COMPILE_LANGUAGE:CXX,CUDA>:-Wuseless-cast>
         )
@@ -230,8 +231,13 @@ function(__fairseq2_set_compile_options)
                 -Wno-exit-time-destructors
                 -Wno-extra-semi-stmt
                 -Wno-global-constructors
+                -Wno-missing-variable-declarations
+                -Wno-old-style-cast
                 -Wno-padded
+                -Wno-reserved-id-macro
                 -Wno-shadow-uncaptured-local
+                -Wno-used-but-marked-unused
+                -Wno-zero-as-null-pointer-constant
         )
     endif()
 
@@ -293,7 +299,7 @@ endfunction()
 # temporary directory that gets deleted by the linker at the end of the build
 # process. Thus tools such as dsymutil cannot access the DWARF info contained
 # in those files. To ensure that the object files still exist after the build
-# process we have to set the `object_path_lto` linker option.
+# process, we have to set the `object_path_lto` linker option.
 function(__fairseq2_set_macos_lto_path)
     if(arg_STATIC_LIBRARY OR (arg_LIBRARY AND NOT BUILD_SHARED_LIBS))
         return()

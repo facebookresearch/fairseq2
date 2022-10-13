@@ -7,8 +7,7 @@
 from torch.nn import Linear
 
 from fairseq2.nn import ModuleList
-
-from ..common import TestCase
+from tests.common import TestCase
 
 
 class TestModuleList(TestCase):
