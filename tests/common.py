@@ -14,14 +14,11 @@ __unittest = True
 
 
 class TestCase(TestCaseBase):
+    # The default device that tests should use.
+    #
     # Note that the test runner can change the default device based on the
     # provided command line arguments.
-    _device = torch.device("cpu")
-
-    @property
-    def device(self) -> torch.device:
-        """Specifies the default device that tests should use."""
-        return TestCase._device
+    device = torch.device("cpu")
 
     def assertAllClose(self, a: Tensor, b: Tensor) -> None:
         """Asserts if ``a`` and ``b`` are element-wise equal within a tolerance."""

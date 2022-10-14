@@ -1,33 +1,29 @@
 <p align="center">
-  <img src="doc/static/img/fairseq2_logo.png" width="150">
+  <img src="doc/static/img/logo.png" width="150">
 </p>
 
 --------------------------------------------------------------------------------
 
-[**Installation**](#installation) | [**Getting Started**](#getting-started) | [**Documentation**](#documentation)
+[**Getting Started**](#getting-started) | **Installing From: [Conda](#installing-from-conda), [PyPI](#installing-from-pypi), [Source](#installing-from-source)** | [**Contributing**](#contributing) | [**License**](#license)
 
 fairseq2 is a sequence modeling toolkit that allows researchers and developers
 to train custom models for translation, summarization, language modeling, and
 other content generation tasks.
 
-## Dependencies
-fairseq2 versions corresponding to each PyTorch release:
+## Getting Started
+You can find our full documentation including tutorials and API reference
+[here](https://fairinternal.github.io/fairseq2/nightly).
 
-| `fairseq2`   | `torch`     | `python`          |
-| ------------ | ----------- | ----------------- |
-| `main`       | `>=1.13.0`  | `>=3.8`, `<=3.10` |
+For recent changes, you can check out our [changelog](CHANGELOG.md).
 
-## Installation
-fairseq2 supports Linux and macOS operating systems. Please note though that
-pre-built Conda and PyPI packages are *only* available for Linux. For
-installation on macOS you can follow the instructions in the
-[From Source](#from-source) section. At this time there are no plans to
-introduce Windows support.
+fairseq2 mainly supports Linux. There is partial support for macOS with limited
+feature set and limited test coverage. Windows is not supported, but, although
+not tested, you can try out WSL2.
 
-### Conda
+## Installing From Conda
 coming soon...
 
-### PyPI
+## Installing From PyPI
 coming soon...
 
 ## Installing From Source
@@ -48,7 +44,7 @@ If your system does not provide a recent version, you can refer to the official
 [installation instructions](https://cmake.org/download/). CMake already offers
 installers for various operating systems. Although it requires a bit more work
 than using a system package manager, it is still pretty straightforward to
-install using an installer.
+install it using an installer.
 
 Lastly, if you don't have sudo access to your machine, or you don't want to
 pollute your `/usr/bin`, you can install CMake locally. The officially endorsed
@@ -167,7 +163,7 @@ installation is pretty straightforward:
 pip install .
 ```
 
-If you plan to play with the fairseq2 code, you can also install it in
+If you plan to play with fairseq2, you can also install it in
 [develop](https://pip.pypa.io/en/stable/cli/pip_install/#cmdoption-e) (a.k.a.
 editable) mode:
 
@@ -175,20 +171,24 @@ editable) mode:
 pip install -e .
 ```
 
-Also remember that your contributions to fairseq2 are always welcome! Make sure
-to check out our [guidelines](./CONTRIBUTING.md) to learn how you can help.
+### 8. Optional: Sanity Check
+To make sure that your installation has no issues, you can run the Python tests:
 
-### 8. Optional Test
-coming soon...
+```
+python run_tests.py
+```
 
-## Documentation
-You can find our official documentation including tutorials and API reference
-[here](https://fairinternal.github.io/fairseq2/nightly).
+By default, the tests will be run on CPU; optionally pass the `--device` (short
+form `-d`) argument to run them on a specific device (e.g. NVIDIA GPU).
+
+```
+python run_tests.py --device cuda:1
+```
 
 ## Contributing
-We always welcome your contributions to fairseq2! Please refer to our
-[contribution guidelines](./CONTRIBUTING.md) to learn more about how to format,
-test, and submit your work.
+We always welcome contributions to fairseq2! Please refer to our
+[contribution guidelines](./CONTRIBUTING.md) to learn how to format, test, and
+submit your work.
 
 ## License
 This project is MIT licensed, as found in the [LICENSE](LICENSE) file. The
