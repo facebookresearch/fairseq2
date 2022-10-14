@@ -1,0 +1,16 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+FROM quay.io/pypa/manylinux2014_x86_64
+
+COPY scripts/install-devtoolset-10\
+     scripts/install-llvm-13\
+     scripts/install-awscli\
+     /root/
+
+RUN /root/install-devtoolset-10
+RUN /root/install-llvm-13
+RUN /root/install-awscli

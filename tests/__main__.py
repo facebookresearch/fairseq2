@@ -26,38 +26,32 @@ def parse_device_arg(value: str) -> torch.device:
 def parse_args() -> Namespace:
     parser = ArgumentParser(prog=tests.__name__, description="Runs fairseq2 tests.")
 
+    # fmt: off
     parser.add_argument(
-        "-d",
-        "--device",
-        default="cpu",
-        type=parse_device_arg,
+        "-d", "--device", default="cpu", type=parse_device_arg,
         help="device on which to run tests (default: %(default)s)",
     )
 
     parser.add_argument(
-        "--locals",
-        dest="tb_locals",
-        action="store_true",
+        "--locals", dest="tb_locals", action="store_true",
         help="show local variables in tracebacks",
     )
 
     parser.add_argument(
-        "-v",
-        "--verbose",
-        dest="verbosity",
-        action="store_const",
-        const=2,
-        default=0,
+        "-v", "--verbose", dest="verbosity", action="store_const", const=2, default=0,
         help="increase output verbosity",
     )
+    # fmt: on
 
     return parser.parse_args()
 
 
 def run_tests(verbosity: int, tb_locals: bool) -> bool:
-    start_dir = Path(__file__).parent.parent
+    start_dir = Path(__file__).parent
 
-    test_suite = defaultTestLoader.discover(str(start_dir))
+    test_suite = defaultTestLoader.discover(
+        start_dir, top_level_dir=start_dir.parent  # type: ignore[arg-type]
+    )
 
     runner = TextTestRunner(verbosity=verbosity, tb_locals=tb_locals)
 

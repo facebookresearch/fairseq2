@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+set -o errexit
+
+curl --location --fail --output cuda.run\
+    https://developer.download.nvidia.com/compute/cuda/10.2/Prod/local_installers/cuda_10.2.89_440.33.01_linux.run
+
+# We have to specify `librarypath` due to an installation bug in CentOS7.
+sh cuda.run --silent --toolkit --override --no-man-page --librarypath=/usr/local/cuda-10.2
+
+rm cuda.run

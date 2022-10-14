@@ -8,19 +8,9 @@
 
 set -o errexit
 
-base_dir=$(cd "$(dirname "$0")" && pwd)/..
+yum --assumeyes install\
+    devtoolset-8-gcc\
+    devtoolset-8-gcc-c++\
+    devtoolset-8-lib{asan,lsan,ubsan,tsan}-devel
 
-
-function run_shellcheck
-{
-    echo "Running shellcheck..."
-
-    find "$@" -type f -exec shellcheck '{}' \;
-}
-
-function main
-{
-    run_shellcheck "${@/#/$base_dir/}"
-}
-
-main tools ci/docker/scripts
+yum clean all

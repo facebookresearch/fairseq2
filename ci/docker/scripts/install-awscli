@@ -8,19 +8,11 @@
 
 set -o errexit
 
-base_dir=$(cd "$(dirname "$0")" && pwd)/..
+curl --location --fail --output awscli.zip\
+    https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.8.3.zip
 
+unzip awscli.zip
 
-function run_shellcheck
-{
-    echo "Running shellcheck..."
+aws/install --bin-dir /usr/bin
 
-    find "$@" -type f -exec shellcheck '{}' \;
-}
-
-function main
-{
-    run_shellcheck "${@/#/$base_dir/}"
-}
-
-main tools ci/docker/scripts
+rm -rf aws awscli.zip

@@ -8,19 +8,9 @@
 
 set -o errexit
 
-base_dir=$(cd "$(dirname "$0")" && pwd)/..
+curl --location --fail --output cuda.run\
+    https://developer.download.nvidia.com/compute/cuda/11.3.0/local_installers/cuda_11.3.0_465.19.01_linux.run
 
+sh cuda.run --silent --toolkit --override --no-man-page
 
-function run_shellcheck
-{
-    echo "Running shellcheck..."
-
-    find "$@" -type f -exec shellcheck '{}' \;
-}
-
-function main
-{
-    run_shellcheck "${@/#/$base_dir/}"
-}
-
-main tools ci/docker/scripts
+rm cuda.run

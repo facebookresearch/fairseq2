@@ -8,19 +8,10 @@
 
 set -o errexit
 
-base_dir=$(cd "$(dirname "$0")" && pwd)/..
+# Developer Toolset 10's GCC is already installed on manylinux2014; therefore,
+# we just install the missing sanitizers.
+yum --assumeyes install\
+    ninja-build\
+    devtoolset-10-lib{asan,lsan,ubsan,tsan}-devel
 
-
-function run_shellcheck
-{
-    echo "Running shellcheck..."
-
-    find "$@" -type f -exec shellcheck '{}' \;
-}
-
-function main
-{
-    run_shellcheck "${@/#/$base_dir/}"
-}
-
-main tools ci/docker/scripts
+yum clean all
