@@ -24,4 +24,4 @@ function main
     mypy --pretty "$@"
 }
 
-main run_tests.py setup.py.in src tests examples
+main setup.py.in src tests examples

@@ -6,12 +6,13 @@
 
 import sys
 from argparse import ArgumentParser, ArgumentTypeError, Namespace
-from os import path
+from pathlib import Path
 from unittest.loader import defaultTestLoader
 from unittest.runner import TextTestRunner
 
 import torch
 
+import tests
 from tests.common import TestCase
 
 
@@ -23,7 +24,7 @@ def parse_device_arg(value: str) -> torch.device:
 
 
 def parse_args() -> Namespace:
-    parser = ArgumentParser(description="Runs fairseq2 tests.")
+    parser = ArgumentParser(prog=tests.__name__, description="Runs fairseq2 tests.")
 
     parser.add_argument(
         "-d",
@@ -54,22 +55,19 @@ def parse_args() -> Namespace:
 
 
 def run_tests(verbosity: int, tb_locals: bool) -> bool:
-    top_level_dir = path.dirname(path.abspath(__file__))
+    start_dir = Path(__file__).parent.parent
 
-    test_suite = defaultTestLoader.discover(
-        start_dir=path.join(top_level_dir, "tests"), top_level_dir=top_level_dir
-    )
+    test_suite = defaultTestLoader.discover(str(start_dir))
 
     runner = TextTestRunner(verbosity=verbosity, tb_locals=tb_locals)
 
     return runner.run(test_suite).wasSuccessful()
 
 
-if __name__ == "__main__":
-    args = parse_args()
+args = parse_args()
 
-    TestCase.device = args.device
+TestCase.device = args.device
 
-    succeeded = run_tests(args.verbosity, args.tb_locals)
+succeeded = run_tests(args.verbosity, args.tb_locals)
 
-    sys.exit(0 if succeeded else 1)
+sys.exit(0 if succeeded else 1)
