@@ -12,7 +12,6 @@ from unittest.runner import TextTestRunner
 
 import torch
 
-import tests
 from tests.common import TestCase
 
 
