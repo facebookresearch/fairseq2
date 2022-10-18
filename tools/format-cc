@@ -6,21 +6,14 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-set -o errexit
+set -eo pipefail
 
-base_dir=$(cd "$(dirname "$0")" && pwd)/..
+if [[ $# -ne 0 ]]; then
+    echo "Usage: format-cc" >&2
 
+    exit 1
+fi
 
-function run_clang_format
-{
-    echo "Running clang-format..."
+tools_dir=$(cd "$(dirname "$0")" && pwd)
 
-    find "$@" \( -name '*.cc' -or -name '*.h' \) -type f -exec clang-format -i '{}' \+
-}
-
-function main
-{
-    run_clang_format "${@/#/$base_dir/}"
-}
-
-main src tests examples
+"$tools_dir/porcelain/run-clang-format" "$tools_dir/../"

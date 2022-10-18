@@ -6,11 +6,10 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-set -o errexit
+set -eo pipefail
 
-yum --assumeyes install\
-    devtoolset-9-gcc\
-    devtoolset-9-gcc-c++\
-    devtoolset-9-lib{asan,lsan,ubsan,tsan}-devel
+inputs=(setup.py.in src tests examples)
 
-yum clean all
+echo "Running flake8..."
+
+flake8 "${inputs[@]/#/$1}"

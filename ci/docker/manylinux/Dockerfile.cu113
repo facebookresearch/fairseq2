@@ -1,0 +1,27 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+FROM ghcr.io/fairinternal/fairseq2-ci-manylinux:1-cpu
+
+ENV PATH=/usr/local/cuda-11.3/bin:$PATH
+
+ENV LD_LIBRARY_PATH=/usr/local/cuda-11.3/lib64:$LD_LIBRARY_PATH
+
+# CUDA 11.3 requires GCC 9.x.
+ENV DEVTOOLSET=9
+
+ENV LIBASAN=/usr/lib64/libasan.so.5
+ENV LIBTSAN=/usr/lib64/libtsan.so.0
+
+COPY build-scripts/install-cuda-11.3 /build-scripts/
+
+RUN yum --assumeyes install\
+        devtoolset-$DEVTOOLSET-gcc\
+        devtoolset-$DEVTOOLSET-gcc-c++\
+        devtoolset-$DEVTOOLSET-lib{asan,lsan,ubsan,tsan}-devel &&\
+    yum clean all
+
+RUN /build-scripts/install-cuda-11.3 && rm -rf /build-scripts

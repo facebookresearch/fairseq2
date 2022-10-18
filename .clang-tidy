@@ -1,5 +1,6 @@
 Checks: >
     *,
+    -abseil-*,
     -altera-*,
     -android-*,
     -cppcoreguidelines-avoid-non-const-global-variables,
@@ -20,3 +21,5 @@ Checks: >
     -readability-identifier-length,
     -readability-named-parameter,
     -zircon-*
+WarningsAsErrors: >
+    *

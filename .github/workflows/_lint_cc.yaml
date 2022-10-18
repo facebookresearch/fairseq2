@@ -1,0 +1,57 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+name: Reusable - Lint (C++)
+
+on:
+  workflow_call:
+    inputs:
+      build_variant:
+        type: string
+        default: true
+      py:
+        type: string
+        required: true
+      torch:
+        type: string
+        required: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  lint_cc:
+    name: Lint
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/fairinternal/fairseq2-ci-manylinux:1-${{ inputs.build_variant }}-clang
+    steps:
+      - name: Check-out the repository
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Set up the Python virtual environment
+        run: |
+          python${{ inputs.py }} -m venv /venv-lint
+
+          echo /venv-lint/bin >> $GITHUB_PATH
+      - name: Install PyTorch
+        run: |
+          pip install torch==${{ inputs.torch }}\
+            --extra-index-url https://download.pytorch.org/whl/${{ inputs.build_variant }}
+      - name: Build the compilation database
+        id: lint_start
+        run: |
+          CC=clang CXX=clang++ cmake -DCMAKE_BUILD_TYPE=Release -B build
+      - name: Run clang-format
+        if: success() || (failure() && steps.lint_start.outcome == 'success')
+        run: |
+          tools/porcelain/run-clang-format --dry-run
+      - name: Run clang-tidy
+        if: success() || (failure() && steps.lint_start.outcome == 'success')
+        run: |
+          run-clang-tidy -p build -quiet

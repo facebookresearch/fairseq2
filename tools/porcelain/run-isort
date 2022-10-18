@@ -6,13 +6,16 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-set -o errexit
+set -eo pipefail
 
-curl --location --fail --output awscli.zip\
-    https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.8.3.zip
+inputs=(setup.py.in src tests examples)
 
-unzip awscli.zip
+echo "Running isort..."
 
-aws/install --bin-dir /usr/bin
+if [[ $1 == --dry-run ]]; then
+    opts="--check-only"
 
-rm -rf aws awscli.zip
+    shift
+fi
+
+isort $opts "${inputs[@]/#/$1}"

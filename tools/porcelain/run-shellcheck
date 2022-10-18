@@ -8,12 +8,9 @@
 
 set -eo pipefail
 
-if [[ $# -ne 0 ]]; then
-    echo "Usage: lint-sh" >&2
+inputs=(ci tools)
 
-    exit 1
-fi
+echo "Running shellcheck..."
 
-tools_dir=$(cd "$(dirname "$0")" && pwd)
-
-"$tools_dir/porcelain/run-shellcheck" "$tools_dir/../"
+find "${inputs[@]/#/$1}" -type f \( -executable -or -name '*.sh' \) -print0 |\
+    xargs -0 shellcheck -e SC1071 --severity=warning

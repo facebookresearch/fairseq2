@@ -321,7 +321,9 @@ endfunction()
 
 function(__fairseq2_set_sanitizers)
     foreach(sanitizer IN ITEMS ${FAIRSEQ2_SANITIZERS})
-        if(sanitizer STREQUAL "asan")
+        if(sanitizer STREQUAL "nosan")
+            continue()
+        elseif(sanitizer STREQUAL "asan")
             if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
                 target_compile_definitions(${target} PRIVATE _GLIBCXX_SANITIZE_VECTOR)
             endif()
@@ -423,6 +425,7 @@ function(__fairseq2_install)
                 devel
             FILES_MATCHING
                 PATTERN "*.h"
+            PATTERN "private" EXCLUDE
             PATTERN "CMakeFiles" EXCLUDE
         )
 
@@ -435,6 +438,7 @@ function(__fairseq2_install)
                 devel
             FILES_MATCHING
                 PATTERN "*.h"
+            PATTERN "private" EXCLUDE
             PATTERN "CMakeFiles" EXCLUDE
         )
     endif()
@@ -481,8 +485,8 @@ function(__fairseq2_set_install_rpath)
                 relative_py_dist_dir
         )
 
-        # Ensure that the Python module can find the shared libraries contained
-        # in the distribution.
+        # Ensure that the Python extension module can find the shared libraries
+        # contained in the distribution.
         set(rpath ${relative_py_dist_dir}/${PROJECT_NAME}/lib)
     elseif(arg_EXECUTABLE)
         set(rpath ../lib)

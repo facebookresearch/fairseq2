@@ -1,16 +1,8 @@
-#!/usr/bin/env bash
-
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-set -o errexit
-
-yum --assumeyes install\
-    devtoolset-11-gcc\
-    devtoolset-11-gcc-c++\
-    devtoolset-11-lib{asan,lsan,ubsan,tsan}-devel
-
-yum clean all
+leak:libtorch_python
+leak:numpy

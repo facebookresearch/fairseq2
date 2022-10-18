@@ -24,7 +24,7 @@ def parse_device_arg(value: str) -> torch.device:
 
 
 def parse_args() -> Namespace:
-    parser = ArgumentParser(prog=tests.__name__, description="Runs fairseq2 tests.")
+    parser = ArgumentParser(prog="tests", description="Runs fairseq2 tests.")
 
     # fmt: off
     parser.add_argument(

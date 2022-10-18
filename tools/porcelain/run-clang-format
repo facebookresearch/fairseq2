@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+set -eo pipefail
+
+inputs=(src tests examples)
+
+echo "Running clang-format..."
+
+if [[ $1 == --dry-run ]]; then
+    opts="--Werror --dry-run"
+
+    shift
+else
+    opts="-i"
+fi
+
+find "${inputs[@]/#/$1}" -type f \( -name '*.cc' -or -name '*.cu' -or -name '*.h' \) -print0 |\
+    xargs -0 clang-format $opts

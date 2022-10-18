@@ -1,0 +1,25 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+FROM quay.io/pypa/manylinux2014_x86_64
+
+ENV DEVTOOLSET=10
+
+ENV LIBASAN=/usr/lib64/libasan.so.6
+ENV LIBTSAN=/usr/lib64/libtsan.so.0
+
+# GCC 10.2 is already installed on manylinux2014; therefore, we just install the
+# missing sanitizers.
+RUN yum --assumeyes install\
+        ninja-build\
+        devtoolset-$DEVTOOLSET-lib{asan,lsan,ubsan,tsan}-devel &&\
+    yum clean all
+
+COPY manylinux-entrypoint /usr/local/bin/
+
+ENTRYPOINT ["manylinux-entrypoint"]
+
+CMD ["/bin/bash"]

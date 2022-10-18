@@ -6,22 +6,15 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-set -o errexit
+set -eo pipefail
 
-base_dir=$(cd "$(dirname "$0")" && pwd)/..
+if [[ $# -ne 0 ]]; then
+    echo "Usage: format-py" >&2
 
+    exit 1
+fi
 
-function main
-{
-    set -- "${@/#/$base_dir/}"
+tools_dir=$(cd "$(dirname "$0")" && pwd)
 
-    echo "Running isort..."
-
-    isort "$@"
-
-    echo "Running black..."
-
-    black "$@"
-}
-
-main setup.py.in src tests examples
+"$tools_dir/porcelain/run-isort" "$tools_dir/../"
+"$tools_dir/porcelain/run-black" "$tools_dir/../"

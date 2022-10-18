@@ -1,16 +1,11 @@
-#!/usr/bin/env bash
-
 # Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-set -o errexit
+FROM ghcr.io/fairinternal/fairseq2-ci-manylinux:1-cu116
 
-yum --assumeyes install\
-    devtoolset-8-gcc\
-    devtoolset-8-gcc-c++\
-    devtoolset-8-lib{asan,lsan,ubsan,tsan}-devel
+COPY build-scripts/install-llvm /build-scripts/
 
-yum clean all
+RUN /build-scripts/install-llvm && rm -rf /build-scripts

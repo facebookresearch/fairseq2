@@ -1,0 +1,104 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+name: Reusable - Run the tests
+
+on:
+  workflow_call:
+    inputs:
+      build_variant:
+        type: string
+        default: true
+      py:
+        type: string
+        required: true
+      torch:
+        type: string
+        required: true
+      sanitizers:
+        type: string
+        default: true
+      dev_stamp:
+        type: boolean
+        default: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build_package:
+    name: Run the tests
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/fairinternal/fairseq2-ci-manylinux:1-${{ inputs.build_variant }}
+    steps:
+      - name: Download the build artifacts from staging
+        uses: actions/download-artifact@v3
+        with:
+          name: wheel-py${{ inputs.py }}-pt${{ inputs.torch }}-${{ inputs.build_variant }}-${{ inputs.sanitizers }}
+          path: /wheelhouse
+      - name: Check-out the repository
+        uses: actions/checkout@v3
+      - name: Set up the Python virtual environment
+        run: |
+          python${{ inputs.py }} -m venv /venv-test
+
+          echo /venv-test/bin >> $GITHUB_PATH
+      - name: Install PyTorch
+        run: |
+          pip install torch==${{ inputs.torch }}\
+            --extra-index-url https://download.pytorch.org/whl/${{ inputs.build_variant }}
+      - name: Install the wheel
+        run: |
+          pip install /wheelhouse/*.whl --no-cache-dir
+      - name: Set the sanitizer variables
+        if: inputs.sanitizers != 'nosan'
+        run: |
+          sanitizers=${{ inputs.sanitizers }}
+
+          {
+            for sanitizer in ${sanitizers//_/ }; do
+              if [[ $sanitizer == asan || $sanitizer == tsan ]]; then
+                # LIBASAN and LIBTSAN environment variables are defined in the
+                # container image.
+                echo SANITIZER_LIB=LIB${sanitizer^^}
+
+                if [[ $sanitizer == asan ]]; then
+                  echo LSAN_OPTIONS=suppressions=LSan.supp,exitcode=0,log_path=/lsan.out
+                fi
+
+                break
+              fi
+            done
+          } >> $GITHUB_ENV
+      - name: Run the tests
+        run: |
+          build_variant=${{ inputs.build_variant }}
+
+          if [[ $build_variant == cpu ]]; then
+            device=cpu
+          else
+            device=cuda:0
+          fi
+
+          LD_PRELOAD=${!SANITIZER_LIB} python -m tests\
+            --device $device --verbose
+      - name: Check the output of the leak sanitizer
+        if: env.LSAN_OPTIONS != ''
+        run: |
+          result=0
+
+          # Unfortunately Python leaks quite a bit of memory, so we cannot rely
+          # on the output of LSan. As a rudimentary workaround, we simply check
+          # if any stack frame has a symbol containing the word 'fairseq2'.
+          for f in /lsan.out.*; do
+            if cat $f | tee /dev/stderr | grep --quiet 'fairseq2'; then
+              result=1
+            fi
+          done
+
+          exit $result
