@@ -57,6 +57,7 @@ autoclass_content = "both"
 todo_include_todos = True
 
 intersphinx_mapping = {
+    "python": ("https://docs.python.org/3/", None),
     "torch": ("https://pytorch.org/docs/stable/", None),
 }
 

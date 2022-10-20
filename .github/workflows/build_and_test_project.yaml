@@ -1,0 +1,203 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+name: Build and test the project
+
+on:
+  workflow_call:
+    inputs:
+      dev_stamp:
+        type: boolean
+        default: false
+      run_all_cuda_tests:
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      dev_stamp:
+        type: boolean
+        default: false
+      run_all_cuda_tests:
+        type: boolean
+        default: false
+
+jobs:
+  lint_cc:
+    name: Lint C++
+    uses: ./.github/workflows/lint_cc.yaml
+    with:
+      py: '3.8'
+      torch: '1.12.1'
+      variant: 'cu116'
+
+  lint_py_and_sh:
+    name: Lint Python and the shell scripts
+    strategy:
+      # Ensure that we get the results of all linters even if some of them fail.
+      fail-fast: false
+      matrix:
+        py: ['3.8', '3.9', '3.10']
+    uses: ./.github/workflows/lint_py_and_sh.yaml
+    with:
+      py: ${{ matrix.py }}
+      torch: '1.12.1'
+
+  build_linux_x86_64:
+    name: Build the wheels for Linux x86-64
+    needs: [lint_cc, lint_py_and_sh]
+    strategy:
+      matrix:
+          py: ['3.8', '3.9', '3.10']
+          torch: ['1.11', '1.12.1']
+          sanitizers: ['nosan']
+          include:
+            - py: '3.10'
+              torch: '1.12.1'
+              sanitizers: 'asan_ubsan'
+            - py: '3.10'
+              torch: '1.12.1'
+              sanitizers: 'tsan'
+    uses: ./.github/workflows/build_linux_wheel.yaml
+    with:
+      py: ${{ matrix.py }}
+      torch: ${{ matrix.torch }}
+      arch: 'x86_64'
+      variant: 'cpu'
+      sanitizers: ${{ matrix.sanitizers }}
+      dev_stamp: ${{ inputs.dev_stamp }}
+
+  generate_doc:
+    name: Generate the Sphinx documentation
+    needs: build_linux_x86_64
+    uses: ./.github/workflows/generate_sphinx_doc.yaml
+    with:
+      py: '3.8'
+      torch: '1.12.1'
+
+  # CUDA builds are slow. Let's first run the CPU tests and fail fast if
+  # something is already broken.
+  test_linux_x86_64:
+    name: Run the tests on Linux x86-64
+    needs: generate_doc
+    strategy:
+      matrix:
+          py: ['3.8', '3.9', '3.10']
+          torch: ['1.11', '1.12.1']
+          sanitizers: ['nosan']
+          # Test with ASan, UBSan, and TSan.
+          include:
+            - py: '3.10'
+              torch: '1.12.1'
+              sanitizers: 'asan_ubsan'
+            - py: '3.10'
+              torch: '1.12.1'
+              sanitizers: 'tsan'
+    uses: ./.github/workflows/run_linux_tests.yaml
+    with:
+      py: ${{ matrix.py }}
+      torch: ${{ matrix.torch }}
+      arch: 'x86_64'
+      variant: 'cpu'
+      sanitizers: ${{ matrix.sanitizers }}
+
+  build_linux_x86_64_cu113:
+    name: Build the wheels for Linux x86-64 with CUDA 11.3
+    needs: test_linux_x86_64
+    strategy:
+      matrix:
+          py: ['3.8', '3.9', '3.10']
+          torch: ['1.11', '1.12.1']
+    uses: ./.github/workflows/build_linux_wheel.yaml
+    with:
+      py: ${{ matrix.py }}
+      torch: ${{ matrix.torch }}
+      arch: 'x86_64'
+      variant: 'cu113'
+      dev_stamp: ${{ inputs.dev_stamp }}
+
+  build_linux_x86_64_cu116:
+    name: Build the wheels for Linux x86-64 with CUDA 11.6
+    needs: build_linux_x86_64_cu113
+    strategy:
+      matrix:
+          py: ['3.8', '3.9', '3.10']
+          torch: ['1.12.1']
+    uses: ./.github/workflows/build_linux_wheel.yaml
+    with:
+      py: ${{ matrix.py }}
+      torch: ${{ matrix.torch }}
+      arch: 'x86_64'
+      variant: 'cu116'
+      dev_stamp: ${{ inputs.dev_stamp }}
+
+  # TODO: Figure out how we can have GPU machines in FAIR's GitHub org.
+
+  # GPU machines are expensive. Let's be frugal and test a single configuration
+  # on a single machine first. If all tests succeed, we can fan out the rest of
+  # the tests.
+  test_linux_x86_64_cu113_one_box:
+    name: Run the one-box tests on Linux x86-64 with CUDA 11.3
+    needs: build_linux_x86_64_cu116
+    uses: ./.github/workflows/run_linux_tests.yaml
+    with:
+      py: '3.8'
+      torch: '1.12.1'
+      arch: 'x86_64'
+      variant: 'cu113'
+      #run_on_cuda: true
+
+  test_linux_x86_64_cu116_one_box:
+    name: Run the one-box tests on Linux x86-64 with CUDA 11.6
+    needs: test_linux_x86_64_cu113_one_box
+    uses: ./.github/workflows/run_linux_tests.yaml
+    with:
+      py: '3.8'
+      torch: '1.12.1'
+      arch: 'x86_64'
+      variant: 'cu116'
+      #run_on_cuda: true
+
+  # If we are here, it means all of our CPU and one-box GPU tests have
+  # succeeded. Now we can kick off the rest of the GPU tests.
+#  test_linux_x86_64_cu113:
+#    name: Run the tests on Linux x86-64 with CUDA 11.3
+#    needs: test_linux_x86_64_cu116_one_box
+#    if: ${{ inputs.run_all_cuda_tests }}
+#    strategy:
+#      matrix:
+#          py: ['3.8', '3.9', '3.10']
+#          torch: ['1.11', '1.12.1']
+#          # Already tested in the one-box step.
+#          exclude:
+#            - py: '3.8'
+#              torch: '1.12.1'
+#    uses: ./.github/workflows/run_linux_tests.yaml
+#    with:
+#      py: ${{ matrix.py }}
+#      torch: ${{ matrix.torch }}
+#      arch: 'x86_64'
+#      variant: 'cu113'
+#      run_on_cuda: true
+#
+#  test_linux_x86_64_cu116:
+#    name: Run the tests on Linux x86-64 with CUDA 11.6
+#    needs: test_linux_x86_64_cu113
+#    if: ${{ inputs.run_all_cuda_tests }}
+#    strategy:
+#      matrix:
+#          py: ['3.8', '3.9', '3.10']
+#          torch: ['1.12.1']
+#          # Already tested in the one-box step.
+#          exclude:
+#            - py: '3.8'
+#              torch: '1.12.1'
+#    uses: ./.github/workflows/run_linux_tests.yaml
+#    with:
+#      py: ${{ matrix.py }}
+#      torch: ${{ matrix.torch }}
+#      arch: 'x86_64'
+#      variant: 'cu116'
+#      run_on_cuda: true

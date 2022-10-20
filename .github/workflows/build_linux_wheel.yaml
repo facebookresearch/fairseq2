@@ -4,23 +4,26 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-name: Reusable - Build the package
+name: Build a wheel for Linux
 
 on:
   workflow_call:
     inputs:
-      build_variant:
-        type: string
-        default: true
       py:
         type: string
         required: true
       torch:
         type: string
         required: true
+      arch:
+        type: string
+        default: 'x86_64'
+      variant:
+        type: string
+        default: 'cpu'
       sanitizers:
         type: string
-        default: true
+        default: 'nosan'
       dev_stamp:
         type: boolean
         default: false
@@ -30,11 +33,11 @@ defaults:
     shell: bash
 
 jobs:
-  build_package:
-    name: Build the package
+  build:
+    name: Build the wheel
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/fairinternal/fairseq2-ci-manylinux:1-${{ inputs.build_variant }}
+      image: ghcr.io/fairinternal/fairseq2-ci-manylinux_${{ inputs.arch }}:1-${{ inputs.variant }}
     steps:
       - name: Check-out the repository
         uses: actions/checkout@v3
@@ -44,11 +47,14 @@ jobs:
         run: |
           python${{ inputs.py }} -m venv /venv-build
 
-          echo /venv-build/bin >> $GITHUB_PATH
+          echo /venv-build/bin >> "$GITHUB_PATH"
+      - name: Install the requirements
+        run: |
+          pip install --upgrade pip setuptools wheel
       - name: Install PyTorch
         run: |
           pip install torch==${{ inputs.torch }}\
-            --extra-index-url https://download.pytorch.org/whl/${{ inputs.build_variant }}
+            --extra-index-url https://download.pytorch.org/whl/${{ inputs.variant }}
       - name: Stamp the version with the current date
         if: inputs.dev_stamp
         run: |
@@ -76,17 +82,18 @@ jobs:
                 -B build
 
           cmake --build build
-      - name: Build the wheel
+      - name: Create the wheel
         run: |
           # We follow PEP 600 and use the new `manylinux_2_17_x86_64` platform
-          # tag which means we support glibc >= 2.17 on x86.
+          # tag which means we support glibc >= 2.17 on x86_64.
           pip wheel .\
-            --build-option --plat-name --build-option manylinux_2_17_x86_64\
             --no-deps\
+            --no-build-isolation\
+            --config-settings "--build-option=--plat-name manylinux_2_17_${{ inputs.arch }}"\
             --wheel-dir /wheelhouse
-      - name: Upload the build artifacts to staging
+      - name: Upload the wheel to staging
         uses: actions/upload-artifact@v3
         with:
-          name: wheel-py${{ inputs.py }}-pt${{ inputs.torch }}-${{ inputs.build_variant }}-${{ inputs.sanitizers }}
+          name: wheel-linux_${{ inputs.arch }}-py${{ inputs.py }}-pt${{ inputs.torch }}-${{ inputs.variant }}-${{ inputs.sanitizers }}
           path: /wheelhouse
           retention-days: 3

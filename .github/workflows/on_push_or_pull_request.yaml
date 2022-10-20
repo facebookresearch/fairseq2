@@ -1,0 +1,61 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+name: On push or pull request
+
+on:
+  push:
+    branches:
+      - 'main'
+    paths-ignore:
+      - 'ci/**'
+  pull_request:
+    paths-ignore:
+      - 'ci/**'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  check_files:
+    name: Check the modified files
+    outputs:
+      doc_only: ${{ steps.diff.outputs.doc_only }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check-out the repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 2
+      - name: Diff the last commit
+        id: diff
+        run: |
+          doc_only=true
+
+          # Check if all modified files are under the `doc` directory. If true,
+          # we can skip building the entire project.
+          for pathname in $(git diff --name-only HEAD^ HEAD); do
+            if [[ $pathname != doc/* ]]; then
+              doc_only=false
+
+              break
+            fi
+          done
+
+          echo doc_only=$doc_only >> "$GITHUB_OUTPUT"
+
+  build_doc:
+    name: Build the documentation only
+    needs: check_files
+    if: needs.check_files.outputs.doc_only == 'true'
+    uses: ./.github/workflows/build_doc.yaml
+
+  build_and_test:
+    name: Build and test the project
+    needs: check_files
+    if: needs.check_files.outputs.doc_only == 'false'
+    uses: ./.github/workflows/build_and_test_project.yaml

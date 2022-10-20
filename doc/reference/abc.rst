@@ -5,7 +5,7 @@ ABCs and Protocols
 .. currentmodule:: fairseq2
 
 .. autosummary::
-    :toctree: auto/abc
+    :toctree: generated/abc
     :nosignatures:
 
     data.DataSource

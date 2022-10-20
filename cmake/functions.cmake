@@ -157,7 +157,7 @@ function(__fairseq2_set_properties)
         )
     endif()
 
-    if(arg_PYTHON_MODULE AND FAIRSEQ2_DEVELOP_PYTHON)
+    if(arg_PYTHON_MODULE AND FAIRSEQ2_EDITABLE_PYTHON)
         # We have to use absolute rpaths so that the in-source copy of the Python
         # extension module can find its dependencies under the build tree.
         set_target_properties(${target} PROPERTIES BUILD_RPATH_USE_ORIGIN OFF)
@@ -348,17 +348,17 @@ function(__fairseq2_set_clang_tidy)
         message(FATAL_ERROR "fairseq2 requires Clang when `FAIRSEQ2_RUN_CLANG_TIDY` is set!")
     endif()
 
-    find_program(FAIRSEQ2_CLANG_TIDY_PROG REQUIRED NAMES clang-tidy)
+    find_program(FAIRSEQ2_CLANG_TIDY_EXECUTABLE REQUIRED NAMES clang-tidy)
 
-    mark_as_advanced(FAIRSEQ2_CLANG_TIDY_PROG)
+    mark_as_advanced(FAIRSEQ2_CLANG_TIDY_EXECUTABLE)
 
     set_target_properties(${target} PROPERTIES
         C_CLANG_TIDY
-            ${FAIRSEQ2_CLANG_TIDY_PROG}
+            ${FAIRSEQ2_CLANG_TIDY_EXECUTABLE}
         CXX_CLANG_TIDY
-            ${FAIRSEQ2_CLANG_TIDY_PROG}
+            ${FAIRSEQ2_CLANG_TIDY_EXECUTABLE}
         CUDA_CLANG_TIDY
-            ${FAIRSEQ2_CLANG_TIDY_PROG}
+            ${FAIRSEQ2_CLANG_TIDY_EXECUTABLE}
     )
 endfunction()
 

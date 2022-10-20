@@ -1,0 +1,64 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+name: Lint Python and the shell scripts
+
+on:
+  workflow_call:
+    inputs:
+      py:
+        type: string
+        required: true
+      torch:
+        type: string
+        required: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  lint:
+    name: Lint Python and the shell scripts
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/fairinternal/fairseq2-ci-manylinux_x86_64:1-cpu
+    steps:
+      - name: Check-out the repository
+        uses: actions/checkout@v3
+      - name: Set up the Python virtual environment
+        run: |
+          python${{ inputs.py }} -m venv /venv-lint
+
+          echo /venv-lint/bin >> "$GITHUB_PATH"
+      - name: Install the requirements
+        run: |
+          pip install --upgrade pip --requirement requirements-devel.txt
+      - name: Install PyTorch
+        id: lint_start
+        run: |
+          pip install torch==${{ inputs.torch }}\
+            --extra-index-url https://download.pytorch.org/whl/cpu
+      - name: Run shellcheck
+        if: success() || (failure() && steps.lint_start.outcome == 'success')
+        run: |
+          tools/porcelain/run-shellcheck
+      - name: Run isort
+        if: success() || (failure() && steps.lint_start.outcome == 'success')
+        run: |
+          tools/porcelain/run-isort --dry-run
+      - name: Run black
+        if: success() || (failure() && steps.lint_start.outcome == 'success')
+        run: |
+          tools/porcelain/run-black --dry-run
+      - name: Run flake8
+        if: success() || (failure() && steps.lint_start.outcome == 'success')
+        run: |
+          tools/porcelain/run-flake8
+      - name: Run mypy
+        if: success() || (failure() && steps.lint_start.outcome == 'success')
+        run: |
+          tools/porcelain/run-mypy

@@ -5,7 +5,7 @@ Enums
 .. currentmodule:: fairseq2
 
 .. autosummary::
-    :toctree: auto/enums
+    :toctree: generated/enums
     :nosignatures:
 
     data.Whence

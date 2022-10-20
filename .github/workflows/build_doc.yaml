@@ -1,0 +1,27 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+name: Build the documentation
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build the wheel
+    uses: ./.github/workflows/build_linux_wheel.yaml
+    with:
+      py: '3.8'
+      torch: '1.12.1'
+
+  generate_doc:
+    name: Generate the Sphinx documentation
+    needs: build
+    uses: ./.github/workflows/generate_sphinx_doc.yaml
+    with:
+      py: '3.8'
+      torch: '1.12.1'

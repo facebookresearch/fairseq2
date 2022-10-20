@@ -1,0 +1,54 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+name: Publish a wheel
+
+on:
+  workflow_call:
+    inputs:
+      py:
+        type: string
+        required: true
+      torch:
+        type: string
+        required: true
+      os:
+        type: string
+        required: true
+      arch:
+        type: string
+        default: 'x86_64'
+      variant:
+        type: string
+        default: 'cpu'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  upload_wheel:
+    name: Publish the wheel
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the wheel from staging
+        uses: actions/download-artifact@v3
+        with:
+          name: wheel-${{ inputs.os }}_${{ inputs.arch }}-py${{ inputs.py }}-pt${{ inputs.torch }}-${{ inputs.variant }}-nosan
+          path: ~/wheelhouse
+      - name: Upload the wheel to S3
+#        env:
+#          AWS_ACCESS_KEY_ID: ${{ secrets.aws_key_id }}
+#          AWS_SECRET_ACCESS_KEY: ${{ secrets.aws_access_key }}
+#          AWS_DEFAULT_REGION: us-east-1
+        run: |
+          torch=${{ inputs.torch }}
+
+          variant=${{ inputs.variant }}
+
+          for pkg in ~/wheelhouse/*.whl; do
+              echo aws s3 cp "$pkg" "s3://dl.fbaipublicfiles.com/fairseq2/${{ inputs.release_type }}/pt${torch/./}/$variant/" --acl public-read
+          done

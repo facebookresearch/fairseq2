@@ -3,11 +3,12 @@ The Dockerfiles under this directory serve as the source of the container images
 used in GitHub Actions.
 
 ## manylinux
-
-The images with the `manylinux` tag are used to lint, build, and test the
-project. They have the tag format `fairseq2-ci-manylinux:<VERSION>-<VARIANT>`,
-where `<VERSION>` is the current version of the image (e.g. `1`) and `<VARIANT>`
-is either `cpu` or a CUDA version specifier (e.g. `cu113`).
+The images with the `manylinux` tag are used to build and test fairseq2 on
+Linux. They have the tag format
+`fairseq2-ci-manylinux_<ARCH>:<VERSION>-<VARIANT>`, where `<ARCH>` is the
+architecture (e.g. `x86_64`), `<VERSION>` is the current version of the image
+(e.g. `1`), and `<VARIANT>` is either `cpu` or a CUDA version specifier (e.g.
+`cu113`).
 
 The images are based of PyPA's
 [manylinux2014](https://github.com/pypa/manylinux) to ensure maximum binary
@@ -18,13 +19,13 @@ As of this writing, all images are readily available in the
 [ghcr.io/fairinternal](https://github.com/orgs/fairinternal/packages/container/package/fairseq2-ci-wheel)
 registry. You should follow these instructions if, for any reason, an image
 should be updated. In such case, make sure to increment `<VERSION>` in the
-Dockerfile, in GA workflows, and in the docker commands below.
+Dockerfile, in GA workflows, and in the commands below.
 
 #### 1. Build the Docker Image
 The `<VARIANT>` must be one of `cpu`, `cu113`, `cu116`, or `cu116-clang`.
 
 ```
-docker build --network host --tag ghcr.io/fairinternal/fairseq2-ci-manylinux:<VERSION>-<VARIANT> -f Dockerfile.<VARIANT> .
+docker build --network host --tag ghcr.io/fairinternal/fairseq2-ci-manylinux_<ARCH>:<VERSION>-<VARIANT> -f Dockerfile.<VARIANT> .
 ```
 
 #### 2. Push to the GitHub Container Registry
@@ -41,7 +42,7 @@ docker login ghcr.io -u <GITHUB_USERNAME> --password-stdin
 Then, push the image:
 
 ```
-docker push ghcr.io/fairinternal/fairseq2-ci-manylinux:<VERSION>-<VARIANT>
+docker push ghcr.io/fairinternal/fairseq2-ci-manylinux_<ARCH>:<VERSION>-<VARIANT>
 ```
 
 Lastly, log out to avoid any accidental or malicious use of the registry:

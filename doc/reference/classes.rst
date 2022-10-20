@@ -5,7 +5,7 @@ Classes
 .. currentmodule:: fairseq2
 
 .. autosummary::
-    :toctree: auto/classes
+    :toctree: generated/classes
     :nosignatures:
 
     nn.Embedding

@@ -1,0 +1,41 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+include_guard(DIRECTORY)
+
+function(fairseq2_print_configuration_summary)
+    message(STATUS "")
+    message(STATUS "******************** Summary ********************")
+    message(STATUS "  CMake Version                     : ${CMAKE_VERSION}")
+    message(STATUS "  CMake Command                     : ${CMAKE_COMMAND}")
+    message(STATUS "  System                            : ${CMAKE_SYSTEM_NAME}")
+    message(STATUS "  C++ Compiler                      : ${CMAKE_CXX_COMPILER}")
+    message(STATUS "  C++ Compiler Version              : ${CMAKE_CXX_COMPILER_VERSION}")
+    message(STATUS "  Python Version                    : ${Python3_VERSION}")
+    message(STATUS "  Python Interpreter                : ${Python3_EXECUTABLE}")
+    message(STATUS "  Torch Version                     : ${TORCH_PEP440_VERSION}")
+    message(STATUS "  Torch Library                     : ${TORCH_LIBRARY}")
+    message(STATUS "  Build Type                        : ${CMAKE_BUILD_TYPE}")
+    message(STATUS "")
+    message(STATUS "  PROJECT_VERSION                   : ${PROJECT_VERSION}")
+    message(STATUS "  FAIRSEQ2_BUILD_FOR_NATIVE         : ${FAIRSEQ2_BUILD_FOR_NATIVE}")
+    message(STATUS "  FAIRSEQ2_TREAT_WARNINGS_AS_ERRORS : ${FAIRSEQ2_TREAT_WARNINGS_AS_ERRORS}")
+    message(STATUS "  FAIRSEQ2_PERFORM_LTO              : ${FAIRSEQ2_PERFORM_LTO}")
+    message(STATUS "  FAIRSEQ2_INSTALL_STANDALONE       : ${FAIRSEQ2_INSTALL_STANDALONE}")
+    message(STATUS "  FAIRSEQ2_RUN_CLANG_TIDY           : ${FAIRSEQ2_RUN_CLANG_TIDY}")
+    if(FAIRSEQ2_RUN_CLANG_TIDY)
+        message(STATUS "    clang-tidy                      : ${FAIRSEQ2_CLANG_TIDY_EXECUTABLE}")
+    endif()
+    message(STATUS "  FAIRSEQ2_EDITABLE_PYTHON          : ${FAIRSEQ2_EDITABLE_PYTHON}")
+    message(STATUS "  FAIRSEQ2_USE_SYSTEM_FMT           : ${FAIRSEQ2_USE_SYSTEM_FMT}")
+    message(STATUS "  FAIRSEQ2_USE_CUDA                 : ${FAIRSEQ2_USE_CUDA}")
+    if(FAIRSEQ2_USE_CUDA)
+        message(STATUS "    CUDA Version                    : ${CUDAToolkit_VERSION}")
+        message(STATUS "    CUDA NVCC                       : ${CUDAToolkit_NVCC_EXECUTABLE}")
+    endif()
+    message(STATUS "  FAIRSEQ2_SANITIZERS               : ${FAIRSEQ2_SANITIZERS}")
+    message(STATUS "")
+endfunction()

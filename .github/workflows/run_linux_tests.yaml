@@ -4,24 +4,27 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-name: Reusable - Run the tests
+name: Run the tests on Linux
 
 on:
   workflow_call:
     inputs:
-      build_variant:
-        type: string
-        default: true
       py:
         type: string
         required: true
       torch:
         type: string
         required: true
+      arch:
+        type: string
+        default: 'x86_64'
+      variant:
+        type: string
+        default: 'cpu'
       sanitizers:
         type: string
-        default: true
-      dev_stamp:
+        default: 'nosan'
+      run_on_cuda:
         type: boolean
         default: false
 
@@ -30,16 +33,16 @@ defaults:
     shell: bash
 
 jobs:
-  build_package:
+  test:
     name: Run the tests
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/fairinternal/fairseq2-ci-manylinux:1-${{ inputs.build_variant }}
+      image: ghcr.io/fairinternal/fairseq2-ci-manylinux_${{ inputs.arch }}:1-${{ inputs.variant }}
     steps:
-      - name: Download the build artifacts from staging
+      - name: Download the wheel from staging
         uses: actions/download-artifact@v3
         with:
-          name: wheel-py${{ inputs.py }}-pt${{ inputs.torch }}-${{ inputs.build_variant }}-${{ inputs.sanitizers }}
+          name: wheel-linux_${{ inputs.arch }}-py${{ inputs.py }}-pt${{ inputs.torch }}-${{ inputs.variant }}-${{ inputs.sanitizers }}
           path: /wheelhouse
       - name: Check-out the repository
         uses: actions/checkout@v3
@@ -47,11 +50,14 @@ jobs:
         run: |
           python${{ inputs.py }} -m venv /venv-test
 
-          echo /venv-test/bin >> $GITHUB_PATH
+          echo /venv-test/bin >> "$GITHUB_PATH"
+      - name: Install the requirements
+        run: |
+          pip install --upgrade pip
       - name: Install PyTorch
         run: |
           pip install torch==${{ inputs.torch }}\
-            --extra-index-url https://download.pytorch.org/whl/${{ inputs.build_variant }}
+            --extra-index-url https://download.pytorch.org/whl/${{ inputs.variant }}
       - name: Install the wheel
         run: |
           pip install /wheelhouse/*.whl --no-cache-dir
@@ -77,9 +83,9 @@ jobs:
           } >> $GITHUB_ENV
       - name: Run the tests
         run: |
-          build_variant=${{ inputs.build_variant }}
+          run_on_cuda=${{ inputs.run_on_cuda }}
 
-          if [[ $build_variant == cpu ]]; then
+          if [[ $run_on_cuda != true ]]; then
             device=cpu
           else
             device=cuda:0

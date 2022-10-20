@@ -5,7 +5,7 @@ Functions
 .. currentmodule:: fairseq2
 
 .. autosummary::
-    :toctree: auto/functions
+    :toctree: generated/functions
     :nosignatures:
 
     config.cuda_version

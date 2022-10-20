@@ -19,7 +19,8 @@ if(PROJECT_IS_TOP_LEVEL)
 endif()
 
 include(cmake/fmt.cmake)
-include(cmake/helpers.cmake)
+include(cmake/functions.cmake)
+include(cmake/summary.cmake)
 include(cmake/torch.cmake)
 
 # ------------------------------------------------------------
@@ -56,7 +57,7 @@ option(FAIRSEQ2_RUN_CLANG_TIDY
     #VALUE
         OFF
 )
-option(FAIRSEQ2_DEVELOP_PYTHON
+option(FAIRSEQ2_EDITABLE_PYTHON
     #DESCRIPTION
         "Copies Python extension modules to the source tree for `pip install --editable`."
     #VALUE
@@ -148,14 +149,8 @@ endif()
 add_subdirectory(src/fairseq2)
 
 if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
-    # TODO: Add catch2 tests.
+    # TODO: Add tests.
 endif()
-
-# ------------------------------------------------------------
-# Installation
-# ------------------------------------------------------------
-
-fairseq2_install_package()
 
 # ------------------------------------------------------------
 # Setuptools Setup Script
@@ -175,3 +170,15 @@ add_custom_target(setup_py ALL
             "${PROJECT_BINARY_DIR}/setup.py" "${PROJECT_SOURCE_DIR}"
     VERBATIM
 )
+
+# ------------------------------------------------------------
+# Installation
+# ------------------------------------------------------------
+
+fairseq2_install_package()
+
+# ------------------------------------------------------------
+# Summary
+# ------------------------------------------------------------
+
+fairseq2_print_configuration_summary()

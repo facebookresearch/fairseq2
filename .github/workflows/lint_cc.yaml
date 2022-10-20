@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-name: Reusable - Lint (Python, Shell)
+name: Lint C++
 
 on:
   workflow_call:
@@ -15,50 +15,46 @@ on:
       torch:
         type: string
         required: true
+      variant:
+        type: string
+        default: 'cpu'
 
 defaults:
   run:
     shell: bash
 
 jobs:
-  lint_py_sh:
-    name: Lint
+  lint:
+    name: Lint C++
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/fairinternal/fairseq2-ci-manylinux:1-cpu
+      image: ghcr.io/fairinternal/fairseq2-ci-manylinux_x86_64:1-${{ inputs.variant }}-clang
     steps:
       - name: Check-out the repository
         uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - name: Set up the Python virtual environment
         run: |
           python${{ inputs.py }} -m venv /venv-lint
 
-          echo /venv-lint/bin >> $GITHUB_PATH
+          echo /venv-lint/bin >> "$GITHUB_PATH"
       - name: Install the requirements
         run: |
-          pip install --upgrade --requirement requirements-devel.txt
+          pip install --upgrade pip
       - name: Install PyTorch
-        id: lint_start
         run: |
           pip install torch==${{ inputs.torch }}\
-            --extra-index-url https://download.pytorch.org/whl/cpu
-      - name: Run shellcheck
+            --extra-index-url https://download.pytorch.org/whl/${{ inputs.variant }}
+      - name: Build the compilation database
+        id: lint_start
+        run: |
+          CC=clang CXX=clang++ cmake -DCMAKE_BUILD_TYPE=Release -B build
+      - name: Run clang-format
         if: success() || (failure() && steps.lint_start.outcome == 'success')
         run: |
-          tools/porcelain/run-shellcheck
-      - name: Run isort
+          tools/porcelain/run-clang-format --dry-run
+      - name: Run clang-tidy
         if: success() || (failure() && steps.lint_start.outcome == 'success')
         run: |
-          tools/porcelain/run-isort --dry-run
-      - name: Run black
-        if: success() || (failure() && steps.lint_start.outcome == 'success')
-        run: |
-          tools/porcelain/run-black --dry-run
-      - name: Run flake8
-        if: success() || (failure() && steps.lint_start.outcome == 'success')
-        run: |
-          tools/porcelain/run-flake8
-      - name: Run mypy
-        if: success() || (failure() && steps.lint_start.outcome == 'success')
-        run: |
-          tools/porcelain/run-mypy
+          run-clang-tidy -p build -quiet
