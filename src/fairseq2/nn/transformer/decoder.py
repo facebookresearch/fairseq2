@@ -175,7 +175,7 @@ class StandardTransformerDecoder(TransformerDecoder):
         """
         fct_kwargs: Dict = {"device": device, "dtype": dtype}
 
-        embed_dim = embed.embed_dim
+        embedding_dim = embed.weight.shape[-1]
 
         layer_list = ModuleList(layers, layer_drop_p)
         if not layer_list:
@@ -198,12 +198,12 @@ class StandardTransformerDecoder(TransformerDecoder):
 
         self.embed = embed
 
-        self.embed_scale = 1.0 if no_scale_embed else math.sqrt(embed_dim)
+        self.embed_scale = 1.0 if no_scale_embed else math.sqrt(embedding_dim)
 
         if positional_embed is not None:
-            if positional_embed.embed_dim != embed_dim:
+            if positional_embed.embedding_dim != embedding_dim:
                 raise ValueError(
-                    f"`embed_dim` of `positional_embed` ({positional_embed.embed_dim}) does not match `embed_dim` of `embed` ({embed_dim})."
+                    f"`embedding_dim` of `positional_embed` ({positional_embed.embedding_dim}) does not match `embedding_dim` of `embed` ({embedding_dim})."
                 )
 
             self.positional_embed = positional_embed
@@ -211,15 +211,15 @@ class StandardTransformerDecoder(TransformerDecoder):
             self.register_module("positional_embed", None)
 
         if norm_embed:
-            self.embed_norm = LayerNorm(embed_dim, norm_eps, **fct_kwargs)
+            self.embed_norm = LayerNorm(embedding_dim, norm_eps, **fct_kwargs)
         else:
             self.register_module("embed_norm", None)
 
         self.embed_dropout_p = embed_dropout_p
 
-        if embed_dim != model_dim:
+        if embedding_dim != model_dim:
             self.inp_dim_proj = InternalDimProjection(
-                embed_dim, model_dim, **fct_kwargs
+                embedding_dim, model_dim, **fct_kwargs
             )
         else:
             self.register_module("inp_dim_proj", None)
@@ -236,9 +236,9 @@ class StandardTransformerDecoder(TransformerDecoder):
         else:
             self.register_module("layer_norm", None)
 
-        if embed_dim != model_dim:
+        if embedding_dim != model_dim:
             self.out_dim_proj = InternalDimProjection(
-                model_dim, embed_dim, **fct_kwargs
+                model_dim, embedding_dim, **fct_kwargs
             )
         else:
             self.register_module("out_dim_proj", None)

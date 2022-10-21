@@ -90,7 +90,7 @@ class TestSinusoidalPositionalEmbedding(TestCase):
 
     def test_init_initializes_embeddings_correctly(self) -> None:
         m = SinusoidalPositionalEmbedding(
-            max_seq_len=10, embed_dim=32, device=self.device
+            max_seq_len=10, embedding_dim=32, device=self.device
         )
 
         expected_weight = self._make_expected_weight()
@@ -99,7 +99,7 @@ class TestSinusoidalPositionalEmbedding(TestCase):
 
     def test_init_prepends_zero_embedding_if_padding_token_idx_is_set(self) -> None:
         m = SinusoidalPositionalEmbedding(
-            max_seq_len=10, embed_dim=32, padding_token_idx=3, device=self.device
+            max_seq_len=10, embedding_dim=32, padding_token_idx=3, device=self.device
         )
 
         self.assertAllClose(m.weight[0], torch.zeros(32, device=self.device))
@@ -110,7 +110,7 @@ class TestSinusoidalPositionalEmbedding(TestCase):
 
     def test_forward_returns_correct_embeddings(self) -> None:
         m = SinusoidalPositionalEmbedding(
-            max_seq_len=10, embed_dim=4, device=self.device
+            max_seq_len=10, embedding_dim=4, device=self.device
         )
 
         b = torch.randint(0, 20, (9, 3), device=self.device)
@@ -123,7 +123,7 @@ class TestSinusoidalPositionalEmbedding(TestCase):
 
     def test_forward_returns_correct_embeddings_if_batch_first(self) -> None:
         m = SinusoidalPositionalEmbedding(
-            max_seq_len=10, embed_dim=4, batch_first=True, device=self.device
+            max_seq_len=10, embedding_dim=4, batch_first=True, device=self.device
         )
 
         b = torch.randint(0, 20, (3, 9), device=self.device)
@@ -136,7 +136,7 @@ class TestSinusoidalPositionalEmbedding(TestCase):
 
     def test_forward_returns_correct_embeddings_if_no_batch(self) -> None:
         m = SinusoidalPositionalEmbedding(
-            max_seq_len=10, embed_dim=4, device=self.device
+            max_seq_len=10, embedding_dim=4, device=self.device
         )
 
         b = torch.randint(0, 20, (9,), device=self.device)
@@ -150,7 +150,7 @@ class TestSinusoidalPositionalEmbedding(TestCase):
     ) -> None:
         m = SinusoidalPositionalEmbedding(
             max_seq_len=10,
-            embed_dim=4,
+            embedding_dim=4,
             padding_token_idx=20,
             batch_first=True,
             device=self.device,
@@ -175,7 +175,7 @@ class TestSinusoidalPositionalEmbedding(TestCase):
             with self.subTest(padding_token_idx=padding_token_idx):
                 m = SinusoidalPositionalEmbedding(
                     max_seq_len=3,
-                    embed_dim=32,
+                    embedding_dim=32,
                     padding_token_idx=padding_token_idx,
                     device=self.device,
                 )
@@ -192,7 +192,7 @@ class TestSinusoidalPositionalEmbedding(TestCase):
 
     def test_forward_errors_if_input_dim_is_greater_than_2(self) -> None:
         m = SinusoidalPositionalEmbedding(
-            max_seq_len=3, embed_dim=32, device=self.device
+            max_seq_len=3, embedding_dim=32, device=self.device
         )
 
         b = torch.ones((5, 5, 5), device=self.device)
@@ -204,7 +204,7 @@ class TestSinusoidalPositionalEmbedding(TestCase):
 
     def test_forward_errors_if_seq_len_is_out_of_range(self) -> None:
         m = SinusoidalPositionalEmbedding(
-            max_seq_len=3, embed_dim=32, device=self.device
+            max_seq_len=3, embedding_dim=32, device=self.device
         )
 
         b = torch.ones((5), device=self.device)
@@ -216,7 +216,7 @@ class TestSinusoidalPositionalEmbedding(TestCase):
 
     def test_forward_ignores_incremental_in_training(self) -> None:
         m = SinusoidalPositionalEmbedding(
-            max_seq_len=3, embed_dim=32, device=self.device
+            max_seq_len=3, embedding_dim=32, device=self.device
         )
 
         b = torch.ones((2, 5), device=self.device)
@@ -230,7 +230,7 @@ class TestLearnedPositionalEmbedding(TestCase):
     def test_init_initializes_embeddings_correctly(self) -> None:
         with tmp_rng_seed(self.device):
             m = LearnedPositionalEmbedding(
-                max_seq_len=10, embed_dim=32, device=self.device
+                max_seq_len=10, embedding_dim=32, device=self.device
             )
 
         self.assertEqual(m.weight.dtype, torch.float)
@@ -243,7 +243,10 @@ class TestLearnedPositionalEmbedding(TestCase):
     def test_init_prepends_zero_embedding_if_padding_token_idx_is_set(self) -> None:
         with tmp_rng_seed(self.device):
             m = LearnedPositionalEmbedding(
-                max_seq_len=10, embed_dim=32, padding_token_idx=3, device=self.device
+                max_seq_len=10,
+                embedding_dim=32,
+                padding_token_idx=3,
+                device=self.device,
             )
 
         self.assertAllClose(m.weight[0], torch.zeros(32, device=self.device))
@@ -254,7 +257,9 @@ class TestLearnedPositionalEmbedding(TestCase):
         self.assertAllClose(m.weight[1:], expected_weight[1:])
 
     def test_forward_returns_correct_embeddings(self) -> None:
-        m = LearnedPositionalEmbedding(max_seq_len=10, embed_dim=4, device=self.device)
+        m = LearnedPositionalEmbedding(
+            max_seq_len=10, embedding_dim=4, device=self.device
+        )
 
         b = torch.randint(0, 20, (9, 3), device=self.device)
 
@@ -266,7 +271,7 @@ class TestLearnedPositionalEmbedding(TestCase):
 
     def test_forward_returns_correct_embeddings_if_batch_first(self) -> None:
         m = LearnedPositionalEmbedding(
-            max_seq_len=10, embed_dim=4, batch_first=True, device=self.device
+            max_seq_len=10, embedding_dim=4, batch_first=True, device=self.device
         )
 
         b = torch.randint(0, 20, (3, 9), device=self.device)
@@ -278,7 +283,9 @@ class TestLearnedPositionalEmbedding(TestCase):
         self.assertAllClose(a, m.weight[:9].expand_as(a))
 
     def test_forward_returns_correct_embeddings_if_no_batch(self) -> None:
-        m = LearnedPositionalEmbedding(max_seq_len=10, embed_dim=4, device=self.device)
+        m = LearnedPositionalEmbedding(
+            max_seq_len=10, embedding_dim=4, device=self.device
+        )
 
         b = torch.randint(0, 20, (9,), device=self.device)
 
@@ -291,7 +298,7 @@ class TestLearnedPositionalEmbedding(TestCase):
     ) -> None:
         m = LearnedPositionalEmbedding(
             max_seq_len=10,
-            embed_dim=4,
+            embedding_dim=4,
             padding_token_idx=20,
             batch_first=True,
             device=self.device,
@@ -316,7 +323,7 @@ class TestLearnedPositionalEmbedding(TestCase):
             with self.subTest(padding_token_idx=padding_token_idx):
                 m = LearnedPositionalEmbedding(
                     max_seq_len=3,
-                    embed_dim=32,
+                    embedding_dim=32,
                     padding_token_idx=padding_token_idx,
                     device=self.device,
                 )
@@ -332,7 +339,9 @@ class TestLearnedPositionalEmbedding(TestCase):
                 self.assertAllClose(a, m.weight[embed_idx].expand_as(a))
 
     def test_forward_errors_if_input_dim_is_greater_than_2(self) -> None:
-        m = LearnedPositionalEmbedding(max_seq_len=3, embed_dim=32, device=self.device)
+        m = LearnedPositionalEmbedding(
+            max_seq_len=3, embedding_dim=32, device=self.device
+        )
 
         b = torch.ones((5, 5, 5), device=self.device)
 
@@ -342,7 +351,9 @@ class TestLearnedPositionalEmbedding(TestCase):
             m(b)
 
     def test_forward_errors_if_seq_len_is_out_of_range(self) -> None:
-        m = LearnedPositionalEmbedding(max_seq_len=3, embed_dim=32, device=self.device)
+        m = LearnedPositionalEmbedding(
+            max_seq_len=3, embedding_dim=32, device=self.device
+        )
 
         b = torch.ones((5), device=self.device)
 
@@ -352,7 +363,9 @@ class TestLearnedPositionalEmbedding(TestCase):
             m(b)
 
     def test_forward_ignores_incremental_in_training(self) -> None:
-        m = LearnedPositionalEmbedding(max_seq_len=3, embed_dim=32, device=self.device)
+        m = LearnedPositionalEmbedding(
+            max_seq_len=3, embedding_dim=32, device=self.device
+        )
 
         b = torch.ones((2, 5), device=self.device)
 

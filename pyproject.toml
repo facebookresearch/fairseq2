@@ -4,6 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [tool.isort]
 profile = "black"
+skip_glob = ["third-party/*"]
+
+[tool.black]
+extend-exclude = '''
+/(
+    third-party
+)/
+'''
 
 [tool.mypy]
 disallow_untyped_defs = true
@@ -12,3 +20,12 @@ show_error_codes = true
 warn_redundant_casts = true
 warn_return_any = true
 warn_unreachable = true
+files = [
+    "setup.py.in", "src/", "tests/", "examples"
+]
+
+[[tool.mypy.overrides]]
+module = [
+  "torchtnt", # TODO: remove once they add py.typed
+]
+ignore_missing_imports = true

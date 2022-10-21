@@ -392,32 +392,10 @@ class StandardMultiheadAttention(MultiheadAttention):
             q_proj = InternalQKVProjection(model_dim, **fct_kwargs)
             k_proj = InternalQKVProjection(model_dim, **fct_kwargs)
             v_proj = InternalQKVProjection(model_dim, **fct_kwargs)
-        else:
-            if q_proj is None or k_proj is None or v_proj is None:
-                raise ValueError(
-                    "`q_proj`, `k_proj`, and `v_proj` must be all specified."
-                )
 
-            if q_proj.inp_dim != model_dim:
-                raise ValueError(
-                    f"`inp_dim` of `q_proj` ({q_proj.inp_dim}) does not match `model_dim` ({model_dim})."
-                )
-
-            if q_proj.out_dim != k_proj.out_dim:
-                raise ValueError(
-                    f"`out_dim` of `q_proj` ({q_proj.out_dim}) does not match `out_dim` of `k_proj` ({k_proj.out_dim})."
-                )
-
-        if k_proj.out_dim % num_heads != 0:
-            raise ValueError(
-                f"`out_dim` of `k_proj` ({k_proj.out_dim}) is not divisible by `num_heads` ({num_heads})."
-            )
-
-        if v_proj.out_dim % num_heads != 0:
-            raise ValueError(
-                f"`out_dim` of `v_proj` ({v_proj.out_dim}) is not divisible by `num_heads` ({num_heads})."
-            )
-
+        assert q_proj is not None
+        assert k_proj is not None
+        assert v_proj is not None
         self.q_proj = q_proj
         self.k_proj = k_proj
         self.v_proj = v_proj
@@ -443,16 +421,6 @@ class StandardMultiheadAttention(MultiheadAttention):
                 v_proj.out_dim, model_dim, **fct_kwargs
             )
         else:
-            if out_proj.inp_dim != v_proj.out_dim:
-                raise ValueError(
-                    f"`inp_dim` of `out_proj` ({out_proj.inp_dim}) does not match `out_dim` of `v_proj` ({v_proj.out_dim})."
-                )
-
-            if out_proj.out_dim != model_dim:
-                raise ValueError(
-                    f"`out_dim` of `out_proj` ({out_proj.out_dim}) does not match `model_dim` ({model_dim})."
-                )
-
             self.out_proj = out_proj
 
         self.reset_parameters()

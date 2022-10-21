@@ -22,7 +22,7 @@ class PositionalEmbedding(Module, ABC):
     max_seq_len: int
     """The expected maximum sequence length."""
 
-    embed_dim: int
+    embedding_dim: int
     """The dimensionality of returned positional embeddings."""
 
     padding_token_idx: Optional[int]
@@ -37,14 +37,14 @@ class PositionalEmbedding(Module, ABC):
     def __init__(
         self,
         max_seq_len: int,
-        embed_dim: int,
+        embedding_dim: int,
         padding_token_idx: Optional[int] = None,
         batch_first: bool = False,
     ) -> None:
         """
         :param max_seq_len:
             The expected maximum sequence length.
-        :param embed_dim:
+        :param embedding_dim:
             The dimensionality of returned positional embeddings.
         :param padding_token_idx:
             The index of the padding token. While producing positional
@@ -57,7 +57,7 @@ class PositionalEmbedding(Module, ABC):
         super().__init__()
 
         self.max_seq_len = max_seq_len
-        self.embed_dim = embed_dim
+        self.embedding_dim = embedding_dim
         self.padding_token_idx = padding_token_idx
         self.batch_first = batch_first
 
@@ -129,7 +129,7 @@ class PositionalEmbedding(Module, ABC):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"max_seq_len={self.max_seq_len}, embed_dim={self.embed_dim}"
+        return f"max_seq_len={self.max_seq_len}, embedding_dim={self.embedding_dim}"
 
 
 @final
@@ -164,7 +164,7 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
     >>> from fairseq2.modules import SinusoidalPositionalEmbedding
     >>>
     >>> m = SinusoidalPositionalEmbedding(
-    ...    max_seq_len=16, embed_dim=4, padding_token_idx=3)
+    ...    max_seq_len=16, embedding_dim=4, padding_token_idx=3)
     ... )
     >>>
     >>> s = torch.tensor([7, 2, 3, 11])
@@ -181,13 +181,13 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
     def __init__(
         self,
         max_seq_len: int,
-        embed_dim: int,
+        embedding_dim: int,
         padding_token_idx: Optional[int] = None,
         batch_first: bool = False,
         device: Any = None,
         dtype: Optional[DataType] = None,
     ) -> None:
-        super().__init__(max_seq_len, embed_dim, padding_token_idx, batch_first)
+        super().__init__(max_seq_len, embedding_dim, padding_token_idx, batch_first)
 
         if padding_token_idx is None:
             num_embed = max_seq_len
@@ -195,7 +195,7 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
             # Make space for the padding token's zero embedding.
             num_embed = max_seq_len + 1
 
-        weight = torch.empty(num_embed, embed_dim, device=device, dtype=dtype)  # type: ignore[arg-type]
+        weight = torch.empty(num_embed, embedding_dim, device=device, dtype=dtype)  # type: ignore[arg-type]
 
         self.register_buffer("weight", weight, persistent=False)
 
@@ -211,10 +211,10 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
         else:
             out = self.weight
 
-        num_sin = self.embed_dim // 2
+        num_sin = self.embedding_dim // 2
 
         # Zero pad if the embedding size is odd.
-        if self.embed_dim > 2 * num_sin:
+        if self.embedding_dim > 2 * num_sin:
             out[:, -1:] = 0
 
         l_half = out[:, :num_sin]
@@ -240,7 +240,7 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
         """:meta private:"""
         bsz, seq_len = seq.shape
 
-        out_size = (bsz, -1, self.embed_dim)
+        out_size = (bsz, -1, self.embedding_dim)
 
         last_step_only = not self.training and incremental_eval
 
@@ -272,7 +272,7 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
     >>> from fairseq2.modules import LearnedPositionalEmbedding
     >>>
     >>> m = LearnedPositionalEmbedding(
-    ...    max_seq_len=16, embed_dim=4, padding_token_idx=3)
+    ...    max_seq_len=16, embedding_dim=4, padding_token_idx=3)
     ... )
     >>>
     >>> s = torch.tensor([7, 2, 3, 11])
@@ -289,13 +289,13 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
     def __init__(
         self,
         max_seq_len: int,
-        embed_dim: int,
+        embedding_dim: int,
         padding_token_idx: Optional[int] = None,
         batch_first: bool = False,
         device: Any = None,
         dtype: Optional[DataType] = None,
     ) -> None:
-        super().__init__(max_seq_len, embed_dim, padding_token_idx, batch_first)
+        super().__init__(max_seq_len, embedding_dim, padding_token_idx, batch_first)
 
         if padding_token_idx is None:
             num_embed = max_seq_len
@@ -304,7 +304,7 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
             num_embed = max_seq_len + 1
 
         self.weight = Parameter(
-            torch.empty(num_embed, embed_dim, device=device, dtype=dtype)  # type: ignore[arg-type]
+            torch.empty(num_embed, embedding_dim, device=device, dtype=dtype)  # type: ignore[arg-type]
         )
 
         self.reset_parameters()

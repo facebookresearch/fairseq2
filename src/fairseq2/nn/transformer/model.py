@@ -11,14 +11,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
 from torch import dtype as DataType
-from torch.nn import Module
 
 from fairseq2.nn.projection import Projection, ResettableProjection
 from fairseq2.nn.transformer.decoder import TransformerDecoder
 from fairseq2.nn.transformer.encoder import TransformerEncoder
 
 
-class Transformer(Module, ABC):
+class Transformer(nn.Module, ABC):
     """Represents a Transformer model."""
 
     model_dim: int
@@ -95,6 +94,7 @@ class StandardTransformer(Transformer):
             If ``True``, apply log-softmax instead of softmax to the scores
             (i.e. logits) produced by ``score_proj``.
         """
+        # TODO add sentencepiece model somewhere
         if encoder.model_dim != decoder.model_dim:
             raise ValueError(
                 f"`model_dim` of `encoder` ({encoder.model_dim}) does not match `model_dim` of `decoder` ({decoder.model_dim})."
@@ -139,17 +139,19 @@ class UntiedScoreProjection(ResettableProjection):
     def __init__(
         self,
         num_embed: int,
-        embed_dim: int,
+        embedding_dim: int,
         device: Any = None,
         dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param num_embed:
             The size of the output embedding dictionary.
-        :param embed_dim:
+        :param embedding_dim:
             The dimensionality of output embeddings.
         """
-        super().__init__(embed_dim, num_embed, bias=False, device=device, dtype=dtype)
+        super().__init__(
+            embedding_dim, num_embed, bias=False, device=device, dtype=dtype
+        )
 
     def reset_parameters(self) -> None:  # override
         """Resets the parameters and buffers of the module."""

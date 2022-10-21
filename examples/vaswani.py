@@ -53,7 +53,7 @@ num_layers = 6
 def load_embeddings(cfg: ModelConfig) -> Embedding:
     # Just a placeholder for demonstration purposes. A real implementation
     # would load the embedding table from a provided dictionary.
-    return Embedding(10, embed_dim=cfg.model_dim, scaled=True)
+    return Embedding(10, embedding_dim=cfg.model_dim, scaled=True)
 
 
 def build_model(cfg: ModelConfig, device: Any, dtype: Any) -> Transformer:
@@ -69,7 +69,7 @@ def build_model(cfg: ModelConfig, device: Any, dtype: Any) -> Transformer:
     embed = load_embeddings(cfg)
 
     positional_embed = SinusoidalPositionalEmbedding(
-        max_seq_len=4096, embed_dim=cfg.model_dim
+        max_seq_len=4096, embedding_dim=cfg.model_dim
     )
 
     encoder = build_encoder(cfg, embed, positional_embed, device, dtype)

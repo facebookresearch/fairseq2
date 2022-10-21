@@ -21,7 +21,7 @@ class Embedding(Module):
     num_embed: int
     """The size of the dictionary."""
 
-    embed_dim: int
+    embedding_dim: int
     """The dimensionality of returned embeddings."""
 
     padding_idx: Optional[int]
@@ -31,7 +31,7 @@ class Embedding(Module):
 
     scaled: bool
     """If ``True``, the embeddings have been initialized from
-    :math:`\\mathcal{N}(0, \\frac{1}{\\text{embed_dim}})`; otherwise, from
+    :math:`\\mathcal{N}(0, \\frac{1}{\\text{embedding_dim}})`; otherwise, from
     :math:`\\mathcal{N}(0, 1)`."""
 
     weight: Parameter
@@ -40,7 +40,7 @@ class Embedding(Module):
     def __init__(
         self,
         num_embed: int,
-        embed_dim: int,
+        embedding_dim: int,
         padding_idx: Optional[int] = None,
         scaled: bool = False,
         device: Any = None,
@@ -49,7 +49,7 @@ class Embedding(Module):
         """
         :param num_embed:
             The size of the embedding dictionary.
-        :param embed_dim:
+        :param embedding_dim:
             The dimensionality of returned embeddings.
         :param padding_idx:
             If not ``None``, entries at :attr:`padding_idx` do not contribute
@@ -57,7 +57,7 @@ class Embedding(Module):
             not updated during training.
         :param scaled:
             If ``True``, the embeddings will be initialized from
-            :math:`\\mathcal{N}(0, \\frac{1}{\\text{embed_dim}})`; otherwise,
+            :math:`\\mathcal{N}(0, \\frac{1}{\\text{embedding_dim}})`; otherwise,
             from :math:`\\mathcal{N}(0, 1)`.
         """
         fct_kwargs: Dict = {"device": device, "dtype": dtype}
@@ -65,18 +65,18 @@ class Embedding(Module):
         super().__init__()
 
         self.num_embed = num_embed
-        self.embed_dim = embed_dim
+        self.embedding_dim = embedding_dim
         self.padding_idx = padding_idx
         self.scaled = scaled
 
-        self.weight = Parameter(torch.empty(num_embed, embed_dim, **fct_kwargs))
+        self.weight = Parameter(torch.empty(num_embed, embedding_dim, **fct_kwargs))
 
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
         """Resets the parameters and buffers of the module."""
         if self.scaled:
-            nn.init.normal_(self.weight, std=self.embed_dim**-0.5)
+            nn.init.normal_(self.weight, std=self.embedding_dim**-0.5)
         else:
             nn.init.normal_(self.weight)
 
@@ -97,7 +97,7 @@ class Embedding(Module):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = f"num_embed={self.num_embed}, embed_dim={self.embed_dim}"
+        s = f"num_embed={self.num_embed}, embedding_dim={self.embedding_dim}"
 
         if self.padding_idx is not None:
             s += f", padding_idx={self.padding_idx}"
