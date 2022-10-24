@@ -41,7 +41,7 @@ jobs:
           echo /venv-doc/bin >> "$GITHUB_PATH"
       - name: Install the requirements
         run: |
-          pip install --upgrade pip --requirement doc/requirements.txt
+          pip install --requirement doc/requirements.txt
       - name: Install PyTorch
         run: |
           pip install torch==${{ inputs.torch }}\

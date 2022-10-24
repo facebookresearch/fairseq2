@@ -54,19 +54,19 @@ fi
 pep_ver=$(extract_pep_version "$1")
 mmp_ver=$(extract_mmp_version "$1")
 
-base_dir=$(cd "$(dirname "$0")" && pwd)/..
+base=$(cd "$(dirname "$0")/.." && pwd)
 
 # Update the CMake project.
-replace_match "$base_dir/CMakeLists.txt"\
+replace_match "$base/CMakeLists.txt"\
               "s/VERSION .* LANGUAGES/VERSION $mmp_ver LANGUAGES/"
 
 # Update the Python distribution.
-replace_match "$base_dir/setup.py.in"\
+replace_match "$base/setup.py"\
               "s/version=\".*\",/version=\"$pep_ver\",/"
 
 # Update the Python package.
-replace_match "$base_dir/src/fairseq2/__init__.py"\
+replace_match "$base/src/fairseq2/__init__.py"\
               "s/__version__ = \".*\"/__version__ = \"$pep_ver\"/"
 
 # Update the VERSION file.
-echo "$pep_ver" > "$base_dir/VERSION"
+echo "$pep_ver" > "$base/VERSION"

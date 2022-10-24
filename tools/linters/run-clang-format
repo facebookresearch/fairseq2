@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+set -eo pipefail
+
+function print_usage
+{
+    echo "Usage: run-clang-format [--dry-run] PATHNAME"
+}
+
+function exit_with_usage
+{
+    print_usage >&1
+
+    exit 0
+}
+
+function exit_with_error
+{
+    print_usage >&2
+
+    exit 1
+}
+
+if [[ $# -eq 0 || $# -gt 2 ]]; then
+    exit_with_error
+fi
+
+if [[ $# -eq 1 ]]; then
+    if [[ $1 == -h || $1 == --help ]]; then
+        exit_with_usage
+    fi
+else
+    if [[ $1 != --dry-run ]]; then
+        exit_with_error
+    fi
+
+    dry_run=true
+
+    shift
+fi
+
+if [[ $dry_run == true ]]; then
+    opts="--Werror --dry-run --verbose"
+else
+    opts="-i --verbose"
+fi
+
+find "$1" \( -type d \( -name '.?*' -or -name 'build' -or -name 'third-party' \) -prune \) -or\
+    \( -type f \( -name '*.cc' -or -name '*.cu' -or -name '*.h' \) -print0 \) |
+        xargs -0 clang-format $opts

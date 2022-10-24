@@ -1,0 +1,5 @@
+# Since we cannot use PEP 517 (i.e. pyproject.toml), there is no way for us to
+# configure the black formatter. As a workaround, we "ignore" the Python files
+# under the third-party directory to force black to skip them.
+*.py
+*.pyi

@@ -1,8 +1,6 @@
-black==22.3.0
-flake8==4.0.1
-isort==5.10.1
-mypy==0.971
-numpy==1.21.5
-shellcheck-py==0.8.0.4
-types-setuptools==57.4.9
-typing_extensions==4.3.0
+--requirement requirements.txt
+
+--requirement tests/requirements.txt
+--requirement tools/requirements.txt
+
+numpy==1.23.0

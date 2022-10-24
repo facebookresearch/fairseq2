@@ -21,5 +21,3 @@ Checks: >
     -readability-identifier-length,
     -readability-named-parameter,
     -zircon-*
-WarningsAsErrors: >
-    *

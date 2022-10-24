@@ -95,10 +95,10 @@ jobs:
 
           rsync --recursive --delete-after ~/doc/ $doc_dir
 
-          # Add all documentation to the Git index.
+          # Add the documentation to `gh-pages`.
           git add --all
 
-          # Push a commit only if there are changes in the documentation.
+          # Push a commit only if there are changes in the branch.
           if ! git diff --staged --quiet; then
             git commit --message "Generated from $(git rev-parse --short "$GITHUB_SHA")" && git push
           fi

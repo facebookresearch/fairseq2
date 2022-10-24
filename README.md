@@ -12,13 +12,13 @@ other content generation tasks.
 
 ## Getting Started
 You can find our full documentation including tutorials and API reference
-[here](https://fairinternal.github.io/fairseq2/nightly).
+[here](https://fairinternal.github.io/fairseq2/nightly)
+([nightly](https://fairinternal.github.io/fairseq2/nightly)).
 
 For recent changes, you can check out our [changelog](CHANGELOG.md).
 
 fairseq2 mainly supports Linux. There is partial support for macOS with limited
-feature set and limited test coverage. Windows is not supported, but, although
-not tested, you can try out WSL2.
+feature set. Windows is not supported.
 
 ## Installing From Conda
 coming soon...
@@ -28,51 +28,8 @@ coming soon...
 
 ## Installing From Source
 
-### 1. Prerequisite: Install CMake
-In order to build its C++ extension modules, fairseq2 requires
-[CMake](https://cmake.org) 3.21 or newer. You can check whether your system has
-a compatible version by running `cmake --version`. If the command is not found
-or the output is less than 3.21, you should install a recent version.
-
-Fortunately installing CMake is straightforward. If you are running Ubuntu >=
-22.04, Fedora >= 35, or macOS with Homebrew, `[apt|dnf|brew] install cmake` is
-all you have to do. Most other Linux distributions also have a fairly up-to-date
-CMake version in their package repositories, so installing it boils down to
-`<package_manager> install cmake`.
-
-If your system does not provide a recent version, you can refer to the official
-[installation instructions](https://cmake.org/download/). CMake already offers
-installers for various operating systems. Although it requires a bit more work
-than using a system package manager, it is still pretty straightforward to
-install it using an installer.
-
-Lastly, if you don't have sudo access to your machine, or you don't want to
-pollute your `/usr/bin`, you can install CMake locally. The officially endorsed
-way for that is via [pipx](https://pypa.github.io/pipx/) (not to be confused
-with pip), but Conda works equally well. Simply running
-`[pipx|conda] install cmake` will install it to a local directory under your
-home.
-
-If you still have trouble, you can check out the
-[Installing CMake](https://cliutils.gitlab.io/modern-cmake/chapters/intro/installing.html)
-section of Modern CMake which has further instructions.
-
-### 2. Optional Prerequisite: Install Ninja
-[Ninja](https://ninja-build.org/) is a lightweight build system that focuses on
-speed. It can significantly reduce build times for native (e.g. C++) code bases
-compared to make and other traditional build systems. Although not required, we
-recommend it for faster builds. Practically all system package managers offer
-Ninja (e.g. `apt install ninja-build`), so it should be pretty straightforward
-to install.
-
-If you do not have sudo access to your machine, or you don’t want to pollute
-your `/usr/bin`, similar to CMake, you can install it locally via
-[pipx](https://pypa.github.io/pipx/) or Conda using
-`[pipx|conda] install ninja`.
-
-### 3. Clone the Repository
-Once you have installed the prerequisite(s), clone the fairseq2 Git repository
-to your machine:
+### 1. Clone the Repository
+As first step, clone the fairseq2 Git repository to your machine:
 
 ```
 git clone --recurse-submodules https://github.com/fairinternal/fairseq2.git
@@ -88,7 +45,7 @@ the same effect:
 git submodule update --init --recursive
 ```
 
-### 4. Optional (Strongly Recommended): Set Up a Virtual Environment
+### 2. Optional (Strongly Recommended): Set Up a Virtual Environment
 If you are not already in a Python virtual environment (e.g. Python `venv` or
 Conda), we strongly recommend setting up one; otherwise, fairseq2 will be
 installed to your user-wide or, if you have admin privileges, to the system-wide
@@ -101,24 +58,36 @@ to learn how to set up a virtual environment using the standard tooling. If you
 prefer Conda, similar instructions can be found
 [here](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-with-commands).
 
-### 5. Install PyTorch
-Follow the instructions at [pytorch.org](https://pytorch.org/get-started) to
-install PyTorch (in your preferred virtual environment). Note that fairseq2
-supports only PyTorch 1.11 and later.
+### 3. Install the Build Dependencies
+fairseq2 has a small set of prerequisites. You can install them (in your virtual
+environment) via pip:
 
-### 6. Build the C++ Extension Modules
+```
+pip install -r requirements.txt
+```
+
+If you plan to play with or contribute to fairseq2, you should instead use:
+
+```
+pip install -r requirements-devel.txt
+```
+
+This second command will install linters, code formatters, and testing tools in
+addition to build dependencies. Check out our
+[contribution guidelines](./CONTRIBUTING.md) to learn how to use them.
+
+### 4. Install PyTorch
+Follow the instructions at [pytorch.org](https://pytorch.org/get-started) to
+install PyTorch (in your virtual environment). Note that fairseq2 supports only
+PyTorch 1.11 and later.
+
+### 5. Build the C++ Extension Modules
 The final step before installing fairseq2 is to build its C++ extension modules.
-If you have Ninja installed (see step 2), run the following command at the root
-directory of your repository to configure the build:
+Run the following command at the root directory of your repository to configure
+the build:
 
 ```
 cmake -GNinja -B build
-```
-
-Otherwise, if you don’t have Ninja, run:
-
-```
-cmake -B build
 ```
 
 Once the configuration step is complete, build the extension modules using:
@@ -155,7 +124,7 @@ for the Ampere architecture (e.g. for A100).
 cmake -GNinja -DCMAKE_CUDA_ARCHITECTURES=”80-real;80-virtual” -B build
 ```
 
-### 7. Install the Package
+### 6. Install the Package
 Once you have built the extension modules, the actual Python package
 installation is pretty straightforward:
 
@@ -171,7 +140,7 @@ editable) mode:
 pip install -e .
 ```
 
-### 8. Optional: Sanity Check
+### 7. Optional: Sanity Check
 To make sure that your installation has no issues, you can run the Python tests:
 
 ```
@@ -193,3 +162,4 @@ submit your work.
 ## License
 This project is MIT licensed, as found in the [LICENSE](LICENSE) file. The
 license applies to the pre-trained models as well.
+

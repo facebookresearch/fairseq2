@@ -136,9 +136,13 @@ if(FAIRSEQ2_USE_CUDA)
 
     find_package(CUDAToolkit REQUIRED)
 
-    if(NOT CUDAToolkit_VERSION_MAJOR EQUAL TORCH_CUDA_VERSION_MAJOR OR
-       NOT CUDAToolkit_VERSION_MINOR EQUAL TORCH_CUDA_VERSION_MINOR)
+    if(NOT CUDAToolkit_VERSION_MAJOR EQUAL TORCH_CUDA_VERSION_MAJOR)
         message(FATAL_ERROR "fairseq2 requires the version of the CUDA Toolkit (${CUDAToolkit_VERSION}) to match the version of CUDA that was used to build PyTorch (${TORCH_CUDA_VERSION})!")
+    endif()
+
+    if(NOT CUDAToolkit_VERSION_MINOR EQUAL TORCH_CUDA_VERSION_MINOR)
+        message(WARNING "fairseq2 will use the CUDA Toolkit ${CUDAToolkit_VERSION} that has a minor version mismatch with CUDA ${TORCH_CUDA_VERSION} that was used to build PyTorch. "
+                        "Most likely this shouldn't be a problem.")
     endif()
 endif()
 
@@ -151,25 +155,6 @@ add_subdirectory(src/fairseq2)
 if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
     # TODO: Add tests.
 endif()
-
-# ------------------------------------------------------------
-# Setuptools Setup Script
-# ------------------------------------------------------------
-
-if(FAIRSEQ2_INSTALL_STANDALONE)
-    set(INSTALL_STANDALONE true)
-endif()
-
-# Materialize the setup script.
-configure_file(setup.py.in setup.py @ONLY)
-
-# Copy the materialized setup script to the source tree.
-add_custom_target(setup_py ALL
-    COMMAND
-        ${CMAKE_COMMAND} -E copy_if_different
-            "${PROJECT_BINARY_DIR}/setup.py" "${PROJECT_SOURCE_DIR}"
-    VERBATIM
-)
 
 # ------------------------------------------------------------
 # Installation

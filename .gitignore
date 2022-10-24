@@ -1,14 +1,10 @@
-# Materialized Setup Script
-/setup.py
-
 # Byte-Compiled Modules
-__pycache__
+__pycache__/
 
 # Extension Modules
 *.so
 
 # Build Artifacts
-build-*/
 build/
 
 # Packaging Artifacts
@@ -16,8 +12,9 @@ build/
 *.whl
 dist/
 
-# IDE Files
+# IDEs and Python Virtual Environments
 .idea/
+.venv/
 
 # Other
 .DS_Store

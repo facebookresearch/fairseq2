@@ -53,7 +53,7 @@ jobs:
           echo /venv-test/bin >> "$GITHUB_PATH"
       - name: Install the requirements
         run: |
-          pip install --upgrade pip
+          pip install --requirement tests/requirements.txt
       - name: Install PyTorch
         run: |
           pip install torch==${{ inputs.torch }}\
@@ -99,8 +99,8 @@ jobs:
           result=0
 
           # Unfortunately Python leaks quite a bit of memory, so we cannot rely
-          # on the output of LSan. As a rudimentary workaround, we simply check
-          # if any stack frame has a symbol containing the word 'fairseq2'.
+          # on the raw output of LSan. As a rudimentary workaround, we check if
+          # any stack frame has a symbol containing the word 'fairseq2'.
           for f in /lsan.out.*; do
             if cat $f | tee /dev/stderr | grep --quiet 'fairseq2'; then
               result=1

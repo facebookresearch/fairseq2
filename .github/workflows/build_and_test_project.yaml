@@ -33,21 +33,28 @@ jobs:
       torch: '1.12.1'
       variant: 'cu116'
 
-  lint_py_and_sh:
-    name: Lint Python and the shell scripts
+  lint_python:
+    name: Lint Python
     strategy:
       # Ensure that we get the results of all linters even if some of them fail.
       fail-fast: false
       matrix:
         py: ['3.8', '3.9', '3.10']
-    uses: ./.github/workflows/lint_py_and_sh.yaml
+    uses: ./.github/workflows/lint_python.yaml
     with:
       py: ${{ matrix.py }}
       torch: '1.12.1'
 
+  lint_shell:
+    name: Lint the shell scripts
+    uses: ./.github/workflows/lint_shell.yaml
+    with:
+      py: '3.8'
+      torch: '1.12.1'
+
   build_linux_x86_64:
-    name: Build the wheels for Linux x86-64
-    needs: [lint_cc, lint_py_and_sh]
+    name: Build the wheel for Linux x86-64
+    needs: [lint_cc, lint_python, lint_shell]
     strategy:
       matrix:
           py: ['3.8', '3.9', '3.10']
@@ -104,7 +111,7 @@ jobs:
       sanitizers: ${{ matrix.sanitizers }}
 
   build_linux_x86_64_cu113:
-    name: Build the wheels for Linux x86-64 with CUDA 11.3
+    name: Build the wheel for Linux x86-64 with CUDA 11.3
     needs: test_linux_x86_64
     strategy:
       matrix:
@@ -119,7 +126,7 @@ jobs:
       dev_stamp: ${{ inputs.dev_stamp }}
 
   build_linux_x86_64_cu116:
-    name: Build the wheels for Linux x86-64 with CUDA 11.6
+    name: Build the wheel for Linux x86-64 with CUDA 11.6
     needs: build_linux_x86_64_cu113
     strategy:
       matrix:

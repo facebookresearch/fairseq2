@@ -41,20 +41,20 @@ jobs:
           echo /venv-lint/bin >> "$GITHUB_PATH"
       - name: Install the requirements
         run: |
-          pip install --upgrade pip
+          pip install --requirement requirements.txt
       - name: Install PyTorch
         run: |
           pip install torch==${{ inputs.torch }}\
             --extra-index-url https://download.pytorch.org/whl/${{ inputs.variant }}
       - name: Build the compilation database
-        id: lint_start
+        id: lint_prologue
         run: |
-          CC=clang CXX=clang++ cmake -DCMAKE_BUILD_TYPE=Release -B build
+          CC=clang CXX=clang++ cmake -GNinja -DCMAKE_BUILD_TYPE=Release -B build
       - name: Run clang-format
-        if: success() || (failure() && steps.lint_start.outcome == 'success')
+        if: success() || (failure() && steps.lint_prologue.outcome == 'success')
         run: |
-          tools/porcelain/run-clang-format --dry-run
+          tools/linters/run-clang-format --dry-run .
       - name: Run clang-tidy
-        if: success() || (failure() && steps.lint_start.outcome == 'success')
+        if: success() || (failure() && steps.lint_prologue.outcome == 'success')
         run: |
-          run-clang-tidy -p build -quiet
+          run-clang-tidy -p build -config="{InheritParentConfig: true, WarningsAsErrors: '*'}" -quiet
