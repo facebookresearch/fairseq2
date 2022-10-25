@@ -31,7 +31,9 @@ function(fairseq2_add_target target)
         add_executable(${target})
     elseif(arg_PYTHON_MODULE)
         if(NOT COMMAND Python3_add_library)
-            message(FATAL_ERROR "`Python3` CMake module must be loaded before calling `fairseq2_add_target()` when the target type is `PYTHON_MODULE`!")
+            message(FATAL_ERROR
+                "`Python3` CMake module must be loaded before calling `fairseq2_add_target()` when the target type is `PYTHON_MODULE`!"
+            )
         endif()
 
         cmake_path(APPEND CMAKE_CURRENT_SOURCE_DIR

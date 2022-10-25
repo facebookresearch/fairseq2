@@ -19,7 +19,9 @@ function(fairseq2_find_torch version)
     )
 
     if(NOT cmd_result EQUAL 0)
-        message(FATAL_ERROR "fairseq2 requires PyTorch ${version} or greater! Refer to pytorch.org for installation instructions.")
+        message(FATAL_ERROR
+            "fairseq2 requires PyTorch ${version} or greater! Refer to pytorch.org for installation instructions."
+        )
     endif()
 
     # Torch CMake package superficially has a hard dependency on cuDNN. As a

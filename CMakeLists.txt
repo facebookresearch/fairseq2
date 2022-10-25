@@ -129,7 +129,9 @@ endif()
 
 if(FAIRSEQ2_USE_CUDA)
     if(NOT TORCH_CUDA_VERSION)
-        message(FATAL_ERROR "fairseq2 requires a CUDA version of PyTorch when `FAIRSEQ2_USE_CUDA` is set!")
+        message(FATAL_ERROR
+            "fairseq2 requires a CUDA version of PyTorch when `FAIRSEQ2_USE_CUDA` is set!"
+        )
     endif()
 
     enable_language(CUDA)
@@ -137,12 +139,15 @@ if(FAIRSEQ2_USE_CUDA)
     find_package(CUDAToolkit REQUIRED)
 
     if(NOT CUDAToolkit_VERSION_MAJOR EQUAL TORCH_CUDA_VERSION_MAJOR)
-        message(FATAL_ERROR "fairseq2 requires the version of the CUDA Toolkit (${CUDAToolkit_VERSION}) to match the version of CUDA that was used to build PyTorch (${TORCH_CUDA_VERSION})!")
+        message(FATAL_ERROR
+            "fairseq2 requires the version of the CUDA Toolkit (${CUDAToolkit_VERSION}) to match the version of CUDA that was used to build PyTorch (${TORCH_CUDA_VERSION})!"
+        )
     endif()
 
     if(NOT CUDAToolkit_VERSION_MINOR EQUAL TORCH_CUDA_VERSION_MINOR)
-        message(WARNING "fairseq2 will use the CUDA Toolkit ${CUDAToolkit_VERSION} that has a minor version mismatch with CUDA ${TORCH_CUDA_VERSION} that was used to build PyTorch. "
-                        "Most likely this shouldn't be a problem.")
+        message(WARNING
+            "fairseq2 will use the CUDA Toolkit ${CUDAToolkit_VERSION} that has a minor version mismatch with CUDA ${TORCH_CUDA_VERSION} that was used to build PyTorch. Most likely this shouldn't be a problem."
+        )
     endif()
 endif()
 

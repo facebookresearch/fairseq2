@@ -131,11 +131,6 @@ class install_cmake(Command):
         return []
 
 
-def read_long_description() -> str:
-    with open("README.md") as fp:
-        return fp.read()
-
-
 setup(
     distclass=Distribution,
     cmdclass={
@@ -145,8 +140,6 @@ setup(
     name="fairseq2",
     version="0.1.0.dev0",
     description="FAIR Sequence Modeling Toolkit",
-    long_description=read_long_description(),
-    long_description_content_type="text/markdown",
     url="https://github.com/facebookresearch/fairseq2",
     license="MIT",
     author="Fundamental AI Research (FAIR) at Meta",
