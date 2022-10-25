@@ -16,5 +16,8 @@ dist/
 .idea/
 .venv/
 
+# Weights & Biases
+wandb/
+
 # Other
 .DS_Store
