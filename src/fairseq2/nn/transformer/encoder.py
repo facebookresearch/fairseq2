@@ -12,6 +12,8 @@ from typing import Any, Dict, Iterable, Optional, Tuple, final
 
 import torch.nn as nn
 import torch.nn.functional as F
+from overrides import final as finaloverride
+from overrides import override
 from torch import Tensor
 from torch import dtype as DataType
 from torch.nn import LayerNorm, Module
@@ -83,7 +85,8 @@ class InternalDimProjection(ResettableProjection):
     ) -> None:
         super().__init__(inp_dim, out_dim, bias=True, device=device, dtype=dtype)
 
-    def reset_parameters(self) -> None:  # override
+    @override
+    def reset_parameters(self) -> None:
         nn.init.xavier_uniform_(self.weight)
 
         if self.bias is not None:
@@ -214,7 +217,8 @@ class StandardTransformerEncoder(TransformerEncoder):
         else:
             self.register_module("out_dim_proj", None)
 
-    def forward(self, seq: Tensor) -> Tuple[Tensor, Optional[Tensor]]:  # override
+    @finaloverride
+    def forward(self, seq: Tensor) -> Tuple[Tensor, Optional[Tensor]]:
         self_attn_padding_mask = self._get_self_attn_padding_mask(seq)
 
         x = self._forward_embed(seq)

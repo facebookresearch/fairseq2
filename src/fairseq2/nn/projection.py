@@ -11,6 +11,8 @@ from typing import Any, Dict, Optional, final
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from overrides import final as finaloverride
+from overrides import override
 from torch import Tensor
 from torch import dtype as DataType
 from torch.nn import Module, Parameter
@@ -98,7 +100,8 @@ class ResettableProjection(Projection):
     def reset_parameters(self) -> None:
         """Resets the parameters and buffers of the module."""
 
-    def forward(self, x: Tensor) -> Tensor:  # override
+    @override
+    def forward(self, x: Tensor) -> Tensor:
         return F.linear(x, self.weight, self.bias)
 
     def extra_repr(self) -> str:
@@ -116,7 +119,8 @@ class Linear(ResettableProjection):
         This class is identical to :class:`torch.nn.Linear`.
     """
 
-    def reset_parameters(self) -> None:  # override
+    @finaloverride
+    def reset_parameters(self) -> None:
         nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
 
         if self.bias is not None:
@@ -148,7 +152,8 @@ class TiedProjection(Projection):
         self.weight = weight
         self.bias = bias
 
-    def forward(self, x: Tensor) -> Tensor:  # override
+    @finaloverride
+    def forward(self, x: Tensor) -> Tensor:
         """
         :param x:
             The input. *Shape:* :math:`(*,H_{inp})`, where :math:`H_{inp}` is

@@ -9,6 +9,7 @@ from typing import Any, Optional, final
 
 import torch.nn as nn
 import torch.nn.functional as F
+from overrides import final as finaloverride
 from torch import Tensor
 from torch import dtype as DataType
 
@@ -114,7 +115,8 @@ class StandardTransformer(Transformer):
 
         self.use_log_softmax = use_log_softmax
 
-    def forward(self, src_seq: Tensor, tgt_seq: Tensor) -> Tensor:  # override
+    @finaloverride
+    def forward(self, src_seq: Tensor, tgt_seq: Tensor) -> Tensor:
         enc_out, enc_attn_padding_mask = self.encoder(src_seq)
 
         x = self.decoder(tgt_seq, enc_out, enc_attn_padding_mask)
@@ -129,6 +131,7 @@ class StandardTransformer(Transformer):
         return softmax(x, dim=-1)
 
 
+@final
 class UntiedScoreProjection(ResettableProjection):
     """Produces scores (i.e. logits) from the output of a Transformer decoder.
 
@@ -153,7 +156,8 @@ class UntiedScoreProjection(ResettableProjection):
             embedding_dim, num_embed, bias=False, device=device, dtype=dtype
         )
 
-    def reset_parameters(self) -> None:  # override
+    @finaloverride
+    def reset_parameters(self) -> None:
         """Resets the parameters and buffers of the module."""
         nn.init.normal_(self.weight, std=self.inp_dim**-0.5)
 

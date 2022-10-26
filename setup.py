@@ -161,6 +161,7 @@ setup(
     zip_safe=False,
     python_requires=">=3.8",
     install_requires=[
+        "overrides==7.3.1",
         # PyTorch has no ABI compatibility between releases; this means we have
         # to ensure that we depend on the exact same version that was used to
         # build our extension modules.

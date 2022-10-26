@@ -10,6 +10,8 @@ from typing import Any, Dict, Iterable, Optional, final
 
 import torch.nn as nn
 import torch.nn.functional as F
+from overrides import final as finaloverride
+from overrides import override
 from torch import Tensor
 from torch import dtype as DataType
 from torch.nn import LayerNorm, Module
@@ -108,7 +110,8 @@ class InternalDimProjection(ResettableProjection):
     ) -> None:
         super().__init__(inp_dim, out_dim, bias=True, device=device, dtype=dtype)
 
-    def reset_parameters(self) -> None:  # override
+    @override
+    def reset_parameters(self) -> None:
         nn.init.xavier_uniform_(self.weight)
 
         if self.bias is not None:
@@ -243,13 +246,14 @@ class StandardTransformerDecoder(TransformerDecoder):
         else:
             self.register_module("out_dim_proj", None)
 
+    @finaloverride
     def forward(
         self,
         seq: Tensor,
         enc_out: Optional[Tensor] = None,
         enc_attn_padding_mask: Optional[Tensor] = None,
         incremental_state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tensor:  # override
+    ) -> Tensor:
         step = self._get_step_if_incremental_eval(seq, incremental_state_bag)
 
         self_attn_padding_mask = self._get_self_attn_padding_mask(

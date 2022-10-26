@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional, final
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from overrides import final as finaloverride
 from torch import Tensor
 from torch import dtype as DataType
 from torch.nn import Module, Parameter
@@ -236,7 +237,8 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
         l_half.sin_()
         r_half.cos_()
 
-    def _forward_core(self, seq: Tensor, incremental_eval: bool) -> Tensor:  # override
+    @finaloverride
+    def _forward_core(self, seq: Tensor, incremental_eval: bool) -> Tensor:
         """:meta private:"""
         bsz, seq_len = seq.shape
 
@@ -317,7 +319,8 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
             with torch.no_grad():
                 self.weight[0].fill_(0.0)
 
-    def _forward_core(self, seq: Tensor, incremental_eval: bool) -> Tensor:  # override
+    @finaloverride
+    def _forward_core(self, seq: Tensor, incremental_eval: bool) -> Tensor:
         """:meta private:"""
         last_step_only = not self.training and incremental_eval
 

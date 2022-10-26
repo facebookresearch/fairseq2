@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, Optional, final
 
 import torch.nn.functional as F
+from overrides import final as finaloverride
 from torch import Tensor
 from torch import dtype as DataType
 from torch.nn import LayerNorm, Module
@@ -101,7 +102,8 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
 
         self.out_proj = Linear(inner_dim, model_dim, **fct_kwargs)
 
-    def forward(self, x: Tensor) -> Tensor:  # override
+    @finaloverride
+    def forward(self, x: Tensor) -> Tensor:
         x = self.inner_proj(x)
 
         x = self.inner_activation_fn(x)  # type: ignore

@@ -10,6 +10,7 @@ from typing import Any, Dict, Optional, cast, final
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from overrides import final as finaloverride
 from torch import Tensor
 from torch import dtype as DataType
 from torch.nn import LayerNorm, Module, Parameter
@@ -228,6 +229,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         if self.residual_scale is not None:
             nn.init.ones_(self.residual_scale)
 
+    @finaloverride
     def forward(
         self,
         x: Tensor,
@@ -236,7 +238,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         enc_out: Optional[Tensor] = None,
         enc_attn_padding_mask: Optional[Tensor] = None,
         incremental_state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tensor:  # override
+    ) -> Tensor:
         x = self._forward_self_attn(
             x,
             self_attn_mask,

@@ -11,6 +11,8 @@ from typing import Any, Dict, Optional, Protocol, Tuple, final
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from overrides import final as finaloverride
+from overrides import override
 from torch import Tensor
 from torch import dtype as DataType
 from torch.nn import Module, Parameter
@@ -132,7 +134,8 @@ class MultiheadAttentionState(IncrementalState):
 
         self.prev_padding_mask = torch.cat([prev_mask, curr_mask], dim=1)
 
-    def reorder(self, new_order: Tensor) -> None:  # override
+    @override
+    def reorder(self, new_order: Tensor) -> None:
         self.prev_k = self.prev_k.index_select(0, new_order)
         self.prev_v = self.prev_v.index_select(0, new_order)
 
@@ -290,7 +293,8 @@ class InternalQKVProjection(ResettableProjection):
     def __init__(self, model_dim: int, device: Any, dtype: Optional[DataType]) -> None:
         super().__init__(model_dim, model_dim, bias=True, device=device, dtype=dtype)
 
-    def reset_parameters(self) -> None:  # override
+    @override
+    def reset_parameters(self) -> None:
         # Empirically observed the convergence to be much better with the
         # scaled initialization.
         nn.init.xavier_uniform_(self.weight, gain=2**-0.5)
@@ -305,7 +309,8 @@ class InternalOutProjection(ResettableProjection):
     ) -> None:
         super().__init__(v_proj_dim, model_dim, bias=True, device=device, dtype=dtype)
 
-    def reset_parameters(self) -> None:  # override
+    @override
+    def reset_parameters(self) -> None:
         nn.init.xavier_uniform_(self.weight)
 
         if self.bias is not None:
@@ -432,6 +437,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         if self.bias_v is not None:
             nn.init.xavier_normal_(self.bias_v)
 
+    @finaloverride
     def forward(
         self,
         x: Tensor,
@@ -440,7 +446,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         attn_mask: Optional[Tensor] = None,
         padding_mask: Optional[Tensor] = None,
         incremental_state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tensor:  # override
+    ) -> Tensor:
         padding_mask = self._prepare_padding_mask(keys, padding_mask)
 
         # (*, M) -> (N, T, K_proj)
