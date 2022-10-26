@@ -39,13 +39,13 @@ jobs:
           python${{ inputs.py }} -m venv /venv-doc
 
           echo /venv-doc/bin >> "$GITHUB_PATH"
-      - name: Install the requirements
-        run: |
-          pip install --requirement doc/requirements.txt
       - name: Install PyTorch
         run: |
           pip install torch==${{ inputs.torch }}\
             --extra-index-url https://download.pytorch.org/whl/cpu
+      - name: Install the requirements
+        run: |
+          pip install --requirement doc/requirements.txt
       - name: Install the wheel
         run: |
           pip install /wheelhouse/*.whl --no-cache-dir

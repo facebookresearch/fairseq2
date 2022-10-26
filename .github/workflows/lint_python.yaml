@@ -34,13 +34,13 @@ jobs:
           python${{ inputs.py }} -m venv /venv-lint
 
           echo /venv-lint/bin >> "$GITHUB_PATH"
-      - name: Install the requirements
-        run: |
-          pip install --requirement requirements-devel.txt
       - name: Install PyTorch
         run: |
           pip install torch==${{ inputs.torch }}\
             --extra-index-url https://download.pytorch.org/whl/cpu
+      - name: Install the requirements
+        run: |
+          pip install --requirement requirements-devel.txt
       - name: Install the package dependencies
         id: lint_prologue
         run: |

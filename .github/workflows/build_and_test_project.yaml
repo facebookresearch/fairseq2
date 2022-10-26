@@ -54,7 +54,6 @@ jobs:
 
   build_linux_x86_64:
     name: Build the wheel for Linux x86-64
-    needs: [lint_cc, lint_python, lint_shell]
     strategy:
       matrix:
           py: ['3.8', '3.9', '3.10']
@@ -88,7 +87,7 @@ jobs:
   # something is already broken.
   test_linux_x86_64:
     name: Run the tests on Linux x86-64
-    needs: generate_doc
+    needs: build_linux_x86_64
     strategy:
       matrix:
           py: ['3.8', '3.9', '3.10']

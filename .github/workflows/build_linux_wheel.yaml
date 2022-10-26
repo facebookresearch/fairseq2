@@ -48,13 +48,13 @@ jobs:
           python${{ inputs.py }} -m venv /venv-build
 
           echo /venv-build/bin >> "$GITHUB_PATH"
-      - name: Install the requirements
-        run: |
-          pip install --requirement requirements.txt
       - name: Install PyTorch
         run: |
           pip install torch==${{ inputs.torch }}\
             --extra-index-url https://download.pytorch.org/whl/${{ inputs.variant }}
+      - name: Install the requirements
+        run: |
+          pip install --requirement requirements.txt
       - name: Stamp the version with the current date
         if: inputs.dev_stamp
         run: |
