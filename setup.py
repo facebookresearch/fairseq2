@@ -169,6 +169,8 @@ setup(
         "torch==" + torch.__version__,
         "typing_extensions>=4.3.0",
         # Runtime dependencies
+        "func_argparse",
+        "omegaconf",
         "overrides",
         "numpy==" + numpy.__version__,
         "sentencepiece",
@@ -176,5 +178,6 @@ setup(
         "torchtnt @ git+https://github.com/pytorch/tnt.git@1b71aecf3a2fb8204bf6010d3306d5ad9812bafd",
         "torchsnapshot",
         "torcheval",
+        "wandb",
     ],
 )

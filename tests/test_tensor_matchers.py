@@ -20,7 +20,7 @@ class AssertMatchTest(unittest.TestCase):
         tm.assert_match("abc", "abc")
 
         hamcrest.assert_that(
-            lambda: tm.assert_match("abc", "xyz"),
+            lambda: tm.assert_match("abc", "xyz"),  # type: ignore
             hamcrest.raises(
                 AssertionError,
                 "Expected: 'xyz'",
@@ -36,14 +36,14 @@ class AssertTruthyTest(unittest.TestCase):
         tm.assert_true([1])
 
         hamcrest.assert_that(
-            lambda: tm.assert_true(False),
+            lambda: tm.assert_true(False),  # type: ignore
             hamcrest.raises(
                 AssertionError,
             ),
         )
 
         hamcrest.assert_that(
-            lambda: tm.assert_true("", reason="meh"),
+            lambda: tm.assert_true("", reason="meh"),  # type: ignore
             hamcrest.raises(
                 AssertionError,
                 "meh",
@@ -59,14 +59,14 @@ class AssertFalseyTest(unittest.TestCase):
         tm.assert_false([])
 
         hamcrest.assert_that(
-            lambda: tm.assert_false(True),
+            lambda: tm.assert_false(True),  # type: ignore
             hamcrest.raises(
                 AssertionError,
             ),
         )
 
         hamcrest.assert_that(
-            lambda: tm.assert_false("abc", reason="meh"),
+            lambda: tm.assert_false("abc", reason="meh"),  # type: ignore
             hamcrest.raises(
                 AssertionError,
                 "meh",
@@ -85,7 +85,7 @@ class AssertRaisesTest(unittest.TestCase):
 
         # No exception.
         hamcrest.assert_that(
-            lambda: tm.assert_raises(
+            lambda: tm.assert_raises(  # type: ignore
                 lambda: (),
                 ValueError,
             ),
@@ -97,7 +97,7 @@ class AssertRaisesTest(unittest.TestCase):
 
         # Wrong exception type.
         hamcrest.assert_that(
-            lambda: tm.assert_raises(
+            lambda: tm.assert_raises(  # type: ignore
                 lambda: throw(ValueError("abc 123")), IndexError, "abc [0-9]+"
             ),
             hamcrest.raises(
@@ -110,7 +110,7 @@ class AssertRaisesTest(unittest.TestCase):
         tm.assert_raises(lambda: throw(ValueError("abc 123")), ValueError, "abc [0-9]+")
 
         hamcrest.assert_that(
-            lambda: tm.assert_raises(
+            lambda: tm.assert_raises(  # type: ignore
                 lambda: throw(ValueError("abc xyz")), ValueError, "abc [0-9]+"
             ),
             hamcrest.raises(
@@ -127,14 +127,14 @@ class AssertRaisesTest(unittest.TestCase):
         e.code = 123
 
         tm.assert_raises(
-            lambda: throw(e),
+            lambda: throw(e),  # type: ignore
             ValueError,
             matching=hamcrest.has_properties(code=123),
         )
 
         hamcrest.assert_that(
             lambda: tm.assert_raises(
-                lambda: throw(e),
+                lambda: throw(e),  # type: ignore
                 ValueError,
                 matching=hamcrest.has_properties(code=9),
             ),

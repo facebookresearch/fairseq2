@@ -5,8 +5,8 @@ import logging
 import math
 import os
 import sys
-import typing as tp
 from pathlib import Path
+from typing import Any, Dict, Iterable, Iterator, List, NamedTuple, Union
 
 import datasets  # type: ignore
 import fairscale  # type: ignore
@@ -45,12 +45,12 @@ logging.basicConfig(level=logging.INFO)
 BATCH_FIRST = True
 
 
-class Batch(tp.NamedTuple):
+class Batch(NamedTuple):
     source: torch.Tensor
     target: torch.Tensor
 
 
-class Translation(tp.NamedTuple):
+class Translation(NamedTuple):
     source: str
     target: str
     predicted: str
@@ -82,10 +82,11 @@ class MachineTranslationTask(TrainUnit[Batch], EvalUnit[Batch], PredictUnit[Batc
         self.lr_frequency_steps = 10_000
         self.logger = logger
 
-    def replicated_keys(self) -> tp.List[str]:
+    def replicated_keys(self) -> List[str]:
         return ["logger/**"]
 
     def train_step(self, state: State, data: Batch) -> None:
+        assert state.train_state
         steps = state.train_state.progress.num_steps_completed + 1
         loss = self._nll_loss(data)
 
@@ -118,7 +119,13 @@ class MachineTranslationTask(TrainUnit[Batch], EvalUnit[Batch], PredictUnit[Batc
         )
         return loss
 
-    def _flush_loss(self, state: State, prefix: str, metric: tp.Any) -> None:
+    def _flush_loss(
+        self,
+        state: State,
+        prefix: str,
+        metric: Any,
+    ) -> None:
+        assert state.train_state
         step = state.train_state.progress.num_steps_completed
         loss = metric.compute()
         metric.reset()
@@ -132,14 +139,14 @@ class MachineTranslationTask(TrainUnit[Batch], EvalUnit[Batch], PredictUnit[Batc
             metrics[f"{prefix}/lr"] = self.lr_scheduler.get_last_lr()[0]
         self.logger.log_dict(metrics, step)
 
-    def state_dict(self) -> tp.Dict[str, tp.Any]:
+    def state_dict(self) -> Dict[str, Any]:
         return {k: v.state_dict() for k, v in self.app_state().items()}
 
-    def load_state_dict(self, state_dict: tp.Dict[str, tp.Any]) -> None:
+    def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
         for k, v in state_dict.items():
             self.__getattr__(k).load_state_dict(v)
 
-    def state_dict_for_inference(self) -> tp.Dict[str, tp.Any]:
+    def state_dict_for_inference(self) -> Dict[str, Any]:
         # TODO: return a minimized stated dict for inference.
         ...
 
@@ -150,6 +157,8 @@ class MachineTranslationTask(TrainUnit[Batch], EvalUnit[Batch], PredictUnit[Batc
         self._flush_loss(state, "eval", self.eval_loss)
 
     def eval_step(self, state: State, data: Batch) -> None:
+        assert state.eval_state
+
         self.eval_loss.update(self._nll_loss(data).detach().cpu())
 
         eval_step = state.eval_state.progress.num_steps_completed_in_epoch
@@ -158,6 +167,8 @@ class MachineTranslationTask(TrainUnit[Batch], EvalUnit[Batch], PredictUnit[Batc
             self.log_translated_sample(state, data)
 
     def log_translated_sample(self, state: State, data: Batch) -> None:
+        assert state.train_state
+
         # TODO: move to callback
         translations = self.translate_batch(data)
         if torchtnt.utils.get_global_rank() != 0:
@@ -179,10 +190,10 @@ class MachineTranslationTask(TrainUnit[Batch], EvalUnit[Batch], PredictUnit[Batc
             log.info(f"Target: {row.target}")
             log.info(f"Predicted: {row.predicted}")
 
-    def predict_step(self, state: State, data: Batch) -> tp.List[Translation]:
+    def predict_step(self, state: State, data: Batch) -> List[Translation]:
         return self.translate_batch(data)
 
-    def translate_batch(self, data: Batch) -> tp.List[Translation]:
+    def translate_batch(self, data: Batch) -> List[Translation]:
         source = self.tokenizer.decode_batch(data.source)
         target = self.tokenizer.decode_batch(data.target)
         search = BeamSearch(self.tokenizer, beam_size=1, max_len=128)
@@ -209,7 +220,7 @@ class ModelBuilder(transformer.StandardTransformerBuilder):
         return embs  # type: ignore
 
     def build_attn(
-        self, device: tp.Any, dtype: tp.Any
+        self, device: Any, dtype: Any
     ) -> transformer.StandardMultiheadAttention:
         assert (
             self.model_dim % self.num_attn_heads == 0
@@ -290,7 +301,10 @@ def get_small_model() -> ModelBuilder:
 
 
 def _finalize_batch(
-    tokenizer: Tokenizer, src_batch: tp.List[str], tgt_batch: tp.List[str], device: str
+    tokenizer: Tokenizer,
+    src_batch: List[str],
+    tgt_batch: List[str],
+    device: Union[torch.device, str],
 ) -> Batch:
     # TODO: add batch statistic
     return Batch(
@@ -299,7 +313,7 @@ def _finalize_batch(
     )
 
 
-class DatasetLoader(tp.Iterable[Batch]):
+class DatasetLoader(Iterable[Batch]):
     def __init__(
         self,
         train: bool,
@@ -309,7 +323,7 @@ class DatasetLoader(tp.Iterable[Batch]):
         batch_size: int,
         global_rank: int,
         world_size: int,
-        device: str,
+        device: Union[torch.device, str],
     ):
         self.src = src
         self.tgt = tgt
@@ -337,7 +351,7 @@ class DatasetLoader(tp.Iterable[Batch]):
             self.extract_src = lambda sample: sample["sentence_" + src]
             self.extract_tgt = lambda sample: sample["sentence_" + tgt]
 
-    def __iter__(self) -> tp.Iterator[Batch]:
+    def __iter__(self) -> Iterator[Batch]:
         src_batch, tgt_batch = [], []
         for i, sample in enumerate(self.data):
             if i % self.world_size != self.global_rank:

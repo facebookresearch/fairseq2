@@ -139,10 +139,10 @@ def calling_method(method: str, *args: Any, **kwargs: Any) -> WhenCalledBuilder:
 
 
 def _as_matcher(matcher: Any) -> Matcher:
-    if not isinstance(matcher, Matcher):
-        matcher = hamcrest.is_(matcher)
+    if isinstance(matcher, Matcher):
+        return matcher
 
-    return matcher
+    return hamcrest.is_(matcher)
 
 
 def assert_match(actual: Any, matcher: Any, reason: str = "") -> None:
@@ -186,7 +186,7 @@ def assert_close_to(
         delta = atol + rtol * abs(expected)
     assert_match(
         actual,
-        hamcrest.close_to(expected, delta),
+        hamcrest.close_to(expected, delta),  # type: ignore
     )
 
 
@@ -226,7 +226,7 @@ def assert_raises(
     """
 
     hamcrest.assert_that(
-        func,
+        func,  # type: ignore
         hamcrest.raises(
             exception=exception,
             pattern=pattern,
