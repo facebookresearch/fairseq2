@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Protocol, Tuple, final
+from typing import Any, Dict, List, Optional, Protocol, Tuple, final
 
 import torch
 import torch.nn as nn
@@ -156,6 +156,19 @@ class AttentionWeightHook(Protocol):
             :math:`N` is the batch size, :math:`T` is the target sequence
             length, and :math:`S` is the source sequence length.
         """
+
+
+class StoreAttentionWeights(AttentionWeightHook):
+    """Store the attentions in the given list.
+
+    The owner of this object is responsible for clearing the list, or popping the attentions.
+    """
+
+    def __init__(self, attentions: List[Tensor]):
+        self._attentions = attentions
+
+    def __call__(self, m: MultiheadAttention, attn_weights: Tensor) -> None:
+        self._attentions.append(attn_weights)
 
 
 class MultiheadAttention(Module, ABC):
@@ -532,20 +545,20 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         # (N, T, K_proj) -> (N, T, H, K_h)
         q = q.unflatten(-1, (self.num_heads, -1))
-        k = k.unflatten(-1, (self.num_heads, -1))
         # (N, S, V_proj) -> (N, S, H, V_h)
+        k = k.unflatten(-1, (self.num_heads, -1))
         v = v.unflatten(-1, (self.num_heads, -1))
 
         # (N, T, H, K_h) -> (N, H, T, K_h)
         q = q.transpose(1, 2)
-        k = k.transpose(1, 2)
         # (N, S, H, V_h) -> (N, H, S, V_h)
+        k = k.transpose(1, 2)
         v = v.transpose(1, 2)
 
         # (N, H, T, K_h) -> (N x H, T, K_h)
         q = q.flatten(0, 1)
-        k = k.flatten(0, 1)
         # (N, H, S, V_h) -> (N x H, S, V_h)
+        k = k.flatten(0, 1)
         v = v.flatten(0, 1)
 
         # attn:         (N x H, T, V_h)

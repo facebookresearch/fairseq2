@@ -7,6 +7,7 @@
 import os
 from typing import List, Optional, cast
 
+import numpy
 import torch
 from setuptools import Command, find_packages, setup
 from setuptools.command.install import install as install_base
@@ -167,5 +168,13 @@ setup(
         # build our extension modules.
         "torch==" + torch.__version__,
         "typing_extensions>=4.3.0",
+        # Runtime dependencies
+        "overrides",
+        "numpy==" + numpy.__version__,
+        "sentencepiece",
+        # TODO upgrade to 0.3.0 once they release it
+        "torchtnt @ git+https://github.com/pytorch/tnt.git@1b71aecf3a2fb8204bf6010d3306d5ad9812bafd",
+        "torchsnapshot",
+        "torcheval",
     ],
 )

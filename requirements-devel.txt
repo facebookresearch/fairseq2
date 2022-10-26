@@ -2,5 +2,3 @@
 
 --requirement tests/requirements.txt
 --requirement tools/requirements.txt
-
-numpy==1.23.0

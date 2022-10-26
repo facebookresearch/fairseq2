@@ -21,3 +21,6 @@ wandb/
 
 # Other
 .DS_Store
+
+# Wandb files
+wandb/
