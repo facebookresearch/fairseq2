@@ -90,7 +90,7 @@ set(FAIRSEQ2_SANITIZERS
 
 set_property(CACHE FAIRSEQ2_SANITIZERS PROPERTY STRINGS "" "asan" "ubsan" "tsan")
 
-# By default, we build our CUDA kernels only for the Turing architecture.
+# By default, we build our CUDA kernels only for the Volta architecture.
 if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
     set(CMAKE_CUDA_ARCHITECTURES 70-real 70-virtual)
 endif()
