@@ -10,7 +10,7 @@ set -eo pipefail
 
 function print_usage
 {
-    echo "Usage: run-clang-format [--dry-run] PATHNAME"
+    echo "Usage: run-clang-format [--dry-run] TARGETS"
 }
 
 function exit_with_usage
@@ -27,30 +27,49 @@ function exit_with_error
     exit 1
 }
 
-if [[ $# -eq 0 || $# -gt 2 ]]; then
-    exit_with_error
-fi
-
-if [[ $# -eq 1 ]]; then
-    if [[ $1 == -h || $1 == --help ]]; then
-        exit_with_usage
-    fi
-else
-    if [[ $1 != --dry-run ]]; then
+function main() {
+    if [[ $# -eq 0 ]]; then
         exit_with_error
     fi
 
-    dry_run=true
+    TARGETS=()
+    quiet=0
+    dry_run=0
+    for x in "$@"; do
+  case "$x" in
+    '--dry-run')
+      dry_run=1
+      ;;
 
-    shift
-fi
+    '-q')
+      quiet=1
+      ;;
 
-if [[ $dry_run == true ]]; then
-    opts="--Werror --dry-run --verbose"
-else
-    opts="-i --verbose"
-fi
+    '-'*)
+      exit_with_error
+      ;;
 
-find "$1" \( -type d \( -name '.?*' -or -name 'build' -or -name 'third-party' \) -prune \) -or\
-    \( -type f \( -name '*.cc' -or -name '*.cu' -or -name '*.h' \) -print0 \) |
-        xargs -0 clang-format $opts
+    *)
+      TARGETS+=( "$x" )
+      ;;
+  esac
+done
+
+
+  if (( $dry_run )); then
+      opts="--Werror --dry-run"
+  else
+      opts="-i"
+  fi
+  if (( ! $quiet )); then
+      opts="$opts --verbose"
+  fi
+
+  find "${TARGETS[@]}" \
+      \( -type d \( -name '.?*' -or -name 'build' -or -name 'third-party' \) -prune \) -or \
+      \( -type f \( -name '*.cc' -or -name '*.cu' -or -name '*.h' \) -print0 \) \
+      | xargs -0 clang-format $opts
+
+}
+
+main "$@"

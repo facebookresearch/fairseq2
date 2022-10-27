@@ -1,3 +1,6 @@
+# install-time local constraint file.
+devel-pip.opts
+
 # Byte-Compiled Modules
 __pycache__/
 
@@ -21,6 +24,3 @@ wandb/
 
 # Other
 .DS_Store
-
-# Wandb files
-wandb/
