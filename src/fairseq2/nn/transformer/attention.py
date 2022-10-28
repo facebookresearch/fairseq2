@@ -23,7 +23,8 @@ class AttentionFunction(Protocol):
         dropout_p: float = 0.0,
         training: bool = True,
     ) -> Tuple[Tensor, Tensor]:
-        """
+        """Computes (q, v, k, [m]) attention.
+
         :param queries:
             The queries. *Shape:* :math:`(N,T,K)`, where :math:`N` is the batch
             size, :math:`T` is the target sequence length, and :math:`K` is the
@@ -64,11 +65,40 @@ def scaled_dot_product_attention(
     dropout_p: float = 0.0,
     training: bool = True,
 ) -> Tuple[Tensor, Tensor]:
-    """Computes scaled dot-product attention as described in
+    """Computes (q, v, k, [m]) attention via scaled dot product.
+
+    Computes scaled dot-product attention as described in
     :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`.
 
-    See :class:`AttentionFunction` for the description of the parameters and
-    return values.
+    :param queries:
+        The queries. *Shape:* :math:`(N,T,K)`, where :math:`N` is the batch
+        size, :math:`T` is the target sequence length, and :math:`K` is the
+        key size.
+    :param keys:
+        The keys. *Shape:* :math:`(N,S,K)`, where :math:`N` is the batch
+        size, :math:`S` is the source sequence length, and :math:`K` is the
+        key size.
+    :param values:
+        The values. *Shape:* :math:`(N,S,V)`, where :math:`N` is the batch
+        size, :math:`S` is the source sequence length, and :math:`V` is the
+        value size.
+    :param mask:
+        The float mask that will be added to the attention weights before
+        computing the attention. *Shape:* :math:`(T,S)` or :math:`(N,T,S)`,
+        where :math:`N` is the batch size, :math:`T` is the target sequence
+        length, and :math:`S` is the source sequence length.
+    :param dropout_p:
+        The dropout probability on the attention weights.
+    :param training:
+        If ``True``, applies dropout.
+
+    :returns:
+        - The attentions. *Shape:* :math:`(N,T,V)`, where :math:`N` is the
+          batch size, :math:`T` is the target sequence length, and :math:`V`
+          is the value size.
+        - The attention weights. *Shape:* :math:`(N,T,S)`, where :math:`N`
+          is the batch size, :math:`T` is the target sequence length, and
+          :math:`S` is the source sequence length.
     """
     queries = queries * (queries.size(-1) ** -0.5)
 
