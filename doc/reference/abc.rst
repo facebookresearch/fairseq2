@@ -8,7 +8,6 @@ ABCs and Protocols
     :toctree: generated/abc
     :nosignatures:
 
-    data.DataSource
     nn.PositionalEmbedding
     nn.Projection
     nn.ResettableProjection
