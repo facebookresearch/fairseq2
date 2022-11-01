@@ -16,8 +16,8 @@ class AttentionMaskGenerator(Protocol):
         """
         :param tgt:
             The target for which to generate the mask. *Shape:* :math:`(S,*)`
-            when unbatched, :math:`(S,N,*)` when ``batch_first`` is ``True``, or
-            :math:`(N,S,*)` when ``batch_first`` is ``False``, where :math:`N`
+            when unbatched, :math:`(N,S,*)` when ``batch_first`` is ``True``, or
+            :math:`(S,N,*)` when ``batch_first`` is ``False``, where :math:`N`
             is the batch size and :math:`S` is the sequence length.
         :param batch_first:
             If ``True``, the first dimension of ``tgt`` represents the batch;
@@ -42,8 +42,8 @@ class CausalAttentionMaskGenerator:
         """
         :param tgt:
             The target for which to generate the mask. *Shape:* :math:`(S,*)`
-            when unbatched, :math:`(S,N,*)` when ``batch_first`` is ``True``, or
-            :math:`(N,S,*)` when ``batch_first`` is ``False``, where :math:`N`
+            when unbatched, :math:`(N,S,*)` when ``batch_first`` is ``True``, or
+            :math:`(S,N,*)` when ``batch_first`` is ``False``, where :math:`N`
             is the batch size and :math:`S` is the sequence length.
         :param batch_first:
             If ``True``, the first dimension of ``tgt`` represents the batch;
@@ -59,7 +59,7 @@ class CausalAttentionMaskGenerator:
 
         >>> import torch
         >>>
-        >>> from fairseq2.modules.tranformer import CausalAttentionMaskGenerator
+        >>> from fairseq2.nn.tranformer import CausalAttentionMaskGenerator
         >>>
         >>> g = CausalAttentionMaskGenerator()
         >>> g(torch.empty(4, 10))
