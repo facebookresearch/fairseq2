@@ -1,12 +1,9 @@
 import dataclasses
-import typing as tp
 
 import torch
 
 import fairseq2.nn
 from fairseq2.nn import transformer
-
-Device = tp.Any
 
 
 @dataclasses.dataclass(frozen=True)
@@ -27,47 +24,80 @@ class StandardTransformerBuilder:
     attn_dropout_p: float = 0.1
 
     def build(
-        self, vocab_size: int, device: str, dtype: torch.dtype = torch.float32
+        self,
+        vocab_size: int,
+        device: torch.device,
+        dtype: torch.dtype = torch.float32,
     ) -> "transformer.Transformer":
-        embed = self.build_embeddings(vocab_size, device, dtype)
-        positional_embed = self.build_positional_embeddings(embed.embedding_dim, device)
-        encoder = self.build_encoder(embed, positional_embed, device, dtype)
-        decoder = self.build_decoder(embed, positional_embed, device, dtype)
+        embed = self.build_embeddings(
+            vocab_size=vocab_size,
+            device=device,
+            dtype=dtype,
+        )
+        positional_embed = self.build_positional_embeddings(
+            embedding_dim=embed.embedding_dim,
+            device=device,
+        )
+        encoder = self.build_encoder(
+            embed=embed,
+            positional_embed=positional_embed,
+            device=device,
+            dtype=dtype,
+        )
+        decoder = self.build_decoder(
+            embed=embed,
+            positional_embed=positional_embed,
+            device=device,
+            dtype=dtype,
+        )
 
         # Share the weight matrix between the embedding layers and the pre-softmax
         # score projection as described in the original paper.
         score_proj = fairseq2.nn.TiedProjection(embed.weight)
         return transformer.StandardTransformer(
-            encoder, decoder, score_proj, use_log_softmax=True
+            encoder=encoder,
+            decoder=decoder,
+            score_proj=score_proj,
+            use_log_softmax=True,
         )
 
     def build_embeddings(
-        self, vocab_size: int, device: str, dtype: torch.dtype
+        self,
+        vocab_size: int,
+        device: torch.device,
+        dtype: torch.dtype,
     ) -> fairseq2.nn.Embedding:
         embs = fairseq2.nn.Embedding(
-            vocab_size, self.model_dim, device=device, dtype=dtype
+            num_embed=vocab_size,
+            embedding_dim=self.model_dim,
+            device=device,
+            dtype=dtype,
         )
         return embs
 
     def build_positional_embeddings(
-        self, embedding_dim: int, device: str
+        self,
+        embedding_dim: int,
+        device: torch.device,
     ) -> fairseq2.nn.PositionalEmbedding:
         return fairseq2.nn.SinusoidalPositionalEmbedding(
-            max_seq_len=4096, embedding_dim=self.model_dim, device=device
+            max_seq_len=4096,
+            embedding_dim=self.model_dim,
+            device=device,
         )
 
     def build_encoder(
         self,
         embed: fairseq2.nn.Embedding,
         positional_embed: fairseq2.nn.PositionalEmbedding,
-        device: str,
+        device: torch.device,
         dtype: torch.dtype,
     ) -> "transformer.TransformerEncoder":
         return transformer.StandardTransformerEncoder(
             embed,
             positional_embed,
             [
-                self.build_encoder_layer(i, device, dtype)
+                self.build_encoder_layer(i, device=device, dtype=dtype)
                 for i in range(self.num_layers)
             ],
             embed_dropout_p=self.dropout_p,
@@ -76,9 +106,12 @@ class StandardTransformerBuilder:
         )
 
     def build_encoder_layer(
-        self, layer: int, device: Device, dtype: tp.Any
+        self,
+        layer: int,
+        device: torch.device,
+        dtype: torch.dtype,
     ) -> "transformer.TransformerEncoderLayer":
-        self_attn = self.build_attn(device, dtype)
+        self_attn = self.build_attn(device=device, dtype=dtype)
         ffn = transformer.StandardFeedForwardNetwork(
             model_dim=self.model_dim,
             inner_dim=self.ffn_inner_dim,
@@ -94,7 +127,10 @@ class StandardTransformerBuilder:
         )
 
     def build_ffn(
-        self, layer: int, device: Device, dtype: tp.Any
+        self,
+        layer: int,
+        device: torch.device,
+        dtype: torch.dtype,
     ) -> "transformer.FeedForwardNetwork":
         return transformer.StandardFeedForwardNetwork(
             model_dim=self.model_dim,
@@ -104,11 +140,13 @@ class StandardTransformerBuilder:
         )
 
     def build_attn(
-        self, device: Device, dtype: tp.Any
+        self,
+        device: torch.device,
+        dtype: torch.dtype,
     ) -> "transformer.MultiheadAttention":
         assert (
             self.model_dim % self.num_attn_heads == 0
-        ), "Can't devide model_dim with num_attn_heads !"
+        ), f"Can't divide model_dim ({self.model_dim}) with num_attn_heads ({self.num_attn_heads})!"
 
         mha = transformer.StandardMultiheadAttention(
             model_dim=self.model_dim,
@@ -125,14 +163,14 @@ class StandardTransformerBuilder:
         self,
         embed: fairseq2.nn.Embedding,
         positional_embed: fairseq2.nn.PositionalEmbedding,
-        device: Device,
-        dtype: tp.Any,
+        device: torch.device,
+        dtype: torch.dtype,
     ) -> "transformer.TransformerDecoder":
         return transformer.StandardTransformerDecoder(
             embed,
             positional_embed,
             [
-                self.build_decoder_layer(i, device, dtype)
+                self.build_decoder_layer(i, device=device, dtype=dtype)
                 for i in range(self.num_layers)
             ],
             embed_dropout_p=self.dropout_p,
@@ -141,7 +179,10 @@ class StandardTransformerBuilder:
         )
 
     def build_decoder_layer(
-        self, layer: int, device: Device, dtype: tp.Any
+        self,
+        layer: int,
+        device: torch.device,
+        dtype: torch.dtype,
     ) -> "transformer.TransformerDecoderLayer":
         # Teaser: the next example will mix MoE and distributed decoder layers for
         # demonstration purposes (e.g. ShardedFeedForwardNetwork)
@@ -149,7 +190,7 @@ class StandardTransformerBuilder:
         self_attn = self.build_attn(device=device, dtype=dtype)
         enc_dec_attn = self.build_attn(device=device, dtype=dtype)
 
-        ffn = self.build_ffn(layer, device, dtype)
+        ffn = self.build_ffn(layer, device=device, dtype=dtype)
 
         return transformer.StandardTransformerDecoderLayer(
             self_attn,

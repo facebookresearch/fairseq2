@@ -8,6 +8,7 @@ import math
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Iterable, Optional, final
 
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from overrides import final as finaloverride
@@ -139,6 +140,7 @@ class StandardTransformerDecoder(TransformerDecoder):
         embed: Embedding,
         positional_embed: Optional[PositionalEmbedding],
         layers: Iterable[TransformerDecoderLayer],
+        *,
         no_scale_embed: bool = False,
         norm_embed: bool = False,
         embed_dropout_p: float = 0.1,
@@ -146,7 +148,7 @@ class StandardTransformerDecoder(TransformerDecoder):
         layer_drop_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         norm_eps: float = 1e-5,
-        device: Any = None,
+        device: Optional[torch.device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
         """

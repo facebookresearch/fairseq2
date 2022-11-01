@@ -81,9 +81,19 @@ class TransformerEncoder(Module, ABC):
 
 class InternalDimProjection(ResettableProjection):
     def __init__(
-        self, inp_dim: int, out_dim: int, device: Any, dtype: Optional[DataType]
+        self,
+        inp_dim: int,
+        out_dim: int,
+        device: Any,
+        dtype: Optional[DataType],
     ) -> None:
-        super().__init__(inp_dim, out_dim, bias=True, device=device, dtype=dtype)
+        super().__init__(
+            inp_dim,
+            out_dim,
+            bias=True,
+            device=device,
+            dtype=dtype,
+        )
 
     @override
     def reset_parameters(self) -> None:
@@ -114,6 +124,7 @@ class StandardTransformerEncoder(TransformerEncoder):
         embed: Embedding,
         positional_embed: Optional[PositionalEmbedding],
         layers: Iterable[TransformerEncoderLayer],
+        *,
         no_scale_embed: bool = False,
         norm_embed: bool = False,
         embed_dropout_p: float = 0.1,

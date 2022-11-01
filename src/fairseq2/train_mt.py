@@ -17,6 +17,7 @@ import torch.nn.functional as F
 import torchtnt.runner
 import torchtnt.runner.callbacks
 import torchtnt.utils
+from overrides import overrides
 from torch import Tensor
 from torcheval.metrics import Mean  # type: ignore
 from torchtnt.loggers.logger import MetricLogger
@@ -208,8 +209,12 @@ class MachineTranslationTask(TrainUnit[Batch], EvalUnit[Batch], PredictUnit[Batc
 
 
 class ModelBuilder(transformer.StandardTransformerBuilder):
+    @overrides
     def build_embeddings(
-        self, vocab_size: int, device: str, dtype: torch.dtype
+        self,
+        vocab_size: int,
+        device: torch.device,
+        dtype: torch.dtype,
     ) -> fairseq2.nn.Embedding:
         init = functools.partial(torch.nn.init.uniform_, a=-0.05, b=0.05)
         embs = fairscale_layers.ParallelEmbedding(
@@ -219,8 +224,11 @@ class ModelBuilder(transformer.StandardTransformerBuilder):
             embs = embs.to(device)
         return embs  # type: ignore
 
+    @overrides
     def build_attn(
-        self, device: Any, dtype: Any
+        self,
+        device: torch.device,
+        dtype: torch.dtype,
     ) -> transformer.StandardMultiheadAttention:
         assert (
             self.model_dim % self.num_attn_heads == 0
@@ -406,7 +414,7 @@ def main(
 
     tokenizer = SpmTokenizer.from_file(spm_path, batch_first=BATCH_FIRST)
     builder = get_small_model() if small else get_large_model()
-    model = builder.build(tokenizer.vocab_size(), "cuda:0")
+    model = builder.build(tokenizer.vocab_size(), torch.device("cuda:0"))
     if wandb_project:
         logger: MetricLogger = fairseq2.callbacks.WandbLogger(wandb_project, builder)
     else:

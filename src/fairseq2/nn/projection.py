@@ -6,7 +6,7 @@
 
 import math
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, final
+from typing import Dict, Optional, final
 
 import torch
 import torch.nn as nn
@@ -72,7 +72,7 @@ class ResettableProjection(Projection):
         inp_dim: int,
         out_dim: int,
         bias: bool = False,
-        device: Any = None,
+        device: Optional[torch.device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
         """
