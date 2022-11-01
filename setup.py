@@ -4,8 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import os
-from typing import List, Optional, cast
+from os import path
+from typing import List, Optional
 
 import torch
 from setuptools import Command, find_packages, setup
@@ -42,6 +42,9 @@ class install(install_base):
 # We inject our pre-built extension modules and optionally other related
 # artifacts into the distribution by installing them via CMake.
 class install_cmake(Command):
+    cmake_build_dir: str
+    install_dir: str
+    is_standalone: bool
     verbose: bool
 
     description = "install CMake artifacts"
@@ -54,7 +57,7 @@ class install_cmake(Command):
     def initialize_options(self) -> None:
         self.cmake_build_dir = "build"
 
-        self.install_dir: Optional[str] = None
+        self.install_dir = None  # type: ignore[assignment]
 
     def finalize_options(self) -> None:
         self.ensure_dirname("cmake_build_dir")
@@ -69,7 +72,7 @@ class install_cmake(Command):
 
     def _should_install_standalone(self) -> bool:
         try:
-            f = open(os.path.join(self.cmake_build_dir, "CMakeCache.txt"))
+            f = open(path.join(self.cmake_build_dir, "CMakeCache.txt"))
         except FileNotFoundError:
             raise FileError("CMakeCache.txt is not found. Run CMake first.")
 
@@ -95,7 +98,7 @@ class install_cmake(Command):
         if component:
             cmd += ["--component", component]
 
-        cmd += ["--prefix", cast(str, self.install_dir), "--strip"]
+        cmd += ["--prefix", self.install_dir, "--strip"]
 
         if self.verbose:
             cmd += ["--verbose"]
@@ -105,26 +108,24 @@ class install_cmake(Command):
     def get_outputs(self) -> List[str]:
         outputs = []
 
-        install_cmd = self.get_finalized_command("install")
-
-        # We have to strip the file paths to the installation root directory.
-        if os.path.isabs(install_cmd.root):  # type: ignore[attr-defined]
-            strip_idx = 0
-        else:
-            strip_idx = len(os.getcwd()) + 1
-
-        # We extract the list of files from the CMake install manifests.
-        def load_manifest(file: str) -> None:
-            with open(os.path.join(self.cmake_build_dir, file)) as fp:
-                for line in fp:
-                    outputs.append(line[strip_idx:].rstrip())
-
         if self.is_standalone:
-            load_manifest("install_manifest.txt")
+            manifests = ["install_manifest.txt"]
+        else:
+            manifests = []
 
-        load_manifest("install_manifest_python_modules.txt")
+        manifests.append("install_manifest_python_modules.txt")
 
-        return outputs
+        # We have to strip the file paths to the installation directory to be
+        # consistent with the rest of the install commands.
+        lstrip_idx = len(path.abspath(self.install_dir)) + 1
+
+        # We extract the list of installed files from the CMake manifests.
+        for m in manifests:
+            with open(path.join(self.cmake_build_dir, m)) as fp:
+                for pathname in fp:
+                    outputs.append(pathname[lstrip_idx:].rstrip())
+
+        return [path.join(self.install_dir, o) for o in outputs]
 
     def get_inputs(self) -> List[str]:
         # We take no input from other commands.
@@ -171,7 +172,7 @@ setup(
         # build our extension modules.
         "torch==" + torch.__version__,
         "torcheval",
-        # TODO upgrade to 0.3.0 once they release it
+        # TODO: Upgrade to 0.3.0 once released.
         "torchtnt @ git+https://github.com/pytorch/tnt.git@1b71aecf3a2fb8204bf6010d3306d5ad9812bafd",
         "torchsnapshot",
         "typing_extensions~=4.3",
