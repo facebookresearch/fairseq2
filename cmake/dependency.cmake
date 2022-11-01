@@ -15,9 +15,23 @@ endfunction()
 function(fairseq2_find_package package version)
     set(source_var FAIRSEQ2_${package}_SOURCE)
 
+    # Define the package specific `FAIRSEQ2_<PACKAGE>_SOURCE` cache variable.
+    set(${source_var}
+        #VALUE
+            "DEFAULT"
+        #TYPE
+            CACHE STRING
+        #DESCRIPTION
+            "Instructs the build system on how to resolve ${package}."
+    )
+    set_property(CACHE ${source_var} PROPERTY
+        STRINGS
+            "DEFAULT" "AUTO" "SYSTEM" "BUNDLED"
+    )
+
     # If the user has not specified an individual source for the package, use
     # the global setting.
-    if(NOT DEFINED ${source_var})
+    if(${source_var} STREQUAL "DEFAULT")
         set(source_var FAIRSEQ2_DEPENDENCY_SOURCE)
     endif()
 
@@ -44,7 +58,7 @@ function(fairseq2_find_package package version)
     endif()
 
     # Lastly, if the source is `BUNDLED`, do not check the system paths and
-    # directly use the source code in the third-party directory.
+    # directly use the project in the third-party directory.
     if(source STREQUAL "BUNDLED")
         fairseq2_add_third_party(${package})
 

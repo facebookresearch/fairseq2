@@ -13,7 +13,7 @@ function(fairseq2_find_fmt version)
     fairseq2_find_package(fmt ${version})
 
     # If we are not using the bundled fmt, skip the rest.
-    if(NOT DEFINED FMT_SOURCE_DIR)
+    if(NOT FMT_SOURCE_DIR)
         return()
     endif()
 

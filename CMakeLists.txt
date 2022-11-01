@@ -130,7 +130,7 @@ fairseq2_add_third_party(natsort)
 if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
     fairseq2_find_package(Catch2 3.1.1)
 
-    if(NOT DEFINED Catch2_SOURCE_DIR)
+    if(NOT Catch2_SOURCE_DIR)
         include(Catch)
     else()
         include(${Catch2_SOURCE_DIR}/extras/Catch.cmake)
