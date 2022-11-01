@@ -22,8 +22,7 @@ def log_prob(
     *,
     pad: int = Tokenizer.PAD,
 ) -> Tensor:
-    """
-    Compute the log-probability of the inputs.
+    """Compute the log-probability of the inputs.
 
     Assumes [batch, value] shape.
 
@@ -45,8 +44,7 @@ def unk_penalty(
     *,
     unk: int = Tokenizer.UNK,
 ) -> Tensor:
-    """
-    Penalize the unknown token by `penalty`.
+    """Penalize the unknown token by `penalty`.
 
     Assumes [batch, value] shape.
     Makes a copy.
@@ -67,8 +65,7 @@ def unk_penalty_(
     *,
     unk: int = Tokenizer.UNK,
 ) -> None:
-    """
-    Penalize the unknown token in-place.
+    """Penalize the unknown token in-place.
 
     Assumes [batch, value] shape.
 
@@ -84,8 +81,7 @@ def prevent_eos(
     *,
     eos: int = Tokenizer.EOS,
 ) -> Tensor:
-    """
-    Prevent the EOS token from being selected by forcing it to -inf.
+    """Prevent the EOS token from being selected by forcing it to -inf.
 
     Assumes [batch, value] shape.
     Makes a copy.
@@ -104,8 +100,8 @@ def prevent_eos_(
     *,
     eos: int = Tokenizer.EOS,
 ) -> None:
-    """
-    Prevent the EOS token from being selected by forcing it to -inf in-place.
+    """Prevent the EOS token from being selected by forcing it to -inf in-
+    place.
 
     Assumes [batch, value] shape.
 
@@ -120,8 +116,7 @@ def force_eos(
     *,
     eos: int = Tokenizer.EOS,
 ) -> Tensor:
-    """
-    Force all log probs except the EOS token to -inf.
+    """Force all log probs except the EOS token to -inf.
 
     :param lprobs: the probs.
     :param eos: the EOS token.
@@ -137,8 +132,7 @@ def force_eos_(
     *,
     eos: int = Tokenizer.EOS,
 ) -> None:
-    """
-    Force all log probs except the EOS token to -inf.
+    """Force all log probs except the EOS token to -inf.
 
     :param lprobs: the probs.
     :param eos: the EOS token.
@@ -189,7 +183,8 @@ class Search(Generic[SearchState]):
         ...
 
     def log_prob(self, dec_out: Tensor) -> Tensor:
-        """Converts the decoder output and convert it to log probs of the next token.
+        """Converts the decoder output and convert it to log probs of the next
+        token.
 
         This is a good place to implement eg:
             - temperature sampling,

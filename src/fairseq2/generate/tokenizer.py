@@ -101,6 +101,7 @@ def _make_batch(
     dtype: torch.dtype = torch.int64,
 ) -> Tensor:
     """Convert a list of token-index list into a padded 2d tensor.
+
     Note: eos/bos are supposed to be already added by sentencepiece
     """
     size = max(len(v) for v in values)

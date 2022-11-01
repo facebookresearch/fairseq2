@@ -20,8 +20,7 @@ log = logging.getLogger(__file__)
 
 
 class WriteCheckpoint(Callback):
-    """
-    A callback to write prediction outputs to a CSV file.
+    """A callback to write prediction outputs to a CSV file.
 
     This callback provides an interface to simplify writing outputs during prediction
     into a CSV file. This callback must be extended with an implementation for

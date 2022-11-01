@@ -50,9 +50,8 @@ def hide_module_tracebacks(module: typing.Any, mode: bool = True) -> None:
 
 
 def hide_tracebacks(mode: bool = True) -> None:
-    """
-    Hint that some unittest stacks (unittest, pytest) should remove
-    frames from tracebacks that include this module.
+    """Hint that some unittest stacks (unittest, pytest) should remove frames
+    from tracebacks that include this module.
 
     :param mode: optional, the traceback mode.
     """
@@ -146,8 +145,7 @@ def _as_matcher(matcher: Any) -> Matcher:
 
 
 def assert_match(actual: Any, matcher: Any, reason: str = "") -> None:
-    """
-    Asserts that the actual value matches the matcher.
+    """Asserts that the actual value matches the matcher.
 
     Similar to hamcrest.assert_that(), but if the matcher is not a Matcher,
     will fallback to ``hamcrest.is_(matcher)`` rather than boolean matching.
@@ -171,8 +169,7 @@ def assert_close_to(
     rtol: SupportsFloat = 1e-05,
     atol: SupportsFloat = 1e-08,
 ) -> None:
-    """
-    Asserts that two values are close to each other.
+    """Asserts that two values are close to each other.
 
     :param actual: the actual value.
     :param expected: the expected value.
@@ -191,8 +188,7 @@ def assert_close_to(
 
 
 def assert_true(actual: Any, reason: str = "") -> None:
-    """
-    Asserts that the actual value is truthy.
+    """Asserts that the actual value is truthy.
 
     :param actual: the value to match.
     :param reason: Optional explanation to include in failure description.
@@ -201,8 +197,7 @@ def assert_true(actual: Any, reason: str = "") -> None:
 
 
 def assert_false(actual: Any, reason: str = "") -> None:
-    """
-    Asserts that the actual value is falsey.
+    """Asserts that the actual value is falsey.
 
     :param actual: the value to match.
     :param reason: Optional explanation to include in failure description.
@@ -216,8 +211,8 @@ def assert_raises(
     pattern: Optional[str] = None,
     matching: Any = None,
 ) -> None:
-    """
-    Utility wrapper for ``hamcrest.assert_that(func, hamcrest.raises(...))``.
+    """Utility wrapper for ``hamcrest.assert_that(func,
+    hamcrest.raises(...))``.
 
     :param func: the function to call.
     :param exception: the exception class to expect.
@@ -243,8 +238,7 @@ def ignore_warnings() -> Generator[None, None, None]:
 
 
 def assert_tensor_views(*views: torch.Tensor) -> None:
-    """
-    Assert that each tensor is a view of the same storage..
+    """Assert that each tensor is a view of the same storage..
 
     :param views: a series of child Tensors which must all be views of source.
     """
@@ -262,8 +256,8 @@ def assert_tensor_views(*views: torch.Tensor) -> None:
 def assert_tensor_storage_differs(
     tensor: torch.Tensor, reference: torch.Tensor
 ) -> None:
-    """
-    Assert that two tensors are not views of each other, and have different storage.
+    """Assert that two tensors are not views of each other, and have different
+    storage.
 
     :param tensor: the tensor.
     :param reference: the reference tensor.
@@ -275,8 +269,8 @@ def assert_tensor_storage_differs(
 
 
 class TensorStructureMatcher(BaseMatcher):
-    """
-    PyHamcrest matcher for comparing the structure of a tensor to an exemplar.
+    """PyHamcrest matcher for comparing the structure of a tensor to an
+    exemplar.
 
     Matches:
       - device
@@ -323,8 +317,8 @@ class TensorStructureMatcher(BaseMatcher):
 def matches_tensor_structure(
     expected: TensorConvertable,
 ) -> TensorStructureMatcher:
-    """
-    Construct a matcher for comparing the structure of a tensor to an exemplar.
+    """Construct a matcher for comparing the structure of a tensor to an
+    exemplar.
 
     Matches on:
       - device
@@ -341,8 +335,8 @@ def assert_tensor_structure(
     actual: torch.Tensor,
     expected: TensorConvertable,
 ) -> None:
-    """
-    Assert that the `actual` matches the structure (not data) of the `expected`.
+    """Assert that the `actual` matches the structure (not data) of the
+    `expected`.
 
     :param actual: a tensor.
     :param expected: an expected structure.
@@ -354,8 +348,8 @@ def assert_tensor_structure(
 
 
 class TensorMatcher(TensorStructureMatcher):
-    """
-    PyHamcrest matcher for comparing the structure and data a tensor to an exemplar.
+    """PyHamcrest matcher for comparing the structure and data a tensor to an
+    exemplar.
 
     Matches:
       - device
@@ -451,8 +445,7 @@ def matches_tensor(
     expected: TensorConvertable,
     close: bool = False,
 ) -> TensorMatcher:
-    """
-    Returns a matcher for structure and value of a Tensor.
+    """Returns a matcher for structure and value of a Tensor.
 
     :param expected: the expected Tensor.
     :param close: should *close* values be acceptable?
@@ -467,8 +460,7 @@ def assert_tensor_equals(
     close: bool = False,
     view_of: typing.Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
-    """
-    Assert that the `actual` tensor equals the `expected` tensor.
+    """Assert that the `actual` tensor equals the `expected` tensor.
 
     :param actual: the actual tensor.
     :param expected: the value (to coerce to a Tensor) to compare to.
@@ -492,8 +484,8 @@ def assert_tensor_equals(
 def match_tensor_sequence(
     *expected: TensorConvertable,
 ) -> Matcher:
-    """
-    Returns a matcher which expects a sequence that matches the tensors.
+    """Returns a matcher which expects a sequence that matches the tensors.
+
     :param expected: the expected tensors.
     """
     return hamcrest.contains_exactly(*[matches_tensor(e) for e in expected])
@@ -504,8 +496,8 @@ def assert_tensor_sequence_equals(
     *expected: TensorConvertable,
     view_of: typing.Optional[torch.Tensor] = None,
 ) -> typing.Sequence[torch.Tensor]:
-    """
-    Assert that the `actual` is a sequence that equals the given `expected` tensor values.
+    """Assert that the `actual` is a sequence that equals the given `expected`
+    tensor values.
 
     :param actual: the `actual` to test.
     :param expected: the expected values.
@@ -523,8 +515,7 @@ def assert_tensor_sequence_equals(
 
 @contextlib.contextmanager
 def reset_generator_seed(seed: int = 3 * 17 * 53 + 1) -> typing.Iterator:
-    """
-    Context manager which resets the `torch.manual_seed()` seed on entry.
+    """Context manager which resets the `torch.manual_seed()` seed on entry.
 
     :param seed: optional seed.
     """

@@ -7,8 +7,7 @@ from tests import tensor_matchers as tm
 
 
 def throw(exception: Exception) -> NoReturn:
-    """
-    Throw an exception, useful inside a lambad.
+    """Throw an exception, useful inside a lambad.
 
     :param exception: the exception.
     """

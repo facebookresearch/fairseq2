@@ -10,7 +10,8 @@ from torchtnt.utils import get_global_rank
 
 
 def _load_conf(config: tp.Any) -> tp.Any:
-    """wandb.init doesn't handle dataclasses for config, convert them to dict."""
+    """wandb.init doesn't handle dataclasses for config, convert them to
+    dict."""
     if isinstance(config, dict):
         return {k: _load_conf(v) for k, v in config.items()}
     if dataclasses.is_dataclass(config):
@@ -78,8 +79,8 @@ class WandbLogger(MetricLogger):
         self._wandb.log(payload, step)
 
     def close(self) -> None:
-        """
-        Close log resource, flushing if necessary.
+        """Close log resource, flushing if necessary.
+
         Logs should not be written after `close` is called.
         """
         if self._wandb is None:
@@ -89,8 +90,8 @@ class WandbLogger(MetricLogger):
 
 
 class WandbCsvWriter(Callback):
-    """
-    A callback to write prediction outputs to a W&B table. This reuse the torchtnt.BaseCSVWriter API.
+    """A callback to write prediction outputs to a W&B table. This reuse the
+    torchtnt.BaseCSVWriter API.
 
     This callback provides an interface to simplify writing outputs during prediction
     into a CSV file. This callback must be extended with an implementation for

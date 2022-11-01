@@ -21,5 +21,6 @@ class TestCase(TestCaseBase):
     device = torch.device("cpu")
 
     def assertAllClose(self, a: Tensor, b: Tensor) -> None:
-        """Asserts if ``a`` and ``b`` are element-wise equal within a tolerance."""
+        """Asserts if ``a`` and ``b`` are element-wise equal within a
+        tolerance."""
         torch.testing.assert_close(a, b)

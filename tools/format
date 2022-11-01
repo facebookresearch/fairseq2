@@ -9,6 +9,9 @@ set -eo pipefail
 WORKSPACE_ROOT_DIR="$(cd "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null 2>&1 && pwd)"
 cd $WORKSPACE_ROOT_DIR || exit 1
 
+# docformatter has a bug, and won't read --exclude from its config files.
+docformatter -i . --exclude .venv third-party
+
 isort .
 
 black .

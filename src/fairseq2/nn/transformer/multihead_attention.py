@@ -161,7 +161,8 @@ class AttentionWeightHook(Protocol):
 class StoreAttentionWeights(AttentionWeightHook):
     """Store the attentions in the given list.
 
-    The owner of this object is responsible for clearing the list, or popping the attentions.
+    The owner of this object is responsible for clearing the list, or
+    popping the attentions.
     """
 
     def __init__(self, attentions: List[Tensor]):
