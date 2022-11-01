@@ -1,5 +1,4 @@
 cmake==3.21.0
 ninja==1.10.2
-numpy==1.23.0
 setuptools==65.5.0
 wheel==0.37.1
