@@ -7,7 +7,6 @@
 import os
 from typing import List, Optional, cast
 
-import numpy
 import torch
 from setuptools import Command, find_packages, setup
 from setuptools.command.install import install as install_base
@@ -162,22 +161,20 @@ setup(
     zip_safe=False,
     python_requires=">=3.8",
     install_requires=[
-        "overrides==7.3.1",
+        "func_argparse~=1.1",
+        "numpy~=1.23",
+        "omegaconf~=2.2",
+        "overrides~=7.3",
+        "sentencepiece~=0.1",
         # PyTorch has no ABI compatibility between releases; this means we have
         # to ensure that we depend on the exact same version that was used to
         # build our extension modules.
         "torch==" + torch.__version__,
-        "typing_extensions>=4.3.0",
-        # Runtime dependencies
-        "func_argparse",
-        "omegaconf",
-        "overrides",
-        "numpy==" + numpy.__version__,
-        "sentencepiece",
+        "torcheval",
         # TODO upgrade to 0.3.0 once they release it
         "torchtnt @ git+https://github.com/pytorch/tnt.git@1b71aecf3a2fb8204bf6010d3306d5ad9812bafd",
         "torchsnapshot",
-        "torcheval",
-        "wandb",
+        "typing_extensions~=4.3",
+        "wandb~=0.13",
     ],
 )

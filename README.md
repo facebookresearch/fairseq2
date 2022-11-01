@@ -65,7 +65,7 @@ fairseq2 has a small set of prerequisites. You can install them (in your virtual
 environment) via pip:
 
 ```
-pip install -r requirements.txt
+pip install -r requirements-build.txt
 ```
 
 If you plan to play with or contribute to fairseq2, you should instead use:
