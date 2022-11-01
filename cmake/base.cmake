@@ -9,16 +9,10 @@ include_guard(DIRECTORY)
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
 
-function(fairseq2_add_third_party)
-    foreach(project IN ITEMS ${ARGV})
-        add_subdirectory(${PROJECT_SOURCE_DIR}/third-party/${project} EXCLUDE_FROM_ALL)
-    endforeach()
-endfunction()
-
 function(fairseq2_add_target target)
     cmake_parse_arguments(arg
         #OPTIONS
-            "EXECUTABLE;LIBRARY;SHARED_LIBRARY;STATIC_LIBRARY;PYTHON_MODULE"
+            "EXECUTABLE;LIBRARY;SHARED_LIBRARY;STATIC_LIBRARY;TEST_EXECUTABLE;PYTHON_MODULE"
         #KEYWORDS
             "OUTPUT_NAME;PYTHON_MODULE_LOCATION"
         #MULTI_VALUE_KEYWORDS
@@ -27,7 +21,7 @@ function(fairseq2_add_target target)
             ${ARGN}
     )
 
-    if(arg_EXECUTABLE)
+    if(arg_EXECUTABLE OR arg_TEST_EXECUTABLE)
         add_executable(${target})
     elseif(arg_PYTHON_MODULE)
         if(NOT COMMAND Python3_add_library)
@@ -86,7 +80,7 @@ function(fairseq2_add_target target)
 endfunction()
 
 function(__fairseq2_set_properties)
-    if(arg_EXECUTABLE)
+    if(arg_EXECUTABLE OR arg_TEST_EXECUTABLE)
         set_target_properties(${target} PROPERTIES
             RUNTIME_OUTPUT_DIRECTORY
                 ${PROJECT_BINARY_DIR}/bin
@@ -160,24 +154,24 @@ function(__fairseq2_set_properties)
     endif()
 
     if(arg_PYTHON_MODULE AND FAIRSEQ2_EDITABLE_PYTHON)
-        # We have to use absolute rpaths so that the in-source copy of the Python
+        # We have to use absolute rpath so that the in-source copy of the Python
         # extension module can find its dependencies under the build tree.
-        set_target_properties(${target} PROPERTIES BUILD_RPATH_USE_ORIGIN OFF)
+        set_property(TARGET ${target} PROPERTY BUILD_RPATH_USE_ORIGIN OFF)
 
         # Copy the Python extension module to the source tree for
         # `pip install --editable` to work.
-        add_custom_target(${target}_devel ALL
+        add_custom_target(${target}_editable ALL
             COMMAND
                 ${CMAKE_COMMAND} -E copy_if_different
                     "$<TARGET_FILE:${target}>" "${py_module_source_dir}"
             VERBATIM
         )
 
-        add_dependencies(${target}_devel ${target})
+        add_dependencies(${target}_editable ${target})
     endif()
 
     if(arg_OUTPUT_NAME)
-        set_target_properties(${target} PROPERTIES OUTPUT_NAME ${arg_OUTPUT_NAME})
+        set_property(TARGET ${target} PROPERTY OUTPUT_NAME ${arg_OUTPUT_NAME})
     endif()
 endfunction()
 
@@ -278,7 +272,7 @@ function(__fairseq2_set_link_options)
         if(NOT arg_PYTHON_MODULE)
             target_link_options(${target} PRIVATE LINKER:-undefined,error)
         else()
-            target_link_options(${target} PRIVATE LINKER:-undefined,dynamic_lookup)
+            target_link_options(${target} PRIVATE LINKER:-undefined,dynamic_lookup LINKER:-no_fixup_chains)
         endif()
 
         if(FAIRSEQ2_TREAT_WARNINGS_AS_ERRORS)
@@ -289,7 +283,7 @@ function(__fairseq2_set_link_options)
     endif()
 
     if(FAIRSEQ2_PERFORM_LTO)
-        set_target_properties(${target} PROPERTIES INTERPROCEDURAL_OPTIMIZATION ON)
+        set_property(TARGET ${target} PROPERTY INTERPROCEDURAL_OPTIMIZATION ON)
 
         if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
             __fairseq2_set_macos_lto_path()
@@ -496,7 +490,7 @@ function(__fairseq2_set_install_rpath)
         set(rpath .)
     endif()
 
-    set_target_properties(${target} PROPERTIES INSTALL_RPATH ${rpath_origin}/${rpath})
+    set_property(TARGET ${target} PROPERTY INSTALL_RPATH ${rpath_origin}/${rpath})
 endfunction()
 
 function(fairseq2_install_package)

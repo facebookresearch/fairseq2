@@ -44,7 +44,7 @@ function(fairseq2_find_torch version)
     # Since we don't really have cuDNN, we have to ensure that CMake does not
     # attempt to link against it.
     if(PROJECT_IS_TOP_LEVEL AND TARGET caffe2::cudnn-public)
-        set_property(TARGET caffe2::cudnn-public PROPERTY INTERFACE_LINK_LIBRARIES)
+        set_property(TARGET caffe2::cudnn-public PROPERTY INTERFACE_LINK_LIBRARIES "")
     endif()
 
     __fairseq2_find_torch_python()

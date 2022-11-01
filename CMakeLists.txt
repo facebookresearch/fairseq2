@@ -18,8 +18,9 @@ if(PROJECT_IS_TOP_LEVEL)
     include(CTest)
 endif()
 
+include(cmake/base.cmake)
+include(cmake/dependency.cmake)
 include(cmake/fmt.cmake)
-include(cmake/functions.cmake)
 include(cmake/summary.cmake)
 include(cmake/torch.cmake)
 
@@ -63,21 +64,32 @@ option(FAIRSEQ2_EDITABLE_PYTHON
     #VALUE
         ON
 )
-option(FAIRSEQ2_USE_SYSTEM_FMT
-    #DESCRIPTION
-        "Uses CMake's `find_package()` to locate fmt (a.k.a. libfmt)."
+
+set(FAIRSEQ2_DEPENDENCY_SOURCE
     #VALUE
-        OFF
+        "BUNDLED"
+    #TYPE
+        CACHE STRING
+    #DESCRIPTION
+        "Instructs the build system on how to resolve the dependencies."
 )
+set_property(CACHE FAIRSEQ2_DEPENDENCY_SOURCE PROPERTY
+    STRINGS
+        "AUTO" "SYSTEM" "BUNDLED"
+)
+
 set(FAIRSEQ2_USE_CUDA
     #VALUE
         "AUTO"
     #TYPE
         CACHE STRING
     #DESCRIPTION
-        "Uses CUDA. If not specified (i.e. AUTO), uses CUDA if PyTorch supports it.")
-
-set_property(CACHE FAIRSEQ2_USE_CUDA PROPERTY STRINGS "AUTO" "ON" "OFF")
+        "Uses CUDA. If not specified (i.e. AUTO), uses CUDA if PyTorch supports it."
+)
+set_property(CACHE FAIRSEQ2_USE_CUDA PROPERTY
+    STRINGS
+        "AUTO" "ON" "OFF"
+)
 
 set(FAIRSEQ2_SANITIZERS
     #VALUE
@@ -87,8 +99,10 @@ set(FAIRSEQ2_SANITIZERS
     #DESCRIPTION
         "Sanitizers to use. Supported values are 'asan', 'ubsan', and 'tsan'."
 )
-
-set_property(CACHE FAIRSEQ2_SANITIZERS PROPERTY STRINGS "" "asan" "ubsan" "tsan")
+set_property(CACHE FAIRSEQ2_SANITIZERS PROPERTY
+    STRINGS
+        "" "asan" "ubsan" "tsan"
+)
 
 # By default, we build our CUDA kernels only for the Volta architecture.
 if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
@@ -107,13 +121,21 @@ endif()
 
 fairseq2_find_torch(1.11)
 
-if(FAIRSEQ2_USE_SYSTEM_FMT)
-    find_package(fmt 9.1.0 REQUIRED)
-else()
-    fairseq2_add_fmt()
-endif()
+fairseq2_find_fmt(9.1.0)
 
-fairseq2_add_third_party(pybind11 natsort)
+fairseq2_find_package(pybind11 2.10.0)
+
+fairseq2_add_third_party(natsort)
+
+if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
+    fairseq2_find_package(Catch2 3.1.1)
+
+    if(NOT DEFINED Catch2_SOURCE_DIR)
+        include(Catch)
+    else()
+        include(${Catch2_SOURCE_DIR}/extras/Catch.cmake)
+    endif()
+endif()
 
 # ------------------------------------------------------------
 # CUDA
@@ -146,7 +168,7 @@ if(FAIRSEQ2_USE_CUDA)
 
     if(NOT CUDAToolkit_VERSION_MINOR EQUAL TORCH_CUDA_VERSION_MINOR)
         message(WARNING
-            "fairseq2 will use the CUDA Toolkit ${CUDAToolkit_VERSION} that has a minor version mismatch with CUDA ${TORCH_CUDA_VERSION} that was used to build PyTorch. Most likely this shouldn't be a problem."
+            "fairseq2 will use the CUDA Toolkit ${CUDAToolkit_VERSION} which has a minor version mismatch with CUDA ${TORCH_CUDA_VERSION} that was used to build PyTorch. Most likely this should not be a problem."
         )
     endif()
 endif()
@@ -158,7 +180,7 @@ endif()
 add_subdirectory(src/fairseq2)
 
 if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
-    # TODO: Add tests.
+    add_subdirectory(tests)
 endif()
 
 # ------------------------------------------------------------

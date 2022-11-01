@@ -6,11 +6,16 @@
 
 include_guard(DIRECTORY)
 
-function(fairseq2_add_fmt)
-    # Treat fmt's include files as system headers.
+function(fairseq2_find_fmt version)
+    # Treat bundled fmt as a system dependency.
     set(FMT_SYSTEM_HEADERS ON)
 
-    fairseq2_add_third_party(fmt)
+    fairseq2_find_package(fmt ${version})
+
+    # If we are not using the bundled fmt, skip the rest.
+    if(NOT DEFINED FMT_SOURCE_DIR)
+        return()
+    endif()
 
     target_compile_features(fmt PRIVATE cxx_std_17)
 
