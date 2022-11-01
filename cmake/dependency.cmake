@@ -12,7 +12,7 @@ function(fairseq2_add_third_party)
     endforeach()
 endfunction()
 
-function(fairseq2_find_package package version)
+function(fairseq2_find_package package)
     set(source_var FAIRSEQ2_${package}_SOURCE)
 
     # Define the package specific `FAIRSEQ2_<PACKAGE>_SOURCE` cache variable.
@@ -40,7 +40,7 @@ function(fairseq2_find_package package version)
     # If the source is `SYSTEM`, try to find the package only in system paths
     # using `find_package()`.
     if(source STREQUAL "SYSTEM")
-        find_package(${package} ${version} REQUIRED)
+        find_package(${package} ${ARGN} REQUIRED)
 
         return()
     endif()
@@ -48,7 +48,7 @@ function(fairseq2_find_package package version)
     # If the source is `AUTO`, try to find the package in system paths similar
     # to `SYSTEM`, but fall back to the third-party directory if it fails.
     if(source STREQUAL "AUTO")
-        find_package(${package} ${version} QUIET)
+        find_package(${package} ${ARGN} QUIET)
 
         if(${package}_FOUND)
             return()

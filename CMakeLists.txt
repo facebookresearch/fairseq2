@@ -128,13 +128,9 @@ fairseq2_find_package(pybind11 2.10.0)
 fairseq2_add_third_party(natsort)
 
 if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
-    fairseq2_find_package(Catch2 3.1.1)
+    fairseq2_find_package(gtest)
 
-    if(NOT Catch2_SOURCE_DIR)
-        include(Catch)
-    else()
-        include(${Catch2_SOURCE_DIR}/extras/Catch.cmake)
-    endif()
+    include(GoogleTest)
 endif()
 
 # ------------------------------------------------------------

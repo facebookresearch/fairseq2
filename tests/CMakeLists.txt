@@ -11,7 +11,6 @@ target_sources(tests
         native/utils/test_foo.cc
 )
 
-target_link_libraries(tests PRIVATE Catch2::Catch2WithMain fairseq2)
+target_link_libraries(tests PRIVATE GTest::gtest_main fairseq2)
 
-# Register the Catch2 tests with CTest.
-catch_discover_tests(tests)
+gtest_discover_tests(tests)

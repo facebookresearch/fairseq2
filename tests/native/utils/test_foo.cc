@@ -4,9 +4,9 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
-#include <catch2/catch_test_macros.hpp>
+#include <gtest/gtest.h>
 
-TEST_CASE("foo")
+TEST(test_span, foo)
 {
-    REQUIRE(true);
+    ASSERT_TRUE(true);
 }

@@ -3,6 +3,7 @@ Checks: >
     -abseil-*,
     -altera-*,
     -android-*,
+    -cppcoreguidelines-avoid-magic-numbers,
     -cppcoreguidelines-avoid-non-const-global-variables,
     -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
     -cppcoreguidelines-pro-bounds-pointer-arithmetic,
@@ -19,5 +20,6 @@ Checks: >
     -readability-braces-around-statements,
     -readability-else-after-return,
     -readability-identifier-length,
+    -readability-magic-numbers,
     -readability-named-parameter,
     -zircon-*
