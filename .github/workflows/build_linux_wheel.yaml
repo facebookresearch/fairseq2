@@ -54,7 +54,7 @@ jobs:
             --extra-index-url https://download.pytorch.org/whl/${{ inputs.variant }}
       - name: Install the requirements
         run: |
-          pip install --requirement requirements.txt
+          pip install --requirement requirements-build.txt
       - name: Stamp the version with the current date
         if: inputs.dev_stamp
         run: |

@@ -45,15 +45,15 @@ jobs:
             --extra-index-url https://download.pytorch.org/whl/${{ inputs.variant }}
       - name: Install the requirements
         run: |
-          pip install --requirement requirements.txt
+          pip install --requirement requirements-build.txt
       - name: Build the compilation database
         id: lint_prologue
         run: |
           CC=clang CXX=clang++ cmake -GNinja -DCMAKE_BUILD_TYPE=Release -B build
-      - name: Run clang-format
-        if: success() || (failure() && steps.lint_prologue.outcome == 'success')
-        run: |
-          tools/linters/run-clang-format --dry-run .
+#      - name: Run clang-format
+#        if: success() || (failure() && steps.lint_prologue.outcome == 'success')
+#        run: |
+#          tools/linters/run-clang-format --dry-run .
       - name: Run clang-tidy
         if: success() || (failure() && steps.lint_prologue.outcome == 'success')
         run: |
