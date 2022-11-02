@@ -33,22 +33,43 @@ def generate(
             src_tokens
         )
 
+    # TODO: a way to ask Search this
+    multiple = search.beam_size  # type: ignore
+
+    # broadcast over the beam search space.
+    enc_out = (
+        torch.broadcast_to(enc_out, (multiple,) + enc_out.shape)
+        .transpose(0, 1)
+        .contiguous()
+        .view(-1, *enc_out.shape[1:])
+    )
+    if enc_attn_mask:
+        enc_attn_mask = (
+            torch.broadcast_to(enc_attn_mask, (multiple,) + enc_attn_mask.shape)
+            .transpose(0, 1)
+            .contiguous()
+            .view(-1, *enc_attn_mask.shape[1:])
+        )
+
     incremental_states = IncrementalStateBag()
-    state = search.prepare_state(src_tokens, prefix_tokens)
+    state = search.prepare_state(
+        src_tokens,
+        prefix_tokens=prefix_tokens,
+    )
     max_len = state.tokens.size(1)
-    for _ in range(max_len):
+    for idx in range(max_len):
         if state.done:
             break
 
         with torch.autograd.profiler.record_function("forward_decoder"):
-            if cast(bool, model.batch_first):
-                new_tokens = state.tokens[:, : state.step + 1]
-            else:
-                new_tokens = state.tokens[: state.step + 1, :]
+            search_tokens = search.next_query(state)
+            if not cast(bool, model.batch_first):
+                search_tokens = search_tokens.T
+
             # TODO: incremental state
             # dec_out = model.decoder.forward(state.tokens, enc_out, enc_attn_mask)
             dec_out = cast(torch.nn.Module, model.decoder).forward(
-                new_tokens,
+                search_tokens,
                 enc_out,
                 enc_attn_mask,
                 incremental_states,
@@ -61,11 +82,17 @@ def generate(
                 ),
             )
 
+            # TODO: remove this
+            if idx < 5:
+                torch.set_printoptions(precision=2, threshold=100, linewidth=100)
+                print(idx, dec_out[0, :50])
+
         with torch.autograd.profiler.record_function("search_step"):
             # Select the last time step prediction
             state = search.step(dec_out, state)
 
-    return search.finalize(state, top=top).tokens
+    tokens = search.finalize(state, top=top).tokens
+    return tokens.view(-1, tokens.shape[-1])
 
 
 def get_last_time_axis(x: Tensor, batch_first: bool) -> Tensor:

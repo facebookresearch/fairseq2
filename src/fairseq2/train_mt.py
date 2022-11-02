@@ -198,8 +198,9 @@ class MachineTranslationTask(TrainUnit[Batch], EvalUnit[Batch], PredictUnit[Batc
     def translate_batch(self, data: Batch) -> List[Translation]:
         source = self.tokenizer.decode_batch(data.source)
         target = self.tokenizer.decode_batch(data.target)
-        search = BeamSearch(self.tokenizer, beam_size=1, max_len=128)
+        search = BeamSearch(self.tokenizer, beam_size=2, max_len=128)
         predicted_tokens = generate(self.model, search, data.source, top=1)
+        print(f"{predicted_tokens[0] = }")
         predicted = self.tokenizer.decode_batch(predicted_tokens.squeeze(1))
         return list(
             map(
@@ -420,6 +421,7 @@ def main(
     tgt_lang: str = "cat_Latn",
     small: bool = False,
     wandb_project: str = "nllb/fairseq2",
+    batch_size: int = 16,
 ) -> None:
     workdir = Path(str(workdir).format(src=src_lang, tgt=tgt_lang))
     workdir.mkdir(exist_ok=True)
@@ -443,7 +445,7 @@ def main(
         src=src_lang,
         tgt=tgt_lang,
         tokenizer=tokenizer,
-        batch_size=16,
+        batch_size=batch_size,
         global_rank=int(os.environ.get("GROUP_RANK", 0)),
         world_size=int(os.environ.get("WORLD_SIZE", 1)),
         device=device,
@@ -453,7 +455,7 @@ def main(
         src=src_lang,
         tgt=tgt_lang,
         tokenizer=tokenizer,
-        batch_size=16,
+        batch_size=batch_size,
         global_rank=int(os.environ.get("GROUP_RANK", 0)),
         world_size=int(os.environ.get("WORLD_SIZE", 1)),
         device=device,

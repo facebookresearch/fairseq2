@@ -14,13 +14,13 @@ class Tokenizer:
     PAD = 3
 
     def vocab_size(self) -> int:
-        ...
+        raise NotImplementedError
 
     def encode_batch(self, sentences: List[str]) -> Tensor:
-        ...
+        raise NotImplementedError
 
     def decode_batch(self, tokens: Tensor) -> List[str]:
-        ...
+        raise NotImplementedError
 
 
 class SpmTokenizer(Tokenizer):

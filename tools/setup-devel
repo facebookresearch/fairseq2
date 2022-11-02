@@ -47,9 +47,7 @@ pip install $PIP_OPTS -r requirements-devel.txt
 echo "Self-installing editable package"
 pip install $PIP_OPTS -e .
 
-echo "Prepping CMake Build"
-rm -rf build
-cmake -GNinja -B build
+tools/recreate-build
 
 echo "CMake Build"
 cmake --build build
