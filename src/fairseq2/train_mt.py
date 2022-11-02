@@ -6,23 +6,24 @@ import math
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, Iterable, Iterator, List, NamedTuple, Union
+from typing import Any, Dict, Iterable, Iterator, List, Mapping, NamedTuple, Union, cast
 
-import datasets  # type: ignore
-import fairscale  # type: ignore
-import fairscale.nn.model_parallel.layers as fairscale_layers  # type: ignore
+import datasets
+import fairscale
+import fairscale.nn.model_parallel.layers as fairscale_layers
 import omegaconf
 import torch
 import torch.nn.functional as F
 import torchtnt.runner
 import torchtnt.runner.callbacks
 import torchtnt.utils
+from datasets import Dataset
 from overrides import overrides
 from torch import Tensor
-from torcheval.metrics import Mean  # type: ignore
+from torcheval.metrics import Mean
 from torchtnt.loggers.logger import MetricLogger
 from torchtnt.runner.state import State
-from torchtnt.runner.unit import EvalUnit, PredictUnit, TrainUnit  # type: ignore
+from torchtnt.runner.unit import EvalUnit, PredictUnit, TrainUnit
 
 import fairseq2.callbacks
 import fairseq2.nn
@@ -343,18 +344,34 @@ class DatasetLoader(Iterable[Batch]):
 
         if train:
             try:
-                data: datasets.DatasetDict = datasets.load_dataset(
-                    "allenai/nllb", f"{src}-{tgt}", save_infos=True, streaming=True
+                data = cast(
+                    Mapping[str, Dataset],
+                    datasets.load_dataset(
+                        "allenai/nllb",
+                        f"{src}-{tgt}",
+                        save_infos=True,
+                        streaming=True,
+                    ),
                 )
             except Exception:
-                data = datasets.load_dataset(
-                    "allenai/nllb", f"{tgt}-{src}", save_infos=True, streaming=True
+                # TODO: why is this run twice? Is this meant to fallback to another dataset?
+                data = cast(
+                    Mapping[str, Dataset],
+                    datasets.load_dataset(
+                        "allenai/nllb",
+                        f"{tgt}-{src}",
+                        save_infos=True,
+                        streaming=True,
+                    ),
                 )
             self.data = data["train"]
             self.extract_src = lambda sample: sample["translation"][src]
             self.extract_tgt = lambda sample: sample["translation"][tgt]
         else:
-            data = datasets.load_dataset("facebook/flores", f"{src}-{tgt}")
+            data = cast(
+                Mapping[str, Dataset],
+                datasets.load_dataset("facebook/flores", f"{src}-{tgt}"),
+            )
             self.data = data["dev"]
             self.extract_src = lambda sample: sample["sentence_" + src]
             self.extract_tgt = lambda sample: sample["sentence_" + tgt]
