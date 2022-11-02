@@ -7,14 +7,11 @@
 name: Lint the shell scripts
 
 on:
-  workflow_call:
-    inputs:
-      py:
-        type: string
-        required: true
-      torch:
-        type: string
-        required: true
+  pull_request:
+    paths:
+      - '**.sh'
+      - 'ci/**'
+      - 'tools/**'
 
 defaults:
   run:
@@ -22,7 +19,7 @@ defaults:
 
 jobs:
   lint:
-    name: Lint the shell scripts
+    name: Lint
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/fairinternal/fairseq2-ci-manylinux_x86_64:1-cpu
@@ -31,14 +28,14 @@ jobs:
         uses: actions/checkout@v3
       - name: Set up the Python virtual environment
         run: |
-          python${{ inputs.py }} -m venv /venv-lint
+          python3.8 -m venv ~/venv-lint
 
-          echo /venv-lint/bin >> "$GITHUB_PATH"
+          echo ~/venv-lint/bin >> "$GITHUB_PATH"
       - name: Install the requirements
-        id: lint_prologue
+        id: setup
         run: |
           pip install --requirement tools/requirements.txt
       - name: Run shellcheck
-        if: success() || (failure() && steps.lint_prologue.outcome == 'success')
+        if: success() || (failure() && steps.setup.outcome == 'success')
         run: |
           tools/linters/run-shellcheck .

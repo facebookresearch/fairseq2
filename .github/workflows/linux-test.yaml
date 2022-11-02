@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-name: Run the tests on Linux
+name: Run the tests (Linux)
 
 on:
   workflow_call:
@@ -33,8 +33,8 @@ defaults:
     shell: bash
 
 jobs:
-  test:
-    name: Run the tests
+  run:
+    name: Run
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/fairinternal/fairseq2-ci-manylinux_${{ inputs.arch }}:1-${{ inputs.variant }}
@@ -43,14 +43,14 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: wheel-linux_${{ inputs.arch }}-py${{ inputs.py }}-pt${{ inputs.torch }}-${{ inputs.variant }}-${{ inputs.sanitizers }}
-          path: /wheelhouse
+          path: ~/wheelhouse
       - name: Check-out the repository
         uses: actions/checkout@v3
       - name: Set up the Python virtual environment
         run: |
-          python${{ inputs.py }} -m venv /venv-test
+          python${{ inputs.py }} -m venv ~/venv-test
 
-          echo /venv-test/bin >> "$GITHUB_PATH"
+          echo ~/venv-test/bin >> "$GITHUB_PATH"
       - name: Install PyTorch
         run: |
           pip install torch==${{ inputs.torch }}\
@@ -60,7 +60,7 @@ jobs:
           pip install --requirement tests/requirements.txt
       - name: Install the wheel
         run: |
-          pip install /wheelhouse/*.whl --no-cache-dir
+          pip install ~/wheelhouse/*.whl --no-cache-dir
       - name: Set the sanitizer variables
         if: inputs.sanitizers != 'nosan'
         run: |
@@ -74,7 +74,7 @@ jobs:
                 echo SANITIZER_LIB=LIB${sanitizer^^}
 
                 if [[ $sanitizer == asan ]]; then
-                  echo LSAN_OPTIONS=suppressions=LSan.supp,exitcode=0,log_path=/lsan.out
+                  echo LSAN_OPTIONS=suppressions=LSan.supp,exitcode=0,log_path=$HOME/lsan.out
                 fi
 
                 break
@@ -101,7 +101,7 @@ jobs:
           # Unfortunately Python leaks quite a bit of memory, so we cannot rely
           # on the raw output of LSan. As a rudimentary workaround, we check if
           # any stack frame has a symbol containing the word 'fairseq2'.
-          for f in /lsan.out.*; do
+          for f in ~/lsan.out.*; do
             if cat $f | tee /dev/stderr | grep --quiet 'fairseq2'; then
               result=1
             fi

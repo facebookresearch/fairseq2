@@ -7,17 +7,11 @@
 name: Lint C++
 
 on:
-  workflow_call:
-    inputs:
-      py:
-        type: string
-        required: true
-      torch:
-        type: string
-        required: true
-      variant:
-        type: string
-        default: 'cpu'
+  pull_request:
+    paths:
+      - '**.h'
+      - '**.cc'
+      - '**.cu'
 
 defaults:
   run:
@@ -25,10 +19,10 @@ defaults:
 
 jobs:
   lint:
-    name: Lint C++
+    name: Lint
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/fairinternal/fairseq2-ci-manylinux_x86_64:1-${{ inputs.variant }}-clang
+      image: ghcr.io/fairinternal/fairseq2-ci-manylinux_x86_64:1-cu116-clang
     steps:
       - name: Check-out the repository
         uses: actions/checkout@v3
@@ -36,25 +30,25 @@ jobs:
           submodules: recursive
       - name: Set up the Python virtual environment
         run: |
-          python${{ inputs.py }} -m venv /venv-lint
+          python3.8 -m venv ~/venv-lint
 
-          echo /venv-lint/bin >> "$GITHUB_PATH"
+          echo ~/venv-lint/bin >> "$GITHUB_PATH"
       - name: Install PyTorch
         run: |
-          pip install torch==${{ inputs.torch }}\
-            --extra-index-url https://download.pytorch.org/whl/${{ inputs.variant }}
+          pip install torch==1.12.1\
+            --extra-index-url https://download.pytorch.org/whl/cpu
       - name: Install the requirements
         run: |
           pip install --requirement requirements-build.txt
       - name: Build the compilation database
-        id: lint_prologue
+        id: setup
         run: |
           CC=clang CXX=clang++ cmake -GNinja -DCMAKE_BUILD_TYPE=Release -B build
 #      - name: Run clang-format
-#        if: success() || (failure() && steps.lint_prologue.outcome == 'success')
+#        if: success() || (failure() && steps.setup.outcome == 'success')
 #        run: |
 #          tools/linters/run-clang-format --dry-run .
       - name: Run clang-tidy
-        if: success() || (failure() && steps.lint_prologue.outcome == 'success')
+        if: success() || (failure() && steps.setup.outcome == 'success')
         run: |
           run-clang-tidy -p build -config="{InheritParentConfig: true, WarningsAsErrors: '*'}" -quiet

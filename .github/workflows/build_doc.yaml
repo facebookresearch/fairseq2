@@ -8,20 +8,57 @@ name: Build the documentation
 
 on:
   workflow_call:
-  workflow_dispatch:
+    inputs:
+      py:
+        type: string
+        required: true
+      torch:
+        type: string
+        required: true
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
-  build:
-    name: Build the wheel
-    uses: ./.github/workflows/build_linux_wheel.yaml
-    with:
-      py: '3.8'
-      torch: '1.12.1'
+  generate:
+    name: Build
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/fairinternal/fairseq2-ci-manylinux_x86_64:1-cpu
+    steps:
+      - name: Download the wheel from staging
+        uses: actions/download-artifact@v3
+        with:
+          name: wheel-linux_x86_64-py${{ inputs.py }}-pt${{ inputs.torch }}-cpu-nosan
+          path: ~/wheelhouse
+      - name: Check-out the repository
+        uses: actions/checkout@v3
+      - name: Set up the Python virtual environment
+        run: |
+          python${{ inputs.py }} -m venv ~/venv-doc
 
-  generate_doc:
-    name: Generate the Sphinx documentation
-    needs: build
-    uses: ./.github/workflows/generate_sphinx_doc.yaml
-    with:
-      py: '3.8'
-      torch: '1.12.1'
+          echo ~/venv-doc/bin >> "$GITHUB_PATH"
+      - name: Install PyTorch
+        run: |
+          pip install torch==${{ inputs.torch }}\
+            --extra-index-url https://download.pytorch.org/whl/cpu
+      - name: Install the requirements
+        run: |
+          pip install --requirement doc/requirements.txt
+      - name: Install the wheel
+        run: |
+          pip install ~/wheelhouse/*.whl --no-cache-dir
+      - name: Run Sphinx
+        working-directory: doc
+        run: |
+          make html
+      - name: Copy the version file into the documentation
+        run: |
+          cp VERSION doc/build/html
+      - name: Upload the documentation to staging
+        uses: actions/upload-artifact@v3
+        with:
+          name: doc
+          path: doc/build/html
+          retention-days: 3

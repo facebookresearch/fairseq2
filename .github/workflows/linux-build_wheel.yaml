@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-name: Build a wheel for Linux
+name: Build a wheel (Linux)
 
 on:
   workflow_call:
@@ -34,7 +34,7 @@ defaults:
 
 jobs:
   build:
-    name: Build the wheel
+    name: Build
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/fairinternal/fairseq2-ci-manylinux_${{ inputs.arch }}:1-${{ inputs.variant }}
@@ -45,9 +45,9 @@ jobs:
           submodules: recursive
       - name: Set up the Python virtual environment
         run: |
-          python${{ inputs.py }} -m venv /venv-build
+          python${{ inputs.py }} -m venv ~/venv-build
 
-          echo /venv-build/bin >> "$GITHUB_PATH"
+          echo ~/venv-build/bin >> "$GITHUB_PATH"
       - name: Install PyTorch
         run: |
           pip install torch==${{ inputs.torch }}\
@@ -98,10 +98,10 @@ jobs:
                     --no-deps\
                     --build-option --plat-name\
                     --build-option manylinux_2_17_${{ inputs.arch }}\
-                    --wheel-dir /wheelhouse
+                    --wheel-dir ~/wheelhouse
       - name: Upload the wheel to staging
         uses: actions/upload-artifact@v3
         with:
           name: wheel-linux_${{ inputs.arch }}-py${{ inputs.py }}-pt${{ inputs.torch }}-${{ inputs.variant }}-${{ inputs.sanitizers }}
-          path: /wheelhouse
+          path: ~/wheelhouse
           retention-days: 3

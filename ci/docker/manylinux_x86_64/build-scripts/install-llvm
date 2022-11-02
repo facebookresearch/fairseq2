@@ -8,7 +8,7 @@
 
 set -eo pipefail
 
-git clone --depth 1 --recurse-submodules --shallow-submodules --branch llvmorg-13.0.1\
+git clone --depth 1 --recurse-submodules --shallow-submodules --branch llvmorg-15.0.3\
     https://github.com/llvm/llvm-project.git /llvm
 
 cmake -GNinja\

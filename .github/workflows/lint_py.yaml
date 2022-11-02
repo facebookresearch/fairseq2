@@ -7,14 +7,10 @@
 name: Lint Python
 
 on:
-  workflow_call:
-    inputs:
-      py:
-        type: string
-        required: true
-      torch:
-        type: string
-        required: true
+  pull_request:
+    paths:
+      - '**.py'
+      - '**.pyi'
 
 defaults:
   run:
@@ -22,42 +18,47 @@ defaults:
 
 jobs:
   lint:
-    name: Lint Python
+    name: Lint
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/fairinternal/fairseq2-ci-manylinux_x86_64:1-cpu
+    strategy:
+      # Ensure that we get the results of all linters even if some of them fail.
+      fail-fast: false
+      matrix:
+        py: ['3.8', '3.10']
     steps:
       - name: Check-out the repository
         uses: actions/checkout@v3
       - name: Set up the Python virtual environment
         run: |
-          python${{ inputs.py }} -m venv /venv-lint
+          python${{ matrix.py }} -m venv ~/venv-lint
 
-          echo /venv-lint/bin >> "$GITHUB_PATH"
+          echo ~/venv-lint/bin >> "$GITHUB_PATH"
       - name: Install PyTorch
         run: |
-          pip install torch==${{ inputs.torch }}\
+          pip install torch==1.12.1\
             --extra-index-url https://download.pytorch.org/whl/cpu
       - name: Install the requirements
         run: |
           pip install --requirement requirements-devel.txt
-      - name: Install the package dependencies
-        id: lint_prologue
+      - name: Install the package
+        id: setup
         run: |
           pip install --editable .
       - name: Run isort
-        if: success() || (failure() && steps.lint_prologue.outcome == 'success')
+        if: success() || (failure() && steps.setup.outcome == 'success')
         run: |
           isort --check .
       - name: Run black
-        if: success() || (failure() && steps.lint_prologue.outcome == 'success')
+        if: success() || (failure() && steps.setup.outcome == 'success')
         run: |
           black --check .
       - name: Run flake8
-        if: success() || (failure() && steps.lint_prologue.outcome == 'success')
+        if: success() || (failure() && steps.setup.outcome == 'success')
         run: |
           flake8 .
       - name: Run mypy
-        if: success() || (failure() && steps.lint_prologue.outcome == 'success')
+        if: success() || (failure() && steps.setup.outcome == 'success')
         run: |
           mypy --pretty .
