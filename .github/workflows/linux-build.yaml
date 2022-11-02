@@ -108,10 +108,10 @@ jobs:
 
   x86_64_pt112_cpu-test:
     name: Run the tests (x86_64, py3.8, pt1.12, cpu, ${{ matrix.sanitizers }})
+    needs: [x86_64_pt112_cpu-build, x86_64_pt112-build]
     strategy:
       matrix:
         sanitizers: ['nosan', 'asan_ubsan', 'tsan']
-    needs: [x86_64_pt112_cpu-build, x86_64_pt112-build]
     uses: ./.github/workflows/linux-test.yaml
     with:
       py: '3.8'

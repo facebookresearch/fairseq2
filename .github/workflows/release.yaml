@@ -1,0 +1,159 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+name: Release
+
+run-name: Relase (${{ inputs.release_type || 'nightly' }})
+
+on:
+  # At 1:15AM UTC on every Monday.
+  schedule:
+    - cron: '15 1 * * 1'
+  workflow_dispatch:
+    inputs:
+      release_type:
+        type: choice
+        required: true
+        options:
+          - 'nightly'
+          - 'rc'
+          - 'stable'
+
+jobs:
+  linux_pt111-build:
+    name: Build the wheel (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.11, ${{ matrix.variant }}, nosan)
+    strategy:
+      matrix:
+        py: ['3.8', '3.9', '3.10']
+        arch: ['x86_64']
+        variant: ['cpu', 'cu113']
+    uses: ./.github/workflows/linux-build_wheel.yaml
+    with:
+      py: ${{ matrix.py }}
+      torch: '1.11'
+      arch: ${{ matrix.arch }}
+      variant: ${{ matrix.variant }}
+      dev_stamp: ${{ github.event_name == 'schedule' || inputs.release_type == 'nightly' }}
+
+  linux_pt111-test:
+    name: Run the tests (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.11, ${{ matrix.variant }}, nosan)
+    needs: linux_pt111-build
+    strategy:
+      matrix:
+        py: ['3.8', '3.9', '3.10']
+        arch: ['x86_64']
+#        variant: ['cpu', 'cu113']
+        variant: ['cpu']
+    uses: ./.github/workflows/linux-test.yaml
+    with:
+      py: ${{ matrix.py }}
+      torch: '1.11'
+      arch: ${{ matrix.arch }}
+      variant: ${{ matrix.variant }}
+#      run_on_cuda:
+
+  linux_pt112-build:
+    name: Build the wheel (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.12, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
+    strategy:
+      matrix:
+        py: ['3.8', '3.9', '3.10']
+        arch: ['x86_64']
+        variant: ['cpu', 'cu113', 'cu116']
+        sanitizers: ['nosan']
+        include:
+          - py: '3.8'
+            arch: 'x86_64'
+            variant: 'cpu'
+            sanitizers: 'asan_ubsan'
+          - py: '3.8'
+            arch: 'x86_64'
+            variant: 'cpu'
+            sanitizers: 'tsan'
+    uses: ./.github/workflows/linux-build_wheel.yaml
+    with:
+      py: ${{ matrix.py }}
+      torch: '1.12.1'
+      arch: ${{ matrix.arch }}
+      variant: ${{ matrix.variant }}
+      sanitizers: ${{ matrix.sanitizers }}
+      dev_stamp: ${{ github.event_name == 'schedule' || inputs.release_type == 'nightly' }}
+
+  linux_pt112-test:
+    name: Run the tests (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.12, ${{ matrix.variant }}, nosan)
+    needs: linux_pt112-build
+    strategy:
+      matrix:
+        py: ['3.8', '3.9', '3.10']
+        arch: ['x86_64']
+#        variant: ['cpu', 'cu113', 'cu116']
+        variant: ['cpu']
+        sanitizers: ['nosan']
+        include:
+          - py: '3.8'
+            arch: 'x86_64'
+            variant: 'cpu'
+            sanitizers: 'asan_ubsan'
+          - py: '3.8'
+            arch: 'x86_64'
+            variant: 'cpu'
+            sanitizers: 'tsan'
+    uses: ./.github/workflows/linux-test.yaml
+    with:
+      py: ${{ matrix.py }}
+      torch: '1.12.1'
+      arch: ${{ matrix.arch }}
+      variant: ${{ matrix.variant }}
+      sanitizers: ${{ matrix.sanitizers }}
+#      run_on_cuda:
+
+  build_doc:
+    name: Build the documentation
+    needs: linux_pt112-build
+    uses: ./.github/workflows/build_doc.yaml
+    with:
+      py: '3.8'
+      torch: '1.12.1'
+
+  linux_pt111-publish:
+    name: Publish the wheel (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.11, ${{ matrix.variant }})
+    needs: [linux_pt111-test, linux_pt112-test, build_doc]
+    strategy:
+      max-parallel: 1
+      matrix:
+        py: ['3.8', '3.9', '3.10']
+        arch: ['x86_64']
+        variant: ['cpu', 'cu113']
+    uses: ./.github/workflows/publish_wheel.yaml
+    with:
+      py: ${{ matrix.py }}
+      torch: '1.11'
+      os: 'linux'
+      arch: ${{ matrix.arch }}
+      variant: ${{ matrix.variant }}
+
+  linux_pt112-publish:
+    name: Publish the wheel (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.12, ${{ matrix.variant }})
+    needs: linux_pt111-publish
+    strategy:
+      max-parallel: 1
+      matrix:
+        py: ['3.8', '3.9', '3.10']
+        arch: ['x86_64']
+        variant: ['cpu', 'cu113', 'cu116']
+    uses: ./.github/workflows/publish_wheel.yaml
+    with:
+      py: ${{ matrix.py }}
+      torch: '1.12.1'
+      os: 'linux'
+      arch: ${{ matrix.arch }}
+      variant: ${{ matrix.variant }}
+
+  publish-doc:
+    name: Publish the documentation
+    needs: linux_pt112-publish
+    uses: ./.github/workflows/publish_doc.yaml
+    with:
+      nightly: ${{ github.event_name == 'schedule' || inputs.release_type == 'nightly' }}

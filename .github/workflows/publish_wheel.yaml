@@ -30,8 +30,8 @@ defaults:
     shell: bash
 
 jobs:
-  upload_wheel:
-    name: Publish the wheel
+  publish:
+    name: Publish
     runs-on: ubuntu-latest
     steps:
       - name: Download the wheel from staging

@@ -1,0 +1,58 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+name: Publish the documentation
+
+on:
+  workflow_call:
+    inputs:
+      nightly:
+        type: boolean
+        default: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download the documentation from staging
+        uses: actions/download-artifact@v3
+        with:
+          name: doc
+          path: ~/doc
+      - name: Check-out the gh-pages branch of the repository
+        uses: actions/checkout@v3
+        with:
+          ref: gh-pages
+      - name: Set up Git
+        run: |
+          git config user.name  "github-actions"
+          git config user.email "github-actions@github.com"
+      - name: Commit and push the documentation
+        run: |
+          nightly=${{ inputs.nightly }}
+
+          if [[ $nightly == true ]]; then
+            doc_dir=nightly
+          else
+            doc_dir=$(cat ~/doc/VERSION)
+          fi
+
+          rsync --recursive --delete-after ~/doc/ $doc_dir
+
+          git add --all
+
+          # Push a commit only if there are changes in the branch.
+          if ! git diff --staged --quiet; then
+            git commit --message\
+              "Generated from $(git rev-parse --short "$GITHUB_SHA")"
+
+            git push
+          fi
