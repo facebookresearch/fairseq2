@@ -2,7 +2,7 @@
   <img src="doc/static/img/logo.png" width="150"><br />
 </p>
 
-[![Nightly](https://github.com/fairinternal/fairseq2/actions/workflows/nightly.yaml/badge.svg)](https://github.com/fairinternal/fairseq2/actions/workflows/nightly.yaml)
+[![Release](https://github.com/fairinternal/fairseq2/actions/workflows/release.yaml/badge.svg)](https://github.com/fairinternal/fairseq2/actions/workflows/release.yaml)
 
 --------------------------------------------------------------------------------
 
