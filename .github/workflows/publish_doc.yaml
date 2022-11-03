@@ -26,7 +26,7 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: doc
-          path: ~/doc
+          path: ~/doc/
       - name: Check-out the gh-pages branch of the repository
         uses: actions/checkout@v3
         with:

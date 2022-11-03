@@ -12,6 +12,7 @@ on:
       - '**.sh'
       - 'ci/**'
       - 'tools/**'
+  workflow_call:
 
 defaults:
   run:
@@ -40,6 +41,11 @@ jobs:
         run: |
           echo "::add-matcher::./ci/problem-matchers/gcc.json"
 
-          tools/linters/run-shellcheck .
+          function remove_matcher
+          {
+            echo "::remove-matcher owner=gcc::"
+          }
 
-          echo "::remove-matcher owner=gcc::"
+          trap remove_matcher EXIT
+
+          tools/linters/run-shellcheck .

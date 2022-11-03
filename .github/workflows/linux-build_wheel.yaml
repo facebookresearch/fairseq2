@@ -103,5 +103,11 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: wheel-linux_${{ inputs.arch }}-py${{ inputs.py }}-pt${{ inputs.torch }}-${{ inputs.variant }}-${{ inputs.sanitizers }}
-          path: ~/wheelhouse
+          path: ~/wheelhouse/
+          retention-days: 3
+      - name: Upload the native tests to staging
+        uses: actions/upload-artifact@v3
+        with:
+          name: tests-linux_${{ inputs.arch }}-py${{ inputs.py }}-pt${{ inputs.torch }}-${{ inputs.variant }}-${{ inputs.sanitizers }}
+          path: build/bin/run-tests
           retention-days: 3

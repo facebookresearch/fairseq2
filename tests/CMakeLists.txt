@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-fairseq2_add_target(tests TEST_EXECUTABLE)
+fairseq2_add_target(tests TEST_EXECUTABLE OUTPUT_NAME run-tests)
 
 target_sources(tests
     PRIVATE

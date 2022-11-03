@@ -23,8 +23,21 @@ on:
           - 'stable'
 
 jobs:
+  lint_cc:
+    name: Lint C++
+    uses: ./.github/workflows/lint_cc.yaml
+
+  lint_py:
+    name: Lint Python
+    uses: ./.github/workflows/lint_py.yaml
+
+  lint_sh:
+    name: Lint the shell scripts
+    uses: ./.github/workflows/lint_sh.yaml
+
   linux_pt111-build:
     name: Build the wheel (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.11, ${{ matrix.variant }}, nosan)
+    needs: [lint_cc, lint_py, lint_sh]
     strategy:
       matrix:
         py: ['3.8', '3.9', '3.10']
@@ -57,6 +70,7 @@ jobs:
 
   linux_pt112-build:
     name: Build the wheel (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.12, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
+    needs: [lint_cc, lint_py, lint_sh]
     strategy:
       matrix:
         py: ['3.8', '3.9', '3.10']

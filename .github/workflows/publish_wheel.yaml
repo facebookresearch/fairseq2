@@ -38,7 +38,7 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: wheel-${{ inputs.os }}_${{ inputs.arch }}-py${{ inputs.py }}-pt${{ inputs.torch }}-${{ inputs.variant }}-nosan
-          path: ~/wheelhouse
+          path: ~/wheelhouse/
       - name: Upload the wheel to S3
 #        env:
 #          AWS_ACCESS_KEY_ID: ${{ secrets.aws_key_id }}

@@ -43,7 +43,12 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: wheel-linux_${{ inputs.arch }}-py${{ inputs.py }}-pt${{ inputs.torch }}-${{ inputs.variant }}-${{ inputs.sanitizers }}
-          path: ~/wheelhouse
+          path: ~/wheelhouse/
+      - name: Download the native tests from staging
+        uses: actions/download-artifact@v3
+        with:
+          name: tests-linux_${{ inputs.arch }}-py${{ inputs.py }}-pt${{ inputs.torch }}-${{ inputs.variant }}-${{ inputs.sanitizers }}
+          path: ~/tests/
       - name: Check-out the repository
         uses: actions/checkout@v3
       - name: Set up the Python virtual environment
@@ -81,7 +86,14 @@ jobs:
               fi
             done
           } >> $GITHUB_ENV
-      - name: Run the tests
+      - name: Run the native tests
+        run: |
+          chmod 755 ~/tests/run-tests
+
+          export LD_LIBRARY_PATH=~/venv-test/lib/python${{ inputs.py }}/site-packages/fairseq2/lib
+
+          LD_PRELOAD=${!SANITIZER_LIB} ~/tests/run-tests
+      - name: Run the Python tests
         run: |
           run_on_cuda=${{ inputs.run_on_cuda }}
 

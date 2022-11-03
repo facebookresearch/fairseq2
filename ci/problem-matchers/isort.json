@@ -1,7 +1,7 @@
 {
   "problemMatcher": [
     {
-      "owner": "isort-error",
+      "owner": "isort",
       "severity": "error",
       "pattern": [
         {

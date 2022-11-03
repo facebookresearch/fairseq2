@@ -11,6 +11,7 @@ on:
     paths:
       - '**.py'
       - '**.pyi'
+  workflow_call:
 
 defaults:
   run:
@@ -25,9 +26,6 @@ jobs:
     steps:
       - name: Check-out the repository
         uses: actions/checkout@v3
-      - name: Mark the GitHub workspace as a safe Git directory
-        run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Set up the Python virtual environment
         run: |
           python3.10 -m venv ~/venv-lint
@@ -49,31 +47,50 @@ jobs:
         run: |
           echo "::add-matcher::./ci/problem-matchers/isort.json"
 
-          isort --check .
+          function remove_matcher
+          {
+            echo "::remove-matcher owner=isort::"
+          }
 
-          echo "::remove-matcher owner=isort-error::"
+          trap remove_matcher EXIT
+
+          isort --check .
       - name: Run black
         if: success() || (failure() && steps.setup.outcome == 'success')
         run: |
           echo "::add-matcher::./ci/problem-matchers/black.json"
 
-          black --check .
+          function remove_matcher
+          {
+            echo "::remove-matcher owner=black::"
+          }
 
-          echo "::remove-matcher owner=black-error::"
+          trap remove_matcher EXIT
+
+          black --check .
       - name: Run flake8
         if: success() || (failure() && steps.setup.outcome == 'success')
         run: |
           echo "::add-matcher::./ci/problem-matchers/flake8.json"
 
-          flake8 .
+          function remove_matcher
+          {
+            echo "::remove-matcher owner=flake8::"
+          }
 
-          echo "::remove-matcher owner=flake8-error::"
-          echo "::remove-matcher owner=flake8-warning::"
+          trap remove_matcher EXIT
+
+          flake8 .
       - name: Run mypy
         if: success() || (failure() && steps.setup.outcome == 'success')
         run: |
           echo "::add-matcher::./ci/problem-matchers/mypy.json"
 
-          mypy .
+          function remove_matcher
+          {
+            echo "::remove-matcher owner=mypy::"
+          }
 
-          echo "::remove-matcher owner=mypy-error::"
+          trap remove_matcher EXIT
+
+          mypy .

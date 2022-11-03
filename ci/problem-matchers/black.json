@@ -1,7 +1,7 @@
 {
   "problemMatcher": [
     {
-      "owner": "black-error",
+      "owner": "black",
       "severity": "error",
       "pattern": [
         {

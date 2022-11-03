@@ -31,7 +31,7 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: wheel-linux_x86_64-py${{ inputs.py }}-pt${{ inputs.torch }}-cpu-nosan
-          path: ~/wheelhouse
+          path: ~/wheelhouse/
       - name: Check-out the repository
         uses: actions/checkout@v3
       - name: Set up the Python virtual environment
@@ -60,5 +60,5 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: doc
-          path: doc/build/html
+          path: doc/build/html/
           retention-days: 3
