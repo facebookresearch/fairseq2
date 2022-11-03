@@ -32,7 +32,7 @@ class WandbLogger(MetricLogger):
             return
         if self._rank != 0:
             return
-        import wandb  # type: ignore
+        import wandb
 
         if "/" in self.project:
             entity, project = self.project.split("/", 1)
@@ -57,7 +57,7 @@ class WandbLogger(MetricLogger):
             "config": self.config,
         }
 
-    def load_state_dict(self, state_dict: dict) -> None:
+    def load_state_dict(self, state_dict: tp.Dict[str, tp.Any]) -> None:
         for k, v in state_dict.items():
             setattr(self, k, v)
         self._wandb = None
@@ -120,20 +120,20 @@ class WandbCsvWriter(Callback):
     def get_batch_output_rows(
         self,
         state: State,
-        unit: TPredictUnit,
+        unit: TPredictUnit[tp.Any],
         step_output: tp.Any,
     ) -> tp.List[tp.List[str]]:
         if isinstance(step_output, list):
             return step_output
         raise NotImplementedError()
 
-    def on_predict_start(self, state: State, unit: TPredictUnit) -> None:
+    def on_predict_start(self, state: State, unit: TPredictUnit[tp.Any]) -> None:
         import wandb
 
         self.logger.prepare()
         self._table = wandb.Table(columns=self.columns, data=[])
 
-    def on_predict_step_end(self, state: State, unit: TPredictUnit) -> None:
+    def on_predict_step_end(self, state: State, unit: TPredictUnit[tp.Any]) -> None:
         assert state.predict_state is not None
         step_output = state.predict_state.step_output
         batch_output_rows = self.get_batch_output_rows(state, unit, step_output)
@@ -142,7 +142,7 @@ class WandbCsvWriter(Callback):
         for row in itertools.zip_longest(*batch_output_rows):
             self._table.add_row(*row)
 
-    def on_predict_end(self, state: State, unit: TPredictUnit) -> None:
+    def on_predict_end(self, state: State, unit: TPredictUnit[tp.Any]) -> None:
         if state.train_state is None:
             step = 0
         else:

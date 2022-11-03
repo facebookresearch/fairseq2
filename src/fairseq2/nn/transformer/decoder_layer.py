@@ -153,7 +153,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
             The epsilon value to add to the denominator of the
             :class:`~torch.nn.LayerNorm` modules for numerical stability.
         """
-        fct_kwargs: Dict = {"device": device, "dtype": dtype}
+        fct_kwargs: Dict[str, Any] = {"device": device, "dtype": dtype}
 
         model_dim, batch_first = self_attn.model_dim, self_attn.batch_first
 

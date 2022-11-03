@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List
+from typing import Any, Dict, List
 
 import sentencepiece
 import torch
@@ -41,13 +41,13 @@ class SpmTokenizer(Tokenizer):
         self.EOS = spm.eos_id() if spm.eos_id() >= 0 else self._add_special_token()
         self.PAD = spm.pad_id() if spm.pad_id() >= 0 else self._add_special_token()
 
-    def __getstate__(self) -> dict:
+    def __getstate__(self) -> Dict[str, Any]:
         return {
             "spm": self.spm.serialized_model_proto(),
             "batch_first": self.batch_first,
         }
 
-    def __setstate__(self, state: dict) -> None:
+    def __setstate__(self, state: Dict[str, Any]) -> None:
         spm = sentencepiece.SentencePieceProcessor()
         spm.load_from_serialized_proto(state["spm"])
         SpmTokenizer.__init__(self, spm, state["batch_first"])

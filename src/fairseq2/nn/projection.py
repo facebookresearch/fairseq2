@@ -6,7 +6,7 @@
 
 import math
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, final
+from typing import Any, Dict, Optional, final
 
 import torch
 import torch.nn as nn
@@ -83,7 +83,7 @@ class ResettableProjection(Projection):
         :param bias:
             If ``True``, the module will learn an additive bias.
         """
-        fct_kwargs: Dict = {"device": device, "dtype": dtype}
+        fct_kwargs: Dict[str, Any] = {"device": device, "dtype": dtype}
 
         super().__init__(inp_dim, out_dim)
 

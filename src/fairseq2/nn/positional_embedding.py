@@ -6,7 +6,7 @@
 
 import math
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, final
+from typing import Any, Dict, Optional, cast, final
 
 import torch
 import torch.nn as nn
@@ -162,7 +162,7 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
 
     >>> import torch
     >>>
-    >>> from fairseq2.modules import SinusoidalPositionalEmbedding
+    >>> from fairseq2.nn.positional_embedding import SinusoidalPositionalEmbedding
     >>>
     >>> m = SinusoidalPositionalEmbedding(
     ...    max_seq_len=16, embedding_dim=4, padding_token_idx=3)
@@ -196,7 +196,12 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
             # Make space for the padding token's zero embedding.
             num_embed = max_seq_len + 1
 
-        weight = torch.empty(num_embed, embedding_dim, device=device, dtype=dtype)  # type: ignore[arg-type]
+        weight = torch.empty(
+            num_embed,
+            embedding_dim,
+            device=device,
+            dtype=cast(torch.dtype, dtype),
+        )
 
         self.register_buffer("weight", weight, persistent=False)
 
@@ -221,7 +226,7 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
         l_half = out[:, :num_sin]
         r_half = out[:, num_sin:]
 
-        fct_kwargs: Dict = {"device": out.device, "dtype": out.dtype}
+        fct_kwargs: Dict[str, Any] = {"device": out.device, "dtype": out.dtype}
 
         # This is identical to tensor2tensor's implementation.
         ind = torch.arange(out.size(0), **fct_kwargs)
@@ -271,7 +276,7 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
 
     >>> import torch
     >>>
-    >>> from fairseq2.modules import LearnedPositionalEmbedding
+    >>> from fairseq2.nn.positional_embedding import LearnedPositionalEmbedding
     >>>
     >>> m = LearnedPositionalEmbedding(
     ...    max_seq_len=16, embedding_dim=4, padding_token_idx=3)
@@ -306,7 +311,12 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
             num_embed = max_seq_len + 1
 
         self.weight = Parameter(
-            torch.empty(num_embed, embedding_dim, device=device, dtype=dtype)  # type: ignore[arg-type]
+            torch.empty(
+                num_embed,
+                embedding_dim,
+                device=device,
+                dtype=cast(torch.dtype, dtype),
+            )
         )
 
         self.reset_parameters()

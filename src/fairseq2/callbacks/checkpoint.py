@@ -7,7 +7,7 @@
 import logging
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import List, Optional, Set
+from typing import Any, List, Optional, Set
 
 import torch
 from torchsnapshot import Snapshot
@@ -77,7 +77,7 @@ class TorchSnapshotLoader(Callback):
         self.dirpath = dirpath
         self._replicated: Set[str] = set(replicated)
 
-    def on_train_start(self, state: State, unit: TrainUnit) -> None:
+    def on_train_start(self, state: State, unit: TrainUnit[Any]) -> None:
         last_snapshot = resolve_last_snapshot(self.dirpath)
         if not last_snapshot:
             log.info("Starting new model training")

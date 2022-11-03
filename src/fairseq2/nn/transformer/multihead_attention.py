@@ -395,7 +395,7 @@ class StandardMultiheadAttention(MultiheadAttention):
             If ``True``, the first dimension of batched inputs and outputs
             represents the batch; otherwise, the sequence.
         """
-        fct_kwargs: Dict = {"device": device, "dtype": dtype}
+        fct_kwargs: Dict[str, Any] = {"device": device, "dtype": dtype}
 
         if model_dim is None:
             if q_proj is not None:

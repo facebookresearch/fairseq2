@@ -1,7 +1,7 @@
 import bdb
 import pdb
 import traceback
-from typing import Union
+from typing import Any, Union
 
 import torchtnt.runner
 import torchtnt.utils
@@ -13,7 +13,7 @@ class Debugger(Callback):
     def on_exception(
         self,
         state: torchtnt.runner.State,
-        unit: Union[TTrainUnit, TEvalUnit, TPredictUnit],
+        unit: Union[TTrainUnit[Any], TEvalUnit[Any], TPredictUnit[Any]],
         exc: BaseException,
     ) -> None:
         if torchtnt.utils.get_global_rank() != 0:

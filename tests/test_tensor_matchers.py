@@ -126,7 +126,7 @@ class AssertRaisesTest(unittest.TestCase):
         e.code = 123
 
         tm.assert_raises(
-            lambda: throw(e),  # type: ignore
+            lambda: throw(e),
             ValueError,
             matching=hamcrest.has_properties(code=123),
         )

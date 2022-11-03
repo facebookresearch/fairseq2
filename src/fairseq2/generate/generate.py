@@ -1,4 +1,4 @@
-from typing import List, Optional, cast
+from typing import Any, List, Optional, cast
 
 import torch
 from torch import Tensor
@@ -13,7 +13,7 @@ from .tokenizer import Tokenizer
 @torch.inference_mode()
 def generate(
     model: torch.nn.Module,
-    search: Search,
+    search: Search[Any],
     src_tokens: Tensor,
     prefix_tokens: Optional[Tensor] = None,
     top: int = 0,
@@ -106,7 +106,10 @@ def get_last_time_axis(x: Tensor, batch_first: bool) -> Tensor:
 
 
 def generate_str(
-    model: torch.nn.Module, tokenizer: Tokenizer, search: Search, sentences: List[str]
+    model: torch.nn.Module,
+    tokenizer: Tokenizer,
+    search: Search[Any],
+    sentences: List[str],
 ) -> List[str]:
     src_tokens = tokenizer.encode_batch(sentences)
     tgt_tokens = generate(model, search, src_tokens, top=1)

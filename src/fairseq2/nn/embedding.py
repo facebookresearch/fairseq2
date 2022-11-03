@@ -60,7 +60,7 @@ class Embedding(Module):
             :math:`\\mathcal{N}(0, \\frac{1}{\\text{embedding_dim}})`; otherwise,
             from :math:`\\mathcal{N}(0, 1)`.
         """
-        fct_kwargs: Dict = {"device": device, "dtype": dtype}
+        fct_kwargs: Dict[str, Any] = {"device": device, "dtype": dtype}
 
         super().__init__()
 

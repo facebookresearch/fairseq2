@@ -554,7 +554,7 @@ class BeamSearch(Search[BeamSearchState]):
         multi_beam_view = lprobs_beam.view(bsz, -1)
 
         # by flattening the (bsz, beam) dimension, topk selects the highest prob
-        scores, indices = torch.topk(multi_beam_view.contiguous(), k=beam_size)  # type: ignore
+        scores, indices = torch.topk(multi_beam_view.contiguous(), k=beam_size)
 
         tokens = indices % vocab_size
 

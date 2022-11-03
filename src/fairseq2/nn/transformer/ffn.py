@@ -82,16 +82,16 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         :param norm_order:
             The Layer Normalization order to use.
         """
-        fct_kwargs: Dict = {"device": device, "dtype": dtype}
+        fct_kwargs: Dict[str, Any] = {"device": device, "dtype": dtype}
 
         super().__init__(model_dim)
 
         self.inner_proj = Linear(model_dim, inner_dim, **fct_kwargs)
 
         if inner_activation_fn is None:
-            self.inner_activation_fn = F.relu  # type: ignore
+            self.inner_activation_fn = F.relu
         else:
-            self.inner_activation_fn = inner_activation_fn  # type: ignore
+            self.inner_activation_fn = inner_activation_fn
 
         self.inner_dropout_p = inner_dropout_p
 
@@ -106,7 +106,7 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
     def forward(self, x: Tensor) -> Tensor:
         x = self.inner_proj(x)
 
-        x = self.inner_activation_fn(x)  # type: ignore
+        x = self.inner_activation_fn(x)
 
         if self.inner_norm is not None:
             x = self.inner_norm(x)

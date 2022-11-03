@@ -1,6 +1,5 @@
 import contextlib
 import numbers
-import typing
 import warnings
 from dataclasses import dataclass
 from typing import (
@@ -8,11 +7,14 @@ from typing import (
     Callable,
     Dict,
     Generator,
+    Iterator,
     Optional,
     Sequence,
     SupportsFloat,
     Tuple,
     Type,
+    TypeVar,
+    Union,
 )
 
 import hamcrest
@@ -23,26 +25,28 @@ from hamcrest.core.description import Description
 from hamcrest.core.matcher import Matcher
 from overrides import overrides
 
+T = TypeVar("T")
+
 # int is not a Number?
 # https://github.com/python/mypy/issues/3186
 # https://stackoverflow.com/questions/69334475/how-to-hint-at-number-types-i-e-subclasses-of-number-not-numbers-themselv/69383462#69383462kk
 
-NumberLike = typing.Union[numbers.Number, numbers.Complex, typing.SupportsFloat]
+NumberLike = Union[numbers.Number, numbers.Complex, SupportsFloat]
 
-TensorConvertable = typing.Any
+TensorConvertable = Any
 
-# TensorConvertable = typing.Union[
+# TensorConvertable = Union[
 #    torch.Tensor,
 #    NumberLike,
-#    typing.Sequence,
-#    typing.List,
-#    typing.Tuple,
+#    Sequence,
+#    List,
+#    Tuple,
 #    nptyping.NDArray,
 # ]
 "Types which torch.as_tensor(T) can convert."
 
 
-def hide_module_tracebacks(module: typing.Any, mode: bool = True) -> None:
+def hide_module_tracebacks(module: Any, mode: bool = True) -> None:
     # unittest integration; hide these frames from tracebacks
     module["__unittest"] = mode
     # py.test integration; hide these frames from tracebacks
@@ -64,16 +68,17 @@ hide_module_tracebacks(hamcrest.core.base_matcher.__dict__)
 
 
 @dataclass
-class WhenCalledMatcher(BaseMatcher[Callable[..., Any]]):
+class WhenCalledMatcher(BaseMatcher[Callable[..., T]]):
     args: Tuple[Any, ...]
     kwargs: Dict[str, Any]
+    matcher: Matcher[T]
     method: Optional[str] = None
 
     def __init__(
         self,
         args: Sequence[Any],
         kwargs: Dict[str, Any],
-        matcher: Matcher,
+        matcher: Matcher[T],
         method: Optional[str] = None,
     ) -> None:
         self.args = tuple(args)
@@ -81,10 +86,10 @@ class WhenCalledMatcher(BaseMatcher[Callable[..., Any]]):
         self.matcher = matcher
         self.method = method
 
-    def _matches(self, item: Callable) -> bool:
+    def _matches(self, item: Callable[..., T]) -> bool:
         return self.matcher.matches(self._call_item(item))
 
-    def _call_item(self, item: Callable) -> Any:
+    def _call_item(self, item: Callable[..., T]) -> Any:
         if self.method is None:
             f = item
         else:
@@ -108,7 +113,9 @@ class WhenCalledMatcher(BaseMatcher[Callable[..., Any]]):
         description.append_description_of(self.matcher)
 
     def describe_mismatch(
-        self, item: Callable, mismatch_description: Description
+        self,
+        item: Callable[..., T],
+        mismatch_description: Description,
     ) -> None:
         val = self._call_item(item)
         mismatch_description.append_text("was =>").append_description_of(val)
@@ -120,7 +127,7 @@ class WhenCalledBuilder:
     kwargs: Dict[str, Any]
     method: Optional[str] = None
 
-    def matches(self, matcher: Any) -> WhenCalledMatcher:
+    def matches(self, matcher: Union[T, Matcher[T]]) -> WhenCalledMatcher[T]:
         return WhenCalledMatcher(
             args=self.args,
             kwargs=self.kwargs,
@@ -137,7 +144,7 @@ def calling_method(method: str, *args: Any, **kwargs: Any) -> WhenCalledBuilder:
     return WhenCalledBuilder(args, kwargs, method=method)
 
 
-def _as_matcher(matcher: Any) -> Matcher:
+def _as_matcher(matcher: Union[T, Matcher[T]]) -> Matcher[T]:
     if isinstance(matcher, Matcher):
         return matcher
 
@@ -248,8 +255,8 @@ def assert_tensor_views(*views: torch.Tensor) -> None:
 
     for t in views:
         assert_match(
-            t.storage().data_ptr(),  # type: ignore
-            reference.storage().data_ptr(),  # type: ignore
+            t.storage().data_ptr(),
+            reference.storage().data_ptr(),
         )
 
 
@@ -263,12 +270,12 @@ def assert_tensor_storage_differs(
     :param reference: the reference tensor.
     """
     assert_match(
-        tensor.storage().data_ptr(),  # type: ignore
-        hamcrest.not_(reference.storage().data_ptr()),  # type: ignore
+        tensor.storage().data_ptr(),
+        hamcrest.not_(reference.storage().data_ptr()),
     )
 
 
-class TensorStructureMatcher(BaseMatcher):
+class TensorStructureMatcher(BaseMatcher[torch.Tensor]):
     """PyHamcrest matcher for comparing the structure of a tensor to an
     exemplar.
 
@@ -285,7 +292,7 @@ class TensorStructureMatcher(BaseMatcher):
         self.expected = torch.as_tensor(expected)
 
     @overrides
-    def _matches(self, item: typing.Any) -> bool:
+    def _matches(self, item: torch.Tensor) -> bool:
         # Todo: structural miss-match that still shows expected tensor.
 
         try:
@@ -374,7 +381,7 @@ class TensorMatcher(TensorStructureMatcher):
             self.expected = self.expected.coalesce()
 
     @overrides
-    def _matches(self, item: typing.Any) -> bool:
+    def _matches(self, item: Any) -> bool:
         if not super()._matches(item):
             return False
 
@@ -426,13 +433,19 @@ class TensorMatcher(TensorStructureMatcher):
         description.append_description_of(self.expected)
 
     @overrides
-    def describe_match(self, item: typing.Any, match_description: Description) -> None:
+    def describe_match(
+        self,
+        item: Any,
+        match_description: Description,
+    ) -> None:
         match_description.append_text("was \n")
         match_description.append_description_of(item)
 
     @overrides
     def describe_mismatch(
-        self, item: typing.Any, mismatch_description: Description
+        self,
+        item: Any,
+        mismatch_description: Description,
     ) -> None:
         torch.set_printoptions(
             precision=10,
@@ -458,7 +471,7 @@ def assert_tensor_equals(
     expected: TensorConvertable,
     *,
     close: bool = False,
-    view_of: typing.Optional[torch.Tensor] = None,
+    view_of: Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
     """Assert that the `actual` tensor equals the `expected` tensor.
 
@@ -483,7 +496,7 @@ def assert_tensor_equals(
 
 def match_tensor_sequence(
     *expected: TensorConvertable,
-) -> Matcher:
+) -> Matcher[Sequence[torch.Tensor]]:
     """Returns a matcher which expects a sequence that matches the tensors.
 
     :param expected: the expected tensors.
@@ -492,10 +505,10 @@ def match_tensor_sequence(
 
 
 def assert_tensor_sequence_equals(
-    actual: typing.Sequence[torch.Tensor],
+    actual: Sequence[torch.Tensor],
     *expected: TensorConvertable,
-    view_of: typing.Optional[torch.Tensor] = None,
-) -> typing.Sequence[torch.Tensor]:
+    view_of: Optional[torch.Tensor] = None,
+) -> Sequence[torch.Tensor]:
     """Assert that the `actual` is a sequence that equals the given `expected`
     tensor values.
 
@@ -514,7 +527,7 @@ def assert_tensor_sequence_equals(
 
 
 @contextlib.contextmanager
-def reset_generator_seed(seed: int = 3 * 17 * 53 + 1) -> typing.Iterator:
+def reset_generator_seed(seed: int = 3 * 17 * 53 + 1) -> Iterator[None]:
     """Context manager which resets the `torch.manual_seed()` seed on entry.
 
     :param seed: optional seed.
