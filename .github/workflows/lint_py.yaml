@@ -18,21 +18,19 @@ defaults:
 
 jobs:
   lint:
-    name: Lint (py${{ matrix.py }})
+    name: Lint
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/fairinternal/fairseq2-ci-manylinux_x86_64:1-cpu
-    strategy:
-      # Ensure that we get the results of all linters even if some of them fail.
-      fail-fast: false
-      matrix:
-        py: ['3.8', '3.10']
     steps:
       - name: Check-out the repository
         uses: actions/checkout@v3
+      - name: Mark the GitHub workspace as a safe Git directory
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Set up the Python virtual environment
         run: |
-          python${{ matrix.py }} -m venv ~/venv-lint
+          python3.10 -m venv ~/venv-lint
 
           echo ~/venv-lint/bin >> "$GITHUB_PATH"
       - name: Install PyTorch
@@ -49,16 +47,33 @@ jobs:
       - name: Run isort
         if: success() || (failure() && steps.setup.outcome == 'success')
         run: |
+          echo "::add-matcher::./ci/problem-matchers/isort.json"
+
           isort --check .
+
+          echo "::remove-matcher owner=isort-error::"
       - name: Run black
         if: success() || (failure() && steps.setup.outcome == 'success')
         run: |
+          echo "::add-matcher::./ci/problem-matchers/black.json"
+
           black --check .
+
+          echo "::remove-matcher owner=black-error::"
       - name: Run flake8
         if: success() || (failure() && steps.setup.outcome == 'success')
         run: |
+          echo "::add-matcher::./ci/problem-matchers/flake8.json"
+
           flake8 .
+
+          echo "::remove-matcher owner=flake8-error::"
+          echo "::remove-matcher owner=flake8-warning::"
       - name: Run mypy
         if: success() || (failure() && steps.setup.outcome == 'success')
         run: |
-          mypy --pretty .
+          echo "::add-matcher::./ci/problem-matchers/mypy.json"
+
+          mypy .
+
+          echo "::remove-matcher owner=mypy-error::"

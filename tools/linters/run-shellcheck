@@ -37,4 +37,4 @@ fi
 
 find "$1" \( -type d \( -name '.?*' -or -name 'build' -or -name 'third-party' \) -prune \) -or\
     \( -type f \( \( -executable -not -name '*.so' \) -or -name '*.sh' \) -print0 \) |
-        xargs -0 shellcheck -e SC1071 --severity=warning --norc
+        xargs -0 shellcheck -f gcc -e SC1071 --severity=warning --norc

@@ -28,7 +28,7 @@ jobs:
         uses: actions/checkout@v3
       - name: Set up the Python virtual environment
         run: |
-          python3.8 -m venv ~/venv-lint
+          python3.10 -m venv ~/venv-lint
 
           echo ~/venv-lint/bin >> "$GITHUB_PATH"
       - name: Install the requirements
@@ -38,4 +38,8 @@ jobs:
       - name: Run shellcheck
         if: success() || (failure() && steps.setup.outcome == 'success')
         run: |
+          echo "::add-matcher::./ci/problem-matchers/gcc.json"
+
           tools/linters/run-shellcheck .
+
+          echo "::remove-matcher owner=gcc::"

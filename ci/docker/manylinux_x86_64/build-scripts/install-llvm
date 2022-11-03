@@ -21,4 +21,6 @@ cmake -GNinja\
 
 cmake --build /llvm-build && cmake --install /llvm-build
 
+cp /llvm/clang/tools/clang-format/git-clang-format /usr/local/bin
+
 rm -rf /llvm /llvm-build
