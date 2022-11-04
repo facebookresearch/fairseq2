@@ -55,21 +55,6 @@ function(fairseq2_find_torch version)
 
     __fairseq2_determine_pep440_version()
 
-    # PyTorch distributions 1.12.1 and 1.11.0 were missing some header files
-    # that were transitively used by TorchScript. We store those files under
-    # our torch third-party directory so that we can build our targets.
-    #
-    # See https://github.com/pytorch/pytorch/issues/68876.
-    #
-    # TODO: The torch third-party directory should be deleted once we cease
-    # support for PyTorch 1.12.1.
-    if(TORCH_VERSION VERSION_LESS_EQUAL 1.12.1)
-        target_include_directories(torch
-            INTERFACE
-                ${PROJECT_SOURCE_DIR}/third-party/torch/include
-        )
-    endif()
-
     set(TORCH_VERSION ${Torch_VERSION} PARENT_SCOPE)
 
     set(TORCH_CUDA_VERSION       ${TORCH_CUDA_VERSION}       PARENT_SCOPE)
