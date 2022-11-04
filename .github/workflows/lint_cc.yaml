@@ -32,9 +32,9 @@ jobs:
           fetch-depth: 2
       - name: Set up the Python virtual environment
         run: |
-          python3.10 -m venv ~/venv-lint
+          python3.10 -m venv ~/venv
 
-          echo ~/venv-lint/bin >> "$GITHUB_PATH"
+          echo ~/venv/bin >> "$GITHUB_PATH"
       - name: Install PyTorch
         run: |
           pip install torch==1.12.1\

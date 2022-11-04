@@ -117,13 +117,13 @@ class install_cmake(Command):
 
         # We have to strip the file paths to the installation directory to be
         # consistent with the rest of the install commands.
-        lstrip_idx = len(path.abspath(self.install_dir)) + 1
+        lstrip_pos = len(path.abspath(self.install_dir)) + 1
 
         # We extract the list of installed files from the CMake manifests.
         for m in manifests:
             with open(path.join(self.cmake_build_dir, m)) as fp:
                 for pathname in fp:
-                    outputs.append(pathname[lstrip_idx:].rstrip())
+                    outputs.append(pathname[lstrip_pos:].rstrip())
 
         return [path.join(self.install_dir, o) for o in outputs]
 

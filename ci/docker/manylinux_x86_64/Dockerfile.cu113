@@ -16,7 +16,7 @@ ENV DEVTOOLSET=9
 ENV LIBASAN=/usr/lib64/libasan.so.5
 ENV LIBTSAN=/usr/lib64/libtsan.so.0
 
-COPY build-scripts/install-cuda-11.3 /build-scripts/
+COPY build-scripts/install-cuda-11.3.sh /build-scripts/
 
 RUN yum --assumeyes install\
         devtoolset-$DEVTOOLSET-gcc\
@@ -24,4 +24,4 @@ RUN yum --assumeyes install\
         devtoolset-$DEVTOOLSET-lib{asan,lsan,ubsan,tsan}-devel &&\
     yum clean all
 
-RUN /build-scripts/install-cuda-11.3 && rm -rf /build-scripts
+RUN /build-scripts/install-cuda-11.3.sh && rm -rf /build-scripts

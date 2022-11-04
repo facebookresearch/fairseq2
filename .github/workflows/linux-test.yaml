@@ -53,9 +53,9 @@ jobs:
         uses: actions/checkout@v3
       - name: Set up the Python virtual environment
         run: |
-          python${{ inputs.py }} -m venv ~/venv-test
+          python${{ inputs.py }} -m venv ~/venv
 
-          echo ~/venv-test/bin >> "$GITHUB_PATH"
+          echo ~/venv/bin >> "$GITHUB_PATH"
       - name: Install PyTorch
         run: |
           pip install torch==${{ inputs.torch }}\
@@ -90,21 +90,21 @@ jobs:
         run: |
           chmod 755 ~/tests/run-tests
 
-          export LD_LIBRARY_PATH=~/venv-test/lib/python${{ inputs.py }}/site-packages/fairseq2/lib
+          lib_path=~/venv/lib/python${{ inputs.py }}/site-packages/fairseq2/lib
 
-          LD_PRELOAD=${!SANITIZER_LIB} ~/tests/run-tests
+          LD_LIBRARY_PATH=$lib_path LD_PRELOAD=${!SANITIZER_LIB}\
+            ~/tests/run-tests
       - name: Run the Python tests
         run: |
           run_on_cuda=${{ inputs.run_on_cuda }}
 
           if [[ $run_on_cuda != true ]]; then
-            device=cpu
+            dev=cpu
           else
-            device=cuda:0
+            dev=cuda:0
           fi
 
-          LD_PRELOAD=${!SANITIZER_LIB} python -m tests\
-            --device $device --verbose
+          LD_PRELOAD=${!SANITIZER_LIB} python -m tests --device $dev --verbose
       - name: Check the output of the leak sanitizer
         if: env.LSAN_OPTIONS != ''
         run: |

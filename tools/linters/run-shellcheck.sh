@@ -27,6 +27,7 @@ function exit_with_error
     exit 1
 }
 
+
 if [[ $# -ne 1 ]]; then
     exit_with_error
 fi
@@ -36,5 +37,5 @@ if [[ $1 == -h || $1 == --help ]]; then
 fi
 
 find "$1" \( -type d \( -name '.?*' -or -name 'build' -or -name 'third-party' \) -prune \) -or\
-    \( -type f \( \( -executable -not -name '*.so' \) -or -name '*.sh' \) -print0 \) |
-        xargs -0 shellcheck -f gcc -e SC1071 --severity=warning --norc
+    \( -type f -name '*.sh' -print0 \) |
+        xargs --no-run-if-empty --null shellcheck -f gcc --severity=warning --norc

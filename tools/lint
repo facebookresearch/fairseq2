@@ -13,7 +13,4 @@ flake8 .
 
 mypy --pretty .
 
-tools/linters/run-shellcheck .
-
-tools/linters/run-clang-format --dry-run -q .
-
+tools/linters/run-shellcheck.sh .

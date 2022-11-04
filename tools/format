@@ -15,6 +15,3 @@ docformatter -i . --exclude .venv third-party
 isort .
 
 black .
-
-tools/linters/run-clang-format .
-

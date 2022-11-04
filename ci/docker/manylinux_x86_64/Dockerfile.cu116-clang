@@ -6,6 +6,6 @@
 
 FROM ghcr.io/fairinternal/fairseq2-ci-manylinux_x86_64:1-cu116
 
-COPY build-scripts/install-llvm /build-scripts/
+COPY build-scripts/install-llvm.sh /build-scripts/
 
-RUN /build-scripts/install-llvm && rm -rf /build-scripts
+RUN /build-scripts/install-llvm.sh && rm -rf /build-scripts

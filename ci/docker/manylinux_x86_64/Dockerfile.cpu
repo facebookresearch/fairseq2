@@ -14,12 +14,11 @@ ENV LIBTSAN=/usr/lib64/libtsan.so.0
 # GCC 10.2 is already installed on manylinux2014; therefore, we just install the
 # missing sanitizers.
 RUN yum --assumeyes install\
-        ninja-build\
         devtoolset-$DEVTOOLSET-lib{asan,lsan,ubsan,tsan}-devel &&\
     yum clean all
 
-COPY manylinux-entrypoint /usr/local/bin/
+COPY manylinux-entrypoint.sh /usr/local/bin/
 
-ENTRYPOINT ["manylinux-entrypoint"]
+ENTRYPOINT ["manylinux-entrypoint.sh"]
 
 CMD ["/bin/bash"]

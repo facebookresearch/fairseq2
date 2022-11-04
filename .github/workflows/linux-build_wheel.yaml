@@ -45,9 +45,9 @@ jobs:
           submodules: recursive
       - name: Set up the Python virtual environment
         run: |
-          python${{ inputs.py }} -m venv ~/venv-build
+          python${{ inputs.py }} -m venv ~/venv
 
-          echo ~/venv-build/bin >> "$GITHUB_PATH"
+          echo ~/venv/bin >> "$GITHUB_PATH"
       - name: Install PyTorch
         run: |
           pip install torch==${{ inputs.torch }}\
