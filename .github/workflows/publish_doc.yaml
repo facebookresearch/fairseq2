@@ -36,10 +36,10 @@ jobs:
           git config user.name  "github-actions"
           git config user.email "github-actions@github.com"
       - name: Commit and push the documentation
+        env:
+          NIGHTLY: ${{ inputs.nightly }}
         run: |
-          nightly=${{ inputs.nightly }}
-
-          if [[ $nightly == true ]]; then
+          if [[ $NIGHTLY == true ]]; then
             doc_dir=nightly
           else
             doc_dir=$(cat ~/doc/VERSION)

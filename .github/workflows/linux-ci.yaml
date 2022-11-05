@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-name: Build (Linux)
+name: CI (Linux)
 
 on:
   pull_request:
@@ -57,7 +57,7 @@ jobs:
   x86_64_pt111_cpu-test:
     name: Run the tests (x86_64, py3.8, pt1.11, cpu, nosan)
     needs: x86_64_pt111-build
-    uses: ./.github/workflows/linux-test.yaml
+    uses: ./.github/workflows/linux-run_tests.yaml
     with:
       py: '3.8'
       torch: '1.11'
@@ -67,7 +67,7 @@ jobs:
 #  x86_64_pt111_cu113-test:
 #    name: Run the tests (x86_64, py3.8, pt1.11, cu113_nosan)
 #    needs: 86_64_pt111_cpu-test
-#    uses: ./.github/workflows/linux-test.yaml
+#    uses: ./.github/workflows/linux-run_tests.yaml
 #    with:
 #      py: '3.8'
 #      torch: '1.11'
@@ -112,7 +112,7 @@ jobs:
     strategy:
       matrix:
         sanitizers: ['nosan', 'asan_ubsan', 'tsan']
-    uses: ./.github/workflows/linux-test.yaml
+    uses: ./.github/workflows/linux-run_tests.yaml
     with:
       py: '3.8'
       torch: '1.12.1'
@@ -123,7 +123,7 @@ jobs:
 #  x86_64_pt112_cu116-test:
 #    name: Run the tests (x86_64, py3.8, pt1.12, cu116, nosan)
 #    needs: 86_64_pt112_cpu-test
-#    uses: ./.github/workflows/linux-test.yaml
+#    uses: ./.github/workflows/linux-run_tests.yaml
 #    with:
 #      py: '3.8'
 #      torch: '1.12.1'

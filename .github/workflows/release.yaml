@@ -60,7 +60,7 @@ jobs:
         arch: ['x86_64']
 #        variant: ['cpu', 'cu113']
         variant: ['cpu']
-    uses: ./.github/workflows/linux-test.yaml
+    uses: ./.github/workflows/linux-run_tests.yaml
     with:
       py: ${{ matrix.py }}
       torch: '1.11'
@@ -114,7 +114,7 @@ jobs:
             arch: 'x86_64'
             variant: 'cpu'
             sanitizers: 'tsan'
-    uses: ./.github/workflows/linux-test.yaml
+    uses: ./.github/workflows/linux-run_tests.yaml
     with:
       py: ${{ matrix.py }}
       torch: '1.12.1'
@@ -142,6 +142,7 @@ jobs:
         variant: ['cpu', 'cu113']
     uses: ./.github/workflows/publish_wheel.yaml
     with:
+      release_type: ${{ inputs.release_type || 'nightly' }}
       py: ${{ matrix.py }}
       torch: '1.11'
       os: 'linux'
@@ -159,6 +160,7 @@ jobs:
         variant: ['cpu', 'cu113', 'cu116']
     uses: ./.github/workflows/publish_wheel.yaml
     with:
+      release_type: ${{ inputs.release_type || 'nightly' }}
       py: ${{ matrix.py }}
       torch: '1.12.1'
       os: 'linux'

@@ -4,11 +4,14 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-name: Publish a wheel
+name: Publish wheel
 
 on:
   workflow_call:
     inputs:
+      release_type:
+        type: string
+        required: true
       py:
         type: string
         required: true
@@ -40,15 +43,13 @@ jobs:
           name: wheel-${{ inputs.os }}_${{ inputs.arch }}-py${{ inputs.py }}-pt${{ inputs.torch }}-${{ inputs.variant }}-nosan
           path: ~/wheelhouse/
       - name: Upload the wheel to S3
-#        env:
+        env:
+          TORCH: ${{ inputs.torch }}
+          VARIANT: ${{ inputs.variant }}
 #          AWS_ACCESS_KEY_ID: ${{ secrets.aws_key_id }}
 #          AWS_SECRET_ACCESS_KEY: ${{ secrets.aws_access_key }}
 #          AWS_DEFAULT_REGION: us-east-1
         run: |
-          torch=${{ inputs.torch }}
-
-          variant=${{ inputs.variant }}
-
           for pkg in ~/wheelhouse/*.whl; do
-              echo aws s3 cp "$pkg" "s3://dl.fbaipublicfiles.com/fairseq2/${{ inputs.release_type }}/pt${torch/./}/$variant/" --acl public-read
+              echo aws s3 cp "$pkg" "s3://dl.fbaipublicfiles.com/fairseq2/${{ inputs.release_type }}/pt${TORCH/./}/$VARIANT/" --acl public-read
           done

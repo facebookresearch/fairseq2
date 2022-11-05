@@ -15,8 +15,6 @@ using fairseq2::cuda_version_minor;
 
 using fairseq2::supports_cuda;
 
-// clang-format off
-
 PYBIND11_MODULE(config, m)
 {
     py::options opts{};
@@ -60,5 +58,3 @@ R"docstr(
 #pragma clang diagnostic pop
 
 }
-
-// clang-format on

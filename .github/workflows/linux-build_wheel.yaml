@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-name: Build a wheel (Linux)
+name: Build wheel (Linux)
 
 on:
   workflow_call:
@@ -60,21 +60,20 @@ jobs:
         run: |
           version=$(cat VERSION)
 
-          tools/set-version ${version%.dev0}.dev$(date +%Y%m%d)
+          tools/set-version.sh ${version%.dev0}.dev$(date +%Y%m%d)
       - name: Build the C++ library and the extension modules
+        env:
+          VARIANT: ${{ inputs.variant }}
+          SANITIZERS: ${{ inputs.sanitizers }}
         run: |
-          variant=${{ inputs.variant }}
-
           # We build our CUDA kernels for Volta and Ampere.
-          if [[ $variant == cu* ]]; then
+          if [[ $VARIANT == cu* ]]; then
             cuda_archs="70-real;80-real;80-virtual"
           fi
 
-          sanitizers=${{ inputs.sanitizers }}
-
           # Since they do not play well together, we perform LTO only if no
           # sanitizer is used.
-          if [[ $sanitizers == nosan ]]; then
+          if [[ $SANITIZERS == nosan ]]; then
             lto=ON
           else
             lto=OFF

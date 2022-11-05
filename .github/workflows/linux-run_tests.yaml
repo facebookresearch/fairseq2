@@ -68,11 +68,11 @@ jobs:
           pip install ~/wheelhouse/*.whl --no-cache-dir
       - name: Set the sanitizer variables
         if: inputs.sanitizers != 'nosan'
+        env:
+          SANITIZERS: ${{ inputs.sanitizers }}
         run: |
-          sanitizers=${{ inputs.sanitizers }}
-
           {
-            for sanitizer in ${sanitizers//_/ }; do
+            for sanitizer in ${SANITIZERS//_/ }; do
               if [[ $sanitizer == asan || $sanitizer == tsan ]]; then
                 # LIBASAN and LIBTSAN environment variables are defined in the
                 # container image.
@@ -90,15 +90,15 @@ jobs:
         run: |
           chmod 755 ~/tests/run-tests
 
-          lib_path=~/venv/lib/python${{ inputs.py }}/site-packages/fairseq2/lib
+          lib_path=$(python -c "from fairseq2.native import get_lib_path; print(get_lib_path())")
 
           LD_LIBRARY_PATH=$lib_path LD_PRELOAD=${!SANITIZER_LIB}\
             ~/tests/run-tests
       - name: Run the Python tests
+        env:
+          RUN_ON_CUDA: ${{ inputs.run_on_cuda }}
         run: |
-          run_on_cuda=${{ inputs.run_on_cuda }}
-
-          if [[ $run_on_cuda != true ]]; then
+          if [[ $RUN_ON_CUDA != true ]]; then
             dev=cpu
           else
             dev=cuda:0
