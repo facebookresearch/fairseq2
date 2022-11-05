@@ -10,9 +10,9 @@ from fairseq2.nn import transformer
 class StandardTransformerBuilder:
     """Builds a Transformer model as described in the original paper.
 
-    If you want to tweak the architecture, please subclass this Builder
-    class, and override the method corresponding to the part of the
-    architecture you want to change.
+    If you want to tweak the architecture, please subclass this Builder class,
+    and override the method corresponding to the part of the architecture you
+    want to change.
     """
 
     model_dim: int

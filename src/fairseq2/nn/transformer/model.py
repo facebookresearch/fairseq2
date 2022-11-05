@@ -135,8 +135,8 @@ class StandardTransformer(Transformer):
 class UntiedScoreProjection(ResettableProjection):
     """Produces scores (i.e. logits) from the output of a Transformer decoder.
 
-    The produced scores should be forwarded to a softmax function to
-    compute predicted next-token probabilities.
+    The produced scores should be forwarded to a softmax function to compute
+    predicted next-token probabilities.
     """
 
     def __init__(

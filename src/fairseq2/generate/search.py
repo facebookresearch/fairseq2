@@ -147,10 +147,10 @@ def force_eos_(
 
 class SearchResult(NamedTuple):
     tokens: Tensor
-    """(bsz x beam_size x len) generated tokens"""
+    """(bsz x beam_size x len) generated tokens."""
 
     scores: Tensor
-    """(bsz x beam_size) scores of each generation"""
+    """(bsz x beam_size) scores of each generation."""
 
 
 class BeamChoice(NamedTuple):

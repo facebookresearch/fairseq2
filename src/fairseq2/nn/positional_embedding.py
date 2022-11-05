@@ -29,7 +29,8 @@ class PositionalEmbedding(Module, ABC):
     padding_token_idx: Optional[int]
     """The index of the padding token. While producing positional embeddings,
     paddings in an input sequence will be skipped and their positional
-    embeddings will be set to zero."""
+    embeddings will be set to zero.
+    """
 
     batch_first: bool
     """If ``True``, the first dimension of batched inputs and outputs represents

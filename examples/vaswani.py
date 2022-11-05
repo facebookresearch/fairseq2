@@ -36,8 +36,8 @@ class ModelConfig:
     """Holds the hyperparameters for the transformer model described in
     "Attention Is All You Need" (Vaswani et al., 2017)
 
-    In this particular example, the model has only four hyperparameters
-    as described in the original paper.
+    In this particular example, the model has only four hyperparameters as
+    described in the original paper.
     """
 
     model_dim: int
@@ -59,13 +59,12 @@ def load_embeddings(cfg: ModelConfig) -> Embedding:
 def build_model(cfg: ModelConfig, device: Any, dtype: Any) -> Transformer:
     """Builds a Transformer model as described in the original paper.
 
-    In fairseq2 models are constructed by composing modules as building
-    blocks. This follows the dependency inversion principle, which means
-    instead of a model being responsible for instantiating its
-    submodules, it expects them to be provided by the user. This avoids
-    having to subclass or copy/edit entire model architectures, and
-    gives a chance to modify the behavior of a model at a much granular
-    level.
+    In fairseq2 models are constructed by composing modules as building blocks.
+    This follows the dependency inversion principle, which means instead of a
+    model being responsible for instantiating its submodules, it expects them to
+    be provided by the user. This avoids having to subclass or copy/edit entire
+    model architectures, and gives a chance to modify the behavior of a model at
+    a much granular level.
     """
     embed = load_embeddings(cfg)
 

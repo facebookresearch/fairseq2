@@ -218,8 +218,7 @@ def assert_raises(
     pattern: Optional[str] = None,
     matching: Any = None,
 ) -> None:
-    """Utility wrapper for ``hamcrest.assert_that(func,
-    hamcrest.raises(...))``.
+    """Utility wrapper for ``hamcrest.assert_that(func, hamcrest.raises(...))``.
 
     :param func: the function to call.
     :param exception: the exception class to expect.
