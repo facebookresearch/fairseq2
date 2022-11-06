@@ -12,13 +12,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 from overrides import final as finaloverride
 from torch import Tensor
-from torch import dtype as DataType
-from torch.nn import LayerNorm, Module, Parameter
+from torch.nn import LayerNorm, Module
+from torch.nn.parameter import Parameter
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.transformer.ffn import FeedForwardNetwork
 from fairseq2.nn.transformer.multihead_attention import MultiheadAttention
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
+from fairseq2.typing import DataType, Device
 
 
 class TransformerDecoderLayer(Module, ABC):
@@ -130,7 +131,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         dropout_p: float = 0.1,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         norm_eps: float = 1e-5,
-        device: Any = None,
+        device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
         """
@@ -299,6 +300,9 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         incremental_state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
         if self.enc_dec_attn is None:
+            if enc_out is not None:
+                raise ValueError("`enc_out` must be `None` for decoder-only attention.")
+
             return x
 
         if enc_out is None:

@@ -59,7 +59,7 @@ class CausalAttentionMaskGenerator:
 
         >>> import torch
         >>>
-        >>> from fairseq2.nn.tranformer import CausalAttentionMaskGenerator
+        >>> from fairseq2.nn.transformer import CausalAttentionMaskGenerator
         >>>
         >>> g = CausalAttentionMaskGenerator()
         >>> g(torch.empty(4, 10))

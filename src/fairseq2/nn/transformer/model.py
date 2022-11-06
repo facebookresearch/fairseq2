@@ -5,20 +5,21 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional, final
+from typing import Optional, final
 
 import torch.nn as nn
 import torch.nn.functional as F
 from overrides import final as finaloverride
 from torch import Tensor
-from torch import dtype as DataType
+from torch.nn import Module
 
 from fairseq2.nn.projection import Projection, ResettableProjection
 from fairseq2.nn.transformer.decoder import TransformerDecoder
 from fairseq2.nn.transformer.encoder import TransformerEncoder
+from fairseq2.typing import DataType, Device
 
 
-class Transformer(nn.Module, ABC):
+class Transformer(Module, ABC):
     """Represents a Transformer model."""
 
     model_dim: int
@@ -95,7 +96,6 @@ class StandardTransformer(Transformer):
             If ``True``, apply log-softmax instead of softmax to the scores
             (i.e. logits) produced by ``score_proj``.
         """
-        # TODO add sentencepiece model somewhere
         if encoder.model_dim != decoder.model_dim:
             raise ValueError(
                 f"`model_dim` of `encoder` ({encoder.model_dim}) does not match `model_dim` of `decoder` ({decoder.model_dim})."
@@ -143,7 +143,7 @@ class UntiedScoreProjection(ResettableProjection):
         self,
         num_embed: int,
         embedding_dim: int,
-        device: Any = None,
+        device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
         """

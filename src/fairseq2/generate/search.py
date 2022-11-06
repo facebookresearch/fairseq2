@@ -423,7 +423,6 @@ class BeamSearch(Search[BeamSearchState]):
 
         return lprobs
 
-    @torch.jit.export
     @overrides
     def next_query(
         self,
@@ -431,7 +430,6 @@ class BeamSearch(Search[BeamSearchState]):
     ) -> Tensor:
         return state.tokens[:, : state.step + 1]
 
-    @torch.jit.export
     @overrides
     def step(
         self,

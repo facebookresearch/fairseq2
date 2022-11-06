@@ -6,7 +6,8 @@
 
 import torch
 from torch import Tensor
-from torch import dtype as DataType
+
+from fairseq2.typing import DataType
 
 neg_inf = float("-inf")
 

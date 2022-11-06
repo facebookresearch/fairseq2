@@ -10,11 +10,11 @@ from typing import Any, Callable, Dict, Optional, final
 import torch.nn.functional as F
 from overrides import final as finaloverride
 from torch import Tensor
-from torch import dtype as DataType
 from torch.nn import LayerNorm, Module
 
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
+from fairseq2.typing import DataType, Device
 
 
 class FeedForwardNetwork(Module, ABC):
@@ -66,7 +66,7 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         inner_activation_fn: Optional[Callable[[Tensor], Tensor]] = None,
         inner_dropout_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
-        device: Any = None,
+        device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
         """

@@ -14,8 +14,10 @@ import torch.nn.functional as F
 from overrides import final as finaloverride
 from overrides import override
 from torch import Tensor
-from torch import dtype as DataType
-from torch.nn import Module, Parameter
+from torch.nn import Module
+from torch.nn.parameter import Parameter
+
+from fairseq2.typing import DataType, Device
 
 
 class Projection(Module, ABC):
@@ -72,7 +74,7 @@ class ResettableProjection(Projection):
         inp_dim: int,
         out_dim: int,
         bias: bool = False,
-        device: Optional[torch.device] = None,
+        device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
         """

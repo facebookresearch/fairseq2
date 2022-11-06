@@ -22,4 +22,4 @@ class TestCase(TestCaseBase):
 
     def assertAllClose(self, a: Tensor, b: Tensor) -> None:
         """Asserts if ``a`` and ``b`` are element-wise equal within a tolerance."""
-        torch.testing.assert_close(a, b)
+        torch.testing.assert_close(a, b)  # type: ignore[attr-defined]

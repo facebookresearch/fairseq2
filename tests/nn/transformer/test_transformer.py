@@ -11,10 +11,12 @@ from tests import tensor_matchers as tm
 @torch.inference_mode()
 def test_mha_is_consistent_wrt_batch_first() -> None:
     bs, l_src, dim, heads = 2, 7, 16, 4
+    device = torch.device("cpu")
+
     attn_batch_first = transformer.StandardMultiheadAttention(
         model_dim=dim,
         num_heads=heads,
-        device="cpu",
+        device=device,
         dtype=torch.float32,
         batch_first=True,
     )
@@ -23,7 +25,7 @@ def test_mha_is_consistent_wrt_batch_first() -> None:
     attn_batch_second = transformer.StandardMultiheadAttention(
         model_dim=dim,
         num_heads=heads,
-        device="cpu",
+        device=device,
         dtype=torch.float32,
         batch_first=False,
         q_proj=attn_batch_first.q_proj,
@@ -61,11 +63,13 @@ def test_mha_is_consistent_wrt_batch_first() -> None:
 
 @torch.inference_mode()
 def test_enc_dec_mha_is_consistent_wrt_batch_first() -> None:
+    device = torch.device("cpu")
+
     bs, l_src, l_tgt, dim, heads = 2, 7, 5, 16, 4
     attn_batch_first = transformer.StandardMultiheadAttention(
         model_dim=dim,
         num_heads=heads,
-        device="cpu",
+        device=device,
         dtype=torch.float32,
         batch_first=True,
     )
@@ -74,7 +78,7 @@ def test_enc_dec_mha_is_consistent_wrt_batch_first() -> None:
     attn_batch_second = transformer.StandardMultiheadAttention(
         model_dim=dim,
         num_heads=heads,
-        device="cpu",
+        device=device,
         dtype=torch.float32,
         batch_first=False,
         q_proj=attn_batch_first.q_proj,
@@ -114,11 +118,13 @@ def test_enc_dec_mha_is_consistent_wrt_batch_first() -> None:
 
 @torch.inference_mode()
 def test_enc_dec_mha_is_consistent_wrt_inc_state(monkeypatch: Any) -> None:
+    device = torch.device("cpu")
+
     bs, l_src, l_tgt, dim, heads = 2, 7, 5, 16, 4
     attn_batch_first = transformer.StandardMultiheadAttention(
         model_dim=dim,
         num_heads=heads,
-        device="cpu",
+        device=device,
         dtype=torch.float32,
         batch_first=True,
     )

@@ -386,7 +386,7 @@ class TensorMatcher(TensorStructureMatcher):
 
         if self.close:
             try:
-                torch.testing.assert_close(
+                torch.testing.assert_close(  # type: ignore[attr-defined]
                     item,
                     self.expected,
                     equal_nan=True,
@@ -415,7 +415,7 @@ class TensorMatcher(TensorStructureMatcher):
             else:
                 # torch.equal(item, self.expected) does not support nan.
                 try:
-                    torch.testing.assert_close(
+                    torch.testing.assert_close(  # type: ignore[attr-defined]
                         item,
                         self.expected,
                         rtol=0,

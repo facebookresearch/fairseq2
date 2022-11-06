@@ -15,7 +15,6 @@ import torch.nn.functional as F
 from overrides import final as finaloverride
 from overrides import override
 from torch import Tensor
-from torch import dtype as DataType
 from torch.nn import LayerNorm, Module
 
 from fairseq2.nn.embedding import Embedding
@@ -26,6 +25,7 @@ from fairseq2.nn.transformer.attention_mask import AttentionMaskGenerator
 from fairseq2.nn.transformer.encoder_layer import TransformerEncoderLayer
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
 from fairseq2.nn.utils import to_float_mask
+from fairseq2.typing import DataType, Device
 
 
 class TransformerEncoder(Module, ABC):
@@ -84,16 +84,10 @@ class InternalDimProjection(ResettableProjection):
         self,
         inp_dim: int,
         out_dim: int,
-        device: Any,
+        device: Optional[Device],
         dtype: Optional[DataType],
     ) -> None:
-        super().__init__(
-            inp_dim,
-            out_dim,
-            bias=True,
-            device=device,
-            dtype=dtype,
-        )
+        super().__init__(inp_dim, out_dim, bias=True, device=device, dtype=dtype)
 
     @override
     def reset_parameters(self) -> None:
@@ -124,7 +118,6 @@ class StandardTransformerEncoder(TransformerEncoder):
         embed: Embedding,
         positional_embed: Optional[PositionalEmbedding],
         layers: Iterable[TransformerEncoderLayer],
-        *,
         no_scale_embed: bool = False,
         norm_embed: bool = False,
         embed_dropout_p: float = 0.1,
@@ -132,7 +125,7 @@ class StandardTransformerEncoder(TransformerEncoder):
         layer_drop_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         norm_eps: float = 1e-5,
-        device: Any = None,
+        device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
         """

@@ -14,8 +14,8 @@ import torch.nn.functional as F
 from overrides import final as finaloverride
 from overrides import override
 from torch import Tensor
-from torch import dtype as DataType
-from torch.nn import Module, Parameter
+from torch.nn import Module
+from torch.nn.parameter import Parameter
 from torch.utils.hooks import RemovableHandle
 
 from fairseq2.nn.incremental_state import IncrementalState, IncrementalStateBag
@@ -25,6 +25,7 @@ from fairseq2.nn.transformer.attention import (
     scaled_dot_product_attention,
 )
 from fairseq2.nn.utils import to_float_mask
+from fairseq2.typing import DataType, Device
 
 
 class MultiheadAttentionState(IncrementalState):
@@ -159,17 +160,21 @@ class AttentionWeightHook(Protocol):
 
 
 class StoreAttentionWeights(AttentionWeightHook):
-    """Store the attentions in the given list.
+    """Stores the attention weights in the given list.
 
-    The owner of this object is responsible for clearing the list, or
-    popping the attentions.
+    The owner of this object is responsible for clearing the list, or popping
+    the attention weights.
     """
 
-    def __init__(self, attentions: List[Tensor]):
-        self._attentions = attentions
+    def __init__(self, attn_weights: List[Tensor]) -> None:
+        """
+        :param attn_weights:
+            The list in which to store the attention weights.
+        """
+        self._attn_weights = attn_weights
 
     def __call__(self, m: MultiheadAttention, attn_weights: Tensor) -> None:
-        self._attentions.append(attn_weights)
+        self._attn_weights.append(attn_weights)
 
 
 class MultiheadAttention(Module, ABC):
@@ -304,7 +309,9 @@ class MultiheadAttention(Module, ABC):
 
 
 class InternalQKVProjection(ResettableProjection):
-    def __init__(self, model_dim: int, device: Any, dtype: Optional[DataType]) -> None:
+    def __init__(
+        self, model_dim: int, device: Optional[Device], dtype: Optional[DataType]
+    ) -> None:
         super().__init__(model_dim, model_dim, bias=True, device=device, dtype=dtype)
 
     @override
@@ -319,7 +326,11 @@ class InternalQKVProjection(ResettableProjection):
 
 class InternalOutProjection(ResettableProjection):
     def __init__(
-        self, v_proj_dim: int, model_dim: int, device: Any, dtype: Optional[DataType]
+        self,
+        v_proj_dim: int,
+        model_dim: int,
+        device: Optional[Device],
+        dtype: Optional[DataType],
     ) -> None:
         super().__init__(v_proj_dim, model_dim, bias=True, device=device, dtype=dtype)
 
@@ -359,7 +370,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         attn_dropout_p: float = 0.0,
         out_proj: Optional[Projection] = None,
         batch_first: bool = False,
-        device: Any = None,
+        device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
         """
@@ -411,10 +422,12 @@ class StandardMultiheadAttention(MultiheadAttention):
             q_proj = InternalQKVProjection(model_dim, **fct_kwargs)
             k_proj = InternalQKVProjection(model_dim, **fct_kwargs)
             v_proj = InternalQKVProjection(model_dim, **fct_kwargs)
+        else:
+            if q_proj is None or k_proj is None or v_proj is None:
+                raise ValueError(
+                    "`q_proj`, `k_proj`, and `v_proj` must be all specified."
+                )
 
-        assert q_proj is not None
-        assert k_proj is not None
-        assert v_proj is not None
         self.q_proj = q_proj
         self.k_proj = k_proj
         self.v_proj = v_proj
@@ -546,20 +559,20 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         # (N, T, K_proj) -> (N, T, H, K_h)
         q = q.unflatten(-1, (self.num_heads, -1))
-        # (N, S, V_proj) -> (N, S, H, V_h)
         k = k.unflatten(-1, (self.num_heads, -1))
+        # (N, S, V_proj) -> (N, S, H, V_h)
         v = v.unflatten(-1, (self.num_heads, -1))
 
         # (N, T, H, K_h) -> (N, H, T, K_h)
         q = q.transpose(1, 2)
-        # (N, S, H, V_h) -> (N, H, S, V_h)
         k = k.transpose(1, 2)
+        # (N, S, H, V_h) -> (N, H, S, V_h)
         v = v.transpose(1, 2)
 
         # (N, H, T, K_h) -> (N x H, T, K_h)
         q = q.flatten(0, 1)
-        # (N, H, S, V_h) -> (N x H, S, V_h)
         k = k.flatten(0, 1)
+        # (N, H, S, V_h) -> (N x H, S, V_h)
         v = v.flatten(0, 1)
 
         # attn:         (N x H, T, V_h)

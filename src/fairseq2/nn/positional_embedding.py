@@ -13,8 +13,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from overrides import final as finaloverride
 from torch import Tensor
-from torch import dtype as DataType
-from torch.nn import Module, Parameter
+from torch.nn import Module
+from torch.nn.parameter import Parameter
+
+from fairseq2.typing import DataType, Device
 
 
 class PositionalEmbedding(Module, ABC):
@@ -186,7 +188,7 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
         embedding_dim: int,
         padding_token_idx: Optional[int] = None,
         batch_first: bool = False,
-        device: Any = None,
+        device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
         super().__init__(max_seq_len, embedding_dim, padding_token_idx, batch_first)
@@ -300,7 +302,7 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
         embedding_dim: int,
         padding_token_idx: Optional[int] = None,
         batch_first: bool = False,
-        device: Any = None,
+        device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
         super().__init__(max_seq_len, embedding_dim, padding_token_idx, batch_first)

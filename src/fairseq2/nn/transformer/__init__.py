@@ -54,7 +54,6 @@ __all__ = [
     "FeedForwardNetwork",
     "MultiheadAttention",
     "MultiheadAttentionState",
-    "scaled_dot_product_attention",
     "StandardFeedForwardNetwork",
     "StandardMultiheadAttention",
     "StandardTransformer",
@@ -71,4 +70,5 @@ __all__ = [
     "TransformerEncoderLayer",
     "TransformerNormOrder",
     "UntiedScoreProjection",
+    "scaled_dot_product_attention",
 ]

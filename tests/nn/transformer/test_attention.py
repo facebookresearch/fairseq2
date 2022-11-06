@@ -1,4 +1,3 @@
-import unittest
 from typing import Tuple
 
 import torch
@@ -7,10 +6,11 @@ from torch import Tensor
 
 from fairseq2.nn.transformer.attention import scaled_dot_product_attention
 from tests import tensor_matchers as tm
+from tests.common import TestCase
 from tests.utils import tmp_rng_seed
 
 
-class TestScaledDotProductAttention(unittest.TestCase):
+class TestScaledDotProductAttention(TestCase):
     def build_qkvm(self) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
         N = 2
         T = 2
@@ -106,7 +106,7 @@ class TestScaledDotProductAttention(unittest.TestCase):
 
         dropout_p = 0.5
 
-        with tmp_rng_seed():
+        with tmp_rng_seed(self.device):
             attn, attn_weights = scaled_dot_product_attention(
                 queries=queries,
                 keys=keys,
@@ -114,7 +114,7 @@ class TestScaledDotProductAttention(unittest.TestCase):
                 dropout_p=dropout_p,
             )
 
-        with tmp_rng_seed():
+        with tmp_rng_seed(self.device):
             expected_attn_weights = F.dropout(
                 F.softmax(
                     torch.bmm(

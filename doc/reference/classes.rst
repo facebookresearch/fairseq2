@@ -26,4 +26,5 @@ Classes
     nn.transformer.StandardTransformerDecoderLayer
     nn.transformer.StandardTransformerEncoder
     nn.transformer.StandardTransformerEncoderLayer
+    nn.transformer.StoreAttentionWeights
     nn.transformer.UntiedScoreProjection

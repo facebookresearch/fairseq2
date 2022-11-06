@@ -22,7 +22,7 @@ class ModuleList(nn.ModuleList):
 
     >>> from torch.nn import Module
     >>>
-    >>> from fairseq2.modules import ModuleList
+    >>> from fairseq2.nn import ModuleList
     >>>
     >>> layer1 = Module()
     >>> layer2 = Module()

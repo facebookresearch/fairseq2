@@ -23,8 +23,7 @@ class AttentionFunction(Protocol):
         dropout_p: float = 0.0,
         training: bool = True,
     ) -> Tuple[Tensor, Tensor]:
-        """Computes (q, v, k, [m]) attention.
-
+        """
         :param queries:
             The queries. *Shape:* :math:`(N,T,K)`, where :math:`N` is the batch
             size, :math:`T` is the target sequence length, and :math:`K` is the
@@ -65,9 +64,7 @@ def scaled_dot_product_attention(
     dropout_p: float = 0.0,
     training: bool = True,
 ) -> Tuple[Tensor, Tensor]:
-    """Computes (q, v, k, [m]) attention via scaled dot product.
-
-    Computes scaled dot-product attention as described in
+    """Computes scaled dot-product attention as described in
     :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`.
 
     :param queries:

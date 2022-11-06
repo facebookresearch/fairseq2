@@ -10,8 +10,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch import Tensor
-from torch import dtype as DataType
-from torch.nn import Module, Parameter
+from torch.nn import Module
+from torch.nn.parameter import Parameter
+
+from fairseq2.typing import DataType, Device
 
 
 @final
@@ -43,7 +45,7 @@ class Embedding(Module):
         embedding_dim: int,
         padding_idx: Optional[int] = None,
         scaled: bool = False,
-        device: Any = None,
+        device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
         """

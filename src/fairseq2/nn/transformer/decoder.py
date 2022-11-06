@@ -8,13 +8,11 @@ import math
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Iterable, Optional, final
 
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from overrides import final as finaloverride
 from overrides import override
 from torch import Tensor
-from torch import dtype as DataType
 from torch.nn import LayerNorm, Module
 
 from fairseq2.nn.embedding import Embedding
@@ -29,6 +27,7 @@ from fairseq2.nn.transformer.attention_mask import (
 from fairseq2.nn.transformer.decoder_layer import TransformerDecoderLayer
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
 from fairseq2.nn.utils import to_float_mask
+from fairseq2.typing import DataType, Device
 
 
 class TransformerDecoder(Module, ABC):
@@ -107,7 +106,11 @@ class TransformerDecoder(Module, ABC):
 
 class InternalDimProjection(ResettableProjection):
     def __init__(
-        self, inp_dim: int, out_dim: int, device: Any, dtype: Optional[DataType]
+        self,
+        inp_dim: int,
+        out_dim: int,
+        device: Optional[Device],
+        dtype: Optional[DataType],
     ) -> None:
         super().__init__(inp_dim, out_dim, bias=True, device=device, dtype=dtype)
 
@@ -140,7 +143,6 @@ class StandardTransformerDecoder(TransformerDecoder):
         embed: Embedding,
         positional_embed: Optional[PositionalEmbedding],
         layers: Iterable[TransformerDecoderLayer],
-        *,
         no_scale_embed: bool = False,
         norm_embed: bool = False,
         embed_dropout_p: float = 0.1,
@@ -148,7 +150,7 @@ class StandardTransformerDecoder(TransformerDecoder):
         layer_drop_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         norm_eps: float = 1e-5,
-        device: Optional[torch.device] = None,
+        device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
         """

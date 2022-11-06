@@ -6,7 +6,18 @@ import math
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, Iterable, Iterator, List, Mapping, NamedTuple, Union, cast
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Mapping,
+    NamedTuple,
+    Optional,
+    Union,
+    cast,
+)
 
 import datasets
 import fairscale
@@ -29,6 +40,7 @@ import fairseq2.callbacks
 import fairseq2.nn
 from fairseq2.generate import BeamSearch, SpmTokenizer, Tokenizer, generate
 from fairseq2.nn import transformer
+from fairseq2.typing import DataType, Device
 
 REQUIREMENTS = [
     "sentencepiece",
@@ -215,8 +227,8 @@ class ModelBuilder(transformer.StandardTransformerBuilder):
     def build_embeddings(
         self,
         vocab_size: int,
-        device: torch.device,
-        dtype: torch.dtype,
+        device: Optional[Device],
+        dtype: Optional[DataType],
     ) -> fairseq2.nn.Embedding:
         init = functools.partial(torch.nn.init.uniform_, a=-0.05, b=0.05)
         embs = fairscale_layers.ParallelEmbedding(
@@ -229,8 +241,8 @@ class ModelBuilder(transformer.StandardTransformerBuilder):
     @overrides
     def build_attn(
         self,
-        device: torch.device,
-        dtype: torch.dtype,
+        device: Optional[Device],
+        dtype: Optional[DataType],
     ) -> transformer.StandardMultiheadAttention:
         assert (
             self.model_dim % self.num_attn_heads == 0

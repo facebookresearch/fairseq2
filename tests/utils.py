@@ -5,16 +5,15 @@
 # LICENSE file in the root directory of this source tree.
 
 from contextlib import contextmanager
-from typing import Generator, Union
+from typing import Generator
 
 import torch
 
+from fairseq2.typing import Device
+
 
 @contextmanager
-def tmp_rng_seed(
-    device: Union[str, torch.device] = "cpu",
-    seed: int = 0,
-) -> Generator[None, None, None]:
+def tmp_rng_seed(device: Device, seed: int = 0) -> Generator[None, None, None]:
     """Sets a temporary manual RNG seed.
 
     The RNG is reset to its original state once the block is exited.
