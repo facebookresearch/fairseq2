@@ -54,9 +54,9 @@ class Embedding(Module):
         :param embedding_dim:
             The dimensionality of returned embeddings.
         :param padding_idx:
-            If not ``None``, entries at :attr:`padding_idx` do not contribute
-            to the gradient; therefore, the embedding at :attr:`padding_idx` is
-            not updated during training.
+            If not ``None``, entries at ``padding_idx`` do not contribute to the
+            gradient; therefore, the embedding at ``padding_idx`` is not updated
+            during training.
         :param scaled:
             If ``True``, the embeddings will be initialized from
             :math:`\\mathcal{N}(0, \\frac{1}{\\text{embedding_dim}})`; otherwise,

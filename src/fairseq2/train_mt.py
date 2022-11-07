@@ -1,4 +1,3 @@
-import dataclasses
 import functools
 import itertools
 import logging
@@ -6,23 +5,11 @@ import math
 import os
 import sys
 from pathlib import Path
-from typing import (
-    Any,
-    Dict,
-    Iterable,
-    Iterator,
-    List,
-    Mapping,
-    NamedTuple,
-    Optional,
-    Union,
-    cast,
-)
+from typing import Any, Dict, Iterable, Iterator, List, Mapping, NamedTuple, cast
 
 import datasets
 import fairscale
 import fairscale.nn.model_parallel.layers as fairscale_layers
-import omegaconf
 import torch
 import torch.nn.functional as F
 import torchtnt.runner
@@ -40,7 +27,7 @@ import fairseq2.callbacks
 import fairseq2.nn
 from fairseq2.generate import BeamSearch, SpmTokenizer, Tokenizer, generate
 from fairseq2.nn import transformer
-from fairseq2.typing import DataType, Device
+from fairseq2.typing import Device
 
 REQUIREMENTS = [
     "sentencepiece",
@@ -222,31 +209,25 @@ class MachineTranslationTask(TrainUnit[Batch], EvalUnit[Batch], PredictUnit[Batc
         )
 
 
-class ModelBuilder(transformer.StandardTransformerBuilder):
+class ModelBuilder(transformer.TransformerBuilder):
     @overrides
-    def build_embeddings(
-        self,
-        vocab_size: int,
-        device: Optional[Device],
-        dtype: Optional[DataType],
-    ) -> fairseq2.nn.Embedding:
+    def build_embedding(self) -> fairseq2.nn.Embedding:
         init = functools.partial(torch.nn.init.uniform_, a=-0.05, b=0.05)
+
+        # TODO: Embeddings scaled???
+        # TODO: PAD?
         embs = fairscale_layers.ParallelEmbedding(
-            vocab_size, self.model_dim, init_method=init
+            self.num_tokens, self.model_dim, init_method=init
         )
-        if device:
-            embs = embs.to(device)
+        if self.device:
+            embs = embs.to(self.device)
         return embs  # type: ignore
 
     @overrides
-    def build_attn(
-        self,
-        device: Optional[Device],
-        dtype: Optional[DataType],
-    ) -> transformer.StandardMultiheadAttention:
+    def build_attn(self, num_heads: int) -> transformer.StandardMultiheadAttention:
         assert (
-            self.model_dim % self.num_attn_heads == 0
-        ), "Can't devide model_dim with num_attn_heads !"
+            self.model_dim % num_heads == 0
+        ), "Can't devide model_dim with num_heads !"
 
         init = functools.partial(torch.nn.init.xavier_uniform_, gain=2**-0.5)
         q_proj = fairscale_layers.ColumnParallelLinear(
@@ -278,47 +259,57 @@ class ModelBuilder(transformer.StandardTransformerBuilder):
             init_method=torch.nn.init.xavier_uniform_,
         )
 
-        mha = transformer.StandardMultiheadAttention(
-            q_proj=q_proj,
-            k_proj=k_proj,
-            v_proj=v_proj,
+        return transformer.StandardMultiheadAttention(
+            num_heads,
+            self.model_dim,
+            q_proj,
+            k_proj,
+            v_proj,
+            attn_dropout_p=0.1,
             out_proj=out_proj,
-            model_dim=self.model_dim,
-            num_heads=self.num_attn_heads,
-            attn_dropout_p=self.attn_dropout_p,
             batch_first=BATCH_FIRST,
-            device=device,
-            dtype=dtype,
+            **self._fct_kwargs,
         )
-        mha.to(device)
-        return mha
-
-    def to_yaml(self, file: Path) -> None:
-        config = dataclasses.asdict(self)
-        cls = type(self)
-        config["_target_"] = f"{cls.__module__}.{cls.__qualname__}"
-        omegaconf.OmegaConf.save(config=config, f=file)
 
 
-def get_large_model() -> ModelBuilder:
+#    def to_yaml(self, file: Path) -> None:
+#        config = dataclasses.asdict(self)
+#        cls = type(self)
+#        config["_target_"] = f"{cls.__module__}.{cls.__qualname__}"
+#        omegaconf.OmegaConf.save(config=config, f=file)
+
+
+def get_large_model_builder(
+    num_tokens: int, padding_token_idx: int, device: Device
+) -> ModelBuilder:
     return ModelBuilder(
+        num_tokens,
+        padding_token_idx,
         model_dim=128,
+        num_enc_layers=6,
+        num_dec_layers=6,
+        num_enc_attn_heads=16,
+        num_dec_attn_heads=16,
         ffn_inner_dim=512,
-        num_attn_heads=16,
         dropout_p=0.1,
-        attn_dropout_p=0.1,
-        num_layers=6,
+        device=device,
     )
 
 
-def get_small_model() -> ModelBuilder:
+def get_small_model_builder(
+    num_tokens: int, padding_token_idx: int, device: Device
+) -> ModelBuilder:
     return ModelBuilder(
+        num_tokens,
+        padding_token_idx,
         model_dim=16,
+        num_enc_layers=2,
+        num_dec_layers=2,
+        num_enc_attn_heads=4,
+        num_dec_attn_heads=4,
         ffn_inner_dim=16,
-        num_attn_heads=4,
         dropout_p=0.1,
-        attn_dropout_p=0.1,
-        num_layers=2,
+        device=device,
     )
 
 
@@ -326,7 +317,7 @@ def _finalize_batch(
     tokenizer: Tokenizer,
     src_batch: List[str],
     tgt_batch: List[str],
-    device: Union[torch.device, str],
+    device: Device,
 ) -> Batch:
     # TODO: add batch statistic
     return Batch(
@@ -345,7 +336,7 @@ class DatasetLoader(Iterable[Batch]):
         batch_size: int,
         global_rank: int,
         world_size: int,
-        device: Union[torch.device, str],
+        device: Device,
     ):
         self.src = src
         self.tgt = tgt
@@ -444,8 +435,21 @@ def main(
         fairscale.nn.model_parallel.initialize_model_parallel(1)
 
     tokenizer = SpmTokenizer.from_file(spm_path, batch_first=BATCH_FIRST)
-    builder = get_small_model() if small else get_large_model()
-    model = builder.build(tokenizer.vocab_size(), torch.device("cuda:0"))
+    vocab_size = tokenizer.vocab_size()
+
+    padding_token_idx = tokenizer.PAD
+
+    device = Device("cuda:0")
+
+    if small:
+        builder_fn = get_small_model_builder
+    else:
+        builder_fn = get_large_model_builder
+
+    builder = builder_fn(vocab_size, padding_token_idx, device)
+
+    model = builder.build()
+
     if wandb_project:
         logger: MetricLogger = fairseq2.callbacks.WandbLogger(wandb_project, builder)
     else:

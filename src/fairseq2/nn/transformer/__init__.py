@@ -13,7 +13,7 @@ from fairseq2.nn.transformer.attention_mask import (
     AttentionMaskGenerator,
     CausalAttentionMaskGenerator,
 )
-from fairseq2.nn.transformer.builder import StandardTransformerBuilder
+from fairseq2.nn.transformer.builder import TransformerBuilder
 from fairseq2.nn.transformer.decoder import (
     StandardTransformerDecoder,
     TransformerDecoder,
@@ -57,13 +57,13 @@ __all__ = [
     "StandardFeedForwardNetwork",
     "StandardMultiheadAttention",
     "StandardTransformer",
-    "StandardTransformerBuilder",
     "StandardTransformerDecoder",
     "StandardTransformerDecoderLayer",
     "StandardTransformerEncoder",
     "StandardTransformerEncoderLayer",
     "StoreAttentionWeights",
     "Transformer",
+    "TransformerBuilder",
     "TransformerDecoder",
     "TransformerDecoderLayer",
     "TransformerEncoder",

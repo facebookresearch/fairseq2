@@ -104,7 +104,7 @@ class StandardTransformerEncoder(TransformerEncoder):
 
     embed: Embedding
     embed_scale: float
-    positional_embed: Optional[PositionalEmbedding]
+    pos_embed: Optional[PositionalEmbedding]
     embed_norm: Optional[LayerNorm]
     embed_dropout_p: float
     inp_dim_proj: Optional[Projection]
@@ -116,7 +116,7 @@ class StandardTransformerEncoder(TransformerEncoder):
     def __init__(
         self,
         embed: Embedding,
-        positional_embed: Optional[PositionalEmbedding],
+        pos_embed: Optional[PositionalEmbedding],
         layers: Iterable[TransformerEncoderLayer],
         no_scale_embed: bool = False,
         norm_embed: bool = False,
@@ -131,7 +131,7 @@ class StandardTransformerEncoder(TransformerEncoder):
         """
         :param embed:
             The input embedding dictionary.
-        :param positional_embed:
+        :param pos_embed:
             The positional embedding dictionary.
         :param layers:
             The encoder layers.
@@ -181,15 +181,15 @@ class StandardTransformerEncoder(TransformerEncoder):
 
         self.embed_scale = 1.0 if no_scale_embed else math.sqrt(embedding_dim)
 
-        if positional_embed is not None:
-            if positional_embed.embedding_dim != embedding_dim:
+        if pos_embed is not None:
+            if pos_embed.embedding_dim != embedding_dim:
                 raise ValueError(
-                    f"`embedding_dim` of `positional_embed` ({positional_embed.embedding_dim}) does not match `embedding_dim` of `embed` ({embedding_dim})."
+                    f"`embedding_dim` of `pos_embed` ({pos_embed.embedding_dim}) does not match `embedding_dim` of `embed` ({embedding_dim})."
                 )
 
-            self.positional_embed = positional_embed
+            self.pos_embed = pos_embed
         else:
-            self.register_module("positional_embed", None)
+            self.register_module("pos_embed", None)
 
         if norm_embed:
             self.embed_norm = LayerNorm(embedding_dim, norm_eps, **fct_kwargs)
@@ -258,8 +258,8 @@ class StandardTransformerEncoder(TransformerEncoder):
 
         # TODO: quant noise?
 
-        if self.positional_embed is not None:
-            x = x + self.positional_embed(seq)
+        if self.pos_embed is not None:
+            x = x + self.pos_embed(seq)
 
         if self.embed_norm is not None:
             x = self.embed_norm(x)
