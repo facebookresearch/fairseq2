@@ -1,177 +1,82 @@
-from typing import Tuple
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+from typing import Any, Dict, Generator, Optional
 
 import torch
 import torch.nn.functional as F
 from torch import Tensor
 
-from fairseq2.nn.transformer.attention import scaled_dot_product_attention
-from tests import tensor_matchers as tm
+from fairseq2.nn.transformer.attention import default_scaled_dot_product_attention
 from tests.common import TestCase
 from tests.utils import tmp_rng_seed
 
 
 class TestScaledDotProductAttention(TestCase):
-    def build_qkvm(self) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
-        N = 2
-        T = 2
-        V = 3
-        K = 2
-        S = 3
+    # TODO: Replace with `naive_scaled_dot_product_attention`.
+    @staticmethod
+    def _compute_attn(
+        queries: Tensor,
+        keys: Tensor,
+        values: Tensor,
+        mask: Optional[Tensor] = None,
+        dropout_p: float = 0.0,
+        training: bool = True,
+    ) -> Tensor:
+        queries = queries * (queries.size(-1) ** -0.5)
 
-        # (N: batch size, T: target sequence length, K: key size)
-        queries = torch.rand((N, T, K))
+        if mask is None:
+            attn_weights = torch.bmm(queries, keys.transpose(1, 2))
+        else:
+            attn_weights = torch.baddbmm(mask, queries, keys.transpose(1, 2))
 
-        # (N: batch size, S: source sequence length, K: key size)
-        keys = torch.rand((N, S, K))
+        attn_weights = F.softmax(attn_weights, dim=-1)
 
-        # (N: batch size, S: source sequence length, V: value size)
-        values = torch.rand((N, S, V))
+        if training and dropout_p > 0.0:
+            attn_weights = F.dropout(attn_weights, dropout_p, training)
 
-        # (T: target sequence length, S: source sequence length)
-        mask = torch.rand((T, S))
+        return torch.bmm(attn_weights, values)
 
-        return (
-            queries,
-            keys,
-            values,
-            mask,
-        )
+    def _get_test_args(self) -> Generator[Dict[str, Any], None, None]:
+        N = 2  # Batch
+        S = 3  # Source Sequence
+        T = 2  # Target Sequence
+        K = 2  # Key
+        V = 3  # Value
 
-    def test_nomask_nodropout(self) -> None:
-        queries, keys, values, _mask = self.build_qkvm()
+        def t(*args: int) -> Tensor:
+            return torch.randn(*args, device=self.device)
 
-        attn, attn_weights = scaled_dot_product_attention(
-            queries=queries,
-            keys=keys,
-            values=values,
-        )
+        def q() -> Tensor:
+            return t(N, T, K)
 
-        expected_attn_weights = F.softmax(
-            torch.bmm(
-                queries * (queries.size(-1) ** -0.5),
-                keys.transpose(1, 2),
-            ),
-            dim=-1,
-        )
+        def k() -> Tensor:
+            return t(N, S, K)
 
-        expected_attn = torch.bmm(expected_attn_weights, values)
+        def v() -> Tensor:
+            return t(N, S, V)
 
-        tm.assert_tensor_equals(
-            attn_weights,
-            expected_attn_weights,
-            close=True,
-        )
+        def m() -> Tensor:
+            return t(T, S)
 
-        tm.assert_tensor_equals(
-            attn,
-            expected_attn,
-            close=True,
-        )
+        # fmt: off
+        yield {"queries": q(), "keys": k(), "values": v(), "mask": None, "dropout_p": 0.0, "training": True}
+        yield {"queries": q(), "keys": k(), "values": v(), "mask": m(),  "dropout_p": 0.0, "training": True}
+        yield {"queries": q(), "keys": k(), "values": v(), "mask": None, "dropout_p": 0.5, "training": True}
+        yield {"queries": q(), "keys": k(), "values": v(), "mask": m(),  "dropout_p": 0.5, "training": True}
+        yield {"queries": q(), "keys": k(), "values": v(), "mask": None, "dropout_p": 0.5, "training": False}
+        # fmt: on
 
-    def test_mask_nodropout(self) -> None:
-        queries, keys, values, mask = self.build_qkvm()
+    def test_function_computes_expected_attention(self) -> None:
+        for kwargs in self._get_test_args():
+            with self.subTest(**kwargs):
+                with tmp_rng_seed(self.device):
+                    attn, _ = default_scaled_dot_product_attention(**kwargs)
 
-        attn, attn_weights = scaled_dot_product_attention(
-            queries=queries,
-            keys=keys,
-            values=values,
-            mask=mask,
-        )
+                with tmp_rng_seed(self.device):
+                    expected_attn = self._compute_attn(**kwargs)
 
-        expected_attn_weights = F.softmax(
-            torch.baddbmm(
-                mask,
-                queries * (queries.size(-1) ** -0.5),
-                keys.transpose(1, 2),
-            ),
-            dim=-1,
-        )
-
-        expected_attn = torch.bmm(expected_attn_weights, values)
-
-        tm.assert_tensor_equals(
-            attn_weights,
-            expected_attn_weights,
-            close=True,
-        )
-
-        tm.assert_tensor_equals(
-            attn,
-            expected_attn,
-            close=True,
-        )
-
-    def test_nomask_dropout_training(self) -> None:
-        queries, keys, values, _mask = self.build_qkvm()
-
-        dropout_p = 0.5
-
-        with tmp_rng_seed(self.device):
-            attn, attn_weights = scaled_dot_product_attention(
-                queries=queries,
-                keys=keys,
-                values=values,
-                dropout_p=dropout_p,
-            )
-
-        with tmp_rng_seed(self.device):
-            expected_attn_weights = F.dropout(
-                F.softmax(
-                    torch.bmm(
-                        queries * (queries.size(-1) ** -0.5),
-                        keys.transpose(1, 2),
-                    ),
-                    dim=-1,
-                ),
-                p=dropout_p,
-                training=True,
-            )
-
-        expected_attn = torch.bmm(expected_attn_weights, values)
-
-        tm.assert_tensor_equals(
-            attn_weights,
-            expected_attn_weights,
-            close=True,
-        )
-
-        tm.assert_tensor_equals(
-            attn,
-            expected_attn,
-            close=True,
-        )
-
-    def test_nomask_dropout_notraining(self) -> None:
-        queries, keys, values, _mask = self.build_qkvm()
-
-        dropout_p = 0.5
-
-        attn, attn_weights = scaled_dot_product_attention(
-            queries=queries,
-            keys=keys,
-            values=values,
-            dropout_p=dropout_p,
-            training=False,
-        )
-
-        expected_attn_weights = F.softmax(
-            torch.bmm(
-                queries * (queries.size(-1) ** -0.5),
-                keys.transpose(1, 2),
-            ),
-            dim=-1,
-        )
-
-        expected_attn = torch.bmm(expected_attn_weights, values)
-
-        tm.assert_tensor_equals(
-            attn_weights,
-            expected_attn_weights,
-            close=True,
-        )
-
-        tm.assert_tensor_equals(
-            attn,
-            expected_attn,
-            close=True,
-        )
+                self.assertAllClose(attn, expected_attn)

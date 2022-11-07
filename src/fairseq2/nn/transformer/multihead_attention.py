@@ -22,7 +22,7 @@ from fairseq2.nn.incremental_state import IncrementalState, IncrementalStateBag
 from fairseq2.nn.projection import Projection, ResettableProjection
 from fairseq2.nn.transformer.attention import (
     AttentionFunction,
-    scaled_dot_product_attention,
+    default_scaled_dot_product_attention,
 )
 from fairseq2.nn.utils import to_float_mask
 from fairseq2.typing import DataType, Device
@@ -442,7 +442,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         self.add_zero_attn = add_zero_attn
 
         if attn_fn is None:
-            self.attn_fn = scaled_dot_product_attention
+            self.attn_fn = default_scaled_dot_product_attention
         else:
             self.attn_fn = attn_fn
 
@@ -575,13 +575,16 @@ class StandardMultiheadAttention(MultiheadAttention):
         # (N, H, S, V_h) -> (N x H, S, V_h)
         v = v.flatten(0, 1)
 
+        needs_weights = len(self._attn_weight_hooks) > 0
+
         # attn:         (N x H, T, V_h)
         # attn_weights: (N x H, T, S)
         attn, attn_weights = self.attn_fn(
-            q, k, v, attn_mask, self.attn_dropout_p, self.training
+            q, k, v, attn_mask, self.attn_dropout_p, needs_weights, self.training
         )
 
-        self._run_attn_weight_hooks(attn_weights)
+        if attn_weights is not None:
+            self._run_attn_weight_hooks(attn_weights)
 
         # (N x H, T, V_h) -> (N, H, T, V_h)
         attn = attn.unflatten(0, (-1, self.num_heads))

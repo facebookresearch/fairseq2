@@ -6,7 +6,7 @@
 
 from fairseq2.nn.transformer.attention import (
     AttentionFunction,
-    scaled_dot_product_attention,
+    default_scaled_dot_product_attention,
 )
 from fairseq2.nn.transformer.attention_mask import (
     ALiBiAttentionMaskGenerator,
@@ -70,5 +70,5 @@ __all__ = [
     "TransformerEncoderLayer",
     "TransformerNormOrder",
     "UntiedScoreProjection",
-    "scaled_dot_product_attention",
+    "default_scaled_dot_product_attention",
 ]

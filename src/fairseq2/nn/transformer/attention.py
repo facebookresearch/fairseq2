@@ -21,8 +21,9 @@ class AttentionFunction(Protocol):
         values: Tensor,
         mask: Optional[Tensor] = None,
         dropout_p: float = 0.0,
+        needs_weights: bool = False,
         training: bool = True,
-    ) -> Tuple[Tensor, Tensor]:
+    ) -> Tuple[Tensor, Optional[Tensor]]:
         """
         :param queries:
             The queries. *Shape:* :math:`(N,T,K)`, where :math:`N` is the batch
@@ -43,6 +44,10 @@ class AttentionFunction(Protocol):
             length, and :math:`S` is the source sequence length.
         :param dropout_p:
             The dropout probability on the attention weights.
+        :param needs_weights:
+            A boolean value indicating whether the function should return the
+            attention weights. If ``True``, the second item of the returned
+            tuple will contain the attention weights.
         :param training:
             If ``True``, applies dropout.
 
@@ -56,14 +61,15 @@ class AttentionFunction(Protocol):
         """
 
 
-def scaled_dot_product_attention(
+def default_scaled_dot_product_attention(
     queries: Tensor,
     keys: Tensor,
     values: Tensor,
     mask: Optional[Tensor] = None,
     dropout_p: float = 0.0,
+    needs_weights: bool = False,
     training: bool = True,
-) -> Tuple[Tensor, Tensor]:
+) -> Tuple[Tensor, Optional[Tensor]]:
     """Computes scaled dot-product attention as described in
     :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`.
 
@@ -86,6 +92,10 @@ def scaled_dot_product_attention(
         length, and :math:`S` is the source sequence length.
     :param dropout_p:
         The dropout probability on the attention weights.
+    :param needs_weights:
+        A boolean value indicating whether the function should return the
+        attention weights. If ``True``, the second item of the returned tuple
+        will contain the attention weights.
     :param training:
         If ``True``, applies dropout.
 
@@ -114,4 +124,4 @@ def scaled_dot_product_attention(
     # (N, T, S) @ (N, S, V) = (N, T, V)
     attn = torch.bmm(attn_weights, values)
 
-    return attn, attn_weights
+    return attn, attn_weights if needs_weights else None
