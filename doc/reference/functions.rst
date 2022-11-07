@@ -8,6 +8,7 @@ Functions
     :toctree: generated/functions
     :nosignatures:
 
+    gang.from_process_group
     config.cuda_version
     config.supports_cuda
     native.get_cmake_prefix_path

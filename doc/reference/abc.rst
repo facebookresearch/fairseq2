@@ -8,6 +8,7 @@ ABCs and Protocols
     :toctree: generated/abc
     :nosignatures:
 
+    gang.Gang
     nn.PositionalEmbedding
     nn.Projection
     nn.ResettableProjection

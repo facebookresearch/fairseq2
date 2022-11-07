@@ -8,4 +8,5 @@ Enums
     :toctree: generated/enums
     :nosignatures:
 
+    gang.ReduceOperation
     nn.transformer.TransformerNormOrder
