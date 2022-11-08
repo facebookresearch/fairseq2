@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# Exit on error.
+set -exo pipefail
+
+# Standard trick to resolve the 'real' location of
+# the directory this file is run from; and the workspace from that.
+WORKSPACE_ROOT_DIR="$(cd "$( dirname "${BASH_SOURCE[0]}" )/.." >/dev/null 2>&1 && pwd)"
+cd $WORKSPACE_ROOT_DIR || exit 1
+
+if [ ! -f setup.cfg ]; then
+  echo "Running outside workspace root: $PWD"
+  exit 1
+fi
+
+failed() {
+  echo "Presubmit failed for py:$py, torch:$torch, cuda:$cuda"
+}
+trap failed Exit
+
+for py in "python3.10"; do
+  torch=1.11
+  cuda=cu113
+  tools/setup-devel --py=$py --torch=$torch --cuda=$cuda
+  tools/presubmit
+
+  torch=1.12.1
+  cuda=cu113
+  tools/setup-devel --py=$py --torch=$torch --cuda=$cuda
+  tools/presubmit
+
+  torch=1.13
+  cuda=cu116
+  tools/setup-devel --py=$py --torch=$torch --cuda=$cuda
+  tools/presubmit
+done
+
+trap '' EXIT

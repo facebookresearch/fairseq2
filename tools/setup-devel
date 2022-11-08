@@ -1,8 +1,7 @@
 #!/bin/bash
 
 # Exit on error.
-set -ex
-set -eo pipefail
+set -exo pipefail
 
 # Standard trick to resolve the 'real' location of
 # the directory this file is run from; and the workspace from that.
@@ -14,12 +13,45 @@ if [ ! -f setup.cfg ]; then
   exit 1
 fi
 
+PYTHON=python
+TORCH_VER='1.13'
+CUDA=''
+PIP_OPTS=()
+
+for x in "$@"; do
+  case "$x" in
+    '--py='*)
+        PYTHON=${x#"--py="}
+        ;;
+
+    '--torch='*)
+        TORCH_VER=${x#"--torch="}
+        ;;
+
+    '--cuda='*)
+        CUDA=${x#"--cuda="}
+        ;;
+
+    '--extra-index='*)
+        PIP_OPTS+=( "--extra-index-url=${x#'--extra-index='}" )
+        ;;
+
+    *)
+      echo "Unknown option: $x" 1>&2
+      exit 1
+  esac
+done
+
+if ! [ -z "$CUDA" ]; then
+ PIP_OPTS+=( "--extra-index-url=https://download.pytorch.org/whl/${CUDA}" )
+fi
+
 echo "Initializing submodules"
 git submodule update --init --recursive
 
 echo "Recreating virtualenv: $PWD/.venv"
 rm -rf .venv
-python -m venv .venv
+$PYTHON -m venv .venv
 
 echo "Activating virtualenv: source $PWD/.venv/bin/activate"
 source .venv/bin/activate
@@ -30,22 +62,31 @@ source .venv/bin/activate
 # Example:
 # --extra-index-url https://download.pytorch.org/whl/cu116
 PIP_OPTS_FILE=devel-pip.opts
-PIP_OPTS=
 if [ -f $PIP_OPTS_FILE ]; then
   echo "Including local pip constraints: $PWD/$PIP_OPTS_FILE"
-  PIP_OPTS="-c $PIP_OPTS_FILE"
+  PIP_OPTS+=( "--constraint=$PIP_OPTS_FILE" )
 else
   echo "No local pip constraints found: $PWD/$PIP_OPTS_FILE"
 fi
 
-echo "Installing torch first, to force CUDA version"
-pip install $PIP_OPTS torch
+if [ -z "$TORCH_VER" ]; then
+  TORCH="torch"
+else
+  TORCH="torch==$TORCH_VER"
+fi
+echo "Installing $TORCH first, to force CUDA version"
+pip install "$PIP_OPTS" "$TORCH"
 
 echo "Installing requirements"
-pip install $PIP_OPTS -r requirements-devel.txt
+pip install "$PIP_OPTS" -r requirements-devel.txt
 
 echo "Self-installing editable package"
-pip install $PIP_OPTS -e .
+pip install "$PIP_OPTS" -e .
+
+if [ -f requirements-extra.txt ]; then
+  echo "Installing local requirements-extra.txt"
+  pip install "$PIP_OPTS" -r requirements-extra.txt
+fi
 
 tools/recreate-build
 

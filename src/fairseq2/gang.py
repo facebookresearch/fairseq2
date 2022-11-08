@@ -55,16 +55,27 @@ class _ProcessGroupGang(Gang):
 
     @staticmethod
     def _get_reduce_op(op: ReduceOperation) -> ReduceOp:
+        # FIXME, TODO: pybind type lookup is broken on ReduceOp in 1.13
+        # this garbage is to have something that works 1.11 - 1.13
+
+        o: ReduceOp
+
         if op == ReduceOperation.SUM:
-            return ReduceOp.SUM
-        if op == ReduceOperation.MEAN:
-            return ReduceOp.AVG
-        if op == ReduceOperation.PRODUCT:
-            return ReduceOp.PRODUCT
-        if op == ReduceOperation.MIN:
-            return ReduceOp.MIN
-        if op == ReduceOperation.MAX:
-            return ReduceOp.MAX
+            o = getattr(ReduceOp, "SUM")
+        elif op == ReduceOperation.MEAN:
+            o = getattr(ReduceOp, "AVG")
+        elif op == ReduceOperation.PRODUCT:
+            o = getattr(ReduceOp, "PRODUCT")
+        elif op == ReduceOperation.MIN:
+            o = getattr(ReduceOp, "MIN")
+        elif op == ReduceOperation.MAX:
+            o = getattr(ReduceOp, "MAX")
+        else:
+            raise ValueError(f"Unknown operation: {op}")
+
+        # ReduceOp has badly broken type stubs at typing time;
+        # this forces the type back to something sane.
+        return o
 
 
 def from_process_group(pg: ProcessGroup) -> Gang:

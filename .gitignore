@@ -1,5 +1,7 @@
 # install-time local constraint file.
 devel-pip.opts
+# install-time extra packages file.
+requirements-extra.txt
 
 # Byte-Compiled Modules
 __pycache__/
