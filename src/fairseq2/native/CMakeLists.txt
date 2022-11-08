@@ -12,7 +12,9 @@ fairseq2_add_target(fairseq2 SHARED_LIBRARY)
 
 target_sources(fairseq2
     PRIVATE
+        data/interop.cc
         utils/memory.cc
+        utils/text.cc
 )
 
 target_compile_features(fairseq2 PUBLIC cxx_std_17)

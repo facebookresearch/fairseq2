@@ -15,3 +15,18 @@ fairseq2_add_target(py_config PYTHON_MODULE OUTPUT_NAME config)
 target_sources(py_config PRIVATE config.cc)
 
 target_link_libraries(py_config PRIVATE pybind11::module fairseq2)
+
+# ------------------------------------------------------------
+# Module: data.interop
+# ------------------------------------------------------------
+
+fairseq2_add_target(py_interop PYTHON_MODULE
+    OUTPUT_NAME
+        interop
+    PYTHON_MODULE_LOCATION
+        data
+)
+
+target_sources(py_interop PRIVATE data/interop.cc)
+
+target_link_libraries(py_interop PRIVATE pybind11::module fairseq2 fmt::fmt)

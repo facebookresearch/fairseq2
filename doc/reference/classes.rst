@@ -8,6 +8,7 @@ Classes
     :toctree: generated/classes
     :nosignatures:
 
+    data.IString
     nn.Embedding
     nn.IncrementalState
     nn.IncrementalStateBag

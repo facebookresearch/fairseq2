@@ -12,8 +12,8 @@
 
 #include <gtest/gtest.h>
 
-using fairseq2::detail::memory_block;
 using fairseq2::span;
+using fairseq2::detail::memory_block;
 
 TEST(test_memory_block, default_constructed_is_empty)
 {
@@ -37,7 +37,8 @@ TEST(test_memory_block, can_construct_from_data_and_size)
     EXPECT_FALSE(b.empty());
 }
 
-static void test_dealloc(const void *ptr, std::size_t size) noexcept
+static void
+test_dealloc(const void *ptr, std::size_t size) noexcept
 {
     // Used by the next test to check the deallocator call.
     *static_cast<std::size_t *>(const_cast<void *>(ptr)) = size;  // NOLINT
