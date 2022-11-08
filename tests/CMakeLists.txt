@@ -8,7 +8,8 @@ fairseq2_add_target(tests TEST_EXECUTABLE OUTPUT_NAME run-tests)
 
 target_sources(tests
     PRIVATE
-        native/utils/test_foo.cc
+        native/utils/test_memory.cc
+        native/utils/test_span.cc
 )
 
 target_link_libraries(tests PRIVATE GTest::gtest_main fairseq2)

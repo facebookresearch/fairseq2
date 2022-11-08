@@ -25,4 +25,5 @@ SpacesBeforeTrailingComments: 2
 SpacesInContainerLiterals: false
 StatementAttributeLikeMacros: []
 StatementMacros: []
-WhitespaceSensitiveMacros: []
+WhitespaceSensitiveMacros:
+  - static_assert

@@ -17,6 +17,7 @@ Checks: >
     -linuxkernel-*,
     -llvm-*,
     -llvmlibc-*,
+    -misc-const-correctness,
     -modernize-use-nodiscard,
     -modernize-use-trailing-return-type,
     -readability-braces-around-statements,
