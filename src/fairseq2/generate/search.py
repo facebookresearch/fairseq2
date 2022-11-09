@@ -244,8 +244,8 @@ class Search(Generic[SearchState]):
 
         Args:
             - src_tokens: input sequence.
-            - prefix_tokens: forced generations for the target side.
-            They need to be copied into the SearchState.
+            - prefix_tokens: (Optional) forced generations for the target side.
+                Either None, [seq], or [batch, seq]; will be copied into the SearchState.
         """
         raise NotImplementedError
 
@@ -272,23 +272,20 @@ class BeamSearchState:
     max_len: int
 
     tokens: Tensor
-    "(bsz * beam_size, buf)"
+    "(bsz, beam_size, seq)"
 
     scores: Tensor
-    "(bsz * beam_size, buf)"
+    "(bsz, beam_size, seq)"
 
     finished_mask: Tensor
     "(bsz, beam_size)"
-
-    order: Tensor
-    "(bsz * beam_size)"
 
     step: int = 0
     done: bool = False
 
     @property
     def flat_size(self) -> int:
-        return self.tokens.shape[0]
+        return self.batch_size * self.beam_size
 
     @property
     def batch_size(self) -> int:
@@ -297,12 +294,6 @@ class BeamSearchState:
     @property
     def beam_size(self) -> int:
         return self.finished_mask.shape[1]
-
-    def tokens_beam_view(self) -> Tensor:
-        return self.tokens.view(self.batch_size, self.beam_size, -1)
-
-    def scores_beam_view(self) -> Tensor:
-        return self.scores.view(self.batch_size, self.beam_size, -1)
 
 
 class BeamSearch(Search[BeamSearchState]):
@@ -332,49 +323,49 @@ class BeamSearch(Search[BeamSearchState]):
         *,
         prefix_tokens: Optional[Tensor] = None,
     ) -> BeamSearchState:
-        bsz, src_len = src_tokens.size()[:2]
+        batch_size, src_len = src_tokens.size()[:2]
         beam_size = self.beam_size
         max_len = min(self.max_len, 2 * src_len + 10)
-
-        # placeholder of indices for bsz * beam_size to hold tokens and accumulative scores
-        order = (
-            torch.arange(
-                bsz,
-                dtype=torch.int64,
-                device=src_tokens.device,
-            )
-            .view(-1, 1)
-            .repeat(1, beam_size)
-            .view(-1)
-        )
 
         # initialize buffers
         # +2 for eos and pad
         scores = torch.zeros(
-            size=(bsz * beam_size, max_len + 2),
+            size=(batch_size, beam_size, max_len + 2),
             dtype=torch.float32,
             device=src_tokens.device,
         )
 
         tokens = torch.full(
-            size=(bsz * beam_size, max_len + 2),
+            size=(batch_size, beam_size, max_len + 2),
             fill_value=self.tokenizer.PAD,
             dtype=torch.long,
             device=src_tokens.device,
         )
+
         if prefix_tokens is not None:
-            # TODO(crutcher): this assumes that there may be a different prefix
-            # for every batch member; what is the actual guarantee?
-            tokens[:, 0] = prefix_tokens.T[0].view(-1, 1).repeat(1, beam_size).view(-1)
+            step = prefix_tokens.size(-1) - 1
+
+            if prefix_tokens.ndim == 1:
+                tokens[:, :, : prefix_tokens.size(-1)] = prefix_tokens
+
+            elif prefix_tokens.ndim == 2:
+                tokens_pre = tokens[:, :, : prefix_tokens.size(-1)]
+                tokens_pre[...] = torch.broadcast_to(  # type: ignore
+                    prefix_tokens.unsqueeze(1),
+                    tokens_pre.shape,
+                )
+            else:
+                raise ValueError(f"Invalid prefix_tokens.shape: {prefix_tokens.shape}")
         else:
-            tokens[:, 0] = self.tokenizer.BOS
+            step = 0
+            tokens[:, :, 0] = self.tokenizer.BOS
 
         # A list that indicates candidates that should be ignored.
         # For example, suppose we're sampling and have already finalized 2/5
         # samples. Then cands_to_ignore would mark 2 positions as being ignored,
         # so that we only finalize the remaining 3 samples.
         finished_mask = torch.zeros(
-            size=(bsz, beam_size),
+            size=(batch_size, beam_size),
             dtype=torch.bool,
             device=src_tokens.device,
         )
@@ -384,8 +375,7 @@ class BeamSearch(Search[BeamSearchState]):
             tokens=tokens,
             scores=scores,
             finished_mask=finished_mask,
-            order=order,
-            step=0,
+            step=step,
         )
 
     @overrides
@@ -428,7 +418,7 @@ class BeamSearch(Search[BeamSearchState]):
         self,
         state: BeamSearchState,
     ) -> Tensor:
-        return state.tokens[:, : state.step + 1]
+        return state.tokens.view(state.flat_size, -1)[:, : state.step + 1]
 
     @overrides
     def step(
@@ -458,47 +448,35 @@ class BeamSearch(Search[BeamSearchState]):
 
         state.step += 1
 
-        lprobs = self.log_prob(
-            dec_out,
+        lprobs_flat = self.log_prob(
+            dec_out=dec_out,
             step=state.step,
             max_len=state.max_len,
         )
 
-        lprobs_beam = lprobs.view(state.batch_size, -1, vocab_size)
+        lprobs_beam = lprobs_flat.view(state.batch_size, self.beam_size, vocab_size)
 
         # We assume now:
         #  * lprobs_beam is laid out now as (bsz, step.beam_size, vocab)
 
         # Adjust lprobs_beam_view by the previous state scores:
-        lprobs_beam += torch.broadcast_to(
-            state.scores_beam_view()[..., state.step - 1].unsqueeze(-1),
-            lprobs_beam.shape,
-        )
+        lprobs_beam += state.scores[..., state.step - 1].unsqueeze(-1)
 
         if state.finished_mask.any():
             # for any (batch, beam) such that state.finished_mask[batch, beam] is true:
             # lprob_beam[ batch, beam, tok!=PAD ] = -inf
             # lprob_beam[ batch, beam, tok==PAD ] = scores_beam_view()[batch, beam, state.step-1]
 
-            # nasty attempt:
-            # mask = (
-            #     torch.broadcast_to(
-            #         state.finished_mask.unsqueeze(-1).unsqueeze(-1),
-            #         [state.batch_size, state.beam_size, vocab_size],
-            #     )
-            #     .contiguous()
-            #     .view(state.batch_size, input_beam_size, vocab_size)
-            # )
             # TODO: work out appropriate mask expression here
             for batch_idx, batch_mask in enumerate(state.finished_mask):
                 for beam_idx, beam_mask in enumerate(batch_mask):
                     if bool(beam_mask):
                         lprobs_beam[batch_idx, beam_idx, :] = -torch.inf
                         lprobs_beam[
-                            batch_idx, beam_idx, self.tokenizer.PAD
-                        ] = state.scores_beam_view()[
-                            batch_idx, beam_idx, state.step - 1
-                        ]
+                            batch_idx,
+                            beam_idx,
+                            self.tokenizer.PAD,
+                        ] = state.scores[batch_idx, beam_idx, state.step - 1]
 
         # layout: (bsz, beam_size)
         next_scores, next_tokens, source_beams = self.choose_beams(
@@ -506,30 +484,34 @@ class BeamSearch(Search[BeamSearchState]):
             lprobs_beam=lprobs_beam,
         )
 
-        # index offset map to go from (bsz, beam) to (bsz * beam) indices.
-        flat_offset = (
-            (
-                state.beam_size
-                * torch.arange(state.beam_size, device=state.tokens.device)
-            )
-            .view(state.beam_size, 1)
-            .repeat(1, state.batch_size)
-            .view(-1)
+        # Select the best prefix beams
+        state.tokens = torch.stack(
+            [
+                torch.index_select(
+                    state.tokens[batch],
+                    dim=0,
+                    index=beams,
+                )
+                for batch, beams in enumerate(source_beams)
+            ],
+        )
+        state.scores = torch.stack(
+            [
+                torch.index_select(
+                    state.scores[batch],
+                    dim=0,
+                    index=beams,
+                )
+                for batch, beams in enumerate(source_beams)
+            ],
         )
 
-        # flat (bsz * beam) selection index.
-        flat_beams = source_beams.view(-1) + flat_offset
-
-        state.tokens = torch.index_select(state.tokens, dim=0, index=flat_beams)
-        state.scores = torch.index_select(state.scores, dim=0, index=flat_beams)
-
-        state.tokens[:, state.step] = next_tokens.view(-1)
-        state.scores[:, state.step] = next_scores.view(-1)
+        # update the state
+        state.tokens[:, :, state.step] = next_tokens
+        state.scores[:, :, state.step] = next_scores
 
         # TODO: should finished_map be persistent state?
-        state.finished_mask = (
-            state.tokens_beam_view()[:, :, state.step] == self.tokenizer.EOS
-        )
+        state.finished_mask = state.tokens[:, :, state.step] == self.tokenizer.EOS
         state.done = (state.step >= state.max_len) or bool(state.finished_mask.all())
 
         return state
@@ -547,7 +529,7 @@ class BeamSearch(Search[BeamSearchState]):
         )
 
         # we are interested in the top scoring (beam_size) tokens across all beams
-        # in a give batch. by viewing the input as (bsz, input_beam_size * vocab)),
+        # in a given batch. by viewing the input as (bsz, input_beam_size * vocab)),
         # the topk(beam_size) gives us those scores and their indices in the combined space.
         multi_beam_view = lprobs_beam.view(bsz, -1)
 
@@ -568,8 +550,8 @@ class BeamSearch(Search[BeamSearchState]):
         *,
         top: int = 0,
     ) -> SearchResult:
-        tokens = state.tokens_beam_view()
-        scores = state.scores_beam_view()
+        tokens = state.tokens
+        scores = state.scores
 
         if top:
             step = state.step

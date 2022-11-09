@@ -56,8 +56,8 @@ def generate(
         src_tokens,
         prefix_tokens=prefix_tokens,
     )
-    max_len = state.tokens.size(1)
-    for idx in range(max_len):
+
+    for idx in range(state.max_len):
         if state.done:
             break
 
