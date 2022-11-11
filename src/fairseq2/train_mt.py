@@ -1,4 +1,3 @@
-import functools
 import itertools
 import logging
 import math
@@ -8,15 +7,12 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, Iterator, List, Mapping, NamedTuple, cast
 
 import datasets
-import fairscale
-import fairscale.nn.model_parallel.layers as fairscale_layers
 import torch
 import torch.nn.functional as F
 import torchtnt.runner
 import torchtnt.runner.callbacks
 import torchtnt.utils
 from datasets import Dataset
-from overrides import overrides
 from torch import Tensor
 from torcheval.metrics import Mean
 from torchtnt.loggers.logger import MetricLogger
@@ -209,67 +205,9 @@ class MachineTranslationTask(TrainUnit[Batch], EvalUnit[Batch], PredictUnit[Batc
         )
 
 
+# TODO: Implement ColumnParallelLinear, RowParallelLinear
 class ModelBuilder(transformer.TransformerBuilder):
-    @overrides
-    def build_embedding(self) -> fairseq2.nn.Embedding:
-        init = functools.partial(torch.nn.init.uniform_, a=-0.05, b=0.05)
-
-        # TODO: Embeddings scaled???
-        # TODO: PAD?
-        embs = fairscale_layers.ParallelEmbedding(
-            self.num_tokens, self.model_dim, init_method=init
-        )
-        if self.device:
-            embs = embs.to(self.device)
-        return embs  # type: ignore
-
-    @overrides
-    def build_attn(self, num_heads: int) -> transformer.StandardMultiheadAttention:
-        assert (
-            self.model_dim % num_heads == 0
-        ), "Can't devide model_dim with num_heads !"
-
-        init = functools.partial(torch.nn.init.xavier_uniform_, gain=2**-0.5)
-        q_proj = fairscale_layers.ColumnParallelLinear(
-            self.model_dim,
-            self.model_dim,
-            bias=False,
-            gather_output=False,
-            init_method=init,
-        )
-        k_proj = fairscale_layers.ColumnParallelLinear(
-            self.model_dim,
-            self.model_dim,
-            bias=False,
-            gather_output=False,
-            init_method=init,
-        )
-        v_proj = fairscale_layers.ColumnParallelLinear(
-            self.model_dim,
-            self.model_dim,
-            bias=False,
-            gather_output=False,
-            init_method=init,
-        )
-        out_proj = fairscale_layers.RowParallelLinear(
-            self.model_dim,
-            self.model_dim,
-            bias=False,
-            input_is_parallel=True,
-            init_method=torch.nn.init.xavier_uniform_,
-        )
-
-        return transformer.StandardMultiheadAttention(
-            num_heads,
-            self.model_dim,
-            q_proj,
-            k_proj,
-            v_proj,
-            attn_dropout_p=0.1,
-            out_proj=out_proj,
-            batch_first=BATCH_FIRST,
-            **self._fct_kwargs,
-        )
+    pass
 
 
 #    def to_yaml(self, file: Path) -> None:
@@ -430,9 +368,6 @@ def main(
     workdir.mkdir(exist_ok=True)
     init_env()
     device = torchtnt.utils.init_from_env()
-    # Prevent double init when running in REPL
-    if not fairscale.nn.model_parallel.initialize.model_parallel_is_initialized():
-        fairscale.nn.model_parallel.initialize_model_parallel(1)
 
     tokenizer = SpmTokenizer.from_file(spm_path, batch_first=BATCH_FIRST)
     vocab_size = tokenizer.vocab_size()

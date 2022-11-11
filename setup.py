@@ -163,7 +163,6 @@ setup(
     python_requires=">=3.8",
     install_requires=[
         "datasets>=2.6",
-        "fairscale>=0.4.12",
         "func_argparse~=1.1",
         "numpy~=1.23",
         "omegaconf~=2.2",
