@@ -10,7 +10,7 @@ from ..nn import Projection
 from .tokenizer import Tokenizer
 
 
-@torch.inference_mode()
+@torch.inference_mode()  # type: ignore[misc]
 def generate(
     model: torch.nn.Module,
     search: Search[Any],

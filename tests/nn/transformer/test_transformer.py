@@ -8,7 +8,7 @@ from fairseq2.nn import transformer
 from tests import tensor_matchers as tm
 
 
-@torch.inference_mode()
+@torch.inference_mode()  # type: ignore[misc]
 def test_mha_is_consistent_wrt_batch_first() -> None:
     bs, l_src, dim, heads = 2, 7, 16, 4
     device = torch.device("cpu")
@@ -61,7 +61,7 @@ def test_mha_is_consistent_wrt_batch_first() -> None:
     assert not attn_weights
 
 
-@torch.inference_mode()
+@torch.inference_mode()  # type: ignore[misc]
 def test_enc_dec_mha_is_consistent_wrt_batch_first() -> None:
     device = torch.device("cpu")
 
@@ -116,7 +116,7 @@ def test_enc_dec_mha_is_consistent_wrt_batch_first() -> None:
     assert not attn_weights
 
 
-@torch.inference_mode()
+@torch.inference_mode()  # type: ignore[misc]
 def test_enc_dec_mha_is_consistent_wrt_inc_state(monkeypatch: Any) -> None:
     device = torch.device("cpu")
 

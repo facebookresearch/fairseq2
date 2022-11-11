@@ -54,28 +54,19 @@ class _ProcessGroupGang(Gang):
         dist.all_reduce(tensor, self._get_reduce_op(op), group=self._pg)
 
     @staticmethod
-    def _get_reduce_op(op: ReduceOperation) -> ReduceOp:
-        # FIXME, TODO: pybind type lookup is broken on ReduceOp in 1.13
-        # this garbage is to have something that works 1.11 - 1.13
-
-        o: ReduceOp
-
+    def _get_reduce_op(op: ReduceOperation):  # type: ignore[no-untyped-def]
         if op == ReduceOperation.SUM:
-            o = getattr(ReduceOp, "SUM")
-        elif op == ReduceOperation.MEAN:
-            o = getattr(ReduceOp, "AVG")
-        elif op == ReduceOperation.PRODUCT:
-            o = getattr(ReduceOp, "PRODUCT")
-        elif op == ReduceOperation.MIN:
-            o = getattr(ReduceOp, "MIN")
-        elif op == ReduceOperation.MAX:
-            o = getattr(ReduceOp, "MAX")
-        else:
-            raise ValueError(f"Unknown operation: {op}")
+            return ReduceOp.SUM
+        if op == ReduceOperation.MEAN:
+            return ReduceOp.AVG  # type: ignore[attr-defined]
+        if op == ReduceOperation.PRODUCT:
+            return ReduceOp.PRODUCT
+        if op == ReduceOperation.MIN:
+            return ReduceOp.MIN
+        if op == ReduceOperation.MAX:
+            return ReduceOp.MAX
 
-        # ReduceOp has badly broken type stubs at typing time;
-        # this forces the type back to something sane.
-        return o
+        raise ValueError(f"`{op}` is not supported by the underlying process group.")
 
 
 def from_process_group(pg: ProcessGroup) -> Gang:
