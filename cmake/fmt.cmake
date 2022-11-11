@@ -28,5 +28,5 @@ function(fairseq2_find_fmt version)
 
     # We depend on the phony torch_cxx11_abi target to ensure that we use the
     # same libstdc++ ABI as PyTorch.
-    target_link_libraries(fmt torch_cxx11_abi)
+    target_link_libraries(fmt PRIVATE torch_cxx11_abi)
 endfunction()

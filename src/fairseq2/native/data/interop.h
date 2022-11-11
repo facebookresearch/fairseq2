@@ -9,6 +9,10 @@
 #include <cstdint>
 #include <functional>
 #include <string_view>
+#include <utility>
+#include <variant>
+
+#include <ATen/Tensor.h>
 
 #include "fairseq2/native/api.h"
 #include "fairseq2/native/utils/memory.h"
@@ -16,6 +20,8 @@
 
 namespace fairseq2 {
 
+// An immutable UTF-8 string type that supports zero-copy marshalling between
+// Python and native code.
 class FAIRSEQ2_API istring {
 public:
     using value_type      = const char;
@@ -133,6 +139,227 @@ private:
     detail::memory_block bits_{};
 };
 
+// A type-safe union to be shared between Python and native code.
+class FAIRSEQ2_API ivariant {
+public:
+    // uninitialized
+    ivariant() noexcept = default;
+
+    bool
+    is_uninitialized() const noexcept
+    {
+        return std::holds_alternative<uninitialized_t>(payload_);
+    }
+
+    // none
+    static ivariant
+    none()
+    {
+        ivariant v{};
+
+        v.payload_ = none_t{};
+
+        return v;
+    }
+
+    bool
+    is_none() const noexcept
+    {
+        return std::holds_alternative<none_t>(payload_);
+    }
+
+    // boolean
+    ivariant(bool value) noexcept
+        : payload_{value}
+    {}
+
+    bool
+    is_bool() const noexcept
+    {
+        return std::holds_alternative<bool>(payload_);
+    }
+
+    bool
+    as_bool() const
+    {
+        return std::get<bool>(payload_);
+    }
+
+    // int
+    ivariant(std::int64_t value) noexcept
+        : payload_{value}
+    {}
+
+    bool
+    is_int() const noexcept
+    {
+        return std::holds_alternative<std::int64_t>(payload_);
+    }
+
+    std::int64_t
+    as_int() const
+    {
+        return std::get<std::int64_t>(payload_);
+    }
+
+    // double
+    ivariant(double value) noexcept
+        : payload_{value}
+    {}
+
+    bool
+    is_double() const noexcept
+    {
+        return std::holds_alternative<double>(payload_);
+    }
+
+    double
+    as_double() const
+    {
+        return std::get<double>(payload_);
+    }
+
+    // string
+    ivariant(const char *value)
+        : payload_{value}
+    {}
+
+    ivariant(const std::string &value)
+        : payload_{value}
+    {}
+
+    ivariant(std::string_view value)
+        : payload_{value}
+    {}
+
+    ivariant(const istring &value) noexcept
+        : payload_{value}
+    {}
+
+    ivariant(istring &&value) noexcept
+        : payload_{std::move(value)}
+    {}
+
+    bool
+    is_string() const noexcept
+    {
+        return std::holds_alternative<istring>(payload_);
+    }
+
+    istring &
+    as_string()
+    {
+        return std::get<istring>(payload_);
+    }
+
+    const istring &
+    as_string() const
+    {
+        return std::get<istring>(payload_);
+    }
+
+    // tensor
+    ivariant(const at::Tensor &value)
+        : payload_{value}
+    {}
+
+    ivariant(at::Tensor &&value)
+        : payload_{std::move(value)}
+    {}
+
+    bool
+    is_tensor() const noexcept
+    {
+        return std::holds_alternative<tensor_holder>(payload_);
+    }
+
+    at::Tensor
+    as_tensor()
+    {
+        return std::get<tensor_holder>(payload_).value_;
+    }
+
+    const at::Tensor &
+    as_tensor() const
+    {
+        return std::get<tensor_holder>(payload_).value_;
+    }
+
+public:
+    friend constexpr bool
+    operator==(const ivariant &lhs, const ivariant &rhs)
+    {
+        return lhs.payload_ == rhs.payload_;
+    }
+
+    friend constexpr bool
+    operator!=(const ivariant &lhs, const ivariant &rhs)
+    {
+        return lhs.payload_ != rhs.payload_;
+    }
+
+private:
+    struct uninitialized_t {
+        friend constexpr bool
+        operator==(const uninitialized_t &, const uninitialized_t &) noexcept
+        {
+            return false;
+        }
+
+        friend constexpr bool
+        operator!=(const uninitialized_t &, const uninitialized_t &) noexcept
+        {
+            return true;
+        }
+    };
+
+    struct none_t {
+        friend constexpr bool
+        operator==(const none_t &, const none_t &) noexcept
+        {
+            return true;
+        }
+
+        friend constexpr bool
+        operator!=(const none_t &, const none_t &) noexcept
+        {
+            return false;
+        }
+    };
+
+    struct tensor_holder {
+        tensor_holder(const at::Tensor &value) noexcept
+            : value_{value}
+        {}
+
+        tensor_holder(at::Tensor &&value) noexcept
+            : value_{std::move(value)}
+        {}
+
+        friend bool
+        operator==(const tensor_holder &lhs, const tensor_holder &rhs) noexcept
+        {
+            return lhs.value_.unsafeGetTensorImpl() == rhs.value_.unsafeGetTensorImpl();
+        }
+
+        friend bool
+        operator!=(const tensor_holder &lhs, const tensor_holder &rhs) noexcept
+        {
+            return lhs.value_.unsafeGetTensorImpl() != rhs.value_.unsafeGetTensorImpl();
+        }
+
+        at::Tensor value_;
+    };
+
+    std::variant<uninitialized_t,
+                 none_t,
+                 bool,
+                 std::int64_t,
+                 double,
+                 istring,
+                 tensor_holder> payload_;
+};
+
 }  // namespace fairseq2
 
 template <>
@@ -141,5 +368,19 @@ struct std::hash<fairseq2::istring> {
     operator()(const fairseq2::istring &value) const noexcept
     {
         return std::hash<std::string_view>{}(value);
+    }
+};
+
+template <>
+struct FAIRSEQ2_API std::hash<fairseq2::ivariant> {
+    std::size_t
+    operator()(const fairseq2::ivariant &value) const;
+
+private:
+    template <typename T>
+    inline std::size_t
+    get_hash(const T &value) const
+    {
+        return std::hash<T>{}(value);
     }
 };

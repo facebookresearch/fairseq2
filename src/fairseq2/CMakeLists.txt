@@ -29,4 +29,4 @@ fairseq2_add_target(py_interop PYTHON_MODULE
 
 target_sources(py_interop PRIVATE data/interop.cc)
 
-target_link_libraries(py_interop PRIVATE pybind11::module fairseq2 fmt::fmt)
+target_link_libraries(py_interop PRIVATE pybind11::module fairseq2 fmt::fmt torch_python)

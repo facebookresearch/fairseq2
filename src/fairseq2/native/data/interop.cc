@@ -8,6 +8,7 @@
 
 #include <algorithm>
 
+#include "fairseq2/native/error.h"
 #include "fairseq2/native/utils/text.h"
 
 using fairseq2::detail::memory_block;
@@ -36,7 +37,6 @@ copy_string(std::string_view s)
 
 }  // namespace
 
-// Constructor
 istring::istring(std::string_view s)
     : bits_{copy_string(s)}
 {}
@@ -57,3 +57,30 @@ istring::get_code_point_length() const
 }
 
 }  // namespace fairseq2
+
+std::size_t
+std::hash<fairseq2::ivariant>::operator()(const fairseq2::ivariant &value) const
+{
+    if (value.is_uninitialized())
+        return get_hash(&value);
+
+    if (value.is_none())
+        return 0;
+
+    if (value.is_bool())
+        return get_hash(value.as_bool());
+
+    if (value.is_int())
+        return get_hash(value.as_int());
+
+    if (value.is_double())
+        return get_hash(value.as_double());
+
+    if (value.is_string())
+        return get_hash(value.as_string());
+
+    if (value.is_tensor())
+        return get_hash(value.as_tensor().unsafeGetTensorImpl());
+
+    fairseq2::detail::unreachable();
+}

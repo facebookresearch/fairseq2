@@ -23,13 +23,13 @@ get_code_point_length(std::string_view s)
         std::size_t dist = 0;
 
         auto lead = static_cast<std::uint8_t>(*pos);
-             if ((lead & 0x80) == 0x00)  // NOLINT
+             if ((lead & 0x80) == 0x00)
             dist = 1;
-        else if ((lead & 0xe0) == 0xc0)  // NOLINT
+        else if ((lead & 0xe0) == 0xc0)
             dist = 2;
-        else if ((lead & 0xf0) == 0xe0)  // NOLINT
+        else if ((lead & 0xf0) == 0xe0)
             dist = 3;
-        else if ((lead & 0xf8) == 0xf0)  // NOLINT
+        else if ((lead & 0xf8) == 0xf0)
             dist = 4;
 
         if (dist == 0 || static_cast<std::size_t>(s.end() - pos) < dist)

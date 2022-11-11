@@ -21,6 +21,7 @@ endif()
 include(cmake/base.cmake)
 include(cmake/dependency.cmake)
 include(cmake/fmt.cmake)
+include(cmake/gtest.cmake)
 include(cmake/summary.cmake)
 include(cmake/torch.cmake)
 
@@ -128,9 +129,7 @@ fairseq2_find_package(pybind11 2.10.0)
 fairseq2_add_third_party(natsort)
 
 if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
-    fairseq2_find_package(gtest)
-
-    include(GoogleTest)
+    fairseq2_find_gtest()
 endif()
 
 # ------------------------------------------------------------
