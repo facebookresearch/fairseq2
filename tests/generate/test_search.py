@@ -1,10 +1,7 @@
-import unittest
-
-import hamcrest
 import torch
 
 from fairseq2.generate import Tokenizer, search
-from tests import tensor_matchers as tm
+from tests.common import TestCase
 from tests.testlib import build_test_spm_tokenizer
 
 
@@ -22,9 +19,9 @@ class FakeTokenizer(Tokenizer):
         return self._non_symbol_vocab_size + 4
 
 
-class TestLogProb(unittest.TestCase):
+class TestLogProb(TestCase):
     def test_log_prob(self) -> None:
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             search.log_prob(
                 torch.tensor(
                     [
@@ -46,13 +43,12 @@ class TestLogProb(unittest.TestCase):
                     [-torch.inf, -torch.inf, -0.551445, -torch.inf],
                 ]
             ),
-            close=True,
         )
 
 
-class TestUnkPenalty(unittest.TestCase):
+class TestUnkPenalty(TestCase):
     def test(self) -> None:
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             search.unk_penalty(
                 torch.tensor(
                     [
@@ -72,9 +68,9 @@ class TestUnkPenalty(unittest.TestCase):
         )
 
 
-class TestPreventEos(unittest.TestCase):
+class TestPreventEos(TestCase):
     def test(self) -> None:
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             search.prevent_eos(
                 torch.tensor(
                     [
@@ -93,9 +89,9 @@ class TestPreventEos(unittest.TestCase):
         )
 
 
-class TestForceEos(unittest.TestCase):
+class TestForceEos(TestCase):
     def test(self) -> None:
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             search.force_eos(
                 torch.tensor(
                     [
@@ -114,7 +110,7 @@ class TestForceEos(unittest.TestCase):
         )
 
 
-class TestBeamSearch(unittest.TestCase):
+class TestBeamSearch(TestCase):
     def test_prepare_state_noprefix(self) -> None:
         bs = search.BeamSearch(
             tokenizer=build_test_spm_tokenizer(),
@@ -140,23 +136,17 @@ class TestBeamSearch(unittest.TestCase):
 
         state = bs.prepare_state(src_tokens)
 
-        tm.assert_match(state.step, 0)
-        tm.assert_match(state.max_len, exp_max_len)
+        self.assertEqual(state.step, 0)
+        self.assertEqual(state.max_len, exp_max_len)
 
-        tm.assert_tensor_equals(
-            state.tokens,
-            expected_tokens,
-        )
+        self.assertAllClose(state.tokens, expected_tokens)
 
-        tm.assert_tensor_equals(
-            state.scores,
-            torch.zeros((2, 3, 20)),
-        )
+        self.assertAllClose(state.scores, torch.zeros((2, 3, 20)))
 
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             state.finished_mask,
             # (bsz, beam_size)
-            [[False, False, False], [False, False, False]],
+            torch.tensor([[False, False, False], [False, False, False]]),
         )
 
     def test_prepare_state_noprefix_maxlen(self) -> None:
@@ -184,13 +174,10 @@ class TestBeamSearch(unittest.TestCase):
 
         state = bs.prepare_state(src_tokens)
 
-        tm.assert_match(state.step, 0)
-        tm.assert_match(state.max_len, exp_max_len)
+        self.assertEqual(state.step, 0)
+        self.assertEqual(state.max_len, exp_max_len)
 
-        tm.assert_tensor_equals(
-            state.tokens,
-            expected_tokens,
-        )
+        self.assertAllClose(state.tokens, expected_tokens)
 
     def test_prepare_state_prefix_single(self) -> None:
         bs = search.BeamSearch(
@@ -234,23 +221,17 @@ class TestBeamSearch(unittest.TestCase):
             prefix_tokens=prefix_tokens,
         )
 
-        tm.assert_match(state.step, 1)
-        tm.assert_match(state.max_len, exp_max_len)
+        self.assertEqual(state.step, 1)
+        self.assertEqual(state.max_len, exp_max_len)
 
-        tm.assert_tensor_equals(
-            state.tokens,
-            expected_tokens,
-        )
+        self.assertAllClose(state.tokens, expected_tokens)
 
-        tm.assert_tensor_equals(
-            state.scores,
-            torch.zeros((2, 2, 10 + 2)),
-        )
+        self.assertAllClose(state.scores, torch.zeros((2, 2, 10 + 2)))
 
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             state.finished_mask,
             # (bsz, beam_size)
-            [[False, False], [False, False]],
+            torch.tensor([[False, False], [False, False]]),
         )
 
     def test_prepare_state_prefix_batched(self) -> None:
@@ -298,23 +279,17 @@ class TestBeamSearch(unittest.TestCase):
             prefix_tokens=prefix_tokens,
         )
 
-        tm.assert_match(state.step, 1)
-        tm.assert_match(state.max_len, exp_max_len)
+        self.assertEqual(state.step, 1)
+        self.assertEqual(state.max_len, exp_max_len)
 
-        tm.assert_tensor_equals(
-            state.tokens,
-            expected_tokens,
-        )
+        self.assertAllClose(state.tokens, expected_tokens)
 
-        tm.assert_tensor_equals(
-            state.scores,
-            torch.zeros((2, 2, 10 + 2)),
-        )
+        self.assertAllClose(state.scores, torch.zeros((2, 2, 10 + 2)))
 
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             state.finished_mask,
             # (bsz, beam_size)
-            [[False, False], [False, False]],
+            torch.tensor([[False, False], [False, False]]),
         )
 
     def test_step_done(self) -> None:
@@ -333,19 +308,16 @@ class TestBeamSearch(unittest.TestCase):
         )
 
         state = bs.prepare_state(src_tokens)
-        tm.assert_match(state.step, 0)
-        tm.assert_match(state.batch_size, 2)
-        tm.assert_match(state.beam_size, 1)
+
+        self.assertEqual(state.step, 0)
+        self.assertEqual(state.batch_size, 2)
+        self.assertEqual(state.beam_size, 1)
 
         dec_out = torch.rand((state.flat_size, bs.tokenizer.vocab_size()))
 
         state.done = True
 
-        tm.assert_raises(
-            lambda: bs.step(dec_out, state),
-            AssertionError,
-            "state.done == True",
-        )
+        self.assertRaises(AssertionError, lambda: bs.step(dec_out, state))
 
     def test_step_bad_dec_shape(self) -> None:
         bs = search.BeamSearch(
@@ -363,25 +335,22 @@ class TestBeamSearch(unittest.TestCase):
         )
 
         state = bs.prepare_state(src_tokens)
-        tm.assert_match(state.step, 0)
-        tm.assert_match(state.batch_size, 2)
-        tm.assert_match(state.beam_size, 2)
+
+        self.assertEqual(state.step, 0)
+        self.assertEqual(state.batch_size, 2)
+        self.assertEqual(state.beam_size, 2)
 
         dec_out = torch.rand((state.flat_size * 2, bs.tokenizer.vocab_size() + 1))
 
-        tm.assert_raises(
-            lambda: bs.step(dec_out, state),
-            AssertionError,
-            "input_beam_size .* must == state beam_size",
-        )
+        self.assertRaises(AssertionError, lambda: bs.step(dec_out, state))
 
     def test_step_one(self) -> None:
         tokenizer = FakeTokenizer(non_symbol_vocab_size=4)
         # we care about what these are, because we're going to hard-code some dec_out.
-        tm.assert_match(tokenizer.UNK, 0)
-        tm.assert_match(tokenizer.BOS, 1)
-        tm.assert_match(tokenizer.EOS, 2)
-        tm.assert_match(tokenizer.PAD, 3)
+        self.assertEqual(tokenizer.UNK, 0)
+        self.assertEqual(tokenizer.BOS, 1)
+        self.assertEqual(tokenizer.EOS, 2)
+        self.assertEqual(tokenizer.PAD, 3)
 
         beam_size = 2
 
@@ -400,23 +369,28 @@ class TestBeamSearch(unittest.TestCase):
         )
 
         state = bs.prepare_state(src_tokens)
-        tm.assert_match(state.step, 0)
-        tm.assert_match(state.batch_size, 2)
-        tm.assert_match(state.beam_size, 2)
 
-        tm.assert_tensor_equals(
+        self.assertEqual(state.step, 0)
+        self.assertEqual(state.batch_size, 2)
+        self.assertEqual(state.beam_size, 2)
+
+        self.assertAllClose(
             state.tokens[:, :, 0],
-            [
-                [bs.tokenizer.BOS, bs.tokenizer.BOS],
-                [bs.tokenizer.BOS, bs.tokenizer.BOS],
-            ],
+            torch.tensor(
+                [
+                    [bs.tokenizer.BOS, bs.tokenizer.BOS],
+                    [bs.tokenizer.BOS, bs.tokenizer.BOS],
+                ]
+            ),
         )
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             state.scores[:, :, 0],
-            [
-                [0.0, 0.0],
-                [0.0, 0.0],
-            ],
+            torch.tensor(
+                [
+                    [0.0, 0.0],
+                    [0.0, 0.0],
+                ]
+            ),
         )
 
         dec_out_beam = torch.tensor(
@@ -442,7 +416,8 @@ class TestBeamSearch(unittest.TestCase):
         dec_out = dec_out_beam.view(-1, bs.tokenizer.vocab_size())
 
         bs.step(dec_out, state)
-        tm.assert_match(state.step, 1)
+
+        self.assertEqual(state.step, 1)
 
         dec_out_log_prob = bs.log_prob(
             dec_out,
@@ -456,34 +431,38 @@ class TestBeamSearch(unittest.TestCase):
             bs.tokenizer.vocab_size(),
         )
 
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             state.tokens[:, :, 1],
-            [
-                [5, 4],
-                [4, 6],
-            ],
+            torch.tensor(
+                [
+                    [5, 4],
+                    [4, 6],
+                ]
+            ),
         )
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             state.scores[:, :, 1],
-            [
+            torch.tensor(
                 [
-                    dec_out_log_prob_beam[0, 1, 5],
-                    dec_out_log_prob_beam[0, 0, 4],
-                ],
-                [
-                    dec_out_log_prob_beam[1, 1, 4],
-                    dec_out_log_prob_beam[1, 0, 6],
-                ],
-            ],
+                    [
+                        dec_out_log_prob_beam[0, 1, 5],
+                        dec_out_log_prob_beam[0, 0, 4],
+                    ],
+                    [
+                        dec_out_log_prob_beam[1, 1, 4],
+                        dec_out_log_prob_beam[1, 0, 6],
+                    ],
+                ]
+            ),
         )
 
     def test_step_continue(self) -> None:
         tokenizer = FakeTokenizer(non_symbol_vocab_size=4)
         # we care about what these are, because we're going to hard-code some dec_out.
-        tm.assert_match(tokenizer.UNK, 0)
-        tm.assert_match(tokenizer.BOS, 1)
-        tm.assert_match(tokenizer.EOS, 2)
-        tm.assert_match(tokenizer.PAD, 3)
+        self.assertEqual(tokenizer.UNK, 0)
+        self.assertEqual(tokenizer.BOS, 1)
+        self.assertEqual(tokenizer.EOS, 2)
+        self.assertEqual(tokenizer.PAD, 3)
 
         beam_size = 2
 
@@ -502,23 +481,28 @@ class TestBeamSearch(unittest.TestCase):
         )
 
         state = bs.prepare_state(src_tokens)
-        tm.assert_match(state.step, 0)
-        tm.assert_match(state.batch_size, 2)
-        tm.assert_match(state.beam_size, 2)
 
-        tm.assert_tensor_equals(
+        self.assertEqual(state.step, 0)
+        self.assertEqual(state.batch_size, 2)
+        self.assertEqual(state.beam_size, 2)
+
+        self.assertAllClose(
             state.tokens[:, :, 0],
-            [
-                [bs.tokenizer.BOS, bs.tokenizer.BOS],
-                [bs.tokenizer.BOS, bs.tokenizer.BOS],
-            ],
+            torch.tensor(
+                [
+                    [bs.tokenizer.BOS, bs.tokenizer.BOS],
+                    [bs.tokenizer.BOS, bs.tokenizer.BOS],
+                ]
+            ),
         )
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             state.scores[:, :, 0],
-            [
-                [0.0, 0.0],
-                [0.0, 0.0],
-            ],
+            torch.tensor(
+                [
+                    [0.0, 0.0],
+                    [0.0, 0.0],
+                ]
+            ),
         )
 
         state.step = 1
@@ -559,7 +543,8 @@ class TestBeamSearch(unittest.TestCase):
         dec_out = dec_out_beam.view(-1, bs.tokenizer.vocab_size())
 
         bs.step(dec_out, state)
-        tm.assert_match(state.step, 2)
+
+        self.assertEqual(state.step, 2)
 
         dec_out_log_prob = bs.log_prob(
             dec_out,
@@ -573,50 +558,62 @@ class TestBeamSearch(unittest.TestCase):
             bs.tokenizer.vocab_size(),
         )
 
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             state.finished_mask,
-            [
-                [False, False],
-                [False, False],
-            ],
+            torch.tensor(
+                [
+                    [False, False],
+                    [False, False],
+                ]
+            ),
         )
 
         # in selecting beams, we restructure history:
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             state.tokens[:, :, state.step - 1],
-            [
-                [5, 4],
-                [7, 6],
-            ],
+            torch.tensor(
+                [
+                    [5, 4],
+                    [7, 6],
+                ]
+            ),
         )
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             state.tokens[:, :, state.step],
-            [
-                [7, 4],
-                [4, 7],
-            ],
+            torch.tensor(
+                [
+                    [7, 4],
+                    [4, 7],
+                ]
+            ),
         )
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             state.scores[:, :, state.step],
-            [
+            torch.tensor(
                 [
-                    state.scores[0, 0, state.step - 1] + dec_out_log_prob_beam[0, 1, 7],
-                    state.scores[0, 1, state.step - 1] + dec_out_log_prob_beam[0, 0, 4],
-                ],
-                [
-                    state.scores[1, 0, state.step - 1] + dec_out_log_prob_beam[1, 1, 4],
-                    state.scores[1, 1, state.step - 1] + dec_out_log_prob_beam[1, 0, 7],
-                ],
-            ],
+                    [
+                        state.scores[0, 0, state.step - 1]
+                        + dec_out_log_prob_beam[0, 1, 7],
+                        state.scores[0, 1, state.step - 1]
+                        + dec_out_log_prob_beam[0, 0, 4],
+                    ],
+                    [
+                        state.scores[1, 0, state.step - 1]
+                        + dec_out_log_prob_beam[1, 1, 4],
+                        state.scores[1, 1, state.step - 1]
+                        + dec_out_log_prob_beam[1, 0, 7],
+                    ],
+                ]
+            ),
         )
 
     def test_step_finished(self) -> None:
         tokenizer = FakeTokenizer(non_symbol_vocab_size=4)
         # we care about what these are, because we're going to hard-code some dec_out.
-        tm.assert_match(tokenizer.UNK, 0)
-        tm.assert_match(tokenizer.BOS, 1)
-        tm.assert_match(tokenizer.EOS, 2)
-        tm.assert_match(tokenizer.PAD, 3)
+        self.assertEqual(tokenizer.UNK, 0)
+        self.assertEqual(tokenizer.BOS, 1)
+        self.assertEqual(tokenizer.EOS, 2)
+        self.assertEqual(tokenizer.PAD, 3)
 
         beam_size = 2
 
@@ -637,23 +634,28 @@ class TestBeamSearch(unittest.TestCase):
         )
 
         state = bs.prepare_state(src_tokens)
-        tm.assert_match(state.step, 0)
-        tm.assert_match(state.batch_size, 2)
-        tm.assert_match(state.beam_size, 2)
 
-        tm.assert_tensor_equals(
+        self.assertEqual(state.step, 0)
+        self.assertEqual(state.batch_size, 2)
+        self.assertEqual(state.beam_size, 2)
+
+        self.assertAllClose(
             state.tokens[:, :, 0],
-            [
-                [bs.tokenizer.BOS, bs.tokenizer.BOS],
-                [bs.tokenizer.BOS, bs.tokenizer.BOS],
-            ],
+            torch.tensor(
+                [
+                    [bs.tokenizer.BOS, bs.tokenizer.BOS],
+                    [bs.tokenizer.BOS, bs.tokenizer.BOS],
+                ]
+            ),
         )
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             state.scores[:, :, 0],
-            [
-                [0.0, 0.0],
-                [0.0, 0.0],
-            ],
+            torch.tensor(
+                [
+                    [0.0, 0.0],
+                    [0.0, 0.0],
+                ]
+            ),
         )
 
         dec_out_beam = torch.tensor(
@@ -676,7 +678,7 @@ class TestBeamSearch(unittest.TestCase):
         dec_out = dec_out_beam.view(-1, bs.tokenizer.vocab_size())
 
         bs.step(dec_out, state)
-        tm.assert_match(state.step, 1)
+        self.assertEqual(state.step, 1)
 
         dec_out_log_prob = bs.log_prob(
             dec_out,
@@ -689,34 +691,40 @@ class TestBeamSearch(unittest.TestCase):
             bs.tokenizer.vocab_size(),
         )
 
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             state.finished_mask,
-            [
-                [False, False],
-                [True, False],
-            ],
+            torch.tensor(
+                [
+                    [False, False],
+                    [True, False],
+                ]
+            ),
         )
 
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             state.tokens[:, :, state.step],
-            [
-                [5, 4],
-                [bs.tokenizer.EOS, 4],
-            ],
+            torch.tensor(
+                [
+                    [5, 4],
+                    [bs.tokenizer.EOS, 4],
+                ]
+            ),
         )
 
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             state.scores[:, :, state.step],
-            [
+            torch.tensor(
                 [
-                    dec_out_log_prob_beam[0, 1, 5],
-                    dec_out_log_prob_beam[0, 0, 4],
-                ],
-                [
-                    dec_out_log_prob_beam[1, 0, bs.tokenizer.EOS],
-                    dec_out_log_prob_beam[1, 1, 4],
-                ],
-            ],
+                    [
+                        dec_out_log_prob_beam[0, 1, 5],
+                        dec_out_log_prob_beam[0, 0, 4],
+                    ],
+                    [
+                        dec_out_log_prob_beam[1, 0, bs.tokenizer.EOS],
+                        dec_out_log_prob_beam[1, 1, 4],
+                    ],
+                ]
+            ),
         )
 
         dec_out_beam = torch.tensor(
@@ -741,16 +749,18 @@ class TestBeamSearch(unittest.TestCase):
         bs.step(dec_out, state)
 
         # finished (but still selected) beams have token PAD
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             state.tokens[:, :, state.step],
-            [
-                [4, 5],
-                [bs.tokenizer.PAD, 4],
-            ],
+            torch.tensor(
+                [
+                    [4, 5],
+                    [bs.tokenizer.PAD, 4],
+                ]
+            ),
         )
 
         # finished (but still selected) beams have score[step] == score[step-1]
-        tm.assert_match(
+        self.assertAllClose(
             state.scores[1, 0, state.step],
             state.scores[1, 0, state.step - 1],
         )
@@ -776,7 +786,7 @@ class TestBeamSearch(unittest.TestCase):
         state = bs.prepare_state(src_tokens)
 
         # beam_size = 1
-        tm.assert_match(
+        self.assertEqual(
             state.tokens.shape,
             torch.Size((2, 3, 12)),
         )
@@ -788,12 +798,12 @@ class TestBeamSearch(unittest.TestCase):
         state.scores = torch.rand_like(state.scores)
 
         sr = bs.finalize(state)
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             sr.tokens.view(2, 3, -1),
             # beam_size = 1
             state.tokens,
         )
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             sr.scores.view(2, 3, -1),
             # beam_size = 1
             state.scores,
@@ -821,7 +831,7 @@ class TestBeamSearch(unittest.TestCase):
         state.step = 5
 
         # beam_size = 1
-        tm.assert_match(
+        self.assertEqual(
             state.tokens.shape,
             torch.Size((2, 3, 12)),
         )
@@ -846,7 +856,7 @@ class TestBeamSearch(unittest.TestCase):
 
         sr = bs.finalize(state, top=2)
 
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             sr.scores,
             torch.stack(
                 [
@@ -865,7 +875,7 @@ class TestBeamSearch(unittest.TestCase):
                 ]
             ),
         )
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             sr.tokens,
             torch.stack(
                 [
@@ -909,26 +919,32 @@ class TestBeamSearch(unittest.TestCase):
 
         sel = bs.choose_beams(2, ps)
 
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             sel.scores,
-            [
-                [4.0, 3.0],
-                [4.5, 1.5],
-            ],
+            torch.tensor(
+                [
+                    [4.0, 3.0],
+                    [4.5, 1.5],
+                ]
+            ),
         )
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             sel.tokens,
-            [
-                [0, 2],
-                [1, 3],
-            ],
+            torch.tensor(
+                [
+                    [0, 2],
+                    [1, 3],
+                ]
+            ),
         )
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             sel.beams,
-            [
-                [0, 1],
-                [0, 0],
-            ],
+            torch.tensor(
+                [
+                    [0, 1],
+                    [0, 0],
+                ]
+            ),
         )
 
     def test_log_prob_below_min(self) -> None:
@@ -949,30 +965,25 @@ class TestBeamSearch(unittest.TestCase):
 
         raw = search.log_prob(t, temperature=0.1, pad=bs.tokenizer.PAD)
 
-        tm.assert_match(
+        self.assertEqual(
             lprobs[:, bs.tokenizer.UNK].tolist(),
             (raw[:, bs.tokenizer.UNK] - bs.unk_penalty).tolist(),
         )
 
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             lprobs[:, bs.tokenizer.PAD],
-            [-torch.inf, -torch.inf],
+            torch.tensor([-torch.inf, -torch.inf]),
         )
 
         # Since we aren't forcing EOS, other tokens should not have -inf
         assert step < bs.max_len, (step, bs.max_len)
-        tm.assert_match(
-            lprobs[:, a_idx].tolist(),
-            hamcrest.only_contains(
-                hamcrest.not_(-torch.inf),
-            ),
-        )
+        self.assertNotIn(-torch.inf, lprobs[:, a_idx].tolist())
 
         # Since we've not yet reached min_len, EOS should have -inf.
         assert step < bs.min_len, (step, bs.min_len)
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             lprobs[:, bs.tokenizer.EOS],
-            [-torch.inf, -torch.inf],
+            torch.tensor([-torch.inf, -torch.inf]),
         )
 
     def test_log_prob_running(self) -> None:
@@ -995,33 +1006,23 @@ class TestBeamSearch(unittest.TestCase):
 
         raw = search.log_prob(t, temperature=0.1, pad=bs.tokenizer.PAD)
 
-        tm.assert_match(
+        self.assertEqual(
             lprobs[:, bs.tokenizer.UNK].tolist(),
             (raw[:, bs.tokenizer.UNK] - bs.unk_penalty).tolist(),
         )
 
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             lprobs[:, bs.tokenizer.PAD],
-            [-torch.inf, -torch.inf],
+            torch.tensor([-torch.inf, -torch.inf]),
         )
 
         # Since we aren't forcing EOS, other tokens should not have -inf
         assert step < bs.max_len, (step, bs.max_len)
-        tm.assert_match(
-            lprobs[:, a_idx].tolist(),
-            hamcrest.only_contains(
-                hamcrest.not_(-torch.inf),
-            ),
-        )
+        self.assertNotIn(-torch.inf, lprobs[:, a_idx].tolist())
 
         # Since we aren't preventing EOS, EOS should not have -inf
         assert step > bs.min_len, (step, bs.min_len)
-        tm.assert_match(
-            lprobs[:, bs.tokenizer.EOS].tolist(),
-            hamcrest.only_contains(
-                hamcrest.not_(-torch.inf),
-            ),
-        )
+        self.assertNotIn(-torch.inf, lprobs[:, bs.tokenizer.EOS].tolist())
 
     def test_log_prob_above_max(self) -> None:
         max_len = 20
@@ -1041,21 +1042,16 @@ class TestBeamSearch(unittest.TestCase):
 
         lprobs = bs.log_prob(t, step=20, max_len=max_len)
 
-        tm.assert_tensor_equals(
+        self.assertAllClose(
             lprobs[:, bs.tokenizer.PAD],
-            [-torch.inf, -torch.inf],
+            torch.tensor([-torch.inf, -torch.inf]),
         )
 
         # Since we are forcing EOS, other tokens should have -inf
         assert step >= bs.max_len, (step, bs.max_len)
-        tm.assert_match(
+        self.assertEqual(
             lprobs[:, a_idx].tolist(),
             [-torch.inf, -torch.inf],
         )
         # And EOS should not have -inf
-        tm.assert_match(
-            lprobs[:, bs.tokenizer.EOS].tolist(),
-            hamcrest.only_contains(
-                hamcrest.not_(-torch.inf),
-            ),
-        )
+        self.assertNotIn(-torch.inf, lprobs[:, bs.tokenizer.EOS].tolist())
