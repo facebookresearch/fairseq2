@@ -24,6 +24,20 @@ PYBIND11_MODULE(config, m)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunreachable-code-return"
 
+    m.def("supports_cuda", [] {
+        return supports_cuda;
+    },
+R"docstr(
+    supports_cuda()
+
+    Indicates whether the library supports CUDA.
+
+    :returns:
+        A boolean value indicating whether the library supports CUDA.
+    :rtype:
+        bool
+)docstr");
+
     m.def("cuda_version", [] {
         if constexpr (cuda_version_major)
             return py::make_tuple(*cuda_version_major, *cuda_version_minor);
@@ -39,20 +53,6 @@ R"docstr(
         The major and minor version segments.
     :rtype:
         ~typing.Optional[~typing.Tuple[int, int]]
-)docstr");
-
-    m.def("supports_cuda", [] {
-        return supports_cuda;
-    },
-R"docstr(
-    supports_cuda()
-
-    Indicates whether the library supports CUDA.
-
-    :returns:
-        A boolean value indicating whether the library supports CUDA.
-    :rtype:
-        bool
 )docstr");
 
 #pragma clang diagnostic pop

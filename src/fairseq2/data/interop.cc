@@ -94,10 +94,23 @@ R"docstr(
     Python and native code.
 )docstr")
         .def(py::init<>())
-        .def(py::init<std::string_view>())
+        .def(py::init<std::string_view>(),
+R"docstr(
+    __init__(s=None)
 
-        // NOLINTNEXTLINE(misc-redundant-expression)
-        .def(py::hash(py::self)).def(py::self == py::self).def(py::self != py::self)
+    :param s:
+        The string to copy.
+
+    :type s:
+        ~typing.Optional[str]
+)docstr")
+
+        // To be consistent with `str`, we return the UTF-8 code point length
+        // instead of the byte length.
+        .def("__len__", &istring::get_code_point_length)
+
+        .def(py::self == py::self)  // NOLINT(misc-redundant-expression)
+        .def(py::self != py::self)  // NOLINT(misc-redundant-expression)
 
         // Allows equality check with other `str`-likes.
         .def("__eq__", [](const istring &lhs, std::string_view rhs) {
@@ -107,14 +120,13 @@ R"docstr(
             return static_cast<std::string_view>(lhs) != rhs;
         })
 
-        // To be consistent with `str`, we return the UTF-8 code point length
-        // instead of the byte length.
-        .def("__len__", &istring::get_code_point_length)
+        .def(py::hash(py::self))
 
         // To be consistent with `str`, we return the string in single-quotes.
         .def("__repr__", [](const istring &self) {
             return fmt::format("'{}'", self);
         })
+
         .def("to_py", &istring::operator std::string_view,
 R"docstr(
     to_py()
@@ -122,7 +134,7 @@ R"docstr(
     Converts to ``str``.
 
     :returns:
-        A representation of this string.
+        A ``str`` representation of this string.
     :rtype:
         str
 )docstr");

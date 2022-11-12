@@ -4,14 +4,36 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Optional, Union
-
 from torch import Tensor
 from typing_extensions import TypeAlias
 
-class IString:
-    def __init__(self, s: Optional[str] = None) -> None: ...
-    def __len__(self) -> int: ...
-    def to_py(self) -> str: ...
+# fmt: off
 
-IVariant: TypeAlias = Union[None, bool, int, float, str, IString, Tensor]
+class IString:
+    def __init__(self, s: str | None = None) -> None:
+        """
+        :param s:
+            The string to copy.
+        """
+
+    def __len__(self) -> int:
+        ...
+
+    def __eq__(self, other: object) -> bool | NotImplemented:  # type: ignore[valid-type]
+        ...
+
+    def __ne__(self, other: object) -> bool | NotImplemented:  # type: ignore[valid-type]
+        ...
+
+    def __hash__(self) -> int:
+        ...
+
+    def to_py(self) -> str:
+        """Converts to ``str``.
+
+        :returns:
+            A ``str`` representation of this string.
+        """
+
+
+IVariant: TypeAlias = None | bool | int | float | str | IString | Tensor
