@@ -130,7 +130,7 @@ jobs:
 
   linux_pt113-test:
     name: Run the tests (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.13, ${{ matrix.variant }}, nosan)
-    needs: linux_pt112-build
+    needs: linux_pt113-build
     strategy:
       matrix:
         py: ['3.8', '3.9', '3.10']
