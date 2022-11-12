@@ -37,7 +37,7 @@ jobs:
           echo ~/venv/bin >> "$GITHUB_PATH"
       - name: Install PyTorch
         run: |
-          pip install torch==1.12.1\
+          pip install torch==1.13\
             --extra-index-url https://download.pytorch.org/whl/cu116
       - name: Install the requirements
         run: |

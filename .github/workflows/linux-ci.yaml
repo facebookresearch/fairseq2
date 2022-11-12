@@ -22,7 +22,7 @@ jobs:
       - name: Check-out the repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 2
+          fetch-depth: 0
       - name: Diff the last commit
         id: diff
         run: |
@@ -30,7 +30,7 @@ jobs:
 
           # Check if all modified files are under the doc directory. If true,
           # we can skip building the entire project.
-          for pathname in $(git diff --name-only HEAD^ HEAD); do
+          for pathname in $(git diff --name-only origin/${{ github.base_ref }} HEAD); do
             if [[ $pathname != doc/* ]]; then
               doc_only=false
 
@@ -75,18 +75,18 @@ jobs:
 #      variant: 'cu113'
 #      run_on_cuda: true
 
-  x86_64_pt112_cpu-build:
-    name: Build the wheel (x86_64, py3.8, pt1.12, cpu, nosan)
+  x86_64_pt113_cpu-build:
+    name: Build the wheel (x86_64, py3.8, pt1.13, cpu, nosan)
     needs: check_files
     uses: ./.github/workflows/linux-build_wheel.yaml
     with:
       py: '3.8'
-      torch: '1.12.1'
+      torch: '1.13'
       arch: 'x86_64'
       variant: 'cpu'
 
-  x86_64_pt112-build:
-    name: Build the wheel (x86_64, py3.8, pt1.12, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
+  x86_64_pt113-build:
+    name: Build the wheel (x86_64, py3.8, pt1.13, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
     needs: check_files
     if: needs.check_files.outputs.doc_only == 'false'
     strategy:
@@ -101,40 +101,40 @@ jobs:
     uses: ./.github/workflows/linux-build_wheel.yaml
     with:
       py: '3.8'
-      torch: '1.12.1'
+      torch: '1.13'
       arch: 'x86_64'
       variant: ${{ matrix.variant }}
       sanitizers: ${{ matrix.sanitizers }}
 
-  x86_64_pt112_cpu-test:
-    name: Run the tests (x86_64, py3.8, pt1.12, cpu, ${{ matrix.sanitizers }})
-    needs: [x86_64_pt112_cpu-build, x86_64_pt112-build]
+  x86_64_pt113_cpu-test:
+    name: Run the tests (x86_64, py3.8, pt1.13, cpu, ${{ matrix.sanitizers }})
+    needs: [x86_64_pt113_cpu-build, x86_64_pt113-build]
     strategy:
       matrix:
         sanitizers: ['nosan', 'asan_ubsan', 'tsan']
     uses: ./.github/workflows/linux-run_tests.yaml
     with:
       py: '3.8'
-      torch: '1.12.1'
+      torch: '1.13'
       arch: 'x86_64'
       variant: 'cpu'
       sanitizers: ${{ matrix.sanitizers }}
 
-#  x86_64_pt112_cu116-test:
-#    name: Run the tests (x86_64, py3.8, pt1.12, cu116, nosan)
-#    needs: 86_64_pt112_cpu-test
+#  x86_64_pt113_cu116-test:
+#    name: Run the tests (x86_64, py3.8, pt1.13, cu116, nosan)
+#    needs: 86_64_pt113_cpu-test
 #    uses: ./.github/workflows/linux-run_tests.yaml
 #    with:
 #      py: '3.8'
-#      torch: '1.12.1'
+#      torch: '1.13'
 #      arch: 'x86_64'
 #      variant: 'cu116'
 #      run_on_cuda: true
 
   build_doc:
     name: Build the documentation
-    needs: x86_64_pt112_cpu-build
+    needs: x86_64_pt113_cpu-build
     uses: ./.github/workflows/build_doc.yaml
     with:
       py: '3.8'
-      torch: '1.12.1'
+      torch: '1.13'
