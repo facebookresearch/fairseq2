@@ -231,6 +231,7 @@ def get_large_model_builder(
         ffn_inner_dim=512,
         dropout_p=0.1,
         device=device,
+        batch_first=True,
     )
 
 
@@ -248,6 +249,7 @@ def get_small_model_builder(
         ffn_inner_dim=16,
         dropout_p=0.1,
         device=device,
+        batch_first=True,
     )
 
 

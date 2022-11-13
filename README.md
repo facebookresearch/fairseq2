@@ -123,7 +123,7 @@ option. For instance, the following configuration generates binary and PTX codes
 for the Ampere architecture (e.g. for A100).
 
 ```
-cmake -GNinja -DCMAKE_CUDA_ARCHITECTURES=”80-real;80-virtual” -B build
+cmake -GNinja -DCMAKE_CUDA_ARCHITECTURES="80-real;80-virtual" -B build
 ```
 
 ### 6. Install the Package

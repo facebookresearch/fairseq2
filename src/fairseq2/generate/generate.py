@@ -43,7 +43,7 @@ def generate(
         .contiguous()
         .view(-1, *enc_out.shape[1:])
     )
-    if enc_attn_mask:
+    if enc_attn_mask is not None:
         enc_attn_mask = (
             torch.broadcast_to(enc_attn_mask, (multiple,) + enc_attn_mask.shape)
             .transpose(0, 1)
