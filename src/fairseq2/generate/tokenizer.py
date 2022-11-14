@@ -1,9 +1,12 @@
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import TYPE_CHECKING, Any, Dict, List
 
 import sentencepiece
 import torch
 from torch import Tensor
+
+if TYPE_CHECKING:
+    import fairseq
 
 
 class Tokenizer:
@@ -21,6 +24,9 @@ class Tokenizer:
 
     def decode_batch(self, tokens: Tensor) -> List[str]:
         raise NotImplementedError
+
+    def num_tokens(self, tokens: Tensor) -> int:
+        return int((tokens != self.PAD).sum())
 
 
 class SpmTokenizer(Tokenizer):
@@ -86,6 +92,47 @@ class SpmTokenizer(Tokenizer):
         else:
             first_pad = len(tokens)
         return self.spm.decode(tokens[:first_pad])  # type: ignore
+
+
+class DictTokenizer(Tokenizer):
+    """Dict and spaces based tokenizer like in legacy Fairseq."""
+
+    @staticmethod
+    def from_fairseq_dict_txt(file: Path, batch_first: bool = True) -> "DictTokenizer":
+        import fairseq.data
+
+        src_dict = fairseq.data.Dictionary.load(str(file))
+        return DictTokenizer(src_dict)
+
+    def __init__(self, vocab: "fairseq.data.Dictionary"):
+        self.vocab = vocab
+        self.batch_first = True
+        self.BOS = vocab.bos_index
+        self.PAD = vocab.pad_index
+        self.EOS = vocab.eos_index
+        self.UNK = vocab.unk_index
+
+    def vocab_size(self) -> int:
+        return len(self.vocab)
+
+    def encode_batch(self, sentences: List[str]) -> Tensor:
+        tokens: List[List[int]] = [
+            self.vocab.encode_line(sentence) for sentence in sentences
+        ]
+        return _make_batch(tokens, self.PAD, self.batch_first)
+
+    def decode_batch(self, tokens: Tensor) -> List[str]:
+        if self.batch_first:
+            return [self._decode(tokens[i, :].tolist()) for i in range(tokens.size(0))]
+        else:
+            return [self._decode(tokens[:, i].tolist()) for i in range(tokens.size(1))]
+
+    def _decode(self, tokens: List[int]) -> str:
+        if tokens[-1] == self.PAD:
+            first_pad = tokens.index(self.PAD)
+        else:
+            first_pad = len(tokens)
+        return self.vocab.string(tokens[:first_pad])  # type: ignore
 
 
 # TODO do this in C++

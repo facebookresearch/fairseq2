@@ -29,6 +29,10 @@ class Transformer(Module, ABC):
     """If ``True``, the first dimension of batched inputs and outputs represents
     the batch; otherwise, the sequence."""
 
+    encoder: TransformerEncoder
+    decoder: TransformerDecoder
+    score_proj: Projection
+
     def __init__(self, model_dim: int, batch_first: bool) -> None:
         """
         :param model_dim:
@@ -66,6 +70,12 @@ class Transformer(Module, ABC):
             dictionary.
         """
 
+    @abstractmethod
+    def extract_features(self, src_seq: Tensor, tgt_seq: Tensor) -> Tensor:
+        """
+        :returns: Features before the softmax layer
+        """
+
 
 @final
 class StandardTransformer(Transformer):
@@ -73,9 +83,6 @@ class StandardTransformer(Transformer):
     :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`.
     """
 
-    encoder: TransformerEncoder
-    decoder: TransformerDecoder
-    score_proj: Projection
     use_log_softmax: bool
 
     def __init__(
@@ -110,25 +117,22 @@ class StandardTransformer(Transformer):
 
         self.encoder = encoder
         self.decoder = decoder
-
         self.score_proj = score_proj
 
         self.use_log_softmax = use_log_softmax
 
     @finaloverride
     def forward(self, src_seq: Tensor, tgt_seq: Tensor) -> Tensor:
-        enc_out, enc_attn_padding_mask = self.encoder(src_seq)
-
-        x = self.decoder(tgt_seq, enc_out, enc_attn_padding_mask)
-
-        x = self.score_proj(x)
-
-        if self.use_log_softmax:
-            softmax = F.log_softmax
-        else:
-            softmax = F.softmax
-
+        x = self.extract_features(src_seq, tgt_seq)
+        softmax = F.log_softmax if self.use_log_softmax else F.softmax
         return softmax(x, dim=-1)
+
+    @finaloverride
+    def extract_features(self, src_seq: Tensor, tgt_seq: Tensor) -> Tensor:
+        enc_out, enc_attn_padding_mask = self.encoder(src_seq)
+        x = self.decoder(tgt_seq, enc_out, enc_attn_padding_mask)
+        x = self.score_proj(x)
+        return x  # type: ignore
 
 
 @final

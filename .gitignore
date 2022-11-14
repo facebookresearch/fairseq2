@@ -1,5 +1,6 @@
 # Byte-Compiled Modules
 __pycache__/
+.mypy_cache/
 
 # Extension Modules
 *.so

@@ -6,13 +6,13 @@ from torch import Tensor
 from fairseq2.generate.search import Search
 from fairseq2.nn.incremental_state import IncrementalStateBag
 
-from ..nn import Projection
+from ..nn import transformer
 from .tokenizer import Tokenizer
 
 
 @torch.inference_mode()  # type: ignore[misc]
 def generate(
-    model: torch.nn.Module,
+    model: transformer.Transformer,
     search: Search[Any],
     src_tokens: Tensor,
     prefix_tokens: Optional[Tensor] = None,
@@ -63,7 +63,7 @@ def generate(
 
         with torch.autograd.profiler.record_function("forward_decoder"):
             search_tokens = search.next_query(state)
-            if not cast(bool, model.batch_first):
+            if not model.batch_first:
                 search_tokens = search_tokens.T
 
             # TODO: incremental state
@@ -75,12 +75,7 @@ def generate(
                 incremental_states,
             )
 
-            dec_out = cast(Projection, model.score_proj)(
-                get_last_time_axis(
-                    dec_out,
-                    cast(bool, model.batch_first),
-                ),
-            )
+            dec_out = model.score_proj(get_last_time_axis(dec_out, model.batch_first))
 
             # TODO: remove this
             if idx < 5:

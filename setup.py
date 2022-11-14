@@ -168,6 +168,7 @@ setup(
         "omegaconf~=2.2",
         "overrides~=7.3",
         "sentencepiece~=0.1",
+        "submitit~=1.4",
         # PyTorch has no ABI compatibility between releases; this means we have
         # to ensure that we depend on the exact same version that was used to
         # build our extension modules.
@@ -178,5 +179,6 @@ setup(
         "torchsnapshot",
         "typing_extensions~=4.3",
         "wandb~=0.13",
+        "wandb",
     ],
 )

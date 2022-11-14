@@ -44,11 +44,19 @@ class WandbLogger(MetricLogger):
             entity=entity,
             id=self.run_id,
             config=self.config,
+            # Note we don't want to force resuming.
+            # Maybe you're resuming someone else run, and you don't have
+            # access to their wandb experiment.
             resume="allow",
         )
-        if self._wandb is not None:
-            # wandb.init can fail
-            self.run_id = self._wandb.id
+        if self._wandb is None:
+            # wandb.init can fail (it will already have printed a message)
+            return
+
+        self.run_id = self._wandb.id
+        import __main__
+
+        wandb.save(__main__.__file__, policy="now")
 
     def state_dict(self) -> tp.Dict[str, tp.Any]:
         return {

@@ -1,37 +1,36 @@
 import itertools
 import logging
-import math
 import os
 import sys
+import time
+import typing as tp
+from datetime import timedelta
 from pathlib import Path
-from typing import Any, Dict, Iterable, Iterator, List, Mapping, NamedTuple, cast
+from typing import Any, Dict, List
 
-import datasets
+import submitit
 import torch
 import torch.nn.functional as F
+import torcheval.metrics
 import torchtnt.runner
 import torchtnt.runner.callbacks
 import torchtnt.utils
-from datasets import Dataset
 from torch import Tensor
-from torcheval.metrics import Mean
 from torchtnt.loggers.logger import MetricLogger
 from torchtnt.runner.state import State
 from torchtnt.runner.unit import EvalUnit, PredictUnit, TrainUnit
 
 import fairseq2.callbacks
+import fairseq2.dataloader.legacy
 import fairseq2.nn
-from fairseq2.generate import BeamSearch, SpmTokenizer, Tokenizer, generate
+import fairseq2.optim.lr_scheduler
+from fairseq2.dataloader import Batch
+from fairseq2.generate import BeamSearch, DictTokenizer, Tokenizer, generate
 from fairseq2.nn import transformer
-from fairseq2.typing import Device
 
 REQUIREMENTS = [
     "sentencepiece",
-    "torcheval",
-    "omegaconf",
-    "fairscale",
     # TODO: make optional
-    "datasets",
     "wandb",
 ]
 
@@ -42,12 +41,7 @@ logging.basicConfig(level=logging.INFO)
 BATCH_FIRST = True
 
 
-class Batch(NamedTuple):
-    source: torch.Tensor
-    target: torch.Tensor
-
-
-class Translation(NamedTuple):
+class Translation(tp.NamedTuple):
     source: str
     target: str
     predicted: str
@@ -56,7 +50,7 @@ class Translation(NamedTuple):
 class MachineTranslationTask(TrainUnit[Batch], EvalUnit[Batch], PredictUnit[Batch]):
     def __init__(
         self,
-        model: torch.nn.Module,
+        model: transformer.Transformer,
         tokenizer: Tokenizer,
         logger: MetricLogger,
     ):
@@ -64,19 +58,27 @@ class MachineTranslationTask(TrainUnit[Batch], EvalUnit[Batch], PredictUnit[Batc
         super().__init__()
         # initialize module & optimizer
 
-        # TODO: we should take all of this as inputs
         self.model = model
         self.tokenizer = tokenizer
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=1e-3)
-        self.lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(
-            self.optimizer, gamma=0.9
+        # TODO: we should take optim, scheduler as inputs
+        self.optimizer = torch.optim.Adam(
+            self.model.parameters(),
+            lr=1.0,
+            betas=(0.9, 0.98),
+            eps=1e-6,
+            weight_decay=0.0001,
+        )
+        self.lr_scheduler = fairseq2.optim.lr_scheduler.InverseSquareRootLR(
+            self.optimizer, lr=5e-4
         )
 
-        self.train_loss = Mean()
-        self.eval_loss = Mean()
+        self.train_loss = torcheval.metrics.Sum()
+        self.train_tokens = torcheval.metrics.Sum()
+        self.eval_loss = torcheval.metrics.Sum()
+        self.eval_tokens = torcheval.metrics.Sum()
         self.log_frequency_steps = 10
         self.predict_frequency_steps = 1000
-        self.lr_frequency_steps = 10_000
+        self.lr_frequency_steps = 1
         self.logger = logger
 
     def replicated_keys(self) -> List[str]:
@@ -84,22 +86,25 @@ class MachineTranslationTask(TrainUnit[Batch], EvalUnit[Batch], PredictUnit[Batc
 
     def train_step(self, state: State, data: Batch) -> None:
         assert state.train_state
+        seed = state.train_state.progress.num_steps_completed
+        torchtnt.utils.seed(seed)
+
         steps = state.train_state.progress.num_steps_completed + 1
-        loss = self._nll_loss(data)
+        loss = self.loss(data)
 
         # TODO: allow accumulating gradients over several batch
         loss.backward()
         self.optimizer.step()
         self.optimizer.zero_grad()
+        if steps % self.lr_frequency_steps == 0:
+            self.lr_scheduler.step()
 
         # update metrics & logs
         self.train_loss.update(loss.detach().cpu())
+        self.train_tokens.update(torch.tensor(data.num_tokens))
 
         if steps % self.log_frequency_steps == 0:
-            self._flush_loss(state, "train", self.train_loss)
-
-        if steps % self.lr_frequency_steps == 0:
-            self.lr_scheduler.step()
+            self.log_metrics(state, "train")
 
     def on_train_start(self, state: State) -> None:
         pass
@@ -107,31 +112,42 @@ class MachineTranslationTask(TrainUnit[Batch], EvalUnit[Batch], PredictUnit[Batc
     def on_train_end(self, state: State) -> None:
         self.logger.close()
 
-    def _nll_loss(self, data: Batch) -> Tensor:
+    def loss(self, data: Batch) -> Tensor:
         # TODO: nll loss requires longs ? Why ?
-        net_output = self.model.forward(data.source, data.target)
+        # net_output = self.model.forward(data.source, data.target)
+        net_output = self.model.extract_features(data.source, data.target[:, :-1])
         lprobs = F.log_softmax(net_output, dim=-1).transpose(2, 1)
         loss = F.nll_loss(
-            lprobs, data.target, reduction="mean", ignore_index=self.tokenizer.PAD
+            lprobs, data.target[:, 1:], reduction="sum", ignore_index=self.tokenizer.PAD
         )
         return loss
 
-    def _flush_loss(
-        self,
-        state: State,
-        prefix: str,
-        metric: Any,
-    ) -> None:
-        assert state.train_state
+    def log_metrics(self, state: State, prefix: str) -> None:
+        assert state.train_state is not None
         step = state.train_state.progress.num_steps_completed
-        loss = metric.compute()
-        metric.reset()
+        if prefix == "train":
+            loss = self.train_loss.compute()
+            self.train_loss.reset()
+            num_tokens = self.train_tokens.compute()
+            self.train_tokens.reset()
+        elif prefix == "eval":
+            loss = self.eval_loss.compute()
+            self.eval_loss.reset()
+            num_tokens = self.eval_tokens.compute()
+            self.eval_tokens.reset()
+        else:
+            raise ValueError(f"unknown stage: {prefix}")
+        loss /= num_tokens
         # This isn't really accurate.
         # This is the perplexity of the average loss, not the average perplexity.
         # But AFAICT Fairseq also computed it this way.
-        ppl = math.exp(loss)
+        try:
+            ppl = round(2 ** float(loss), 3)
+        except OverflowError:
+            ppl = float("inf")
+
         # TODO use tnt.logger
-        metrics = {f"{prefix}/loss": loss, f"{prefix}/ppl": ppl}
+        metrics = {"step": step, f"{prefix}/loss": loss, f"{prefix}/ppl": ppl}
         if prefix == "train":
             metrics[f"{prefix}/lr"] = self.lr_scheduler.get_last_lr()[0]
         self.logger.log_dict(metrics, step)
@@ -151,12 +167,13 @@ class MachineTranslationTask(TrainUnit[Batch], EvalUnit[Batch], PredictUnit[Batc
         pass
 
     def on_eval_end(self, state: State) -> None:
-        self._flush_loss(state, "eval", self.eval_loss)
+        self.log_metrics(state, "eval")
 
     def eval_step(self, state: State, data: Batch) -> None:
         assert state.eval_state
 
-        self.eval_loss.update(self._nll_loss(data).detach().cpu())
+        self.eval_loss.update(self.loss(data).detach().cpu())
+        self.eval_tokens.update(torch.tensor(data.num_tokens))
 
         eval_step = state.eval_state.progress.num_steps_completed_in_epoch
         if eval_step == 0:
@@ -205,234 +222,170 @@ class MachineTranslationTask(TrainUnit[Batch], EvalUnit[Batch], PredictUnit[Batc
         )
 
 
-# TODO: Implement ColumnParallelLinear, RowParallelLinear
-class ModelBuilder(transformer.TransformerBuilder):
-    pass
+class Env(tp.NamedTuple):
+    global_rank: int
+    world_size: int
+    device: torch.device
 
 
-#    def to_yaml(self, file: Path) -> None:
-#        config = dataclasses.asdict(self)
-#        cls = type(self)
-#        config["_target_"] = f"{cls.__module__}.{cls.__qualname__}"
-#        omegaconf.OmegaConf.save(config=config, f=file)
+NUM_GPU_PER_NODE = 8
 
-
-def get_large_model_builder(
-    num_tokens: int, padding_token_idx: int, device: Device
-) -> ModelBuilder:
-    return ModelBuilder(
-        num_tokens,
-        padding_token_idx,
-        model_dim=128,
-        num_enc_layers=6,
-        num_dec_layers=6,
-        num_enc_attn_heads=16,
-        num_dec_attn_heads=16,
-        ffn_inner_dim=512,
-        dropout_p=0.1,
-        device=device,
-        batch_first=True,
-    )
-
-
-def get_small_model_builder(
-    num_tokens: int, padding_token_idx: int, device: Device
-) -> ModelBuilder:
-    return ModelBuilder(
-        num_tokens,
-        padding_token_idx,
-        model_dim=16,
-        num_enc_layers=2,
-        num_dec_layers=2,
-        num_enc_attn_heads=4,
-        num_dec_attn_heads=4,
-        ffn_inner_dim=16,
-        dropout_p=0.1,
-        device=device,
-        batch_first=True,
-    )
-
-
-def _finalize_batch(
-    tokenizer: Tokenizer,
-    src_batch: List[str],
-    tgt_batch: List[str],
-    device: Device,
-) -> Batch:
-    # TODO: add batch statistic
-    return Batch(
-        source=tokenizer.encode_batch(src_batch).to(device),
-        target=tokenizer.encode_batch(tgt_batch).to(device),
-    )
-
-
-class DatasetLoader(Iterable[Batch]):
-    def __init__(
-        self,
-        train: bool,
-        src: str,
-        tgt: str,
-        tokenizer: Tokenizer,
-        batch_size: int,
-        global_rank: int,
-        world_size: int,
-        device: Device,
-    ):
-        self.src = src
-        self.tgt = tgt
-        self.tokenizer = tokenizer
-        self.batch_size = batch_size
-        self.global_rank = global_rank
-        self.world_size = world_size
-        self.device = device
-
-        if train:
-            try:
-                data = cast(
-                    Mapping[str, Dataset],
-                    datasets.load_dataset(
-                        "allenai/nllb",
-                        f"{src}-{tgt}",
-                        save_infos=True,
-                        streaming=True,
-                    ),
-                )
-            except Exception:
-                # TODO: why is this run twice? Is this meant to fallback to another dataset?
-                data = cast(
-                    Mapping[str, Dataset],
-                    datasets.load_dataset(
-                        "allenai/nllb",
-                        f"{tgt}-{src}",
-                        save_infos=True,
-                        streaming=True,
-                    ),
-                )
-            self.data = data["train"]
-            self.extract_src = lambda sample: sample["translation"][src]
-            self.extract_tgt = lambda sample: sample["translation"][tgt]
-        else:
-            data = cast(
-                Mapping[str, Dataset],
-                datasets.load_dataset("facebook/flores", f"{src}-{tgt}"),
-            )
-            self.data = data["dev"]
-            self.extract_src = lambda sample: sample["sentence_" + src]
-            self.extract_tgt = lambda sample: sample["sentence_" + tgt]
-
-    def __iter__(self) -> Iterator[Batch]:
-        src_batch, tgt_batch = [], []
-        for i, sample in enumerate(self.data):
-            if i % self.world_size != self.global_rank:
-                continue
-
-            src_batch.append(self.extract_src(sample))
-            tgt_batch.append(self.extract_tgt(sample))
-            if len(src_batch) == self.batch_size:
-                yield _finalize_batch(self.tokenizer, src_batch, tgt_batch, self.device)
-                src_batch, tgt_batch = [], []
-        if src_batch:
-            yield _finalize_batch(self.tokenizer, src_batch, tgt_batch, self.device)
-
-
-def init_env() -> None:
-    local_rank = os.environ.get("LOCAL_RANK", 0)
-    rank = os.environ.get("RANK", 0)
-    group_rank = os.environ.get("GROUP_RANK", 0)
-    world_size = os.environ.get("WORLD_SIZE", 1)
-    master_port = os.environ.get("MASTER_PORT", 2000)
-    master_addr = os.environ.get("MASTER_ADDR", "localhost")
-    log.info(
-        f"LOCAL_RANK: {local_rank}\n"
-        f"RANK: {rank}\n"
-        f"GROUP_RANK: {group_rank}\n"
-        f"WORLD_SIZE: {world_size}"
-    )
-    os.environ["LOCAL_RANK"] = str(local_rank)
-    os.environ["RANK"] = str(rank)
-    os.environ["GROUP_RANK"] = str(group_rank)
-    os.environ["WORLD_SIZE"] = str(world_size)
-    os.environ["MASTER_ADDR"] = master_addr
-    os.environ["MASTER_PORT"] = str(master_port)
+# TODO make this a function decorator
+def distributed_init(
+    main: tp.Callable[..., None],
+    kwargs: tp.Dict[str, tp.Any],
+    workdir: Path,
+    partition: str,
+    num_gpus: int,
+) -> Env:
+    # TODO: we should allow downloading the first time
+    os.environ["HF_DATASETS_OFFLINE"] = "1"
     os.environ.update(os.environ)
+
+    # Check if we are already a distributed worker
+    world_size = int(os.environ.get("SLURM_NTASKS", -1))
+    if world_size < 0:
+        world_size = int(os.environ.get("WORLD_SIZE", -1))
+
+    if world_size == -1 and partition != "debug":
+        # We aren't running in distributed mode, let submit a job to do so.
+        ex = submitit.AutoExecutor(folder=workdir)
+        ex.update_parameters(
+            name=Path(__file__).stem,
+            slurm_partition=partition,
+            nodes=max(num_gpus // NUM_GPU_PER_NODE, 1),
+            gpus_per_node=min(num_gpus, NUM_GPU_PER_NODE),
+            tasks_per_node=min(num_gpus, NUM_GPU_PER_NODE),
+            cpus_per_task=5,
+            # TODO timeout should be configurable
+            # 1 day so I can use "dev" partitions
+            timeout_min=int(timedelta(days=1).total_seconds() // 60),
+        )
+        job = ex.submit(main, **kwargs)
+        log.info(
+            f"Scheduled training job: {job.job_id}.\nLogs will be at {job.paths.stderr}.\nYou can exit this process with ctrl+c, Slurm will take care of running the training job."
+        )
+        # TODO: silence keyboard interrupt here
+        job_state = job.state
+        while not job.done():
+            new_job_state = job.state
+            if new_job_state != job_state:
+                print(job)
+                job_state = new_job_state
+            else:
+                time.sleep(10)
+
+        job.wait()
+        res = job.result()
+        log.info(f"Training is done ! Result: {res}")
+        sys.exit(0)
+
+    # We have one process per GPU already
+    # TODO: allow other devices
+    device = torch.device("cuda:0")
+    torch.cuda.set_device(device)
+
+    if partition == "debug":
+        # Prevent double init when running in REPL
+        # if not fairscale.nn.model_parallel.initialize.model_parallel_is_initialized():
+        #     torch.distributed.init_process_group(backend="nccl")
+        #     fairscale.nn.model_parallel.initialize_model_parallel(1)
+        assert (
+            num_gpus == 1
+        ), "If you want more than one GPU, you need to specify a SLURM partition with --partition"
+        log.info("Starting local training on 1 GPU.")
+        return Env(0, 1, torch.device("cuda:0"))
+
+    # TODO: this assumes we are a slurm job, we might want to run on non-SLURM cluster
+    env = submitit.helpers.TorchDistributedEnvironment()
+    env.export()
+    # TODO check how fairscale does it.
+    os.environ["GROUP_RANK"] = "0"
+    os.environ.update(os.environ)
+    log.info(
+        f"Starting distributed worker\nLOCAL_RANK: {env.local_rank}\n"
+        f"RANK: {env.rank}\n"
+        f"GROUP_RANK: {os.environ['GROUP_RANK']}\n"
+        f"WORLD_SIZE: {env.world_size}"
+    )
+
+    torch.distributed.init_process_group(backend="nccl")
+    # fairscale.nn.model_parallel.initialize_model_parallel(1)
+    return Env(env.rank, env.world_size, device)
 
 
 def main(
     workdir: Path = Path("/checkpoint/guw/fairseq2/mt.{src}-{tgt}"),
     spm_path: Path = Path("/private/home/kevinheffernan/nllb.200.models/laser2.spm"),
-    src_lang: str = "eng_Latn",
-    tgt_lang: str = "cat_Latn",
+    src_lang: str = "de",
+    tgt_lang: str = "en",
     small: bool = False,
     wandb_project: str = "nllb/fairseq2",
     batch_size: int = 16,
+    partition: str = "debug",
+    num_gpus: int = 1,
+    reset: bool = False,
 ) -> None:
     workdir = Path(str(workdir).format(src=src_lang, tgt=tgt_lang))
     workdir.mkdir(exist_ok=True)
-    init_env()
-    device = torchtnt.utils.init_from_env()
+    env = distributed_init(main, locals(), workdir, partition, num_gpus)
+    # tokenizer = SpmTokenizer.from_file(spm_path, batch_first=BATCH_FIRST)
+    # builder = get_small_model_builder if small else get_large_model_builder
+    # model = builder(tokenizer.vocab_size(), tokenizer.PAD, env.device).build()
 
-    tokenizer = SpmTokenizer.from_file(spm_path, batch_first=BATCH_FIRST)
-    vocab_size = tokenizer.vocab_size()
-
-    padding_token_idx = tokenizer.PAD
-
-    device = Device("cuda:0")
-
-    if small:
-        builder_fn = get_small_model_builder
-    else:
-        builder_fn = get_large_model_builder
-
-    builder = builder_fn(vocab_size, padding_token_idx, device)
-
+    data_dir = Path("/private/home/guw/github/fairseq/data-bin/iwslt14.tokenized.de-en")
+    tokenizer = DictTokenizer.from_fairseq_dict_txt(data_dir / f"dict.{src_lang}.txt")
+    builder = transformer.TransformerBuilder(
+        10080, tokenizer.PAD, batch_first=True, dropout_p=0, device=torch.device("cpu")
+    )
     model = builder.build()
+    model.to(env.device)
+    torchtnt.utils.seed(0)
+
+    train_dataloader = fairseq2.dataloader.legacy.BilingualDataloader(
+        data_dir,
+        src=src_lang,
+        tgt=tgt_lang,
+        split="train",
+        device=env.device,
+    )
+    valid_dataloader = fairseq2.dataloader.legacy.BilingualDataloader(
+        data_dir,
+        src=src_lang,
+        tgt=tgt_lang,
+        split="valid",
+        device=env.device,
+    )
 
     if wandb_project:
-        logger: MetricLogger = fairseq2.callbacks.WandbLogger(wandb_project, builder)
+        logger: MetricLogger = fairseq2.callbacks.WandbLogger(wandb_project, {})
     else:
         logger = torchtnt.loggers.TensorBoardLogger(str(workdir / "tensorboard"))
 
     task = MachineTranslationTask(model, tokenizer, logger)
-    train_dataloader = DatasetLoader(
-        train=True,
-        src=src_lang,
-        tgt=tgt_lang,
-        tokenizer=tokenizer,
-        batch_size=batch_size,
-        global_rank=int(os.environ.get("GROUP_RANK", 0)),
-        world_size=int(os.environ.get("WORLD_SIZE", 1)),
-        device=device,
-    )
-    valid_dataloader = DatasetLoader(
-        train=False,
-        src=src_lang,
-        tgt=tgt_lang,
-        tokenizer=tokenizer,
-        batch_size=batch_size,
-        global_rank=int(os.environ.get("GROUP_RANK", 0)),
-        world_size=int(os.environ.get("WORLD_SIZE", 1)),
-        device=device,
-    )
 
     train_state = torchtnt.runner.init_fit_state(
         train_dataloader,
         valid_dataloader,
-        max_epochs=2**30,
+        max_epochs=1_000_000,
         max_steps=1_000_000,
-        evaluate_every_n_steps=1000,
+        evaluate_every_n_steps=10_000,
     )
     callbacks = [
         # Synchronize GC runs across all nodes
         torchtnt.runner.callbacks.GarbageCollector(step_interval=1),
         torchtnt.runner.callbacks.TorchSnapshotSaver(
             str(workdir),
-            save_every_n_train_steps=100,
+            save_every_n_train_steps=10_000,
             replicated=task.replicated_keys(),
         ),
-        fairseq2.callbacks.TorchSnapshotLoader(
-            str(workdir), replicated=task.replicated_keys()
-        ),
     ]
+    if not reset:
+        callbacks.append(
+            fairseq2.callbacks.TorchSnapshotLoader(
+                str(workdir), replicated=task.replicated_keys()
+            )
+        )
     if os.isatty(sys.stdout.fileno()):
         callbacks.append(fairseq2.callbacks.Debugger())
 
