@@ -25,7 +25,7 @@ def _finalize_batch(
     )
 
 
-class NLLBDataloader(Iterable[Batch]):
+class NllbDataLoader(Iterable[Batch]):
     # TODO: this should be made more generic, here nllb and flores are hardcoded.
     def __init__(
         self,

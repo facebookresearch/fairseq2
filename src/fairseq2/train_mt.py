@@ -21,11 +21,16 @@ from torchtnt.runner.state import State
 from torchtnt.runner.unit import EvalUnit, PredictUnit, TrainUnit
 
 import fairseq2.callbacks
-import fairseq2.dataloader.legacy
 import fairseq2.nn
 import fairseq2.optim.lr_scheduler
 from fairseq2.dataloader import Batch
-from fairseq2.generate import BeamSearch, DictTokenizer, Tokenizer, generate
+from fairseq2.generate import (
+    BeamSearch,
+    DictTokenizer,
+    SpmTokenizer,
+    Tokenizer,
+    generate,
+)
 from fairseq2.nn import transformer
 
 REQUIREMENTS = [
@@ -239,8 +244,8 @@ def distributed_init(
     num_gpus: int,
 ) -> Env:
     # TODO: we should allow downloading the first time
-    os.environ["HF_DATASETS_OFFLINE"] = "1"
-    os.environ.update(os.environ)
+    # os.environ["HF_DATASETS_OFFLINE"] = "1"
+    # os.environ.update(os.environ)
 
     # Check if we are already a distributed worker
     world_size = int(os.environ.get("SLURM_NTASKS", -1))
@@ -317,8 +322,8 @@ def distributed_init(
 def main(
     workdir: Path = Path("/checkpoint/guw/fairseq2/mt.{src}-{tgt}"),
     spm_path: Path = Path("/private/home/kevinheffernan/nllb.200.models/laser2.spm"),
-    src_lang: str = "de",
-    tgt_lang: str = "en",
+    src_lang: str = "cat_Latn",
+    tgt_lang: str = "eng_Latn",
     small: bool = False,
     wandb_project: str = "nllb/fairseq2",
     batch_size: int = 16,
@@ -329,31 +334,61 @@ def main(
     workdir = Path(str(workdir).format(src=src_lang, tgt=tgt_lang))
     workdir.mkdir(exist_ok=True)
     env = distributed_init(main, locals(), workdir, partition, num_gpus)
-    # tokenizer = SpmTokenizer.from_file(spm_path, batch_first=BATCH_FIRST)
-    # builder = get_small_model_builder if small else get_large_model_builder
-    # model = builder(tokenizer.vocab_size(), tokenizer.PAD, env.device).build()
-
-    data_dir = Path("/private/home/guw/github/fairseq/data-bin/iwslt14.tokenized.de-en")
-    tokenizer = DictTokenizer.from_fairseq_dict_txt(data_dir / f"dict.{src_lang}.txt")
-    builder = transformer.TransformerBuilder(
-        10080, tokenizer.PAD, batch_first=True, dropout_p=0, device=torch.device("cpu")
-    )
-    model = builder.build()
-    model.to(env.device)
     torchtnt.utils.seed(0)
+    torch.cuda.manual_seed(0)
 
-    train_dataloader = fairseq2.dataloader.legacy.BilingualDataloader(
-        data_dir,
-        src=src_lang,
-        tgt=tgt_lang,
-        split="train",
+    # data_dir = Path("/private/home/guw/github/fairseq/data-bin/iwslt14.tokenized.de-en")
+    # tokenizer = DictTokenizer.from_fairseq_dict_txt(data_dir / f"dict.{src_lang}.txt")
+    # builder = transformer.TransformerBuilder(
+    #     tokenizer.vocab_size(), tokenizer.PAD, batch_first=True, dropout_p=0, device=env.device
+    # )
+    # model = builder.build()
+    # model.to(env.device)
+    # import fairseq2.dataloader.legacy
+    # train_dataloader = fairseq2.dataloader.legacy.BilingualDataloader(
+    #     data_dir,
+    #     src=src_lang,
+    #     tgt=tgt_lang,
+    #     split="train",
+    #     device=env.device,
+    # )
+    # valid_dataloader = fairseq2.dataloader.legacy.BilingualDataloader(
+    #     data_dir,
+    #     src=src_lang,
+    #     tgt=tgt_lang,
+    #     split="valid",
+    #     device=env.device,
+    # )
+
+    import fairseq2.dataloader.huggingface
+
+    tokenizer = SpmTokenizer.from_file(spm_path, batch_first=BATCH_FIRST)
+    builder = transformer.TransformerBuilder(
+        tokenizer.vocab_size(),
+        tokenizer.PAD,
+        batch_first=True,
+        dropout_p=0,
         device=env.device,
     )
-    valid_dataloader = fairseq2.dataloader.legacy.BilingualDataloader(
-        data_dir,
+    model = builder.build()
+    train_dataloader = fairseq2.dataloader.huggingface.NllbDataLoader(
+        train=True,
         src=src_lang,
         tgt=tgt_lang,
-        split="valid",
+        tokenizer=tokenizer,
+        batch_size=batch_size,
+        global_rank=env.global_rank,
+        world_size=env.world_size,
+        device=env.device,
+    )
+    valid_dataloader = fairseq2.dataloader.huggingface.NllbDataLoader(
+        train=False,
+        src=src_lang,
+        tgt=tgt_lang,
+        tokenizer=tokenizer,
+        batch_size=batch_size,
+        global_rank=env.global_rank,
+        world_size=env.world_size,
         device=env.device,
     )
 
