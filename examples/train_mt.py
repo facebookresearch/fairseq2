@@ -320,7 +320,7 @@ def distributed_init(
 
 
 def main(
-    workdir: Path = Path("/checkpoint/guw/fairseq2/mt.{src}-{tgt}"),
+    workdir: Path,
     spm_path: Path = Path("/private/home/kevinheffernan/nllb.200.models/laser2.spm"),
     src_lang: str = "cat_Latn",
     tgt_lang: str = "eng_Latn",
@@ -337,6 +337,7 @@ def main(
     torchtnt.utils.seed(0)
     torch.cuda.manual_seed(0)
 
+    # import fairseq2.dataloader.legacy
     # data_dir = Path("/private/home/guw/github/fairseq/data-bin/iwslt14.tokenized.de-en")
     # tokenizer = DictTokenizer.from_fairseq_dict_txt(data_dir / f"dict.{src_lang}.txt")
     # builder = transformer.TransformerBuilder(
@@ -344,7 +345,6 @@ def main(
     # )
     # model = builder.build()
     # model.to(env.device)
-    # import fairseq2.dataloader.legacy
     # train_dataloader = fairseq2.dataloader.legacy.BilingualDataloader(
     #     data_dir,
     #     src=src_lang,
