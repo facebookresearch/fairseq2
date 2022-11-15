@@ -20,7 +20,8 @@ using memory_deallocator = void (*)(const void *ptr, std::size_t size) noexcept;
 
 class FAIRSEQ2_API memory_holder {
 public:
-    explicit memory_holder(const void *ptr, std::size_t size, memory_deallocator d) noexcept
+    explicit constexpr
+    memory_holder(const void *ptr, std::size_t size, memory_deallocator d) noexcept
         : ptr_{ptr}, size_{size}, deallocate_{d}
     {}
 

@@ -7,12 +7,15 @@
 #include <fairseq2/native/data/interop.h>
 
 #include <functional>
+#include <memory>
 
 #include <ATen/ATen.h>
 #include <gtest/gtest.h>
 
 #include <fairseq2/native/utils/text.h>
 
+using fairseq2::idict;
+using fairseq2::ilist;
 using fairseq2::invalid_utf8;
 using fairseq2::istring;
 using fairseq2::ivariant;
@@ -73,10 +76,10 @@ TEST(test_ivariant, eq_returns_true_if_values_are_equal)
 
     EXPECT_EQ(h(v1), h(v2));
 
-    double d = 3.0;
+    double f = 3.0;
 
-    v1 = d;
-    v2 = d;
+    v1 = f;
+    v2 = f;
 
     EXPECT_EQ(v1, v2);
 
@@ -96,6 +99,44 @@ TEST(test_ivariant, eq_returns_true_if_values_are_equal)
 
     v1 = t;
     v2 = t;
+
+    EXPECT_EQ(v1, v2);
+
+    EXPECT_EQ(h(v1), h(v2));
+
+    ilist l1{"a", "b", "c"};
+    ilist l2{"a", "b", "c"};
+
+    v1 = l1;
+    v2 = l2;
+
+    EXPECT_EQ(v1, v2);
+
+    EXPECT_NE(h(v1), h(v2));
+
+    auto l = std::make_shared<ilist>(l1);
+
+    v1 = l;
+    v2 = l;
+
+    EXPECT_EQ(v1, v2);
+
+    EXPECT_EQ(h(v1), h(v2));
+
+    idict d1{{"a", 1.0}};
+    idict d2{{"a", 1.0}};
+
+    v1 = d1;
+    v2 = d2;
+
+    EXPECT_EQ(v1, v2);
+
+    EXPECT_NE(h(v1), h(v2));
+
+    auto d = std::make_shared<idict>(d1);
+
+    v1 = d;
+    v2 = d;
 
     EXPECT_EQ(v1, v2);
 
@@ -133,11 +174,11 @@ TEST(test_ivariant, eq_returns_false_if_values_are_not_equal)
 
     EXPECT_NE(h(v1), h(v2));
 
-    double d1 = 3.0;
-    double d2 = 4.0;
+    double f1 = 3.0;
+    double f2 = 4.0;
 
-    v1 = d1;
-    v2 = d2;
+    v1 = f1;
+    v2 = f2;
 
     EXPECT_NE(v1, v2);
 
@@ -162,6 +203,26 @@ TEST(test_ivariant, eq_returns_false_if_values_are_not_equal)
     EXPECT_NE(v1, v2);
 
     EXPECT_NE(h(v1), h(v2));
+
+    ilist l1{"a", "b", "c"};
+    ilist l2{"d", "e", "f"};
+
+    v1 = l1;
+    v2 = l2;
+
+    EXPECT_NE(v1, v2);
+
+    EXPECT_NE(h(v1), h(v2));
+
+    idict d1{{"a", 1.0}};
+    idict d2{{"b", 1.0}};
+
+    v1 = d1;
+    v2 = d2;
+
+    EXPECT_NE(v1, v2);
+
+    EXPECT_NE(h(v1), h(v2));
 }
 
 TEST(test_ivariant, eq_returns_false_if_types_are_different)
@@ -170,9 +231,13 @@ TEST(test_ivariant, eq_returns_false_if_types_are_different)
 
     std::int64_t i = 1;
 
-    double d = 3.0;
+    double f = 3.0;
 
     at::Tensor t = at::ones({10, 10});
+
+    ilist l{"a", "b", "c"};
+
+    idict d{{"a", 1.0}};
 
     ivariant v1{};
     ivariant v2 = i;
@@ -181,7 +246,7 @@ TEST(test_ivariant, eq_returns_false_if_types_are_different)
 
     EXPECT_NE(h(v1), h(v2));
 
-    v1 = d;
+    v1 = f;
     v2 = i;
 
     EXPECT_NE(v1, v2);
@@ -189,7 +254,7 @@ TEST(test_ivariant, eq_returns_false_if_types_are_different)
     EXPECT_NE(h(v1), h(v2));
 
     v1 = t;
-    v2 = d;
+    v2 = f;
 
     EXPECT_NE(v1, v2);
 
@@ -197,6 +262,20 @@ TEST(test_ivariant, eq_returns_false_if_types_are_different)
 
     v1 = ivariant::none();
     v2 = i;
+
+    EXPECT_NE(v1, v2);
+
+    EXPECT_NE(h(v1), h(v2));
+
+    v1 = t;
+    v2 = l;
+
+    EXPECT_NE(v1, v2);
+
+    EXPECT_NE(h(v1), h(v2));
+
+    v1 = l;
+    v2 = d;
 
     EXPECT_NE(v1, v2);
 

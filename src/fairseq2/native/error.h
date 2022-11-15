@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "fairseq2/native/api.h"
+
 namespace fairseq2::detail {
 
 #ifdef NDEBUG
@@ -18,7 +20,7 @@ unreachable()
 
 #else
 
-[[noreturn]] void
+[[noreturn]] FAIRSEQ2_API void
 unreachable(const char *file = __builtin_FILE(), int line = __builtin_LINE());
 
 #endif

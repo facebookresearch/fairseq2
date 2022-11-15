@@ -9,14 +9,36 @@
 #include <cstdint>
 #include <functional>
 #include <string_view>
+#include <unordered_map>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #include <ATen/Tensor.h>
 
 #include "fairseq2/native/api.h"
 #include "fairseq2/native/utils/memory.h"
 #include "fairseq2/native/utils/span.h"
+
+namespace fairseq2 {
+
+class ivariant;
+
+}  // namespace fairseq2
+
+template <>
+struct FAIRSEQ2_API std::hash<fairseq2::ivariant> {
+    std::size_t
+    operator()(const fairseq2::ivariant &value) const;
+
+private:
+    template <typename T>
+    inline std::size_t
+    get_hash(const T &value) const
+    {
+        return std::hash<T>{}(value);
+    }
+};
 
 namespace fairseq2 {
 
@@ -139,13 +161,17 @@ private:
     detail::memory_block bits_{};
 };
 
-// A type-safe union to be shared between Python and native code.
+using ilist = std::vector<ivariant>;
+using idict = std::unordered_map<ivariant, ivariant>;
+
+// A type-safe union shared between Python and native code.
 class FAIRSEQ2_API ivariant {
 public:
     // uninitialized
+    constexpr
     ivariant() noexcept = default;
 
-    bool
+    constexpr bool
     is_uninitialized() const noexcept
     {
         return std::holds_alternative<uninitialized_t>(payload_);
@@ -162,58 +188,61 @@ public:
         return v;
     }
 
-    bool
+    constexpr bool
     is_none() const noexcept
     {
         return std::holds_alternative<none_t>(payload_);
     }
 
     // boolean
+    constexpr
     ivariant(bool value) noexcept
         : payload_{value}
     {}
 
-    bool
+    constexpr bool
     is_bool() const noexcept
     {
         return std::holds_alternative<bool>(payload_);
     }
 
-    bool
+    constexpr bool
     as_bool() const
     {
         return std::get<bool>(payload_);
     }
 
     // int
+    constexpr
     ivariant(std::int64_t value) noexcept
         : payload_{value}
     {}
 
-    bool
+    constexpr bool
     is_int() const noexcept
     {
         return std::holds_alternative<std::int64_t>(payload_);
     }
 
-    std::int64_t
+    constexpr std::int64_t
     as_int() const
     {
         return std::get<std::int64_t>(payload_);
     }
 
     // double
+    constexpr
     ivariant(double value) noexcept
         : payload_{value}
     {}
 
-    bool
+    constexpr bool
     is_double() const noexcept
     {
         return std::holds_alternative<double>(payload_);
     }
 
-    double
+    constexpr double
     as_double() const
     {
         return std::get<double>(payload_);
@@ -240,7 +269,7 @@ public:
         : payload_{std::move(value)}
     {}
 
-    bool
+    constexpr bool
     is_string() const noexcept
     {
         return std::holds_alternative<istring>(payload_);
@@ -267,13 +296,13 @@ public:
         : payload_{std::move(value)}
     {}
 
-    bool
+    constexpr bool
     is_tensor() const noexcept
     {
         return std::holds_alternative<tensor_holder>(payload_);
     }
 
-    at::Tensor
+    at::Tensor &
     as_tensor()
     {
         return std::get<tensor_holder>(payload_).value_;
@@ -285,17 +314,108 @@ public:
         return std::get<tensor_holder>(payload_).value_;
     }
 
-public:
-    friend constexpr bool
-    operator==(const ivariant &lhs, const ivariant &rhs)
+    // ilist
+    ivariant(const ilist &value)
+        : payload_{std::make_shared<ilist>(value)}
+    {}
+
+    ivariant(ilist &&value)
+        : payload_{std::make_shared<ilist>(std::move(value))}
+    {}
+
+    ivariant(const std::shared_ptr<ilist> &value) noexcept
+        : payload_{value}
+    {}
+
+    ivariant(std::shared_ptr<ilist> &&value) noexcept
+        : payload_{std::move(value)}
+    {}
+
+    constexpr bool
+    is_list() const noexcept
     {
-        return lhs.payload_ == rhs.payload_;
+        return std::holds_alternative<std::shared_ptr<ilist>>(payload_);
     }
 
-    friend constexpr bool
+    ilist &
+    as_list()
+    {
+        return *std::get<std::shared_ptr<ilist>>(payload_);
+    }
+
+    const ilist &
+    as_list() const
+    {
+        return *std::get<std::shared_ptr<ilist>>(payload_);
+    }
+
+    std::shared_ptr<ilist> &
+    as_shared_list()
+    {
+        return std::get<std::shared_ptr<ilist>>(payload_);
+    }
+
+    std::shared_ptr<const ilist>
+    as_shared_list() const
+    {
+        return std::get<std::shared_ptr<ilist>>(payload_);
+    }
+
+    // idict
+    ivariant(const idict &value)
+        : payload_{std::make_shared<idict>(value)}
+    {}
+
+    ivariant(idict &&value)
+        : payload_{std::make_shared<idict>(std::move(value))}
+    {}
+
+    ivariant(const std::shared_ptr<idict> &value) noexcept
+        : payload_{value}
+    {}
+
+    ivariant(std::shared_ptr<idict> &&value) noexcept
+        : payload_{std::move(value)}
+    {}
+
+    constexpr bool
+    is_dict() const noexcept
+    {
+        return std::holds_alternative<std::shared_ptr<idict>>(payload_);
+    }
+
+    idict &
+    as_dict()
+    {
+        return *std::get<std::shared_ptr<idict>>(payload_);
+    }
+
+    const idict &
+    as_dict() const
+    {
+        return *std::get<std::shared_ptr<idict>>(payload_);
+    }
+
+    std::shared_ptr<idict> &
+    as_shared_dict()
+    {
+        return std::get<std::shared_ptr<idict>>(payload_);
+    }
+
+    std::shared_ptr<const idict>
+    as_shared_dict() const
+    {
+        return std::get<std::shared_ptr<idict>>(payload_);
+    }
+
+public:
+    friend FAIRSEQ2_API bool
+    operator==(const ivariant &lhs, const ivariant &rhs);
+
+    friend bool
     operator!=(const ivariant &lhs, const ivariant &rhs)
     {
-        return lhs.payload_ != rhs.payload_;
+        return !(lhs == rhs);
     }
 
 private:
@@ -357,7 +477,9 @@ private:
                  std::int64_t,
                  double,
                  istring,
-                 tensor_holder> payload_;
+                 tensor_holder,
+                 std::shared_ptr<ilist>,
+                 std::shared_ptr<idict>> payload_{};
 };
 
 }  // namespace fairseq2
@@ -368,19 +490,5 @@ struct std::hash<fairseq2::istring> {
     operator()(const fairseq2::istring &value) const noexcept
     {
         return std::hash<std::string_view>{}(value);
-    }
-};
-
-template <>
-struct FAIRSEQ2_API std::hash<fairseq2::ivariant> {
-    std::size_t
-    operator()(const fairseq2::ivariant &value) const;
-
-private:
-    template <typename T>
-    inline std::size_t
-    get_hash(const T &value) const
-    {
-        return std::hash<T>{}(value);
     }
 };

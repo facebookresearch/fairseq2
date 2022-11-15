@@ -8,7 +8,10 @@ Classes
     :toctree: generated/classes
     :nosignatures:
 
+    data.IDict
+    data.IList
     data.IString
+    data.IVariant
     nn.Embedding
     nn.IncrementalState
     nn.IncrementalStateBag

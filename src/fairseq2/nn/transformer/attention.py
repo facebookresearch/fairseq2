@@ -73,6 +73,9 @@ def default_scaled_dot_product_attention(
     """Computes scaled dot-product attention as described in
     :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`.
 
+    .. note::
+        This function follows the :class:`AttentionFunction` protocol.
+
     :param queries:
         The queries. *Shape:* :math:`(N,T,K)`, where :math:`N` is the batch
         size, :math:`T` is the target sequence length, and :math:`K` is the

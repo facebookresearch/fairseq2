@@ -44,16 +44,6 @@ autodoc_typehints = "description"
 autodoc_typehints_format = "short"
 autodoc_typehints_description_target = "documented_params"
 
-autodoc_default_options = {
-    "members": True,
-    "member-order": "groupwise",
-    "special-members": "__call__,__iter__",
-    "inherited-members": "Embedding,Module",
-    "show-inheritance": True,
-}
-
-autoclass_content = "both"
-
 todo_include_todos = True
 
 intersphinx_mapping = {

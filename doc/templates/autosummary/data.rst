@@ -2,4 +2,4 @@
 
 {{ name | escape | underline }}
 
-.. autofunction:: {{ name }}
+.. autodata:: {{ name }}

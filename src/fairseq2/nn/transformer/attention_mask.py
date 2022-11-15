@@ -31,7 +31,11 @@ class AttentionMaskGenerator(Protocol):
 
 @final
 class CausalAttentionMaskGenerator:
-    """Generates a causal attention mask for self attention."""
+    """Generates a causal attention mask for self attention.
+
+    .. note::
+        This class follows the :class:`AttentionMaskGenerator` protocol.
+    """
 
     _cached_attn_mask: Optional[Tensor]
 
@@ -89,6 +93,9 @@ class CausalAttentionMaskGenerator:
 class ALiBiAttentionMaskGenerator:
     """Generates a mask for self attention as described in
     :cite:t:`DBLP:journals/corr/abs-2108-12409`.
+
+    .. note::
+        This class follows the :class:`AttentionMaskGenerator` protocol.
 
     .. todo:: Not implemented yet!
     """

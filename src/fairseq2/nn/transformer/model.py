@@ -137,7 +137,7 @@ class StandardTransformer(Transformer):
 
 @final
 class UntiedScoreProjection(ResettableProjection):
-    """Produces scores (i.e. logits) from the output of a Transformer decoder.
+    """Produces scores -i.e. logits- from the output of a Transformer decoder.
 
     The produced scores should be forwarded to a softmax function to compute
     predicted next-token probabilities.

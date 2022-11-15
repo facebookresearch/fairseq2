@@ -35,3 +35,6 @@ private:
     static fairseq2::ivariant
     cast_from_py(pybind11::handle src);
 };
+
+PYBIND11_MAKE_OPAQUE(fairseq2::ilist);
+PYBIND11_MAKE_OPAQUE(fairseq2::idict);

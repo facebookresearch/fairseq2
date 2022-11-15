@@ -3,10 +3,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from __future__ import annotations
-
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Protocol, Tuple, final
+from typing import Any, Dict, MutableSequence, Optional, Protocol, Tuple, final
 
 import torch
 import torch.nn as nn
@@ -50,10 +48,7 @@ class MultiheadAttentionState(IncrementalState):
     is the source sequence length of the previous step."""
 
     def __init__(
-        self,
-        k: Tensor,
-        v: Tensor,
-        padding_mask: Optional[Tensor] = None,
+        self, k: Tensor, v: Tensor, padding_mask: Optional[Tensor] = None
     ) -> None:
         """
         :param k:
@@ -148,7 +143,7 @@ class AttentionWeightHook(Protocol):
     """Represents a hook to pass to
     :meth:`~MultiheadAttention.register_attn_weight_hook`."""
 
-    def __call__(self, m: MultiheadAttention, attn_weights: Tensor) -> None:
+    def __call__(self, m: "MultiheadAttention", attn_weights: Tensor) -> None:
         """
         :param m:
             The module that has computed the attention weights.
@@ -159,21 +154,32 @@ class AttentionWeightHook(Protocol):
         """
 
 
-class StoreAttentionWeights(AttentionWeightHook):
-    """Stores the attention weights in the given list.
+class StoreAttentionWeights:
+    """Stores the attention weights in a given list.
 
-    The owner of this object is responsible for clearing the list, or popping
-    the attention weights.
+    The user of this class is responsible for clearing the list, or popping the
+    attention weights.
+
+    .. note::
+        This class follows the :class:`AttentionWeightHook` protocol.
     """
 
-    def __init__(self, attn_weights: List[Tensor]) -> None:
+    def __init__(self, attn_weights: MutableSequence[Tensor]) -> None:
         """
         :param attn_weights:
             The list in which to store the attention weights.
         """
         self._attn_weights = attn_weights
 
-    def __call__(self, m: MultiheadAttention, attn_weights: Tensor) -> None:
+    def __call__(self, m: "MultiheadAttention", attn_weights: Tensor) -> None:
+        """
+        :param m:
+            The module that has computed the attention weights.
+        :param attn_weights:
+            The computed attention weights. *Shape:* :math:`(N,T,S)`, where
+            :math:`N` is the batch size, :math:`T` is the target sequence
+            length, and :math:`S` is the source sequence length.
+        """
         self._attn_weights.append(attn_weights)
 
 

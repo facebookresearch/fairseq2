@@ -56,6 +56,18 @@ istring::get_code_point_length() const
     return detail::get_code_point_length(view());
 }
 
+bool
+operator==(const ivariant &lhs, const ivariant &rhs)
+{
+    if (lhs.is_list() && rhs.is_list())
+        return lhs.as_list() == rhs.as_list();
+
+    if (lhs.is_dict() && rhs.is_dict())
+        return lhs.as_dict() == rhs.as_dict();
+
+    return lhs.payload_ == rhs.payload_;
+}
+
 }  // namespace fairseq2
 
 std::size_t
@@ -81,6 +93,12 @@ std::hash<fairseq2::ivariant>::operator()(const fairseq2::ivariant &value) const
 
     if (value.is_tensor())
         return get_hash(value.as_tensor().unsafeGetTensorImpl());
+
+    if (value.is_list())
+        return get_hash(&value.as_list());
+
+    if (value.is_dict())
+        return get_hash(&value.as_dict());
 
     fairseq2::detail::unreachable();
 }
