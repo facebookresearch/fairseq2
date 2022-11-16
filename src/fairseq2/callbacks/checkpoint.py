@@ -16,7 +16,7 @@ from torchtnt.runner.callbacks import torchsnapshot_saver
 from torchtnt.runner.state import State
 from torchtnt.runner.unit import TrainUnit, TTrainData
 
-log = logging.getLogger(__file__)
+log = logging.getLogger(__name__)
 
 
 class WriteCheckpoint(Callback):

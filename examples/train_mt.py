@@ -2,13 +2,10 @@ import itertools
 import logging
 import os
 import sys
-import time
 import typing as tp
-from datetime import timedelta
 from pathlib import Path
 from typing import Any, Dict, List
 
-import submitit
 import torch
 import torch.nn.functional as F
 import torcheval.metrics
@@ -21,16 +18,12 @@ from torchtnt.runner.state import State
 from torchtnt.runner.unit import EvalUnit, PredictUnit, TrainUnit
 
 import fairseq2.callbacks
+import fairseq2.dataloader.huggingface
+import fairseq2.distributed
 import fairseq2.nn
 import fairseq2.optim.lr_scheduler
 from fairseq2.dataloader import Batch
-from fairseq2.generate import (
-    BeamSearch,
-    DictTokenizer,
-    SpmTokenizer,
-    Tokenizer,
-    generate,
-)
+from fairseq2.generate import BeamSearch, SpmTokenizer, Tokenizer, generate
 from fairseq2.nn import transformer
 
 REQUIREMENTS = [
@@ -142,12 +135,12 @@ class MachineTranslationTask(TrainUnit[Batch], EvalUnit[Batch], PredictUnit[Batc
             self.eval_tokens.reset()
         else:
             raise ValueError(f"unknown stage: {prefix}")
-        loss /= num_tokens
+        loss = float(loss.detach().cpu()) / int(num_tokens.detach().cpu())
         # This isn't really accurate.
         # This is the perplexity of the average loss, not the average perplexity.
         # But AFAICT Fairseq also computed it this way.
         try:
-            ppl = round(2 ** float(loss), 3)
+            ppl = round(2**loss, 3)
         except OverflowError:
             ppl = float("inf")
 
@@ -227,98 +220,6 @@ class MachineTranslationTask(TrainUnit[Batch], EvalUnit[Batch], PredictUnit[Batc
         )
 
 
-class Env(tp.NamedTuple):
-    global_rank: int
-    world_size: int
-    device: torch.device
-
-
-NUM_GPU_PER_NODE = 8
-
-# TODO make this a function decorator
-def distributed_init(
-    main: tp.Callable[..., None],
-    kwargs: tp.Dict[str, tp.Any],
-    workdir: Path,
-    partition: str,
-    num_gpus: int,
-) -> Env:
-    # TODO: we should allow downloading the first time
-    # os.environ["HF_DATASETS_OFFLINE"] = "1"
-    # os.environ.update(os.environ)
-
-    # Check if we are already a distributed worker
-    world_size = int(os.environ.get("SLURM_NTASKS", -1))
-    if world_size < 0:
-        world_size = int(os.environ.get("WORLD_SIZE", -1))
-
-    if world_size == -1 and partition != "debug":
-        # We aren't running in distributed mode, let submit a job to do so.
-        ex = submitit.AutoExecutor(folder=workdir)
-        ex.update_parameters(
-            name=Path(__file__).stem,
-            slurm_partition=partition,
-            nodes=max(num_gpus // NUM_GPU_PER_NODE, 1),
-            gpus_per_node=min(num_gpus, NUM_GPU_PER_NODE),
-            tasks_per_node=min(num_gpus, NUM_GPU_PER_NODE),
-            cpus_per_task=5,
-            # TODO timeout should be configurable
-            # 1 day so I can use "dev" partitions
-            timeout_min=int(timedelta(days=1).total_seconds() // 60),
-        )
-        job = ex.submit(main, **kwargs)
-        log.info(
-            f"Scheduled training job: {job.job_id}.\nLogs will be at {job.paths.stderr}.\nYou can exit this process with ctrl+c, Slurm will take care of running the training job."
-        )
-        # TODO: silence keyboard interrupt here
-        job_state = job.state
-        while not job.done():
-            new_job_state = job.state
-            if new_job_state != job_state:
-                print(job)
-                job_state = new_job_state
-            else:
-                time.sleep(10)
-
-        job.wait()
-        res = job.result()
-        log.info(f"Training is done ! Result: {res}")
-        sys.exit(0)
-
-    # We have one process per GPU already
-    # TODO: allow other devices
-    device = torch.device("cuda:0")
-    torch.cuda.set_device(device)
-
-    if partition == "debug":
-        # Prevent double init when running in REPL
-        # if not fairscale.nn.model_parallel.initialize.model_parallel_is_initialized():
-        #     torch.distributed.init_process_group(backend="nccl")
-        #     fairscale.nn.model_parallel.initialize_model_parallel(1)
-        assert (
-            num_gpus == 1
-        ), "If you want more than one GPU, you need to specify a SLURM partition with --partition"
-        log.info("Starting local training on 1 GPU.")
-        return Env(0, 1, torch.device("cuda:0"))
-
-    # TODO: this assumes we are a slurm job, we might want to run on non-SLURM cluster
-    env = submitit.helpers.TorchDistributedEnvironment()
-    env.export()
-    # TODO check how fairscale does it.
-    os.environ["GROUP_RANK"] = "0"
-    os.environ.update(os.environ)
-    log.info(
-        f"Starting distributed worker\nLOCAL_RANK: {env.local_rank}\n"
-        f"RANK: {env.rank}\n"
-        f"GROUP_RANK: {os.environ['GROUP_RANK']}\n"
-        f"WORLD_SIZE: {env.world_size}"
-    )
-
-    torch.distributed.init_process_group(backend="nccl")
-    # fairscale.nn.model_parallel.initialize_model_parallel(1)
-    return Env(env.rank, env.world_size, device)
-
-
 def main(
     workdir: Path,
     spm_path: Path = Path("/private/home/kevinheffernan/nllb.200.models/laser2.spm"),
@@ -333,7 +234,11 @@ def main(
 ) -> None:
     workdir = Path(str(workdir).format(src=src_lang, tgt=tgt_lang))
     workdir.mkdir(exist_ok=True)
-    env = distributed_init(main, locals(), workdir, partition, num_gpus)
+    # TODO: we should allow downloading the first time
+    # os.environ["HF_DATASETS_OFFLINE"] = "1"
+    # os.environ.update(os.environ)
+
+    env = fairseq2.distributed.init(workdir, partition, num_gpus, one_file=True)
     torchtnt.utils.seed(0)
     torch.cuda.manual_seed(0)
 
@@ -359,8 +264,6 @@ def main(
     #     split="valid",
     #     device=env.device,
     # )
-
-    import fairseq2.dataloader.huggingface
 
     tokenizer = SpmTokenizer.from_file(spm_path, batch_first=BATCH_FIRST)
     builder = transformer.TransformerBuilder(
@@ -395,14 +298,14 @@ def main(
     if wandb_project:
         logger: MetricLogger = fairseq2.callbacks.WandbLogger(wandb_project, {})
     else:
-        logger = torchtnt.loggers.TensorBoardLogger(str(workdir / "tensorboard"))
+        logger = fairseq2.callbacks.StdoutLogger()
 
     task = MachineTranslationTask(model, tokenizer, logger)
 
     train_state = torchtnt.runner.init_fit_state(
         train_dataloader,
         valid_dataloader,
-        max_epochs=1_000_000,
+        max_epochs=None,
         max_steps=1_000_000,
         evaluate_every_n_steps=10_000,
     )
@@ -428,7 +331,6 @@ def main(
 
 
 if __name__ == "__main__":
-    # test_spm()
     import func_argparse
 
     func_argparse.single_main(main)

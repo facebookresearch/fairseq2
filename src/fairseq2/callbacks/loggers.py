@@ -2,7 +2,8 @@ import dataclasses
 import itertools
 import typing as tp
 
-from torchtnt.loggers.logger import MetricLogger, Scalar
+import torchtnt.loggers
+from torchtnt.loggers import Scalar
 from torchtnt.runner.callback import Callback
 from torchtnt.runner.state import State
 from torchtnt.runner.unit import TPredictUnit
@@ -19,7 +20,7 @@ def _load_conf(config: tp.Any) -> tp.Any:
     return config
 
 
-class WandbLogger(MetricLogger):
+class WandbLogger(torchtnt.loggers.MetricLogger):
     def __init__(self, project: str, config: tp.Any):
         self.project = project
         self.config = _load_conf(config)
@@ -156,3 +157,14 @@ class WandbCsvWriter(Callback):
         else:
             step = state.train_state.progress.num_steps_completed
         self.logger._wandb.log(self.table_name, self._table, step=step)
+
+
+class StdoutLogger(torchtnt.loggers.MetricLogger):
+    def log(self, name: str, data: Scalar, step: int) -> None:
+        raise NotImplementedError("Please use log_dict")
+
+    def log_dict(self, payload: tp.Mapping[str, Scalar], step: int) -> None:
+        print("Step:", step, payload)
+
+    def close(self) -> None:
+        pass

@@ -8,4 +8,5 @@
 # the standard Python naming convention.
 from torch import device as Device, dtype as DataType  # isort: skip
 
+
 __all__ = ["DataType", "Device"]
