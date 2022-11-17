@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List
 
@@ -27,6 +28,27 @@ class Tokenizer:
 
     def num_tokens(self, tokens: Tensor) -> int:
         return int((tokens != self.PAD).sum())
+
+
+@dataclass(frozen=True)
+class TokenMeta:
+    """Description of a tokenizer vocabulary."""
+
+    vocab_size: int
+    UNK: int
+    BOS: int
+    EOS: int
+    PAD: int
+
+    @staticmethod
+    def from_tokenizer(tokenizer: Tokenizer) -> "TokenMeta":
+        return TokenMeta(
+            vocab_size=tokenizer.vocab_size(),
+            UNK=tokenizer.UNK,
+            BOS=tokenizer.BOS,
+            EOS=tokenizer.EOS,
+            PAD=tokenizer.PAD,
+        )
 
 
 class SpmTokenizer(Tokenizer):

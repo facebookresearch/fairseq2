@@ -6,7 +6,7 @@
 
 # Type aliases for `torch.device` and `torch.dtype` to make them consistent with
 # the standard Python naming convention.
-from torch import device as Device, dtype as DataType  # isort: skip
-
+from torch import device as Device
+from torch import dtype as DataType
 
 __all__ = ["DataType", "Device"]

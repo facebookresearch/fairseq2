@@ -23,7 +23,7 @@ import fairseq2.distributed
 import fairseq2.nn
 import fairseq2.optim.lr_scheduler
 from fairseq2.dataloader import Batch
-from fairseq2.generate import BeamSearch, SpmTokenizer, Tokenizer, generate
+from fairseq2.generate import BeamSearchStrategy, SpmTokenizer, Tokenizer
 from fairseq2.nn import transformer
 
 REQUIREMENTS = [
@@ -208,8 +208,10 @@ class MachineTranslationTask(TrainUnit[Batch], EvalUnit[Batch], PredictUnit[Batc
     def translate_batch(self, data: Batch) -> List[Translation]:
         source = self.tokenizer.decode_batch(data.source)
         target = self.tokenizer.decode_batch(data.target)
-        search = BeamSearch(self.tokenizer, beam_size=2, max_len=128)
-        predicted_tokens = generate(self.model, search, data.source, top=1)
+        strategy = BeamSearchStrategy(
+            beam_size=2, max_len=128, token_meta=self.tokenizer
+        )
+        predicted_tokens = strategy.generate(self.model, data.source, top=1)
         print(f"{predicted_tokens[0] = }")
         predicted = self.tokenizer.decode_batch(predicted_tokens.squeeze(1))
         return list(

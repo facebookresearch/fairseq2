@@ -4,6 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import typing as tp
 from unittest import TestCase as TestCaseBase
 
 import torch
@@ -20,6 +21,8 @@ class TestCase(TestCaseBase):
     # provided command line arguments.
     device = torch.device("cpu")
 
-    def assertAllClose(self, a: Tensor, b: Tensor) -> None:
+    def assertAllClose(self, a: Tensor, b: tp.Union[Tensor, tp.List[tp.Any]]) -> None:
         """Asserts if ``a`` and ``b`` are element-wise equal within a tolerance."""
+        if not isinstance(b, Tensor):
+            b = torch.tensor(b)
         torch.testing.assert_close(a, b)  # type: ignore[attr-defined]

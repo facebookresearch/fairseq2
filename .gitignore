@@ -16,6 +16,7 @@ dist/
 # IDEs and Python Virtual Environments
 .idea/
 .venv/
+venv/
 
 # Weights & Biases
 wandb/
