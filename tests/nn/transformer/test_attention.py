@@ -11,8 +11,7 @@ import torch.nn.functional as F
 from torch import Tensor
 
 from fairseq2.nn.transformer.attention import default_scaled_dot_product_attention
-from tests.common import TestCase
-from tests.utils import tmp_rng_seed
+from tests.common import TestCase, tmp_rng_seed
 
 
 class TestScaledDotProductAttention(TestCase):

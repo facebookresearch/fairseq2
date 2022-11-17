@@ -8,8 +8,7 @@ import torch
 from torch import Tensor
 
 from fairseq2.nn import LearnedPositionalEmbedding, SinusoidalPositionalEmbedding
-from tests.common import TestCase
-from tests.utils import tmp_rng_seed
+from tests.common import TestCase, tmp_rng_seed
 
 
 class TestSinusoidalPositionalEmbedding(TestCase):

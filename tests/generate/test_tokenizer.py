@@ -1,10 +1,23 @@
+import functools
 import pickle
 from pathlib import Path
 from typing import Iterable, List
 
 import torch
 
-from tests.testlib import build_test_spm_tokenizer
+from fairseq2.generate import tokenizer
+
+DATA = Path(__file__).parents[1] / "data"
+SPM_PATH = DATA / "eng_Latn.1000.spm"
+
+
+@functools.lru_cache()
+def build_test_spm_tokenizer() -> tokenizer.SpmTokenizer:
+    """Build a small testing SpmTokenizer from a local model.
+
+    :return: an SpmTokenizer.
+    """
+    return tokenizer.SpmTokenizer.from_file(SPM_PATH)
 
 
 def longs(x: List[Iterable[int]]) -> torch.Tensor:
