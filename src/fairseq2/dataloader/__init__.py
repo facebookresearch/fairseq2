@@ -1,5 +1,7 @@
 from typing import TYPE_CHECKING, NamedTuple
 
+from .utils import RoundRobin
+
 if TYPE_CHECKING:
     import torch
 
@@ -15,3 +17,6 @@ class Translation(NamedTuple):
     source: str
     target: str
     predicted: str
+
+
+__all__ = ["Batch", "RoundRobin", "Translation"]

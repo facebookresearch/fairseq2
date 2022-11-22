@@ -4,6 +4,8 @@ from typing import Any, Iterable, Iterator, Mapping
 import fairseq
 import fairseq.tasks
 
+from fairseq2.typing import Device
+
 from . import Batch
 
 
@@ -14,7 +16,7 @@ class BilingualDataloader(Iterable[Batch]):
         src: str,
         tgt: str,
         split: str,
-        device: Any,
+        device: Device,
         task_kwargs: Mapping[str, Any] = {},
         loader_kwargs: Mapping[str, Any] = {
             "max_tokens": 4096,

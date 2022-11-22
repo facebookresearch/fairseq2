@@ -1,3 +1,4 @@
+import functools
 import itertools
 import logging
 import os
@@ -35,7 +36,6 @@ REQUIREMENTS = [
 log = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
 
-# For now, required for generation
 BATCH_FIRST = True
 
 
@@ -48,7 +48,7 @@ class Translation(tp.NamedTuple):
 class MachineTranslationTask(TrainUnit[Batch], EvalUnit[Batch], PredictUnit[Batch]):
     def __init__(
         self,
-        model: transformer.Transformer,
+        builder: transformer.TransformerBuilder,
         tokenizer: Tokenizer,
         logger: MetricLogger,
     ):
@@ -56,7 +56,7 @@ class MachineTranslationTask(TrainUnit[Batch], EvalUnit[Batch], PredictUnit[Batc
         super().__init__()
         # initialize module & optimizer
 
-        self.model = model
+        self.model = builder.build()
         self.tokenizer = tokenizer
         # TODO: we should take optim, scheduler as inputs
         self.optimizer = torch.optim.Adam(
@@ -74,6 +74,7 @@ class MachineTranslationTask(TrainUnit[Batch], EvalUnit[Batch], PredictUnit[Batc
         self.train_tokens = torcheval.metrics.Sum()
         self.eval_loss = torcheval.metrics.Sum()
         self.eval_tokens = torcheval.metrics.Sum()
+        self.eval_loss_min = torcheval.metrics.Min()
         self.log_frequency_steps = 10
         self.predict_frequency_steps = 1000
         self.lr_frequency_steps = 1
@@ -120,7 +121,7 @@ class MachineTranslationTask(TrainUnit[Batch], EvalUnit[Batch], PredictUnit[Batc
         )
         return loss
 
-    def log_metrics(self, state: State, prefix: str) -> None:
+    def log_metrics(self, state: State, prefix: str) -> Dict[str, Any]:
         assert state.train_state is not None
         step = state.train_state.progress.num_steps_completed
         if prefix == "train":
@@ -149,23 +150,34 @@ class MachineTranslationTask(TrainUnit[Batch], EvalUnit[Batch], PredictUnit[Batc
         if prefix == "train":
             metrics[f"{prefix}/lr"] = self.lr_scheduler.get_last_lr()[0]
         self.logger.log_dict(metrics, step)
-
-    def state_dict(self) -> Dict[str, Any]:
-        return {k: v.state_dict() for k, v in self.app_state().items()}
+        return metrics
 
     def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
         for k, v in state_dict.items():
             self.__getattr__(k).load_state_dict(v)
 
     def state_dict_for_inference(self) -> Dict[str, Any]:
-        # TODO: return a minimized stated dict for inference.
-        ...
+        """Returns a minimal state_dict without optimizer or LR that can be used for inference."""
+        state_dict: Dict[str, Any] = {}
+        for name, module in self.tracked_modules().items():
+            state_dict[name] = module.state_dict()
+        for name, misc in self.tracked_misc_statefuls().items():
+            state_dict[name] = misc.state_dict()
+        assert "tokenizer" in state_dict
+        return state_dict
 
     def on_eval_start(self, state: State) -> None:
-        pass
+        self.eval_loss.reset()
+        self.eval_tokens.reset()
 
     def on_eval_end(self, state: State) -> None:
-        self.log_metrics(state, "eval")
+        assert state.eval_state is not None
+        metrics = self.log_metrics(state, "eval")
+        eval_loss = metrics["eval/loss"]
+        self.eval_loss_min.update(self.eval_loss.compute())
+        best_loss = float(self.eval_loss_min.compute())
+        metrics["eval/best"] = best_loss == eval_loss
+        state.eval_state._step_output = metrics
 
     def eval_step(self, state: State, data: Batch) -> None:
         assert state.eval_state
@@ -225,16 +237,16 @@ class MachineTranslationTask(TrainUnit[Batch], EvalUnit[Batch], PredictUnit[Batc
 def main(
     workdir: Path,
     spm_path: Path = Path("/private/home/kevinheffernan/nllb.200.models/laser2.spm"),
-    src_lang: str = "cat_Latn",
-    tgt_lang: str = "eng_Latn",
+    langs: str = "cat_Latn-eng_Latn",
     small: bool = False,
     wandb_project: str = "nllb/fairseq2",
     batch_size: int = 16,
     partition: str = "debug",
+    eval_freq: int = 10_000,
     num_gpus: int = 1,
     reset: bool = False,
 ) -> None:
-    workdir = Path(str(workdir).format(src=src_lang, tgt=tgt_lang))
+    workdir = Path(str(workdir).format(langs=langs))
     workdir.mkdir(exist_ok=True)
     # TODO: we should allow downloading the first time
     # os.environ["HF_DATASETS_OFFLINE"] = "1"
@@ -268,57 +280,49 @@ def main(
     # )
 
     tokenizer = SpmTokenizer.from_file(spm_path, batch_first=BATCH_FIRST)
+    lang_pairs = langs.split(",")
+    src_langs = set(pair.split("-")[0] for pair in lang_pairs)
+    tgt_langs = set(pair.split("-")[1] for pair in lang_pairs)
+    lang_tokens = {}
+    for lang in sorted(src_langs | tgt_langs):
+        lang_tokens[lang] = tokenizer.add_special_token(lang)
+
     builder = transformer.TransformerBuilder(
         tokenizer.vocab_size(),
         tokenizer.PAD,
-        batch_first=True,
+        batch_first=BATCH_FIRST,
         dropout_p=0,
         device=env.device,
     )
-    model = builder.build()
-    train_dataloader = fairseq2.dataloader.huggingface.NllbDataLoader(
-        train=True,
-        src=src_lang,
-        tgt=tgt_lang,
-        tokenizer=tokenizer,
-        batch_size=batch_size,
-        global_rank=env.global_rank,
-        world_size=env.world_size,
-        device=env.device,
-    )
-    valid_dataloader = fairseq2.dataloader.huggingface.NllbDataLoader(
-        train=False,
-        src=src_lang,
-        tgt=tgt_lang,
-        tokenizer=tokenizer,
-        batch_size=batch_size,
-        global_rank=env.global_rank,
-        world_size=env.world_size,
-        device=env.device,
-    )
-
     if wandb_project:
         logger: MetricLogger = fairseq2.callbacks.WandbLogger(wandb_project, {})
     else:
         logger = fairseq2.callbacks.StdoutLogger()
 
-    task = MachineTranslationTask(model, tokenizer, logger)
+    task = MachineTranslationTask(builder, tokenizer, logger)
+
+    load_data = functools.partial(
+        fairseq2.dataloader.huggingface.NllbDataLoader,
+        tokenizer=tokenizer,
+        batch_size=batch_size,
+        env=env,
+    )
+
+    train = fairseq2.dataloader.RoundRobin(
+        [load_data(s, t, "train") for (s, t) in zip(src_langs, tgt_langs)],
+        tokenizer=tokenizer,
+        batch_first=BATCH_FIRST,
+    )
+    # Only evaluate on the first lang pair
+    valid = load_data(*lang_pairs[0].split("-"), "valid")
 
     train_state = torchtnt.runner.init_fit_state(
-        train_dataloader,
-        valid_dataloader,
-        max_epochs=None,
-        max_steps=1_000_000,
-        evaluate_every_n_steps=10_000,
+        train, valid, max_steps=None, evaluate_every_n_steps=eval_freq
     )
     callbacks = [
         # Synchronize GC runs across all nodes
         torchtnt.runner.callbacks.GarbageCollector(step_interval=1),
-        torchtnt.runner.callbacks.TorchSnapshotSaver(
-            str(workdir),
-            save_every_n_train_steps=10_000,
-            replicated=task.replicated_keys(),
-        ),
+        fairseq2.callbacks.TorchSnapshotSaver(workdir),
     ]
     if not reset:
         callbacks.append(
