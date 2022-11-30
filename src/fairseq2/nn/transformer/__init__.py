@@ -31,11 +31,7 @@ from fairseq2.nn.transformer.encoder_layer import (
     TransformerEncoderLayer,
 )
 from fairseq2.nn.transformer.ffn import FeedForwardNetwork, StandardFeedForwardNetwork
-from fairseq2.nn.transformer.model import (
-    StandardTransformer,
-    Transformer,
-    UntiedScoreProjection,
-)
+from fairseq2.nn.transformer.model import Transformer, UntiedScoreProjection
 from fairseq2.nn.transformer.multihead_attention import (
     AttentionWeightHook,
     MultiheadAttention,
@@ -56,7 +52,6 @@ __all__ = [
     "MultiheadAttentionState",
     "StandardFeedForwardNetwork",
     "StandardMultiheadAttention",
-    "StandardTransformer",
     "StandardTransformerDecoder",
     "StandardTransformerDecoderLayer",
     "StandardTransformerEncoder",

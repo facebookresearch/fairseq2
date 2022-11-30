@@ -114,7 +114,7 @@ class MachineTranslationTask(TrainUnit[Batch], EvalUnit[Batch], PredictUnit[Batc
     def loss(self, data: Batch) -> Tensor:
         # TODO: nll loss requires longs ? Why ?
         # net_output = self.model.forward(data.source, data.target)
-        net_output = self.model.extract_features(data.source, data.target[:, :-1])
+        net_output = self.model(data.source, data.target[:, :-1])
         lprobs = F.log_softmax(net_output, dim=-1).transpose(2, 1)
         loss = F.nll_loss(
             lprobs, data.target[:, 1:], reduction="sum", ignore_index=self.tokenizer.PAD

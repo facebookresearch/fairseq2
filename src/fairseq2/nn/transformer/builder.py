@@ -29,7 +29,7 @@ from fairseq2.nn.transformer.encoder_layer import (
     TransformerEncoderLayer,
 )
 from fairseq2.nn.transformer.ffn import FeedForwardNetwork, StandardFeedForwardNetwork
-from fairseq2.nn.transformer.model import StandardTransformer, Transformer
+from fairseq2.nn.transformer.model import Transformer
 from fairseq2.nn.transformer.multihead_attention import (
     MultiheadAttention,
     StandardMultiheadAttention,
@@ -161,7 +161,7 @@ class TransformerBuilder:
 
         score_proj = TiedProjection(embed.weight)
 
-        return StandardTransformer(encoder, decoder, score_proj, use_log_softmax=True)
+        return Transformer(encoder, decoder, score_proj)
 
     def build_embedding(self) -> Embedding:
         """Builds an input/output :class:`Embedding`."""

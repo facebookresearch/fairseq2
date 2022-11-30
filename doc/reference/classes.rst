@@ -25,11 +25,11 @@ Classes
     nn.transformer.MultiheadAttentionState
     nn.transformer.StandardFeedForwardNetwork
     nn.transformer.StandardMultiheadAttention
-    nn.transformer.StandardTransformer
     nn.transformer.StandardTransformerDecoder
     nn.transformer.StandardTransformerDecoderLayer
     nn.transformer.StandardTransformerEncoder
     nn.transformer.StandardTransformerEncoderLayer
     nn.transformer.StoreAttentionWeights
+    nn.transformer.Transformer
     nn.transformer.TransformerBuilder
     nn.transformer.UntiedScoreProjection

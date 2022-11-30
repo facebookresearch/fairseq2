@@ -17,7 +17,6 @@ ABCs and Protocols
     nn.transformer.AttentionWeightHook
     nn.transformer.FeedForwardNetwork
     nn.transformer.MultiheadAttention
-    nn.transformer.Transformer
     nn.transformer.TransformerDecoder
     nn.transformer.TransformerDecoderLayer
     nn.transformer.TransformerEncoder

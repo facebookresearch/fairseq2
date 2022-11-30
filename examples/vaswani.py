@@ -18,7 +18,6 @@ from fairseq2.nn import (
 from fairseq2.nn.transformer import (
     StandardFeedForwardNetwork,
     StandardMultiheadAttention,
-    StandardTransformer,
     StandardTransformerDecoder,
     StandardTransformerDecoderLayer,
     StandardTransformerEncoder,
@@ -80,7 +79,7 @@ def build_model(cfg: ModelConfig, device: Any, dtype: Any) -> Transformer:
     # score projection as described in the original paper.
     score_proj = TiedProjection(embed.weight)
 
-    return StandardTransformer(encoder, decoder, score_proj, use_log_softmax=True)
+    return Transformer(encoder, decoder, score_proj)
 
 
 def build_encoder(
