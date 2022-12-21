@@ -4,7 +4,10 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import hashlib
 from typing import Any, Dict, Optional
+
+import torchtnt.utils
 
 from fairseq2.nn.embedding import Embedding
 from fairseq2.nn.positional_embedding import (
@@ -34,6 +37,7 @@ from fairseq2.nn.transformer.multihead_attention import (
     MultiheadAttention,
     StandardMultiheadAttention,
 )
+from fairseq2.nn.transformer.norm_order import TransformerNormOrder
 from fairseq2.typing import DataType, Device
 
 
@@ -71,6 +75,10 @@ class TransformerBuilder:
     ffn_inner_dim: int
     """The dimensionality of inner layers in feed-forward networks."""
 
+    norm_order: TransformerNormOrder
+
+    max_seq_len: int
+
     dropout_p: float
     """The dropout probability on the outputs of attention layers, feed-forward
     networks, and input/output embeddings."""
@@ -97,8 +105,12 @@ class TransformerBuilder:
         num_enc_attn_heads: int = 8,
         num_dec_attn_heads: int = 8,
         ffn_inner_dim: int = 2048,
+        norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         dropout_p: float = 0.1,
+        max_seq_len: int = 4096,
+        ffn_bias: bool = True,
         batch_first: bool = False,
+        seed: int = 0,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -142,22 +154,32 @@ class TransformerBuilder:
         self.num_enc_attn_heads = num_enc_attn_heads
         self.num_dec_attn_heads = num_dec_attn_heads
         self.ffn_inner_dim = ffn_inner_dim
+        self.norm_order = norm_order
         self.dropout_p = dropout_p
         self.batch_first = batch_first
+        self.max_seq_len = max_seq_len
+        self.ffn_bias = ffn_bias
+        self.seed = seed
         self.device = device
         self.dtype = dtype
 
         # Holds common keyword arguments.
         self._fct_kwargs = {"device": device, "dtype": dtype}
 
+    def set_torch_seed(self, seed: str) -> None:
+        s = int(hashlib.sha1(seed.encode()).hexdigest()[:8], 16)
+        torchtnt.utils.seed(self.seed + s)
+
+    def __call__(self) -> Transformer:
+        return self.build()
+
     def build(self) -> Transformer:
         """Builds a :class:`Transformer` model."""
+        self.set_torch_seed("embedding")
         embed = self.build_embedding()
 
-        pos_embed = self.build_positional_embedding()
-
-        encoder = self.build_encoder(embed, pos_embed)
-        decoder = self.build_decoder(embed, pos_embed)
+        encoder = self.build_encoder(embed)
+        decoder = self.build_decoder(embed)
 
         score_proj = TiedProjection(embed.weight)
 
@@ -176,16 +198,14 @@ class TransformerBuilder:
     def build_positional_embedding(self) -> Optional[PositionalEmbedding]:
         """Builds an optional :class:`PositionalEmbedding`."""
         return SinusoidalPositionalEmbedding(
-            max_seq_len=4096,
+            max_seq_len=self.max_seq_len,
             embedding_dim=self.model_dim,
             padding_token_idx=self.padding_token_idx,
             batch_first=self.batch_first,
             **self._fct_kwargs,
         )
 
-    def build_encoder(
-        self, embed: Embedding, pos_embed: Optional[PositionalEmbedding]
-    ) -> TransformerEncoder:
+    def build_encoder(self, embed: Embedding) -> TransformerEncoder:
         """Builds a :class:`TransformerEncoder`.
 
         :param embed:
@@ -193,10 +213,19 @@ class TransformerBuilder:
         :param pos_embed:
             The optional :class:`PositionalEmbedding` to use with ``embed``.
         """
+        self.set_torch_seed("enc_pos_embedding")
+        pos_embed = self.build_positional_embedding()
+
+        self.set_torch_seed("enc_layers")
         layers = [self.build_encoder_layer(i) for i in range(self.num_enc_layers)]
 
         return StandardTransformerEncoder(
-            embed, pos_embed, layers, embed_dropout_p=self.dropout_p, **self._fct_kwargs
+            embed,
+            pos_embed,
+            layers,
+            norm_order=self.norm_order,
+            embed_dropout_p=self.dropout_p,
+            **self._fct_kwargs,
         )
 
     def build_encoder_layer(self, idx: int) -> TransformerEncoderLayer:
@@ -210,7 +239,11 @@ class TransformerBuilder:
         ffn = self.build_ffn()
 
         return StandardTransformerEncoderLayer(
-            self_attn, ffn, dropout_p=self.dropout_p, **self._fct_kwargs
+            self_attn,
+            ffn,
+            dropout_p=self.dropout_p,
+            norm_order=self.norm_order,
+            **self._fct_kwargs,
         )
 
     def build_encoder_attn(self) -> MultiheadAttention:
@@ -218,9 +251,7 @@ class TransformerBuilder:
         layers."""
         return self.build_attn(self.num_enc_attn_heads)
 
-    def build_decoder(
-        self, embed: Embedding, pos_embed: Optional[PositionalEmbedding]
-    ) -> TransformerDecoder:
+    def build_decoder(self, embed: Embedding) -> TransformerDecoder:
         """Builds a :class:`TransformerDecoder`.
 
         :param embed:
@@ -228,10 +259,19 @@ class TransformerBuilder:
         :param pos_embed:
             The optional :class:`PositionalEmbedding` to add to ``embed``.
         """
+        self.set_torch_seed("dec_pos_embedding")
+        pos_embed = self.build_positional_embedding()
+
+        self.set_torch_seed("dec_layers")
         layers = [self.build_decoder_layer(i) for i in range(self.num_dec_layers)]
 
         return StandardTransformerDecoder(
-            embed, pos_embed, layers, embed_dropout_p=self.dropout_p, **self._fct_kwargs
+            embed,
+            pos_embed,
+            layers,
+            norm_order=self.norm_order,
+            embed_dropout_p=self.dropout_p,
+            **self._fct_kwargs,
         )
 
     def build_decoder_layer(self, idx: int) -> TransformerDecoderLayer:
@@ -247,7 +287,12 @@ class TransformerBuilder:
         ffn = self.build_ffn()
 
         return StandardTransformerDecoderLayer(
-            self_attn, enc_dec_attn, ffn, dropout_p=self.dropout_p, **self._fct_kwargs
+            self_attn,
+            enc_dec_attn,
+            ffn,
+            dropout_p=self.dropout_p,
+            norm_order=self.norm_order,
+            **self._fct_kwargs,
         )
 
     def build_decoder_attn(self) -> MultiheadAttention:
@@ -277,5 +322,5 @@ class TransformerBuilder:
     def build_ffn(self) -> FeedForwardNetwork:
         """Builds a :class:`FeedForwardNetwork`."""
         return StandardFeedForwardNetwork(
-            self.model_dim, self.ffn_inner_dim, **self._fct_kwargs
+            self.model_dim, self.ffn_inner_dim, bias=self.ffn_bias, **self._fct_kwargs
         )

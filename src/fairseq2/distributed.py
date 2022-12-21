@@ -3,22 +3,33 @@ import os
 import subprocess
 import sys
 import time
-import typing as tp
 from datetime import timedelta
 from pathlib import Path
+from typing import Any, Dict, NamedTuple, Optional
 
 import submitit
 import torch
+import torchtnt.utils.distributed
 
 from fairseq2.typing import Device
 
 log = logging.getLogger(__name__)
 
 
-class Env(tp.NamedTuple):
+class Env(NamedTuple):
+    workdir: Path
     global_rank: int
     world_size: int
     device: Device
+
+
+def env(workdir: Optional[Path] = None, device: Optional[Device] = None) -> Env:
+    return Env(
+        workdir or Path.cwd(),
+        global_rank=torchtnt.utils.distributed.get_global_rank(),
+        world_size=torchtnt.utils.distributed.get_world_size(),
+        device=device or Device("cpu"),
+    )
 
 
 def init(
@@ -28,9 +39,9 @@ def init(
     timeout: timedelta = timedelta(days=1),
     cpu_per_gpu: int = 4,
     num_gpu_per_node: int = 8,
-    qos: tp.Optional[str] = None,
+    qos: Optional[str] = None,
     one_file: bool = False,
-    slurm_args: tp.Dict[str, tp.Any] = {},
+    slurm_args: Dict[str, Any] = {},
 ) -> Env:
     """
     Makes sure that the current python program is run with the requested number of GPU.
@@ -89,6 +100,7 @@ def init(
         # in particular we lost the ability to return an exception or result to the caller.
         # But this avoid pickling issues.
         # pickle doesn't like stuff defined in the program entry point.
+        # TODO: try runpy.run_path this should be equivalent but happens in the same process
         if one_file:
             # User guarantees to have a one file experience, it's safe to change dir
             job = ex.submit(
@@ -143,7 +155,7 @@ def init(
             num_gpus == 1
         ), "If you want more than one GPU, you need to specify a SLURM partition with --partition"
         log.info("Starting local training on 1 GPU.")
-        return Env(0, 1, torch.device("cuda:0"))
+        return Env(workdir, 0, 1, torch.device("cuda:0"))
 
     # TODO: this assumes we are a slurm job, we might want to run on non-SLURM cluster
     env = submitit.helpers.TorchDistributedEnvironment()
@@ -160,7 +172,7 @@ def init(
 
     torch.distributed.init_process_group(backend="nccl")
     # fairscale.nn.model_parallel.initialize_model_parallel(1)
-    return Env(env.rank, env.world_size, device)
+    return Env(workdir, env.rank, env.world_size, device)
 
 
 def parse_submitit_stderr(stderr: str, nlines: int = 10) -> str:

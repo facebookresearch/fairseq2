@@ -3,6 +3,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import collections
 from abc import ABC, abstractmethod
 from typing import Any, Dict, MutableSequence, Optional, Protocol, Tuple, final
 
@@ -215,7 +216,8 @@ class MultiheadAttention(Module, ABC):
 
         self.batch_first = batch_first
 
-        self._attn_weight_hooks = {}
+        # OrderedDict because builtin dict, don't have a __weakrefoffset__
+        self._attn_weight_hooks = collections.OrderedDict()
 
     @abstractmethod
     def forward(

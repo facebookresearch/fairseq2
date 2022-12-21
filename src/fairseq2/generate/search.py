@@ -14,6 +14,7 @@ from torch import Tensor
 from fairseq2.generate.tokenizer import Tokenizer, TokenMeta
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.transformer import Transformer
+from fairseq2.typing import Device
 
 
 def token_penalty_(
@@ -83,6 +84,7 @@ class SearchResult(NamedTuple):
 
 
 class BeamChoice(NamedTuple):
+    # layout (bsz, beam)
     scores: Tensor
     tokens: Tensor
     beams: Tensor
@@ -156,6 +158,7 @@ class SearchStrategy(ABC):
         """
         raise NotImplementedError
 
+    @torch.inference_mode()
     def generate(
         self,
         model: Transformer,
@@ -203,9 +206,21 @@ class SearchStrategy(ABC):
         model: Transformer,
         tokenizer: Tokenizer,
         sentences: List[str],
+        *,
+        src_bos: str = "",
+        tgt_bos: str = "",
+        device: Device,
     ) -> List[str]:
-        src_tokens = tokenizer.encode_batch(sentences)
-        tgt_tokens = self.generate(model, src_tokens, top=1)
+        src_bos_tok = tokenizer.special_tokens[src_bos] if src_bos else -1
+        src_tokens = tokenizer.encode_batch(sentences, bos=src_bos_tok).to(device)
+        tgt_bos_tok = (
+            torch.tensor(
+                [tokenizer.EOS, tokenizer.special_tokens[tgt_bos]], dtype=torch.long
+            ).to(device)
+            if tgt_bos
+            else None
+        )
+        tgt_tokens = self.generate(model, src_tokens, top=1, prefix_tokens=tgt_bos_tok)
         return tokenizer.decode_batch(tgt_tokens.squeeze(1))
 
 
@@ -263,23 +278,25 @@ class BeamSearchJob(SearchStrategy.SearchJob):
             device=src_tokens.device,
         )
 
-        if prefix_tokens is not None:
-            self.step = prefix_tokens.size(-1) - 1
-
-            if prefix_tokens.ndim == 1:
-                self.tokens[:, :, : prefix_tokens.size(-1)] = prefix_tokens
-
-            elif prefix_tokens.ndim == 2:
-                tokens_pre = self.tokens[:, :, : prefix_tokens.size(-1)]
-                tokens_pre[...] = torch.broadcast_to(  # type: ignore
-                    prefix_tokens.unsqueeze(1),
-                    tokens_pre.shape,
-                )
-            else:
-                raise ValueError(f"Invalid prefix_tokens.shape: {prefix_tokens.shape}")
-        else:
-            self.step = 0
+        self.step = 0
+        if prefix_tokens is None:
             self.tokens[:, :, 0] = strategy.token_meta.BOS
+            self.n_prefix_tokens = 1
+        elif prefix_tokens.ndim == 0:
+            self.tokens[:, :, 0] = prefix_tokens
+            self.n_prefix_tokens = 1
+        elif prefix_tokens.ndim == 1:
+            self.tokens[:, :, : prefix_tokens.size(-1)] = prefix_tokens
+            self.n_prefix_tokens = prefix_tokens.size(-1)
+        elif prefix_tokens.ndim == 2:
+            tokens_pre = self.tokens[:, :, : prefix_tokens.size(-1)]
+            tokens_pre[...] = torch.broadcast_to(  # type: ignore
+                prefix_tokens.unsqueeze(1),
+                tokens_pre.shape,
+            )
+            self.n_prefix_tokens = prefix_tokens.size(-1)
+        else:
+            raise ValueError(f"Invalid prefix_tokens.shape: {prefix_tokens.shape}")
 
         # A list that indicates candidates that should be ignored.
         # For example, suppose we're sampling and have already finalized 2/5
@@ -320,11 +337,6 @@ class BeamSearchJob(SearchStrategy.SearchJob):
             f"Input dec_out vocab size {dec_out.shape[1]}) != "
             f"tokenizer vocab size: {self.strategy.token_meta.vocab_size}"
         )
-
-        # # TODO: should finished_map be persistent state?
-        # self.finished_mask = (
-        #     self.tokens_beam_view()[:, :, self.step] == self.strategy.token_meta.EOS
-        # )
 
         self.step += 1
 
@@ -389,9 +401,9 @@ class BeamSearchJob(SearchStrategy.SearchJob):
         self.tokens[:, :, self.step] = next_tokens
         self.scores[:, :, self.step] = next_scores
 
-        # TODO: should finished_map be persistent state?
-        self.finished_mask = self.tokens[:, :, self.step] == torch.tensor(
-            self.strategy.token_meta.EOS
+        # Generations are marked as finished at the first EOS
+        self.finished_mask += (
+            self.tokens[:, :, self.step] == self.strategy.token_meta.EOS
         )
         self.done = (self.step >= self.max_len) or bool(self.finished_mask.all())
 
@@ -419,10 +431,6 @@ class BeamSearchJob(SearchStrategy.SearchJob):
         if step >= max_len:
             force_token_(lprobs, token=self.strategy.token_meta.EOS)
 
-        # TODO: prefix tokens
-        # handle prefix tokens (possibly with different lengths)
-        # if prefix_tokens is not None and step < prefix_tokens.size(1) and step < max_len:
-        # lprobs, tokens, scores = self._prefix_tokens(step, lprobs, scores, tokens, prefix_tokens, beam_size)
         if step < self.strategy.min_len:
             # minimum length constraint (does not apply if using prefix_tokens)
             token_penalty_(
@@ -437,10 +445,28 @@ class BeamSearchJob(SearchStrategy.SearchJob):
 
         return lprobs
 
+    def _choose_prefix_tokens(self, lprobs_beam: Tensor) -> BeamChoice:
+        """Force all beams to chose symbol from 'prefix_tokens'."""
+        # Alternatively this could be moved to _log_prob by penalizing all non-forced tokens.
+        assert self.step < self.n_prefix_tokens
+        # prefix_tokens has already been copied to self.tokens
+        next_tokens = self.tokens[:, :, self.step]
+        scores = torch.take_along_dim(lprobs_beam, next_tokens).reshape(
+            next_tokens.shape
+        )
+        return BeamChoice(
+            scores=scores,
+            tokens=next_tokens,
+            beams=torch.zeros_like(next_tokens),
+        )
+
     def _choose_beams(
         self,
         lprobs_beam: Tensor,
     ) -> BeamChoice:
+        if self.step < self.n_prefix_tokens:
+            return self._choose_prefix_tokens(lprobs_beam)
+
         bsz, input_beam_size, vocab_size = lprobs_beam.shape
 
         assert input_beam_size == self.beam_size, (

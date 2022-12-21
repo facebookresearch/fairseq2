@@ -63,6 +63,7 @@ class Transformer(Module):
                 f"`batch_first` of `encoder` ({encoder.batch_first}) does not match `batch_first` of `decoder` ({decoder.batch_first})."
             )
 
+        super().__init__()
         self.model_dim = encoder.model_dim
 
         self.batch_first = encoder.batch_first

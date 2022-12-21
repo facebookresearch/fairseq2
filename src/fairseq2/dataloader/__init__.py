@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING, List, NamedTuple
 
 from .utils import RoundRobin
 
@@ -6,17 +6,28 @@ if TYPE_CHECKING:
     import torch
 
 
-class Batch(NamedTuple):
+class Seq2SeqBatch(NamedTuple):
     source: "torch.Tensor"
     target: "torch.Tensor"
     num_tokens: int
-    # TODO: add batch statisticts
+    # TODO: add batch source
 
 
-class Translation(NamedTuple):
+class Seq2SeqStr(NamedTuple):
     source: str
     target: str
     predicted: str
 
 
-__all__ = ["Batch", "RoundRobin", "Translation"]
+class Text2TextBatch(NamedTuple):
+    src: List[str]
+    tgt: List[str]
+
+
+class Audio2Text(NamedTuple):
+    source: str
+    target: str
+    predicted: str
+
+
+__all__ = ["RoundRobin", "Seq2SeqBatch", "Seq2SeqStr"]

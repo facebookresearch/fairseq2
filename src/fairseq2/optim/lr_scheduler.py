@@ -30,7 +30,7 @@ class InverseSquareRootLR(torch.optim.lr_scheduler._LRScheduler):
         *,
         lr: float,
         warmup_steps: int = 4000,
-        eps: float = 1e-6,
+        eps: float = 1.25e-07,
         last_epoch: int = -1
     ):
         self.lr = lr

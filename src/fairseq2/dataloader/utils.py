@@ -1,15 +1,12 @@
 import logging
-from typing import TYPE_CHECKING, Iterable, Iterator, List
+from typing import Iterable, Iterator, List, TypeVar
 
-from fairseq2.generate.tokenizer import Tokenizer
-
-if TYPE_CHECKING:
-    from . import Batch
+T = TypeVar("T")
 
 log = logging.getLogger(__name__)
 
 
-class RoundRobin(Iterable["Batch"]):
+class RoundRobin(Iterable[T]):
     """RoundRobin cycles over the dataloader one by one.
 
     Yield items until the longest iterator is exhausted.
@@ -19,19 +16,17 @@ class RoundRobin(Iterable["Batch"]):
 
     def __init__(
         self,
-        dataloaders: List[Iterable["Batch"]],
+        dataloaders: List[Iterable[T]],
         *,
-        tokenizer: Tokenizer,
         batch_first: bool,
     ):
         self.dataloaders = dataloaders
-        self.tokenizer = tokenizer
         self.batch_first = batch_first
 
-        self._iterators: List[Iterator["Batch"]] = []
+        self._iterators: List[Iterator[T]] = []
         self._epoch_done = [False for _ in self.dataloaders]
 
-    def __iter__(self) -> Iterator["Batch"]:
+    def __iter__(self) -> Iterator[T]:
         if not self._iterators:
             self._iterators = [iter(d) for d in self.dataloaders]
         self._epoch_done = [False for _ in self.dataloaders]

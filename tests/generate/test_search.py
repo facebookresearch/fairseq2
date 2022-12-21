@@ -52,6 +52,7 @@ def test_prepare_state_noprefix() -> None:
     s = bs.new_search_job(src_tokens)
 
     assert s.step == 0
+    assert s.n_prefix_tokens == 1
     assert s.max_len == exp_max_len
     assert_equal(s.tokens, expected_tokens)
     assert_equal(s.scores, torch.zeros((2, 3, 20)))
@@ -78,7 +79,7 @@ def test_prepare_state_noprefix_maxlen() -> None:
 
     s = bs.new_search_job(src_tokens)
 
-    assert s.step == 0
+    assert s.n_prefix_tokens == 1
     assert s.max_len == exp_max_len
     assert_equal(s.tokens, expected_tokens)
 
@@ -109,7 +110,8 @@ def test_prepare_state_prefix_single() -> None:
 
     state = bs.new_search_job(src_tokens=src_tokens, prefix_tokens=prefix_tokens)
 
-    assert state.step == 1
+    assert state.step == 0
+    assert state.n_prefix_tokens == 2
     assert state.max_len == exp_max_len
 
     assert_equal(state.tokens, expected_tokens)
@@ -145,7 +147,7 @@ def test_prepare_state_prefix_batched() -> None:
 
     s = bs.new_search_job(src_tokens=src_tokens, prefix_tokens=prefix_tokens)
 
-    assert s.step == 1
+    assert s.n_prefix_tokens == 2
     assert s.max_len == exp_max_len
     assert_equal(s.tokens, expected_tokens)
     assert_equal(s.scores, torch.zeros((2, 2, 10 + 2)))
@@ -164,6 +166,7 @@ def test_step_done() -> None:
 
     s = bs.new_search_job(src_tokens)
     assert s.step == 0
+    assert s.n_prefix_tokens == 1
     assert s.batch_size == 2
     assert s.beam_size == 1
 
@@ -180,7 +183,7 @@ def test_step_bad_dec_shape() -> None:
     src_tokens = torch.tensor([[1, 2, 3, 4], [7, 8, 9, 10]], dtype=torch.int64)
 
     s = bs.new_search_job(src_tokens)
-    assert s.step == 0
+    assert s.n_prefix_tokens == 1
     assert s.batch_size == 2
     assert s.beam_size == 2
 
@@ -205,6 +208,7 @@ def test_step_one() -> None:
 
     s = bs.new_search_job(src_tokens)
     assert s.step == 0
+    assert s.n_prefix_tokens == 1
     assert s.batch_size == 2
     assert s.beam_size == 2
 
@@ -268,6 +272,7 @@ def test_step_continue() -> None:
     src_tokens = torch.zeros(size=(batch_size, src_len), dtype=torch.int64)
     s = bs.new_search_job(src_tokens)
     assert s.step == 0
+    assert s.n_prefix_tokens == 1
     assert s.batch_size == 2
     assert s.beam_size == 2
 
@@ -353,6 +358,7 @@ def test_step_finished() -> None:
     src_tokens = torch.zeros(size=(batch_size, src_len), dtype=torch.int64)
     s = bs.new_search_job(src_tokens)
     assert s.step == 0
+    assert s.n_prefix_tokens == 1
     assert s.batch_size == 2
     assert s.beam_size == 2
 
@@ -512,6 +518,8 @@ def test_choose_beams() -> None:
         ]
     )
 
+    # Manually increase the step since we manually generated the probs
+    s.step += 1
     sel = s._choose_beams(ps)
     assert_equal(sel.scores, [[4.0, 3.0], [4.5, 1.5]])
     assert_equal(sel.tokens, [[0, 2], [1, 3]])
@@ -609,3 +617,37 @@ def test_log_prob_above_max() -> None:
     assert lprobs[:, a_idx].tolist() == [-torch.inf, -torch.inf]
     # And EOS should not have -inf
     assert_no_inf(lprobs[:, token_meta.EOS])
+
+
+def test_stretch_to_beams() -> None:
+    t = torch.tensor(
+        [
+            [[3, 4], [5, 6]],
+            [[13, 14], [15, 16]],
+        ]
+    )
+    assert_close(
+        search._stretch_to_beams(t, 2),
+        [
+            [[3, 4], [5, 6]],
+            [[3, 4], [5, 6]],
+            [[13, 14], [15, 16]],
+            [[13, 14], [15, 16]],
+        ],
+    )
+
+
+def test_get_last_time_axis() -> None:
+    assert_close(
+        search._get_last_time_axis(
+            torch.tensor([[[1, 2], [3, 4]], [[5, 6], [7, 8]]]), batch_first=True
+        ),
+        [[3, 4], [7, 8]],
+    )
+
+    assert_close(
+        search._get_last_time_axis(
+            torch.tensor([[[1, 2], [3, 4]], [[5, 6], [7, 8]]]), batch_first=False
+        ),
+        [[5, 6], [7, 8]],
+    )

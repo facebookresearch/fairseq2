@@ -12,10 +12,10 @@ from pathlib import Path
 from typing import Any, List, Optional, Set, Union
 
 from torchsnapshot.snapshot import PendingSnapshot, Snapshot
-from torchtnt.runner.callback import Callback
-from torchtnt.runner.callbacks import torchsnapshot_saver
-from torchtnt.runner.state import State
-from torchtnt.runner.unit import EvalUnit, TrainUnit
+from torchtnt.framework.callback import Callback
+from torchtnt.framework.callbacks import torchsnapshot_saver
+from torchtnt.framework.state import State
+from torchtnt.framework.unit import EvalUnit, TrainUnit
 from torchtnt.utils import rank_zero_info
 
 log = logging.getLogger(__name__)
@@ -88,6 +88,7 @@ class TorchSnapshotSaver(Callback):
                 # Snapshot for this step already has been saved.
                 # This can happen when on_train_step and on_valid_step trigger at the same step.
                 return True
+
             pending = not self._pending.done()
             if pending and force:
                 self._pending.wait()
@@ -97,14 +98,14 @@ class TorchSnapshotSaver(Callback):
                 )
                 return False
 
-        # intra_epoch=False because we always want to save the dataloader state.
+        # intra_epoch=True because we always want to save the dataloader state.
         app_state = torchsnapshot_saver._get_app_state(
-            state, unit, self._replicated, intra_epoch=False
+            state, unit, self._replicated, intra_epoch=True
         )
         self._pending = Snapshot.async_take(
             str(snapshot_path), app_state=app_state, replicated=list(self._replicated)
         )
-        rank_zero_info(f"Saving snapshot to path: {snapshot_path}")
+        rank_zero_info(f"Saving snapshot to path: {snapshot_path}", logger=log)
         self._last_save = datetime.now()
         return True
 
@@ -135,7 +136,8 @@ class TorchSnapshotSaver(Callback):
 
         assert state.eval_state is not None
         try:
-            best = state.eval_state._step_output["eval/best"]
+            # TODO: upgrade once torchtnt has builtin support for metrics
+            best: bool = train_state.metrics["best"]  # type: ignore
         except Exception:
             return
 
@@ -160,8 +162,13 @@ class TorchSnapshotSaver(Callback):
             eval_best.unlink()
         eval_best.symlink_to(snapshot_path)
 
-    def on_exception(self, state: State, unit: None, exc: BaseException) -> None:  # type: ignore[override]
-        """Waits for ongoing computation"""
+    def on_train_end(self, state: State, unit: Any) -> None:
+        self._wait()
+
+    def on_exception(self, state: State, unit: Any, exc: BaseException) -> None:
+        self._wait()
+
+    def _wait(self) -> None:
         if self._pending is not None:
             self._pending.wait()
         self._ex.shutdown(wait=True)
@@ -174,10 +181,16 @@ class TorchSnapshotSaver(Callback):
             return
 
         # Because of best snapshots, the insertion order may be different from steps order
-        queue.sort(key=lambda s: int(s.name.split("_")[-1]))
+        queue.sort(key=get_step)
         old_snapshot = queue.pop(0)
         log.info(f"Deleting {old_snapshot}")
-        self._ex.submit(subprocess.run, ["rm", "-r", str(old_snapshot)], check=True)  # type: ignore[call-arg]
+        self._ex.submit(subprocess.run, ["rm", "-r", str(old_snapshot)], check=True)  # type: ignore
+
+
+def get_step(snapshot_path: Path) -> int:
+    step_ = snapshot_path.name.split(".")[0]
+    step_ = step_.split("_")[-1]
+    return int(step_)
 
 
 class TorchSnapshotLoader(Callback):
@@ -199,9 +212,11 @@ class TorchSnapshotLoader(Callback):
 
 
 def resolve_last_snapshot(dirpath: str) -> Optional[Path]:
-    snapshots = Path(dirpath).glob("epoch_*_step_*")
     try:
-        return max(snapshots)
+        last_step, last_snapshot = max(
+            (get_step(p), p) for p in Path(dirpath).glob("epoch_*_step_*")
+        )
+        return last_snapshot
     except ValueError:
         # No snapshot found
         return None

@@ -23,3 +23,5 @@ wandb/
 
 # Other
 .DS_Store
+/scratch
+/nohup.out

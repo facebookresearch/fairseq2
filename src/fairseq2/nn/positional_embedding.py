@@ -220,30 +220,7 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
         else:
             out = self.weight
 
-        num_sin = self.embedding_dim // 2
-
-        # Zero pad if the embedding size is odd.
-        if self.embedding_dim > 2 * num_sin:
-            out[:, -1:] = 0
-
-        l_half = out[:, :num_sin]
-        r_half = out[:, num_sin:]
-
-        fct_kwargs: Dict[str, Any] = {"device": out.device, "dtype": out.dtype}
-
-        # This is identical to tensor2tensor's implementation.
-        ind = torch.arange(out.size(0), **fct_kwargs)
-
-        sin = torch.exp(
-            torch.arange(num_sin, **fct_kwargs) * -math.log(10000) / (num_sin - 1)
-        )
-
-        torch.matmul(ind[:, None], sin[None, :], out=l_half)
-
-        r_half[:] = l_half[:]
-
-        l_half.sin_()
-        r_half.cos_()
+        fill_sinusoidal_(out)
 
     @finaloverride
     def _forward_core(self, seq: Tensor, incremental_eval: bool) -> Tensor:
@@ -269,6 +246,63 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
             )
 
             return self.weight.index_select(dim=0, index=ind.view(-1)).view(out_size)
+
+
+@final
+class HighPassSinusoidalPositionalEmbedding(PositionalEmbedding):
+    """Produces sinusoidal positional embeddings compatible with Fairseq1
+
+    This is most likely a bug in Fairseq1, but we reproduce it to allow reloading fairse1 models.
+    """
+
+    weight: Tensor
+    padding_token_idx: int
+
+    def __init__(
+        self,
+        max_seq_len: int,
+        embedding_dim: int,
+        padding_token_idx: int,
+        batch_first: bool = False,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
+    ) -> None:
+        super().__init__(max_seq_len, embedding_dim, padding_token_idx, batch_first)
+
+        # Make space for the padding token's zero embedding.
+        num_embed = max_seq_len + 1 + padding_token_idx
+
+        weight = torch.empty(
+            num_embed,
+            embedding_dim,
+            device=device,
+            dtype=cast(torch.dtype, dtype),
+        )
+
+        self.register_buffer("weight", weight, persistent=False)
+
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        """Fairseq1 is overidding the positional embedding at index 'padding_token_idx'
+        and not using the ones before that index. We explicitly set them to Nan
+        to avoid accidental misuse to go unnoticed.
+        """
+        fill_sinusoidal_(self.weight)
+        self.weight[self.padding_token_idx, :] = 0
+        self.weight[: self.padding_token_idx, :] = float("Nan")
+
+    @finaloverride
+    def _forward_core(self, seq: Tensor, incremental_eval: bool) -> Tensor:
+        bsz, seq_len = seq.shape
+
+        out_size = (bsz, -1, self.embedding_dim)
+
+        last_step_only = not self.training and incremental_eval
+        ind = _make_indices_with_padding(seq, last_step_only, self.padding_token_idx)
+        # prevent from using the low frequency
+        ind += self.padding_token_idx
+        return self.weight.index_select(dim=0, index=ind.view(-1)).view(out_size)
 
 
 @final
@@ -351,6 +385,34 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
         return F.embedding(ind, self.weight, padding_idx=pad)
 
 
+def fill_sinusoidal_(out: Tensor) -> None:
+    n, dim = out.shape
+    num_sin = dim // 2
+
+    # Zero pad if the embedding size is odd.
+    if dim > 2 * num_sin:
+        out[:, -1:] = 0
+
+    l_half = out[:, :num_sin]
+    r_half = out[:, num_sin:]
+
+    fct_kwargs: Dict[str, Any] = {"device": out.device, "dtype": out.dtype}
+
+    # This is identical to tensor2tensor's implementation.
+    ind = torch.arange(out.size(0), **fct_kwargs)
+
+    sin = torch.exp(
+        torch.arange(num_sin, **fct_kwargs) * -math.log(10000) / (num_sin - 1)
+    )
+
+    torch.matmul(ind[:, None], sin[None, :], out=l_half)
+
+    r_half[:] = l_half[:]
+
+    l_half.sin_()
+    r_half.cos_()
+
+
 def _make_indices_with_padding(
     seq: Tensor, last_step_only: bool, padding_token_idx: int
 ) -> Tensor:
@@ -360,7 +422,6 @@ def _make_indices_with_padding(
 
     # Set the padding indices to zero.
     ind = ind * padding_mask
-
     if last_step_only:
         return ind[:, -1:]
     else:

@@ -3,16 +3,16 @@ import pdb
 import traceback
 from typing import Any, Union
 
-import torchtnt.runner
+import torchtnt.framework
 import torchtnt.utils
-from torchtnt.runner.callback import Callback
-from torchtnt.runner.unit import TEvalUnit, TPredictUnit, TTrainUnit
+from torchtnt.framework.callback import Callback
+from torchtnt.framework.unit import TEvalUnit, TPredictUnit, TTrainUnit
 
 
 class Debugger(Callback):
     def on_exception(
         self,
-        state: torchtnt.runner.State,
+        state: torchtnt.framework.State,
         unit: Union[TTrainUnit[Any], TEvalUnit[Any], TPredictUnit[Any]],
         exc: BaseException,
     ) -> None:

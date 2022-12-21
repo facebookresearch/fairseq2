@@ -1,15 +1,16 @@
 from pathlib import Path
-from typing import Any, Iterable, Iterator, Mapping
+from typing import Any, Dict, Iterable, Iterator, Mapping
 
 import fairseq
 import fairseq.tasks
+from torch import Tensor
 
 from fairseq2.typing import Device
 
-from . import Batch
+from . import Seq2SeqBatch
 
 
-class BilingualDataloader(Iterable[Batch]):
+class BilingualDataloader(Iterable[Seq2SeqBatch]):
     def __init__(
         self,
         data_folder: Path,
@@ -45,6 +46,7 @@ class BilingualDataloader(Iterable[Batch]):
         self.task = task
         self.loader_kwargs = dict(loader_kwargs)
         self.device = device
+        self.vocab = src_dict
 
         # This is equivalent to task.load_dataset(split) expect we use prepend_bos=True
         self.data = fairseq.tasks.translation.load_langpair_dataset(
@@ -64,22 +66,57 @@ class BilingualDataloader(Iterable[Batch]):
             load_alignments=cfg.load_alignments,
             truncate_source=cfg.truncate_source,
             num_buckets=cfg.num_batch_buckets,
-            shuffle=(split != "test"),
+            shuffle=(split == "train"),
             pad_to_multiple=cfg.required_seq_len_multiple,
             # This is the only difference with TranslationTask.load_dataset
             prepend_bos=True,
         )
         task.datasets[split] = self.data
 
-    def __iter__(self) -> Iterator[Batch]:
-        epoch_iter = self.task.get_batch_iterator(
+        def shift_num_tokens(indices: Tensor) -> Tensor:
+            """Overrides the default num_tokens_vec, to not count the added bos.
+
+            Note that num_tokens is used for batching, so we can just fix it later
+            at the batch level.
+            """
+            num_tokens = type(self.data).num_tokens_vec(self.data, indices)
+            return num_tokens - 1  # type: ignore
+
+        self.data.num_tokens_vec = shift_num_tokens
+        self.epoch_iter = self.task.get_batch_iterator(
             self.data,
             ignore_invalid_inputs=False,
             **self.loader_kwargs,
         )
-        for batch in epoch_iter.next_epoch_itr(shuffle=False):
-            yield Batch(
-                batch["net_input"]["src_tokens"].to(self.device),
+
+    def __iter__(self) -> Iterator[Seq2SeqBatch]:
+        for batch in self.epoch_iter.next_epoch_itr():
+            # Start target sentences with EOS, yeah fairseq is weird.
+            batch["target"][:, 0] = self.vocab.eos_index
+            yield Seq2SeqBatch(
+                # Strip the BOS of source tokens
+                batch["net_input"]["src_tokens"][:, 1:].to(self.device),
                 batch["target"].to(self.device),
-                num_tokens=batch["ntokens"],
+                num_tokens=batch["ntokens"] - batch["nsentences"],
             )
+
+    def state_dict(self) -> Dict[str, Any]:
+        it = self.epoch_iter
+        epoch = it.epoch
+        iter_in_epoch = it.iterations_in_epoch
+        # Fixes bugs in fairseq/data/iterators@EpochBatchIterator.end_of_epoch()
+        if it._cur_epoch_itr is not None and it._cur_epoch_itr.has_next():
+            epoch += 1
+            iter_in_epoch = 0
+
+        return {
+            "epoch_iter": {
+                "version": 2,
+                "epoch": epoch,
+                "iterations_in_epoch": iter_in_epoch,
+                "shuffle": it.shuffle,
+            }
+        }
+
+    def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
+        self.epoch_iter.load_state_dict(state_dict["epoch_iter"])

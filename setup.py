@@ -174,11 +174,12 @@ setup(
         # build our extension modules.
         "torch==" + torch.__version__,
         "torcheval",
-        # TODO: Upgrade to 0.3.0 once released.
-        "torchtnt @ git+https://github.com/pytorch/tnt.git@1b71aecf3a2fb8204bf6010d3306d5ad9812bafd",
+        "torchtnt~=0.0.4",
         "torchsnapshot>=0.1.0",
         "typing_extensions~=4.3",
         "wandb~=0.13",
-        "wandb",
+        # Eval tools
+        "sacrebleu>=2.3.1",
+        "jiwer",
     ],
 )

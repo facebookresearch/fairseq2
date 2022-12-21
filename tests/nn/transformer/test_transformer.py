@@ -38,10 +38,8 @@ class TestMultiheadAttention(TestCase):
 
         attn_weights: List[Tensor] = []
         hook = transformer.StoreAttentionWeights(attn_weights)
-        # attn_batch_first.register_attn_weight_hook(hook)
-        attn_batch_first._attn_weight_hooks[0] = hook
-        # attn_batch_second.register_attn_weight_hook(hook)
-        attn_batch_second._attn_weight_hooks[0] = hook
+        attn_batch_first.register_attn_weight_hook(hook)
+        attn_batch_second.register_attn_weight_hook(hook)
 
         x = torch.zeros((bs, l_src, dim))
         torch.nn.init.uniform_(x, -1, 1)
