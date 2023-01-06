@@ -3,6 +3,10 @@ import torch
 
 from tests.common import TestCase
 
+# Hack around of https://github.com/pytorch/tnt/issues/285
+if not hasattr(torch.optim.lr_scheduler, "LRScheduler"):
+    setattr(torch.optim.lr_scheduler, "LRScheduler", torch.optim.lr_scheduler._LRScheduler)  # type: ignore
+
 
 def pytest_addoption(parser: pytest.Parser, pluginmanager: None) -> None:
     parser.addoption(

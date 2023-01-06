@@ -166,6 +166,7 @@ setup(
         "func_argparse~=1.1",
         "numpy~=1.23",
         "omegaconf~=2.2",
+        "pyyaml~=6.0",
         "overrides~=7.3",
         "sentencepiece~=0.1",
         "submitit~=1.4",

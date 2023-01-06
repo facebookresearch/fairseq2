@@ -78,6 +78,7 @@ def init(
         # Copy the main script to the workdir.
         import __main__
 
+        # TODO: rethink this, now "train_mt.py" isn't __main__ anymore
         main_py = Path(__main__.__file__)
         (workdir / main_py.name).write_bytes(main_py.read_bytes())
         # We aren't running in distributed mode, let submit a job to do so.

@@ -2,11 +2,12 @@ import functools
 import itertools
 import logging
 import math
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import sacrebleu  # type: ignore
 import torch
 import torch.nn.functional as F
+import torch.optim.lr_scheduler
 import torcheval.metrics
 import torchtnt.framework
 import torchtnt.framework.callbacks
@@ -16,7 +17,6 @@ from torchtnt.framework.state import State
 from torchtnt.framework.unit import EvalUnit, PredictUnit, TrainUnit
 
 import fairseq2.callbacks
-import fairseq2.distributed
 import fairseq2.hub
 import fairseq2.nn
 import fairseq2.optim.lr_scheduler
@@ -24,7 +24,7 @@ from fairseq2.callbacks import Metrics
 from fairseq2.dataloader import Seq2SeqBatch, Seq2SeqStr
 from fairseq2.generate import BeamSearchStrategy, SearchStrategy, Tokenizer
 from fairseq2.nn import transformer
-from fairseq2.typing import Device
+from fairseq2.typing import LRScheduler
 
 logging.basicConfig(level=logging.INFO)
 
@@ -32,35 +32,26 @@ logging.basicConfig(level=logging.INFO)
 class Seq2Seq(
     TrainUnit[Seq2SeqBatch], EvalUnit[Seq2SeqBatch], PredictUnit[Seq2SeqBatch]
 ):
+    # Note: this is very close to the tnt.AutoUnit, maybe we should inherit from them.
     def __init__(
         self,
-        builder: transformer.TransformerBuilder,
+        model: transformer.Transformer,
         tokenizer: Tokenizer,
-        device: Device,
+        optimizer: torch.optim.Optimizer,
+        lr_scheduler: Optional[LRScheduler] = None,
         best_metric: str = "loss",
     ):
         super().__init__()
-        fairseq2.hub.HubState.add_state(self, kwargs=locals())
         # initialize module & optimizer
-        self.builder = builder
-        self.model = builder()
+        self.model = model
         self.tokenizer = tokenizer
         self.best_metric = best_metric
-        # TODO: we should take optim, scheduler as inputs
-        self.optimizer = torch.optim.Adam(
-            self.model.parameters(),
-            lr=1.0,
-            betas=(0.9, 0.98),
-            eps=1e-6,
-            weight_decay=0.0001,
-        )
-        self.lr_scheduler = fairseq2.optim.lr_scheduler.InverseSquareRootLR(
-            self.optimizer, lr=5e-4
-        )
+
+        self.optimizer = optimizer
+        self.lr_scheduler = lr_scheduler
 
         self.clip_grad_norm = 0.00
         self.log_frequency_steps = 100
-        self.predict_frequency_steps = 1000
         self.lr_frequency_steps = 1
         self.seed = 1
         self.eval_gen = True
@@ -78,7 +69,7 @@ class Seq2Seq(
         return metrics
 
     def replicated_keys(self) -> List[str]:
-        return ["__hubstate__/**"]
+        return ["tokenizer"]
 
     def train_step(self, state: State, data: Seq2SeqBatch) -> None:
         assert state.train_state
@@ -97,7 +88,7 @@ class Seq2Seq(
 
         # Increment step since we already did the forward/backward for this one.
         steps = state.train_state.progress.num_steps_completed + 1
-        if steps % self.lr_frequency_steps == 0:
+        if self.lr_scheduler is not None and steps % self.lr_frequency_steps == 0:
             self.lr_scheduler.step()
 
         # This is the elapsed time since TNT started the "train_step"
@@ -129,7 +120,8 @@ class Seq2Seq(
         nll_loss = loss.detach().cpu() / num_tokens / math.log(2)
         metrics["loss"].update(nll_loss, weight=num_tokens)
         metrics["num_tokens"].update(num_tokens)
-        metrics["lr"] = self.lr_scheduler.get_last_lr()[0]
+        if self.lr_scheduler is not None:
+            metrics["lr"] = self.lr_scheduler.get_last_lr()[0]
 
         return loss
 
@@ -139,14 +131,12 @@ class Seq2Seq(
 
     def state_dict_for_inference(self) -> Dict[str, Any]:
         """Returns a minimal state_dict without optimizer or LR that can be used for inference."""
-        state_dict: Dict[str, Any] = {}
-        for name, module in self.tracked_modules().items():
-            state_dict[name] = module.state_dict()
-        for name, misc in self.tracked_misc_statefuls().items():
-            state_dict[name] = misc.state_dict()
-        assert "tokenizer" in state_dict
-        assert "more_state" in state_dict
-        return state_dict
+        app_state = {
+            **self.tracked_modules(),
+            **self.tracked_misc_statefuls(),
+        }
+        assert "tokenizer" in app_state
+        return app_state
 
     def on_eval_start(self, state: State) -> None:
         assert state.eval_state
@@ -173,9 +163,7 @@ class Seq2Seq(
 
     @functools.lru_cache()
     def default_strategy(self) -> SearchStrategy:
-        return BeamSearchStrategy(
-            beam_size=5, max_len=self.builder.max_seq_len, token_meta=self.tokenizer
-        )
+        return BeamSearchStrategy(beam_size=5, max_len=512, token_meta=self.tokenizer)
 
     @torch.inference_mode()
     def generate_batch(self, data: Seq2SeqBatch) -> List[Seq2SeqStr]:

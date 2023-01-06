@@ -5,3 +5,4 @@ isort==5.10.1
 mypy==0.982
 shellcheck-py==0.8.0.4
 types-setuptools==57.4.9
+types-PyYAML~=6.0

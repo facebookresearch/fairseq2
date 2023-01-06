@@ -9,14 +9,16 @@ import logging
 import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, List, Optional, Set, Union
+from typing import TYPE_CHECKING, Any, List, Optional, Set, Union
 
-from torchsnapshot.snapshot import PendingSnapshot, Snapshot
 from torchtnt.framework.callback import Callback
 from torchtnt.framework.callbacks import torchsnapshot_saver
 from torchtnt.framework.state import State
 from torchtnt.framework.unit import EvalUnit, TrainUnit
 from torchtnt.utils import rank_zero_info
+
+if TYPE_CHECKING:
+    from torchsnapshot.snapshot import PendingSnapshot, Snapshot
 
 log = logging.getLogger(__name__)
 
@@ -45,6 +47,7 @@ class TorchSnapshotSaver(Callback):
         self,
         savedir: Union[Path, str],
         *,
+        script: Optional[Path],
         frequency: timedelta = timedelta(minutes=20),
         keep_train_snapshots: int = 2,
         keep_eval_snapshots: int = 10,
@@ -54,6 +57,7 @@ class TorchSnapshotSaver(Callback):
         self.keep_train_snapshots = keep_train_snapshots
         self.keep_eval_snapshots = keep_eval_snapshots
 
+        self.script = script or self.savedir / "hubconf.py"
         self._last_save = datetime.now()
         self._best_snapshot: Optional[Path] = None
         self._replicated: Set[str] = set()
@@ -107,6 +111,8 @@ class TorchSnapshotSaver(Callback):
         )
         rank_zero_info(f"Saving snapshot to path: {snapshot_path}", logger=log)
         self._last_save = datetime.now()
+        # Copy script and config to the snapshot path
+        self._ex.submit(_copy_script, self.script, snapshot_path)
         return True
 
     def on_train_step_end(self, state: State, unit: TrainUnit[Any]) -> None:
@@ -220,3 +226,10 @@ def resolve_last_snapshot(dirpath: str) -> Optional[Path]:
     except ValueError:
         # No snapshot found
         return None
+
+
+def _copy_script(script: Path, snapshot_dir: Path) -> None:
+    (snapshot_dir / "hubconf.py").write_bytes(script.read_bytes())
+    (snapshot_dir / "hubconf.yaml").write_bytes(
+        script.with_suffix(".yaml").read_bytes()
+    )

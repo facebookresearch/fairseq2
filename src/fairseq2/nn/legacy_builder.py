@@ -117,9 +117,10 @@ def load_fairseq1_checkpoint(
     dtype: Optional[DataType] = None,
 ) -> Tuple[transformer.Transformer, SpmTokenizer, transformer.TransformerBuilder]:
 
-    # TODO: should this return a builder ?
+    # TODO: this tuple is a bit weird, should we have a reference class for this tuple ?
+    # I want the tokenizer and model to always go hand in hand.
+    # The builder is also important to be hable to serialize the model and reload it later.
 
-    # TODO: fix the tokenizer, by offsetting the pieces indexes by one, or fix the embeddings
     tokenizer = SpmTokenizer.from_file(spm_path, batch_first=True, _pad_shift_hack=True)
 
     # TODO: MoE models require a bit more complex loading

@@ -102,12 +102,12 @@ class SpmTokenizer(Tokenizer):
         self.EOS = self.add_special_token("<EOS>", spm.eos_id() + _pad_shift_hack)
         self.PAD = self.add_special_token("<PAD>", 0 if _pad_shift_hack else -1)
 
-    def __getstate__(self) -> Dict[str, Any]:
+    def state_dict(self) -> Dict[str, Any]:
         state = dict(self.__dict__)
         state["spm"] = self.spm.serialized_model_proto()
         return state
 
-    def __setstate__(self, state: Dict[str, Any]) -> None:
+    def load_state_dict(self, state: Dict[str, Any]) -> None:
         spm = sentencepiece.SentencePieceProcessor()
         spm.load_from_serialized_proto(state["spm"])
         state["spm"] = spm
@@ -140,8 +140,7 @@ class SpmTokenizer(Tokenizer):
     def decode_batch(self, tokens: Tensor) -> List[str]:
         # Replace special tokens with BOS.
         # TODO: allow to print special tokens (again, we should probably modify the underlying spm)
-        # Should we force a copy when already on cpu ?
-        tokens = torch.tensor(tokens)
+        tokens = tokens.clone().detach()
         tokens[tokens >= self.spm.GetPieceSize()] = self.BOS
         # SPM doesn't now PAD.
         tokens[tokens == self.PAD] = self.EOS
