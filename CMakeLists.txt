@@ -12,18 +12,18 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY VALUE RelWithDebInfo)
 endif()
 
+include(CMakePackageConfigHelpers)
 include(CheckLanguage)
+include(GNUInstallDirs)
 
 if(PROJECT_IS_TOP_LEVEL)
     include(CTest)
 endif()
 
+list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
+
 include(cmake/base.cmake)
-include(cmake/dependency.cmake)
-include(cmake/fmt.cmake)
-include(cmake/gtest.cmake)
 include(cmake/summary.cmake)
-include(cmake/torch.cmake)
 
 # ------------------------------------------------------------
 # Options
@@ -66,26 +66,13 @@ option(FAIRSEQ2_EDITABLE_PYTHON
         ON
 )
 
-set(FAIRSEQ2_DEPENDENCY_SOURCE
-    #VALUE
-        "BUNDLED"
-    #TYPE
-        CACHE STRING
-    #DESCRIPTION
-        "Instructs the build system on how to resolve the dependencies."
-)
-set_property(CACHE FAIRSEQ2_DEPENDENCY_SOURCE PROPERTY
-    STRINGS
-        "AUTO" "SYSTEM" "BUNDLED"
-)
-
 set(FAIRSEQ2_USE_CUDA
     #VALUE
         "AUTO"
     #TYPE
         CACHE STRING
     #DESCRIPTION
-        "Uses CUDA. If not specified (i.e. AUTO), uses CUDA if PyTorch supports it."
+        "Uses CUDA. If not specified (i.e. `AUTO`), uses CUDA if PyTorch supports it."
 )
 set_property(CACHE FAIRSEQ2_USE_CUDA PROPERTY
     STRINGS
@@ -105,36 +92,58 @@ set_property(CACHE FAIRSEQ2_SANITIZERS PROPERTY
         "" "asan" "ubsan" "tsan"
 )
 
-# By default, we build our CUDA kernels only for the Volta architecture.
-if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
-    set(CMAKE_CUDA_ARCHITECTURES 70-real 70-virtual)
-endif()
-
 # ------------------------------------------------------------
 # Dependencies
 # ------------------------------------------------------------
 
-find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module)
+# Some dependencies transitively use the pthreads library. This option ensures
+# that they use the -pthread flag.
+set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 
+find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module)
 if(Python3_VERSION VERSION_LESS 3.8)
     message(FATAL_ERROR "fairseq2 requires CPython 3.8 or greater!")
 endif()
 
-fairseq2_find_torch(1.11)
+find_package(Iconv REQUIRED)
 
-fairseq2_find_fmt(9.1.0)
+find_package(Threads REQUIRED)
 
-fairseq2_find_package(pybind11 2.10.0)
+find_package(TBB 2021.8 REQUIRED)
 
-fairseq2_add_third_party(natsort)
+if(NOT DEFINED TORCH_FAKE_CUDNN)
+    set(TORCH_FAKE_CUDNN ON)
+endif()
+
+find_package(Torch 1.11 REQUIRED)
+
+if(FAIRSEQ2_RUN_CLANG_TIDY)
+    if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        message(FATAL_ERROR "fairseq2 requires Clang when `FAIRSEQ2_RUN_CLANG_TIDY` is set!")
+    endif()
+
+    find_package(ClangTidy REQUIRED)
+endif()
+
+add_subdirectory(third-party)
+
+fairseq2_add_fmt()
+fairseq2_add_natsort()
+fairseq2_add_pybind11()
+fairseq2_add_sentencepiece()
 
 if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
-    fairseq2_find_gtest()
+    fairseq2_add_gtest()
 endif()
 
 # ------------------------------------------------------------
 # CUDA
 # ------------------------------------------------------------
+
+# By default, we build our CUDA kernels only for the Volta architecture.
+if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+    set(CMAKE_CUDA_ARCHITECTURES 70-real 70-virtual)
+endif()
 
 if(FAIRSEQ2_USE_CUDA STREQUAL "AUTO")
     if(TORCH_CUDA_VERSION)
@@ -172,20 +181,91 @@ endif()
 # Targets
 # ------------------------------------------------------------
 
-add_subdirectory(src/fairseq2)
+if(FAIRSEQ2_INSTALL_STANDALONE)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+        set(rpath_origin @loader_path)
+    else()
+        set(rpath_origin \$ORIGIN)
+    endif()
 
-if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
-    add_subdirectory(tests)
+    set(install_lib_dir fairseq2/lib)
+    set(install_include_dir fairseq2/include)
+else()
+    set(install_lib_dir ${CMAKE_INSTALL_LIBDIR})
+    set(install_include_dir ${CMAKE_INSTALL_INCLUDEDIR})
+endif()
+
+fairseq2_set_sanitizers()
+
+add_subdirectory(src/fairseq2/native)
+
+if(PROJECT_IS_TOP_LEVEL)
+    add_subdirectory(src/fairseq2/extension)
+
+    if(BUILD_TESTING)
+        add_subdirectory(tests/native)
+    endif()
 endif()
 
 # ------------------------------------------------------------
-# Installation
+# Package Installation
 # ------------------------------------------------------------
 
-fairseq2_install_package()
+set(install_pkg_dir ${install_lib_dir}/cmake/fairseq2-${PROJECT_VERSION})
+
+configure_package_config_file(
+    #INPUT
+        ${PROJECT_SOURCE_DIR}/cmake/package-config.cmake.in
+    #OUTPUT
+        ${PROJECT_BINARY_DIR}/lib/cmake/fairseq2/fairseq2-config.cmake
+    INSTALL_DESTINATION
+        ${install_pkg_dir}
+    NO_SET_AND_CHECK_MACRO
+)
+
+write_basic_package_version_file(
+    #OUTPUT
+        ${PROJECT_BINARY_DIR}/lib/cmake/fairseq2/fairseq2-config-version.cmake
+    VERSION
+        ${PROJECT_VERSION}
+    COMPATIBILITY
+        AnyNewerVersion
+)
+
+install(
+    FILES
+        ${PROJECT_BINARY_DIR}/lib/cmake/fairseq2/fairseq2-config.cmake
+        ${PROJECT_BINARY_DIR}/lib/cmake/fairseq2/fairseq2-config-version.cmake
+    DESTINATION
+        ${install_pkg_dir}
+    COMPONENT
+        devel
+)
+
+install(
+    EXPORT
+        fairseq2-targets
+    FILE
+        fairseq2-targets.cmake
+    DESTINATION
+        ${install_pkg_dir}
+    COMPONENT
+        devel
+    NAMESPACE
+        fairseq2::
+)
+
+export(
+    EXPORT
+        fairseq2-targets
+    FILE
+        ${PROJECT_BINARY_DIR}/lib/cmake/fairseq2/fairseq2-targets.cmake
+    NAMESPACE
+        fairseq2::
+)
 
 # ------------------------------------------------------------
 # Summary
 # ------------------------------------------------------------
 
-fairseq2_print_configuration_summary()
+fairseq2_print_project_summary()

@@ -10,8 +10,7 @@ from typing import Any, Dict, MutableSequence, Optional, Protocol, Tuple, final
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from overrides import final as finaloverride
-from overrides import override
+from overrides import final as finaloverride, override
 from torch import Tensor
 from torch.nn import Module
 from torch.nn.parameter import Parameter
@@ -389,19 +388,18 @@ class StandardMultiheadAttention(MultiheadAttention):
             specified if ``q_proj`` is ``None``; otherwise, will be inferred
             from ``q_proj``.
         :param q_proj:
-            The projection to apply to provided inputs before computing
-            attention. If ``None``, a default projection will be used.
+            The projection to apply to inputs before computing attention. If
+            ``None``, a default projection will be used.
         :param k_proj:
-            The projection to apply to provided keys before computing attention.
-            If ``None``, a default projection will be used.
+            The projection to apply to keys before computing attention. If
+            ``None``, a default projection will be used.
         :param v_proj:
-            The projection to apply to provided values before computing
-            attention. If ``None``, a default projection will be used.
+            The projection to apply to values before computing attention. If
+            ``None``, a default projection will be used.
         :param add_bias_kv:
-            If ``True``, extends provided keys and values by a bias step.
+            If ``True``, extends keys and values by a bias step.
         :param add_zero_attn:
-            If ``True``, extends provided keys and values by an empty (i.e.
-            zero) step.
+            If ``True``, extends keys and values by an empty (i.e. zero) step.
         :param attn_fn:
             The function to compute head attentions. If ``None``, a default
             implementation of the scaled dot-product attention will be used.

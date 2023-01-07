@@ -6,9 +6,16 @@
 
 #pragma once
 
-#include "fairseq2/native/api.h"
+#include <cerrno>
+#include <system_error>
 
 namespace fairseq2::detail {
+
+inline std::error_code
+last_error() noexcept
+{
+    return std::error_code{errno, std::generic_category()};
+}
 
 #ifdef NDEBUG
 
@@ -20,7 +27,7 @@ unreachable()
 
 #else
 
-[[noreturn]] FAIRSEQ2_API void
+[[noreturn]] void
 unreachable(const char *file = __builtin_FILE(), int line = __builtin_LINE());
 
 #endif

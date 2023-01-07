@@ -62,7 +62,7 @@ jobs:
             --extra-index-url https://download.pytorch.org/whl/${{ inputs.variant }}
       - name: Install the requirements
         run: |
-          pip install --requirement tests/requirements.txt
+          pip install --requirement requirements-devel.txt
       - name: Install the wheel
         run: |
           pip install ~/wheelhouse/*.whl --no-cache-dir
@@ -90,7 +90,7 @@ jobs:
         run: |
           chmod 755 ~/tests/run-tests
 
-          lib_path=$(python -c "from fairseq2.native import get_lib_path; print(get_lib_path())")
+          lib_path=$(python -c "from fairseq2 import get_lib; print(get_lib())")
 
           LD_LIBRARY_PATH=$lib_path LD_PRELOAD=${!SANITIZER_LIB}\
             ~/tests/run-tests

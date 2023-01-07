@@ -11,8 +11,7 @@ from typing import Any, Dict, Optional, final
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from overrides import final as finaloverride
-from overrides import override
+from overrides import final as finaloverride, override
 from torch import Tensor
 from torch.nn import Module
 from torch.nn.parameter import Parameter

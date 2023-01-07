@@ -4,11 +4,32 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from fairseq2.data.interop import IDict, IList, IString
-from fairseq2.data.variant import IVariant
+__all__ = [
+    "DataPipeline",
+    "DataPipelineBuilder",
+    "DataPipelineError",
+    "DataProcessor",
+    "RecordError",
+    "StreamError",
+    "String",
+    "StringLike",
+    "Tape",
+    "list_files",
+    "read_sequence",
+    "zip_data_pipelines",
+]
 
-IVariant = IVariant
-"""Holds data of different types that can be zero-copy marshalled between Python
-and native code."""
-
-__all__ = ["IDict", "IList", "IString", "IVariant"]
+from fairseq2.data.data_pipeline import (
+    DataPipeline,
+    DataPipelineBuilder,
+    DataPipelineError,
+    DataProcessor,
+    RecordError,
+    StreamError,
+    list_files,
+    read_sequence,
+    zip_data_pipelines,
+)
+from fairseq2.data.string import String
+from fairseq2.data.tape import Tape
+from fairseq2.data.typing import StringLike

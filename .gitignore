@@ -8,6 +8,9 @@ __pycache__/
 # Build Artifacts
 build/
 
+# Core Dumps
+core
+
 # Packaging Artifacts
 *.egg-info
 *.whl
@@ -25,3 +28,9 @@ wandb/
 .DS_Store
 /scratch
 /nohup.out
+
+# Since we cannot use PEP 517 (i.e. pyproject.toml), there is no way for us to
+# configure the Black formatter. As a workaround, we "ignore" the Python files
+# under the third-party directory to force Black to skip them.
+third-party/**/*.py
+third-party/**/*.pyi

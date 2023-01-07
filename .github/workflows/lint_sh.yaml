@@ -33,7 +33,7 @@ jobs:
       - name: Install the requirements
         id: setup
         run: |
-          pip install --requirement tools/requirements.txt
+          pip install --requirement requirements-devel.txt
       - name: Run shellcheck
         if: success() || (failure() && steps.setup.outcome == 'success')
         run: |
@@ -46,4 +46,4 @@ jobs:
 
           trap remove_matcher EXIT
 
-          tools/linters/run-shellcheck.sh .
+          ci/scripts/run-shellcheck.sh .

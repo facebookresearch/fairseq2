@@ -26,21 +26,19 @@ class install(install_base):
 
     install_base.sub_commands.append(("install_cmake", lambda self: True))
 
-    # Old versions of distutils incorrectly check `ext_modules` to determine
+    # Old versions of distutils incorrectly check ext_modules to determine
     # whether a distribution is non-pure. We fix it here.
     def finalize_options(self) -> None:
-        # Read `install_lib` before it gets overriden by the base method.
+        # Check install_lib before it gets overriden by the base.
         can_override_lib = self.install_lib is None
 
         install_base.finalize_options(self)
 
-        # Point `install_lib` to the right location.
+        # Point install_lib to the right location if permitted.
         if can_override_lib and self.distribution.has_ext_modules():
             self.install_lib = self.install_platlib
 
 
-# We inject our pre-built extension modules and optionally other related
-# artifacts into the distribution by installing them via CMake.
 class install_cmake(Command):
     cmake_build_dir: str
     install_dir: str
@@ -62,11 +60,9 @@ class install_cmake(Command):
     def finalize_options(self) -> None:
         self.ensure_dirname("cmake_build_dir")
 
-        # If not specified, copy the value of `install_dir` from `install`
-        # command's `install_lib` option.
         self.set_undefined_options("install", ("install_lib", "install_dir"))
 
-        # Indicates whether to inject all CMake artifacts (e.g. shared
+        # Indicates whether we should inject all CMake artifacts (e.g. shared
         # libraries) into the distribution.
         self.is_standalone = self._should_install_standalone()
 
@@ -76,7 +72,7 @@ class install_cmake(Command):
         except FileNotFoundError:
             raise FileError("CMakeCache.txt is not found. Run CMake first.")
 
-        # Read `FAIRSEQ2_INSTALL_STANDALONE` from cache.
+        # Read FAIRSEQ2_INSTALL_STANDALONE from cache.
         with f:
             for line in f:
                 if line.startswith("FAIRSEQ2_INSTALL_STANDALONE"):
@@ -90,7 +86,7 @@ class install_cmake(Command):
         if self.is_standalone:
             self._cmake_install()
 
-        self._cmake_install(component="python_modules")
+        self._cmake_install(component="python")
 
     def _cmake_install(self, component: Optional[str] = None) -> None:
         cmd = ["cmake", "--install", self.cmake_build_dir]
@@ -113,22 +109,24 @@ class install_cmake(Command):
         else:
             manifests = []
 
-        manifests.append("install_manifest_python_modules.txt")
+        manifests.append("install_manifest_python.txt")
 
-        # We have to strip the file paths to the installation directory to be
-        # consistent with the rest of the install commands.
-        lstrip_pos = len(path.abspath(self.install_dir)) + 1
+        # We have to strip the file paths to the install directory to be
+        # consistent with the standard commands.
+        lstrip_to = len(path.abspath(self.install_dir)) + 1
 
-        # We extract the list of installed files from the CMake manifests.
+        # Extract the list of files from the CMake install manifests.
         for m in manifests:
             with open(path.join(self.cmake_build_dir, m)) as fp:
                 for pathname in fp:
-                    outputs.append(pathname[lstrip_pos:].rstrip())
+                    pathname = pathname[lstrip_to:].rstrip()
 
-        return [path.join(self.install_dir, o) for o in outputs]
+                    outputs.append(path.join(self.install_dir, pathname))
+
+        return outputs
 
     def get_inputs(self) -> List[str]:
-        # We take no input from other commands.
+        # We take no input.
         return []
 
 
@@ -170,6 +168,7 @@ setup(
         "overrides~=7.3",
         "sentencepiece~=0.1",
         "submitit~=1.4",
+        "tbb~=2021.8",
         # PyTorch has no ABI compatibility between releases; this means we have
         # to ensure that we depend on the exact same version that was used to
         # build our extension modules.

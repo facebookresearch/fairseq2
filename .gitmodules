@@ -7,3 +7,6 @@
 [submodule "third-party/gtest"]
 	path = third-party/gtest
 	url = https://github.com/google/googletest.git
+[submodule "third-party/sentencepiece"]
+	path = third-party/sentencepiece
+	url = https://github.com/google/sentencepiece.git

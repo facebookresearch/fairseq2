@@ -4,14 +4,23 @@ Classes
 
 .. currentmodule:: fairseq2
 
+
+.. toctree::
+    data/data_pipeline
+    data/data_pipeline_builder
+    data/string
+    data/list_files
+    data/read_sequence
+    data/zip_data_pipelines
+
 .. autosummary::
     :toctree: generated/classes
     :nosignatures:
 
-    data.IDict
-    data.IList
-    data.IString
-    data.IVariant
+    data.DataPipeline
+    data.DataPipelineBuilder
+    data.StringLike
+    data.Tape
     nn.Embedding
     nn.IncrementalState
     nn.IncrementalStateBag
