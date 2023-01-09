@@ -16,7 +16,7 @@ from setuptools.errors import FileError  # type: ignore[attr-defined]
 
 class Distribution(DistributionBase):
     # We have to explicitly mark the distribution as non-pure since we will
-    # inject our pre-built extension modules into it.
+    # inject our pre-built extension module into it.
     def has_ext_modules(self) -> bool:
         return True
 
@@ -171,7 +171,7 @@ setup(
         "tbb~=2021.8",
         # PyTorch has no ABI compatibility between releases; this means we have
         # to ensure that we depend on the exact same version that was used to
-        # build our extension modules.
+        # build our extension module.
         "torch==" + torch.__version__,
         "torcheval",
         "torchtnt~=0.0.4",

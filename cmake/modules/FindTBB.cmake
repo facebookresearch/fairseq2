@@ -32,8 +32,6 @@ if(TBB_INCLUDE_DIR)
     set(TBB_VERSION 2021.8.0)
 endif()
 
-unset(base_dir)
-
 find_package_handle_standard_args(TBB
     REQUIRED_VARS
         TBB_LIBRARY TBBMALLOC_LIBRARY TBB_INCLUDE_DIR
@@ -41,11 +39,13 @@ find_package_handle_standard_args(TBB
         TBB_VERSION
 )
 
+unset(base_dir)
+
 if(TBB_FOUND)
     if(NOT TARGET TBB::tbb)
         add_library(TBB::tbb SHARED IMPORTED)
 
-        set_target_properties(TBB::tbb PROPERTIES IMPORTED_LOCATION ${TBB_LIBRARY})
+        set_property(TARGET TBB::tbb PROPERTY IMPORTED_LOCATION ${TBB_LIBRARY})
 
         target_include_directories(TBB::tbb INTERFACE ${TBB_INCLUDE_DIR})
     endif()
@@ -53,7 +53,7 @@ if(TBB_FOUND)
     if(NOT TARGET TBB::tbbmalloc)
         add_library(TBB::tbbmalloc SHARED IMPORTED)
 
-        set_target_properties(TBB::tbbmalloc PROPERTIES IMPORTED_LOCATION ${TBBMALLOC_LIBRARY})
+        set_property(TARGET TBB::tbbmalloc PROPERTY IMPORTED_LOCATION ${TBBMALLOC_LIBRARY})
 
         target_include_directories(TBB::tbbmalloc INTERFACE ${TBB_INCLUDE_DIR})
     endif()

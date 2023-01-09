@@ -40,8 +40,8 @@ git clone --recurse-submodules https://github.com/fairinternal/fairseq2.git
 Note the `--recurse-submodules` option that asks Git to clone the
 [third-party](third-party) dependencies along with fairseq2. If you have already
 cloned fairseq2 without `--recurse-submodules` before reading these
-instructions, you can run the following command in your cloned repository to get
-the same effect:
+instructions, you can run the following command in your cloned repository to
+achieve the same effect:
 
 ```
 git submodule update --init --recursive
@@ -83,8 +83,8 @@ Follow the instructions at [pytorch.org](https://pytorch.org/get-started) to
 install PyTorch (in your virtual environment). Note that fairseq2 supports only
 PyTorch 1.11 and later.
 
-### 5. Build the C++ Extension Modules
-The final step before installing fairseq2 is to build its C++ extension modules.
+### 5. Build the C++ Extension Module
+The final step before installing fairseq2 is to build its C++ extension module.
 Run the following command at the root directory of your repository to configure
 the build:
 
@@ -92,7 +92,7 @@ the build:
 cmake -GNinja -B build
 ```
 
-Once the configuration step is complete, build the extension modules using:
+Once the configuration step is complete, build the extension module using:
 
 ```
 cmake --build build
@@ -104,15 +104,17 @@ out the advanced build options in [CMakeLists.txt](CMakeLists.txt).
 
 **CUDA Builds**
 
-By default, if the installed PyTorch has CUDA support, this will be inferred
-during the configuration step and fairseq2 will be built using the same version
-of CUDA. If, for any reason, you do not want to build fairseq2 with CUDA, you
-can set the `FAIRSEQ2_USE_CUDA` option to `OFF` and disable the default
-behavior:
+If you would like to build fairseq2's CUDA kernels, set the `FAIRSEQ2_USE_CUDA`
+option `ON`. When turned on, the version of the CUDA Toolkit and the version of
+CUDA that was used to build PyTorch must match.
 
 ```
-cmake -GNinja -DFAIRSEQ2_USE_CUDA=OFF -B build
+cmake -GNinja -DFAIRSEQ2_USE_CUDA=ON -B build
 ```
+
+If you are on a compute cluster with `module` support (e.g. FAIR Cluster), you
+can typically activate a specific CUDA Toolkit version by
+`module load cuda/<VERSION>`.
 
 **CUDA Architectures**
 
@@ -123,20 +125,20 @@ option. For instance, the following configuration generates binary and PTX codes
 for the Ampere architecture (e.g. for A100).
 
 ```
-cmake -GNinja -DCMAKE_CUDA_ARCHITECTURES="80-real;80-virtual" -B build
+cmake -GNinja -DCMAKE_CUDA_ARCHITECTURES="80-real;80-virtual" -DFAIRSEQ2_USE_CUDA=ON -B build
 ```
 
 ### 6. Install the Package
-Once you have built the extension modules, the actual Python package
-installation is pretty straightforward:
+Once you have built the extension module, the actual Python package installation
+is pretty straightforward:
 
 ```
 pip install .
 ```
 
 If you plan to play with fairseq2, you can also install it in
-[develop](https://pip.pypa.io/en/stable/cli/pip_install/#cmdoption-e) (a.k.a.
-editable) mode:
+[editable](https://pip.pypa.io/en/stable/cli/pip_install/#cmdoption-e) (a.k.a.
+develop) mode:
 
 ```
 pip install -e .

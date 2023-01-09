@@ -13,7 +13,6 @@ macro(fairseq2_add_gtest)
         # We depend on the phony torch_cxx11_abi target to ensure that we use
         # the same libstdc++ ABI as PyTorch.
         target_link_libraries(gtest PRIVATE torch_cxx11_abi)
-        target_link_libraries(gtest_main PRIVATE torch_cxx11_abi)
     endif()
 
     include(GoogleTest)

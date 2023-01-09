@@ -73,27 +73,23 @@ jobs:
         run: |
           {
             for sanitizer in ${SANITIZERS//_/ }; do
-              if [[ $sanitizer == asan || $sanitizer == tsan ]]; then
-                # LIBASAN and LIBTSAN environment variables are defined in the
-                # container image.
-                echo SANITIZER_LIB=LIB${sanitizer^^}
+              # LIBASAN and LIBTSAN environment variables are defined in the
+              # container image.
+              if [[ $sanitizer == asan ]]; then
+                echo LSAN_OPTIONS=suppressions=LSan.supp,exitcode=0,log_path=$HOME/lsan.out
 
-                if [[ $sanitizer == asan ]]; then
-                  echo LSAN_OPTIONS=suppressions=LSan.supp,exitcode=0,log_path=$HOME/lsan.out
-                fi
+                echo SANITIZER_LIB=$(echo $LIBASAN)
+
+                break
+              fi
+
+              if [[ $sanitizer == tsan ]]; then
+                echo SANITIZER_LIB=$(echo $LIBTSAN)
 
                 break
               fi
             done
           } >> $GITHUB_ENV
-      - name: Run the native tests
-        run: |
-          chmod 755 ~/tests/run-tests
-
-          lib_path=$(python -c "from fairseq2 import get_lib; print(get_lib())")
-
-          LD_LIBRARY_PATH=$lib_path LD_PRELOAD=${!SANITIZER_LIB}\
-            ~/tests/run-tests
       - name: Run the Python tests
         env:
           RUN_ON_CUDA: ${{ inputs.run_on_cuda }}
@@ -104,7 +100,7 @@ jobs:
             dev=cuda:0
           fi
 
-          LD_PRELOAD=${!SANITIZER_LIB} pytest tests/ --device $dev --verbose
+          LD_PRELOAD=${SANITIZER_LIB} pytest tests/ --device $dev --verbose
       - name: Check the output of the leak sanitizer
         if: env.LSAN_OPTIONS != ''
         run: |

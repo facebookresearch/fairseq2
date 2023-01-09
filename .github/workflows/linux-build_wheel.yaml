@@ -69,6 +69,10 @@ jobs:
           # We build our CUDA kernels for Volta and Ampere.
           if [[ $VARIANT == cu* ]]; then
             cuda_archs="70-real;80-real;80-virtual"
+
+            cuda=ON
+          else
+            cuda=OFF
           fi
 
           # Since they do not play well together, we perform LTO only if no
@@ -82,10 +86,11 @@ jobs:
           cmake -GNinja\
                 -DCMAKE_BUILD_TYPE=Release\
                 -DCMAKE_CUDA_ARCHITECTURES=$cuda_archs\
-                -DFAIRSEQ2_TREAT_WARNINGS_AS_ERRORS=ON\
-                -DFAIRSEQ2_PERFORM_LTO=$lto\
                 -DFAIRSEQ2_EDITABLE_PYTHON=OFF\
-                -DFAIRSEQ2_SANITIZERS="${sanitizers/_/;}"\
+                -DFAIRSEQ2_PERFORM_LTO=$lto\
+                -DFAIRSEQ2_SANITIZERS="${SANITIZERS/_/;}"\
+                -DFAIRSEQ2_TREAT_WARNINGS_AS_ERRORS=ON\
+                -DFAIRSEQ2_USE_CUDA=$cuda\
                 -B build
 
           cmake --build build

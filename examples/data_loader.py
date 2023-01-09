@@ -49,10 +49,10 @@ def build_lang_pipeline(
             # line. We trim each line's end, effectively removing the newline
             # character.
             read_text(pathname, rtrim=True, memory_map=True)
-            # We batch every 16 lines. We return a partial batch at the end.
+            # We batch every 128 lines. We return a partial batch at the end.
             # This is fine since our SentencePiece encoder (see below) handles
             # both vertical and horizontal padding.
-            .batch(2048, drop_remainder=False)
+            .batch(128, drop_remainder=False)
             # Tokenize the batch of text lines.
             .map(encoder)
             # Replace <bos> with the language token.
