@@ -6,7 +6,12 @@
 
 #pragma once
 
+#include <pybind11/functional.h>
+#include <pybind11/operators.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+
 #include "fairseq2/extension/type_casters/data.h"
-#include "fairseq2/extension/type_casters/py_object.h"
+#include "fairseq2/extension/type_casters/py.h"
 #include "fairseq2/extension/type_casters/string.h"
 #include "fairseq2/extension/type_casters/torch.h"

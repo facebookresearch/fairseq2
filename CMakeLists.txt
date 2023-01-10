@@ -59,18 +59,6 @@ option(FAIRSEQ2_RUN_CLANG_TIDY
     #VALUE
         OFF
 )
-option(FAIRSEQ2_TREAT_WARNINGS_AS_ERRORS
-    #DESCRIPTION
-        "Treats compilation warnings as errors."
-    #VALUE
-        OFF
-)
-option(FAIRSEQ2_USE_CUDA
-    #DESCRIPTION
-        "Builds the CUDA kernels."
-    #VALUE
-        OFF
-)
 
 set(FAIRSEQ2_SANITIZERS
     #VALUE
@@ -85,12 +73,25 @@ set_property(CACHE FAIRSEQ2_SANITIZERS PROPERTY
         "" "asan" "ubsan" "tsan"
 )
 
+option(FAIRSEQ2_TREAT_WARNINGS_AS_ERRORS
+    #DESCRIPTION
+        "Treats compilation warnings as errors."
+    #VALUE
+        OFF
+)
+option(FAIRSEQ2_USE_CUDA
+    #DESCRIPTION
+        "Builds the CUDA kernels."
+    #VALUE
+        OFF
+)
+
 # ------------------------------------------------------------
 # Dependencies
 # ------------------------------------------------------------
 
-# Some dependencies transitively use the pthreads library. This option ensures
-# that they use the -pthread flag.
+# Some dependencies transitively use the pthreads API. This option ensures that
+# they use the -pthread flag.
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module)

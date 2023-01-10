@@ -94,6 +94,8 @@ jobs:
         include:
           - variant: 'cpu'
             sanitizers: 'asan_ubsan'
+          - variant: 'cpu'
+            sanitizers: 'tsan'
           - variant: 'cu116'
             sanitizers: 'nosan'
     uses: ./.github/workflows/linux-build_wheel.yaml
@@ -109,7 +111,7 @@ jobs:
     needs: [x86_64_pt113_cpu-build, x86_64_pt113-build]
     strategy:
       matrix:
-        sanitizers: ['nosan', 'asan_ubsan']
+        sanitizers: ['nosan', 'asan_ubsan', 'tsan']
     uses: ./.github/workflows/linux-run_tests.yaml
     with:
       py: '3.8'

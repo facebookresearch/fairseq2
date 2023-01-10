@@ -17,7 +17,7 @@
 
 #include <fairseq2/native/data/immutable_string.h>
 
-#include "fairseq2/extension/type_casters/py_object.h"
+#include "fairseq2/extension/type_casters/py.h"
 #include "fairseq2/extension/type_casters/string.h"
 #include "fairseq2/extension/type_casters/torch.h"
 

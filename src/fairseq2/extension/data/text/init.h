@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <pybind11/pybind11.h>
+#include "fairseq2/extension/pybind11.h"
 
 namespace fairseq2 {
 

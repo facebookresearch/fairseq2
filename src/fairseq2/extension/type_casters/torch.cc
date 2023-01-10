@@ -8,7 +8,37 @@
 
 #include <stdexcept>
 
-#include "fairseq2/extension/type_casters/torch_api.h"
+#include "fairseq2/extension/type_casters/string.h"
+
+// Taken from <torch/csrc/autograd/python_variable.h>
+struct THPVariable {
+    PyObject_HEAD
+    at::MaybeOwned<at::Tensor> cdata;
+};
+
+extern PyObject *THPVariableClass;
+
+PyObject *THPVariable_Wrap(at::TensorBase var);
+
+// Taken from <torch/csrc/Device.h>
+// NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init)
+struct THPDevice {
+    PyObject_HEAD
+    at::Device device;
+};
+
+extern PyTypeObject THPDeviceType;
+
+PyObject *THPDevice_New(const at::Device &device);
+
+// Taken from <torch/csrc/Dtype.h>
+struct THPDtype {
+    PyObject_HEAD
+    at::ScalarType scalar_type;
+};
+
+extern PyTypeObject THPDtypeType;
+
 
 namespace pybind11 {
 

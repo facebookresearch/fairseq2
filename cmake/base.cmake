@@ -72,8 +72,8 @@ function(fairseq2_set_compile_options target)
 
         target_compile_definitions(${target} PRIVATE $<$<CONFIG:Debug>:_GLIBCXX_ASSERTIONS>)
     else()
-        if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 7)
-            message(FATAL_ERROR "fairseq2 requires Clang 7 or greater!")
+        if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 12)
+            message(FATAL_ERROR "fairseq2 requires Clang 12 or greater!")
         endif()
 
         target_compile_options(${target}

@@ -90,6 +90,12 @@ jobs:
               fi
             done
           } >> $GITHUB_ENV
+      - name: Run the native tests
+        run: |
+          chmod 755 ~/tests/run-tests
+
+          LD_LIBRARY_PATH=~/venv/lib/python${{ inputs.py }}/site-packages/fairseq2/lib\
+            ~/tests/run-tests
       - name: Run the Python tests
         env:
           RUN_ON_CUDA: ${{ inputs.run_on_cuda }}

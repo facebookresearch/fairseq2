@@ -21,7 +21,7 @@ macro(__torch_determine_version)
         message(FATAL_ERROR "fairseq2 cannot determine the PEP 440 version of PyTorch!")
     endif()
 
-    if(TORCH_PEP440_VERSION MATCHES "^[0-9]+\.[0-9]+\.[0-9]")
+    if(TORCH_PEP440_VERSION MATCHES "^[0-9]+\.[0-9]+(\.[0-9]+)?")
         set(TORCH_VERSION ${CMAKE_MATCH_0})
     endif()
 

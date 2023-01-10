@@ -78,7 +78,7 @@ jobs:
           # Since they do not play well together, we perform LTO only if no
           # sanitizer is used.
           if [[ $SANITIZERS == nosan ]]; then
-            lto=OFF
+            lto=ON
           else
             lto=OFF
           fi

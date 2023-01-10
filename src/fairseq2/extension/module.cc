@@ -6,9 +6,8 @@
 
 #include <fairseq2/native/config.h>
 
-#include <pybind11/pybind11.h>
-
 #include "fairseq2/extension/data/init.h"
+#include "fairseq2/extension/pybind11.h"
 
 namespace py = pybind11;
 

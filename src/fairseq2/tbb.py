@@ -6,7 +6,6 @@
 
 import sys
 from ctypes import CDLL, RTLD_GLOBAL
-from ctypes.util import find_library
 from pathlib import PurePath
 from typing import Optional
 
@@ -15,19 +14,22 @@ _tbb: Optional[CDLL] = None
 
 
 def _load() -> None:
-    filename = find_library("tbb")
-
     if sys.platform == "darwin":
         dso_name = "libtbb.12.dylib"
     else:
         dso_name = "libtbb.so.12"
 
-    # If the system already provides TBB, skip the rest. The dynamic linker will
-    # resolve it later.
-    if filename == dso_name:
-        return
-
     global _tbb
+
+    # If the system already provides TBB, skip the rest. The dynamic linker will
+    # resolve it later. Do not use ctypes' find_library here since it hangs when
+    # run under ThreadSanitizer.
+    try:
+        _tbb = CDLL(dso_name, mode=RTLD_GLOBAL)
+    except OSError:
+        pass
+    else:
+        return
 
     # Otherwise, load it from the tbb PyPI package if installed.
     lib_path = PurePath(sys.executable).parent.parent.joinpath("lib", dso_name)

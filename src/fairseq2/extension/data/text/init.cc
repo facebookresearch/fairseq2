@@ -14,14 +14,10 @@
 #include <utility>
 #include <vector>
 
-#include <pybind11/stl.h>
-
 #include <fairseq2/native/data/data_pipeline.h>
 #include <fairseq2/native/data/data_processor.h>
 #include <fairseq2/native/data/text/sentencepiece/sentencepiece.h>
 #include <fairseq2/native/data/text/text.h>
-
-#include "fairseq2/extension/type_casters/type_casters.h"
 
 namespace py = pybind11;
 

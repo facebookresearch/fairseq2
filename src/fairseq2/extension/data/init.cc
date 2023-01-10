@@ -17,9 +17,6 @@
 #include <vector>
 
 #include <fmt/core.h>
-#include <pybind11/functional.h>
-#include <pybind11/operators.h>
-#include <pybind11/stl.h>
 
 #include <fairseq2/native/data/data.h>
 #include <fairseq2/native/data/data_pipeline.h>
@@ -31,7 +28,6 @@
 #include <fairseq2/native/utils/string.h>
 
 #include "fairseq2/extension/data/text/init.h"
-#include "fairseq2/extension/type_casters/type_casters.h"
 
 namespace py = pybind11;
 

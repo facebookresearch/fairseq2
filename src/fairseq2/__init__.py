@@ -15,7 +15,7 @@ __all__ = [
 ]
 
 # We import torch to ensure that libtorch.so is loaded into the process before
-# our extension modules.
+# our extension module.
 import torch  # noqa: F401
 
 from fairseq2 import tbb
