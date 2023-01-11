@@ -5,9 +5,10 @@ from typing import Any, Dict, Optional, Tuple
 import torch
 from torch import Tensor
 
-import fairseq2.nn
+from fairseq2.compat.nn import FairseqSinusoidalPositionalEmbedding
 from fairseq2.generate import SpmTokenizer
 from fairseq2.nn import transformer
+from fairseq2.nn.positional_embedding import PositionalEmbedding
 from fairseq2.typing import DataType, Device
 
 TODO = "TODO, please reachout to prioritize this"
@@ -61,8 +62,8 @@ class Fairseq1TransformerBuilder(transformer.TransformerBuilder):
             dtype=dtype,
         )
 
-    def build_positional_embedding(self) -> Optional[fairseq2.nn.PositionalEmbedding]:
-        return fairseq2.nn.HighPassSinusoidalPositionalEmbedding(
+    def build_positional_embedding(self) -> Optional[PositionalEmbedding]:
+        return FairseqSinusoidalPositionalEmbedding(
             max_seq_len=self.max_seq_len,
             embedding_dim=self.model_dim,
             padding_token_idx=1,

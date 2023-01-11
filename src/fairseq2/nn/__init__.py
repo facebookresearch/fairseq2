@@ -8,7 +8,6 @@ from fairseq2.nn.embedding import Embedding
 from fairseq2.nn.incremental_state import IncrementalState, IncrementalStateBag
 from fairseq2.nn.module_list import ModuleList
 from fairseq2.nn.positional_embedding import (
-    HighPassSinusoidalPositionalEmbedding,
     LearnedPositionalEmbedding,
     PositionalEmbedding,
     SinusoidalPositionalEmbedding,
@@ -24,7 +23,6 @@ __all__ = [
     "Embedding",
     "IncrementalState",
     "IncrementalStateBag",
-    "HighPassSinusoidalPositionalEmbedding",
     "LearnedPositionalEmbedding",
     "Linear",
     "ModuleList",
