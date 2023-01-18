@@ -39,7 +39,7 @@ def _assert_embedding_is_backward_compatible(
     seq = torch.arange(pad_idx + 1, pad_idx + 1 + 2 * n).reshape(2, -1)
     seq[:, -3:] = pad_idx
     a_pos = a(seq)
-    b_pos = b(seq)
+    b_pos = b(torch.zeros(1), seq)
     assert_equal(a_pos[0], a_pos[1])
     assert_equal(b_pos[0], b_pos[1])
     assert_close(a_pos[0], b_pos[0])

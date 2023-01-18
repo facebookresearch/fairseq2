@@ -253,10 +253,8 @@ class StandardTransformerEncoder(TransformerEncoder):
         if self.embed_scale != 1.0:
             x = x * self.embed_scale
 
-        # TODO: quant noise?
-
         if self.pos_embed is not None:
-            x = x + self.pos_embed(seq)
+            x = self.pos_embed(x, seq)
 
         if self.embed_norm is not None:
             x = self.embed_norm(x)

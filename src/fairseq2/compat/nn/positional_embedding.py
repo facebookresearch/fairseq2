@@ -22,14 +22,12 @@ from fairseq2.typing import DataType, Device
 
 @final
 class FairseqSinusoidalPositionalEmbedding(PositionalEmbedding):
-    """Produces sinusoidal positional embeddings compatible with the original
-    fairseq.
+    """Produces sinusoidal positional embeddings.
 
     .. warning::
-        This class SHOULD NOT be used for any new code as it produces incorrect
-        embeddings. It is made available only to load original fairseq models in
-        fairseq2. Check out :class:`~fairseq2.nn.SinusoidalPositionalEmbedding`
-        for its replacement.
+        This class SHOULD NOT be used for new code as it produces positional
+        embeddings that do not match tensor2tensor. Check out
+        :class:`~fairseq2.nn.SinusoidalPositionalEmbedding` for its replacement.
     """
 
     weight: Tensor
@@ -73,7 +71,9 @@ class FairseqSinusoidalPositionalEmbedding(PositionalEmbedding):
         self.weight[:padding_token_idx, :] = float("nan")
 
     @finaloverride
-    def _forward_core(self, seq: Tensor, incremental_eval: bool) -> Tensor:
+    def _forward_core(
+        self, embed: Tensor, seq: Tensor, incremental_eval: bool
+    ) -> Tensor:
         """:meta private:"""
         bsz, seq_len = seq.shape
 
@@ -88,4 +88,6 @@ class FairseqSinusoidalPositionalEmbedding(PositionalEmbedding):
         # Prevent the use of low frequency embeddings.
         ind += padding_token_idx
 
-        return self.weight.index_select(dim=0, index=ind.view(-1)).view(out_size)
+        pos_embed = self.weight.index_select(dim=0, index=ind.view(-1)).view(out_size)
+
+        return embed + pos_embed
