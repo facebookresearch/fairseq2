@@ -35,41 +35,8 @@ jobs:
     name: Lint the shell scripts
     uses: ./.github/workflows/lint_sh.yaml
 
-  linux_pt111-build:
-    name: Build the wheel (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.11, ${{ matrix.variant }}, nosan)
-    needs: [lint_cc, lint_py, lint_sh]
-    strategy:
-      matrix:
-        py: ['3.8', '3.9', '3.10']
-        arch: ['x86_64']
-        variant: ['cpu', 'cu113']
-    uses: ./.github/workflows/linux-build_wheel.yaml
-    with:
-      py: ${{ matrix.py }}
-      torch: '1.11'
-      arch: ${{ matrix.arch }}
-      variant: ${{ matrix.variant }}
-      dev_stamp: ${{ github.event_name == 'schedule' || inputs.release_type == 'nightly' }}
-
-  linux_pt111-test:
-    name: Run the tests (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.11, ${{ matrix.variant }}, nosan)
-    needs: linux_pt111-build
-    strategy:
-      matrix:
-        py: ['3.8', '3.9', '3.10']
-        arch: ['x86_64']
-#        variant: ['cpu', 'cu113']
-        variant: ['cpu']
-    uses: ./.github/workflows/linux-run_tests.yaml
-    with:
-      py: ${{ matrix.py }}
-      torch: '1.11'
-      arch: ${{ matrix.arch }}
-      variant: ${{ matrix.variant }}
-#      run_on_cuda:
-
   linux_pt112-build:
-    name: Build the wheel (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.12, ${{ matrix.variant }}, nosan)
+    name: Build the wheel (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.12.1, ${{ matrix.variant }}, nosan)
     needs: [lint_cc, lint_py, lint_sh]
     strategy:
       matrix:
@@ -85,7 +52,7 @@ jobs:
       dev_stamp: ${{ github.event_name == 'schedule' || inputs.release_type == 'nightly' }}
 
   linux_pt112-test:
-    name: Run the tests (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.12, ${{ matrix.variant }}, nosan)
+    name: Run the tests (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.12.1, ${{ matrix.variant }}, nosan)
     needs: linux_pt112-build
     strategy:
       matrix:
@@ -102,7 +69,7 @@ jobs:
 #      run_on_cuda:
 
   linux_pt113-build:
-    name: Build the wheel (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.13, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
+    name: Build the wheel (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.13.1, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
     needs: [lint_cc, lint_py, lint_sh]
     strategy:
       matrix:
@@ -122,14 +89,14 @@ jobs:
     uses: ./.github/workflows/linux-build_wheel.yaml
     with:
       py: ${{ matrix.py }}
-      torch: '1.13'
+      torch: '1.13.1'
       arch: ${{ matrix.arch }}
       variant: ${{ matrix.variant }}
       sanitizers: ${{ matrix.sanitizers }}
       dev_stamp: ${{ github.event_name == 'schedule' || inputs.release_type == 'nightly' }}
 
   linux_pt113-test:
-    name: Run the tests (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.13, ${{ matrix.variant }}, nosan)
+    name: Run the tests (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.13.1, ${{ matrix.variant }}, nosan)
     needs: linux_pt113-build
     strategy:
       matrix:
@@ -150,7 +117,7 @@ jobs:
     uses: ./.github/workflows/linux-run_tests.yaml
     with:
       py: ${{ matrix.py }}
-      torch: '1.13'
+      torch: '1.13.1'
       arch: ${{ matrix.arch }}
       variant: ${{ matrix.variant }}
       sanitizers: ${{ matrix.sanitizers }}
@@ -162,29 +129,11 @@ jobs:
     uses: ./.github/workflows/build_doc.yaml
     with:
       py: '3.8'
-      torch: '1.13'
-
-  linux_pt111-publish:
-    name: Publish the wheel (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.11, ${{ matrix.variant }})
-    needs: [linux_pt111-test, linux_pt112-test, linux_pt113-test, build_doc]
-    strategy:
-      max-parallel: 1
-      matrix:
-        py: ['3.8', '3.9', '3.10']
-        arch: ['x86_64']
-        variant: ['cpu', 'cu113']
-    uses: ./.github/workflows/publish_wheel.yaml
-    with:
-      release_type: ${{ inputs.release_type || 'nightly' }}
-      py: ${{ matrix.py }}
-      torch: '1.11'
-      os: 'linux'
-      arch: ${{ matrix.arch }}
-      variant: ${{ matrix.variant }}
+      torch: '1.13.1'
 
   linux_pt112-publish:
-    name: Publish the wheel (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.12, ${{ matrix.variant }})
-    needs: linux_pt111-publish
+    name: Publish the wheel (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.12.1, ${{ matrix.variant }})
+    needs: [linux_pt112-test, linux_pt113-test, build_doc]
     strategy:
       max-parallel: 1
       matrix:
@@ -201,7 +150,7 @@ jobs:
       variant: ${{ matrix.variant }}
 
   linux_pt113-publish:
-    name: Publish the wheel (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.13, ${{ matrix.variant }})
+    name: Publish the wheel (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.13.1, ${{ matrix.variant }})
     needs: linux_pt112-publish
     strategy:
       max-parallel: 1
@@ -213,7 +162,7 @@ jobs:
     with:
       release_type: ${{ inputs.release_type || 'nightly' }}
       py: ${{ matrix.py }}
-      torch: '1.13'
+      torch: '1.13.1'
       os: 'linux'
       arch: ${{ matrix.arch }}
       variant: ${{ matrix.variant }}

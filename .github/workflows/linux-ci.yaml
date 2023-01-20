@@ -40,8 +40,8 @@ jobs:
 
           echo doc_only=$doc_only >> "$GITHUB_OUTPUT"
 
-  x86_64_pt111-build:
-    name: Build the wheel (x86_64, py3.8, pt1.11, ${{ matrix.variant }}, nosan)
+  x86_64_pt112-build:
+    name: Build the wheel (x86_64, py3.8, pt1.12.1, ${{ matrix.variant }}, nosan)
     needs: check_files
     if: needs.check_files.outputs.doc_only == 'false'
     strategy:
@@ -50,43 +50,43 @@ jobs:
     uses: ./.github/workflows/linux-build_wheel.yaml
     with:
       py: '3.8'
-      torch: '1.11'
+      torch: '1.12.1'
       arch: 'x86_64'
       variant: ${{ matrix.variant }}
 
-  x86_64_pt111_cpu-test:
-    name: Run the tests (x86_64, py3.8, pt1.11, cpu, nosan)
-    needs: x86_64_pt111-build
+  x86_64_pt112_cpu-test:
+    name: Run the tests (x86_64, py3.8, pt1.12.1, cpu, nosan)
+    needs: x86_64_pt112-build
     uses: ./.github/workflows/linux-run_tests.yaml
     with:
       py: '3.8'
-      torch: '1.11'
+      torch: '1.12.1'
       arch: 'x86_64'
       variant: 'cpu'
 
-#  x86_64_pt111_cu113-test:
-#    name: Run the tests (x86_64, py3.8, pt1.11, cu113_nosan)
-#    needs: 86_64_pt111_cpu-test
+#  x86_64_pt112_cu113-test:
+#    name: Run the tests (x86_64, py3.8, pt1.12.1, cu113_nosan)
+#    needs: 86_64_pt112_cpu-test
 #    uses: ./.github/workflows/linux-run_tests.yaml
 #    with:
 #      py: '3.8'
-#      torch: '1.11'
+#      torch: '1.12.1'
 #      arch: 'x86_64'
 #      variant: 'cu113'
 #      run_on_cuda: true
 
   x86_64_pt113_cpu-build:
-    name: Build the wheel (x86_64, py3.8, pt1.13, cpu, nosan)
+    name: Build the wheel (x86_64, py3.8, pt1.13.1, cpu, nosan)
     needs: check_files
     uses: ./.github/workflows/linux-build_wheel.yaml
     with:
       py: '3.8'
-      torch: '1.13'
+      torch: '1.13.1'
       arch: 'x86_64'
       variant: 'cpu'
 
   x86_64_pt113-build:
-    name: Build the wheel (x86_64, py3.8, pt1.13, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
+    name: Build the wheel (x86_64, py3.8, pt1.13.1, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
     needs: check_files
     if: needs.check_files.outputs.doc_only == 'false'
     strategy:
@@ -101,13 +101,13 @@ jobs:
     uses: ./.github/workflows/linux-build_wheel.yaml
     with:
       py: '3.8'
-      torch: '1.13'
+      torch: '1.13.1'
       arch: 'x86_64'
       variant: ${{ matrix.variant }}
       sanitizers: ${{ matrix.sanitizers }}
 
   x86_64_pt113_cpu-test:
-    name: Run the tests (x86_64, py3.8, pt1.13, cpu, ${{ matrix.sanitizers }})
+    name: Run the tests (x86_64, py3.8, pt1.13.1, cpu, ${{ matrix.sanitizers }})
     needs: [x86_64_pt113_cpu-build, x86_64_pt113-build]
     strategy:
       matrix:
@@ -115,18 +115,18 @@ jobs:
     uses: ./.github/workflows/linux-run_tests.yaml
     with:
       py: '3.8'
-      torch: '1.13'
+      torch: '1.13.1'
       arch: 'x86_64'
       variant: 'cpu'
       sanitizers: ${{ matrix.sanitizers }}
 
 #  x86_64_pt113_cu116-test:
-#    name: Run the tests (x86_64, py3.8, pt1.13, cu116, nosan)
+#    name: Run the tests (x86_64, py3.8, pt1.13.1, cu116, nosan)
 #    needs: 86_64_pt113_cpu-test
 #    uses: ./.github/workflows/linux-run_tests.yaml
 #    with:
 #      py: '3.8'
-#      torch: '1.13'
+#      torch: '1.13.1'
 #      arch: 'x86_64'
 #      variant: 'cu116'
 #      run_on_cuda: true
@@ -137,4 +137,4 @@ jobs:
     uses: ./.github/workflows/build_doc.yaml
     with:
       py: '3.8'
-      torch: '1.13'
+      torch: '1.13.1'

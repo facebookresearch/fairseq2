@@ -81,7 +81,7 @@ addition to build dependencies. Check out our
 ### 4. Install PyTorch
 Follow the instructions at [pytorch.org](https://pytorch.org/get-started) to
 install PyTorch (in your virtual environment). Note that fairseq2 supports only
-PyTorch 1.11 and later.
+PyTorch 1.12.1 and later.
 
 ### 5. Build the C++ Extension Module
 The final step before installing fairseq2 is to build its C++ extension module.
