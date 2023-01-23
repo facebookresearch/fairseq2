@@ -148,14 +148,14 @@ pip install -e .
 To make sure that your installation has no issues, you can run the Python tests:
 
 ```
-python -m tests
+pytest
 ```
 
 By default, the tests will be run on CPU; optionally pass the `--device` (short
 form `-d`) argument to run them on a specific device (e.g. NVIDIA GPU).
 
 ```
-python -m tests --device cuda:1
+pytest --device cuda:1
 ```
 
 ## Contributing

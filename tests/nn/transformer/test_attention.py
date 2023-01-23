@@ -4,17 +4,19 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, Generator, Optional
+from typing import Any, Dict, Optional
 
+import pytest
 import torch
 import torch.nn.functional as F
 from torch import Tensor
 
 from fairseq2.nn.transformer.attention import default_scaled_dot_product_attention
-from tests.common import TestCase, tmp_rng_seed
+from tests.common import assert_close, device
+from tests.rng import tmp_rng_seed
 
 
-class TestScaledDotProductAttention(TestCase):
+class TestScaledDotProductAttention:
     # TODO: Replace with `naive_scaled_dot_product_attention`.
     @staticmethod
     def _compute_attn(
@@ -39,7 +41,21 @@ class TestScaledDotProductAttention(TestCase):
 
         return torch.bmm(attn_weights, values)
 
-    def _get_test_args(self) -> Generator[Dict[str, Any], None, None]:
+    # fmt: off
+    @pytest.mark.parametrize(
+        "mask,dropout_p,training",
+        [
+            (False, 0.0, True),
+            (True,  0.0, True),
+            (False, 0.5, True),
+            (True,  0.5, True),
+            (False, 0.5, False),
+        ],
+    )
+    # fmt: on
+    def test_function_computes_expected_attention(
+        self, mask: bool, dropout_p: float, training: bool
+    ) -> None:
         N = 2  # Batch
         S = 3  # Source Sequence
         T = 2  # Target Sequence
@@ -47,7 +63,7 @@ class TestScaledDotProductAttention(TestCase):
         V = 3  # Value
 
         def t(*args: int) -> Tensor:
-            return torch.randn(*args, device=self.device)
+            return torch.randn(*args, device=device)
 
         def q() -> Tensor:
             return t(N, T, K)
@@ -61,21 +77,19 @@ class TestScaledDotProductAttention(TestCase):
         def m() -> Tensor:
             return t(T, S)
 
-        # fmt: off
-        yield {"queries": q(), "keys": k(), "values": v(), "mask": None, "dropout_p": 0.0, "training": True}
-        yield {"queries": q(), "keys": k(), "values": v(), "mask": m(),  "dropout_p": 0.0, "training": True}
-        yield {"queries": q(), "keys": k(), "values": v(), "mask": None, "dropout_p": 0.5, "training": True}
-        yield {"queries": q(), "keys": k(), "values": v(), "mask": m(),  "dropout_p": 0.5, "training": True}
-        yield {"queries": q(), "keys": k(), "values": v(), "mask": None, "dropout_p": 0.5, "training": False}
-        # fmt: on
+        kwargs: Dict[str, Any] = {
+            "queries": q(),
+            "keys": k(),
+            "values": v(),
+            "mask": m() if mask else None,
+            "dropout_p": dropout_p,
+            "training": training,
+        }
 
-    def test_function_computes_expected_attention(self) -> None:
-        for kwargs in self._get_test_args():
-            with self.subTest(**kwargs):
-                with tmp_rng_seed(self.device):
-                    attn, _ = default_scaled_dot_product_attention(**kwargs)
+        with tmp_rng_seed(device):
+            attn, _ = default_scaled_dot_product_attention(**kwargs)
 
-                with tmp_rng_seed(self.device):
-                    expected_attn = self._compute_attn(**kwargs)
+        with tmp_rng_seed(device):
+            expected_attn = self._compute_attn(**kwargs)
 
-                self.assertAllClose(attn, expected_attn)
+        assert_close(attn, expected_attn)

@@ -8,7 +8,7 @@ import fairseq2.generate
 import fairseq2.nn
 import fairseq2.nn.legacy_builder
 from fairseq2.typing import Device
-from tests.common import assert_close, assert_equal
+from tests.common import assert_close, assert_equal, device
 
 NLLB_MODELS = Path("/large_experiments/seamless/nllb/opensource/")
 NLLB_SMALL = NLLB_MODELS / "nllb_200_dense_distill_600m/checkpoint.pt"
@@ -22,7 +22,7 @@ FRA_1 = "Lundi, des scientifiques de l'École de médecine de l'Université de S
 FRA_5 = "Lundi, des scientifiques de l'École de médecine de l'Université de Stanford ont annoncé l'invention d'un nouvel outil de diagnostic capable de trier les cellules par type: une minuscule puce imprimable qui peut être fabriquée à l'aide d'imprimantes à jet d'encre standard à environ un centime chacun."
 
 
-def test_loading_nllb200_small(tmp_path: Path, device: Device) -> None:
+def test_loading_nllb200_small(tmp_path: Path) -> None:
     # Load fairseq1 checkpoint into fairseq2
     model2, tokenizer2, builder = fairseq2.nn.legacy_builder.load_fairseq1_checkpoint(
         NLLB_SMALL, NLLB_TOK, device

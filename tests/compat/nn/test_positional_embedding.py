@@ -8,7 +8,7 @@ import pytest
 import torch
 
 from fairseq2.compat.nn import FairseqSinusoidalPositionalEmbedding
-from tests.common import assert_close, assert_equal, assert_no_inf
+from tests.common import assert_close, assert_equal, has_no_inf, has_no_nan
 
 
 def test_sinusoidal_embedding_is_backward_compatible() -> None:
@@ -44,4 +44,5 @@ def _assert_embedding_is_backward_compatible(
     assert_equal(b_pos[0], b_pos[1])
     assert_close(a_pos[0], b_pos[0])
     assert_close(a_pos, b_pos)
-    assert_no_inf(b_pos)
+    assert has_no_inf(b_pos)
+    assert has_no_nan(b_pos)

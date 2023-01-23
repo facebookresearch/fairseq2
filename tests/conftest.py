@@ -1,27 +1,33 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+from argparse import ArgumentTypeError
+from typing import cast
+
 import pytest
-import torch
 
-from tests.common import TestCase
-
-# Hack around of https://github.com/pytorch/tnt/issues/285
-if not hasattr(torch.optim.lr_scheduler, "LRScheduler"):
-    setattr(torch.optim.lr_scheduler, "LRScheduler", torch.optim.lr_scheduler._LRScheduler)  # type: ignore
+import tests.common
+from fairseq2.typing import Device
 
 
-def pytest_addoption(parser: pytest.Parser, pluginmanager: None) -> None:
+def parse_device_arg(value: str) -> Device:
+    try:
+        return Device(value)
+    except RuntimeError:
+        raise ArgumentTypeError(f"'{value}' is not a valid device name.")
+
+
+# fmt: off
+def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption(
-        "--device",
-        default="cpu",
+        "--device", default="cpu", type=parse_device_arg,
         help="device on which to run tests (default: %(default)s)",
     )
+# fmt: on
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:
-    # This is only required because of the tests using TestCase
-    device = torch.device(session.config.getoption("device"))
-    TestCase.device = device
-
-
-@pytest.fixture(scope="session")
-def device(pytestconfig: pytest.Config) -> torch.device:
-    return torch.device(pytestconfig.getoption("device"))
+    tests.common.device = cast(Device, session.config.getoption("device"))

@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
 import functools
 from typing import Any, List
 
@@ -6,14 +12,18 @@ import torch
 
 from fairseq2.generate.search import BeamSearchStrategy
 from fairseq2.generate.tokenizer import TokenMeta
-from fairseq2.nn import transformer
+from fairseq2.nn.transformer import (
+    StoreAttentionWeights,
+    Transformer,
+    TransformerBuilder,
+)
 
 VOCAB_SIZE = 111
 
 
 @functools.lru_cache()
-def build_model() -> transformer.Transformer:
-    builder = transformer.TransformerBuilder(
+def build_model() -> Transformer:
+    builder = TransformerBuilder(
         num_enc_layers=2,
         num_dec_layers=2,
         num_tokens=VOCAB_SIZE,
@@ -35,8 +45,8 @@ def test_generate(prefix_tokens: Any) -> None:
     src_tokens = torch.tensor([[1, 2, 3, 4], [7, 8, 9, 10]], dtype=torch.int64)
 
     attn_weights: List[torch.Tensor] = []
-    hook = transformer.StoreAttentionWeights(attn_weights)
-    m.decoder.layers[0].enc_dec_attn.register_attn_weight_hook(hook)  # type: ignore
+    hook = StoreAttentionWeights(attn_weights)
+    m.decoder.layers[0].enc_dec_attn.register_attn_weight_hook(hook)  # type: ignore[index,union-attr]
 
     if prefix_tokens is not None:
         prefix_tokens = torch.tensor(prefix_tokens)

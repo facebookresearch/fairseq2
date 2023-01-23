@@ -4,66 +4,41 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import contextlib
-import typing as tp
-import unittest
+from typing import Any, List, Union
 
 import torch
 from torch import Tensor
 
 from fairseq2.typing import Device
 
-# Do not print stack frames from this module in assertion failures.
-__unittest = True
+# The default device that tests should use.
+#
+# Note that pytest can change the default device based on the provided command
+# line arguments.
+device = Device("cpu")
 
 
-class TestCase(unittest.TestCase):
-    # The default device that tests should use.
-    #
-    # Note that the test runner can change the default device based on the
-    # provided command line arguments.
-    device = torch.device("cpu")
-
-    def assertAllClose(self, a: Tensor, b: tp.Union[Tensor, tp.List[tp.Any]]) -> None:
-        """Asserts if ``a`` and ``b`` are element-wise equal within a tolerance."""
-        assert_close(a, b)
-
-
-def assert_close(a: Tensor, b: tp.Union[Tensor, tp.List[tp.Any]]) -> None:
-    """Asserts if ``a`` and ``b`` are element-wise equal within a tolerance."""
+def assert_close(a: Tensor, b: Union[Tensor, List[Any]]) -> None:
+    """Asserts that ``a`` and ``b`` are element-wise equal within a tolerance."""
     if not isinstance(b, Tensor):
-        b = torch.tensor(b)
+        b = torch.tensor(b, device=device)
+
     torch.testing.assert_close(a, b)  # type: ignore[attr-defined]
 
 
-def assert_equal(a: Tensor, b: tp.Union[Tensor, tp.List[tp.Any]]) -> None:
+def assert_equal(a: Tensor, b: Union[Tensor, List[Any]]) -> None:
+    """Asserts that ``a`` and ``b`` are element-wise equal."""
     if not isinstance(b, Tensor):
-        b = torch.tensor(b)
+        b = torch.tensor(b, device=device)
 
     torch.testing.assert_close(a, b, rtol=0, atol=0)  # type: ignore[attr-defined]
 
 
-def assert_no_inf(a: Tensor) -> None:
-    values = a.tolist()
-    assert torch.inf not in values
-    assert -torch.inf not in values
-    assert torch.nan not in values
+def has_no_inf(a: Tensor) -> bool:
+    """Indicates whether ``a`` has no positive or negative infinite element."""
+    return not torch.any(torch.isinf(a))
 
 
-@contextlib.contextmanager
-def tmp_rng_seed(device: Device, seed: int = 0) -> tp.Generator[None, None, None]:
-    """Sets a temporary manual RNG seed.
-
-    The RNG is reset to its original state once the block is exited.
-    """
-    device = torch.device(device)
-
-    if device.type == "cuda":
-        devices = [device]
-    else:
-        devices = []
-
-    with torch.random.fork_rng(devices):
-        torch.manual_seed(seed)
-
-        yield
+def has_no_nan(a: Tensor) -> bool:
+    """Indicates whether  ``a`` has no NaN element."""
+    return not torch.any(torch.isnan(a))

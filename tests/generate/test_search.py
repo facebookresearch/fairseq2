@@ -3,7 +3,7 @@ import torch
 
 from fairseq2.generate import search
 from fairseq2.generate.tokenizer import TokenMeta
-from tests.common import assert_close, assert_equal, assert_no_inf
+from tests.common import assert_close, assert_equal, device, has_no_inf, has_no_nan
 
 
 def test_log_prob() -> None:
@@ -15,7 +15,8 @@ def test_log_prob() -> None:
                     [0.0, 0.0, 1.0, torch.nan],
                     [0.0, 0.0, 1.0, torch.inf],
                     [0.0, 0.0, 1.0, -torch.inf],
-                ]
+                ],
+                device=device,
             ),
             temperature=0.0,
             pad=0,
@@ -31,7 +32,7 @@ def test_log_prob() -> None:
 
 
 def test_force_token() -> None:
-    t = torch.tensor([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+    t = torch.tensor([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], device=device)
     search.force_token_(t, token=1)
 
     assert_equal(t, [[-torch.inf, 2.0, -torch.inf], [-torch.inf, 5.0, -torch.inf]])
@@ -40,13 +41,15 @@ def test_force_token() -> None:
 def test_prepare_state_noprefix() -> None:
     token_meta = TokenMeta(vocab_size=8, BOS=0, EOS=1, UNK=2, PAD=3)
     bs = search.BeamSearchStrategy(token_meta=token_meta, max_len=100, beam_size=3)
-    src_tokens = torch.tensor([[1, 2, 3, 4], [7, 8, 9, 10]], dtype=torch.int64)
+    src_tokens = torch.tensor(
+        [[1, 2, 3, 4], [7, 8, 9, 10]], dtype=torch.int64, device=device
+    )
 
     # min(100, 2 * 4 + 10) -> 18
     exp_max_len = 18
     # (bsz:2, beam_size:3, (exp_max_len:18 + 2))
     # (2, 3, 20)
-    expected_tokens = torch.full((2, 3, 20), token_meta.PAD)
+    expected_tokens = torch.full((2, 3, 20), token_meta.PAD, device=device)
     expected_tokens[:, :, 0] = token_meta.BOS
 
     s = bs.new_search_job(src_tokens)
@@ -55,10 +58,10 @@ def test_prepare_state_noprefix() -> None:
     assert s.n_prefix_tokens == 1
     assert s.max_len == exp_max_len
     assert_equal(s.tokens, expected_tokens)
-    assert_equal(s.scores, torch.zeros((2, 3, 20)))
+    assert_equal(s.scores, torch.zeros((2, 3, 20), device=device))
     assert_equal(
         s.finished_mask,  # (bsz, beam_size)
-        torch.tensor([[False, False, False], [False, False, False]]),
+        torch.tensor([[False, False, False], [False, False, False]], device=device),
     )
 
 
@@ -67,14 +70,16 @@ def test_prepare_state_noprefix_maxlen() -> None:
 
     bs = search.BeamSearchStrategy(token_meta=token_meta, max_len=10, beam_size=1)
 
-    src_tokens = torch.tensor([[1, 2, 3, 4], [7, 8, 9, 10]], dtype=torch.int64)
+    src_tokens = torch.tensor(
+        [[1, 2, 3, 4], [7, 8, 9, 10]], dtype=torch.int64, device=device
+    )
 
     # min(10, 2 * 4 + 10) -> 10
     exp_max_len = 10
 
     # (bsz:2, beam_size:1, (exp_max_len:10 + 2))
     # (2, 12)
-    expected_tokens = torch.full((2, 1, 12), token_meta.PAD)
+    expected_tokens = torch.full((2, 1, 12), token_meta.PAD, device=device)
     expected_tokens[:, :, 0] = token_meta.BOS
 
     s = bs.new_search_job(src_tokens)
@@ -88,8 +93,10 @@ def test_prepare_state_prefix_single() -> None:
     token_meta = TokenMeta(vocab_size=8, BOS=0, EOS=1, UNK=2, PAD=3)
 
     bs = search.BeamSearchStrategy(token_meta=token_meta, max_len=10, beam_size=2)
-    src_tokens = torch.tensor([[1, 2, 3, 4], [7, 8, 9, 10]], dtype=torch.int64)
-    prefix_tokens = torch.tensor([99, 17], dtype=torch.int64)
+    src_tokens = torch.tensor(
+        [[1, 2, 3, 4], [7, 8, 9, 10]], dtype=torch.int64, device=device
+    )
+    prefix_tokens = torch.tensor([99, 17], dtype=torch.int64, device=device)
 
     # min(100, 2 * 4 + 10) -> 18
     exp_max_len = 10
@@ -105,7 +112,8 @@ def test_prepare_state_prefix_single() -> None:
                 [99, 17, P, P, P, P, P, P, P, P, P, P],
                 [99, 17, P, P, P, P, P, P, P, P, P, P],
             ],
-        ]
+        ],
+        device=device,
     )
 
     state = bs.new_search_job(src_tokens=src_tokens, prefix_tokens=prefix_tokens)
@@ -118,7 +126,7 @@ def test_prepare_state_prefix_single() -> None:
     assert_equal(state.scores, torch.zeros((2, 2, 10 + 2)))
     assert_equal(
         state.finished_mask,  # (bsz, beam_size)
-        torch.tensor([[False, False], [False, False]]),
+        torch.tensor([[False, False], [False, False]], device=device),
     )
 
 
@@ -552,7 +560,8 @@ def test_log_prob_below_min() -> None:
 
     # Since we aren't forcing EOS, other tokens should not have -inf
     assert step < bs.max_len, (step, bs.max_len)
-    assert_no_inf(lprobs[:, a_idx])
+    assert has_no_inf(lprobs[:, a_idx])
+    assert has_no_nan(lprobs[:, a_idx])
 
     # Since we've not yet reached min_len, EOS should have -inf.
     assert step < bs.min_len, (step, bs.min_len)
@@ -587,11 +596,13 @@ def test_log_prob_running() -> None:
 
     # Since we aren't forcing EOS, other tokens should not have -inf
     assert step < bs.max_len, (step, bs.max_len)
-    assert_no_inf(lprobs[:, a_idx])
+    assert has_no_inf(lprobs[:, a_idx])
+    assert has_no_nan(lprobs[:, a_idx])
 
     # Since we aren't preventing EOS, EOS should not have -inf
     assert step > bs.min_len, (step, bs.min_len)
-    assert_no_inf(lprobs[:, token_meta.EOS])
+    assert has_no_inf(lprobs[:, token_meta.EOS])
+    assert has_no_nan(lprobs[:, token_meta.EOS])
 
 
 def test_log_prob_above_max() -> None:
@@ -616,7 +627,8 @@ def test_log_prob_above_max() -> None:
     assert step >= bs.max_len, (step, bs.max_len)
     assert lprobs[:, a_idx].tolist() == [-torch.inf, -torch.inf]
     # And EOS should not have -inf
-    assert_no_inf(lprobs[:, token_meta.EOS])
+    assert has_no_inf(lprobs[:, token_meta.EOS])
+    assert has_no_nan(lprobs[:, token_meta.EOS])
 
 
 def test_stretch_to_beams() -> None:
