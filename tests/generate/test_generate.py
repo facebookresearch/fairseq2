@@ -12,11 +12,8 @@ import torch
 
 from fairseq2.generate.search import BeamSearchStrategy
 from fairseq2.generate.tokenizer import TokenMeta
-from fairseq2.nn.transformer import (
-    StoreAttentionWeights,
-    Transformer,
-    TransformerBuilder,
-)
+from fairseq2.models.transformer import Transformer, TransformerBuilder
+from fairseq2.nn.transformer import StoreAttentionWeights
 
 VOCAB_SIZE = 111
 
@@ -24,12 +21,12 @@ VOCAB_SIZE = 111
 @functools.lru_cache()
 def build_model() -> Transformer:
     builder = TransformerBuilder(
+        num_tokens=VOCAB_SIZE,
+        max_seq_len=64,
+        model_dim=16,
         num_enc_layers=2,
         num_dec_layers=2,
-        num_tokens=VOCAB_SIZE,
-        model_dim=16,
         ffn_inner_dim=32,
-        max_seq_len=64,
     )
     return builder.build()
 

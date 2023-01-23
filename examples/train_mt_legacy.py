@@ -19,7 +19,7 @@ import fairseq2.optim.lr_scheduler
 from fairseq2.dataloader import Seq2SeqBatch
 from fairseq2.distributed import Env
 from fairseq2.generate.tokenizer import DictTokenizer
-from fairseq2.nn import transformer
+from fairseq2.models.transformer import Transformer, TransformerBuilder
 from fairseq2.tasks import TranslationTask
 from fairseq2.typing import Device
 
@@ -80,7 +80,7 @@ def tokenizer(
     return tokenizer
 
 
-class LegacyBuilder(transformer.TransformerBuilder):
+class LegacyBuilder(TransformerBuilder):
     # Just override some defaults.
     def __init__(
         self,
@@ -93,14 +93,14 @@ class LegacyBuilder(transformer.TransformerBuilder):
     ):
         super().__init__(
             num_tokens,
+            max_seq_len,
             num_enc_attn_heads=num_enc_attn_heads,
             num_dec_attn_heads=num_dec_attn_heads,
             ffn_inner_dim=ffn_inner_dim,
-            max_seq_len=max_seq_len,
             **kwargs,
         )
 
-    def build(self) -> transformer.Transformer:
+    def build(self) -> Transformer:
         """Build on CPU then push to GPU. This allows to use the CPU RNG seed, like fairseq1."""
         device = self.device
         dtype = self.dtype
@@ -130,16 +130,14 @@ def builder(env: Env, tokenizer: DictTokenizer) -> LegacyBuilder:
     )
 
 
-def model(builder: LegacyBuilder) -> transformer.Transformer:
+def model(builder: LegacyBuilder) -> Transformer:
     torchtnt.utils.seed(1)
     torch.cuda.manual_seed(1)
 
     return builder.build()
 
 
-def optimizer(
-    model: transformer.Transformer, weight_decay: float = 0.001
-) -> torch.optim.Optimizer:
+def optimizer(model: Transformer, weight_decay: float = 0.001) -> torch.optim.Optimizer:
     return torch.optim.Adam(
         model.parameters(),
         lr=1.0,

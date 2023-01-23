@@ -153,8 +153,6 @@ class StandardTransformerEncoder(TransformerEncoder):
         """
         fct_kwargs: Dict[str, Any] = {"device": device, "dtype": dtype}
 
-        embedding_dim = embed.embedding_dim
-
         layer_list = ModuleList(layers, layer_drop_p)
         if not layer_list:
             raise ValueError("`layers` must contain at least one encoder layer.")
@@ -173,6 +171,8 @@ class StandardTransformerEncoder(TransformerEncoder):
                 )
 
         super().__init__(model_dim, batch_first)
+
+        embedding_dim = embed.embedding_dim
 
         self.embed = embed
 

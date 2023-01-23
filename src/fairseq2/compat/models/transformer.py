@@ -7,12 +7,13 @@ from torch import Tensor
 
 from fairseq2.compat.nn import FairseqSinusoidalPositionalEmbedding
 from fairseq2.generate import SpmTokenizer
-from fairseq2.nn import transformer
+from fairseq2.models.transformer import Transformer, TransformerBuilder
 from fairseq2.nn.positional_embedding import PositionalEmbedding
+from fairseq2.nn.transformer import TransformerNormOrder
 from fairseq2.typing import DataType, Device
 
 TODO = "TODO, please reachout to prioritize this"
-FAIRSEQ1_PAD = 1
+FAIRSEQ_PAD = 1
 
 log = logging.getLogger(__name__)
 
@@ -24,9 +25,7 @@ def eq(*xs: int) -> int:
     return x0
 
 
-class Fairseq1TransformerBuilder(transformer.TransformerBuilder):
-    padding_token_idx: int
-
+class FairseqTransformerBuilder(TransformerBuilder):
     def __init__(
         self,
         cfg: Any,
@@ -50,12 +49,12 @@ class Fairseq1TransformerBuilder(transformer.TransformerBuilder):
             num_dec_attn_heads=cfg.decoder_attention_heads,
             ffn_inner_dim=eq(cfg.encoder_ffn_embed_dim, cfg.decoder_ffn_embed_dim),
             norm_order=(
-                transformer.TransformerNormOrder.PRE
+                TransformerNormOrder.PRE
                 if eq(cfg.encoder_normalize_before, cfg.decoder_normalize_before)
-                else transformer.TransformerNormOrder.POST
+                else TransformerNormOrder.POST
             ),
             dropout_p=cfg.dropout,
-            # Fairseq1 was always batch_first
+            # Fairseq was always batch_first
             batch_first=True,
             max_seq_len=eq(cfg.max_source_positions, cfg.max_target_positions),
             device=device,
@@ -99,7 +98,7 @@ def _upgrade_state_dict(cfg: Any, state_dict: Dict[str, Tensor]) -> None:
     state_dict.pop("encoder.version")
     state_dict.pop("decoder.version")
     if cfg.share_all_embeddings:
-        # Fairseq1 checkpoints have duplicated but equal matrices.
+        # Fairseq checkpoints have duplicated but equal matrices.
         state_dict["encoder.embed.weight"] = state_dict["score_proj.weight"]
         state_dict["decoder.embed.weight"] = state_dict["score_proj.weight"]
 
@@ -116,7 +115,7 @@ def load_fairseq1_checkpoint(
     spm_path: Path,
     device: Optional[Device] = None,
     dtype: Optional[DataType] = None,
-) -> Tuple[transformer.Transformer, SpmTokenizer, transformer.TransformerBuilder]:
+) -> Tuple[Transformer, SpmTokenizer, TransformerBuilder]:
 
     # TODO: this tuple is a bit weird, should we have a reference class for this tuple ?
     # I want the tokenizer and model to always go hand in hand.
@@ -143,7 +142,7 @@ def load_fairseq1_checkpoint(
 
     assert not getattr(cfg, "add_ssl_task_tokens", False), "TODO"
 
-    builder = Fairseq1TransformerBuilder(
+    builder = FairseqTransformerBuilder(
         cfg,
         num_tokens=tokenizer.vocab_size(),
         device=device,

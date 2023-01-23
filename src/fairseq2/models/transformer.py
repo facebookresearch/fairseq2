@@ -4,57 +4,144 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import hashlib
-from typing import Any, Dict, Optional
+__all__ = ["Transformer", "TransformerBuilder"]
 
-import torchtnt.utils
+from typing import Any, Dict, Optional, final
+
+from overrides import final as finaloverride
+from torch import Tensor
+from torch.nn import Module
 
 from fairseq2.nn.embedding import Embedding
 from fairseq2.nn.positional_embedding import (
     PositionalEmbedding,
     SinusoidalPositionalEmbedding,
 )
-from fairseq2.nn.projection import TiedProjection
-from fairseq2.nn.transformer.decoder import (
-    StandardTransformerDecoder,
-    TransformerDecoder,
-)
-from fairseq2.nn.transformer.decoder_layer import (
-    StandardTransformerDecoderLayer,
-    TransformerDecoderLayer,
-)
-from fairseq2.nn.transformer.encoder import (
-    StandardTransformerEncoder,
-    TransformerEncoder,
-)
-from fairseq2.nn.transformer.encoder_layer import (
-    StandardTransformerEncoderLayer,
-    TransformerEncoderLayer,
-)
-from fairseq2.nn.transformer.ffn import FeedForwardNetwork, StandardFeedForwardNetwork
-from fairseq2.nn.transformer.model import Transformer
-from fairseq2.nn.transformer.multihead_attention import (
+from fairseq2.nn.projection import Projection, TiedProjection
+from fairseq2.nn.transformer import (
+    FeedForwardNetwork,
     MultiheadAttention,
+    StandardFeedForwardNetwork,
     StandardMultiheadAttention,
+    StandardTransformerDecoder,
+    StandardTransformerDecoderLayer,
+    StandardTransformerEncoder,
+    StandardTransformerEncoderLayer,
+    TransformerDecoder,
+    TransformerDecoderLayer,
+    TransformerEncoder,
+    TransformerEncoderLayer,
+    TransformerNormOrder,
 )
-from fairseq2.nn.transformer.norm_order import TransformerNormOrder
 from fairseq2.typing import DataType, Device
+
+
+@final
+class Transformer(Module):
+    """Represents a Transformer model as described in
+    :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`.
+    """
+
+    model_dim: int
+    """The dimensionality of the model (i.e. inputs and outputs)."""
+
+    batch_first: bool
+    """If ``True``, the first dimension of batched inputs and outputs represents
+    the batch; otherwise, the sequence."""
+
+    encoder: TransformerEncoder
+    """The encoder."""
+
+    decoder: TransformerDecoder
+    """The decoder."""
+
+    score_proj: Projection
+    """The projection to apply to the outputs of the decoder."""
+
+    def __init__(
+        self,
+        encoder: TransformerEncoder,
+        decoder: TransformerDecoder,
+        score_proj: Projection,
+    ) -> None:
+        """
+        :param encoder:
+            The encoder.
+        :param decoder:
+            The decoder.
+        :param score_proj:
+            The projection to apply to the outputs of the decoder.
+        """
+        if encoder.model_dim != decoder.model_dim:
+            raise ValueError(
+                f"`model_dim` of `encoder` ({encoder.model_dim}) does not match `model_dim` of `decoder` ({decoder.model_dim})."
+            )
+
+        if encoder.batch_first != decoder.batch_first:
+            raise ValueError(
+                f"`batch_first` of `encoder` ({encoder.batch_first}) does not match `batch_first` of `decoder` ({decoder.batch_first})."
+            )
+
+        super().__init__()
+
+        self.model_dim = encoder.model_dim
+
+        self.batch_first = encoder.batch_first
+
+        self.encoder = encoder
+        self.decoder = decoder
+
+        self.score_proj = score_proj
+
+    @finaloverride
+    def forward(self, src_seq: Tensor, tgt_seq: Tensor) -> Tensor:
+        """
+        :param src_seq:
+            The source sequences. *Shape:* :math:`(S)` when unbatched,
+            :math:`(N,S)` when :attr:`batch_first` is ``True``, or :math:`(S,N)`
+            when :attr:`batch_first` is ``False``, where :math:`N` is the batch
+            size and :math:`S` is the source sequence length.
+        :param tgt_seq:
+            The target sequences. *Shape:* :math:`(T)` when unbatched,
+            :math:`(N,T)` when :attr:`batch_first` is ``True``, or :math:`(T,N)`
+            when :attr:`batch_first` is ``False``, where :math:`N` is the batch
+            size and :math:`T` is the target sequence length.
+
+        :returns:
+            The output of :attr:`score_proj`. The produced scores should be
+            forwarded to a softmax function to compute the next-token
+            probabilities. *Shape:* :math:`(T,D)` when
+            unbatched, :math:`(N,T,D)` when :attr:`batch_first` is ``True``, or
+            :math:`(T,N,D)` when :attr:`batch_first` is ``False``, where
+            :math:`N` is the batch size, :attr:`T` is the target sequence
+            length, and :math:`D` is the size of the output embedding
+            dictionary.
+        """
+        enc_out, enc_attn_padding_mask = self.encoder(src_seq)
+
+        x = self.decoder(tgt_seq, enc_out, enc_attn_padding_mask)
+
+        x = self.score_proj(x)
+
+        return x  # type: ignore[no-any-return]
 
 
 class TransformerBuilder:
     """Builds Transformer models as described in
     :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`.
 
-    If you want to tweak the model architecture, please subclass this class and
-    override the method(s) corresponding to the part(s) of the architecture you
-    want to change.
+    If you want to tweak the model architecture, derive from this class and
+    override the corresponding methods.
     """
 
     num_tokens: int
     """The number of tokens, e.g. vocabulary size."""
 
+    max_seq_len: int
+    """The expected maximum sequence length."""
+
     padding_token_idx: Optional[int]
-    """If not ``None``, entries at :attr:`padding_token_idx` do not contribute
+    """If not ``None``, entries at :attr:`padding_token_idx` won't contribute
     to the gradient."""
 
     model_dim: int
@@ -75,13 +162,12 @@ class TransformerBuilder:
     ffn_inner_dim: int
     """The dimensionality of inner layers in feed-forward networks."""
 
-    norm_order: TransformerNormOrder
-
-    max_seq_len: int
-
     dropout_p: float
     """The dropout probability on the outputs of attention layers, feed-forward
     networks, and input/output embeddings."""
+
+    norm_order: TransformerNormOrder
+    """The Layer Normalization order to use."""
 
     batch_first: bool
     """If ``True``, the first dimension of batched inputs and outputs represents
@@ -98,6 +184,7 @@ class TransformerBuilder:
     def __init__(
         self,
         num_tokens: int,
+        max_seq_len: int = 4096,
         padding_token_idx: Optional[int] = None,
         model_dim: int = 512,
         num_enc_layers: int = 6,
@@ -105,12 +192,9 @@ class TransformerBuilder:
         num_enc_attn_heads: int = 8,
         num_dec_attn_heads: int = 8,
         ffn_inner_dim: int = 2048,
-        norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         dropout_p: float = 0.1,
-        max_seq_len: int = 4096,
-        ffn_bias: bool = True,
+        norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         batch_first: bool = False,
-        seed: int = 0,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -120,8 +204,10 @@ class TransformerBuilder:
 
         :param num_tokens:
             The number of tokens, e.g. vocabulary size.
+        :param max_seq_length:
+            The expected maximum sequence length.
         :param padding_token_idx:
-            If not ``None``, entries at ``padding_token_idx`` do not contribute
+            If not ``None``, entries at ``padding_token_idx`` won't contribute
             to the gradient.
         :param model_dim:
             The dimensionality of the model (i.e. inputs and outputs).
@@ -138,6 +224,8 @@ class TransformerBuilder:
         :param dropout_p:
             The dropout probability on the outputs of attention layers, feed-
             forward networks, and input/output embeddings.
+        :param norm_order:
+            The Layer Normalization order to use.
         :param batch_first:
             If ``True``, the first dimension of batched inputs and outputs
             represents the batch; otherwise, the sequence.
@@ -147,6 +235,7 @@ class TransformerBuilder:
             The floating-point type of model parameters.
         """
         self.num_tokens = num_tokens
+        self.max_seq_len = max_seq_len
         self.padding_token_idx = padding_token_idx
         self.model_dim = model_dim
         self.num_enc_layers = num_enc_layers
@@ -154,39 +243,31 @@ class TransformerBuilder:
         self.num_enc_attn_heads = num_enc_attn_heads
         self.num_dec_attn_heads = num_dec_attn_heads
         self.ffn_inner_dim = ffn_inner_dim
-        self.norm_order = norm_order
         self.dropout_p = dropout_p
+        self.norm_order = norm_order
         self.batch_first = batch_first
-        self.max_seq_len = max_seq_len
-        self.ffn_bias = ffn_bias
-        self.seed = seed
         self.device = device
         self.dtype = dtype
 
         # Holds common keyword arguments.
         self._fct_kwargs = {"device": device, "dtype": dtype}
 
-    def set_torch_seed(self, seed: str) -> None:
-        s = int(hashlib.sha1(seed.encode()).hexdigest()[:8], 16)
-        torchtnt.utils.seed(self.seed + s)
-
-    def __call__(self) -> Transformer:
-        return self.build()
-
     def build(self) -> Transformer:
         """Builds a :class:`Transformer` model."""
-        self.set_torch_seed("embedding")
         embed = self.build_embedding()
 
-        encoder = self.build_encoder(embed)
-        decoder = self.build_decoder(embed)
+        enc_pos_embed = self.build_positional_embedding()
+        dec_pos_embed = self.build_positional_embedding()
+
+        encoder = self.build_encoder(embed, enc_pos_embed)
+        decoder = self.build_decoder(embed, dec_pos_embed)
 
         score_proj = TiedProjection(embed.weight)
 
         return Transformer(encoder, decoder, score_proj)
 
     def build_embedding(self) -> Embedding:
-        """Builds an input/output :class:`Embedding`."""
+        """Builds an :class:`Embedding`."""
         return Embedding(
             num_embed=self.num_tokens,
             embedding_dim=self.model_dim,
@@ -205,18 +286,16 @@ class TransformerBuilder:
             **self._fct_kwargs,
         )
 
-    def build_encoder(self, embed: Embedding) -> TransformerEncoder:
+    def build_encoder(
+        self, embed: Embedding, pos_embed: Optional[PositionalEmbedding]
+    ) -> TransformerEncoder:
         """Builds a :class:`TransformerEncoder`.
 
         :param embed:
-            The input/output :class:`Embedding`.
+            The input :class:`Embedding`.
         :param pos_embed:
             The optional :class:`PositionalEmbedding` to use with ``embed``.
         """
-        self.set_torch_seed("enc_pos_embedding")
-        pos_embed = self.build_positional_embedding()
-
-        self.set_torch_seed("enc_layers")
         layers = [self.build_encoder_layer(i) for i in range(self.num_enc_layers)]
 
         return StandardTransformerEncoder(
@@ -251,18 +330,16 @@ class TransformerBuilder:
         layers."""
         return self.build_attn(self.num_enc_attn_heads)
 
-    def build_decoder(self, embed: Embedding) -> TransformerDecoder:
+    def build_decoder(
+        self, embed: Embedding, pos_embed: Optional[PositionalEmbedding]
+    ) -> TransformerDecoder:
         """Builds a :class:`TransformerDecoder`.
 
         :param embed:
-            The input/output :class:`Embedding`.
+            The output :class:`Embedding`.
         :param pos_embed:
             The optional :class:`PositionalEmbedding` to add to ``embed``.
         """
-        self.set_torch_seed("dec_pos_embedding")
-        pos_embed = self.build_positional_embedding()
-
-        self.set_torch_seed("dec_layers")
         layers = [self.build_decoder_layer(i) for i in range(self.num_dec_layers)]
 
         return StandardTransformerDecoder(
@@ -322,5 +399,5 @@ class TransformerBuilder:
     def build_ffn(self) -> FeedForwardNetwork:
         """Builds a :class:`FeedForwardNetwork`."""
         return StandardFeedForwardNetwork(
-            self.model_dim, self.ffn_inner_dim, bias=self.ffn_bias, **self._fct_kwargs
+            self.model_dim, self.ffn_inner_dim, **self._fct_kwargs
         )

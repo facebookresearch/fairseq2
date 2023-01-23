@@ -21,6 +21,8 @@ Classes
     data.DataPipelineBuilder
     data.StringLike
     data.Tape
+    models.transformer.Transformer
+    models.transformer.TransformerBuilder
     nn.Embedding
     nn.IncrementalState
     nn.IncrementalStateBag
@@ -32,6 +34,7 @@ Classes
     nn.transformer.ALiBiAttentionMaskGenerator
     nn.transformer.CausalAttentionMaskGenerator
     nn.transformer.MultiheadAttentionState
+    nn.transformer.ScoreProjection
     nn.transformer.StandardFeedForwardNetwork
     nn.transformer.StandardMultiheadAttention
     nn.transformer.StandardTransformerDecoder
@@ -39,6 +42,3 @@ Classes
     nn.transformer.StandardTransformerEncoder
     nn.transformer.StandardTransformerEncoderLayer
     nn.transformer.StoreAttentionWeights
-    nn.transformer.Transformer
-    nn.transformer.TransformerBuilder
-    nn.transformer.UntiedScoreProjection

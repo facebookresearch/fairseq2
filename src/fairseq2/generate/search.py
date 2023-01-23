@@ -12,8 +12,8 @@ from overrides import overrides
 from torch import Tensor
 
 from fairseq2.generate.tokenizer import Tokenizer, TokenMeta
+from fairseq2.models.transformer import Transformer
 from fairseq2.nn.incremental_state import IncrementalStateBag
-from fairseq2.nn.transformer import Transformer
 from fairseq2.typing import Device
 
 

@@ -66,7 +66,6 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         inner_activation_fn: Optional[Callable[[Tensor], Tensor]] = None,
         inner_dropout_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
-        bias: bool = False,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -87,7 +86,7 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
 
         super().__init__(model_dim)
 
-        self.inner_proj = Linear(model_dim, inner_dim, bias=bias, **fct_kwargs)
+        self.inner_proj = Linear(model_dim, inner_dim, bias=True, **fct_kwargs)
 
         if inner_activation_fn is None:
             self.inner_activation_fn = F.relu
@@ -101,7 +100,7 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         else:
             self.register_module("inner_norm", None)
 
-        self.out_proj = Linear(inner_dim, model_dim, bias=bias, **fct_kwargs)
+        self.out_proj = Linear(inner_dim, model_dim, bias=True, **fct_kwargs)
 
     @finaloverride
     def forward(self, x: Tensor) -> Tensor:

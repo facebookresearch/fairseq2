@@ -13,8 +13,8 @@ from fairseq2.nn.transformer.attention_mask import (
     AttentionMaskGenerator,
     CausalAttentionMaskGenerator,
 )
-from fairseq2.nn.transformer.builder import TransformerBuilder
 from fairseq2.nn.transformer.decoder import (
+    ScoreProjection,
     StandardTransformerDecoder,
     TransformerDecoder,
 )
@@ -31,7 +31,6 @@ from fairseq2.nn.transformer.encoder_layer import (
     TransformerEncoderLayer,
 )
 from fairseq2.nn.transformer.ffn import FeedForwardNetwork, StandardFeedForwardNetwork
-from fairseq2.nn.transformer.model import Transformer, UntiedScoreProjection
 from fairseq2.nn.transformer.multihead_attention import (
     AttentionWeightHook,
     MultiheadAttention,
@@ -50,6 +49,7 @@ __all__ = [
     "FeedForwardNetwork",
     "MultiheadAttention",
     "MultiheadAttentionState",
+    "ScoreProjection",
     "StandardFeedForwardNetwork",
     "StandardMultiheadAttention",
     "StandardTransformerDecoder",
@@ -57,13 +57,10 @@ __all__ = [
     "StandardTransformerEncoder",
     "StandardTransformerEncoderLayer",
     "StoreAttentionWeights",
-    "Transformer",
-    "TransformerBuilder",
     "TransformerDecoder",
     "TransformerDecoderLayer",
     "TransformerEncoder",
     "TransformerEncoderLayer",
     "TransformerNormOrder",
-    "UntiedScoreProjection",
     "default_scaled_dot_product_attention",
 ]

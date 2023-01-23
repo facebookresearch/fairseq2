@@ -23,7 +23,7 @@ import fairseq2.optim.lr_scheduler
 from fairseq2.callbacks import Metrics
 from fairseq2.dataloader import Seq2SeqBatch, Seq2SeqStr
 from fairseq2.generate import BeamSearchStrategy, SearchStrategy, Tokenizer
-from fairseq2.nn import transformer
+from fairseq2.models.transformer import Transformer
 from fairseq2.typing import LRScheduler
 
 logging.basicConfig(level=logging.INFO)
@@ -35,7 +35,7 @@ class Seq2Seq(
     # Note: this is very close to the tnt.AutoUnit, maybe we should inherit from them.
     def __init__(
         self,
-        model: transformer.Transformer,
+        model: Transformer,
         tokenizer: Tokenizer,
         optimizer: torch.optim.Optimizer,
         lr_scheduler: Optional[LRScheduler] = None,

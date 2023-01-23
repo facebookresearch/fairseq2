@@ -4,9 +4,9 @@ from typing import cast
 import pytest
 import torch
 
+import fairseq2.compat.models.transformer
 import fairseq2.generate
 import fairseq2.nn
-import fairseq2.nn.legacy_builder
 from fairseq2.typing import Device
 from tests.common import assert_close, assert_equal, device
 
@@ -24,7 +24,11 @@ FRA_5 = "Lundi, des scientifiques de l'École de médecine de l'Université de S
 
 def test_loading_nllb200_small(tmp_path: Path) -> None:
     # Load fairseq1 checkpoint into fairseq2
-    model2, tokenizer2, builder = fairseq2.nn.legacy_builder.load_fairseq1_checkpoint(
+    (
+        model2,
+        tokenizer2,
+        builder,
+    ) = fairseq2.compat.models.transformer.load_fairseq1_checkpoint(
         NLLB_SMALL, NLLB_TOK, device
     )
     assert tokenizer2.special_tokens["__ace_Arab__"] == 256001
@@ -61,7 +65,9 @@ def test_loading_nllb200_small(tmp_path: Path) -> None:
 
     # Reload NLLB200 as a fairseq2 model
     state = torch.load(tmp_path / "nllb200.fairseq2.pt")
-    model3 = cast(fairseq2.nn.transformer.TransformerBuilder, state["builder"]).build()
+    model3 = cast(
+        fairseq2.models.transformer.TransformerBuilder, state["builder"]
+    ).build()
     tokenizer3 = cast(fairseq2.generate.Tokenizer, state["tokenizer"])
     model3.load_state_dict(state["model"])  # type: ignore
     model3.eval()
@@ -75,7 +81,7 @@ def test_loading_nllb200_small(tmp_path: Path) -> None:
 
 @torch.inference_mode()
 def assert_speaks_french(
-    model: fairseq2.nn.transformer.Transformer,
+    model: fairseq2.models.transformer.Transformer,
     tokenizer: fairseq2.generate.Tokenizer,
     device: Device,
 ) -> None:

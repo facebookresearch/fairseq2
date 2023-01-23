@@ -3,8 +3,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import collections
 from abc import ABC, abstractmethod
+from collections import OrderedDict
 from typing import Any, Dict, MutableSequence, Optional, Protocol, Tuple, final
 
 import torch
@@ -215,8 +215,7 @@ class MultiheadAttention(Module, ABC):
 
         self.batch_first = batch_first
 
-        # OrderedDict because builtin dict, don't have a __weakrefoffset__
-        self._attn_weight_hooks = collections.OrderedDict()
+        self._attn_weight_hooks = OrderedDict()
 
     @abstractmethod
     def forward(
@@ -434,6 +433,26 @@ class StandardMultiheadAttention(MultiheadAttention):
                     "`q_proj`, `k_proj`, and `v_proj` must be all specified."
                 )
 
+            if q_proj.inp_dim != model_dim:
+                raise ValueError(
+                    f"`inp_dim` of `q_proj` ({q_proj.inp_dim}) does not match `model_dim` ({model_dim})."
+                )
+
+            if q_proj.out_dim != k_proj.out_dim:
+                raise ValueError(
+                    f"`out_dim` of `q_proj` ({q_proj.out_dim}) does not match `out_dim` of `k_proj` ({k_proj.out_dim})."
+                )
+
+        if k_proj.out_dim % num_heads != 0:
+            raise ValueError(
+                f"`out_dim` of `k_proj` ({k_proj.out_dim}) is not divisible by `num_heads` ({num_heads})."
+            )
+
+        if v_proj.out_dim % num_heads != 0:
+            raise ValueError(
+                f"`out_dim` of `v_proj` ({v_proj.out_dim}) is not divisible by `num_heads` ({num_heads})."
+            )
+
         self.q_proj = q_proj
         self.k_proj = k_proj
         self.v_proj = v_proj
@@ -459,6 +478,16 @@ class StandardMultiheadAttention(MultiheadAttention):
                 v_proj.out_dim, model_dim, **fct_kwargs
             )
         else:
+            if out_proj.inp_dim != v_proj.out_dim:
+                raise ValueError(
+                    f"`inp_dim` of `out_proj` ({out_proj.inp_dim}) does not match `out_dim` of `v_proj` ({v_proj.out_dim})."
+                )
+
+            if out_proj.out_dim != model_dim:
+                raise ValueError(
+                    f"`out_dim` of `out_proj` ({out_proj.out_dim}) does not match `model_dim` ({model_dim})."
+                )
+
             self.out_proj = out_proj
 
         self.reset_parameters()

@@ -181,8 +181,6 @@ class StandardTransformerDecoder(TransformerDecoder):
         """
         fct_kwargs: Dict[str, Any] = {"device": device, "dtype": dtype}
 
-        embedding_dim = embed.weight.shape[-1]
-
         layer_list = ModuleList(layers, layer_drop_p)
         if not layer_list:
             raise ValueError("`layers` must contain at least one decoder layer.")
@@ -201,6 +199,8 @@ class StandardTransformerDecoder(TransformerDecoder):
                 )
 
         super().__init__(model_dim, batch_first)
+
+        embedding_dim = embed.embedding_dim
 
         self.embed = embed
 
@@ -349,3 +349,37 @@ class StandardTransformerDecoder(TransformerDecoder):
             x = self.layer_norm(x)
 
         return x
+
+
+@final
+class ScoreProjection(ResettableProjection):
+    """Produces scores (i.e. logits) from the output of a Transformer decoder.
+
+    The produced scores should be forwarded to a softmax function to compute
+    predicted next-token probabilities.
+    """
+
+    def __init__(
+        self,
+        num_embed: int,
+        embedding_dim: int,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
+    ) -> None:
+        """
+        :param num_embed:
+            The size of the output embedding dictionary.
+        :param embedding_dim:
+            The dimensionality of output embeddings.
+        """
+        super().__init__(
+            embedding_dim, num_embed, bias=False, device=device, dtype=dtype
+        )
+
+    @finaloverride
+    def reset_parameters(self) -> None:
+        """Resets the parameters and buffers of the module."""
+        nn.init.normal_(self.weight, std=self.inp_dim**-0.5)
+
+        if self.bias is not None:
+            nn.init.zeros_(self.bias)
