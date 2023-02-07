@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-__all__ = ["FairseqSinusoidalPositionalEmbedding"]
+__all__ = ["Fairseq1SinusoidalPositionalEmbedding"]
 
-from fairseq2.compat.nn.positional_embedding import FairseqSinusoidalPositionalEmbedding
+from fairseq2.compat.nn.positional_embedding import (
+    Fairseq1SinusoidalPositionalEmbedding,
+)

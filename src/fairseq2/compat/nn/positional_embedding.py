@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-__all__ = ["FairseqSinusoidalPositionalEmbedding"]
+__all__ = ["Fairseq1SinusoidalPositionalEmbedding"]
 
 from typing import Optional, final
 
@@ -21,7 +21,7 @@ from fairseq2.typing import DataType, Device
 
 
 @final
-class FairseqSinusoidalPositionalEmbedding(PositionalEmbedding):
+class Fairseq1SinusoidalPositionalEmbedding(PositionalEmbedding):
     """Produces sinusoidal positional embeddings.
 
     .. warning::

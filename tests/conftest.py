@@ -21,17 +21,17 @@ def parse_device_arg(value: str) -> Device:
         raise ArgumentTypeError(f"'{value}' is not a valid device name.")
 
 
-# fmt: off
 def pytest_addoption(parser: pytest.Parser) -> None:
+    # fmt: off
     parser.addoption(
         "--device", default="cpu", type=parse_device_arg,
         help="device on which to run tests (default: %(default)s)",
     )
     parser.addoption(
         "--integration", default=False, action="store_true",
-        help="wether to run the slow integration tests",
+        help="whether to run the integration tests",
     )
-# fmt: on
+    # fmt: on
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:
@@ -43,6 +43,6 @@ def pytest_ignore_collect(
 ) -> bool:
     if "integration" in collection_path.parts:
         # Ignore tests/integration unless we run pytest --integration
-        return not config.getoption("integration")  # type: ignore
+        return not cast(bool, config.getoption("integration"))
 
     return False

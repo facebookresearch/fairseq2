@@ -7,7 +7,7 @@
 import pytest
 import torch
 
-from fairseq2.compat.nn import FairseqSinusoidalPositionalEmbedding
+from fairseq2.compat.nn import Fairseq1SinusoidalPositionalEmbedding
 from tests.common import assert_close, assert_equal, has_no_inf, has_no_nan
 
 
@@ -28,7 +28,7 @@ def _assert_embedding_is_backward_compatible(
     a = fairseq.modules.SinusoidalPositionalEmbedding(
         embedding_dim=emb_dim, padding_idx=pad_idx, init_size=max_len + pad_idx + 1
     )
-    b = FairseqSinusoidalPositionalEmbedding(
+    b = Fairseq1SinusoidalPositionalEmbedding(
         max_seq_len=max_len,
         padding_token_idx=pad_idx,
         embedding_dim=emb_dim,

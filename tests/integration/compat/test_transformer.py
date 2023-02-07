@@ -4,9 +4,9 @@ from typing import cast
 import pytest
 import torch
 
-import fairseq2.compat.models.transformer
 import fairseq2.generate
 import fairseq2.nn
+from fairseq2.compat.models.transformer import load_fairseq1_checkpoint
 from fairseq2.typing import Device
 from tests.common import assert_close, assert_equal, device
 
@@ -14,25 +14,19 @@ NLLB_MODELS = Path("/large_experiments/seamless/nllb/opensource/")
 NLLB_SMALL = NLLB_MODELS / "nllb_200_dense_distill_600m/checkpoint.pt"
 NLLB_TOK = NLLB_MODELS / "spm_200/sentencepiece.source.256000.model"
 
-if not NLLB_MODELS.exists():
-    pytest.skip("skipping Fair cluster tests", allow_module_level=True)
-
 ENG = "On Monday, scientists from the Stanford University School of Medicine announced the invention of a new diagnostic tool that can sort cells by type: a tiny printable chip that can be manufactured using standard inkjet printers for possibly about one U.S. cent each."
 FRA_1 = "Lundi, des scientifiques de l'École de médecine de l'Université de Stanford ont annoncé l'invention d'un nouvel outil de diagnostic capable de trier les cellules par type: une minuscule puce imprimable qui peut être fabriquée à l'aide d'imprimantes à jet d'encre standard pour environ un centime de centime chacun."
 FRA_5 = "Lundi, des scientifiques de l'École de médecine de l'Université de Stanford ont annoncé l'invention d'un nouvel outil de diagnostic capable de trier les cellules par type: une minuscule puce imprimable qui peut être fabriquée à l'aide d'imprimantes à jet d'encre standard à environ un centime chacun."
 
 
+@pytest.mark.skipif(not NLLB_MODELS.exists(), reason="needs to run on FAIR cluster")
 def test_loading_nllb200_small(tmp_path: Path) -> None:
-    # Load fairseq1 checkpoint into fairseq2
-    (
-        model2,
-        tokenizer2,
-        builder,
-    ) = fairseq2.compat.models.transformer.load_fairseq1_checkpoint(
-        NLLB_SMALL, NLLB_TOK, device
-    )
+    # Load fairseq checkpoint into fairseq2
+    model2, tokenizer2, builder = load_fairseq1_checkpoint(NLLB_SMALL, NLLB_TOK, device)
+
     assert tokenizer2.special_tokens["__ace_Arab__"] == 256001
     assert tokenizer2.vocab_size() == 256206
+
     model2.eval()
 
     src_bos_tok = tokenizer2.special_tokens["__eng_Latn__"]

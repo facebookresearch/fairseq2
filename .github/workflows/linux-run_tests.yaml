@@ -106,7 +106,7 @@ jobs:
             dev=cuda:0
           fi
 
-          LD_PRELOAD=${SANITIZER_LIB} pytest --device $dev --verbose
+          LD_PRELOAD=${SANITIZER_LIB} pytest --device $dev --integration --verbose
       - name: Check the output of the leak sanitizer
         if: env.LSAN_OPTIONS != ''
         run: |
