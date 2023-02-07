@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from argparse import ArgumentTypeError
+from pathlib import Path
 from typing import cast
 
 import pytest
@@ -26,8 +27,22 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "--device", default="cpu", type=parse_device_arg,
         help="device on which to run tests (default: %(default)s)",
     )
+    parser.addoption(
+        "--integration", default=False, action="store_true",
+        help="wether to run the slow integration tests",
+    )
 # fmt: on
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:
     tests.common.device = cast(Device, session.config.getoption("device"))
+
+
+def pytest_ignore_collect(
+    collection_path: Path, path: None, config: pytest.Config
+) -> bool:
+    if "integration" in collection_path.parts:
+        # Ignore tests/integration unless we run pytest --integration
+        return not config.getoption("integration")  # type: ignore
+
+    return False
