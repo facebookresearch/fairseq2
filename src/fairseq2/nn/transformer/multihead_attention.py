@@ -17,6 +17,7 @@ from torch.nn.parameter import Parameter
 from torch.utils.hooks import RemovableHandle
 
 from fairseq2.nn.incremental_state import IncrementalState, IncrementalStateBag
+from fairseq2.nn.positional_embedding import PositionalEmbedding
 from fairseq2.nn.projection import Projection, ResettableProjection
 from fairseq2.nn.transformer.attention import (
     AttentionFunction,
@@ -338,6 +339,7 @@ class StandardMultiheadAttention(MultiheadAttention):
     q_proj: Projection
     k_proj: Projection
     v_proj: Projection
+    pos_embed: Optional[PositionalEmbedding]
     bias_k: Optional[Parameter]
     bias_v: Optional[Parameter]
     add_zero_attn: bool
@@ -352,6 +354,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         q_proj: Optional[Projection] = None,
         k_proj: Optional[Projection] = None,
         v_proj: Optional[Projection] = None,
+        pos_embed: Optional[PositionalEmbedding] = None,
         add_bias_kv: bool = False,
         add_zero_attn: bool = False,
         attn_fn: Optional[AttentionFunction] = None,
@@ -376,6 +379,9 @@ class StandardMultiheadAttention(MultiheadAttention):
         :param v_proj:
             The projection to apply to values before computing attention. If
             ``None``, a default projection will be used.
+        :param pos_embed:
+            The positional embedding to add to inputs and keys after applying
+            projection.
         :param add_bias_kv:
             If ``True``, extends keys and values by a bias step.
         :param add_zero_attn:
@@ -435,9 +441,25 @@ class StandardMultiheadAttention(MultiheadAttention):
         self.k_proj = k_proj
         self.v_proj = v_proj
 
+        if pos_embed is not None:
+            if (head_dim := k_proj.out_dim // num_heads) != pos_embed.embedding_dim:
+                raise ValueError(
+                    f"`embedding_dim` of `pos_embed` ({pos_embed.embedding_dim}) does not match the size of the per-header key dimension ({head_dim})."
+                )
+
+            self.pos_embed = pos_embed
+        else:
+            self.register_module("pos_embed", None)
+
         if add_bias_kv:
-            self.bias_k = Parameter(torch.empty((1, k_proj.out_dim), **fct_kwargs))
-            self.bias_v = Parameter(torch.empty((1, v_proj.out_dim), **fct_kwargs))
+            # (H, 1, K_h)
+            self.bias_k = Parameter(
+                torch.empty((num_heads, 1, k_proj.out_dim // num_heads), **fct_kwargs)
+            )
+            # (H, 1, V_h)
+            self.bias_v = Parameter(
+                torch.empty((num_heads, 1, v_proj.out_dim // num_heads), **fct_kwargs)
+            )
         else:
             self.register_parameter("bias_k", None)
             self.register_parameter("bias_v", None)
@@ -528,20 +550,52 @@ class StandardMultiheadAttention(MultiheadAttention):
                         self, MultiheadAttentionState(k, v, padding_mask)
                     )
 
+        # (N, T, K_proj) -> (N, T, H, K_h)
+        q = q.unflatten(-1, (self.num_heads, -1))
+        # (N, S, K_proj) -> (N, S, H, K_h)
+        k = k.unflatten(-1, (self.num_heads, -1))
+        # (N, S, V_proj) -> (N, S, H, V_h)
+        v = v.unflatten(-1, (self.num_heads, -1))
+
+        # (N, T, H, K_h) -> (N, H, T, K_h)
+        q = q.transpose(1, 2)
+        # (N, S, H, K_h) -> (N, H, S, K_h)
+        k = k.transpose(1, 2)
+        # (N, S, H, V_h) -> (N, H, S, V_h)
+        v = v.transpose(1, 2)
+
+        # (N, H, T, K_h) -> (N x H, T, K_h)
+        q = q.flatten(0, 1)
+        # (N, H, S, K_h) -> (N x H, S, K_h)
+        k = k.flatten(0, 1)
+        # (N, H, S, V_h) -> (N x H, S, V_h)
+        v = v.flatten(0, 1)
+
+        if self.pos_embed is not None:
+            q = self.pos_embed(q, state_bag)
+            k = self.pos_embed(k)
+
         mask_pad = 0
 
         if self.bias_k is not None and self.bias_v is not None:
-            # (N, S, K_proj) -> (N, S + 1, K_proj)
-            k = torch.cat([k, self.bias_k.expand(k.size(0), 1, k.size(2))], dim=1)
-            # (N, S, V_proj) -> (N, S + 1, V_proj)
-            v = torch.cat([v, self.bias_v.expand(v.size(0), 1, v.size(2))], dim=1)
+            bsz = keys.size(0)
+
+            # (H, 1, K_proj) -> (N x H, 1, K_proj)
+            bias_k = self.bias_k.repeat(bsz, 1, 1)
+            # (H, 1, V_proj) -> (N x H, 1, V_proj)
+            bias_v = self.bias_v.repeat(bsz, 1, 1)
+
+            # (N x H, S, K_h) -> (N x H, S + 1, K_h)
+            k = torch.cat([k, bias_k], dim=1)
+            # (N x H, S, V_h) -> (N x H, S + 1, V_h)
+            v = torch.cat([v, bias_v], dim=1)
 
             mask_pad += 1
 
         if self.add_zero_attn:
-            # (N, S, K_proj) -> (N, S + 1, K_proj)
+            # (N x H, S, K_h) -> (N x H, S + 1, K_h)
             k = torch.cat([k, k.new_zeros((k.size(0), 1, k.size(2)))], dim=1)
-            # (N, S, V_proj) -> (N, S + 1, V_proj)
+            # (N x H, S, V_h) -> (N x H, S + 1, V_h)
             v = torch.cat([v, v.new_zeros((v.size(0), 1, v.size(2)))], dim=1)
 
             mask_pad += 1
@@ -570,27 +624,6 @@ class StandardMultiheadAttention(MultiheadAttention):
                 # (N x H, 1, S) + (T, S) = (N x H, T, S)
                 attn_mask = padding_mask + attn_mask
 
-        # (N, T, K_proj) -> (N, T, H, K_h)
-        q = q.unflatten(-1, (self.num_heads, -1))
-        # (N, S, K_proj) -> (N, S, H, K_h)
-        k = k.unflatten(-1, (self.num_heads, -1))
-        # (N, S, V_proj) -> (N, S, H, V_h)
-        v = v.unflatten(-1, (self.num_heads, -1))
-
-        # (N, T, H, K_h) -> (N, H, T, K_h)
-        q = q.transpose(1, 2)
-        # (N, S, H, K_h) -> (N, H, S, K_h)
-        k = k.transpose(1, 2)
-        # (N, S, H, V_h) -> (N, H, S, V_h)
-        v = v.transpose(1, 2)
-
-        # (N, H, T, K_h) -> (N x H, T, K_h)
-        q = q.flatten(0, 1)
-        # (N, H, S, K_h) -> (N x H, S, K_h)
-        k = k.flatten(0, 1)
-        # (N, H, S, V_h) -> (N x H, S, V_h)
-        v = v.flatten(0, 1)
-
         needs_weights = len(self._attn_weight_hooks) > 0
 
         # attn:         (N x H, T, V_h)
@@ -608,17 +641,17 @@ class StandardMultiheadAttention(MultiheadAttention):
         # (N, H, T, V_h) -> (N, T, H, V_h)
         attn = attn.permute(0, 2, 1, 3)
 
-        # (*, H, V_h) -> (*, V_proj)
+        # (N, T, H, V_h) -> (N, T, V_proj)
         attn = attn.flatten(-2, -1)
 
-        # (*, V_proj) -> (*, M)
+        # (N, T, V_proj) -> (N, T, M)
         attn = self.out_proj(attn)
 
-        if x.dim() == 2:
+        if x.dim() == 3:
+            return attn
+        else:
             # (1, T, M) -> (T, M)
             return attn.squeeze(0)
-
-        return attn
 
     def _forward_proj(self, fn: Projection, x: Tensor) -> Tensor:
         x = fn(x)

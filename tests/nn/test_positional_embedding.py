@@ -11,6 +11,7 @@ from torch import Tensor
 from fairseq2.nn import (
     IncrementalStateBag,
     LearnedPositionalEmbedding,
+    RotaryEmbedding,
     SinusoidalPositionalEmbedding,
 )
 from tests.common import assert_close, device
@@ -268,6 +269,103 @@ class TestLearnedPositionalEmbedding:
 
     def test_forward_ignores_state_bag_in_training(self) -> None:
         m = LearnedPositionalEmbedding(max_seq_len=3, embedding_dim=32, device=device)
+
+        embed = torch.randn((5, 2, 32), device=device)
+
+        state_bag = IncrementalStateBag()
+        state_bag.increment_step(delta=20)  # out of range
+
+        x = m(embed, state_bag)
+
+        assert x.shape == (5, 2, 32)
+
+
+class TestRotaryEmbedding:
+    def test_forward_returns_correct_embeddings(self) -> None:
+        m = RotaryEmbedding(max_seq_len=10, embedding_dim=4, device=device)
+
+        embed = torch.randn((3, 9, 4), device=device)
+
+        x = m(embed)
+
+        # We apply a rotation, the magnitudes should stay the same.
+        assert_close(torch.norm(embed), torch.norm(x))
+
+    def test_forward_returns_correct_relative_embeddings(self) -> None:
+        m = RotaryEmbedding(max_seq_len=10, embedding_dim=4, device=device)
+
+        embed1 = torch.randn((4), device=device)
+        embed2 = torch.randn((4), device=device)
+
+        seq1 = torch.zeros((6, 4), device=device)
+
+        seq1[1] = embed1
+        seq1[4] = embed2
+
+        x1 = m(seq1)
+
+        seq2 = torch.zeros((6, 4), device=device)
+
+        seq2[2] = embed1
+        seq2[5] = embed2
+
+        x2 = m(seq2)
+
+        # If the angles are same, the dot-product must be same as well.
+        dot1 = torch.dot(x1[1], x1[4])
+        dot2 = torch.dot(x2[2], x2[5])
+
+        assert_close(dot1, dot2)
+
+    @pytest.mark.parametrize("embed_idx", [0, 1, 2])
+    def test_forward_returns_correct_embedding_in_incremental_eval(
+        self, embed_idx: int
+    ) -> None:
+        m = RotaryEmbedding(max_seq_len=4, embedding_dim=32, device=device)
+
+        state_bag = IncrementalStateBag()
+        state_bag.increment_step(delta=embed_idx)
+
+        seq_len = 2
+
+        m.eval()
+
+        embed1 = torch.ones((5, seq_len, 32), device=device)
+
+        x1 = m(embed1, state_bag)
+
+        assert x1.shape == (5, seq_len, 32)
+
+        embed2 = torch.ones((5, seq_len + embed_idx, 32), device=device)
+
+        x2 = m(embed2)
+
+        assert_close(x1, x2[:, embed_idx:])
+
+    def test_forward_errors_if_input_dim_is_greater_than_3(self) -> None:
+        m = RotaryEmbedding(max_seq_len=3, embedding_dim=32, device=device)
+
+        embed = torch.randn((5, 5, 3, 32), device=device)
+
+        with pytest.raises(
+            ValueError,
+            match=r"The number of dimensions of `embed` \(4\) must be 2 or 3.",
+        ):
+            m(embed)
+
+    def test_forward_errors_if_seq_len_is_out_of_range(self) -> None:
+        m = RotaryEmbedding(max_seq_len=3, embedding_dim=32, device=device)
+
+        embed = torch.randn((5, 32), device=device)
+
+        with pytest.raises(
+            ValueError,
+            match=r"The input sequence length \(5\) cannot be greater than 3.",
+        ):
+            m(embed)
+
+    def test_forward_ignores_state_bag_in_training(self) -> None:
+        m = RotaryEmbedding(max_seq_len=3, embedding_dim=32, device=device)
 
         embed = torch.randn((5, 2, 32), device=device)
 

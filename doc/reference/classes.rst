@@ -29,6 +29,7 @@ Classes
     nn.LearnedPositionalEmbedding
     nn.Linear
     nn.ModuleList
+    nn.RotaryEmbedding
     nn.SinusoidalPositionalEmbedding
     nn.TiedProjection
     nn.transformer.ALiBiAttentionMaskGenerator

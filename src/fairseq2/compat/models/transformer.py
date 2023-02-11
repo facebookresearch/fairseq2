@@ -38,12 +38,12 @@ class Fairseq1TransformerBuilder(TransformerBuilder):
 
         if model_dim != cfg.encoder_embed_dim or model_dim != cfg.decoder_embed_dim:
             raise ValueError(
-                f"The model dimension does not match between the input ({model_dim}), encoder ({cfg.encoder_embed_dim}), and decoder ({cfg.decoder_embed_dim})."
+                f"The size of the model dimension does not match between the input ({model_dim}), encoder ({cfg.encoder_embed_dim}), and decoder ({cfg.decoder_embed_dim})."
             )
 
         if cfg.encoder_ffn_embed_dim != cfg.decoder_ffn_embed_dim:
             raise ValueError(
-                f"The FFN inner dimension does not match between the encoder ({cfg.encoder_ffn_embed_dim}) and decoder ({cfg.decoder_ffn_embed_dim})."
+                f"The size of the FFN inner dimension does not match between the encoder ({cfg.encoder_ffn_embed_dim}) and decoder ({cfg.decoder_ffn_embed_dim})."
             )
 
         ffn_dim = cfg.encoder_ffn_embed_dim

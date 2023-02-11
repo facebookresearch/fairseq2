@@ -190,7 +190,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         self.ffn = ffn
 
         if scale_residual:
-            self.residual_scale = Parameter(torch.empty(model_dim, **fct_kwargs))
+            self.residual_scale = Parameter(torch.empty((model_dim,), **fct_kwargs))
         else:
             self.register_parameter("residual_scale", None)
 

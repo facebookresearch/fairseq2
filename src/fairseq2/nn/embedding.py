@@ -71,7 +71,7 @@ class Embedding(Module):
         self.padding_idx = padding_idx
         self.scaled = scaled
 
-        self.weight = Parameter(torch.empty(num_embed, embedding_dim, **fct_kwargs))
+        self.weight = Parameter(torch.empty((num_embed, embedding_dim), **fct_kwargs))
 
         self.reset_parameters()
 

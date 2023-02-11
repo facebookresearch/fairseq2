@@ -35,7 +35,7 @@ class TestCausalAttentionMaskGenerator:
     def test_call_generates_correct_mask_if_no_batch(self) -> None:
         g = CausalAttentionMaskGenerator()
 
-        mask = g(torch.ones(4, device=device))
+        mask = g(torch.ones((4,), device=device))
 
         assert mask.shape == (4, 4)
 
@@ -56,9 +56,9 @@ class TestCausalAttentionMaskGenerator:
     def test_call_returns_same_mask_if_seq_len_is_equal_or_less(self) -> None:
         g = CausalAttentionMaskGenerator()
 
-        mask1 = g(torch.ones(4, device=device))
-        mask2 = g(torch.ones(4, device=device))
-        mask3 = g(torch.ones(3, device=device))
+        mask1 = g(torch.ones((4,), device=device))
+        mask2 = g(torch.ones((4,), device=device))
+        mask3 = g(torch.ones((3,), device=device))
 
         assert mask1.data_ptr() == mask2.data_ptr()
         assert mask1.data_ptr() == mask3.data_ptr()
@@ -70,9 +70,9 @@ class TestCausalAttentionMaskGenerator:
     def test_call_returns_new_mask_if_seq_len_is_greater(self) -> None:
         g = CausalAttentionMaskGenerator()
 
-        mask1 = g(torch.ones(4, device=device))
-        mask2 = g(torch.ones(5, device=device))
-        mask3 = g(torch.ones(8, device=device))
+        mask1 = g(torch.ones((4,), device=device))
+        mask2 = g(torch.ones((5,), device=device))
+        mask3 = g(torch.ones((8,), device=device))
 
         assert mask1.data_ptr() != mask2.data_ptr()
         assert mask1.data_ptr() != mask3.data_ptr()

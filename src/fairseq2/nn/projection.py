@@ -88,10 +88,10 @@ class ResettableProjection(Projection):
 
         super().__init__(inp_dim, out_dim)
 
-        self.weight = Parameter(torch.empty(out_dim, inp_dim, **fct_kwargs))
+        self.weight = Parameter(torch.empty((out_dim, inp_dim), **fct_kwargs))
 
         if bias:
-            self.bias = Parameter(torch.empty(out_dim, **fct_kwargs))
+            self.bias = Parameter(torch.empty((out_dim,), **fct_kwargs))
         else:
             self.register_parameter("bias", None)
 

@@ -5,9 +5,10 @@
 # LICENSE file in the root directory of this source tree.
 
 __all__ = [
-    "PositionalEmbedding",
-    "SinusoidalPositionalEmbedding",
     "LearnedPositionalEmbedding",
+    "PositionalEmbedding",
+    "RotaryEmbedding",
+    "SinusoidalPositionalEmbedding",
 ]
 
 import math
@@ -161,7 +162,7 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
     ) -> None:
         super().__init__(max_seq_len, embedding_dim)
 
-        weight = torch.empty(max_seq_len, embedding_dim, device=device, dtype=dtype)
+        weight = torch.empty((max_seq_len, embedding_dim), device=device, dtype=dtype)
 
         self.register_buffer("weight", weight, persistent=False)
 
@@ -218,7 +219,7 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
         super().__init__(max_seq_len, embedding_dim)
 
         self.weight = Parameter(
-            torch.empty(max_seq_len, embedding_dim, device=device, dtype=dtype)
+            torch.empty((max_seq_len, embedding_dim), device=device, dtype=dtype)
         )
 
         self.reset_parameters()
@@ -244,6 +245,84 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
         )
 
         return embed + F.embedding(indices, self.weight)
+
+
+@final
+class RotaryEmbedding(PositionalEmbedding):
+    """Produces relative positional embeddings as described in
+    :cite:t:`DBLP:journals/corr/abs-2104-09864`."""
+
+    cos_weight: Tensor
+    sin_weight: Tensor
+
+    def __init__(
+        self,
+        max_seq_len: int,
+        embedding_dim: int,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
+    ) -> None:
+        if embedding_dim % 2 != 0:
+            raise ValueError(f"`embedding_dim` ({embedding_dim}) must be even.")
+
+        super().__init__(max_seq_len, embedding_dim)
+
+        cos = torch.empty((max_seq_len, embedding_dim), device=device, dtype=dtype)
+        sin = torch.empty((max_seq_len, embedding_dim), device=device, dtype=dtype)
+
+        self.register_buffer("cos_weight", cos, persistent=False)
+        self.register_buffer("sin_weight", sin, persistent=False)
+
+        self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        """Resets the parameters and buffers of the module."""
+        device, dtype = self.sin_weight.device, self.sin_weight.dtype
+
+        fct_kwargs: Dict[str, Any] = {"device": device, "dtype": dtype}
+
+        # Reference implementation:
+        # https://github.com/bojone/bert4keras/blob/70a7eb9ace18b9f4806b6386e5183f32d024bc37/bert4keras/backend.py#L316
+
+        indices = torch.arange(self.embedding_dim // 2, **fct_kwargs).unsqueeze(0)
+
+        steps = torch.arange(self.max_seq_len, **fct_kwargs).unsqueeze(0)
+
+        embed = torch.matmul(steps.T, 10000 ** (-2.0 * indices / self.embedding_dim))
+
+        cos = torch.cos(embed)
+        sin = torch.sin(embed)
+
+        self.cos_weight[:] = torch.repeat_interleave(cos, 2, dim=-1)
+        self.sin_weight[:] = torch.repeat_interleave(sin, 2, dim=-1)
+
+    @finaloverride
+    def _do_forward(
+        self,
+        embed: Tensor,
+        state_bag: Optional[IncrementalStateBag],
+    ) -> Tensor:
+        """:meta private:"""
+        seq_len = embed.size(1)
+
+        if not self.training and state_bag is not None:
+            start_step = state_bag.step
+        else:
+            start_step = 0
+
+        embed_swapped = self._swap_pairs(embed)
+
+        cos = self.cos_weight[start_step : start_step + seq_len] * embed
+        sin = self.sin_weight[start_step : start_step + seq_len] * embed_swapped
+
+        return cos + sin
+
+    @staticmethod
+    def _swap_pairs(x: Tensor) -> Tensor:
+        x1 = x[:, :, 0::2]
+        x2 = x[:, :, 1::2]
+
+        return torch.stack((-x2, x1), dim=-1).reshape(x.shape)
 
 
 def _fill_sinusoidal(weight: Tensor) -> None:

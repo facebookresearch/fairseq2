@@ -47,7 +47,7 @@ class Fairseq1SinusoidalPositionalEmbedding(PositionalEmbedding):
 
         num_embed = max_seq_len + self.padding_token_idx + 1
 
-        weight = torch.empty(num_embed, embedding_dim, device=device, dtype=dtype)
+        weight = torch.empty((num_embed, embedding_dim), device=device, dtype=dtype)
 
         self.register_buffer("weight", weight, persistent=False)
 
