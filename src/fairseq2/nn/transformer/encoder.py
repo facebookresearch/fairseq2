@@ -248,21 +248,21 @@ class StandardTransformerEncoder(TransformerEncoder):
             return None
 
     def _forward_embed(self, seq: Tensor) -> Tensor:
-        x = self.embed(seq)
+        embed = self.embed(seq)
 
         if self.embed_scale != 1.0:
-            x = x * self.embed_scale
+            embed = embed * self.embed_scale
 
         if self.pos_embed is not None:
-            x = self.pos_embed(x, seq)
+            embed = self.pos_embed(embed)
 
         if self.embed_norm is not None:
-            x = self.embed_norm(x)
+            embed = self.embed_norm(embed)
 
         if self.embed_dropout_p > 0.0:
-            x = F.dropout(x, self.embed_dropout_p, self.training)
+            embed = F.dropout(embed, self.embed_dropout_p, self.training)
 
-        return x  # type: ignore[no-any-return]
+        return embed  # type: ignore[no-any-return]
 
     def _forward_encoder_layers(
         self, x: Tensor, self_attn_padding_mask: Optional[Tensor]

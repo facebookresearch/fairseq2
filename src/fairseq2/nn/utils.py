@@ -4,12 +4,22 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+__all__ = [
+    "nan",
+    "neg_inf",
+    "pos_inf",
+    "to_float_mask",
+]
+
 import torch
 from torch import Tensor
 
 from fairseq2.typing import DataType
 
+nan = float("nan")
+
 neg_inf = float("-inf")
+pos_inf = float("+inf")
 
 
 def to_float_mask(mask: Tensor, dtype: DataType = torch.float32) -> Tensor:
@@ -17,7 +27,7 @@ def to_float_mask(mask: Tensor, dtype: DataType = torch.float32) -> Tensor:
 
     If ``mask`` is of type ``torch.bool``, all its ``False`` values will be
     converted to zero and all its ``True`` values will be converted to negative
-    infinity (e.g.  ``float("-inf")``); otherwise, it will be returned as is
+    infinity (e.g. ``float("-inf")``); otherwise, it will be returned as is
     without any conversion.
 
     :param mask:

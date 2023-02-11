@@ -53,8 +53,8 @@ class TransformerDecoderLayer(Module, ABC):
         self_attn_mask: Optional[Tensor] = None,
         self_attn_padding_mask: Optional[Tensor] = None,
         enc_out: Optional[Tensor] = None,
-        enc_attn_padding_mask: Optional[Tensor] = None,
-        incremental_state_bag: Optional[IncrementalStateBag] = None,
+        enc_padding_mask: Optional[Tensor] = None,
+        state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
         """
         :param x:
@@ -81,14 +81,14 @@ class TransformerDecoderLayer(Module, ABC):
             :attr:`batch_first` is ``False``, where :math:`N` is the batch size,
             :math:`S` is the source sequence length, and :math:`M_{enc}` is the
             encoder model size.
-        :param enc_attn_padding_mask:
+        :param enc_padding_mask:
             The boolean or float key padding mask indicating which key positions
             to ignore for the purpose of encoder-decoder attention. *Shape:*
             :math:`(S)` when unbatched, :math:`(N,S)` when :attr:`batch_first`
             is ``True``, or :math:`(S,N)` when :attr:`batch_first` is ``False``,
             where :math:`N` is the batch size and :math:`S` is the source
             sequence length.
-        :param incremental_state_bag:
+        :param state_bag:
             The state bag to use during an incremental evaluation.
 
         :returns:
@@ -237,21 +237,21 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         self_attn_mask: Optional[Tensor] = None,
         self_attn_padding_mask: Optional[Tensor] = None,
         enc_out: Optional[Tensor] = None,
-        enc_attn_padding_mask: Optional[Tensor] = None,
-        incremental_state_bag: Optional[IncrementalStateBag] = None,
+        enc_padding_mask: Optional[Tensor] = None,
+        state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
         x = self._forward_self_attn(
             x,
             self_attn_mask,
             self_attn_padding_mask,
-            incremental_state_bag,
+            state_bag,
         )
 
         x = self._forward_enc_dec_attn(
             x,
             enc_out,
-            enc_attn_padding_mask,
-            incremental_state_bag,
+            enc_padding_mask,
+            state_bag,
         )
 
         x = self._forward_ffn(x)
@@ -263,7 +263,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         x: Tensor,
         attn_mask: Optional[Tensor],
         attn_padding_mask: Optional[Tensor],
-        incremental_state_bag: Optional[IncrementalStateBag],
+        state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
         residual = x
 
@@ -276,7 +276,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
             values=x,
             attn_mask=attn_mask,
             padding_mask=attn_padding_mask,
-            incremental_state_bag=incremental_state_bag,
+            state_bag=state_bag,
         )
 
         if self.self_attn_norm is not None:
@@ -297,7 +297,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         x: Tensor,
         enc_out: Optional[Tensor],
         attn_padding_mask: Optional[Tensor],
-        incremental_state_bag: Optional[IncrementalStateBag],
+        state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
         if self.enc_dec_attn is None:
             if enc_out is not None:
@@ -320,7 +320,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
             keys=enc_out,
             values=enc_out,
             padding_mask=attn_padding_mask,
-            incremental_state_bag=incremental_state_bag,
+            state_bag=state_bag,
         )
 
         if self.dropout_p > 0.0:

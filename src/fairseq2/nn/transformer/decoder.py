@@ -58,8 +58,8 @@ class TransformerDecoder(Module, ABC):
         self,
         seq: Tensor,
         enc_out: Optional[Tensor] = None,
-        enc_attn_padding_mask: Optional[Tensor] = None,
-        incremental_state_bag: Optional[IncrementalStateBag] = None,
+        enc_padding_mask: Optional[Tensor] = None,
+        state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
         """
         :param seq:
@@ -74,14 +74,14 @@ class TransformerDecoder(Module, ABC):
             :attr:`batch_first` is ``False``, where :math:`N` is the batch size,
             :math:`S` is the source sequence length, and :math:`M_{enc}` is the
             encoder model size.
-        :param enc_attn_padding_mask:
+        :param enc_padding_mask:
             The boolean or float key padding mask indicating which key positions
             to ignore for the purpose of encoder-decoder attention. *Shape:*
             :math:`(S)` when unbatched, :math:`(N,S)` when :attr:`batch_first`
             is ``True``, or :math:`(S,N)` when :attr:`batch_first` is ``False``,
             where :math:`N` is the batch size and :math:`S` is the source
             sequence length.
-        :param incremental_state_bag:
+        :param state_bag:
             The state bag to use during an incremental evaluation.
 
         :returns:
@@ -254,16 +254,12 @@ class StandardTransformerDecoder(TransformerDecoder):
         self,
         seq: Tensor,
         enc_out: Optional[Tensor] = None,
-        enc_attn_padding_mask: Optional[Tensor] = None,
-        incremental_state_bag: Optional[IncrementalStateBag] = None,
+        enc_padding_mask: Optional[Tensor] = None,
+        state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
-        step = self._get_step_if_incremental_eval(seq, incremental_state_bag)
+        self_attn_padding_mask = self._get_self_attn_padding_mask(seq)
 
-        self_attn_padding_mask = self._get_self_attn_padding_mask(
-            step if step is not None else seq
-        )
-
-        x = self._forward_embed(seq, step)
+        x = self._forward_embed(seq, state_bag)
 
         if self.inp_dim_proj is not None:
             x = self.inp_dim_proj(x)
@@ -272,25 +268,14 @@ class StandardTransformerDecoder(TransformerDecoder):
             x,
             self_attn_padding_mask,
             enc_out,
-            enc_attn_padding_mask,
-            incremental_state_bag,
+            enc_padding_mask,
+            state_bag,
         )
 
         if self.out_dim_proj is not None:
             x = self.out_dim_proj(x)
 
         return x
-
-    def _get_step_if_incremental_eval(
-        self, seq: Tensor, incremental_state_bag: Optional[IncrementalStateBag]
-    ) -> Optional[Tensor]:
-        if self.training or incremental_state_bag is None:
-            return None
-
-        if seq.dim() > 1 and self.batch_first:
-            return seq[:, -1:]
-        else:
-            return seq[-1:]
 
     def _get_self_attn_padding_mask(self, seq: Tensor) -> Optional[Tensor]:
         if self.embed.padding_idx is not None:
@@ -305,34 +290,36 @@ class StandardTransformerDecoder(TransformerDecoder):
         else:
             return None
 
-    def _forward_embed(self, seq: Tensor, step: Optional[Tensor]) -> Tensor:
-        x = self.embed(step if step is not None else seq)
+    def _forward_embed(
+        self, seq: Tensor, state_bag: Optional[IncrementalStateBag]
+    ) -> Tensor:
+        embed = self.embed(seq)
 
         if self.embed_scale != 1.0:
-            x = x * self.embed_scale
+            embed = embed * self.embed_scale
 
         if self.pos_embed is not None:
-            x = self.pos_embed(x, seq, step is not None)
+            embed = self.pos_embed(embed, state_bag)
 
         if self.embed_norm is not None:
-            x = self.embed_norm(x)
+            embed = self.embed_norm(embed)
 
         if self.embed_dropout_p > 0.0:
-            x = F.dropout(x, self.embed_dropout_p, self.training)
+            embed = F.dropout(embed, self.embed_dropout_p, self.training)
 
-        return x  # type: ignore[no-any-return]
+        return embed  # type: ignore[no-any-return]
 
     def _forward_decoder_layers(
         self,
         x: Tensor,
         self_attn_padding_mask: Optional[Tensor],
         enc_out: Optional[Tensor],
-        enc_attn_padding_mask: Optional[Tensor],
-        incremental_state_bag: Optional[IncrementalStateBag],
+        enc_padding_mask: Optional[Tensor],
+        state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
         self_attn_mask: Optional[Tensor] = None
 
-        if self.training or incremental_state_bag is None:
+        if self.training or state_bag is None:
             self_attn_mask = self.self_attn_mask_gen(x, self.batch_first)
 
         for layer in self.layers:
@@ -341,8 +328,8 @@ class StandardTransformerDecoder(TransformerDecoder):
                 self_attn_mask,
                 self_attn_padding_mask,
                 enc_out,
-                enc_attn_padding_mask,
-                incremental_state_bag=incremental_state_bag,
+                enc_padding_mask,
+                state_bag,
             )
 
         if self.layer_norm is not None:

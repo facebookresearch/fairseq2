@@ -55,7 +55,7 @@ def test_generate(prefix_tokens: Any) -> None:
     # We should generate one step per len
     assert len(attn_weights) == tgt_len
     for i in range(tgt_len):
-        assert attn_weights[i].shape == (32, i + 1, src_len)
+        assert attn_weights[i].shape == (32, 1, src_len)
 
     if prefix_tokens is None:
         assert torch.all(tgt_tokens[:, 0] == token_meta.BOS)

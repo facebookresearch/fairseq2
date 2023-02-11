@@ -8,6 +8,8 @@ from typing import NoReturn, Optional, Protocol, final
 
 from torch import Tensor
 
+from fairseq2.nn.utils import neg_inf
+
 
 class AttentionMaskGenerator(Protocol):
     """Generates an attention mask."""
@@ -55,9 +57,9 @@ class CausalAttentionMaskGenerator:
 
         :returns:
             An attention mask whose upper triangular part above the main
-            diagonal is filled with negative infinities (i.e.
-            ``float("-inf")``), while its rest is filled with zeros. *Shape:*
-            :math:`(S,S)`, where :math:`S` is the sequence length.
+            diagonal is filled with negative infinity (i.e. ``float("-inf")``),
+            while its rest is filled with zero. *Shape:* :math:`(S,S)`, where
+            :math:`S` is the sequence length.
 
         Usage:
 
@@ -80,7 +82,7 @@ class CausalAttentionMaskGenerator:
             seq_len = tgt.size(0)
 
         if mask is None or mask.device != tgt.device or mask.size(0) < seq_len:
-            mask = tgt.new_full([seq_len, seq_len], float("-inf"))
+            mask = tgt.new_full([seq_len, seq_len], neg_inf)
 
             mask.triu_(diagonal=1)
 

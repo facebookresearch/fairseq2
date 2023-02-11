@@ -194,6 +194,8 @@ class SearchStrategy(ABC):
                     _get_last_time_axis(dec_out, model.batch_first)
                 )
 
+                incremental_states.increment_step()
+
             with torch.autograd.profiler.record_function("search_step"):
                 # Select the last time step prediction
                 job.update(dec_out)
@@ -310,7 +312,7 @@ class BeamSearchJob(SearchStrategy.SearchJob):
 
     @overrides
     def next_query(self) -> Tensor:
-        return self.tokens.view(self.flat_size, -1)[:, : self.step + 1]
+        return self.tokens.view(self.flat_size, -1)[:, self.step : self.step + 1]
 
     def tokens_beam_view(self) -> Tensor:
         return self.tokens.view(self.batch_size, self.beam_size, -1)

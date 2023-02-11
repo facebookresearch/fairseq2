@@ -136,11 +136,9 @@ class TestMultiheadAttention:
         # y = attn_batch_first(x_tgt, x_src, x_src)
         # y_attn = attn_weights.pop()
 
-        inc_state = IncrementalStateBag()
-        # Do a first pass, this should put the source key, values into inc_state
-        y_inc = attn_batch_first(
-            x_tgt[:, :1, :], x_src, x_src, incremental_state_bag=inc_state
-        )
+        state_bag = IncrementalStateBag()
+        # Do a first pass, this should put the source key, values into state_bag
+        y_inc = attn_batch_first(x_tgt[:, :1, :], x_src, x_src, state_bag=state_bag)
         y_inc_attn = attn_weights.pop()
         assert y_inc.shape == (bs, 1, dim)
         assert y_inc_attn.shape == (bs * heads, 1, l_src)
@@ -160,7 +158,7 @@ class TestMultiheadAttention:
 #            m.setattr(attn_batch_first, "_forward_proj", check_proj_of_x_src_is_cached)
 #            for t in range(1, l_tgt):
 #                y_inc = attn_batch_first(
-#                    x_tgt[:, : t + 1, :], x_src, x_src, incremental_state_bag=inc_state
+#                    x_tgt[:, : t + 1, :], x_src, x_src, incremental_state_bag=state_bag
 #                )
 #                y_inc_attn = attn_weights.pop()
 #                assert y_inc.shape == (bs, t + 1, dim)

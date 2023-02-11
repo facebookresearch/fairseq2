@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+__all__ = ["IncrementalState", "IncrementalStateBag"]
+
 from abc import ABC, abstractmethod
 from typing import Dict, Optional, Type, TypeVar
 
@@ -14,10 +16,10 @@ from torch.nn import Module
 class IncrementalState(ABC):
     """Holds the state of a module during an incremental evaluation.
 
-    Incremental evaluation is a special mode where the module only receives a
-    single step of input corresponding to the previous output and must produce
-    the next output incrementally. Thus the module must cache any long-term
-    state that is needed about the sequence.
+    Incremental evaluation is a special mode, where the module only receives an
+    input corresponding to the previous output and must produce the next output
+    incrementally. Thus the module must cache any long-term state that is needed
+    about the sequence.
     """
 
     @abstractmethod
@@ -25,8 +27,8 @@ class IncrementalState(ABC):
         """Rearranges the incremental state according to a new batch order.
 
         This will be called when the order of the batch has changed from the
-        previous step. A typical use case is beam search, where the batch order
-        changes between steps based on the selection of beams.
+        previous step(s). A typical use case is beam search, where the batch
+        order changes between steps based on the selection of beams.
 
         :param new_order:
             The new order of the batch. It is frequently used with
@@ -42,10 +44,30 @@ T = TypeVar("T", bound=IncrementalState)
 class IncrementalStateBag:
     """Holds the module states during an incremental evaluation."""
 
+    _step: int
     _module_states: Dict[Module, IncrementalState]
 
     def __init__(self) -> None:
+        self._step = 0
+
         self._module_states = {}
+
+    @property
+    def step(self) -> int:
+        """Returns the current step in the sequence."""
+        return self._step
+
+    def increment_step(self, delta: int = 1) -> None:
+        """Increments the step.
+
+        This method should be called after every incremental evaluation (e.g.
+        beam search). It is used by modules to keep track of the position in
+        the sequence.
+
+        :param delta:
+            The value by which to increment.
+        """
+        self._step += delta
 
     def get_state(self, m: Module, kls: Type[T]) -> Optional[T]:
         """Gets the incremental state of ``m``, or ``None`` if ``m`` is not

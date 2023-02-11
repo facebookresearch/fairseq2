@@ -12,7 +12,7 @@ __all__ = [
 
 import math
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, cast, final
+from typing import Any, Dict, Optional, final
 
 import torch
 import torch.nn as nn
@@ -22,6 +22,7 @@ from torch import Tensor
 from torch.nn import Module
 from torch.nn.parameter import Parameter
 
+from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.typing import DataType, Device
 
 
@@ -34,32 +35,18 @@ class PositionalEmbedding(Module, ABC):
     embedding_dim: int
     """The dimensionality of positional embeddings."""
 
-    padding_token_idx: Optional[int]
-    """The index of the padding token. While producing positional embeddings,
-    paddings in an input sequence will be skipped and their positional
-    embeddings will be set to zero.
-    """
-
     batch_first: bool
     """If ``True``, the first dimension of batched inputs and outputs represents
     the batch; otherwise, the sequence."""
 
     def __init__(
-        self,
-        max_seq_len: int,
-        embedding_dim: int,
-        padding_token_idx: Optional[int] = None,
-        batch_first: bool = False,
+        self, max_seq_len: int, embedding_dim: int, batch_first: bool = False
     ) -> None:
         """
         :param max_seq_len:
             The expected maximum sequence length.
         :param embedding_dim:
             The dimensionality of positional embeddings.
-        :param padding_token_idx:
-            The index of the padding token. While producing positional
-            embeddings, paddings in an input sequence will be skipped and their
-            positional embeddings will be set to zero.
         :param batch_first:
             If ``True``, the first dimension of batched inputs and outputs
             represents the batch; otherwise, the sequence.
@@ -68,14 +55,10 @@ class PositionalEmbedding(Module, ABC):
 
         self.max_seq_len = max_seq_len
         self.embedding_dim = embedding_dim
-        self.padding_token_idx = padding_token_idx
         self.batch_first = batch_first
 
     def forward(
-        self,
-        embed: Tensor,
-        seq: Tensor,
-        incremental_eval: bool = False,
+        self, embed: Tensor, state_bag: Optional[IncrementalStateBag] = None
     ) -> Tensor:
         """
         :param embed:
@@ -85,51 +68,43 @@ class PositionalEmbedding(Module, ABC):
             :attr:`batch_first` is ``False``, where :math:`N` is the batch size,
             :math:`S` is the sequence length, and :math:`E` is the embedding
             size.
-        :param seq:
-            The input sequences. *Shape:* :math:`(S)` when unbatched,
-            :math:`(N,S)` when :attr:`batch_first` is ``True``, or :math:`(S,N)`
-            when :attr:`batch_first` is ``False``, where :math:`N` is the batch
-            size and :math:`S` is the sequence length.
-        :param incremental_eval:
-            If ``True`` and in eval mode, returns the embedding of the last step
-            only; in such case, the sequence length of ``embed`` is expected to
-            be 1.
+        :param state_bag:
+            The state bag to use during an incremental evaluation.
 
         :returns:
             The token embeddings with the positional embeddings added. *Shape:*
             Same as ``embed``.
         """
-        seq_dim = seq.dim()
+        embed_dim = embed.dim()
 
-        if seq_dim > 2:
+        if embed_dim == 3:
+            if not self.batch_first:
+                embed = embed.transpose(0, 1)
+        elif embed_dim == 2:
+            embed = embed.unsqueeze(0)
+        else:
             raise ValueError(
-                f"The number of dimensions of `seq` ({seq_dim}) must be 1 or 2."
+                f"The number of dimensions of `embed` ({embed_dim}) must be 2 or 3."
             )
 
-        if seq_dim > 1:
-            if not self.batch_first:
-                embed, seq = embed.transpose(0, 1), seq.transpose(0, 1)
-        else:
-            embed, seq = embed.unsqueeze(0), seq.unsqueeze(0)
-
-        if (seq_len := seq.size(1)) > self.max_seq_len:
+        if (seq_len := embed.size(1)) > self.max_seq_len:
             raise ValueError(
                 f"The input sequence length ({seq_len}) cannot be greater than {self.max_seq_len}."
             )
 
-        embed = self._forward_core(embed, seq, incremental_eval)
+        embed = self._do_forward(embed, state_bag)
 
-        if seq_dim > 1:
+        if embed_dim == 3:
             if not self.batch_first:
-                return embed.transpose(0, 1)
-            else:
-                return embed
+                embed = embed.transpose(0, 1)
         else:
-            return embed.squeeze(0)
+            embed = embed.squeeze(0)
+
+        return embed
 
     @abstractmethod
-    def _forward_core(
-        self, embed: Tensor, seq: Tensor, incremental_eval: bool
+    def _do_forward(
+        self, embed: Tensor, state_bag: Optional[IncrementalStateBag]
     ) -> Tensor:
         """
         :param embed:
@@ -137,13 +112,8 @@ class PositionalEmbedding(Module, ABC):
             added. *Shape:* :math:`(N,S,E)`, where :math:`N` is the batch size,
             :math:`S` is the sequence length, and :math:`E` is the embedding
             size.
-        :param seq:
-            The input sequences. *Shape:* :math:`(N,S)`, where :math:`N` is the
-            batch size and :math:`S` is the sequence length.
-        :param incremental_eval:
-            If ``True`` and in eval mode, an actual implementation should return
-            the embedding of the last step only; in such case, the sequence
-            length of ``embed`` is expected to be 1.
+        :param state_bag:
+            The state bag to use during an incremental evaluation.
 
         :returns:
             The token embeddings with the positional embeddings added. *Shape:*
@@ -188,17 +158,13 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
     >>>
     >>> from fairseq2.nn.positional_embedding import SinusoidalPositionalEmbedding
     >>>
-    >>> m = SinusoidalPositionalEmbedding(
-    ...    max_seq_len=16, embedding_dim=4, padding_token_idx=3
-    ... )
-    >>> embed = torch.ones((4, 4))
+    >>> m = SinusoidalPositionalEmbedding(max_seq_len=16, embedding_dim=4)
     >>>
-    >>> seq = torch.tensor([7, 2, 3, 11])
+    >>> embed = torch.ones((3, 4))
     >>>
-    >>> m(embed, seq)
+    >>> m(embed)
     tensor([[ 1.0000e+00,  1.0000e+00,  2.0000e+00,  2.0000e+00],  # pos 0
             [ 9.4147e-01,  2.0000e-04,  6.4030e-01,  2.0000e+00],  # pos 1
-            [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  0.0000e+00],  # pad
             [ 1.0930e-02,  3.0000e-04, -5.1615e-01,  2.0000e+00]]) # pos 2
     """
 
@@ -208,20 +174,13 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
         self,
         max_seq_len: int,
         embedding_dim: int,
-        padding_token_idx: Optional[int] = None,
         batch_first: bool = False,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
-        super().__init__(max_seq_len, embedding_dim, padding_token_idx, batch_first)
+        super().__init__(max_seq_len, embedding_dim, batch_first)
 
-        if padding_token_idx is None:
-            num_embed = max_seq_len
-        else:
-            # Make space for the padding token's zero embedding.
-            num_embed = max_seq_len + 1
-
-        weight = torch.empty(num_embed, embedding_dim, device=device, dtype=dtype)
+        weight = torch.empty(max_seq_len, embedding_dim, device=device, dtype=dtype)
 
         self.register_buffer("weight", weight, persistent=False)
 
@@ -229,46 +188,21 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
 
     def reset_parameters(self) -> None:
         """Resets the parameters and buffers of the module."""
-        if self.padding_token_idx is not None:
-            # Fill the padding token's zero embedding.
-            self.weight[0].fill_(0.0)
-
-            weight = self.weight[1:]
-        else:
-            weight = self.weight
-
-        _fill_sinusoidal(weight)
+        _fill_sinusoidal(self.weight)
 
     @finaloverride
-    def _forward_core(
-        self, embed: Tensor, seq: Tensor, incremental_eval: bool
+    def _do_forward(
+        self, embed: Tensor, state_bag: Optional[IncrementalStateBag]
     ) -> Tensor:
         """:meta private:"""
-        bsz, seq_len = seq.shape
+        bsz, seq_len = embed.shape[:2]
 
-        out_size = (bsz, -1, self.embedding_dim)
-
-        last_step_only = not self.training and incremental_eval
-
-        # Shortcut index selection if we don't expect to have padding in the
-        # input sequence.
-        if self.padding_token_idx is None:
-            if last_step_only:
-                start_step = seq_len - 1
-            else:
-                start_step = 0
-
-            pos_embed = self.weight[start_step:seq_len].clone().expand(out_size)
+        if not self.training and state_bag is not None:
+            start_step = state_bag.step
         else:
-            ind = _make_indices_with_padding(
-                seq, last_step_only, self.padding_token_idx
-            )
+            start_step = 0
 
-            pos_embed = self.weight.index_select(dim=0, index=ind.view(-1))
-
-            pos_embed = pos_embed.view(out_size)
-
-        return embed + pos_embed
+        return embed + self.weight[start_step : start_step + seq_len]
 
 
 @final
@@ -281,18 +215,14 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
     >>>
     >>> from fairseq2.nn.positional_embedding import LearnedPositionalEmbedding
     >>>
-    >>> m = LearnedPositionalEmbedding(
-    ...    max_seq_len=16, embedding_dim=4, padding_token_idx=3
-    ... )
-    >>> embed = torch.ones((4, 4))
+    >>> m = LearnedPositionalEmbedding(max_seq_len=16, embedding_dim=4)
     >>>
-    >>> seq = torch.tensor([7, 2, 3, 11])
+    >>> embed = torch.ones((3, 4))
     >>>
-    >>> m(embed, seq)
+    >>> m(embed)
     tensor([[ 1.1135,  0.5548,  0.4293,  2.0112],                               # pos 0
             [ 0.2364,  0.6009,  3.3865, -2.4810],                               # pos 1
-            [ 0.0000,  0.0000,  0.0000,  0.0000],                               # pad
-            [-0.4746,  0.4544,  0.2761,  0.8828]], grad_fn=<SqueezeBackward1>)  # pos 3
+            [-0.4746,  0.4544,  0.2761,  0.8828]], grad_fn=<SqueezeBackward1>)  # pos 2
     """
 
     weight: Parameter
@@ -301,26 +231,14 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
         self,
         max_seq_len: int,
         embedding_dim: int,
-        padding_token_idx: Optional[int] = None,
         batch_first: bool = False,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
-        super().__init__(max_seq_len, embedding_dim, padding_token_idx, batch_first)
-
-        if padding_token_idx is None:
-            num_embed = max_seq_len
-        else:
-            # Make space for the padding token's zero embedding.
-            num_embed = max_seq_len + 1
+        super().__init__(max_seq_len, embedding_dim, batch_first)
 
         self.weight = Parameter(
-            torch.empty(
-                num_embed,
-                embedding_dim,
-                device=device,
-                dtype=cast(torch.dtype, dtype),
-            )
+            torch.empty(max_seq_len, embedding_dim, device=device, dtype=dtype)
         )
 
         self.reset_parameters()
@@ -329,31 +247,23 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
         """Resets the parameters and buffers of the module."""
         nn.init.normal_(self.weight)
 
-        if self.padding_token_idx is not None:
-            with torch.no_grad():
-                self.weight[0].fill_(0.0)
-
     @finaloverride
-    def _forward_core(
-        self, embed: Tensor, seq: Tensor, incremental_eval: bool
+    def _do_forward(
+        self, embed: Tensor, state_bag: Optional[IncrementalStateBag]
     ) -> Tensor:
         """:meta private:"""
-        last_step_only = not self.training and incremental_eval
+        bsz, seq_len = embed.shape[:2]
 
-        if self.padding_token_idx is None:
-            ind = _make_indices_sans_padding(seq, last_step_only)
-
-            pad = None
+        if not self.training and state_bag is not None:
+            start_step = state_bag.step
         else:
-            ind = _make_indices_with_padding(
-                seq, last_step_only, self.padding_token_idx
-            )
+            start_step = 0
 
-            pad = 0
+        indices = torch.arange(
+            start_step, start_step + seq_len, device=embed.device, dtype=torch.int64
+        )
 
-        pos_embed = F.embedding(ind, self.weight, padding_idx=pad)
-
-        return embed + pos_embed
+        return embed + F.embedding(indices, self.weight)
 
 
 def _fill_sinusoidal(weight: Tensor) -> None:
@@ -371,44 +281,15 @@ def _fill_sinusoidal(weight: Tensor) -> None:
     fct_kwargs: Dict[str, Any] = {"device": weight.device, "dtype": weight.dtype}
 
     # This is identical to tensor2tensor's implementation.
-    ind = torch.arange(num_embed, **fct_kwargs)
+    indices = torch.arange(num_embed, **fct_kwargs)
 
     sin = torch.exp(
         torch.arange(num_sin, **fct_kwargs) * -math.log(10000) / (num_sin - 1)
     )
 
-    torch.matmul(ind[:, None], sin[None, :], out=l_half)
+    torch.matmul(indices[:, None], sin[None, :], out=l_half)
 
     r_half[:] = l_half[:]
 
     l_half.sin_()
     r_half.cos_()
-
-
-def _make_indices_with_padding(
-    seq: Tensor, last_step_only: bool, padding_token_idx: int
-) -> Tensor:
-    padding_mask = seq.ne(padding_token_idx).type(torch.int64)
-
-    ind = padding_mask.cumsum(dim=-1)
-
-    # Set the padding indices to zero.
-    ind = ind * padding_mask
-
-    if last_step_only:
-        return ind[:, -1:]
-    else:
-        return ind
-
-
-def _make_indices_sans_padding(seq: Tensor, last_step_only: bool) -> Tensor:
-    bsz, seq_len = seq.shape
-
-    if last_step_only:
-        start_step = seq_len - 1
-    else:
-        start_step = 0
-
-    ind = torch.arange(start_step, seq_len, device=seq.device, dtype=torch.int64)
-
-    return ind.expand(bsz, -1)

@@ -11,38 +11,35 @@ from fairseq2.compat.nn import Fairseq1SinusoidalPositionalEmbedding
 from tests.common import assert_close, assert_equal, has_no_inf, has_no_nan
 
 
-def test_sinusoidal_embedding_is_backward_compatible() -> None:
-    _assert_embedding_is_backward_compatible(16, 0, 32)
-    _assert_embedding_is_backward_compatible(15, 0, 32)
-    _assert_embedding_is_backward_compatible(16, 10, 32)
-    _assert_embedding_is_backward_compatible(15, 5, 32)
-
-
-def _assert_embedding_is_backward_compatible(
-    max_len: int,
-    pad_idx: int,
-    emb_dim: int,
+@pytest.mark.parametrize("max_len,pad_idx", [(15, 0), (16, 0), (15, 5), (16, 10)])
+def test_sinusoidal_embedding_is_backward_compatible(
+    max_len: int, pad_idx: int
 ) -> None:
     fairseq = pytest.importorskip("fairseq")
 
-    a = fairseq.modules.SinusoidalPositionalEmbedding(
-        embedding_dim=emb_dim, padding_idx=pad_idx, init_size=max_len + pad_idx + 1
+    embed_dim = 32
+
+    v1 = fairseq.modules.SinusoidalPositionalEmbedding(
+        embedding_dim=embed_dim, padding_idx=pad_idx, init_size=max_len + pad_idx + 1
     )
-    b = Fairseq1SinusoidalPositionalEmbedding(
+    v2 = Fairseq1SinusoidalPositionalEmbedding(
         max_seq_len=max_len,
+        embedding_dim=embed_dim,
         padding_token_idx=pad_idx,
-        embedding_dim=emb_dim,
         batch_first=True,
     )
 
-    n = max_len
-    seq = torch.arange(pad_idx + 1, pad_idx + 1 + 2 * n).reshape(2, -1)
-    seq[:, -3:] = pad_idx
-    a_pos = a(seq)
-    b_pos = b(torch.zeros(1), seq)
-    assert_equal(a_pos[0], a_pos[1])
-    assert_equal(b_pos[0], b_pos[1])
-    assert_close(a_pos[0], b_pos[0])
-    assert_close(a_pos, b_pos)
-    assert has_no_inf(b_pos)
-    assert has_no_nan(b_pos)
+    seq = torch.arange(pad_idx + 1, pad_idx + 1 + (2 * max_len)).reshape(2, -1)
+
+    embed = torch.zeros(seq.shape + (embed_dim,))
+
+    v1_pos = v1(seq)
+    v2_pos = v2(embed)
+
+    assert_equal(v1_pos[0], v1_pos[1])
+    assert_equal(v2_pos[0], v2_pos[1])
+    assert_close(v1_pos[0], v2_pos[0])
+    assert_close(v1_pos, v2_pos)
+
+    assert has_no_inf(v2_pos)
+    assert has_no_nan(v2_pos)

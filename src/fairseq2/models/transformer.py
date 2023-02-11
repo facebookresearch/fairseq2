@@ -117,9 +117,9 @@ class Transformer(Module):
             length, and :math:`D` is the size of the output embedding
             dictionary.
         """
-        enc_out, enc_attn_padding_mask = self.encoder(src_seq)
+        enc_out, enc_padding_mask = self.encoder(src_seq)
 
-        x = self.decoder(tgt_seq, enc_out, enc_attn_padding_mask)
+        x = self.decoder(tgt_seq, enc_out, enc_padding_mask)
 
         x = self.score_proj(x)
 
@@ -281,7 +281,6 @@ class TransformerBuilder:
         return SinusoidalPositionalEmbedding(
             max_seq_len=self.max_seq_len,
             embedding_dim=self.model_dim,
-            padding_token_idx=self.padding_token_idx,
             batch_first=self.batch_first,
             **self._fct_kwargs,
         )

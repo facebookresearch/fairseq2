@@ -105,7 +105,7 @@ class MultiheadAttentionState(IncrementalState):
         self.prev_v = torch.cat([self.prev_v, v], dim=1)
 
         # Appending the key padding mask is trickier than K and V since either
-        # the previous or the current mask can be `None`.
+        # the previous or the current mask can be None.
         self._append_padding_mask(padding_mask, seq_len, prev_seq_len)
 
         return self.prev_k, self.prev_v, self.prev_padding_mask
@@ -120,7 +120,7 @@ class MultiheadAttentionState(IncrementalState):
 
         bsz = self.prev_k.size(0)
 
-        # One of the masks can still be `None`. We have to ensure that both of
+        # One of the masks can still be None. We have to ensure that both of
         # them are fully materialized before concatenating them.
         if prev_mask is None:
             prev_mask = self.prev_k.new_zeros((bsz, prev_seq_len))
@@ -225,7 +225,7 @@ class MultiheadAttention(Module, ABC):
         values: Tensor,
         attn_mask: Optional[Tensor] = None,
         padding_mask: Optional[Tensor] = None,
-        incremental_state_bag: Optional[IncrementalStateBag] = None,
+        state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
         """
         :param x:
@@ -257,7 +257,7 @@ class MultiheadAttention(Module, ABC):
             unbatched, :math:`(N,S)` when :attr:`batch_first` is ``True``, or
             :math:`(S,N)` when :attr:`batch_first` is ``False``, where :math:`N`
             is the batch size and :math:`S` is the source sequence length.
-        :param incremental_state_bag:
+        :param state_bag:
             The state bag to use during an incremental evaluation.
 
         :returns:
@@ -507,20 +507,20 @@ class StandardMultiheadAttention(MultiheadAttention):
         values: Tensor,
         attn_mask: Optional[Tensor] = None,
         padding_mask: Optional[Tensor] = None,
-        incremental_state_bag: Optional[IncrementalStateBag] = None,
+        state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
         padding_mask = self._prepare_padding_mask(keys, padding_mask)
 
         # (*, M) -> (N, T, K_proj)
         q = self._forward_proj(self.q_proj, x)
 
-        if self.training or incremental_state_bag is None:
+        if self.training or state_bag is None:
             # (*, K) -> (N, S, K_proj)
             k = self._forward_proj(self.k_proj, keys)
             # (*, V) -> (N, S, V_proj)
             v = self._forward_proj(self.v_proj, values)
         else:
-            state = incremental_state_bag.get_state(self, MultiheadAttentionState)
+            state = state_bag.get_state(self, MultiheadAttentionState)
 
             enc_dec_attn = keys is values and keys is not x
 
@@ -536,7 +536,7 @@ class StandardMultiheadAttention(MultiheadAttention):
                     # (*, V) -> (N, S, V_proj)
                     v = self._forward_proj(self.v_proj, values)
 
-                    incremental_state_bag.set_state(self, MultiheadAttentionState(k, v))
+                    state_bag.set_state(self, MultiheadAttentionState(k, v))
             else:
                 # (*, K) -> (N, S, K_proj)
                 k = self._forward_proj(self.k_proj, keys)
@@ -546,7 +546,7 @@ class StandardMultiheadAttention(MultiheadAttention):
                 if state is not None:
                     k, v, padding_mask = state.append(k, v, padding_mask)
                 else:
-                    incremental_state_bag.set_state(
+                    state_bag.set_state(
                         self, MultiheadAttentionState(k, v, padding_mask)
                     )
 
