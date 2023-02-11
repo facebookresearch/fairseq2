@@ -14,28 +14,7 @@ class TestCausalAttentionMaskGenerator:
     def test_call_generates_correct_mask(self) -> None:
         g = CausalAttentionMaskGenerator()
 
-        mask = g(torch.ones((4, 6), device=device))
-
-        assert mask.shape == (4, 4)
-
-        inf = float("-inf")
-
-        expected_mask = torch.tensor(
-            [
-                [0.0, inf, inf, inf],
-                [0.0, 0.0, inf, inf],
-                [0.0, 0.0, 0.0, inf],
-                [0.0, 0.0, 0.0, 0.0],
-            ],
-            device=device,
-        )
-
-        assert_close(mask, expected_mask)
-
-    def test_call_generates_correct_mask_if_batch_first(self) -> None:
-        g = CausalAttentionMaskGenerator()
-
-        mask = g(torch.ones((6, 4), device=device), batch_first=True)
+        mask = g(torch.ones((6, 4), device=device))
 
         assert mask.shape == (4, 4)
 

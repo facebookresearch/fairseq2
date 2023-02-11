@@ -106,19 +106,6 @@ class TestSinusoidalPositionalEmbedding:
             max_seq_len=10, embedding_dim=4, device=device
         )
 
-        embed = torch.randn((9, 3, 4), device=device)
-
-        x = m(embed)
-
-        assert x.shape == (9, 3, 4)
-
-        assert_close(x - embed, m.weight[:9].unsqueeze(1).expand_as(x))
-
-    def test_forward_returns_correct_embeddings_if_batch_first(self) -> None:
-        m = SinusoidalPositionalEmbedding(
-            max_seq_len=10, embedding_dim=4, batch_first=True, device=device
-        )
-
         embed = torch.randn((3, 9, 4), device=device)
 
         x = m(embed)
@@ -143,10 +130,7 @@ class TestSinusoidalPositionalEmbedding:
         self, embed_idx: int
     ) -> None:
         m = SinusoidalPositionalEmbedding(
-            max_seq_len=4,
-            embedding_dim=32,
-            batch_first=True,
-            device=device,
+            max_seq_len=4, embedding_dim=32, device=device
         )
 
         state_bag = IncrementalStateBag()
@@ -190,19 +174,19 @@ class TestSinusoidalPositionalEmbedding:
         ):
             m(embed)
 
-    def test_forward_ignores_incremental_in_training(self) -> None:
+    def test_forward_ignores_state_bag_in_training(self) -> None:
         m = SinusoidalPositionalEmbedding(
             max_seq_len=3, embedding_dim=32, device=device
         )
 
-        embed = torch.randn((2, 5, 32), device=device)
+        embed = torch.randn((5, 2, 32), device=device)
 
-        incremental_state = IncrementalStateBag()
-        incremental_state.increment_step(delta=20)  # out of range
+        state_bag = IncrementalStateBag()
+        state_bag.increment_step(delta=20)  # out of range
 
-        x = m(embed, incremental_state)
+        x = m(embed, state_bag)
 
-        assert x.shape == (2, 5, 32)
+        assert x.shape == (5, 2, 32)
 
 
 class TestLearnedPositionalEmbedding:
@@ -221,19 +205,6 @@ class TestLearnedPositionalEmbedding:
 
     def test_forward_returns_correct_embeddings(self) -> None:
         m = LearnedPositionalEmbedding(max_seq_len=10, embedding_dim=4, device=device)
-
-        embed = torch.randn((9, 3, 4), device=device)
-
-        x = m(embed)
-
-        assert x.shape == (9, 3, 4)
-
-        assert_close(x - embed, m.weight[:9].unsqueeze(1).expand_as(x))
-
-    def test_forward_returns_correct_embeddings_if_batch_first(self) -> None:
-        m = LearnedPositionalEmbedding(
-            max_seq_len=10, embedding_dim=4, batch_first=True, device=device
-        )
 
         embed = torch.randn((3, 9, 4), device=device)
 
@@ -256,9 +227,7 @@ class TestLearnedPositionalEmbedding:
     def test_forward_returns_correct_embedding_in_incremental_eval(
         self, embed_idx: int
     ) -> None:
-        m = LearnedPositionalEmbedding(
-            max_seq_len=4, embedding_dim=32, batch_first=True, device=device
-        )
+        m = LearnedPositionalEmbedding(max_seq_len=4, embedding_dim=32, device=device)
 
         state_bag = IncrementalStateBag()
         state_bag.increment_step(delta=embed_idx)
@@ -297,14 +266,14 @@ class TestLearnedPositionalEmbedding:
         ):
             m(embed)
 
-    def test_forward_ignores_incremental_in_training(self) -> None:
+    def test_forward_ignores_state_bag_in_training(self) -> None:
         m = LearnedPositionalEmbedding(max_seq_len=3, embedding_dim=32, device=device)
 
-        embed = torch.randn((2, 5, 32), device=device)
+        embed = torch.randn((5, 2, 32), device=device)
 
-        incremental_state = IncrementalStateBag()
-        incremental_state.increment_step(delta=20)  # out of range
+        state_bag = IncrementalStateBag()
+        state_bag.increment_step(delta=20)  # out of range
 
-        x = m(embed, incremental_state)
+        x = m(embed, state_bag)
 
-        assert x.shape == (2, 5, 32)
+        assert x.shape == (5, 2, 32)

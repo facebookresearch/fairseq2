@@ -17,8 +17,7 @@ class Tokenizer:
     EOS = 2
     PAD = 3
 
-    def __init__(self, batch_first: bool):
-        self.batch_first = batch_first
+    def __init__(self) -> None:
         self.special_tokens: Dict[str, int] = {}
 
     def vocab_size(self) -> int:
@@ -70,25 +69,19 @@ class TokenMeta:
 
 class SpmTokenizer(Tokenizer):
     @staticmethod
-    def from_file(
-        file: Path, batch_first: bool = True, _pad_shift_hack: bool = False
-    ) -> "SpmTokenizer":
+    def from_file(file: Path, _pad_shift_hack: bool = False) -> "SpmTokenizer":
         spm = sentencepiece.SentencePieceProcessor()
         spm.load(str(file))
-        return SpmTokenizer(
-            spm, batch_first=batch_first, _pad_shift_hack=_pad_shift_hack
-        )
+        return SpmTokenizer(spm, _pad_shift_hack=_pad_shift_hack)
 
     def __init__(
         self,
         spm: sentencepiece.SentencePieceProcessor,
-        batch_first: bool,
         sampling: bool = False,
         _pad_shift_hack: bool = False,
     ):
-        super().__init__(batch_first)
+        super().__init__()
         self.spm = spm
-        self.batch_first = batch_first
         self.sampling = sampling
         # HACK to reproduce Fairseq1 behavior
         # Fairseq1 is not using tokens returned by spm, but convert them to string then back to index.
@@ -132,7 +125,6 @@ class SpmTokenizer(Tokenizer):
         return _make_batch(
             tokens,
             self.PAD,
-            self.batch_first,
             rewrite_bos=bos,
             shift_tokens=1 if self._pad_shift_hack else 0,
         )
@@ -146,8 +138,6 @@ class SpmTokenizer(Tokenizer):
         tokens[tokens == self.PAD] = self.EOS
         if self._pad_shift_hack:
             tokens = tokens - 1
-        if not self.batch_first:
-            tokens = tokens.transpose(1, 0)
 
         return [self._decode(tokens[i, :].tolist()) for i in range(tokens.size(0))]
 
@@ -164,14 +154,14 @@ class DictTokenizer(Tokenizer):
     """Dict and spaces based tokenizer like in legacy Fairseq."""
 
     @staticmethod
-    def from_fairseq_dict_txt(file: Path, batch_first: bool = True) -> "DictTokenizer":
+    def from_fairseq_dict_txt(file: Path) -> "DictTokenizer":
         import fairseq.data
 
         src_dict = fairseq.data.Dictionary.load(str(file))
-        return DictTokenizer(src_dict, batch_first)
+        return DictTokenizer(src_dict)
 
-    def __init__(self, vocab: "fairseq.data.Dictionary", batch_first: bool):
-        super().__init__(batch_first)
+    def __init__(self, vocab: "fairseq.data.Dictionary"):
+        super().__init__()
         self.vocab = vocab
         self.UNK = self.add_special_token("<UNK>", vocab.unk_index)
         self.BOS = self.add_special_token("<BOS>", vocab.bos_index)
@@ -187,13 +177,10 @@ class DictTokenizer(Tokenizer):
         ]
         bos = self.BOS if bos < 0 else bos
         # Fairseq is adding BOS after tokenization. Let's add it now.
-        return _make_batch(tokens, self.PAD, self.batch_first, prepend_bos=bos)
+        return _make_batch(tokens, self.PAD, prepend_bos=bos)
 
     def decode_batch(self, tokens: Tensor) -> List[str]:
-        if self.batch_first:
-            return [self._decode(tokens[i, :].tolist()) for i in range(tokens.size(0))]
-        else:
-            return [self._decode(tokens[:, i].tolist()) for i in range(tokens.size(1))]
+        return [self._decode(tokens[i, :].tolist()) for i in range(tokens.size(0))]
 
     def _decode(self, tokens: List[int]) -> str:
         if tokens[-1] == self.PAD:
@@ -207,7 +194,6 @@ class DictTokenizer(Tokenizer):
 def _make_batch(
     values: List[List[int]],
     pad_id: int,
-    batch_first: bool,
     pad_to_length: int = 0,
     pad_to_multiple: int = 1,
     batch_size: int = 0,
@@ -249,6 +235,4 @@ def _make_batch(
     if rewrite_bos >= 0:
         assert not left_pad, "TODO: left_pad isn't compatible with rewrite_bos."
         res[:, 0] = rewrite_bos
-    if not batch_first:
-        return res.transpose(1, 0)
     return res

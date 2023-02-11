@@ -14,16 +14,12 @@ from fairseq2.nn.utils import neg_inf
 class AttentionMaskGenerator(Protocol):
     """Generates an attention mask."""
 
-    def __call__(self, tgt: Tensor, batch_first: bool = False) -> Tensor:
+    def __call__(self, tgt: Tensor) -> Tensor:
         """
         :param tgt:
-            The target for which to generate the mask. *Shape:* :math:`(S,*)`
-            when unbatched, :math:`(N,S,*)` when ``batch_first`` is ``True``, or
-            :math:`(S,N,*)` when ``batch_first`` is ``False``, where :math:`N`
-            is the batch size and :math:`S` is the sequence length.
-        :param batch_first:
-            If ``True``, the first dimension of ``tgt`` represents the batch;
-            otherwise, the sequence.
+            The target for which to generate the mask. *Shape:* :math:`(N,S,*)`,
+            or :math:`(S,*)` when unbatched, where :math:`N` is the batch size
+            and :math:`S` is the sequence length.
 
         :returns:
             An attention mask whose content is specific to the generator.
@@ -44,16 +40,12 @@ class CausalAttentionMaskGenerator:
     def __init__(self) -> None:
         self._cached_attn_mask = None
 
-    def __call__(self, tgt: Tensor, batch_first: bool = False) -> Tensor:
+    def __call__(self, tgt: Tensor) -> Tensor:
         """
         :param tgt:
-            The target for which to generate the mask. *Shape:* :math:`(S,*)`
-            when unbatched, :math:`(N,S,*)` when ``batch_first`` is ``True``, or
-            :math:`(S,N,*)` when ``batch_first`` is ``False``, where :math:`N`
-            is the batch size and :math:`S` is the sequence length.
-        :param batch_first:
-            If ``True``, the first dimension of ``tgt`` represents the batch;
-            otherwise, the sequence.
+            The target for which to generate the mask. *Shape:* :math:`(N,S,*)`,
+            or :math:`(S,*)` when unbatched, where :math:`N` is the batch size
+            and :math:`S` is the sequence length.
 
         :returns:
             An attention mask whose upper triangular part above the main
@@ -76,7 +68,7 @@ class CausalAttentionMaskGenerator:
         """
         mask = self._cached_attn_mask
 
-        if batch_first and tgt.dim() > 1:
+        if tgt.dim() > 1:
             seq_len = tgt.size(1)
         else:
             seq_len = tgt.size(0)
@@ -102,5 +94,5 @@ class ALiBiAttentionMaskGenerator:
     .. todo:: Not implemented yet!
     """
 
-    def __call__(self, tgt: Tensor, batch_first: bool = False) -> NoReturn:
+    def __call__(self, tgt: Tensor) -> NoReturn:
         raise NotImplementedError()

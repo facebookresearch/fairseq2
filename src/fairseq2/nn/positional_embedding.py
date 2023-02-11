@@ -35,27 +35,17 @@ class PositionalEmbedding(Module, ABC):
     embedding_dim: int
     """The dimensionality of positional embeddings."""
 
-    batch_first: bool
-    """If ``True``, the first dimension of batched inputs and outputs represents
-    the batch; otherwise, the sequence."""
-
-    def __init__(
-        self, max_seq_len: int, embedding_dim: int, batch_first: bool = False
-    ) -> None:
+    def __init__(self, max_seq_len: int, embedding_dim: int) -> None:
         """
         :param max_seq_len:
             The expected maximum sequence length.
         :param embedding_dim:
             The dimensionality of positional embeddings.
-        :param batch_first:
-            If ``True``, the first dimension of batched inputs and outputs
-            represents the batch; otherwise, the sequence.
         """
         super().__init__()
 
         self.max_seq_len = max_seq_len
         self.embedding_dim = embedding_dim
-        self.batch_first = batch_first
 
     def forward(
         self, embed: Tensor, state_bag: Optional[IncrementalStateBag] = None
@@ -63,11 +53,9 @@ class PositionalEmbedding(Module, ABC):
         """
         :param embed:
             The token embeddings onto which the positional embeddings will be
-            added. *Shape:* :math:`(S,E)` when unbatched, :math:`(N,S,E)` when
-            :attr:`batch_first` is ``True``, or :math:`(S,N,E)` when
-            :attr:`batch_first` is ``False``, where :math:`N` is the batch size,
-            :math:`S` is the sequence length, and :math:`E` is the embedding
-            size.
+            added. *Shape:* :math:`(N,S,E)`, or :math:`(S,E)` when unbatched,
+            where :math:`N` is the batch size, :math:`S` is the sequence length,
+            and :math:`E` is the embedding size.
         :param state_bag:
             The state bag to use during an incremental evaluation.
 
@@ -77,12 +65,9 @@ class PositionalEmbedding(Module, ABC):
         """
         embed_dim = embed.dim()
 
-        if embed_dim == 3:
-            if not self.batch_first:
-                embed = embed.transpose(0, 1)
-        elif embed_dim == 2:
+        if embed_dim == 2:
             embed = embed.unsqueeze(0)
-        else:
+        elif embed_dim != 3:
             raise ValueError(
                 f"The number of dimensions of `embed` ({embed_dim}) must be 2 or 3."
             )
@@ -94,10 +79,7 @@ class PositionalEmbedding(Module, ABC):
 
         embed = self._do_forward(embed, state_bag)
 
-        if embed_dim == 3:
-            if not self.batch_first:
-                embed = embed.transpose(0, 1)
-        else:
+        if embed_dim == 2:
             embed = embed.squeeze(0)
 
         return embed
@@ -174,11 +156,10 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
         self,
         max_seq_len: int,
         embedding_dim: int,
-        batch_first: bool = False,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
-        super().__init__(max_seq_len, embedding_dim, batch_first)
+        super().__init__(max_seq_len, embedding_dim)
 
         weight = torch.empty(max_seq_len, embedding_dim, device=device, dtype=dtype)
 
@@ -231,11 +212,10 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
         self,
         max_seq_len: int,
         embedding_dim: int,
-        batch_first: bool = False,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
-        super().__init__(max_seq_len, embedding_dim, batch_first)
+        super().__init__(max_seq_len, embedding_dim)
 
         self.weight = Parameter(
             torch.empty(max_seq_len, embedding_dim, device=device, dtype=dtype)

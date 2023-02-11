@@ -16,7 +16,7 @@ from torch.nn import Module
 class IncrementalState(ABC):
     """Holds the state of a module during an incremental evaluation.
 
-    Incremental evaluation is a special mode, where the module only receives an
+    Incremental evaluation is a special mode where the module only receives an
     input corresponding to the previous output and must produce the next output
     incrementally. Thus the module must cache any long-term state that is needed
     about the sequence.

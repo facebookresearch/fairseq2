@@ -25,8 +25,6 @@ from fairseq2.typing import Device
 
 log = logging.getLogger(__name__)
 
-BATCH_FIRST = True
-
 LangPairs = List[Tuple[str, str]]
 
 task = TranslationTask
@@ -51,7 +49,6 @@ def train_data(
     if len(lang_pairs) > 1:
         train: Iterable[Seq2SeqBatch] = fairseq2.dataloader.RoundRobin(
             [load_data(*pair, "train") for pair in lang_pairs],
-            batch_first=BATCH_FIRST,
         )
     else:
         train = load_data(*lang_pairs[0], "train")
@@ -124,7 +121,6 @@ def builder(env: Env, tokenizer: DictTokenizer) -> LegacyBuilder:
     return LegacyBuilder(
         tokenizer.vocab_size(),
         tokenizer.PAD,
-        batch_first=BATCH_FIRST,
         dropout_p=0,
         device=env.device,
     )

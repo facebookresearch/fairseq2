@@ -31,44 +31,30 @@ class TransformerEncoder(Module, ABC):
     model_dim: int
     """The dimensionality of the model (i.e. inputs and outputs)."""
 
-    batch_first: bool
-    """If ``True``, the first dimension of batched inputs and outputs represents
-    the batch; otherwise, the sequence."""
-
-    def __init__(self, model_dim: int, batch_first: bool) -> None:
+    def __init__(self, model_dim: int) -> None:
         """
         :param model_dim:
             The dimensionality of the model (i.e. inputs and outputs).
-        :param batch_first:
-            If ``True``, the first dimension of batched inputs and outputs
-            represents the batch; otherwise, the sequence.
         """
         super().__init__()
 
         self.model_dim = model_dim
 
-        self.batch_first = batch_first
-
     @abstractmethod
     def forward(self, seq: Tensor) -> Tuple[Tensor, Optional[Tensor]]:
         """
         :param seq:
-            The source sequences. *Shape:* :math:`(S)` when unbatched,
-            :math:`(N,S)` when :attr:`batch_first` is ``True``, or :math:`(S,N)`
-            when :attr:`batch_first` is ``False``, where :math:`N` is the batch
-            size and :math:`S` is the source sequence length.
+            The source sequences. *Shape:* :math:`(N,S)`, or :math:`(S)` when
+            unbatched, where :math:`N` is the batch size and :math:`S` is the
+            source sequence length.
 
         :returns:
-            - The output. *Shape:* :math:`(S,M)` when unbatched,
-              :math:`(N,S,M)` when :attr:`batch_first` is ``True``, or
-              :math:`(S,N,M)` when :attr:`batch_first` is ``False``, where
-              :math:`N` is the batch size, :math:`S` is the source sequence
-              length, and :math:`M` is the model size.
+            - The output. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)` when
+              unbatched, where :math:`N` is the batch size, :math:`S` is the
+              source sequence length, and :math:`M` is the model size.
             - The key padding mask used by the self attention. *Shape:*
-              :math:`(S)` when unbatched, :math:`(N,S)` when :attr:`batch_first`
-              is ``True``, or :math:`(S,N)` when :attr:`batch_first` is
-              ``False``, where :math:`N` is the batch size and :math:`S` is the
-              source sequence length.
+              :math:`(N,S)`, or :math:`(S)` when unbatched, where :math:`N` is
+              the batch size and :math:`S` is the source sequence length.
         """
 
     def extra_repr(self) -> str:
@@ -157,7 +143,7 @@ class StandardTransformerEncoder(TransformerEncoder):
         if not layer_list:
             raise ValueError("`layers` must contain at least one encoder layer.")
 
-        model_dim, batch_first = layer_list[0].model_dim, layer_list[0].batch_first
+        model_dim = layer_list[0].model_dim
 
         for idx, layer in enumerate(layers):
             if layer.model_dim != model_dim:
@@ -165,12 +151,7 @@ class StandardTransformerEncoder(TransformerEncoder):
                     f"`model_dim` of the encoder layer {idx} ({layer.model_dim}) does not match `model_dim` ({model_dim})."
                 )
 
-            if layer.batch_first != batch_first:
-                raise ValueError(
-                    f"`batch_first` of the encoder layer {idx} ({layer.batch_first}) does not match `batch_first` ({batch_first})."
-                )
-
-        super().__init__(model_dim, batch_first)
+        super().__init__(model_dim)
 
         embedding_dim = embed.embedding_dim
 
@@ -270,7 +251,7 @@ class StandardTransformerEncoder(TransformerEncoder):
         self_attn_mask: Optional[Tensor] = None
 
         if self.self_attn_mask_gen is not None:
-            self_attn_mask = self.self_attn_mask_gen(x, self.batch_first)
+            self_attn_mask = self.self_attn_mask_gen(x)
 
         for layer in self.layers:
             x = layer(x, self_attn_mask, self_attn_padding_mask)

@@ -45,10 +45,6 @@ class Transformer(Module):
     model_dim: int
     """The dimensionality of the model (i.e. inputs and outputs)."""
 
-    batch_first: bool
-    """If ``True``, the first dimension of batched inputs and outputs represents
-    the batch; otherwise, the sequence."""
-
     encoder: TransformerEncoder
     """The encoder."""
 
@@ -77,16 +73,9 @@ class Transformer(Module):
                 f"`model_dim` of `encoder` ({encoder.model_dim}) does not match `model_dim` of `decoder` ({decoder.model_dim})."
             )
 
-        if encoder.batch_first != decoder.batch_first:
-            raise ValueError(
-                f"`batch_first` of `encoder` ({encoder.batch_first}) does not match `batch_first` of `decoder` ({decoder.batch_first})."
-            )
-
         super().__init__()
 
         self.model_dim = encoder.model_dim
-
-        self.batch_first = encoder.batch_first
 
         self.encoder = encoder
         self.decoder = decoder
@@ -97,25 +86,21 @@ class Transformer(Module):
     def forward(self, src_seq: Tensor, tgt_seq: Tensor) -> Tensor:
         """
         :param src_seq:
-            The source sequences. *Shape:* :math:`(S)` when unbatched,
-            :math:`(N,S)` when :attr:`batch_first` is ``True``, or :math:`(S,N)`
-            when :attr:`batch_first` is ``False``, where :math:`N` is the batch
-            size and :math:`S` is the source sequence length.
+            The source sequences. *Shape:* :math:`(N,S)`, or :math:`(S)` when
+            unbatched, where :math:`N` is the batch size and :math:`S` is the
+            source sequence length.
         :param tgt_seq:
-            The target sequences. *Shape:* :math:`(T)` when unbatched,
-            :math:`(N,T)` when :attr:`batch_first` is ``True``, or :math:`(T,N)`
-            when :attr:`batch_first` is ``False``, where :math:`N` is the batch
-            size and :math:`T` is the target sequence length.
+            The target sequences. *Shape:* :math:`(N,T)`, or :math:`(T)` when
+            unbatched, where :math:`N` is the batch size and :math:`T` is the
+            target sequence length.
 
         :returns:
             The output of :attr:`score_proj`. The produced scores should be
             forwarded to a softmax function to compute the next-token
-            probabilities. *Shape:* :math:`(T,D)` when
-            unbatched, :math:`(N,T,D)` when :attr:`batch_first` is ``True``, or
-            :math:`(T,N,D)` when :attr:`batch_first` is ``False``, where
-            :math:`N` is the batch size, :attr:`T` is the target sequence
-            length, and :math:`D` is the size of the output embedding
-            dictionary.
+            probabilities. *Shape:* :math:`(N,T,D)`, or :math:`(T,D)` when
+            unbatched, where :math:`N` is the batch size, :math:`T` is the
+            target sequence length, and :math:`D` is the size of the output
+            embedding dictionary.
         """
         enc_out, enc_padding_mask = self.encoder(src_seq)
 
@@ -169,10 +154,6 @@ class TransformerBuilder:
     norm_order: TransformerNormOrder
     """The Layer Normalization order to use."""
 
-    batch_first: bool
-    """If ``True``, the first dimension of batched inputs and outputs represents
-    the batch; otherwise, the sequence."""
-
     device: Optional[Device]
     """The device on which to build the model."""
 
@@ -194,7 +175,6 @@ class TransformerBuilder:
         ffn_inner_dim: int = 2048,
         dropout_p: float = 0.1,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
-        batch_first: bool = False,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -226,9 +206,6 @@ class TransformerBuilder:
             forward networks, and input/output embeddings.
         :param norm_order:
             The Layer Normalization order to use.
-        :param batch_first:
-            If ``True``, the first dimension of batched inputs and outputs
-            represents the batch; otherwise, the sequence.
         :param device:
             The device on which to build the model.
         :param dtype:
@@ -245,7 +222,6 @@ class TransformerBuilder:
         self.ffn_inner_dim = ffn_inner_dim
         self.dropout_p = dropout_p
         self.norm_order = norm_order
-        self.batch_first = batch_first
         self.device = device
         self.dtype = dtype
 
@@ -281,7 +257,6 @@ class TransformerBuilder:
         return SinusoidalPositionalEmbedding(
             max_seq_len=self.max_seq_len,
             embedding_dim=self.model_dim,
-            batch_first=self.batch_first,
             **self._fct_kwargs,
         )
 
@@ -391,9 +366,7 @@ class TransformerBuilder:
         :param num_heads:
             The number of attention heads.
         """
-        return StandardMultiheadAttention(
-            num_heads, self.model_dim, batch_first=self.batch_first, **self._fct_kwargs
-        )
+        return StandardMultiheadAttention(num_heads, self.model_dim, **self._fct_kwargs)
 
     def build_ffn(self) -> FeedForwardNetwork:
         """Builds a :class:`FeedForwardNetwork`."""

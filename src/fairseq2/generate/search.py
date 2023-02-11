@@ -184,15 +184,11 @@ class SearchStrategy(ABC):
         while not job.done:
             with torch.autograd.profiler.record_function("forward_decoder"):
                 query_tokens = job.next_query()
-                if not model.batch_first:
-                    query_tokens = query_tokens.T
 
                 dec_out = model.decoder.forward(
                     query_tokens, enc_out, enc_attn_mask, incremental_states
                 )
-                dec_out = model.score_proj(
-                    _get_last_time_axis(dec_out, model.batch_first)
-                )
+                dec_out = model.score_proj(_get_last_time_axis(dec_out))
 
                 incremental_states.increment_step()
 
@@ -588,11 +584,8 @@ def _stretch_to_beams(t: torch.Tensor, beam_size: int) -> torch.Tensor:
     ).reshape(-1, *t.shape[1:])
 
 
-def _get_last_time_axis(x: Tensor, batch_first: bool) -> Tensor:
+def _get_last_time_axis(x: Tensor) -> Tensor:
     assert len(x.shape) == 3
-    if batch_first:
-        y = x[:, -1, :].squeeze(1)
-    else:
-        y = x[-1, :, :].squeeze(0)
+    y = x[:, -1, :].squeeze(1)
     assert len(y.shape) == 2
     return y

@@ -17,11 +17,8 @@ class RoundRobin(Iterable[T]):
     def __init__(
         self,
         dataloaders: List[Iterable[T]],
-        *,
-        batch_first: bool,
     ):
         self.dataloaders = dataloaders
-        self.batch_first = batch_first
 
         self._iterators: List[Iterator[T]] = []
         self._epoch_done = [False for _ in self.dataloaders]

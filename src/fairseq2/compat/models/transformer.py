@@ -69,7 +69,6 @@ class Fairseq1TransformerBuilder(TransformerBuilder):
             ffn_inner_dim=ffn_dim,
             norm_order=norm_order,
             dropout_p=cfg.dropout,
-            batch_first=True,  # fairseq is always batch first.
             max_seq_len=max(cfg.max_source_positions, cfg.max_target_positions),
             device=device,
             dtype=dtype,
@@ -80,7 +79,6 @@ class Fairseq1TransformerBuilder(TransformerBuilder):
             max_seq_len=self.max_seq_len,
             embedding_dim=self.model_dim,
             padding_token_idx=1,
-            batch_first=self.batch_first,
             **self._fct_kwargs,
         )
 
@@ -150,7 +148,7 @@ def load_fairseq1_checkpoint(
     # I want the tokenizer and model to always go hand in hand.
     # The builder is also important to be hable to serialize the model and reload it later.
 
-    tokenizer = SpmTokenizer.from_file(spm_path, batch_first=True, _pad_shift_hack=True)
+    tokenizer = SpmTokenizer.from_file(spm_path, _pad_shift_hack=True)
 
     # TODO: MoE models require a bit more complex loading
     state = torch.load(str(model_file), map_location=device)

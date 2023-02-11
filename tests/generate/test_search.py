@@ -651,15 +651,6 @@ def test_stretch_to_beams() -> None:
 
 def test_get_last_time_axis() -> None:
     assert_close(
-        search._get_last_time_axis(
-            torch.tensor([[[1, 2], [3, 4]], [[5, 6], [7, 8]]]), batch_first=True
-        ),
+        search._get_last_time_axis(torch.tensor([[[1, 2], [3, 4]], [[5, 6], [7, 8]]])),
         [[3, 4], [7, 8]],
-    )
-
-    assert_close(
-        search._get_last_time_axis(
-            torch.tensor([[[1, 2], [3, 4]], [[5, 6], [7, 8]]]), batch_first=False
-        ),
-        [[5, 6], [7, 8]],
     )

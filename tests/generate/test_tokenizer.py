@@ -19,9 +19,7 @@ def build_test_spm_tokenizer(pad_shift_hack: bool = False) -> tokenizer.SpmToken
 
     :return: an SpmTokenizer.
     """
-    return tokenizer.SpmTokenizer.from_file(
-        SPM_PATH, batch_first=True, _pad_shift_hack=pad_shift_hack
-    )
+    return tokenizer.SpmTokenizer.from_file(SPM_PATH, _pad_shift_hack=pad_shift_hack)
 
 
 def longs(x: List[Iterable[int]]) -> torch.Tensor:

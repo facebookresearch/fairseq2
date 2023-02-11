@@ -27,23 +27,14 @@ class TransformerEncoderLayer(Module, ABC):
     model_dim: int
     """The dimensionality of the model (i.e. inputs and outputs)."""
 
-    batch_first: bool
-    """If ``True``, the first dimension of batched inputs and outputs represents
-    the batch; otherwise, the sequence."""
-
-    def __init__(self, model_dim: int, batch_first: bool) -> None:
+    def __init__(self, model_dim: int) -> None:
         """
         :param model_dim:
             The dimensionality of the model (i.e. inputs and outputs).
-        :param batch_first:
-            If ``True``, the first dimension of batched inputs and outputs
-            represents the batch; otherwise, the sequence.
         """
         super().__init__()
 
         self.model_dim = model_dim
-
-        self.batch_first = batch_first
 
     @abstractmethod
     def forward(
@@ -54,22 +45,18 @@ class TransformerEncoderLayer(Module, ABC):
     ) -> Tensor:
         """
         :param x:
-            The input to process. *Shape:* :math:`(S,M)` when unbatched,
-            :math:`(N,S,M)` when :attr:`batch_first` is ``True``, or
-            :math:`(S,N,M)` when :attr:`batch_first` is ``False``, where
-            :math:`N` is the batch size, :math:`S` is the source sequence
-            length, and :math:`M` is the model size.
+            The input to process. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)`
+            when unbatched, where :math:`N` is the batch size, :math:`S` is the
+            source sequence length, and :math:`M` is the model size.
         :param self_attn_mask:
             The float mask that will be added to the attention weights before
             computing the self attention. *Shape:* :math:`(S,S)`, where
             :math:`S` is the source sequence length.
         :param self_attn_padding_mask:
             The boolean or float key padding mask indicating which key positions
-            to ignore for the purpose of self attention. *Shape:* :math:`(S)`
-            when unbatched, :math:`(N,S)` when :attr:`batch_first` is ``True``,
-            or :math:`(S,N)` when :attr:`batch_first` is ``False``, where
-            :math:`N` is the batch size and :math:`S` is the source sequence
-            length.
+            to ignore for the purpose of self attention. *Shape:* :math:`(N,S)`,
+            or :math:`(S)` when unbatched, where :math:`N` is the batch size and
+            :math:`S` is the source sequence length.
 
         :returns:
             The output. *Shape:* Same as ``x``.
@@ -132,9 +119,9 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
         """
         fct_kwargs: Dict[str, Any] = {"device": device, "dtype": dtype}
 
-        model_dim, batch_first = self_attn.model_dim, self_attn.batch_first
+        model_dim = self_attn.model_dim
 
-        super().__init__(model_dim, batch_first)
+        super().__init__(model_dim)
 
         self_attn_layer_norm = LayerNorm(model_dim, norm_eps, **fct_kwargs)
 

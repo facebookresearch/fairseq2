@@ -31,8 +31,6 @@ from fairseq2.tasks import TranslationTask
 
 log = logging.getLogger(__name__)
 
-BATCH_FIRST = True
-
 LangPairs = List[Tuple[str, str]]
 
 
@@ -82,7 +80,7 @@ def tokenizer(
     else:
         workdir_spm.symlink_to(spm_path.resolve())
 
-    _tokenizer = SpmTokenizer.from_file(spm_path, batch_first=BATCH_FIRST)
+    _tokenizer = SpmTokenizer.from_file(spm_path)
     src_langs = set(pair[0] for pair in lang_pairs)
     tgt_langs = set(pair[1] for pair in lang_pairs)
     lang_tokens = {}
@@ -103,10 +101,7 @@ def train_data(
         split="train",
     )
 
-    return fairseq2.dataloader.RoundRobin(
-        [load_data(*pair) for pair in lang_pairs],
-        batch_first=BATCH_FIRST,
-    )
+    return fairseq2.dataloader.RoundRobin([load_data(*pair) for pair in lang_pairs])
 
 
 def valid_data(
@@ -144,7 +139,6 @@ def model(env: Env, token_meta: TokenMeta) -> Transformer:
     builder = MyBuilder(
         token_meta.vocab_size,
         padding_token_idx=token_meta.PAD,
-        batch_first=BATCH_FIRST,
         dropout_p=0,
         device=env.device,
     )

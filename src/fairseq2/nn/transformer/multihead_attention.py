@@ -81,17 +81,17 @@ class MultiheadAttentionState(IncrementalState):
         :param k:
             The projected key of the current step. *Shape:*
             :math:`(N,S_{stp},K_{proj})`, where :math:`N` is the batch size,
-            :math:`S_{stp}` is the step length (i.e. 1), and :math:`K_{proj}` is
+            :math:`S_{stp}` is the step length (e.g. 1), and :math:`K_{proj}` is
             the projected key size.
         :param v:
             The projected value of the current step. *Shape:*
             :math:`(N,S_{stp},V_{proj})`, where :math:`N` is the batch size,
-            :math:`S_{stp}` is the step length (i.e. 1), and :math:`V_{proj}` is
+            :math:`S_{stp}` is the step length (e.g. 1), and :math:`V_{proj}` is
             the projected value size.
         :param padding_mask:
             The float key padding mask of the current step. *Shape:*
             :math:`(N,S_{stp})`, where :math:`N` is the batch size and
-            :math:`S_{stp}` is the step length (i.e. 1).
+            :math:`S_{stp}` is the step length (e.g. 1).
 
         :returns:
             The projected keys, the projected values, and the key padding mask
@@ -192,28 +192,19 @@ class MultiheadAttention(Module, ABC):
     model_dim: int
     """The dimensionality of the model (i.e. inputs and outputs)."""
 
-    batch_first: bool
-    """If ``True``, the first dimension of batched inputs and outputs represents
-    the batch; otherwise, the sequence."""
-
     _attn_weight_hooks: Dict[int, AttentionWeightHook]
 
-    def __init__(self, num_heads: int, model_dim: int, batch_first: bool) -> None:
+    def __init__(self, num_heads: int, model_dim: int) -> None:
         """
         :param num_heads:
             The number of attention heads.
         :param model_dim:
             The dimensionality of the model (i.e. inputs and outputs).
-        :param batch_first:
-            If ``True``, the first dimension of batched inputs and outputs
-            represents the batch; otherwise, the sequence.
         """
         super().__init__()
 
         self.num_heads = num_heads
         self.model_dim = model_dim
-
-        self.batch_first = batch_first
 
         self._attn_weight_hooks = OrderedDict()
 
@@ -229,23 +220,17 @@ class MultiheadAttention(Module, ABC):
     ) -> Tensor:
         """
         :param x:
-            The input to query for. *Shape:* :math:`(T,M)` when unbatched,
-            :math:`(N,T,M)` when :attr:`batch_first` is ``True``, or
-            :math:`(T,N,M)` when :attr:`batch_first` is ``False``,
-            where :math:`N` is the batch size, :math:`T` is the target sequence
-            length, and :math:`M` is the model size.
+            The input to query for. *Shape:* :math:`(N,T,M)`, or :math:`(T,M)`
+            when unbatched, where :math:`N` is the batch size, :math:`T` is the
+            target sequence length, and :math:`M` is the model size.
         :param keys:
-            The keys. *Shape:* :math:`(S,K)` when unbatched, :math:`(N,S,K)`
-            when :attr:`batch_first` is ``True``, or :math:`(S,N,K)` when
-            :attr:`batch_first` is ``False``, where :math:`N` is the batch size,
-            :math:`S` is the source sequence length, and :math:`K` is the key
-            size.
+            The keys. *Shape:* :math:`(N,S,K)`, or :math:`(S,K)` when unbatched,
+            where :math:`N` is the batch size, :math:`S` is the source sequence
+            length, and :math:`K` is the key size.
         :param values:
-            The values. *Shape:* :math:`(S,V)` when unbatched, :math:`(N,S,V)`
-            when :attr:`batch_first` is ``True``, or :math:`(S,N,V)` when
-            :attr:`batch_first` is ``False``, where :math:`N` is the batch size,
-            :math:`S` is the source sequence length, and :math:`V` is the value
-            size.
+            The values. *Shape:* :math:`(N,S,V)`, or :math:`(S,V)` when
+            unbatched, where :math:`N` is the batch size, :math:`S` is the
+            source sequence length, and :math:`V` is the value size.
         :param attn_mask:
             The float mask that will be added to the attention weights before
             computing the attention. *Shape:* :math:`(T,S)`, where :math:`T` is
@@ -253,19 +238,16 @@ class MultiheadAttention(Module, ABC):
             length.
         :param padding_mask:
             The boolean or float key padding mask indicating which key positions
-            to ignore for the purpose of attention. *Shape:* :math:`(S)` when
-            unbatched, :math:`(N,S)` when :attr:`batch_first` is ``True``, or
-            :math:`(S,N)` when :attr:`batch_first` is ``False``, where :math:`N`
-            is the batch size and :math:`S` is the source sequence length.
+            to ignore for the purpose of attention. *Shape:* :math:`(N,S)`, or
+            :math:`(S)` when unbatched, where :math:`N` is the batch size and
+            :math:`S` is the source sequence length.
         :param state_bag:
             The state bag to use during an incremental evaluation.
 
         :returns:
-            The attentions. *Shape:* :math:`(T,M)` when unbatched,
-            :math:`(N,T,M)` when :attr:`batch_first` is ``True``, or
-            :math:`(T,N,M)` when :attr:`batch_first` is ``False``, where
-            :math:`N` is the batch size, :math:`T` is the target sequence
-            length, and :math:`M` is the model size.
+            The attentions. *Shape:* :math:`(N,T,M)`, or :math:`(T,M)` when
+            unbatched, where :math:`N` is the batch size, :math:`T` is the
+            target sequence length, and :math:`M` is the model size.
 
         .. note::
             For a boolean key padding mask, a ``True`` indicates that the
@@ -375,7 +357,6 @@ class StandardMultiheadAttention(MultiheadAttention):
         attn_fn: Optional[AttentionFunction] = None,
         attn_dropout_p: float = 0.0,
         out_proj: Optional[Projection] = None,
-        batch_first: bool = False,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -407,9 +388,6 @@ class StandardMultiheadAttention(MultiheadAttention):
         :param out_proj:
             The projection to produce final attentions. If ``None``, a
             default projection will be used.
-        :param batch_first:
-            If ``True``, the first dimension of batched inputs and outputs
-            represents the batch; otherwise, the sequence.
         """
         fct_kwargs: Dict[str, Any] = {"device": device, "dtype": dtype}
 
@@ -419,7 +397,7 @@ class StandardMultiheadAttention(MultiheadAttention):
             else:
                 raise ValueError("`model_dim` must be specified.")
 
-        super().__init__(num_heads, model_dim, batch_first)
+        super().__init__(num_heads, model_dim)
 
         # TODO: Scale heads
 
@@ -594,18 +572,21 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         # (N, T, K_proj) -> (N, T, H, K_h)
         q = q.unflatten(-1, (self.num_heads, -1))
+        # (N, S, K_proj) -> (N, S, H, K_h)
         k = k.unflatten(-1, (self.num_heads, -1))
         # (N, S, V_proj) -> (N, S, H, V_h)
         v = v.unflatten(-1, (self.num_heads, -1))
 
         # (N, T, H, K_h) -> (N, H, T, K_h)
         q = q.transpose(1, 2)
+        # (N, S, H, K_h) -> (N, H, S, K_h)
         k = k.transpose(1, 2)
         # (N, S, H, V_h) -> (N, H, S, V_h)
         v = v.transpose(1, 2)
 
         # (N, H, T, K_h) -> (N x H, T, K_h)
         q = q.flatten(0, 1)
+        # (N, H, S, K_h) -> (N x H, S, K_h)
         k = k.flatten(0, 1)
         # (N, H, S, V_h) -> (N x H, S, V_h)
         v = v.flatten(0, 1)
@@ -624,12 +605,8 @@ class StandardMultiheadAttention(MultiheadAttention):
         # (N x H, T, V_h) -> (N, H, T, V_h)
         attn = attn.unflatten(0, (-1, self.num_heads))
 
-        if self.batch_first:
-            # (N, H, T, V_h) -> (N, T, H, V_h)
-            attn = attn.permute(0, 2, 1, 3)
-        else:
-            # (N, H, T, V_h) -> (T, N, H, V_h)
-            attn = attn.permute(2, 0, 1, 3)
+        # (N, H, T, V_h) -> (N, T, H, V_h)
+        attn = attn.permute(0, 2, 1, 3)
 
         # (*, H, V_h) -> (*, V_proj)
         attn = attn.flatten(-2, -1)
@@ -638,12 +615,8 @@ class StandardMultiheadAttention(MultiheadAttention):
         attn = self.out_proj(attn)
 
         if x.dim() == 2:
-            if self.batch_first:
-                # (1, T, M) -> (T, M)
-                return attn.squeeze(0)
-            else:
-                # (T, 1, M) -> (T, M)
-                return attn.squeeze(1)
+            # (1, T, M) -> (T, M)
+            return attn.squeeze(0)
 
         return attn
 
@@ -651,12 +624,8 @@ class StandardMultiheadAttention(MultiheadAttention):
         x = fn(x)
 
         if x.dim() == 3:
-            if not self.batch_first:
-                # (S, N, X_proj) -> (N, S, X_proj)
-                return x.transpose(0, 1)
-            else:
-                # (N, S, X_proj)
-                return x
+            # (N, S, X_proj)
+            return x
         else:
             # (S, X_proj) -> (1, S, X_proj)
             return x.unsqueeze(0)
@@ -665,10 +634,6 @@ class StandardMultiheadAttention(MultiheadAttention):
         self, keys: Tensor, mask: Optional[Tensor]
     ) -> Optional[Tensor]:
         if mask is not None:
-            mask = to_float_mask(mask, dtype=keys.dtype)
-
-            if not self.batch_first:
-                # (S, N) -> (N, S)
-                return mask.transpose(0, 1)
-
-        return mask
+            return to_float_mask(mask, dtype=keys.dtype)
+        else:
+            return mask

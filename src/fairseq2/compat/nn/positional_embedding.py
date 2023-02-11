@@ -35,11 +35,10 @@ class Fairseq1SinusoidalPositionalEmbedding(PositionalEmbedding):
         max_seq_len: int,
         embedding_dim: int,
         padding_token_idx: Optional[int] = None,
-        batch_first: bool = False,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
-        super().__init__(max_seq_len, embedding_dim, batch_first)
+        super().__init__(max_seq_len, embedding_dim)
 
         if padding_token_idx is not None:
             self.padding_token_idx = padding_token_idx

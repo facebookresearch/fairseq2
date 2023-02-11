@@ -10,12 +10,9 @@ if TYPE_CHECKING:
 
 
 class HfTokenizer(Tokenizer):
-    def __init__(
-        self, tokenizer: "transformers.PreTrainedTokenizer", batch_first: bool
-    ):
-        super().__init__(batch_first)
+    def __init__(self, tokenizer: "transformers.PreTrainedTokenizer"):
+        super().__init__()
         self.tokenizer = tokenizer
-        self.batch_first = batch_first
 
         self.UNK = self.add_special_token("<UNK>", tokenizer.unk_token_id)
         self.BOS = self.add_special_token("<BOS>", tokenizer.bos_token_id)
@@ -35,13 +32,10 @@ class HfTokenizer(Tokenizer):
             self.tokenizer.encode(sentence) for sentence in sentences
         ]
         bos = self.BOS if bos < 0 else bos
-        return _make_batch(tokens, self.PAD, self.batch_first, prepend_bos=bos)
+        return _make_batch(tokens, self.PAD, prepend_bos=bos)
 
     def decode_batch(self, tokens: Tensor) -> List[str]:
-        if self.batch_first:
-            return [self._decode(tokens[i, :].tolist()) for i in range(tokens.size(0))]
-        else:
-            return [self._decode(tokens[:, i].tolist()) for i in range(tokens.size(1))]
+        return [self._decode(tokens[i, :].tolist()) for i in range(tokens.size(0))]
 
     def _decode(self, tokens: List[int]) -> str:
         return self.tokenizer.decode(tokens, skip_special_tokens=True)  # type: ignore
@@ -66,12 +60,10 @@ class SpeechToTextTokenizer(HfTokenizer):
         self,
         tokenizer: "transformers.PreTrainedTokenizer",
         feature_extractor: "transformers.WhisperFeatureExtractor",
-        batch_first: bool = True,
     ):
         # Note: Audio features are typically 2-D: (batch, feature, time)
         # what does non batch-first mean in this case ?
-        assert batch_first, "TODO"
-        super().__init__(tokenizer, batch_first=batch_first)
+        super().__init__(tokenizer)
         self.feature_extractor = feature_extractor
         self.sampling_rate = feature_extractor.sampling_rate
 

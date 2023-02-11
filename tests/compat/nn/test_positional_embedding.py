@@ -26,7 +26,6 @@ def test_sinusoidal_embedding_is_backward_compatible(
         max_seq_len=max_len,
         embedding_dim=embed_dim,
         padding_token_idx=pad_idx,
-        batch_first=True,
     )
 
     seq = torch.arange(pad_idx + 1, pad_idx + 1 + (2 * max_len)).reshape(2, -1)

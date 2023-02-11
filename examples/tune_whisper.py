@@ -24,7 +24,6 @@ REQUIREMENTS = [
     "jiwer",
     "gradio",
 ]
-BATCH_FIRST = True
 
 
 class AsrTask(fairseq2.tasks.Seq2Seq):
@@ -152,7 +151,6 @@ def main(
     if len(_langs) > 1:
         train: Iterable[Seq2SeqBatch] = fairseq2.dataloader.RoundRobin(
             [load_data(lang, "train") for lang in _langs],
-            batch_first=BATCH_FIRST,
         )
     else:
         train = load_data(_langs[0], "train")
