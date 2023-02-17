@@ -24,6 +24,7 @@ from fairseq2.models.transformer import (
     TransformerConfig,
     build_transformer,
 )
+from fairseq2.optim.lr_scheduler import InverseSquareRootLR, LRScheduler
 from fairseq2.tasks import TranslationTask
 
 log = logging.getLogger(__name__)
@@ -110,8 +111,8 @@ def optimizer(model: Transformer, weight_decay: float = 0.001) -> torch.optim.Op
     )
 
 
-def lr_scheduler(optimizer: torch.optim.Optimizer) -> fairseq2.typing.LRScheduler:
-    return fairseq2.optim.lr_scheduler.InverseSquareRootLR(optimizer, lr=5e-4)
+def lr_scheduler(optimizer: torch.optim.Optimizer) -> LRScheduler:
+    return InverseSquareRootLR(optimizer, lr=5e-4)
 
 
 hub_task = fairseq2.cli.hub_export(task, __file__)

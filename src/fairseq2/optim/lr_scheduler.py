@@ -1,9 +1,18 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+__all__ = ["LRScheduler"]
+
 from typing import Optional
 
-import torch.optim.lr_scheduler
+from torch.optim import Optimizer
+from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
 
 
-class InverseSquareRootLR(torch.optim.lr_scheduler._LRScheduler):
+class InverseSquareRootLR(LRScheduler):
     """Decay the LR based on the inverse square root of the update number.
 
     We also support a warmup phase where we linearly increase the learning rate
@@ -22,11 +31,11 @@ class InverseSquareRootLR(torch.optim.lr_scheduler._LRScheduler):
       lr = decay_factor / sqrt(update_num)
     """
 
-    optimizer: torch.optim.Optimizer
+    optimizer: Optimizer
 
     def __init__(
         self,
-        optimizer: torch.optim.Optimizer,
+        optimizer: Optimizer,
         *,
         lr: float,
         warmup_steps: int = 4000,
@@ -56,6 +65,6 @@ class InverseSquareRootLR(torch.optim.lr_scheduler._LRScheduler):
         _update_opt(self.optimizer, lr)
 
 
-def _update_opt(optimizer: torch.optim.Optimizer, lr: float) -> None:
+def _update_opt(optimizer: Optimizer, lr: float) -> None:
     for param_group in optimizer.param_groups:
         param_group["lr"] = lr
