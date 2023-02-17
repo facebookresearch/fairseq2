@@ -14,7 +14,6 @@ from torch.nn import LayerNorm, Module
 
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
-from fairseq2.nn.utils.module import device, dtype
 
 
 class FeedForwardNetwork(Module, ABC):
@@ -67,6 +66,8 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         inner_activation_fn: Optional[Callable[[Tensor], Tensor]] = None,
         inner_dropout_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
+        device=None,
+        dtype=None,
     ) -> None:
         """
         :param model_dim:
@@ -83,7 +84,9 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         """
         super().__init__(model_dim)
 
-        self.inner_proj = Linear(model_dim, inner_dim, bias=True)
+        self.inner_proj = Linear(
+            model_dim, inner_dim, bias=True, device=device, dtype=dtype
+        )
 
         if inner_activation_fn is None:
             self.inner_activation_fn = F.relu
@@ -93,11 +96,13 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         self.inner_dropout_p = inner_dropout_p
 
         if norm_order == TransformerNormOrder.PRE_WITH_NORMFORMER:
-            self.inner_norm = LayerNorm(inner_dim, device=device(), dtype=dtype())
+            self.inner_norm = LayerNorm(inner_dim, device=device, dtype=dtype)
         else:
             self.register_module("inner_norm", None)
 
-        self.out_proj = Linear(inner_dim, model_dim, bias=True)
+        self.out_proj = Linear(
+            inner_dim, model_dim, bias=True, device=device, dtype=dtype
+        )
 
     @finaloverride
     def forward(self, x: Tensor) -> Tensor:

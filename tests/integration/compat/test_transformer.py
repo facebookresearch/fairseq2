@@ -8,7 +8,6 @@ import fairseq2.generate
 import fairseq2.nn
 from fairseq2.compat.models.transformer import load_fairseq1_checkpoint
 from fairseq2.models.transformer import TransformerConfig, build_transformer
-from fairseq2.typing import Device
 from tests.common import assert_close, assert_equal, device
 
 NLLB_MODELS = Path("/large_experiments/seamless/nllb/opensource/")
@@ -75,7 +74,7 @@ def test_loading_nllb200_small(tmp_path: Path) -> None:
 def assert_speaks_french(
     model: fairseq2.models.transformer.Transformer,
     tokenizer: fairseq2.generate.Tokenizer,
-    device: Device,
+    device,
 ) -> None:
     # for beam_size, ref in [(1, FRA_1), (5, FRA_5)]:
     for beam_size, ref in [(1, FRA_1)]:

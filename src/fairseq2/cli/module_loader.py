@@ -19,7 +19,7 @@ def hub_export(fn: Callable[..., Any], script: str) -> "Callable[..., Any]":
 
     from fairseq2.cli import DynamicModule
 
-    def hub_entry_point(snapshot_dir: str, device: fairseq2.typing.Device) -> Any:
+    def hub_entry_point(snapshot_dir: str, device) -> Any:
         assert Path(snapshot_dir).exists(), f"Snapshot {snapshot_dir} not found."
         env = fairseq2.distributed.env(Path(snapshot_dir), device=device)
         # theoritically we don't need to reload hubconf.py,

@@ -19,7 +19,6 @@ from fairseq2.nn.positional_embedding import PositionalEmbedding
 from fairseq2.nn.projection import Projection, ResettableProjection
 from fairseq2.nn.transformer.decoder import TransformerDecoder
 from fairseq2.nn.transformer.encoder import TransformerEncoder
-from fairseq2.nn.utils.module import device, dtype
 
 
 class TransformerTokenFrontend(Module):
@@ -40,6 +39,8 @@ class TransformerTokenFrontend(Module):
         norm: bool = False,
         dropout_p: float = 0.1,
         norm_eps: float = 1e-5,
+        device=None,
+        dtype=None,
     ) -> None:
         """
         :param embed:
@@ -76,9 +77,7 @@ class TransformerTokenFrontend(Module):
             self.register_module("pos_embed", None)
 
         if norm:
-            self.norm = LayerNorm(
-                embedding_dim, norm_eps, device=device(), dtype=dtype()
-            )
+            self.norm = LayerNorm(embedding_dim, norm_eps, device=device, dtype=dtype)
         else:
             self.register_module("norm", None)
 
@@ -302,14 +301,18 @@ class ScoreProjection(ResettableProjection):
     predicted next-step probabilities.
     """
 
-    def __init__(self, num_embed: int, embedding_dim: int) -> None:
+    def __init__(
+        self, num_embed: int, embedding_dim: int, device=None, dtype=None
+    ) -> None:
         """
         :param num_embed:
             The size of the output embedding dictionary.
         :param embedding_dim:
             The dimensionality of output embeddings.
         """
-        super().__init__(embedding_dim, num_embed, bias=False)
+        super().__init__(
+            embedding_dim, num_embed, bias=False, device=device, dtype=dtype
+        )
 
     @finaloverride
     def reset_parameters(self) -> None:

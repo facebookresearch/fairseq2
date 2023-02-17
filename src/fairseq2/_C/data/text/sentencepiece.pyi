@@ -13,7 +13,6 @@ from torch import Tensor
 from fairseq2.data.data_pipeline import DataProcessor
 from fairseq2.data.string import String
 from fairseq2.data.typing import StringLike
-from fairseq2.typing import DataType, Device
 
 # fmt: off
 
@@ -68,8 +67,8 @@ class SentencePieceEncoder(DataProcessor):
         pad_to_length: int | None = None,
         pad_to_multiple: int = 1,
         lef_pad: bool = False,
-        dtype: DataType = torch.int32,
-        device: Device | None = None,
+        dtype = torch.int32,
+        device = None,
         pin_memory: bool = False,
         disable_parallelism: bool = False,
     ) -> None:

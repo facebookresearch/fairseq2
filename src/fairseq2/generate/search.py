@@ -14,7 +14,6 @@ from torch import Tensor
 from fairseq2.generate.tokenizer import Tokenizer, TokenMeta
 from fairseq2.models.transformer import Transformer
 from fairseq2.nn.incremental_state import IncrementalStateBag
-from fairseq2.typing import Device
 
 
 def token_penalty_(
@@ -207,7 +206,7 @@ class SearchStrategy(ABC):
         *,
         src_bos: str = "",
         tgt_bos: str = "",
-        device: Device,
+        device,
     ) -> List[str]:
         src_bos_tok = tokenizer.special_tokens[src_bos] if src_bos else -1
         src_tokens = tokenizer.encode_batch(sentences, bos=src_bos_tok).to(device)

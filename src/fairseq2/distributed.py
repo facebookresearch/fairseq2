@@ -11,8 +11,6 @@ import submitit
 import torch
 import torchtnt.utils.distributed
 
-from fairseq2.typing import Device
-
 log = logging.getLogger(__name__)
 
 
@@ -20,15 +18,15 @@ class Env(NamedTuple):
     workdir: Path
     global_rank: int
     world_size: int
-    device: Device
+    device: Any
 
 
-def env(workdir: Optional[Path] = None, device: Optional[Device] = None) -> Env:
+def env(workdir: Optional[Path] = None, device=None) -> Env:
     return Env(
         workdir or Path.cwd(),
         global_rank=torchtnt.utils.distributed.get_global_rank(),
         world_size=torchtnt.utils.distributed.get_world_size(),
-        device=device or Device("cpu"),
+        device=device or torch.device("cpu"),
     )
 
 

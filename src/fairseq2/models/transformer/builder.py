@@ -149,8 +149,10 @@ class TransformerBuilder:
         else:
             self.norm_order = TransformerNormOrder.POST
 
-    def build(self) -> Transformer:
+    def build(self, device=None, dtype=None) -> Transformer:
         """Build a model."""
+        self.device, self.dtype = device, dtype
+
         enc_frontend = self._build_enc_frontend()
         dec_frontend = self._build_dec_frontend()
 
@@ -176,7 +178,11 @@ class TransformerBuilder:
         self.enc_pos_embed = self._build_enc_positional_embedding()
 
         return TransformerTokenFrontend(
-            self.enc_embed, self.enc_pos_embed, dropout_p=self.cfg.dropout_p
+            embed=self.enc_embed,
+            pos_embed=self.enc_pos_embed,
+            dropout_p=self.cfg.dropout_p,
+            device=self.device,
+            dtype=self.dtype,
         )
 
     def _build_dec_frontend(self) -> TransformerTokenFrontend:
@@ -186,7 +192,11 @@ class TransformerBuilder:
         self.dec_pos_embed = self._build_dec_positional_embedding()
 
         return TransformerTokenFrontend(
-            self.dec_embed, self.dec_pos_embed, dropout_p=self.cfg.dropout_p
+            embed=self.dec_embed,
+            pos_embed=self.dec_pos_embed,
+            dropout_p=self.cfg.dropout_p,
+            device=self.device,
+            dtype=self.dtype,
         )
 
     def _build_enc_embedding(self) -> Embedding:
@@ -208,7 +218,14 @@ class TransformerBuilder:
 
     def _build_embedding(self, num_embed: int, padding_idx: Optional[int]) -> Embedding:
         """Build an embedding."""
-        return Embedding(num_embed, self.cfg.model_dim, padding_idx, scaled=True)
+        return Embedding(
+            num_embed=num_embed,
+            embedding_dim=self.cfg.model_dim,
+            padding_idx=padding_idx,
+            scaled=True,
+            device=self.device,
+            dtype=self.dtype,
+        )
 
     def _build_enc_positional_embedding(self) -> PositionalEmbedding:
         """Build the encoder positional embedding."""
@@ -237,20 +254,28 @@ class TransformerBuilder:
             padding_token_idx = None
 
         return SinusoidalPositionalEmbedding(
-            max_seq_len, self.cfg.model_dim, padding_token_idx
+            max_seq_len=max_seq_len,
+            embedding_dim=self.cfg.model_dim,
+            legacy_padding_idx=padding_token_idx,
+            device=self.device,
+            dtype=self.dtype,
         )
 
     def _build_encoder(self) -> TransformerEncoder:
         """Build the encoder."""
         layers = [self._build_encoder_layer(i) for i in range(self.cfg.num_enc_layers)]
 
-        return StandardTransformerEncoder(layers, norm_order=self.norm_order)
+        return StandardTransformerEncoder(
+            layers, norm_order=self.norm_order, device=self.device, dtype=self.dtype
+        )
 
     def _build_decoder(self) -> TransformerDecoder:
         """Build the decoder."""
         layers = [self._build_decoder_layer(i) for i in range(self.cfg.num_dec_layers)]
 
-        return StandardTransformerDecoder(layers, norm_order=self.norm_order)
+        return StandardTransformerDecoder(
+            layers, norm_order=self.norm_order, device=self.device, dtype=self.dtype
+        )
 
     def _build_encoder_layer(self, idx: int) -> TransformerEncoderLayer:
         """Build an encoder layer.
@@ -263,10 +288,12 @@ class TransformerBuilder:
         ffn = self._build_ffn()
 
         return StandardTransformerEncoderLayer(
-            self_attn,
-            ffn,
+            self_attn=self_attn,
+            ffn=ffn,
             dropout_p=self.cfg.dropout_p,
             norm_order=self.norm_order,
+            device=self.device,
+            dtype=self.dtype,
         )
 
     def _build_decoder_layer(self, idx: int) -> TransformerDecoderLayer:
@@ -282,11 +309,13 @@ class TransformerBuilder:
         ffn = self._build_ffn()
 
         return StandardTransformerDecoderLayer(
-            self_attn,
-            enc_dec_attn,
-            ffn,
+            self_attn=self_attn,
+            enc_dec_attn=enc_dec_attn,
+            ffn=ffn,
             dropout_p=self.cfg.dropout_p,
             norm_order=self.norm_order,
+            device=self.device,
+            dtype=self.dtype,
         )
 
     def _build_encoder_attn(self) -> MultiheadAttention:
@@ -304,15 +333,21 @@ class TransformerBuilder:
     def _build_attn(self, num_heads: int) -> MultiheadAttention:
         """Build a multi-head attention layer."""
         return StandardMultiheadAttention(
-            num_heads, self.cfg.model_dim, attn_dropout_p=self.cfg.attn_dropout_p
+            num_heads=num_heads,
+            model_dim=self.cfg.model_dim,
+            attn_dropout_p=self.cfg.attn_dropout_p,
+            device=self.device,
+            dtype=self.dtype,
         )
 
     def _build_ffn(self) -> FeedForwardNetwork:
         """Build a feed-forward network."""
         return StandardFeedForwardNetwork(
-            self.cfg.model_dim,
-            self.cfg.ffn_inner_dim,
+            model_dim=self.cfg.model_dim,
+            inner_dim=self.cfg.ffn_inner_dim,
             inner_dropout_p=self.cfg.ffn_inner_dropout_p,
+            device=self.device,
+            dtype=self.dtype,
         )
 
     def _build_score_projection(self) -> Projection:
@@ -322,17 +357,22 @@ class TransformerBuilder:
 
             return TiedProjection(self.dec_embed.weight)
 
-        return ScoreProjection(self.cfg.tgt_num_tokens, self.cfg.model_dim)
+        return ScoreProjection(
+            num_embed=self.cfg.tgt_num_tokens,
+            embedding_dim=self.cfg.model_dim,
+            device=self.device,
+            dtype=self.dtype,
+        )
 
 
-def build_transformer(cfg: TransformerConfig) -> Transformer:
+def build_transformer(cfg: TransformerConfig, device=None, dtype=None) -> Transformer:
     """Build a model that follows the Transformer architecture as described in
     :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`.
 
     :param cfg:
         The configuration to use.
     """
-    return TransformerBuilder(cfg).build()
+    return TransformerBuilder(cfg).build(device, dtype)
 
 
 def transformer_iwslt_de_en() -> TransformerConfig:

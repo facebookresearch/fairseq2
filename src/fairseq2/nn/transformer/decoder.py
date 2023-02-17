@@ -20,7 +20,6 @@ from fairseq2.nn.transformer.attention_mask import (
 from fairseq2.nn.transformer.decoder_layer import TransformerDecoderLayer
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
 from fairseq2.nn.utils.mask import to_float_mask
-from fairseq2.nn.utils.module import device, dtype
 
 
 class TransformerDecoder(Module, ABC):
@@ -103,6 +102,8 @@ class StandardTransformerDecoder(TransformerDecoder):
         layer_drop_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         norm_eps: float = 1e-5,
+        device=None,
+        dtype=None,
     ) -> None:
         """
         :param layers:
@@ -141,9 +142,7 @@ class StandardTransformerDecoder(TransformerDecoder):
         self.layers = layer_list
 
         if norm_order != TransformerNormOrder.POST:
-            self.layer_norm = LayerNorm(
-                model_dim, norm_eps, device=device(), dtype=dtype()
-            )
+            self.layer_norm = LayerNorm(model_dim, norm_eps, device=device, dtype=dtype)
         else:
             self.register_module("layer_norm", None)
 

@@ -5,8 +5,6 @@ import fairseq
 import fairseq.tasks
 from torch import Tensor
 
-from fairseq2.typing import Device
-
 from . import Seq2SeqBatch
 
 
@@ -17,7 +15,7 @@ class BilingualDataloader(Iterable[Seq2SeqBatch]):
         src: str,
         tgt: str,
         split: str,
-        device: Device,
+        device,
         task_kwargs: Mapping[str, Any] = {},
         loader_kwargs: Mapping[str, Any] = {
             "max_tokens": 4096,

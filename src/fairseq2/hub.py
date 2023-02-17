@@ -8,8 +8,6 @@ from typing import Any, Dict, Generic, Iterator, List, Type, TypeVar
 
 import torchsnapshot
 
-from fairseq2.typing import Device
-
 try:
     import wandb as _  # noqa: F401
 except Exception:
@@ -135,10 +133,9 @@ class HubState(Generic[T]):
         hub_conf = f"""
 dependencies = ["fairseq2"]
 
-from fairseq2.typing import Device
 from fairseq2.hub import HubState
 
-def model(name: str = "valid_best", device: Device = Device("cuda:0")):
+def model(name: str = "valid_best", device = torch.device("cuda:0")):
 
     return HubState.load_snapshot(__file__, name, "{self.key}", device)
         """
@@ -151,7 +148,7 @@ def model(name: str = "valid_best", device: Device = Device("cuda:0")):
         return task
 
     @staticmethod
-    def load_snapshot(hub_conf: str, name: str, key: str, device: Device) -> Any:
+    def load_snapshot(hub_conf: str, name: str, key: str, device) -> Any:
         # TODO: add overrides
         hub_conf_dir = Path(hub_conf).parent
         snapshot_dir = hub_conf_dir / name

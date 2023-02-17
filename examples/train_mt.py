@@ -22,7 +22,6 @@ import fairseq2.dataloader.huggingface
 import fairseq2.distributed
 import fairseq2.nn
 import fairseq2.optim.lr_scheduler
-import fairseq2.typing
 from fairseq2.dataloader import Seq2SeqBatch
 from fairseq2.distributed import Env
 from fairseq2.generate import SpmTokenizer, TokenMeta, spm_train
@@ -31,7 +30,6 @@ from fairseq2.models.transformer import (
     TransformerConfig,
     build_transformer,
 )
-from fairseq2.nn.utils.module import module_init_context
 from fairseq2.optim.lr_scheduler import InverseSquareRootLR, LRScheduler
 from fairseq2.tasks import TranslationTask
 
@@ -146,8 +144,7 @@ def model(env: Env, token_meta: TokenMeta) -> Transformer:
         dropout_p=0,
     )
 
-    with module_init_context(env.device):
-        return build_transformer(cfg)
+    return build_transformer(cfg, env.device)
 
 
 def optimizer(model: Transformer, weight_decay: float = 0.001) -> torch.optim.Optimizer:

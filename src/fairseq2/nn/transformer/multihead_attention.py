@@ -24,7 +24,6 @@ from fairseq2.nn.transformer.attention import (
     default_scaled_dot_product_attention,
 )
 from fairseq2.nn.utils.mask import to_float_mask
-from fairseq2.nn.utils.module import device, dtype
 
 
 class MultiheadAttentionState(IncrementalState):
@@ -295,8 +294,8 @@ class MultiheadAttention(Module, ABC):
 
 
 class InternalQKVProjection(ResettableProjection):
-    def __init__(self, model_dim: int) -> None:
-        super().__init__(model_dim, model_dim, bias=True)
+    def __init__(self, model_dim: int, device=None, dtype=None) -> None:
+        super().__init__(model_dim, model_dim, bias=True, device=device, dtype=dtype)
 
     @override
     def reset_parameters(self) -> None:
@@ -309,8 +308,10 @@ class InternalQKVProjection(ResettableProjection):
 
 
 class InternalOutProjection(ResettableProjection):
-    def __init__(self, v_proj_dim: int, model_dim: int) -> None:
-        super().__init__(v_proj_dim, model_dim, bias=True)
+    def __init__(
+        self, v_proj_dim: int, model_dim: int, device=None, dtype=None
+    ) -> None:
+        super().__init__(v_proj_dim, model_dim, bias=True, device=device, dtype=dtype)
 
     @override
     def reset_parameters(self) -> None:
@@ -349,6 +350,8 @@ class StandardMultiheadAttention(MultiheadAttention):
         attn_fn: Optional[AttentionFunction] = None,
         attn_dropout_p: float = 0.0,
         out_proj: Optional[Projection] = None,
+        device=None,
+        dtype=None,
     ) -> None:
         """
         :param num_heads:
@@ -393,9 +396,9 @@ class StandardMultiheadAttention(MultiheadAttention):
         # TODO: Scale heads
 
         if q_proj is None and k_proj is None and v_proj is None:
-            q_proj = InternalQKVProjection(model_dim)
-            k_proj = InternalQKVProjection(model_dim)
-            v_proj = InternalQKVProjection(model_dim)
+            q_proj = InternalQKVProjection(model_dim, device=device, dtype=dtype)
+            k_proj = InternalQKVProjection(model_dim, device=device, dtype=dtype)
+            v_proj = InternalQKVProjection(model_dim, device=device, dtype=dtype)
         else:
             if q_proj is None or k_proj is None or v_proj is None:
                 raise ValueError(
@@ -441,13 +444,9 @@ class StandardMultiheadAttention(MultiheadAttention):
             bias_v_shp = (num_heads, 1, v_proj.out_dim // num_heads)
 
             # (H, 1, K_h)
-            self.bias_k = Parameter(
-                torch.empty(bias_k_shp, device=device(), dtype=dtype())
-            )
+            self.bias_k = Parameter(torch.empty(bias_k_shp, device=device, dtype=dtype))
             # (H, 1, V_h)
-            self.bias_v = Parameter(
-                torch.empty(bias_v_shp, device=device(), dtype=dtype())
-            )
+            self.bias_v = Parameter(torch.empty(bias_v_shp, device=device, dtype=dtype))
         else:
             self.register_parameter("bias_k", None)
             self.register_parameter("bias_v", None)
@@ -462,7 +461,9 @@ class StandardMultiheadAttention(MultiheadAttention):
         self.attn_dropout_p = attn_dropout_p
 
         if out_proj is None:
-            self.out_proj = InternalOutProjection(v_proj.out_dim, model_dim)
+            self.out_proj = InternalOutProjection(
+                v_proj.out_dim, model_dim, device=device, dtype=dtype
+            )
         else:
             if out_proj.inp_dim != v_proj.out_dim:
                 raise ValueError(

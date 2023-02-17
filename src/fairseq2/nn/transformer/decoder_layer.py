@@ -19,7 +19,6 @@ from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.transformer.ffn import FeedForwardNetwork
 from fairseq2.nn.transformer.multihead_attention import MultiheadAttention
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
-from fairseq2.nn.utils.module import device, dtype
 
 
 class TransformerDecoderLayer(Module, ABC):
@@ -116,6 +115,8 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         dropout_p: float = 0.1,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         norm_eps: float = 1e-5,
+        device=None,
+        dtype=None,
     ) -> None:
         """
         :param self_attn:
@@ -142,7 +143,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         super().__init__(model_dim)
 
         self_attn_layer_norm = LayerNorm(
-            model_dim, norm_eps, device=device(), dtype=dtype()
+            model_dim, norm_eps, device=device, dtype=dtype
         )
 
         if norm_order != TransformerNormOrder.POST:
@@ -152,7 +153,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
 
         if norm_order == TransformerNormOrder.PRE_WITH_NORMFORMER:
             self.self_attn_norm = LayerNorm(
-                model_dim, norm_eps, device=device(), dtype=dtype()
+                model_dim, norm_eps, device=device, dtype=dtype
             )
         else:
             self.register_module("self_attn_norm", None)
@@ -170,7 +171,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
                 )
 
             enc_dec_attn_layer_norm = LayerNorm(
-                model_dim, norm_eps, device=device(), dtype=dtype()
+                model_dim, norm_eps, device=device, dtype=dtype
             )
 
             if norm_order != TransformerNormOrder.POST:
@@ -186,7 +187,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
                 f"`model_dim` of `ffn` ({ffn.model_dim}) does not match `model_dim` of `self_attn` ({model_dim})."
             )
 
-        ffn_layer_norm = LayerNorm(model_dim, norm_eps, device=device(), dtype=dtype())
+        ffn_layer_norm = LayerNorm(model_dim, norm_eps, device=device, dtype=dtype)
 
         if norm_order != TransformerNormOrder.POST:
             self.ffn_layer_norm = ffn_layer_norm
@@ -195,7 +196,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
 
         if scale_residual:
             self.residual_scale = Parameter(
-                torch.empty((model_dim,), device=device(), dtype=dtype())
+                torch.empty((model_dim,), device=device, dtype=dtype)
             )
         else:
             self.register_parameter("residual_scale", None)

@@ -24,7 +24,6 @@ from torch.nn import Module
 from torch.nn.parameter import Parameter
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
-from fairseq2.nn.utils.module import device, dtype
 
 
 class PositionalEmbedding(Module, ABC):
@@ -157,20 +156,20 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
         self,
         max_seq_len: int,
         embedding_dim: int,
-        _padding_token_idx: Optional[int] = None,
+        legacy_padding_idx: Optional[int] = None,
+        device=None,
+        dtype=None,
     ) -> None:
         super().__init__(max_seq_len, embedding_dim)
 
-        weight = torch.empty(
-            (max_seq_len, embedding_dim), device=device(), dtype=dtype()
-        )
+        weight = torch.empty((max_seq_len, embedding_dim), device=device, dtype=dtype)
 
-        # This is a legacy parameter that should be set only when the embeddings
+        # This is a legacy parameter that should only be set when the embeddings
         # must be compatible with the original fairseq.
-        if _padding_token_idx is None:
+        if legacy_padding_idx is None:
             self._sin_offset = 0
         else:
-            self._sin_offset = 1 + _padding_token_idx
+            self._sin_offset = 1 + legacy_padding_idx
 
         self.register_buffer("weight", weight, persistent=False)
 
@@ -245,11 +244,13 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
 
     weight: Parameter
 
-    def __init__(self, max_seq_len: int, embedding_dim: int) -> None:
+    def __init__(
+        self, max_seq_len: int, embedding_dim: int, device=None, dtype=None
+    ) -> None:
         super().__init__(max_seq_len, embedding_dim)
 
         self.weight = Parameter(
-            torch.empty((max_seq_len, embedding_dim), device=device(), dtype=dtype())
+            torch.empty((max_seq_len, embedding_dim), device=device, dtype=dtype)
         )
 
         self.reset_parameters()
@@ -285,14 +286,16 @@ class RotaryEmbedding(PositionalEmbedding):
     cos_weight: Tensor
     sin_weight: Tensor
 
-    def __init__(self, max_seq_len: int, embedding_dim: int) -> None:
+    def __init__(
+        self, max_seq_len: int, embedding_dim: int, device=None, dtype=None
+    ) -> None:
         if embedding_dim % 2 != 0:
             raise ValueError(f"`embedding_dim` ({embedding_dim}) must be even.")
 
         super().__init__(max_seq_len, embedding_dim)
 
-        cos = torch.empty((max_seq_len, embedding_dim), device=device(), dtype=dtype())
-        sin = torch.empty((max_seq_len, embedding_dim), device=device(), dtype=dtype())
+        cos = torch.empty((max_seq_len, embedding_dim), device=device, dtype=dtype)
+        sin = torch.empty((max_seq_len, embedding_dim), device=device, dtype=dtype)
 
         self.register_buffer("cos_weight", cos, persistent=False)
         self.register_buffer("sin_weight", sin, persistent=False)

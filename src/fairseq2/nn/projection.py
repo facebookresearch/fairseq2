@@ -16,8 +16,6 @@ from torch import Tensor
 from torch.nn import Module
 from torch.nn.parameter import Parameter
 
-from fairseq2.nn.utils.module import device, dtype
-
 
 class Projection(Module, ABC):
     """Applies a linear transformation to incoming data."""
@@ -68,7 +66,9 @@ class ResettableProjection(Projection):
     bias: Optional[Parameter]
     """The learnable bias."""
 
-    def __init__(self, inp_dim: int, out_dim: int, bias: bool = False) -> None:
+    def __init__(
+        self, inp_dim: int, out_dim: int, bias: bool = False, device=None, dtype=None
+    ) -> None:
         """
         :param inp_dim:
             The dimensionality of inputs.
@@ -80,13 +80,11 @@ class ResettableProjection(Projection):
         super().__init__(inp_dim, out_dim)
 
         self.weight = Parameter(
-            torch.empty((out_dim, inp_dim), device=device(), dtype=dtype())
+            torch.empty((out_dim, inp_dim), device=device, dtype=dtype)
         )
 
         if bias:
-            self.bias = Parameter(
-                torch.empty((out_dim,), device=device(), dtype=dtype())
-            )
+            self.bias = Parameter(torch.empty((out_dim,), device=device, dtype=dtype))
         else:
             self.register_parameter("bias", None)
 

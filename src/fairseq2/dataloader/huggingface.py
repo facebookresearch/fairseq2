@@ -8,7 +8,6 @@ import torch
 
 import fairseq2.distributed
 from fairseq2.generate import SpeechToTextTokenizer, Tokenizer
-from fairseq2.typing import DataType, Device
 
 from . import Seq2SeqBatch, Text2TextBatch
 
@@ -21,7 +20,7 @@ def _finalize_batch(
     tgt_batch: List[str],
     src_bos: int,
     tgt_bos: int,
-    device: Device,
+    device,
 ) -> Seq2SeqBatch:
     source = tokenizer.encode_batch(src_batch, bos=src_bos)
     target = tokenizer.encode_batch(tgt_batch, bos=tgt_bos)
@@ -118,7 +117,7 @@ class NllbDataLoader(Iterable[Seq2SeqBatch]):
     def combine_and_dump(
         src: str, tgt: str, split: str, output: Path, limit: int = 0
     ) -> None:
-        env = fairseq2.distributed.Env(output.parent, 0, 1, Device("cpu"))
+        env = fairseq2.distributed.Env(output.parent, 0, 1, torch.device("cpu"))
         loader = NllbDataLoader(
             src,
             tgt,
@@ -165,7 +164,7 @@ class AsrDataloader(Iterable[Seq2SeqBatch]):
         batch_size: int = 0,
         batch_duration: Optional[datetime.timedelta] = None,
         env: fairseq2.distributed.Env,
-        dtype: DataType,
+        dtype,
     ):
         self.tokenizer = tokenizer
         self.sampling_rate = self.tokenizer.sampling_rate

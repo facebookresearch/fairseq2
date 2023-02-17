@@ -9,12 +9,10 @@ __all__ = ["to_float_mask", "to_padding_mask"]
 import torch
 from torch import Tensor
 
-from fairseq2.typing import DataType
-
 _neg_inf = float("-inf")
 
 
-def to_float_mask(mask: Tensor, dtype: DataType = torch.float32) -> Tensor:
+def to_float_mask(mask: Tensor, dtype: torch.dtype = torch.float32) -> Tensor:
     """Convert a boolean mask to its floating-point equivalent.
 
     If ``mask`` is of type ``torch.bool``, all its ``False`` values will be

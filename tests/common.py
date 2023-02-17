@@ -9,13 +9,11 @@ from typing import Any, List, Union
 import torch
 from torch import Tensor
 
-from fairseq2.typing import Device
-
 # The default device that tests should use.
 #
 # Note that pytest can change the default device based on the provided command
 # line arguments.
-device = Device("cpu")
+device = torch.device("cpu")
 
 
 def assert_close(a: Tensor, b: Union[Tensor, List[Any]]) -> None:

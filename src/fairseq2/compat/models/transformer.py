@@ -6,7 +6,7 @@
 
 
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Tuple
 
 import torch
 from torch import Tensor
@@ -17,8 +17,6 @@ from fairseq2.models.transformer import (
     TransformerConfig,
     build_transformer,
 )
-from fairseq2.nn.utils.module import module_init_context
-from fairseq2.typing import DataType, Device
 
 
 def convert_fairseq1_config(cfg: Any, num_tokens: int) -> TransformerConfig:
@@ -131,8 +129,8 @@ def _swap_bos_pad_eos_unk(embeddings: Tensor) -> None:
 def load_fairseq1_checkpoint(
     model_file: Path,
     spm_path: Path,
-    device: Optional[Device] = None,
-    dtype: Optional[DataType] = None,
+    device=None,
+    dtype=None,
 ) -> Tuple[Transformer, SpmTokenizer, TransformerConfig]:
 
     # TODO: this tuple is a bit weird, should we have a reference class for this tuple ?
@@ -161,8 +159,7 @@ def load_fairseq1_checkpoint(
     assert not getattr(cfg, "add_ssl_task_tokens", False), "TODO"
 
     new_cfg = convert_fairseq1_config(cfg, num_tokens=tokenizer.vocab_size())
-    with module_init_context(device, dtype):
-        model = build_transformer(new_cfg)
+    model = build_transformer(new_cfg, device, dtype)
     keys2 = set(model.state_dict().keys())
 
     _upgrade_legacy_state_dict(cfg, state["model"])

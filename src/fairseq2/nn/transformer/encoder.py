@@ -16,7 +16,6 @@ from fairseq2.nn.transformer.attention_mask import AttentionMaskGenerator
 from fairseq2.nn.transformer.encoder_layer import TransformerEncoderLayer
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
 from fairseq2.nn.utils.mask import to_float_mask
-from fairseq2.nn.utils.module import device, dtype
 
 
 class TransformerEncoder(Module, ABC):
@@ -78,6 +77,8 @@ class StandardTransformerEncoder(TransformerEncoder):
         layer_drop_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         norm_eps: float = 1e-5,
+        device=None,
+        dtype=None,
     ) -> None:
         """
         :param layers:
@@ -112,9 +113,7 @@ class StandardTransformerEncoder(TransformerEncoder):
         self.layers = layer_list
 
         if norm_order != TransformerNormOrder.POST:
-            self.layer_norm = LayerNorm(
-                model_dim, norm_eps, device=device(), dtype=dtype()
-            )
+            self.layer_norm = LayerNorm(model_dim, norm_eps, device=device, dtype=dtype)
         else:
             self.register_module("layer_norm", None)
 

@@ -9,16 +9,14 @@ from typing import Generator
 
 import torch
 
-from fairseq2.typing import Device
-
 
 @contextlib.contextmanager
-def tmp_rng_seed(device: Device, seed: int = 0) -> Generator[None, None, None]:
+def tmp_rng_seed(device: torch.device, seed: int = 0) -> Generator[None, None, None]:
     """Set a temporary manual RNG seed.
 
     The RNG is reset to its original state once the block is exited.
     """
-    device = Device(device)
+    device = torch.device(device)
 
     if device.type == "cuda":
         devices = [device]

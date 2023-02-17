@@ -13,8 +13,6 @@ from torch import Tensor
 from torch.nn import Module
 from torch.nn.parameter import Parameter
 
-from fairseq2.nn.utils.module import device, dtype
-
 
 @final
 class Embedding(Module):
@@ -45,6 +43,8 @@ class Embedding(Module):
         embedding_dim: int,
         padding_idx: Optional[int] = None,
         scaled: bool = False,
+        device=None,
+        dtype=None,
     ) -> None:
         """
         :param num_embed:
@@ -68,7 +68,7 @@ class Embedding(Module):
         self.scaled = scaled
 
         self.weight = Parameter(
-            torch.empty((num_embed, embedding_dim), device=device(), dtype=dtype())
+            torch.empty((num_embed, embedding_dim), device=device, dtype=dtype)
         )
 
         self.reset_parameters()

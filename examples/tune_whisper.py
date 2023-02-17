@@ -14,7 +14,6 @@ import fairseq2.distributed
 import fairseq2.tasks
 from fairseq2.callbacks import Metrics
 from fairseq2.dataloader import Seq2SeqBatch, Seq2SeqStr
-from fairseq2.typing import DataType, Device
 
 REQUIREMENTS = [
     "datasets>=2.6.1",
@@ -31,7 +30,7 @@ class AsrTask(fairseq2.tasks.Seq2Seq):
         self,
         builder: "WhisperBuilder",
         tokenizer: fairseq2.generate.SpeechToTextTokenizer,
-        device: Device,
+        device,
     ):
         super().__init__(builder, tokenizer, device)  # type: ignore
 
@@ -78,7 +77,7 @@ class AsrTask(fairseq2.tasks.Seq2Seq):
 
 # TODO: make helper builder for transformers.* models.
 class WhisperBuilder:
-    def __init__(self, name: str, device: Device, dtype: DataType):
+    def __init__(self, name: str, device, dtype):
         self.name = name
         self.max_seq_len = 0
         self.config: Any = None
