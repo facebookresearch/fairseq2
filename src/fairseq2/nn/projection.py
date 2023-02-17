@@ -6,7 +6,7 @@
 
 import math
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, final
+from typing import Optional, final
 
 import torch
 import torch.nn as nn
@@ -16,7 +16,7 @@ from torch import Tensor
 from torch.nn import Module
 from torch.nn.parameter import Parameter
 
-from fairseq2.typing import DataType, Device
+from fairseq2.nn.utils.module import device, dtype
 
 
 class Projection(Module, ABC):
@@ -44,13 +44,13 @@ class Projection(Module, ABC):
     def forward(self, x: Tensor) -> Tensor:
         """
         :param x:
-            The input. *Shape:* :math:`(*,H_{inp})`, where :math:`H_{inp}` is
-            the input size.
+            The input to project. *Shape:* :math:`(*,H_{inp})`, where
+            :math:`H_{inp}` is the input size.
 
         :returns:
-            The output. *Shape:* :math:`(*,H_{out})`, where all but the last
-            dimension are the same shape as the input and :math:`H_{out}` is the
-            output size.
+            The projected output. *Shape:* :math:`(*,H_{out})`, where all but
+            the last dimension are the same shape as the input and
+            :math:`H_{out}` is the output size.
         """
 
     def extra_repr(self) -> str:
@@ -68,14 +68,7 @@ class ResettableProjection(Projection):
     bias: Optional[Parameter]
     """The learnable bias."""
 
-    def __init__(
-        self,
-        inp_dim: int,
-        out_dim: int,
-        bias: bool = False,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
-    ) -> None:
+    def __init__(self, inp_dim: int, out_dim: int, bias: bool = False) -> None:
         """
         :param inp_dim:
             The dimensionality of inputs.
@@ -84,14 +77,16 @@ class ResettableProjection(Projection):
         :param bias:
             If ``True``, the module will learn an additive bias.
         """
-        fct_kwargs: Dict[str, Any] = {"device": device, "dtype": dtype}
-
         super().__init__(inp_dim, out_dim)
 
-        self.weight = Parameter(torch.empty((out_dim, inp_dim), **fct_kwargs))
+        self.weight = Parameter(
+            torch.empty((out_dim, inp_dim), device=device(), dtype=dtype())
+        )
 
         if bias:
-            self.bias = Parameter(torch.empty((out_dim,), **fct_kwargs))
+            self.bias = Parameter(
+                torch.empty((out_dim,), device=device(), dtype=dtype())
+            )
         else:
             self.register_parameter("bias", None)
 
@@ -99,7 +94,7 @@ class ResettableProjection(Projection):
 
     @abstractmethod
     def reset_parameters(self) -> None:
-        """Resets the parameters and buffers of the module."""
+        """Reset the parameters and buffers of the module."""
 
     @override
     def forward(self, x: Tensor) -> Tensor:
@@ -126,8 +121,8 @@ class Linear(ResettableProjection):
 
         if self.bias is not None:
             # We do not calculate the true standard deviation of the uniform
-            # distribution (i.e. multiply with sqrt(3)). See:
-            # https://github.com/pytorch/pytorch/issues/57109#issuecomment-828847575
+            # distribution (i.e. multiply with sqrt(3)). See
+            # https://github.com/pytorch/pytorch/issues/57109#issuecomment-828847575.
             bound = 1 / math.sqrt(self.inp_dim) if self.inp_dim > 0 else 0
 
             nn.init.uniform_(self.bias, -bound, bound)
@@ -155,14 +150,4 @@ class TiedProjection(Projection):
 
     @finaloverride
     def forward(self, x: Tensor) -> Tensor:
-        """
-        :param x:
-            The input. *Shape:* :math:`(*,H_{inp})`, where :math:`H_{inp}` is
-            the input size.
-
-        :returns:
-            The output. *Shape:* :math:`(*,H_{out})`, where all but the last
-            dimension are the same shape as the input and :math:`H_{out}` is the
-            output size.
-        """
         return F.linear(x, self.weight, self.bias)

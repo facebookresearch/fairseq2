@@ -26,7 +26,12 @@ import fairseq2.typing
 from fairseq2.dataloader import Seq2SeqBatch
 from fairseq2.distributed import Env
 from fairseq2.generate import SpmTokenizer, TokenMeta, spm_train
-from fairseq2.models.transformer import Transformer, TransformerBuilder
+from fairseq2.models.transformer import (
+    Transformer,
+    TransformerConfig,
+    build_transformer,
+)
+from fairseq2.nn.utils.module import module_init_context
 from fairseq2.tasks import TranslationTask
 
 log = logging.getLogger(__name__)
@@ -116,10 +121,6 @@ def valid_data(
     )
 
 
-class MyBuilder(TransformerBuilder):
-    pass
-
-
 # TODO: I'm not really happy to have this in user code.
 # the tokenizer is serialized with the model, but we still need to know the vocab_size
 # to create an embedding matrix of the right size.
@@ -136,15 +137,16 @@ def model(env: Env, token_meta: TokenMeta) -> Transformer:
     # TODO: this is problematic for inference because we force the spm path to exists on disk
     # to create the model, while we want to load it from the snapshot.
     # How can we create the model without the tokenizer ?
-    builder = MyBuilder(
-        token_meta.vocab_size,
-        padding_token_idx=token_meta.PAD,
+    cfg = TransformerConfig(
+        src_num_tokens=token_meta.vocab_size,
+        tgt_num_tokens=token_meta.vocab_size,
+        src_padding_token_idx=token_meta.PAD,
+        tgt_padding_token_idx=token_meta.PAD,
         dropout_p=0,
-        device=env.device,
     )
-    model = builder.build()
 
-    return model
+    with module_init_context(env.device):
+        return build_transformer(cfg)
 
 
 def optimizer(model: Transformer, weight_decay: float = 0.001) -> torch.optim.Optimizer:

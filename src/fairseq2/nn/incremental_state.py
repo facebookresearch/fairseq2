@@ -24,17 +24,16 @@ class IncrementalState(ABC):
 
     @abstractmethod
     def reorder(self, new_order: Tensor) -> None:
-        """Rearranges the incremental state according to a new batch order.
+        """Rearrange the incremental state according to a new batch order.
 
-        This will be called when the order of the batch has changed from the
-        previous step(s). A typical use case is beam search, where the batch
-        order changes between steps based on the selection of beams.
+        This will be called when the order of the batch has changed. A typical
+        use case is beam search, where the batch order changes between steps
+        based on the selection of beams.
 
         :param new_order:
             The new order of the batch. It is frequently used with
             :func:`torch.index_select` to rearrange the state tensors. *Shape:*
-            :math:`(N_{new})`, where :math:`N_{new}` is the size of the
-            rearranged batch.
+            :math:`(N)`, where :math:`N` is the batch size.
         """
 
 
@@ -54,23 +53,23 @@ class IncrementalStateBag:
 
     @property
     def step(self) -> int:
-        """Returns the current step in the sequence."""
+        """Return the current step in the sequence."""
         return self._step
 
     def increment_step(self, delta: int = 1) -> None:
-        """Increments the step.
+        """Increment the step.
 
         This method should be called after every incremental evaluation (e.g.
         beam search). It is used by modules to keep track of the position in
         the sequence.
 
         :param delta:
-            The value by which to increment.
+            The value by which to increment the step.
         """
         self._step += delta
 
     def get_state(self, m: Module, kls: Type[T]) -> Optional[T]:
-        """Gets the incremental state of ``m``, or ``None`` if ``m`` is not
+        """Get the incremental state of ``m``, or ``None`` if ``m`` is not
         present in the bag.
 
         :param m:
@@ -90,7 +89,7 @@ class IncrementalStateBag:
             return None
 
     def set_state(self, m: Module, state: IncrementalState) -> None:
-        """Sets the incremental state of ``m``.
+        """Set the incremental state of ``m``.
 
         :param m:
             The module.
@@ -100,7 +99,7 @@ class IncrementalStateBag:
         self._module_states[m] = state
 
     def reorder(self, new_order: Tensor) -> None:
-        """Reorders all incremental states in the bag.
+        """Reorder all incremental states in the bag.
 
         See :meth:`IncrementalState.reorder` for more information.
         """

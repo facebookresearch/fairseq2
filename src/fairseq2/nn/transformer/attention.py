@@ -16,7 +16,7 @@ class AttentionFunction(Protocol):
 
     def __call__(
         self,
-        queries: Tensor,
+        x: Tensor,
         keys: Tensor,
         values: Tensor,
         mask: Optional[Tensor] = None,
@@ -25,23 +25,24 @@ class AttentionFunction(Protocol):
         training: bool = True,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         """
-        :param queries:
-            The queries. *Shape:* :math:`(N,T,K)`, where :math:`N` is the batch
-            size, :math:`T` is the target sequence length, and :math:`K` is the
-            key size.
+        :param x:
+            The input to query. *Shape:* :math:`(N,S,K)`, where :math:`N` is
+            the batch size, :math:`S` is the sequence length, and :math:`K` is
+            the key size.
         :param keys:
-            The keys. *Shape:* :math:`(N,S,K)`, where :math:`N` is the batch
-            size, :math:`S` is the source sequence length, and :math:`K` is the
-            key size.
+            The keys. *Shape:* :math:`(N,S_{kv},K)`, where :math:`N` is the
+            batch size, :math:`S_{kv}` is the key/value sequence length, and
+            :math:`K` is the key size.
         :param values:
-            The values. *Shape:* :math:`(N,S,V)`, where :math:`N` is the batch
-            size, :math:`S` is the source sequence length, and :math:`V` is the
-            value size.
+            The values. *Shape:* :math:`(N,S_{kv},V)`, where :math:`N` is the
+            batch size, :math:`S_{kv}` is the key/value sequence length, and
+            :math:`V` is the value size.
         :param mask:
             The float mask that will be added to the attention weights before
-            computing the attention. *Shape:* :math:`(T,S)` or :math:`(N,T,S)`,
-            where :math:`N` is the batch size, :math:`T` is the target sequence
-            length, and :math:`S` is the source sequence length.
+            computing the attention. *Shape:* :math:`(S,S_{kv})` or
+            :math:`(N,S,S_{kv})`, where :math:`N` is the batch size,
+            :math:`S` is the sequence length, and :math:`S_{kv}` is the
+            key/value sequence length.
         :param dropout_p:
             The dropout probability on the attention weights.
         :param needs_weights:
@@ -52,17 +53,17 @@ class AttentionFunction(Protocol):
             If ``True``, applies dropout.
 
         :returns:
-            - The attentions. *Shape:* :math:`(N,T,V)`, where :math:`N` is the
-              batch size, :math:`T` is the target sequence length, and :math:`V`
-              is the value size.
-            - The attention weights. *Shape:* :math:`(N,T,S)`, where :math:`N`
-              is the batch size, :math:`T` is the target sequence length, and
-              :math:`S` is the source sequence length.
+            - The attention values. *Shape:* :math:`(N,S,V)`, where
+              :math:`N` is the batch size, :math:`S` is the sequence length, and
+              :math:`V` is the value size.
+            - The attention weights. *Shape:* :math:`(N,S,S_{kv})`, where
+              :math:`N` is the batch size, :math:`S` is the sequence length, and
+              :math:`S_{kv}` is the key/value sequence length.
         """
 
 
 def default_scaled_dot_product_attention(
-    queries: Tensor,
+    x: Tensor,
     keys: Tensor,
     values: Tensor,
     mask: Optional[Tensor] = None,
@@ -70,29 +71,30 @@ def default_scaled_dot_product_attention(
     needs_weights: bool = False,
     training: bool = True,
 ) -> Tuple[Tensor, Optional[Tensor]]:
-    """Computes scaled dot-product attention as described in
+    """Compute scaled dot-product attention as described in
     :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`.
 
     .. note::
         This function follows the :class:`AttentionFunction` protocol.
 
-    :param queries:
-        The queries. *Shape:* :math:`(N,T,K)`, where :math:`N` is the batch
-        size, :math:`T` is the target sequence length, and :math:`K` is the
-        key size.
+    :param x:
+        The input to query. *Shape:* :math:`(N,S,K)`, where :math:`N` is the
+        batch size, :math:`S` is the sequence length, and :math:`K` is the key
+        size.
     :param keys:
-        The keys. *Shape:* :math:`(N,S,K)`, where :math:`N` is the batch
-        size, :math:`S` is the source sequence length, and :math:`K` is the
-        key size.
+        The keys. *Shape:* :math:`(N,S_{kv},K)`, where :math:`N` is the batch
+        size, :math:`S_{kv}` is the key/value sequence length, and :math:`K` is
+        the key size.
     :param values:
-        The values. *Shape:* :math:`(N,S,V)`, where :math:`N` is the batch
-        size, :math:`S` is the source sequence length, and :math:`V` is the
-        value size.
+        The values. *Shape:* :math:`(N,S_{kv},V)`, where :math:`N` is the batch
+        size, :math:`S_{kv}` is the key/value sequence length, and :math:`V` is
+        the value size.
     :param mask:
         The float mask that will be added to the attention weights before
-        computing the attention. *Shape:* :math:`(T,S)` or :math:`(N,T,S)`,
-        where :math:`N` is the batch size, :math:`T` is the target sequence
-        length, and :math:`S` is the source sequence length.
+        computing the attention. *Shape:* :math:`(S,S_{kv})` or
+        :math:`(N,S,S_{kv})`, where :math:`N` is the batch size, :math:`S` is
+        the sequence length, and :math:`S_{kv}` is the key/value sequence
+        length.
     :param dropout_p:
         The dropout probability on the attention weights.
     :param needs_weights:
@@ -103,28 +105,28 @@ def default_scaled_dot_product_attention(
         If ``True``, applies dropout.
 
     :returns:
-        - The attentions. *Shape:* :math:`(N,T,V)`, where :math:`N` is the
-          batch size, :math:`T` is the target sequence length, and :math:`V`
-          is the value size.
-        - The attention weights. *Shape:* :math:`(N,T,S)`, where :math:`N`
-          is the batch size, :math:`T` is the target sequence length, and
-          :math:`S` is the source sequence length.
+        - The attention values. *Shape:* :math:`(N,S,V)`, where :math:`N` is the
+          batch size, :math:`S` is the sequence length, and :math:`V` is the
+          value size.
+        - The attention weights. *Shape:* :math:`(N,S,S_{kv})`, where :math:`N`
+          is the batch size, :math:`S` is the sequence length, and
+          :math:`S_{kv}` is the key/value sequence length.
     """
-    queries = queries * (queries.size(-1) ** -0.5)
+    x = x * (x.size(-1) ** -0.5)
 
     if mask is None:
-        # (N, T, K) @ (N, K, S) = (N, T, S)
-        attn_weights = torch.bmm(queries, keys.transpose(1, 2))
+        # (N, S, K) @ (N, K, S_kv) = (N, S, S_kv)
+        attn_weights = torch.bmm(x, keys.transpose(1, 2))
     else:
-        # (N, T, S) + ((N, T, K) @ (N, K, S)) = (N, T, S)
-        attn_weights = torch.baddbmm(mask, queries, keys.transpose(1, 2))
+        # (N, S, S_kv) + ((N, S, K) @ (N, K, S_kv)) = (N, S, S_kv)
+        attn_weights = torch.baddbmm(mask, x, keys.transpose(1, 2))
 
     attn_weights = F.softmax(attn_weights, dim=-1)
 
     if training and dropout_p > 0.0:
         attn_weights = F.dropout(attn_weights, dropout_p, training)
 
-    # (N, T, S) @ (N, S, V) = (N, T, V)
+    # (N, S, S_kv) @ (N, S_kv, V) = (N, S, V)
     attn = torch.bmm(attn_weights, values)
 
     return attn, attn_weights if needs_weights else None

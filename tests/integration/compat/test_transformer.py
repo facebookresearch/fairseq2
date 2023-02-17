@@ -7,6 +7,7 @@ import torch
 import fairseq2.generate
 import fairseq2.nn
 from fairseq2.compat.models.transformer import load_fairseq1_checkpoint
+from fairseq2.models.transformer import TransformerConfig, build_transformer
 from fairseq2.typing import Device
 from tests.common import assert_close, assert_equal, device
 
@@ -22,7 +23,7 @@ FRA_5 = "Lundi, des scientifiques de l'École de médecine de l'Université de S
 @pytest.mark.skipif(not NLLB_MODELS.exists(), reason="needs to run on FAIR cluster")
 def test_loading_nllb200_small(tmp_path: Path) -> None:
     # Load fairseq checkpoint into fairseq2
-    model2, tokenizer2, builder = load_fairseq1_checkpoint(NLLB_SMALL, NLLB_TOK, device)
+    model2, tokenizer2, cfg = load_fairseq1_checkpoint(NLLB_SMALL, NLLB_TOK, device)
 
     assert tokenizer2.special_tokens["__ace_Arab__"] == 256001
     assert tokenizer2.vocab_size() == 256206
@@ -52,24 +53,21 @@ def test_loading_nllb200_small(tmp_path: Path) -> None:
     # Save NLLB200 model as a fairseq2 model
     state = {
         "model": model2.state_dict(),
-        "builder": builder,
+        "cfg": cfg,
         "tokenizer": tokenizer2,
     }
     torch.save(state, tmp_path / "nllb200.fairseq2.pt")
 
     # Reload NLLB200 as a fairseq2 model
     state = torch.load(tmp_path / "nllb200.fairseq2.pt")
-    model3 = cast(
-        fairseq2.models.transformer.TransformerBuilder, state["builder"]
-    ).build()
+    cfg3 = cast(TransformerConfig, state["cfg"])
+    model3 = build_transformer(cfg3)
     tokenizer3 = cast(fairseq2.generate.Tokenizer, state["tokenizer"])
     model3.load_state_dict(state["model"])  # type: ignore
     model3.eval()
     src_tokens3 = tokenizer3.encode_batch([ENG], bos=src_bos_tok)
     assert_equal(src_tokens3, src_tokens2)
-    assert_close(
-        model3.encoder.forward(src_tokens3)[0], model2.encoder.forward(src_tokens2)[0]
-    )
+    assert_close(model3.encode(src_tokens3)[0], model2.encode(src_tokens2)[0])
     assert_speaks_french(model3, tokenizer3, device)
 
 

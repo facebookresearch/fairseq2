@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, Optional, final
+from typing import Optional, final
 
 import torch
 import torch.nn as nn
@@ -13,7 +13,7 @@ from torch import Tensor
 from torch.nn import Module
 from torch.nn.parameter import Parameter
 
-from fairseq2.typing import DataType, Device
+from fairseq2.nn.utils.module import device, dtype
 
 
 @final
@@ -45,8 +45,6 @@ class Embedding(Module):
         embedding_dim: int,
         padding_idx: Optional[int] = None,
         scaled: bool = False,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param num_embed:
@@ -62,8 +60,6 @@ class Embedding(Module):
             :math:`\\mathcal{N}(0, \\frac{1}{\\text{embedding_dim}})`; otherwise,
             from :math:`\\mathcal{N}(0, 1)`.
         """
-        fct_kwargs: Dict[str, Any] = {"device": device, "dtype": dtype}
-
         super().__init__()
 
         self.num_embed = num_embed
@@ -71,12 +67,14 @@ class Embedding(Module):
         self.padding_idx = padding_idx
         self.scaled = scaled
 
-        self.weight = Parameter(torch.empty((num_embed, embedding_dim), **fct_kwargs))
+        self.weight = Parameter(
+            torch.empty((num_embed, embedding_dim), device=device(), dtype=dtype())
+        )
 
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Resets the parameters and buffers of the module."""
+        """Reset the parameters and buffers of the module."""
         if self.scaled:
             nn.init.normal_(self.weight, std=self.embedding_dim**-0.5)
         else:

@@ -17,5 +17,7 @@ Functions
     data.read_sequence
     data.zip_data_pipelines
     gang.from_process_group
+    models.transformer.build_transformer
     nn.transformer.default_scaled_dot_product_attention
-    nn.utils.to_float_mask
+    nn.utils.mask.to_float_mask
+    nn.utils.mask.to_padding_mask

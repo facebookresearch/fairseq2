@@ -14,6 +14,7 @@ from fairseq2.nn import (
     RotaryEmbedding,
     SinusoidalPositionalEmbedding,
 )
+from fairseq2.nn.utils.module import module_init_context
 from tests.common import assert_close, device
 from tests.rng import tmp_rng_seed
 
@@ -96,16 +97,14 @@ class TestSinusoidalPositionalEmbedding:
         # fmt: on
 
     def test_init_initializes_embeddings_correctly(self) -> None:
-        m = SinusoidalPositionalEmbedding(
-            max_seq_len=10, embedding_dim=32, device=device
-        )
+        with module_init_context(device):
+            m = SinusoidalPositionalEmbedding(max_seq_len=10, embedding_dim=32)
 
         assert_close(m.weight, self.expected_weight())
 
     def test_forward_returns_correct_embeddings(self) -> None:
-        m = SinusoidalPositionalEmbedding(
-            max_seq_len=10, embedding_dim=4, device=device
-        )
+        with module_init_context(device):
+            m = SinusoidalPositionalEmbedding(max_seq_len=10, embedding_dim=4)
 
         embed = torch.randn((3, 9, 4), device=device)
 
@@ -116,9 +115,8 @@ class TestSinusoidalPositionalEmbedding:
         assert_close(x - embed, m.weight[:9].expand_as(x))
 
     def test_forward_returns_correct_embeddings_if_no_batch(self) -> None:
-        m = SinusoidalPositionalEmbedding(
-            max_seq_len=10, embedding_dim=4, device=device
-        )
+        with module_init_context(device):
+            m = SinusoidalPositionalEmbedding(max_seq_len=10, embedding_dim=4)
 
         embed = torch.randn((9, 4), device=device)
 
@@ -130,9 +128,8 @@ class TestSinusoidalPositionalEmbedding:
     def test_forward_returns_correct_embedding_in_incremental_eval(
         self, embed_idx: int
     ) -> None:
-        m = SinusoidalPositionalEmbedding(
-            max_seq_len=4, embedding_dim=32, device=device
-        )
+        with module_init_context(device):
+            m = SinusoidalPositionalEmbedding(max_seq_len=4, embedding_dim=32)
 
         state_bag = IncrementalStateBag()
         state_bag.increment_step(delta=embed_idx)
@@ -150,9 +147,8 @@ class TestSinusoidalPositionalEmbedding:
         assert_close(x - embed, m.weight[embed_idx : embed_idx + seq_len].expand_as(x))
 
     def test_forward_errors_if_input_dim_is_greater_than_3(self) -> None:
-        m = SinusoidalPositionalEmbedding(
-            max_seq_len=3, embedding_dim=32, device=device
-        )
+        with module_init_context(device):
+            m = SinusoidalPositionalEmbedding(max_seq_len=3, embedding_dim=32)
 
         embed = torch.randn((5, 5, 3, 32), device=device)
 
@@ -163,9 +159,8 @@ class TestSinusoidalPositionalEmbedding:
             m(embed)
 
     def test_forward_errors_if_seq_len_is_out_of_range(self) -> None:
-        m = SinusoidalPositionalEmbedding(
-            max_seq_len=3, embedding_dim=32, device=device
-        )
+        with module_init_context(device):
+            m = SinusoidalPositionalEmbedding(max_seq_len=3, embedding_dim=32)
 
         embed = torch.randn((5, 32), device=device)
 
@@ -176,9 +171,8 @@ class TestSinusoidalPositionalEmbedding:
             m(embed)
 
     def test_forward_ignores_state_bag_in_training(self) -> None:
-        m = SinusoidalPositionalEmbedding(
-            max_seq_len=3, embedding_dim=32, device=device
-        )
+        with module_init_context(device):
+            m = SinusoidalPositionalEmbedding(max_seq_len=3, embedding_dim=32)
 
         embed = torch.randn((5, 2, 32), device=device)
 
@@ -192,10 +186,8 @@ class TestSinusoidalPositionalEmbedding:
 
 class TestLearnedPositionalEmbedding:
     def test_init_initializes_embeddings_correctly(self) -> None:
-        with tmp_rng_seed(device):
-            m = LearnedPositionalEmbedding(
-                max_seq_len=10, embedding_dim=32, device=device
-            )
+        with tmp_rng_seed(device), module_init_context(device):
+            m = LearnedPositionalEmbedding(max_seq_len=10, embedding_dim=32)
 
         assert m.weight.dtype == torch.float
 
@@ -205,7 +197,8 @@ class TestLearnedPositionalEmbedding:
         assert_close(m.weight, expected_weight)
 
     def test_forward_returns_correct_embeddings(self) -> None:
-        m = LearnedPositionalEmbedding(max_seq_len=10, embedding_dim=4, device=device)
+        with module_init_context(device):
+            m = LearnedPositionalEmbedding(max_seq_len=10, embedding_dim=4)
 
         embed = torch.randn((3, 9, 4), device=device)
 
@@ -216,7 +209,8 @@ class TestLearnedPositionalEmbedding:
         assert_close(x - embed, m.weight[:9].expand_as(x))
 
     def test_forward_returns_correct_embeddings_if_no_batch(self) -> None:
-        m = LearnedPositionalEmbedding(max_seq_len=10, embedding_dim=4, device=device)
+        with module_init_context(device):
+            m = LearnedPositionalEmbedding(max_seq_len=10, embedding_dim=4)
 
         embed = torch.randn((9, 4), device=device)
 
@@ -228,7 +222,8 @@ class TestLearnedPositionalEmbedding:
     def test_forward_returns_correct_embedding_in_incremental_eval(
         self, embed_idx: int
     ) -> None:
-        m = LearnedPositionalEmbedding(max_seq_len=4, embedding_dim=32, device=device)
+        with module_init_context(device):
+            m = LearnedPositionalEmbedding(max_seq_len=4, embedding_dim=32)
 
         state_bag = IncrementalStateBag()
         state_bag.increment_step(delta=embed_idx)
@@ -246,7 +241,8 @@ class TestLearnedPositionalEmbedding:
         assert_close(x - embed, m.weight[embed_idx : embed_idx + seq_len].expand_as(x))
 
     def test_forward_errors_if_input_dim_is_greater_than_3(self) -> None:
-        m = LearnedPositionalEmbedding(max_seq_len=3, embedding_dim=32, device=device)
+        with module_init_context(device):
+            m = LearnedPositionalEmbedding(max_seq_len=3, embedding_dim=32)
 
         embed = torch.randn((5, 5, 3, 32), device=device)
 
@@ -257,7 +253,8 @@ class TestLearnedPositionalEmbedding:
             m(embed)
 
     def test_forward_errors_if_seq_len_is_out_of_range(self) -> None:
-        m = LearnedPositionalEmbedding(max_seq_len=3, embedding_dim=32, device=device)
+        with module_init_context(device):
+            m = LearnedPositionalEmbedding(max_seq_len=3, embedding_dim=32)
 
         embed = torch.randn((5, 32), device=device)
 
@@ -268,7 +265,8 @@ class TestLearnedPositionalEmbedding:
             m(embed)
 
     def test_forward_ignores_state_bag_in_training(self) -> None:
-        m = LearnedPositionalEmbedding(max_seq_len=3, embedding_dim=32, device=device)
+        with module_init_context(device):
+            m = LearnedPositionalEmbedding(max_seq_len=3, embedding_dim=32)
 
         embed = torch.randn((5, 2, 32), device=device)
 
@@ -282,7 +280,8 @@ class TestLearnedPositionalEmbedding:
 
 class TestRotaryEmbedding:
     def test_forward_returns_correct_embeddings(self) -> None:
-        m = RotaryEmbedding(max_seq_len=10, embedding_dim=4, device=device)
+        with module_init_context(device):
+            m = RotaryEmbedding(max_seq_len=10, embedding_dim=4)
 
         embed = torch.randn((3, 9, 4), device=device)
 
@@ -292,7 +291,8 @@ class TestRotaryEmbedding:
         assert_close(torch.norm(embed), torch.norm(x))
 
     def test_forward_returns_correct_relative_embeddings(self) -> None:
-        m = RotaryEmbedding(max_seq_len=10, embedding_dim=4, device=device)
+        with module_init_context(device):
+            m = RotaryEmbedding(max_seq_len=10, embedding_dim=4)
 
         embed1 = torch.randn((4), device=device)
         embed2 = torch.randn((4), device=device)
@@ -321,7 +321,8 @@ class TestRotaryEmbedding:
     def test_forward_returns_correct_embedding_in_incremental_eval(
         self, embed_idx: int
     ) -> None:
-        m = RotaryEmbedding(max_seq_len=4, embedding_dim=32, device=device)
+        with module_init_context(device):
+            m = RotaryEmbedding(max_seq_len=4, embedding_dim=32)
 
         state_bag = IncrementalStateBag()
         state_bag.increment_step(delta=embed_idx)
@@ -343,7 +344,8 @@ class TestRotaryEmbedding:
         assert_close(x1, x2[:, embed_idx:])
 
     def test_forward_errors_if_input_dim_is_greater_than_3(self) -> None:
-        m = RotaryEmbedding(max_seq_len=3, embedding_dim=32, device=device)
+        with module_init_context(device):
+            m = RotaryEmbedding(max_seq_len=3, embedding_dim=32)
 
         embed = torch.randn((5, 5, 3, 32), device=device)
 
@@ -354,7 +356,8 @@ class TestRotaryEmbedding:
             m(embed)
 
     def test_forward_errors_if_seq_len_is_out_of_range(self) -> None:
-        m = RotaryEmbedding(max_seq_len=3, embedding_dim=32, device=device)
+        with module_init_context(device):
+            m = RotaryEmbedding(max_seq_len=3, embedding_dim=32)
 
         embed = torch.randn((5, 32), device=device)
 
@@ -365,7 +368,8 @@ class TestRotaryEmbedding:
             m(embed)
 
     def test_forward_ignores_state_bag_in_training(self) -> None:
-        m = RotaryEmbedding(max_seq_len=3, embedding_dim=32, device=device)
+        with module_init_context(device):
+            m = RotaryEmbedding(max_seq_len=3, embedding_dim=32)
 
         embed = torch.randn((5, 2, 32), device=device)
 

@@ -5,88 +5,75 @@
 # LICENSE file in the root directory of this source tree.
 
 
-__all__ = ["Fairseq1TransformerBuilder", "load_fairseq1_checkpoint"]
-
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 import torch
 from torch import Tensor
 
-from fairseq2.compat.nn import Fairseq1SinusoidalPositionalEmbedding
 from fairseq2.generate import SpmTokenizer
-from fairseq2.models.transformer import Transformer, TransformerBuilder
-from fairseq2.nn.positional_embedding import PositionalEmbedding
-from fairseq2.nn.transformer import TransformerNormOrder
+from fairseq2.models.transformer import (
+    Transformer,
+    TransformerConfig,
+    build_transformer,
+)
+from fairseq2.nn.utils.module import module_init_context
 from fairseq2.typing import DataType, Device
 
 
-class Fairseq1TransformerBuilder(TransformerBuilder):
-    def __init__(
-        self,
-        cfg: Any,
-        num_tokens: int,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
-    ):
-        if cfg.encoder_learned_pos or cfg.decoder_learned_pos:
-            raise RuntimeError(
-                "Learned positional embeddings are not supported. File a bug report if you want them to be supported."
-            )
-
-        model_dim = cfg.decoder_input_dim
-
-        if model_dim != cfg.encoder_embed_dim or model_dim != cfg.decoder_embed_dim:
-            raise ValueError(
-                f"The size of the model dimension does not match between the input ({model_dim}), encoder ({cfg.encoder_embed_dim}), and decoder ({cfg.decoder_embed_dim})."
-            )
-
-        if cfg.encoder_ffn_embed_dim != cfg.decoder_ffn_embed_dim:
-            raise ValueError(
-                f"The size of the FFN inner dimension does not match between the encoder ({cfg.encoder_ffn_embed_dim}) and decoder ({cfg.decoder_ffn_embed_dim})."
-            )
-
-        ffn_dim = cfg.encoder_ffn_embed_dim
-
-        if cfg.encoder_normalize_before != cfg.decoder_normalize_before:
-            raise ValueError(
-                "The Layer Normalization order does not match between the encoder and decoder."
-            )
-
-        if cfg.encoder_normalize_before:
-            norm_order = TransformerNormOrder.PRE
-        else:
-            norm_order = TransformerNormOrder.POST
-
-        super().__init__(
-            num_tokens=num_tokens,
-            padding_token_idx=1,
-            model_dim=model_dim,
-            num_enc_layers=cfg.encoder_layers,
-            num_dec_layers=cfg.decoder_layers,
-            num_enc_attn_heads=cfg.encoder_attention_heads,
-            num_dec_attn_heads=cfg.decoder_attention_heads,
-            ffn_inner_dim=ffn_dim,
-            norm_order=norm_order,
-            dropout_p=cfg.dropout,
-            max_seq_len=max(cfg.max_source_positions, cfg.max_target_positions),
-            device=device,
-            dtype=dtype,
+def convert_fairseq1_config(cfg: Any, num_tokens: int) -> TransformerConfig:
+    if cfg.encoder_learned_pos or cfg.decoder_learned_pos:
+        raise RuntimeError(
+            "Learned positional embeddings are not supported. File a bug report if you want them to be supported."
         )
 
-    def build_positional_embedding(self) -> Optional[PositionalEmbedding]:
-        return Fairseq1SinusoidalPositionalEmbedding(
-            max_seq_len=self.max_seq_len,
-            embedding_dim=self.model_dim,
-            padding_token_idx=1,
-            **self._fct_kwargs,
+    model_dim = cfg.decoder_input_dim
+
+    if model_dim != cfg.encoder_embed_dim or model_dim != cfg.decoder_embed_dim:
+        raise ValueError(
+            f"The size of the model dimension does not match between the input ({model_dim}), encoder ({cfg.encoder_embed_dim}), and decoder ({cfg.decoder_embed_dim})."
         )
+
+    if cfg.encoder_ffn_embed_dim != cfg.decoder_ffn_embed_dim:
+        raise ValueError(
+            f"The size of the FFN inner dimension does not match between the encoder ({cfg.encoder_ffn_embed_dim}) and decoder ({cfg.decoder_ffn_embed_dim})."
+        )
+
+    ffn_dim = cfg.encoder_ffn_embed_dim
+
+    if cfg.encoder_normalize_before != cfg.decoder_normalize_before:
+        raise ValueError(
+            "The Layer Normalization order does not match between the encoder and decoder."
+        )
+
+    if cfg.share_all_embeddings:
+        cfg.share_decoder_input_output_embed = True
+
+    return TransformerConfig(
+        src_num_tokens=num_tokens,
+        tgt_num_tokens=num_tokens,
+        src_padding_token_idx=1,
+        tgt_padding_token_idx=1,
+        max_src_len=cfg.max_source_positions,
+        max_tgt_len=cfg.max_target_positions,
+        model_dim=model_dim,
+        num_enc_layers=cfg.encoder_layers,
+        num_dec_layers=cfg.decoder_layers,
+        num_enc_attn_heads=cfg.encoder_attention_heads,
+        num_dec_attn_heads=cfg.decoder_attention_heads,
+        ffn_inner_dim=ffn_dim,
+        pre_layer_norm=cfg.encoder_normalize_before,
+        dropout_p=cfg.dropout,
+        legacy_pos_embed=True,
+    )
 
 
 def _upgrade_legacy_state_dict(cfg: Any, state_dict: Dict[str, Tensor]) -> None:
     old_new_key_map = {
-        ".embed_tokens.weight": ".embed.weight",
-        ".embed_positions._float_tensor": ".pos_embed.weight",
+        "encoder.embed_tokens.weight": "encoder_frontend.embed.weight",
+        "encoder.embed_positions._float_tensor": "encoder_frontend.pos_embed.weight",
+        "decoder.embed_tokens.weight": "decoder_frontend.embed.weight",
+        "decoder.embed_positions._float_tensor": "decoder_frontend.pos_embed.weight",
         ".encoder_attn.": ".enc_dec_attn.",
         ".encoder_attn_layer_norm.": ".enc_dec_attn_layer_norm.",
         ".fc1.": ".ffn.inner_proj.",
@@ -113,11 +100,15 @@ def _upgrade_legacy_state_dict(cfg: Any, state_dict: Dict[str, Tensor]) -> None:
     # Non-learned positional embeddings don't have to be stored in the state
     # dictionary since we can generate them on-the-fly.
     if not cfg.encoder_learned_pos:
-        del state_dict["encoder.pos_embed.weight"]
+        del state_dict["encoder_frontend.pos_embed.weight"]
     if not cfg.encoder_learned_pos:
-        del state_dict["decoder.pos_embed.weight"]
+        del state_dict["decoder_frontend.pos_embed.weight"]
 
-    for emb in ("decoder.embed.weight", "encoder.embed.weight", "score_proj.weight"):
+    for emb in (
+        "decoder_frontend.embed.weight",
+        "encoder_frontend.embed.weight",
+        "score_proj.weight",
+    ):
         _swap_bos_pad_eos_unk(state_dict[emb])
 
     # fairseq2 uses the version attribute of PyTorch's state_dict.
@@ -126,8 +117,8 @@ def _upgrade_legacy_state_dict(cfg: Any, state_dict: Dict[str, Tensor]) -> None:
 
     if cfg.share_all_embeddings:
         # fairseq checkpoints have duplicated but equal matrices.
-        state_dict["encoder.embed.weight"] = state_dict["score_proj.weight"]
-        state_dict["decoder.embed.weight"] = state_dict["score_proj.weight"]
+        state_dict["encoder_frontend.embed.weight"] = state_dict["score_proj.weight"]
+        state_dict["decoder_frontend.embed.weight"] = state_dict["score_proj.weight"]
 
 
 def _swap_bos_pad_eos_unk(embeddings: Tensor) -> None:
@@ -142,7 +133,7 @@ def load_fairseq1_checkpoint(
     spm_path: Path,
     device: Optional[Device] = None,
     dtype: Optional[DataType] = None,
-) -> Tuple[Transformer, SpmTokenizer, TransformerBuilder]:
+) -> Tuple[Transformer, SpmTokenizer, TransformerConfig]:
 
     # TODO: this tuple is a bit weird, should we have a reference class for this tuple ?
     # I want the tokenizer and model to always go hand in hand.
@@ -169,13 +160,9 @@ def load_fairseq1_checkpoint(
 
     assert not getattr(cfg, "add_ssl_task_tokens", False), "TODO"
 
-    builder = Fairseq1TransformerBuilder(
-        cfg,
-        num_tokens=tokenizer.vocab_size(),
-        device=device,
-        dtype=dtype,
-    )
-    model = builder.build()
+    new_cfg = convert_fairseq1_config(cfg, num_tokens=tokenizer.vocab_size())
+    with module_init_context(device, dtype):
+        model = build_transformer(new_cfg)
     keys2 = set(model.state_dict().keys())
 
     _upgrade_legacy_state_dict(cfg, state["model"])
@@ -191,7 +178,7 @@ def load_fairseq1_checkpoint(
 
     model.load_state_dict(state["model"])
 
-    return (model, tokenizer, builder)
+    return (model, tokenizer, new_cfg)
 
 
 if __name__ == "__main__":

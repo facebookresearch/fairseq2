@@ -8,21 +8,21 @@ from typing import NoReturn, Optional, Protocol, final
 
 from torch import Tensor
 
-from fairseq2.nn.utils import neg_inf
+_neg_inf = float("-inf")
 
 
 class AttentionMaskGenerator(Protocol):
     """Generates an attention mask."""
 
-    def __call__(self, tgt: Tensor) -> Tensor:
+    def __call__(self, x: Tensor) -> Tensor:
         """
-        :param tgt:
-            The target for which to generate the mask. *Shape:* :math:`(N,S,*)`,
-            or :math:`(S,*)` when unbatched, where :math:`N` is the batch size
-            and :math:`S` is the sequence length.
+        :param x:
+            The input for which to generate the mask. *Shape:* :math:`(N,S,M)`,
+            or :math:`(S,M)` when unbatched, where :math:`N` is the batch size,
+            :math:`S` is the sequence length, and :math:`M` is the model size.
 
         :returns:
-            An attention mask whose content is specific to the generator.
+            An implementation-defined attention mask specific to the generator.
             *Shape:* :math:`(S,S)`, where :math:`S` is the sequence length.
         """
 
@@ -40,12 +40,12 @@ class CausalAttentionMaskGenerator:
     def __init__(self) -> None:
         self._cached_attn_mask = None
 
-    def __call__(self, tgt: Tensor) -> Tensor:
+    def __call__(self, x: Tensor) -> Tensor:
         """
-        :param tgt:
-            The target for which to generate the mask. *Shape:* :math:`(N,S,*)`,
-            or :math:`(S,*)` when unbatched, where :math:`N` is the batch size
-            and :math:`S` is the sequence length.
+        :param x:
+            The input for which to generate the mask. *Shape:* :math:`(N,S,M)`,
+            or :math:`(S,M)` when unbatched, where :math:`N` is the batch size,
+            :math:`S` is the sequence length, and :math:`M` is the model size.
 
         :returns:
             An attention mask whose upper triangular part above the main
@@ -60,7 +60,7 @@ class CausalAttentionMaskGenerator:
         >>> from fairseq2.nn.transformer import CausalAttentionMaskGenerator
         >>>
         >>> g = CausalAttentionMaskGenerator()
-        >>> g(torch.empty(4, 10))
+        >>> g(torch.empty(4, 10, 3))
         tensor([[0., -inf, -inf, -inf],
                 [0.,   0., -inf, -inf],
                 [0.,   0.,   0., -inf],
@@ -68,13 +68,13 @@ class CausalAttentionMaskGenerator:
         """
         mask = self._cached_attn_mask
 
-        if tgt.dim() > 1:
-            seq_len = tgt.size(1)
+        if x.dim() == 2:
+            seq_len = x.size(0)
         else:
-            seq_len = tgt.size(0)
+            seq_len = x.size(1)
 
-        if mask is None or mask.device != tgt.device or mask.size(0) < seq_len:
-            mask = tgt.new_full([seq_len, seq_len], neg_inf)
+        if mask is None or mask.device != x.device or mask.size(0) < seq_len:
+            mask = x.new_full([seq_len, seq_len], _neg_inf)
 
             mask.triu_(diagonal=1)
 
@@ -94,5 +94,5 @@ class ALiBiAttentionMaskGenerator:
     .. todo:: Not implemented yet!
     """
 
-    def __call__(self, tgt: Tensor) -> NoReturn:
+    def __call__(self, x: Tensor) -> NoReturn:
         raise NotImplementedError()

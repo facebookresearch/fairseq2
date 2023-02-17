@@ -12,7 +12,11 @@ import torch
 
 from fairseq2.generate.search import BeamSearchStrategy
 from fairseq2.generate.tokenizer import TokenMeta
-from fairseq2.models.transformer import Transformer, TransformerBuilder
+from fairseq2.models.transformer import (
+    Transformer,
+    TransformerConfig,
+    build_transformer,
+)
 from fairseq2.nn.transformer import StoreAttentionWeights
 
 VOCAB_SIZE = 111
@@ -20,15 +24,20 @@ VOCAB_SIZE = 111
 
 @functools.lru_cache()
 def build_model() -> Transformer:
-    builder = TransformerBuilder(
-        num_tokens=VOCAB_SIZE,
-        max_seq_len=64,
+    cfg = TransformerConfig(
+        src_num_tokens=VOCAB_SIZE,
+        tgt_num_tokens=VOCAB_SIZE,
+        src_padding_token_idx=None,
+        tgt_padding_token_idx=None,
+        max_src_len=64,
+        max_tgt_len=64,
         model_dim=16,
         num_enc_layers=2,
         num_dec_layers=2,
         ffn_inner_dim=32,
     )
-    return builder.build()
+
+    return build_transformer(cfg)
 
 
 @pytest.mark.parametrize("prefix_tokens", [None, 99, [99, 17], [[99, 17], [99, 18]]])
@@ -39,7 +48,7 @@ def test_generate(prefix_tokens: Any) -> None:
     token_meta = TokenMeta(vocab_size=VOCAB_SIZE, BOS=0, EOS=1, UNK=2, PAD=3)
 
     bs = BeamSearchStrategy(token_meta=token_meta, max_len=tgt_len, beam_size=2)
-    src_tokens = torch.tensor([[1, 2, 3, 4], [7, 8, 9, 10]], dtype=torch.int64)
+    src_tokens = torch.tensor([[1, 2, 3, 3], [7, 8, 9, 3]], dtype=torch.int64)
 
     attn_weights: List[torch.Tensor] = []
     hook = StoreAttentionWeights(attn_weights)

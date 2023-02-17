@@ -20,19 +20,19 @@ class TestScaledDotProductAttention:
     # TODO: Replace with `naive_scaled_dot_product_attention`.
     @staticmethod
     def _compute_attn(
-        queries: Tensor,
+        x: Tensor,
         keys: Tensor,
         values: Tensor,
         mask: Optional[Tensor] = None,
         dropout_p: float = 0.0,
         training: bool = True,
     ) -> Tensor:
-        queries = queries * (queries.size(-1) ** -0.5)
+        x = x * (x.size(-1) ** -0.5)
 
         if mask is None:
-            attn_weights = torch.bmm(queries, keys.transpose(1, 2))
+            attn_weights = torch.bmm(x, keys.transpose(1, 2))
         else:
-            attn_weights = torch.baddbmm(mask, queries, keys.transpose(1, 2))
+            attn_weights = torch.baddbmm(mask, x, keys.transpose(1, 2))
 
         attn_weights = F.softmax(attn_weights, dim=-1)
 
@@ -78,7 +78,7 @@ class TestScaledDotProductAttention:
             return t(T, S)
 
         kwargs: Dict[str, Any] = {
-            "queries": q(),
+            "x": q(),
             "keys": k(),
             "values": v(),
             "mask": m() if mask else None,

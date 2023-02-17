@@ -14,7 +14,6 @@ from fairseq2.nn.transformer.attention_mask import (
     CausalAttentionMaskGenerator,
 )
 from fairseq2.nn.transformer.decoder import (
-    ScoreProjection,
     StandardTransformerDecoder,
     TransformerDecoder,
 )
@@ -49,7 +48,6 @@ __all__ = [
     "FeedForwardNetwork",
     "MultiheadAttention",
     "MultiheadAttentionState",
-    "ScoreProjection",
     "StandardFeedForwardNetwork",
     "StandardMultiheadAttention",
     "StandardTransformerDecoder",

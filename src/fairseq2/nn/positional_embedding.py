@@ -13,7 +13,7 @@ __all__ = [
 
 import math
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, final
+from typing import Optional, final
 
 import torch
 import torch.nn as nn
@@ -24,7 +24,7 @@ from torch.nn import Module
 from torch.nn.parameter import Parameter
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
-from fairseq2.typing import DataType, Device
+from fairseq2.nn.utils.module import device, dtype
 
 
 class PositionalEmbedding(Module, ABC):
@@ -53,16 +53,16 @@ class PositionalEmbedding(Module, ABC):
     ) -> Tensor:
         """
         :param embed:
-            The token embeddings onto which the positional embeddings will be
-            added. *Shape:* :math:`(N,S,E)`, or :math:`(S,E)` when unbatched,
-            where :math:`N` is the batch size, :math:`S` is the sequence length,
-            and :math:`E` is the embedding size.
+            The embeddings onto which the positional embeddings will be added.
+            *Shape:* :math:`(N,S,E)`, or :math:`(S,E)` when unbatched, where
+            :math:`N` is the batch size, :math:`S` is the sequence length, and
+            :math:`E` is the embedding size.
         :param state_bag:
             The state bag to use during an incremental evaluation.
 
         :returns:
-            The token embeddings with the positional embeddings added. *Shape:*
-            Same as ``embed``.
+            The embeddings with added positional embeddings. *Shape:* Same as
+            ``embed``.
         """
         embed_dim = embed.dim()
 
@@ -91,16 +91,16 @@ class PositionalEmbedding(Module, ABC):
     ) -> Tensor:
         """
         :param embed:
-            The token embeddings onto which the positional embeddings will be
-            added. *Shape:* :math:`(N,S,E)`, where :math:`N` is the batch size,
+            The embeddings onto which the positional embeddings will be added.
+            *Shape:* :math:`(N,S,E)`, where :math:`N` is the batch size,
             :math:`S` is the sequence length, and :math:`E` is the embedding
             size.
         :param state_bag:
             The state bag to use during an incremental evaluation.
 
         :returns:
-            The token embeddings with the positional embeddings added. *Shape:*
-            Same as ``embed``.
+            The embeddings with added positional embeddings. *Shape:* Same as
+            ``embed``.
 
         :meta public:
         """
@@ -157,20 +157,56 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
         self,
         max_seq_len: int,
         embedding_dim: int,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
+        _padding_token_idx: Optional[int] = None,
     ) -> None:
         super().__init__(max_seq_len, embedding_dim)
 
-        weight = torch.empty((max_seq_len, embedding_dim), device=device, dtype=dtype)
+        weight = torch.empty(
+            (max_seq_len, embedding_dim), device=device(), dtype=dtype()
+        )
+
+        # This is a legacy parameter that should be set only when the embeddings
+        # must be compatible with the original fairseq.
+        if _padding_token_idx is None:
+            self._sin_offset = 0
+        else:
+            self._sin_offset = 1 + _padding_token_idx
 
         self.register_buffer("weight", weight, persistent=False)
 
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Resets the parameters and buffers of the module."""
-        _fill_sinusoidal(self.weight)
+        """Reset the parameters and buffers of the module."""
+        num_sin = self.embedding_dim // 2
+
+        # Zero pad if the embedding size is odd.
+        if self.embedding_dim > 2 * num_sin:
+            self.weight[:, -1:] = 0
+
+        l_half = self.weight[:, :num_sin]
+        r_half = self.weight[:, num_sin:]
+
+        device, dtype = self.weight.device, self.weight.dtype
+
+        start = self._sin_offset
+
+        # This is identical to tensor2tensor's implementation.
+        ind = torch.arange(start, start + self.max_seq_len, device=device, dtype=dtype)
+
+        sin = torch.arange(num_sin, device=device, dtype=dtype)
+
+        sin = torch.exp(sin * -math.log(10000) / (num_sin - 1))
+
+        ind = ind.unsqueeze(1)
+        sin = sin.unsqueeze(0)
+
+        torch.matmul(ind, sin, out=l_half)
+
+        r_half[:] = l_half[:]
+
+        l_half.sin_()
+        r_half.cos_()
 
     @finaloverride
     def _do_forward(
@@ -209,23 +245,17 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
 
     weight: Parameter
 
-    def __init__(
-        self,
-        max_seq_len: int,
-        embedding_dim: int,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
-    ) -> None:
+    def __init__(self, max_seq_len: int, embedding_dim: int) -> None:
         super().__init__(max_seq_len, embedding_dim)
 
         self.weight = Parameter(
-            torch.empty((max_seq_len, embedding_dim), device=device, dtype=dtype)
+            torch.empty((max_seq_len, embedding_dim), device=device(), dtype=dtype())
         )
 
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Resets the parameters and buffers of the module."""
+        """Reset the parameters and buffers of the module."""
         nn.init.normal_(self.weight)
 
     @finaloverride
@@ -240,11 +270,11 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
         else:
             start_step = 0
 
-        indices = torch.arange(
+        ind = torch.arange(
             start_step, start_step + seq_len, device=embed.device, dtype=torch.int64
         )
 
-        return embed + F.embedding(indices, self.weight)
+        return embed + F.embedding(ind, self.weight)
 
 
 @final
@@ -255,20 +285,14 @@ class RotaryEmbedding(PositionalEmbedding):
     cos_weight: Tensor
     sin_weight: Tensor
 
-    def __init__(
-        self,
-        max_seq_len: int,
-        embedding_dim: int,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
-    ) -> None:
+    def __init__(self, max_seq_len: int, embedding_dim: int) -> None:
         if embedding_dim % 2 != 0:
             raise ValueError(f"`embedding_dim` ({embedding_dim}) must be even.")
 
         super().__init__(max_seq_len, embedding_dim)
 
-        cos = torch.empty((max_seq_len, embedding_dim), device=device, dtype=dtype)
-        sin = torch.empty((max_seq_len, embedding_dim), device=device, dtype=dtype)
+        cos = torch.empty((max_seq_len, embedding_dim), device=device(), dtype=dtype())
+        sin = torch.empty((max_seq_len, embedding_dim), device=device(), dtype=dtype())
 
         self.register_buffer("cos_weight", cos, persistent=False)
         self.register_buffer("sin_weight", sin, persistent=False)
@@ -276,19 +300,17 @@ class RotaryEmbedding(PositionalEmbedding):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Resets the parameters and buffers of the module."""
+        """Reset the parameters and buffers of the module."""
         device, dtype = self.sin_weight.device, self.sin_weight.dtype
 
-        fct_kwargs: Dict[str, Any] = {"device": device, "dtype": dtype}
+        ind = torch.arange(self.embedding_dim // 2, device=device, dtype=dtype)
 
-        # Reference implementation:
-        # https://github.com/bojone/bert4keras/blob/70a7eb9ace18b9f4806b6386e5183f32d024bc37/bert4keras/backend.py#L316
+        stp = torch.arange(self.max_seq_len, device=device, dtype=dtype)
 
-        indices = torch.arange(self.embedding_dim // 2, **fct_kwargs).unsqueeze(0)
+        ind = ind.unsqueeze(0)
+        stp = stp.unsqueeze(1)
 
-        steps = torch.arange(self.max_seq_len, **fct_kwargs).unsqueeze(0)
-
-        embed = torch.matmul(steps.T, 10000 ** (-2.0 * indices / self.embedding_dim))
+        embed = torch.matmul(stp, 10000 ** (-2.0 * ind / self.embedding_dim))
 
         cos = torch.cos(embed)
         sin = torch.sin(embed)
@@ -298,9 +320,7 @@ class RotaryEmbedding(PositionalEmbedding):
 
     @finaloverride
     def _do_forward(
-        self,
-        embed: Tensor,
-        state_bag: Optional[IncrementalStateBag],
+        self, embed: Tensor, state_bag: Optional[IncrementalStateBag]
     ) -> Tensor:
         """:meta private:"""
         seq_len = embed.size(1)
@@ -323,32 +343,3 @@ class RotaryEmbedding(PositionalEmbedding):
         x2 = x[:, :, 1::2]
 
         return torch.stack((-x2, x1), dim=-1).reshape(x.shape)
-
-
-def _fill_sinusoidal(weight: Tensor) -> None:
-    num_embed, embedding_dim = weight.shape
-
-    num_sin = embedding_dim // 2
-
-    # Zero pad if the embedding size is odd.
-    if embedding_dim > 2 * num_sin:
-        weight[:, -1:] = 0
-
-    l_half = weight[:, :num_sin]
-    r_half = weight[:, num_sin:]
-
-    fct_kwargs: Dict[str, Any] = {"device": weight.device, "dtype": weight.dtype}
-
-    # This is identical to tensor2tensor's implementation.
-    indices = torch.arange(num_embed, **fct_kwargs)
-
-    sin = torch.exp(
-        torch.arange(num_sin, **fct_kwargs) * -math.log(10000) / (num_sin - 1)
-    )
-
-    torch.matmul(indices[:, None], sin[None, :], out=l_half)
-
-    r_half[:] = l_half[:]
-
-    l_half.sin_()
-    r_half.cos_()

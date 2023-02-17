@@ -14,7 +14,7 @@ from fairseq2.typing import Device
 
 @contextlib.contextmanager
 def tmp_rng_seed(device: Device, seed: int = 0) -> Generator[None, None, None]:
-    """Sets a temporary manual RNG seed.
+    """Set a temporary manual RNG seed.
 
     The RNG is reset to its original state once the block is exited.
     """

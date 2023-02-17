@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, Optional, final
+from typing import Callable, Optional, final
 
 import torch.nn.functional as F
 from overrides import final as finaloverride
@@ -14,7 +14,7 @@ from torch.nn import LayerNorm, Module
 
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
-from fairseq2.typing import DataType, Device
+from fairseq2.nn.utils.module import device, dtype
 
 
 class FeedForwardNetwork(Module, ABC):
@@ -36,11 +36,12 @@ class FeedForwardNetwork(Module, ABC):
     def forward(self, x: Tensor) -> Tensor:
         """
         :param x:
-            The input to process. *Shape:* :math:`(*,M)`, where :math:`M` is the
-            model size.
+            The input to project. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)`
+            when unbatched, where :math:`N` is the batch size, :math:`S` is the
+            sequence length, and :math:`M` is the batch size.
 
         :returns:
-            The output. *Shape:* Same as ``x``.
+            The projected output. *Shape:* Same as ``x``.
         """
 
     def extra_repr(self) -> str:
@@ -66,8 +67,6 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         inner_activation_fn: Optional[Callable[[Tensor], Tensor]] = None,
         inner_dropout_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param model_dim:
@@ -75,18 +74,16 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         :param inner_dim:
             The dimensionality of the inner layer.
         :param inner_activation_fn:
-            The activation to apply to the outputs of the inner layer. If
-            ``None``, :func:`~torch.nn.functional.relu` will be used.
+            The activation to apply to outputs of the inner layer. If ``None``,
+            :func:`~torch.nn.functional.relu` will be used.
         :param inner_dropout_p:
-            The dropout probability on the outputs of the inner layer.
+            The dropout probability on outputs of the inner layer.
         :param norm_order:
             The Layer Normalization order to use.
         """
-        fct_kwargs: Dict[str, Any] = {"device": device, "dtype": dtype}
-
         super().__init__(model_dim)
 
-        self.inner_proj = Linear(model_dim, inner_dim, bias=True, **fct_kwargs)
+        self.inner_proj = Linear(model_dim, inner_dim, bias=True)
 
         if inner_activation_fn is None:
             self.inner_activation_fn = F.relu
@@ -96,11 +93,11 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         self.inner_dropout_p = inner_dropout_p
 
         if norm_order == TransformerNormOrder.PRE_WITH_NORMFORMER:
-            self.inner_norm = LayerNorm(inner_dim, **fct_kwargs)
+            self.inner_norm = LayerNorm(inner_dim, device=device(), dtype=dtype())
         else:
             self.register_module("inner_norm", None)
 
-        self.out_proj = Linear(inner_dim, model_dim, bias=True, **fct_kwargs)
+        self.out_proj = Linear(inner_dim, model_dim, bias=True)
 
     @finaloverride
     def forward(self, x: Tensor) -> Tensor:
@@ -114,4 +111,6 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         if self.inner_dropout_p > 0.0:
             x = F.dropout(x, self.inner_dropout_p, self.training)
 
-        return self.out_proj(x)  # type: ignore[no-any-return]
+        x = self.out_proj(x)
+
+        return x

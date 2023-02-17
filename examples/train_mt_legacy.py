@@ -1,7 +1,7 @@
 import functools
 import logging
 from pathlib import Path
-from typing import Any, Iterable, List, Tuple
+from typing import Iterable, List, Tuple
 
 import torch
 import torchtnt.framework
@@ -19,9 +19,12 @@ import fairseq2.optim.lr_scheduler
 from fairseq2.dataloader import Seq2SeqBatch
 from fairseq2.distributed import Env
 from fairseq2.generate.tokenizer import DictTokenizer
-from fairseq2.models.transformer import Transformer, TransformerBuilder
+from fairseq2.models.transformer import (
+    Transformer,
+    TransformerConfig,
+    build_transformer,
+)
 from fairseq2.tasks import TranslationTask
-from fairseq2.typing import Device
 
 log = logging.getLogger(__name__)
 
@@ -77,60 +80,24 @@ def tokenizer(
     return tokenizer
 
 
-class LegacyBuilder(TransformerBuilder):
-    # Just override some defaults.
-    def __init__(
-        self,
-        num_tokens: int,
-        num_enc_attn_heads: int = 4,
-        num_dec_attn_heads: int = 4,
-        max_seq_len: int = 1024,
-        ffn_inner_dim: int = 1024,
-        **kwargs: Any,
-    ):
-        super().__init__(
-            num_tokens,
-            max_seq_len,
-            num_enc_attn_heads=num_enc_attn_heads,
-            num_dec_attn_heads=num_dec_attn_heads,
-            ffn_inner_dim=ffn_inner_dim,
-            **kwargs,
-        )
-
-    def build(self) -> Transformer:
-        """Build on CPU then push to GPU. This allows to use the CPU RNG seed, like fairseq1."""
-        device = self.device
-        dtype = self.dtype
-        try:
-            self.device = Device("cpu")
-            self.dtype = torch.float32
-            self._fct_kwargs["device"] = self.device
-            self._fct_kwargs["dtype"] = self.dtype
-
-            model = super().build()
-            model.to(device=device, dtype=dtype)
-            return model
-        finally:
-            self.device = device
-            self.dtype = dtype
-            self._fct_kwargs["device"] = self.device
-            self._fct_kwargs["dtype"] = self.dtype
-
-
-def builder(env: Env, tokenizer: DictTokenizer) -> LegacyBuilder:
-    return LegacyBuilder(
-        tokenizer.vocab_size(),
-        tokenizer.PAD,
+def model(env: Env, tokenizer: DictTokenizer) -> Transformer:
+    cfg = TransformerConfig(
+        src_num_tokens=tokenizer.vocab_size(),
+        tgt_num_tokens=tokenizer.vocab_size(),
+        src_padding_token_idx=tokenizer.PAD,
+        tgt_padding_token_idx=tokenizer.PAD,
+        num_enc_attn_heads=4,
+        num_dec_attn_heads=4,
+        ffn_inner_dim=1024,
         dropout_p=0,
-        device=env.device,
     )
 
-
-def model(builder: LegacyBuilder) -> Transformer:
     torchtnt.utils.seed(1)
     torch.cuda.manual_seed(1)
 
-    return builder.build()
+    # Build on CPU then push to GPU. This allows to use the CPU RNG seed, like
+    # fairseq1.
+    return build_transformer(cfg).to(device=env.device)
 
 
 def optimizer(model: Transformer, weight_decay: float = 0.001) -> torch.optim.Optimizer:

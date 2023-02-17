@@ -171,7 +171,7 @@ class SearchStrategy(ABC):
         """
         # compute the encoder output for each beam
         with torch.autograd.profiler.record_function("forward_encoder"):
-            enc_out, enc_attn_mask = model.encoder.forward(src_tokens)
+            enc_out, enc_attn_mask = model.encode(src_tokens)
 
         enc_out = _stretch_to_beams(enc_out, self.beam_size)
         if enc_attn_mask is not None:
@@ -179,18 +179,18 @@ class SearchStrategy(ABC):
 
         # prepare the search state
         job = self.new_search_job(src_tokens, prefix_tokens=prefix_tokens)
-        incremental_states = IncrementalStateBag()
+        state_bag = IncrementalStateBag()
 
         while not job.done:
             with torch.autograd.profiler.record_function("forward_decoder"):
                 query_tokens = job.next_query()
 
-                dec_out = model.decoder.forward(
-                    query_tokens, enc_out, enc_attn_mask, incremental_states
+                dec_out = model.decode_and_score(
+                    query_tokens, enc_out, enc_attn_mask, state_bag
                 )
-                dec_out = model.score_proj(_get_last_time_axis(dec_out))
+                dec_out = dec_out.squeeze(1)
 
-                incremental_states.increment_step()
+                state_bag.increment_step()
 
             with torch.autograd.profiler.record_function("search_step"):
                 # Select the last time step prediction
@@ -582,10 +582,3 @@ def _stretch_to_beams(t: torch.Tensor, beam_size: int) -> torch.Tensor:
         t.unsqueeze(1),
         (t.shape[0], beam_size, *t.shape[1:]),
     ).reshape(-1, *t.shape[1:])
-
-
-def _get_last_time_axis(x: Tensor) -> Tensor:
-    assert len(x.shape) == 3
-    y = x[:, -1, :].squeeze(1)
-    assert len(y.shape) == 2
-    return y

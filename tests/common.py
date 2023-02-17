@@ -19,7 +19,7 @@ device = Device("cpu")
 
 
 def assert_close(a: Tensor, b: Union[Tensor, List[Any]]) -> None:
-    """Asserts that ``a`` and ``b`` are element-wise equal within a tolerance."""
+    """Assert that ``a`` and ``b`` are element-wise equal within a tolerance."""
     if not isinstance(b, Tensor):
         b = torch.tensor(b, device=device, dtype=a.dtype)
 
@@ -27,7 +27,7 @@ def assert_close(a: Tensor, b: Union[Tensor, List[Any]]) -> None:
 
 
 def assert_equal(a: Tensor, b: Union[Tensor, List[Any]]) -> None:
-    """Asserts that ``a`` and ``b`` are element-wise equal."""
+    """Assert that ``a`` and ``b`` are element-wise equal."""
     if not isinstance(b, Tensor):
         b = torch.tensor(b, device=device, dtype=a.dtype)
 
@@ -35,10 +35,10 @@ def assert_equal(a: Tensor, b: Union[Tensor, List[Any]]) -> None:
 
 
 def has_no_inf(a: Tensor) -> bool:
-    """Indicates whether ``a`` has no positive or negative infinite element."""
+    """Indicate whether ``a`` has no positive or negative infinite element."""
     return not torch.any(torch.isinf(a))
 
 
 def has_no_nan(a: Tensor) -> bool:
-    """Indicates whether  ``a`` has no NaN element."""
+    """Indicate whether  ``a`` has no NaN element."""
     return not torch.any(torch.isnan(a))
