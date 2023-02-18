@@ -12,7 +12,12 @@ __all__ = [
     "read_text",
 ]
 
-from fairseq2._C.data.text import LineEnding, read_text
+from enum import Enum
+from typing import TYPE_CHECKING, Optional
+
+from fairseq2 import DOC_MODE
+from fairseq2.data.data_pipeline import DataPipelineBuilder
+from fairseq2.data.string import StringLike
 from fairseq2.data.text.sentencepiece import (
     SentencePieceDecoder,
     SentencePieceEncoder,
@@ -20,9 +25,30 @@ from fairseq2.data.text.sentencepiece import (
 )
 
 
-def _set_module() -> None:
-    for t in [LineEnding, read_text]:
-        t.__module__ = __name__
+class LineEnding(Enum):
+    INFER = 0
+    LF = 1
+    CRLF = 2
 
 
-_set_module()
+def read_text(
+    pathname: StringLike,
+    encoding: StringLike = "",
+    line_ending: LineEnding = LineEnding.INFER,
+    ltrim: bool = False,
+    rtrim: bool = False,
+    skip_empty: bool = False,
+    memory_map: bool = False,
+    block_size: Optional[int] = None,
+) -> DataPipelineBuilder:
+    pass
+
+
+if not TYPE_CHECKING and not DOC_MODE:
+    from fairseq2._C.data.text import LineEnding, read_text  # noqa: F811
+
+    def _set_module() -> None:
+        for t in [LineEnding, read_text]:
+            t.__module__ = __name__
+
+    _set_module()

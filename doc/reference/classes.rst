@@ -21,6 +21,7 @@ Classes
     data.DataPipelineBuilder
     data.StringLike
     data.Tape
+    data.text.SentencePieceModel
     models.transformer.ScoreProjection
     models.transformer.Transformer
     models.transformer.TransformerBuilder

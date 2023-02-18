@@ -30,6 +30,5 @@ from fairseq2.data.data_pipeline import (
     read_sequence,
     zip_data_pipelines,
 )
-from fairseq2.data.string import String
+from fairseq2.data.string import String, StringLike
 from fairseq2.data.tape import Tape
-from fairseq2.data.typing import StringLike

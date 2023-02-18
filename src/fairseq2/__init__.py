@@ -28,12 +28,12 @@ tbb._load()
 from pathlib import Path
 from typing import Optional, Tuple
 
-from fairseq2 import _C
+import fairseq2._C as _C  # type: ignore[import]
 
 
 def supports_cuda() -> bool:
     """Indicates whether the library supports CUDA."""
-    return _C._supports_cuda()
+    return _C._supports_cuda()  # type: ignore[no-any-return]
 
 
 def cuda_version() -> Optional[Tuple[int, int]]:
@@ -42,7 +42,7 @@ def cuda_version() -> Optional[Tuple[int, int]]:
     :returns:
         The major and minor version segments.
     """
-    return _C._cuda_version()
+    return _C._cuda_version()  # type: ignore[no-any-return]
 
 
 def get_lib() -> Path:
@@ -58,3 +58,7 @@ def get_include() -> Path:
 def get_cmake_prefix_path() -> Path:
     """Returns the directory that contains the fairseq2 CMake package."""
     return Path(__file__).parent.joinpath("lib", "cmake")
+
+
+DOC_MODE = False
+"""If ``True``, indicates that we are run under Sphinx."""
