@@ -41,6 +41,7 @@ build: venv
 install: venv build .PHONY
 	$(VENV)pip install --upgrade -e .
 	$(VENV)pip install --upgrade -r ./requirements-devel.txt
+	$(VENV)pip install --upgrade -r ./doc/requirements.txt
 	$(VENV)python -c 'import fairseq2; print(f"fairseq2: {fairseq2.__version__}")'
 	# Fairseq2 has been installed in $(VENV)python!
 

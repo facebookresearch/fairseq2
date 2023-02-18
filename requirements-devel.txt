@@ -1,5 +1,4 @@
 --requirement requirements-build.txt
---requirement doc/requirements.txt
 
 black==22.3.0
 flake8-pyi==22.10
