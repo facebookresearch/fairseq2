@@ -4,10 +4,9 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
-#include <fairseq2/native/config.h>
+#include "fairseq2/native/extension/module.h"
 
-#include "fairseq2/extension/data/init.h"
-#include "fairseq2/extension/pybind11.h"
+#include <fairseq2/native/config.h>
 
 namespace py = pybind11;
 

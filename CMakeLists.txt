@@ -103,7 +103,7 @@ find_package(Iconv REQUIRED)
 
 find_package(Threads REQUIRED)
 
-find_package(TBB 2021.8 REQUIRED)
+find_package(TBB 2021 REQUIRED)
 
 find_package(Torch 1.11 REQUIRED)
 
@@ -185,7 +185,7 @@ fairseq2_set_sanitizers()
 add_subdirectory(src/fairseq2/native)
 
 if(PROJECT_IS_TOP_LEVEL)
-    add_subdirectory(src/fairseq2/extension)
+    add_subdirectory(src/fairseq2/native/extension)
 
     if(BUILD_TESTING)
         add_subdirectory(tests/native)

@@ -78,11 +78,11 @@ find_library(C10_CUDA_LIBRARY c10_cuda PATHS ${torch_lib_dir})
 
 find_path(TORCH_INCLUDE_DIR torch PATHS ${torch_include_dir})
 
-mark_as_advanced(${torch_required_vars} TORCH_CUDA_LIBRARY C10_CUDA_LIBRARY)
-
 set(torch_required_vars
     TORCH_LIBRARY TORCH_CPU_LIBRARY TORCH_PYTHON_LIBRARY C10_LIBRARY TORCH_INCLUDE_DIR
 )
+
+mark_as_advanced(${torch_required_vars} TORCH_CUDA_LIBRARY C10_CUDA_LIBRARY)
 
 __torch_determine_version()
 

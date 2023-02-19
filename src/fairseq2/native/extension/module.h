@@ -11,7 +11,17 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include "fairseq2/extension/type_casters/data.h"
-#include "fairseq2/extension/type_casters/py.h"
-#include "fairseq2/extension/type_casters/string.h"
-#include "fairseq2/extension/type_casters/torch.h"
+#include "fairseq2/native/extension/type_casters/data.h"
+#include "fairseq2/native/extension/type_casters/py.h"
+#include "fairseq2/native/extension/type_casters/string.h"
+#include "fairseq2/native/extension/type_casters/torch.h"
+
+namespace fairseq2 {
+
+void
+def_data(pybind11::module_ &base);
+
+void
+def_text(pybind11::module_ &base);
+
+}

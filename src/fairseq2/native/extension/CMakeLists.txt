@@ -34,11 +34,11 @@ target_link_libraries(extension
 fairseq2_set_link_options(extension ALLOW_UNDEFINED_SYMBOLS)
 
 if(FAIRSEQ2_EDITABLE_PYTHON)
-    # We have to use absolute rpath so that the in-source copy of the Python
-    # extension module can find its dependencies under the build tree.
+    # We have to use absolute rpath so that the in-source copy of the extension
+    # module can find its dependencies under the build tree.
     set_property(TARGET extension PROPERTY BUILD_RPATH_USE_ORIGIN OFF)
 
-    # Copy the Python extension module to the source tree for
+    # Copy the extension module to the source tree for
     # `pip install --editable` to work.
     add_custom_target(extension_in_source ALL
         COMMAND

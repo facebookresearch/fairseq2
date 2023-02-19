@@ -29,6 +29,7 @@ find_path(TBB_INCLUDE_DIR tbb PATHS ${base_dir}/include NO_DEFAULT_PATH)
 mark_as_advanced(TBB_LIBRARY TBBMALLOC_LIBRARY TBB_INCLUDE_DIR)
 
 if(TBB_INCLUDE_DIR)
+    # TODO: Infer this from the installation!
     set(TBB_VERSION 2021.8.0)
 endif()
 

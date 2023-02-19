@@ -120,6 +120,7 @@ install(
         devel
     FILES_MATCHING
         PATTERN "*.h"
+        PATTERN "extension" EXCLUDE
 )
 
 # ------------------------------------------------------------
@@ -144,7 +145,7 @@ install(
     FILES
         ${CMAKE_CURRENT_BINARY_DIR}/config.h
     DESTINATION
-        ${install_include_dir}/fairseq2
+        ${install_include_dir}/native
     COMPONENT
         devel
 )

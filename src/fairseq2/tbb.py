@@ -14,6 +14,7 @@ _tbb: Optional[CDLL] = None
 
 
 def _load() -> None:
+    # TODO: Do not hard-code the so name.
     if sys.platform == "darwin":
         dso_name = "libtbb.12.dylib"
     else:

@@ -4,7 +4,7 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
-#include "fairseq2/extension/type_casters/data.h"
+#include "fairseq2/native/extension/type_casters/data.h"
 
 #include <cstdint>
 #include <stdexcept>
@@ -17,9 +17,9 @@
 
 #include <fairseq2/native/data/immutable_string.h>
 
-#include "fairseq2/extension/type_casters/py.h"
-#include "fairseq2/extension/type_casters/string.h"
-#include "fairseq2/extension/type_casters/torch.h"
+#include "fairseq2/native/extension/type_casters/py.h"
+#include "fairseq2/native/extension/type_casters/string.h"
+#include "fairseq2/native/extension/type_casters/torch.h"
 
 using namespace fairseq2;
 

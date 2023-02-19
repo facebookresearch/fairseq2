@@ -8,7 +8,7 @@ macro(fairseq2_add_sentencepiece)
     set(CMAKE_POLICY_DEFAULT_CMP0063 NEW)
     set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 
-    # Do not build the sentencepiece shared library.
+    # Do not build the shared library.
     set(SPM_ENABLE_SHARED OFF)
 
     add_subdirectory(${PROJECT_SOURCE_DIR}/third-party/sentencepiece EXCLUDE_FROM_ALL)
