@@ -4,18 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-__all__ = [
-    "DataPipeline",
-    "DataPipelineBuilder",
-    "DataPipelineError",
-    "DataProcessor",
-    "RecordError",
-    "StreamError",
-    "list_files",
-    "read_sequence",
-    "zip_data_pipelines",
-]
-
 from typing import TYPE_CHECKING, Any, Callable, Iterator, Sequence, final
 
 from fairseq2 import DOC_MODE

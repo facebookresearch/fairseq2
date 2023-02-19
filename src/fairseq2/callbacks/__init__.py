@@ -7,15 +7,22 @@ from typing import Any, List, Optional
 import torchtnt.framework as tnt
 import yaml
 from torchtnt.framework.unit import TTrainUnit
-from torchtnt.utils.loggers import MetricLogger
+from torchtnt.utils.loggers import MetricLogger as MetricLogger
 
 import fairseq2
 import fairseq2.distributed
 
-from .checkpoint import TorchSnapshotLoader, TorchSnapshotSaver
-from .debugger import Debugger
-from .loggers import LogMetrics, StdoutLogger, WandbCsvWriter, WandbLogger
-from .metrics import WER, Bleu, EffectiveThroughput, Metrics
+from .checkpoint import TorchSnapshotLoader as TorchSnapshotLoader
+from .checkpoint import TorchSnapshotSaver as TorchSnapshotSaver
+from .debugger import Debugger as Debugger
+from .loggers import LogMetrics as LogMetrics
+from .loggers import StdoutLogger as StdoutLogger
+from .loggers import WandbCsvWriter as WandbCsvWriter
+from .loggers import WandbLogger as WandbLogger
+from .metrics import WER as WER
+from .metrics import Bleu as Bleu
+from .metrics import EffectiveThroughput as EffectiveThroughput
+from .metrics import Metrics as Metrics
 
 
 def default_callbacks(
@@ -57,20 +64,3 @@ def default_callbacks(
         callbacks.append(Debugger())
 
     return callbacks
-
-
-__all__ = [
-    "default_callbacks",
-    "Bleu",
-    "Debugger",
-    "EffectiveThroughput",
-    "LogMetrics",
-    "Metrics",
-    "MetricLogger",
-    "StdoutLogger",
-    "TorchSnapshotLoader",
-    "TorchSnapshotSaver",
-    "WandbCsvWriter",
-    "WandbLogger",
-    "WER",
-]

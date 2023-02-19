@@ -4,31 +4,15 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-__all__ = [
-    "DataPipeline",
-    "DataPipelineBuilder",
-    "DataPipelineError",
-    "DataProcessor",
-    "RecordError",
-    "StreamError",
-    "String",
-    "StringLike",
-    "Tape",
-    "list_files",
-    "read_sequence",
-    "zip_data_pipelines",
-]
-
-from fairseq2.data.data_pipeline import (
-    DataPipeline,
-    DataPipelineBuilder,
-    DataPipelineError,
-    DataProcessor,
-    RecordError,
-    StreamError,
-    list_files,
-    read_sequence,
-    zip_data_pipelines,
-)
-from fairseq2.data.string import String, StringLike
-from fairseq2.data.tape import Tape
+from fairseq2.data.data_pipeline import DataPipeline as DataPipeline
+from fairseq2.data.data_pipeline import DataPipelineBuilder as DataPipelineBuilder
+from fairseq2.data.data_pipeline import DataPipelineError as DataPipelineError
+from fairseq2.data.data_pipeline import DataProcessor as DataProcessor
+from fairseq2.data.data_pipeline import RecordError as RecordError
+from fairseq2.data.data_pipeline import StreamError as StreamError
+from fairseq2.data.data_pipeline import list_files as list_files
+from fairseq2.data.data_pipeline import read_sequence as read_sequence
+from fairseq2.data.data_pipeline import zip_data_pipelines as zip_data_pipelines
+from fairseq2.data.string import String as String
+from fairseq2.data.string import StringLike as StringLike
+from fairseq2.data.tape import Tape as Tape

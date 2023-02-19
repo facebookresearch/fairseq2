@@ -4,14 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-__all__ = [
-    "LineEnding",
-    "SentencePieceDecoder",
-    "SentencePieceEncoder",
-    "SentencePieceModel",
-    "read_text",
-]
-
 from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
@@ -19,10 +11,12 @@ from fairseq2 import DOC_MODE
 from fairseq2.data.data_pipeline import DataPipelineBuilder
 from fairseq2.data.string import StringLike
 from fairseq2.data.text.sentencepiece import (
-    SentencePieceDecoder,
-    SentencePieceEncoder,
-    SentencePieceModel,
+    SentencePieceDecoder as SentencePieceDecoder,
 )
+from fairseq2.data.text.sentencepiece import (
+    SentencePieceEncoder as SentencePieceEncoder,
+)
+from fairseq2.data.text.sentencepiece import SentencePieceModel as SentencePieceModel
 
 
 class LineEnding(Enum):

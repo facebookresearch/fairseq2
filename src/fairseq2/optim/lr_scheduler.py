@@ -4,12 +4,12 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-__all__ = ["LRScheduler"]
-
 from typing import Optional
 
 from torch.optim import Optimizer
-from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
+from torch.optim.lr_scheduler import _LRScheduler
+
+LRScheduler = _LRScheduler
 
 
 class InverseSquareRootLR(LRScheduler):

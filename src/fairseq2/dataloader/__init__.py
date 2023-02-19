@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING, List, NamedTuple
 
-from .utils import RoundRobin
+from .utils import RoundRobin as RoundRobin
 
 if TYPE_CHECKING:
     import torch
@@ -28,6 +28,3 @@ class Audio2Text(NamedTuple):
     source: str
     target: str
     predicted: str
-
-
-__all__ = ["RoundRobin", "Seq2SeqBatch", "Seq2SeqStr"]
