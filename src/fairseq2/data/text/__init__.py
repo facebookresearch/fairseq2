@@ -39,7 +39,7 @@ def read_text(
 
 
 if not TYPE_CHECKING and not DOC_MODE:
-    from fairseq2._C.data.text import LineEnding, read_text  # noqa: F811
+    from fairseq2.C.data.text import LineEnding, read_text  # noqa: F811
 
     def _set_module() -> None:
         for t in [LineEnding, read_text]:

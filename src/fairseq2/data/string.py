@@ -52,6 +52,6 @@ StringLike: TypeAlias = Union[str, String]
 
 
 if not TYPE_CHECKING and not DOC_MODE:
-    from fairseq2._C.data.string import String  # noqa: F811
+    from fairseq2.C.data.string import String  # noqa: F811
 
     String.__module__ = __name__

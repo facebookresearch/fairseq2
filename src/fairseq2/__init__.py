@@ -20,12 +20,12 @@ tbb._load()
 from pathlib import Path
 from typing import Optional, Tuple
 
-import fairseq2._C as _C  # type: ignore[import]
+import fairseq2.C as C  # type: ignore[import]
 
 
 def supports_cuda() -> bool:
     """Indicates whether the library supports CUDA."""
-    return _C._supports_cuda()  # type: ignore[no-any-return]
+    return C._supports_cuda()  # type: ignore[no-any-return]
 
 
 def cuda_version() -> Optional[Tuple[int, int]]:
@@ -34,7 +34,7 @@ def cuda_version() -> Optional[Tuple[int, int]]:
     :returns:
         The major and minor version segments.
     """
-    return _C._cuda_version()  # type: ignore[no-any-return]
+    return C._cuda_version()  # type: ignore[no-any-return]
 
 
 def get_lib() -> Path:

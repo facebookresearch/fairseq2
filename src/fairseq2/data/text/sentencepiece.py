@@ -85,7 +85,7 @@ class SentencePieceDecoder:
 
 
 if not TYPE_CHECKING and not DOC_MODE:
-    from fairseq2._C.data.text.sentencepiece import (  # noqa: F811
+    from fairseq2.C.data.text.sentencepiece import (  # noqa: F811
         SentencePieceDecoder,
         SentencePieceEncoder,
         SentencePieceModel,

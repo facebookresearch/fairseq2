@@ -10,7 +10,7 @@
 
 Python3_add_library(extension WITH_SOABI)
 
-set_property(TARGET extension PROPERTY OUTPUT_NAME _C)
+set_property(TARGET extension PROPERTY OUTPUT_NAME C)
 
 target_sources(extension
     PRIVATE

@@ -127,7 +127,7 @@ def_data_pipeline(py::module_ &base)
                 return std::move(self).and_return();
             });
 
-    py::class_<data_processor>(m, "DataProcessor")
+    py::class_<data_processor>(m, "_DataProcessor")
         .def("__call__", &data_processor::operator());
 
     static py::exception<data_pipeline_error> py_data_pipeline_error{

@@ -12,7 +12,7 @@ namespace py = pybind11;
 
 namespace fairseq2 {
 
-PYBIND11_MODULE(_C, m)
+PYBIND11_MODULE(C, m)
 {
     py::options opts{};
     opts.disable_function_signatures();

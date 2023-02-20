@@ -17,6 +17,6 @@ class Tape:
 
 
 if not TYPE_CHECKING and not DOC_MODE:
-    from fairseq2._C.data.tape import Tape  # noqa: F811
+    from fairseq2.C.data.tape import Tape  # noqa: F811
 
     Tape.__module__ = __name__
