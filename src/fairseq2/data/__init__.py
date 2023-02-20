@@ -7,7 +7,6 @@
 from fairseq2.data.data_pipeline import DataPipeline as DataPipeline
 from fairseq2.data.data_pipeline import DataPipelineBuilder as DataPipelineBuilder
 from fairseq2.data.data_pipeline import DataPipelineError as DataPipelineError
-from fairseq2.data.data_pipeline import DataProcessor as DataProcessor
 from fairseq2.data.data_pipeline import RecordError as RecordError
 from fairseq2.data.data_pipeline import StreamError as StreamError
 from fairseq2.data.data_pipeline import list_files as list_files

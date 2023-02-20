@@ -11,10 +11,8 @@ from fairseq2 import DOC_MODE
 
 @final
 class Tape:
-    def __init__(self) -> None:
-        pass
-
     def rewind(self) -> None:
+        """Rewind back to the beginning of the tape."""
         pass
 
 

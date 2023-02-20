@@ -13,7 +13,14 @@ from fairseq2 import DOC_MODE
 
 @final
 class String:
+    """Represents an immutable UTF-8 string that supports zero-copy marshalling
+    between Python and native code."""
+
     def __init__(self, s: Optional[str] = None) -> None:
+        """
+        :param s:
+            The Python string to copy. If ``None``, constructs an empty string.
+        """
         pass
 
     def __len__(self) -> int:
@@ -29,12 +36,15 @@ class String:
         pass
 
     def lstrip(self) -> "String":
+        """Return a copy of this string with no whitespace at the beginning."""
         pass
 
     def rstrip(self) -> "String":
+        """Return a copy of this string with no whitespace at the end."""
         pass
 
     def to_py(self) -> str:
+        """Return a copy of this string in Python."""
         pass
 
 

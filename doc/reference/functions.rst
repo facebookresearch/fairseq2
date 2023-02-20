@@ -16,6 +16,7 @@ Functions
     data.list_files
     data.read_sequence
     data.zip_data_pipelines
+    data.text.read_text
     gang.from_process_group
     models.transformer.build_transformer
     nn.transformer.default_scaled_dot_product_attention

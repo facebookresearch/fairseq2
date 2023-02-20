@@ -60,10 +60,7 @@ def_data_pipeline(py::module_ &base)
 {
     py::module_ m = base.def_submodule("data_pipeline");
 
-    py::class_<data_pipeline>(m, "DataPipeline",
-        R"(
-        Lorem ipsum.
-        )")
+    py::class_<data_pipeline>(m, "DataPipeline")
         .def(py::init<>())
         .def("__iter__",
             [](data_pipeline &self)
@@ -71,30 +68,13 @@ def_data_pipeline(py::module_ &base)
                 return data_pipeline_iterator{self};
             },
             py::keep_alive<0, 1>{})
-        .def("skip", &data_pipeline::skip, py::arg("num_examples"),
-            R"(
-            Skips reading a specified number of examples.
+        .def("skip", &data_pipeline::skip, py::arg("num_examples"))
+        .def("reset", &data_pipeline::reset)
 
-            Returns:
-                The number of examples skipped. It can be less than num_examples
-                if the end of the data pipeline is reached.
-            )")
-        .def("reset", &data_pipeline::reset,
-            R"(
-            Moves back to the first example.
-            )")
-        .def("record_position", &data_pipeline::record_position, py::arg("t"),
-            R"(
-            Records the current position of the data pipeline to t.
-            )")
-        .def("reload_position", &data_pipeline::reload_position, py::arg("t"),
-            R"(
-            Reloads the current position of the data pipeline from t.
-            )")
-        .def_property_readonly("is_broken", &data_pipeline::is_broken,
-            R"(
-            Indicates whether the data pipeline is broken by a previous operation.
-            )");
+        .def("record_position", &data_pipeline::record_position, py::arg("tape"))
+        .def("reload_position", &data_pipeline::reload_position, py::arg("tape"))
+
+        .def_property_readonly("is_broken", &data_pipeline::is_broken);
 
     py::class_<data_pipeline_iterator>(m, "DataPipelineIterator")
         .def("__iter__",
@@ -111,10 +91,7 @@ def_data_pipeline(py::module_ &base)
                 return self.batch(batch_size, drop_remainder);
             },
             py::arg("batch_size"),
-            py::arg("drop_remainder"),
-            R"(
-            Combines a number of consecutive examples into a single example.
-            )")
+            py::arg("drop_remainder"))
         .def("map",
             [](data_pipeline_builder &self, const data_processor &dp) -> decltype(auto)
             {
@@ -130,38 +107,25 @@ def_data_pipeline(py::module_ &base)
             {
                 return self.map(std::move(fn));
             },
-            py::arg("fn"),
-            R"(
-            Applies fn to every example in the data pipeline.
-            )")
+            py::arg("fn"))
         .def("shard",
             [](data_pipeline_builder &self, std::size_t shard_idx, std::size_t num_shards) -> decltype(auto)
             {
                 return self.shard(shard_idx, num_shards);
             },
             py::arg("shard_idx"),
-            py::arg("num_shards"),
-            R"(
-            Reads only 1/num_shards of all examples in the data pipeline.
-            )")
+            py::arg("num_shards"))
         .def("yield_from",
             [](data_pipeline_builder &self, yield_fn &&fn) -> decltype(auto)
             {
                 return self.yield_from(std::move(fn));
             },
-            py::arg("fn"),
-            R"(
-            Applies fn to every example in the data pipeline and yields the
-            examples from the returned sub-data pipelines.
-            )")
+            py::arg("fn"))
         .def("and_return",
             [](data_pipeline_builder &self)
             {
                 return std::move(self).and_return();
-            },
-            R"(
-            Returns a new DataPipeline instance.
-            )");
+            });
 
     py::class_<data_processor>(m, "DataProcessor")
         .def("__call__", &data_processor::operator());
@@ -171,10 +135,7 @@ def_data_pipeline(py::module_ &base)
 
     m.def("list_files", &list_files, py::arg("pathname"), py::arg("pattern") = "");
 
-    m.def("read_sequence", &read_list, py::arg("s"),
-        R"(
-        Returns a data pipeline from s.
-        )");
+    m.def("read_sequence", &read_list, py::arg("s"));
 
     m.def("zip_data_pipelines",
         [](std::vector<std::reference_wrapper<data_pipeline>> &zip)
@@ -189,10 +150,7 @@ def_data_pipeline(py::module_ &base)
 
             return zip_data_pipelines(std::move(c));
         },
-        py::arg("data_pipelines"),
-        R"(
-        Builds a data pipeline by zipping together data_pipelines.
-        )");
+        py::arg("data_pipelines"));
 
     static py::exception<stream_error> py_stream_error{m, "StreamError", PyExc_RuntimeError};
 
@@ -227,11 +185,7 @@ def_string(py::module_ &base)
 {
     py::module_ m = base.def_submodule("string");
 
-    py::class_<immutable_string>(m, "String",
-        R"(
-        Represents an immutable UTF-8 string that supports zero-copy marshalling
-        between Python and native code.
-        )")
+    py::class_<immutable_string>(m, "String")
         .def(py::init<>())
         .def(py::init<std::string_view>(), py::arg("s"))
 
@@ -271,18 +225,12 @@ def_string(py::module_ &base)
             [](const immutable_string &self)
             {
                 return ltrim(self);
-            },
-            R"(
-            Returns a copy of the string with no whitespace at the beginning.
-            )")
+            })
         .def("rstrip",
             [](const immutable_string &self)
             {
                 return rtrim(self);
-            },
-            R"(
-            Returns a copy of the string with no whitespace at the end.
-            )")
+            })
         .def("to_py", &immutable_string::operator std::string_view,
             R"(
             Converts to str.
@@ -306,16 +254,10 @@ def_tape(py::module_ &base)
 {
     py::module_ m = base.def_submodule("tape");
 
-    py::class_<tape>(m, "Tape",
-        R"(
-        Lorem ipsum.
-        )")
+    py::class_<tape>(m, "Tape")
         .def(py::init<>())
 
-        .def("rewind", &tape::rewind,
-            R"(
-            Rewinds back to the beginning of the tape.
-            )")
+        .def("rewind", &tape::rewind)
 
         .def(py::pickle(
             [](const tape &self)

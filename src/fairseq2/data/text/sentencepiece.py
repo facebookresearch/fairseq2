@@ -10,7 +10,6 @@ import torch
 from torch import Tensor
 
 from fairseq2 import DOC_MODE
-from fairseq2.data.data_pipeline import DataProcessor
 from fairseq2.data.string import String, StringLike
 
 
@@ -54,7 +53,7 @@ class SentencePieceModel:
 
 
 @final
-class SentencePieceEncoder(DataProcessor):
+class SentencePieceEncoder:
     def __init__(
         self,
         model: SentencePieceModel,
@@ -77,7 +76,7 @@ class SentencePieceEncoder(DataProcessor):
 
 
 @final
-class SentencePieceDecoder(DataProcessor):
+class SentencePieceDecoder:
     def __init__(self, model: SentencePieceModel) -> None:
         pass
 

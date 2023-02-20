@@ -4,23 +4,18 @@ Classes
 
 .. currentmodule:: fairseq2
 
-
-.. toctree::
-    data/data_pipeline
-    data/data_pipeline_builder
-    data/string
-    data/list_files
-    data/read_sequence
-    data/zip_data_pipelines
-
 .. autosummary::
     :toctree: generated/classes
     :nosignatures:
 
     data.DataPipeline
     data.DataPipelineBuilder
+    data.String
     data.StringLike
     data.Tape
+    data.DataPipelineError
+    data.StreamError
+    data.RecordError
     data.text.SentencePieceModel
     models.transformer.ScoreProjection
     models.transformer.Transformer
