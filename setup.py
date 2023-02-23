@@ -182,4 +182,9 @@ setup(
         "sacrebleu>=2.3.1",
         "jiwer",
     ],
+    entry_points={
+        "console_scripts": [
+            "fairseq2 = fairseq2.cli.__main__:main",
+        ],
+    },
 )

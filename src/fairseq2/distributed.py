@@ -15,15 +15,13 @@ log = logging.getLogger(__name__)
 
 
 class Env(NamedTuple):
-    workdir: Path
     global_rank: int
     world_size: int
-    device: Any
+    device: torch.device
 
 
 def env(workdir: Optional[Path] = None, device=None) -> Env:
     return Env(
-        workdir or Path.cwd(),
         global_rank=torchtnt.utils.distributed.get_global_rank(),
         world_size=torchtnt.utils.distributed.get_world_size(),
         device=device or torch.device("cpu"),
@@ -119,6 +117,7 @@ def init(
             f"Scheduled training job: {job.job_id}.\nLogs will be at {job.paths.stderr}.\nYou can exit this process with ctrl+c, Slurm will take care of running the training job."
         )
         # TODO: silence keyboard interrupt here
+        # TODO: poll log file
         job_state = job.state
         while not job.done():
             new_job_state = job.state
@@ -154,7 +153,7 @@ def init(
             num_gpus == 1
         ), "If you want more than one GPU, you need to specify a SLURM partition with --partition"
         log.info("Starting local training on 1 GPU.")
-        return Env(workdir, 0, 1, torch.device("cuda:0"))
+        return Env(0, 1, torch.device("cuda:0"))
 
     # TODO: this assumes we are a slurm job, we might want to run on non-SLURM cluster
     env = submitit.helpers.TorchDistributedEnvironment()
@@ -171,7 +170,7 @@ def init(
 
     torch.distributed.init_process_group(backend="nccl")
     # fairscale.nn.model_parallel.initialize_model_parallel(1)
-    return Env(workdir, env.rank, env.world_size, device)
+    return Env(env.rank, env.world_size, device)
 
 
 def parse_submitit_stderr(stderr: str, nlines: int = 10) -> str:

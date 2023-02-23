@@ -9,16 +9,14 @@ import logging
 import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, List, Optional, Set, Union
+from typing import Any, List, Optional, Set, Union
 
+from torchsnapshot.snapshot import PendingSnapshot, Snapshot
 from torchtnt.framework.callback import Callback
 from torchtnt.framework.callbacks import torchsnapshot_saver
 from torchtnt.framework.state import State
 from torchtnt.framework.unit import EvalUnit, TrainUnit
 from torchtnt.utils import rank_zero_info
-
-if TYPE_CHECKING:
-    from torchsnapshot.snapshot import PendingSnapshot, Snapshot
 
 log = logging.getLogger(__name__)
 
@@ -49,7 +47,7 @@ class TorchSnapshotSaver(Callback):
         *,
         script: Optional[Path],
         frequency: timedelta = timedelta(minutes=20),
-        keep_train_snapshots: int = 2,
+        keep_train_snapshots: int = 10,
         keep_eval_snapshots: int = 10,
     ) -> None:
         self.savedir = Path(savedir)
@@ -87,6 +85,8 @@ class TorchSnapshotSaver(Callback):
         *,
         force: bool,
     ) -> bool:
+        from torchsnapshot.snapshot import Snapshot
+
         if self._pending is not None:
             if self._pending.path == snapshot_path:
                 # Snapshot for this step already has been saved.
@@ -199,25 +199,24 @@ def get_step(snapshot_path: Path) -> int:
     return int(step_)
 
 
-class TorchSnapshotLoader(Callback):
-    def __init__(self, dirpath: str, *, replicated: List[str] = []):
-        self.dirpath = dirpath
-        self._replicated: Set[str] = set(replicated)
-
-    def on_train_start(self, state: State, unit: TrainUnit[Any]) -> None:
-        last_snapshot = resolve_last_snapshot(self.dirpath)
-        if not last_snapshot:
-            log.info("Starting new model training")
-            return
-        log.info(f"Resuming model training from {last_snapshot}")
-        snapshot = Snapshot(path=str(last_snapshot))
-        app_state = torchsnapshot_saver._get_app_state(
-            state, unit, self._replicated, intra_epoch=True
-        )
-        snapshot.restore(app_state=app_state)
+def load_from_last_snapshot(dirpath: str, state: State, unit: TrainUnit[Any]) -> None:
+    last_snapshot = resolve_last_snapshot(Path(dirpath))
+    if not last_snapshot:
+        log.info("Starting new model training")
+        return
+    log.info(f"Resuming model training from {last_snapshot}")
+    load_snapshot(last_snapshot, state, unit)
 
 
-def resolve_last_snapshot(dirpath: str) -> Optional[Path]:
+def load_snapshot(snapshot_path: Path, state: State, unit: TrainUnit[Any]) -> None:
+    snapshot = Snapshot(path=str(snapshot_path))
+    app_state = torchsnapshot_saver._get_app_state(
+        state, unit, unit.replicated_keys(), intra_epoch=True
+    )
+    snapshot.restore(app_state=app_state)
+
+
+def resolve_last_snapshot(dirpath: Path) -> Optional[Path]:
     try:
         last_step, last_snapshot = max(
             (get_step(p), p) for p in Path(dirpath).glob("epoch_*_step_*")

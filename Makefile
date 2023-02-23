@@ -62,4 +62,4 @@ integration_tests:
 integration: check_fmt pylint integration_tests docs
 
 clean:
-	[ ! -f build/ ] || rm -r build/
+	[ ! -e build/ ] || rm -r build/

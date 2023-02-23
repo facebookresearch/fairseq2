@@ -1,10 +1,8 @@
-import datetime
 import itertools
-from pathlib import Path
+from datetime import timedelta
 from typing import Any, Iterable, List
 
 import torch
-import torchtnt.framework as tnt
 import transformers  # type: ignore
 from torchtnt.framework.state import State
 
@@ -14,6 +12,9 @@ import fairseq2.distributed
 import fairseq2.tasks
 from fairseq2.callbacks import Metrics
 from fairseq2.dataloader import Seq2SeqBatch, Seq2SeqStr
+from fairseq2.dataloader.huggingface import AsrDataloader
+from fairseq2.distributed import Env
+from fairseq2.generate import SpeechToTextTokenizer
 
 REQUIREMENTS = [
     "datasets>=2.6.1",
@@ -26,14 +27,6 @@ REQUIREMENTS = [
 
 
 class AsrTask(fairseq2.tasks.Seq2Seq):
-    def __init__(
-        self,
-        builder: "WhisperBuilder",
-        tokenizer: fairseq2.generate.SpeechToTextTokenizer,
-        device,
-    ):
-        super().__init__(builder, tokenizer, device)  # type: ignore
-
     def init_metrics(self, mode: str) -> Metrics:
         metrics = super().init_metrics(mode)
         self.best_metric = "wer" if self.eval_gen else "loss"
@@ -75,97 +68,79 @@ class AsrTask(fairseq2.tasks.Seq2Seq):
         ]
 
 
-# TODO: make helper builder for transformers.* models.
-class WhisperBuilder:
-    def __init__(self, name: str, device, dtype):
-        self.name = name
-        self.max_seq_len = 0
-        self.config: Any = None
-        self.device = device
-        self.dtype = dtype
-
-    def __call__(self) -> Any:
-        # Ideally we should be able to load directly on the correct device.
-        model = transformers.WhisperForConditionalGeneration.from_pretrained(self.name)
-        model = model.to(self.device)
-        if self.dtype is torch.float16:
-            model = model.half()
-        self.max_seq_len = model.config.max_target_positions
-        self.config = model.config
-        return model
+task = AsrTask
 
 
-def main(
-    workdir: Path,
-    dataset: str = "mozilla-foundation/common_voice_11_0",
-    langs: str = "hi",
-    batch_duration: float = 10,
-    pretrained: str = "openai/whisper-small",
-    partition: str = "debug",
-    num_gpus: int = 1,
-    wandb_project: str = "nllb/tune_whisper",
-    eval_freq: int = 10_000,
-    reset: bool = False,
-) -> None:
-    """
-    Fine tune whisper on the given dataset (only tested with mozilla-foundation/common_voice_11_0)
+def model(
+    version: str,
+    env: Env,
+    fp16: bool = True,
+) -> Any:
+    m = transformers.WhisperForConditionalGeneration.from_pretrained(version)
+    m = m.to(env.device)
+    if fp16:
+        m = m.half()
+    return m
 
-    workdir: where to save the training snapshot
-    dataset: name of HF ASR dataset to use
-    langs: lang to select
-    batch_duration: duration of batch in seconds
-    pretrained: name of pretrained model
-    partition: partition to use (needed for num_gpus > 1)
-    num_gpus: GPUs to use, will use Slurm if num_gpus > 1
-    wandb_project: project to log experiments too. Disable wandb by setting to ""
-    eval_freq: freq to evaluate, the model is pretty slow for evaluation
-    reset: ignore existing snapshots and restart from pretrained model
-    """
-    workdir = Path(str(workdir).format(langs=langs))
-    workdir.mkdir(exist_ok=True)
-    env = fairseq2.distributed.init(workdir, partition, num_gpus)
 
-    tokenizer = fairseq2.generate.SpeechToTextTokenizer.from_pretrained(
-        "openai/whisper-small"
-    )
-
-    task = AsrTask(
-        WhisperBuilder(pretrained, device=env.device, dtype=torch.float16),
+def _load_dataset(
+    name: str,
+    lang: str,
+    split: str,
+    tokenizer: SpeechToTextTokenizer,
+    env: Env,
+    batch_duration: timedelta,
+    fp16: bool,
+) -> AsrDataloader:
+    return AsrDataloader(
+        name,
+        lang,
+        split,
         tokenizer,
-        env.device,
+        batch_duration=batch_duration,
+        env=env,
+        dtype=torch.float16 if fp16 else torch.float32,
     )
 
-    def load_data(lang: str, split: str) -> Iterable[Seq2SeqBatch]:
-        return fairseq2.dataloader.huggingface.AsrDataloader(
-            dataset,
-            lang,
-            split,
-            tokenizer,
-            batch_duration=datetime.timedelta(seconds=batch_duration),
-            env=env,
-            dtype=torch.float16,
-        )
 
+def train_data(
+    langs: str,
+    tokenizer: SpeechToTextTokenizer,
+    env: Env,
+    dataset: str = "mozilla-foundation/common_voice_11_0",
+    batch_duration: timedelta = timedelta(seconds=10),
+    fp16: bool = True,
+) -> Iterable[Seq2SeqBatch]:
     _langs = langs.split(",")
     if len(_langs) > 1:
-        train: Iterable[Seq2SeqBatch] = fairseq2.dataloader.RoundRobin(
-            [load_data(lang, "train") for lang in _langs],
+        return fairseq2.dataloader.RoundRobin(
+            [
+                _load_dataset(
+                    dataset, lang, "train", tokenizer, env, batch_duration, fp16
+                )
+                for lang in _langs
+            ]
         )
     else:
-        train = load_data(_langs[0], "train")
-    # Only evaluate on the first lang pair
-    valid = load_data(_langs[0], "validation")
+        return _load_dataset(
+            dataset, _langs[0], "train", tokenizer, env, batch_duration, fp16
+        )
 
-    train_state = tnt.init_fit_state(train, valid, evaluate_every_n_steps=eval_freq)
 
-    callbacks = fairseq2.callbacks.default_callbacks(
-        task, env, reload_model=not reset, wandb_project=wandb_project
+def valid_data(
+    langs: str,
+    tokenizer: SpeechToTextTokenizer,
+    env: Env,
+    dataset: str = "mozilla-foundation/common_voice_11_0",
+    batch_duration: timedelta = timedelta(seconds=10),
+    fp16: bool = True,
+) -> AsrDataloader:
+    _langs = langs.split(",")
+    # Only evaluate on the first lang
+    return _load_dataset(
+        dataset, _langs[0], "validation", tokenizer, env, batch_duration, fp16
     )
 
-    tnt.fit(train_state, task, callbacks=callbacks)
 
-
-if __name__ == "__main__":
-    import func_argparse
-
-    func_argparse.single_main(main)
+def tokenizer(version: str) -> SpeechToTextTokenizer:
+    return fairseq2.generate.SpeechToTextTokenizer.from_pretrained(version)

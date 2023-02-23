@@ -1,3 +1,4 @@
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -80,19 +81,38 @@ def test_call_fn_missing_arg(script_path: Path) -> None:
 def test_serialize_save_fn_calls(script_path: Path, tmp_path: Path) -> None:
     module = DynamicModule.from_script(script_path, overrides=["x=5"])
     f1 = module.call_fn("f1", caller="test")
-    workdir_script = module.serialize(tmp_path, script_path)
+    module.serialize(tmp_path / "config.yaml")
 
-    module2 = DynamicModule.from_script(workdir_script)
+    module2 = DynamicModule.from_script(
+        script_path, yaml_config=tmp_path / "config.yaml"
+    )
     assert module2.call_fn("f1", caller="test") == f1
 
 
 def test_serialize_skip_objects(script_path: Path, tmp_path: Path) -> None:
     module = DynamicModule.from_script(script_path)
     obj_id = module.call_fn("obj_id", caller="test")
-    workdir_script = module.serialize(tmp_path, script_path)
+    module.serialize(tmp_path / "config.yaml")
     assert list(module._cache.keys()) == ["obj", "obj_id"]
 
-    module2 = DynamicModule.from_script(workdir_script)
+    module2 = DynamicModule.from_script(
+        script_path, yaml_config=tmp_path / "config.yaml"
+    )
     # We saved obj_id, but not obj since there is no trivial serialization for it.
     assert list(module2._cache.keys()) == ["obj_id"]
     assert module2.call_fn("obj_id", caller="test") == obj_id
+
+
+def test_parse_duration() -> None:
+    from fairseq2.cli.module_loader import _parse
+
+    parse_duration = lambda x: _parse(timedelta, "x", x)
+
+    assert parse_duration("10m") == timedelta(minutes=10)
+    assert parse_duration("3d") == timedelta(days=3)
+    assert parse_duration("0.5h") == timedelta(hours=0.5)
+
+    with pytest.raises(ValueError, match="time unit"):
+        parse_duration("1H")
+    with pytest.raises(ValueError, match="Can't parse"):
+        parse_duration("abcdefgh")

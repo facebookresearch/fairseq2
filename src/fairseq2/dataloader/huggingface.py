@@ -1,9 +1,9 @@
 import datetime
 import logging
 from pathlib import Path
-from typing import Iterable, Iterator, List, Mapping, Optional
+from typing import Iterable, Iterator, List, Mapping, Optional, Sequence
 
-import datasets
+import datasets  # type: ignore[import]
 import torch
 
 import fairseq2.distributed
@@ -16,8 +16,8 @@ log = logging.getLogger(__name__)
 
 def _finalize_batch(
     tokenizer: Tokenizer,
-    src_batch: List[str],
-    tgt_batch: List[str],
+    src_batch: Sequence[str],
+    tgt_batch: Sequence[str],
     src_bos: int,
     tgt_bos: int,
     device,
@@ -97,18 +97,18 @@ class NllbDataLoader(Iterable[Seq2SeqBatch]):
             log.info(
                 f"Starting {self.split} epoch {self.epoch} with {dataset_size:.1f}Gb of data, streaming from disk."
             )
-        batch = Text2TextBatch([], [])
+        batch_src, batch_tgt = [], []
         for i, sample in enumerate(self.data):
             if i % self.world_size != self.global_rank:
                 continue
 
-            batch.src.append(self.extract_src(sample))
-            batch.tgt.append(self.extract_tgt(sample))
-            if len(batch.src) == self.batch_size:
-                yield batch
-                batch = Text2TextBatch([], [])
-        if batch.src:
-            yield batch
+            batch_src.append(self.extract_src(sample))
+            batch_tgt.append(self.extract_tgt(sample))
+            if len(batch_src) == self.batch_size:
+                yield Text2TextBatch(batch_src, batch_tgt)
+                batch_src, batch_tgt = [], []
+        if batch_src:
+            yield Text2TextBatch(batch_src, batch_tgt)
 
         log.info(f"End of epoch {self.epoch}, with {i * self.batch_size} samples")
         self.epoch += 1
@@ -117,7 +117,7 @@ class NllbDataLoader(Iterable[Seq2SeqBatch]):
     def combine_and_dump(
         src: str, tgt: str, split: str, output: Path, limit: int = 0
     ) -> None:
-        env = fairseq2.distributed.Env(output.parent, 0, 1, torch.device("cpu"))
+        env = fairseq2.distributed.Env(0, 1, torch.device("cpu"))
         loader = NllbDataLoader(
             src,
             tgt,
@@ -210,10 +210,10 @@ class AsrDataloader(Iterable[Seq2SeqBatch]):
 
     def __iter__(self) -> Iterator[Seq2SeqBatch]:
         batch = AsrBatch(self.sampling_rate)
-        _, global_rank, world_size, device = self.env
+        env = self.env
 
         for i, sample in enumerate(self.data):
-            if i % world_size != global_rank:
+            if i % env.world_size != env.global_rank:
                 continue
 
             audio = sample["audio"]

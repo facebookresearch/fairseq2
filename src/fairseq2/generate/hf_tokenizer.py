@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Sequence
 
 import torch
 from torch import Tensor
@@ -27,7 +27,7 @@ class HfTokenizer(Tokenizer):
     def vocab_size(self) -> int:
         return int(self.tokenizer.vocab_size) + len(self.special_tokens)
 
-    def encode_batch(self, sentences: List[str], bos: int = -1) -> Tensor:
+    def encode_batch(self, sentences: Sequence[str], bos: int = -1) -> Tensor:
         tokens: List[List[int]] = [
             self.tokenizer.encode(sentence) for sentence in sentences
         ]

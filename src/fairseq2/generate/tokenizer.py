@@ -1,13 +1,10 @@
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List
+from typing import Any, Dict, List, Sequence
 
 import sentencepiece
 import torch
 from torch import Tensor
-
-if TYPE_CHECKING:
-    import fairseq
 
 
 class Tokenizer:
@@ -23,7 +20,7 @@ class Tokenizer:
     def vocab_size(self) -> int:
         raise NotImplementedError
 
-    def encode_batch(self, sentences: List[str], bos: int = -1) -> Tensor:
+    def encode_batch(self, sentences: Sequence[str], bos: int = -1) -> Tensor:
         raise NotImplementedError
 
     def decode_batch(self, tokens: Tensor) -> List[str]:
@@ -110,7 +107,7 @@ class SpmTokenizer(Tokenizer):
         # unk, bos, and eos are both in spm.GetPieceSize() and special_tokens
         return int(self.spm.GetPieceSize()) - 3 + len(self.special_tokens)
 
-    def encode_batch(self, sentences: List[str], bos: int = -1) -> Tensor:
+    def encode_batch(self, sentences: Sequence[str], bos: int = -1) -> Tensor:
         tokens: List[List[int]] = [
             self.spm.encode_as_ids(
                 # TODO: the sampling should be configurable
@@ -157,37 +154,65 @@ class DictTokenizer(Tokenizer):
     def from_fairseq_dict_txt(file: Path) -> "DictTokenizer":
         import fairseq.data
 
+        # TODO: read the file ourselves
         src_dict = fairseq.data.Dictionary.load(str(file))
-        return DictTokenizer(src_dict)
+        src_dict.indices["<UNK>"] = src_dict.unk_index
+        src_dict.indices["<BOS>"] = src_dict.bos_index
+        src_dict.indices["<EOS>"] = src_dict.eos_index
+        src_dict.indices["<PAD>"] = src_dict.pad_index
 
-    def __init__(self, vocab: "fairseq.data.Dictionary"):
+        return DictTokenizer(src_dict.indices, src_dict.tokens)
+
+    @staticmethod
+    def from_vocab(vocab: List[str]) -> "DictTokenizer":
+        """Makes a DictTokenizer from a list of words.
+
+        Note that the 4 special tokens would always prepended.
+        """
+        # TODO: make a C++ implementation of this
+        special_tokens = ["<UNK>", "<BOS>", "<EOS>", "<PAD>"]
+        vocab = special_tokens + vocab
+        indices = {word: idx for idx, word in enumerate(vocab)}
+        return DictTokenizer(indices, vocab)
+
+    def __init__(self, indices: Dict[str, int], vocab: List[str]):
         super().__init__()
-        self.vocab = vocab
-        self.UNK = self.add_special_token("<UNK>", vocab.unk_index)
-        self.BOS = self.add_special_token("<BOS>", vocab.bos_index)
-        self.EOS = self.add_special_token("<EOS>", vocab.eos_index)
-        self.PAD = self.add_special_token("<PAD>", vocab.pad_index)
+        self.indices = indices
+        self.vocab = vocab  # equivalent to "self.tokens" in Fairseq Dictionary
+        self.UNK = self.add_special_token("<UNK>", self.indices["<UNK>"])
+        self.BOS = self.add_special_token("<BOS>", self.indices["<BOS>"])
+        self.EOS = self.add_special_token("<EOS>", self.indices["<EOS>"])
+        self.PAD = self.add_special_token("<PAD>", self.indices["<PAD>"])
+
+    def state_dict(self) -> Dict[str, Any]:
+        return self.__dict__
+
+    def load_state_dict(self, state: Dict[str, Any]) -> None:
+        self.__dict__.update(state)
 
     def vocab_size(self) -> int:
         return len(self.vocab)
 
-    def encode_batch(self, sentences: List[str], bos: int = -1) -> Tensor:
-        tokens: List[List[int]] = [
-            self.vocab.encode_line(sentence, append_eos=True) for sentence in sentences
-        ]
+    def encode_batch(self, sentences: Sequence[str], bos: int = -1) -> Tensor:
         bos = self.BOS if bos < 0 else bos
-        # Fairseq is adding BOS after tokenization. Let's add it now.
-        return _make_batch(tokens, self.PAD, prepend_bos=bos)
+        tokens = [self._encode(sentence, bos) for sentence in sentences]
+        return _make_batch(tokens, self.PAD)
+
+    def _encode(self, sentence: str, bos: int) -> List[int]:
+        tokens = [bos]
+        UNK = self.UNK
+        for word in sentence.split():
+            tokens.append(self.indices.get(word, UNK))
+        tokens.append(self.EOS)
+        return tokens
 
     def decode_batch(self, tokens: Tensor) -> List[str]:
         return [self._decode(tokens[i, :].tolist()) for i in range(tokens.size(0))]
 
     def _decode(self, tokens: List[int]) -> str:
-        if tokens[-1] == self.PAD:
-            first_pad = tokens.index(self.PAD)
-        else:
-            first_pad = len(tokens)
-        return self.vocab.string(tokens[:first_pad])  # type: ignore
+        return " ".join(
+            self.vocab[t] for t in tokens if t not in (self.PAD, self.EOS, self.BOS)
+        )
 
 
 # TODO do this in C++

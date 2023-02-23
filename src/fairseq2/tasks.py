@@ -1,6 +1,5 @@
 import functools
 import itertools
-import logging
 import math
 from typing import Any, Dict, List, Optional
 
@@ -25,8 +24,6 @@ from fairseq2.dataloader import Seq2SeqBatch, Seq2SeqStr
 from fairseq2.generate import BeamSearchStrategy, SearchStrategy, Tokenizer
 from fairseq2.models.transformer import Transformer
 from fairseq2.optim.lr_scheduler import LRScheduler
-
-logging.basicConfig(level=logging.INFO)
 
 
 class Seq2Seq(

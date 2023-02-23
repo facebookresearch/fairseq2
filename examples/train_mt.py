@@ -46,9 +46,9 @@ def lang_pairs(langs: str) -> LangPairs:
 
 
 def tokenizer(
-    env: Env, lang_pairs: LangPairs, spm_path: Optional[Path] = None
+    xp: fairseq2.cli.XP, lang_pairs: LangPairs, spm_path: Optional[Path] = None
 ) -> SpmTokenizer:
-    workdir = env.workdir
+    workdir = xp.script.parent
     if spm_path is not None:
         assert spm_path.exists(), f"Spm not found: {spm_path}"
     else:

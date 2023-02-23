@@ -1,21 +1,25 @@
-import func_argparse as fap
+import func_argparse as fa
 
-from . import commands
+from fairseq2.cli import commands
 
-if __name__ == "__main__":
 
+def main():
     parsers = {
-        "train": fap.func_argparser(commands.train),
-        "evaluate": fap.func_argparser(commands.evaluate),
-        "inference": fap.func_argparser(commands.inference),
+        "train": fa.func_argparser(commands.train),
+        "evaluate": fa.func_argparser(commands.evaluate),
+        "inference": fa.func_argparser(commands.inference),
+        "grid": fa.func_argparser(commands.grid),
+        "eval_server": fa.func_argparser(commands.eval_server),
     }
     # TODO: push this to func_argparse
     with_overrides = []
     for name, parser in parsers.items():
-        # Make script a positional argument.
-        script_action = [a for a in parser._actions if "--script" in a.option_strings]
-        if len(script_action) == 1:
-            script_action[0].option_strings = ()
+        # Promote the first argument to positional argument
+        if len(parser._actions) < 2:
+            continue
+        if parser._actions[1].default is not None:
+            continue
+        parser._actions[1].option_strings = ()
 
         # Handle overrides separately, I'm not sure why nargs="*" doesn't work as expected
         override_action = [
@@ -25,9 +29,7 @@ if __name__ == "__main__":
             parser._actions.remove(override_action[0])
             with_overrides.append(name)
 
-    # TODO: add beam search args to inference
-
-    main_parser = fap.multi_argparser(description=__doc__, **parsers)
+    main_parser = fa.multi_argparser(description=__doc__, **parsers)
 
     known_args, overrides = main_parser.parse_known_args()
     parsed_args = vars(known_args)
@@ -48,3 +50,7 @@ if __name__ == "__main__":
         main_parser.parse_args()
 
     command(**parsed_args)
+
+
+if __name__ == "__main__":
+    main()
