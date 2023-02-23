@@ -71,6 +71,7 @@ target_link_libraries(fairseq2
         fmt::fmt
         natsort
         sentencepiece-static
+        zip::zip
     PUBLIC
         torch
 )

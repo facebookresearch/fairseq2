@@ -10,3 +10,6 @@
 [submodule "third-party/sentencepiece"]
 	path = third-party/sentencepiece
 	url = https://github.com/google/sentencepiece.git
+[submodule "third-party/zip"]
+	path = third-party/zip
+	url = https://github.com/kuba--/zip.git

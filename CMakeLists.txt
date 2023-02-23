@@ -125,6 +125,8 @@ fairseq2_add_pybind11()
 
 fairseq2_add_sentencepiece()
 
+fairseq2_add_zip()
+
 if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)
     fairseq2_add_gtest()
 endif()
