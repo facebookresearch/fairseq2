@@ -649,3 +649,14 @@ class StandardMultiheadAttention(MultiheadAttention):
             x = x.unsqueeze(0)
 
         return x
+
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        s = super().extra_repr()
+
+        s = f"{s}, attn_dropout_p={self.attn_dropout_p}"
+
+        if self.add_zero_attn:
+            s += ", add_zero_attn=True"
+
+        return s

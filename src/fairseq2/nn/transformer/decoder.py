@@ -174,3 +174,9 @@ class StandardTransformerDecoder(TransformerDecoder):
             x = self.layer_norm(x)
 
         return x
+
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        s = super().extra_repr()
+
+        return f"{s}, self_attn_mask_gen={type(self.self_attn_mask_gen).__name__}"

@@ -119,3 +119,9 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         x = self.out_proj(x)
 
         return x
+
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        s = super().extra_repr()
+
+        return f"{s}, inner_dropout_p={self.inner_dropout_p}"

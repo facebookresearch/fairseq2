@@ -108,11 +108,6 @@ class TransformerTokenFrontend(Module):
             For a boolean padding mask, a ``True`` indicates that the
             corresponding key position is not allowed to attend.
         """
-        if self.embed.padding_idx is None:
-            padding_mask = None
-        else:
-            padding_mask = token_indices.eq(self.embed.padding_idx)
-
         embeds = self.embed(token_indices)
 
         if self.scale != 1.0:
@@ -127,7 +122,16 @@ class TransformerTokenFrontend(Module):
         if self.dropout_p > 0.0:
             embeds = F.dropout(embeds, self.dropout_p, self.training)
 
+        if self.embed.padding_idx is None:
+            padding_mask = None
+        else:
+            padding_mask = token_indices.eq(self.embed.padding_idx)
+
         return embeds, padding_mask
+
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        return f"scale={self.scale}, dropout_p={self.dropout_p}"
 
 
 class Transformer(Module):
@@ -257,9 +261,12 @@ class Transformer(Module):
             The state bag to use during an incremental evaluation.
 
         :returns:
-            The decoded output. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)` when
+            The output of :attr:`score_proj`. A softmax function should be
+            applied to the produced scores to obtain the next-token
+            probabilities. *Shape:* :math:`(N,S,D)`, or :math:`(S,D)` when
             unbatched, where :math:`N` is the batch size, :math:`S` is the
-            sequence length, and :math:`M` is the model size.
+            sequence length, and :math:`D` is the size of the output embedding
+            dictionary.
         """
         embeds, padding_mask = self.decoder_frontend(token_indices, state_bag)
 
@@ -281,8 +288,8 @@ class Transformer(Module):
             and :math:`S_{tgt}` is the target sequence length.
 
         :returns:
-            The output of :attr:`score_proj`. The produced scores should be
-            forwarded to a softmax function to compute the next-step
+            The output of :attr:`score_proj`. A softmax function should be
+            applied to the produced scores to obtain the next-token
             probabilities. *Shape:* :math:`(N,S_{tgt},D)`, or
             :math:`(S_{tgt},D)` when unbatched, where :math:`N` is the batch
             size, :math:`S_{tgt}` is the target sequence length, and :math:`D`
@@ -297,8 +304,8 @@ class Transformer(Module):
 class ScoreProjection(ResettableProjection):
     """Produces scores (i.e. logits) from the output of a Transformer decoder.
 
-    The produced scores should be forwarded to a softmax function to compute
-    predicted next-step probabilities.
+    A softmax function should be applied to the produced scores to obtain the
+    weights.
     """
 
     def __init__(

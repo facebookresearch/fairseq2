@@ -237,3 +237,9 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
             x = self.ffn_layer_norm(x)
 
         return x
+
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        s = super().extra_repr()
+
+        return f"{s}, dropout_p={self.dropout_p}, norm_order={self.norm_order}"

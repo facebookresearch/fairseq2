@@ -136,3 +136,12 @@ class StandardTransformerEncoder(TransformerEncoder):
             x = self.layer_norm(x)
 
         return x
+
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        s = super().extra_repr()
+
+        if self.self_attn_mask_gen is not None:
+            s += f", self_attn_mask_gen={type(self.self_attn_mask_gen).__name__}"
+
+        return s
