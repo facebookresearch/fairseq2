@@ -24,7 +24,6 @@ class TransformerEncoderLayer(Module, ABC):
     """Represents a Transformer encoder layer."""
 
     model_dim: int
-    """The dimensionality of the model (i.e. inputs and outputs)."""
 
     def __init__(self, model_dim: int) -> None:
         """
@@ -95,8 +94,8 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
         dropout_p: float = 0.1,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         norm_eps: float = 1e-5,
-        device=None,
-        dtype=None,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
     ) -> None:
         """
         :param self_attn:

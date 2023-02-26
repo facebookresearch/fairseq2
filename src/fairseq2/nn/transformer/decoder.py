@@ -7,6 +7,7 @@
 from abc import ABC, abstractmethod
 from typing import Iterable, Optional, final
 
+import torch
 from overrides import final as finaloverride
 from torch import Tensor
 from torch.nn import LayerNorm, Module
@@ -26,7 +27,6 @@ class TransformerDecoder(Module, ABC):
     """Represents a Transformer decoder."""
 
     model_dim: int
-    """The dimensionality of the model (i.e. inputs and outputs)."""
 
     def __init__(self, model_dim: int) -> None:
         """
@@ -102,8 +102,8 @@ class StandardTransformerDecoder(TransformerDecoder):
         layer_drop_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         norm_eps: float = 1e-5,
-        device=None,
-        dtype=None,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
     ) -> None:
         """
         :param layers:

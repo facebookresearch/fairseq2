@@ -64,8 +64,8 @@ class SentencePieceEncoder:
         pad_to_length: Optional[int] = None,
         pad_to_multiple: int = 1,
         lef_pad: bool = False,
-        dtype=torch.int32,
-        device=None,
+        dtype: torch.dtype = torch.int32,
+        device: Optional[torch.device] = None,
         pin_memory: bool = False,
         disable_parallelism: bool = False,
     ) -> None:

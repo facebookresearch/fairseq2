@@ -6,7 +6,7 @@
 
 
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import torch
 from torch import Tensor
@@ -129,8 +129,8 @@ def _swap_bos_pad_eos_unk(embeddings: Tensor) -> None:
 def load_fairseq1_checkpoint(
     model_file: Path,
     spm_path: Path,
-    device=None,
-    dtype=None,
+    device: Optional[torch.device] = None,
+    dtype: Optional[torch.dtype] = None,
 ) -> Tuple[Transformer, SpmTokenizer, TransformerConfig]:
 
     # TODO: this tuple is a bit weird, should we have a reference class for this tuple ?

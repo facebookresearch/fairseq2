@@ -89,11 +89,12 @@ class S2TTransformerConfig:
 @final
 class _S2TTransformerBuilder:
     cfg: S2TTransformerConfig
+    device: Optional[torch.device]
 
     def __init__(self, cfg: S2TTransformerConfig) -> None:
         self.cfg = cfg
 
-    def build(self, device=None) -> S2TTransformer:
+    def build(self, device: Optional[torch.device] = None) -> S2TTransformer:
         self.device = device
 
         enc_frontend = self._build_encoder_frontend()
@@ -229,7 +230,9 @@ class _S2TTransformerBuilder:
         )
 
 
-def build_s2t_transformer(cfg: S2TTransformerConfig, device=None) -> S2TTransformer:
+def build_s2t_transformer(
+    cfg: S2TTransformerConfig, device: Optional[torch.device] = None
+) -> S2TTransformer:
     """Build a model that follows the speech-to-text Transformer architecture
     as described in :cite:t:`DBLP:journals/corr/abs-1911-08460`.
 

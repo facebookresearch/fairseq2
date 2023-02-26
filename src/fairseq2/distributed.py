@@ -20,7 +20,7 @@ class Env(NamedTuple):
     device: torch.device
 
 
-def env(workdir: Optional[Path] = None, device=None) -> Env:
+def env(workdir: Optional[Path] = None, device: Optional[torch.device] = None) -> Env:
     return Env(
         global_rank=torchtnt.utils.distributed.get_global_rank(),
         world_size=torchtnt.utils.distributed.get_world_size(),

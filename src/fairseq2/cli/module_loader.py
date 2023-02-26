@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, NamedTuple, Optional, Sequence, Type
 
 import func_argparse
+import torch
 import yaml
 
 import fairseq2.distributed
@@ -20,7 +21,7 @@ def hub_export(fn: Callable[..., Any], script: str) -> "Callable[..., Any]":
 
     from fairseq2.cli import DynamicModule
 
-    def hub_entry_point(snapshot_dir: str, device) -> Any:
+    def hub_entry_point(snapshot_dir: str, device: torch.device) -> Any:
         assert Path(snapshot_dir).exists(), f"Snapshot {snapshot_dir} not found."
         env = fairseq2.distributed.env(Path(snapshot_dir), device=device)
         # theoritically we don't need to reload hubconf.py,
@@ -91,7 +92,7 @@ class DynamicModule:
         assert yaml_conf.exists(), f"Yaml config not found: {yaml_conf}"
         cache = self._cache
         log.info(f"reloading {yaml_conf}")
-        # TODO: safe load -> Path, Env, Device
+        # TODO: safe load -> Path, Env, torch.device
         conf = yaml.load(yaml_conf.read_text(), Loader=yaml.Loader)
         for key, val in conf.items():
             if isinstance(val, dict):

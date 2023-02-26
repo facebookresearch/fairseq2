@@ -74,7 +74,7 @@ def test_loading_nllb200_small(tmp_path: Path) -> None:
 def assert_speaks_french(
     model: fairseq2.models.transformer.Transformer,
     tokenizer: fairseq2.generate.Tokenizer,
-    device,
+    device: torch.device,
 ) -> None:
     # for beam_size, ref in [(1, FRA_1), (5, FRA_5)]:
     for beam_size, ref in [(1, FRA_1)]:

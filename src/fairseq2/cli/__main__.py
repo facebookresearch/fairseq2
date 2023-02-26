@@ -3,7 +3,7 @@ import func_argparse as fa
 from fairseq2.cli import commands
 
 
-def main():
+def main() -> None:
     parsers = {
         "train": fa.func_argparser(commands.train),
         "evaluate": fa.func_argparser(commands.evaluate),

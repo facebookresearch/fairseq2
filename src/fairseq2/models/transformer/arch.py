@@ -7,6 +7,7 @@
 import math
 from typing import Optional, Tuple, final
 
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from overrides import final as finaloverride
@@ -39,8 +40,8 @@ class TransformerTokenFrontend(Module):
         norm: bool = False,
         dropout_p: float = 0.1,
         norm_eps: float = 1e-5,
-        device=None,
-        dtype=None,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
     ) -> None:
         """
         :param embed:
@@ -138,22 +139,11 @@ class Transformer(Module):
     """Represents a Transformer model."""
 
     model_dim: int
-    """The dimensionality of the model (i.e. inputs and outputs)."""
-
     encoder_frontend: TransformerTokenFrontend
-    """The encoder front-end."""
-
     encoder: TransformerEncoder
-    """The encoder."""
-
     decoder_frontend: TransformerTokenFrontend
-    """The decoder front-end."""
-
     decoder: TransformerDecoder
-    """The decoder."""
-
     score_proj: Projection
-    """The projection to apply to outputs of the decoder."""
 
     def __init__(
         self,
@@ -205,8 +195,7 @@ class Transformer(Module):
         self.score_proj = score_proj
 
     def encode(self, token_indices: Tensor) -> Tuple[Tensor, Optional[Tensor]]:
-        """
-        Encodes the specified source token indices.
+        """Encode the specified source token indices.
 
         :param token_indices:
             The token indices to encode. *Shape:* :math:`(N,S)`, or :math:`(S)`
@@ -239,8 +228,7 @@ class Transformer(Module):
         enc_padding_mask: Optional[Tensor] = None,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
-        """
-        Decodes the specified target token indices.
+        """Decode the specified target token indices.
 
         :param token_indices:
             The token indices to decode. *Shape:* :math:`(N,S)`, or :math:`(S)`
@@ -302,14 +290,14 @@ class Transformer(Module):
 
 @final
 class ScoreProjection(ResettableProjection):
-    """Produces scores (i.e. logits) from the output of a Transformer decoder.
-
-    A softmax function should be applied to the produced scores to obtain the
-    weights.
-    """
+    """Produces scores (i.e. logits) from the output of a Transformer decoder."""
 
     def __init__(
-        self, num_embed: int, embedding_dim: int, device=None, dtype=None
+        self,
+        num_embed: int,
+        embedding_dim: int,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
     ) -> None:
         """
         :param num_embed:

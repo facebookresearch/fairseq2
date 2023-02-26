@@ -7,6 +7,7 @@
 from abc import ABC, abstractmethod
 from typing import Callable, Optional, final
 
+import torch
 import torch.nn.functional as F
 from overrides import final as finaloverride
 from torch import Tensor
@@ -20,7 +21,6 @@ class FeedForwardNetwork(Module, ABC):
     """Represents a Transformer feed-forward network."""
 
     model_dim: int
-    """The dimensionality of the model (i.e. inputs and outputs)."""
 
     def __init__(self, model_dim: int) -> None:
         """
@@ -66,8 +66,8 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         inner_activation_fn: Optional[Callable[[Tensor], Tensor]] = None,
         inner_dropout_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
-        device=None,
-        dtype=None,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
     ) -> None:
         """
         :param model_dim:

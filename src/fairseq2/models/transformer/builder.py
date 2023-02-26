@@ -7,6 +7,8 @@
 from dataclasses import dataclass
 from typing import Optional
 
+import torch
+
 from fairseq2.models.transformer.arch import (
     ScoreProjection,
     Transformer,
@@ -149,7 +151,9 @@ class TransformerBuilder:
         else:
             self.norm_order = TransformerNormOrder.POST
 
-    def build(self, device=None, dtype=None) -> Transformer:
+    def build(
+        self, device: Optional[torch.device] = None, dtype: Optional[torch.dtype] = None
+    ) -> Transformer:
         """Build a model."""
         self.device, self.dtype = device, dtype
 
@@ -365,7 +369,11 @@ class TransformerBuilder:
         )
 
 
-def build_transformer(cfg: TransformerConfig, device=None, dtype=None) -> Transformer:
+def build_transformer(
+    cfg: TransformerConfig,
+    device: Optional[torch.device] = None,
+    dtype: Optional[torch.dtype] = None,
+) -> Transformer:
     """Build a model that follows the Transformer architecture as described in
     :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`.
 

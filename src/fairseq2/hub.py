@@ -6,6 +6,7 @@ import tempfile
 from pathlib import Path
 from typing import Any, Dict, Generic, Iterator, List, Type, TypeVar
 
+import torch
 import torchsnapshot
 
 try:
@@ -148,7 +149,7 @@ def model(name: str = "valid_best", device = torch.device("cuda:0")):
         return task
 
     @staticmethod
-    def load_snapshot(hub_conf: str, name: str, key: str, device) -> Any:
+    def load_snapshot(hub_conf: str, name: str, key: str, device: torch.device) -> Any:
         # TODO: add overrides
         hub_conf_dir = Path(hub_conf).parent
         snapshot_dir = hub_conf_dir / name

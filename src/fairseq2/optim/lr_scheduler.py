@@ -8,8 +8,9 @@ from typing import Optional
 
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
+from typing_extensions import TypeAlias
 
-LRScheduler = _LRScheduler
+LRScheduler: TypeAlias = _LRScheduler
 
 
 class InverseSquareRootLR(LRScheduler):

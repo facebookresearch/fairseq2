@@ -7,6 +7,7 @@
 from abc import ABC, abstractmethod
 from typing import Optional, Sequence, Tuple, final
 
+import torch
 import torch.nn.functional as F
 from overrides import final as finaloverride
 from torch import Tensor
@@ -18,9 +19,12 @@ class FbankSubsampler(Module, ABC):
     in sequence encoding and decoding."""
 
     embedding_dim: int
-    """The dimensionality of returned embeddings."""
 
     def __init__(self, embedding_dim: int) -> None:
+        """
+        :param embedding_dim:
+            The dimensionality of returned embeddings.
+        """
         super().__init__()
 
         self.embedding_dim = embedding_dim
@@ -69,8 +73,8 @@ class Conv1dFbankSubsampler(FbankSubsampler):
         inner_dim: int,
         embedding_dim: int,
         kernel_sizes: Optional[Sequence[int]] = None,
-        device=None,
-        dtype=None,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
     ) -> None:
         """
         :param num_channels:

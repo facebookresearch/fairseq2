@@ -7,6 +7,7 @@
 import math
 from typing import Optional, Tuple
 
+import torch
 import torch.nn.functional as F
 from torch import Tensor
 from torch.nn import Module
@@ -37,8 +38,8 @@ class TransformerFbankFrontend(Module):
         pos_embed: Optional[PositionalEmbedding],
         apply_projection: bool = False,
         dropout_p: float = 0.1,
-        device=None,
-        dtype=None,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
     ) -> None:
         """
         :param subsampler:
@@ -145,8 +146,6 @@ class S2TTransformer(Module):
     """
 
     model_dim: int
-    """The dimensionality of the model (i.e. inputs and outputs)."""
-
     encoder_frontend: TransformerFbankFrontend
     encoder: TransformerEncoder
     decoder_frontend: TransformerTokenFrontend
@@ -205,8 +204,7 @@ class S2TTransformer(Module):
     def encode(
         self, fbanks: Tensor, num_frames: Tensor
     ) -> Tuple[Tensor, Optional[Tensor]]:
-        """
-        Encodes the specified source log-mel filterbanks.
+        """Encode the specified source log-mel filterbanks.
 
         :param fbanks:
             The log-mel filterbanks to encode. *Shape:* :math:`(N,F,C)`, or
@@ -245,8 +243,7 @@ class S2TTransformer(Module):
         enc_padding_mask: Optional[Tensor] = None,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
-        """
-        Decodes the specified target token indices.
+        """Decode the specified target token indices.
 
         :param token_indices:
             The token indices to decode. *Shape:* :math:`(N,S)`, or :math:`(S)`

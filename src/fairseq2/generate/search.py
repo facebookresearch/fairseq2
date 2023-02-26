@@ -206,7 +206,7 @@ class SearchStrategy(ABC):
         *,
         src_bos: str = "",
         tgt_bos: str = "",
-        device,
+        device: torch.device,
     ) -> List[str]:
         src_bos_tok = tokenizer.special_tokens[src_bos] if src_bos else -1
         src_tokens = tokenizer.encode_batch(sentences, bos=src_bos_tok).to(device)

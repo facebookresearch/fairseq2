@@ -23,10 +23,7 @@ class PositionalEmbedding(Module, ABC):
     """Produces positional embeddings."""
 
     max_seq_len: int
-    """The expected maximum sequence length."""
-
     embedding_dim: int
-    """The dimensionality of positional embeddings."""
 
     def __init__(self, max_seq_len: int, embedding_dim: int) -> None:
         """
@@ -150,8 +147,8 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
         max_seq_len: int,
         embedding_dim: int,
         legacy_padding_idx: Optional[int] = None,
-        device=None,
-        dtype=None,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
     ) -> None:
         super().__init__(max_seq_len, embedding_dim)
 
@@ -238,7 +235,11 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
     weight: Parameter
 
     def __init__(
-        self, max_seq_len: int, embedding_dim: int, device=None, dtype=None
+        self,
+        max_seq_len: int,
+        embedding_dim: int,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
     ) -> None:
         super().__init__(max_seq_len, embedding_dim)
 
@@ -280,7 +281,11 @@ class RotaryEmbedding(PositionalEmbedding):
     sin_weight: Tensor
 
     def __init__(
-        self, max_seq_len: int, embedding_dim: int, device=None, dtype=None
+        self,
+        max_seq_len: int,
+        embedding_dim: int,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
     ) -> None:
         if embedding_dim % 2 != 0:
             raise ValueError(f"`embedding_dim` ({embedding_dim}) must be even.")

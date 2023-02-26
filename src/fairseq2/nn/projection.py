@@ -22,10 +22,7 @@ class Projection(Module, ABC):
     """Applies a linear transformation to incoming data."""
 
     inp_dim: int
-    """The dimensionality of inputs."""
-
     out_dim: int
-    """The dimensionality of outputs."""
 
     def __init__(self, inp_dim: int, out_dim: int) -> None:
         """
@@ -62,13 +59,15 @@ class ResettableProjection(Projection):
     that can be re-initialized by calling :meth:`reset_parameters`."""
 
     weight: Parameter
-    """The learnable weights."""
-
     bias: Optional[Parameter]
-    """The learnable bias."""
 
     def __init__(
-        self, inp_dim: int, out_dim: int, bias: bool = False, device=None, dtype=None
+        self,
+        inp_dim: int,
+        out_dim: int,
+        bias: bool = False,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
     ) -> None:
         """
         :param inp_dim:

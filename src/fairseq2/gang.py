@@ -18,15 +18,10 @@ class ReduceOperation(Enum):
     """Specifies a reduce operation."""
 
     SUM = 1
-    """Sum"""
     MEAN = 2
-    """Mean"""
     PRODUCT = 3
-    """Product"""
     MIN = 4
-    """Minimum"""
     MAX = 5
-    """Maximum"""
 
 
 class Gang(ABC):
@@ -34,7 +29,7 @@ class Gang(ABC):
 
     @abstractmethod
     def all_reduce(self, tensor: Tensor, op: ReduceOperation) -> None:
-        """Reduces the tensor across the gang.
+        """Reduce the tensor across the gang.
 
         :param tensor:
             The input and output of the operation. The tensor will be modified
@@ -70,7 +65,7 @@ class _ProcessGroupGang(Gang):
 
 
 def from_process_group(pg: ProcessGroup) -> Gang:
-    """Wraps ``pg`` as a :class:`Gang`.
+    """Wrap ``pg`` as a :class:`Gang`.
 
     :param pg:
         The process group to wrap.

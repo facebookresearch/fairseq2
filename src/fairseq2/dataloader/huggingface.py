@@ -20,7 +20,7 @@ def _finalize_batch(
     tgt_batch: Sequence[str],
     src_bos: int,
     tgt_bos: int,
-    device,
+    device: torch.device,
 ) -> Seq2SeqBatch:
     source = tokenizer.encode_batch(src_batch, bos=src_bos)
     target = tokenizer.encode_batch(tgt_batch, bos=tgt_bos)
@@ -164,7 +164,7 @@ class AsrDataloader(Iterable[Seq2SeqBatch]):
         batch_size: int = 0,
         batch_duration: Optional[datetime.timedelta] = None,
         env: fairseq2.distributed.Env,
-        dtype,
+        dtype: torch.dtype,
     ):
         self.tokenizer = tokenizer
         self.sampling_rate = self.tokenizer.sampling_rate

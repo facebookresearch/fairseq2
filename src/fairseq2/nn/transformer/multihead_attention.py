@@ -162,6 +162,8 @@ class StoreAttentionWeights:
         This class follows the :class:`AttentionWeightHook` protocol.
     """
 
+    _storage: MutableSequence[Tensor]
+
     def __init__(self, storage: MutableSequence[Tensor]) -> None:
         """
         :param storage:
@@ -185,10 +187,7 @@ class MultiheadAttention(Module, ABC):
     """Represents a Transformer multi-head attention."""
 
     num_heads: int
-    """The number of attention heads."""
-
     model_dim: int
-    """The dimensionality of the model (i.e. inputs and outputs)."""
 
     _attn_weight_hooks: Dict[int, AttentionWeightHook]
 
@@ -295,7 +294,12 @@ class MultiheadAttention(Module, ABC):
 
 
 class InternalQKVProjection(ResettableProjection):
-    def __init__(self, model_dim: int, device=None, dtype=None) -> None:
+    def __init__(
+        self,
+        model_dim: int,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
+    ) -> None:
         super().__init__(model_dim, model_dim, bias=True, device=device, dtype=dtype)
 
     @override
@@ -310,7 +314,11 @@ class InternalQKVProjection(ResettableProjection):
 
 class InternalOutProjection(ResettableProjection):
     def __init__(
-        self, v_proj_dim: int, model_dim: int, device=None, dtype=None
+        self,
+        v_proj_dim: int,
+        model_dim: int,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
     ) -> None:
         super().__init__(v_proj_dim, model_dim, bias=True, device=device, dtype=dtype)
 
@@ -351,8 +359,8 @@ class StandardMultiheadAttention(MultiheadAttention):
         attn_fn: Optional[AttentionFunction] = None,
         attn_dropout_p: float = 0.0,
         out_proj: Optional[Projection] = None,
-        device=None,
-        dtype=None,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
     ) -> None:
         """
         :param num_heads:

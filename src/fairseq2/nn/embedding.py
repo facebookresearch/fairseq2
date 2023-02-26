@@ -19,23 +19,10 @@ class Embedding(Module):
     """Stores embeddings of a fixed dictionary."""
 
     num_embed: int
-    """The size of the dictionary."""
-
     embedding_dim: int
-    """The dimensionality of returned embeddings."""
-
     padding_idx: Optional[int]
-    """If not ``None``, entries at :attr:`padding_idx` do not contribute to the
-    gradient; therefore, the embedding at :attr:`padding_idx` is not updated
-    during training."""
-
     scaled: bool
-    """If ``True``, the embeddings have been initialized from
-    :math:`\\mathcal{N}(0, \\frac{1}{\\text{embedding_dim}})`; otherwise, from
-    :math:`\\mathcal{N}(0, 1)`."""
-
     weight: Parameter
-    """The learnable embeddings."""
 
     def __init__(
         self,
@@ -43,8 +30,8 @@ class Embedding(Module):
         embedding_dim: int,
         padding_idx: Optional[int] = None,
         scaled: bool = False,
-        device=None,
-        dtype=None,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
     ) -> None:
         """
         :param num_embed:

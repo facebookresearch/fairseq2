@@ -39,7 +39,6 @@ class ModuleList(nn.ModuleList):
     """
 
     drop_p: float
-    """The probability of dropping each submodule during training."""
 
     def __init__(
         self, modules: Optional[Iterable[Module]] = None, drop_p: float = 0.0
