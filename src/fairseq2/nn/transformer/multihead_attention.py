@@ -333,7 +333,7 @@ class InternalOutProjection(ResettableProjection):
 @final
 class StandardMultiheadAttention(MultiheadAttention):
     """Represents a Transformer multi-head attention as described in
-    :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`."""
+    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
     q_proj: Projection
     k_proj: Projection

@@ -51,7 +51,7 @@ class FeedForwardNetwork(Module, ABC):
 @final
 class StandardFeedForwardNetwork(FeedForwardNetwork):
     """Represents a Transformer feed-forward network as described in
-    :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`."""
+    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
     inner_proj: Linear
     inner_activation_fn: Callable[[Tensor], Tensor]

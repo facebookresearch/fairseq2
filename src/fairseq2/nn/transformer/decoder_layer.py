@@ -92,7 +92,7 @@ class TransformerDecoderLayer(Module, ABC):
 @final
 class StandardTransformerDecoderLayer(TransformerDecoderLayer):
     """Represents a Transformer decoder layer as described in
-    :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`."""
+    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
     self_attn: MultiheadAttention
     self_attn_norm: Optional[LayerNorm]
@@ -127,7 +127,8 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         :param scale_residual:
             If ``True``, scales residuals before adding them to the output of
             the feed-forward network. See
-            :cite:t:`DBLP:journals/corr/abs-2110-09456` for more information.
+            :cite:t:`https://doi.org/10.48550/arxiv.2110.09456` for mor
+            information.
         :param dropout_p:
             The dropout probability on outputs of the attention layers and the
             feed-forward network.

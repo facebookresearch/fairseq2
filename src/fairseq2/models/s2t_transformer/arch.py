@@ -24,7 +24,7 @@ from fairseq2.nn.utils.mask import to_padding_mask
 
 class TransformerFbankFrontend(Module):
     """Represents a Transformer front-end as described in Section 2.1 of
-    :cite:t:`DBLP:journals/corr/abs-1911-08460`."""
+    :cite:t:`https://doi.org/10.48550/arxiv.1911.08460`."""
 
     subsampler: FbankSubsampler
     scale: float
@@ -138,7 +138,7 @@ class TransformerFbankFrontend(Module):
 
 class S2TTransformer(Module):
     """Represents a speech-to-text Transformer model as described in Section 2.1
-    of :cite:t:`DBLP:journals/corr/abs-1911-08460`.
+    of :cite:t:`https://doi.org/10.48550/arxiv.1911.08460`.
 
     A learned filterbank subsampler is used as the front-end of the Transformer
     encoder to project inputs into embeddings and to reduce sequence lengths for

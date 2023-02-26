@@ -72,7 +72,7 @@ def default_scaled_dot_product_attention(
     training: bool = True,
 ) -> Tuple[Tensor, Optional[Tensor]]:
     """Compute scaled dot-product attention as described in
-    :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`.
+    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.
 
     .. note::
         This function follows the :class:`AttentionFunction` protocol.

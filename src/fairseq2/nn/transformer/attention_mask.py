@@ -86,7 +86,7 @@ class CausalAttentionMaskGenerator:
 @final
 class ALiBiAttentionMaskGenerator:
     """Generates a mask for self attention as described in
-    :cite:t:`DBLP:journals/corr/abs-2108-12409`.
+    :cite:t:`https://doi.org/10.48550/arxiv.2108.12409`.
 
     .. note::
         This class follows the :class:`AttentionMaskGenerator` protocol.

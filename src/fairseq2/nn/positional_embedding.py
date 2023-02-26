@@ -105,7 +105,7 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
 
     The positional embeddings are initialized as in tensor2tensor which differs
     slightly from the description in section 3.5 of
-    :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`. This means instead of
+    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`. This means instead of
 
     .. math::
         PE_{(pos, 2i)}   = sin(pos/10000^{2i/d_{\\text{model}}})
@@ -275,7 +275,7 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
 @final
 class RotaryEmbedding(PositionalEmbedding):
     """Produces relative positional embeddings as described in
-    :cite:t:`DBLP:journals/corr/abs-2104-09864`."""
+    :cite:t:`https://doi.org/10.48550/arxiv.2104.09864`."""
 
     cos_weight: Tensor
     sin_weight: Tensor

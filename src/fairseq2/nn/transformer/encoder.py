@@ -64,7 +64,7 @@ class TransformerEncoder(Module, ABC):
 @final
 class StandardTransformerEncoder(TransformerEncoder):
     """Represents a Transformer encoder layer as described in
-    :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`."""
+    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
     self_attn_mask_gen: Optional[AttentionMaskGenerator]
     layers: ModuleList
@@ -87,7 +87,7 @@ class StandardTransformerEncoder(TransformerEncoder):
             The attention mask generator. If ``None``, no mask will be used.
         :param layer_drop_p:
             If greater than zero, applies LayerDrop to the encoder layers as
-            described in :cite:t:`DBLP:journals/corr/abs-1909-11556`.
+            described in :cite:t:`https://doi.org/10.48550/arxiv.1909.11556`.
         :param norm_order:
             The Layer Normalization order to use.
         :param norm_eps:

@@ -24,7 +24,7 @@ from fairseq2.nn.transformer.encoder import TransformerEncoder
 
 class TransformerTokenFrontend(Module):
     """Represents a Transformer front-end as described in
-    :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`."""
+    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
     embed: Embedding
     scale: float

@@ -89,7 +89,7 @@ class TransformerDecoder(Module, ABC):
 @final
 class StandardTransformerDecoder(TransformerDecoder):
     """Represents a Transformer decoder layer as described in
-    :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`."""
+    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
     self_attn_mask_gen: AttentionMaskGenerator
     layers: ModuleList
@@ -113,7 +113,7 @@ class StandardTransformerDecoder(TransformerDecoder):
             :class:`CausalAttentionMaskGenerator` will be used.
         :param layer_drop_p:
             If greater than zero, applies LayerDrop to the decoder layers as
-            described in :cite:t:`DBLP:journals/corr/abs-1909-11556`.
+            described in :cite:t:`https://doi.org/10.48550/arxiv.1909.11556`.
         :param norm_order:
             The Layer Normalization order to use.
         :param norm_eps:

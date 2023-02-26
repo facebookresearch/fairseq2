@@ -63,7 +63,7 @@ class FbankSubsampler(Module, ABC):
 @final
 class Conv1dFbankSubsampler(FbankSubsampler):
     """Represents a 1D convolutional subsampler as described in Section 2.1 of
-    :cite:t:`DBLP:journals/corr/abs-1911-08460`."""
+    :cite:t:`https://doi.org/10.48550/arxiv.1911.08460`."""
 
     convs: ModuleList
 

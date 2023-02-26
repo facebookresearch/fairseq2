@@ -40,7 +40,7 @@ from fairseq2.nn.transformer import (
 @dataclass
 class TransformerConfig:
     """The default arguments correspond to the *base* Transformer model as
-    described in Table 3 of :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`."""
+    described in Table 3 of :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
     src_num_tokens: int
     """The number of source tokens, e.g. vocabulary size."""
@@ -94,7 +94,7 @@ class TransformerConfig:
 
     pre_layer_norm: bool = False
     """If ``True``, Layer Normalization will be applied at the beginning of each
-    layer as described in :cite:t:`DBLP:journals/corr/abs-2002-04745`."""
+    layer as described in :cite:t:`https://doi.org/10.48550/arxiv.2002.04745`."""
 
     dropout_p: float = 0.1
     """The dropout probability on outputs of embedding layers, attention layers,
@@ -110,7 +110,7 @@ class TransformerConfig:
 
 class TransformerBuilder:
     """Builds a model that follows the Transformer architecture as described in
-    :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`.
+    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.
 
     To tweak the model architecture, you can subclass this builder and override
     the corresponding methods.
@@ -375,7 +375,7 @@ def build_transformer(
     dtype: Optional[torch.dtype] = None,
 ) -> Transformer:
     """Build a model that follows the Transformer architecture as described in
-    :cite:t:`DBLP:journals/corr/VaswaniSPUJGKP17`.
+    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.
 
     :param cfg:
         The configuration to use.

@@ -41,7 +41,7 @@ from fairseq2.nn.transformer import (
 class S2TTransformerConfig:
     """The default arguments correspond to the *medium* speech-to-text
     Transformer model as described in Table 3 of
-    :cite:t:`DBLP:journals/corr/abs-2010-05171`."""
+    :cite:t:`https://doi.org/10.48550/arxiv.2010.05171`."""
 
     num_fbank_channels: int = 80
     """The number of source log-mel filterbank channels."""
@@ -234,7 +234,7 @@ def build_s2t_transformer(
     cfg: S2TTransformerConfig, device: Optional[torch.device] = None
 ) -> S2TTransformer:
     """Build a model that follows the speech-to-text Transformer architecture
-    as described in :cite:t:`DBLP:journals/corr/abs-1911-08460`.
+    as described in :cite:t:`https://doi.org/10.48550/arxiv.1911.08460`.
 
     :param cfg:
         The configuration to use.
