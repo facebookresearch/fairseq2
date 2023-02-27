@@ -16,7 +16,6 @@ from torchtnt.framework.state import State
 from torchtnt.framework.unit import EvalUnit, PredictUnit, TrainUnit
 
 import fairseq2.callbacks
-import fairseq2.hub
 import fairseq2.nn
 import fairseq2.optim.lr_scheduler
 from fairseq2.callbacks import Metrics
