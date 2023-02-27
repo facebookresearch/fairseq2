@@ -15,6 +15,7 @@ from torch.nn import LayerNorm, Module
 
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
+from fairseq2.nn.utils.fn import get_name
 
 
 class FeedForwardNetwork(Module, ABC):
@@ -37,7 +38,7 @@ class FeedForwardNetwork(Module, ABC):
         :param x:
             The input to project. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)`
             when unbatched, where :math:`N` is the batch size, :math:`S` is the
-            sequence length, and :math:`M` is the batch size.
+            sequence length, and :math:`M` is the model size.
 
         :returns:
             The projected output. *Shape:* Same as ``x``.
@@ -66,6 +67,7 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         inner_activation_fn: Optional[Callable[[Tensor], Tensor]] = None,
         inner_dropout_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
+        norm_eps: float = 1e-5,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
@@ -81,6 +83,10 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
             The dropout probability on outputs of the inner layer.
         :param norm_order:
             The Layer Normalization order to use.
+        :param norm_eps:
+            When ``norm_order`` is ``PRE_WITH_NORMFORMER``, the epsilon value to
+            add to the denominator of the :class:`~torch.nn.LayerNorm` module
+            for numerical stability.
         """
         super().__init__(model_dim)
 
@@ -96,7 +102,7 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         self.inner_dropout_p = inner_dropout_p
 
         if norm_order == TransformerNormOrder.PRE_WITH_NORMFORMER:
-            self.inner_norm = LayerNorm(inner_dim, device=device, dtype=dtype)
+            self.inner_norm = LayerNorm(inner_dim, norm_eps, device=device, dtype=dtype)
         else:
             self.register_module("inner_norm", None)
 
@@ -124,4 +130,4 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         """:meta private:"""
         s = super().extra_repr()
 
-        return f"{s}, inner_dropout_p={self.inner_dropout_p}"
+        return f"{s}, inner_activation_fn={get_name(self.inner_activation_fn)}, inner_dropout_p={self.inner_dropout_p}"

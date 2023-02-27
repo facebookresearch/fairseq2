@@ -24,6 +24,7 @@ from fairseq2.nn.transformer.attention import (
     AttentionFunction,
     default_scaled_dot_product_attention,
 )
+from fairseq2.nn.utils.fn import get_name
 from fairseq2.nn.utils.mask import to_float_mask
 
 
@@ -662,9 +663,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         """:meta private:"""
         s = super().extra_repr()
 
-        s = f"{s}, attn_dropout_p={self.attn_dropout_p}"
-
         if self.add_zero_attn:
             s += ", add_zero_attn=True"
 
-        return s
+        return f"{s}, attn_fn={get_name(self.attn_fn)}, attn_dropout_p={self.attn_dropout_p}"

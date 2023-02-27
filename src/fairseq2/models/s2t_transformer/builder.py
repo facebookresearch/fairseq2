@@ -82,7 +82,7 @@ class S2TTransformerConfig:
     """The dropout probability on outputs of embedding layers, attention layers,
     and feed-forward networks."""
 
-    dtype = torch.float32
+    dtype: torch.dtype = torch.float32
     """The data type of the model parameters and buffers."""
 
 
@@ -225,6 +225,7 @@ class _S2TTransformerBuilder:
             model_dim=self.cfg.model_dim,
             inner_dim=self.cfg.ffn_inner_dim,
             inner_dropout_p=self.cfg.dropout_p,
+            norm_order=TransformerNormOrder.PRE,
             device=self.device,
             dtype=self.cfg.dtype,
         )

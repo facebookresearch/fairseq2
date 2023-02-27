@@ -57,7 +57,7 @@ class TransformerTokenFrontend(Module):
             The dropout probability on embeddings.
         :param norm_eps:
             The epsilon value to add to the denominator of the
-            :class:`~torch.nn.LayerNorm` modules for numerical stability.
+            :class:`~torch.nn.LayerNorm` module for numerical stability.
         """
         super().__init__()
 
@@ -132,7 +132,12 @@ class TransformerTokenFrontend(Module):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"scale={self.scale}, dropout_p={self.dropout_p}"
+        if self.scale != 1.0:
+            s = "no_scale=False"
+        else:
+            s = ""
+
+        return f"{s}, dropout_p={self.dropout_p}"
 
 
 class Transformer(Module):
@@ -286,6 +291,10 @@ class Transformer(Module):
         enc_out, enc_padding_mask = self.encode(src_token_indices)
 
         return self.decode_and_score(tgt_token_indices, enc_out, enc_padding_mask)
+
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        return f"model_dim={self.model_dim}"
 
 
 @final

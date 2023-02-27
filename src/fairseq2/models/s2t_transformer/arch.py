@@ -133,17 +133,17 @@ class TransformerFbankFrontend(Module):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"scale={self.scale}, dropout_p={self.dropout_p}"
+        if self.scale != 1.0:
+            s = "no_scale=False"
+        else:
+            s = ""
+
+        return f"{s}, dropout_p={self.dropout_p}"
 
 
 class S2TTransformer(Module):
     """Represents a speech-to-text Transformer model as described in Section 2.1
-    of :cite:t:`https://doi.org/10.48550/arxiv.1911.08460`.
-
-    A learned filterbank subsampler is used as the front-end of the Transformer
-    encoder to project inputs into embeddings and to reduce sequence lengths for
-    computational efficiency.
-    """
+    of :cite:t:`https://doi.org/10.48550/arxiv.1911.08460`."""
 
     model_dim: int
     encoder_frontend: TransformerFbankFrontend
@@ -309,3 +309,7 @@ class S2TTransformer(Module):
         enc_out, enc_padding_mask = self.encode(fbanks, num_frames)
 
         return self.decode_and_score(tgt_token_indices, enc_out, enc_padding_mask)
+
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        return f"model_dim={self.model_dim}"

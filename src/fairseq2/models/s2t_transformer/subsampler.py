@@ -80,11 +80,11 @@ class Conv1dFbankSubsampler(FbankSubsampler):
         :param num_channels:
             The number of channels of input log-mel filterbanks.
         :param inner_dim:
-            The dimensionality of the intermediate 1D convolution layers.
+            The output dimensionality of the intermediate 1D convolutions.
         :param embedding_dim:
             The dimensionality of returned embeddings.
         :param kernel_sizes:
-            The kernel size of each 1D convolutional layer.
+            The kernel size of each 1D convolution.
         """
         super().__init__(embedding_dim)
 
