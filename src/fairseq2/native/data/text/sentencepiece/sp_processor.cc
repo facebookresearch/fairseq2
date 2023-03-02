@@ -89,10 +89,24 @@ sp_model_loader::add_control_tokens()
         if (token.empty())
             continue;
 
-        if (token == "<pad>")
-            proto_->mutable_trainer_spec()->set_pad_piece(token);
+        if (token == "<pad>" || token == "<pad>@0") {
+            proto_->mutable_trainer_spec()->set_pad_piece("<pad>");
 
-        add_piece(std::move(token));
+            add_piece("<pad>");
+
+            // This is a workaround for SentencePiece models that, for legacy
+            // reasons, do not have a pad token, but expected to have one at
+            // index 0 (e.g. NLLB models).
+            if (token == "<pad>@0") {
+                auto *pieces = proto_->mutable_pieces();
+
+                // RepeatedPtrField does not offer an insert method, so we move
+                // our pad token from the end to the beginning of the list.
+                for (int i = pieces->size() - 1; i > 0; --i)
+                    pieces->SwapElements(i, i - 1);
+            }
+        } else
+            add_piece(std::move(token));
     }
 }
 
