@@ -11,13 +11,14 @@ from torch import Tensor
 
 from fairseq2 import DOC_MODE
 from fairseq2.data.string import String, StringLike
+from fairseq2.data.typing import PathLike
 
 
 @final
 class SentencePieceModel:
     def __init__(
         self,
-        pathname: StringLike,
+        pathname: PathLike,
         control_tokens: Optional[Sequence[StringLike]] = None,
         add_bos: bool = False,
         add_eos: bool = False,
@@ -63,7 +64,7 @@ class SentencePieceEncoder:
         batch_size: Optional[int] = None,
         pad_to_length: Optional[int] = None,
         pad_to_multiple: int = 1,
-        lef_pad: bool = False,
+        left_pad: bool = False,
         dtype: torch.dtype = torch.int32,
         device: Optional[torch.device] = None,
         pin_memory: bool = False,

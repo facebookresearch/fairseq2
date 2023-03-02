@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Callable, Iterator, Sequence, final
 from fairseq2 import DOC_MODE
 from fairseq2.data.string import StringLike
 from fairseq2.data.tape import Tape
+from fairseq2.data.typing import PathLike
 
 
 @final
@@ -110,7 +111,7 @@ class DataPipelineError(RuntimeError):
     """Raised when an error occurs while reading from a data pipeline."""
 
 
-def list_files(pathname: StringLike, pattern: StringLike = "") -> "DataPipelineBuilder":
+def list_files(pathname: PathLike, pattern: StringLike = "") -> "DataPipelineBuilder":
     """List recursively all files under ``pathname`` that matches ``pattern``.
 
     :param pathname:

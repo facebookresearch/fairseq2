@@ -17,6 +17,7 @@ from fairseq2.data.text.sentencepiece import (
     SentencePieceEncoder as SentencePieceEncoder,
 )
 from fairseq2.data.text.sentencepiece import SentencePieceModel as SentencePieceModel
+from fairseq2.data.typing import PathLike
 
 
 class LineEnding(Enum):
@@ -26,7 +27,7 @@ class LineEnding(Enum):
 
 
 def read_text(
-    pathname: StringLike,
+    pathname: PathLike,
     encoding: StringLike = "",
     line_ending: LineEnding = LineEnding.INFER,
     ltrim: bool = False,

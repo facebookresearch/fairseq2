@@ -6,14 +6,30 @@
 
 #include "fairseq2/native/extension/type_casters/string.h"
 
+#include <optional>
 #include <utility>
 
 #include <fairseq2/native/data/immutable_string.h>
 
 namespace pybind11::detail {
+namespace {
+
+object
+try_get_pathname(handle src) {
+    // Check if we have a path-like object.
+    object fspath = getattr(src, "__fspath__", none());
+
+    if (fspath.is_none())
+        return fspath;
+    else
+        // Return the string representation of the path.
+        return fspath();
+}
+
+}  // namespace
 
 bool
-type_caster<std::string>::load(pybind11::handle src, bool convert)
+type_caster<std::string>::load(handle src, bool convert)
 {
     if (isinstance<fairseq2::immutable_string>(src)) {
         value = src.cast<fairseq2::immutable_string &>().to_string();
@@ -23,6 +39,14 @@ type_caster<std::string>::load(pybind11::handle src, bool convert)
         value = static_cast<std::string &&>(std::move(subcaster_));
 
         return true;
+    } else {
+        object pathname = try_get_pathname(src);
+
+        if (subcaster_.load(pathname, convert)) {
+            value = static_cast<std::string &&>(std::move(subcaster_));
+
+            return true;
+        }
     }
 
     return false;
@@ -39,6 +63,18 @@ type_caster<std::string_view>::load(handle src, bool convert)
         value = static_cast<std::string_view>(subcaster_);
 
         return true;
+    } else {
+        object pathname = try_get_pathname(src);
+
+        if (subcaster_.load(pathname, convert)) {
+            value = static_cast<std::string_view>(subcaster_);
+
+            // We have to keep the pathname alive until the enclosing function
+            // returns.
+            loader_life_support::add_patient(pathname);
+
+            return true;
+        }
     }
 
     return false;
