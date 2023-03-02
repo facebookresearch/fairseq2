@@ -11,6 +11,7 @@ from torch import Tensor
 
 from fairseq2 import DOC_MODE
 from fairseq2.data.string import String, StringLike
+from fairseq2.data.text.dictionary import TokenDecoder, TokenEncoder
 from fairseq2.data.typing import PathLike
 
 
@@ -54,7 +55,7 @@ class SentencePieceModel:
 
 
 @final
-class SentencePieceEncoder:
+class SentencePieceEncoder(TokenEncoder):
     def __init__(
         self,
         model: SentencePieceModel,
@@ -77,11 +78,11 @@ class SentencePieceEncoder:
 
 
 @final
-class SentencePieceDecoder:
+class SentencePieceDecoder(TokenDecoder):
     def __init__(self, model: SentencePieceModel) -> None:
         pass
 
-    def __call__(self, token_indices: Tensor) -> List[String]:
+    def __call__(self, token_indices: Tensor) -> List[StringLike]:
         pass
 
 
@@ -91,6 +92,11 @@ if not TYPE_CHECKING and not DOC_MODE:
         SentencePieceEncoder,
         SentencePieceModel,
     )
+
+    # Ensure that extension types are virtual subclasses of their corresponding
+    # abstract base types.
+    TokenEncoder.register(SentencePieceEncoder)
+    TokenDecoder.register(SentencePieceDecoder)
 
     def _set_module() -> None:
         for t in [SentencePieceDecoder, SentencePieceEncoder, SentencePieceModel]:
