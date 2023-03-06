@@ -10,8 +10,6 @@ from typing import TYPE_CHECKING, Optional
 from fairseq2 import DOC_MODE
 from fairseq2.data.data_pipeline import DataPipelineBuilder
 from fairseq2.data.string import StringLike
-from fairseq2.data.text.dictionary import TokenDecoder as TokenDecoder
-from fairseq2.data.text.dictionary import TokenEncoder as TokenEncoder
 from fairseq2.data.text.sentencepiece import (
     SentencePieceDecoder as SentencePieceDecoder,
 )
@@ -19,6 +17,8 @@ from fairseq2.data.text.sentencepiece import (
     SentencePieceEncoder as SentencePieceEncoder,
 )
 from fairseq2.data.text.sentencepiece import SentencePieceModel as SentencePieceModel
+from fairseq2.data.text.tokenizer import TokenDecoder as TokenDecoder
+from fairseq2.data.text.tokenizer import TokenEncoder as TokenEncoder
 from fairseq2.data.typing import PathLike
 
 

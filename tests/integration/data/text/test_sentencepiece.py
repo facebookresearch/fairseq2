@@ -24,7 +24,7 @@ class TestSentencePieceModel:
         assert spm.pad_idx == 256000
         assert spm.unk_idx == 0
 
-    def test_pad_is_correctly_added_at_0(self) -> None:
+    def test_pad_is_correctly_added_at_index_0(self) -> None:
         # Note that this is an undocumented feature and is not part of our
         # public API.
         spm = SentencePieceModel(NLLB_SPM_PATH, control_tokens=["<pad>@0"])

@@ -11,7 +11,7 @@ from torch import Tensor
 
 from fairseq2 import DOC_MODE
 from fairseq2.data.string import String, StringLike
-from fairseq2.data.text.dictionary import TokenDecoder, TokenEncoder
+from fairseq2.data.text.tokenizer import TokenDecoder, TokenEncoder
 from fairseq2.data.typing import PathLike
 
 
