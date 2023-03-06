@@ -92,7 +92,7 @@ class ResettableProjection(Projection):
 
     @abstractmethod
     def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
+        """Reset the parameters of the module."""
 
     @override
     def forward(self, x: Tensor) -> Tensor:

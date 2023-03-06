@@ -61,7 +61,7 @@ class Embedding(Module):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
+        """Reset the parameters of the module."""
         if self.scaled:
             nn.init.normal_(self.weight, std=self.embedding_dim**-0.5)
         else:

@@ -152,8 +152,6 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
     ) -> None:
         super().__init__(max_seq_len, embedding_dim)
 
-        weight = torch.empty((max_seq_len, embedding_dim), device=device, dtype=dtype)
-
         # This is a legacy parameter that should only be set when the embeddings
         # must be compatible with the original fairseq.
         if legacy_padding_idx is None:
@@ -161,12 +159,18 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
         else:
             self._sin_offset = 1 + legacy_padding_idx
 
+        weight = torch.empty((max_seq_len, embedding_dim), device=device, dtype=dtype)
+
         self.register_buffer("weight", weight, persistent=False)
 
-        self.reset_parameters()
+        self.reset_buffers()
 
-    def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
+    def reset_buffers(self, skip_persistent: bool = False) -> None:
+        """Reset the buffers of the module.
+
+        :param skip_persistent:
+            If ``True``, do not reset persistent buffers.
+        """
         num_sin = self.embedding_dim // 2
 
         # Zero pad if the embedding size is odd.
@@ -247,10 +251,14 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
             torch.empty((max_seq_len, embedding_dim), device=device, dtype=dtype)
         )
 
-        self.reset_parameters()
+        self.reset_buffers()
 
-    def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
+    def reset_buffers(self, skip_persistent: bool = False) -> None:
+        """Reset the buffers of the module.
+
+        :param skip_persistent:
+            If ``True``, do not reset persistent buffers.
+        """
         nn.init.normal_(self.weight)
 
     @finaloverride
@@ -298,10 +306,14 @@ class RotaryEmbedding(PositionalEmbedding):
         self.register_buffer("cos_weight", cos, persistent=False)
         self.register_buffer("sin_weight", sin, persistent=False)
 
-        self.reset_parameters()
+        self.reset_buffers()
 
-    def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
+    def reset_buffers(self, skip_persistent: bool = False) -> None:
+        """Reset the buffers of the module.
+
+        :param skip_persistent:
+            If ``True``, do not reset persistent buffers.
+        """
         device, dtype = self.sin_weight.device, self.sin_weight.dtype
 
         ind = torch.arange(self.embedding_dim // 2, device=device, dtype=dtype)
