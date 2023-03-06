@@ -10,7 +10,7 @@ from typing import Optional, final
 import torch
 
 from fairseq2.models.s2t_transformer.arch import (
-    S2TTransformer,
+    S2TTransformerModel,
     TransformerFbankFrontend,
 )
 from fairseq2.models.s2t_transformer.subsampler import Conv1dFbankSubsampler
@@ -83,18 +83,18 @@ class S2TTransformerConfig:
     and feed-forward networks."""
 
     dtype: torch.dtype = torch.float32
-    """The data type of the model parameters and buffers."""
+    """The data type of model parameters and buffers."""
 
 
 @final
-class _S2TTransformerBuilder:
+class _S2TTransformerModelBuilder:
     cfg: S2TTransformerConfig
     device: Optional[torch.device]
 
     def __init__(self, cfg: S2TTransformerConfig) -> None:
         self.cfg = cfg
 
-    def build(self, device: Optional[torch.device] = None) -> S2TTransformer:
+    def build(self, device: Optional[torch.device] = None) -> S2TTransformerModel:
         self.device = device
 
         enc_frontend = self._build_encoder_frontend()
@@ -110,7 +110,7 @@ class _S2TTransformerBuilder:
             dtype=self.cfg.dtype,
         )
 
-        return S2TTransformer(enc_frontend, enc, dec_frontend, dec, score_proj)
+        return S2TTransformerModel(enc_frontend, enc, dec_frontend, dec, score_proj)
 
     def _build_encoder_frontend(self) -> TransformerFbankFrontend:
         subsampler = Conv1dFbankSubsampler(
@@ -231,13 +231,13 @@ class _S2TTransformerBuilder:
         )
 
 
-def build_s2t_transformer(
+def create_s2t_transformer_model(
     cfg: S2TTransformerConfig, device: Optional[torch.device] = None
-) -> S2TTransformer:
+) -> S2TTransformerModel:
     """Build a model that follows the speech-to-text Transformer architecture
     as described in :cite:t:`https://doi.org/10.48550/arxiv.1911.08460`.
 
     :param cfg:
         The configuration to use.
     """
-    return _S2TTransformerBuilder(cfg).build(device)
+    return _S2TTransformerModelBuilder(cfg).build(device)

@@ -26,9 +26,9 @@ from fairseq2.dataloader import Seq2SeqBatch
 from fairseq2.distributed import Env
 from fairseq2.generate import SpmTokenizer, TokenMeta, spm_train
 from fairseq2.models.transformer import (
-    Transformer,
     TransformerConfig,
-    build_transformer,
+    TransformerModel,
+    create_transformer_model,
 )
 from fairseq2.optim.lr_scheduler import InverseSquareRootLR, LRScheduler
 from fairseq2.tasks import TranslationTask
@@ -124,12 +124,12 @@ def valid_data(
 # the tokenizer is serialized with the model, but we still need to know the vocab_size
 # to create an embedding matrix of the right size.
 # Should we hide that in cli.py@train ?
-# Similarly we should export the Builder config in the config.
+# Similarly we should export the model config in the config.
 def token_meta(tokenizer: SpmTokenizer) -> TokenMeta:
     return TokenMeta.from_tokenizer(tokenizer)
 
 
-def model(env: Env, token_meta: TokenMeta) -> Transformer:
+def model(env: Env, token_meta: TokenMeta) -> TransformerModel:
     torchtnt.utils.seed(0)
     torch.cuda.manual_seed(0)
 
@@ -144,10 +144,12 @@ def model(env: Env, token_meta: TokenMeta) -> Transformer:
         dropout_p=0,
     )
 
-    return build_transformer(cfg, env.device)
+    return create_transformer_model(cfg, env.device)
 
 
-def optimizer(model: Transformer, weight_decay: float = 0.001) -> torch.optim.Optimizer:
+def optimizer(
+    model: TransformerModel, weight_decay: float = 0.001
+) -> torch.optim.Optimizer:
     return torch.optim.Adam(
         model.parameters(),
         lr=1.0,

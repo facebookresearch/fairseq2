@@ -5,10 +5,14 @@
 # LICENSE file in the root directory of this source tree.
 
 from fairseq2.models.transformer.arch import ScoreProjection as ScoreProjection
-from fairseq2.models.transformer.arch import Transformer as Transformer
+from fairseq2.models.transformer.arch import TransformerModel as TransformerModel
 from fairseq2.models.transformer.arch import (
     TransformerTokenFrontend as TransformerTokenFrontend,
 )
-from fairseq2.models.transformer.builder import TransformerBuilder as TransformerBuilder
 from fairseq2.models.transformer.builder import TransformerConfig as TransformerConfig
-from fairseq2.models.transformer.builder import build_transformer as build_transformer
+from fairseq2.models.transformer.builder import (
+    TransformerModelBuilder as TransformerModelBuilder,
+)
+from fairseq2.models.transformer.builder import (
+    create_transformer_model as create_transformer_model,
+)

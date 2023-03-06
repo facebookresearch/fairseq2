@@ -12,7 +12,7 @@ from overrides import overrides
 from torch import Tensor
 
 from fairseq2.generate.tokenizer import Tokenizer, TokenMeta
-from fairseq2.models.transformer import Transformer
+from fairseq2.models.transformer import TransformerModel
 from fairseq2.nn.incremental_state import IncrementalStateBag
 
 
@@ -160,7 +160,7 @@ class SearchStrategy(ABC):
     @torch.inference_mode()
     def generate(
         self,
-        model: Transformer,
+        model: TransformerModel,
         src_tokens: Tensor,
         prefix_tokens: Optional[Tensor] = None,
         top: int = 0,
@@ -200,7 +200,7 @@ class SearchStrategy(ABC):
 
     def generate_str(
         self,
-        model: Transformer,
+        model: TransformerModel,
         tokenizer: Tokenizer,
         sentences: List[str],
         *,

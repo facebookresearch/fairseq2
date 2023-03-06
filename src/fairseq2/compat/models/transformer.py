@@ -13,9 +13,9 @@ from torch import Tensor
 
 from fairseq2.generate import SpmTokenizer
 from fairseq2.models.transformer import (
-    Transformer,
     TransformerConfig,
-    build_transformer,
+    TransformerModel,
+    create_transformer_model,
 )
 
 
@@ -131,7 +131,7 @@ def load_fairseq1_checkpoint(
     spm_path: Path,
     device: Optional[torch.device] = None,
     dtype: Optional[torch.dtype] = None,
-) -> Tuple[Transformer, SpmTokenizer, TransformerConfig]:
+) -> Tuple[TransformerModel, SpmTokenizer, TransformerConfig]:
 
     # TODO: this tuple is a bit weird, should we have a reference class for this tuple ?
     # I want the tokenizer and model to always go hand in hand.
@@ -159,7 +159,7 @@ def load_fairseq1_checkpoint(
     assert not getattr(cfg, "add_ssl_task_tokens", False), "TODO"
 
     new_cfg = convert_fairseq1_config(cfg, num_tokens=tokenizer.vocab_size())
-    model = build_transformer(new_cfg, device, dtype)
+    model = create_transformer_model(new_cfg, device, dtype)
     keys2 = set(model.state_dict().keys())
 
     _upgrade_legacy_state_dict(cfg, state["model"])

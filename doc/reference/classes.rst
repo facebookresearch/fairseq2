@@ -18,8 +18,8 @@ Classes
     data.RecordError
     data.text.SentencePieceModel
     models.transformer.ScoreProjection
-    models.transformer.Transformer
-    models.transformer.TransformerBuilder
+    models.transformer.TransformerModel
+    models.transformer.TransformerModelBuilder
     models.transformer.TransformerConfig
     nn.Embedding
     nn.IncrementalState

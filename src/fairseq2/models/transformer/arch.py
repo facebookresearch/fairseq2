@@ -140,7 +140,7 @@ class TransformerTokenFrontend(Module):
         return f"{s}, dropout_p={self.dropout_p}"
 
 
-class Transformer(Module):
+class TransformerModel(Module):
     """Represents a Transformer model."""
 
     model_dim: int

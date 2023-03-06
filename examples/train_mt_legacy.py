@@ -20,9 +20,9 @@ from fairseq2.dataloader import Seq2SeqBatch
 from fairseq2.distributed import Env
 from fairseq2.generate.tokenizer import DictTokenizer
 from fairseq2.models.transformer import (
-    Transformer,
     TransformerConfig,
-    build_transformer,
+    TransformerModel,
+    create_transformer_model,
 )
 from fairseq2.optim.lr_scheduler import InverseSquareRootLR, LRScheduler
 from fairseq2.tasks import TranslationTask
@@ -81,7 +81,7 @@ def tokenizer(
     return tokenizer
 
 
-def model(env: Env, tokenizer: DictTokenizer) -> Transformer:
+def model(env: Env, tokenizer: DictTokenizer) -> TransformerModel:
     cfg = TransformerConfig(
         src_num_tokens=tokenizer.vocab_size(),
         tgt_num_tokens=tokenizer.vocab_size(),
@@ -96,12 +96,14 @@ def model(env: Env, tokenizer: DictTokenizer) -> Transformer:
     torchtnt.utils.seed(1)
     torch.cuda.manual_seed(1)
 
-    # Build on CPU then push to GPU. This allows to use the CPU RNG seed, like
+    # Create on CPU then push to GPU. This allows to use the CPU RNG seed, like
     # fairseq1.
-    return build_transformer(cfg).to(device=env.device)
+    return create_transformer_model(cfg).to(device=env.device)
 
 
-def optimizer(model: Transformer, weight_decay: float = 0.001) -> torch.optim.Optimizer:
+def optimizer(
+    model: TransformerModel, weight_decay: float = 0.001
+) -> torch.optim.Optimizer:
     return torch.optim.Adam(
         model.parameters(),
         lr=1.0,

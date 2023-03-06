@@ -11,7 +11,7 @@ import torch
 
 from fairseq2.models.transformer.arch import (
     ScoreProjection,
-    Transformer,
+    TransformerModel,
     TransformerTokenFrontend,
 )
 from fairseq2.nn.embedding import Embedding
@@ -108,7 +108,7 @@ class TransformerConfig:
     way that is compatible with the original fairseq."""
 
 
-class TransformerBuilder:
+class TransformerModelBuilder:
     """Builds a model that follows the Transformer architecture as described in
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.
 
@@ -153,7 +153,7 @@ class TransformerBuilder:
 
     def build(
         self, device: Optional[torch.device] = None, dtype: Optional[torch.dtype] = None
-    ) -> Transformer:
+    ) -> TransformerModel:
         """Build a model."""
         self.device, self.dtype = device, dtype
 
@@ -165,7 +165,7 @@ class TransformerBuilder:
 
         score_proj = self._build_score_projection()
 
-        model = Transformer(enc_frontend, enc, dec_frontend, dec, score_proj)
+        model = TransformerModel(enc_frontend, enc, dec_frontend, dec, score_proj)
 
         self.enc_embed = None
         self.dec_embed = None
@@ -369,18 +369,18 @@ class TransformerBuilder:
         )
 
 
-def build_transformer(
+def create_transformer_model(
     cfg: TransformerConfig,
     device: Optional[torch.device] = None,
     dtype: Optional[torch.dtype] = None,
-) -> Transformer:
+) -> TransformerModel:
     """Build a model that follows the Transformer architecture as described in
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.
 
     :param cfg:
         The configuration to use.
     """
-    return TransformerBuilder(cfg).build(device, dtype)
+    return TransformerModelBuilder(cfg).build(device, dtype)
 
 
 def transformer_iwslt_de_en() -> TransformerConfig:

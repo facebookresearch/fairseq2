@@ -13,9 +13,9 @@ import torch
 from fairseq2.generate.search import BeamSearchStrategy
 from fairseq2.generate.tokenizer import TokenMeta
 from fairseq2.models.transformer import (
-    Transformer,
     TransformerConfig,
-    build_transformer,
+    TransformerModel,
+    create_transformer_model,
 )
 from fairseq2.nn.transformer import StoreAttentionWeights
 
@@ -23,7 +23,7 @@ VOCAB_SIZE = 111
 
 
 @functools.lru_cache()
-def build_model() -> Transformer:
+def create_model() -> TransformerModel:
     cfg = TransformerConfig(
         src_num_tokens=VOCAB_SIZE,
         tgt_num_tokens=VOCAB_SIZE,
@@ -37,12 +37,12 @@ def build_model() -> Transformer:
         ffn_inner_dim=32,
     )
 
-    return build_transformer(cfg)
+    return create_transformer_model(cfg)
 
 
 @pytest.mark.parametrize("prefix_tokens", [None, 99, [99, 17], [[99, 17], [99, 18]]])
 def test_generate(prefix_tokens: Any) -> None:
-    m = build_model()
+    m = create_model()
 
     src_len, tgt_len = (4, 6)
     token_meta = TokenMeta(vocab_size=VOCAB_SIZE, BOS=0, EOS=1, UNK=2, PAD=3)

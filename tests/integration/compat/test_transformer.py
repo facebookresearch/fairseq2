@@ -7,7 +7,7 @@ import torch
 import fairseq2.generate
 import fairseq2.nn
 from fairseq2.compat.models.transformer import load_fairseq1_checkpoint
-from fairseq2.models.transformer import TransformerConfig, build_transformer
+from fairseq2.models.transformer import TransformerConfig, create_transformer_model
 from tests.common import assert_close, assert_equal, device
 
 NLLB_MODELS = Path("/large_experiments/seamless/nllb/opensource/")
@@ -60,7 +60,7 @@ def test_loading_nllb200_small(tmp_path: Path) -> None:
     # Reload NLLB200 as a fairseq2 model
     state = torch.load(tmp_path / "nllb200.fairseq2.pt")
     cfg3 = cast(TransformerConfig, state["cfg"])
-    model3 = build_transformer(cfg3)
+    model3 = create_transformer_model(cfg3)
     tokenizer3 = cast(fairseq2.generate.Tokenizer, state["tokenizer"])
     model3.load_state_dict(state["model"])  # type: ignore
     model3.eval()
@@ -72,7 +72,7 @@ def test_loading_nllb200_small(tmp_path: Path) -> None:
 
 @torch.inference_mode()
 def assert_speaks_french(
-    model: fairseq2.models.transformer.Transformer,
+    model: fairseq2.models.transformer.TransformerModel,
     tokenizer: fairseq2.generate.Tokenizer,
     device: torch.device,
 ) -> None:
