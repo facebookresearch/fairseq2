@@ -24,15 +24,15 @@ class ConformerEncoderLayer(TransformerEncoderLayer):
     """Represents a Conformer encoder layer as described in
     :cite:t:`https://doi.org/10.48550/arxiv.2005.08100`."""
 
-    ffn1_norm: LayerNorm
+    ffn1_layer_norm: LayerNorm
     ffn1: FeedForwardNetwork
     self_attn_layer_norm: LayerNorm
     self_attn: MultiheadAttention
-    conv_norm: LayerNorm
+    conv_layer_norm: LayerNorm
     conv: ConformerConvolution
-    ffn2_norm: LayerNorm
+    ffn2_layer_norm: LayerNorm
     ffn2: FeedForwardNetwork
-    out_norm: LayerNorm
+    layer_norm: LayerNorm
     dropout_p: float
 
     def __init__(
@@ -71,7 +71,9 @@ class ConformerEncoderLayer(TransformerEncoderLayer):
                 f"`model_dim` of `ffn1` ({ffn1.model_dim}) does not match `model_dim` of `self_attn` ({model_dim})."
             )
 
-        self.ffn1_norm = LayerNorm(model_dim, norm_eps, device=device, dtype=dtype)
+        self.ffn1_layer_norm = LayerNorm(
+            model_dim, norm_eps, device=device, dtype=dtype
+        )
 
         self.ffn1 = ffn1
 
@@ -86,7 +88,9 @@ class ConformerEncoderLayer(TransformerEncoderLayer):
                 f"`model_dim` of `conv` ({conv.model_dim}) does not match `model_dim` of `self_attn` ({model_dim})."
             )
 
-        self.conv_norm = LayerNorm(model_dim, norm_eps, device=device, dtype=dtype)
+        self.conv_layer_norm = LayerNorm(
+            model_dim, norm_eps, device=device, dtype=dtype
+        )
 
         self.conv = conv
 
@@ -95,11 +99,13 @@ class ConformerEncoderLayer(TransformerEncoderLayer):
                 f"`model_dim` of `ffn2` ({ffn2.model_dim}) does not match `model_dim` of `self_attn` ({model_dim})."
             )
 
-        self.ffn2_norm = LayerNorm(model_dim, norm_eps, device=device, dtype=dtype)
+        self.ffn2_layer_norm = LayerNorm(
+            model_dim, norm_eps, device=device, dtype=dtype
+        )
 
         self.ffn2 = ffn2
 
-        self.out_norm = LayerNorm(model_dim, norm_eps, device=device, dtype=dtype)
+        self.layer_norm = LayerNorm(model_dim, norm_eps, device=device, dtype=dtype)
 
         self.dropout_p = dropout_p
 
@@ -118,14 +124,14 @@ class ConformerEncoderLayer(TransformerEncoderLayer):
 
         x = self._forward_ffn2(x)
 
-        x = self.out_norm(x)
+        x = self.layer_norm(x)
 
         return x  # type: ignore[no-any-return]
 
     def _forward_ffn1(self, x: Tensor) -> Tensor:
         residual = x
 
-        x = self.ffn1_norm(x)
+        x = self.ffn1_layer_norm(x)
 
         x = self.ffn1(x) * 0.5
 
@@ -160,7 +166,7 @@ class ConformerEncoderLayer(TransformerEncoderLayer):
     def _forward_conv(self, x: Tensor) -> Tensor:
         residual = x
 
-        x = self.conv_norm(x)
+        x = self.conv_layer_norm(x)
 
         x = self.conv(x)
 
@@ -172,7 +178,7 @@ class ConformerEncoderLayer(TransformerEncoderLayer):
     def _forward_ffn2(self, x: Tensor) -> Tensor:
         residual = x
 
-        x = self.ffn2_norm(x)
+        x = self.ffn2_layer_norm(x)
 
         x = self.ffn2(x) * 0.5
 
