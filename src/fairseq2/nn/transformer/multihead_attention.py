@@ -440,9 +440,9 @@ class StandardMultiheadAttention(MultiheadAttention):
         self.v_proj = v_proj
 
         if pos_embed is not None:
-            if (head_dim := k_proj.out_dim // num_heads) != pos_embed.embedding_dim:
+            if (head_dim := k_proj.out_dim // num_heads) != pos_embed.embed_dim:
                 raise ValueError(
-                    f"`embedding_dim` of `pos_embed` ({pos_embed.embedding_dim}) does not match the size of the header key dimension ({head_dim})."
+                    f"`embed_dim` of `pos_embed` ({pos_embed.embed_dim}) does not match the size of the header key dimension ({head_dim})."
                 )
 
             self.pos_embed = pos_embed

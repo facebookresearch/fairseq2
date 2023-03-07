@@ -19,7 +19,7 @@ Classes
     data.text.SentencePieceModel
     models.transformer.ScoreProjection
     models.transformer.TransformerModel
-    models.transformer.TransformerModelBuilder
+    models.transformer.TransformerBuilder
     models.transformer.TransformerConfig
     nn.Embedding
     nn.IncrementalState

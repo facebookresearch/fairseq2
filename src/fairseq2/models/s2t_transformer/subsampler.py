@@ -18,16 +18,16 @@ class FbankSubsampler(Module, ABC):
     """Subsamples log-mel filterbanks and embeds them in a latent space for use
     in sequence encoding and decoding."""
 
-    embedding_dim: int
+    embed_dim: int
 
-    def __init__(self, embedding_dim: int) -> None:
+    def __init__(self, embed_dim: int) -> None:
         """
-        :param embedding_dim:
+        :param embed_dim:
             The dimensionality of returned embeddings.
         """
         super().__init__()
 
-        self.embedding_dim = embedding_dim
+        self.embed_dim = embed_dim
 
     @abstractmethod
     def forward(
@@ -57,7 +57,7 @@ class FbankSubsampler(Module, ABC):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"embedding_dim={self.embedding_dim}"
+        return f"embed_dim={self.embed_dim}"
 
 
 @final
@@ -71,7 +71,7 @@ class Conv1dFbankSubsampler(FbankSubsampler):
         self,
         num_channels: int,
         inner_dim: int,
-        embedding_dim: int,
+        embed_dim: int,
         kernel_sizes: Optional[Sequence[int]] = None,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
@@ -81,12 +81,12 @@ class Conv1dFbankSubsampler(FbankSubsampler):
             The number of channels of input log-mel filterbanks.
         :param inner_dim:
             The output dimensionality of the intermediate 1D convolutions.
-        :param embedding_dim:
+        :param embed_dim:
             The dimensionality of returned embeddings.
         :param kernel_sizes:
             The kernel size of each 1D convolution.
         """
-        super().__init__(embedding_dim)
+        super().__init__(embed_dim)
 
         if kernel_sizes is None:
             kernel_sizes = [3, 3]
@@ -99,7 +99,7 @@ class Conv1dFbankSubsampler(FbankSubsampler):
         convs = [
             Conv1d(
                 num_channels if i == 0 else inner_dim // 2,
-                inner_dim if i < last_layer else embedding_dim * 2,
+                inner_dim if i < last_layer else embed_dim * 2,
                 kernel_size,
                 stride=2,
                 padding=kernel_size // 2,

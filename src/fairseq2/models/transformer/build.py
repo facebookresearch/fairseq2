@@ -89,8 +89,8 @@ class TransformerBuilder:
         """Build a shared encoder/decoder frontend."""
         embed = Embedding(
             num_embed=self.vocab_info.size,
-            embedding_dim=self.cfg.model_dim,
-            padding_idx=self.vocab_info.pad_idx,
+            embed_dim=self.cfg.model_dim,
+            pad_idx=self.vocab_info.pad_idx,
             scaled=True,
             device=self.device,
             dtype=self.cfg.dtype,
@@ -98,8 +98,8 @@ class TransformerBuilder:
 
         pos_embed = SinusoidalPositionalEmbedding(
             max_seq_len=self.cfg.max_seq_len,
-            embedding_dim=self.cfg.model_dim,
-            legacy_padding_idx=self.vocab_info.pad_idx,
+            embed_dim=self.cfg.model_dim,
+            legacy_pad_token_idx=self.vocab_info.pad_idx,
             device=self.device,
             dtype=self.cfg.dtype,
         )

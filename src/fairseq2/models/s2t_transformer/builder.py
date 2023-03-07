@@ -50,8 +50,8 @@ class S2TTransformerConfig:
     tgt_num_tokens: int = 100
     """The number of target tokens, e.g. vocabulary size."""
 
-    tgt_padding_token_idx: Optional[int] = 1
-    """If not ``None``, entries at ``tgt_padding_token_idx`` in target sequences
+    tgt_pad_token_idx: Optional[int] = 1
+    """If not ``None``, entries at ``tgt_pad_token_idx`` in target sequences
     won't contribute to the gradient."""
 
     max_src_len: int = 1024
@@ -79,8 +79,8 @@ class S2TTransformerConfig:
     """The dimensionality of inner layers in feed-forward networks."""
 
     dropout_p: float = 0.15
-    """The dropout probability on outputs of embedding layers, attention layers,
-    and feed-forward networks."""
+    """The dropout probability on outputs of embedding dictionaries, attention
+    layers, and feed-forward networks."""
 
     dtype: torch.dtype = torch.float32
     """The data type of model parameters and buffers."""
@@ -105,7 +105,7 @@ class _S2TTransformerModelBuilder:
 
         score_proj = ScoreProjection(
             num_embed=self.cfg.tgt_num_tokens,
-            embedding_dim=self.cfg.model_dim,
+            embed_dim=self.cfg.model_dim,
             device=self.device,
             dtype=self.cfg.dtype,
         )
@@ -116,7 +116,7 @@ class _S2TTransformerModelBuilder:
         subsampler = Conv1dFbankSubsampler(
             num_channels=self.cfg.num_fbank_channels,
             inner_dim=1024,
-            embedding_dim=self.cfg.model_dim,
+            embed_dim=self.cfg.model_dim,
             kernel_sizes=[5, 5],
             device=self.device,
             dtype=self.cfg.dtype,
@@ -135,8 +135,8 @@ class _S2TTransformerModelBuilder:
     def _build_decoder_frontend(self) -> TransformerTokenFrontend:
         embed = Embedding(
             num_embed=self.cfg.tgt_num_tokens,
-            embedding_dim=self.cfg.model_dim,
-            padding_idx=self.cfg.tgt_padding_token_idx,
+            embed_dim=self.cfg.model_dim,
+            pad_idx=self.cfg.tgt_pad_token_idx,
             scaled=True,
             device=self.device,
             dtype=self.cfg.dtype,
@@ -155,7 +155,7 @@ class _S2TTransformerModelBuilder:
     def _build_positional_embedding(self, max_seq_len: int) -> PositionalEmbedding:
         return SinusoidalPositionalEmbedding(
             max_seq_len=max_seq_len,
-            embedding_dim=self.cfg.model_dim,
+            embed_dim=self.cfg.model_dim,
             device=self.device,
             dtype=self.cfg.dtype,
         )

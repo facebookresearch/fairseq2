@@ -55,16 +55,16 @@ class TransformerFbankFrontend(Module):
         """
         super().__init__()
 
-        embedding_dim = subsampler.embedding_dim
+        embed_dim = subsampler.embed_dim
 
         self.subsampler = subsampler
 
-        self.scale = math.sqrt(embedding_dim)
+        self.scale = math.sqrt(embed_dim)
 
         if pos_embed is not None:
-            if pos_embed.embedding_dim != embedding_dim:
+            if pos_embed.embed_dim != embed_dim:
                 raise ValueError(
-                    f"`embedding_dim` of `pos_embed` ({pos_embed.embedding_dim}) does not match `embedding_dim` of `subsampler` ({embedding_dim})."
+                    f"`embed_dim` of `pos_embed` ({pos_embed.embed_dim}) does not match `embed_dim` of `subsampler` ({embed_dim})."
                 )
 
             self.pos_embed = pos_embed
@@ -72,7 +72,7 @@ class TransformerFbankFrontend(Module):
             self.register_module("pos_embed", None)
 
         if apply_projection:
-            self.proj = Linear(embedding_dim, embedding_dim, device=device, dtype=dtype)
+            self.proj = Linear(embed_dim, embed_dim, device=device, dtype=dtype)
         else:
             self.register_module("proj", None)
 
@@ -179,14 +179,14 @@ class S2TTransformerModel(Module):
                 f"`model_dim` of `encoder` ({encoder.model_dim}) does not match `model_dim` of `decoder` ({decoder.model_dim})."
             )
 
-        if encoder_frontend.subsampler.embedding_dim != model_dim:
+        if encoder_frontend.subsampler.embed_dim != model_dim:
             raise ValueError(
-                f"`embedding_dim` of `encoder_frontend.subsampler` ({encoder_frontend.subsampler.embedding_dim}) does not match `model_dim` of `encoder` ({model_dim})."
+                f"`embed_dim` of `encoder_frontend.subsampler` ({encoder_frontend.subsampler.embed_dim}) does not match `model_dim` of `encoder` ({model_dim})."
             )
 
-        if decoder_frontend.embed.embedding_dim != model_dim:
+        if decoder_frontend.embed.embed_dim != model_dim:
             raise ValueError(
-                f"`embedding_dim` of `decoder_frontend.embed` ({decoder_frontend.embed.embedding_dim}) does not match `model_dim` of `decoder` ({model_dim})."
+                f"`embed_dim` of `decoder_frontend.embed` ({decoder_frontend.embed.embed_dim}) does not match `model_dim` of `decoder` ({model_dim})."
             )
 
         super().__init__()

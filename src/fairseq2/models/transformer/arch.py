@@ -61,16 +61,16 @@ class TransformerTokenFrontend(Module):
         """
         super().__init__()
 
-        embedding_dim = embed.embedding_dim
+        embed_dim = embed.embed_dim
 
         self.embed = embed
 
-        self.scale = 1.0 if no_scale else math.sqrt(embedding_dim)
+        self.scale = 1.0 if no_scale else math.sqrt(embed_dim)
 
         if pos_embed is not None:
-            if pos_embed.embedding_dim != embedding_dim:
+            if pos_embed.embed_dim != embed_dim:
                 raise ValueError(
-                    f"`embedding_dim` of `pos_embed` ({pos_embed.embedding_dim}) does not match `embedding_dim` of `embed` ({embedding_dim})."
+                    f"`embed_dim` of `pos_embed` ({pos_embed.embed_dim}) does not match `embed_dim` of `embed` ({embed_dim})."
                 )
 
             self.pos_embed = pos_embed
@@ -78,7 +78,7 @@ class TransformerTokenFrontend(Module):
             self.register_module("pos_embed", None)
 
         if norm:
-            self.norm = LayerNorm(embedding_dim, norm_eps, device=device, dtype=dtype)
+            self.norm = LayerNorm(embed_dim, norm_eps, device=device, dtype=dtype)
         else:
             self.register_module("norm", None)
 
@@ -123,10 +123,10 @@ class TransformerTokenFrontend(Module):
         if self.dropout_p > 0.0:
             embeds = F.dropout(embeds, self.dropout_p, self.training)
 
-        if self.embed.padding_idx is None:
+        if self.embed.pad_idx is None:
             padding_mask = None
         else:
-            padding_mask = token_indices.eq(self.embed.padding_idx)
+            padding_mask = token_indices.eq(self.embed.pad_idx)
 
         return embeds, padding_mask
 
@@ -178,14 +178,14 @@ class TransformerModel(Module):
                 f"`model_dim` of `encoder` ({encoder.model_dim}) does not match `model_dim` of `decoder` ({decoder.model_dim})."
             )
 
-        if encoder_frontend.embed.embedding_dim != model_dim:
+        if encoder_frontend.embed.embed_dim != model_dim:
             raise ValueError(
-                f"`embedding_dim` of `encoder_frontend.embed` ({encoder_frontend.embed.embedding_dim}) does not match `model_dim` of `encoder` ({model_dim})."
+                f"`embed_dim` of `encoder_frontend.embed` ({encoder_frontend.embed.embed_dim}) does not match `model_dim` of `encoder` ({model_dim})."
             )
 
-        if decoder_frontend.embed.embedding_dim != model_dim:
+        if decoder_frontend.embed.embed_dim != model_dim:
             raise ValueError(
-                f"`embedding_dim` of `decoder_frontend.embed` ({decoder_frontend.embed.embedding_dim}) does not match `model_dim` of `decoder` ({model_dim})."
+                f"`embed_dim` of `decoder_frontend.embed` ({decoder_frontend.embed.embed_dim}) does not match `model_dim` of `decoder` ({model_dim})."
             )
 
         super().__init__()
@@ -305,19 +305,17 @@ class ScoreProjection(ResettableProjection):
     def __init__(
         self,
         num_embed: int,
-        embedding_dim: int,
+        embed_dim: int,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
         """
         :param num_embed:
             The size of the output embedding dictionary.
-        :param embedding_dim:
+        :param embed_dim:
             The dimensionality of output embeddings.
         """
-        super().__init__(
-            embedding_dim, num_embed, bias=False, device=device, dtype=dtype
-        )
+        super().__init__(embed_dim, num_embed, bias=False, device=device, dtype=dtype)
 
     @finaloverride
     def reset_parameters(self) -> None:
