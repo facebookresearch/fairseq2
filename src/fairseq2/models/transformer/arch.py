@@ -141,7 +141,8 @@ class TransformerTokenFrontend(Module):
 
 
 class TransformerModel(Module):
-    """Represents a Transformer model."""
+    """Represents a Transformer model as described in
+    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
     model_dim: int
     encoder_frontend: TransformerTokenFrontend

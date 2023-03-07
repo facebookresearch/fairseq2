@@ -25,19 +25,16 @@ VOCAB_SIZE = 111
 @functools.lru_cache()
 def create_model() -> TransformerModel:
     cfg = TransformerConfig(
-        src_num_tokens=VOCAB_SIZE,
-        tgt_num_tokens=VOCAB_SIZE,
-        src_padding_token_idx=None,
-        tgt_padding_token_idx=None,
-        max_src_len=64,
-        max_tgt_len=64,
+        max_seq_len=64,
         model_dim=16,
         num_enc_layers=2,
         num_dec_layers=2,
         ffn_inner_dim=32,
     )
 
-    return create_transformer_model(cfg)
+    vocab_info = VocabularyInfo(VOCAB_SIZE, 0, 1, 2, 3)
+
+    return create_transformer_model(cfg, vocab_info)
 
 
 @pytest.mark.parametrize("prefix_tokens", [None, 99, [99, 17], [[99, 17], [99, 18]]])

@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional, Tuple
 import torch
 from torch import Tensor
 
+from fairseq2.data.text import VocabularyInfo
 from fairseq2.generate import SpmTokenizer
 from fairseq2.models.transformer import (
     TransformerConfig,
@@ -19,7 +20,7 @@ from fairseq2.models.transformer import (
 )
 
 
-def convert_fairseq1_config(cfg: Any, num_tokens: int) -> TransformerConfig:
+def convert_fairseq1_config(cfg: Any) -> TransformerConfig:
     if cfg.encoder_learned_pos or cfg.decoder_learned_pos:
         raise RuntimeError(
             "Learned positional embeddings are not supported. File a bug report if you want them to be supported."
@@ -44,23 +45,17 @@ def convert_fairseq1_config(cfg: Any, num_tokens: int) -> TransformerConfig:
             "The Layer Normalization order does not match between the encoder and decoder."
         )
 
-    if cfg.share_all_embeddings:
-        cfg.share_decoder_input_output_embed = True
+    if not cfg.share_all_embeddings:
+        raise ValueError("Non shared embeddings are not supported.")
 
     return TransformerConfig(
-        src_num_tokens=num_tokens,
-        tgt_num_tokens=num_tokens,
-        src_padding_token_idx=1,
-        tgt_padding_token_idx=1,
-        max_src_len=cfg.max_source_positions,
-        max_tgt_len=cfg.max_target_positions,
+        max_seq_len=cfg.max_source_positions,
         model_dim=model_dim,
         num_enc_layers=cfg.encoder_layers,
         num_dec_layers=cfg.decoder_layers,
         num_enc_attn_heads=cfg.encoder_attention_heads,
         num_dec_attn_heads=cfg.decoder_attention_heads,
         ffn_inner_dim=ffn_dim,
-        pre_layer_norm=cfg.encoder_normalize_before,
         dropout_p=cfg.dropout,
         legacy_pos_embed=True,
     )
@@ -158,8 +153,19 @@ def load_fairseq1_checkpoint(
 
     assert not getattr(cfg, "add_ssl_task_tokens", False), "TODO"
 
-    new_cfg = convert_fairseq1_config(cfg, num_tokens=tokenizer.vocab_size())
-    model = create_transformer_model(new_cfg, device, dtype)
+    new_cfg = convert_fairseq1_config(cfg)
+    if dtype is not None:
+        new_cfg.dtype = dtype
+
+    vocab_info = VocabularyInfo(
+        tokenizer.vocab_size(),
+        tokenizer.UNK,
+        tokenizer.BOS,
+        tokenizer.EOS,
+        tokenizer.PAD,
+    )
+
+    model = create_transformer_model(new_cfg, vocab_info, device)
     keys2 = set(model.state_dict().keys())
 
     _upgrade_legacy_state_dict(cfg, state["model"])

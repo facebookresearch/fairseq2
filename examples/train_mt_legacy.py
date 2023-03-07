@@ -16,6 +16,7 @@ import fairseq2.distributed
 import fairseq2.hub
 import fairseq2.nn
 import fairseq2.optim.lr_scheduler
+from fairseq2.data.text import VocabularyInfo
 from fairseq2.dataloader import Seq2SeqBatch
 from fairseq2.distributed import Env
 from fairseq2.generate.tokenizer import DictTokenizer
@@ -83,14 +84,18 @@ def tokenizer(
 
 def model(env: Env, tokenizer: DictTokenizer) -> TransformerModel:
     cfg = TransformerConfig(
-        src_num_tokens=tokenizer.vocab_size(),
-        tgt_num_tokens=tokenizer.vocab_size(),
-        src_padding_token_idx=tokenizer.PAD,
-        tgt_padding_token_idx=tokenizer.PAD,
         num_enc_attn_heads=4,
         num_dec_attn_heads=4,
         ffn_inner_dim=1024,
         dropout_p=0,
+    )
+
+    vocab_info = VocabularyInfo(
+        tokenizer.vocab_size(),
+        tokenizer.UNK,
+        tokenizer.BOS,
+        tokenizer.EOS,
+        tokenizer.PAD,
     )
 
     torchtnt.utils.seed(1)
@@ -98,7 +103,7 @@ def model(env: Env, tokenizer: DictTokenizer) -> TransformerModel:
 
     # Create on CPU then push to GPU. This allows to use the CPU RNG seed, like
     # fairseq1.
-    return create_transformer_model(cfg).to(device=env.device)
+    return create_transformer_model(cfg, vocab_info).to(device=env.device)
 
 
 def optimizer(

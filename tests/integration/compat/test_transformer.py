@@ -7,6 +7,7 @@ import torch
 import fairseq2.generate
 import fairseq2.nn
 from fairseq2.compat.models.transformer import load_fairseq1_checkpoint
+from fairseq2.data.text import VocabularyInfo
 from fairseq2.models.transformer import TransformerConfig, create_transformer_model
 from tests.common import assert_close, assert_equal, device
 
@@ -57,10 +58,18 @@ def test_loading_nllb200_small(tmp_path: Path) -> None:
     }
     torch.save(state, tmp_path / "nllb200.fairseq2.pt")
 
+    vocab_info = VocabularyInfo(
+        tokenizer2.vocab_size(),
+        tokenizer2.UNK,
+        tokenizer2.BOS,
+        tokenizer2.EOS,
+        tokenizer2.PAD,
+    )
+
     # Reload NLLB200 as a fairseq2 model
     state = torch.load(tmp_path / "nllb200.fairseq2.pt")
     cfg3 = cast(TransformerConfig, state["cfg"])
-    model3 = create_transformer_model(cfg3)
+    model3 = create_transformer_model(cfg3, vocab_info)
     tokenizer3 = cast(fairseq2.generate.Tokenizer, state["tokenizer"])
     model3.load_state_dict(state["model"])  # type: ignore
     model3.eval()

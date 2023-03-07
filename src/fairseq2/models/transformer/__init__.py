@@ -9,10 +9,8 @@ from fairseq2.models.transformer.arch import TransformerModel as TransformerMode
 from fairseq2.models.transformer.arch import (
     TransformerTokenFrontend as TransformerTokenFrontend,
 )
-from fairseq2.models.transformer.builder import TransformerConfig as TransformerConfig
-from fairseq2.models.transformer.builder import (
-    TransformerModelBuilder as TransformerModelBuilder,
-)
-from fairseq2.models.transformer.builder import (
+from fairseq2.models.transformer.build import TransformerBuilder as TransformerBuilder
+from fairseq2.models.transformer.build import (
     create_transformer_model as create_transformer_model,
 )
+from fairseq2.models.transformer.config import TransformerConfig as TransformerConfig

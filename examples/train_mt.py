@@ -144,14 +144,10 @@ def model(env: Env, vocab_info: VocabularyInfo) -> TransformerModel:
     # to create the model, while we want to load it from the snapshot.
     # How can we create the model without the tokenizer ?
     cfg = TransformerConfig(
-        src_num_tokens=vocab_info.size,
-        tgt_num_tokens=vocab_info.size,
-        src_padding_token_idx=vocab_info.pad_idx,
-        tgt_padding_token_idx=vocab_info.pad_idx,
         dropout_p=0,
     )
 
-    return create_transformer_model(cfg, env.device)
+    return create_transformer_model(cfg, vocab_info, env.device)
 
 
 def optimizer(
