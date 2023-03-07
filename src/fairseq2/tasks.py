@@ -159,7 +159,7 @@ class Seq2Seq(
 
     @functools.lru_cache()
     def default_strategy(self) -> SearchStrategy:
-        return BeamSearchStrategy(beam_size=5, max_len=512, token_meta=self.tokenizer)
+        return BeamSearchStrategy(beam_size=5, max_len=512, vocab_info=self.tokenizer)
 
     @torch.inference_mode()
     def generate_batch(self, data: Seq2SeqBatch) -> List[Seq2SeqStr]:

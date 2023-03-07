@@ -22,9 +22,10 @@ import fairseq2.dataloader.huggingface
 import fairseq2.distributed
 import fairseq2.nn
 import fairseq2.optim.lr_scheduler
+from fairseq2.data.text import VocabularyInfo
 from fairseq2.dataloader import Seq2SeqBatch
 from fairseq2.distributed import Env
-from fairseq2.generate import SpmTokenizer, TokenMeta, spm_train
+from fairseq2.generate import SpmTokenizer, spm_train
 from fairseq2.models.transformer import (
     TransformerConfig,
     TransformerModel,
@@ -125,11 +126,17 @@ def valid_data(
 # to create an embedding matrix of the right size.
 # Should we hide that in cli.py@train ?
 # Similarly we should export the model config in the config.
-def token_meta(tokenizer: SpmTokenizer) -> TokenMeta:
-    return TokenMeta.from_tokenizer(tokenizer)
+def vocab_info(tokenizer: SpmTokenizer) -> VocabularyInfo:
+    return VocabularyInfo(
+        tokenizer.vocab_size(),
+        tokenizer.UNK,
+        tokenizer.BOS,
+        tokenizer.EOS,
+        tokenizer.PAD,
+    )
 
 
-def model(env: Env, token_meta: TokenMeta) -> TransformerModel:
+def model(env: Env, vocab_info: VocabularyInfo) -> TransformerModel:
     torchtnt.utils.seed(0)
     torch.cuda.manual_seed(0)
 
@@ -137,10 +144,10 @@ def model(env: Env, token_meta: TokenMeta) -> TransformerModel:
     # to create the model, while we want to load it from the snapshot.
     # How can we create the model without the tokenizer ?
     cfg = TransformerConfig(
-        src_num_tokens=token_meta.vocab_size,
-        tgt_num_tokens=token_meta.vocab_size,
-        src_padding_token_idx=token_meta.PAD,
-        tgt_padding_token_idx=token_meta.PAD,
+        src_num_tokens=vocab_info.size,
+        tgt_num_tokens=vocab_info.size,
+        src_padding_token_idx=vocab_info.pad_idx,
+        tgt_padding_token_idx=vocab_info.pad_idx,
         dropout_p=0,
     )
 

@@ -11,7 +11,8 @@ import torch.nn as nn
 from overrides import overrides
 from torch import Tensor
 
-from fairseq2.generate.tokenizer import Tokenizer, TokenMeta
+from fairseq2.data.text import VocabularyInfo
+from fairseq2.generate.tokenizer import Tokenizer
 from fairseq2.models.transformer import TransformerModel
 from fairseq2.nn.incremental_state import IncrementalStateBag
 
@@ -94,7 +95,7 @@ class SearchStrategy(ABC):
     """Abstract token generation search strategy."""
 
     beam_size: int
-    token_meta: TokenMeta
+    vocab_info: VocabularyInfo
 
     @dataclass
     class SearchJob(ABC):
@@ -270,14 +271,14 @@ class BeamSearchJob(SearchStrategy.SearchJob):
 
         self.tokens = torch.full(
             size=state_size,
-            fill_value=strategy.token_meta.PAD,
+            fill_value=strategy.vocab_info.pad_idx,
             dtype=torch.long,
             device=src_tokens.device,
         )
 
         self.step = 0
         if prefix_tokens is None:
-            self.tokens[:, :, 0] = strategy.token_meta.BOS
+            self.tokens[:, :, 0] = strategy.vocab_info.bos_idx
             self.n_prefix_tokens = 1
         elif prefix_tokens.ndim == 0:
             self.tokens[:, :, 0] = prefix_tokens
@@ -330,9 +331,9 @@ class BeamSearchJob(SearchStrategy.SearchJob):
             f"state beam_size {self.beam_size}"
         )
 
-        assert dec_out.shape[1] == self.strategy.token_meta.vocab_size, (
+        assert dec_out.shape[1] == self.strategy.vocab_info.size, (
             f"Input dec_out vocab size {dec_out.shape[1]}) != "
-            f"tokenizer vocab size: {self.strategy.token_meta.vocab_size}"
+            f"tokenizer vocab size: {self.strategy.vocab_info.size}"
         )
 
         self.step += 1
@@ -364,7 +365,7 @@ class BeamSearchJob(SearchStrategy.SearchJob):
                         lprobs_beam[
                             batch_idx,
                             beam_idx,
-                            self.strategy.token_meta.PAD,
+                            self.strategy.vocab_info.pad_idx,
                         ] = self.scores[batch_idx, beam_idx, self.step - 1]
 
         # layout: (bsz, beam_size)
@@ -400,7 +401,7 @@ class BeamSearchJob(SearchStrategy.SearchJob):
 
         # Generations are marked as finished at the first EOS
         self.finished_mask += (
-            self.tokens[:, :, self.step] == self.strategy.token_meta.EOS
+            self.tokens[:, :, self.step] == self.strategy.vocab_info.eos_idx
         )
         self.done = (self.step >= self.max_len) or bool(self.finished_mask.all())
 
@@ -416,22 +417,22 @@ class BeamSearchJob(SearchStrategy.SearchJob):
         lprobs = dec_out_to_log_prob(
             dec_out,
             temperature=0.1,
-            pad=self.strategy.token_meta.PAD,
-            bos=self.strategy.token_meta.BOS,
+            pad=self.strategy.vocab_info.pad_idx,
+            bos=self.strategy.vocab_info.bos_idx,
         )
 
         token_penalty_(
             lprobs,
-            token=self.strategy.token_meta.UNK,
+            token=self.strategy.vocab_info.unk_idx,
             penalty=self.strategy.unk_penalty,
         )
         if step >= max_len:
-            force_token_(lprobs, token=self.strategy.token_meta.EOS)
+            force_token_(lprobs, token=self.strategy.vocab_info.eos_idx)
 
         if step < self.strategy.min_len:
             # minimum length constraint (does not apply if using prefix_tokens)
             token_penalty_(
-                lprobs, token=self.strategy.token_meta.EOS, penalty=torch.inf
+                lprobs, token=self.strategy.vocab_info.eos_idx, penalty=torch.inf
             )
 
         # if self.should_set_src_lengths:
@@ -529,17 +530,23 @@ class BeamSearchStrategy(SearchStrategy):
         self,
         *,
         beam_size: int = 2,
-        token_meta: Union[Tokenizer, TokenMeta],
+        vocab_info: Union[Tokenizer, VocabularyInfo],
         unk_penalty: float = 1.0,
         min_len: int = 10,
         max_len: int = 256,
     ) -> None:
-        if isinstance(token_meta, Tokenizer):
-            token_meta = TokenMeta.from_tokenizer(token_meta)
+        if isinstance(vocab_info, Tokenizer):
+            vocab_info = VocabularyInfo(
+                vocab_info.vocab_size(),
+                vocab_info.UNK,
+                vocab_info.BOS,
+                vocab_info.EOS,
+                vocab_info.PAD,
+            )
 
         super().__init__(
             beam_size=beam_size,
-            token_meta=token_meta,
+            vocab_info=vocab_info,
         )
         # because we're frozen.
         self.__dict__["min_len"] = min_len

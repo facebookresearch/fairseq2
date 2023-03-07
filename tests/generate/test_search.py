@@ -1,8 +1,8 @@
 import pytest
 import torch
 
+from fairseq2.data.text import VocabularyInfo
 from fairseq2.generate import search
-from fairseq2.generate.tokenizer import TokenMeta
 from tests.common import assert_close, assert_equal, device, has_no_inf, has_no_nan
 
 
@@ -39,8 +39,8 @@ def test_force_token() -> None:
 
 
 def test_prepare_state_noprefix() -> None:
-    token_meta = TokenMeta(vocab_size=8, BOS=0, EOS=1, UNK=2, PAD=3)
-    bs = search.BeamSearchStrategy(token_meta=token_meta, max_len=100, beam_size=3)
+    vocab_info = VocabularyInfo(size=8, bos_idx=0, eos_idx=1, unk_idx=2, pad_idx=3)
+    bs = search.BeamSearchStrategy(vocab_info=vocab_info, max_len=100, beam_size=3)
     src_tokens = torch.tensor(
         [[1, 2, 3, 4], [7, 8, 9, 10]], dtype=torch.int64, device=device
     )
@@ -49,8 +49,8 @@ def test_prepare_state_noprefix() -> None:
     exp_max_len = 18
     # (bsz:2, beam_size:3, (exp_max_len:18 + 2))
     # (2, 3, 20)
-    expected_tokens = torch.full((2, 3, 20), token_meta.PAD, device=device)
-    expected_tokens[:, :, 0] = token_meta.BOS
+    expected_tokens = torch.full((2, 3, 20), vocab_info.pad_idx, device=device)
+    expected_tokens[:, :, 0] = vocab_info.bos_idx
 
     s = bs.new_search_job(src_tokens)
 
@@ -66,9 +66,9 @@ def test_prepare_state_noprefix() -> None:
 
 
 def test_prepare_state_noprefix_maxlen() -> None:
-    token_meta = TokenMeta(vocab_size=8, BOS=0, EOS=1, UNK=2, PAD=3)
+    vocab_info = VocabularyInfo(size=8, bos_idx=0, eos_idx=1, unk_idx=2, pad_idx=3)
 
-    bs = search.BeamSearchStrategy(token_meta=token_meta, max_len=10, beam_size=1)
+    bs = search.BeamSearchStrategy(vocab_info=vocab_info, max_len=10, beam_size=1)
 
     src_tokens = torch.tensor(
         [[1, 2, 3, 4], [7, 8, 9, 10]], dtype=torch.int64, device=device
@@ -79,8 +79,8 @@ def test_prepare_state_noprefix_maxlen() -> None:
 
     # (bsz:2, beam_size:1, (exp_max_len:10 + 2))
     # (2, 12)
-    expected_tokens = torch.full((2, 1, 12), token_meta.PAD, device=device)
-    expected_tokens[:, :, 0] = token_meta.BOS
+    expected_tokens = torch.full((2, 1, 12), vocab_info.pad_idx, device=device)
+    expected_tokens[:, :, 0] = vocab_info.bos_idx
 
     s = bs.new_search_job(src_tokens)
 
@@ -90,9 +90,9 @@ def test_prepare_state_noprefix_maxlen() -> None:
 
 
 def test_prepare_state_prefix_single() -> None:
-    token_meta = TokenMeta(vocab_size=8, BOS=0, EOS=1, UNK=2, PAD=3)
+    vocab_info = VocabularyInfo(size=8, bos_idx=0, eos_idx=1, unk_idx=2, pad_idx=3)
 
-    bs = search.BeamSearchStrategy(token_meta=token_meta, max_len=10, beam_size=2)
+    bs = search.BeamSearchStrategy(vocab_info=vocab_info, max_len=10, beam_size=2)
     src_tokens = torch.tensor(
         [[1, 2, 3, 4], [7, 8, 9, 10]], dtype=torch.int64, device=device
     )
@@ -101,7 +101,7 @@ def test_prepare_state_prefix_single() -> None:
     # min(100, 2 * 4 + 10) -> 18
     exp_max_len = 10
 
-    P = token_meta.PAD
+    P = vocab_info.pad_idx
     expected_tokens = torch.tensor(
         [
             [
@@ -131,15 +131,15 @@ def test_prepare_state_prefix_single() -> None:
 
 
 def test_prepare_state_prefix_batched() -> None:
-    token_meta = TokenMeta(vocab_size=8, BOS=0, EOS=1, UNK=2, PAD=3)
+    vocab_info = VocabularyInfo(size=8, bos_idx=0, eos_idx=1, unk_idx=2, pad_idx=3)
 
-    bs = search.BeamSearchStrategy(token_meta=token_meta, max_len=10, beam_size=2)
+    bs = search.BeamSearchStrategy(vocab_info=vocab_info, max_len=10, beam_size=2)
     src_tokens = torch.tensor([[1, 2, 3, 4], [7, 8, 9, 10]], dtype=torch.int64)
     prefix_tokens = torch.tensor([[99, 17], [88, 18]], dtype=torch.int64)
 
     # min(100, 2 * 4 + 10) -> 18
     exp_max_len = 10
-    P = token_meta.PAD
+    P = vocab_info.pad_idx
     expected_tokens = torch.tensor(
         [
             [
@@ -166,9 +166,9 @@ def test_prepare_state_prefix_batched() -> None:
 
 
 def test_step_done() -> None:
-    token_meta = TokenMeta(vocab_size=8, BOS=0, EOS=1, UNK=2, PAD=3)
+    vocab_info = VocabularyInfo(size=8, bos_idx=0, eos_idx=1, unk_idx=2, pad_idx=3)
 
-    bs = search.BeamSearchStrategy(token_meta=token_meta, max_len=10, beam_size=1)
+    bs = search.BeamSearchStrategy(vocab_info=vocab_info, max_len=10, beam_size=1)
 
     src_tokens = torch.tensor([[1, 2, 3, 4], [7, 8, 9, 10]], dtype=torch.int64)
 
@@ -178,15 +178,15 @@ def test_step_done() -> None:
     assert s.batch_size == 2
     assert s.beam_size == 1
 
-    dec_out = torch.rand((s.flat_size, token_meta.vocab_size))
+    dec_out = torch.rand((s.flat_size, vocab_info.size))
     s.done = True
     with pytest.raises(AssertionError, match="done == True"):
         s.update(dec_out)
 
 
 def test_step_bad_dec_shape() -> None:
-    token_meta = TokenMeta(vocab_size=8, UNK=0, BOS=1, EOS=2, PAD=3)
-    bs = search.BeamSearchStrategy(token_meta=token_meta, max_len=10, beam_size=2)
+    vocab_info = VocabularyInfo(size=8, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=3)
+    bs = search.BeamSearchStrategy(vocab_info=vocab_info, max_len=10, beam_size=2)
 
     src_tokens = torch.tensor([[1, 2, 3, 4], [7, 8, 9, 10]], dtype=torch.int64)
 
@@ -195,18 +195,18 @@ def test_step_bad_dec_shape() -> None:
     assert s.batch_size == 2
     assert s.beam_size == 2
 
-    dec_out = torch.rand((s.flat_size * 2, token_meta.vocab_size + 1))
+    dec_out = torch.rand((s.flat_size * 2, vocab_info.size + 1))
 
     with pytest.raises(AssertionError, match="input_beam_size .* must == .* beam_size"):
         s.update(dec_out)
 
 
 def test_step_one() -> None:
-    token_meta = TokenMeta(vocab_size=8, UNK=0, BOS=1, EOS=2, PAD=3)
+    vocab_info = VocabularyInfo(size=8, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=3)
     beam_size = 2
 
     bs = search.BeamSearchStrategy(
-        token_meta=token_meta, max_len=10, beam_size=beam_size
+        vocab_info=vocab_info, max_len=10, beam_size=beam_size
     )
 
     batch_size = 2
@@ -222,7 +222,10 @@ def test_step_one() -> None:
 
     assert_equal(
         s.tokens[:, :, 0],
-        [[token_meta.BOS, token_meta.BOS], [token_meta.BOS, token_meta.BOS]],
+        [
+            [vocab_info.bos_idx, vocab_info.bos_idx],
+            [vocab_info.bos_idx, vocab_info.bos_idx],
+        ],
     )
     assert_equal(s.scores[:, :, 0], [[0.0, 0.0], [0.0, 0.0]])
 
@@ -246,7 +249,7 @@ def test_step_one() -> None:
         ]
     )
     # (bsz * beam_size, vocab)
-    dec_out = dec_out_beam.view(-1, token_meta.vocab_size)
+    dec_out = dec_out_beam.view(-1, vocab_info.size)
 
     s.update(dec_out)
     assert s.step == 1
@@ -254,7 +257,7 @@ def test_step_one() -> None:
     dec_out_log_prob = s._log_prob(dec_out, step=s.step, max_len=s.max_len)
 
     dec_out_log_prob_beam = dec_out_log_prob.view(
-        batch_size, beam_size, token_meta.vocab_size
+        batch_size, beam_size, vocab_info.size
     )
 
     assert_equal(s.tokens[:, :, 1], [[5, 4], [4, 6]])
@@ -268,13 +271,13 @@ def test_step_one() -> None:
 
 
 def test_step_continue() -> None:
-    token_meta = TokenMeta(vocab_size=8, UNK=0, BOS=1, EOS=2, PAD=3)
+    vocab_info = VocabularyInfo(size=8, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=3)
 
     beam_size = 2
     batch_size = 2
     src_len = 4
     bs = search.BeamSearchStrategy(
-        token_meta=token_meta, max_len=10, beam_size=beam_size
+        vocab_info=vocab_info, max_len=10, beam_size=beam_size
     )
 
     src_tokens = torch.zeros(size=(batch_size, src_len), dtype=torch.int64)
@@ -286,7 +289,10 @@ def test_step_continue() -> None:
 
     assert_equal(
         s.tokens[:, :, 0],
-        [[token_meta.BOS, token_meta.BOS], [token_meta.BOS, token_meta.BOS]],
+        [
+            [vocab_info.bos_idx, vocab_info.bos_idx],
+            [vocab_info.bos_idx, vocab_info.bos_idx],
+        ],
     )
     assert_equal(s.scores[:, :, 0], [[0.0, 0.0], [0.0, 0.0]])
 
@@ -318,7 +324,7 @@ def test_step_continue() -> None:
         ]
     )
     # (bsz * beam_size, vocab)
-    dec_out = dec_out_beam.view(-1, token_meta.vocab_size)
+    dec_out = dec_out_beam.view(-1, vocab_info.size)
 
     s.update(dec_out)
     assert s.step == 2
@@ -326,7 +332,7 @@ def test_step_continue() -> None:
     dec_out_log_prob = s._log_prob(dec_out, step=s.step, max_len=s.max_len)
 
     dec_out_log_prob_beam = dec_out_log_prob.view(
-        batch_size, beam_size, token_meta.vocab_size
+        batch_size, beam_size, vocab_info.size
     )
 
     assert_equal(s.finished_mask, [[False, False], [False, False]])
@@ -350,14 +356,14 @@ def test_step_continue() -> None:
 
 
 def test_step_finished() -> None:
-    token_meta = TokenMeta(vocab_size=8, UNK=0, BOS=1, EOS=2, PAD=3)
+    vocab_info = VocabularyInfo(size=8, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=3)
 
     beam_size = 2
     batch_size = 2
     src_len = 4
 
     bs = search.BeamSearchStrategy(
-        token_meta=token_meta,  # force min_len == 0
+        vocab_info=vocab_info,  # force min_len == 0
         min_len=1,
         max_len=10,
         beam_size=beam_size,
@@ -372,7 +378,10 @@ def test_step_finished() -> None:
 
     assert_close(
         s.tokens[:, :, 0],
-        [[token_meta.BOS, token_meta.BOS], [token_meta.BOS, token_meta.BOS]],
+        [
+            [vocab_info.bos_idx, vocab_info.bos_idx],
+            [vocab_info.bos_idx, vocab_info.bos_idx],
+        ],
     )
     assert_close(s.scores[:, :, 0], [[0.0, 0.0], [0.0, 0.0]])
 
@@ -393,24 +402,24 @@ def test_step_finished() -> None:
         ]
     )
     # (bsz * beam_size * search_breadth, vocab)
-    dec_out = dec_out_beam.view(-1, token_meta.vocab_size)
+    dec_out = dec_out_beam.view(-1, vocab_info.size)
 
     s.update(dec_out)
     assert s.step == 1
 
     dec_out_log_prob = s._log_prob(dec_out, step=s.step, max_len=s.max_len)
     dec_out_log_prob_beam = dec_out_log_prob.view(
-        batch_size, beam_size, token_meta.vocab_size
+        batch_size, beam_size, vocab_info.size
     )
 
     assert_close(s.finished_mask, [[False, False], [True, False]])
-    assert_close(s.tokens[:, :, s.step], [[5, 4], [token_meta.EOS, 4]])
+    assert_close(s.tokens[:, :, s.step], [[5, 4], [vocab_info.eos_idx, 4]])
     assert_close(
         s.scores[:, :, s.step],
         [
             [dec_out_log_prob_beam[0, 1, 5], dec_out_log_prob_beam[0, 0, 4]],
             [
-                dec_out_log_prob_beam[1, 0, token_meta.EOS],
+                dec_out_log_prob_beam[1, 0, vocab_info.eos_idx],
                 dec_out_log_prob_beam[1, 1, 4],
             ],
         ],
@@ -426,27 +435,27 @@ def test_step_finished() -> None:
                 [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.2],
             ],
             [
-                # should be masked by previous EOS
+                # should be masked by previous eos_idx
                 [0.0, 0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0],
                 [0.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0],
             ],
         ]
     )
     # (bsz * beam_size * search_breadth, vocab)
-    dec_out = dec_out_beam.view(-1, token_meta.vocab_size)
+    dec_out = dec_out_beam.view(-1, vocab_info.size)
 
     s.update(dec_out)
 
-    # finished (but still selected) beams have token PAD
-    assert_equal(s.tokens[:, :, s.step], [[4, 5], [token_meta.PAD, 4]])
+    # finished (but still selected) beams have token pad_idx
+    assert_equal(s.tokens[:, :, s.step], [[4, 5], [vocab_info.pad_idx, 4]])
 
     # finished (but still selected) beams have score[step] == score[step-1]
     assert s.scores[1, 0, s.step] == s.scores[1, 0, s.step - 1]
 
 
 def test_finalize_notop() -> None:
-    token_meta = TokenMeta(vocab_size=8, UNK=0, BOS=1, EOS=2, PAD=3)
-    bs = search.BeamSearchStrategy(token_meta=token_meta, max_len=10, beam_size=3)
+    vocab_info = VocabularyInfo(size=8, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=3)
+    bs = search.BeamSearchStrategy(vocab_info=vocab_info, max_len=10, beam_size=3)
 
     src_tokens = torch.tensor([[1, 2, 3, 4], [7, 8, 9, 10]], dtype=torch.int64)
 
@@ -466,8 +475,8 @@ def test_finalize_notop() -> None:
 
 
 def test_finalize_top() -> None:
-    token_meta = TokenMeta(vocab_size=8, UNK=0, BOS=1, EOS=2, PAD=3)
-    bs = search.BeamSearchStrategy(token_meta=token_meta, max_len=10, beam_size=3)
+    vocab_info = VocabularyInfo(size=8, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=3)
+    bs = search.BeamSearchStrategy(vocab_info=vocab_info, max_len=10, beam_size=3)
 
     src_tokens = torch.tensor([[1, 2, 3, 4], [7, 8, 9, 10]], dtype=torch.int64)
 
@@ -479,7 +488,7 @@ def test_finalize_top() -> None:
     s.tokens = torch.randint_like(s.tokens, low=0, high=1000)
     s.scores = torch.rand_like(s.scores)
 
-    s.tokens[:, :, s.step + 1 :] = token_meta.PAD
+    s.tokens[:, :, s.step + 1 :] = vocab_info.pad_idx
     s.scores[:, :, s.step + 1 :] = -torch.inf
 
     # Force scores at step with a known sort order.
@@ -509,16 +518,16 @@ def test_finalize_top() -> None:
 
 
 def test_choose_beams() -> None:
-    token_meta = TokenMeta(vocab_size=8, UNK=0, BOS=1, EOS=2, PAD=3)
+    vocab_info = VocabularyInfo(size=8, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=3)
     bs = search.BeamSearchStrategy(
-        token_meta=token_meta, min_len=10, max_len=20, beam_size=2
+        vocab_info=vocab_info, min_len=10, max_len=20, beam_size=2
     )
 
     src_tokens = torch.tensor([[1, 2, 3, 4], [7, 8, 9, 10]], dtype=torch.int64)
 
     s = bs.new_search_job(src_tokens)
 
-    # (bsz=2, input_beam_size=2, vocab_size=4)
+    # (bsz=2, input_beam_size=2, size=4)
     ps = torch.tensor(
         [
             [[4.0, 0.0, 0.0, 0.0], [0.0, 0.0, 3.0, 0.0]],
@@ -535,28 +544,30 @@ def test_choose_beams() -> None:
 
 
 def test_log_prob_below_min() -> None:
-    token_meta = TokenMeta(vocab_size=8, UNK=0, BOS=1, EOS=2, PAD=3)
+    vocab_info = VocabularyInfo(size=8, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=3)
 
     max_len = 20
-    bs = search.BeamSearchStrategy(token_meta=token_meta, min_len=10, max_len=max_len)
+    bs = search.BeamSearchStrategy(vocab_info=vocab_info, min_len=10, max_len=max_len)
 
     src_tokens = torch.tensor([[1, 2, 3, 4], [7, 8, 9, 10]], dtype=torch.int64)
 
     s = bs.new_search_job(src_tokens)
 
-    # anything < vocab_size, not in the tokens.
+    # anything < size, not in the tokens.
     a_idx = 5
 
-    t = torch.rand((2, token_meta.vocab_size))
+    t = torch.rand((2, vocab_info.size))
 
     step = 1
     lprobs = s._log_prob(t, step=step, max_len=max_len)
 
     raw = search.dec_out_to_log_prob(
-        t, temperature=0.1, pad=token_meta.PAD, bos=token_meta.BOS
+        t, temperature=0.1, pad=vocab_info.pad_idx, bos=vocab_info.bos_idx
     )
-    assert_equal(lprobs[:, token_meta.UNK], (raw[:, token_meta.UNK] - bs.unk_penalty))
-    assert_equal(lprobs[:, token_meta.PAD], torch.tensor([-torch.inf, -torch.inf]))
+    assert_equal(
+        lprobs[:, vocab_info.unk_idx], (raw[:, vocab_info.unk_idx] - bs.unk_penalty)
+    )
+    assert_equal(lprobs[:, vocab_info.pad_idx], torch.tensor([-torch.inf, -torch.inf]))
 
     # Since we aren't forcing EOS, other tokens should not have -inf
     assert step < bs.max_len, (step, bs.max_len)
@@ -565,13 +576,13 @@ def test_log_prob_below_min() -> None:
 
     # Since we've not yet reached min_len, EOS should have -inf.
     assert step < bs.min_len, (step, bs.min_len)
-    assert_equal(lprobs[:, token_meta.EOS], torch.tensor([-torch.inf, -torch.inf]))
+    assert_equal(lprobs[:, vocab_info.eos_idx], torch.tensor([-torch.inf, -torch.inf]))
 
 
 def test_log_prob_running() -> None:
-    token_meta = TokenMeta(vocab_size=8, UNK=0, BOS=1, EOS=2, PAD=3)
+    vocab_info = VocabularyInfo(size=8, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=3)
     max_len = 20
-    bs = search.BeamSearchStrategy(token_meta=token_meta, min_len=10, max_len=max_len)
+    bs = search.BeamSearchStrategy(vocab_info=vocab_info, min_len=10, max_len=max_len)
 
     src_tokens = torch.tensor([[1, 2, 3, 4], [7, 8, 9, 10]], dtype=torch.int64)
 
@@ -580,19 +591,21 @@ def test_log_prob_running() -> None:
     # min_len < step < max_len
     step = 15
 
-    # anything < vocab_size, not in the tokens.
+    # anything < size, not in the tokens.
     a_idx = 5
 
-    t = torch.rand((2, token_meta.vocab_size))
+    t = torch.rand((2, vocab_info.size))
 
     lprobs = s._log_prob(t, step=step, max_len=max_len)
 
     raw = search.dec_out_to_log_prob(
-        t, temperature=0.1, pad=token_meta.PAD, bos=token_meta.BOS
+        t, temperature=0.1, pad=vocab_info.pad_idx, bos=vocab_info.bos_idx
     )
 
-    assert_equal(lprobs[:, token_meta.UNK], raw[:, token_meta.UNK] - bs.unk_penalty)
-    assert_equal(lprobs[:, token_meta.PAD], torch.tensor([-torch.inf, -torch.inf]))
+    assert_equal(
+        lprobs[:, vocab_info.unk_idx], raw[:, vocab_info.unk_idx] - bs.unk_penalty
+    )
+    assert_equal(lprobs[:, vocab_info.pad_idx], torch.tensor([-torch.inf, -torch.inf]))
 
     # Since we aren't forcing EOS, other tokens should not have -inf
     assert step < bs.max_len, (step, bs.max_len)
@@ -601,34 +614,34 @@ def test_log_prob_running() -> None:
 
     # Since we aren't preventing EOS, EOS should not have -inf
     assert step > bs.min_len, (step, bs.min_len)
-    assert has_no_inf(lprobs[:, token_meta.EOS])
-    assert has_no_nan(lprobs[:, token_meta.EOS])
+    assert has_no_inf(lprobs[:, vocab_info.eos_idx])
+    assert has_no_nan(lprobs[:, vocab_info.eos_idx])
 
 
 def test_log_prob_above_max() -> None:
-    token_meta = TokenMeta(vocab_size=8, UNK=0, BOS=1, EOS=2, PAD=3)
+    vocab_info = VocabularyInfo(size=8, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=3)
     max_len = 20
-    bs = search.BeamSearchStrategy(token_meta=token_meta, min_len=10, max_len=max_len)
+    bs = search.BeamSearchStrategy(vocab_info=vocab_info, min_len=10, max_len=max_len)
 
     src_tokens = torch.tensor([[1, 2, 3, 4], [7, 8, 9, 10]], dtype=torch.int64)
     s = bs.new_search_job(src_tokens)
 
-    # anything < vocab_size, not in the tokens.
+    # anything < size, not in the tokens.
     a_idx = 5
 
     # force max_len trigger.
     step = 20
-    t = torch.rand((2, token_meta.vocab_size))
+    t = torch.rand((2, vocab_info.size))
     lprobs = s._log_prob(t, step=20, max_len=max_len)
 
-    assert_equal(lprobs[:, token_meta.PAD], torch.tensor([-torch.inf, -torch.inf]))
+    assert_equal(lprobs[:, vocab_info.pad_idx], torch.tensor([-torch.inf, -torch.inf]))
 
     # Since we are forcing EOS, other tokens should have -inf
     assert step >= bs.max_len, (step, bs.max_len)
     assert lprobs[:, a_idx].tolist() == [-torch.inf, -torch.inf]
     # And EOS should not have -inf
-    assert has_no_inf(lprobs[:, token_meta.EOS])
-    assert has_no_nan(lprobs[:, token_meta.EOS])
+    assert has_no_inf(lprobs[:, vocab_info.eos_idx])
+    assert has_no_nan(lprobs[:, vocab_info.eos_idx])
 
 
 def test_stretch_to_beams() -> None:

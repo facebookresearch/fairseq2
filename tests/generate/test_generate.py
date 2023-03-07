@@ -10,8 +10,8 @@ from typing import Any, List
 import pytest
 import torch
 
+from fairseq2.data.text import VocabularyInfo
 from fairseq2.generate.search import BeamSearchStrategy
-from fairseq2.generate.tokenizer import TokenMeta
 from fairseq2.models.transformer import (
     TransformerConfig,
     TransformerModel,
@@ -45,9 +45,11 @@ def test_generate(prefix_tokens: Any) -> None:
     m = create_model()
 
     src_len, tgt_len = (4, 6)
-    token_meta = TokenMeta(vocab_size=VOCAB_SIZE, BOS=0, EOS=1, UNK=2, PAD=3)
+    vocab_info = VocabularyInfo(
+        size=VOCAB_SIZE, bos_idx=0, eos_idx=1, unk_idx=2, pad_idx=3
+    )
 
-    bs = BeamSearchStrategy(token_meta=token_meta, max_len=tgt_len, beam_size=2)
+    bs = BeamSearchStrategy(vocab_info=vocab_info, max_len=tgt_len, beam_size=2)
     src_tokens = torch.tensor([[1, 2, 3, 3], [7, 8, 9, 3]], dtype=torch.int64)
 
     attn_weights: List[torch.Tensor] = []
@@ -67,7 +69,7 @@ def test_generate(prefix_tokens: Any) -> None:
         assert attn_weights[i].shape == (32, 1, src_len)
 
     if prefix_tokens is None:
-        assert torch.all(tgt_tokens[:, 0] == token_meta.BOS)
+        assert torch.all(tgt_tokens[:, 0] == vocab_info.bos_idx)
     elif prefix_tokens.ndim == 0:
         assert torch.all(tgt_tokens[:, 0] == prefix_tokens)
     else:

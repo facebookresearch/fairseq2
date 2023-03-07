@@ -4,4 +4,3 @@ from .search import SearchStrategy as SearchStrategy
 from .tokenizer import DictTokenizer as DictTokenizer
 from .tokenizer import SpmTokenizer as SpmTokenizer
 from .tokenizer import Tokenizer as Tokenizer
-from .tokenizer import TokenMeta as TokenMeta

@@ -79,7 +79,7 @@ def assert_speaks_french(
     # for beam_size, ref in [(1, FRA_1), (5, FRA_5)]:
     for beam_size, ref in [(1, FRA_1)]:
         strategy = fairseq2.generate.BeamSearchStrategy(
-            token_meta=tokenizer, beam_size=beam_size, max_len=256
+            vocab_info=tokenizer, beam_size=beam_size, max_len=256
         )
 
         fra = strategy.generate_str(

@@ -5,11 +5,30 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import List, Sequence, Union
 
 from torch import Tensor
 
 from fairseq2.data.string import StringLike
+
+
+@dataclass(frozen=True)
+class VocabularyInfo:
+    size: int
+    """The number of tokens in the vocabulary."""
+
+    unk_idx: int
+    """The index of the token that represents an unknown word."""
+
+    bos_idx: int
+    """The index of the token that represents the beginning of a sentence."""
+
+    eos_idx: int
+    """The index of the token that represents the end of a sentence."""
+
+    pad_idx: int
+    """The index of the token that is used to pad a sentence."""
 
 
 class TokenEncoder(ABC):

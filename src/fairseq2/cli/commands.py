@@ -403,7 +403,7 @@ def inference(
     if tty:
         batch_size = 1
     strategy = fairseq2.generate.BeamSearchStrategy(
-        token_meta=task.tokenizer,
+        vocab_info=task.tokenizer,
         **beam_search_kwargs,  # type: ignore
     )
 
