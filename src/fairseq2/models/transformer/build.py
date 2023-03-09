@@ -113,7 +113,10 @@ class TransformerBuilder:
         layers = [self.build_encoder_layer() for _ in range(self.cfg.num_enc_layers)]
 
         return StandardTransformerEncoder(
-            layers, device=self.device, dtype=self.cfg.dtype
+            layers,
+            norm_order=self.cfg.norm_order,
+            device=self.device,
+            dtype=self.cfg.dtype,
         )
 
     def build_decoder(self) -> TransformerDecoder:
@@ -121,7 +124,10 @@ class TransformerBuilder:
         layers = [self.build_decoder_layer() for _ in range(self.cfg.num_dec_layers)]
 
         return StandardTransformerDecoder(
-            layers, device=self.device, dtype=self.cfg.dtype
+            layers,
+            norm_order=self.cfg.norm_order,
+            device=self.device,
+            dtype=self.cfg.dtype,
         )
 
     def build_encoder_layer(self) -> TransformerEncoderLayer:
@@ -131,7 +137,11 @@ class TransformerBuilder:
         ffn = self.build_ffn()
 
         return StandardTransformerEncoderLayer(
-            self_attn, ffn, device=self.device, dtype=self.cfg.dtype
+            self_attn,
+            ffn,
+            norm_order=self.cfg.norm_order,
+            device=self.device,
+            dtype=self.cfg.dtype,
         )
 
     def build_decoder_layer(self) -> TransformerDecoderLayer:
@@ -143,7 +153,12 @@ class TransformerBuilder:
         ffn = self.build_ffn()
 
         return StandardTransformerDecoderLayer(
-            self_attn, enc_dec_attn, ffn, device=self.device, dtype=self.cfg.dtype
+            self_attn,
+            enc_dec_attn,
+            ffn,
+            norm_order=self.cfg.norm_order,
+            device=self.device,
+            dtype=self.cfg.dtype,
         )
 
     def build_attention(self, num_heads: int) -> MultiheadAttention:
@@ -157,6 +172,7 @@ class TransformerBuilder:
         return StandardFeedForwardNetwork(
             self.cfg.model_dim,
             self.cfg.ffn_inner_dim,
+            norm_order=self.cfg.norm_order,
             device=self.device,
             dtype=self.cfg.dtype,
         )

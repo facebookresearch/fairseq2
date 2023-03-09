@@ -18,6 +18,7 @@ from fairseq2.models.transformer import (
     TransformerModel,
     create_transformer_model,
 )
+from fairseq2.nn.transformer import TransformerNormOrder
 
 
 def convert_fairseq1_config(cfg: Any) -> TransformerConfig:
@@ -57,6 +58,7 @@ def convert_fairseq1_config(cfg: Any) -> TransformerConfig:
         num_dec_attn_heads=cfg.decoder_attention_heads,
         ffn_inner_dim=ffn_dim,
         dropout_p=cfg.dropout,
+        norm_order=TransformerNormOrder.PRE,
         legacy_pos_embed=True,
     )
 

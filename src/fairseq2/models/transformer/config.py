@@ -8,6 +8,8 @@ from dataclasses import dataclass
 
 import torch
 
+from fairseq2.nn.transformer import TransformerNormOrder
+
 
 @dataclass
 class TransformerConfig:
@@ -41,6 +43,9 @@ class TransformerConfig:
     dropout_p: float = 0.1
     """The dropout probability on outputs of embedding dictionaries, attention
     layers, and feed-forward networks."""
+
+    norm_order: TransformerNormOrder = TransformerNormOrder.POST
+    """The Layer Normalization order."""
 
     legacy_pos_embed: bool = False
     """If ``True``, sinusoidal positional embeddings will be initialized in a
