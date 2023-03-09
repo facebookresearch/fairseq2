@@ -18,12 +18,7 @@ from fairseq2.data.typing import PathLike
 @final
 class SentencePieceModel:
     def __init__(
-        self,
-        pathname: PathLike,
-        control_tokens: Optional[Sequence[StringLike]] = None,
-        add_bos: bool = False,
-        add_eos: bool = False,
-        reverse: bool = False,
+        self, pathname: PathLike, control_tokens: Optional[Sequence[StringLike]] = None
     ) -> None:
         pass
 
@@ -50,7 +45,7 @@ class SentencePieceModel:
         pass
 
     @property
-    def vocabulary_size(self) -> int:
+    def vocab_size(self) -> int:
         pass
 
 
@@ -59,6 +54,9 @@ class SentencePieceEncoder(TokenEncoder):
     def __init__(
         self,
         model: SentencePieceModel,
+        prefix_tokens: Optional[Sequence[StringLike]] = None,
+        suffix_tokens: Optional[Sequence[StringLike]] = None,
+        reverse: bool = False,
         enable_sampling: bool = False,
         nbest_size: int = -1,
         alpha: float = 0.1,
@@ -79,10 +77,10 @@ class SentencePieceEncoder(TokenEncoder):
 
 @final
 class SentencePieceDecoder(TokenDecoder):
-    def __init__(self, model: SentencePieceModel) -> None:
+    def __init__(self, model: SentencePieceModel, reverse: bool = False) -> None:
         pass
 
-    def __call__(self, token_indices: Tensor) -> List[StringLike]:
+    def __call__(self, token_indices: Tensor) -> Union[StringLike, List[StringLike]]:
         pass
 
 

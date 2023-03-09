@@ -27,12 +27,11 @@
 
 namespace fairseq2 {
 namespace detail {
-namespace {
 
 class decoder_op {
 public:
     explicit
-    decoder_op(const sp_processor *p, at::Tensor &&t);
+    decoder_op(const sp_decoder *d, at::Tensor &&t);
 
     std::vector<data> &&
     run() &&;
@@ -46,46 +45,55 @@ private:
     decode();
 
 private:
-    const sp_processor *processor_;
+    const sp_decoder *decoder_;
     at::Tensor tensor_;
     std::size_t batch_size_;
     std::vector<std::vector<std::string_view>> tokens_{};
-    std::vector<data> output_{};
+    std::vector<data> sentences_{};
 };
 
-}  // namespace
 }  // namespace detail
+
+sp_decoder::sp_decoder(const sp_model *m, bool reverse, bool disable_parallelism) noexcept
+    : processor_{m->processor_.get()}, reverse_{reverse}, disable_parallelism_{disable_parallelism}
+{}
 
 data
 sp_decoder::operator()(data &&d) const
 {
-    if (d.is_tensor())
-        d = decode(std::move(d).as_tensor());
-    else
+    if (!d.is_tensor())
         throw std::invalid_argument{
             "The SentencePiece decoder expects as input a tensor."};
 
-    return std::move(d);
+    at::Tensor t = d.as_tensor();
+
+    if (t.dim() == 1) {
+        std::vector<data> sentences = decode(t.unsqueeze(0));
+
+        return sentences[0];
+    }
+
+    return decode(std::move(t));
 }
 
 std::vector<data>
 sp_decoder::decode(at::Tensor &&t) const
 {
-    detail::decoder_op op{&model_->processor(), std::move(t)};
+    detail::decoder_op op{this, std::move(t)};
 
     return std::move(op).run();
 }
 
 namespace detail {
-namespace {
 
-decoder_op::decoder_op(const sp_processor *p, at::Tensor &&t)
-    : processor_{p}, tensor_{std::move(t)}
+decoder_op::decoder_op(const sp_decoder *d, at::Tensor &&t)
+    : decoder_{d}, tensor_{std::move(t)}
 {
     batch_size_ = static_cast<std::size_t>(tensor_.size(0));
 
     tokens_.resize(batch_size_);
-    output_.resize(batch_size_);
+
+    sentences_.resize(batch_size_);
 }
 
 std::vector<data> &&
@@ -95,7 +103,7 @@ decoder_op::run() &&
 
     decode();
 
-    return std::move(output_);
+    return std::move(sentences_);
 }
 
 void
@@ -138,23 +146,27 @@ decoder_op::decode()
 
             span seq_data = data.subspan(i * seq_dim, seq_dim);
 
-            for (T token_idx : seq_data) {
+            for (std::size_t j = 0; j < seq_dim; j++) {
+                T token_idx = seq_data[decoder_->reverse_ ? seq_dim - 1 - j : j];
+
                 auto token_idx_32bit = conditional_cast<std::int32_t>(token_idx);
 
-                std::string_view token = processor_->index_to_token(token_idx_32bit);
+                std::string_view token = decoder_->processor_->index_to_token(token_idx_32bit);
 
                 tokens.push_back(token);
             }
 
-            output_[i] = processor_->decode(tokens);
+            sentences_[i] = decoder_->processor_->decode(tokens);
         }
     };
 
     tbb::blocked_range<std::size_t> full_rng{0, batch_size_};
 
-    op(full_rng);
+    if (decoder_->disable_parallelism_)
+        op(full_rng);
+    else
+        tbb::parallel_for(full_rng, op);
 }
 
-}  // namespace
 }  // namespace detail
 }  // namespace fairseq2

@@ -46,7 +46,7 @@ class TokenDecoder(ABC):
     """Decodes sentences from token indices."""
 
     @abstractmethod
-    def __call__(self, token_indices: Tensor) -> List[StringLike]:
+    def __call__(self, token_indices: Tensor) -> Union[StringLike, List[StringLike]]:
         """
         :param token_indices:
             The token indices to decode from.

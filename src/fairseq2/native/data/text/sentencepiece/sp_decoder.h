@@ -16,15 +16,22 @@
 #include "fairseq2/native/data/data_processor.h"
 
 namespace fairseq2 {
+namespace detail {
+
+class decoder_op;
+
+class sp_processor;
+
+}
 
 class sp_model;
 
 class FAIRSEQ2_API sp_decoder final : public data_processor {
+    friend class detail::decoder_op;
+
 public:
     explicit
-    sp_decoder(const sp_model *m) noexcept
-        : model_{m}
-    {}
+    sp_decoder(const sp_model *m, bool reverse = false, bool disable_parallelism = false) noexcept;
 
     data
     operator()(data &&d) const override;
@@ -34,7 +41,9 @@ private:
     decode(at::Tensor &&t) const;
 
 private:
-    const sp_model *model_;
+    const detail::sp_processor *processor_;
+    bool reverse_;
+    bool disable_parallelism_;
 };
 
 }  // namespace fairseq2

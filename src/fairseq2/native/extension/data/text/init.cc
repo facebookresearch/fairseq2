@@ -31,16 +31,9 @@ def_sentencepiece(py::module_ &base)
 
     py::class_<sp_model>(m, "SentencePieceModel")
         .def(py::init(
-            [](std::string_view pathname,
-               std::optional<std::vector<std::string>> &&control_tokens,
-               bool add_bos,
-               bool add_eos,
-               bool reverse)
+            [](std::string_view pathname, std::optional<std::vector<std::string>> &&control_tokens)
             {
-                auto opts = sp_model_options()
-                    .add_bos(add_bos)
-                    .add_eos(add_eos)
-                    .reverse(reverse);
+                auto opts = sp_model_options();
 
                 if (control_tokens)
                     opts.control_tokens() = *std::move(control_tokens);
@@ -48,21 +41,21 @@ def_sentencepiece(py::module_ &base)
                 return std::make_unique<sp_model>(pathname, opts);
             }),
             py::arg("pathname"),
-            py::arg("control_tokens") = std::nullopt,
-            py::arg("add_bos")        = false,
-            py::arg("add_eos")        = false,
-            py::arg("reverse")        = false)
+            py::arg("control_tokens") = std::nullopt)
         .def("token_to_index", &sp_model::token_to_index)
         .def("index_to_token", &sp_model::index_to_token)
         .def_property_readonly("unk_idx", &sp_model::unk_idx)
         .def_property_readonly("bos_idx", &sp_model::bos_idx)
         .def_property_readonly("eos_idx", &sp_model::eos_idx)
         .def_property_readonly("pad_idx", &sp_model::pad_idx)
-        .def_property_readonly("vocabulary_size", &sp_model::vocabulary_size);
+        .def_property_readonly("vocab_size", &sp_model::vocab_size);
 
     py::class_<sp_encoder, data_processor>(m, "SentencePieceEncoder")
         .def(py::init(
             [](const sp_model *model,
+               std::optional<std::vector<std::string>> &&prefix_tokens,
+               std::optional<std::vector<std::string>> &&suffix_tokens,
+               bool reverse,
                bool enable_sampling,
                std::int32_t nbest_size,
                float alpha,
@@ -76,6 +69,7 @@ def_sentencepiece(py::module_ &base)
                bool disable_parallelism)
             {
                 auto opts = sp_encoder_options()
+                    .reverse(reverse)
                     .enable_sampling(enable_sampling)
                     .nbest_size(nbest_size)
                     .alpha(alpha)
@@ -88,10 +82,19 @@ def_sentencepiece(py::module_ &base)
                     .pin_memory(pin_memory)
                     .disable_parallelism(disable_parallelism);
 
+                if (prefix_tokens)
+                    opts.prefix_tokens() = *std::move(prefix_tokens);
+
+                if (suffix_tokens)
+                    opts.suffix_tokens() = *std::move(suffix_tokens);
+
                 return sp_encoder{model, opts};
             }),
             py::keep_alive<1, 2>{},
             py::arg("model"),
+            py::arg("prefix_tokens")       = std::nullopt,
+            py::arg("suffix_tokens")       = std::nullopt,
+            py::arg("reverse")             = false,
             py::arg("enable_sampling")     = false,
             py::arg("nbest_size")          = -1,
             py::arg("alpha")               = 0.1,
@@ -105,7 +108,11 @@ def_sentencepiece(py::module_ &base)
             py::arg("disable_parallelism") = false);
 
     py::class_<sp_decoder, data_processor>(m, "SentencePieceDecoder")
-        .def(py::init<const sp_model *>(), py::keep_alive<1, 2>{}, py::arg("model"));
+        .def(py::init<const sp_model *, bool, bool>(),
+            py::keep_alive<1, 2>{},
+            py::arg("model"),
+            py::arg("reverse") = false,
+            py::arg("disable_parallelism") = false);
 }
 
 }  // namespace

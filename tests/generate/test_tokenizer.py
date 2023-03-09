@@ -9,8 +9,8 @@ import torch
 from fairseq2.generate import tokenizer
 from tests.common import assert_equal
 
-DATA = Path(__file__).parents[1] / "data"
-SPM_PATH = DATA / "eng_Latn.1000.spm"
+DATA = Path(__file__).parents[1] / "data" / "text"
+SPM_PATH = DATA / "test.spm"
 
 
 @functools.lru_cache()

@@ -27,14 +27,11 @@ using sentencepiece::ImmutableSentencePieceText;
 
 namespace fairseq2 {
 namespace detail {
-namespace {
 
 class encoder_op {
 public:
     explicit
-    encoder_op(const sp_processor *p, span<data> texts, const sp_encoder_options *opts)
-        : processor_{p}, texts_{texts}, opts_{opts}, spts_(texts_.size())
-    {}
+    encoder_op(const sp_encoder *e, span<data> sentences);
 
     at::Tensor &&
     run() &&;
@@ -63,50 +60,57 @@ private:
     fill_tensor();
 
 private:
-    const sp_processor *processor_;
-    const span<data> texts_;
-    const sp_encoder_options *opts_;
+    const sp_encoder *encoder_;
+    const span<data> sentences_;
     std::vector<ImmutableSentencePieceText> spts_;
+    std::size_t extra_tokens_len_{};
     std::int64_t max_seq_len_{};
     std::int64_t seq_dim_{};
     std::int64_t batch_size_{};
     at::Tensor tensor_{};
 };
 
-}  // namespace
 }  // namespace detail
 
 sp_encoder::sp_encoder(const sp_model *m, sp_encoder_options opts)
-    : model_{m}, opts_{opts}
+    : processor_{m->processor_.get()}, opts_{std::move(opts)}
 {
     if (!at::isIntegralType(opts_.dtype(), /*includeBool=*/false))
         throw std::invalid_argument{"The output data type must be integral."};
+
+    prefix_token_indices_.reserve(opts_.prefix_tokens().size());
+    suffix_token_indices_.reserve(opts_.suffix_tokens().size());
+
+    for (const std::string &token : opts_.prefix_tokens())
+        prefix_token_indices_.push_back(processor_->token_to_index(token));
+
+    for (const std::string &token : opts_.suffix_tokens())
+        suffix_token_indices_.push_back(processor_->token_to_index(token));
 }
 
 data
 sp_encoder::operator()(data &&d) const
 {
     if (d.is_list())
-        d = encode(d.as_list());
-    else if (d.is_string())
-        d = encode(as_singleton_span(d));
-    else
+        return encode(d.as_list());
+    else if (d.is_string()) {
+        at::Tensor t = encode(as_singleton_span(d));
+
+        return t.squeeze(0);
+    } else
         throw std::invalid_argument{
             "The SentencePiece encoder expects as input a string or a list of strings."};
-
-    return std::move(d);
 }
 
 at::Tensor
-sp_encoder::encode(span<data> texts) const
+sp_encoder::encode(span<data> sentences) const
 {
-    detail::encoder_op op{&model_->processor(), texts, &opts_};
+    detail::encoder_op op{this, sentences};
 
     return std::move(op).run();
 }
 
 namespace detail {
-namespace {
 
 template <typename T>
 T
@@ -115,6 +119,13 @@ get_token_idx(const ImmutableSentencePieceText &spt, std::size_t idx) noexcept
     std::uint32_t id = spt.pieces(conditional_cast<int>(idx)).id();
 
     return static_cast<T>(id);
+}
+
+encoder_op::encoder_op(const sp_encoder *e, span<data> sentences)
+    : encoder_{e}, sentences_{sentences}, spts_(sentences_.size())
+{
+    extra_tokens_len_ += encoder_->prefix_token_indices_.size();
+    extra_tokens_len_ += encoder_->suffix_token_indices_.size();
 }
 
 at::Tensor &&
@@ -132,7 +143,7 @@ encoder_op::run() &&
 
     fill_tensor();
 
-    std::optional<at::Device> device = opts_->device();
+    std::optional<at::Device> device = encoder_->opts_.device();
     if (device)
         tensor_ = tensor_.to(*device);
 
@@ -143,24 +154,28 @@ void
 encoder_op::encode_strings()
 {
     auto op = [this](const tbb::blocked_range<std::size_t> &rng) {
+        auto *proc = encoder_->processor_;
+
+        auto &opts = encoder_->opts_;
+
         for (auto i = rng.begin(); i < rng.end(); ++i) {
-            const data &d = texts_[i];
+            const data &d = sentences_[i];
 
             if (!d.is_string()) {
                 throw std::invalid_argument{
                     "The SentencePiece encoder expects all elements of the input to be strings."};
             }
 
-            if (opts_->enable_sampling())
-                spts_[i] = processor_->sample(d.as_string(), opts_->nbest_size(), opts_->alpha());
+            if (opts.enable_sampling())
+                spts_[i] = proc->sample(d.as_string(), opts.nbest_size(), opts.alpha());
             else
-                spts_[i] = processor_->encode(d.as_string());
+                spts_[i] = proc->encode(d.as_string());
         }
     };
 
-    tbb::blocked_range<std::size_t> full_rng{0, texts_.size()};
+    tbb::blocked_range<std::size_t> full_rng{0, sentences_.size()};
 
-    if (opts_->disable_parallelism())
+    if (encoder_->opts_.disable_parallelism())
         op(full_rng);
     else
         tbb::parallel_for(full_rng, op);
@@ -173,19 +188,21 @@ encoder_op::find_longest_sequence() noexcept
         return a.pieces_size() < b.pieces_size();
     });
 
-    max_seq_len_ = static_cast<std::int64_t>(iter->pieces_size());
+    max_seq_len_ = static_cast<std::int64_t>(iter->pieces_size() + extra_tokens_len_);
 }
 
 inline void
 encoder_op::compute_sequence_dimension() noexcept
 {
-    std::int64_t seq_dim = std::max(max_seq_len_, opts_->pad_to_length().value_or(0));
+    auto &opts = encoder_->opts_;
 
-    auto r = seq_dim_ % opts_->pad_to_multiple();
+    std::int64_t seq_dim = std::max(max_seq_len_, opts.pad_to_length().value_or(0));
+
+    auto r = seq_dim % opts.pad_to_multiple();
     if (r == 0)
         seq_dim_ = seq_dim;
     else
-        seq_dim_ = seq_dim - r + opts_->pad_to_multiple();
+        seq_dim_ = seq_dim - r + opts.pad_to_multiple();
 }
 
 inline void
@@ -193,20 +210,22 @@ encoder_op::compute_batch_size() noexcept
 {
     auto batch_size = static_cast<std::int64_t>(spts_.size());
 
-    batch_size_ = std::max(batch_size, opts_->batch_size().value_or(0));
+    batch_size_ = std::max(batch_size, encoder_->opts_.batch_size().value_or(0));
 }
 
 void
 encoder_op::init_tensor()
 {
-    tensor_ = at::full({batch_size_, seq_dim_}, processor_->pad_idx,
-        at::dtype(opts_->dtype()).device(at::kCPU).pinned_memory(opts_->pin_memory()));
+    auto &opts = encoder_->opts_;
+
+    tensor_ = at::full({batch_size_, seq_dim_}, encoder_->processor_->pad_idx,
+        at::dtype(opts.dtype()).device(at::kCPU).pinned_memory(opts.pin_memory()));
 }
 
 void
 encoder_op::fill_tensor()
 {
-    switch (opts_->dtype()) {
+    switch (encoder_->opts_.dtype()) {
     case at::ScalarType::Short:
         fill_tensor<std::int16_t>();
         break;
@@ -227,6 +246,7 @@ encoder_op::fill_tensor()
 
 template <typename T>
 void
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 encoder_op::fill_tensor()
 {
     auto seq_dim = static_cast<std::size_t>(seq_dim_);
@@ -238,28 +258,49 @@ encoder_op::fill_tensor()
     span data = cast<T>(bits);
 
     auto op = [this, data, seq_dim](const tbb::blocked_range<std::size_t> &rng) {
+        auto &opts = encoder_->opts_;
+
         for (auto i = rng.begin(); i < rng.end(); ++i) {
             auto &spt = spts_[i];
 
-            std::size_t seq_len = spt.pieces_size();
+            std::size_t seq_len = spt.pieces_size() + extra_tokens_len_;
 
-            std::size_t offset = opts_->left_pad() ? seq_dim - seq_len : 0;
+            span seq_data = data.subspan(
+                i * seq_dim + (opts.left_pad() ? seq_dim - seq_len : 0), seq_len);
 
-            span seq_data = data.subspan(i * seq_dim + offset, seq_len);
+            if (opts.reverse()) {
+                std::size_t j = seq_len - 1;
 
-            for (std::size_t j = 0; j < seq_len; j++)
-                seq_data[j] = get_token_idx<T>(spt, j);
+                for (std::int32_t prefix_idx : encoder_->prefix_token_indices_)
+                    seq_data[j--] = conditional_cast<T>(prefix_idx);
+
+                for (std::size_t k = 0; k < spt.pieces_size(); k++)
+                    seq_data[j--] = get_token_idx<T>(spt, k);
+
+                for (std::int32_t suffix_idx : encoder_->suffix_token_indices_)
+                    seq_data[j--] = conditional_cast<T>(suffix_idx);
+            } else {
+                std::size_t j = 0;
+
+                for (std::int32_t prefix_idx : encoder_->prefix_token_indices_)
+                    seq_data[j++] = conditional_cast<T>(prefix_idx);
+
+                for (std::size_t k = 0; k < spt.pieces_size(); k++)
+                    seq_data[j++] = get_token_idx<T>(spt, k);
+
+                for (std::int32_t suffix_idx : encoder_->suffix_token_indices_)
+                    seq_data[j++] = conditional_cast<T>(suffix_idx);
+            }
         }
     };
 
     tbb::blocked_range<std::size_t> full_rng{0, spts_.size()};
 
-    if (opts_->disable_parallelism())
+    if (encoder_->opts_.disable_parallelism())
         op(full_rng);
     else
         tbb::parallel_for(full_rng, op);
 }
 
-}  // namespace
 }  // namespace detail
 }  // namespace fairseq2

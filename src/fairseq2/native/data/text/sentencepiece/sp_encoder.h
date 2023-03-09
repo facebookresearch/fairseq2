@@ -6,8 +6,10 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <vector>
 
 #include <ATen/Device.h>
 #include <ATen/ScalarType.h>
@@ -23,11 +25,97 @@ namespace fairseq2 {
 class sp_encoder_options {
 public:
     sp_encoder_options &
-    enable_sampling(bool value) noexcept
+    prefix_token(std::string value) &
+    {
+        prefix_tokens_.push_back(std::move(value));
+
+        return *this;
+    }
+
+    sp_encoder_options &&
+    prefix_token(std::string value) &&
+    {
+        prefix_tokens_.push_back(std::move(value));
+
+        return std::move(*this);
+    }
+
+    std::vector<std::string> &
+    prefix_tokens() noexcept
+    {
+        return prefix_tokens_;
+    }
+
+    const std::vector<std::string> &
+    prefix_tokens() const noexcept
+    {
+        return prefix_tokens_;
+    }
+
+    sp_encoder_options &
+    suffix_token(std::string value) &
+    {
+        suffix_tokens_.push_back(std::move(value));
+
+        return *this;
+    }
+
+    sp_encoder_options &&
+    suffix_token(std::string value) &&
+    {
+        suffix_tokens_.push_back(std::move(value));
+
+        return std::move(*this);
+    }
+
+    std::vector<std::string> &
+    suffix_tokens() noexcept
+    {
+        return suffix_tokens_;
+    }
+
+    const std::vector<std::string> &
+    suffix_tokens() const noexcept
+    {
+        return suffix_tokens_;
+    }
+
+    sp_encoder_options &
+    reverse(bool value) & noexcept
+    {
+        reverse_ = value;
+
+        return *this;
+    }
+
+    sp_encoder_options &&
+    reverse(bool value) && noexcept
+    {
+        reverse_ = value;
+
+        return std::move(*this);
+    }
+
+    bool
+    reverse() const noexcept
+    {
+        return reverse_;
+    }
+
+    sp_encoder_options &
+    enable_sampling(bool value) & noexcept
     {
         enable_sampling_ = value;
 
         return *this;
+    }
+
+    sp_encoder_options &&
+    enable_sampling(bool value) && noexcept
+    {
+        enable_sampling_ = value;
+
+        return std::move(*this);
     }
 
     bool
@@ -37,11 +125,19 @@ public:
     }
 
     sp_encoder_options &
-    nbest_size(std::int32_t value) noexcept
+    nbest_size(std::int32_t value) & noexcept
     {
         nbest_size_ = value;
 
         return *this;
+    }
+
+    sp_encoder_options &&
+    nbest_size(std::int32_t value) && noexcept
+    {
+        nbest_size_ = value;
+
+        return std::move(*this);
     }
 
     std::int32_t
@@ -51,11 +147,19 @@ public:
     }
 
     sp_encoder_options &
-    alpha(float value) noexcept
+    alpha(float value) & noexcept
     {
         alpha_ = value;
 
         return *this;
+    }
+
+    sp_encoder_options &&
+    alpha(float value) && noexcept
+    {
+        alpha_ = value;
+
+        return std::move(*this);
     }
 
     float
@@ -65,11 +169,19 @@ public:
     }
 
     sp_encoder_options &
-    batch_size(std::optional<std::int64_t> value) noexcept
+    batch_size(std::optional<std::int64_t> value) & noexcept
     {
         batch_size_ = value;
 
         return *this;
+    }
+
+    sp_encoder_options &&
+    batch_size(std::optional<std::int64_t> value) && noexcept
+    {
+        batch_size_ = value;
+
+        return std::move(*this);
     }
 
     std::optional<std::int64_t>
@@ -79,11 +191,19 @@ public:
     }
 
     sp_encoder_options &
-    pad_to_length(std::optional<std::int64_t> value) noexcept
+    pad_to_length(std::optional<std::int64_t> value) & noexcept
     {
         pad_to_length_ = value;
 
         return *this;
+    }
+
+    sp_encoder_options &&
+    pad_to_length(std::optional<std::int64_t> value) && noexcept
+    {
+        pad_to_length_ = value;
+
+        return std::move(*this);
     }
 
     std::optional<std::int64_t>
@@ -93,11 +213,19 @@ public:
     }
 
     sp_encoder_options &
-    pad_to_multiple(std::int64_t value) noexcept
+    pad_to_multiple(std::int64_t value) & noexcept
     {
         pad_to_multiple_ = value;
 
         return *this;
+    }
+
+    sp_encoder_options &&
+    pad_to_multiple(std::int64_t value) && noexcept
+    {
+        pad_to_multiple_ = value;
+
+        return std::move(*this);
     }
 
     std::int64_t
@@ -107,11 +235,19 @@ public:
     }
 
     sp_encoder_options &
-    left_pad(bool value) noexcept
+    left_pad(bool value) & noexcept
     {
         left_pad_ = value;
 
         return *this;
+    }
+
+    sp_encoder_options &&
+    left_pad(bool value) && noexcept
+    {
+        left_pad_ = value;
+
+        return std::move(*this);
     }
 
     bool
@@ -121,11 +257,19 @@ public:
     }
 
     sp_encoder_options &
-    dtype(at::ScalarType value) noexcept
+    dtype(at::ScalarType value) & noexcept
     {
         dtype_ = value;
 
         return *this;
+    }
+
+    sp_encoder_options &&
+    dtype(at::ScalarType value) && noexcept
+    {
+        dtype_ = value;
+
+        return std::move(*this);
     }
 
     at::ScalarType
@@ -135,11 +279,19 @@ public:
     }
 
     sp_encoder_options &
-    device(std::optional<at::Device> value) noexcept
+    device(std::optional<at::Device> value) & noexcept
     {
         device_ = value;
 
         return *this;
+    }
+
+    sp_encoder_options &&
+    device(std::optional<at::Device> value) && noexcept
+    {
+        device_ = value;
+
+        return std::move(*this);
     }
 
     std::optional<at::Device>
@@ -149,11 +301,19 @@ public:
     }
 
     sp_encoder_options &
-    pin_memory(bool value) noexcept
+    pin_memory(bool value) & noexcept
     {
         pin_memory_ = value;
 
         return *this;
+    }
+
+    sp_encoder_options &&
+    pin_memory(bool value) && noexcept
+    {
+        pin_memory_ = value;
+
+        return std::move(*this);
     }
 
     bool
@@ -163,11 +323,19 @@ public:
     }
 
     sp_encoder_options &
-    disable_parallelism(bool value) noexcept
+    disable_parallelism(bool value) & noexcept
     {
         disable_parallelism_ = value;
 
         return *this;
+    }
+
+    sp_encoder_options &&
+    disable_parallelism(bool value) && noexcept
+    {
+        disable_parallelism_ = value;
+
+        return std::move(*this);
     }
 
     bool
@@ -177,6 +345,9 @@ public:
     }
 
 private:
+    std::vector<std::string> prefix_tokens_{};
+    std::vector<std::string> suffix_tokens_{};
+    bool reverse_{};
     bool enable_sampling_{};
     std::int32_t nbest_size_ = -1;
     float alpha_ = 0.1F;
@@ -191,9 +362,19 @@ private:
     bool disable_parallelism_ = false;
 };
 
+namespace detail {
+
+class encoder_op;
+
+class sp_processor;
+
+}
+
 class sp_model;
 
 class FAIRSEQ2_API sp_encoder final : public data_processor {
+    friend class detail::encoder_op;
+
 public:
     explicit
     sp_encoder(const sp_model *m, sp_encoder_options opts = {});
@@ -203,11 +384,13 @@ public:
 
 private:
     at::Tensor
-    encode(span<data> texts) const;
+    encode(span<data> sentences) const;
 
 private:
-    const sp_model *model_;
+    const detail::sp_processor *processor_;
     sp_encoder_options opts_;
+    std::vector<std::int32_t> prefix_token_indices_{};
+    std::vector<std::int32_t> suffix_token_indices_{};
 };
 
 }  // namespace fairseq2

@@ -22,8 +22,8 @@ spm = SentencePieceModel(
     control_tokens=["<pad>", "<en>", "<de>"],
     # These indicate whether to append <bos> and/or prepend <eos> during
     # encoding.
-    add_bos=True,
-    add_eos=True,
+    #    add_bos=True,
+    #    add_eos=True,
 )
 
 

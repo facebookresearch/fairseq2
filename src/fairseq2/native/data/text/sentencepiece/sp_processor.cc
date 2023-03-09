@@ -65,10 +65,6 @@ sp_model_loader::load() &&
 
     load_processor();
 
-    set_encoder_extras();
-
-    set_decoder_extras();
-
     return std::move(processor_);
 }
 
@@ -78,8 +74,18 @@ sp_model_loader::load_proto()
     proto_ = std::make_unique<ModelProto>();
 
     auto st = sentencepiece::io::LoadModelProto(pathname_, proto_.get());
-    if (!st.ok())
-        throw std::runtime_error{st.message()};
+    if (st.ok())
+        return;
+
+    if (st.code() == sentencepiece::util::StatusCode::kNotFound)
+        throw std::system_error{
+            std::make_error_code(std::errc::no_such_file_or_directory)};
+
+    if (st.code() == sentencepiece::util::StatusCode::kPermissionDenied)
+        throw std::system_error{
+            std::make_error_code(std::errc::permission_denied)};
+
+    throw std::runtime_error{st.message()};
 }
 
 void
@@ -130,40 +136,6 @@ sp_model_loader::load_processor()
         throw std::runtime_error{st.message()};
 }
 
-void
-sp_model_loader::set_encoder_extras()
-{
-    std::vector<std::string> extras{};
-
-    if (opts_.add_bos())
-        extras.emplace_back("bos");
-
-    if (opts_.add_eos())
-        extras.emplace_back("eos");
-
-    if (opts_.reverse())
-        extras.emplace_back("reverse");
-
-    if (extras.empty())
-        return;
-
-    std::string s = fmt::format("{}", fmt::join(extras, ":"));
-
-    auto st = processor_->SetEncodeExtraOptions(s);
-    if (!st.ok())
-        throw std::runtime_error{st.message()};
-}
-
-void
-sp_model_loader::set_decoder_extras()
-{
-    if (opts_.reverse()) {
-        auto st = processor_->SetDecodeExtraOptions("reverse");
-        if (!st.ok())
-            throw std::runtime_error{st.message()};
-    }
-}
-
 sp_processor::sp_processor(std::string_view model_pathname, sp_model_options &&opts)
 {
     sp_model_loader loader{model_pathname, std::move(opts)};
@@ -176,9 +148,9 @@ sp_processor::sp_processor(std::string_view model_pathname, sp_model_options &&o
     pad_idx = conditional_cast<std::int32_t>(native_->pad_id());
 
     if (pad_idx < 0)
-        throw std::runtime_error{"The SentencePiece model has no padding token specified."};
+        throw std::runtime_error{"The model has no padding token specified."};
 
-    vocabulary_size = conditional_cast<std::size_t>(native_->GetPieceSize());
+    vocab_size = conditional_cast<std::size_t>(native_->GetPieceSize());
 }
 
 ImmutableSentencePieceText
@@ -226,6 +198,9 @@ sp_processor::token_to_index(std::string_view token) const
 std::string_view
 sp_processor::index_to_token(std::int32_t idx) const
 {
+    if (static_cast<std::size_t>(idx) >= vocab_size)
+        throw std::domain_error{"The specified index is out of range."};
+
     return native_->IdToPiece(conditional_cast<int>(idx));
 }
 

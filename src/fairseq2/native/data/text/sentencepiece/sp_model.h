@@ -17,11 +17,6 @@
 #include "fairseq2/native/api.h"
 
 namespace fairseq2 {
-namespace detail {
-
-class sp_processor;
-
-}
 
 class sp_model_options {
 public:
@@ -53,54 +48,15 @@ public:
         return control_tokens_;
     }
 
-    sp_model_options &
-    add_bos(bool value) noexcept
-    {
-        add_bos_ = value;
-
-        return *this;
-    }
-
-    bool
-    add_bos() const noexcept
-    {
-        return add_bos_;
-    }
-
-    sp_model_options &
-    add_eos(bool value) noexcept
-    {
-        add_eos_ = value;
-
-        return *this;
-    }
-
-    bool
-    add_eos() const noexcept
-    {
-        return add_eos_;
-    }
-
-    sp_model_options &
-    reverse(bool value) noexcept
-    {
-        reverse_ = value;
-
-        return *this;
-    }
-
-    bool
-    reverse() const noexcept
-    {
-        return reverse_;
-    }
-
 private:
     std::vector<std::string> control_tokens_{};
-    bool add_bos_{};
-    bool add_eos_{};
-    bool reverse_{};
 };
+
+namespace detail {
+
+class sp_processor;
+
+}
 
 class FAIRSEQ2_API sp_model {
     friend class sp_decoder;
@@ -137,14 +93,7 @@ public:
     pad_idx() const;
 
     std::size_t
-    vocabulary_size() const;
-
-private:
-    const detail::sp_processor &
-    processor() const noexcept
-    {
-        return *processor_;
-    }
+    vocab_size() const;
 
 private:
     std::unique_ptr<detail::sp_processor> processor_;

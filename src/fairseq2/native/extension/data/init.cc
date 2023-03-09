@@ -128,7 +128,7 @@ def_data_pipeline(py::module_ &base)
             });
 
     py::class_<data_processor>(m, "_DataProcessor")
-        .def("__call__", &data_processor::operator());
+        .def("__call__", &data_processor::operator(), py::call_guard<py::gil_scoped_release>{});
 
     static py::exception<data_pipeline_error> py_data_pipeline_error{
         m, "DataPipelineError", PyExc_RuntimeError};
