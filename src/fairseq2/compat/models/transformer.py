@@ -45,6 +45,11 @@ def convert_fairseq1_config(cfg: Any) -> TransformerConfig:
         raise ValueError(
             "The Layer Normalization order does not match between the encoder and decoder."
         )
+    norm_order = (
+        TransformerNormOrder.PRE
+        if cfg.encoder_normalize_before
+        else TransformerNormOrder.POST
+    )
 
     if not cfg.share_all_embeddings:
         raise ValueError("Non shared embeddings are not supported.")
@@ -58,7 +63,7 @@ def convert_fairseq1_config(cfg: Any) -> TransformerConfig:
         num_dec_attn_heads=cfg.decoder_attention_heads,
         ffn_inner_dim=ffn_dim,
         dropout_p=cfg.dropout,
-        norm_order=TransformerNormOrder.PRE,
+        norm_order=norm_order,
         legacy_pos_embed=True,
     )
 
