@@ -10,7 +10,7 @@ import torch
 from torch import Tensor
 
 from fairseq2 import DOC_MODE
-from fairseq2.data.string import String, StringLike
+from fairseq2.data.string import StringLike
 from fairseq2.data.text.tokenizer import TokenDecoder, TokenEncoder
 from fairseq2.data.typing import PathLike
 
@@ -25,7 +25,7 @@ class SentencePieceModel:
     def token_to_index(self, token: StringLike) -> int:
         pass
 
-    def index_to_token(self, idx: int) -> String:
+    def index_to_token(self, idx: int) -> str:
         pass
 
     @property

@@ -12,6 +12,6 @@ from fairseq2.data.data_pipeline import StreamError as StreamError
 from fairseq2.data.data_pipeline import list_files as list_files
 from fairseq2.data.data_pipeline import read_sequence as read_sequence
 from fairseq2.data.data_pipeline import zip_data_pipelines as zip_data_pipelines
-from fairseq2.data.string import String as String
+from fairseq2.data.string import CString as CString
 from fairseq2.data.string import StringLike as StringLike
 from fairseq2.data.tape import Tape as Tape

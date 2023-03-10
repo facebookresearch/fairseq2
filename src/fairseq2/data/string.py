@@ -12,7 +12,7 @@ from fairseq2 import DOC_MODE
 
 
 @final
-class String:
+class CString:
     """Represents an immutable UTF-8 string that supports zero-copy marshalling
     between Python and native code."""
 
@@ -35,11 +35,11 @@ class String:
     def __hash__(self) -> int:
         pass
 
-    def lstrip(self) -> "String":
+    def lstrip(self) -> "CString":
         """Return a copy of this string with no whitespace at the beginning."""
         pass
 
-    def rstrip(self) -> "String":
+    def rstrip(self) -> "CString":
         """Return a copy of this string with no whitespace at the end."""
         pass
 
@@ -48,10 +48,10 @@ class String:
         pass
 
 
-StringLike: TypeAlias = Union[str, String]
+StringLike: TypeAlias = Union[str, CString]
 
 
 if not TYPE_CHECKING and not DOC_MODE:
-    from fairseq2.C.data.string import String  # noqa: F811
+    from fairseq2.C.data.string import CString  # noqa: F811
 
-    String.__module__ = __name__
+    CString.__module__ = __name__

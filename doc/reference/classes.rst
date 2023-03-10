@@ -8,9 +8,9 @@ Classes
     :toctree: generated/classes
     :nosignatures:
 
+    data.CString
     data.DataPipeline
     data.DataPipelineBuilder
-    data.String
     data.StringLike
     data.Tape
     data.DataPipelineError

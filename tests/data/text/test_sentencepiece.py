@@ -13,7 +13,7 @@ import torch
 import torch.nn.functional as F
 from torch import Tensor
 
-from fairseq2.data import String
+from fairseq2.data import CString
 from fairseq2.data.text import (
     SentencePieceDecoder,
     SentencePieceEncoder,
@@ -87,7 +87,7 @@ class TestSentencePieceModel:
         # instead of a list of strings.
         sentence = decoder(indices)
 
-        assert isinstance(sentence, String)
+        assert isinstance(sentence, CString)
 
         assert sentence == self.sentences[0]
 

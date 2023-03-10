@@ -185,7 +185,7 @@ def_string(py::module_ &base)
 {
     py::module_ m = base.def_submodule("string");
 
-    py::class_<immutable_string>(m, "String")
+    py::class_<immutable_string>(m, "CString")
         .def(py::init<>())
         .def(py::init<std::string_view>(), py::arg("s"))
 
@@ -218,7 +218,7 @@ def_string(py::module_ &base)
         .def("__repr__",
             [](const immutable_string &self)
             {
-                return fmt::format("String('{}')", self);
+                return fmt::format("CString('{}')", self);
             })
 
         .def("lstrip",

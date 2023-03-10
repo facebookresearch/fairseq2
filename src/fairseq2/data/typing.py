@@ -9,7 +9,7 @@ from typing import Union
 
 from typing_extensions import TypeAlias
 
-from fairseq2.data.string import String
+from fairseq2.data.string import CString
 
 # A type alias as recommended in PEP 519.
-PathLike: TypeAlias = Union[str, String, "os.PathLike[str]"]
+PathLike: TypeAlias = Union[str, CString, "os.PathLike[str]"]
