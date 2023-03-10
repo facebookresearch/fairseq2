@@ -20,14 +20,14 @@ using sentencepiece::SentencePieceProcessor;
 
 namespace fairseq2::detail {
 
-class sp_model_loader {
+class sp_model_proto_loader {
 public:
     explicit
-    sp_model_loader(std::string_view pathname, sp_model_options &&opts) noexcept
+    sp_model_proto_loader(std::string_view pathname, sp_model_options &&opts) noexcept
         : pathname_{pathname}, opts_{std::move(opts)}
     {}
 
-    std::unique_ptr<SentencePieceProcessor> &&
+    std::unique_ptr<ModelProto> &&
     load() &&;
 
 private:
@@ -40,15 +40,6 @@ private:
     void
     add_piece(std::string &&piece);
 
-    void
-    load_processor();
-
-    void
-    set_encoder_extras();
-
-    void
-    set_decoder_extras();
-
 private:
     std::string_view pathname_;
     sp_model_options opts_;
@@ -56,20 +47,18 @@ private:
     std::unique_ptr<SentencePieceProcessor> processor_{};
 };
 
-std::unique_ptr<SentencePieceProcessor> &&
-sp_model_loader::load() &&
+std::unique_ptr<ModelProto> &&
+sp_model_proto_loader::load() &&
 {
     load_proto();
 
     add_control_tokens();
 
-    load_processor();
-
-    return std::move(processor_);
+    return std::move(proto_);
 }
 
 void
-sp_model_loader::load_proto()
+sp_model_proto_loader::load_proto()
 {
     proto_ = std::make_unique<ModelProto>();
 
@@ -89,7 +78,7 @@ sp_model_loader::load_proto()
 }
 
 void
-sp_model_loader::add_control_tokens()
+sp_model_proto_loader::add_control_tokens()
 {
     for (std::string &token : opts_.control_tokens()) {
         if (token.empty())
@@ -117,7 +106,7 @@ sp_model_loader::add_control_tokens()
 }
 
 void
-sp_model_loader::add_piece(std::string &&piece)
+sp_model_proto_loader::add_piece(std::string &&piece)
 {
     ModelProto_SentencePiece *sp = proto_->add_pieces();
 
@@ -126,31 +115,22 @@ sp_model_loader::add_piece(std::string &&piece)
     sp->set_type(ModelProto_SentencePiece::CONTROL);
 }
 
-void
-sp_model_loader::load_processor()
-{
-    processor_ = std::make_unique<SentencePieceProcessor>();
-
-    auto st = processor_->Load(std::move(proto_));
-    if (!st.ok())
-        throw std::runtime_error{st.message()};
-}
-
 sp_processor::sp_processor(std::string_view model_pathname, sp_model_options &&opts)
+    : sp_processor{sp_model_proto_loader{model_pathname, std::move(opts)}.load()}
+{}
+
+std::unique_ptr<sp_processor>
+sp_processor::from_serialized(std::string_view serialized)
 {
-    sp_model_loader loader{model_pathname, std::move(opts)};
+    auto proto = std::make_unique<ModelProto>();
 
-    native_ = std::move(loader).load();
+    bool r = proto->ParseFromArray(serialized.data(), static_cast<int>(serialized.size()));
+    if (!r)
+        throw std::runtime_error{"The serialized SentencePiece model cannot be parsed."};
 
-    unk_idx = conditional_cast<std::int32_t>(native_->unk_id());
-    bos_idx = conditional_cast<std::int32_t>(native_->bos_id());
-    eos_idx = conditional_cast<std::int32_t>(native_->eos_id());
-    pad_idx = conditional_cast<std::int32_t>(native_->pad_id());
+    sp_processor proc{std::move(proto)};
 
-    if (pad_idx < 0)
-        throw std::runtime_error{"The model has no padding token specified."};
-
-    vocab_size = conditional_cast<std::size_t>(native_->GetPieceSize());
+    return std::make_unique<sp_processor>(std::move(proc));
 }
 
 ImmutableSentencePieceText
@@ -202,6 +182,31 @@ sp_processor::index_to_token(std::int32_t idx) const
         throw std::domain_error{"The specified index is out of range."};
 
     return native_->IdToPiece(conditional_cast<int>(idx));
+}
+
+std::string
+sp_processor::serialize() const
+{
+    return native_->model_proto().SerializeAsString();
+}
+
+sp_processor::sp_processor(std::unique_ptr<ModelProto> &&proto)
+{
+    native_ = std::make_unique<SentencePieceProcessor>();
+
+    auto st = native_->Load(std::move(proto));
+    if (!st.ok())
+        throw std::runtime_error{st.message()};
+
+    unk_idx = conditional_cast<std::int32_t>(native_->unk_id());
+    bos_idx = conditional_cast<std::int32_t>(native_->bos_id());
+    eos_idx = conditional_cast<std::int32_t>(native_->eos_id());
+    pad_idx = conditional_cast<std::int32_t>(native_->pad_id());
+
+    if (pad_idx < 0)
+        throw std::runtime_error{"The model has no padding token specified."};
+
+    vocab_size = conditional_cast<std::size_t>(native_->GetPieceSize());
 }
 
 }  // namespace fairseq2::detail

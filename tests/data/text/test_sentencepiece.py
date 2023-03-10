@@ -4,6 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import pickle
 from pathlib import Path
 from typing import ClassVar, Final, List, Optional, Sequence
 
@@ -318,6 +319,42 @@ class TestSentencePieceModel:
         indices = encoder(self.sentences)
 
         assert_equal(indices, expected_indices)
+
+    def test_pickles_correctly(self) -> None:
+        spm = self.build_model(control_tokens=["<foo1>", "<foo2>", "<foo3>"])
+
+        dmp = pickle.dumps(spm)
+
+        # We expect that the entire state of the model including our control
+        # tokens are pickled.
+        spm = pickle.loads(dmp)
+
+        encoder = SentencePieceEncoder(
+            spm,
+            device=device,
+            prefix_tokens=["<foo1>", "<s>"],
+            suffix_tokens=["<foo2>", "</s>", "<foo3>"],
+        )
+        decoder = SentencePieceDecoder(spm)
+
+        foo1_idx = spm.token_to_index("<foo1>")
+        foo2_idx = spm.token_to_index("<foo2>")
+        foo3_idx = spm.token_to_index("<foo3>")
+
+        expected_indices = self.build_batch(
+            self.token_indices,
+            prefix_token_indices=[foo1_idx, spm.bos_idx],
+            suffix_token_indices=[foo2_idx, spm.eos_idx, foo3_idx],
+        )
+
+        indices = encoder(self.sentences)
+
+        assert_equal(indices, expected_indices)
+
+        # We expect the decoder to ignore the prefix and suffix tokens.
+        sentences = decoder(indices)
+
+        assert sentences == self.sentences
 
     @staticmethod
     def build_model(

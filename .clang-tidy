@@ -25,6 +25,7 @@ Checks: >
     -misc-const-correctness,
     -misc-no-recursion,
     -misc-non-private-member-variables-in-classes,
+    -modernize-use-equals-default,
     -modernize-use-nodiscard,
     -modernize-use-trailing-return-type,
     -readability-braces-around-statements,

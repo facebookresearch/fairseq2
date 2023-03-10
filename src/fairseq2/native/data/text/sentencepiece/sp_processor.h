@@ -24,6 +24,9 @@ public:
     explicit
     sp_processor(std::string_view model_pathname, sp_model_options &&opts);
 
+    static std::unique_ptr<sp_processor>
+    from_serialized(std::string_view serialized);
+
     sentencepiece::ImmutableSentencePieceText
     encode(std::string_view text) const;
 
@@ -39,6 +42,12 @@ public:
     std::string_view
     index_to_token(std::int32_t idx) const;
 
+    std::string
+    serialize() const;
+
+private:
+    sp_processor(std::unique_ptr<sentencepiece::ModelProto> &&proto);
+
 public:
     std::int32_t unk_idx;
     std::int32_t bos_idx;
@@ -48,7 +57,7 @@ public:
     std::size_t vocab_size;
 
 private:
-    std::unique_ptr<sentencepiece::SentencePieceProcessor> native_{};
+    std::unique_ptr<sentencepiece::SentencePieceProcessor> native_;
 };
 
 }  // namespace fairseq2::detail

@@ -42,6 +42,21 @@ def_sentencepiece(py::module_ &base)
             }),
             py::arg("pathname"),
             py::arg("control_tokens") = std::nullopt)
+
+        .def(py::pickle(
+            [](const sp_model &self)
+            {
+                std::string serialized = self.serialize();
+
+                return py::bytes(serialized);
+            },
+            [](const py::bytes &bits)
+            {
+                auto serialized = bits.cast<std::string>();
+
+                return sp_model::from_serialized(serialized);
+            }))
+
         .def("token_to_index", &sp_model::token_to_index)
         .def("index_to_token", &sp_model::index_to_token)
         .def_property_readonly("unk_idx", &sp_model::unk_idx)

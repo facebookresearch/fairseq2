@@ -84,7 +84,9 @@ set(torch_required_vars
 
 mark_as_advanced(${torch_required_vars} TORCH_CUDA_LIBRARY C10_CUDA_LIBRARY)
 
-__torch_determine_version()
+if(TORCH_LIBRARY)
+    __torch_determine_version()
+endif()
 
 find_package_handle_standard_args(Torch
     REQUIRED_VARS

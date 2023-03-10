@@ -66,11 +66,14 @@ public:
     explicit
     sp_model(std::string_view pathname, sp_model_options opts = {});
 
+    static sp_model
+    from_serialized(std::string_view serialized);
+
     sp_model(const sp_model &) = delete;
     sp_model &operator=(const sp_model &) = delete;
 
-    sp_model(sp_model &&) = default;
-    sp_model &operator=(sp_model &&) = default;
+    sp_model(sp_model &&) noexcept;
+    sp_model &operator=(sp_model &&) noexcept;
 
    ~sp_model();
 
@@ -94,6 +97,12 @@ public:
 
     std::size_t
     vocab_size() const;
+
+    std::string
+    serialize() const;
+
+private:
+    sp_model(std::unique_ptr<detail::sp_processor> &&proc) noexcept;
 
 private:
     std::unique_ptr<detail::sp_processor> processor_;

@@ -8,12 +8,25 @@
 
 #include "fairseq2/native/data/text/sentencepiece/sp_processor.h"
 
+using namespace fairseq2::detail;
+
 namespace fairseq2 {
 
 sp_model::sp_model(std::string_view pathname, sp_model_options opts)
 {
-    processor_ = std::make_unique<detail::sp_processor>(pathname, std::move(opts));
+    processor_ = std::make_unique<sp_processor>(pathname, std::move(opts));
 }
+
+sp_model
+sp_model::from_serialized(std::string_view serialized)
+{
+    std::unique_ptr<sp_processor> proc = sp_processor::from_serialized(serialized);
+
+    return sp_model{std::move(proc)};
+}
+
+sp_model::sp_model(sp_model &&) noexcept = default;
+sp_model &sp_model::operator=(sp_model &&) noexcept = default;
 
 sp_model::~sp_model() = default;
 
@@ -58,5 +71,15 @@ sp_model::vocab_size() const
 {
     return processor_->vocab_size;
 }
+
+std::string
+sp_model::serialize() const
+{
+    return processor_->serialize();
+}
+
+sp_model::sp_model(std::unique_ptr<sp_processor> &&proc) noexcept
+    : processor_{std::move(proc)}
+{}
 
 }  // namespace fairseq2
