@@ -1,5 +1,6 @@
 import os
 import time
+from typing import Any, Dict
 
 import torch
 from torch import Tensor
@@ -20,10 +21,6 @@ spm = SentencePieceModel(
     # since the IWSLT SentencePiece model does not have a pad token, plus <en>
     # and <de> as beginning-of-sentece markers for a translation task.
     control_tokens=["<pad>", "<en>", "<de>"],
-    # These indicate whether to append <bos> and/or prepend <eos> during
-    # encoding.
-    #    add_bos=True,
-    #    add_eos=True,
 )
 
 
@@ -123,9 +120,20 @@ start_time = time.perf_counter()
 
 num_batches = 0
 
+state: Dict[str, Any] = {}
+
 # Just a noop iterator. Each `batch` is a pair of tensors representing the
 # source and target language data.
 for batch in dp:
+    # Preserve the position of the data pipeline after the 100th iteration.
+    if num_batches == 100:
+        state = dp.state_dict()
+
+    # Restore the previously saved state; effectively roll back to the 100th
+    # iteration and repeat the last 200 batches.
+    if num_batches == 300:
+        dp.load_state_dict(state)
+
     num_batches += 1
 
 torch.cuda.synchronize()

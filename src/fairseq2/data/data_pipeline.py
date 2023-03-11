@@ -4,11 +4,19 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import TYPE_CHECKING, Any, Callable, Iterator, Sequence, final
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Iterator,
+    Mapping,
+    Sequence,
+    final,
+)
 
 from fairseq2 import DOC_MODE
 from fairseq2.data.string import StringLike
-from fairseq2.data.tape import Tape
 from fairseq2.data.typing import PathLike
 
 
@@ -34,28 +42,33 @@ class DataPipeline:
         """Move back to the first example in the data pipeline."""
         pass
 
-    def record_position(self, tape: Tape) -> None:
-        """Record the current position of the data pipeline to ``tape``.
-
-        :param t:
-            The tape to record to.
-        """
-        pass
-
-    def reload_position(self, tape: Tape) -> None:
-        """Reload the current position of the data pipeline from ``tape``.
-
-        :param t:
-            The tape to read from.
-        """
-        pass
-
     @property
     def is_broken(self) -> bool:
-        """Return whether the data pipeline is broken by a previous operation.
+        """Return whether the data pipeline is broken.
 
         If ``True``, any future operation on this data pipeline will raise a
         :class:`DataPipelineError`.
+        """
+        pass
+
+    def state_dict(self) -> Dict[str, Any]:
+        """Return a dictionary containing the state of the data pipeline.
+
+        The current position of the data pipeline can be restored by passing the
+        returned state dictionary to :meth:`load_state_dict`.
+        """
+        pass
+
+    def load_state_dict(
+        self, state_dict: Mapping[str, Any], strict: bool = True
+    ) -> None:
+        """Restore the state of the data pipeline from ``state_dict``.
+
+        :param state_dict:
+            A state dictionary previously returned by :meth:`state_dict`.
+        :param strict:
+            If ``True``, enforces that the keys in ``state_dict`` match the keys
+            returned by :meth:`state_dict`.
         """
         pass
 

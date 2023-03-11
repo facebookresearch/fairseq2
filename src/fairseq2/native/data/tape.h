@@ -11,21 +11,15 @@
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 #include "fairseq2/native/api.h"
 #include "fairseq2/native/data/data.h"
 #include "fairseq2/native/utils/cast.h"
 
 namespace fairseq2 {
-namespace detail {
-
-struct tape_attorney;
-
-}
 
 class FAIRSEQ2_API tape {
-    friend struct detail::tape_attorney;
-
 public:
     static void
     check(bool expr)
@@ -35,7 +29,9 @@ public:
     }
 
 public:
-    tape() noexcept = default;
+    tape(std::vector<data> storage = {}) noexcept
+        : storage_{std::move(storage)}
+    {}
 
     void
     record(const data &d);
@@ -73,18 +69,13 @@ public:
         iter_ = storage_.begin();
     }
 
-private:
-    explicit
-    tape(std::vector<data> &&storage) noexcept
-        : storage_(std::move(storage))
-    {}
-
     const std::vector<data> &
     storage() const noexcept
     {
         return storage_;
     }
 
+private:
     [[noreturn]] static void
     throw_corrupt();
 
@@ -131,21 +122,4 @@ tape::throw_corrupt()
     throw corrupt_tape_error{"The tape is corrupt."};
 }
 
-namespace detail {
-
-struct tape_attorney {
-    static tape
-    make(std::vector<data> &&storage) noexcept
-    {
-        return tape{std::move(storage)};
-    }
-
-    static const std::vector<data> &
-    get_storage(const tape &t) noexcept
-    {
-        return t.storage();
-    }
-};
-
-}  // namespace detail
 }  // namespace fairseq2

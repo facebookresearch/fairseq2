@@ -12,6 +12,7 @@
 #include <functional>
 #include <iterator>
 #include <optional>
+#include <stdexcept>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -62,19 +63,55 @@ def_data_pipeline(py::module_ &base)
 
     py::class_<data_pipeline>(m, "DataPipeline")
         .def(py::init<>())
+
         .def("__iter__",
             [](data_pipeline &self)
             {
                 return data_pipeline_iterator{self};
             },
             py::keep_alive<0, 1>{})
+
         .def("skip", &data_pipeline::skip, py::arg("num_examples"))
         .def("reset", &data_pipeline::reset)
 
-        .def("record_position", &data_pipeline::record_position, py::arg("tape"))
-        .def("reload_position", &data_pipeline::reload_position, py::arg("tape"))
+        .def_property_readonly("is_broken", &data_pipeline::is_broken)
 
-        .def_property_readonly("is_broken", &data_pipeline::is_broken);
+        .def("state_dict",
+            [](const data_pipeline &self)
+            {
+                tape t{};
+
+                self.record_position(t);
+
+                return py::dict{py::arg("position") = py::cast(t.storage())};
+            })
+        .def("load_state_dict",
+            [](data_pipeline &self, const py::dict &state_dict, bool strict)
+            {
+                py::object value;
+                try {
+                    value = state_dict["position"];
+                } catch (const py::error_already_set &ex) {
+                    if (ex.matches(PyExc_KeyError) && !strict)
+                        return;
+
+                    throw;
+                }
+
+                std::vector<data> storage;
+                try {
+                    storage = value.cast<std::vector<data>>();
+                } catch (const py::cast_error &) {
+                    throw std::invalid_argument{
+                        "The specified data pipeline state is corrupt."};
+                }
+
+                tape t{std::move(storage)};
+
+                self.reload_position(t);
+            },
+            py::arg("state_dict"),
+            py::arg("strict") = true);
 
     py::class_<data_pipeline_iterator>(m, "DataPipelineIterator")
         .def("__iter__",
@@ -249,27 +286,6 @@ def_string(py::module_ &base)
     py::implicitly_convertible<std::string_view, immutable_string>();
 }
 
-void
-def_tape(py::module_ &base)
-{
-    py::module_ m = base.def_submodule("tape");
-
-    py::class_<tape>(m, "Tape")
-        .def(py::init<>())
-
-        .def("rewind", &tape::rewind)
-
-        .def(py::pickle(
-            [](const tape &self)
-            {
-                return tape_attorney::get_storage(self);
-            },
-            [](std::vector<data> &&storage)
-            {
-                return tape_attorney::make(std::move(storage));
-            }));
-}
-
 }  // namespace
 
 void
@@ -280,8 +296,6 @@ def_data(py::module_ &base)
     def_data_pipeline(m);
 
     def_string(m);
-
-    def_tape(m);
 
     def_text(m);
 }

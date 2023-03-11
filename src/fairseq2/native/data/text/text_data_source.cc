@@ -36,7 +36,7 @@ text_data_source::text_data_source(std::string &&pathname, text_options &&opts)
 std::optional<data>
 text_data_source::next()
 {
-    memory_block line{};
+    memory_block line;
 
     try {
         line = next_line();

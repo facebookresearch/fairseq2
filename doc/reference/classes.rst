@@ -12,7 +12,6 @@ Classes
     data.DataPipeline
     data.DataPipelineBuilder
     data.StringLike
-    data.Tape
     data.DataPipelineError
     data.StreamError
     data.RecordError

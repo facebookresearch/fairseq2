@@ -283,7 +283,7 @@ data_pipeline_builder
 list_files(std::string pathname, std::string pattern)
 {
     auto fc = [pathname = std::move(pathname), pattern = std::move(pattern)]() {
-        std::vector<data> data{};
+        std::vector<data> data;
 
         try {
             py_gil_release no_gil{};
