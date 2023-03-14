@@ -21,31 +21,30 @@ class CString:
         :param s:
             The Python string to copy. If ``None``, constructs an empty string.
         """
-        pass
 
     def __len__(self) -> int:
-        pass
+        return 0
 
     def __eq__(self, other: object) -> bool:
-        pass
+        return False
 
     def __ne__(self, other: object) -> bool:
-        pass
+        return False
 
     def __hash__(self) -> int:
-        pass
+        return 0
 
     def lstrip(self) -> "CString":
         """Return a copy of this string with no whitespace at the beginning."""
-        pass
+        return self
 
     def rstrip(self) -> "CString":
         """Return a copy of this string with no whitespace at the end."""
-        pass
+        return self
 
     def to_py(self) -> str:
         """Return a copy of this string in Python."""
-        pass
+        return ""
 
 
 StringLike: TypeAlias = Union[str, CString]

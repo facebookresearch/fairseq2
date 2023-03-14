@@ -10,6 +10,8 @@ from typing import TYPE_CHECKING, Optional
 from fairseq2 import DOC_MODE
 from fairseq2.data.data_pipeline import DataPipelineBuilder
 from fairseq2.data.string import StringLike
+from fairseq2.data.text.reader import LineEnding as LineEnding
+from fairseq2.data.text.reader import read_text as read_text
 from fairseq2.data.text.sentencepiece import (
     SentencePieceDecoder as SentencePieceDecoder,
 )
@@ -21,32 +23,3 @@ from fairseq2.data.text.tokenizer import TokenDecoder as TokenDecoder
 from fairseq2.data.text.tokenizer import TokenEncoder as TokenEncoder
 from fairseq2.data.text.tokenizer import VocabularyInfo as VocabularyInfo
 from fairseq2.data.typing import PathLike
-
-
-class LineEnding(Enum):
-    INFER = 0
-    LF = 1
-    CRLF = 2
-
-
-def read_text(
-    pathname: PathLike,
-    encoding: StringLike = "",
-    line_ending: LineEnding = LineEnding.INFER,
-    ltrim: bool = False,
-    rtrim: bool = False,
-    skip_empty: bool = False,
-    memory_map: bool = False,
-    block_size: Optional[int] = None,
-) -> DataPipelineBuilder:
-    pass
-
-
-if not TYPE_CHECKING and not DOC_MODE:
-    from fairseq2.C.data.text import LineEnding, read_text  # noqa: F811
-
-    def _set_module() -> None:
-        for t in [LineEnding, read_text]:
-            t.__module__ = __name__
-
-    _set_module()

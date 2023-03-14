@@ -23,30 +23,30 @@ class SentencePieceModel:
         pass
 
     def token_to_index(self, token: StringLike) -> int:
-        pass
+        return 0
 
     def index_to_token(self, idx: int) -> str:
-        pass
+        return ""
 
     @property
     def unk_idx(self) -> int:
-        pass
+        return 0
 
     @property
     def bos_idx(self) -> int:
-        pass
+        return 0
 
     @property
     def eos_idx(self) -> int:
-        pass
+        return 0
 
     @property
     def pad_idx(self) -> int:
-        pass
+        return 0
 
     @property
     def vocab_size(self) -> int:
-        pass
+        return 0
 
 
 @final
@@ -72,7 +72,7 @@ class SentencePieceEncoder(TokenEncoder):
         pass
 
     def __call__(self, sentences: Union[StringLike, Sequence[StringLike]]) -> Tensor:
-        pass
+        raise NotImplementedError()
 
 
 @final
@@ -81,7 +81,7 @@ class SentencePieceDecoder(TokenDecoder):
         pass
 
     def __call__(self, token_indices: Tensor) -> Union[StringLike, List[StringLike]]:
-        pass
+        raise NotImplementedError()
 
 
 if not TYPE_CHECKING and not DOC_MODE:

@@ -24,7 +24,7 @@ from fairseq2.data.typing import PathLike
 class DataPipeline:
     def __iter__(self) -> Iterator[Any]:
         """Return an iterator over the examples in the data pipeline."""
-        pass
+        return iter([])
 
     def skip(self, num_examples: int) -> int:
         """Skip reading a specified number of examples.
@@ -36,11 +36,10 @@ class DataPipeline:
             The number of examples skipped. It can be less than ``num_examples``
             if the end of the data pipeline is reached.
         """
-        pass
+        return 0
 
     def reset(self) -> None:
         """Move back to the first example in the data pipeline."""
-        pass
 
     @property
     def is_broken(self) -> bool:
@@ -49,7 +48,7 @@ class DataPipeline:
         If ``True``, any future operation on this data pipeline will raise a
         :class:`DataPipelineError`.
         """
-        pass
+        return False
 
     def state_dict(self) -> Dict[str, Any]:
         """Return a dictionary containing the state of the data pipeline.
@@ -57,7 +56,7 @@ class DataPipeline:
         The current position of the data pipeline can be restored by passing the
         returned state dictionary to :meth:`load_state_dict`.
         """
-        pass
+        return {}
 
     def load_state_dict(
         self, state_dict: Mapping[str, Any], strict: bool = True
@@ -70,7 +69,6 @@ class DataPipeline:
             If ``True``, enforces that the keys in ``state_dict`` match the keys
             returned by :meth:`state_dict`.
         """
-        pass
 
 
 @final
@@ -86,7 +84,7 @@ class DataPipelineBuilder:
             If ``True``, drop the last batch in case it has fewer than
             ``batch_size`` examples.
         """
-        pass
+        return self
 
     def map(self, fn: Callable[[Any], Any]) -> "DataPipelineBuilder":
         """Apply ``fn`` to every example in the data pipeline.
@@ -94,7 +92,7 @@ class DataPipelineBuilder:
         :param fn:
             The function to apply.
         """
-        pass
+        return self
 
     def shard(self, shard_idx: int, num_shards: int) -> "DataPipelineBuilder":
         """Read only 1/``num_shards`` of the examples in the data pipeline.
@@ -104,7 +102,7 @@ class DataPipelineBuilder:
         :param num_shards:
             The number of shards.
         """
-        pass
+        return self
 
     def yield_from(self, fn: Callable[[Any], DataPipeline]) -> "DataPipelineBuilder":
         """Map every example to a data pipeline and yield the examples returned
@@ -113,11 +111,11 @@ class DataPipelineBuilder:
         :param fn:
             The function to map examples to data pipelines.
         """
-        pass
+        return self
 
     def and_return(self) -> DataPipeline:
         """Return a new :class:`DataPipeline` instance."""
-        pass
+        raise NotImplementedError()
 
 
 class DataPipelineError(RuntimeError):
@@ -132,7 +130,7 @@ def list_files(pathname: PathLike, pattern: StringLike = "") -> "DataPipelineBui
     :param pattern:
         If non-empty, a pattern that follows the syntax of :mod:`fnmatch`.
     """
-    pass
+    raise NotImplementedError()
 
 
 def read_sequence(s: Sequence[Any]) -> "DataPipelineBuilder":
@@ -141,7 +139,7 @@ def read_sequence(s: Sequence[Any]) -> "DataPipelineBuilder":
     :param s:
         The sequence to read.
     """
-    pass
+    raise NotImplementedError()
 
 
 def zip_data_pipelines(
@@ -152,7 +150,7 @@ def zip_data_pipelines(
     :param data_pipelines:
         The data pipelines to zip.
     """
-    pass
+    raise NotImplementedError()
 
 
 class StreamError(RuntimeError):
