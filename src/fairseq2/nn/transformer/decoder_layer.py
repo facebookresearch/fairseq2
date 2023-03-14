@@ -127,7 +127,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         :param scale_residual:
             If ``True``, scales residuals before adding them to the output of
             the feed-forward network. See
-            :cite:t:`https://doi.org/10.48550/arxiv.2110.09456` for mor
+            :cite:t:`https://doi.org/10.48550/arxiv.2110.09456` for more
             information.
         :param dropout_p:
             The dropout probability on outputs of the attention layers and the

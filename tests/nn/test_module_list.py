@@ -17,7 +17,7 @@ class TestModuleList:
         m = ModuleList(modules, drop_p=1.0)
 
         with pytest.raises(StopIteration):
-            next(iter(m))
+            next(m.drop_iter())
 
     def test_iter_returns_all_modules_when_drop_p_is_zero(self) -> None:
         modules = [Linear(10, 10), Linear(10, 10), Linear(10, 10), Linear(10, 10)]
@@ -26,7 +26,7 @@ class TestModuleList:
 
         count = 0
 
-        for m1, m2 in zip(m, modules):
+        for m1, m2 in zip(m.drop_iter(), modules):
             assert m1 is m2
 
             count += 1
@@ -42,7 +42,7 @@ class TestModuleList:
 
         count = 0
 
-        for m1, m2 in zip(m, modules):
+        for m1, m2 in zip(m.drop_iter(), modules):
             assert m1 is m2
 
             count += 1

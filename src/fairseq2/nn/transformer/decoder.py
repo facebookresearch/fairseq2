@@ -166,7 +166,7 @@ class StandardTransformerDecoder(TransformerDecoder):
 
         x = embeds
 
-        for layer in self.layers:
+        for layer in self.layers.drop_iter():
             x = layer(
                 x, padding_mask, self_attn_mask, enc_out, enc_padding_mask, state_bag
             )

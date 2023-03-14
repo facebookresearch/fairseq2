@@ -30,11 +30,11 @@ class ModuleList(nn.ModuleList):
     >>>
     >>> layers = ModuleList([layer1, layer2, layer3], drop_p=0.5)
     >>>
-    >>> for layer in layers:  # This might iterate over layers 1 and 3.
+    >>> for layer in layers.drop_iter():  # This might iterate over layers 1 and 3.
     ...    x = layer(x)
-    >>> for layer in layers:  # This might iterate over all layers.
+    >>> for layer in layers.drop_iter():  # This might iterate over all layers.
     ...    x = layer(x)
-    >>> for layer in layers:  # This might not iterate over any layers.
+    >>> for layer in layers.drop_iter():  # This might not iterate over any layers.
     ...    x = layer(x)
     """
 
@@ -53,7 +53,8 @@ class ModuleList(nn.ModuleList):
 
         self.drop_p = drop_p
 
-    def __iter__(self) -> Iterator[Module]:
+    def drop_iter(self) -> Iterator[Module]:
+        """Return an iterator that drops a random set of submodules."""
         if self.drop_p > 0.0 and self.training:
             prob_dist = torch.rand(len(self), device="cpu", dtype=torch.float)
         else:

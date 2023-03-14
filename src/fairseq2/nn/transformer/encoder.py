@@ -130,7 +130,7 @@ class StandardTransformerEncoder(TransformerEncoder):
 
         x = embeds
 
-        for layer in self.layers:
+        for layer in self.layers.drop_iter():
             x = layer(x, padding_mask, self_attn_mask)
 
         if self.layer_norm is not None:
