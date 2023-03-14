@@ -6,11 +6,73 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, Sequence, Union
+from typing import List, Optional, Sequence, Union
 
+import torch
 from torch import Tensor
 
 from fairseq2.data.string import StringLike
+
+
+class Tokenizer(ABC):
+    """Represents a tokenizer to encode and decode sentences."""
+
+    vocab_info: "VocabularyInfo"
+
+    def __init__(self, vocab_info: "VocabularyInfo") -> None:
+        """
+        :param vocab_info:
+            The vocabulary information associated with the tokenizer.
+        """
+        self.vocab_info = vocab_info
+
+    @abstractmethod
+    def create_encoder(
+        self,
+        task: Optional[str] = None,
+        lang: Optional[str] = None,
+        mode: Optional[str] = None,
+        batch_size: Optional[int] = None,
+        device: Optional[torch.device] = None,
+        pin_memory: bool = False,
+        dtype: torch.dtype = torch.int32,
+        disable_parallelism: bool = False,
+    ) -> "TokenEncoder":
+        """Create a token encoder.
+
+        The valid arguments for the ``task``, ``lang``, and ``mode`` parameters
+        are implementation specific. Refer to concrete ``Tokenizer`` subclasses
+        for more information.
+
+        :param task:
+            An optional implementation-specific task such as 'translation' or
+            'transcription' for which to generate token indices.
+        :param lang:
+            An optional identifier indicating the language of generated token
+            indices. Typically used by multilingual tokenizers for
+            distinguishing between different source and target languages.
+        :param mode:
+            An optional implementation-specific mode in which to generate token
+            indices. Typically used by translation tasks to indicate whether the
+            encoding is done for source or target sentences.
+        :param batch_size:
+            If the number of sentences to encode is less than ``batch_size``,
+            the output will be padded.
+        :param device:
+            The device on which to initialize token indices.
+        :param pin_memory:
+            If ``True``, uses pinned memory before copying token indices to the
+            target device. (only supported by CUDA devices)
+        :param dtype:
+            The integral data type of generated token indices.
+        :param disabled_parallelism:
+            If ``True``, disables parallelism and uses the calling thread only.
+        """
+
+    @abstractmethod
+    def create_decoder(self) -> "TokenDecoder":
+        """Create a token decoder."""
+        pass
 
 
 @dataclass(frozen=True)

@@ -4,13 +4,15 @@
 # LICENSE file in the root directory of this source tree.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, NamedTuple, Optional, Union
+from typing import List, NamedTuple, Optional, Sequence, Union, cast
 
 import torch
 import torch.nn as nn
 from overrides import overrides
 from torch import Tensor
 
+import fairseq2.data.text
+from fairseq2.data import CString, StringLike
 from fairseq2.data.text import VocabularyInfo
 from fairseq2.generate.tokenizer import Tokenizer
 from fairseq2.models.transformer import TransformerModel
@@ -220,6 +222,44 @@ class SearchStrategy(ABC):
         )
         tgt_tokens = self.generate(model, src_tokens, top=1, prefix_tokens=tgt_bos_tok)
         return tokenizer.decode_batch(tgt_tokens.squeeze(1))
+
+    # TODO: Merge with the existing generate_str, once we consolidate the
+    # tokenizer implementations.
+    def generate_str_ex(
+        self,
+        model: TransformerModel,
+        tokenizer: fairseq2.data.text.Tokenizer,
+        sentences: Union[StringLike, Sequence[StringLike]],
+        *,
+        src_lang: str = "",
+        tgt_lang: str = "",
+        device: torch.device,
+    ) -> Union[StringLike, List[StringLike]]:
+        if isinstance(sentences, (str, CString)):
+            sentences = [sentences]
+
+            squeeze = True
+
+        src_encoder = tokenizer.create_encoder(
+            task="translation", lang=src_lang, mode="source", device=device
+        )
+        tgt_encoder = tokenizer.create_encoder(
+            task="translation", lang=tgt_lang, mode="target", device=device
+        )
+
+        tgt_decoder = tokenizer.create_decoder()
+
+        src_indices = src_encoder(sentences)
+        # Start with an empty sentence.
+        tgt_indices = tgt_encoder([""] * len(sentences))
+
+        tgt_indices = self.generate(
+            model, src_indices, top=1, prefix_tokens=tgt_indices
+        )
+
+        output = cast(List[StringLike], tgt_decoder(tgt_indices.squeeze(1)))
+
+        return output[0] if squeeze else output
 
 
 @dataclass

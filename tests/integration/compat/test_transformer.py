@@ -7,13 +7,13 @@ import torch
 import fairseq2.generate
 import fairseq2.nn
 from fairseq2.compat.models.transformer import load_fairseq1_checkpoint
-from fairseq2.data.text import VocabularyInfo
+from fairseq2.data.text import Tokenizer
+from fairseq2.models.nllb import load_nllb_tokenizer
 from fairseq2.models.transformer import TransformerConfig, create_transformer_model
 from tests.common import assert_close, assert_equal, device
 
 NLLB_MODELS = Path("/large_experiments/seamless/nllb/opensource/")
 NLLB_SMALL = NLLB_MODELS / "nllb_200_dense_distill_600m/checkpoint.pt"
-NLLB_TOK = NLLB_MODELS / "spm_200/sentencepiece.source.256000.model"
 
 ENG = "On Monday, scientists from the Stanford University School of Medicine announced the invention of a new diagnostic tool that can sort cells by type: a tiny printable chip that can be manufactured using standard inkjet printers for possibly about one U.S. cent each."
 FRA_1 = "Lundi, des scientifiques de l'École de médecine de l'Université de Stanford ont annoncé l'invention d'un nouvel outil de diagnostic capable de trier les cellules par type: une minuscule puce imprimable qui peut être fabriquée à l'aide d'imprimantes à jet d'encre standard pour environ un centime de centime chacun."
@@ -22,83 +22,71 @@ FRA_5 = "Lundi, des scientifiques de l'École de médecine de l'Université de S
 
 @pytest.mark.skipif(not NLLB_MODELS.exists(), reason="needs to run on FAIR cluster")
 def test_loading_nllb200_small(tmp_path: Path) -> None:
+    tokenizer1 = load_nllb_tokenizer("dense_distill_600m")
+
     # Load fairseq checkpoint into fairseq2
-    model2, tokenizer2, cfg = load_fairseq1_checkpoint(NLLB_SMALL, NLLB_TOK, device)
+    model1, cfg1 = load_fairseq1_checkpoint(NLLB_SMALL, tokenizer1.vocab_info, device)
 
-    assert tokenizer2.special_tokens["__ace_Arab__"] == 256001
-    assert tokenizer2.vocab_size() == 256206
+    model1.eval()
 
-    model2.eval()
+    src_encoder1 = tokenizer1.create_encoder(
+        lang="eng_Latn", mode="source", device=device
+    )
+    src_decoder1 = tokenizer1.create_decoder()
 
-    src_bos_tok = tokenizer2.special_tokens["__eng_Latn__"]
-    src_tokens2 = tokenizer2.encode_batch([ENG], bos=src_bos_tok)
-    assert tokenizer2.decode_batch(src_tokens2) == [ENG]
+    src_tok1 = src_encoder1(ENG)
+    assert src_decoder1(src_tok1) == ENG
 
-    print(" ".join(tokenizer2.spm.encode_as_pieces(ENG)))
-    try:
-        tokenizer1 = fairseq2.generate.DictTokenizer.from_fairseq_dict_txt(
-            NLLB_TOK.parent / "dictionary.txt"
-        )
-        src_tokens1 = tokenizer1.encode_batch(
-            [" ".join(tokenizer2.spm.encode_as_pieces(ENG))], bos=src_bos_tok
-        )
-        assert_equal(src_tokens2[:, :-1], src_tokens1[:, :-1])
-    except ImportError:
-        # The above tests uses fairseq tokenization
-        pass
-
-    src_tokens2 = src_tokens2.to(device)
-    assert_speaks_french(model2, tokenizer2, device)
+    assert_speaks_french(model1, tokenizer1, device)
 
     # Save NLLB200 model as a fairseq2 model
     state = {
-        "model": model2.state_dict(),
-        "cfg": cfg,
-        "tokenizer": tokenizer2,
+        "model": model1.state_dict(),
+        "cfg": cfg1,
+        "tokenizer": tokenizer1,
     }
     torch.save(state, tmp_path / "nllb200.fairseq2.pt")
 
-    vocab_info = VocabularyInfo(
-        tokenizer2.vocab_size(),
-        tokenizer2.UNK,
-        tokenizer2.BOS,
-        tokenizer2.EOS,
-        tokenizer2.PAD,
-    )
-
     # Reload NLLB200 as a fairseq2 model
     state = torch.load(tmp_path / "nllb200.fairseq2.pt")
-    cfg3 = cast(TransformerConfig, state["cfg"])
-    model3 = create_transformer_model(cfg3, vocab_info)
-    tokenizer3 = cast(fairseq2.generate.Tokenizer, state["tokenizer"])
-    model3.load_state_dict(state["model"])  # type: ignore
-    model3.eval()
-    src_tokens3 = tokenizer3.encode_batch([ENG], bos=src_bos_tok)
-    assert_equal(src_tokens3, src_tokens2)
-    assert_close(model3.encode(src_tokens3)[0], model2.encode(src_tokens2)[0])
-    assert_speaks_french(model3, tokenizer3, device)
+    cfg2 = cast(TransformerConfig, state["cfg"])
+    tokenizer2 = cast(Tokenizer, state["tokenizer"])
+    model2 = create_transformer_model(cfg2, tokenizer2.vocab_info)
+    model2.load_state_dict(state["model"])  # type: ignore
+    model2.eval()
+
+    src_encoder2 = tokenizer2.create_encoder(
+        lang="eng_Latn", mode="source", device=device
+    )
+
+    src_tok2 = src_encoder2(ENG)
+    assert_equal(src_tok1, src_tok2)
+
+    assert_close(model1.encode(src_tok1)[0], model2.encode(src_tok2)[0])
+
+    assert_speaks_french(model2, tokenizer2, device)
 
 
 @torch.inference_mode()
 def assert_speaks_french(
     model: fairseq2.models.transformer.TransformerModel,
-    tokenizer: fairseq2.generate.Tokenizer,
+    tokenizer: Tokenizer,
     device: torch.device,
 ) -> None:
     # for beam_size, ref in [(1, FRA_1), (5, FRA_5)]:
     for beam_size, ref in [(1, FRA_1)]:
         strategy = fairseq2.generate.BeamSearchStrategy(
-            vocab_info=tokenizer, beam_size=beam_size, max_len=256
+            vocab_info=tokenizer.vocab_info, beam_size=beam_size, max_len=256
         )
 
-        fra = strategy.generate_str(
+        fra = strategy.generate_str_ex(
             model,
             tokenizer,
-            [ENG],
-            src_bos="__eng_Latn__",
-            tgt_bos="__fra_Latn__",
+            ENG,
+            src_lang="eng_Latn",
+            tgt_lang="fra_Latn",
             device=device,
-        )[0]
+        )
 
         print(fra)
         assert fra == ref

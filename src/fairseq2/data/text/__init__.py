@@ -21,5 +21,6 @@ from fairseq2.data.text.sentencepiece import (
 from fairseq2.data.text.sentencepiece import SentencePieceModel as SentencePieceModel
 from fairseq2.data.text.tokenizer import TokenDecoder as TokenDecoder
 from fairseq2.data.text.tokenizer import TokenEncoder as TokenEncoder
+from fairseq2.data.text.tokenizer import Tokenizer as Tokenizer
 from fairseq2.data.text.tokenizer import VocabularyInfo as VocabularyInfo
 from fairseq2.data.typing import PathLike

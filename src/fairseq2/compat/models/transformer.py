@@ -12,7 +12,6 @@ import torch
 from torch import Tensor
 
 from fairseq2.data.text import VocabularyInfo
-from fairseq2.generate import SpmTokenizer
 from fairseq2.models.transformer import (
     TransformerConfig,
     TransformerModel,
@@ -130,16 +129,14 @@ def _swap_bos_pad_eos_unk(embeddings: Tensor) -> None:
 
 def load_fairseq1_checkpoint(
     model_file: Path,
-    spm_path: Path,
+    vocab_info: VocabularyInfo,
     device: Optional[torch.device] = None,
     dtype: Optional[torch.dtype] = None,
-) -> Tuple[TransformerModel, SpmTokenizer, TransformerConfig]:
+) -> Tuple[TransformerModel, TransformerConfig]:
 
     # TODO: this tuple is a bit weird, should we have a reference class for this tuple ?
     # I want the tokenizer and model to always go hand in hand.
     # The builder is also important to be hable to serialize the model and reload it later.
-
-    tokenizer = SpmTokenizer.from_file(spm_path, _pad_shift_hack=True)
 
     # TODO: MoE models require a bit more complex loading
     state = torch.load(str(model_file), map_location=device)
@@ -149,28 +146,9 @@ def load_fairseq1_checkpoint(
     assert arch == "transformer", "TODO"
     original1 = len(state["model"].keys())
 
-    # HACKS: add special tokens to the model
-    # those might only exist in some fairseq branches
-    for lang in cfg.langs:
-        tokenizer.add_special_token(f"__{lang}__")
-
-    if getattr(cfg, "add_data_source_prefix_tags", False):
-        for data_source in ["<MINED_DATA>", "<MMT_BT_DATA>", "<SMT_BT_DATA>"]:
-            tokenizer.add_special_token(data_source)
-
-    assert not getattr(cfg, "add_ssl_task_tokens", False), "TODO"
-
     new_cfg = convert_fairseq1_config(cfg)
     if dtype is not None:
         new_cfg.dtype = dtype
-
-    vocab_info = VocabularyInfo(
-        tokenizer.vocab_size(),
-        tokenizer.UNK,
-        tokenizer.BOS,
-        tokenizer.EOS,
-        tokenizer.PAD,
-    )
 
     model = create_transformer_model(new_cfg, vocab_info, device)
     keys2 = set(model.state_dict().keys())
@@ -188,7 +166,7 @@ def load_fairseq1_checkpoint(
 
     model.load_state_dict(state["model"])
 
-    return (model, tokenizer, new_cfg)
+    return (model, new_cfg)
 
 
 if __name__ == "__main__":
