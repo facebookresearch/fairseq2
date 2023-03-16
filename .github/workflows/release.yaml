@@ -76,16 +76,6 @@ jobs:
         py: ['3.8', '3.9', '3.10']
         arch: ['x86_64']
         variant: ['cpu', 'cu116']
-        sanitizers: ['nosan']
-        include:
-          - py: '3.8'
-            arch: 'x86_64'
-            variant: 'cpu'
-            sanitizers: 'asan_ubsan'
-          - py: '3.8'
-            arch: 'x86_64'
-            variant: 'cpu'
-            sanitizers: 'tsan'
     uses: ./.github/workflows/linux-build_wheel.yaml
     with:
       py: ${{ matrix.py }}
@@ -104,16 +94,61 @@ jobs:
         arch: ['x86_64']
 #        variant: ['cpu', 'cu116']
         variant: ['cpu']
+    uses: ./.github/workflows/linux-run_tests.yaml
+    with:
+      py: ${{ matrix.py }}
+      torch: '1.13.1'
+      arch: ${{ matrix.arch }}
+      variant: ${{ matrix.variant }}
+      sanitizers: ${{ matrix.sanitizers }}
+#      run_on_cuda:
+
+  linux_pt20-build:
+    name: Build the wheel (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt2.0, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
+    needs: [lint_cc, lint_py, lint_sh]
+    strategy:
+      matrix:
+        py: ['3.8', '3.9', '3.10']
+        arch: ['x86_64']
+        variant: ['cpu', 'cu117', 'cu118']
         sanitizers: ['nosan']
         include:
           - py: '3.8'
             arch: 'x86_64'
             variant: 'cpu'
             sanitizers: 'asan_ubsan'
+#          - py: '3.8'
+#            arch: 'x86_64'
+#            variant: 'cpu'
+#            sanitizers: 'tsan'
+    uses: ./.github/workflows/linux-build_wheel.yaml
+    with:
+      py: ${{ matrix.py }}
+      torch: '2.0'
+      arch: ${{ matrix.arch }}
+      variant: ${{ matrix.variant }}
+      sanitizers: ${{ matrix.sanitizers }}
+      dev_stamp: ${{ github.event_name == 'schedule' || inputs.release_type == 'nightly' }}
+
+  linux_pt20-test:
+    name: Run the tests (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt2.0, ${{ matrix.variant }}, nosan)
+    needs: linux_pt20-build
+    strategy:
+      matrix:
+        py: ['3.8', '3.9', '3.10']
+        arch: ['x86_64']
+#        variant: ['cpu', 'cu117', 'cu118']
+        variant: ['cpu']
+        sanitizers: ['nosan']
+        include:
           - py: '3.8'
             arch: 'x86_64'
             variant: 'cpu'
-            sanitizers: 'tsan'
+            sanitizers: 'asan_ubsan'
+#          - py: '3.8'
+#            arch: 'x86_64'
+#            variant: 'cpu'
+#            sanitizers: 'tsan'
     uses: ./.github/workflows/linux-run_tests.yaml
     with:
       py: ${{ matrix.py }}
@@ -125,11 +160,11 @@ jobs:
 
   build_doc:
     name: Build the documentation
-    needs: linux_pt113-build
+    needs: linux_pt20-build
     uses: ./.github/workflows/build_doc.yaml
     with:
       py: '3.8'
-      torch: '1.13.1'
+      torch: '2.0'
 
   linux_pt112-publish:
     name: Publish the wheel (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.12.1, ${{ matrix.variant }})
@@ -167,9 +202,27 @@ jobs:
       arch: ${{ matrix.arch }}
       variant: ${{ matrix.variant }}
 
+  linux_pt20-publish:
+    name: Publish the wheel (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt2.0, ${{ matrix.variant }})
+    needs: linux_pt113-publish
+    strategy:
+      max-parallel: 1
+      matrix:
+        py: ['3.8', '3.9', '3.10']
+        arch: ['x86_64']
+        variant: ['cpu', 'cu117', 'cu118']
+    uses: ./.github/workflows/publish_wheel.yaml
+    with:
+      release_type: ${{ inputs.release_type || 'nightly' }}
+      py: ${{ matrix.py }}
+      torch: '2.0'
+      os: 'linux'
+      arch: ${{ matrix.arch }}
+      variant: ${{ matrix.variant }}
+
   publish-doc:
     name: Publish the documentation
-    needs: linux_pt113-publish
+    needs: linux_pt20-publish
     uses: ./.github/workflows/publish_doc.yaml
     with:
       nightly: ${{ github.event_name == 'schedule' || inputs.release_type == 'nightly' }}

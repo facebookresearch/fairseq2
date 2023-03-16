@@ -75,54 +75,32 @@ jobs:
 #      variant: 'cu113'
 #      run_on_cuda: true
 
-  x86_64_pt113_cpu-build:
-    name: Build the wheel (x86_64, py3.8, pt1.13.1, cpu, nosan)
-    needs: check_files
-    uses: ./.github/workflows/linux-build_wheel.yaml
-    with:
-      py: '3.8'
-      torch: '1.13.1'
-      arch: 'x86_64'
-      variant: 'cpu'
-
   x86_64_pt113-build:
-    name: Build the wheel (x86_64, py3.8, pt1.13.1, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
+    name: Build the wheel (x86_64, py3.8, pt1.13.1, ${{ matrix.variant }}, nosan)
     needs: check_files
     if: needs.check_files.outputs.doc_only == 'false'
     strategy:
       matrix:
-        include:
-          - variant: 'cpu'
-            sanitizers: 'asan_ubsan'
-#          - variant: 'cpu'
-#            sanitizers: 'tsan'
-          - variant: 'cu116'
-            sanitizers: 'nosan'
+        variant: ['cpu', 'cu116']
     uses: ./.github/workflows/linux-build_wheel.yaml
     with:
       py: '3.8'
       torch: '1.13.1'
       arch: 'x86_64'
       variant: ${{ matrix.variant }}
-      sanitizers: ${{ matrix.sanitizers }}
 
   x86_64_pt113_cpu-test:
-    name: Run the tests (x86_64, py3.8, pt1.13.1, cpu, ${{ matrix.sanitizers }})
-    needs: [x86_64_pt113_cpu-build, x86_64_pt113-build]
-    strategy:
-      matrix:
-        sanitizers: ['nosan', 'asan_ubsan']
-#        sanitizers: ['nosan', 'asan_ubsan', 'tsan']
+    name: Run the tests (x86_64, py3.8, pt1.13.1, cpu, nosan)
+    needs: x86_64_pt113-build
     uses: ./.github/workflows/linux-run_tests.yaml
     with:
       py: '3.8'
       torch: '1.13.1'
       arch: 'x86_64'
       variant: 'cpu'
-      sanitizers: ${{ matrix.sanitizers }}
 
 #  x86_64_pt113_cu116-test:
-#    name: Run the tests (x86_64, py3.8, pt1.13.1, cu116, nosan)
+#    name: Run the tests (x86_64, py3.8, pt1.13.1, cu113_nosan)
 #    needs: 86_64_pt113_cpu-test
 #    uses: ./.github/workflows/linux-run_tests.yaml
 #    with:
@@ -132,10 +110,67 @@ jobs:
 #      variant: 'cu116'
 #      run_on_cuda: true
 
+  x86_64_pt20_cpu-build:
+    name: Build the wheel (x86_64, py3.8, pt2.0, cpu, nosan)
+    needs: check_files
+    uses: ./.github/workflows/linux-build_wheel.yaml
+    with:
+      py: '3.8'
+      torch: '2.0'
+      arch: 'x86_64'
+      variant: 'cpu'
+
+  x86_64_pt20-build:
+    name: Build the wheel (x86_64, py3.8, pt2.0, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
+    needs: check_files
+    if: needs.check_files.outputs.doc_only == 'false'
+    strategy:
+      matrix:
+        include:
+          - variant: 'cpu'
+            sanitizers: 'asan_ubsan'
+#          - variant: 'cpu'
+#            sanitizers: 'tsan'
+          - variant: 'cu117'
+            sanitizers: 'nosan'
+    uses: ./.github/workflows/linux-build_wheel.yaml
+    with:
+      py: '3.8'
+      torch: '2.0'
+      arch: 'x86_64'
+      variant: ${{ matrix.variant }}
+      sanitizers: ${{ matrix.sanitizers }}
+
+  x86_64_pt20_cpu-test:
+    name: Run the tests (x86_64, py3.8, pt2.0, cpu, ${{ matrix.sanitizers }})
+    needs: [x86_64_pt20_cpu-build, x86_64_pt20-build]
+    strategy:
+      matrix:
+        sanitizers: ['nosan', 'asan_ubsan']
+#        sanitizers: ['nosan', 'asan_ubsan', 'tsan']
+    uses: ./.github/workflows/linux-run_tests.yaml
+    with:
+      py: '3.8'
+      torch: '2.0'
+      arch: 'x86_64'
+      variant: 'cpu'
+      sanitizers: ${{ matrix.sanitizers }}
+
+#  x86_64_pt20_cu117-test:
+#    name: Run the tests (x86_64, py3.8, pt2.0, cu116, nosan)
+#    needs: 86_64_pt20_cpu-test
+#    uses: ./.github/workflows/linux-run_tests.yaml
+#    with:
+#      py: '3.8'
+#      torch: '2.0'
+#      arch: 'x86_64'
+#      variant: 'cu117'
+#      run_on_cuda: true
+
   build_doc:
     name: Build the documentation
-    needs: x86_64_pt113_cpu-build
+    needs: x86_64_pt20_cpu-build
     uses: ./.github/workflows/build_doc.yaml
     with:
       py: '3.8'
-      torch: '1.13.1'
+      torch: '2.0'

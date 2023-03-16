@@ -8,7 +8,7 @@ Linux. They have the tag format
 `fairseq2-ci-manylinux_<ARCH>:<VERSION>-<VARIANT>`, where `<ARCH>` is the
 architecture (e.g. `x86_64`), `<VERSION>` is the current version of the image
 (e.g. `1`), and `<VARIANT>` is either `cpu` or a CUDA version specifier (e.g.
-`cu113`).
+`cu117`).
 
 The images are based of PyPA's
 [manylinux2014](https://github.com/pypa/manylinux) to ensure maximum binary
@@ -22,7 +22,7 @@ should be updated. In such case, make sure to increment `<VERSION>` in the
 Dockerfile, in GA workflows, and in the commands below.
 
 #### 1. Build the Docker Image
-The `<VARIANT>` must be one of `cpu`, `cu113`, `cu116`, or `cu116-clang`.
+The `<VARIANT>` must be one of `cpu`, `cu117`, `cu118`, or `cu118-clang`.
 
 ```
 docker build --network host --tag ghcr.io/fairinternal/fairseq2-ci-manylinux_<ARCH>:<VERSION>-<VARIANT> -f Dockerfile.<VARIANT> .
