@@ -20,14 +20,7 @@ from fairseq2.data.text import (
     VocabularyInfo,
 )
 from fairseq2.data.typing import PathLike
-
-# TODO: Remove once we have NLLB config.py in place.
-_MODEL_VARIANTS: Final = {
-    "dense_1b",
-    "dense_3b",
-    "dense_distill_1b",
-    "dense_distill_600m",
-}
+from fairseq2.models.nllb.config import get_nllb_variants
 
 _FAIRCLUSTER_TOKENIZER: Final = "/large_experiments/seamless/nllb/opensource/spm_200/sentencepiece.source.256000.model"
 
@@ -44,7 +37,7 @@ def load_nllb_tokenizer(
     """
     pathname = variant_or_pathname
 
-    if isinstance(pathname, str) and pathname in _MODEL_VARIANTS:
+    if isinstance(pathname, str) and pathname in get_nllb_variants():
         if "FAIR_ENV_CLUSTER" not in os.environ:
             raise NotImplementedError()
         else:
