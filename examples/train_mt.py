@@ -31,7 +31,7 @@ from fairseq2.models.transformer import (
     TransformerModel,
     create_transformer_model,
 )
-from fairseq2.optim.lr_scheduler import InverseSquareRootLR, LRScheduler
+from fairseq2.optim.lr_scheduler import LRScheduler, MyleLR
 from fairseq2.tasks import TranslationTask
 
 log = logging.getLogger(__name__)
@@ -155,7 +155,7 @@ def optimizer(
 ) -> torch.optim.Optimizer:
     return torch.optim.Adam(
         model.parameters(),
-        lr=1.0,
+        lr=5e-4,
         betas=(0.9, 0.98),
         eps=1e-6,
         weight_decay=0.0001,
@@ -163,7 +163,7 @@ def optimizer(
 
 
 def lr_scheduler(optimizer: torch.optim.Optimizer) -> LRScheduler:
-    return InverseSquareRootLR(optimizer, lr=5e-4)
+    return MyleLR(optimizer, num_warmup_steps=4000, init_lr=1.25e-07)
 
 
 # TODO: should we append this when generating hubconf.py ?
