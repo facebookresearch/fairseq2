@@ -82,7 +82,6 @@ jobs:
       torch: '1.13.1'
       arch: ${{ matrix.arch }}
       variant: ${{ matrix.variant }}
-      sanitizers: ${{ matrix.sanitizers }}
       dev_stamp: ${{ github.event_name == 'schedule' || inputs.release_type == 'nightly' }}
 
   linux_pt113-test:
@@ -100,7 +99,6 @@ jobs:
       torch: '1.13.1'
       arch: ${{ matrix.arch }}
       variant: ${{ matrix.variant }}
-      sanitizers: ${{ matrix.sanitizers }}
 #      run_on_cuda:
 
   linux_pt20-build:
@@ -152,7 +150,7 @@ jobs:
     uses: ./.github/workflows/linux-run_tests.yaml
     with:
       py: ${{ matrix.py }}
-      torch: '1.13.1'
+      torch: '2.0'
       arch: ${{ matrix.arch }}
       variant: ${{ matrix.variant }}
       sanitizers: ${{ matrix.sanitizers }}
@@ -168,7 +166,7 @@ jobs:
 
   linux_pt112-publish:
     name: Publish the wheel (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.12.1, ${{ matrix.variant }})
-    needs: [linux_pt112-test, linux_pt113-test, build_doc]
+    needs: [linux_pt112-test, linux_pt113-test, linux_pt20-test, build_doc]
     strategy:
       max-parallel: 1
       matrix:
