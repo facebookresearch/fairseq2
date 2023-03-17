@@ -19,7 +19,7 @@ import torchtnt.framework as tnt
 
 import fairseq2.callbacks
 import fairseq2.distributed
-from fairseq2.cli import XP, DynamicModule
+from fairseq2.cli import Xp, XpScript
 from fairseq2.tasks import Seq2Seq
 
 logging.basicConfig(level=logging.INFO)
@@ -28,7 +28,7 @@ log = logging.getLogger("fairseq2.cli")
 
 
 def sha_key(overrides: Iterable[str]) -> str:
-    # TODO: breaking change, move this to XP, and include the script/config hash
+    # TODO: breaking change, move this to Xp, and include the script/config hash
     # TODO: could we use nice name like W&B instead of hexdigests ?
     return hashlib.sha256(";".join(overrides).encode("utf-8")).hexdigest()[:8]
 
@@ -48,7 +48,7 @@ def train(
         - a "train_data" function that returns a dataloader for the task
         - a "valid_data" function if --eval_freq is set.
 
-    workdir: we will create an XP dir there and put it the script and model snapshots.
+    workdir: we will create an Xp dir there and put it the script and model snapshots.
     """
     slurm_args, overrides = _extract_slurm_args(overrides)
     if workdir is None:
@@ -73,11 +73,11 @@ def train(
     env = fairseq2.distributed.init(
         workdir, partition, num_gpus, one_file=False, slurm_args=slurm_args
     )
-    xp = XP(script, script.with_suffix(".yaml"), overrides)
+    xp = Xp(script, script.with_suffix(".yaml"), overrides)
     entry_point = "train"
 
     # TODO: allow script to be a yaml file
-    module = DynamicModule.from_script(script, overrides=overrides)
+    module = XpScript.from_script(script, overrides=overrides)
     _setup_module(module, env, xp, entry_point)
 
     # Dataloader may start subprocess.
@@ -220,13 +220,13 @@ def evaluate(
     # Create a different yaml file to store the eval config
     # This will mostly be the same than train config,
     # but it won't have trainer specific info, and might have some overrides
-    xp = XP(script, snapshot_dir / f"evaluate{xp_sha}.yaml", overrides)
+    xp = Xp(script, snapshot_dir / f"evaluate{xp_sha}.yaml", overrides)
 
     env = fairseq2.distributed.init(
         snapshot_dir, partition, num_gpus, slurm_args=slurm_args
     )
 
-    module = DynamicModule.from_script(
+    module = XpScript.from_script(
         script,
         overrides=overrides,
         yaml_config=xp.config_file if xp.config_file.exists() else train_config,
@@ -436,7 +436,19 @@ def inference(
         print(translation)
 
 
-# TODO: add helper that show all configs expected by a given script
+def help(script: Path, overrides: List[str] = []) -> None:
+    module = XpScript.from_script(script, overrides=overrides)
+    # TODO: how to document env, xp and entrypoint ?
+    # _setup_module(module, env, xp, entry_point)
+    print(
+        module.help(
+            "task",
+            "train_data",
+            "valid_data",
+            "callbacks",
+            hidden=["env", "xp", "entry_point"],
+        )
+    )
 
 
 def _extract_slurm_args(overrides: List[str]) -> Tuple[Dict[str, str], List[str]]:
@@ -453,7 +465,7 @@ def _extract_slurm_args(overrides: List[str]) -> Tuple[Dict[str, str], List[str]
 
 
 def _setup_module(
-    module: DynamicModule, env: fairseq2.distributed.Env, xp: XP, entry_point: str
+    module: XpScript, env: fairseq2.distributed.Env, xp: Xp, entry_point: str
 ) -> None:
     module["env"] = env
     module["xp"] = xp

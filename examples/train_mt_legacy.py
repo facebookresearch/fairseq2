@@ -13,7 +13,6 @@ import fairseq2.cli
 import fairseq2.dataloader.huggingface
 import fairseq2.dataloader.legacy
 import fairseq2.distributed
-import fairseq2.hub
 import fairseq2.nn
 import fairseq2.optim.lr_scheduler
 from fairseq2.data.text import VocabularyInfo

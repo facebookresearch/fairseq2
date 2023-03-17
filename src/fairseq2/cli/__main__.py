@@ -10,6 +10,7 @@ def main() -> None:
         "inference": fa.func_argparser(commands.inference),
         "grid": fa.func_argparser(commands.grid),
         "eval_server": fa.func_argparser(commands.eval_server),
+        "help": fa.func_argparser(commands.help),
     }
     # TODO: push this to func_argparse
     with_overrides = []

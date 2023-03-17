@@ -13,7 +13,7 @@ from fairseq2.nn.transformer import TransformerNormOrder
 
 @dataclass
 class TransformerConfig:
-    """Holds the configuration of a Transformer model.
+    """Configuration of a Transformer model.
 
     The default values correspond to the *base* Transformer model as described
     in Table 3 of :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.

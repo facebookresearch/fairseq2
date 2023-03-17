@@ -1,12 +1,12 @@
 """
-Trains a Transformer model for Machine Translation using the NLLB dataset on HuggingFace.
+Trains a Transformer model for Machine Translation on the NLLB dataset.
 
 Example command:
-python -m fairseq2 train examples/train_mt.py -w /checkpoint/$USER/fairseq2/mt.cat_Latn-eng_Latn 'langs=cat_Latn-eng_Latn' --wandb=fairseq2
+fairseq2 train examples/train_mt.py -w /checkpoint/$USER/fairseq2/mt.cat_Latn-eng_Latn 'langs=cat_Latn-eng_Latn' wandb_project=fairseq2
 
-python -m fairseq2 evaluate -s /checkpoint/$USER/fairseq2/mt.cat_Latn-eng_Latn/epoch_0_step_10/
+fairseq2 evaluate -s /checkpoint/$USER/fairseq2/mt.cat_Latn-eng_Latn/epoch_0_step_10/
 
-python -m fairseq2 inference -s /checkpoint/$USER/fairseq2/mt.cat_Latn-eng_Latn/epoch_0_step_10/
+fairseq2 inference -s /checkpoint/$USER/fairseq2/mt.cat_Latn-eng_Latn/epoch_0_step_10/
 """
 import functools
 import logging
@@ -16,12 +16,8 @@ from typing import Iterable, List, Optional, Tuple
 import torch
 import torchtnt.utils
 
-import fairseq2.callbacks
 import fairseq2.cli
 import fairseq2.dataloader.huggingface
-import fairseq2.distributed
-import fairseq2.nn
-import fairseq2.optim.lr_scheduler
 from fairseq2.data.text import VocabularyInfo
 from fairseq2.dataloader import Seq2SeqBatch
 from fairseq2.distributed import Env
@@ -31,7 +27,6 @@ from fairseq2.models.transformer import (
     TransformerModel,
     create_transformer_model,
 )
-from fairseq2.optim.lr_scheduler import LRScheduler, MyleLR
 from fairseq2.tasks import TranslationTask
 
 log = logging.getLogger(__name__)
@@ -43,12 +38,20 @@ task = TranslationTask
 
 
 def lang_pairs(langs: str) -> LangPairs:
+    """List of lang pairs to train on.
+
+    - langs: comma separated list of lang pairs, eg: "eng_Latn-fra_Latn,eng_Latn-oci_Latn"
+    """
     return [tuple(pair.split("-", 1)) for pair in langs.split(",")]  # type: ignore
 
 
 def tokenizer(
-    xp: fairseq2.cli.XP, lang_pairs: LangPairs, spm_path: Optional[Path] = None
+    xp: fairseq2.cli.Xp, lang_pairs: LangPairs, spm_path: Optional[Path] = None
 ) -> SpmTokenizer:
+    """Tokenizer
+
+    - spm_path: path to a pretrained SentencePiece model. A new SPM will be trained if not given.
+    """
     workdir = xp.script.parent
     if spm_path is not None:
         assert spm_path.exists(), f"Spm not found: {spm_path}"
@@ -127,6 +130,7 @@ def valid_data(
 # Should we hide that in cli.py@train ?
 # Similarly we should export the model config in the config.
 def vocab_info(tokenizer: SpmTokenizer) -> VocabularyInfo:
+    """Cache metadata about the tokenizer"""
     return VocabularyInfo(
         tokenizer.vocab_size(),
         tokenizer.UNK,
@@ -136,35 +140,17 @@ def vocab_info(tokenizer: SpmTokenizer) -> VocabularyInfo:
     )
 
 
-def model(env: Env, vocab_info: VocabularyInfo) -> TransformerModel:
+def model(
+    env: Env, vocab_info: VocabularyInfo, transformer: TransformerConfig
+) -> TransformerModel:
+    """The translation model, see transformer for configuration"""
     torchtnt.utils.seed(0)
     torch.cuda.manual_seed(0)
-
-    # TODO: this is problematic for inference because we force the spm path to exists on disk
-    # to create the model, while we want to load it from the snapshot.
-    # How can we create the model without the tokenizer ?
-    cfg = TransformerConfig(
-        dropout_p=0,
-    )
-
-    return create_transformer_model(cfg, vocab_info, env.device)
+    return create_transformer_model(transformer, vocab_info, env.device)
 
 
-def optimizer(
-    model: TransformerModel, weight_decay: float = 0.001
-) -> torch.optim.Optimizer:
-    return torch.optim.Adam(
-        model.parameters(),
-        lr=5e-4,
-        betas=(0.9, 0.98),
-        eps=1e-6,
-        weight_decay=0.0001,
-    )
+# Override default values of TransformerConfig
+transformer = functools.partial(TransformerConfig, dropout_p=0)
 
-
-def lr_scheduler(optimizer: torch.optim.Optimizer) -> LRScheduler:
-    return MyleLR(optimizer, num_warmup_steps=4000, init_lr=1.25e-07)
-
-
-# TODO: should we append this when generating hubconf.py ?
+# TODO: move this to fairseq2.cli.defaults
 hub_task = fairseq2.cli.hub_export(task, __file__)

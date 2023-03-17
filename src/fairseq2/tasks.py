@@ -28,6 +28,8 @@ from fairseq2.optim.lr_scheduler import LRScheduler
 class Seq2Seq(
     TrainUnit[Seq2SeqBatch], EvalUnit[Seq2SeqBatch], PredictUnit[Seq2SeqBatch]
 ):
+    """Default seq2seq task"""
+
     # Note: this is very close to the tnt.AutoUnit, maybe we should inherit from them.
     def __init__(
         self,
@@ -174,6 +176,8 @@ class Seq2Seq(
 
 
 class TranslationTask(Seq2Seq):
+    """Translation task"""
+
     def init_metrics(self, mode: str) -> Metrics:
         metrics = super().init_metrics(mode)
         self.best_metric = "bleu" if self.eval_gen else "loss"

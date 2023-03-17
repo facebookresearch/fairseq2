@@ -1,11 +1,25 @@
+from __future__ import annotations
+
+import collections
 import dataclasses
+import functools
 import importlib
 import inspect
+import io
 import logging
 import sys
 from datetime import timedelta
 from pathlib import Path
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, Sequence, Type
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Iterator,
+    NamedTuple,
+    Optional,
+    Sequence,
+)
 
 import func_argparse
 import torch
@@ -14,12 +28,13 @@ import yaml
 import fairseq2.distributed
 
 log = logging.getLogger("fairseq2.cli")
+AnyCallable = Callable[..., Any]
 
 
-def hub_export(fn: Callable[..., Any], script: str) -> "Callable[..., Any]":
+def hub_export(fn: AnyCallable, script: str) -> AnyCallable:
     import torchsnapshot
 
-    from fairseq2.cli import DynamicModule
+    from fairseq2.cli import XpScript
 
     def hub_entry_point(snapshot_dir: str, device: torch.device) -> Any:
         assert Path(snapshot_dir).exists(), f"Snapshot {snapshot_dir} not found."
@@ -28,7 +43,7 @@ def hub_export(fn: Callable[..., Any], script: str) -> "Callable[..., Any]":
         # but torchhub isn't passing the module to us,
         # so unless we want to grab it from the calling stack frame,
         # we need to reload it again.
-        module = DynamicModule.from_script(Path(script))
+        module = XpScript.from_script(Path(script))
         module["env"] = env
         task = module.call_fn(fn.__name__, caller="inference")
         snapshot = torchsnapshot.Snapshot(path=str(snapshot_dir))
@@ -39,25 +54,31 @@ def hub_export(fn: Callable[..., Any], script: str) -> "Callable[..., Any]":
     return hub_entry_point
 
 
-class XP(NamedTuple):
+class Xp(NamedTuple):
     script: Path
     config_file: Path
     overrides: Sequence[str]
 
 
-class DynamicModule:
+class FnSpec(NamedTuple):
+    fn: AnyCallable
+    spec: inspect.FullArgSpec
+    doc: Optional[str]
+
+
+class XpScript:
     @staticmethod
     def from_script(
         script: Path,
-        overrides: List[str] = [],
+        overrides: list[str] = [],
         name: str = "",
         yaml_config: Optional[Path] = None,
-    ) -> "DynamicModule":
+    ) -> "XpScript":
         import fairseq2.cli.defaults
 
         module = _load_module(script, name)
         _extends_module(module, fairseq2.cli.defaults)
-        m = DynamicModule(module, {})
+        m = XpScript(module, {})
         if yaml_config:
             assert yaml_config.exists(), f"{yaml_config} not found !"
         else:
@@ -69,9 +90,9 @@ class DynamicModule:
 
     @staticmethod
     def from_module(
-        module: Any, yaml_config: Path, overrides: List[str] = []
-    ) -> "DynamicModule":
-        m = DynamicModule(module, {})
+        module: Any, yaml_config: Path, overrides: list[str] = []
+    ) -> "XpScript":
+        m = XpScript(module, {})
         m._load_flat_yaml(yaml_config)
         m._add_args(overrides)
         return m
@@ -82,7 +103,7 @@ class DynamicModule:
         self._cache: Dict[str, Any] = {}
         self._pending: Dict[str, str] = {}
 
-    def _add_args(self, args: List[str] = []) -> None:
+    def _add_args(self, args: list[str] = []) -> None:
         arg_dict = self._raw_args
         for arg in args:
             k, v = arg.split("=", 1)  # TODO: nice error message
@@ -112,7 +133,8 @@ class DynamicModule:
         else:
             return self._cache[k]
 
-    def _check_no_recursive(self, name: str, caller: str) -> None:
+    def _check_no_cycles(self, name: str, caller: str) -> None:
+        # TODO: this should be done in "dag()"
         if name not in self._pending:
             self._pending[name] = caller
             return
@@ -126,25 +148,21 @@ class DynamicModule:
         raise Exception("Dependency loop detected: " + loop)
 
     def call_fn(self, name: str, *, caller: str) -> Any:
+        # TODO use "dag"
         if name in self._cache:
             return self._cache[name]
 
-        fn = getattr(self.module, name)
-        if not fn:
+        fn = self._resolve_fn(name)
+        if fn is None:
             raise ValueError(
                 f"Can't create a value for argument {name:!r}. No function {name:!r} found."
             )
+        spec = fn.spec
 
-        self._check_no_recursive(name, caller)
+        self._check_no_cycles(name, caller)
 
-        # Allow to override the function itself using the "@"" syntax.
-        fn_override = name in self._raw_args and self._raw_args[name].startswith("@")
-        if fn_override:
-            fn = resolve_function(name, self._raw_args[name][1:])
-
-        spec = inspect.getfullargspec(fn.__init__ if isinstance(fn, type) else fn)  # type: ignore
-
-        if name in self._raw_args and not fn_override:
+        fn_res_override = not self._raw_args.get(name, "@").startswith("@")
+        if fn_res_override:
             value = _parse(spec.annotations["return"], name, self._raw_args[name])
             self._cache[name] = value
             return value
@@ -154,23 +172,43 @@ class DynamicModule:
             arg for arg in spec.args if arg not in self._cache and arg != "self"
         ]
         missing_args = self._resolve_from_module(name, missing_args)
-        missing_args = self._resolve_from_arglist(name, spec, missing_args)
+        _, missing_args = self._resolve_from_arglist(name, spec, missing_args)
 
         if missing_args:
             raise ValueError(
-                f"{_lineno(fn)} Can't call {name}, missing args: {missing_args}. Try to supply it from CLI {missing_args}=..."
+                f"{_lineno(fn.fn)} Can't call {name}, missing args: {missing_args}. Try to supply it from CLI {missing_args}=..."
             )
         resolved_args = {
             arg: self[f"{name}.{arg}"] for arg in spec.args if arg != "self"
         }
-        res = fn(**resolved_args)
+        res = fn.fn(**resolved_args)
         self._cache[name] = res
 
         return res
 
+    @functools.lru_cache()
+    def _resolve_fn(self, name: str) -> Optional[FnSpec]:
+        # Allow to override the function itself using the "@" syntax.
+        fn_override = self._raw_args.get(name, "").startswith("@")
+        if fn_override:
+            fn = resolve_function(name, self._raw_args[name][1:])
+        else:
+            fn = getattr(self.module, name, None)  # type: ignore
+            if fn is None:
+                return None
+
+        # fn can actually be a class. In that case we want the type hints of the constructor.
+        spec_fn = fn.__init__ if isinstance(fn, type) else fn  # type: ignore[misc]
+        # TODO: how does that work with literals ?
+        spec = inspect.getfullargspec(spec_fn)
+        # For the documentation we prefer the class doc, and then the constructor doc.
+        doc = _resolve_doc(fn)
+        return FnSpec(fn, spec, doc)
+
     def _resolve_from_arglist(
-        self, name: str, spec: Any, missing_args: List[str]
-    ) -> List[str]:
+        self, name: str, spec: Any, missing_args: list[str]
+    ) -> tuple[list[str], list[str]]:
+        resolved_args = []
         still_missing = []
         # TODO: handle kw only args
         defaults = dict(zip(reversed(spec.args), reversed(spec.defaults or [])))
@@ -189,14 +227,16 @@ class DynamicModule:
                 value = _parse(spec.annotations.get(arg, float), k, raw_value)
                 self._cache[k] = value
                 self._cache[prefixed_key] = value
+                resolved_args.append(k)
             elif arg in defaults:
                 self._cache[prefixed_key] = defaults[arg]
+                resolved_args.append(k)
             else:
                 still_missing.append(arg)
 
-        return still_missing
+        return resolved_args, still_missing
 
-    def _resolve_from_module(self, name: str, missing_args: List[str]) -> List[str]:
+    def _resolve_from_module(self, name: str, missing_args: list[str]) -> list[str]:
         still_missing = []
         for arg in missing_args:
             if not hasattr(self.module, arg):
@@ -228,6 +268,144 @@ class DynamicModule:
                 node = node[k]
             node[parts[-1]] = val
         return tree
+
+    # @property
+    # def __doc__(self) -> str:  # type: ignore[override]
+    #     return self.help()
+
+    def help(self, *entrypoints: str, hidden: list[str] = []) -> str:
+        out = io.StringIO()
+        if self.module.__doc__:
+            print(self.module.__doc__.strip(), end="\n\n")
+
+        dag = self.dag(entrypoints)
+        documented: set[str] = set()
+        for name in dag.breadth_first_traversal():
+            if name in hidden:
+                continue
+            if name in ("__root__", "__sink__", "self"):
+                continue
+            if dag[name] == ["__sink__"]:
+                continue
+
+            documented.add(name)
+            fn = self._resolve_fn(name)
+            if fn is None:
+                continue
+
+            ta = _type_annotation(fn, "return")
+
+            # Only keep the first line of fn documentation
+            # TODO: show all docstring until first arg
+            fn_doc = fn.doc or "UNDOCUMENTED"
+            fn_doc = fn_doc.split("\n")[0].strip()
+            print(f"**{name}** {ta}:", fn_doc, file=out)
+
+            if not fn.spec.args:
+                print("(no settings)", file=out)
+                continue
+
+            args_docs = _get_arguments_description(fn)
+            deps = []
+            for arg in fn.spec.args:
+                key = f"{name}.{arg}"
+                if arg == "self" or arg in hidden:
+                    continue
+                elif arg in documented:
+                    deps.append(f"{arg} (see above)")
+                    continue
+                elif key in self._cache:
+                    message = _join(args_docs.get(arg), f"(default={self._cache[key]})")
+                elif dag[arg] == ["__sink__"]:
+                    message = _join(args_docs.get(arg), "(REQUIRED)")
+                else:
+                    deps.append(f"{arg} (see below)")
+                    continue
+                ta = _type_annotation(fn, arg)
+                print(f"\t{name}.{arg} {ta}:", message, file=out)
+            if deps:
+                print("\tUses", ", ".join(deps), file=out)
+            print(file=out)
+
+        return out.getvalue()
+
+    def dag(self, entrypoints: Sequence[str]) -> "DAG":
+        _dag = DAG(entrypoints)
+        for e in entrypoints:
+            _dag._add_incomplete(e)
+
+        while True:
+            name = _dag._next_incomplete_node()
+            if name is None:
+                break
+
+            fn = self._resolve_fn(name)
+            assert fn is not None, f"{name} isn't a valid entrypoint"
+
+            spec = fn.spec
+            fn_res_override = not self._raw_args.get(name, "@").startswith("@")
+            if fn_res_override:
+                # If fn result is explicit set on CLI,
+                # we don't look into how fn is supposed to be called.
+                value = _parse(spec.annotations["return"], name, self._raw_args[name])
+                self._cache[name] = value
+                continue
+
+            _dag[name] = spec.args
+            if not spec.args:
+                continue
+
+            missing_args = []
+            for arg in spec.args:
+                if arg == "self":
+                    continue
+                elif hasattr(self.module, arg):
+                    _dag._add_incomplete(arg)
+                elif arg not in _dag:
+                    missing_args.append(arg)
+
+            resolved_args, missing_args = self._resolve_from_arglist(
+                name, spec, missing_args
+            )
+            for arg in missing_args:
+                _dag[arg] = ["__sink__"]
+            for arg in resolved_args:
+                _dag[arg] = []
+
+        return _dag
+
+
+if TYPE_CHECKING:
+    # this is only processed by mypy
+    ODict = collections.OrderedDict[str, "list[str]"]
+else:
+    ODict = collections.OrderedDict
+
+
+class DAG(ODict):
+    def __init__(self, entrypoints: Sequence[str]) -> None:
+        super().__init__([("__root__", list(entrypoints))])
+
+    def _next_incomplete_node(self) -> Optional[str]:
+        return next((key for key, neighbors in self.items() if neighbors is None), None)
+
+    def _add_incomplete(self, key: str) -> None:
+        if key not in self:
+            self[key] = None  # type: ignore[assignment]
+
+    def breadth_first_traversal(self) -> Iterator[str]:
+        queue = list(self["__root__"])
+        done = {"__sink__"}
+        while queue:
+            x = queue.pop(0)
+            if x in done:
+                continue
+            yield x
+            done.add(x)
+            neighbors = self.get(x, [])
+            for x in neighbors:
+                if x not in done:
+                    queue.append(x)
 
 
 def can_serialize(val: Any) -> bool:
@@ -264,7 +442,7 @@ def _copy_file(file: Path, workdir: Path) -> None:
     workdir_file.write_bytes(file.read_bytes())
 
 
-def _parse(t: Type[Any], key: str, raw_value: str) -> Any:
+def _parse(t: type[Any], key: str, raw_value: str) -> Any:
     if t is bool:
         return _parse_bool(raw_value)
     if t is timedelta:
@@ -302,7 +480,7 @@ def _parse_timedelta(duration: str) -> timedelta:
         raise ValueError(f"Can't parse duration. Received {duration!r}")
 
 
-def _lineno(fn: Callable[..., Any]) -> str:
+def _lineno(fn: AnyCallable) -> str:
     if isinstance(fn, type):
         fn = fn.__init__  # type: ignore
     code = fn.__code__
@@ -315,7 +493,29 @@ def _extends_module(module: Any, defaults: Any) -> None:
             setattr(module, k, getattr(defaults, k))
 
 
-def resolve_function(key: str, qual_name: str) -> Callable[..., Any]:
+def _type_annotation(fn: FnSpec, name: str) -> str:
+    func = fn.fn
+    if isinstance(func, functools.partial):
+        func = func.func
+
+    if name == "return" and isinstance(func, type):
+        type_annotation = qualname(func)
+    else:
+        type_annotation = fn.spec.annotations.get(name, "?")
+        if isinstance(type_annotation, type):
+            type_annotation = qualname(type_annotation)
+    t = str(type_annotation)
+    t = t.replace("typing.", "")
+    return f"({t})"
+
+
+def qualname(t: type[Any]) -> str:
+    if t.__module__ == "builtins":
+        return t.__name__
+    return ".".join((t.__module__, t.__name__))
+
+
+def resolve_function(key: str, qual_name: str) -> AnyCallable:
     if "." not in qual_name:
         raise ValueError(
             f"Function {key}={qual_name!r} isn't known. Please use full qualified name for {qual_name!r}"
@@ -340,3 +540,33 @@ def resolve_function(key: str, qual_name: str) -> Callable[..., Any]:
         )
 
     return fn  # type: ignore
+
+
+def _get_arguments_description(fn: FnSpec) -> Dict[str, str]:
+    """Returns a description for each argument."""
+    if not fn.doc:
+        return {}
+    descriptions = {}
+    lines = list(filter(None, (l.strip("-* ") for l in fn.doc.splitlines())))
+    for a in fn.spec.args:
+        # TODO: some arguments may have more than one line of documentation.
+        doc = next((l[len(a) :].strip(" :") for l in lines if l.startswith(a)), None)
+        descriptions[a] = doc or ""
+
+    return descriptions
+
+
+def _join(*parts: Optional[str]) -> str:
+    return " ".join((p for p in parts if p))
+
+
+def _resolve_doc(fn: AnyCallable) -> str:
+    if isinstance(fn, functools.partial):
+        fn = fn.func
+
+    init_doc = ""
+    # tuple/NamedTuple have a very generic docstring
+    if isinstance(fn, type) and fn.__init__ != tuple.__init__:  # type: ignore[misc]
+        init_doc = fn.__init__.__doc__  # type: ignore[misc]
+
+    return init_doc or fn.__doc__ or ""

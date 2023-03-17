@@ -3,15 +3,19 @@ import os
 import sys
 from typing import TYPE_CHECKING, List
 
+import torch
 import torchtnt.framework as tnt
 
 import fairseq2.distributed
 import fairseq2.tasks
+from fairseq2.optim.lr_scheduler import LRScheduler, MyleLR
 
 if TYPE_CHECKING:
     from fairseq2.callbacks import MetricLogger
-    from fairseq2.cli.module_loader import XP
+    from fairseq2.cli.module_loader import Xp
+    from fairseq2.models.transformer import TransformerModel
 
+imports = set(locals().keys())
 
 task = fairseq2.tasks.Seq2Seq
 
@@ -20,10 +24,15 @@ def callbacks(
     logger: "MetricLogger",
     entry_point: str,
     env: fairseq2.distributed.Env,
-    xp: "XP",
+    xp: "Xp",
     gc_frequency: int = 10,
     save_frequency: datetime.timedelta = datetime.timedelta(minutes=5),
 ) -> List[tnt.callback.Callback]:
+    """Default fairseq2 callbacks.
+
+    - gc_frequency: synchronize GC runs across GPUs
+    - save_frequency: duration between two snapshot of the training model
+    """
     from fairseq2.callbacks import Debugger, LogMetrics, TorchSnapshotSaver
 
     callbacks: List[tnt.callback.Callback] = [LogMetrics(logger)]
@@ -45,7 +54,11 @@ def callbacks(
     return callbacks
 
 
-def logger(xp: "XP", entry_point: str, wandb_project: str = "") -> "MetricLogger":
+def logger(xp: "Xp", entry_point: str, wandb_project: str = "") -> "MetricLogger":
+    """Default fairseq2 logger
+
+    - wandb_project: enable W&B
+    """
     import fairseq2.callbacks
 
     assert xp.script and xp.script.exists()
@@ -61,9 +74,22 @@ def logger(xp: "XP", entry_point: str, wandb_project: str = "") -> "MetricLogger
         return fairseq2.callbacks.StdoutLogger(config_file)
 
 
-# TODO: try getting read of __all__
-__all__ = [
-    "task",
-    "callbacks",
-    "logger",
-]
+def optimizer(
+    model: "TransformerModel", weight_decay: float = 1e-5
+) -> torch.optim.Optimizer:
+    """Pytorch optimizer."""
+    return torch.optim.Adam(
+        model.parameters(),
+        lr=1.0,
+        betas=(0.9, 0.98),
+        eps=1e-6,
+        weight_decay=0.0001,
+    )
+
+
+def lr_scheduler(optimizer: torch.optim.Optimizer, lr: float = 5e-4) -> LRScheduler:
+    """Learning Rate scheduler, MyleLR by default"""
+    return MyleLR(optimizer, num_warmup_steps=4000, init_lr=lr)
+
+
+__all__ = list(set(locals()) - imports)
