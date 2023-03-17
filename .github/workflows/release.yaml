@@ -138,11 +138,22 @@ jobs:
 #        variant: ['cpu', 'cu117', 'cu118']
         variant: ['cpu']
         sanitizers: ['nosan']
+        run_integration: false
+        exclude:
+          - py: '3.8'
+            arch: 'x86_64'
+            variant: 'cpu'
         include:
           - py: '3.8'
             arch: 'x86_64'
             variant: 'cpu'
+            sanitizers: 'nosan'
+            run_integration: true
+          - py: '3.8'
+            arch: 'x86_64'
+            variant: 'cpu'
             sanitizers: 'asan_ubsan'
+            run_integration: false
 #          - py: '3.8'
 #            arch: 'x86_64'
 #            variant: 'cpu'

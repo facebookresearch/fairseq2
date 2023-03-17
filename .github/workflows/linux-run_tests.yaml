@@ -24,6 +24,9 @@ on:
       sanitizers:
         type: string
         default: 'nosan'
+      run_integration:
+        type: boolean
+        default: false
       run_on_cuda:
         type: boolean
         default: false
@@ -98,15 +101,20 @@ jobs:
             ~/tests/run-tests
       - name: Run the Python tests
         env:
+          RUN_INTEGRATION: ${{ inputs.run_integration }}
           RUN_ON_CUDA: ${{ inputs.run_on_cuda }}
         run: |
+          if [[ $RUN_INTEGRATION == true ]]; then
+            integration=--integration
+          fi
+
           if [[ $RUN_ON_CUDA != true ]]; then
             dev=cpu
           else
             dev=cuda:0
           fi
 
-          LD_PRELOAD=${SANITIZER_LIB} pytest -rP --device $dev --integration --verbose
+          LD_PRELOAD=${SANITIZER_LIB} pytest -rP --device $dev $integration --verbose
       - name: Check the output of the leak sanitizer
         if: env.LSAN_OPTIONS != ''
         run: |

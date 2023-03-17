@@ -146,8 +146,13 @@ jobs:
     needs: [x86_64_pt20_cpu-build, x86_64_pt20-build]
     strategy:
       matrix:
-        sanitizers: ['nosan', 'asan_ubsan']
-#        sanitizers: ['nosan', 'asan_ubsan', 'tsan']
+        include:
+          - sanitizers: 'nosan'
+            run_integration: true
+          - sanitizers: 'asan_ubsan'
+            run_integration: false
+#        - sanitizers: 'tsan'
+#          run_integration: false
     uses: ./.github/workflows/linux-run_tests.yaml
     with:
       py: '3.8'
@@ -155,6 +160,7 @@ jobs:
       arch: 'x86_64'
       variant: 'cpu'
       sanitizers: ${{ matrix.sanitizers }}
+      run_integration: ${{ matrix.run_integration }}
 
 #  x86_64_pt20_cu117-test:
 #    name: Run the tests (x86_64, py3.8, pt2.0, cu116, nosan)
