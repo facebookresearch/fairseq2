@@ -239,6 +239,8 @@ class SearchStrategy(ABC):
             sentences = [sentences]
 
             squeeze = True
+        else:
+            squeeze = False
 
         src_encoder = tokenizer.create_encoder(
             task="translation", lang=src_lang, mode="source", device=device
