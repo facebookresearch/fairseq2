@@ -20,7 +20,10 @@ from fairseq2.data.text import (
     VocabularyInfo,
 )
 from fairseq2.data.typing import PathLike
-from fairseq2.models.nllb.config import get_nllb_variants
+from fairseq2.models.nllb.config import supported_nllb_variants
+from fairseq2.models.utils.download import download_tokenizer
+
+_TOKENIZER: Final = "https://tinyurl.com/flores200sacrebleuspm"
 
 _FAIRCLUSTER_TOKENIZER: Final = "/large_experiments/seamless/nllb/opensource/spm_200/sentencepiece.source.256000.model"
 
@@ -37,9 +40,11 @@ def load_nllb_tokenizer(
     """
     pathname = variant_or_pathname
 
-    if isinstance(pathname, str) and pathname in get_nllb_variants():
+    if isinstance(pathname, str) and pathname in supported_nllb_variants():
         if "FAIR_ENV_CLUSTER" not in os.environ:
-            raise NotImplementedError()
+            pathname = download_tokenizer(
+                _TOKENIZER, tokenizer_name="NLLB", sub_dir="nllb", progress=progress
+            )
         else:
             pathname = _FAIRCLUSTER_TOKENIZER
 

@@ -66,8 +66,8 @@ _CONFIGS: Final = {
 }
 
 
-def get_nllb_variants() -> FrozenSet[str]:
-    """Return the set of supported NLLB model variants."""
+def supported_nllb_variants() -> FrozenSet[str]:
+    """Return the names of the supported NLLB model variants."""
     return _VARIANTS
 
 
@@ -80,4 +80,4 @@ def get_nllb_config(variant: str) -> TransformerConfig:
     try:
         return _CONFIGS[variant]()
     except KeyError:
-        raise ValueError(f"'{variant}' is not a valid NLLB model variant name.")
+        raise ValueError(f"{variant} is not a known NLLB model variant name.")

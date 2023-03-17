@@ -30,6 +30,8 @@ def create_nllb_model(
         The configuration to use.
     :param tokenizer:
         The tokenizer that holds the vocabulary information to use.
+    :param device:
+        The device on which to initialize the model.
     """
     return NllbBuilder(cfg, tokenizer.vocab_info, device).build_model()
 
