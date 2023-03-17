@@ -84,7 +84,7 @@ class Bleu(CounterBasedMetric):
         return len(counts)
 
     @torch.inference_mode()
-    def update(self, hypothesis: str, references: List[str]) -> None:
+    def update(self, hypothesis: str, references: List[str]) -> None:  # type: ignore[override]
         ref_info = self._metric._extract_reference_info(references)
         counts = self._metric._compute_segment_statistics(hypothesis, ref_info)
         self.num_refs += len(references)
@@ -144,7 +144,7 @@ class EffectiveThroughput(CounterBasedMetric):
 
     @torch.inference_mode()
     def merge_state(
-        self, metrics: Iterable["EffectiveThroughput"]
+        self, metrics: Iterable["EffectiveThroughput"]  # type: ignore[override]
     ) -> "EffectiveThroughput":
         for metric in metrics:
             self.num_total += metric.num_total.to(self.device)
@@ -174,7 +174,7 @@ class WER(CounterBasedMetric):
             torch.zeros((len(self.KEYS),), dtype=torch.int32, device=device),
         )
 
-    def update(self, prediction: str, reference: str) -> None:
+    def update(self, prediction: str, reference: str) -> None:  # type: ignore[override]
         # TODO: Could we avoid going through a dict ?
         # TODO: do this without jiwer
         import jiwer  # type: ignore
