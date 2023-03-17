@@ -81,7 +81,7 @@ class DataPipelineBuilder:
         :param batch_size:
             The number of examples to combine.
         :param drop_remainder:
-            If ``True``, drop the last batch in case it has fewer than
+            If ``True``, drops the last batch in case it has fewer than
             ``batch_size`` examples.
         """
         return self

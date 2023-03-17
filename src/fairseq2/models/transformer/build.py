@@ -42,6 +42,8 @@ def create_transformer_model(
         The configuration to use.
     :param vocab_info:
         The vocabulary information to use.
+    :param device:
+        The device on which to initialize the model.
     """
     return TransformerBuilder(cfg, vocab_info, device).build_model()
 

@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING, Optional
 from fairseq2 import DOC_MODE
 from fairseq2.data.data_pipeline import DataPipelineBuilder
 from fairseq2.data.string import StringLike
-from fairseq2.data.text.reader import LineEnding as LineEnding
-from fairseq2.data.text.reader import read_text as read_text
+from fairseq2.data.text.read import LineEnding as LineEnding
+from fairseq2.data.text.read import read_text as read_text
 from fairseq2.data.text.sentencepiece import (
     SentencePieceDecoder as SentencePieceDecoder,
 )
