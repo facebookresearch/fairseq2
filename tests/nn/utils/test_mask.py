@@ -17,9 +17,9 @@ def test_to_padding_mask_with_dim1() -> None:
 
     # fmt: off
     expected_mask = torch.tensor(
-        [[False, False, False, False, True,  True], # noqa
-         [False, False, True,  True,  True,  True], # noqa
-         [True,  True,  True,  True,  True,  True], # noqa
+        [[False, False, False, False, True,  True],
+         [False, False, True,  True,  True,  True],
+         [True,  True,  True,  True,  True,  True],
          [False, False, False, False, False, True]], device=device)
     # fmt: on
 
@@ -35,9 +35,9 @@ def test_to_padding_mask_with_dim2() -> None:
 
     # fmt: off
     expected_mask = torch.tensor(
-        [[False, False, False, False, True,  True], # noqa
-         [False, False, True,  True,  True,  True], # noqa
-         [True,  True,  True,  True,  True,  True], # noqa
+        [[False, False, False, False, True,  True],
+         [False, False, True,  True,  True,  True],
+         [True,  True,  True,  True,  True,  True],
          [False, False, False, False, False, True]], device=device)
     # fmt: on
 
