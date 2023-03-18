@@ -35,7 +35,7 @@ class LRSchedulerBase(ABC, LRScheduler):
 
 @final
 class NoamLR(LRSchedulerBase):
-    """Represents the learning rate scheduler described in Section 5.3 of
+    """Represents the learning rate schedule described in Section 5.3 of
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.
 
     .. math::
@@ -105,9 +105,9 @@ class MyleLR(LRSchedulerBase):
     of the number of warmup steps. It was originally proposed and implemented by
     Myle Ott in the original fairseq under the name ``InverseSquareRootLR``.
 
-    It corresponds to increasing the learning rate linearly until the base
-    learning rate, and decreasing it thereafter proportionally to the inverse
-    square root of the step number.
+    It corresponds to increasing the learning rate linearly for the first
+    *warmup_steps* training steps to the base learning rate, and decreasing it
+    thereafter proportionally to the inverse square root of the step number.
 
     .. note::
         This scheduler is not chainable.
@@ -153,13 +153,100 @@ class MyleLR(LRSchedulerBase):
     def _compute_lr(self, base_lr: float, init_lr: float) -> float:
         # Linearly increase the learning rate to its base value during warmup.
         if self.last_epoch < self.num_warmup_steps:
-            return (
-                init_lr + self.last_epoch * (base_lr - init_lr) / self.num_warmup_steps
-            )
+            r = (base_lr - init_lr) / self.num_warmup_steps
+
+            return init_lr + self.last_epoch * r
 
         # After the warmup, decay the learning rate proportional to the inverse
         # square root of the step number.
         return base_lr * (self.num_warmup_steps / self.last_epoch) ** 0.5  # type: ignore[no-any-return]
+
+
+@final
+class PolynomialDecayLR(LRSchedulerBase):
+    """Represents the polynomial decay learning rate schedule.
+
+    **During warmup:**
+
+    .. math::
+        lr = base\\_lr \\cdot \\frac{step\\_num}{warmup\\_steps}
+
+    **After warmup:**
+
+    .. math::
+        lr = final\\_lr + (base\\_lr - final\\_lr) \\cdot \\frac{steps - step\\_num}{steps - warmup\\_steps}^{power}
+
+    This corresponds to increasing the learning rate linearly for the first
+    *warmup_steps* training steps to the base learning rate, and decreasing it
+    thereafter for *steps - warmup_steps* steps to the final learning rate using
+    a polynomial of degree *power*.
+
+    .. note::
+        This scheduler is not chainable.
+    """
+
+    num_steps: int
+    num_warmup_steps: int
+    power: float
+    final_lrs: Sequence[float]
+
+    def __init__(
+        self,
+        optimizer: Optimizer,
+        num_steps: int,
+        num_warmup_steps: int,
+        power: float = 1.0,
+        final_lr: Union[float, Sequence[float]] = 0.0,
+        last_epoch: int = -1,
+        verbose: bool = False,
+    ) -> None:
+        """
+        :param optimizer:
+            The associated optimizer.
+        :param num_steps:
+            The total number of steps, including warmup, over which to decay the
+            learning rate.
+        :param num_warmup_steps:
+            The number of warmup steps.
+        :param power:
+            The exponent of the polynomial used for decay.
+        :param final_lr:
+            The final learning rate of all parameter groups, or of each
+            parameter group respectively.
+        :param last_epoch:
+            The index of the last epoch.
+        :param verbose:
+            If ``True``, prints a message to stdout for each update.
+        """
+
+        if num_warmup_steps >= num_steps:
+            raise ValueError("`num_warmup_steps` must be less than `num_steps`.")
+
+        self.num_steps = num_steps
+        self.num_warmup_steps = num_warmup_steps
+        self.power = power
+
+        self.final_lrs = _get_per_param_group(optimizer, "final_lr", final_lr)
+
+        super().__init__(optimizer, last_epoch, verbose)
+
+    @finaloverride
+    def _compute_lrs(self) -> List[float]:
+        return [self._compute_lr(b, f) for b, f in zip(self.base_lrs, self.final_lrs)]
+
+    def _compute_lr(self, base_lr: float, final_lr: float) -> float:
+        if self.last_epoch >= self.num_steps:
+            return final_lr
+
+        # Linearly increase the learning rate to its base value during warmup.
+        if self.last_epoch <= self.num_warmup_steps:
+            return base_lr * self.last_epoch / self.num_warmup_steps
+
+        # After the warmup, decay the learning rate to its final value.
+        d = self.num_steps - self.last_epoch
+        t = self.num_steps - self.num_warmup_steps
+
+        return final_lr + (base_lr - final_lr) * ((d / t) ** self.power)  # type: ignore[no-any-return]
 
 
 def _get_per_param_group(

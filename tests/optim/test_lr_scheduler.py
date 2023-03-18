@@ -12,7 +12,7 @@ from torch import Tensor
 from torch.nn import Conv2d, Module
 from torch.optim import SGD
 
-from fairseq2.optim.lr_scheduler import LRScheduler, MyleLR, NoamLR
+from fairseq2.optim.lr_scheduler import LRScheduler, MyleLR, NoamLR, PolynomialDecayLR
 
 
 class LRSchedulerTestNet(Module):
@@ -181,3 +181,77 @@ class TestLRSchedulers:
             match=r"^The length of `init_lr` \(3\) does not match the number of parameter groups \(2\)\.$",
         ):
             MyleLR(self.opt, num_warmup_steps=10, init_lr=(0, 2, 3))
+
+    def test_polynomial_decay(self) -> None:
+        num_steps = 200
+
+        num_warmup_steps = 100
+
+        steps = num_steps - num_warmup_steps
+
+        power = 1.5
+
+        final_lr1 = 0.02
+        final_lr2 = 0.2
+
+        dist1 = self.base_lr1 - final_lr1
+        dist2 = self.base_lr2 - final_lr2
+
+        scheduler = PolynomialDecayLR(
+            self.opt, num_steps, num_warmup_steps, power, [final_lr1, final_lr2]
+        )
+
+        assert scheduler.get_last_lr() == [0.0, 0.0]
+
+        # In the first 100 steps, we expect the learning rate to linearly warmup
+        # to its original value.
+        for _ in range(num_warmup_steps // 2):
+            self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        # We are halfway through the warmup.
+        assert lr1 == pytest.approx(self.base_lr1 * 0.5)
+        assert lr2 == pytest.approx(self.base_lr2 * 0.5)
+
+        for _ in range(num_warmup_steps // 2):
+            self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        # Warmup should be complete.
+        assert lr1 == pytest.approx(self.base_lr1)
+        assert lr2 == pytest.approx(self.base_lr2)
+
+        # We now expect the learning rate to decay.
+        self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        assert lr1 == pytest.approx(final_lr1 + dist1 * ((steps - 1) / steps) ** power)
+        assert lr2 == pytest.approx(final_lr2 + dist2 * ((steps - 1) / steps) ** power)
+
+        for _ in range(5):
+            self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        assert lr1 == pytest.approx(final_lr1 + dist1 * ((steps - 6) / steps) ** power)
+        assert lr2 == pytest.approx(final_lr2 + dist2 * ((steps - 6) / steps) ** power)
+
+        for _ in range(steps - 6):
+            self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        # After num_steps, we expect the decay to stop.
+        assert lr1 == pytest.approx(final_lr1)
+        assert lr2 == pytest.approx(final_lr2)
+
+        for _ in range(10):
+            self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        assert lr1 == pytest.approx(final_lr1)
+        assert lr2 == pytest.approx(final_lr2)
