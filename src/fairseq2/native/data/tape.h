@@ -29,8 +29,9 @@ public:
     }
 
 public:
+    explicit
     tape(std::vector<data> storage = {}) noexcept
-        : storage_{std::move(storage)}
+        : storage_(std::move(storage))
     {}
 
     void
@@ -80,7 +81,7 @@ private:
     throw_corrupt();
 
 private:
-    std::vector<data> storage_{};
+    std::vector<data> storage_;
     std::vector<data>::iterator iter_ = storage_.begin();
 };
 
