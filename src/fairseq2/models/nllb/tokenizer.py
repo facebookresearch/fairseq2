@@ -102,7 +102,7 @@ class NllbTokenizer(Tokenizer):
         batch_size: Optional[int] = None,
         device: Optional[torch.device] = None,
         pin_memory: bool = False,
-        dtype: torch.dtype = torch.int32,
+        dtype: torch.dtype = torch.int64,
         disable_parallelism: bool = False,
     ) -> TokenEncoder:
         """Create a token encoder.

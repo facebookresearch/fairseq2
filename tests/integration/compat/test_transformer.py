@@ -17,7 +17,7 @@ NLLB_SMALL = NLLB_MODELS / "nllb_200_dense_distill_600m/checkpoint.pt"
 
 ENG = "On Monday, scientists from the Stanford University School of Medicine announced the invention of a new diagnostic tool that can sort cells by type: a tiny printable chip that can be manufactured using standard inkjet printers for possibly about one U.S. cent each."
 FRA_1 = "Lundi, des scientifiques de l'École de médecine de l'Université de Stanford ont annoncé l'invention d'un nouvel outil de diagnostic capable de trier les cellules par type: une minuscule puce imprimable qui peut être fabriquée à l'aide d'imprimantes à jet d'encre standard pour environ un centime de centime chacun."
-FRA_5 = "Lundi, des scientifiques de l'École de médecine de l'Université de Stanford ont annoncé l'invention d'un nouvel outil de diagnostic capable de trier les cellules par type: une minuscule puce imprimable qui peut être fabriquée à l'aide d'imprimantes à jet d'encre standard à environ un centime chacun."
+FRA_5 = "Lundi, des scientifiques de l'École de médecine de l'Université de Stanford ont annoncé l'invention d'un nouvel outil de diagnostic capable de trier les cellules par type: une petite puce puce imprimable qui peut être fabriquée à l'aide d'imprimantes à jet d'encre standard, éventuellement un centime cent chacun."
 
 
 @pytest.mark.skipif(not NLLB_MODELS.exists(), reason="needs to run on FAIR cluster")
@@ -73,8 +73,7 @@ def assert_speaks_french(
     tokenizer: Tokenizer,
     device: torch.device,
 ) -> None:
-    # for beam_size, ref in [(1, FRA_1), (5, FRA_5)]:
-    for beam_size, ref in [(1, FRA_1)]:
+    for beam_size, ref in [(1, FRA_1), (5, FRA_5)]:
         strategy = fairseq2.generate.BeamSearchStrategy(
             vocab_info=tokenizer.vocab_info, beam_size=beam_size, max_len=256
         )

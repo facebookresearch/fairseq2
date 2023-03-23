@@ -220,14 +220,9 @@ def test_step_one() -> None:
     assert s.batch_size == 2
     assert s.beam_size == 2
 
-    assert_equal(
-        s.tokens[:, :, 0],
-        [
-            [vocab_info.bos_idx, vocab_info.bos_idx],
-            [vocab_info.bos_idx, vocab_info.bos_idx],
-        ],
-    )
-    assert_equal(s.scores[:, :, 0], [[0.0, 0.0], [0.0, 0.0]])
+    assert (s.tokens[:, :, 0] == vocab_info.bos_idx).all()
+    assert (s.tokens[:, :, 1:] == vocab_info.pad_idx).all()
+    assert (s.scores == 0.0).all()
 
     dec_out_beam = torch.tensor(
         [
@@ -236,14 +231,14 @@ def test_step_one() -> None:
                 # beam
                 [
                     # [ UNK, BOS, EOS, PAD, ... ]
-                    [0.0, 0.0, 0.0, 0.0, 0.3, 0.0, 0.0, 0.0],
-                    [0.0, 0.0, 0.0, 0.0, 0.0, 5.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.3, 5.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 0.3, 5.0, 0.0, 0.0],
                 ]
             ],
             [
                 [
-                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0],
-                    [0.0, 0.0, 0.0, 0.0, 5.0, 0.0, 0.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 5.0, 0.0, 2.0, 0.0],
+                    [0.0, 0.0, 0.0, 0.0, 5.0, 0.0, 2.0, 0.0],
                 ]
             ],
         ]
@@ -287,26 +282,10 @@ def test_step_continue() -> None:
     assert s.batch_size == 2
     assert s.beam_size == 2
 
-    assert_equal(
-        s.tokens[:, :, 0],
-        [
-            [vocab_info.bos_idx, vocab_info.bos_idx],
-            [vocab_info.bos_idx, vocab_info.bos_idx],
-        ],
-    )
-    assert_equal(s.scores[:, :, 0], [[0.0, 0.0], [0.0, 0.0]])
-
     s.step = 1
     s.scores[:, :, 1] = torch.tensor([[[0.5, 0.0], [0.0, 0.05]]])
-    s.tokens[:, :, 1] = torch.tensor(
-        [
-            [
-                # > 3
-                [4, 5],
-                [6, 7],
-            ]
-        ]
-    )
+    # > 3
+    s.tokens[:, :, 1] = torch.tensor([[[4, 5], [6, 7]]])
 
     dec_out_beam = torch.tensor(
         [
@@ -376,14 +355,9 @@ def test_step_finished() -> None:
     assert s.batch_size == 2
     assert s.beam_size == 2
 
-    assert_close(
-        s.tokens[:, :, 0],
-        [
-            [vocab_info.bos_idx, vocab_info.bos_idx],
-            [vocab_info.bos_idx, vocab_info.bos_idx],
-        ],
-    )
-    assert_close(s.scores[:, :, 0], [[0.0, 0.0], [0.0, 0.0]])
+    assert (s.tokens[:, :, 0] == vocab_info.bos_idx).all()
+    assert (s.tokens[:, :, 1:] == vocab_info.pad_idx).all()
+    assert (s.scores == 0.0).all()
 
     dec_out_beam = torch.tensor(
         [
@@ -391,13 +365,13 @@ def test_step_finished() -> None:
             [
                 # beam
                 # [ UNK, BOS, EOS, PAD, ... ]
-                [0.0, 0.0, 0.0, 0.0, 0.3, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 0.0, 0.0, 0.0, 5.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.3, 5.0, 0.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.3, 5.0, 0.0, 0.0],
             ],
             [
                 # force EOS here
-                [0.0, 0.0, 20.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                [0.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 20.0, 0.0, 10.0, 0.0, 0.0, 0.0],
+                [0.0, 0.0, 20.0, 0.0, 10.0, 0.0, 0.0, 0.0],
             ],
         ]
     )
@@ -445,6 +419,7 @@ def test_step_finished() -> None:
     dec_out = dec_out_beam.view(-1, vocab_info.size)
 
     s.update(dec_out)
+    assert s.step == 2
 
     # finished (but still selected) beams have token pad_idx
     assert_equal(s.tokens[:, :, s.step], [[4, 5], [vocab_info.pad_idx, 4]])
@@ -524,7 +499,6 @@ def test_choose_beams() -> None:
     )
 
     src_tokens = torch.tensor([[1, 2, 3, 4], [7, 8, 9, 10]], dtype=torch.int64)
-
     s = bs.new_search_job(src_tokens)
 
     # (bsz=2, input_beam_size=2, size=4)
@@ -536,7 +510,7 @@ def test_choose_beams() -> None:
     )
 
     # Manually increase the step since we manually generated the probs
-    s.step += 1
+    s.step += 2
     sel = s._choose_beams(ps)
     assert_equal(sel.scores, [[4.0, 3.0], [4.5, 1.5]])
     assert_equal(sel.tokens, [[0, 2], [1, 3]])

@@ -395,24 +395,15 @@ class BeamSearchJob(SearchStrategy.SearchJob):
         lprobs_beam += self.scores[..., self.step - 1].unsqueeze(-1)
 
         if self.finished_mask.any():
-            # for any (batch, beam) such that self.finished_mask[batch, beam] is true:
-            # lprob_beam[ batch, beam, tok!=PAD ] = -inf
-            # lprob_beam[ batch, beam, tok==PAD ] = scores_beam_view()[batch, beam, self.step-1]
-
-            # TODO: work out appropriate mask expression here
-            for batch_idx, batch_mask in enumerate(self.finished_mask):
-                for beam_idx, beam_mask in enumerate(batch_mask):
-                    if bool(beam_mask):
-                        lprobs_beam[batch_idx, beam_idx, :] = -torch.inf
-                        lprobs_beam[
-                            batch_idx,
-                            beam_idx,
-                            self.strategy.vocab_info.pad_idx,
-                        ] = self.scores[batch_idx, beam_idx, self.step - 1]
+            # for any finished beam, force PAD, but keep the beam score.
+            PAD = self.strategy.vocab_info.pad_idx
+            lprobs_beam.masked_fill_(self.finished_mask.unsqueeze(-1), -torch.inf)
+            final_scores = self.scores[self.finished_mask][:, self.step - 1]
+            lprobs_beam[:, :, PAD].masked_scatter_(self.finished_mask, final_scores)
 
         # layout: (bsz, beam_size)
         next_scores, next_tokens, source_beams = self._choose_beams(
-            lprobs_beam=lprobs_beam,
+            lprobs_beam=lprobs_beam
         )
 
         # Select the best prefix beams
@@ -500,19 +491,18 @@ class BeamSearchJob(SearchStrategy.SearchJob):
             beams=torch.zeros_like(next_tokens),
         )
 
-    def _choose_beams(
-        self,
-        lprobs_beam: Tensor,
-    ) -> BeamChoice:
-        if self.step < self.n_prefix_tokens:
-            return self._choose_prefix_tokens(lprobs_beam)
-
+    def _choose_beams(self, lprobs_beam: Tensor) -> BeamChoice:
         bsz, input_beam_size, vocab_size = lprobs_beam.shape
 
-        assert input_beam_size == self.beam_size, (
-            f"input_beam_size ({input_beam_size}) must == "
-            f"beam_size ({self.beam_size})"
-        )
+        if self.step < self.n_prefix_tokens:
+            return self._choose_prefix_tokens(lprobs_beam)
+        elif self.step == self.n_prefix_tokens:
+            # At this point all beams are the same.
+            # We need to compute topk only on one beam, otherwise we will extract
+            # the same token across all beams.
+            # Note: we could theoritically modify next_query() to avoid computing
+            # probs on identical beams, but there are some shape issues with "enc_out".
+            lprobs_beam = lprobs_beam[:, :1, :]
 
         # we are interested in the top scoring (beam_size) tokens across all beams
         # in a given batch. by viewing the input as (bsz, input_beam_size * vocab)),
