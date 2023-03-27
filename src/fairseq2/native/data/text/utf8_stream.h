@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include <iconv.h>
@@ -26,7 +27,10 @@ class utf8_stream final : public stream {
 
 public:
     explicit
-    utf8_stream(std::unique_ptr<stream> &&inner, std::string encoding, std::size_t chunk_size) noexcept;
+    utf8_stream(
+        std::unique_ptr<stream> &&inner,
+        std::optional<std::string> encoding,
+        std::size_t chunk_size) noexcept;
 
     utf8_stream(const utf8_stream &) = delete;
     utf8_stream &operator=(const utf8_stream &) = delete;
@@ -71,7 +75,7 @@ private:
     static const ::iconv_t invalid_iconv_;
 
     std::unique_ptr<stream> inner_;
-    std::string encoding_;
+    std::string encoding_{};
     bool is_utf8_;
     std::size_t chunk_size_;
     ::iconv_t iconv_{invalid_iconv_};

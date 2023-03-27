@@ -57,7 +57,7 @@ make_fts(const std::string &pathname)
 }  // namespace
 
 std::vector<data>
-list_files(const std::string &pathname, const std::string &pattern)
+list_files(const std::string &pathname, const std::optional<std::string> &pattern)
 {
     auto fts = make_fts(pathname);
 
@@ -76,8 +76,8 @@ list_files(const std::string &pathname, const std::string &pattern)
         if (!S_ISREG(e->fts_statp->st_mode) && !S_ISBLK(e->fts_statp->st_mode))
             continue;
 
-        if (!pattern.empty()) {
-            int r = ::fnmatch(pattern.c_str(), e->fts_accpath, 0);
+        if (pattern && !pattern->empty()) {
+            int r = ::fnmatch(pattern->c_str(), e->fts_accpath, 0);
             if (r == FNM_NOMATCH)
                 continue;
             if (r != 0)

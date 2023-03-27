@@ -17,9 +17,15 @@
 
 namespace fairseq2::detail {
 
-utf8_stream::utf8_stream(std::unique_ptr<stream> &&inner, std::string encoding, std::size_t chunk_size) noexcept
-    : inner_{std::move(inner)}, encoding_{std::move(encoding)}
+utf8_stream::utf8_stream(
+    std::unique_ptr<stream> &&inner,
+    std::optional<std::string> encoding,
+    std::size_t chunk_size) noexcept
+    : inner_{std::move(inner)}
 {
+    if (encoding)
+        encoding_ = *encoding;
+
     is_utf8_ = is_utf8_encoding();
 
     constexpr std::size_t min_chunk_size = 1024;  // 1 KiB

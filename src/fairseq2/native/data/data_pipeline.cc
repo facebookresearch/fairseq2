@@ -280,7 +280,7 @@ zip_data_pipelines(std::vector<data_pipeline> zip)
 }
 
 data_pipeline_builder
-list_files(std::string pathname, std::string pattern)
+list_files(std::string pathname, std::optional<std::string> pattern)
 {
     auto fc = [pathname = std::move(pathname), pattern = std::move(pattern)]() {
         std::vector<data> data;

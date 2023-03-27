@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -14,6 +15,6 @@
 namespace fairseq2::detail {
 
 std::vector<data>
-list_files(const std::string &pathname, const std::string &pattern);
+list_files(const std::string &pathname, const std::optional<std::string> &pattern);
 
 }

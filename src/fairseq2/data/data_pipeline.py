@@ -11,6 +11,7 @@ from typing import (
     Dict,
     Iterator,
     Mapping,
+    Optional,
     Sequence,
     final,
 )
@@ -122,7 +123,9 @@ class DataPipelineError(RuntimeError):
     """Raised when an error occurs while reading from a data pipeline."""
 
 
-def list_files(pathname: PathLike, pattern: StringLike = "") -> "DataPipelineBuilder":
+def list_files(
+    pathname: PathLike, pattern: Optional[StringLike] = None
+) -> "DataPipelineBuilder":
     """List recursively all files under ``pathname`` that matches ``pattern``.
 
     :param pathname:

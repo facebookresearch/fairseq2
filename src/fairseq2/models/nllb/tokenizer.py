@@ -80,14 +80,14 @@ class NllbTokenizer(Tokenizer):
         """Create a token encoder.
 
         :param task:
-            The only valid value is 'translation'. If not specified, defaults to
+            The only valid value is 'translation'. If ``None``, defaults to
             'translation'.
         :param lang:
             A language from :attr:`langs`.
         :param mode:
             The valid values are 'source' and 'target'. Set to 'source' if
             ``lang`` is the source language of the translation; otherwise, set
-            to 'target'. If not specified, defaults to 'source'.
+            to 'target'. If ``None``, defaults to 'source'.
         :param batch_size:
             If the number of sentences to encode is less than ``batch_size``,
             the output will be padded.
@@ -101,16 +101,16 @@ class NllbTokenizer(Tokenizer):
         :param disabled_parallelism:
             If ``True``, disables parallelism and uses the calling thread only.
         """
-        if task is not None and task != "translation":
+        if task and task != "translation":
             raise ValueError(f"`task` ('{task}') must be 'translation'.")
 
         # If not specified, we fall back to English.
-        if lang is None or lang == "":
+        if not lang:
             lang = self.default_lang
         elif lang not in self.langs:
             raise ValueError(f"`lang` ({lang}) is not a supported language.")
 
-        if mode is None or mode == "source":
+        if not mode or mode == "source":
             # NLLB models expect a language token in place of BOS in source
             # sequences.
             prefix_tokens = [f"__{lang}__"]

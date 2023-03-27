@@ -21,7 +21,7 @@ class LineEnding(Enum):
 
 def read_text(
     pathname: PathLike,
-    encoding: StringLike = "",
+    encoding: Optional[StringLike] = None,
     line_ending: LineEnding = LineEnding.INFER,
     ltrim: bool = False,
     rtrim: bool = False,

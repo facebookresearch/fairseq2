@@ -92,7 +92,7 @@ public:
     }
 
     file_options &
-    text_encoding(std::string value) & noexcept
+    text_encoding(std::optional<std::string> value) & noexcept
     {
         text_encoding_ = std::move(value);
 
@@ -100,14 +100,14 @@ public:
     }
 
     file_options &&
-    text_encoding(std::string value) && noexcept
+    text_encoding(std::optional<std::string> value) && noexcept
     {
         text_encoding_ = std::move(value);
 
         return std::move(*this);
     }
 
-    const std::string &
+    const std::optional<std::string> &
     text_encoding() const noexcept
     {
         return text_encoding_;
@@ -117,11 +117,11 @@ private:
     file_mode mode_ = file_mode::binary;
     bool memory_map_ = false;
     std::optional<std::size_t> block_size_{};
-    std::string text_encoding_{};
+    std::optional<std::string> text_encoding_{};
 };
 
 inline file_options
-text_file_options(std::string text_encoding = {}) noexcept
+text_file_options(std::optional<std::string> text_encoding = {}) noexcept
 {
     return file_options().mode(file_mode::text).text_encoding(std::move(text_encoding));
 }

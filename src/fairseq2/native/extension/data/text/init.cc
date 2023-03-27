@@ -144,7 +144,7 @@ def_text(py::module_ &base)
 
     m.def("read_text",
         [](std::string &&pathname,
-           std::string &&encoding,
+           std::optional<std::string> &&encoding,
            line_ending le,
            bool ltrim,
            bool rtrim,
@@ -164,7 +164,7 @@ def_text(py::module_ &base)
             return read_text(std::move(pathname), std::move(opts));
         },
         py::arg("pathname"),
-        py::arg("encoding")    = "",
+        py::arg("encoding")    = std::nullopt,
         py::arg("line_ending") = line_ending::infer,
         py::arg("ltrim")       = false,
         py::arg("rtrim")       = false,

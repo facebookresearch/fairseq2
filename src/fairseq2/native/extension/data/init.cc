@@ -170,7 +170,7 @@ def_data_pipeline(py::module_ &base)
     static py::exception<data_pipeline_error> py_data_pipeline_error{
         m, "DataPipelineError", PyExc_RuntimeError};
 
-    m.def("list_files", &list_files, py::arg("pathname"), py::arg("pattern") = "");
+    m.def("list_files", &list_files, py::arg("pathname"), py::arg("pattern") = std::nullopt);
 
     m.def("read_sequence", &read_list, py::arg("s"));
 

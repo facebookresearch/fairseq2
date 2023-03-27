@@ -24,7 +24,7 @@ enum class line_ending {
 class text_options {
 public:
     text_options &
-    encoding(std::string value) & noexcept
+    encoding(std::optional<std::string> value) & noexcept
     {
         encoding_ = std::move(value);
 
@@ -32,14 +32,14 @@ public:
     }
 
     text_options &&
-    encoding(std::string value) && noexcept
+    encoding(std::optional<std::string> value) && noexcept
     {
         encoding_ = std::move(value);
 
         return std::move(*this);
     }
 
-    const std::string &
+    const std::optional<std::string> &
     encoding() const noexcept
     {
         return encoding_;
@@ -178,7 +178,7 @@ public:
     }
 
 private:
-    std::string encoding_{};
+    std::optional<std::string> encoding_{};
     fairseq2::line_ending line_ending_{};
     bool ltrim_ = false;
     bool rtrim_ = false;
