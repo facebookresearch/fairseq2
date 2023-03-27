@@ -142,8 +142,8 @@ class TransformerFbankFrontend(Module):
 
 
 class S2TTransformerModel(Module):
-    """Represents a speech-to-text Transformer model as described in Section 2.1
-    of :cite:t:`https://doi.org/10.48550/arxiv.1911.08460`."""
+    """Represents an S2T Transformer model as described in Section 2.1 of
+    :cite:t:`https://doi.org/10.48550/arxiv.1911.08460`."""
 
     model_dim: int
     encoder_frontend: TransformerFbankFrontend
