@@ -112,20 +112,20 @@ class TestLRSchedulers:
         assert lr1 == pytest.approx(self.base_lr1 * 5**-0.5)
         assert lr2 == pytest.approx(self.base_lr2 * 5**-0.5)
 
-    @pytest.mark.parametrize("init_lr", [0.0, (0.0, 0.0), [0.02, 0.2]])
-    def test_myle(self, init_lr: Union[float, Sequence[float]]) -> None:
-        if isinstance(init_lr, float):
-            init_lr1 = init_lr
-            init_lr2 = init_lr
+    @pytest.mark.parametrize("start_lr", [0.0, (0.0, 0.0), [0.02, 0.2]])
+    def test_myle(self, start_lr: Union[float, Sequence[float]]) -> None:
+        if isinstance(start_lr, float):
+            start_lr1 = start_lr
+            start_lr2 = start_lr
         else:
-            init_lr1 = init_lr[0]
-            init_lr2 = init_lr[1]
+            start_lr1 = start_lr[0]
+            start_lr2 = start_lr[1]
 
         num_warmup_steps = 100
 
-        scheduler = MyleLR(self.opt, num_warmup_steps, init_lr)
+        scheduler = MyleLR(self.opt, num_warmup_steps, start_lr)
 
-        assert scheduler.get_last_lr() == [init_lr1, init_lr2]
+        assert scheduler.get_last_lr() == [start_lr1, start_lr2]
 
         # In the first 100 steps, we expect the learning rate to linearly warmup
         # to its original value.
@@ -135,8 +135,8 @@ class TestLRSchedulers:
         lr1, lr2 = scheduler.get_last_lr()
 
         # We are halfway through the warmup.
-        assert lr1 == pytest.approx(init_lr1 + (self.base_lr1 - init_lr1) / 2)
-        assert lr2 == pytest.approx(init_lr2 + (self.base_lr2 - init_lr2) / 2)
+        assert lr1 == pytest.approx(start_lr1 + (self.base_lr1 - start_lr1) / 2)
+        assert lr2 == pytest.approx(start_lr2 + (self.base_lr2 - start_lr2) / 2)
 
         for _ in range(num_warmup_steps // 2):
             self.step(scheduler)
@@ -169,18 +169,18 @@ class TestLRSchedulers:
         assert lr1 == pytest.approx(factor * self.base_lr1)
         assert lr2 == pytest.approx(factor * self.base_lr2)
 
-    def test_myle_raises_error_if_number_of_init_lrs_is_wrong(self) -> None:
+    def test_myle_raises_error_if_number_of_start_lrs_is_wrong(self) -> None:
         with pytest.raises(
             ValueError,
-            match=r"^The length of `init_lr` \(1\) does not match the number of parameter groups \(2\)\.$",
+            match=r"^The length of `start_lr` \(1\) does not match the number of parameter groups \(2\)\.$",
         ):
-            MyleLR(self.opt, num_warmup_steps=10, init_lr=[0])
+            MyleLR(self.opt, num_warmup_steps=10, start_lr=[0])
 
         with pytest.raises(
             ValueError,
-            match=r"^The length of `init_lr` \(3\) does not match the number of parameter groups \(2\)\.$",
+            match=r"^The length of `start_lr` \(3\) does not match the number of parameter groups \(2\)\.$",
         ):
-            MyleLR(self.opt, num_warmup_steps=10, init_lr=(0, 2, 3))
+            MyleLR(self.opt, num_warmup_steps=10, start_lr=(0, 2, 3))
 
     def test_polynomial_decay(self) -> None:
         num_steps = 200
@@ -191,6 +191,9 @@ class TestLRSchedulers:
 
         power = 1.5
 
+        start_lr1 = 0.01
+        start_lr2 = 0.1
+
         final_lr1 = 0.02
         final_lr2 = 0.2
 
@@ -198,10 +201,15 @@ class TestLRSchedulers:
         dist2 = self.base_lr2 - final_lr2
 
         scheduler = PolynomialDecayLR(
-            self.opt, num_steps, num_warmup_steps, power, [final_lr1, final_lr2]
+            self.opt,
+            num_steps,
+            num_warmup_steps,
+            power,
+            [start_lr1, start_lr2],
+            [final_lr1, final_lr2],
         )
 
-        assert scheduler.get_last_lr() == [0.0, 0.0]
+        assert scheduler.get_last_lr() == [start_lr1, start_lr2]
 
         # In the first 100 steps, we expect the learning rate to linearly warmup
         # to its original value.
@@ -211,8 +219,8 @@ class TestLRSchedulers:
         lr1, lr2 = scheduler.get_last_lr()
 
         # We are halfway through the warmup.
-        assert lr1 == pytest.approx(self.base_lr1 * 0.5)
-        assert lr2 == pytest.approx(self.base_lr2 * 0.5)
+        assert lr1 == pytest.approx(start_lr1 + (self.base_lr1 - start_lr1) / 2)
+        assert lr2 == pytest.approx(start_lr2 + (self.base_lr2 - start_lr2) / 2)
 
         for _ in range(num_warmup_steps // 2):
             self.step(scheduler)

@@ -108,18 +108,16 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`. This means instead of
 
     .. math::
-        PE_{(pos, 2i)}   = sin(pos/10000^{2i/d_{\\text{model}}})
+        PE_{(pos, 2i)}   = \\text{sin}(pos/10000^{2i/d_{model}})
 
-        PE_{(pos, 2i+1)} = cos(pos/10000^{2i/d_{\\text{model}}})
+        PE_{(pos, 2i+1)} = \\text{cos}(pos/10000^{2i/d_{model}})
 
     we use
 
     .. math::
-        PE_{(pos, i)} = sin(pos/10000^{i/d_{\\text{model}}})
-            \\;\\text{for}\\;i\\;<    \\frac{d_{\\text{model}}}{2}
+        PE_{(pos, i)} = \\text{sin}(pos/10000^{i/d_{model}})\\;\\text{for}\\;i\\;    <\\frac{d_{model}}{2}
 
-        PE_{(pos, i)} = cos(pos/10000^{i/d_{\\text{model}}})
-            \\;\\text{for}\\;i\\;\\geq\\frac{d_{\\text{model}}}{2}
+        PE_{(pos, i)} = \\text{cos}(pos/10000^{i/d_{model}})\\;\\text{for}\\;i\\;\\geq\\frac{d_{model}}{2}
 
     See `here <https://github.com/tensorflow/tensor2tensor/pull/177>`_ for more
     information.

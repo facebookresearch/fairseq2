@@ -89,7 +89,7 @@ def optimizer(
 
 def lr_scheduler(optimizer: torch.optim.Optimizer, lr: float = 5e-4) -> LRScheduler:
     """Learning Rate scheduler, MyleLR by default"""
-    return MyleLR(optimizer, num_warmup_steps=4000, init_lr=lr)
+    return MyleLR(optimizer, num_warmup_steps=4000, start_lr=lr)
 
 
 __all__ = list(set(locals()) - imports)

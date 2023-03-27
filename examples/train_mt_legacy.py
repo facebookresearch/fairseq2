@@ -118,7 +118,7 @@ def optimizer(
 
 
 def lr_scheduler(optimizer: torch.optim.Optimizer) -> LRScheduler:
-    return MyleLR(optimizer, num_warmup_steps=4000, init_lr=1.25e-07)
+    return MyleLR(optimizer, num_warmup_steps=4000, start_lr=1.25e-07)
 
 
 hub_task = fairseq2.cli.hub_export(task, __file__)
