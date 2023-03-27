@@ -14,7 +14,7 @@ from fairseq2.models.s2t_transformer.arch import (
     TransformerFbankFrontend,
 )
 from fairseq2.models.s2t_transformer.subsampler import Conv1dFbankSubsampler
-from fairseq2.models.transformer.arch import ScoreProjection, TransformerTokenFrontend
+from fairseq2.models.transformer import ScoreProjection, TransformerTokenFrontend
 from fairseq2.nn.embedding import Embedding
 from fairseq2.nn.positional_embedding import (
     PositionalEmbedding,

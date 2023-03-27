@@ -4,13 +4,13 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from dataclasses import dataclass
 from typing import Optional
 
 import torch
 
 from fairseq2.data.text import VocabularyInfo
-from fairseq2.models.transformer.arch import TransformerModel, TransformerTokenFrontend
-from fairseq2.models.transformer.config import TransformerConfig
+from fairseq2.models.transformer.model import TransformerModel, TransformerTokenFrontend
 from fairseq2.nn.embedding import Embedding
 from fairseq2.nn.positional_embedding import SinusoidalPositionalEmbedding
 from fairseq2.nn.projection import TiedProjection
@@ -27,7 +27,52 @@ from fairseq2.nn.transformer import (
     TransformerDecoderLayer,
     TransformerEncoder,
     TransformerEncoderLayer,
+    TransformerNormOrder,
 )
+
+
+@dataclass
+class TransformerConfig:
+    """Configuration of a Transformer model.
+
+    The default values correspond to the *base* architecture described in
+    Table 3 of :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.
+    """
+
+    max_seq_len: int = 1024
+    """The expected maximum sequence length."""
+
+    model_dim: int = 512
+    """The dimensionality of the model (i.e. inputs and outputs)."""
+
+    num_enc_layers: int = 6
+    """The number of encoder layers."""
+
+    num_dec_layers: int = 6
+    """The number of decoder layers."""
+
+    num_enc_attn_heads: int = 8
+    """The number of attention heads in encoder layers."""
+
+    num_dec_attn_heads: int = 8
+    """The number of attention heads in decoder layers."""
+
+    ffn_inner_dim: int = 2048
+    """The dimensionality of inner layers in feed-forward networks."""
+
+    dropout_p: float = 0.1
+    """The dropout probability on outputs of embedding dictionaries, attention
+    layers, and feed-forward networks."""
+
+    norm_order: TransformerNormOrder = TransformerNormOrder.POST
+    """The Layer Normalization order."""
+
+    legacy_pos_embed: bool = False
+    """If ``True``, sinusoidal positional embeddings will be initialized in a
+    way that is compatible with the original fairseq."""
+
+    dtype: torch.dtype = torch.float32
+    """The data type of model parameters and buffers."""
 
 
 def create_transformer_model(
@@ -35,7 +80,7 @@ def create_transformer_model(
     vocab_info: VocabularyInfo,
     device: Optional[torch.device] = None,
 ) -> TransformerModel:
-    """Create a model that follows the Transformer architecture as described in
+    """Create a Transformer model as described in
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.
 
     :param cfg:
@@ -49,7 +94,7 @@ def create_transformer_model(
 
 
 class TransformerBuilder:
-    """Builds models that follow the Transformer architecture as described in
+    """Builds modules of a Transformer model as described in
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.
 
     To tweak the model architecture, you can derive from this class and override
@@ -71,6 +116,8 @@ class TransformerBuilder:
             The configuration to use.
         :param vocab_info:
             The vocabulary information to use.
+        :param device:
+            The device on which to initialize modules.
         """
         self.cfg = cfg
         self.vocab_info = vocab_info
@@ -98,16 +145,25 @@ class TransformerBuilder:
             dtype=self.cfg.dtype,
         )
 
+        if self.cfg.legacy_pos_embed:
+            pad_token_idx = self.vocab_info.pad_idx
+        else:
+            pad_token_idx = None
+
         pos_embed = SinusoidalPositionalEmbedding(
             max_seq_len=self.cfg.max_seq_len,
             embed_dim=self.cfg.model_dim,
-            legacy_pad_token_idx=self.vocab_info.pad_idx,
+            legacy_pad_token_idx=pad_token_idx,
             device=self.device,
             dtype=self.cfg.dtype,
         )
 
         return TransformerTokenFrontend(
-            embed, pos_embed, device=self.device, dtype=self.cfg.dtype
+            embed,
+            pos_embed,
+            dropout_p=self.cfg.dropout_p,
+            device=self.device,
+            dtype=self.cfg.dtype,
         )
 
     def build_encoder(self) -> TransformerEncoder:
@@ -141,6 +197,7 @@ class TransformerBuilder:
         return StandardTransformerEncoderLayer(
             self_attn,
             ffn,
+            dropout_p=self.cfg.dropout_p,
             norm_order=self.cfg.norm_order,
             device=self.device,
             dtype=self.cfg.dtype,
@@ -158,6 +215,7 @@ class TransformerBuilder:
             self_attn,
             enc_dec_attn,
             ffn,
+            dropout_p=self.cfg.dropout_p,
             norm_order=self.cfg.norm_order,
             device=self.device,
             dtype=self.cfg.dtype,

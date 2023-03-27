@@ -13,7 +13,7 @@ from torch import Tensor
 from torch.nn import Module
 
 from fairseq2.models.s2t_transformer.subsampler import FbankSubsampler
-from fairseq2.models.transformer.arch import TransformerTokenFrontend
+from fairseq2.models.transformer import TransformerTokenFrontend
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.positional_embedding import PositionalEmbedding
 from fairseq2.nn.projection import Linear, Projection
