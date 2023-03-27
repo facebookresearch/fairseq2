@@ -4,6 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import math
 from typing import Sequence, Union
 
 import pytest
@@ -12,7 +13,13 @@ from torch import Tensor
 from torch.nn import Conv2d, Module
 from torch.optim import SGD
 
-from fairseq2.optim.lr_scheduler import LRScheduler, MyleLR, NoamLR, PolynomialDecayLR
+from fairseq2.optim.lr_scheduler import (
+    CosineAnnealingLR,
+    LRScheduler,
+    MyleLR,
+    NoamLR,
+    PolynomialDecayLR,
+)
 
 
 class LRSchedulerTestNet(Module):
@@ -263,3 +270,165 @@ class TestLRSchedulers:
 
         assert lr1 == pytest.approx(final_lr1)
         assert lr2 == pytest.approx(final_lr2)
+
+    def test_consine(self) -> None:
+        cycle_len = 80
+
+        cycle_mul = 1.2
+
+        num_warmup_steps = 100
+
+        lr_mul = 0.5
+
+        start_lr1 = 0.01
+        start_lr2 = 0.1
+
+        final_lr1 = 0.02
+        final_lr2 = 0.2
+
+        scheduler = CosineAnnealingLR(
+            self.opt,
+            cycle_len,
+            num_warmup_steps,
+            cycle_mul,
+            lr_mul,
+            [start_lr1, start_lr2],
+            [final_lr1, final_lr2],
+        )
+
+        assert scheduler.get_last_lr() == [start_lr1, start_lr2]
+
+        # In the first 100 steps, we expect the learning rate to linearly warmup
+        # to its original value.
+        for _ in range(num_warmup_steps // 2):
+            self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        # We are halfway through the warmup.
+        assert lr1 == pytest.approx(start_lr1 + (self.base_lr1 - start_lr1) / 2)
+        assert lr2 == pytest.approx(start_lr2 + (self.base_lr2 - start_lr2) / 2)
+
+        for _ in range(num_warmup_steps // 2):
+            self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        # Warmup should be complete.
+        assert lr1 == pytest.approx(self.base_lr1)
+        assert lr2 == pytest.approx(self.base_lr2)
+
+        # We now expect the learning rate to decay from its base value to its
+        # final value within the first cycle.
+        self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        factor = (1 + math.cos(math.pi * 1 / cycle_len)) / 2
+
+        assert lr1 == pytest.approx(final_lr1 + (self.base_lr1 - final_lr1) * factor)
+        assert lr2 == pytest.approx(final_lr2 + (self.base_lr2 - final_lr2) * factor)
+
+        for _ in range((cycle_len // 2) - 1):
+            self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        # We are halfway through the decay.
+        assert lr1 == pytest.approx(final_lr1 + (self.base_lr1 - final_lr1) / 2)
+        assert lr2 == pytest.approx(final_lr2 + (self.base_lr2 - final_lr2) / 2)
+
+        for _ in range((cycle_len // 2) - 1):
+            self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        # At the last step in the cycle the learning rate should be equal to its
+        # final value.
+        assert lr1 == pytest.approx(final_lr1, rel=8e-4)
+        assert lr2 == pytest.approx(final_lr2, rel=8e-4)
+
+        # Start of the second cycle.
+        self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        # We expect the base values to be scaled by lr_mul.
+        assert lr1 == pytest.approx(self.base_lr1 * lr_mul)
+        assert lr2 == pytest.approx(self.base_lr2 * lr_mul)
+
+        for _ in range(int(cycle_len * cycle_mul) - 1):
+            self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        # At the last step in the cycle the learning rate should be equal to its
+        # final value scaled by lr_mul.
+        assert lr1 == pytest.approx(final_lr1 * lr_mul, rel=8e-4)
+        assert lr2 == pytest.approx(final_lr2 * lr_mul, rel=8e-4)
+
+        # Start of the third cycle.
+        self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        # We expect the base values to be scaled by lr_mul.
+        assert lr1 == pytest.approx(self.base_lr1 * lr_mul * lr_mul)
+        assert lr2 == pytest.approx(self.base_lr2 * lr_mul * lr_mul)
+
+    def test_consine_with_no_cycle_scale(self) -> None:
+        cycle_len = 80
+
+        num_warmup_steps = 100
+
+        start_lr1 = 0.01
+        start_lr2 = 0.1
+
+        final_lr1 = 0.02
+        final_lr2 = 0.2
+
+        scheduler = CosineAnnealingLR(
+            self.opt,
+            cycle_len,
+            num_warmup_steps,
+            start_lr=[start_lr1, start_lr2],
+            final_lr=[final_lr1, final_lr2],
+        )
+
+        assert scheduler.get_last_lr() == [start_lr1, start_lr2]
+
+        # In the first 100 steps, we expect the learning rate to linearly warmup
+        # to its original value.
+        for _ in range(num_warmup_steps):
+            self.step(scheduler)
+
+        for _ in range(3):
+            lr1, lr2 = scheduler.get_last_lr()
+
+            # Warmup should be complete.
+            assert lr1 == pytest.approx(self.base_lr1)
+            assert lr2 == pytest.approx(self.base_lr2)
+
+            # We now expect the learning rate to decay from its base value to
+            # its final value within the first cycle.
+            self.step(scheduler)
+
+            lr1, lr2 = scheduler.get_last_lr()
+
+            fct = (1 + math.cos(math.pi * 1 / cycle_len)) / 2
+
+            assert lr1 == pytest.approx(final_lr1 + (self.base_lr1 - final_lr1) * fct)
+            assert lr2 == pytest.approx(final_lr2 + (self.base_lr2 - final_lr2) * fct)
+
+            for _ in range(cycle_len - 2):
+                self.step(scheduler)
+
+            lr1, lr2 = scheduler.get_last_lr()
+
+            # At the last step in the cycle the learning rate should be equal to
+            # its final value.
+            assert lr1 == pytest.approx(final_lr1, rel=8e-4)
+            assert lr2 == pytest.approx(final_lr2, rel=8e-4)
+
+            # Start the next cycle.
+            self.step(scheduler)

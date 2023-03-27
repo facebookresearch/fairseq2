@@ -39,6 +39,7 @@ Classes
     nn.transformer.StandardTransformerEncoder
     nn.transformer.StandardTransformerEncoderLayer
     nn.transformer.StoreAttentionWeights
+    optim.lr_scheduler.CosineAnnealingLR
     optim.lr_scheduler.LRSchedulerBase
     optim.lr_scheduler.MyleLR
     optim.lr_scheduler.NoamLR

@@ -4,6 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import math
 import warnings
 from abc import ABC, abstractmethod
 from typing import List, Sequence, Union, final
@@ -255,6 +256,145 @@ class PolynomialDecayLR(LRSchedulerBase):
         c = (r / t) ** self.power
 
         return [f + (b - f) * c for b, f in zip(self.base_lrs, self.final_lrs)]
+
+
+@final
+class CosineAnnealingLR(LRSchedulerBase):
+    """Represents the learning rate schedule described in
+    :cite:t:`loshchilov2017sgdr`.
+
+    **During warmup:**
+
+    .. math::
+        \\eta_t = \\eta_{base} \\frac{t}{T_{warmup}}
+
+    **After warmup:**
+
+    .. math::
+        \\eta_t = \\eta_{final}^i + \\frac{1}{2} (\\eta_{base}^i - \\eta_{final}^i) (1 + \\text{cos}(\\pi \\frac{t_{i}}{T_{i}}))
+
+    where :math:`i` is the number of the current annealing cycle, :math:`t_i` is
+    the number of steps taken since the last restart, and :math:`T_i` is the
+    total number of steps within the :math:`i`-th cycle (i.e. *length* of the
+    cycle).
+
+    *Cosine Annealing* is a type of learning rate schedule that has the effect
+    of starting with a large learning rate that is relatively rapidly decreased
+    to a minimum value before being increased rapidly again.
+
+    Please refer to the paper to learn more about the details.
+
+    In addition to the original schedule, this implementation also supports a
+    warmup phase where the learning rate is linearly increased for the first
+    :math:`T_{warmup}` training steps to the base learning rate.
+
+    .. note::
+        This scheduler is not chainable.
+    """
+
+    cycle_len: int
+    cycle_mul: float
+    num_warmup_steps: int
+    lr_mul: float
+    start_lrs: Sequence[float]
+    final_lrs: Sequence[float]
+
+    def __init__(
+        self,
+        optimizer: Optimizer,
+        cycle_len: int,
+        num_warmup_steps: int,
+        cycle_mul: float = 1.0,
+        lr_mul: float = 1.0,
+        start_lr: Union[float, Sequence[float]] = 0.0,
+        final_lr: Union[float, Sequence[float]] = 0.0,
+        last_epoch: int = -1,
+        verbose: bool = False,
+    ) -> None:
+        """
+        :param optimizer:
+            The associated optimizer.
+        :param cycle_len:
+            The number of steps within the first cycle.
+        :param num_warmup_steps:
+            The number of warmup steps.
+        :param cycle_mul:
+            The factor to grow the length of each cycle.
+        :param lr_mul:
+            The factor to scale the base and final learning rate at the end of
+            each cycle.
+        :param start_lr:
+            The initial warmup learning rate of all parameter groups, or of each
+            parameter group respectively.
+        :param final_lr:
+            The final learning rate of all parameter groups, or of each
+            parameter group respectively, at the end of the first cycle.
+        :param last_epoch:
+            The index of the last epoch.
+        :param verbose:
+            If ``True``, prints a message to stdout for each update.
+        """
+        self.cycle_len = cycle_len
+        self.cycle_mul = cycle_mul
+        self.num_warmup_steps = num_warmup_steps
+        self.lr_mul = lr_mul
+
+        self.start_lrs = _get_per_param_group(optimizer, "start_lr", start_lr)
+        self.final_lrs = _get_per_param_group(optimizer, "final_lr", final_lr)
+
+        super().__init__(optimizer, last_epoch, verbose)
+
+    @finaloverride
+    def _compute_lrs(self) -> List[float]:
+        # Linearly increase the learning rate to its base value during warmup.
+        if self.last_epoch <= self.num_warmup_steps:
+            c = self.last_epoch / self.num_warmup_steps
+
+            return [i + (b - i) * c for b, i in zip(self.base_lrs, self.start_lrs)]
+
+        curr_step = self.last_epoch - self.num_warmup_steps
+
+        # When each cycle has equal length, the computation is straightforward.
+        if self.cycle_mul == 1.0:
+            cycle_num = curr_step // self.cycle_len
+
+            cycle_len = self.cycle_len
+
+            # The position of the step within the cycle.
+            cycle_pos = curr_step - (cycle_num * cycle_len)
+
+        # Otherwise, it becomes a bit trickier. We have to treat the cycles as
+        # a geometric series to find out the number, length, and offset of the
+        # current cycle.
+        else:
+            mul = self.cycle_mul
+
+            # Solve the equation \sum_{i=0}^{n} len(cycle_i) + x = step for n.
+            cycle_num = int(math.log(1 - curr_step / self.cycle_len * (1 - mul), mul))
+
+            cycle_len = int(mul**cycle_num * self.cycle_len)
+
+            # Compute the sum of the lengths of the first cycle_num cycles (i.e.
+            # geometric series) which corresponds to the beginning offset of the
+            # current cycle.
+            cycle_offset = int((1 - mul**cycle_num) / (1 - mul) * self.cycle_len)
+
+            # The position of the step within the cycle.
+            cycle_pos = curr_step - cycle_offset
+
+        lr_mul = self.lr_mul**cycle_num
+
+        c = math.cos(math.pi * cycle_pos / cycle_len)
+
+        min_lrs, max_lrs = self.final_lrs, self.base_lrs
+
+        return [self._cycle_lr(mn, mx, lr_mul, c) for mn, mx in zip(min_lrs, max_lrs)]
+
+    def _cycle_lr(self, min_lr: float, max_lr: float, lr_mul: float, c: float) -> float:
+        min_lr *= lr_mul
+        max_lr *= lr_mul
+
+        return min_lr + 0.5 * (max_lr - min_lr) * (1 + c)
 
 
 def _get_per_param_group(
