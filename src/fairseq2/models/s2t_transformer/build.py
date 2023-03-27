@@ -68,7 +68,7 @@ class S2TTransformerConfig:
     """The number of attention heads in decoder layers."""
 
     ffn_inner_dim: int = 512 * 4
-    """The dimensionality of inner layers in feed-forward networks."""
+    """The dimensionality of inner projection layers in feed-forward networks."""
 
     dropout_p: float = 0.15
     """The dropout probability on outputs of embedding dictionaries, attention

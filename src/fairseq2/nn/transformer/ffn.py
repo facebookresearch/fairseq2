@@ -66,6 +66,7 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         inner_dim: int,
         inner_activation_fn: Optional[Callable[[Tensor], Tensor]] = None,
         inner_dropout_p: float = 0.0,
+        bias: bool = True,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         norm_eps: float = 1e-5,
         device: Optional[torch.device] = None,
@@ -75,12 +76,15 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         :param model_dim:
             The dimensionality of the model (i.e. inputs and outputs).
         :param inner_dim:
-            The dimensionality of the inner layer.
+            The dimensionality of the inner projection layer.
         :param inner_activation_fn:
-            The activation to apply to outputs of the inner layer. If ``None``,
-            :func:`~torch.nn.functional.relu` will be used.
+            The activation to apply to outputs of the inner projection layer. If
+            ``None``, :func:`~torch.nn.functional.relu` will be used.
         :param inner_dropout_p:
-            The dropout probability on outputs of the inner layer.
+            The dropout probability on outputs of the inner projection layer.
+        :param bias:
+            If ``True``, both the inner and output projection layers will learn
+            an additive bias.
         :param norm_order:
             The Layer Normalization order to use.
         :param norm_eps:
@@ -91,7 +95,7 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         super().__init__(model_dim)
 
         self.inner_proj = Linear(
-            model_dim, inner_dim, bias=True, device=device, dtype=dtype
+            model_dim, inner_dim, bias=bias, device=device, dtype=dtype
         )
 
         if inner_activation_fn is None:
@@ -107,7 +111,7 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
             self.register_module("inner_norm", None)
 
         self.out_proj = Linear(
-            inner_dim, model_dim, bias=True, device=device, dtype=dtype
+            inner_dim, model_dim, bias=bias, device=device, dtype=dtype
         )
 
     @finaloverride
