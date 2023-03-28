@@ -246,7 +246,6 @@ encoder_op::fill_tensor()
 
 template <typename T>
 void
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 encoder_op::fill_tensor()
 {
     auto seq_dim = static_cast<std::size_t>(seq_dim_);

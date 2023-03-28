@@ -30,6 +30,7 @@ Checks: >
     -modernize-use-trailing-return-type,
     -readability-braces-around-statements,
     -readability-else-after-return,
+    -readability-function-cognitive-complexity,
     -readability-identifier-length,
     -readability-magic-numbers,
     -readability-misleading-indentation,

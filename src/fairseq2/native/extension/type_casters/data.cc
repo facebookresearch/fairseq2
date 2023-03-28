@@ -15,6 +15,7 @@
 
 #include <ATen/Tensor.h>
 
+#include <fairseq2/native/float.h>
 #include <fairseq2/native/data/immutable_string.h>
 
 #include "fairseq2/native/extension/type_casters/py.h"
@@ -33,6 +34,9 @@ type_caster<data>::cast_from_py(handle src)
 
     if (isinstance<int_>(src))
         return src.cast<std::int64_t>();
+
+    if (isinstance<float_>(src))
+        return src.cast<float64>();
 
     if (isinstance<str>(src))
         return src.cast<std::string_view>();
@@ -59,8 +63,11 @@ type_caster<data>::cast_from_cc(T &&src)
     if (src.is_bool())
         return pybind11::cast(std::forward<T>(src).as_bool());
 
-    if (src.is_int())
-        return pybind11::cast(std::forward<T>(src).as_int());
+    if (src.is_int64())
+        return pybind11::cast(std::forward<T>(src).as_int64());
+
+    if (src.is_float64())
+        return pybind11::cast(std::forward<T>(src).as_float64());
 
     if (src.is_string())
         return pybind11::cast(std::forward<T>(src).as_string());

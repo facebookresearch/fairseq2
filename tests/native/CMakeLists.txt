@@ -14,9 +14,11 @@ set_property(TARGET tests PROPERTY OUTPUT_NAME run-tests)
 
 target_sources(tests
     PRIVATE
+        test_float.cc
         test_memory.cc
         test_span.cc
         data/test_immutable_string.cc
+        utils/test_cast.cc
 )
 
 fairseq2_set_compile_options(tests)

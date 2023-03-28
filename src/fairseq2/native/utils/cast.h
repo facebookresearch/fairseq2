@@ -7,15 +7,38 @@
 #pragma once
 
 #include <cstddef>
+#include <functional>
 #include <type_traits>
+
+#include "fairseq2/native/float.h"
 
 namespace fairseq2::detail {
 
-template<typename Container>
+template <typename Container>
 inline constexpr auto
 ssize(const Container &c) noexcept
 {
     return static_cast<typename Container::difference_type>(c.size());
+}
+
+template <typename T, typename U>
+inline constexpr T
+conditional_cast(U value) noexcept
+{
+    if constexpr (std::is_same_v<T, U>)
+        return value;
+    else
+        return static_cast<T>(value);
+}
+
+template <typename T>
+inline constexpr bool
+are_equal(const T &lhs, const T &rhs) noexcept
+{
+    if constexpr (std::is_floating_point_v<T>)
+        return are_close(lhs, rhs);
+    else
+        return lhs == rhs;
 }
 
 template <typename T, typename U>
@@ -30,20 +53,10 @@ try_narrow(U u, T &t) noexcept
         t = static_cast<T>(u);
 
         if constexpr (std::is_signed_v<T> == std::is_signed_v<U>)
-            return static_cast<U>(t) == u;
+            return are_equal(static_cast<U>(t), u);
         else
-            return static_cast<U>(t) == u && (t < T{}) == (u < U{});
+            return are_equal(static_cast<U>(t), u) && (t < T{}) == (u < U{});
     }
-}
-
-template <typename T, typename U>
-inline constexpr T
-conditional_cast(U value) noexcept
-{
-    if constexpr (std::is_same_v<T, U>)
-        return value;
-    else
-        return static_cast<T>(value);
 }
 
 }  // namespace fairseq2::detail

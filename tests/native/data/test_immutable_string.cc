@@ -15,7 +15,7 @@
 
 using namespace fairseq2;
 
-// immutable_string (also see Python tests)
+// Also see the Python tests.
 TEST(test_immutable_string, constructor_throws_exception_if_string_is_invalid_utf8)
 {
     immutable_string s{"\xfe\xfe\xff\xff"};

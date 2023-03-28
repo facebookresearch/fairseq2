@@ -99,7 +99,7 @@ tape::read()
     }
 
     if constexpr (std::is_integral_v<T>) {
-        if (T i{}; d.is_int() && detail::try_narrow(d.as_int(), i))
+        if (T i{}; d.is_int64() && detail::try_narrow(d.as_int64(), i))
             return i;
 
         throw_corrupt();

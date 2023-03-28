@@ -15,6 +15,7 @@
 
 #include <ATen/Tensor.h>
 
+#include "fairseq2/native/float.h"
 #include "fairseq2/native/py.h"
 #include "fairseq2/native/data/immutable_string.h"
 
@@ -49,38 +50,38 @@ public:
         return as<bool>();
     }
 
-    // int
+    // int64
     data(std::int64_t value) noexcept
         : payload_{value}
     {}
 
     bool
-    is_int() const noexcept
+    is_int64() const noexcept
     {
         return is<std::int64_t>();
     }
 
     std::int64_t
-    as_int() const noexcept
+    as_int64() const noexcept
     {
         return as<std::int64_t>();
     }
 
-    // double
-    data(double value) noexcept
+    // float64
+    data(float64 value) noexcept
         : payload_{value}
     {}
 
     bool
-    is_double() const noexcept
+    is_float64() const noexcept
     {
-        return is<double>();
+        return is<float64>();
     }
 
-    double
-    as_double() const noexcept
+    float64
+    as_float64() const noexcept
     {
-        return as<double>();
+        return as<float64>();
     }
 
     // string
@@ -257,13 +258,14 @@ private:
     }
 
 private:
-    std::variant<bool,
-                 std::int64_t,
-                 double,
-                 immutable_string,
-                 at::Tensor,
-                 std::vector<data>,
-                 py_object> payload_{};
+    std::variant<
+        bool,
+        std::int64_t,
+        float64,
+        immutable_string,
+        at::Tensor,
+        std::vector<data>,
+        py_object> payload_{};
 };
 
 }  // namespace fairseq2
