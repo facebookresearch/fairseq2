@@ -4,8 +4,10 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import NoReturn, Optional, Protocol, final
+import math
+from typing import Optional, Protocol, final
 
+import torch
 from torch import Tensor
 
 _neg_inf = float("-inf")
@@ -90,9 +92,59 @@ class ALiBiAttentionMaskGenerator:
 
     .. note::
         This class follows the :class:`AttentionMaskGenerator` protocol.
-
-    .. todo:: Not implemented yet!
     """
 
-    def __call__(self, x: Tensor) -> NoReturn:
-        raise NotImplementedError()
+    _cached_attn_mask: Optional[Tensor]
+    _causal_attn_mask_gen: CausalAttentionMaskGenerator
+
+    def __init__(self, num_heads: int) -> None:
+        self._cached_attn_mask = None
+        self.num_heads = num_heads
+        self._causal_attn_mask_gen = CausalAttentionMaskGenerator()
+
+    def get_slopes(self, num_heads: int) -> Tensor:
+        def get_slopes_power_of_2(num_heads: int, step: int = 1) -> Tensor:
+            start = 2 ** (-8 / num_heads)
+            return torch.pow(start, torch.arange(1, 1 + num_heads, step))
+
+        num_heads_log_2 = math.log2(num_heads)
+        if num_heads_log_2.is_integer():
+            return get_slopes_power_of_2(num_heads)
+        else:
+            closest_pow_2 = 2 ** math.floor(num_heads_log_2)
+            base_slopes = get_slopes_power_of_2(closest_pow_2)
+            num_slopes_left = num_heads - closest_pow_2
+            extra_slopes = get_slopes_power_of_2(2 * closest_pow_2, step=2)
+
+            return torch.cat([base_slopes, extra_slopes[:num_slopes_left]])
+
+    def __call__(self, x: Tensor) -> Tensor:
+        """
+        :param x:
+            The input for which to generate the mask. *Shape:* :math:`(N,S,M)`,
+            or :math:`(S,M)` when unbatched, where :math:`N` is the batch size,
+            :math:`S` is the sequence length, and :math:`M` is the model size.
+
+        :returns:
+            An ALiBi mask. *Shape:* :math:`(H, S, S)`, where
+            :math:`S` is the sequence length and :math:`H` is the number of heads.
+        """
+        mask = self._cached_attn_mask
+
+        if x.dim() == 2:
+            seq_len = x.size(0)
+        else:
+            seq_len = x.size(1)
+
+        if mask is None or mask.device != x.device or mask.size(-2) < seq_len:
+            slopes = self.get_slopes(self.num_heads)
+
+            arange_tensor = torch.arange(seq_len, device=x.device)[None, None, :]
+            arange_tensor = arange_tensor.expand((self.num_heads, -1, -1))
+
+            alibi_biases = arange_tensor * slopes[:, None, None]
+            mask = alibi_biases + self._causal_attn_mask_gen(x)
+
+            self._cached_attn_mask = mask
+
+        return mask[:, :seq_len, :seq_len]

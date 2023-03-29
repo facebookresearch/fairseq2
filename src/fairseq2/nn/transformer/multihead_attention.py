@@ -612,15 +612,16 @@ class StandardMultiheadAttention(MultiheadAttention):
             padding_mask = padding_mask.unsqueeze(1).unsqueeze(1)
             # (N, 1, 1, S_kv) -> (N, H, 1, S_kv)
             padding_mask = padding_mask.expand(-1, self.num_heads, -1, -1)
-            # (N, H, 1, S_kv) -> (N x H, 1, S_kv)
-            padding_mask = padding_mask.flatten(0, 1)
 
             if attn_mask is None:
-                # (N x H, 1, S_kv)
+                # (N, H, 1, S_kv)
                 attn_mask = padding_mask
             else:
-                # (N x H, 1, S_kv) + (S, S_kv) = (N x H, S, S_kv)
+                # (N, H, 1, S_kv) + ([H,], S, S_kv) = (N, H, S, S_kv)
                 attn_mask = padding_mask + attn_mask
+
+            # (N, H, S, S_kv) -> (N x H, 1, S_kv)
+            attn_mask = attn_mask.flatten(0, 1)
 
         needs_weights = len(self._attn_weight_hooks) > 0
 
