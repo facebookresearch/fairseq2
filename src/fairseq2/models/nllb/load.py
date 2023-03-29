@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 import os
-from collections import OrderedDict
 from typing import Any, Dict, Final, Mapping, Optional, Sequence, Tuple
 
 import torch
@@ -15,44 +14,50 @@ from fairseq2.data.typing import PathLike
 from fairseq2.models.nllb.build import create_nllb_model, get_nllb_config
 from fairseq2.models.nllb.tokenizer import NllbTokenizer
 from fairseq2.models.transformer import TransformerModel
-from fairseq2.models.utils.download import download_model, download_tokenizer
-from fairseq2.models.utils.load import load_parameters
+from fairseq2.models.utils.download import download_checkpoint, download_tokenizer
+from fairseq2.models.utils.load import load_checkpoint
 
 # fmt: off
 
 _ARCHS: Final = {
-    "dense_1b":           "1b",
-    "dense_3b":           "3b",
-    "dense_distill_1b":   "1b",
-    "dense_distill_600m": "600m",
+    "nllb_dense_1b":           "1b",
+    "nllb_dense_3b":           "3b",
+    "nllb_dense_distill_1b":   "1b",
+    "nllb_dense_distill_600m": "600m",
 }
 
-_MODELS: Final = {
-    "dense_1b":           "https://tinyurl.com/nllb200dense1bcheckpoint",
-    "dense_3b":           "https://tinyurl.com/nllb200dense3bcheckpoint",
-    "dense_distill_1b":   "https://tinyurl.com/nllb200densedst1bcheckpoint",
-    "dense_distill_600m": "https://tinyurl.com/nllb200densedst600mcheckpoint",
+_CHECKPOINT_URLS: Final = {
+    "nllb_dense_1b":           "https://tinyurl.com/nllb200dense1bcheckpoint",
+    "nllb_dense_3b":           "https://tinyurl.com/nllb200dense3bcheckpoint",
+    "nllb_dense_distill_1b":   "https://tinyurl.com/nllb200densedst1bcheckpoint",
+    "nllb_dense_distill_600m": "https://tinyurl.com/nllb200densedst600mcheckpoint",
 }
 
-_FAIRCLUSTER_MODELS: Final = {
-    "dense_1b":           "/large_experiments/seamless/nllb/opensource/nllb_200_dense_1b/checkpoint.pt",
-    "dense_3b":           "/large_experiments/seamless/nllb/opensource/nllb_200_dense_3b/checkpoint.pt",
-    "dense_distill_1b":   "/large_experiments/seamless/nllb/opensource/nllb_200_dense_distill_1b/checkpoint.pt",
-    "dense_distill_600m": "/large_experiments/seamless/nllb/opensource/nllb_200_dense_distill_600m/checkpoint.pt",
+_FAIRCLUSTER_CHECKPOINT_PATHS: Final = {
+    "nllb_dense_1b":           "/large_experiments/seamless/nllb/opensource/nllb_200_dense_1b/checkpoint.pt",
+    "nllb_dense_3b":           "/large_experiments/seamless/nllb/opensource/nllb_200_dense_3b/checkpoint.pt",
+    "nllb_dense_distill_1b":   "/large_experiments/seamless/nllb/opensource/nllb_200_dense_distill_1b/checkpoint.pt",
+    "nllb_dense_distill_600m": "/large_experiments/seamless/nllb/opensource/nllb_200_dense_distill_600m/checkpoint.pt",
 }
 
 # fmt: on
 
 
 def load_nllb_model(
-    variant: str, device: Optional[torch.device] = None, progress: bool = True
+    model_name: str,
+    device: Optional[torch.device] = None,
+    force: bool = False,
+    progress: bool = True,
 ) -> Tuple[TransformerModel, NllbTokenizer]:
-    """Load the specified NLLB model variant.
+    """Load the specified NLLB model.
 
-    :param variant:
-        The model variant.
+    :param model_name:
+        The name of the model.
     :param device:
         The device on which to initialize the model.
+    :param force:
+        If ``True``, downloads the model checkpoint and tokenizer even if they
+        are already in cache.
     :param progress:
         If ``True``, displays a progress bar to stderr.
 
@@ -60,91 +65,92 @@ def load_nllb_model(
         The model and its associated tokenizer.
     """
     try:
-        arch_name = _ARCHS[variant]
+        arch_name = _ARCHS[model_name]
     except KeyError:
-        raise ValueError(f"{variant} is not a known NLLB model variant name.")
+        raise ValueError(f"{model_name} is not a known NLLB model.")
 
     cfg = get_nllb_config(arch_name)
 
-    tokenizer = load_nllb_tokenizer(variant, progress=progress)
+    tokenizer = load_nllb_tokenizer(model_name, force=force, progress=progress)
 
     # TODO: Initialize on Meta device!
     model = create_nllb_model(cfg, tokenizer.vocab_info, device)
 
-    parameters = load_nllb_parameters(variant, progress=progress)
+    checkpoint = load_nllb_checkpoint(model_name, force=force, progress=progress)
 
     # TODO: Sanity check for unused params.
-    model.load_state_dict(parameters)
+    model.load_state_dict(checkpoint["model"])
 
     return model, tokenizer
 
 
-def load_nllb_parameters(
-    variant: str, map_location: MAP_LOCATION = None, progress: bool = True
+def load_nllb_checkpoint(
+    model_name: str,
+    map_location: MAP_LOCATION = None,
+    force: bool = False,
+    progress: bool = True,
 ) -> Mapping[str, Any]:
-    """Load the pretrained parameters of the specified NLLB model variant.
+    """Load the checkpoint of the specified NLLB model.
 
-    :param variant:
-        The model variant.
+    :param model_name:
+        The name of the model.
     :param map_location:
         Same as the ``map_location`` parameter of :meth:`torch.load`.
+    :param force:
+        If ``True``, downloads the checkpoint even if it is already in cache.
     :param progress:
         If ``True``, displays a progress bar to stderr.
     """
     pathname: PathLike
 
-    model_name = f"NLLB ({variant})"
-
-    if "FAIR_ENV_CLUSTER" not in os.environ:
+    if "AIR_ENV_CLUSTER" not in os.environ:
         try:
-            url = _MODELS[variant]
+            url = _CHECKPOINT_URLS[model_name]
         except KeyError:
-            raise ValueError(f"{variant} is not a known NLLB model variant name.")
+            raise ValueError(f"{model_name} is not a known NLLB model.")
 
-        pathname = download_model(url, model_name, sub_dir="nllb", progress=progress)
+        pathname = download_checkpoint(url, model_name, force=force, progress=progress)
     else:
         try:
-            pathname = _FAIRCLUSTER_MODELS[variant]
+            pathname = _FAIRCLUSTER_CHECKPOINT_PATHS[model_name]
         except KeyError:
-            raise ValueError(f"{variant} is not a known NLLB model variant name.")
+            raise ValueError(f"{model_name} is not a known NLLB model.")
 
-    return load_parameters(
-        pathname, model_name, map_location, param_upgrader=_upgrade_parameters
+    return load_checkpoint(
+        pathname, model_name, map_location, checkpoint_upgrader=_upgrade_checkpoint
     )
 
 
-def _upgrade_parameters(params: Mapping[str, Any]) -> Dict[str, Any]:
-    # We only care about the model parameters and buffers. The rest of the
-    # checkpoint is not relevant for us.
-    old_params = params["model"]
+def _upgrade_checkpoint(checkpoint: Mapping[str, Any]) -> Dict[str, Any]:
+    old_state_dict = checkpoint["model"]
 
-    new_params = OrderedDict()
+    new_state_dict = {}
 
     old_new_key_map = _get_old_new_key_map()
 
     # Convert module keys from fairseq to fairseq2.
-    for key in old_params.keys():
+    for key in old_state_dict.keys():
         modified_key = key
 
         for old, new in old_new_key_map.items():
             modified_key = modified_key.replace(old, new)
 
-        new_params[modified_key] = old_params[key]
+        new_state_dict[modified_key] = old_state_dict[key]
 
     # Use the built-in version attribute of Module.
-    del new_params["encoder.version"]
-    del new_params["decoder.version"]
+    del new_state_dict["encoder.version"]
+    del new_state_dict["decoder.version"]
 
-    # Positional embeddings don't have to be stored in the state dictionary
-    # since we can generate them on-the-fly.
-    del new_params["encoder.embed_positions._float_tensor"]
-    del new_params["decoder.embed_positions._float_tensor"]
+    # Positional embeddings don't have to be stored in the checkpoint since we
+    # can generate them on-the-fly.
+    del new_state_dict["encoder.embed_positions._float_tensor"]
+    del new_state_dict["decoder.embed_positions._float_tensor"]
 
-    embeds = new_params["score_proj.weight"]
+    embeds = new_state_dict["score_proj.weight"]
 
-    # fairseq checkpoints have duplicated embedding weights.
-    new_params["encoder_frontend.embed.weight"] = embeds
-    new_params["decoder_frontend.embed.weight"] = embeds
+    # fairseq checkpoints have duplicate embedding weights.
+    new_state_dict["encoder_frontend.embed.weight"] = embeds
+    new_state_dict["decoder_frontend.embed.weight"] = embeds
 
     # The embedding positions of the control tokens do not match the
     # SentencePiece model of the tokenizer.
@@ -152,7 +158,7 @@ def _upgrade_parameters(params: Mapping[str, Any]) -> Dict[str, Any]:
         # (BOS, PAD, EOS, UNK) -> (PAD, UNK, BOS, EOS)
         embeds[[0, 1, 2, 3]] = embeds[[1, 3, 0, 2]]
 
-    return new_params
+    return {"model": new_state_dict}
 
 
 def _get_old_new_key_map() -> Dict[str, str]:
@@ -167,27 +173,31 @@ def _get_old_new_key_map() -> Dict[str, str]:
     }
 
 
-_TOKENIZER: Final = "https://tinyurl.com/flores200sacrebleuspm"
+_TOKENIZER_URL: Final = "https://tinyurl.com/flores200sacrebleuspm"
 
-_FAIRCLUSTER_TOKENIZER: Final = "/large_experiments/seamless/nllb/opensource/spm_200/sentencepiece.source.256000.model"
+_FAIRCLUSTER_TOKENIZER_PATH: Final = "/large_experiments/seamless/nllb/opensource/spm_200/sentencepiece.source.256000.model"
 
 
-def load_nllb_tokenizer(variant: str, progress: bool = True) -> NllbTokenizer:
-    """Load the NLLB tokenizer.
+def load_nllb_tokenizer(
+    model_name: str, force: bool = False, progress: bool = True
+) -> NllbTokenizer:
+    """Load the tokenizer of the specified NLLB model.
 
-    :param variant:
-        The model variant.
+    :param model_name:
+        The name of the model.
+    :param force:
+        If ``True``, downloads the tokenizer even if it is already in cache.
     :param progress:
         If ``True``, displays a progress bar to stderr.
     """
     pathname: PathLike
 
-    if "FAIR_ENV_CLUSTER" not in os.environ:
+    if "AIR_ENV_CLUSTER" not in os.environ:
         pathname = download_tokenizer(
-            _TOKENIZER, tokenizer_name="NLLB", sub_dir="nllb", progress=progress
+            _TOKENIZER_URL, model_name, force=force, progress=progress
         )
     else:
-        pathname = _FAIRCLUSTER_TOKENIZER
+        pathname = _FAIRCLUSTER_TOKENIZER_PATH
 
     langs = _get_all_langs()
 

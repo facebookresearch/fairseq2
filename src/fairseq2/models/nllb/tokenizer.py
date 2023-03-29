@@ -23,7 +23,7 @@ from fairseq2.data.typing import PathLike
 
 @final
 class NllbTokenizer(Tokenizer):
-    """Represents an NLLB tokenizer."""
+    """Represents the tokenizer used by the NLLB models."""
 
     model: SentencePieceModel
     langs: Set[str]
