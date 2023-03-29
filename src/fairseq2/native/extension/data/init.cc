@@ -129,6 +129,13 @@ def_data_pipeline(py::module_ &base)
             },
             py::arg("batch_size"),
             py::arg("drop_remainder"))
+        .def("batch_by_length",
+            [](data_pipeline_builder &self, std::vector<std::pair<std::size_t, std::size_t>>& buffer_sizes, std::int32_t pad_idx) -> decltype(auto)
+            {
+                return self.batch_by_length(buffer_sizes, pad_idx);
+            },
+            py::arg("buffer_sizes"),
+            py::arg("pad_idx"))
         .def("map",
             [](data_pipeline_builder &self, const data_processor &dp) -> decltype(auto)
             {

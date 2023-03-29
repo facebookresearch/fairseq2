@@ -101,6 +101,12 @@ public:
     batch(std::size_t batch_size, bool drop_remainder = false) &&;
 
     data_pipeline_builder &
+    batch_by_length(const std::vector<std::pair<std::size_t, std::size_t>>& buffer_sizes, std::int32_t pad_idx) &;
+
+    data_pipeline_builder &&
+    batch_by_length(const std::vector<std::pair<std::size_t, std::size_t>>& buffer_sizes, std::int32_t pad_idx) &&;
+
+    data_pipeline_builder &
     yield_from(yield_fn fn) &;
 
     data_pipeline_builder &&

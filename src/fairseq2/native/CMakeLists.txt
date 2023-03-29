@@ -17,6 +17,7 @@ target_sources(fairseq2
         memory.cc
         py.cc
         data/batched_data_source.cc
+        data/batched_by_length_data_source.cc
         data/data_pipeline.cc
         data/data_processor.cc
         data/data_source.cc

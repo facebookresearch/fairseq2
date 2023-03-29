@@ -13,6 +13,7 @@ from typing import (
     Mapping,
     Optional,
     Sequence,
+    Tuple,
     final,
 )
 
@@ -84,6 +85,16 @@ class DataPipelineBuilder:
         :param drop_remainder:
             If ``True``, drops the last batch in case it has fewer than
             ``batch_size`` examples.
+        """
+        return self
+
+    def batch_by_length(
+        self, batch_shapes: Sequence[Tuple[int, int]], pad_idx: int
+    ) -> "DataPipelineBuilder":
+        """Combine examples of similar shape into batches.
+
+        :param batch_shapes:
+            The allowed batch shapes.
         """
         return self
 
