@@ -6,16 +6,13 @@
 
 #pragma once
 
-#include <cstdint>
 #include <optional>
 #include <stdexcept>
-#include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "fairseq2/native/api.h"
 #include "fairseq2/native/data/data.h"
-#include "fairseq2/native/utils/cast.h"
 
 namespace fairseq2 {
 
@@ -34,35 +31,27 @@ public:
         : storage_(std::move(storage))
     {}
 
+    template <typename T>
     void
-    record(const data &d);
+    record(const T &d);
+
+    template <typename T>
+    void
+    record(const std::vector<T> &d);
+
+    template <typename T>
+    void
+    record(const std::optional<T> &d);
 
     void
-    record_if(const std::optional<data> &d)
-    {
-        if (d) {
-            record(true);
-
-            record(*d);
-        } else
-            record(false);
-    }
-
-    data
-    read();
+    record_data(const data &d);
 
     template <typename T>
     T
     read();
 
-    std::optional<data>
-    read_if()
-    {
-        if (read<bool>())
-            return read();
-
-        return {};
-    }
+    data
+    read_data();
 
     void
     rewind() noexcept
@@ -85,27 +74,6 @@ private:
     std::vector<data>::iterator iter_ = storage_.begin();
 };
 
-template <typename T>
-T
-tape::read()
-{
-    data d = read();
-
-    if constexpr (std::is_same_v<T, bool>) {
-        if (d.is_bool())
-            return d.as_bool();
-
-        throw_corrupt();
-    }
-
-    if constexpr (std::is_integral_v<T>) {
-        if (T i{}; d.is_int64() && detail::try_narrow(d.as_int64(), i))
-            return i;
-
-        throw_corrupt();
-    }
-}
-
 class FAIRSEQ2_API corrupt_tape_error : public std::logic_error {
 public:
     using std::logic_error::logic_error;
@@ -124,3 +92,5 @@ tape::throw_corrupt()
 }
 
 }  // namespace fairseq2
+
+#include "fairseq2/native/data/tape-inl.h"

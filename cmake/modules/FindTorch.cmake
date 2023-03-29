@@ -65,15 +65,11 @@ cmake_path(REPLACE_FILENAME torch_init_file lib OUTPUT_VARIABLE torch_lib_dir)
 cmake_path(REPLACE_FILENAME torch_init_file include OUTPUT_VARIABLE torch_include_dir)
 
 find_library(TORCH_LIBRARY torch PATHS ${torch_lib_dir})
-
 find_library(TORCH_CPU_LIBRARY torch_cpu PATHS ${torch_lib_dir})
-
 find_library(TORCH_CUDA_LIBRARY torch_cuda PATHS ${torch_lib_dir})
-
 find_library(TORCH_PYTHON_LIBRARY torch_python PATHS ${torch_lib_dir})
 
 find_library(C10_LIBRARY c10 PATHS ${torch_lib_dir})
-
 find_library(C10_CUDA_LIBRARY c10_cuda PATHS ${torch_lib_dir})
 
 find_path(TORCH_INCLUDE_DIR torch PATHS ${torch_include_dir})

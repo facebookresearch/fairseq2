@@ -9,8 +9,6 @@
 #include <algorithm>
 #include <cstddef>
 
-#include "fairseq2/native/utils/cast.h"
-
 namespace fairseq2::detail {
 
 std::optional<data>
@@ -43,7 +41,7 @@ list_data_source::reset()
 void
 list_data_source::record_position(tape &t) const
 {
-    t.record(conditional_cast<std::int64_t>(iter_ - list_.begin()));
+    t.record(iter_ - list_.begin());
 }
 
 void

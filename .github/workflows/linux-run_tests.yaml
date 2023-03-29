@@ -75,12 +75,14 @@ jobs:
           SANITIZERS: ${{ inputs.sanitizers }}
         run: |
           {
+            echo ASAN_OPTIONS=suppressions=ASan.supp
+
+            echo LSAN_OPTIONS=suppressions=LSan.supp,exitcode=0,log_path=$HOME/lsan.out
+
             for sanitizer in ${SANITIZERS//_/ }; do
               # LIBASAN and LIBTSAN environment variables are defined in the
               # container image.
               if [[ $sanitizer == asan ]]; then
-                echo LSAN_OPTIONS=suppressions=LSan.supp,exitcode=0,log_path=$HOME/lsan.out
-
                 echo SANITIZER_LIB=$(echo $LIBASAN)
 
                 break

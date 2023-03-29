@@ -9,20 +9,20 @@
 namespace fairseq2 {
 
 void
-tape::record(const data &d)
+tape::record_data(const data &d)
 {
     if (iter_ != storage_.end())
         throw std::logic_error{"New data can only be recorded to the end of the tape."};
 
     storage_.push_back(d);
 
-    // At this point, the iterator is invalid because of push_back; do not
-    // increment it.
+    // At this point, the iterator is invalid because of the push_back call; do
+    // not increment it.
     iter_ = storage_.end();
 }
 
 data
-tape::read()
+tape::read_data()
 {
     if (iter_ == storage_.end())
         throw_corrupt();

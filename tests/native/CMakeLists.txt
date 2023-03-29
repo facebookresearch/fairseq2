@@ -18,6 +18,7 @@ target_sources(tests
         test_memory.cc
         test_span.cc
         data/test_immutable_string.cc
+        data/test_tape.cc
         utils/test_cast.cc
 )
 
@@ -27,4 +28,6 @@ target_link_libraries(tests PRIVATE GTest::gtest_main fairseq2)
 
 fairseq2_set_link_options(tests)
 
-gtest_discover_tests(tests)
+# By default, GTest discovery runs as a post-build step and fails if the targets
+# are built with sanitizers enabled.
+gtest_discover_tests(tests DISCOVERY_MODE PRE_TEST)

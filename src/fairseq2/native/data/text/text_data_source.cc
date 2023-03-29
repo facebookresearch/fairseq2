@@ -87,7 +87,7 @@ text_data_source::reset()
 void
 text_data_source::record_position(tape &t) const
 {
-    t.record(static_cast<std::int64_t>(num_lines_read_));
+    t.record(num_lines_read_);
 }
 
 void

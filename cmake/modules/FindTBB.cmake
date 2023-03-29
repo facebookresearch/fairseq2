@@ -21,7 +21,6 @@ cmake_path(GET base_dir PARENT_PATH base_dir)
 cmake_path(GET base_dir PARENT_PATH base_dir)
 
 find_library(TBB_LIBRARY tbb PATHS ${base_dir}/lib NO_DEFAULT_PATH)
-
 find_library(TBBMALLOC_LIBRARY tbbmalloc PATHS ${base_dir}/lib NO_DEFAULT_PATH)
 
 find_path(TBB_INCLUDE_DIR tbb PATHS ${base_dir}/include NO_DEFAULT_PATH)

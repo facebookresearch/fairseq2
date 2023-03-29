@@ -47,7 +47,7 @@ yielded_data_source::reset()
 void
 yielded_data_source::record_position(tape &t) const
 {
-    t.record_if(example_);
+    t.record(example_);
 
     if (example_)
         data_pipeline_.record_position(t);
@@ -58,7 +58,7 @@ yielded_data_source::record_position(tape &t) const
 void
 yielded_data_source::reload_position(tape &t)
 {
-    example_ = t.read_if();
+    example_ = t.read<std::optional<data>>();
 
     if (example_) {
         try {
