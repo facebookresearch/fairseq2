@@ -3,18 +3,23 @@ from datetime import timedelta
 from typing import Any, Iterable, List
 
 import torch
-import transformers  # type: ignore
 from torchtnt.framework.state import State
+from transformers import (  # type: ignore[import]
+    SequenceFeatureExtractor,
+    WhisperForConditionalGeneration,
+    WhisperProcessor,
+)
 
 import fairseq2
 import fairseq2.dataloader.huggingface
 import fairseq2.distributed
 import fairseq2.tasks
 from fairseq2.callbacks import Metrics
+from fairseq2.data.text import Tokenizer
 from fairseq2.dataloader import Seq2SeqBatch, Seq2SeqStr
 from fairseq2.dataloader.huggingface import AsrDataloader
 from fairseq2.distributed import Env
-from fairseq2.generate import SpeechToTextTokenizer
+from fairseq2.generate import HfTokenizer
 
 REQUIREMENTS = [
     "datasets>=2.6.1",
@@ -50,7 +55,9 @@ class AsrTask(fairseq2.tasks.Seq2Seq):
             return generations
 
     def generate_batch(self, data: Seq2SeqBatch) -> List[Seq2SeqStr]:
-        target = self.tokenizer.decode_batch(data.target)
+        token_decoder = self.tokenizer.create_decoder()
+
+        target = token_decoder(data.target)
         # Use HF beam search, assuming we have an HF model
         # TODO: Can we use fairseq2 beamsearch ?
         predicted_tokens = self.model.generate(  # type: ignore
@@ -58,7 +65,7 @@ class AsrTask(fairseq2.tasks.Seq2Seq):
             num_beams=1,
             max_length=int(data.target.size(1) * 1.2),
         )
-        predicted = self.tokenizer.decode_batch(predicted_tokens.squeeze(1))
+        predicted = token_decoder(predicted_tokens.squeeze(1))
         # TODO: upload some generation to W&B
         return [
             Seq2SeqStr(*x)
@@ -72,11 +79,11 @@ task = AsrTask
 
 
 def model(
-    version: str,
     env: Env,
+    version: str = "openai/whisper-small",
     fp16: bool = True,
 ) -> Any:
-    m = transformers.WhisperForConditionalGeneration.from_pretrained(version)
+    m = WhisperForConditionalGeneration.from_pretrained(version)
     m = m.to(env.device)
     if fp16:
         m = m.half()
@@ -87,7 +94,8 @@ def _load_dataset(
     name: str,
     lang: str,
     split: str,
-    tokenizer: SpeechToTextTokenizer,
+    feature_extractor: "SequenceFeatureExtractor",
+    tokenizer: Tokenizer,
     env: Env,
     batch_duration: timedelta,
     fp16: bool,
@@ -96,6 +104,7 @@ def _load_dataset(
         name,
         lang,
         split,
+        feature_extractor,
         tokenizer,
         batch_duration=batch_duration,
         env=env,
@@ -105,7 +114,8 @@ def _load_dataset(
 
 def train_data(
     langs: str,
-    tokenizer: SpeechToTextTokenizer,
+    feature_extractor: "SequenceFeatureExtractor",
+    tokenizer: Tokenizer,
     env: Env,
     dataset: str = "mozilla-foundation/common_voice_11_0",
     batch_duration: timedelta = timedelta(seconds=10),
@@ -116,20 +126,35 @@ def train_data(
         return fairseq2.dataloader.RoundRobin(
             [
                 _load_dataset(
-                    dataset, lang, "train", tokenizer, env, batch_duration, fp16
+                    dataset,
+                    lang,
+                    "train",
+                    feature_extractor,
+                    tokenizer,
+                    env,
+                    batch_duration,
+                    fp16,
                 )
                 for lang in _langs
             ]
         )
     else:
         return _load_dataset(
-            dataset, _langs[0], "train", tokenizer, env, batch_duration, fp16
+            dataset,
+            _langs[0],
+            "train",
+            feature_extractor,
+            tokenizer,
+            env,
+            batch_duration,
+            fp16,
         )
 
 
 def valid_data(
     langs: str,
-    tokenizer: SpeechToTextTokenizer,
+    feature_extractor: "SequenceFeatureExtractor",
+    tokenizer: Tokenizer,
     env: Env,
     dataset: str = "mozilla-foundation/common_voice_11_0",
     batch_duration: timedelta = timedelta(seconds=10),
@@ -138,9 +163,24 @@ def valid_data(
     _langs = langs.split(",")
     # Only evaluate on the first lang
     return _load_dataset(
-        dataset, _langs[0], "validation", tokenizer, env, batch_duration, fp16
+        dataset,
+        _langs[0],
+        "validation",
+        feature_extractor,
+        tokenizer,
+        env,
+        batch_duration,
+        fp16,
     )
 
 
-def tokenizer(version: str) -> SpeechToTextTokenizer:
-    return fairseq2.generate.SpeechToTextTokenizer.from_pretrained(version)
+def processor(version: str) -> "WhisperProcessor":
+    return WhisperProcessor.from_pretrained(version)
+
+
+def tokenizer(processor: "WhisperProcessor") -> Tokenizer:
+    return HfTokenizer(processor.tokenizer)
+
+
+def feature_extractor(processor: "WhisperProcessor") -> "SequenceFeatureExtractor":
+    return processor.feature_extractor

@@ -13,7 +13,6 @@ import torch
 import torch.nn.functional as F
 from torch import Tensor
 
-from fairseq2.data import CString
 from fairseq2.data.text import (
     SentencePieceDecoder,
     SentencePieceEncoder,
@@ -65,31 +64,6 @@ class TestSentencePieceModel:
 
         assert spm.pad_idx == 0
         assert spm.unk_idx == 1
-
-    @pytest.mark.parametrize("left_pad", [False, True])
-    def test_encodes_decodes_single_sentence_correctly(self, left_pad: bool) -> None:
-        spm = self.build_model()
-
-        encoder = SentencePieceEncoder(spm, device=device, left_pad=left_pad)
-        decoder = SentencePieceDecoder(spm)
-
-        expected_indices = torch.tensor(
-            self.token_indices[0], device=device, dtype=torch.int32
-        )
-
-        # When we pass a string instead of a list of strings, we expect the
-        # return value to be a 1D tensor.
-        indices = encoder(self.sentences[0])
-
-        assert_equal(indices, expected_indices)
-
-        # When we pass a 1D tensor, we expect the return value to be a string
-        # instead of a list of strings.
-        sentence = decoder(indices)
-
-        assert isinstance(sentence, CString)
-
-        assert sentence == self.sentences[0]
 
     @pytest.mark.parametrize("left_pad", [False, True])
     def test_encodes_decodes_batch_with_single_sentence_correctly(

@@ -4,17 +4,15 @@
 # LICENSE file in the root directory of this source tree.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, NamedTuple, Optional, Sequence, Union, cast
+from typing import List, NamedTuple, Optional, Sequence, Union
 
 import torch
 import torch.nn as nn
 from overrides import overrides
 from torch import Tensor
 
-import fairseq2.data.text
 from fairseq2.data import CString, StringLike
-from fairseq2.data.text import VocabularyInfo
-from fairseq2.generate.tokenizer import Tokenizer
+from fairseq2.data.text import Tokenizer, VocabularyInfo
 from fairseq2.models.transformer import TransformerModel
 from fairseq2.nn.incremental_state import IncrementalStateBag
 
@@ -205,48 +203,22 @@ class SearchStrategy(ABC):
         self,
         model: TransformerModel,
         tokenizer: Tokenizer,
-        sentences: List[str],
-        *,
-        src_bos: str = "",
-        tgt_bos: str = "",
-        device: torch.device,
-    ) -> List[str]:
-        src_bos_tok = tokenizer.special_tokens[src_bos] if src_bos else -1
-        src_tokens = tokenizer.encode_batch(sentences, bos=src_bos_tok).to(device)
-        tgt_bos_tok = (
-            torch.tensor(
-                [tokenizer.EOS, tokenizer.special_tokens[tgt_bos]], dtype=torch.long
-            ).to(device)
-            if tgt_bos
-            else None
-        )
-        tgt_tokens = self.generate(model, src_tokens, top=1, prefix_tokens=tgt_bos_tok)
-        return tokenizer.decode_batch(tgt_tokens.squeeze(1))
-
-    # TODO: Merge with the existing generate_str, once we consolidate the
-    # tokenizer implementations.
-    def generate_str_ex(
-        self,
-        model: TransformerModel,
-        tokenizer: fairseq2.data.text.Tokenizer,
         sentences: Union[StringLike, Sequence[StringLike]],
         *,
-        src_lang: str = "",
-        tgt_lang: str = "",
+        src_lang: Optional[str] = None,
+        tgt_lang: Optional[str] = None,
         device: torch.device,
-    ) -> Union[StringLike, List[StringLike]]:
+    ) -> List[StringLike]:
         if isinstance(sentences, (str, CString)):
             sentences = [sentences]
 
-            squeeze = True
-        else:
-            squeeze = False
+        task = "translation"
 
         src_encoder = tokenizer.create_encoder(
-            task="translation", lang=src_lang, mode="source", device=device
+            task, lang=src_lang, mode="source", device=device
         )
         tgt_encoder = tokenizer.create_encoder(
-            task="translation", lang=tgt_lang, mode="target", device=device
+            task, lang=tgt_lang, mode="target", device=device
         )
 
         tgt_decoder = tokenizer.create_decoder()
@@ -259,9 +231,7 @@ class SearchStrategy(ABC):
             model, src_indices, top=1, prefix_tokens=tgt_indices
         )
 
-        output = cast(List[StringLike], tgt_decoder(tgt_indices.squeeze(1)))
-
-        return output[0] if squeeze else output
+        return tgt_decoder(tgt_indices.squeeze(1))
 
 
 @dataclass
@@ -562,24 +532,12 @@ class BeamSearchStrategy(SearchStrategy):
         self,
         *,
         beam_size: int = 2,
-        vocab_info: Union[Tokenizer, VocabularyInfo],
+        vocab_info: VocabularyInfo,
         unk_penalty: float = 1.0,
         min_len: int = 10,
         max_len: int = 256,
     ) -> None:
-        if isinstance(vocab_info, Tokenizer):
-            vocab_info = VocabularyInfo(
-                vocab_info.vocab_size(),
-                vocab_info.UNK,
-                vocab_info.BOS,
-                vocab_info.EOS,
-                vocab_info.PAD,
-            )
-
-        super().__init__(
-            beam_size=beam_size,
-            vocab_info=vocab_info,
-        )
+        super().__init__(beam_size=beam_size, vocab_info=vocab_info)
         # because we're frozen.
         self.__dict__["min_len"] = min_len
         self.__dict__["max_len"] = max_len

@@ -20,6 +20,7 @@ import torchtnt.framework as tnt
 import fairseq2.callbacks
 import fairseq2.distributed
 from fairseq2.cli import Xp, XpScript
+from fairseq2.data import StringLike
 from fairseq2.tasks import Seq2Seq
 
 logging.basicConfig(level=logging.INFO)
@@ -375,8 +376,8 @@ beam_search_kwargs = {
 
 def inference(
     snapshot_dir: Path,
-    src_bos: str = "",
-    tgt_bos: str = "",
+    src_lang: str = "",
+    tgt_lang: str = "",
     partition: str = "debug",
     batch_size: int = 16,
     num_gpus: int = 1,
@@ -403,19 +404,19 @@ def inference(
     if tty:
         batch_size = 1
     strategy = fairseq2.generate.BeamSearchStrategy(
-        vocab_info=task.tokenizer,
+        vocab_info=task.tokenizer.vocab_info,
         **beam_search_kwargs,  # type: ignore
     )
 
-    def gen(batch: List[str]) -> List[str]:
+    def gen(batch: List[str]) -> List[StringLike]:
         if not batch:
-            return batch
+            return []
         return strategy.generate_str(
             task.model,
             task.tokenizer,
             batch,
-            src_bos=src_bos,
-            tgt_bos=tgt_bos,
+            src_lang=src_lang,
+            tgt_lang=tgt_lang,
             device=env.device,
         )
 

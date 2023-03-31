@@ -18,10 +18,10 @@ import torchtnt.utils
 
 import fairseq2.cli
 import fairseq2.dataloader.huggingface
-from fairseq2.data.text import VocabularyInfo
+from fairseq2.data.text import MultilingualTokenizer, Tokenizer, VocabularyInfo
 from fairseq2.dataloader import Seq2SeqBatch
 from fairseq2.distributed import Env
-from fairseq2.generate import SpmTokenizer, spm_train
+from fairseq2.generate import spm_train
 from fairseq2.models.transformer import (
     TransformerConfig,
     TransformerModel,
@@ -47,7 +47,7 @@ def lang_pairs(langs: str) -> LangPairs:
 
 def tokenizer(
     xp: fairseq2.cli.Xp, lang_pairs: LangPairs, spm_path: Optional[Path] = None
-) -> SpmTokenizer:
+) -> Tokenizer:
     """Tokenizer
 
     - spm_path: path to a pretrained SentencePiece model. A new SPM will be trained if not given.
@@ -61,17 +61,24 @@ def tokenizer(
         # in the task state.
         spm_path = workdir / "sentencepiece.model"
 
+    src_langs = set(pair[0] for pair in lang_pairs)
+    tgt_langs = set(pair[1] for pair in lang_pairs)
+
+    default_src_lang, default_tgt_lang = lang_pairs[0]
+
     if not spm_path.exists():
+        lang_tokens = [f"<lang:{lang}>" for lang in sorted(src_langs | tgt_langs)]
+
         spm_train_txt = workdir / "spm_train_combined.txt"
         # TODO handle more language pairs
-        src, tgt = lang_pairs[0]
         cfg = spm_train.TrainSpmConfig(
-            vocab_size=2**16 - 300,  # 2 ** 16 - some room for special tokens
+            vocab_size=2**16,
             training_lines=1_000_000,
+            control_tokens=lang_tokens,
         )
         fairseq2.dataloader.huggingface.NllbDataLoader.combine_and_dump(
-            src,
-            tgt,
+            default_src_lang,
+            default_tgt_lang,
             "train",
             spm_train_txt,
             limit=cfg.training_lines,
@@ -88,18 +95,15 @@ def tokenizer(
     else:
         workdir_spm.symlink_to(spm_path.resolve())
 
-    _tokenizer = SpmTokenizer.from_file(spm_path)
-    src_langs = set(pair[0] for pair in lang_pairs)
-    tgt_langs = set(pair[1] for pair in lang_pairs)
-    lang_tokens = {}
-    for lang in sorted(src_langs | tgt_langs):
-        lang_tokens[lang] = _tokenizer.add_special_token(lang)
+    task = "translation"
 
-    return _tokenizer
+    return MultilingualTokenizer(
+        spm_path, task, src_langs, tgt_langs, default_src_lang, default_tgt_lang
+    )
 
 
 def train_data(
-    tokenizer: SpmTokenizer, env: Env, lang_pairs: LangPairs, batch_size: int = 16
+    tokenizer: Tokenizer, env: Env, lang_pairs: LangPairs, batch_size: int = 16
 ) -> Iterable[Seq2SeqBatch]:
     load_data = functools.partial(
         fairseq2.dataloader.huggingface.NllbDataLoader,
@@ -113,7 +117,7 @@ def train_data(
 
 
 def valid_data(
-    tokenizer: SpmTokenizer, env: Env, lang_pairs: LangPairs, batch_size: int = 16
+    tokenizer: Tokenizer, env: Env, lang_pairs: LangPairs, batch_size: int = 16
 ) -> Iterable[Seq2SeqBatch]:
     return fairseq2.dataloader.huggingface.NllbDataLoader(
         *lang_pairs[0],
@@ -129,15 +133,9 @@ def valid_data(
 # to create an embedding matrix of the right size.
 # Should we hide that in cli.py@train ?
 # Similarly we should export the model config in the config.
-def vocab_info(tokenizer: SpmTokenizer) -> VocabularyInfo:
+def vocab_info(tokenizer: Tokenizer) -> VocabularyInfo:
     """Cache metadata about the tokenizer"""
-    return VocabularyInfo(
-        tokenizer.vocab_size(),
-        tokenizer.UNK,
-        tokenizer.BOS,
-        tokenizer.EOS,
-        tokenizer.PAD,
-    )
+    return tokenizer.vocab_info
 
 
 def model(

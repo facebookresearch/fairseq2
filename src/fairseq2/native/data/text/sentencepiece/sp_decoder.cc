@@ -67,11 +67,8 @@ sp_decoder::operator()(data &&d) const
 
     at::Tensor t = d.as_tensor();
 
-    if (t.dim() == 1) {
-        std::vector<data> sentences = decode(t.unsqueeze(0));
-
-        return sentences[0];
-    }
+    if (t.dim() == 1)
+        t = t.unsqueeze(0);
 
     return decode(std::move(t));
 }

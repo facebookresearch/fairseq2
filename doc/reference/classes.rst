@@ -16,6 +16,7 @@ Classes
     data.StreamError
     data.RecordError
     data.text.SentencePieceModel
+    data.text.MultilingualTokenizer
     models.transformer.ScoreProjection
     models.transformer.TransformerModel
     models.transformer.TransformerBuilder

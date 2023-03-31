@@ -1,34 +1,19 @@
 import datetime
 import logging
 from pathlib import Path
-from typing import Iterable, Iterator, List, Mapping, Optional, Sequence
+from typing import Iterable, Iterator, List, Mapping, Optional
 
 import datasets  # type: ignore[import]
 import torch
+from torch import Tensor
+from transformers import SequenceFeatureExtractor  # type: ignore[import]
 
 import fairseq2.distributed
-from fairseq2.generate import SpeechToTextTokenizer, Tokenizer
+from fairseq2.data.text import Tokenizer
 
 from . import Seq2SeqBatch, Text2TextBatch
 
 log = logging.getLogger(__name__)
-
-
-def _finalize_batch(
-    tokenizer: Tokenizer,
-    src_batch: Sequence[str],
-    tgt_batch: Sequence[str],
-    src_bos: int,
-    tgt_bos: int,
-    device: torch.device,
-) -> Seq2SeqBatch:
-    source = tokenizer.encode_batch(src_batch, bos=src_bos)
-    target = tokenizer.encode_batch(tgt_batch, bos=tgt_bos)
-    return Seq2SeqBatch(
-        source=source.to(device),
-        target=target.to(device),
-        num_tokens=tokenizer.num_tokens(target),
-    )
 
 
 class NllbDataLoader(Iterable[Seq2SeqBatch]):
@@ -45,12 +30,23 @@ class NllbDataLoader(Iterable[Seq2SeqBatch]):
         self.split = split
         self.src = src
         self.tgt = tgt
-        self.tokenizer = tokenizer
         self.batch_size = batch_size
         self.global_rank = env.global_rank
         self.world_size = env.world_size
         self.device = env.device
         self.epoch = 0
+
+        if tokenizer:
+            self.pad_idx = tokenizer.vocab_info.pad_idx
+
+            task = "translation"
+
+            self.src_encoder = tokenizer.create_encoder(
+                task, lang=src, mode="source", device=env.device, pin_memory=True
+            )
+            self.tgt_encoder = tokenizer.create_encoder(
+                task, lang=tgt, mode="target", device=env.device, pin_memory=True
+            )
 
         data: Mapping[str, datasets.Dataset] = {}
         assert split in ("train", "valid", "test")
@@ -76,14 +72,15 @@ class NllbDataLoader(Iterable[Seq2SeqBatch]):
         # HF doesn't allow to shard and stream at the same time ?
         # self.data = self.data.shard(num_shards=self.world_size, index=self.global_rank)
 
-    def __iter__(self) -> Iterator[Seq2SeqBatch]:
-        src_bos = self.tokenizer.special_tokens[self.src]
-        tgt_bos = self.tokenizer.special_tokens[self.tgt]
+    def _num_tokens(self, tokens: Tensor) -> int:
+        return int((tokens != self.pad_idx).sum())
 
+    def __iter__(self) -> Iterator[Seq2SeqBatch]:
         for batch in self._iter_str():
-            yield _finalize_batch(
-                self.tokenizer, batch.src, batch.tgt, src_bos, tgt_bos, self.device
-            )
+            source = self.src_encoder(batch.src)
+            target = self.tgt_encoder(batch.tgt)
+
+            yield Seq2SeqBatch(source, target, num_tokens=self._num_tokens(target))
 
     def _iter_str(self) -> Iterator[Text2TextBatch]:
         if hasattr(self.data, "__len__"):
@@ -141,12 +138,12 @@ class NllbDataLoader(Iterable[Seq2SeqBatch]):
 class AsrBatch:
     def __init__(self, sampling_rate: int):
         # Actually those are numpy array
-        self.audio_features: List[torch.Tensor] = []
+        self.audio_features: List[Tensor] = []
         self.sentences: List[str] = []
         self.batch_len: int = 0
         self.sampling_rate: int = sampling_rate
 
-    def append(self, audio: torch.Tensor, sentence: str) -> int:
+    def append(self, audio: Tensor, sentence: str) -> int:
         self.audio_features.append(audio)
         self.sentences.append(sentence)
         self.batch_len += len(audio)
@@ -159,17 +156,29 @@ class AsrDataloader(Iterable[Seq2SeqBatch]):
         name: str,
         language: str,
         split: str,
-        tokenizer: SpeechToTextTokenizer,
+        feature_extractor: "SequenceFeatureExtractor",
+        tokenizer: Tokenizer,
         *,
         batch_size: int = 0,
         batch_duration: Optional[datetime.timedelta] = None,
         env: fairseq2.distributed.Env,
         dtype: torch.dtype,
     ):
-        self.tokenizer = tokenizer
-        self.sampling_rate = self.tokenizer.sampling_rate
+        self.feature_extractor = feature_extractor
+        self.sampling_rate = feature_extractor.sampling_rate
         self.env = env
         self.dtype = dtype
+
+        self.pad_idx = tokenizer.vocab_info.pad_idx
+
+        self.token_encoder = tokenizer.create_encoder(
+            task="transcribe",
+            lang=language,
+            mode="target",
+            device=env.device,
+            pin_memory=True,
+        )
+
         if batch_size > 0:
             self.batch_size = batch_size
         else:
@@ -199,14 +208,30 @@ class AsrDataloader(Iterable[Seq2SeqBatch]):
 
     def _finalize_batch(self, batch: AsrBatch) -> Seq2SeqBatch:
         device = self.env.device
-        target = self.tokenizer.encode_batch(batch.sentences)
+        target = self.token_encoder(batch.sentences)
         return Seq2SeqBatch(
-            self.tokenizer.encode_audio(
-                batch.audio_features, sampling_rate=batch.sampling_rate
-            ).to(device=device, dtype=self.dtype),
+            self._encode_audio(batch.audio_features).to(
+                device=device, dtype=self.dtype
+            ),
             target.to(device),
-            self.tokenizer.num_tokens(target),
+            self._num_tokens(target),
         )
+
+    def _encode_audio(self, raw_speech: List[torch.Tensor]) -> Tensor:
+        features = self.feature_extractor(
+            raw_speech=raw_speech,
+            pad_to_multiple_of=128,
+            return_attention_mask=False,
+            return_tensors="pt",
+            sampling_rate=self.sampling_rate,
+        )["input_features"]
+
+        assert isinstance(features, torch.Tensor)
+        assert features.shape[0] == len(raw_speech)
+        return features
+
+    def _num_tokens(self, tokens: Tensor) -> int:
+        return int((tokens != self.pad_idx).sum())
 
     def __iter__(self) -> Iterator[Seq2SeqBatch]:
         batch = AsrBatch(self.sampling_rate)

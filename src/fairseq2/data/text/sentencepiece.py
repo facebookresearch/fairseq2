@@ -11,7 +11,7 @@ from torch import Tensor
 
 from fairseq2 import DOC_MODE
 from fairseq2.data.string import StringLike
-from fairseq2.data.text.tokenizer import TokenDecoder, TokenEncoder
+from fairseq2.data.text.tokenizer import TokenDecoder, TokenEncoder, VocabularyInfo
 from fairseq2.data.typing import PathLike
 
 
@@ -49,6 +49,13 @@ class SentencePieceModel:
         return 0
 
 
+def vocab_from_sentencepiece(model: SentencePieceModel) -> VocabularyInfo:
+    """Return the vocabulary information of ``model``."""
+    return VocabularyInfo(
+        model.vocab_size, model.unk_idx, model.bos_idx, model.eos_idx, model.pad_idx
+    )
+
+
 @final
 class SentencePieceEncoder(TokenEncoder):
     def __init__(
@@ -80,7 +87,7 @@ class SentencePieceDecoder(TokenDecoder):
     def __init__(self, model: SentencePieceModel, reverse: bool = False) -> None:
         pass
 
-    def __call__(self, token_indices: Tensor) -> Union[StringLike, List[StringLike]]:
+    def __call__(self, token_indices: Tensor) -> List[StringLike]:
         raise NotImplementedError()
 
 

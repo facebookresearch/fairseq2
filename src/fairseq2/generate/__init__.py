@@ -1,6 +1,3 @@
-from .hf_tokenizer import SpeechToTextTokenizer as SpeechToTextTokenizer
+from .hf_tokenizer import HfTokenizer as HfTokenizer
 from .search import BeamSearchStrategy as BeamSearchStrategy
 from .search import SearchStrategy as SearchStrategy
-from .tokenizer import DictTokenizer as DictTokenizer
-from .tokenizer import SpmTokenizer as SpmTokenizer
-from .tokenizer import Tokenizer as Tokenizer

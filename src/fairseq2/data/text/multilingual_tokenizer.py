@@ -4,56 +4,65 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Optional, Sequence, Set, final
+from typing import Optional, Set, final
 
 import torch
 from overrides import final as finaloverride
 
-from fairseq2.data.text import (
+from fairseq2.data.text.sentencepiece import (
     SentencePieceDecoder,
     SentencePieceEncoder,
     SentencePieceModel,
-    TokenDecoder,
-    TokenEncoder,
-    Tokenizer,
     vocab_from_sentencepiece,
 )
+from fairseq2.data.text.tokenizer import TokenDecoder, TokenEncoder, Tokenizer
 from fairseq2.data.typing import PathLike
 
 
 @final
-class NllbTokenizer(Tokenizer):
-    """Represents the tokenizer used by the NLLB models."""
+class MultilingualTokenizer(Tokenizer):
+    """Represents a generic bilingual/multilingual tokenizer."""
 
     model: SentencePieceModel
-    langs: Set[str]
-    default_lang: str
+    task: str
+    src_langs: Set[str]
+    tgt_langs: Set[str]
+    default_src_lang: str
+    default_tgt_lang: str
 
     def __init__(
-        self, pathname: PathLike, langs: Sequence[str], default_lang: str
+        self,
+        pathname: PathLike,
+        task: str,
+        src_langs: Set[str],
+        tgt_langs: Set[str],
+        default_src_lang: str,
+        default_tgt_lang: str,
     ) -> None:
         """
         :param pathname:
             The pathname of the SentencePiece model file.
-        :param langs:
-            The list of supported languages.
-        :param default_lang:
-            The fall-back language if no language is specified.
+        :param task:
+            A user-defined task; it has no meaning to the tokenizer, but will
+            be validated in :meth:`create_encoder`.
+        :param src_langs:
+            The list of supported source languages.
+        :param tgt_langs:
+            The list of supported target languages.
+        :param default_src_lang:
+            The fall-back language if no source language is specified.
+        :param default_tgt_lang:
+            The fall-back language if no target language is specified.
         """
-        # Each language is represented by a __<lang>__ token.
-        control_tokens = [f"__{lang}__" for lang in langs]
+        self.model = SentencePieceModel(pathname)
 
-        # Internal control tokens that are not relevant for public use.
-        control_tokens.extend(["<MINED_DATA>", "<NMT_BT_DATA>", "<SMT_BT_DATA>"])
+        self.task = task
 
-        # The SentencePiece model of NLLB is peculiar as it does not define a
-        # pad token. We use an undocumented feature of our underlying C++ API
-        # to insert a pad token to the model at index 0.
-        control_tokens.append("<pad>@0")
+        self.src_langs = set(src_langs)
+        self.tgt_langs = set(tgt_langs)
 
-        self.model = SentencePieceModel(pathname, control_tokens)
-
-        self.langs = set(langs)
+        self.default_src_lang = default_src_lang
+        self.default_tgt_lang = default_tgt_lang
 
         vocab_info = vocab_from_sentencepiece(self.model)
 
@@ -74,10 +83,12 @@ class NllbTokenizer(Tokenizer):
         """Create a token encoder.
 
         :param task:
-            The only valid value is 'translation'. If ``None``, defaults to
-            'translation'.
+            The specified task must match :attr:`task`.
         :param lang:
-            A language from :attr:`langs`.
+            A language from :attr:`src_langs` if ``mode`` is 'source', or a
+            language from :attr:`tgt_langs` if ``mode`` is 'target'. If
+            ``None``, defaults to either :attr:`default_src_lang` or
+            :attr:`default_tgt_lang` depending on the mode.
         :param mode:
             The valid values are 'source' and 'target'. Set to 'source' if
             ``lang`` is the source language; set to 'target' if ``lang`` is the
@@ -95,32 +106,28 @@ class NllbTokenizer(Tokenizer):
         :param disabled_parallelism:
             If ``True``, disables parallelism and uses the calling thread only.
         """
-        if task and task != "translation":
-            raise ValueError(f"`task` ('{task}') must be 'translation'.")
-
-        # If not specified, we fall back to English.
-        if not lang:
-            lang = self.default_lang
-        elif lang not in self.langs:
-            raise ValueError(f"`lang` ({lang}) is not a supported language.")
+        if task and task != self.task:
+            raise ValueError(f"`task` ('{task}') must be '{self.task}'.")
 
         if not mode or mode == "source":
-            # NLLB models expect a language token in place of BOS in source
-            # sequences.
-            prefix_tokens = [f"__{lang}__"]
-            suffix_tokens = ["</s>"]
+            if not lang:
+                lang = self.default_src_lang
+
+            if lang not in self.src_langs:
+                raise ValueError(f"`lang` ({lang}) is not a supported source language.")
         elif mode == "target":
-            # Target sequences are expected to start with an EOS, followed by
-            # the language token.
-            prefix_tokens = ["</s>", f"__{lang}__"]
-            suffix_tokens = []
+            if not lang:
+                lang = self.default_tgt_lang
+
+            if lang not in self.tgt_langs:
+                raise ValueError(f"`lang` ({lang}) is not a supported target language.")
         else:
             raise ValueError(f"`mode` ('{mode}') must be 'source' or 'target'")
 
         return SentencePieceEncoder(
             self.model,
-            prefix_tokens=prefix_tokens,
-            suffix_tokens=suffix_tokens,
+            prefix_tokens=[f"<lang:{lang}>"],
+            suffix_tokens=["</s>"],
             batch_size=batch_size,
             device=device,
             pin_memory=pin_memory,

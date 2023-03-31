@@ -35,7 +35,7 @@ def test_loading_nllb200_small(tmp_path: Path) -> None:
     src_decoder1 = tokenizer1.create_decoder()
 
     src_tok1 = src_encoder1(ENG)
-    assert src_decoder1(src_tok1) == ENG
+    assert src_decoder1(src_tok1) == [ENG]
 
     assert_speaks_french(model1, tokenizer1, device)
 
@@ -78,14 +78,14 @@ def assert_speaks_french(
             vocab_info=tokenizer.vocab_info, beam_size=beam_size, max_len=256
         )
 
-        fra = strategy.generate_str_ex(
+        fra = strategy.generate_str(
             model,
             tokenizer,
-            ENG,
+            [ENG],
             src_lang="eng_Latn",
             tgt_lang="fra_Latn",
             device=device,
         )
 
         print(fra)
-        assert fra == ref
+        assert fra == [ref]

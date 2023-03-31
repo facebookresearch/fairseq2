@@ -19,8 +19,9 @@ import fairseq2.callbacks
 import fairseq2.nn
 import fairseq2.optim.lr_scheduler
 from fairseq2.callbacks import Metrics
+from fairseq2.data.text import Tokenizer
 from fairseq2.dataloader import Seq2SeqBatch, Seq2SeqStr
-from fairseq2.generate import BeamSearchStrategy, SearchStrategy, Tokenizer
+from fairseq2.generate import BeamSearchStrategy, SearchStrategy
 from fairseq2.models.transformer import TransformerModel
 from fairseq2.optim.lr_scheduler import LRScheduler
 
@@ -112,7 +113,10 @@ class Seq2Seq(
         lprobs = F.log_softmax(net_output, dim=-1).transpose(2, 1)
         # TODO: nll loss requires longs ? Why ?
         loss = F.nll_loss(
-            lprobs, data.target[:, 1:], reduction="sum", ignore_index=self.tokenizer.PAD
+            lprobs,
+            data.target[:, 1:],
+            reduction="sum",
+            ignore_index=self.tokenizer.vocab_info.pad_idx,
         )
         num_tokens = torch.tensor(data.num_tokens)
         nll_loss = loss.detach().cpu() / num_tokens / math.log(2)
@@ -161,15 +165,22 @@ class Seq2Seq(
 
     @functools.lru_cache()
     def default_strategy(self) -> SearchStrategy:
-        return BeamSearchStrategy(beam_size=5, max_len=512, vocab_info=self.tokenizer)
+        return BeamSearchStrategy(
+            beam_size=5, max_len=512, vocab_info=self.tokenizer.vocab_info
+        )
 
     @torch.inference_mode()
     def generate_batch(self, data: Seq2SeqBatch) -> List[Seq2SeqStr]:
-        source = self.tokenizer.decode_batch(data.source)
-        target = self.tokenizer.decode_batch(data.target)
+        token_decoder = self.tokenizer.create_decoder()
+
+        source = token_decoder(data.source)
+        target = token_decoder(data.target)
+
         strategy = self.default_strategy()
         predicted_tokens = strategy.generate(self.model, data.source, top=1)
-        predicted = self.tokenizer.decode_batch(predicted_tokens.squeeze(1))
+
+        predicted = token_decoder(predicted_tokens.squeeze(1))
+
         return [
             Seq2SeqStr(*x) for x in itertools.zip_longest(source, target, predicted)
         ]

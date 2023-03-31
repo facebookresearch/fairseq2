@@ -23,13 +23,13 @@ def test_load_dense_distill_600m() -> None:
         vocab_info=tokenizer.vocab_info, beam_size=1, max_len=256
     )
 
-    fra = strategy.generate_str_ex(
+    fra = strategy.generate_str(
         model,
         tokenizer,
-        ENG,
+        [ENG],
         src_lang="eng_Latn",
         tgt_lang="fra_Latn",
         device=device,
     )
 
-    assert fra == FRA
+    assert fra == [FRA]

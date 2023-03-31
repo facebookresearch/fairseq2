@@ -176,6 +176,7 @@ setup(
         "torcheval",
         "torchtnt~=0.0.5",
         "torchsnapshot>=0.1.0",
+        "transformers>=4.2",
         "typing_extensions~=4.3",
         "wandb~=0.13",
         # Eval tools

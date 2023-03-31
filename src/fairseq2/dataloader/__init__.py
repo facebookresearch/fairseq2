@@ -1,5 +1,7 @@
 from typing import TYPE_CHECKING, Any, Dict, NamedTuple, Sequence
 
+from fairseq2.data import StringLike
+
 from .utils import RoundRobin as RoundRobin
 
 if TYPE_CHECKING:
@@ -14,9 +16,9 @@ class Seq2SeqBatch(NamedTuple):
 
 
 class Seq2SeqStr(NamedTuple):
-    source: str
-    target: str
-    predicted: str
+    source: StringLike
+    target: StringLike
+    predicted: StringLike
 
 
 class Text2TextBatch(NamedTuple):
