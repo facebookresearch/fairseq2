@@ -223,8 +223,14 @@ class TransformerBuilder:
 
     def build_attention(self, num_heads: int) -> MultiheadAttention:
         """Build a multi-head attention layer."""
+        scale_heads = self.cfg.norm_order == TransformerNormOrder.PRE_WITH_NORMFORMER
+
         return StandardMultiheadAttention(
-            num_heads, self.cfg.model_dim, device=self.device, dtype=self.cfg.dtype
+            num_heads,
+            self.cfg.model_dim,
+            scale_heads=scale_heads,
+            device=self.device,
+            dtype=self.cfg.dtype,
         )
 
     def build_ffn(self) -> FeedForwardNetwork:

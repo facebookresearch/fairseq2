@@ -345,6 +345,7 @@ class StandardMultiheadAttention(MultiheadAttention):
     add_zero_attn: bool
     attn_fn: AttentionFunction
     attn_dropout_p: float
+    scale_heads: bool
     out_proj: Projection
 
     def __init__(
@@ -359,6 +360,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         add_zero_attn: bool = False,
         attn_fn: Optional[AttentionFunction] = None,
         attn_dropout_p: float = 0.0,
+        scale_heads: bool = False,
         out_proj: Optional[Projection] = None,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
@@ -391,6 +393,9 @@ class StandardMultiheadAttention(MultiheadAttention):
             implementation of the scaled dot-product attention will be used.
         :param attn_dropout_p:
             The dropout probability on attention weights.
+        :param scale_heads:
+            If ``True``, Head Scaling is applied as described in
+            :cite:t:`https://doi.org/10.48550/arxiv.2110.09456`
         :param out_proj:
             The projection to produce final attentions. If ``None``, a
             default projection will be used.
@@ -402,8 +407,6 @@ class StandardMultiheadAttention(MultiheadAttention):
                 raise ValueError("`model_dim` must be specified.")
 
         super().__init__(num_heads, model_dim)
-
-        # TODO: Scale heads
 
         if q_proj is None and k_proj is None and v_proj is None:
             q_proj = InternalQKVProjection(model_dim, device=device, dtype=dtype)
@@ -469,6 +472,13 @@ class StandardMultiheadAttention(MultiheadAttention):
             self.attn_fn = attn_fn
 
         self.attn_dropout_p = attn_dropout_p
+
+        if scale_heads:
+            self.scale_heads_proj = Parameter(
+                torch.ones(num_heads, device=device, dtype=dtype)
+            )
+        else:
+            self.register_parameter("scale_heads_proj", None)
 
         if out_proj is None:
             self.out_proj = InternalOutProjection(
@@ -639,6 +649,9 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         # (N, H, S, V_h) -> (N, S, H, V_h)
         attn = attn.permute(0, 2, 1, 3)
+
+        if self.scale_heads_proj is not None:
+            attn = torch.einsum("nshv,h->nshv", attn, self.scale_heads_proj)
 
         # (N, S, H, V_h) -> (N, S, V_proj)
         attn = attn.flatten(-2, -1)
