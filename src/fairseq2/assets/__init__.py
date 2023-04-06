@@ -16,6 +16,9 @@ from fairseq2.assets.card_storage import (
 )
 from fairseq2.assets.card_storage import AssetCardStorage as AssetCardStorage
 from fairseq2.assets.card_storage import LocalAssetCardStorage as LocalAssetCardStorage
+from fairseq2.assets.downloader import AssetDownloader as AssetDownloader
+from fairseq2.assets.downloader import AssetDownloadError as AssetDownloadError
+from fairseq2.assets.downloader import DefaultAssetDownloader as DefaultAssetDownloader
 from fairseq2.assets.error import AssetError as AssetError
 from fairseq2.assets.store import AssetStore as AssetStore
 from fairseq2.assets.store import DefaultAssetStore as DefaultAssetStore
@@ -29,4 +32,10 @@ def _create_asset_store() -> AssetStore:
     return DefaultAssetStore(card_storage)
 
 
+def _create_asset_downloader() -> AssetDownloader:
+    return DefaultAssetDownloader(progress=True)
+
+
 global_asset_store = _create_asset_store()
+
+global_asset_downloader = _create_asset_downloader()
