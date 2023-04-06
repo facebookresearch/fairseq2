@@ -92,7 +92,7 @@ class Conv1dFbankSubsampler(FbankSubsampler):
             kernel_sizes = [3, 3]
 
         if not kernel_sizes:
-            raise ValueError("`kernel_sizes` must contain at least one element.")
+            raise ValueError("`kernel_sizes` must be non-empty.")
 
         last_layer = len(kernel_sizes) - 1
 

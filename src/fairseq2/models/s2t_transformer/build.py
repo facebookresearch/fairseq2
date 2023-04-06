@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from dataclasses import dataclass
-from typing import Final, Optional
+from typing import AbstractSet, Final, Optional
 
 import torch
 
@@ -118,6 +118,11 @@ _CONFIGS: Final = {
 }
 
 
+def get_s2t_transformer_archs() -> AbstractSet[str]:
+    """Return the names of supported S2T Transformer architectures."""
+    return _CONFIGS.keys()
+
+
 def get_s2t_transformer_config(arch_name: str) -> S2TTransformerConfig:
     """Return the configuration of the specified S2T Transformer architecture.
 
@@ -127,7 +132,9 @@ def get_s2t_transformer_config(arch_name: str) -> S2TTransformerConfig:
     try:
         return _CONFIGS[arch_name]()
     except KeyError:
-        raise ValueError(f"{arch_name} is not a known S2T Transformer architecture.")
+        raise ValueError(
+            f"`arch_name` must be a known S2T Transformer architecture, but is '{arch_name}' instead."
+        )
 
 
 def create_s2t_transformer_model(

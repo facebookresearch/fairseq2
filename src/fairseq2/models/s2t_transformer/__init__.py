@@ -14,7 +14,16 @@ from fairseq2.models.s2t_transformer.build import (
     create_s2t_transformer_model as create_s2t_transformer_model,
 )
 from fairseq2.models.s2t_transformer.build import (
+    get_s2t_transformer_archs as get_s2t_transformer_archs,
+)
+from fairseq2.models.s2t_transformer.build import (
     get_s2t_transformer_config as get_s2t_transformer_config,
+)
+from fairseq2.models.s2t_transformer.load import (
+    S2TTransformerLoader as S2TTransformerLoader,
+)
+from fairseq2.models.s2t_transformer.load import (
+    load_s2t_transformer_model as load_s2t_transformer_model,
 )
 from fairseq2.models.s2t_transformer.model import (
     S2TTransformerModel as S2TTransformerModel,
@@ -27,4 +36,7 @@ from fairseq2.models.s2t_transformer.subsampler import (
 )
 from fairseq2.models.s2t_transformer.subsampler import (
     FbankSubsampler as FbankSubsampler,
+)
+from fairseq2.models.s2t_transformer.tokenizer import (
+    S2TTransformerTokenizer as S2TTransformerTokenizer,
 )
