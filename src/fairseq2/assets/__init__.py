@@ -9,4 +9,9 @@ from fairseq2.assets.card import AssetCardError as AssetCardError
 from fairseq2.assets.card import (
     AssetCardFieldNotFoundError as AssetCardFieldNotFoundError,
 )
+from fairseq2.assets.card_storage import (
+    AssetCardNotFoundError as AssetCardNotFoundError,
+)
+from fairseq2.assets.card_storage import AssetCardStorage as AssetCardStorage
+from fairseq2.assets.card_storage import LocalAssetCardStorage as LocalAssetCardStorage
 from fairseq2.assets.error import AssetError as AssetError
