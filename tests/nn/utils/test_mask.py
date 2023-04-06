@@ -54,7 +54,7 @@ def test_to_padding_mask_with_dim0() -> None:
     assert_equal(mask, expected_mask)
 
 
-def test_to_padding_mask_with_single_len() -> None:
+def test_to_padding_mask_with_single_seq_len() -> None:
     seq_lens = torch.tensor([4], device=device, dtype=torch.int32)
 
     mask = to_padding_mask(seq_lens, max_seq_len=6)

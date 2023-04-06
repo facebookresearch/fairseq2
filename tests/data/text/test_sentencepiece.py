@@ -41,29 +41,29 @@ class TestSentencePieceModel:
         ]
         # fmt: on
 
-    def test_model_raises_error_if_file_is_not_found(self) -> None:
+    def test_init_raises_error_if_model_file_is_not_found(self) -> None:
         with pytest.raises(RuntimeError, match="No such file or"):
             SentencePieceModel("<non-existent-file>")
 
-    def test_index_to_token_raises_error_if_out_of_range(self) -> None:
-        spm = self.build_model()
-
-        with pytest.raises(ValueError):
-            spm.index_to_token(4867847)
-
-    def test_pad_is_correctly_added(self) -> None:
+    def test_init_adds_pad(self) -> None:
         spm = SentencePieceModel(TEST_SPM_PATH, control_tokens=["<pad>"])
 
         assert spm.pad_idx == 1000
         assert spm.unk_idx == 0
 
-    def test_pad_is_correctly_added_at_index_0(self) -> None:
+    def test_init_adds_pad_at_index_0(self) -> None:
         # Note that this is an undocumented feature and is not part of our
         # public API.
         spm = self.build_model()
 
         assert spm.pad_idx == 0
         assert spm.unk_idx == 1
+
+    def test_index_to_token_raises_error_if_out_of_range(self) -> None:
+        spm = self.build_model()
+
+        with pytest.raises(ValueError):
+            spm.index_to_token(4867847)
 
     @pytest.mark.parametrize("left_pad", [False, True])
     def test_encodes_decodes_batch_with_single_sentence_correctly(
@@ -130,7 +130,7 @@ class TestSentencePieceModel:
         assert sentences == self.sentences
 
     @pytest.mark.parametrize("left_pad", [False, True])
-    def test_encoders_adds_prefix_and_suffix_tokens_correctly(
+    def test_encode_adds_prefix_and_suffix_tokens_correctly(
         self, left_pad: bool
     ) -> None:
         spm = self.build_model(control_tokens=["<foo1>", "<foo2>", "<foo3>"])

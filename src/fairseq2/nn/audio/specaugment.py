@@ -24,41 +24,39 @@ def spec_augment(
     mask_value: float = 0.0,
     training: bool = True,
 ) -> Tensor:
-    """Apply data augmentation SpecAugment to spectrogram
-    (stretch along axis and mask along axis), as described
-    in :cite:t:`Park_2019`.
+    """Apply data augmentation SpecAugment to spectrogram (stretch along axis
+    and mask along axis) as described in :cite:t:`Park_2019`.
 
     :param specgram:
-        Tensor to augment. *Shape:* :math:`(N,F,T)`, or :math:`(F,T)` when
-        unbatched, where :math:`N` is the batch size, :math:`F` is the
-        frequency axis, and :math:`T` is the time axis.
+        The tensor to augment. *Shape:* :math:`(N,F,T)`, or :math:`(F,T)` when
+        unbatched, where :math:`N` is the batch size, :math:`F` is the frequency
+        axis, and :math:`T` is the time axis.
     :param stretch_axis:
-        Axis where the stretch takes place (1: freq, 2: time)
+        The axis where the stretch takes place (1: freq, 2: time).
     :param max_stretch_length:
-        Represents the max stretch possible,
-        and the boundaries where the stretch takes place
-        i.e. (max_stretch_length, N - max_stretch_length)
+        Represents the max stretch possible, and the boundaries where the
+        stretch takes place i.e. (max_stretch_length, N - max_stretch_length)
     :param num_freq_mask:
-        Number of masks to apply to the frequency axis, (mF in paper)
+        The number of masks to apply to the frequency axis, (mF in paper).
     :param freq_max_mask_length:
-        Max length of any individual frequency mask, (F in paper)
+        The maximum length of any individual frequency mask, (F in paper).
     :param freq_mask_max_proportion:
-        Max proportion that any individual freq mask can have
+        The maxiumum proportion that any individual frequency mask can have.
     :param num_time_mask:
-        Number of masks to apply to the time axis, (mT in paper)
+        The number of masks to apply to the time axis, (mT in paper).
     :param time_max_mask_length:
-        Max length of any individual time mask, (T in paper)
+        The maximum length of any individual time mask, (T in paper).
     :param time_mask_max_proportion:
-        Max proportion that any individual time mask can have, (p in paper)
+        The maximum proportion that any individual time mask can have, (p in
+        paper).
 
     :returns:
-        Augmented spectrogram. *Shape:* Same as input.
+        The augmented spectrogram. *Shape:* Same as input.
 
     .. note::
         The paper implements a time warp while this SpecAugment implements a
         stretch, the latter is applied along the specified axis parameter.
     """
-
     if not training:
         return specgram
 
@@ -89,37 +87,35 @@ def stretch_along_axis(specgram: Tensor, axis: int, max_stretch_length: int) -> 
     """Apply a stretch to a spectrogram along a specified axis.
 
     :param specgram:
-        Tensor to stretch. *Shape:* :math:`(N,F,T)`, where :math:`N`
-        is the batch size, :math:`F` is the frequency axis, and
-        :math:`T` is the time axis.
+        The tensor to stretch. *Shape:* :math:`(N,F,T)`, where :math:`N` is the
+        batch size, :math:`F` is the frequency axis, and :math:`T` is the time
+        axis.
     :param axis:
-        Axis where the stretch takes place (1: Freq, 2: Time)
+        The axis where the stretch takes place (1: freq, 2: time).
     :param max_stretch_length:
-        Represents the max stretch possible,
-        and the boundaries where the stretch takes place
-        i.e. (max_stretch_length, N - max_stretch_length)
+        Represents the max stretch possible, and the boundaries where the
+        stretch takes place i.e. (max_stretch_length, N - max_stretch_length).
 
     :returns:
-        Stretched tensor spectrogram of dimensions (batch, freq, time)
+        The stretched tensor spectrogram of dimensions (batch, freq, time).
 
     .. note::
-        stretch takes place between the max_stretch_length boundaries,
-        starting from point w0, the stretch direction can be negative or positive,
+        Stretch takes place between the max_stretch_length boundaries, starting
+        from point w0, the stretch direction can be negative or positive,
         depending on the randomly chosen distance w.
     """
-
     if max_stretch_length == 0:
         return specgram.clone()
 
     if axis not in [1, 2]:
-        raise ValueError("Only Frequency and Time masking are supported")
+        raise ValueError("Only frequency and time masking are supported.")
 
     stretched_dim_size = specgram.shape[axis]
     non_stretched_dim_size = specgram.shape[1 if axis == 2 else 2]
 
     if 2 * max_stretch_length >= stretched_dim_size:
         raise ValueError(
-            f"`max_stretch_length` {max_stretch_length} must be smaller than half the size of the stretched axis {stretched_dim_size}."
+            f"`max_stretch_length` must be smaller than half the size of the stretched axis ({stretched_dim_size}), but is {max_stretch_length} instead."
         )
 
     w0 = random.randrange(max_stretch_length, stretched_dim_size - max_stretch_length)
@@ -158,29 +154,30 @@ def mask_along_axis(
     """Mask blocks of channels along a spectrogram's axis.
 
     :param specgram:
-        Tensor to mask. *Shape:* :math:`(N,F,T)`, where :math:`N`
-        is the batch size, :math:`F` is the frequency axis, and
-        :math:`T` is the time axis.
+        The tensor to mask. *Shape:* :math:`(N,F,T)`, where :math:`N` is the
+        batch size, :math:`F` is the frequency axis, and :math:`T` is the time
+        axis.
     :param axis:
-        Masking is applied (1: Freq, 2: Time)
+        The axis where the masking takes place (1: freq, 2: time).
     :param num_masks:
-        Number of masks
+        The number of masks.
     :param max_mask_length:
-        Max length allowed for each individual mask.
+        The maximum length allowed for each individual mask.
     :param max_mask_proportion:
-        Max proportion of masked rows/cols for each individual mask.
+        The maximum proportion of masked rows or columns for each individual
+        mask.
     :param mask_value:
-        Value to fill the masks
+        The value to fill the masks.
 
     :returns:
-        Masked spectrogram. *Shape:* Same as input.
+        The masked spectrogram. *Shape:* Same as input.
 
     .. note::
-        The length of the mask is randomly chosen, with a cap on max_mask_length.
+        The length of the mask is randomly chosen, with a cap on
+        ``max_mask_length``.
     """
-
     if axis not in [1, 2]:
-        raise ValueError("Only Frequency and Time masking are supported")
+        raise ValueError("Only frequency and time masking are supported.")
 
     max_mask_length = min(
         max_mask_length, int(specgram.shape[axis] * max_mask_proportion)
@@ -203,28 +200,27 @@ def mask_along_axis(
 
 
 class SpecAugmentTransform(Module):
-    """Apply data augmentation SpecAugment to spectrogram
-    (stretch along axis and mask along axis), as described
-    in :cite:t:`Park_2019`.
+    """Applies data augmentation SpecAugment to spectrogram (stretch along axis
+    and mask along axis) as described in :cite:t:`Park_2019`.
 
     :param stretch_axis:
-        Axis where the stretch takes place (1: Freq, 2: Time)
+        The axis where the stretch takes place (1: freq, 2: time).
     :param max_stretch_length:
-        Represents the max stretch possible,
-        and the boundaries where the stretch takes place
-        i.e. (max_stretch_length, N - max_stretch_length)
+        Represents the max stretch possible, and the boundaries where the
+        stretch takes place i.e. (max_stretch_length, N - max_stretch_length)
     :param num_freq_mask:
-        Number of masks to apply to the frequency axis, (mF in paper)
+        The number of masks to apply to the frequency axis, (mF in paper).
     :param freq_max_mask_length:
-        Max length of any individual frequency mask, (F in paper)
+        The maximum length of any individual frequency mask, (F in paper).
     :param freq_mask_max_proportion:
-        Max proportion that any individual freq mask can have
+        The maximum proportion that any individual frequency mask can have.
     :param num_time_mask:
-        Number of masks to apply to the time axis, (mT in paper)
+        The number of masks to apply to the time axis, (mT in paper).
     :param time_max_mask_length:
-        Max length of any individual time mask, (T in paper)
+        The maximum length of any individual time mask, (T in paper).
     :param time_mask_max_proportion:
-        Max proportion that any individual time mask can have, (p in paper)
+        The maximum proportion that any individual time mask can have, (p in
+        paper).
     """
 
     def __init__(
@@ -253,18 +249,17 @@ class SpecAugmentTransform(Module):
     def forward(self, specgram: Tensor) -> Tensor:
         """
         :param specgram:
-            Tensor to augment. *Shape:* :math:`(N,F,T)`, or :math:`(F,T)` when
-            unbatched, where :math:`N` is the batch size, :math:`F` is the
+            The tensor to augment. *Shape:* :math:`(N,F,T)`, or :math:`(F,T)`
+            when unbatched, where :math:`N` is the batch size, :math:`F` is the
             frequency axis, and :math:`T` is the time axis.
 
         :returns:
-            Augmented spectrogram. *Shape:* Same as input.
+            The augmented spectrogram. *Shape:* Same as input.
 
         .. note::
             The paper implements a time warp while this SpecAugment implements a
             stretch, the latter is applied along the specified axis parameter.
         """
-
         return spec_augment(
             specgram=specgram,
             stretch_axis=self.stretch_axis,
@@ -281,10 +276,8 @@ class SpecAugmentTransform(Module):
 
     @staticmethod
     def libri_speech_basic() -> "SpecAugmentTransform":
-        """Returns a new instance of SpecAugmentTransform
-        with parameters set for the LibriSpeech basic level.
-        """
-
+        """Return a new :class:`SpecAugmentTransform` instance with parameters
+        set for the LibriSpeech basic level."""
         return SpecAugmentTransform(
             stretch_axis=2,
             max_stretch_length=80,
@@ -298,10 +291,8 @@ class SpecAugmentTransform(Module):
 
     @staticmethod
     def libri_speech_double() -> "SpecAugmentTransform":
-        """Returns a new instance of SpecAugmentTransform
-        with parameters set for the LibriSpeech double level.
-        """
-
+        """Return a new :class:`SpecAugmentTransform` instance with parameters
+        set for the LibriSpeech double level."""
         return SpecAugmentTransform(
             stretch_axis=2,
             max_stretch_length=80,
@@ -315,10 +306,8 @@ class SpecAugmentTransform(Module):
 
     @staticmethod
     def switchboard_mild() -> "SpecAugmentTransform":
-        """Returns a new instance of SpecAugmentTransform
-        with parameters set for the SwitchBoard mild level.
-        """
-
+        """Return a new :class:`SpecAugmentTransform` instace with parameters
+        set for the SwitchBoard mild level."""
         return SpecAugmentTransform(
             stretch_axis=2,
             max_stretch_length=40,
@@ -332,10 +321,8 @@ class SpecAugmentTransform(Module):
 
     @staticmethod
     def switchboard_strong() -> "SpecAugmentTransform":
-        """Returns a new instance of SpecAugmentTransform
-        with parameters set for the SwitchBoard strong level.
-        """
-
+        """Return a new :class:`SpecAugmentTransform` with parameters set for
+        the SwitchBoard strong level."""
         return SpecAugmentTransform(
             stretch_axis=2,
             max_stretch_length=40,

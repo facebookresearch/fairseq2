@@ -420,22 +420,22 @@ class StandardMultiheadAttention(MultiheadAttention):
 
             if q_proj.inp_dim != model_dim:
                 raise ValueError(
-                    f"`inp_dim` of `q_proj` ({q_proj.inp_dim}) does not match `model_dim` ({model_dim})."
+                    f"`inp_dim` of `q_proj` must be equal to `model_dim` ({model_dim}), but is {q_proj.inp_dim} instead."
                 )
 
             if q_proj.out_dim != k_proj.out_dim:
                 raise ValueError(
-                    f"`out_dim` of `q_proj` ({q_proj.out_dim}) does not match `out_dim` of `k_proj` ({k_proj.out_dim})."
+                    f"`out_dim` of `q_proj` and `out_dim` of `k_proj` must be equal, but are {q_proj.out_dim} and {k_proj.out_dim} instead."
                 )
 
         if k_proj.out_dim % num_heads != 0:
             raise ValueError(
-                f"`out_dim` of `k_proj` ({k_proj.out_dim}) is not divisible by `num_heads` ({num_heads})."
+                f"`out_dim` of `k_proj` must be divisible by `num_heads` ({num_heads}), but is {k_proj.out_dim} instead."
             )
 
         if v_proj.out_dim % num_heads != 0:
             raise ValueError(
-                f"`out_dim` of `v_proj` ({v_proj.out_dim}) is not divisible by `num_heads` ({num_heads})."
+                f"`out_dim` of `v_proj` must be divisible by `num_heads` ({num_heads}), but is {v_proj.out_dim} instead."
             )
 
         self.q_proj = q_proj
@@ -445,7 +445,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         if pos_embed is not None:
             if (head_dim := k_proj.out_dim // num_heads) != pos_embed.embed_dim:
                 raise ValueError(
-                    f"`embed_dim` of `pos_embed` ({pos_embed.embed_dim}) does not match the size of the header key dimension ({head_dim})."
+                    f"`embed_dim` of `pos_embed` must be equal to the size of the header key dimension ({head_dim}), but is {pos_embed.embed_dim} instead."
                 )
 
             self.pos_embed = pos_embed
@@ -487,12 +487,12 @@ class StandardMultiheadAttention(MultiheadAttention):
         else:
             if out_proj.inp_dim != v_proj.out_dim:
                 raise ValueError(
-                    f"`inp_dim` of `out_proj` ({out_proj.inp_dim}) does not match `out_dim` of `v_proj` ({v_proj.out_dim})."
+                    f"`inp_dim` of `out_proj` and `out_dim` of `v_proj` must be equal, but are {out_proj.inp_dim} and {v_proj.out_dim} instead."
                 )
 
             if out_proj.out_dim != model_dim:
                 raise ValueError(
-                    f"`out_dim` of `out_proj` ({out_proj.out_dim}) does not match `model_dim` ({model_dim})."
+                    f"`out_dim` of `out_proj` must be equal to `model_dim` ({model_dim}), but is {out_proj.out_dim} instead."
                 )
 
             self.out_proj = out_proj

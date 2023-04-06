@@ -167,7 +167,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         else:
             if enc_dec_attn.model_dim != model_dim:
                 raise ValueError(
-                    f"`model_dim` of `enc_dec_attn` ({enc_dec_attn.model_dim}) does not match `model_dim` of `self_attn` ({model_dim})."
+                    f"`model_dim` of `enc_dec_attn` and `model_dim` of `self_attn` must be equal, but are {enc_dec_attn.model_dim} and {model_dim} instead."
                 )
 
             enc_dec_attn_layer_norm = LayerNorm(
@@ -184,7 +184,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
 
         if ffn.model_dim != model_dim:
             raise ValueError(
-                f"`model_dim` of `ffn` ({ffn.model_dim}) does not match `model_dim` of `self_attn` ({model_dim})."
+                f"`model_dim` of `ffn` and `model_dim` of `self_attn` must be equal, but are {ffn.model_dim} and {model_dim} instead."
             )
 
         ffn_layer_norm = LayerNorm(model_dim, norm_eps, device=device, dtype=dtype)

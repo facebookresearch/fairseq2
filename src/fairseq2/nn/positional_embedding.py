@@ -59,12 +59,12 @@ class PositionalEmbedding(Module, ABC):
             embed = embed.unsqueeze(0)
         elif embed_dim != 3:
             raise ValueError(
-                f"The number of dimensions of `embed` ({embed_dim}) must be 2 or 3."
+                f"The number of dimensions of `embed` must be 2 or 3, but is {embed_dim} instead."
             )
 
         if (seq_len := embed.size(1)) > self.max_seq_len:
             raise ValueError(
-                f"The input sequence length ({seq_len}) cannot be greater than {self.max_seq_len}."
+                f"The input sequence length must be less than or equal to the maximum sequence length ({self.max_seq_len}), but is {seq_len} instead."
             )
 
         embed = self._do_forward(embed, state_bag)
@@ -294,7 +294,7 @@ class RotaryEmbedding(PositionalEmbedding):
         dtype: Optional[torch.dtype] = None,
     ) -> None:
         if embed_dim % 2 != 0:
-            raise ValueError(f"`embed_dim` ({embed_dim}) must be even.")
+            raise ValueError(f"`embed_dim` must be even, but is {embed_dim} instead.")
 
         super().__init__(max_seq_len, embed_dim)
 

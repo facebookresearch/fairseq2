@@ -97,14 +97,14 @@ class StandardTransformerEncoder(TransformerEncoder):
         """
         layer_list = ModuleList(layers, layer_drop_p)
         if not layer_list:
-            raise ValueError("`layers` must contain at least one encoder layer.")
+            raise ValueError("`layers` must be non-empty.")
 
         model_dim = layer_list[0].model_dim
 
         for idx, layer in enumerate(layers):
             if layer.model_dim != model_dim:
                 raise ValueError(
-                    f"`model_dim` of the encoder layer {idx} ({layer.model_dim}) does not match `model_dim` of the encoder layer 0 ({model_dim})."
+                    f"`model_dim` of the encoder layer 0 and `model_dim` of the encoder layer {idx} must be equal, but are {model_dim} and {layer.model_dim} instead."
                 )
 
         super().__init__(model_dim)

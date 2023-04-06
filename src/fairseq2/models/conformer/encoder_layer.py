@@ -68,7 +68,7 @@ class ConformerEncoderLayer(TransformerEncoderLayer):
 
         if ffn1.model_dim != model_dim:
             raise ValueError(
-                f"`model_dim` of `ffn1` ({ffn1.model_dim}) does not match `model_dim` of `self_attn` ({model_dim})."
+                f"`model_dim` of `ffn1` and `model_dim` of `self_attn` must be equal, but are {ffn1.model_dim} and {model_dim} instead."
             )
 
         self.ffn1_layer_norm = LayerNorm(
@@ -85,7 +85,7 @@ class ConformerEncoderLayer(TransformerEncoderLayer):
 
         if conv.model_dim != model_dim:
             raise ValueError(
-                f"`model_dim` of `conv` ({conv.model_dim}) does not match `model_dim` of `self_attn` ({model_dim})."
+                f"`model_dim` of `conv` and `model_dim` of `self_attn` must be equal, but are {conv.model_dim} and {model_dim} instead."
             )
 
         self.conv_layer_norm = LayerNorm(
@@ -96,7 +96,7 @@ class ConformerEncoderLayer(TransformerEncoderLayer):
 
         if ffn2.model_dim != model_dim:
             raise ValueError(
-                f"`model_dim` of `ffn2` ({ffn2.model_dim}) does not match `model_dim` of `self_attn` ({model_dim})."
+                f"`model_dim` of `ffn2` and `model_dim` of `self_attn` must be equal, but are {ffn2.model_dim} and {model_dim} instead."
             )
 
         self.ffn2_layer_norm = LayerNorm(

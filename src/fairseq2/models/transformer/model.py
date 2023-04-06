@@ -70,7 +70,7 @@ class TransformerTokenFrontend(Module):
         if pos_embed is not None:
             if pos_embed.embed_dim != embed_dim:
                 raise ValueError(
-                    f"`embed_dim` of `pos_embed` ({pos_embed.embed_dim}) does not match `embed_dim` of `embed` ({embed_dim})."
+                    f"`embed_dim` of `pos_embed` and `embed_dim` of `embed` must be equal, but are {pos_embed.embed_dim} and {embed_dim} instead."
                 )
 
             self.pos_embed = pos_embed
@@ -175,17 +175,17 @@ class TransformerModel(Module):
 
         if decoder.model_dim != model_dim:
             raise ValueError(
-                f"`model_dim` of `encoder` ({encoder.model_dim}) does not match `model_dim` of `decoder` ({decoder.model_dim})."
+                f"`model_dim` of `encoder` and `model_dim` of `decoder` must be equal, but are {encoder.model_dim} and {decoder.model_dim} instead."
             )
 
         if encoder_frontend.embed.embed_dim != model_dim:
             raise ValueError(
-                f"`embed_dim` of `encoder_frontend.embed` ({encoder_frontend.embed.embed_dim}) does not match `model_dim` of `encoder` ({model_dim})."
+                f"`embed_dim` of `encoder_frontend.embed` and `model_dim` of `encoder` must be equal, but are {encoder_frontend.embed.embed_dim} and {model_dim} instead."
             )
 
         if decoder_frontend.embed.embed_dim != model_dim:
             raise ValueError(
-                f"`embed_dim` of `decoder_frontend.embed` ({decoder_frontend.embed.embed_dim}) does not match `model_dim` of `decoder` ({model_dim})."
+                f"`embed_dim` of `decoder_frontend.embed` and `model_dim` of `decoder` must be equal, but are {decoder_frontend.embed.embed_dim} and {model_dim} instead."
             )
 
         super().__init__()

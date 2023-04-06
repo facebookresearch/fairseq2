@@ -179,13 +179,13 @@ class TestLRSchedulers:
     def test_myle_raises_error_if_number_of_start_lrs_is_wrong(self) -> None:
         with pytest.raises(
             ValueError,
-            match=r"^The length of `start_lr` \(1\) does not match the number of parameter groups \(2\)\.$",
+            match=r"^The length of `start_lr` must be equal to the number of parameter groups \(2\), but is 1 instead\.$",
         ):
             MyleLR(self.opt, num_warmup_steps=10, start_lr=[0])
 
         with pytest.raises(
             ValueError,
-            match=r"^The length of `start_lr` \(3\) does not match the number of parameter groups \(2\)\.$",
+            match=r"^The length of `start_lr` must be equal to the number of parameter groups \(2\), but is 3 instead\.$",
         ):
             MyleLR(self.opt, num_warmup_steps=10, start_lr=(0, 2, 3))
 
@@ -271,7 +271,7 @@ class TestLRSchedulers:
         assert lr1 == pytest.approx(final_lr1)
         assert lr2 == pytest.approx(final_lr2)
 
-    def test_consine(self) -> None:
+    def test_cosine(self) -> None:
         cycle_len = 80
 
         cycle_mul = 1.2
@@ -376,7 +376,7 @@ class TestLRSchedulers:
         assert lr1 == pytest.approx(self.base_lr1 * lr_mul * lr_mul)
         assert lr2 == pytest.approx(self.base_lr2 * lr_mul * lr_mul)
 
-    def test_consine_with_no_cycle_scale(self) -> None:
+    def test_cosine_with_no_cycle_scale(self) -> None:
         cycle_len = 80
 
         num_warmup_steps = 100

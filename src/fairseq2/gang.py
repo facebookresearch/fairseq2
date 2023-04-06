@@ -61,7 +61,9 @@ class _ProcessGroupGang(Gang):
         if op == ReduceOperation.MAX:
             return ReduceOp.MAX
 
-        raise ValueError(f"`{op}` is not supported by the underlying process group.")
+        raise ValueError(
+            f"`op` must be an operation supported by the underlying process group, but is `{op}` instead."
+        )
 
 
 def from_process_group(pg: ProcessGroup) -> Gang:

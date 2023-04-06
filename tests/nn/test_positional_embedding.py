@@ -148,7 +148,7 @@ class TestSinusoidalPositionalEmbedding:
 
         with pytest.raises(
             ValueError,
-            match=r"The number of dimensions of `embed` \(4\) must be 2 or 3.",
+            match=r"^The number of dimensions of `embed` must be 2 or 3, but is 4 instead\.$",
         ):
             m(embed)
 
@@ -159,7 +159,7 @@ class TestSinusoidalPositionalEmbedding:
 
         with pytest.raises(
             ValueError,
-            match=r"The input sequence length \(5\) cannot be greater than 3.",
+            match=r"^The input sequence length must be less than or equal to the maximum sequence length \(3\), but is 5 instead\.$",
         ):
             m(embed)
 
@@ -236,7 +236,7 @@ class TestLearnedPositionalEmbedding:
 
         with pytest.raises(
             ValueError,
-            match=r"The number of dimensions of `embed` \(4\) must be 2 or 3.",
+            match=r"^The number of dimensions of `embed` must be 2 or 3, but is 4 instead\.$",
         ):
             m(embed)
 
@@ -247,7 +247,7 @@ class TestLearnedPositionalEmbedding:
 
         with pytest.raises(
             ValueError,
-            match=r"The input sequence length \(5\) cannot be greater than 3.",
+            match=r"^The input sequence length must be less than or equal to the maximum sequence length \(3\), but is 5 instead\.$",
         ):
             m(embed)
 
@@ -333,7 +333,7 @@ class TestRotaryEmbedding:
 
         with pytest.raises(
             ValueError,
-            match=r"The number of dimensions of `embed` \(4\) must be 2 or 3.",
+            match=r"^The number of dimensions of `embed` must be 2 or 3, but is 4 instead\.$",
         ):
             m(embed)
 
@@ -344,7 +344,7 @@ class TestRotaryEmbedding:
 
         with pytest.raises(
             ValueError,
-            match=r"The input sequence length \(5\) cannot be greater than 3.",
+            match=r"^The input sequence length must be less than or equal to the maximum sequence length \(3\), but is 5 instead\.$",
         ):
             m(embed)
 

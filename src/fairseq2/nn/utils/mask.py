@@ -29,7 +29,9 @@ def to_float_mask(mask: Tensor, dtype: torch.dtype = torch.float32) -> Tensor:
     """
     if mask is not None and mask.dtype == torch.bool:
         if not dtype.is_floating_point:
-            raise ValueError("`dtype` must be a floating-point type.")
+            raise ValueError(
+                f"`dtype` must be a floating-point type, but is {dtype} instead."
+            )
 
         float_mask = mask.new_zeros(mask.shape, dtype=dtype)
 
@@ -56,7 +58,9 @@ def to_padding_mask(seq_lens: Tensor, max_seq_len: int) -> Tensor:
         position should be masked.
     """
     if seq_lens.dim() == 2 and seq_lens.size(1) != 1:
-        raise ValueError("The size of the second dimension of `seq_len` must be 1.")
+        raise ValueError(
+            f"The size of the second dimension of `seq_len` must be 1, but is {seq_lens.size(1)} instead."
+        )
 
     if seq_lens.dim() >= 1:
         bsz = seq_lens.size(0)

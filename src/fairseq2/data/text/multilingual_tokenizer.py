@@ -44,7 +44,7 @@ class MultilingualTokenizer(Tokenizer):
             The pathname of the SentencePiece model file.
         :param task:
             A user-defined task; it has no meaning to the tokenizer, but will
-            be validated in :meth:`create_encoder`.
+            be checked in :meth:`create_encoder`.
         :param src_langs:
             The list of supported source languages.
         :param tgt_langs:
@@ -107,22 +107,28 @@ class MultilingualTokenizer(Tokenizer):
             If ``True``, disables parallelism and uses the calling thread only.
         """
         if task and task != self.task:
-            raise ValueError(f"`task` ('{task}') must be '{self.task}'.")
+            raise ValueError(f"`task` must be '{self.task}', but is '{task}' instead.")
 
         if not mode or mode == "source":
             if not lang:
                 lang = self.default_src_lang
 
             if lang not in self.src_langs:
-                raise ValueError(f"`lang` ({lang}) is not a supported source language.")
+                raise ValueError(
+                    f"`lang` must be a supported source language, but is '{lang}' instead."
+                )
         elif mode == "target":
             if not lang:
                 lang = self.default_tgt_lang
 
             if lang not in self.tgt_langs:
-                raise ValueError(f"`lang` ({lang}) is not a supported target language.")
+                raise ValueError(
+                    f"`lang` must be a supported target language, but is '{lang}' instead."
+                )
         else:
-            raise ValueError(f"`mode` ('{mode}') must be 'source' or 'target'")
+            raise ValueError(
+                f"`mode` must be 'source' or 'target', but is '{mode}' instead."
+            )
 
         return SentencePieceEncoder(
             self.model,

@@ -33,7 +33,7 @@ class TestModuleList:
 
         assert count == len(modules)
 
-    def test_iter_returns_all_modules_when_eval(self) -> None:
+    def test_iter_returns_all_modules_in_eval(self) -> None:
         modules = [Linear(10, 10), Linear(10, 10), Linear(10, 10), Linear(10, 10)]
 
         m = ModuleList(modules, drop_p=1.0)

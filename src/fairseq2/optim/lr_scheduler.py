@@ -226,7 +226,9 @@ class PolynomialDecayLR(LRSchedulerBase):
             If ``True``, prints a message to stdout for each update.
         """
         if num_warmup_steps >= num_steps:
-            raise ValueError("`num_warmup_steps` must be less than `num_steps`.")
+            raise ValueError(
+                f"`num_warmup_steps` must be less than `num_steps` ({num_steps}), but is {num_warmup_steps} instead."
+            )
 
         self.num_steps = num_steps
         self.num_warmup_steps = num_warmup_steps
@@ -407,7 +409,7 @@ def _get_per_param_group(
 
     if len(value) != num_param_groups:
         raise ValueError(
-            f"The length of `{name}` ({len(value)}) does not match the number of parameter groups ({num_param_groups})."
+            f"The length of `{name}` must be equal to the number of parameter groups ({num_param_groups}), but is {len(value)} instead."
         )
 
     return value

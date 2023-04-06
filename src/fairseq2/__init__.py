@@ -20,7 +20,7 @@ tbb._load()
 from pathlib import Path
 from typing import Optional, Tuple
 
-import fairseq2.C as C  # type: ignore[import]
+from fairseq2 import C  # type: ignore[attr-defined]
 
 
 def supports_cuda() -> bool:
