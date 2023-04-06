@@ -13,9 +13,7 @@ FRA = "Lundi, des scientifiques de l'École de médecine de l'Université de Sta
 
 
 def test_load_dense_distill_600m() -> None:
-    model, tokenizer = load_nllb_model(
-        "nllb_dense_distill_600m", device=device, progress=False
-    )
+    model, tokenizer = load_nllb_model("nllb_dense_distill_600m", device=device)
 
     model.eval()
 

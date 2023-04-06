@@ -156,7 +156,7 @@ setup(
     ],
     package_dir={"": "src"},
     packages=find_packages(where="src"),
-    package_data={"": ["py.typed", "*.pyi"]},
+    package_data={"": ["py.typed", "*.pyi", "assets/cards/*.yaml"]},
     zip_safe=False,
     python_requires=">=3.8",
     install_requires=[

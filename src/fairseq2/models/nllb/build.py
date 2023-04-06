@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Final, Optional
+from typing import AbstractSet, Final, Optional
 
 import torch
 from overrides import override
@@ -22,7 +22,7 @@ from fairseq2.nn.transformer import (
 )
 
 _CONFIGS: Final = {
-    "1b": lambda: TransformerConfig(
+    "dense_1b": lambda: TransformerConfig(
         model_dim=1024,
         num_enc_layers=24,
         num_dec_layers=24,
@@ -33,7 +33,7 @@ _CONFIGS: Final = {
         norm_order=TransformerNormOrder.PRE,
         legacy_pos_embed=True,
     ),
-    "3b": lambda: TransformerConfig(
+    "dense_3b": lambda: TransformerConfig(
         model_dim=2048,
         num_enc_layers=24,
         num_dec_layers=24,
@@ -44,7 +44,7 @@ _CONFIGS: Final = {
         norm_order=TransformerNormOrder.PRE,
         legacy_pos_embed=True,
     ),
-    "600m": lambda: TransformerConfig(
+    "dense_600m": lambda: TransformerConfig(
         model_dim=1024,
         num_enc_layers=12,
         num_dec_layers=12,
@@ -58,6 +58,11 @@ _CONFIGS: Final = {
 }
 
 
+def get_nllb_archs() -> AbstractSet[str]:
+    """Return the names of supported NLLB architectures."""
+    return _CONFIGS.keys()
+
+
 def get_nllb_config(arch_name: str) -> TransformerConfig:
     """Return the configuration of the specified NLLB architecture.
 
@@ -67,7 +72,9 @@ def get_nllb_config(arch_name: str) -> TransformerConfig:
     try:
         return _CONFIGS[arch_name]()
     except KeyError:
-        raise ValueError(f"{arch_name} is not a known NLLB architecture.")
+        raise ValueError(
+            f"`arch_name` must be a known NLLB architecture, but is '{arch_name}' instead."
+        )
 
 
 def create_nllb_model(

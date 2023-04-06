@@ -6,9 +6,10 @@ import torch
 
 import fairseq2.generate
 import fairseq2.nn
+from fairseq2.assets import global_asset_store
 from fairseq2.compat.models.transformer import load_fairseq1_checkpoint
 from fairseq2.data.text import Tokenizer
-from fairseq2.models.nllb import load_nllb_tokenizer
+from fairseq2.models.nllb import NllbLoader
 from fairseq2.models.transformer import TransformerConfig, create_transformer_model
 from tests.common import assert_close, assert_equal, device
 
@@ -22,7 +23,9 @@ FRA_5 = "Lundi, des scientifiques de l'École de médecine de l'Université de S
 
 @pytest.mark.skipif(not NLLB_MODELS.exists(), reason="needs to run on FAIR cluster")
 def test_loading_nllb200_small(tmp_path: Path) -> None:
-    tokenizer1 = load_nllb_tokenizer("dense_distill_600m")
+    card = global_asset_store.retrieve_card("nllb_dense_distill_600m")
+
+    tokenizer1 = NllbLoader(card).load_tokenizer()
 
     # Load fairseq checkpoint into fairseq2
     model1, cfg1 = load_fairseq1_checkpoint(NLLB_SMALL, tokenizer1.vocab_info, device)

@@ -23,7 +23,7 @@ from fairseq2.data.typing import PathLike
 
 @final
 class NllbTokenizer(Tokenizer):
-    """Represents the tokenizer used by the NLLB models."""
+    """Represents the tokenizer used by NLLB models."""
 
     model: SentencePieceModel
     langs: Set[str]
@@ -40,7 +40,7 @@ class NllbTokenizer(Tokenizer):
         :param default_lang:
             The fall-back language if no language is specified.
         """
-        # Each language is represented by a __<lang>__ token.
+        # Each language is represented by a __lang__ control token.
         control_tokens = [f"__{lang}__" for lang in langs]
 
         # Internal control tokens that are not relevant for public use.
@@ -96,13 +96,15 @@ class NllbTokenizer(Tokenizer):
             If ``True``, disables parallelism and uses the calling thread only.
         """
         if task and task != "translation":
-            raise ValueError(f"`task` ('{task}') must be 'translation'.")
+            raise ValueError(f"`task` must be 'translation', but is '{task}' instead.")
 
-        # If not specified, we fall back to English.
         if not lang:
             lang = self.default_lang
-        elif lang not in self.langs:
-            raise ValueError(f"`lang` ({lang}) is not a supported language.")
+
+        if lang not in self.langs:
+            raise ValueError(
+                f"`lang` must be a supported language, but is '{lang}' instead."
+            )
 
         if not mode or mode == "source":
             # NLLB models expect a language token in place of BOS in source
@@ -115,7 +117,9 @@ class NllbTokenizer(Tokenizer):
             prefix_tokens = ["</s>", f"__{lang}__"]
             suffix_tokens = []
         else:
-            raise ValueError(f"`mode` ('{mode}') must be 'source' or 'target'")
+            raise ValueError(
+                f"`mode` must be 'source' or 'target', but is '{mode}' instead."
+            )
 
         return SentencePieceEncoder(
             self.model,
