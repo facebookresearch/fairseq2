@@ -23,7 +23,7 @@ from tqdm import tqdm  # type: ignore[import]
 from fairseq2.assets.error import AssetError
 
 
-class AssetDownloader(ABC):
+class AssetDownloadManager(ABC):
     @abstractmethod
     def download_checkpoint(
         self,
@@ -32,6 +32,7 @@ class AssetDownloader(ABC):
         checkpoint_name: Optional[str] = None,
         shard_idx: Optional[int] = None,
         force: bool = False,
+        progress: bool = True,
     ) -> Path:
         """Download the checkpoint at ``uri`` to the asset cache directory.
 
@@ -44,7 +45,9 @@ class AssetDownloader(ABC):
         :param shard_idx:
             The shard to download if the checkpoint is sharded.
         :param force:
-            If ``True``, downloads even if the checkpoint is already in cache.
+            If ``True``, downloads the checkpoint even if it is already in cache.
+        :param progress:
+            If ``True``, displays a progress bar to stderr.
 
         :returns:
             The pathname of the downloaded checkpoint.
@@ -57,6 +60,7 @@ class AssetDownloader(ABC):
         model_name: str,
         tokenizer_name: Optional[str] = None,
         force: bool = False,
+        progress: bool = True,
     ) -> Path:
         """Download the tokenizer at ``uri`` to the asset cache directory.
 
@@ -68,6 +72,8 @@ class AssetDownloader(ABC):
             The name of the tokenizer.
         :param force:
             If ``True``, downloads the tokenizer even if it is already in cache.
+        :param progress:
+            If ``True``, displays a progress bar to stderr.
 
         :returns:
             The pathname of the downloaded tokenizer.
@@ -75,16 +81,7 @@ class AssetDownloader(ABC):
 
 
 @final
-class DefaultAssetDownloader(AssetDownloader):
-    progress: bool
-
-    def __init__(self, progress: bool = True) -> None:
-        """
-        :param progress:
-            If ``True``, displays a progress bar to stderr.
-        """
-        self.progress = progress
-
+class DefaultAssetDownloadManager(AssetDownloadManager):
     @finaloverride
     def download_checkpoint(
         self,
@@ -93,6 +90,7 @@ class DefaultAssetDownloader(AssetDownloader):
         checkpoint_name: Optional[str] = None,
         shard_idx: Optional[int] = None,
         force: bool = False,
+        progress: bool = True,
     ) -> Path:
         if shard_idx is not None:
             formatted_uri = uri.format(shard_idx)
@@ -116,9 +114,9 @@ class DefaultAssetDownloader(AssetDownloader):
         if shard_idx is not None:
             display_name = f"{display_name} (shard {shard_idx})"
 
-        pathname = self._get_pathname_in_cache(uri, sub_dir="checkpoints")
+        pathname = self._get_pathname(uri, sub_dir="checkpoints")
 
-        self._download_file(uri, pathname, display_name, force)
+        self._download_file(uri, pathname, display_name, force, progress)
 
         return pathname
 
@@ -129,6 +127,7 @@ class DefaultAssetDownloader(AssetDownloader):
         model_name: str,
         tokenizer_name: Optional[str] = None,
         force: bool = False,
+        progress: bool = True,
     ) -> Path:
         pathname = self._try_as_pathname(uri)
         if pathname:
@@ -139,9 +138,9 @@ class DefaultAssetDownloader(AssetDownloader):
         else:
             display_name = f"'{tokenizer_name}' tokenizer of the model '{model_name}'"
 
-        pathname = self._get_pathname_in_cache(uri, sub_dir="tokenizers")
+        pathname = self._get_pathname(uri, sub_dir="tokenizers")
 
-        self._download_file(uri, pathname, display_name, force)
+        self._download_file(uri, pathname, display_name, force, progress)
 
         return pathname
 
@@ -153,7 +152,7 @@ class DefaultAssetDownloader(AssetDownloader):
         return None
 
     @classmethod
-    def _get_pathname_in_cache(cls, uri: str, sub_dir: str) -> Path:
+    def _get_pathname(cls, uri: str, sub_dir: str) -> Path:
         hub_dir = Path(torch.hub.get_dir()).expanduser()
 
         hsh = cls._get_uri_hash(uri)
@@ -186,7 +185,7 @@ class DefaultAssetDownloader(AssetDownloader):
         return filename
 
     def _download_file(
-        self, uri: str, pathname: Path, display_name: str, force: bool
+        self, uri: str, pathname: Path, display_name: str, force: bool, progress: bool
     ) -> None:
         def raise_connection_error(cause: HTTPError) -> NoReturn:
             if cause.code == 404 or cause.code >= 500:
@@ -200,7 +199,7 @@ class DefaultAssetDownloader(AssetDownloader):
             # Touch the file so that we can maintain an LRU list for cache cleanup.
             pathname.touch()
 
-            if self.progress:
+            if progress:
                 _print_progress(
                     f"Using the cached {display_name}. Set `force=True` to download again."
                 )
@@ -215,7 +214,7 @@ class DefaultAssetDownloader(AssetDownloader):
                     f"The creation of the asset cache directory for the URI '{uri}' has failed."
                 ) from ex
 
-        if self.progress:
+        if progress:
             _print_progress(f"Downloading the {display_name}...")
 
         try:
@@ -236,7 +235,7 @@ class DefaultAssetDownloader(AssetDownloader):
 
                 with tqdm(
                     total=size,
-                    disable=not self.progress,
+                    disable=not progress,
                     unit="B",
                     unit_scale=True,
                     unit_divisor=1024,

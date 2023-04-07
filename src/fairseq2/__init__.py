@@ -21,6 +21,9 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 from fairseq2 import C  # type: ignore[attr-defined]
+from fairseq2 import services
+
+services.init()
 
 
 def supports_cuda() -> bool:

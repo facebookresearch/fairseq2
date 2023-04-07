@@ -10,12 +10,8 @@ from zipfile import ZipFile
 import torch
 from torch.serialization import MAP_LOCATION
 
-from fairseq2.assets import (
-    AssetCard,
-    AssetDownloader,
-    global_asset_downloader,
-    global_asset_store,
-)
+from fairseq2 import services
+from fairseq2.assets import AssetCard, AssetDownloadManager, AssetStore
 from fairseq2.models.s2t_transformer.build import (
     create_s2t_transformer_model,
     get_s2t_transformer_archs,
@@ -27,7 +23,7 @@ from fairseq2.models.utils.load import load_checkpoint, upgrade_fairseq_checkpoi
 
 
 def load_s2t_transformer_model(
-    model_name: str, device: Optional[torch.device] = None, force: bool = False
+    model_name: str, device: Optional[torch.device] = None, progress: bool = True
 ) -> Tuple[S2TTransformerModel, S2TTransformerTokenizer]:
     """Load the specified S2T Transformer model.
 
@@ -35,47 +31,45 @@ def load_s2t_transformer_model(
         The name of the model.
     :param device:
         The device on which to initialize the model.
-    :param force:
-        If ``True``, downloads the model assets even if they are already in
-        cache.
+    :param progress:
+        If ``True``, displays a progress bar to stderr.
 
     :returns:
         The model and its associated tokenizer.
     """
-    card = global_asset_store.retrieve_card(model_name)
+    card = services.get(AssetStore).retrieve_card(model_name)
 
-    loader = S2TTransformerLoader(card, global_asset_downloader, force)
-
-    return loader.load_model(device=device)
+    return S2TTransformerLoader(card, progress=progress).load_model(device=device)
 
 
 class S2TTransformerLoader:
     """Loads a specified S2T Transformer model."""
 
     card: AssetCard
-    downloader: AssetDownloader
+    download_manager: AssetDownloadManager
     force: bool
+    progress: bool
 
     def __init__(
-        self,
-        card: AssetCard,
-        downloader: Optional[AssetDownloader] = None,
-        force: bool = False,
+        self, card: AssetCard, force: bool = False, progress: bool = True
     ) -> None:
         """
         :param card:
             The asset card of the model.
-        :param downloader:
-            The asset downloader.
         :param force:
             If ``True``, downloads the model assets even if they are already in
             cache.
+        :param progress:
+            If ``True``, displays a progress bar to stderr.
         """
         card.field("model_type").check_equals("s2t_transformer")
 
         self.card = card
-        self.downloader = downloader or global_asset_downloader
+
+        self.download_manager = services.get(AssetDownloadManager)
+
         self.force = force
+        self.progress = progress
 
     def load_model(
         self, device: Optional[torch.device] = None
@@ -113,8 +107,8 @@ class S2TTransformerLoader:
         """
         uri = self.card.field("checkpoint").as_uri()
 
-        pathname = self.downloader.download_checkpoint(
-            uri, self.card.name, force=self.force
+        pathname = self.download_manager.download_checkpoint(
+            uri, self.card.name, force=self.force, progress=self.progress
         )
 
         return load_checkpoint(
@@ -128,8 +122,8 @@ class S2TTransformerLoader:
         """Load the tokenizer of the S2T Transformer model."""
         uri = self.card.field("tokenizer").as_uri()
 
-        zip_pathname = self.downloader.download_tokenizer(
-            uri, self.card.name, force=self.force
+        zip_pathname = self.download_manager.download_tokenizer(
+            uri, self.card.name, force=self.force, progress=self.progress
         )
 
         filename = self.card.field("tokenizer_file").as_filename()

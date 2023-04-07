@@ -9,12 +9,8 @@ from typing import Any, Dict, Mapping, Optional, Tuple
 import torch
 from torch.serialization import MAP_LOCATION
 
-from fairseq2.assets import (
-    AssetCard,
-    AssetDownloader,
-    global_asset_downloader,
-    global_asset_store,
-)
+from fairseq2 import services
+from fairseq2.assets import AssetCard, AssetDownloadManager, AssetStore
 from fairseq2.models.nllb.build import (
     create_nllb_model,
     get_nllb_archs,
@@ -26,7 +22,7 @@ from fairseq2.models.utils.load import load_checkpoint, upgrade_fairseq_checkpoi
 
 
 def load_nllb_model(
-    model_name: str, device: Optional[torch.device] = None, force: bool = False
+    model_name: str, device: Optional[torch.device] = None, progress: bool = True
 ) -> Tuple[TransformerModel, NllbTokenizer]:
     """Load the specified NLLB model.
 
@@ -34,47 +30,45 @@ def load_nllb_model(
         The name of the model.
     :param device:
         The device on which to initialize the model.
-    :param force:
-        If ``True``, downloads the model assets even if they are already in
-        cache.
+    :param progress:
+        If ``True``, displays a progress bar to stderr.
 
     :returns:
         The model and its associated tokenizer.
     """
-    card = global_asset_store.retrieve_card(model_name)
+    card = services.get(AssetStore).retrieve_card(model_name)
 
-    loader = NllbLoader(card, global_asset_downloader, force)
-
-    return loader.load_model(device=device)
+    return NllbLoader(card, progress=progress).load_model(device=device)
 
 
 class NllbLoader:
     """Loads a specified NLLB model."""
 
     card: AssetCard
-    downloader: AssetDownloader
+    download_manager: AssetDownloadManager
     force: bool
+    progress: bool
 
     def __init__(
-        self,
-        card: AssetCard,
-        downloader: Optional[AssetDownloader] = None,
-        force: bool = False,
+        self, card: AssetCard, force: bool = False, progress: bool = True
     ) -> None:
         """
         :param card:
             The asset card of the model.
-        :param downloader:
-            The asset downloader.
         :param force:
             If ``True``, downloads the model assets even if they are already in
             cache.
+        :param progress:
+            If ``True``, displays a progress bar to stderr.
         """
         card.field("model_type").check_equals("nllb")
 
         self.card = card
-        self.downloader = downloader or global_asset_downloader
+
+        self.download_manager = services.get(AssetDownloadManager)
+
         self.force = force
+        self.progress = progress
 
     def load_model(
         self, device: Optional[torch.device] = None
@@ -112,8 +106,8 @@ class NllbLoader:
         """
         uri = self.card.field("checkpoint").as_uri()
 
-        pathname = self.downloader.download_checkpoint(
-            uri, self.card.name, force=self.force
+        pathname = self.download_manager.download_checkpoint(
+            uri, self.card.name, force=self.force, progress=self.progress
         )
 
         return load_checkpoint(
@@ -127,8 +121,8 @@ class NllbLoader:
         """Load the tokenizer of the NLLB model."""
         uri = self.card.field("tokenizer").as_uri()
 
-        pathname = self.downloader.download_tokenizer(
-            uri, self.card.name, force=self.force
+        pathname = self.download_manager.download_tokenizer(
+            uri, self.card.name, force=self.force, progress=self.progress
         )
 
         langs = self.card.field("langs").as_list(str)

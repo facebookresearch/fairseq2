@@ -6,6 +6,7 @@
 
 from pathlib import Path
 
+from fairseq2 import services
 from fairseq2.assets.card import AssetCard as AssetCard
 from fairseq2.assets.card import AssetCardError as AssetCardError
 from fairseq2.assets.card import (
@@ -16,26 +17,23 @@ from fairseq2.assets.card_storage import (
 )
 from fairseq2.assets.card_storage import AssetCardStorage as AssetCardStorage
 from fairseq2.assets.card_storage import LocalAssetCardStorage as LocalAssetCardStorage
-from fairseq2.assets.downloader import AssetDownloader as AssetDownloader
-from fairseq2.assets.downloader import AssetDownloadError as AssetDownloadError
-from fairseq2.assets.downloader import DefaultAssetDownloader as DefaultAssetDownloader
+from fairseq2.assets.download_manager import AssetDownloadError as AssetDownloadError
+from fairseq2.assets.download_manager import (
+    AssetDownloadManager as AssetDownloadManager,
+)
+from fairseq2.assets.download_manager import (
+    DefaultAssetDownloadManager as DefaultAssetDownloadManager,
+)
 from fairseq2.assets.error import AssetError as AssetError
 from fairseq2.assets.store import AssetStore as AssetStore
 from fairseq2.assets.store import DefaultAssetStore as DefaultAssetStore
 
 
-def _create_asset_store() -> AssetStore:
+def init_services() -> None:
     pathname = Path(__file__).parent.joinpath("cards")
 
     card_storage = LocalAssetCardStorage(pathname)
 
-    return DefaultAssetStore(card_storage)
+    services.set(DefaultAssetStore(card_storage), AssetStore)
 
-
-def _create_asset_downloader() -> AssetDownloader:
-    return DefaultAssetDownloader(progress=True)
-
-
-global_asset_store = _create_asset_store()
-
-global_asset_downloader = _create_asset_downloader()
+    services.set(DefaultAssetDownloadManager(), AssetDownloadManager)
