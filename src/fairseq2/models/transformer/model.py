@@ -223,7 +223,7 @@ class TransformerModel(Module):
         """
         embeds, padding_mask = self.encoder_frontend(token_indices)
 
-        x = self.encoder(embeds)
+        x = self.encoder(embeds, padding_mask)
 
         return x, padding_mask
 

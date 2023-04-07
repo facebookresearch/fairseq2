@@ -125,9 +125,7 @@ class TransformerFbankFrontend(Module):
         if self.dropout_p > 0.0:
             embeds = F.dropout(embeds, self.dropout_p, self.training)
 
-        padding_mask = to_padding_mask(
-            seq_lens, max_seq_len=embeds.size(0 if embeds.dim() == 2 else 1)
-        )
+        padding_mask = to_padding_mask(seq_lens, max_seq_len=embeds.size(-2))
 
         return embeds, padding_mask
 
@@ -232,7 +230,7 @@ class S2TTransformerModel(Module):
         """
         embeds, padding_mask = self.encoder_frontend(fbanks, num_frames)
 
-        x = self.encoder(embeds)
+        x = self.encoder(embeds, padding_mask)
 
         return x, padding_mask
 

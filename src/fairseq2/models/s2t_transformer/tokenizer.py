@@ -91,13 +91,13 @@ class S2TTransformerTokenizer(Tokenizer):
 
         # For multilingual speech translation we prepend the language token.
         if self.task == "translation" and len(self.tgt_langs) > 1:
-            suffix_tokens = [f"<lang:{lang}>"]
+            prefix_tokens = ["</s>", f"<lang:{lang}>"]
         else:
-            suffix_tokens = None
+            prefix_tokens = ["</s>"]
 
         return SentencePieceEncoder(
             self.model,
-            suffix_tokens=suffix_tokens,
+            prefix_tokens=prefix_tokens,
             batch_size=batch_size,
             device=device,
             pin_memory=pin_memory,

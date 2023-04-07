@@ -118,15 +118,15 @@ class Conv1dFbankSubsampler(FbankSubsampler):
         # Apply the convolution along the temporal dimension (i.e. along the
         # sequence).
         # (N, F, C) -> (N, C, F)
-        x = fbanks.transpose(1, 2)
+        x = fbanks.transpose(-1, -2)
 
         for conv in self.convs:
             x = conv(x)
 
-            x = F.glu(x, dim=1)
+            x = F.glu(x, dim=-2)
 
         # (N, E, F), -> (N, F, E)
-        x = x.transpose(1, 2)
+        x = x.transpose(-1, -2)
 
         # Since we contracted the temporal dimension, we should re-compute the
         # sequence lengths.

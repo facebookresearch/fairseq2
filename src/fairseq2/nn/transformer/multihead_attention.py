@@ -517,6 +517,9 @@ class StandardMultiheadAttention(MultiheadAttention):
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
         if padding_mask is not None:
+            if padding_mask.dim() == 1:
+                padding_mask = padding_mask.unsqueeze(0)
+
             padding_mask = to_float_mask(padding_mask, dtype=keys.dtype)
 
         # (*, M) -> (N, S, K_proj)

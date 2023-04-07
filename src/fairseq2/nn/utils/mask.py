@@ -48,6 +48,8 @@ def to_padding_mask(seq_lens: Tensor, max_seq_len: int) -> Tensor:
         at the same index in the corresponding mini-batch. *Shape:* :math:`(N)`,
         :math:`(N,1)`, or :math:`()` when unbatched, where :math:`N` is the
         batch size.
+    :param max_seq_len:
+        The sequence length of the returned padding mask.
 
     :returns:
         The padding mask. *Shape:* :math:`(N,S)`, or :math:`(S)` when unbatched,

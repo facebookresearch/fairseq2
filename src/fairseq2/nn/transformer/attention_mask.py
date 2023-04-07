@@ -70,10 +70,7 @@ class CausalAttentionMaskGenerator:
         """
         mask = self._cached_attn_mask
 
-        if x.dim() == 2:
-            seq_len = x.size(0)
-        else:
-            seq_len = x.size(1)
+        seq_len = x.size(-2)
 
         if mask is None or mask.device != x.device or mask.size(0) < seq_len:
             mask = x.new_full([seq_len, seq_len], _neg_inf)
@@ -131,10 +128,7 @@ class ALiBiAttentionMaskGenerator:
         """
         mask = self._cached_attn_mask
 
-        if x.dim() == 2:
-            seq_len = x.size(0)
-        else:
-            seq_len = x.size(1)
+        seq_len = x.size(-2)
 
         if mask is None or mask.device != x.device or mask.size(-2) < seq_len:
             slopes = self.get_slopes(self.num_heads)

@@ -53,26 +53,17 @@ class PositionalEmbedding(Module, ABC):
             The embeddings with added positional embeddings. *Shape:* Same as
             ``embed``.
         """
-        embed_dim = embed.dim()
-
-        if embed_dim == 2:
-            embed = embed.unsqueeze(0)
-        elif embed_dim != 3:
+        if (embed_dim := embed.dim()) != 2 and embed_dim != 3:
             raise ValueError(
                 f"The number of dimensions of `embed` must be 2 or 3, but is {embed_dim} instead."
             )
 
-        if (seq_len := embed.size(1)) > self.max_seq_len:
+        if (seq_len := embed.size(-2)) > self.max_seq_len:
             raise ValueError(
                 f"The input sequence length must be less than or equal to the maximum sequence length ({self.max_seq_len}), but is {seq_len} instead."
             )
 
-        embed = self._do_forward(embed, state_bag)
-
-        if embed_dim == 2:
-            embed = embed.squeeze(0)
-
-        return embed
+        return self._do_forward(embed, state_bag)
 
     @abstractmethod
     def _do_forward(
@@ -204,7 +195,7 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
         self, embed: Tensor, state_bag: Optional[IncrementalStateBag]
     ) -> Tensor:
         """:meta private:"""
-        bsz, seq_len = embed.shape[:2]
+        seq_len = embed.size(-2)
 
         if not self.training and state_bag is not None:
             start_step = state_bag.step
@@ -264,7 +255,7 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
         self, embed: Tensor, state_bag: Optional[IncrementalStateBag]
     ) -> Tensor:
         """:meta private:"""
-        bsz, seq_len = embed.shape[:2]
+        seq_len = embed.size(-2)
 
         if not self.training and state_bag is not None:
             start_step = state_bag.step
@@ -334,7 +325,7 @@ class RotaryEmbedding(PositionalEmbedding):
         self, embed: Tensor, state_bag: Optional[IncrementalStateBag]
     ) -> Tensor:
         """:meta private:"""
-        seq_len = embed.size(1)
+        seq_len = embed.size(-2)
 
         if not self.training and state_bag is not None:
             start_step = state_bag.step
@@ -350,7 +341,7 @@ class RotaryEmbedding(PositionalEmbedding):
 
     @staticmethod
     def _swap_pairs(x: Tensor) -> Tensor:
-        x1 = x[:, :, 0::2]
-        x2 = x[:, :, 1::2]
+        x1 = x[..., 0::2]
+        x2 = x[..., 1::2]
 
         return torch.stack((-x2, x1), dim=-1).reshape(x.shape)
