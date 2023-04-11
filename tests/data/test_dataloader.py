@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from pathlib import Path
+from typing import Any, List
 
 import pytest
 import torch
@@ -17,14 +18,23 @@ FILE_LINES = FILE.read_text().splitlines()
 
 def test_read_text() -> None:
     dataloader = fairseq2.data.text.read_text(FILE, rtrim=True).and_return()
+    assert_eq_twice(dataloader, FILE_LINES)
 
-    dataset = list(iter(dataloader))
-    assert dataset == FILE_LINES
 
-    dataloader.reset()
-    # Try another epoch
-    dataset = list(iter(dataloader))
-    assert dataset == FILE_LINES
+def test_read_text_skip_empty() -> None:
+    dataloader = fairseq2.data.text.read_text(
+        FILE, rtrim=True, skip_empty=True
+    ).and_return()
+    ACTUAL_LINES = [l for l in FILE_LINES if l]
+    assert_eq_twice(dataloader, ACTUAL_LINES)
+
+
+def test_read_text_skip_header() -> None:
+    dataloader = fairseq2.data.text.read_text(
+        FILE, rtrim=True, skip_header=5
+    ).and_return()
+
+    assert_eq_twice(dataloader, FILE_LINES[5:])
 
 
 def test_state_dict(tmp_path: Path) -> None:
@@ -60,8 +70,7 @@ def test_batch() -> None:
 
 def test_read_sequence() -> None:
     dataloader = fairseq2.data.read_sequence(list(range(10))).and_return()
-    data = list(iter(dataloader))
-    assert list(data) == list(range(10))
+    assert_eq_twice(dataloader, list(range(10)))
 
 
 def test_batch_by_length() -> None:
@@ -72,15 +81,17 @@ def test_batch_by_length() -> None:
         # We want batches of 4 one-length elements
         # and batches of 3 seven-length elements
         .batch_by_length([(4, 1), (3, 7)], 0)
+        .map(lambda x: x.tolist())
         .and_return()
     )
-    dataset = [x.tolist() for x in iter(dataloader)]
-
-    assert dataset == [
-        [[1], [1], [1], [1]],
-        [[5, 5, 5, 5, 5, 0, 0], [6, 6, 6, 6, 6, 6, 0], [7, 7, 7, 7, 7, 7, 7]],
-        [[1], [1]],
-    ]
+    assert_eq_twice(
+        dataloader,
+        [
+            [[1], [1], [1], [1]],
+            [[5, 5, 5, 5, 5, 0, 0], [6, 6, 6, 6, 6, 6, 0], [7, 7, 7, 7, 7, 7, 7]],
+            [[1], [1]],
+        ],
+    )
 
 
 def test_batch_by_length_2D() -> None:
@@ -92,8 +103,8 @@ def test_batch_by_length_2D() -> None:
         .map(lambda t: t.shape)
         .and_return()
     )
-    dataset = [x for x in dataloader]
-    assert dataset == [[4, 1, 2], [3, 7, 2], [2, 1, 2]]
+
+    assert_eq_twice(dataloader, [[4, 1, 2], [3, 7, 2], [2, 1, 2]])
 
 
 @pytest.mark.xfail(reason="https://github.com/fairinternal/fairseq2/issues/267")
@@ -149,3 +160,42 @@ def test_batch_by_length_cant_shard() -> None:
         RuntimeError, match="you need to shard before calling 'batched_by_length'"
     ):
         next(iter(dataloader_batch_then_shard))
+
+
+@pytest.mark.parametrize("chunk_size", [1, 2, 4, 10])
+def test_map(chunk_size: int) -> None:
+    X = list(range(10))
+    X2 = [x**2 for x in X]
+
+    dataloader = (
+        fairseq2.data.read_sequence(X)
+        .map(lambda x: x**2, chunk_size=chunk_size)
+        .and_return()
+    )
+    assert_eq_twice(dataloader, X2)
+
+
+def test_map_handle_exceptions() -> None:
+    X = list(range(10))
+
+    def contrarian_square(x: int) -> int:
+        if x == 4:
+            raise RuntimeError("4 is already square enough")
+        return x**2
+
+    dataloader = (
+        fairseq2.data.read_sequence(X).map(contrarian_square, chunk_size=3).and_return()
+    )
+
+    with pytest.raises(RuntimeError, match="4 is already square enough"):
+        list(iter(dataloader))
+
+
+def assert_eq_twice(
+    dataloader: fairseq2.data.DataPipeline, expected: List[Any]
+) -> None:
+    # First epoch
+    assert list(iter(dataloader)) == expected
+    # Second epoch
+    dataloader.reset()
+    assert list(iter(dataloader)) == expected

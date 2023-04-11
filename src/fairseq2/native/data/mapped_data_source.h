@@ -18,9 +18,12 @@ namespace fairseq2::detail {
 class mapped_data_source final : public data_source {
 public:
     explicit
-    mapped_data_source(std::unique_ptr<data_source> &&inner, map_fn &&fn) noexcept
-        : inner_{std::move(inner)}, fn_{std::move(fn)}
-    {}
+    mapped_data_source(std::unique_ptr<data_source> &&inner, map_fn &&fn, std::size_t chunk_size) noexcept
+        : inner_{std::move(inner)}, fn_{std::move(fn)}, chunk_size_(chunk_size)
+    {
+        buffer_.reserve(chunk_size);
+        buffer_iter_ = buffer_.begin();
+    }
 
     std::optional<data>
     next() override;
@@ -38,8 +41,12 @@ public:
     reload_position(tape &t) override;
 
 private:
+    void map_at(std::size_t i);
     std::unique_ptr<data_source> inner_;
     map_fn fn_;
+    std::size_t chunk_size_;
+    std::vector<data> buffer_{};
+    std::vector<fairseq2::data>::iterator buffer_iter_;
 };
 
 }  // namespace fairseq2::detail

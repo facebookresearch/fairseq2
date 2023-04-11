@@ -147,11 +147,18 @@ def_data_pipeline(py::module_ &base)
             },
             py::arg("dp"))
         .def("map",
-            [](data_pipeline_builder &self, map_fn &&fn) -> decltype(auto)
+            [](data_pipeline_builder &self, map_fn &&fn, std::size_t chunk_size) -> decltype(auto)
             {
-                return self.map(std::move(fn));
+                return self.map(std::move(fn), chunk_size);
             },
-            py::arg("fn"))
+            py::arg("fn"),
+            py::arg("chunk_size") = 1)
+        .def("prefetch",
+            [](data_pipeline_builder &self, std::size_t num_examples) -> decltype(auto)
+            {
+                return self.prefetch(num_examples);
+            },
+            py::arg("num_examples"))
         .def("shard",
             [](data_pipeline_builder &self, std::size_t shard_idx, std::size_t num_shards) -> decltype(auto)
             {

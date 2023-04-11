@@ -18,6 +18,7 @@
 #include "fairseq2/native/data/yielded_data_source.h"
 #include "fairseq2/native/data/list_data_source.h"
 #include "fairseq2/native/data/mapped_data_source.h"
+#include "fairseq2/native/data/prefetched_data_source.h"
 #include "fairseq2/native/data/sharded_data_source.h"
 #include "fairseq2/native/data/tape.h"
 #include "fairseq2/native/data/zipped_data_source.h"
@@ -81,12 +82,16 @@ data_pipeline::reset()
     if (!src_)
         return;
 
-    try {
-        src_->reset();
-    } catch (...) {
-        is_broken_ = true;
+    {
+        py_gil_release no_gil{};
 
-        throw;
+        try {
+            src_->reset();
+        } catch (...) {
+            is_broken_ = true;
+
+            throw;
+        }
     }
 }
 
@@ -101,7 +106,11 @@ data_pipeline::record_position(tape &t) const
         if (!src_)
             return;
 
-        src_->record_position(t);
+        {
+            py_gil_release no_gil{};
+
+            src_->record_position(t);
+        }
     } else
         t.record(false);
 }
@@ -117,12 +126,16 @@ data_pipeline::reload_position(tape &t)
         if (!src_)
             return;
 
-        try {
-            src_->reload_position(t);
-        } catch (...) {
-            is_broken_ = true;
+        {
+            py_gil_release no_gil{};
 
-            throw;
+            try {
+                src_->reload_position(t);
+            } catch (...) {
+                is_broken_ = true;
+
+                throw;
+            }
         }
     } else
         reset();
@@ -215,7 +228,7 @@ data_pipeline_builder &
 data_pipeline_builder::map(map_fn fn) &
 {
     factory_ = [fn = std::move(fn), inner = std::move(factory_)]() mutable {
-        return std::make_unique<mapped_data_source>(inner(), std::move(fn));
+        return std::make_unique<mapped_data_source>(inner(), std::move(fn), 0);
     };
 
     return *this;
@@ -225,6 +238,44 @@ data_pipeline_builder &&
 data_pipeline_builder::map(map_fn fn) &&
 {
     map(std::move(fn));
+
+    return std::move(*this);
+}
+
+data_pipeline_builder &
+data_pipeline_builder::map(map_fn  fn, std::size_t chunk_size) &
+{
+    factory_ = [fn = std::move(fn), inner = std::move(factory_), chunk_size]() mutable {
+        return std::make_unique<mapped_data_source>(inner(), std::move(fn), chunk_size);
+    };
+
+    return *this;
+}
+
+data_pipeline_builder &&
+data_pipeline_builder::map(map_fn fn, std::size_t chunk_size) &&
+{
+    map(std::move(fn), chunk_size);
+
+    return std::move(*this);
+}
+
+data_pipeline_builder &
+data_pipeline_builder::prefetch(std::size_t num_examples) &
+{
+    if (num_examples > 0) {
+        factory_ = [=, inner = std::move(factory_)]() {
+            return std::make_unique<prefetched_data_source>(inner(), num_examples);
+        };
+    }
+
+    return *this;
+}
+
+data_pipeline_builder &&
+data_pipeline_builder::prefetch(std::size_t num_examples) &&
+{
+    prefetch(num_examples);
 
     return std::move(*this);
 }

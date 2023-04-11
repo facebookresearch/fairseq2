@@ -119,6 +119,18 @@ public:
     map(map_fn fn) &&;
 
     data_pipeline_builder &
+    map(map_fn fn, std::size_t chunk_size) &;
+
+    data_pipeline_builder &&
+    map(map_fn fn, std::size_t chunk_size) &&;
+
+    data_pipeline_builder &
+    prefetch(std::size_t num_examples) &;
+
+    data_pipeline_builder &&
+    prefetch(std::size_t num_examples) &&;
+
+    data_pipeline_builder &
     shard(std::size_t shard_idx, std::size_t num_shards) &;
 
     data_pipeline_builder &&

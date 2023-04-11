@@ -111,7 +111,7 @@ def build_data_pipeline(
     tgt_dp = build_lang_pipeline(split, tgt_lang, encoder)
 
     # And finally zip both language pipelines into one.
-    return zip_data_pipelines([src_dp, tgt_dp]).and_return()
+    return zip_data_pipelines([src_dp, tgt_dp]).prefetch(10).and_return()
 
 
 dp = build_data_pipeline(src_lang="en", tgt_lang="de", split="train")

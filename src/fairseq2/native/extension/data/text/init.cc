@@ -149,6 +149,7 @@ def_text(py::module_ &base)
            bool ltrim,
            bool rtrim,
            bool skip_empty,
+           std::size_t skip_header,
            bool memory_map,
            std::optional<std::size_t> block_size)
         {
@@ -158,6 +159,7 @@ def_text(py::module_ &base)
                 .ltrim(ltrim)
                 .rtrim(rtrim)
                 .skip_empty(skip_empty)
+                .skip_header(skip_header)
                 .memory_map(memory_map)
                 .block_size(block_size);
 
@@ -169,6 +171,7 @@ def_text(py::module_ &base)
         py::arg("ltrim")       = false,
         py::arg("rtrim")       = false,
         py::arg("skip_empty")  = false,
+        py::arg("skip_header") = 0,
         py::arg("memory_map")  = false,
         py::arg("block_size")  = std::nullopt);
 

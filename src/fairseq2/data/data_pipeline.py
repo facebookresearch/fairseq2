@@ -98,11 +98,22 @@ class DataPipelineBuilder:
         """
         return self
 
-    def map(self, fn: Callable[[Any], Any]) -> "DataPipelineBuilder":
+    def map(
+        self, fn: Callable[[Any], Any], chunk_size: int = 1
+    ) -> "DataPipelineBuilder":
         """Apply ``fn`` to every example in the data pipeline.
 
         :param fn:
             The function to apply.
+        """
+        return self
+
+    def prefetch(self, num_examples: int) -> "DataPipelineBuilder":
+        """Prefetch examples in the background while the current example is
+        being processed.
+
+        :param num_examples:
+            The number of examples to prefetch.
         """
         return self
 

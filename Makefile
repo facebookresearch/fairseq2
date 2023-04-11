@@ -1,7 +1,7 @@
 SHELL=bash
-VENV=./venv/bin/
-ACTIVATE_VENV=source $(VENV)activate
-CONDAENV=$$(basename $(CURDIR))
+CONDA_PREFIX?=./venv
+VENV?=$(CONDA_PREFIX)/bin/
+ACTIVATE_VENV=PATH=$(VENV):$$PATH
 PY_SRC=src/ examples/ tests/
 
 .PHONY: force
@@ -22,17 +22,24 @@ pylint:
 shlint:
 	./tools/linters/run-shellcheck.sh src/
 
-lint: pylint shlint
+cpplint:
+	run-clang-tidy -p build -config="{InheritParentConfig: true, WarningsAsErrors: '*'}" -quiet -extra-arg='-std=c++17' -fix
+
+lint: pylint shlint cpplint
 
 docs:
 	cd doc/ && make html SPHINXOPTS="-W"
 	cp VERSION doc/build/html
 
-build: venv
-	echo "Make sure you have CUDA binaries in your path by running 'module load cuda/11.6'"
-	nvcc --version
+build: deps build/src/fairseq2/native/libfairseq2.so
+
+deps:
 	$(VENV)pip install -r requirements-build.txt
 	git submodule update --init --recursive
+
+build/src/fairseq2/native/libfairseq2.so: .PHONY
+	# 	echo "Make sure you have CUDA binaries in your path by running 'module load cuda/11.6'"
+	# 	nvcc --version
 	# For Python tools, we can just fetch the executable from VENV,
 	# but for cmake, we need to explicitly activate the env.
 	$(ACTIVATE_VENV); cmake -GNinja -B build -DFAIRSEQ2_EDITABLE_PYTHON=ON -DCMAKE_BUILD_TYPE=Release
@@ -45,7 +52,9 @@ install: venv build .PHONY
 	$(VENV)python -c 'import fairseq2; print(f"fairseq2: {fairseq2.__version__}")'
 	# Fairseq2 has been installed in $(VENV)python!
 
-venv:
+venv: $(VENV)
+
+$(VENV):
 	python -m venv venv
 	$(VENV)pip install -U pip
 	$(VENV)pip install torch torchaudio --extra-index-url https://download.pytorch.org/whl/cu116
@@ -63,3 +72,9 @@ integration: check_fmt pylint integration_tests docs
 
 clean:
 	[ ! -e build/ ] || rm -r build/
+
+optview: .PHONY
+	# Shows missed optimization on our code
+	CC=clang CXX=/usr/bin/clang++ CXXFLAGS='-fsave-optimization-record' make clean build
+	$(VENV)python $(HOME)/github/optview2/opt-viewer.py build/src/fairseq2/native/CMakeFiles/fairseq2.dir/ --source-dir src/
+	firefox ./html/index.html

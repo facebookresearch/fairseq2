@@ -28,6 +28,7 @@ text_data_source::text_data_source(std::string &&pathname, text_options &&opts)
 {
     try {
         reader_ = make_text_line_reader();
+        skip(opts_.skip_header());
     } catch (const std::exception &) {
         handle_error();
     }
@@ -77,6 +78,7 @@ text_data_source::reset()
 {
     try {
         reader_->reset();
+        skip(opts_.skip_header());
     } catch (const std::exception &) {
         handle_error();
     }

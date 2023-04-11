@@ -27,6 +27,7 @@ target_sources(fairseq2
         data/list_data_source.cc
         data/mapped_data_source.cc
         data/memory_stream.cc
+        data/prefetched_data_source.cc
         data/record_reader.cc
         data/sharded_data_source.cc
         data/stream.cc
