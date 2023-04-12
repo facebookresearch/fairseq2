@@ -15,7 +15,7 @@ namespace pybind11::detail {
 namespace {
 
 object
-try_get_pathname(handle src) {
+try_as_pathname(handle src) {
     // Check if we have a path-like object.
     object fspath = getattr(src, "__fspath__", none());
 
@@ -40,7 +40,7 @@ type_caster<std::string>::load(handle src, bool convert)
 
         return true;
     } else {
-        object pathname = try_get_pathname(src);
+        object pathname = try_as_pathname(src);
 
         if (subcaster_.load(pathname, convert)) {
             value = static_cast<std::string &&>(std::move(subcaster_));
@@ -64,7 +64,7 @@ type_caster<std::string_view>::load(handle src, bool convert)
 
         return true;
     } else {
-        object pathname = try_get_pathname(src);
+        object pathname = try_as_pathname(src);
 
         if (subcaster_.load(pathname, convert)) {
             value = static_cast<std::string_view>(subcaster_);

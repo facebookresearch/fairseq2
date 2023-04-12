@@ -104,17 +104,6 @@ class TestCString:
 
         assert s1 == s2
 
-    def test_to_py_returns_python_str(self) -> None:
-        s = CString("schöne Grüße!")
-
-        r = s.to_py()
-
-        assert isinstance(r, str)
-
-        assert not isinstance(r, CString)
-
-        assert r == "schöne Grüße!"
-
     def test_hash_returns_same_value_with_each_call(self) -> None:
         s = CString("schöne Grüsse!")
 
@@ -122,6 +111,17 @@ class TestCString:
         h2 = hash(s)
 
         assert h1 == h2
+
+    def test_str_returns_python_str(self) -> None:
+        s = CString("schöne Grüße!")
+
+        r = str(s)
+
+        assert isinstance(r, str)
+
+        assert not isinstance(r, CString)
+
+        assert r == "schöne Grüße!"
 
     def test_repr_returns_quoted_string(self) -> None:
         s = CString("schöne Grüße!")

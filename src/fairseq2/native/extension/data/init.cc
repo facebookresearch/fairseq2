@@ -116,7 +116,7 @@ def_data_pipeline(py::module_ &base)
             py::arg("state_dict"),
             py::arg("strict") = true);
 
-    py::class_<data_pipeline_iterator>(m, "DataPipelineIterator")
+    py::class_<data_pipeline_iterator>(m, "_DataPipelineIterator")
         .def("__iter__",
             [](data_pipeline_iterator &self) -> data_pipeline_iterator &
             {
@@ -126,21 +126,26 @@ def_data_pipeline(py::module_ &base)
 
     py::class_<data_pipeline_builder>(m, "DataPipelineBuilder")
         .def("batch",
-            [](data_pipeline_builder &self, std::size_t batch_size, bool drop_remainder) -> decltype(auto)
+            [](data_pipeline_builder &self, std::size_t batch_size, bool drop_remainder)
+                -> data_pipeline_builder &
             {
                 return self.batch(batch_size, drop_remainder);
             },
             py::arg("batch_size"),
             py::arg("drop_remainder"))
         .def("batch_by_length",
-            [](data_pipeline_builder &self, std::vector<std::pair<std::size_t, std::size_t>>& buffer_sizes, std::int32_t pad_idx) -> decltype(auto)
+            [](
+                data_pipeline_builder &self,
+                std::vector<std::pair<std::size_t, std::size_t>> &buffer_sizes,
+                std::int32_t pad_idx
+            ) -> data_pipeline_builder &
             {
                 return self.batch_by_length(buffer_sizes, pad_idx);
             },
             py::arg("buffer_sizes"),
             py::arg("pad_idx"))
         .def("map",
-            [](data_pipeline_builder &self, const data_processor &dp) -> decltype(auto)
+            [](data_pipeline_builder &self, const data_processor &dp) -> data_pipeline_builder &
             {
                 auto fn = [nurse = py::cast(dp).cast<py_object>(), &dp](data &&d) {
                     return dp(std::move(d));
@@ -150,33 +155,35 @@ def_data_pipeline(py::module_ &base)
             },
             py::arg("dp"))
         .def("map",
-            [](data_pipeline_builder &self, map_fn &&fn, std::size_t chunk_size) -> decltype(auto)
+            [](data_pipeline_builder &self, map_fn &&fn, std::size_t chunk_size)
+                -> data_pipeline_builder &
             {
                 return self.map(std::move(fn), chunk_size);
             },
             py::arg("fn"),
             py::arg("chunk_size") = 1)
         .def("prefetch",
-            [](data_pipeline_builder &self, std::size_t num_examples) -> decltype(auto)
+            [](data_pipeline_builder &self, std::size_t num_examples) -> data_pipeline_builder &
             {
                 return self.prefetch(num_examples);
             },
             py::arg("num_examples"))
         .def("shard",
-            [](data_pipeline_builder &self, std::size_t shard_idx, std::size_t num_shards) -> decltype(auto)
+            [](data_pipeline_builder &self, std::size_t shard_idx, std::size_t num_shards)
+                -> data_pipeline_builder &
             {
                 return self.shard(shard_idx, num_shards);
             },
             py::arg("shard_idx"),
             py::arg("num_shards"))
         .def("yield_from",
-            [](data_pipeline_builder &self, yield_fn &&fn) -> decltype(auto)
+            [](data_pipeline_builder &self, yield_fn &&fn) -> data_pipeline_builder &
             {
                 return self.yield_from(std::move(fn));
             },
             py::arg("fn"))
         .def("and_return",
-            [](data_pipeline_builder &self)
+            [](data_pipeline_builder &self) -> data_pipeline
             {
                 return std::move(self).and_return();
             });
@@ -188,9 +195,10 @@ def_data_pipeline(py::module_ &base)
         m, "DataPipelineError", PyExc_RuntimeError};
 
     m.def("list_files", &list_files, py::arg("pathname"), py::arg("pattern") = std::nullopt);
-    m.def("read_zipped_records", &read_zipped_records, py::arg("pathname"));
 
     m.def("read_sequence", &read_list, py::arg("s"));
+
+    m.def("read_zipped_records", &read_zipped_records, py::arg("pathname"));
 
     m.def("zip_data_pipelines",
         [](std::vector<std::reference_wrapper<data_pipeline>> &zip)
@@ -338,6 +346,12 @@ def_string(py::module_ &base)
                 return fmt::format("CString('{}')", self);
             })
 
+        .def("bytes",
+            [](const immutable_string &self)
+            {
+                return py::bytes(static_cast<std::string_view>(self));
+            })
+
         .def("lstrip",
             [](const immutable_string &self)
             {
@@ -347,14 +361,6 @@ def_string(py::module_ &base)
             [](const immutable_string &self)
             {
                 return rtrim(self);
-            })
-        .def("to_py", &immutable_string::operator std::string_view,
-            R"(
-            Converts to str.
-            )")
-        .def("bytes", [](const immutable_string &self)
-            {
-                return py::bytes(static_cast<std::string_view>(self));
             })
 
         .def(py::pickle(

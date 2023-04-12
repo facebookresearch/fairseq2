@@ -177,8 +177,7 @@ private:
 template <typename T>
 basic_memory_block<T>::basic_memory_block(
     pointer data, size_type size, void *ctx, memory_deallocator d
-)
-    : data_{data}, size_{size}
+) : data_{data}, size_{size}
 {
     if (size_ > 0) {
         // As a contract, we take the ownership of `data`. This means we have to
