@@ -19,6 +19,7 @@
 
 #include <fmt/core.h>
 
+#include <fairseq2/native/data/zipfile_data_source.h>
 #include <fairseq2/native/data/data.h>
 #include <fairseq2/native/data/data_pipeline.h>
 #include <fairseq2/native/data/data_processor.h>
@@ -185,6 +186,7 @@ def_data_pipeline(py::module_ &base)
         m, "DataPipelineError", PyExc_RuntimeError};
 
     m.def("list_files", &list_files, py::arg("pathname"), py::arg("pattern") = std::nullopt);
+    m.def("read_zipped_records", &read_zipped_records, py::arg("pathname"));
 
     m.def("read_sequence", &read_list, py::arg("s"));
 
@@ -286,6 +288,10 @@ def_string(py::module_ &base)
             R"(
             Converts to str.
             )")
+        .def("bytes", [](const immutable_string &self)
+            {
+                return py::bytes(static_cast<std::string_view>(self));
+            })
 
         .def(py::pickle(
             [](const immutable_string &self)

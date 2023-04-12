@@ -18,4 +18,15 @@ macro(fairseq2_add_zip)
 
         unset(tmp)
     endif()
+
+    if(NOT TARGET kuba-zip)
+        add_library(kuba-zip INTERFACE)
+
+        target_link_libraries(kuba-zip INTERFACE zip::zip)
+
+        target_include_directories(kuba-zip SYSTEM
+            INTERFACE
+                ${PROJECT_SOURCE_DIR}/third-party/zip/src
+        )
+    endif()
 endmacro()

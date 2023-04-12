@@ -33,6 +33,7 @@ target_sources(fairseq2
         data/stream.cc
         data/tape.cc
         data/yielded_data_source.cc
+        data/zipfile_data_source.cc
         data/zipped_data_source.cc
         data/detail/file.cc
         data/detail/file_system.cc
@@ -73,7 +74,7 @@ target_link_libraries(fairseq2
         fmt::fmt
         natsort
         sentencepiece-static
-        zip::zip
+        kuba-zip
     PUBLIC
         torch
 )

@@ -46,6 +46,10 @@ class CString:
         """Return a copy of this string in Python."""
         return ""
 
+    def bytes(self) -> bytes:
+        """Return a copy of the underlying bytes in Python."""
+        return b""
+
 
 StringLike: TypeAlias = Union[str, CString]
 

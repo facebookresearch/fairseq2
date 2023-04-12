@@ -178,6 +178,10 @@ def zip_data_pipelines(
     raise NotImplementedError()
 
 
+def read_zipped_records(pathname: PathLike) -> DataPipelineBuilder:
+    raise NotImplementedError()
+
+
 class StreamError(RuntimeError):
     """Raised when a dataset cannot be read."""
 
@@ -195,6 +199,7 @@ if not TYPE_CHECKING and not DOC_MODE:
         StreamError,
         list_files,
         read_sequence,
+        read_zipped_records,
         zip_data_pipelines,
     )
 
@@ -208,6 +213,7 @@ if not TYPE_CHECKING and not DOC_MODE:
             list_files,
             read_sequence,
             zip_data_pipelines,
+            read_zipped_records,
         ]
 
         for t in ctypes:

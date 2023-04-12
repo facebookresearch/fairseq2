@@ -28,7 +28,7 @@ target_include_directories(extension PRIVATE ${PROJECT_SOURCE_DIR}/src)
 
 target_link_libraries(extension
     PRIVATE
-        pybind11::module fairseq2 fmt::fmt torch_python
+        pybind11::module fairseq2 fmt::fmt torch_python kuba-zip
 )
 
 fairseq2_set_link_options(extension ALLOW_UNDEFINED_SYMBOLS)
