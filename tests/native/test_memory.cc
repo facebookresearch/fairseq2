@@ -37,7 +37,7 @@ TEST(test_memory_block, can_construct_from_data_and_size)
 }
 
 static void
-test_dealloc(const void *ptr, std::size_t size) noexcept
+test_dealloc(const void *ptr, std::size_t size, void *) noexcept
 {
     // Used by the next test to check the deallocator call.
     *static_cast<std::size_t *>(const_cast<void *>(ptr)) = size;  // NOLINT
@@ -52,7 +52,7 @@ TEST(test_memory_block, destructor_calls_deallocator)
     EXPECT_EQ(*data, 0);
 
     {
-        memory_block b{a.data(), a.size(), test_dealloc};
+        memory_block b{a.data(), a.size(), nullptr, test_dealloc};
     }
 
     EXPECT_EQ(*data, a.size());

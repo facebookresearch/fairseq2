@@ -16,13 +16,17 @@
 
 namespace fairseq2 {
 
-using memory_deallocator = void (*)(const void *addr, std::size_t size) noexcept;
+// Besides `addr` and `size`, the signature also allows passing an opaque `ctx`
+// pointer. It is typically used to pass extra information required to release
+// the underlying memory.
+using memory_deallocator = void (*)(const void *addr, std::size_t size, void *ctx) noexcept;
 
+// Used internally by `memory_block` to manage the lifetime of the memory.
 class FAIRSEQ2_API memory_holder {
 public:
     explicit
-    memory_holder(const void *addr, std::size_t size, memory_deallocator d) noexcept
-        : addr_{addr}, size_{size}, deallocate_{d}
+    memory_holder(const void *addr, std::size_t size, void *ctx, memory_deallocator d) noexcept
+        : addr_{addr}, size_{size}, ctx_{ctx}, deallocate_{d}
     {}
 
     memory_holder(const memory_holder &) = delete;
@@ -33,17 +37,18 @@ public:
 
    ~memory_holder()
     {
-        if (addr_ != nullptr && deallocate_ != nullptr)
-            deallocate_(addr_, size_);
+        if (deallocate_ != nullptr)
+            deallocate_(addr_, size_, ctx_);
     }
 
 private:
     const void *addr_;
     std::size_t size_;
+    void *ctx_;
     memory_deallocator deallocate_;
 };
 
-// A memory_block is intended to be used for zero-copy memory sharing. The
+// A `memory_block` is intended to be used for zero-copy memory sharing. The
 // underlying memory is ref-counted and is freed when no longer needed.
 template <typename T>
 class basic_memory_block {
@@ -72,29 +77,23 @@ public:
     {}
 
     explicit
-    basic_memory_block(pointer data, size_type size, memory_deallocator d);
+    basic_memory_block(pointer data, size_type size, void *ctx, memory_deallocator d);
 
     template <typename U>
     basic_memory_block(const basic_memory_block<U> &other) noexcept
         : data_{other.data_}, size_{other.size_}, holder_{other.holder_}
     {
         static_assert(std::is_convertible_v<U *, T *>,
-            "A memory_block cannot be converted into a writable_memory_block.");
+            "A `memory_block` cannot be converted into a `writable_memory_block`.");
     }
 
-    basic_memory_block(const basic_memory_block &) = delete;
-    basic_memory_block &operator=(const basic_memory_block &) = delete;
+    basic_memory_block(const basic_memory_block &) noexcept = default;
+    basic_memory_block &operator=(const basic_memory_block &) noexcept = default;
 
     basic_memory_block(basic_memory_block &&) noexcept = default;
     basic_memory_block &operator=(basic_memory_block &&) noexcept = default;
 
    ~basic_memory_block() = default;
-
-    basic_memory_block
-    share() const noexcept
-    {
-        return basic_memory_block{*this, data_, size_};
-    }
 
     basic_memory_block
     share_slice(size_type offset) const noexcept
@@ -155,7 +154,7 @@ public:
     cast() const noexcept
     {
         static_assert(std::is_const_v<U> || !std::is_const_v<T>,
-            "A memory_block cannot be cast to a non-const type.");
+            "A `memory_block` cannot be cast to a non-const type.");
 
         return {reinterpret_cast<U *>(data_), size_ / sizeof(U)};
     }
@@ -176,28 +175,28 @@ private:
 };
 
 template <typename T>
-basic_memory_block<T>::basic_memory_block(pointer data, size_type size, memory_deallocator d)
+basic_memory_block<T>::basic_memory_block(
+    pointer data, size_type size, void *ctx, memory_deallocator d
+)
     : data_{data}, size_{size}
 {
     if (size_ > 0) {
-        // As a contract, we take the ownership of data. This means we have to
+        // As a contract, we take the ownership of `data`. This means we have to
         // make sure that we don't leak in case of a failure.
         try {
-            holder_ = std::make_shared<memory_holder>(data, size, d);
+            holder_ = std::make_shared<memory_holder>(data, size, ctx, d);
         } catch (...) {
-            if (data != nullptr && d != nullptr)
-                d(data, size);
+            if (d != nullptr)
+                d(data, size, ctx);
 
             throw;
         }
     }
 }
 
-// Actual template specializations
 using memory_block = basic_memory_block<const std::byte>;
 using writable_memory_block = basic_memory_block<std::byte>;
 
-// Type aliases for non-owning memory references
 using memory_span = span<const std::byte>;
 using writable_memory_span = span<std::byte>;
 
@@ -206,7 +205,7 @@ inline span<T>
 cast(memory_span s) noexcept
 {
     static_assert(std::is_const_v<T>,
-        "T must be const.");
+        "`T` must be const.");
 
     return {reinterpret_cast<T *>(s.data()), s.size() / sizeof(T)};
 }
@@ -218,7 +217,10 @@ cast(writable_memory_span s) noexcept
     return {reinterpret_cast<T *>(s.data()), s.size() / sizeof(T)};
 }
 
-writable_memory_block
+FAIRSEQ2_API writable_memory_block
 allocate_memory(std::size_t size);
+
+FAIRSEQ2_API writable_memory_block
+copy_memory(memory_span src);
 
 }  // namespace fairseq2

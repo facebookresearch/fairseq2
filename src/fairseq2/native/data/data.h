@@ -16,6 +16,7 @@
 #include <ATen/Tensor.h>
 
 #include "fairseq2/native/float.h"
+#include "fairseq2/native/memory.h"
 #include "fairseq2/native/py.h"
 #include "fairseq2/native/data/immutable_string.h"
 
@@ -162,6 +163,33 @@ public:
         return move_as<at::Tensor>();
     }
 
+    // memory_block
+    data(const memory_block &value) noexcept
+        : payload_{value}
+    {}
+
+    data(memory_block &&value) noexcept
+        : payload_{std::move(value)}
+    {}
+
+    bool
+    is_memory_block() const noexcept
+    {
+        return is<memory_block>();
+    }
+
+    const memory_block &
+    as_memory_block() const & noexcept
+    {
+        return as<memory_block>();
+    }
+
+    memory_block &&
+    as_memory_block() && noexcept
+    {
+        return move_as<memory_block>();
+    }
+
     // list
     data(const std::vector<data> &value)
         : payload_{value}
@@ -264,6 +292,7 @@ private:
         float64,
         immutable_string,
         at::Tensor,
+        memory_block,
         std::vector<data>,
         py_object> payload_{};
 };

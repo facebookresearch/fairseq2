@@ -51,14 +51,14 @@ public:
 
     immutable_string(const immutable_string &other) noexcept
     {
-        storage_ = other.storage_.share();
+        storage_ = other.storage_;
     }
 
     immutable_string &
     operator=(const immutable_string &other) noexcept
     {
         if (this != &other)
-            storage_ = other.storage_.share();
+            storage_ = other.storage_;
 
         return *this;
     }

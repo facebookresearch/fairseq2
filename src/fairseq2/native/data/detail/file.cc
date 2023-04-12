@@ -20,7 +20,7 @@ namespace fairseq2::detail {
 namespace {
 
 void
-mmap_deallocate(const void *addr, std::size_t size) noexcept
+mmap_deallocate(const void *addr, std::size_t size, void *) noexcept
 {
     if (addr != nullptr)
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
@@ -46,7 +46,7 @@ memory_map_file(const file_desc &fd, std::string_view pathname)
         throw std::system_error{last_error(),
             fmt::format("'{}' cannot be mapped to memory", pathname)};
 
-    return memory_block{static_cast<std::byte *>(addr), size, mmap_deallocate};
+    return memory_block{static_cast<std::byte *>(addr), size, nullptr, mmap_deallocate};
 }
 
 }  // namespace fairseq2::detail

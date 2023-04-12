@@ -47,6 +47,9 @@ type_caster<data>::cast_from_py(handle src)
     if (isinstance<at::Tensor>(src))
         return src.cast<at::Tensor>();
 
+    if (isinstance<memory_block>(src))
+        return src.cast<memory_block>();
+
     if (isinstance<bytes>(src))
         return src.cast<py_object>();
 
@@ -74,6 +77,9 @@ type_caster<data>::cast_from_cc(T &&src)
 
     if (src.is_tensor())
         return pybind11::cast(std::forward<T>(src).as_tensor());
+
+    if (src.is_memory_block())
+        return pybind11::cast(std::forward<T>(src).as_memory_block());
 
     if (src.is_list())
         return pybind11::cast(std::forward<T>(src).as_list());

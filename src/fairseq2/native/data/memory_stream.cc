@@ -17,7 +17,7 @@ memory_stream::read_chunk()
 void
 memory_stream::reset()
 {
-    block_ = original_block_.share();
+    block_ = original_block_;
 }
 
 }  // namespace fairseq2::detail

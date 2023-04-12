@@ -27,6 +27,7 @@
 #include <fairseq2/native/data/record_reader.h>
 #include <fairseq2/native/data/stream.h>
 #include <fairseq2/native/data/tape.h>
+#include <fairseq2/native/utils/cast.h>
 #include <fairseq2/native/utils/string.h>
 
 namespace py = pybind11;
@@ -56,6 +57,7 @@ public:
 private:
     data_pipeline *data_pipeline_;
 };
+
 
 void
 def_data_pipeline(py::module_ &base)
@@ -233,6 +235,68 @@ def_data_pipeline(py::module_ &base)
     });
 }
 
+std::size_t
+compute_py_buffer_size(const py::buffer_info &info)
+{
+    py::ssize_t size = info.itemsize;
+
+    for (std::ptrdiff_t i = ssize(info.shape) - 1; i >= 0; i--) {
+        auto dim = static_cast<std::size_t>(i);
+
+        if (info.strides[dim] == size)
+            size *= info.shape[dim];
+        else
+            throw std::invalid_argument{"The specified buffer must be contiguous."};
+    }
+
+    return static_cast<std::size_t>(size);
+}
+
+void
+release_py_buffer(const void *, std::size_t, void *ctx) noexcept  // NOLINT(bugprone-exception-escape)
+{
+    py::gil_scoped_acquire gil{};
+
+    PyBuffer_Release(static_cast<Py_buffer *>(ctx));
+}
+
+void
+def_memory(py::module_ &base)
+{
+    py::module_ m = base.def_submodule("memory");
+
+    py::class_<memory_block>(m, "MemoryBlock", py::buffer_protocol())
+        .def(py::init<>())
+        .def(py::init(
+            [](const py::buffer &b, bool copy) -> memory_block
+            {
+                py::buffer_info info = b.request();
+
+                auto data = static_cast<memory_block::const_pointer>(info.ptr);
+
+                std::size_t size = compute_py_buffer_size(info);
+
+                if (copy)
+                    return copy_memory({data, size});
+
+                Py_buffer *buf = std::exchange(info.view(), nullptr);
+
+                return memory_block{data, size, buf, release_py_buffer};
+            }),
+            py::arg("buffer"),
+            py::arg("copy") = false)
+        .def_buffer(
+            [](const memory_block &self)
+            {
+                using T = memory_block::value_type;
+
+                return py::buffer_info{
+                    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+                    const_cast<T *>(self.data()), sizeof(T), "B", ssize(self), /*readonly=*/true
+                };
+            });
+}
+
 void
 def_string(py::module_ &base)
 {
@@ -314,6 +378,8 @@ def_data(py::module_ &base)
     py::module_ m = base.def_submodule("data");
 
     def_data_pipeline(m);
+
+    def_memory(m);
 
     def_string(m);
 

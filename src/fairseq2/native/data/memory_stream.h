@@ -19,7 +19,7 @@ public:
     memory_stream(memory_block blk) noexcept
         : block_{std::move(blk)}
     {
-        original_block_ = block_.share();
+        original_block_ = block_;
     }
 
     memory_block

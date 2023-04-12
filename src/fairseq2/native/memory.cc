@@ -6,6 +6,8 @@
 
 #include "fairseq2/native/memory.h"
 
+#include <algorithm>
+
 #include <new>
 
 namespace fairseq2 {
@@ -13,11 +15,10 @@ namespace detail {
 namespace {
 
 void
-deallocate(const void *addr, std::size_t) noexcept
+deallocate(const void *addr, std::size_t, void *) noexcept
 {
     if (addr != nullptr)
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-        ::operator delete(const_cast<void *>(addr));
+        ::operator delete(const_cast<void *>(addr)); // NOLINT(cppcoreguidelines-pro-type-const-cast)
 }
 
 }  // namespace
@@ -28,7 +29,17 @@ allocate_memory(std::size_t size)
 {
     void *addr = ::operator new(size);
 
-    return writable_memory_block{static_cast<std::byte *>(addr), size, detail::deallocate};
+    return writable_memory_block{static_cast<std::byte *>(addr), size, nullptr, detail::deallocate};
+}
+
+writable_memory_block
+copy_memory(memory_span src)
+{
+    writable_memory_block blk = allocate_memory(src.size());
+
+    std::copy(src.begin(), src.end(), blk.begin());
+
+    return blk;
 }
 
 }  // namespace fairseq2
