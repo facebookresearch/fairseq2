@@ -6,7 +6,7 @@
 
 import math
 from abc import ABC, abstractmethod
-from typing import Optional, final
+from typing import Optional, cast, final
 
 import torch
 import torch.nn as nn
@@ -22,20 +22,20 @@ from fairseq2.nn.incremental_state import IncrementalStateBag
 class PositionalEmbedding(Module, ABC):
     """Produces positional embeddings."""
 
-    max_seq_len: int
     embed_dim: int
+    max_seq_len: Optional[int]
 
-    def __init__(self, max_seq_len: int, embed_dim: int) -> None:
+    def __init__(self, embed_dim: int, max_seq_len: Optional[int]) -> None:
         """
-        :param max_seq_len:
-            The expected maximum sequence length.
         :param embed_dim:
             The dimensionality of positional embeddings.
+        :param max_seq_len:
+            The expected maximum sequence length.
         """
         super().__init__()
 
-        self.max_seq_len = max_seq_len
         self.embed_dim = embed_dim
+        self.max_seq_len = max_seq_len
 
     def forward(
         self, embed: Tensor, state_bag: Optional[IncrementalStateBag] = None
@@ -50,7 +50,7 @@ class PositionalEmbedding(Module, ABC):
             The state bag to use during an incremental evaluation.
 
         :returns:
-            The embeddings with added positional embeddings. *Shape:* Same as
+            ``embed`` with positional embeddings added. *Shape:* Same as
             ``embed``.
         """
         if (embed_dim := embed.dim()) != 2 and embed_dim != 3:
@@ -58,10 +58,11 @@ class PositionalEmbedding(Module, ABC):
                 f"The number of dimensions of `embed` must be 2 or 3, but is {embed_dim} instead."
             )
 
-        if (seq_len := embed.size(-2)) > self.max_seq_len:
-            raise ValueError(
-                f"The input sequence length must be less than or equal to the maximum sequence length ({self.max_seq_len}), but is {seq_len} instead."
-            )
+        if self.max_seq_len is not None:
+            if (seq_len := embed.size(-2)) > self.max_seq_len:
+                raise ValueError(
+                    f"The input sequence length must be less than or equal to the maximum sequence length ({self.max_seq_len}), but is {seq_len} instead."
+                )
 
         return self._do_forward(embed, state_bag)
 
@@ -79,7 +80,7 @@ class PositionalEmbedding(Module, ABC):
             The state bag to use during an incremental evaluation.
 
         :returns:
-            The embeddings with added positional embeddings. *Shape:* Same as
+            ``embed`` with positional embeddings added. *Shape:* Same as
             ``embed``.
 
         :meta public:
@@ -87,7 +88,12 @@ class PositionalEmbedding(Module, ABC):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"max_seq_len={self.max_seq_len}, embed_dim={self.embed_dim}"
+        s = f"embed_dim={self.embed_dim}"
+
+        if self.max_seq_len is not None:
+            s += f", max_seq_len={self.max_seq_len}"
+
+        return s
 
 
 @final
@@ -139,7 +145,7 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
-        super().__init__(max_seq_len, embed_dim)
+        super().__init__(embed_dim, max_seq_len)
 
         # This is a legacy parameter that should only be set when the embeddings
         # must be compatible with the original fairseq.
@@ -173,8 +179,10 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
 
         start = self._sin_offset
 
+        max_seq_len = cast(int, self.max_seq_len)
+
         # This is identical to tensor2tensor's implementation.
-        ind = torch.arange(start, start + self.max_seq_len, device=device, dtype=dtype)
+        ind = torch.arange(start, start + max_seq_len, device=device, dtype=dtype)
 
         sin = torch.arange(num_sin, device=device, dtype=dtype)
 
@@ -234,7 +242,7 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
-        super().__init__(max_seq_len, embed_dim)
+        super().__init__(embed_dim, max_seq_len)
 
         self.weight = Parameter(
             torch.empty((max_seq_len, embed_dim), device=device, dtype=dtype)
@@ -287,7 +295,7 @@ class RotaryEmbedding(PositionalEmbedding):
         if embed_dim % 2 != 0:
             raise ValueError(f"`embed_dim` must be even, but is {embed_dim} instead.")
 
-        super().__init__(max_seq_len, embed_dim)
+        super().__init__(embed_dim, max_seq_len)
 
         cos = torch.empty((max_seq_len, embed_dim), device=device, dtype=dtype)
         sin = torch.empty((max_seq_len, embed_dim), device=device, dtype=dtype)
@@ -305,9 +313,11 @@ class RotaryEmbedding(PositionalEmbedding):
         """
         device, dtype = self.sin_weight.device, self.sin_weight.dtype
 
+        max_seq_len = cast(int, self.max_seq_len)
+
         ind = torch.arange(self.embed_dim // 2, device=device, dtype=dtype)
 
-        stp = torch.arange(self.max_seq_len, device=device, dtype=dtype)
+        stp = torch.arange(max_seq_len, device=device, dtype=dtype)
 
         ind = ind.unsqueeze(0)
         stp = stp.unsqueeze(1)
