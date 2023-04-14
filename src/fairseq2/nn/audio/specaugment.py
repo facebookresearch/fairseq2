@@ -51,7 +51,8 @@ def spec_augment(
         paper).
 
     :returns:
-        The augmented spectrogram. *Shape:* Same as input.
+        The augmented spectrogram of ``specgram``. *Shape:* Same as
+        ``specgram``.
 
     .. note::
         The paper implements a time warp while this SpecAugment implements a
@@ -170,7 +171,7 @@ def mask_along_axis(
         The value to fill the masks.
 
     :returns:
-        The masked spectrogram. *Shape:* Same as input.
+        The masked spectrogram of ``specgram``. *Shape:* Same as ``specgram``.
 
     .. note::
         The length of the mask is randomly chosen, with a cap on
@@ -254,7 +255,8 @@ class SpecAugmentTransform(Module):
             frequency axis, and :math:`T` is the time axis.
 
         :returns:
-            The augmented spectrogram. *Shape:* Same as input.
+            The augmented spectrogram of ``specgram``. *Shape:* Same as
+            ``specgram``.
 
         .. note::
             The paper implements a time warp while this SpecAugment implements a
@@ -306,7 +308,7 @@ class SpecAugmentTransform(Module):
 
     @staticmethod
     def switchboard_mild() -> "SpecAugmentTransform":
-        """Return a new :class:`SpecAugmentTransform` instace with parameters
+        """Return a new :class:`SpecAugmentTransform` instance with parameters
         set for the SwitchBoard mild level."""
         return SpecAugmentTransform(
             stretch_axis=2,
@@ -321,8 +323,8 @@ class SpecAugmentTransform(Module):
 
     @staticmethod
     def switchboard_strong() -> "SpecAugmentTransform":
-        """Return a new :class:`SpecAugmentTransform` with parameters set for
-        the SwitchBoard strong level."""
+        """Return a new :class:`SpecAugmentTransform` instance with parameters
+        set for the SwitchBoard strong level."""
         return SpecAugmentTransform(
             stretch_axis=2,
             max_stretch_length=40,

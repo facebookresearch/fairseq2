@@ -46,10 +46,10 @@ class FbankSubsampler(Module, ABC):
             batch size.
 
         :returns:
-            - The audio embeddings to pass to the encoder or decoder. *Shape:*
-              :math:`(N,S,E)`, or :math:`(S,E)` when unbatched, where :math:`N`
-              is the batch size, :math:`S` is the sequence length, and :math:`E`
-              is the embedding size.
+            - The audio embeddings, subsampled from ``fbanks``, to pass to the
+              encoder or decoder. *Shape:* :math:`(N,S,E)`, or :math:`(S,E)`
+              when unbatched, where :math:`N` is the batch size, :math:`S` is
+              the sequence length, and :math:`E` is the embedding size.
             - The sequence lengths corresponding to the returned audio
               embeddings. *Shape:* :math:`(N)`, or :math:`()` when unbatched,
               where :math:`N` is the batch size.

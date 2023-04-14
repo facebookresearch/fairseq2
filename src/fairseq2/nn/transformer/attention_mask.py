@@ -24,8 +24,9 @@ class AttentionMaskGenerator(Protocol):
             :math:`S` is the sequence length, and :math:`M` is the model size.
 
         :returns:
-            An implementation-defined attention mask specific to the generator.
-            *Shape:* :math:`(S,S)`, where :math:`S` is the sequence length.
+            An implementation-defined attention mask for ``x`` specific to the
+            generator. *Shape:* :math:`(S,S)`, where :math:`S` is the sequence
+            length.
         """
 
 
@@ -50,10 +51,10 @@ class CausalAttentionMaskGenerator:
             :math:`S` is the sequence length, and :math:`M` is the model size.
 
         :returns:
-            An attention mask whose upper triangular part above the main
-            diagonal is filled with negative infinity (i.e. ``float("-inf")``),
-            while its rest is filled with zero. *Shape:* :math:`(S,S)`, where
-            :math:`S` is the sequence length.
+            An attention mask for ``x`` whose upper triangular part above the
+            main diagonal is filled with negative infinities while its rest is
+            filled with zeros. *Shape:* :math:`(S,S)`, where :math:`S` is the
+            sequence length.
 
         Usage:
 
@@ -79,7 +80,10 @@ class CausalAttentionMaskGenerator:
 
             self._cached_attn_mask = mask
 
+        # The `is_causal` tag is checked by efficient SDPA implementations to
+        # optimize attention masking.
         setattr(mask, "is_causal", True)
+
         return mask[:seq_len, :seq_len]
 
 
@@ -124,8 +128,9 @@ class ALiBiAttentionMaskGenerator:
             :math:`S` is the sequence length, and :math:`M` is the model size.
 
         :returns:
-            An ALiBi mask. *Shape:* :math:`(H, S, S)`, where
-            :math:`S` is the sequence length and :math:`H` is the number of heads.
+            An ALiBi mask for ``x``. *Shape:* :math:`(H, S, S)`, where
+            :math:`S` is the sequence length and :math:`H` is the number of
+            attention heads.
         """
         mask = self._cached_attn_mask
 

@@ -83,8 +83,8 @@ class Embedding(Module):
             The input from which to extract the indices. *Shape:* Any.
 
         :returns:
-            The embeddings. *Shape:* :math:`(*,E)`, where :math:`*` is the input
-            shape and :math:`E` is the embedding size.
+            The embeddings of ``x``. *Shape:* :math:`(*,E)`, where :math:`*` is
+            the input shape and :math:`E` is the embedding size.
         """
         return F.embedding(x, self.weight, self.pad_idx)
 

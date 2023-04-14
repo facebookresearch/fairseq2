@@ -75,7 +75,7 @@ class TransformerDecoderLayer(Module, ABC):
             The state bag to use during an incremental evaluation.
 
         :returns:
-            The decoded output. *Shape:* Same as ``x``.
+            The decoded output of ``x``. *Shape:* Same as ``x``.
 
         .. note::
             For a boolean padding mask, a ``True`` indicates that the

@@ -37,7 +37,7 @@ class TransformerTokenFrontend(Module):
         embed: Embedding,
         pos_embed: Optional[PositionalEmbedding],
         no_scale: bool = False,
-        norm: bool = False,
+        layer_norm: bool = False,
         dropout_p: float = 0.1,
         norm_eps: float = 1e-5,
         device: Optional[torch.device] = None,
@@ -51,7 +51,7 @@ class TransformerTokenFrontend(Module):
         :param no_scale:
             If ``True``, embeddings won't be scaled by the square root of the
             embedding size.
-        :param norm:
+        :param layer_norm:
             If ``True``, applies Layer Normalization to embeddings.
         :param dropout_p:
             The dropout probability on embeddings.
@@ -77,10 +77,10 @@ class TransformerTokenFrontend(Module):
         else:
             self.register_module("pos_embed", None)
 
-        if norm:
-            self.norm = LayerNorm(embed_dim, norm_eps, device=device, dtype=dtype)
+        if layer_norm:
+            self.layer_norm = LayerNorm(embed_dim, norm_eps, device=device, dtype=dtype)
         else:
-            self.register_module("norm", None)
+            self.register_module("layer_norm", None)
 
         self.dropout_p = dropout_p
 
@@ -117,8 +117,8 @@ class TransformerTokenFrontend(Module):
         if self.pos_embed is not None:
             embeds = self.pos_embed(embeds, state_bag)
 
-        if self.norm is not None:
-            embeds = self.norm(embeds)
+        if self.layer_norm is not None:
+            embeds = self.layer_norm(embeds)
 
         if self.dropout_p > 0.0:
             embeds = F.dropout(embeds, self.dropout_p, self.training)
@@ -127,6 +127,7 @@ class TransformerTokenFrontend(Module):
             padding_mask = None
         else:
             padding_mask = token_indices.eq(self.embed.pad_idx)
+
             # If the mask has no ``True`` elements, it is effectively noop.
             if not padding_mask.any():
                 padding_mask = None
@@ -174,6 +175,8 @@ class TransformerModel(Module):
         :param score_proj:
             The projection to apply to outputs of the decoder.
         """
+        super().__init__()
+
         model_dim = encoder.model_dim
 
         if decoder.model_dim != model_dim:
@@ -190,8 +193,6 @@ class TransformerModel(Module):
             raise ValueError(
                 f"`embed_dim` of `decoder_frontend.embed` and `model_dim` of `decoder` must be equal, but are {decoder_frontend.embed.embed_dim} and {model_dim} instead."
             )
-
-        super().__init__()
 
         self.model_dim = model_dim
 
@@ -212,9 +213,10 @@ class TransformerModel(Module):
             the sequence length.
 
         :returns:
-            - The encoded output. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)`
-              when unbatched, where :math:`N` is the batch size, :math:`S` is
-              the sequence length, and :math:`M` is the model size.
+            - The encoded output of ``token_indices``. *Shape:* :math:`(N,S,M)`,
+              or :math:`(S,M)` when unbatched, where :math:`N` is the batch
+              size, :math:`S` is the sequence length, and :math:`M` is the model
+              size.
             - The boolean padding mask indicating which key positions to ignore
               for the purpose of encoder-decoder attention. *Shape:*
               :math:`(N,S)`, or :math:`(S)` when unbatched, where :math:`N` is

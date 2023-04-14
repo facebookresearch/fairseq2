@@ -73,7 +73,7 @@ class TransformerDecoder(Module, ABC):
             The state bag to use during an incremental evaluation.
 
         :returns:
-            The decoded output. *Shape:* Same as ``embeds``.
+            The decoded output of ``embeds``. *Shape:* Same as ``embeds``.
 
         .. note::
             For a boolean padding mask, a ``True`` indicates that the

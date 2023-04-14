@@ -8,6 +8,12 @@ from fairseq2.nn.transformer.attention import AttentionFunction as AttentionFunc
 from fairseq2.nn.transformer.attention import (
     default_scaled_dot_product_attention as default_scaled_dot_product_attention,
 )
+from fairseq2.nn.transformer.attention import (
+    naive_scaled_dot_product_attention as naive_scaled_dot_product_attention,
+)
+from fairseq2.nn.transformer.attention import (
+    torch_scaled_dot_product_attention as torch_scaled_dot_product_attention,
+)
 from fairseq2.nn.transformer.attention_mask import (
     ALiBiAttentionMaskGenerator as ALiBiAttentionMaskGenerator,
 )

@@ -96,7 +96,7 @@ class ConformerConvolution(Module):
             sequence length, and :math:`M` is the model size.
 
         :returns:
-            The processed output. *Shape:* Same as ``x``.
+            The processed output of ``x``. *Shape:* Same as ``x``.
         """
         # (N, S, M) -> (N, M, S)
         x = x.transpose(1, 2)

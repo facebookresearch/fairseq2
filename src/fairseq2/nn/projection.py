@@ -44,8 +44,8 @@ class Projection(Module, ABC):
             :math:`H_{inp}` is the input size.
 
         :returns:
-            The projected output. *Shape:* :math:`(*,H_{out})`, where all but
-            the last dimension are the same shape as the input and
+            The projected output of ``x``. *Shape:* :math:`(*,H_{out})`, where
+            all but the last dimension are the same shape as the input and
             :math:`H_{out}` is the output size.
         """
 

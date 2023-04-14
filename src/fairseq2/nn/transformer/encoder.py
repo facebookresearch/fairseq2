@@ -48,7 +48,7 @@ class TransformerEncoder(Module, ABC):
             :math:`S` is the sequence length.
 
         :returns:
-            The encoded output. *Shape:* Same as ``embeds``.
+            The encoded output of ``embeds``. *Shape:* Same as ``embeds``.
 
         .. note::
             For a boolean padding mask, a ``True`` indicates that the

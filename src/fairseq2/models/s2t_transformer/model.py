@@ -99,10 +99,10 @@ class TransformerFbankFrontend(Module):
             The state bag to use during an incremental evaluation.
 
         :returns:
-            - The audio embeddings to pass to the encoder or decoder. *Shape:*
-              :math:`(N,S,M)`, or :math:`(S,M)` when unbatched, where :math:`N`
-              is the batch size, :math:`S` is the sequence length, and :math:`M`
-              is the model size.
+            - The audio embeddings, subsampled from ``fbanks``, to pass to the
+              encoder or decoder. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)`
+              when unbatched, where :math:`N` is the batch size, :math:`S` is
+              the sequence length, and :math:`M` is the model size.
             - The boolean padding mask indicating which key positions to ignore
               for the purpose of self attention. *Shape:* :math:`(N,S)`, or
               :math:`(S)` when unbatched, where :math:`N` is the batch size and
@@ -130,8 +130,8 @@ class TransformerFbankFrontend(Module):
         # If the mask has no ``True`` elements, it is effectively noop.
         if not padding_mask.any():
             return embeds, None
-
-        return embeds, padding_mask
+        else:
+            return embeds, padding_mask
 
     def extra_repr(self) -> str:
         """:meta private:"""
@@ -174,6 +174,8 @@ class S2TTransformerModel(Module):
         :param score_proj:
             The projection to apply to outputs of the decoder.
         """
+        super().__init__()
+
         model_dim = encoder.model_dim
 
         if decoder.model_dim != model_dim:
@@ -190,8 +192,6 @@ class S2TTransformerModel(Module):
             raise ValueError(
                 f"`embed_dim` of `decoder_frontend.embed` and `model_dim` of `decoder` must be equal, but are {decoder_frontend.embed.embed_dim} and {model_dim} instead."
             )
-
-        super().__init__()
 
         self.model_dim = model_dim
 
@@ -220,9 +220,9 @@ class S2TTransformerModel(Module):
             batch size.
 
         :returns:
-            - The encoded output. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)`
-              when unbatched, where :math:`N` is the batch size, :math:`S` is
-              the sequence length, and :math:`M` is the model size.
+            - The encoded output of ``fbanks``. *Shape:* :math:`(N,S,M)`, or
+              :math:`(S,M)` when unbatched, where :math:`N` is the batch size,
+              :math:`S` is the sequence length, and :math:`M` is the model size.
             - The boolean padding mask indicating which key positions to ignore
               for the purpose of encoder-decoder attention. *Shape:*
               :math:`(N,S)`, or :math:`(S)` when unbatched, where :math:`N` is

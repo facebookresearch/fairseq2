@@ -41,7 +41,7 @@ class FeedForwardNetwork(Module, ABC):
             sequence length, and :math:`M` is the model size.
 
         :returns:
-            The projected output. *Shape:* Same as ``x``.
+            The projected output of ``x``. *Shape:* Same as ``x``.
         """
 
     def extra_repr(self) -> str:
@@ -106,9 +106,11 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         self.inner_dropout_p = inner_dropout_p
 
         if norm_order == TransformerNormOrder.PRE_WITH_NORMFORMER:
-            self.inner_norm = LayerNorm(inner_dim, norm_eps, device=device, dtype=dtype)
+            self.inner_layer_norm = LayerNorm(
+                inner_dim, norm_eps, device=device, dtype=dtype
+            )
         else:
-            self.register_module("inner_norm", None)
+            self.register_module("inner_layer_norm", None)
 
         self.out_proj = Linear(
             inner_dim, model_dim, bias=bias, device=device, dtype=dtype
@@ -120,8 +122,8 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
 
         x = self.inner_activation_fn(x)
 
-        if self.inner_norm is not None:
-            x = self.inner_norm(x)
+        if self.inner_layer_norm is not None:
+            x = self.inner_layer_norm(x)
 
         if self.inner_dropout_p > 0.0:
             x = F.dropout(x, self.inner_dropout_p, self.training)
