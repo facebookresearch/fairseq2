@@ -19,7 +19,7 @@ from fairseq2.nn.positional_embedding import PositionalEmbedding
 from fairseq2.nn.projection import Linear, Projection
 from fairseq2.nn.transformer.decoder import TransformerDecoder
 from fairseq2.nn.transformer.encoder import TransformerEncoder
-from fairseq2.nn.utils.mask import to_padding_mask
+from fairseq2.nn.utils.pad import to_padding_mask
 
 
 class TransformerFbankFrontend(Module):

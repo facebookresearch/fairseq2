@@ -6,7 +6,7 @@
 
 import torch
 
-from fairseq2.nn.utils.mask import to_padding_mask
+from fairseq2.nn.utils.pad import to_padding_mask
 from tests.common import assert_equal, device
 
 
