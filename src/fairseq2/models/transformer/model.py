@@ -127,6 +127,9 @@ class TransformerTokenFrontend(Module):
             padding_mask = None
         else:
             padding_mask = token_indices.eq(self.embed.pad_idx)
+            # If the mask has no ``True`` elements, it is effectively noop.
+            if not padding_mask.any():
+                padding_mask = None
 
         return embeds, padding_mask
 

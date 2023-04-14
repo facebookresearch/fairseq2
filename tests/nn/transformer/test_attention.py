@@ -9,11 +9,18 @@ from typing import Any, Dict, Optional
 import pytest
 import torch
 import torch.nn.functional as F
+from packaging import version
 from torch import Tensor
 
-from fairseq2.nn.transformer.attention import default_scaled_dot_product_attention
+from fairseq2.nn.transformer.attention import (
+    default_scaled_dot_product_attention,
+    naive_scaled_dot_product_attention,
+    torch_scaled_dot_product_attention,
+)
 from tests.common import assert_close, device
 from tests.rng import tmp_rng_seed
+
+is_pt2_or_greater = version.parse(torch.__version__) >= version.parse("2.0.0")
 
 
 class TestScaledDotProductAttention:
@@ -41,21 +48,10 @@ class TestScaledDotProductAttention:
 
         return torch.bmm(attn_weights, values)
 
-    # fmt: off
-    @pytest.mark.parametrize(
-        "mask,dropout_p,training",
-        [
-            (False, 0.0, True),
-            (True,  0.0, True),
-            (False, 0.5, True),
-            (True,  0.5, True),
-            (False, 0.5, False),
-        ],
-    )
-    # fmt: on
-    def test_function_computes_expected_attention(
-        self, mask: bool, dropout_p: float, training: bool
-    ) -> None:
+    @staticmethod
+    def _get_kwargs_attn_fn(
+        mask: bool, dropout_p: float, training: bool
+    ) -> Dict[str, Any]:
         N = 2  # Batch
         S = 3  # Source Sequence
         T = 2  # Target Sequence
@@ -85,6 +81,76 @@ class TestScaledDotProductAttention:
             "dropout_p": dropout_p,
             "training": training,
         }
+        return kwargs
+
+    # fmt: off
+    @pytest.mark.parametrize(
+        "mask,dropout_p,training",
+        [
+            (False, 0.0, True),
+            (True,  0.0, True),
+            (False, 0.5, True),
+            (True,  0.5, True),
+            (False, 0.5, False),
+        ],
+    )
+    # fmt: on
+    def test_naive_function_computes_expected_attention(
+        self, mask: bool, dropout_p: float, training: bool
+    ) -> None:
+        kwargs = self._get_kwargs_attn_fn(mask, dropout_p, training)
+
+        with tmp_rng_seed(device):
+            attn, _ = naive_scaled_dot_product_attention(**kwargs)
+
+        with tmp_rng_seed(device):
+            expected_attn = self._compute_attn(**kwargs)
+
+        assert_close(attn, expected_attn)
+
+    # fmt: off
+    @pytest.mark.skipif(not is_pt2_or_greater, reason="Requires PyTorch 2.0.0 or higher")
+    @pytest.mark.parametrize(
+        "mask,dropout_p,training",
+        [
+            (False, 0.0, True),
+            (True,  0.0, True),
+            (False, 0.5, True),
+            (True,  0.5, True),
+            (False, 0.5, False),
+            (False, 0.9, False),
+        ],
+    )
+    # fmt: on
+    def test_torch_function_computes_expected_attention(
+        self, mask: bool, dropout_p: float, training: bool
+    ) -> None:
+        kwargs = self._get_kwargs_attn_fn(mask, dropout_p, training)
+
+        with tmp_rng_seed(device):
+            attn, _ = torch_scaled_dot_product_attention(**kwargs)
+
+        with tmp_rng_seed(device):
+            expected_attn = self._compute_attn(**kwargs)
+
+        assert_close(attn, expected_attn)
+
+    # fmt: off
+    @pytest.mark.parametrize(
+        "mask,dropout_p,training",
+        [
+            (False, 0.0, True),
+            (True,  0.0, True),
+            (False, 0.5, True),
+            (True,  0.5, True),
+            (False, 0.5, False),
+        ],
+    )
+    # fmt: on
+    def test_default_function_computes_expected_attention(
+        self, mask: bool, dropout_p: float, training: bool
+    ) -> None:
+        kwargs = self._get_kwargs_attn_fn(mask, dropout_p, training)
 
         with tmp_rng_seed(device):
             attn, _ = default_scaled_dot_product_attention(**kwargs)

@@ -79,6 +79,7 @@ class CausalAttentionMaskGenerator:
 
             self._cached_attn_mask = mask
 
+        setattr(mask, "is_causal", True)
         return mask[:seq_len, :seq_len]
 
 

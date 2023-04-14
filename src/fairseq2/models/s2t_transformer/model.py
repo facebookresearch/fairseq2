@@ -127,6 +127,10 @@ class TransformerFbankFrontend(Module):
 
         padding_mask = to_padding_mask(seq_lens, max_seq_len=embeds.size(-2))
 
+        # If the mask has no ``True`` elements, it is effectively noop.
+        if not padding_mask.any():
+            return embeds, None
+
         return embeds, padding_mask
 
     def extra_repr(self) -> str:
