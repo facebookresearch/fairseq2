@@ -28,169 +28,13 @@ from fairseq2.nn.utils.fn import get_name
 from fairseq2.nn.utils.mask import to_float_mask
 
 
-class MultiheadAttentionState(IncrementalState):
-    """Holds the state of a :class:`MultiheadAttention` module during an
-    incremental evaluation."""
-
-    prev_k: Tensor
-    """The projected keys accumulated from the past incremental evaluations.
-    *Shape:* :math:`(N,S_{prv},K_{proj})`, where :math:`N` is the batch size,
-    :math:`S_{prv}` is the accumulated key/value sequence length, and
-    :math:`K_{proj}` is the projected key size."""
-
-    prev_v: Tensor
-    """The projected values accumulated from the past incremental evaluations.
-    *Shape:* :math:`(N,S_{prv},V_{proj})`, where :math:`N` is the batch size,
-    :math:`S_{prv}` is the accumulated key/value sequence length, and
-    :math:`V_{proj}` is the projected value size."""
-
-    prev_padding_mask: Optional[Tensor]
-    """The float key padding mask accumulated from the past incremental
-    evaluations. *Shape:* :math:`(N,S_{prv})`, where :math:`N` is the batch size
-    and :math:`S_{prv}` is the accumulated key/value sequence length."""
-
-    def __init__(
-        self, k: Tensor, v: Tensor, padding_mask: Optional[Tensor] = None
-    ) -> None:
-        """
-        :param k:
-            The initial projected keys. *Shape:* :math:`(N,S_{int},K_{proj})`,
-            where :math:`N` is the batch size, :math:`S_{int}` is the initial
-            key/value sequence length, and :math:`K_{proj}` is the projected key
-            size.
-        :param v:
-            The initial projected values. *Shape:* :math:`(N,S_{int},V_{proj})`,
-            where :math:`N` is the batch size, :math:`S_{int}` is the initial
-            key/value sequence length, and :math:`V_{proj}` is the projected
-            value size.
-        :param padding_mask:
-            The initial float key padding mask. *Shape:* :math:`(N,S_{int})`,
-            where :math:`N` is the batch size and :math:`S_{int}` is the initial
-            key/value sequence length.
-        """
-        self.prev_k = k
-        self.prev_v = v
-
-        self.prev_padding_mask = padding_mask
-
-    def append(
-        self, k: Tensor, v: Tensor, padding_mask: Optional[Tensor]
-    ) -> Tuple[Tensor, Tensor, Optional[Tensor]]:
-        """Append the projected key, projected value, and float key padding mask
-        of the current incremental evaluation to :attr:`prev_k`, :attr:`prev_v`,
-        and :attr:`padding_mask`.
-
-        :param k:
-            The projected key of the current incremental evaluation. *Shape:*
-            :math:`(N,S_{stp},K_{proj})`, where :math:`N` is the batch size,
-            :math:`S_{stp}` is the step length (e.g. 1), and :math:`K_{proj}` is
-            the projected key size.
-        :param v:
-            The projected value of the current incremental evaluation. *Shape:*
-            :math:`(N,S_{stp},V_{proj})`, where :math:`N` is the batch size,
-            :math:`S_{stp}` is the step length (e.g. 1), and :math:`V_{proj}` is
-            the projected value size.
-        :param padding_mask:
-            The float key padding mask of the current incremental evaluation.
-            *Shape:* :math:`(N,S_{stp})`, where :math:`N` is the batch size and
-            :math:`S_{stp}` is the step length (e.g. 1).
-
-        :returns:
-            The projected keys, projected values, and key padding mask that
-            should be used to compute the attention.
-        """
-        seq_len = k.size(1)
-
-        prev_seq_len = self.prev_k.size(1)
-
-        self.prev_k = torch.cat([self.prev_k, k], dim=1)
-        self.prev_v = torch.cat([self.prev_v, v], dim=1)
-
-        # Appending the key padding mask is trickier than K and V since the
-        # previous or current mask can be None.
-        self._append_padding_mask(padding_mask, seq_len, prev_seq_len)
-
-        return self.prev_k, self.prev_v, self.prev_padding_mask
-
-    def _append_padding_mask(
-        self, curr_mask: Optional[Tensor], curr_seq_len: int, prev_seq_len: int
-    ) -> None:
-        prev_mask = self.prev_padding_mask
-
-        if prev_mask is None and curr_mask is None:
-            return
-
-        bsz = self.prev_k.size(0)
-
-        # One of the masks can be None. We have to ensure that both of them are
-        # fully materialized before concatenating them.
-        if prev_mask is None:
-            prev_mask = self.prev_k.new_zeros((bsz, prev_seq_len))
-
-        if curr_mask is None:
-            curr_mask = self.prev_k.new_zeros((bsz, curr_seq_len))
-
-        self.prev_padding_mask = torch.cat([prev_mask, curr_mask], dim=1)
-
-    @override
-    def reorder(self, new_order: Tensor) -> None:
-        self.prev_k = self.prev_k.index_select(0, new_order)
-        self.prev_v = self.prev_v.index_select(0, new_order)
-
-        if self.prev_padding_mask is not None:
-            self.prev_padding_mask = self.prev_padding_mask.index_select(0, new_order)
-
-
-class AttentionWeightHook(Protocol):
-    """Represents a hook to pass to
-    :meth:`~MultiheadAttention.register_attn_weight_hook`."""
-
-    def __call__(self, m: "MultiheadAttention", attn_weights: Tensor) -> None:
-        """
-        :param m:
-            The module that has computed the attention weights.
-        :param attn_weights:
-            The computed attention weights. *Shape:* :math:`(N,S,S_{kv})`, where
-            :math:`N` is the batch size, :math:`S` is the sequence length, and
-            :math:`S_{kv}` is the key/value sequence length.
-        """
-
-
-class StoreAttentionWeights:
-    """Stores attention weights in a provided storage.
-
-    .. note::
-        This class follows the :class:`AttentionWeightHook` protocol.
-    """
-
-    _storage: MutableSequence[Tensor]
-
-    def __init__(self, storage: MutableSequence[Tensor]) -> None:
-        """
-        :param storage:
-            The storage in which to store attention weights.
-        """
-        self._storage = storage
-
-    def __call__(self, m: "MultiheadAttention", attn_weights: Tensor) -> None:
-        """
-        :param m:
-            The module that has computed the attention weights.
-        :param attn_weights:
-            The computed attention weights. *Shape:* :math:`(N,S,S_{kv})`, where
-            :math:`N` is the batch size, :math:`S` is the sequence length, and
-            :math:`S_{kv}` is the key/value sequence length.
-        """
-        self._storage.append(attn_weights)
-
-
 class MultiheadAttention(Module, ABC):
     """Represents a Transformer multi-head attention."""
 
     num_heads: int
     model_dim: int
 
-    _attn_weight_hooks: Dict[int, AttentionWeightHook]
+    _attn_weight_hooks: Dict[int, "AttentionWeightHook"]
 
     def __init__(self, num_heads: int, model_dim: int) -> None:
         """
@@ -243,9 +87,9 @@ class MultiheadAttention(Module, ABC):
             The state bag to use during an incremental evaluation.
 
         :returns:
-            The attention values. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)`
-            when unbatched, where :math:`N` is the batch size, :math:`S` is the
-            sequence length, and :math:`M` is the model size.
+            The attention values for ``x``. *Shape:* :math:`(N,S,M)`, or
+            :math:`(S,M)` when unbatched, where :math:`N` is the batch size,
+            :math:`S` is the sequence length, and :math:`M` is the model size.
 
         .. note::
             For a boolean padding mask, a ``True`` indicates that the
@@ -254,7 +98,7 @@ class MultiheadAttention(Module, ABC):
             weights.
         """
 
-    def register_attn_weight_hook(self, hook: AttentionWeightHook) -> RemovableHandle:
+    def register_attn_weight_hook(self, hook: "AttentionWeightHook") -> RemovableHandle:
         """Register an attention weight hook on the module.
 
         The hook will be called every time after :meth:`forward` has computed
@@ -294,41 +138,39 @@ class MultiheadAttention(Module, ABC):
         return f"num_heads={self.num_heads}, model_dim={self.model_dim}"
 
 
-class InternalQKVProjection(ResettableProjection):
-    def __init__(
-        self,
-        model_dim: int,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
-    ) -> None:
-        super().__init__(model_dim, model_dim, bias=True, device=device, dtype=dtype)
+class AttentionWeightHook(Protocol):
+    """Represents a hook to pass to
+    :meth:`~MultiheadAttention.register_attn_weight_hook`."""
 
-    @override
-    def reset_parameters(self) -> None:
-        # Empirically observed the convergence to be much better with the
-        # scaled initialization.
-        nn.init.xavier_uniform_(self.weight, gain=2**-0.5)
-
-        if self.bias is not None:
-            nn.init.zeros_(self.bias)
+    def __call__(self, m: "MultiheadAttention", attn_weights: Tensor) -> None:
+        """
+        :param m:
+            The module that has computed the attention weights.
+        :param attn_weights:
+            The computed attention weights. *Shape:* :math:`(N,S,S_{kv})`, where
+            :math:`N` is the batch size, :math:`S` is the sequence length, and
+            :math:`S_{kv}` is the key/value sequence length.
+        """
 
 
-class InternalOutProjection(ResettableProjection):
-    def __init__(
-        self,
-        v_proj_dim: int,
-        model_dim: int,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
-    ) -> None:
-        super().__init__(v_proj_dim, model_dim, bias=True, device=device, dtype=dtype)
+class StoreAttentionWeights:
+    """Stores attention weights in a provided storage.
 
-    @override
-    def reset_parameters(self) -> None:
-        nn.init.xavier_uniform_(self.weight)
+    .. note::
+        This class follows the :class:`AttentionWeightHook` protocol.
+    """
 
-        if self.bias is not None:
-            nn.init.zeros_(self.bias)
+    _storage: MutableSequence[Tensor]
+
+    def __init__(self, storage: MutableSequence[Tensor]) -> None:
+        """
+        :param storage:
+            The storage in which to store attention weights.
+        """
+        self._storage = storage
+
+    def __call__(self, m: "MultiheadAttention", attn_weights: Tensor) -> None:
+        self._storage.append(attn_weights)
 
 
 @final
@@ -345,7 +187,7 @@ class StandardMultiheadAttention(MultiheadAttention):
     add_zero_attn: bool
     attn_fn: AttentionFunction
     attn_dropout_p: float
-    scale_heads: bool
+    head_scale_weight: Optional[Parameter]
     out_proj: Projection
 
     def __init__(
@@ -394,7 +236,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         :param attn_dropout_p:
             The dropout probability on attention weights.
         :param scale_heads:
-            If ``True``, Head Scaling is applied as described in
+            If ``True``, applies head scaling as described in
             :cite:t:`https://doi.org/10.48550/arxiv.2110.09456`
         :param out_proj:
             The projection to produce final attentions. If ``None``, a
@@ -474,11 +316,11 @@ class StandardMultiheadAttention(MultiheadAttention):
         self.attn_dropout_p = attn_dropout_p
 
         if scale_heads:
-            self.scale_heads_proj = Parameter(
-                torch.ones(num_heads, device=device, dtype=dtype)
+            self.head_scale_weight = Parameter(
+                torch.empty(num_heads, device=device, dtype=dtype)
             )
         else:
-            self.register_parameter("scale_heads_proj", None)
+            self.register_parameter("head_scale_weight", None)
 
         if out_proj is None:
             self.out_proj = InternalOutProjection(
@@ -505,6 +347,9 @@ class StandardMultiheadAttention(MultiheadAttention):
             nn.init.xavier_normal_(self.bias_k)
         if self.bias_v is not None:
             nn.init.xavier_normal_(self.bias_v)
+
+        if self.head_scale_weight is not None:
+            nn.init.ones_(self.head_scale_weight)
 
     @finaloverride
     def forward(
@@ -653,8 +498,8 @@ class StandardMultiheadAttention(MultiheadAttention):
         # (N, H, S, V_h) -> (N, S, H, V_h)
         attn = attn.permute(0, 2, 1, 3)
 
-        if self.scale_heads_proj is not None:
-            attn = torch.einsum("nshv,h->nshv", attn, self.scale_heads_proj)
+        if self.head_scale_weight is not None:
+            attn = torch.einsum("nshv,h->nshv", attn, self.head_scale_weight)
 
         # (N, S, H, V_h) -> (N, S, V_proj)
         attn = attn.flatten(-2, -1)
@@ -684,3 +529,157 @@ class StandardMultiheadAttention(MultiheadAttention):
             s += ", add_zero_attn=True"
 
         return f"{s}, attn_fn={get_name(self.attn_fn)}, attn_dropout_p={self.attn_dropout_p}"
+
+
+class InternalQKVProjection(ResettableProjection):
+    """Represents the default projection used for inputs, keys, and values."""
+
+    def __init__(
+        self,
+        model_dim: int,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
+    ) -> None:
+        super().__init__(model_dim, model_dim, bias=True, device=device, dtype=dtype)
+
+    @override
+    def reset_parameters(self) -> None:
+        # Empirically observed the convergence to be much better with the
+        # scaled initialization.
+        nn.init.xavier_uniform_(self.weight, gain=2**-0.5)
+
+        if self.bias is not None:
+            nn.init.zeros_(self.bias)
+
+
+class InternalOutProjection(ResettableProjection):
+    """Represents the default projection used for attention outputs."""
+
+    def __init__(
+        self,
+        v_proj_dim: int,
+        model_dim: int,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
+    ) -> None:
+        super().__init__(v_proj_dim, model_dim, bias=True, device=device, dtype=dtype)
+
+    @override
+    def reset_parameters(self) -> None:
+        nn.init.xavier_uniform_(self.weight)
+
+        if self.bias is not None:
+            nn.init.zeros_(self.bias)
+
+
+class MultiheadAttentionState(IncrementalState):
+    """Holds the state of a :class:`MultiheadAttention` module during an
+    incremental evaluation."""
+
+    prev_k: Tensor
+    """The projected keys accumulated from the past incremental evaluations.
+    *Shape:* :math:`(N,S_{prv},K_{proj})`, where :math:`N` is the batch size,
+    :math:`S_{prv}` is the accumulated key/value sequence length, and
+    :math:`K_{proj}` is the projected key size."""
+
+    prev_v: Tensor
+    """The projected values accumulated from the past incremental evaluations.
+    *Shape:* :math:`(N,S_{prv},V_{proj})`, where :math:`N` is the batch size,
+    :math:`S_{prv}` is the accumulated key/value sequence length, and
+    :math:`V_{proj}` is the projected value size."""
+
+    prev_padding_mask: Optional[Tensor]
+    """The float key padding mask accumulated from the past incremental
+    evaluations. *Shape:* :math:`(N,S_{prv})`, where :math:`N` is the batch size
+    and :math:`S_{prv}` is the accumulated key/value sequence length."""
+
+    def __init__(
+        self, k: Tensor, v: Tensor, padding_mask: Optional[Tensor] = None
+    ) -> None:
+        """
+        :param k:
+            The initial projected keys. *Shape:* :math:`(N,S_{int},K_{proj})`,
+            where :math:`N` is the batch size, :math:`S_{int}` is the initial
+            key/value sequence length, and :math:`K_{proj}` is the projected key
+            size.
+        :param v:
+            The initial projected values. *Shape:* :math:`(N,S_{int},V_{proj})`,
+            where :math:`N` is the batch size, :math:`S_{int}` is the initial
+            key/value sequence length, and :math:`V_{proj}` is the projected
+            value size.
+        :param padding_mask:
+            The initial float key padding mask. *Shape:* :math:`(N,S_{int})`,
+            where :math:`N` is the batch size and :math:`S_{int}` is the initial
+            key/value sequence length.
+        """
+        self.prev_k = k
+        self.prev_v = v
+
+        self.prev_padding_mask = padding_mask
+
+    def append(
+        self, k: Tensor, v: Tensor, padding_mask: Optional[Tensor]
+    ) -> Tuple[Tensor, Tensor, Optional[Tensor]]:
+        """Append the projected key, projected value, and float key padding mask
+        of the current incremental evaluation to :attr:`prev_k`, :attr:`prev_v`,
+        and :attr:`padding_mask`.
+
+        :param k:
+            The projected key of the current incremental evaluation. *Shape:*
+            :math:`(N,S_{stp},K_{proj})`, where :math:`N` is the batch size,
+            :math:`S_{stp}` is the step length (e.g. 1), and :math:`K_{proj}` is
+            the projected key size.
+        :param v:
+            The projected value of the current incremental evaluation. *Shape:*
+            :math:`(N,S_{stp},V_{proj})`, where :math:`N` is the batch size,
+            :math:`S_{stp}` is the step length (e.g. 1), and :math:`V_{proj}` is
+            the projected value size.
+        :param padding_mask:
+            The float key padding mask of the current incremental evaluation.
+            *Shape:* :math:`(N,S_{stp})`, where :math:`N` is the batch size and
+            :math:`S_{stp}` is the step length (e.g. 1).
+
+        :returns:
+            The projected keys, projected values, and key padding mask that
+            should be used to compute the attention.
+        """
+        seq_len = k.size(1)
+
+        prev_seq_len = self.prev_k.size(1)
+
+        self.prev_k = torch.cat([self.prev_k, k], dim=1)
+        self.prev_v = torch.cat([self.prev_v, v], dim=1)
+
+        # Appending the key padding mask is trickier than K and V since the
+        # previous or current mask can be None.
+        self._append_padding_mask(padding_mask, seq_len, prev_seq_len)
+
+        return self.prev_k, self.prev_v, self.prev_padding_mask
+
+    def _append_padding_mask(
+        self, curr_mask: Optional[Tensor], curr_seq_len: int, prev_seq_len: int
+    ) -> None:
+        prev_mask = self.prev_padding_mask
+
+        if prev_mask is None and curr_mask is None:
+            return
+
+        bsz = self.prev_k.size(0)
+
+        # One of the masks can be None. We have to ensure that both of them are
+        # fully materialized before concatenating them.
+        if prev_mask is None:
+            prev_mask = self.prev_k.new_zeros((bsz, prev_seq_len))
+
+        if curr_mask is None:
+            curr_mask = self.prev_k.new_zeros((bsz, curr_seq_len))
+
+        self.prev_padding_mask = torch.cat([prev_mask, curr_mask], dim=1)
+
+    @override
+    def reorder(self, new_order: Tensor) -> None:
+        self.prev_k = self.prev_k.index_select(0, new_order)
+        self.prev_v = self.prev_v.index_select(0, new_order)
+
+        if self.prev_padding_mask is not None:
+            self.prev_padding_mask = self.prev_padding_mask.index_select(0, new_order)
