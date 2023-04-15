@@ -5,17 +5,15 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import Callable, Optional, final
+from typing import Optional, final
 
 import torch
-import torch.nn.functional as F
 from overrides import final as finaloverride
 from torch import Tensor
-from torch.nn import LayerNorm, Module
+from torch.nn import Dropout, LayerNorm, Module, ReLU
 
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
-from fairseq2.nn.utils.fn import get_name
 
 
 class FeedForwardNetwork(Module, ABC):
@@ -55,8 +53,8 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
     inner_proj: Linear
-    inner_activation_fn: Callable[[Tensor], Tensor]
-    inner_dropout_p: float
+    inner_activation: Module
+    inner_dropout: Optional[Dropout]
     inner_norm: Optional[LayerNorm]
     out_proj: Linear
 
@@ -64,7 +62,7 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         self,
         model_dim: int,
         inner_dim: int,
-        inner_activation_fn: Optional[Callable[[Tensor], Tensor]] = None,
+        inner_activation: Optional[Module] = None,
         inner_dropout_p: float = 0.0,
         bias: bool = True,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
@@ -77,9 +75,9 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
             The dimensionality of the model (i.e. inputs and outputs).
         :param inner_dim:
             The dimensionality of the inner projection layer.
-        :param inner_activation_fn:
+        :param inner_activation:
             The activation to apply to outputs of the inner projection layer. If
-            ``None``, :func:`~torch.nn.functional.relu` will be used.
+            ``None``, :func:`~torch.nn.ReLU` will be used.
         :param inner_dropout_p:
             The dropout probability on outputs of the inner projection layer.
         :param bias:
@@ -98,12 +96,15 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
             model_dim, inner_dim, bias=bias, device=device, dtype=dtype
         )
 
-        if inner_activation_fn is None:
-            self.inner_activation_fn = F.relu
+        if inner_activation is None:
+            self.inner_activation = ReLU()
         else:
-            self.inner_activation_fn = inner_activation_fn
+            self.inner_activation = inner_activation
 
-        self.inner_dropout_p = inner_dropout_p
+        if inner_dropout_p > 0.0:
+            self.inner_dropout = Dropout(inner_dropout_p)
+        else:
+            self.register_module("inner_dropout", None)
 
         if norm_order == TransformerNormOrder.PRE_WITH_NORMFORMER:
             self.inner_layer_norm = LayerNorm(
@@ -120,20 +121,14 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
     def forward(self, x: Tensor) -> Tensor:
         x = self.inner_proj(x)
 
-        x = self.inner_activation_fn(x)
+        x = self.inner_activation(x)
 
         if self.inner_layer_norm is not None:
             x = self.inner_layer_norm(x)
 
-        if self.inner_dropout_p > 0.0:
-            x = F.dropout(x, self.inner_dropout_p, self.training)
+        if self.inner_dropout is not None:
+            x = self.inner_dropout(x)
 
         x = self.out_proj(x)
 
         return x
-
-    def extra_repr(self) -> str:
-        """:meta private:"""
-        s = super().extra_repr()
-
-        return f"{s}, inner_activation_fn={get_name(self.inner_activation_fn)}, inner_dropout_p={self.inner_dropout_p}"

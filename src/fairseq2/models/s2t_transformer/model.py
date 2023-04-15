@@ -8,9 +8,8 @@ import math
 from typing import Optional, Tuple
 
 import torch
-import torch.nn.functional as F
 from torch import Tensor
-from torch.nn import Module
+from torch.nn import Dropout, Module
 
 from fairseq2.models.s2t_transformer.subsampler import FbankSubsampler
 from fairseq2.models.transformer import TransformerTokenFrontend
@@ -30,7 +29,7 @@ class TransformerFbankFrontend(Module):
     scale: float
     pos_embed: Optional[PositionalEmbedding]
     proj: Optional[Projection]
-    dropout_p: float
+    dropout: Optional[Dropout]
 
     def __init__(
         self,
@@ -76,7 +75,10 @@ class TransformerFbankFrontend(Module):
         else:
             self.register_module("proj", None)
 
-        self.dropout_p = dropout_p
+        if dropout_p > 0.0:
+            self.dropout = Dropout(dropout_p)
+        else:
+            self.register_module("dropout", None)
 
     def forward(
         self,
@@ -100,9 +102,9 @@ class TransformerFbankFrontend(Module):
 
         :returns:
             - The audio embeddings, subsampled from ``fbanks``, to pass to the
-              encoder or decoder. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)`
-              when unbatched, where :math:`N` is the batch size, :math:`S` is
-              the sequence length, and :math:`M` is the model size.
+              encoder. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)` when
+              unbatched, where :math:`N` is the batch size, :math:`S` is the
+              sequence length, and :math:`M` is the model size.
             - The boolean padding mask indicating which key positions to ignore
               for the purpose of self attention. *Shape:* :math:`(N,S)`, or
               :math:`(S)` when unbatched, where :math:`N` is the batch size and
@@ -122,8 +124,8 @@ class TransformerFbankFrontend(Module):
         if self.proj is not None:
             embeds = self.proj(embeds)
 
-        if self.dropout_p > 0.0:
-            embeds = F.dropout(embeds, self.dropout_p, self.training)
+        if self.dropout is not None:
+            embeds = self.dropout(embeds)
 
         padding_mask = to_padding_mask(seq_lens, max_seq_len=embeds.size(-2))
 
@@ -135,12 +137,7 @@ class TransformerFbankFrontend(Module):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        if self.scale != 1.0:
-            s = "no_scale=False"
-        else:
-            s = ""
-
-        return f"{s}, dropout_p={self.dropout_p}"
+        return "no_scale=False" if self.scale != 1.0 else ""
 
 
 class S2TTransformerModel(Module):

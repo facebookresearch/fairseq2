@@ -9,10 +9,9 @@ from typing import Optional, Tuple, final
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from overrides import final as finaloverride
 from torch import Tensor
-from torch.nn import LayerNorm, Module
+from torch.nn import Dropout, LayerNorm, Module
 
 from fairseq2.nn.embedding import Embedding
 from fairseq2.nn.incremental_state import IncrementalStateBag
@@ -30,7 +29,7 @@ class TransformerTokenFrontend(Module):
     scale: float
     pos_embed: Optional[PositionalEmbedding]
     embed_norm: Optional[LayerNorm]
-    dropout_p: float
+    dropout: Optional[Dropout]
 
     def __init__(
         self,
@@ -82,7 +81,10 @@ class TransformerTokenFrontend(Module):
         else:
             self.register_module("layer_norm", None)
 
-        self.dropout_p = dropout_p
+        if dropout_p > 0.0:
+            self.dropout = Dropout(dropout_p)
+        else:
+            self.register_module("dropout", None)
 
     def forward(
         self, token_indices: Tensor, state_bag: Optional[IncrementalStateBag] = None
@@ -120,8 +122,8 @@ class TransformerTokenFrontend(Module):
         if self.layer_norm is not None:
             embeds = self.layer_norm(embeds)
 
-        if self.dropout_p > 0.0:
-            embeds = F.dropout(embeds, self.dropout_p, self.training)
+        if self.dropout is not None:
+            embeds = self.dropout(embeds)
 
         if self.embed.pad_idx is None:
             padding_mask = None
@@ -136,12 +138,7 @@ class TransformerTokenFrontend(Module):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        if self.scale != 1.0:
-            s = "no_scale=False"
-        else:
-            s = ""
-
-        return f"{s}, dropout_p={self.dropout_p}"
+        return "no_scale=False" if self.scale != 1.0 else ""
 
 
 class TransformerModel(Module):

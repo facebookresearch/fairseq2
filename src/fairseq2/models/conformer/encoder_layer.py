@@ -7,10 +7,9 @@
 from typing import Optional
 
 import torch
-import torch.nn.functional as F
 from overrides import final as finaloverride
 from torch import Tensor
-from torch.nn import LayerNorm
+from torch.nn import Dropout, LayerNorm
 
 from fairseq2.models.conformer.convolution import ConformerConvolution
 from fairseq2.nn.transformer import (
@@ -26,14 +25,17 @@ class ConformerEncoderLayer(TransformerEncoderLayer):
 
     ffn1_layer_norm: LayerNorm
     ffn1: FeedForwardNetwork
+    ffn1_dropout: Optional[Dropout]
     self_attn_layer_norm: LayerNorm
     self_attn: MultiheadAttention
+    self_attn_dropout: Optional[Dropout]
     conv_layer_norm: LayerNorm
     conv: ConformerConvolution
+    conv_dropout: Optional[Dropout]
     ffn2_layer_norm: LayerNorm
     ffn2: FeedForwardNetwork
+    ffn2_dropout: Optional[Dropout]
     layer_norm: LayerNorm
-    dropout_p: float
 
     def __init__(
         self,
@@ -77,11 +79,21 @@ class ConformerEncoderLayer(TransformerEncoderLayer):
 
         self.ffn1 = ffn1
 
+        if dropout_p > 0.0:
+            self.ffn1_dropout = Dropout(dropout_p)
+        else:
+            self.register_module("ffn1_dropout", None)
+
         self.self_attn_layer_norm = LayerNorm(
             model_dim, norm_eps, device=device, dtype=dtype
         )
 
         self.self_attn = self_attn
+
+        if dropout_p > 0.0:
+            self.self_attn_dropout = Dropout(dropout_p)
+        else:
+            self.register_module("self_attn_dropout", None)
 
         if conv.model_dim != model_dim:
             raise ValueError(
@@ -94,6 +106,11 @@ class ConformerEncoderLayer(TransformerEncoderLayer):
 
         self.conv = conv
 
+        if dropout_p > 0.0:
+            self.conv_dropout = Dropout(dropout_p)
+        else:
+            self.register_module("conv_dropout", None)
+
         if ffn2.model_dim != model_dim:
             raise ValueError(
                 f"`model_dim` of `ffn2` and `model_dim` of `self_attn` must be equal, but are {ffn2.model_dim} and {model_dim} instead."
@@ -105,9 +122,12 @@ class ConformerEncoderLayer(TransformerEncoderLayer):
 
         self.ffn2 = ffn2
 
-        self.layer_norm = LayerNorm(model_dim, norm_eps, device=device, dtype=dtype)
+        if dropout_p > 0.0:
+            self.ffn2_dropout = Dropout(dropout_p)
+        else:
+            self.register_module("ffn2_dropout", None)
 
-        self.dropout_p = dropout_p
+        self.layer_norm = LayerNorm(model_dim, norm_eps, device=device, dtype=dtype)
 
     @finaloverride
     def forward(
@@ -135,8 +155,8 @@ class ConformerEncoderLayer(TransformerEncoderLayer):
 
         x = self.ffn1(x) * 0.5
 
-        if self.dropout_p > 0.0:
-            x = F.dropout(x, self.dropout_p, self.training)
+        if self.ffn1_dropout is not None:
+            x = self.ffn1_dropout(x)
 
         return x + residual
 
@@ -158,8 +178,8 @@ class ConformerEncoderLayer(TransformerEncoderLayer):
             padding_mask=padding_mask,
         )
 
-        if self.dropout_p > 0.0:
-            x = F.dropout(x, self.dropout_p, self.training)
+        if self.self_attn_dropout is not None:
+            x = self.self_attn_dropout(x)
 
         return x + residual
 
@@ -170,8 +190,8 @@ class ConformerEncoderLayer(TransformerEncoderLayer):
 
         x = self.conv(x)
 
-        if self.dropout_p > 0.0:
-            x = F.dropout(x, self.dropout_p, self.training)
+        if self.conv_dropout is not None:
+            x = self.conv_dropout(x)
 
         return x + residual
 
@@ -182,13 +202,7 @@ class ConformerEncoderLayer(TransformerEncoderLayer):
 
         x = self.ffn2(x) * 0.5
 
-        if self.dropout_p > 0.0:
-            x = F.dropout(x, self.dropout_p, self.training)
+        if self.ffn2_dropout is not None:
+            x = self.ffn2_dropout(x)
 
         return x + residual
-
-    def extra_repr(self) -> str:
-        """:meta private:"""
-        s = super().extra_repr()
-
-        return f"{s}, dropout_p={self.dropout_p}"

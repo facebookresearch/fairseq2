@@ -8,15 +8,13 @@ from abc import ABC, abstractmethod
 from typing import Optional, Sequence, Tuple, final
 
 import torch
-import torch.nn.functional as F
 from overrides import final as finaloverride
 from torch import Tensor
-from torch.nn import Conv1d, Module, ModuleList
+from torch.nn import GLU, Conv1d, Module, Sequential
 
 
 class FbankSubsampler(Module, ABC):
-    """Subsamples log-mel filterbanks and embeds them in a latent space for use
-    in sequence encoding and decoding."""
+    """Subsamples log-mel filterbanks and embeds them in a latent space."""
 
     embed_dim: int
 
@@ -46,10 +44,10 @@ class FbankSubsampler(Module, ABC):
             batch size.
 
         :returns:
-            - The audio embeddings, subsampled from ``fbanks``, to pass to the
-              encoder or decoder. *Shape:* :math:`(N,S,E)`, or :math:`(S,E)`
-              when unbatched, where :math:`N` is the batch size, :math:`S` is
-              the sequence length, and :math:`E` is the embedding size.
+            - The audio embeddings, subsampled from ``fbanks``. *Shape:*
+              :math:`(N,S,E)`, or :math:`(S,E)` when unbatched, where :math:`N`
+              is the batch size, :math:`S` is the sequence length, and :math:`E`
+              is the embedding size.
             - The sequence lengths corresponding to the returned audio
               embeddings. *Shape:* :math:`(N)`, or :math:`()` when unbatched,
               where :math:`N` is the batch size.
@@ -65,7 +63,7 @@ class Conv1dFbankSubsampler(FbankSubsampler):
     """Represents a 1D convolutional subsampler as described in Section 2.1 of
     :cite:t:`https://doi.org/10.48550/arxiv.1911.08460`."""
 
-    convs: ModuleList
+    convs: Sequential
 
     def __init__(
         self,
@@ -94,22 +92,37 @@ class Conv1dFbankSubsampler(FbankSubsampler):
         if not kernel_sizes:
             raise ValueError("`kernel_sizes` must be non-empty.")
 
+        self.layers = Sequential()
+
         last_layer = len(kernel_sizes) - 1
 
-        convs = [
-            Conv1d(
-                num_channels if i == 0 else inner_dim // 2,
-                inner_dim if i < last_layer else embed_dim * 2,
+        for i, kernel_size in enumerate(kernel_sizes):
+            layer = Sequential()
+
+            if i == 0:
+                inp_dim = num_channels
+            else:
+                inp_dim = inner_dim // 2
+
+            if i == last_layer:
+                out_dim = embed_dim * 2
+            else:
+                out_dim = inner_dim
+
+            conv = Conv1d(
+                inp_dim,
+                out_dim,
                 kernel_size,
                 stride=2,
                 padding=kernel_size // 2,
                 device=device,
                 dtype=dtype,
             )
-            for i, kernel_size in enumerate(kernel_sizes)
-        ]
 
-        self.convs = ModuleList(convs)
+            layer.add_module("conv", conv)
+            layer.add_module("activation", GLU(dim=-2))
+
+            self.layers.append(layer)
 
     @finaloverride
     def forward(
@@ -120,12 +133,10 @@ class Conv1dFbankSubsampler(FbankSubsampler):
         # (N, F, C) -> (N, C, F)
         x = fbanks.transpose(-1, -2)
 
-        for conv in self.convs:
-            x = conv(x)
+        # (N, C, F) -> (N, E, S)
+        x = self.layers(x)
 
-            x = F.glu(x, dim=-2)
-
-        # (N, E, F), -> (N, F, E)
+        # (N, E, S), -> (N, S, E)
         x = x.transpose(-1, -2)
 
         # Since we contracted the temporal dimension, we should re-compute the
@@ -137,7 +148,7 @@ class Conv1dFbankSubsampler(FbankSubsampler):
     def _compute_seq_lens(self, num_frames: Tensor) -> Tensor:
         seq_lens = num_frames.clone()
 
-        for _ in range(len(self.convs)):
+        for _ in range(len(self.layers)):
             seq_lens = (((seq_lens - 1) / 2.0) + 1.0).floor().type(seq_lens.dtype)
 
         return seq_lens

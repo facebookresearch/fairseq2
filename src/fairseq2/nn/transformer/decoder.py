@@ -20,7 +20,6 @@ from fairseq2.nn.transformer.attention_mask import (
 )
 from fairseq2.nn.transformer.decoder_layer import TransformerDecoderLayer
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
-from fairseq2.nn.utils.fn import get_name
 from fairseq2.nn.utils.mask import to_float_mask
 
 
@@ -180,4 +179,8 @@ class StandardTransformerDecoder(TransformerDecoder):
         """:meta private:"""
         s = super().extra_repr()
 
-        return f"{s}, self_attn_mask_gen={get_name(self.self_attn_mask_gen)}"
+        mask_gen_name = getattr(
+            self.self_attn_mask_gen, "__name__", repr(self.self_attn_mask_gen)
+        )
+
+        return s + f", self_attn_mask_gen={mask_gen_name}"

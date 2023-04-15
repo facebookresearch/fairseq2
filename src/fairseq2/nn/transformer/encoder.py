@@ -16,7 +16,6 @@ from fairseq2.nn.module_list import ModuleList
 from fairseq2.nn.transformer.attention_mask import AttentionMaskGenerator
 from fairseq2.nn.transformer.encoder_layer import TransformerEncoderLayer
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
-from fairseq2.nn.utils.fn import get_name
 from fairseq2.nn.utils.mask import to_float_mask
 
 
@@ -143,6 +142,10 @@ class StandardTransformerEncoder(TransformerEncoder):
         s = super().extra_repr()
 
         if self.self_attn_mask_gen is not None:
-            s += f", self_attn_mask_gen={get_name(self.self_attn_mask_gen)}"
+            mask_gen_name = getattr(
+                self.self_attn_mask_gen, "__name__", repr(self.self_attn_mask_gen)
+            )
+
+            s += f", self_attn_mask_gen={mask_gen_name}"
 
         return s

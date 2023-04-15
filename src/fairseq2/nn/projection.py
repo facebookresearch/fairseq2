@@ -100,7 +100,9 @@ class ResettableProjection(Projection):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        return super().extra_repr() + f", bias={self.bias is not None}"
+        s = super().extra_repr()
+
+        return s + f", bias={self.bias is not None}"
 
 
 @final

@@ -4,6 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import re
 from typing import Any, Callable, Dict, NoReturn, Optional
 
 import torch
@@ -86,7 +87,7 @@ def upgrade_fairseq_checkpoint(checkpoint: Dict[str, Any]) -> Dict[str, Any]:
         modified_key = key
 
         for old, new in key_map.items():
-            modified_key = modified_key.replace(old, new)
+            modified_key = re.sub(old, new, modified_key)
 
         new_state_dict[modified_key] = old_state_dict[key]
 
@@ -110,13 +111,13 @@ def upgrade_fairseq_checkpoint(checkpoint: Dict[str, Any]) -> Dict[str, Any]:
 
 def _get_fairseq_param_key_map() -> Dict[str, str]:
     return {
-        ".encoder_attn": ".enc_dec_attn",
-        ".fc1.": ".ffn.inner_proj.",
-        ".fc2.": ".ffn.out_proj.",
-        ".final_layer_norm.": ".ffn_layer_norm.",
-        "decoder.embed_tokens.weight": "decoder_frontend.embed.weight",
-        "decoder.output_projection.weight": "score_proj.weight",
-        "encoder.embed_tokens.weight": "encoder_frontend.embed.weight",
-        "encoder.subsample.conv_layers": "encoder_frontend.subsampler.convs",
-        "encoder.transformer_layers": "encoder.layers",
+        r"\.encoder_attn": ".enc_dec_attn",
+        r"\.fc1\.": ".ffn.inner_proj.",
+        r"\.fc2\.": ".ffn.out_proj.",
+        r"\.final_layer_norm\.": ".ffn_layer_norm.",
+        r"decoder\.embed_tokens\.weight": "decoder_frontend.embed.weight",
+        r"decoder\.output_projection\.weight": "score_proj.weight",
+        r"encoder\.embed_tokens\.weight": "encoder_frontend.embed.weight",
+        r"encoder\.subsample\.conv_layers\.([0-9]+)\.([a-z]+)": r"encoder_frontend.subsampler.layers.\1.conv.\2",
+        r"encoder\.transformer_layers": "encoder.layers",
     }

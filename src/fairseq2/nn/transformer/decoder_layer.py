@@ -9,10 +9,9 @@ from typing import Optional, cast, final
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from overrides import final as finaloverride
 from torch import Tensor
-from torch.nn import LayerNorm, Module
+from torch.nn import Dropout, LayerNorm, Module
 from torch.nn.parameter import Parameter
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
@@ -96,13 +95,15 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
 
     self_attn: MultiheadAttention
     self_attn_norm: Optional[LayerNorm]
+    self_attn_dropout: Optional[Dropout]
     self_attn_layer_norm: LayerNorm
     enc_dec_attn: Optional[MultiheadAttention]
+    enc_dec_dropout: Optional[Dropout]
     enc_dec_attn_layer_norm: Optional[LayerNorm]
     ffn: FeedForwardNetwork
+    ffn_dropout: Optional[Dropout]
     residual_scale: Optional[Parameter]
     ffn_layer_norm: LayerNorm
-    dropout_p: float
     norm_order: TransformerNormOrder
 
     def __init__(
@@ -158,6 +159,11 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         else:
             self.register_module("self_attn_norm", None)
 
+        if dropout_p > 0.0:
+            self.self_attn_dropout = Dropout(dropout_p)
+        else:
+            self.register_module("self_attn_dropout", None)
+
         if norm_order == TransformerNormOrder.POST:
             self.self_attn_layer_norm = self_attn_layer_norm
 
@@ -179,6 +185,11 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
 
             self.enc_dec_attn = enc_dec_attn
 
+            if dropout_p > 0.0:
+                self.enc_dec_attn_dropout = Dropout(dropout_p)
+            else:
+                self.register_module("enc_dec_attn_dropout", None)
+
             if norm_order == TransformerNormOrder.POST:
                 self.enc_dec_attn_layer_norm = enc_dec_attn_layer_norm
 
@@ -194,6 +205,11 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
 
         self.ffn = ffn
 
+        if dropout_p > 0.0:
+            self.ffn_dropout = Dropout(dropout_p)
+        else:
+            self.register_module("ffn_dropout", None)
+
         if scale_residual:
             self.residual_scale = Parameter(
                 torch.empty((model_dim,), device=device, dtype=dtype)
@@ -203,8 +219,6 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
 
         if norm_order == TransformerNormOrder.POST:
             self.ffn_layer_norm = ffn_layer_norm
-
-        self.dropout_p = dropout_p
 
         self.norm_order = norm_order
 
@@ -257,8 +271,8 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         if self.self_attn_norm is not None:
             x = self.self_attn_norm(x)
 
-        if self.dropout_p > 0.0:
-            x = F.dropout(x, self.dropout_p, self.training)
+        if self.self_attn_dropout is not None:
+            x = self.self_attn_dropout(x)
 
         x = x + residual
 
@@ -298,8 +312,8 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
             state_bag=state_bag,
         )
 
-        if self.dropout_p > 0.0:
-            x = F.dropout(x, self.dropout_p, self.training)
+        if self.enc_dec_attn_dropout is not None:
+            x = self.enc_dec_attn_dropout(x)
 
         x = x + residual
 
@@ -316,8 +330,8 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
 
         x = self.ffn(x)
 
-        if self.dropout_p > 0.0:
-            x = F.dropout(x, self.dropout_p, self.training)
+        if self.ffn_dropout is not None:
+            x = self.ffn_dropout(x)
 
         if self.residual_scale is not None:
             residual = torch.mul(self.residual_scale, residual)
@@ -333,4 +347,4 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         """:meta private:"""
         s = super().extra_repr()
 
-        return f"{s}, dropout_p={self.dropout_p}, norm_order={self.norm_order}"
+        return s + f", norm_order={self.norm_order}"

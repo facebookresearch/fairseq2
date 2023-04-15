@@ -24,7 +24,6 @@ from fairseq2.nn.transformer.attention import (
     AttentionFunction,
     default_scaled_dot_product_attention,
 )
-from fairseq2.nn.utils.fn import get_name
 from fairseq2.nn.utils.mask import to_float_mask
 
 
@@ -251,9 +250,9 @@ class StandardMultiheadAttention(MultiheadAttention):
         super().__init__(num_heads, model_dim)
 
         if q_proj is None and k_proj is None and v_proj is None:
-            q_proj = InternalQKVProjection(model_dim, device=device, dtype=dtype)
-            k_proj = InternalQKVProjection(model_dim, device=device, dtype=dtype)
-            v_proj = InternalQKVProjection(model_dim, device=device, dtype=dtype)
+            q_proj = QKVProjection(model_dim, device=device, dtype=dtype)
+            k_proj = QKVProjection(model_dim, device=device, dtype=dtype)
+            v_proj = QKVProjection(model_dim, device=device, dtype=dtype)
         else:
             if q_proj is None or k_proj is None or v_proj is None:
                 raise ValueError(
@@ -323,7 +322,7 @@ class StandardMultiheadAttention(MultiheadAttention):
             self.register_parameter("head_scale_weight", None)
 
         if out_proj is None:
-            self.out_proj = InternalOutProjection(
+            self.out_proj = AttentionOutputProjection(
                 v_proj.out_dim, model_dim, device=device, dtype=dtype
             )
         else:
@@ -528,10 +527,12 @@ class StandardMultiheadAttention(MultiheadAttention):
         if self.add_zero_attn:
             s += ", add_zero_attn=True"
 
-        return f"{s}, attn_fn={get_name(self.attn_fn)}, attn_dropout_p={self.attn_dropout_p}"
+        attn_fn_name = getattr(self.attn_fn, "__name__", repr(self.attn_fn))
+
+        return s + f", attn_fn={attn_fn_name}, attn_dropout_p={self.attn_dropout_p}"
 
 
-class InternalQKVProjection(ResettableProjection):
+class QKVProjection(ResettableProjection):
     """Represents the default projection used for inputs, keys, and values."""
 
     def __init__(
@@ -552,7 +553,7 @@ class InternalQKVProjection(ResettableProjection):
             nn.init.zeros_(self.bias)
 
 
-class InternalOutProjection(ResettableProjection):
+class AttentionOutputProjection(ResettableProjection):
     """Represents the default projection used for attention outputs."""
 
     def __init__(

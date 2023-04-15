@@ -5,12 +5,10 @@
 # LICENSE file in the root directory of this source tree.
 
 import math
-from typing import Optional, Protocol, final
+from typing import Optional, Protocol
 
 import torch
 from torch import Tensor
-
-_neg_inf = float("-inf")
 
 
 class AttentionMaskGenerator(Protocol):
@@ -30,7 +28,6 @@ class AttentionMaskGenerator(Protocol):
         """
 
 
-@final
 class CausalAttentionMaskGenerator:
     """Generates a causal attention mask for self attention.
 
@@ -86,8 +83,10 @@ class CausalAttentionMaskGenerator:
 
         return mask[:seq_len, :seq_len]
 
+    def __repr__(self) -> str:
+        return "CausalAttentionMaskGenerator"
 
-@final
+
 class ALiBiAttentionMaskGenerator:
     """Generates a mask for self attention as described in
     :cite:t:`https://doi.org/10.48550/arxiv.2108.12409`.
@@ -100,25 +99,10 @@ class ALiBiAttentionMaskGenerator:
     _causal_attn_mask_gen: CausalAttentionMaskGenerator
 
     def __init__(self, num_heads: int) -> None:
-        self._cached_attn_mask = None
         self.num_heads = num_heads
+
+        self._cached_attn_mask = None
         self._causal_attn_mask_gen = CausalAttentionMaskGenerator()
-
-    def get_slopes(self, num_heads: int) -> Tensor:
-        def get_slopes_power_of_2(num_heads: int, step: int = 1) -> Tensor:
-            start = 2 ** (-8 / num_heads)
-            return torch.pow(start, torch.arange(1, 1 + num_heads, step))
-
-        num_heads_log_2 = math.log2(num_heads)
-        if num_heads_log_2.is_integer():
-            return get_slopes_power_of_2(num_heads)
-        else:
-            closest_pow_2 = 2 ** math.floor(num_heads_log_2)
-            base_slopes = get_slopes_power_of_2(closest_pow_2)
-            num_slopes_left = num_heads - closest_pow_2
-            extra_slopes = get_slopes_power_of_2(2 * closest_pow_2, step=2)
-
-            return torch.cat([base_slopes, extra_slopes[:num_slopes_left]])
 
     def __call__(self, x: Tensor) -> Tensor:
         """
@@ -137,7 +121,7 @@ class ALiBiAttentionMaskGenerator:
         seq_len = x.size(-2)
 
         if mask is None or mask.device != x.device or mask.size(-2) < seq_len:
-            slopes = self.get_slopes(self.num_heads)
+            slopes = self._get_slopes(self.num_heads)
 
             arange_tensor = torch.arange(seq_len, device=x.device)[None, None, :]
             arange_tensor = arange_tensor.expand((self.num_heads, -1, -1))
@@ -148,3 +132,25 @@ class ALiBiAttentionMaskGenerator:
             self._cached_attn_mask = mask
 
         return mask[:, :seq_len, :seq_len]
+
+    def _get_slopes(self, num_heads: int) -> Tensor:
+        def get_slopes_power_of_2(num_heads: int, step: int = 1) -> Tensor:
+            start = 2 ** (-8 / num_heads)
+            return torch.pow(start, torch.arange(1, 1 + num_heads, step))
+
+        num_heads_log_2 = math.log2(num_heads)
+        if num_heads_log_2.is_integer():
+            return get_slopes_power_of_2(num_heads)
+        else:
+            closest_pow_2 = 2 ** math.floor(num_heads_log_2)
+            base_slopes = get_slopes_power_of_2(closest_pow_2)
+            num_slopes_left = num_heads - closest_pow_2
+            extra_slopes = get_slopes_power_of_2(2 * closest_pow_2, step=2)
+
+            return torch.cat([base_slopes, extra_slopes[:num_slopes_left]])
+
+    def __repr__(self) -> str:
+        return "ALiBiAttentionMaskGenerator"
+
+
+_neg_inf = float("-inf")

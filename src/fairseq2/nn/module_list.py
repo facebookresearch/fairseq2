@@ -66,7 +66,4 @@ class ModuleList(nn.ModuleList):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        if self.drop_p > 0.0:
-            return f"drop_p={self.drop_p}"
-        else:
-            return ""
+        return f"drop_p={self.drop_p}" if self.drop_p > 0.0 else ""
