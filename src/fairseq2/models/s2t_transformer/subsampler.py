@@ -136,7 +136,7 @@ class Conv1dFbankSubsampler(FbankSubsampler):
         # (N, C, F) -> (N, E, S)
         x = self.layers(x)
 
-        # (N, E, S), -> (N, S, E)
+        # (N, E, S) -> (N, S, E)
         x = x.transpose(-1, -2)
 
         # Since we contracted the temporal dimension, we should re-compute the
