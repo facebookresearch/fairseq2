@@ -47,21 +47,21 @@ class ConformerConvolution(Module):
         # We treat the model size as the number of input channels to the
         # first pointwise convolution.
         self.pointwise_conv1 = Conv1d(
-            in_channels=model_dim,
-            # We apply GLU to outputs to bring them back to model_dim.
-            out_channels=2 * model_dim,
+            model_dim,
+            # We apply GLU to outputs to bring them back to `model_dim`.
+            model_dim * 2,
             kernel_size=1,
             bias=False,
             device=device,
             dtype=dtype,
         )
 
-        self.pointwise_conv1_activation = GLU(dim=1)
+        self.pointwise_conv1_activation = GLU(dim=-2)
 
         self.depthwise_conv = Conv1d(
-            in_channels=model_dim,
-            out_channels=model_dim,
-            kernel_size=depthwise_kernel_size,
+            model_dim,
+            model_dim,
+            depthwise_kernel_size,
             # We preserve the sequence length regardless of the kernel size.
             padding="same",
             # We want to perform depthwise convolution.
@@ -79,8 +79,8 @@ class ConformerConvolution(Module):
             self.depthwise_activation = depthwise_activation
 
         self.pointwise_conv2 = Conv1d(
-            in_channels=model_dim,
-            out_channels=model_dim,
+            model_dim,
+            model_dim,
             kernel_size=1,
             bias=False,
             device=device,
@@ -97,29 +97,34 @@ class ConformerConvolution(Module):
         :returns:
             The processed output of ``x``. *Shape:* Same as ``x``.
         """
+        # Since we apply Batch Normalization, we have to have a batch dimension.
+        b = x if x.dim() == 3 else x.unsqueeze(0)
+
         # (N, S, M) -> (N, M, S)
-        x = x.transpose(1, 2)
+        b = b.transpose(-1, -2)
 
         # This is mathematically equivalent to a dot-product.
         # (N, M, S) -> (N, 2 * M, S)
-        x = self.pointwise_conv1(x)
+        b = self.pointwise_conv1(b)
 
         # (N, 2 * M, S) -> (N, M, S)
-        x = self.pointwise_conv1_activation(x)
+        b = self.pointwise_conv1_activation(b)
 
         # (N, M, S) -> (N, M, S)
-        x = self.depthwise_conv(x)
+        b = self.depthwise_conv(b)
 
-        x = self.batch_norm(x)
+        b = self.batch_norm(b)
 
-        x = self.depthwise_activation(x)
+        b = self.depthwise_activation(b)
 
         # This is mathematically equivalent to a dot-product.
         # (N, M, S) -> (N, M, S)
-        x = self.pointwise_conv2(x)
+        b = self.pointwise_conv2(b)
 
         # (N, M, S) -> (N, S, M)
-        return x.transpose(1, 2)
+        b = b.transpose(-1, -2)
+
+        return b if x.dim() == 3 else b.squeeze(0)
 
     def extra_repr(self) -> str:
         """:meta private:"""

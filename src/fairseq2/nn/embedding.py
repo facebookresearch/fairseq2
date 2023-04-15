@@ -45,7 +45,7 @@ class Embedding(Module):
             gradient; therefore, the embedding at ``pad_idx`` is not updated
             during training.
         :param scaled:
-            If ``True``, the embeddings will be initialized from
+            If ``True``, initializes the embeddings from
             :math:`\\mathcal{N}(0, \\frac{1}{\\text{embed_dim}})`; otherwise,
             from :math:`\\mathcal{N}(0, 1)`.
         """

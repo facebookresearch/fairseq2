@@ -164,7 +164,7 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
         """Reset the buffers of the module.
 
         :param skip_persistent:
-            If ``True``, won't reset persistent buffers.
+            If ``True``, does not reset persistent buffers.
         """
         num_sin = self.embed_dim // 2
 
@@ -254,7 +254,7 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
         """Reset the buffers of the module.
 
         :param skip_persistent:
-            If ``True``, won't reset persistent buffers.
+            If ``True``, does not reset persistent buffers.
         """
         nn.init.normal_(self.weight)
 
@@ -309,7 +309,7 @@ class RotaryEmbedding(PositionalEmbedding):
         """Reset the buffers of the module.
 
         :param skip_persistent:
-            If ``True``, won't reset persistent buffers.
+            If ``True``, does not reset persistent buffers.
         """
         device, dtype = self.sin_weight.device, self.sin_weight.dtype
 

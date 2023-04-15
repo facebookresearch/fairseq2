@@ -71,7 +71,9 @@ class TransformerFbankFrontend(Module):
             self.register_module("pos_embed", None)
 
         if apply_projection:
-            self.proj = Linear(embed_dim, embed_dim, device=device, dtype=dtype)
+            self.proj = Linear(
+                embed_dim, embed_dim, bias=True, device=device, dtype=dtype
+            )
         else:
             self.register_module("proj", None)
 

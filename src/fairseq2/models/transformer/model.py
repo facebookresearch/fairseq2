@@ -48,7 +48,7 @@ class TransformerTokenFrontend(Module):
         :param pos_embed:
             The positional embedding.
         :param no_scale:
-            If ``True``, embeddings won't be scaled by the square root of the
+            If ``True``, does not scale embeddings by the square root of the
             embedding size.
         :param layer_norm:
             If ``True``, applies Layer Normalization to embeddings.

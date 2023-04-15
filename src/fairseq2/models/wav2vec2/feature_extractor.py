@@ -39,8 +39,8 @@ class Wav2Vec2FeatureExtractor(Module):
             A tuple of output dimension, kernel size, and stride length for each
             feature extraction layer.
         :param bias:
-            If ``True``, convolutions in the feature extraction layers will
-            learn an additive bias.
+            If ``True``, convolutions in the feature extraction layers learn an
+            additive bias.
         :param dropout_p:
             The dropout probability on outputs of convolutions.
         :param use_layer_norm:

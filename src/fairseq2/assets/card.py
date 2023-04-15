@@ -109,7 +109,7 @@ class AssetCardField:
         :param kls:
             The type to check against.
         :param allow_empty:
-            If ``True``, the value can be empty.
+            If ``True``, allows the value to be empty.
         """
         if self.data is None:
             pathname = ".".join(self.path)
@@ -164,7 +164,7 @@ class AssetCardField:
         :param kls:
             The type to check against.
         :param allow_empty:
-            If ``True``, the list can be empty.
+            If ``True``, allows the list to be empty.
         """
         value = self.as_(list, allow_empty)
 

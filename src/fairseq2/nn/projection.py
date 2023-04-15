@@ -75,7 +75,7 @@ class ResettableProjection(Projection):
         :param out_dim:
             The dimensionality of outputs.
         :param bias:
-            If ``True``, the module will learn an additive bias.
+            If ``True``, learns an additive bias.
         """
         super().__init__(inp_dim, out_dim)
 

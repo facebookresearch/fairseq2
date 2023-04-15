@@ -68,8 +68,8 @@ class TransformerConfig:
     """The Layer Normalization order."""
 
     legacy_pos_embed: bool = False
-    """If ``True``, sinusoidal positional embeddings will be initialized in a
-    way that is compatible with the original fairseq."""
+    """If ``True``, initializes sinusoidal positional embeddings in a way that
+    is compatible with the original fairseq."""
 
     dtype: torch.dtype = torch.float32
     """The data type of model parameters and buffers."""

@@ -35,8 +35,8 @@ def load_checkpoint(
     :param map_location:
         Same as the ``map_location`` parameter of :meth:`torch.load`.
     :param restrict:
-        If ``True``, the Python unpickler will be restricted to loading only
-        tensors, primitive types, and dictionaries.
+        If ``True``, restricts the Python unpickler to load only tensors,
+        primitive types, and dictionaries.
     :param upgrader:
         The callable to which the loaded checkpoint will be passed for further
         processing. Typically used to upgrade legacy checkpoints.
@@ -82,14 +82,18 @@ def upgrade_fairseq_checkpoint(checkpoint: Dict[str, Any]) -> Dict[str, Any]:
 
     key_map = _get_fairseq_param_key_map()
 
+    def get_new_key(old_key: str) -> str:
+        for old_pttrn, new_repl in key_map.items():
+            if (new_key := re.sub(old_pttrn, new_repl, old_key)) != old_key:
+                return new_key
+
+        return old_key
+
     # Convert module keys from fairseq to fairseq2.
-    for key in old_state_dict.keys():
-        modified_key = key
+    for old_key in old_state_dict.keys():
+        new_key = get_new_key(old_key)
 
-        for old, new in key_map.items():
-            modified_key = re.sub(old, new, modified_key)
-
-        new_state_dict[modified_key] = old_state_dict[key]
+        new_state_dict[new_key] = old_state_dict[old_key]
 
     # Use the built-in version attribute of Module.
     try:
@@ -111,13 +115,42 @@ def upgrade_fairseq_checkpoint(checkpoint: Dict[str, Any]) -> Dict[str, Any]:
 
 def _get_fairseq_param_key_map() -> Dict[str, str]:
     return {
-        r"\.encoder_attn": ".enc_dec_attn",
-        r"\.fc1\.": ".ffn.inner_proj.",
-        r"\.fc2\.": ".ffn.out_proj.",
-        r"\.final_layer_norm\.": ".ffn_layer_norm.",
-        r"decoder\.embed_tokens\.weight": "decoder_frontend.embed.weight",
-        r"decoder\.output_projection\.weight": "score_proj.weight",
-        r"encoder\.embed_tokens\.weight": "encoder_frontend.embed.weight",
-        r"encoder\.subsample\.conv_layers\.([0-9]+)\.([a-z]+)": r"encoder_frontend.subsampler.layers.\1.conv.\2",
-        r"encoder\.transformer_layers": "encoder.layers",
+        # fmt: off
+        r"^decoder\.layers\.([0-9]+)\.encoder_attn\.":            r"decoder.layers.\1.enc_dec_attn.",
+        r"^decoder\.layers\.([0-9]+)\.encoder_attn_layer_norm\.": r"decoder.layers.\1.enc_dec_attn_layer_norm.",
+        r"^encoder\.layers\.([0-9]+)\.fc1\.":                     r"encoder.layers.\1.ffn.inner_proj.",
+        r"^decoder\.layers\.([0-9]+)\.fc1\.":                     r"decoder.layers.\1.ffn.inner_proj.",
+        r"^encoder\.layers\.([0-9]+)\.fc2\.":                     r"encoder.layers.\1.ffn.out_proj.",
+        r"^decoder\.layers\.([0-9]+)\.fc2\.":                     r"decoder.layers.\1.ffn.out_proj.",
+        r"^encoder\.layers\.([0-9]+)\.final_layer_norm\.":        r"encoder.layers.\1.ffn_layer_norm.",
+        r"^decoder\.layers\.([0-9]+)\.final_layer_norm\.":        r"decoder.layers.\1.ffn_layer_norm.",
+        r"^encoder\.embed_tokens\.":                              r"encoder_frontend.embed.",
+        r"^decoder\.embed_tokens\.":                              r"decoder_frontend.embed.",
+        r"^decoder\.output_projection\.":                         r"score_proj.",
+
+        # S2T Transformer
+        r"^encoder\.subsample\.conv_layers\.([0-9]+)\.":                    r"encoder_frontend.subsampler.layers.\1.conv.",
+        r"^encoder\.transformer_layers\.([0-9]+)\.self_attn_layer_norm\.":  r"encoder.layers.\1.self_attn_layer_norm.",
+        r"^encoder\.transformer_layers\.([0-9]+)\.self_attn\.":             r"encoder.layers.\1.self_attn.",
+        r"^encoder\.transformer_layers\.([0-9]+)\.final_layer_norm\.":      r"encoder.layers.\1.ffn_layer_norm.",
+        r"^encoder\.transformer_layers\.([0-9]+)\.fc1\.":                   r"encoder.layers.\1.ffn.inner_proj.",
+        r"^encoder\.transformer_layers\.([0-9]+)\.fc2\.":                   r"encoder.layers.\1.ffn.out_proj.",
+
+        # S2T Conformer
+        r"^encoder\.linear\.":                                                   r"encoder_frontend.proj.",
+        r"^encoder\.conformer_layers\.([0-9]+)\.ffn(1|2)\.layer_norm\.":         r"encoder.layers.\1.ffn\2_layer_norm.",
+        r"^encoder\.conformer_layers\.([0-9]+)\.ffn(1|2)\.w_1\.":                r"encoder.layers.\1.ffn\2.inner_proj.",
+        r"^encoder\.conformer_layers\.([0-9]+)\.ffn(1|2)\.w_2\.":                r"encoder.layers.\1.ffn\2.out_proj.",
+        r"^encoder\.conformer_layers\.([0-9]+)\.self_attn_layer_norm\.":         r"encoder.layers.\1.self_attn_layer_norm.",
+        r"^encoder\.conformer_layers\.([0-9]+)\.self_attn\.linear_q\.":          r"encoder.layers.\1.self_attn.q_proj.",
+        r"^encoder\.conformer_layers\.([0-9]+)\.self_attn\.linear_k\.":          r"encoder.layers.\1.self_attn.k_proj.",
+        r"^encoder\.conformer_layers\.([0-9]+)\.self_attn\.linear_v\.":          r"encoder.layers.\1.self_attn.v_proj.",
+        r"^encoder\.conformer_layers\.([0-9]+)\.self_attn\.linear_out\.":        r"encoder.layers.\1.self_attn.out_proj.",
+        r"^encoder\.conformer_layers\.([0-9]+)\.conv_module\.layer_norm\.":      r"encoder.layers.\1.conv_layer_norm.",
+        r"^encoder\.conformer_layers\.([0-9]+)\.conv_module\.pointwise_conv1\.": r"encoder.layers.\1.conv.pointwise_conv1.",
+        r"^encoder\.conformer_layers\.([0-9]+)\.conv_module\.depthwise_conv\.":  r"encoder.layers.\1.conv.depthwise_conv.",
+        r"^encoder\.conformer_layers\.([0-9]+)\.conv_module\.batch_norm\.":      r"encoder.layers.\1.conv.batch_norm.",
+        r"^encoder\.conformer_layers\.([0-9]+)\.conv_module\.pointwise_conv2\.": r"encoder.layers.\1.conv.pointwise_conv2.",
+        r"^encoder\.conformer_layers\.([0-9]+)\.final_layer_norm\.":             r"encoder.layers.\1.layer_norm.",
+        # fmt: on
     }

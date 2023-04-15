@@ -54,9 +54,8 @@ class AttentionFunction(Protocol):
         :param dropout_p:
             The dropout probability on the attention weights.
         :param needs_weights:
-            A boolean value indicating whether the function should return the
-            attention weights. If ``True``, the second item of the returned
-            tuple will contain the attention weights.
+            If ``True``, returns the attention weights as the second item of the
+            returned tuple.
         :param training:
             If ``True``, applies dropout.
 

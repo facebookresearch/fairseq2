@@ -8,8 +8,10 @@ from dataclasses import dataclass
 from typing import AbstractSet, Final, Optional
 
 import torch
+from torch.nn import SiLU
 
 from fairseq2.data.text import VocabularyInfo
+from fairseq2.models.conformer import ConformerConvolution, ConformerEncoderLayer
 from fairseq2.models.s2t_transformer.model import (
     S2TTransformerModel,
     TransformerFbankFrontend,
@@ -55,6 +57,9 @@ class S2TTransformerConfig:
     model_dim: int = 512
     """The dimensionality of the model (i.e. inputs and outputs)."""
 
+    use_conformer: bool = False
+    """If ``True``, uses Conformer blocks instead of Transformer encoder layers."""
+
     num_enc_layers: int = 12
     """The number of encoder layers."""
 
@@ -73,6 +78,9 @@ class S2TTransformerConfig:
     dropout_p: float = 0.15
     """The dropout probability on outputs of embedding dictionaries, attention
     layers, and feed-forward networks."""
+
+    depthwise_conv_kernel_size: int = 31
+    """The kernel size of depthwise convolutions in Conformer blocks."""
 
     dtype: torch.dtype = torch.float32
     """The data type of model parameters and buffers."""
@@ -114,6 +122,17 @@ _CONFIGS: Final = {
         num_dec_attn_heads=16,
         ffn_inner_dim=1024 * 4,
         dropout_p=0.2,
+    ),
+    "conformer": lambda: S2TTransformerConfig(
+        max_seq_len=6000,
+        model_dim=256,
+        use_conformer=True,
+        num_enc_layers=12,
+        num_dec_layers=6,
+        num_enc_attn_heads=4,
+        num_dec_attn_heads=8,
+        ffn_inner_dim=512 * 4,
+        dropout_p=0.1,
     ),
 }
 
@@ -218,6 +237,7 @@ class S2TTransformerBuilder:
         return TransformerFbankFrontend(
             subsampler,
             pos_embed,
+            apply_projection=self.cfg.use_conformer,
             dropout_p=self.cfg.dropout_p,
             device=self.device,
             dtype=self.cfg.dtype,
@@ -258,11 +278,15 @@ class S2TTransformerBuilder:
         """Build an encoder."""
         layers = [self.build_encoder_layer() for _ in range(self.cfg.num_enc_layers)]
 
+        if not self.cfg.use_conformer:
+            norm_order = TransformerNormOrder.PRE
+        else:
+            # We do not apply Layer Normalization to the output of the encoder
+            # since Conformer blocks already apply it.
+            norm_order = TransformerNormOrder.POST
+
         return StandardTransformerEncoder(
-            layers,
-            norm_order=TransformerNormOrder.PRE,
-            device=self.device,
-            dtype=self.cfg.dtype,
+            layers, norm_order=norm_order, device=self.device, dtype=self.cfg.dtype
         )
 
     def build_decoder(self) -> TransformerDecoder:
@@ -278,6 +302,9 @@ class S2TTransformerBuilder:
 
     def build_encoder_layer(self) -> TransformerEncoderLayer:
         """Build an encoder layer."""
+        if self.cfg.use_conformer:
+            return self.build_conformer_block()
+
         self_attn = self.build_attention(self.cfg.num_enc_attn_heads)
 
         ffn = self.build_ffn()
@@ -287,6 +314,31 @@ class S2TTransformerBuilder:
             ffn,
             dropout_p=self.cfg.dropout_p,
             norm_order=TransformerNormOrder.PRE,
+            device=self.device,
+            dtype=self.cfg.dtype,
+        )
+
+    def build_conformer_block(self) -> TransformerEncoderLayer:
+        """Build a Conformer block."""
+        ffn1 = self.build_ffn(use_swish=True)
+
+        self_attn = self.build_attention(self.cfg.num_enc_attn_heads)
+
+        conv = ConformerConvolution(
+            self.cfg.model_dim,
+            self.cfg.depthwise_conv_kernel_size,
+            device=self.device,
+            dtype=self.cfg.dtype,
+        )
+
+        ffn2 = self.build_ffn(use_swish=True)
+
+        return ConformerEncoderLayer(
+            ffn1,
+            self_attn,
+            conv,
+            ffn2,
+            dropout_p=self.cfg.dropout_p,
             device=self.device,
             dtype=self.cfg.dtype,
         )
@@ -319,11 +371,12 @@ class S2TTransformerBuilder:
             dtype=self.cfg.dtype,
         )
 
-    def build_ffn(self) -> FeedForwardNetwork:
+    def build_ffn(self, use_swish: bool = False) -> FeedForwardNetwork:
         """Build a feed-forward network."""
         return StandardFeedForwardNetwork(
             self.cfg.model_dim,
             self.cfg.ffn_inner_dim,
+            inner_activation=SiLU() if use_swish else None,
             inner_dropout_p=self.cfg.dropout_p,
             norm_order=TransformerNormOrder.PRE,
             device=self.device,
