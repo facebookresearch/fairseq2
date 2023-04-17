@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import List, Optional, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 import torch
 import torch.nn as nn
@@ -17,20 +17,22 @@ from fairseq2.nn.utils.grad import scale_grad
 
 
 class Wav2Vec2FeatureExtractor(Module):
-    """Extracts features (i.e. latent representations) of raw audio inputs as
-    described in Section 2 of :cite:t:`baevski2020wav2vec`."""
+    """Extracts features from raw audio inputs and embeds them in a latent space
+    as described in Section 2 of :cite:t:`baevski2020wav2vec`."""
 
+    embed_dim: int
     layers: Sequential
+    layer_descs: List[Tuple[int, int, int]]
     grad_scale: float
 
     def __init__(
         self,
-        layer_descs: List[Tuple[int, int, int]],
+        layer_descs: Sequence[Tuple[int, int, int]],
         bias: bool = False,
         dropout_p: float = 0.0,
         use_layer_norm: bool = False,
-        norm_eps: float = 1e-5,
         grad_scale: float = 1.0,
+        norm_eps: float = 1e-5,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
@@ -46,16 +48,22 @@ class Wav2Vec2FeatureExtractor(Module):
         :param use_layer_norm:
             If ``True``, applies Layer Normalization to outputs of convolutions
             after dropout.
-        :param norm_eps:
-            The epsilon value to add to the denominator of
-            :class:`~torch.nn.LayerNorm` or :class:`~torch.nn.GroupNorm` modules
-            for numerical stability.
         :param grad_scale:
             The scale factor for gradients of extracted features. Setting to a
             value less than 1.0 allows the feature extractor to learn at a lower
             rate than the rest of the model.
+        :param norm_eps:
+            The epsilon value to add to the denominator of
+            :class:`~torch.nn.LayerNorm` or :class:`~torch.nn.GroupNorm` modules
+            for numerical stability.
         """
         super().__init__()
+
+        if not layer_descs:
+            raise ValueError("`layer_descs` must be non-empty.")
+
+        # The output dimensionality of the last feature extraction layer.
+        self.embed_dim = layer_descs[-1][0]
 
         self.layers = Sequential()
 
@@ -102,6 +110,8 @@ class Wav2Vec2FeatureExtractor(Module):
 
             inp_dim = out_dim
 
+        self.layer_descs = list(layer_descs)
+
         if grad_scale <= 0.0 or grad_scale > 1.0:
             raise ValueError(
                 f"`grad_scale` must be greater than 0.0 and less than or equal to 1.0, but is {grad_scale} instead."
@@ -109,19 +119,29 @@ class Wav2Vec2FeatureExtractor(Module):
 
         self.grad_scale = grad_scale
 
-    def forward(self, waveforms: Tensor) -> Tensor:
+    def forward(
+        self, waveforms: Tensor, num_frames: Optional[Tensor]
+    ) -> Tuple[Tensor, Optional[Tensor]]:
         """
         :param waveforms:
             The raw audio inputs from which to extract features. *Shape:*
             :math:`(N,S)`, or :math:`(S)` when unbatched, where :math:`N` is the
             batch size and :math:`(S)` is the sequence length.
+        :param num_frames:
+            An array where each entry defines the number of frames of the
+            waveform at the same index in ``waveforms``. *Shape:* :math:`(N)`,
+            :math:`(N,1)`, or :math:`()` when unbatched, where :math:`N` is the
+            batch size.
 
         :returns:
-            The extracted features of ``waveforms``. *Shape:* :math:`(N,S,E)`,
-            or :math:`(S,E)` when unbatched, where :math:`N` is the batch size,
-            :math:`(S)` is the sequence length, and :math:`E` is the embedding
-            size (i.e. the output dimensionality of the last feature extraction
-            layer).
+            - The audio embeddings, extracted from ``waveforms``. *Shape:*
+              :math:`(N,S,E)`, or :math:`(S,E)` when unbatched, where :math:`N`
+              is the batch size, :math:`(S)` is the sequence length, and
+              :math:`E` is the embedding size (i.e. the output dimensionality of
+              the last feature extraction layer).
+            - The sequence lengths corresponding to the returned audio
+              embeddings. *Shape:* :math:`(N)`, or :math:`()` when unbatched,
+              where :math:`N` is the batch size.
         """
         # (N, S) -> (N, C, S)
         x = waveforms.unsqueeze(-2)
@@ -135,11 +155,26 @@ class Wav2Vec2FeatureExtractor(Module):
         # (N, E, S) -> (N, S, E)
         x = x.transpose(-1, -2)
 
-        return x
+        if num_frames is None:
+            return x, None
+        else:
+            # Since we contracted the temporal dimension, we should re-compute
+            # the sequence lengths.
+            return x, self._compute_seq_lens(num_frames)
+
+    def _compute_seq_lens(self, num_frames: Tensor) -> Tensor:
+        seq_lens = num_frames.clone()
+
+        for desc in self.layer_descs:
+            kernel_size, stride = desc[1], desc[2]
+
+            seq_lens = (((seq_lens - kernel_size) / stride) + 1.0).floor()
+
+        return seq_lens.type(num_frames.dtype)
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"grad_scale={self.grad_scale}"
+        return f"embed_dim={self.embed_dim}, grad_scale={self.grad_scale}"
 
 
 class Wav2Vec2FeatureExtractionLayer(Module):

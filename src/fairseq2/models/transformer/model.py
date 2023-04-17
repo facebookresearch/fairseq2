@@ -17,8 +17,7 @@ from fairseq2.nn.embedding import Embedding
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.positional_embedding import PositionalEmbedding
 from fairseq2.nn.projection import Projection, ResettableProjection
-from fairseq2.nn.transformer.decoder import TransformerDecoder
-from fairseq2.nn.transformer.encoder import TransformerEncoder
+from fairseq2.nn.transformer import TransformerDecoder, TransformerEncoder
 
 
 class TransformerTokenFrontend(Module):
@@ -28,7 +27,7 @@ class TransformerTokenFrontend(Module):
     embed: Embedding
     scale: float
     pos_embed: Optional[PositionalEmbedding]
-    embed_norm: Optional[LayerNorm]
+    layer_norm: Optional[LayerNorm]
     dropout: Optional[Dropout]
 
     def __init__(
@@ -125,16 +124,17 @@ class TransformerTokenFrontend(Module):
         if self.dropout is not None:
             embeds = self.dropout(embeds)
 
-        if self.embed.pad_idx is None:
-            padding_mask = None
-        else:
+        return embeds, self._get_padding_mask(token_indices)
+
+    def _get_padding_mask(self, token_indices: Tensor) -> Optional[Tensor]:
+        if self.embed.pad_idx is not None:
             padding_mask = token_indices.eq(self.embed.pad_idx)
 
-            # If the mask has no ``True`` elements, it is effectively noop.
-            if not padding_mask.any():
-                padding_mask = None
+            # Return only if we mask at least one element.
+            if padding_mask.any():
+                return padding_mask
 
-        return embeds, padding_mask
+        return None
 
     def extra_repr(self) -> str:
         """:meta private:"""

@@ -14,7 +14,8 @@ from torch import Tensor
 from torch.nn import GELU, Conv1d, LayerNorm, Module, Sequential
 from torch.nn.utils.weight_norm import remove_weight_norm, weight_norm
 
-from fairseq2.nn import IncrementalStateBag, PositionalEmbedding
+from fairseq2.nn.incremental_state import IncrementalStateBag
+from fairseq2.nn.positional_embedding import PositionalEmbedding
 
 
 @final
@@ -126,8 +127,8 @@ class Wav2Vec2StackedPositionalEmbedding(PositionalEmbedding):
         :param embed_dim:
             The dimensionality of positional embeddings.
         :param kernel_size:
-            The cumulative kernel size of the 1D convolutions. Each convolution
-            uses a kernel size of ``max(3, kernel_size // num_layers)``.
+            The total kernel size of the 1D convolutions. Each convolution uses
+            a kernel size of ``max(3, kernel_size // num_layers)``.
         :param num_groups:
             The number of convolution groups.
         :param num_layers:

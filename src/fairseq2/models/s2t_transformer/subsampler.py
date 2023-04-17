@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import Optional, Sequence, Tuple, final
+from typing import Final, Optional, Sequence, Tuple, final
 
 import torch
 from overrides import final as finaloverride
@@ -29,7 +29,7 @@ class FbankSubsampler(Module, ABC):
 
     @abstractmethod
     def forward(
-        self, fbanks: Tensor, num_frames: Tensor
+        self, fbanks: Tensor, num_frames: Optional[Tensor]
     ) -> Tuple[Tensor, Optional[Tensor]]:
         """
         :param fbanks:
@@ -63,7 +63,10 @@ class Conv1dFbankSubsampler(FbankSubsampler):
     """Represents a 1D convolutional subsampler as described in Section 2.1 of
     :cite:t:`https://doi.org/10.48550/arxiv.1911.08460`."""
 
-    convs: Sequential
+    # All convolutions use the same stride length.
+    stride: Final[int] = 2
+
+    layers: Sequential
 
     def __init__(
         self,
@@ -89,9 +92,6 @@ class Conv1dFbankSubsampler(FbankSubsampler):
         if kernel_sizes is None:
             kernel_sizes = [3, 3]
 
-        if not kernel_sizes:
-            raise ValueError("`kernel_sizes` must be non-empty.")
-
         self.layers = Sequential()
 
         last_layer = len(kernel_sizes) - 1
@@ -113,7 +113,7 @@ class Conv1dFbankSubsampler(FbankSubsampler):
                 inp_dim,
                 out_dim,
                 kernel_size,
-                stride=2,
+                stride=self.stride,
                 padding=kernel_size // 2,
                 device=device,
                 dtype=dtype,
@@ -126,7 +126,7 @@ class Conv1dFbankSubsampler(FbankSubsampler):
 
     @finaloverride
     def forward(
-        self, fbanks: Tensor, num_frames: Tensor
+        self, fbanks: Tensor, num_frames: Optional[Tensor]
     ) -> Tuple[Tensor, Optional[Tensor]]:
         # Apply the convolution along the temporal dimension (i.e. along the
         # sequence).
@@ -139,16 +139,17 @@ class Conv1dFbankSubsampler(FbankSubsampler):
         # (N, E, S) -> (N, S, E)
         x = x.transpose(-1, -2)
 
-        # Since we contracted the temporal dimension, we should re-compute the
-        # sequence lengths.
-        seq_lens = self._compute_seq_lens(num_frames)
-
-        return x, seq_lens
+        if num_frames is None:
+            return x, None
+        else:
+            # Since we contracted the temporal dimension, we should re-compute
+            # the sequence lengths.
+            return x, self._compute_seq_lens(num_frames)
 
     def _compute_seq_lens(self, num_frames: Tensor) -> Tensor:
         seq_lens = num_frames.clone()
 
         for _ in range(len(self.layers)):
-            seq_lens = (((seq_lens - 1) / 2.0) + 1.0).floor().type(seq_lens.dtype)
+            seq_lens = (((seq_lens - 1) / self.stride) + 1.0).floor()
 
-        return seq_lens
+        return seq_lens.type(num_frames.dtype)

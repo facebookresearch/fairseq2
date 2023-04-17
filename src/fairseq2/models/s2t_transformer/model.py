@@ -16,8 +16,7 @@ from fairseq2.models.transformer import TransformerTokenFrontend
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.positional_embedding import PositionalEmbedding
 from fairseq2.nn.projection import Linear, Projection
-from fairseq2.nn.transformer.decoder import TransformerDecoder
-from fairseq2.nn.transformer.encoder import TransformerEncoder
+from fairseq2.nn.transformer import TransformerDecoder, TransformerEncoder
 from fairseq2.nn.utils.pad import to_padding_mask
 
 
@@ -83,10 +82,7 @@ class TransformerFbankFrontend(Module):
             self.register_module("dropout", None)
 
     def forward(
-        self,
-        fbanks: Tensor,
-        num_frames: Tensor,
-        state_bag: Optional[IncrementalStateBag] = None,
+        self, fbanks: Tensor, num_frames: Optional[Tensor]
     ) -> Tuple[Tensor, Optional[Tensor]]:
         """
         :param fbanks:
@@ -99,8 +95,6 @@ class TransformerFbankFrontend(Module):
             filterbank at the same index in ``fbanks``. *Shape:* :math:`(N)`,
             :math:`(N,1)`, or :math:`()` when unbatched, where :math:`N` is the
             batch size.
-        :param state_bag:
-            The state bag to use during an incremental evaluation.
 
         :returns:
             - The audio embeddings, subsampled from ``fbanks``, to pass to the
@@ -121,7 +115,7 @@ class TransformerFbankFrontend(Module):
         embeds = embeds * self.scale
 
         if self.pos_embed is not None:
-            embeds = self.pos_embed(embeds, state_bag)
+            embeds = self.pos_embed(embeds)
 
         if self.proj is not None:
             embeds = self.proj(embeds)
@@ -129,13 +123,17 @@ class TransformerFbankFrontend(Module):
         if self.dropout is not None:
             embeds = self.dropout(embeds)
 
-        padding_mask = to_padding_mask(seq_lens, max_seq_len=embeds.size(-2))
+        return embeds, self._get_padding_mask(embeds, seq_lens)
 
-        # If the mask has no ``True`` elements, it is effectively noop.
-        if not padding_mask.any():
-            return embeds, None
-        else:
-            return embeds, padding_mask
+    def _get_padding_mask(self, embeds: Tensor, seq_lens: Tensor) -> Optional[Tensor]:
+        if seq_lens is not None:
+            padding_mask = to_padding_mask(seq_lens, max_seq_len=embeds.size(-2))
+
+            # Return only if we mask at least one element.
+            if padding_mask.any():
+                return padding_mask
+
+        return None
 
     def extra_repr(self) -> str:
         """:meta private:"""
@@ -203,7 +201,7 @@ class S2TTransformerModel(Module):
         self.score_proj = score_proj
 
     def encode(
-        self, fbanks: Tensor, num_frames: Tensor
+        self, fbanks: Tensor, num_frames: Optional[Tensor]
     ) -> Tuple[Tensor, Optional[Tensor]]:
         """Encode the specified source log-mel filterbanks.
 
@@ -281,7 +279,7 @@ class S2TTransformerModel(Module):
         return x  # type: ignore[no-any-return]
 
     def forward(
-        self, fbanks: Tensor, num_frames: Tensor, tgt_token_indices: Tensor
+        self, fbanks: Tensor, num_frames: Optional[Tensor], tgt_token_indices: Tensor
     ) -> Tensor:
         """
         :param fbanks:
