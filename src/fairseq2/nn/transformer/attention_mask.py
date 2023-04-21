@@ -19,7 +19,8 @@ class AttentionMaskGenerator(Protocol):
         :param x:
             The input for which to generate the mask. *Shape:* :math:`(N,S,M)`,
             or :math:`(S,M)` when unbatched, where :math:`N` is the batch size,
-            :math:`S` is the sequence length, and :math:`M` is the model size.
+            :math:`S` is the sequence length, and :math:`M` is the
+            dimensionality of the model.
 
         :returns:
             An implementation-defined attention mask for ``x`` specific to the
@@ -45,7 +46,8 @@ class CausalAttentionMaskGenerator:
         :param x:
             The input for which to generate the mask. *Shape:* :math:`(N,S,M)`,
             or :math:`(S,M)` when unbatched, where :math:`N` is the batch size,
-            :math:`S` is the sequence length, and :math:`M` is the model size.
+            :math:`S` is the sequence length, and :math:`M` is the
+            dimensionality of the model.
 
         :returns:
             An attention mask for ``x`` whose upper triangular part above the
@@ -109,7 +111,8 @@ class ALiBiAttentionMaskGenerator:
         :param x:
             The input for which to generate the mask. *Shape:* :math:`(N,S,M)`,
             or :math:`(S,M)` when unbatched, where :math:`N` is the batch size,
-            :math:`S` is the sequence length, and :math:`M` is the model size.
+            :math:`S` is the sequence length, and :math:`M` is the
+            dimensionality of the model.
 
         :returns:
             An ALiBi mask for ``x``. *Shape:* :math:`(H, S, S)`, where

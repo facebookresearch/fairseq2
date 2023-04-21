@@ -38,7 +38,7 @@ class FbankSubsampler(Module, ABC):
             :math:`F` is the number of frames, and :math:`C` is the number of
             channels.
         :param num_frames:
-            An array where each entry defines the number of frames of the
+            An array where each element represents the number of frames of the
             filterbank at the same index in ``fbanks``. *Shape:* :math:`(N)`,
             :math:`(N,1)`, or :math:`()` when unbatched, where :math:`N` is the
             batch size.

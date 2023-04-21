@@ -36,7 +36,7 @@ class FeedForwardNetwork(Module, ABC):
         :param x:
             The input to project. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)`
             when unbatched, where :math:`N` is the batch size, :math:`S` is the
-            sequence length, and :math:`M` is the model size.
+            sequence length, and :math:`M` is the dimensionality of the model.
 
         :returns:
             The projected output of ``x``. *Shape:* Same as ``x``.

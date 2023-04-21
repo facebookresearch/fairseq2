@@ -97,10 +97,10 @@ class TransformerTokenFrontend(Module):
             The state bag to use during an incremental evaluation.
 
         :returns:
-            - The token embeddings to pass to the encoder or decoder. *Shape:*
-              :math:`(N,S,M)`, or :math:`(S,M)` when unbatched, where :math:`N`
-              is the batch size, :math:`S` is the sequence length, and :math:`M`
-              is the model size.
+            - The processed token embeddings to pass to the encoder or decoder.
+              *Shape:* :math:`(N,S,M)`, or :math:`(S,M)` when unbatched, where
+              :math:`N` is the batch size, :math:`S` is the sequence length, and
+              :math:`M` is the dimensionality of the model.
             - The boolean padding mask indicating which key positions to ignore
               for the purpose of self attention. *Shape:* :math:`(N,S)`, or
               :math:`(S)` when unbatched, where :math:`N` is the batch size and
@@ -112,19 +112,21 @@ class TransformerTokenFrontend(Module):
         """
         embeds = self.embed(token_indices)
 
-        if self.scale != 1.0:
-            embeds = embeds * self.scale
+        if self.scale == 1.0:
+            x = embeds
+        else:
+            x = embeds * self.scale
 
         if self.pos_embed is not None:
-            embeds = self.pos_embed(embeds, state_bag)
+            x = self.pos_embed(x, state_bag)
 
         if self.layer_norm is not None:
-            embeds = self.layer_norm(embeds)
+            x = self.layer_norm(x)
 
         if self.dropout is not None:
-            embeds = self.dropout(embeds)
+            x = self.dropout(x)
 
-        return embeds, self._get_padding_mask(token_indices)
+        return x, self._get_padding_mask(token_indices)
 
     def _get_padding_mask(self, token_indices: Tensor) -> Optional[Tensor]:
         if self.embed.pad_idx is not None:
@@ -223,9 +225,9 @@ class TransformerModel(Module):
             For a boolean padding mask, a ``True`` indicates that the
             corresponding key position is not allowed to attend.
         """
-        embeds, padding_mask = self.encoder_frontend(token_indices)
+        x, padding_mask = self.encoder_frontend(token_indices)
 
-        x = self.encoder(embeds, padding_mask)
+        x = self.encoder(x, padding_mask)
 
         return x, padding_mask
 
@@ -246,7 +248,7 @@ class TransformerModel(Module):
             The encoder output for the encoder-decoder attention. *Shape:*
             :math:`(N,S_{src},M)`, or :math:`(S_{src},M)` when unbatched, where
             :math:`N` is the batch size, :math:`S_{src}` is the source sequence
-            length, and :math:`M` is the model size.
+            length, and :math:`M` is the dimensionality of the model.
         :param enc_padding_mask:
             The boolean or float padding mask indicating which key positions to
             ignore for the purpose of encoder-decoder attention. *Shape:*
@@ -264,9 +266,9 @@ class TransformerModel(Module):
             sequence length, and :math:`D` is the size of the output embedding
             dictionary.
         """
-        embeds, padding_mask = self.decoder_frontend(token_indices, state_bag)
+        x, padding_mask = self.decoder_frontend(token_indices, state_bag)
 
-        x = self.decoder(embeds, padding_mask, enc_out, enc_padding_mask, state_bag)
+        x = self.decoder(x, padding_mask, enc_out, enc_padding_mask, state_bag)
 
         x = self.score_proj(x)
 
@@ -302,26 +304,26 @@ class TransformerModel(Module):
 
 @final
 class ScoreProjection(ResettableProjection):
-    """Produces scores (i.e. logits) from the output of a Transformer decoder."""
+    """Produces scores (i.e. logits) from outputs of a Transformer decoder."""
 
     def __init__(
         self,
         num_embed: int,
-        embed_dim: int,
+        model_dim: int,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
         """
         :param num_embed:
             The size of the output embedding dictionary.
-        :param embed_dim:
-            The dimensionality of output embeddings.
+        :param model_dim:
+            The dimensionality of the model.
         """
-        super().__init__(embed_dim, num_embed, bias=False, device=device, dtype=dtype)
+        super().__init__(model_dim, num_embed, bias=False, device=device, dtype=dtype)
 
     @finaloverride
     def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
+        """Reset the parameters of the module."""
         nn.init.normal_(self.weight, std=self.inp_dim**-0.5)
 
         if self.bias is not None:

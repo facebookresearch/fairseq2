@@ -53,11 +53,6 @@ class PositionalEmbedding(Module, ABC):
             ``embed`` with positional embeddings added. *Shape:* Same as
             ``embed``.
         """
-        if (embed_dim := embed.dim()) != 2 and embed_dim != 3:
-            raise ValueError(
-                f"The number of dimensions of `embed` must be 2 or 3, but is {embed_dim} instead."
-            )
-
         if self.max_seq_len is not None:
             if (seq_len := embed.size(-2)) > self.max_seq_len:
                 raise ValueError(
@@ -182,16 +177,17 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
         max_seq_len = cast(int, self.max_seq_len)
 
         # This is identical to tensor2tensor's implementation.
-        ind = torch.arange(start, start + max_seq_len, device=device, dtype=dtype)
+        indices = torch.arange(start, start + max_seq_len, device=device, dtype=dtype)
+
+        indices = indices.unsqueeze(1)
 
         sin = torch.arange(num_sin, device=device, dtype=dtype)
 
         sin = torch.exp(sin * -math.log(10000) / (num_sin - 1))
 
-        ind = ind.unsqueeze(1)
         sin = sin.unsqueeze(0)
 
-        torch.matmul(ind, sin, out=l_half)
+        torch.matmul(indices, sin, out=l_half)
 
         r_half[:] = l_half[:]
 
@@ -270,11 +266,11 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
         else:
             start_step = 0
 
-        ind = torch.arange(
+        indices = torch.arange(
             start_step, start_step + seq_len, device=embed.device, dtype=torch.int64
         )
 
-        return embed + F.embedding(ind, self.weight)
+        return embed + F.embedding(indices, self.weight)
 
 
 @final
@@ -315,14 +311,15 @@ class RotaryEmbedding(PositionalEmbedding):
 
         max_seq_len = cast(int, self.max_seq_len)
 
-        ind = torch.arange(self.embed_dim // 2, device=device, dtype=dtype)
+        indices = torch.arange(self.embed_dim // 2, device=device, dtype=dtype)
 
-        stp = torch.arange(max_seq_len, device=device, dtype=dtype)
+        indices = indices.unsqueeze(0)
 
-        ind = ind.unsqueeze(0)
-        stp = stp.unsqueeze(1)
+        steps = torch.arange(max_seq_len, device=device, dtype=dtype)
 
-        embed = torch.matmul(stp, 10000 ** (-2.0 * ind / self.embed_dim))
+        steps = steps.unsqueeze(1)
+
+        embed = torch.matmul(steps, 10000 ** (-2.0 * indices / self.embed_dim))
 
         cos = torch.cos(embed)
         sin = torch.sin(embed)

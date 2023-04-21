@@ -128,7 +128,7 @@ class Wav2Vec2FeatureExtractor(Module):
             :math:`(N,S)`, or :math:`(S)` when unbatched, where :math:`N` is the
             batch size and :math:`(S)` is the sequence length.
         :param num_frames:
-            An array where each entry defines the number of frames of the
+            An array where each element represents the number of frames of the
             waveform at the same index in ``waveforms``. *Shape:* :math:`(N)`,
             :math:`(N,1)`, or :math:`()` when unbatched, where :math:`N` is the
             batch size.

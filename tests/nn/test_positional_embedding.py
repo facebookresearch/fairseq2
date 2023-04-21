@@ -141,17 +141,6 @@ class TestSinusoidalPositionalEmbedding:
 
         assert_close(x - embed, m.weight[embed_idx : embed_idx + seq_len].expand_as(x))
 
-    def test_forward_errors_if_input_dim_is_greater_than_3(self) -> None:
-        m = SinusoidalPositionalEmbedding(max_seq_len=3, embed_dim=32, device=device)
-
-        embed = torch.randn((5, 5, 3, 32), device=device)
-
-        with pytest.raises(
-            ValueError,
-            match=r"^The number of dimensions of `embed` must be 2 or 3, but is 4 instead\.$",
-        ):
-            m(embed)
-
     def test_forward_errors_if_seq_len_is_out_of_range(self) -> None:
         m = SinusoidalPositionalEmbedding(max_seq_len=3, embed_dim=32, device=device)
 
@@ -228,17 +217,6 @@ class TestLearnedPositionalEmbedding:
         assert x.shape == (5, seq_len, 32)
 
         assert_close(x - embed, m.weight[embed_idx : embed_idx + seq_len].expand_as(x))
-
-    def test_forward_errors_if_input_dim_is_greater_than_3(self) -> None:
-        m = LearnedPositionalEmbedding(max_seq_len=3, embed_dim=32, device=device)
-
-        embed = torch.randn((5, 5, 3, 32), device=device)
-
-        with pytest.raises(
-            ValueError,
-            match=r"^The number of dimensions of `embed` must be 2 or 3, but is 4 instead\.$",
-        ):
-            m(embed)
 
     def test_forward_errors_if_seq_len_is_out_of_range(self) -> None:
         m = LearnedPositionalEmbedding(max_seq_len=3, embed_dim=32, device=device)
@@ -325,17 +303,6 @@ class TestRotaryEmbedding:
         x2 = m(embed2)
 
         assert_close(x1, x2[:, embed_idx:])
-
-    def test_forward_errors_if_input_dim_is_greater_than_3(self) -> None:
-        m = RotaryEmbedding(max_seq_len=3, embed_dim=32, device=device)
-
-        embed = torch.randn((5, 5, 3, 32), device=device)
-
-        with pytest.raises(
-            ValueError,
-            match=r"^The number of dimensions of `embed` must be 2 or 3, but is 4 instead\.$",
-        ):
-            m(embed)
 
     def test_forward_errors_if_seq_len_is_out_of_range(self) -> None:
         m = RotaryEmbedding(max_seq_len=3, embed_dim=32, device=device)

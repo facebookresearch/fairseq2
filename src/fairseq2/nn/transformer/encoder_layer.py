@@ -44,7 +44,7 @@ class TransformerEncoderLayer(Module, ABC):
         :param x:
             The input to encode. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)` when
             unbatched, where :math:`N` is the batch size, :math:`S` is the
-            sequence length, and :math:`M` is the model size.
+            sequence length, and :math:`M` is the dimensionality of the model.
         :param padding_mask:
             The boolean or float padding mask indicating which key positions to
             ignore for the purpose of self attention. *Shape:* :math:`(N,S)`, or

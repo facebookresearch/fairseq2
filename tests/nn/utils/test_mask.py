@@ -6,14 +6,14 @@
 
 import torch
 
-from fairseq2.nn.utils.pad import to_padding_mask
+from fairseq2.nn.utils.mask import to_padding_mask
 from tests.common import assert_equal, device
 
 
 def test_to_padding_mask_with_dim1() -> None:
     seq_lens = torch.tensor([4, 2, 0, 5], device=device, dtype=torch.int32)
 
-    mask = to_padding_mask(seq_lens, max_seq_len=6)
+    mask = to_padding_mask(seq_lens, mask_seq_len=6)
 
     # fmt: off
     expected_mask = torch.tensor(
@@ -31,7 +31,7 @@ def test_to_padding_mask_with_dim2() -> None:
 
     seq_lens = seq_lens.unsqueeze(-1)
 
-    mask = to_padding_mask(seq_lens, max_seq_len=6)
+    mask = to_padding_mask(seq_lens, mask_seq_len=6)
 
     # fmt: off
     expected_mask = torch.tensor(
@@ -47,7 +47,7 @@ def test_to_padding_mask_with_dim2() -> None:
 def test_to_padding_mask_with_dim0() -> None:
     seq_lens = torch.tensor(2, device=device, dtype=torch.int32)
 
-    mask = to_padding_mask(seq_lens, max_seq_len=4)
+    mask = to_padding_mask(seq_lens, mask_seq_len=4)
 
     expected_mask = torch.tensor([False, False, True, True], device=device)
 
@@ -57,7 +57,7 @@ def test_to_padding_mask_with_dim0() -> None:
 def test_to_padding_mask_with_single_seq_len() -> None:
     seq_lens = torch.tensor([4], device=device, dtype=torch.int32)
 
-    mask = to_padding_mask(seq_lens, max_seq_len=6)
+    mask = to_padding_mask(seq_lens, mask_seq_len=6)
 
     expected_mask = torch.tensor(
         [[False, False, False, False, True, True]], device=device

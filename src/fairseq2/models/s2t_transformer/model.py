@@ -17,7 +17,7 @@ from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.positional_embedding import PositionalEmbedding
 from fairseq2.nn.projection import Linear, Projection
 from fairseq2.nn.transformer import TransformerDecoder, TransformerEncoder
-from fairseq2.nn.utils.pad import to_padding_mask
+from fairseq2.nn.utils.mask import to_padding_mask
 
 
 class TransformerFbankFrontend(Module):
@@ -91,16 +91,17 @@ class TransformerFbankFrontend(Module):
             :math:`F` is the number of frames, and :math:`C` is the number of
             channels.
         :param num_frames:
-            An array where each entry defines the number of frames of the
+            An array where each element represents the number of frames of the
             filterbank at the same index in ``fbanks``. *Shape:* :math:`(N)`,
             :math:`(N,1)`, or :math:`()` when unbatched, where :math:`N` is the
             batch size.
 
         :returns:
-            - The audio embeddings, subsampled from ``fbanks``, to pass to the
-              encoder. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)` when
-              unbatched, where :math:`N` is the batch size, :math:`S` is the
-              sequence length, and :math:`M` is the model size.
+            - The processed audio embeddings, subsampled from ``fbanks``, to
+              pass to the encoder. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)`
+              when unbatched, where :math:`N` is the batch size, :math:`S` is
+              the sequence length, and :math:`M` is the dimensionality of the
+              model.
             - The boolean padding mask indicating which key positions to ignore
               for the purpose of self attention. *Shape:* :math:`(N,S)`, or
               :math:`(S)` when unbatched, where :math:`N` is the batch size and
@@ -112,22 +113,22 @@ class TransformerFbankFrontend(Module):
         """
         embeds, seq_lens = self.subsampler(fbanks, num_frames)
 
-        embeds = embeds * self.scale
+        x = embeds * self.scale
 
         if self.pos_embed is not None:
-            embeds = self.pos_embed(embeds)
+            x = self.pos_embed(x)
 
         if self.proj is not None:
-            embeds = self.proj(embeds)
+            x = self.proj(x)
 
         if self.dropout is not None:
-            embeds = self.dropout(embeds)
+            x = self.dropout(x)
 
-        return embeds, self._get_padding_mask(embeds, seq_lens)
+        return x, self._get_padding_mask(x, seq_lens)
 
-    def _get_padding_mask(self, embeds: Tensor, seq_lens: Tensor) -> Optional[Tensor]:
+    def _get_padding_mask(self, x: Tensor, seq_lens: Tensor) -> Optional[Tensor]:
         if seq_lens is not None:
-            padding_mask = to_padding_mask(seq_lens, max_seq_len=embeds.size(-2))
+            padding_mask = to_padding_mask(seq_lens, mask_seq_len=x.size(-2))
 
             # Return only if we mask at least one element.
             if padding_mask.any():
@@ -211,7 +212,7 @@ class S2TTransformerModel(Module):
             :math:`F` is the number of frames, and :math:`C` is the number of
             channels.
         :param num_frames:
-            An array where each entry defines the number of frames of the
+            An array where each element represents the number of frames of the
             filterbank at the same index in ``fbanks``. *Shape:* :math:`(N)`,
             :math:`(N,1)`, or :math:`()` when unbatched, where :math:`N` is the
             batch size.
@@ -219,7 +220,8 @@ class S2TTransformerModel(Module):
         :returns:
             - The encoded output of ``fbanks``. *Shape:* :math:`(N,S,M)`, or
               :math:`(S,M)` when unbatched, where :math:`N` is the batch size,
-              :math:`S` is the sequence length, and :math:`M` is the model size.
+              :math:`S` is the sequence length, and :math:`M` is the
+              dimensionality of the model.
             - The boolean padding mask indicating which key positions to ignore
               for the purpose of encoder-decoder attention. *Shape:*
               :math:`(N,S)`, or :math:`(S)` when unbatched, where :math:`N` is
@@ -229,9 +231,9 @@ class S2TTransformerModel(Module):
             For a boolean padding mask, a ``True`` indicates that the
             corresponding key position is not allowed to attend.
         """
-        embeds, padding_mask = self.encoder_frontend(fbanks, num_frames)
+        x, padding_mask = self.encoder_frontend(fbanks, num_frames)
 
-        x = self.encoder(embeds, padding_mask)
+        x = self.encoder(x, padding_mask)
 
         return x, padding_mask
 
@@ -252,7 +254,7 @@ class S2TTransformerModel(Module):
             The encoder output for the encoder-decoder attention. *Shape:*
             :math:`(N,S_{src},M)`, or :math:`(S_{src},M)` when unbatched, where
             :math:`N` is the batch size, :math:`S_{src}` is the source sequence
-            length, and :math:`M` is the model size.
+            length, and :math:`M` is the dimensionality of the model.
         :param enc_padding_mask:
             The boolean or float padding mask indicating which key positions to
             ignore for the purpose of encoder-decoder attention. *Shape:*
@@ -270,9 +272,9 @@ class S2TTransformerModel(Module):
             sequence length, and :math:`D` is the size of the output embedding
             dictionary.
         """
-        embeds, padding_mask = self.decoder_frontend(token_indices, state_bag)
+        x, padding_mask = self.decoder_frontend(token_indices, state_bag)
 
-        x = self.decoder(embeds, padding_mask, enc_out, enc_padding_mask, state_bag)
+        x = self.decoder(x, padding_mask, enc_out, enc_padding_mask, state_bag)
 
         x = self.score_proj(x)
 
@@ -288,10 +290,10 @@ class S2TTransformerModel(Module):
             :math:`F` is the number of frames, and :math:`C` is the number of
             channels.
         :param num_frames:
-            An array where each entry defines the number of frames of the source
-            filterbank at the same index in ``fbanks``. *Shape:* :math:`(N)`,
-            :math:`(N,1)`, or :math:`()` when unbatched, where :math:`N` is the
-            batch size.
+            An array where each element represents the number of frames of the
+            source filterbank at the same index in ``fbanks``. *Shape:*
+            :math:`(N)`, :math:`(N,1)`, or :math:`()` when unbatched, where
+            :math:`N` is the batch size.
         :param tgt_token_indices:
             The target token indices to decode. *Shape:* :math:`(N,S_{tgt})`, or
             :math:`(S_{tgt})` when unbatched, where :math:`N` is the batch size

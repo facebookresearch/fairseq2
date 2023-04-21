@@ -44,8 +44,8 @@ class ConformerConvolution(Module):
 
         self.model_dim = model_dim
 
-        # We treat the model size as the number of input channels to the
-        # first pointwise convolution.
+        # We treat the dimensionality of the model as the number of input
+        # channels to the first pointwise convolution.
         self.pointwise_conv1 = Conv1d(
             model_dim,
             # We apply GLU to outputs to bring them back to `model_dim`.
@@ -92,7 +92,7 @@ class ConformerConvolution(Module):
         :param x:
             The input to process. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)`
             when unbatched, where :math:`N` is the batch size, :math:`S` is the
-            sequence length, and :math:`M` is the model size.
+            sequence length, and :math:`M` is the dimensionality of the model.
 
         :returns:
             The processed output of ``x``. *Shape:* Same as ``x``.

@@ -214,7 +214,7 @@ class S2TTransformerBuilder:
 
         score_proj = ScoreProjection(
             num_embed=self.vocab_info.size,
-            embed_dim=self.cfg.model_dim,
+            model_dim=self.cfg.model_dim,
             device=self.device,
             dtype=self.cfg.dtype,
         )

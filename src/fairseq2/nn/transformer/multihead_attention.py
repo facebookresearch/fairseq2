@@ -64,7 +64,8 @@ class MultiheadAttention(Module, ABC):
         :param x:
             The input to query. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)`
             when unbatched, where :math:`N` is the batch size, :math:`S` is
-            the sequence length, and :math:`M` is the model size.
+            the sequence length, and :math:`M` is the dimensionality of the
+            model.
         :param keys:
             The keys. *Shape:* :math:`(N,S_{kv},K)`, or :math:`(S_{kv},K)` when
             unbatched, where :math:`N` is the batch size, :math:`S_{kv}` is the
@@ -89,7 +90,8 @@ class MultiheadAttention(Module, ABC):
         :returns:
             The attention values for ``x``. *Shape:* :math:`(N,S,M)`, or
             :math:`(S,M)` when unbatched, where :math:`N` is the batch size,
-            :math:`S` is the sequence length, and :math:`M` is the model size.
+            :math:`S` is the sequence length, and :math:`M` is the
+            dimensionality of the model.
 
         .. note::
             For a boolean padding mask, a ``True`` indicates that the
@@ -434,12 +436,12 @@ class StandardMultiheadAttention(MultiheadAttention):
         mask_pad = 0
 
         if self.bias_k is not None and self.bias_v is not None:
-            bsz = keys.size(0)
+            batch_size = keys.size(0)
 
             # (H, 1, K_proj) -> (N x H, 1, K_proj)
-            bias_k = self.bias_k.repeat(bsz, 1, 1)
+            bias_k = self.bias_k.repeat(batch_size, 1, 1)
             # (H, 1, V_proj) -> (N x H, 1, V_proj)
-            bias_v = self.bias_v.repeat(bsz, 1, 1)
+            bias_v = self.bias_v.repeat(batch_size, 1, 1)
 
             # (N x H, S_kv, K_h) -> (N x H, S_kv + 1, K_h)
             k = torch.cat([k, bias_k], dim=1)
@@ -666,15 +668,15 @@ class MultiheadAttentionState(IncrementalState):
         if prev_mask is None and curr_mask is None:
             return
 
-        bsz = self.prev_k.size(0)
+        batch_size = self.prev_k.size(0)
 
         # One of the masks can be None. We have to ensure that both of them are
         # fully materialized before concatenating them.
         if prev_mask is None:
-            prev_mask = self.prev_k.new_zeros((bsz, prev_seq_len))
+            prev_mask = self.prev_k.new_zeros((batch_size, prev_seq_len))
 
         if curr_mask is None:
-            curr_mask = self.prev_k.new_zeros((bsz, curr_seq_len))
+            curr_mask = self.prev_k.new_zeros((batch_size, curr_seq_len))
 
         self.prev_padding_mask = torch.cat([prev_mask, curr_mask], dim=1)
 
