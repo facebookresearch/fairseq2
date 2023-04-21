@@ -7,6 +7,7 @@
 from fairseq2.models.wav2vec2.feature_extractor import (
     Wav2Vec2FeatureExtractor as Wav2Vec2FeatureExtractor,
 )
+from fairseq2.models.wav2vec2.mask import Wav2Vec2Mask as Wav2Vec2Mask
 from fairseq2.models.wav2vec2.positional_embedding import (
     Wav2Vec2PositionalEmbedding as Wav2Vec2PositionalEmbedding,
 )
