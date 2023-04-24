@@ -29,8 +29,8 @@ class Wav2Vec2PositionalEmbedding(PositionalEmbedding):
     def __init__(
         self,
         embed_dim: int,
-        kernel_size: int,
-        num_groups: int,
+        kernel_size: int = 128,
+        num_groups: int = 16,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:

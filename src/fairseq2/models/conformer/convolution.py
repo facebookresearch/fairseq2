@@ -97,34 +97,32 @@ class ConformerConvolution(Module):
         :returns:
             The processed output of ``x``. *Shape:* Same as ``x``.
         """
-        # Since we apply Batch Normalization, we have to have a batch dimension.
-        b = x if x.dim() == 3 else x.unsqueeze(0)
-
         # (N, S, M) -> (N, M, S)
-        b = b.transpose(-1, -2)
+        x = x.transpose(-1, -2)
 
         # This is mathematically equivalent to a dot-product.
         # (N, M, S) -> (N, 2 * M, S)
-        b = self.pointwise_conv1(b)
+        x = self.pointwise_conv1(x)
 
         # (N, 2 * M, S) -> (N, M, S)
-        b = self.pointwise_conv1_activation(b)
+        x = self.pointwise_conv1_activation(x)
 
         # (N, M, S) -> (N, M, S)
-        b = self.depthwise_conv(b)
+        x = self.depthwise_conv(x)
 
-        b = self.batch_norm(b)
+        if x.dim() == 3:
+            x = self.batch_norm(x)
 
-        b = self.depthwise_activation(b)
+        x = self.depthwise_activation(x)
 
         # This is mathematically equivalent to a dot-product.
         # (N, M, S) -> (N, M, S)
-        b = self.pointwise_conv2(b)
+        x = self.pointwise_conv2(x)
 
         # (N, M, S) -> (N, S, M)
-        b = b.transpose(-1, -2)
+        x = x.transpose(-1, -2)
 
-        return b if x.dim() == 3 else b.squeeze(0)
+        return x
 
     def extra_repr(self) -> str:
         """:meta private:"""

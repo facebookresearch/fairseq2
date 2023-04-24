@@ -23,8 +23,7 @@ def compute_mask(
     :param shape:
         The two dimensional shape for which to compute a mask.
     :param span_len:
-        The length of each mask span in a row. Note that rows whose length is
-        less than or equal to ``span_len`` will never be masked.
+        The length of each mask span in a row.
     :param max_mask_prob:
         The maximum probability of masking an element among all elements in a
         particular row. Note that, due to mask span overlap, the effective
@@ -49,21 +48,21 @@ def compute_mask(
     if row_lens is None:
         # We only mask rows that are longer than the mask span length.
         if span_len >= max_row_len:
-            return None
+            raise ValueError(
+                f"The size of the second dimension of `shape` must be greater than {span_len}, but is {max_row_len} instead."
+            )
 
         row_lens = torch.full(
             (num_rows,), max_row_len, device=device, dtype=torch.int64
         )
-
-        valid_rows_mask = None
     else:
         row_lens = row_lens.view(num_rows)
 
         # We only mask rows that are longer than the mask span length.
-        valid_rows_mask = (row_lens - span_len) > 0
-
-        # Filter out rows that we won't to mask.
-        row_lens = row_lens[valid_rows_mask]
+        if (span_len >= row_lens).any():
+            raise ValueError(
+                f"All lengths in `row_lens` must be greater than {span_len}, but at least one length is smaller. row_lens: {row_lens}"
+            )
 
     indices = _compute_mask_spans(row_lens, span_len, max_mask_prob, min_num_spans)
 
@@ -71,18 +70,7 @@ def compute_mask(
     if indices is None:
         return None
 
-    mask = _generate_mask(indices, max_row_len)
-
-    # We have to include rows that were shorter than the span length, and
-    # therefore were filtered out, in the final mask as unmasked.
-    if valid_rows_mask is not None:
-        tmp = torch.full(shape, False, device=indices.device, dtype=torch.bool)
-
-        tmp[valid_rows_mask] = mask
-
-        mask = tmp
-
-    return mask.to(device)
+    return _generate_mask(indices, max_row_len).to(device)
 
 
 def _compute_mask_spans(

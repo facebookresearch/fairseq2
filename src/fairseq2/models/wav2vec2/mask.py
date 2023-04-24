@@ -47,7 +47,7 @@ class Wav2Vec2Mask(Module):
             The length of each spatial mask span that is applied over features.
         :param spatial_max_mask_prob:
             The maximum probability of masking a feature. Note that, due to mask
-            span overlap, the effective probility might be smaller.
+            span overlap, the effective probability might be smaller.
         """
         super().__init__()
 

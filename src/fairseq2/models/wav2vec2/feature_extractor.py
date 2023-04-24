@@ -236,7 +236,7 @@ class Wav2Vec2FeatureExtractionLayer(Module):
         if self.dropout is not None:
             x = self.dropout(x)
 
-        if self.group_norm is not None:
+        if self.group_norm is not None and x.dim() == 3:
             x = self.group_norm(x)
 
         if self.layer_norm is not None:
