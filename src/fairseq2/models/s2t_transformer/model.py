@@ -49,7 +49,7 @@ class TransformerFbankFrontend(Module):
             described in Section 2 of
             :cite:t:`https://doi.org/10.48550/arxiv.2005.08100`.
         :param dropout_p:
-            The dropout probability on embeddings.
+            The dropout probability on outputs.
         """
         super().__init__()
 

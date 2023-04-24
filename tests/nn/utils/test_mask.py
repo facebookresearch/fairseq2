@@ -10,40 +10,22 @@ from fairseq2.nn.utils.mask import compute_mask, to_padding_mask
 from tests.common import assert_equal, device
 
 
-def test_compute_mask_returns_mask_with_correct_amount_of_positions_masked() -> None:
+def test_compute_mask_returns_same_number_of_masked_elements_in_each_row() -> None:
     shape = (32, 512)
 
-    mask = compute_mask(shape, mask_len=10, mask_prob=0.65, device=device)
+    mask = compute_mask(shape, span_len=10, max_mask_prob=0.65, device=device)
 
     assert mask is not None
 
-    num_masked_positions = mask.sum() / mask.numel()
+    num_masked = torch.count_nonzero(mask, dim=-1)
 
-    # A very rudimentary confidence internal check.
-    assert 0.40 <= num_masked_positions <= 0.60
-
-
-def test_compute_mask_returns_mask_with_correct_amount_of_positions_masked_if_row_lens_is_specified() -> None:
-    shape = (32, 512)
-
-    row_lens = torch.full((32,), 512, device=device, dtype=torch.int64)
-
-    mask = compute_mask(
-        shape, mask_len=10, mask_prob=0.65, device=device, row_lens=row_lens
-    )
-
-    assert mask is not None
-
-    num_masked_positions = mask.sum() / mask.numel()
-
-    # A very rudimentary confidence internal check.
-    assert 0.40 <= num_masked_positions <= 0.60
+    assert (num_masked == num_masked[0]).all() == True
 
 
 def test_compute_mask_returns_mask_with_correct_shape_device_dtype() -> None:
     shape = (4, 16)
 
-    mask = compute_mask(shape, mask_len=4, mask_prob=1.0, device=device)
+    mask = compute_mask(shape, span_len=4, max_mask_prob=1.0, device=device)
 
     assert mask is not None
 
@@ -60,7 +42,7 @@ def test_compute_mask_returns_mask_with_correct_shape_device_dtype_if_row_lens_i
     row_lens = torch.tensor([16, 14, 15, 16], device="cpu")
 
     mask = compute_mask(
-        shape, mask_len=4, mask_prob=1.0, device=device, row_lens=row_lens
+        shape, span_len=4, max_mask_prob=1.0, device=device, row_lens=row_lens
     )
 
     assert mask is not None
@@ -78,24 +60,24 @@ def test_compute_mask_returns_none_if_rows_are_empty() -> None:
     row_lens = torch.zeros((1,), device=device)
 
     mask = compute_mask(
-        shape, mask_len=4, mask_prob=1.0, row_lens=row_lens, device=device
+        shape, span_len=4, max_mask_prob=1.0, row_lens=row_lens, device=device
     )
 
     assert mask is None
 
 
-def test_compute_mask_returns_none_if_rows_are_empty_and_min_num_masks_is_non_zero() -> None:
+def test_compute_mask_returns_none_if_rows_are_empty_and_min_num_spans_is_non_zero() -> None:
     shape = (1, 16)
 
     row_lens = torch.zeros((1,), device=device)
 
     mask = compute_mask(
         shape,
-        mask_len=4,
-        mask_prob=1.0,
+        span_len=4,
+        max_mask_prob=1.0,
         row_lens=row_lens,
         device=device,
-        min_num_masks=32,
+        min_num_spans=32,
     )
 
     assert mask is None
@@ -107,7 +89,7 @@ def test_compute_mask_ignores_empty_rows() -> None:
     row_lens = torch.tensor([16, 0, 12], device=device)
 
     mask = compute_mask(
-        shape, mask_len=4, mask_prob=1.0, row_lens=row_lens, device=device
+        shape, span_len=4, max_mask_prob=1.0, row_lens=row_lens, device=device
     )
 
     assert mask is not None
@@ -120,13 +102,13 @@ def test_compute_mask_ignores_empty_rows() -> None:
     assert not mask[1].any()
 
 
-def test_compute_mask_ignores_rows_with_length_shorter_than_or_equal_to_mask_len() -> None:
+def test_compute_mask_ignores_rows_with_length_shorter_than_or_equal_to_span_len() -> None:
     shape = (4, 16)
 
     row_lens = torch.tensor([16, 4, 5, 3], device=device)
 
     mask = compute_mask(
-        shape, mask_len=4, mask_prob=1.0, row_lens=row_lens, device=device
+        shape, span_len=4, max_mask_prob=1.0, row_lens=row_lens, device=device
     )
 
     assert mask is not None

@@ -52,7 +52,7 @@ class TransformerTokenFrontend(Module):
         :param layer_norm:
             If ``True``, applies Layer Normalization to embeddings.
         :param dropout_p:
-            The dropout probability on embeddings.
+            The dropout probability on outputs.
         :param norm_eps:
             The epsilon value to add to the denominator of the
             :class:`~torch.nn.LayerNorm` module for numerical stability.

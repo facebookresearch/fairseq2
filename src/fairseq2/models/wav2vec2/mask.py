@@ -18,45 +18,48 @@ class Wav2Vec2Mask(Module):
     """Masks feature extractor outputs as described in Section 3.1 of
     :cite:t:`baevski2020wav2vec`."""
 
-    mask_len: int
-    mask_prob: float
+    span_len: int
+    max_mask_prob: float
     mask_embed: Parameter
-    spatial_mask_len: int
-    spatial_mask_prob: float
+    spatial_span_len: int
+    spatial_max_mask_prob: float
 
     def __init__(
         self,
         model_dim: int,
-        mask_len: int = 10,
-        mask_prob: float = 0.65,
-        spatial_mask_len: int = 10,
-        spatial_mask_prob: float = 0.0,
+        span_len: int = 10,
+        max_mask_prob: float = 0.65,
+        spatial_span_len: int = 10,
+        spatial_max_mask_prob: float = 0.0,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
         """
         :param model_dim:
             The dimensionality of the model.
-        :param mask_len:
-            The length of the temporal mask that is applied over time steps.
-        :param mask_prob:
-            The probability of masking a time step.
-        :param spatial_mask_len:
-            The length of the spatial mask that is applied over features.
-        :param spatial_mask_prob:
-            The probability of masking a feature.
+        :param span_len:
+            The length of each temporal mask span that is applied over time
+            steps.
+        :param max_mask_prob:
+            The maximum probability of masking a time step. Note that, due to
+            mask span overlap, the effective probability might be smaller.
+        :param spatial_span_len:
+            The length of each spatial mask span that is applied over features.
+        :param spatial_max_mask_prob:
+            The maximum probability of masking a feature. Note that, due to mask
+            span overlap, the effective probility might be smaller.
         """
         super().__init__()
 
-        self.mask_len = mask_len
-        self.mask_prob = mask_prob
+        self.span_len = span_len
+        self.max_mask_prob = max_mask_prob
 
         self.mask_embed = Parameter(
             torch.empty((model_dim,), device=device, dtype=dtype)
         )
 
-        self.spatial_mask_len = spatial_mask_len
-        self.spatial_mask_prob = spatial_mask_prob
+        self.spatial_span_len = spatial_span_len
+        self.spatial_max_mask_prob = spatial_max_mask_prob
 
         self.reset_parameters()
 
@@ -85,7 +88,7 @@ class Wav2Vec2Mask(Module):
 
         .. note::
             For a boolean mask, a ``True`` indicates that the corresponding
-            position should be masked.
+            element should be masked.
         """
         if not self.training:
             return x, None
@@ -98,15 +101,15 @@ class Wav2Vec2Mask(Module):
             batch_size = x.size(0)
 
         # Temporal mask over time steps.
-        if self.mask_prob > 0.0:
+        if self.max_mask_prob > 0.0:
             shape = (batch_size, seq_len)
 
             mask = compute_mask(
                 shape,
-                self.mask_len,
-                self.mask_prob,
+                self.span_len,
+                self.max_mask_prob,
                 seq_lens,
-                min_num_masks=2,
+                min_num_spans=2,
                 device=x.device,
             )
 
@@ -119,14 +122,14 @@ class Wav2Vec2Mask(Module):
             mask = None
 
         # Spatial mask over features.
-        if self.spatial_mask_prob > 0.0:
+        if self.spatial_max_mask_prob > 0.0:
             shape = (batch_size, model_dim)
 
             spatial_mask = compute_mask(
                 shape,
-                self.spatial_mask_len,
-                self.spatial_mask_prob,
-                min_num_masks=2,
+                self.spatial_span_len,
+                self.spatial_max_mask_prob,
+                min_num_spans=2,
                 device=x.device,
             )
 
@@ -142,4 +145,4 @@ class Wav2Vec2Mask(Module):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"mask_len={self.mask_len}, mask_prob={self.mask_prob}, spatial_mask_len={self.spatial_mask_len}, spatial_mask_prob={self.spatial_mask_prob}"
+        return f"span_len={self.span_len}, max_mask_prob={self.max_mask_prob}, spatial_span_len={self.spatial_span_len}, spatial_max_mask_prob={self.spatial_max_mask_prob}"
