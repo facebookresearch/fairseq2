@@ -13,7 +13,7 @@ from torch import Tensor
 
 from fairseq2.data import CString, StringLike
 from fairseq2.data.text import Tokenizer, VocabularyInfo
-from fairseq2.models.transformer import TransformerModel
+from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.nn.incremental_state import IncrementalStateBag
 
 
@@ -161,8 +161,9 @@ class SearchStrategy(ABC):
     @torch.inference_mode()
     def generate(
         self,
-        model: TransformerModel,
+        model: EncoderDecoderModel,
         src_tokens: Tensor,
+        src_token_lens: Optional[Tensor],
         prefix_tokens: Optional[Tensor] = None,
         top: int = 0,
     ) -> torch.Tensor:
@@ -171,7 +172,7 @@ class SearchStrategy(ABC):
         """
         # compute the encoder output for each beam
         with torch.autograd.profiler.record_function("forward_encoder"):
-            enc_out, enc_attn_mask = model.encode(src_tokens)
+            enc_out, enc_attn_mask = model.encode(src_tokens, src_token_lens)
 
         enc_out = _stretch_to_beams(enc_out, self.beam_size)
         if enc_attn_mask is not None:
@@ -185,8 +186,11 @@ class SearchStrategy(ABC):
             with torch.autograd.profiler.record_function("forward_decoder"):
                 query_tokens = job.next_query()
 
+                padding_mask = query_tokens.ne(self.vocab_info.pad_idx)
+                seq_lens = torch.count_nonzero(padding_mask, dim=-1)
+
                 dec_out = model.decode_and_score(
-                    query_tokens, enc_out, enc_attn_mask, state_bag
+                    query_tokens, seq_lens, enc_out, enc_attn_mask, state_bag
                 )
                 dec_out = dec_out.squeeze(1)
 
@@ -201,7 +205,7 @@ class SearchStrategy(ABC):
 
     def generate_str(
         self,
-        model: TransformerModel,
+        model: EncoderDecoderModel,
         tokenizer: Tokenizer,
         sentences: Union[StringLike, Sequence[StringLike]],
         *,
@@ -227,8 +231,11 @@ class SearchStrategy(ABC):
         # Start with an empty sentence.
         tgt_indices = tgt_encoder([""] * len(sentences))
 
+        padding_mask = src_indices.ne(self.vocab_info.pad_idx)
+        src_indices_lens = torch.count_nonzero(padding_mask, dim=-1)
+
         tgt_indices = self.generate(
-            model, src_indices, top=1, prefix_tokens=tgt_indices
+            model, src_indices, src_indices_lens, top=1, prefix_tokens=tgt_indices
         )
 
         return tgt_decoder(tgt_indices.squeeze(1))

@@ -34,7 +34,7 @@ class FeedForwardNetwork(Module, ABC):
     def forward(self, x: Tensor) -> Tensor:
         """
         :param x:
-            The input to project. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)`
+            The inputs to project. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)`
             when unbatched, where :math:`N` is the batch size, :math:`S` is the
             sequence length, and :math:`M` is the dimensionality of the model.
 

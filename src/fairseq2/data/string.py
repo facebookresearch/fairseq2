@@ -4,9 +4,9 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import TYPE_CHECKING, Optional, Union, overload
+from typing import TYPE_CHECKING, Any, Optional, Union, overload
 
-from typing_extensions import TypeAlias
+from typing_extensions import TypeAlias, TypeGuard
 
 from fairseq2 import DOC_MODE
 
@@ -59,3 +59,7 @@ else:
     CString.__module__ = __name__
 
 StringLike: TypeAlias = Union[str, CString]
+
+
+def is_string_like(s: Any) -> TypeGuard[StringLike]:
+    return isinstance(s, (str, CString))

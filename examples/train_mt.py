@@ -22,11 +22,8 @@ from fairseq2.data.text import MultilingualTokenizer, Tokenizer, VocabularyInfo
 from fairseq2.dataloader import Seq2SeqBatch
 from fairseq2.distributed import Env
 from fairseq2.generate import spm_train
-from fairseq2.models.transformer import (
-    TransformerConfig,
-    TransformerModel,
-    create_transformer_model,
-)
+from fairseq2.models.encoder_decoder import EncoderDecoderModel
+from fairseq2.models.nllb import NllbConfig, create_nllb_model
 from fairseq2.tasks import TranslationTask
 
 log = logging.getLogger(__name__)
@@ -139,16 +136,16 @@ def vocab_info(tokenizer: Tokenizer) -> VocabularyInfo:
 
 
 def model(
-    env: Env, vocab_info: VocabularyInfo, transformer: TransformerConfig
-) -> TransformerModel:
+    env: Env, vocab_info: VocabularyInfo, nllb: NllbConfig
+) -> EncoderDecoderModel:
     """The translation model, see transformer for configuration"""
     torchtnt.utils.seed(0)
     torch.cuda.manual_seed(0)
-    return create_transformer_model(transformer, vocab_info, env.device)
+    return create_nllb_model(nllb, vocab_info, env.device)
 
 
-# Override default values of TransformerConfig
-transformer = functools.partial(TransformerConfig, dropout_p=0)
+# Override default values of NllbConfig
+nllb = functools.partial(NllbConfig, dropout_p=0)
 
 # TODO: move this to fairseq2.cli.defaults
 hub_task = fairseq2.cli.hub_export(task, __file__)

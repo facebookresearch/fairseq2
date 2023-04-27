@@ -46,8 +46,8 @@ class TransformerDecoderLayer(Module, ABC):
     ) -> Tensor:
         """
         :param x:
-            The input to decode. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)` when
-            unbatched, where :math:`N` is the batch size, :math:`S` is the
+            The inputs to decode. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)`
+            when unbatched, where :math:`N` is the batch size, :math:`S` is the
             sequence length, and :math:`M` is the dimensionality of the model.
         :param padding_mask:
             The boolean or float padding mask indicating which key positions to

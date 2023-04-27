@@ -22,7 +22,7 @@ from fairseq2.callbacks import Metrics
 from fairseq2.data.text import Tokenizer
 from fairseq2.dataloader import Seq2SeqBatch, Seq2SeqStr
 from fairseq2.generate import BeamSearchStrategy, SearchStrategy
-from fairseq2.models.transformer import TransformerModel
+from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.optim.lr_scheduler import LRScheduler
 
 
@@ -34,7 +34,7 @@ class Seq2Seq(
     # Note: this is very close to the tnt.AutoUnit, maybe we should inherit from them.
     def __init__(
         self,
-        model: TransformerModel,
+        model: EncoderDecoderModel,
         tokenizer: Tokenizer,
         optimizer: torch.optim.Optimizer,
         lr_scheduler: Optional[LRScheduler] = None,
@@ -176,8 +176,14 @@ class Seq2Seq(
         source = token_decoder(data.source)
         target = token_decoder(data.target)
 
+        # TODO: move to data loading
+        padding_mask = data.source.ne(self.tokenizer.vocab_info.pad_idx)
+        source_lens = torch.count_nonzero(padding_mask, dim=-1)
+
         strategy = self.default_strategy()
-        predicted_tokens = strategy.generate(self.model, data.source, top=1)
+        predicted_tokens = strategy.generate(
+            self.model, data.source, source_lens, top=1
+        )
 
         predicted = token_decoder(predicted_tokens.squeeze(1))
 

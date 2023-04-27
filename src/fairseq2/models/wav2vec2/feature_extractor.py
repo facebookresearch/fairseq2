@@ -13,14 +13,20 @@ from overrides import override
 from torch import Tensor
 from torch.nn import GELU, Conv1d, Dropout, GroupNorm, LayerNorm, Module, Sequential
 
+from fairseq2.models.feature_extractor import FeatureExtractor
 from fairseq2.nn.utils.grad import scale_grad
 
 
-class Wav2Vec2FeatureExtractor(Module):
-    """Extracts features from raw audio inputs and embeds them in a latent space
-    as described in Section 2 of :cite:t:`baevski2020wav2vec`."""
+class Wav2Vec2FeatureExtractor(FeatureExtractor):
+    """Extracts features from raw audio waveforms and embeds them in a latent
+    space as described in Section 2 of :cite:t:`baevski2020wav2vec`.
 
-    embed_dim: int
+    .. note::
+        The input waveforms are expected to be of shape :math:`(N,S)`, or
+        :math:`(S)` when unbatched, where :math:`N` is the batch size and
+        :math:`(S)` is the sequence length.
+    """
+
     layers: Sequential
     layer_descs: List[Tuple[int, int, int]]
     grad_scale: float
@@ -57,17 +63,17 @@ class Wav2Vec2FeatureExtractor(Module):
             :class:`~torch.nn.LayerNorm` or :class:`~torch.nn.GroupNorm` modules
             for numerical stability.
         """
-        super().__init__()
+        # The output dimensionality of the last feature extraction layer.
+        embed_dim = layer_descs[-1][0]
+
+        super().__init__(embed_dim)
 
         if not layer_descs:
             raise ValueError("`layer_descs` must be non-empty.")
 
-        # The output dimensionality of the last feature extraction layer.
-        self.embed_dim = layer_descs[-1][0]
-
         self.layers = Sequential()
 
-        # We expect the input waveform to be one dimensional.
+        # We expect the input waveforms to be one dimensional.
         inp_dim = 1
 
         for i, layer_desc in enumerate(layer_descs):
@@ -120,31 +126,10 @@ class Wav2Vec2FeatureExtractor(Module):
         self.grad_scale = grad_scale
 
     def forward(
-        self, waveforms: Tensor, num_frames: Optional[Tensor]
+        self, seqs: Tensor, seq_lens: Optional[Tensor]
     ) -> Tuple[Tensor, Optional[Tensor]]:
-        """
-        :param waveforms:
-            The raw audio inputs from which to extract features. *Shape:*
-            :math:`(N,S)`, or :math:`(S)` when unbatched, where :math:`N` is the
-            batch size and :math:`(S)` is the sequence length.
-        :param num_frames:
-            An array where each element represents the number of frames of the
-            waveform at the same index in ``waveforms``. *Shape:* :math:`(N)`,
-            :math:`(N,1)`, or :math:`()` when unbatched, where :math:`N` is the
-            batch size.
-
-        :returns:
-            - The audio embeddings, extracted from ``waveforms``. *Shape:*
-              :math:`(N,S,E)`, or :math:`(S,E)` when unbatched, where :math:`N`
-              is the batch size, :math:`(S)` is the sequence length, and
-              :math:`E` is the embedding size (i.e. the output dimensionality of
-              the last feature extraction layer).
-            - The sequence lengths corresponding to the returned audio
-              embeddings. *Shape:* :math:`(N)`, or :math:`()` when unbatched,
-              where :math:`N` is the batch size.
-        """
         # (N, S) -> (N, C, S)
-        x = waveforms.unsqueeze(-2)
+        x = seqs.unsqueeze(0)
 
         # (N, C, S) -> (N, E, S)
         x = self.layers(x)
@@ -155,26 +140,28 @@ class Wav2Vec2FeatureExtractor(Module):
         # (N, E, S) -> (N, S, E)
         x = x.transpose(-1, -2)
 
-        if num_frames is None:
+        if seq_lens is None:
             return x, None
         else:
             # Since we contracted the temporal dimension, we should re-compute
             # the sequence lengths.
-            return x, self._compute_seq_lens(num_frames)
+            return x, self._compute_seq_lens(seq_lens)
 
-    def _compute_seq_lens(self, num_frames: Tensor) -> Tensor:
-        seq_lens = num_frames.clone()
+    def _compute_seq_lens(self, original_seq_lens: Tensor) -> Tensor:
+        seq_lens = original_seq_lens.clone()
 
         for desc in self.layer_descs:
             kernel_size, stride = desc[1], desc[2]
 
             seq_lens = (((seq_lens - kernel_size) / stride) + 1.0).floor()
 
-        return seq_lens.type(num_frames.dtype)
+        return seq_lens.type(original_seq_lens.dtype)
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"embed_dim={self.embed_dim}, grad_scale={self.grad_scale}"
+        s = super().extra_repr()
+
+        return s + f", grad_scale={self.grad_scale}"
 
 
 class Wav2Vec2FeatureExtractionLayer(Module):

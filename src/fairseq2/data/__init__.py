@@ -17,3 +17,4 @@ from fairseq2.data.memory import Buffer as Buffer
 from fairseq2.data.memory import MemoryBlock as MemoryBlock
 from fairseq2.data.string import CString as CString
 from fairseq2.data.string import StringLike as StringLike
+from fairseq2.data.string import is_string_like as is_string_like

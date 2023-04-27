@@ -90,9 +90,6 @@ class Wav2Vec2Mask(Module):
             For a boolean mask, a ``True`` indicates that the corresponding
             element should be masked.
         """
-        if not self.training:
-            return x, None
-
         seq_len, model_dim = x.shape[-2:]
 
         if x.dim() == 2:

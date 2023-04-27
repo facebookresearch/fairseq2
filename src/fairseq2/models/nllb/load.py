@@ -7,7 +7,6 @@
 from typing import Any, Dict, Mapping, Optional, Tuple
 
 import torch
-from torch.serialization import MAP_LOCATION
 
 from fairseq2 import services
 from fairseq2.assets import AssetCard, AssetDownloadManager, AssetStore
@@ -18,7 +17,11 @@ from fairseq2.models.nllb.build import (
 )
 from fairseq2.models.nllb.tokenizer import NllbTokenizer
 from fairseq2.models.transformer import TransformerModel
-from fairseq2.models.utils.load import load_checkpoint, upgrade_fairseq_checkpoint
+from fairseq2.models.utils.load import (
+    MapLocation,
+    load_checkpoint,
+    upgrade_fairseq_checkpoint,
+)
 
 
 def load_nllb_model(
@@ -98,7 +101,7 @@ class NllbLoader:
 
         return model, tokenizer
 
-    def load_checkpoint(self, map_location: MAP_LOCATION = None) -> Mapping[str, Any]:
+    def load_checkpoint(self, map_location: MapLocation = None) -> Mapping[str, Any]:
         """Load the checkpoint of the NLLB model.
 
         :param map_location:

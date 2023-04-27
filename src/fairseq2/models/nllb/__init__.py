@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from fairseq2.models.nllb.build import NllbBuilder as NllbBuilder
+from fairseq2.models.nllb.build import NllbConfig as NllbConfig
 from fairseq2.models.nllb.build import create_nllb_model as create_nllb_model
 from fairseq2.models.nllb.build import get_nllb_archs as get_nllb_archs
 from fairseq2.models.nllb.build import get_nllb_config as get_nllb_config

@@ -5,13 +5,19 @@
 # LICENSE file in the root directory of this source tree.
 
 import re
-from typing import Any, Callable, Dict, NoReturn, Optional
+from typing import Any, Callable, Dict, NoReturn, Optional, Union
 
 import torch
-from torch.serialization import MAP_LOCATION
 from typing_extensions import TypeAlias
 
 from fairseq2.data.typing import PathLike
+
+# TODO: Use `torch.serialization.MAP_LOCATION` after PT 1.12.1
+MapLocation: TypeAlias = Optional[
+    Union[
+        Callable[[torch.Tensor, str], torch.Tensor], torch.device, str, Dict[str, str]
+    ]
+]
 
 CheckpointUpgrader: TypeAlias = Callable[[Dict[str, Any]], Dict[str, Any]]
 
@@ -20,7 +26,7 @@ def load_checkpoint(
     pathname: PathLike,
     model_name: str,
     checkpoint_name: Optional[str] = None,
-    map_location: MAP_LOCATION = None,
+    map_location: MapLocation = None,
     restrict: bool = False,
     upgrader: Optional[CheckpointUpgrader] = None,
 ) -> Dict[str, Any]:
@@ -129,7 +135,7 @@ def _get_fairseq_param_key_map() -> Dict[str, str]:
         r"^decoder\.output_projection\.":                         r"score_proj.",
 
         # S2T Transformer
-        r"^encoder\.subsample\.conv_layers\.([0-9]+)\.":                    r"encoder_frontend.subsampler.layers.\1.conv.",
+        r"^encoder\.subsample\.conv_layers\.([0-9]+)\.":                    r"encoder_frontend.feat_extract.layers.\1.conv.",
         r"^encoder\.transformer_layers\.([0-9]+)\.self_attn_layer_norm\.":  r"encoder.layers.\1.self_attn_layer_norm.",
         r"^encoder\.transformer_layers\.([0-9]+)\.self_attn\.":             r"encoder.layers.\1.self_attn.",
         r"^encoder\.transformer_layers\.([0-9]+)\.final_layer_norm\.":      r"encoder.layers.\1.ffn_layer_norm.",

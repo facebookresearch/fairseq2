@@ -19,8 +19,6 @@ Classes
     data.text.MultilingualTokenizer
     models.transformer.ScoreProjection
     models.transformer.TransformerModel
-    models.transformer.TransformerBuilder
-    models.transformer.TransformerConfig
     nn.Embedding
     nn.IncrementalState
     nn.IncrementalStateBag

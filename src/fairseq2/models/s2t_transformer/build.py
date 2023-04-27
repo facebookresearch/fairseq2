@@ -12,12 +12,14 @@ from torch.nn import SiLU
 
 from fairseq2.data.text import VocabularyInfo
 from fairseq2.models.conformer import ConformerConvolution, ConformerEncoderLayer
-from fairseq2.models.s2t_transformer.model import (
-    S2TTransformerModel,
-    TransformerFbankFrontend,
+from fairseq2.models.encoder_decoder import EncoderDecoderFrontend
+from fairseq2.models.s2t_transformer.feature_extractor import Conv1dFbankSubsampler
+from fairseq2.models.s2t_transformer.frontend import S2TTransformerFrontend
+from fairseq2.models.transformer import (
+    ScoreProjection,
+    TransformerModel,
+    TransformerTokenFrontend,
 )
-from fairseq2.models.s2t_transformer.subsampler import Conv1dFbankSubsampler
-from fairseq2.models.transformer import ScoreProjection, TransformerTokenFrontend
 from fairseq2.nn.embedding import Embedding
 from fairseq2.nn.positional_embedding import (
     PositionalEmbedding,
@@ -160,7 +162,7 @@ def create_s2t_transformer_model(
     cfg: S2TTransformerConfig,
     vocab_info: VocabularyInfo,
     device: Optional[torch.device] = None,
-) -> S2TTransformerModel:
+) -> TransformerModel:
     """Create an S2T Transformer model as described in
     :cite:t:`https://doi.org/10.48550/arxiv.1911.08460`.
 
@@ -204,7 +206,7 @@ class S2TTransformerBuilder:
         self.vocab_info = vocab_info
         self.device = device
 
-    def build_model(self) -> S2TTransformerModel:
+    def build_model(self) -> TransformerModel:
         """Build a model."""
         enc_frontend = self.build_encoder_frontend()
         dec_frontend = self.build_decoder_frontend()
@@ -219,11 +221,11 @@ class S2TTransformerBuilder:
             dtype=self.cfg.dtype,
         )
 
-        return S2TTransformerModel(enc_frontend, enc, dec_frontend, dec, score_proj)
+        return TransformerModel(enc_frontend, enc, dec_frontend, dec, score_proj)
 
-    def build_encoder_frontend(self) -> TransformerFbankFrontend:
+    def build_encoder_frontend(self) -> EncoderDecoderFrontend:
         """Build an encoder frontend."""
-        subsampler = Conv1dFbankSubsampler(
+        feat_extract = Conv1dFbankSubsampler(
             num_channels=self.cfg.num_fbank_channels,
             inner_dim=1024,
             embed_dim=self.cfg.model_dim,
@@ -234,8 +236,8 @@ class S2TTransformerBuilder:
 
         pos_embed = self.build_positional_embedding()
 
-        return TransformerFbankFrontend(
-            subsampler,
+        return S2TTransformerFrontend(
+            feat_extract,
             pos_embed,
             apply_projection=self.cfg.use_conformer,
             dropout_p=self.cfg.dropout_p,
@@ -243,7 +245,7 @@ class S2TTransformerBuilder:
             dtype=self.cfg.dtype,
         )
 
-    def build_decoder_frontend(self) -> TransformerTokenFrontend:
+    def build_decoder_frontend(self) -> EncoderDecoderFrontend:
         """Build a decoder frontend."""
         embed = Embedding(
             num_embed=self.vocab_info.size,

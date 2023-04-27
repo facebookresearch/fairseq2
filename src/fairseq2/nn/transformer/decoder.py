@@ -40,15 +40,15 @@ class TransformerDecoder(Module, ABC):
     @abstractmethod
     def forward(
         self,
-        embeds: Tensor,
+        x: Tensor,
         padding_mask: Optional[Tensor] = None,
         enc_out: Optional[Tensor] = None,
         enc_padding_mask: Optional[Tensor] = None,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
         """
-        :param embeds:
-            The embeddings to decode. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)`
+        :param x:
+            The inputs to decode. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)`
             when unbatched, where :math:`N` is the batch size, :math:`S` is the
             sequence length, and :math:`M` is the dimensionality of the model.
         :param padding_mask:
@@ -72,7 +72,7 @@ class TransformerDecoder(Module, ABC):
             The state bag to use during an incremental evaluation.
 
         :returns:
-            The decoded output of ``embeds``. *Shape:* Same as ``embeds``.
+            The decoded output of ``x``. *Shape:* Same as ``x``.
 
         .. note::
             For a boolean padding mask, a ``True`` indicates that the
@@ -149,21 +149,19 @@ class StandardTransformerDecoder(TransformerDecoder):
     @finaloverride
     def forward(
         self,
-        embeds: Tensor,
+        x: Tensor,
         padding_mask: Optional[Tensor] = None,
         enc_out: Optional[Tensor] = None,
         enc_padding_mask: Optional[Tensor] = None,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
         if padding_mask is not None:
-            padding_mask = to_float_mask(padding_mask, dtype=embeds.dtype)
+            padding_mask = to_float_mask(padding_mask, dtype=x.dtype)
 
         if self.training or state_bag is None:
-            self_attn_mask = self.self_attn_mask_gen(embeds)
+            self_attn_mask = self.self_attn_mask_gen(x)
         else:
             self_attn_mask = None
-
-        x = embeds
 
         for layer in self.layers.drop_iter():
             x = layer(

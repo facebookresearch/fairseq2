@@ -8,7 +8,6 @@ from typing import Any, Mapping, Optional, Tuple
 from zipfile import ZipFile
 
 import torch
-from torch.serialization import MAP_LOCATION
 
 from fairseq2 import services
 from fairseq2.assets import AssetCard, AssetDownloadManager, AssetStore
@@ -17,14 +16,18 @@ from fairseq2.models.s2t_transformer.build import (
     get_s2t_transformer_archs,
     get_s2t_transformer_config,
 )
-from fairseq2.models.s2t_transformer.model import S2TTransformerModel
 from fairseq2.models.s2t_transformer.tokenizer import S2TTransformerTokenizer
-from fairseq2.models.utils.load import load_checkpoint, upgrade_fairseq_checkpoint
+from fairseq2.models.transformer import TransformerModel
+from fairseq2.models.utils.load import (
+    MapLocation,
+    load_checkpoint,
+    upgrade_fairseq_checkpoint,
+)
 
 
 def load_s2t_transformer_model(
     model_name: str, device: Optional[torch.device] = None, progress: bool = True
-) -> Tuple[S2TTransformerModel, S2TTransformerTokenizer]:
+) -> Tuple[TransformerModel, S2TTransformerTokenizer]:
     """Load the specified S2T Transformer model.
 
     :param model_name:
@@ -73,7 +76,7 @@ class S2TTransformerLoader:
 
     def load_model(
         self, device: Optional[torch.device] = None
-    ) -> Tuple[S2TTransformerModel, S2TTransformerTokenizer]:
+    ) -> Tuple[TransformerModel, S2TTransformerTokenizer]:
         """Load the S2T Transformer model.
 
         :param device:
@@ -99,7 +102,7 @@ class S2TTransformerLoader:
 
         return model, tokenizer
 
-    def load_checkpoint(self, map_location: MAP_LOCATION = None) -> Mapping[str, Any]:
+    def load_checkpoint(self, map_location: MapLocation = None) -> Mapping[str, Any]:
         """Load the checkpoint of the S2T Transformer model.
 
         :param map_location:

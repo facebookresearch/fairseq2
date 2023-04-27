@@ -12,10 +12,10 @@ import torch
 from fairseq2.generate import BeamSearchStrategy
 from fairseq2.generate.search import _stretch_to_beams
 from fairseq2.models.s2t_transformer import (
-    S2TTransformerModel,
     S2TTransformerTokenizer,
     load_s2t_transformer_model,
 )
+from fairseq2.models.transformer import TransformerModel
 from fairseq2.nn import IncrementalStateBag
 from tests.common import device
 
@@ -45,7 +45,7 @@ def test_load_s2t_conformer_covost_st_en_de() -> None:
 
 
 def assert_translation(
-    model: S2TTransformerModel, tokenizer: S2TTransformerTokenizer, expected: str
+    model: TransformerModel, tokenizer: S2TTransformerTokenizer, expected: str
 ) -> None:
     model.eval()
 
@@ -82,7 +82,7 @@ def assert_translation(
         query_tokens = job.next_query()
 
         dec_out = model.decode_and_score(
-            query_tokens, enc_out, enc_attn_mask, state_bag
+            query_tokens, None, enc_out, enc_attn_mask, state_bag
         )
 
         dec_out = dec_out.squeeze(1)
