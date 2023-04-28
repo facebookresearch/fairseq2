@@ -53,14 +53,20 @@ def test_state_dict(tmp_path: Path) -> None:
 
 
 def test_batch() -> None:
-    dataloader = (
-        fairseq2.data.text.read_text(FILE, rtrim=True).batch(8, False).and_return()
+    dataloader = fairseq2.data.text.read_text(FILE, rtrim=True).batch(8).and_return()
+    dataloader_drop_remainder = (
+        fairseq2.data.text.read_text(FILE, rtrim=True)
+        .batch(8, drop_remainder=True)
+        .and_return()
     )
-    dataset = list(iter(dataloader))
+
+    dataset = list(dataloader)
+    dataset_drop_remainder = list(iter(dataloader_drop_remainder))
     assert [l for batch in dataset for l in batch] == FILE_LINES
 
     N = len(FILE_LINES)
     expected_batch_sizes = [8] * (N // 8)
+    assert [len(batch) for batch in dataset_drop_remainder] == expected_batch_sizes
 
     if N % 8 != 0:
         expected_batch_sizes.append(N % 8)
@@ -68,9 +74,63 @@ def test_batch() -> None:
     assert [len(batch) for batch in dataset] == expected_batch_sizes
 
 
-def test_read_sequence() -> None:
-    dataloader = fairseq2.data.read_sequence(list(range(10))).and_return()
-    assert_eq_twice(dataloader, list(range(10)))
+def test_batch_tensors_of_same_lengths() -> None:
+    dataloader = (
+        fairseq2.data.read_sequence(range(9))
+        .map(lambda l: torch.ones(5))
+        .batch(4)
+        .map(lambda x: x.shape)
+        .and_return()
+    )
+    assert_eq_twice(dataloader, [[4, 5], [4, 5], [1, 5]])
+
+
+def test_batch_tensors_of_different_lengths() -> None:
+    raw_lengths = [1, 5, 6, 1, 1, 1, 7, 1, 1]
+    dataloader = (
+        fairseq2.data.read_sequence(raw_lengths)
+        .map(lambda l: torch.ones(l) * l)
+        .batch(4, pad_idx=0)
+        .map(lambda x: x.shape)
+        .and_return()
+    )
+    assert_eq_twice(dataloader, [[4, 6], [4, 7], [1, 1]])
+
+    # Without padding we can't batch tensors of different lengths
+    dataloader = (
+        fairseq2.data.read_sequence(raw_lengths)
+        .map(lambda l: torch.ones(l) * l)
+        .batch(4)
+        .map(lambda x: x.shape)
+        .and_return()
+    )
+    with pytest.raises(
+        RuntimeError, match="stack expects each tensor to be equal size"
+    ):
+        list(dataloader)
+
+
+def test_batch_tuples() -> None:
+    dataloader = (
+        fairseq2.data.text.read_text(FILE, rtrim=True)
+        # Batching tuples yields tuples of lists.
+        .map(lambda l: (l, len(l)))
+        .batch(8)
+        .and_return()
+    )
+    dataset = list(dataloader)
+
+    assert [l for (lines, lengths) in dataset for l in lines] == FILE_LINES
+
+    N = len(FILE_LINES)
+    expected_batch_sizes = [8] * (N // 8)
+    if N % 8 != 0:
+        expected_batch_sizes.append(N % 8)
+
+    assert [len(lines) for lines, lengths in dataset] == expected_batch_sizes
+    assert [len(lengths) for lines, lengths in dataset] == expected_batch_sizes
+    for lines, lengths in dataset:
+        assert lengths == [len(line) for line in lines]
 
 
 def test_batch_by_length() -> None:
@@ -188,14 +248,14 @@ def test_map_handle_exceptions() -> None:
     )
 
     with pytest.raises(RuntimeError, match="4 is already square enough"):
-        list(iter(dataloader))
+        list(dataloader)
 
 
 def assert_eq_twice(
     dataloader: fairseq2.data.DataPipeline, expected: List[Any]
 ) -> None:
     # First epoch
-    assert list(iter(dataloader)) == expected
+    assert list(dataloader) == expected
     # Second epoch
     dataloader.reset()
-    assert list(iter(dataloader)) == expected
+    assert list(dataloader) == expected

@@ -49,6 +49,7 @@ class Seq2Seq(
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
 
+        self.pad_idx = self.tokenizer.vocab_info.pad_idx
         self.clip_grad_norm = 0.00
         self.log_frequency_steps = 100
         self.lr_frequency_steps = 1
@@ -71,6 +72,8 @@ class Seq2Seq(
         return ["tokenizer"]
 
     def train_step(self, state: State, data: Seq2SeqBatch) -> None:
+        if isinstance(data, list):
+            data = Seq2SeqBatch(*data, num_tokens=(data[1] != self.pad_idx).sum())
         assert state.train_state
         seed = self.seed + state.train_state.progress.num_steps_completed
         torchtnt.utils.seed(seed)

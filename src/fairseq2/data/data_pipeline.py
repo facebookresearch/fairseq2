@@ -69,7 +69,10 @@ if TYPE_CHECKING or DOC_MODE:
 
     class DataPipelineBuilder:
         def batch(
-            self, batch_size: int, drop_remainder: bool = False
+            self,
+            batch_size: int,
+            drop_remainder: bool = False,
+            pad_idx: Optional[int] = None,
         ) -> "DataPipelineBuilder":
             """Combine a number of consecutive examples into a single example.
 
@@ -78,6 +81,8 @@ if TYPE_CHECKING or DOC_MODE:
             :param drop_remainder:
                 If ``True``, drops the last batch in case it has fewer than
                 ``batch_size`` examples.
+            :param pad_idx:
+                Required to be able to batch tensors with different lengths.
             """
 
         def batch_by_length(

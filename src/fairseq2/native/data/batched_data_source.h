@@ -17,8 +17,8 @@ namespace fairseq2::detail {
 class batched_data_source final : public data_source {
 public:
     explicit
-    batched_data_source(std::unique_ptr<data_source> &&inner, std::size_t batch_size, bool drop_remainder) noexcept
-        : inner_{std::move(inner)}, batch_size_{batch_size}, drop_remainder_{drop_remainder}
+    batched_data_source(std::unique_ptr<data_source> &&inner, std::size_t batch_size, bool drop_remainder, std::optional<std::int32_t> pad_idx) noexcept
+        : inner_{std::move(inner)}, batch_size_{batch_size}, drop_remainder_{drop_remainder}, pad_idx_{pad_idx}
     {}
 
     std::optional<data>
@@ -37,9 +37,13 @@ public:
     reload_position(tape &t) override;
 
 private:
+    data
+    make_batch(std::vector<data> batch);
+
     std::unique_ptr<data_source> inner_;
     std::size_t batch_size_;
     bool drop_remainder_;
+    std::optional<std::int32_t> pad_idx_;
 };
 
 }  // namespace fairseq2::detail

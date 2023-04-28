@@ -155,7 +155,7 @@ class XpScript:
         fn = self._resolve_fn(name)
         if fn is None:
             raise ValueError(
-                f"Can't create a value for argument {name:!r}. No function {name:!r} found."
+                f"Can't create a value for argument {name!r}. No function {name!r} found."
             )
         spec = fn.spec
 

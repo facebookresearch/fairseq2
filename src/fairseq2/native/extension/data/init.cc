@@ -126,13 +126,15 @@ def_data_pipeline(py::module_ &base)
 
     py::class_<data_pipeline_builder>(m, "DataPipelineBuilder")
         .def("batch",
-            [](data_pipeline_builder &self, std::size_t batch_size, bool drop_remainder)
+            [](data_pipeline_builder &self, std::size_t batch_size, bool drop_remainder, std::optional<std::int32_t> pad_idx)
                 -> data_pipeline_builder &
             {
-                return self.batch(batch_size, drop_remainder);
+                return self.batch(batch_size, drop_remainder, pad_idx);
             },
             py::arg("batch_size"),
-            py::arg("drop_remainder"))
+            py::kw_only(),
+            py::arg("drop_remainder") = false,
+            py::arg("pad_idx") = std::nullopt)
         .def("batch_by_length",
             [](
                 data_pipeline_builder &self,

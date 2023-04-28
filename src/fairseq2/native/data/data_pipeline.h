@@ -95,10 +95,10 @@ public:
    ~data_pipeline_builder() = default;
 
     data_pipeline_builder &
-    batch(std::size_t batch_size, bool drop_remainder = false) &;
+    batch(std::size_t batch_size, bool drop_remainder = false, std::optional<std::int32_t> pad_idx = std::nullopt) &;
 
     data_pipeline_builder &&
-    batch(std::size_t batch_size, bool drop_remainder = false) &&;
+    batch(std::size_t batch_size, bool drop_remainder = false, std::optional<std::int32_t> pad_idx = std::nullopt) &&;
 
     data_pipeline_builder &
     batch_by_length(const std::vector<std::pair<std::size_t, std::size_t>>& buffer_sizes, std::int32_t pad_idx) &;

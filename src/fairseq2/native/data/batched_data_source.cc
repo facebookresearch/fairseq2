@@ -36,21 +36,54 @@ batched_data_source::next()
     if (drop_remainder_ && batch.size() < batch_size_)
         return std::nullopt;
 
-    if (batch.front().is_py() || batch.front().is_string())
-        return batch;
+    return make_batch(std::move(batch));
+}
 
+data
+batched_data_source::make_batch(std::vector<data> batch) {
     if (batch.front().is_tensor()) {
         std::vector<at::Tensor> s{};
-
         s.reserve(batch.size());
 
         for (auto &v : batch)
             s.emplace_back(v.as_tensor());
 
+        if (pad_idx_) {
+            return at::pad_sequence(s, /*batch_first=*/true, *pad_idx_);
+        }
         return at::stack(s);
     }
 
-    throw not_supported_error{"The batch implementation is in-progress"};
+    if (batch.front().is_list()) {
+        // We have a list of tuples of tensors,
+        // let's return a tuple of batched tensors.
+        auto bs = batch.size();
+        auto n_cols = batch.front().as_list().size();
+        std::vector<std::vector<data>> columns(n_cols);
+        for (auto column : columns)
+            column.reserve(bs);
+
+        for (auto maybe_row: batch) {
+            if (!maybe_row.is_list())
+                throw not_supported_error{"All rows need to have the same type to be used with `batch`."};
+            std::vector<data> row = maybe_row.as_list();
+            if (row.size() != n_cols)
+                throw not_supported_error{"All rows need to have the same size to be used with `batch`."};
+
+            for (std::size_t col = 0; col < n_cols; ++col) {
+                columns.at(col).emplace_back(std::move(row.at(col)));
+            }
+        }
+
+        std::vector<data> batched_columns = {};
+        batched_columns.reserve(n_cols);
+        for (std::size_t col = 0; col < n_cols; ++col) {
+            batched_columns.emplace_back(make_batch(columns[col]));
+        }
+        return batched_columns;
+    }
+
+    return batch;
 }
 
 std::size_t
