@@ -31,15 +31,15 @@ class FeedForwardNetwork(Module, ABC):
         self.model_dim = model_dim
 
     @abstractmethod
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, seqs: Tensor) -> Tensor:
         """
-        :param x:
-            The inputs to project. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)`
-            when unbatched, where :math:`N` is the batch size, :math:`S` is the
-            sequence length, and :math:`M` is the dimensionality of the model.
+        :param seqs:
+            The sequences to project. *Shape:* :math:`(N,S,M)`, where :math:`N`
+            is the batch size, :math:`S` is the sequence length, and :math:`M`
+            is the dimensionality of the model.
 
         :returns:
-            The projected output of ``x``. *Shape:* Same as ``x``.
+            The projected output of ``seqs``. *Shape:* Same as ``seqs``.
         """
 
     def extra_repr(self) -> str:
@@ -118,17 +118,17 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         )
 
     @finaloverride
-    def forward(self, x: Tensor) -> Tensor:
-        x = self.inner_proj(x)
+    def forward(self, seqs: Tensor) -> Tensor:
+        seqs = self.inner_proj(seqs)
 
-        x = self.inner_activation(x)
+        seqs = self.inner_activation(seqs)
 
         if self.inner_layer_norm is not None:
-            x = self.inner_layer_norm(x)
+            seqs = self.inner_layer_norm(seqs)
 
         if self.inner_dropout is not None:
-            x = self.inner_dropout(x)
+            seqs = self.inner_dropout(seqs)
 
-        x = self.out_proj(x)
+        seqs = self.out_proj(seqs)
 
-        return x
+        return seqs

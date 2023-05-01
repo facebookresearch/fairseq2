@@ -36,33 +36,25 @@ class TransformerEncoderLayer(Module, ABC):
     @abstractmethod
     def forward(
         self,
-        x: Tensor,
+        seqs: Tensor,
         padding_mask: Optional[Tensor] = None,
         self_attn_mask: Optional[Tensor] = None,
     ) -> Tensor:
         """
-        :param x:
-            The inputs to encode. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)`
-            when unbatched, where :math:`N` is the batch size, :math:`S` is the
-            sequence length, and :math:`M` is the dimensionality of the model.
+        :param seqs:
+            The sequences to encode. *Shape:* :math:`(N,S,M)`, where :math:`N`
+            is the batch size, :math:`S` is the sequence length, and :math:`M`
+            is the dimensionality of the model.
         :param padding_mask:
-            The boolean or float padding mask indicating which key positions to
-            ignore for the purpose of self attention. *Shape:* :math:`(N,S)`, or
-            :math:`(S)` when unbatched, where :math:`N` is the batch size and
-            :math:`S` is the sequence length.
+            The float padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where
+            :math:`N` is the batch size and :math:`S` is the sequence length.
         :param self_attn_mask:
             The float mask that will be added to the attention weights before
             computing the self attention. *Shape:* :math:`(S,S)`, where
             :math:`S` is the sequence length.
 
         :returns:
-            The encoded output of ``x``. *Shape:* Same as ``x``.
-
-        .. note::
-            For a boolean padding mask, a ``True`` indicates that the
-            corresponding key position is not allowed to attend. For a float
-            padding mask, the mask values will be added to the attention
-            weights.
+            The encoded output of ``seqs``. *Shape:* Same as ``seqs``.
         """
 
     def extra_repr(self) -> str:
@@ -184,68 +176,69 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
     @finaloverride
     def forward(
         self,
-        x: Tensor,
+        seqs: Tensor,
         padding_mask: Optional[Tensor] = None,
         self_attn_mask: Optional[Tensor] = None,
     ) -> Tensor:
-        x = self._forward_self_attn(x, padding_mask, self_attn_mask)
+        seqs = self._forward_self_attn(seqs, padding_mask, self_attn_mask)
 
-        x = self._forward_ffn(x)
+        seqs = self._forward_ffn(seqs)
 
-        return x
+        return seqs
 
     def _forward_self_attn(
         self,
-        x: Tensor,
+        seqs: Tensor,
         padding_mask: Optional[Tensor],
         self_attn_mask: Optional[Tensor],
     ) -> Tensor:
-        residual = x
+        residual = seqs
 
         if self.norm_order != TransformerNormOrder.POST:
-            x = self.self_attn_layer_norm(x)
+            seqs = self.self_attn_layer_norm(seqs)
 
-        x = self.self_attn(
-            x,
-            keys=x,
-            values=x,
+        seqs = self.self_attn(
+            seqs,
+            padding_mask,
+            keys=seqs,
+            values=seqs,
             attn_mask=self_attn_mask,
-            padding_mask=padding_mask,
+            key_padding_mask=padding_mask,
         )
 
         if self.self_attn_norm is not None:
-            x = self.self_attn_norm(x)
+            seqs = self.self_attn_norm(seqs)
 
         if self.self_attn_dropout is not None:
-            x = self.self_attn_dropout(x)
+            seqs = self.self_attn_dropout(seqs)
 
-        x = x + residual
+        seqs = seqs + residual
 
         if self.norm_order == TransformerNormOrder.POST:
-            x = self.self_attn_layer_norm(x)
+            seqs = self.self_attn_layer_norm(seqs)
 
-        return x
+        return seqs
 
-    def _forward_ffn(self, x: Tensor) -> Tensor:
-        residual = x
+    def _forward_ffn(self, seqs: Tensor) -> Tensor:
+        residual = seqs
 
         if self.norm_order != TransformerNormOrder.POST:
-            x = self.ffn_layer_norm(x)
+            seqs = self.ffn_layer_norm(seqs)
 
-        x = self.ffn(x)
+        seqs = self.ffn(seqs)
 
         if self.ffn_dropout is not None:
-            x = self.ffn_dropout(x)
+            seqs = self.ffn_dropout(seqs)
 
         if self.residual_scale is not None:
             residual = torch.mul(self.residual_scale, residual)
 
-        x = x + residual
+        seqs = seqs + residual
 
         if self.norm_order == TransformerNormOrder.POST:
-            x = self.ffn_layer_norm(x)
+            seqs = self.ffn_layer_norm(seqs)
 
-        return x
+        return seqs
 
     def extra_repr(self) -> str:
         """:meta private:"""

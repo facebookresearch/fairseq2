@@ -36,35 +36,36 @@ class EncoderDecoderModel(Module, ABC):
     ) -> Tensor:
         """
         :param src_seqs:
-            The source sequences to encode. *Shape:* :math:`(N,S_{src},*)`, or
-            :math:`(S_{src},*)` when unbatched, where :math:`N` is the batch
-            size, :math:`S_{src}` is the source sequence length, and :math:`*`
-            is any number of sequence-specific dimensions including none.
+            The source sequences to encode. *Shape:* :math:`(N,S_{src},*)`,
+            where :math:`N` is the batch size, :math:`S_{src}` is the source
+            sequence length, and :math:`*` is any number of sequence-specific
+            dimensions including none.
         :param src_seq_lens:
             An array where each element represents the length of the sequence at
-            the same index in ``src_seqs``. *Shape:* :math:`(N)`, :math:`(N,1)`,
-            or :math:`()` when unbatched, where :math:`N` is the batch size.
+            the same index in ``src_seqs``. *Shape:* :math:`(N)`, where
+            :math:`N` is the batch size.
         :param tgt_seqs:
-            The target sequences to decode. *Shape:* :math:`(N,S_{tgt},*)`, or
-            :math:`(S_{tgt},*)` when unbatched, where :math:`N` is the batch
-            size, :math:`S_{tgt}` is the target sequence length, and :math:`*`
-            is any number of sequence-specific dimensions including none.
+            The target sequences to decode. *Shape:* :math:`(N,S_{tgt},*)`,
+            where :math:`N` is the batch size, :math:`S_{tgt}` is the target
+            sequence length, and :math:`*` is any number of sequence-specific
+            dimensions including none.
         :param tgt_seq_lens:
             An array where each element represents the length of the sequence at
-            the same index in ``tgt_seqs``. *Shape:* :math:`(N)`, :math:`(N,1)`,
-            or :math:`()` when unbatched, where :math:`N` is the batch size.
+            the same index in ``tgt_seqs``. *Shape:* :math:`(N)`, where
+            :math:`N` is the batch size.
 
         :returns:
-            The scores (i.e. logits) of ``tgt_seqs``. The caller should apply a
-            softmax function to obtain the next-step probabilities. *Shape:*
-            :math:`(N,S_{tgt},D)`, or :math:`(S_{tgt},D)` when unbatched, where
-            :math:`N` is the batch size, :math:`S_{tgt}` is the target sequence
-            length, and :math:`D` is the size of the output embedding
-            dictionary.
+            The logits of ``tgt_seqs``. The caller should apply a softmax
+            function to obtain the next-step probabilities. *Shape:*
+            :math:`(N,S_{tgt},D)`, where :math:`N` is the batch size,
+            :math:`S_{tgt}` is the target sequence length, and :math:`D` is the
+            size of the output embedding dictionary.
         """
         enc_out, enc_padding_mask = self.encode(src_seqs, src_seq_lens)
 
-        return self.decode_and_score(tgt_seqs, tgt_seq_lens, enc_out, enc_padding_mask)
+        return self.decode_and_project(
+            tgt_seqs, tgt_seq_lens, enc_out, enc_padding_mask
+        )
 
     @abstractmethod
     def encode(
@@ -73,32 +74,25 @@ class EncoderDecoderModel(Module, ABC):
         """Encode the specified source sequences.
 
         :param seqs:
-            The sequences to encode. *Shape:* :math:`(N,S,*)`, or :math:`(S,*)`
-            when unbatched, where :math:`N` is the batch size, :math:`S` is the
-            sequence length, and :math:`*` is any number of sequence-specific
-            dimensions including none.
+            The sequences to encode. *Shape:* :math:`(N,S,*)`, where :math:`N`
+            is the batch size, :math:`S` is the sequence length, and :math:`*`
+            is any number of sequence-specific dimensions including none.
         :param seq_lens:
             An array where each element represents the length of the sequence at
-            the same index in ``seqs``. *Shape:* :math:`(N)`, :math:`(N,1)`, or
-            :math:`()` when unbatched, where :math:`N` is the batch size.
+            the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
+            the batch size.
 
         :returns:
-            - The encoded output of ``seqs``. *Shape:* :math:`(N,S,M)`, or
-              :math:`(S,M)` when unbatched, where :math:`N` is the batch size,
-              :math:`S` is the sequence length, and :math:`M` is the
-              dimensionality of the model.
-            - The boolean padding mask indicating which key positions to ignore
-              for the purpose of encoder-decoder attention. *Shape:*
-              :math:`(N,S)`, or :math:`(S)` when unbatched, where :math:`N` is
-              the batch size and :math:`S` is the sequence length.
-
-        .. note::
-            For a boolean padding mask, a ``True`` indicates that the
-            corresponding key position is not allowed to attend.
+            - The encoded output of ``seqs``. *Shape:* :math:`(N,S,M)`, where
+              :math:`N` is the batch size, :math:`S` is the sequence length, and
+              :math:`M` is the dimensionality of the model.
+            - The float padding mask of the encoded output. *Shape:*
+              :math:`(N,S)`, where :math:`N` is the batch size and :math:`S` is
+              the sequence length.
         """
 
     @abstractmethod
-    def decode_and_score(
+    def decode_and_project(
         self,
         seqs: Tensor,
         seq_lens: Optional[Tensor],
@@ -106,37 +100,34 @@ class EncoderDecoderModel(Module, ABC):
         enc_padding_mask: Optional[Tensor] = None,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
-        """Decode the specified sequences.
+        """Decode the specified sequences and apply a projection to the decoder
+        outputs to produce logits.
 
         :param seqs:
-            The sequences to decode. *Shape:* :math:`(N,S,*)`, or :math:`(S,*)`
-            when unbatched, where :math:`N` is the batch size, :math:`S` is the
-            sequence length, and :math:`*` is any number of sequence-specific
-            dimensions including none.
+            The sequences to decode. *Shape:* :math:`(N,S,*)`, where :math:`N`
+            is the batch size, :math:`S` is the sequence length, and :math:`*`
+            is any number of sequence-specific dimensions including none.
         :param seq_lens:
             An array where each element represents the length of the sequence at
-            the same index in ``seqs``. *Shape:* :math:`(N)`, :math:`(N,1)`, or
-            :math:`()` when unbatched, where :math:`N` is the batch size.
+            the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
+            the batch size.
         :param enc_out:
             The encoder output for the encoder-decoder attention. *Shape:*
-            :math:`(N,S_{src},M)`, or :math:`(S_{src},M)` when unbatched, where
-            :math:`N` is the batch size, :math:`S_{src}` is the source sequence
-            length, and :math:`M` is the dimensionality of the model.
+            :math:`(N,S_{src},M)`, where :math:`N` is the batch size,
+            :math:`S_{src}` is the source sequence length, and :math:`M` is the
+            dimensionality of the model.
         :param enc_padding_mask:
-            The boolean or float padding mask indicating which key positions to
-            ignore for the purpose of encoder-decoder attention. *Shape:*
-            :math:`(N,S_{src})`, or :math:`(S_{src})` when unbatched, where
-            :math:`N` is the batch size and :math:`S_{src}` is the source
+            The float padding mask of ``enc_out``. *Shape:* :math:`(N,S_{src})`,
+            where :math:`N` is the batch size and :math:`S_{src}` is the source
             sequence length.
         :param state_bag:
             The state bag to use during an incremental evaluation.
 
         :returns:
-            The scores (i.e. logits) of ``seqs``. The caller should apply a
-            softmax function to obtain the next-step probabilities. *Shape:*
-            :math:`(N,S,D)`, or :math:`(S,D)` when unbatched, where :math:`N` is
-            the batch size, :math:`S` is the sequence length, and :math:`D` is
-            the size of the output embedding dictionary.
+            The logits of ``seqs``. The caller should apply a softmax function
+            to obtain the next-step probabilities. *Shape:* :math:`(N,S,D)`,
+            where :math:`N` is the batch size, :math:`S` is the sequence length,
+            and :math:`D` is the size of the output embedding dictionary.
         """
 
     def extra_repr(self) -> str:
@@ -167,24 +158,22 @@ class EncoderDecoderFrontend(Module, ABC):
     ) -> Tuple[Tensor, Optional[Tensor]]:
         """
         :param seqs:
-            The sequences to process. *Shape:* :math:`(N,S,*)`, or :math:`(S,*)`
-            when unbatched, where :math:`N` is the batch size, :math:`S` is the
-            sequence length, and :math:`*` is any number of sequence-specific
-            dimensions including none.
+            The sequences to process. *Shape:* :math:`(N,S,*)`, where :math:`N`
+            is the batch size, :math:`S` is the sequence length, and :math:`*`
+            is any number of sequence-specific dimensions including none.
         :param seq_lens:
             An array where each element represents the length of the sequence at
-            the same index in ``seqs``. *Shape:* :math:`(N)`, :math:`(N,1)`, or
-            :math:`()` when unbatched, where :math:`N` is the batch size.
+            the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
+            the batch size.
         :param state_bag:
             The state bag to use during an incremental evaluation.
 
         :returns:
             - The processed sequences to pass to the encoder or decoder.
-              *Shape:* :math:`(N,S,M)`, or :math:`(S,M)` when unbatched, where
-              :math:`N` is the batch size, :math:`S` is the sequence length, and
-              :math:`M` is the dimensionality of the model.
-            - An array where each element represents the length of the sequence
-              at the same index in the first return value. *Shape:* :math:`(N)`,
-              :math:`(N,1)`, or :math:`()` when unbatched, where :math:`N` is
-              the batch size.
+              *Shape:* :math:`(N,S,M)`, where :math:`N` is the batch size,
+              :math:`S` is the sequence length, and :math:`M` is the
+              dimensionality of the model.
+            - The float padding mask of the processed sequences. *Shape:*
+              :math:`(N,S)`, where :math:`N` is the batch size and :math:`S` is
+              the sequence length.
         """

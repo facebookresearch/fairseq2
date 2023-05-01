@@ -56,7 +56,7 @@ class Embedding(Module):
         self.pad_idx = pad_idx
         self.scaled = scaled
 
-        # Alias fields for compatibility with torch.nn.Embedding.
+        # Alias fields for compatibility with `torch.nn.Embedding`.
         self.embedding_dim = embed_dim
         self.padding_idx = pad_idx
 

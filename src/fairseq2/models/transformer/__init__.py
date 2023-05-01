@@ -7,5 +7,5 @@
 from fairseq2.models.transformer.frontend import (
     TransformerTokenFrontend as TransformerTokenFrontend,
 )
-from fairseq2.models.transformer.model import ScoreProjection as ScoreProjection
+from fairseq2.models.transformer.model import FinalProjection as FinalProjection
 from fairseq2.models.transformer.model import TransformerModel as TransformerModel

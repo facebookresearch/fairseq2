@@ -20,7 +20,6 @@ from fairseq2.nn.transformer.attention_mask import (
 )
 from fairseq2.nn.transformer.decoder_layer import TransformerDecoderLayer
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
-from fairseq2.nn.utils.mask import to_float_mask
 
 
 class TransformerDecoder(Module, ABC):
@@ -40,45 +39,34 @@ class TransformerDecoder(Module, ABC):
     @abstractmethod
     def forward(
         self,
-        x: Tensor,
+        seqs: Tensor,
         padding_mask: Optional[Tensor] = None,
         enc_out: Optional[Tensor] = None,
         enc_padding_mask: Optional[Tensor] = None,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
         """
-        :param x:
-            The inputs to decode. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)`
-            when unbatched, where :math:`N` is the batch size, :math:`S` is the
-            sequence length, and :math:`M` is the dimensionality of the model.
+        :param seqs:
+            The sequences to decode. *Shape:* :math:`(N,S,M)`, where :math:`N`
+            is the batch size, :math:`S` is the sequence length, and :math:`M`
+            is the dimensionality of the model.
         :param padding_mask:
-            The boolean or float padding mask indicating which key positions to
-            ignore for the purpose of self attention. *Shape:* :math:`(N,S)`, or
-            :math:`(S)` when unbatched, where :math:`N` is the batch size and
-            :math:`S` is the sequence length.
+            The float padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where
+            :math:`N` is the batch size and :math:`S` is the sequence length.
         :param enc_out:
             The encoder output for the encoder-decoder attention. *Shape:*
-            :math:`(N,S_{src},M_{enc})`, or :math:`(S_{src},M_{enc})` when
-            unbatched, where :math:`N` is the batch size, :math:`S_{src}` is the
-            source sequence length, and :math:`M_{enc}` is the encoder model
-            size.
+            :math:`(N,S_{src},M_{enc})`, where :math:`N` is the batch size,
+            :math:`S_{src}` is the source sequence length, and :math:`M_{enc}`
+            is the encoder model size.
         :param enc_padding_mask:
-            The boolean or float padding mask indicating which key positions to
-            ignore for the purpose of encoder-decoder attention. *Shape:*
-            :math:`(N,S_{src})`, or :math:`(S_{src})` when unbatched, where
-            :math:`N` is the batch size and :math:`S_{src}` is the source
+            The float padding mask of ``enc_out``. *Shape:* :math:`(N,S_{src})`,
+            where :math:`N` is the batch size and :math:`S_{src}` is the source
             sequence length.
         :param state_bag:
             The state bag to use during an incremental evaluation.
 
         :returns:
-            The decoded output of ``x``. *Shape:* Same as ``x``.
-
-        .. note::
-            For a boolean padding mask, a ``True`` indicates that the
-            corresponding key position is not allowed to attend. For a float
-            padding mask, the mask values will be added to the attention
-            weights.
+            The decoded output of ``seqs``. *Shape:* Same as ``seqs``.
         """
 
     def extra_repr(self) -> str:
@@ -149,29 +137,26 @@ class StandardTransformerDecoder(TransformerDecoder):
     @finaloverride
     def forward(
         self,
-        x: Tensor,
+        seqs: Tensor,
         padding_mask: Optional[Tensor] = None,
         enc_out: Optional[Tensor] = None,
         enc_padding_mask: Optional[Tensor] = None,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
-        if padding_mask is not None:
-            padding_mask = to_float_mask(padding_mask, dtype=x.dtype)
-
         if self.training or state_bag is None:
-            self_attn_mask = self.self_attn_mask_gen(x)
+            self_attn_mask = self.self_attn_mask_gen(seqs)
         else:
             self_attn_mask = None
 
         for layer in self.layers.drop_iter():
-            x = layer(
-                x, padding_mask, self_attn_mask, enc_out, enc_padding_mask, state_bag
+            seqs = layer(
+                seqs, padding_mask, self_attn_mask, enc_out, enc_padding_mask, state_bag
             )
 
         if self.layer_norm is not None:
-            x = self.layer_norm(x)
+            seqs = self.layer_norm(seqs)
 
-        return x
+        return seqs
 
     def extra_repr(self) -> str:
         """:meta private:"""

@@ -141,7 +141,7 @@ class NllbLoader:
         state_dict = checkpoint["model"]
 
         # fairseq checkpoints have duplicate embedding weights.
-        embeds = state_dict["score_proj.weight"]
+        embeds = state_dict["final_proj.weight"]
 
         state_dict["encoder_frontend.embed.weight"] = embeds
         state_dict["decoder_frontend.embed.weight"] = embeds

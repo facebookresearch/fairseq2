@@ -34,9 +34,7 @@ def create_model() -> EncoderDecoderModel:
     return create_nllb_model(cfg, vocab_info)
 
 
-@pytest.mark.parametrize(
-    "prefix_tokens", [None]
-)  # , 99, [99, 17], [[99, 17], [99, 18]]])
+@pytest.mark.parametrize("prefix_tokens", [None, 99, [99, 17], [[99, 17], [99, 18]]])
 def test_generate(prefix_tokens: Any) -> None:
     m = create_model()
 

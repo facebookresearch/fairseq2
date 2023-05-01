@@ -81,15 +81,15 @@ def assert_translation(
     while not job.done:
         query_tokens = job.next_query()
 
-        dec_out = model.decode_and_score(
+        logits = model.decode_and_project(
             query_tokens, None, enc_out, enc_attn_mask, state_bag
         )
 
-        dec_out = dec_out.squeeze(1)
+        logits = logits.squeeze(1)
 
         state_bag.increment_step()
 
-        job.update(dec_out)
+        job.update(logits)
 
     tokens = job.finalize(top=0).tokens
 

@@ -16,6 +16,7 @@ from fairseq2.models.encoder_decoder import EncoderDecoderFrontend
 from fairseq2.nn.embedding import Embedding
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.positional_embedding import PositionalEmbedding
+from fairseq2.nn.utils.mask import to_padding_mask
 
 
 @final
@@ -91,21 +92,23 @@ class TransformerTokenFrontend(EncoderDecoderFrontend):
         seq_lens: Optional[Tensor],
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
-        x = self.embed(seqs)
+        seqs = self.embed(seqs)
+
+        padding_mask = to_padding_mask(seqs, seq_lens)
 
         if self.scale != 1.0:
-            x = x * self.scale
+            seqs = seqs * self.scale
 
         if self.pos_embed is not None:
-            x = self.pos_embed(x, state_bag)
+            seqs = self.pos_embed(seqs, padding_mask, state_bag)
 
         if self.layer_norm is not None:
-            x = self.layer_norm(x)
+            seqs = self.layer_norm(seqs)
 
         if self.dropout is not None:
-            x = self.dropout(x)
+            seqs = self.dropout(seqs)
 
-        return x, seq_lens
+        return seqs, padding_mask
 
     def extra_repr(self) -> str:
         """:meta private:"""

@@ -189,7 +189,7 @@ class SearchStrategy(ABC):
                 padding_mask = query_tokens.ne(self.vocab_info.pad_idx)
                 seq_lens = torch.count_nonzero(padding_mask, dim=-1)
 
-                dec_out = model.decode_and_score(
+                dec_out = model.decode_and_project(
                     query_tokens, seq_lens, enc_out, enc_attn_mask, state_bag
                 )
                 dec_out = dec_out.squeeze(1)

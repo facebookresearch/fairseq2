@@ -16,6 +16,7 @@ from torch.nn.utils.weight_norm import remove_weight_norm, weight_norm
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.positional_embedding import PositionalEmbedding
+from fairseq2.nn.utils.mask import apply_padding_mask
 
 
 @final
@@ -24,6 +25,7 @@ class Wav2Vec2PositionalEmbedding(PositionalEmbedding):
     :cite:t:`baevski2020wav2vec`."""
 
     conv: Conv1d
+    remove_pad: bool
     activation: GELU
 
     def __init__(
@@ -48,17 +50,22 @@ class Wav2Vec2PositionalEmbedding(PositionalEmbedding):
             embed_dim,
             embed_dim,
             kernel_size,
-            padding="same",
+            padding=kernel_size // 2,
             groups=num_groups,
             device=device,
             dtype=dtype,
         )
 
+        self.remove_pad = kernel_size % 2 == 0
+
         self.activation = GELU()
 
     @finaloverride
     def _do_forward(
-        self, embed: Tensor, state_bag: Optional[IncrementalStateBag]
+        self,
+        seqs: Tensor,
+        padding_mask: Optional[Tensor],
+        state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
         """:meta private:"""
         if state_bag is not None:
@@ -66,18 +73,25 @@ class Wav2Vec2PositionalEmbedding(PositionalEmbedding):
                 "`Wav2Vec2PositionalEmbedding` does not support incremental encoding."
             )
 
+        # We have to ensure that the padded elements are correctly set to
+        # zero; otherwise, noise will leak into the feature maps.
+        seqs = apply_padding_mask(seqs, padding_mask)
+
         # (N, S, E) -> (N, E, S)
-        x = embed.transpose(-1, -2)
+        embed = seqs.transpose(1, 2)
 
         # (N, E, S) -> (N, E, S)
-        x = self.conv(x)
+        embed = self.conv(embed)
 
-        x = self.activation(x)
+        if self.remove_pad:
+            embed = embed[:, :, :-1]
+
+        embed = self.activation(embed)
 
         # (N, E, S) -> (N, S, E)
-        x = x.transpose(-1, -2)
+        embed = embed.transpose(1, 2)
 
-        return embed + x
+        return seqs + embed
 
 
 class Wav2Vec2PositionalEmbeddingConv1d(Conv1d):
@@ -152,7 +166,10 @@ class Wav2Vec2StackedPositionalEmbedding(PositionalEmbedding):
 
     @finaloverride
     def _do_forward(
-        self, embed: Tensor, state_bag: Optional[IncrementalStateBag]
+        self,
+        seqs: Tensor,
+        padding_mask: Optional[Tensor],
+        state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
         """:meta private:"""
         if state_bag is not None:
@@ -160,16 +177,20 @@ class Wav2Vec2StackedPositionalEmbedding(PositionalEmbedding):
                 "`Wav2Vec2StackedPositionalEmbedding` does not support incremental encoding."
             )
 
+        # We have to ensure that the padded elements are correctly set to
+        # zero; otherwise, noise will leak into the feature maps.
+        seqs = apply_padding_mask(seqs, padding_mask)
+
         # (N, S, E) -> (N, E, S)
-        x = embed.transpose(-1, -2)
+        embed = seqs.transpose(1, 2)
 
         # (N, E, S) -> (N, E, S)
-        x = self.layers(x)
+        embed = self.layers(embed)
 
         # (N, E, S) -> (N, S, E)
-        x = x.transpose(-1, -2)
+        embed = embed.transpose(1, 2)
 
-        return embed + x
+        return seqs + embed
 
 
 class Wav2Vec2PositionalEmbeddingLayer(Module):
@@ -206,18 +227,18 @@ class Wav2Vec2PositionalEmbeddingLayer(Module):
 
         self.activation = GELU()
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, seqs: Tensor) -> Tensor:
         # (N, E, S) -> (N, E, S)
-        x = self.conv(x)
+        seqs = self.conv(seqs)
 
         # (N, E, S) -> (N, S, E)
-        x = x.transpose(-1, -2)
+        seqs = seqs.transpose(1, 2)
 
-        x = self.layer_norm(x)
+        seqs = self.layer_norm(seqs)
 
         # (N, S, E) -> (N, E, S)
-        x = x.transpose(-1, -2)
+        seqs = seqs.transpose(1, 2)
 
-        x = self.activation(x)
+        seqs = self.activation(seqs)
 
-        return x
+        return seqs

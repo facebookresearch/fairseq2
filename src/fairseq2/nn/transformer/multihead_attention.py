@@ -25,7 +25,6 @@ from fairseq2.nn.transformer.attention import (
     AttentionFunction,
     default_scaled_dot_product_attention,
 )
-from fairseq2.nn.utils.mask import to_float_mask
 
 
 class MultiheadAttention(Module, ABC):
@@ -53,51 +52,47 @@ class MultiheadAttention(Module, ABC):
     @abstractmethod
     def forward(
         self,
-        x: Tensor,
+        queries: Tensor,
+        padding_mask: Optional[Tensor],
         keys: Tensor,
         values: Tensor,
         attn_mask: Optional[Tensor] = None,
-        padding_mask: Optional[Tensor] = None,
+        key_padding_mask: Optional[Tensor] = None,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
         """
-        :param x:
-            The input to query. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)`
-            when unbatched, where :math:`N` is the batch size, :math:`S` is
-            the sequence length, and :math:`M` is the dimensionality of the
-            model.
+        :param queries:
+            The queries. *Shape:* :math:`(N,S,M)`, where :math:`N` is the batch
+            size, :math:`S` is the sequence length, and :math:`M` is the
+            dimensionality of the model.
+        :param padding_mask:
+            The float padding mask of ``queries``. *Shape:* :math:`(N,S)`, where
+            :math:`N` is the batch size and :math:`S` is the sequence length.
         :param keys:
-            The keys. *Shape:* :math:`(N,S_{kv},K)`, or :math:`(S_{kv},K)` when
-            unbatched, where :math:`N` is the batch size, :math:`S_{kv}` is the
-            key/value sequence length, and :math:`K` is the key size.
+            The keys. *Shape:* :math:`(N,S_{kv},K)`, where :math:`N` is the
+            batch size, :math:`S_{kv}` is the key/value sequence length, and
+            :math:`K` is the key size.
         :param values:
-            The values. *Shape:* :math:`(N,S_{kv},V)`, or :math:`(S_{kv},V)`
-            when unbatched, where :math:`N` is the batch size, :math:`S_{kv}` is
-            the key/value sequence length, and :math:`V` is the value size.
+            The values. *Shape:* :math:`(N,S_{kv},V)`, where :math:`N` is the
+            batch size, :math:`S_{kv}` is the key/value sequence length, and
+            :math:`V` is the value size.
         :param attn_mask:
             The float mask that will be added to the attention weights before
             computing the attention. *Shape:* :math:`(S,S_{kv})`, where
             :math:`S` is the sequence length and :math:`S_{kv}` is the key/value
             sequence length.
-        :param padding_mask:
-            The boolean or float padding mask indicating which key positions to
-            ignore for the purpose of attention. *Shape:* :math:`(N,S_{kv})`, or
-            :math:`(S_{kv})` when unbatched, where :math:`N` is the batch size
-            and :math:`S_{kv}` is the key/value sequence length.
+        :param key_padding_mask:
+            The float padding mask indicating which key positions to ignore for
+            the purpose of attention. *Shape:* :math:`(N,S_{kv})`, where
+            :math:`N` is the batch size and :math:`S_{kv}` is the key/value
+            sequence length.
         :param state_bag:
             The state bag to use during an incremental evaluation.
 
         :returns:
-            The attention values for ``x``. *Shape:* :math:`(N,S,M)`, or
-            :math:`(S,M)` when unbatched, where :math:`N` is the batch size,
-            :math:`S` is the sequence length, and :math:`M` is the
-            dimensionality of the model.
-
-        .. note::
-            For a boolean padding mask, a ``True`` indicates that the
-            corresponding key position is not allowed to attend. For a float
-            padding mask, the mask values will be added to the attention
-            weights.
+            The attention values for ``queries``. *Shape:* :math:`(N,S,M)`,
+            where :math:`N` is the batch size, :math:`S` is the sequence length,
+            and :math:`M` is the dimensionality of the model.
         """
 
     def register_attn_weight_hook(self, hook: "AttentionWeightHook") -> RemovableHandle:
@@ -356,31 +351,26 @@ class StandardMultiheadAttention(MultiheadAttention):
     @finaloverride
     def forward(
         self,
-        x: Tensor,
+        queries: Tensor,
+        padding_mask: Optional[Tensor],
         keys: Tensor,
         values: Tensor,
         attn_mask: Optional[Tensor] = None,
-        padding_mask: Optional[Tensor] = None,
+        key_padding_mask: Optional[Tensor] = None,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
-        if padding_mask is not None:
-            if padding_mask.dim() == 1:
-                padding_mask = padding_mask.unsqueeze(0)
-
-            padding_mask = to_float_mask(padding_mask, dtype=keys.dtype)
-
         # (*, M) -> (N, S, K_proj)
-        q = self._forward_proj(self.q_proj, x)
+        q = self.q_proj(queries)
 
         if self.training or state_bag is None:
             # (*, K) -> (N, S_kv, K_proj)
-            k = self._forward_proj(self.k_proj, keys)
+            k = self.k_proj(keys)
             # (*, V) -> (N, S_kv, V_proj)
-            v = self._forward_proj(self.v_proj, values)
+            v = self.v_proj(values)
         else:
             state = state_bag.get_state(self, MultiheadAttentionState)
 
-            enc_dec_attn = keys is values and keys is not x
+            enc_dec_attn = keys is values and keys is not queries
 
             if enc_dec_attn:
                 # The K and V tensors of an encoder-decoder attention (i.e. the
@@ -390,22 +380,22 @@ class StandardMultiheadAttention(MultiheadAttention):
                     v = state.prev_v
                 else:
                     # (*, K) -> (N, S_kv, K_proj)
-                    k = self._forward_proj(self.k_proj, keys)
+                    k = self.k_proj(keys)
                     # (*, V) -> (N, S_kv, V_proj)
-                    v = self._forward_proj(self.v_proj, values)
+                    v = self.v_proj(values)
 
                     state_bag.set_state(self, MultiheadAttentionState(k, v))
             else:
                 # (*, K) -> (N, S_kv, K_proj)
-                k = self._forward_proj(self.k_proj, keys)
+                k = self.k_proj(keys)
                 # (*, V) -> (N, S_kv, V_proj)
-                v = self._forward_proj(self.v_proj, values)
+                v = self.v_proj(values)
 
                 if state is not None:
-                    k, v, padding_mask = state.append(k, v, padding_mask)
+                    k, v, key_padding_mask = state.append(k, v, key_padding_mask)
                 else:
                     state_bag.set_state(
-                        self, MultiheadAttentionState(k, v, padding_mask)
+                        self, MultiheadAttentionState(k, v, key_padding_mask)
                     )
 
         # (N, S, K_proj) -> (N, S, H, K_h)
@@ -430,8 +420,8 @@ class StandardMultiheadAttention(MultiheadAttention):
         v = v.flatten(0, 1)
 
         if self.pos_embed is not None:
-            q = self.pos_embed(q, state_bag)
-            k = self.pos_embed(k)
+            self.pos_embed(q, padding_mask, state_bag)
+            self.pos_embed(k, key_padding_mask)
 
         mask_pad = 0
 
@@ -463,22 +453,22 @@ class StandardMultiheadAttention(MultiheadAttention):
                 # (T, S_kv) -> (T, S_kv + mask_pad)
                 attn_mask = F.pad(attn_mask, (0, mask_pad))
 
-            if padding_mask is not None:
+            if key_padding_mask is not None:
                 # (N, S_kv) -> (N, S_kv + mask_pad)
-                padding_mask = F.pad(padding_mask, (0, mask_pad))
+                key_padding_mask = F.pad(key_padding_mask, (0, mask_pad))
 
-        if padding_mask is not None:
+        if key_padding_mask is not None:
             # (N, S_kv) -> (N, 1, 1, S_kv)
-            padding_mask = padding_mask.unsqueeze(1).unsqueeze(1)
+            key_padding_mask = key_padding_mask.unsqueeze(1).unsqueeze(1)
             # (N, 1, 1, S_kv) -> (N, H, 1, S_kv)
-            padding_mask = padding_mask.expand(-1, self.num_heads, -1, -1)
+            key_padding_mask = key_padding_mask.expand(-1, self.num_heads, -1, -1)
 
             if attn_mask is None:
                 # (N, H, 1, S_kv)
-                attn_mask = padding_mask
+                attn_mask = key_padding_mask
             else:
                 # (N, H, 1, S_kv) + ([H,], S, S_kv) = (N, H, S, S_kv)
-                attn_mask = padding_mask + attn_mask
+                attn_mask = key_padding_mask + attn_mask
 
             # (N, H, S, S_kv) -> (N x H, 1, S_kv)
             attn_mask = attn_mask.flatten(0, 1)
@@ -509,19 +499,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         # (N, S, V_proj) -> (N, S, M)
         attn = self.out_proj(attn)
 
-        if x.dim() == 2:
-            # (1, S, M) -> (S, M)
-            attn = attn.squeeze(0)
-
         return attn
-
-    def _forward_proj(self, fn: Projection, x: Tensor) -> Tensor:
-        x = fn(x)
-
-        if x.dim() == 2:
-            x = x.unsqueeze(0)
-
-        return x
 
     def extra_repr(self) -> str:
         """:meta private:"""
@@ -592,13 +570,13 @@ class MultiheadAttentionState(IncrementalState):
     :math:`S_{prv}` is the accumulated key/value sequence length, and
     :math:`V_{proj}` is the projected value size."""
 
-    prev_padding_mask: Optional[Tensor]
+    prev_key_padding_mask: Optional[Tensor]
     """The float key padding mask accumulated from the past incremental
     evaluations. *Shape:* :math:`(N,S_{prv})`, where :math:`N` is the batch size
     and :math:`S_{prv}` is the accumulated key/value sequence length."""
 
     def __init__(
-        self, k: Tensor, v: Tensor, padding_mask: Optional[Tensor] = None
+        self, k: Tensor, v: Tensor, key_padding_mask: Optional[Tensor] = None
     ) -> None:
         """
         :param k:
@@ -611,7 +589,7 @@ class MultiheadAttentionState(IncrementalState):
             where :math:`N` is the batch size, :math:`S_{int}` is the initial
             key/value sequence length, and :math:`V_{proj}` is the projected
             value size.
-        :param padding_mask:
+        :param key_padding_mask:
             The initial float key padding mask. *Shape:* :math:`(N,S_{int})`,
             where :math:`N` is the batch size and :math:`S_{int}` is the initial
             key/value sequence length.
@@ -619,14 +597,14 @@ class MultiheadAttentionState(IncrementalState):
         self.prev_k = k
         self.prev_v = v
 
-        self.prev_padding_mask = padding_mask
+        self.prev_key_padding_mask = key_padding_mask
 
     def append(
-        self, k: Tensor, v: Tensor, padding_mask: Optional[Tensor]
+        self, k: Tensor, v: Tensor, key_padding_mask: Optional[Tensor]
     ) -> Tuple[Tensor, Tensor, Optional[Tensor]]:
         """Append the projected key, projected value, and float key padding mask
         of the current incremental evaluation to :attr:`prev_k`, :attr:`prev_v`,
-        and :attr:`padding_mask`.
+        and :attr:`key_padding_mask`.
 
         :param k:
             The projected key of the current incremental evaluation. *Shape:*
@@ -638,14 +616,14 @@ class MultiheadAttentionState(IncrementalState):
             :math:`(N,S_{stp},V_{proj})`, where :math:`N` is the batch size,
             :math:`S_{stp}` is the step length (e.g. 1), and :math:`V_{proj}` is
             the projected value size.
-        :param padding_mask:
+        :param key_padding_mask:
             The float key padding mask of the current incremental evaluation.
             *Shape:* :math:`(N,S_{stp})`, where :math:`N` is the batch size and
             :math:`S_{stp}` is the step length (e.g. 1).
 
         :returns:
-            The projected keys, projected values, and key padding mask that
-            should be used to compute the attention.
+            The projected keys, projected values, and float key padding mask
+            that should be used to compute the attention.
         """
         seq_len = k.size(1)
 
@@ -654,36 +632,38 @@ class MultiheadAttentionState(IncrementalState):
         self.prev_k = torch.cat([self.prev_k, k], dim=1)
         self.prev_v = torch.cat([self.prev_v, v], dim=1)
 
-        # Appending the key padding mask is trickier than K and V since the
-        # previous or current mask can be None.
-        self._append_padding_mask(padding_mask, seq_len, prev_seq_len)
+        # Appending the key padding mask is trickier since the previous or
+        # current mask can be `None`.
+        self._append_key_padding_mask(key_padding_mask, seq_len, prev_seq_len)
 
-        return self.prev_k, self.prev_v, self.prev_padding_mask
+        return self.prev_k, self.prev_v, self.prev_key_padding_mask
 
-    def _append_padding_mask(
+    def _append_key_padding_mask(
         self, curr_mask: Optional[Tensor], curr_seq_len: int, prev_seq_len: int
     ) -> None:
-        prev_mask = self.prev_padding_mask
+        prev_mask = self.prev_key_padding_mask
 
         if prev_mask is None and curr_mask is None:
             return
 
         batch_size = self.prev_k.size(0)
 
-        # One of the masks can be None. We have to ensure that both of them are
-        # fully materialized before concatenating them.
+        # One of the masks can be `None`. We have to ensure that both of them
+        # are fully materialized before concatenating.
         if prev_mask is None:
             prev_mask = self.prev_k.new_zeros((batch_size, prev_seq_len))
 
         if curr_mask is None:
             curr_mask = self.prev_k.new_zeros((batch_size, curr_seq_len))
 
-        self.prev_padding_mask = torch.cat([prev_mask, curr_mask], dim=1)
+        self.prev_key_padding_mask = torch.cat([prev_mask, curr_mask], dim=1)
 
     @override
     def reorder(self, new_order: Tensor) -> None:
         self.prev_k = self.prev_k.index_select(0, new_order)
         self.prev_v = self.prev_v.index_select(0, new_order)
 
-        if self.prev_padding_mask is not None:
-            self.prev_padding_mask = self.prev_padding_mask.index_select(0, new_order)
+        if self.prev_key_padding_mask is not None:
+            mask = self.prev_key_padding_mask.index_select(0, new_order)
+
+            self.prev_key_padding_mask = mask

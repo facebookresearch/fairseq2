@@ -28,9 +28,9 @@ def spec_augment(
     and mask along axis) as described in :cite:t:`Park_2019`.
 
     :param specgram:
-        The tensor to augment. *Shape:* :math:`(N,F,T)`, or :math:`(F,T)` when
-        unbatched, where :math:`N` is the batch size, :math:`F` is the frequency
-        axis, and :math:`T` is the time axis.
+        The tensor to augment. *Shape:* :math:`(N,F,T)`, where :math:`N` is the
+        batch size, :math:`F` is the frequency axis, and :math:`T` is the time
+        axis.
     :param stretch_axis:
         The axis where the stretch takes place (1: freq, 2: time).
     :param max_stretch_length:
@@ -60,9 +60,6 @@ def spec_augment(
     """
     if not training:
         return specgram
-
-    if specgram.dim() == 2:
-        specgram = specgram.unsqueeze(0)
 
     specgram = stretch_along_axis(specgram, stretch_axis, max_stretch_length)
     specgram = mask_along_axis(
@@ -250,9 +247,9 @@ class SpecAugmentTransform(Module):
     def forward(self, specgram: Tensor) -> Tensor:
         """
         :param specgram:
-            The tensor to augment. *Shape:* :math:`(N,F,T)`, or :math:`(F,T)`
-            when unbatched, where :math:`N` is the batch size, :math:`F` is the
-            frequency axis, and :math:`T` is the time axis.
+            The tensor to augment. *Shape:* :math:`(N,F,T)`, where :math:`N` is
+            the batch size, :math:`F` is the frequency axis, and :math:`T` is
+            the time axis.
 
         :returns:
             The augmented spectrogram of ``specgram``. *Shape:* Same as

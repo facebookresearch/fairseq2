@@ -38,45 +38,62 @@ class PositionalEmbedding(Module, ABC):
         self.max_seq_len = max_seq_len
 
     def forward(
-        self, embed: Tensor, state_bag: Optional[IncrementalStateBag] = None
+        self,
+        seqs: Tensor,
+        padding_mask: Optional[Tensor] = None,
+        state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
         """
-        :param embed:
-            The embeddings onto which the positional embeddings will be added.
-            *Shape:* :math:`(N,S,E)`, or :math:`(S,E)` when unbatched, where
-            :math:`N` is the batch size, :math:`S` is the sequence length, and
-            :math:`E` is the embedding size.
+        :param seqs:
+            The sequences which will be encoded with positional information.
+            *Shape:* :math:`(N,S,E)`, where :math:`N` is the batch size,
+            :math:`S` is the sequence length, and :math:`E` is the positional
+            embedding size.
+        :param padding_mask:
+            The float padding mask of ``seqs``. *Shape:* :math:`(N_{msk},S)`,
+            where :math:`N_{msk}` is the batch size of the mask and :math:`S` is
+            the sequence length. :math:`N` can be a multiple of :math:`N_{msk}`
+            in which case the mask will be tiled before being applied.
         :param state_bag:
             The state bag to use during an incremental evaluation.
 
         :returns:
-            ``embed`` with positional embeddings added. *Shape:* Same as
-            ``embed``.
+            ``seqs`` with positional information encoded. *Shape:* Same as
+            ``seqs``.
         """
         if self.max_seq_len is not None:
-            if (seq_len := embed.size(-2)) > self.max_seq_len:
+            if (seq_len := seqs.size(1)) > self.max_seq_len:
                 raise ValueError(
                     f"The input sequence length must be less than or equal to the maximum sequence length ({self.max_seq_len}), but is {seq_len} instead."
                 )
 
-        return self._do_forward(embed, state_bag)
+        return self._do_forward(seqs, padding_mask, state_bag)
 
     @abstractmethod
     def _do_forward(
-        self, embed: Tensor, state_bag: Optional[IncrementalStateBag]
+        self,
+        seqs: Tensor,
+        padding_mask: Optional[Tensor],
+        state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
         """
-        :param embed:
-            The embeddings onto which the positional embeddings will be added.
+        :param seqs:
+            The sequences which will be encoded with positional information.
             *Shape:* :math:`(N,S,E)`, where :math:`N` is the batch size,
-            :math:`S` is the sequence length, and :math:`E` is the embedding
-            size.
+            :math:`S` is the sequence length, and :math:`E` is the positional
+            embedding size.
+        :param padding_mask:
+            The float padding mask of ``seqs``. *Shape:* :math:`(N_{msk},S)`,
+            where :math:`N_{msk}` is the batch size of the mask and :math:`S` is
+            the sequence length. If padding has to be applied, a derived class
+            should use the :func:`~fairseq2.nn.utils.mask.apply_padding_mask`
+            function.
         :param state_bag:
             The state bag to use during an incremental evaluation.
 
         :returns:
-            ``embed`` with positional embeddings added. *Shape:* Same as
-            ``embed``.
+            ``seqs`` with positional information encoded. *Shape:* Same as
+            ``seqs``.
 
         :meta public:
         """
@@ -122,9 +139,9 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
     >>>
     >>> m = SinusoidalPositionalEmbedding(max_seq_len=16, embed_dim=4)
     >>>
-    >>> embed = torch.ones((3, 4))
+    >>> seqs = torch.ones((3, 4))
     >>>
-    >>> m(embed)
+    >>> m(seqs)
     tensor([[ 1.0000e+00,  1.0000e+00,  2.0000e+00,  2.0000e+00],  # pos 0
             [ 9.4147e-01,  2.0000e-04,  6.4030e-01,  2.0000e+00],  # pos 1
             [ 1.0930e-02,  3.0000e-04, -5.1615e-01,  2.0000e+00]]) # pos 2
@@ -143,7 +160,7 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
         super().__init__(embed_dim, max_seq_len)
 
         # This is a legacy parameter that should only be set when the embeddings
-        # must be compatible with the original fairseq.
+        # must be compatible with fairseq.
         if legacy_pad_token_idx is None:
             self._sin_offset = 0
         else:
@@ -196,17 +213,20 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
 
     @finaloverride
     def _do_forward(
-        self, embed: Tensor, state_bag: Optional[IncrementalStateBag]
+        self,
+        seqs: Tensor,
+        padding_mask: Optional[Tensor],
+        state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
         """:meta private:"""
-        seq_len = embed.size(-2)
+        seq_len = seqs.size(1)
 
         if not self.training and state_bag is not None:
             start_step = state_bag.step
         else:
             start_step = 0
 
-        return embed + self.weight[start_step : start_step + seq_len]
+        return seqs + self.weight[start_step : start_step + seq_len]
 
 
 @final
@@ -221,9 +241,9 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
     >>>
     >>> m = LearnedPositionalEmbedding(max_seq_len=16, embed_dim=4)
     >>>
-    >>> embed = torch.ones((3, 4))
+    >>> seqs = torch.ones((3, 4))
     >>>
-    >>> m(embed)
+    >>> m(seqs)
     tensor([[ 1.1135,  0.5548,  0.4293,  2.0112],                               # pos 0
             [ 0.2364,  0.6009,  3.3865, -2.4810],                               # pos 1
             [-0.4746,  0.4544,  0.2761,  0.8828]], grad_fn=<SqueezeBackward1>)  # pos 2
@@ -256,10 +276,13 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
 
     @finaloverride
     def _do_forward(
-        self, embed: Tensor, state_bag: Optional[IncrementalStateBag]
+        self,
+        seqs: Tensor,
+        padding_mask: Optional[Tensor],
+        state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
         """:meta private:"""
-        seq_len = embed.size(-2)
+        seq_len = seqs.size(1)
 
         if not self.training and state_bag is not None:
             start_step = state_bag.step
@@ -267,10 +290,10 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
             start_step = 0
 
         indices = torch.arange(
-            start_step, start_step + seq_len, device=embed.device, dtype=torch.int64
+            start_step, start_step + seq_len, device=seqs.device, dtype=torch.int64
         )
 
-        return embed + F.embedding(indices, self.weight)
+        return seqs + F.embedding(indices, self.weight)
 
 
 @final
@@ -329,26 +352,29 @@ class RotaryEmbedding(PositionalEmbedding):
 
     @finaloverride
     def _do_forward(
-        self, embed: Tensor, state_bag: Optional[IncrementalStateBag]
+        self,
+        seqs: Tensor,
+        padding_mask: Optional[Tensor],
+        state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
         """:meta private:"""
-        seq_len = embed.size(-2)
+        seq_len = seqs.size(1)
 
         if not self.training and state_bag is not None:
             start_step = state_bag.step
         else:
             start_step = 0
 
-        embed_swapped = self._swap_pairs(embed)
+        seqs_swapped = self._swap_pairs(seqs)
 
-        cos = self.cos_weight[start_step : start_step + seq_len] * embed
-        sin = self.sin_weight[start_step : start_step + seq_len] * embed_swapped
+        cos = self.cos_weight[start_step : start_step + seq_len] * seqs
+        sin = self.sin_weight[start_step : start_step + seq_len] * seqs_swapped
 
         return cos + sin
 
     @staticmethod
-    def _swap_pairs(x: Tensor) -> Tensor:
-        x1 = x[..., 0::2]
-        x2 = x[..., 1::2]
+    def _swap_pairs(seqs: Tensor) -> Tensor:
+        x1 = seqs[..., 0::2]
+        x2 = seqs[..., 1::2]
 
-        return torch.stack((-x2, x1), dim=-1).reshape(x.shape)
+        return torch.stack((-x2, x1), dim=-1).reshape(seqs.shape)

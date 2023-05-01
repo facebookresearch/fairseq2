@@ -15,7 +15,6 @@ from fairseq2.models.encoder_decoder import EncoderDecoderFrontend, EncoderDecod
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.projection import Projection, ResettableProjection
 from fairseq2.nn.transformer import TransformerDecoder, TransformerEncoder
-from fairseq2.nn.utils.mask import to_padding_mask
 
 
 @final
@@ -27,7 +26,7 @@ class TransformerModel(EncoderDecoderModel):
     encoder: TransformerEncoder
     decoder_frontend: EncoderDecoderFrontend
     decoder: TransformerDecoder
-    score_proj: Projection
+    final_proj: Projection
 
     def __init__(
         self,
@@ -35,11 +34,19 @@ class TransformerModel(EncoderDecoderModel):
         encoder: TransformerEncoder,
         decoder_frontend: EncoderDecoderFrontend,
         decoder: TransformerDecoder,
-        score_proj: Projection,
+        final_proj: Projection,
     ) -> None:
         """
-        :param model_dim:
-            The dimensionality of the model (i.e. inputs and outputs).
+        :param encoder_frontend:
+            The encoder frontend.
+        :param encoder:
+            The Transformer encoder.
+        :param decoder_frontend:
+            The decoder frontend.
+        :param decoder:
+            The Transformer decoder.
+        :param final_proj:
+            The projection to apply to decoder outputs to produce logits.
         """
         model_dim = encoder.model_dim
 
@@ -66,22 +73,20 @@ class TransformerModel(EncoderDecoderModel):
         self.decoder_frontend = decoder_frontend
         self.decoder = decoder
 
-        self.score_proj = score_proj
+        self.final_proj = final_proj
 
     @finaloverride
     def encode(
         self, seqs: Tensor, seq_lens: Optional[Tensor]
     ) -> Tuple[Tensor, Optional[Tensor]]:
-        x, seq_lens = self.encoder_frontend(seqs, seq_lens)
+        seqs, padding_mask = self.encoder_frontend(seqs, seq_lens)
 
-        mask = self._get_padding_mask(x, seq_lens)
+        seqs = self.encoder(seqs, padding_mask)
 
-        x = self.encoder(x, mask)
-
-        return x, mask
+        return seqs, padding_mask
 
     @finaloverride
-    def decode_and_score(
+    def decode_and_project(
         self,
         seqs: Tensor,
         seq_lens: Optional[Tensor],
@@ -89,31 +94,16 @@ class TransformerModel(EncoderDecoderModel):
         enc_padding_mask: Optional[Tensor] = None,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
-        x, seq_lens = self.decoder_frontend(seqs, seq_lens, state_bag)
+        seqs, padding_mask = self.decoder_frontend(seqs, seq_lens, state_bag)
 
-        mask = self._get_padding_mask(x, seq_lens)
+        seqs = self.decoder(seqs, padding_mask, enc_out, enc_padding_mask, state_bag)
 
-        x = self.decoder(x, mask, enc_out, enc_padding_mask, state_bag)
-
-        x = self.score_proj(x)
-
-        return x  # type: ignore[no-any-return]
-
-    @staticmethod
-    def _get_padding_mask(x: Tensor, seq_lens: Optional[Tensor]) -> Optional[Tensor]:
-        if seq_lens is not None:
-            padding_mask = to_padding_mask(seq_lens, mask_seq_len=x.size(-2))
-
-            # Return only if we mask at least one element.
-            if padding_mask.any():
-                return padding_mask
-
-        return None
+        return self.final_proj(seqs)  # type: ignore[no-any-return]
 
 
 @final
-class ScoreProjection(ResettableProjection):
-    """Produces scores (i.e. logits) from outputs of a Transformer decoder."""
+class FinalProjection(ResettableProjection):
+    """Produces logits from outputs of a Transformer decoder."""
 
     def __init__(
         self,

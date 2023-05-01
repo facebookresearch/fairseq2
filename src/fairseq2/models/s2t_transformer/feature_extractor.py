@@ -22,9 +22,8 @@ class Conv1dFbankSubsampler(FeatureExtractor):
 
     .. note::
         The input log-mel filterbanks are expected to be of shape
-        :math:`(N,F,C)`, or :math:`(F,C)` when unbatched, where :math:`N` is the
-        batch size, :math:`F` is the number of frames, and :math:`C` is the
-        number of channels.
+        :math:`(N,F,C)`, where :math:`N` is the batch size, :math:`F` is the
+        number of frames, and :math:`C` is the number of channels.
     """
 
     # All convolutions use the same stride length.
@@ -95,25 +94,25 @@ class Conv1dFbankSubsampler(FeatureExtractor):
         # Apply the convolution along the temporal dimension (i.e. along the
         # sequence).
         # (N, F, C) -> (N, C, F)
-        x = seqs.transpose(-1, -2)
+        seqs = seqs.transpose(1, 2)
 
         # (N, C, F) -> (N, E, S)
-        x = self.layers(x)
+        seqs = self.layers(seqs)
 
         # (N, E, S) -> (N, S, E)
-        x = x.transpose(-1, -2)
+        seqs = seqs.transpose(1, 2)
 
-        if seq_lens is None:
-            return x, None
-        else:
+        if seq_lens is not None:
             # Since we contracted the temporal dimension, we should re-compute
             # the sequence lengths.
-            return x, self._compute_seq_lens(seq_lens)
+            seq_lens = self._compute_seq_lens(seq_lens)
 
-    def _compute_seq_lens(self, original_seq_lens: Tensor) -> Tensor:
-        seq_lens = original_seq_lens.clone()
+        return seqs, seq_lens
+
+    def _compute_seq_lens(self, num_frames: Tensor) -> Tensor:
+        seq_lens = num_frames.clone()
 
         for _ in range(len(self.layers)):
             seq_lens = (((seq_lens - 1) / self.stride) + 1.0).floor()
 
-        return seq_lens.type(original_seq_lens.dtype)
+        return seq_lens.type(num_frames.dtype)

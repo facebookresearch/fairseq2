@@ -32,23 +32,22 @@ class FeatureExtractor(Module, ABC):
         """
         :param seqs:
             The sequences from which to extract features. *Shape:*
-            :math:`(N,S,*)`, or :math:`(S,*)` when unbatched, where :math:`N`
-            is the batch size, :math:`S` is the sequence length, and :math:`*`
-            is any number of sequence-specific dimensions including none.
+            :math:`(N,S,*)`, where :math:`N` is the batch size, :math:`S` is the
+            sequence length, and :math:`*` is any number of sequence-specific
+            dimensions including none.
         :param seq_lens:
             An array where each element represents the length of the sequence at
-            the same index in ``seqs``. *Shape:* :math:`(N)`, :math:`(N,1)`, or
-            :math:`()` when unbatched, where :math:`N` is the batch size.
+            the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
+            the batch size.
 
         :returns:
-            - The embeddings extracted from ``seqs``. *Shape:* :math:`(N,S,E)`,
-              or :math:`(S,E)` when unbatched, where :math:`N` is the batch
-              size, :math:`S` is the sequence length, and :math:`E` is the
-              embedding size.
+            - The embeddings extracted from ``seqs``. *Shape:*
+              :math:`(N,S_{out},E)`, where :math:`N` is the batch size,
+              :math:`S_{out}` is the output sequence length, and :math:`E` is
+              the embedding size.
             - An array where each element represents the length of the sequence
-              at the same index in the first return value. *Shape:* :math:`(N)`,
-              :math:`(N,1)`, or :math:`()` when unbatched, where :math:`N` is
-              the batch size.
+              at the same index in the returned embeddings. *Shape:*
+              :math:`(N)`, where :math:`N` is the batch size.
         """
 
     def extra_repr(self) -> str:

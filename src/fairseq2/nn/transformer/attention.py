@@ -24,7 +24,7 @@ class AttentionFunction(Protocol):
 
     def __call__(
         self,
-        x: Tensor,
+        queries: Tensor,
         keys: Tensor,
         values: Tensor,
         mask: Optional[Tensor] = None,
@@ -33,10 +33,10 @@ class AttentionFunction(Protocol):
         training: bool = True,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         """
-        :param x:
-            The input to query. *Shape:* :math:`(N,S,K)`, where :math:`N` is
-            the batch size, :math:`S` is the sequence length, and :math:`K` is
-            the key size.
+        :param queries:
+            The queries. *Shape:* :math:`(N,S,K)`, where :math:`N` is the batch
+            size, :math:`S` is the sequence length, and :math:`K` is the key
+            size.
         :param keys:
             The keys. *Shape:* :math:`(N,S_{kv},K)`, where :math:`N` is the
             batch size, :math:`S_{kv}` is the key/value sequence length, and
@@ -70,7 +70,7 @@ class AttentionFunction(Protocol):
 
 
 def default_scaled_dot_product_attention(
-    x: Tensor,
+    queries: Tensor,
     keys: Tensor,
     values: Tensor,
     mask: Optional[Tensor] = None,
@@ -89,12 +89,12 @@ def default_scaled_dot_product_attention(
     """
     global has_warned_sdpa
 
-    if not needs_weights and is_pt2_or_greater and x.is_cuda:
+    if not needs_weights and is_pt2_or_greater and queries.is_cuda:
         return torch_scaled_dot_product_attention(
-            x, keys, values, mask, dropout_p, needs_weights, training
+            queries, keys, values, mask, dropout_p, needs_weights, training
         )
     else:
-        if is_pt2_or_greater and x.is_cuda and not has_warned_sdpa:
+        if is_pt2_or_greater and queries.is_cuda and not has_warned_sdpa:
             log.warning(
                 "You are failing to leverage the more efficient `torch_scaled_dot_product_attention` that is based on PyTorch's native SDPA because of `needs_weights` set to `True`."
             )
@@ -102,12 +102,12 @@ def default_scaled_dot_product_attention(
             has_warned_sdpa = True
 
         return naive_scaled_dot_product_attention(
-            x, keys, values, mask, dropout_p, needs_weights, training
+            queries, keys, values, mask, dropout_p, needs_weights, training
         )
 
 
 def torch_scaled_dot_product_attention(
-    x: Tensor,
+    queries: Tensor,
     keys: Tensor,
     values: Tensor,
     mask: Optional[Tensor] = None,
@@ -140,7 +140,7 @@ def torch_scaled_dot_product_attention(
     is_causal: bool = getattr(mask, "is_causal", False)
 
     attn = F.scaled_dot_product_attention(  # type: ignore[attr-defined]
-        x,
+        queries,
         keys,
         values,
         attn_mask=None if is_causal else mask,
@@ -152,7 +152,7 @@ def torch_scaled_dot_product_attention(
 
 
 def naive_scaled_dot_product_attention(
-    x: Tensor,
+    queries: Tensor,
     keys: Tensor,
     values: Tensor,
     mask: Optional[Tensor] = None,
@@ -172,14 +172,14 @@ def naive_scaled_dot_product_attention(
     .. note::
         This function follows the :class:`AttentionFunction` protocol.
     """
-    x = x * (x.size(-1) ** -0.5)
+    queries = queries * (queries.size(-1) ** -0.5)
 
     if mask is None:
         # (N, S, K) @ (N, K, S_kv) = (N, S, S_kv)
-        attn_weights = torch.bmm(x, keys.transpose(1, 2))
+        attn_weights = torch.bmm(queries, keys.transpose(1, 2))
     else:
         # (N, S, S_kv) + ((N, S, K) @ (N, K, S_kv)) = (N, S, S_kv)
-        attn_weights = torch.baddbmm(mask, x, keys.transpose(1, 2))
+        attn_weights = torch.baddbmm(mask, queries, keys.transpose(1, 2))
 
     attn_weights = F.softmax(attn_weights, dim=-1)
 

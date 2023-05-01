@@ -17,7 +17,7 @@ Classes
     data.RecordError
     data.text.SentencePieceModel
     data.text.MultilingualTokenizer
-    models.transformer.ScoreProjection
+    models.transformer.FinalProjection
     models.transformer.TransformerModel
     nn.Embedding
     nn.IncrementalState

@@ -4,11 +4,12 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple, final
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from overrides import final as finaloverride
 from overrides import override
 from torch import Tensor
 from torch.nn import GELU, Conv1d, Dropout, GroupNorm, LayerNorm, Module, Sequential
@@ -17,14 +18,14 @@ from fairseq2.models.feature_extractor import FeatureExtractor
 from fairseq2.nn.utils.grad import scale_grad
 
 
+@final
 class Wav2Vec2FeatureExtractor(FeatureExtractor):
     """Extracts features from raw audio waveforms and embeds them in a latent
     space as described in Section 2 of :cite:t:`baevski2020wav2vec`.
 
     .. note::
-        The input waveforms are expected to be of shape :math:`(N,S)`, or
-        :math:`(S)` when unbatched, where :math:`N` is the batch size and
-        :math:`(S)` is the sequence length.
+        The input waveforms are expected to be of shape :math:`(N,S)`, where
+        :math:`N` is the batch size and :math:`(S)` is the sequence length.
     """
 
     layers: Sequential
@@ -125,37 +126,38 @@ class Wav2Vec2FeatureExtractor(FeatureExtractor):
 
         self.grad_scale = grad_scale
 
+    @finaloverride
     def forward(
         self, seqs: Tensor, seq_lens: Optional[Tensor]
     ) -> Tuple[Tensor, Optional[Tensor]]:
         # (N, S) -> (N, C, S)
-        x = seqs.unsqueeze(0)
+        seqs = seqs.unsqueeze(1)
 
         # (N, C, S) -> (N, E, S)
-        x = self.layers(x)
+        seqs = self.layers(seqs)
 
         if self.grad_scale != 1.0:
-            x = scale_grad(x, self.grad_scale)
+            seqs = scale_grad(seqs, self.grad_scale)
 
         # (N, E, S) -> (N, S, E)
-        x = x.transpose(-1, -2)
+        seqs = seqs.transpose(1, 2)
 
-        if seq_lens is None:
-            return x, None
-        else:
+        if seq_lens is not None:
             # Since we contracted the temporal dimension, we should re-compute
             # the sequence lengths.
-            return x, self._compute_seq_lens(seq_lens)
+            seq_lens = self._compute_seq_lens(seq_lens)
 
-    def _compute_seq_lens(self, original_seq_lens: Tensor) -> Tensor:
-        seq_lens = original_seq_lens.clone()
+        return seqs, seq_lens
+
+    def _compute_seq_lens(self, num_frames: Tensor) -> Tensor:
+        seq_lens = num_frames.clone()
 
         for desc in self.layer_descs:
             kernel_size, stride = desc[1], desc[2]
 
             seq_lens = (((seq_lens - kernel_size) / stride) + 1.0).floor()
 
-        return seq_lens.type(original_seq_lens.dtype)
+        return seq_lens.type(num_frames.dtype)
 
     def extra_repr(self) -> str:
         """:meta private:"""
@@ -216,26 +218,26 @@ class Wav2Vec2FeatureExtractionLayer(Module):
 
         self.activation = GELU()
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, seqs: Tensor) -> Tensor:
         # (N, C_inp, S) -> (N, C_out, S)
-        x = self.conv(x)
+        seqs = self.conv(seqs)
 
         if self.dropout is not None:
-            x = self.dropout(x)
+            seqs = self.dropout(seqs)
 
-        if self.group_norm is not None and x.dim() == 3:
-            x = self.group_norm(x)
+        if self.group_norm is not None:
+            seqs = self.group_norm(seqs)
 
         if self.layer_norm is not None:
-            x = x.transpose(-1, -2)
+            seqs = seqs.transpose(1, 2)
 
-            x = self.layer_norm(x)
+            seqs = self.layer_norm(seqs)
 
-            x = x.transpose(-1, -2)
+            seqs = seqs.transpose(1, 2)
 
-        x = self.activation(x)
+        seqs = self.activation(seqs)
 
-        return x
+        return seqs
 
 
 class Wav2Vec2FeatureConv1d(Conv1d):

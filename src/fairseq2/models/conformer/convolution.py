@@ -87,42 +87,41 @@ class ConformerConvolution(Module):
             dtype=dtype,
         )
 
-    def forward(self, x: Tensor) -> Tensor:
+    def forward(self, seqs: Tensor) -> Tensor:
         """
-        :param x:
-            The input to process. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)`
-            when unbatched, where :math:`N` is the batch size, :math:`S` is the
-            sequence length, and :math:`M` is the dimensionality of the model.
+        :param seqs:
+            The sequences to process. *Shape:* :math:`(N,S,M)`, where :math:`N`
+            is the batch size, :math:`S` is the sequence length, and :math:`M`
+            is the dimensionality of the model.
 
         :returns:
-            The processed output of ``x``. *Shape:* Same as ``x``.
+            The processed output of ``seqs``. *Shape:* Same as ``seqs``.
         """
         # (N, S, M) -> (N, M, S)
-        x = x.transpose(-1, -2)
+        seqs = seqs.transpose(1, 2)
 
         # This is mathematically equivalent to a dot-product.
         # (N, M, S) -> (N, 2 * M, S)
-        x = self.pointwise_conv1(x)
+        seqs = self.pointwise_conv1(seqs)
 
         # (N, 2 * M, S) -> (N, M, S)
-        x = self.pointwise_conv1_activation(x)
+        seqs = self.pointwise_conv1_activation(seqs)
 
         # (N, M, S) -> (N, M, S)
-        x = self.depthwise_conv(x)
+        seqs = self.depthwise_conv(seqs)
 
-        if x.dim() == 3:
-            x = self.batch_norm(x)
+        seqs = self.batch_norm(seqs)
 
-        x = self.depthwise_activation(x)
+        seqs = self.depthwise_activation(seqs)
 
         # This is mathematically equivalent to a dot-product.
         # (N, M, S) -> (N, M, S)
-        x = self.pointwise_conv2(x)
+        seqs = self.pointwise_conv2(seqs)
 
         # (N, M, S) -> (N, S, M)
-        x = x.transpose(-1, -2)
+        seqs = seqs.transpose(1, 2)
 
-        return x
+        return seqs
 
     def extra_repr(self) -> str:
         """:meta private:"""

@@ -16,7 +16,7 @@ from fairseq2.models.encoder_decoder import EncoderDecoderFrontend
 from fairseq2.models.s2t_transformer.feature_extractor import Conv1dFbankSubsampler
 from fairseq2.models.s2t_transformer.frontend import S2TTransformerFrontend
 from fairseq2.models.transformer import (
-    ScoreProjection,
+    FinalProjection,
     TransformerModel,
     TransformerTokenFrontend,
 )
@@ -214,18 +214,18 @@ class S2TTransformerBuilder:
         enc = self.build_encoder()
         dec = self.build_decoder()
 
-        score_proj = ScoreProjection(
+        final_proj = FinalProjection(
             num_embed=self.vocab_info.size,
             model_dim=self.cfg.model_dim,
             device=self.device,
             dtype=self.cfg.dtype,
         )
 
-        return TransformerModel(enc_frontend, enc, dec_frontend, dec, score_proj)
+        return TransformerModel(enc_frontend, enc, dec_frontend, dec, final_proj)
 
     def build_encoder_frontend(self) -> EncoderDecoderFrontend:
         """Build an encoder frontend."""
-        feat_extract = Conv1dFbankSubsampler(
+        feat_extractor = Conv1dFbankSubsampler(
             num_channels=self.cfg.num_fbank_channels,
             inner_dim=1024,
             embed_dim=self.cfg.model_dim,
@@ -237,7 +237,8 @@ class S2TTransformerBuilder:
         pos_embed = self.build_positional_embedding()
 
         return S2TTransformerFrontend(
-            feat_extract,
+            self.cfg.model_dim,
+            feat_extractor,
             pos_embed,
             apply_projection=self.cfg.use_conformer,
             dropout_p=self.cfg.dropout_p,

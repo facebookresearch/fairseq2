@@ -14,18 +14,17 @@ from torch import Tensor
 class AttentionMaskGenerator(Protocol):
     """Generates an attention mask."""
 
-    def __call__(self, x: Tensor) -> Tensor:
+    def __call__(self, seqs: Tensor) -> Tensor:
         """
-        :param x:
-            The input for which to generate the mask. *Shape:* :math:`(N,S,M)`,
-            or :math:`(S,M)` when unbatched, where :math:`N` is the batch size,
-            :math:`S` is the sequence length, and :math:`M` is the
-            dimensionality of the model.
+        :param seqs:
+            The sequences for which to generate the mask. *Shape:*
+            :math:`(N,S,M)`, where :math:`N` is the batch size, :math:`S` is the
+            sequence length, and :math:`M` is the dimensionality of the model.
 
         :returns:
-            An implementation-defined attention mask for ``x`` specific to the
-            generator. *Shape:* :math:`(S,S)`, where :math:`S` is the sequence
-            length.
+            An implementation-defined attention mask for ``seqs`` specific to
+            the generator. *Shape:* :math:`(S,S)`, where :math:`S` is the
+            sequence length.
         """
 
 
@@ -41,16 +40,15 @@ class CausalAttentionMaskGenerator:
     def __init__(self) -> None:
         self._cached_attn_mask = None
 
-    def __call__(self, x: Tensor) -> Tensor:
+    def __call__(self, seqs: Tensor) -> Tensor:
         """
-        :param x:
-            The input for which to generate the mask. *Shape:* :math:`(N,S,M)`,
-            or :math:`(S,M)` when unbatched, where :math:`N` is the batch size,
-            :math:`S` is the sequence length, and :math:`M` is the
-            dimensionality of the model.
+        :param seqs:
+            The sequences for which to generate the mask. *Shape:*
+            :math:`(N,S,M)`, where :math:`N` is the batch size, :math:`S` is the
+            sequence length, and :math:`M` is the dimensionality of the model.
 
         :returns:
-            An attention mask for ``x`` whose upper triangular part above the
+            An attention mask for ``seqs`` whose upper triangular part above the
             main diagonal is filled with negative infinities while its rest is
             filled with zeros. *Shape:* :math:`(S,S)`, where :math:`S` is the
             sequence length.
@@ -70,10 +68,10 @@ class CausalAttentionMaskGenerator:
         """
         mask = self._cached_attn_mask
 
-        seq_len = x.size(-2)
+        seq_len = seqs.size(1)
 
-        if mask is None or mask.device != x.device or mask.size(0) < seq_len:
-            mask = x.new_full([seq_len, seq_len], _neg_inf)
+        if mask is None or mask.device != seqs.device or mask.size(0) < seq_len:
+            mask = seqs.new_full([seq_len, seq_len], _neg_inf)
 
             mask.triu_(diagonal=1)
 
@@ -106,31 +104,30 @@ class ALiBiAttentionMaskGenerator:
         self._cached_attn_mask = None
         self._causal_attn_mask_gen = CausalAttentionMaskGenerator()
 
-    def __call__(self, x: Tensor) -> Tensor:
+    def __call__(self, seqs: Tensor) -> Tensor:
         """
-        :param x:
-            The input for which to generate the mask. *Shape:* :math:`(N,S,M)`,
-            or :math:`(S,M)` when unbatched, where :math:`N` is the batch size,
-            :math:`S` is the sequence length, and :math:`M` is the
-            dimensionality of the model.
+        :param seqs:
+            The sequences for which to generate the mask. *Shape:*
+            :math:`(N,S,M)`, where :math:`N` is the batch size, :math:`S` is the
+            sequence length, and :math:`M` is the dimensionality of the model.
 
         :returns:
-            An ALiBi mask for ``x``. *Shape:* :math:`(H, S, S)`, where
-            :math:`S` is the sequence length and :math:`H` is the number of
-            attention heads.
+            An ALiBi mask for ``seqs``. *Shape:* :math:`(H,S,S)`, where :math:`S`
+            is the sequence length and :math:`H` is the number of attention
+            heads.
         """
         mask = self._cached_attn_mask
 
-        seq_len = x.size(-2)
+        seq_len = seqs.size(1)
 
-        if mask is None or mask.device != x.device or mask.size(-2) < seq_len:
+        if mask is None or mask.device != seqs.device or mask.size(1) < seq_len:
             slopes = self._get_slopes(self.num_heads)
 
-            arange_tensor = torch.arange(seq_len, device=x.device)[None, None, :]
+            arange_tensor = torch.arange(seq_len, device=seqs.device)[None, None, :]
             arange_tensor = arange_tensor.expand((self.num_heads, -1, -1))
 
             alibi_biases = arange_tensor * slopes[:, None, None]
-            mask = alibi_biases + self._causal_attn_mask_gen(x)
+            mask = alibi_biases + self._causal_attn_mask_gen(seqs)
 
             self._cached_attn_mask = mask
 

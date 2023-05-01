@@ -49,7 +49,7 @@ class TestScaledDotProductAttention:
             return t(T, S)
 
         kwargs: Dict[str, Any] = {
-            "x": q(),
+            "queries": q(),
             "keys": k(),
             "values": v(),
             "mask": m() if mask else None,

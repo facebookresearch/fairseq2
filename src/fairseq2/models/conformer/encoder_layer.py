@@ -132,77 +132,78 @@ class ConformerEncoderLayer(TransformerEncoderLayer):
     @finaloverride
     def forward(
         self,
-        x: Tensor,
+        seqs: Tensor,
         padding_mask: Optional[Tensor] = None,
         self_attn_mask: Optional[Tensor] = None,
     ) -> Tensor:
-        x = self._forward_ffn1(x)
+        seqs = self._forward_ffn1(seqs)
 
-        x = self._forward_self_attn(x, padding_mask, self_attn_mask)
+        seqs = self._forward_self_attn(seqs, padding_mask, self_attn_mask)
 
-        x = self._forward_conv(x)
+        seqs = self._forward_conv(seqs)
 
-        x = self._forward_ffn2(x)
+        seqs = self._forward_ffn2(seqs)
 
-        x = self.layer_norm(x)
+        seqs = self.layer_norm(seqs)
 
-        return x  # type: ignore[no-any-return]
+        return seqs  # type: ignore[no-any-return]
 
-    def _forward_ffn1(self, x: Tensor) -> Tensor:
-        residual = x
+    def _forward_ffn1(self, seqs: Tensor) -> Tensor:
+        residual = seqs
 
-        x = self.ffn1_layer_norm(x)
+        seqs = self.ffn1_layer_norm(seqs)
 
-        x = self.ffn1(x) * 0.5
+        seqs = self.ffn1(seqs) * 0.5
 
         if self.ffn1_dropout is not None:
-            x = self.ffn1_dropout(x)
+            seqs = self.ffn1_dropout(seqs)
 
-        return x + residual
+        return seqs + residual
 
     def _forward_self_attn(
         self,
-        x: Tensor,
+        seqs: Tensor,
         padding_mask: Optional[Tensor],
         self_attn_mask: Optional[Tensor],
     ) -> Tensor:
-        residual = x
+        residual = seqs
 
-        x = self.self_attn_layer_norm(x)
+        seqs = self.self_attn_layer_norm(seqs)
 
-        x = self.self_attn(
-            x,
-            keys=x,
-            values=x,
+        seqs = self.self_attn(
+            seqs,
+            padding_mask,
+            keys=seqs,
+            values=seqs,
             attn_mask=self_attn_mask,
-            padding_mask=padding_mask,
+            key_padding_mask=padding_mask,
         )
 
         if self.self_attn_dropout is not None:
-            x = self.self_attn_dropout(x)
+            seqs = self.self_attn_dropout(seqs)
 
-        return x + residual
+        return seqs + residual
 
-    def _forward_conv(self, x: Tensor) -> Tensor:
-        residual = x
+    def _forward_conv(self, seqs: Tensor) -> Tensor:
+        residual = seqs
 
-        x = self.conv_layer_norm(x)
+        seqs = self.conv_layer_norm(seqs)
 
-        x = self.conv(x)
+        seqs = self.conv(seqs)
 
         if self.conv_dropout is not None:
-            x = self.conv_dropout(x)
+            seqs = self.conv_dropout(seqs)
 
-        return x + residual
+        return seqs + residual
 
-    def _forward_ffn2(self, x: Tensor) -> Tensor:
-        residual = x
+    def _forward_ffn2(self, seqs: Tensor) -> Tensor:
+        residual = seqs
 
-        x = self.ffn2_layer_norm(x)
+        seqs = self.ffn2_layer_norm(seqs)
 
-        x = self.ffn2(x) * 0.5
+        seqs = self.ffn2(seqs) * 0.5
 
         if self.ffn2_dropout is not None:
-            x = self.ffn2_dropout(x)
+            seqs = self.ffn2_dropout(seqs)
 
-        return x + residual
+        return seqs + residual

@@ -179,9 +179,9 @@ class NllbBuilder:
         enc = self.build_encoder()
         dec = self.build_decoder()
 
-        score_proj = TiedProjection(embed.weight)
+        final_proj = TiedProjection(embed.weight)
 
-        return TransformerModel(frontend, enc, frontend, dec, score_proj)
+        return TransformerModel(frontend, enc, frontend, dec, final_proj)
 
     def build_frontend(self, embed: Embedding) -> EncoderDecoderFrontend:
         """Build a shared encoder/decoder frontend."""

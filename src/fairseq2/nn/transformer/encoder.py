@@ -16,7 +16,6 @@ from fairseq2.nn.module_list import ModuleList
 from fairseq2.nn.transformer.attention_mask import AttentionMaskGenerator
 from fairseq2.nn.transformer.encoder_layer import TransformerEncoderLayer
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
-from fairseq2.nn.utils.mask import to_float_mask
 
 
 class TransformerEncoder(Module, ABC):
@@ -34,26 +33,18 @@ class TransformerEncoder(Module, ABC):
         self.model_dim = model_dim
 
     @abstractmethod
-    def forward(self, x: Tensor, padding_mask: Optional[Tensor] = None) -> Tensor:
+    def forward(self, seqs: Tensor, padding_mask: Optional[Tensor] = None) -> Tensor:
         """
-        :param x:
-            The inputs to encode. *Shape:* :math:`(N,S,M)`, or :math:`(S,M)`
-            when unbatched, where :math:`N` is the batch size, :math:`S` is the
-            sequence length, and :math:`M` is the dimensionality of the model.
+        :param seqs:
+            The sequences to encode. *Shape:* :math:`(N,S,M)`, where :math:`N`
+            is the batch size, :math:`S` is the sequence length, and :math:`M`
+            is the dimensionality of the model.
         :param padding_mask:
-            The boolean or float padding mask indicating which key positions to
-            ignore for the purpose of self attention. *Shape:* :math:`(N,S)`, or
-            :math:`(S)` when unbatched, where :math:`N` is the batch size and
-            :math:`S` is the sequence length.
+            The float padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where
+            :math:`N` is the batch size and :math:`S` is the sequence length.
 
         :returns:
-            The encoded output of ``x``. *Shape:* Same as ``x``.
-
-        .. note::
-            For a boolean padding mask, a ``True`` indicates that the
-            corresponding key position is not allowed to attend. For a float
-            padding mask, the mask values will be added to the attention
-            weights.
+            The encoded output of ``seqs``. *Shape:* Same as ``seqs``.
         """
 
     def extra_repr(self) -> str:
@@ -84,7 +75,7 @@ class StandardTransformerEncoder(TransformerEncoder):
         :param layers:
             The encoder layers.
         :param self_attn_mask_gen:
-            The attention mask generator. If ``None``, no mask will be used.
+            The attention mask generator.
         :param layer_drop_p:
             If greater than zero, applies LayerDrop to the encoder layers as
             described in :cite:t:`https://doi.org/10.48550/arxiv.1909.11556`.
@@ -118,22 +109,19 @@ class StandardTransformerEncoder(TransformerEncoder):
             self.register_module("layer_norm", None)
 
     @finaloverride
-    def forward(self, x: Tensor, padding_mask: Optional[Tensor] = None) -> Tensor:
-        if padding_mask is not None:
-            padding_mask = to_float_mask(padding_mask, dtype=x.dtype)
-
+    def forward(self, seqs: Tensor, padding_mask: Optional[Tensor] = None) -> Tensor:
         if self.self_attn_mask_gen is not None:
-            self_attn_mask = self.self_attn_mask_gen(x)
+            self_attn_mask = self.self_attn_mask_gen(seqs)
         else:
             self_attn_mask = None
 
         for layer in self.layers.drop_iter():
-            x = layer(x, padding_mask, self_attn_mask)
+            seqs = layer(seqs, padding_mask, self_attn_mask)
 
         if self.layer_norm is not None:
-            x = self.layer_norm(x)
+            seqs = self.layer_norm(seqs)
 
-        return x
+        return seqs
 
     def extra_repr(self) -> str:
         """:meta private:"""

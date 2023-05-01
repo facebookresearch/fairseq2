@@ -113,8 +113,14 @@ def upgrade_fairseq_checkpoint(checkpoint: Dict[str, Any]) -> Dict[str, Any]:
 
     # Positional embeddings don't have to be stored in the checkpoint since
     # we can generate them on-the-fly.
-    del new_state_dict["encoder.embed_positions._float_tensor"]
-    del new_state_dict["decoder.embed_positions._float_tensor"]
+    try:
+        del new_state_dict["encoder.embed_positions._float_tensor"]
+    except KeyError:
+        pass
+    try:
+        del new_state_dict["decoder.embed_positions._float_tensor"]
+    except KeyError:
+        pass
 
     return {"model": new_state_dict}
 
@@ -132,10 +138,10 @@ def _get_fairseq_param_key_map() -> Dict[str, str]:
         r"^decoder\.layers\.([0-9]+)\.final_layer_norm\.":        r"decoder.layers.\1.ffn_layer_norm.",
         r"^encoder\.embed_tokens\.":                              r"encoder_frontend.embed.",
         r"^decoder\.embed_tokens\.":                              r"decoder_frontend.embed.",
-        r"^decoder\.output_projection\.":                         r"score_proj.",
+        r"^decoder\.output_projection\.":                         r"final_proj.",
 
         # S2T Transformer
-        r"^encoder\.subsample\.conv_layers\.([0-9]+)\.":                    r"encoder_frontend.feat_extract.layers.\1.conv.",
+        r"^encoder\.subsample\.conv_layers\.([0-9]+)\.":                    r"encoder_frontend.feat_extractor.layers.\1.conv.",
         r"^encoder\.transformer_layers\.([0-9]+)\.self_attn_layer_norm\.":  r"encoder.layers.\1.self_attn_layer_norm.",
         r"^encoder\.transformer_layers\.([0-9]+)\.self_attn\.":             r"encoder.layers.\1.self_attn.",
         r"^encoder\.transformer_layers\.([0-9]+)\.final_layer_norm\.":      r"encoder.layers.\1.ffn_layer_norm.",

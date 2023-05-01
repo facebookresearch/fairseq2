@@ -72,57 +72,43 @@ def test_compute_mask_raises_error_if_row_length_is_smaller_than_span_len() -> N
         )
 
 
-def test_to_padding_mask_with_dim1() -> None:
+def test_to_padding_mask_returns_correct_mask() -> None:
+    seqs = torch.zeros((4, 6), device=device)
+
     seq_lens = torch.tensor([4, 2, 0, 5], device=device, dtype=torch.int32)
 
-    mask = to_padding_mask(seq_lens, mask_seq_len=6)
+    mask = to_padding_mask(seqs, seq_lens)
 
-    # fmt: off
-    expected_mask = torch.tensor(
-        [[False, False, False, False, True,  True],
-         [False, False, True,  True,  True,  True],
-         [True,  True,  True,  True,  True,  True],
-         [False, False, False, False, False, True]], device=device)
-    # fmt: on
-
-    assert_equal(mask, expected_mask)
-
-
-def test_to_padding_mask_with_dim2() -> None:
-    seq_lens = torch.tensor([4, 2, 0, 5], device=device, dtype=torch.int32)
-
-    seq_lens = seq_lens.unsqueeze(-1)
-
-    mask = to_padding_mask(seq_lens, mask_seq_len=6)
-
-    # fmt: off
-    expected_mask = torch.tensor(
-        [[False, False, False, False, True,  True],
-         [False, False, True,  True,  True,  True],
-         [True,  True,  True,  True,  True,  True],
-         [False, False, False, False, False, True]], device=device)
-    # fmt: on
-
-    assert_equal(mask, expected_mask)
-
-
-def test_to_padding_mask_with_dim0() -> None:
-    seq_lens = torch.tensor(2, device=device, dtype=torch.int32)
-
-    mask = to_padding_mask(seq_lens, mask_seq_len=4)
-
-    expected_mask = torch.tensor([False, False, True, True], device=device)
-
-    assert_equal(mask, expected_mask)
-
-
-def test_to_padding_mask_with_single_seq_len() -> None:
-    seq_lens = torch.tensor([4], device=device, dtype=torch.int32)
-
-    mask = to_padding_mask(seq_lens, mask_seq_len=6)
+    inf = float("-inf")
 
     expected_mask = torch.tensor(
-        [[False, False, False, False, True, True]], device=device
+        [
+            [0.0, 0.0, 0.0, 0.0, inf, inf],
+            [0.0, 0.0, inf, inf, inf, inf],
+            [inf, inf, inf, inf, inf, inf],
+            [0.0, 0.0, 0.0, 0.0, 0.0, inf],
+        ],
+        device=device,
     )
 
+    assert mask is not None
+
     assert_equal(mask, expected_mask)
+
+
+def test_to_padding_mask_returns_none_if_seq_lens_is_none() -> None:
+    seqs = torch.zeros((4, 6), device=device)
+
+    mask = to_padding_mask(seqs, seq_lens=None)
+
+    assert mask is None
+
+
+def test_to_padding_mask_returns_none_if_all_seq_lens_are_equal() -> None:
+    seqs = torch.zeros((2, 4), device=device)
+
+    seq_lens = torch.tensor([4, 4], device=device, dtype=torch.int32)
+
+    mask = to_padding_mask(seqs, seq_lens)
+
+    assert mask is None
