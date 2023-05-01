@@ -21,9 +21,9 @@ from fairseq2.models.transformer import (
     TransformerTokenFrontend,
 )
 from fairseq2.nn.embedding import Embedding
-from fairseq2.nn.positional_embedding import (
-    PositionalEmbedding,
-    SinusoidalPositionalEmbedding,
+from fairseq2.nn.positional_encoder import (
+    PositionalEncoder,
+    SinusoidalPositionalEncoder,
 )
 from fairseq2.nn.transformer import (
     FeedForwardNetwork,
@@ -57,7 +57,7 @@ class S2TTransformerConfig:
     """The expected maximum sequence length."""
 
     model_dim: int = 512
-    """The dimensionality of the model (i.e. inputs and outputs)."""
+    """The dimensionality of the model."""
 
     use_conformer: bool = False
     """If ``True``, uses Conformer blocks instead of Transformer encoder layers."""
@@ -208,11 +208,11 @@ class S2TTransformerBuilder:
 
     def build_model(self) -> TransformerModel:
         """Build a model."""
-        enc_frontend = self.build_encoder_frontend()
-        dec_frontend = self.build_decoder_frontend()
+        encoder_frontend = self.build_encoder_frontend()
+        decoder_frontend = self.build_decoder_frontend()
 
-        enc = self.build_encoder()
-        dec = self.build_decoder()
+        encoder = self.build_encoder()
+        decoder = self.build_decoder()
 
         final_proj = FinalProjection(
             num_embed=self.vocab_info.size,
@@ -221,7 +221,9 @@ class S2TTransformerBuilder:
             dtype=self.cfg.dtype,
         )
 
-        return TransformerModel(enc_frontend, enc, dec_frontend, dec, final_proj)
+        return TransformerModel(
+            encoder_frontend, encoder, decoder_frontend, decoder, final_proj
+        )
 
     def build_encoder_frontend(self) -> EncoderDecoderFrontend:
         """Build an encoder frontend."""
@@ -234,12 +236,12 @@ class S2TTransformerBuilder:
             dtype=self.cfg.dtype,
         )
 
-        pos_embed = self.build_positional_embedding()
+        pos_encoder = self.build_positional_encoder()
 
         return S2TTransformerFrontend(
             self.cfg.model_dim,
             feat_extractor,
-            pos_embed,
+            pos_encoder,
             apply_projection=self.cfg.use_conformer,
             dropout_p=self.cfg.dropout_p,
             device=self.device,
@@ -257,22 +259,22 @@ class S2TTransformerBuilder:
             dtype=self.cfg.dtype,
         )
 
-        pos_embed = self.build_positional_embedding()
+        pos_encoder = self.build_positional_encoder()
 
         return TransformerTokenFrontend(
             embed,
-            pos_embed,
+            pos_encoder,
             dropout_p=self.cfg.dropout_p,
             device=self.device,
             dtype=self.cfg.dtype,
         )
 
-    def build_positional_embedding(self) -> PositionalEmbedding:
+    def build_positional_encoder(self) -> PositionalEncoder:
         """Build a positional embedding."""
-        return SinusoidalPositionalEmbedding(
-            max_seq_len=self.cfg.max_seq_len,
-            embed_dim=self.cfg.model_dim,
-            legacy_pad_token_idx=self.vocab_info.pad_idx,
+        return SinusoidalPositionalEncoder(
+            self.cfg.model_dim,
+            self.cfg.max_seq_len,
+            _legacy_pad_token_idx=self.vocab_info.pad_idx,
             device=self.device,
             dtype=self.cfg.dtype,
         )

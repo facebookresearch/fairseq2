@@ -9,9 +9,9 @@ from fairseq2.models.wav2vec2.feature_extractor import (
 )
 from fairseq2.models.wav2vec2.frontend import Wav2Vec2Frontend as Wav2Vec2Frontend
 from fairseq2.models.wav2vec2.mask import Wav2Vec2Mask as Wav2Vec2Mask
-from fairseq2.models.wav2vec2.positional_embedding import (
-    Wav2Vec2PositionalEmbedding as Wav2Vec2PositionalEmbedding,
+from fairseq2.models.wav2vec2.positional_encoder import (
+    Wav2Vec2PositionalEncoder as Wav2Vec2PositionalEncoder,
 )
-from fairseq2.models.wav2vec2.positional_embedding import (
-    Wav2Vec2StackedPositionalEmbedding as Wav2Vec2StackedPositionalEmbedding,
+from fairseq2.models.wav2vec2.positional_encoder import (
+    Wav2Vec2StackedPositionalEncoder as Wav2Vec2StackedPositionalEncoder,
 )

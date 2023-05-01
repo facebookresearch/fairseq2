@@ -15,7 +15,7 @@ from torch.nn import Dropout
 from fairseq2.models.encoder_decoder import EncoderDecoderFrontend
 from fairseq2.models.feature_extractor import FeatureExtractor
 from fairseq2.nn.incremental_state import IncrementalStateBag
-from fairseq2.nn.positional_embedding import PositionalEmbedding
+from fairseq2.nn.positional_encoder import PositionalEncoder
 from fairseq2.nn.projection import Linear, Projection
 from fairseq2.nn.utils.mask import to_padding_mask
 
@@ -27,7 +27,7 @@ class S2TTransformerFrontend(EncoderDecoderFrontend):
 
     feat_extractor: Optional[FeatureExtractor]
     scale: float
-    pos_embed: Optional[PositionalEmbedding]
+    pos_encoder: Optional[PositionalEncoder]
     proj: Optional[Projection]
     dropout: Optional[Dropout]
 
@@ -35,7 +35,7 @@ class S2TTransformerFrontend(EncoderDecoderFrontend):
         self,
         model_dim: int,
         feat_extractor: Optional[FeatureExtractor],
-        pos_embed: Optional[PositionalEmbedding],
+        pos_encoder: Optional[PositionalEncoder],
         apply_projection: bool = False,
         dropout_p: float = 0.1,
         device: Optional[torch.device] = None,
@@ -43,12 +43,12 @@ class S2TTransformerFrontend(EncoderDecoderFrontend):
     ) -> None:
         """
         :param model_dim:
-            The dimensionality of the model (i.e. inputs and outputs).
+            The dimensionality of the model.
         :param feat_extractor:
             The feature extractor. If ``None``, it is assumed that features are
             extracted externally before being fed to the model.
-        :param pos_embed:
-            The positional embedding.
+        :param pos_encoder:
+            The positional encoder.
         :param apply_projection:
             If ``True``, applies projection to outputs before dropout as
             described in Section 2 of
@@ -70,15 +70,15 @@ class S2TTransformerFrontend(EncoderDecoderFrontend):
 
         self.scale = math.sqrt(model_dim)
 
-        if pos_embed is not None:
-            if pos_embed.embed_dim != model_dim:
+        if pos_encoder is not None:
+            if pos_encoder.model_dim != model_dim:
                 raise ValueError(
-                    f"`embed_dim` of `pos_embed` and `model_dim` must be equal, but are {pos_embed.embed_dim} and {model_dim} instead."
+                    f"`model_dim` of `pos_encoder` and `model_dim` must be equal, but are {pos_encoder.model_dim} and {model_dim} instead."
                 )
 
-            self.pos_embed = pos_embed
+            self.pos_encoder = pos_encoder
         else:
-            self.register_module("pos_embed", None)
+            self.register_module("pos_encoder", None)
 
         if apply_projection:
             self.proj = Linear(
@@ -106,8 +106,8 @@ class S2TTransformerFrontend(EncoderDecoderFrontend):
 
         seqs = seqs * self.scale
 
-        if self.pos_embed is not None:
-            seqs = self.pos_embed(seqs, padding_mask, state_bag)
+        if self.pos_encoder is not None:
+            seqs = self.pos_encoder(seqs, padding_mask, state_bag)
 
         if self.proj is not None:
             seqs = self.proj(seqs)

@@ -21,7 +21,7 @@ class EncoderDecoderModel(Module, ABC):
     def __init__(self, model_dim: int) -> None:
         """
         :param model_dim:
-            The dimensionality of the model (i.e. inputs and outputs).
+            The dimensionality of the model.
         """
         super().__init__()
 
@@ -143,7 +143,7 @@ class EncoderDecoderFrontend(Module, ABC):
     def __init__(self, model_dim: int) -> None:
         """
         :param model_dim:
-            The dimensionality of the model (i.e. inputs and outputs).
+            The dimensionality of the model.
         """
         super().__init__()
 

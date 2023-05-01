@@ -19,7 +19,7 @@ from torch.nn.parameter import Parameter
 from torch.utils.hooks import RemovableHandle
 
 from fairseq2.nn.incremental_state import IncrementalState, IncrementalStateBag
-from fairseq2.nn.positional_embedding import PositionalEmbedding
+from fairseq2.nn.positional_encoder import PositionalEncoder
 from fairseq2.nn.projection import Projection, ResettableProjection
 from fairseq2.nn.transformer.attention import (
     AttentionFunction,
@@ -40,7 +40,7 @@ class MultiheadAttention(Module, ABC):
         :param num_heads:
             The number of attention heads.
         :param model_dim:
-            The dimensionality of the model (i.e. inputs and outputs).
+            The dimensionality of the model.
         """
         super().__init__()
 
@@ -178,7 +178,7 @@ class StandardMultiheadAttention(MultiheadAttention):
     q_proj: Projection
     k_proj: Projection
     v_proj: Projection
-    pos_embed: Optional[PositionalEmbedding]
+    pos_encoder: Optional[PositionalEncoder]
     bias_k: Optional[Parameter]
     bias_v: Optional[Parameter]
     add_zero_attn: bool
@@ -194,7 +194,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         q_proj: Optional[Projection] = None,
         k_proj: Optional[Projection] = None,
         v_proj: Optional[Projection] = None,
-        pos_embed: Optional[PositionalEmbedding] = None,
+        pos_encoder: Optional[PositionalEncoder] = None,
         add_bias_kv: bool = False,
         add_zero_attn: bool = False,
         attn_fn: Optional[AttentionFunction] = None,
@@ -208,9 +208,8 @@ class StandardMultiheadAttention(MultiheadAttention):
         :param num_heads:
             The number of attention heads.
         :param model_dim:
-            The dimensionality of the model (i.e. inputs and outputs); must be
-            specified if ``q_proj`` is ``None``; otherwise, will be inferred
-            from ``q_proj``.
+            The dimensionality of the model; must be specified if ``q_proj`` is
+            ``None``; otherwise, will be inferred from ``q_proj``.
         :param q_proj:
             The projection to apply to inputs before computing attention. If
             ``None``, a default projection will be used.
@@ -220,9 +219,8 @@ class StandardMultiheadAttention(MultiheadAttention):
         :param v_proj:
             The projection to apply to values before computing attention. If
             ``None``, a default projection will be used.
-        :param pos_embed:
-            The positional embedding to add to inputs and keys after applying
-            projection.
+        :param pos_encoder:
+            The positional encoder to apply to inputs and keys after projection.
         :param add_bias_kv:
             If ``True``, extends keys and values by a bias step.
         :param add_zero_attn:
@@ -281,15 +279,15 @@ class StandardMultiheadAttention(MultiheadAttention):
         self.k_proj = k_proj
         self.v_proj = v_proj
 
-        if pos_embed is not None:
-            if (head_dim := k_proj.out_dim // num_heads) != pos_embed.embed_dim:
+        if pos_encoder is not None:
+            if (head_dim := k_proj.out_dim // num_heads) != pos_encoder.model_dim:
                 raise ValueError(
-                    f"`embed_dim` of `pos_embed` must be equal to the size of the header key dimension ({head_dim}), but is {pos_embed.embed_dim} instead."
+                    f"`model_dim` of `pos_encoder` must be equal to the size of the header key dimension ({head_dim}), but is {pos_encoder.model_dim} instead."
                 )
 
-            self.pos_embed = pos_embed
+            self.pos_encoder = pos_encoder
         else:
-            self.register_module("pos_embed", None)
+            self.register_module("pos_encoder", None)
 
         if add_bias_kv:
             bias_k_shp = (num_heads, 1, k_proj.out_dim // num_heads)
@@ -419,9 +417,9 @@ class StandardMultiheadAttention(MultiheadAttention):
         # (N, H, S_kv, V_h) -> (N x H, S_kv, V_h)
         v = v.flatten(0, 1)
 
-        if self.pos_embed is not None:
-            self.pos_embed(q, padding_mask, state_bag)
-            self.pos_embed(k, key_padding_mask)
+        if self.pos_encoder is not None:
+            q = self.pos_encoder(q, padding_mask, state_bag)
+            k = self.pos_encoder(k, key_padding_mask)
 
         mask_pad = 0
 

@@ -9,7 +9,7 @@ ABCs and Protocols
     :nosignatures:
 
     gang.Gang
-    nn.PositionalEmbedding
+    nn.PositionalEncoder
     nn.Projection
     nn.ResettableProjection
     nn.transformer.AttentionFunction

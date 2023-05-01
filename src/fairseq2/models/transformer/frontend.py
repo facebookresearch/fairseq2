@@ -15,7 +15,7 @@ from torch.nn import Dropout, LayerNorm
 from fairseq2.models.encoder_decoder import EncoderDecoderFrontend
 from fairseq2.nn.embedding import Embedding
 from fairseq2.nn.incremental_state import IncrementalStateBag
-from fairseq2.nn.positional_embedding import PositionalEmbedding
+from fairseq2.nn.positional_encoder import PositionalEncoder
 from fairseq2.nn.utils.mask import to_padding_mask
 
 
@@ -26,14 +26,14 @@ class TransformerTokenFrontend(EncoderDecoderFrontend):
 
     embed: Embedding
     scale: float
-    pos_embed: Optional[PositionalEmbedding]
+    pos_encoder: Optional[PositionalEncoder]
     layer_norm: Optional[LayerNorm]
     dropout: Optional[Dropout]
 
     def __init__(
         self,
         embed: Embedding,
-        pos_embed: Optional[PositionalEmbedding],
+        pos_encoder: Optional[PositionalEncoder],
         no_scale: bool = False,
         layer_norm: bool = False,
         dropout_p: float = 0.1,
@@ -43,9 +43,9 @@ class TransformerTokenFrontend(EncoderDecoderFrontend):
     ) -> None:
         """
         :param embed:
-            The token embedding.
-        :param pos_embed:
-            The positional embedding.
+            The token embedding dictionary.
+        :param pos_encoder:
+            The positional encoder.
         :param no_scale:
             If ``True``, does not scale embeddings by the square root of the
             embedding size.
@@ -65,15 +65,15 @@ class TransformerTokenFrontend(EncoderDecoderFrontend):
 
         self.scale = 1.0 if no_scale else math.sqrt(model_dim)
 
-        if pos_embed is not None:
-            if pos_embed.embed_dim != model_dim:
+        if pos_encoder is not None:
+            if pos_encoder.model_dim != model_dim:
                 raise ValueError(
-                    f"`embed_dim` of `pos_embed` and `embed_dim` of `embed` must be equal, but are {pos_embed.embed_dim} and {model_dim} instead."
+                    f"`model_dim` of `pos_encoder` and `embed_dim` of `embed` must be equal, but are {pos_encoder.model_dim} and {model_dim} instead."
                 )
 
-            self.pos_embed = pos_embed
+            self.pos_encoder = pos_encoder
         else:
-            self.register_module("pos_embed", None)
+            self.register_module("pos_encoder", None)
 
         if layer_norm:
             self.layer_norm = LayerNorm(model_dim, norm_eps, device=device, dtype=dtype)
@@ -99,8 +99,8 @@ class TransformerTokenFrontend(EncoderDecoderFrontend):
         if self.scale != 1.0:
             seqs = seqs * self.scale
 
-        if self.pos_embed is not None:
-            seqs = self.pos_embed(seqs, padding_mask, state_bag)
+        if self.pos_encoder is not None:
+            seqs = self.pos_encoder(seqs, padding_mask, state_bag)
 
         if self.layer_norm is not None:
             seqs = self.layer_norm(seqs)

@@ -12,7 +12,7 @@ from torch.nn import Dropout, LayerNorm, Module
 
 from fairseq2.models.feature_extractor import FeatureExtractor
 from fairseq2.models.wav2vec2.mask import Wav2Vec2Mask
-from fairseq2.nn.positional_embedding import PositionalEmbedding
+from fairseq2.nn.positional_encoder import PositionalEncoder
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer import TransformerNormOrder
 from fairseq2.nn.utils.mask import to_padding_mask
@@ -28,7 +28,7 @@ class Wav2Vec2Frontend(Module):
     feat_proj: Optional[Linear]
     feat_dropout: Optional[Dropout]
     mask: Wav2Vec2Mask
-    pos_embed: Optional[PositionalEmbedding]
+    pos_encoder: Optional[PositionalEncoder]
     layer_norm: Optional[LayerNorm]
     dropout: Optional[Dropout]
 
@@ -37,7 +37,7 @@ class Wav2Vec2Frontend(Module):
         model_dim: int,
         feat_extractor: Optional[FeatureExtractor],
         mask: Wav2Vec2Mask,
-        pos_embed: Optional[PositionalEmbedding],
+        pos_encoder: Optional[PositionalEncoder],
         feat_dropout_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         dropout_p: float = 0.1,
@@ -47,14 +47,14 @@ class Wav2Vec2Frontend(Module):
     ) -> None:
         """
         :param model_dim:
-            The dimensionality of the model (i.e. inputs and outputs).
+            The dimensionality of the model.
         :param feat_extractor:
             The feature extractor. If ``None``, it is assumed that features are
             extracted externally before being fed to the model.
         :param mask:
             The mask to apply to extracted features.
-        :param pos_embed:
-            The positional embedding.
+        :param pos_encoder:
+            The positional encoder.
         :param feature_dropout_p:
             The dropout probability on outputs of ``feat_extractor`` before
             masking.
@@ -97,15 +97,15 @@ class Wav2Vec2Frontend(Module):
 
         self.mask = mask
 
-        if pos_embed is not None:
-            if pos_embed.embed_dim != model_dim:
+        if pos_encoder is not None:
+            if pos_encoder.model_dim != model_dim:
                 raise ValueError(
-                    f"`embed_dim` of `pos_embed` and `model_dim` must be equal, but are {pos_embed.embed_dim} and {model_dim} instead."
+                    f"`model_dim` of `pos_encoder` and `model_dim` must be equal, but are {pos_encoder.model_dim} and {model_dim} instead."
                 )
 
-            self.pos_embed = pos_embed
+            self.pos_encoder = pos_encoder
         else:
-            self.register_module("pos_embed", None)
+            self.register_module("pos_encoder", None)
 
         if norm_order == TransformerNormOrder.POST:
             self.layer_norm = LayerNorm(model_dim, norm_eps, device=device, dtype=dtype)
@@ -166,8 +166,8 @@ class Wav2Vec2Frontend(Module):
 
         seqs, temporal_mask = self.mask(seqs, seq_lens)
 
-        if self.pos_embed is not None:
-            seqs = self.pos_embed(seqs, padding_mask)
+        if self.pos_encoder is not None:
+            seqs = self.pos_encoder(seqs, padding_mask)
 
         if self.layer_norm is not None:
             seqs = self.layer_norm(seqs)

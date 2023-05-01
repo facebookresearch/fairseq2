@@ -33,7 +33,7 @@ class ConformerConvolution(Module):
     ) -> None:
         """
         :param model_dim:
-            The dimensionality of the model (i.e. inputs and outputs).
+            The dimensionality of the model.
         :param depthwise_kernel_size:
             The kernel size of the depthwise convolution.
         :param depthwise_activation:

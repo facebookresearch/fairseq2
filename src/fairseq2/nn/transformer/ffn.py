@@ -24,7 +24,7 @@ class FeedForwardNetwork(Module, ABC):
     def __init__(self, model_dim: int) -> None:
         """
         :param model_dim:
-            The dimensionality of the model (i.e. inputs and outputs).
+            The dimensionality of the model.
         """
         super().__init__()
 
@@ -72,7 +72,7 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
     ) -> None:
         """
         :param model_dim:
-            The dimensionality of the model (i.e. inputs and outputs).
+            The dimensionality of the model.
         :param inner_dim:
             The dimensionality of the inner projection layer.
         :param inner_activation:

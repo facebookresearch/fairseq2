@@ -13,7 +13,7 @@ from fairseq2.data.text import VocabularyInfo
 from fairseq2.models.encoder_decoder import EncoderDecoderFrontend
 from fairseq2.models.transformer import TransformerModel, TransformerTokenFrontend
 from fairseq2.nn.embedding import Embedding
-from fairseq2.nn.positional_embedding import SinusoidalPositionalEmbedding
+from fairseq2.nn.positional_encoder import SinusoidalPositionalEncoder
 from fairseq2.nn.projection import TiedProjection
 from fairseq2.nn.transformer import (
     FeedForwardNetwork,
@@ -40,7 +40,7 @@ class NllbConfig:
     """The expected maximum sequence length."""
 
     model_dim: int = 1024
-    """The dimensionality of the model (i.e. inputs and outputs)."""
+    """The dimensionality of the model."""
 
     num_enc_layers: int = 24
     """The number of encoder layers."""
@@ -176,26 +176,26 @@ class NllbBuilder:
 
         frontend = self.build_frontend(embed)
 
-        enc = self.build_encoder()
-        dec = self.build_decoder()
+        encoder = self.build_encoder()
+        decoder = self.build_decoder()
 
         final_proj = TiedProjection(embed.weight)
 
-        return TransformerModel(frontend, enc, frontend, dec, final_proj)
+        return TransformerModel(frontend, encoder, frontend, decoder, final_proj)
 
     def build_frontend(self, embed: Embedding) -> EncoderDecoderFrontend:
         """Build a shared encoder/decoder frontend."""
-        pos_embed = SinusoidalPositionalEmbedding(
-            max_seq_len=self.cfg.max_seq_len,
-            embed_dim=self.cfg.model_dim,
-            legacy_pad_token_idx=self.vocab_info.pad_idx,
+        pos_encoder = SinusoidalPositionalEncoder(
+            self.cfg.model_dim,
+            self.cfg.max_seq_len,
+            _legacy_pad_token_idx=self.vocab_info.pad_idx,
             device=self.device,
             dtype=self.cfg.dtype,
         )
 
         return TransformerTokenFrontend(
             embed,
-            pos_embed,
+            pos_encoder,
             dropout_p=self.cfg.dropout_p,
             device=self.device,
             dtype=self.cfg.dtype,

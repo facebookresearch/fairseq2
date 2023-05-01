@@ -15,14 +15,14 @@ from torch.nn import GELU, Conv1d, LayerNorm, Module, Sequential
 from torch.nn.utils.weight_norm import remove_weight_norm, weight_norm
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
-from fairseq2.nn.positional_embedding import PositionalEmbedding
+from fairseq2.nn.positional_encoder import PositionalEncoder
 from fairseq2.nn.utils.mask import apply_padding_mask
 
 
 @final
-class Wav2Vec2PositionalEmbedding(PositionalEmbedding):
-    """Produces positional embeddings as described in Section 2 of
-    :cite:t:`baevski2020wav2vec`."""
+class Wav2Vec2PositionalEncoder(PositionalEncoder):
+    """Encodes sequences with relative positional information as described in
+    Section 2 of :cite:t:`baevski2020wav2vec`."""
 
     conv: Conv1d
     remove_pad: bool
@@ -30,25 +30,25 @@ class Wav2Vec2PositionalEmbedding(PositionalEmbedding):
 
     def __init__(
         self,
-        embed_dim: int,
+        model_dim: int,
         kernel_size: int = 128,
         num_groups: int = 16,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
         """
-        :param embed_dim:
-            The dimensionality of positional embeddings.
+        :param model_dim:
+            The dimensionality of the associated wav2vec 2.0 model.
         :param kernel_size:
             The kernel size of the 1D convolution.
         :param num_groups:
             The number of convolution groups.
         """
-        super().__init__(embed_dim, max_seq_len=None)
+        super().__init__(model_dim, max_seq_len=None)
 
-        self.conv = Wav2Vec2PositionalEmbeddingConv1d(
-            embed_dim,
-            embed_dim,
+        self.conv = Wav2Vec2PositionalConv1d(
+            model_dim,
+            model_dim,
             kernel_size,
             padding=kernel_size // 2,
             groups=num_groups,
@@ -70,7 +70,7 @@ class Wav2Vec2PositionalEmbedding(PositionalEmbedding):
         """:meta private:"""
         if state_bag is not None:
             raise ValueError(
-                "`Wav2Vec2PositionalEmbedding` does not support incremental encoding."
+                "`Wav2Vec2PositionalEncoder` does not support incremental encoding."
             )
 
         # We have to ensure that the padded elements are correctly set to
@@ -78,28 +78,28 @@ class Wav2Vec2PositionalEmbedding(PositionalEmbedding):
         seqs = apply_padding_mask(seqs, padding_mask)
 
         # (N, S, E) -> (N, E, S)
-        embed = seqs.transpose(1, 2)
+        x = seqs.transpose(1, 2)
 
         # (N, E, S) -> (N, E, S)
-        embed = self.conv(embed)
+        x = self.conv(x)
 
         if self.remove_pad:
-            embed = embed[:, :, :-1]
+            x = x[:, :, :-1]
 
-        embed = self.activation(embed)
+        x = self.activation(x)
 
         # (N, E, S) -> (N, S, E)
-        embed = embed.transpose(1, 2)
+        x = x.transpose(1, 2)
 
-        return seqs + embed
+        return seqs + x
 
 
-class Wav2Vec2PositionalEmbeddingConv1d(Conv1d):
-    """Represents the convolution used in :class:`Wav2Vec2PositionalEmbedding`."""
+class Wav2Vec2PositionalConv1d(Conv1d):
+    """Represents the convolution used in :class:`Wav2Vec2PositionalEncoder`."""
 
     @override
     def reset_parameters(self) -> None:
-        embed_dim, kernel_size = self.in_channels, self.kernel_size[0]
+        model_dim, kernel_size = self.in_channels, self.kernel_size[0]
 
         try:
             remove_weight_norm(self)
@@ -109,7 +109,7 @@ class Wav2Vec2PositionalEmbeddingConv1d(Conv1d):
             pass
 
         nn.init.normal_(
-            self.weight, mean=0.0, std=(4.0 / (kernel_size * embed_dim)) ** 0.5
+            self.weight, mean=0.0, std=(4.0 / (kernel_size * model_dim)) ** 0.5
         )
 
         weight_norm(self, dim=2)
@@ -119,17 +119,18 @@ class Wav2Vec2PositionalEmbeddingConv1d(Conv1d):
 
 
 @final
-class Wav2Vec2StackedPositionalEmbedding(PositionalEmbedding):
-    """Produces positional embeddings using a stack of 1D convolutions.
+class Wav2Vec2StackedPositionalEncoder(PositionalEncoder):
+    """Encodes sequences with relative positional information using a stack
+    of 1D convolutions.
 
-    This positional embedding is not mentioned in :cite:t:`baevski2020wav2vec`,
+    This positional encoder is not mentioned in :cite:t:`baevski2020wav2vec`,
     but exists in the reference implementation."""
 
     layers: Sequential
 
     def __init__(
         self,
-        embed_dim: int,
+        model_dim: int,
         kernel_size: int,
         num_groups: int,
         num_layers: int,
@@ -138,8 +139,8 @@ class Wav2Vec2StackedPositionalEmbedding(PositionalEmbedding):
         dtype: Optional[torch.dtype] = None,
     ) -> None:
         """
-        :param embed_dim:
-            The dimensionality of positional embeddings.
+        :param model_dim:
+            The dimensionality of the associated wav2vec 2.0 model.
         :param kernel_size:
             The total kernel size of the 1D convolutions. Each convolution uses
             a kernel size of ``max(3, kernel_size // num_layers)``.
@@ -151,15 +152,15 @@ class Wav2Vec2StackedPositionalEmbedding(PositionalEmbedding):
             The epsilon value to add to the denominator of the
             :class:`~torch.nn.LayerNorm` modules for numerical stability.
         """
-        super().__init__(embed_dim, max_seq_len=None)
+        super().__init__(model_dim, max_seq_len=None)
 
         k = max(3, kernel_size // num_layers)
 
         self.layers = Sequential()
 
         for _ in range(num_layers):
-            layer = Wav2Vec2PositionalEmbeddingLayer(
-                embed_dim, k, num_groups, norm_eps, device, dtype
+            layer = Wav2Vec2PositionalEncoderLayer(
+                model_dim, k, num_groups, norm_eps, device, dtype
             )
 
             self.layers.append(layer)
@@ -174,7 +175,7 @@ class Wav2Vec2StackedPositionalEmbedding(PositionalEmbedding):
         """:meta private:"""
         if state_bag is not None:
             raise ValueError(
-                "`Wav2Vec2StackedPositionalEmbedding` does not support incremental encoding."
+                "`Wav2Vec2StackedPositionalEncoder` does not support incremental encoding."
             )
 
         # We have to ensure that the padded elements are correctly set to
@@ -182,19 +183,19 @@ class Wav2Vec2StackedPositionalEmbedding(PositionalEmbedding):
         seqs = apply_padding_mask(seqs, padding_mask)
 
         # (N, S, E) -> (N, E, S)
-        embed = seqs.transpose(1, 2)
+        x = seqs.transpose(1, 2)
 
         # (N, E, S) -> (N, E, S)
-        embed = self.layers(embed)
+        x = self.layers(x)
 
         # (N, E, S) -> (N, S, E)
-        embed = embed.transpose(1, 2)
+        x = x.transpose(1, 2)
 
-        return seqs + embed
+        return seqs + x
 
 
-class Wav2Vec2PositionalEmbeddingLayer(Module):
-    """Represents a layer used in :class:`Wav2Vec2StackedPositionalEmbedding`."""
+class Wav2Vec2PositionalEncoderLayer(Module):
+    """Represents a layer used in :class:`Wav2Vec2StackedPositionalEncoder`."""
 
     conv: Conv1d
     layer_norm: LayerNorm
@@ -202,7 +203,7 @@ class Wav2Vec2PositionalEmbeddingLayer(Module):
 
     def __init__(
         self,
-        embed_dim: int,
+        model_dim: int,
         kernel_size: int,
         num_groups: int,
         norm_eps: float = 1e-5,
@@ -212,8 +213,8 @@ class Wav2Vec2PositionalEmbeddingLayer(Module):
         super().__init__()
 
         self.conv = Conv1d(
-            embed_dim,
-            embed_dim,
+            model_dim,
+            model_dim,
             kernel_size,
             padding="same",
             groups=num_groups,
@@ -222,7 +223,7 @@ class Wav2Vec2PositionalEmbeddingLayer(Module):
         )
 
         self.layer_norm = LayerNorm(
-            embed_dim, norm_eps, elementwise_affine=False, device=device, dtype=dtype
+            model_dim, norm_eps, elementwise_affine=False, device=device, dtype=dtype
         )
 
         self.activation = GELU()

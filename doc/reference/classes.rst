@@ -22,11 +22,11 @@ Classes
     nn.Embedding
     nn.IncrementalState
     nn.IncrementalStateBag
-    nn.LearnedPositionalEmbedding
+    nn.LearnedPositionalEncoder
     nn.Linear
     nn.ModuleList
-    nn.RotaryEmbedding
-    nn.SinusoidalPositionalEmbedding
+    nn.RotaryEncoder
+    nn.SinusoidalPositionalEncoder
     nn.TiedProjection
     nn.transformer.ALiBiAttentionMaskGenerator
     nn.transformer.CausalAttentionMaskGenerator

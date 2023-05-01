@@ -19,22 +19,22 @@ from torch.nn.parameter import Parameter
 from fairseq2.nn.incremental_state import IncrementalStateBag
 
 
-class PositionalEmbedding(Module, ABC):
-    """Produces positional embeddings."""
+class PositionalEncoder(Module, ABC):
+    """Encodes sequences with positional information."""
 
-    embed_dim: int
+    model_dim: int
     max_seq_len: Optional[int]
 
-    def __init__(self, embed_dim: int, max_seq_len: Optional[int]) -> None:
+    def __init__(self, model_dim: int, max_seq_len: Optional[int]) -> None:
         """
-        :param embed_dim:
-            The dimensionality of positional embeddings.
+        :param model_dim:
+            The dimensionality of the associated model.
         :param max_seq_len:
             The expected maximum sequence length.
         """
         super().__init__()
 
-        self.embed_dim = embed_dim
+        self.model_dim = model_dim
         self.max_seq_len = max_seq_len
 
     def forward(
@@ -46,9 +46,9 @@ class PositionalEmbedding(Module, ABC):
         """
         :param seqs:
             The sequences which will be encoded with positional information.
-            *Shape:* :math:`(N,S,E)`, where :math:`N` is the batch size,
-            :math:`S` is the sequence length, and :math:`E` is the positional
-            embedding size.
+            *Shape:* :math:`(N,S,M)`, where :math:`N` is the batch size,
+            :math:`S` is the sequence length, and :math:`M` is the
+            dimensionality of the associated model.
         :param padding_mask:
             The float padding mask of ``seqs``. *Shape:* :math:`(N_{msk},S)`,
             where :math:`N_{msk}` is the batch size of the mask and :math:`S` is
@@ -79,9 +79,9 @@ class PositionalEmbedding(Module, ABC):
         """
         :param seqs:
             The sequences which will be encoded with positional information.
-            *Shape:* :math:`(N,S,E)`, where :math:`N` is the batch size,
-            :math:`S` is the sequence length, and :math:`E` is the positional
-            embedding size.
+            *Shape:* :math:`(N,S,M)`, where :math:`N` is the batch size,
+            :math:`S` is the sequence length, and :math:`M` is the
+            dimensionality of the associated model.
         :param padding_mask:
             The float padding mask of ``seqs``. *Shape:* :math:`(N_{msk},S)`,
             where :math:`N_{msk}` is the batch size of the mask and :math:`S` is
@@ -100,7 +100,7 @@ class PositionalEmbedding(Module, ABC):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = f"embed_dim={self.embed_dim}"
+        s = f"model_dim={self.model_dim}"
 
         if self.max_seq_len is not None:
             s += f", max_seq_len={self.max_seq_len}"
@@ -109,10 +109,10 @@ class PositionalEmbedding(Module, ABC):
 
 
 @final
-class SinusoidalPositionalEmbedding(PositionalEmbedding):
-    """Produces sinusoidal positional embeddings.
+class SinusoidalPositionalEncoder(PositionalEncoder):
+    """Encodes sequences with fixed sinusoidal positional information.
 
-    The positional embeddings are initialized as in tensor2tensor which differs
+    The positional encodings are initialized as in tensor2tensor which differs
     slightly from the description in section 3.5 of
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`. This means instead of
 
@@ -135,9 +135,9 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
 
     >>> import torch
     >>>
-    >>> from fairseq2.nn.positional_embedding import SinusoidalPositionalEmbedding
+    >>> from fairseq2.nn.positional_encoder import SinusoidalPositionalEncoder
     >>>
-    >>> m = SinusoidalPositionalEmbedding(max_seq_len=16, embed_dim=4)
+    >>> m = SinusoidalPositionalEncoder(model_dim=4, max_seq_len=16)
     >>>
     >>> seqs = torch.ones((3, 4))
     >>>
@@ -151,22 +151,22 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
 
     def __init__(
         self,
+        model_dim: int,
         max_seq_len: int,
-        embed_dim: int,
-        legacy_pad_token_idx: Optional[int] = None,
+        _legacy_pad_token_idx: Optional[int] = None,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
-        super().__init__(embed_dim, max_seq_len)
+        super().__init__(model_dim, max_seq_len)
 
-        # This is a legacy parameter that should only be set when the embeddings
+        # This is a legacy parameter that should only be set when the encodings
         # must be compatible with fairseq.
-        if legacy_pad_token_idx is None:
+        if _legacy_pad_token_idx is None:
             self._sin_offset = 0
         else:
-            self._sin_offset = 1 + legacy_pad_token_idx
+            self._sin_offset = 1 + _legacy_pad_token_idx
 
-        weight = torch.empty((max_seq_len, embed_dim), device=device, dtype=dtype)
+        weight = torch.empty((max_seq_len, model_dim), device=device, dtype=dtype)
 
         self.register_buffer("weight", weight, persistent=False)
 
@@ -178,10 +178,10 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
         :param skip_persistent:
             If ``True``, does not reset persistent buffers.
         """
-        num_sin = self.embed_dim // 2
+        num_sin = self.model_dim // 2
 
-        # Zero pad if the embedding size is odd.
-        if self.embed_dim > 2 * num_sin:
+        # Zero pad if the dimensionality of the model is odd.
+        if self.model_dim > 2 * num_sin:
             self.weight[:, -1:] = 0
 
         l_half = self.weight[:, :num_sin]
@@ -230,16 +230,16 @@ class SinusoidalPositionalEmbedding(PositionalEmbedding):
 
 
 @final
-class LearnedPositionalEmbedding(PositionalEmbedding):
-    """Learns positional embeddings.
+class LearnedPositionalEncoder(PositionalEncoder):
+    """Encodes sequences with learned positional embeddings.
 
     Usage:
 
     >>> import torch
     >>>
-    >>> from fairseq2.nn.positional_embedding import LearnedPositionalEmbedding
+    >>> from fairseq2.nn.positional_encoder import LearnedPositionalEncoder
     >>>
-    >>> m = LearnedPositionalEmbedding(max_seq_len=16, embed_dim=4)
+    >>> m = LearnedPositionalEncoder(model_dim=4, max_seq_len=16)
     >>>
     >>> seqs = torch.ones((3, 4))
     >>>
@@ -253,15 +253,15 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
 
     def __init__(
         self,
+        model_dim: int,
         max_seq_len: int,
-        embed_dim: int,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
-        super().__init__(embed_dim, max_seq_len)
+        super().__init__(model_dim, max_seq_len)
 
         self.weight = Parameter(
-            torch.empty((max_seq_len, embed_dim), device=device, dtype=dtype)
+            torch.empty((max_seq_len, model_dim), device=device, dtype=dtype)
         )
 
         self.reset_buffers()
@@ -297,8 +297,8 @@ class LearnedPositionalEmbedding(PositionalEmbedding):
 
 
 @final
-class RotaryEmbedding(PositionalEmbedding):
-    """Produces relative positional embeddings as described in
+class RotaryEncoder(PositionalEncoder):
+    """Encodes sequences with relative positional information as described in
     :cite:t:`https://doi.org/10.48550/arxiv.2104.09864`."""
 
     cos_weight: Tensor
@@ -306,18 +306,18 @@ class RotaryEmbedding(PositionalEmbedding):
 
     def __init__(
         self,
+        model_dim: int,
         max_seq_len: int,
-        embed_dim: int,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
-        if embed_dim % 2 != 0:
-            raise ValueError(f"`embed_dim` must be even, but is {embed_dim} instead.")
+        if model_dim % 2 != 0:
+            raise ValueError(f"`model_dim` must be even, but is {model_dim} instead.")
 
-        super().__init__(embed_dim, max_seq_len)
+        super().__init__(model_dim, max_seq_len)
 
-        cos = torch.empty((max_seq_len, embed_dim), device=device, dtype=dtype)
-        sin = torch.empty((max_seq_len, embed_dim), device=device, dtype=dtype)
+        cos = torch.empty((max_seq_len, model_dim), device=device, dtype=dtype)
+        sin = torch.empty((max_seq_len, model_dim), device=device, dtype=dtype)
 
         self.register_buffer("cos_weight", cos, persistent=False)
         self.register_buffer("sin_weight", sin, persistent=False)
@@ -334,7 +334,7 @@ class RotaryEmbedding(PositionalEmbedding):
 
         max_seq_len = cast(int, self.max_seq_len)
 
-        indices = torch.arange(self.embed_dim // 2, device=device, dtype=dtype)
+        indices = torch.arange(self.model_dim // 2, device=device, dtype=dtype)
 
         indices = indices.unsqueeze(0)
 
@@ -342,7 +342,7 @@ class RotaryEmbedding(PositionalEmbedding):
 
         steps = steps.unsqueeze(1)
 
-        embed = torch.matmul(steps, 10000 ** (-2.0 * indices / self.embed_dim))
+        embed = torch.matmul(steps, 10000 ** (-2.0 * indices / self.model_dim))
 
         cos = torch.cos(embed)
         sin = torch.sin(embed)
