@@ -164,5 +164,30 @@ def _get_fairseq_param_key_map() -> Dict[str, str]:
         r"^encoder\.conformer_layers\.([0-9]+)\.conv_module\.batch_norm\.":      r"encoder.layers.\1.conv.batch_norm.",
         r"^encoder\.conformer_layers\.([0-9]+)\.conv_module\.pointwise_conv2\.": r"encoder.layers.\1.conv.pointwise_conv2.",
         r"^encoder\.conformer_layers\.([0-9]+)\.final_layer_norm\.":             r"encoder.layers.\1.layer_norm.",
+
+        # wav2vec 2.0 - Pretrained
+        r"^w2v_encoder\.w2v_model\.encoder\.layers\.([0-9]+)\.fc1\.":                   r"encoder.layers.\1.ffn.inner_proj.",
+        r"^w2v_encoder\.w2v_model\.encoder\.layers\.([0-9]+)\.fc2\.":                   r"encoder.layers.\1.ffn.out_proj.",
+        r"^w2v_encoder\.w2v_model\.encoder\.layers\.([0-9]+)\.final_layer_norm\.":      r"encoder.layers.\1.ffn_layer_norm.",
+        r"^w2v_encoder\.w2v_model\.encoder\.layers\.([0-9]+)\.self_attn_layer_norm\.":  r"encoder.layers.\1.self_attn_layer_norm.",
+        r"^w2v_encoder\.w2v_model\.encoder\.layers\.([0-9]+)\.self_attn\.":             r"encoder.layers.\1.self_attn.",
+        r"^w2v_encoder\.w2v_model\.encoder\.layer_norm\.":                              r"encoder.layer_norm.",
+        r"^w2v_encoder\.w2v_model\.encoder\.pos_conv\.0\.":                             r"encoder_frontend.pos_encoder.conv.",
+        r"^w2v_encoder\.w2v_model\.feature_extractor\.conv_layers\.([0-9]+)\.0.":       r"encoder_frontend.feat_extractor.layers.\1.conv.",
+        r"^w2v_encoder\.w2v_model\.feature_extractor\.conv_layers\.0\.2.":              r"encoder_frontend.feat_extractor.layers.0.group_norm.",
+        r"^w2v_encoder\.w2v_model\.layer_norm\.":                                       r"encoder_frontend.feat_layer_norm.",
+        r"^w2v_encoder\.w2v_model\.mask_emb":                                           r"encoder_frontend.mask.temporal_mask_embed",
+        r"^w2v_encoder\.w2v_model\.post_extract_proj\.":                                r"encoder_frontend.feat_proj.",
+
+        # wav2vec 2.0
+        r"^encoder\.pos_conv\.0\.":                       r"encoder_frontend.pos_encoder.conv.",
+        r"^feature_extractor\.conv_layers\.([0-9]+)\.0.": r"encoder_frontend.feat_extractor.layers.\1.conv.",
+        r"^feature_extractor\.conv_layers\.0\.2.":        r"encoder_frontend.feat_extractor.layers.0.group_norm.",
+        r"^layer_norm\.":                                 r"encoder_frontend.feat_layer_norm.",
+        r"^post_extract_proj\.":                          r"encoder_frontend.feat_proj.",
+        r"^mask_emb":                                     r"encoder_frontend.feat_masker.temporal_mask_embed",
+        r"^quantizer\.":                                  r"vector_quantizer.",
+        r"^final_proj\.":                                 r"final_seq_proj.",
+        r"^project_q\.":                                  r"final_tgt_proj.",
         # fmt: on
     }

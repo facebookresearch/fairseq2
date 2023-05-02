@@ -4,11 +4,12 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple
+from typing import Optional, Tuple, final
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from overrides import final as finaloverride
 from torch import Tensor
 from torch.nn import Module
 
@@ -18,7 +19,17 @@ class VectorQuantizer(Module, ABC):
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor]:
         pass
 
+    @abstractmethod
+    def compute_loss(self, diversity: Tensor) -> Tensor:
+        """Compute the diversity loss.
 
+        :param diversity:
+            The diversity measure (e.g. prob perplexity).
+        """
+        pass
+
+
+@final
 class GumbelVectorQuantizer(VectorQuantizer):
     num_updates: Tensor
 
@@ -131,6 +142,7 @@ class GumbelVectorQuantizer(VectorQuantizer):
     #            res += indices[..., i] * (self.num_vars**exponent)
     #        return res
 
+    @finaloverride
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor]:
         self._compute_current_temp()
 
@@ -185,3 +197,9 @@ class GumbelVectorQuantizer(VectorQuantizer):
         self.curr_temp = max(temp, self.min_temp)
 
         self.num_updates.add_(1)
+
+    @finaloverride
+    def compute_loss(self, inp: Tensor) -> Tensor:
+        num_vars = self.num_vars * self.groups
+
+        return (num_vars - inp) / num_vars  # type: ignore[no-any-return]

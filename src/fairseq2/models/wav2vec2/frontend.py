@@ -138,19 +138,19 @@ class Wav2Vec2Frontend(Module):
 
         :returns:
             - The processed sequences to pass to the encoder. *Shape:*
-              :math:`(N,S,M)`, where :math:`N` is the batch size, :math:`(S)` is
-              the sequence length, and :math:`M` is the dimensionality of the
-              model.
+              :math:`(N,S_{out},M)`, where :math:`N` is the batch size,
+              :math:`(S_{out})` is the output sequence length, and :math:`M` is
+              the dimensionality of the model.
             - The non-quantized context network targets extracted from ``seqs``.
-              *Shape:* :math:`(N,S,M)`, where :math:`N` is the batch size,
-              :math:`(S)` is the sequence length, and :math:`M` is the
-              dimensionality of the model.
+              *Shape:* :math:`(N,S_{msk},M)`, where :math:`N` is the batch size,
+              :math:`(S_{msk})` is the masked sequence length, and :math:`M` is
+              the dimensionality of the model.
             - The float padding mask of the processed sequences. *Shape:*
-              :math:`(N,S)`, where :math:`N` is the batch size and :math:`S` is
-              the sequence length.
+              :math:`(N,S_{out})`, where :math:`N` is the batch size and
+              :math:`S_{out}` is the output sequence length.
             - The boolean temporal mask that has been applied to the processed
-              sequences. *Shape:* :math:`(N,S)`, where :math:`N` is the batch
-              size and :math`S` is the sequence length.
+              sequences. *Shape:* :math:`(N,S_{out})`, where :math:`N` is the
+              batch size and :math`S_{out}` is the output sequence length.
         """
         if self.feat_extractor is not None:
             seqs, seq_lens = self.feat_extractor(seqs, seq_lens)
