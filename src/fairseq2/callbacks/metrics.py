@@ -23,7 +23,9 @@ class Metrics(Dict[str, Any]):
                 val = v
             elif sync:
                 # TODO: allow histograms
-                val = torcheval.metrics.toolkit.sync_and_compute(v).item()  # type: ignore
+                val = torcheval.metrics.toolkit.sync_and_compute(v)
+                # only rank 0 will get the actual value
+                val = val.item() if val is not None else None  # type: ignore
             else:
                 val = v.compute().item()
             results[prefix + k] = val

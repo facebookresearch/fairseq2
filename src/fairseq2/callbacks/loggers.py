@@ -38,6 +38,7 @@ class MetricLogger(Stateful):
     def __init__(self, config_file: Path):
         assert config_file.parent.is_dir()
         self.config_file = config_file
+        self._rank: int = torchtnt.utils.distributed.get_global_rank()
 
     def read_config(self) -> Any:
         if not self.config_file.exists():
@@ -72,6 +73,8 @@ class StdoutLogger(MetricLogger):
         print(config)
 
     def log_dict(self, payload: tp.Mapping[str, Scalar], step: int) -> None:
+        if self._rank != 0:
+            return
         print("Step:", step, payload)
 
 
@@ -90,7 +93,6 @@ class WandbLogger(MetricLogger):
         self.group_id = group_id
         self.job_type = job_type
         self.run_id: tp.Optional[str] = None
-        self._rank: int = torchtnt.utils.distributed.get_global_rank()
         self._wandb = wandb
         self._wandb_run: tp.Any = None
 

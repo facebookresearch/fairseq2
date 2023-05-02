@@ -139,12 +139,7 @@ def init(
         log.info(f"Training is done ! Result: {res}")
         sys.exit(0)
 
-    # We have one process per GPU already
-    # TODO: allow other devices
-    device = torch.device("cuda:0")
-    torch.cuda.set_device(device)
-
-    if partition == "debug":
+    if world_size == -1 and partition == "debug":
         # Prevent double init when running in REPL
         # if not fairscale.nn.model_parallel.initialize.model_parallel_is_initialized():
         #     torch.distributed.init_process_group(backend="nccl")
@@ -152,25 +147,39 @@ def init(
         assert (
             num_gpus == 1
         ), "If you want more than one GPU, you need to specify a SLURM partition with --partition"
-        log.info("Starting local training on 1 GPU.")
+        log.info(f"Starting local training {sys.executable} on 1 GPU.")
         return Env(0, 1, torch.device("cuda:0"))
 
-    # TODO: this assumes we are a slurm job, we might want to run on non-SLURM cluster
-    env = submitit.helpers.TorchDistributedEnvironment()
-    env.export()
-    # TODO check how fairscale does it.
-    os.environ["GROUP_RANK"] = "0"
-    os.environ.update(os.environ)
+    try:
+        # Handle the case where we are launched from submitit
+        # ie with fairseq2 train --num_gpus=8
+        # WORLD_SIZE, LOCAL_RANK, etc ... aren't set yet.
+        env = submitit.helpers.TorchDistributedEnvironment()
+        if env.world_size == world_size:
+            env.export()
+            os.environ["GROUP_RANK"] = "0"
+            os.environ.update(os.environ)
+    except RuntimeError:
+        pass
+
     log.info(
-        f"Starting distributed worker\nLOCAL_RANK: {env.local_rank}\n"
-        f"RANK: {env.rank}\n"
-        f"GROUP_RANK: {os.environ['GROUP_RANK']}\n"
-        f"WORLD_SIZE: {env.world_size}"
+        f"Starting distributed worker {sys.executable}\n"
+        + "".join(
+            f"{k}: {os.environ[k]}\n"
+            for k in [
+                "RANK",
+                "WORLD_SIZE",
+                "LOCAL_RANK",
+                "LOCAL_WORLD_SIZE",
+                "GROUP_RANK",
+            ]
+        )
     )
+    device = torch.device(f"cuda:{os.environ['LOCAL_RANK']}")
 
     torch.distributed.init_process_group(backend="nccl")
-    # fairscale.nn.model_parallel.initialize_model_parallel(1)
-    return Env(env.rank, env.world_size, device)
+    torch.cuda.set_device(device)
+    return Env(int(os.environ["RANK"]), int(os.environ["WORLD_SIZE"]), device)
 
 
 def parse_submitit_stderr(stderr: str, nlines: int = 10) -> str:
