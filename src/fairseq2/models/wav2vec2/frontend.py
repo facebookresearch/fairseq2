@@ -11,7 +11,7 @@ from torch import Tensor
 from torch.nn import Dropout, LayerNorm, Module
 
 from fairseq2.models.feature_extractor import FeatureExtractor
-from fairseq2.models.wav2vec2.mask import Wav2Vec2Mask
+from fairseq2.models.wav2vec2.feature_masker import Wav2Vec2FeatureMasker
 from fairseq2.nn.positional_encoder import PositionalEncoder
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer import TransformerNormOrder
@@ -27,7 +27,8 @@ class Wav2Vec2Frontend(Module):
     feat_layer_norm: LayerNorm
     feat_proj: Optional[Linear]
     feat_dropout: Optional[Dropout]
-    mask: Wav2Vec2Mask
+    tgts_dropout: Optional[Dropout]
+    feat_masker: Wav2Vec2FeatureMasker
     pos_encoder: Optional[PositionalEncoder]
     layer_norm: Optional[LayerNorm]
     dropout: Optional[Dropout]
@@ -36,7 +37,7 @@ class Wav2Vec2Frontend(Module):
         self,
         model_dim: int,
         feat_extractor: Optional[FeatureExtractor],
-        mask: Wav2Vec2Mask,
+        feat_masker: Wav2Vec2FeatureMasker,
         pos_encoder: Optional[PositionalEncoder],
         feat_dropout_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
@@ -51,8 +52,8 @@ class Wav2Vec2Frontend(Module):
         :param feat_extractor:
             The feature extractor. If ``None``, it is assumed that features are
             extracted externally before being fed to the model.
-        :param mask:
-            The mask to apply to extracted features.
+        :param feat_masker:
+            The feature mask generator.
         :param pos_encoder:
             The positional encoder.
         :param feature_dropout_p:
@@ -92,10 +93,12 @@ class Wav2Vec2Frontend(Module):
 
         if feat_dropout_p > 0.0:
             self.feat_dropout = Dropout(feat_dropout_p)
+            self.tgts_dropout = Dropout(feat_dropout_p)
         else:
             self.register_module("feat_dropout", None)
+            self.register_module("tgts_dropout", None)
 
-        self.mask = mask
+        self.feat_masker = feat_masker
 
         if pos_encoder is not None:
             if pos_encoder.model_dim != model_dim:
@@ -118,7 +121,7 @@ class Wav2Vec2Frontend(Module):
             self.register_module("dropout", None)
 
     def forward(
-        self, seqs: Tensor, seq_lens: Optional[Tensor]
+        self, seqs: Tensor, seq_lens: Optional[Tensor], extract_only: bool = False
     ) -> Tuple[Tensor, Optional[Tensor], Optional[Tensor], Optional[Tensor]]:
         """
         :param seqs:
@@ -129,16 +132,19 @@ class Wav2Vec2Frontend(Module):
             An array where each element represents the length of the sequence at
             the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
             the batch size.
+        :param extract_only:
+            If ``True``, skip target generation and masking; return only
+            extracted features.
 
         :returns:
             - The processed sequences to pass to the encoder. *Shape:*
               :math:`(N,S,M)`, where :math:`N` is the batch size, :math:`(S)` is
               the sequence length, and :math:`M` is the dimensionality of the
               model.
-            - The non-quantized context network target embeddings extracted
-              from ``seqs``. *Shape:* :math:`(N,S,M)`, where :math:`N` is the
-              batch size, :math:`(S)` is the sequence length, and :math:`M` is
-              the dimensionality of the model.
+            - The non-quantized context network targets extracted from ``seqs``.
+              *Shape:* :math:`(N,S,M)`, where :math:`N` is the batch size,
+              :math:`(S)` is the sequence length, and :math:`M` is the
+              dimensionality of the model.
             - The float padding mask of the processed sequences. *Shape:*
               :math:`(N,S)`, where :math:`N` is the batch size and :math:`S` is
               the sequence length.
@@ -153,18 +159,32 @@ class Wav2Vec2Frontend(Module):
 
         seqs = self.feat_layer_norm(seqs)
 
-        # The feature extractor outputs will later be quantized and used as the
-        # targets of the context network.
-        tgts = seqs.clone()
+        # If `True`, skip target generation and masking.
+        if extract_only:
+            tgts = None
 
-        if self.feat_proj is not None:
-            seqs = self.feat_proj(seqs)
+            if self.feat_proj is not None:
+                seqs = self.feat_proj(seqs)
 
-        if self.feat_dropout is not None:
-            seqs = self.feat_dropout(seqs)
-            tgts = self.feat_dropout(tgts)
+            if self.feat_dropout is not None:
+                seqs = self.feat_dropout(seqs)
 
-        seqs, temporal_mask = self.mask(seqs, seq_lens)
+            temporal_mask = None
+        else:
+            # The feature extractor outputs will later be quantized and used as
+            # the targets of the context network.
+            tgts = seqs.clone()
+
+            if self.feat_proj is not None:
+                seqs = self.feat_proj(seqs)
+
+            if self.feat_dropout is not None:
+                seqs = self.feat_dropout(seqs)
+
+            if self.tgts_dropout is not None:
+                tgts = self.tgts_dropout(tgts)
+
+            seqs, temporal_mask = self.feat_masker(seqs, seq_lens)
 
         if self.pos_encoder is not None:
             seqs = self.pos_encoder(seqs, padding_mask)
@@ -175,7 +195,7 @@ class Wav2Vec2Frontend(Module):
         if self.dropout is not None:
             seqs = self.dropout(seqs)
 
-        return seqs, tgts, padding_mask, temporal_mask
+        return seqs, padding_mask, tgts, temporal_mask
 
     def extra_repr(self) -> str:
         """:meta private:"""

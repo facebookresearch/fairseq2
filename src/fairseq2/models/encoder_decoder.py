@@ -83,12 +83,12 @@ class EncoderDecoderModel(Module, ABC):
             the batch size.
 
         :returns:
-            - The encoded output of ``seqs``. *Shape:* :math:`(N,S,M)`, where
-              :math:`N` is the batch size, :math:`S` is the sequence length, and
-              :math:`M` is the dimensionality of the model.
+            - The encoded output of ``seqs``. *Shape:* :math:`(N,S_{out},M)`,
+              where :math:`N` is the batch size, :math:`S_{out}` is the output
+              sequence length, and :math:`M` is the dimensionality of the model.
             - The float padding mask of the encoded output. *Shape:*
-              :math:`(N,S)`, where :math:`N` is the batch size and :math:`S` is
-              the sequence length.
+              :math:`(N,S_{out})`, where :math:`N` is the batch size and
+              :math:`S_{out}` is the output sequence length.
         """
 
     @abstractmethod
@@ -113,12 +113,12 @@ class EncoderDecoderModel(Module, ABC):
             the batch size.
         :param enc_out:
             The encoder output for the encoder-decoder attention. *Shape:*
-            :math:`(N,S_{src},M)`, where :math:`N` is the batch size,
-            :math:`S_{src}` is the source sequence length, and :math:`M` is the
+            :math:`(N,S_{enc},M)`, where :math:`N` is the batch size,
+            :math:`S_{enc}` is the output sequence length, and :math:`M` is the
             dimensionality of the model.
         :param enc_padding_mask:
-            The float padding mask of ``enc_out``. *Shape:* :math:`(N,S_{src})`,
-            where :math:`N` is the batch size and :math:`S_{src}` is the source
+            The float padding mask of ``enc_out``. *Shape:* :math:`(N,S_{enc})`,
+            where :math:`N` is the batch size and :math:`S_{enc}` is the output
             sequence length.
         :param state_bag:
             The state bag to use during an incremental evaluation.

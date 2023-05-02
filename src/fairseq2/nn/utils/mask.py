@@ -38,10 +38,6 @@ def compute_mask(
 
     :returns:
         A boolean mask. *:Shape:* ``shape``.
-
-    .. note::
-        For a boolean mask, a ``True`` indicates that the corresponding position
-        should be masked.
     """
     num_rows, max_row_len = shape
 
@@ -66,9 +62,8 @@ def compute_mask(
 
     indices = _compute_mask_spans(row_lens, span_len, max_mask_prob, min_num_spans)
 
-    # If `None`, it means we won't mask any elements.
     if indices is None:
-        return None
+        return row_lens.new_empty((0, 0))
 
     return _generate_mask(indices, max_row_len).to(device)
 
@@ -83,18 +78,17 @@ def _compute_mask_spans(
     if num_rows == 0:
         return None
 
-    # Used for probabilistic rounding between floor and ceil.
-    rounding = torch.rand(num_rows, device=device)
-
     # Compute the number of mask spans per row. We should always have at least
-    # one unmasked element; that is why we substract 1 from `row_lens`.
-    num_spans_per_row = ((max_mask_prob / span_len) * (row_lens - 1)) + rounding
+    # one unmasked element; this is why we substract 1 from `row_lens`.
+    num_spans_per_row = (max_mask_prob / span_len) * (row_lens - 1)
 
     # Require the same number of mask spans for all rows.
     num_spans = cast(int, num_spans_per_row.type(dtype).min().item())
 
     if min_num_spans > num_spans:
-        num_spans = min_num_spans
+        raise ValueError(
+            f"`min_num_spans` is {min_num_spans}, but with the given `span_len` and `max_mask_prob` only {num_spans} mask span(s) can be generated."
+        )
 
     if num_spans == 0:
         return None
@@ -110,7 +104,8 @@ def _compute_mask_spans(
     # (R x N)
     rand_scales = torch.rand(num_rows * num_spans, device=device)
 
-    # By random scaling we effectively pick a start index for each mask span.
+    # By random scaling we effectively pick a random start index for each mask
+    # span.
     span_offsets = span_start_range * rand_scales
 
     # The following ops convert the mask span offsets (i.e. start indices) to

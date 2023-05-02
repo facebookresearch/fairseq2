@@ -337,7 +337,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Reset the parameters of the module."""
+        """Reset the parameters and buffers of the module."""
         if self.bias_k is not None:
             nn.init.xavier_normal_(self.bias_k)
         if self.bias_v is not None:

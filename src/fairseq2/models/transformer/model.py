@@ -122,7 +122,7 @@ class FinalProjection(ResettableProjection):
 
     @finaloverride
     def reset_parameters(self) -> None:
-        """Reset the parameters of the module."""
+        """Reset the parameters and buffers of the module."""
         nn.init.normal_(self.weight, std=self.inp_dim**-0.5)
 
         if self.bias is not None:

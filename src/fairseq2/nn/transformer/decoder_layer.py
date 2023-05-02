@@ -214,7 +214,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Reset the parameters of the module."""
+        """Reset the parameters and buffers of the module."""
         if self.residual_scale is not None:
             nn.init.ones_(self.residual_scale)
 

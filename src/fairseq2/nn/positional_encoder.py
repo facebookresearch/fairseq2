@@ -6,7 +6,7 @@
 
 import math
 from abc import ABC, abstractmethod
-from typing import Optional, cast, final
+from typing import Optional, final
 
 import torch
 import torch.nn as nn
@@ -170,14 +170,10 @@ class SinusoidalPositionalEncoder(PositionalEncoder):
 
         self.register_buffer("weight", weight, persistent=False)
 
-        self.reset_buffers()
+        self.reset_parameters()
 
-    def reset_buffers(self, skip_persistent: bool = False) -> None:
-        """Reset the buffers of the module.
-
-        :param skip_persistent:
-            If ``True``, does not reset persistent buffers.
-        """
+    def reset_parameters(self) -> None:
+        """Reset the parameters and buffers of the module."""
         num_sin = self.model_dim // 2
 
         # Zero pad if the dimensionality of the model is odd.
@@ -191,10 +187,12 @@ class SinusoidalPositionalEncoder(PositionalEncoder):
 
         start = self._sin_offset
 
-        max_seq_len = cast(int, self.max_seq_len)
+        assert self.max_seq_len is not None
 
         # This is identical to tensor2tensor's implementation.
-        indices = torch.arange(start, start + max_seq_len, device=device, dtype=dtype)
+        indices = torch.arange(
+            start, start + self.max_seq_len, device=device, dtype=dtype
+        )
 
         indices = indices.unsqueeze(1)
 
@@ -264,14 +262,10 @@ class LearnedPositionalEncoder(PositionalEncoder):
             torch.empty((max_seq_len, model_dim), device=device, dtype=dtype)
         )
 
-        self.reset_buffers()
+        self.reset_parameters()
 
-    def reset_buffers(self, skip_persistent: bool = False) -> None:
-        """Reset the buffers of the module.
-
-        :param skip_persistent:
-            If ``True``, does not reset persistent buffers.
-        """
+    def reset_parameters(self) -> None:
+        """Reset the parameters and buffers of the module."""
         nn.init.normal_(self.weight)
 
     @finaloverride
@@ -322,23 +316,19 @@ class RotaryEncoder(PositionalEncoder):
         self.register_buffer("cos_weight", cos, persistent=False)
         self.register_buffer("sin_weight", sin, persistent=False)
 
-        self.reset_buffers()
+        self.reset_parameters()
 
-    def reset_buffers(self, skip_persistent: bool = False) -> None:
-        """Reset the buffers of the module.
-
-        :param skip_persistent:
-            If ``True``, does not reset persistent buffers.
-        """
+    def reset_parameters(self) -> None:
+        """Reset the parameters and buffers of the module."""
         device, dtype = self.sin_weight.device, self.sin_weight.dtype
-
-        max_seq_len = cast(int, self.max_seq_len)
 
         indices = torch.arange(self.model_dim // 2, device=device, dtype=dtype)
 
         indices = indices.unsqueeze(0)
 
-        steps = torch.arange(max_seq_len, device=device, dtype=dtype)
+        assert self.max_seq_len is not None
+
+        steps = torch.arange(self.max_seq_len, device=device, dtype=dtype)
 
         steps = steps.unsqueeze(1)
 

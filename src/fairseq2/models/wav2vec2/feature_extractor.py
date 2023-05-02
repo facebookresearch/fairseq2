@@ -252,6 +252,62 @@ class Wav2Vec2FeatureConv1d(Conv1d):
         nn.init.kaiming_normal_(self.weight)
 
 
+# TODO: Move this to data pre-processing! It isn't a real feature extractor.
+class Wav2Vec2FbankFeatureExtractor(FeatureExtractor):
+    num_fbank_features: int
+    stride: int
+    sample_every_k: int
+
+    def __init__(self, num_fbank_features: int, stride: int, sample_every_k: int = 1):
+        super().__init__(embed_dim=num_fbank_features * stride)
+
+        self.num_fbank_features = num_fbank_features
+        self.stride = stride
+        self.sample_every_k = sample_every_k
+
+    @finaloverride
+    def forward(
+        self, seqs: Tensor, seq_lens: Optional[Tensor]
+    ) -> Tuple[Tensor, Optional[Tensor]]:
+        batch_size, num_frames, num_features = seqs.shape
+
+        if (r := num_frames % self.stride) != 0:
+            num_frames -= r
+
+            seqs = seqs[:, :num_frames, :]
+
+            if seq_lens is not None:
+                seq_lens[seq_lens > num_frames] = num_frames
+
+        seqs = seqs.view(
+            batch_size, num_frames // self.stride, num_features * self.stride
+        )
+
+        if self.sample_every_k > 1:
+            indices = torch.arange(0, batch_size, device=seqs.device)
+
+            seqs = seqs[indices % self.sample_every_k != 0]
+
+        if seq_lens is not None:
+            # Since we contracted the temporal dimension, we should re-compute
+            # the sequence lengths.
+            seq_lens = self._compute_seq_lens(seq_lens)
+
+        return seqs, seq_lens
+
+    def _compute_seq_lens(self, num_frames: Tensor) -> Tensor:
+        num_frames = num_frames // self.stride
+
+        if self.sample_every_k > 1:
+            num_frames //= self.sample_every_k + 1
+
+        return num_frames
+
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        return f"num_fbank_features={self.num_fbank_features}, stride={self.string}, sample_every_k={self.sample_every_k}"
+
+
 class Float32LayerNorm(LayerNorm):
     """Applies Layer Normalization in single-precision."""
 

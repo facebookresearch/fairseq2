@@ -14,7 +14,7 @@ from torch.nn import Module, Parameter
 from fairseq2.nn.utils.mask import compute_mask
 
 
-class Wav2Vec2Mask(Module):
+class Wav2Vec2FeatureMasker(Module):
     """Masks feature extractor outputs as described in Section 3.1 of
     :cite:t:`baevski2020wav2vec`."""
 
@@ -64,7 +64,7 @@ class Wav2Vec2Mask(Module):
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
-        """Reset the parameters of the module."""
+        """Reset the parameters and buffers of the module."""
         nn.init.uniform_(self.temporal_mask_embed)
 
     def forward(
@@ -82,13 +82,10 @@ class Wav2Vec2Mask(Module):
 
         :returns:
             - ``seqs`` with mask applied. *Shape:* Same as ``seqs``.
-            - The boolean temporal mask that has been applied to ``seqs``. *Shape:*
-              :math:`(N,S)`, where :math:`N` is the batch size and :math`S` is
-              the sequence length.
+            - The boolean temporal mask that has been applied to ``seqs``.
+              *Shape:* :math:`(N,S)`, where :math:`N` is the batch size and
+              :math`S` is the sequence length.
         """
-        if not self.training:
-            return seqs, None
-
         batch_size, seq_len, model_dim = seqs.shape
 
         # Temporal mask over time steps.
@@ -104,8 +101,9 @@ class Wav2Vec2Mask(Module):
                 device=seqs.device,
             )
 
-            if temporal_mask is not None:
-                seqs[temporal_mask] = self.temporal_mask_embed
+            assert temporal_mask is not None
+
+            seqs[temporal_mask] = self.temporal_mask_embed
         else:
             temporal_mask = None
 
@@ -121,10 +119,11 @@ class Wav2Vec2Mask(Module):
                 device=seqs.device,
             )
 
-            if spatial_mask is not None:
-                spatial_mask = spatial_mask.unsqueeze(1).expand(-1, seq_len, -1)
+            assert spatial_mask is not None
 
-                seqs[spatial_mask] = 0.0
+            spatial_mask = spatial_mask.unsqueeze(1).expand(-1, seq_len, -1)
+
+            seqs[spatial_mask] = 0.0
 
         return seqs, temporal_mask
 
