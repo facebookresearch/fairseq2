@@ -70,6 +70,7 @@ def_data_pipeline(py::module_ &base)
         .def("__iter__",
             [](data_pipeline &self)
             {
+                self.reset();
                 return data_pipeline_iterator{self};
             },
             py::keep_alive<0, 1>{})

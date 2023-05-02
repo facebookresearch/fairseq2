@@ -115,7 +115,7 @@ class MultilingualTokenizer(Tokenizer):
 
             if lang not in self.src_langs:
                 raise ValueError(
-                    f"`lang` must be a supported source language, but is '{lang}' instead."
+                    f"`lang` ({lang}) is not a supported source language. Choose from {self.src_langs}"
                 )
         elif mode == "target":
             if not lang:
@@ -123,7 +123,7 @@ class MultilingualTokenizer(Tokenizer):
 
             if lang not in self.tgt_langs:
                 raise ValueError(
-                    f"`lang` must be a supported target language, but is '{lang}' instead."
+                    f"`lang` ({lang}) is not a supported target language. Choose from {self.tgt_langs}"
                 )
         else:
             raise ValueError(

@@ -1,4 +1,5 @@
 import datetime
+import functools
 import os
 import sys
 from typing import TYPE_CHECKING, List
@@ -8,14 +9,14 @@ import torchtnt.framework as tnt
 
 import fairseq2.distributed
 import fairseq2.tasks
-from fairseq2.optim.lr_scheduler import LRScheduler, MyleLR
+from fairseq2.optim.lr_scheduler import MyleLR
 
 if TYPE_CHECKING:
     from fairseq2.callbacks import MetricLogger
     from fairseq2.cli.module_loader import Xp
     from fairseq2.models.transformer import TransformerModel
 
-imports = set(locals().keys())
+_imports = set(locals().keys())
 
 task = fairseq2.tasks.Seq2Seq
 
@@ -75,21 +76,21 @@ def logger(xp: "Xp", entry_point: str, wandb_project: str = "") -> "MetricLogger
 
 
 def optimizer(
-    model: "TransformerModel", weight_decay: float = 1e-5
+    model: "TransformerModel",
+    weight_decay: float = 1e-5,
+    lr: float = 5e-4,
 ) -> torch.optim.Optimizer:
     """Pytorch optimizer."""
     return torch.optim.Adam(
         model.parameters(),
-        lr=1.0,
+        lr=lr,
         betas=(0.9, 0.98),
         eps=1e-6,
         weight_decay=0.0001,
     )
 
 
-def lr_scheduler(optimizer: torch.optim.Optimizer, lr: float = 5e-4) -> LRScheduler:
-    """Learning Rate scheduler, MyleLR by default"""
-    return MyleLR(optimizer, num_warmup_steps=4000, start_lr=lr)
+lr_scheduler = functools.partial(MyleLR, num_warmup_steps=4000)
+"""Learning Rate scheduler, MyleLR by default"""
 
-
-__all__ = list(set(locals()) - imports)
+__all__ = [x for x in locals() if not x.startswith("_") and x not in _imports]

@@ -10,8 +10,9 @@ if TYPE_CHECKING:
 
 class Seq2SeqBatch(NamedTuple):
     source: "torch.Tensor"
+    src_seq_lens: "torch.Tensor"
     target: "torch.Tensor"
-    num_tokens: int
+    tgt_seq_lens: "torch.Tensor"
     metadata: Sequence[Dict[str, Any]] = []
 
 

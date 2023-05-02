@@ -257,5 +257,4 @@ def assert_eq_twice(
     # First epoch
     assert list(dataloader) == expected
     # Second epoch
-    dataloader.reset()
     assert list(dataloader) == expected

@@ -1,7 +1,7 @@
 import functools
 import itertools
 import math
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set, Type
 
 import sacrebleu  # type: ignore
 import torch
@@ -21,6 +21,7 @@ import fairseq2.optim.lr_scheduler
 from fairseq2.callbacks import Metrics
 from fairseq2.data.text import Tokenizer
 from fairseq2.dataloader import Seq2SeqBatch, Seq2SeqStr
+from fairseq2.distributed import Env
 from fairseq2.generate import BeamSearchStrategy, SearchStrategy
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.optim.lr_scheduler import LRScheduler
@@ -31,10 +32,13 @@ class Seq2Seq(
 ):
     """Default seq2seq task"""
 
+    data_type: Type[Any] = Seq2SeqBatch
+
     # Note: this is very close to the tnt.AutoUnit, maybe we should inherit from them.
     def __init__(
         self,
         model: EncoderDecoderModel,
+        env: Env,
         tokenizer: Tokenizer,
         optimizer: torch.optim.Optimizer,
         lr_scheduler: Optional[LRScheduler] = None,
@@ -45,6 +49,7 @@ class Seq2Seq(
         self.model = model
         self.tokenizer = tokenizer
         self.best_metric = best_metric
+        self.device = env.device
 
         self.optimizer = optimizer
         self.lr_scheduler = lr_scheduler
@@ -57,23 +62,24 @@ class Seq2Seq(
         self.eval_gen = True
 
     def init_metrics(self, mode: str) -> Metrics:
+        device = self.device
         metrics = Metrics(
-            loss=torcheval.metrics.Mean(),
-            num_tokens=torcheval.metrics.Sum(),
-            tps=torcheval.metrics.Throughput(),
-            etps=fairseq2.callbacks.EffectiveThroughput(),
+            loss=torcheval.metrics.Mean(device=device),
+            src_num_tokens=torcheval.metrics.Sum(device=device),
+            tgt_num_tokens=torcheval.metrics.Sum(device=device),
+            tps=torcheval.metrics.Throughput(device=device),
         )
         if mode == "eval":
-            metrics["loss_min"] = torcheval.metrics.Min()
+            metrics["loss_min"] = torcheval.metrics.Min(device=device)
             metrics["best"] = False
         return metrics
 
-    def replicated_keys(self) -> List[str]:
-        return ["tokenizer"]
+    def replicated_keys(self) -> Set[str]:
+        return {"tokenizer"}
 
-    def train_step(self, state: State, data: Seq2SeqBatch) -> None:
+    def train_step(self, state: State, data: Any) -> None:
         if isinstance(data, list):
-            data = Seq2SeqBatch(*data, num_tokens=(data[1] != self.pad_idx).sum())
+            data = self.data_type(*data)
         assert state.train_state
         seed = self.seed + state.train_state.progress.num_steps_completed
         torchtnt.utils.seed(seed)
@@ -94,11 +100,10 @@ class Seq2Seq(
             self.lr_scheduler.step()
 
         # This is the elapsed time since TNT started the "train_step"
-        num_tokens = data.num_tokens
+        num_tokens = data.tgt_seq_lens.sum()
         metrics["tps"].update(
             num_tokens, elapsed_time_sec=state.timer.interval_time_seconds
         )
-        metrics["etps"].update(num_tokens)
 
     def on_train_start(self, state: State) -> None:
         assert state.train_state
@@ -109,7 +114,9 @@ class Seq2Seq(
         pass
 
     def loss(self, metrics: Metrics, data: Seq2SeqBatch) -> Tensor:
-        net_output = self.model(data.source, data.target[:, :-1])
+        net_output = self.model(
+            data.source, data.src_seq_lens, data.target[:, :-1], data.tgt_seq_lens
+        )
         if not isinstance(net_output, Tensor):
             net_output = net_output.logits
 
@@ -121,10 +128,11 @@ class Seq2Seq(
             reduction="sum",
             ignore_index=self.tokenizer.vocab_info.pad_idx,
         )
-        num_tokens = torch.tensor(data.num_tokens)
-        nll_loss = loss.detach().cpu() / num_tokens / math.log(2)
-        metrics["loss"].update(nll_loss, weight=num_tokens)
-        metrics["num_tokens"].update(num_tokens)
+        tgt_num_tokens = data.tgt_seq_lens.sum()
+        nll_loss = loss.detach() / tgt_num_tokens / math.log(2)
+        metrics["loss"].update(nll_loss, weight=tgt_num_tokens)
+        metrics["tgt_num_tokens"].update(tgt_num_tokens)
+        metrics["src_num_tokens"].update(data.src_seq_lens.sum())
         if self.lr_scheduler is not None:
             metrics["lr"] = self.lr_scheduler.get_last_lr()[0]
 

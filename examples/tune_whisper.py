@@ -1,3 +1,12 @@
+"""
+Fine tune Whisper model on an HuggingFace dataset.
+
+Example cli:
+
+python examples/tune_whisper.py help
+python examples/tune_whisper.py -w /checkpoint/$USER/fairseq2/whisper langs=hi
+"""
+
 import itertools
 from datetime import timedelta
 from typing import Any, Iterable, List
@@ -83,6 +92,7 @@ def model(
     version: str = "openai/whisper-small",
     fp16: bool = True,
 ) -> Any:
+    """Chose which huggingface model to use"""
     m = WhisperForConditionalGeneration.from_pretrained(version)
     m = m.to(env.device)
     if fp16:
@@ -174,7 +184,7 @@ def valid_data(
     )
 
 
-def processor(version: str) -> "WhisperProcessor":
+def processor(version: str = "openai/whisper-small") -> "WhisperProcessor":
     return WhisperProcessor.from_pretrained(version)
 
 
@@ -184,3 +194,9 @@ def tokenizer(processor: "WhisperProcessor") -> Tokenizer:
 
 def feature_extractor(processor: "WhisperProcessor") -> "SequenceFeatureExtractor":
     return processor.feature_extractor
+
+
+if __name__ == "__main__":
+    import fairseq2.cli.commands
+
+    fairseq2.cli.commands.main(__file__)

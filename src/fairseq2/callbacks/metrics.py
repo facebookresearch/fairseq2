@@ -87,6 +87,9 @@ class Bleu(CounterBasedMetric):
 
     @torch.inference_mode()
     def update(self, hypothesis: str, references: List[str]) -> None:  # type: ignore[override]
+        # We may receive a CString here.
+        hypothesis = str(hypothesis)
+        references = [str(ref) for ref in references]
         ref_info = self._metric._extract_reference_info(references)
         counts = self._metric._compute_segment_statistics(hypothesis, ref_info)
         self.num_refs += len(references)

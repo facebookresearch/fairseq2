@@ -55,7 +55,7 @@ install: venv build .PHONY
 venv: $(VENV)
 
 $(VENV):
-	python -m venv venv
+	python3 -m venv venv
 	$(VENV)pip install -U pip
 	$(VENV)pip install torch torchaudio --extra-index-url https://download.pytorch.org/whl/cu116
 	$(VENV)python -c 'import torch; print("CUDA:", torch.cuda.is_available()); print(torch.version.__version__)'

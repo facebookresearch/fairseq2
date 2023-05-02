@@ -26,6 +26,7 @@ import torch
 import yaml
 
 import fairseq2.distributed
+from fairseq2.cli import yaml_ext
 
 log = logging.getLogger("fairseq2.cli")
 AnyCallable = Callable[..., Any]
@@ -176,7 +177,7 @@ class XpScript:
 
         if missing_args:
             raise ValueError(
-                f"{_lineno(fn.fn)} Can't call {name}, missing args: {missing_args}. Try to supply it from CLI {missing_args}=..."
+                f"{_lineno(fn.fn)} Can't call {name}, missing args: {missing_args}. Try to supply it from CLI: {missing_args[0]}=..."
             )
         resolved_args = {
             arg: self[f"{name}.{arg}"] for arg in spec.args if arg != "self"
@@ -248,7 +249,7 @@ class XpScript:
 
     def serialize(self, conf_file: Path) -> None:
         assert conf_file.suffix == ".yaml"
-        yaml_conf = yaml.dump(self.as_tree())
+        yaml_conf = yaml.dump(self.as_tree(), Dumper=yaml_ext.Dumper)
         conf_file.write_text(yaml_conf)
 
     def as_tree(self) -> Dict[str, Any]:

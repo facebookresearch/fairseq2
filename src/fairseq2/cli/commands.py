@@ -11,7 +11,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import submitit
 import torch
@@ -40,6 +40,7 @@ def train(
     partition: str = "debug",
     num_gpus: int = 1,
     eval_freq: int = -1,
+    profile: bool = False,
     overrides: List[str] = [],
 ) -> None:
     """Launches a training script.
@@ -103,7 +104,53 @@ def train(
     fairseq2.callbacks.load_from_last_snapshot(str(workdir), train_state, task)
 
     callbacks = module.call_fn("callbacks", caller="train")
-    tnt.fit(train_state, task, callbacks=callbacks)
+
+    try:
+        tnt.fit(train_state, task, callbacks=callbacks)
+    except torch.cuda.OutOfMemoryError:  # type: ignore
+        # TODO: make this handler configurable.
+        # Could there be a tnt "on_oom_error" callback ?
+        log.error("Cuda Out Of Memory Error !")
+        log.warning(torch.cuda.memory_summary())
+        for line in _cuda_mem_profile():
+            log.warning(line)
+        raise
+
+
+def _cuda_mem_profile() -> List[str]:
+    import collections
+    import gc
+
+    shapes = []
+    cpu = torch.device("cpu")
+    for obj in gc.get_objects():
+        try:
+            if torch.is_tensor(obj) or (
+                hasattr(obj, "data") and torch.is_tensor(obj.data)
+            ):
+                if obj.device != cpu:
+                    shapes.append(
+                        (
+                            obj.element_size() * obj.nelement(),
+                            tuple(obj.shape),
+                            f"{obj.device}:{obj.dtype}",
+                        )
+                    )
+        except:
+            pass
+    shape_counts = list(collections.Counter(shapes).items())
+    mem_usage = [
+        (size * count / 1024 / 1024, count, shape, device)
+        for (size, shape, device), count in shape_counts
+    ]
+    mem_usage.sort(reverse=True)
+    # Note that the number of small tensors is already reported by memory_summary.
+    # Having the shape allows to backtrack to the code creating the tensor.
+    return [
+        f"{mb:.1f}MB occupied by {count} {shape} tensors on {device}"
+        for (mb, count, shape, device) in mem_usage
+        if mb > 10
+    ]
 
 
 def grid(
@@ -450,6 +497,64 @@ def help(script: Path, overrides: List[str] = []) -> None:
             hidden=["env", "xp", "entry_point"],
         )
     )
+
+
+def main(script: Union[Path, str, None] = None) -> None:
+    import func_argparse as fa
+
+    parsers = {
+        "train": fa.func_argparser(train),
+        "evaluate": fa.func_argparser(evaluate),
+        "inference": fa.func_argparser(inference),
+        "grid": fa.func_argparser(grid),
+        "eval_server": fa.func_argparser(eval_server),
+        "help": fa.func_argparser(help),
+    }
+    # TODO: push this to func_argparse
+    with_overrides = []
+    for name, parser in parsers.items():
+        # Promote the first argument to positional argument
+        if len(parser._actions) < 2:
+            continue
+
+        # If main is called from a script `fairseq2.cli.commands.main(__file__)`
+        # we remove the script CLI arg, otherwise we convert it to a positional CLI arg
+        if script and parser._actions[1].dest == "script":
+            parser._actions.remove(parser._actions[1])
+            parser.set_defaults(script=Path(script))
+        elif parser._actions[1].default is None:
+
+            parser._actions[1].option_strings = ()
+
+        # Handle overrides separately, I'm not sure why nargs="*" doesn't work as expected
+        override_action = [
+            a for a in parser._actions if "--overrides" in a.option_strings
+        ]
+        if len(override_action) == 1:
+            parser._actions.remove(override_action[0])
+            with_overrides.append(name)
+
+    main_parser = fa.multi_argparser(description=__doc__, **parsers)
+
+    known_args, overrides = main_parser.parse_known_args()
+    parsed_args = vars(known_args)
+    if not parsed_args:
+        # Show help for multi argparser receiving no arguments.
+        main_parser.print_help()
+        main_parser.exit()
+    command = parsed_args.pop("__command")
+
+    if command.__name__ in with_overrides:
+        parsed_args["overrides"] = overrides
+        typo_in_command = any(o.startswith("-") for o in overrides)
+    else:
+        typo_in_command = len(overrides) > 0
+
+    if typo_in_command:
+        # Redo the parsing so that we have the normal error message for unk args
+        main_parser.parse_args()
+
+    command(**parsed_args)
 
 
 def _extract_slurm_args(overrides: List[str]) -> Tuple[Dict[str, str], List[str]]:

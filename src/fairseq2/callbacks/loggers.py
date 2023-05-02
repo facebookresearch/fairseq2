@@ -1,8 +1,11 @@
 import dataclasses
+import enum
 import logging
+import math
 import os
+import time
 import typing as tp
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 from typing import Any, Dict
 
@@ -191,7 +194,11 @@ class WandbLogger(MetricLogger):
             return
         self.prepare()
         self._wandb_run.log(payload, step)
-        print("Step:", step, {k: v for k, v in payload.items() if isinstance(v, float)})
+        print(
+            "Step:",
+            step,
+            {k: round_sig(v, 4) for k, v in payload.items() if isinstance(v, float)},
+        )
 
     def close(self) -> None:
         """Close log resource, flushing if necessary.
@@ -208,26 +215,43 @@ class LogMetrics(Callback):
     def __init__(
         self,
         logger: MetricLogger,
-        frequency_steps: int = 10,
-        sync_frequency: int = 100,
-        max_interval: timedelta = timedelta(minutes=5),
+        frequency_steps: int = 1000,
+        sync_frequency: int = 1000,
+        increased_freq_steps: int = 10,
+        max_interval: timedelta = timedelta(minutes=20),
     ):
+        """Logs the metrics every frequency_steps
+
+        - sync_frequency: when to synchronize the metric across workers
+        - increased_freq_steps: increase the frequency of logging at the beginning of training
+        - max_interval: upper bound delay between two metric log
+        """
         self.logger = logger
         self.frequency_steps = frequency_steps
         self.sync_frequency = max(sync_frequency, frequency_steps)
-        self.global_rank = torchtnt.utils.get_global_rank()
+        self.increased_freq_steps = increased_freq_steps
 
-        self.max_interval = max_interval
-        self._last_log = datetime.now()
+        self.max_interval_seconds = max_interval.total_seconds()
+        self._last_log = time.monotonic()
 
     def on_train_step_end(self, state: State, unit: TTrainUnit[Any]) -> None:
         assert state.train_state is not None
         step = state.train_state.progress.num_steps_completed
+        freq = self.frequency_steps
+        should_log = False
+        # Increase the log frequency at the beginning of training
+        if (
+            step < self.increased_freq_steps * freq
+            and step % (freq // self.increased_freq_steps) == 0
+        ):
+            should_log = True
+        elif step % freq != 0:
+            should_log = time.monotonic() - self._last_log > self.max_interval_seconds
 
-        if step % self.frequency_steps != 0:
-            if datetime.now() - self._last_log < self.max_interval:
-                return
-        self.log_metrics(state, step, "train/", sync=step % self.sync_frequency == 0)
+        if should_log:
+            self.log_metrics(
+                state, step, "train/", sync=step % self.sync_frequency == 0
+            )
 
     def on_train_epoch_end(self, state: State, unit: TTrainUnit[Any]) -> None:
         assert state.train_state is not None
@@ -251,8 +275,7 @@ class LogMetrics(Callback):
         metrics = (
             state.eval_state.metrics if prefix == "eval/" else state.train_state.metrics  # type: ignore
         )
-        wandb = isinstance(self.logger, WandbLogger)
-        actual_metrics = metrics.compute(sync=sync, prefix=prefix, wandb=wandb)
+        actual_metrics = metrics.compute(sync=sync, prefix=prefix)
 
         report, total_calls, total_time = torchtnt.utils.timer._make_report(state.timer)
         for row in report[:10]:
@@ -261,11 +284,11 @@ class LogMetrics(Callback):
                 continue
             actual_metrics[f"timer/{name}"] = percentage
 
-        if self.global_rank == 0:
-            self.logger.log_dict(actual_metrics, step)
+        # Note: we call log_dict on all rank, we let the logger handle that.
+        self.logger.log_dict(actual_metrics, step)
 
         metrics.reset()
-        self._last_log = datetime.now()
+        self._last_log = time.monotonic()
 
 
 class WandbCsvWriter(Callback):
@@ -364,8 +387,21 @@ def _simple_conf(config: tp.Any) -> tp.Any:
         config = dataclasses.asdict(config)
     if isinstance(config, dict):
         return {k: _simple_conf(v) for k, v in config.items()}
+    if isinstance(config, enum.Enum):
+        config = config.name
     if isinstance(config, Path):
         config = str(config)
     if isinstance(config, torch.device):
         config = str(config)
+    if isinstance(config, torch.dtype):
+        config = str(config)
     return config
+
+
+_SPECIAL_FLOATS = (0.0, float("inf"), float("-inf"), float("nan"))
+
+
+def round_sig(x: float, sig: int) -> float:
+    if x in _SPECIAL_FLOATS:
+        return x
+    return round(x, -int(math.floor(math.log10(abs(x)))) + (sig - 1))

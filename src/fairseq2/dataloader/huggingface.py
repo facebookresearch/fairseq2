@@ -1,7 +1,7 @@
 import datetime
 import logging
 from pathlib import Path
-from typing import Iterable, Iterator, List, Mapping, Optional
+from typing import Iterable, Iterator, List, Mapping, Optional, Tuple
 
 import datasets  # type: ignore[import]
 import torch
@@ -72,15 +72,17 @@ class NllbDataLoader(Iterable[Seq2SeqBatch]):
         # HF doesn't allow to shard and stream at the same time ?
         # self.data = self.data.shard(num_shards=self.world_size, index=self.global_rank)
 
-    def _num_tokens(self, tokens: Tensor) -> int:
-        return int((tokens != self.pad_idx).sum())
+    def _num_tokens(self, tokens: Tensor) -> Tensor:
+        return (tokens != self.pad_idx).sum(dim=-1)
 
     def __iter__(self) -> Iterator[Seq2SeqBatch]:
         for batch in self._iter_str():
             source = self.src_encoder(batch.src)
             target = self.tgt_encoder(batch.tgt)
 
-            yield Seq2SeqBatch(source, target, num_tokens=self._num_tokens(target))
+            yield Seq2SeqBatch(
+                source, self._num_tokens(source), target, self._num_tokens(target)
+            )
 
     def _iter_str(self) -> Iterator[Text2TextBatch]:
         if hasattr(self.data, "__len__"):
@@ -167,6 +169,7 @@ class AsrDataloader(Iterable[Seq2SeqBatch]):
         self.feature_extractor = feature_extractor
         self.sampling_rate = feature_extractor.sampling_rate
         self.env = env
+        self.device = env.device
         self.dtype = dtype
 
         self.pad_idx = tokenizer.vocab_info.pad_idx
@@ -209,29 +212,39 @@ class AsrDataloader(Iterable[Seq2SeqBatch]):
     def _finalize_batch(self, batch: AsrBatch) -> Seq2SeqBatch:
         device = self.env.device
         target = self.token_encoder(batch.sentences)
+        source, src_seq_lens = self._encode_audio(batch.audio_features)
         return Seq2SeqBatch(
-            self._encode_audio(batch.audio_features).to(
-                device=device, dtype=self.dtype
-            ),
+            source,
+            src_seq_lens,
             target.to(device),
             self._num_tokens(target),
         )
 
-    def _encode_audio(self, raw_speech: List[torch.Tensor]) -> Tensor:
-        features = self.feature_extractor(
-            raw_speech=raw_speech,
+    def _encode_audio(self, raw_speech: List[torch.Tensor]) -> Tuple[Tensor, Tensor]:
+        features = [
+            self.feature_extractor(
+                raw_speech=example,
+                return_tensors="pt",
+                sampling_rate=self.sampling_rate,
+            )["input_features"]
+            for example in raw_speech
+        ]
+        src_seq_lens = torch.tensor([f.size(-1) for f in features], device=self.device)
+        source = self.feature_extractor.pad(
+            {"input_features": [f.squeeze(0) for f in features]},
+            padding=True,
             pad_to_multiple_of=128,
             return_attention_mask=False,
             return_tensors="pt",
-            sampling_rate=self.sampling_rate,
         )["input_features"]
 
-        assert isinstance(features, torch.Tensor)
-        assert features.shape[0] == len(raw_speech)
-        return features
+        assert isinstance(source, Tensor)
+        assert source.shape[0] == len(raw_speech)
+        source = source.to(device=self.device, dtype=self.dtype)
+        return source, src_seq_lens
 
-    def _num_tokens(self, tokens: Tensor) -> int:
-        return int((tokens != self.pad_idx).sum())
+    def _num_tokens(self, tokens: Tensor) -> Tensor:
+        return (tokens != self.pad_idx).sum(dim=-1)
 
     def __iter__(self) -> Iterator[Seq2SeqBatch]:
         batch = AsrBatch(self.sampling_rate)

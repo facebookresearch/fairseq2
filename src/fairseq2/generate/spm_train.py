@@ -1,7 +1,8 @@
 import logging
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
 import sentencepiece
 
@@ -60,3 +61,17 @@ def train(
 
     spm_output.rename(output)
     log.info("sentencepiece training completed.")
+
+
+def train_from_stream(cfg: TrainSpmConfig, stream: Iterable[str], output: Path) -> None:
+    try:
+        tmp_path = Path(tempfile.mkstemp(suffix=".txt")[1])
+        training_lines = cfg.training_lines
+        with tmp_path.open("wt", encoding="utf-8") as tmp:
+            for i, line in enumerate(stream):
+                print(line, file=tmp)
+                if i >= training_lines:
+                    break
+        train(cfg, tmp_path, output)
+    finally:
+        tmp_path.unlink()

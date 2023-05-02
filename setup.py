@@ -174,7 +174,7 @@ setup(
         # build our extension module.
         "torch==" + torch.__version__,
         "torcheval",
-        "torchtnt~=0.0.5",
+        "torchtnt==0.0.7",
         "torchsnapshot>=0.1.0",
         "transformers>=4.2",
         "typing_extensions~=4.3",

@@ -1,9 +1,11 @@
 import functools
-from typing import List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, List, Optional, Sequence, Union
 
 import torch
 from torch import Tensor
-from transformers import PreTrainedTokenizer  # type: ignore[import]
+
+if TYPE_CHECKING:
+    from transformers import PreTrainedTokenizer  # type: ignore[import]
 
 from fairseq2.data import StringLike
 from fairseq2.data.text import TokenDecoder, TokenEncoder, Tokenizer, VocabularyInfo
