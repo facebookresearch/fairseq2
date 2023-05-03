@@ -90,13 +90,15 @@ class TransformerModel(EncoderDecoderModel):
         self,
         seqs: Tensor,
         seq_lens: Optional[Tensor],
-        enc_out: Tensor,
-        enc_padding_mask: Optional[Tensor] = None,
+        encoder_out: Tensor,
+        encoder_padding_mask: Optional[Tensor] = None,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
         seqs, padding_mask = self.decoder_frontend(seqs, seq_lens, state_bag)
 
-        seqs = self.decoder(seqs, padding_mask, enc_out, enc_padding_mask, state_bag)
+        seqs = self.decoder(
+            seqs, padding_mask, encoder_out, encoder_padding_mask, state_bag
+        )
 
         return self.final_proj(seqs)  # type: ignore[no-any-return]
 

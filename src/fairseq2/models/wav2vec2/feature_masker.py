@@ -129,4 +129,4 @@ class Wav2Vec2FeatureMasker(Module):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"temporal_span_len={self.temporal_span_len}, max_temporal_mask_prob={self.max_temporal_mask_prob}, spatial_span_len={self.spatial_span_len}, spatial_max_mask_prob={self.spatial_max_mask_prob}"
+        return f"temporal_span_len={self.temporal_span_len}, max_temporal_mask_prob={self.max_temporal_mask_prob}, spatial_span_len={self.spatial_span_len}, max_spatial_mask_prob={self.max_spatial_mask_prob}"

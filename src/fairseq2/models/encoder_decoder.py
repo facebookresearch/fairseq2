@@ -61,10 +61,10 @@ class EncoderDecoderModel(Module, ABC):
             :math:`S_{tgt}` is the target sequence length, and :math:`D` is the
             size of the output embedding dictionary.
         """
-        enc_out, enc_padding_mask = self.encode(src_seqs, src_seq_lens)
+        encoder_out, encoder_padding_mask = self.encode(src_seqs, src_seq_lens)
 
         return self.decode_and_project(
-            tgt_seqs, tgt_seq_lens, enc_out, enc_padding_mask
+            tgt_seqs, tgt_seq_lens, encoder_out, encoder_padding_mask
         )
 
     @abstractmethod
@@ -96,8 +96,8 @@ class EncoderDecoderModel(Module, ABC):
         self,
         seqs: Tensor,
         seq_lens: Optional[Tensor],
-        enc_out: Tensor,
-        enc_padding_mask: Optional[Tensor] = None,
+        encoder_out: Tensor,
+        encoder_padding_mask: Optional[Tensor] = None,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
         """Decode the specified sequences and apply a projection to the decoder
@@ -111,15 +111,15 @@ class EncoderDecoderModel(Module, ABC):
             An array where each element represents the length of the sequence at
             the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
             the batch size.
-        :param enc_out:
+        :param encoder_out:
             The encoder output for the encoder-decoder attention. *Shape:*
             :math:`(N,S_{enc},M)`, where :math:`N` is the batch size,
-            :math:`S_{enc}` is the output sequence length, and :math:`M` is the
-            dimensionality of the model.
-        :param enc_padding_mask:
-            The float padding mask of ``enc_out``. *Shape:* :math:`(N,S_{enc})`,
-            where :math:`N` is the batch size and :math:`S_{enc}` is the output
-            sequence length.
+            :math:`S_{enc}` is the encoder output sequence length, and :math:`M`
+            is the dimensionality of the model.
+        :param encoder_padding_mask:
+            The float padding mask of ``encoder_out``. *Shape:*
+            :math:`(N,S_{enc})`, where :math:`N` is the batch size and
+            :math:`S_{enc}` is the encoder output sequence length.
         :param state_bag:
             The state bag to use during an incremental evaluation.
 

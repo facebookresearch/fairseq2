@@ -29,7 +29,7 @@ class Projection(Module, ABC):
         :param inp_dim:
             The dimensionality of inputs.
         :param out_dim:
-            The dimensionality of outputs.
+            The dimensionality of projected outputs.
         """
         super().__init__()
 
@@ -73,7 +73,7 @@ class ResettableProjection(Projection):
         :param inp_dim:
             The dimensionality of inputs.
         :param out_dim:
-            The dimensionality of outputs.
+            The dimensionality of projected outputs.
         :param bias:
             If ``True``, learns an additive bias.
         """

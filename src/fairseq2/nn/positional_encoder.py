@@ -22,19 +22,19 @@ from fairseq2.nn.incremental_state import IncrementalStateBag
 class PositionalEncoder(Module, ABC):
     """Encodes sequences with positional information."""
 
-    model_dim: int
+    dim: int
     max_seq_len: Optional[int]
 
-    def __init__(self, model_dim: int, max_seq_len: Optional[int]) -> None:
+    def __init__(self, dim: int, max_seq_len: Optional[int]) -> None:
         """
-        :param model_dim:
-            The dimensionality of the associated model.
+        :param dim:
+            The dimensionality of inputs and encoded outputs.
         :param max_seq_len:
             The expected maximum sequence length.
         """
         super().__init__()
 
-        self.model_dim = model_dim
+        self.dim = dim
         self.max_seq_len = max_seq_len
 
     def forward(
@@ -100,7 +100,7 @@ class PositionalEncoder(Module, ABC):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = f"model_dim={self.model_dim}"
+        s = f"dim={self.dim}"
 
         if self.max_seq_len is not None:
             s += f", max_seq_len={self.max_seq_len}"
@@ -137,7 +137,7 @@ class SinusoidalPositionalEncoder(PositionalEncoder):
     >>>
     >>> from fairseq2.nn.positional_encoder import SinusoidalPositionalEncoder
     >>>
-    >>> m = SinusoidalPositionalEncoder(model_dim=4, max_seq_len=16)
+    >>> m = SinusoidalPositionalEncoder(dim=4, max_seq_len=16)
     >>>
     >>> seqs = torch.ones((3, 4))
     >>>
@@ -151,13 +151,13 @@ class SinusoidalPositionalEncoder(PositionalEncoder):
 
     def __init__(
         self,
-        model_dim: int,
+        dim: int,
         max_seq_len: int,
         _legacy_pad_token_idx: Optional[int] = None,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
-        super().__init__(model_dim, max_seq_len)
+        super().__init__(dim, max_seq_len)
 
         # This is a legacy parameter that should only be set when the encodings
         # must be compatible with fairseq.
@@ -166,7 +166,7 @@ class SinusoidalPositionalEncoder(PositionalEncoder):
         else:
             self._sin_offset = 1 + _legacy_pad_token_idx
 
-        weight = torch.empty((max_seq_len, model_dim), device=device, dtype=dtype)
+        weight = torch.empty((max_seq_len, dim), device=device, dtype=dtype)
 
         self.register_buffer("weight", weight, persistent=False)
 
@@ -174,10 +174,10 @@ class SinusoidalPositionalEncoder(PositionalEncoder):
 
     def reset_parameters(self) -> None:
         """Reset the parameters and buffers of the module."""
-        num_sin = self.model_dim // 2
+        num_sin = self.dim // 2
 
         # Zero pad if the dimensionality of the model is odd.
-        if self.model_dim > 2 * num_sin:
+        if self.dim > 2 * num_sin:
             self.weight[:, -1:] = 0
 
         l_half = self.weight[:, :num_sin]
@@ -237,7 +237,7 @@ class LearnedPositionalEncoder(PositionalEncoder):
     >>>
     >>> from fairseq2.nn.positional_encoder import LearnedPositionalEncoder
     >>>
-    >>> m = LearnedPositionalEncoder(model_dim=4, max_seq_len=16)
+    >>> m = LearnedPositionalEncoder(dim=4, max_seq_len=16)
     >>>
     >>> seqs = torch.ones((3, 4))
     >>>
@@ -251,15 +251,15 @@ class LearnedPositionalEncoder(PositionalEncoder):
 
     def __init__(
         self,
-        model_dim: int,
+        dim: int,
         max_seq_len: int,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
-        super().__init__(model_dim, max_seq_len)
+        super().__init__(dim, max_seq_len)
 
         self.weight = Parameter(
-            torch.empty((max_seq_len, model_dim), device=device, dtype=dtype)
+            torch.empty((max_seq_len, dim), device=device, dtype=dtype)
         )
 
         self.reset_parameters()
@@ -300,18 +300,18 @@ class RotaryEncoder(PositionalEncoder):
 
     def __init__(
         self,
-        model_dim: int,
+        dim: int,
         max_seq_len: int,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
-        if model_dim % 2 != 0:
-            raise ValueError(f"`model_dim` must be even, but is {model_dim} instead.")
+        if dim % 2 != 0:
+            raise ValueError(f"`dim` must be even, but is {dim} instead.")
 
-        super().__init__(model_dim, max_seq_len)
+        super().__init__(dim, max_seq_len)
 
-        cos = torch.empty((max_seq_len, model_dim), device=device, dtype=dtype)
-        sin = torch.empty((max_seq_len, model_dim), device=device, dtype=dtype)
+        cos = torch.empty((max_seq_len, dim), device=device, dtype=dtype)
+        sin = torch.empty((max_seq_len, dim), device=device, dtype=dtype)
 
         self.register_buffer("cos_weight", cos, persistent=False)
         self.register_buffer("sin_weight", sin, persistent=False)
@@ -322,7 +322,7 @@ class RotaryEncoder(PositionalEncoder):
         """Reset the parameters and buffers of the module."""
         device, dtype = self.sin_weight.device, self.sin_weight.dtype
 
-        indices = torch.arange(self.model_dim // 2, device=device, dtype=dtype)
+        indices = torch.arange(self.dim // 2, device=device, dtype=dtype)
 
         indices = indices.unsqueeze(0)
 
@@ -332,7 +332,7 @@ class RotaryEncoder(PositionalEncoder):
 
         steps = steps.unsqueeze(1)
 
-        embed = torch.matmul(steps, 10000 ** (-2.0 * indices / self.model_dim))
+        embed = torch.matmul(steps, 10000 ** (-2.0 * indices / self.dim))
 
         cos = torch.cos(embed)
         sin = torch.sin(embed)

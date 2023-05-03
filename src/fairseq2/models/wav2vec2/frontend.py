@@ -72,21 +72,19 @@ class Wav2Vec2Frontend(Module):
         self.model_dim = model_dim
 
         if feat_extractor is not None:
-            embed_dim = feat_extractor.embed_dim
+            feat_dim = feat_extractor.out_dim
 
             self.feat_extractor = feat_extractor
         else:
-            embed_dim = model_dim
+            feat_dim = model_dim
 
             self.register_module("feat_extractor", None)
 
-        self.feat_layer_norm = LayerNorm(
-            embed_dim, norm_eps, device=device, dtype=dtype
-        )
+        self.feat_layer_norm = LayerNorm(feat_dim, norm_eps, device=device, dtype=dtype)
 
-        if feat_extractor is not None and embed_dim != model_dim:
+        if feat_extractor is not None and feat_dim != model_dim:
             self.feat_proj = Linear(
-                embed_dim, model_dim, bias=True, device=device, dtype=dtype
+                feat_dim, model_dim, bias=True, device=device, dtype=dtype
             )
         else:
             self.register_module("feat_proj", None)
@@ -101,9 +99,9 @@ class Wav2Vec2Frontend(Module):
         self.feat_masker = feat_masker
 
         if pos_encoder is not None:
-            if pos_encoder.model_dim != model_dim:
+            if pos_encoder.dim != model_dim:
                 raise ValueError(
-                    f"`model_dim` of `pos_encoder` and `model_dim` must be equal, but are {pos_encoder.model_dim} and {model_dim} instead."
+                    f"`dim` of `pos_encoder` and `model_dim` must be equal, but are {pos_encoder.dim} and {model_dim} instead."
                 )
 
             self.pos_encoder = pos_encoder

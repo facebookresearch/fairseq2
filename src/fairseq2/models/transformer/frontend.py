@@ -35,7 +35,7 @@ class TransformerTokenFrontend(EncoderDecoderFrontend):
         embed: Embedding,
         pos_encoder: Optional[PositionalEncoder],
         no_scale: bool = False,
-        layer_norm: bool = False,
+        use_layer_norm: bool = False,
         dropout_p: float = 0.1,
         norm_eps: float = 1e-5,
         device: Optional[torch.device] = None,
@@ -49,7 +49,7 @@ class TransformerTokenFrontend(EncoderDecoderFrontend):
         :param no_scale:
             If ``True``, does not scale embeddings by the square root of the
             embedding size.
-        :param layer_norm:
+        :param use_layer_norm:
             If ``True``, applies Layer Normalization to embeddings.
         :param dropout_p:
             The dropout probability on outputs.
@@ -57,7 +57,7 @@ class TransformerTokenFrontend(EncoderDecoderFrontend):
             The epsilon value to add to the denominator of the
             :class:`~torch.nn.LayerNorm` module for numerical stability.
         """
-        model_dim = embed.embed_dim
+        model_dim = embed.embedding_dim
 
         super().__init__(model_dim)
 
@@ -66,16 +66,16 @@ class TransformerTokenFrontend(EncoderDecoderFrontend):
         self.scale = 1.0 if no_scale else math.sqrt(model_dim)
 
         if pos_encoder is not None:
-            if pos_encoder.model_dim != model_dim:
+            if pos_encoder.dim != model_dim:
                 raise ValueError(
-                    f"`model_dim` of `pos_encoder` and `embed_dim` of `embed` must be equal, but are {pos_encoder.model_dim} and {model_dim} instead."
+                    f"`dim` of `pos_encoder` and `embedding_dim` of `embed` must be equal, but are {pos_encoder.dim} and {model_dim} instead."
                 )
 
             self.pos_encoder = pos_encoder
         else:
             self.register_module("pos_encoder", None)
 
-        if layer_norm:
+        if use_layer_norm:
             self.layer_norm = LayerNorm(model_dim, norm_eps, device=device, dtype=dtype)
         else:
             self.register_module("layer_norm", None)

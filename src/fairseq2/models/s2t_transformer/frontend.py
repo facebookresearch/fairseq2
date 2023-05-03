@@ -59,9 +59,9 @@ class S2TTransformerFrontend(EncoderDecoderFrontend):
         super().__init__(model_dim)
 
         if feat_extractor is not None:
-            if feat_extractor.embed_dim != model_dim:
+            if feat_extractor.out_dim != model_dim:
                 raise ValueError(
-                    f"`embed_dim` of `feat_extractor` and `model_dim` must be equal, but are {feat_extractor.embed_dim} and {model_dim} instead."
+                    f"`out_dim` of `feat_extractor` and `model_dim` must be equal, but are {feat_extractor.out_dim} and {model_dim} instead."
                 )
 
             self.feat_extractor = feat_extractor
@@ -71,9 +71,9 @@ class S2TTransformerFrontend(EncoderDecoderFrontend):
         self.scale = math.sqrt(model_dim)
 
         if pos_encoder is not None:
-            if pos_encoder.model_dim != model_dim:
+            if pos_encoder.dim != model_dim:
                 raise ValueError(
-                    f"`model_dim` of `pos_encoder` and `model_dim` must be equal, but are {pos_encoder.model_dim} and {model_dim} instead."
+                    f"`dim` of `pos_encoder` and `model_dim` must be equal, but are {pos_encoder.dim} and {model_dim} instead."
                 )
 
             self.pos_encoder = pos_encoder

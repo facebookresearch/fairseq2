@@ -35,7 +35,7 @@ class Conv1dFbankSubsampler(FeatureExtractor):
         self,
         num_channels: int,
         inner_dim: int,
-        embed_dim: int,
+        out_dim: int,
         kernel_sizes: Optional[Sequence[int]] = None,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
@@ -45,12 +45,12 @@ class Conv1dFbankSubsampler(FeatureExtractor):
             The number of channels of input log-mel filterbanks.
         :param inner_dim:
             The output dimensionality of the intermediate 1D convolutions.
-        :param embed_dim:
-            The dimensionality of returned embeddings.
+        :param out_dim:
+            The dimensionality of features.
         :param kernel_sizes:
             The kernel size of each 1D convolution.
         """
-        super().__init__(embed_dim)
+        super().__init__(out_dim)
 
         if kernel_sizes is None:
             kernel_sizes = [3, 3]
@@ -63,18 +63,18 @@ class Conv1dFbankSubsampler(FeatureExtractor):
             layer = Sequential()
 
             if i == 0:
-                inp_dim = num_channels
+                layer_inp_dim = num_channels
             else:
-                inp_dim = inner_dim // 2
+                layer_inp_dim = inner_dim // 2
 
             if i == last_layer:
-                out_dim = embed_dim * 2
+                layer_out_dim = out_dim * 2
             else:
-                out_dim = inner_dim
+                layer_out_dim = inner_dim
 
             conv = Conv1d(
-                inp_dim,
-                out_dim,
+                layer_inp_dim,
+                layer_out_dim,
                 kernel_size,
                 stride=self.stride,
                 padding=kernel_size // 2,

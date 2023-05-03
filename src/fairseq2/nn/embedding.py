@@ -18,9 +18,8 @@ from torch.nn.parameter import Parameter
 class Embedding(Module):
     """Stores embeddings of a fixed dictionary."""
 
-    num_embed: int
-    embed_dim: int
-    embedding_dim: int  # Compat
+    num_embedding: int
+    embedding_dim: int
     pad_idx: Optional[int]
     padding_idx: Optional[int]  # Compat
     scaled: bool
@@ -28,17 +27,17 @@ class Embedding(Module):
 
     def __init__(
         self,
-        num_embed: int,
-        embed_dim: int,
+        num_embedding: int,
+        embedding_dim: int,
         pad_idx: Optional[int] = None,
         scaled: bool = False,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
         """
-        :param num_embed:
+        :param num_embedding:
             The size of the embedding dictionary.
-        :param embed_dim:
+        :param embedding_dim:
             The dimensionality of returned embeddings.
         :param pad_idx:
             If not ``None``, entries at ``pad_idx`` do not contribute to the
@@ -46,22 +45,21 @@ class Embedding(Module):
             during training.
         :param scaled:
             If ``True``, initializes the embeddings from
-            :math:`\\mathcal{N}(0, \\frac{1}{\\text{embed_dim}})`; otherwise,
+            :math:`\\mathcal{N}(0, \\frac{1}{\\text{embedding_dim}})`; otherwise,
             from :math:`\\mathcal{N}(0, 1)`.
         """
         super().__init__()
 
-        self.num_embed = num_embed
-        self.embed_dim = embed_dim
+        self.num_embedding = num_embedding
+        self.embedding_dim = embedding_dim
         self.pad_idx = pad_idx
         self.scaled = scaled
 
-        # Alias fields for compatibility with `torch.nn.Embedding`.
-        self.embedding_dim = embed_dim
+        # Alias field for compatibility with `torch.nn.Embedding`.
         self.padding_idx = pad_idx
 
         self.weight = Parameter(
-            torch.empty((num_embed, embed_dim), device=device, dtype=dtype)
+            torch.empty((num_embedding, embedding_dim), device=device, dtype=dtype)
         )
 
         self.reset_parameters()
@@ -69,7 +67,7 @@ class Embedding(Module):
     def reset_parameters(self) -> None:
         """Reset the parameters and buffers of the module."""
         if self.scaled:
-            nn.init.normal_(self.weight, std=self.embed_dim**-0.5)
+            nn.init.normal_(self.weight, std=self.embedding_dim**-0.5)
         else:
             nn.init.normal_(self.weight)
 
@@ -90,7 +88,7 @@ class Embedding(Module):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = f"num_embed={self.num_embed}, embed_dim={self.embed_dim}"
+        s = f"num_embedding={self.num_embedding}, embedding_dim={self.embedding_dim}"
 
         if self.pad_idx is not None:
             s += f", pad_idx={self.pad_idx}"

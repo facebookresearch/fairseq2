@@ -62,16 +62,16 @@ class S2TTransformerConfig:
     use_conformer: bool = False
     """If ``True``, uses Conformer blocks instead of Transformer encoder layers."""
 
-    num_enc_layers: int = 12
+    num_encoder_layers: int = 12
     """The number of encoder layers."""
 
-    num_dec_layers: int = 6
+    num_decoder_layers: int = 6
     """The number of decoder layers."""
 
-    num_enc_attn_heads: int = 8
+    num_encoder_attn_heads: int = 8
     """The number of attention heads in encoder layers."""
 
-    num_dec_attn_heads: int = 8
+    num_decoder_attn_heads: int = 8
     """The number of attention heads in decoder layers."""
 
     ffn_inner_dim: int = 512 * 4
@@ -91,37 +91,37 @@ class S2TTransformerConfig:
 _CONFIGS: Final = {
     "tiny": lambda: S2TTransformerConfig(
         model_dim=256,
-        num_enc_layers=6,
-        num_dec_layers=3,
-        num_enc_attn_heads=4,
-        num_dec_attn_heads=4,
+        num_encoder_layers=6,
+        num_decoder_layers=3,
+        num_encoder_attn_heads=4,
+        num_decoder_attn_heads=4,
         ffn_inner_dim=256 * 4,
         dropout_p=0.3,
     ),
     "small": lambda: S2TTransformerConfig(
         model_dim=256,
-        num_enc_layers=12,
-        num_dec_layers=6,
-        num_enc_attn_heads=4,
-        num_dec_attn_heads=4,
+        num_encoder_layers=12,
+        num_decoder_layers=6,
+        num_encoder_attn_heads=4,
+        num_decoder_attn_heads=4,
         ffn_inner_dim=256 * 8,
         dropout_p=0.1,
     ),
     "medium": lambda: S2TTransformerConfig(
         model_dim=512,
-        num_enc_layers=12,
-        num_dec_layers=6,
-        num_enc_attn_heads=8,
-        num_dec_attn_heads=8,
+        num_encoder_layers=12,
+        num_decoder_layers=6,
+        num_encoder_attn_heads=8,
+        num_decoder_attn_heads=8,
         ffn_inner_dim=512 * 4,
         dropout_p=0.15,
     ),
     "large": lambda: S2TTransformerConfig(
         model_dim=1024,
-        num_enc_layers=12,
-        num_dec_layers=6,
-        num_enc_attn_heads=16,
-        num_dec_attn_heads=16,
+        num_encoder_layers=12,
+        num_decoder_layers=6,
+        num_encoder_attn_heads=16,
+        num_decoder_attn_heads=16,
         ffn_inner_dim=1024 * 4,
         dropout_p=0.2,
     ),
@@ -129,10 +129,10 @@ _CONFIGS: Final = {
         max_seq_len=6000,
         model_dim=256,
         use_conformer=True,
-        num_enc_layers=12,
-        num_dec_layers=6,
-        num_enc_attn_heads=4,
-        num_dec_attn_heads=8,
+        num_encoder_layers=12,
+        num_decoder_layers=6,
+        num_encoder_attn_heads=4,
+        num_decoder_attn_heads=8,
         ffn_inner_dim=512 * 4,
         dropout_p=0.1,
     ),
@@ -230,7 +230,7 @@ class S2TTransformerBuilder:
         feat_extractor = Conv1dFbankSubsampler(
             num_channels=self.cfg.num_fbank_channels,
             inner_dim=1024,
-            embed_dim=self.cfg.model_dim,
+            out_dim=self.cfg.model_dim,
             kernel_sizes=[5, 5],
             device=self.device,
             dtype=self.cfg.dtype,
@@ -251,8 +251,8 @@ class S2TTransformerBuilder:
     def build_decoder_frontend(self) -> EncoderDecoderFrontend:
         """Build a decoder frontend."""
         embed = Embedding(
-            num_embed=self.vocab_info.size,
-            embed_dim=self.cfg.model_dim,
+            num_embedding=self.vocab_info.size,
+            embedding_dim=self.cfg.model_dim,
             pad_idx=self.vocab_info.pad_idx,
             scaled=True,
             device=self.device,
@@ -270,7 +270,7 @@ class S2TTransformerBuilder:
         )
 
     def build_positional_encoder(self) -> PositionalEncoder:
-        """Build a positional embedding."""
+        """Build a positional encoder."""
         return SinusoidalPositionalEncoder(
             self.cfg.model_dim,
             self.cfg.max_seq_len,
@@ -281,7 +281,9 @@ class S2TTransformerBuilder:
 
     def build_encoder(self) -> TransformerEncoder:
         """Build an encoder."""
-        layers = [self.build_encoder_layer() for _ in range(self.cfg.num_enc_layers)]
+        layers = [
+            self.build_encoder_layer() for _ in range(self.cfg.num_encoder_layers)
+        ]
 
         if not self.cfg.use_conformer:
             norm_order = TransformerNormOrder.PRE
@@ -296,7 +298,9 @@ class S2TTransformerBuilder:
 
     def build_decoder(self) -> TransformerDecoder:
         """Build a decoder."""
-        layers = [self.build_decoder_layer() for _ in range(self.cfg.num_dec_layers)]
+        layers = [
+            self.build_decoder_layer() for _ in range(self.cfg.num_decoder_layers)
+        ]
 
         return StandardTransformerDecoder(
             layers,
@@ -310,7 +314,7 @@ class S2TTransformerBuilder:
         if self.cfg.use_conformer:
             return self.build_conformer_block()
 
-        self_attn = self.build_attention(self.cfg.num_enc_attn_heads)
+        self_attn = self.build_attention(self.cfg.num_encoder_attn_heads)
 
         ffn = self.build_ffn()
 
@@ -327,7 +331,7 @@ class S2TTransformerBuilder:
         """Build a Conformer block."""
         ffn1 = self.build_ffn(use_swish=True)
 
-        self_attn = self.build_attention(self.cfg.num_enc_attn_heads)
+        self_attn = self.build_attention(self.cfg.num_encoder_attn_heads)
 
         conv = ConformerConvolution(
             self.cfg.model_dim,
@@ -350,15 +354,15 @@ class S2TTransformerBuilder:
 
     def build_decoder_layer(self) -> TransformerDecoderLayer:
         """Build a decoder layer."""
-        self_attn = self.build_attention(self.cfg.num_dec_attn_heads)
+        self_attn = self.build_attention(self.cfg.num_decoder_attn_heads)
 
-        enc_dec_attn = self.build_attention(self.cfg.num_dec_attn_heads)
+        encoder_decoder_attn = self.build_attention(self.cfg.num_decoder_attn_heads)
 
         ffn = self.build_ffn()
 
         return StandardTransformerDecoderLayer(
             self_attn,
-            enc_dec_attn,
+            encoder_decoder_attn,
             ffn,
             dropout_p=self.cfg.dropout_p,
             norm_order=TransformerNormOrder.PRE,

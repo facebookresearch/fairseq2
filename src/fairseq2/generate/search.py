@@ -50,8 +50,8 @@ def force_token_(
     token_penalty_(lprobs, token=slice(token + 1, None), penalty=torch.inf)
 
 
-def dec_out_to_log_prob(
-    dec_out: Tensor,
+def decoder_out_to_log_prob(
+    decoder_out: Tensor,
     temperature: float,
     *,
     pad: int,
@@ -61,14 +61,14 @@ def dec_out_to_log_prob(
 
     Assumes [batch, value] shape.
 
-    :param dec_out: the values.
+    :param decoder_out: the values.
     :param temperature: (TODO) the temperature.
     :param pad: the id of the PAD token.
     :param bos: the id of the BOS token.
     :return: the new lprobs.
     """
     # TODO: temperature
-    lprobs = nn.functional.log_softmax(dec_out, dim=1)
+    lprobs = nn.functional.log_softmax(decoder_out, dim=1)
     lprobs[lprobs != lprobs] = -torch.inf
     token_penalty_(lprobs, token=pad, penalty=torch.inf)
     token_penalty_(lprobs, token=bos, penalty=torch.inf)
@@ -120,11 +120,11 @@ class SearchStrategy(ABC):
         @abstractmethod
         def update(
             self,
-            dec_out: Tensor,
+            decoder_out: Tensor,
         ) -> bool:
             """Process a (batch * beam, scores) inference Tensor.
 
-            :param dec_out: the (batch * beam, scores) decoder output.
+            :param decoder_out: the (batch * beam, scores) decoder output.
             :return: is the job still active?
             """
             raise NotImplementedError
@@ -172,11 +172,13 @@ class SearchStrategy(ABC):
         """
         # compute the encoder output for each beam
         with torch.autograd.profiler.record_function("forward_encoder"):
-            enc_out, enc_attn_mask = model.encode(src_tokens, src_token_lens)
+            encoder_out, encoder_padding_mask = model.encode(src_tokens, src_token_lens)
 
-        enc_out = _stretch_to_beams(enc_out, self.beam_size)
-        if enc_attn_mask is not None:
-            enc_attn_mask = _stretch_to_beams(enc_attn_mask, self.beam_size)
+        encoder_out = _stretch_to_beams(encoder_out, self.beam_size)
+        if encoder_padding_mask is not None:
+            encoder_padding_mask = _stretch_to_beams(
+                encoder_padding_mask, self.beam_size
+            )
 
         # prepare the search state
         job = self.new_search_job(src_tokens, prefix_tokens=prefix_tokens)
@@ -189,16 +191,16 @@ class SearchStrategy(ABC):
                 padding_mask = query_tokens.ne(self.vocab_info.pad_idx)
                 seq_lens = torch.count_nonzero(padding_mask, dim=-1)
 
-                dec_out = model.decode_and_project(
-                    query_tokens, seq_lens, enc_out, enc_attn_mask, state_bag
+                decoder_out = model.decode_and_project(
+                    query_tokens, seq_lens, encoder_out, encoder_padding_mask, state_bag
                 )
-                dec_out = dec_out.squeeze(1)
+                decoder_out = decoder_out.squeeze(1)
 
                 state_bag.increment_step()
 
             with torch.autograd.profiler.record_function("search_step"):
                 # Select the last time step prediction
-                job.update(dec_out)
+                job.update(decoder_out)
 
         tokens = job.finalize(top=top).tokens
         return tokens.view(-1, tokens.shape[-1])
@@ -338,11 +340,11 @@ class BeamSearchJob(SearchStrategy.SearchJob):
     @overrides
     def update(
         self,
-        dec_out: Tensor,
+        decoder_out: Tensor,
     ) -> bool:
         assert not self.done, "Stepping on a completed search: self.done == True"
 
-        n_candidate, vocab_size = dec_out.size()
+        n_candidate, vocab_size = decoder_out.size()
         input_beam_size = n_candidate // self.batch_size
 
         assert input_beam_size == self.beam_size, (
@@ -350,15 +352,15 @@ class BeamSearchJob(SearchStrategy.SearchJob):
             f"state beam_size {self.beam_size}"
         )
 
-        assert dec_out.shape[1] == self.strategy.vocab_info.size, (
-            f"Input dec_out vocab size {dec_out.shape[1]}) != "
+        assert decoder_out.shape[1] == self.strategy.vocab_info.size, (
+            f"Input decoder_out vocab size {decoder_out.shape[1]}) != "
             f"tokenizer vocab size: {self.strategy.vocab_info.size}"
         )
 
         self.step += 1
 
         lprobs_flat = self._log_prob(
-            dec_out=dec_out,
+            decoder_out=decoder_out,
             step=self.step,
             max_len=self.max_len,
         )
@@ -419,13 +421,13 @@ class BeamSearchJob(SearchStrategy.SearchJob):
 
     def _log_prob(
         self,
-        dec_out: Tensor,
+        decoder_out: Tensor,
         *,
         step: int,
         max_len: int,
     ) -> Tensor:
-        lprobs = dec_out_to_log_prob(
-            dec_out,
+        lprobs = decoder_out_to_log_prob(
+            decoder_out,
             temperature=0.1,
             pad=self.strategy.vocab_info.pad_idx,
             bos=self.strategy.vocab_info.bos_idx,
@@ -478,7 +480,7 @@ class BeamSearchJob(SearchStrategy.SearchJob):
             # We need to compute topk only on one beam, otherwise we will extract
             # the same token across all beams.
             # Note: we could theoritically modify next_query() to avoid computing
-            # probs on identical beams, but there are some shape issues with "enc_out".
+            # probs on identical beams, but there are some shape issues with "encoder_out".
             lprobs_beam = lprobs_beam[:, :1, :]
 
         # we are interested in the top scoring (beam_size) tokens across all beams

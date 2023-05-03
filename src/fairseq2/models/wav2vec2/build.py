@@ -122,10 +122,10 @@ class Wav2Vec2Config:
     use_conformer: bool = False
     """If ``True``, uses Conformer blocks instead of Transformer encoder layers."""
 
-    num_enc_layers: int = 12
+    num_encoder_layers: int = 12
     """The number of encoder layers."""
 
-    num_enc_attn_heads: int = 12
+    num_encoder_attn_heads: int = 12
     """The number of attention heads in encoder layers."""
 
     ffn_inner_dim: int = 3072
@@ -289,7 +289,9 @@ class Wav2Vec2Builder:
             )
 
     def build_encoder(self) -> TransformerEncoder:
-        layers = [self.build_encoder_layer() for _ in range(self.cfg.num_enc_layers)]
+        layers = [
+            self.build_encoder_layer() for _ in range(self.cfg.num_encoder_layers)
+        ]
 
         # TODO: check in __init__
         if self.cfg.use_conformer:
@@ -353,7 +355,7 @@ class Wav2Vec2Builder:
     def build_attention(self) -> MultiheadAttention:
         """Build a multi-head attention layer."""
         return StandardMultiheadAttention(
-            self.cfg.num_enc_attn_heads,
+            self.cfg.num_encoder_attn_heads,
             self.cfg.model_dim,
             attn_dropout_p=self.cfg.attn_dropout_p,
             device=self.device,

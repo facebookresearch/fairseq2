@@ -14,16 +14,16 @@ from torch.nn import Module
 class FeatureExtractor(Module, ABC):
     """Extracts features from inputs and embeds them in a latent space."""
 
-    embed_dim: int
+    out_dim: int
 
-    def __init__(self, embed_dim: int) -> None:
+    def __init__(self, out_dim: int) -> None:
         """
-        :param embed_dim:
-            The dimensionality of returned embeddings.
+        :param out_dim:
+            The dimensionality of extracted features.
         """
         super().__init__()
 
-        self.embed_dim = embed_dim
+        self.out_dim = out_dim
 
     @abstractmethod
     def forward(
@@ -41,15 +41,15 @@ class FeatureExtractor(Module, ABC):
             the batch size.
 
         :returns:
-            - The embeddings extracted from ``seqs``. *Shape:*
-              :math:`(N,S_{out},E)`, where :math:`N` is the batch size,
-              :math:`S_{out}` is the output sequence length, and :math:`E` is
-              the embedding size.
+            - The features extracted from ``seqs``. *Shape:*
+              :math:`(N,S_{out},F)`, where :math:`N` is the batch size,
+              :math:`S_{out}` is the output sequence length, and :math:`F` is
+              the dimensionality of the extracted features.
             - An array where each element represents the length of the sequence
-              at the same index in the returned embeddings. *Shape:*
+              at the same index in the returned features. *Shape:*
               :math:`(N)`, where :math:`N` is the batch size.
         """
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"embed_dim={self.embed_dim}"
+        return f"out_dim={self.out_dim}"

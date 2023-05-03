@@ -280,9 +280,9 @@ class StandardMultiheadAttention(MultiheadAttention):
         self.v_proj = v_proj
 
         if pos_encoder is not None:
-            if (head_dim := k_proj.out_dim // num_heads) != pos_encoder.model_dim:
+            if (head_dim := k_proj.out_dim // num_heads) != pos_encoder.dim:
                 raise ValueError(
-                    f"`model_dim` of `pos_encoder` must be equal to the size of the header key dimension ({head_dim}), but is {pos_encoder.model_dim} instead."
+                    f"`dim` of `pos_encoder` must be equal to the size of the header key dimension ({head_dim}), but is {pos_encoder.dim} instead."
                 )
 
             self.pos_encoder = pos_encoder
@@ -368,9 +368,9 @@ class StandardMultiheadAttention(MultiheadAttention):
         else:
             state = state_bag.get_state(self, MultiheadAttentionState)
 
-            enc_dec_attn = keys is values and keys is not queries
+            encoder_decoder_attn = keys is values and keys is not queries
 
-            if enc_dec_attn:
+            if encoder_decoder_attn:
                 # The K and V tensors of an encoder-decoder attention (i.e. the
                 # projected encoder outputs) remain static during an evaluation.
                 if state is not None:

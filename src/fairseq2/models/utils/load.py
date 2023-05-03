@@ -128,8 +128,8 @@ def upgrade_fairseq_checkpoint(checkpoint: Dict[str, Any]) -> Dict[str, Any]:
 def _get_fairseq_param_key_map() -> Dict[str, str]:
     return {
         # fmt: off
-        r"^decoder\.layers\.([0-9]+)\.encoder_attn\.":            r"decoder.layers.\1.enc_dec_attn.",
-        r"^decoder\.layers\.([0-9]+)\.encoder_attn_layer_norm\.": r"decoder.layers.\1.enc_dec_attn_layer_norm.",
+        r"^decoder\.layers\.([0-9]+)\.encoder_attn\.":            r"decoder.layers.\1.encoder_decoder_attn.",
+        r"^decoder\.layers\.([0-9]+)\.encoder_attn_layer_norm\.": r"decoder.layers.\1.encoder_decoder_attn_layer_norm.",
         r"^encoder\.layers\.([0-9]+)\.fc1\.":                     r"encoder.layers.\1.ffn.inner_proj.",
         r"^decoder\.layers\.([0-9]+)\.fc1\.":                     r"decoder.layers.\1.ffn.inner_proj.",
         r"^encoder\.layers\.([0-9]+)\.fc2\.":                     r"encoder.layers.\1.ffn.out_proj.",

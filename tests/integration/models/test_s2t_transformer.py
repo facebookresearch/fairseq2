@@ -62,7 +62,7 @@ def assert_translation(
     fbanks = torch.load(TEST_FBANK_PATH).to(device).unsqueeze(0)
     num_frames = torch.tensor(fbanks.size(1)).unsqueeze(0)
 
-    enc_out, enc_attn_mask = model.encode(fbanks, num_frames)
+    encoder_out, encoder_padding_mask = model.encode(fbanks, num_frames)
 
     # TODO: This is a manual, boilerplate code to run beam search with S2T
     # Transformer. It has to be reduced to a single line after revising the
@@ -74,15 +74,15 @@ def assert_translation(
     # `prefix_tokens` has already </s> and <lang:de> tokens.
     state_bag.increment_step(2)
 
-    enc_out = _stretch_to_beams(enc_out, beam_size=1)
-    if enc_attn_mask is not None:
-        enc_attn_mask = _stretch_to_beams(enc_attn_mask, beam_size=1)
+    encoder_out = _stretch_to_beams(encoder_out, beam_size=1)
+    if encoder_padding_mask is not None:
+        encoder_padding_mask = _stretch_to_beams(encoder_padding_mask, beam_size=1)
 
     while not job.done:
         query_tokens = job.next_query()
 
         logits = model.decode_and_project(
-            query_tokens, None, enc_out, enc_attn_mask, state_bag
+            query_tokens, None, encoder_out, encoder_padding_mask, state_bag
         )
 
         logits = logits.squeeze(1)

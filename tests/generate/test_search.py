@@ -8,7 +8,7 @@ from tests.common import assert_close, assert_equal, device, has_no_inf, has_no_
 
 def test_log_prob() -> None:
     assert_close(
-        search.dec_out_to_log_prob(
+        search.decoder_out_to_log_prob(
             torch.tensor(
                 [
                     [0.0, 0.0, 0.0, 1.0],
@@ -178,13 +178,13 @@ def test_step_done() -> None:
     assert s.batch_size == 2
     assert s.beam_size == 1
 
-    dec_out = torch.rand((s.flat_size, vocab_info.size))
+    decoder_out = torch.rand((s.flat_size, vocab_info.size))
     s.done = True
     with pytest.raises(AssertionError, match="done == True"):
-        s.update(dec_out)
+        s.update(decoder_out)
 
 
-def test_step_bad_dec_shape() -> None:
+def test_step_bad_decoder_shape() -> None:
     vocab_info = VocabularyInfo(size=8, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=3)
     bs = search.BeamSearchStrategy(vocab_info=vocab_info, max_len=10, beam_size=2)
 
@@ -195,10 +195,10 @@ def test_step_bad_dec_shape() -> None:
     assert s.batch_size == 2
     assert s.beam_size == 2
 
-    dec_out = torch.rand((s.flat_size * 2, vocab_info.size + 1))
+    decoder_out = torch.rand((s.flat_size * 2, vocab_info.size + 1))
 
     with pytest.raises(AssertionError, match="input_beam_size .* must == .* beam_size"):
-        s.update(dec_out)
+        s.update(decoder_out)
 
 
 def test_step_one() -> None:
@@ -224,7 +224,7 @@ def test_step_one() -> None:
     assert (s.tokens[:, :, 1:] == vocab_info.pad_idx).all()
     assert (s.scores == 0.0).all()
 
-    dec_out_beam = torch.tensor(
+    decoder_out_beam = torch.tensor(
         [
             # batch
             [
@@ -244,14 +244,14 @@ def test_step_one() -> None:
         ]
     )
     # (bsz * beam_size, vocab)
-    dec_out = dec_out_beam.view(-1, vocab_info.size)
+    decoder_out = decoder_out_beam.view(-1, vocab_info.size)
 
-    s.update(dec_out)
+    s.update(decoder_out)
     assert s.step == 1
 
-    dec_out_log_prob = s._log_prob(dec_out, step=s.step, max_len=s.max_len)
+    decoder_out_log_prob = s._log_prob(decoder_out, step=s.step, max_len=s.max_len)
 
-    dec_out_log_prob_beam = dec_out_log_prob.view(
+    decoder_out_log_prob_beam = decoder_out_log_prob.view(
         batch_size, beam_size, vocab_info.size
     )
 
@@ -259,8 +259,8 @@ def test_step_one() -> None:
     assert_equal(
         s.scores[:, :, 1],
         [
-            [dec_out_log_prob_beam[0, 1, 5], dec_out_log_prob_beam[0, 0, 4]],
-            [dec_out_log_prob_beam[1, 1, 4], dec_out_log_prob_beam[1, 0, 6]],
+            [decoder_out_log_prob_beam[0, 1, 5], decoder_out_log_prob_beam[0, 0, 4]],
+            [decoder_out_log_prob_beam[1, 1, 4], decoder_out_log_prob_beam[1, 0, 6]],
         ],
     )
 
@@ -287,7 +287,7 @@ def test_step_continue() -> None:
     # > 3
     s.tokens[:, :, 1] = torch.tensor([[[4, 5], [6, 7]]])
 
-    dec_out_beam = torch.tensor(
+    decoder_out_beam = torch.tensor(
         [
             # batch
             [
@@ -303,14 +303,14 @@ def test_step_continue() -> None:
         ]
     )
     # (bsz * beam_size, vocab)
-    dec_out = dec_out_beam.view(-1, vocab_info.size)
+    decoder_out = decoder_out_beam.view(-1, vocab_info.size)
 
-    s.update(dec_out)
+    s.update(decoder_out)
     assert s.step == 2
 
-    dec_out_log_prob = s._log_prob(dec_out, step=s.step, max_len=s.max_len)
+    decoder_out_log_prob = s._log_prob(decoder_out, step=s.step, max_len=s.max_len)
 
-    dec_out_log_prob_beam = dec_out_log_prob.view(
+    decoder_out_log_prob_beam = decoder_out_log_prob.view(
         batch_size, beam_size, vocab_info.size
     )
 
@@ -323,12 +323,12 @@ def test_step_continue() -> None:
         s.scores[:, :, s.step],
         [
             [
-                s.scores[0, 0, s.step - 1] + dec_out_log_prob_beam[0, 1, 7],
-                s.scores[0, 1, s.step - 1] + dec_out_log_prob_beam[0, 0, 4],
+                s.scores[0, 0, s.step - 1] + decoder_out_log_prob_beam[0, 1, 7],
+                s.scores[0, 1, s.step - 1] + decoder_out_log_prob_beam[0, 0, 4],
             ],
             [
-                s.scores[1, 0, s.step - 1] + dec_out_log_prob_beam[1, 1, 4],
-                s.scores[1, 1, s.step - 1] + dec_out_log_prob_beam[1, 0, 7],
+                s.scores[1, 0, s.step - 1] + decoder_out_log_prob_beam[1, 1, 4],
+                s.scores[1, 1, s.step - 1] + decoder_out_log_prob_beam[1, 0, 7],
             ],
         ],
     )
@@ -359,7 +359,7 @@ def test_step_finished() -> None:
     assert (s.tokens[:, :, 1:] == vocab_info.pad_idx).all()
     assert (s.scores == 0.0).all()
 
-    dec_out_beam = torch.tensor(
+    decoder_out_beam = torch.tensor(
         [
             # batch
             [
@@ -376,13 +376,13 @@ def test_step_finished() -> None:
         ]
     )
     # (bsz * beam_size * search_breadth, vocab)
-    dec_out = dec_out_beam.view(-1, vocab_info.size)
+    decoder_out = decoder_out_beam.view(-1, vocab_info.size)
 
-    s.update(dec_out)
+    s.update(decoder_out)
     assert s.step == 1
 
-    dec_out_log_prob = s._log_prob(dec_out, step=s.step, max_len=s.max_len)
-    dec_out_log_prob_beam = dec_out_log_prob.view(
+    decoder_out_log_prob = s._log_prob(decoder_out, step=s.step, max_len=s.max_len)
+    decoder_out_log_prob_beam = decoder_out_log_prob.view(
         batch_size, beam_size, vocab_info.size
     )
 
@@ -391,15 +391,15 @@ def test_step_finished() -> None:
     assert_close(
         s.scores[:, :, s.step],
         [
-            [dec_out_log_prob_beam[0, 1, 5], dec_out_log_prob_beam[0, 0, 4]],
+            [decoder_out_log_prob_beam[0, 1, 5], decoder_out_log_prob_beam[0, 0, 4]],
             [
-                dec_out_log_prob_beam[1, 0, vocab_info.eos_idx],
-                dec_out_log_prob_beam[1, 1, 4],
+                decoder_out_log_prob_beam[1, 0, vocab_info.eos_idx],
+                decoder_out_log_prob_beam[1, 1, 4],
             ],
         ],
     )
 
-    dec_out_beam = torch.tensor(
+    decoder_out_beam = torch.tensor(
         [
             # batch
             [
@@ -416,9 +416,9 @@ def test_step_finished() -> None:
         ]
     )
     # (bsz * beam_size * search_breadth, vocab)
-    dec_out = dec_out_beam.view(-1, vocab_info.size)
+    decoder_out = decoder_out_beam.view(-1, vocab_info.size)
 
-    s.update(dec_out)
+    s.update(decoder_out)
     assert s.step == 2
 
     # finished (but still selected) beams have token pad_idx
@@ -535,7 +535,7 @@ def test_log_prob_below_min() -> None:
     step = 1
     lprobs = s._log_prob(t, step=step, max_len=max_len)
 
-    raw = search.dec_out_to_log_prob(
+    raw = search.decoder_out_to_log_prob(
         t, temperature=0.1, pad=vocab_info.pad_idx, bos=vocab_info.bos_idx
     )
     assert_equal(
@@ -572,7 +572,7 @@ def test_log_prob_running() -> None:
 
     lprobs = s._log_prob(t, step=step, max_len=max_len)
 
-    raw = search.dec_out_to_log_prob(
+    raw = search.decoder_out_to_log_prob(
         t, temperature=0.1, pad=vocab_info.pad_idx, bos=vocab_info.bos_idx
     )
 

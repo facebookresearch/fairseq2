@@ -24,8 +24,8 @@ def create_model() -> EncoderDecoderModel:
     cfg = NllbConfig(
         max_seq_len=64,
         model_dim=16,
-        num_enc_layers=2,
-        num_dec_layers=2,
+        num_encoder_layers=2,
+        num_decoder_layers=2,
         ffn_inner_dim=32,
     )
 
@@ -49,7 +49,7 @@ def test_generate(prefix_tokens: Any) -> None:
 
     attn_weights: List[torch.Tensor] = []
     hook = StoreAttentionWeights(attn_weights)
-    m.decoder.layers[0].enc_dec_attn.register_attn_weight_hook(hook)  # type: ignore[index,union-attr]
+    m.decoder.layers[0].encoder_decoder_attn.register_attn_weight_hook(hook)  # type: ignore[index,union-attr]
 
     if prefix_tokens is not None:
         prefix_tokens = torch.tensor(prefix_tokens)

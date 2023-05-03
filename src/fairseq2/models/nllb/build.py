@@ -42,16 +42,16 @@ class NllbConfig:
     model_dim: int = 1024
     """The dimensionality of the model."""
 
-    num_enc_layers: int = 24
+    num_encoder_layers: int = 24
     """The number of encoder layers."""
 
-    num_dec_layers: int = 24
+    num_decoder_layers: int = 24
     """The number of decoder layers."""
 
-    num_enc_attn_heads: int = 16
+    num_encoder_attn_heads: int = 16
     """The number of attention heads in encoder layers."""
 
-    num_dec_attn_heads: int = 16
+    num_decoder_attn_heads: int = 16
     """The number of attention heads in decoder layers."""
 
     ffn_inner_dim: int = 1024 * 8
@@ -68,28 +68,28 @@ class NllbConfig:
 _CONFIGS: Final = {
     "dense_1b": lambda: NllbConfig(
         model_dim=1024,
-        num_enc_layers=24,
-        num_dec_layers=24,
-        num_enc_attn_heads=16,
-        num_dec_attn_heads=16,
+        num_encoder_layers=24,
+        num_decoder_layers=24,
+        num_encoder_attn_heads=16,
+        num_decoder_attn_heads=16,
         ffn_inner_dim=1024 * 8,
         dropout_p=0.1,
     ),
     "dense_3b": lambda: NllbConfig(
         model_dim=2048,
-        num_enc_layers=24,
-        num_dec_layers=24,
-        num_enc_attn_heads=16,
-        num_dec_attn_heads=16,
+        num_encoder_layers=24,
+        num_decoder_layers=24,
+        num_encoder_attn_heads=16,
+        num_decoder_attn_heads=16,
         ffn_inner_dim=1024 * 8,
         dropout_p=0.1,
     ),
     "dense_600m": lambda: NllbConfig(
         model_dim=1024,
-        num_enc_layers=12,
-        num_dec_layers=12,
-        num_enc_attn_heads=16,
-        num_dec_attn_heads=16,
+        num_encoder_layers=12,
+        num_decoder_layers=12,
+        num_encoder_attn_heads=16,
+        num_decoder_attn_heads=16,
         ffn_inner_dim=1024 * 4,
         dropout_p=0.1,
     ),
@@ -166,8 +166,8 @@ class NllbBuilder:
     def build_model(self) -> TransformerModel:
         """Build a model."""
         embed = Embedding(
-            num_embed=self.vocab_info.size,
-            embed_dim=self.cfg.model_dim,
+            num_embedding=self.vocab_info.size,
+            embedding_dim=self.cfg.model_dim,
             pad_idx=self.vocab_info.pad_idx,
             scaled=True,
             device=self.device,
@@ -203,7 +203,9 @@ class NllbBuilder:
 
     def build_encoder(self) -> TransformerEncoder:
         """Build an encoder."""
-        layers = [self.build_encoder_layer() for _ in range(self.cfg.num_enc_layers)]
+        layers = [
+            self.build_encoder_layer() for _ in range(self.cfg.num_encoder_layers)
+        ]
 
         return StandardTransformerEncoder(
             layers,
@@ -214,7 +216,9 @@ class NllbBuilder:
 
     def build_decoder(self) -> TransformerDecoder:
         """Build a decoder."""
-        layers = [self.build_decoder_layer() for _ in range(self.cfg.num_dec_layers)]
+        layers = [
+            self.build_decoder_layer() for _ in range(self.cfg.num_decoder_layers)
+        ]
 
         return StandardTransformerDecoder(
             layers,
@@ -225,7 +229,7 @@ class NllbBuilder:
 
     def build_encoder_layer(self) -> TransformerEncoderLayer:
         """Build an encoder layer."""
-        self_attn = self.build_attention(self.cfg.num_enc_attn_heads)
+        self_attn = self.build_attention(self.cfg.num_encoder_attn_heads)
 
         ffn = self.build_ffn()
 
@@ -240,15 +244,15 @@ class NllbBuilder:
 
     def build_decoder_layer(self) -> TransformerDecoderLayer:
         """Build a decoder layer."""
-        self_attn = self.build_attention(self.cfg.num_dec_attn_heads)
+        self_attn = self.build_attention(self.cfg.num_decoder_attn_heads)
 
-        enc_dec_attn = self.build_attention(self.cfg.num_dec_attn_heads)
+        encoder_decoder_attn = self.build_attention(self.cfg.num_decoder_attn_heads)
 
         ffn = self.build_ffn()
 
         return StandardTransformerDecoderLayer(
             self_attn,
-            enc_dec_attn,
+            encoder_decoder_attn,
             ffn,
             dropout_p=self.cfg.dropout_p,
             norm_order=TransformerNormOrder.PRE,

@@ -41,8 +41,8 @@ class TransformerDecoder(Module, ABC):
         self,
         seqs: Tensor,
         padding_mask: Optional[Tensor] = None,
-        enc_out: Optional[Tensor] = None,
-        enc_padding_mask: Optional[Tensor] = None,
+        encoder_out: Optional[Tensor] = None,
+        encoder_padding_mask: Optional[Tensor] = None,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
         """
@@ -53,15 +53,15 @@ class TransformerDecoder(Module, ABC):
         :param padding_mask:
             The float padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where
             :math:`N` is the batch size and :math:`S` is the sequence length.
-        :param enc_out:
+        :param encoder_out:
             The encoder output for the encoder-decoder attention. *Shape:*
             :math:`(N,S_{src},M_{enc})`, where :math:`N` is the batch size,
             :math:`S_{src}` is the source sequence length, and :math:`M_{enc}`
             is the encoder model size.
-        :param enc_padding_mask:
-            The float padding mask of ``enc_out``. *Shape:* :math:`(N,S_{src})`,
-            where :math:`N` is the batch size and :math:`S_{src}` is the source
-            sequence length.
+        :param encoder_padding_mask:
+            The float padding mask of ``encoder_out``. *Shape:*
+            :math:`(N,S_{src})`, where :math:`N` is the batch size and
+            :math:`S_{src}` is the source sequence length.
         :param state_bag:
             The state bag to use during an incremental evaluation.
 
@@ -139,8 +139,8 @@ class StandardTransformerDecoder(TransformerDecoder):
         self,
         seqs: Tensor,
         padding_mask: Optional[Tensor] = None,
-        enc_out: Optional[Tensor] = None,
-        enc_padding_mask: Optional[Tensor] = None,
+        encoder_out: Optional[Tensor] = None,
+        encoder_padding_mask: Optional[Tensor] = None,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
         if self.training or state_bag is None:
@@ -150,7 +150,12 @@ class StandardTransformerDecoder(TransformerDecoder):
 
         for layer in self.layers.drop_iter():
             seqs = layer(
-                seqs, padding_mask, self_attn_mask, enc_out, enc_padding_mask, state_bag
+                seqs,
+                padding_mask,
+                self_attn_mask,
+                encoder_out,
+                encoder_padding_mask,
+                state_bag,
             )
 
         if self.layer_norm is not None:
