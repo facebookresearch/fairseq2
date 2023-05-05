@@ -4,9 +4,10 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from fairseq2.nn.transformer.attention import AttentionFunction as AttentionFunction
+from fairseq2.nn.transformer.attention import SDPA as SDPA
+from fairseq2.nn.transformer.attention import DefaultSDPA as DefaultSDPA
 from fairseq2.nn.transformer.attention import (
-    default_scaled_dot_product_attention as default_scaled_dot_product_attention,
+    RelativePositionSDPA as RelativePositionSDPA,
 )
 from fairseq2.nn.transformer.attention import (
     naive_scaled_dot_product_attention as naive_scaled_dot_product_attention,

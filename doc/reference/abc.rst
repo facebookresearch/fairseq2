@@ -12,11 +12,11 @@ ABCs and Protocols
     nn.PositionalEncoder
     nn.Projection
     nn.ResettableProjection
-    nn.transformer.AttentionFunction
     nn.transformer.AttentionMaskGenerator
     nn.transformer.AttentionWeightHook
     nn.transformer.FeedForwardNetwork
     nn.transformer.MultiheadAttention
+    nn.transformer.SDPA
     nn.transformer.TransformerDecoder
     nn.transformer.TransformerDecoderLayer
     nn.transformer.TransformerEncoder

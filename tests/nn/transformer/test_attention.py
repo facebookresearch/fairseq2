@@ -12,7 +12,7 @@ from packaging import version
 from torch import Tensor
 
 from fairseq2.nn.transformer.attention import (
-    default_scaled_dot_product_attention,
+    DefaultSDPA,
     naive_scaled_dot_product_attention,
     torch_scaled_dot_product_attention,
 )
@@ -102,7 +102,8 @@ class TestScaledDotProductAttention:
         kwargs = self._get_kwargs_attn_fn(mask, dropout_p, training)
 
         with tmp_rng_seed(device):
-            attn1, _ = default_scaled_dot_product_attention(**kwargs)
+            default_sdpa = DefaultSDPA(0, 0)
+            attn1, _ = default_sdpa(**kwargs)
 
         with tmp_rng_seed(device):
             attn2, _ = naive_scaled_dot_product_attention(**kwargs)
