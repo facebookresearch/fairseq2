@@ -63,13 +63,33 @@ def tokenizer(
     return MultilingualTokenizer(spm_path, "asr", set(), {lang}, lang, lang)
 
 
-def model(
-    env: Env, vocab_info: VocabularyInfo, transformer: s2t.S2TTransformerConfig
+def module(
+    env: Env,
+    vocab_info: VocabularyInfo,
+    transformer: s2t.S2TTransformerConfig,
+    fsdp: bool = False,
 ) -> TransformerModel:
-    """The translation model, see transformer for configuration"""
+    """The translation model, see transformer for configuration.
+
+    - fsdp: enable FSDP (default is DDP when using several GPUs)
+    """
     torchtnt.utils.seed(0)
     torch.cuda.manual_seed(0)
-    return s2t.create_s2t_transformer_model(transformer, vocab_info, env.device)
+
+    model = s2t.create_s2t_transformer_model(transformer, vocab_info, env.device)
+    if env.world_size > 1:
+        if fsdp:
+            from torch.distributed.fsdp.fully_sharded_data_parallel import (
+                FullyShardedDataParallel as FSDP,
+            )
+
+            return FSDP(model)  # type: ignore[return-value]
+        else:
+            return torch.nn.parallel.DistributedDataParallel(  # type: ignore[return-value]
+                model, device_ids=[env.device.index]
+            )
+
+    return model
 
 
 transformer = s2t.get_s2t_transformer_config

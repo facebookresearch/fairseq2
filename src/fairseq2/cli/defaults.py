@@ -14,7 +14,6 @@ from fairseq2.optim.lr_scheduler import MyleLR
 if TYPE_CHECKING:
     from fairseq2.callbacks import MetricLogger
     from fairseq2.cli.module_loader import Xp
-    from fairseq2.models.transformer import TransformerModel
 
 _imports = set(locals().keys())
 
@@ -76,13 +75,13 @@ def logger(xp: "Xp", entry_point: str, wandb_project: str = "") -> "MetricLogger
 
 
 def optimizer(
-    model: "TransformerModel",
+    module: torch.nn.Module,
     weight_decay: float = 1e-5,
     lr: float = 5e-4,
 ) -> torch.optim.Optimizer:
     """Pytorch optimizer."""
     return torch.optim.Adam(
-        model.parameters(),
+        module.parameters(),
         lr=lr,
         betas=(0.9, 0.98),
         eps=1e-6,

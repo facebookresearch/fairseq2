@@ -445,7 +445,7 @@ def inference(
         snapshot_dir, "hub_task", snapshot_dir, source="local", device=env.device
     )
 
-    task.model.eval()
+    task.module.eval()
 
     tty = os.isatty(sys.stdin.fileno())
     if tty:
@@ -459,7 +459,7 @@ def inference(
         if not batch:
             return []
         return strategy.generate_str(
-            task.model,
+            task.module,  # type: ignore[arg-type]
             task.tokenizer,
             batch,
             src_lang=src_lang,

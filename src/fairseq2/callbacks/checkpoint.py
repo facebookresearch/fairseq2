@@ -125,6 +125,10 @@ class TorchSnapshotSaver(Callback):
         assert train_state
         epoch = train_state.progress.num_epochs_completed
         step = train_state.progress.num_steps_completed
+        if step % 10 != 0:
+            # Only save on round step numbers. This prevent misynchronization bugs.
+            return
+
         snapshot_path = self.savedir / f"epoch_{epoch}_step_{step}.train"
         if self.save(snapshot_path, state, unit, force=False):
             self.rm_oldest(

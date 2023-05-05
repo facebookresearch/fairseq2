@@ -1,19 +1,19 @@
 import functools
+import inspect
 import itertools
 import math
-from typing import Any, Dict, List, Optional, Set, Type
+import typing as tp
+from typing import Any, Dict, List, Optional, Set, Tuple, Type
 
 import sacrebleu  # type: ignore
 import torch
 import torch.nn.functional as F
 import torch.optim.lr_scheduler
 import torcheval.metrics
-import torchtnt.framework
-import torchtnt.framework.callbacks
-import torchtnt.utils
+import torchtnt.framework as tnt
 from torch import Tensor
 from torchtnt.framework.state import State
-from torchtnt.framework.unit import EvalUnit, PredictUnit, TrainUnit
+from torchtnt.utils import TLRScheduler
 
 import fairseq2.callbacks
 import fairseq2.nn
@@ -23,43 +23,65 @@ from fairseq2.data.text import Tokenizer
 from fairseq2.dataloader import Seq2SeqBatch, Seq2SeqStr
 from fairseq2.distributed import Env
 from fairseq2.generate import BeamSearchStrategy, SearchStrategy
-from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.optim.lr_scheduler import LRScheduler
 
+if tp.TYPE_CHECKING:
+    from fairseq2.models.encoder_decoder import EncoderDecoderModel
 
-class Seq2Seq(
-    TrainUnit[Seq2SeqBatch], EvalUnit[Seq2SeqBatch], PredictUnit[Seq2SeqBatch]
-):
-    """Default seq2seq task"""
+
+@functools.lru_cache(maxsize=1)
+def auto_unit_kwargs() -> List[str]:
+    return inspect.getfullargspec(tnt.AutoUnit.__init__).kwonlyargs
+
+
+class Seq2Seq(tnt.AutoUnit[Seq2SeqBatch]):
+    """Default seq2seq task based on tnt.AutoUnit.
+
+    Compared to AutoUnit this provides:
+    * a default NLL loss
+    * some default metrics like lr, token per second and loss
+    * inference using fairseq2.generateh
+
+    If your data type is too different from Seq2SeqBatch it's best to directly
+    inherit from tnt.AutoUnit.
+    """
 
     data_type: Type[Any] = Seq2SeqBatch
 
-    # Note: this is very close to the tnt.AutoUnit, maybe we should inherit from them.
     def __init__(
         self,
-        model: EncoderDecoderModel,
-        env: Env,
+        module: torch.nn.Module,
         tokenizer: Tokenizer,
         optimizer: torch.optim.Optimizer,
-        lr_scheduler: Optional[LRScheduler] = None,
-        best_metric: str = "loss",
+        lr_scheduler: Optional[LRScheduler],
+        env: Env,
+        step_lr_interval: tp.Literal["step", "epoch"] = "step",
+        precision: Optional[torch.dtype] = None,
+        gradient_accumulation_steps: int = 1,
+        detect_anomaly: bool = False,
+        clip_grad_norm: Optional[float] = None,
+        clip_grad_value: Optional[float] = None,
     ):
-        super().__init__()
-        # initialize module & optimizer
-        self.model = model
+        device = env.device
+        kwargs = locals()
+        # Pass to AutoUnit the intersection of args we have and the one they want.
+        super().__init__(**{k: kwargs[k] for k in auto_unit_kwargs() if k in kwargs})
         self.tokenizer = tokenizer
-        self.best_metric = best_metric
-        self.device = env.device
-
         self.optimizer = optimizer
-        self.lr_scheduler = lr_scheduler
-
+        # tnt and us both have a type alias for LRScheduler
+        self.lr_scheduler = lr_scheduler  # type: ignore[assignment]
         self.pad_idx = self.tokenizer.vocab_info.pad_idx
-        self.clip_grad_norm = 0.00
-        self.log_frequency_steps = 100
-        self.lr_frequency_steps = 1
-        self.seed = 1
-        self.eval_gen = True
+
+    def configure_optimizers_and_lr_scheduler(
+        self, module: torch.nn.Module
+    ) -> Tuple[torch.optim.Optimizer, TLRScheduler]:
+        return self.optimizer, self.lr_scheduler  # type: ignore
+
+    def on_train_start(self, state: State) -> None:
+        super().on_train_start(state)
+        assert state.train_state
+        # TODO: upgrade once torchtnt has builtin support for metric
+        state.train_state.metrics = self.init_metrics("train")  # type: ignore
 
     def init_metrics(self, mode: str) -> Metrics:
         device = self.device
@@ -77,66 +99,69 @@ class Seq2Seq(
     def replicated_keys(self) -> Set[str]:
         return {"tokenizer"}
 
-    def train_step(self, state: State, data: Any) -> None:
+    def move_data_to_device(self, state: State, data: Seq2SeqBatch) -> Seq2SeqBatch:
+        data = super().move_data_to_device(state, data)
+        # Pybind11 converts NamedTuple to list, we restore the NamedTuple here.
         if isinstance(data, list):
             data = self.data_type(*data)
+        return data
+
+    def train_step(self, state: State, data: Seq2SeqBatch) -> Tuple[Tensor, Any]:
+        # This is the same than AutoUnit train_state, except we compute metric
+        # last so that the throughput take into account the backward time.
+        data = self.move_data_to_device(state, data)
+
         assert state.train_state
-        seed = self.seed + state.train_state.progress.num_steps_completed
-        torchtnt.utils.seed(seed)
+        train_state = state.train_state
+        should_update_weights = (
+            train_state.progress.num_steps_completed_in_epoch + 1
+        ) % self.gradient_accumulation_steps == 0 or train_state.is_last_batch
 
-        # TODO: upgrade once torchtnt has builtin support for metric
-        metrics = state.train_state.metrics  # type: ignore
-        loss = self.loss(metrics, data)
-        # TODO: allow accumulating gradients over several batch
-        loss.backward()
-        if self.clip_grad_norm > 0:
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip_grad_norm)  # type: ignore
-        self.optimizer.step()
-        self.optimizer.zero_grad()
+        loss, outputs = self._forward_and_backward(state, data, should_update_weights)
 
-        # Increment step since we already did the forward/backward for this one.
-        steps = state.train_state.progress.num_steps_completed + 1
-        if self.lr_scheduler is not None and steps % self.lr_frequency_steps == 0:
-            self.lr_scheduler.step()
+        if should_update_weights:
+            # TODO try to use dynamo here
+            self._run_optimizer_lr_scheduler_step(state)
 
-        # This is the elapsed time since TNT started the "train_step"
-        num_tokens = data.tgt_seq_lens.sum()
-        metrics["tps"].update(
-            num_tokens, elapsed_time_sec=state.timer.interval_time_seconds
-        )
+            # log metrics only after an optimizer step
+            if self.num_optimizer_steps_completed % self.log_frequency_steps == 0:
+                self.log_metrics(state, self.num_optimizer_steps_completed - 1, "step")
 
-    def on_train_start(self, state: State) -> None:
-        assert state.train_state
-        # TODO: upgrade once torchtnt has builtin support for metric
-        state.train_state.metrics = self.init_metrics("train")  # type: ignore
+        # users can override this, by default this is a no-op
+        self.update_metrics(state, data, loss, outputs)
+        return loss, outputs
 
-    def on_train_end(self, state: State) -> None:
-        pass
-
-    def loss(self, metrics: Metrics, data: Seq2SeqBatch) -> Tensor:
-        net_output = self.model(
+    def compute_loss(self, state: State, data: Seq2SeqBatch) -> Tuple[Tensor, Any]:
+        """Default loss for Seq2Seq is nll_loss."""
+        net_output = self.module(
             data.source, data.src_seq_lens, data.target[:, :-1], data.tgt_seq_lens
         )
-        if not isinstance(net_output, Tensor):
-            net_output = net_output.logits
 
         lprobs = F.log_softmax(net_output, dim=-1).transpose(2, 1)
-        # TODO: nll loss requires longs ? Why ?
         loss = F.nll_loss(
             lprobs,
             data.target[:, 1:],
             reduction="sum",
-            ignore_index=self.tokenizer.vocab_info.pad_idx,
+            ignore_index=self.pad_idx,
         )
+        return loss, net_output
+
+    def update_metrics(
+        self, state: State, data: Seq2SeqBatch, loss: Tensor, outputs: Any
+    ) -> None:
+        """Track loss normalized by number of tokens and token per second"""
+        metrics = self.active_metrics(state)
         tgt_num_tokens = data.tgt_seq_lens.sum()
         nll_loss = loss.detach() / tgt_num_tokens / math.log(2)
+        # compute the loss metric on device to avoid a cuda.synchronize
         metrics["loss"].update(nll_loss, weight=tgt_num_tokens)
         metrics["tgt_num_tokens"].update(tgt_num_tokens)
         metrics["src_num_tokens"].update(data.src_seq_lens.sum())
+        metrics["tps"].update(
+            tgt_num_tokens, elapsed_time_sec=state.timer.interval_time_seconds
+        )
         if self.lr_scheduler is not None:
             metrics["lr"] = self.lr_scheduler.get_last_lr()[0]
-
-        return loss
 
     def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
         for k, v in state_dict.items():
@@ -148,7 +173,6 @@ class Seq2Seq(
             **self.tracked_modules(),
             **self.tracked_misc_statefuls(),
         }
-        assert "tokenizer" in app_state
         return app_state
 
     def on_eval_start(self, state: State) -> None:
@@ -157,21 +181,8 @@ class Seq2Seq(
         if not hasattr(state.eval_state, "metrics"):
             state.eval_state.metrics = self.init_metrics("eval")  # type: ignore
 
-    def on_eval_end(self, state: State) -> None:
-        # TODO: upgrade once torchtnt has builtin support for metric
-        metrics = state.eval_state.metrics  # type: ignore
-        eval_loss = metrics["loss"]
-        metrics["loss_min"].update(metrics[self.best_metric].compute())
-        best_loss = float(metrics["loss_min"].compute())
-        metrics["best"] = best_loss == eval_loss
-
-    def eval_step(self, state: State, data: Seq2SeqBatch) -> Any:
-        assert state.eval_state
-        # TODO: upgrade once torchtnt has builtin support for metric
-        metrics = state.eval_state.metrics  # type: ignore
-        self.loss(metrics, data).detach().cpu()
-
     def predict_step(self, state: State, data: Seq2SeqBatch) -> List[Seq2SeqStr]:
+        data = self.move_data_to_device(state, data)
         return self.generate_batch(data)  # type: ignore
 
     @functools.lru_cache()
@@ -192,9 +203,13 @@ class Seq2Seq(
         source_lens = torch.count_nonzero(padding_mask, dim=-1)
 
         strategy = self.default_strategy()
-        predicted_tokens = strategy.generate(
-            self.model, data.source, source_lens, top=1
-        )
+        with self.maybe_autocast_precision:
+            # This only work with the "EncoderDecoder" model,
+            # but users are allowed to override this method,
+            # and therefore we don't enforce self.module to have this type.
+            predicted_tokens = strategy.generate(
+                self.module, data.source, source_lens, top=1  # type: ignore
+            )
 
         predicted = token_decoder(predicted_tokens.squeeze(1))
 
@@ -202,13 +217,22 @@ class Seq2Seq(
             Seq2SeqStr(*x) for x in itertools.zip_longest(source, target, predicted)
         ]
 
+    def active_metrics(self, state: State) -> Metrics:
+        # TODO: upgrade once torchtnt has builtin support for metric
+        if state.active_phase == tnt.state.ActivePhase.TRAIN:
+            return state.train_state.metrics  # type: ignore
+        else:
+            return state.eval_state.metrics  # type: ignore
+
 
 class TranslationTask(Seq2Seq):
     """Translation task"""
 
+    data_type = Seq2SeqBatch
+    module: "EncoderDecoderModel"
+
     def init_metrics(self, mode: str) -> Metrics:
         metrics = super().init_metrics(mode)
-        self.best_metric = "bleu" if self.eval_gen else "loss"
 
         if mode == "eval":
             # TODO: propagate the target language here so we can pass it to sacrebleu for best tokenization.
@@ -221,20 +245,17 @@ class TranslationTask(Seq2Seq):
     def eval_step(self, state: State, data: Seq2SeqBatch) -> Any:
         super().eval_step(state, data)
 
-        assert state.eval_state
-        # TODO: upgrade once torchtnt has builtin support for metric
-        metrics = state.eval_state.metrics  # type: ignore
+        if not self.eval_gen:
+            return
 
-        if self.eval_gen:
-            bleu = metrics["bleu"]
-            chrf = metrics["chrf"]
-            chrfpp = metrics["chrf++"]
-            translations = self.generate_batch(data)
-            for translation in translations:
-                for counter in (bleu, chrf, chrfpp):
-                    counter.update(
-                        translation.predicted, references=[translation.target]
-                    )
-            return translations
+        metrics = self.active_metrics(state)
+        bleu = metrics["bleu"]
+        chrf = metrics["chrf"]
+        chrfpp = metrics["chrf++"]
+        translations = self.generate_batch(data)
+        for translation in translations:
+            for counter in (bleu, chrf, chrfpp):
+                counter.update(translation.predicted, references=[translation.target])
 
         # TODO: compute tokenized bleu ?
+        return translations
