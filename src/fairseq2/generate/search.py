@@ -172,12 +172,12 @@ class SearchStrategy(ABC):
         """
         # compute the encoder output for each beam
         with torch.autograd.profiler.record_function("forward_encoder"):
-            encoder_out, encoder_padding_mask = model.encode(src_tokens, src_token_lens)
+            encoder_out = model.encode(src_tokens, src_token_lens)
 
-        encoder_out = _stretch_to_beams(encoder_out, self.beam_size)
-        if encoder_padding_mask is not None:
-            encoder_padding_mask = _stretch_to_beams(
-                encoder_padding_mask, self.beam_size
+        encoder_out.seqs = _stretch_to_beams(encoder_out.seqs, self.beam_size)
+        if encoder_out.padding_mask is not None:
+            encoder_out.padding_mask = _stretch_to_beams(
+                encoder_out.padding_mask, self.beam_size
             )
 
         # prepare the search state
@@ -192,15 +192,15 @@ class SearchStrategy(ABC):
                 seq_lens = torch.count_nonzero(padding_mask, dim=-1)
 
                 decoder_out = model.decode_and_project(
-                    query_tokens, seq_lens, encoder_out, encoder_padding_mask, state_bag
+                    query_tokens, seq_lens, encoder_out, state_bag
                 )
-                decoder_out = decoder_out.squeeze(1)
+                logits = decoder_out.logits.squeeze(1)
 
                 state_bag.increment_step()
 
             with torch.autograd.profiler.record_function("search_step"):
                 # Select the last time step prediction
-                job.update(decoder_out)
+                job.update(logits)
 
         tokens = job.finalize(top=top).tokens
         return tokens.view(-1, tokens.shape[-1])

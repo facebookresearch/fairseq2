@@ -7,7 +7,6 @@ from typing import Any, Dict, List, Optional, Set, Tuple, Type
 
 import sacrebleu  # type: ignore
 import torch
-import torch.nn.functional as F
 import torch.optim.lr_scheduler
 import torcheval.metrics
 import torchtnt.framework as tnt
@@ -137,13 +136,8 @@ class Seq2Seq(tnt.AutoUnit[Seq2SeqBatch]):
             data.source, data.src_seq_lens, data.target[:, :-1], data.tgt_seq_lens
         )
 
-        lprobs = F.log_softmax(net_output, dim=-1).transpose(2, 1)
-        loss = F.nll_loss(
-            lprobs,
-            data.target[:, 1:],
-            reduction="sum",
-            ignore_index=self.pad_idx,
-        )
+        loss = net_output.compute_loss(data.target[:, 1:])
+
         return loss, net_output
 
     def update_metrics(

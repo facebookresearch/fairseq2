@@ -78,19 +78,19 @@ class Tokenizer(ABC):
 @dataclass(frozen=True)
 class VocabularyInfo:
     size: int
-    """The number of tokens in the vocabulary."""
+    """The size of the vocabulary."""
 
     unk_idx: int
-    """The index of the token that represents an unknown word."""
+    """The index of the symbol that represents an unknown word."""
 
     bos_idx: int
-    """The index of the token that represents the beginning of a sentence."""
+    """The index of the symbol that represents the beginning of a sentence."""
 
     eos_idx: int
-    """The index of the token that represents the end of a sentence."""
+    """The index of the symbol that represents the end of a sentence."""
 
     pad_idx: int
-    """The index of the token that is used to pad a sentence."""
+    """The index of the symbol that is used to pad a sentence."""
 
 
 class TokenEncoder(ABC):

@@ -84,7 +84,7 @@ class MultiheadAttention(Module, ABC):
             :math:`N` is the batch size and :math:`S_{kv}` is the key/value
             sequence length.
         :param state_bag:
-            The state bag to use during an incremental evaluation.
+            The state bag to use for incremental evaluation.
 
         :returns:
             The attention values for ``queries``. *Shape:* :math:`(N,S,M)`,

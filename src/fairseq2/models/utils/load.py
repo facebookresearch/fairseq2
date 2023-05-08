@@ -141,7 +141,7 @@ def _get_fairseq_param_key_map() -> Dict[str, str]:
         r"^decoder\.output_projection\.":                         r"final_proj.",
 
         # S2T Transformer
-        r"^encoder\.subsample\.conv_layers\.([0-9]+)\.":                    r"encoder_frontend.feat_extractor.layers.\1.conv.",
+        r"^encoder\.subsample\.conv_layers\.([0-9]+)\.":                    r"encoder_frontend.feature_extractor.layers.\1.conv.",
         r"^encoder\.transformer_layers\.([0-9]+)\.self_attn_layer_norm\.":  r"encoder.layers.\1.self_attn_layer_norm.",
         r"^encoder\.transformer_layers\.([0-9]+)\.self_attn\.":             r"encoder.layers.\1.self_attn.",
         r"^encoder\.transformer_layers\.([0-9]+)\.final_layer_norm\.":      r"encoder.layers.\1.ffn_layer_norm.",

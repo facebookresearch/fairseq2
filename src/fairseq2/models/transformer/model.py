@@ -4,14 +4,16 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Optional, Tuple, final
+from typing import Optional, final
 
 import torch
 import torch.nn as nn
 from overrides import final as finaloverride
 from torch import Tensor
 
-from fairseq2.models.encoder_decoder import EncoderDecoderFrontend, EncoderDecoderModel
+from fairseq2.models.encoder_decoder import EncoderDecoderModel, EncoderOutput
+from fairseq2.models.seq2seq import Seq2SeqModelOutput
+from fairseq2.models.transformer.frontend import TransformerFrontend
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.projection import Projection, ResettableProjection
 from fairseq2.nn.transformer import TransformerDecoder, TransformerEncoder
@@ -22,31 +24,35 @@ class TransformerModel(EncoderDecoderModel):
     """Represents a Transformer model as described in
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
-    encoder_frontend: EncoderDecoderFrontend
+    encoder_frontend: TransformerFrontend
     encoder: TransformerEncoder
-    decoder_frontend: EncoderDecoderFrontend
+    decoder_frontend: TransformerFrontend
     decoder: TransformerDecoder
     final_proj: Projection
+    target_pad_idx: Optional[int]
 
     def __init__(
         self,
-        encoder_frontend: EncoderDecoderFrontend,
+        encoder_frontend: TransformerFrontend,
         encoder: TransformerEncoder,
-        decoder_frontend: EncoderDecoderFrontend,
+        decoder_frontend: TransformerFrontend,
         decoder: TransformerDecoder,
         final_proj: Projection,
+        target_pad_idx: Optional[int],
     ) -> None:
         """
         :param encoder_frontend:
             The encoder frontend.
         :param encoder:
-            The Transformer encoder.
+            The encoder.
         :param decoder_frontend:
             The decoder frontend.
         :param decoder:
-            The Transformer decoder.
+            The decoder.
         :param final_proj:
             The projection to apply to decoder outputs to produce logits.
+        :param target_pad_idx:
+            The index of the pad symbol in the target vocabulary.
         """
         model_dim = encoder.model_dim
 
@@ -54,7 +60,7 @@ class TransformerModel(EncoderDecoderModel):
 
         if decoder.model_dim != model_dim:
             raise ValueError(
-                f"`model_dim` of `encoder` and `model_dim` of `decoder` must be equal, but are {encoder.model_dim} and {decoder.model_dim} instead."
+                f"`model_dim` of `encoder` and `model_dim` of `decoder` must be equal, but are {model_dim} and {decoder.model_dim} instead."
             )
 
         if encoder_frontend.model_dim != model_dim:
@@ -67,6 +73,8 @@ class TransformerModel(EncoderDecoderModel):
                 f"`model_dim` of `decoder_frontend` and `model_dim` of `decoder` must be equal, but are {decoder_frontend.model_dim} and {model_dim} instead."
             )
 
+        self.model_dim = model_dim
+
         self.encoder_frontend = encoder_frontend
         self.encoder = encoder
 
@@ -75,32 +83,41 @@ class TransformerModel(EncoderDecoderModel):
 
         self.final_proj = final_proj
 
+        self.target_pad_idx = target_pad_idx
+
     @finaloverride
-    def encode(
-        self, seqs: Tensor, seq_lens: Optional[Tensor]
-    ) -> Tuple[Tensor, Optional[Tensor]]:
-        seqs, padding_mask = self.encoder_frontend(seqs, seq_lens)
+    def encode(self, seqs: Tensor, seq_lens: Optional[Tensor]) -> EncoderOutput:
+        frontend_out = self.encoder_frontend(seqs, seq_lens)
 
-        seqs = self.encoder(seqs, padding_mask)
+        seqs = self.encoder(frontend_out.seqs, frontend_out.padding_mask)
 
-        return seqs, padding_mask
+        return EncoderOutput(seqs, frontend_out.padding_mask)
 
     @finaloverride
     def decode_and_project(
         self,
         seqs: Tensor,
         seq_lens: Optional[Tensor],
-        encoder_out: Tensor,
-        encoder_padding_mask: Optional[Tensor] = None,
+        encoder_out: EncoderOutput,
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tensor:
-        seqs, padding_mask = self.decoder_frontend(seqs, seq_lens, state_bag)
+    ) -> Seq2SeqModelOutput:
+        frontend_out = self.decoder_frontend(seqs, seq_lens, state_bag)
 
         seqs = self.decoder(
-            seqs, padding_mask, encoder_out, encoder_padding_mask, state_bag
+            frontend_out.seqs,
+            frontend_out.padding_mask,
+            encoder_out.seqs,
+            encoder_out.padding_mask,
+            state_bag,
         )
 
-        return self.final_proj(seqs)  # type: ignore[no-any-return]
+        logits = self.final_proj(seqs)
+
+        return Seq2SeqModelOutput(logits, self.target_pad_idx)
+
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        return f"model_dim={self.model_dim}"
 
 
 @final
@@ -109,18 +126,20 @@ class FinalProjection(ResettableProjection):
 
     def __init__(
         self,
-        num_embed: int,
         model_dim: int,
+        target_vocab_size: int,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
         """
-        :param num_embed:
-            The size of the output embedding dictionary.
         :param model_dim:
             The dimensionality of the model.
+        :param target_vocab_size:
+            The size of the target vocabulary.
         """
-        super().__init__(model_dim, num_embed, bias=False, device=device, dtype=dtype)
+        super().__init__(
+            model_dim, target_vocab_size, bias=False, device=device, dtype=dtype
+        )
 
     @finaloverride
     def reset_parameters(self) -> None:

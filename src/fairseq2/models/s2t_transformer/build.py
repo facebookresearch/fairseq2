@@ -12,11 +12,11 @@ from torch.nn import SiLU
 
 from fairseq2.data.text import VocabularyInfo
 from fairseq2.models.conformer import ConformerConvolution, ConformerEncoderLayer
-from fairseq2.models.encoder_decoder import EncoderDecoderFrontend
 from fairseq2.models.s2t_transformer.feature_extractor import Conv1dFbankSubsampler
 from fairseq2.models.s2t_transformer.frontend import S2TTransformerFrontend
 from fairseq2.models.transformer import (
     FinalProjection,
+    TransformerFrontend,
     TransformerModel,
     TransformerTokenFrontend,
 )
@@ -215,17 +215,22 @@ class S2TTransformerBuilder:
         decoder = self.build_decoder()
 
         final_proj = FinalProjection(
-            num_embed=self.vocab_info.size,
             model_dim=self.cfg.model_dim,
+            target_vocab_size=self.vocab_info.size,
             device=self.device,
             dtype=self.cfg.dtype,
         )
 
         return TransformerModel(
-            encoder_frontend, encoder, decoder_frontend, decoder, final_proj
+            encoder_frontend,
+            encoder,
+            decoder_frontend,
+            decoder,
+            final_proj,
+            self.vocab_info.pad_idx,
         )
 
-    def build_encoder_frontend(self) -> EncoderDecoderFrontend:
+    def build_encoder_frontend(self) -> TransformerFrontend:
         """Build an encoder frontend."""
         feat_extractor = Conv1dFbankSubsampler(
             num_channels=self.cfg.num_fbank_channels,
@@ -248,7 +253,7 @@ class S2TTransformerBuilder:
             dtype=self.cfg.dtype,
         )
 
-    def build_decoder_frontend(self) -> EncoderDecoderFrontend:
+    def build_decoder_frontend(self) -> TransformerFrontend:
         """Build a decoder frontend."""
         embed = Embedding(
             num_embedding=self.vocab_info.size,
@@ -274,7 +279,7 @@ class S2TTransformerBuilder:
         return SinusoidalPositionalEncoder(
             self.cfg.model_dim,
             self.cfg.max_seq_len,
-            _legacy_pad_token_idx=self.vocab_info.pad_idx,
+            _legacy_pad_idx=self.vocab_info.pad_idx,
             device=self.device,
             dtype=self.cfg.dtype,
         )

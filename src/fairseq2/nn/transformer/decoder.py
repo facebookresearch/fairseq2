@@ -63,7 +63,7 @@ class TransformerDecoder(Module, ABC):
             :math:`(N,S_{src})`, where :math:`N` is the batch size and
             :math:`S_{src}` is the source sequence length.
         :param state_bag:
-            The state bag to use during an incremental evaluation.
+            The state bag to use for incremental evaluation.
 
         :returns:
             The decoded output of ``seqs``. *Shape:* Same as ``seqs``.

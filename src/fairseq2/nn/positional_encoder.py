@@ -55,7 +55,7 @@ class PositionalEncoder(Module, ABC):
             the sequence length. :math:`N` can be a multiple of :math:`N_{msk}`
             in which case the mask will be tiled before being applied.
         :param state_bag:
-            The state bag to use during an incremental evaluation.
+            The state bag to use for incremental evaluation.
 
         :returns:
             ``seqs`` with positional information encoded. *Shape:* Same as
@@ -89,7 +89,7 @@ class PositionalEncoder(Module, ABC):
             should use the :func:`~fairseq2.nn.utils.mask.apply_padding_mask`
             function.
         :param state_bag:
-            The state bag to use during an incremental evaluation.
+            The state bag to use for incremental evaluation.
 
         :returns:
             ``seqs`` with positional information encoded. *Shape:* Same as
@@ -153,7 +153,7 @@ class SinusoidalPositionalEncoder(PositionalEncoder):
         self,
         dim: int,
         max_seq_len: int,
-        _legacy_pad_token_idx: Optional[int] = None,
+        _legacy_pad_idx: Optional[int] = None,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
@@ -161,10 +161,10 @@ class SinusoidalPositionalEncoder(PositionalEncoder):
 
         # This is a legacy parameter that should only be set when the encodings
         # must be compatible with fairseq.
-        if _legacy_pad_token_idx is None:
+        if _legacy_pad_idx is None:
             self._sin_offset = 0
         else:
-            self._sin_offset = 1 + _legacy_pad_token_idx
+            self._sin_offset = 1 + _legacy_pad_idx
 
         weight = torch.empty((max_seq_len, dim), device=device, dtype=dtype)
 

@@ -16,7 +16,7 @@ from torch.nn.parameter import Parameter
 
 @final
 class Embedding(Module):
-    """Stores embeddings of a fixed dictionary."""
+    """Stores embeddings of a fixed dictionary and size."""
 
     num_embedding: int
     embedding_dim: int
@@ -36,7 +36,7 @@ class Embedding(Module):
     ) -> None:
         """
         :param num_embedding:
-            The size of the embedding dictionary.
+            The size of the embedding table.
         :param embedding_dim:
             The dimensionality of returned embeddings.
         :param pad_idx:
