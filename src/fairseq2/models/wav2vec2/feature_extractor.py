@@ -14,19 +14,14 @@ from overrides import override
 from torch import Tensor
 from torch.nn import GELU, Conv1d, Dropout, GroupNorm, LayerNorm, Module, Sequential
 
-from fairseq2.models.feature_extractor import FeatureExtractor
+from fairseq2.models.sequence_feature_extractor import SequenceFeatureExtractor
 from fairseq2.nn.utils.grad import scale_grad
 
 
 @final
-class Wav2Vec2FeatureExtractor(FeatureExtractor):
+class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
     """Extracts features from raw audio waveforms and embeds them in a latent
-    space as described in Section 2 of :cite:t:`baevski2020wav2vec`.
-
-    .. note::
-        The input waveforms are expected to be of shape :math:`(N,S)`, where
-        :math:`N` is the batch size and :math:`(S)` is the sequence length.
-    """
+    space as described in Section 2 of :cite:t:`baevski2020wav2vec`."""
 
     layers: Sequential
     layer_descs: List[Tuple[int, int, int]]
@@ -45,7 +40,7 @@ class Wav2Vec2FeatureExtractor(FeatureExtractor):
     ) -> None:
         """
         :param layer_descs:
-            A tuple of output dimension, kernel size, and stride length for each
+            A tuple of output dimension, kernel size, and stride for each
             feature extraction layer.
         :param bias:
             If ``True``, convolutions in the feature extraction layers learn an
@@ -130,6 +125,13 @@ class Wav2Vec2FeatureExtractor(FeatureExtractor):
     def forward(
         self, seqs: Tensor, seq_lens: Optional[Tensor]
     ) -> Tuple[Tensor, Optional[Tensor]]:
+        """
+        See the base :meth:`SequenceFeatureExtractor.forward`.
+
+        :param seqs:
+            The input waveforms. *Shape:* :math:`(N,S)`, where :math:`N` is the
+            batch size and :math:`(S)` is the sequence length.
+        """
         # (N, S) -> (N, C, S)
         seqs = seqs.unsqueeze(1)
 
@@ -253,7 +255,7 @@ class Wav2Vec2FeatureConv1d(Conv1d):
 
 
 # TODO: Move this to data pre-processing! It isn't a real feature extractor.
-class Wav2Vec2FbankFeatureExtractor(FeatureExtractor):
+class Wav2Vec2FbankFeatureExtractor(SequenceFeatureExtractor):
     num_fbank_features: int
     stride: int
     sample_every_k: int
@@ -269,7 +271,15 @@ class Wav2Vec2FbankFeatureExtractor(FeatureExtractor):
     def forward(
         self, seqs: Tensor, seq_lens: Optional[Tensor]
     ) -> Tuple[Tensor, Optional[Tensor]]:
-        batch_size, num_frames, num_features = seqs.shape
+        """
+        See the base :meth:`SequenceFeatureExtractor.forward`.
+
+        :param seqs:
+            The input log-mel filterbanks. *Shape:* :math:`(N,F,C)`, where
+            :math:`N` is the batch size, :math:`F` is the number of frames, and
+            :math:`C` is the number of channels.
+        """
+        batch_size, num_frames, num_channels = seqs.shape
 
         if (r := num_frames % self.stride) != 0:
             num_frames -= r
@@ -280,7 +290,7 @@ class Wav2Vec2FbankFeatureExtractor(FeatureExtractor):
                 seq_lens[seq_lens > num_frames] = num_frames
 
         seqs = seqs.view(
-            batch_size, num_frames // self.stride, num_features * self.stride
+            batch_size, num_frames // self.stride, num_channels * self.stride
         )
 
         if self.sample_every_k > 1:

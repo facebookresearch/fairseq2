@@ -4,16 +4,19 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Optional, final
+from typing import Optional, Tuple, final
 
 import torch
 import torch.nn as nn
 from overrides import final as finaloverride
 from torch import Tensor
 
-from fairseq2.models.encoder_decoder import EncoderDecoderModel, EncoderOutput
+from fairseq2.models.encoder_decoder import (
+    DecoderFrontend,
+    EncoderDecoderModel,
+    EncoderFrontend,
+)
 from fairseq2.models.seq2seq import Seq2SeqModelOutput
-from fairseq2.models.transformer.frontend import TransformerFrontend
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.projection import Projection, ResettableProjection
 from fairseq2.nn.transformer import TransformerDecoder, TransformerEncoder
@@ -24,18 +27,18 @@ class TransformerModel(EncoderDecoderModel):
     """Represents a Transformer model as described in
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
-    encoder_frontend: TransformerFrontend
+    encoder_frontend: EncoderFrontend
     encoder: TransformerEncoder
-    decoder_frontend: TransformerFrontend
+    decoder_frontend: DecoderFrontend
     decoder: TransformerDecoder
     final_proj: Projection
     target_pad_idx: Optional[int]
 
     def __init__(
         self,
-        encoder_frontend: TransformerFrontend,
+        encoder_frontend: EncoderFrontend,
         encoder: TransformerEncoder,
-        decoder_frontend: TransformerFrontend,
+        decoder_frontend: DecoderFrontend,
         decoder: TransformerDecoder,
         final_proj: Projection,
         target_pad_idx: Optional[int],
@@ -86,29 +89,28 @@ class TransformerModel(EncoderDecoderModel):
         self.target_pad_idx = target_pad_idx
 
     @finaloverride
-    def encode(self, seqs: Tensor, seq_lens: Optional[Tensor]) -> EncoderOutput:
-        frontend_out = self.encoder_frontend(seqs, seq_lens)
+    def encode(
+        self, seqs: Tensor, seq_lens: Optional[Tensor]
+    ) -> Tuple[Tensor, Optional[Tensor]]:
+        seqs, padding_mask = self.encoder_frontend(seqs, seq_lens)
 
-        seqs = self.encoder(frontend_out.seqs, frontend_out.padding_mask)
+        seqs = self.encoder(seqs, padding_mask)
 
-        return EncoderOutput(seqs, frontend_out.padding_mask)
+        return seqs, padding_mask
 
     @finaloverride
     def decode_and_project(
         self,
         seqs: Tensor,
         seq_lens: Optional[Tensor],
-        encoder_out: EncoderOutput,
+        encoder_out: Tensor,
+        encoder_padding_mask: Optional[Tensor],
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Seq2SeqModelOutput:
-        frontend_out = self.decoder_frontend(seqs, seq_lens, state_bag)
+        seqs, padding_mask = self.decoder_frontend(seqs, seq_lens, state_bag)
 
         seqs = self.decoder(
-            frontend_out.seqs,
-            frontend_out.padding_mask,
-            encoder_out.seqs,
-            encoder_out.padding_mask,
-            state_bag,
+            seqs, padding_mask, encoder_out, encoder_padding_mask, state_bag
         )
 
         logits = self.final_proj(seqs)

@@ -11,22 +11,17 @@ from overrides import final as finaloverride
 from torch import Tensor
 from torch.nn import GLU, Conv1d, Sequential
 
-from fairseq2.models.feature_extractor import FeatureExtractor
+from fairseq2.models.sequence_feature_extractor import SequenceFeatureExtractor
 
 
 @final
-class Conv1dFbankSubsampler(FeatureExtractor):
+class Conv1dFbankSubsampler(SequenceFeatureExtractor):
     """Extracts features from log-mel filterbanks and embeds them in a latent
     space as described in Section 2.1 of
     :cite:t:`https://doi.org/10.48550/arxiv.1911.08460`.
-
-    .. note::
-        The input log-mel filterbanks are expected to be of shape
-        :math:`(N,F,C)`, where :math:`N` is the batch size, :math:`F` is the
-        number of frames, and :math:`C` is the number of channels.
     """
 
-    # All convolutions use the same stride length.
+    # All convolutions use the same stride.
     stride: Final[int] = 2
 
     layers: Sequential
@@ -91,6 +86,14 @@ class Conv1dFbankSubsampler(FeatureExtractor):
     def forward(
         self, seqs: Tensor, seq_lens: Optional[Tensor]
     ) -> Tuple[Tensor, Optional[Tensor]]:
+        """
+        See the base :meth:`SequenceFeatureExtractor.forward`.
+
+        :param seqs:
+            The input log-mel filterbanks. *Shape:* :math:`(N,F,C)`, where
+            :math:`N` is the batch size, :math:`F` is the number of frames, and
+            :math:`C` is the number of channels.
+        """
         # Apply the convolution along the temporal dimension (i.e. along the
         # sequence).
         # (N, F, C) -> (N, C, F)

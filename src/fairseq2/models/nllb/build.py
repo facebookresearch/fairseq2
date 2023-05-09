@@ -10,11 +10,8 @@ from typing import AbstractSet, Final, Optional
 import torch
 
 from fairseq2.data.text import VocabularyInfo
-from fairseq2.models.transformer import (
-    TransformerFrontend,
-    TransformerModel,
-    TransformerTokenFrontend,
-)
+from fairseq2.models.encoder_decoder import DecoderFrontend
+from fairseq2.models.transformer import TransformerFrontend, TransformerModel
 from fairseq2.nn.embedding import Embedding
 from fairseq2.nn.positional_encoder import SinusoidalPositionalEncoder
 from fairseq2.nn.projection import TiedProjection
@@ -188,7 +185,7 @@ class NllbBuilder:
             frontend, encoder, frontend, decoder, final_proj, self.vocab_info.pad_idx
         )
 
-    def build_frontend(self, embed: Embedding) -> TransformerFrontend:
+    def build_frontend(self, embed: Embedding) -> DecoderFrontend:
         """Build a shared encoder/decoder frontend."""
         pos_encoder = SinusoidalPositionalEncoder(
             self.cfg.model_dim,
@@ -198,7 +195,7 @@ class NllbBuilder:
             dtype=self.cfg.dtype,
         )
 
-        return TransformerTokenFrontend(
+        return TransformerFrontend(
             embed,
             pos_encoder,
             dropout_p=self.cfg.dropout_p,

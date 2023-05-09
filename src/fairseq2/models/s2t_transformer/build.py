@@ -12,13 +12,13 @@ from torch.nn import SiLU
 
 from fairseq2.data.text import VocabularyInfo
 from fairseq2.models.conformer import ConformerConvolution, ConformerEncoderLayer
+from fairseq2.models.encoder_decoder import DecoderFrontend, EncoderFrontend
 from fairseq2.models.s2t_transformer.feature_extractor import Conv1dFbankSubsampler
 from fairseq2.models.s2t_transformer.frontend import S2TTransformerFrontend
 from fairseq2.models.transformer import (
     FinalProjection,
     TransformerFrontend,
     TransformerModel,
-    TransformerTokenFrontend,
 )
 from fairseq2.nn.embedding import Embedding
 from fairseq2.nn.positional_encoder import (
@@ -230,7 +230,7 @@ class S2TTransformerBuilder:
             self.vocab_info.pad_idx,
         )
 
-    def build_encoder_frontend(self) -> TransformerFrontend:
+    def build_encoder_frontend(self) -> EncoderFrontend:
         """Build an encoder frontend."""
         feat_extractor = Conv1dFbankSubsampler(
             num_channels=self.cfg.num_fbank_channels,
@@ -253,7 +253,7 @@ class S2TTransformerBuilder:
             dtype=self.cfg.dtype,
         )
 
-    def build_decoder_frontend(self) -> TransformerFrontend:
+    def build_decoder_frontend(self) -> DecoderFrontend:
         """Build a decoder frontend."""
         embed = Embedding(
             num_embedding=self.vocab_info.size,
@@ -266,7 +266,7 @@ class S2TTransformerBuilder:
 
         pos_encoder = self.build_positional_encoder()
 
-        return TransformerTokenFrontend(
+        return TransformerFrontend(
             embed,
             pos_encoder,
             dropout_p=self.cfg.dropout_p,

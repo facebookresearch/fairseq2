@@ -48,7 +48,7 @@ class Seq2SeqModel(Module, ABC):
 
 @dataclass
 class Seq2SeqModelOutput:
-    """Represents the output of a sequence-to-sequence model."""
+    """Holds the output of a sequence-to-sequence model."""
 
     logits: Tensor
     """The next-step logits. *Shape:* :math:`(N,S_{tgt},T)`, where :math:`N` is

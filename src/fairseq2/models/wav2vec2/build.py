@@ -11,7 +11,7 @@ import torch
 from torch.nn import GELU, SiLU
 
 from fairseq2.models.conformer import ConformerConvolution, ConformerEncoderLayer
-from fairseq2.models.feature_extractor import FeatureExtractor
+from fairseq2.models.sequence_feature_extractor import SequenceFeatureExtractor
 from fairseq2.models.wav2vec2.feature_extractor import (
     Wav2Vec2FbankFeatureExtractor,
     Wav2Vec2FeatureExtractor,
@@ -54,7 +54,7 @@ class Wav2Vec2Config:
     input_type: Literal["waveform", "fbank"] = "waveform"
 
     # Feature Extractor
-    feat_extractor_layers: List[Tuple[int, int, int]] = field(
+    feature_extractor_layers: List[Tuple[int, int, int]] = field(
         # fmt: off
         default_factory=lambda: [(512, 10, 5)]
                               + [(512,  3, 2)] * 4
@@ -65,15 +65,15 @@ class Wav2Vec2Config:
     """A tuple of output dimension, kernel size, and stride length for each
     feature extraction layer."""
 
-    feat_extractor_bias: bool = False
+    feature_extractor_bias: bool = False
     """If ``True``, convolutions in feature extraction layers learn an additive
     bias."""
 
-    feat_extractor_use_layer_norm: bool = False
+    feature_extractor_use_layer_norm: bool = False
 
-    feat_grad_scale: float = 0.1
+    feature_grad_scale: float = 0.1
 
-    feat_dropout_p: float = 0.0
+    feature_dropout_p: float = 0.0
 
     # Fbank Feature Extractor
     num_fbank_features: int = 80
@@ -222,7 +222,7 @@ class Wav2Vec2Builder:
         )
 
     def build_encoder_frontend(self) -> Wav2Vec2Frontend:
-        feat_extractor = self.build_feature_extractor()
+        feature_extractor = self.build_feature_extractor()
 
         mask = self.build_mask()
 
@@ -230,17 +230,17 @@ class Wav2Vec2Builder:
 
         return Wav2Vec2Frontend(
             self.cfg.model_dim,
-            feat_extractor,
+            feature_extractor,
             mask,
             pos_encoder,
-            self.cfg.feat_dropout_p,
-            self.cfg.norm_order,
-            self.cfg.dropout_p,
+            feature_dropout_p=self.cfg.feature_dropout_p,
+            norm_order=self.cfg.norm_order,
+            dropout_p=self.cfg.dropout_p,
             device=self.device,
             dtype=self.cfg.dtype,
         )
 
-    def build_feature_extractor(self) -> FeatureExtractor:
+    def build_feature_extractor(self) -> SequenceFeatureExtractor:
         if self.cfg.input_type == "fbank":
             return Wav2Vec2FbankFeatureExtractor(
                 self.cfg.num_fbank_features,
@@ -249,10 +249,10 @@ class Wav2Vec2Builder:
             )
         else:
             return Wav2Vec2FeatureExtractor(
-                self.cfg.feat_extractor_layers,
-                self.cfg.feat_extractor_bias,
-                use_layer_norm=self.cfg.feat_extractor_use_layer_norm,
-                grad_scale=self.cfg.feat_grad_scale,
+                self.cfg.feature_extractor_layers,
+                self.cfg.feature_extractor_bias,
+                use_layer_norm=self.cfg.feature_extractor_use_layer_norm,
+                grad_scale=self.cfg.feature_grad_scale,
                 device=self.device,
                 dtype=self.cfg.dtype,
             )

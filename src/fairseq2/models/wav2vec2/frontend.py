@@ -7,10 +7,12 @@
 from typing import Optional, Tuple
 
 import torch
+from overrides import override
 from torch import Tensor
 from torch.nn import Dropout, LayerNorm, Module
 
-from fairseq2.models.feature_extractor import FeatureExtractor
+from fairseq2.models.encoder_decoder import EncoderFrontend
+from fairseq2.models.sequence_feature_extractor import SequenceFeatureExtractor
 from fairseq2.models.wav2vec2.feature_masker import Wav2Vec2FeatureMasker
 from fairseq2.nn.positional_encoder import PositionalEncoder
 from fairseq2.nn.projection import Linear
@@ -19,16 +21,16 @@ from fairseq2.nn.utils.mask import to_padding_mask
 
 
 class Wav2Vec2Frontend(Module):
-    """Represents a wav2vec 2.0 model front-end as described in
+    """Represents a wav2vec 2.0 encoder front-end as described in
     :cite:t:`baevski2020wav2vec`."""
 
     model_dim: int
-    feat_extractor: Optional[FeatureExtractor]
-    feat_layer_norm: LayerNorm
-    feat_proj: Optional[Linear]
-    feat_dropout: Optional[Dropout]
-    tgts_dropout: Optional[Dropout]
-    feat_masker: Wav2Vec2FeatureMasker
+    feature_extractor: Optional[SequenceFeatureExtractor]
+    feature_layer_norm: LayerNorm
+    feature_proj: Optional[Linear]
+    feature_dropout: Optional[Dropout]
+    targets_dropout: Optional[Dropout]
+    feature_masker: Wav2Vec2FeatureMasker
     pos_encoder: Optional[PositionalEncoder]
     layer_norm: Optional[LayerNorm]
     dropout: Optional[Dropout]
@@ -36,10 +38,10 @@ class Wav2Vec2Frontend(Module):
     def __init__(
         self,
         model_dim: int,
-        feat_extractor: Optional[FeatureExtractor],
-        feat_masker: Wav2Vec2FeatureMasker,
+        feature_extractor: Optional[SequenceFeatureExtractor],
+        feature_masker: Wav2Vec2FeatureMasker,
         pos_encoder: Optional[PositionalEncoder],
-        feat_dropout_p: float = 0.0,
+        feature_dropout_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         dropout_p: float = 0.1,
         norm_eps: float = 1e-5,
@@ -49,20 +51,19 @@ class Wav2Vec2Frontend(Module):
         """
         :param model_dim:
             The dimensionality of the model.
-        :param feat_extractor:
-            The feature extractor. If ``None``, it is assumed that features are
+        :param feature_extractor:
+            The feature extractor. If ``None``, features are assumed to be
             extracted externally before being fed to the model.
-        :param feat_masker:
+        :param feature_masker:
             The feature mask generator.
         :param pos_encoder:
             The positional encoder.
         :param feature_dropout_p:
-            The dropout probability on outputs of ``feat_extractor`` before
-            masking.
+            The dropout probability on outputs of ``feature_extractor``.
         :param layer_norm:
-            If ``True``, applies Layer Normalization to outputs before dropout.
+            If ``True``, applies Layer Normalization to features before dropout.
         :param dropout_p:
-            The dropout probability on outputs.
+            The dropout probability on features.
         :param norm_eps:
             The epsilon value to add to the denominator of the
             :class:`~torch.nn.LayerNorm` module for numerical stability.
@@ -71,32 +72,34 @@ class Wav2Vec2Frontend(Module):
 
         self.model_dim = model_dim
 
-        if feat_extractor is not None:
-            feat_dim = feat_extractor.out_dim
+        if feature_extractor is not None:
+            feature_dim = feature_extractor.out_dim
 
-            self.feat_extractor = feat_extractor
+            self.feature_extractor = feature_extractor
         else:
-            feat_dim = model_dim
+            feature_dim = model_dim
 
-            self.register_module("feat_extractor", None)
+            self.register_module("feature_extractor", None)
 
-        self.feat_layer_norm = LayerNorm(feat_dim, norm_eps, device=device, dtype=dtype)
+        self.feature_layer_norm = LayerNorm(
+            feature_dim, norm_eps, device=device, dtype=dtype
+        )
 
-        if feat_extractor is not None and feat_dim != model_dim:
-            self.feat_proj = Linear(
-                feat_dim, model_dim, bias=True, device=device, dtype=dtype
+        if feature_extractor is not None and feature_dim != model_dim:
+            self.feature_proj = Linear(
+                feature_dim, model_dim, bias=True, device=device, dtype=dtype
             )
         else:
-            self.register_module("feat_proj", None)
+            self.register_module("feature_proj", None)
 
-        if feat_dropout_p > 0.0:
-            self.feat_dropout = Dropout(feat_dropout_p)
-            self.tgts_dropout = Dropout(feat_dropout_p)
+        if feature_dropout_p > 0.0:
+            self.feature_dropout = Dropout(feature_dropout_p)
+            self.targets_dropout = Dropout(feature_dropout_p)
         else:
-            self.register_module("feat_dropout", None)
-            self.register_module("tgts_dropout", None)
+            self.register_module("feature_dropout", None)
+            self.register_module("targets_dropout", None)
 
-        self.feat_masker = feat_masker
+        self.feature_masker = feature_masker
 
         if pos_encoder is not None:
             if pos_encoder.dim != model_dim:
@@ -119,70 +122,54 @@ class Wav2Vec2Frontend(Module):
             self.register_module("dropout", None)
 
     def forward(
-        self, seqs: Tensor, seq_lens: Optional[Tensor], extract_only: bool = False
-    ) -> Tuple[Tensor, Optional[Tensor], Optional[Tensor], Optional[Tensor]]:
+        self, seqs: Tensor, seq_lens: Optional[Tensor]
+    ) -> Tuple[Tensor, Optional[Tensor], Tensor, Tensor]:
         """
         :param seqs:
-            The sequences to process. *Shape:* :math:`(N,S,*)`, where :math:`N`
-            is the batch size, :math:`S` is the sequence length, and :math:`*`
-            is any number of sequence-specific dimensions including none.
+            The source sequences to process. *Shape:* :math:`(N,S,*)`, where
+            :math:`N` is the batch size, :math:`S` is the source sequence
+            length, and :math:`*` is any number of sequence-specific dimensions
+            including none.
         :param seq_lens:
             An array where each element represents the length of the sequence at
             the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
             the batch size.
-        :param extract_only:
-            If ``True``, skip target generation and masking; return only
-            extracted features.
 
         :returns:
-            - The processed sequences to pass to the encoder. *Shape:*
+            - The processed source sequences to pass to the encoder. *Shape:*
               :math:`(N,S_{out},M)`, where :math:`N` is the batch size,
-              :math:`(S_{out})` is the output sequence length, and :math:`M` is
+              :math:`S_{out}` is the output sequence length, and :math:`M` is
               the dimensionality of the model.
-            - The non-quantized context network targets extracted from ``seqs``.
-              *Shape:* :math:`(N,S_{msk},M)`, where :math:`N` is the batch size,
-              :math:`(S_{msk})` is the masked sequence length, and :math:`M` is
-              the dimensionality of the model.
-            - The float padding mask of the processed sequences. *Shape:*
+            - The float padding mask of the processed source sequences. *Shape:*
               :math:`(N,S_{out})`, where :math:`N` is the batch size and
               :math:`S_{out}` is the output sequence length.
+            - The non-quantized context network targets extracted from ``seqs``.
+              *Shape:* :math:`(N,S_{msk},M)`, where :math:`N` is the batch size,
+              :math:`S_{msk}` is the masked sequence length, and :math:`M` is
+              the dimensionality of the model.
             - The boolean temporal mask that has been applied to the processed
-              sequences. *Shape:* :math:`(N,S_{out})`, where :math:`N` is the
-              batch size and :math`S_{out}` is the output sequence length.
+              source sequences. *Shape:* :math:`(N,S_{out})`, where :math:`N` is
+              the batch size and :math`S_{out}` is the output sequence length.
         """
-        if self.feat_extractor is not None:
-            seqs, seq_lens = self.feat_extractor(seqs, seq_lens)
+        if self.feature_extractor is not None:
+            seqs, seq_lens = self.feature_extractor(seqs, seq_lens)
 
         padding_mask = to_padding_mask(seqs, seq_lens)
 
-        seqs = self.feat_layer_norm(seqs)
+        seqs = self.feature_layer_norm(seqs)
 
-        # If `True`, skip target generation and masking.
-        if extract_only:
-            tgts = None
+        targets = seqs.clone()
 
-            if self.feat_proj is not None:
-                seqs = self.feat_proj(seqs)
+        if self.feature_proj is not None:
+            seqs = self.feature_proj(seqs)
 
-            if self.feat_dropout is not None:
-                seqs = self.feat_dropout(seqs)
+        if self.feature_dropout is not None:
+            seqs = self.feature_dropout(seqs)
 
-            temporal_mask = None
-        else:
-            # The feature extractor outputs will later be quantized and used as
-            # the targets of the context network.
-            tgts = seqs.clone()
+        if self.targets_dropout is not None:
+            targets = self.targets_dropout(targets)
 
-            if self.feat_proj is not None:
-                seqs = self.feat_proj(seqs)
-
-            if self.feat_dropout is not None:
-                seqs = self.feat_dropout(seqs)
-
-            if self.tgts_dropout is not None:
-                tgts = self.tgts_dropout(tgts)
-
-            seqs, temporal_mask = self.feat_masker(seqs, seq_lens)
+        seqs, temporal_mask = self.feature_masker(seqs, seq_lens)
 
         if self.pos_encoder is not None:
             seqs = self.pos_encoder(seqs, padding_mask)
@@ -193,8 +180,126 @@ class Wav2Vec2Frontend(Module):
         if self.dropout is not None:
             seqs = self.dropout(seqs)
 
-        return seqs, padding_mask, tgts, temporal_mask
+        return seqs, padding_mask, targets, temporal_mask
 
     def extra_repr(self) -> str:
         """:meta private:"""
         return f"model_dim={self.model_dim}"
+
+
+class PretrainedWav2Vec2Frontend(EncoderFrontend):
+    """Represents a pre-trained wav2vec 2.0 encoder front-end as described in
+    :cite:t:`baevski2020wav2vec`."""
+
+    feature_extractor: Optional[SequenceFeatureExtractor]
+    feature_layer_norm: LayerNorm
+    feature_proj: Optional[Linear]
+    feature_dropout: Optional[Dropout]
+    pos_encoder: Optional[PositionalEncoder]
+    layer_norm: Optional[LayerNorm]
+    dropout: Optional[Dropout]
+
+    def __init__(
+        self,
+        model_dim: int,
+        feature_extractor: Optional[SequenceFeatureExtractor],
+        pos_encoder: Optional[PositionalEncoder],
+        feature_dropout_p: float = 0.0,
+        norm_order: TransformerNormOrder = TransformerNormOrder.POST,
+        dropout_p: float = 0.1,
+        norm_eps: float = 1e-5,
+        device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
+    ) -> None:
+        """
+        :param model_dim:
+            The dimensionality of the model.
+        :param feature_extractor:
+            The feature extractor. If ``None``, features are assumed to be
+            extracted externally before being fed to the model.
+        :param pos_encoder:
+            The positional encoder.
+        :param feature_dropout_p:
+            The dropout probability on outputs of ``feature_extractor``.
+        :param layer_norm:
+            If ``True``, applies Layer Normalization to features before dropout.
+        :param dropout_p:
+            The dropout probability on features.
+        :param norm_eps:
+            The epsilon value to add to the denominator of the
+            :class:`~torch.nn.LayerNorm` module for numerical stability.
+        """
+        super().__init__(model_dim)
+
+        if feature_extractor is not None:
+            feature_dim = feature_extractor.out_dim
+
+            self.feature_extractor = feature_extractor
+        else:
+            feature_dim = model_dim
+
+            self.register_module("feature_extractor", None)
+
+        self.feature_layer_norm = LayerNorm(
+            feature_dim, norm_eps, device=device, dtype=dtype
+        )
+
+        if feature_extractor is not None and feature_dim != model_dim:
+            self.feature_proj = Linear(
+                feature_dim, model_dim, bias=True, device=device, dtype=dtype
+            )
+        else:
+            self.register_module("feature_proj", None)
+
+        if feature_dropout_p > 0.0:
+            self.feature_dropout = Dropout(feature_dropout_p)
+        else:
+            self.register_module("feature_dropout", None)
+
+        if pos_encoder is not None:
+            if pos_encoder.dim != model_dim:
+                raise ValueError(
+                    f"`dim` of `pos_encoder` and `model_dim` must be equal, but are {pos_encoder.dim} and {model_dim} instead."
+                )
+
+            self.pos_encoder = pos_encoder
+        else:
+            self.register_module("pos_encoder", None)
+
+        if norm_order == TransformerNormOrder.POST:
+            self.layer_norm = LayerNorm(model_dim, norm_eps, device=device, dtype=dtype)
+        else:
+            self.register_module("layer_norm", None)
+
+        if dropout_p > 0.0:
+            self.dropout = Dropout(dropout_p)
+        else:
+            self.register_module("dropout", None)
+
+    @override
+    def forward(
+        self, seqs: Tensor, seq_lens: Optional[Tensor]
+    ) -> Tuple[Tensor, Optional[Tensor]]:
+        if self.feature_extractor is not None:
+            seqs, seq_lens = self.feature_extractor(seqs, seq_lens)
+
+        padding_mask = to_padding_mask(seqs, seq_lens)
+
+        seqs = self.feature_layer_norm(seqs)
+
+        if self.feature_proj is not None:
+            seqs = self.feature_proj(seqs)
+
+        if self.feature_dropout is not None:
+            seqs = self.feature_dropout(seqs)
+
+        if self.pos_encoder is not None:
+            seqs = self.pos_encoder(seqs, padding_mask)
+
+        if self.layer_norm is not None:
+            seqs = self.layer_norm(seqs)
+
+        if self.dropout is not None:
+            seqs = self.dropout(seqs)
+
+        return seqs, padding_mask

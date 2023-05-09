@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Optional, Tuple, final
 
 import torch
@@ -16,16 +17,13 @@ from torch.nn import Module
 
 class VectorQuantizer(Module, ABC):
     @abstractmethod
-    def forward(self, x: Tensor) -> Tuple[Tensor, Tensor]:
+    def forward(self, x: Tensor) -> "VectorQuantizerOutput":
         pass
 
-    @abstractmethod
-    def compute_loss(self, diversity: Tensor) -> Tensor:
-        """Compute the diversity loss.
 
-        :param diversity:
-            The diversity measure (e.g. prob perplexity).
-        """
+class VectorQuantizerOutput(ABC):
+    @abstractmethod
+    def compute_loss(self) -> Tensor:
         pass
 
 
@@ -143,7 +141,7 @@ class GumbelVectorQuantizer(VectorQuantizer):
     #        return res
 
     @finaloverride
-    def forward(self, x: Tensor) -> Tuple[Tensor, Tensor]:
+    def forward(self, x: Tensor) -> "GumbelVectorQuantizerOutput":
         self._compute_current_temp()
 
         #        result = {"num_vars": self.num_vars * self.groups}
@@ -189,7 +187,11 @@ class GumbelVectorQuantizer(VectorQuantizer):
         x = x.sum(-2)
         x = x.view(bsz, tsz, -1)
 
-        return x, prob_perplexity
+        return GumbelVectorQuantizerOutput(
+            x,
+            num_vars=self.num_vars * self.groups,
+            prob_perplexity=prob_perplexity,
+        )
 
     def _compute_current_temp(self) -> None:
         temp = self.max_temp * self.temp_decay ** self.num_updates.item()
@@ -198,8 +200,12 @@ class GumbelVectorQuantizer(VectorQuantizer):
 
         self.num_updates.add_(1)
 
-    @finaloverride
-    def compute_loss(self, inp: Tensor) -> Tensor:
-        num_vars = self.num_vars * self.groups
 
-        return (num_vars - inp) / num_vars  # type: ignore[no-any-return]
+@dataclass
+class GumbelVectorQuantizerOutput(VectorQuantizerOutput):
+    targets: Tensor
+    num_vars: int
+    prob_perplexity: Tensor
+
+    def compute_loss(self) -> Tensor:
+        return (self.num_vars - self.prob_perplexity) / self.num_vars  # type: ignore[no-any-return]

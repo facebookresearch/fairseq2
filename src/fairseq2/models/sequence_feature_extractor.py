@@ -11,8 +11,8 @@ from torch import Tensor
 from torch.nn import Module
 
 
-class FeatureExtractor(Module, ABC):
-    """Extracts features from inputs and embeds them in a latent space."""
+class SequenceFeatureExtractor(Module, ABC):
+    """Extracts features from sequences and embeds them in a latent space."""
 
     out_dim: int
 
@@ -41,13 +41,13 @@ class FeatureExtractor(Module, ABC):
             the batch size.
 
         :returns:
-            - The features extracted from ``seqs``. *Shape:*
-              :math:`(N,S_{out},F)`, where :math:`N` is the batch size,
-              :math:`S_{out}` is the output sequence length, and :math:`F` is
-              the dimensionality of the extracted features.
+            - The extracted sequence features. *Shape:* :math:`(N,S_{out},F)`,
+              where :math:`N` is the batch size, :math:`S_{out}` is the output
+              sequence length, and :math:`F` is the dimensionality of the
+              extracted features.
             - An array where each element represents the length of the sequence
-              at the same index in the returned features. *Shape:*
-              :math:`(N)`, where :math:`N` is the batch size.
+              at the same index in the extracted features. *Shape:* :math:`(N)`,
+              where :math:`N` is the batch size.
         """
 
     def extra_repr(self) -> str:

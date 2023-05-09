@@ -72,9 +72,9 @@ class Wav2Vec2FeatureMasker(Module):
     ) -> Tuple[Tensor, Optional[Tensor]]:
         """
         :param seqs:
-            The input to mask. *Shape:* :math:`(N,S,M)`, where :math:`N` is the
-            batch size, :math:`S` is the sequence length, and :math:`M` is the
-            dimensionality of the model.
+            The sequences to mask. *Shape:* :math:`(N,S,M)`, where :math:`N` is
+            the batch size, :math:`S` is the sequence length, and :math:`M` is
+            the dimensionality of the model.
         :param seq_lens:
             An array where each element represents the length of the sequence at
             the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
