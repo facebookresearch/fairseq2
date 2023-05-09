@@ -135,7 +135,7 @@ def vocab_info(tokenizer: Tokenizer) -> VocabularyInfo:
     return tokenizer.vocab_info
 
 
-def model(
+def module(
     env: Env, vocab_info: VocabularyInfo, nllb: NllbConfig
 ) -> EncoderDecoderModel:
     """The translation model, see transformer for configuration"""
@@ -145,7 +145,20 @@ def model(
 
 
 # Override default values of NllbConfig
-nllb = functools.partial(NllbConfig, dropout_p=0)
+nllb = functools.partial(
+    NllbConfig,
+    dropout_p=0,
+    num_encoder_layers=6,
+    num_decoder_layers=6,
+    model_dim=512,
+    ffn_inner_dim=512,
+)
 
 # TODO: move this to fairseq2.cli.defaults
 hub_task = fairseq2.cli.hub_export(task, __file__)
+
+
+if __name__ == "__main__":
+    import fairseq2.cli.commands
+
+    fairseq2.cli.commands.main(__file__)
