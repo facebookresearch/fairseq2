@@ -176,6 +176,9 @@ FAIRSEQ2_API data_pipeline_builder
 zip_data_pipelines(std::vector<data_pipeline> zip);
 
 FAIRSEQ2_API data_pipeline_builder
+round_robin_data_pipelines(std::vector<data_pipeline> pipelines, std::vector<float> probs = {});
+
+FAIRSEQ2_API data_pipeline_builder
 list_files(std::string pathname, std::optional<std::string> pattern = {});
 
 }  // namespace fairseq2

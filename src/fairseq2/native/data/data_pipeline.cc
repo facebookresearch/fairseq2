@@ -9,9 +9,11 @@
 #include <algorithm>
 #include <exception>
 #include <system_error>
+#include <utility>
 
 #include <fmt/core.h>
 
+#include "fairseq2/native/data/round_robin_data_source.h"
 #include "fairseq2/native/py.h"
 #include "fairseq2/native/data/batched_data_source.h"
 #include "fairseq2/native/data/batched_by_length_data_source.h"
@@ -347,6 +349,27 @@ zip_data_pipelines(std::vector<data_pipeline> zip)
 
     return data_pipeline_builder{std::move(fc)};
 }
+
+data_pipeline_builder
+round_robin_data_pipelines(std::vector<data_pipeline> pipelines, std::vector<float> probs)
+{
+    bool is_broken = std::any_of(pipelines.begin(), pipelines.end(), [](const data_pipeline &dp) {
+        return dp.is_broken();
+    });
+
+    if (is_broken)
+        throw data_pipeline_error{
+            "At least one of the specified data pipelines is broken and cannot be used in round robin."};
+
+    auto sh = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
+
+    auto fc = [sh, probs=std::move(probs)]() mutable {
+        return std::make_unique<round_robin_data_source>(std::move(*sh), std::move(probs));
+    };
+
+    return data_pipeline_builder{std::move(fc)};
+}
+
 
 data_pipeline_builder
 list_files(std::string pathname, std::optional<std::string> pattern)

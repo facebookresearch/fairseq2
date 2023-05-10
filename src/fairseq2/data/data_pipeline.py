@@ -10,6 +10,7 @@ from typing import (
     Callable,
     Dict,
     Iterator,
+    List,
     Mapping,
     Optional,
     Sequence,
@@ -158,6 +159,15 @@ if TYPE_CHECKING or DOC_MODE:
     def read_zipped_records(pathname: PathLike) -> DataPipelineBuilder:
         ...
 
+    def round_robin_data_pipelines(
+        data_pipelines: Sequence[DataPipeline], probs: List[float] = []
+    ) -> "DataPipelineBuilder":
+        """Do a round robin on all pipelines.
+
+        :param data_pipelines:
+            The data pipelines to round robin.
+        """
+
     def zip_data_pipelines(
         data_pipelines: Sequence[DataPipeline],
     ) -> "DataPipelineBuilder":
@@ -182,6 +192,9 @@ else:
     from fairseq2.C.data.data_pipeline import list_files as list_files
     from fairseq2.C.data.data_pipeline import read_sequence as read_sequence
     from fairseq2.C.data.data_pipeline import read_zipped_records as read_zipped_records
+    from fairseq2.C.data.data_pipeline import (
+        round_robin_data_pipelines as round_robin_data_pipelines,
+    )
     from fairseq2.C.data.data_pipeline import zip_data_pipelines as zip_data_pipelines
 
     def _set_module_name() -> None:
@@ -195,6 +208,7 @@ else:
             read_sequence,
             read_zipped_records,
             zip_data_pipelines,
+            round_robin_data_pipelines,
         ]
 
         for t in ctypes:

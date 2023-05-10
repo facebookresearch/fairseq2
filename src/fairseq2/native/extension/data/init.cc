@@ -203,6 +203,22 @@ def_data_pipeline(py::module_ &base)
 
     m.def("read_zipped_records", &read_zipped_records, py::arg("pathname"));
 
+    m.def("round_robin_data_pipelines",
+        [](std::vector<std::reference_wrapper<data_pipeline>> &pipelines, std::vector<float> &probs)
+        {
+            std::vector<data_pipeline> c{};
+
+            c.reserve(pipelines.size());
+
+            std::transform(pipelines.begin(), pipelines.end(), std::back_inserter(c), [](auto &i) {
+                return std::move(i.get());
+            });
+
+            return round_robin_data_pipelines(std::move(c), std::move(probs));
+        },
+        py::arg("data_pipelines"),
+        py::arg("probs") = nullptr);
+
     m.def("zip_data_pipelines",
         [](std::vector<std::reference_wrapper<data_pipeline>> &zip)
         {

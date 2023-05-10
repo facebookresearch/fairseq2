@@ -12,6 +12,9 @@ from fairseq2.data.data_pipeline import StreamError as StreamError
 from fairseq2.data.data_pipeline import list_files as list_files
 from fairseq2.data.data_pipeline import read_sequence as read_sequence
 from fairseq2.data.data_pipeline import read_zipped_records as read_zipped_records
+from fairseq2.data.data_pipeline import (
+    round_robin_data_pipelines as round_robin_data_pipelines,
+)
 from fairseq2.data.data_pipeline import zip_data_pipelines as zip_data_pipelines
 from fairseq2.data.memory import Buffer as Buffer
 from fairseq2.data.memory import MemoryBlock as MemoryBlock
