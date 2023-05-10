@@ -22,6 +22,7 @@
 #include "fairseq2/native/data/mapped_data_source.h"
 #include "fairseq2/native/data/prefetched_data_source.h"
 #include "fairseq2/native/data/sharded_data_source.h"
+#include "fairseq2/native/data/shuffled_data_source.h"
 #include "fairseq2/native/data/tape.h"
 #include "fairseq2/native/data/zipped_data_source.h"
 #include "fairseq2/native/data/detail/file_system.h"
@@ -296,6 +297,24 @@ data_pipeline_builder &&
 data_pipeline_builder::shard(std::size_t shard_idx, std::size_t num_shards) &&
 {
     shard(shard_idx, num_shards);
+
+    return std::move(*this);
+}
+
+data_pipeline_builder &
+data_pipeline_builder::shuffle(std::size_t buffer_size, std::size_t seed, bool deterministic) &
+{
+    factory_ = [=, inner = std::move(factory_)]() {
+        return std::make_unique<shuffled_data_source>(inner(), buffer_size, seed, deterministic);
+    };
+
+    return *this;
+}
+
+data_pipeline_builder &&
+data_pipeline_builder::shuffle(std::size_t buffer_size, std::size_t seed, bool deterministic) &&
+{
+    shuffle(buffer_size, seed, deterministic);
 
     return std::move(*this);
 }

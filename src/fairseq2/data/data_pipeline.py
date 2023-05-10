@@ -121,6 +121,21 @@ if TYPE_CHECKING or DOC_MODE:
                 The number of shards.
             """
 
+        def shuffle(
+            self, buffer_size: int, seed: int = 0, deterministic: bool = False
+        ) -> "DataPipelineBuilder":
+            """Shuffle elements using a fixed sized buffer.
+
+            :param buffer_size:
+                Intermediate buffer used for shuffling.
+            :param seed:
+                Seed of the RNG used by the shuffle operation
+            :param deterministic:
+                In deterministic mode, we will fully save all the state of the buffer when checkpointing.
+                This ensures that on preemption restart no sample will be lost.
+                This can be expensive for large shuffle size.
+            """
+
         def yield_from(
             self, fn: Callable[[Any], DataPipeline]
         ) -> "DataPipelineBuilder":

@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from pathlib import Path
-from typing import Any, List
+from typing import Any, Iterator, List
 
 import pytest
 import torch
@@ -42,14 +42,7 @@ def test_state_dict(tmp_path: Path) -> None:
     it = iter(dataloader)
     # Read first line
     next(it)
-
-    torch.save(dataloader.state_dict(), tmp_path / "dataloader.pt")
-    # exhaust the full iterator
-    rest_of_data = list(it)
-
-    # Restore the state of dataloader to after first line
-    dataloader.load_state_dict(torch.load(tmp_path / "dataloader.pt"))
-    assert rest_of_data == list(it)
+    assert_checkpoint_works(dataloader, it, tmp_path / "dataloader.pt")
 
 
 def test_batch() -> None:
@@ -251,6 +244,58 @@ def test_map_handle_exceptions() -> None:
         list(dataloader)
 
 
+def test_shuffle() -> None:
+    X = list(range(100))
+    dataloader = fairseq2.data.read_sequence(X).shuffle(16, seed=42).and_return()
+    data = list(dataloader)
+    assert sorted(data) == X
+    # Because of our buffer we are biased, first elements, will tend to appear first.
+    assert max(data[:10]) < 16 + 10
+
+    # fmt: off
+    assert data ==  [
+        3,8,7,11,13,16,12,4,14,21,22,1,24,25,26,27,18,2,28,35,36,37,38,39,40,41,9,32,44,45,46,47,48,17,50,51,52,53,20,23,56,57,58,10,34,55,62,33,64,60,49,65,63,31,15,71,54,0,74,42,19,77,78,79,69,81,70,5,84,29,86,87,75,88,61,89,85,83,94,76,90,97,98,73,82,91,92,30,80,6,67,96,43,99,59,93,68,95,66,72
+    ]
+    # fmt: on
+
+    # For the second epoch the order should be different.
+    snd_epoch = list(dataloader)
+    assert sorted(snd_epoch) == X
+    assert snd_epoch != data
+
+
+def test_reproducible_shuffle() -> None:
+    """
+    Makes sure that two independent shuffles with same seed will yield in the same order.
+    """
+    X = list(range(100))
+    d1 = (
+        fairseq2.data.read_sequence(X)
+        .map(lambda x: x + 1)
+        .shuffle(16, seed=54)
+        .and_return()
+    )
+    d2 = (
+        fairseq2.data.read_sequence(X)
+        .shuffle(16, seed=54)
+        .map(lambda x: x + 1)
+        .and_return()
+    )
+
+    assert list(d1) == list(d2)
+
+
+def test_deterministic_shuffle(tmp_path: Path) -> None:
+    X = list(range(100))
+    dataloader = (
+        fairseq2.data.read_sequence(X).shuffle(16, deterministic=True).and_return()
+    )
+
+    it = iter(dataloader)
+    [next(it) for _ in range(20)]
+    assert_checkpoint_works(dataloader, it, tmp_path / "dataloader.pt")
+
+
 def assert_eq_twice(
     dataloader: fairseq2.data.DataPipeline, expected: List[Any]
 ) -> None:
@@ -258,3 +303,15 @@ def assert_eq_twice(
     assert list(dataloader) == expected
     # Second epoch
     assert list(dataloader) == expected
+
+
+def assert_checkpoint_works(
+    dataloader: fairseq2.data.DataPipeline, it: Iterator[Any], tmp_path: Path
+) -> None:
+    torch.save(dataloader.state_dict(), tmp_path)
+    # exhaust the full iterator
+    rest_of_data = list(it)
+
+    # Restore the state of dataloader to after first line
+    dataloader.load_state_dict(torch.load(tmp_path))
+    assert rest_of_data == list(it)

@@ -31,6 +31,7 @@ target_sources(fairseq2
         data/record_reader.cc
         data/round_robin_data_source.cc
         data/sharded_data_source.cc
+        data/shuffled_data_source.cc
         data/stream.cc
         data/tape.cc
         data/yielded_data_source.cc

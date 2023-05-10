@@ -179,6 +179,15 @@ def_data_pipeline(py::module_ &base)
             },
             py::arg("shard_idx"),
             py::arg("num_shards"))
+        .def("shuffle",
+            [](data_pipeline_builder &self, std::size_t buffer_size, std::size_t seed, bool deterministic)
+                -> data_pipeline_builder &
+            {
+                return self.shuffle(buffer_size, seed, deterministic);
+            },
+            py::arg("buffer_size"),
+            py::arg("seed") = 0,
+            py::arg("deterministic") = false)
         .def("yield_from",
             [](data_pipeline_builder &self, yield_fn &&fn) -> data_pipeline_builder &
             {
@@ -381,7 +390,6 @@ def_string(py::module_ &base)
             {
                 return rtrim(self);
             })
-
         .def(py::pickle(
             [](const immutable_string &self)
             {

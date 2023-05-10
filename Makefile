@@ -20,7 +20,7 @@ pylint:
 	$(VENV)mypy ${PY_SRC}
 
 shlint:
-	./tools/linters/run-shellcheck.sh src/
+	./ci/scripts/run-shellcheck.sh src/
 
 cpplint:
 	run-clang-tidy -p build -config="{InheritParentConfig: true, WarningsAsErrors: '*'}" -quiet -extra-arg='-std=c++17' -fix

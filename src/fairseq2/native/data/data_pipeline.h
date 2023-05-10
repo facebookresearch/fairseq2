@@ -136,6 +136,12 @@ public:
     data_pipeline_builder &&
     shard(std::size_t shard_idx, std::size_t num_shards) &&;
 
+    data_pipeline_builder &
+    shuffle(std::size_t buffer_size, std::size_t seed, bool deterministic) &;
+
+    data_pipeline_builder &&
+    shuffle(std::size_t buffer_size, std::size_t seed, bool deterministic) &&;
+
     data_pipeline
     and_return() &&;
 
