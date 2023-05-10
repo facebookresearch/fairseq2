@@ -51,6 +51,9 @@ class Wav2Vec2FeatureMasker(Module):
         """
         super().__init__()
 
+        if max_temporal_mask_prob == 0.0:
+            raise ValueError("`max_temporal_mask_prob` must be greater than 0.")
+
         self.temporal_span_len = temporal_span_len
         self.max_temporal_mask_prob = max_temporal_mask_prob
 
@@ -69,7 +72,7 @@ class Wav2Vec2FeatureMasker(Module):
 
     def forward(
         self, seqs: Tensor, seq_lens: Optional[Tensor]
-    ) -> Tuple[Tensor, Optional[Tensor]]:
+    ) -> Tuple[Tensor, Tensor]:
         """
         :param seqs:
             The sequences to mask. *Shape:* :math:`(N,S,M)`, where :math:`N` is
@@ -89,23 +92,20 @@ class Wav2Vec2FeatureMasker(Module):
         batch_size, seq_len, model_dim = seqs.shape
 
         # Temporal mask over time steps.
-        if self.max_temporal_mask_prob > 0.0:
-            shape = (batch_size, seq_len)
+        shape = (batch_size, seq_len)
 
-            temporal_mask = compute_mask(
-                shape,
-                self.temporal_span_len,
-                self.max_temporal_mask_prob,
-                seq_lens,
-                min_num_spans=2,
-                device=seqs.device,
-            )
+        temporal_mask = compute_mask(
+            shape,
+            self.temporal_span_len,
+            self.max_temporal_mask_prob,
+            seq_lens,
+            min_num_spans=2,
+            device=seqs.device,
+        )
 
-            assert temporal_mask is not None
+        assert temporal_mask is not None
 
-            seqs[temporal_mask] = self.temporal_mask_embed
-        else:
-            temporal_mask = None
+        seqs[temporal_mask] = self.temporal_mask_embed
 
         # Spatial mask over features.
         if self.max_spatial_mask_prob > 0.0:
@@ -130,3 +130,8 @@ class Wav2Vec2FeatureMasker(Module):
     def extra_repr(self) -> str:
         """:meta private:"""
         return f"temporal_span_len={self.temporal_span_len}, max_temporal_mask_prob={self.max_temporal_mask_prob}, spatial_span_len={self.spatial_span_len}, max_spatial_mask_prob={self.max_spatial_mask_prob}"
+
+
+def apply_temporal_mask(x: Tensor, temporal_mask: Tensor) -> Tensor:
+    """Apply the specified temporal mask to ``x``."""
+    return x[temporal_mask].unflatten(0, (x.size(0), -1))  # type: ignore[no-any-return]

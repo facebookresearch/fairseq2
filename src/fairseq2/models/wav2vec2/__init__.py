@@ -24,9 +24,13 @@ from fairseq2.models.wav2vec2.frontend import Wav2Vec2Frontend as Wav2Vec2Fronte
 from fairseq2.models.wav2vec2.load import Wav2Vec2Loader as Wav2Vec2Loader
 from fairseq2.models.wav2vec2.load import load_wav2vec2_model as load_wav2vec2_model
 from fairseq2.models.wav2vec2.model import Wav2Vec2Model as Wav2Vec2Model
-from fairseq2.models.wav2vec2.positional_encoder import (
-    Wav2Vec2PositionalEncoder as Wav2Vec2PositionalEncoder,
+from fairseq2.models.wav2vec2.model import Wav2Vec2Output as Wav2Vec2Output
+from fairseq2.models.wav2vec2.position_encoder import (
+    Wav2Vec2PositionEncoder as Wav2Vec2PositionEncoder,
 )
-from fairseq2.models.wav2vec2.positional_encoder import (
-    Wav2Vec2StackedPositionalEncoder as Wav2Vec2StackedPositionalEncoder,
+from fairseq2.models.wav2vec2.position_encoder import (
+    Wav2Vec2StackedPositionEncoder as Wav2Vec2StackedPositionEncoder,
+)
+from fairseq2.models.wav2vec2.pretrained_frontend import (
+    PretrainedWav2Vec2Frontend as PretrainedWav2Vec2Frontend,
 )

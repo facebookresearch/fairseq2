@@ -4,33 +4,31 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, final
 
 import torch
+from overrides import override as finaloverride
 from torch import Tensor
-from torch.nn import Dropout, LayerNorm, Module
+from torch.nn import Dropout, LayerNorm
 
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
-from fairseq2.models.wav2vec2.feature_masker import (
-    Wav2Vec2FeatureMasker,
-    apply_temporal_mask,
-)
+from fairseq2.models.transformer import TransformerFrontend
+from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.position_encoder import PositionEncoder
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer import TransformerNormOrder
 from fairseq2.nn.utils.mask import to_padding_mask
 
 
-class Wav2Vec2Frontend(Module):
-    """Represents a wav2vec 2.0 front-end as described in
+@final
+class PretrainedWav2Vec2Frontend(TransformerFrontend):
+    """Represents a pretrained wav2vec 2.0 encoder front-end as described in
     :cite:t:`baevski2020wav2vec`."""
 
     feature_extractor: Optional[SequenceFeatureExtractor]
     feature_layer_norm: LayerNorm
     feature_proj: Optional[Linear]
     feature_dropout: Optional[Dropout]
-    targets_dropout: Optional[Dropout]
-    feature_masker: Wav2Vec2FeatureMasker
     pos_encoder: Optional[PositionEncoder]
     layer_norm: Optional[LayerNorm]
     dropout: Optional[Dropout]
@@ -39,7 +37,6 @@ class Wav2Vec2Frontend(Module):
         self,
         model_dim: int,
         feature_extractor: Optional[SequenceFeatureExtractor],
-        feature_masker: Wav2Vec2FeatureMasker,
         pos_encoder: Optional[PositionEncoder],
         feature_dropout_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
@@ -54,8 +51,6 @@ class Wav2Vec2Frontend(Module):
         :param feature_extractor:
             The feature extractor. If ``None``, features are assumed to be
             extracted externally before being fed to the model.
-        :param feature_masker:
-            The feature mask generator.
         :param pos_encoder:
             The position encoder.
         :param feature_dropout_p:
@@ -68,9 +63,7 @@ class Wav2Vec2Frontend(Module):
             The epsilon value to add to the denominator of the
             :class:`~torch.nn.LayerNorm` module for numerical stability.
         """
-        super().__init__()
-
-        self.model_dim = model_dim
+        super().__init__(model_dim)
 
         if feature_extractor is not None:
             feature_dim = feature_extractor.out_dim
@@ -94,12 +87,8 @@ class Wav2Vec2Frontend(Module):
 
         if feature_dropout_p > 0.0:
             self.feature_dropout = Dropout(feature_dropout_p)
-            self.targets_dropout = Dropout(feature_dropout_p)
         else:
             self.register_module("feature_dropout", None)
-            self.register_module("targets_dropout", None)
-
-        self.feature_masker = feature_masker
 
         if pos_encoder is not None:
             if pos_encoder.dim != model_dim:
@@ -121,36 +110,18 @@ class Wav2Vec2Frontend(Module):
         else:
             self.register_module("dropout", None)
 
+    @finaloverride
     def forward(
-        self, seqs: Tensor, seq_lens: Optional[Tensor]
-    ) -> Tuple[Tensor, Optional[Tensor], Tensor, Tensor]:
-        """
-        :param seqs:
-            The source sequences to process. *Shape:* :math:`(N,S,*)`, where
-            :math:`N` is the batch size, :math:`S` is the source sequence
-            length, and :math:`*` is any number of sequence-specific dimensions
-            including none.
-        :param seq_lens:
-            An array where each element represents the length of the sequence at
-            the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
-            the batch size.
+        self,
+        seqs: Tensor,
+        seq_lens: Optional[Tensor],
+        state_bag: Optional[IncrementalStateBag] = None,
+    ) -> Tuple[Tensor, Optional[Tensor]]:
+        if state_bag is not None:
+            raise ValueError(
+                "The wav2vec 2.0 encoder front-end does not support incremental evaluation."
+            )
 
-        :returns:
-            - The processed source sequences to pass to the model. *Shape:*
-              :math:`(N,S_{out},M)`, where :math:`N` is the batch size,
-              :math:`S_{out}` is the output sequence length, and :math:`M` is
-              the dimensionality of the model.
-            - The float padding mask of the processed source sequences. *Shape:*
-              :math:`(N,S_{out})`, where :math:`N` is the batch size and
-              :math:`S_{out}` is the output sequence length.
-            - The non-quantized context network targets extracted from ``seqs``.
-              *Shape:* :math:`(N,S_{msk},M)`, where :math:`N` is the batch size,
-              :math:`S_{msk}` is the masked sequence length, and :math:`M` is
-              the dimensionality of the model.
-            - The boolean temporal mask that has been applied to the processed
-              source sequences. *Shape:* :math:`(N,S_{out})`, where :math:`N` is
-              the batch size and :math`S_{out}` is the output sequence length.
-        """
         if self.feature_extractor is not None:
             seqs, seq_lens = self.feature_extractor(seqs, seq_lens)
 
@@ -158,20 +129,11 @@ class Wav2Vec2Frontend(Module):
 
         seqs = self.feature_layer_norm(seqs)
 
-        targets = seqs.clone()
-
         if self.feature_proj is not None:
             seqs = self.feature_proj(seqs)
 
         if self.feature_dropout is not None:
             seqs = self.feature_dropout(seqs)
-
-        if self.targets_dropout is not None:
-            targets = self.targets_dropout(targets)
-
-        seqs, temporal_mask = self.feature_masker(seqs, seq_lens)
-
-        targets = apply_temporal_mask(targets, temporal_mask)
 
         if self.pos_encoder is not None:
             seqs = self.pos_encoder(seqs, padding_mask)
@@ -182,8 +144,4 @@ class Wav2Vec2Frontend(Module):
         if self.dropout is not None:
             seqs = self.dropout(seqs)
 
-        return seqs, padding_mask, targets, temporal_mask
-
-    def extra_repr(self) -> str:
-        """:meta private:"""
-        return f"model_dim={self.model_dim}"
+        return seqs, padding_mask

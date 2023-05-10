@@ -5,6 +5,9 @@
 # LICENSE file in the root directory of this source tree.
 
 from fairseq2.models.transformer.frontend import (
+    TransformerEmbeddingFrontend as TransformerEmbeddingFrontend,
+)
+from fairseq2.models.transformer.frontend import (
     TransformerFrontend as TransformerFrontend,
 )
 from fairseq2.models.transformer.model import FinalProjection as FinalProjection

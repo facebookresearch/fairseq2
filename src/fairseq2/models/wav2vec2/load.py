@@ -96,10 +96,10 @@ class Wav2Vec2Loader:
         if cfg.norm_order == TransformerNormOrder.POST:
             state_dict = checkpoint["model"]
 
-            state_dict["encoder_frontend.layer_norm.weight"] = state_dict[
+            state_dict["frontend.layer_norm.weight"] = state_dict[
                 "encoder.layer_norm.weight"
             ]
-            state_dict["encoder_frontend.layer_norm.bias"] = state_dict[
+            state_dict["frontend.layer_norm.bias"] = state_dict[
                 "encoder.layer_norm.bias"
             ]
 

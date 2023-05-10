@@ -19,7 +19,7 @@ from torch.nn.parameter import Parameter
 from fairseq2.nn.incremental_state import IncrementalStateBag
 
 
-class PositionalEncoder(Module, ABC):
+class PositionEncoder(Module, ABC):
     """Encodes sequences with positional information."""
 
     dim: int
@@ -109,7 +109,7 @@ class PositionalEncoder(Module, ABC):
 
 
 @final
-class SinusoidalPositionalEncoder(PositionalEncoder):
+class SinusoidalPositionEncoder(PositionEncoder):
     """Encodes sequences with fixed sinusoidal positional information.
 
     The positional encodings are initialized as in tensor2tensor which differs
@@ -135,9 +135,9 @@ class SinusoidalPositionalEncoder(PositionalEncoder):
 
     >>> import torch
     >>>
-    >>> from fairseq2.nn.positional_encoder import SinusoidalPositionalEncoder
+    >>> from fairseq2.nn.position_encoder import SinusoidalPositionEncoder
     >>>
-    >>> m = SinusoidalPositionalEncoder(dim=4, max_seq_len=16)
+    >>> m = SinusoidalPositionEncoder(dim=4, max_seq_len=16)
     >>>
     >>> seqs = torch.ones((3, 4))
     >>>
@@ -228,16 +228,16 @@ class SinusoidalPositionalEncoder(PositionalEncoder):
 
 
 @final
-class LearnedPositionalEncoder(PositionalEncoder):
+class LearnedPositionEncoder(PositionEncoder):
     """Encodes sequences with learned positional embeddings.
 
     Usage:
 
     >>> import torch
     >>>
-    >>> from fairseq2.nn.positional_encoder import LearnedPositionalEncoder
+    >>> from fairseq2.nn.position_encoder import LearnedPositionEncoder
     >>>
-    >>> m = LearnedPositionalEncoder(dim=4, max_seq_len=16)
+    >>> m = LearnedPositionEncoder(dim=4, max_seq_len=16)
     >>>
     >>> seqs = torch.ones((3, 4))
     >>>
@@ -291,7 +291,7 @@ class LearnedPositionalEncoder(PositionalEncoder):
 
 
 @final
-class RotaryEncoder(PositionalEncoder):
+class RotaryEncoder(PositionEncoder):
     """Encodes sequences with relative positional information as described in
     :cite:t:`https://doi.org/10.48550/arxiv.2104.09864`."""
 

@@ -15,7 +15,7 @@ from packaging import version
 from torch import Tensor
 from torch.nn import Module
 
-from fairseq2.nn.positional_encoder import PositionalEncoder
+from fairseq2.nn.position_encoder import PositionEncoder
 
 log = logging.getLogger(__name__)
 
@@ -211,13 +211,13 @@ class RelativePositionSDPA(SDPA):
     """Compute relative position scaled dot-product attention as described in
     :cite:t:`dai2019transformerxl`."""
 
-    pos_encoder: PositionalEncoder
+    pos_encoder: PositionEncoder
 
     def __init__(
         self,
         model_dim: int,
         num_heads: int,
-        pos_encoder: PositionalEncoder,
+        pos_encoder: PositionEncoder,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
@@ -227,7 +227,7 @@ class RelativePositionSDPA(SDPA):
         :param: num_heads:
             The number of attention heads.
         :param: pos_encoder:
-            The positional encoder to generate the relative position tensor :math:`R`.
+            The position encoder to generate the relative position tensor :math:`R`.
         """
         super().__init__(model_dim, num_heads)
 
@@ -306,7 +306,7 @@ class RelativePositionSDPA(SDPA):
 
     def _generate_r_embed(
         self,
-        pos_encoder: PositionalEncoder,
+        pos_encoder: PositionEncoder,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> Tensor:

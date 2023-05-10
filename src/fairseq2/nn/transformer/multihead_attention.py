@@ -19,7 +19,7 @@ from torch.nn.parameter import Parameter
 from torch.utils.hooks import RemovableHandle
 
 from fairseq2.nn.incremental_state import IncrementalState, IncrementalStateBag
-from fairseq2.nn.positional_encoder import PositionalEncoder
+from fairseq2.nn.position_encoder import PositionEncoder
 from fairseq2.nn.projection import Projection, ResettableProjection
 from fairseq2.nn.transformer.attention import SDPA, DefaultSDPA
 
@@ -175,7 +175,7 @@ class StandardMultiheadAttention(MultiheadAttention):
     q_proj: Projection
     k_proj: Projection
     v_proj: Projection
-    pos_encoder: Optional[PositionalEncoder]
+    pos_encoder: Optional[PositionEncoder]
     bias_k: Optional[Parameter]
     bias_v: Optional[Parameter]
     add_zero_attn: bool
@@ -191,7 +191,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         q_proj: Optional[Projection] = None,
         k_proj: Optional[Projection] = None,
         v_proj: Optional[Projection] = None,
-        pos_encoder: Optional[PositionalEncoder] = None,
+        pos_encoder: Optional[PositionEncoder] = None,
         add_bias_kv: bool = False,
         add_zero_attn: bool = False,
         attn_module: Optional[SDPA] = None,
@@ -217,7 +217,7 @@ class StandardMultiheadAttention(MultiheadAttention):
             The projection to apply to values before computing attention. If
             ``None``, a default projection will be used.
         :param pos_encoder:
-            The positional encoder to apply to inputs and keys after projection.
+            The position encoder to apply to inputs and keys after projection.
         :param add_bias_kv:
             If ``True``, extends keys and values by a bias step.
         :param add_zero_attn:

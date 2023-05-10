@@ -14,7 +14,7 @@ from overrides import override
 from torch import Tensor
 from torch.nn import GELU, Conv1d, Dropout, GroupNorm, LayerNorm, Module, Sequential
 
-from fairseq2.models.sequence_feature_extractor import SequenceFeatureExtractor
+from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.nn.utils.grad import scale_grad
 
 

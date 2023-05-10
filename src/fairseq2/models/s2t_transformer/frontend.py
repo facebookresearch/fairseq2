@@ -12,21 +12,22 @@ from overrides import final as finaloverride
 from torch import Tensor
 from torch.nn import Dropout
 
-from fairseq2.models.encoder_decoder import EncoderFrontend
-from fairseq2.models.sequence_feature_extractor import SequenceFeatureExtractor
-from fairseq2.nn.positional_encoder import PositionalEncoder
+from fairseq2.models.feature_extractor import SequenceFeatureExtractor
+from fairseq2.models.transformer import TransformerFrontend
+from fairseq2.nn.incremental_state import IncrementalStateBag
+from fairseq2.nn.position_encoder import PositionEncoder
 from fairseq2.nn.projection import Linear, Projection
 from fairseq2.nn.utils.mask import to_padding_mask
 
 
 @final
-class S2TTransformerFrontend(EncoderFrontend):
+class S2TTransformerFrontend(TransformerFrontend):
     """Represents a Transformer encoder front-end as described in Section 2.1 of
     :cite:t:`https://doi.org/10.48550/arxiv.1911.08460`."""
 
     feature_extractor: Optional[SequenceFeatureExtractor]
     scale: float
-    pos_encoder: Optional[PositionalEncoder]
+    pos_encoder: Optional[PositionEncoder]
     proj: Optional[Projection]
     dropout: Optional[Dropout]
 
@@ -34,7 +35,7 @@ class S2TTransformerFrontend(EncoderFrontend):
         self,
         model_dim: int,
         feature_extractor: Optional[SequenceFeatureExtractor],
-        pos_encoder: Optional[PositionalEncoder],
+        pos_encoder: Optional[PositionEncoder],
         apply_projection: bool = False,
         dropout_p: float = 0.1,
         device: Optional[torch.device] = None,
@@ -47,7 +48,7 @@ class S2TTransformerFrontend(EncoderFrontend):
             The feature extractor. If ``None``, features are assumed to be
             extracted externally before being fed to the model.
         :param pos_encoder:
-            The positional encoder.
+            The position encoder.
         :param apply_projection:
             If ``True``, applies projection to outputs before dropout as
             described in Section 2 of
@@ -93,8 +94,16 @@ class S2TTransformerFrontend(EncoderFrontend):
 
     @finaloverride
     def forward(
-        self, seqs: Tensor, seq_lens: Optional[Tensor]
+        self,
+        seqs: Tensor,
+        seq_lens: Optional[Tensor],
+        state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
+        if state_bag is not None:
+            raise ValueError(
+                "S2T Transformer encoder front-end does not support incremental evaluation."
+            )
+
         if self.feature_extractor is not None:
             seqs, seq_lens = self.feature_extractor(seqs, seq_lens)
 

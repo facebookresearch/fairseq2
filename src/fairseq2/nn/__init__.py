@@ -8,13 +8,13 @@ from fairseq2.nn.embedding import Embedding as Embedding
 from fairseq2.nn.incremental_state import IncrementalState as IncrementalState
 from fairseq2.nn.incremental_state import IncrementalStateBag as IncrementalStateBag
 from fairseq2.nn.module_list import ModuleList as ModuleList
-from fairseq2.nn.positional_encoder import (
-    LearnedPositionalEncoder as LearnedPositionalEncoder,
+from fairseq2.nn.position_encoder import (
+    LearnedPositionEncoder as LearnedPositionEncoder,
 )
-from fairseq2.nn.positional_encoder import PositionalEncoder as PositionalEncoder
-from fairseq2.nn.positional_encoder import RotaryEncoder as RotaryEncoder
-from fairseq2.nn.positional_encoder import (
-    SinusoidalPositionalEncoder as SinusoidalPositionalEncoder,
+from fairseq2.nn.position_encoder import PositionEncoder as PositionEncoder
+from fairseq2.nn.position_encoder import RotaryEncoder as RotaryEncoder
+from fairseq2.nn.position_encoder import (
+    SinusoidalPositionEncoder as SinusoidalPositionEncoder,
 )
 from fairseq2.nn.projection import Linear as Linear
 from fairseq2.nn.projection import Projection as Projection

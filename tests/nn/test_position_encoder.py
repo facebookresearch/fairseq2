@@ -10,15 +10,15 @@ from torch import Tensor
 
 from fairseq2.nn import (
     IncrementalStateBag,
-    LearnedPositionalEncoder,
+    LearnedPositionEncoder,
     RotaryEncoder,
-    SinusoidalPositionalEncoder,
+    SinusoidalPositionEncoder,
 )
 from tests.common import assert_close, device
 from tests.rng import tmp_rng_seed
 
 
-class TestSinusoidalPositionalEncoder:
+class TestSinusoidalPositionEncoder:
     @staticmethod
     def expected_weight() -> Tensor:
         # fmt: off
@@ -96,12 +96,12 @@ class TestSinusoidalPositionalEncoder:
         # fmt: on
 
     def test_init_initializes_embeddings_correctly(self) -> None:
-        m = SinusoidalPositionalEncoder(dim=32, max_seq_len=10, device=device)
+        m = SinusoidalPositionEncoder(dim=32, max_seq_len=10, device=device)
 
         assert_close(m.weight, self.expected_weight())
 
     def test_forward_returns_correct_embeddings(self) -> None:
-        m = SinusoidalPositionalEncoder(dim=4, max_seq_len=10, device=device)
+        m = SinusoidalPositionEncoder(dim=4, max_seq_len=10, device=device)
 
         x = torch.randn((3, 9, 4), device=device)
 
@@ -115,7 +115,7 @@ class TestSinusoidalPositionalEncoder:
     def test_forward_returns_correct_embedding_in_incremental_eval(
         self, step: int
     ) -> None:
-        m = SinusoidalPositionalEncoder(dim=32, max_seq_len=4, device=device)
+        m = SinusoidalPositionEncoder(dim=32, max_seq_len=4, device=device)
 
         state_bag = IncrementalStateBag()
         state_bag.increment_step(delta=step)
@@ -133,7 +133,7 @@ class TestSinusoidalPositionalEncoder:
         assert_close(y - x, m.weight[step : step + seq_len].expand_as(y))
 
     def test_forward_errors_if_seq_len_is_out_of_range(self) -> None:
-        m = SinusoidalPositionalEncoder(dim=32, max_seq_len=3, device=device)
+        m = SinusoidalPositionEncoder(dim=32, max_seq_len=3, device=device)
 
         x = torch.randn((1, 5, 32), device=device)
 
@@ -144,7 +144,7 @@ class TestSinusoidalPositionalEncoder:
             m(x)
 
     def test_forward_ignores_state_bag_in_training(self) -> None:
-        m = SinusoidalPositionalEncoder(dim=32, max_seq_len=3, device=device)
+        m = SinusoidalPositionEncoder(dim=32, max_seq_len=3, device=device)
 
         x = torch.randn((5, 2, 32), device=device)
 
@@ -156,10 +156,10 @@ class TestSinusoidalPositionalEncoder:
         assert y.shape == (5, 2, 32)
 
 
-class TestLearnedPositionalEncoder:
+class TestLearnedPositionEncoder:
     def test_init_initializes_embeddings_correctly(self) -> None:
         with tmp_rng_seed(device):
-            m = LearnedPositionalEncoder(dim=32, max_seq_len=10, device=device)
+            m = LearnedPositionEncoder(dim=32, max_seq_len=10, device=device)
 
         assert m.weight.dtype == torch.float
 
@@ -169,7 +169,7 @@ class TestLearnedPositionalEncoder:
         assert_close(m.weight, expected_weight)
 
     def test_forward_returns_correct_embeddings(self) -> None:
-        m = LearnedPositionalEncoder(dim=4, max_seq_len=10, device=device)
+        m = LearnedPositionEncoder(dim=4, max_seq_len=10, device=device)
 
         x = torch.randn((3, 9, 4), device=device)
 
@@ -183,7 +183,7 @@ class TestLearnedPositionalEncoder:
     def test_forward_returns_correct_embedding_in_incremental_eval(
         self, step: int
     ) -> None:
-        m = LearnedPositionalEncoder(dim=32, max_seq_len=4, device=device)
+        m = LearnedPositionEncoder(dim=32, max_seq_len=4, device=device)
 
         state_bag = IncrementalStateBag()
         state_bag.increment_step(delta=step)
@@ -201,7 +201,7 @@ class TestLearnedPositionalEncoder:
         assert_close(y - x, m.weight[step : step + seq_len].expand_as(y))
 
     def test_forward_errors_if_seq_len_is_out_of_range(self) -> None:
-        m = LearnedPositionalEncoder(dim=32, max_seq_len=3, device=device)
+        m = LearnedPositionEncoder(dim=32, max_seq_len=3, device=device)
 
         x = torch.randn((1, 5, 32), device=device)
 
@@ -212,7 +212,7 @@ class TestLearnedPositionalEncoder:
             m(x)
 
     def test_forward_ignores_state_bag_in_training(self) -> None:
-        m = LearnedPositionalEncoder(dim=32, max_seq_len=3, device=device)
+        m = LearnedPositionEncoder(dim=32, max_seq_len=3, device=device)
 
         x = torch.randn((5, 2, 32), device=device)
 

@@ -11,12 +11,9 @@ import torch.nn as nn
 from overrides import final as finaloverride
 from torch import Tensor
 
-from fairseq2.models.encoder_decoder import (
-    DecoderFrontend,
-    EncoderDecoderModel,
-    EncoderFrontend,
-)
+from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.seq2seq import Seq2SeqModelOutput
+from fairseq2.models.transformer import TransformerFrontend
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.projection import Projection, ResettableProjection
 from fairseq2.nn.transformer import TransformerDecoder, TransformerEncoder
@@ -27,18 +24,18 @@ class TransformerModel(EncoderDecoderModel):
     """Represents a Transformer model as described in
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
-    encoder_frontend: EncoderFrontend
+    encoder_frontend: TransformerFrontend
     encoder: TransformerEncoder
-    decoder_frontend: DecoderFrontend
+    decoder_frontend: TransformerFrontend
     decoder: TransformerDecoder
     final_proj: Projection
     target_pad_idx: Optional[int]
 
     def __init__(
         self,
-        encoder_frontend: EncoderFrontend,
+        encoder_frontend: TransformerFrontend,
         encoder: TransformerEncoder,
-        decoder_frontend: DecoderFrontend,
+        decoder_frontend: TransformerFrontend,
         decoder: TransformerDecoder,
         final_proj: Projection,
         target_pad_idx: Optional[int],

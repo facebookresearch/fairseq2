@@ -11,7 +11,7 @@ import torch
 from torch.nn import GELU, SiLU
 
 from fairseq2.models.conformer import ConformerConvolution, ConformerEncoderLayer
-from fairseq2.models.sequence_feature_extractor import SequenceFeatureExtractor
+from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.models.wav2vec2.feature_extractor import (
     Wav2Vec2FbankFeatureExtractor,
     Wav2Vec2FeatureExtractor,
@@ -19,12 +19,15 @@ from fairseq2.models.wav2vec2.feature_extractor import (
 from fairseq2.models.wav2vec2.feature_masker import Wav2Vec2FeatureMasker
 from fairseq2.models.wav2vec2.frontend import Wav2Vec2Frontend
 from fairseq2.models.wav2vec2.model import Wav2Vec2Model
-from fairseq2.models.wav2vec2.positional_encoder import (
-    Wav2Vec2PositionalEncoder,
-    Wav2Vec2StackedPositionalEncoder,
+from fairseq2.models.wav2vec2.position_encoder import (
+    Wav2Vec2PositionEncoder,
+    Wav2Vec2StackedPositionEncoder,
 )
-from fairseq2.models.wav2vec2.vector_quantizer import GumbelVectorQuantizer
-from fairseq2.nn.positional_encoder import PositionalEncoder
+from fairseq2.models.wav2vec2.vector_quantizer import (
+    GumbelVectorQuantizer,
+    VectorQuantizer,
+)
+from fairseq2.nn.position_encoder import PositionEncoder
 from fairseq2.nn.transformer import (
     FeedForwardNetwork,
     MultiheadAttention,
@@ -91,25 +94,25 @@ class Wav2Vec2Config:
 
     max_spatial_mask_prob: float = 0.0
 
-    # Positional Encoder
+    # Position Encoder
     pos_encoder_type: Literal["conv", "abs", "rotary"] = "conv"
-    """The type of positional encoder.
+    """The type of position encoder.
 
-    The default value `conv` means convolutional positional encoder as
+    The default value `conv` means convolutional position encoder as
     described in the paper. The other two values `abs` and `rotary` stand for
-    sinusoidal positional encoder and rotary encoder respectively. They are
+    sinusoidal position encoder and rotary encoder respectively. They are
     typically used with Conformer blocks.
     """
 
-    # Convolutional Positional Encoder
+    # Convolutional Position Encoder
     pos_encoder_depth: int = 1
-    """The number of stacked positional encoder layers."""
+    """The number of stacked position encoder layers."""
 
     pos_conv_kernel_size: int = 128
-    """The total kernel size of 1D convolutions in positional encoder layers."""
+    """The total kernel size of 1D convolutions in position encoder layers."""
 
     num_pos_conv_groups: int = 16
-    """The number of convolution groups in positional encoder layers."""
+    """The number of convolution groups in position encoder layers."""
 
     # Quantization
     latent_vars: int = 320
@@ -221,12 +224,20 @@ class Wav2Vec2Builder:
             self.cfg.dtype,
         )
 
+    #    def build_pretrained_model(self) -> EncoderModel:
+    #        """Build a pre-trained model."""
+    #        encoder_frontend = self.build_encoder_frontend()
+    #
+    #        encoder = self.build_encoder()
+    #
+    #        return TransformerEncoderModel(encoder_frontend, encoder)
+
     def build_encoder_frontend(self) -> Wav2Vec2Frontend:
         feature_extractor = self.build_feature_extractor()
 
         mask = self.build_mask()
 
-        pos_encoder = self.build_positional_encoder()
+        pos_encoder = self.build_position_encoder()
 
         return Wav2Vec2Frontend(
             self.cfg.model_dim,
@@ -268,10 +279,10 @@ class Wav2Vec2Builder:
             dtype=self.cfg.dtype,
         )
 
-    def build_positional_encoder(self) -> PositionalEncoder:
+    def build_position_encoder(self) -> PositionEncoder:
         #        if self.cfg.pos_embed_type == "conv":
         if self.cfg.pos_encoder_depth == 1:
-            return Wav2Vec2PositionalEncoder(
+            return Wav2Vec2PositionEncoder(
                 self.cfg.model_dim,
                 self.cfg.pos_conv_kernel_size,
                 self.cfg.num_pos_conv_groups,
@@ -279,7 +290,7 @@ class Wav2Vec2Builder:
                 dtype=self.cfg.dtype,
             )
         else:
-            return Wav2Vec2StackedPositionalEncoder(
+            return Wav2Vec2StackedPositionEncoder(
                 self.cfg.model_dim,
                 self.cfg.pos_conv_kernel_size,
                 self.cfg.num_pos_conv_groups,
@@ -373,7 +384,7 @@ class Wav2Vec2Builder:
             dtype=self.cfg.dtype,
         )
 
-    def build_vector_quantizer(self) -> GumbelVectorQuantizer:
+    def build_vector_quantizer(self) -> VectorQuantizer:
         return GumbelVectorQuantizer(
             dim=self.cfg.embed_dim,
             num_vars=self.cfg.latent_vars,

@@ -15,12 +15,12 @@ from torch.nn import GELU, Conv1d, LayerNorm, Module, Sequential
 from torch.nn.utils.weight_norm import remove_weight_norm, weight_norm
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
-from fairseq2.nn.positional_encoder import PositionalEncoder
+from fairseq2.nn.position_encoder import PositionEncoder
 from fairseq2.nn.utils.mask import apply_padding_mask
 
 
 @final
-class Wav2Vec2PositionalEncoder(PositionalEncoder):
+class Wav2Vec2PositionEncoder(PositionEncoder):
     """Encodes sequences with relative positional information as described in
     Section 2 of :cite:t:`baevski2020wav2vec`."""
 
@@ -70,7 +70,7 @@ class Wav2Vec2PositionalEncoder(PositionalEncoder):
         """:meta private:"""
         if state_bag is not None:
             raise ValueError(
-                "`Wav2Vec2PositionalEncoder` does not support incremental encoding."
+                "`Wav2Vec2PositionEncoder` does not support incremental encoding."
             )
 
         # We have to ensure that the padded elements are correctly set to
@@ -95,7 +95,7 @@ class Wav2Vec2PositionalEncoder(PositionalEncoder):
 
 
 class Wav2Vec2PositionalConv1d(Conv1d):
-    """Represents the convolution used in :class:`Wav2Vec2PositionalEncoder`."""
+    """Represents the convolution used in :class:`Wav2Vec2PositionEncoder`."""
 
     @override
     def reset_parameters(self) -> None:
@@ -119,12 +119,12 @@ class Wav2Vec2PositionalConv1d(Conv1d):
 
 
 @final
-class Wav2Vec2StackedPositionalEncoder(PositionalEncoder):
+class Wav2Vec2StackedPositionEncoder(PositionEncoder):
     """Encodes sequences with relative positional information using a stack
     of 1D convolutions.
 
-    This positional encoder is not mentioned in :cite:t:`baevski2020wav2vec`,
-    but exists in the reference implementation."""
+    This position encoder is not mentioned in :cite:t:`baevski2020wav2vec`, but
+    exists in the reference implementation."""
 
     layers: Sequential
 
@@ -159,7 +159,7 @@ class Wav2Vec2StackedPositionalEncoder(PositionalEncoder):
         self.layers = Sequential()
 
         for _ in range(num_layers):
-            layer = Wav2Vec2PositionalEncoderLayer(
+            layer = Wav2Vec2PositionEncoderLayer(
                 model_dim, k, num_groups, norm_eps, device, dtype
             )
 
@@ -175,7 +175,7 @@ class Wav2Vec2StackedPositionalEncoder(PositionalEncoder):
         """:meta private:"""
         if state_bag is not None:
             raise ValueError(
-                "`Wav2Vec2StackedPositionalEncoder` does not support incremental encoding."
+                "`Wav2Vec2StackedPositionEncoder` does not support incremental encoding."
             )
 
         # We have to ensure that the padded elements are correctly set to
@@ -194,8 +194,8 @@ class Wav2Vec2StackedPositionalEncoder(PositionalEncoder):
         return seqs + x
 
 
-class Wav2Vec2PositionalEncoderLayer(Module):
-    """Represents a layer used in :class:`Wav2Vec2StackedPositionalEncoder`."""
+class Wav2Vec2PositionEncoderLayer(Module):
+    """Represents a layer used in :class:`Wav2Vec2StackedPositionEncoder`."""
 
     conv: Conv1d
     layer_norm: LayerNorm

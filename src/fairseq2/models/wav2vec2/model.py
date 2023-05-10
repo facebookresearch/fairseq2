@@ -12,6 +12,7 @@ import torch.nn.functional as F
 from torch import Tensor
 from torch.nn import Module
 
+from fairseq2.models.wav2vec2.feature_masker import apply_temporal_mask
 from fairseq2.models.wav2vec2.frontend import Wav2Vec2Frontend
 from fairseq2.models.wav2vec2.vector_quantizer import (
     VectorQuantizer,
@@ -26,65 +27,64 @@ class Wav2Vec2Model(Module):
     :cite:t:`baevski2020wav2vec`."""
 
     model_dim: int
-    encoder_frontend: Wav2Vec2Frontend
+    frontend: Wav2Vec2Frontend
     encoder: TransformerEncoder
     vector_quantizer: VectorQuantizer
-    final_seq_proj: Linear
+    final_proj: Linear
     final_target_proj: Linear
     num_negatives: int
     logit_temp: float
-    diversity_weight: float
+    diversity_loss_weight: float
 
     def __init__(
         self,
-        encoder_frontend: Wav2Vec2Frontend,
+        frontend: Wav2Vec2Frontend,
         encoder: TransformerEncoder,
         vector_quantizer: VectorQuantizer,
         final_dim: int = 0,
         num_negatives: int = 100,
         logit_temp: float = 0.1,
-        diversity_weight: float = 0.1,
+        diversity_loss_weight: float = 0.1,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
-    ):
+    ) -> None:
         """
-        :param encoder_frontend:
+        :param frontend:
             The encoder frontend.
         :param encoder:
             The encoder.
         :param vector_quantizer:
-            The quantizer to use for context network targets.
+            The quantizer to generate context network targets.
         :param final_dim:
             The dimensionality of the final projection that is applied to
-            features and quantized targets before computing logits. If zero,
+            sequences and quantized targets before computing logits. If zero,
             :attr:`model_dim` will be used.
         :param num_negatives:
             The number of negative examples for contrastive loss.
         :param logit_temp:
             The temperature to divide logits by.
-        :param diversity_weight:
-            The diversity weight to use in loss computation.
+        :param diversity_loss_weight:
+            The weight of diversity in loss computation.
         """
         super().__init__()
 
         model_dim = encoder.model_dim
 
-        if encoder_frontend.model_dim != model_dim:
+        if frontend.model_dim != model_dim:
             raise ValueError(
-                f"`model_dim` of `encoder_frontend` and `model_dim` of `encoder` must be equal, but are {encoder_frontend.model_dim} and {model_dim} instead."
+                f"`model_dim` of `frontend` and `model_dim` of `encoder` must be equal, but are {frontend.model_dim} and {model_dim} instead."
             )
 
         self.model_dim = model_dim
 
-        self.encoder_frontend = encoder_frontend
+        self.frontend = frontend
         self.encoder = encoder
-
         self.vector_quantizer = vector_quantizer
 
         if final_dim == 0:
             final_dim = model_dim
 
-        self.final_seq_proj = Linear(
+        self.final_proj = Linear(
             model_dim, final_dim, bias=True, device=device, dtype=dtype
         )
         self.final_target_proj = Linear(
@@ -92,9 +92,8 @@ class Wav2Vec2Model(Module):
         )
 
         self.num_negatives = num_negatives
-
         self.logit_temp = logit_temp
-        self.diversity_weight = diversity_weight
+        self.diversity_loss_weight = diversity_loss_weight
 
     def forward(self, seqs: Tensor, seq_lens: Optional[Tensor]) -> "Wav2Vec2Output":
         """
@@ -108,40 +107,32 @@ class Wav2Vec2Model(Module):
             the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
             the batch size.
         """
-        seqs, padding_mask, targets, temporal_mask = self.encoder_frontend(
-            seqs, seq_lens
-        )
+        seqs, padding_mask, targets, temporal_mask = self.frontend(seqs, seq_lens)
 
         # TODO: Should we pad for fp16?
         encoder_out = self.encoder(seqs, padding_mask)
 
-        masked_seqs = self._apply_temporal_mask(encoder_out, temporal_mask)
+        seqs = apply_temporal_mask(encoder_out, temporal_mask)
 
-        masked_seqs = self.final_seq_proj(masked_seqs)
+        seqs = self.final_proj(seqs)
 
-        masked_targets = self._apply_temporal_mask(targets, temporal_mask)
+        quantizer_output = self.vector_quantizer(targets)
 
-        quantizer_output = self.vector_quantizer(masked_targets)
+        targets = self.final_target_proj(quantizer_output.x)
 
-        quantized_targets = self.final_target_proj(quantizer_output.targets)
+        negatives = self._sample_negatives(targets, self.num_negatives)
 
-        negatives = self._sample_negatives(quantized_targets, self.num_negatives)
-
-        logits = self._compute_logits(masked_seqs, quantized_targets, negatives)
+        logits = self._compute_logits(seqs, targets, negatives)
 
         return Wav2Vec2Output(
             logits,
-            quantized_targets,
+            targets,
             temporal_mask,
             encoder_out,
             padding_mask,
             quantizer_output,
-            self.diversity_weight,
+            self.diversity_loss_weight,
         )
-
-    @staticmethod
-    def _apply_temporal_mask(x: Tensor, temporal_mask: Tensor) -> Tensor:
-        return x[temporal_mask].unflatten(0, (x.size(0), -1))  # type: ignore[no-any-return]
 
     @staticmethod
     def _sample_negatives(targets: Tensor, num_negatives: int) -> Tensor:
@@ -211,7 +202,7 @@ class Wav2Vec2Model(Module):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"model_dim={self.model_dim}, num_negatives={self.num_negatives}, logit_temp={self.logit_temp}"
+        return f"model_dim={self.model_dim}, num_negatives={self.num_negatives}, logit_temp={self.logit_temp}, diversity_loss_weight={self.diversity_loss_weight}"
 
 
 @dataclass
@@ -248,18 +239,19 @@ class Wav2Vec2Output:
     quantizer_output: VectorQuantizerOutput
     """The output of the vector quantizer."""
 
-    diversity_weight: float
-    """The diversity weight to use in loss computation."""
+    diversity_loss_weight: float
+    """The weight of diversity in loss computation."""
 
     def compute_loss(self) -> Tensor:
         """Compute the loss."""
         loss = self.compute_contrastive_loss()
 
-        diversity_loss = self.quantizer_output.compute_loss()
+        diversity_loss = self.compute_diversity_loss()
 
-        return loss + self.diversity_weight * diversity_loss * self.logits.numel()
+        return loss + self.diversity_loss_weight * diversity_loss
 
     def compute_contrastive_loss(self) -> Tensor:
+        """Compute the contrastive loss."""
         batch_size, seq_len, num_logits = self.logits.shape
 
         # (N, S, L) -> (S x N, L)
@@ -267,7 +259,11 @@ class Wav2Vec2Output:
 
         # The first target is always the true one.
         true_target_indices = logits.new_zeros(
-            (batch_size * seq_len,), dtype=torch.long
+            (batch_size * seq_len,), dtype=torch.int64
         )
 
         return F.cross_entropy(logits, true_target_indices, reduction="sum")
+
+    def compute_diversity_loss(self) -> Tensor:
+        """Compute the diversity loss."""
+        return self.quantizer_output.compute_loss() * self.quantized_targets.numel()

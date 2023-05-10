@@ -26,6 +26,10 @@ class VectorQuantizerOutput(ABC):
     def compute_loss(self) -> Tensor:
         pass
 
+    @abstractmethod
+    def get_ids(self, num_groups: int) -> Tensor:
+        pass
+
 
 @final
 class GumbelVectorQuantizer(VectorQuantizer):
@@ -156,10 +160,10 @@ class GumbelVectorQuantizer(VectorQuantizer):
             .scatter_(-1, k.view(-1, 1), 1.0)
             .view(bsz * tsz, self.groups, -1)
         )
-        #        hard_probs = torch.mean(hard_x.float(), dim=0)
-        #        result["code_perplexity"] = torch.exp(
-        #            -torch.sum(hard_probs * torch.log(hard_probs + 1e-7), dim=-1)
-        #        ).sum()
+        hard_probs = torch.mean(hard_x.float(), dim=0)
+        code_perplexity = torch.exp(
+            -torch.sum(hard_probs * torch.log(hard_probs + 1e-7), dim=-1)
+        ).sum()
 
         avg_probs = torch.softmax(
             x.view(bsz * tsz, self.groups, -1).float(), dim=-1
@@ -168,8 +172,6 @@ class GumbelVectorQuantizer(VectorQuantizer):
         prob_perplexity = torch.exp(
             -torch.sum(avg_probs * torch.log(avg_probs + 1e-7), dim=-1)
         ).sum()
-
-        #        result["temp"] = self.curr_temp
 
         if self.training:
             x = F.gumbel_softmax(x.float(), tau=self.curr_temp, hard=True).type_as(x)
@@ -189,8 +191,11 @@ class GumbelVectorQuantizer(VectorQuantizer):
 
         return GumbelVectorQuantizerOutput(
             x,
-            num_vars=self.num_vars * self.groups,
-            prob_perplexity=prob_perplexity,
+            self.num_vars,
+            self.groups,
+            code_perplexity,
+            prob_perplexity,
+            self.curr_temp,
         )
 
     def _compute_current_temp(self) -> None:
@@ -201,11 +206,28 @@ class GumbelVectorQuantizer(VectorQuantizer):
         self.num_updates.add_(1)
 
 
+@final
 @dataclass
 class GumbelVectorQuantizerOutput(VectorQuantizerOutput):
-    targets: Tensor
+    x: Tensor
     num_vars: int
+    num_groups: int
+    code_perplexity: Tensor
     prob_perplexity: Tensor
+    temperature: float
 
+    @finaloverride
     def compute_loss(self) -> Tensor:
-        return (self.num_vars - self.prob_perplexity) / self.num_vars  # type: ignore[no-any-return]
+        n = self.num_vars * self.num_groups
+
+        return (n - self.prob_perplexity) / n  # type: ignore[no-any-return]
+
+    @finaloverride
+    def get_ids(self, num_groups: int) -> Tensor:
+        batch_size, seq_len = self.x.shape[:2]
+
+        x = self.x.view(batch_size * seq_len * self.num_groups, -1)
+
+        targets = x.argmax(dim=-1).view(batch_size, seq_len, self.num_groups)
+
+        return targets[:, :, :num_groups].detach()
