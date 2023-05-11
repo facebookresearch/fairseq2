@@ -96,17 +96,17 @@ class Wav2Vec2Loader:
         if cfg.norm_order == TransformerNormOrder.POST:
             state_dict = checkpoint["model"]
 
-            state_dict["frontend.layer_norm.weight"] = state_dict[
+            state_dict["encoder_frontend.layer_norm.weight"] = state_dict[
                 "encoder.layer_norm.weight"
             ]
-            state_dict["frontend.layer_norm.bias"] = state_dict[
+            state_dict["encoder_frontend.layer_norm.bias"] = state_dict[
                 "encoder.layer_norm.bias"
             ]
 
             del state_dict["encoder.layer_norm.weight"]
             del state_dict["encoder.layer_norm.bias"]
 
-        state_dict["vector_quantizer.num_updates"] = torch.zeros((1,), device=device)
+        state_dict["quantizer.num_updates"] = torch.zeros((1,), device=device)
 
         model.load_state_dict(checkpoint["model"])
 

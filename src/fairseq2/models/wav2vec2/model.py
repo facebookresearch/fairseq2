@@ -12,8 +12,8 @@ import torch.nn.functional as F
 from torch import Tensor
 from torch.nn import Module
 
-from fairseq2.models.wav2vec2.feature_masker import apply_temporal_mask
 from fairseq2.models.wav2vec2.frontend import Wav2Vec2Frontend
+from fairseq2.models.wav2vec2.masker import apply_temporal_mask
 from fairseq2.models.wav2vec2.vector_quantizer import (
     VectorQuantizer,
     VectorQuantizerOutput,
@@ -27,7 +27,7 @@ class Wav2Vec2Model(Module):
     :cite:t:`baevski2020wav2vec`."""
 
     model_dim: int
-    frontend: Wav2Vec2Frontend
+    encoder_frontend: Wav2Vec2Frontend
     encoder: TransformerEncoder
     vector_quantizer: VectorQuantizer
     final_proj: Linear
@@ -38,9 +38,9 @@ class Wav2Vec2Model(Module):
 
     def __init__(
         self,
-        frontend: Wav2Vec2Frontend,
+        encoder_frontend: Wav2Vec2Frontend,
         encoder: TransformerEncoder,
-        vector_quantizer: VectorQuantizer,
+        quantizer: VectorQuantizer,
         final_dim: int = 0,
         num_negatives: int = 100,
         logit_temp: float = 0.1,
@@ -49,16 +49,16 @@ class Wav2Vec2Model(Module):
         dtype: Optional[torch.dtype] = None,
     ) -> None:
         """
-        :param frontend:
+        :param encoder_frontend:
             The encoder frontend.
         :param encoder:
-            The encoder.
-        :param vector_quantizer:
-            The quantizer to generate context network targets.
+            The encoder (i.e. context network).
+        :param quantizer:
+            The quantizer to discretize context network targets.
         :param final_dim:
             The dimensionality of the final projection that is applied to
-            sequences and quantized targets before computing logits. If zero,
-            :attr:`model_dim` will be used.
+            context network outputs and quantized targets before computing
+            logits. If zero, :attr:`model_dim` will be used.
         :param num_negatives:
             The number of negative examples for contrastive loss.
         :param logit_temp:
@@ -70,16 +70,17 @@ class Wav2Vec2Model(Module):
 
         model_dim = encoder.model_dim
 
-        if frontend.model_dim != model_dim:
+        if encoder_frontend.model_dim != model_dim:
             raise ValueError(
-                f"`model_dim` of `frontend` and `model_dim` of `encoder` must be equal, but are {frontend.model_dim} and {model_dim} instead."
+                f"`model_dim` of `encoder_frontend` and `model_dim` of `encoder` must be equal, but are {encoder_frontend.model_dim} and {model_dim} instead."
             )
 
         self.model_dim = model_dim
 
-        self.frontend = frontend
+        self.encoder_frontend = encoder_frontend
         self.encoder = encoder
-        self.vector_quantizer = vector_quantizer
+
+        self.quantizer = quantizer
 
         if final_dim == 0:
             final_dim = model_dim
@@ -107,7 +108,9 @@ class Wav2Vec2Model(Module):
             the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
             the batch size.
         """
-        seqs, padding_mask, targets, temporal_mask = self.frontend(seqs, seq_lens)
+        seqs, padding_mask, targets, temporal_mask = self.encoder_frontend(
+            seqs, seq_lens
+        )
 
         # TODO: Should we pad for fp16?
         encoder_out = self.encoder(seqs, padding_mask)
@@ -116,7 +119,7 @@ class Wav2Vec2Model(Module):
 
         seqs = self.final_proj(seqs)
 
-        quantizer_output = self.vector_quantizer(targets)
+        quantizer_output = self.quantizer(targets)
 
         targets = self.final_target_proj(quantizer_output.x)
 
@@ -232,9 +235,9 @@ class Wav2Vec2Output:
     and :math:`M` is the dimensionality of the model."""
 
     encoder_padding_mask: Optional[Tensor]
-    """The float padding mask of the encoded source sequences. *Shape:*
-    :math:`(N,S_{out})`, where :math:`N` is the batch size and :math:`S_{out}`
-    is the output sequence length."""
+    """The float padding mask of ``encoder_out``. *Shape:* :math:`(N,S_{out})`,
+    where :math:`N` is the batch size and :math:`S_{out}` is the output sequence
+    length."""
 
     quantizer_output: VectorQuantizerOutput
     """The output of the vector quantizer."""

@@ -23,7 +23,7 @@ def compute_mask(
     :param shape:
         The two dimensional shape for which to compute a mask.
     :param span_len:
-        The length of each mask span in a row.
+        The length of each mask span.
     :param max_mask_prob:
         The maximum probability of masking an element among all elements in a
         row. Note that, due to mask span overlap, the effective probability
@@ -185,34 +185,31 @@ def to_padding_mask(seqs: Tensor, seq_lens: Optional[Tensor]) -> Optional[Tensor
 
 
 def to_float_mask(mask: Tensor, dtype: torch.dtype = torch.float32) -> Tensor:
-    """Convert a boolean mask to its floating-point equivalent.
+    """Convert a boolean mask to a float mask.
 
     :param mask:
         The mask tensor. *Shape:* Any.
     :param dtype:
         The floating-point type of the converted mask.
-
-    :returns:
-        The floating-point equivalent of ``mask`` if ``mask`` is a boolean
-        tensor; otherwise, ``mask`` itself.
     """
     return torch.zeros_like(mask, dtype=dtype).masked_fill_(mask, _neg_inf)
 
 
 def apply_padding_mask(seqs: Tensor, padding_mask: Optional[Tensor]) -> Tensor:
-    """
+    """Apply the specified padding mask to ``seqs``.
+
     :param seqs:
-        The sequences to mask. *Shape:* :math:`(N,S,M)`, where :math:`N` is the
-        the batch size, :math:`S` is the sequence length, and :math:`M` is the
-        dimensionality of the originating model.
+        The sequences to mask. *Shape:* :math:`(N,S,*)`, where :math:`N` is the
+        the batch size, :math:`S` is the sequence length, and :math:`*` is any
+        number of sequence-specific dimensions including none.
     :param padding_mask:
         The float padding mask to apply. *Shape:* :math:`(N_{msk},S)`, where
-        :math:`N_{msk}` is the batch size of the mask and :math:`S` is the
-        sequence length. :math:`N` can be a multiple of :math:`N_{msk}` in
-        which case the mask will be tiled before being applied.
+        :math:`N_{msk}` is the mask batch size and :math:`S` is the sequence
+        length. :math:`N` can be a multiple of :math:`N_{msk}` in which case the
+        mask will be tiled before being applied.
 
     :returns:
-        ``seqs`` with padding mask applied. *Shape:* Same as ``seqs``.
+        The input sequences with mask applied. *Shape:* Same as ``seqs``.
     """
     if padding_mask is None:
         return seqs

@@ -52,7 +52,7 @@ class TransformerModel(EncoderDecoderModel):
         :param final_proj:
             The projection to apply to decoder outputs to produce logits.
         :param target_pad_idx:
-            The index of the pad symbol in the target vocabulary.
+            The index of the pad symbol in the target domain.
         """
         model_dim = encoder.model_dim
 
@@ -134,7 +134,7 @@ class FinalProjection(ResettableProjection):
         :param model_dim:
             The dimensionality of the model.
         :param target_vocab_size:
-            The size of the target vocabulary.
+            The size of the target domain (e.g. vocabulary).
         """
         super().__init__(
             model_dim, target_vocab_size, bias=False, device=device, dtype=dtype

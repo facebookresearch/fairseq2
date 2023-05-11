@@ -95,7 +95,7 @@ class ConformerConvolution(Module):
             is the dimensionality of the model.
 
         :returns:
-            The processed output of ``seqs``. *Shape:* Same as ``seqs``.
+            The processed output sequences. *Shape:* Same as ``seqs``.
         """
         # (N, S, M) -> (N, M, S)
         seqs = seqs.transpose(1, 2)

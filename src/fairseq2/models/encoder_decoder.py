@@ -88,8 +88,8 @@ class EncoderDecoderModel(Seq2SeqModel):
             the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
             the batch size.
         :param encoder_out:
-            The encoded source sequences for the encoder-decoder attention.
-            *Shape:* :math:`(N,S_{enc},M)`, where :math:`N` is the batch size,
+            The encoded source sequences for encoder-decoder attention. *Shape:*
+            :math:`(N,S_{enc},M)`, where :math:`N` is the batch size,
             :math:`S_{enc}` is the encoder output sequence length, and :math:`M`
             is the dimensionality of the model.
         :param encoder_padding_mask:

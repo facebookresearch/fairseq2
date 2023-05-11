@@ -46,26 +46,23 @@ class NllbConfig:
     """The dimensionality of the model."""
 
     num_encoder_layers: int = 24
-    """The number of encoder layers."""
+    """The number of Transformer encoder layers."""
 
     num_decoder_layers: int = 24
-    """The number of decoder layers."""
+    """The number of Transformer decoder layers."""
 
     num_encoder_attn_heads: int = 16
-    """The number of attention heads in encoder layers."""
+    """The number of attention heads in Transformer encoder layers."""
 
     num_decoder_attn_heads: int = 16
-    """The number of attention heads in decoder layers."""
+    """The number of attention heads in Transformer decoder layers."""
 
     ffn_inner_dim: int = 1024 * 8
-    """The dimensionality of inner projection layers in feed-forward networks."""
+    """The dimensionality of inner projection layers in Transformer feed-forward
+    networks."""
 
     dropout_p: float = 0.1
-    """The dropout probability on outputs of embedding dictionaries, attention
-    layers, and feed-forward networks."""
-
-    dtype: torch.dtype = torch.float32
-    """The data type of model parameters and buffers."""
+    """The dropout probability in Transformer layers."""
 
 
 _CONFIGS: Final = {
@@ -122,6 +119,7 @@ def create_nllb_model(
     cfg: NllbConfig,
     vocab_info: VocabularyInfo,
     device: Optional[torch.device] = None,
+    dtype: Optional[torch.dtype] = None,
 ) -> TransformerModel:
     """Create an NLLB model as described in
     :cite:t:`https://doi.org/10.48550/arxiv.2207.04672`.
@@ -132,8 +130,10 @@ def create_nllb_model(
         The vocabulary information to use.
     :param device:
         The device on which to initialize the model.
+    :param dtype:
+        The data type of the model parameters and buffers.
     """
-    return NllbBuilder(cfg, vocab_info, device).build_model()
+    return NllbBuilder(cfg, vocab_info, device, dtype).build_model()
 
 
 class NllbBuilder:
@@ -147,12 +147,14 @@ class NllbBuilder:
     cfg: NllbConfig
     vocab_info: VocabularyInfo
     device: Optional[torch.device]
+    dtype: Optional[torch.dtype]
 
     def __init__(
         self,
         cfg: NllbConfig,
         vocab_info: VocabularyInfo,
         device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
     ) -> None:
         """
         :param cfg:
@@ -161,20 +163,23 @@ class NllbBuilder:
             The vocabulary information to use.
         :param device:
             The device on which to initialize modules.
+        :param dtype:
+            The data type of module parameters and buffers.
         """
         self.cfg = cfg
         self.vocab_info = vocab_info
         self.device = device
+        self.dtype = dtype
 
     def build_model(self) -> TransformerModel:
         """Build a model."""
         embed = Embedding(
-            num_embedding=self.vocab_info.size,
+            num_embeddings=self.vocab_info.size,
             embedding_dim=self.cfg.model_dim,
             pad_idx=self.vocab_info.pad_idx,
             scaled=True,
             device=self.device,
-            dtype=self.cfg.dtype,
+            dtype=self.dtype,
         )
 
         frontend = self.build_frontend(embed)
@@ -189,13 +194,13 @@ class NllbBuilder:
         )
 
     def build_frontend(self, embed: Embedding) -> TransformerFrontend:
-        """Build a shared encoder/decoder frontend."""
+        """Build a shared Transformer encoder/decoder front-end."""
         pos_encoder = SinusoidalPositionEncoder(
             self.cfg.model_dim,
             self.cfg.max_seq_len,
             _legacy_pad_idx=self.vocab_info.pad_idx,
             device=self.device,
-            dtype=self.cfg.dtype,
+            dtype=self.dtype,
         )
 
         return TransformerEmbeddingFrontend(
@@ -203,11 +208,11 @@ class NllbBuilder:
             pos_encoder,
             dropout_p=self.cfg.dropout_p,
             device=self.device,
-            dtype=self.cfg.dtype,
+            dtype=self.dtype,
         )
 
     def build_encoder(self) -> TransformerEncoder:
-        """Build an encoder."""
+        """Build a Transformer encoder."""
         layers = [
             self.build_encoder_layer() for _ in range(self.cfg.num_encoder_layers)
         ]
@@ -216,11 +221,11 @@ class NllbBuilder:
             layers,
             norm_order=TransformerNormOrder.PRE,
             device=self.device,
-            dtype=self.cfg.dtype,
+            dtype=self.dtype,
         )
 
     def build_decoder(self) -> TransformerDecoder:
-        """Build a decoder."""
+        """Build a Transformer decoder."""
         layers = [
             self.build_decoder_layer() for _ in range(self.cfg.num_decoder_layers)
         ]
@@ -229,11 +234,11 @@ class NllbBuilder:
             layers,
             norm_order=TransformerNormOrder.PRE,
             device=self.device,
-            dtype=self.cfg.dtype,
+            dtype=self.dtype,
         )
 
     def build_encoder_layer(self) -> TransformerEncoderLayer:
-        """Build an encoder layer."""
+        """Build a Transformer encoder layer."""
         self_attn = self.build_attention(self.cfg.num_encoder_attn_heads)
 
         ffn = self.build_ffn()
@@ -244,11 +249,11 @@ class NllbBuilder:
             dropout_p=self.cfg.dropout_p,
             norm_order=TransformerNormOrder.PRE,
             device=self.device,
-            dtype=self.cfg.dtype,
+            dtype=self.dtype,
         )
 
     def build_decoder_layer(self) -> TransformerDecoderLayer:
-        """Build a decoder layer."""
+        """Build a Transformer decoder layer."""
         self_attn = self.build_attention(self.cfg.num_decoder_attn_heads)
 
         encoder_decoder_attn = self.build_attention(self.cfg.num_decoder_attn_heads)
@@ -262,25 +267,25 @@ class NllbBuilder:
             dropout_p=self.cfg.dropout_p,
             norm_order=TransformerNormOrder.PRE,
             device=self.device,
-            dtype=self.cfg.dtype,
+            dtype=self.dtype,
         )
 
     def build_attention(self, num_heads: int) -> MultiheadAttention:
-        """Build a multi-head attention layer."""
+        """Build a Transformer multi-head attention layer."""
         return StandardMultiheadAttention(
             num_heads,
             self.cfg.model_dim,
             attn_dropout_p=self.cfg.dropout_p,  # Applies dropout.
             device=self.device,
-            dtype=self.cfg.dtype,
+            dtype=self.dtype,
         )
 
     def build_ffn(self) -> FeedForwardNetwork:
-        """Build a feed-forward network."""
+        """Build a Transformer feed-forward network."""
         return StandardFeedForwardNetwork(
             self.cfg.model_dim,
             self.cfg.ffn_inner_dim,
             norm_order=TransformerNormOrder.PRE,
             device=self.device,
-            dtype=self.cfg.dtype,
+            dtype=self.dtype,
         )

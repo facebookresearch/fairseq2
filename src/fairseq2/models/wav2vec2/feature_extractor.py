@@ -32,7 +32,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
         layer_descs: Sequence[Tuple[int, int, int]],
         bias: bool = False,
         dropout_p: float = 0.0,
-        use_layer_norm: bool = False,
+        layer_norm: bool = False,
         grad_scale: float = 1.0,
         norm_eps: float = 1e-5,
         device: Optional[torch.device] = None,
@@ -43,11 +43,10 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
             A tuple of output dimension, kernel size, and stride for each
             feature extraction layer.
         :param bias:
-            If ``True``, convolutions in the feature extraction layers learn an
-            additive bias.
+            If ``True``, convolutions learn an additive bias.
         :param dropout_p:
             The dropout probability on outputs of convolutions.
-        :param use_layer_norm:
+        :param layer_norm:
             If ``True``, applies Layer Normalization to outputs of convolutions
             after dropout.
         :param grad_scale:
@@ -76,24 +75,24 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
             out_dim, kernel_size, stride = layer_desc
 
             # If Layer Normalization is requested, apply it in all layers.
-            if use_layer_norm:
-                layer_norm = Float32LayerNorm(
+            if layer_norm:
+                layer_norm_ = Float32LayerNorm(
                     out_dim, norm_eps, device=device, dtype=dtype
                 )
 
-                group_norm = None
+                group_norm_ = None
 
             # Otherwise, apply Group Normalization in the first layer, and do
             # not apply any normalization in the other layers.
             elif i == 0:
-                group_norm = Float32GroupNorm(
+                group_norm_ = Float32GroupNorm(
                     out_dim, out_dim, norm_eps, device=device, dtype=dtype
                 )
 
-                layer_norm = None
+                layer_norm_ = None
             else:
-                group_norm = None
-                layer_norm = None
+                group_norm_ = None
+                layer_norm_ = None
 
             layer = Wav2Vec2FeatureExtractionLayer(
                 inp_dim,
@@ -102,8 +101,8 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
                 stride,
                 bias,
                 dropout_p,
-                group_norm,
-                layer_norm,
+                group_norm_,
+                layer_norm_,
                 device,
                 dtype,
             )
@@ -256,14 +255,14 @@ class Wav2Vec2FeatureConv1d(Conv1d):
 
 # TODO: Move this to data pre-processing! It isn't a real feature extractor.
 class Wav2Vec2FbankFeatureExtractor(SequenceFeatureExtractor):
-    num_fbank_features: int
+    num_fbank_channels: int
     stride: int
     sample_every_k: int
 
-    def __init__(self, num_fbank_features: int, stride: int, sample_every_k: int = 1):
-        super().__init__(out_dim=num_fbank_features * stride)
+    def __init__(self, num_fbank_channels: int, stride: int, sample_every_k: int = 1):
+        super().__init__(out_dim=num_fbank_channels * stride)
 
-        self.num_fbank_features = num_fbank_features
+        self.num_fbank_channels = num_fbank_channels
         self.stride = stride
         self.sample_every_k = sample_every_k
 
@@ -315,7 +314,7 @@ class Wav2Vec2FbankFeatureExtractor(SequenceFeatureExtractor):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"num_fbank_features={self.num_fbank_features}, stride={self.string}, sample_every_k={self.sample_every_k}"
+        return f"num_fbank_channels={self.num_fbank_channels}, stride={self.stride}, sample_every_k={self.sample_every_k}"
 
 
 class Float32LayerNorm(LayerNorm):

@@ -54,7 +54,7 @@ class TransformerEncoderLayer(Module, ABC):
             :math:`S` is the sequence length.
 
         :returns:
-            The encoded output of ``seqs``. *Shape:* Same as ``seqs``.
+            The encoded sequences. *Shape:* Same as ``seqs``.
         """
 
     def extra_repr(self) -> str:

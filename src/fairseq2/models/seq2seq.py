@@ -53,16 +53,16 @@ class Seq2SeqModelOutput:
     logits: Tensor
     """The next-step logits. *Shape:* :math:`(N,S_{tgt},T)`, where :math:`N` is
     the batch size, :math:`S_{tgt}` is the target sequence length, and :math:`T`
-    is the size of the target vocabulary."""
+    is the size of the target domain (e.g. vocabulary)."""
 
     pad_idx: Optional[int] = None
-    """The index of the pad symbol in the target vocabulary."""
+    """The index of the pad symbol in the target domain."""
 
     def compute_loss(self, targets: Tensor) -> Tensor:
         """Compute the cross-entropy loss.
 
         :param targets:
-            The target indices in the target vocabulary.
+            The target indices in the target domain.
         """
         logits = self.logits.transpose(1, 2)
 

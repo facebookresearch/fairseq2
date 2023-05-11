@@ -54,19 +54,19 @@ class TransformerDecoder(Module, ABC):
             The float padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where
             :math:`N` is the batch size and :math:`S` is the sequence length.
         :param encoder_out:
-            The encoder output for the encoder-decoder attention. *Shape:*
+            The encoded source sequences for encoder-decoder attention. *Shape:*
             :math:`(N,S_{src},M_{enc})`, where :math:`N` is the batch size,
-            :math:`S_{src}` is the source sequence length, and :math:`M_{enc}`
-            is the encoder model size.
+            :math:`S_{src}` is the encoded source sequence length, and
+            :math:`M_{enc}` is the dimensionality of the encoder model.
         :param encoder_padding_mask:
             The float padding mask of ``encoder_out``. *Shape:*
             :math:`(N,S_{src})`, where :math:`N` is the batch size and
-            :math:`S_{src}` is the source sequence length.
+            :math:`S_{src}` is the encoded source sequence length.
         :param state_bag:
             The state bag to use for incremental evaluation.
 
         :returns:
-            The decoded output of ``seqs``. *Shape:* Same as ``seqs``.
+            The decoded sequences. *Shape:* Same as ``seqs``.
         """
 
     def extra_repr(self) -> str:

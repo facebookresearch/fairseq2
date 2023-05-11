@@ -25,24 +25,24 @@ from fairseq2.nn.transformer.attention import SDPA, DefaultSDPA
 
 
 class MultiheadAttention(Module, ABC):
-    """Represents a Transformer multi-head attention."""
+    """Represents a Transformer multi-head attention layer."""
 
     num_heads: int
     model_dim: int
 
     _attn_weight_hooks: Dict[int, "AttentionWeightHook"]
 
-    def __init__(self, num_heads: int, model_dim: int) -> None:
+    def __init__(self, model_dim: int, num_heads: int) -> None:
         """
-        :param num_heads:
-            The number of attention heads.
         :param model_dim:
             The dimensionality of the model.
+        :param num_heads:
+            The number of attention heads.
         """
         super().__init__()
 
-        self.num_heads = num_heads
         self.model_dim = model_dim
+        self.num_heads = num_heads
 
         self._attn_weight_hooks = OrderedDict()
 
@@ -208,7 +208,7 @@ class StandardMultiheadAttention(MultiheadAttention):
             The dimensionality of the model; must be specified if ``q_proj`` is
             ``None``; otherwise, will be inferred from ``q_proj``.
         :param q_proj:
-            The projection to apply to inputs before computing attention. If
+            The projection to apply to queries before computing attention. If
             ``None``, a default projection will be used.
         :param k_proj:
             The projection to apply to keys before computing attention. If
@@ -217,7 +217,7 @@ class StandardMultiheadAttention(MultiheadAttention):
             The projection to apply to values before computing attention. If
             ``None``, a default projection will be used.
         :param pos_encoder:
-            The position encoder to apply to inputs and keys after projection.
+            The position encoder to apply to queries and keys after projection.
         :param add_bias_kv:
             If ``True``, extends keys and values by a bias step.
         :param add_zero_attn:
@@ -240,7 +240,7 @@ class StandardMultiheadAttention(MultiheadAttention):
             else:
                 raise ValueError("`model_dim` must be specified.")
 
-        super().__init__(num_heads, model_dim)
+        super().__init__(model_dim, num_heads)
 
         if q_proj is None and k_proj is None and v_proj is None:
             q_proj = QKVProjection(model_dim, device=device, dtype=dtype)
@@ -503,13 +503,11 @@ class StandardMultiheadAttention(MultiheadAttention):
         if self.add_zero_attn:
             s += ", add_zero_attn=True"
 
-        return (
-            s + f" attn_module={self.attn_module}, attn_dropout_p={self.attn_dropout_p}"
-        )
+        return s + f", attn_dropout_p={self.attn_dropout_p}"
 
 
 class QKVProjection(ResettableProjection):
-    """Represents the default projection used for inputs, keys, and values."""
+    """Represents the default projection used for queries, keys, and values."""
 
     def __init__(
         self,

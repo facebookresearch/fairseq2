@@ -39,7 +39,7 @@ class FeedForwardNetwork(Module, ABC):
             is the dimensionality of the model.
 
         :returns:
-            The projected output of ``seqs``. *Shape:* Same as ``seqs``.
+            The projected sequences. *Shape:* Same as ``seqs``.
         """
 
     def extra_repr(self) -> str:
@@ -92,9 +92,7 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         """
         super().__init__(model_dim)
 
-        self.inner_proj = Linear(
-            model_dim, inner_dim, bias=bias, device=device, dtype=dtype
-        )
+        self.inner_proj = Linear(model_dim, inner_dim, bias, device=device, dtype=dtype)
 
         if inner_activation is None:
             self.inner_activation = ReLU()
@@ -113,9 +111,7 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         else:
             self.register_module("inner_layer_norm", None)
 
-        self.out_proj = Linear(
-            inner_dim, model_dim, bias=bias, device=device, dtype=dtype
-        )
+        self.out_proj = Linear(inner_dim, model_dim, bias, device=device, dtype=dtype)
 
     @finaloverride
     def forward(self, seqs: Tensor) -> Tensor:

@@ -44,7 +44,7 @@ class TransformerEncoder(Module, ABC):
             :math:`N` is the batch size and :math:`S` is the sequence length.
 
         :returns:
-            The encoded output of ``seqs``. *Shape:* Same as ``seqs``.
+            The encoded sequences. *Shape:* Same as ``seqs``.
         """
 
     def extra_repr(self) -> str:

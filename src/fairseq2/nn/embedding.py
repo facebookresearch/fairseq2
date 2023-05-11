@@ -18,7 +18,7 @@ from torch.nn.parameter import Parameter
 class Embedding(Module):
     """Stores embeddings of a fixed dictionary and size."""
 
-    num_embedding: int
+    num_embeddings: int
     embedding_dim: int
     pad_idx: Optional[int]
     padding_idx: Optional[int]  # Compat
@@ -27,7 +27,7 @@ class Embedding(Module):
 
     def __init__(
         self,
-        num_embedding: int,
+        num_embeddings: int,
         embedding_dim: int,
         pad_idx: Optional[int] = None,
         scaled: bool = False,
@@ -35,7 +35,7 @@ class Embedding(Module):
         dtype: Optional[torch.dtype] = None,
     ) -> None:
         """
-        :param num_embedding:
+        :param num_embeddings:
             The size of the embedding table.
         :param embedding_dim:
             The dimensionality of returned embeddings.
@@ -50,7 +50,7 @@ class Embedding(Module):
         """
         super().__init__()
 
-        self.num_embedding = num_embedding
+        self.num_embeddings = num_embeddings
         self.embedding_dim = embedding_dim
         self.pad_idx = pad_idx
         self.scaled = scaled
@@ -59,7 +59,7 @@ class Embedding(Module):
         self.padding_idx = pad_idx
 
         self.weight = Parameter(
-            torch.empty((num_embedding, embedding_dim), device=device, dtype=dtype)
+            torch.empty((num_embeddings, embedding_dim), device=device, dtype=dtype)
         )
 
         self.reset_parameters()
@@ -78,17 +78,18 @@ class Embedding(Module):
     def forward(self, x: Tensor) -> Tensor:
         """
         :param x:
-            The input from which to extract the indices. *Shape:* Any.
+            The embedding indices. *Shape:* Any.
 
         :returns:
-            The embeddings of ``x``. *Shape:* :math:`(*,E)`, where :math:`*` is
-            the input shape and :math:`E` is the embedding size.
+            The embeddings corresponding to the specified indices. *Shape:*
+            :math:`(*,E)`, where :math:`*` is the input shape and :math:`E` is
+            the embedding size.
         """
         return F.embedding(x, self.weight, self.pad_idx)
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = f"num_embedding={self.num_embedding}, embedding_dim={self.embedding_dim}"
+        s = f"num_embeddings={self.num_embeddings}, embedding_dim={self.embedding_dim}"
 
         if self.pad_idx is not None:
             s += f", pad_idx={self.pad_idx}"

@@ -41,12 +41,12 @@ class Projection(Module, ABC):
         """
         :param x:
             The input to project. *Shape:* :math:`(*,H_{inp})`, where
-            :math:`H_{inp}` is the input size.
+            :math:`H_{inp}` is the input dimensionality.
 
         :returns:
-            The projected output of ``x``. *Shape:* :math:`(*,H_{out})`, where
-            all but the last dimension are the same shape as the input and
-            :math:`H_{out}` is the output size.
+            The projected output. *Shape:* :math:`(*,H_{out})`, where all but
+            the last dimension are the same shape as the input and
+            :math:`H_{out}` is the output dimensionality.
         """
 
     def extra_repr(self) -> str:

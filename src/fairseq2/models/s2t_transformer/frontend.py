@@ -36,7 +36,7 @@ class S2TTransformerFrontend(TransformerFrontend):
         model_dim: int,
         feature_extractor: Optional[SequenceFeatureExtractor],
         pos_encoder: Optional[PositionEncoder],
-        apply_projection: bool = False,
+        proj: bool = False,
         dropout_p: float = 0.1,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
@@ -49,12 +49,12 @@ class S2TTransformerFrontend(TransformerFrontend):
             extracted externally before being fed to the model.
         :param pos_encoder:
             The position encoder.
-        :param apply_projection:
-            If ``True``, applies projection to outputs before dropout as
-            described in Section 2 of
+        :param proj:
+            If ``True``, applies projection to extracted features before dropout
+            as described in Section 2 of
             :cite:t:`https://doi.org/10.48550/arxiv.2005.08100`.
         :param dropout_p:
-            The dropout probability on outputs.
+            The dropout probability on extracted features.
         """
         super().__init__(model_dim)
 
@@ -80,7 +80,7 @@ class S2TTransformerFrontend(TransformerFrontend):
         else:
             self.register_module("pos_encoder", None)
 
-        if apply_projection:
+        if proj:
             self.proj = Linear(
                 model_dim, model_dim, bias=True, device=device, dtype=dtype
             )
@@ -101,7 +101,7 @@ class S2TTransformerFrontend(TransformerFrontend):
     ) -> Tuple[Tensor, Optional[Tensor]]:
         if state_bag is not None:
             raise ValueError(
-                "S2T Transformer encoder front-end does not support incremental evaluation."
+                "`S2TTransformerFrontend` does not support incremental evaluation."
             )
 
         if self.feature_extractor is not None:

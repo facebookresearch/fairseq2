@@ -39,8 +39,8 @@ class GumbelVectorQuantizer(VectorQuantizer):
         self,
         dim: int,
         num_vars: int,
-        temp: Tuple[float, float, float],
-        groups: int,
+        num_groups: int,
+        temperature: Tuple[float, float, float],
         combine_groups: bool,
         vq_dim: int,
         weight_proj_depth: int = 1,
@@ -52,8 +52,8 @@ class GumbelVectorQuantizer(VectorQuantizer):
         Args:
             dim: input dimension (channels)
             num_vars: number of quantized vectors per group
-            temp: temperature for training. this should be a tuple of 3 elements: (start, stop, decay factor)
-            groups: number of groups for vector quantization
+            num_groups: number of groups for vector quantization
+            temperature: temperature for training. this should be a tuple of 3 elements: (start, stop, decay factor)
             combine_groups: whether to use the vectors for all groups
             vq_dim: dimensionality of the resulting quantized vector
             weight_proj_depth: number of layers (with activation in between) to project input before computing logits
@@ -62,27 +62,29 @@ class GumbelVectorQuantizer(VectorQuantizer):
         """
         super().__init__()
 
-        self.groups = groups
+        self.num_groups = num_groups
         self.combine_groups = combine_groups
         self.input_dim = dim
         self.num_vars = num_vars
 
         assert (
-            vq_dim % groups == 0
-        ), f"dim {vq_dim} must be divisible by groups {groups} for concatenation"
+            vq_dim % num_groups == 0
+        ), f"dim {vq_dim} must be divisible by groups {num_groups} for concatenation"
 
-        var_dim = vq_dim // groups
-        num_groups = groups if not combine_groups else 1
+        var_dim = vq_dim // num_groups
+        num_groups = num_groups if not combine_groups else 1
 
         self.vars = nn.Parameter(
             torch.empty((1, num_groups * num_vars, var_dim), device=device)
         )
 
-        self.weight_proj = nn.Linear(self.input_dim, groups * num_vars, device=device)
+        self.weight_proj = nn.Linear(
+            self.input_dim, num_groups * num_vars, device=device
+        )
         nn.init.normal_(self.weight_proj.weight, mean=0, std=1)
         nn.init.zeros_(self.weight_proj.bias)
 
-        self.max_temp, self.min_temp, self.temp_decay = temp
+        self.max_temp, self.min_temp, self.temp_decay = temperature
         self.curr_temp = self.max_temp
         self.codebook_indices = None
 
@@ -101,7 +103,7 @@ class GumbelVectorQuantizer(VectorQuantizer):
     #        if self.codebook_indices is None:
     #            from itertools import product
     #
-    #            p = [range(self.num_vars)] * self.groups
+    #            p = [range(self.num_vars)] * self.num_groups
     #            inds = list(product(*p))
     #            self.codebook_indices = torch.tensor(
     #                inds, dtype=torch.long, device=self.vars.device
@@ -109,9 +111,9 @@ class GumbelVectorQuantizer(VectorQuantizer):
     #
     #            if not self.combine_groups:
     #                self.codebook_indices = self.codebook_indices.view(
-    #                    self.num_vars**self.groups, -1
+    #                    self.num_vars**self.num_groups, -1
     #                )
-    #                for b in range(1, self.groups):
+    #                for b in range(1, self.num_groups):
     #                    self.codebook_indices[:, b] += self.num_vars * b
     #                self.codebook_indices = self.codebook_indices.flatten()
     #        return self.codebook_indices
@@ -121,12 +123,12 @@ class GumbelVectorQuantizer(VectorQuantizer):
     #        return (
     #            self.vars.squeeze(0)
     #            .index_select(0, indices)
-    #            .view(self.num_vars**self.groups, -1)
+    #            .view(self.num_vars**self.num_groups, -1)
     #        )
     #
     #    def sample_from_codebook(self, b, n):
     #        indices = self.get_codebook_indices()
-    #        indices = indices.view(-1, self.groups)
+    #        indices = indices.view(-1, self.num_groups)
     #        cb_size = indices.size(0)
     #        assert (
     #            n < cb_size
@@ -139,8 +141,8 @@ class GumbelVectorQuantizer(VectorQuantizer):
     #
     #    def to_codebook_index(self, indices):
     #        res = indices.new_full(indices.shape[:-1], 0)
-    #        for i in range(self.groups):
-    #            exponent = self.groups - i - 1
+    #        for i in range(self.num_groups):
+    #            exponent = self.num_groups - i - 1
     #            res += indices[..., i] * (self.num_vars**exponent)
     #        return res
 
@@ -148,17 +150,17 @@ class GumbelVectorQuantizer(VectorQuantizer):
     def forward(self, x: Tensor) -> "GumbelVectorQuantizerOutput":
         self._compute_current_temp()
 
-        #        result = {"num_vars": self.num_vars * self.groups}
+        #        result = {"num_vars": self.num_vars * self.num_groups}
         bsz, tsz, fsz = x.shape
         x = x.reshape(-1, fsz)
         x = self.weight_proj(x)
-        x = x.view(bsz * tsz * self.groups, -1)
+        x = x.view(bsz * tsz * self.num_groups, -1)
 
         _, k = x.max(-1)
         hard_x = (
             x.new_zeros(*x.shape)
             .scatter_(-1, k.view(-1, 1), 1.0)
-            .view(bsz * tsz, self.groups, -1)
+            .view(bsz * tsz, self.num_groups, -1)
         )
         hard_probs = torch.mean(hard_x.float(), dim=0)
         code_perplexity = torch.exp(
@@ -166,7 +168,7 @@ class GumbelVectorQuantizer(VectorQuantizer):
         ).sum()
 
         avg_probs = torch.softmax(
-            x.view(bsz * tsz, self.groups, -1).float(), dim=-1
+            x.view(bsz * tsz, self.num_groups, -1).float(), dim=-1
         ).mean(dim=0)
 
         prob_perplexity = torch.exp(
@@ -182,17 +184,17 @@ class GumbelVectorQuantizer(VectorQuantizer):
 
         vars = self.vars
         if self.combine_groups:
-            vars = vars.repeat(1, self.groups, 1)  # type: ignore[assignment]
+            vars = vars.repeat(1, self.num_groups, 1)  # type: ignore[assignment]
 
         x = x.unsqueeze(-1) * vars
-        x = x.view(bsz * tsz, self.groups, self.num_vars, -1)
+        x = x.view(bsz * tsz, self.num_groups, self.num_vars, -1)
         x = x.sum(-2)
         x = x.view(bsz, tsz, -1)
 
         return GumbelVectorQuantizerOutput(
             x,
             self.num_vars,
-            self.groups,
+            self.num_groups,
             code_perplexity,
             prob_perplexity,
             self.curr_temp,

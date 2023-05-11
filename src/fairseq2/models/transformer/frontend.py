@@ -83,7 +83,7 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
         embed: Embedding,
         pos_encoder: Optional[PositionEncoder],
         no_scale: bool = False,
-        use_layer_norm: bool = False,
+        layer_norm: bool = False,
         dropout_p: float = 0.1,
         norm_eps: float = 1e-5,
         device: Optional[torch.device] = None,
@@ -97,8 +97,9 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
         :param no_scale:
             If ``True``, does not scale embeddings by the square root of the
             embedding size.
-        :param use_layer_norm:
-            If ``True``, applies Layer Normalization to embeddings.
+        :param layer_norm:
+            If ``True``, applies Layer Normalization to embeddings before
+            dropout.
         :param dropout_p:
             The dropout probability on embeddings.
         :param norm_eps:
@@ -123,7 +124,7 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
         else:
             self.register_module("pos_encoder", None)
 
-        if use_layer_norm:
+        if layer_norm:
             self.layer_norm = LayerNorm(model_dim, norm_eps, device=device, dtype=dtype)
         else:
             self.register_module("layer_norm", None)

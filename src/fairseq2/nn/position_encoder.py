@@ -28,7 +28,7 @@ class PositionEncoder(Module, ABC):
     def __init__(self, dim: int, max_seq_len: Optional[int]) -> None:
         """
         :param dim:
-            The dimensionality of inputs and encoded outputs.
+            The dimensionality of inputs and outputs.
         :param max_seq_len:
             The expected maximum sequence length.
         """
@@ -45,21 +45,21 @@ class PositionEncoder(Module, ABC):
     ) -> Tensor:
         """
         :param seqs:
-            The sequences which will be encoded with positional information.
-            *Shape:* :math:`(N,S,M)`, where :math:`N` is the batch size,
-            :math:`S` is the sequence length, and :math:`M` is the
-            dimensionality of the associated model.
+            The sequences to encode with positional information. *Shape:*
+            :math:`(N,S,E)`, where :math:`N` is the batch size, :math:`S` is the
+            sequence length, and :math:`E` is the dimensionality of the
+            position encoder.
         :param padding_mask:
             The float padding mask of ``seqs``. *Shape:* :math:`(N_{msk},S)`,
-            where :math:`N_{msk}` is the batch size of the mask and :math:`S` is
-            the sequence length. :math:`N` can be a multiple of :math:`N_{msk}`
-            in which case the mask will be tiled before being applied.
+            where :math:`N_{msk}` is the mask batch size and :math:`S` is the
+            sequence length. :math:`N` can be a multiple of :math:`N_{msk}` in
+            which case the mask will be tiled before being applied.
         :param state_bag:
             The state bag to use for incremental evaluation.
 
         :returns:
-            ``seqs`` with positional information encoded. *Shape:* Same as
-            ``seqs``.
+            The input sequences with positional information encoded. *Shape:*
+            Same as ``seqs``.
         """
         if self.max_seq_len is not None:
             if (seq_len := seqs.size(1)) > self.max_seq_len:
@@ -78,22 +78,22 @@ class PositionEncoder(Module, ABC):
     ) -> Tensor:
         """
         :param seqs:
-            The sequences which will be encoded with positional information.
-            *Shape:* :math:`(N,S,M)`, where :math:`N` is the batch size,
-            :math:`S` is the sequence length, and :math:`M` is the
-            dimensionality of the associated model.
+            The sequences to encode with positional information. *Shape:*
+            :math:`(N,S,E)`, where :math:`N` is the batch size, :math:`S` is the
+            sequence length, and :math:`E` is the dimensionality of the
+            position encoder.
         :param padding_mask:
             The float padding mask of ``seqs``. *Shape:* :math:`(N_{msk},S)`,
-            where :math:`N_{msk}` is the batch size of the mask and :math:`S` is
-            the sequence length. If padding has to be applied, a derived class
+            where :math:`N_{msk}` is the mask batch size and :math:`S` is the
+            sequence length. If padding has to be applied, a derived class
             should use the :func:`~fairseq2.nn.utils.mask.apply_padding_mask`
-            function.
+            function that handles tiling.
         :param state_bag:
             The state bag to use for incremental evaluation.
 
         :returns:
-            ``seqs`` with positional information encoded. *Shape:* Same as
-            ``seqs``.
+            The input sequences with positional information encoded. *Shape:*
+            Same as ``seqs``.
 
         :meta public:
         """

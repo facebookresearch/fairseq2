@@ -38,7 +38,7 @@ class Wav2Vec2PositionEncoder(PositionEncoder):
     ) -> None:
         """
         :param model_dim:
-            The dimensionality of the associated wav2vec 2.0 model.
+            The dimensionality of the model.
         :param kernel_size:
             The kernel size of the 1D convolution.
         :param num_groups:
@@ -70,7 +70,7 @@ class Wav2Vec2PositionEncoder(PositionEncoder):
         """:meta private:"""
         if state_bag is not None:
             raise ValueError(
-                "`Wav2Vec2PositionEncoder` does not support incremental encoding."
+                "`Wav2Vec2PositionEncoder` does not support incremental evaluation."
             )
 
         # We have to ensure that the padded elements are correctly set to
@@ -140,7 +140,7 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
     ) -> None:
         """
         :param model_dim:
-            The dimensionality of the associated wav2vec 2.0 model.
+            The dimensionality of the model.
         :param kernel_size:
             The total kernel size of the 1D convolutions. Each convolution uses
             a kernel size of ``max(3, kernel_size // num_layers)``.
@@ -175,7 +175,7 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
         """:meta private:"""
         if state_bag is not None:
             raise ValueError(
-                "`Wav2Vec2StackedPositionEncoder` does not support incremental encoding."
+                "`Wav2Vec2StackedPositionEncoder` does not support incremental evaluation."
             )
 
         # We have to ensure that the padded elements are correctly set to

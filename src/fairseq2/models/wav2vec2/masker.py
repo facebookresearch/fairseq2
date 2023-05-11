@@ -14,7 +14,7 @@ from torch.nn import Module, Parameter
 from fairseq2.nn.utils.mask import compute_mask
 
 
-class Wav2Vec2FeatureMasker(Module):
+class Wav2Vec2Masker(Module):
     """Masks feature extractor outputs as described in Section 3.1 of
     :cite:t:`baevski2020wav2vec`."""
 
@@ -84,7 +84,7 @@ class Wav2Vec2FeatureMasker(Module):
             the batch size.
 
         :returns:
-            - ``seqs`` with mask applied. *Shape:* Same as ``seqs``.
+            - The input sequences with mask applied. *Shape:* Same as ``seqs``.
             - The boolean temporal mask that has been applied to ``seqs``.
               *Shape:* :math:`(N,S)`, where :math:`N` is the batch size and
               :math`S` is the sequence length.

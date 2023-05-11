@@ -11,7 +11,7 @@ import torch
 from torch.nn import SiLU
 
 from fairseq2.data.text import VocabularyInfo
-from fairseq2.models.conformer import ConformerConvolution, ConformerEncoderLayer
+from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
 from fairseq2.models.s2t_transformer.feature_extractor import Conv1dFbankSubsampler
 from fairseq2.models.s2t_transformer.frontend import S2TTransformerFrontend
 from fairseq2.models.transformer import (
@@ -60,29 +60,26 @@ class S2TTransformerConfig:
     """If ``True``, uses Conformer blocks instead of Transformer encoder layers."""
 
     num_encoder_layers: int = 12
-    """The number of encoder layers."""
+    """The number of Transformer encoder layers."""
 
     num_decoder_layers: int = 6
-    """The number of decoder layers."""
+    """The number of Transformer decoder layers."""
 
     num_encoder_attn_heads: int = 8
-    """The number of attention heads in encoder layers."""
+    """The number of attention heads in Transformer encoder layers."""
 
     num_decoder_attn_heads: int = 8
-    """The number of attention heads in decoder layers."""
+    """The number of attention heads in Transformer decoder layers."""
 
     ffn_inner_dim: int = 512 * 4
-    """The dimensionality of inner projection layers in feed-forward networks."""
+    """The dimensionality of inner projection layers in Transformer feed-forward
+    networks."""
 
     dropout_p: float = 0.15
-    """The dropout probability on outputs of embedding dictionaries, attention
-    layers, and feed-forward networks."""
+    """The dropout probability in Transformer layers."""
 
     depthwise_conv_kernel_size: int = 31
     """The kernel size of depthwise convolutions in Conformer blocks."""
-
-    dtype: torch.dtype = torch.float32
-    """The data type of model parameters and buffers."""
 
 
 _CONFIGS: Final = {
@@ -159,6 +156,7 @@ def create_s2t_transformer_model(
     cfg: S2TTransformerConfig,
     vocab_info: VocabularyInfo,
     device: Optional[torch.device] = None,
+    dtype: Optional[torch.dtype] = None,
 ) -> TransformerModel:
     """Create an S2T Transformer model as described in
     :cite:t:`https://doi.org/10.48550/arxiv.1911.08460`.
@@ -169,8 +167,10 @@ def create_s2t_transformer_model(
         The vocabulary information to use.
     :param device:
         The device on which to initialize the model.
+    :param dtype:
+        The data type of the model parameters and buffers.
     """
-    return S2TTransformerBuilder(cfg, vocab_info, device).build_model()
+    return S2TTransformerBuilder(cfg, vocab_info, device, dtype).build_model()
 
 
 class S2TTransformerBuilder:
@@ -183,13 +183,16 @@ class S2TTransformerBuilder:
 
     cfg: S2TTransformerConfig
     vocab_info: VocabularyInfo
+    encoder_norm_order: TransformerNormOrder
     device: Optional[torch.device]
+    dtype: Optional[torch.dtype]
 
     def __init__(
         self,
         cfg: S2TTransformerConfig,
         vocab_info: VocabularyInfo,
         device: Optional[torch.device] = None,
+        dtype: Optional[torch.dtype] = None,
     ) -> None:
         """
         :param cfg:
@@ -198,10 +201,19 @@ class S2TTransformerBuilder:
             The vocabulary information to use.
         :param device:
             The device on which to initialize modules.
+        :param dtype:
+            The data type of module parameters and buffers.
         """
         self.cfg = cfg
         self.vocab_info = vocab_info
+
+        if self.cfg.use_conformer:
+            self.encoder_norm_order = TransformerNormOrder.POST
+        else:
+            self.encoder_norm_order = TransformerNormOrder.PRE
+
         self.device = device
+        self.dtype = dtype
 
     def build_model(self) -> TransformerModel:
         """Build a model."""
@@ -215,7 +227,7 @@ class S2TTransformerBuilder:
             model_dim=self.cfg.model_dim,
             target_vocab_size=self.vocab_info.size,
             device=self.device,
-            dtype=self.cfg.dtype,
+            dtype=self.dtype,
         )
 
         return TransformerModel(
@@ -228,14 +240,14 @@ class S2TTransformerBuilder:
         )
 
     def build_encoder_frontend(self) -> TransformerFrontend:
-        """Build an encoder frontend."""
+        """Build a Transformer encoder front-end."""
         feat_extractor = Conv1dFbankSubsampler(
             num_channels=self.cfg.num_fbank_channels,
             inner_dim=1024,
             out_dim=self.cfg.model_dim,
             kernel_sizes=[5, 5],
             device=self.device,
-            dtype=self.cfg.dtype,
+            dtype=self.dtype,
         )
 
         pos_encoder = self.build_position_encoder()
@@ -244,21 +256,21 @@ class S2TTransformerBuilder:
             self.cfg.model_dim,
             feat_extractor,
             pos_encoder,
-            apply_projection=self.cfg.use_conformer,
+            proj=self.cfg.use_conformer,
             dropout_p=self.cfg.dropout_p,
             device=self.device,
-            dtype=self.cfg.dtype,
+            dtype=self.dtype,
         )
 
     def build_decoder_frontend(self) -> TransformerFrontend:
-        """Build a decoder frontend."""
+        """Build a Transformer decoder front-end."""
         embed = Embedding(
-            num_embedding=self.vocab_info.size,
+            num_embeddings=self.vocab_info.size,
             embedding_dim=self.cfg.model_dim,
             pad_idx=self.vocab_info.pad_idx,
             scaled=True,
             device=self.device,
-            dtype=self.cfg.dtype,
+            dtype=self.dtype,
         )
 
         pos_encoder = self.build_position_encoder()
@@ -268,7 +280,7 @@ class S2TTransformerBuilder:
             pos_encoder,
             dropout_p=self.cfg.dropout_p,
             device=self.device,
-            dtype=self.cfg.dtype,
+            dtype=self.dtype,
         )
 
     def build_position_encoder(self) -> PositionEncoder:
@@ -278,28 +290,24 @@ class S2TTransformerBuilder:
             self.cfg.max_seq_len,
             _legacy_pad_idx=self.vocab_info.pad_idx,
             device=self.device,
-            dtype=self.cfg.dtype,
+            dtype=self.dtype,
         )
 
     def build_encoder(self) -> TransformerEncoder:
-        """Build an encoder."""
+        """Build a Transformer encoder."""
         layers = [
             self.build_encoder_layer() for _ in range(self.cfg.num_encoder_layers)
         ]
 
-        if not self.cfg.use_conformer:
-            norm_order = TransformerNormOrder.PRE
-        else:
-            # We do not apply Layer Normalization to the output of the encoder
-            # since Conformer blocks already apply it.
-            norm_order = TransformerNormOrder.POST
-
         return StandardTransformerEncoder(
-            layers, norm_order=norm_order, device=self.device, dtype=self.cfg.dtype
+            layers,
+            norm_order=self.encoder_norm_order,
+            device=self.device,
+            dtype=self.dtype,
         )
 
     def build_decoder(self) -> TransformerDecoder:
-        """Build a decoder."""
+        """Build a Transformer decoder."""
         layers = [
             self.build_decoder_layer() for _ in range(self.cfg.num_decoder_layers)
         ]
@@ -308,11 +316,11 @@ class S2TTransformerBuilder:
             layers,
             norm_order=TransformerNormOrder.PRE,
             device=self.device,
-            dtype=self.cfg.dtype,
+            dtype=self.dtype,
         )
 
     def build_encoder_layer(self) -> TransformerEncoderLayer:
-        """Build an encoder layer."""
+        """Build a Transformer encoder layer."""
         if self.cfg.use_conformer:
             return self.build_conformer_block()
 
@@ -324,9 +332,9 @@ class S2TTransformerBuilder:
             self_attn,
             ffn,
             dropout_p=self.cfg.dropout_p,
-            norm_order=TransformerNormOrder.PRE,
+            norm_order=self.encoder_norm_order,
             device=self.device,
-            dtype=self.cfg.dtype,
+            dtype=self.dtype,
         )
 
     def build_conformer_block(self) -> TransformerEncoderLayer:
@@ -339,23 +347,23 @@ class S2TTransformerBuilder:
             self.cfg.model_dim,
             self.cfg.depthwise_conv_kernel_size,
             device=self.device,
-            dtype=self.cfg.dtype,
+            dtype=self.dtype,
         )
 
         ffn2 = self.build_ffn(use_swish=True)
 
-        return ConformerEncoderLayer(
+        return ConformerBlock(
             ffn1,
             self_attn,
             conv,
             ffn2,
             dropout_p=self.cfg.dropout_p,
             device=self.device,
-            dtype=self.cfg.dtype,
+            dtype=self.dtype,
         )
 
     def build_decoder_layer(self) -> TransformerDecoderLayer:
-        """Build a decoder layer."""
+        """Build a Transformer decoder layer."""
         self_attn = self.build_attention(self.cfg.num_decoder_attn_heads)
 
         encoder_decoder_attn = self.build_attention(self.cfg.num_decoder_attn_heads)
@@ -369,27 +377,26 @@ class S2TTransformerBuilder:
             dropout_p=self.cfg.dropout_p,
             norm_order=TransformerNormOrder.PRE,
             device=self.device,
-            dtype=self.cfg.dtype,
+            dtype=self.dtype,
         )
 
     def build_attention(self, num_heads: int) -> MultiheadAttention:
-        """Build a multi-head attention layer."""
+        """Build a Transformer multi-head attention layer."""
         return StandardMultiheadAttention(
             num_heads,
             self.cfg.model_dim,
             attn_dropout_p=self.cfg.dropout_p,
             device=self.device,
-            dtype=self.cfg.dtype,
+            dtype=self.dtype,
         )
 
     def build_ffn(self, use_swish: bool = False) -> FeedForwardNetwork:
-        """Build a feed-forward network."""
+        """Build a Transformer feed-forward network."""
         return StandardFeedForwardNetwork(
             self.cfg.model_dim,
             self.cfg.ffn_inner_dim,
             inner_activation=SiLU() if use_swish else None,
             inner_dropout_p=self.cfg.dropout_p,
-            norm_order=TransformerNormOrder.PRE,
             device=self.device,
-            dtype=self.cfg.dtype,
+            dtype=self.dtype,
         )

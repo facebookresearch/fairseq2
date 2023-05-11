@@ -19,8 +19,8 @@ from fairseq2.nn.transformer import (
 )
 
 
-class ConformerEncoderLayer(TransformerEncoderLayer):
-    """Represents a Conformer encoder layer as described in
+class ConformerBlock(TransformerEncoderLayer):
+    """Represents a Conformer block as described in
     :cite:t:`https://doi.org/10.48550/arxiv.2005.08100`."""
 
     ffn1_layer_norm: LayerNorm
