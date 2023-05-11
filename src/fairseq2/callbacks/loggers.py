@@ -18,6 +18,7 @@ from torchtnt.framework.callback import Callback
 from torchtnt.framework.state import State
 from torchtnt.framework.unit import TEvalUnit, TTrainUnit
 from torchtnt.utils.loggers import Scalar
+from torchtnt.utils.loggers.tensorboard import TensorBoardLogger as TntTensorBoardLogger
 
 log = logging.getLogger(__name__)
 
@@ -43,11 +44,6 @@ class MetricLogger(Stateful):
         self.config_file = config_file
         self._rank: int = torchtnt.utils.distributed.get_global_rank()
 
-    def read_config(self) -> Any:
-        if not self.config_file.exists():
-            return {}
-        return yaml.load(self.config_file.read_text(), Loader=yaml.Loader)
-
     def prepare(self) -> None:
         pass
 
@@ -56,6 +52,12 @@ class MetricLogger(Stateful):
 
     def close(self) -> None:
         pass
+
+
+def read_config(config_file: Path) -> Any:
+    if not config_file.exists():
+        return {}
+    return yaml.load(config_file.read_text(), Loader=yaml.Loader)
 
 
 def collect_job_info() -> Dict[str, str]:
@@ -122,7 +124,7 @@ class WandbLogger(MetricLogger):
         else:
             entity, project = None, self.project  # type: ignore
 
-        config = self.read_config()
+        config = read_config(self.config_file)
         run = wandb.init(
             project=project,
             entity=entity,
@@ -169,7 +171,7 @@ class WandbLogger(MetricLogger):
         artifact = self._wandb.Artifact(
             name=self.group_id,
             type="model",
-            metadata=_simple_conf(self.read_config()),
+            metadata=_simple_conf(read_config(self.config_file)),
         )
         script = self.config_file.with_suffix(".py")
         if top_secret:
@@ -209,6 +211,25 @@ class WandbLogger(MetricLogger):
             return
         self._wandb_run.finish()
         self._wandb_run = None
+
+
+class TensorBoardLogger(TntTensorBoardLogger, StdoutLogger):
+    def __init__(self, config_file: Path, log_dir: tp.Optional[Path] = None):
+        log_dir = log_dir or config_file.parent
+        log_dir.mkdir(exist_ok=True)
+        super().__init__(str(log_dir))
+        self.config_file = config_file
+
+        if self._writer:
+            config = _simple_conf(read_config(self.config_file))
+            flat_conf = _flatten_dict(config, {})
+            self._writer.add_hparams(flat_conf, {})
+
+    def log_dict(self, payload: tp.Mapping[str, Scalar], step: int) -> None:
+        super().log_dict(payload, step)
+        if self._rank != 0:
+            return
+        print("Step:", step, payload)
 
 
 class LogMetrics(Callback):
@@ -398,10 +419,24 @@ def _simple_conf(config: tp.Any) -> tp.Any:
     return config
 
 
-_SPECIAL_FLOATS = (0.0, float("inf"), float("-inf"), float("nan"))
+def _flatten_dict(
+    config: Dict[str, tp.Any],
+    res: Dict[str, tp.Union[int, float, str]],
+    prefix: str = "",
+) -> Dict[str, tp.Union[int, float, str]]:
+    for k, v in config.items():
+        full_key = "/".join((prefix, k)) if prefix else k
+        if isinstance(v, dict):
+            _flatten_dict(v, res, prefix=full_key)
+        elif isinstance(v, (int, float, str)):
+            res[full_key] = v
+    return res
+
+
+_SPECIAL_FLOATS = (0.0, float("inf"), float("-inf"))
 
 
 def round_sig(x: float, sig: int) -> float:
-    if x in _SPECIAL_FLOATS:
+    if math.isnan(x) or x in _SPECIAL_FLOATS:
         return x
     return round(x, -int(math.floor(math.log10(abs(x)))) + (sig - 1))

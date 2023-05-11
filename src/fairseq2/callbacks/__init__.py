@@ -5,6 +5,7 @@ from .debugger import Debugger as Debugger
 from .loggers import LogMetrics as LogMetrics
 from .loggers import MetricLogger as MetricLogger
 from .loggers import StdoutLogger as StdoutLogger
+from .loggers import TensorBoardLogger as TensorBoardLogger
 from .loggers import WandbCsvWriter as WandbCsvWriter
 from .loggers import WandbLogger as WandbLogger
 from .metrics import WER as WER

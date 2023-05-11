@@ -54,16 +54,21 @@ def callbacks(
     return callbacks
 
 
-def logger(xp: "Xp", entry_point: str, wandb_project: str = "") -> "MetricLogger":
+def logger(
+    xp: "Xp", entry_point: str, tensorboard: bool = False, wandb_project: str = ""
+) -> "MetricLogger":
     """Default fairseq2 logger
 
+    - tensorboard: use tensorboard
     - wandb_project: enable W&B
     """
     import fairseq2.callbacks
 
     assert xp.script and xp.script.exists()
     config_file = xp.script.with_suffix(".yaml")
-    if wandb_project:
+    if tensorboard:
+        return fairseq2.callbacks.TensorBoardLogger(config_file)
+    elif wandb_project:
         return fairseq2.callbacks.WandbLogger(
             config_file,
             project=wandb_project,
