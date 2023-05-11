@@ -1,4 +1,4 @@
-cmake==3.21.0
+cmake==3.24.2
 ninja==1.10.2
 setuptools==65.5.0
 tbb-devel==2021.8.0
