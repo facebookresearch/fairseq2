@@ -5,16 +5,12 @@
 # LICENSE file in the root directory of this source tree.
 
 from fairseq2.nn.transformer.attention import SDPA as SDPA
-from fairseq2.nn.transformer.attention import DefaultSDPA as DefaultSDPA
+from fairseq2.nn.transformer.attention import NaiveSDPA as NaiveSDPA
 from fairseq2.nn.transformer.attention import (
     RelativePositionSDPA as RelativePositionSDPA,
 )
-from fairseq2.nn.transformer.attention import (
-    naive_scaled_dot_product_attention as naive_scaled_dot_product_attention,
-)
-from fairseq2.nn.transformer.attention import (
-    torch_scaled_dot_product_attention as torch_scaled_dot_product_attention,
-)
+from fairseq2.nn.transformer.attention import TorchSDPA as TorchSDPA
+from fairseq2.nn.transformer.attention import get_default_sdpa as get_default_sdpa
 from fairseq2.nn.transformer.attention_mask import (
     ALiBiAttentionMaskGenerator as ALiBiAttentionMaskGenerator,
 )

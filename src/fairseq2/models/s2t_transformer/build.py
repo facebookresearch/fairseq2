@@ -36,6 +36,7 @@ from fairseq2.nn.transformer import (
     TransformerEncoder,
     TransformerEncoderLayer,
     TransformerNormOrder,
+    get_default_sdpa,
 )
 
 
@@ -382,10 +383,12 @@ class S2TTransformerBuilder:
 
     def build_attention(self, num_heads: int) -> MultiheadAttention:
         """Build a Transformer multi-head attention layer."""
+        sdpa = get_default_sdpa(attn_dropout_p=self.cfg.dropout_p)
+
         return StandardMultiheadAttention(
             num_heads,
             self.cfg.model_dim,
-            attn_dropout_p=self.cfg.dropout_p,
+            sdpa=sdpa,
             device=self.device,
             dtype=self.dtype,
         )

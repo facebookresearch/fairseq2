@@ -21,7 +21,7 @@ from torch.utils.hooks import RemovableHandle
 from fairseq2.nn.incremental_state import IncrementalState, IncrementalStateBag
 from fairseq2.nn.position_encoder import PositionEncoder
 from fairseq2.nn.projection import Projection, ResettableProjection
-from fairseq2.nn.transformer.attention import SDPA, DefaultSDPA
+from fairseq2.nn.transformer.attention import SDPA, get_default_sdpa
 
 
 class MultiheadAttention(Module, ABC):
@@ -179,8 +179,7 @@ class StandardMultiheadAttention(MultiheadAttention):
     bias_k: Optional[Parameter]
     bias_v: Optional[Parameter]
     add_zero_attn: bool
-    attn_module: SDPA
-    attn_dropout_p: float
+    sdpa: SDPA
     head_scale_weight: Optional[Parameter]
     out_proj: Projection
 
@@ -194,8 +193,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         pos_encoder: Optional[PositionEncoder] = None,
         add_bias_kv: bool = False,
         add_zero_attn: bool = False,
-        attn_module: Optional[SDPA] = None,
-        attn_dropout_p: float = 0.0,
+        sdpa: Optional[SDPA] = None,
         scale_heads: bool = False,
         out_proj: Optional[Projection] = None,
         device: Optional[torch.device] = None,
@@ -222,11 +220,9 @@ class StandardMultiheadAttention(MultiheadAttention):
             If ``True``, extends keys and values by a bias step.
         :param add_zero_attn:
             If ``True``, extends keys and values by an empty (i.e. zero) step.
-        :param attn_module:
-            The module to compute head attentions. If ``None``, a default
-            implementation of the scaled dot-product attention will be used.
-        :param attn_dropout_p:
-            The dropout probability on attention weights.
+        :param sdpa:
+            The scaled dot-product attention module to compute head attentions.
+            If ``None``, a default implementation will be used.
         :param scale_heads:
             If ``True``, applies head scaling as described in
             :cite:t:`https://doi.org/10.48550/arxiv.2110.09456`
@@ -300,12 +296,10 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         self.add_zero_attn = add_zero_attn
 
-        if attn_module is None:
-            self.attn_module = DefaultSDPA(model_dim, num_heads)
+        if sdpa is not None:
+            self.sdpa = sdpa
         else:
-            self.attn_module = attn_module
-
-        self.attn_dropout_p = attn_dropout_p
+            self.sdpa = get_default_sdpa()
 
         if scale_heads:
             self.head_scale_weight = Parameter(
@@ -472,9 +466,7 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         # attn:         (N x H, S, V_h)
         # attn_weights: (N x H, S, S_kv)
-        attn, attn_weights = self.attn_module(
-            q, k, v, attn_mask, self.attn_dropout_p, needs_weights, self.training
-        )
+        attn, attn_weights = self.sdpa(q, k, v, attn_mask, needs_weights)
 
         if attn_weights is not None:
             self._run_attn_weight_hooks(attn_weights)
@@ -503,7 +495,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         if self.add_zero_attn:
             s += ", add_zero_attn=True"
 
-        return s + f", attn_dropout_p={self.attn_dropout_p}"
+        return s
 
 
 class QKVProjection(ResettableProjection):

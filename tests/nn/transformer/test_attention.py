@@ -4,29 +4,56 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict
+from typing import Any, Dict, Final
 
 import pytest
 import torch
 from packaging import version
 from torch import Tensor
 
-from fairseq2.nn.transformer.attention import (
-    DefaultSDPA,
-    naive_scaled_dot_product_attention,
-    torch_scaled_dot_product_attention,
-)
+from fairseq2.nn.transformer.attention import NaiveSDPA, TorchSDPA
 from tests.common import assert_close, device
 from tests.rng import tmp_rng_seed
 
-is_pt2_or_greater = version.parse(torch.__version__) >= version.parse("2.0.0")
+IS_PT2_OR_GREATER: Final = version.parse(torch.__version__) >= version.parse("2.0.0")
 
 
 class TestScaledDotProductAttention:
+    # fmt: off
+    @pytest.mark.skipif(not IS_PT2_OR_GREATER, reason="requires PyTorch 2.0.0 or greater")
+    @pytest.mark.parametrize("mask,attn_dropout_p,training",
+        [
+            (False, 0.0, True),
+            (True,  0.0, True),
+            (False, 0.5, True),
+            (True,  0.5, True),
+            (False, 0.5, False),
+            (False, 0.9, False),
+        ],
+    )
+    # fmt: on
+    def test_torch_sdpa(
+        self, mask: bool, attn_dropout_p: float, training: bool
+    ) -> None:
+        torch_sdpa = TorchSDPA(attn_dropout_p)
+        naive_sdpa = NaiveSDPA(attn_dropout_p)
+
+        if training:
+            torch_sdpa.eval()
+            naive_sdpa.eval()
+
+        attn_args = self._get_attn_args(mask)
+
+        with tmp_rng_seed(device):
+            attn1, _ = torch_sdpa(**attn_args)
+
+        with tmp_rng_seed(device):
+            attn2, _ = naive_sdpa(**attn_args)
+
+        assert_close(attn1, attn2)
+
     @staticmethod
-    def _get_kwargs_attn_fn(
-        mask: bool, dropout_p: float, training: bool
-    ) -> Dict[str, Any]:
+    def _get_attn_args(mask: bool) -> Dict[str, Any]:
         N = 2  # Batch
         S = 3  # Source Sequence
         T = 2  # Target Sequence
@@ -53,59 +80,6 @@ class TestScaledDotProductAttention:
             "keys": k(),
             "values": v(),
             "mask": m() if mask else None,
-            "dropout_p": dropout_p,
-            "training": training,
         }
 
         return kwargs
-
-    # fmt: off
-    @pytest.mark.skipif(not is_pt2_or_greater, reason="requires PyTorch 2.0.0 or greater")
-    @pytest.mark.parametrize("mask,dropout_p,training",
-        [
-            (False, 0.0, True),
-            (True,  0.0, True),
-            (False, 0.5, True),
-            (True,  0.5, True),
-            (False, 0.5, False),
-            (False, 0.9, False),
-        ],
-    )
-    # fmt: on
-    def test_torch_function_computes_expected_attention(
-        self, mask: bool, dropout_p: float, training: bool
-    ) -> None:
-        kwargs = self._get_kwargs_attn_fn(mask, dropout_p, training)
-
-        with tmp_rng_seed(device):
-            attn1, _ = torch_scaled_dot_product_attention(**kwargs)
-
-        with tmp_rng_seed(device):
-            attn2, _ = naive_scaled_dot_product_attention(**kwargs)
-
-        assert_close(attn1, attn2)
-
-    # fmt: off
-    @pytest.mark.parametrize("mask,dropout_p,training",
-        [
-            (False, 0.0, True),
-            (True,  0.0, True),
-            (False, 0.5, True),
-            (True,  0.5, True),
-            (False, 0.5, False),
-        ],
-    )
-    # fmt: on
-    def test_default_function_computes_expected_attention(
-        self, mask: bool, dropout_p: float, training: bool
-    ) -> None:
-        kwargs = self._get_kwargs_attn_fn(mask, dropout_p, training)
-
-        with tmp_rng_seed(device):
-            default_sdpa = DefaultSDPA(0, 0)
-            attn1, _ = default_sdpa(**kwargs)
-
-        with tmp_rng_seed(device):
-            attn2, _ = naive_scaled_dot_product_attention(**kwargs)
-
-        assert_close(attn1, attn2)

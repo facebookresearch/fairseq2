@@ -6,120 +6,35 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple
+from typing import Final, Optional, Tuple, final
 
 import torch
 import torch.nn.functional as F
 from overrides import final as finaloverride
 from packaging import version
 from torch import Tensor
-from torch.nn import Module
+from torch.nn import Module, Parameter
 
 from fairseq2.nn.position_encoder import PositionEncoder
 
 log = logging.getLogger(__name__)
 
-is_pt2_or_greater = version.parse(torch.__version__) >= version.parse("2.0.0")
-
-has_warned_sdpa = False
-
-
-def torch_scaled_dot_product_attention(
-    queries: Tensor,
-    keys: Tensor,
-    values: Tensor,
-    mask: Optional[Tensor] = None,
-    dropout_p: float = 0.0,
-    needs_weights: bool = False,
-    training: bool = True,
-) -> Tuple[Tensor, Optional[Tensor]]:
-    """
-    Compute scaled dot-product attention using PyTorch SDPA 2.0 as described
-    `here <https://pytorch.org/docs/master/generated/torch.nn.functional.scaled_dot_product_attention.html>`_
-    in the PyTorch documentation.
-    """
-    if not is_pt2_or_greater:
-        raise ValueError(
-            "`torch_scaled_dot_product_attention` requires PyTorch 2.0.0 or greater."
-        )
-
-    if needs_weights:
-        raise ValueError(
-            "`torch_scaled_dot_product_attention` does not support the `needs_weights` parameter."
-        )
-
-    if not training:
-        dropout_p = 0.0
-
-    # Check if the mask is tagged as causal.
-    is_causal: bool = getattr(mask, "is_causal", False)
-
-    attn = F.scaled_dot_product_attention(  # type: ignore[attr-defined]
-        queries,
-        keys,
-        values,
-        attn_mask=None if is_causal else mask,
-        dropout_p=dropout_p,
-        is_causal=is_causal,
-    )
-
-    return attn, None
-
-
-def naive_scaled_dot_product_attention(
-    queries: Tensor,
-    keys: Tensor,
-    values: Tensor,
-    mask: Optional[Tensor] = None,
-    dropout_p: float = 0.0,
-    needs_weights: bool = False,
-    training: bool = True,
-) -> Tuple[Tensor, Optional[Tensor]]:
-    """Compute scaled dot-product attention using a non-fused Python-based
-    implementation.
-
-    This function is used internally by :func:`default_scaled_dot_product_attention`
-    as a fall-back if no other efficient implementation is available.
-
-    It can also be used explicitly for troubleshooting purposes since it allows
-    step-through debugging.
-    """
-    queries = queries * (queries.size(-1) ** -0.5)
-
-    if mask is None:
-        # (N, S, K) @ (N, K, S_kv) = (N, S, S_kv)
-        attn_weights = torch.bmm(queries, keys.transpose(1, 2))
-    else:
-        # (N, S, S_kv) + ((N, S, K) @ (N, K, S_kv)) = (N, S, S_kv)
-        attn_weights = torch.baddbmm(mask, queries, keys.transpose(1, 2))
-
-    attn_weights = F.softmax(attn_weights, dim=-1)
-
-    if training and dropout_p > 0.0:
-        attn_weights = F.dropout(attn_weights, dropout_p, training)
-
-    # (N, S, S_kv) @ (N, S_kv, V) = (N, S, V)
-    attn = torch.bmm(attn_weights, values)
-
-    return attn, attn_weights if needs_weights else None
+_IS_PT2_OR_GREATER: Final = version.parse(torch.__version__) >= version.parse("2.0.0")
 
 
 class SDPA(Module, ABC):
-    """Computes attention."""
+    """Computes scaled dot-product attention."""
 
-    model_dim: int
-    num_heads: int
+    attn_dropout_p: float
 
-    def __init__(self, model_dim: int, num_heads: int) -> None:
+    def __init__(self, attn_dropout_p: float = 0.0) -> None:
+        """
+        :param attn_dropout_p:
+            The dropout probability on attention weights.
+        """
         super().__init__()
-        """
-        :param model_dim:
-            The dimensionality of the model.
-        :param: num_heads:
-            The number of attention heads
-        """
-        self.model_dim = model_dim
-        self.num_heads = num_heads
+
+        self.attn_dropout_p = attn_dropout_p
 
     @abstractmethod
     def forward(
@@ -128,9 +43,7 @@ class SDPA(Module, ABC):
         keys: Tensor,
         values: Tensor,
         mask: Optional[Tensor] = None,
-        dropout_p: float = 0.0,
         needs_weights: bool = False,
-        training: bool = True,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         """
         :param queries:
@@ -151,13 +64,8 @@ class SDPA(Module, ABC):
             :math:`(N,S,S_{kv})`, where :math:`N` is the batch size,
             :math:`S` is the sequence length, and :math:`S_{kv}` is the
             key/value sequence length.
-        :param dropout_p:
-            The dropout probability on the attention weights.
         :param needs_weights:
-            If ``True``, returns the attention weights as the second item of the
-            returned tuple.
-        :param training:
-            If ``True``, applies dropout.
+            If ``True``, returns the attention weights.
 
         :returns:
             - The attention values. *Shape:* :math:`(N,S,V)`, where
@@ -168,14 +76,22 @@ class SDPA(Module, ABC):
               :math:`S_{kv}` is the key/value sequence length.
         """
 
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        return f"attn_dropout_p={self.attn_dropout_p}"
 
-class DefaultSDPA(SDPA):
-    """Compute scaled dot-product attention as described in
-    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.
 
-    This class automatically picks the most efficient SDPA implementation and
-    uses it internally.
-    """
+@final
+class TorchSDPA(SDPA):
+    """Computes scaled dot-product attention using PyTorch SDPA v2."""
+
+    def __init__(self, attn_dropout_p: float = 0.0) -> None:
+        super().__init__(attn_dropout_p)
+
+        if not _IS_PT2_OR_GREATER:
+            raise ValueError("`TorchSDPA` requires PyTorch 2.0.0 or greater.")
+
+        self._has_warned = False
 
     @finaloverride
     def forward(
@@ -184,33 +100,90 @@ class DefaultSDPA(SDPA):
         keys: Tensor,
         values: Tensor,
         mask: Optional[Tensor] = None,
-        dropout_p: float = 0.0,
         needs_weights: bool = False,
-        training: bool = True,
     ) -> Tuple[Tensor, Optional[Tensor]]:
-        global has_warned_sdpa
-
-        if not needs_weights and is_pt2_or_greater and queries.is_cuda:
-            return torch_scaled_dot_product_attention(
-                queries, keys, values, mask, dropout_p, needs_weights, training
+        if not queries.is_cuda:
+            return _naive_scaled_dot_product_attention(
+                queries,
+                keys,
+                values,
+                mask,
+                self.attn_dropout_p,
+                needs_weights,
+                self.training,
             )
-        else:
-            if is_pt2_or_greater and queries.is_cuda and not has_warned_sdpa:
+
+        if needs_weights:
+            if not self._has_warned:
                 log.warning(
-                    "You are failing to leverage the more efficient `torch_scaled_dot_product_attention` that is based on PyTorch's native SDPA because of `needs_weights` set to `True`."
+                    "`TorchSDPA` has to fall back to a non-fused SDPA implementation because of `needs_weights` set to `True`."
                 )
 
-                has_warned_sdpa = True
+                self._has_warned = True
 
-            return naive_scaled_dot_product_attention(
-                queries, keys, values, mask, dropout_p, needs_weights, training
+            return _naive_scaled_dot_product_attention(
+                queries,
+                keys,
+                values,
+                mask,
+                self.attn_dropout_p,
+                needs_weights,
+                self.training,
             )
 
+        if not self.training:
+            dropout_p = 0.0
+        else:
+            dropout_p = self.attn_dropout_p
 
+        # Check if the mask is causal.
+        is_causal_mask: bool = getattr(mask, "is_causal", False)
+
+        attn = F.scaled_dot_product_attention(  # type: ignore[attr-defined]
+            queries,
+            keys,
+            values,
+            attn_mask=None if is_causal_mask else mask,
+            dropout_p=dropout_p,
+            is_causal=is_causal_mask,
+        )
+
+        return attn, None
+
+
+@final
+class NaiveSDPA(SDPA):
+    """Computes scaled dot-product attention using a non-fused implementation."""
+
+    @finaloverride
+    def forward(
+        self,
+        queries: Tensor,
+        keys: Tensor,
+        values: Tensor,
+        mask: Optional[Tensor] = None,
+        needs_weights: bool = False,
+    ) -> Tuple[Tensor, Optional[Tensor]]:
+        return _naive_scaled_dot_product_attention(
+            queries,
+            keys,
+            values,
+            mask,
+            self.attn_dropout_p,
+            needs_weights,
+            self.training,
+        )
+
+
+@final
 class RelativePositionSDPA(SDPA):
-    """Compute relative position scaled dot-product attention as described in
+    """Computes scaled dot-product attention as described in
     :cite:t:`dai2019transformerxl`."""
 
+    model_dim: int
+    num_heads: int
+    u_bias: Parameter
+    v_bias: Parameter
     pos_encoder: PositionEncoder
 
     def __init__(
@@ -218,6 +191,7 @@ class RelativePositionSDPA(SDPA):
         model_dim: int,
         num_heads: int,
         pos_encoder: PositionEncoder,
+        attn_dropout_p: float = 0.0,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
@@ -227,9 +201,14 @@ class RelativePositionSDPA(SDPA):
         :param: num_heads:
             The number of attention heads.
         :param: pos_encoder:
-            The position encoder to generate the relative position tensor :math:`R`.
+            The position encoder to generate the relative position tensor.
+        :param attn_dropout_p:
+            The dropout probability on attention weights.
         """
-        super().__init__(model_dim, num_heads)
+        super().__init__()
+
+        self.model_dim = model_dim
+        self.num_heads = num_heads
 
         from fairseq2.nn.transformer.multihead_attention import QKVProjection
 
@@ -246,6 +225,10 @@ class RelativePositionSDPA(SDPA):
 
         self.reset_parameters()
 
+    def reset_parameters(self) -> None:
+        torch.nn.init.xavier_normal_(self.u_bias)
+        torch.nn.init.xavier_normal_(self.v_bias)
+
     @finaloverride
     def forward(
         self,
@@ -253,9 +236,7 @@ class RelativePositionSDPA(SDPA):
         keys: Tensor,
         values: Tensor,
         mask: Optional[Tensor] = None,
-        dropout_p: float = 0.0,
         needs_weights: bool = False,
-        training: bool = True,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         queries = queries * (queries.size(-1) ** -0.5)
 
@@ -286,8 +267,8 @@ class RelativePositionSDPA(SDPA):
         attn_weights = content_score + pos_score
         attn_weights = F.softmax(attn_weights, dim=-1)
 
-        if training and dropout_p > 0.0:
-            attn_weights = F.dropout(attn_weights, dropout_p, training)
+        if self.training and self.attn_dropout_p > 0.0:
+            attn_weights = F.dropout(attn_weights, self.attn_dropout_p, self.training)
 
         # (N, S, S_kv) @ (N, S_kv, V) = (N, S, V)
         attn = torch.bmm(attn_weights, values)
@@ -329,6 +310,43 @@ class RelativePositionSDPA(SDPA):
 
         return R
 
-    def reset_parameters(self) -> None:
-        torch.nn.init.xavier_normal_(self.u_bias)
-        torch.nn.init.xavier_normal_(self.v_bias)
+
+def get_default_sdpa(attn_dropout_p: float = 0.0) -> SDPA:
+    """Return the default scaled dot-product attention module.
+
+    :param attn_dropout_p:
+        The dropout probability on attention weights.
+    """
+    if _IS_PT2_OR_GREATER:
+        return TorchSDPA(attn_dropout_p)
+    else:
+        return NaiveSDPA(attn_dropout_p)
+
+
+def _naive_scaled_dot_product_attention(
+    queries: Tensor,
+    keys: Tensor,
+    values: Tensor,
+    mask: Optional[Tensor],
+    dropout_p: float,
+    needs_weights: bool,
+    training: bool,
+) -> Tuple[Tensor, Optional[Tensor]]:
+    queries = queries * (queries.size(-1) ** -0.5)
+
+    if mask is None:
+        # (N, S, K) @ (N, K, S_kv) = (N, S, S_kv)
+        attn_weights = torch.bmm(queries, keys.transpose(1, 2))
+    else:
+        # (N, S, S_kv) + ((N, S, K) @ (N, K, S_kv)) = (N, S, S_kv)
+        attn_weights = torch.baddbmm(mask, queries, keys.transpose(1, 2))
+
+    attn_weights = F.softmax(attn_weights, dim=-1)
+
+    if training and dropout_p > 0.0:
+        attn_weights = F.dropout(attn_weights, dropout_p, training)
+
+    # (N, S, S_kv) @ (N, S_kv, V) = (N, S, V)
+    attn = torch.bmm(attn_weights, values)
+
+    return attn, attn_weights if needs_weights else None

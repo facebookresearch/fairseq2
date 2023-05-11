@@ -38,6 +38,7 @@ from fairseq2.nn.transformer import (
     TransformerEncoder,
     TransformerEncoderLayer,
     TransformerNormOrder,
+    get_default_sdpa,
 )
 
 
@@ -418,11 +419,13 @@ class Wav2Vec2Builder:
         else:
             pos_encoder = None
 
+        sdpa = get_default_sdpa(self.cfg.attn_dropout_p)
+
         return StandardMultiheadAttention(
             self.cfg.num_encoder_attn_heads,
             self.cfg.model_dim,
             pos_encoder=pos_encoder,
-            attn_dropout_p=self.cfg.attn_dropout_p,
+            sdpa=sdpa,
             device=self.device,
             dtype=self.dtype,
         )
