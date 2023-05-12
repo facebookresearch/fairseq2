@@ -59,9 +59,9 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
             for numerical stability.
         """
         # The output dimensionality of the last feature extraction layer.
-        out_dim = layer_descs[-1][0]
+        feature_dim = layer_descs[-1][0]
 
-        super().__init__(out_dim)
+        super().__init__(feature_dim)
 
         if not layer_descs:
             raise ValueError("`layer_descs` must be non-empty.")
@@ -260,7 +260,7 @@ class Wav2Vec2FbankFeatureExtractor(SequenceFeatureExtractor):
     sample_every_k: int
 
     def __init__(self, num_fbank_channels: int, stride: int, sample_every_k: int = 1):
-        super().__init__(out_dim=num_fbank_channels * stride)
+        super().__init__(feature_dim=num_fbank_channels * stride)
 
         self.num_fbank_channels = num_fbank_channels
         self.stride = stride

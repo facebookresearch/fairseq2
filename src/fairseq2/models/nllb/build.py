@@ -40,11 +40,11 @@ from fairseq2.nn.transformer import (
 class NllbConfig:
     """Holds the configuration of an NLLB model."""
 
-    max_seq_len: int = 1024
-    """The expected maximum sequence length."""
-
     model_dim: int = 1024
     """The dimensionality of the model."""
+
+    max_seq_len: int = 1024
+    """The expected maximum sequence length."""
 
     num_encoder_layers: int = 24
     """The number of Transformer encoder layers."""
@@ -276,8 +276,8 @@ class NllbBuilder:
         sdpa = get_default_sdpa(attn_dropout_p=self.cfg.dropout_p)
 
         return StandardMultiheadAttention(
-            num_heads,
             self.cfg.model_dim,
+            num_heads,
             sdpa=sdpa,
             device=self.device,
             dtype=self.dtype,

@@ -24,6 +24,7 @@ class PretrainedWav2Vec2Frontend(TransformerFrontend):
     """Represents a pretrained Transformer encoder front-end as described in
     :cite:t:`baevski2020wav2vec`."""
 
+    feature_dim: int
     feature_extractor: Optional[SequenceFeatureExtractor]
     post_extract_layer_norm: LayerNorm
     post_extract_proj: Optional[Linear]
@@ -35,6 +36,7 @@ class PretrainedWav2Vec2Frontend(TransformerFrontend):
     def __init__(
         self,
         model_dim: int,
+        feature_dim: int,
         feature_extractor: Optional[SequenceFeatureExtractor],
         pos_encoder: Optional[PositionEncoder],
         post_extract_dropout_p: float = 0.0,
@@ -47,14 +49,16 @@ class PretrainedWav2Vec2Frontend(TransformerFrontend):
         """
         :param model_dim:
             The dimensionality of the model.
+        :param feature_dim:
+            The dimensionality of extracted features.
         :param feature_extractor:
             The feature extractor. If ``None``, features are assumed to be
             extracted externally before being fed to the model.
         :param pos_encoder:
             The position encoder.
         :param post_extract_dropout_p:
-            The dropout probability on outputs of the feature extractor before
-            positional encoding.
+            The dropout probability on extracted features before positional
+            encoding.
         :param layer_norm:
             If ``True``, applies Layer Normalization to extracted features
             before dropout.
@@ -67,12 +71,13 @@ class PretrainedWav2Vec2Frontend(TransformerFrontend):
         super().__init__(model_dim)
 
         if feature_extractor is not None:
-            feature_dim = feature_extractor.out_dim
+            if feature_dim != feature_extractor.feature_dim:
+                raise ValueError(
+                    f"`feature_dim` of `feature_extractor` and `feature_dim` must be equal, but are {feature_extractor.feature_dim} and {feature_dim} instead."
+                )
 
             self.feature_extractor = feature_extractor
         else:
-            feature_dim = model_dim
-
             self.register_module("feature_extractor", None)
 
         self.post_extract_layer_norm = LayerNorm(
@@ -92,9 +97,9 @@ class PretrainedWav2Vec2Frontend(TransformerFrontend):
             self.register_module("post_extract_dropout", None)
 
         if pos_encoder is not None:
-            if pos_encoder.dim != model_dim:
+            if pos_encoder.encoding_dim != model_dim:
                 raise ValueError(
-                    f"`dim` of `pos_encoder` and `model_dim` must be equal, but are {pos_encoder.dim} and {model_dim} instead."
+                    f"`encoding_dim` of `pos_encoder` and `model_dim` must be equal, but are {pos_encoder.encoding_dim} and {model_dim} instead."
                 )
 
             self.pos_encoder = pos_encoder

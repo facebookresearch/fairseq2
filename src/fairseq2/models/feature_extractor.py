@@ -14,16 +14,16 @@ from torch.nn import Module
 class SequenceFeatureExtractor(Module, ABC):
     """Extracts features from sequences and embeds them in a latent space."""
 
-    out_dim: int
+    feature_dim: int
 
-    def __init__(self, out_dim: int) -> None:
+    def __init__(self, feature_dim: int) -> None:
         """
-        :param out_dim:
+        :param feature_dim:
             The dimensionality of extracted features.
         """
         super().__init__()
 
-        self.out_dim = out_dim
+        self.feature_dim = feature_dim
 
     @abstractmethod
     def forward(
@@ -52,4 +52,4 @@ class SequenceFeatureExtractor(Module, ABC):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"out_dim={self.out_dim}"
+        return f"feature_dim={self.feature_dim}"

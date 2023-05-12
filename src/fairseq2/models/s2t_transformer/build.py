@@ -48,14 +48,14 @@ class S2TTransformerConfig:
     Table 3 of :cite:t:`https://doi.org/10.48550/arxiv.2010.05171`.
     """
 
-    num_fbank_channels: int = 80
-    """The number of source log-mel filterbank channels."""
-
-    max_seq_len: int = 1024
-    """The expected maximum sequence length."""
-
     model_dim: int = 512
     """The dimensionality of the model."""
+
+    max_seq_len: int = 1024
+    """The expected maximum sequence length after feature extraction."""
+
+    num_fbank_channels: int = 80
+    """The number of source log-mel filterbank channels."""
 
     use_conformer: bool = False
     """If ``True``, uses Conformer blocks instead of Transformer encoder layers."""
@@ -121,8 +121,8 @@ _CONFIGS: Final = {
         dropout_p=0.2,
     ),
     "conformer": lambda: S2TTransformerConfig(
-        max_seq_len=6000,
         model_dim=256,
+        max_seq_len=6000,
         use_conformer=True,
         num_encoder_layers=12,
         num_decoder_layers=6,
@@ -245,7 +245,7 @@ class S2TTransformerBuilder:
         feat_extractor = Conv1dFbankSubsampler(
             num_channels=self.cfg.num_fbank_channels,
             inner_dim=1024,
-            out_dim=self.cfg.model_dim,
+            feature_dim=self.cfg.model_dim,
             kernel_sizes=[5, 5],
             device=self.device,
             dtype=self.dtype,
@@ -386,8 +386,8 @@ class S2TTransformerBuilder:
         sdpa = get_default_sdpa(attn_dropout_p=self.cfg.dropout_p)
 
         return StandardMultiheadAttention(
-            num_heads,
             self.cfg.model_dim,
+            num_heads,
             sdpa=sdpa,
             device=self.device,
             dtype=self.dtype,

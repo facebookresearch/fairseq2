@@ -53,13 +53,19 @@ class Wav2Vec2Config:
     model_dim: int = 768
     """The dimensionality of the model."""
 
+    max_seq_len: int = 1024
+    """The expected maximum sequence length after feature extraction."""
+
     # Features
+    feature_dim: int = 512
+    """The dimensionality of extracted features."""
+
     use_fbank: bool = False
     """If ``True``, uses log-mel filterbanks instead of waveforms as input."""
 
     post_extract_dropout_p: float = 0.0
-    """The dropout probability on outputs of the feature extractor before
-    masking and positional encoding."""
+    """The dropout probability on extracted features before masking and
+    positional encoding."""
 
     layer_norm_features: bool = True
     """If ``True``, applies Layer Normalization to extracted features."""
@@ -287,6 +293,7 @@ class Wav2Vec2Builder:
 
         return Wav2Vec2Frontend(
             self.cfg.model_dim,
+            self.cfg.feature_dim,
             feature_extractor,
             masker,
             pos_encoder,
@@ -297,7 +304,7 @@ class Wav2Vec2Builder:
             dtype=self.dtype,
         )
 
-    def build_feature_extractor(self) -> SequenceFeatureExtractor:
+    def build_feature_extractor(self) -> Optional[SequenceFeatureExtractor]:
         """Build a feature extractor."""
         if self.cfg.use_fbank:
             return Wav2Vec2FbankFeatureExtractor(
@@ -411,8 +418,8 @@ class Wav2Vec2Builder:
         """Build a Transformer multi-head attention layer."""
         if self.cfg.pos_encoder_type == "rotary":
             pos_encoder = RotaryEncoder(
-                dim=self.cfg.model_dim // self.cfg.num_encoder_attn_heads,
-                max_seq_len=2048,
+                self.cfg.model_dim // self.cfg.num_encoder_attn_heads,
+                self.cfg.max_seq_len,
                 device=self.device,
                 dtype=self.dtype,
             )
@@ -422,8 +429,8 @@ class Wav2Vec2Builder:
         sdpa = get_default_sdpa(self.cfg.attn_dropout_p)
 
         return StandardMultiheadAttention(
-            self.cfg.num_encoder_attn_heads,
             self.cfg.model_dim,
+            self.cfg.num_encoder_attn_heads,
             pos_encoder=pos_encoder,
             sdpa=sdpa,
             device=self.device,
@@ -443,13 +450,8 @@ class Wav2Vec2Builder:
 
     def build_quantizer(self) -> VectorQuantizer:
         """Build a vector quantizer."""
-        if self.cfg.use_fbank:
-            dim = self.cfg.num_fbank_channels * self.cfg.fbank_stride
-        else:
-            dim = self.cfg.feature_extractor_layer_descs[-1][0]
-
         return GumbelVectorQuantizer(
-            dim,
+            self.cfg.feature_dim,
             self.cfg.num_latent_vars,
             self.cfg.num_latent_groups,
             temperature=self.cfg.latent_temperature,

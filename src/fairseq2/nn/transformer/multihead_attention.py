@@ -185,8 +185,8 @@ class StandardMultiheadAttention(MultiheadAttention):
 
     def __init__(
         self,
+        model_dim: int,
         num_heads: int,
-        model_dim: Optional[int] = None,
         q_proj: Optional[Projection] = None,
         k_proj: Optional[Projection] = None,
         v_proj: Optional[Projection] = None,
@@ -200,11 +200,10 @@ class StandardMultiheadAttention(MultiheadAttention):
         dtype: Optional[torch.dtype] = None,
     ) -> None:
         """
+        :param model_dim:
+            The dimensionality of the model.
         :param num_heads:
             The number of attention heads.
-        :param model_dim:
-            The dimensionality of the model; must be specified if ``q_proj`` is
-            ``None``; otherwise, will be inferred from ``q_proj``.
         :param q_proj:
             The projection to apply to queries before computing attention. If
             ``None``, a default projection will be used.
@@ -230,12 +229,6 @@ class StandardMultiheadAttention(MultiheadAttention):
             The projection to produce final attentions. If ``None``, a
             default projection will be used.
         """
-        if model_dim is None:
-            if q_proj is not None:
-                model_dim = q_proj.inp_dim
-            else:
-                raise ValueError("`model_dim` must be specified.")
-
         super().__init__(model_dim, num_heads)
 
         if q_proj is None and k_proj is None and v_proj is None:
@@ -250,7 +243,7 @@ class StandardMultiheadAttention(MultiheadAttention):
 
             if q_proj.inp_dim != model_dim:
                 raise ValueError(
-                    f"`inp_dim` of `q_proj` must be equal to `model_dim` ({model_dim}), but is {q_proj.inp_dim} instead."
+                    f"`inp_dim` of `q_proj` and `model_dim` must be equal, but are {q_proj.inp_dim} and {model_dim} instead."
                 )
 
             if q_proj.out_dim != k_proj.out_dim:
@@ -273,9 +266,9 @@ class StandardMultiheadAttention(MultiheadAttention):
         self.v_proj = v_proj
 
         if pos_encoder is not None:
-            if (head_dim := k_proj.out_dim // num_heads) != pos_encoder.dim:
+            if (head_dim := k_proj.out_dim // num_heads) != pos_encoder.encoding_dim:
                 raise ValueError(
-                    f"`dim` of `pos_encoder` must be equal to the size of the header key dimension ({head_dim}), but is {pos_encoder.dim} instead."
+                    f"`encoding_dim` of `pos_encoder` and the size of the header key dimension must be equal, but are {pos_encoder.encoding_dim} and {head_dim} instead."
                 )
 
             self.pos_encoder = pos_encoder
@@ -320,7 +313,7 @@ class StandardMultiheadAttention(MultiheadAttention):
 
             if out_proj.out_dim != model_dim:
                 raise ValueError(
-                    f"`out_dim` of `out_proj` must be equal to `model_dim` ({model_dim}), but is {out_proj.out_dim} instead."
+                    f"`out_dim` of `out_proj` and `model_dim` must be equal, but are {out_proj.out_dim} and {model_dim} instead."
                 )
 
             self.out_proj = out_proj

@@ -92,13 +92,11 @@ class Wav2Vec2Masker(Module):
         batch_size, seq_len, model_dim = seqs.shape
 
         # Temporal mask over time steps.
-        shape = (batch_size, seq_len)
-
         temporal_mask = compute_mask(
-            shape,
-            self.temporal_span_len,
-            self.max_temporal_mask_prob,
-            seq_lens,
+            shape=(batch_size, seq_len),
+            span_len=self.temporal_span_len,
+            max_mask_prob=self.max_temporal_mask_prob,
+            row_lens=seq_lens,
             min_num_spans=2,
             device=seqs.device,
         )
@@ -107,14 +105,12 @@ class Wav2Vec2Masker(Module):
 
         seqs[temporal_mask] = self.temporal_mask_embed
 
-        # Spatial mask over features.
         if self.max_spatial_mask_prob > 0.0:
-            shape = (batch_size, model_dim)
-
+            # Spatial mask over features.
             spatial_mask = compute_mask(
-                shape,
-                self.spatial_span_len,
-                self.max_spatial_mask_prob,
+                shape=(batch_size, model_dim),
+                span_len=self.spatial_span_len,
+                max_mask_prob=self.max_spatial_mask_prob,
                 min_num_spans=2,
                 device=seqs.device,
             )

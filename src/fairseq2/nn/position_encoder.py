@@ -22,19 +22,19 @@ from fairseq2.nn.incremental_state import IncrementalStateBag
 class PositionEncoder(Module, ABC):
     """Encodes sequences with positional information."""
 
-    dim: int
+    encoding_dim: int
     max_seq_len: Optional[int]
 
-    def __init__(self, dim: int, max_seq_len: Optional[int]) -> None:
+    def __init__(self, encoding_dim: int, max_seq_len: Optional[int]) -> None:
         """
-        :param dim:
-            The dimensionality of inputs and outputs.
+        :param encoding_dim:
+            The dimensionality of positional encodings.
         :param max_seq_len:
             The expected maximum sequence length.
         """
         super().__init__()
 
-        self.dim = dim
+        self.encoding_dim = encoding_dim
         self.max_seq_len = max_seq_len
 
     def forward(
@@ -100,7 +100,7 @@ class PositionEncoder(Module, ABC):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = f"dim={self.dim}"
+        s = f"encoding_dim={self.encoding_dim}"
 
         if self.max_seq_len is not None:
             s += f", max_seq_len={self.max_seq_len}"
@@ -137,7 +137,7 @@ class SinusoidalPositionEncoder(PositionEncoder):
     >>>
     >>> from fairseq2.nn.position_encoder import SinusoidalPositionEncoder
     >>>
-    >>> m = SinusoidalPositionEncoder(dim=4, max_seq_len=16)
+    >>> m = SinusoidalPositionEncoder(encoding_dim=4, max_seq_len=16)
     >>>
     >>> seqs = torch.ones((3, 4))
     >>>
@@ -151,13 +151,13 @@ class SinusoidalPositionEncoder(PositionEncoder):
 
     def __init__(
         self,
-        dim: int,
+        encoding_dim: int,
         max_seq_len: int,
         _legacy_pad_idx: Optional[int] = None,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
-        super().__init__(dim, max_seq_len)
+        super().__init__(encoding_dim, max_seq_len)
 
         # This is a legacy parameter that should only be set when the encodings
         # must be compatible with fairseq.
@@ -166,7 +166,7 @@ class SinusoidalPositionEncoder(PositionEncoder):
         else:
             self._sin_offset = 1 + _legacy_pad_idx
 
-        weight = torch.empty((max_seq_len, dim), device=device, dtype=dtype)
+        weight = torch.empty((max_seq_len, encoding_dim), device=device, dtype=dtype)
 
         self.register_buffer("weight", weight, persistent=False)
 
@@ -174,10 +174,10 @@ class SinusoidalPositionEncoder(PositionEncoder):
 
     def reset_parameters(self) -> None:
         """Reset the parameters and buffers of the module."""
-        num_sin = self.dim // 2
+        num_sin = self.encoding_dim // 2
 
         # Zero pad if the dimensionality of the model is odd.
-        if self.dim > 2 * num_sin:
+        if self.encoding_dim > 2 * num_sin:
             self.weight[:, -1:] = 0
 
         l_half = self.weight[:, :num_sin]
@@ -185,24 +185,26 @@ class SinusoidalPositionEncoder(PositionEncoder):
 
         device, dtype = self.weight.device, self.weight.dtype
 
-        start = self._sin_offset
+        # (1, E)
+        indices = torch.arange(num_sin, device=device, dtype=dtype).unsqueeze(0)
+
+        start_step = self._sin_offset
 
         assert self.max_seq_len is not None
 
-        # This is identical to tensor2tensor's implementation.
-        indices = torch.arange(
-            start, start + self.max_seq_len, device=device, dtype=dtype
+        # (S)
+        steps = torch.arange(
+            start_step, start_step + self.max_seq_len, device=device, dtype=dtype
         )
 
-        indices = indices.unsqueeze(1)
+        # (S) -> (S, 1)
+        steps = steps.unsqueeze(1)
 
-        sin = torch.arange(num_sin, device=device, dtype=dtype)
-
-        sin = torch.exp(sin * -math.log(10000) / (num_sin - 1))
-
-        sin = sin.unsqueeze(0)
-
-        torch.matmul(indices, sin, out=l_half)
+        # This is identical to tensor2tensor's implementation.
+        # (S, 1) x (1, E) -> (S, E)
+        torch.matmul(
+            steps, torch.exp(indices * -math.log(10000) / (num_sin - 1)), out=l_half
+        )
 
         r_half[:] = l_half[:]
 
@@ -237,7 +239,7 @@ class LearnedPositionEncoder(PositionEncoder):
     >>>
     >>> from fairseq2.nn.position_encoder import LearnedPositionEncoder
     >>>
-    >>> m = LearnedPositionEncoder(dim=4, max_seq_len=16)
+    >>> m = LearnedPositionEncoder(encoding_dim=4, max_seq_len=16)
     >>>
     >>> seqs = torch.ones((3, 4))
     >>>
@@ -251,15 +253,15 @@ class LearnedPositionEncoder(PositionEncoder):
 
     def __init__(
         self,
-        dim: int,
+        encoding_dim: int,
         max_seq_len: int,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
-        super().__init__(dim, max_seq_len)
+        super().__init__(encoding_dim, max_seq_len)
 
         self.weight = Parameter(
-            torch.empty((max_seq_len, dim), device=device, dtype=dtype)
+            torch.empty((max_seq_len, encoding_dim), device=device, dtype=dtype)
         )
 
         self.reset_parameters()
@@ -283,11 +285,11 @@ class LearnedPositionEncoder(PositionEncoder):
         else:
             start_step = 0
 
-        indices = torch.arange(
+        steps = torch.arange(
             start_step, start_step + seq_len, device=seqs.device, dtype=torch.int64
         )
 
-        return seqs + F.embedding(indices, self.weight)
+        return seqs + F.embedding(steps, self.weight)
 
 
 @final
@@ -300,18 +302,20 @@ class RotaryEncoder(PositionEncoder):
 
     def __init__(
         self,
-        dim: int,
+        encoding_dim: int,
         max_seq_len: int,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
-        if dim % 2 != 0:
-            raise ValueError(f"`dim` must be even, but is {dim} instead.")
+        if encoding_dim % 2 != 0:
+            raise ValueError(
+                f"`encoding_dim` must be even, but is {encoding_dim} instead."
+            )
 
-        super().__init__(dim, max_seq_len)
+        super().__init__(encoding_dim, max_seq_len)
 
-        cos = torch.empty((max_seq_len, dim), device=device, dtype=dtype)
-        sin = torch.empty((max_seq_len, dim), device=device, dtype=dtype)
+        cos = torch.empty((max_seq_len, encoding_dim), device=device, dtype=dtype)
+        sin = torch.empty((max_seq_len, encoding_dim), device=device, dtype=dtype)
 
         self.register_buffer("cos_weight", cos, persistent=False)
         self.register_buffer("sin_weight", sin, persistent=False)
@@ -322,20 +326,25 @@ class RotaryEncoder(PositionEncoder):
         """Reset the parameters and buffers of the module."""
         device, dtype = self.sin_weight.device, self.sin_weight.dtype
 
-        indices = torch.arange(self.dim // 2, device=device, dtype=dtype)
+        # (E)
+        indices = torch.arange(self.encoding_dim // 2, device=device, dtype=dtype)
 
+        # (E) -> (1, E)
         indices = indices.unsqueeze(0)
 
         assert self.max_seq_len is not None
 
+        # (S)
         steps = torch.arange(self.max_seq_len, device=device, dtype=dtype)
 
+        # (S, 1)
         steps = steps.unsqueeze(1)
 
-        embed = torch.matmul(steps, 10000 ** (-2.0 * indices / self.dim))
+        # (S, 1) x (1, E) -> (S, E)
+        table = torch.matmul(steps, 10000 ** (-2.0 * indices / self.encoding_dim))
 
-        cos = torch.cos(embed)
-        sin = torch.sin(embed)
+        cos = torch.cos(table)
+        sin = torch.sin(table)
 
         self.cos_weight[:] = torch.repeat_interleave(cos, 2, dim=-1)
         self.sin_weight[:] = torch.repeat_interleave(sin, 2, dim=-1)
