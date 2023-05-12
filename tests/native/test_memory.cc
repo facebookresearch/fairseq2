@@ -36,6 +36,54 @@ TEST(test_memory_block, can_construct_from_data_and_size)
     EXPECT_FALSE(b.empty());
 }
 
+TEST(test_memory_block, move_constructed_from_block_becomes_empty)
+{
+    std::array<std::byte, 5> a{};
+
+    memory_block b{a.data(), a.size()};
+
+    EXPECT_EQ(b.data(), a.data());
+    EXPECT_EQ(b.size(), a.size());
+
+    memory_block c = std::move(b);
+
+    EXPECT_EQ(c.data(), a.data());
+    EXPECT_EQ(c.size(), a.size());
+
+    // b has been moved. Normally it's not valid to access it, but we want to check
+    // that even if we do we have a 0 size string and don't segfault.
+    // NOLINTNEXTLINE(bugprone-use-after-move, clang-analyzer-cplusplus.Move)
+    EXPECT_EQ(b.data(), nullptr);
+    EXPECT_EQ(b.size(), 0);
+
+    EXPECT_TRUE(b.empty());
+}
+
+TEST(test_memory_block, move_assigned_from_block_becomes_empty)
+{
+    std::array<std::byte, 5> a{};
+
+    memory_block b{a.data(), a.size()};
+
+    EXPECT_EQ(b.data(), a.data());
+    EXPECT_EQ(b.size(), a.size());
+
+    memory_block c{};
+
+    c = std::move(b);
+
+    EXPECT_EQ(c.data(), a.data());
+    EXPECT_EQ(c.size(), a.size());
+
+    // b has been moved. Normally it's not valid to access it, but we want to check
+    // that even if we do we have a 0 size string and don't segfault.
+    // NOLINTNEXTLINE(bugprone-use-after-move, clang-analyzer-cplusplus.Move)
+    EXPECT_EQ(b.data(), nullptr);
+    EXPECT_EQ(b.size(), 0);
+
+    EXPECT_TRUE(b.empty());
+}
+
 static void
 test_dealloc(const void *ptr, std::size_t size, void *) noexcept
 {

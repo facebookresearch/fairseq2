@@ -10,6 +10,7 @@
 #include <memory>
 #include <string>
 #include <type_traits>
+#include <utility>
 
 #include "fairseq2/native/api.h"
 #include "fairseq2/native/span.h"
@@ -90,8 +91,22 @@ public:
     basic_memory_block(const basic_memory_block &) noexcept = default;
     basic_memory_block &operator=(const basic_memory_block &) noexcept = default;
 
-    basic_memory_block(basic_memory_block &&) noexcept = default;
-    basic_memory_block &operator=(basic_memory_block &&) noexcept = default;
+    basic_memory_block(basic_memory_block &&other) noexcept
+        : data_{other.data_}, size_{other.size_}, holder_{std::move(other.holder_)}
+    {
+        other.data_ = nullptr;
+        other.size_ = 0;
+    }
+
+    basic_memory_block &operator=(basic_memory_block &&other) noexcept
+    {
+        data_ = std::exchange(other.data_, nullptr);
+        size_ = std::exchange(other.size_, 0);
+
+        holder_ = std::move(other.holder_);
+
+        return *this;
+    }
 
    ~basic_memory_block() = default;
 
