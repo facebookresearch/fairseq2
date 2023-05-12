@@ -17,6 +17,7 @@
 #include "fairseq2/native/py.h"
 #include "fairseq2/native/data/batched_data_source.h"
 #include "fairseq2/native/data/batched_by_length_data_source.h"
+#include "fairseq2/native/data/islice_data_source.h"
 #include "fairseq2/native/data/yielded_data_source.h"
 #include "fairseq2/native/data/list_data_source.h"
 #include "fairseq2/native/data/mapped_data_source.h"
@@ -208,6 +209,25 @@ data_pipeline_builder::batch_by_length(const std::vector<std::pair<std::size_t, 
     batch_by_length(buffer_sizes, pad_idx);
     return std::move(*this);
 }
+
+data_pipeline_builder &
+data_pipeline_builder::islice(std::optional<int> start, std::optional<int> stop, std::optional<int> step) &
+{
+    factory_ = [=, inner = std::move(factory_)]() {
+        return std::make_unique<islice_data_source>(inner(), start, stop, step);
+    };
+
+    return *this;
+}
+
+data_pipeline_builder &&
+data_pipeline_builder::islice(std::optional<int> start, std::optional<int> stop, std::optional<int> step) &&
+{
+    islice(start, stop, step);
+
+    return std::move(*this);
+}
+
 
 data_pipeline_builder &
 data_pipeline_builder::yield_from(yield_fn fn) &

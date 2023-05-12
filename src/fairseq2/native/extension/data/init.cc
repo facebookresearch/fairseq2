@@ -147,6 +147,22 @@ def_data_pipeline(py::module_ &base)
             },
             py::arg("buffer_sizes"),
             py::arg("pad_idx"))
+        .def("islice",
+            [](
+                data_pipeline_builder &self,
+                std::size_t start,
+                std::optional<std::size_t> stop,
+                std::optional<std::size_t> step
+            ) -> data_pipeline_builder &
+            {
+                if (stop == std::nullopt && step == std::nullopt)
+                    return self.islice({}, start, {});
+
+                return self.islice(start, stop, step);
+            },
+            py::arg("start"),
+            py::arg("stop") = std::nullopt,
+            py::arg("step") = std::nullopt)
         .def("map",
             [](data_pipeline_builder &self, const data_processor &dp) -> data_pipeline_builder &
             {

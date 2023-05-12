@@ -95,6 +95,20 @@ if TYPE_CHECKING or DOC_MODE:
                 The allowed batch shapes.
             """
 
+        def islice(
+            self, start: int, stop: Optional[int] = None, step: Optional[int] = None
+        ) -> "DataPipelineBuilder":
+            """Select a slice of examples based on index. Works like itertools.islice
+
+            :param start:
+                Start index of slice. If only one argument is provided, it is treated as stop.
+            :param stop:
+                End index of slice. If the stop is None, the iteration continues until the end.
+            :param step:
+                Step between the selection of two elements in the slice. If None, it defaults to 1.
+
+            """
+
         def map(
             self, fn: Callable[[Any], Any], chunk_size: int = 1
         ) -> "DataPipelineBuilder":
