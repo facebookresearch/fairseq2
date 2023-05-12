@@ -5,6 +5,7 @@
 // LICENSE file in the root directory of this source tree.
 
 #include "fairseq2/native/data/round_robin_data_source.h"
+#include <exception>
 #include <vector>
 
 namespace fairseq2::detail {
@@ -93,13 +94,17 @@ round_robin_data_source::get_split_by_pipeline(std::size_t num_examples) const
 void
 round_robin_data_source::skip_elements_for_pipeline(std::size_t pipeline_index, std::size_t num_examples)
 {
-    std::size_t remaining = num_examples;
-    while (remaining != 0)
+    while (num_examples != 0)
     {
-        auto skipped = data_pipelines_[pipeline_index].skip(remaining);
-        if (skipped < remaining)
+        auto skipped = data_pipelines_[pipeline_index].skip(num_examples);
+        if (skipped == 0)
+        {
             reset_pipeline(pipeline_index);
-        remaining -= skipped;
+            skipped = data_pipelines_[pipeline_index].skip(num_examples);
+            if (skipped == 0)
+                throw std::runtime_error("Error: pipeline stuck in infinte loop when trying to skip elements. Check that you are using the sources only once per process.");
+        }
+        num_examples -= skipped;
     }
 }
 
