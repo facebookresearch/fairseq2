@@ -167,4 +167,3 @@ submit your work.
 This project is MIT licensed, as found in the [LICENSE](LICENSE) file. The
 license applies to the pre-trained models as well.
 
-# seamless_speechtext
