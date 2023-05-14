@@ -27,6 +27,10 @@ CONFORMER_DE: Final = (
     "Es war das Essenszeit-Abendessen und wir begannen, nach dem Abendessen zu suchen."
 )
 
+CONFORMER_REL_POS_DE: Final = (
+    "Essen war Essenszeit, und wir beginnen damit, nach Ort zu suchen."
+)
+
 
 def test_load_s2t_transformer_mustc_st_jt_m() -> None:
     model, tokenizer = load_s2t_transformer_model(
@@ -42,6 +46,14 @@ def test_load_s2t_conformer_covost_st_en_de() -> None:
     )
 
     assert_translation(model, tokenizer, expected=CONFORMER_DE)
+
+
+def test_load_s2t_conformer_rel_pos_covost_st_en_de() -> None:
+    model, tokenizer = load_s2t_transformer_model(
+        "s2t_conformer_rel_pos_covost_st_en_de", device=device, progress=False
+    )
+
+    assert_translation(model, tokenizer, expected=CONFORMER_REL_POS_DE)
 
 
 def assert_translation(

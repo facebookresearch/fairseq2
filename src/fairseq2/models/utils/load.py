@@ -165,6 +165,11 @@ def _get_fairseq_param_key_map() -> Dict[str, str]:
         r"^encoder\.conformer_layers\.([0-9]+)\.conv_module\.pointwise_conv2\.": r"encoder.layers.\1.conv.pointwise_conv2.",
         r"^encoder\.conformer_layers\.([0-9]+)\.final_layer_norm\.":             r"encoder.layers.\1.layer_norm.",
 
+        # S2T Conformer RelPos
+        r"^encoder\.conformer_layers\.([0-9]+)\.self_attn\.pos_bias_u":   r"encoder.layers.\1.self_attn.sdpa.u_bias",
+        r"^encoder\.conformer_layers\.([0-9]+)\.self_attn\.pos_bias_v":   r"encoder.layers.\1.self_attn.sdpa.v_bias",
+        r"^encoder\.conformer_layers\.([0-9]+)\.self_attn\.linear_pos\.": r"encoder.layers.\1.self_attn.sdpa.r_proj.",
+
         # wav2vec 2.0 - Pretrained
         r"^w2v_encoder\.w2v_model\.encoder\.layers\.([0-9]+)\.fc1\.":                   r"encoder.layers.\1.ffn.inner_proj.",
         r"^w2v_encoder\.w2v_model\.encoder\.layers\.([0-9]+)\.fc2\.":                   r"encoder.layers.\1.ffn.out_proj.",

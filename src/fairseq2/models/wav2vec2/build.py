@@ -29,8 +29,11 @@ from fairseq2.models.wav2vec2.vector_quantizer import (
 )
 from fairseq2.nn.position_encoder import PositionEncoder, RotaryEncoder
 from fairseq2.nn.transformer import (
+    SDPA,
     FeedForwardNetwork,
     MultiheadAttention,
+    RelativePositionalEncoding,
+    RelativePositionSDPA,
     StandardFeedForwardNetwork,
     StandardMultiheadAttention,
     StandardTransformerEncoder,
@@ -237,6 +240,7 @@ class Wav2Vec2Builder:
     """
 
     cfg: Wav2Vec2Config
+    cached_rel_pos_encoding: Optional[RelativePositionalEncoding]
     device: Optional[torch.device]
     dtype: Optional[torch.dtype]
 
@@ -426,7 +430,24 @@ class Wav2Vec2Builder:
         else:
             pos_encoder = None
 
-        sdpa = get_default_sdpa(self.cfg.attn_dropout_p)
+        sdpa: SDPA
+
+        if self.cfg.pos_encoder_type == "relative":
+            if self.cached_rel_pos_encoding is None:
+                self.cached_rel_pos_encoding = RelativePositionalEncoding(
+                    self.cfg.model_dim, self.cfg.max_seq_len, self.device, self.dtype
+                )
+
+            sdpa = RelativePositionSDPA(
+                self.cfg.model_dim,
+                self.cfg.num_encoder_attn_heads,
+                self.cached_rel_pos_encoding,
+                attn_dropout_p=self.cfg.attn_dropout_p,
+                device=self.device,
+                dtype=self.dtype,
+            )
+        else:
+            sdpa = get_default_sdpa(self.cfg.attn_dropout_p)
 
         return StandardMultiheadAttention(
             self.cfg.model_dim,

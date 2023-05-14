@@ -23,8 +23,11 @@ from fairseq2.models.transformer import (
 from fairseq2.nn.embedding import Embedding
 from fairseq2.nn.position_encoder import PositionEncoder, SinusoidalPositionEncoder
 from fairseq2.nn.transformer import (
+    SDPA,
     FeedForwardNetwork,
     MultiheadAttention,
+    RelativePositionalEncoding,
+    RelativePositionSDPA,
     StandardFeedForwardNetwork,
     StandardMultiheadAttention,
     StandardTransformerDecoder,
@@ -56,6 +59,9 @@ class S2TTransformerConfig:
 
     num_fbank_channels: int = 80
     """The number of source log-mel filterbank channels."""
+
+    use_relative_pos: bool = False
+    """If ``True``, uses relative positional encodings for source sequences."""
 
     use_conformer: bool = False
     """If ``True``, uses Conformer blocks instead of Transformer encoder layers."""
@@ -131,6 +137,18 @@ _CONFIGS: Final = {
         ffn_inner_dim=512 * 4,
         dropout_p=0.1,
     ),
+    "conformer_rel_pos": lambda: S2TTransformerConfig(
+        model_dim=256,
+        max_seq_len=6000,
+        use_relative_pos=True,
+        use_conformer=True,
+        num_encoder_layers=12,
+        num_decoder_layers=6,
+        num_encoder_attn_heads=4,
+        num_decoder_attn_heads=8,
+        ffn_inner_dim=512 * 4,
+        dropout_p=0.1,
+    ),
 }
 
 
@@ -155,7 +173,7 @@ def get_s2t_transformer_config(arch_name: str) -> S2TTransformerConfig:
 
 def create_s2t_transformer_model(
     cfg: S2TTransformerConfig,
-    vocab_info: VocabularyInfo,
+    target_vocab_info: VocabularyInfo,
     device: Optional[torch.device] = None,
     dtype: Optional[torch.dtype] = None,
 ) -> TransformerModel:
@@ -164,14 +182,14 @@ def create_s2t_transformer_model(
 
     :param cfg:
         The configuration to use.
-    :param vocab_info:
-        The vocabulary information to use.
+    :param target_vocab_info:
+        The target vocabulary information to use.
     :param device:
         The device on which to initialize the model.
     :param dtype:
         The data type of the model parameters and buffers.
     """
-    return S2TTransformerBuilder(cfg, vocab_info, device, dtype).build_model()
+    return S2TTransformerBuilder(cfg, target_vocab_info, device, dtype).build_model()
 
 
 class S2TTransformerBuilder:
@@ -183,35 +201,38 @@ class S2TTransformerBuilder:
     """
 
     cfg: S2TTransformerConfig
-    vocab_info: VocabularyInfo
+    target_vocab_info: VocabularyInfo
     encoder_norm_order: TransformerNormOrder
+    cached_rel_pos_encoding: Optional[RelativePositionalEncoding]
     device: Optional[torch.device]
     dtype: Optional[torch.dtype]
 
     def __init__(
         self,
         cfg: S2TTransformerConfig,
-        vocab_info: VocabularyInfo,
+        target_vocab_info: VocabularyInfo,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
         """
         :param cfg:
             The configuration to use.
-        :param vocab_info:
-            The vocabulary information to use.
+        :param target_vocab_info:
+            The target vocabulary information to use.
         :param device:
             The device on which to initialize modules.
         :param dtype:
             The data type of module parameters and buffers.
         """
         self.cfg = cfg
-        self.vocab_info = vocab_info
+        self.target_vocab_info = target_vocab_info
 
         if self.cfg.use_conformer:
             self.encoder_norm_order = TransformerNormOrder.POST
         else:
             self.encoder_norm_order = TransformerNormOrder.PRE
+
+        self.cached_rel_pos_encoding = None
 
         self.device = device
         self.dtype = dtype
@@ -226,7 +247,7 @@ class S2TTransformerBuilder:
 
         final_proj = FinalProjection(
             model_dim=self.cfg.model_dim,
-            target_vocab_size=self.vocab_info.size,
+            target_vocab_size=self.target_vocab_info.size,
             device=self.device,
             dtype=self.dtype,
         )
@@ -237,7 +258,7 @@ class S2TTransformerBuilder:
             decoder_frontend,
             decoder,
             final_proj,
-            self.vocab_info.pad_idx,
+            self.target_vocab_info.pad_idx,
         )
 
     def build_encoder_frontend(self) -> TransformerFrontend:
@@ -251,7 +272,7 @@ class S2TTransformerBuilder:
             dtype=self.dtype,
         )
 
-        pos_encoder = self.build_position_encoder()
+        pos_encoder = self.build_source_position_encoder()
 
         return S2TTransformerFrontend(
             self.cfg.model_dim,
@@ -266,15 +287,15 @@ class S2TTransformerBuilder:
     def build_decoder_frontend(self) -> TransformerFrontend:
         """Build a Transformer decoder front-end."""
         embed = Embedding(
-            num_embeddings=self.vocab_info.size,
+            num_embeddings=self.target_vocab_info.size,
             embedding_dim=self.cfg.model_dim,
-            pad_idx=self.vocab_info.pad_idx,
+            pad_idx=self.target_vocab_info.pad_idx,
             scaled=True,
             device=self.device,
             dtype=self.dtype,
         )
 
-        pos_encoder = self.build_position_encoder()
+        pos_encoder = self.build_target_position_encoder()
 
         return TransformerEmbeddingFrontend(
             embed,
@@ -284,12 +305,24 @@ class S2TTransformerBuilder:
             dtype=self.dtype,
         )
 
-    def build_position_encoder(self) -> PositionEncoder:
-        """Build a position encoder."""
+    def build_source_position_encoder(self) -> Optional[PositionEncoder]:
+        """Build a position encoder for source sequences."""
+        if self.cfg.use_relative_pos:
+            return None
+
         return SinusoidalPositionEncoder(
             self.cfg.model_dim,
             self.cfg.max_seq_len,
-            _legacy_pad_idx=self.vocab_info.pad_idx,
+            device=self.device,
+            dtype=self.dtype,
+        )
+
+    def build_target_position_encoder(self) -> Optional[PositionEncoder]:
+        """Build a position encoder for target sequences."""
+        return SinusoidalPositionEncoder(
+            self.cfg.model_dim,
+            self.cfg.max_seq_len,
+            _legacy_pad_idx=self.target_vocab_info.pad_idx,
             device=self.device,
             dtype=self.dtype,
         )
@@ -325,7 +358,7 @@ class S2TTransformerBuilder:
         if self.cfg.use_conformer:
             return self.build_conformer_block()
 
-        self_attn = self.build_attention(self.cfg.num_encoder_attn_heads)
+        self_attn = self.build_encoder_attention()
 
         ffn = self.build_ffn()
 
@@ -342,7 +375,7 @@ class S2TTransformerBuilder:
         """Build a Conformer block."""
         ffn1 = self.build_ffn(use_swish=True)
 
-        self_attn = self.build_attention(self.cfg.num_encoder_attn_heads)
+        self_attn = self.build_encoder_attention()
 
         conv = ConformerConvolution(
             self.cfg.model_dim,
@@ -365,9 +398,9 @@ class S2TTransformerBuilder:
 
     def build_decoder_layer(self) -> TransformerDecoderLayer:
         """Build a Transformer decoder layer."""
-        self_attn = self.build_attention(self.cfg.num_decoder_attn_heads)
+        self_attn = self.build_decoder_attention()
 
-        encoder_decoder_attn = self.build_attention(self.cfg.num_decoder_attn_heads)
+        encoder_decoder_attn = self.build_decoder_attention()
 
         ffn = self.build_ffn()
 
@@ -381,13 +414,42 @@ class S2TTransformerBuilder:
             dtype=self.dtype,
         )
 
-    def build_attention(self, num_heads: int) -> MultiheadAttention:
-        """Build a Transformer multi-head attention layer."""
+    def build_encoder_attention(self) -> MultiheadAttention:
+        """Build a Transformer encoder multi-head attention layer."""
+        sdpa: SDPA
+
+        if self.cfg.use_relative_pos:
+            if self.cached_rel_pos_encoding is None:
+                self.cached_rel_pos_encoding = RelativePositionalEncoding(
+                    self.cfg.model_dim, self.cfg.max_seq_len, self.device, self.dtype
+                )
+
+            sdpa = RelativePositionSDPA(
+                self.cfg.model_dim,
+                self.cfg.num_encoder_attn_heads,
+                self.cached_rel_pos_encoding,
+                attn_dropout_p=self.cfg.dropout_p,
+                device=self.device,
+                dtype=self.dtype,
+            )
+        else:
+            sdpa = get_default_sdpa(attn_dropout_p=self.cfg.dropout_p)
+
+        return StandardMultiheadAttention(
+            self.cfg.model_dim,
+            self.cfg.num_encoder_attn_heads,
+            sdpa=sdpa,
+            device=self.device,
+            dtype=self.dtype,
+        )
+
+    def build_decoder_attention(self) -> MultiheadAttention:
+        """Build a Transformer decoder multi-head attention layer."""
         sdpa = get_default_sdpa(attn_dropout_p=self.cfg.dropout_p)
 
         return StandardMultiheadAttention(
             self.cfg.model_dim,
-            num_heads,
+            self.cfg.num_decoder_attn_heads,
             sdpa=sdpa,
             device=self.device,
             dtype=self.dtype,

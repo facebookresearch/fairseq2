@@ -38,7 +38,7 @@ def load_s2t_transformer_model(
         If ``True``, displays a progress bar to stderr.
 
     :returns:
-        The model and its associated tokenizer.
+        The model and its associated target tokenizer.
     """
     card = services.get(AssetStore).retrieve_card(model_name)
 
@@ -83,9 +83,9 @@ class S2TTransformerLoader:
             The device on which to initialize the model.
 
         :returns:
-            The model and its associated tokenizer.
+            The model and its associated target tokenizer.
         """
-        tokenizer = self.load_tokenizer()
+        target_tokenizer = self.load_target_tokenizer()
 
         supported_arch_names = get_s2t_transformer_archs()
 
@@ -94,13 +94,13 @@ class S2TTransformerLoader:
         cfg = get_s2t_transformer_config(arch_name)
 
         # TODO: Initialize on Meta device!
-        model = create_s2t_transformer_model(cfg, tokenizer.vocab_info, device)
+        model = create_s2t_transformer_model(cfg, target_tokenizer.vocab_info, device)
 
         checkpoint = self.load_checkpoint(map_location="cpu")
 
         model.load_state_dict(checkpoint["model"])
 
-        return model, tokenizer
+        return model, target_tokenizer
 
     def load_checkpoint(self, map_location: MapLocation = None) -> Mapping[str, Any]:
         """Load the checkpoint of the S2T Transformer model.
@@ -121,8 +121,8 @@ class S2TTransformerLoader:
             upgrader=upgrade_fairseq_checkpoint,
         )
 
-    def load_tokenizer(self) -> S2TTransformerTokenizer:
-        """Load the tokenizer of the S2T Transformer model."""
+    def load_target_tokenizer(self) -> S2TTransformerTokenizer:
+        """Load the target tokenizer of the S2T Transformer model."""
         uri = self.card.field("tokenizer").as_uri()
 
         zip_pathname = self.download_manager.download_tokenizer(
@@ -139,7 +139,7 @@ class S2TTransformerLoader:
                     fp.extract(filename, path=zip_pathname.parent)
             except (KeyError, IOError) as ex:
                 raise RuntimeError(
-                    f"The load of the tokenizer of the model '{self.card.name}' has failed. Please file a bug report."
+                    f"The load of the target tokenizer of the model '{self.card.name}' has failed. Please file a bug report."
                 ) from ex
 
         task = self.card.field("task").as_one_of({"transcription", "translation"})
