@@ -48,7 +48,7 @@ class PositionEncoder(Module, ABC):
             The sequences to encode with positional information. *Shape:*
             :math:`(N,S,E)`, where :math:`N` is the batch size, :math:`S` is the
             sequence length, and :math:`E` is the dimensionality of the
-            position encoder.
+            positional encodings.
         :param padding_mask:
             The float padding mask of ``seqs``. *Shape:* :math:`(N_{msk},S)`,
             where :math:`N_{msk}` is the mask batch size and :math:`S` is the
@@ -81,7 +81,7 @@ class PositionEncoder(Module, ABC):
             The sequences to encode with positional information. *Shape:*
             :math:`(N,S,E)`, where :math:`N` is the batch size, :math:`S` is the
             sequence length, and :math:`E` is the dimensionality of the
-            position encoder.
+            positional encodings.
         :param padding_mask:
             The float padding mask of ``seqs``. *Shape:* :math:`(N_{msk},S)`,
             where :math:`N_{msk}` is the mask batch size and :math:`S` is the
@@ -201,12 +201,12 @@ class SinusoidalPositionEncoder(PositionEncoder):
         steps = steps.unsqueeze(1)
 
         # This is identical to tensor2tensor's implementation.
-        # (S, 1) x (1, E) -> (S, E)
-        torch.matmul(
-            steps, torch.exp(indices * -math.log(10000) / (num_sin - 1)), out=l_half
-        )
+        factors = torch.exp(indices * -math.log(10000) / (num_sin - 1))
 
-        r_half[:] = l_half[:]
+        # (S, 1) x (1, E) -> (S, E)
+        torch.matmul(steps, factors, out=l_half)
+
+        r_half.copy_(l_half)
 
         l_half.sin_()
         r_half.cos_()

@@ -6,9 +6,6 @@
 
 from fairseq2.nn.transformer.attention import SDPA as SDPA
 from fairseq2.nn.transformer.attention import NaiveSDPA as NaiveSDPA
-from fairseq2.nn.transformer.attention import (
-    RelativePositionSDPA as RelativePositionSDPA,
-)
 from fairseq2.nn.transformer.attention import TorchSDPA as TorchSDPA
 from fairseq2.nn.transformer.attention import get_default_sdpa as get_default_sdpa
 from fairseq2.nn.transformer.attention_mask import (
@@ -61,4 +58,10 @@ from fairseq2.nn.transformer.multihead_attention import (
 )
 from fairseq2.nn.transformer.norm_order import (
     TransformerNormOrder as TransformerNormOrder,
+)
+from fairseq2.nn.transformer.relative_attention import (
+    RelativePositionalEncoding as RelativePositionalEncoding,
+)
+from fairseq2.nn.transformer.relative_attention import (
+    RelativePositionSDPA as RelativePositionSDPA,
 )
