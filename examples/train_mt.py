@@ -17,9 +17,9 @@ import torch
 import torchtnt.utils
 
 import fairseq2.cli
-import fairseq2.dataloader.huggingface
+import fairseq2.data.huggingface
+from fairseq2.data import Seq2SeqBatch
 from fairseq2.data.text import MultilingualTokenizer, Tokenizer, VocabularyInfo
-from fairseq2.dataloader import Seq2SeqBatch
 from fairseq2.distributed import Env
 from fairseq2.generate import spm_train
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
@@ -73,7 +73,7 @@ def tokenizer(
             training_lines=1_000_000,
             control_tokens=lang_tokens,
         )
-        fairseq2.dataloader.huggingface.NllbDataLoader.combine_and_dump(
+        fairseq2.data.huggingface.NllbDataLoader.combine_and_dump(
             default_src_lang,
             default_tgt_lang,
             "train",
@@ -103,20 +103,22 @@ def train_data(
     tokenizer: Tokenizer, env: Env, lang_pairs: LangPairs, batch_size: int = 16
 ) -> Iterable[Seq2SeqBatch]:
     load_data = functools.partial(
-        fairseq2.dataloader.huggingface.NllbDataLoader,
+        fairseq2.data.huggingface.NllbDataLoader,
         tokenizer=tokenizer,
         batch_size=batch_size,
         env=env,
         split="train",
     )
 
-    return fairseq2.dataloader.RoundRobin([load_data(*pair) for pair in lang_pairs])
+    return fairseq2.data.huggingface.RoundRobin(
+        [load_data(*pair) for pair in lang_pairs]
+    )
 
 
 def valid_data(
     tokenizer: Tokenizer, env: Env, lang_pairs: LangPairs, batch_size: int = 16
 ) -> Iterable[Seq2SeqBatch]:
-    return fairseq2.dataloader.huggingface.NllbDataLoader(
+    return fairseq2.data.huggingface.NllbDataLoader(
         *lang_pairs[0],
         tokenizer=tokenizer,
         batch_size=batch_size,
@@ -154,9 +156,8 @@ nllb = functools.partial(
     ffn_inner_dim=512,
 )
 
-# TODO: move this to fairseq2.cli.defaults
-hub_task = fairseq2.cli.hub_export(task, __file__)
-
+# This is important, it tells torch.hub how to reload our "task" which contains model and tokenizer.
+fairseq2_hub = fairseq2.cli.fairseq2_hub
 
 if __name__ == "__main__":
     import fairseq2.cli.commands

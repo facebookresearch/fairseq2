@@ -18,8 +18,8 @@ import fairseq2.callbacks
 import fairseq2.nn
 import fairseq2.optim.lr_scheduler
 from fairseq2.callbacks import Metrics
+from fairseq2.data import Seq2SeqBatch, Seq2SeqStr
 from fairseq2.data.text import Tokenizer
-from fairseq2.dataloader import Seq2SeqBatch, Seq2SeqStr
 from fairseq2.distributed import Env
 from fairseq2.generate import BeamSearchStrategy, SearchStrategy
 from fairseq2.optim.lr_scheduler import LRScheduler

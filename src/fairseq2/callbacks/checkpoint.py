@@ -173,6 +173,13 @@ class TorchSnapshotSaver(Callback):
         eval_best.symlink_to(snapshot_path)
 
     def on_train_end(self, state: State, unit: Any) -> None:
+        train_state = state.train_state
+        assert train_state
+
+        epoch = train_state.progress.num_epochs_completed
+        step = train_state.progress.num_steps_completed
+        snapshot_path = self.savedir / f"epoch_{epoch}_step_{step}.train"
+        self.save(snapshot_path, state, unit, force=True)
         self._wait()
 
     def on_exception(self, state: State, unit: Any, exc: BaseException) -> None:

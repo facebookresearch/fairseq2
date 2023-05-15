@@ -1,23 +1,31 @@
+"""
+Wraps HuffingFace datasets to make them compatible with Seq2Seq task.
+"""
 import datetime
 import logging
 from pathlib import Path
-from typing import Iterable, Iterator, List, Mapping, Optional, Tuple
+from typing import Any, Iterable, Iterator, List, Mapping, Optional, Tuple, TypeVar
 
-import datasets  # type: ignore[import]
 import torch
 from torch import Tensor
-from transformers import SequenceFeatureExtractor  # type: ignore[import]
 
 import fairseq2.distributed
+from fairseq2.data import Seq2SeqBatch, Text2TextBatch
 from fairseq2.data.text import Tokenizer
 
-from . import Seq2SeqBatch, Text2TextBatch
+try:
+    import datasets  # type: ignore[import]
+except ImportError:
+    print(
+        "fairseq2.data.huggingface requires HuggingFace 'datasets' library."
+        " You can install it with: `pip install datasets`"
+    )
+    raise
 
 log = logging.getLogger(__name__)
 
 
 class NllbDataLoader(Iterable[Seq2SeqBatch]):
-    # TODO: this should be made more generic, here nllb and flores are hardcoded.
     def __init__(
         self,
         src: str,
@@ -158,7 +166,7 @@ class AsrDataloader(Iterable[Seq2SeqBatch]):
         name: str,
         language: str,
         split: str,
-        feature_extractor: "SequenceFeatureExtractor",
+        feature_extractor: Any,
         tokenizer: Tokenizer,
         *,
         batch_size: int = 0,
@@ -166,6 +174,12 @@ class AsrDataloader(Iterable[Seq2SeqBatch]):
         env: fairseq2.distributed.Env,
         dtype: torch.dtype,
     ):
+        """
+        Load ASR dataset from HF hub, and yields examples compatible with Seq2Seq task.
+
+        - feature_extractor: This should follow the API of transformers.SequenceFeatureExtractor
+        https://huggingface.co/transformers/v4.4.2/main_classes/feature_extractor.html#transformers.SequenceFeatureExtractor
+        """
         self.feature_extractor = feature_extractor
         self.sampling_rate = feature_extractor.sampling_rate
         self.env = env
@@ -267,3 +281,46 @@ class AsrDataloader(Iterable[Seq2SeqBatch]):
 
         log.info(f"End of epoch {self.epoch}, with {i * self.batch_size} samples")
         self.epoch += 1
+
+
+T = TypeVar("T")
+
+
+class RoundRobin(Iterable[T]):
+    """RoundRobin cycles over the dataloader one by one.
+
+    Yield items until the longest iterator is exhausted.
+    Note that the iterator aren't reseted when an epoch starts, and each iterators
+    continue from where they left.
+    """
+
+    def __init__(
+        self,
+        dataloaders: List[Iterable[T]],
+    ):
+        self.dataloaders = dataloaders
+
+        self._iterators: List[Iterator[T]] = []
+        self._epoch_done = [False for _ in self.dataloaders]
+
+    def __iter__(self) -> Iterator[T]:
+        if not self._iterators:
+            self._iterators = [iter(d) for d in self.dataloaders]
+        self._epoch_done = [False for _ in self.dataloaders]
+
+        while True:
+            for i, it in enumerate(self._iterators):
+                try:
+                    yield next(it)
+                except StopIteration:
+                    self._iterators[i] = iter(self.dataloaders[i])
+                    self._epoch_done[i] = True
+                    if sum(self._epoch_done) == len(self.dataloaders):
+                        raise StopIteration
+                    try:
+                        yield next(self._iterators[i])
+                    except StopIteration:
+                        log.error(
+                            f"Can't restart iterator {i}. Dataset {self.dataloaders[i]} looks empty"
+                        )
+                        raise StopIteration

@@ -11,7 +11,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 
 import submitit
 import torch
@@ -40,9 +40,10 @@ def train(
     partition: str = "debug",
     num_gpus: int = 1,
     eval_freq: int = -1,
-    profile: bool = False,
+    restart: bool = False,
+    max_steps: Optional[int] = None,
     overrides: List[str] = [],
-) -> None:
+) -> Dict[str, Any]:
     """Launches a training script.
 
     script: the training script to launch. It needs at least:
@@ -51,6 +52,11 @@ def train(
         - a "valid_data" function if --eval_freq is set.
 
     workdir: we will create an Xp dir there and put it the script and model snapshots.
+
+    eval_freq: enable evaluation on the valid_data
+    partition: run on SLURM using the given partition
+    num_gpus: number of GPU to use (requires --partition)
+    restart: start the training from scratch, ignoring existing checkpoints
     """
     slurm_args, overrides = _extract_slurm_args(overrides)
     if workdir is None:
@@ -76,6 +82,9 @@ def train(
         workdir, partition, num_gpus, one_file=False, slurm_args=slurm_args
     )
     xp = Xp(script, script.with_suffix(".yaml"), overrides)
+    if restart and xp.config_file.exists():
+        xp.config_file.unlink()
+
     entry_point = "train"
 
     # TODO: allow script to be a yaml file
@@ -94,14 +103,15 @@ def train(
     train_state = tnt.init_fit_state(
         train_data,
         eval_data,
+        max_steps=max_steps,
         evaluate_every_n_steps=eval_freq if eval_freq > 0 else None,
         evaluate_every_n_epochs=None,
     )
 
     module.serialize(xp.config_file)
     # Try to resume from the same workdir.
-    # TODO: allow to restart from scratch, or to only reset optimizers
-    fairseq2.callbacks.load_from_last_snapshot(str(workdir), train_state, task)
+    if not restart:
+        fairseq2.callbacks.load_from_last_snapshot(str(workdir), train_state, task)
 
     callbacks = module.call_fn("callbacks", caller="train")
 
@@ -115,6 +125,13 @@ def train(
         for line in _cuda_mem_profile():
             log.warning(line)
         raise
+
+    try:
+        # logger isn't required by tnt, so let's be a bit more task agnostic.
+        logger: Any = module.call_fn("logger", caller="evaluate")
+        return getattr(logger, "_last_metrics", {})
+    except Exception:
+        return {}
 
 
 def _cuda_mem_profile() -> List[str]:
@@ -246,7 +263,7 @@ def evaluate(
     num_gpus: int = 1,
     script: Optional[Path] = None,
     overrides: List[str] = [],
-) -> None:
+) -> Dict[str, Any]:
     """
     Loads a model from a snapshot dir and runs the corresponding evaluation.
 
@@ -296,17 +313,26 @@ def evaluate(
     state_dict["train_progress"] = eval_state._train_state.progress
     snapshot.restore(state_dict)
 
-    if isinstance(task.logger, fairseq2.callbacks.WandbLogger):
-        # TODO: should MetricLogger abstract over that ?
+    try:
+        # logger isn't stricly required, and CLI errors already have been caught at this point.
+        logger: Any = module.call_fn("logger", caller="evaluate")
+    except Exception:
+        logger = None
+
+    # TODO: this is very Wandb specific, it should be done somewhere else.
+    if isinstance(logger, fairseq2.callbacks.WandbLogger):
         wandb_group = module["job.wandb_group"]
-        task.logger.prepare()
+        logger.prepare()
         try:
-            task.logger._wandb_run.use_artifact(f"{wandb_group}:latest")
+            logger._wandb_run.use_artifact(f"{wandb_group}:latest")
         except Exception:
             # The artifact may not be "ready" yet (not sure what that mean)
             pass
 
     tnt.evaluate(eval_state, task, callbacks=callbacks)
+    # The eval_state metrics have been reset at this point, so we need to fetch
+    # the last logged value from the logger.
+    return getattr(logger, "_last_metrics", {})
 
 
 def eval_server(
@@ -442,12 +468,15 @@ def inference(
     # Note: it's important to use torch.hub.load here,
     # so we don't make too many assumption on how people store the model.
     task: Seq2Seq = torch.hub.load(
-        snapshot_dir, "hub_task", snapshot_dir, source="local", device=env.device
+        snapshot_dir, "fairseq2_hub", snapshot_dir, source="local", device=env.device
     )
 
     task.module.eval()
 
-    tty = os.isatty(sys.stdin.fileno())
+    tty = False
+    # hasattr to handle patched sys.stdin
+    if hasattr(sys.stdin, "fileno"):
+        tty = os.isatty(sys.stdin.fileno())
     if tty:
         batch_size = 1
     strategy = fairseq2.generate.BeamSearchStrategy(
@@ -455,7 +484,7 @@ def inference(
         **beam_search_kwargs,  # type: ignore
     )
 
-    def gen(batch: List[str]) -> List[StringLike]:
+    def gen(batch: List[str]) -> Sequence[StringLike]:
         if not batch:
             return []
         return strategy.generate_str(
@@ -488,6 +517,7 @@ def help(script: Path, overrides: List[str] = []) -> None:
     module = XpScript.from_script(script, overrides=overrides)
     # TODO: how to document env, xp and entrypoint ?
     # _setup_module(module, env, xp, entry_point)
+    # TODO: nice error message when some entry points don't exist (incomplete script)
     print(
         module.help(
             "task",

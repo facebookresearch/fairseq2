@@ -20,13 +20,13 @@ from transformers import (  # type: ignore[import]
 )
 
 import fairseq2
-import fairseq2.dataloader.huggingface
+import fairseq2.data.huggingface
 import fairseq2.distributed
 import fairseq2.tasks
 from fairseq2.callbacks import Metrics
+from fairseq2.data import Seq2SeqBatch, Seq2SeqStr
+from fairseq2.data.huggingface import AsrDataloader
 from fairseq2.data.text import Tokenizer
-from fairseq2.dataloader import Seq2SeqBatch, Seq2SeqStr
-from fairseq2.dataloader.huggingface import AsrDataloader
 from fairseq2.distributed import Env
 from fairseq2.generate import HfTokenizer
 
@@ -133,7 +133,7 @@ def train_data(
 ) -> Iterable[Seq2SeqBatch]:
     _langs = langs.split(",")
     if len(_langs) > 1:
-        return fairseq2.dataloader.RoundRobin(
+        return fairseq2.data.huggingface.RoundRobin(
             [
                 _load_dataset(
                     dataset,
@@ -194,6 +194,10 @@ def tokenizer(processor: "WhisperProcessor") -> Tokenizer:
 
 def feature_extractor(processor: "WhisperProcessor") -> "SequenceFeatureExtractor":
     return processor.feature_extractor
+
+
+# This is important, it tells torch.hub how to reload our "task"
+fairseq2_hub = fairseq2.cli.fairseq2_hub
 
 
 if __name__ == "__main__":

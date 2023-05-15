@@ -71,10 +71,10 @@ def init(
         world_size = int(os.environ.get("WORLD_SIZE", -1))
 
     if world_size == -1 and partition != "debug":
+        # TODO: should I replace submitit by torchx ?
         # Copy the main script to the workdir.
         import __main__
 
-        # TODO: rethink this, now "train_mt.py" isn't __main__ anymore
         main_py = Path(__main__.__file__)
         (workdir / main_py.name).write_bytes(main_py.read_bytes())
         # We aren't running in distributed mode, let submit a job to do so.
@@ -119,13 +119,16 @@ def init(
         # TODO: silence keyboard interrupt here
         # TODO: poll log file
         job_state = job.state
-        while not job.done():
-            new_job_state = job.state
-            if new_job_state != job_state:
-                print(job)
-                job_state = new_job_state
-            else:
-                time.sleep(10)
+        try:
+            while not job.done():
+                new_job_state = job.state
+                if new_job_state != job_state:
+                    print(job)
+                    job_state = new_job_state
+                else:
+                    time.sleep(10)
+        except KeyboardInterrupt:
+            sys.exit(0)
 
         job.wait()
         exc = job.exception()
@@ -145,25 +148,46 @@ def init(
         #     torch.distributed.init_process_group(backend="nccl")
         #     fairscale.nn.model_parallel.initialize_model_parallel(1)
         assert (
-            num_gpus == 1
+            num_gpus <= 1
         ), "If you want more than one GPU, you need to specify a SLURM partition with --partition"
-        log.info(f"Starting local training {sys.executable} on 1 GPU.")
-        return Env(0, 1, torch.device("cuda:0"))
+        device = torch.device("cuda:0") if num_gpus else torch.device("cpu")
+        log.info(f"Starting local training {sys.executable} on device {device}.")
+        return Env(0, 1, device)
 
     try:
         # Handle the case where we are launched from submitit
         # ie with fairseq2 train --num_gpus=8
-        # WORLD_SIZE, LOCAL_RANK, etc ... aren't set yet.
+        # WORLD_SIZE, LOCAL_RANK, etc ... aren't set yet,
+        # TorchDistributedEnvironment will take care of that by parsing the SLURM
+        # env variables and converting them to torch env variables.
         env = submitit.helpers.TorchDistributedEnvironment()
         if env.world_size == world_size:
-            env.export()
+            env.export(set_cuda_visible_devices=True)
             os.environ["GROUP_RANK"] = "0"
             os.environ.update(os.environ)
     except RuntimeError:
         pass
 
+    # Following https://pytorch.org/docs/stable/generated/torch.cuda.set_device.html
+    # we try to set CUDA_VISIBLE_DEVICES if this wasn't done before we start.
+    visible_devices = os.getenv("CUDA_VISIBLE_DEVICES", "").split(",")
+    n_devices = len(visible_devices)
+    local_rank = int(os.getenv("LOCAL_RANK", 0))
+    local_world_size = int(os.getenv("LOCAL_WORLD_SIZE", 0))
+
+    if n_devices > 1 and n_devices == local_world_size:
+        log.warning(
+            f"{n_devices} devices and {local_world_size} workers. Assigning 1 GPU per worker."
+        )
+        os.environ["CUDA_VISIBLE_DEVICES"] = visible_devices[local_rank]
+    elif n_devices > 1:
+        log.warning(
+            f"{n_devices} devices and {local_world_size} workers. Each worker will see all GPUs."
+        )
+
+    device = torch.device("cuda:0")
     log.info(
-        f"Starting distributed worker {sys.executable}\n"
+        f"Starting distributed worker {sys.executable} on device {device}.\n"
         + "".join(
             f"{k}: {os.environ[k]}\n"
             for k in [
@@ -172,13 +196,12 @@ def init(
                 "LOCAL_RANK",
                 "LOCAL_WORLD_SIZE",
                 "GROUP_RANK",
+                "CUDA_VISIBLE_DEVICES",
             ]
         )
     )
-    device = torch.device(f"cuda:{os.environ['LOCAL_RANK']}")
 
     torch.distributed.init_process_group(backend="nccl")
-    torch.cuda.set_device(device)
     return Env(int(os.environ["RANK"]), int(os.environ["WORLD_SIZE"]), device)
 
 

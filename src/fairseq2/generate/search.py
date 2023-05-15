@@ -4,7 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, NamedTuple, Optional, Sequence, Union
+from typing import NamedTuple, Optional, Sequence, Union
 
 import torch
 import torch.nn as nn
@@ -214,7 +214,7 @@ class SearchStrategy(ABC):
         src_lang: Optional[str] = None,
         tgt_lang: Optional[str] = None,
         device: torch.device,
-    ) -> List[StringLike]:
+    ) -> Sequence[StringLike]:
         if isinstance(sentences, (str, CString)):
             sentences = [sentences]
 

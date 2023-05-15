@@ -32,27 +32,28 @@ log = logging.getLogger("fairseq2.cli")
 AnyCallable = Callable[..., Any]
 
 
-def hub_export(fn: AnyCallable, script: str) -> AnyCallable:
+def fairseq2_hub(snapshot_dir: str, device: Optional[torch.device] = None) -> Any:
+    """
+    Tells torch.hub.load how to reload a fairseq2 task.
+
+    This function needs to exposed in the training script otherwise torch.hub won't find it.
+    """
     import torchsnapshot
 
-    from fairseq2.cli import XpScript
+    assert Path(snapshot_dir).exists(), f"Snapshot {snapshot_dir} not found."
+    env = fairseq2.distributed.env(Path(snapshot_dir), device=device)
+    # theoritically we don't need to reload hubconf.py,
+    # but torchhub isn't passing the module to us,
+    # so unless we want to grab it from the calling stack frame,
+    # we need to reload it again.
+    module = XpScript.from_script(Path(snapshot_dir) / "hubconf.py")
+    module["env"] = env
+    task = module.call_fn("task", caller="torch.hub.load")
+    snapshot = torchsnapshot.Snapshot(path=str(snapshot_dir))
+    # Note: we could allow the user more control on what needs to be reloaded.
+    snapshot.restore(task.state_dict_for_inference())  # type: ignore
 
-    def hub_entry_point(snapshot_dir: str, device: torch.device) -> Any:
-        assert Path(snapshot_dir).exists(), f"Snapshot {snapshot_dir} not found."
-        env = fairseq2.distributed.env(Path(snapshot_dir), device=device)
-        # theoritically we don't need to reload hubconf.py,
-        # but torchhub isn't passing the module to us,
-        # so unless we want to grab it from the calling stack frame,
-        # we need to reload it again.
-        module = XpScript.from_script(Path(script))
-        module["env"] = env
-        task = module.call_fn(fn.__name__, caller="inference")
-        snapshot = torchsnapshot.Snapshot(path=str(snapshot_dir))
-        snapshot.restore(task.state_dict_for_inference())  # type: ignore
-
-        return task
-
-    return hub_entry_point
+    return task
 
 
 class Xp(NamedTuple):

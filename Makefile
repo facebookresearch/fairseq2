@@ -1,7 +1,6 @@
 SHELL=bash
 CONDA_PREFIX?=./venv
 VENV?=$(CONDA_PREFIX)/bin/
-ACTIVATE_VENV=PATH=$(VENV):$$PATH
 PY_SRC=src/ examples/ tests/
 
 .PHONY: force
@@ -38,12 +37,15 @@ deps:
 	git submodule update --init --recursive
 
 build/src/fairseq2/native/libfairseq2.so: .PHONY
-	# 	echo "Make sure you have CUDA binaries in your path by running 'module load cuda/11.6'"
-	# 	nvcc --version
-	# For Python tools, we can just fetch the executable from VENV,
-	# but for cmake, we need to explicitly activate the env.
-	$(ACTIVATE_VENV); cmake -GNinja -B build -DFAIRSEQ2_EDITABLE_PYTHON=ON -DCMAKE_BUILD_TYPE=Release
-	$(ACTIVATE_VENV); cmake --build build
+	$(VENV)cmake -GNinja -B build \
+		-DCMAKE_PREFIX_PATH=$(VENV).. \
+		-DFAIRSEQ2_EDITABLE_PYTHON=ON \
+		-DFAIRSEQ2_BUILD_FOR_NATIVE=ON \
+		-DFAIRSEQ2_TREAT_WARNINGS_AS_ERRORS=ON \
+		-DFAIRSEQ2_PERFORM_LTO=ON \
+		-DCMAKE_BUILD_TYPE=Release
+
+	$(VENV)cmake --build build
 
 install: venv build .PHONY
 	$(VENV)pip install --upgrade -e .
@@ -57,8 +59,8 @@ venv: $(VENV)
 $(VENV):
 	python3 -m venv venv
 	$(VENV)pip install -U pip
-	$(VENV)pip install torch torchaudio --extra-index-url https://download.pytorch.org/whl/cu116
-	$(VENV)python -c 'import torch; print("CUDA:", torch.cuda.is_available()); print(torch.version.__version__)'
+	$(VENV)pip install torch torchaudio --extra-index-url https://download.pytorch.org/whl/cu117
+	$(VENV)python -c 'import torch; print("CUDA:", torch.cuda.is_available()); print(f"torch=={torch.__version__}")'
 	# Python venv created, run '. ./venv/bin/activate' to activate it
 	# You may need to run 'make install' to install fairseq2 inside.
 

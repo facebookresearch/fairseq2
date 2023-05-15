@@ -6,7 +6,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, Optional, Sequence, Union
+from typing import Optional, Sequence, Union
 
 import torch
 from torch import Tensor
@@ -35,7 +35,7 @@ class Tokenizer(ABC):
         batch_size: Optional[int] = None,
         device: Optional[torch.device] = None,
         pin_memory: bool = False,
-        dtype: torch.dtype = torch.int32,
+        dtype: torch.dtype = torch.int64,
         disable_parallelism: bool = False,
     ) -> "TokenEncoder":
         """Create a token encoder.
@@ -108,7 +108,7 @@ class TokenDecoder(ABC):
     """Decodes sentences from token indices."""
 
     @abstractmethod
-    def __call__(self, token_indices: Tensor) -> List[StringLike]:
+    def __call__(self, token_indices: Tensor) -> Sequence[StringLike]:
         """
         :param token_indices:
             The token indices to decode from.

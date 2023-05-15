@@ -172,7 +172,7 @@ setup(
         # PyTorch has no ABI compatibility between releases; this means we have
         # to ensure that we depend on the exact same version that was used to
         # build our extension module.
-        "torch==" + torch.__version__,
+        "torch==" + torch.__version__.split("+cu")[0],
         "torcheval",
         "torchtnt==0.0.7",
         "torchsnapshot>=0.1.0",

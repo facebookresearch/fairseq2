@@ -20,6 +20,7 @@ dist/
 .idea/
 .venv/
 venv/
+.gdb_history
 
 # Weights & Biases
 wandb/
@@ -34,3 +35,5 @@ wandb/
 # under the third-party directory to force Black to skip them.
 third-party/**/*.py
 third-party/**/*.pyi
+third-party/torchaudio/
+third-party/ffmpeg/

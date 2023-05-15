@@ -43,6 +43,7 @@ class MetricLogger(Stateful):
         assert config_file.parent.is_dir()
         self.config_file = config_file
         self._rank: int = torchtnt.utils.distributed.get_global_rank()
+        self._last_metrics: tp.Mapping[str, Scalar] = {}
 
     def prepare(self) -> None:
         pass
@@ -78,6 +79,7 @@ class StdoutLogger(MetricLogger):
         print(config)
 
     def log_dict(self, payload: tp.Mapping[str, Scalar], step: int) -> None:
+        self._last_metrics = payload
         if self._rank != 0:
             return
         print("Step:", step, payload)
@@ -192,6 +194,7 @@ class WandbLogger(MetricLogger):
             payload (dict): dictionary of tag name and scalar value
             step (int): step value to record
         """
+        self._last_metrics = payload
         if self._rank != 0:
             return
         self.prepare()
@@ -259,20 +262,23 @@ class LogMetrics(Callback):
         assert state.train_state is not None
         step = state.train_state.progress.num_steps_completed
         freq = self.frequency_steps
-        should_log = False
-        # Increase the log frequency at the beginning of training
-        if (
+        should_log = (step % freq == 0) or (
+            # Increase the log frequency at the beginning of training
             step < self.increased_freq_steps * freq
             and step % (freq // self.increased_freq_steps) == 0
+        )
+        should_sync = step % self.sync_frequency == 0
+        if (
+            not should_log
+            and time.monotonic() - self._last_log > self.max_interval_seconds
         ):
-            should_log = True
-        elif step % freq != 0:
-            should_log = time.monotonic() - self._last_log > self.max_interval_seconds
+            # Long time, no log:
+            # Force logging but without syncing because this may not trigger on all rank
+            # at the same time.
+            should_log, should_sync = True, False
 
         if should_log:
-            self.log_metrics(
-                state, step, "train/", sync=step % self.sync_frequency == 0
-            )
+            self.log_metrics(state, step, "train/", sync=should_sync)
 
     def on_train_epoch_end(self, state: State, unit: TTrainUnit[Any]) -> None:
         assert state.train_state is not None

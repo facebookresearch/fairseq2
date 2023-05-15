@@ -20,6 +20,11 @@ _imports = set(locals().keys())
 task = fairseq2.tasks.Seq2Seq
 
 
+def valid_data() -> List[None]:
+    """No valid data specified."""
+    return []
+
+
 def callbacks(
     logger: "MetricLogger",
     entry_point: str,
@@ -96,5 +101,6 @@ def optimizer(
 
 lr_scheduler = functools.partial(MyleLR, num_warmup_steps=4000)
 """Learning Rate scheduler, MyleLR by default"""
+
 
 __all__ = [x for x in locals() if not x.startswith("_") and x not in _imports]
