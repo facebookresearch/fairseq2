@@ -13,7 +13,6 @@ from torch import Tensor
 from torch.nn import LayerNorm, Module
 
 from fairseq2.nn.module_list import ModuleList
-from fairseq2.nn.transformer.attention_mask import AttentionMaskGenerator
 from fairseq2.nn.transformer.encoder_layer import TransformerEncoderLayer
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
 
@@ -33,7 +32,7 @@ class TransformerEncoder(Module, ABC):
         self.model_dim = model_dim
 
     @abstractmethod
-    def forward(self, seqs: Tensor, padding_mask: Optional[Tensor] = None) -> Tensor:
+    def forward(self, seqs: Tensor, padding_mask: Optional[Tensor]) -> Tensor:
         """
         :param seqs:
             The sequences to encode. *Shape:* :math:`(N,S,M)`, where :math:`N`
@@ -57,14 +56,13 @@ class StandardTransformerEncoder(TransformerEncoder):
     """Represents a Transformer encoder layer as described in
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
-    self_attn_mask_gen: Optional[AttentionMaskGenerator]
     layers: ModuleList
     layer_norm: Optional[LayerNorm]
+    norm_order: TransformerNormOrder
 
     def __init__(
         self,
         layers: Iterable[TransformerEncoderLayer],
-        self_attn_mask_gen: Optional[AttentionMaskGenerator] = None,
         layer_drop_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         norm_eps: float = 1e-5,
@@ -74,8 +72,6 @@ class StandardTransformerEncoder(TransformerEncoder):
         """
         :param layers:
             The encoder layers.
-        :param self_attn_mask_gen:
-            The attention mask generator.
         :param layer_drop_p:
             If greater than zero, applies LayerDrop to the encoder layers as
             described in :cite:t:`https://doi.org/10.48550/arxiv.1909.11556`.
@@ -99,8 +95,6 @@ class StandardTransformerEncoder(TransformerEncoder):
 
         super().__init__(model_dim)
 
-        self.self_attn_mask_gen = self_attn_mask_gen
-
         self.layers = layer_list
 
         if norm_order != TransformerNormOrder.POST:
@@ -108,15 +102,12 @@ class StandardTransformerEncoder(TransformerEncoder):
         else:
             self.register_module("layer_norm", None)
 
-    @finaloverride
-    def forward(self, seqs: Tensor, padding_mask: Optional[Tensor] = None) -> Tensor:
-        if self.self_attn_mask_gen is not None:
-            self_attn_mask = self.self_attn_mask_gen(seqs)
-        else:
-            self_attn_mask = None
+        self.norm_order = norm_order
 
+    @finaloverride
+    def forward(self, seqs: Tensor, padding_mask: Optional[Tensor]) -> Tensor:
         for layer in self.layers.drop_iter():
-            seqs = layer(seqs, padding_mask, self_attn_mask)
+            seqs = layer(seqs, padding_mask)
 
         if self.layer_norm is not None:
             seqs = self.layer_norm(seqs)
@@ -127,11 +118,4 @@ class StandardTransformerEncoder(TransformerEncoder):
         """:meta private:"""
         s = super().extra_repr()
 
-        if self.self_attn_mask_gen is not None:
-            mask_gen_name = getattr(
-                self.self_attn_mask_gen, "__name__", repr(self.self_attn_mask_gen)
-            )
-
-            s += f", self_attn_mask_gen={mask_gen_name}"
-
-        return s
+        return s + f", norm_order={self.norm_order}"

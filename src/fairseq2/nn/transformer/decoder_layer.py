@@ -38,7 +38,7 @@ class TransformerDecoderLayer(Module, ABC):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[Tensor] = None,
+        padding_mask: Optional[Tensor],
         self_attn_mask: Optional[Tensor] = None,
         encoder_out: Optional[Tensor] = None,
         encoder_padding_mask: Optional[Tensor] = None,
@@ -222,7 +222,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[Tensor] = None,
+        padding_mask: Optional[Tensor],
         self_attn_mask: Optional[Tensor] = None,
         encoder_out: Optional[Tensor] = None,
         encoder_padding_mask: Optional[Tensor] = None,

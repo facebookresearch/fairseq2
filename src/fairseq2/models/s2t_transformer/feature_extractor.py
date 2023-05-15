@@ -78,7 +78,7 @@ class Conv1dFbankSubsampler(SequenceFeatureExtractor):
             )
 
             layer.add_module("conv", conv)
-            layer.add_module("activation", GLU(dim=-2))
+            layer.add_module("activation", GLU(dim=1))
 
             self.layers.append(layer)
 

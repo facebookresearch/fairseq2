@@ -40,7 +40,7 @@ class TransformerDecoder(Module, ABC):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[Tensor] = None,
+        padding_mask: Optional[Tensor],
         encoder_out: Optional[Tensor] = None,
         encoder_padding_mask: Optional[Tensor] = None,
         state_bag: Optional[IncrementalStateBag] = None,
@@ -82,6 +82,7 @@ class StandardTransformerDecoder(TransformerDecoder):
     self_attn_mask_gen: AttentionMaskGenerator
     layers: ModuleList
     layer_norm: Optional[LayerNorm]
+    norm_order: TransformerNormOrder
 
     def __init__(
         self,
@@ -134,11 +135,13 @@ class StandardTransformerDecoder(TransformerDecoder):
         else:
             self.register_module("layer_norm", None)
 
+        self.norm_order = norm_order
+
     @finaloverride
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[Tensor] = None,
+        padding_mask: Optional[Tensor],
         encoder_out: Optional[Tensor] = None,
         encoder_padding_mask: Optional[Tensor] = None,
         state_bag: Optional[IncrementalStateBag] = None,
@@ -171,4 +174,4 @@ class StandardTransformerDecoder(TransformerDecoder):
             self.self_attn_mask_gen, "__name__", repr(self.self_attn_mask_gen)
         )
 
-        return s + f", self_attn_mask_gen={mask_gen_name}"
+        return s + f", norm_order={self.norm_order}, self_attn_mask_gen={mask_gen_name}"

@@ -56,7 +56,7 @@ class ConformerConvolution(Module):
             dtype=dtype,
         )
 
-        self.pointwise_conv1_activation = GLU(dim=-2)
+        self.pointwise_conv1_activation = GLU(dim=1)
 
         self.depthwise_conv = Conv1d(
             model_dim,

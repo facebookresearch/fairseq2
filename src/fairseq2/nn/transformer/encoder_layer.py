@@ -34,12 +34,7 @@ class TransformerEncoderLayer(Module, ABC):
         self.model_dim = model_dim
 
     @abstractmethod
-    def forward(
-        self,
-        seqs: Tensor,
-        padding_mask: Optional[Tensor] = None,
-        self_attn_mask: Optional[Tensor] = None,
-    ) -> Tensor:
+    def forward(self, seqs: Tensor, padding_mask: Optional[Tensor]) -> Tensor:
         """
         :param seqs:
             The sequences to encode. *Shape:* :math:`(N,S,M)`, where :math:`N`
@@ -48,10 +43,6 @@ class TransformerEncoderLayer(Module, ABC):
         :param padding_mask:
             The float padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where
             :math:`N` is the batch size and :math:`S` is the sequence length.
-        :param self_attn_mask:
-            The float mask that will be added to the attention weights before
-            computing the self attention. *Shape:* :math:`(S,S)`, where
-            :math:`S` is the sequence length.
 
         :returns:
             The encoded sequences. *Shape:* Same as ``seqs``.
@@ -174,23 +165,15 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
             nn.init.ones_(self.residual_scale)
 
     @finaloverride
-    def forward(
-        self,
-        seqs: Tensor,
-        padding_mask: Optional[Tensor] = None,
-        self_attn_mask: Optional[Tensor] = None,
-    ) -> Tensor:
-        seqs = self._forward_self_attn(seqs, padding_mask, self_attn_mask)
+    def forward(self, seqs: Tensor, padding_mask: Optional[Tensor]) -> Tensor:
+        seqs = self._forward_self_attn(seqs, padding_mask)
 
         seqs = self._forward_ffn(seqs)
 
         return seqs
 
     def _forward_self_attn(
-        self,
-        seqs: Tensor,
-        padding_mask: Optional[Tensor],
-        self_attn_mask: Optional[Tensor],
+        self, seqs: Tensor, padding_mask: Optional[Tensor]
     ) -> Tensor:
         residual = seqs
 
@@ -202,7 +185,6 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
             padding_mask,
             keys=seqs,
             values=seqs,
-            attn_mask=self_attn_mask,
             key_padding_mask=padding_mask,
         )
 
