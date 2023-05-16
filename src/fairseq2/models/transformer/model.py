@@ -89,11 +89,11 @@ class TransformerModel(EncoderDecoderModel):
     def encode(
         self, seqs: Tensor, seq_lens: Optional[Tensor]
     ) -> Tuple[Tensor, Optional[Tensor]]:
-        seqs, padding_mask = self.encoder_frontend(seqs, seq_lens)
+        frontend_out = self.encoder_frontend(seqs, seq_lens)
 
-        seqs = self.encoder(seqs, padding_mask)
+        seqs = self.encoder(frontend_out.seqs, frontend_out.padding_mask)
 
-        return seqs, padding_mask
+        return seqs, frontend_out.padding_mask
 
     @finaloverride
     def decode_and_project(
@@ -104,10 +104,14 @@ class TransformerModel(EncoderDecoderModel):
         encoder_padding_mask: Optional[Tensor],
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Seq2SeqModelOutput:
-        seqs, padding_mask = self.decoder_frontend(seqs, seq_lens, state_bag)
+        frontend_out = self.decoder_frontend(seqs, seq_lens, state_bag)
 
         seqs = self.decoder(
-            seqs, padding_mask, encoder_out, encoder_padding_mask, state_bag
+            frontend_out.seqs,
+            frontend_out.padding_mask,
+            encoder_out,
+            encoder_padding_mask,
+            state_bag,
         )
 
         logits = self.final_proj(seqs)
@@ -143,7 +147,7 @@ class FinalProjection(ResettableProjection):
     @finaloverride
     def reset_parameters(self) -> None:
         """Reset the parameters and buffers of the module."""
-        nn.init.normal_(self.weight, std=self.inp_dim**-0.5)
+        nn.init.normal_(self.weight, std=self.input_dim**-0.5)
 
         if self.bias is not None:
             nn.init.zeros_(self.bias)

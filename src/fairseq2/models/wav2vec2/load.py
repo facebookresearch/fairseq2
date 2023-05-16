@@ -106,7 +106,7 @@ class Wav2Vec2Loader:
             del state_dict["encoder.layer_norm.weight"]
             del state_dict["encoder.layer_norm.bias"]
 
-        state_dict["quantizer.num_updates"] = torch.zeros((1,), device=device)
+        state_dict["quantizer.num_updates"] = torch.zeros((), device="cpu")
 
         model.load_state_dict(checkpoint["model"])
 

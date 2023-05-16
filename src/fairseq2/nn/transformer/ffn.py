@@ -56,7 +56,7 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
     inner_activation: Module
     inner_dropout: Optional[Dropout]
     inner_norm: Optional[LayerNorm]
-    out_proj: Linear
+    output_proj: Linear
 
     def __init__(
         self,
@@ -111,7 +111,9 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         else:
             self.register_module("inner_layer_norm", None)
 
-        self.out_proj = Linear(inner_dim, model_dim, bias, device=device, dtype=dtype)
+        self.output_proj = Linear(
+            inner_dim, model_dim, bias, device=device, dtype=dtype
+        )
 
     @finaloverride
     def forward(self, seqs: Tensor) -> Tensor:
@@ -125,6 +127,6 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         if self.inner_dropout is not None:
             seqs = self.inner_dropout(seqs)
 
-        seqs = self.out_proj(seqs)
+        seqs = self.output_proj(seqs)
 
         return seqs

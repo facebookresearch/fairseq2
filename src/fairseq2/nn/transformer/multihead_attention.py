@@ -181,7 +181,7 @@ class StandardMultiheadAttention(MultiheadAttention):
     add_zero_attn: bool
     sdpa: SDPA
     head_scale_weight: Optional[Parameter]
-    out_proj: Projection
+    output_proj: Projection
 
     def __init__(
         self,
@@ -195,7 +195,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         add_zero_attn: bool = False,
         sdpa: Optional[SDPA] = None,
         scale_heads: bool = False,
-        out_proj: Optional[Projection] = None,
+        output_proj: Optional[Projection] = None,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
@@ -225,7 +225,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         :param scale_heads:
             If ``True``, applies head scaling as described in
             :cite:t:`https://doi.org/10.48550/arxiv.2110.09456`
-        :param out_proj:
+        :param output_proj:
             The projection to produce final attentions. If ``None``, a
             default projection will be used.
         """
@@ -241,24 +241,24 @@ class StandardMultiheadAttention(MultiheadAttention):
                     "`q_proj`, `k_proj`, and `v_proj` must be all specified."
                 )
 
-            if q_proj.inp_dim != model_dim:
+            if q_proj.input_dim != model_dim:
                 raise ValueError(
-                    f"`inp_dim` of `q_proj` and `model_dim` must be equal, but are {q_proj.inp_dim} and {model_dim} instead."
+                    f"`input_dim` of `q_proj` and `model_dim` must be equal, but are {q_proj.input_dim} and {model_dim} instead."
                 )
 
-            if q_proj.out_dim != k_proj.out_dim:
+            if q_proj.output_dim != k_proj.output_dim:
                 raise ValueError(
-                    f"`out_dim` of `q_proj` and `out_dim` of `k_proj` must be equal, but are {q_proj.out_dim} and {k_proj.out_dim} instead."
+                    f"`output_dim` of `q_proj` and `output_dim` of `k_proj` must be equal, but are {q_proj.output_dim} and {k_proj.output_dim} instead."
                 )
 
-        if k_proj.out_dim % num_heads != 0:
+        if k_proj.output_dim % num_heads != 0:
             raise ValueError(
-                f"`out_dim` of `k_proj` must be divisible by `num_heads` ({num_heads}), but is {k_proj.out_dim} instead."
+                f"`output_dim` of `k_proj` must be divisible by `num_heads` ({num_heads}), but is {k_proj.output_dim} instead."
             )
 
-        if v_proj.out_dim % num_heads != 0:
+        if v_proj.output_dim % num_heads != 0:
             raise ValueError(
-                f"`out_dim` of `v_proj` must be divisible by `num_heads` ({num_heads}), but is {v_proj.out_dim} instead."
+                f"`output_dim` of `v_proj` must be divisible by `num_heads` ({num_heads}), but is {v_proj.output_dim} instead."
             )
 
         self.q_proj = q_proj
@@ -266,7 +266,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         self.v_proj = v_proj
 
         if pos_encoder is not None:
-            if (head_dim := k_proj.out_dim // num_heads) != pos_encoder.encoding_dim:
+            if (head_dim := k_proj.output_dim // num_heads) != pos_encoder.encoding_dim:
                 raise ValueError(
                     f"`encoding_dim` of `pos_encoder` and the size of the header key dimension must be equal, but are {pos_encoder.encoding_dim} and {head_dim} instead."
                 )
@@ -276,8 +276,8 @@ class StandardMultiheadAttention(MultiheadAttention):
             self.register_module("pos_encoder", None)
 
         if add_bias_kv:
-            bias_k_shp = (num_heads, 1, k_proj.out_dim // num_heads)
-            bias_v_shp = (num_heads, 1, v_proj.out_dim // num_heads)
+            bias_k_shp = (num_heads, 1, k_proj.output_dim // num_heads)
+            bias_v_shp = (num_heads, 1, v_proj.output_dim // num_heads)
 
             # (H, 1, K_h)
             self.bias_k = Parameter(torch.empty(bias_k_shp, device=device, dtype=dtype))
@@ -301,22 +301,22 @@ class StandardMultiheadAttention(MultiheadAttention):
         else:
             self.register_parameter("head_scale_weight", None)
 
-        if out_proj is None:
-            self.out_proj = AttentionOutputProjection(
-                v_proj.out_dim, model_dim, device=device, dtype=dtype
+        if output_proj is None:
+            self.output_proj = AttentionOutputProjection(
+                v_proj.output_dim, model_dim, device=device, dtype=dtype
             )
         else:
-            if out_proj.inp_dim != v_proj.out_dim:
+            if output_proj.input_dim != v_proj.output_dim:
                 raise ValueError(
-                    f"`inp_dim` of `out_proj` and `out_dim` of `v_proj` must be equal, but are {out_proj.inp_dim} and {v_proj.out_dim} instead."
+                    f"`input_dim` of `output_proj` and `output_dim` of `v_proj` must be equal, but are {output_proj.input_dim} and {v_proj.output_dim} instead."
                 )
 
-            if out_proj.out_dim != model_dim:
+            if output_proj.output_dim != model_dim:
                 raise ValueError(
-                    f"`out_dim` of `out_proj` and `model_dim` must be equal, but are {out_proj.out_dim} and {model_dim} instead."
+                    f"`output_dim` of `output_proj` and `model_dim` must be equal, but are {output_proj.output_dim} and {model_dim} instead."
                 )
 
-            self.out_proj = out_proj
+            self.output_proj = output_proj
 
         self.reset_parameters()
 
@@ -477,7 +477,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         attn = attn.flatten(-2, -1)
 
         # (N, S, V_proj) -> (N, S, M)
-        attn = self.out_proj(attn)
+        attn = self.output_proj(attn)
 
         return attn  # type: ignore
 

@@ -21,20 +21,19 @@ from torch.nn.parameter import Parameter
 class Projection(Module, ABC):
     """Applies a linear transformation to incoming data."""
 
-    inp_dim: int
-    out_dim: int
+    input_dim: int
+    output_dim: int
 
-    def __init__(self, inp_dim: int, out_dim: int) -> None:
+    def __init__(self, input_dim: int, output_dim: int) -> None:
         """
-        :param inp_dim:
+        :param input_dim:
             The dimensionality of inputs.
-        :param out_dim:
+        :param output_dim:
             The dimensionality of projected outputs.
         """
         super().__init__()
 
-        self.inp_dim = inp_dim
-        self.out_dim = out_dim
+        self.input_dim, self.output_dim = input_dim, output_dim
 
     @abstractmethod
     def forward(self, x: Tensor) -> Tensor:
@@ -51,7 +50,7 @@ class Projection(Module, ABC):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"inp_dim={self.inp_dim}, out_dim={self.out_dim}"
+        return f"input_dim={self.input_dim}, output_dim={self.output_dim}"
 
 
 class ResettableProjection(Projection):
@@ -63,28 +62,30 @@ class ResettableProjection(Projection):
 
     def __init__(
         self,
-        inp_dim: int,
-        out_dim: int,
-        bias: bool = False,
+        input_dim: int,
+        output_dim: int,
+        bias: bool,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
         """
-        :param inp_dim:
+        :param input_dim:
             The dimensionality of inputs.
-        :param out_dim:
+        :param output_dim:
             The dimensionality of projected outputs.
         :param bias:
             If ``True``, learns an additive bias.
         """
-        super().__init__(inp_dim, out_dim)
+        super().__init__(input_dim, output_dim)
 
         self.weight = Parameter(
-            torch.empty((out_dim, inp_dim), device=device, dtype=dtype)
+            torch.empty((output_dim, input_dim), device=device, dtype=dtype)
         )
 
         if bias:
-            self.bias = Parameter(torch.empty((out_dim,), device=device, dtype=dtype))
+            self.bias = Parameter(
+                torch.empty((output_dim,), device=device, dtype=dtype)
+            )
         else:
             self.register_parameter("bias", None)
 
@@ -109,7 +110,7 @@ class ResettableProjection(Projection):
 class Linear(ResettableProjection):
     """Applies a linear transformation to incoming data using weights and bias
     initialized from :math:`\\mathcal{U}(-\\sqrt{k}, \\sqrt{k})`, where
-    :math:`k = \\frac{1}{\\text{inp_dim}}`.
+    :math:`k = \\frac{1}{\\text{input_dim}}`.
 
     .. note::
         This class is identical to :class:`torch.nn.Linear`.
@@ -123,7 +124,7 @@ class Linear(ResettableProjection):
             # We do not calculate the true standard deviation of the uniform
             # distribution (i.e. multiply with sqrt(3)). See
             # https://github.com/pytorch/pytorch/issues/57109#issuecomment-828847575.
-            bound = 1 / math.sqrt(self.inp_dim) if self.inp_dim > 0 else 0
+            bound = 1 / math.sqrt(self.input_dim) if self.input_dim > 0 else 0
 
             nn.init.uniform_(self.bias, -bound, bound)
 

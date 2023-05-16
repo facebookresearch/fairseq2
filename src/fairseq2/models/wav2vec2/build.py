@@ -154,6 +154,9 @@ class Wav2Vec2Config:
     network outputs and quantized targets before computing logits. If zero,
     :attr:`model_dim` will be used."""
 
+    final_proj_bias: bool = True
+    """If ``True``, the final projection layer learns an additive bias."""
+
     dropout_p: float = 0.1
     """The dropout probability in Transformer layers."""
 
@@ -171,6 +174,9 @@ class Wav2Vec2Config:
     """The kernel size of depthwise convolutions in Conformer blocks."""
 
     # Quantization
+    quantized_dim: int = 256
+    """The output dimensionality of vector quantizer."""
+
     num_latent_vars: int = 320
     """The number of latent variables in each group of the quantizer codebook."""
 
@@ -210,7 +216,7 @@ def get_wav2vec2_config(arch_name: str) -> Wav2Vec2Config:
         return _CONFIGS[arch_name]()
     except KeyError:
         raise ValueError(
-            f"`arch_name` must be a known S2T Transformer architecture, but is '{arch_name}' instead."
+            f"`arch_name` must be a known wav2vec 2.0 architecture, but is '{arch_name}' instead."
         )
 
 
@@ -260,10 +266,11 @@ class Wav2Vec2Builder:
         """
         if cfg.use_conformer and cfg.norm_order != TransformerNormOrder.POST:
             raise ValueError(
-                f"`norm_order` must be `POST` when `use_conformer` is `True`, but is {cfg.norm_order} instead."
+                f"`cfg.norm_order` must be `POST` when `cfg.use_conformer` is `True`, but is {cfg.norm_order} instead."
             )
 
         self.cfg = cfg
+        self.cached_rel_pos_encoding = None
         self.device = device
         self.dtype = dtype
 
@@ -280,6 +287,7 @@ class Wav2Vec2Builder:
             encoder,
             quantizer,
             self.cfg.final_dim,
+            self.cfg.final_proj_bias,
             self.cfg.num_negatives,
             self.cfg.logit_temp,
             self.cfg.diversity_loss_weight,
@@ -299,9 +307,10 @@ class Wav2Vec2Builder:
             self.cfg.model_dim,
             self.cfg.feature_dim,
             feature_extractor,
-            masker,
             pos_encoder,
+            pretrain=True,
             post_extract_dropout_p=self.cfg.post_extract_dropout_p,
+            masker=masker,
             layer_norm=self.cfg.layer_norm_features,
             dropout_p=self.cfg.dropout_p,
             device=self.device,
@@ -473,10 +482,11 @@ class Wav2Vec2Builder:
         """Build a vector quantizer."""
         return GumbelVectorQuantizer(
             self.cfg.feature_dim,
+            self.cfg.quantized_dim,
             self.cfg.num_latent_vars,
             self.cfg.num_latent_groups,
-            temperature=self.cfg.latent_temperature,
+            self.cfg.latent_temperature,
             combine_groups=False,
-            vq_dim=self.cfg.final_dim,
             device=self.device,
+            dtype=self.dtype,
         )

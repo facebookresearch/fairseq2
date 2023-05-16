@@ -75,7 +75,9 @@ class RelativePositionSDPA(SDPA):
             torch.empty((num_heads, head_dim), device=device, dtype=dtype)
         )
 
-        self.r_proj = Linear(model_dim, model_dim, device=device, dtype=dtype)
+        self.r_proj = Linear(
+            model_dim, model_dim, bias=False, device=device, dtype=dtype
+        )
 
         self.reset_parameters()
 

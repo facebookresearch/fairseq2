@@ -58,18 +58,18 @@ class Conv1dFbankSubsampler(SequenceFeatureExtractor):
             layer = Sequential()
 
             if i == 0:
-                layer_inp_dim = num_channels
+                layer_input_dim = num_channels
             else:
-                layer_inp_dim = inner_dim // 2
+                layer_input_dim = inner_dim // 2
 
             if i == last_layer:
-                layer_out_dim = feature_dim * 2
+                layer_output_dim = feature_dim * 2
             else:
-                layer_out_dim = inner_dim
+                layer_output_dim = inner_dim
 
             conv = Conv1d(
-                layer_inp_dim,
-                layer_out_dim,
+                layer_input_dim,
+                layer_output_dim,
                 kernel_size,
                 stride=self.stride,
                 padding=kernel_size // 2,

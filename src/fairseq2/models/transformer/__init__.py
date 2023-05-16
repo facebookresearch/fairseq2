@@ -10,5 +10,8 @@ from fairseq2.models.transformer.frontend import (
 from fairseq2.models.transformer.frontend import (
     TransformerFrontend as TransformerFrontend,
 )
+from fairseq2.models.transformer.frontend import (
+    TransformerFrontendOutput as TransformerFrontendOutput,
+)
 from fairseq2.models.transformer.model import FinalProjection as FinalProjection
 from fairseq2.models.transformer.model import TransformerModel as TransformerModel

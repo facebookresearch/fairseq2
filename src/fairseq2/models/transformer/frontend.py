@@ -6,7 +6,8 @@
 
 import math
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, final
+from dataclasses import dataclass
+from typing import Optional, final
 
 import torch
 from overrides import final as finaloverride
@@ -39,7 +40,7 @@ class TransformerFrontend(Module, ABC):
         seqs: Tensor,
         seq_lens: Optional[Tensor],
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[Tensor]]:
+    ) -> "TransformerFrontendOutput":
         """
         :param seqs:
             The sequences to process. *Shape:* :math:`(N,S,*)`, where :math:`N`
@@ -51,20 +52,25 @@ class TransformerFrontend(Module, ABC):
             the batch size.
         :param state_bag:
             The state bag to use for incremental evaluation.
-
-        :returns:
-            - The processed sequences to pass to a Transformer encoder/decoder.
-              *Shape:* :math:`(N,S_{out},M)`, where :math:`N` is the batch size,
-              :math:`S_{out}` is the output sequence length, and :math:`M` is
-              the dimensionality of the model.
-            - The float padding mask of the processed sequences. *Shape:*
-              :math:`(N,S_{out})`, where :math:`N` is the batch size and
-              :math:`S_{out}` is the output sequence length.
         """
 
     def extra_repr(self) -> str:
         """:meta private:"""
         return f"model_dim={self.model_dim}"
+
+
+@dataclass
+class TransformerFrontendOutput:
+    seqs: Tensor
+    """The processed sequences to pass to a Transformer encoder/decoder.
+    *Shape:* :math:`(N,S_{out},M)`, where :math:`N` is the batch size,
+    :math:`S_{out}` is the output sequence length, and :math:`M` is the
+    dimensionality of the model."""
+
+    padding_mask: Optional[Tensor]
+    """The float padding mask of the processed sequences. *Shape:*
+    :math:`(N,S_{out})`, where :math:`N` is the batch size and :math:`S_{out}`
+    is the output sequence length."""
 
 
 @final
@@ -140,7 +146,7 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
         seqs: Tensor,
         seq_lens: Optional[Tensor],
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[Tensor]]:
+    ) -> TransformerFrontendOutput:
         seqs = self.embed(seqs)
 
         padding_mask = to_padding_mask(seqs, seq_lens)
@@ -157,7 +163,7 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
         if self.dropout is not None:
             seqs = self.dropout(seqs)
 
-        return seqs, padding_mask
+        return TransformerFrontendOutput(seqs, padding_mask)
 
     def extra_repr(self) -> str:
         """:meta private:"""

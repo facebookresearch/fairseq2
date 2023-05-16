@@ -41,7 +41,8 @@ class Wav2Vec2Model(Module):
         encoder_frontend: Wav2Vec2Frontend,
         encoder: TransformerEncoder,
         quantizer: VectorQuantizer,
-        final_dim: int = 0,
+        final_dim: int,
+        final_proj_bias: bool = True,
         num_negatives: int = 100,
         logit_temp: float = 0.1,
         diversity_loss_weight: float = 0.1,
@@ -58,7 +59,9 @@ class Wav2Vec2Model(Module):
         :param final_dim:
             The dimensionality of the final projection that is applied to
             context network outputs and quantized targets before computing
-            logits. If zero, :attr:`model_dim` will be used.
+            logits.
+        :param final_proj_bias:
+            If ``True``, the final projection layer learns an additive bias.
         :param num_negatives:
             The number of negative examples for contrastive loss.
         :param logit_temp:
@@ -80,16 +83,23 @@ class Wav2Vec2Model(Module):
         self.encoder_frontend = encoder_frontend
         self.encoder = encoder
 
+        if quantizer.input_dim != encoder_frontend.feature_dim:
+            raise ValueError(
+                f"`input_dim` of `quantizer` and `feature_dim` of `encoder_frontend` must be equal, but are {quantizer.input_dim} and {encoder_frontend.feature_dim} instead."
+            )
+
         self.quantizer = quantizer
 
-        if final_dim == 0:
-            final_dim = model_dim
-
         self.final_proj = Linear(
-            model_dim, final_dim, bias=True, device=device, dtype=dtype
+            model_dim, final_dim, bias=final_proj_bias, device=device, dtype=dtype
         )
+
         self.final_target_proj = Linear(
-            final_dim, final_dim, bias=True, device=device, dtype=dtype
+            self.quantizer.quantized_dim,
+            final_dim,
+            bias=True,
+            device=device,
+            dtype=dtype,
         )
 
         self.num_negatives = num_negatives
@@ -108,20 +118,21 @@ class Wav2Vec2Model(Module):
             the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
             the batch size.
         """
-        seqs, padding_mask, targets, temporal_mask = self.encoder_frontend(
-            seqs, seq_lens
-        )
+        if not self.encoder_frontend.pretraining:
+            raise RuntimeError("`encoder_frontend` is not in pretraining mode.")
+
+        frontend_out = self.encoder_frontend(seqs, seq_lens)
 
         # TODO: Should we pad for fp16?
-        encoder_out = self.encoder(seqs, padding_mask)
+        encoder_out = self.encoder(frontend_out.seqs, frontend_out.padding_mask)
 
-        seqs = apply_temporal_mask(encoder_out, temporal_mask)
+        seqs = apply_temporal_mask(encoder_out, frontend_out.temporal_mask)
 
         seqs = self.final_proj(seqs)
 
-        quantizer_output = self.quantizer(targets)
+        quantizer_out = self.quantizer(frontend_out.targets)
 
-        targets = self.final_target_proj(quantizer_output.x)
+        targets = self.final_target_proj(quantizer_out.quantized)
 
         negatives = self._sample_negatives(targets, self.num_negatives)
 
@@ -130,10 +141,10 @@ class Wav2Vec2Model(Module):
         return Wav2Vec2Output(
             logits,
             targets,
-            temporal_mask,
+            frontend_out.temporal_mask,
             encoder_out,
-            padding_mask,
-            quantizer_output,
+            frontend_out.padding_mask,
+            quantizer_out,
             self.diversity_loss_weight,
         )
 
@@ -245,13 +256,15 @@ class Wav2Vec2Output:
     diversity_loss_weight: float
     """The weight of diversity in loss computation."""
 
-    def compute_loss(self) -> Tensor:
+    def compute_loss(self) -> "Wav2Vec2Loss":
         """Compute the loss."""
-        loss = self.compute_contrastive_loss()
+        contrastive_loss = self.compute_contrastive_loss()
 
         diversity_loss = self.compute_diversity_loss()
 
-        return loss + self.diversity_loss_weight * diversity_loss
+        loss = contrastive_loss + self.diversity_loss_weight * diversity_loss
+
+        return Wav2Vec2Loss(loss, contrastive_loss, diversity_loss)
 
     def compute_contrastive_loss(self) -> Tensor:
         """Compute the contrastive loss."""
@@ -269,4 +282,24 @@ class Wav2Vec2Output:
 
     def compute_diversity_loss(self) -> Tensor:
         """Compute the diversity loss."""
-        return self.quantizer_output.compute_loss() * self.quantized_targets.numel()
+        batch_size, seq_len = self.logits.shape[:2]
+
+        return self.quantizer_output.compute_loss() * batch_size * seq_len
+
+
+@dataclass
+class Wav2Vec2Loss:
+    """Holds the loss of a wav2vec 2.0 model."""
+
+    total: Tensor
+    """The weighted total loss."""
+
+    contrastive: Tensor
+    """The contrastive loss."""
+
+    diversity: Tensor
+    """The diversity loss."""
+
+    def backward(self) -> None:
+        """Compute the gradient of the loss."""
+        self.total.backward()

@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import math
-from typing import Optional, Tuple, final
+from typing import Optional, final
 
 import torch
 from overrides import final as finaloverride
@@ -13,7 +13,7 @@ from torch import Tensor
 from torch.nn import Dropout
 
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
-from fairseq2.models.transformer import TransformerFrontend
+from fairseq2.models.transformer import TransformerFrontend, TransformerFrontendOutput
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.position_encoder import PositionEncoder
 from fairseq2.nn.projection import Linear, Projection
@@ -98,7 +98,7 @@ class S2TTransformerFrontend(TransformerFrontend):
         seqs: Tensor,
         seq_lens: Optional[Tensor],
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[Tensor]]:
+    ) -> TransformerFrontendOutput:
         if state_bag is not None:
             raise ValueError(
                 "`S2TTransformerFrontend` does not support incremental evaluation."
@@ -120,4 +120,4 @@ class S2TTransformerFrontend(TransformerFrontend):
         if self.dropout is not None:
             seqs = self.dropout(seqs)
 
-        return seqs, padding_mask
+        return TransformerFrontendOutput(seqs, padding_mask)

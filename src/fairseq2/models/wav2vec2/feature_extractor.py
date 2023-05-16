@@ -69,15 +69,15 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
         self.layers = Sequential()
 
         # We expect the input waveforms to be one dimensional.
-        inp_dim = 1
+        input_dim = 1
 
         for i, layer_desc in enumerate(layer_descs):
-            out_dim, kernel_size, stride = layer_desc
+            output_dim, kernel_size, stride = layer_desc
 
             # If Layer Normalization is requested, apply it in all layers.
             if layer_norm:
                 layer_norm_ = Float32LayerNorm(
-                    out_dim, norm_eps, device=device, dtype=dtype
+                    output_dim, norm_eps, device=device, dtype=dtype
                 )
 
                 group_norm_ = None
@@ -86,7 +86,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
             # not apply any normalization in the other layers.
             elif i == 0:
                 group_norm_ = Float32GroupNorm(
-                    out_dim, out_dim, norm_eps, device=device, dtype=dtype
+                    output_dim, output_dim, norm_eps, device=device, dtype=dtype
                 )
 
                 layer_norm_ = None
@@ -95,8 +95,8 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
                 layer_norm_ = None
 
             layer = Wav2Vec2FeatureExtractionLayer(
-                inp_dim,
-                out_dim,
+                input_dim,
+                output_dim,
                 kernel_size,
                 stride,
                 bias,
@@ -109,7 +109,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
 
             self.layers.append(layer)
 
-            inp_dim = out_dim
+            input_dim = output_dim
 
         self.layer_descs = list(layer_descs)
 
@@ -179,8 +179,8 @@ class Wav2Vec2FeatureExtractionLayer(Module):
 
     def __init__(
         self,
-        inp_dim: int,
-        out_dim: int,
+        input_dim: int,
+        output_dim: int,
         kernel_size: int,
         stride: int,
         bias: bool = False,
@@ -193,8 +193,8 @@ class Wav2Vec2FeatureExtractionLayer(Module):
         super().__init__()
 
         self.conv = Wav2Vec2FeatureConv1d(
-            inp_dim,
-            out_dim,
+            input_dim,
+            output_dim,
             kernel_size,
             stride=stride,
             bias=bias,
