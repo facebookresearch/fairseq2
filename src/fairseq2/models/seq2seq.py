@@ -51,9 +51,9 @@ class Seq2SeqModelOutput:
     """Holds the output of a sequence-to-sequence model."""
 
     logits: Tensor
-    """The next-step logits. *Shape:* :math:`(N,S_{tgt},T)`, where :math:`N` is
-    the batch size, :math:`S_{tgt}` is the target sequence length, and :math:`T`
-    is the size of the target domain (e.g. vocabulary)."""
+    """The logits for next-step prediction. *Shape:* :math:`(N,S_{tgt},T)`,
+    where :math:`N` is the batch size, :math:`S_{tgt}` is the target sequence
+    length, and :math:`T` is the size of the target domain (e.g. vocabulary)."""
 
     pad_idx: Optional[int] = None
     """The index of the pad symbol in the target domain."""

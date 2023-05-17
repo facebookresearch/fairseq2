@@ -76,7 +76,8 @@ class EncoderDecoderModel(Seq2SeqModel):
         encoder_padding_mask: Optional[Tensor],
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Seq2SeqModelOutput:
-        """Decode the specified target sequences and produce logits.
+        """Decode the specified target sequences and produce logits for
+        next-step prediction.
 
         :param seqs:
             The target sequences to decode. *Shape:* :math:`(N,S_{tgt},*)`,

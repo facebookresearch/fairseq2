@@ -151,11 +151,10 @@ class Wav2Vec2Config:
 
     final_dim: int = 256
     """The dimensionality of the final projection that is applied to context
-    network outputs and quantized targets before computing logits. If zero,
-    :attr:`model_dim` will be used."""
+    network outputs and quantized targets."""
 
     final_proj_bias: bool = True
-    """If ``True``, the final projection layer learns an additive bias."""
+    """If ``True``, the final projection learns an additive bias."""
 
     dropout_p: float = 0.1
     """The dropout probability in Transformer layers."""
@@ -188,8 +187,8 @@ class Wav2Vec2Config:
     latent variable sampling."""
 
     # Loss
-    num_negatives: int = 100
-    """The number of negative examples for contrastive loss."""
+    num_distractors: int = 100
+    """The number of distractors to use in contrastive prediction."""
 
     logit_temp: float = 0.1
     """The temperature to divide logits by."""
@@ -288,7 +287,7 @@ class Wav2Vec2Builder:
             quantizer,
             self.cfg.final_dim,
             self.cfg.final_proj_bias,
-            self.cfg.num_negatives,
+            self.cfg.num_distractors,
             self.cfg.logit_temp,
             self.cfg.diversity_loss_weight,
             device=self.device,

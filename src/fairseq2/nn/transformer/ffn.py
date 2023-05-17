@@ -81,8 +81,8 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         :param inner_dropout_p:
             The dropout probability on outputs of the inner projection layer.
         :param bias:
-            If ``True``, both the inner and output projection layers learn an
-            additive bias.
+            If ``True``, both the inner and output projections learn an additive
+            bias.
         :param norm_order:
             The Layer Normalization order to use.
         :param norm_eps:

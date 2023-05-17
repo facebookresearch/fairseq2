@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Tuple
 
 import torch
 import torch.nn.functional as F
@@ -29,10 +29,10 @@ class Wav2Vec2Model(Module):
     model_dim: int
     encoder_frontend: Wav2Vec2Frontend
     encoder: TransformerEncoder
-    vector_quantizer: VectorQuantizer
+    quantizer: VectorQuantizer
     final_proj: Linear
     final_target_proj: Linear
-    num_negatives: int
+    num_distractors: int
     logit_temp: float
     diversity_loss_weight: float
 
@@ -43,7 +43,7 @@ class Wav2Vec2Model(Module):
         quantizer: VectorQuantizer,
         final_dim: int,
         final_proj_bias: bool = True,
-        num_negatives: int = 100,
+        num_distractors: int = 100,
         logit_temp: float = 0.1,
         diversity_loss_weight: float = 0.1,
         device: Optional[torch.device] = None,
@@ -58,12 +58,11 @@ class Wav2Vec2Model(Module):
             The quantizer to discretize context network targets.
         :param final_dim:
             The dimensionality of the final projection that is applied to
-            context network outputs and quantized targets before computing
-            logits.
+            context network outputs and quantized targets.
         :param final_proj_bias:
-            If ``True``, the final projection layer learns an additive bias.
-        :param num_negatives:
-            The number of negative examples for contrastive loss.
+            If ``True``, the final projection learns an additive bias.
+        :param num_distractors:
+            The number of distractors to use in contrastive prediction.
         :param logit_temp:
             The temperature to divide logits by.
         :param diversity_loss_weight:
@@ -102,14 +101,14 @@ class Wav2Vec2Model(Module):
             dtype=dtype,
         )
 
-        self.num_negatives = num_negatives
+        self.num_distractors = num_distractors
         self.logit_temp = logit_temp
         self.diversity_loss_weight = diversity_loss_weight
 
     def forward(self, seqs: Tensor, seq_lens: Optional[Tensor]) -> "Wav2Vec2Output":
         """
         :param seqs:
-            The source sequences to process. *Shape:* :math:`(N,S,*)`, where
+            The source sequences to encode. *Shape:* :math:`(N,S,*)`, where
             :math:`N` is the batch size, :math:`S` is the source sequence
             length, and :math:`*` is any number of sequence-specific dimensions
             including none.
@@ -118,38 +117,87 @@ class Wav2Vec2Model(Module):
             the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
             the batch size.
         """
+        encoder_out, targets, temporal_mask = self.encode(seqs, seq_lens)
+
+        return self.quantize_and_contrast(encoder_out, targets, temporal_mask)
+
+    def encode(
+        self, seqs: Tensor, seq_lens: Optional[Tensor]
+    ) -> Tuple[Tensor, Tensor, Tensor]:
+        """Encode the specified source sequences.
+
+        :param seqs:
+            The source sequences to encode. *Shape:* :math:`(N,S,*)`, where
+            :math:`N` is the batch size, :math:`S` is the source sequence
+            length, and :math:`*` is any number of sequence-specific dimensions
+            including none.
+        :param seq_lens:
+            An array where each element represents the length of the sequence at
+            the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
+            the batch size.
+
+        :returns:
+            - The encoded source sequences. *Shape:* :math:`(N,S_{out},M)`,
+              where :math:`N` is the batch size, :math:`S_{out}` is the output
+              sequence length, and :math:`M` is the dimensionality of the model.
+            - The non-quantized context network targets extracted from the
+              source sequences. *Shape:* :math:`(N,S_{msk},M)`, where :math:`N`
+              is the batch size, :math:`S_{msk}` is the masked sequence length,
+              and :math:`M` is the dimensionality of the model.
+            - The boolean temporal mask used to extract the context network
+              targets. *Shape:* :math:`(N,S_{out})`, where :math:`N` is the
+              batch size and :math`S_{out}` is the output sequence length.
+        """
         if not self.encoder_frontend.pretraining:
             raise RuntimeError("`encoder_frontend` is not in pretraining mode.")
 
         frontend_out = self.encoder_frontend(seqs, seq_lens)
 
         # TODO: Should we pad for fp16?
-        encoder_out = self.encoder(frontend_out.seqs, frontend_out.padding_mask)
+        seqs = self.encoder(frontend_out.seqs, frontend_out.padding_mask)
 
-        seqs = apply_temporal_mask(encoder_out, frontend_out.temporal_mask)
+        return seqs, frontend_out.targets, frontend_out.temporal_mask
+
+    def quantize_and_contrast(
+        self, encoder_out: Tensor, targets: Tensor, temporal_mask: Tensor
+    ) -> "Wav2Vec2Output":
+        """Quantize targets and produce logits for contrastive prediction.
+
+        :param encoder_out:
+            The encoded source sequences. *Shape:* :math:`(N,S_{enc},M)`, where
+            :math:`N` is the batch size, :math:`S_{enc}` is the encoder output
+            sequence length, and :math:`M` is the dimensionality of the model.
+        :param targets:
+            The non-quantized context network targets extracted from the source
+            sequences. *Shape:* :math:`(N,S_{msk},M)`, where :math:`N` is the
+            batch size, :math:`S_{msk}` is the masked sequence length, and
+            :math:`M` is the dimensionality of the model.
+        :param temporal_mask:
+            The boolean temporal mask used to extract the context network
+            targets. *Shape:* :math:`(N,S_{enc})`, where :math:`N` is the batch
+            size and :math`S_{enc}` is the encoder output sequence length.
+        """
+        seqs = apply_temporal_mask(encoder_out, temporal_mask)
 
         seqs = self.final_proj(seqs)
 
-        quantizer_out = self.quantizer(frontend_out.targets)
+        quantizer_out = self.quantizer(targets)
 
         targets = self.final_target_proj(quantizer_out.quantized)
 
-        negatives = self._sample_negatives(targets, self.num_negatives)
+        distractors = self._sample_distractors(targets)
 
-        logits = self._compute_logits(seqs, targets, negatives)
+        logits = self._compute_logits(seqs, targets, distractors)
 
         return Wav2Vec2Output(
             logits,
             targets,
-            frontend_out.temporal_mask,
-            encoder_out,
-            frontend_out.padding_mask,
+            temporal_mask,
             quantizer_out,
             self.diversity_loss_weight,
         )
 
-    @staticmethod
-    def _sample_negatives(targets: Tensor, num_negatives: int) -> Tensor:
+    def _sample_distractors(self, targets: Tensor) -> Tensor:
         batch_size, seq_len, model_dim = targets.shape
 
         device = targets.device
@@ -157,14 +205,17 @@ class Wav2Vec2Model(Module):
         # (N, S, M) -> (N x S, M)
         targets = targets.view(-1, model_dim)
 
-        # (S x L)
-        indices = torch.arange(seq_len, device=device).repeat_interleave(num_negatives)
+        # (S)
+        indices = torch.arange(seq_len, device=device)
+
+        # (S) -> (S x L)
+        indices = indices.repeat_interleave(self.num_distractors)
 
         # (N, S x L)
         rand_indices = torch.randint(
             low=0,
             high=seq_len - 1,
-            size=(batch_size, seq_len * num_negatives),
+            size=(batch_size, seq_len * self.num_distractors),
             device=device,
         )
 
@@ -181,42 +232,44 @@ class Wav2Vec2Model(Module):
         rand_indices = rand_indices.view(-1)
 
         # (N x S x L, M)
-        negs = targets[rand_indices]
+        distractors = targets[rand_indices]
 
         # (N x S x L) -> (N, S, L, M)
-        negs = negs.view(batch_size, seq_len, num_negatives, model_dim)
+        distractors = distractors.view(
+            batch_size, seq_len, self.num_distractors, model_dim
+        )
 
-        return negs
+        return distractors
 
-    def _compute_logits(self, seqs: Tensor, targets: Tensor, negs: Tensor) -> Tensor:
+    def _compute_logits(
+        self, seqs: Tensor, targets: Tensor, distractors: Tensor
+    ) -> Tensor:
         # (N, S, M) -> (N, S, 1, M)
         seqs, targets = seqs.unsqueeze(2), targets.unsqueeze(2)
 
-        # The true quantized target is always at index 0 for cross-entropy.
+        # The target will be always at index 0 in the candidate list.
         # (N, S, 1, M) + (N, S, L, M) -> (N, S, L + 1, M)
-        targets_with_negs = torch.cat([targets, negs], dim=2)
+        candidates = torch.cat([targets, distractors], dim=2)
 
         # Perform in fp32.
         # (N, S, L + 1, M) -> (N, S, L + 1)
-        logits = torch.cosine_similarity(
-            seqs.float(), targets_with_negs.float(), dim=-1
-        )
+        logits = torch.cosine_similarity(seqs.float(), candidates.float(), dim=-1)
 
         if self.logit_temp != 1.0:
             logits = logits / self.logit_temp
 
-        neg_is_pos = (targets == negs).all(-1)
+        distractor_is_target = (targets == distractors).all(-1)
 
         # If `True`, it means codebook utilization is low. In such case we
         # mask the corresponding logits.
-        if neg_is_pos.any():
-            logits[:, :, 1:][neg_is_pos] = float("-inf")
+        if distractor_is_target.any():
+            logits[:, :, 1:][distractor_is_target] = float("-inf")
 
         return logits.type_as(seqs)
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"model_dim={self.model_dim}, num_negatives={self.num_negatives}, logit_temp={self.logit_temp}, diversity_loss_weight={self.diversity_loss_weight}"
+        return f"model_dim={self.model_dim}, num_distractors={self.num_distractors}, logit_temp={self.logit_temp}, diversity_loss_weight={self.diversity_loss_weight}"
 
 
 @dataclass
@@ -224,10 +277,10 @@ class Wav2Vec2Output:
     """Holds the output of a wav2vec 2.0 model."""
 
     logits: Tensor
-    """The logits of masked time steps. *Shape:* :math:`(N,S_{msk},L)`, where
-    :math:`N` is the batch size, :math:`S_{msk}` is the masked sequence length,
-    and :math:`L` is the number of negative examples plus 1 for the true
-    target."""
+    """The logits for contrastive prediction. *Shape:* :math:`(N,S_{msk},L)`,
+    where :math:`N` is the batch size, :math:`S_{msk}` is the masked sequence
+    length, and :math:`L` is the number of candidates (i.e. the number of
+    distractors plus 1 for the target)."""
 
     quantized_targets: Tensor
     """The quantized context network targets extracted from the source
@@ -236,19 +289,9 @@ class Wav2Vec2Output:
     dimensionality of the model."""
 
     temporal_mask: Tensor
-    """The boolean temporal mask that has been applied to the encoded source
-    sequences. *Shape:* :math:`(N,S_{out})`, where :math:`N` is the batch size
-    and :math`S_{out}` is the output sequence length."""
-
-    encoder_out: Tensor
-    """The encoded source sequences. *Shape:* :math:`(N,S_{out},M)`, where
-    :math:`N` is the batch size, :math:`S_{out}` is the output sequence length,
-    and :math:`M` is the dimensionality of the model."""
-
-    encoder_padding_mask: Optional[Tensor]
-    """The float padding mask of ``encoder_out``. *Shape:* :math:`(N,S_{out})`,
-    where :math:`N` is the batch size and :math:`S_{out}` is the output sequence
-    length."""
+    """The boolean temporal mask used to extract the context network targets.
+    *Shape:* :math:`(N,S_{enc})`, where :math:`N` is the batch size and
+    :math`S_{enc}` is the encoder output sequence length."""
 
     quantizer_output: VectorQuantizerOutput
     """The output of the vector quantizer."""
@@ -273,12 +316,10 @@ class Wav2Vec2Output:
         # (N, S, L) -> (S x N, L)
         logits = self.logits.transpose(0, 1).reshape(-1, num_logits)
 
-        # The first target is always the true one.
-        true_target_indices = logits.new_zeros(
-            (batch_size * seq_len,), dtype=torch.int64
-        )
+        # The target is always at index 0 in the candidate list.
+        target_indices = logits.new_zeros((batch_size * seq_len,), dtype=torch.int64)
 
-        return F.cross_entropy(logits, true_target_indices, reduction="sum")
+        return F.cross_entropy(logits, target_indices, reduction="sum")
 
     def compute_diversity_loss(self) -> Tensor:
         """Compute the diversity loss."""

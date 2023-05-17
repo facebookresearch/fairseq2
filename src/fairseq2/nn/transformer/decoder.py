@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import Iterable, Optional, final
+from typing import Iterable, Optional, Sequence, final
 
 import torch
 from overrides import final as finaloverride
@@ -26,6 +26,7 @@ class TransformerDecoder(Module, ABC):
     """Represents a Transformer decoder."""
 
     model_dim: int
+    layers: Sequence[TransformerDecoderLayer]
 
     def __init__(self, model_dim: int) -> None:
         """
@@ -80,7 +81,7 @@ class StandardTransformerDecoder(TransformerDecoder):
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
     self_attn_mask_gen: AttentionMaskGenerator
-    layers: ModuleList
+    layers: ModuleList  # type: ignore[assignment]
     layer_norm: Optional[LayerNorm]
     norm_order: TransformerNormOrder
 

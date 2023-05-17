@@ -210,8 +210,8 @@ class Wav2Vec2Frontend(TransformerFrontend):
         """:meta private:"""
         s = super().extra_repr()
 
-        if self.pretrain:
-            s += ", pretrain=True"
+        if self.pretraining:
+            s += ", pretraining=True"
 
         return s + f", feature_dim={self.feature_dim}"
 
@@ -219,12 +219,12 @@ class Wav2Vec2Frontend(TransformerFrontend):
 @dataclass
 class Wav2Vec2FrontendOutput(TransformerFrontendOutput):
     targets: Optional[Tensor]
-    """The non-quantized context network targets extracted from ``seqs``.
-    *Shape:* :math:`(N,S_{msk},M)`, where :math:`N` is the batch size,
-    :math:`S_{msk}` is the masked sequence length, and :math:`M` is the
+    """The non-quantized context network targets extracted from the source
+    sequences. *Shape:* :math:`(N,S_{msk},M)`, where :math:`N` is the batch
+    size, :math:`S_{msk}` is the masked sequence length, and :math:`M` is the
     dimensionality of the model."""
 
     temporal_mask: Optional[Tensor]
-    """The boolean temporal mask that has been applied to the processed source
-    sequences. *Shape:* :math:`(N,S_{out})`, where :math:`N` is the batch size
-    and :math`S_{out}` is the output sequence length."""
+    """The boolean temporal mask used to extract the context network targets.
+    *Shape:* :math:`(N,S_{out})`, where :math:`N` is the batch size and
+    :math`S_{out}` is the output sequence length."""

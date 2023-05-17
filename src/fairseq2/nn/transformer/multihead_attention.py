@@ -95,8 +95,8 @@ class MultiheadAttention(Module, ABC):
     def register_attn_weight_hook(self, hook: "AttentionWeightHook") -> RemovableHandle:
         """Register an attention weight hook on the module.
 
-        The hook will be called every time after :meth:`forward` has computed
-        attention weights.
+        The hook will be called every time after the module computes attention
+        weights.
 
         :param hook:
             The hook to register.
@@ -113,9 +113,6 @@ class MultiheadAttention(Module, ABC):
 
     def _run_attn_weight_hooks(self, attn_weights: Tensor) -> None:
         """Run registered attention weight hooks.
-
-        A :class:`MultiheadAttention` implementation should call this method
-        after computing attention weights in its :meth:`forward` method.
 
         :param attn_weights:
             The computed attention weights. *Shape:* :math:`(N,S,S_{kv})`, where
@@ -136,7 +133,7 @@ class AttentionWeightHook(Protocol):
     """Represents a hook to pass to
     :meth:`~MultiheadAttention.register_attn_weight_hook`."""
 
-    def __call__(self, m: "MultiheadAttention", attn_weights: Tensor) -> None:
+    def __call__(self, m: MultiheadAttention, attn_weights: Tensor) -> None:
         """
         :param m:
             The module that has computed the attention weights.
