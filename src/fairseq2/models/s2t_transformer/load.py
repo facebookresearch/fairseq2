@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Mapping, Optional, Tuple
+from typing import Any, Dict, Mapping, Optional, Tuple
 from zipfile import ZipFile
 
 import torch
@@ -12,6 +12,7 @@ import torch
 from fairseq2 import services
 from fairseq2.assets import AssetCard, AssetDownloadManager, AssetStore
 from fairseq2.models.s2t_transformer.build import (
+    S2TTransformerConfig,
     create_s2t_transformer_model,
     get_s2t_transformer_archs,
     get_s2t_transformer_config,
@@ -52,6 +53,7 @@ class S2TTransformerLoader:
     download_manager: AssetDownloadManager
     force: bool
     progress: bool
+    cfg: S2TTransformerConfig
 
     def __init__(
         self, card: AssetCard, force: bool = False, progress: bool = True
@@ -74,6 +76,12 @@ class S2TTransformerLoader:
         self.force = force
         self.progress = progress
 
+        supported_arch_names = get_s2t_transformer_archs()
+
+        arch_name = self.card.field("model_arch").as_one_of(supported_arch_names)
+
+        self.cfg = get_s2t_transformer_config(arch_name)
+
     def load_model(
         self, device: Optional[torch.device] = None
     ) -> Tuple[TransformerModel, S2TTransformerTokenizer]:
@@ -87,14 +95,10 @@ class S2TTransformerLoader:
         """
         target_tokenizer = self.load_target_tokenizer()
 
-        supported_arch_names = get_s2t_transformer_archs()
-
-        arch_name = self.card.field("model_arch").as_one_of(supported_arch_names)
-
-        cfg = get_s2t_transformer_config(arch_name)
-
         # TODO: Initialize on Meta device!
-        model = create_s2t_transformer_model(cfg, target_tokenizer.vocab_info, device)
+        model = create_s2t_transformer_model(
+            self.cfg, target_tokenizer.vocab_info, device
+        )
 
         checkpoint = self.load_checkpoint(map_location="cpu")
 
@@ -118,7 +122,7 @@ class S2TTransformerLoader:
             pathname,
             self.card.name,
             map_location=map_location,
-            upgrader=upgrade_fairseq_checkpoint,
+            upgrader=self._upgrade_checkpoint,
         )
 
     def load_target_tokenizer(self) -> S2TTransformerTokenizer:
@@ -149,3 +153,55 @@ class S2TTransformerLoader:
         return S2TTransformerTokenizer(
             pathname, task, set(tgt_langs), default_tgt_lang=tgt_langs[0]
         )
+
+    @classmethod
+    def _upgrade_checkpoint(cls, checkpoint: Dict[str, Any]) -> Dict[str, Any]:
+        key_map = cls._fairseq_key_map()
+
+        return upgrade_fairseq_checkpoint(checkpoint, key_map)
+
+    @staticmethod
+    def _fairseq_key_map() -> Dict[str, str]:
+        return {
+            # fmt: off
+            r"^encoder\.subsample\.conv_layers\.([0-9]+)\.":                    r"encoder_frontend.feature_extractor.layers.\1.conv.",
+            r"^encoder\.transformer_layers\.([0-9]+)\.self_attn_layer_norm\.":  r"encoder.layers.\1.self_attn_layer_norm.",
+            r"^encoder\.transformer_layers\.([0-9]+)\.self_attn\.out_proj\.":   r"encoder.layers.\1.self_attn.output_proj.",
+            r"^encoder\.transformer_layers\.([0-9]+)\.self_attn\.":             r"encoder.layers.\1.self_attn.",
+            r"^encoder\.transformer_layers\.([0-9]+)\.final_layer_norm\.":      r"encoder.layers.\1.ffn_layer_norm.",
+            r"^encoder\.transformer_layers\.([0-9]+)\.fc1\.":                   r"encoder.layers.\1.ffn.inner_proj.",
+            r"^encoder\.transformer_layers\.([0-9]+)\.fc2\.":                   r"encoder.layers.\1.ffn.output_proj.",
+            r"^decoder\.layers\.([0-9]+)\.encoder_attn\.out_proj\.":            r"decoder.layers.\1.encoder_decoder_attn.output_proj.",
+            r"^decoder\.layers\.([0-9]+)\.encoder_attn\.out_proj\.":            r"decoder.layers.\1.encoder_decoder_attn.output_proj.",
+            r"^decoder\.layers\.([0-9]+)\.self_attn\.out_proj\.":               r"decoder.layers.\1.self_attn.output_proj.",
+            r"^decoder\.layers\.([0-9]+)\.encoder_attn\.":                      r"decoder.layers.\1.encoder_decoder_attn.",
+            r"^decoder\.layers\.([0-9]+)\.encoder_attn_layer_norm\.":           r"decoder.layers.\1.encoder_decoder_attn_layer_norm.",
+            r"^decoder\.layers\.([0-9]+)\.fc1\.":                               r"decoder.layers.\1.ffn.inner_proj.",
+            r"^decoder\.layers\.([0-9]+)\.fc2\.":                               r"decoder.layers.\1.ffn.output_proj.",
+            r"^decoder\.layers\.([0-9]+)\.final_layer_norm\.":                  r"decoder.layers.\1.ffn_layer_norm.",
+            r"^decoder\.embed_tokens\.":                                        r"decoder_frontend.embed.",
+            r"^decoder\.output_projection\.":                                   r"final_proj.",
+
+            # S2T Conformer
+            r"^encoder\.linear\.":                                                   r"encoder_frontend.proj.",
+            r"^encoder\.conformer_layers\.([0-9]+)\.ffn(1|2)\.layer_norm\.":         r"encoder.layers.\1.ffn\2_layer_norm.",
+            r"^encoder\.conformer_layers\.([0-9]+)\.ffn(1|2)\.w_1\.":                r"encoder.layers.\1.ffn\2.inner_proj.",
+            r"^encoder\.conformer_layers\.([0-9]+)\.ffn(1|2)\.w_2\.":                r"encoder.layers.\1.ffn\2.output_proj.",
+            r"^encoder\.conformer_layers\.([0-9]+)\.self_attn_layer_norm\.":         r"encoder.layers.\1.self_attn_layer_norm.",
+            r"^encoder\.conformer_layers\.([0-9]+)\.self_attn\.linear_q\.":          r"encoder.layers.\1.self_attn.q_proj.",
+            r"^encoder\.conformer_layers\.([0-9]+)\.self_attn\.linear_k\.":          r"encoder.layers.\1.self_attn.k_proj.",
+            r"^encoder\.conformer_layers\.([0-9]+)\.self_attn\.linear_v\.":          r"encoder.layers.\1.self_attn.v_proj.",
+            r"^encoder\.conformer_layers\.([0-9]+)\.self_attn\.linear_out\.":        r"encoder.layers.\1.self_attn.output_proj.",
+            r"^encoder\.conformer_layers\.([0-9]+)\.conv_module\.layer_norm\.":      r"encoder.layers.\1.conv_layer_norm.",
+            r"^encoder\.conformer_layers\.([0-9]+)\.conv_module\.pointwise_conv1\.": r"encoder.layers.\1.conv.pointwise_conv1.",
+            r"^encoder\.conformer_layers\.([0-9]+)\.conv_module\.depthwise_conv\.":  r"encoder.layers.\1.conv.depthwise_conv.",
+            r"^encoder\.conformer_layers\.([0-9]+)\.conv_module\.batch_norm\.":      r"encoder.layers.\1.conv.batch_norm.",
+            r"^encoder\.conformer_layers\.([0-9]+)\.conv_module\.pointwise_conv2\.": r"encoder.layers.\1.conv.pointwise_conv2.",
+            r"^encoder\.conformer_layers\.([0-9]+)\.final_layer_norm\.":             r"encoder.layers.\1.layer_norm.",
+
+            # S2T Conformer - RelPos
+            r"^encoder\.conformer_layers\.([0-9]+)\.self_attn\.pos_bias_u":   r"encoder.layers.\1.self_attn.sdpa.u_bias",
+            r"^encoder\.conformer_layers\.([0-9]+)\.self_attn\.pos_bias_v":   r"encoder.layers.\1.self_attn.sdpa.v_bias",
+            r"^encoder\.conformer_layers\.([0-9]+)\.self_attn\.linear_pos\.": r"encoder.layers.\1.self_attn.sdpa.r_proj.",
+            # fmt: on
+        }

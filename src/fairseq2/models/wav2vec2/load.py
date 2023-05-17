@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Mapping, Optional
+from typing import Any, Dict, Mapping, Optional
 
 import torch
 
@@ -16,6 +16,7 @@ from fairseq2.models.utils.load import (
     upgrade_fairseq_checkpoint,
 )
 from fairseq2.models.wav2vec2.build import (
+    Wav2Vec2Config,
     create_wav2vec2_model,
     get_wav2vec2_archs,
     get_wav2vec2_config,
@@ -51,6 +52,7 @@ class Wav2Vec2Loader:
     download_manager: AssetDownloadManager
     force: bool
     progress: bool
+    cfg: Wav2Vec2Config
 
     def __init__(
         self, card: AssetCard, force: bool = False, progress: bool = True
@@ -73,6 +75,12 @@ class Wav2Vec2Loader:
         self.force = force
         self.progress = progress
 
+        supported_arch_names = get_wav2vec2_archs()
+
+        arch_name = self.card.field("model_arch").as_one_of(supported_arch_names)
+
+        self.cfg = get_wav2vec2_config(arch_name)
+
     def load_model(self, device: Optional[torch.device] = None) -> Wav2Vec2Model:
         """Load the wav2vec 2.0 model.
 
@@ -82,31 +90,10 @@ class Wav2Vec2Loader:
         :returns:
             The model.
         """
-        supported_arch_names = get_wav2vec2_archs()
-
-        arch_name = self.card.field("model_arch").as_one_of(supported_arch_names)
-
-        cfg = get_wav2vec2_config(arch_name)
-
         # TODO: Initialize on Meta device!
-        model = create_wav2vec2_model(cfg, device)
+        model = create_wav2vec2_model(self.cfg, device)
 
         checkpoint = self.load_checkpoint(map_location="cpu")
-
-        if cfg.norm_order == TransformerNormOrder.POST:
-            state_dict = checkpoint["model"]
-
-            state_dict["encoder_frontend.layer_norm.weight"] = state_dict[
-                "encoder.layer_norm.weight"
-            ]
-            state_dict["encoder_frontend.layer_norm.bias"] = state_dict[
-                "encoder.layer_norm.bias"
-            ]
-
-            del state_dict["encoder.layer_norm.weight"]
-            del state_dict["encoder.layer_norm.bias"]
-
-        state_dict["quantizer.num_updates"] = torch.zeros((), device="cpu")
 
         model.load_state_dict(checkpoint["model"])
 
@@ -128,5 +115,43 @@ class Wav2Vec2Loader:
             pathname,
             self.card.name,
             map_location=map_location,
-            upgrader=upgrade_fairseq_checkpoint,
+            upgrader=self._upgrade_checkpoint,
         )
+
+    def _upgrade_checkpoint(self, checkpoint: Dict[str, Any]) -> Dict[str, Any]:
+        state_dict = checkpoint["model"]
+
+        if self.cfg.norm_order == TransformerNormOrder.POST:
+            # fmt: off
+            state_dict["encoder_frontend.layer_norm.weight"] = state_dict["encoder.layer_norm.weight"]
+            state_dict["encoder_frontend.layer_norm.bias"]   = state_dict["encoder.layer_norm.bias"]
+            # fmt: on
+
+            del state_dict["encoder.layer_norm.weight"]
+            del state_dict["encoder.layer_norm.bias"]
+
+        state_dict["quantizer.num_updates"] = torch.zeros((), device="cpu")
+
+        key_map = self._fairseq_key_map()
+
+        return upgrade_fairseq_checkpoint(checkpoint, key_map)
+
+    @staticmethod
+    def _fairseq_key_map() -> Dict[str, str]:
+        return {
+            # fmt: off
+            r"^encoder\.layers\.([0-9]+)\.self_attn\.out_proj\.": r"encoder.layers.\1.self_attn.output_proj.",
+            r"^encoder\.layers\.([0-9]+)\.fc1\.":                 r"encoder.layers.\1.ffn.inner_proj.",
+            r"^encoder\.layers\.([0-9]+)\.fc2\.":                 r"encoder.layers.\1.ffn.output_proj.",
+            r"^encoder\.layers\.([0-9]+)\.final_layer_norm\.":    r"encoder.layers.\1.ffn_layer_norm.",
+            r"^decoder\.layers\.([0-9]+)\.final_layer_norm\.":    r"decoder.layers.\1.ffn_layer_norm.",
+            r"^encoder\.embed_tokens\.":                          r"encoder_frontend.embed.",
+            r"^encoder\.pos_conv\.0\.":                           r"encoder_frontend.pos_encoder.conv.",
+            r"^feature_extractor\.conv_layers\.([0-9]+)\.0.":     r"encoder_frontend.feature_extractor.layers.\1.conv.",
+            r"^feature_extractor\.conv_layers\.0\.2.":            r"encoder_frontend.feature_extractor.layers.0.group_norm.",
+            r"^layer_norm\.":                                     r"encoder_frontend.post_extract_layer_norm.",
+            r"^post_extract_proj\.":                              r"encoder_frontend.post_extract_proj.",
+            r"^mask_emb":                                         r"encoder_frontend.masker.temporal_mask_embed",
+            r"^project_q\.":                                      r"final_target_proj.",
+            # fmt: on
+        }
