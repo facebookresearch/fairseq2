@@ -75,17 +75,16 @@ def module(
     torch.cuda.manual_seed(0)
 
     model = s2t.create_s2t_transformer_model(transformer, vocab_info, env.device)
-    if env.world_size > 1:
-        if fsdp:
-            from torch.distributed.fsdp.fully_sharded_data_parallel import (
-                FullyShardedDataParallel as FSDP,
-            )
+    if fsdp:
+        from torch.distributed.fsdp.fully_sharded_data_parallel import (
+            FullyShardedDataParallel as FSDP,
+        )
 
-            return FSDP(model)  # type: ignore[return-value]
-        else:
-            return torch.nn.parallel.DistributedDataParallel(  # type: ignore[return-value]
-                model, device_ids=[env.device.index]
-            )
+        return FSDP(model)  # type: ignore[return-value]
+    else:
+        return torch.nn.parallel.DistributedDataParallel(  # type: ignore[return-value]
+            model, device_ids=[env.device.index]
+        )
 
     return model
 

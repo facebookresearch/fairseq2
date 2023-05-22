@@ -78,7 +78,7 @@ def logger(
             config_file,
             project=wandb_project,
             job_type=entry_point,
-            group_id="-".join(xp.script.parent.parts[-2:]),
+            group_id=xp.sha_key,
         )
     else:
         return fairseq2.callbacks.StdoutLogger(config_file)
@@ -88,14 +88,15 @@ def optimizer(
     module: torch.nn.Module,
     weight_decay: float = 1e-5,
     lr: float = 5e-4,
+    eps: float = 1e-6,
 ) -> torch.optim.Optimizer:
     """Pytorch optimizer."""
     return torch.optim.Adam(
         module.parameters(),
         lr=lr,
         betas=(0.9, 0.98),
-        eps=1e-6,
-        weight_decay=0.0001,
+        eps=eps,
+        weight_decay=weight_decay,
     )
 
 

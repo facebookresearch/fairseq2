@@ -88,7 +88,7 @@ public:
 inline void
 tape::throw_corrupt()
 {
-    throw corrupt_tape_error{"The tape is corrupt."};
+    throw corrupt_tape_error{"The fairseq2.data tape is corrupt. Can't reload the state of the data loader."};
 }
 
 }  // namespace fairseq2

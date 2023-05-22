@@ -39,7 +39,7 @@ class Seq2Seq(tnt.AutoUnit[Seq2SeqBatch]):
     Compared to AutoUnit this provides:
     * a default NLL loss
     * some default metrics like lr, token per second and loss
-    * inference using fairseq2.generateh
+    * inference using fairseq2.generate
 
     If your data type is too different from Seq2SeqBatch it's best to directly
     inherit from tnt.AutoUnit.
@@ -69,7 +69,7 @@ class Seq2Seq(tnt.AutoUnit[Seq2SeqBatch]):
         self.optimizer = optimizer
         # tnt and us both have a type alias for LRScheduler
         self.lr_scheduler = lr_scheduler  # type: ignore[assignment]
-        self.pad_idx = self.tokenizer.vocab_info.pad_idx
+        self.pad_idx = self.tokenizer.vocab_info.pad_idx if self.tokenizer else 0
 
     def configure_optimizers_and_lr_scheduler(
         self, module: torch.nn.Module

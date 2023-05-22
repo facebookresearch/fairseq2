@@ -11,12 +11,13 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, List, Optional, Set, Union
 
+import torch
+import torchtnt.utils
 from torchsnapshot.snapshot import PendingSnapshot, Snapshot
 from torchtnt.framework.callback import Callback
 from torchtnt.framework.callbacks import torchsnapshot_saver
 from torchtnt.framework.state import State
 from torchtnt.framework.unit import EvalUnit, TrainUnit
-from torchtnt.utils import rank_zero_info
 
 log = logging.getLogger(__name__)
 
@@ -65,6 +66,7 @@ class TorchSnapshotSaver(Callback):
         self._last_train_snapshots: List[Path] = []
         self._last_eval_snapshots: List[Path] = []
         self._ex = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        self._rank = torchtnt.utils.get_global_rank()
 
     def on_train_start(self, state: State, unit: TrainUnit[Any]) -> None:
         """Validate there's no key collision for the app state."""
@@ -94,6 +96,13 @@ class TorchSnapshotSaver(Callback):
                 return True
 
             pending = not self._pending.done()
+            if torchtnt.utils.get_world_size() > 1:
+                any_pending = torch.tensor(pending).cuda()
+                torch.distributed.all_reduce(
+                    any_pending, torch.distributed.ReduceOp.MAX
+                )
+                pending = any_pending.item() > 0
+
             if pending and force:
                 self._pending.wait()
             elif pending:
@@ -109,7 +118,7 @@ class TorchSnapshotSaver(Callback):
         self._pending = Snapshot.async_take(
             str(snapshot_path), app_state=app_state, replicated=list(self._replicated)
         )
-        rank_zero_info(f"Saving snapshot to path: {snapshot_path}", logger=log)
+        log.info(f"Saving snapshot to path: {snapshot_path}")
         self._last_save = datetime.now()
         # Copy script and config to the snapshot path
         self._ex.submit(_copy_script, self.script, snapshot_path)
@@ -191,7 +200,7 @@ class TorchSnapshotSaver(Callback):
         self._ex.shutdown(wait=True)
 
     def rm_oldest(self, new_snapshot: Path, queue: List[Path], limit: int) -> None:
-        if limit == 0:
+        if self._rank != 0 or limit == 0:
             return
         queue.append(new_snapshot)
         if len(queue) <= limit:

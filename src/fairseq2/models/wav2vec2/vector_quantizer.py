@@ -127,7 +127,7 @@ class GumbelVectorQuantizer(VectorQuantizer):
             self.input_dim, num_total_vars, bias=True, device=device, dtype=dtype
         )
 
-        num_updates = torch.empty((), device="cpu", dtype=torch.int64)
+        num_updates = torch.empty((), device=device, dtype=torch.int64)
 
         self.register_buffer("num_updates", num_updates)
 

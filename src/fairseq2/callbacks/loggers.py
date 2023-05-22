@@ -1,5 +1,6 @@
 import dataclasses
 import enum
+import functools
 import logging
 import math
 import os
@@ -99,27 +100,13 @@ class WandbLogger(MetricLogger):
         self.project = project
         self.group_id = group_id
         self.job_type = job_type
-        self.run_id: tp.Optional[str] = None
+        self.wandb_id = "/".join((project, group_id))
         self._wandb = wandb
-        self._wandb_run: tp.Any = None
 
-    def prepare(self) -> None:
-        if self._wandb_run is not None:
-            return
+    @functools.cached_property
+    def _wandb_run(self) -> "tp.Any":
         if self._rank != 0:
-            return
-
-        wandb = self._wandb
-        if self.run_id is not None:
-            # Resume existing run
-            entity, project, run_id = self.run_id.split("/")
-            self._wandb_run = wandb.init(
-                project=project,
-                entity=entity,
-                id=run_id,
-                resume="must",
-            )
-            return
+            return None
 
         if "/" in self.project:
             entity, project = self.project.split("/", 1)
@@ -127,49 +114,58 @@ class WandbLogger(MetricLogger):
             entity, project = None, self.project  # type: ignore
 
         config = read_config(self.config_file)
-        run = wandb.init(
+        run = self._wandb.init(
             project=project,
             entity=entity,
-            config=_simple_conf(config),
+            id=f"{self.group_id}-{self.job_type}",
             group=self.group_id,
             job_type=self.job_type,
+            resume="allow",
+            config=_simple_conf(config),
         )
+
         if run is None:
             # wandb.init can fail (it will already have printed a message)
             return
 
-        self._wandb_run = run
-        self.run_id = "/".join((run.entity, run.project, run.id))
+        # This will specify the "entity"
+        self.wandb_id = "/".join((run.entity, run.project, run.group))
 
         # We want to only do this once
         if "job" not in config:
             job = collect_job_info()
-            job["wandb_id"] = self.run_id
-            job["wandb_group"] = self.group_id
+            job["wandb_id"] = self.wandb_id
             config["job"] = job
             # Update the config file with new information
             self.config_file.write_text(yaml.dump(config))
             print(config)
             self.upload_script_and_config()
 
+        if self.job_type == "evaluate":
+            # Tell W&B 'evalute' job is using the model from 'train' job.
+            try:
+                run.use_artifact(f"{self.group_id}:latest")
+            except Exception:
+                # The artifact may not be "ready" yet (not sure what that mean)
+                pass
+
+        return run
+
     def load_state_dict(self, state_dict: tp.Dict[str, tp.Any]) -> None:
-        job_type = getattr(self, "job_type", None)
-        if job_type != state_dict["job_type"]:
-            # Only allow resuming from the same job_type
-            state_dict.pop("run_id", None)
-        if job_type:
-            # Typically state_dict will contain job_type="train", while we have "evaluate"
-            state_dict.pop("job_type", None)
-        for k, v in state_dict.items():
-            setattr(self, k, v)
-        self._wandb_run = None
-        self._rank = torchtnt.utils.get_global_rank()
+        super().load_state_dict(state_dict)
+
+        import wandb
+
+        self._wandb = wandb
 
     def upload_script_and_config(self, top_secret: bool = False) -> None:
         """Uploads the script and config to W&B.
 
         When using `top_secret=True` only the file checksum will be uploaded.
         """
+        if self._wandb_run is None:
+            return
+
         artifact = self._wandb.Artifact(
             name=self.group_id,
             type="model",
@@ -195,10 +191,10 @@ class WandbLogger(MetricLogger):
             step (int): step value to record
         """
         self._last_metrics = payload
-        if self._rank != 0:
+        run = self._wandb_run
+        if run is None:
             return
-        self.prepare()
-        self._wandb_run.log(payload, step)
+        run.log(payload, step)
         print(
             "Step:",
             step,
@@ -210,10 +206,10 @@ class WandbLogger(MetricLogger):
 
         Logs should not be written after `close` is called.
         """
-        if self._wandb_run is None:
+        run = self._wandb_run
+        if run is None:
             return
-        self._wandb_run.finish()
-        self._wandb_run = None
+        run.finish()
 
 
 class TensorBoardLogger(TntTensorBoardLogger, StdoutLogger):
@@ -285,8 +281,6 @@ class LogMetrics(Callback):
         step = state.train_state.progress.num_steps_completed
 
         self.log_metrics(state, step, "train/", sync=True)
-
-        self.logger.close()
 
     def on_eval_end(self, state: State, unit: TEvalUnit[Any]) -> None:
         step = (

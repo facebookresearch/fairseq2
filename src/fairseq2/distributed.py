@@ -1,4 +1,5 @@
 import logging
+import math
 import os
 import subprocess
 import sys
@@ -32,11 +33,10 @@ def init(
     workdir: Path,
     partition: str,
     num_gpus: int,
-    timeout: timedelta = timedelta(days=1),
+    timeout: timedelta = timedelta(days=7),
     cpu_per_gpu: int = 4,
     num_gpu_per_node: int = 8,
     qos: Optional[str] = None,
-    one_file: bool = False,
     slurm_args: Dict[str, Any] = {},
 ) -> Env:
     """
@@ -64,59 +64,53 @@ def init(
     describing the rank and world size of the current process.
     """
     # Check if we are already a distributed worker
-    world_size = int(os.environ.get("SLURM_NTASKS", -1))
+    world_size = int(os.environ.get("WORLD_SIZE", -1))
+    if world_size < 0:
+        world_size = int(os.environ.get("SLURM_NTASKS", -1))
     if world_size < 0:
         world_size = int(os.environ.get("SUBMITIT_LOCAL_NTASKS", -1))
-    if world_size < 0:
-        world_size = int(os.environ.get("WORLD_SIZE", -1))
 
     if world_size == -1 and partition != "debug":
         # TODO: should I replace submitit by torchx ?
+        # Main difference I see is that torchx doesn't has good defaults,
+        # but provide some torchx status and torchx log.
+        # Also torchx uses "sacct --json" which is not available on all clusters.
         # Copy the main script to the workdir.
         import __main__
 
         main_py = Path(__main__.__file__)
         (workdir / main_py.name).write_bytes(main_py.read_bytes())
+
+        timeout_min = int(timeout.total_seconds() // 60)
+        max_num_timeout = 3
+        if submitit.AutoExecutor.which() == "slurm":
+            timeout_min = min(timeout_min, 24 * 60)
+            max_num_timeout = max(max_num_timeout, math.ceil(timeout_min / 24 * 60))
+
         # We aren't running in distributed mode, let submit a job to do so.
         ex = submitit.AutoExecutor(
-            folder=workdir, cluster="local" if partition == "local" else None
+            folder=workdir,
+            cluster="local" if partition == "local" else None,
+            slurm_max_num_timeout=max_num_timeout,
         )
         ex.update_parameters(
             name=main_py.stem,
             nodes=max(num_gpus // num_gpu_per_node, 1),
             gpus_per_node=min(num_gpus, num_gpu_per_node),
-            tasks_per_node=min(num_gpus, num_gpu_per_node),
+            tasks_per_node=min(num_gpus, num_gpu_per_node) or 1,
             cpus_per_task=cpu_per_gpu,
-            timeout_min=int(timeout.total_seconds() // 60),
+            timeout_min=timeout_min,
             slurm_partition=partition,
             slurm_qos=qos,
             slurm_additional_parameters=slurm_args,
         )
 
-        # Note: spawning this subprocess is not free,
-        # in particular we lost the ability to return an exception or result to the caller.
-        # But this avoid pickling issues.
-        # pickle doesn't like stuff defined in the program entry point.
-        # TODO: try runpy.run_path this should be equivalent but happens in the same process
-        if one_file:
-            # User guarantees to have a one file experience, it's safe to change dir
-            job = ex.submit(
-                subprocess.run,
-                [sys.executable, main_py.name] + sys.argv[1:],
-                cwd=workdir,
-                check=True,
-            )
-        else:
-            # Else continue from current dir, but the job will pickup the state of the code when it starts
-            job = ex.submit(
-                subprocess.run,
-                [sys.executable, str(main_py)] + sys.argv[1:],
-                check=True,
-            )
+        # Note: we aren't changing cwd, I think that's generally less surprising,
+        # but also more error prone.
+        job = ex.submit(RunScript(main_py))
         log.info(
             f"Scheduled training job: {job.job_id}.\nLogs will be at {job.paths.stderr}.\nYou can exit this process with ctrl+c, Slurm will take care of running the training job."
         )
-        # TODO: silence keyboard interrupt here
         # TODO: poll log file
         job_state = job.state
         try:
@@ -142,11 +136,7 @@ def init(
         log.info(f"Training is done ! Result: {res}")
         sys.exit(0)
 
-    if world_size == -1 and partition == "debug":
-        # Prevent double init when running in REPL
-        # if not fairscale.nn.model_parallel.initialize.model_parallel_is_initialized():
-        #     torch.distributed.init_process_group(backend="nccl")
-        #     fairscale.nn.model_parallel.initialize_model_parallel(1)
+    if world_size <= 1 and partition == "debug":
         assert (
             num_gpus <= 1
         ), "If you want more than one GPU, you need to specify a SLURM partition with --partition"
@@ -189,7 +179,7 @@ def init(
     log.info(
         f"Starting distributed worker {sys.executable} on device {device}.\n"
         + "".join(
-            f"{k}: {os.environ[k]}\n"
+            f"{k}: {os.environ.get(k)}\n"
             for k in [
                 "RANK",
                 "WORLD_SIZE",
@@ -212,3 +202,32 @@ def parse_submitit_stderr(stderr: str, nlines: int = 10) -> str:
     last_stderr_lines = stderr.rsplit(os.linesep, nlines)
     last_stderr_lines.append(trace)
     return "\n".join(last_stderr_lines)
+
+
+class RunScript(submitit.helpers.Checkpointable):
+    """Run the given python main script. Tell submitit it's allowed to resubmit the job in case of timeout."""
+
+    def __init__(self, main_py: Path, workdir: Optional[Path] = None):
+        self.executable = sys.executable
+        self.argv = sys.argv[1:]
+        self.main_py = main_py
+        self.workdir = workdir
+
+    def __call__(self) -> None:
+        # Note: spawning this subprocess is not free,
+        # in particular we lost the ability to return an exception or result to the caller.
+        # But this avoid pickling issues.
+        # pickle doesn't like stuff defined in the program entry point.
+        # TODO: try runpy.run_path this should be equivalent but happens in the same process
+        # Else continue from current dir, but the job will pickup the state of the code when it starts
+        if self.workdir is None:
+            subprocess.run(
+                [sys.executable, str(self.main_py)] + self.argv,
+                check=True,
+            )
+        else:
+            subprocess.run(
+                [sys.executable, self.main_py.name] + self.argv,
+                cwd=self.workdir,
+                check=True,
+            )

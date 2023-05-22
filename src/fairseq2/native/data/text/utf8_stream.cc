@@ -10,6 +10,7 @@
 #include <system_error>
 #include <utility>
 
+#include <iconv.h>
 #include <fmt/core.h>
 
 #include "fairseq2/native/error.h"

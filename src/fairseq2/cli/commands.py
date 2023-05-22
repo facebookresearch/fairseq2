@@ -11,7 +11,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
 
 import submitit
 import torch
@@ -26,12 +26,6 @@ from fairseq2.tasks import Seq2Seq
 logging.basicConfig(level=logging.INFO)
 # TODO: train/evaluate should also setup logging to a specific experiment file
 log = logging.getLogger("fairseq2.cli")
-
-
-def sha_key(overrides: Iterable[str]) -> str:
-    # TODO: breaking change, move this to Xp, and include the script/config hash
-    # TODO: could we use nice name like W&B instead of hexdigests ?
-    return hashlib.sha256(";".join(overrides).encode("utf-8")).hexdigest()[:8]
 
 
 def train(
@@ -59,6 +53,7 @@ def train(
     restart: start the training from scratch, ignoring existing checkpoints
     """
     slurm_args, overrides = _extract_slurm_args(overrides)
+    xp = Xp(script, script.with_suffix(".yaml"), overrides)
     if workdir is None:
         workdir = script.parent.resolve()
         if "/fairseq2/examples/" in str(script.resolve()):
@@ -69,31 +64,36 @@ def train(
         # Make a copy of script to workdir
         workdir = workdir.resolve()
         workdir.mkdir(exist_ok=True)
-        xp_sha = sha_key(overrides)
-        if workdir.name != xp_sha:
-            workdir = workdir / xp_sha
+        if workdir.name != xp.sha_key:
+            workdir = workdir / xp.sha_key
             workdir.mkdir(exist_ok=True)
         workdir_script = workdir / script.name
         if workdir_script != script:
             workdir_script.write_bytes(script.read_bytes())
-        script = workdir_script
+            # update the xp with the new script
+            script = workdir_script
+            xp = Xp(script, script.with_suffix(".yaml"), overrides)
 
-    env = fairseq2.distributed.init(
-        workdir, partition, num_gpus, one_file=False, slurm_args=slurm_args
-    )
-    xp = Xp(script, script.with_suffix(".yaml"), overrides)
+    # Check this before creating a SLURM job.
     if restart and xp.config_file.exists():
+        log.warning(
+            f"There was already an experience at {script}, restarting it from scratch !"
+        )
         xp.config_file.unlink()
+    elif xp.script.exists():
+        log.warning(f"There was already an experience at {script}, continuing it.")
+    else:
+        log.info(f"Starting new experience at {script}")
+
+    env = fairseq2.distributed.init(workdir, partition, num_gpus, slurm_args=slurm_args)
 
     entry_point = "train"
 
-    # TODO: allow script to be a yaml file
     module = XpScript.from_script(script, overrides=overrides)
     _setup_module(module, env, xp, entry_point)
 
     # Dataloader may start subprocess.
     # Do this before having loaded the model
-    # TODO: merge train_data and valid_data
     train_data = module.call_fn("train_data", caller=entry_point)
     eval_data = (
         module.call_fn("valid_data", caller=entry_point) if eval_freq > 0 else []
@@ -235,7 +235,8 @@ def grid(
             # Copy the script inside its future workdir.
             # The job can take some time to get scheduled, having a copy of the script
             # ensures that we aren't modifying before the job actually starts.
-            xp_sha = sha_key(xp_overrides)
+            # TODO: this will read "script" several time, but should be cached instead.
+            xp_sha = Xp(script, Path("TBD.yaml"), xp_overrides).sha_key
             xp_workdir = workdir / xp_sha
             xp_workdir.mkdir(exist_ok=True)
             xp_script = xp_workdir / script.name
@@ -255,37 +256,46 @@ def grid(
         print(job)
         if job.exception() is not None:
             print(job.exception())
+        else:
+            print(job.result())
 
 
 def evaluate(
-    snapshot_dir: Path,
+    script: Path,
+    snapshot: str = "",
     partition: str = "debug",
     num_gpus: int = 1,
-    script: Optional[Path] = None,
     overrides: List[str] = [],
 ) -> Dict[str, Any]:
     """
     Loads a model from a snapshot dir and runs the corresponding evaluation.
 
-    - snapshot_dir: the folder containing the model weights and hubconf.py
+    - script: the python script
     - script: overrides the "hubconf.py" found in the model snapshot. This can have unexpected results.
     """
     import torchsnapshot
 
-    if not snapshot_dir.exists():
-        raise FileNotFoundError(f"Snapshot {snapshot_dir} not found.")
-    script = script or snapshot_dir / "hubconf.py"
     if not script.exists():
         raise FileNotFoundError(f"{script} not found !")
+    if not snapshot:
+        snapshot_dir = script.parent
+    elif Path(snapshot).exists():
+        snapshot_dir = Path(snapshot)
+    elif (script.parent / snapshot).exists():
+        snapshot_dir = script.parent / snapshot
+    else:
+        raise FileNotFoundError(f"Snapshot {snapshot} not found.")
+
+    script = script or snapshot_dir / "hubconf.py"
     train_config = snapshot_dir / "hubconf.yaml"
     assert train_config.exists(), f"{train_config} not found !"
 
     slurm_args, overrides = _extract_slurm_args(overrides)
-    xp_sha = "_" + sha_key(overrides) if overrides else ""
+    eval_sha = "_" + _overrides_sha(overrides) if overrides else ""
     # Create a different yaml file to store the eval config
     # This will mostly be the same than train config,
     # but it won't have trainer specific info, and might have some overrides
-    xp = Xp(script, snapshot_dir / f"evaluate{xp_sha}.yaml", overrides)
+    xp = Xp(script, snapshot_dir / f"evaluate{eval_sha}.yaml", overrides)
 
     env = fairseq2.distributed.init(
         snapshot_dir, partition, num_gpus, slurm_args=slurm_args
@@ -306,33 +316,22 @@ def evaluate(
     eval_state = tnt.init_eval_state(dataloader=eval_data)
     log.info(f"Evaluating on {eval_data} ...")
 
-    snapshot = torchsnapshot.Snapshot(path=str(snapshot_dir))
+    task_snapshot = torchsnapshot.Snapshot(path=str(snapshot_dir))
     # Also restore state.train_state.progress, so we can log eval results at the proper step
     eval_state._train_state = tnt.PhaseState(dataloader=[])
     state_dict = task.state_dict_for_inference()
     state_dict["train_progress"] = eval_state._train_state.progress
-    snapshot.restore(state_dict)
-
-    try:
-        # logger isn't stricly required, and CLI errors already have been caught at this point.
-        logger: Any = module.call_fn("logger", caller="evaluate")
-    except Exception:
-        logger = None
-
-    # TODO: this is very Wandb specific, it should be done somewhere else.
-    if isinstance(logger, fairseq2.callbacks.WandbLogger):
-        wandb_group = module["job.wandb_group"]
-        logger.prepare()
-        try:
-            logger._wandb_run.use_artifact(f"{wandb_group}:latest")
-        except Exception:
-            # The artifact may not be "ready" yet (not sure what that mean)
-            pass
+    task_snapshot.restore(state_dict)
 
     tnt.evaluate(eval_state, task, callbacks=callbacks)
-    # The eval_state metrics have been reset at this point, so we need to fetch
-    # the last logged value from the logger.
-    return getattr(logger, "_last_metrics", {})
+
+    # Return the last logged metrics. "logger" isn't strictly required,
+    # for training/eval so we don't force it to be exist or to have a _last_metrics
+    try:
+        logger: Any = module.call_fn("logger", caller="evaluate")
+        return logger._last_metrics  # type: ignore
+    except Exception:
+        return {}
 
 
 def eval_server(
@@ -356,12 +355,12 @@ def eval_server(
         raise FileNotFoundError(f"--script {script} doesn't exist !")
 
     slurm_args, overrides = _extract_slurm_args(overrides)
-    xp_sha = "_" + sha_key(overrides) if overrides else ""
+    eval_sha = "_" + _overrides_sha(overrides) if overrides else ""
 
     def _logfile(snapshot: Path) -> Path:
         # Write logs above the snapshot folder, allowing to delete the snapshot
         # without losing the evaluation results
-        return snapshot.parent / f"{snapshot.name}.eval{xp_sha}.log"
+        return snapshot.parent / f"{snapshot.name}.eval{eval_sha}.log"
 
     def _find_new_snapshots(snapshot_root: Path, treated: Set[Path]) -> Set[Path]:
         warned = False
@@ -438,6 +437,10 @@ def eval_server(
             print(
                 f"{status} {snapshot} (pending: {pending}, evaluated: {len(treated)}, failed: {len(failed)}, timed_out: {len(timed_out)})"
             )
+
+
+def _overrides_sha(overrides: Sequence[str]) -> str:
+    return hashlib.sha256(";".join(overrides).encode("utf-8")).hexdigest()[:8]
 
 
 beam_search_kwargs = {

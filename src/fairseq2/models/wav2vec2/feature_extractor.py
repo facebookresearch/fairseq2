@@ -132,6 +132,11 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
             batch size and :math:`(S)` is the sequence length.
         """
         # (N, S) -> (N, C, S)
+        if seq_lens is not None:
+            assert seq_lens.max() <= seqs.size(1), (
+                "Input seq_lens doesn't match with shape of input seqs:"
+                f"{seqs.shape=}, {seq_lens.max().item()=}"
+            )
         seqs = seqs.unsqueeze(1)
 
         # (N, C, S) -> (N, E, S)

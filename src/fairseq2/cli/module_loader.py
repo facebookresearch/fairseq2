@@ -3,6 +3,7 @@ from __future__ import annotations
 import collections
 import dataclasses
 import functools
+import hashlib
 import importlib
 import inspect
 import io
@@ -56,10 +57,20 @@ def fairseq2_hub(snapshot_dir: str, device: Optional[torch.device] = None) -> An
     return task
 
 
-class Xp(NamedTuple):
+@dataclasses.dataclass(frozen=True)
+class Xp:
     script: Path
     config_file: Path
     overrides: Sequence[str]
+    sha_key: str = dataclasses.field(init=False)
+
+    def __post_init__(self) -> None:
+        if hasattr(self, "sha_key"):
+            return
+        code = self.script.read_text()
+        code += ";".join(self.overrides)
+        sha = hashlib.sha256(code.encode("utf-8")).hexdigest()[:8]
+        object.__setattr__(self, "sha_key", sha)
 
 
 class FnSpec(NamedTuple):
@@ -73,12 +84,13 @@ class XpScript:
     def from_script(
         script: Path,
         overrides: list[str] = [],
-        name: str = "",
         yaml_config: Optional[Path] = None,
     ) -> "XpScript":
         import fairseq2.cli.defaults
 
-        module = _load_module(script, name)
+        # It's important to be consistent here, we always load the module under
+        # the name of fairseq2.user.hubconf.
+        module = _load_module(script, name="fairseq2.user.hubconf")
         _extends_module(module, fairseq2.cli.defaults)
         m = XpScript(module, {})
         if yaml_config:

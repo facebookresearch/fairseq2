@@ -1,7 +1,7 @@
 import functools
 import logging
 import random
-from typing import Iterable, Optional, Sequence
+from typing import Iterable, NamedTuple, Optional, Sequence
 
 import torch
 import torchtnt.utils
@@ -17,6 +17,11 @@ from fairseq2.models.nllb import NllbConfig, create_nllb_model
 
 log = logging.getLogger(__name__)
 random.seed(0)
+
+
+class CustomClass(NamedTuple):
+    foo: str = "foo"
+    bar: str = "bar"
 
 
 class NumberTokenizer(Tokenizer):
@@ -46,8 +51,12 @@ class NumberTokenizer(Tokenizer):
         return lambda tokens: [" ".join(str(x.item()) for x in row) for row in tokens]  # type: ignore
 
 
-def tokenizer() -> Tokenizer:
+def tokenizer(custom: CustomClass) -> Tokenizer:
     return NumberTokenizer(VocabularyInfo(100, 0, 0, 0, 0))
+
+
+def custom() -> CustomClass:
+    return CustomClass("foo", "baz")
 
 
 def generate_samples(
