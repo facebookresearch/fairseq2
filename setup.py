@@ -185,7 +185,7 @@ setup(
     ],
     entry_points={
         "console_scripts": [
-            "fairseq2 = fairseq2.cli.__main__:main",
+            "fairseq2 = fairseq2.cli.commands:main",
         ],
     },
 )
