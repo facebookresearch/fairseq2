@@ -15,7 +15,7 @@ from fairseq2.assets import (
     asset_store,
     download_manager,
 )
-from fairseq2.models.s2t_transformer.build import (
+from fairseq2.models.s2t_transformer.builder import (
     S2TTransformerConfig,
     create_s2t_transformer_model,
     s2t_transformer_archs,

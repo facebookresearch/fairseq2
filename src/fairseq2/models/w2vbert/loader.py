@@ -12,7 +12,7 @@ from overrides import override as finaloverride
 from fairseq2.assets import asset_store, download_manager
 from fairseq2.models.utils.checkpoint import upgrade_fairseq_checkpoint
 from fairseq2.models.utils.model_loader import ModelLoader
-from fairseq2.models.w2vbert.build import (
+from fairseq2.models.w2vbert.builder import (
     W2VBertConfig,
     create_w2vbert_model,
     w2vbert_archs,

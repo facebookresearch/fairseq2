@@ -12,7 +12,7 @@ from overrides import override as finaloverride
 from fairseq2.assets import asset_store, download_manager
 from fairseq2.models.utils.checkpoint import upgrade_fairseq_checkpoint
 from fairseq2.models.utils.model_loader import ModelLoader
-from fairseq2.models.wav2vec2.build import (
+from fairseq2.models.wav2vec2.builder import (
     Wav2Vec2Config,
     create_wav2vec2_model,
     wav2vec2_archs,

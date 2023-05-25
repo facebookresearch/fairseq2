@@ -12,7 +12,7 @@ import torch
 from fairseq2.models.utils.arch import ArchitectureRegistry
 from fairseq2.models.w2vbert.model import W2VBertModel
 from fairseq2.models.wav2vec2 import Wav2Vec2Config, Wav2Vec2EncoderConfig
-from fairseq2.models.wav2vec2.build import Wav2Vec2Builder, Wav2Vec2EncoderBuilder
+from fairseq2.models.wav2vec2.builder import Wav2Vec2Builder, Wav2Vec2EncoderBuilder
 from fairseq2.nn.transformer import TransformerNormOrder
 
 
