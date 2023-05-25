@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import math
-from typing import Optional, final
+from typing import Optional, Tuple, final
 
 import torch
 from overrides import final as finaloverride
@@ -13,7 +13,7 @@ from torch import Tensor
 from torch.nn import Dropout
 
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
-from fairseq2.models.transformer import TransformerFrontend, TransformerFrontendOutput
+from fairseq2.models.transformer import TransformerFrontend
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.position_encoder import PositionEncoder
 from fairseq2.nn.projection import Linear, Projection
@@ -98,26 +98,28 @@ class S2TTransformerFrontend(TransformerFrontend):
         seqs: Tensor,
         seq_lens: Optional[Tensor],
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> TransformerFrontendOutput:
+    ) -> Tuple[Tensor, Optional[Tensor]]:
         if state_bag is not None:
             raise ValueError(
                 "`S2TTransformerFrontend` does not support incremental evaluation."
             )
 
         if self.feature_extractor is not None:
-            seqs, seq_lens = self.feature_extractor(seqs, seq_lens)
+            features, seq_lens = self.feature_extractor(seqs, seq_lens)
+        else:
+            features = seqs
 
-        padding_mask = to_padding_mask(seqs, seq_lens)
+        padding_mask = to_padding_mask(features, seq_lens)
 
-        seqs = seqs * self.scale
+        features = features * self.scale
 
         if self.pos_encoder is not None:
-            seqs = self.pos_encoder(seqs, padding_mask)
+            features = self.pos_encoder(features, padding_mask)
 
         if self.proj is not None:
-            seqs = self.proj(seqs)
+            features = self.proj(features)
 
         if self.dropout is not None:
-            seqs = self.dropout(seqs)
+            features = self.dropout(features)
 
-        return TransformerFrontendOutput(seqs, padding_mask)
+        return features, padding_mask

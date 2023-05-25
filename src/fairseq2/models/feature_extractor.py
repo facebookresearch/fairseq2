@@ -41,10 +41,10 @@ class SequenceFeatureExtractor(Module, ABC):
             the batch size.
 
         :returns:
-            - The extracted sequence features. *Shape:* :math:`(N,S_{out},F)`,
-              where :math:`N` is the batch size, :math:`S_{out}` is the output
+            - The extracted features. *Shape:* :math:`(N,S_{out},F)`, where
+              :math:`N` is the batch size, :math:`S_{out}` is the output
               sequence length, and :math:`F` is the dimensionality of the
-              extracted features.
+              features.
             - An array where each element represents the length of the sequence
               at the same index in the extracted features. *Shape:* :math:`(N)`,
               where :math:`N` is the batch size.

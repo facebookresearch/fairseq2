@@ -59,10 +59,10 @@ class EncoderDecoderModel(Seq2SeqModel):
             the batch size.
 
         :returns:
-            - The encoded source sequences. *Shape:* :math:`(N,S_{out},M)`,
-              where :math:`N` is the batch size, :math:`S_{out}` is the output
+            - The encoder output. *Shape:* :math:`(N,S_{out},M)`, where
+              :math:`N` is the batch size, :math:`S_{out}` is the output
               sequence length, and :math:`M` is the dimensionality of the model.
-            - The float padding mask of the encoded source sequences. *Shape:*
+            - The float padding mask of the encoder output. *Shape:*
               :math:`(N,S_{out})`, where :math:`N` is the batch size and
               :math:`S_{out}` is the output sequence length.
         """
@@ -72,7 +72,7 @@ class EncoderDecoderModel(Seq2SeqModel):
         self,
         seqs: Tensor,
         seq_lens: Optional[Tensor],
-        encoder_out: Tensor,
+        encoder_output: Tensor,
         encoder_padding_mask: Optional[Tensor],
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Seq2SeqModelOutput:
@@ -88,8 +88,8 @@ class EncoderDecoderModel(Seq2SeqModel):
             An array where each element represents the length of the sequence at
             the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
             the batch size.
-        :param encoder_out:
-            The encoded source sequences for encoder-decoder attention. *Shape:*
+        :param encoder_output:
+            The encoder output to use in encoder-decoder attention. *Shape:*
             :math:`(N,S_{enc},M)`, where :math:`N` is the batch size,
             :math:`S_{enc}` is the encoder output sequence length, and :math:`M`
             is the dimensionality of the model.

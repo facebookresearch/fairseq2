@@ -247,7 +247,7 @@ class S2TTransformerBuilder:
 
         final_proj = FinalProjection(
             model_dim=self.cfg.model_dim,
-            target_vocab_size=self.target_vocab_info.size,
+            target_vocabulary_size=self.target_vocab_info.size,
             device=self.device,
             dtype=self.dtype,
         )

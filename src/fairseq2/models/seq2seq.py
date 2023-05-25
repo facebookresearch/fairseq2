@@ -62,7 +62,10 @@ class Seq2SeqModelOutput:
         """Compute the cross-entropy loss.
 
         :param targets:
-            The target indices in the target domain.
+            The target indices or probabilities. *Shape:* If indices,
+            :math:`(N,S_{tgt})`, where :math:`N` is the batch size and
+            :math:`S_{tgt}` is the target sequence length. If probabilities,
+            same as :attr:`logits`.
         """
         logits = self.logits.transpose(1, 2)
 

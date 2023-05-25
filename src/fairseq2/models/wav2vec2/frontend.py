@@ -4,33 +4,32 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Tuple, final
 
 import torch
+from overrides import final as finaloverride
 from torch import Tensor
 from torch.nn import Dropout, LayerNorm
 
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
-from fairseq2.models.transformer import TransformerFrontend, TransformerFrontendOutput
-from fairseq2.models.wav2vec2.masker import Wav2Vec2Masker, apply_temporal_mask
+from fairseq2.models.transformer import TransformerFrontend
+from fairseq2.models.wav2vec2.masker import Wav2Vec2Masker
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.position_encoder import PositionEncoder
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.utils.mask import to_padding_mask
 
 
+@final
 class Wav2Vec2Frontend(TransformerFrontend):
     """Represents a Transformer encoder front-end as described in
     :cite:t:`baevski2020wav2vec`."""
 
-    pretraining: bool
     feature_dim: int
     feature_extractor: Optional[SequenceFeatureExtractor]
     post_extract_layer_norm: LayerNorm
-    post_extract_proj: Optional[Linear]
-    post_extract_dropout_p: Optional[Dropout]
-    masker: Optional[Wav2Vec2Masker]
+    model_dim_proj: Optional[Linear]
+    first_pass_dropout: Optional[Dropout]
     pos_encoder: Optional[PositionEncoder]
     layer_norm: Optional[LayerNorm]
     dropout: Optional[Dropout]
@@ -41,9 +40,7 @@ class Wav2Vec2Frontend(TransformerFrontend):
         feature_dim: int,
         feature_extractor: Optional[SequenceFeatureExtractor],
         pos_encoder: Optional[PositionEncoder],
-        pretrain: bool = False,
-        post_extract_dropout_p: float = 0.0,
-        masker: Optional[Wav2Vec2Masker] = None,
+        first_pass_dropout_p: float = 0.0,
         layer_norm: bool = False,
         dropout_p: float = 0.1,
         norm_eps: float = 1e-5,
@@ -60,14 +57,9 @@ class Wav2Vec2Frontend(TransformerFrontend):
             extracted externally before being fed to the model.
         :param pos_encoder:
             The position encoder.
-        :param pretrain:
-            If ``True``, applies masking and returns non-quantized context
-            network targets.
-        :param post_extract_dropout_p:
+        :param first_pass_dropout_p:
             The dropout probability on extracted features before masking and
             positional encoding.
-        :param masker:
-            The temporal/spatial feature masker.
         :param layer_norm:
             If ``True``, applies Layer Normalization to extracted features
             before dropout.
@@ -78,8 +70,6 @@ class Wav2Vec2Frontend(TransformerFrontend):
             :class:`~torch.nn.LayerNorm` module for numerical stability.
         """
         super().__init__(model_dim)
-
-        self.pretraining = pretrain
 
         self.feature_dim = feature_dim
 
@@ -98,26 +88,16 @@ class Wav2Vec2Frontend(TransformerFrontend):
         )
 
         if feature_dim != model_dim:
-            self.post_extract_proj = Linear(
+            self.model_dim_proj = Linear(
                 feature_dim, model_dim, bias=True, device=device, dtype=dtype
             )
         else:
-            self.register_module("post_extract_proj", None)
+            self.register_module("model_dim_proj", None)
 
-        if post_extract_dropout_p > 0.0:
-            self.post_extract_dropout = Dropout(post_extract_dropout_p)
+        if first_pass_dropout_p > 0.0:
+            self.first_pass_dropout = Dropout(first_pass_dropout_p)
         else:
-            self.register_module("post_extract_dropout", None)
-
-        if pretrain:
-            if not masker:
-                raise ValueError(
-                    "`masker` must be specified when `pretrain` is `True`."
-                )
-
-            self.masker = masker
-        else:
-            self.register_module("masker", None)
+            self.register_module("first_pass_dropout", None)
 
         if pos_encoder is not None:
             if pos_encoder.encoding_dim != model_dim:
@@ -139,55 +119,99 @@ class Wav2Vec2Frontend(TransformerFrontend):
         else:
             self.register_module("dropout", None)
 
+    @finaloverride
     def forward(
         self,
         seqs: Tensor,
         seq_lens: Optional[Tensor],
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> "Wav2Vec2FrontendOutput":
-        """
-        :param seqs:
-            The source sequences to process. *Shape:* :math:`(N,S,*)`, where
-            :math:`N` is the batch size, :math:`S` is the source sequence
-            length, and :math:`*` is any number of sequence-specific dimensions
-            including none.
-        :param seq_lens:
-            An array where each element represents the length of the sequence at
-            the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
-            the batch size.
-        """
+    ) -> Tuple[Tensor, Optional[Tensor]]:
         if state_bag is not None:
             raise ValueError(
                 "`Wav2Vec2Frontend` does not support incremental evaluation."
             )
 
+        seqs, seq_lens = self.extract_features(seqs, seq_lens)
+
+        seqs, padding_mask, _ = self.process_features(seqs, seq_lens)
+
+        return seqs, padding_mask
+
+    def extract_features(
+        self, seqs: Tensor, seq_lens: Optional[Tensor]
+    ) -> Tuple[Tensor, Optional[Tensor]]:
+        """Extract features from the specified sequences.
+
+        :param seqs:
+            The sequences from which to extract features. *Shape:*
+            :math:`(N,S,*)`, where :math:`N` is the batch size, :math:`S` is the
+            sequence length, and :math:`*` is any number of sequence-specific
+            dimensions including none.
+        :param seq_lens:
+            An array where each element represents the length of the sequence at
+            the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
+            the batch size.
+
+        :returns:
+            - The extracted features. *Shape:* :math:`(N,S_{out},F)`, where
+              :math:`N` is the batch size, :math:`S_{out}` is the output
+              sequence length, and :math:`F` is the dimensionality of the
+              extracted features.
+            - An array where each element represents the length of the sequence
+              at the same index in the extracted features. *Shape:* :math:`(N)`,
+              where :math:`N` is the batch size.
+        """
         if self.feature_extractor is not None:
             seqs, seq_lens = self.feature_extractor(seqs, seq_lens)
 
-        padding_mask = to_padding_mask(seqs, seq_lens)
-
         seqs = self.post_extract_layer_norm(seqs)
 
-        if self.pretraining:
-            targets = seqs.clone().detach()
+        return seqs, seq_lens
 
-            if self.post_extract_dropout is not None:
-                targets = self.post_extract_dropout(targets)
-        else:
-            targets = None
+    def process_features(
+        self,
+        seqs: Tensor,
+        seq_lens: Optional[Tensor],
+        masker: Optional[Wav2Vec2Masker] = None,
+    ) -> Tuple[Tensor, Optional[Tensor], Optional[Tensor]]:
+        """Process extracted features.
 
-        if self.post_extract_proj is not None:
-            seqs = self.post_extract_proj(seqs)
+        :param seqs:
+            The features to process. *Shape:* :math:`(N,S,F)`, where :math:`N`
+            is the batch size, :math:`S` is the sequence length, and :math:`F`
+            is the dimensionality of the features.
+        :param seq_lens:
+            An array where each element represents the length of the sequence at
+            the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
+            the batch size.
+        :param masker:
+            If not ``None``, the features will be masked and the applied
+            temporal mask will be returned as the third tuple element.
 
-        if self.post_extract_dropout is not None:
-            seqs = self.post_extract_dropout(seqs)
+        :returns:
+            - The processed sequences to pass to a Transformer encoder. *Shape:*
+              :math:`(N,S,M)`, where :math:`N` is the batch size, :math:`S` is
+              the sequence length, and :math:`M` is the dimensionality of the
+              model.
+            - The float padding mask of the processed sequences. *Shape:*
+              :math:`(N,S)`, where :math:`N` is the batch size and :math:`S` is
+              the output sequence length.
+            - The boolean temporal mask that has been applied to the processed
+              sequences. *Shape:* :math:`(N,S)`, where :math:`N` is the batch
+              size and :math`S` is the sequence length.
+        """
+        if self.model_dim_proj is not None:
+            seqs = self.model_dim_proj(seqs)
 
-        if self.pretraining:
-            seqs, temporal_mask = self.masker(seqs, seq_lens)  # type: ignore[misc]
+        if self.first_pass_dropout is not None:
+            seqs = self.first_pass_dropout(seqs)
 
-            targets = apply_temporal_mask(targets, temporal_mask)
+        if masker is not None:
+            seqs, temporal_mask = masker(seqs, seq_lens)
         else:
             temporal_mask = None
+
+        padding_mask = to_padding_mask(seqs, seq_lens)
 
         if self.pos_encoder is not None:
             seqs = self.pos_encoder(seqs, padding_mask)
@@ -198,33 +222,10 @@ class Wav2Vec2Frontend(TransformerFrontend):
         if self.dropout is not None:
             seqs = self.dropout(seqs)
 
-        return Wav2Vec2FrontendOutput(seqs, padding_mask, targets, temporal_mask)
-
-    def pretrained(self) -> None:
-        """Mark the frontend as pretrained."""
-        self.pretraining = False
-
-        self.register_module("masker", None)
+        return seqs, padding_mask, temporal_mask
 
     def extra_repr(self) -> str:
         """:meta private:"""
         s = super().extra_repr()
 
-        if self.pretraining:
-            s += ", pretraining=True"
-
         return s + f", feature_dim={self.feature_dim}"
-
-
-@dataclass
-class Wav2Vec2FrontendOutput(TransformerFrontendOutput):
-    targets: Optional[Tensor]
-    """The non-quantized context network targets extracted from the source
-    sequences. *Shape:* :math:`(N,S_{msk},M)`, where :math:`N` is the batch
-    size, :math:`S_{msk}` is the masked sequence length, and :math:`M` is the
-    dimensionality of the model."""
-
-    temporal_mask: Optional[Tensor]
-    """The boolean temporal mask used to extract the context network targets.
-    *Shape:* :math:`(N,S_{out})`, where :math:`N` is the batch size and
-    :math`S_{out}` is the output sequence length."""

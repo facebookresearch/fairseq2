@@ -279,11 +279,14 @@ class Wav2Vec2Builder:
 
         encoder = self.build_encoder()
 
+        masker = self.build_masker()
+
         quantizer = self.build_quantizer()
 
         return Wav2Vec2Model(
             encoder_frontend,
             encoder,
+            masker,
             quantizer,
             self.cfg.final_dim,
             self.cfg.final_proj_bias,
@@ -298,8 +301,6 @@ class Wav2Vec2Builder:
         """Build a wav2vec 2.0 Transformer encoder front-end."""
         feature_extractor = self.build_feature_extractor()
 
-        masker = self.build_masker()
-
         pos_encoder = self.build_position_encoder()
 
         return Wav2Vec2Frontend(
@@ -307,9 +308,7 @@ class Wav2Vec2Builder:
             self.cfg.feature_dim,
             feature_extractor,
             pos_encoder,
-            pretrain=True,
-            post_extract_dropout_p=self.cfg.post_extract_dropout_p,
-            masker=masker,
+            first_pass_dropout_p=self.cfg.post_extract_dropout_p,
             layer_norm=self.cfg.layer_norm_features,
             dropout_p=self.cfg.dropout_p,
             device=self.device,
@@ -482,10 +481,9 @@ class Wav2Vec2Builder:
         return GumbelVectorQuantizer(
             self.cfg.feature_dim,
             self.cfg.quantized_dim,
-            self.cfg.num_latent_vars,
             self.cfg.num_latent_groups,
+            self.cfg.num_latent_vars,
             self.cfg.latent_temperature,
-            combine_groups=False,
             device=self.device,
             dtype=self.dtype,
         )

@@ -13,7 +13,7 @@ from torch import Tensor
 from torch.nn import Module
 
 from fairseq2.models.wav2vec2.frontend import Wav2Vec2Frontend
-from fairseq2.models.wav2vec2.masker import apply_temporal_mask
+from fairseq2.models.wav2vec2.masker import Wav2Vec2Masker, apply_temporal_mask
 from fairseq2.models.wav2vec2.vector_quantizer import (
     VectorQuantizer,
     VectorQuantizerOutput,
@@ -29,6 +29,7 @@ class Wav2Vec2Model(Module):
     model_dim: int
     encoder_frontend: Wav2Vec2Frontend
     encoder: TransformerEncoder
+    masker: Wav2Vec2Masker
     quantizer: VectorQuantizer
     final_proj: Linear
     final_target_proj: Linear
@@ -40,6 +41,7 @@ class Wav2Vec2Model(Module):
         self,
         encoder_frontend: Wav2Vec2Frontend,
         encoder: TransformerEncoder,
+        masker: Wav2Vec2Masker,
         quantizer: VectorQuantizer,
         final_dim: int,
         final_proj_bias: bool = True,
@@ -54,6 +56,8 @@ class Wav2Vec2Model(Module):
             The encoder frontend.
         :param encoder:
             The encoder (i.e. context network).
+        :param masker:
+            The temporal/spatial feature masker.
         :param quantizer:
             The quantizer to discretize context network targets.
         :param final_dim:
@@ -82,6 +86,8 @@ class Wav2Vec2Model(Module):
         self.encoder_frontend = encoder_frontend
         self.encoder = encoder
 
+        self.masker = masker
+
         if quantizer.input_dim != encoder_frontend.feature_dim:
             raise ValueError(
                 f"`input_dim` of `quantizer` and `feature_dim` of `encoder_frontend` must be equal, but are {quantizer.input_dim} and {encoder_frontend.feature_dim} instead."
@@ -94,7 +100,7 @@ class Wav2Vec2Model(Module):
         )
 
         self.final_target_proj = Linear(
-            self.quantizer.quantized_dim,
+            self.quantizer.output_dim,
             final_dim,
             bias=True,
             device=device,
@@ -108,82 +114,100 @@ class Wav2Vec2Model(Module):
     def forward(self, seqs: Tensor, seq_lens: Optional[Tensor]) -> "Wav2Vec2Output":
         """
         :param seqs:
-            The source sequences to encode. *Shape:* :math:`(N,S,*)`, where
-            :math:`N` is the batch size, :math:`S` is the source sequence
-            length, and :math:`*` is any number of sequence-specific dimensions
-            including none.
+            The sequences to encode. *Shape:* :math:`(N,S,*)`, where :math:`N`
+            is the batch size, :math:`S` is the sequence length, and :math:`*`
+            is any number of sequence-specific dimensions including none.
         :param seq_lens:
             An array where each element represents the length of the sequence at
             the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
             the batch size.
         """
-        encoder_out, targets, temporal_mask = self.encode(seqs, seq_lens)
+        seqs, padding_mask, targets, temporal_mask = self.run_frontend(seqs, seq_lens)
 
-        return self.quantize_and_contrast(encoder_out, targets, temporal_mask)
+        # TODO: Should pad for fp16?
+        seqs, _ = self.encoder(seqs, padding_mask)
 
-    def encode(
+        return self.quantize_and_contrast(seqs, targets, temporal_mask)
+
+    def run_frontend(
         self, seqs: Tensor, seq_lens: Optional[Tensor]
-    ) -> Tuple[Tensor, Tensor, Tensor]:
-        """Encode the specified source sequences.
+    ) -> Tuple[Tensor, Optional[Tensor], Tensor, Tensor]:
+        """Run the encoder frontend in pretraining mode.
 
         :param seqs:
-            The source sequences to encode. *Shape:* :math:`(N,S,*)`, where
-            :math:`N` is the batch size, :math:`S` is the source sequence
-            length, and :math:`*` is any number of sequence-specific dimensions
-            including none.
+            The sequences to process. *Shape:* :math:`(N,S,*)`, where :math:`N`
+            is the batch size, :math:`S` is the sequence length, and :math:`*`
+            is any number of sequence-specific dimensions including none.
         :param seq_lens:
             An array where each element represents the length of the sequence at
             the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
             the batch size.
 
         :returns:
-            - The encoded source sequences. *Shape:* :math:`(N,S_{out},M)`,
-              where :math:`N` is the batch size, :math:`S_{out}` is the output
+            - The processed sequences to pass to the Transformer encoder.
+              *Shape:* :math:`(N,S_{out},M)`, where :math:`N` is the batch size,
+              :math:`S_{out}` is the output sequence length, and :math:`M` is
+              the dimensionality of the model.
+            - The float padding mask of the processed sequences. *Shape:*
+              :math:`(N,S_{out})`, where :math:`N` is the batch size and
+              :math:`S_{out}` is the output sequence length.
+            - The non-quantized context network targets that have been extracted
+              from the input sequences. *Shape:* :math:`(N,S_{msk},M)`, where
+              :math:`N` is the batch size, :math:`S_{msk}` is the masked
               sequence length, and :math:`M` is the dimensionality of the model.
-            - The non-quantized context network targets extracted from the
-              source sequences. *Shape:* :math:`(N,S_{msk},M)`, where :math:`N`
-              is the batch size, :math:`S_{msk}` is the masked sequence length,
-              and :math:`M` is the dimensionality of the model.
-            - The boolean temporal mask used to extract the context network
-              targets. *Shape:* :math:`(N,S_{out})`, where :math:`N` is the
-              batch size and :math`S_{out}` is the output sequence length.
+            - The boolean temporal mask that has been applied to extract the
+              context network targets. *Shape:* :math:`(N,S_{out})`, where
+              :math:`N` is the batch size and :math`S_{out}` is the output
+              sequence length.
         """
-        if not self.encoder_frontend.pretraining:
-            raise RuntimeError("`encoder_frontend` is not in pretraining mode.")
+        frontend = self.encoder_frontend
 
-        frontend_out = self.encoder_frontend(seqs, seq_lens)
+        seqs, seq_lens = frontend.extract_features(seqs, seq_lens)
 
-        # TODO: Should we pad for fp16?
-        seqs, _ = self.encoder(frontend_out.seqs, frontend_out.padding_mask)
+        # We use the extracted features as context network targets after masking
+        # and quantization.
+        targets = seqs.clone().detach()
 
-        return seqs, frontend_out.targets, frontend_out.temporal_mask
+        if frontend.first_pass_dropout is not None:
+            targets = frontend.first_pass_dropout(targets)
+
+        seqs, padding_mask, temporal_mask = frontend.process_features(
+            seqs, seq_lens, self.masker
+        )
+
+        assert temporal_mask is not None
+
+        targets = apply_temporal_mask(targets, temporal_mask)
+
+        return seqs, padding_mask, targets, temporal_mask
 
     def quantize_and_contrast(
-        self, encoder_out: Tensor, targets: Tensor, temporal_mask: Tensor
+        self, encoder_output: Tensor, targets: Tensor, temporal_mask: Tensor
     ) -> "Wav2Vec2Output":
         """Quantize targets and produce logits for contrastive prediction.
 
-        :param encoder_out:
-            The encoded source sequences. *Shape:* :math:`(N,S_{enc},M)`, where
-            :math:`N` is the batch size, :math:`S_{enc}` is the encoder output
-            sequence length, and :math:`M` is the dimensionality of the model.
+        :param encoder_output:
+            The encoder output. *Shape:* :math:`(N,S_{enc},M)`, where :math:`N`
+            is the batch size, :math:`S_{enc}` is the encoder output sequence
+            length, and :math:`M` is the dimensionality of the model.
         :param targets:
-            The non-quantized context network targets extracted from the source
-            sequences. *Shape:* :math:`(N,S_{msk},M)`, where :math:`N` is the
-            batch size, :math:`S_{msk}` is the masked sequence length, and
-            :math:`M` is the dimensionality of the model.
+            The non-quantized context network targets that have been extracted
+            from the input sequences. *Shape:* :math:`(N,S_{msk},M)`, where
+            :math:`N` is the batch size, :math:`S_{msk}` is the masked sequence
+            length, and :math:`M` is the dimensionality of the model.
         :param temporal_mask:
-            The boolean temporal mask used to extract the context network
-            targets. *Shape:* :math:`(N,S_{enc})`, where :math:`N` is the batch
-            size and :math`S_{enc}` is the encoder output sequence length.
+            The boolean temporal mask that has been used to extract the context
+            network targets. *Shape:* :math:`(N,S_{enc})`, where :math:`N` is
+            the batch size and :math`S_{enc}` is the encoder output sequence
+            length.
         """
-        seqs = apply_temporal_mask(encoder_out, temporal_mask)
+        seqs = apply_temporal_mask(encoder_output, temporal_mask)
 
         seqs = self.final_proj(seqs)
 
-        quantizer_out = self.quantizer(targets)
+        quantizer_output = self.quantizer(targets)
 
-        targets = self.final_target_proj(quantizer_out.quantized)
+        targets = self.final_target_proj(quantizer_output.quantized_vectors)
 
         distractors = self._sample_distractors(targets)
 
@@ -193,7 +217,7 @@ class Wav2Vec2Model(Module):
             logits,
             targets,
             temporal_mask,
-            quantizer_out,
+            quantizer_output,
             self.diversity_loss_weight,
         )
 
@@ -283,15 +307,15 @@ class Wav2Vec2Output:
     distractors plus 1 for the target)."""
 
     quantized_targets: Tensor
-    """The quantized context network targets extracted from the source
-    sequences. *Shape:* :math:`(N,S_{msk},M)`, where :math:`N` is the batch
-    size, :math:`S_{msk}` is the masked sequence length, and :math:`M` is the
-    dimensionality of the model."""
+    """The quantized context network targets that have been extracted from the
+    input sequences. *Shape:* :math:`(N,S_{msk},M)`, where :math:`N` is the
+    batch size, :math:`S_{msk}` is the masked sequence length, and :math:`M` is
+    the dimensionality of the model."""
 
     temporal_mask: Tensor
-    """The boolean temporal mask used to extract the context network targets.
-    *Shape:* :math:`(N,S_{enc})`, where :math:`N` is the batch size and
-    :math`S_{enc}` is the encoder output sequence length."""
+    """The boolean temporal mask that has been applied to extract the context
+    network targets. *Shape:* :math:`(N,S_{enc})`, where :math:`N` is the batch
+    size and :math`S_{enc}` is the encoder output sequence length."""
 
     quantizer_output: VectorQuantizerOutput
     """The output of the vector quantizer."""

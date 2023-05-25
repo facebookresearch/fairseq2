@@ -83,7 +83,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
                 group_norm_ = None
 
             # Otherwise, apply Group Normalization in the first layer, and do
-            # not apply any normalization in the other layers.
+            # not apply any normalization in other layers.
             elif i == 0:
                 group_norm_ = Float32GroupNorm(
                     output_dim, output_dim, norm_eps, device=device, dtype=dtype
@@ -124,8 +124,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
     def forward(
         self, seqs: Tensor, seq_lens: Optional[Tensor]
     ) -> Tuple[Tensor, Optional[Tensor]]:
-        """
-        See the base :meth:`SequenceFeatureExtractor.forward`.
+        """See the base :meth:`SequenceFeatureExtractor.forward`.
 
         :param seqs:
             The input waveforms. *Shape:* :math:`(N,S)`, where :math:`N` is the
@@ -140,20 +139,20 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
         seqs = seqs.unsqueeze(1)
 
         # (N, C, S) -> (N, E, S)
-        seqs = self.layers(seqs)
+        features = self.layers(seqs)
 
         if self.grad_scale != 1.0:
-            seqs = scale_grad(seqs, self.grad_scale)
+            features = scale_grad(features, self.grad_scale)
 
         # (N, E, S) -> (N, S, E)
-        seqs = seqs.transpose(1, 2)
+        features = features.transpose(1, 2)
 
         if seq_lens is not None:
             # Since we contracted the temporal dimension, we should re-compute
             # the sequence lengths.
             seq_lens = self._compute_seq_lens(seq_lens)
 
-        return seqs, seq_lens
+        return features, seq_lens
 
     def _compute_seq_lens(self, num_frames: Tensor) -> Tensor:
         seq_lens = num_frames.clone()
@@ -247,7 +246,8 @@ class Wav2Vec2FeatureExtractionLayer(Module):
 
 
 class Wav2Vec2FeatureConv1d(Conv1d):
-    """Represents the convolution used in :class:`Wav2Vec2FeatureExtractionLayer`."""
+    """Represents the convolution used in
+    :class:`Wav2Vec2FeatureExtractionLayer`."""
 
     @override
     def reset_parameters(self) -> None:
@@ -275,12 +275,11 @@ class Wav2Vec2FbankFeatureExtractor(SequenceFeatureExtractor):
     def forward(
         self, seqs: Tensor, seq_lens: Optional[Tensor]
     ) -> Tuple[Tensor, Optional[Tensor]]:
-        """
-        See the base :meth:`SequenceFeatureExtractor.forward`.
+        """See the base :meth:`SequenceFeatureExtractor.forward`.
 
         :param seqs:
-            The input log-mel filterbanks. *Shape:* :math:`(N,F,C)`, where
-            :math:`N` is the batch size, :math:`F` is the number of frames, and
+            The input log-mel filterbanks. *Shape:* :math:`(N,S,C)`, where
+            :math:`N` is the batch size, :math:`S` is the number of frames, and
             :math:`C` is the number of channels.
         """
         batch_size, num_frames, num_channels = seqs.shape

@@ -52,7 +52,7 @@ class TransformerModel(EncoderDecoderModel):
         :param final_proj:
             The projection to apply to decoder outputs to produce logits.
         :param target_pad_idx:
-            The index of the pad symbol in the target domain.
+            The index of the pad symbol in the target domain (e.g. vocabulary).
         """
         model_dim = encoder.model_dim
 
@@ -89,27 +89,27 @@ class TransformerModel(EncoderDecoderModel):
     def encode(
         self, seqs: Tensor, seq_lens: Optional[Tensor]
     ) -> Tuple[Tensor, Optional[Tensor]]:
-        frontend_out = self.encoder_frontend(seqs, seq_lens)
+        seqs, padding_mask = self.encoder_frontend(seqs, seq_lens)
 
-        seqs, _ = self.encoder(frontend_out.seqs, frontend_out.padding_mask)
+        seqs, _ = self.encoder(seqs, padding_mask)
 
-        return seqs, frontend_out.padding_mask
+        return seqs, padding_mask
 
     @finaloverride
     def decode_and_project(
         self,
         seqs: Tensor,
         seq_lens: Optional[Tensor],
-        encoder_out: Tensor,
+        encoder_output: Tensor,
         encoder_padding_mask: Optional[Tensor],
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Seq2SeqModelOutput:
-        frontend_out = self.decoder_frontend(seqs, seq_lens, state_bag)
+        seqs, padding_mask = self.decoder_frontend(seqs, seq_lens, state_bag)
 
         seqs, _ = self.decoder(
-            frontend_out.seqs,
-            frontend_out.padding_mask,
-            encoder_out,
+            seqs,
+            padding_mask,
+            encoder_output,
             encoder_padding_mask,
             state_bag=state_bag,
         )
@@ -130,18 +130,18 @@ class FinalProjection(ResettableProjection):
     def __init__(
         self,
         model_dim: int,
-        target_vocab_size: int,
+        target_vocabulary_size: int,
         device: Optional[torch.device] = None,
         dtype: Optional[torch.dtype] = None,
     ) -> None:
         """
         :param model_dim:
             The dimensionality of the model.
-        :param target_vocab_size:
+        :param target_vocabulary_size:
             The size of the target domain (e.g. vocabulary).
         """
         super().__init__(
-            model_dim, target_vocab_size, bias=False, device=device, dtype=dtype
+            model_dim, target_vocabulary_size, bias=False, device=device, dtype=dtype
         )
 
     @finaloverride

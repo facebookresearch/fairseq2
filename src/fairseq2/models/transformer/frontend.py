@@ -6,8 +6,7 @@
 
 import math
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Optional, final
+from typing import Optional, Tuple, final
 
 import torch
 from overrides import final as finaloverride
@@ -40,7 +39,7 @@ class TransformerFrontend(Module, ABC):
         seqs: Tensor,
         seq_lens: Optional[Tensor],
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> "TransformerFrontendOutput":
+    ) -> Tuple[Tensor, Optional[Tensor]]:
         """
         :param seqs:
             The sequences to process. *Shape:* :math:`(N,S,*)`, where :math:`N`
@@ -52,25 +51,20 @@ class TransformerFrontend(Module, ABC):
             the batch size.
         :param state_bag:
             The state bag to use for incremental evaluation.
+
+        :returns:
+            - The processed sequences to pass to a Transformer encoder/decoder.
+              *Shape:* :math:`(N,S_{out},M)`, where :math:`N` is the batch size,
+              :math:`S_{out}` is the output sequence length, and :math:`M` is
+              the dimensionality of the model.
+            - The float padding mask of the processed sequences. *Shape:*
+              :math:`(N,S_{out})`, where :math:`N` is the batch size and
+              :math:`S_{out}` is the output sequence length.
         """
 
     def extra_repr(self) -> str:
         """:meta private:"""
         return f"model_dim={self.model_dim}"
-
-
-@dataclass
-class TransformerFrontendOutput:
-    seqs: Tensor
-    """The processed sequences to pass to a Transformer encoder/decoder.
-    *Shape:* :math:`(N,S_{out},M)`, where :math:`N` is the batch size,
-    :math:`S_{out}` is the output sequence length, and :math:`M` is the
-    dimensionality of the model."""
-
-    padding_mask: Optional[Tensor]
-    """The float padding mask of the processed sequences. *Shape:*
-    :math:`(N,S_{out})`, where :math:`N` is the batch size and :math:`S_{out}`
-    is the output sequence length."""
 
 
 @final
@@ -146,24 +140,24 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
         seqs: Tensor,
         seq_lens: Optional[Tensor],
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> TransformerFrontendOutput:
-        seqs = self.embed(seqs)
+    ) -> Tuple[Tensor, Optional[Tensor]]:
+        embeds = self.embed(seqs)
 
-        padding_mask = to_padding_mask(seqs, seq_lens)
+        padding_mask = to_padding_mask(embeds, seq_lens)
 
         if self.scale != 1.0:
-            seqs = seqs * self.scale
+            embeds = embeds * self.scale
 
         if self.pos_encoder is not None:
-            seqs = self.pos_encoder(seqs, padding_mask, state_bag)
+            embeds = self.pos_encoder(embeds, padding_mask, state_bag)
 
         if self.layer_norm is not None:
-            seqs = self.layer_norm(seqs)
+            embeds = self.layer_norm(embeds)
 
         if self.dropout is not None:
-            seqs = self.dropout(seqs)
+            embeds = self.dropout(embeds)
 
-        return TransformerFrontendOutput(seqs, padding_mask)
+        return embeds, padding_mask
 
     def extra_repr(self) -> str:
         """:meta private:"""

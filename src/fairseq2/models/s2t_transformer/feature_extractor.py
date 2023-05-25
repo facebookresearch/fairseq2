@@ -86,31 +86,30 @@ class Conv1dFbankSubsampler(SequenceFeatureExtractor):
     def forward(
         self, seqs: Tensor, seq_lens: Optional[Tensor]
     ) -> Tuple[Tensor, Optional[Tensor]]:
-        """
-        See the base :meth:`SequenceFeatureExtractor.forward`.
+        """See the base :meth:`SequenceFeatureExtractor.forward`.
 
         :param seqs:
-            The input log-mel filterbanks. *Shape:* :math:`(N,F,C)`, where
-            :math:`N` is the batch size, :math:`F` is the number of frames, and
+            The input log-mel filterbanks. *Shape:* :math:`(N,S,C)`, where
+            :math:`N` is the batch size, :math:`S` is the number of frames, and
             :math:`C` is the number of channels.
         """
         # Apply the convolution along the temporal dimension (i.e. along the
         # sequence).
-        # (N, F, C) -> (N, C, F)
+        # (N, S, C) -> (N, C, S)
         seqs = seqs.transpose(1, 2)
 
-        # (N, C, F) -> (N, E, S)
-        seqs = self.layers(seqs)
+        # (N, C, S) -> (N, F, S_out)
+        features = self.layers(seqs)
 
-        # (N, E, S) -> (N, S, E)
-        seqs = seqs.transpose(1, 2)
+        # (N, F, S_out) -> (N, S_out, F)
+        features = features.transpose(1, 2)
 
         if seq_lens is not None:
             # Since we contracted the temporal dimension, we should re-compute
             # the sequence lengths.
             seq_lens = self._compute_seq_lens(seq_lens)
 
-        return seqs, seq_lens
+        return features, seq_lens
 
     def _compute_seq_lens(self, num_frames: Tensor) -> Tensor:
         seq_lens = num_frames.clone()

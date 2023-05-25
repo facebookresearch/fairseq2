@@ -78,20 +78,20 @@ class Wav2Vec2PositionEncoder(PositionEncoder):
         seqs = apply_padding_mask(seqs, padding_mask)
 
         # (N, S, E) -> (N, E, S)
-        x = seqs.transpose(1, 2)
+        encodings = seqs.transpose(1, 2)
 
         # (N, E, S) -> (N, E, S)
-        x = self.conv(x)
+        encodings = self.conv(encodings)
 
         if self.remove_pad:
-            x = x[:, :, :-1]
+            encodings = encodings[:, :, :-1]
 
-        x = self.activation(x)
+        encodings = self.activation(encodings)
 
         # (N, E, S) -> (N, S, E)
-        x = x.transpose(1, 2)
+        encodings = encodings.transpose(1, 2)
 
-        return seqs + x
+        return seqs + encodings
 
 
 class Wav2Vec2PositionalConv1d(Conv1d):
@@ -124,7 +124,8 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
     of 1D convolutions.
 
     This position encoder is not mentioned in :cite:t:`baevski2020wav2vec`, but
-    exists in the reference implementation."""
+    exists in the reference implementation.
+    """
 
     layers: Sequential
 
@@ -183,15 +184,15 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
         seqs = apply_padding_mask(seqs, padding_mask)
 
         # (N, S, E) -> (N, E, S)
-        x = seqs.transpose(1, 2)
+        encodings = seqs.transpose(1, 2)
 
         # (N, E, S) -> (N, E, S)
-        x = self.layers(x)
+        encodings = self.layers(encodings)
 
         # (N, E, S) -> (N, S, E)
-        x = x.transpose(1, 2)
+        encodings = encodings.transpose(1, 2)
 
-        return seqs + x
+        return seqs + encodings
 
 
 class Wav2Vec2PositionEncoderLayer(Module):
@@ -228,18 +229,18 @@ class Wav2Vec2PositionEncoderLayer(Module):
 
         self.activation = GELU()
 
-    def forward(self, seqs: Tensor) -> Tensor:
+    def forward(self, encodings: Tensor) -> Tensor:
         # (N, E, S) -> (N, E, S)
-        seqs = self.conv(seqs)
+        encodings = self.conv(encodings)
 
         # (N, E, S) -> (N, S, E)
-        seqs = seqs.transpose(1, 2)
+        encodings = encodings.transpose(1, 2)
 
-        seqs = self.layer_norm(seqs)
+        encodings = self.layer_norm(encodings)
 
         # (N, S, E) -> (N, E, S)
-        seqs = seqs.transpose(1, 2)
+        encodings = encodings.transpose(1, 2)
 
-        seqs = self.activation(seqs)
+        encodings = self.activation(encodings)
 
-        return seqs
+        return encodings
