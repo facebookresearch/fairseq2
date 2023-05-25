@@ -62,10 +62,7 @@ def tokenizer(
 
 
 def module(
-    env: Env,
-    vocab_info: VocabularyInfo,
-    transformer: s2t.S2TTransformerConfig,
-    fsdp: bool = False,
+    env: Env, s2t_transformer_config: s2t.S2TTransformerConfig, fsdp: bool = False
 ) -> TransformerModel:
     """The translation model, see transformer for configuration.
 
@@ -74,7 +71,7 @@ def module(
     torchtnt.utils.seed(0)
     torch.cuda.manual_seed(0)
 
-    model = s2t.create_s2t_transformer_model(transformer, vocab_info, env.device)
+    model = s2t.create_s2t_transformer_model(s2t_transformer_config, env.device)
     if fsdp:
         from torch.distributed.fsdp.fully_sharded_data_parallel import (
             FullyShardedDataParallel as FSDP,
@@ -89,7 +86,15 @@ def module(
     return model
 
 
-transformer = s2t.get_s2t_transformer_config
+def s2t_transformer_config(
+    arch_name: str, vocab_info: VocabularyInfo
+) -> s2t.S2TTransformerConfig:
+    config = s2t.s2t_transformer_archs.get_config(arch_name)
+
+    config.target_vocabulary_size = vocab_info.size
+    config.target_pad_idx = vocab_info.pad_idx
+
+    return config
 
 
 def train_data(

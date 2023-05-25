@@ -4,9 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from pathlib import Path
-
-from fairseq2 import services
 from fairseq2.assets.card import AssetCard as AssetCard
 from fairseq2.assets.card import AssetCardError as AssetCardError
 from fairseq2.assets.card import (
@@ -29,13 +26,3 @@ from fairseq2.assets.error import AssetError as AssetError
 from fairseq2.assets.store import AssetStore as AssetStore
 from fairseq2.assets.store import DefaultAssetStore as DefaultAssetStore
 from fairseq2.assets.store import asset_store as asset_store
-
-
-def init_services() -> None:
-    pathname = Path(__file__).parent.joinpath("cards")
-
-    card_storage = LocalAssetCardStorage(pathname)
-
-    services.set(DefaultAssetStore(card_storage), AssetStore)
-
-    services.set(DefaultAssetDownloadManager(), AssetDownloadManager)

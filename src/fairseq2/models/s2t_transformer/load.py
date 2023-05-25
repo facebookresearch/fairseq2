@@ -4,159 +4,37 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, Mapping, Optional, Tuple
+from typing import Any, Dict, final
 from zipfile import ZipFile
 
-import torch
+from overrides import override as finaloverride
 
-from fairseq2 import services
-from fairseq2.assets import AssetCard, AssetDownloadManager, AssetStore
+from fairseq2.assets import (
+    AssetDownloadManager,
+    AssetStore,
+    asset_store,
+    download_manager,
+)
 from fairseq2.models.s2t_transformer.build import (
     S2TTransformerConfig,
     create_s2t_transformer_model,
-    get_s2t_transformer_archs,
-    get_s2t_transformer_config,
+    s2t_transformer_archs,
 )
 from fairseq2.models.s2t_transformer.tokenizer import S2TTransformerTokenizer
 from fairseq2.models.transformer import TransformerModel
-from fairseq2.models.utils.checkpoint import (
-    MapLocation,
-    load_checkpoint,
-    upgrade_fairseq_checkpoint,
-)
+from fairseq2.models.utils.checkpoint import upgrade_fairseq_checkpoint
+from fairseq2.models.utils.model_loader import ModelLoader
 
 
-def load_s2t_transformer_model(
-    model_name: str, device: Optional[torch.device] = None, progress: bool = True
-) -> Tuple[TransformerModel, S2TTransformerTokenizer]:
-    """Load the specified S2T Transformer model.
+@final
+class S2TTransformerLoader(ModelLoader[TransformerModel, S2TTransformerConfig]):
+    """Loads S2T Transformer models."""
 
-    :param model_name:
-        The name of the model.
-    :param device:
-        The device on which to initialize the model.
-    :param progress:
-        If ``True``, displays a progress bar to stderr.
-
-    :returns:
-        The model and its associated target tokenizer.
-    """
-    card = services.get(AssetStore).retrieve_card(model_name)
-
-    return S2TTransformerLoader(card, progress=progress).load_model(device=device)
-
-
-class S2TTransformerLoader:
-    """Loads a specified S2T Transformer model."""
-
-    card: AssetCard
-    download_manager: AssetDownloadManager
-    force: bool
-    progress: bool
-    cfg: S2TTransformerConfig
-
-    def __init__(
-        self, card: AssetCard, force: bool = False, progress: bool = True
-    ) -> None:
-        """
-        :param card:
-            The asset card of the model.
-        :param force:
-            If ``True``, downloads the model assets even if they are already in
-            cache.
-        :param progress:
-            If ``True``, displays a progress bar to stderr.
-        """
-        card.field("model_type").check_equals("s2t_transformer")
-
-        self.card = card
-
-        self.download_manager = services.get(AssetDownloadManager)
-
-        self.force = force
-        self.progress = progress
-
-        supported_arch_names = get_s2t_transformer_archs()
-
-        arch_name = self.card.field("model_arch").as_one_of(supported_arch_names)
-
-        self.cfg = get_s2t_transformer_config(arch_name)
-
-    def load_model(
-        self, device: Optional[torch.device] = None
-    ) -> Tuple[TransformerModel, S2TTransformerTokenizer]:
-        """Load the S2T Transformer model.
-
-        :param device:
-            The device on which to initialize the model.
-
-        :returns:
-            The model and its associated target tokenizer.
-        """
-        target_tokenizer = self.load_target_tokenizer()
-
-        # TODO: Initialize on Meta device!
-        model = create_s2t_transformer_model(
-            self.cfg, target_tokenizer.vocab_info, device
-        )
-
-        checkpoint = self.load_checkpoint(map_location="cpu")
-
-        model.load_state_dict(checkpoint["model"])
-
-        return model, target_tokenizer
-
-    def load_checkpoint(self, map_location: MapLocation = None) -> Mapping[str, Any]:
-        """Load the checkpoint of the S2T Transformer model.
-
-        :param map_location:
-            Same as the ``map_location`` parameter of :meth:`torch.load`.
-        """
-        uri = self.card.field("checkpoint").as_uri()
-
-        pathname = self.download_manager.download_checkpoint(
-            uri, self.card.name, force=self.force, progress=self.progress
-        )
-
-        return load_checkpoint(
-            pathname,
-            self.card.name,
-            map_location=map_location,
-            upgrader=self._upgrade_checkpoint,
-        )
-
-    def load_target_tokenizer(self) -> S2TTransformerTokenizer:
-        """Load the target tokenizer of the S2T Transformer model."""
-        uri = self.card.field("tokenizer").as_uri()
-
-        zip_pathname = self.download_manager.download_tokenizer(
-            uri, self.card.name, force=self.force, progress=self.progress
-        )
-
-        filename = self.card.field("tokenizer_file").as_filename()
-
-        pathname = zip_pathname.with_name(filename)
-
-        if self.force or not pathname.exists():
-            try:
-                with ZipFile(zip_pathname) as fp:
-                    fp.extract(filename, path=zip_pathname.parent)
-            except (KeyError, IOError) as ex:
-                raise RuntimeError(
-                    f"The load of the target tokenizer of the model '{self.card.name}' has failed. Please file a bug report."
-                ) from ex
-
-        task = self.card.field("task").as_one_of({"transcription", "translation"})
-
-        tgt_langs = self.card.field("tgt_langs").as_list(str)
-
-        return S2TTransformerTokenizer(
-            pathname, task, set(tgt_langs), default_tgt_lang=tgt_langs[0]
-        )
-
-    @classmethod
-    def _upgrade_checkpoint(cls, checkpoint: Dict[str, Any]) -> Dict[str, Any]:
-        key_map = cls._fairseq_key_map()
+    @finaloverride
+    def _upgrade_checkpoint(
+        self, checkpoint: Dict[str, Any], config: S2TTransformerConfig
+    ) -> Dict[str, Any]:
+        key_map = self._fairseq_key_map()
 
         return upgrade_fairseq_checkpoint(checkpoint, key_map)
 
@@ -205,3 +83,69 @@ class S2TTransformerLoader:
             r"^encoder\.conformer_layers\.([0-9]+)\.self_attn\.linear_pos\.": r"encoder.layers.\1.self_attn.sdpa.r_proj.",
             # fmt: on
         }
+
+
+load_s2t_transformer_model = S2TTransformerLoader(
+    asset_store, download_manager, create_s2t_transformer_model, s2t_transformer_archs
+)
+
+
+class S2TTransformerTokenizerLoader:
+    """Loads target tokenizers of S2T Transformer models."""
+
+    def __init__(
+        self, asset_store: AssetStore, download_manager: AssetDownloadManager
+    ) -> None:
+        """
+        :param asset_store:
+            The asset store to retrieve the model information.
+        :param download_manager:
+            The download manager to use.
+        """
+        self.asset_store = asset_store
+        self.download_manager = download_manager
+
+    def __call__(
+        self, model_name: str, force: bool = False, progress: bool = True
+    ) -> S2TTransformerTokenizer:
+        """
+        :param name:
+            The name of the model.
+        :param force:
+            If ``True``, downloads the tokenizer even if it is already in cache.
+        :param progress:
+            If ``True``, displays a progress bar to stderr.
+        """
+        card = self.asset_store.retrieve_card(model_name)
+
+        uri = card.field("tokenizer").as_uri()
+
+        zip_pathname = self.download_manager.download_tokenizer(
+            uri, card.name, force=force, progress=progress
+        )
+
+        filename = card.field("tokenizer_file").as_filename()
+
+        pathname = zip_pathname.with_name(filename)
+
+        if force or not pathname.exists():
+            try:
+                with ZipFile(zip_pathname) as fp:
+                    fp.extract(filename, path=zip_pathname.parent)
+            except (KeyError, IOError) as ex:
+                raise RuntimeError(
+                    f"The load of the target tokenizer of the model '{card.name}' has failed. Please file a bug report."
+                ) from ex
+
+        task = card.field("task").as_one_of({"transcription", "translation"})
+
+        tgt_langs = card.field("tgt_langs").as_list(str)
+
+        return S2TTransformerTokenizer(
+            pathname, task, set(tgt_langs), default_tgt_lang=tgt_langs[0]
+        )
+
+
+load_s2t_transformer_tokenizer = S2TTransformerTokenizerLoader(
+    asset_store, download_manager
+)

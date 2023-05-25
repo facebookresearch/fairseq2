@@ -14,6 +14,7 @@ from fairseq2.generate.search import _stretch_to_beams
 from fairseq2.models.s2t_transformer import (
     S2TTransformerTokenizer,
     load_s2t_transformer_model,
+    load_s2t_transformer_tokenizer,
 )
 from fairseq2.models.transformer import TransformerModel
 from fairseq2.nn import IncrementalStateBag
@@ -33,24 +34,36 @@ CONFORMER_REL_POS_DE: Final = (
 
 
 def test_load_s2t_transformer_mustc_st_jt_m() -> None:
-    model, tokenizer = load_s2t_transformer_model(
+    model = load_s2t_transformer_model(
         "s2t_transformer_mustc_st_jt_m", device=device, progress=False
+    )
+
+    tokenizer = load_s2t_transformer_tokenizer(
+        "s2t_transformer_mustc_st_jt_m", progress=False
     )
 
     assert_translation(model, tokenizer, expected=TRANSFORMER_DE)
 
 
 def test_load_s2t_conformer_covost_st_en_de() -> None:
-    model, tokenizer = load_s2t_transformer_model(
+    model = load_s2t_transformer_model(
         "s2t_conformer_covost_st_en_de", device=device, progress=False
+    )
+
+    tokenizer = load_s2t_transformer_tokenizer(
+        "s2t_conformer_covost_st_en_de", progress=False
     )
 
     assert_translation(model, tokenizer, expected=CONFORMER_DE)
 
 
 def test_load_s2t_conformer_rel_pos_covost_st_en_de() -> None:
-    model, tokenizer = load_s2t_transformer_model(
+    model = load_s2t_transformer_model(
         "s2t_conformer_rel_pos_covost_st_en_de", device=device, progress=False
+    )
+
+    tokenizer = load_s2t_transformer_tokenizer(
+        "s2t_conformer_rel_pos_covost_st_en_de", progress=False
     )
 
     assert_translation(model, tokenizer, expected=CONFORMER_REL_POS_DE)
