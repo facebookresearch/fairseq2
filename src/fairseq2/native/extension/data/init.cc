@@ -406,6 +406,19 @@ def_string(py::module_ &base)
             {
                 return rtrim(self);
             })
+        .def("split",
+            [](const immutable_string &self, std::optional<std::string_view> sep)
+            {
+                if (sep == std::nullopt)
+                    throw std::invalid_argument("Default separator not implemented yet. You must provide a value for `sep`");
+                auto sep_value = sep.value();
+                if (sep_value.size() != 1) // TODO handle cases where separator is a string
+                    throw std::invalid_argument("`sep` argument must be of size 1.");
+
+                return self.split(sep_value[0]);
+            },
+            py::arg("sep") = std::nullopt
+        )
         .def(py::pickle(
             [](const immutable_string &self)
             {

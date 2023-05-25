@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import pytest
+
 from fairseq2.data import CString
 
 
@@ -127,3 +129,40 @@ class TestCString:
         s = CString("schöne Grüße!")
 
         assert "CString('schöne Grüße!')" == repr(s)
+
+    def test_split_str(self) -> None:
+        s = CString("Hello world! This is a string")
+        expected = ["Hello", "world!", "This", "is", "a", "string"]
+
+        assert expected == s.split(sep=" ")
+
+    def test_split_str_edge_cases(self) -> None:
+        s = CString("hello world! this is a string")
+
+        # split sep at start
+        expected = ["ello world! t", "is is a string"]
+        assert expected == s.split(sep="h")
+
+        # split sep at end
+        expected = ["hello world! this is a strin"]
+        assert expected == s.split(sep="g")
+
+        # split sep not in string
+        expected = ["hello world! this is a string"]
+        assert expected == s.split(sep="z")
+
+    def test_split_str_consecutive_sep(self) -> None:
+        s = CString("hello world!  this is    a string")
+
+        expected = ["hello", "world!", "this", "is", "a", "string"]
+        actual = s.split(sep=" ")
+        assert expected == actual
+
+    def test_split_str_invalid_argument(self) -> None:
+        s = CString("Hello world! This is a string")
+
+        s.split("l")
+        with pytest.raises(ValueError):
+            s.split()
+        with pytest.raises(ValueError):
+            s.split("<>")

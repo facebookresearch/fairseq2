@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import TYPE_CHECKING, Any, Optional, Union, overload
+from typing import TYPE_CHECKING, Any, List, Optional, Union, overload
 
 from typing_extensions import TypeAlias, TypeGuard
 
@@ -52,6 +52,9 @@ if TYPE_CHECKING or DOC_MODE:
 
         def rstrip(self) -> "CString":
             """Return a copy of this string with no whitespace at the end."""
+
+        def split(self, sep: Optional[str] = None) -> List["CString"]:
+            """Return a list of the words in string using sep as the delimiter string."""
 
 else:
     from fairseq2.C.data.string import CString as CString

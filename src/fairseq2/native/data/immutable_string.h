@@ -10,6 +10,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "fairseq2/native/api.h"
 #include "fairseq2/native/memory.h"
@@ -147,6 +148,9 @@ public:
 
         return immutable_string{storage_.share_slice(0, storage_.size() - n)};
     }
+
+    std::vector<immutable_string>
+    split(char separator) const;
 
     operator std::string_view() const noexcept
     {

@@ -34,4 +34,26 @@ immutable_string::copy_string(std::string_view s)
     return blk;
 }
 
+std::vector<immutable_string>
+immutable_string::split(char separator) const
+{
+    std::vector<immutable_string> result;
+    std::string_view s = view();
+    std::size_t offset = 0;
+
+    for (std::size_t i = 0; i < s.size(); ++i) {
+        if (s[i] == separator) {
+            if (offset != i)
+                result.emplace_back(storage_.share_slice(offset, i - offset));
+
+            offset = i + 1;
+        }
+    }
+
+    if (offset != s.size())
+        result.push_back(remove_prefix(offset));
+
+    return result;
+}
+
 }  // namespace fairseq2
