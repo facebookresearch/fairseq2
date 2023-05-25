@@ -80,6 +80,9 @@ class AssetCard:
 
         return AssetCardField(self, [name], data)
 
+    def __str__(self) -> str:
+        return str(self.data)
+
 
 class AssetCardField:
     """Represents a field in an asset card."""
@@ -186,8 +189,10 @@ class AssetCardField:
         if self.data in valid_values:
             return cast(T, self.data)
 
+        values = ", ".join(sorted([repr(v) for v in valid_values]))
+
         self._raise_card_error(
-            f"The value of the {{display_name}} must be one of {{{repr(valid_values)}}}, but is {repr(self.data)} instead."
+            f"The value of the {{display_name}} must be one of [{values}], but is {repr(self.data)} instead."
         )
 
     def check_equals(self, value: Any) -> "AssetCardField":

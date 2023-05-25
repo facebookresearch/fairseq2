@@ -24,9 +24,11 @@ from fairseq2.assets.download_manager import (
 from fairseq2.assets.download_manager import (
     DefaultAssetDownloadManager as DefaultAssetDownloadManager,
 )
+from fairseq2.assets.download_manager import download_manager as download_manager
 from fairseq2.assets.error import AssetError as AssetError
 from fairseq2.assets.store import AssetStore as AssetStore
 from fairseq2.assets.store import DefaultAssetStore as DefaultAssetStore
+from fairseq2.assets.store import asset_store as asset_store
 
 
 def init_services() -> None:

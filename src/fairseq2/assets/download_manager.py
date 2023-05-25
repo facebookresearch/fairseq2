@@ -292,3 +292,6 @@ class AssetDownloadError(AssetError):
 
 def _print_progress(s: str) -> None:
     print(s, file=sys.stderr)
+
+
+download_manager = DefaultAssetDownloadManager()

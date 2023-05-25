@@ -10,7 +10,7 @@ import torch
 
 from fairseq2 import services
 from fairseq2.assets import AssetCard, AssetDownloadManager, AssetStore
-from fairseq2.models.utils.load import (
+from fairseq2.models.utils.checkpoint import (
     MapLocation,
     load_checkpoint,
     upgrade_fairseq_checkpoint,

@@ -6,12 +6,17 @@
 
 import os
 from abc import ABC, abstractmethod
+from pathlib import Path
 from typing import Dict, Optional, final
 
 from overrides import final as finaloverride
 
 from fairseq2.assets.card import AssetCard, AssetCardError
-from fairseq2.assets.card_storage import AssetCardNotFoundError, AssetCardStorage
+from fairseq2.assets.card_storage import (
+    AssetCardNotFoundError,
+    AssetCardStorage,
+    LocalAssetCardStorage,
+)
 
 
 class AssetStore(ABC):
@@ -136,3 +141,14 @@ class DefaultAssetStore(AssetStore):
     @finaloverride
     def clear_cache(self) -> None:
         self._cache.clear()
+
+
+def create_default_asset_store() -> AssetStore:
+    pathname = Path(__file__).parent.joinpath("cards")
+
+    card_storage = LocalAssetCardStorage(pathname)
+
+    return DefaultAssetStore(card_storage)
+
+
+asset_store = create_default_asset_store()

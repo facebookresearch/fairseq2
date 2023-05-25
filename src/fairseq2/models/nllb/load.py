@@ -18,7 +18,7 @@ from fairseq2.models.nllb.build import (
 )
 from fairseq2.models.nllb.tokenizer import NllbTokenizer
 from fairseq2.models.transformer import TransformerModel
-from fairseq2.models.utils.load import (
+from fairseq2.models.utils.checkpoint import (
     MapLocation,
     load_checkpoint,
     upgrade_fairseq_checkpoint,

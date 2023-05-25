@@ -19,7 +19,7 @@ from fairseq2.models.s2t_transformer.build import (
 )
 from fairseq2.models.s2t_transformer.tokenizer import S2TTransformerTokenizer
 from fairseq2.models.transformer import TransformerModel
-from fairseq2.models.utils.load import (
+from fairseq2.models.utils.checkpoint import (
     MapLocation,
     load_checkpoint,
     upgrade_fairseq_checkpoint,

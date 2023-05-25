@@ -145,11 +145,9 @@ class TestAssetCard:
         assert value == "foo1"
 
     def test_raises_error_if_field_value_is_not_one_of_valid_values(self) -> None:
-        values = {"foo2", "foo3"}
-
         with pytest.raises(
             AssetCardError,
-            match=rf"The value of the field 'field1' of the asset card 'test-card' must be one of {repr(values)}, but is 'foo1' instead\.$",
+            match=r"The value of the field 'field1' of the asset card 'test-card' must be one of \['foo2', 'foo3'\], but is 'foo1' instead\.$",
         ):
             self.card.field("field1").as_one_of({"foo2", "foo3"})
 
