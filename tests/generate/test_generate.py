@@ -22,16 +22,19 @@ VOCAB_SIZE = 111
 @functools.lru_cache()
 def create_model() -> EncoderDecoderModel:
     cfg = NllbConfig(
-        max_seq_len=64,
         model_dim=16,
+        max_seq_len=64,
+        vocabulary_size=VOCAB_SIZE,
+        pad_idx=3,
         num_encoder_layers=2,
         num_decoder_layers=2,
+        num_encoder_attn_heads=16,
+        num_decoder_attn_heads=16,
         ffn_inner_dim=32,
+        dropout_p=0.1,
     )
 
-    vocab_info = VocabularyInfo(VOCAB_SIZE, 0, 1, 2, 3)
-
-    return create_nllb_model(cfg, vocab_info)
+    return create_nllb_model(cfg)
 
 
 @pytest.mark.parametrize("prefix_tokens", [None, 99, [99, 17], [[99, 17], [99, 18]]])

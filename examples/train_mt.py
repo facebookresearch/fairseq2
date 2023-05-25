@@ -137,24 +137,28 @@ def vocab_info(tokenizer: Tokenizer) -> VocabularyInfo:
     return tokenizer.vocab_info
 
 
-def module(
-    env: Env, vocab_info: VocabularyInfo, nllb: NllbConfig
-) -> EncoderDecoderModel:
-    """The translation model, see transformer for configuration"""
+def module(env: Env, model_config: NllbConfig) -> EncoderDecoderModel:
+    """The translation model, see model_config for configuration"""
     torchtnt.utils.seed(0)
     torch.cuda.manual_seed(0)
-    return create_nllb_model(nllb, vocab_info, env.device)
+    return create_nllb_model(model_config, env.device)
 
 
 # Override default values of NllbConfig
-nllb = functools.partial(
-    NllbConfig,
-    dropout_p=0,
-    num_encoder_layers=6,
-    num_decoder_layers=6,
-    model_dim=512,
-    ffn_inner_dim=512,
-)
+def model_config(vocab_info: VocabularyInfo) -> NllbConfig:
+    return NllbConfig(
+        model_dim=512,
+        max_seq_len=1024,
+        vocabulary_size=vocab_info.size,
+        pad_idx=vocab_info.pad_idx,
+        num_encoder_layers=6,
+        num_decoder_layers=6,
+        num_encoder_attn_heads=16,
+        num_decoder_attn_heads=16,
+        ffn_inner_dim=512,
+        dropout_p=0,
+    )
+
 
 # This is important, it tells torch.hub how to reload our "task" which contains model and tokenizer.
 fairseq2_hub = fairseq2.cli.fairseq2_hub

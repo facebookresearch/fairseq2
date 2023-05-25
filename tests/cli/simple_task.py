@@ -1,4 +1,3 @@
-import functools
 import logging
 import random
 from typing import Iterable, NamedTuple, Optional, Sequence
@@ -101,25 +100,25 @@ def valid_data(
     return generate_samples(env, tokenizer, batch_size, 10)
 
 
-def module(
-    env: Env, tokenizer: Tokenizer, transformer: NllbConfig
-) -> EncoderDecoderModel:
+def module(env: Env, transformer: NllbConfig) -> EncoderDecoderModel:
     """The translation model, see transformer for configuration"""
     torchtnt.utils.seed(0)
     torch.cuda.manual_seed(0)
-    return create_nllb_model(transformer, tokenizer.vocab_info, env.device)
+    return create_nllb_model(transformer, env.device)
 
 
 # Override default values of NllbConfig
-transformer = functools.partial(
-    NllbConfig,
-    dropout_p=0,
+transformer = lambda: NllbConfig(
+    model_dim=32,
+    max_seq_len=1024,
+    vocabulary_size=100,
+    pad_idx=0,
     num_encoder_layers=2,
     num_decoder_layers=1,
     num_encoder_attn_heads=4,
     num_decoder_attn_heads=4,
-    model_dim=32,
     ffn_inner_dim=32,
+    dropout_p=0,
 )
 
 # This is important, it tells torch.hub how to reload our "task" which contains model and tokenizer.

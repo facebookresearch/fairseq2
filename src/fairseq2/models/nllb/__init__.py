@@ -7,8 +7,8 @@
 from fairseq2.models.nllb.build import NllbBuilder as NllbBuilder
 from fairseq2.models.nllb.build import NllbConfig as NllbConfig
 from fairseq2.models.nllb.build import create_nllb_model as create_nllb_model
-from fairseq2.models.nllb.build import get_nllb_archs as get_nllb_archs
-from fairseq2.models.nllb.build import get_nllb_config as get_nllb_config
+from fairseq2.models.nllb.build import nllb_archs as nllb_archs
 from fairseq2.models.nllb.load import NllbLoader as NllbLoader
 from fairseq2.models.nllb.load import load_nllb_model as load_nllb_model
+from fairseq2.models.nllb.load import load_nllb_tokenizer as load_nllb_tokenizer
 from fairseq2.models.nllb.tokenizer import NllbTokenizer as NllbTokenizer

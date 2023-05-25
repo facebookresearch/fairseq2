@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from fairseq2.generate import BeamSearchStrategy
-from fairseq2.models.nllb import load_nllb_model
+from fairseq2.models.nllb import load_nllb_model, load_nllb_tokenizer
 from tests.common import device
 
 ENG = "On Monday, scientists from the Stanford University School of Medicine announced the invention of a new diagnostic tool that can sort cells by type: a tiny printable chip that can be manufactured using standard inkjet printers for possibly about one U.S. cent each."
@@ -13,9 +13,9 @@ FRA = "Lundi, des scientifiques de l'École de médecine de l'Université de Sta
 
 
 def test_load_dense_distill_600m() -> None:
-    model, tokenizer = load_nllb_model(
-        "nllb_dense_distill_600m", device=device, progress=False
-    )
+    model = load_nllb_model("nllb_dense_distill_600m", device=device, progress=False)
+
+    tokenizer = load_nllb_tokenizer("nllb_dense_distill_600m", progress=False)
 
     model.eval()
 

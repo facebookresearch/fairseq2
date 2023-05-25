@@ -4,141 +4,33 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, Mapping, Optional, Tuple
+from typing import Any, Dict, final
 
 import torch
+from overrides import override as finaloverride
 
-from fairseq2 import services
-from fairseq2.assets import AssetCard, AssetDownloadManager, AssetStore
-from fairseq2.models.nllb.build import (
-    NllbConfig,
-    create_nllb_model,
-    get_nllb_archs,
-    get_nllb_config,
+from fairseq2.assets import (
+    AssetDownloadManager,
+    AssetStore,
+    asset_store,
+    download_manager,
 )
+from fairseq2.models.nllb.build import NllbConfig, create_nllb_model, nllb_archs
 from fairseq2.models.nllb.tokenizer import NllbTokenizer
 from fairseq2.models.transformer import TransformerModel
-from fairseq2.models.utils.checkpoint import (
-    MapLocation,
-    load_checkpoint,
-    upgrade_fairseq_checkpoint,
-)
+from fairseq2.models.utils.checkpoint import upgrade_fairseq_checkpoint
+from fairseq2.models.utils.model_loader import ModelLoader
 
 
-def load_nllb_model(
-    model_name: str, device: Optional[torch.device] = None, progress: bool = True
-) -> Tuple[TransformerModel, NllbTokenizer]:
-    """Load the specified NLLB model.
+@final
+class NllbLoader(ModelLoader[TransformerModel, NllbConfig]):
+    """Loads NLLB models."""
 
-    :param model_name:
-        The name of the model.
-    :param device:
-        The device on which to initialize the model.
-    :param progress:
-        If ``True``, displays a progress bar to stderr.
-
-    :returns:
-        The model and its associated tokenizer.
-    """
-    card = services.get(AssetStore).retrieve_card(model_name)
-
-    return NllbLoader(card, progress=progress).load_model(device=device)
-
-
-class NllbLoader:
-    """Loads a specified NLLB model."""
-
-    card: AssetCard
-    download_manager: AssetDownloadManager
-    force: bool
-    progress: bool
-    cfg: NllbConfig
-
-    def __init__(
-        self, card: AssetCard, force: bool = False, progress: bool = True
-    ) -> None:
-        """
-        :param card:
-            The asset card of the model.
-        :param force:
-            If ``True``, downloads the model assets even if they are already in
-            cache.
-        :param progress:
-            If ``True``, displays a progress bar to stderr.
-        """
-        card.field("model_type").check_equals("nllb")
-
-        self.card = card
-
-        self.download_manager = services.get(AssetDownloadManager)
-
-        self.force = force
-        self.progress = progress
-
-        supported_arch_names = get_nllb_archs()
-
-        arch_name = self.card.field("model_arch").as_one_of(supported_arch_names)
-
-        self.cfg = get_nllb_config(arch_name)
-
-    def load_model(
-        self, device: Optional[torch.device] = None
-    ) -> Tuple[TransformerModel, NllbTokenizer]:
-        """Load the NLLB model.
-
-        :param device:
-            The device on which to initialize the model.
-
-        :returns:
-            The model and its associated tokenizer.
-        """
-        tokenizer = self.load_tokenizer()
-
-        # TODO: Initialize on Meta device!
-        model = create_nllb_model(self.cfg, tokenizer.vocab_info, device)
-
-        checkpoint = self.load_checkpoint(map_location="cpu")
-
-        model.load_state_dict(checkpoint["model"])
-
-        return model, tokenizer
-
-    def load_checkpoint(self, map_location: MapLocation = None) -> Mapping[str, Any]:
-        """Load the checkpoint of the NLLB model.
-
-        :param map_location:
-            Same as the ``map_location`` parameter of :meth:`torch.load`.
-        """
-        uri = self.card.field("checkpoint").as_uri()
-
-        pathname = self.download_manager.download_checkpoint(
-            uri, self.card.name, force=self.force, progress=self.progress
-        )
-
-        return load_checkpoint(
-            pathname,
-            self.card.name,
-            map_location=map_location,
-            upgrader=self._upgrade_checkpoint,
-        )
-
-    def load_tokenizer(self) -> NllbTokenizer:
-        """Load the tokenizer of the NLLB model."""
-        uri = self.card.field("tokenizer").as_uri()
-
-        pathname = self.download_manager.download_tokenizer(
-            uri, self.card.name, force=self.force, progress=self.progress
-        )
-
-        langs = self.card.field("langs").as_list(str)
-
-        default_lang = self.card.field("default_lang").as_(str)
-
-        return NllbTokenizer(pathname, langs, default_lang)
-
-    @classmethod
-    def _upgrade_checkpoint(cls, checkpoint: Dict[str, Any]) -> Dict[str, Any]:
-        key_map = cls._fairseq_key_map()
+    @finaloverride
+    def _upgrade_checkpoint(
+        self, checkpoint: Dict[str, Any], config: NllbConfig
+    ) -> Dict[str, Any]:
+        key_map = self._fairseq_key_map()
 
         checkpoint = upgrade_fairseq_checkpoint(checkpoint, key_map)
 
@@ -179,3 +71,52 @@ class NllbLoader:
             r"^decoder\.output_projection\.":                         r"final_proj.",
             # fmt: on
         }
+
+
+load_nllb_model = NllbLoader(
+    asset_store, download_manager, create_nllb_model, nllb_archs
+)
+
+
+class NllbTokenizerLoader:
+    """Loads tokenizers of NLLB models."""
+
+    def __init__(
+        self, asset_store: AssetStore, download_manager: AssetDownloadManager
+    ) -> None:
+        """
+        :param asset_store:
+            The asset store to retrieve the model information.
+        :param download_manager:
+            The download manager to use.
+        """
+        self.asset_store = asset_store
+        self.download_manager = download_manager
+
+    def __call__(
+        self, model_name: str, force: bool = False, progress: bool = True
+    ) -> NllbTokenizer:
+        """
+        :param name:
+            The name of the model.
+        :param force:
+            If ``True``, downloads the tokenizer even if it is already in cache.
+        :param progress:
+            If ``True``, displays a progress bar to stderr.
+        """
+        card = self.asset_store.retrieve_card(model_name)
+
+        uri = card.field("tokenizer").as_uri()
+
+        pathname = self.download_manager.download_tokenizer(
+            uri, card.name, force=force, progress=progress
+        )
+
+        langs = card.field("langs").as_list(str)
+
+        default_lang = card.field("default_lang").as_(str)
+
+        return NllbTokenizer(pathname, langs, default_lang)
+
+
+load_nllb_tokenizer = NllbTokenizerLoader(asset_store, download_manager)
