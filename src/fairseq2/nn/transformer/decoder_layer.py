@@ -40,13 +40,13 @@ class TransformerDecoderLayer(Module, ABC):
         seqs: Tensor,
         padding_mask: Optional[Tensor],
         self_attn_mask: Optional[Tensor] = None,
-        encoder_out: Optional[Tensor] = None,
+        encoder_output: Optional[Tensor] = None,
         encoder_padding_mask: Optional[Tensor] = None,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
         """
         :param seqs:
-            The sequences to decode. *Shape:* :math:`(N,S,M)`, where :math:`N`
+            The sequences to process. *Shape:* :math:`(N,S,M)`, where :math:`N`
             is the batch size, :math:`S` is the sequence length, and :math:`M`
             is the dimensionality of the model.
         :param padding_mask:
@@ -56,20 +56,20 @@ class TransformerDecoderLayer(Module, ABC):
             The float mask that will be added to the attention weights before
             computing the self attention. *Shape:* :math:`(S,S)`, where
             :math:`S` is the sequence length.
-        :param encoder_out:
-            The encoded source sequences for encoder-decoder attention. *Shape:*
-            :math:`(N,S_{src},M_{enc})`, where :math:`N` is the batch size,
-            :math:`S_{src}` is the encoded source sequence length, and
-            :math:`M_{enc}` is the dimensionality of the encoder model.
+        :param encoder_output:
+            The encoder output to use in encoder-decoder attention. *Shape:*
+            :math:`(N,S_{enc},M_{enc})`, where :math:`N` is the batch size,
+            :math:`S_{enc}` is the encoder output sequence length, and
+            :math:`M_{enc}` is the dimensionality of the encoder.
         :param encoder_padding_mask:
             The float padding mask of ``encoder_out``. *Shape:*
-            :math:`(N,S_{src})`, where :math:`N` is the batch size and
-            :math:`S_{src}` is the encoded source sequence length.
+            :math:`(N,S_{enc})`, where :math:`N` is the batch size and
+            :math:`S_{enc}` is the encoder output sequence length.
         :param state_bag:
             The state bag to use for incremental evaluation.
 
         :returns:
-            The decoded sequences. *Shape:* Same as ``seqs``.
+            The decoder layer output. *Shape:* Same as ``seqs``.
         """
 
     def extra_repr(self) -> str:
@@ -224,14 +224,14 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         seqs: Tensor,
         padding_mask: Optional[Tensor],
         self_attn_mask: Optional[Tensor] = None,
-        encoder_out: Optional[Tensor] = None,
+        encoder_output: Optional[Tensor] = None,
         encoder_padding_mask: Optional[Tensor] = None,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
         seqs = self._forward_self_attn(seqs, padding_mask, self_attn_mask, state_bag)
 
         seqs = self._forward_encoder_decoder_attn(
-            seqs, padding_mask, encoder_out, encoder_padding_mask, state_bag
+            seqs, padding_mask, encoder_output, encoder_padding_mask, state_bag
         )
 
         seqs = self._forward_ffn(seqs)
@@ -277,21 +277,21 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         self,
         seqs: Tensor,
         padding_mask: Optional[Tensor],
-        encoder_out: Optional[Tensor],
+        encoder_output: Optional[Tensor],
         encoder_padding_mask: Optional[Tensor],
         state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
         if self.encoder_decoder_attn is None:
-            if encoder_out is not None:
+            if encoder_output is not None:
                 raise ValueError(
-                    "`encoder_out` must be `None` for decoder-only attention."
+                    "`encoder_output` must be `None` for decoder-only attention."
                 )
 
             return seqs
 
-        if encoder_out is None:
+        if encoder_output is None:
             raise ValueError(
-                "`encoder_out` must not be `None` for encoder-decoder attention."
+                "`encoder_output` must not be `None` for encoder-decoder attention."
             )
 
         residual = seqs
@@ -302,8 +302,8 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         seqs = self.encoder_decoder_attn(
             seqs,
             padding_mask,
-            keys=encoder_out,
-            values=encoder_out,
+            keys=encoder_output,
+            values=encoder_output,
             key_padding_mask=encoder_padding_mask,
             state_bag=state_bag,
         )

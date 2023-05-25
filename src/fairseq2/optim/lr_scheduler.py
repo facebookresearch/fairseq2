@@ -106,7 +106,7 @@ class MyleLR(LRSchedulerBase):
 
     Essentially, this is Noam learning rate schedule scaled by the square root
     of the number of warmup steps. It was originally proposed and implemented by
-    Myle Ott in the original fairseq under the name ``InverseSquareRootLR``.
+    Myle Ott in fairseq under the name ``InverseSquareRootLR``.
 
     It corresponds to increasing the learning rate linearly for the first
     :math:`T_{warmup}` training steps to the base learning rate, and decreasing
@@ -376,9 +376,9 @@ class CosineAnnealingLR(LRSchedulerBase):
 
             cycle_len = int(mul**cycle_num * self.cycle_len)
 
-            # Compute the sum of the lengths of the first cycle_num cycles (i.e.
-            # geometric series) which corresponds to the beginning offset of the
-            # current cycle.
+            # Compute the sum of the lengths of the first `cycle_num` cycles
+            # (i.e. geometric series) which corresponds to the beginning offset
+            # of the current cycle.
             cycle_offset = int((1 - mul**cycle_num) / (1 - mul) * self.cycle_len)
 
             # The position of the step within the cycle.

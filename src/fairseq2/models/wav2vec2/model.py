@@ -154,7 +154,7 @@ class Wav2Vec2Model(Module):
         frontend_out = self.encoder_frontend(seqs, seq_lens)
 
         # TODO: Should we pad for fp16?
-        seqs = self.encoder(frontend_out.seqs, frontend_out.padding_mask)
+        seqs, _ = self.encoder(frontend_out.seqs, frontend_out.padding_mask)
 
         return seqs, frontend_out.targets, frontend_out.temporal_mask
 

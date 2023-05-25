@@ -126,7 +126,7 @@ def _compute_mask_spans(
 
 
 def _generate_mask(indices: Tensor, max_row_len: int) -> Tensor:
-    """Generates a boolean mask by setting ``indices`` to ``True``."""
+    """Generate a boolean mask by setting ``indices`` to ``True``."""
     float_mask = torch.zeros((indices.size(0), max_row_len), device=indices.device)
 
     # Set elements corresponding to masked indices to 1.

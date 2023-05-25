@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import Iterable, Optional, Sequence, final
+from typing import Iterable, Optional, Tuple, final
 
 import torch
 from overrides import final as finaloverride
@@ -26,7 +26,7 @@ class TransformerDecoder(Module, ABC):
     """Represents a Transformer decoder."""
 
     model_dim: int
-    layers: Sequence[TransformerDecoderLayer]
+    layers: ModuleList
 
     def __init__(self, model_dim: int) -> None:
         """
@@ -42,10 +42,11 @@ class TransformerDecoder(Module, ABC):
         self,
         seqs: Tensor,
         padding_mask: Optional[Tensor],
-        encoder_out: Optional[Tensor] = None,
+        encoder_output: Optional[Tensor] = None,
         encoder_padding_mask: Optional[Tensor] = None,
+        return_hidden: Optional[int] = None,
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tensor:
+    ) -> Tuple[Tensor, Optional[Tensor]]:
         """
         :param seqs:
             The sequences to decode. *Shape:* :math:`(N,S,M)`, where :math:`N`
@@ -54,20 +55,25 @@ class TransformerDecoder(Module, ABC):
         :param padding_mask:
             The float padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where
             :math:`N` is the batch size and :math:`S` is the sequence length.
-        :param encoder_out:
-            The encoded source sequences for encoder-decoder attention. *Shape:*
-            :math:`(N,S_{src},M_{enc})`, where :math:`N` is the batch size,
-            :math:`S_{src}` is the encoded source sequence length, and
-            :math:`M_{enc}` is the dimensionality of the encoder model.
+        :param encoder_output:
+            The encoder output to use in encoder-decoder attention. *Shape:*
+            :math:`(N,S_{enc},M_{enc})`, where :math:`N` is the batch size,
+            :math:`S_{enc}` is the encoder output sequence length, and
+            :math:`M_{enc}` is the dimensionality of the encoder.
         :param encoder_padding_mask:
             The float padding mask of ``encoder_out``. *Shape:*
-            :math:`(N,S_{src})`, where :math:`N` is the batch size and
-            :math:`S_{src}` is the encoded source sequence length.
+            :math:`(N,S_{enc})`, where :math:`N` is the batch size and
+            :math:`S_{enc}` is the encoder output sequence length.
+        :param return_hidden:
+            If not ``None``, specifies the index of the decoder layer whose
+            output should be returned along with the decoder output.
         :param state_bag:
             The state bag to use for incremental evaluation.
 
         :returns:
-            The decoded sequences. *Shape:* Same as ``seqs``.
+            - The decoder output. *Shape:* Same as ``seqs``.
+            - The output of the decoder layer specified by ``return_hidden``.
+              *Shape:* Same as ``seqs``.
         """
 
     def extra_repr(self) -> str:
@@ -77,11 +83,10 @@ class TransformerDecoder(Module, ABC):
 
 @final
 class StandardTransformerDecoder(TransformerDecoder):
-    """Represents a Transformer decoder layer as described in
+    """Represents a Transformer decoder as described in
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
     self_attn_mask_gen: AttentionMaskGenerator
-    layers: ModuleList  # type: ignore[assignment]
     layer_norm: Optional[LayerNorm]
     norm_order: TransformerNormOrder
 
@@ -143,29 +148,44 @@ class StandardTransformerDecoder(TransformerDecoder):
         self,
         seqs: Tensor,
         padding_mask: Optional[Tensor],
-        encoder_out: Optional[Tensor] = None,
+        encoder_output: Optional[Tensor] = None,
         encoder_padding_mask: Optional[Tensor] = None,
+        return_hidden: Optional[int] = None,
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tensor:
+    ) -> Tuple[Tensor, Optional[Tensor]]:
+        if return_hidden is not None:
+            if self.layers.drop_p > 0.0:
+                raise ValueError(
+                    "`return_hidden` must be `None` when LayerDrop is enabled."
+                )
+
+            if return_hidden < 0:
+                return_hidden = len(self.layers) + return_hidden
+
+        layer_output = None
+
         if self.training or state_bag is None:
             self_attn_mask = self.self_attn_mask_gen(seqs)
         else:
             self_attn_mask = None
 
-        for layer in self.layers.drop_iter():
+        for layer_idx, layer in enumerate(self.layers.drop_iter()):
             seqs = layer(
                 seqs,
                 padding_mask,
                 self_attn_mask,
-                encoder_out,
+                encoder_output,
                 encoder_padding_mask,
                 state_bag,
             )
 
+            if layer_idx == return_hidden:
+                layer_output = seqs
+
         if self.layer_norm is not None:
             seqs = self.layer_norm(seqs)
 
-        return seqs
+        return seqs, layer_output
 
     def extra_repr(self) -> str:
         """:meta private:"""

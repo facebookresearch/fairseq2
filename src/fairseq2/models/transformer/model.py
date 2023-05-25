@@ -91,7 +91,7 @@ class TransformerModel(EncoderDecoderModel):
     ) -> Tuple[Tensor, Optional[Tensor]]:
         frontend_out = self.encoder_frontend(seqs, seq_lens)
 
-        seqs = self.encoder(frontend_out.seqs, frontend_out.padding_mask)
+        seqs, _ = self.encoder(frontend_out.seqs, frontend_out.padding_mask)
 
         return seqs, frontend_out.padding_mask
 
@@ -106,12 +106,12 @@ class TransformerModel(EncoderDecoderModel):
     ) -> Seq2SeqModelOutput:
         frontend_out = self.decoder_frontend(seqs, seq_lens, state_bag)
 
-        seqs = self.decoder(
+        seqs, _ = self.decoder(
             frontend_out.seqs,
             frontend_out.padding_mask,
             encoder_out,
             encoder_padding_mask,
-            state_bag,
+            state_bag=state_bag,
         )
 
         logits = self.final_proj(seqs)

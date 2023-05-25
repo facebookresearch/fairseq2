@@ -16,7 +16,8 @@ class ModuleList(nn.ModuleList):
     """Holds submodules in a list.
 
     This class extends :class:`torch.nn.ModuleList` with an extra feature that
-    drops a random set of submodules at every iteration during training.
+    optionally drops a random number of submodules at every iteration during
+    training.
 
     Usage:
 
@@ -47,7 +48,7 @@ class ModuleList(nn.ModuleList):
         :param modules:
             An iterable of modules to add.
         :param drop_p:
-            The probability of dropping each submodule during training.
+            The probability of dropping a submodule during training.
         """
         super().__init__(modules)
 

@@ -83,7 +83,7 @@ class Embedding(Module):
         :returns:
             The embeddings corresponding to the specified indices. *Shape:*
             :math:`(*,E)`, where :math:`*` is the input shape and :math:`E` is
-            the embedding size.
+            the dimensionality of the embeddings.
         """
         return F.embedding(x, self.weight, self.pad_idx)
 

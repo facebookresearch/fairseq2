@@ -37,7 +37,7 @@ class TransformerEncoderLayer(Module, ABC):
     def forward(self, seqs: Tensor, padding_mask: Optional[Tensor]) -> Tensor:
         """
         :param seqs:
-            The sequences to encode. *Shape:* :math:`(N,S,M)`, where :math:`N`
+            The sequences to process. *Shape:* :math:`(N,S,M)`, where :math:`N`
             is the batch size, :math:`S` is the sequence length, and :math:`M`
             is the dimensionality of the model.
         :param padding_mask:
@@ -45,7 +45,7 @@ class TransformerEncoderLayer(Module, ABC):
             :math:`N` is the batch size and :math:`S` is the sequence length.
 
         :returns:
-            The encoded sequences. *Shape:* Same as ``seqs``.
+            The encoder layer output. *Shape:* Same as ``seqs``.
         """
 
     def extra_repr(self) -> str:

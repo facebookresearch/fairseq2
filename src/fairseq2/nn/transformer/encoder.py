@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import Iterable, Optional, Sequence, final
+from typing import Iterable, Optional, Tuple, final
 
 import torch
 from overrides import final as finaloverride
@@ -21,7 +21,7 @@ class TransformerEncoder(Module, ABC):
     """Represents a Transformer encoder."""
 
     model_dim: int
-    layers: Sequence[TransformerEncoderLayer]
+    layers: ModuleList
 
     def __init__(self, model_dim: int) -> None:
         """
@@ -33,7 +33,12 @@ class TransformerEncoder(Module, ABC):
         self.model_dim = model_dim
 
     @abstractmethod
-    def forward(self, seqs: Tensor, padding_mask: Optional[Tensor]) -> Tensor:
+    def forward(
+        self,
+        seqs: Tensor,
+        padding_mask: Optional[Tensor],
+        return_hidden: Optional[int] = None,
+    ) -> Tuple[Tensor, Optional[Tensor]]:
         """
         :param seqs:
             The sequences to encode. *Shape:* :math:`(N,S,M)`, where :math:`N`
@@ -42,9 +47,14 @@ class TransformerEncoder(Module, ABC):
         :param padding_mask:
             The float padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where
             :math:`N` is the batch size and :math:`S` is the sequence length.
+        :param return_hidden:
+            If not ``None``, specifies the index of the encoder layer whose
+            output should be returned along with the encoder output.
 
         :returns:
-            The encoded sequences. *Shape:* Same as ``seqs``.
+            - The encoder output. *Shape:* Same as ``seqs``.
+            - The output of the encoder layer specified by ``return_hidden``.
+              *Shape:* Same as ``seqs``.
         """
 
     def extra_repr(self) -> str:
@@ -54,10 +64,9 @@ class TransformerEncoder(Module, ABC):
 
 @final
 class StandardTransformerEncoder(TransformerEncoder):
-    """Represents a Transformer encoder layer as described in
+    """Represents a Transformer encoder as described in
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
-    layers: ModuleList  # type: ignore[assignment]
     layer_norm: Optional[LayerNorm]
     norm_order: TransformerNormOrder
 
@@ -106,14 +115,33 @@ class StandardTransformerEncoder(TransformerEncoder):
         self.norm_order = norm_order
 
     @finaloverride
-    def forward(self, seqs: Tensor, padding_mask: Optional[Tensor]) -> Tensor:
-        for layer in self.layers.drop_iter():
+    def forward(
+        self,
+        seqs: Tensor,
+        padding_mask: Optional[Tensor],
+        return_hidden: Optional[int] = None,
+    ) -> Tuple[Tensor, Optional[Tensor]]:
+        if return_hidden is not None:
+            if self.layers.drop_p > 0.0:
+                raise ValueError(
+                    "`return_hidden` must be `None` when LayerDrop is enabled."
+                )
+
+            if return_hidden < 0:
+                return_hidden = len(self.layers) + return_hidden
+
+        layer_output = None
+
+        for layer_idx, layer in enumerate(self.layers.drop_iter()):
             seqs = layer(seqs, padding_mask)
+
+            if layer_idx == return_hidden:
+                layer_output = seqs
 
         if self.layer_norm is not None:
             seqs = self.layer_norm(seqs)
 
-        return seqs
+        return seqs, layer_output
 
     def extra_repr(self) -> str:
         """:meta private:"""
