@@ -50,12 +50,8 @@ jobs:
         run: |
           pip install ~/wheelhouse/*.whl --no-cache-dir
       - name: Run Sphinx
-        working-directory: doc
         run: |
-          make html SPHINXOPTS="-W"
-      - name: Copy the version file into the documentation
-        run: |
-          cp VERSION doc/build/html
+          make CONDA_PREFIX=~/venv doc
       - name: Upload the documentation to staging
         uses: actions/upload-artifact@v3
         with:

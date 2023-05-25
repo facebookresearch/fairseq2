@@ -9,7 +9,7 @@ from typing import Any, Iterable, Iterator, List, Mapping, Optional, Tuple, Type
 import torch
 from torch import Tensor
 
-import fairseq2.distributed
+from fairseq2.cli import Env
 from fairseq2.data import Seq2SeqBatch, Text2TextBatch
 from fairseq2.data.text import Tokenizer
 
@@ -33,7 +33,7 @@ class NllbDataLoader(Iterable[Seq2SeqBatch]):
         split: str,
         tokenizer: Tokenizer,
         batch_size: int,
-        env: fairseq2.distributed.Env,
+        env: Env,
     ):
         self.split = split
         self.src = src
@@ -124,7 +124,7 @@ class NllbDataLoader(Iterable[Seq2SeqBatch]):
     def combine_and_dump(
         src: str, tgt: str, split: str, output: Path, limit: int = 0
     ) -> None:
-        env = fairseq2.distributed.Env(0, 1, torch.device("cpu"))
+        env = Env(0, 1, torch.device("cpu"))
         loader = NllbDataLoader(
             src,
             tgt,
@@ -171,7 +171,7 @@ class AsrDataloader(Iterable[Seq2SeqBatch]):
         *,
         batch_size: int = 0,
         batch_duration: Optional[datetime.timedelta] = None,
-        env: fairseq2.distributed.Env,
+        env: Env,
         dtype: torch.dtype,
     ):
         """

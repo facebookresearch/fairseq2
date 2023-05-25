@@ -8,9 +8,12 @@ Classes
     :toctree: generated/classes
     :nosignatures:
 
+    cli.Env
+    cli.Xp
     data.CString
     data.DataPipeline
     data.DataPipelineBuilder
+    data.Seq2SeqBatch
     data.StringLike
     data.DataPipelineError
     data.StreamError

@@ -2,33 +2,48 @@ import datetime
 import functools
 import os
 import sys
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, Iterable, List
 
 import torch
 import torchtnt.framework as tnt
 
-import fairseq2.distributed
 import fairseq2.tasks
 from fairseq2.optim.lr_scheduler import MyleLR
 
 if TYPE_CHECKING:
     from fairseq2.callbacks import MetricLogger
-    from fairseq2.cli.module_loader import Xp
+    from fairseq2.cli import Env, Xp
+    from fairseq2.data.text import Tokenizer
 
 _imports = set(locals().keys())
 
 task = fairseq2.tasks.Seq2Seq
 
 
-def valid_data() -> List[None]:
+def tokenizer() -> "Tokenizer":
+    """!!! No tokenizer specified !!!"""
+    raise NotImplementedError("tokenizer should be implemented in the user script")
+
+
+def train_data() -> Iterable[None]:
+    """!!! No training data specified !!!"""
+    raise NotImplementedError("train_data should be implemented in the user script")
+
+
+def valid_data() -> Iterable[None]:
     """No valid data specified."""
     return []
+
+
+def module() -> torch.nn.Module:
+    """!!! No trainable module specified !!!"""
+    raise NotImplementedError("module should be implemented in the user script")
 
 
 def callbacks(
     logger: "MetricLogger",
     entry_point: str,
-    env: fairseq2.distributed.Env,
+    env: "Env",
     xp: "Xp",
     gc_frequency: int = 10,
     save_frequency: datetime.timedelta = datetime.timedelta(minutes=5),

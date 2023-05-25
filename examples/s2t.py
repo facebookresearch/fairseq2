@@ -18,9 +18,9 @@ import fairseq2.cli
 import fairseq2.models.s2t_transformer as s2t
 import fairseq2.tasks
 from fairseq2 import data
+from fairseq2.cli import Env
 from fairseq2.data import DataPipelineBuilder, Seq2SeqBatch, StringLike
 from fairseq2.data.text import MultilingualTokenizer, Tokenizer, VocabularyInfo
-from fairseq2.distributed import Env
 from fairseq2.generate import spm_train
 from fairseq2.models.transformer import TransformerModel
 

@@ -11,15 +11,16 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple, Union
 
 import submitit
 import torch
 import torchtnt.framework as tnt
 
 import fairseq2.callbacks
-import fairseq2.distributed
-from fairseq2.cli import Xp, XpScript
+from fairseq2 import DOC_MODE
+from fairseq2.cli import Env, Xp, XpScript
+from fairseq2.cli.distributed import distributed_init
 from fairseq2.data import StringLike
 from fairseq2.tasks import Seq2Seq
 
@@ -40,17 +41,17 @@ def train(
 ) -> Dict[str, Any]:
     """Launches a training script.
 
-    script: the training script to launch. It needs at least:
+    - script: the training script to launch. It needs at least:
         - a "task" function that returns a fairseq2 task (or a torchtnt train unit)
         - a "train_data" function that returns a dataloader for the task
         - a "valid_data" function if --eval_freq is set.
 
-    workdir: we will create an Xp dir there and put it the script and model snapshots.
+    - workdir: we will create an Xp dir there and put it the script and model snapshots.
 
-    eval_freq: enable evaluation on the valid_data
-    partition: run on SLURM using the given partition
-    num_gpus: number of GPU to use (requires --partition)
-    restart: start the training from scratch, ignoring existing checkpoints
+    - eval_freq: enable evaluation on the valid_data
+    - partition: run on SLURM using the given partition
+    - num_gpus: number of GPU to use (requires --partition)
+    - restart: start the training from scratch, ignoring existing checkpoints
     """
     slurm_args, overrides = _extract_slurm_args(overrides)
     xp = Xp(script, script.with_suffix(".yaml"), overrides)
@@ -85,12 +86,15 @@ def train(
     else:
         log.info(f"Starting new experience at {script}")
 
-    env = fairseq2.distributed.init(workdir, partition, num_gpus, slurm_args=slurm_args)
+    env = distributed_init(workdir, partition, num_gpus, slurm_args=slurm_args)
 
     entry_point = "train"
 
     module = XpScript.from_script(script, overrides=overrides)
     _setup_module(module, env, xp, entry_point)
+
+    # Create callbacks first, so you can have user code running on process start.
+    callbacks = module.call_fn("callbacks", caller=entry_point)
 
     # Dataloader may start subprocess.
     # Do this before having loaded the model
@@ -112,8 +116,6 @@ def train(
     # Try to resume from the same workdir.
     if not restart:
         fairseq2.callbacks.load_from_last_snapshot(str(workdir), train_state, task)
-
-    callbacks = module.call_fn("callbacks", caller="train")
 
     try:
         tnt.fit(train_state, task, callbacks=callbacks)
@@ -297,9 +299,7 @@ def evaluate(
     # but it won't have trainer specific info, and might have some overrides
     xp = Xp(script, snapshot_dir / f"evaluate{eval_sha}.yaml", overrides)
 
-    env = fairseq2.distributed.init(
-        snapshot_dir, partition, num_gpus, slurm_args=slurm_args
-    )
+    env = distributed_init(snapshot_dir, partition, num_gpus, slurm_args=slurm_args)
 
     module = XpScript.from_script(
         script,
@@ -458,6 +458,7 @@ def inference(
     batch_size: int = 16,
     num_gpus: int = 1,
 ) -> None:
+    """(**experimental**) Starts the model in interactive mode"""
     import fairseq2.generate
 
     if not snapshot_dir.exists():
@@ -467,7 +468,7 @@ def inference(
     # TODO: allow distributed inference (this won't work with stdin/stdout)
     assert partition == "debug", "TODO: local inference is supported"
 
-    env = fairseq2.distributed.init(snapshot_dir, partition, num_gpus)
+    env = distributed_init(snapshot_dir, partition, num_gpus)
     # Note: it's important to use torch.hub.load here,
     # so we don't make too many assumption on how people store the model.
     task: Seq2Seq = torch.hub.load(
@@ -517,10 +518,10 @@ def inference(
 
 
 def help(script: Path, overrides: List[str] = []) -> None:
+    """Show available hyperparameters for the given script."""
     module = XpScript.from_script(script, overrides=overrides)
     # TODO: how to document env, xp and entrypoint ?
     # _setup_module(module, env, xp, entry_point)
-    # TODO: nice error message when some entry points don't exist (incomplete script)
     print(
         module.help(
             "task",
@@ -530,6 +531,78 @@ def help(script: Path, overrides: List[str] = []) -> None:
             hidden=["env", "xp", "entry_point"],
         )
     )
+
+
+def test(
+    script: Path,
+    fn: str,
+    overrides: List[str] = [],
+    num_gpus: int = 0,
+    entry_point: str = "test",
+    partition: str = "debug",
+    num_examples: int = 10_000,
+) -> None:
+    """
+    Runs a specific function in your training script.
+
+    - fn: the name of the function to run.
+      When testing "train_data" or "valid_data", we will also measure the throughput of the dataloader.
+    """
+    slurm_args, overrides = _extract_slurm_args(overrides)
+    xp = Xp(script, Path("_test.yaml"), overrides)
+    if xp.config_file.exists():
+        xp.config_file.unlink()
+    module = XpScript.from_script(script, overrides=overrides)
+
+    # TODO: does it make sense to use SLURM here ?
+    # at this point why not just launch the full training ?
+    env = distributed_init(script.parent, partition, num_gpus, slurm_args=slurm_args)
+    _setup_module(module, env, xp, entry_point)
+    result = module.call_fn(fn, caller=entry_point)
+
+    if fn in ("train_data", "valid_data"):
+        return _test_dataloader(result, num_examples, env.device)
+    else:
+        print("Success!", f"{fn}({' '.join(overrides)}) =", result)
+
+
+def _test_dataloader(
+    dataloader: Iterable[Any], num_examples: int, device: torch.device
+) -> None:
+
+    start_time = time.perf_counter()
+    res = torch.tensor(0, device=device)
+
+    def _acc(example: Any) -> Any:
+        # Compute a sum of all inputs.
+        # This basically makes sure the GPU is doing a non-zero amount of work.
+        if isinstance(example, list):
+            return sum(_acc(x) for x in example)
+        elif isinstance(example, torch.Tensor):
+            return example.to(dtype=torch.float32).mean().to(device)
+        elif isinstance(example, str):
+            return len(example)
+        elif isinstance(example, (int, float)):
+            return example
+        return 0.0
+
+    n = 0
+    dataloader = itertools.islice(dataloader, num_examples)
+    try:
+        import tqdm
+
+        dataloader = tqdm.tqdm(dataloader, total=num_examples)
+    except ImportError:
+        pass
+
+    for example in dataloader:
+        res = res * 0.99 + 0.01 * _acc(example)
+        n += 1
+
+    res.cpu().item()
+    duration = time.perf_counter() - start_time
+
+    log.info(f"Treated {n} batches in {duration}s: {n / duration:.3f} batch per second")
 
 
 def main(script: Union[Path, str, None] = None) -> None:
@@ -542,6 +615,7 @@ def main(script: Union[Path, str, None] = None) -> None:
         "grid": fa.func_argparser(grid),
         "eval_server": fa.func_argparser(eval_server),
         "help": fa.func_argparser(help),
+        "test": fa.func_argparser(test),
     }
     # TODO: push this to func_argparse
     with_overrides = []
@@ -603,9 +677,30 @@ def _extract_slurm_args(overrides: List[str]) -> Tuple[Dict[str, str], List[str]
     return slurm_args, overrides
 
 
-def _setup_module(
-    module: XpScript, env: fairseq2.distributed.Env, xp: Xp, entry_point: str
-) -> None:
+def _setup_module(module: XpScript, env: Env, xp: Xp, entry_point: str) -> None:
     module["env"] = env
     module["xp"] = xp
     module["entry_point"] = entry_point
+
+
+if DOC_MODE:
+    env: Env = None  # type: ignore
+    """The distributed environment we are currently running in.
+
+    Typically used in dataloader to read only a shard of the data,
+    or to put the model on the right device.
+    """
+
+    xp: Xp = None  # type: ignore
+    """Metadata about the current experiment.
+
+    Typically used to output files in the right place.
+    """
+
+    entry_point: str = "train"
+    """The name of the fairseq2 command that was used to start this program.
+
+    In general experiment scripts should avoid having different behavior
+    between training and evaluation, it's mostly used by the logger to save the
+    train and eval metrics in different places.
+    """

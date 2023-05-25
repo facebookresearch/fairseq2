@@ -26,9 +26,15 @@ cpplint:
 
 lint: pylint shlint cpplint
 
-docs:
-	cd doc/ && make html SPHINXOPTS="-W"
+doc: .PHONY
+	rm -r doc/build || true
+	rm -r doc/reference/generated || true
+	$(VENV)sphinx-build doc/ doc/build/html/ -aW --keep-going || ( \
+		echo 'List of sphinx references:'; \
+		$(VENV)python -c 'import pickle; [print(r) for r in pickle.load(open("doc/build/html/.doctrees/environment.pickle","rb")).domaindata["std"]["labels"].keys()]'; false \
+	)
 	cp VERSION doc/build/html
+	# firefox doc/build/html/index.html
 
 build: deps build/src/fairseq2/native/libfairseq2.so
 

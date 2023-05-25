@@ -15,6 +15,7 @@ Functions
     supports_cuda
     data.list_files
     data.read_sequence
+    data.round_robin_data_pipelines
     data.zip_data_pipelines
     data.text.read_text
     gang.from_process_group

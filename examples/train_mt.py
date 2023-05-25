@@ -18,9 +18,9 @@ import torchtnt.utils
 
 import fairseq2.cli
 import fairseq2.data.huggingface
+from fairseq2.cli import Env
 from fairseq2.data import Seq2SeqBatch
 from fairseq2.data.text import MultilingualTokenizer, Tokenizer, VocabularyInfo
-from fairseq2.distributed import Env
 from fairseq2.generate import spm_train
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.nllb import NllbConfig, create_nllb_model

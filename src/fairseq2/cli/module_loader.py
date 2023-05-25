@@ -26,7 +26,7 @@ import func_argparse
 import torch
 import yaml
 
-import fairseq2.distributed
+import fairseq2.cli.distributed
 from fairseq2.cli import yaml_ext
 
 log = logging.getLogger("fairseq2.cli")
@@ -42,8 +42,8 @@ def fairseq2_hub(snapshot_dir: str, device: Optional[torch.device] = None) -> An
     import torchsnapshot
 
     assert Path(snapshot_dir).exists(), f"Snapshot {snapshot_dir} not found."
-    env = fairseq2.distributed.env(Path(snapshot_dir), device=device)
-    # theoritically we don't need to reload hubconf.py,
+    env = fairseq2.cli.distributed.env(device=device)
+    # theoretically we don't need to reload hubconf.py,
     # but torchhub isn't passing the module to us,
     # so unless we want to grab it from the calling stack frame,
     # we need to reload it again.
@@ -59,10 +59,19 @@ def fairseq2_hub(snapshot_dir: str, device: Optional[torch.device] = None) -> An
 
 @dataclasses.dataclass(frozen=True)
 class Xp:
+    """Represents the current experiment being run by fairseq2"""
+
     script: Path
+    """The experiment script file"""
+
     config_file: Path
+    """A yaml file representing the hyper-parameter used"""
+
     overrides: Sequence[str]
+    """The list of hyper-parameters set from the CLI"""
+
     sha_key: str = dataclasses.field(init=False)
+    """A hash of the experiment script and its hyper-parameters"""
 
     def __post_init__(self) -> None:
         if hasattr(self, "sha_key"):
@@ -236,9 +245,9 @@ class XpScript:
                 raw_value = self._raw_args[k]
                 if arg not in spec.annotations:
                     log.warning(
-                        f"No type annotation for {arg} in fn {name}, parsing {raw_value} as floats"
+                        f"No type annotation for {arg}={raw_value!r} in fn {name}"
                     )
-                value = _parse(spec.annotations.get(arg, float), k, raw_value)
+                value = _parse(spec.annotations.get(arg, str), k, raw_value)
                 self._cache[k] = value
                 self._cache[prefixed_key] = value
                 resolved_args.append(k)
@@ -283,10 +292,6 @@ class XpScript:
             node[parts[-1]] = val
         return tree
 
-    # @property
-    # def __doc__(self) -> str:  # type: ignore[override]
-    #     return self.help()
-
     def help(self, *entrypoints: str, hidden: list[str] = []) -> str:
         out = io.StringIO()
         if self.module.__doc__:
@@ -316,7 +321,7 @@ class XpScript:
             print(f"**{name}** {ta}:", fn_doc, file=out)
 
             if not fn.spec.args:
-                print("(no settings)", file=out)
+                print("\t(no settings)", file=out)
                 continue
 
             args_docs = _get_arguments_description(fn)

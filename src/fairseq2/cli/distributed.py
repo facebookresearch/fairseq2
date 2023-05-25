@@ -16,20 +16,31 @@ log = logging.getLogger(__name__)
 
 
 class Env(NamedTuple):
-    global_rank: int
+    """Represents the distributed environment we are currently running in."""
+
     world_size: int
+    """Total number of worker process working together"""
+
+    global_rank: int
+    """Unique id of this worker. Workers are numbered from 0 to ``world_size - 1``"""
+
     device: torch.device
+    """Cuda device this worker should use."""
 
 
-def env(workdir: Optional[Path] = None, device: Optional[torch.device] = None) -> Env:
+def env(device: Optional[torch.device] = None) -> Env:
+    if device is None:
+        device = (
+            torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
+        )
     return Env(
         global_rank=torchtnt.utils.distributed.get_global_rank(),
         world_size=torchtnt.utils.distributed.get_world_size(),
-        device=device or torch.device("cpu"),
+        device=device,
     )
 
 
-def init(
+def distributed_init(
     workdir: Path,
     partition: str,
     num_gpus: int,
@@ -63,6 +74,12 @@ def init(
     Returns: either don't return if we need to spawn jobs/processes, or return an Env
     describing the rank and world size of the current process.
     """
+    # TODO: should I replace submitit by torchx ? https://github.com/fairinternal/fairseq2/issues/359
+    import __main__
+
+    # Copy the main script to the workdir.
+    main_py = Path(__main__.__file__)
+
     # Check if we are already a distributed worker
     world_size = int(os.environ.get("WORLD_SIZE", -1))
     if world_size < 0:
@@ -71,16 +88,6 @@ def init(
         world_size = int(os.environ.get("SUBMITIT_LOCAL_NTASKS", -1))
 
     if world_size == -1 and partition != "debug":
-        # TODO: should I replace submitit by torchx ?
-        # Main difference I see is that torchx doesn't has good defaults,
-        # but provide some torchx status and torchx log.
-        # Also torchx uses "sacct --json" which is not available on all clusters.
-        # Copy the main script to the workdir.
-        import __main__
-
-        main_py = Path(__main__.__file__)
-        (workdir / main_py.name).write_bytes(main_py.read_bytes())
-
         timeout_min = int(timeout.total_seconds() // 60)
         max_num_timeout = 3
         if submitit.AutoExecutor.which() == "slurm":
@@ -89,9 +96,7 @@ def init(
 
         # We aren't running in distributed mode, let submit a job to do so.
         ex = submitit.AutoExecutor(
-            folder=workdir,
-            cluster="local" if partition == "local" else None,
-            slurm_max_num_timeout=max_num_timeout,
+            folder=workdir, slurm_max_num_timeout=max_num_timeout
         )
         ex.update_parameters(
             name=main_py.stem,
@@ -136,13 +141,15 @@ def init(
         log.info(f"Training is done ! Result: {res}")
         sys.exit(0)
 
-    if world_size <= 1 and partition == "debug":
-        assert (
-            num_gpus <= 1
-        ), "If you want more than one GPU, you need to specify a SLURM partition with --partition"
-        device = torch.device("cuda:0") if num_gpus else torch.device("cpu")
-        log.info(f"Starting local training {sys.executable} on device {device}.")
-        return Env(0, 1, device)
+    if world_size == -1 and partition == "debug":
+        if num_gpus <= 1:
+            device = torch.device("cuda:0") if num_gpus else torch.device("cpu")
+            log.info(f"Starting local training {sys.executable} on device {device}.")
+            return Env(0, 1, device)
+
+        if num_gpus > 1:
+            _torchx_local(main_py, workdir, num_gpus)
+            sys.exit(0)
 
     try:
         # Handle the case where we are launched from submitit
@@ -160,7 +167,8 @@ def init(
 
     # Following https://pytorch.org/docs/stable/generated/torch.cuda.set_device.html
     # we try to set CUDA_VISIBLE_DEVICES if this wasn't done before we start.
-    visible_devices = os.getenv("CUDA_VISIBLE_DEVICES", "").split(",")
+    # TODO: should we set CUDA_VISIBLE_DEVICES or just return a unique "device" per worker ?
+    visible_devices = [x for x in os.getenv("CUDA_VISIBLE_DEVICES", "").split(",") if x]
     n_devices = len(visible_devices)
     local_rank = int(os.getenv("LOCAL_RANK", 0))
     local_world_size = int(os.getenv("LOCAL_WORLD_SIZE", 0))
@@ -170,7 +178,9 @@ def init(
             f"{n_devices} devices and {local_world_size} workers. Assigning 1 GPU per worker."
         )
         os.environ["CUDA_VISIBLE_DEVICES"] = visible_devices[local_rank]
-    elif n_devices > 1:
+    elif n_devices == 0:
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(local_rank)
+    elif n_devices != local_world_size:
         log.warning(
             f"{n_devices} devices and {local_world_size} workers. Each worker will see all GPUs."
         )
@@ -204,14 +214,39 @@ def parse_submitit_stderr(stderr: str, nlines: int = 10) -> str:
     return "\n".join(last_stderr_lines)
 
 
+def _torchx_local(main_py: Path, workdir: Path, num_gpus: int) -> None:
+    """Uses torchx to start a local multi-gpu job.
+
+    Note: this isn't supported by submitit, and torchx local runner works well.
+    """
+    subprocess.run(
+        [
+            "torchx",
+            "run",
+            "--scheduler=local_cwd",
+            "--scheduler_args",
+            f"log_dir={workdir}",
+            "--log",
+            "--workspace=''",
+            "dist.ddp",
+            "--cpu=4",
+            f"--gpu={num_gpus}",
+            "-j",
+            f"1x{num_gpus}",
+            "--script",
+            str(main_py),
+        ]
+        + sys.argv[1:]
+    )
+
+
 class RunScript(submitit.helpers.Checkpointable):
     """Run the given python main script. Tell submitit it's allowed to resubmit the job in case of timeout."""
 
-    def __init__(self, main_py: Path, workdir: Optional[Path] = None):
+    def __init__(self, main_py: Path):
         self.executable = sys.executable
         self.argv = sys.argv[1:]
         self.main_py = main_py
-        self.workdir = workdir
 
     def __call__(self) -> None:
         # Note: spawning this subprocess is not free,
@@ -219,15 +254,8 @@ class RunScript(submitit.helpers.Checkpointable):
         # But this avoid pickling issues.
         # pickle doesn't like stuff defined in the program entry point.
         # TODO: try runpy.run_path this should be equivalent but happens in the same process
-        # Else continue from current dir, but the job will pickup the state of the code when it starts
-        if self.workdir is None:
-            subprocess.run(
-                [sys.executable, str(self.main_py)] + self.argv,
-                check=True,
-            )
-        else:
-            subprocess.run(
-                [sys.executable, self.main_py.name] + self.argv,
-                cwd=self.workdir,
-                check=True,
-            )
+        main_py = self.main_py
+        subprocess.run(
+            [sys.executable, str(main_py)] + self.argv,
+            check=True,
+        )

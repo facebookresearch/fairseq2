@@ -29,10 +29,20 @@ if TYPE_CHECKING:
 
 
 class Seq2SeqBatch(NamedTuple):
+    """The default batch type for :py:class:`fairseq2.tasks.Seq2Seq` task"""
+
     source: "Tensor"
+    """Source tokens: Tensor[long] for text input, Tensor[float] for waveform input."""
+
     src_seq_lens: "Tensor"
+    """Lengths of each source sequence, allowing to mask the padding tokens. Tensor[long]"""
+
     target: "Tensor"
+    """Target tokens: Tensor[long]"""
+
     tgt_seq_lens: "Tensor"
+    """Lengths of each target sequence, allowing to mask the padding tokens. Tensor[long]"""
+
     metadata: Sequence[Dict[str, Any]] = []
 
 

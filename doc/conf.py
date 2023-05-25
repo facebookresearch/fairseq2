@@ -30,6 +30,7 @@ needs_sphinx = "5.0.0"
 
 extensions = [
     "sphinx.ext.autodoc",
+    "sphinx.ext.autosectionlabel",
     "sphinx.ext.autosummary",
     "sphinx.ext.coverage",
     "sphinx.ext.intersphinx",
@@ -45,6 +46,8 @@ highlight_language = "python3"
 autodoc_typehints = "description"
 autodoc_typehints_format = "short"
 autodoc_typehints_description_target = "documented_params"
+
+autosectionlabel_prefix_document = True
 
 todo_include_todos = True
 
