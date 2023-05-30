@@ -145,7 +145,7 @@ def distributed_init(
         if num_gpus <= 1:
             device = torch.device("cuda:0") if num_gpus else torch.device("cpu")
             log.info(f"Starting local training {sys.executable} on device {device}.")
-            return Env(0, 1, device)
+            return Env(world_size=1, global_rank=0, device=device)
 
         if num_gpus > 1:
             _torchx_local(main_py, workdir, num_gpus)
@@ -202,7 +202,11 @@ def distributed_init(
     )
 
     torch.distributed.init_process_group(backend="nccl")
-    return Env(int(os.environ["RANK"]), int(os.environ["WORLD_SIZE"]), device)
+    return Env(
+        world_size=int(os.environ["WORLD_SIZE"]),
+        global_rank=int(os.environ["RANK"]),
+        device=device,
+    )
 
 
 def parse_submitit_stderr(stderr: str, nlines: int = 10) -> str:

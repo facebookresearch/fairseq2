@@ -191,6 +191,12 @@ def_data_pipeline(py::module_ &base)
             [](data_pipeline_builder &self, std::size_t shard_idx, std::size_t num_shards)
                 -> data_pipeline_builder &
             {
+                if (num_shards <= 0) {
+                    throw std::invalid_argument("shard: num_shards must be > 0");
+                }
+                if (shard_idx >= num_shards) {
+                    throw std::invalid_argument("shard: shard_idx must be between 0 and num_shards");
+                }
                 return self.shard(shard_idx, num_shards);
             },
             py::arg("shard_idx"),
