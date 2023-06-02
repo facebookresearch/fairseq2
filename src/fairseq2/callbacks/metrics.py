@@ -40,6 +40,27 @@ class Metrics(Dict[str, Any]):
                 v.reset()
 
 
+class Throughput(torcheval.metrics.aggregation.Throughput):
+    # Like torcheval Throughput but without the warning when passing tensors.
+    @torch.inference_mode()
+    def update(self, num_processed: int, elapsed_time_sec: float) -> "Throughput":
+        if elapsed_time_sec <= 0:
+            raise ValueError(
+                f"Expected elapsed_time_sec to be a positive number, but received {elapsed_time_sec}."
+            )
+
+        self.elapsed_time_sec += elapsed_time_sec
+        self.num_total += num_processed  # type: ignore
+        return self
+
+    @torch.inference_mode()
+    def merge_state(self, metrics: Iterable["Throughput"]) -> "Throughput":
+        super().merge_state(metrics)
+        # Divide by the total number of workers
+        self.num_total /= len(metrics) + 1  # type: ignore
+        return self
+
+
 class CounterBasedMetric(torcheval.metrics.Metric[Tensor]):
     @torch.inference_mode()
     def merge_state(

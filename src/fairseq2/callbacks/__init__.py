@@ -1,6 +1,7 @@
 from .checkpoint import TorchSnapshotSaver as TorchSnapshotSaver
 from .checkpoint import load_from_last_snapshot as load_from_last_snapshot
 from .checkpoint import load_snapshot as load_snapshot
+from .checkpoint import resolve_last_snapshot as resolve_last_snapshot
 from .debugger import Debugger as Debugger
 from .loggers import LogMetrics as LogMetrics
 from .loggers import MetricLogger as MetricLogger

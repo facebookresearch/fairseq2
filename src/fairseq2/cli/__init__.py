@@ -1,3 +1,4 @@
+from .distributed import DDP as DDP
 from .distributed import Env as Env
 from .module_loader import Xp as Xp
 from .module_loader import XpScript as XpScript

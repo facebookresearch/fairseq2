@@ -11,7 +11,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, List, Optional, Set, Union
 
-import torch
 import torchtnt.utils
 from torchsnapshot.snapshot import PendingSnapshot, Snapshot
 from torchtnt.framework.callback import Callback
@@ -48,11 +47,13 @@ class TorchSnapshotSaver(Callback):
         *,
         script: Optional[Path],
         frequency: timedelta = timedelta(minutes=20),
+        async_snapshot: bool = True,
         keep_train_snapshots: int = 10,
         keep_eval_snapshots: int = 10,
     ) -> None:
         self.savedir = Path(savedir)
         self.frequency = frequency
+        self.async_snapshot = async_snapshot
         self.keep_train_snapshots = keep_train_snapshots
         self.keep_eval_snapshots = keep_eval_snapshots
 
@@ -96,18 +97,16 @@ class TorchSnapshotSaver(Callback):
                 return True
 
             pending = not self._pending.done()
-            if torchtnt.utils.get_world_size() > 1:
-                any_pending = torch.tensor(pending).cuda()
-                torch.distributed.all_reduce(
-                    any_pending, torch.distributed.ReduceOp.MAX
-                )
-                pending = any_pending.item() > 0
-
+            pending = torchtnt.utils.sync_bool(pending, coherence_mode="any")
             if pending and force:
-                self._pending.wait()
-            elif pending:
                 log.warning(
-                    f"Still writing previous snapshot, will skip this one. Consider increasing 'frequency' (current {self.frequency})"
+                    f"Still writing {self._pending.path}, waiting before writing {snapshot_path.name}"
+                )
+                pending = not self._pending.done()
+                pending = torchtnt.utils.sync_bool(pending, coherence_mode="any")
+            if pending:
+                log.warning(
+                    f"Still writing previous {self._pending.path}, will skip {snapshot_path.name}. Consider increasing 'frequency' (current {self.frequency})"
                 )
                 return False
 
@@ -115,27 +114,40 @@ class TorchSnapshotSaver(Callback):
         app_state = torchsnapshot_saver._get_app_state(
             state, unit, self._replicated, intra_epoch=True
         )
-        self._pending = Snapshot.async_take(
-            str(snapshot_path), app_state=app_state, replicated=list(self._replicated)
-        )
-        log.info(f"Saving snapshot to path: {snapshot_path}")
+        if self.async_snapshot:
+            self._pending = Snapshot.async_take(
+                str(snapshot_path),
+                app_state=app_state,
+                replicated=list(self._replicated),
+            )
+        else:
+            Snapshot.take(
+                str(snapshot_path),
+                app_state=app_state,
+                replicated=list(self._replicated),
+            )
+
+        log.info(f"Saving snapshot to path: {snapshot_path}. ({', '.join(app_state)})")
         self._last_save = datetime.now()
         # Copy script and config to the snapshot path
         self._ex.submit(_copy_script, self.script, snapshot_path)
         return True
 
     def on_train_step_end(self, state: State, unit: TrainUnit[Any]) -> None:
-        step_end = datetime.now()
-        elapsed = step_end - self._last_save
-        if elapsed < self.frequency:
-            return
-
         train_state = state.train_state
         assert train_state
         epoch = train_state.progress.num_epochs_completed
         step = train_state.progress.num_steps_completed
+
         if step % 10 != 0:
-            # Only save on round step numbers. This prevent misynchronization bugs.
+            return
+
+        step_end = datetime.now()
+        elapsed = step_end - self._last_save
+        should_save = elapsed >= self.frequency
+        should_save = torchtnt.utils.sync_bool(should_save, coherence_mode="any")
+
+        if not should_save:
             return
 
         snapshot_path = self.savedir / f"epoch_{epoch}_step_{step}.train"

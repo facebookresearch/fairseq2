@@ -1,10 +1,8 @@
 import logging
-import math
 import os
 import subprocess
 import sys
 import time
-from datetime import timedelta
 from pathlib import Path
 from typing import Any, Dict, NamedTuple, Optional
 
@@ -44,10 +42,6 @@ def distributed_init(
     workdir: Path,
     partition: str,
     num_gpus: int,
-    timeout: timedelta = timedelta(days=7),
-    cpu_per_gpu: int = 4,
-    num_gpu_per_node: int = 8,
-    qos: Optional[str] = None,
     slurm_args: Dict[str, Any] = {},
 ) -> Env:
     """
@@ -60,15 +54,6 @@ def distributed_init(
             * "debug" will run the program normally using the first GPU (cuda:0)
             * "local" will run the program locally, spawning one subprocess per GPU.
     num_gpus: number of GPU to use.
-    timeout: duration after which we should stop the training.
-    cpu_per_gpu: number of cpu per gpu we should use.
-    num_gpu_per_node: decide how much GPU we should use per node.
-        Most clusters have 8 GPUs per node, so that's the default.
-    qos: --qos flag for SLURM
-    one_file: if true, the caller guarantees that the current python script is movable.
-        We will copy the script into the workdir and run it from there.
-        This allows to continue editing the original script file, while the Slurm job run
-        with its own copy.
     slurm_args: extra arguments for Slurm `sbatch` command line.
 
     Returns: either don't return if we need to spawn jobs/processes, or return an Env
@@ -87,26 +72,26 @@ def distributed_init(
     if world_size < 0:
         world_size = int(os.environ.get("SUBMITIT_LOCAL_NTASKS", -1))
 
-    if world_size == -1 and partition != "debug":
-        timeout_min = int(timeout.total_seconds() // 60)
-        max_num_timeout = 3
-        if submitit.AutoExecutor.which() == "slurm":
-            timeout_min = min(timeout_min, 24 * 60)
-            max_num_timeout = max(max_num_timeout, math.ceil(timeout_min / 24 * 60))
+    partition = slurm_args.pop("partition", partition)
+    num_gpus = int(slurm_args.pop("gpus", num_gpus))
+    if world_size == -1 and partition:
+        timeout_min = int(slurm_args.pop("time", 24 * 60 * 3))
+        max_num_timeout = int(slurm_args.pop("max_num_timeout", 14))
+        gpus_per_node = int(slurm_args.pop("gpus_per_node", 8))
 
         # We aren't running in distributed mode, let submit a job to do so.
         ex = submitit.AutoExecutor(
             folder=workdir, slurm_max_num_timeout=max_num_timeout
         )
+        # Start one task per gpu
         ex.update_parameters(
             name=main_py.stem,
-            nodes=max(num_gpus // num_gpu_per_node, 1),
-            gpus_per_node=min(num_gpus, num_gpu_per_node),
-            tasks_per_node=min(num_gpus, num_gpu_per_node) or 1,
-            cpus_per_task=cpu_per_gpu,
+            nodes=max(num_gpus // gpus_per_node, 1),
+            gpus_per_node=min(num_gpus, gpus_per_node),
+            tasks_per_node=min(num_gpus, gpus_per_node) or 1,
+            cpus_per_task=slurm_args.pop("cpus_per_gpu", 4),
             timeout_min=timeout_min,
             slurm_partition=partition,
-            slurm_qos=qos,
             slurm_additional_parameters=slurm_args,
         )
 
@@ -114,7 +99,7 @@ def distributed_init(
         # but also more error prone.
         job = ex.submit(RunScript(main_py))
         log.info(
-            f"Scheduled training job: {job.job_id}.\nLogs will be at {job.paths.stderr}.\nYou can exit this process with ctrl+c, Slurm will take care of running the training job."
+            f"Scheduled training job: {job}.\nLogs will be at {job.paths.stderr}.\nYou can exit this process with ctrl+c, Slurm will take care of running the training job."
         )
         # TODO: poll log file
         job_state = job.state
@@ -141,7 +126,10 @@ def distributed_init(
         log.info(f"Training is done ! Result: {res}")
         sys.exit(0)
 
-    if world_size == -1 and partition == "debug":
+    if world_size == -1 and not partition:
+        if slurm_args:
+            log.warning("Not using Slurm because '--partition' isn't set")
+
         if num_gpus <= 1:
             device = torch.device("cuda:0") if num_gpus else torch.device("cpu")
             log.info(f"Starting local training {sys.executable} on device {device}.")
@@ -159,7 +147,8 @@ def distributed_init(
         # env variables and converting them to torch env variables.
         env = submitit.helpers.TorchDistributedEnvironment()
         if env.world_size == world_size:
-            env.export(set_cuda_visible_devices=True)
+            # We already handle CUDA_VISIBLE_DEVICES below.
+            env.export(set_cuda_visible_devices=False)
             os.environ["GROUP_RANK"] = "0"
             os.environ.update(os.environ)
     except RuntimeError:
@@ -263,3 +252,25 @@ class RunScript(submitit.helpers.Checkpointable):
             [sys.executable, str(main_py)] + self.argv,
             check=True,
         )
+
+
+class FakeDDP(torch.nn.Module):
+    def __init__(self, module: torch.nn.Module):
+        super().__init__()
+        self.module = module
+
+    def __call__(self, *args: Any, **kwargs: Any) -> Any:
+        return self.module(*args, **kwargs)
+
+    def forward(self, *args: Any, **kwargs: Any) -> Any:
+        return self.module.forward(*args, **kwargs)
+
+
+def DDP(module: torch.nn.Module, env: Env) -> torch.nn.parallel.DistributedDataParallel:
+    """torch.nn.parallel.DistributedDataParallel except it also works with one GPU"""
+    if env.world_size > 1:
+        return torch.nn.parallel.DistributedDataParallel(
+            module, device_ids=[env.device]
+        )
+    else:
+        return FakeDDP(module)  # type: ignore

@@ -88,7 +88,7 @@ class Seq2Seq(tnt.AutoUnit[Seq2SeqBatch]):
             loss=torcheval.metrics.Mean(device=device),
             src_num_tokens=torcheval.metrics.Sum(device=device),
             tgt_num_tokens=torcheval.metrics.Sum(device=device),
-            tps=torcheval.metrics.Throughput(device=device),
+            tps=fairseq2.callbacks.metrics.Throughput(device=device),
         )
         if mode == "eval":
             metrics["loss_min"] = torcheval.metrics.Min(device=device)
@@ -96,7 +96,13 @@ class Seq2Seq(tnt.AutoUnit[Seq2SeqBatch]):
         return metrics
 
     def replicated_keys(self) -> Set[str]:
-        return {"tokenizer"}
+        if isinstance(self.tokenizer, Tokenizer):
+            # This is an optimization to avoid having several copies of the tokenizer
+            # in the checkpoint. This may not always be possible,
+            # in particular if the tokenizer is a torch.nn.Module
+            return {"tokenizer"}
+
+        return set()
 
     def move_data_to_device(self, state: State, data: Seq2SeqBatch) -> Seq2SeqBatch:
         data = super().move_data_to_device(state, data)

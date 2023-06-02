@@ -84,7 +84,9 @@ prefetched_data_source::reset()
 void
 prefetched_data_source::record_position(tape &t) const
 {
-    stop_prefetch();
+    // Prevent items being added / removed from queue while we save them.
+    // https://github.com/fairinternal/fairseq2/pull/381
+    std::unique_lock<std::mutex> queue_lock{queue_mutex_};
 
     // TODO: Save read and fill queues.
 

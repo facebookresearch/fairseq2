@@ -24,18 +24,19 @@ from fairseq2.cli.distributed import distributed_init
 from fairseq2.data import StringLike
 from fairseq2.tasks import Seq2Seq
 
-logging.basicConfig(level=logging.INFO)
-# TODO: train/evaluate should also setup logging to a specific experiment file
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(name)s %(levelname)s (%(asctime)s) - %(message)s",
+)
 log = logging.getLogger("fairseq2.cli")
 
 
 def train(
     script: Path,
     workdir: Optional[Path] = None,
-    partition: str = "debug",
+    partition: str = "",
     num_gpus: int = 1,
     eval_freq: int = -1,
-    restart: bool = False,
     max_steps: Optional[int] = None,
     overrides: List[str] = [],
 ) -> Dict[str, Any]:
@@ -47,11 +48,10 @@ def train(
         - a "valid_data" function if --eval_freq is set.
 
     - workdir: we will create an Xp dir there and put it the script and model snapshots.
-
     - eval_freq: enable evaluation on the valid_data
-    - partition: run on SLURM using the given partition
-    - num_gpus: number of GPU to use (requires --partition)
-    - restart: start the training from scratch, ignoring existing checkpoints
+    - num_gpus: number of GPUs to use
+    - partition: run on SLURM using the given partition (runs locally otherwise)
+        When using SLURM all sbatch options can be set by prefixing them with "slurm.": ``slurm.time=4320``
     """
     slurm_args, overrides = _extract_slurm_args(overrides)
     xp = Xp(script, script.with_suffix(".yaml"), overrides)
@@ -76,18 +76,13 @@ def train(
             xp = Xp(script, script.with_suffix(".yaml"), overrides)
 
     # Check this before creating a SLURM job.
-    if restart and xp.config_file.exists():
-        log.warning(
-            f"There was already an experience at {script}, restarting it from scratch !"
-        )
-        xp.config_file.unlink()
-    elif xp.script.exists():
-        log.warning(f"There was already an experience at {script}, continuing it.")
+    last_snapshot = fairseq2.callbacks.resolve_last_snapshot(workdir)
+    if last_snapshot:
+        log.warning(f"Found previous experiment at {last_snapshot}, continuing it.")
     else:
-        log.info(f"Starting new experience at {script}")
+        log.info(f"Starting new experiment at {script}")
 
     env = distributed_init(workdir, partition, num_gpus, slurm_args=slurm_args)
-
     entry_point = "train"
 
     module = XpScript.from_script(script, overrides=overrides)
@@ -113,9 +108,8 @@ def train(
     )
 
     module.serialize(xp.config_file)
-    # Try to resume from the same workdir.
-    if not restart:
-        fairseq2.callbacks.load_from_last_snapshot(str(workdir), train_state, task)
+    if last_snapshot:
+        fairseq2.callbacks.load_snapshot(last_snapshot, train_state, task)
 
     try:
         tnt.fit(train_state, task, callbacks=callbacks)
@@ -265,7 +259,7 @@ def grid(
 def evaluate(
     script: Path,
     snapshot: str = "",
-    partition: str = "debug",
+    partition: str = "",
     num_gpus: int = 1,
     overrides: List[str] = [],
 ) -> Dict[str, Any]:
@@ -336,7 +330,7 @@ def evaluate(
 
 def eval_server(
     snapshot_root: Path,
-    partition: str = "debug",
+    partition: str = "",
     num_gpus: int = 1,
     timeout: datetime.timedelta = datetime.timedelta(minutes=10),
     script: Optional[Path] = None,
@@ -454,7 +448,7 @@ def inference(
     snapshot_dir: Path,
     src_lang: str = "",
     tgt_lang: str = "",
-    partition: str = "debug",
+    partition: str = "",
     batch_size: int = 16,
     num_gpus: int = 1,
 ) -> None:
@@ -466,7 +460,8 @@ def inference(
 
     # Currently inference always run locally. This could be an issue for large model
     # TODO: allow distributed inference (this won't work with stdin/stdout)
-    assert partition == "debug", "TODO: local inference is supported"
+    if partition:
+        raise NotImplementedError("only local inference is supported for now")
 
     env = distributed_init(snapshot_dir, partition, num_gpus)
     # Note: it's important to use torch.hub.load here,
@@ -539,7 +534,7 @@ def test(
     overrides: List[str] = [],
     num_gpus: int = 0,
     entry_point: str = "test",
-    partition: str = "debug",
+    partition: str = "",
     num_examples: int = 10_000,
 ) -> None:
     """
@@ -684,17 +679,33 @@ def _setup_module(module: XpScript, env: Env, xp: Xp, entry_point: str) -> None:
 
 
 if DOC_MODE:
-    env: Env = None  # type: ignore
+    # Document the 3 builtin fixtures.
+    # The example values are shown in the doc.
+
+    env: Env = Env(16, 9, torch.device("cuda:1"))
     """The distributed environment we are currently running in.
 
     Typically used in dataloader to read only a shard of the data,
     or to put the model on the right device.
+
+    - world_size: Total number of worker process working together
+    - global_rank: Unique id of this worker. Workers are numbered from 0 to ``world_size - 1``
+    - device: Cuda device this worker should use.
     """
 
-    xp: Xp = None  # type: ignore
+    xp: Xp = Xp(
+        Path("examples/train_mt.py"),
+        Path("/checkpoint/bob/cool_exp/train_mt.yaml"),
+        ["lr=0.013", "train_data.batch_size=128"],
+    )
     """Metadata about the current experiment.
 
     Typically used to output files in the right place.
+
+    - script: path to the experiment script
+    - config_file: a yaml file representing all the hyper-parameters used
+    - overrides: list of hyper-parameters set from the CLI
+    - sha_key: hash of the experiment script and its hyper-parameters
     """
 
     entry_point: str = "train"

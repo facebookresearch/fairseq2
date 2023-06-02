@@ -62,13 +62,13 @@ class Xp:
     """Represents the current experiment being run by fairseq2"""
 
     script: Path
-    """The experiment script file"""
+    """Path to the experiment script"""
 
     config_file: Path
-    """A yaml file representing the hyper-parameter used"""
+    """Yaml file representing all hyper-parameters used"""
 
     overrides: Sequence[str]
-    """The list of hyper-parameters set from the CLI"""
+    """List of hyper-parameters set from the CLI"""
 
     sha_key: str = dataclasses.field(init=False)
     """A hash of the experiment script and its hyper-parameters"""

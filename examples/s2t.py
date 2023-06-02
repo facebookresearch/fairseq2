@@ -24,6 +24,12 @@ from fairseq2.data.text import MultilingualTokenizer, Tokenizer, VocabularyInfo
 from fairseq2.generate import spm_train
 from fairseq2.models.transformer import TransformerModel
 
+if __name__ == "__main__":
+    import fairseq2.cli.commands
+
+    fairseq2.cli.commands.main(__file__)
+
+
 log = logging.getLogger(__name__)
 
 DATADIR: str = "/checkpoint/guw/fairseq2/data/must-c-v1.0.eng-deu"
@@ -31,6 +37,7 @@ task = fairseq2.tasks.Seq2Seq
 
 
 def tokenizer(
+    env: fairseq2.cli.Env,
     xp: fairseq2.cli.Xp,
     data_dir: str = DATADIR,
     lang: str = "eng_Latn",
@@ -79,11 +86,7 @@ def module(
 
         return FSDP(model)  # type: ignore[return-value]
     else:
-        return torch.nn.parallel.DistributedDataParallel(  # type: ignore[return-value]
-            model, device_ids=[env.device.index]
-        )
-
-    return model
+        return fairseq2.cli.DDP(model, env)  # type: ignore[return-value]
 
 
 def s2t_transformer_config(
@@ -126,10 +129,8 @@ def valid_data(
 
 
 def _read_tsv_shard(manifest_path: str, env: Env) -> DataPipelineBuilder:
-    return (
-        data.text.read_text(manifest_path, rtrim=True, skip_header=1)
-        # Sharding
-        .shard(env.global_rank, env.world_size)
+    return data.text.read_text(manifest_path, rtrim=True, skip_header=1).shard(
+        env.global_rank, env.world_size
     )
 
 
@@ -220,8 +221,3 @@ def vocab_info(tokenizer: Tokenizer) -> VocabularyInfo:
 
 # This is important, it tells torch.hub how to reload our "task" which contains model and tokenizer.
 fairseq2_hub = fairseq2.cli.fairseq2_hub
-
-if __name__ == "__main__":
-    import fairseq2.cli.commands
-
-    fairseq2.cli.commands.main(__file__)

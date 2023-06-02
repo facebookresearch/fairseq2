@@ -46,8 +46,18 @@ class MetricLogger(Stateful):
         self._rank: int = torchtnt.utils.distributed.get_global_rank()
         self._last_metrics: tp.Mapping[str, Scalar] = {}
 
-    def prepare(self) -> None:
-        pass
+    def on_train_start(self) -> None:
+        job_info = collect_job_info()
+        log.info(f"Job info: {job_info}")
+
+        config = yaml.load(self.config_file.read_text(), Loader=yaml.Loader)
+        if config is None:
+            log.warning(f"{self.config_file} is empty")
+            return
+
+        config["job"] = job_info
+        self.config_file.write_text(yaml.dump(config))
+        print(config)
 
     def log_dict(self, payload: tp.Mapping[str, Scalar], step: int) -> None:
         ...
@@ -72,21 +82,30 @@ def collect_job_info() -> Dict[str, str]:
 
 
 class StdoutLogger(MetricLogger):
-    # Should loggers be responsible for updating the config file ?
-    def prepare(self) -> None:
-        config = yaml.load(self.config_file.read_text(), Loader=yaml.Loader)
-        config["job"] = collect_job_info()
-        self.config_file.write_text(yaml.dump(config))
-        print(config)
-
     def log_dict(self, payload: tp.Mapping[str, Scalar], step: int) -> None:
         self._last_metrics = payload
         if self._rank != 0:
             return
-        print("Step:", step, payload)
+        print("Step:", step, _downgrade_for_stdout(payload))
 
 
-class WandbLogger(MetricLogger):
+def _downgrade_for_stdout(payload: tp.Mapping[str, tp.Any]) -> tp.Mapping[str, tp.Any]:
+    """Converts a metric dict into something that can be logged by tensorboard"""
+
+    def _downgrade(val: tp.Any) -> tp.Any:
+        if isinstance(val, float):
+            return round_sig(val, 4)
+        if not isinstance(val, torch.Tensor):
+            return val
+        if val.ndim == 0:
+            return round_sig(val.item(), 4)
+        else:
+            return f"tensor{tuple(val.shape)} on {val.device}"
+
+    return {k: _downgrade(v) for k, v in payload.items()}
+
+
+class WandbLogger(StdoutLogger):
     def __init__(
         self,
         config_file: Path,
@@ -194,12 +213,10 @@ class WandbLogger(MetricLogger):
         run = self._wandb_run
         if run is None:
             return
-        run.log(payload, step)
-        print(
-            "Step:",
-            step,
-            {k: round_sig(v, 4) for k, v in payload.items() if isinstance(v, float)},
-        )
+        run.log(_downgrade_for_tb(payload), step)
+
+        # Also log to stdout
+        super().log_dict(payload, step)
 
     def close(self) -> None:
         """Close log resource, flushing if necessary.
@@ -214,7 +231,7 @@ class WandbLogger(MetricLogger):
 
 class TensorBoardLogger(TntTensorBoardLogger, StdoutLogger):
     def __init__(self, config_file: Path, log_dir: tp.Optional[Path] = None):
-        log_dir = log_dir or config_file.parent
+        log_dir = log_dir or config_file.parent / "tb"
         log_dir.mkdir(exist_ok=True)
         super().__init__(str(log_dir))
         self.config_file = config_file
@@ -225,10 +242,13 @@ class TensorBoardLogger(TntTensorBoardLogger, StdoutLogger):
             self._writer.add_hparams(flat_conf, {})
 
     def log_dict(self, payload: tp.Mapping[str, Scalar], step: int) -> None:
-        super().log_dict(payload, step)
-        if self._rank != 0:
-            return
-        print("Step:", step, payload)
+        TntTensorBoardLogger.log_dict(self, _downgrade_for_tb(payload), step)
+        StdoutLogger.log_dict(self, payload, step)
+
+
+def _downgrade_for_tb(payload: tp.Mapping[str, Scalar]) -> tp.Mapping[str, Scalar]:
+    """Converts a metric dict into something that can be logged by tensorboard"""
+    return {k: v for k, v in payload.items() if getattr(v, "ndim", 0) == 0}
 
 
 class LogMetrics(Callback):
@@ -253,6 +273,10 @@ class LogMetrics(Callback):
 
         self.max_interval_seconds = max_interval.total_seconds()
         self._last_log = time.monotonic()
+
+    def on_train_start(self, state: State, unit: TTrainUnit[Any]) -> None:
+        if hasattr(self.logger, "on_train_start"):
+            self.logger.on_train_start()
 
     def on_train_step_end(self, state: State, unit: TTrainUnit[Any]) -> None:
         assert state.train_state is not None
@@ -351,18 +375,18 @@ class WandbCsvWriter(Callback):
             return step_output
         raise NotImplementedError()
 
-    def prepare(self) -> None:
+    def _reset_table(self) -> None:
         import wandb
 
-        self.logger.prepare()
+        _ = self.logger._wandb_run
         self._table = wandb.Table(columns=self.columns, data=[])
         self._table_size = 0
 
     def on_eval_start(self, state: State, unit: TEvalUnit[tp.Any]) -> None:
-        self.prepare()
+        self._reset_table()
 
     def on_train_start(self, state: State, unit: TTrainUnit[tp.Any]) -> None:
-        self.prepare()
+        self._reset_table()
 
     def on_train_step_end(self, state: State, unit: TTrainUnit[tp.Any]) -> None:
         if self._table_size > self.limit:
