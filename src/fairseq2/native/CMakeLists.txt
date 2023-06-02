@@ -45,6 +45,9 @@ target_sources(fairseq2
         data/text/text_line_reader.cc
         data/text/utf8_stream.cc
         data/text/detail/utf.cc
+        data/text/dicttokenizer/dict_encoder.cc
+        data/text/dicttokenizer/dict_decoder.cc
+        data/text/dicttokenizer/dict_model.cc
         data/text/sentencepiece/sp_decoder.cc
         data/text/sentencepiece/sp_encoder.cc
         data/text/sentencepiece/sp_model.cc

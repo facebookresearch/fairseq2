@@ -4,6 +4,8 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
+#include "fairseq2/native/data/text/dicttokenizer/dict_encoder.h"
+#include "fairseq2/native/data/text/dicttokenizer/dict_decoder.h"
 #include "fairseq2/native/extension/module.h"
 
 #include <cstddef>
@@ -130,6 +132,59 @@ def_sentencepiece(py::module_ &base)
             py::arg("disable_parallelism") = false);
 }
 
+void
+def_dict_tokenizer(py::module_ &base)
+{
+    py::module_ m = base.def_submodule("dict");
+
+    py::class_<dict_model>(m, "DictModel")
+        .def(py::init(
+            [](std::vector<std::string>&& vocab)
+            {
+                return std::make_unique<dict_model>(std::move(vocab));
+            }
+        ),
+        py::arg("vocab"))
+        .def("token_to_index", &dict_model::token_to_index)
+        .def("index_to_token", &dict_model::index_to_token)
+        .def_property_readonly("vocab_size", &dict_model::vocab_size)
+        .def_property_readonly("unk_idx",
+            [](const dict_model &self)
+            {
+                return self.unk_token_idx;
+            })
+        .def_property_readonly("bos_idx",
+            [](const dict_model &self)
+            {
+                return self.bos_token_idx;
+            })
+        .def_property_readonly("eos_idx",
+            [](const dict_model &self)
+            {
+                return self.eos_token_idx;
+            })
+        .def_property_readonly("pad_idx",
+            [](const dict_model &self)
+            {
+                return self.pad_token_idx;
+            });
+    py::class_<dict_encoder, data_processor>(m, "DictEncoder")
+        .def(py::init(
+            [](const dict_model *model, std::int64_t dim)
+            {
+                return dict_encoder(model, dim);
+            }),
+            py::arg("vocab"),
+            py::arg("dim"));
+    py::class_<dict_decoder, data_processor>(m, "DictDecoder")
+        .def(py::init(
+            [](const dict_model *model)
+            {
+                return dict_decoder(model);
+            }),
+            py::arg("vocab"));
+}
+
 }  // namespace
 
 void
@@ -175,6 +230,7 @@ def_text(py::module_ &base)
         py::arg("memory_map")  = false,
         py::arg("block_size")  = std::nullopt);
 
+    def_dict_tokenizer(m);
     def_sentencepiece(m);
 }
 
