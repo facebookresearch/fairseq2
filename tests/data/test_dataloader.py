@@ -266,6 +266,21 @@ def test_islice_next() -> None:
         next(it)
 
 
+def test_islice_edge_cases() -> None:
+    X = list(range(10))
+    dl_big_start = fairseq2.data.read_sequence(X).islice(15, 20, 4).and_return()
+    it = iter(dl_big_start)
+    with pytest.raises(StopIteration):
+        next(it)
+
+    dl_none_stop = fairseq2.data.read_sequence(X).islice(5, None, 3).and_return()
+    it = iter(dl_none_stop)
+    assert 5 == next(it)
+    assert 8 == next(it)
+    with pytest.raises(StopIteration):
+        next(it)
+
+
 @pytest.mark.parametrize("chunk_size", [1, 2, 4, 10])
 def test_map(chunk_size: int) -> None:
     X = list(range(10))

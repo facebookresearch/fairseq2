@@ -14,13 +14,12 @@ std::optional<data>
 islice_data_source::next()
 {
     if (next_index_ == 0 && start_ != 0)
-        skip(start_);
+        next_index_ += inner_->skip(start_);
     if ((next_index_ - start_) % step_ == 1)
-        skip(step_ - 1);
+        next_index_ += inner_->skip(step_ - 1);
 
     // return only if haven't reached stop
-    if (!stop_.has_value() || next_index_ < stop_.value()) 
-    {
+    if (!stop_.has_value() || next_index_ < stop_.value()) {
         next_index_++;
         return inner_->next();
     }
@@ -31,9 +30,11 @@ islice_data_source::next()
 std::size_t
 islice_data_source::skip(std::size_t num_examples)
 {
-    next_index_ += num_examples;
+    std::size_t skipped = 0;
+    while (skipped < num_examples && next().has_value())
+        skipped++;
 
-    return inner_->skip(num_examples);
+    return skipped;
 }
 
 void
