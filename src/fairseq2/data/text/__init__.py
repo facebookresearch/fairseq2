@@ -4,9 +4,10 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from fairseq2.data.text.dict import DictDecoder as DictDecoder
-from fairseq2.data.text.dict import DictEncoder as DictEncoder
-from fairseq2.data.text.dict import DictModel as DictModel
+from fairseq2.data.text.dict_model import DictDecoder as DictDecoder
+from fairseq2.data.text.dict_model import DictEncoder as DictEncoder
+from fairseq2.data.text.dict_model import DictModel as DictModel
+from fairseq2.data.text.dict_tokenizer import DictTokenizer as DictTokenizer
 from fairseq2.data.text.multilingual_tokenizer import (
     MultilingualTokenizer as MultilingualTokenizer,
 )

@@ -170,12 +170,12 @@ def_dict_tokenizer(py::module_ &base)
             });
     py::class_<dict_encoder, data_processor>(m, "DictEncoder")
         .def(py::init(
-            [](const dict_model *model, std::int64_t dim)
+            [](const dict_model *model, std::int64_t max_seq_len)
             {
-                return dict_encoder(model, dim);
+                return dict_encoder(model, max_seq_len);
             }),
             py::arg("vocab"),
-            py::arg("dim"));
+            py::arg("max_seq_len"));
     py::class_<dict_decoder, data_processor>(m, "DictDecoder")
         .def(py::init(
             [](const dict_model *model)

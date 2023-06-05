@@ -22,14 +22,14 @@ class FAIRSEQ2_API dict_encoder final : public data_processor {
 
 public:
     explicit
-    dict_encoder(const dict_model *model, std::int64_t dim);
+    dict_encoder(const dict_model *model, std::int64_t max_seq_len);
 
     data
     operator()(data &&d) const override;
 
 private:
     const dict_model *model_;
-    const std::int64_t dim_;
+    const std::int64_t max_seq_len_;
 
     at::Tensor
     encode(span<data> sentences) const;

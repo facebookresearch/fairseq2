@@ -11,8 +11,8 @@
 
 namespace fairseq2 {
 
-dict_encoder::dict_encoder(const dict_model *model, std::int64_t dim)
-    : model_{model}, dim_{dim}
+dict_encoder::dict_encoder(const dict_model *model, std::int64_t max_seq_len)
+    : model_{model}, max_seq_len_{max_seq_len}
 {
 }
 
@@ -28,15 +28,15 @@ dict_encoder::operator()(data &&d) const
 at::Tensor
 dict_encoder::encode(span<data> sentences) const
 {
-    // TODO compute seq_dim for each batch instead of having it as an attribute.
+    // TODO compute seq_len for each batch instead of using fixed max_seq_len
 
     auto batch_size = static_cast<std::int64_t>(sentences.size());
-    auto tensor = at::full({batch_size, dim_}, this->model_->pad_token_idx, at::TensorOptions().dtype(at::kLong));
+    auto tensor = at::full({batch_size, max_seq_len_}, this->model_->pad_token_idx, at::TensorOptions().dtype(at::kLong));
     auto tensor_a = tensor.accessor<std::int64_t, 2>();
 
     for (auto i = 0; i < batch_size; ++i) {
         auto tokens = sentences[static_cast<std::size_t>(i)].as_string().split(' ');
-        auto token_count = std::min(dim_ - 2, static_cast<std::int64_t>(tokens.size()));
+        auto token_count = std::min(max_seq_len_ - 2, static_cast<std::int64_t>(tokens.size()));
 
         tensor_a[i][0] = this->model_->bos_token_idx;
         for (auto j = 0; j < token_count; ++j)

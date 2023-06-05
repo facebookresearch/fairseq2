@@ -4,9 +4,7 @@ import pytest
 import torch
 
 from fairseq2.data.string import StringLike
-from fairseq2.data.text.dict import DictModel
-from fairseq2.data.text.dict_tokenizer import DictTokenizer
-from fairseq2.data.text.tokenizer import VocabularyInfo
+from fairseq2.data.text import DictModel, DictTokenizer, VocabularyInfo
 
 vocab: Sequence[StringLike] = ["hello", "one", "two", "world"]  # sorted alphabetically
 

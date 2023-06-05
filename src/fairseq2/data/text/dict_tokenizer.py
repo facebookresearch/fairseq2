@@ -4,7 +4,7 @@ import torch
 from overrides import final
 
 from fairseq2.data.string import StringLike
-from fairseq2.data.text.dict import DictDecoder, DictEncoder, DictModel
+from fairseq2.data.text.dict_model import DictDecoder, DictEncoder, DictModel
 from fairseq2.data.text.tokenizer import (
     TokenDecoder,
     TokenEncoder,
@@ -15,8 +15,7 @@ from fairseq2.data.text.tokenizer import (
 
 @final
 class DictTokenizer(Tokenizer):
-    """Represents a simple tokenizer that splits on space and replace word by token found in dict.
-    Warning: only int64 as token index works for now. TODO: Implement integer types with more options."""
+    """Represents a simple tokenizer that splits on space and replace word by token found in dict."""
 
     model: DictModel
     dim: int
