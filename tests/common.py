@@ -40,3 +40,18 @@ def has_no_inf(a: Tensor) -> bool:
 def has_no_nan(a: Tensor) -> bool:
     """Indicate whether  ``a`` has no NaN element."""
     return not torch.any(torch.isnan(a))
+
+
+def assert_equal_tensor_list(
+    actual: Union[Tensor, List[Any]], expected: Union[Tensor, List[Any]]
+) -> None:
+    """Assert equality of embeded list of tensors"""
+    assert type(actual) == type(expected)
+
+    if isinstance(actual, Tensor):
+        assert_equal(actual, expected)
+    elif isinstance(actual, List):
+        for i in range(len(actual)):
+            assert_equal_tensor_list(actual[i], expected[i])
+    else:
+        raise ValueError(f"{type(actual)} not supported.")

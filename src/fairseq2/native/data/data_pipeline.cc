@@ -177,7 +177,7 @@ data_pipeline::check_if_broken() const
 }
 
 data_pipeline_builder &
-data_pipeline_builder::batch(std::size_t batch_size, bool drop_remainder, std::optional<std::int32_t> pad_idx) &
+data_pipeline_builder::batch(std::size_t batch_size, bool drop_remainder, const std::vector<std::int32_t> &pad_idx) &
 {
     factory_ = [=, inner = std::move(factory_)]() {
         return std::make_unique<batched_data_source>(inner(), batch_size, drop_remainder, pad_idx);
@@ -187,7 +187,7 @@ data_pipeline_builder::batch(std::size_t batch_size, bool drop_remainder, std::o
 }
 
 data_pipeline_builder &&
-data_pipeline_builder::batch(std::size_t batch_size, bool drop_remainder, std::optional<std::int32_t> pad_idx) &&
+data_pipeline_builder::batch(std::size_t batch_size, bool drop_remainder, const std::vector<std::int32_t> &pad_idx) &&
 {
     batch(batch_size, drop_remainder, pad_idx);
 

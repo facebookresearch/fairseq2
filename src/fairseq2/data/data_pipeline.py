@@ -15,6 +15,7 @@ from typing import (
     Optional,
     Sequence,
     Tuple,
+    Union,
 )
 
 from fairseq2 import DOC_MODE
@@ -73,7 +74,7 @@ if TYPE_CHECKING or DOC_MODE:
             self,
             batch_size: int,
             drop_remainder: bool = False,
-            pad_idx: Optional[int] = None,
+            pad_idx: Optional[Union[int, List[int]]] = None,
         ) -> "DataPipelineBuilder":
             """Combine a number of consecutive examples into a single example.
 

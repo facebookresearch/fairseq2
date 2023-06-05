@@ -16,6 +16,7 @@
 #include <string_view>
 #include <utility>
 #include <vector>
+#include <variant>
 
 #include <fmt/core.h>
 
@@ -127,15 +128,22 @@ def_data_pipeline(py::module_ &base)
 
     py::class_<data_pipeline_builder>(m, "DataPipelineBuilder")
         .def("batch",
-            [](data_pipeline_builder &self, std::size_t batch_size, bool drop_remainder, std::optional<std::int32_t> pad_idx)
+            [](data_pipeline_builder &self, std::size_t batch_size, bool drop_remainder,
+             const std::variant<std::vector<std::int32_t>, std::int32_t> &pad_idx)
                 -> data_pipeline_builder &
             {
-                return self.batch(batch_size, drop_remainder, pad_idx);
+                std::vector<std::int32_t> padding{};
+                if (std::holds_alternative<std::int32_t>(pad_idx))
+                    padding = {std::get<std::int32_t>(pad_idx)};
+                else
+                    padding = std::get<std::vector<std::int32_t>>(pad_idx);
+
+                return self.batch(batch_size, drop_remainder, padding);
             },
             py::arg("batch_size"),
             py::kw_only(),
             py::arg("drop_remainder") = false,
-            py::arg("pad_idx") = std::nullopt)
+            py::arg("pad_idx") = std::vector<std::int32_t>{})
         .def("batch_by_length",
             [](
                 data_pipeline_builder &self,

@@ -12,6 +12,7 @@
 #include <ATen/Tensor.h>
 
 #include "fairseq2/native/exception.h"
+#include "fairseq2/native/data/data_pipeline.h"
 
 namespace fairseq2::detail {
 
@@ -48,8 +49,8 @@ batched_data_source::make_batch(std::vector<data> batch) {
         for (auto &v : batch)
             s.emplace_back(v.as_tensor());
 
-        if (pad_idx_) {
-            return at::pad_sequence(s, /*batch_first=*/true, *pad_idx_);
+        if (current_pad_idx_) {
+            return at::pad_sequence(s, /*batch_first=*/true, *current_pad_idx_);
         }
         return at::stack(s);
     }
@@ -59,6 +60,9 @@ batched_data_source::make_batch(std::vector<data> batch) {
         // let's return a tuple of batched tensors.
         auto bs = batch.size();
         auto n_cols = batch.front().as_list().size();
+        if (pad_idx_.size() > 1 && pad_idx_.size() != n_cols)
+                throw data_pipeline_error{"Received input with mismatched number of columns in `batch(pad_idx=[...])`."};
+
         std::vector<std::vector<data>> columns(n_cols);
         for (auto column : columns)
             column.reserve(bs);
@@ -78,6 +82,8 @@ batched_data_source::make_batch(std::vector<data> batch) {
         std::vector<data> batched_columns = {};
         batched_columns.reserve(n_cols);
         for (std::size_t col = 0; col < n_cols; ++col) {
+            if (pad_idx_.size() == n_cols)
+                current_pad_idx_ = pad_idx_[col];
             batched_columns.emplace_back(make_batch(columns[col]));
         }
         return batched_columns;
