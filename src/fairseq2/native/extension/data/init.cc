@@ -210,6 +210,12 @@ def_data_pipeline(py::module_ &base)
             py::arg("buffer_size"),
             py::arg("seed") = 0,
             py::arg("deterministic") = false)
+        .def("filter",
+            [](data_pipeline_builder &self, predicate_fn &&predicate) -> data_pipeline_builder &
+            {
+                return self.filter(std::move(predicate));
+            },
+            py::arg("predicate"))
         .def("yield_from",
             [](data_pipeline_builder &self, yield_fn &&fn) -> data_pipeline_builder &
             {

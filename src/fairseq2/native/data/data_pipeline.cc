@@ -14,6 +14,7 @@
 #include <fmt/core.h>
 
 #include "fairseq2/native/data/round_robin_data_source.h"
+#include "fairseq2/native/data/filtered_data_source.h"
 #include "fairseq2/native/py.h"
 #include "fairseq2/native/data/batched_data_source.h"
 #include "fairseq2/native/data/batched_by_length_data_source.h"
@@ -279,6 +280,24 @@ data_pipeline_builder &&
 data_pipeline_builder::map(map_fn fn, std::size_t chunk_size) &&
 {
     map(std::move(fn), chunk_size);
+
+    return std::move(*this);
+}
+
+data_pipeline_builder &
+data_pipeline_builder::filter(predicate_fn predicate) &
+{
+    factory_ = [predicate = std::move(predicate), inner = std::move(factory_)]() mutable {
+        return std::make_unique<filtered_data_source>(inner(), std::move(predicate));
+    };
+
+    return *this;
+}
+
+data_pipeline_builder &&
+data_pipeline_builder::filter(predicate_fn predicate) &&
+{
+    filter(std::move(predicate));
 
     return std::move(*this);
 }

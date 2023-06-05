@@ -76,7 +76,7 @@ private:
 };
 
 using map_fn = std::function<data(data &&)>;
-
+using predicate_fn = std::function<bool(const data &)>;
 using yield_fn = std::function<data_pipeline(const data &)>;
 
 class FAIRSEQ2_API data_pipeline_builder {
@@ -129,6 +129,12 @@ public:
 
     data_pipeline_builder &&
     map(map_fn fn, std::size_t chunk_size) &&;
+
+    data_pipeline_builder &
+    filter(predicate_fn predicate) &;
+
+    data_pipeline_builder &&
+    filter(predicate_fn predicate) &&;
 
     data_pipeline_builder &
     prefetch(std::size_t num_examples) &;

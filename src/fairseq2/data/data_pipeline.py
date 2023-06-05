@@ -150,6 +150,14 @@ if TYPE_CHECKING or DOC_MODE:
                 This can be expensive for large shuffle size.
             """
 
+        def filter(self, predicate: Callable[[Any], Any]) -> "DataPipelineBuilder":
+            """
+            Filter examples from data pipeline and keep only those who match ``predicate``.
+
+            :param predicate:
+                The predicate used to select examples to keep.
+            """
+
         def yield_from(
             self, fn: Callable[[Any], DataPipeline]
         ) -> "DataPipelineBuilder":

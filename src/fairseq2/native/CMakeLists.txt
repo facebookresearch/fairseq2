@@ -24,6 +24,7 @@ target_sources(fairseq2
         data/data_source.cc
         data/file.cc
         data/file_stream.cc
+        data/filtered_data_source.cc
         data/immutable_string.cc
         data/list_data_source.cc
         data/mapped_data_source.cc

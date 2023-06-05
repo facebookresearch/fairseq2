@@ -295,6 +295,16 @@ def test_map_handle_exceptions() -> None:
         list(dataloader)
 
 
+def test_filter() -> None:
+    X = list(range(10))
+    Y = [x for x in X if x % 2 == 0]
+
+    dataloader = (
+        fairseq2.data.read_sequence(X).filter(lambda x: x % 2 == 0).and_return()
+    )
+    assert_eq_twice(dataloader, Y)
+
+
 def test_shuffle() -> None:
     X = list(range(100))
     dataloader = fairseq2.data.read_sequence(X).shuffle(16, seed=42).and_return()

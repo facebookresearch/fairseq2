@@ -18,6 +18,12 @@ def test_map_sharding() -> None:
     assert_can_shard(f, 3)
 
 
+def test_filter_sharding() -> None:
+    f = lambda: dl.read_sequence(range(20)).filter(lambda x: x % 2 == 0)
+    assert_can_shard(f)
+    assert_can_shard(f, 3)
+
+
 def test_round_robin_sharding() -> None:
     dp1 = lambda: dl.read_sequence(range(5)).and_return()
     dp2 = lambda: dl.read_sequence(range(20, 23)).and_return()
