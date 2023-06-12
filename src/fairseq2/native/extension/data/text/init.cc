@@ -145,6 +145,15 @@ def_dict_tokenizer(py::module_ &base)
             }
         ),
         py::arg("vocab"))
+        .def(py::pickle(
+            [](const dict_model &self)
+            {
+                return self.vocab();
+            },
+            [](std::vector<std::string> &&vocab)
+            {
+                return std::make_unique<dict_model>(std::move(vocab), false);
+            }))
         .def("token_to_index", &dict_model::token_to_index)
         .def("index_to_token", &dict_model::index_to_token)
         .def_property_readonly("vocab_size", &dict_model::vocab_size)

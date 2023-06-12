@@ -7,9 +7,9 @@
 #pragma once
 
 #include <map>
-#include <vector>
-#include <string_view>
 #include <string>
+#include <string_view>
+#include <vector>
 
 #include "fairseq2/native/api.h"
 
@@ -19,13 +19,16 @@ class FAIRSEQ2_API dict_model {
 
 public:
     explicit
-    dict_model(std::vector<std::string>&& vocab);
+    dict_model(std::vector<std::string>&& vocab, bool insert_symbols = true);
 
     std::int64_t
     token_to_index(std::string_view token) const;
 
     std::string_view
     index_to_token(std::int64_t idx) const;
+
+    const std::vector<std::string>&
+    vocab() const;
 
     std::size_t vocab_size() const;
 

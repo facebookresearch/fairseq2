@@ -1,3 +1,4 @@
+import pickle
 from typing import Sequence
 
 import pytest
@@ -5,22 +6,15 @@ import torch
 
 from fairseq2.data.string import StringLike
 from fairseq2.data.text import DictModel, DictTokenizer, VocabularyInfo
+from tests.common import assert_equal
 
 vocab: Sequence[StringLike] = ["hello", "one", "two", "world"]  # sorted alphabetically
-
-
-def test_vocab_info() -> None:
-    tokenizer = DictTokenizer(10, vocab)
-    actual = tokenizer.vocab_info
-    expected: VocabularyInfo = VocabularyInfo(len(vocab) + 4, 0, 1, 2, 3)
-
-    assert actual == expected
 
 
 def test_duplicate_word_throws() -> None:
     vocab_duplicates: Sequence[StringLike] = ["hello", "one", "two", "hello", "world"]
     with pytest.raises(ValueError):
-        DictTokenizer(10, vocab_duplicates)
+        DictModel(vocab_duplicates)
 
 
 def test_tokenizer_model() -> None:
@@ -36,6 +30,30 @@ def test_tokenizer_model() -> None:
 
     assert "one" == model.index_to_token(5)
     assert 5 == model.token_to_index("one")
+
+
+def test_pickling_() -> None:
+    tokenizer = DictTokenizer(10, vocab)
+    encoder = tokenizer.create_encoder()
+    decoder = tokenizer.create_decoder()
+
+    dmp = pickle.dumps(tokenizer)
+    tokenizer2 = pickle.loads(dmp)
+    encoder2 = tokenizer2.create_encoder()
+    decoder2 = tokenizer2.create_decoder()
+
+    X = ["hello world it is me"]
+    assert_equal(encoder(X), encoder2(X))
+    Y = encoder(X)
+    assert decoder(Y) == decoder2(Y)
+
+
+def test_vocab_info() -> None:
+    tokenizer = DictTokenizer(10, vocab)
+    actual = tokenizer.vocab_info
+    expected: VocabularyInfo = VocabularyInfo(len(vocab) + 4, 0, 1, 2, 3)
+
+    assert actual == expected
 
 
 def test_encoder_string_arg_throws() -> None:

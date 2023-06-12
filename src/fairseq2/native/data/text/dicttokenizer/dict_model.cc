@@ -11,17 +11,18 @@
 
 namespace fairseq2 {
 
-dict_model::dict_model(std::vector<std::string>&& vocab)
+dict_model::dict_model(std::vector<std::string>&& vocab, bool insert_symbols)
 {
-    index_to_token_ = std::move(vocab);
+    index_to_token_ = vocab;
+    if (insert_symbols)
+        index_to_token_.insert(index_to_token_.begin(), symbols.begin(), symbols.end());
     init_token_to_index();
-    index_to_token_.insert(index_to_token_.begin(), symbols.begin(), symbols.end());
 }
 
-std::size_t
-dict_model::vocab_size() const
+const std::vector<std::string>&
+dict_model::vocab() const
 {
-    return index_to_token_.size();
+    return index_to_token_;
 }
 
 std::string_view
@@ -46,13 +47,19 @@ dict_model::token_to_index(std::string_view token) const
 void
 dict_model::init_token_to_index()
 {
-    auto index = static_cast<std::int64_t>(symbols.size());
+    std::int64_t index = 0;
     for (const auto& word: index_to_token_) {
         if (token_to_index_.find(word) != token_to_index_.end())
             throw std::invalid_argument("vocab argument should contain unique words only. Found duplicate for: '" + word + "'.");
 
         token_to_index_.insert(std::pair{word, index++});
     }
+}
+
+std::size_t
+dict_model::vocab_size() const
+{
+    return index_to_token_.size();
 }
 
 } // fairseq2::detail
