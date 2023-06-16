@@ -88,7 +88,7 @@ class Seq2Seq(tnt.AutoUnit[Seq2SeqBatch]):
             loss=torcheval.metrics.Mean(device=device),
             src_num_tokens=torcheval.metrics.Sum(device=device),
             tgt_num_tokens=torcheval.metrics.Sum(device=device),
-            tps=fairseq2.callbacks.metrics.Throughput(device=device),
+            tps=torcheval.metrics.Throughput(device=device),
         )
         if mode == "eval":
             metrics["loss_min"] = torcheval.metrics.Min(device=device)

@@ -11,5 +11,4 @@ from .loggers import WandbCsvWriter as WandbCsvWriter
 from .loggers import WandbLogger as WandbLogger
 from .metrics import WER as WER
 from .metrics import Bleu as Bleu
-from .metrics import EffectiveThroughput as EffectiveThroughput
 from .metrics import Metrics as Metrics

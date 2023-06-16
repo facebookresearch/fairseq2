@@ -1,5 +1,4 @@
 import logging
-import time
 from typing import Any, Dict, Iterable, List, Optional
 
 import sacrebleu  # type: ignore
@@ -38,27 +37,6 @@ class Metrics(Dict[str, Any]):
                 continue
             if isinstance(v, torcheval.metrics.Metric):
                 v.reset()
-
-
-class Throughput(torcheval.metrics.aggregation.Throughput):
-    # Like torcheval Throughput but without the warning when passing tensors.
-    @torch.inference_mode()
-    def update(self, num_processed: int, elapsed_time_sec: float) -> "Throughput":
-        if elapsed_time_sec <= 0:
-            raise ValueError(
-                f"Expected elapsed_time_sec to be a positive number, but received {elapsed_time_sec}."
-            )
-
-        self.elapsed_time_sec += elapsed_time_sec
-        self.num_total += num_processed  # type: ignore
-        return self
-
-    @torch.inference_mode()
-    def merge_state(self, metrics: Iterable["Throughput"]) -> "Throughput":
-        super().merge_state(metrics)
-        # Divide by the total number of workers
-        self.num_total /= len(metrics) + 1  # type: ignore
-        return self
 
 
 class CounterBasedMetric(torcheval.metrics.Metric[Tensor]):
@@ -128,65 +106,6 @@ class Bleu(CounterBasedMetric):
 
 class Perplexity(torcheval.metrics.Metric[Tensor]):
     ...
-
-
-class EffectiveThroughput(CounterBasedMetric):
-    """
-    Calculates the throughput value which is the number of elements processed per second.
-
-    The difference to torcheval.metrics.Throughput is that it measures the time between two "compute" calls.
-    """
-
-    num_total: Tensor
-    start_time: Tensor
-
-    def __init__(self, *, device: Optional[torch.device] = None) -> None:
-        super().__init__(device=device)
-        self._add_state("num_total", torch.tensor(0.0, device=self.device))
-        self._add_state(
-            "start_time",
-            torch.tensor(time.perf_counter(), device=self.device),
-        )
-
-    @torch.inference_mode()
-    def update(self, num_processed: int) -> "EffectiveThroughput":
-        """
-        Update states with the values and weights.
-        Args:
-            num_processed: Number of items processed
-        """
-        if num_processed < 0:
-            raise ValueError(
-                f"Expected num_processed to be a non-negative number, but received {num_processed}."
-            )
-        self.num_total += num_processed  # type: ignore
-        return self
-
-    @torch.inference_mode()
-    def compute(self) -> Tensor:
-        elapsed = -self.start_time + time.perf_counter()
-        throughput = self.num_total / elapsed
-        return throughput
-
-    @torch.inference_mode()
-    def merge_state(
-        self, metrics: Iterable["EffectiveThroughput"]  # type: ignore[override]
-    ) -> "EffectiveThroughput":
-        for metric in metrics:
-            self.num_total += metric.num_total.to(self.device)
-            # this assumes the metric is used within a fully-synchronous program.
-            # In this scenario, the slowest process becomes the bottleneck for the
-            # program's execution. As a result, we use the max, as the overall throughput
-            # is gated based on the rank that takes the longest to complete.
-            # TODO: should this be configurable?
-            self.start_time = torch.min(
-                self.start_time, metric.start_time.to(self.device)
-            )
-        return self
-
-    def reset(self) -> "EffectiveThroughput":
-        self.start_time.fill_(time.perf_counter())
-        return self
 
 
 class WER(CounterBasedMetric):
