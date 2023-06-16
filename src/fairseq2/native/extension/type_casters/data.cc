@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <stdexcept>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 #include <pybind11/stl.h>
@@ -53,6 +54,9 @@ type_caster<data>::cast_from_py(handle src)
     if (isinstance<bytes>(src))
         return src.cast<py_object>();
 
+    if (isinstance<dict>(src))
+        return src.cast<flat_hash_map<immutable_string, data>>();
+
     if (isinstance<sequence>(src))
         return src.cast<std::vector<data>>();
 
@@ -83,6 +87,9 @@ type_caster<data>::cast_from_cc(T &&src)
 
     if (src.is_list())
         return pybind11::cast(std::forward<T>(src).as_list());
+
+    if (src.is_dict())
+        return pybind11::cast(std::forward<T>(src).as_dict());
 
     if (src.is_py())
         return pybind11::cast(std::forward<T>(src).as_py());

@@ -9,11 +9,13 @@
 #include <cstdint>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
 
 #include <ATen/Tensor.h>
+#include <c10/util/order_preserving_flat_hash_map.h>
 
 #include "fairseq2/native/float.h"
 #include "fairseq2/native/memory.h"
@@ -21,6 +23,9 @@
 #include "fairseq2/native/data/immutable_string.h"
 
 namespace fairseq2 {
+
+template <typename Key, typename T>
+using flat_hash_map = ska_ordered::order_preserving_flat_hash_map<Key, T>;
 
 class data {
 public:
@@ -135,7 +140,7 @@ public:
         : payload_{value}
     {}
 
-    data(at::Tensor &&value)
+    data(at::Tensor &&value) noexcept
         : payload_{std::move(value)}
     {}
 
@@ -195,7 +200,7 @@ public:
         : payload_{value}
     {}
 
-    data(std::vector<data> &&value)
+    data(std::vector<data> &&value) noexcept
         : payload_{std::move(value)}
     {}
 
@@ -221,6 +226,39 @@ public:
     as_list() && noexcept
     {
         return move_as<std::vector<data>>();
+    }
+
+    // dict
+    data(const flat_hash_map<immutable_string, data> &value)
+        : payload_{value}
+    {}
+
+    data(flat_hash_map<immutable_string, data> &&value) noexcept
+        : payload_{std::move(value)}
+    {}
+
+    bool
+    is_dict() const noexcept
+    {
+        return is<flat_hash_map<immutable_string, data>>();
+    }
+
+    flat_hash_map<immutable_string, data> &
+    as_dict() & noexcept
+    {
+        return as<flat_hash_map<immutable_string, data>>();
+    }
+
+    const flat_hash_map<immutable_string, data> &
+    as_dict() const & noexcept
+    {
+        return as<flat_hash_map<immutable_string, data>>();
+    }
+
+    flat_hash_map<immutable_string, data> &&
+    as_dict() && noexcept
+    {
+        return move_as<flat_hash_map<immutable_string, data>>();
     }
 
     // py_object
@@ -294,6 +332,7 @@ private:
         at::Tensor,
         memory_block,
         std::vector<data>,
+        flat_hash_map<immutable_string, data>,
         py_object> payload_{};
 };
 
