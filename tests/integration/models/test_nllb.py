@@ -4,8 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from fairseq2.generate import BeamSearchStrategy
 from fairseq2.models.nllb import load_nllb_model, load_nllb_tokenizer
+from fairseq2.sequence_generator import BeamSearchStrategy
 from tests.common import device
 
 ENG = "On Monday, scientists from the Stanford University School of Medicine announced the invention of a new diagnostic tool that can sort cells by type: a tiny printable chip that can be manufactured using standard inkjet printers for possibly about one U.S. cent each."

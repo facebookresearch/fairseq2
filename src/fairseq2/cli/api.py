@@ -18,9 +18,9 @@ import fairseq2.nn
 import fairseq2.optim.lr_scheduler
 from fairseq2.data import StringLike
 from fairseq2.data.text import Tokenizer
-from fairseq2.generate import BeamSearchStrategy, SearchStrategy
 from fairseq2.metrics import Metrics
 from fairseq2.optim.lr_scheduler import LRScheduler
+from fairseq2.sequence_generator import BeamSearchStrategy, SearchStrategy
 
 if tp.TYPE_CHECKING:
     from fairseq2.models.encoder_decoder import EncoderDecoderModel
@@ -74,7 +74,7 @@ class Seq2Seq(tnt.AutoUnit[Seq2SeqBatch]):
     Compared to AutoUnit this provides:
     * a default NLL loss
     * some default metrics like lr, token per second and loss
-    * inference using fairseq2.generate
+    * inference
 
     If your data type is too different from Seq2SeqBatch it's best to directly
     inherit from tnt.AutoUnit.

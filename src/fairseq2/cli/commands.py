@@ -23,6 +23,7 @@ from fairseq2.cli import Xp, XpScript
 from fairseq2.cli.api import Env, Seq2Seq
 from fairseq2.cli.distributed import distributed_init
 from fairseq2.data import StringLike
+from fairseq2.sequence_generator import BeamSearchStrategy
 
 logging.basicConfig(
     level=logging.INFO,
@@ -453,8 +454,6 @@ def inference(
     num_gpus: int = 1,
 ) -> None:
     """(**experimental**) Starts the model in interactive mode"""
-    import fairseq2.generate
-
     if not snapshot_dir.exists():
         raise FileNotFoundError(f"Snapshot {snapshot_dir} not found.")
 
@@ -478,7 +477,7 @@ def inference(
         tty = os.isatty(sys.stdin.fileno())
     if tty:
         batch_size = 1
-    strategy = fairseq2.generate.BeamSearchStrategy(
+    strategy = BeamSearchStrategy(
         vocab_info=task.tokenizer.vocab_info,
         **beam_search_kwargs,  # type: ignore
     )

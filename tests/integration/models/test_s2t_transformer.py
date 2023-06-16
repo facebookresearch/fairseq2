@@ -9,8 +9,6 @@ from typing import Final
 
 import torch
 
-from fairseq2.generate import BeamSearchStrategy
-from fairseq2.generate.search import _stretch_to_beams
 from fairseq2.models.s2t_transformer import (
     S2TTransformerTokenizer,
     load_s2t_transformer_model,
@@ -18,6 +16,7 @@ from fairseq2.models.s2t_transformer import (
 )
 from fairseq2.models.transformer import TransformerModel
 from fairseq2.nn import IncrementalStateBag
+from fairseq2.sequence_generator import BeamSearchStrategy, _stretch_to_beams
 from tests.common import device
 
 TEST_FBANK_PATH: Final = Path(__file__).parent.joinpath("fbank.pt")
