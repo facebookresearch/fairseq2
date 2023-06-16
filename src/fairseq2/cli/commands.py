@@ -19,8 +19,8 @@ import torchtnt.framework as tnt
 
 import fairseq2.cli.callbacks
 from fairseq2 import DOC_MODE
-from fairseq2.cli import Env, Xp, XpScript
-from fairseq2.cli.api import Seq2Seq
+from fairseq2.cli import Xp, XpScript
+from fairseq2.cli.api import Env, Seq2Seq
 from fairseq2.cli.distributed import distributed_init
 from fairseq2.data import StringLike
 
@@ -64,7 +64,7 @@ def train(
     else:
         # Make a copy of script to workdir
         workdir = workdir.resolve()
-        workdir.mkdir(exist_ok=True)
+        workdir.mkdir(parents=True, exist_ok=True)
         if workdir.name != xp.sha_key:
             workdir = workdir / xp.sha_key
             workdir.mkdir(exist_ok=True)
@@ -682,7 +682,7 @@ if DOC_MODE:
     # Document the 3 builtin fixtures.
     # The example values are shown in the doc.
 
-    env: Env = Env(16, 9, torch.device("cuda:1"))
+    env: Env = Env(16, 9, torch.device("cpu"))
     """The distributed environment we are currently running in.
 
     Typically used in dataloader to read only a shard of the data,

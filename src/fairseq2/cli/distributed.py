@@ -4,26 +4,15 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Any, Dict, NamedTuple, Optional
+from typing import Any, Dict, Optional
 
 import submitit
 import torch
 import torchtnt.utils.distributed
 
+from fairseq2.cli.api import Env
+
 log = logging.getLogger(__name__)
-
-
-class Env(NamedTuple):
-    """Represents the distributed environment we are currently running in."""
-
-    world_size: int
-    """Total number of worker process working together"""
-
-    global_rank: int
-    """Unique id of this worker. Workers are numbered from 0 to ``world_size - 1``"""
-
-    device: torch.device
-    """Cuda device this worker should use."""
 
 
 def env(device: Optional[torch.device] = None) -> Env:

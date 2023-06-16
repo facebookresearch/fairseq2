@@ -166,7 +166,6 @@ setup(
         "omegaconf~=2.2",
         "pyyaml~=6.0",
         "overrides~=7.3",
-        "sentencepiece~=0.1",
         "submitit~=1.4",
         "tbb~=2021.8",
         # PyTorch has no ABI compatibility between releases; this means we have

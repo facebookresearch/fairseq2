@@ -3,7 +3,7 @@ import inspect
 import itertools
 import math
 import typing as tp
-from typing import Any, Dict, List, Optional, Set, Tuple, Type
+from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Set, Tuple, Type
 
 import sacrebleu  # type: ignore
 import torch
@@ -16,8 +16,7 @@ from torchtnt.utils import TLRScheduler
 
 import fairseq2.nn
 import fairseq2.optim.lr_scheduler
-from fairseq2.cli import Env
-from fairseq2.data import Seq2SeqBatch, Seq2SeqStr
+from fairseq2.data import StringLike
 from fairseq2.data.text import Tokenizer
 from fairseq2.generate import BeamSearchStrategy, SearchStrategy
 from fairseq2.metrics import Metrics
@@ -30,6 +29,43 @@ if tp.TYPE_CHECKING:
 @functools.lru_cache(maxsize=1)
 def auto_unit_kwargs() -> List[str]:
     return inspect.getfullargspec(tnt.AutoUnit.__init__).kwonlyargs
+
+
+class Env(NamedTuple):
+    """Represents the distributed environment we are currently running in."""
+
+    world_size: int
+    """Total number of worker process working together"""
+
+    global_rank: int
+    """Unique id of this worker. Workers are numbered from 0 to ``world_size - 1``"""
+
+    device: torch.device
+    """Cuda device this worker should use."""
+
+
+class Seq2SeqBatch(NamedTuple):
+    """The default batch type for :py:class:`fairseq2.tasks.Seq2Seq` task"""
+
+    source: "Tensor"
+    """Source tokens: Tensor[long] for text input, Tensor[float] for waveform input."""
+
+    src_seq_lens: "Tensor"
+    """Lengths of each source sequence, allowing to mask the padding tokens. Tensor[long]"""
+
+    target: "Tensor"
+    """Target tokens: Tensor[long]"""
+
+    tgt_seq_lens: "Tensor"
+    """Lengths of each target sequence, allowing to mask the padding tokens. Tensor[long]"""
+
+    metadata: Sequence[Dict[str, Any]] = []
+
+
+class Seq2SeqStr(NamedTuple):
+    source: StringLike
+    target: StringLike
+    predicted: StringLike
 
 
 class Seq2Seq(tnt.AutoUnit[Seq2SeqBatch]):
@@ -69,6 +105,8 @@ class Seq2Seq(tnt.AutoUnit[Seq2SeqBatch]):
         # tnt and us both have a type alias for LRScheduler
         self.lr_scheduler = lr_scheduler  # type: ignore[assignment]
         self.pad_idx = self.tokenizer.vocab_info.pad_idx if self.tokenizer else 0
+
+        self.eval_gen = False
 
     def configure_optimizers_and_lr_scheduler(
         self, module: torch.nn.Module

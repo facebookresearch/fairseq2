@@ -157,7 +157,7 @@ the function loads the file from disk and returns immediately.
 Now that you have a tokenizer
 you can move on to the next step,
 loading the data and creating batches.
-In fairseq2 the default data type for sequence to sequence tasks is :py:class:`fairseq2.data.Seq2SeqBatch`.
+In fairseq2 the default data type for sequence to sequence tasks is :py:class:`fairseq2.cli.api.Seq2SeqBatch`.
 The ``train_data`` ingredient is expected to be an :py:class:`typing.Iterable` of batch.
 You're free to use another type of batch as long as you're consistent within the same script.
 For this tutorial, stick with the default ``Seq2SeqBatch``
@@ -167,18 +167,19 @@ Each iteration, corresponds to one epoch.
 
 Write the following dataloader using :py:mod:`fairseq2.data`.::
 
-  from fairseq2 import data
-  from fairseq2.cli import Env
+  from fairseq2.data import MultilingualTokenizer
+  from fairseq2.data.text import read_text, zip_data_pipelines
+  from fairseq2.cli.api import Env, Seq2SeqBatch
 
   def train_data(
-      tokenizer: data.text.MultilingualTokenizer,
+      tokenizer: MultilingualTokenizer,
       env: Env,
       batch_size: int = 32,
       tsv_file: Path = TSV_FILE,
   ):
       def _read_tsv_column(encoder, column: int):
           return (
-              data.text.read_text(tsv_file, rtrim=True)
+              read_text(tsv_file, rtrim=True)
               .map(lambda line: str(line).split("\t")[column])
               .map(encoder)
               .and_return()
@@ -194,11 +195,11 @@ Write the following dataloader using :py:mod:`fairseq2.data`.::
       pad_idx = tokenizer.vocab_info.pad_idx
       device = env.device
       batches = (
-          data.zip_data_pipelines([src, tgt])
+          zip_data_pipelines([src, tgt])
           .shuffle(10_000)
           .batch(batch_size, pad_idx=pad_idx)
           .map(
-              lambda st: data.Seq2SeqBatch(
+              lambda st: Seq2SeqBatch(
                   source=st[0].to(device),
                   # TODO: the tokenizer should compute those
                   src_seq_lens=(st[0] != pad_idx).sum(dim=-1).to(device),

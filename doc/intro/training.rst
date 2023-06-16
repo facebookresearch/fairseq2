@@ -27,11 +27,11 @@ For example::
 `train_mt.py <https://github.com/fairinternal/fairseq2/blob/main/examples/train_mt.py>`_ is the training script for this tutorial.
 Start a process training the model on your machine::
 
-  python examples/train_mt.py train -w $WORKSPACE
+  fairseq2 train examples/cli/train_mt.py train -w $WORKSPACE
 
 If you're on a Slurm cluster you can use it by specifying which Slurm partition you want to use::
 
-  python examples/train_mt.py train -w $WORKSPACE --partition PARTITION
+  fairseq2 train examples/cli/train_mt.py train -w $WORKSPACE --partition PARTITION
 
 When starting ``fairseq2`` creates a folder for this run under the workspace folder, and tells it it's name.
 
@@ -56,7 +56,7 @@ Setting hyper-parameters
 
 You can also set hyper-parameters from the terminal::
 
-  python examples/train_mt.py train -w $WORKSPACE lr=1e-5
+  fairseq2 train examples/cli/train_mt.py train -w $WORKSPACE lr=1e-5
 
 .. note:: The syntax for hyper-parameters ``lr=1e-5`` is different from the syntax for training settings.
   The difference is that the ``train`` function has settings to control how the experiment is *launched*,
@@ -65,7 +65,7 @@ You can also set hyper-parameters from the terminal::
 The list of possible hyper-parameters depends on the specific script you wrote.
 You can print the list by using ``help`` command::
 
-  python examples/train_mt.py help
+  fairseq2 train examples/cli/train_mt.py help
 
 
 W&B integration
@@ -79,7 +79,7 @@ If this is the first time you do this,
 ``wandb`` prompts instructions to get a secret token that allows it to connect to W&B in your name.
 Then you can use::
 
-  fairseq2 train examples/train_mt.py --partition PARTITION wandb_project=<entity>/<project>
+  fairseq2 train examples/cli/train_mt.py --partition PARTITION wandb_project=<entity>/<project>
 
 The job is then visible at https://wandb.ai/<entity>/<project>.
 

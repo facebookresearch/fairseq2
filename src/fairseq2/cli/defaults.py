@@ -12,7 +12,8 @@ import fairseq2.cli.api
 from fairseq2.optim.lr_scheduler import MyleLR
 
 if TYPE_CHECKING:
-    from fairseq2.cli import Env, Xp
+    from fairseq2.cli import Xp
+    from fairseq2.cli.api import Env
     from fairseq2.cli.callbacks import MetricLogger
     from fairseq2.data.text import Tokenizer
 

@@ -2,52 +2,128 @@
 Trains a Transformer model for Speech To Speech Machine Translation on UST dataset.
 
 Example command:
-fairseq2 train examples/s2st.py -w /checkpoint/$USER/fairseq2/s2tt.eng-deu wandb_project=fairseq2_s2tt
+fairseq2 train examples/cli/train_s2t.py -w /checkpoint/$USER/fairseq2/s2tt.eng-deu arch_name=tiny wandb_project=fairseq2_s2tt
 """
 import logging
+import tempfile
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List
+from typing import Iterable, List, Optional
 
 import numpy as np
 import torch
-import torchaudio  # type: ignore
 import torchtnt.utils
 from torch import Tensor
 
 import fairseq2.cli
-import fairseq2.cli.api
 import fairseq2.models.s2t_transformer as s2t
 from fairseq2 import data
-from fairseq2.cli import Env
-from fairseq2.data import DataPipelineBuilder, Seq2SeqBatch, StringLike
+from fairseq2.cli.api import Env, Seq2Seq, Seq2SeqBatch
+from fairseq2.data import DataPipelineBuilder, StringLike
 from fairseq2.data.text import MultilingualTokenizer, Tokenizer, VocabularyInfo
-from fairseq2.generate import spm_train
 from fairseq2.models.transformer import TransformerModel
 
-if __name__ == "__main__":
-    import fairseq2.cli.commands
-
-    fairseq2.cli.commands.main(__file__)
+try:
+    import torchaudio  # type: ignore
+except ImportError:
+    print(
+        "`train_s2t` requires torchaudio. You can install it with: `pip install torchaudio`"
+    )
+    raise
 
 
 log = logging.getLogger(__name__)
 
+
+task = Seq2Seq
+
+
 DATADIR: str = "/checkpoint/guw/fairseq2/data/must-c-v1.0.eng-deu"
-task = fairseq2.cli.api.Seq2Seq
+
+
+@dataclass
+class TrainSpmConfig:
+    vocab_size: int = 2**16
+    training_lines: int = 5_000_000
+    seed_sentencepiece_size: int = 5_000_000
+    character_coverage: float = 0.999995
+    model_type: str = "unigram"
+    shuffle_input_sentence: bool = True
+    num_threads: int = 4
+    pad_idx: int = 0
+    unk_idx: int = 1
+    bos_idx: int = 2
+    eos_idx: int = 3
+    control_tokens: Optional[List[str]] = None
+
+
+def train_spm(cfg: TrainSpmConfig, text_file: Path, output: Path) -> None:
+    try:
+        import sentencepiece
+    except ImportError:
+        print(
+            "`train_mt` requires sentencepiece library. You can install it with: `pip install sentencepiece`"
+        )
+        raise
+
+    spm_output = Path(str(output) + ".model")
+    assert not output.exists(), f"Sentencepiece training would override {output}"
+    assert (
+        not spm_output.exists()
+    ), f"Sentencepiece training would override {spm_output}"
+    log.info(f"Training sentencepiece model on: {text_file}, output model: {output}")
+
+    if cfg.control_tokens:
+        user_defined_symbols = ",".join(cfg.control_tokens)
+    else:
+        user_defined_symbols = None
+
+    sentencepiece.SentencePieceTrainer.train(
+        input=text_file,
+        model_prefix=str(output),
+        vocab_size=int(cfg.vocab_size),
+        character_coverage=cfg.character_coverage,
+        model_type=cfg.model_type,
+        input_sentence_size=cfg.training_lines,
+        seed_sentencepiece_size=min(cfg.training_lines, cfg.seed_sentencepiece_size),
+        shuffle_input_sentence=cfg.shuffle_input_sentence,
+        num_threads=cfg.num_threads,
+        pad_id=cfg.pad_idx,
+        unk_id=cfg.unk_idx,
+        bos_id=cfg.bos_idx,
+        eos_id=cfg.eos_idx,
+        user_defined_symbols=user_defined_symbols,
+    )
+
+
+def train_spm_from_stream(
+    cfg: TrainSpmConfig, stream: Iterable[str], output: Path
+) -> None:
+    try:
+        tmp_path = Path(tempfile.mkstemp(suffix=".txt")[1])
+        training_lines = cfg.training_lines
+        with tmp_path.open("wt", encoding="utf-8") as tmp:
+            for i, line in enumerate(stream):
+                print(line, file=tmp)
+                if i >= training_lines:
+                    break
+        train_spm(cfg, tmp_path, output)
+    finally:
+        tmp_path.unlink()
 
 
 def tokenizer(
-    env: fairseq2.cli.Env,
+    env: Env,
     xp: fairseq2.cli.Xp,
     data_dir: str = DATADIR,
     lang: str = "eng_Latn",
     vocab_size: int = 1024 * 8,
 ) -> Tokenizer:
     spm_dir = xp.script.parent.parent / "spm"
-    spm_dir.mkdir(exist_ok=True)
+    spm_dir.mkdir(parents=True, exist_ok=True)
     spm_path = spm_dir / f"{Path(DATADIR).name}.train_asr.{vocab_size}.spm"
     if not spm_path.exists():
-        cfg = spm_train.TrainSpmConfig(
+        cfg = TrainSpmConfig(
             vocab_size=vocab_size,
             training_lines=1_000_000,
             control_tokens=[f"<audio:{lang}>", f"<lang:{lang}>"],
@@ -58,15 +134,22 @@ def tokenizer(
         )
         text_data = (
             data.text.read_text(str(manifest_path), rtrim=True)
-            .islice(1, stop=None)
+            .islice(start=1, stop=None, step=1)
             .map(lambda line: str(line).split("\t")[3])
             .and_return()
         )
-        spm_train.train_from_stream(cfg, text_data, spm_path)
+        train_spm_from_stream(cfg, text_data, spm_path)
     else:
         log.info(f"Will reuse tokenizer from {spm_path}")
 
-    return MultilingualTokenizer(spm_path, "asr", set(), {lang}, lang, lang)
+    return MultilingualTokenizer(
+        spm_path.with_suffix(spm_path.suffix + ".model"),
+        "asr",
+        set(),
+        {lang},
+        lang,
+        lang,
+    )
 
 
 def module(
@@ -132,7 +215,7 @@ def valid_data(
 def _read_tsv_shard(manifest_path: str, env: Env) -> DataPipelineBuilder:
     return (
         data.text.read_text(manifest_path, rtrim=True)
-        .islice(0, stop=None)
+        .islice(start=1, stop=None, step=1)
         .shard(env.global_rank, env.world_size)
     )
 
@@ -231,3 +314,8 @@ def vocab_info(tokenizer: Tokenizer) -> VocabularyInfo:
 
 # This is important, it tells torch.hub how to reload our "task" which contains model and tokenizer.
 fairseq2_hub = fairseq2.cli.fairseq2_hub
+
+if __name__ == "__main__":
+    import fairseq2.cli.commands
+
+    fairseq2.cli.commands.main(__file__)

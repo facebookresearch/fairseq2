@@ -4,8 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import TYPE_CHECKING, Any, Dict, NamedTuple, Protocol, Sequence
-
 from fairseq2.data.data_pipeline import DataPipeline as DataPipeline
 from fairseq2.data.data_pipeline import DataPipelineBuilder as DataPipelineBuilder
 from fairseq2.data.data_pipeline import DataPipelineError as DataPipelineError
@@ -23,35 +21,3 @@ from fairseq2.data.memory import MemoryBlock as MemoryBlock
 from fairseq2.data.string import CString as CString
 from fairseq2.data.string import StringLike as StringLike
 from fairseq2.data.string import is_string_like as is_string_like
-
-if TYPE_CHECKING:
-    from torch import Tensor
-
-
-class Seq2SeqBatch(NamedTuple):
-    """The default batch type for :py:class:`fairseq2.tasks.Seq2Seq` task"""
-
-    source: "Tensor"
-    """Source tokens: Tensor[long] for text input, Tensor[float] for waveform input."""
-
-    src_seq_lens: "Tensor"
-    """Lengths of each source sequence, allowing to mask the padding tokens. Tensor[long]"""
-
-    target: "Tensor"
-    """Target tokens: Tensor[long]"""
-
-    tgt_seq_lens: "Tensor"
-    """Lengths of each target sequence, allowing to mask the padding tokens. Tensor[long]"""
-
-    metadata: Sequence[Dict[str, Any]] = []
-
-
-class Seq2SeqStr(NamedTuple):
-    source: StringLike
-    target: StringLike
-    predicted: StringLike
-
-
-class Text2TextBatch(NamedTuple):
-    src: Sequence[str]
-    tgt: Sequence[str]

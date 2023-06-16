@@ -7,21 +7,24 @@
 
 #include "fairseq2/native/data/islice_data_source.h"
 
-
 namespace fairseq2::detail {
 
 std::optional<data>
 islice_data_source::next()
 {
     if (next_index_ == 0 && start_ != 0)
-        for (std::size_t i = 0; i < start_; i++)
-            if (inner_->next())
-                next_index_++;
+        for (std::size_t i = 0; i < start_; i++) {
+            if (!inner_->next())
+                break;
+            next_index_++;
+        }
 
     if ((next_index_ - start_) % step_ == 1)
-        for (std::size_t i = 0; i < step_ - 1; i++)
-            if (inner_->next())
-                next_index_++;
+        for (std::size_t i = 0; i < step_ - 1; i++) {
+            if (!inner_->next())
+                break;
+            next_index_++;
+        }
 
     // return only if haven't reached stop
     if (!stop_.has_value() || next_index_ < stop_.value()) {

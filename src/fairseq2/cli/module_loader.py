@@ -27,6 +27,7 @@ import torch
 import yaml
 
 import fairseq2.cli.distributed
+from fairseq2 import DOC_MODE
 from fairseq2.cli import yaml_ext
 
 log = logging.getLogger("fairseq2.cli")
@@ -74,6 +75,9 @@ class Xp:
     """A hash of the experiment script and its hyper-parameters"""
 
     def __post_init__(self) -> None:
+        if DOC_MODE:
+            return
+
         if hasattr(self, "sha_key"):
             return
         code = self.script.read_text()
