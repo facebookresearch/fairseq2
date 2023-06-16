@@ -12,8 +12,8 @@ import fairseq2.tasks
 from fairseq2.optim.lr_scheduler import MyleLR
 
 if TYPE_CHECKING:
-    from fairseq2.callbacks import MetricLogger
     from fairseq2.cli import Env, Xp
+    from fairseq2.cli.callbacks import MetricLogger
     from fairseq2.data.text import Tokenizer
 
 _imports = set(locals().keys())
@@ -58,7 +58,7 @@ def callbacks(
     - gc_frequency: synchronize GC runs across GPUs
     - log_frequency: frequence of metric logging (in steps)
     """
-    from fairseq2.callbacks import Debugger, LogMetrics, TorchSnapshotSaver
+    from fairseq2.cli.callbacks import Debugger, LogMetrics, TorchSnapshotSaver
 
     callbacks: List[tnt.callback.Callback] = []
 
@@ -97,7 +97,7 @@ def logger(
     - wandb_project: use W&B instead
     - text_only: just write as text
     """
-    import fairseq2.callbacks
+    import fairseq2.cli.callbacks
 
     assert xp.script and xp.script.exists()
     config_file = xp.script.with_suffix(".yaml")
@@ -106,16 +106,16 @@ def logger(
         "ignore", r"^TypedStorage is deprecated", UserWarning, "torchsnapshot"
     )
     if text_only:
-        return fairseq2.callbacks.StdoutLogger(config_file)
+        return fairseq2.cli.callbacks.StdoutLogger(config_file)
     elif wandb_project:
-        return fairseq2.callbacks.WandbLogger(
+        return fairseq2.cli.callbacks.WandbLogger(
             config_file,
             project=wandb_project,
             job_type=entry_point,
             group_id=xp.sha_key,
         )
     else:
-        return fairseq2.callbacks.TensorBoardLogger(config_file)
+        return fairseq2.cli.callbacks.TensorBoardLogger(config_file)
 
 
 def optimizer(

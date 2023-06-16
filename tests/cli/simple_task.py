@@ -63,7 +63,7 @@ def generate_samples(
 ) -> Iterable[Seq2SeqBatch]:
     vocab_size = tokenizer.vocab_info.size
     src_seq_lens = torch.ones((batch_size, 1), device=env.device, dtype=torch.int64) * 2
-    tgt_seq_lens = torch.ones((batch_size, 1), device=env.device, dtype=torch.int64)
+    tgt_seq_lens = torch.ones((batch_size, 1), device=env.device, dtype=torch.int64) * 2
 
     def text_example(_: int) -> str:
         a = random.randrange(vocab_size)

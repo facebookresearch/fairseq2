@@ -14,7 +14,6 @@ from torch import Tensor
 from torchtnt.framework.state import State
 from torchtnt.utils import TLRScheduler
 
-import fairseq2.callbacks
 import fairseq2.nn
 import fairseq2.optim.lr_scheduler
 from fairseq2.cli import Env

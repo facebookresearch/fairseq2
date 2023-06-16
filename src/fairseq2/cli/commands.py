@@ -17,7 +17,7 @@ import submitit
 import torch
 import torchtnt.framework as tnt
 
-import fairseq2.callbacks
+import fairseq2.cli.callbacks
 from fairseq2 import DOC_MODE
 from fairseq2.cli import Env, Xp, XpScript
 from fairseq2.cli.distributed import distributed_init
@@ -76,7 +76,7 @@ def train(
             xp = Xp(script, script.with_suffix(".yaml"), overrides)
 
     # Check this before creating a SLURM job.
-    last_snapshot = fairseq2.callbacks.resolve_last_snapshot(workdir)
+    last_snapshot = fairseq2.cli.callbacks.resolve_last_snapshot(workdir)
     if last_snapshot:
         log.warning(f"Found previous experiment at {last_snapshot}, continuing it.")
     else:
@@ -109,7 +109,7 @@ def train(
 
     module.serialize(xp.config_file)
     if last_snapshot:
-        fairseq2.callbacks.load_snapshot(last_snapshot, train_state, task)
+        fairseq2.cli.callbacks.load_snapshot(last_snapshot, train_state, task)
 
     try:
         tnt.fit(train_state, task, callbacks=callbacks)
