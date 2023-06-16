@@ -22,12 +22,12 @@ from transformers import (  # type: ignore[import]
 import fairseq2
 import fairseq2.data.huggingface
 import fairseq2.tasks
-from fairseq2.callbacks import Metrics
 from fairseq2.cli import Env
 from fairseq2.data import Seq2SeqBatch, Seq2SeqStr
 from fairseq2.data.huggingface import AsrDataloader
 from fairseq2.data.text import Tokenizer
 from fairseq2.generate import HfTokenizer
+from fairseq2.metrics import Metrics
 
 REQUIREMENTS = [
     "datasets>=2.6.1",
@@ -45,7 +45,7 @@ class AsrTask(fairseq2.tasks.Seq2Seq):
         self.best_metric = "wer" if self.eval_gen else "loss"
 
         if mode == "eval":
-            metrics["wer"] = fairseq2.callbacks.WER()
+            metrics["wer"] = fairseq2.metrics.WER()
         return metrics
 
     def eval_step(self, state: State, data: Seq2SeqBatch) -> Any:

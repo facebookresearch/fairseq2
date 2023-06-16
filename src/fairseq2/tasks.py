@@ -17,11 +17,11 @@ from torchtnt.utils import TLRScheduler
 import fairseq2.callbacks
 import fairseq2.nn
 import fairseq2.optim.lr_scheduler
-from fairseq2.callbacks import Metrics
 from fairseq2.cli import Env
 from fairseq2.data import Seq2SeqBatch, Seq2SeqStr
 from fairseq2.data.text import Tokenizer
 from fairseq2.generate import BeamSearchStrategy, SearchStrategy
+from fairseq2.metrics import Metrics
 from fairseq2.optim.lr_scheduler import LRScheduler
 
 if tp.TYPE_CHECKING:
@@ -236,9 +236,9 @@ class TranslationTask(Seq2Seq):
 
         if mode == "eval":
             # TODO: propagate the target language here so we can pass it to sacrebleu for best tokenization.
-            metrics["bleu"] = fairseq2.callbacks.Bleu()
-            metrics["chrf"] = fairseq2.callbacks.Bleu(sacrebleu.CHRF())  # type: ignore
-            metrics["chrf++"] = fairseq2.callbacks.Bleu(sacrebleu.CHRF(word_order=2))  # type: ignore
+            metrics["bleu"] = fairseq2.metrics.Bleu()
+            metrics["chrf"] = fairseq2.metrics.Bleu(sacrebleu.CHRF())  # type: ignore
+            metrics["chrf++"] = fairseq2.metrics.Bleu(sacrebleu.CHRF(word_order=2))  # type: ignore
 
         return metrics
 

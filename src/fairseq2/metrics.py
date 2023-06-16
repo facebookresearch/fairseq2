@@ -104,10 +104,6 @@ class Bleu(CounterBasedMetric):
         return torch.tensor(bleu.score)
 
 
-class Perplexity(torcheval.metrics.Metric[Tensor]):
-    ...
-
-
 class WER(CounterBasedMetric):
     KEYS = ["hits", "substitutions", "deletions", "insertions"]
     counters: Tensor
