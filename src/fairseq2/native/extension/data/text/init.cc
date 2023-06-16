@@ -20,6 +20,7 @@
 #include <fairseq2/native/data/data_processor.h>
 #include <fairseq2/native/data/text/sentencepiece/sentencepiece.h>
 #include <fairseq2/native/data/text/text.h>
+#include <fairseq2/native/data/text/text_splitter.h>
 
 namespace py = pybind11;
 
@@ -238,6 +239,17 @@ def_text(py::module_ &base)
         py::arg("skip_header") = 0,
         py::arg("memory_map")  = false,
         py::arg("block_size")  = std::nullopt);
+
+    py::class_<text_splitter, data_processor>(m, "TextSplitter")
+        .def(py::init(
+            [](std::string_view sep)
+            {
+                if (sep.size() != 1)
+                    throw std::invalid_argument{"`sep` must have a length of 1."};
+
+                return text_splitter{sep[0]};
+            }),
+            py::arg("separator") = '\t');
 
     def_dict_tokenizer(m);
     def_sentencepiece(m);

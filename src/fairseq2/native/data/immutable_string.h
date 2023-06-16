@@ -7,6 +7,7 @@
 #pragma once
 
 #include <cstddef>
+#include <functional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -151,6 +152,9 @@ public:
 
     std::vector<immutable_string>
     split(char separator) const;
+
+    void
+    split(char separator, const std::function<void(immutable_string &&)> &handler) const;
 
     operator std::string_view() const noexcept
     {
