@@ -56,7 +56,8 @@ class MetricLogger(Stateful):
             return
 
         config["job"] = job_info
-        self.config_file.write_text(yaml.dump(config))
+        if self._rank == 0:
+            self.config_file.write_text(yaml.dump(config))
         print(config)
 
     def log_dict(self, payload: tp.Mapping[str, Scalar], step: int) -> None:
