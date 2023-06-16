@@ -56,29 +56,6 @@ data_pipeline::next()
     }
 }
 
-std::size_t
-data_pipeline::skip(std::size_t num_examples)
-{
-    check_if_broken();
-
-    ensure_initialized();
-
-    if (!src_)
-        return 0;
-
-    {
-        py_gil_release no_gil{};
-
-        try {
-            return src_->skip(num_examples);
-        } catch (...) {
-            is_broken_ = true;
-
-            throw;
-        }
-    }
-}
-
 void
 data_pipeline::reset()
 {

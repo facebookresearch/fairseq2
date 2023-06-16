@@ -60,12 +60,6 @@ batched_by_length_data_source::make_batch(std::vector<at::Tensor>& batch) const
     return tensor;
 }
 
-std::size_t
-batched_by_length_data_source::skip([[maybe_unused]] std::size_t num_examples)
-{
-    throw not_supported_error{"batch_by_length can't be efficiently sharded, you need to shard before calling 'batched_by_length'."};
-}
-
 void
 batched_by_length_data_source::reset()
 {

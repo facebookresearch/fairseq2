@@ -26,7 +26,6 @@ if TYPE_CHECKING or DOC_MODE:
         ltrim: bool = False,
         rtrim: bool = False,
         skip_empty: bool = False,
-        skip_header: int = 0,
         memory_map: bool = False,
         block_size: Optional[int] = None,
     ) -> DataPipelineBuilder:

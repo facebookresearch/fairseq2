@@ -28,17 +28,6 @@ if TYPE_CHECKING or DOC_MODE:
         def __iter__(self) -> Iterator[Any]:
             """Return an iterator over the examples in the data pipeline."""
 
-        def skip(self, num_examples: int) -> int:
-            """Skip reading a specified number of examples.
-
-            :param num_examples:
-                The number of examples to skip.
-
-            :returns:
-                The number of examples skipped. It can be less than
-                ``num_examples`` if the end of the data pipeline is reached.
-            """
-
         def reset(self) -> None:
             """Move back to the first example in the data pipeline."""
 

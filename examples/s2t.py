@@ -57,7 +57,8 @@ def tokenizer(
             f"Will train {spm_path} with vocab_size={vocab_size} on {manifest_path}"
         )
         text_data = (
-            data.text.read_text(str(manifest_path), rtrim=True, skip_header=1)
+            data.text.read_text(str(manifest_path), rtrim=True)
+            .islice(1, stop=None)
             .map(lambda line: str(line).split("\t")[3])
             .and_return()
         )
@@ -129,8 +130,10 @@ def valid_data(
 
 
 def _read_tsv_shard(manifest_path: str, env: Env) -> DataPipelineBuilder:
-    return data.text.read_text(manifest_path, rtrim=True, skip_header=1).shard(
-        env.global_rank, env.world_size
+    return (
+        data.text.read_text(manifest_path, rtrim=True)
+        .islice(0, stop=None)
+        .shard(env.global_rank, env.world_size)
     )
 
 

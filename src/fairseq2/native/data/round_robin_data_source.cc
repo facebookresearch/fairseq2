@@ -27,22 +27,6 @@ round_robin_data_source::next()
     return result;
 }
 
-std::size_t
-round_robin_data_source::skip(std::size_t num_examples)
-{
-    if (all_datasources_done())
-        return 0;
-
-    auto num_examples_per_pipeline = get_split_by_pipeline(num_examples);
-    for (std::size_t i = 0; i < pipelines_count_; ++i)
-    {
-        skip_elements_for_pipeline(i, num_examples_per_pipeline[i]);
-    }
-    index_ = (index_ + num_examples) % pipelines_count_;
-
-    return num_examples;
-}
-
 void
 round_robin_data_source::reset()
 {
@@ -89,23 +73,6 @@ round_robin_data_source::get_split_by_pipeline(std::size_t num_examples) const
 
     // TODO We can avoid copy here but I was having an exception when using std::move -- Still not familiar with the syntax
     return num_examples_per_pipeline;
-}
-
-void
-round_robin_data_source::skip_elements_for_pipeline(std::size_t pipeline_index, std::size_t num_examples)
-{
-    while (num_examples != 0)
-    {
-        auto skipped = data_pipelines_[pipeline_index].skip(num_examples);
-        if (skipped == 0)
-        {
-            reset_pipeline(pipeline_index);
-            skipped = data_pipelines_[pipeline_index].skip(num_examples);
-            if (skipped == 0)
-                throw std::runtime_error("Error: pipeline stuck in infinte loop when trying to skip elements. Check that you are using the sources only once per process.");
-        }
-        num_examples -= skipped;
-    }
 }
 
 void

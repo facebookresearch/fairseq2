@@ -59,13 +59,6 @@ prefetched_data_source::next()
     return d;
 }
 
-std::size_t
-prefetched_data_source::skip(std::size_t num_examples)
-{
-    // TODO
-    return inner_->skip(num_examples);
-}
-
 void
 prefetched_data_source::reset()
 {

@@ -20,18 +20,6 @@ list_data_source::next()
     return *iter_++;
 }
 
-std::size_t
-list_data_source::skip(std::size_t num_examples)
-{
-    auto num_remaining = static_cast<std::size_t>(list_.end() - iter_);
-
-    std::size_t n = std::min(num_examples, num_remaining);
-
-    iter_ += static_cast<std::vector<data>::difference_type>(n);
-
-    return n;
-}
-
 void
 list_data_source::reset()
 {

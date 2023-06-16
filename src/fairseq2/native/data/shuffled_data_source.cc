@@ -48,13 +48,6 @@ shuffled_data_source::next()
     return {};
 }
 
-std::size_t
-shuffled_data_source::skip(std::size_t num_examples)
-{
-    // For sharding we just want the different workers to have different examples.
-    return inner_->skip(num_examples);
-}
-
 void
 shuffled_data_source::reset()
 {

@@ -30,14 +30,6 @@ def test_read_text_skip_empty() -> None:
     assert_eq_twice(dataloader, ACTUAL_LINES)
 
 
-def test_read_text_skip_header() -> None:
-    dataloader = fairseq2.data.text.read_text(
-        FILE, rtrim=True, skip_header=5
-    ).and_return()
-
-    assert_eq_twice(dataloader, FILE_LINES[5:])
-
-
 def test_state_dict(tmp_path: Path) -> None:
     dataloader = fairseq2.data.text.read_text(FILE, rtrim=True).and_return()
     it = iter(dataloader)
@@ -184,36 +176,6 @@ def test_batch_by_length_can_resume(tmp_path: Path) -> None:
     # Restore the state of dataloader to after first batch
     dataloader.load_state_dict(torch.load(tmp_path / "dataloader.pt"))
     assert rest_of_data == [t.shape for t in it]
-
-
-def test_batch_by_length_cant_shard() -> None:
-    raw_lengths = [1, 4, 5, 4, 1, 4, 6, 4, 1, 4, 1, 4]
-
-    # shard then batch_by_length
-    dataloader_shard_then_batch = (
-        fairseq2.data.read_sequence(raw_lengths)
-        .map(lambda l: torch.ones(l) * l)
-        .shard(0, 2)
-        .batch_by_length([(4, 1), (3, 7)], 0)
-        .map(lambda t: t.shape)
-        .and_return()
-    )
-
-    assert list(dataloader_shard_then_batch) == [[4, 1], [2, 6]]
-
-    # batch_by_length then shard
-    dataloader_batch_then_shard = (
-        fairseq2.data.read_sequence(raw_lengths)
-        .map(lambda l: torch.ones(l) * l)
-        .batch_by_length([(4, 1), (3, 7)], 0)
-        .shard(0, 2)
-        .map(lambda t: t.shape)
-        .and_return()
-    )
-    with pytest.raises(
-        RuntimeError, match="you need to shard before calling 'batched_by_length'"
-    ):
-        next(iter(dataloader_batch_then_shard))
 
 
 def test_islice() -> None:

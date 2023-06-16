@@ -24,9 +24,6 @@ public:
     std::optional<data>
     next() override;
 
-    std::size_t
-    skip(std::size_t num_examples) override;
-
     void
     reset() override;
 
@@ -35,10 +32,6 @@ public:
 
     void
     reload_position(tape &t) override;
-
-private:
-    bool
-    skip_inner(std::size_t num_examples);
 
 private:
     std::unique_ptr<data_source> inner_;

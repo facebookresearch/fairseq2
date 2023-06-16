@@ -31,9 +31,6 @@ public:
     virtual std::optional<data>
     next() = 0;
 
-    virtual std::size_t
-    skip(std::size_t num_examples) = 0;
-
     virtual void
     reset() = 0;
 

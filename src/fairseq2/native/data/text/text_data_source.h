@@ -27,9 +27,6 @@ public:
     std::optional<data>
     next() override;
 
-    std::size_t
-    skip(std::size_t num_examples) override;
-
     void
     reset() override;
 

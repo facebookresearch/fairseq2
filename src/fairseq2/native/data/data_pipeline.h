@@ -33,9 +33,6 @@ public:
     std::optional<data>
     next();
 
-    std::size_t
-    skip(std::size_t num_examples);
-
     void
     reset();
 

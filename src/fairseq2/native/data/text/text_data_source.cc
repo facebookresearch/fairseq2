@@ -28,7 +28,6 @@ text_data_source::text_data_source(std::string &&pathname, text_options &&opts)
 {
     try {
         reader_ = make_text_line_reader();
-        skip(opts_.skip_header());
     } catch (const std::exception &) {
         handle_error();
     }
@@ -59,26 +58,11 @@ text_data_source::next()
     return example;
 }
 
-std::size_t
-text_data_source::skip(std::size_t num_examples)
-{
-    try {
-        for (std::size_t i = 0; i < num_examples; i++)
-            if (next_line().empty())
-                return i;
-    } catch (const std::exception &) {
-        handle_error();
-    }
-
-    return num_examples;
-}
-
 void
 text_data_source::reset()
 {
     try {
         reader_->reset();
-        skip(opts_.skip_header());
     } catch (const std::exception &) {
         handle_error();
     }
@@ -99,7 +83,8 @@ text_data_source::reload_position(tape &t)
 
     reset();
 
-    skip(num_lines_read);
+    for (std::size_t i = 0; i < num_lines_read; i++)
+        next_line();
 }
 
 std::unique_ptr<text_line_reader>

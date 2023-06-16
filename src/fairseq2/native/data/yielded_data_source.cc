@@ -21,19 +21,6 @@ yielded_data_source::next()
     return d;
 }
 
-std::size_t
-yielded_data_source::skip(std::size_t num_examples)
-{
-    auto remaining = num_examples;
-
-    while ((remaining -= data_pipeline_.skip(remaining)) > 0) {
-        if (!load_data_pipeline(inner_->next()))
-            break;
-    }
-
-    return num_examples - remaining;
-}
-
 void
 yielded_data_source::reset()
 {

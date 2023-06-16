@@ -76,7 +76,6 @@ def_data_pipeline(py::module_ &base)
             },
             py::keep_alive<0, 1>{})
 
-        .def("skip", &data_pipeline::skip, py::arg("num_examples"))
         .def("reset", &data_pipeline::reset)
 
         .def_property_readonly("is_broken", &data_pipeline::is_broken)

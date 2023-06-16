@@ -62,12 +62,6 @@ mapped_data_source::next()
     return std::move(*buffer_iter_++);
 }
 
-std::size_t
-mapped_data_source::skip(std::size_t num_examples)
-{
-    return inner_->skip(num_examples);
-}
-
 void
 mapped_data_source::reset()
 {

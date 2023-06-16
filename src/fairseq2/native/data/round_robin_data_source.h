@@ -29,9 +29,6 @@ public:
     std::optional<data>
     next() override;
 
-    std::size_t
-    skip(std::size_t num_examples) override;
-
     void
     reset() override;
 
@@ -49,7 +46,6 @@ private:
     std::size_t pipelines_count_;
 
     std::vector<std::size_t> get_split_by_pipeline(std::size_t num_examples) const;
-    void skip_elements_for_pipeline(std::size_t pipeline_index, std::size_t num_examples);
     void reset_pipeline(std::size_t pipeline_index);
     bool all_datasources_done();
 };

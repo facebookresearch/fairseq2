@@ -92,12 +92,6 @@ batched_data_source::make_batch(std::vector<data> batch) {
     return batch;
 }
 
-std::size_t
-batched_data_source::skip(std::size_t num_examples)
-{
-    return inner_->skip(num_examples * batch_size_) / batch_size_;
-}
-
 void
 batched_data_source::reset()
 {

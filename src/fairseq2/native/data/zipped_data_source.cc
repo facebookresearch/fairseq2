@@ -41,17 +41,6 @@ zipped_data_source::next()
     return zip;
 }
 
-std::size_t
-zipped_data_source::skip(std::size_t num_examples)
-{
-    auto n = std::numeric_limits<std::size_t>::max();
-
-    for (auto &dp : data_pipelines_)
-        n = std::min(n, dp.skip(num_examples));
-
-    return n;
-}
-
 void
 zipped_data_source::reset()
 {

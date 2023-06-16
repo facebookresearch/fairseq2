@@ -67,13 +67,6 @@ zipfile_data_source::next()
     return immutable_string{zip_entry};
 }
 
-std::size_t
-zipfile_data_source::skip(std::size_t num_examples)
-{
-    num_files_read_ += num_examples;
-    return num_examples;
-}
-
 void
 zipfile_data_source::reset()
 {
@@ -93,7 +86,9 @@ zipfile_data_source::reload_position(tape &t)
 
     reset();
 
-    skip(num_files_read);
+    // TODO: use random access
+    for (std::size_t i = 0; i < num_files_read; i++)
+        next();
 }
 
 void

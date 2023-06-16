@@ -11,26 +11,19 @@ namespace fairseq2::detail {
 std::optional<data>
 sharded_data_source::next()
 {
-    std::size_t skip_f = shard_idx_;
-    std::size_t skip_l = num_shards_ - shard_idx_ - 1;
-
-    if (!skip_inner(skip_f))
-        return {};
+    for (std::size_t i = 0; i < shard_idx_; i++)
+        if (!inner_->next())
+            return {};
 
     std::optional<data> d = inner_->next();
     if (!d)
         return {};
 
-    if (!skip_inner(skip_l))
-        return {};
+    for (std::size_t i = 0; i < num_shards_ - shard_idx_ - 1; i++)
+        if (!inner_->next())
+            return {};
 
     return d;
-}
-
-std::size_t
-sharded_data_source::skip(std::size_t num_examples)
-{
-    return inner_->skip(num_examples * num_shards_) / num_shards_;
 }
 
 void
@@ -49,12 +42,6 @@ void
 sharded_data_source::reload_position(tape &t)
 {
     inner_->reload_position(t);
-}
-
-bool
-sharded_data_source::skip_inner(std::size_t num_examples)
-{
-    return inner_->skip(num_examples) == num_examples;
 }
 
 }  // namespace fairseq2::detail

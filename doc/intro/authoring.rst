@@ -97,7 +97,8 @@ Add some code to your script to train a bilingual tokenizer::
       if not spm_path.exists():
           cfg = spm_train.TrainSpmConfig(vocab_size=vocab_size)
           eng_fra = (
-              data.text.read_text(str(tsv_file), rtrim=True, skip_header=1)
+              data.text.read_text(str(tsv_file), rtrim=True)
+              .islice(0, stop=None)
               .map(lambda line: "\n".join((str(line).split("\t")[:1])))
               .and_return()
           )

@@ -94,20 +94,6 @@ public:
     }
 
     text_options &&
-    skip_header(std::size_t value) && noexcept
-    {
-        skip_header_ = value;
-
-        return std::move(*this);
-    }
-
-    std::size_t
-    skip_header() const noexcept
-    {
-        return skip_header_;
-    }
-
-    text_options &&
     memory_map(bool value) && noexcept
     {
         memory_map_ = value;
@@ -141,7 +127,6 @@ private:
     bool ltrim_ = false;
     bool rtrim_ = false;
     bool skip_empty_ = false;
-    std::size_t skip_header_ = 0;
     bool memory_map_ = false;
     std::optional<std::size_t> block_size_{};
 };

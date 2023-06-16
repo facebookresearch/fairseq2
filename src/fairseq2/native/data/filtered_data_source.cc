@@ -18,16 +18,6 @@ filtered_data_source::next()
     return result;
 }
 
-std::size_t
-filtered_data_source::skip(std::size_t num_examples)
-{
-    std::size_t skipped = 0;
-    while (skipped < num_examples && next().has_value())
-        skipped++;
-
-    return skipped;
-}
-
 void
 filtered_data_source::reset()
 {
