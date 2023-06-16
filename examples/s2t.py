@@ -170,22 +170,29 @@ def load_data_from_manifest(
         .and_return()
     )
 
+    def generate_batch(b: List[Tensor]) -> Seq2SeqBatch:
+        target = b[2].to(device)
+
+        target_mask = target.ne(pad_idx)
+
+        target_lens = torch.count_nonzero(target_mask, dim=-1)
+
+        return Seq2SeqBatch(
+            # Move batch to gpu
+            # TODO use a dedicated cuda stream
+            source=b[0].to(device),
+            src_seq_lens=b[1].to(device),
+            target=target,
+            tgt_seq_lens=target_lens,
+        )
+
     device = env.device
     return (
         data.zip_data_pipelines(
             [src_audio_dataloader, src_n_frames_dataloader, tgt_text_dataloader]
         )
         .prefetch(8)
-        .map(
-            lambda b: Seq2SeqBatch(
-                # Move batch to gpu
-                # TODO use a dedicated cuda stream
-                source=b[0].to(device),
-                src_seq_lens=b[1].to(device),
-                target=b[2].to(device),
-                tgt_seq_lens=(b[2][:, :-1] != pad_idx).sum(dim=-1).to(device),
-            )
-        )
+        .map(generate_batch)
         # Don't prefetch too much on the GPU
         .prefetch(1)
         .and_return()

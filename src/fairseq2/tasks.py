@@ -139,7 +139,7 @@ class Seq2Seq(tnt.AutoUnit[Seq2SeqBatch]):
     def compute_loss(self, state: State, data: Seq2SeqBatch) -> Tuple[Tensor, Any]:
         """Default loss for Seq2Seq is nll_loss."""
         net_output = self.module(
-            data.source, data.src_seq_lens, data.target[:, :-1], data.tgt_seq_lens
+            data.source, data.src_seq_lens, data.target[:, :-1], data.tgt_seq_lens - 1
         )
 
         loss = net_output.compute_loss(data.target[:, 1:])
@@ -151,7 +151,7 @@ class Seq2Seq(tnt.AutoUnit[Seq2SeqBatch]):
     ) -> None:
         """Track loss normalized by number of tokens and token per second"""
         metrics = self.active_metrics(state)
-        tgt_num_tokens = data.tgt_seq_lens.sum()
+        tgt_num_tokens = data.tgt_seq_lens.sum() - data.tgt_seq_lens.numel()
         nll_loss = loss.detach() / tgt_num_tokens / math.log(2)
         # compute the loss metric on device to avoid a cuda.synchronize
         metrics["loss"].update(nll_loss, weight=tgt_num_tokens)
