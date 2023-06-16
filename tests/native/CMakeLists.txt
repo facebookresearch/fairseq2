@@ -19,6 +19,7 @@ target_sources(tests
         test_span.cc
         data/test_immutable_string.cc
         data/test_tape.cc
+        data/text/test_string_utils.cc
         utils/test_cast.cc
 )
 

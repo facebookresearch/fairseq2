@@ -4,11 +4,13 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
-#include "fairseq2/native/data/immutable_string.h"
-
 #include <algorithm>
+#include <stdexcept>
+#include <cctype>
 
+#include "fairseq2/native/data/immutable_string.h"
 #include "fairseq2/native/data/text/detail/utf.h"
+#include <fairseq2/native/utils/cast.h>
 
 using namespace fairseq2::detail;
 
@@ -54,6 +56,34 @@ immutable_string::split(char separator) const
         result.push_back(remove_prefix(offset));
 
     return result;
+}
+
+std::int32_t
+immutable_string::to_int32() const
+{
+    std::string_view s = view();
+    if (s.empty())
+        throw std::runtime_error("Trying to cast empty string to int32");
+
+    std::int32_t sign = 1;
+    std::ptrdiff_t offset = 0;
+    if (s[0] == '-') {
+        sign = -1;
+        offset = 1;
+    }
+
+    std::int32_t result = 0;
+    std::int32_t decimal_factor = 1;
+    for (std::ptrdiff_t i = ssize(s) - 1; i >= offset; --i) {
+        auto index = static_cast<std::size_t>(i);
+        if (std::isdigit(s[index]) == 0)
+            throw std::runtime_error("Unexcpeted non digit character in string.");
+
+        result += decimal_factor * (s[index] - '0');
+        decimal_factor *= 10;
+    }
+
+    return sign * result;
 }
 
 }  // namespace fairseq2

@@ -163,6 +163,9 @@ public:
         return std::string{*this};
     }
 
+    std::int32_t
+    to_int32() const;
+
     // Returns the UTF-8 code point length.
     std::size_t
     get_code_point_length() const;
