@@ -20,8 +20,8 @@ from transformers import (  # type: ignore[import]
 )
 
 import fairseq2
+import fairseq2.cli.api
 import fairseq2.data.huggingface
-import fairseq2.tasks
 from fairseq2.cli import Env
 from fairseq2.data import Seq2SeqBatch, Seq2SeqStr
 from fairseq2.data.huggingface import AsrDataloader
@@ -39,7 +39,7 @@ REQUIREMENTS = [
 ]
 
 
-class AsrTask(fairseq2.tasks.Seq2Seq):
+class AsrTask(fairseq2.cli.api.Seq2Seq):
     def init_metrics(self, mode: str) -> Metrics:
         metrics = super().init_metrics(mode)
         self.best_metric = "wer" if self.eval_gen else "loss"

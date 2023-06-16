@@ -20,9 +20,9 @@ import torchtnt.framework as tnt
 import fairseq2.cli.callbacks
 from fairseq2 import DOC_MODE
 from fairseq2.cli import Env, Xp, XpScript
+from fairseq2.cli.api import Seq2Seq
 from fairseq2.cli.distributed import distributed_init
 from fairseq2.data import StringLike
-from fairseq2.tasks import Seq2Seq
 
 logging.basicConfig(
     level=logging.INFO,

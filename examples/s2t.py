@@ -15,8 +15,8 @@ import torchtnt.utils
 from torch import Tensor
 
 import fairseq2.cli
+import fairseq2.cli.api
 import fairseq2.models.s2t_transformer as s2t
-import fairseq2.tasks
 from fairseq2 import data
 from fairseq2.cli import Env
 from fairseq2.data import DataPipelineBuilder, Seq2SeqBatch, StringLike
@@ -33,7 +33,7 @@ if __name__ == "__main__":
 log = logging.getLogger(__name__)
 
 DATADIR: str = "/checkpoint/guw/fairseq2/data/must-c-v1.0.eng-deu"
-task = fairseq2.tasks.Seq2Seq
+task = fairseq2.cli.api.Seq2Seq
 
 
 def tokenizer(

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Iterable, List
 import torch
 import torchtnt.framework as tnt
 
-import fairseq2.tasks
+import fairseq2.cli.api
 from fairseq2.optim.lr_scheduler import MyleLR
 
 if TYPE_CHECKING:
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 _imports = set(locals().keys())
 
-task = fairseq2.tasks.Seq2Seq
+task = fairseq2.cli.api.Seq2Seq
 
 
 def tokenizer() -> "Tokenizer":
