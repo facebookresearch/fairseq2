@@ -176,134 +176,78 @@ data_pipeline::check_if_broken() const
         throw data_pipeline_error{"The data pipeline is broken by a previous operation."};
 }
 
-data_pipeline_builder &
-data_pipeline_builder::batch(std::size_t batch_size, bool drop_remainder, const std::vector<std::int32_t> &pad_idx) &
+data_pipeline_builder &&
+data_pipeline_builder::batch(std::size_t batch_size, bool drop_remainder, const std::vector<std::int32_t> &pad_idx) &&
 {
     factory_ = [=, inner = std::move(factory_)]() {
         return std::make_unique<batched_data_source>(inner(), batch_size, drop_remainder, pad_idx);
     };
 
-    return *this;
-}
-
-data_pipeline_builder &&
-data_pipeline_builder::batch(std::size_t batch_size, bool drop_remainder, const std::vector<std::int32_t> &pad_idx) &&
-{
-    batch(batch_size, drop_remainder, pad_idx);
-
     return std::move(*this);
-}
-
-data_pipeline_builder &
-data_pipeline_builder::batch_by_length(const std::vector<std::pair<std::size_t, std::size_t>>& buffer_sizes, std::int32_t pad_idx) &
-{
-    factory_ = [=, inner = std::move(factory_)]() {
-        return std::make_unique<batched_by_length_data_source>(inner(), buffer_sizes, pad_idx);
-    };
-
-    return *this;
 }
 
 data_pipeline_builder &&
 data_pipeline_builder::batch_by_length(const std::vector<std::pair<std::size_t, std::size_t>>& buffer_sizes, std::int32_t pad_idx) &&
 {
-    batch_by_length(buffer_sizes, pad_idx);
-    return std::move(*this);
-}
-
-data_pipeline_builder &
-data_pipeline_builder::islice(std::optional<int> start, std::optional<int> stop, std::optional<int> step) &
-{
     factory_ = [=, inner = std::move(factory_)]() {
-        return std::make_unique<islice_data_source>(inner(), start, stop, step);
+        return std::make_unique<batched_by_length_data_source>(inner(), buffer_sizes, pad_idx);
     };
 
-    return *this;
+    return std::move(*this);
 }
 
 data_pipeline_builder &&
 data_pipeline_builder::islice(std::optional<int> start, std::optional<int> stop, std::optional<int> step) &&
 {
-    islice(start, stop, step);
-
-    return std::move(*this);
-}
-
-
-data_pipeline_builder &
-data_pipeline_builder::yield_from(yield_fn fn) &
-{
-    factory_ = [fn = std::move(fn), inner = std::move(factory_)]() mutable {
-        return std::make_unique<yielded_data_source>(inner(), std::move(fn));
+    factory_ = [=, inner = std::move(factory_)]() {
+        return std::make_unique<islice_data_source>(inner(), start, stop, step);
     };
 
-    return *this;
+    return std::move(*this);
 }
 
 data_pipeline_builder &&
 data_pipeline_builder::yield_from(yield_fn fn) &&
 {
-    yield_from(std::move(fn));
-
-    return std::move(*this);
-}
-
-data_pipeline_builder &
-data_pipeline_builder::map(map_fn fn) &
-{
     factory_ = [fn = std::move(fn), inner = std::move(factory_)]() mutable {
-        return std::make_unique<mapped_data_source>(inner(), std::move(fn), 0);
+        return std::make_unique<yielded_data_source>(inner(), std::move(fn));
     };
 
-    return *this;
+    return std::move(*this);
 }
 
 data_pipeline_builder &&
 data_pipeline_builder::map(map_fn fn) &&
 {
-    map(std::move(fn));
-
-    return std::move(*this);
-}
-
-data_pipeline_builder &
-data_pipeline_builder::map(map_fn  fn, std::size_t chunk_size) &
-{
-    factory_ = [fn = std::move(fn), inner = std::move(factory_), chunk_size]() mutable {
-        return std::make_unique<mapped_data_source>(inner(), std::move(fn), chunk_size);
+    factory_ = [fn = std::move(fn), inner = std::move(factory_)]() mutable {
+        return std::make_unique<mapped_data_source>(inner(), std::move(fn), 0);
     };
 
-    return *this;
+    return std::move(*this);
 }
 
 data_pipeline_builder &&
 data_pipeline_builder::map(map_fn fn, std::size_t chunk_size) &&
 {
-    map(std::move(fn), chunk_size);
-
-    return std::move(*this);
-}
-
-data_pipeline_builder &
-data_pipeline_builder::filter(predicate_fn predicate) &
-{
-    factory_ = [predicate = std::move(predicate), inner = std::move(factory_)]() mutable {
-        return std::make_unique<filtered_data_source>(inner(), std::move(predicate));
+    factory_ = [fn = std::move(fn), inner = std::move(factory_), chunk_size]() mutable {
+        return std::make_unique<mapped_data_source>(inner(), std::move(fn), chunk_size);
     };
 
-    return *this;
+    return std::move(*this);
 }
 
 data_pipeline_builder &&
 data_pipeline_builder::filter(predicate_fn predicate) &&
 {
-    filter(std::move(predicate));
+    factory_ = [predicate = std::move(predicate), inner = std::move(factory_)]() mutable {
+        return std::make_unique<filtered_data_source>(inner(), std::move(predicate));
+    };
 
     return std::move(*this);
 }
 
-data_pipeline_builder &
-data_pipeline_builder::prefetch(std::size_t num_examples) &
+data_pipeline_builder &&
+data_pipeline_builder::prefetch(std::size_t num_examples) &&
 {
     if (num_examples > 0) {
         factory_ = [=, inner = std::move(factory_)]() {
@@ -311,49 +255,25 @@ data_pipeline_builder::prefetch(std::size_t num_examples) &
         };
     }
 
-    return *this;
-}
-
-data_pipeline_builder &&
-data_pipeline_builder::prefetch(std::size_t num_examples) &&
-{
-    prefetch(num_examples);
-
     return std::move(*this);
-}
-
-data_pipeline_builder &
-data_pipeline_builder::shard(std::size_t shard_idx, std::size_t num_shards) &
-{
-    factory_ = [=, inner = std::move(factory_)]() {
-        return std::make_unique<sharded_data_source>(inner(), shard_idx, num_shards);
-    };
-
-    return *this;
 }
 
 data_pipeline_builder &&
 data_pipeline_builder::shard(std::size_t shard_idx, std::size_t num_shards) &&
 {
-    shard(shard_idx, num_shards);
-
-    return std::move(*this);
-}
-
-data_pipeline_builder &
-data_pipeline_builder::shuffle(std::size_t buffer_size, std::size_t seed, bool deterministic) &
-{
     factory_ = [=, inner = std::move(factory_)]() {
-        return std::make_unique<shuffled_data_source>(inner(), buffer_size, seed, deterministic);
+        return std::make_unique<sharded_data_source>(inner(), shard_idx, num_shards);
     };
 
-    return *this;
+    return std::move(*this);
 }
 
 data_pipeline_builder &&
 data_pipeline_builder::shuffle(std::size_t buffer_size, std::size_t seed, bool deterministic) &&
 {
-    shuffle(buffer_size, seed, deterministic);
+    factory_ = [=, inner = std::move(factory_)]() {
+        return std::make_unique<shuffled_data_source>(inner(), buffer_size, seed, deterministic);
+    };
 
     return std::move(*this);
 }

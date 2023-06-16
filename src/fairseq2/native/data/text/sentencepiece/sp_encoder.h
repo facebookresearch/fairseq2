@@ -24,14 +24,6 @@ namespace fairseq2 {
 
 class sp_encoder_options {
 public:
-    sp_encoder_options &
-    prefix_token(std::string value) &
-    {
-        prefix_tokens_.push_back(std::move(value));
-
-        return *this;
-    }
-
     sp_encoder_options &&
     prefix_token(std::string value) &&
     {
@@ -50,14 +42,6 @@ public:
     prefix_tokens() const noexcept
     {
         return prefix_tokens_;
-    }
-
-    sp_encoder_options &
-    suffix_token(std::string value) &
-    {
-        suffix_tokens_.push_back(std::move(value));
-
-        return *this;
     }
 
     sp_encoder_options &&
@@ -80,14 +64,6 @@ public:
         return suffix_tokens_;
     }
 
-    sp_encoder_options &
-    reverse(bool value) & noexcept
-    {
-        reverse_ = value;
-
-        return *this;
-    }
-
     sp_encoder_options &&
     reverse(bool value) && noexcept
     {
@@ -100,14 +76,6 @@ public:
     reverse() const noexcept
     {
         return reverse_;
-    }
-
-    sp_encoder_options &
-    enable_sampling(bool value) & noexcept
-    {
-        enable_sampling_ = value;
-
-        return *this;
     }
 
     sp_encoder_options &&
@@ -124,14 +92,6 @@ public:
         return enable_sampling_;
     }
 
-    sp_encoder_options &
-    nbest_size(std::int32_t value) & noexcept
-    {
-        nbest_size_ = value;
-
-        return *this;
-    }
-
     sp_encoder_options &&
     nbest_size(std::int32_t value) && noexcept
     {
@@ -144,14 +104,6 @@ public:
     nbest_size() const noexcept
     {
         return nbest_size_;
-    }
-
-    sp_encoder_options &
-    alpha(float value) & noexcept
-    {
-        alpha_ = value;
-
-        return *this;
     }
 
     sp_encoder_options &&
@@ -168,14 +120,6 @@ public:
         return alpha_;
     }
 
-    sp_encoder_options &
-    batch_size(std::optional<std::int64_t> value) & noexcept
-    {
-        batch_size_ = value;
-
-        return *this;
-    }
-
     sp_encoder_options &&
     batch_size(std::optional<std::int64_t> value) && noexcept
     {
@@ -188,14 +132,6 @@ public:
     batch_size() const noexcept
     {
         return batch_size_;
-    }
-
-    sp_encoder_options &
-    pad_to_length(std::optional<std::int64_t> value) & noexcept
-    {
-        pad_to_length_ = value;
-
-        return *this;
     }
 
     sp_encoder_options &&
@@ -212,14 +148,6 @@ public:
         return pad_to_length_;
     }
 
-    sp_encoder_options &
-    pad_to_multiple(std::int64_t value) & noexcept
-    {
-        pad_to_multiple_ = value;
-
-        return *this;
-    }
-
     sp_encoder_options &&
     pad_to_multiple(std::int64_t value) && noexcept
     {
@@ -232,14 +160,6 @@ public:
     pad_to_multiple() const noexcept
     {
         return pad_to_multiple_;
-    }
-
-    sp_encoder_options &
-    left_pad(bool value) & noexcept
-    {
-        left_pad_ = value;
-
-        return *this;
     }
 
     sp_encoder_options &&
@@ -256,14 +176,6 @@ public:
         return left_pad_;
     }
 
-    sp_encoder_options &
-    dtype(at::ScalarType value) & noexcept
-    {
-        dtype_ = value;
-
-        return *this;
-    }
-
     sp_encoder_options &&
     dtype(at::ScalarType value) && noexcept
     {
@@ -276,14 +188,6 @@ public:
     dtype() const noexcept
     {
         return dtype_;
-    }
-
-    sp_encoder_options &
-    device(std::optional<at::Device> value) & noexcept
-    {
-        device_ = value;
-
-        return *this;
     }
 
     sp_encoder_options &&
@@ -300,14 +204,6 @@ public:
         return device_;
     }
 
-    sp_encoder_options &
-    pin_memory(bool value) & noexcept
-    {
-        pin_memory_ = value;
-
-        return *this;
-    }
-
     sp_encoder_options &&
     pin_memory(bool value) && noexcept
     {
@@ -320,14 +216,6 @@ public:
     pin_memory() const noexcept
     {
         return pin_memory_;
-    }
-
-    sp_encoder_options &
-    disable_parallelism(bool value) & noexcept
-    {
-        disable_parallelism_ = value;
-
-        return *this;
     }
 
     sp_encoder_options &&

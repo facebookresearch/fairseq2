@@ -94,62 +94,32 @@ public:
 
    ~data_pipeline_builder() = default;
 
-    data_pipeline_builder &
-    batch(std::size_t batch_size, bool drop_remainder = false, const std::vector<std::int32_t> &pad_idx = {}) &;
-
     data_pipeline_builder &&
     batch(std::size_t batch_size, bool drop_remainder = false, const std::vector<std::int32_t> &pad_idx = {}) &&;
-
-    data_pipeline_builder &
-    batch_by_length(const std::vector<std::pair<std::size_t, std::size_t>>& buffer_sizes, std::int32_t pad_idx) &;
 
     data_pipeline_builder &&
     batch_by_length(const std::vector<std::pair<std::size_t, std::size_t>>& buffer_sizes, std::int32_t pad_idx) &&;
 
-    data_pipeline_builder &
-    islice(std::optional<int> start, std::optional<int> stop, std::optional<int> step) &;
-
     data_pipeline_builder &&
     islice(std::optional<int> start, std::optional<int> stop, std::optional<int> step) &&;
-
-    data_pipeline_builder &
-    yield_from(yield_fn fn) &;
 
     data_pipeline_builder &&
     yield_from(yield_fn fn) &&;
 
-    data_pipeline_builder &
-    map(map_fn fn) &;
-
     data_pipeline_builder &&
     map(map_fn fn) &&;
-
-    data_pipeline_builder &
-    map(map_fn fn, std::size_t chunk_size) &;
 
     data_pipeline_builder &&
     map(map_fn fn, std::size_t chunk_size) &&;
 
-    data_pipeline_builder &
-    filter(predicate_fn predicate) &;
-
     data_pipeline_builder &&
     filter(predicate_fn predicate) &&;
-
-    data_pipeline_builder &
-    prefetch(std::size_t num_examples) &;
 
     data_pipeline_builder &&
     prefetch(std::size_t num_examples) &&;
 
-    data_pipeline_builder &
-    shard(std::size_t shard_idx, std::size_t num_shards) &;
-
     data_pipeline_builder &&
     shard(std::size_t shard_idx, std::size_t num_shards) &&;
-
-    data_pipeline_builder &
-    shuffle(std::size_t buffer_size, std::size_t seed, bool deterministic) &;
 
     data_pipeline_builder &&
     shuffle(std::size_t buffer_size, std::size_t seed, bool deterministic) &&;

@@ -23,14 +23,6 @@ enum class line_ending {
 
 class text_options {
 public:
-    text_options &
-    encoding(std::optional<std::string> value) & noexcept
-    {
-        encoding_ = std::move(value);
-
-        return *this;
-    }
-
     text_options &&
     encoding(std::optional<std::string> value) && noexcept
     {
@@ -43,14 +35,6 @@ public:
     encoding() const noexcept
     {
         return encoding_;
-    }
-
-    text_options &
-    line_ending(fairseq2::line_ending value) & noexcept
-    {
-        line_ending_ = value;
-
-        return *this;
     }
 
     text_options &&
@@ -67,14 +51,6 @@ public:
         return line_ending_;
     }
 
-    text_options &
-    ltrim(bool value) & noexcept
-    {
-        ltrim_ = value;
-
-        return *this;
-    }
-
     text_options &&
     ltrim(bool value) && noexcept
     {
@@ -87,14 +63,6 @@ public:
     ltrim() const noexcept
     {
         return ltrim_;
-    }
-
-    text_options &
-    rtrim(bool value) & noexcept
-    {
-        rtrim_ = value;
-
-        return *this;
     }
 
     text_options &&
@@ -111,14 +79,6 @@ public:
         return rtrim_;
     }
 
-    text_options &
-    skip_empty(bool value) & noexcept
-    {
-        skip_empty_ = value;
-
-        return *this;
-    }
-
     text_options &&
     skip_empty(bool value) && noexcept
     {
@@ -131,14 +91,6 @@ public:
     skip_empty() const noexcept
     {
         return skip_empty_;
-    }
-
-    text_options &
-    skip_header(std::size_t value) & noexcept
-    {
-        skip_header_ = value;
-
-        return *this;
     }
 
     text_options &&
@@ -155,14 +107,6 @@ public:
         return skip_header_;
     }
 
-    text_options &
-    memory_map(bool value) & noexcept
-    {
-        memory_map_ = value;
-
-        return *this;
-    }
-
     text_options &&
     memory_map(bool value) && noexcept
     {
@@ -175,14 +119,6 @@ public:
     memory_map() const noexcept
     {
         return memory_map_;
-    }
-
-    text_options &
-    block_size(std::optional<std::size_t> value) & noexcept
-    {
-        block_size_ = value;
-
-        return *this;
     }
 
     text_options &&

@@ -138,7 +138,9 @@ def_data_pipeline(py::module_ &base)
                 else
                     padding = std::get<std::vector<std::int32_t>>(pad_idx);
 
-                return self.batch(batch_size, drop_remainder, padding);
+                self = std::move(self).batch(batch_size, drop_remainder, padding);
+
+                return self;
             },
             py::arg("batch_size"),
             py::kw_only(),
@@ -151,7 +153,9 @@ def_data_pipeline(py::module_ &base)
                 std::int32_t pad_idx
             ) -> data_pipeline_builder &
             {
-                return self.batch_by_length(buffer_sizes, pad_idx);
+                self = std::move(self).batch_by_length(buffer_sizes, pad_idx);
+
+                return self;
             },
             py::arg("buffer_sizes"),
             py::arg("pad_idx"))
@@ -164,9 +168,11 @@ def_data_pipeline(py::module_ &base)
             ) -> data_pipeline_builder &
             {
                 if (stop == std::nullopt && step == std::nullopt)
-                    return self.islice({}, start, {});
+                    self = std::move(self).islice({}, start, {});
+                else
+                    self = std::move(self).islice(start, stop, step);
 
-                return self.islice(start, stop, step);
+                return self;
             },
             py::arg("start"),
             py::arg("stop") = std::nullopt,
@@ -178,26 +184,30 @@ def_data_pipeline(py::module_ &base)
                     return dp(std::move(d));
                 };
 
-                return self.map(std::move(fn));
+                self = std::move(self).map(std::move(fn));
+
+                return self;
             },
             py::arg("dp"))
         .def("map",
-            [](data_pipeline_builder &self, map_fn &&fn, std::size_t chunk_size)
-                -> data_pipeline_builder &
+            [](data_pipeline_builder &self, map_fn &&fn, std::size_t chunk_size) -> data_pipeline_builder &
             {
-                return self.map(std::move(fn), chunk_size);
+                self = std::move(self).map(std::move(fn), chunk_size);
+
+                return self;
             },
             py::arg("fn"),
             py::arg("chunk_size") = 1)
         .def("prefetch",
             [](data_pipeline_builder &self, std::size_t num_examples) -> data_pipeline_builder &
             {
-                return self.prefetch(num_examples);
+                self = std::move(self).prefetch(num_examples);
+
+                return self;
             },
             py::arg("num_examples"))
         .def("shard",
-            [](data_pipeline_builder &self, std::size_t shard_idx, std::size_t num_shards)
-                -> data_pipeline_builder &
+            [](data_pipeline_builder &self, std::size_t shard_idx, std::size_t num_shards) -> data_pipeline_builder &
             {
                 if (num_shards <= 0) {
                     throw std::invalid_argument("shard: num_shards must be > 0");
@@ -205,15 +215,19 @@ def_data_pipeline(py::module_ &base)
                 if (shard_idx >= num_shards) {
                     throw std::invalid_argument("shard: shard_idx must be between 0 and num_shards");
                 }
-                return self.shard(shard_idx, num_shards);
+
+                self = std::move(self).shard(shard_idx, num_shards);
+
+                return self;
             },
             py::arg("shard_idx"),
             py::arg("num_shards"))
         .def("shuffle",
-            [](data_pipeline_builder &self, std::size_t buffer_size, std::size_t seed, bool deterministic)
-                -> data_pipeline_builder &
+            [](data_pipeline_builder &self, std::size_t buffer_size, std::size_t seed, bool deterministic) -> data_pipeline_builder &
             {
-                return self.shuffle(buffer_size, seed, deterministic);
+                self = std::move(self).shuffle(buffer_size, seed, deterministic);
+
+                return self;
             },
             py::arg("buffer_size"),
             py::arg("seed") = 0,
@@ -221,13 +235,17 @@ def_data_pipeline(py::module_ &base)
         .def("filter",
             [](data_pipeline_builder &self, predicate_fn &&predicate) -> data_pipeline_builder &
             {
-                return self.filter(std::move(predicate));
+                self = std::move(self).filter(std::move(predicate));
+
+                return self;
             },
             py::arg("predicate"))
         .def("yield_from",
             [](data_pipeline_builder &self, yield_fn &&fn) -> data_pipeline_builder &
             {
-                return self.yield_from(std::move(fn));
+                self = std::move(self).yield_from(std::move(fn));
+
+                return self;
             },
             py::arg("fn"))
         .def("and_return",
