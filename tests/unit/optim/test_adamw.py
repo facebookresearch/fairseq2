@@ -14,8 +14,7 @@ from torch.nn.functional import relu
 from torch.optim import AdamW as BaseAdamW
 
 from fairseq2.optim.adamw import AdamW
-from tests.common import assert_close, device
-from tests.rng import tmp_rng_seed
+from tests.common import assert_close, device, tmp_rng_seed
 
 
 class AdamWTestNet(Module):

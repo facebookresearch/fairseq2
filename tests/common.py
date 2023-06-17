@@ -4,15 +4,14 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, List, Union
+import contextlib
+from typing import Any, Generator, List, Union
 
 import torch
 from torch import Tensor
 
-# The default device that tests should use.
-#
-# Note that pytest can change the default device based on the provided command
-# line arguments.
+# The default device that tests should use. Note that pytest can change it based
+# on the provided command line arguments.
 device = torch.device("cpu")
 
 
@@ -33,25 +32,29 @@ def assert_equal(a: Tensor, b: Union[Tensor, List[Any]]) -> None:
 
 
 def has_no_inf(a: Tensor) -> bool:
-    """Indicate whether ``a`` has no positive or negative infinite element."""
+    """Return ``True`` if ``a`` has no positive or negative infinite element."""
     return not torch.any(torch.isinf(a))
 
 
 def has_no_nan(a: Tensor) -> bool:
-    """Indicate whether  ``a`` has no NaN element."""
+    """Return ``True`` if ``a`` has no NaN element."""
     return not torch.any(torch.isnan(a))
 
 
-def assert_equal_tensor_list(
-    actual: Union[Tensor, List[Any]], expected: Union[Tensor, List[Any]]
-) -> None:
-    """Assert equality of embeded list of tensors"""
-    assert type(actual) == type(expected)
+@contextlib.contextmanager
+def tmp_rng_seed(device: torch.device, seed: int = 0) -> Generator[None, None, None]:
+    """Set a temporary manual RNG seed.
 
-    if isinstance(actual, Tensor):
-        assert_equal(actual, expected)
-    elif isinstance(actual, List):
-        for i in range(len(actual)):
-            assert_equal_tensor_list(actual[i], expected[i])
+    The RNG is reset to its original state once the block is exited.
+    """
+    device = torch.device(device)
+
+    if device.type == "cuda":
+        devices = [device]
     else:
-        raise ValueError(f"{type(actual)} not supported.")
+        devices = []
+
+    with torch.random.fork_rng(devices):
+        torch.manual_seed(seed)
+
+        yield

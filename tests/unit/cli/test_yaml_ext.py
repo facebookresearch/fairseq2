@@ -63,7 +63,7 @@ def test_serialize_named_tuple() -> None:
     assert (
         nice_yaml
         == """
-!!python/object/new:tests.cli.test_yaml_ext.X
+!!python/object/new:tests.unit.cli.test_yaml_ext.X
 - 1
 - !!python/name:torch.int64 ''
 """.lstrip()

@@ -4,23 +4,20 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, Final
+from typing import Any, Dict
 
 import pytest
 import torch
-from packaging import version
 from torch import Tensor
 
 from fairseq2.nn.transformer.attention import NaiveSDPA, TorchSDPA
-from tests.common import assert_close, device
-from tests.rng import tmp_rng_seed
-
-IS_PT2_OR_GREATER: Final = version.parse(torch.__version__) >= version.parse("2.0.0")
+from fairseq2.utils.version import is_pt2_or_greater
+from tests.common import assert_close, device, tmp_rng_seed
 
 
 class TestScaledDotProductAttention:
     # fmt: off
-    @pytest.mark.skipif(not IS_PT2_OR_GREATER, reason="requires PyTorch 2.0.0 or greater")
+    @pytest.mark.skipif(not is_pt2_or_greater(), reason="requires PyTorch 2.0.0 or greater")
     @pytest.mark.parametrize("mask,attn_dropout_p,training",
         [
             (False, 0.0, True),

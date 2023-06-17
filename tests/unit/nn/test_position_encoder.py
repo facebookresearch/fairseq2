@@ -14,8 +14,7 @@ from fairseq2.nn import (
     RotaryEncoder,
     SinusoidalPositionEncoder,
 )
-from tests.common import assert_close, device
-from tests.rng import tmp_rng_seed
+from tests.common import assert_close, device, tmp_rng_seed
 
 
 class TestSinusoidalPositionEncoder:

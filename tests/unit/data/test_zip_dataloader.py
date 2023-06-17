@@ -4,12 +4,29 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from typing import Any, List, Union
 
 import torch
+from torch import Tensor
 
 import fairseq2.data
-from tests.common import assert_equal_tensor_list
-from tests.data.test_dataloader import assert_eq_twice
+from tests.common import assert_equal
+from tests.unit.data.test_dataloader import assert_eq_twice
+
+
+def assert_equal_tensor_list(
+    actual: Union[Tensor, List[Any]], expected: Union[Tensor, List[Any]]
+) -> None:
+    """Assert equality of embeded list of tensors"""
+    assert type(actual) == type(expected)
+
+    if isinstance(actual, Tensor):
+        assert_equal(actual, expected)
+    elif isinstance(actual, List):
+        for i in range(len(actual)):
+            assert_equal_tensor_list(actual[i], expected[i])
+    else:
+        raise ValueError(f"{type(actual)} not supported.")
 
 
 def test_zip_2dl() -> None:

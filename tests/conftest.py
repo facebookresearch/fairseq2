@@ -42,7 +42,7 @@ def pytest_ignore_collect(
     collection_path: Path, path: None, config: pytest.Config
 ) -> bool:
     if "integration" in collection_path.parts:
-        # Ignore tests/integration unless we run pytest --integration
+        # Ignore integration tests unless we run `pytest --integration`.
         return not cast(bool, config.getoption("integration"))
 
     return False

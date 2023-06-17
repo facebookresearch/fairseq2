@@ -33,7 +33,7 @@ if TYPE_CHECKING or DOC_MODE:
 
         @property
         def is_broken(self) -> bool:
-            """Return whether the data pipeline is broken.
+            """Return ``True`` if the data pipeline is broken.
 
             If ``True``, any future operation on this data pipeline will raise a
             :class:`DataPipelineError`.

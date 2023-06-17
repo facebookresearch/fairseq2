@@ -24,7 +24,7 @@ from fairseq2 import C  # type: ignore[attr-defined]
 
 
 def supports_cuda() -> bool:
-    """Indicates whether the library supports CUDA."""
+    """Return ``True`` if the library supports CUDA."""
     return C._supports_cuda()  # type: ignore[no-any-return]
 
 
