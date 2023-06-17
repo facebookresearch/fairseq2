@@ -5,9 +5,10 @@
 # LICENSE file in the root directory of this source tree.
 
 from os import path
-from typing import List, Optional
+from typing import Final, List, Optional
 
 import torch
+from packaging import version
 from setuptools import Command, find_packages, setup
 from setuptools.command.install import install as install_base
 from setuptools.dist import Distribution as DistributionBase
@@ -26,15 +27,15 @@ class install(install_base):
 
     install_base.sub_commands.append(("install_cmake", lambda self: True))
 
-    # Old versions of distutils incorrectly check ext_modules to determine
+    # Old versions of distutils incorrectly check `ext_modules` to determine
     # whether a distribution is non-pure. We fix it here.
     def finalize_options(self) -> None:
-        # Check install_lib before it gets overriden by the base.
+        # Check `install_lib` before it gets overriden by the base.
         can_override_lib = self.install_lib is None
 
         install_base.finalize_options(self)
 
-        # Point install_lib to the right location if permitted.
+        # Set `install_lib` to the right location if allowed.
         if can_override_lib and self.distribution.has_ext_modules():
             self.install_lib = self.install_platlib
 
@@ -45,9 +46,9 @@ class install_cmake(Command):
     is_standalone: bool
     verbose: bool
 
-    description = "install CMake artifacts"
+    description: Final = "install CMake artifacts"
 
-    user_options = [
+    user_options: Final = [
         ("cmake-build-dir=", "b", "build directory (where to install from)"),
         ("install-dir=", "d", "directory to install to"),
     ]
@@ -72,7 +73,7 @@ class install_cmake(Command):
         except FileNotFoundError:
             raise FileError("CMakeCache.txt is not found. Run CMake first.")
 
-        # Read FAIRSEQ2_INSTALL_STANDALONE from cache.
+        # Read `FAIRSEQ2_INSTALL_STANDALONE` from cache.
         with f:
             for line in f:
                 if line.startswith("FAIRSEQ2_INSTALL_STANDALONE"):
@@ -112,7 +113,7 @@ class install_cmake(Command):
         manifests.append("install_manifest_python.txt")
 
         # We have to strip the file paths to the install directory to be
-        # consistent with the standard commands.
+        # consistent with the setuptools commands.
         lstrip_to = len(path.abspath(self.install_dir)) + 1
 
         # Extract the list of files from the CMake install manifests.
@@ -128,6 +129,35 @@ class install_cmake(Command):
     def get_inputs(self) -> List[str]:
         # We take no input.
         return []
+
+
+dependencies = [
+    "jiwer~=3.0",
+    "numpy~=1.23",
+    "overrides~=7.3",
+    "packaging~=23.1",
+    "pyyaml~=6.0",
+    "sacrebleu~=2.3",
+    "tbb==2021.9.0",
+    # PyTorch has no ABI compatibility between releases; this means we have to
+    # ensure that we depend on the exact same version that was used to build our
+    # extension module.
+    "torch==" + version.parse(torch.__version__).public,
+    "torcheval~=0.0.6",
+    "typing_extensions~=4.3",
+]
+
+cli_dependencies = [
+    "func_argparse~=1.1",
+    "omegaconf~=2.2",
+    "submitit~=1.4",
+    "torchsnapshot~=0.1.0",
+    "torchtnt~=0.0.7",
+    "torchx~=0.5",
+    "wandb~=0.13",
+]
+
+all_dependencies = dependencies + cli_dependencies
 
 
 setup(
@@ -159,30 +189,11 @@ setup(
     package_data={"": ["py.typed", "*.pyi", "assets/cards/*.yaml"]},
     zip_safe=False,
     python_requires=">=3.8",
-    install_requires=[
-        "datasets>=2.6",
-        "func_argparse~=1.1",
-        "numpy~=1.23",
-        "omegaconf~=2.2",
-        "pyyaml~=6.0",
-        "overrides~=7.3",
-        "submitit~=1.4",
-        "tbb~=2021.8",
-        # PyTorch has no ABI compatibility between releases; this means we have
-        # to ensure that we depend on the exact same version that was used to
-        # build our extension module.
-        "torch==" + torch.__version__.split("+cu")[0],
-        "torcheval",
-        "torchtnt==0.0.7",
-        "torchsnapshot>=0.1.0",
-        "torchx",
-        "transformers>=4.2",
-        "typing_extensions~=4.3",
-        "wandb~=0.13",
-        # Eval tools
-        "sacrebleu>=2.3.1",
-        "jiwer",
-    ],
+    install_requires=dependencies,
+    extras_require={
+        "cli": cli_dependencies,
+        "all": all_dependencies,
+    },
     entry_points={
         "console_scripts": [
             "fairseq2 = fairseq2.cli.commands:main",

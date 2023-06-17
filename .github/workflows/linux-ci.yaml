@@ -29,7 +29,7 @@ jobs:
           doc_only=true
 
           # Check if all modified files are under the doc directory. If true,
-          # we can skip building the entire project.
+          # we can skip building the project.
           for pathname in $(git diff --name-only origin/${{ github.base_ref }} HEAD); do
             if [[ $pathname != doc/* ]]; then
               doc_only=false

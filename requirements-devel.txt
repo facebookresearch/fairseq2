@@ -1,11 +1,11 @@
 --requirement requirements-build.txt
 
-black==22.3.0
-flake8-pyi==22.10
-flake8==4.0.1
-isort==5.10.1
-mypy==1.2.0
-pytest==7.1.3
-shellcheck-py==0.8.0.4
+black~=23.3
+flake8-pyi~=23.5
+flake8~=6.0
+isort~=5.12
+mypy~=1.3.0
+pytest~=7.3
+shellcheck-py~=0.9.0
 types-PyYAML~=6.0
-types-setuptools==57.4.9
+types-setuptools~=67.8

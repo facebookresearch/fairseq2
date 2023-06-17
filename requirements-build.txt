@@ -1,5 +1,6 @@
-cmake==3.24.2
-ninja==1.10.2
-setuptools==65.5.0
-tbb-devel==2021.8.0
-wheel==0.37.1
+cmake~=3.26.4
+ninja~=1.11.1
+packaging~=23.1
+setuptools~=67.8
+tbb-devel==2021.9.0
+wheel~=0.40.0

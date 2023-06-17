@@ -40,7 +40,9 @@ def test_compute_mask_returns_mask_with_correct_shape_device_dtype() -> None:
     assert mask.any()
 
 
-def test_compute_mask_returns_mask_with_correct_shape_device_dtype_if_row_lens_is_specified() -> None:
+def test_compute_mask_returns_mask_with_correct_shape_device_dtype_if_row_lens_is_specified() -> (
+    None
+):
     shape = (4, 16)
 
     row_lens = torch.tensor([16, 14, 15, 16], device="cpu")

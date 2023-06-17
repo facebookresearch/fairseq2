@@ -41,7 +41,7 @@ jobs:
       - name: Install the package
         id: setup
         run: |
-          pip install --editable .
+          pip install --editable ".[all]"
       - name: Run isort
         if: success() || (failure() && steps.setup.outcome == 'success')
         run: |

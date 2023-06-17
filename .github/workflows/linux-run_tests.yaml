@@ -68,7 +68,9 @@ jobs:
           pip install --requirement requirements-devel.txt
       - name: Install the wheel
         run: |
-          pip install ~/wheelhouse/*.whl --no-cache-dir
+          for whl in ~/wheelhouse/*.whl; do
+            pip install "$whl[all]" --no-cache-dir
+          done
       - name: Set the sanitizer variables
         if: inputs.sanitizers != 'nosan'
         env:

@@ -563,7 +563,6 @@ def test(
 def _test_dataloader(
     dataloader: Iterable[Any], num_examples: int, device: torch.device
 ) -> None:
-
     start_time = time.perf_counter()
     res = torch.tensor(0, device=device)
 
@@ -624,7 +623,6 @@ def main(script: Union[Path, str, None] = None) -> None:
             parser._actions.remove(parser._actions[1])
             parser.set_defaults(script=Path(script))
         elif parser._actions[1].default is None:
-
             parser._actions[1].option_strings = ()
 
         # Handle overrides separately, I'm not sure why nargs="*" doesn't work as expected

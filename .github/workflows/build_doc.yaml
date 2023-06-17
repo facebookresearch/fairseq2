@@ -48,7 +48,9 @@ jobs:
           pip install --requirement doc/requirements.txt
       - name: Install the wheel
         run: |
-          pip install ~/wheelhouse/*.whl --no-cache-dir
+          for whl in ~/wheelhouse/*.whl; do
+            pip install "$whl[all]" --no-cache-dir
+          done
       - name: Run Sphinx
         run: |
           make CONDA_PREFIX=~/venv doc

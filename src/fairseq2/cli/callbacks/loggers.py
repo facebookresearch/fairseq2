@@ -23,6 +23,7 @@ from torchtnt.utils.loggers.tensorboard import TensorBoardLogger as TntTensorBoa
 
 log = logging.getLogger(__name__)
 
+
 # TODO: This should be a helper somewhere
 class Stateful:
     def __getstate__(self) -> tp.Dict[str, tp.Any]:
