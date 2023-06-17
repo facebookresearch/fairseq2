@@ -9,11 +9,11 @@ from typing import Optional, Tuple, final
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from overrides import final as finaloverride
 from overrides import override
 from torch import Tensor
 from torch.nn import Module, Parameter
+from torch.nn.functional import gumbel_softmax
 
 from fairseq2.nn.projection import Projection, ResettableProjection
 
@@ -172,7 +172,7 @@ class GumbelVectorQuantizer(VectorQuantizer):
         ).sum()
 
         if self.training:
-            x = F.gumbel_softmax(x.float(), tau=current_temp, hard=True).type_as(x)
+            x = gumbel_softmax(x.float(), tau=current_temp, hard=True).type_as(x)
         else:
             x = hard_x
 

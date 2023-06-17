@@ -10,11 +10,11 @@ from typing import Optional, final
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from overrides import final as finaloverride
 from overrides import override
 from torch import Tensor
 from torch.nn import Module
+from torch.nn.functional import linear
 from torch.nn.parameter import Parameter
 
 
@@ -97,7 +97,7 @@ class ResettableProjection(Projection):
 
     @override
     def forward(self, x: Tensor) -> Tensor:
-        return F.linear(x, self.weight, self.bias)
+        return linear(x, self.weight, self.bias)
 
     def extra_repr(self) -> str:
         """:meta private:"""
@@ -151,4 +151,4 @@ class TiedProjection(Projection):
 
     @finaloverride
     def forward(self, x: Tensor) -> Tensor:
-        return F.linear(x, self.weight, self.bias)
+        return linear(x, self.weight, self.bias)

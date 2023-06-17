@@ -8,9 +8,9 @@ from dataclasses import dataclass
 from typing import Optional
 
 import torch
-import torch.nn.functional as F
 from torch import Tensor
 from torch.nn import Module
+from torch.nn.functional import cross_entropy
 
 from fairseq2.models.wav2vec2 import Wav2Vec2Loss, Wav2Vec2Model, Wav2Vec2Output
 from fairseq2.models.wav2vec2.masker import apply_temporal_mask
@@ -170,7 +170,7 @@ class W2VBertOutput:
 
     def compute_bert_loss(self) -> Tensor:
         """Compute the masked prediction loss."""
-        return F.cross_entropy(
+        return cross_entropy(
             self.bert_logits,
             self.bert_targets,
             reduction="sum",

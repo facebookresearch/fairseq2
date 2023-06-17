@@ -8,9 +8,9 @@ import math
 from typing import Sequence, Union
 
 import pytest
-import torch.nn.functional as F
 from torch import Tensor
 from torch.nn import Conv2d, Module
+from torch.nn.functional import relu
 from torch.optim import SGD
 
 from fairseq2.optim.lr_scheduler import (
@@ -30,7 +30,7 @@ class LRSchedulerTestNet(Module):
         self.conv2 = Conv2d(1, 1, 1)
 
     def forward(self, x: Tensor) -> Tensor:
-        return self.conv2(F.relu(self.conv1(x)))  # type: ignore[no-any-return]
+        return self.conv2(relu(self.conv1(x)))  # type: ignore[no-any-return]
 
 
 class TestLRSchedulers:

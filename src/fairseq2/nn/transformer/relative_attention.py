@@ -9,10 +9,10 @@ from typing import Optional, Tuple, final
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from overrides import final as finaloverride
 from torch import Tensor
 from torch.nn import Module, Parameter
+from torch.nn.functional import dropout, pad, softmax
 
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer.attention import SDPA
@@ -130,10 +130,12 @@ class RelativePositionSDPA(SDPA):
         if mask is not None:
             attn_weights = attn_weights + mask
 
-        attn_weights = F.softmax(attn_weights, dim=-1)
+        attn_weights = softmax(attn_weights, dim=-1, dtype=torch.float32)
+
+        attn_weights = attn_weights.type_as(queries)
 
         if self.training and self.attn_dropout_p > 0.0:
-            attn_weights = F.dropout(attn_weights, self.attn_dropout_p)
+            attn_weights = dropout(attn_weights, self.attn_dropout_p)
 
         # (N x H, S, S) @ (N x H, S, V_h) = (N x H, S, V_h)
         attn = torch.bmm(attn_weights, values)
@@ -160,7 +162,7 @@ class RelativePositionSDPA(SDPA):
 
     def _shift_bd(self, bd: Tensor) -> Tensor:
         # (N x H, S, 2 x S - 1) -> (N x H, S, 2 x S)
-        x = F.pad(bd, (1, 0))
+        x = pad(bd, (1, 0))
 
         # (N x H, S, 2 x S) -> (N x H, 2 x S, S)
         x = x.view(x.size(0), x.size(2), x.size(1))

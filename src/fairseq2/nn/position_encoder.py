@@ -10,10 +10,10 @@ from typing import Optional, final
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from overrides import final as finaloverride
 from torch import Tensor
 from torch.nn import Module
+from torch.nn.functional import embedding
 from torch.nn.parameter import Parameter
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
@@ -289,7 +289,7 @@ class LearnedPositionEncoder(PositionEncoder):
             start_step, start_step + seq_len, device=seqs.device, dtype=torch.int64
         )
 
-        return seqs + F.embedding(steps, self.weight)
+        return seqs + embedding(steps, self.weight)
 
 
 @final

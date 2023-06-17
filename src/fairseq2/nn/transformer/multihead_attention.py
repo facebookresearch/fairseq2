@@ -10,11 +10,11 @@ from typing import Dict, MutableSequence, Optional, Protocol, Tuple, final
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from overrides import final as finaloverride
 from overrides import override
 from torch import Tensor
 from torch.nn import Module
+from torch.nn.functional import pad
 from torch.nn.parameter import Parameter
 from torch.utils.hooks import RemovableHandle
 
@@ -430,11 +430,11 @@ class StandardMultiheadAttention(MultiheadAttention):
         if mask_pad > 0:
             if attn_mask is not None:
                 # (T, S_kv) -> (T, S_kv + mask_pad)
-                attn_mask = F.pad(attn_mask, (0, mask_pad))
+                attn_mask = pad(attn_mask, (0, mask_pad))
 
             if key_padding_mask is not None:
                 # (N, S_kv) -> (N, S_kv + mask_pad)
-                key_padding_mask = F.pad(key_padding_mask, (0, mask_pad))
+                key_padding_mask = pad(key_padding_mask, (0, mask_pad))
 
         if key_padding_mask is not None:
             # (N, S_kv) -> (N, 1, 1, S_kv)

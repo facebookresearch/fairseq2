@@ -8,9 +8,9 @@ from typing import Optional, final
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch import Tensor
 from torch.nn import Module
+from torch.nn.functional import embedding
 from torch.nn.parameter import Parameter
 
 
@@ -85,7 +85,7 @@ class Embedding(Module):
             :math:`(*,E)`, where :math:`*` is the input shape and :math:`E` is
             the dimensionality of the embeddings.
         """
-        return F.embedding(x, self.weight, self.pad_idx)
+        return embedding(x, self.weight, self.pad_idx)
 
     def extra_repr(self) -> str:
         """:meta private:"""

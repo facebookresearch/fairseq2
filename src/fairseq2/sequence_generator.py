@@ -9,9 +9,9 @@ from dataclasses import dataclass
 from typing import NamedTuple, Optional, Sequence, Union
 
 import torch
-import torch.nn as nn
 from overrides import overrides
 from torch import Tensor
+from torch.nn.functional import log_softmax
 
 from fairseq2.data import CString, StringLike
 from fairseq2.data.text import Tokenizer, VocabularyInfo
@@ -70,7 +70,7 @@ def decoder_out_to_log_prob(
     :return: the new lprobs.
     """
     # TODO: temperature
-    lprobs = nn.functional.log_softmax(decoder_out, dim=1)
+    lprobs = log_softmax(decoder_out, dim=1, dtype=torch.float32)
     lprobs[lprobs != lprobs] = -torch.inf
     token_penalty_(lprobs, token=pad, penalty=torch.inf)
     token_penalty_(lprobs, token=bos, penalty=torch.inf)

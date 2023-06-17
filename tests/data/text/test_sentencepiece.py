@@ -10,8 +10,8 @@ from typing import ClassVar, Final, List, Optional, Sequence
 
 import pytest
 import torch
-import torch.nn.functional as F
 from torch import Tensor
+from torch.nn.functional import pad
 
 from fairseq2.data.text import (
     SentencePieceDecoder,
@@ -214,7 +214,7 @@ class TestSentencePieceModel:
         # expect the encoder to pad the batch dimension.
         pad_len = batch_size - len(self.token_indices)
         if pad_len > 0:
-            expected_indices = F.pad(expected_indices, (0, 0, 0, pad_len))
+            expected_indices = pad(expected_indices, (0, 0, 0, pad_len))
 
         indices = encoder(self.sentences)
 
@@ -240,9 +240,9 @@ class TestSentencePieceModel:
         pad_len = pad_to_len - expected_indices.size(1)
         if pad_len > 0:
             if left_pad:
-                expected_indices = F.pad(expected_indices, (pad_len, 0))
+                expected_indices = pad(expected_indices, (pad_len, 0))
             else:
-                expected_indices = F.pad(expected_indices, (0, pad_len))
+                expected_indices = pad(expected_indices, (0, pad_len))
 
         indices = encoder(self.sentences)
 
@@ -286,9 +286,9 @@ class TestSentencePieceModel:
         pad_len = padded_seq_dim - expected_indices.size(1)
         if pad_len > 0:
             if left_pad:
-                expected_indices = F.pad(expected_indices, (pad_len, 0))
+                expected_indices = pad(expected_indices, (pad_len, 0))
             else:
-                expected_indices = F.pad(expected_indices, (0, pad_len))
+                expected_indices = pad(expected_indices, (0, pad_len))
 
         indices = encoder(self.sentences)
 

@@ -8,11 +8,11 @@ from typing import List, Optional, Sequence, Tuple, final
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from overrides import final as finaloverride
 from overrides import override
 from torch import Tensor
 from torch.nn import GELU, Conv1d, Dropout, GroupNorm, LayerNorm, Module, Sequential
+from torch.nn.functional import group_norm, layer_norm
 
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.nn.utils.grad import scale_grad
@@ -334,7 +334,7 @@ class Float32LayerNorm(LayerNorm):
         fp32_w = w.float()
         fp32_b = b.float() if b is not None else None
 
-        y = F.layer_norm(fp32_x, self.normalized_shape, fp32_w, fp32_b, self.eps)
+        y = layer_norm(fp32_x, self.normalized_shape, fp32_w, fp32_b, self.eps)
 
         return y.type_as(x)
 
@@ -352,6 +352,6 @@ class Float32GroupNorm(GroupNorm):
         fp32_w = w.float()
         fp32_b = b.float() if b is not None else None
 
-        y = F.group_norm(fp32_x, self.num_groups, fp32_w, fp32_b, self.eps)
+        y = group_norm(fp32_x, self.num_groups, fp32_w, fp32_b, self.eps)
 
         return y.type_as(x)

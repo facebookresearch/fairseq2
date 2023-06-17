@@ -8,9 +8,9 @@ from dataclasses import dataclass
 from typing import Optional, Tuple
 
 import torch
-import torch.nn.functional as F
 from torch import Tensor
 from torch.nn import Module
+from torch.nn.functional import cross_entropy
 
 from fairseq2.models.wav2vec2.frontend import Wav2Vec2Frontend
 from fairseq2.models.wav2vec2.masker import Wav2Vec2Masker, apply_temporal_mask
@@ -343,7 +343,7 @@ class Wav2Vec2Output:
         # The target is always at index 0 in the candidate list.
         target_indices = logits.new_zeros((batch_size * seq_len,), dtype=torch.int64)
 
-        return F.cross_entropy(logits, target_indices, reduction="sum")
+        return cross_entropy(logits, target_indices, reduction="sum")
 
     def compute_diversity_loss(self) -> Tensor:
         """Compute the diversity loss."""

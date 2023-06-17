@@ -8,9 +8,9 @@ from typing import Tuple
 
 import pytest
 import torch
-import torch.nn.functional as F
 from torch import Tensor
 from torch.nn import Conv2d, Module
+from torch.nn.functional import relu
 from torch.optim import AdamW as BaseAdamW
 
 from fairseq2.optim.adamw import AdamW
@@ -26,7 +26,7 @@ class AdamWTestNet(Module):
         self.conv2 = Conv2d(4, 2, 1, device=device, dtype=dtype)
 
     def forward(self, x: Tensor) -> Tensor:
-        return self.conv2(F.relu(self.conv1(x)))  # type: ignore[no-any-return]
+        return self.conv2(relu(self.conv1(x)))  # type: ignore[no-any-return]
 
 
 class TestAdamW:
