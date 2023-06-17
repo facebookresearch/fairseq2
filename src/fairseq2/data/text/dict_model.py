@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, List, Sequence, Union
 from overrides import final
 from torch import Tensor
 
-from fairseq2 import DOC_MODE
+from fairseq2 import _DOC_MODE
 from fairseq2.data.text.tokenizer import TokenDecoder, TokenEncoder
 from fairseq2.data.typing import StringLike
 
@@ -66,7 +66,7 @@ class DictDecoder(TokenDecoder):
         raise NotImplementedError()
 
 
-if not TYPE_CHECKING and not DOC_MODE:
+if not TYPE_CHECKING and not _DOC_MODE:
     from fairseq2.C.data.text.dict import (  # noqa: F811
         DictDecoder,
         DictEncoder,

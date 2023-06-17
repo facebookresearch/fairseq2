@@ -6,7 +6,7 @@
 
 import fairseq2
 
-fairseq2.DOC_MODE = True
+fairseq2._DOC_MODE = True
 
 # ------------------------------------------------------------
 # Project Information

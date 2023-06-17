@@ -6,9 +6,9 @@
 
 from typing import TYPE_CHECKING, List, Optional, overload
 
-from fairseq2 import DOC_MODE
+from fairseq2 import _DOC_MODE
 
-if TYPE_CHECKING or DOC_MODE:
+if TYPE_CHECKING or _DOC_MODE:
 
     class CString:
         """

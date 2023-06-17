@@ -18,7 +18,7 @@ import torch
 import torchtnt.framework as tnt
 
 import fairseq2.cli.callbacks
-from fairseq2 import DOC_MODE
+from fairseq2 import _DOC_MODE
 from fairseq2.cli import Xp, XpScript
 from fairseq2.cli.api import Env, Seq2Seq
 from fairseq2.cli.distributed import distributed_init
@@ -676,7 +676,7 @@ def _setup_module(module: XpScript, env: Env, xp: Xp, entry_point: str) -> None:
     module["entry_point"] = entry_point
 
 
-if DOC_MODE:
+if _DOC_MODE:
     # Document the 3 builtin fixtures.
     # The example values are shown in the doc.
 

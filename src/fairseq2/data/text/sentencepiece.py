@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, List, Optional, Sequence, Union, final
 import torch
 from torch import Tensor
 
-from fairseq2 import DOC_MODE
+from fairseq2 import _DOC_MODE
 from fairseq2.data.text.tokenizer import TokenDecoder, TokenEncoder, VocabularyInfo
 from fairseq2.data.typing import PathLike, StringLike
 from fairseq2.typing import DataType, Device
@@ -91,7 +91,7 @@ class SentencePieceDecoder(TokenDecoder):
         raise NotImplementedError()
 
 
-if not TYPE_CHECKING and not DOC_MODE:
+if not TYPE_CHECKING and not _DOC_MODE:
     from fairseq2.C.data.text.sentencepiece import (  # noqa: F811
         SentencePieceDecoder,
         SentencePieceEncoder,

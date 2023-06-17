@@ -18,10 +18,10 @@ from typing import (
     Union,
 )
 
-from fairseq2 import DOC_MODE
+from fairseq2 import _DOC_MODE
 from fairseq2.data.typing import PathLike, StringLike
 
-if TYPE_CHECKING or DOC_MODE:
+if TYPE_CHECKING or _DOC_MODE:
 
     class DataPipeline:
         def __iter__(self) -> Iterator[Any]:

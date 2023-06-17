@@ -26,7 +26,7 @@ import func_argparse
 import yaml
 
 import fairseq2.cli.distributed
-from fairseq2 import DOC_MODE
+from fairseq2 import _DOC_MODE
 from fairseq2.cli import yaml_ext
 from fairseq2.typing import Device
 
@@ -75,7 +75,7 @@ class Xp:
     """A hash of the experiment script and its hyper-parameters"""
 
     def __post_init__(self) -> None:
-        if DOC_MODE:
+        if _DOC_MODE:
             return
 
         if hasattr(self, "sha_key"):
