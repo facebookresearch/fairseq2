@@ -44,7 +44,7 @@ class NllbTokenizer(Tokenizer):
         control_tokens = [f"__{lang}__" for lang in langs]
 
         # Internal control tokens that are not relevant for public use.
-        control_tokens.extend(["<MINED_DATA>", "<NMT_BT_DATA>", "<SMT_BT_DATA>"])
+        control_tokens.extend(["<MINED_DATA>", "<MMT_BT_DATA>", "<SMT_BT_DATA>"])
 
         # The SentencePiece model of NLLB is peculiar as it does not define a
         # pad token. We use an undocumented feature of our underlying C++ API
@@ -54,6 +54,8 @@ class NllbTokenizer(Tokenizer):
         self.model = SentencePieceModel(pathname, control_tokens)
 
         self.langs = set(langs)
+
+        self.default_lang = default_lang
 
         vocab_info = vocab_from_sentencepiece(self.model)
 
@@ -110,6 +112,15 @@ class NllbTokenizer(Tokenizer):
             # NLLB models expect a language token in place of BOS in source
             # sequences.
             prefix_tokens = [f"__{lang}__"]
+            suffix_tokens = ["</s>"]
+        elif mode == "source_mining":
+            prefix_tokens = [f"__{lang}__", "<MINED_DATA>"]
+            suffix_tokens = ["</s>"]
+        elif mode == "source_mmt_bt":
+            prefix_tokens = [f"__{lang}__", "<MMT_BT_DATA>"]
+            suffix_tokens = ["</s>"]
+        elif mode == "source_smt_bt":
+            prefix_tokens = [f"__{lang}__", "<SMT_BT_DATA>"]
             suffix_tokens = ["</s>"]
         elif mode == "target":
             # Target sequences are expected to start with an EOS, followed by

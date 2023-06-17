@@ -7,12 +7,12 @@
 from typing import Iterable, Iterator, Optional, final
 
 import torch
-import torch.nn as nn
 from torch.nn import Module
+from torch.nn import ModuleList as ModuleListBase
 
 
 @final
-class ModuleList(nn.ModuleList):
+class ModuleList(ModuleListBase):
     """Holds submodules in a list.
 
     This class extends :class:`torch.nn.ModuleList` with an extra feature that

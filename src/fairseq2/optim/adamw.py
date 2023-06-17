@@ -106,7 +106,7 @@ class AdamW(OptimizerBase):
         super().load_state_dict(state_dict)
 
         # The base optimizer casts all state tensors to the data type of their
-        # parameters.
+        # parameter.
         for state in self.state.values():
             for name in ["exp_avg", "exp_avg_sq", "max_exp_avg_sq"]:
                 try:

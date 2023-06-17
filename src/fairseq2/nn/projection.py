@@ -144,7 +144,7 @@ class TiedProjection(Projection):
         :param bias:
             The shared bias.
         """
-        super().__init__(weight.size(0), weight.size(1))
+        super().__init__(weight.size(1), weight.size(0))
 
         self.weight = weight
         self.bias = bias
