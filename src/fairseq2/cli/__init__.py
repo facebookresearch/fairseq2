@@ -8,7 +8,7 @@ import importlib.util
 
 if (spec := importlib.util.find_spec("torchtnt")) is None:
     raise RuntimeError(
-        "`torchtnt` cannot be found. Run `pip install fairseq2[cli]` to install the required dependencies."
+        "`torchtnt` cannot be found. Run `pip install 'fairseq2[cli]'` to install the required dependencies."
     )
 
 from fairseq2.cli.distributed import DDP as DDP

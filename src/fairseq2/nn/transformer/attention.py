@@ -6,18 +6,17 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Final, Optional, Tuple, final
+from typing import Optional, Tuple, final
 
 import torch
 import torch.nn.functional as F
 from overrides import final as finaloverride
-from packaging import version
 from torch import Tensor
 from torch.nn import Module
 
-log = logging.getLogger(__name__)
+from fairseq2.utils.version import is_pt2_or_greater
 
-_IS_PT2_OR_GREATER: Final = version.parse(torch.__version__) >= version.parse("2.0.0")
+logger = logging.getLogger(__name__)
 
 
 class SDPA(Module, ABC):
@@ -86,7 +85,7 @@ class TorchSDPA(SDPA):
     def __init__(self, attn_dropout_p: float = 0.0) -> None:
         super().__init__(attn_dropout_p)
 
-        if not _IS_PT2_OR_GREATER:
+        if not is_pt2_or_greater():
             raise ValueError("`TorchSDPA` requires PyTorch 2.0.0 or greater.")
 
         self._has_warned = False
@@ -113,7 +112,7 @@ class TorchSDPA(SDPA):
 
         if needs_weights:
             if not self._has_warned:
-                log.warning(
+                logger.warning(
                     "`TorchSDPA` has to fall back to a non-fused SDPA implementation because of `needs_weights` set to `True`."
                 )
 
@@ -179,7 +178,7 @@ def get_default_sdpa(attn_dropout_p: float = 0.0) -> SDPA:
     :param attn_dropout_p:
         The dropout probability on attention weights.
     """
-    if _IS_PT2_OR_GREATER:
+    if is_pt2_or_greater():
         return TorchSDPA(attn_dropout_p)
     else:
         return NaiveSDPA(attn_dropout_p)
@@ -203,7 +202,10 @@ def _naive_scaled_dot_product_attention(
         # (N, S, S_kv) + ((N, S, K) @ (N, K, S_kv)) = (N, S, S_kv)
         attn_weights = torch.baddbmm(mask, queries, keys.transpose(1, 2))
 
-    attn_weights = F.softmax(attn_weights, dim=-1)
+    # For numerical stability run softmax in single precision.
+    attn_weights = F.softmax(attn_weights, dim=-1, dtype=torch.float32)
+
+    attn_weights = attn_weights.type_as(queries)
 
     if training and dropout_p > 0.0:
         attn_weights = F.dropout(attn_weights, dropout_p)
