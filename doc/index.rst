@@ -23,9 +23,14 @@ Check out :ref:`installation` for installation instructions.
    :caption: Getting Started
 
    intro/install
-   intro/training
-   intro/authoring
-   intro/data
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Tutorials
+
+   tutorials/cli/training
+   tutorials/cli/authoring
+   tutorials/data
 
 .. toctree::
    :maxdepth: 1
