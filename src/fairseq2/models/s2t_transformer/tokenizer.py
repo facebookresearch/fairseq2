@@ -19,6 +19,7 @@ from fairseq2.data.text import (
 )
 from fairseq2.data.text.sentencepiece import vocab_from_sentencepiece
 from fairseq2.data.typing import PathLike
+from fairseq2.typing import DataType, Device
 
 
 @final
@@ -70,9 +71,9 @@ class S2TTransformerTokenizer(Tokenizer):
         lang: Optional[str] = None,
         mode: Optional[str] = None,
         batch_size: Optional[int] = None,
-        device: Optional[torch.device] = None,
+        device: Optional[Device] = None,
         pin_memory: bool = False,
-        dtype: torch.dtype = torch.int32,
+        dtype: DataType = torch.int32,
         disable_parallelism: bool = False,
     ) -> TokenEncoder:
         if task and task != self.task:

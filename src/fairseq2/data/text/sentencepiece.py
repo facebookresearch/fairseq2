@@ -10,9 +10,9 @@ import torch
 from torch import Tensor
 
 from fairseq2 import DOC_MODE
-from fairseq2.data.string import StringLike
 from fairseq2.data.text.tokenizer import TokenDecoder, TokenEncoder, VocabularyInfo
-from fairseq2.data.typing import PathLike
+from fairseq2.data.typing import PathLike, StringLike
+from fairseq2.typing import DataType, Device
 
 
 @final
@@ -71,8 +71,8 @@ class SentencePieceEncoder(TokenEncoder):
         pad_to_length: Optional[int] = None,
         pad_to_multiple: int = 1,
         left_pad: bool = False,
-        dtype: torch.dtype = torch.int32,
-        device: Optional[torch.device] = None,
+        dtype: DataType = torch.int32,
+        device: Optional[Device] = None,
         pin_memory: bool = False,
         disable_parallelism: bool = False,
     ) -> None:

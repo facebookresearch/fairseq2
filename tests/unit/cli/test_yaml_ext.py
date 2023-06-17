@@ -5,6 +5,7 @@ import torch
 import yaml
 
 from fairseq2.cli import yaml_ext
+from fairseq2.typing import DataType, Device
 
 
 def dump_and_load(x: Any) -> Any:
@@ -12,7 +13,7 @@ def dump_and_load(x: Any) -> Any:
 
 
 def test_serialize_device() -> None:
-    device = torch.device("cuda:1")
+    device = Device("cuda:1")
     assert dump_and_load(device) == device
 
 
@@ -28,7 +29,7 @@ def test_serialize_dtype() -> None:
 
 def test_serialize_dict() -> None:
     data = {
-        "device": torch.device("cuda:1"),
+        "device": Device("cuda:1"),
         "path": Path("/checkpoint/$USER/fairseq2/cool_experiment"),
         "dtype": torch.float16,
     }
@@ -52,7 +53,7 @@ path: !!python/object/apply:pathlib.PosixPath
 
 class X(NamedTuple):
     a: int
-    b: torch.dtype
+    b: DataType
 
 
 def test_serialize_named_tuple() -> None:

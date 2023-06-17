@@ -22,6 +22,7 @@ from fairseq2.cli.api import Env, Seq2SeqBatch, TranslationTask
 from fairseq2.data.text import MultilingualTokenizer, Tokenizer, VocabularyInfo
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.nllb import NllbConfig, create_nllb_model
+from fairseq2.typing import Device
 
 try:
     import datasets  # type: ignore[import]
@@ -139,7 +140,7 @@ class NllbDataLoader(Iterable[Seq2SeqBatch]):
     def combine_and_dump(
         src: str, tgt: str, split: str, output: Path, limit: int = 0
     ) -> None:
-        env = Env(world_size=1, global_rank=0, device=torch.device("cpu"))
+        env = Env(world_size=1, global_rank=0, device=Device("cpu"))
         loader = NllbDataLoader(
             src,
             tgt,

@@ -3,7 +3,6 @@ from typing import Optional, Sequence
 import torch
 from overrides import final
 
-from fairseq2.data.string import StringLike
 from fairseq2.data.text.dict_model import DictDecoder, DictEncoder, DictModel
 from fairseq2.data.text.tokenizer import (
     TokenDecoder,
@@ -11,6 +10,8 @@ from fairseq2.data.text.tokenizer import (
     Tokenizer,
     VocabularyInfo,
 )
+from fairseq2.data.typing import StringLike
+from fairseq2.typing import DataType, Device
 
 
 @final
@@ -39,9 +40,9 @@ class DictTokenizer(Tokenizer):
         lang: Optional[str] = None,
         mode: Optional[str] = None,
         batch_size: Optional[int] = None,
-        device: Optional[torch.device] = None,
+        device: Optional[Device] = None,
         pin_memory: bool = False,
-        dtype: torch.dtype = torch.int32,
+        dtype: DataType = torch.int32,
         disable_parallelism: bool = False,
     ) -> "TokenEncoder":
         """Create a token encoder.

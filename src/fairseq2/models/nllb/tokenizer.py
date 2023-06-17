@@ -19,6 +19,7 @@ from fairseq2.data.text import (
     vocab_from_sentencepiece,
 )
 from fairseq2.data.typing import PathLike
+from fairseq2.typing import DataType, Device
 
 
 @final
@@ -68,9 +69,9 @@ class NllbTokenizer(Tokenizer):
         lang: Optional[str] = None,
         mode: Optional[str] = None,
         batch_size: Optional[int] = None,
-        device: Optional[torch.device] = None,
+        device: Optional[Device] = None,
         pin_memory: bool = False,
-        dtype: torch.dtype = torch.int64,
+        dtype: DataType = torch.int64,
         disable_parallelism: bool = False,
     ) -> TokenEncoder:
         """Create a token encoder.

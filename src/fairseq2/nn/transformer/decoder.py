@@ -7,7 +7,6 @@
 from abc import ABC, abstractmethod
 from typing import Iterable, Optional, Tuple, final
 
-import torch
 from overrides import final as finaloverride
 from torch import Tensor
 from torch.nn import LayerNorm, Module
@@ -20,6 +19,7 @@ from fairseq2.nn.transformer.attention_mask import (
 )
 from fairseq2.nn.transformer.decoder_layer import TransformerDecoderLayer
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
+from fairseq2.typing import DataType, Device
 
 
 class TransformerDecoder(Module, ABC):
@@ -97,8 +97,8 @@ class StandardTransformerDecoder(TransformerDecoder):
         layer_drop_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         norm_eps: float = 1e-5,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param layers:

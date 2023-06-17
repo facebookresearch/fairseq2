@@ -1,28 +1,25 @@
 import pathlib
-from typing import TYPE_CHECKING, Any, Callable, TypeVar
+from typing import Any, Callable, TypeVar
 
 import yaml
 
-if TYPE_CHECKING:
-    import torch
+from fairseq2.typing import DataType, Device
 
 T = TypeVar("T")
 
 
 def Dumper(*args: Any, **kwargs: Any) -> yaml.Dumper:
-    import torch
-
     dumper = yaml.Dumper(*args, **kwargs)
     add_from_string(dumper, pathlib.PosixPath)
     add_from_string(dumper, pathlib.WindowsPath)
     add_from_string(dumper, pathlib.PurePath)
-    add_from_string(dumper, torch.device)
+    add_from_string(dumper, Device)
 
-    dumper.add_representer(torch.dtype, represent_dtype)
+    dumper.add_representer(DataType, represent_dtype)
     return dumper
 
 
-def represent_dtype(dumper: yaml.Dumper, dtype: "torch.dtype") -> yaml.ScalarNode:
+def represent_dtype(dumper: yaml.Dumper, dtype: DataType) -> yaml.ScalarNode:
     return dumper.represent_scalar(f"tag:yaml.org,2002:python/name:{dtype}", "")
 
 

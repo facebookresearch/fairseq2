@@ -4,6 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from fairseq2.data.cstring import CString as CString
 from fairseq2.data.data_pipeline import DataPipeline as DataPipeline
 from fairseq2.data.data_pipeline import DataPipelineBuilder as DataPipelineBuilder
 from fairseq2.data.data_pipeline import DataPipelineError as DataPipelineError
@@ -18,6 +19,6 @@ from fairseq2.data.data_pipeline import (
 from fairseq2.data.data_pipeline import zip_data_pipelines as zip_data_pipelines
 from fairseq2.data.memory import Buffer as Buffer
 from fairseq2.data.memory import MemoryBlock as MemoryBlock
-from fairseq2.data.string import CString as CString
-from fairseq2.data.string import StringLike as StringLike
-from fairseq2.data.string import is_string_like as is_string_like
+from fairseq2.data.typing import PathLike as PathLike
+from fairseq2.data.typing import StringLike as StringLike
+from fairseq2.data.typing import is_string_like as is_string_like

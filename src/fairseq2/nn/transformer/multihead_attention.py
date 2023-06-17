@@ -22,6 +22,7 @@ from fairseq2.nn.incremental_state import IncrementalState, IncrementalStateBag
 from fairseq2.nn.position_encoder import PositionEncoder
 from fairseq2.nn.projection import Projection, ResettableProjection
 from fairseq2.nn.transformer.attention import SDPA, get_default_sdpa
+from fairseq2.typing import DataType, Device
 
 
 class MultiheadAttention(Module, ABC):
@@ -193,8 +194,8 @@ class StandardMultiheadAttention(MultiheadAttention):
         sdpa: Optional[SDPA] = None,
         scale_heads: bool = False,
         output_proj: Optional[Projection] = None,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param model_dim:
@@ -494,8 +495,8 @@ class QKVProjection(ResettableProjection):
     def __init__(
         self,
         model_dim: int,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         super().__init__(model_dim, model_dim, bias=True, device=device, dtype=dtype)
 
@@ -516,8 +517,8 @@ class AttentionOutputProjection(ResettableProjection):
         self,
         v_proj_dim: int,
         model_dim: int,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         super().__init__(v_proj_dim, model_dim, bias=True, device=device, dtype=dtype)
 

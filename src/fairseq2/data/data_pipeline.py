@@ -19,8 +19,7 @@ from typing import (
 )
 
 from fairseq2 import DOC_MODE
-from fairseq2.data.string import StringLike
-from fairseq2.data.typing import PathLike
+from fairseq2.data.typing import PathLike, StringLike
 
 if TYPE_CHECKING or DOC_MODE:
 

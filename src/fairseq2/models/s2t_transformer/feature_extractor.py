@@ -6,12 +6,12 @@
 
 from typing import Final, Optional, Sequence, Tuple, final
 
-import torch
 from overrides import final as finaloverride
 from torch import Tensor
 from torch.nn import GLU, Conv1d, Sequential
 
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
+from fairseq2.typing import DataType, Device
 
 
 @final
@@ -32,8 +32,8 @@ class Conv1dFbankSubsampler(SequenceFeatureExtractor):
         inner_dim: int,
         feature_dim: int,
         kernel_sizes: Optional[Sequence[int]] = None,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param num_channels:

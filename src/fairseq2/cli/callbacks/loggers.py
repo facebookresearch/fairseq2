@@ -21,6 +21,8 @@ from torchtnt.framework.unit import TEvalUnit, TTrainUnit
 from torchtnt.utils.loggers import Scalar
 from torchtnt.utils.loggers.tensorboard import TensorBoardLogger as TntTensorBoardLogger
 
+from fairseq2.typing import DataType, Device
+
 log = logging.getLogger(__name__)
 
 
@@ -438,9 +440,9 @@ def _simple_conf(config: tp.Any) -> tp.Any:
         config = config.name
     if isinstance(config, Path):
         config = str(config)
-    if isinstance(config, torch.device):
+    if isinstance(config, Device):
         config = str(config)
-    if isinstance(config, torch.dtype):
+    if isinstance(config, DataType):
         config = str(config)
     return config
 

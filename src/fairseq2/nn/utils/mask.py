@@ -9,6 +9,8 @@ from typing import Optional, Tuple, cast
 import torch
 from torch import Tensor
 
+from fairseq2.typing import DataType, Device
+
 
 def compute_mask(
     shape: Tuple[int, int],
@@ -16,7 +18,7 @@ def compute_mask(
     max_mask_prob: float,
     row_lens: Optional[Tensor] = None,
     min_num_spans: int = 0,
-    device: Optional[torch.device] = None,
+    device: Optional[Device] = None,
 ) -> Optional[Tensor]:
     """Compute a random mask for the specified shape.
 
@@ -184,7 +186,7 @@ def to_padding_mask(seqs: Tensor, seq_lens: Optional[Tensor]) -> Optional[Tensor
     return mask
 
 
-def to_float_mask(mask: Tensor, dtype: torch.dtype = torch.float32) -> Tensor:
+def to_float_mask(mask: Tensor, dtype: DataType = torch.float32) -> Tensor:
     """Convert a boolean mask to a float mask.
 
     :param mask:

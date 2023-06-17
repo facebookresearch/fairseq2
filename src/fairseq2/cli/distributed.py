@@ -11,15 +11,14 @@ import torch
 import torchtnt.utils.distributed
 
 from fairseq2.cli.api import Env
+from fairseq2.typing import Device
 
 log = logging.getLogger(__name__)
 
 
-def env(device: Optional[torch.device] = None) -> Env:
+def env(device: Optional[Device] = None) -> Env:
     if device is None:
-        device = (
-            torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
-        )
+        device = Device("cuda:0") if torch.cuda.is_available() else Device("cpu")
     return Env(
         global_rank=torchtnt.utils.distributed.get_global_rank(),
         world_size=torchtnt.utils.distributed.get_world_size(),
@@ -120,7 +119,7 @@ def distributed_init(
             log.warning("Not using Slurm because '--partition' isn't set")
 
         if num_gpus <= 1:
-            device = torch.device("cuda:0") if num_gpus else torch.device("cpu")
+            device = Device("cuda:0") if num_gpus else Device("cpu")
             log.info(f"Starting local training {sys.executable} on device {device}.")
             return Env(world_size=1, global_rank=0, device=device)
 
@@ -163,7 +162,7 @@ def distributed_init(
             f"{n_devices} devices and {local_world_size} workers. Each worker will see all GPUs."
         )
 
-    device = torch.device("cuda:0")
+    device = Device("cuda:0")
     log.info(
         f"Starting distributed worker {sys.executable} on device {device}.\n"
         + "".join(

@@ -7,7 +7,6 @@
 from dataclasses import dataclass
 from typing import Optional
 
-import torch
 from torch.nn import SiLU
 
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
@@ -41,6 +40,7 @@ from fairseq2.nn.transformer import (
     TransformerNormOrder,
     get_default_sdpa,
 )
+from fairseq2.typing import DataType, Device
 
 
 @dataclass
@@ -227,14 +227,14 @@ class S2TTransformerBuilder:
     config: S2TTransformerConfig
     encoder_norm_order: TransformerNormOrder
     cached_rel_pos_encoding: Optional[RelativePositionalEncoding]
-    device: Optional[torch.device]
-    dtype: Optional[torch.dtype]
+    device: Optional[Device]
+    dtype: Optional[DataType]
 
     def __init__(
         self,
         config: S2TTransformerConfig,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param config:
@@ -495,8 +495,8 @@ class S2TTransformerBuilder:
 
 def create_s2t_transformer_model(
     config: S2TTransformerConfig,
-    device: Optional[torch.device] = None,
-    dtype: Optional[torch.dtype] = None,
+    device: Optional[Device] = None,
+    dtype: Optional[DataType] = None,
 ) -> TransformerModel:
     """Create an S2T Transformer model.
 

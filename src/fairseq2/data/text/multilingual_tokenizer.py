@@ -17,6 +17,7 @@ from fairseq2.data.text.sentencepiece import (
 )
 from fairseq2.data.text.tokenizer import TokenDecoder, TokenEncoder, Tokenizer
 from fairseq2.data.typing import PathLike
+from fairseq2.typing import DataType, Device
 
 
 @final
@@ -75,9 +76,9 @@ class MultilingualTokenizer(Tokenizer):
         lang: Optional[str] = None,
         mode: Optional[str] = None,
         batch_size: Optional[int] = None,
-        device: Optional[torch.device] = None,
+        device: Optional[Device] = None,
         pin_memory: bool = False,
-        dtype: torch.dtype = torch.int64,
+        dtype: DataType = torch.int64,
         disable_parallelism: bool = False,
     ) -> TokenEncoder:
         """Create a token encoder.

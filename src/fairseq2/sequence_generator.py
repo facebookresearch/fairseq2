@@ -17,6 +17,7 @@ from fairseq2.data import CString, StringLike
 from fairseq2.data.text import Tokenizer, VocabularyInfo
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.nn.incremental_state import IncrementalStateBag
+from fairseq2.typing import Device
 
 
 def token_penalty_(
@@ -215,7 +216,7 @@ class SearchStrategy(ABC):
         *,
         src_lang: Optional[str] = None,
         tgt_lang: Optional[str] = None,
-        device: torch.device,
+        device: Device,
     ) -> Sequence[StringLike]:
         if isinstance(sentences, (str, CString)):
             sentences = [sentences]

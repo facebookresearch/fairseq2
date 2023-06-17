@@ -9,14 +9,14 @@ from pathlib import Path
 from typing import cast
 
 import pytest
-import torch
 
 import tests.common
+from fairseq2.typing import Device
 
 
-def parse_device_arg(value: str) -> torch.device:
+def parse_device_arg(value: str) -> Device:
     try:
-        return torch.device(value)
+        return Device(value)
     except RuntimeError:
         raise ArgumentTypeError(f"'{value}' is not a valid device name.")
 
@@ -35,7 +35,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:
-    tests.common.device = cast(torch.device, session.config.getoption("device"))
+    tests.common.device = cast(Device, session.config.getoption("device"))
 
 
 def pytest_ignore_collect(

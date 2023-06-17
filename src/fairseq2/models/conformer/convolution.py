@@ -6,9 +6,10 @@
 
 from typing import Optional
 
-import torch
 from torch import Tensor
 from torch.nn import GLU, BatchNorm1d, Conv1d, Module, SiLU
+
+from fairseq2.typing import DataType, Device
 
 
 class ConformerConvolution(Module):
@@ -28,8 +29,8 @@ class ConformerConvolution(Module):
         model_dim: int,
         depthwise_kernel_size: int,
         depthwise_activation: Optional[Module] = None,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param model_dim:

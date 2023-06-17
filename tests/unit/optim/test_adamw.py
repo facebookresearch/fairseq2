@@ -14,11 +14,12 @@ from torch.nn.functional import relu
 from torch.optim import AdamW as BaseAdamW
 
 from fairseq2.optim.adamw import AdamW
+from fairseq2.typing import DataType
 from tests.common import assert_close, device, tmp_rng_seed
 
 
 class AdamWTestNet(Module):
-    def __init__(self, dtype: torch.dtype) -> None:
+    def __init__(self, dtype: DataType) -> None:
         super().__init__()
 
         self.conv1 = Conv2d(8, 4, 1, device=device, dtype=dtype)
@@ -53,7 +54,7 @@ class TestAdamW:
             if not torch.isnan(p2).any() and not torch.isinf(p2).any():
                 assert_close(p1, p2)
 
-    def run_step(self, dtype: torch.dtype) -> Tuple[Module, Module]:
+    def run_step(self, dtype: DataType) -> Tuple[Module, Module]:
         with tmp_rng_seed(device):
             net1 = AdamWTestNet(dtype)
 

@@ -7,13 +7,12 @@
 from dataclasses import dataclass
 from typing import Optional
 
-import torch
-
 from fairseq2.models.utils.arch import ArchitectureRegistry
 from fairseq2.models.w2vbert.model import W2VBertModel
 from fairseq2.models.wav2vec2 import Wav2Vec2Config, Wav2Vec2EncoderConfig
 from fairseq2.models.wav2vec2.builder import Wav2Vec2Builder, Wav2Vec2EncoderBuilder
 from fairseq2.nn.transformer import TransformerNormOrder
+from fairseq2.typing import DataType, Device
 
 
 def wav2vec2_encoder_bert_600m() -> Wav2Vec2EncoderConfig:
@@ -116,15 +115,15 @@ class W2VBertBuilder:
 
     config: W2VBertConfig
     w2v2_builder: Wav2Vec2Builder
-    device: Optional[torch.device]
-    dtype: Optional[torch.dtype]
+    device: Optional[Device]
+    dtype: Optional[DataType]
 
     def __init__(
         self,
         config: W2VBertConfig,
         w2v2_builder: Wav2Vec2Builder,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param config:
@@ -177,8 +176,8 @@ class W2VBertBuilder:
 
 def create_w2vbert_model(
     config: W2VBertConfig,
-    device: Optional[torch.device] = None,
-    dtype: Optional[torch.dtype] = None,
+    device: Optional[Device] = None,
+    dtype: Optional[DataType] = None,
 ) -> W2VBertModel:
     """Create a w2v-BERT model.
 

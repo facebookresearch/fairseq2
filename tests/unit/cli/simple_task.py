@@ -13,6 +13,7 @@ from fairseq2.data import CString, StringLike
 from fairseq2.data.text import TokenDecoder, TokenEncoder, Tokenizer, VocabularyInfo
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.nllb import NllbConfig, create_nllb_model
+from fairseq2.typing import DataType, Device
 
 log = logging.getLogger(__name__)
 random.seed(0)
@@ -30,9 +31,9 @@ class NumberTokenizer(Tokenizer):
         lang: Optional[str] = None,
         mode: Optional[str] = None,
         batch_size: Optional[int] = None,
-        device: Optional[torch.device] = None,
+        device: Optional[Device] = None,
         pin_memory: bool = False,
-        dtype: torch.dtype = torch.int64,
+        dtype: DataType = torch.int64,
         disable_parallelism: bool = False,
     ) -> "TokenEncoder":
         def encode(sentences: Sequence[StringLike]) -> Tensor:

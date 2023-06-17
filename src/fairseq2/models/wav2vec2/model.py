@@ -20,6 +20,7 @@ from fairseq2.models.wav2vec2.vector_quantizer import (
 )
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer import TransformerEncoder
+from fairseq2.typing import DataType, Device
 
 
 class Wav2Vec2Model(Module):
@@ -48,8 +49,8 @@ class Wav2Vec2Model(Module):
         num_distractors: int = 100,
         logit_temp: float = 0.1,
         diversity_loss_weight: float = 0.1,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param encoder_frontend:

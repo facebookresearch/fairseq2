@@ -7,20 +7,20 @@
 from functools import partial
 from typing import Any, Callable, Dict, Generic, Optional, TypeVar
 
-import torch
 from torch.nn import Module
 from typing_extensions import TypeAlias
 
 from fairseq2.assets import AssetDownloadManager, AssetStore
 from fairseq2.models.utils.arch import ArchitectureRegistry
 from fairseq2.models.utils.checkpoint import MapLocation, load_checkpoint
+from fairseq2.typing import DataType, Device
 
 ModelT = TypeVar("ModelT", bound=Module)
 
 ModelConfigT = TypeVar("ModelConfigT")
 
 ModelFactory: TypeAlias = Callable[
-    [ModelConfigT, Optional[torch.device], Optional[torch.dtype]], ModelT
+    [ModelConfigT, Optional[Device], Optional[DataType]], ModelT
 ]
 
 
@@ -44,8 +44,8 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
         force: bool = False,
         progress: bool = True,
         map_location: Optional[MapLocation] = None,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> ModelT:
         card = self.asset_store.retrieve_card(model_name)
 

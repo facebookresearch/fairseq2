@@ -7,7 +7,6 @@
 from dataclasses import dataclass
 from typing import Optional
 
-import torch
 from torch import Tensor
 from torch.nn import Module
 from torch.nn.functional import cross_entropy
@@ -15,6 +14,7 @@ from torch.nn.functional import cross_entropy
 from fairseq2.models.wav2vec2 import Wav2Vec2Loss, Wav2Vec2Model, Wav2Vec2Output
 from fairseq2.models.wav2vec2.masker import apply_temporal_mask
 from fairseq2.nn.projection import Linear
+from fairseq2.typing import DataType, Device
 
 
 class W2VBertModel(Module):
@@ -36,8 +36,8 @@ class W2VBertModel(Module):
         w2v2_loss_weight: float = 1.0,
         bert_loss_weight: float = 1.0,
         bert_label_smoothing: float = 0.0,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param w2v2:

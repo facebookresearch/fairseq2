@@ -4,8 +4,8 @@ from typing import Sequence
 import pytest
 import torch
 
-from fairseq2.data.string import StringLike
 from fairseq2.data.text import DictModel, DictTokenizer, VocabularyInfo
+from fairseq2.data.typing import StringLike
 from tests.common import assert_equal
 
 vocab: Sequence[StringLike] = ["hello", "one", "two", "world"]  # sorted alphabetically

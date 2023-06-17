@@ -17,6 +17,8 @@ from torch.nn import Module
 from torch.nn.functional import linear
 from torch.nn.parameter import Parameter
 
+from fairseq2.typing import DataType, Device
+
 
 class Projection(Module, ABC):
     """Applies a linear transformation to incoming data."""
@@ -65,8 +67,8 @@ class ResettableProjection(Projection):
         input_dim: int,
         output_dim: int,
         bias: bool,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param input_dim:

@@ -18,6 +18,7 @@ from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.transformer.ffn import FeedForwardNetwork
 from fairseq2.nn.transformer.multihead_attention import MultiheadAttention
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
+from fairseq2.typing import DataType, Device
 
 
 class TransformerDecoderLayer(Module, ABC):
@@ -104,8 +105,8 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         dropout_p: float = 0.1,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         norm_eps: float = 1e-5,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param self_attn:

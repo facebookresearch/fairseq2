@@ -18,6 +18,7 @@ from fairseq2.data.text import (
     SentencePieceEncoder,
     SentencePieceModel,
 )
+from fairseq2.typing import DataType
 from tests.common import assert_equal, device
 
 TEST_SPM_PATH: Final = Path(__file__).parent.joinpath("test.spm")
@@ -348,7 +349,7 @@ class TestSentencePieceModel:
         left_pad: bool = False,
         prefix_token_indices: Optional[List[int]] = None,
         suffix_token_indices: Optional[List[int]] = None,
-        dtype: torch.dtype = torch.int32,
+        dtype: DataType = torch.int32,
     ) -> Tensor:
         prefix = prefix_token_indices or []
         suffix = suffix_token_indices or []

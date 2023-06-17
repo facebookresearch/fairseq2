@@ -12,6 +12,7 @@ from torch import Tensor
 from torch.nn import Module, Parameter
 
 from fairseq2.nn.utils.mask import compute_mask
+from fairseq2.typing import DataType, Device
 
 
 class Wav2Vec2Masker(Module):
@@ -31,8 +32,8 @@ class Wav2Vec2Masker(Module):
         max_temporal_mask_prob: float = 0.65,
         spatial_span_len: int = 10,
         max_spatial_mask_prob: float = 0.0,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param model_dim:

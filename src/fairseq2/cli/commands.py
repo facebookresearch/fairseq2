@@ -24,6 +24,7 @@ from fairseq2.cli.api import Env, Seq2Seq
 from fairseq2.cli.distributed import distributed_init
 from fairseq2.data import StringLike
 from fairseq2.sequence_generator import BeamSearchStrategy
+from fairseq2.typing import Device
 
 logging.basicConfig(
     level=logging.INFO,
@@ -136,7 +137,7 @@ def _cuda_mem_profile() -> List[str]:
     import gc
 
     shapes = []
-    cpu = torch.device("cpu")
+    cpu = Device("cpu")
     for obj in gc.get_objects():
         try:
             if torch.is_tensor(obj) or (
@@ -561,7 +562,7 @@ def test(
 
 
 def _test_dataloader(
-    dataloader: Iterable[Any], num_examples: int, device: torch.device
+    dataloader: Iterable[Any], num_examples: int, device: Device
 ) -> None:
     start_time = time.perf_counter()
     res = torch.tensor(0, device=device)
@@ -679,7 +680,7 @@ if DOC_MODE:
     # Document the 3 builtin fixtures.
     # The example values are shown in the doc.
 
-    env: Env = Env(16, 9, torch.device("cpu"))
+    env: Env = Env(16, 9, Device("cpu"))
     """The distributed environment we are currently running in.
 
     Typically used in dataloader to read only a shard of the data,

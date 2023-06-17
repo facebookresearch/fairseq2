@@ -13,6 +13,8 @@ from torch.nn import Module
 from torch.nn.functional import embedding
 from torch.nn.parameter import Parameter
 
+from fairseq2.typing import DataType, Device
+
 
 @final
 class Embedding(Module):
@@ -31,8 +33,8 @@ class Embedding(Module):
         embedding_dim: int,
         pad_idx: Optional[int] = None,
         scaled: bool = False,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param num_embeddings:

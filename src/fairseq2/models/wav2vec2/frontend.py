@@ -6,7 +6,6 @@
 
 from typing import Optional, Tuple, final
 
-import torch
 from overrides import final as finaloverride
 from torch import Tensor
 from torch.nn import Dropout, LayerNorm
@@ -18,6 +17,7 @@ from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.position_encoder import PositionEncoder
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.utils.mask import to_padding_mask
+from fairseq2.typing import DataType, Device
 
 
 @final
@@ -44,8 +44,8 @@ class Wav2Vec2Frontend(TransformerFrontend):
         layer_norm: bool = False,
         dropout_p: float = 0.1,
         norm_eps: float = 1e-5,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param model_dim:

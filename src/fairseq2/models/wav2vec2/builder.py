@@ -7,7 +7,6 @@
 from dataclasses import dataclass
 from typing import List, Literal, Optional, Tuple
 
-import torch
 from torch.nn import GELU, SiLU
 
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
@@ -44,6 +43,7 @@ from fairseq2.nn.transformer import (
     TransformerNormOrder,
     get_default_sdpa,
 )
+from fairseq2.typing import DataType, Device
 
 
 @dataclass
@@ -184,14 +184,14 @@ class Wav2Vec2EncoderBuilder:
 
     config: Wav2Vec2EncoderConfig
     cached_rel_pos_encoding: Optional[RelativePositionalEncoding]
-    device: Optional[torch.device]
-    dtype: Optional[torch.dtype]
+    device: Optional[Device]
+    dtype: Optional[DataType]
 
     def __init__(
         self,
         config: Wav2Vec2EncoderConfig,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param config:
@@ -477,15 +477,15 @@ class Wav2Vec2Builder:
 
     config: Wav2Vec2Config
     encoder_builder: Wav2Vec2EncoderBuilder
-    device: Optional[torch.device]
-    dtype: Optional[torch.dtype]
+    device: Optional[Device]
+    dtype: Optional[DataType]
 
     def __init__(
         self,
         config: Wav2Vec2Config,
         encoder_builder: Wav2Vec2EncoderBuilder,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param config:
@@ -553,8 +553,8 @@ class Wav2Vec2Builder:
 
 def create_wav2vec2_model(
     config: Wav2Vec2Config,
-    device: Optional[torch.device] = None,
-    dtype: Optional[torch.dtype] = None,
+    device: Optional[Device] = None,
+    dtype: Optional[DataType] = None,
 ) -> Wav2Vec2Model:
     """Create a wav2vec 2.0 model.
 

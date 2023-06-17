@@ -16,6 +16,7 @@ from torch.nn import Module, Parameter
 from torch.nn.functional import gumbel_softmax
 
 from fairseq2.nn.projection import Projection, ResettableProjection
+from fairseq2.typing import DataType, Device
 
 
 class VectorQuantizer(Module, ABC):
@@ -81,8 +82,8 @@ class GumbelVectorQuantizer(VectorQuantizer):
         num_codebooks: int,
         num_codebook_entries: int,
         codebook_sampling_temperature: Tuple[float, float, float],
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ):
         """
         :param input_dim:

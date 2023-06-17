@@ -6,7 +6,6 @@
 
 from typing import Optional, Tuple, final
 
-import torch
 import torch.nn as nn
 from overrides import final as finaloverride
 from torch import Tensor
@@ -17,6 +16,7 @@ from fairseq2.models.transformer import TransformerFrontend
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.projection import Projection, ResettableProjection
 from fairseq2.nn.transformer import TransformerDecoder, TransformerEncoder
+from fairseq2.typing import DataType, Device
 
 
 @final
@@ -131,8 +131,8 @@ class FinalProjection(ResettableProjection):
         self,
         model_dim: int,
         target_vocabulary_size: int,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param model_dim:

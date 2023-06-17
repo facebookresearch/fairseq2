@@ -6,7 +6,6 @@
 
 from typing import Optional, final
 
-import torch
 import torch.nn as nn
 from overrides import final as finaloverride
 from overrides import override
@@ -17,6 +16,7 @@ from torch.nn.utils.weight_norm import remove_weight_norm, weight_norm
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.position_encoder import PositionEncoder
 from fairseq2.nn.utils.mask import apply_padding_mask
+from fairseq2.typing import DataType, Device
 
 
 @final
@@ -33,8 +33,8 @@ class Wav2Vec2PositionEncoder(PositionEncoder):
         model_dim: int,
         kernel_size: int = 128,
         num_groups: int = 16,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param model_dim:
@@ -136,8 +136,8 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
         num_groups: int,
         num_layers: int,
         norm_eps: float = 1e-5,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param model_dim:
@@ -208,8 +208,8 @@ class Wav2Vec2PositionEncoderLayer(Module):
         kernel_size: int,
         num_groups: int,
         norm_eps: float = 1e-5,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         super().__init__()
 

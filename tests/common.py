@@ -10,9 +10,11 @@ from typing import Any, Generator, List, Union
 import torch
 from torch import Tensor
 
+from fairseq2.typing import Device
+
 # The default device that tests should use. Note that pytest can change it based
 # on the provided command line arguments.
-device = torch.device("cpu")
+device = Device("cpu")
 
 
 def assert_close(a: Tensor, b: Union[Tensor, List[Any]]) -> None:
@@ -42,12 +44,12 @@ def has_no_nan(a: Tensor) -> bool:
 
 
 @contextlib.contextmanager
-def tmp_rng_seed(device: torch.device, seed: int = 0) -> Generator[None, None, None]:
+def tmp_rng_seed(device: Device, seed: int = 0) -> Generator[None, None, None]:
     """Set a temporary manual RNG seed.
 
     The RNG is reset to its original state once the block is exited.
     """
-    device = torch.device(device)
+    device = Device(device)
 
     if device.type == "cuda":
         devices = [device]

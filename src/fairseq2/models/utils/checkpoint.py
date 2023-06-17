@@ -11,12 +11,11 @@ import torch
 from typing_extensions import TypeAlias
 
 from fairseq2.data.typing import PathLike
+from fairseq2.typing import Device
 
 # TODO: Use `torch.serialization.MAP_LOCATION` after PT 1.12.1
 MapLocation: TypeAlias = Optional[
-    Union[
-        Callable[[torch.Tensor, str], torch.Tensor], torch.device, str, Dict[str, str]
-    ]
+    Union[Callable[[torch.Tensor, str], torch.Tensor], Device, str, Dict[str, str]]
 ]
 
 CheckpointUpgrader: TypeAlias = Callable[[Dict[str, Any]], Dict[str, Any]]

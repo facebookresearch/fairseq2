@@ -23,18 +23,18 @@ from typing import (
 )
 
 import func_argparse
-import torch
 import yaml
 
 import fairseq2.cli.distributed
 from fairseq2 import DOC_MODE
 from fairseq2.cli import yaml_ext
+from fairseq2.typing import Device
 
 log = logging.getLogger("fairseq2.cli")
 AnyCallable = Callable[..., Any]
 
 
-def fairseq2_hub(snapshot_dir: str, device: Optional[torch.device] = None) -> Any:
+def fairseq2_hub(snapshot_dir: str, device: Optional[Device] = None) -> Any:
     """
     Tells torch.hub.load how to reload a fairseq2 task.
 
@@ -140,7 +140,7 @@ class XpScript:
         assert yaml_conf.exists(), f"Yaml config not found: {yaml_conf}"
         cache = self._cache
         log.info(f"reloading {yaml_conf}")
-        # TODO: safe load -> Path, Env, torch.device
+        # TODO: safe load -> Path, Env, Device
         conf = yaml.load(yaml_conf.read_text(), Loader=yaml.Loader)
         for key, val in conf.items():
             if isinstance(val, dict):

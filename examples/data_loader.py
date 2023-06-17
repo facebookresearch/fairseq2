@@ -7,6 +7,7 @@ from torch import Tensor
 
 from fairseq2.data import DataPipeline, StringLike, list_files, zip_data_pipelines
 from fairseq2.data.text import SentencePieceEncoder, SentencePieceModel, read_text
+from fairseq2.typing import Device
 
 torch.cuda.init()
 
@@ -78,7 +79,7 @@ def build_data_pipeline(
 ) -> DataPipeline:
     # For demonstration purposes, we allocate our batches on the first CUDA
     # device.
-    device = torch.device("cuda:0")
+    device = Device("cuda:0")
 
     # Unlike the official SentencePiece API we refactored our encoding/decoding
     # API from the actual model API.

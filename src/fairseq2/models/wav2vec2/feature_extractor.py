@@ -16,6 +16,7 @@ from torch.nn.functional import group_norm, layer_norm
 
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.nn.utils.grad import scale_grad
+from fairseq2.typing import DataType, Device
 
 
 @final
@@ -35,8 +36,8 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
         layer_norm: bool = False,
         grad_scale: float = 1.0,
         norm_eps: float = 1e-5,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param layer_descs:
@@ -191,8 +192,8 @@ class Wav2Vec2FeatureExtractionLayer(Module):
         dropout_p: float = 0.0,
         group_norm: Optional[GroupNorm] = None,
         layer_norm: Optional[LayerNorm] = None,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         super().__init__()
 

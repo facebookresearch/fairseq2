@@ -7,13 +7,13 @@
 from abc import ABC, abstractmethod
 from typing import Optional, final
 
-import torch
 from overrides import final as finaloverride
 from torch import Tensor
 from torch.nn import Dropout, LayerNorm, Module, ReLU
 
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
+from fairseq2.typing import DataType, Device
 
 
 class FeedForwardNetwork(Module, ABC):
@@ -67,8 +67,8 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         bias: bool = True,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         norm_eps: float = 1e-5,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param model_dim:

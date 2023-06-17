@@ -17,6 +17,7 @@ from torch.nn.functional import embedding
 from torch.nn.parameter import Parameter
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
+from fairseq2.typing import DataType, Device
 
 
 class PositionEncoder(Module, ABC):
@@ -154,8 +155,8 @@ class SinusoidalPositionEncoder(PositionEncoder):
         encoding_dim: int,
         max_seq_len: int,
         _legacy_pad_idx: Optional[int] = None,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         super().__init__(encoding_dim, max_seq_len)
 
@@ -255,8 +256,8 @@ class LearnedPositionEncoder(PositionEncoder):
         self,
         encoding_dim: int,
         max_seq_len: int,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         super().__init__(encoding_dim, max_seq_len)
 
@@ -304,8 +305,8 @@ class RotaryEncoder(PositionEncoder):
         self,
         encoding_dim: int,
         max_seq_len: int,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         if encoding_dim % 2 != 0:
             raise ValueError(

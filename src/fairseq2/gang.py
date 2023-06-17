@@ -15,6 +15,8 @@ from overrides import final as finaloverride
 from torch import Tensor
 from torch.distributed import ProcessGroup, ReduceOp  # type: ignore[attr-defined]
 
+from fairseq2.typing import Device
+
 
 class ReduceOperation(Enum):
     """Specifies a reduce operation."""
@@ -31,9 +33,9 @@ class Gang(ABC):
 
     rank: int
     size: int
-    device: torch.device
+    device: Device
 
-    def __init__(self, rank: int, size: int, device: torch.device) -> None:
+    def __init__(self, rank: int, size: int, device: Device) -> None:
         """
         :param rank:
             The rank of this process in the gang.
@@ -80,7 +82,7 @@ class Gang(ABC):
 class FakeGang(Gang):
     """Represents a non-distributed gang for local use."""
 
-    def __init__(self, device: torch.device) -> None:
+    def __init__(self, device: Device) -> None:
         super().__init__(rank=0, size=1, device=device)
 
     @finaloverride
@@ -107,7 +109,7 @@ class ProcessGroupGang(Gang):
     pg: ProcessGroup
 
     @staticmethod
-    def from_process_group(pg: ProcessGroup, device: torch.device) -> Gang:
+    def from_process_group(pg: ProcessGroup, device: Device) -> Gang:
         """Wrap ``pg`` as a gang.
 
         :param pg:
@@ -132,7 +134,7 @@ class ProcessGroupGang(Gang):
             backend = dist.get_backend()
 
             if backend == "gloo":
-                device = torch.device("cpu")
+                device = Device("cpu")
             elif backend == "nccl":
                 device = _determine_default_cuda_device()
             else:
@@ -151,7 +153,7 @@ class ProcessGroupGang(Gang):
 
         return ProcessGroupGang(dist.group.WORLD, device)
 
-    def __init__(self, pg: ProcessGroup, device: torch.device) -> None:
+    def __init__(self, pg: ProcessGroup, device: Device) -> None:
         super().__init__(dist.get_rank(pg), dist.get_world_size(pg), device)
 
         self.pg = pg
@@ -190,14 +192,14 @@ class ProcessGroupGang(Gang):
         )
 
 
-def _determine_default_device() -> torch.device:
+def _determine_default_device() -> Device:
     if torch.cuda.is_available() and torch.cuda.device_count() > 0:
         return _determine_default_cuda_device()
 
-    return torch.device("cpu")
+    return Device("cpu")
 
 
-def _determine_default_cuda_device() -> torch.device:
+def _determine_default_cuda_device() -> Device:
     num_devices = torch.cuda.device_count()
 
     # We use the `LOCAL_RANK` environment variable to determine which GPU to
@@ -210,7 +212,7 @@ def _determine_default_cuda_device() -> torch.device:
                 f"The default device cannot be determined. There are {num_devices} GPUs available, but the `LOCAL_RANK` environment variable is not set."
             )
 
-        return torch.device("cuda", index=0)
+        return Device("cuda", index=0)
 
     try:
         local_rank = int(local_rank_env)
@@ -224,7 +226,7 @@ def _determine_default_cuda_device() -> torch.device:
             f"The value of the `LOCAL_RANK` environment variable must be less than the number of available GPUs ({num_devices}), but is {local_rank} instead."
         )
 
-    device = torch.device("cuda", index=local_rank)
+    device = Device("cuda", index=local_rank)
 
     # As of PyTorch 2.0, FSDP fails to work if the default device is not set.
     torch.cuda.set_device(device)

@@ -11,7 +11,8 @@ from typing import Optional, Sequence, Union
 import torch
 from torch import Tensor
 
-from fairseq2.data.string import StringLike
+from fairseq2.data.typing import StringLike
+from fairseq2.typing import DataType, Device
 
 
 class Tokenizer(ABC):
@@ -33,9 +34,9 @@ class Tokenizer(ABC):
         lang: Optional[str] = None,
         mode: Optional[str] = None,
         batch_size: Optional[int] = None,
-        device: Optional[torch.device] = None,
+        device: Optional[Device] = None,
         pin_memory: bool = False,
-        dtype: torch.dtype = torch.int64,
+        dtype: DataType = torch.int64,
         disable_parallelism: bool = False,
     ) -> "TokenEncoder":
         """Create a token encoder.
@@ -48,9 +49,10 @@ class Tokenizer(ABC):
             An optional implementation-specific task such as 'translation' or
             'transcription' for which to generate token indices.
         :param lang:
-            An optional identifier indicating the language of generated token
-            indices. Typically used by multilingual tokenizers for
-            distinguishing between different source and target languages.
+            An optional implementation-specific identifier indicating the
+            language of generated token indices. Typically used by multilingual
+            tokenizers for distinguishing between different source and target
+            languages.
         :param mode:
             An optional implementation-specific mode in which to generate token
             indices. Typically used by translation tasks to indicate whether the

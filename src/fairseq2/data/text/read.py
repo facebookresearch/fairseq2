@@ -9,8 +9,7 @@ from typing import TYPE_CHECKING, List, Optional
 
 from fairseq2 import DOC_MODE
 from fairseq2.data.data_pipeline import DataPipelineBuilder
-from fairseq2.data.string import StringLike
-from fairseq2.data.typing import PathLike
+from fairseq2.data.typing import PathLike, StringLike
 
 if TYPE_CHECKING or DOC_MODE:
 

@@ -38,6 +38,7 @@ from fairseq2.cli.api import Env, Seq2Seq, Seq2SeqBatch, Seq2SeqStr
 from fairseq2.data import StringLike
 from fairseq2.data.text import TokenDecoder, TokenEncoder, Tokenizer, VocabularyInfo
 from fairseq2.metrics import Metrics
+from fairseq2.typing import DataType, Device
 
 if TYPE_CHECKING:
     from transformers import PreTrainedTokenizer  # type: ignore[import]
@@ -85,9 +86,9 @@ class HfTokenizer(Tokenizer):
         lang: Optional[str] = None,
         mode: Optional[str] = None,
         batch_size: Optional[int] = None,
-        device: Optional[torch.device] = None,
+        device: Optional[Device] = None,
         pin_memory: bool = False,
-        dtype: torch.dtype = torch.int32,
+        dtype: DataType = torch.int32,
         disable_parallelism: bool = False,
     ) -> TokenEncoder:
         return functools.partial(self._encode, device=device)  # type: ignore[return-value]
@@ -98,7 +99,7 @@ class HfTokenizer(Tokenizer):
     def _encode(
         self,
         sentences: Union[StringLike, Sequence[StringLike]],
-        device: Optional[torch.device],
+        device: Optional[Device],
     ) -> Tensor:
         t = self.tokenizer(sentences, return_tensors="pt", padding=True).to(device)
 
@@ -135,7 +136,7 @@ class AsrDataloader(Iterable[Seq2SeqBatch]):
         batch_size: int = 0,
         batch_duration: Optional[datetime.timedelta] = None,
         env: Env,
-        dtype: torch.dtype,
+        dtype: DataType,
     ):
         """
         Load ASR dataset from HF hub, and yields examples compatible with Seq2Seq task.

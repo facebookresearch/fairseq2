@@ -16,6 +16,7 @@ from torch.nn.functional import dropout, pad, softmax
 
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer.attention import SDPA
+from fairseq2.typing import DataType, Device
 
 
 @final
@@ -36,8 +37,8 @@ class RelativePositionSDPA(SDPA):
         num_heads: int,
         pos_encoding: "RelativePositionalEncoding",
         attn_dropout_p: float = 0.0,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param model_dim:
@@ -200,8 +201,8 @@ class RelativePositionalEncoding(Module):
         self,
         encoding_dim: int,
         max_seq_len: int,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param encoding_dim:

@@ -21,6 +21,7 @@ from fairseq2.data.text import Tokenizer
 from fairseq2.metrics import Metrics
 from fairseq2.optim.lr_scheduler import LRScheduler
 from fairseq2.sequence_generator import BeamSearchStrategy, SearchStrategy
+from fairseq2.typing import DataType, Device
 
 if tp.TYPE_CHECKING:
     from fairseq2.models.encoder_decoder import EncoderDecoderModel
@@ -40,7 +41,7 @@ class Env(NamedTuple):
     global_rank: int
     """Unique id of this worker. Workers are numbered from 0 to ``world_size - 1``"""
 
-    device: torch.device
+    device: Device
     """Cuda device this worker should use."""
 
 
@@ -90,7 +91,7 @@ class Seq2Seq(tnt.AutoUnit[Seq2SeqBatch]):
         lr_scheduler: Optional[LRScheduler],
         env: Env,
         step_lr_interval: tp.Literal["step", "epoch"] = "step",
-        precision: Optional[torch.dtype] = None,
+        precision: Optional[DataType] = None,
         gradient_accumulation_steps: int = 1,
         detect_anomaly: bool = False,
         clip_grad_norm: Optional[float] = None,

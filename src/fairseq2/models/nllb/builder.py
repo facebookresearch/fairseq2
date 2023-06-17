@@ -7,8 +7,6 @@
 from dataclasses import dataclass
 from typing import Optional
 
-import torch
-
 from fairseq2.models.transformer import (
     TransformerEmbeddingFrontend,
     TransformerFrontend,
@@ -34,6 +32,7 @@ from fairseq2.nn.transformer import (
     TransformerNormOrder,
     get_default_sdpa,
 )
+from fairseq2.typing import DataType, Device
 
 
 @dataclass
@@ -134,14 +133,14 @@ class NllbBuilder:
     """
 
     config: NllbConfig
-    device: Optional[torch.device]
-    dtype: Optional[torch.dtype]
+    device: Optional[Device]
+    dtype: Optional[DataType]
 
     def __init__(
         self,
         config: NllbConfig,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param config:
@@ -282,8 +281,8 @@ class NllbBuilder:
 
 def create_nllb_model(
     config: NllbConfig,
-    device: Optional[torch.device] = None,
-    dtype: Optional[torch.dtype] = None,
+    device: Optional[Device] = None,
+    dtype: Optional[DataType] = None,
 ) -> TransformerModel:
     """Create an NLLB model.
 

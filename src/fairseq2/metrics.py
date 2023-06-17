@@ -9,6 +9,8 @@ import torchtnt.utils.distributed
 from sacrebleu.metrics.base import Metric as SacrebleuMetric  # type: ignore
 from torch import Tensor
 
+from fairseq2.typing import Device
+
 log = logging.getLogger(__name__)
 
 
@@ -65,7 +67,7 @@ class Bleu(CounterBasedMetric):
         self,
         metric: Optional[SacrebleuMetric] = None,
         *,
-        device: Optional[torch.device] = None,
+        device: Optional[Device] = None,
     ) -> None:
         super().__init__(device=device)
         self._metric = sacrebleu.BLEU() if metric is None else metric  # type: ignore
@@ -108,7 +110,7 @@ class WER(CounterBasedMetric):
     KEYS = ["hits", "substitutions", "deletions", "insertions"]
     counters: Tensor
 
-    def __init__(self, device: Optional[torch.device] = None):
+    def __init__(self, device: Optional[Device] = None):
         super().__init__()
         self._add_state(
             "counters",

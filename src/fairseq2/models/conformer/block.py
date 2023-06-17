@@ -6,7 +6,6 @@
 
 from typing import Optional
 
-import torch
 from overrides import final as finaloverride
 from torch import Tensor
 from torch.nn import Dropout, LayerNorm
@@ -17,6 +16,7 @@ from fairseq2.nn.transformer import (
     MultiheadAttention,
     TransformerEncoderLayer,
 )
+from fairseq2.typing import DataType, Device
 
 
 class ConformerBlock(TransformerEncoderLayer):
@@ -45,8 +45,8 @@ class ConformerBlock(TransformerEncoderLayer):
         ffn2: FeedForwardNetwork,
         dropout_p: float = 0.1,
         norm_eps: float = 1e-5,
-        device: Optional[torch.device] = None,
-        dtype: Optional[torch.dtype] = None,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param ffn1:
