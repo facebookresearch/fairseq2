@@ -13,6 +13,7 @@ import torch.nn.functional as F
 from overrides import final as finaloverride
 from torch import Tensor
 from torch.nn import Module
+from torch.nn.functional import dropout, softmax
 
 from fairseq2.utils.version import is_pt2_or_greater
 
@@ -202,13 +203,13 @@ def _naive_scaled_dot_product_attention(
         # (N, S, S_kv) + ((N, S, K) @ (N, K, S_kv)) = (N, S, S_kv)
         attn_weights = torch.baddbmm(mask, queries, keys.transpose(1, 2))
 
-    # For numerical stability run softmax in single precision.
-    attn_weights = F.softmax(attn_weights, dim=-1, dtype=torch.float32)
+    # For numerical stability run in single precision.
+    attn_weights = softmax(attn_weights, dim=-1, dtype=torch.float32)
 
     attn_weights = attn_weights.type_as(queries)
 
     if training and dropout_p > 0.0:
-        attn_weights = F.dropout(attn_weights, dropout_p)
+        attn_weights = dropout(attn_weights, dropout_p)
 
     # (N, S, S_kv) @ (N, S_kv, V) = (N, S, V)
     attn = torch.bmm(attn_weights, values)

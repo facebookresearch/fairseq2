@@ -8,9 +8,12 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional
 
-import torch.nn.functional as F
+import torch
 from torch import Tensor
 from torch.nn import Module
+from torch.nn.functional import log_softmax
+
+from fairseq2.nn.functional import nll_loss
 
 
 class Seq2SeqModel(Module, ABC):
@@ -58,17 +61,29 @@ class Seq2SeqModelOutput:
     pad_idx: Optional[int] = None
     """The index of the pad symbol in the target domain."""
 
-    def compute_loss(self, targets: Tensor) -> Tensor:
-        """Compute the cross-entropy loss.
+    def compute_loss(
+        self, targets: Tensor, ignore_prefix_size: int = 0, label_smoothing: float = 0.0
+    ) -> Tensor:
+        """Compute the negative log-likelihood loss.
 
         :param targets:
-            The target indices or probabilities. *Shape:* If indices,
-            :math:`(N,S_{tgt})`, where :math:`N` is the batch size and
-            :math:`S_{tgt}` is the target sequence length. If probabilities,
-            same as :attr:`logits`.
+            The target indices. *Shape:* :math:`(N,S_{tgt})`, where :math:`N` is
+            the batch size and :math:`S_{tgt}` is the target sequence length.
+        :param ignore_prefix_size:
+            The number of logits from the beginning of the sequence that should
+            be ignored in the loss computation.
+        :param label_smoothing:
+            The amount of label smoothing when computing the loss.
         """
-        logits = self.logits.transpose(1, 2)
+        if ignore_prefix_size > 0:
+            logits = self.logits[:, ignore_prefix_size:, :]
+        else:
+            logits = self.logits
 
-        pad_idx = self.pad_idx if self.pad_idx is not None else -100
+        if ignore_prefix_size > 0:
+            targets = targets[:, ignore_prefix_size:]
 
-        return F.cross_entropy(logits, targets, reduction="sum", ignore_index=pad_idx)
+        # For numerical stability run in single precision.
+        lprobs = log_softmax(logits, dim=-1, dtype=torch.float32)
+
+        return nll_loss(lprobs, targets, self.pad_idx, label_smoothing)
