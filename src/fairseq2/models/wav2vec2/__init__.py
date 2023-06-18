@@ -15,6 +15,7 @@ from fairseq2.models.wav2vec2.builder import (
 from fairseq2.models.wav2vec2.builder import (
     create_wav2vec2_model as create_wav2vec2_model,
 )
+from fairseq2.models.wav2vec2.builder import wav2vec2_arch as wav2vec2_arch
 from fairseq2.models.wav2vec2.builder import wav2vec2_archs as wav2vec2_archs
 from fairseq2.models.wav2vec2.feature_extractor import (
     Wav2Vec2FbankFeatureExtractor as Wav2Vec2FbankFeatureExtractor,

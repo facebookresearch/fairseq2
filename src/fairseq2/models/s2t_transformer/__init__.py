@@ -14,6 +14,9 @@ from fairseq2.models.s2t_transformer.builder import (
     create_s2t_transformer_model as create_s2t_transformer_model,
 )
 from fairseq2.models.s2t_transformer.builder import (
+    s2t_transformer_arch as s2t_transformer_arch,
+)
+from fairseq2.models.s2t_transformer.builder import (
     s2t_transformer_archs as s2t_transformer_archs,
 )
 from fairseq2.models.s2t_transformer.feature_extractor import (

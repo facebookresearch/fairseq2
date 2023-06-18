@@ -141,7 +141,7 @@ class Wav2Vec2EncoderConfig:
     """The kernel size of depthwise convolutions in Conformer blocks."""
 
 
-def wav2vec2_encoder_base() -> Wav2Vec2EncoderConfig:
+def _encoder_base() -> Wav2Vec2EncoderConfig:
     layer_descs = [(512, 10, 5)] + [(512, 3, 2)] * 4 + [(512, 2, 2)] * 2
 
     return Wav2Vec2EncoderConfig(
@@ -442,12 +442,13 @@ class Wav2Vec2Config:
 
 wav2vec2_archs = ArchitectureRegistry[Wav2Vec2Config]("wav2vec2")
 
-arch = wav2vec2_archs.marker
+
+wav2vec2_arch = wav2vec2_archs.marker
 
 
-@arch("base")
-def wav2vec2_base() -> Wav2Vec2Config:
-    encoder = wav2vec2_encoder_base()
+@wav2vec2_arch("base")
+def _base() -> Wav2Vec2Config:
+    encoder = _encoder_base()
 
     return Wav2Vec2Config(
         encoder,

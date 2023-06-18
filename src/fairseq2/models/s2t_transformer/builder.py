@@ -93,11 +93,12 @@ class S2TTransformerConfig:
 
 s2t_transformer_archs = ArchitectureRegistry[S2TTransformerConfig]("s2t_transformer")
 
-arch = s2t_transformer_archs.marker
+
+s2t_transformer_arch = s2t_transformer_archs.marker
 
 
-@arch("tiny")
-def s2t_transformer_tiny() -> S2TTransformerConfig:
+@s2t_transformer_arch("tiny")
+def _tiny() -> S2TTransformerConfig:
     return S2TTransformerConfig(
         model_dim=256,
         max_seq_len=1024,
@@ -116,8 +117,8 @@ def s2t_transformer_tiny() -> S2TTransformerConfig:
     )
 
 
-@arch("small")
-def s2t_transformer_small() -> S2TTransformerConfig:
+@s2t_transformer_arch("small")
+def _small() -> S2TTransformerConfig:
     return S2TTransformerConfig(
         model_dim=256,
         max_seq_len=1024,
@@ -136,8 +137,8 @@ def s2t_transformer_small() -> S2TTransformerConfig:
     )
 
 
-@arch("medium")
-def s2t_transformer_medium() -> S2TTransformerConfig:
+@s2t_transformer_arch("medium")
+def _medium() -> S2TTransformerConfig:
     return S2TTransformerConfig(
         model_dim=512,
         max_seq_len=1024,
@@ -156,8 +157,8 @@ def s2t_transformer_medium() -> S2TTransformerConfig:
     )
 
 
-@arch("large")
-def s2t_transformer_large() -> S2TTransformerConfig:
+@s2t_transformer_arch("large")
+def _large() -> S2TTransformerConfig:
     return S2TTransformerConfig(
         model_dim=1024,
         max_seq_len=1024,
@@ -176,8 +177,8 @@ def s2t_transformer_large() -> S2TTransformerConfig:
     )
 
 
-@arch("conformer")
-def s2t_transformer_conformer() -> S2TTransformerConfig:
+@s2t_transformer_arch("conformer")
+def _conformer() -> S2TTransformerConfig:
     return S2TTransformerConfig(
         model_dim=256,
         max_seq_len=6000,
@@ -196,8 +197,8 @@ def s2t_transformer_conformer() -> S2TTransformerConfig:
     )
 
 
-@arch("conformer_rel_pos")
-def s2t_transformer_conformer_rel_pos() -> S2TTransformerConfig:
+@s2t_transformer_arch("conformer_rel_pos")
+def _conformer_rel_pos() -> S2TTransformerConfig:
     return S2TTransformerConfig(
         model_dim=256,
         max_seq_len=6000,

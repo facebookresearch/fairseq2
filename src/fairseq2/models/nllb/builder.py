@@ -73,11 +73,12 @@ class NllbConfig:
 
 nllb_archs = ArchitectureRegistry[NllbConfig]("nllb")
 
-arch = nllb_archs.marker
+
+nllb_arch = nllb_archs.marker
 
 
-@arch("dense_1b")
-def nllb_dense_1b() -> NllbConfig:
+@nllb_arch("dense_1b")
+def _dense_1b() -> NllbConfig:
     return NllbConfig(
         model_dim=1024,
         max_seq_len=1024,
@@ -92,8 +93,8 @@ def nllb_dense_1b() -> NllbConfig:
     )
 
 
-@arch("dense_3b")
-def nllb_dense_3b() -> NllbConfig:
+@nllb_arch("dense_3b")
+def _dense_3b() -> NllbConfig:
     return NllbConfig(
         model_dim=2048,
         max_seq_len=1024,
@@ -108,8 +109,8 @@ def nllb_dense_3b() -> NllbConfig:
     )
 
 
-@arch("dense_600m")
-def nllb_dense_600m() -> NllbConfig:
+@nllb_arch("dense_600m")
+def _dense_600m() -> NllbConfig:
     return NllbConfig(
         model_dim=1024,
         max_seq_len=1024,

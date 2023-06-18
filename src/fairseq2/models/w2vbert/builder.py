@@ -15,7 +15,7 @@ from fairseq2.nn.transformer import TransformerNormOrder
 from fairseq2.typing import DataType, Device
 
 
-def wav2vec2_encoder_bert_600m() -> Wav2Vec2EncoderConfig:
+def _encoder_600m() -> Wav2Vec2EncoderConfig:
     return Wav2Vec2EncoderConfig(
         model_dim=1024,
         max_seq_len=1024,
@@ -71,12 +71,13 @@ class W2VBertConfig:
 
 w2vbert_archs = ArchitectureRegistry[W2VBertConfig]("w2v-bert")
 
-arch = w2vbert_archs.marker
+
+w2vbert_arch = w2vbert_archs.marker
 
 
-@arch("600m")
-def w2v_bert_600m() -> W2VBertConfig:
-    encoder = wav2vec2_encoder_bert_600m()
+@w2vbert_arch("600m")
+def _600m() -> W2VBertConfig:
+    encoder = _encoder_600m()
 
     w2v2_config = Wav2Vec2Config(
         encoder,
