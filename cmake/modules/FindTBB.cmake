@@ -29,7 +29,7 @@ mark_as_advanced(TBB_LIBRARY TBBMALLOC_LIBRARY TBB_INCLUDE_DIR)
 
 if(TBB_INCLUDE_DIR)
     # TODO: Infer this from the installation!
-    set(TBB_VERSION 2021.8.0)
+    set(TBB_VERSION 2021.9.0)
 endif()
 
 find_package_handle_standard_args(TBB

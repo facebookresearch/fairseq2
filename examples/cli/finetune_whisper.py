@@ -34,10 +34,11 @@ from transformers import (  # type: ignore[import]
 )
 
 import fairseq2
-from fairseq2.cli.api import Env, Seq2Seq, Seq2SeqBatch, Seq2SeqStr
+from fairseq2.cli.api import Env, Seq2Seq, Seq2SeqStr
 from fairseq2.data import StringLike
 from fairseq2.data.text import TokenDecoder, TokenEncoder, Tokenizer, VocabularyInfo
 from fairseq2.metrics import Metrics
+from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.typing import DataType, Device
 
 if TYPE_CHECKING:
@@ -273,20 +274,20 @@ class AsrTask(Seq2Seq):
     def generate_batch(self, data: Seq2SeqBatch) -> List[Seq2SeqStr]:
         token_decoder = self.tokenizer.create_decoder()
 
-        target = token_decoder(data.target)
+        target = token_decoder(data.target_seqs)
         # Use HF beam search, assuming we have an HF model
         # TODO: Can we use fairseq2 beamsearch ?
         predicted_tokens = self.model.generate(  # type: ignore
-            inputs=data.source,
+            inputs=data.source_seqs,
             num_beams=1,
-            max_length=int(data.target.size(1) * 1.2),
+            max_length=int(data.target_seqs.size(1) * 1.2),
         )
         predicted = token_decoder(predicted_tokens.squeeze(1))
         # TODO: upload some generation to W&B
         return [
             Seq2SeqStr(*x)
             for x in itertools.zip_longest(
-                ["<audio>" for _ in data.target], target, predicted
+                ["<audio>" for _ in data.target_seqs], target, predicted
             )
         ]
 

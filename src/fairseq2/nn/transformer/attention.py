@@ -114,7 +114,7 @@ class TorchSDPA(SDPA):
         if needs_weights:
             if not self._has_warned:
                 logger.warning(
-                    "`TorchSDPA` has to fall back to a non-fused SDPA implementation because of `needs_weights` set to `True`."
+                    "`TorchSDPA` has to fall back to the naive SDPA implementation because of `needs_weights` set to `True`."
                 )
 
                 self._has_warned = True

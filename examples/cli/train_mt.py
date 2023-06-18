@@ -15,10 +15,11 @@ from typing import Iterable, Iterator, List, Mapping, Optional, Sequence, Tuple
 
 import torch
 import torchtnt.utils
+from fairse2.models.seq2seq import Seq2SeqBatch
 from torch import Tensor
 
 import fairseq2.cli
-from fairseq2.cli.api import Env, Seq2SeqBatch, TranslationTask
+from fairseq2.cli.api import Env, TranslationTask
 from fairseq2.data.text import MultilingualTokenizer, Tokenizer, VocabularyInfo
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.nllb import NllbConfig, create_nllb_model

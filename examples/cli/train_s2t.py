@@ -18,9 +18,10 @@ from torch import Tensor
 import fairseq2.cli
 import fairseq2.models.s2t_transformer as s2t
 from fairseq2 import data
-from fairseq2.cli.api import Env, Seq2Seq, Seq2SeqBatch
+from fairseq2.cli.api import Env, Seq2Seq
 from fairseq2.data import DataPipelineBuilder, StringLike
 from fairseq2.data.text import MultilingualTokenizer, Tokenizer, VocabularyInfo
+from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.transformer import TransformerModel
 
 try:
@@ -263,10 +264,10 @@ def load_data_from_manifest(
         return Seq2SeqBatch(
             # Move batch to gpu
             # TODO use a dedicated cuda stream
-            source=b[0].to(device),
-            src_seq_lens=b[1].to(device),
-            target=target,
-            tgt_seq_lens=target_lens,
+            source_seqs=b[0].to(device),
+            source_seq_lens=b[1].to(device),
+            target_seqs=target,
+            target_seq_lens=target_lens,
         )
 
     device = env.device

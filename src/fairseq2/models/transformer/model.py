@@ -104,6 +104,12 @@ class TransformerModel(EncoderDecoderModel):
         encoder_padding_mask: Optional[Tensor],
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Seq2SeqModelOutput:
+        if state_bag is None:
+            seqs = seqs[:, :-1]
+
+            if seq_lens is not None:
+                seq_lens = seq_lens - 1
+
         seqs, padding_mask = self.decoder_frontend(seqs, seq_lens, state_bag)
 
         seqs, _ = self.decoder(
@@ -117,10 +123,6 @@ class TransformerModel(EncoderDecoderModel):
         logits = self.final_proj(seqs)
 
         return Seq2SeqModelOutput(logits, self.target_pad_idx)
-
-    def extra_repr(self) -> str:
-        """:meta private:"""
-        return f"model_dim={self.model_dim}"
 
 
 @final

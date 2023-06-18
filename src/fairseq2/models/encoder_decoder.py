@@ -10,7 +10,7 @@ from typing import Optional, Tuple
 from overrides import override
 from torch import Tensor
 
-from fairseq2.models.seq2seq import Seq2SeqModel, Seq2SeqModelOutput
+from fairseq2.models.seq2seq import Seq2SeqBatch, Seq2SeqModel, Seq2SeqModelOutput
 from fairseq2.nn.incremental_state import IncrementalStateBag
 
 
@@ -29,17 +29,16 @@ class EncoderDecoderModel(Seq2SeqModel):
         self.model_dim = model_dim
 
     @override
-    def forward(
-        self,
-        source_seqs: Tensor,
-        source_seq_lens: Optional[Tensor],
-        target_seqs: Tensor,
-        target_seq_lens: Optional[Tensor],
-    ) -> Seq2SeqModelOutput:
-        encoder_out, encoder_padding_mask = self.encode(source_seqs, source_seq_lens)
+    def forward(self, batch: Seq2SeqBatch) -> Seq2SeqModelOutput:
+        encoder_output, encoder_padding_mask = self.encode(
+            batch.source_seqs, batch.source_seq_lens
+        )
 
         return self.decode_and_project(
-            target_seqs, target_seq_lens, encoder_out, encoder_padding_mask
+            batch.target_seqs,
+            batch.target_seq_lens,
+            encoder_output,
+            encoder_padding_mask,
         )
 
     @abstractmethod
@@ -100,3 +99,7 @@ class EncoderDecoderModel(Seq2SeqModel):
         :param state_bag:
             The state bag to use for incremental evaluation.
         """
+
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        return f"model_dim={self.model_dim}"

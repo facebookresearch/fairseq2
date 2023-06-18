@@ -8,11 +8,12 @@ from torch import Tensor
 
 import fairseq2.cli
 from fairseq2 import data
-from fairseq2.cli.api import Env, Seq2SeqBatch
+from fairseq2.cli.api import Env
 from fairseq2.data import CString, StringLike
 from fairseq2.data.text import TokenDecoder, TokenEncoder, Tokenizer, VocabularyInfo
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.nllb import NllbConfig, create_nllb_model
+from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.typing import DataType, Device
 
 log = logging.getLogger(__name__)

@@ -3,7 +3,7 @@ import inspect
 import itertools
 import math
 import typing as tp
-from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Set, Tuple, Type
+from typing import Any, Dict, List, NamedTuple, Optional, Set, Tuple, Type
 
 import sacrebleu  # type: ignore
 import torch
@@ -19,6 +19,7 @@ import fairseq2.optim.lr_scheduler
 from fairseq2.data import StringLike
 from fairseq2.data.text import Tokenizer
 from fairseq2.metrics import Metrics
+from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.optim.lr_scheduler import LRScheduler
 from fairseq2.sequence_generator import BeamSearchStrategy, SearchStrategy
 from fairseq2.typing import DataType, Device
@@ -43,24 +44,6 @@ class Env(NamedTuple):
 
     device: Device
     """Cuda device this worker should use."""
-
-
-class Seq2SeqBatch(NamedTuple):
-    """The default batch type for :py:class:`fairseq2.tasks.Seq2Seq` task"""
-
-    source: "Tensor"
-    """Source tokens: Tensor[long] for text input, Tensor[float] for waveform input."""
-
-    src_seq_lens: "Tensor"
-    """Lengths of each source sequence, allowing to mask the padding tokens. Tensor[long]"""
-
-    target: "Tensor"
-    """Target tokens: Tensor[long]"""
-
-    tgt_seq_lens: "Tensor"
-    """Lengths of each target sequence, allowing to mask the padding tokens. Tensor[long]"""
-
-    metadata: Sequence[Dict[str, Any]] = []
 
 
 class Seq2SeqStr(NamedTuple):
@@ -176,11 +159,9 @@ class Seq2Seq(tnt.AutoUnit[Seq2SeqBatch]):
 
     def compute_loss(self, state: State, data: Seq2SeqBatch) -> Tuple[Tensor, Any]:
         """Default loss for Seq2Seq is nll_loss."""
-        net_output = self.module(
-            data.source, data.src_seq_lens, data.target[:, :-1], data.tgt_seq_lens - 1
-        )
+        net_output = self.module(data)
 
-        loss = net_output.compute_loss(data.target[:, 1:])
+        loss = net_output.compute_loss(data.target_seqs)
 
         return loss, net_output
 
@@ -189,12 +170,12 @@ class Seq2Seq(tnt.AutoUnit[Seq2SeqBatch]):
     ) -> None:
         """Track loss normalized by number of tokens and token per second"""
         metrics = self.active_metrics(state)
-        tgt_num_tokens = data.tgt_seq_lens.sum() - data.tgt_seq_lens.numel()
+        tgt_num_tokens = data.target_seq_lens.sum() - data.target_seq_lens.numel()
         nll_loss = loss.detach() / tgt_num_tokens / math.log(2)
         # compute the loss metric on device to avoid a cuda.synchronize
         metrics["loss"].update(nll_loss, weight=tgt_num_tokens)
         metrics["tgt_num_tokens"].update(tgt_num_tokens)
-        metrics["src_num_tokens"].update(data.src_seq_lens.sum())
+        metrics["src_num_tokens"].update(data.source_seq_lens.sum())
         metrics["tps"].update(
             tgt_num_tokens, elapsed_time_sec=state.timer.interval_time_seconds
         )
@@ -233,11 +214,11 @@ class Seq2Seq(tnt.AutoUnit[Seq2SeqBatch]):
     def generate_batch(self, data: Seq2SeqBatch) -> List[Seq2SeqStr]:
         token_decoder = self.tokenizer.create_decoder()
 
-        source = token_decoder(data.source)
-        target = token_decoder(data.target)
+        source = token_decoder(data.source_seqs)
+        target = token_decoder(data.target_seqs)
 
         # TODO: move to data loading
-        padding_mask = data.source.ne(self.tokenizer.vocab_info.pad_idx)
+        padding_mask = data.source_seqs.ne(self.tokenizer.vocab_info.pad_idx)
         source_lens = torch.count_nonzero(padding_mask, dim=-1)
 
         strategy = self.default_strategy()
@@ -246,7 +227,7 @@ class Seq2Seq(tnt.AutoUnit[Seq2SeqBatch]):
             # but users are allowed to override this method,
             # and therefore we don't enforce self.module to have this type.
             predicted_tokens = strategy.generate(
-                self.module, data.source, source_lens, top=1  # type: ignore
+                self.module, data.source_seqs, source_lens, top=1  # type: ignore
             )
 
         predicted = token_decoder(predicted_tokens.squeeze(1))
