@@ -18,13 +18,14 @@
 #include "fairseq2/native/py.h"
 #include "fairseq2/native/data/batched_data_source.h"
 #include "fairseq2/native/data/batched_by_length_data_source.h"
-#include "fairseq2/native/data/islice_data_source.h"
 #include "fairseq2/native/data/yielded_data_source.h"
 #include "fairseq2/native/data/list_data_source.h"
 #include "fairseq2/native/data/mapped_data_source.h"
 #include "fairseq2/native/data/prefetched_data_source.h"
 #include "fairseq2/native/data/sharded_data_source.h"
 #include "fairseq2/native/data/shuffled_data_source.h"
+#include "fairseq2/native/data/skipped_data_source.h"
+#include "fairseq2/native/data/ranged_data_source.h"
 #include "fairseq2/native/data/tape.h"
 #include "fairseq2/native/data/zipped_data_source.h"
 #include "fairseq2/native/data/detail/file_system.h"
@@ -174,16 +175,6 @@ data_pipeline_builder::batch_by_length(const std::vector<std::pair<std::size_t, 
 }
 
 data_pipeline_builder &&
-data_pipeline_builder::islice(std::optional<int> start, std::optional<int> stop, std::optional<int> step) &&
-{
-    factory_ = [=, inner = std::move(factory_)]() {
-        return std::make_unique<islice_data_source>(inner(), start, stop, step);
-    };
-
-    return std::move(*this);
-}
-
-data_pipeline_builder &&
 data_pipeline_builder::yield_from(yield_fn fn) &&
 {
     factory_ = [fn = std::move(fn), inner = std::move(factory_)]() mutable {
@@ -250,6 +241,26 @@ data_pipeline_builder::shuffle(std::size_t buffer_size, std::size_t seed, bool d
 {
     factory_ = [=, inner = std::move(factory_)]() {
         return std::make_unique<shuffled_data_source>(inner(), buffer_size, seed, deterministic);
+    };
+
+    return std::move(*this);
+}
+
+data_pipeline_builder &&
+data_pipeline_builder::skip(std::size_t count) &&
+{
+    factory_ = [=, inner = std::move(factory_)]() {
+        return std::make_unique<skipped_data_source>(inner(), count);
+    };
+
+    return std::move(*this);
+}
+
+data_pipeline_builder &&
+data_pipeline_builder::take(std::size_t count) &&
+{
+    factory_ = [=, inner = std::move(factory_)]() {
+        return std::make_unique<ranged_data_source>(inner(), count);
     };
 
     return std::move(*this);

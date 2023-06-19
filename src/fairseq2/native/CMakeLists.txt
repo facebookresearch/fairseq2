@@ -18,7 +18,6 @@ target_sources(fairseq2
         py.cc
         data/batched_data_source.cc
         data/batched_by_length_data_source.cc
-        data/islice_data_source.cc
         data/data_pipeline.cc
         data/data_processor.cc
         data/data_source.cc
@@ -30,10 +29,12 @@ target_sources(fairseq2
         data/mapped_data_source.cc
         data/memory_stream.cc
         data/prefetched_data_source.cc
+        data/ranged_data_source.cc
         data/record_reader.cc
         data/round_robin_data_source.cc
         data/sharded_data_source.cc
         data/shuffled_data_source.cc
+        data/skipped_data_source.cc
         data/stream.cc
         data/tape.cc
         data/yielded_data_source.cc

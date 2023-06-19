@@ -135,7 +135,7 @@ def tokenizer(
         )
         text_data = (
             data.text.read_text(str(manifest_path), rtrim=True)
-            .islice(start=1, stop=None, step=1)
+            .skip(1)
             .map(lambda line: str(line).split("\t")[3])
             .and_return()
         )
@@ -216,7 +216,7 @@ def valid_data(
 def _read_tsv_shard(manifest_path: str, env: Env) -> DataPipelineBuilder:
     return (
         data.text.read_text(manifest_path, rtrim=True)
-        .islice(start=1, stop=None, step=1)
+        .skip(1)
         .shard(env.global_rank, env.world_size)
     )
 

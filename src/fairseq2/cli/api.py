@@ -16,7 +16,7 @@ from torchtnt.utils import TLRScheduler
 
 import fairseq2.nn
 import fairseq2.optim.lr_scheduler
-from fairseq2.data import StringLike
+from fairseq2.data import DataPipeline, StringLike
 from fairseq2.data.text import Tokenizer
 from fairseq2.metrics import Metrics
 from fairseq2.models.seq2seq import Seq2SeqBatch
@@ -157,6 +157,13 @@ class Seq2Seq(tnt.AutoUnit[Seq2SeqBatch]):
         self.update_metrics(state, data, loss, outputs)
         return loss, outputs
 
+    def on_train_epoch_end(self, state: State) -> None:
+        assert state.train_state
+        assert state.train_state.dataloader
+
+        if isinstance(state.train_state.dataloader, DataPipeline):
+            state.train_state.dataloader.reset()
+
     def compute_loss(self, state: State, data: Seq2SeqBatch) -> Tuple[Tensor, Any]:
         """Default loss for Seq2Seq is nll_loss."""
         net_output = self.module(data)
@@ -200,9 +207,23 @@ class Seq2Seq(tnt.AutoUnit[Seq2SeqBatch]):
         if not hasattr(state.eval_state, "metrics"):
             state.eval_state.metrics = self.init_metrics("eval")  # type: ignore
 
+    def on_eval_epoch_end(self, state: State) -> None:
+        assert state.eval_state
+        assert state.eval_state.dataloader
+
+        if isinstance(state.eval_state.dataloader, DataPipeline):
+            state.eval_state.dataloader.reset()
+
     def predict_step(self, state: State, data: Seq2SeqBatch) -> List[Seq2SeqStr]:
         data = self.move_data_to_device(state, data)
         return self.generate_batch(data)  # type: ignore
+
+    def on_predict_epoch_end(self, state: State) -> None:
+        assert state.predict_state
+        assert state.predict_state.dataloader
+
+        if isinstance(state.predict_state.dataloader, DataPipeline):
+            state.predict_state.dataloader.reset()
 
     @functools.lru_cache()
     def default_strategy(self) -> SearchStrategy:

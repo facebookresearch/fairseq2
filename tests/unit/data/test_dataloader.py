@@ -4,9 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import itertools
 from pathlib import Path
-from typing import Any, Iterator, List, Optional
+from typing import Any, Iterator, List
 
 import pytest
 import torch
@@ -178,71 +177,6 @@ def test_batch_by_length_can_resume(tmp_path: Path) -> None:
     assert rest_of_data == [t.shape for t in it]
 
 
-def test_islice() -> None:
-    X = list(range(10))
-
-    def assert_islice(start: int, stop: Optional[int], step: Optional[int]) -> None:
-        dataloader = (
-            fairseq2.data.read_sequence(X).islice(start, stop, step).and_return()
-        )
-        assert_eq_twice(dataloader, list(itertools.islice(X, start, stop, step)))
-
-    assert_islice(0, 5, 1)
-    assert_islice(2, 5, 1)
-    assert_islice(5, 5, 1)
-    assert_islice(2, 8, 1)
-    assert_islice(2, 8, 2)
-    assert_islice(2, 8, 3)
-    assert_islice(5, 9, 3)
-
-
-def test_islice_default_step() -> None:
-    X = list(range(10))
-
-    def assert_islice(start: int, stop: Optional[int]) -> None:
-        dataloader = fairseq2.data.read_sequence(X).islice(start, stop).and_return()
-        assert_eq_twice(dataloader, list(itertools.islice(X, start, stop)))
-
-    assert_islice(0, 5)
-    assert_islice(3, 5)
-
-
-def test_islice_stop_signature() -> None:
-    X = list(range(10))
-
-    def assert_islice(stop: int) -> None:
-        dataloader = fairseq2.data.read_sequence(X).islice(stop).and_return()
-        assert_eq_twice(dataloader, list(itertools.islice(X, stop)))
-
-    assert_islice(7)
-    assert_islice(30)
-
-
-def test_islice_next() -> None:
-    X = list(range(10))
-    dataloader = fairseq2.data.read_sequence(X).islice(2, 8, 3).and_return()
-    it = iter(dataloader)
-    assert next(it) == 2
-    assert next(it) == 5
-    with pytest.raises(StopIteration):
-        next(it)
-
-
-def test_islice_edge_cases() -> None:
-    X = list(range(10))
-    dl_big_start = fairseq2.data.read_sequence(X).islice(15, 20, 4).and_return()
-    it = iter(dl_big_start)
-    with pytest.raises(StopIteration):
-        next(it)
-
-    dl_none_stop = fairseq2.data.read_sequence(X).islice(5, None, 3).and_return()
-    it = iter(dl_none_stop)
-    assert 5 == next(it)
-    assert 8 == next(it)
-    with pytest.raises(StopIteration):
-        next(it)
-
-
 @pytest.mark.parametrize("chunk_size", [1, 2, 4, 10])
 def test_map(chunk_size: int) -> None:
     X = list(range(10))
@@ -296,6 +230,8 @@ def test_shuffle() -> None:
     ]
     # fmt: on
 
+    dataloader.reset()
+
     # For the second epoch the order should be different.
     snd_epoch = list(dataloader)
     assert sorted(snd_epoch) == X
@@ -339,6 +275,9 @@ def assert_eq_twice(
 ) -> None:
     # First epoch
     assert list(dataloader) == expected
+
+    dataloader.reset()
+
     # Second epoch
     assert list(dataloader) == expected
 

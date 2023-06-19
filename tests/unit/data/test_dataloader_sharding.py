@@ -12,11 +12,6 @@ def test_shuffle_sharding() -> None:
     assert_can_shard(f)
 
 
-def test_islice_sharding() -> None:
-    f = lambda: dl.read_sequence(range(20)).islice(2, 17, 2)
-    assert_can_shard(f)
-
-
 def test_map_sharding() -> None:
     f = lambda: dl.read_sequence(range(10)).map(lambda x: x + 10)
     assert_can_shard(f)

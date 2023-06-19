@@ -71,7 +71,6 @@ def_data_pipeline(py::module_ &base)
         .def("__iter__",
             [](data_pipeline &self)
             {
-                self.reset();
                 return data_pipeline_iterator{self};
             },
             py::keep_alive<0, 1>{})
@@ -158,24 +157,6 @@ def_data_pipeline(py::module_ &base)
             },
             py::arg("buffer_sizes"),
             py::arg("pad_idx"))
-        .def("islice",
-            [](
-                data_pipeline_builder &self,
-                std::size_t start,
-                std::optional<std::size_t> stop,
-                std::optional<std::size_t> step
-            ) -> data_pipeline_builder &
-            {
-                if (stop == std::nullopt && step == std::nullopt)
-                    self = std::move(self).islice({}, start, {});
-                else
-                    self = std::move(self).islice(start, stop, step);
-
-                return self;
-            },
-            py::arg("start"),
-            py::arg("stop") = std::nullopt,
-            py::arg("step") = std::nullopt)
         .def("map",
             [](data_pipeline_builder &self, const data_processor &dp) -> data_pipeline_builder &
             {
@@ -231,6 +212,22 @@ def_data_pipeline(py::module_ &base)
             py::arg("buffer_size"),
             py::arg("seed") = 0,
             py::arg("deterministic") = false)
+        .def("skip",
+            [](data_pipeline_builder &self, std::size_t count) -> data_pipeline_builder &
+            {
+                self = std::move(self).skip(count);
+
+                return self;
+            },
+            py::arg("count"))
+        .def("take",
+            [](data_pipeline_builder &self, std::size_t count) -> data_pipeline_builder &
+            {
+                self = std::move(self).take(count);
+
+                return self;
+            },
+            py::arg("count"))
         .def("filter",
             [](data_pipeline_builder &self, predicate_fn &&predicate) -> data_pipeline_builder &
             {

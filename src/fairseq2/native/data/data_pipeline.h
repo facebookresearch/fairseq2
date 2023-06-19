@@ -98,9 +98,6 @@ public:
     batch_by_length(const std::vector<std::pair<std::size_t, std::size_t>>& buffer_sizes, std::int32_t pad_idx) &&;
 
     data_pipeline_builder &&
-    islice(std::optional<int> start, std::optional<int> stop, std::optional<int> step) &&;
-
-    data_pipeline_builder &&
     yield_from(yield_fn fn) &&;
 
     data_pipeline_builder &&
@@ -120,6 +117,12 @@ public:
 
     data_pipeline_builder &&
     shuffle(std::size_t buffer_size, std::size_t seed, bool deterministic) &&;
+
+    data_pipeline_builder &&
+    skip(std::size_t count) &&;
+
+    data_pipeline_builder &&
+    take(std::size_t count) &&;
 
     data_pipeline
     and_return() &&;
