@@ -13,9 +13,7 @@ filtered_data_source::next()
 {
     std::optional<data> d{};
 
-    while ((d = inner_->next()))
-        if (invoke_predicate_fn(*d))
-            break;
+    while ((d = inner_->next()) && !invoke_predicate_fn(*d));
 
     return d;
 }

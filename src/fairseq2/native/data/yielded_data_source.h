@@ -36,7 +36,10 @@ public:
 
 private:
     bool
-    load_data_pipeline(std::optional<data> &&d);
+    load_next_data_pipeline();
+
+    data_pipeline
+    invoke_yield_fn(data &example);
 
 private:
     std::unique_ptr<data_source> inner_;

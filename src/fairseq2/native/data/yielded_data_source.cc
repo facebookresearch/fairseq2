@@ -13,10 +13,7 @@ yielded_data_source::next()
 {
     std::optional<data> d{};
 
-    while (!(d = data_pipeline_.next())) {
-        if (!load_data_pipeline(inner_->next()))
-            break;
-    }
+    while (!(d = data_pipeline_.next()) && load_next_data_pipeline());
 
     return d;
 }
@@ -48,41 +45,40 @@ yielded_data_source::reload_position(tape &t)
     example_ = t.read<std::optional<data>>();
 
     if (example_) {
-        try {
-            data_pipeline_ = fn_(*example_);
-        } catch (const data_pipeline_error &) {
-            throw;
-        } catch (...) {
-            data_pipeline_error::throw_nested(
-                "The yield function has failed.", std::move(example_));
-        }
+        data_pipeline_ = invoke_yield_fn(*example_);
+
+        data_pipeline_.reload_position(t);
     }
     else
         data_pipeline_ = {};
-
-    data_pipeline_.reload_position(t);
 
     inner_->reload_position(t);
 }
 
 bool
-yielded_data_source::load_data_pipeline(std::optional<data> &&d)
+yielded_data_source::load_next_data_pipeline()
 {
-    example_ = std::move(d);
+    example_ = inner_->next();
 
-    if (example_) {
-        try {
-            data_pipeline_ = fn_(*example_);
-        } catch (const data_pipeline_error &) {
-            throw;
-        } catch (...) {
-            data_pipeline_error::throw_nested(
-                "The yield function has failed.", std::move(example_));
-        }
-    } else
+    if (example_)
+        data_pipeline_ = invoke_yield_fn(*example_);
+    else
         data_pipeline_ = {};
 
     return example_.has_value();
+}
+
+data_pipeline
+yielded_data_source::invoke_yield_fn(data &example)
+{
+    try {
+        return fn_(example);
+    } catch (const data_pipeline_error &) {
+        throw;
+    } catch (...) {
+        data_pipeline_error::throw_nested(
+            "The yield function has failed.", std::move(example_));
+    }
 }
 
 }  // namespace fairseq2::detail
