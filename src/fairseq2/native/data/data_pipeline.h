@@ -163,7 +163,7 @@ FAIRSEQ2_API data_pipeline_builder
 read_list(std::vector<data> list);
 
 FAIRSEQ2_API data_pipeline_builder
-zip_data_pipelines(std::vector<data_pipeline> pipelines);
+zip_data_pipelines(std::vector<data_pipeline> pipelines, bool warn_only = false, bool disable_parallelism = false);
 
 FAIRSEQ2_API data_pipeline_builder
 round_robin_data_pipelines(std::vector<data_pipeline> pipelines, std::vector<float> probs = {});

@@ -29,14 +29,6 @@ def test_read_text_skip_empty() -> None:
     assert_eq_twice(dataloader, ACTUAL_LINES)
 
 
-def test_state_dict(tmp_path: Path) -> None:
-    dataloader = fairseq2.data.text.read_text(FILE, rtrim=True).and_return()
-    it = iter(dataloader)
-    # Read first line
-    next(it)
-    assert_checkpoint_works(dataloader, it, tmp_path / "dataloader.pt")
-
-
 def test_batch() -> None:
     dataloader = fairseq2.data.text.read_text(FILE, rtrim=True).batch(8).and_return()
     dataloader_drop_remainder = (

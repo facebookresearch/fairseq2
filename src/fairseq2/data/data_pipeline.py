@@ -188,11 +188,20 @@ if TYPE_CHECKING or _DOC_MODE:
             The data pipelines to round robin.
         """
 
-    def zip_data_pipelines(pipelines: Sequence[DataPipeline]) -> "DataPipelineBuilder":
+    def zip_data_pipelines(
+        pipelines: Sequence[DataPipeline],
+        warn_only: bool = False,
+        disable_parallelism: bool = False,
+    ) -> "DataPipelineBuilder":
         """Zip together examples read from ``pipelines``.
 
         :param pipelines:
             The data pipelines to zip.
+        :param warn_only:
+            If ``True``, prints a warning, instead of raising an error, when the
+            data pipelines do not have equal length.
+        :param disable_parallelism:
+            If ``True``, calls each data pipeline sequentially.
         """
 
     class StreamError(RuntimeError):

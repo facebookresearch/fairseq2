@@ -308,7 +308,7 @@ read_list(std::vector<data> list)
 }
 
 data_pipeline_builder
-zip_data_pipelines(std::vector<data_pipeline> pipelines)
+zip_data_pipelines(std::vector<data_pipeline> pipelines, bool warn_only, bool disable_parallelism)
 {
     bool is_broken = std::any_of(pipelines.begin(), pipelines.end(), [](const data_pipeline &dp) {
         return dp.is_broken();
@@ -320,8 +320,8 @@ zip_data_pipelines(std::vector<data_pipeline> pipelines)
 
     auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
 
-    auto fc = [tmp]() mutable {
-        return std::make_unique<zipped_data_source>(std::move(*tmp));
+    auto fc = [tmp, warn_only, disable_parallelism]() mutable {
+        return std::make_unique<zipped_data_source>(std::move(*tmp), warn_only, disable_parallelism);
     };
 
     return data_pipeline_builder{std::move(fc)};
