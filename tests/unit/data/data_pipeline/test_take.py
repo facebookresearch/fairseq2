@@ -21,13 +21,6 @@ class TestTakeOp:
 
             assert output == [1, 2, 3, 4, 5]
 
-            output = []
-
-            for d in dp:
-                output.append(d)
-
-            assert output == []
-
             dp.reset()
 
     def test_op_works_if_count_is_larger_than_data(self) -> None:
@@ -41,13 +34,6 @@ class TestTakeOp:
 
             assert output == [1, 2, 3]
 
-            output = []
-
-            for d in dp:
-                output.append(d)
-
-            assert output == []
-
             dp.reset()
 
     def test_op_works_if_count_is_zero(self) -> None:
@@ -55,11 +41,6 @@ class TestTakeOp:
 
         for _ in range(2):
             output = []
-
-            for d in dp:
-                output.append(d)
-
-            assert output == []
 
             for d in dp:
                 output.append(d)

@@ -158,26 +158,29 @@ def_data_pipeline(py::module_ &base)
             py::arg("buffer_sizes"),
             py::arg("pad_idx"))
         .def("map",
-            [](data_pipeline_builder &self, const data_processor &dp) -> data_pipeline_builder &
+            [](data_pipeline_builder &self, const data_processor &dp, std::size_t num_parallel_calls)
+                -> data_pipeline_builder &
             {
                 auto fn = [nurse = py::cast(dp).cast<py_object>(), &dp](data &&d) {
                     return dp(std::move(d));
                 };
 
-                self = std::move(self).map(std::move(fn));
+                self = std::move(self).map(std::move(fn), num_parallel_calls);
 
                 return self;
             },
-            py::arg("dp"))
+            py::arg("dp"),
+            py::arg("num_parallel_calls") = 1)
         .def("map",
-            [](data_pipeline_builder &self, map_fn &&fn, std::size_t chunk_size) -> data_pipeline_builder &
+            [](data_pipeline_builder &self, map_fn &&fn, std::size_t num_parallel_calls)
+                -> data_pipeline_builder &
             {
-                self = std::move(self).map(std::move(fn), chunk_size);
+                self = std::move(self).map(std::move(fn), num_parallel_calls);
 
                 return self;
             },
             py::arg("fn"),
-            py::arg("chunk_size") = 1)
+            py::arg("num_parallel_calls") = 1)
         .def("prefetch",
             [](data_pipeline_builder &self, std::size_t num_examples) -> data_pipeline_builder &
             {

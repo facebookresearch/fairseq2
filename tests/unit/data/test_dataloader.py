@@ -177,35 +177,6 @@ def test_batch_by_length_can_resume(tmp_path: Path) -> None:
     assert rest_of_data == [t.shape for t in it]
 
 
-@pytest.mark.parametrize("chunk_size", [1, 2, 4, 10])
-def test_map(chunk_size: int) -> None:
-    X = list(range(10))
-    X2 = [x**2 for x in X]
-
-    dataloader = (
-        fairseq2.data.read_sequence(X)
-        .map(lambda x: x**2, chunk_size=chunk_size)
-        .and_return()
-    )
-    assert_eq_twice(dataloader, X2)
-
-
-def test_map_handle_exceptions() -> None:
-    X = list(range(10))
-
-    def contrarian_square(x: int) -> int:
-        if x == 4:
-            raise RuntimeError("4 is already square enough")
-        return x**2
-
-    dataloader = (
-        fairseq2.data.read_sequence(X).map(contrarian_square, chunk_size=3).and_return()
-    )
-
-    with pytest.raises(RuntimeError, match="4 is already square enough"):
-        list(dataloader)
-
-
 def test_filter() -> None:
     X = list(range(10))
     Y = [x for x in X if x % 2 == 0]

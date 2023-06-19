@@ -228,11 +228,11 @@ def load_data_from_manifest(
     lang: str,
     env: Env,
 ) -> Iterable[Seq2SeqBatch]:
-    chunk_size = 8
+    num_parallel_calls = 8
     pad_idx = tokenizer.vocab_info.pad_idx
     src_audio_dataloader = (
         _read_tsv_shard(manifest_path, env)
-        .map(_load_audio_feats, chunk_size=chunk_size)
+        .map(_load_audio_feats, num_parallel_calls)
         .batch(batch_size, pad_idx=0)
         .and_return()
     )
@@ -248,7 +248,7 @@ def load_data_from_manifest(
         .map(lambda line: str(line).split("\t")[3])
         .map(
             tokenizer.create_encoder(mode="target", lang=lang),
-            chunk_size=chunk_size,
+            num_parallel_calls,
         )
         .batch(batch_size, pad_idx=pad_idx)
         .and_return()

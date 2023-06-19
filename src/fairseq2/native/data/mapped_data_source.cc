@@ -5,7 +5,6 @@
 // LICENSE file in the root directory of this source tree.
 
 #include "fairseq2/native/data/mapped_data_source.h"
-#include <stdexcept>
 
 #include <oneapi/tbb.h>
 
@@ -14,80 +13,93 @@ namespace fairseq2::detail {
 std::optional<data>
 mapped_data_source::next()
 {
-    // Mono-threaded behavior
-    std::optional<data> d;
-    if (chunk_size_ <= 1) {
-        d = inner_->next();
+    if (num_parallel_calls_ <= 1) {
+        std::optional<data> d = inner_->next();
         if (!d)
-            return {};
-        try {
-            return fn_(*std::move(d));
-        } catch (const data_pipeline_error &) {
-            throw;
-        } catch (const std::invalid_argument &) {
-            data_pipeline_error::throw_nested("The map function has failed.", std::move(d));
-        } catch (...) {
-            data_pipeline_error::throw_nested("The map function has failed.");
-        }
+            return std::nullopt;
+
+        return invoke_map_fn(*std::move(d));
     }
 
-    // If we're out of precomputed items, fetch some inputs, and compute results in parallel.
-    if (buffer_iter_ == buffer_.end()) {
-        buffer_.clear();
-        buffer_iter_ = buffer_.begin();
+    // If we have exhausted all buffered examples, try to refill the buffer.
+    if (buffer_iter_ == buffer_.end() && !fill_buffer())
+        return std::nullopt;
 
-        // Prefetch inputs into buffer_, because we can't call "next" in parallel
-        for (std::size_t i = 0; i < chunk_size_; ++i) {
-            d = inner_->next();
-            if (!d)
-                break;
-            buffer_.emplace_back(std::move(*d));
-        }
-
-        // Inner data source is exhausted, let's return.
-        if (buffer_.empty())
-            return {};
-
-        // Process fetched items in parallel.
-        auto apply_fn = [this](const tbb::blocked_range<std::size_t> &rng) {
-            for (auto i = rng.begin(); i < rng.end(); ++i) {
-                this->map_at(i);
-            }
-        };
-
-        parallel_for(tbb::blocked_range<std::size_t>(0, buffer_.size()), apply_fn);
-    }
-
-    // Yield previously computed items
+    // Yield a buffered example.
     return std::move(*buffer_iter_++);
 }
 
 void
 mapped_data_source::reset()
 {
+    buffer_.clear();
+
+    buffer_iter_ = buffer_.begin();
+
     inner_->reset();
 }
 
 void
 mapped_data_source::record_position(tape &t) const
 {
+    t.record(buffer_);
+
+    t.record(buffer_iter_ - buffer_.begin());
+
     inner_->record_position(t);
 }
 
 void
 mapped_data_source::reload_position(tape &t)
 {
+    buffer_ = t.read<std::vector<data>>();
+
+    buffer_iter_ = buffer_.begin() + t.read<std::ptrdiff_t>();
+
     inner_->reload_position(t);
 }
 
-void mapped_data_source::map_at(std::size_t i) {
+bool
+mapped_data_source::fill_buffer()
+{
+    buffer_.clear();
+
+    for (std::size_t i = 0; i < num_parallel_calls_; i++) {
+        std::optional<data> d = inner_->next();
+        if (!d)
+            break;
+
+        buffer_.push_back(*std::move(d));
+    }
+
+    if (buffer_.empty())
+        return false;
+
+    // Apply the map function to all buffered examples.
+    auto apply_map_fn = [this](const tbb::blocked_range<std::size_t> &rng) {
+        for (auto i = rng.begin(); i < rng.end(); ++i)
+            buffer_[i] = invoke_map_fn(std::move(buffer_[i]));
+    };
+
+    tbb::blocked_range<std::size_t> full_rng{0, buffer_.size()};
+
+    // Avoid threading overhead if we have just one example.
+    if (buffer_.size() == 1)
+        apply_map_fn(full_rng);
+    else
+        tbb::parallel_for(full_rng, apply_map_fn);
+
+    buffer_iter_ = buffer_.begin();
+
+    return true;
+}
+
+data
+mapped_data_source::invoke_map_fn(data &&example) {
     try {
-        // Apply fn in place
-        buffer_[i] = fn_(std::move(buffer_[i]));
+        return fn_(std::move(example));
     } catch (const data_pipeline_error &) {
         throw;
-    } catch (const std::invalid_argument &) {
-        data_pipeline_error::throw_nested("The map function has failed.");
     } catch (...) {
         data_pipeline_error::throw_nested("The map function has failed.");
     }

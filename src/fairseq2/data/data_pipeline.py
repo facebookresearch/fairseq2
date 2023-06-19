@@ -85,12 +85,14 @@ if TYPE_CHECKING or _DOC_MODE:
             """
 
         def map(
-            self, fn: Callable[[Any], Any], chunk_size: int = 1
+            self, fn: Callable[[Any], Any], num_parallel_calls: int = 1
         ) -> "DataPipelineBuilder":
-            """Apply ``fn`` to every example in the data pipeline.
+            """Apply ``fn`` to every example.
 
             :param fn:
                 The function to apply.
+            :param num_parallel_calls:
+                The number of examples to process in parallel.
             """
 
         def prefetch(self, num_examples: int) -> "DataPipelineBuilder":

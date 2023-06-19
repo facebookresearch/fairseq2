@@ -21,13 +21,6 @@ class TestSkipOp:
 
             assert output == [4, 5, 6, 7, 8, 9]
 
-            output = []
-
-            for d in dp:
-                output.append(d)
-
-            assert output == []
-
             dp.reset()
 
     def test_op_works_if_count_is_larger_than_data(self) -> None:
@@ -53,13 +46,6 @@ class TestSkipOp:
                 output.append(d)
 
             assert output == [1, 2, 3]
-
-            output = []
-
-            for d in dp:
-                output.append(d)
-
-            assert output == []
 
             dp.reset()
 

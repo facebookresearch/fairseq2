@@ -98,16 +98,10 @@ public:
     batch_by_length(const std::vector<std::pair<std::size_t, std::size_t>>& buffer_sizes, std::int32_t pad_idx) &&;
 
     data_pipeline_builder &&
-    yield_from(yield_fn fn) &&;
-
-    data_pipeline_builder &&
-    map(map_fn fn) &&;
-
-    data_pipeline_builder &&
-    map(map_fn fn, std::size_t chunk_size) &&;
-
-    data_pipeline_builder &&
     filter(predicate_fn predicate) &&;
+
+    data_pipeline_builder &&
+    map(map_fn fn, std::size_t num_parallel_calls = 1) &&;
 
     data_pipeline_builder &&
     prefetch(std::size_t num_examples) &&;
@@ -123,6 +117,9 @@ public:
 
     data_pipeline_builder &&
     take(std::size_t count) &&;
+
+    data_pipeline_builder &&
+    yield_from(yield_fn fn) &&;
 
     data_pipeline
     and_return() &&;

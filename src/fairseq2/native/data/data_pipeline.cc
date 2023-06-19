@@ -16,17 +16,17 @@
 #include "fairseq2/native/data/round_robin_data_source.h"
 #include "fairseq2/native/data/filtered_data_source.h"
 #include "fairseq2/native/py.h"
-#include "fairseq2/native/data/batched_data_source.h"
 #include "fairseq2/native/data/batched_by_length_data_source.h"
-#include "fairseq2/native/data/yielded_data_source.h"
+#include "fairseq2/native/data/batched_data_source.h"
 #include "fairseq2/native/data/list_data_source.h"
 #include "fairseq2/native/data/mapped_data_source.h"
 #include "fairseq2/native/data/prefetched_data_source.h"
+#include "fairseq2/native/data/ranged_data_source.h"
 #include "fairseq2/native/data/sharded_data_source.h"
 #include "fairseq2/native/data/shuffled_data_source.h"
 #include "fairseq2/native/data/skipped_data_source.h"
-#include "fairseq2/native/data/ranged_data_source.h"
 #include "fairseq2/native/data/tape.h"
+#include "fairseq2/native/data/yielded_data_source.h"
 #include "fairseq2/native/data/zipped_data_source.h"
 #include "fairseq2/native/data/detail/file_system.h"
 
@@ -175,40 +175,20 @@ data_pipeline_builder::batch_by_length(const std::vector<std::pair<std::size_t, 
 }
 
 data_pipeline_builder &&
-data_pipeline_builder::yield_from(yield_fn fn) &&
-{
-    factory_ = [fn = std::move(fn), inner = std::move(factory_)]() mutable {
-        return std::make_unique<yielded_data_source>(inner(), std::move(fn));
-    };
-
-    return std::move(*this);
-}
-
-data_pipeline_builder &&
-data_pipeline_builder::map(map_fn fn) &&
-{
-    factory_ = [fn = std::move(fn), inner = std::move(factory_)]() mutable {
-        return std::make_unique<mapped_data_source>(inner(), std::move(fn), 0);
-    };
-
-    return std::move(*this);
-}
-
-data_pipeline_builder &&
-data_pipeline_builder::map(map_fn fn, std::size_t chunk_size) &&
-{
-    factory_ = [fn = std::move(fn), inner = std::move(factory_), chunk_size]() mutable {
-        return std::make_unique<mapped_data_source>(inner(), std::move(fn), chunk_size);
-    };
-
-    return std::move(*this);
-}
-
-data_pipeline_builder &&
 data_pipeline_builder::filter(predicate_fn predicate) &&
 {
     factory_ = [predicate = std::move(predicate), inner = std::move(factory_)]() mutable {
         return std::make_unique<filtered_data_source>(inner(), std::move(predicate));
+    };
+
+    return std::move(*this);
+}
+
+data_pipeline_builder &&
+data_pipeline_builder::map(map_fn fn, std::size_t num_parallel_calls) &&
+{
+    factory_ = [fn = std::move(fn), inner = std::move(factory_), num_parallel_calls]() mutable {
+        return std::make_unique<mapped_data_source>(inner(), std::move(fn), num_parallel_calls);
     };
 
     return std::move(*this);
@@ -261,6 +241,16 @@ data_pipeline_builder::take(std::size_t count) &&
 {
     factory_ = [=, inner = std::move(factory_)]() {
         return std::make_unique<ranged_data_source>(inner(), count);
+    };
+
+    return std::move(*this);
+}
+
+data_pipeline_builder &&
+data_pipeline_builder::yield_from(yield_fn fn) &&
+{
+    factory_ = [fn = std::move(fn), inner = std::move(factory_)]() mutable {
+        return std::make_unique<yielded_data_source>(inner(), std::move(fn));
     };
 
     return std::move(*this);
