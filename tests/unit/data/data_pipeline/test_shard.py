@@ -9,9 +9,9 @@ import pytest
 from fairseq2.data import read_sequence
 
 
-class TestSkipOp:
+class TestShardOp:
     def test_op_works_as_expected(self) -> None:
-        dp = read_sequence([1, 2, 3, 4, 5, 6, 7, 8, 9]).skip(3).and_return()
+        dp = read_sequence(list(range(1, 23))).shard(1, 5).and_return()
 
         for _ in range(2):
             output = []
@@ -19,12 +19,23 @@ class TestSkipOp:
             for d in dp:
                 output.append(d)
 
-            assert output == [4, 5, 6, 7, 8, 9]
+            assert output == [2, 7, 12, 17]
 
             dp.reset()
 
-    def test_op_works_if_count_is_larger_than_data(self) -> None:
-        dp = read_sequence([1, 2, 3]).skip(5).and_return()
+        dp = read_sequence(list(range(1, 23))).shard(4, 5).and_return()
+
+        for _ in range(2):
+            output = []
+
+            for d in dp:
+                output.append(d)
+
+            assert output == [5, 10, 15, 20]
+
+            dp.reset()
+
+        dp = read_sequence(list(range(1, 4))).shard(0, 5).and_return()
 
         for _ in range(2):
             output = []
@@ -36,21 +47,8 @@ class TestSkipOp:
 
             dp.reset()
 
-    def test_op_works_if_count_is_zero(self) -> None:
-        dp = read_sequence([1, 2, 3]).skip(0).and_return()
-
-        for _ in range(2):
-            output = []
-
-            for d in dp:
-                output.append(d)
-
-            assert output == [1, 2, 3]
-
-            dp.reset()
-
     def test_record_reload_position_works_as_expected(self) -> None:
-        dp = read_sequence([1, 2, 3, 4, 5, 6, 7, 8, 9]).skip(3).and_return()
+        dp = read_sequence(list(range(1, 23))).shard(2, 5).and_return()
 
         d = None
 
@@ -60,24 +58,26 @@ class TestSkipOp:
         for _ in range(2):
             d = next(it)
 
-        assert d == 5
+        assert d == 8
 
         state_dict = dp.state_dict()
 
-        # Read a few examples before we roll back.
-        for _ in range(2):
-            d = next(it)
+        # Read one more example before we roll back.
+        d = next(it)
 
-        assert d == 7
+        assert d == 13
 
         # Expected to roll back to the second example.
         dp.load_state_dict(state_dict)
 
-        # Move to EOD.
-        for _ in range(4):
-            d = next(it)
+        d = next(it)
 
-        assert d == 9
+        assert d == 13
+
+        # Move to EOD.
+        d = next(it)
+
+        assert d == 18
 
         state_dict = dp.state_dict()
 

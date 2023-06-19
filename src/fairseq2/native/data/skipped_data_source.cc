@@ -12,7 +12,7 @@ std::optional<data>
 skipped_data_source::next()
 {
     if (!skipped_) {
-        for (std::size_t i = 0; i < count_; i++)
+        for (std::size_t i = 0; i < num_examples_; i++)
             if (!inner_->next())
                 break;
 

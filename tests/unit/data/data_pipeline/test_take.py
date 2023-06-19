@@ -56,6 +56,7 @@ class TestTakeOp:
 
         it = iter(dp)
 
+        # Move the the second example.
         for _ in range(2):
             d = next(it)
 
@@ -63,13 +64,16 @@ class TestTakeOp:
 
         state_dict = dp.state_dict()
 
+        # Read a few examples before we roll back.
         for _ in range(2):
             d = next(it)
 
         assert d == 4
 
+        # Expected to roll back to the second example.
         dp.load_state_dict(state_dict)
 
+        # Move to EOD.
         for _ in range(3):
             d = next(it)
 
@@ -79,6 +83,7 @@ class TestTakeOp:
 
         dp.reset()
 
+        # Expected to be EOD.
         dp.load_state_dict(state_dict)
 
         with pytest.raises(StopIteration):

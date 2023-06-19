@@ -4,8 +4,10 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
-
 #pragma once
+
+#include <memory>
+#include <utility>
 
 #include "fairseq2/native/data/data_pipeline.h"
 #include "fairseq2/native/data/data_source.h"
@@ -15,10 +17,9 @@ namespace fairseq2::detail {
 class filtered_data_source final : public data_source {
 public :
     explicit
-    filtered_data_source(std::unique_ptr<data_source> &&inner, predicate_fn &&predicate) noexcept
-        : inner_{std::move(inner)}, predicate_{std::move(predicate)}
-    {
-    }
+    filtered_data_source(std::unique_ptr<data_source> &&inner, predicate_fn &&fn) noexcept
+        : inner_{std::move(inner)}, fn_{std::move(fn)}
+    {}
 
     std::optional<data>
     next() override;
@@ -33,11 +34,12 @@ public :
     reload_position(tape &t) override;
 
 private:
-    std::unique_ptr<data_source> inner_;
-    predicate_fn predicate_;
-
     bool
-    try_predicate(data &value);
+    invoke_predicate_fn(data &example);
+
+private:
+    std::unique_ptr<data_source> inner_;
+    predicate_fn fn_;
 };
 
 } // namespace fairseq2::detail

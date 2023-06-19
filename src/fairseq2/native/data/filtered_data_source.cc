@@ -11,11 +11,13 @@ namespace fairseq2::detail {
 std::optional<data>
 filtered_data_source::next()
 {
-    auto result = inner_->next();
-    while (result.has_value() && !try_predicate(result.value()))
-        result = inner_->next();
+    std::optional<data> d{};
 
-    return result;
+    while ((d = inner_->next()))
+        if (invoke_predicate_fn(*d))
+            break;
+
+    return d;
 }
 
 void
@@ -37,17 +39,15 @@ filtered_data_source::reload_position(tape &t)
 }
 
 bool
-filtered_data_source::try_predicate(data &value)
+filtered_data_source::invoke_predicate_fn(data &example)
 {
     try {
-        return predicate_(value);
-    }
-    catch (const data_pipeline_error &) {
+        return fn_(example);
+    } catch (const data_pipeline_error &) {
         throw;
-    }
-    catch (...) {
+    } catch (...) {
         data_pipeline_error::throw_nested(
-            "The predicate function has failed.", std::move(value));
+            "The predicate function has failed.", std::move(example));
     }
 }
 

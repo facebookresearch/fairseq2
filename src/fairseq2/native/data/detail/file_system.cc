@@ -61,7 +61,7 @@ list_files(const std::string &pathname, const std::optional<std::string> &patter
 {
     auto fts = make_fts(pathname);
 
-    std::vector<data> c{};
+    std::vector<data> output{};
 
     ::FTSENT *e = nullptr;
     while ((e = ::fts_read(fts.get())) != nullptr) {
@@ -84,7 +84,7 @@ list_files(const std::string &pathname, const std::optional<std::string> &patter
                 throw std::invalid_argument{"pattern is invalid."};
         }
 
-        c.emplace_back(e->fts_accpath);
+        output.emplace_back(e->fts_accpath);
     }
 
     std::error_code err = last_error();
@@ -92,7 +92,7 @@ list_files(const std::string &pathname, const std::optional<std::string> &patter
         throw std::system_error{err,
             fmt::format("'{}' cannot be traversed", pathname)};
 
-    return c;
+    return output;
 }
 
 }  // namespace fairseq2::detail

@@ -73,7 +73,9 @@ private:
 };
 
 using map_fn = std::function<data(data &&)>;
+
 using predicate_fn = std::function<bool(const data &)>;
+
 using yield_fn = std::function<data_pipeline(const data &)>;
 
 class FAIRSEQ2_API data_pipeline_builder {
@@ -98,7 +100,7 @@ public:
     batch_by_length(const std::vector<std::pair<std::size_t, std::size_t>>& buffer_sizes, std::int32_t pad_idx) &&;
 
     data_pipeline_builder &&
-    filter(predicate_fn predicate) &&;
+    filter(predicate_fn fn) &&;
 
     data_pipeline_builder &&
     map(map_fn fn, std::size_t num_parallel_calls = 1) &&;
@@ -113,10 +115,10 @@ public:
     shuffle(std::size_t buffer_size, std::size_t seed, bool deterministic) &&;
 
     data_pipeline_builder &&
-    skip(std::size_t count) &&;
+    skip(std::size_t num_examples) &&;
 
     data_pipeline_builder &&
-    take(std::size_t count) &&;
+    take(std::size_t num_examples) &&;
 
     data_pipeline_builder &&
     yield_from(yield_fn fn) &&;
@@ -155,15 +157,15 @@ private:
 };
 
 FAIRSEQ2_API data_pipeline_builder
-read_list(std::vector<data> lst);
+list_files(std::string pathname, std::optional<std::string> pattern = {});
 
 FAIRSEQ2_API data_pipeline_builder
-zip_data_pipelines(std::vector<data_pipeline> zip);
+read_list(std::vector<data> list);
+
+FAIRSEQ2_API data_pipeline_builder
+zip_data_pipelines(std::vector<data_pipeline> pipelines);
 
 FAIRSEQ2_API data_pipeline_builder
 round_robin_data_pipelines(std::vector<data_pipeline> pipelines, std::vector<float> probs = {});
-
-FAIRSEQ2_API data_pipeline_builder
-list_files(std::string pathname, std::optional<std::string> pattern = {});
 
 }  // namespace fairseq2

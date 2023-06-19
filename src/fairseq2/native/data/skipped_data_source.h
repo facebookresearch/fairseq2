@@ -17,8 +17,8 @@ namespace fairseq2::detail {
 class skipped_data_source final : public data_source {
 public:
     explicit
-    skipped_data_source(std::unique_ptr<data_source> &&inner, std::size_t count) noexcept
-        : inner_{std::move(inner)}, count_{count}
+    skipped_data_source(std::unique_ptr<data_source> &&inner, std::size_t num_examples) noexcept
+        : inner_{std::move(inner)}, num_examples_{num_examples}
     {}
 
     std::optional<data>
@@ -35,7 +35,7 @@ public:
 
 private:
     std::unique_ptr<data_source> inner_;
-    std::size_t count_;
+    std::size_t num_examples_;
     bool skipped_ = false;
 };
 

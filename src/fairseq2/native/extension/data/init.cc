@@ -157,6 +157,14 @@ def_data_pipeline(py::module_ &base)
             },
             py::arg("buffer_sizes"),
             py::arg("pad_idx"))
+        .def("filter",
+            [](data_pipeline_builder &self, predicate_fn &&fn) -> data_pipeline_builder &
+            {
+                self = std::move(self).filter(std::move(fn));
+
+                return self;
+            },
+            py::arg("fn"))
         .def("map",
             [](data_pipeline_builder &self, const data_processor &dp, std::size_t num_parallel_calls)
                 -> data_pipeline_builder &
@@ -216,29 +224,21 @@ def_data_pipeline(py::module_ &base)
             py::arg("seed") = 0,
             py::arg("deterministic") = false)
         .def("skip",
-            [](data_pipeline_builder &self, std::size_t count) -> data_pipeline_builder &
+            [](data_pipeline_builder &self, std::size_t num_examples) -> data_pipeline_builder &
             {
-                self = std::move(self).skip(count);
+                self = std::move(self).skip(num_examples);
 
                 return self;
             },
-            py::arg("count"))
+            py::arg("num_examples"))
         .def("take",
-            [](data_pipeline_builder &self, std::size_t count) -> data_pipeline_builder &
+            [](data_pipeline_builder &self, std::size_t num_examples) -> data_pipeline_builder &
             {
-                self = std::move(self).take(count);
+                self = std::move(self).take(num_examples);
 
                 return self;
             },
-            py::arg("count"))
-        .def("filter",
-            [](data_pipeline_builder &self, predicate_fn &&predicate) -> data_pipeline_builder &
-            {
-                self = std::move(self).filter(std::move(predicate));
-
-                return self;
-            },
-            py::arg("predicate"))
+            py::arg("num_examples"))
         .def("yield_from",
             [](data_pipeline_builder &self, yield_fn &&fn) -> data_pipeline_builder &
             {
@@ -261,7 +261,7 @@ def_data_pipeline(py::module_ &base)
 
     m.def("list_files", &list_files, py::arg("pathname"), py::arg("pattern") = std::nullopt);
 
-    m.def("read_sequence", &read_list, py::arg("s"));
+    m.def("read_sequence", &read_list, py::arg("seq"));
 
     m.def("read_zipped_records", &read_zipped_records, py::arg("pathname"));
 
@@ -282,19 +282,19 @@ def_data_pipeline(py::module_ &base)
         py::arg("probs") = nullptr);
 
     m.def("zip_data_pipelines",
-        [](std::vector<std::reference_wrapper<data_pipeline>> &zip)
+        [](std::vector<std::reference_wrapper<data_pipeline>> &refs)
         {
-            std::vector<data_pipeline> c{};
+            std::vector<data_pipeline> pipelines{};
 
-            c.reserve(zip.size());
+            pipelines.reserve(refs.size());
 
-            std::transform(zip.begin(), zip.end(), std::back_inserter(c), [](auto &i) {
-                return std::move(i.get());
+            std::transform(refs.begin(), refs.end(), std::back_inserter(pipelines), [](auto &r) {
+                return std::move(r.get());
             });
 
-            return zip_data_pipelines(std::move(c));
+            return zip_data_pipelines(std::move(pipelines));
         },
-        py::arg("data_pipelines"));
+        py::arg("pipelines"));
 
     static py::exception<stream_error> py_stream_error{m, "StreamError", PyExc_RuntimeError};
 

@@ -6,7 +6,6 @@
 
 #include "fairseq2/native/data/list_data_source.h"
 
-#include <algorithm>
 #include <cstddef>
 
 namespace fairseq2::detail {
@@ -15,7 +14,7 @@ std::optional<data>
 list_data_source::next()
 {
     if (iter_ == list_.end())
-        return {};
+        return std::nullopt;
 
     return *iter_++;
 }
@@ -35,12 +34,7 @@ list_data_source::record_position(tape &t) const
 void
 list_data_source::reload_position(tape &t)
 {
-    auto offset = t.read<std::vector<data>::difference_type>();
-
-    tape::check(offset >= 0);
-    tape::check(offset <= ssize(list_));
-
-    iter_ = list_.begin() + offset;
+    iter_ = list_.begin() + t.read<std::ptrdiff_t>();
 }
 
 }

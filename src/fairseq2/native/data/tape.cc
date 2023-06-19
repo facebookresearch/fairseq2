@@ -16,8 +16,8 @@ tape::record_data(const data &d)
 
     storage_.push_back(d);
 
-    // At this point, the iterator is invalid because of the push_back call; do
-    // not increment it.
+    // The iterator is invalid because of the `push_back` call; we should not
+    // increment it.
     iter_ = storage_.end();
 }
 

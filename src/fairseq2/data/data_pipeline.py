@@ -127,11 +127,11 @@ if TYPE_CHECKING or _DOC_MODE:
                 This can be expensive for large shuffle size.
             """
 
-        def skip(self, count: int) -> "DataPipelineBuilder":
-            """Skip ``count`` examples."""
+        def skip(self, num_examples: int) -> "DataPipelineBuilder":
+            """Skip ``num_examples`` examples."""
 
-        def take(self, count: int) -> "DataPipelineBuilder":
-            """Return at most ``count`` examples."""
+        def take(self, num_examples: int) -> "DataPipelineBuilder":
+            """Return at most ``num_examples`` examples."""
 
         def filter(self, predicate: Callable[[Any], Any]) -> "DataPipelineBuilder":
             """
@@ -169,10 +169,10 @@ if TYPE_CHECKING or _DOC_MODE:
             If non-empty, a pattern that follows the syntax of :mod:`fnmatch`.
         """
 
-    def read_sequence(s: Sequence[Any]) -> "DataPipelineBuilder":
-        """Read every element in ``s``.
+    def read_sequence(seq: Sequence[Any]) -> "DataPipelineBuilder":
+        """Read every element in ``seq``.
 
-        :param s:
+        :param seq:
             The sequence to read.
         """
 
@@ -188,12 +188,10 @@ if TYPE_CHECKING or _DOC_MODE:
             The data pipelines to round robin.
         """
 
-    def zip_data_pipelines(
-        data_pipelines: Sequence[DataPipeline],
-    ) -> "DataPipelineBuilder":
-        """Zip together examples read from ``data_pipelines``.
+    def zip_data_pipelines(pipelines: Sequence[DataPipeline]) -> "DataPipelineBuilder":
+        """Zip together examples read from ``pipelines``.
 
-        :param data_pipelines:
+        :param pipelines:
             The data pipelines to zip.
         """
 

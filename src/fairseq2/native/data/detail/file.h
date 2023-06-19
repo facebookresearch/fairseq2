@@ -68,7 +68,6 @@ private:
     }
 
 private:
-
     int fd_ = invalid_fd;
 };
 

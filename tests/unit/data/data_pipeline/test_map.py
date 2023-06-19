@@ -31,13 +31,13 @@ class TestMapOp:
     def test_op_propagates_errors_as_expected(self, num_parallel_calls: int) -> None:
         def fn(d: int) -> int:
             if d == 3:
-                raise ValueError("The square of 3 cannot be taken.")
+                raise ValueError("map error")
 
-            return d**2
+            return d
 
         dp = read_sequence([1, 2, 3, 4]).map(fn, num_parallel_calls).and_return()
 
-        with pytest.raises(ValueError, match=r"^The square of 3 cannot be taken.$"):
+        with pytest.raises(ValueError, match=r"^map error$"):
             for d in dp:
                 pass
 
@@ -54,6 +54,7 @@ class TestMapOp:
 
         it = iter(dp)
 
+        # Move the the second example.
         for _ in range(2):
             d = next(it)
 
@@ -61,13 +62,16 @@ class TestMapOp:
 
         state_dict = dp.state_dict()
 
+        # Read a few examples before we roll back.
         for _ in range(4):
             d = next(it)
 
         assert d == 6
 
+        # Expected to roll back to the second example.
         dp.load_state_dict(state_dict)
 
+        # Move to EOD.
         for _ in range(7):
             d = next(it)
 
@@ -77,6 +81,7 @@ class TestMapOp:
 
         dp.reset()
 
+        # Expected to be EOD.
         dp.load_state_dict(state_dict)
 
         with pytest.raises(StopIteration):

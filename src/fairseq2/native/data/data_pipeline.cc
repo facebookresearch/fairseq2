@@ -175,10 +175,10 @@ data_pipeline_builder::batch_by_length(const std::vector<std::pair<std::size_t, 
 }
 
 data_pipeline_builder &&
-data_pipeline_builder::filter(predicate_fn predicate) &&
+data_pipeline_builder::filter(predicate_fn fn) &&
 {
-    factory_ = [predicate = std::move(predicate), inner = std::move(factory_)]() mutable {
-        return std::make_unique<filtered_data_source>(inner(), std::move(predicate));
+    factory_ = [fn = std::move(fn), inner = std::move(factory_)]() mutable {
+        return std::make_unique<filtered_data_source>(inner(), std::move(fn));
     };
 
     return std::move(*this);
@@ -227,20 +227,20 @@ data_pipeline_builder::shuffle(std::size_t buffer_size, std::size_t seed, bool d
 }
 
 data_pipeline_builder &&
-data_pipeline_builder::skip(std::size_t count) &&
+data_pipeline_builder::skip(std::size_t num_examples) &&
 {
     factory_ = [=, inner = std::move(factory_)]() {
-        return std::make_unique<skipped_data_source>(inner(), count);
+        return std::make_unique<skipped_data_source>(inner(), num_examples);
     };
 
     return std::move(*this);
 }
 
 data_pipeline_builder &&
-data_pipeline_builder::take(std::size_t count) &&
+data_pipeline_builder::take(std::size_t num_examples) &&
 {
     factory_ = [=, inner = std::move(factory_)]() {
-        return std::make_unique<ranged_data_source>(inner(), count);
+        return std::make_unique<ranged_data_source>(inner(), num_examples);
     };
 
     return std::move(*this);
@@ -277,19 +277,40 @@ data_pipeline_error::throw_nested(const std::string &msg, std::optional<data> ex
 data_pipeline_error::~data_pipeline_error() = default;
 
 data_pipeline_builder
-read_list(std::vector<data> lst)
+list_files(std::string pathname, std::optional<std::string> pattern)
 {
-    auto fc = [lst = std::move(lst)]() mutable {
-        return std::make_unique<list_data_source>(std::move(lst));
+    auto fc = [pathname = std::move(pathname), pattern = std::move(pattern)]() {
+        std::vector<data> data;
+
+        try {
+            py_gil_release no_gil{};
+
+            data = detail::list_files(pathname, pattern);
+        } catch (const std::system_error &) {
+            data_pipeline_error::throw_nested(
+                fmt::format("The list of files under '{}' cannot be retrieved.", pathname));
+        }
+
+        return std::make_unique<list_data_source>(std::move(data));
     };
 
     return data_pipeline_builder{std::move(fc)};
 }
 
 data_pipeline_builder
-zip_data_pipelines(std::vector<data_pipeline> zip)
+read_list(std::vector<data> list)
 {
-    bool is_broken = std::any_of(zip.begin(), zip.end(), [](const data_pipeline &dp) {
+    auto fc = [list = std::move(list)]() mutable {
+        return std::make_unique<list_data_source>(std::move(list));
+    };
+
+    return data_pipeline_builder{std::move(fc)};
+}
+
+data_pipeline_builder
+zip_data_pipelines(std::vector<data_pipeline> pipelines)
+{
+    bool is_broken = std::any_of(pipelines.begin(), pipelines.end(), [](const data_pipeline &dp) {
         return dp.is_broken();
     });
 
@@ -297,10 +318,10 @@ zip_data_pipelines(std::vector<data_pipeline> zip)
         throw data_pipeline_error{
             "At least one of the specified data pipelines is broken and cannot be zipped."};
 
-    auto sh = std::make_shared<std::vector<data_pipeline>>(std::move(zip));
+    auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
 
-    auto fc = [sh]() mutable {
-        return std::make_unique<zipped_data_source>(std::move(*sh));
+    auto fc = [tmp]() mutable {
+        return std::make_unique<zipped_data_source>(std::move(*tmp));
     };
 
     return data_pipeline_builder{std::move(fc)};
@@ -321,28 +342,6 @@ round_robin_data_pipelines(std::vector<data_pipeline> pipelines, std::vector<flo
 
     auto fc = [sh, probs=std::move(probs)]() mutable {
         return std::make_unique<round_robin_data_source>(std::move(*sh), std::move(probs));
-    };
-
-    return data_pipeline_builder{std::move(fc)};
-}
-
-
-data_pipeline_builder
-list_files(std::string pathname, std::optional<std::string> pattern)
-{
-    auto fc = [pathname = std::move(pathname), pattern = std::move(pattern)]() {
-        std::vector<data> data;
-
-        try {
-            py_gil_release no_gil{};
-
-            data = detail::list_files(pathname, pattern);
-        } catch (const std::system_error &) {
-            data_pipeline_error::throw_nested(
-                fmt::format("The list of files under '{}' cannot be retrieved.", pathname));
-        }
-
-        return std::make_unique<list_data_source>(std::move(data));
     };
 
     return data_pipeline_builder{std::move(fc)};

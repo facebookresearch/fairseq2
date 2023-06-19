@@ -9,9 +9,11 @@ import pytest
 from fairseq2.data import read_sequence
 
 
-class TestSkipOp:
+class TestReadSequenceOp:
     def test_op_works_as_expected(self) -> None:
-        dp = read_sequence([1, 2, 3, 4, 5, 6, 7, 8, 9]).skip(3).and_return()
+        seq = list(range(1, 10))
+
+        dp = read_sequence(seq).and_return()
 
         for _ in range(2):
             output = []
@@ -19,38 +21,12 @@ class TestSkipOp:
             for d in dp:
                 output.append(d)
 
-            assert output == [4, 5, 6, 7, 8, 9]
-
-            dp.reset()
-
-    def test_op_works_if_count_is_larger_than_data(self) -> None:
-        dp = read_sequence([1, 2, 3]).skip(5).and_return()
-
-        for _ in range(2):
-            output = []
-
-            for d in dp:
-                output.append(d)
-
-            assert output == []
-
-            dp.reset()
-
-    def test_op_works_if_count_is_zero(self) -> None:
-        dp = read_sequence([1, 2, 3]).skip(0).and_return()
-
-        for _ in range(2):
-            output = []
-
-            for d in dp:
-                output.append(d)
-
-            assert output == [1, 2, 3]
+            assert output == seq
 
             dp.reset()
 
     def test_record_reload_position_works_as_expected(self) -> None:
-        dp = read_sequence([1, 2, 3, 4, 5, 6, 7, 8, 9]).skip(3).and_return()
+        dp = read_sequence(list(range(1, 10))).and_return()
 
         d = None
 
@@ -60,21 +36,21 @@ class TestSkipOp:
         for _ in range(2):
             d = next(it)
 
-        assert d == 5
+        assert d == 2
 
         state_dict = dp.state_dict()
 
         # Read a few examples before we roll back.
-        for _ in range(2):
+        for _ in range(4):
             d = next(it)
 
-        assert d == 7
+        assert d == 6
 
         # Expected to roll back to the second example.
         dp.load_state_dict(state_dict)
 
         # Move to EOD.
-        for _ in range(4):
+        for _ in range(7):
             d = next(it)
 
         assert d == 9

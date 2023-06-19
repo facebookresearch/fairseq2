@@ -11,7 +11,7 @@ namespace fairseq2::detail {
 std::optional<data>
 ranged_data_source::next()
 {
-    if (num_examples_read_ == count_)
+    if (num_examples_read_ == num_examples_)
         return std::nullopt;
 
     std::optional<data> d = inner_->next();

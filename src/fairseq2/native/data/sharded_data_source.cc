@@ -13,15 +13,15 @@ sharded_data_source::next()
 {
     for (std::size_t i = 0; i < shard_idx_; i++)
         if (!inner_->next())
-            return {};
+            return std::nullopt;
 
     std::optional<data> d = inner_->next();
     if (!d)
-        return {};
+        return std::nullopt;
 
     for (std::size_t i = 0; i < num_shards_ - shard_idx_ - 1; i++)
         if (!inner_->next())
-            return {};
+            return std::nullopt;
 
     return d;
 }

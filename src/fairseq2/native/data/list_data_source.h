@@ -16,8 +16,8 @@ namespace fairseq2::detail {
 class list_data_source final : public data_source {
 public:
     explicit
-    list_data_source(std::vector<data> &&lst) noexcept
-        : list_(std::move(lst)), iter_{list_.begin()}
+    list_data_source(std::vector<data> &&list) noexcept
+        : list_(std::move(list)), iter_{list_.begin()}
     {}
 
     std::optional<data>
