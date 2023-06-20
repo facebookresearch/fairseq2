@@ -7,22 +7,24 @@
 #pragma once
 
 #include <cstddef>
+#include <limits>
 #include <memory>
 #include <utility>
 
 #include "fairseq2/native/data/data_source.h"
-#include "ATen/core/Generator.h"
-#include "ATen/CPUGeneratorImpl.h"
 
 namespace fairseq2::detail {
 
 class shuffled_data_source final : public data_source {
 public:
     explicit
-    shuffled_data_source(std::unique_ptr<data_source> &&inner, std::size_t buffer_size, std::size_t seed, bool deterministic)
-        : inner_{std::move(inner)}, buffer_(buffer_size > 0 ? buffer_size : 1), deterministic_{deterministic}
+    shuffled_data_source(std::unique_ptr<data_source> &&inner, std::size_t shuffle_window, bool strict)
+        : inner_{std::move(inner)}, strict_{strict}
     {
-        rng_.set_current_seed(seed);
+        if (shuffle_window == 0)
+            shuffle_window_ = std::numeric_limits<std::size_t>::max();
+        else
+            shuffle_window_ = shuffle_window;
     }
 
     std::optional<data>
@@ -38,12 +40,17 @@ public:
     reload_position(tape &t) override;
 
 private:
-    std::unique_ptr<data_source> inner_;
-    at::Generator rng_ = at::make_generator<at::CPUGeneratorImpl>();
-    std::vector<std::optional<data>> buffer_;
-    bool deterministic_;
+    std::size_t
+    random_index() const;
 
-    std::size_t remaining_off_ = 0;
+private:
+    static constexpr std::size_t max_pre_alloc_size_ = 100'000;
+
+    std::unique_ptr<data_source> inner_;
+    std::vector<data> buffer_{};
+    std::size_t shuffle_window_;
+    bool strict_;
+    bool fill_buffer_ = true;
 };
 
 }  // namespace fairseq2::detail

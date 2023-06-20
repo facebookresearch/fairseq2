@@ -6,84 +6,114 @@
 
 #include "fairseq2/native/data/shuffled_data_source.h"
 
-#include <cassert>
+#include <algorithm>
+#include <cstdint>
+#include <mutex>
 
-#include <ATen/Tensor.h>
-#include <ATen/CPUGeneratorImpl.h>
+#include <ATen/Context.h>
+#include <ATen/Generator.h>
 
-#include "fairseq2/native/exception.h"
-
+#include "fairseq2/native/utils/cast.h"
 
 namespace fairseq2::detail {
 
 std::optional<data>
 shuffled_data_source::next()
 {
-    auto rng = rng_.get<at::CPUGeneratorImpl>();
-    std::optional<data> d;
-    while((d = inner_->next())) {
-        std::size_t rand = rng->random64();
-        // TODO: should we force user to have a power of 2 buffer_size ?
-        std::size_t i = (rand >> 1) % buffer_.size();
-        auto old = buffer_[i];
-        if (!old) {
-            // No item in bucket, just insert.
-            buffer_[i] = std::move(d);
-            continue;
+    if (shuffle_window_ == 1)
+        return inner_->next();
+
+    if (fill_buffer_) {
+        // We have an upper limit on the reserved buffer size to avoid OOM
+        // errors.
+        buffer_.reserve(std::min(shuffle_window_, max_pre_alloc_size_));
+
+        for (std::size_t i = 0; i < shuffle_window_; i++) {
+            std::optional<data> d = inner_->next();
+            if (!d)
+                break;
+
+            buffer_.push_back(*std::move(d));
         }
-        // 50% chance of returning the old example already in bucket,
-        // 50% chance of returning the new example.
-        if ((bool)(rand & 1)) return d;
-        data x = std::move(*old);
-        buffer_[i] = std::move(d);
-        return x;
+
+        fill_buffer_ = false;
     }
 
-    while (remaining_off_ < buffer_.size()) {
-        d = buffer_[remaining_off_++];
-        if (!d) continue;
-        return std::move(*d);
+    if (buffer_.empty())
+        return std::nullopt;
+
+    // Pick an index from a uniform distribution.
+    std::size_t idx = random_index();
+
+    data &element = buffer_[idx];
+
+    data output = std::move(element);
+
+    // Fill the position of the moved element with a new example.
+    std::optional<data> d = inner_->next();
+    if (d) {
+        element = *std::move(d);
+    } else {
+        // If we can't fill the position with a new example, it means we reached
+        // the end of data; start shrinking the size of the buffer.
+        element = std::move(buffer_.back());
+
+        buffer_.pop_back();
     }
 
-    return {};
+    return output;
 }
 
 void
 shuffled_data_source::reset()
 {
+    buffer_.clear();
+
+    fill_buffer_ = true;
+
     inner_->reset();
-    remaining_off_ = 0;
-    for (auto &buff: buffer_)
-        buff = std::nullopt;
 }
 
 void
 shuffled_data_source::record_position(tape &t) const
 {
-    inner_->record_position(t);
-    t.record(deterministic_);
-    if (!deterministic_) return;
+    if (strict_) {
+        t.record(buffer_);
 
-    t.record(rng_.get_state());
-    t.record(buffer_.size());
-    t.record(remaining_off_);
-    for (std::size_t i = remaining_off_; i < buffer_.size(); ++i)
-        t.record(buffer_[i]);
+        t.record(fill_buffer_);
+    }
+
+    inner_->record_position(t);
 }
 
 void
 shuffled_data_source::reload_position(tape &t)
 {
-    inner_->reload_position(t);
-    deterministic_ = t.read<bool>();
-    if (!deterministic_) return;
+    if (strict_) {
+        buffer_ = t.read<std::vector<data>>();
 
-    rng_.set_state(t.read<at::Tensor>());
-    auto buffer_size = t.read<std::size_t>();
-    assert(buffer_size == buffer_.size());
-    remaining_off_ = t.read<std::size_t>();
-    for (std::size_t i = remaining_off_; i < buffer_size; ++i)
-        buffer_[i] = t.read<std::optional<data>>();
+        fill_buffer_ = t.read<bool>();
+    } else {
+        buffer_.clear();
+
+        fill_buffer_ = true;
+    }
+
+    inner_->reload_position(t);
+}
+
+std::size_t
+shuffled_data_source::random_index() const
+{
+    at::Generator gen = at::globalContext().defaultGenerator(at::kCPU);
+
+    std::lock_guard<std::mutex> gen_lock{gen.mutex()};
+
+    auto *cpu_gen = at::check_generator<at::CPUGeneratorImpl>(gen);
+
+    std::uint64_t nr = cpu_gen->random64();
+
+    return conditional_cast<std::size_t>(nr) % buffer_.size();
 }
 
 }  // namespace fairseq2::detail

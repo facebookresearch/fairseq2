@@ -112,7 +112,7 @@ public:
     shard(std::size_t shard_idx, std::size_t num_shards) &&;
 
     data_pipeline_builder &&
-    shuffle(std::size_t buffer_size, std::size_t seed, bool deterministic) &&;
+    shuffle(std::size_t shuffle_window, bool strict) &&;
 
     data_pipeline_builder &&
     skip(std::size_t num_examples) &&;

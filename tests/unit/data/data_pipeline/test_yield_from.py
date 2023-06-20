@@ -21,12 +21,7 @@ class TestYieldFromOp:
         dp = read_sequence([[1, 5], [9, 14]]).yield_from(fn).and_return()
 
         for _ in range(2):
-            output = []
-
-            for d in dp:
-                output.append(d)
-
-            assert output == [1, 2, 3, 4, 9, 10, 11, 12, 13]
+            assert list(dp) == [1, 2, 3, 4, 9, 10, 11, 12, 13]
 
             dp.reset()
 

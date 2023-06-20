@@ -18,12 +18,7 @@ class TestZipDataPipelinesOp:
         zdp = zip_data_pipelines([dp1, dp2, dp3]).and_return()
 
         for _ in range(2):
-            output = []
-
-            for d in zdp:
-                output.append(d)
-
-            assert output == [[1, 5, 0], [2, 6, 2], [3, 7, 4], [4, 8, 6]]
+            assert list(zdp) == [[1, 5, 0], [2, 6, 2], [3, 7, 4], [4, 8, 6]]
 
             zdp.reset()
 
@@ -33,12 +28,7 @@ class TestZipDataPipelinesOp:
         zdp = zip_data_pipelines([dp1]).and_return()
 
         for _ in range(2):
-            output = []
-
-            for d in zdp:
-                output.append(d)
-
-            assert output == [[1], [2], [3], [4]]
+            assert list(zdp) == [[1], [2], [3], [4]]
 
             zdp.reset()
 
@@ -71,12 +61,7 @@ class TestZipDataPipelinesOp:
         zdp = zip_data_pipelines([dp1, dp2, dp3], warn_only=True).and_return()
 
         for _ in range(2):
-            output = []
-
-            for d in zdp:
-                output.append(d)
-
-            assert output == [[1, 5, 0], [2, 6, 2], [3, 7, 4]]
+            assert list(zdp) == [[1, 5, 0], [2, 6, 2], [3, 7, 4]]
 
             # TODO: assert that warning is printed.
 

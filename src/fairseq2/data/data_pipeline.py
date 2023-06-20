@@ -113,18 +113,21 @@ if TYPE_CHECKING or _DOC_MODE:
             """
 
         def shuffle(
-            self, buffer_size: int, seed: int = 0, deterministic: bool = False
+            self, shuffle_window: int, strict: bool = True
         ) -> "DataPipelineBuilder":
-            """Shuffle elements using a fixed sized buffer.
+            """Shuffle examples using a fixed sized buffer.
 
-            :param buffer_size:
-                Intermediate buffer used for shuffling.
-            :param seed:
-                Seed of the RNG used by the shuffle operation
-            :param deterministic:
-                In deterministic mode, we will fully save all the state of the buffer when checkpointing.
-                This ensures that on preemption restart no sample will be lost.
-                This can be expensive for large shuffle size.
+            :param shuffle_window:
+                The size of the intermediate buffer used for shuffling. Examples
+                will be randomly sampled from this buffer, and selected examples
+                will be replaced with new examples. If ``0``, all examples will
+                be loaded into memory for full shuffling.
+            :param strict:
+                If ``True``, the intermediate shuffle buffer will be saved as
+                part of ``state_dict``. This ensures that on preemption no
+                example will be lost, but for large buffers this can
+                significantly increase the state size and the time to restore
+                the data pipeline.
             """
 
         def skip(self, num_examples: int) -> "DataPipelineBuilder":

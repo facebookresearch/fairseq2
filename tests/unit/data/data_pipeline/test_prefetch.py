@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from itertools import islice
+
 import pytest
 
 from fairseq2.data import read_sequence
@@ -17,12 +19,7 @@ class TestPrefetchOp:
         dp = read_sequence(seq).prefetch(num_examples).and_return()
 
         for _ in range(2):
-            output = []
-
-            for d in dp:
-                output.append(d)
-
-            assert output == seq
+            assert list(dp) == seq
 
             dp.reset()
 
@@ -33,14 +30,7 @@ class TestPrefetchOp:
         dp = read_sequence(seq).prefetch(num_examples).and_return()
 
         for _ in range(2):
-            it = iter(dp)
-
-            output = []
-
-            for c in range(50):
-                output.append(next(it))
-
-            assert output == seq[:50]
+            assert list(islice(dp, 50)) == seq[:50]
 
             dp.reset()
 
@@ -49,12 +39,7 @@ class TestPrefetchOp:
         dp = read_sequence([]).prefetch(num_examples).and_return()
 
         for _ in range(2):
-            output = []
-
-            for d in dp:
-                output.append(d)
-
-            assert output == []
+            assert list(dp) == []
 
             dp.reset()
 

@@ -14,36 +14,21 @@ class TestShardOp:
         dp = read_sequence(list(range(1, 23))).shard(1, 5).and_return()
 
         for _ in range(2):
-            output = []
-
-            for d in dp:
-                output.append(d)
-
-            assert output == [2, 7, 12, 17]
+            assert list(dp) == [2, 7, 12, 17]
 
             dp.reset()
 
         dp = read_sequence(list(range(1, 23))).shard(4, 5).and_return()
 
         for _ in range(2):
-            output = []
-
-            for d in dp:
-                output.append(d)
-
-            assert output == [5, 10, 15, 20]
+            assert list(dp) == [5, 10, 15, 20]
 
             dp.reset()
 
         dp = read_sequence(list(range(1, 4))).shard(0, 5).and_return()
 
         for _ in range(2):
-            output = []
-
-            for d in dp:
-                output.append(d)
-
-            assert output == []
+            assert list(dp) == []
 
             dp.reset()
 

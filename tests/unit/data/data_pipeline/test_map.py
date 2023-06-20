@@ -18,12 +18,7 @@ class TestMapOp:
         dp = read_sequence([1, 2, 3, 4]).map(fn, num_parallel_calls).and_return()
 
         for _ in range(2):
-            output = []
-
-            for d in dp:
-                output.append(d)
-
-            assert output == [1, 4, 9, 16]
+            assert list(dp) == [1, 4, 9, 16]
 
             dp.reset()
 

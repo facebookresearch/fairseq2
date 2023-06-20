@@ -214,15 +214,14 @@ def_data_pipeline(py::module_ &base)
             py::arg("shard_idx"),
             py::arg("num_shards"))
         .def("shuffle",
-            [](data_pipeline_builder &self, std::size_t buffer_size, std::size_t seed, bool deterministic) -> data_pipeline_builder &
+            [](data_pipeline_builder &self, std::size_t shuffle_window, bool strict) -> data_pipeline_builder &
             {
-                self = std::move(self).shuffle(buffer_size, seed, deterministic);
+                self = std::move(self).shuffle(shuffle_window, strict);
 
                 return self;
             },
-            py::arg("buffer_size"),
-            py::arg("seed") = 0,
-            py::arg("deterministic") = false)
+            py::arg("shuffle_window"),
+            py::arg("strict") = true)
         .def("skip",
             [](data_pipeline_builder &self, std::size_t num_examples) -> data_pipeline_builder &
             {

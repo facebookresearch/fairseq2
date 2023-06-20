@@ -14,12 +14,7 @@ class TestTakeOp:
         dp = read_sequence([1, 2, 3, 4, 5, 6, 7, 8, 9]).take(5).and_return()
 
         for _ in range(2):
-            output = []
-
-            for d in dp:
-                output.append(d)
-
-            assert output == [1, 2, 3, 4, 5]
+            assert list(dp) == [1, 2, 3, 4, 5]
 
             dp.reset()
 
@@ -27,12 +22,7 @@ class TestTakeOp:
         dp = read_sequence([1, 2, 3]).take(5).and_return()
 
         for _ in range(2):
-            output = []
-
-            for d in dp:
-                output.append(d)
-
-            assert output == [1, 2, 3]
+            assert list(dp) == [1, 2, 3]
 
             dp.reset()
 
@@ -40,12 +30,7 @@ class TestTakeOp:
         dp = read_sequence([1, 2, 3]).take(0).and_return()
 
         for _ in range(2):
-            output = []
-
-            for d in dp:
-                output.append(d)
-
-            assert output == []
+            assert list(dp) == []
 
             dp.reset()
 

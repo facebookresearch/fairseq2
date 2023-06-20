@@ -223,10 +223,10 @@ data_pipeline_builder::shard(std::size_t shard_idx, std::size_t num_shards) &&
 }
 
 data_pipeline_builder &&
-data_pipeline_builder::shuffle(std::size_t buffer_size, std::size_t seed, bool deterministic) &&
+data_pipeline_builder::shuffle(std::size_t shuffle_window, bool strict) &&
 {
     factory_ = [=, inner = std::move(factory_)]() {
-        return std::make_unique<shuffled_data_source>(inner(), buffer_size, seed, deterministic);
+        return std::make_unique<shuffled_data_source>(inner(), shuffle_window, strict);
     };
 
     return std::move(*this);

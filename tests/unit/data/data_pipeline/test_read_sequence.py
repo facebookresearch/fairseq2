@@ -16,12 +16,7 @@ class TestReadSequenceOp:
         dp = read_sequence(seq).and_return()
 
         for _ in range(2):
-            output = []
-
-            for d in dp:
-                output.append(d)
-
-            assert output == seq
+            assert list(dp) == seq
 
             dp.reset()
 
