@@ -6,32 +6,24 @@
 
 #include "fairseq2/native/data/prefetched_data_source.h"
 
-#include <iostream>
+#include "fairseq2/native/data/detail/thread.h"
+
 namespace fairseq2::detail {
 
 prefetched_data_source::~prefetched_data_source()
 {
-    stop_prefetch();
+    stop_prefetch_thread();
 }
 
 std::optional<data>
 prefetched_data_source::next()
 {
-    //               ┌──────────< next() <─────────┐
-    //               │                             │
-    //               │                             │
-    //           Fill Queue                    Read Queue
-    //               │                             │
-    //               │                             │
-    //               └─────>  Background Thr >─────┘
-    //
-    // The next() function pops the examples available in the read queue and
-    // swaps the read and fill queues once the read queue is empty. In parallel,
-    // the background thread continuously pushes examples read from inner_ to
-    // the fill queue.
-
+    // We pop and return examples from the read queue until we drain it and
+    // then swap it with the fill queue. In parallel, the background thread
+    // continuously pushes examples read from inner data source to the fill
+    // queue.
     if (next_queue_.empty()) {
-        ensure_prefetch_running();
+        ensure_prefetch_thread_running();
 
         {
             std::unique_lock<std::mutex> queue_lock{queue_mutex_};
@@ -62,14 +54,15 @@ prefetched_data_source::next()
 void
 prefetched_data_source::reset()
 {
-    stop_prefetch();
+    stop_prefetch_thread();
+
+    if (state_ == prefetch_state::faulted)
+        std::rethrow_exception(exception_ptr_);
 
     state_ = prefetch_state::not_running;
 
     fill_queue_.clear();
     next_queue_.clear();
-
-    exception_ptr_ = {};
 
     inner_->reset();
 }
@@ -77,11 +70,16 @@ prefetched_data_source::reset()
 void
 prefetched_data_source::record_position(tape &t) const
 {
-    // Prevent items being added / removed from queue while we save them.
-    // https://github.com/fairinternal/fairseq2/pull/381
-    std::unique_lock<std::mutex> queue_lock{queue_mutex_};
+    stop_prefetch_thread();
 
-    // TODO: Save read and fill queues.
+    if (state_ == prefetch_state::faulted)
+        std::rethrow_exception(exception_ptr_);
+
+    std::vector<data> fill_buffer{fill_queue_.begin(), fill_queue_.end()};
+    std::vector<data> next_buffer{next_queue_.begin(), next_queue_.end()};
+
+    t.record(fill_buffer);
+    t.record(next_buffer);
 
     inner_->record_position(t);
 }
@@ -89,30 +87,41 @@ prefetched_data_source::record_position(tape &t) const
 void
 prefetched_data_source::reload_position(tape &t)
 {
-    stop_prefetch();
+    stop_prefetch_thread();
 
-    // TODO: Load read and fill queues.
+    if (state_ == prefetch_state::faulted)
+        std::rethrow_exception(exception_ptr_);
+
+    state_ = prefetch_state::not_running;
+
+    auto fill_buffer = t.read<std::vector<data>>();
+    auto next_buffer = t.read<std::vector<data>>();
+
+    fill_queue_.assign(fill_buffer.begin(), fill_buffer.end());
+    next_queue_.assign(next_buffer.begin(), next_buffer.end());
 
     inner_->reload_position(t);
 }
 
 void
-prefetched_data_source::ensure_prefetch_running()
+prefetched_data_source::ensure_prefetch_thread_running()
 {
-    if (state_ != prefetch_state::not_running)
+    if (state_ == prefetch_state::eod || state_ == prefetch_state::faulted)
+        return;
+
+    if (prefetch_thread_.joinable())
         return;
 
     state_ = prefetch_state::running;
 
-    // TODO: signals
-    prefetch_thread_ = std::thread{&prefetched_data_source::prefetch, this};
+    prefetch_thread_ = start_thread(&prefetched_data_source::prefetch, this);
 }
 
 void
 prefetched_data_source::prefetch()
 {
     while (state_ == prefetch_state::running) {
-        std::optional<data> d;
+        std::optional<data> d{};
         try {
             d = inner_->next();
         } catch (const std::exception &) {
@@ -143,9 +152,9 @@ prefetched_data_source::prefetch()
 }
 
 void
-prefetched_data_source::stop_prefetch() const noexcept
+prefetched_data_source::stop_prefetch_thread() const noexcept
 {
-    if (state_ == prefetch_state::not_running)
+    if (!prefetch_thread_.joinable())
         return;
 
     {

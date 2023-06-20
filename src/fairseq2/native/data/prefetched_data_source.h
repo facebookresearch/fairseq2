@@ -48,13 +48,13 @@ public:
 
 private:
     void
-    ensure_prefetch_running();
+    ensure_prefetch_thread_running();
 
     void
     prefetch();
 
     void
-    stop_prefetch() const noexcept;
+    stop_prefetch_thread() const noexcept;
 
 private:
     enum class prefetch_state { not_running, running, eod, faulted };

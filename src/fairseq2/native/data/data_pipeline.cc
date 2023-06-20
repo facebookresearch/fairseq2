@@ -92,7 +92,13 @@ data_pipeline::record_position(tape &t) const
         {
             py_gil_release no_gil{};
 
-            src_->record_position(t);
+            try {
+                src_->record_position(t);
+            } catch (...) {
+                is_broken_ = true;
+
+                throw;
+            }
         }
     } else
         t.record(false);

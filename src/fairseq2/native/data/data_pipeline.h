@@ -69,7 +69,7 @@ private:
 private:
     data_source_factory factory_{};
     std::unique_ptr<data_source> src_{};
-    bool is_broken_ = false;
+    mutable bool is_broken_ = false;
 };
 
 using map_fn = std::function<data(data &&)>;
