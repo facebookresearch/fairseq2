@@ -11,9 +11,8 @@ from fairseq2.data.text.dict_tokenizer import DictTokenizer as DictTokenizer
 from fairseq2.data.text.multilingual_tokenizer import (
     MultilingualTokenizer as MultilingualTokenizer,
 )
-from fairseq2.data.text.read import LineEnding as LineEnding
-from fairseq2.data.text.read import TextSplitter as TextSplitter
-from fairseq2.data.text.read import read_text as read_text
+from fairseq2.data.text.reader import LineEnding as LineEnding
+from fairseq2.data.text.reader import read_text as read_text
 from fairseq2.data.text.sentencepiece import (
     SentencePieceDecoder as SentencePieceDecoder,
 )

@@ -8,7 +8,6 @@
 
 #include <functional>
 #include <memory>
-#include <stdexcept>
 
 #include <gtest/gtest.h>
 
@@ -31,52 +30,4 @@ TEST(test_immutable_string, copy_constructor_shares_memory)
     immutable_string s2 = s1;  // NOLINT(performance-unnecessary-copy-initialization)
 
     EXPECT_EQ(s1.data(), s2.data());
-}
-
-TEST(test_imutable_string, to_int32_postive_integers)
-{
-    immutable_string s1 = "123";
-    EXPECT_EQ(s1.to_int32(), 123);
-
-    immutable_string s2 = "3195";
-    EXPECT_EQ(s2.to_int32(), 3195);
-
-    immutable_string s3 = "0";
-    EXPECT_EQ(s3.to_int32(), 0);
-
-    immutable_string s4 = "7";
-    EXPECT_EQ(s4.to_int32(), 7);
-
-    immutable_string s5 = "193747";
-    EXPECT_EQ(s5.to_int32(), 193747);
-}
-
-TEST(test_imutable_string, to_int32_negative_integers)
-{
-    immutable_string s1 = "-123";
-    EXPECT_EQ(s1.to_int32(), -123);
-
-    immutable_string s2 = "-3195";
-    EXPECT_EQ(s2.to_int32(), -3195);
-
-    immutable_string s3 = "-0";
-    EXPECT_EQ(s3.to_int32(), 0);
-
-    immutable_string s4 = "-7";
-    EXPECT_EQ(s4.to_int32(), -7);
-
-    immutable_string s5 = "-193747";
-    EXPECT_EQ(s5.to_int32(), -193747);
-}
-
-TEST(test_imutable_string, to_int32_throws_at_bad_format)
-{
-    immutable_string s1 = "123x4";
-    EXPECT_THROW(s1.to_int32(), std::runtime_error);
-
-    immutable_string s2 = " ";
-    EXPECT_THROW(s2.to_int32(), std::runtime_error);
-
-    immutable_string s3 = "a1234";
-    EXPECT_THROW(s3.to_int32(), std::runtime_error);
 }

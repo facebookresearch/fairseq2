@@ -11,18 +11,18 @@
 
 namespace fairseq2 {
 
-class FAIRSEQ2_API text_splitter final : public data_processor {
+class FAIRSEQ2_API str_splitter final : public data_processor {
 public:
     explicit
-    text_splitter(char separator = '\t') noexcept
-        : separator_{separator}
+    str_splitter(char sep = '\t') noexcept
+        : sep_{sep}
     {}
 
     data
     operator()(data &&d) const override;
 
 private:
-    char separator_;
+    char sep_;
 };
 
 }  // namespace fairseq2

@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from enum import Enum
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Optional
 
 from fairseq2 import _DOC_MODE
 from fairseq2.data.data_pipeline import DataPipelineBuilder
@@ -30,20 +30,12 @@ if TYPE_CHECKING or _DOC_MODE:
     ) -> DataPipelineBuilder:
         ...
 
-    class TextSplitter:
-        def __init__(self, sep: str = "\t") -> None:
-            ...
-
-        def __call__(self, s: StringLike) -> List[StringLike]:
-            ...
-
 else:
     from fairseq2.C.data.text import LineEnding as LineEnding
-    from fairseq2.C.data.text import TextSplitter as TextSplitter
     from fairseq2.C.data.text import read_text as read_text
 
     def _set_module_name() -> None:
-        for t in [LineEnding, TextSplitter, read_text]:
+        for t in [LineEnding, read_text]:
             t.__module__ = __name__
 
     _set_module_name()

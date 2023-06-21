@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cstddef>
+#include <cstdint>
 #include <exception>
 #include <functional>
 #include <iterator>
@@ -28,6 +29,8 @@
 #include <fairseq2/native/data/record_reader.h>
 #include <fairseq2/native/data/stream.h>
 #include <fairseq2/native/data/tape.h>
+#include <fairseq2/native/data/processors/str_splitter.h>
+#include <fairseq2/native/data/processors/str_to_tensor_converter.h>
 #include <fairseq2/native/utils/cast.h>
 #include <fairseq2/native/utils/string.h>
 
@@ -386,6 +389,28 @@ def_memory(py::module_ &base)
 }
 
 void
+def_processors(py::module_ &base)
+{
+    py::module_ m = base.def_submodule("processors");
+
+    py::class_<str_splitter, data_processor>(m, "StrSplitter")
+        .def(py::init(
+            [](std::string_view sep)
+            {
+                if (sep.size() != 1)
+                    throw std::invalid_argument{"`sep` must have a length of 1."};
+
+                return str_splitter{sep[0]};
+            }),
+            py::arg("sep") = '\t');
+
+    py::class_<str_to_tensor_converter, data_processor>(m, "StrToTensorConverter")
+        .def(py::init<std::optional<std::vector<std::int64_t>>, std::optional<at::ScalarType>>(),
+            py::arg("size") = std::nullopt,
+            py::arg("dtype") = std::nullopt);
+}
+
+void
 def_string(py::module_ &base)
 {
     py::module_ m = base.def_submodule("string");
@@ -478,6 +503,8 @@ def_data(py::module_ &base)
     def_data_pipeline(m);
 
     def_memory(m);
+
+    def_processors(m);
 
     def_string(m);
 

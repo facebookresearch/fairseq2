@@ -42,12 +42,12 @@ target_sources(fairseq2
         data/zipped_data_source.cc
         data/detail/file.cc
         data/detail/file_system.cc
+        data/processors/str_splitter.cc
+        data/processors/str_to_tensor_converter.cc
         data/text/text.cc
         data/text/text_data_source.cc
         data/text/text_line_reader.cc
-        data/text/text_splitter.cc
         data/text/utf8_stream.cc
-        data/text/detail/string_utils.cc
         data/text/detail/utf.cc
         data/text/dicttokenizer/dict_encoder.cc
         data/text/dicttokenizer/dict_decoder.cc
