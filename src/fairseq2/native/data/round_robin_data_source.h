@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <cstddef>
+#include <utility>
 #include <vector>
 
 #include "fairseq2/native/data/data_pipeline.h"
@@ -13,17 +15,13 @@
 
 namespace fairseq2::detail {
 
-/// @brief round robin on a list of datasources - the round always ends with the first element of the biggest datasource.
 class round_robin_data_source final : public data_source {
 public:
     explicit
-    round_robin_data_source(std::vector<data_pipeline> &&pipelines, std::vector<float> &&probs = {}) noexcept
-        : data_pipelines_(std::move(pipelines))
+    round_robin_data_source(std::vector<data_pipeline> &&pipelines)
+        : pipelines_(std::move(pipelines)), epoch_done_(pipelines_.size())
     {
-        probs_ = std::move(probs);
-        index_ = 0;
-        epoch_done_ = std::vector<bool>(data_pipelines_.size(), false);
-        pipelines_count_ = data_pipelines_.size();
+        buffer_.reserve(pipelines_.size());
     }
 
     std::optional<data>
@@ -39,15 +37,15 @@ public:
     reload_position(tape &t) override;
 
 private:
-    std::vector<data_pipeline> data_pipelines_;
-    std::vector<float> probs_;
-    std::vector<bool> epoch_done_;
-    std::size_t index_;
-    std::size_t pipelines_count_;
+    std::optional<data>
+    next_in_pipeline(std::size_t pipeline_idx);
 
-    std::vector<std::size_t> get_split_by_pipeline(std::size_t num_examples) const;
-    void reset_pipeline(std::size_t pipeline_index);
-    bool all_datasources_done();
+private:
+    std::vector<data_pipeline> pipelines_;
+    std::vector<std::optional<data>> buffer_{};
+    std::size_t buffer_idx_ = 0;
+    std::vector<bool> epoch_done_;
+    bool eod_ = false;
 };
 
 }  // namespace fairseq2::detail

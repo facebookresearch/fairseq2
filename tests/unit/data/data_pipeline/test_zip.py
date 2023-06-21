@@ -6,16 +6,16 @@
 
 import pytest
 
-from fairseq2.data import DataPipelineError, read_sequence, zip_data_pipelines
+from fairseq2.data import DataPipeline, DataPipelineError, read_sequence
 
 
-class TestZipDataPipelinesOp:
+class TestZipOp:
     def test_op_works_as_expected(self) -> None:
         dp1 = read_sequence([1, 2, 3, 4]).and_return()
         dp2 = read_sequence([5, 6, 7, 8]).and_return()
         dp3 = read_sequence([0, 2, 4, 6]).and_return()
 
-        zdp = zip_data_pipelines([dp1, dp2, dp3]).and_return()
+        zdp = DataPipeline.zip([dp1, dp2, dp3]).and_return()
 
         for _ in range(2):
             assert list(zdp) == [[1, 5, 0], [2, 6, 2], [3, 7, 4], [4, 8, 6]]
@@ -25,7 +25,7 @@ class TestZipDataPipelinesOp:
     def test_op_works_as_expected_with_single_data_pipeline(self) -> None:
         dp1 = read_sequence([1, 2, 3, 4]).and_return()
 
-        zdp = zip_data_pipelines([dp1]).and_return()
+        zdp = DataPipeline.zip([dp1]).and_return()
 
         for _ in range(2):
             assert list(zdp) == [[1], [2], [3], [4]]
@@ -33,7 +33,7 @@ class TestZipDataPipelinesOp:
             zdp.reset()
 
     def test_op_works_as_expected_with_no_data_pipeline(self) -> None:
-        zdp = zip_data_pipelines([]).and_return()
+        zdp = DataPipeline.zip([]).and_return()
 
         for _ in range(2):
             with pytest.raises(StopIteration):
@@ -45,7 +45,7 @@ class TestZipDataPipelinesOp:
         dp1 = read_sequence([1, 2, 3]).and_return()
         dp2 = read_sequence([5, 6, 7, 8]).and_return()
 
-        zdp = zip_data_pipelines([dp1, dp2]).and_return()
+        zdp = DataPipeline.zip([dp1, dp2]).and_return()
 
         with pytest.raises(
             DataPipelineError, match=r"^The zipped data pipelines are expected"
@@ -58,7 +58,7 @@ class TestZipDataPipelinesOp:
         dp2 = read_sequence([5, 6, 7]).and_return()
         dp3 = read_sequence([0, 2, 4, 6]).and_return()
 
-        zdp = zip_data_pipelines([dp1, dp2, dp3], warn_only=True).and_return()
+        zdp = DataPipeline.zip([dp1, dp2, dp3], warn_only=True).and_return()
 
         for _ in range(2):
             assert list(zdp) == [[1, 5, 0], [2, 6, 2], [3, 7, 4]]
@@ -72,7 +72,7 @@ class TestZipDataPipelinesOp:
         dp2 = read_sequence([5, 6, 7, 8]).and_return()
         dp3 = read_sequence([0, 2, 4, 6]).and_return()
 
-        zdp = zip_data_pipelines([dp1, dp2, dp3]).and_return()
+        zdp = DataPipeline.zip([dp1, dp2, dp3]).and_return()
 
         d = None
 

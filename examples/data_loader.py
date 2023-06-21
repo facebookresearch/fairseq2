@@ -5,7 +5,7 @@ from typing import Any, Dict
 import torch
 from torch import Tensor
 
-from fairseq2.data import DataPipeline, StringLike, list_files, zip_data_pipelines
+from fairseq2.data import DataPipeline, StringLike, list_files
 from fairseq2.data.text import SentencePieceEncoder, SentencePieceModel, read_text
 from fairseq2.typing import Device
 
@@ -112,7 +112,7 @@ def build_data_pipeline(
     tgt_dp = build_lang_pipeline(split, tgt_lang, encoder)
 
     # And finally zip both language pipelines into one.
-    return zip_data_pipelines([src_dp, tgt_dp]).prefetch(10).and_return()
+    return DataPipeline.zip([src_dp, tgt_dp]).prefetch(10).and_return()
 
 
 dp = build_data_pipeline(src_lang="en", tgt_lang="de", split="train")

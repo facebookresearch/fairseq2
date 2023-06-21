@@ -24,6 +24,8 @@ namespace fairseq2 {
 
 using data_source_factory = std::function<std::unique_ptr<data_source>()>;
 
+class data_pipeline_builder;
+
 class FAIRSEQ2_API data_pipeline {
     friend class data_pipeline_builder;
 
@@ -47,6 +49,13 @@ public:
     {
         return is_broken_;
     }
+
+public:
+    static data_pipeline_builder
+    zip(std::vector<data_pipeline> pipelines, bool warn_only = false, bool disable_parallelism = false);
+
+    static data_pipeline_builder
+    round_robin(std::vector<data_pipeline> pipelines);
 
 private:
     explicit
@@ -161,11 +170,5 @@ list_files(std::string pathname, std::optional<std::string> pattern = {});
 
 FAIRSEQ2_API data_pipeline_builder
 read_list(std::vector<data> list);
-
-FAIRSEQ2_API data_pipeline_builder
-zip_data_pipelines(std::vector<data_pipeline> pipelines, bool warn_only = false, bool disable_parallelism = false);
-
-FAIRSEQ2_API data_pipeline_builder
-round_robin_data_pipelines(std::vector<data_pipeline> pipelines, std::vector<float> probs = {});
 
 }  // namespace fairseq2

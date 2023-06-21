@@ -262,6 +262,46 @@ data_pipeline_builder::yield_from(yield_fn fn) &&
     return std::move(*this);
 }
 
+data_pipeline_builder
+data_pipeline::zip(std::vector<data_pipeline> pipelines, bool warn_only, bool disable_parallelism)
+{
+    bool is_broken = std::any_of(pipelines.begin(), pipelines.end(), [](const data_pipeline &dp) {
+        return dp.is_broken();
+    });
+
+    if (is_broken)
+        throw data_pipeline_error{
+            "At least one of the specified data pipelines is broken and cannot be zipped."};
+
+    auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
+
+    auto fc = [tmp, warn_only, disable_parallelism]() mutable {
+        return std::make_unique<zipped_data_source>(std::move(*tmp), warn_only, disable_parallelism);
+    };
+
+    return data_pipeline_builder{std::move(fc)};
+}
+
+data_pipeline_builder
+data_pipeline::round_robin(std::vector<data_pipeline> pipelines)
+{
+    bool is_broken = std::any_of(pipelines.begin(), pipelines.end(), [](const data_pipeline &dp) {
+        return dp.is_broken();
+    });
+
+    if (is_broken)
+        throw data_pipeline_error{
+            "At least one of the specified data pipelines is broken and cannot be used in round robin."};
+
+    auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
+
+    auto fc = [tmp]() mutable {
+        return std::make_unique<round_robin_data_source>(std::move(*tmp));
+    };
+
+    return data_pipeline_builder{std::move(fc)};
+}
+
 data_pipeline
 data_pipeline_builder::and_return() &&
 {
@@ -308,46 +348,6 @@ read_list(std::vector<data> list)
 {
     auto fc = [list = std::move(list)]() mutable {
         return std::make_unique<list_data_source>(std::move(list));
-    };
-
-    return data_pipeline_builder{std::move(fc)};
-}
-
-data_pipeline_builder
-zip_data_pipelines(std::vector<data_pipeline> pipelines, bool warn_only, bool disable_parallelism)
-{
-    bool is_broken = std::any_of(pipelines.begin(), pipelines.end(), [](const data_pipeline &dp) {
-        return dp.is_broken();
-    });
-
-    if (is_broken)
-        throw data_pipeline_error{
-            "At least one of the specified data pipelines is broken and cannot be zipped."};
-
-    auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
-
-    auto fc = [tmp, warn_only, disable_parallelism]() mutable {
-        return std::make_unique<zipped_data_source>(std::move(*tmp), warn_only, disable_parallelism);
-    };
-
-    return data_pipeline_builder{std::move(fc)};
-}
-
-data_pipeline_builder
-round_robin_data_pipelines(std::vector<data_pipeline> pipelines, std::vector<float> probs)
-{
-    bool is_broken = std::any_of(pipelines.begin(), pipelines.end(), [](const data_pipeline &dp) {
-        return dp.is_broken();
-    });
-
-    if (is_broken)
-        throw data_pipeline_error{
-            "At least one of the specified data pipelines is broken and cannot be used in round robin."};
-
-    auto sh = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
-
-    auto fc = [sh, probs=std::move(probs)]() mutable {
-        return std::make_unique<round_robin_data_source>(std::move(*sh), std::move(probs));
     };
 
     return data_pipeline_builder{std::move(fc)};

@@ -57,6 +57,31 @@ if TYPE_CHECKING or _DOC_MODE:
                 keys returned by :meth:`state_dict`.
             """
 
+        @staticmethod
+        def zip(
+            pipelines: Sequence["DataPipeline"],
+            warn_only: bool = False,
+            disable_parallelism: bool = False,
+        ) -> "DataPipelineBuilder":
+            """Zip together examples read from ``pipelines``.
+
+            :param pipelines:
+                The data pipelines to zip.
+            :param warn_only:
+                If ``True``, prints a warning, instead of raising an error, when the
+                data pipelines do not have equal length.
+            :param disable_parallelism:
+                If ``True``, calls each data pipeline sequentially.
+            """
+
+        @staticmethod
+        def round_robin(pipelines: Sequence["DataPipeline"]) -> "DataPipelineBuilder":
+            """Extract examples from ``pipelines`` in round robin.
+
+            :param pipelines:
+                The data pipelines to round robin.
+            """
+
     class DataPipelineBuilder:
         def batch(
             self,
@@ -182,31 +207,6 @@ if TYPE_CHECKING or _DOC_MODE:
     def read_zipped_records(pathname: PathLike) -> DataPipelineBuilder:
         ...
 
-    def round_robin_data_pipelines(
-        data_pipelines: Sequence[DataPipeline], probs: List[float] = []
-    ) -> "DataPipelineBuilder":
-        """Do a round robin on all pipelines.
-
-        :param data_pipelines:
-            The data pipelines to round robin.
-        """
-
-    def zip_data_pipelines(
-        pipelines: Sequence[DataPipeline],
-        warn_only: bool = False,
-        disable_parallelism: bool = False,
-    ) -> "DataPipelineBuilder":
-        """Zip together examples read from ``pipelines``.
-
-        :param pipelines:
-            The data pipelines to zip.
-        :param warn_only:
-            If ``True``, prints a warning, instead of raising an error, when the
-            data pipelines do not have equal length.
-        :param disable_parallelism:
-            If ``True``, calls each data pipeline sequentially.
-        """
-
     class StreamError(RuntimeError):
         """Raised when a dataset cannot be read."""
 
@@ -222,10 +222,6 @@ else:
     from fairseq2.C.data.data_pipeline import list_files as list_files
     from fairseq2.C.data.data_pipeline import read_sequence as read_sequence
     from fairseq2.C.data.data_pipeline import read_zipped_records as read_zipped_records
-    from fairseq2.C.data.data_pipeline import (
-        round_robin_data_pipelines as round_robin_data_pipelines,
-    )
-    from fairseq2.C.data.data_pipeline import zip_data_pipelines as zip_data_pipelines
 
     def _set_module_name() -> None:
         ctypes = [
@@ -237,8 +233,6 @@ else:
             list_files,
             read_sequence,
             read_zipped_records,
-            zip_data_pipelines,
-            round_robin_data_pipelines,
         ]
 
         for t in ctypes:

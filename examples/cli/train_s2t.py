@@ -272,7 +272,7 @@ def load_data_from_manifest(
 
     device = env.device
     return (
-        data.zip_data_pipelines(
+        data.DataPipeline.zip(
             [src_audio_dataloader, src_n_frames_dataloader, tgt_text_dataloader]
         )
         .prefetch(8)

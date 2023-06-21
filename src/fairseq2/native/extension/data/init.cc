@@ -114,7 +114,38 @@ def_data_pipeline(py::module_ &base)
                 self.reload_position(t);
             },
             py::arg("state_dict"),
-            py::arg("strict") = true);
+            py::arg("strict") = true)
+        .def_static("zip",
+            [](std::vector<std::reference_wrapper<data_pipeline>> &refs, bool warn_only, bool disable_parallelism)
+            {
+                std::vector<data_pipeline> pipelines{};
+
+                pipelines.reserve(refs.size());
+
+                std::transform(refs.begin(), refs.end(), std::back_inserter(pipelines), [](auto &r) {
+                    return std::move(r.get());
+                });
+
+                return data_pipeline::zip(std::move(pipelines), warn_only, disable_parallelism);
+            },
+            py::arg("pipelines"),
+            py::arg("warn_only") = false,
+            py::arg("disable_parallelism") = false)
+        .def_static("round_robin",
+            [](std::vector<std::reference_wrapper<data_pipeline>> &refs)
+            {
+                std::vector<data_pipeline> pipelines{};
+
+                pipelines.reserve(refs.size());
+
+                std::transform(refs.begin(), refs.end(), std::back_inserter(pipelines), [](auto &r) {
+                    return std::move(r.get());
+                });
+
+                return data_pipeline::round_robin(std::move(pipelines));
+            },
+            py::arg("pipelines"));
+
 
     py::class_<data_pipeline_iterator>(m, "_DataPipelineIterator")
         .def("__iter__",
@@ -263,39 +294,6 @@ def_data_pipeline(py::module_ &base)
     m.def("read_sequence", &read_list, py::arg("seq"));
 
     m.def("read_zipped_records", &read_zipped_records, py::arg("pathname"));
-
-    m.def("round_robin_data_pipelines",
-        [](std::vector<std::reference_wrapper<data_pipeline>> &pipelines, std::vector<float> &probs)
-        {
-            std::vector<data_pipeline> c{};
-
-            c.reserve(pipelines.size());
-
-            std::transform(pipelines.begin(), pipelines.end(), std::back_inserter(c), [](auto &i) {
-                return std::move(i.get());
-            });
-
-            return round_robin_data_pipelines(std::move(c), std::move(probs));
-        },
-        py::arg("data_pipelines"),
-        py::arg("probs") = nullptr);
-
-    m.def("zip_data_pipelines",
-        [](std::vector<std::reference_wrapper<data_pipeline>> &refs, bool warn_only, bool disable_parallelism)
-        {
-            std::vector<data_pipeline> pipelines{};
-
-            pipelines.reserve(refs.size());
-
-            std::transform(refs.begin(), refs.end(), std::back_inserter(pipelines), [](auto &r) {
-                return std::move(r.get());
-            });
-
-            return zip_data_pipelines(std::move(pipelines), warn_only, disable_parallelism);
-        },
-        py::arg("pipelines"),
-        py::arg("warn_only") = false,
-        py::arg("disable_parallelism") = false);
 
     static py::exception<stream_error> py_stream_error{m, "StreamError", PyExc_RuntimeError};
 

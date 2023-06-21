@@ -20,6 +20,14 @@ class TestReadSequenceOp:
 
             dp.reset()
 
+    def test_op_works_as_expected_with_empty_sequence(self) -> None:
+        dp = read_sequence([]).and_return()
+
+        for _ in range(2):
+            assert list(dp) == []
+
+            dp.reset()
+
     def test_record_reload_position_works_as_expected(self) -> None:
         dp = read_sequence(list(range(1, 10))).and_return()
 
