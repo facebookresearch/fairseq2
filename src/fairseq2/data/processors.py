@@ -21,6 +21,13 @@ if TYPE_CHECKING or _DOC_MODE:
         def __call__(self, s: StringLike) -> List[StringLike]:
             ...
 
+    class StrToIntConverter:
+        def __init__(self, base: int = 10) -> None:
+            ...
+
+        def __call__(self, s: StringLike) -> int:
+            ...
+
     class StrToTensorConverter:
         def __init__(
             self,
@@ -34,10 +41,11 @@ if TYPE_CHECKING or _DOC_MODE:
 
 else:
     from fairseq2.C.data.processors import StrSplitter as StrSplitter
+    from fairseq2.C.data.processors import StrToIntConverter as StrToIntConverter
     from fairseq2.C.data.processors import StrToTensorConverter as StrToTensorConverter
 
     def _set_module_name() -> None:
-        for t in [StrSplitter, StrToTensorConverter]:
+        for t in [StrSplitter, StrToIntConverter, StrToTensorConverter]:
             t.__module__ = __name__
 
     _set_module_name()

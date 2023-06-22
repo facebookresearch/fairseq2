@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Optional, Sequence
+from typing import Any, Optional, Sequence
 
 import pytest
 import torch
@@ -70,7 +70,7 @@ class TestStrToTensorConverter:
             converter(s)
 
     def test_raises_error_if_string_is_out_of_range(self) -> None:
-        value = "4578347583434"
+        value = "99999999999999999999"
 
         s = f"45 78 {value} 56"
 
@@ -81,6 +81,15 @@ class TestStrToTensorConverter:
             match=rf"^The input string must be a space-separated list of type `torch.int16`, but contains an element with value '{value}' that is out of range for `torch.int16`\.$",
         ):
             converter(s)
+
+    @pytest.mark.parametrize("value", [None, 123, 1.2])
+    def test_raises_error_if_input_is_not_string(self, value: Any) -> None:
+        converter = StrToTensorConverter()
+
+        with pytest.raises(
+            ValueError, match=r"^The input data must be of type string\.$"
+        ):
+            converter(value)
 
     def test_raises_error_if_size_is_not_right(self) -> None:
         s = "23 9 12  34   90 1  "

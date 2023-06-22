@@ -30,6 +30,7 @@
 #include <fairseq2/native/data/stream.h>
 #include <fairseq2/native/data/tape.h>
 #include <fairseq2/native/data/processors/str_splitter.h>
+#include <fairseq2/native/data/processors/str_to_int_converter.h>
 #include <fairseq2/native/data/processors/str_to_tensor_converter.h>
 #include <fairseq2/native/utils/cast.h>
 #include <fairseq2/native/utils/string.h>
@@ -403,6 +404,9 @@ def_processors(py::module_ &base)
                 return str_splitter{sep[0]};
             }),
             py::arg("sep") = '\t');
+
+    py::class_<str_to_int_converter, data_processor>(m, "StrToIntConverter")
+        .def(py::init<std::int16_t>(), py::arg("base") = 10);
 
     py::class_<str_to_tensor_converter, data_processor>(m, "StrToTensorConverter")
         .def(py::init<std::optional<std::vector<std::int64_t>>, std::optional<at::ScalarType>>(),
