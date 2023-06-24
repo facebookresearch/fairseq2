@@ -20,7 +20,7 @@ namespace fairseq2 {
 
 class sp_model_options {
 public:
-    sp_model_options &&
+    sp_model_options
     control_token(std::string value) &&
     {
         control_tokens_.push_back(std::move(value));

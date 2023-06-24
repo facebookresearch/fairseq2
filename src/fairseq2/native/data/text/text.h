@@ -23,7 +23,7 @@ enum class line_ending {
 
 class text_options {
 public:
-    text_options &&
+    text_options
     encoding(std::optional<std::string> value) && noexcept
     {
         encoding_ = std::move(value);
@@ -37,7 +37,7 @@ public:
         return encoding_;
     }
 
-    text_options &&
+    text_options
     line_ending(fairseq2::line_ending value) && noexcept
     {
         line_ending_ = value;
@@ -51,7 +51,7 @@ public:
         return line_ending_;
     }
 
-    text_options &&
+    text_options
     ltrim(bool value) && noexcept
     {
         ltrim_ = value;
@@ -65,7 +65,7 @@ public:
         return ltrim_;
     }
 
-    text_options &&
+    text_options
     rtrim(bool value) && noexcept
     {
         rtrim_ = value;
@@ -79,7 +79,7 @@ public:
         return rtrim_;
     }
 
-    text_options &&
+    text_options
     skip_empty(bool value) && noexcept
     {
         skip_empty_ = value;
@@ -93,7 +93,7 @@ public:
         return skip_empty_;
     }
 
-    text_options &&
+    text_options
     memory_map(bool value) && noexcept
     {
         memory_map_ = value;
@@ -107,7 +107,7 @@ public:
         return memory_map_;
     }
 
-    text_options &&
+    text_options
     block_size(std::optional<std::size_t> value) && noexcept
     {
         block_size_ = value;

@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 import fairseq2.cli.commands
+from fairseq2.utils.version import is_pt2_or_greater
 
 EXAMPLE_DIR = Path(__file__).resolve().parents[2] / "examples"
 SCRIPTS = [s.name for s in EXAMPLE_DIR.glob("*.py") if "data" not in s.name]
@@ -18,6 +19,7 @@ def test_script(script: str) -> None:
         pytest.skip(f"Example requires external dependencies: {e}")
 
 
+@pytest.mark.skipif(not is_pt2_or_greater(), reason="requires PyTorch 2.0.0 or greater")
 def test_train_simple_task(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # Training
     steps = 100

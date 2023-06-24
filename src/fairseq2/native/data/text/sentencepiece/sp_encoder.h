@@ -25,7 +25,7 @@ namespace fairseq2 {
 
 class sp_encoder_options {
 public:
-    sp_encoder_options &&
+    sp_encoder_options
     prefix_token(std::string value) &&
     {
         prefix_tokens_.push_back(std::move(value));
@@ -45,7 +45,7 @@ public:
         return prefix_tokens_;
     }
 
-    sp_encoder_options &&
+    sp_encoder_options
     suffix_token(std::string value) &&
     {
         suffix_tokens_.push_back(std::move(value));
@@ -65,7 +65,7 @@ public:
         return suffix_tokens_;
     }
 
-    sp_encoder_options &&
+    sp_encoder_options
     reverse(bool value) && noexcept
     {
         reverse_ = value;
@@ -79,7 +79,7 @@ public:
         return reverse_;
     }
 
-    sp_encoder_options &&
+    sp_encoder_options
     enable_sampling(bool value) && noexcept
     {
         enable_sampling_ = value;
@@ -93,7 +93,7 @@ public:
         return enable_sampling_;
     }
 
-    sp_encoder_options &&
+    sp_encoder_options
     nbest_size(std::int32_t value) && noexcept
     {
         nbest_size_ = value;
@@ -107,7 +107,7 @@ public:
         return nbest_size_;
     }
 
-    sp_encoder_options &&
+    sp_encoder_options
     alpha(float value) && noexcept
     {
         alpha_ = value;
@@ -121,7 +121,7 @@ public:
         return alpha_;
     }
 
-    sp_encoder_options &&
+    sp_encoder_options
     batch_size(std::optional<std::int64_t> value) && noexcept
     {
         batch_size_ = value;
@@ -135,7 +135,7 @@ public:
         return batch_size_;
     }
 
-    sp_encoder_options &&
+    sp_encoder_options
     pad_to_length(std::optional<std::int64_t> value) && noexcept
     {
         pad_to_length_ = value;
@@ -149,7 +149,7 @@ public:
         return pad_to_length_;
     }
 
-    sp_encoder_options &&
+    sp_encoder_options
     pad_to_multiple(std::int64_t value) && noexcept
     {
         pad_to_multiple_ = value;
@@ -163,7 +163,7 @@ public:
         return pad_to_multiple_;
     }
 
-    sp_encoder_options &&
+    sp_encoder_options
     left_pad(bool value) && noexcept
     {
         left_pad_ = value;
@@ -177,7 +177,7 @@ public:
         return left_pad_;
     }
 
-    sp_encoder_options &&
+    sp_encoder_options
     dtype(at::ScalarType value) && noexcept
     {
         dtype_ = value;
@@ -191,7 +191,7 @@ public:
         return dtype_;
     }
 
-    sp_encoder_options &&
+    sp_encoder_options
     device(std::optional<at::Device> value) && noexcept
     {
         device_ = value;
@@ -205,7 +205,7 @@ public:
         return device_;
     }
 
-    sp_encoder_options &&
+    sp_encoder_options
     pin_memory(bool value) && noexcept
     {
         pin_memory_ = value;
@@ -219,7 +219,7 @@ public:
         return pin_memory_;
     }
 
-    sp_encoder_options &&
+    sp_encoder_options
     disable_parallelism(bool value) && noexcept
     {
         disable_parallelism_ = value;

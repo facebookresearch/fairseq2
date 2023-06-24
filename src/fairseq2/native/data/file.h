@@ -25,7 +25,7 @@ enum class file_mode {
 
 class file_options {
 public:
-    file_options &&
+    file_options
     mode(file_mode value) && noexcept
     {
         mode_ = value;
@@ -39,7 +39,7 @@ public:
         return mode_;
     }
 
-    file_options &&
+    file_options
     memory_map(bool value) && noexcept
     {
         memory_map_ = value;
@@ -53,7 +53,7 @@ public:
         return memory_map_;
     }
 
-    file_options &&
+    file_options
     block_size(std::optional<std::size_t> value) && noexcept
     {
         block_size_ = value;
@@ -67,7 +67,7 @@ public:
         return block_size_;
     }
 
-    file_options &&
+    file_options
     text_encoding(std::optional<std::string> value) && noexcept
     {
         text_encoding_ = std::move(value);

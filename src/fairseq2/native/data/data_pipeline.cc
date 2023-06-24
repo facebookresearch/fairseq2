@@ -160,7 +160,7 @@ data_pipeline::check_if_broken() const
         throw data_pipeline_error{"The data pipeline is broken by a previous operation."};
 }
 
-data_pipeline_builder &&
+data_pipeline_builder
 data_pipeline_builder::batch(std::size_t batch_size, bool drop_remainder, const std::vector<std::int32_t> &pad_idx) &&
 {
     factory_ = [=, inner = std::move(factory_)]() {
@@ -170,7 +170,7 @@ data_pipeline_builder::batch(std::size_t batch_size, bool drop_remainder, const 
     return std::move(*this);
 }
 
-data_pipeline_builder &&
+data_pipeline_builder
 data_pipeline_builder::batch_by_length(const std::vector<std::pair<std::size_t, std::size_t>>& buffer_sizes, std::int32_t pad_idx) &&
 {
     factory_ = [=, inner = std::move(factory_)]() {
@@ -180,7 +180,7 @@ data_pipeline_builder::batch_by_length(const std::vector<std::pair<std::size_t, 
     return std::move(*this);
 }
 
-data_pipeline_builder &&
+data_pipeline_builder
 data_pipeline_builder::filter(predicate_fn fn) &&
 {
     factory_ = [fn = std::move(fn), inner = std::move(factory_)]() mutable {
@@ -190,7 +190,7 @@ data_pipeline_builder::filter(predicate_fn fn) &&
     return std::move(*this);
 }
 
-data_pipeline_builder &&
+data_pipeline_builder
 data_pipeline_builder::map(map_fn fn, std::size_t num_parallel_calls) &&
 {
     factory_ = [fn = std::move(fn), inner = std::move(factory_), num_parallel_calls]() mutable {
@@ -200,7 +200,7 @@ data_pipeline_builder::map(map_fn fn, std::size_t num_parallel_calls) &&
     return std::move(*this);
 }
 
-data_pipeline_builder &&
+data_pipeline_builder
 data_pipeline_builder::prefetch(std::size_t num_examples) &&
 {
     if (num_examples > 0) {
@@ -212,7 +212,7 @@ data_pipeline_builder::prefetch(std::size_t num_examples) &&
     return std::move(*this);
 }
 
-data_pipeline_builder &&
+data_pipeline_builder
 data_pipeline_builder::shard(std::size_t shard_idx, std::size_t num_shards) &&
 {
     factory_ = [=, inner = std::move(factory_)]() {
@@ -222,7 +222,7 @@ data_pipeline_builder::shard(std::size_t shard_idx, std::size_t num_shards) &&
     return std::move(*this);
 }
 
-data_pipeline_builder &&
+data_pipeline_builder
 data_pipeline_builder::shuffle(std::size_t shuffle_window, bool strict) &&
 {
     factory_ = [=, inner = std::move(factory_)]() {
@@ -232,7 +232,7 @@ data_pipeline_builder::shuffle(std::size_t shuffle_window, bool strict) &&
     return std::move(*this);
 }
 
-data_pipeline_builder &&
+data_pipeline_builder
 data_pipeline_builder::skip(std::size_t num_examples) &&
 {
     factory_ = [=, inner = std::move(factory_)]() {
@@ -242,7 +242,7 @@ data_pipeline_builder::skip(std::size_t num_examples) &&
     return std::move(*this);
 }
 
-data_pipeline_builder &&
+data_pipeline_builder
 data_pipeline_builder::take(std::size_t num_examples) &&
 {
     factory_ = [=, inner = std::move(factory_)]() {
@@ -252,7 +252,7 @@ data_pipeline_builder::take(std::size_t num_examples) &&
     return std::move(*this);
 }
 
-data_pipeline_builder &&
+data_pipeline_builder
 data_pipeline_builder::yield_from(yield_fn fn) &&
 {
     factory_ = [fn = std::move(fn), inner = std::move(factory_)]() mutable {
