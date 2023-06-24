@@ -180,12 +180,6 @@ endif()
 # ------------------------------------------------------------
 
 if(FAIRSEQ2_INSTALL_STANDALONE)
-    if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-        set(rpath_origin @loader_path)
-    else()
-        set(rpath_origin \$ORIGIN)
-    endif()
-
     set(install_lib_dir fairseq2/lib)
     set(install_include_dir fairseq2/include)
 else()

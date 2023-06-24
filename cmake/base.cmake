@@ -85,6 +85,7 @@ function(fairseq2_set_compile_options target)
                 -Wno-exit-time-destructors
                 -Wno-extra-semi-stmt
                 -Wno-global-constructors
+                -Wno-macro-redefined
                 -Wno-missing-variable-declarations
                 -Wno-old-style-cast
                 -Wno-padded
