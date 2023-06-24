@@ -54,9 +54,21 @@ if(FAIRSEQ2_EDITABLE_PYTHON)
     add_dependencies(extension_in_source extension)
 endif()
 
-if(FAIRSEQ2_INSTALL_STANDALONE)
-    set_property(TARGET extension PROPERTY INSTALL_RPATH ${rpath_origin}/lib)
+if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    set(rpath_origin @loader_path)
+else()
+    set(rpath_origin \$ORIGIN)
 endif()
+
+set_property(
+    TARGET
+        extension
+    APPEND PROPERTY
+        INSTALL_RPATH
+            ${rpath_origin}/lib
+            ${rpath_origin}/../../..
+            ${rpath_origin}/../torch/lib
+)
 
 install(
     TARGETS

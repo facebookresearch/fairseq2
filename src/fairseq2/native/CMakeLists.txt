@@ -94,7 +94,24 @@ target_link_libraries(fairseq2
 fairseq2_set_link_options(fairseq2)
 
 if(FAIRSEQ2_INSTALL_STANDALONE)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+        set(rpath_origin @loader_path)
+    else()
+        set(rpath_origin \$ORIGIN)
+    endif()
+
     set_target_properties(fairseq2 PROPERTIES INSTALL_RPATH ${rpath_origin}/.)
+
+    if(FAIRSEQ2_PYENV)
+        set_property(
+            TARGET
+                fairseq2
+            APPEND PROPERTY
+                INSTALL_RPATH
+                    ${rpath_origin}/../../../..
+                    ${rpath_origin}/../../torch/lib
+        )
+    endif()
 else()
     set_target_properties(fairseq2 PROPERTIES
         VERSION

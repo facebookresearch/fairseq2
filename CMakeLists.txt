@@ -12,6 +12,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY VALUE RelWithDebInfo)
 endif()
 
+include(CMakeDependentOption)
 include(CMakePackageConfigHelpers)
 include(CheckLanguage)
 include(GNUInstallDirs)
@@ -43,9 +44,19 @@ option(FAIRSEQ2_EDITABLE_PYTHON
 )
 option(FAIRSEQ2_INSTALL_STANDALONE
     #DESCRIPTION
-        "Installs with relative rpaths."
+        "Installs with relative rpath to the lib directory."
     #VALUE
         ON
+)
+cmake_dependent_option(FAIRSEQ2_PYENV
+    #DESCRIPTION
+        "Installs with relative rpath to the lib directory of the Python virtual environment."
+    #VALUE
+        ON
+    #DEPENDS
+        FAIRSEQ2_INSTALL_STANDALONE
+    #HIDDEN_VALUE
+        OFF
 )
 option(FAIRSEQ2_PERFORM_LTO
     #DESCRIPTION
