@@ -31,7 +31,7 @@ namespace detail {
 class decoder_op {
 public:
     explicit
-    decoder_op(const sp_decoder *d, at::Tensor &&t);
+    decoder_op(const sp_decoder *d, const sp_processor *proc, at::Tensor &&t);
 
     std::vector<data> &&
     run() &&;
@@ -46,6 +46,7 @@ private:
 
 private:
     const sp_decoder *decoder_;
+    const sp_processor *processor_;
     at::Tensor tensor_;
     std::size_t batch_size_;
     std::vector<std::vector<std::string_view>> tokens_{};
@@ -54,12 +55,13 @@ private:
 
 }  // namespace detail
 
-sp_decoder::sp_decoder(const sp_model *m, bool reverse, bool disable_parallelism) noexcept
-    : processor_{m->processor_.get()}, reverse_{reverse}, disable_parallelism_{disable_parallelism}
+sp_decoder::sp_decoder(
+    std::shared_ptr<const sp_model> m, bool reverse, bool disable_parallelism) noexcept
+  : model_{std::move(m)}, reverse_{reverse}, disable_parallelism_{disable_parallelism}
 {}
 
 data
-sp_decoder::operator()(data &&d) const
+sp_decoder::operator()(const data &d) const
 {
     if (!d.is_tensor())
         throw std::invalid_argument{
@@ -73,18 +75,24 @@ sp_decoder::operator()(data &&d) const
     return decode(std::move(t));
 }
 
+data
+sp_decoder::operator()(data &&d) const
+{
+    return (*this)(d);
+}
+
 std::vector<data>
 sp_decoder::decode(at::Tensor &&t) const
 {
-    detail::decoder_op op{this, std::move(t)};
+    detail::decoder_op op{this, model_->processor_.get(), std::move(t)};
 
     return std::move(op).run();
 }
 
 namespace detail {
 
-decoder_op::decoder_op(const sp_decoder *d, at::Tensor &&t)
-    : decoder_{d}, tensor_{std::move(t)}
+decoder_op::decoder_op(const sp_decoder *d, const sp_processor *proc, at::Tensor &&t)
+    : decoder_{d}, processor_{proc}, tensor_{std::move(t)}
 {
     batch_size_ = static_cast<std::size_t>(tensor_.size(0));
 
@@ -148,12 +156,12 @@ decoder_op::decode()
 
                 auto token_idx_32bit = conditional_cast<std::int32_t>(token_idx);
 
-                std::string_view token = decoder_->processor_->index_to_token(token_idx_32bit);
+                std::string_view token = processor_->index_to_token(token_idx_32bit);
 
                 tokens.push_back(token);
             }
 
-            sentences_[i] = decoder_->processor_->decode(tokens);
+            sentences_[i] = processor_->decode(tokens);
         }
     };
 

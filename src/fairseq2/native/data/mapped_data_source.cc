@@ -18,7 +18,7 @@ mapped_data_source::next()
         if (!d)
             return std::nullopt;
 
-        return invoke_map_fn(*std::move(d));
+        return invoke_fn(*std::move(d));
     }
 
     // If we have exhausted all buffered examples, try to refill the buffer.
@@ -76,18 +76,18 @@ mapped_data_source::fill_buffer()
         return false;
 
     // Apply the map function to all buffered examples.
-    auto apply_map_fn = [this](const tbb::blocked_range<std::size_t> &rng) {
-        for (auto i = rng.begin(); i < rng.end(); ++i)
-            buffer_[i] = invoke_map_fn(std::move(buffer_[i]));
+    auto apply_fn = [this](const tbb::blocked_range<std::size_t> &range) {
+        for (auto i = range.begin(); i < range.end(); ++i)
+            buffer_[i] = invoke_fn(std::move(buffer_[i]));
     };
 
-    tbb::blocked_range<std::size_t> full_rng{0, buffer_.size()};
+    tbb::blocked_range<std::size_t> full_range{0, buffer_.size()};
 
     // Avoid threading overhead if we have just one example.
     if (buffer_.size() == 1)
-        apply_map_fn(full_rng);
+        apply_fn(full_range);
     else
-        tbb::parallel_for(full_rng, apply_map_fn);
+        tbb::parallel_for(full_range, apply_fn);
 
     buffer_iter_ = buffer_.begin();
 
@@ -95,7 +95,7 @@ mapped_data_source::fill_buffer()
 }
 
 data
-mapped_data_source::invoke_map_fn(data &&example) {
+mapped_data_source::invoke_fn(data &&example) {
     try {
         return fn_(std::move(example));
     } catch (const data_pipeline_error &) {

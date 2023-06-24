@@ -19,9 +19,18 @@
 namespace fairseq2 {
 
 void
-def_data(pybind11::module_ &base);
+def_data(pybind11::module_ &base_module);
 
 void
-def_text(pybind11::module_ &base);
+def_memory(pybind11::module_ &data_module);
 
-}
+void
+def_processors(pybind11::module_ &data_module);
+
+void
+def_string(pybind11::module_ &data_module);
+
+void
+def_text(pybind11::module_ &data_module);
+
+}  // namespace fairseq2

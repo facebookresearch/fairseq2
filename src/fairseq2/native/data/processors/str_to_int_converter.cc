@@ -16,7 +16,7 @@
 namespace fairseq2 {
 
 data
-str_to_int_converter::operator()(data &&d) const
+str_to_int_converter::operator()(const data &d) const
 {
     if (!d.is_string())
         throw std::invalid_argument{"The input data must be of type string."};
@@ -37,6 +37,12 @@ str_to_int_converter::operator()(data &&d) const
     else
         throw std::invalid_argument{
             fmt::format("The input string must be an integer, but is '{}' instead.", value)};
+}
+
+data
+str_to_int_converter::operator()(data &&d) const
+{
+    return(*this)(d);
 }
 
 }  // namespace fairseq2

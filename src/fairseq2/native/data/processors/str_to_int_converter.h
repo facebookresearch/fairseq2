@@ -17,8 +17,11 @@ class FAIRSEQ2_API str_to_int_converter final : public data_processor {
 public:
     explicit
     str_to_int_converter(std::int16_t base = 10) noexcept
-        : base_{base}
+      : base_{base}
     {}
+
+    data
+    operator()(const data &d) const override;
 
     data
     operator()(data &&d) const override;

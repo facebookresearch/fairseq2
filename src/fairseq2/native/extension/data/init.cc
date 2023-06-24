@@ -12,12 +12,13 @@
 #include <exception>
 #include <functional>
 #include <iterator>
+#include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string_view>
 #include <utility>
-#include <vector>
 #include <variant>
+#include <vector>
 
 #include <fmt/core.h>
 
@@ -25,15 +26,11 @@
 #include <fairseq2/native/data/data.h>
 #include <fairseq2/native/data/data_pipeline.h>
 #include <fairseq2/native/data/data_processor.h>
-#include <fairseq2/native/data/immutable_string.h>
 #include <fairseq2/native/data/record_reader.h>
 #include <fairseq2/native/data/stream.h>
 #include <fairseq2/native/data/tape.h>
-#include <fairseq2/native/data/processors/str_splitter.h>
-#include <fairseq2/native/data/processors/str_to_int_converter.h>
-#include <fairseq2/native/data/processors/str_to_tensor_converter.h>
-#include <fairseq2/native/utils/cast.h>
-#include <fairseq2/native/utils/string.h>
+
+#include "fairseq2/native/extension/data/utils.h"
 
 namespace py = pybind11;
 
@@ -200,25 +197,20 @@ def_data_pipeline(py::module_ &base)
                 return self;
             },
             py::arg("fn"))
-        .def("map",
-            [](data_pipeline_builder &self, const data_processor &dp, std::size_t num_parallel_calls)
-                -> data_pipeline_builder &
+        .def(
+            "map",
+            [](
+                data_pipeline_builder &self,
+                const py::object &fn,
+                std::size_t num_parallel_calls) -> data_pipeline_builder &
             {
-                auto fn = [nurse = py::cast(dp).cast<py_object>(), &dp](data &&d) {
-                    return dp(std::move(d));
+                std::shared_ptr<data_processor> proc = as_data_processor(fn);
+
+                auto f = [proc = std::move(proc)](data &&d) {
+                    return (*proc)(std::move(d));
                 };
 
-                self = std::move(self).map(std::move(fn), num_parallel_calls);
-
-                return self;
-            },
-            py::arg("dp"),
-            py::arg("num_parallel_calls") = 1)
-        .def("map",
-            [](data_pipeline_builder &self, map_fn &&fn, std::size_t num_parallel_calls)
-                -> data_pipeline_builder &
-            {
-                self = std::move(self).map(std::move(fn), num_parallel_calls);
+                self = std::move(self).map(std::move(f), num_parallel_calls);
 
                 return self;
             },
@@ -287,8 +279,11 @@ def_data_pipeline(py::module_ &base)
                 return std::move(self).and_return();
             });
 
-    py::class_<data_processor>(m, "_DataProcessor")
-        .def("__call__", &data_processor::operator(), py::call_guard<py::gil_scoped_release>{});
+    py::class_<data_processor, std::shared_ptr<data_processor>>(m, "_DataProcessor")
+        .def(
+            "__call__",
+            py::overload_cast<data &&>(&data_processor::operator(), py::const_),
+            py::call_guard<py::gil_scoped_release>{});
 
     static py::exception<data_pipeline_error> py_data_pipeline_error{
         m, "DataPipelineError", PyExc_RuntimeError};
@@ -325,176 +320,6 @@ def_data_pipeline(py::module_ &base)
             raise_error(e, py_data_pipeline_error);
         }
     });
-}
-
-std::size_t
-compute_py_buffer_size(const py::buffer_info &info)
-{
-    py::ssize_t size = info.itemsize;
-
-    for (std::ptrdiff_t i = ssize(info.shape) - 1; i >= 0; i--) {
-        auto dim = static_cast<std::size_t>(i);
-
-        if (info.strides[dim] == size)
-            size *= info.shape[dim];
-        else
-            throw std::invalid_argument{"The specified buffer must be contiguous."};
-    }
-
-    return static_cast<std::size_t>(size);
-}
-
-void
-release_py_buffer(const void *, std::size_t, void *ctx) noexcept  // NOLINT(bugprone-exception-escape)
-{
-    py::gil_scoped_acquire gil{};
-
-    PyBuffer_Release(static_cast<Py_buffer *>(ctx));
-}
-
-void
-def_memory(py::module_ &base)
-{
-    py::module_ m = base.def_submodule("memory");
-
-    py::class_<memory_block>(m, "MemoryBlock", py::buffer_protocol())
-        .def(py::init<>())
-        .def(py::init(
-            [](const py::buffer &b, bool copy) -> memory_block
-            {
-                py::buffer_info info = b.request();
-
-                auto data = static_cast<memory_block::const_pointer>(info.ptr);
-
-                std::size_t size = compute_py_buffer_size(info);
-
-                if (copy)
-                    return copy_memory({data, size});
-
-                Py_buffer *buf = std::exchange(info.view(), nullptr);
-
-                return memory_block{data, size, buf, release_py_buffer};
-            }),
-            py::arg("buffer"),
-            py::arg("copy") = false)
-        .def_buffer(
-            [](const memory_block &self)
-            {
-                using T = memory_block::value_type;
-
-                return py::buffer_info{
-                    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-                    const_cast<T *>(self.data()), sizeof(T), "B", ssize(self), /*readonly=*/true
-                };
-            });
-}
-
-void
-def_processors(py::module_ &base)
-{
-    py::module_ m = base.def_submodule("processors");
-
-    py::class_<str_splitter, data_processor>(m, "StrSplitter")
-        .def(py::init(
-            [](std::string_view sep)
-            {
-                if (sep.size() != 1)
-                    throw std::invalid_argument{"`sep` must have a length of 1."};
-
-                return str_splitter{sep[0]};
-            }),
-            py::arg("sep") = '\t');
-
-    py::class_<str_to_int_converter, data_processor>(m, "StrToIntConverter")
-        .def(py::init<std::int16_t>(), py::arg("base") = 10);
-
-    py::class_<str_to_tensor_converter, data_processor>(m, "StrToTensorConverter")
-        .def(py::init<std::optional<std::vector<std::int64_t>>, std::optional<at::ScalarType>>(),
-            py::arg("size") = std::nullopt,
-            py::arg("dtype") = std::nullopt);
-}
-
-void
-def_string(py::module_ &base)
-{
-    py::module_ m = base.def_submodule("string");
-
-    py::class_<immutable_string>(m, "CString")
-        .def(py::init<>())
-        .def(py::init<std::string_view>(), py::arg("s"))
-
-        // To be consistent with str, we return the UTF-8 code point length
-        // instead of the byte length.
-        .def("__len__", &immutable_string::get_code_point_length)
-
-        .def(py::self == py::self)  // NOLINT(misc-redundant-expression)
-        .def(py::self != py::self)  // NOLINT(misc-redundant-expression)
-
-        // Equality check with other string-likes.
-        .def("__eq__",
-            [](const immutable_string &lhs, std::string_view rhs)
-            {
-                return static_cast<std::string_view>(lhs) == rhs;
-            })
-        .def("__ne__",
-            [](const immutable_string &lhs, std::string_view rhs)
-            {
-                return static_cast<std::string_view>(lhs) != rhs;
-            })
-
-        .def(py::hash(py::self))
-
-        .def("__str__",
-            [](const immutable_string &self)
-            {
-                return static_cast<std::string_view>(self);
-            })
-        .def("__repr__",
-            [](const immutable_string &self)
-            {
-                return fmt::format("CString('{}')", self);
-            })
-
-        .def("bytes",
-            [](const immutable_string &self)
-            {
-                return py::bytes(static_cast<std::string_view>(self));
-            })
-
-        .def("lstrip",
-            [](const immutable_string &self)
-            {
-                return ltrim(self);
-            })
-        .def("rstrip",
-            [](const immutable_string &self)
-            {
-                return rtrim(self);
-            })
-        .def("split",
-            [](const immutable_string &self, std::optional<std::string_view> sep)
-            {
-                if (sep == std::nullopt)
-                    throw std::invalid_argument("Default separator not implemented yet. You must provide a value for `sep`");
-                auto sep_value = sep.value();
-                if (sep_value.size() != 1) // TODO handle cases where separator is a string
-                    throw std::invalid_argument("`sep` argument must be of size 1.");
-
-                return self.split(sep_value[0]);
-            },
-            py::arg("sep") = std::nullopt
-        )
-        .def(py::pickle(
-            [](const immutable_string &self)
-            {
-                return py::cast(static_cast<std::string_view>(self));
-            },
-            [](const py::object &o) -> immutable_string
-            {
-                return o.cast<std::string_view>();
-            }));
-
-    py::implicitly_convertible<std::string_view, immutable_string>();
 }
 
 }  // namespace

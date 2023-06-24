@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <vector>
 
@@ -254,8 +255,6 @@ namespace detail {
 
 class encoder_op;
 
-class sp_processor;
-
 }
 
 class sp_model;
@@ -265,17 +264,20 @@ class FAIRSEQ2_API sp_encoder final : public data_processor {
 
 public:
     explicit
-    sp_encoder(const sp_model *m, sp_encoder_options opts = {});
+    sp_encoder(std::shared_ptr<const sp_model> m, sp_encoder_options opts = {});
+
+    data
+    operator()(const data &d) const override;
 
     data
     operator()(data &&d) const override;
 
 private:
     at::Tensor
-    encode(span<data> sentences) const;
+    encode(span<const data> sentences) const;
 
 private:
-    const detail::sp_processor *processor_;
+    std::shared_ptr<const sp_model> model_;
     sp_encoder_options opts_;
     std::vector<std::int32_t> prefix_token_indices_{};
     std::vector<std::int32_t> suffix_token_indices_{};

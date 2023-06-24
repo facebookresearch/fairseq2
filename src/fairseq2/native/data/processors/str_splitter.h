@@ -15,8 +15,11 @@ class FAIRSEQ2_API str_splitter final : public data_processor {
 public:
     explicit
     str_splitter(char sep = '\t') noexcept
-        : sep_{sep}
+      : sep_{sep}
     {}
+
+    data
+    operator()(const data &d) const override;
 
     data
     operator()(data &&d) const override;

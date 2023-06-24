@@ -16,6 +16,10 @@ target_sources(extension
     PRIVATE
         module.cc
         data/init.cc
+        data/memory.cc
+        data/processors.cc
+        data/string.cc
+        data/utils.cc
         data/text/init.cc
         type_casters/data.cc
         type_casters/string.cc

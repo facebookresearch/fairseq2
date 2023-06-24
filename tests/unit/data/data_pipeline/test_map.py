@@ -7,6 +7,7 @@
 import pytest
 
 from fairseq2.data import read_sequence
+from fairseq2.data.processors import StrToIntConverter
 
 
 class TestMapOp:
@@ -19,6 +20,16 @@ class TestMapOp:
 
         for _ in range(2):
             assert list(dp) == [1, 4, 9, 16]
+
+            dp.reset()
+
+    def test_op_works_with_data_processor_as_expected(self) -> None:
+        fn = StrToIntConverter()
+
+        dp = read_sequence(["1", "2", "3", "4"]).map(fn).and_return()
+
+        for _ in range(2):
+            assert list(dp) == [1, 2, 3, 4]
 
             dp.reset()
 

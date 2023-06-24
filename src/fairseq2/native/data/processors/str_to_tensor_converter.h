@@ -23,7 +23,12 @@ class immutable_string;
 class FAIRSEQ2_API str_to_tensor_converter final : public data_processor {
 public:
     explicit
-    str_to_tensor_converter(std::optional<std::vector<std::int64_t>> size = {}, std::optional<at::ScalarType> dtype = {});
+    str_to_tensor_converter(
+        std::optional<std::vector<std::int64_t>> size = {},
+        std::optional<at::ScalarType> dtype = {});
+
+    data
+    operator()(const data &d) const override;
 
     data
     operator()(data &&d) const override;

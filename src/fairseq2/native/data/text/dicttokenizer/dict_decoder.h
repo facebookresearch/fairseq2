@@ -25,6 +25,9 @@ public:
     dict_decoder(const dict_model *model) noexcept;
 
     data
+    operator()(const data &d) const override;
+
+    data
     operator()(data &&d) const override;
 
 private:

@@ -130,39 +130,44 @@ class TestCString:
 
         assert "CString('schöne Grüße!')" == repr(s)
 
-    def test_split_str(self) -> None:
-        s = CString("Hello world! This is a string")
-        expected = ["Hello", "world!", "This", "is", "a", "string"]
-
-        assert expected == s.split(sep=" ")
-
-    def test_split_str_edge_cases(self) -> None:
+    def test_split_returns_correct_list(self) -> None:
         s = CString("hello world! this is a string")
 
-        # split sep at start
-        expected = ["ello world! t", "is is a string"]
-        assert expected == s.split(sep="h")
+        r = s.split(sep=" ")
 
-        # split sep at end
-        expected = ["hello world! this is a strin"]
-        assert expected == s.split(sep="g")
+        assert r == ["hello", "world!", "this", "is", "a", "string"]
 
-        # split sep not in string
-        expected = ["hello world! this is a string"]
-        assert expected == s.split(sep="z")
+        r = s.split("h")
 
-    def test_split_str_consecutive_sep(self) -> None:
+        assert r == ["ello world! t", "is is a string"]
+
+        r = s.split(sep="g")
+
+        assert r == ["hello world! this is a strin"]
+
+    def test_split_returns_correct_list_with_default_separator(self) -> None:
+        s = CString("hello\tworld!\tthis\tis\ta\tstring")
+
+        r = s.split()
+
+        assert r == ["hello", "world!", "this", "is", "a", "string"]
+
+    def test_split_returns_list_of_length_1_if_separator_is_not_found(self) -> None:
+        s = CString("hello world! this is a string")
+
+        r = s.split(sep="z")
+
+        assert r == ["hello world! this is a string"]
+
+    def test_split_returns_correct_list_if_string_has_consecutive_sep(self) -> None:
         s = CString("hello world!  this is    a string")
 
-        expected = ["hello", "world!", "this", "is", "a", "string"]
-        actual = s.split(sep=" ")
-        assert expected == actual
+        r = s.split(sep=" ")
 
-    def test_split_str_invalid_argument(self) -> None:
-        s = CString("Hello world! This is a string")
+        assert r == ["hello", "world!", "this", "is", "a", "string"]
 
-        s.split("l")
-        with pytest.raises(ValueError):
-            s.split()
-        with pytest.raises(ValueError):
+    def test_split_raises_error_if_separater_is_not_char(self) -> None:
+        s = CString("hello world! this is a string")
+
+        with pytest.raises(ValueError, match=r"^`sep` must be of length 1\.$"):
             s.split("<>")

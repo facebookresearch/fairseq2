@@ -19,8 +19,11 @@ namespace fairseq2::detail {
 class mapped_data_source final : public data_source {
 public:
     explicit
-    mapped_data_source(std::unique_ptr<data_source> &&inner, map_fn &&fn, std::size_t num_parallel_calls) noexcept
-        : inner_{std::move(inner)}, fn_{std::move(fn)}, num_parallel_calls_{num_parallel_calls}
+    mapped_data_source(
+        std::unique_ptr<data_source> &&inner,
+        map_fn &&fn,
+        std::size_t num_parallel_calls) noexcept
+      : inner_{std::move(inner)}, fn_{std::move(fn)}, num_parallel_calls_{num_parallel_calls}
     {
         buffer_.reserve(num_parallel_calls);
 
@@ -44,7 +47,7 @@ private:
     fill_buffer();
 
     data
-    invoke_map_fn(data &&example);
+    invoke_fn(data &&example);
 
 private:
     std::unique_ptr<data_source> inner_;

@@ -42,6 +42,7 @@ target_sources(fairseq2
         data/zipped_data_source.cc
         data/detail/file.cc
         data/detail/file_system.cc
+        data/processors/list_processor.cc
         data/processors/str_splitter.cc
         data/processors/str_to_int_converter.cc
         data/processors/str_to_tensor_converter.cc

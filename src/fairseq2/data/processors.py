@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import TYPE_CHECKING, List, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Callable, List, Optional, Sequence
 
 from torch import Tensor
 
@@ -13,6 +13,18 @@ from fairseq2.data.typing import StringLike
 from fairseq2.typing import DataType
 
 if TYPE_CHECKING or _DOC_MODE:
+
+    class ListProcessor:
+        def __init__(
+            self,
+            *processors: Callable[[Any], Any],
+            indices: Optional[Sequence[int]] = None,
+            disable_parallelism: bool = False,
+        ) -> None:
+            ...
+
+        def __call__(self, l: Sequence[Any]) -> Sequence[Any]:
+            ...
 
     class StrSplitter:
         def __init__(self, sep: str = "\t") -> None:
@@ -40,12 +52,13 @@ if TYPE_CHECKING or _DOC_MODE:
             ...
 
 else:
+    from fairseq2.C.data.processors import ListProcessor as ListProcessor
     from fairseq2.C.data.processors import StrSplitter as StrSplitter
     from fairseq2.C.data.processors import StrToIntConverter as StrToIntConverter
     from fairseq2.C.data.processors import StrToTensorConverter as StrToTensorConverter
 
     def _set_module_name() -> None:
-        for t in [StrSplitter, StrToIntConverter, StrToTensorConverter]:
+        for t in [ListProcessor, StrSplitter, StrToIntConverter, StrToTensorConverter]:
             t.__module__ = __name__
 
     _set_module_name()

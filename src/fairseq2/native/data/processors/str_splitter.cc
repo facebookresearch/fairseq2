@@ -11,7 +11,7 @@
 namespace fairseq2 {
 
 data
-str_splitter::operator()(data &&d) const
+str_splitter::operator()(const data &d) const
 {
     if (!d.is_string())
         throw std::invalid_argument{"The input data must be of type string."};
@@ -23,6 +23,12 @@ str_splitter::operator()(data &&d) const
     });
 
     return parts;
+}
+
+data
+str_splitter::operator()(data &&d) const
+{
+    return (*this)(d);
 }
 
 }  // namespace fairseq2

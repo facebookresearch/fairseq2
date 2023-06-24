@@ -50,15 +50,16 @@ get_dtype_name()
 }  // namepace
 }  // namespace detail
 
-str_to_tensor_converter::str_to_tensor_converter(std::optional<std::vector<std::int64_t>> size, std::optional<at::ScalarType> dtype)
-    : size_{std::move(size)}, dtype_{dtype.value_or(at::kInt)}
+str_to_tensor_converter::str_to_tensor_converter(
+    std::optional<std::vector<std::int64_t>> size, std::optional<at::ScalarType> dtype)
+  : size_{std::move(size)}, dtype_{dtype.value_or(at::kInt)}
 {
     if (!isIntegralType(dtype_, /*includeBool=*/false))
         throw not_supported_error{"Only integral types are supported."};
 }
 
 data
-str_to_tensor_converter::operator()(data &&d) const
+str_to_tensor_converter::operator()(const data &d) const
 {
     if (!d.is_string())
         throw std::invalid_argument{"The input data must be of type string."};
@@ -79,9 +80,16 @@ str_to_tensor_converter::operator()(data &&d) const
     return tensor;
 }
 
+data
+str_to_tensor_converter::operator()(data &&d) const
+{
+    return (*this)(d);
+}
+
 template <typename T>
 void
-str_to_tensor_converter::fill_storage(at::Tensor &t, const std::vector<immutable_string> &values) const
+str_to_tensor_converter::fill_storage(
+    at::Tensor &t, const std::vector<immutable_string> &values) const
 {
     std::int64_t idx = 0;
 

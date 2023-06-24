@@ -10,6 +10,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -27,11 +28,11 @@ namespace fairseq2 {
 namespace {
 
 void
-def_sentencepiece(py::module_ &base)
+def_sentencepiece(py::module_ &text_module)
 {
-    py::module_ m = base.def_submodule("sentencepiece");
+    py::module_ m = text_module.def_submodule("sentencepiece");
 
-    py::class_<sp_model>(m, "SentencePieceModel")
+    py::class_<sp_model, std::shared_ptr<sp_model>>(m, "SentencePieceModel")
         .def(py::init(
             [](std::string_view pathname, std::optional<std::vector<std::string>> &&control_tokens)
             {
@@ -67,9 +68,9 @@ def_sentencepiece(py::module_ &base)
         .def_property_readonly("pad_idx", &sp_model::pad_idx)
         .def_property_readonly("vocab_size", &sp_model::vocab_size);
 
-    py::class_<sp_encoder, data_processor>(m, "SentencePieceEncoder")
+    py::class_<sp_encoder, data_processor, std::shared_ptr<sp_encoder>>(m, "SentencePieceEncoder")
         .def(py::init(
-            [](const sp_model *model,
+            [](std::shared_ptr<const sp_model> model,
                std::optional<std::vector<std::string>> &&prefix_tokens,
                std::optional<std::vector<std::string>> &&suffix_tokens,
                bool reverse,
@@ -105,9 +106,8 @@ def_sentencepiece(py::module_ &base)
                 if (suffix_tokens)
                     opts.suffix_tokens() = *std::move(suffix_tokens);
 
-                return sp_encoder{model, opts};
+                return sp_encoder{std::move(model), opts};
             }),
-            py::keep_alive<1, 2>{},
             py::arg("model"),
             py::arg("prefix_tokens")       = std::nullopt,
             py::arg("suffix_tokens")       = std::nullopt,
@@ -124,18 +124,17 @@ def_sentencepiece(py::module_ &base)
             py::arg("pin_memory")          = false,
             py::arg("disable_parallelism") = false);
 
-    py::class_<sp_decoder, data_processor>(m, "SentencePieceDecoder")
-        .def(py::init<const sp_model *, bool, bool>(),
-            py::keep_alive<1, 2>{},
+    py::class_<sp_decoder, data_processor, std::shared_ptr<sp_decoder>>(m, "SentencePieceDecoder")
+        .def(py::init<std::shared_ptr<const sp_model>, bool, bool>(),
             py::arg("model"),
             py::arg("reverse") = false,
             py::arg("disable_parallelism") = false);
 }
 
 void
-def_dict_tokenizer(py::module_ &base)
+def_dict_tokenizer(py::module_ &text_module)
 {
-    py::module_ m = base.def_submodule("dict");
+    py::module_ m = text_module.def_submodule("dict");
 
     py::class_<dict_model>(m, "DictModel")
         .def(py::init(
@@ -177,7 +176,7 @@ def_dict_tokenizer(py::module_ &base)
             {
                 return self.pad_token_idx;
             });
-    py::class_<dict_encoder, data_processor>(m, "DictEncoder")
+    py::class_<dict_encoder, data_processor, std::shared_ptr<dict_encoder>>(m, "DictEncoder")
         .def(py::init(
             [](const dict_model *model, std::int64_t max_seq_len)
             {
@@ -185,7 +184,7 @@ def_dict_tokenizer(py::module_ &base)
             }),
             py::arg("vocab"),
             py::arg("max_seq_len"));
-    py::class_<dict_decoder, data_processor>(m, "DictDecoder")
+    py::class_<dict_decoder, data_processor, std::shared_ptr<dict_decoder>>(m, "DictDecoder")
         .def(py::init(
             [](const dict_model *model)
             {
@@ -197,9 +196,9 @@ def_dict_tokenizer(py::module_ &base)
 }  // namespace
 
 void
-def_text(py::module_ &base)
+def_text(py::module_ &data_module)
 {
-    py::module_ m = base.def_submodule("text");
+    py::module_ m = data_module.def_submodule("text");
 
     py::enum_<line_ending>(m, "LineEnding")
         .value("INFER", line_ending::infer)

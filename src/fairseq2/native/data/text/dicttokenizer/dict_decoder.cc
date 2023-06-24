@@ -16,7 +16,7 @@ dict_decoder::dict_decoder(const dict_model *model) noexcept
 }
 
 data
-dict_decoder::operator()(data &&d) const
+dict_decoder::operator()(const data &d) const
 {
     if (!d.is_tensor())
         throw std::invalid_argument{"Decoder expects as input a tensor."};
@@ -26,6 +26,12 @@ dict_decoder::operator()(data &&d) const
         tensor = tensor.unsqueeze(0);
 
     return decode(std::move(tensor));
+}
+
+data
+dict_decoder::operator()(data &&d) const
+{
+    return (*this)(d);
 }
 
 std::vector<data>

@@ -7,33 +7,22 @@
 #pragma once
 
 #include <memory>
+#include <optional>
+#include <utility>
 #include <vector>
 
-#include <ATen/Tensor.h>
-
 #include "fairseq2/native/api.h"
-#include "fairseq2/native/span.h"
-#include "fairseq2/native/data/data.h"
 #include "fairseq2/native/data/data_processor.h"
 
 namespace fairseq2 {
-namespace detail {
 
-class decoder_op;
-
-}
-
-class sp_model;
-
-class FAIRSEQ2_API sp_decoder final : public data_processor {
-    friend class detail::decoder_op;
-
+class FAIRSEQ2_API list_processor final : public data_processor {
 public:
     explicit
-    sp_decoder(
-        std::shared_ptr<const sp_model> m,
-        bool reverse = false,
-        bool disable_parallelism = false) noexcept;
+    list_processor(
+        std::vector<std::shared_ptr<const data_processor>> processors,
+        std::optional<std::vector<std::size_t>> indices = {},
+        bool disable_parallelism = false);
 
     data
     operator()(const data &d) const override;
@@ -42,12 +31,16 @@ public:
     operator()(data &&d) const override;
 
 private:
-    std::vector<data>
-    decode(at::Tensor &&t) const;
+    void
+    validate(const data &d) const;
+
+    template <typename F>
+    void
+    parallel_for(F &f, std::size_t n) const;
 
 private:
-    std::shared_ptr<const sp_model> model_;
-    bool reverse_;
+    std::vector<std::shared_ptr<const data_processor>> processors_;
+    std::vector<std::size_t> indices_{};
     bool disable_parallelism_;
 };
 

@@ -31,7 +31,7 @@ namespace detail {
 class encoder_op {
 public:
     explicit
-    encoder_op(const sp_encoder *e, span<data> sentences);
+    encoder_op(const sp_encoder *e, const sp_processor *proc, span<const data> sentences);
 
     at::Tensor &&
     run() &&;
@@ -61,7 +61,8 @@ private:
 
 private:
     const sp_encoder *encoder_;
-    const span<data> sentences_;
+    const sp_processor *processor_;
+    span<const data> sentences_;
     std::vector<ImmutableSentencePieceText> spts_;
     std::size_t extra_tokens_len_{};
     std::int64_t max_seq_len_{};
@@ -72,8 +73,8 @@ private:
 
 }  // namespace detail
 
-sp_encoder::sp_encoder(const sp_model *m, sp_encoder_options opts)
-    : processor_{m->processor_.get()}, opts_{std::move(opts)}
+sp_encoder::sp_encoder(std::shared_ptr<const sp_model> m, sp_encoder_options opts)
+    : model_{std::move(m)}, opts_{std::move(opts)}
 {
     if (!at::isIntegralType(opts_.dtype(), /*includeBool=*/false))
         throw std::invalid_argument{"The output data type must be integral."};
@@ -82,14 +83,14 @@ sp_encoder::sp_encoder(const sp_model *m, sp_encoder_options opts)
     suffix_token_indices_.reserve(opts_.suffix_tokens().size());
 
     for (const std::string &token : opts_.prefix_tokens())
-        prefix_token_indices_.push_back(processor_->token_to_index(token));
+        prefix_token_indices_.push_back(model_->token_to_index(token));
 
     for (const std::string &token : opts_.suffix_tokens())
-        suffix_token_indices_.push_back(processor_->token_to_index(token));
+        suffix_token_indices_.push_back(model_->token_to_index(token));
 }
 
 data
-sp_encoder::operator()(data &&d) const
+sp_encoder::operator()(const data &d) const
 {
     if (d.is_list())
         return encode(d.as_list());
@@ -102,10 +103,16 @@ sp_encoder::operator()(data &&d) const
             "The SentencePiece encoder expects as input a string or a list of strings."};
 }
 
-at::Tensor
-sp_encoder::encode(span<data> sentences) const
+data
+sp_encoder::operator()(data &&d) const
 {
-    detail::encoder_op op{this, sentences};
+    return (*this)(d);
+}
+
+at::Tensor
+sp_encoder::encode(span<const data> sentences) const
+{
+    detail::encoder_op op{this, model_->processor_.get(), sentences};
 
     return std::move(op).run();
 }
@@ -121,8 +128,8 @@ get_token_idx(const ImmutableSentencePieceText &spt, std::size_t idx) noexcept
     return static_cast<T>(id);
 }
 
-encoder_op::encoder_op(const sp_encoder *e, span<data> sentences)
-    : encoder_{e}, sentences_{sentences}, spts_(sentences_.size())
+encoder_op::encoder_op(const sp_encoder *e, const sp_processor *proc, span<const data> sentences)
+    : encoder_{e}, processor_{proc}, sentences_{sentences}, spts_(sentences_.size())
 {
     extra_tokens_len_ += encoder_->prefix_token_indices_.size();
     extra_tokens_len_ += encoder_->suffix_token_indices_.size();
@@ -154,8 +161,6 @@ void
 encoder_op::encode_strings()
 {
     auto op = [this](const tbb::blocked_range<std::size_t> &rng) {
-        auto *proc = encoder_->processor_;
-
         auto &opts = encoder_->opts_;
 
         for (auto i = rng.begin(); i < rng.end(); ++i) {
@@ -167,9 +172,9 @@ encoder_op::encode_strings()
             }
 
             if (opts.enable_sampling())
-                spts_[i] = proc->sample(d.as_string(), opts.nbest_size(), opts.alpha());
+                spts_[i] = processor_->sample(d.as_string(), opts.nbest_size(), opts.alpha());
             else
-                spts_[i] = proc->encode(d.as_string());
+                spts_[i] = processor_->encode(d.as_string());
         }
     };
 
@@ -218,7 +223,7 @@ encoder_op::init_tensor()
 {
     auto &opts = encoder_->opts_;
 
-    tensor_ = at::full({batch_size_, seq_dim_}, encoder_->processor_->pad_idx,
+    tensor_ = at::full({batch_size_, seq_dim_}, encoder_->model_->pad_idx(),
         at::dtype(opts.dtype()).device(at::kCPU).pinned_memory(opts.pin_memory()));
 }
 

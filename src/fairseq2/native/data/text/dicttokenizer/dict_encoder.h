@@ -25,6 +25,9 @@ public:
     dict_encoder(const dict_model *model, std::int64_t max_seq_len);
 
     data
+    operator()(const data &d) const override;
+
+    data
     operator()(data &&d) const override;
 
 private:
@@ -32,7 +35,7 @@ private:
     const std::int64_t max_seq_len_;
 
     at::Tensor
-    encode(span<data> sentences) const;
+    encode(span<const data> sentences) const;
 };
 
 }  // namespace fairseq2
