@@ -7,6 +7,7 @@
 #include "fairseq2/native/data/zipped_data_source.h"
 
 #include <algorithm>
+#include <cstdint>
 
 #include <oneapi/tbb.h>
 
@@ -21,7 +22,10 @@ zipped_data_source::next()
         return std::nullopt;
 
     std::vector<data> zip(pipelines_.size());
-    std::vector<bool> eod(pipelines_.size());
+
+    // Do not use `bool` here as, per standard, it is not thread-safe even for
+    // distinct elements.
+    std::vector<std::int8_t> eod(pipelines_.size());
 
     // Fetch the next set of elements from the zipped data pipelines.
     auto fn = [this, &zip, &eod](const tbb::blocked_range<std::size_t> &rng) {
@@ -30,7 +34,7 @@ zipped_data_source::next()
             if (d)
                 zip[i] = *std::move(d);
             else
-                eod[i] = true;
+                eod[i] = 1;
         }
     };
 
@@ -42,8 +46,8 @@ zipped_data_source::next()
         tbb::parallel_for(full_rng, fn);
 
     // Check whether all data pipelines are in sync.
-    if (std::all_of(eod.begin() + 1, eod.end(), [&eod](bool b) { return b == eod[0]; })) {
-        if (eod[0])
+    if (std::all_of(eod.begin() + 1, eod.end(), [&eod](std::int8_t b) { return b == eod[0]; })) {
+        if (eod[0] == 1)
             return std::nullopt;
 
         return zip;

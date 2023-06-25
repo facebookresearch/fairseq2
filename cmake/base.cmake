@@ -108,7 +108,10 @@ function(fairseq2_set_compile_options target)
         target_compile_options(${target} PRIVATE -march=native -mtune=native)
     endif()
 
-    target_compile_definitions(${target} PRIVATE $<$<NOT:$<CONFIG:Debug>>:_FORTIFY_SOURCE=2>)
+    # Sanitizers do not support source fortification.
+    if(NOT FAIRSEQ2_SANITIZERS OR FAIRSEQ2_SANITIZERS STREQUAL "nosan")
+        target_compile_definitions(${target} PRIVATE $<$<NOT:$<CONFIG:Debug>>:_FORTIFY_SOURCE=2>)
+    endif()
 endfunction()
 
 function(fairseq2_set_link_options target)

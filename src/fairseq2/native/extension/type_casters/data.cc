@@ -70,11 +70,11 @@ type_caster<data>::cast_from_cc(T &&src)
     if (src.is_bool())
         return pybind11::cast(std::forward<T>(src).as_bool());
 
-    if (src.is_int64())
-        return pybind11::cast(std::forward<T>(src).as_int64());
+    if (src.is_int())
+        return pybind11::cast(std::forward<T>(src).as_int());
 
-    if (src.is_float64())
-        return pybind11::cast(std::forward<T>(src).as_float64());
+    if (src.is_float())
+        return pybind11::cast(std::forward<T>(src).as_float());
 
     if (src.is_string())
         return pybind11::cast(std::forward<T>(src).as_string());

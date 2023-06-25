@@ -26,6 +26,9 @@ list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
 include(cmake/base.cmake)
 include(cmake/summary.cmake)
 
+# Prefer pthread over other thread libraries.
+set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+
 # ------------------------------------------------------------
 # Options
 # ------------------------------------------------------------
@@ -98,12 +101,14 @@ option(FAIRSEQ2_USE_CUDA
 )
 
 # ------------------------------------------------------------
-# Dependencies
+# Sanitizers
 # ------------------------------------------------------------
 
-# Some dependencies transitively use the pthreads API. This option ensures that
-# they use the -pthread flag.
-set(THREADS_PREFER_PTHREAD_FLAG TRUE)
+fairseq2_set_sanitizers()
+
+# ------------------------------------------------------------
+# Dependencies
+# ------------------------------------------------------------
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module)
 if(Python3_VERSION VERSION_LESS 3.8)
@@ -114,9 +119,9 @@ find_package(Iconv REQUIRED)
 
 find_package(Threads REQUIRED)
 
-find_package(TBB 2021 REQUIRED)
+find_package(TBB 2021.9 REQUIRED)
 
-find_package(Torch 1.11 REQUIRED)
+find_package(Torch 1.12 REQUIRED)
 
 if(FAIRSEQ2_RUN_CLANG_TIDY)
     if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -178,16 +183,6 @@ endif()
 # ------------------------------------------------------------
 # Targets
 # ------------------------------------------------------------
-
-if(FAIRSEQ2_INSTALL_STANDALONE)
-    set(install_lib_dir fairseq2/lib)
-    set(install_include_dir fairseq2/include)
-else()
-    set(install_lib_dir ${CMAKE_INSTALL_LIBDIR})
-    set(install_include_dir ${CMAKE_INSTALL_INCLUDEDIR})
-endif()
-
-fairseq2_set_sanitizers()
 
 add_subdirectory(src/fairseq2/native)
 

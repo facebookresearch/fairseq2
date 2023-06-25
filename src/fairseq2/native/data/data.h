@@ -56,36 +56,36 @@ public:
         return as<bool>();
     }
 
-    // int64
+    // int
     data(std::int64_t value) noexcept
         : payload_{value}
     {}
 
     bool
-    is_int64() const noexcept
+    is_int() const noexcept
     {
         return is<std::int64_t>();
     }
 
     std::int64_t
-    as_int64() const noexcept
+    as_int() const noexcept
     {
         return as<std::int64_t>();
     }
 
-    // float64
+    // float
     data(float64 value) noexcept
         : payload_{value}
     {}
 
     bool
-    is_float64() const noexcept
+    is_float() const noexcept
     {
         return is<float64>();
     }
 
     float64
-    as_float64() const noexcept
+    as_float() const noexcept
     {
         return as<float64>();
     }

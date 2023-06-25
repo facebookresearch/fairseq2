@@ -123,6 +123,14 @@ endif()
 
 add_library(fairseq2::fairseq2 ALIAS fairseq2)
 
+if(FAIRSEQ2_INSTALL_STANDALONE)
+    set(install_lib_dir fairseq2/lib)
+    set(install_inc_dir fairseq2/include)
+else()
+    set(install_lib_dir ${CMAKE_INSTALL_LIBDIR})
+    set(install_inc_dir ${CMAKE_INSTALL_INCLUDEDIR})
+endif()
+
 install(
     TARGETS
         fairseq2
@@ -141,14 +149,14 @@ install(
         COMPONENT
             devel
     INCLUDES DESTINATION
-        ${install_include_dir}
+        ${install_inc_dir}
 )
 
 install(
     DIRECTORY
         ${CMAKE_CURRENT_SOURCE_DIR}
     DESTINATION
-        ${install_include_dir}
+        ${install_inc_dir}
     COMPONENT
         devel
     FILES_MATCHING
@@ -178,7 +186,7 @@ install(
     FILES
         ${CMAKE_CURRENT_BINARY_DIR}/config.h
     DESTINATION
-        ${install_include_dir}/native
+        ${install_inc_dir}/native
     COMPONENT
         devel
 )

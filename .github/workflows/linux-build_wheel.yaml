@@ -76,15 +76,19 @@ jobs:
           fi
 
           # Since they do not play well together, we perform LTO only if no
-          # sanitizer is used.
+          # sanitizer is enabled.
           if [[ $SANITIZERS == nosan ]]; then
+            build_type=Release
+
             lto=ON
           else
+            build_type=Debug
+
             lto=OFF
           fi
 
           cmake -GNinja\
-                -DCMAKE_BUILD_TYPE=Release\
+                -DCMAKE_BUILD_TYPE=$build_type\
                 -DCMAKE_CUDA_ARCHITECTURES=$cuda_archs\
                 -DFAIRSEQ2_EDITABLE_PYTHON=OFF\
                 -DFAIRSEQ2_PERFORM_LTO=$lto\

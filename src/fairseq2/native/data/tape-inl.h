@@ -89,12 +89,12 @@ tape::read()
         if (d.is_bool())
             return d.as_bool();
     } else if constexpr (std::is_integral_v<T>) {
-        if (d.is_int64())
-            if (T i{}; detail::try_narrow(d.as_int64(), i))
+        if (d.is_int())
+            if (T i{}; detail::try_narrow(d.as_int(), i))
                 return i;
     } else if constexpr (std::is_floating_point_v<T>) {
-        if (d.is_float64())
-            if (T f{}; detail::try_narrow(d.as_float64(), f))
+        if (d.is_float())
+            if (T f{}; detail::try_narrow(d.as_float(), f))
                 return f;
     } else if constexpr (std::is_same_v<T, immutable_string>) {
         if (d.is_string())
@@ -109,8 +109,8 @@ tape::read()
         if (d.is_py())
             return d.as_py();
     } else if constexpr (detail::is_vector_v<T>) {
-        if (d.is_int64()) {
-            if (std::size_t size = 0; detail::try_narrow(d.as_int64(), size)) {
+        if (d.is_int()) {
+            if (std::size_t size = 0; detail::try_narrow(d.as_int(), size)) {
                 using U = typename T::value_type;
 
                 std::vector<U> v{};

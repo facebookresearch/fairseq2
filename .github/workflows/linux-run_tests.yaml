@@ -77,7 +77,9 @@ jobs:
           SANITIZERS: ${{ inputs.sanitizers }}
         run: |
           {
-            echo ASAN_OPTIONS=suppressions=ASan.supp
+            # We can't enable container overflow checks due to false positives
+            # in non-instrumented dependencies.
+            echo ASAN_OPTIONS=detect_container_overflow=0
 
             echo LSAN_OPTIONS=suppressions=LSan.supp,exitcode=0,log_path=$HOME/lsan.out
 
