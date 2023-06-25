@@ -38,7 +38,7 @@ def_processors(py::module_ &data_module)
         .def(
             py::init([](
                 const py::args &args,
-                std::optional<std::vector<std::size_t>> &&indices,
+                std::optional<std::vector<std::size_t>> indices,
                 bool disable_parallelism)
             {
                 std::vector<std::shared_ptr<const data_processor>> procs{};

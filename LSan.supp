@@ -4,6 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-leak:libtorch_cpu
-leak:libtorch_python
 leak:numpy
+leak:pybind11::cpp_function::initialize_generic
+leak:pybind11::cpp_function::make_function_record

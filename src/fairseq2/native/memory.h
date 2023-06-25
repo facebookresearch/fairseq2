@@ -194,17 +194,15 @@ basic_memory_block<T>::basic_memory_block(
     pointer data, size_type size, void *ctx, memory_deallocator d
 ) : data_{data}, size_{size}
 {
-    if (size_ > 0) {
-        // As a contract, we take the ownership of `data`. This means we have to
-        // make sure that we don't leak in case of a failure.
-        try {
-            holder_ = std::make_shared<memory_holder>(data, size, ctx, d);
-        } catch (...) {
-            if (d != nullptr)
-                d(data, size, ctx);
+    // As a contract, we take the ownership of `data`. This means we have to
+    // make sure that we don't leak in case of a failure.
+    try {
+        holder_ = std::make_shared<memory_holder>(data, size, ctx, d);
+    } catch (...) {
+        if (d != nullptr)
+            d(data, size, ctx);
 
-            throw;
-        }
+        throw;
     }
 }
 
