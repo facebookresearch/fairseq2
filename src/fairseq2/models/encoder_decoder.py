@@ -10,7 +10,8 @@ from typing import Optional, Tuple
 from overrides import override
 from torch import Tensor
 
-from fairseq2.models.seq2seq import Seq2SeqBatch, Seq2SeqModel, Seq2SeqModelOutput
+from fairseq2.models.seq2seq import Seq2SeqBatch, Seq2SeqModel
+from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.nn.incremental_state import IncrementalStateBag
 
 
@@ -29,7 +30,7 @@ class EncoderDecoderModel(Seq2SeqModel):
         self.model_dim = model_dim
 
     @override
-    def forward(self, batch: Seq2SeqBatch) -> Seq2SeqModelOutput:
+    def forward(self, batch: Seq2SeqBatch) -> SequenceModelOutput:
         encoder_output, encoder_padding_mask = self.encode(
             batch.source_seqs, batch.source_seq_lens
         )
@@ -74,7 +75,7 @@ class EncoderDecoderModel(Seq2SeqModel):
         encoder_output: Tensor,
         encoder_padding_mask: Optional[Tensor],
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Seq2SeqModelOutput:
+    ) -> SequenceModelOutput:
         """Decode the specified target sequences and produce logits for
         next-step prediction.
 

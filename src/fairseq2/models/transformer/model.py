@@ -11,8 +11,8 @@ from overrides import final as finaloverride
 from torch import Tensor
 
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
-from fairseq2.models.seq2seq import Seq2SeqModelOutput
-from fairseq2.models.transformer import TransformerFrontend
+from fairseq2.models.sequence import SequenceModelOutput
+from fairseq2.models.transformer.frontend import TransformerFrontend
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.projection import Projection, ResettableProjection
 from fairseq2.nn.transformer import TransformerDecoder, TransformerEncoder
@@ -73,8 +73,6 @@ class TransformerModel(EncoderDecoderModel):
                 f"`model_dim` of `decoder_frontend` and `model_dim` of `decoder` must be equal, but are {decoder_frontend.model_dim} and {model_dim} instead."
             )
 
-        self.model_dim = model_dim
-
         self.encoder_frontend = encoder_frontend
         self.encoder = encoder
 
@@ -103,7 +101,7 @@ class TransformerModel(EncoderDecoderModel):
         encoder_output: Tensor,
         encoder_padding_mask: Optional[Tensor],
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Seq2SeqModelOutput:
+    ) -> SequenceModelOutput:
         if state_bag is None:
             seqs = seqs[:, :-1]
 
@@ -122,7 +120,7 @@ class TransformerModel(EncoderDecoderModel):
 
         logits = self.final_proj(seqs)
 
-        return Seq2SeqModelOutput(logits, self.target_pad_idx)
+        return SequenceModelOutput(logits, self.target_pad_idx)
 
 
 @final

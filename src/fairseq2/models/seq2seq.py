@@ -6,21 +6,18 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional
 
-import torch
 from torch import Tensor
 from torch.nn import Module
-from torch.nn.functional import log_softmax
 
-from fairseq2.nn.functional import nll_loss
+from fairseq2.models.sequence import SequenceModelOutput
 
 
 class Seq2SeqModel(Module, ABC):
     """Represents a sequence-to-sequence model."""
 
     @abstractmethod
-    def forward(self, batch: "Seq2SeqBatch") -> "Seq2SeqModelOutput":
+    def forward(self, batch: "Seq2SeqBatch") -> SequenceModelOutput:
         """
         :param batch:
             The batch of sequences to process.
@@ -61,43 +58,3 @@ class Seq2SeqBatch:
     def num_target_tokens(self) -> Tensor:
         """Return the number of target tokens."""
         return self.target_seq_lens.sum()
-
-
-@dataclass
-class Seq2SeqModelOutput:
-    """Holds the output of a sequence-to-sequence model."""
-
-    logits: Tensor
-    """The logits for next-step prediction. *Shape:* :math:`(N,S,T)`, where
-    :math:`N` is the batch size, :math:`S` is the sequence length, and :math:`T`
-    is the size of the target domain (e.g. vocabulary)."""
-
-    pad_idx: Optional[int] = None
-    """The index of the pad symbol in the target domain."""
-
-    def compute_loss(
-        self, targets: Tensor, ignore_prefix_size: int = 0, label_smoothing: float = 0.0
-    ) -> Tensor:
-        """Compute the negative log-likelihood loss.
-
-        :param targets:
-            The target indices. *Shape:* :math:`(N,S_{tgt})`, where :math:`N` is
-            the batch size and :math:`S_{tgt}` is the target sequence length.
-        :param ignore_prefix_size:
-            The number of logits from the beginning of the sequence that should
-            be ignored in the loss computation.
-        :param label_smoothing:
-            The amount of label smoothing when computing the loss.
-        """
-        if ignore_prefix_size > 0:
-            logits = self.logits[:, ignore_prefix_size:, :]
-        else:
-            logits = self.logits
-
-        if ignore_prefix_size > 0:
-            targets = targets[:, ignore_prefix_size:]
-
-        # For numerical stability run in single precision.
-        lprobs = log_softmax(logits, dim=-1, dtype=torch.float32)
-
-        return nll_loss(lprobs, targets[:, 1:], self.pad_idx, label_smoothing)
