@@ -263,7 +263,7 @@ class PolynomialDecayLR(LRSchedulerBase):
 @final
 class CosineAnnealingLR(LRSchedulerBase):
     """Represents the learning rate schedule described in
-    :cite:t:`loshchilov2017sgdr`.
+    :cite:t:`https://doi.org/10.48550/arxiv.1608.03983`.
 
     **During warmup:**
 

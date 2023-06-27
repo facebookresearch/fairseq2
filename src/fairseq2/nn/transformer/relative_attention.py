@@ -22,7 +22,7 @@ from fairseq2.typing import DataType, Device
 @final
 class RelativePositionSDPA(SDPA):
     """Computes scaled dot-product attention as described in
-    :cite:t:`dai2019transformerxl`."""
+    :cite:t:`https://doi.org/10.48550/arxiv.1901.02860`."""
 
     model_dim: int
     num_heads: int

@@ -176,7 +176,7 @@ def _encoder_base() -> Wav2Vec2EncoderConfig:
 
 class Wav2Vec2EncoderBuilder:
     """Builds modules of a wav2vec 2.0 encoder as described in
-    :cite:t:`baevski2020wav2vec`.
+    :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`.
 
     To tweak the architecture, you can derive from this class and override the
     corresponding methods.
@@ -470,7 +470,7 @@ def _base() -> Wav2Vec2Config:
 
 class Wav2Vec2Builder:
     """Builds modules of a wav2vec 2.0 model as described in
-    :cite:t:`baevski2020wav2vec`.
+    :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`.
 
     To tweak the architecture, you can derive from this class and override the
     corresponding methods.

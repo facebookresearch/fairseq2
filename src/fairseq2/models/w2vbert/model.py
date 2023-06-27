@@ -18,7 +18,8 @@ from fairseq2.typing import DataType, Device
 
 
 class W2VBertModel(Module):
-    """Represents a w2v-BERT model as described in :cite:t`chung2021w2vbert`."""
+    """Represents a w2v-BERT model as described in
+    :cite:t`https://doi.org/10.48550/arxiv.2108.06209`."""
 
     model_dim: int
     w2v2: Wav2Vec2Model

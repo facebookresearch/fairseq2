@@ -5,15 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import Optional, final
+from typing import Optional, Type, final
 
 import torch
 import torch.nn as nn
 from overrides import final as finaloverride
 from torch import Tensor
-from torch.nn import Dropout, LayerNorm, Module
+from torch.nn import Dropout, Module
 from torch.nn.parameter import Parameter
 
+from fairseq2.nn.normalization import LayerNorm, StandardLayerNorm
 from fairseq2.nn.transformer.ffn import FeedForwardNetwork
 from fairseq2.nn.transformer.multihead_attention import MultiheadAttention
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
@@ -78,6 +79,7 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
         scale_residual: bool = False,
         dropout_p: float = 0.1,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
+        layer_norm_kls: Optional[Type[LayerNorm]] = None,
         norm_eps: float = 1e-5,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
@@ -95,6 +97,8 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
         :param dropout_p:
             The dropout probability on outputs of the self attention layer and
             the feed-forward network.
+        :param layer_norm_kls:
+            The type of Layer Normalization to use.
         :param norm_order:
             The Layer Normalization order to use.
         :param norm_eps:
@@ -105,7 +109,10 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
 
         super().__init__(model_dim)
 
-        self_attn_layer_norm = LayerNorm(
+        if layer_norm_kls is None:
+            layer_norm_kls = StandardLayerNorm
+
+        self_attn_layer_norm = layer_norm_kls(
             model_dim, norm_eps, device=device, dtype=dtype
         )
 
@@ -115,7 +122,7 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
         self.self_attn = self_attn
 
         if norm_order == TransformerNormOrder.PRE_WITH_NORMFORMER:
-            self.self_attn_norm = LayerNorm(
+            self.self_attn_norm = layer_norm_kls(
                 model_dim, norm_eps, device=device, dtype=dtype
             )
         else:
@@ -134,7 +141,7 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
                 f"`model_dim` of `ffn` and `model_dim` of `self_attn` must be equal, but are {ffn.model_dim} and {model_dim} instead."
             )
 
-        ffn_layer_norm = LayerNorm(model_dim, norm_eps, device=device, dtype=dtype)
+        ffn_layer_norm = layer_norm_kls(model_dim, norm_eps, device=device, dtype=dtype)
 
         if norm_order != TransformerNormOrder.POST:
             self.ffn_layer_norm = ffn_layer_norm

@@ -8,9 +8,10 @@ from typing import Optional
 
 from overrides import final as finaloverride
 from torch import Tensor
-from torch.nn import Dropout, LayerNorm
+from torch.nn import Dropout
 
 from fairseq2.models.conformer.convolution import ConformerConvolution
+from fairseq2.nn.normalization import LayerNorm, StandardLayerNorm
 from fairseq2.nn.transformer import (
     FeedForwardNetwork,
     MultiheadAttention,
@@ -73,7 +74,7 @@ class ConformerBlock(TransformerEncoderLayer):
                 f"`model_dim` of `ffn1` and `model_dim` of `self_attn` must be equal, but are {ffn1.model_dim} and {model_dim} instead."
             )
 
-        self.ffn1_layer_norm = LayerNorm(
+        self.ffn1_layer_norm = StandardLayerNorm(
             model_dim, norm_eps, device=device, dtype=dtype
         )
 
@@ -84,7 +85,7 @@ class ConformerBlock(TransformerEncoderLayer):
         else:
             self.register_module("ffn1_dropout", None)
 
-        self.self_attn_layer_norm = LayerNorm(
+        self.self_attn_layer_norm = StandardLayerNorm(
             model_dim, norm_eps, device=device, dtype=dtype
         )
 
@@ -100,7 +101,7 @@ class ConformerBlock(TransformerEncoderLayer):
                 f"`model_dim` of `conv` and `model_dim` of `self_attn` must be equal, but are {conv.model_dim} and {model_dim} instead."
             )
 
-        self.conv_layer_norm = LayerNorm(
+        self.conv_layer_norm = StandardLayerNorm(
             model_dim, norm_eps, device=device, dtype=dtype
         )
 
@@ -116,7 +117,7 @@ class ConformerBlock(TransformerEncoderLayer):
                 f"`model_dim` of `ffn2` and `model_dim` of `self_attn` must be equal, but are {ffn2.model_dim} and {model_dim} instead."
             )
 
-        self.ffn2_layer_norm = LayerNorm(
+        self.ffn2_layer_norm = StandardLayerNorm(
             model_dim, norm_eps, device=device, dtype=dtype
         )
 
@@ -127,7 +128,9 @@ class ConformerBlock(TransformerEncoderLayer):
         else:
             self.register_module("ffn2_dropout", None)
 
-        self.layer_norm = LayerNorm(model_dim, norm_eps, device=device, dtype=dtype)
+        self.layer_norm = StandardLayerNorm(
+            model_dim, norm_eps, device=device, dtype=dtype
+        )
 
     @finaloverride
     def forward(self, seqs: Tensor, padding_mask: Optional[Tensor]) -> Tensor:

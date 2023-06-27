@@ -8,12 +8,13 @@ from typing import Optional, Tuple, final
 
 from overrides import final as finaloverride
 from torch import Tensor
-from torch.nn import Dropout, LayerNorm
+from torch.nn import Dropout
 
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.models.transformer import TransformerFrontend
 from fairseq2.models.wav2vec2.masker import Wav2Vec2Masker
 from fairseq2.nn.incremental_state import IncrementalStateBag
+from fairseq2.nn.normalization import LayerNorm, StandardLayerNorm
 from fairseq2.nn.position_encoder import PositionEncoder
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.utils.mask import to_padding_mask
@@ -23,7 +24,7 @@ from fairseq2.typing import DataType, Device
 @final
 class Wav2Vec2Frontend(TransformerFrontend):
     """Represents a Transformer encoder front-end as described in
-    :cite:t:`baevski2020wav2vec`."""
+    :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`."""
 
     feature_dim: int
     feature_extractor: Optional[SequenceFeatureExtractor]
@@ -83,7 +84,7 @@ class Wav2Vec2Frontend(TransformerFrontend):
         else:
             self.register_module("feature_extractor", None)
 
-        self.post_extract_layer_norm = LayerNorm(
+        self.post_extract_layer_norm = StandardLayerNorm(
             feature_dim, norm_eps, device=device, dtype=dtype
         )
 
@@ -110,7 +111,9 @@ class Wav2Vec2Frontend(TransformerFrontend):
             self.register_module("pos_encoder", None)
 
         if layer_norm:
-            self.layer_norm = LayerNorm(model_dim, norm_eps, device=device, dtype=dtype)
+            self.layer_norm = StandardLayerNorm(
+                model_dim, norm_eps, device=device, dtype=dtype
+            )
         else:
             self.register_module("layer_norm", None)
 

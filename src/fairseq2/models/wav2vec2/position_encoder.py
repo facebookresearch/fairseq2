@@ -10,10 +10,11 @@ import torch.nn as nn
 from overrides import final as finaloverride
 from overrides import override
 from torch import Tensor
-from torch.nn import GELU, Conv1d, LayerNorm, Module, Sequential
+from torch.nn import GELU, Conv1d, Module, Sequential
 from torch.nn.utils.weight_norm import remove_weight_norm, weight_norm
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
+from fairseq2.nn.normalization import LayerNorm, StandardLayerNorm
 from fairseq2.nn.position_encoder import PositionEncoder
 from fairseq2.nn.utils.mask import apply_padding_mask
 from fairseq2.typing import DataType, Device
@@ -22,7 +23,7 @@ from fairseq2.typing import DataType, Device
 @final
 class Wav2Vec2PositionEncoder(PositionEncoder):
     """Encodes sequences with relative positional information as described in
-    Section 2 of :cite:t:`baevski2020wav2vec`."""
+    Section 2 of :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`."""
 
     conv: Conv1d
     remove_pad: bool
@@ -123,8 +124,9 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
     """Encodes sequences with relative positional information using a stack
     of 1D convolutions.
 
-    This position encoder is not mentioned in :cite:t:`baevski2020wav2vec`, but
-    exists in the reference implementation.
+    This position encoder is not mentioned in
+    :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`, but exists in the
+    reference implementation.
     """
 
     layers: Sequential
@@ -223,7 +225,7 @@ class Wav2Vec2PositionEncoderLayer(Module):
             dtype=dtype,
         )
 
-        self.layer_norm = LayerNorm(
+        self.layer_norm = StandardLayerNorm(
             model_dim, norm_eps, elementwise_affine=False, device=device, dtype=dtype
         )
 

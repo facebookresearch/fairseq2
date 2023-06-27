@@ -108,7 +108,7 @@ def _600m() -> W2VBertConfig:
 
 class W2VBertBuilder:
     """Builds modules of a w2v-BERT model as described in
-    :cite:t`chung2021w2vbert`.
+    :cite:t`https://doi.org/10.48550/arxiv.2108.06209`.
 
     To tweak the architecture, you can derive from this class and override the
     corresponding methods.

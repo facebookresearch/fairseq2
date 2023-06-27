@@ -17,7 +17,7 @@ from fairseq2.typing import DataType, Device
 
 class Wav2Vec2Masker(Module):
     """Masks extracted features as described in Section 3.1 of
-    :cite:t:`baevski2020wav2vec`."""
+    :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`."""
 
     temporal_span_len: int
     max_temporal_mask_prob: float

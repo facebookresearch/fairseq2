@@ -25,7 +25,7 @@ from fairseq2.typing import DataType, Device
 
 class Wav2Vec2Model(Module):
     """Represents a wav2vec 2.0 model as described in
-    :cite:t:`baevski2020wav2vec`."""
+    :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`."""
 
     model_dim: int
     encoder_frontend: Wav2Vec2Frontend

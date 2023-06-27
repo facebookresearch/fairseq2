@@ -5,12 +5,13 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import Optional, final
+from typing import Optional, Type, final
 
 from overrides import final as finaloverride
 from torch import Tensor
-from torch.nn import Dropout, LayerNorm, Module, ReLU
+from torch.nn import Dropout, Module, ReLU
 
+from fairseq2.nn.normalization import LayerNorm, StandardLayerNorm
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
 from fairseq2.typing import DataType, Device
@@ -66,6 +67,7 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         inner_dropout_p: float = 0.0,
         bias: bool = True,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
+        layer_norm_kls: Optional[Type[LayerNorm]] = None,
         norm_eps: float = 1e-5,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
@@ -83,6 +85,8 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         :param bias:
             If ``True``, both the inner and output projections learn an additive
             bias.
+        :param layer_norm_kls:
+            The type of Layer Normalization to use.
         :param norm_order:
             The Layer Normalization order to use.
         :param norm_eps:
@@ -105,7 +109,10 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
             self.register_module("inner_dropout", None)
 
         if norm_order == TransformerNormOrder.PRE_WITH_NORMFORMER:
-            self.inner_layer_norm = LayerNorm(
+            if layer_norm_kls is None:
+                layer_norm_kls = StandardLayerNorm
+
+            self.inner_layer_norm = layer_norm_kls(
                 inner_dim, norm_eps, device=device, dtype=dtype
             )
         else:

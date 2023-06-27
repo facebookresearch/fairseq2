@@ -5,13 +5,14 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import Iterable, Optional, Tuple, final
+from typing import Iterable, Optional, Tuple, Type, final
 
 from overrides import final as finaloverride
 from torch import Tensor
-from torch.nn import LayerNorm, Module
+from torch.nn import Module
 
 from fairseq2.nn.module_list import ModuleList
+from fairseq2.nn.normalization import LayerNorm, StandardLayerNorm
 from fairseq2.nn.transformer.encoder_layer import TransformerEncoderLayer
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
 from fairseq2.typing import DataType, Device
@@ -75,6 +76,7 @@ class StandardTransformerEncoder(TransformerEncoder):
         layers: Iterable[TransformerEncoderLayer],
         layer_drop_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
+        layer_norm_kls: Optional[Type[LayerNorm]] = None,
         norm_eps: float = 1e-5,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
@@ -87,6 +89,8 @@ class StandardTransformerEncoder(TransformerEncoder):
             described in :cite:t:`https://doi.org/10.48550/arxiv.1909.11556`.
         :param norm_order:
             The Layer Normalization order to use.
+        :param layer_norm_kls:
+            The type of Layer Normalization to use.
         :param norm_eps:
             The epsilon value to add to the denominator of the
             :class:`~torch.nn.LayerNorm` module for numerical stability.
@@ -108,7 +112,12 @@ class StandardTransformerEncoder(TransformerEncoder):
         self.layers = layer_list
 
         if norm_order != TransformerNormOrder.POST:
-            self.layer_norm = LayerNorm(model_dim, norm_eps, device=device, dtype=dtype)
+            if layer_norm_kls is None:
+                layer_norm_kls = StandardLayerNorm
+
+            self.layer_norm = layer_norm_kls(
+                model_dim, norm_eps, device=device, dtype=dtype
+            )
         else:
             self.register_module("layer_norm", None)
 

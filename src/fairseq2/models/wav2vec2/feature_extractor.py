@@ -11,10 +11,11 @@ import torch.nn as nn
 from overrides import final as finaloverride
 from overrides import override
 from torch import Tensor
-from torch.nn import GELU, Conv1d, Dropout, GroupNorm, LayerNorm, Module, Sequential
+from torch.nn import GELU, Conv1d, Dropout, GroupNorm, Module, Sequential
 from torch.nn.functional import group_norm, layer_norm
 
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
+from fairseq2.nn.normalization import LayerNorm
 from fairseq2.nn.utils.grad import scale_grad
 from fairseq2.typing import DataType, Device
 
@@ -22,7 +23,8 @@ from fairseq2.typing import DataType, Device
 @final
 class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
     """Extracts features from raw audio waveforms and embeds them in a latent
-    space as described in Section 2 of :cite:t:`baevski2020wav2vec`."""
+    space as described in Section 2 of
+    :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`."""
 
     layers: Sequential
     layer_descs: List[Tuple[int, int, int]]
@@ -326,13 +328,11 @@ class Float32LayerNorm(LayerNorm):
     """Applies Layer Normalization in single-precision."""
 
     @override
-    def forward(self, input: Tensor) -> Tensor:
-        x = input
-
+    def forward(self, x: Tensor) -> Tensor:
         w, b = self.weight, self.bias
 
         fp32_x = x.float()
-        fp32_w = w.float()
+        fp32_w = w.float() if w is not None else None
         fp32_b = b.float() if b is not None else None
 
         y = layer_norm(fp32_x, self.normalized_shape, fp32_w, fp32_b, self.eps)
