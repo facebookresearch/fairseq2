@@ -28,7 +28,7 @@ class Profiler:
         active: int,
         log_dir: PathLike,
         gang: Gang,
-        enabled: bool = True,
+        enabled: bool = False,
     ) -> None:
         """
         :param skip_first:

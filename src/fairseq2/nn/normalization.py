@@ -22,6 +22,7 @@ class LayerNorm(Module, ABC):
 
     normalized_shape: Tuple[int, ...]
     eps: float
+    elementwise_affine: bool
     weight: Optional[Parameter]
     bias: Optional[Parameter]
 
@@ -55,6 +56,8 @@ class LayerNorm(Module, ABC):
         self.normalized_shape = tuple(normalized_shape)
 
         self.eps = eps
+
+        self.elementwise_affine = elementwise_affine
 
         if elementwise_affine:
             self.weight = Parameter(
