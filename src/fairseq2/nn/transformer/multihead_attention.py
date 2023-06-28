@@ -194,6 +194,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         sdpa: Optional[SDPA] = None,
         scale_heads: bool = False,
         output_proj: Optional[Projection] = None,
+        bias: bool = True,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -226,13 +227,16 @@ class StandardMultiheadAttention(MultiheadAttention):
         :param output_proj:
             The projection to produce final attentions. If ``None``, a
             default projection will be used.
+        :param bias:
+            If ``True``, query, key, value, and output projections learn an
+            additive bias. Ignored for explicitly specified projections.
         """
         super().__init__(model_dim, num_heads)
 
         if q_proj is None and k_proj is None and v_proj is None:
-            q_proj = QKVProjection(model_dim, device=device, dtype=dtype)
-            k_proj = QKVProjection(model_dim, device=device, dtype=dtype)
-            v_proj = QKVProjection(model_dim, device=device, dtype=dtype)
+            q_proj = QKVProjection(model_dim, bias, device=device, dtype=dtype)
+            k_proj = QKVProjection(model_dim, bias, device=device, dtype=dtype)
+            v_proj = QKVProjection(model_dim, bias, device=device, dtype=dtype)
         else:
             if q_proj is None or k_proj is None or v_proj is None:
                 raise ValueError(
@@ -301,7 +305,7 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         if output_proj is None:
             self.output_proj = AttentionOutputProjection(
-                v_proj.output_dim, model_dim, device=device, dtype=dtype
+                v_proj.output_dim, model_dim, bias, device=device, dtype=dtype
             )
         else:
             if output_proj.input_dim != v_proj.output_dim:
@@ -495,10 +499,11 @@ class QKVProjection(ResettableProjection):
     def __init__(
         self,
         model_dim: int,
+        bias: bool = True,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
-        super().__init__(model_dim, model_dim, bias=True, device=device, dtype=dtype)
+        super().__init__(model_dim, model_dim, bias=bias, device=device, dtype=dtype)
 
     @override
     def reset_parameters(self) -> None:
@@ -517,10 +522,11 @@ class AttentionOutputProjection(ResettableProjection):
         self,
         v_proj_dim: int,
         model_dim: int,
+        bias: bool = True,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
-        super().__init__(v_proj_dim, model_dim, bias=True, device=device, dtype=dtype)
+        super().__init__(v_proj_dim, model_dim, bias=bias, device=device, dtype=dtype)
 
     @override
     def reset_parameters(self) -> None:

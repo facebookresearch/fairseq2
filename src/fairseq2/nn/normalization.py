@@ -45,8 +45,8 @@ class LayerNorm(Module, ABC):
         :param elementwise_affine:
             If ``True``, learns an affine transformation.
         :param bias:
-            If ``True``, learns an additive bias. Used only if
-            ``elementwise_affine`` is ``True``.
+            If ``True``, learns an additive bias. Ignored if
+            ``elementwise_affine`` is ``False``.
         """
         super().__init__()
 
