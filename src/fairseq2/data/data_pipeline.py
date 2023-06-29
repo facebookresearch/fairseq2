@@ -10,12 +10,10 @@ from typing import (
     Callable,
     Dict,
     Iterator,
-    List,
     Mapping,
     Optional,
     Sequence,
     Tuple,
-    Union,
 )
 
 from fairseq2 import _DOC_MODE
@@ -84,10 +82,7 @@ if TYPE_CHECKING or _DOC_MODE:
 
     class DataPipelineBuilder:
         def batch(
-            self,
-            batch_size: int,
-            drop_remainder: bool = False,
-            pad_idx: Optional[Union[int, List[int]]] = None,
+            self, batch_size: int, drop_remainder: bool = False
         ) -> "DataPipelineBuilder":
             """Combine a number of consecutive examples into a single example.
 
@@ -96,21 +91,34 @@ if TYPE_CHECKING or _DOC_MODE:
             :param drop_remainder:
                 If ``True``, drops the last batch in case it has fewer than
                 ``batch_size`` examples.
-            :param pad_idx:
-                Required to be able to batch tensors with different lengths.
             """
 
         def batch_by_length(
-            self, batch_shapes: Sequence[Tuple[int, int]], pad_idx: int
+            self,
+            bucket_sizes: Sequence[Tuple[int, int]],
+            max_seq_len: int,
+            selector: Optional[str] = None,
+            drop_remainder: bool = False,
+            warn_only: bool = False,
         ) -> "DataPipelineBuilder":
-            """Combine examples of similar shape into batches.
+            """Combine examples of similar shape into batches."""
 
-            :param batch_shapes:
-                The allowed batch shapes.
+        def collate(self, pad_idx: Optional[int] = None) -> "DataPipelineBuilder":
+            ...
+
+        def filter(self, predicate: Callable[[Any], Any]) -> "DataPipelineBuilder":
+            """Filter examples from data pipeline and keep only those who match
+            ``predicate``.
+
+            :param predicate:
+                The predicate used to select examples to keep.
             """
 
         def map(
-            self, fn: Callable[[Any], Any], num_parallel_calls: int = 1
+            self,
+            fn: Callable[[Any], Any],
+            selector: Optional[str] = None,
+            num_parallel_calls: int = 1,
         ) -> "DataPipelineBuilder":
             """Apply ``fn`` to every example.
 
@@ -138,7 +146,7 @@ if TYPE_CHECKING or _DOC_MODE:
             """
 
         def shuffle(
-            self, shuffle_window: int, strict: bool = True
+            self, shuffle_window: int, strict: bool = True, enabled: bool = True
         ) -> "DataPipelineBuilder":
             """Shuffle examples using a fixed sized buffer.
 
@@ -153,6 +161,8 @@ if TYPE_CHECKING or _DOC_MODE:
                 example will be lost, but for large buffers this can
                 significantly increase the state size and the time to restore
                 the data pipeline.
+            :param enabled:
+                If ``False``, disables shuffling.
             """
 
         def skip(self, num_examples: int) -> "DataPipelineBuilder":
@@ -160,14 +170,6 @@ if TYPE_CHECKING or _DOC_MODE:
 
         def take(self, num_examples: int) -> "DataPipelineBuilder":
             """Return at most ``num_examples`` examples."""
-
-        def filter(self, predicate: Callable[[Any], Any]) -> "DataPipelineBuilder":
-            """
-            Filter examples from data pipeline and keep only those who match ``predicate``.
-
-            :param predicate:
-                The predicate used to select examples to keep.
-            """
 
         def yield_from(
             self, fn: Callable[[Any], DataPipeline]

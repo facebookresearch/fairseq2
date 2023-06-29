@@ -45,18 +45,18 @@ shuffled_data_source::next()
     // Pick an index from a uniform distribution.
     std::size_t idx = random_index();
 
-    data &element = buffer_[idx];
+    data &picked_element = buffer_[idx];
 
-    data output = std::move(element);
+    data output = std::move(picked_element);
 
     // Fill the position of the moved element with a new example.
     std::optional<data> d = inner_->next();
     if (d) {
-        element = *std::move(d);
+        picked_element = *std::move(d);
     } else {
         // If we can't fill the position with a new example, it means we reached
         // the end of data; start shrinking the size of the buffer.
-        element = std::move(buffer_.back());
+        picked_element = std::move(buffer_.back());
 
         buffer_.pop_back();
     }
@@ -105,13 +105,13 @@ shuffled_data_source::reload_position(tape &t)
 std::size_t
 shuffled_data_source::random_index() const
 {
-    at::Generator gen = at::globalContext().defaultGenerator(at::kCPU);
+    at::Generator g = at::globalContext().defaultGenerator(at::kCPU);
 
-    std::lock_guard<std::mutex> gen_lock{gen.mutex()};
+    std::lock_guard<std::mutex> g_lock{g.mutex()};
 
-    auto *cpu_gen = at::check_generator<at::CPUGeneratorImpl>(gen);
+    auto *cpu_generator = at::check_generator<at::CPUGeneratorImpl>(g);
 
-    std::uint64_t nr = cpu_gen->random64();
+    std::uint64_t nr = cpu_generator->random64();
 
     return conditional_cast<std::size_t>(nr) % buffer_.size();
 }

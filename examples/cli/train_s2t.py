@@ -232,14 +232,16 @@ def load_data_from_manifest(
     pad_idx = tokenizer.vocab_info.pad_idx
     src_audio_dataloader = (
         _read_tsv_shard(manifest_path, env)
-        .map(_load_audio_feats, num_parallel_calls)
-        .batch(batch_size, pad_idx=0)
+        .map(_load_audio_feats, num_parallel_calls=num_parallel_calls)
+        .batch(batch_size)
+        .collate(pad_idx=0)
         .and_return()
     )
     src_n_frames_dataloader = (
         _read_tsv_shard(manifest_path, env)
         .map(lambda line: torch.tensor(int(str(line).split("\t")[2])))
         .batch(batch_size)
+        .collate()
         .prefetch(1)
         .and_return()
     )
@@ -248,9 +250,10 @@ def load_data_from_manifest(
         .map(lambda line: str(line).split("\t")[3])
         .map(
             tokenizer.create_encoder(mode="target", lang=lang),
-            num_parallel_calls,
+            num_parallel_calls=num_parallel_calls,
         )
-        .batch(batch_size, pad_idx=pad_idx)
+        .batch(batch_size)
+        .collate(pad_idx)
         .and_return()
     )
 

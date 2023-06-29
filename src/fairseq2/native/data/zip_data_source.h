@@ -11,18 +11,18 @@
 #include <string>
 #include <utility>
 
+#include <zip.h>
+
 #include "fairseq2/native/memory.h"
 #include "fairseq2/native/span.h"
 #include "fairseq2/native/data/data_source.h"
-#include <zip.h>
 
-namespace fairseq2 {
-namespace detail {
+namespace fairseq2::detail {
 
-class zipfile_data_source final : public data_source {
+class zip_data_source final : public data_source {
 public:
     explicit
-    zipfile_data_source(std::string &&pathname);
+    zip_data_source(std::string &&pathname);
 
     std::optional<data>
     next() override;
@@ -54,10 +54,3 @@ private:
 };
 
 }  // namespace fairseq2::detail
-
-class data_pipeline_builder;
-
-FAIRSEQ2_API data_pipeline_builder
-read_zipped_records(std::string pathname);
-
-}  // namespace fairseq2

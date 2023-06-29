@@ -41,10 +41,10 @@ natural_sort(const ::FTSENT **a, const ::FTSENT **b)
 auto
 make_fts(const std::string &pathname)
 {
-    std::array<const char *, 2> arr{pathname.c_str(), nullptr};
+    std::array<const char *, 2> a{pathname.c_str(), nullptr};
 
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-    auto *p = const_cast<char * const *>(arr.data());
+    auto *p = const_cast<char * const *>(a.data());
 
     ::FTS *fts = ::fts_open(p, FTS_LOGICAL | FTS_NOCHDIR, natural_sort);
     if (fts == nullptr)

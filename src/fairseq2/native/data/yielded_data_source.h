@@ -18,8 +18,8 @@ namespace fairseq2::detail {
 class yielded_data_source final : public data_source {
 public:
     explicit
-    yielded_data_source(std::unique_ptr<data_source> &&inner, yield_fn &&fn) noexcept
-        : inner_{std::move(inner)}, fn_{std::move(fn)}
+    yielded_data_source(std::unique_ptr<data_source> &&inner, yield_fn &&f) noexcept
+      : inner_{std::move(inner)}, fn_{std::move(f)}
     {}
 
     std::optional<data>
@@ -39,7 +39,7 @@ private:
     load_next_data_pipeline();
 
     data_pipeline
-    invoke_yield_fn(data &example);
+    invoke_fn(data &example);
 
 private:
     std::unique_ptr<data_source> inner_;

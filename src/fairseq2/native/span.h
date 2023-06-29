@@ -21,19 +21,17 @@ template <typename T, typename = void>
 inline constexpr bool is_container_v = false;
 
 template <typename T>
-inline constexpr bool is_container_v<
-    T, std::void_t<decltype(std::declval<T>().data()),
-                   decltype(std::declval<T>().size())>> = true;
+inline constexpr bool is_container_v<T, std::void_t<
+    decltype(std::declval<T>().data()), decltype(std::declval<T>().size())>> = true;
 
 // is_compatible_container
 template <typename T, typename ElementT, typename = void>
 inline constexpr bool is_compatible_container_v = false;
 
 template <typename T, typename ElementT>
-inline constexpr bool is_compatible_container_v<
-    T, ElementT, std::enable_if_t<
-        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays)
-        std::is_convertible_v<element_type_t<T>(*)[], ElementT(*)[]>>> = true;
+inline constexpr bool is_compatible_container_v<T, ElementT, std::enable_if_t<
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays)
+    std::is_convertible_v<element_type_t<T>(*)[], ElementT(*)[]>>> = true;
 
 }  // namespace detail
 
@@ -69,18 +67,18 @@ public:
 
     constexpr
     span(pointer first, pointer last) noexcept
-        : data_{first}, size_{static_cast<size_type>(last - first)}
+      : data_{first}, size_{static_cast<size_type>(last - first)}
     {}
 
     constexpr
     span(pointer data, size_type size) noexcept
-        : data_{data}, size_{size}
+      : data_{data}, size_{size}
     {}
 
     template <typename U>
     constexpr
     span(const span<U> &other) noexcept
-        : data_{other.data_}, size_{other.size_}
+      : data_{other.data_}, size_{other.size_}
     {
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays)
         static_assert(std::is_convertible_v<U(*)[], T(*)[]>,
@@ -90,7 +88,7 @@ public:
     template <typename Container>
     constexpr
     span(Container &c)
-        : data_{c.data()}, size_{static_cast<size_type>(c.size())}
+      : data_{c.data()}, size_{static_cast<size_type>(c.size())}
     {
         static_assert(detail::is_container_v<Container>,
             "Container must have data() and size() accessors.");
@@ -102,7 +100,7 @@ public:
     template <typename Container>
     constexpr
     span(const Container &c)
-        : data_{c.data()}, size_{static_cast<size_type>(c.size())}
+      : data_{c.data()}, size_{static_cast<size_type>(c.size())}
     {
         static_assert(detail::is_container_v<Container>,
             "Container must have data() and size() accessors.");

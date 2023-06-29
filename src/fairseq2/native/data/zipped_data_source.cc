@@ -28,8 +28,8 @@ zipped_data_source::next()
     std::vector<std::int8_t> eod(pipelines_.size());
 
     // Fetch the next set of elements from the zipped data pipelines.
-    auto fn = [this, &zip, &eod](const tbb::blocked_range<std::size_t> &rng) {
-        for (auto i = rng.begin(); i < rng.end(); ++i) {
+    auto f = [this, &zip, &eod](const tbb::blocked_range<std::size_t> &r) {
+        for (auto i = r.begin(); i < r.end(); ++i) {
             std::optional<data> d = pipelines_[i].next();
             if (d)
                 zip[i] = *std::move(d);
@@ -38,12 +38,12 @@ zipped_data_source::next()
         }
     };
 
-    tbb::blocked_range<std::size_t> full_rng{0, pipelines_.size()};
+    tbb::blocked_range<std::size_t> r{0, pipelines_.size()};
 
     if (disable_parallelism_ || pipelines_.size() == 1)
-        fn(full_rng);
+        f(r);
     else
-        tbb::parallel_for(full_rng, fn);
+        tbb::parallel_for(r, f);
 
     // Check whether all data pipelines are in sync.
     if (std::all_of(eod.begin() + 1, eod.end(), [&eod](std::int8_t b) { return b == eod[0]; })) {
@@ -65,22 +65,22 @@ zipped_data_source::next()
 void
 zipped_data_source::reset()
 {
-    for (auto &dp : pipelines_)
-        dp.reset();
+    for (auto &p : pipelines_)
+        p.reset();
 }
 
 void
 zipped_data_source::record_position(tape &t) const
 {
-    for (auto &dp : pipelines_)
-        dp.record_position(t);
+    for (auto &p : pipelines_)
+        p.record_position(t);
 }
 
 void
 zipped_data_source::reload_position(tape &t)
 {
-    for (auto &dp : pipelines_)
-        dp.reload_position(t);
+    for (auto &p : pipelines_)
+        p.reload_position(t);
 }
 
 }  // namespace fairseq2::detail

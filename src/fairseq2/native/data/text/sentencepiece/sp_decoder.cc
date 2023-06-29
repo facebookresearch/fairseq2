@@ -61,7 +61,7 @@ sp_decoder::sp_decoder(
 {}
 
 data
-sp_decoder::operator()(const data &d) const
+sp_decoder::process(data &&d) const
 {
     if (!d.is_tensor())
         throw std::invalid_argument{
@@ -73,12 +73,6 @@ sp_decoder::operator()(const data &d) const
         t = t.unsqueeze(0);
 
     return decode(std::move(t));
-}
-
-data
-sp_decoder::operator()(data &&d) const
-{
-    return (*this)(d);
 }
 
 std::vector<data>

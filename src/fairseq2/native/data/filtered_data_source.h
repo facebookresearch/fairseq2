@@ -17,8 +17,8 @@ namespace fairseq2::detail {
 class filtered_data_source final : public data_source {
 public :
     explicit
-    filtered_data_source(std::unique_ptr<data_source> &&inner, predicate_fn &&fn) noexcept
-        : inner_{std::move(inner)}, fn_{std::move(fn)}
+    filtered_data_source(std::unique_ptr<data_source> &&inner, predicate_fn &&f) noexcept
+      : inner_{std::move(inner)}, fn_{std::move(f)}
     {}
 
     std::optional<data>
@@ -35,7 +35,7 @@ public :
 
 private:
     bool
-    invoke_predicate_fn(data &example);
+    invoke_fn(data &d);
 
 private:
     std::unique_ptr<data_source> inner_;

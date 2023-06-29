@@ -7,17 +7,20 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
 #include "fairseq2/native/api.h"
 #include "fairseq2/native/data/data.h"
 #include "fairseq2/native/data/data_source.h"
+#include "fairseq2/native/data/element_selector.h"
 #include "fairseq2/native/data/tape.h"
 
 namespace fairseq2 {
@@ -52,7 +55,10 @@ public:
 
 public:
     static data_pipeline_builder
-    zip(std::vector<data_pipeline> pipelines, bool warn_only = false, bool disable_parallelism = false);
+    zip(
+        std::vector<data_pipeline> pipelines,
+        bool warn_only = false,
+        bool disable_parallelism = false);
 
     static data_pipeline_builder
     round_robin(std::vector<data_pipeline> pipelines);
@@ -60,11 +66,11 @@ public:
 private:
     explicit
     data_pipeline(data_source_factory &&fc) noexcept
-        : factory_{std::move(fc)}
+      : factory_{std::move(fc)}
     {}
 
     bool
-    is_initialized() const noexcept;
+    initialized() const noexcept;
 
     void
     ensure_initialized();
@@ -87,11 +93,13 @@ using predicate_fn = std::function<bool(const data &)>;
 
 using yield_fn = std::function<data_pipeline(const data &)>;
 
+class data_processor;
+
 class FAIRSEQ2_API data_pipeline_builder {
 public:
     explicit
-    data_pipeline_builder(data_source_factory fc) noexcept
-        : factory_{std::move(fc)}
+    data_pipeline_builder(data_source_factory f) noexcept
+      : factory_{std::move(f)}
     {}
 
     data_pipeline_builder(const data_pipeline_builder &) = delete;
@@ -103,16 +111,27 @@ public:
    ~data_pipeline_builder() = default;
 
     data_pipeline_builder
-    batch(std::size_t batch_size, bool drop_remainder = false, const std::vector<std::int32_t> &pad_idx = {}) &&;
+    batch(std::size_t batch_size, bool drop_remainder = false) &&;
 
     data_pipeline_builder
-    batch_by_length(const std::vector<std::pair<std::size_t, std::size_t>>& buffer_sizes, std::int32_t pad_idx) &&;
+    batch_by_length(
+        std::vector<std::pair<std::size_t, std::size_t>> bucket_sizes,
+        std::size_t max_seq_len,
+        std::optional<std::string_view> selector = {},
+        bool drop_remainder = false,
+        bool warn_only = false) &&;
 
     data_pipeline_builder
-    filter(predicate_fn fn) &&;
+    collate(std::optional<std::int32_t> pad_idx = {}) &&;
 
     data_pipeline_builder
-    map(map_fn fn, std::size_t num_parallel_calls = 1) &&;
+    filter(predicate_fn f) &&;
+
+    data_pipeline_builder
+    map(map_fn f, std::size_t num_parallel_calls = 1) &&;
+
+    data_pipeline_builder
+    map(std::shared_ptr<const data_processor> p, std::size_t num_parallel_calls = 1) &&;
 
     data_pipeline_builder
     prefetch(std::size_t num_examples) &&;
@@ -121,7 +140,7 @@ public:
     shard(std::size_t shard_idx, std::size_t num_shards) &&;
 
     data_pipeline_builder
-    shuffle(std::size_t shuffle_window, bool strict) &&;
+    shuffle(std::size_t shuffle_window, bool strict, bool enabled = true) &&;
 
     data_pipeline_builder
     skip(std::size_t num_examples) &&;
@@ -130,7 +149,7 @@ public:
     take(std::size_t num_examples) &&;
 
     data_pipeline_builder
-    yield_from(yield_fn fn) &&;
+    yield_from(yield_fn f) &&;
 
     data_pipeline
     and_return() &&;
@@ -169,6 +188,9 @@ FAIRSEQ2_API data_pipeline_builder
 list_files(std::string pathname, std::optional<std::string> pattern = {});
 
 FAIRSEQ2_API data_pipeline_builder
-read_list(std::vector<data> list);
+read_list(std::vector<data> lst);
+
+FAIRSEQ2_API data_pipeline_builder
+read_zipped_records(std::string pathname);
 
 }  // namespace fairseq2

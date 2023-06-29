@@ -11,18 +11,15 @@
 
 namespace fairseq2 {
 
-class FAIRSEQ2_API str_splitter final : public data_processor {
+class FAIRSEQ2_API string_splitter final : public data_processor {
 public:
     explicit
-    str_splitter(char sep = '\t') noexcept
+    string_splitter(char sep = '\t') noexcept
       : sep_{sep}
     {}
 
     data
-    operator()(const data &d) const override;
-
-    data
-    operator()(data &&d) const override;
+    process(data &&d) const override;
 
 private:
     char sep_;

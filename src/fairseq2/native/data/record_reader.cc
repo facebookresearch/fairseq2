@@ -44,7 +44,7 @@ record_reader::load_record()
 {
     record_size_ = 0;
 
-    std::optional<std::size_t> record_offset = std::nullopt;
+    std::optional<std::size_t> record_offset{};
 
     while (!(record_offset = find_record_end(last_chunk_, prev_chunks_.empty()))) {
         memory_block next_chunk = stream_->read_chunk();
@@ -85,8 +85,8 @@ record_reader::copy_split_record()
 
     auto iter = record.begin();
 
-    std::for_each(prev_chunks_.begin(), prev_chunks_.end(), [&iter](const memory_block &i) {
-        iter = std::copy(i.begin(), i.end(), iter);
+    std::for_each(prev_chunks_.begin(), prev_chunks_.end(), [&iter](const memory_block &b) {
+        iter = std::copy(b.begin(), b.end(), iter);
     });
 
     std::copy(last_chunk_.begin(), last_chunk_.begin() + next_record_offset_, iter);

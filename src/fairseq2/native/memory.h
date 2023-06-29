@@ -27,7 +27,7 @@ class FAIRSEQ2_API memory_holder {
 public:
     explicit
     memory_holder(const void *addr, std::size_t size, void *ctx, memory_deallocator d) noexcept
-        : addr_{addr}, size_{size}, ctx_{ctx}, deallocate_{d}
+      : addr_{addr}, size_{size}, ctx_{ctx}, deallocate_{d}
     {}
 
     memory_holder(const memory_holder &) = delete;

@@ -267,10 +267,7 @@ public:
     sp_encoder(std::shared_ptr<const sp_model> m, sp_encoder_options opts = {});
 
     data
-    operator()(const data &d) const override;
-
-    data
-    operator()(data &&d) const override;
+    process(data &&d) const override;
 
 private:
     at::Tensor

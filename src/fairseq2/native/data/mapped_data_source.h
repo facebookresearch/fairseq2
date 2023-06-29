@@ -11,7 +11,7 @@
 #include <utility>
 #include <vector>
 
-#include "fairseq2/native/data/data_pipeline.h"
+#include "fairseq2/native/data/data_processor.h"
 #include "fairseq2/native/data/data_source.h"
 
 namespace fairseq2::detail {
@@ -21,9 +21,9 @@ public:
     explicit
     mapped_data_source(
         std::unique_ptr<data_source> &&inner,
-        map_fn &&fn,
+        std::shared_ptr<const data_processor> &&p,
         std::size_t num_parallel_calls) noexcept
-      : inner_{std::move(inner)}, fn_{std::move(fn)}, num_parallel_calls_{num_parallel_calls}
+      : inner_{std::move(inner)}, processor_{std::move(p)}, num_parallel_calls_{num_parallel_calls}
     {
         buffer_.reserve(num_parallel_calls);
 
@@ -47,11 +47,11 @@ private:
     fill_buffer();
 
     data
-    invoke_fn(data &&example);
+    invoke_processor(data &&d);
 
 private:
     std::unique_ptr<data_source> inner_;
-    map_fn fn_;
+    std::shared_ptr<const data_processor> processor_;
     std::size_t num_parallel_calls_;
     std::vector<data> buffer_{};
     std::vector<data>::iterator buffer_iter_{};

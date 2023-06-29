@@ -13,7 +13,7 @@ filtered_data_source::next()
 {
     std::optional<data> d{};
 
-    while ((d = inner_->next()) && !invoke_predicate_fn(*d));
+    while ((d = inner_->next()) && !invoke_fn(*d));
 
     return d;
 }
@@ -37,15 +37,15 @@ filtered_data_source::reload_position(tape &t)
 }
 
 bool
-filtered_data_source::invoke_predicate_fn(data &example)
+filtered_data_source::invoke_fn(data &d)
 {
     try {
-        return fn_(example);
+        return fn_(d);
     } catch (const data_pipeline_error &) {
         throw;
     } catch (...) {
         data_pipeline_error::throw_nested(
-            "The predicate function has failed.", std::move(example));
+            "The filter operation has failed.", std::move(d));
     }
 }
 

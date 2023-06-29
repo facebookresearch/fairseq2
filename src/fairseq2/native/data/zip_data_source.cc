@@ -4,7 +4,7 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
-#include "fairseq2/native/data/zipfile_data_source.h"
+#include "fairseq2/native/data/zip_data_source.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -23,22 +23,9 @@
 #include <zip/src/zip.h>
 #include "fairseq2/native/memory.h"
 
-namespace fairseq2 {
+namespace fairseq2::detail {
 
-data_pipeline_builder
-read_zipped_records(std::string pathname)
-{
-    auto fc = [pathname = std::move(pathname)]() mutable {
-        return std::make_unique<detail::zipfile_data_source>(std::move(pathname));
-    };
-
-    return data_pipeline_builder{std::move(fc)};
-}
-
-
-namespace detail {
-
-zipfile_data_source::zipfile_data_source(std::string &&pathname)
+zip_data_source::zip_data_source(std::string &&pathname)
     : pathname_{std::move(pathname)}
 {
     try {
@@ -50,7 +37,7 @@ zipfile_data_source::zipfile_data_source(std::string &&pathname)
 }
 
 std::optional<data>
-zipfile_data_source::next()
+zip_data_source::next()
 {
     if (num_files_read_ >= num_entries_) return std::nullopt;
 
@@ -68,19 +55,19 @@ zipfile_data_source::next()
 }
 
 void
-zipfile_data_source::reset()
+zip_data_source::reset()
 {
     num_files_read_ = 0;
 }
 
 void
-zipfile_data_source::record_position(tape &t) const
+zip_data_source::record_position(tape &t) const
 {
     t.record(num_files_read_);
 }
 
 void
-zipfile_data_source::reload_position(tape &t)
+zip_data_source::reload_position(tape &t)
 {
     auto num_files_read = t.read<std::size_t>();
 
@@ -92,7 +79,7 @@ zipfile_data_source::reload_position(tape &t)
 }
 
 void
-zipfile_data_source::handle_error()
+zip_data_source::handle_error()
 {
     try {
         throw;
@@ -104,11 +91,10 @@ zipfile_data_source::handle_error()
 }
 
 inline void
-zipfile_data_source::throw_read_failure()
+zip_data_source::throw_read_failure()
 {
     data_pipeline_error::throw_nested(
         fmt::format("The data pipeline cannot read from '{}'.", pathname_));
 }
 
 }  // namespace fairseq2::detail
-}  // namespace fairseq2

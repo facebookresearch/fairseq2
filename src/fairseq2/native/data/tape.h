@@ -28,7 +28,7 @@ public:
 public:
     explicit
     tape(std::vector<data> storage = {}) noexcept
-        : storage_(std::move(storage))
+      : storage_(std::move(storage))
     {}
 
     template <typename T>

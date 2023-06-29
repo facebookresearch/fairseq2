@@ -4,14 +4,14 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
-#include "fairseq2/native/data/processors/str_splitter.h"
+#include "fairseq2/native/data/processors/string_splitter.h"
 
 #include <stdexcept>
 
 namespace fairseq2 {
 
 data
-str_splitter::operator()(const data &d) const
+string_splitter::process(data &&d) const
 {
     if (!d.is_string())
         throw std::invalid_argument{"The input data must be of type string."};
@@ -22,13 +22,7 @@ str_splitter::operator()(const data &d) const
         parts.emplace_back(std::move(s));
     });
 
-    return parts;
-}
-
-data
-str_splitter::operator()(data &&d) const
-{
-    return (*this)(d);
+    return data{std::move(parts)};
 }
 
 }  // namespace fairseq2

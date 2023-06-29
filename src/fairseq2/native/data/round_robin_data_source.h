@@ -19,7 +19,7 @@ class round_robin_data_source final : public data_source {
 public:
     explicit
     round_robin_data_source(std::vector<data_pipeline> &&pipelines)
-        : pipelines_(std::move(pipelines)), epoch_done_(pipelines_.size())
+      : pipelines_(std::move(pipelines)), epoch_done_(pipelines_.size())
     {
         buffer_.reserve(pipelines_.size());
     }

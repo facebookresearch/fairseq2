@@ -7,77 +7,75 @@
 #include "fairseq2/native/extension/data/utils.h"
 
 #include <functional>
-#include <memory>
 #include <stdexcept>
 #include <utility>
+#include <vector>
 
-#include <fairseq2/native/py.h>
 #include <fairseq2/native/data/data_processor.h>
-#include <fairseq2/native/data/processors/str_to_int_converter.h>
-#include <fairseq2/native/data/processors/str_to_tensor_converter.h>
+#include <fairseq2/native/data/processors/composite_data_processor.h>
+#include <fairseq2/native/data/processors/custom_data_processor.h>
+#include <fairseq2/native/data/processors/element_processor.h>
+#include <fairseq2/native/data/processors/string_to_integer_converter.h>
+#include <fairseq2/native/data/processors/string_to_tensor_converter.h>
 
 #include "fairseq2/native/extension/module.h"
 
 namespace py = pybind11;
 
-using namespace fairseq2::detail;
-
-namespace fairseq2 {
-namespace detail {
+namespace fairseq2::detail {
 namespace {
 
-using data_process_fn = std::function<data(const data &)>;
-
-class custom_data_processor : public data_processor {
-public:
-    explicit
-    custom_data_processor(data_process_fn &&fn) noexcept
-      : fn_{std::move(fn)}
-    {}
-
-    data
-    operator()(const data &d) const override
-    {
-        return fn_(d);
-    }
-
-    data
-    operator()(data &&d) const override
-    {
-        return (*this)(d);
-    }
-
-private:
-    data_process_fn fn_;
-};
-
-}  // namespace
-}  // namespace detail
-
-std::shared_ptr<data_processor>
-as_data_processor(py::handle h)
+std::shared_ptr<const data_processor>
+as_data_processor_core(const py::object &fn)
 {
     // DataProcessor
-    if (py::isinstance<data_processor>(h))
-        return h.cast<std::shared_ptr<data_processor>>();
+    if (py::isinstance<data_processor>(fn))
+        return fn.cast<std::shared_ptr<const data_processor>>();
 
     static py::module_ builtins = py::module_::import("builtins");
 
-    // Int
-    if (h.is(builtins.attr("int")))
-        return std::make_shared<str_to_int_converter>();
+    // int
+    if (fn.is(builtins.attr("int")))
+        return std::make_shared<string_to_integer_converter>();
 
     static py::module_ torch = py::module_::import("torch");
 
     // Tensor
-    if (h.is(torch.attr("tensor")))
-        return std::make_shared<str_to_tensor_converter>();
+    if (fn.is(torch.attr("tensor")))
+        return std::make_shared<string_to_tensor_converter>();
 
     // Callable
-    if (py::isinstance<py::function>(h))
-        return std::make_shared<custom_data_processor>(h.cast<data_process_fn>());
+    if (py::isinstance<py::function>(fn))
+        return std::make_shared<custom_data_processor>(fn.cast<std::function<data(data &&)>>());
 
     throw std::invalid_argument{"The specified object must be callable."};
 }
 
-}  // namespace fairseq2
+std::shared_ptr<const data_processor>
+as_data_processor(const py::object &fn)
+{
+    if (py::isinstance<py::sequence>(fn)) {
+        std::vector<std::shared_ptr<const data_processor>> p{};
+
+        for (py::object e : fn.cast<py::sequence>())
+            p.push_back(as_data_processor_core(e));
+
+        return std::make_shared<composite_data_processor>(std::move(p));
+    } else
+        return as_data_processor_core(fn);
+}
+
+}  // namespace
+
+std::shared_ptr<const data_processor>
+as_data_processor(const py::object &fn, std::optional<std::string_view> selector)
+{
+    std::shared_ptr<const data_processor> p = as_data_processor(fn);
+
+    if (selector)
+        p = std::make_shared<element_processor>(std::move(p), *selector);
+
+    return p;
+}
+
+}  // namespace fairseq2::detail

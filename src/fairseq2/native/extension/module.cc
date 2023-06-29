@@ -17,7 +17,8 @@ PYBIND11_MODULE(C, m)
     py::options opts{};
     opts.disable_function_signatures();
 
-    m.def("_supports_cuda",
+    m.def(
+        "_supports_cuda",
         []()
         {
           return supports_cuda;
@@ -27,7 +28,8 @@ PYBIND11_MODULE(C, m)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunreachable-code-return"
 
-    m.def("_cuda_version",
+    m.def(
+        "_cuda_version",
         []()
         {
           if constexpr (cuda_version_major)

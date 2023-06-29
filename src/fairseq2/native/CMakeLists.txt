@@ -16,11 +16,13 @@ target_sources(fairseq2
         exception.cc
         memory.cc
         py.cc
-        data/batched_data_source.cc
         data/batched_by_length_data_source.cc
+        data/batched_data_source.cc
+        data/collated_data_source.cc
         data/data_pipeline.cc
         data/data_processor.cc
         data/data_source.cc
+        data/element_selector.cc
         data/file.cc
         data/file_stream.cc
         data/filtered_data_source.cc
@@ -38,14 +40,16 @@ target_sources(fairseq2
         data/stream.cc
         data/tape.cc
         data/yielded_data_source.cc
-        data/zipfile_data_source.cc
+        data/zip_data_source.cc
         data/zipped_data_source.cc
         data/detail/file.cc
         data/detail/file_system.cc
-        data/processors/list_processor.cc
-        data/processors/str_splitter.cc
-        data/processors/str_to_int_converter.cc
-        data/processors/str_to_tensor_converter.cc
+        data/processors/composite_data_processor.cc
+        data/processors/custom_data_processor.cc
+        data/processors/element_processor.cc
+        data/processors/string_splitter.cc
+        data/processors/string_to_integer_converter.cc
+        data/processors/string_to_tensor_converter.cc
         data/text/text.cc
         data/text/text_data_source.cc
         data/text/text_line_reader.cc

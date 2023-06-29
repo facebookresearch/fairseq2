@@ -35,11 +35,11 @@ allocate_memory(std::size_t size)
 writable_memory_block
 copy_memory(memory_span src)
 {
-    writable_memory_block blk = allocate_memory(src.size());
+    writable_memory_block b = allocate_memory(src.size());
 
-    std::copy(src.begin(), src.end(), blk.begin());
+    std::copy(src.begin(), src.end(), b.begin());
 
-    return blk;
+    return b;
 }
 
 }  // namespace fairseq2

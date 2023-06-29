@@ -6,28 +6,26 @@
 
 #pragma once
 
-#include <cstdint>
+#include <functional>
+#include <utility>
 
 #include "fairseq2/native/api.h"
 #include "fairseq2/native/data/data_processor.h"
 
 namespace fairseq2 {
 
-class FAIRSEQ2_API str_to_int_converter final : public data_processor {
+class FAIRSEQ2_API custom_data_processor final : public data_processor {
 public:
     explicit
-    str_to_int_converter(std::int16_t base = 10) noexcept
-      : base_{base}
+    custom_data_processor(std::function<data(data &&)> f) noexcept
+      : fn_{std::move(f)}
     {}
 
     data
-    operator()(const data &d) const override;
-
-    data
-    operator()(data &&d) const override;
+    process(data &&d) const override;
 
 private:
-    std::int16_t base_;
+    std::function<data(data &&)> fn_;
 };
 
 }  // namespace fairseq2

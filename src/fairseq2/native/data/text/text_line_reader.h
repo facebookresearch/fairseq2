@@ -20,7 +20,7 @@ class text_line_reader final : public record_reader {
 public:
     explicit
     text_line_reader(std::unique_ptr<stream> &&s, line_ending le)
-        : record_reader{std::move(s)}, line_ending_{le}
+      : record_reader{std::move(s)}, line_ending_{le}
     {}
 
     line_ending
@@ -34,7 +34,7 @@ private:
     find_record_end(memory_span chunk, bool first_chunk) override;
 
     bool
-    infer_line_ending(span<const char> chars);
+    infer_line_ending(span<const char> chrs);
 
 private:
     line_ending line_ending_;

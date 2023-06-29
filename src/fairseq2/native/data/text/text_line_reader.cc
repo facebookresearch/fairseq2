@@ -13,17 +13,17 @@ namespace fairseq2::detail {
 std::optional<std::size_t>
 text_line_reader::find_record_end(memory_span chunk, bool)
 {
-    auto chars = cast<const char>(chunk);
+    auto chrs = cast<const char>(chunk);
 
     if (line_ending_ == line_ending::infer)
-        if (!infer_line_ending(chars))
+        if (!infer_line_ending(chrs))
             return std::nullopt;
 
-    auto iter = chars.begin();
+    auto iter = chrs.begin();
 
     switch (line_ending_) {
     case line_ending::lf: {
-        for (; iter < chars.end(); ++iter) {
+        for (; iter < chrs.end(); ++iter) {
             if (*iter == '\n')
                 break;
         }
@@ -33,7 +33,7 @@ text_line_reader::find_record_end(memory_span chunk, bool)
     case line_ending::crlf: {
         bool has_cr = false;
 
-        for (; iter < chars.end(); ++iter) {
+        for (; iter < chrs.end(); ++iter) {
             if (*iter == '\n') {
                 if (has_cr)
                     break;
@@ -48,18 +48,18 @@ text_line_reader::find_record_end(memory_span chunk, bool)
         unreachable();
     }
 
-    if (iter == chars.end())
+    if (iter == chrs.end())
         return std::nullopt;
 
-    return static_cast<std::size_t>(iter - chars.begin() + 1);
+    return static_cast<std::size_t>(iter - chrs.begin() + 1);
 }
 
 bool
-text_line_reader::infer_line_ending(span<const char> chars)
+text_line_reader::infer_line_ending(span<const char> chrs)
 {
     bool has_cr = false;
 
-    for (char c : chars) {
+    for (char c : chrs) {
         if (c == '\n') {
             if (has_cr)
                 line_ending_ = line_ending::crlf;

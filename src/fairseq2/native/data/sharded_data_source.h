@@ -17,8 +17,11 @@ namespace fairseq2::detail {
 class sharded_data_source final : public data_source {
 public:
     explicit
-    sharded_data_source(std::unique_ptr<data_source> &&inner, std::size_t shard_idx, std::size_t num_shards) noexcept
-        : inner_{std::move(inner)}, shard_idx_{shard_idx}, num_shards_{num_shards}
+    sharded_data_source(
+        std::unique_ptr<data_source> &&inner,
+        std::size_t shard_idx,
+        std::size_t num_shards) noexcept
+      : inner_{std::move(inner)}, shard_idx_{shard_idx}, num_shards_{num_shards}
     {}
 
     std::optional<data>

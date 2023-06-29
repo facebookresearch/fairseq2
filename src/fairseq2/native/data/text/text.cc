@@ -18,11 +18,11 @@ namespace fairseq2 {
 data_pipeline_builder
 read_text(std::string pathname, text_options opts)
 {
-    auto fc = [pathname = std::move(pathname), opts = std::move(opts)]() mutable {
+    auto f = [pathname = std::move(pathname), opts = std::move(opts)]() mutable {
         return std::make_unique<text_data_source>(std::move(pathname), std::move(opts));
     };
 
-    return data_pipeline_builder{std::move(fc)};
+    return data_pipeline_builder{std::move(f)};
 }
 
 }  // namespace fairseq2

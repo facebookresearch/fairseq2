@@ -16,8 +16,8 @@ namespace fairseq2::detail {
 class memory_stream final : public stream {
 public:
     explicit
-    memory_stream(memory_block blk) noexcept
-        : block_{std::move(blk)}
+    memory_stream(memory_block b) noexcept
+      : block_{std::move(b)}
     {
         original_block_ = block_;
     }

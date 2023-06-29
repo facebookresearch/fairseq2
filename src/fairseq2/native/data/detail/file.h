@@ -22,14 +22,14 @@ public:
     file_desc() noexcept = default;
 
     file_desc(int fd) noexcept
-        : fd_{fd}
+      : fd_{fd}
     {}
 
     file_desc(const file_desc &) = delete;
     file_desc &operator=(const file_desc &) = delete;
 
     file_desc(file_desc &&other) noexcept
-        : fd_{other.fd_}
+      : fd_{other.fd_}
     {
         other.fd_ = invalid_fd;
     }

@@ -8,6 +8,8 @@
 
 #include <oneapi/tbb.h>
 
+#include "fairseq2/native/data/data_pipeline.h"
+
 namespace fairseq2::detail {
 
 std::optional<data>
@@ -18,7 +20,7 @@ mapped_data_source::next()
         if (!d)
             return std::nullopt;
 
-        return invoke_fn(*std::move(d));
+        return invoke_processor(*std::move(d));
     }
 
     // If we have exhausted all buffered examples, try to refill the buffer.
@@ -75,19 +77,19 @@ mapped_data_source::fill_buffer()
     if (buffer_.empty())
         return false;
 
-    // Apply the map function to all buffered examples.
-    auto apply_fn = [this](const tbb::blocked_range<std::size_t> &range) {
-        for (auto i = range.begin(); i < range.end(); ++i)
-            buffer_[i] = invoke_fn(std::move(buffer_[i]));
+    // Apply the processor to all buffered examples.
+    auto apply_processor = [this](const tbb::blocked_range<std::size_t> &r) {
+        for (auto i = r.begin(); i < r.end(); ++i)
+            buffer_[i] = invoke_processor(std::move(buffer_[i]));
     };
 
-    tbb::blocked_range<std::size_t> full_range{0, buffer_.size()};
+    tbb::blocked_range<std::size_t> r{0, buffer_.size()};
 
     // Avoid threading overhead if we have just one example.
     if (buffer_.size() == 1)
-        apply_fn(full_range);
+        apply_processor(r);
     else
-        tbb::parallel_for(full_range, apply_fn);
+        tbb::parallel_for(r, apply_processor);
 
     buffer_iter_ = buffer_.begin();
 
@@ -95,13 +97,13 @@ mapped_data_source::fill_buffer()
 }
 
 data
-mapped_data_source::invoke_fn(data &&example) {
+mapped_data_source::invoke_processor(data &&d) {
     try {
-        return fn_(std::move(example));
+        return processor_->process(std::move(d));
     } catch (const data_pipeline_error &) {
         throw;
     } catch (...) {
-        data_pipeline_error::throw_nested("The map function has failed.");
+        data_pipeline_error::throw_nested("The map operation has failed.");
     }
 }
 

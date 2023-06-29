@@ -90,7 +90,7 @@ sp_encoder::sp_encoder(std::shared_ptr<const sp_model> m, sp_encoder_options opt
 }
 
 data
-sp_encoder::operator()(const data &d) const
+sp_encoder::process(data &&d) const
 {
     if (d.is_list())
         return encode(d.as_list());
@@ -101,12 +101,6 @@ sp_encoder::operator()(const data &d) const
     } else
         throw std::invalid_argument{
             "The SentencePiece encoder expects as input a string or a list of strings."};
-}
-
-data
-sp_encoder::operator()(data &&d) const
-{
-    return (*this)(d);
 }
 
 at::Tensor

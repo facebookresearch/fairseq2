@@ -25,10 +25,7 @@ public:
    ~data_processor();
 
     virtual data
-    operator()(const data &) const = 0;
-
-    virtual data
-    operator()(data &&) const = 0;
+    process(data &&) const = 0;
 };
 
 }  // namespace fairseq2

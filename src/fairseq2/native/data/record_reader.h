@@ -23,7 +23,7 @@ class FAIRSEQ2_API record_reader {
 protected:
     explicit
     record_reader(std::unique_ptr<stream> &&s) noexcept
-        : stream_{std::move(s)}
+      : stream_{std::move(s)}
     {}
 
 public:

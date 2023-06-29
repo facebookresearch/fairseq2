@@ -7,6 +7,8 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -24,8 +26,14 @@
 
 namespace fairseq2 {
 
-template <typename Key, typename T>
-using flat_hash_map = ska_ordered::order_preserving_flat_hash_map<Key, T>;
+template <
+    typename Key,
+    typename T,
+    typename Hash = std::hash<Key>,
+    typename KeyEqual = std::equal_to<Key>,
+    typename Allocator = std::allocator<std::pair<Key, T>>>
+using flat_hash_map = ska_ordered::order_preserving_flat_hash_map<
+    Key, T, Hash, KeyEqual, Allocator>;
 
 class data {
 public:
@@ -92,23 +100,23 @@ public:
 
     // string
     data(const char *value)
-        : payload_{immutable_string{value}}
+      : payload_{immutable_string{value}}
     {}
 
     data(const std::string &value)
-        : payload_{immutable_string{value}}
+      : payload_{immutable_string{value}}
     {}
 
     data(std::string_view value)
-        : payload_{immutable_string{value}}
+      : payload_{immutable_string{value}}
     {}
 
     data(const immutable_string &value) noexcept
-        : payload_{value}
+      : payload_{value}
     {}
 
     data(immutable_string &&value) noexcept
-        : payload_{std::move(value)}
+      : payload_{std::move(value)}
     {}
 
     bool
@@ -137,11 +145,11 @@ public:
 
     // Tensor
     data(const at::Tensor &value)
-        : payload_{value}
+      : payload_{value}
     {}
 
     data(at::Tensor &&value) noexcept
-        : payload_{std::move(value)}
+      : payload_{std::move(value)}
     {}
 
     bool
@@ -170,11 +178,11 @@ public:
 
     // memory_block
     data(const memory_block &value) noexcept
-        : payload_{value}
+      : payload_{value}
     {}
 
     data(memory_block &&value) noexcept
-        : payload_{std::move(value)}
+      : payload_{std::move(value)}
     {}
 
     bool
@@ -197,11 +205,11 @@ public:
 
     // list
     data(const std::vector<data> &value)
-        : payload_{value}
+      : payload_{value}
     {}
 
     data(std::vector<data> &&value) noexcept
-        : payload_{std::move(value)}
+      : payload_{std::move(value)}
     {}
 
     bool
@@ -229,45 +237,45 @@ public:
     }
 
     // dict
-    data(const flat_hash_map<immutable_string, data> &value)
-        : payload_{value}
+    data(const flat_hash_map<std::string, data> &value)
+      : payload_{value}
     {}
 
-    data(flat_hash_map<immutable_string, data> &&value) noexcept
-        : payload_{std::move(value)}
+    data(flat_hash_map<std::string, data> &&value) noexcept
+      : payload_{std::move(value)}
     {}
 
     bool
     is_dict() const noexcept
     {
-        return is<flat_hash_map<immutable_string, data>>();
+        return is<flat_hash_map<std::string, data>>();
     }
 
-    flat_hash_map<immutable_string, data> &
+    flat_hash_map<std::string, data> &
     as_dict() & noexcept
     {
-        return as<flat_hash_map<immutable_string, data>>();
+        return as<flat_hash_map<std::string, data>>();
     }
 
-    const flat_hash_map<immutable_string, data> &
+    const flat_hash_map<std::string, data> &
     as_dict() const & noexcept
     {
-        return as<flat_hash_map<immutable_string, data>>();
+        return as<flat_hash_map<std::string, data>>();
     }
 
-    flat_hash_map<immutable_string, data> &&
+    flat_hash_map<std::string, data> &&
     as_dict() && noexcept
     {
-        return move_as<flat_hash_map<immutable_string, data>>();
+        return move_as<flat_hash_map<std::string, data>>();
     }
 
     // py_object
     data(const py_object &value) noexcept
-        : payload_{value}
+      : payload_{value}
     {}
 
     data(py_object &&value) noexcept
-        : payload_{std::move(value)}
+      : payload_{std::move(value)}
     {}
 
     bool
@@ -332,7 +340,7 @@ private:
         at::Tensor,
         memory_block,
         std::vector<data>,
-        flat_hash_map<immutable_string, data>,
+        flat_hash_map<std::string, data>,
         py_object> payload_{};
 };
 

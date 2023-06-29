@@ -36,10 +36,7 @@ public:
         bool disable_parallelism = false) noexcept;
 
     data
-    operator()(const data &d) const override;
-
-    data
-    operator()(data &&d) const override;
+    process(data &&d) const override;
 
 private:
     std::vector<data>

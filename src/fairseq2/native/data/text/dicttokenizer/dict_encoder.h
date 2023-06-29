@@ -25,10 +25,7 @@ public:
     dict_encoder(const dict_model *model, std::int64_t max_seq_len);
 
     data
-    operator()(const data &d) const override;
-
-    data
-    operator()(data &&d) const override;
+    process(data &&d) const override;
 
 private:
     const dict_model *model_;

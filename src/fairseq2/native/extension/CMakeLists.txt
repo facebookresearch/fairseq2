@@ -15,6 +15,7 @@ set_property(TARGET extension PROPERTY OUTPUT_NAME C)
 target_sources(extension
     PRIVATE
         module.cc
+        data/data_pipeline.cc
         data/init.cc
         data/memory.cc
         data/processors.cc

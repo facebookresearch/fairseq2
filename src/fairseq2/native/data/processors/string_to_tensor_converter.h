@@ -20,23 +20,20 @@ namespace fairseq2 {
 
 class immutable_string;
 
-class FAIRSEQ2_API str_to_tensor_converter final : public data_processor {
+class FAIRSEQ2_API string_to_tensor_converter final : public data_processor {
 public:
     explicit
-    str_to_tensor_converter(
+    string_to_tensor_converter(
         std::optional<std::vector<std::int64_t>> size = {},
         std::optional<at::ScalarType> dtype = {});
 
     data
-    operator()(const data &d) const override;
-
-    data
-    operator()(data &&d) const override;
+    process(data &&d) const override;
 
 private:
     template <typename T>
     void
-    fill_storage(at::Tensor &t, const std::vector<immutable_string> &values) const;
+    fill_storage(at::Tensor &t, const std::vector<immutable_string> &strs) const;
 
 private:
     std::optional<std::vector<std::int64_t>> size_;

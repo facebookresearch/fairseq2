@@ -16,7 +16,11 @@ class TestMapOp:
         def fn(d: int) -> int:
             return d**2
 
-        dp = read_sequence([1, 2, 3, 4]).map(fn, num_parallel_calls).and_return()
+        dp = (
+            read_sequence([1, 2, 3, 4])
+            .map(fn, num_parallel_calls=num_parallel_calls)
+            .and_return()
+        )
 
         for _ in range(2):
             assert list(dp) == [1, 4, 9, 16]
@@ -41,11 +45,41 @@ class TestMapOp:
 
             return d
 
-        dp = read_sequence([1, 2, 3, 4]).map(fn, num_parallel_calls).and_return()
+        dp = (
+            read_sequence([1, 2, 3, 4])
+            .map(fn, num_parallel_calls=num_parallel_calls)
+            .and_return()
+        )
 
         with pytest.raises(ValueError, match=r"^map error$"):
             for d in dp:
                 pass
+
+    def test_op_works_with_element_path_as_expected(self) -> None:
+        def fn(d: int) -> int:
+            return d + 10
+
+        a = {
+            "foo1": 1,
+            "foo2": [2, 3, {"foo4": 4}],
+            "foo3": [5],
+        }
+
+        b = {
+            "foo1": 6,
+            "foo2": [7, 8, {"foo4": 9}],
+            "foo3": [0],
+        }
+
+        dp = read_sequence([a, b]).map(fn, selector="foo2[2].foo4").and_return()
+
+        for _ in range(2):
+            it = iter(dp)
+
+            assert next(it)["foo2"][2]["foo4"] == 14
+            assert next(it)["foo2"][2]["foo4"] == 19
+
+            dp.reset()
 
     @pytest.mark.parametrize("num_parallel_calls", [0, 1, 4, 20])
     def test_record_reload_position_works_as_expected(
@@ -54,7 +88,11 @@ class TestMapOp:
         def fn(d: int) -> int:
             return d
 
-        dp = read_sequence(list(range(1, 10))).map(fn, num_parallel_calls).and_return()
+        dp = (
+            read_sequence(list(range(1, 10)))
+            .map(fn, num_parallel_calls=num_parallel_calls)
+            .and_return()
+        )
 
         d = None
 

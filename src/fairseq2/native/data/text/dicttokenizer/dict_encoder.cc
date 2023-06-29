@@ -17,18 +17,12 @@ dict_encoder::dict_encoder(const dict_model *model, std::int64_t max_seq_len)
 }
 
 data
-dict_encoder::operator()(const data &d) const
+dict_encoder::process(data &&d) const
 {
     if (d.is_list())
         return encode(d.as_list());
     else
         throw std::invalid_argument{"Encoder expects as input a list of strings."};
-}
-
-data
-dict_encoder::operator()(data &&d) const
-{
-    return (*this)(d);
 }
 
 at::Tensor

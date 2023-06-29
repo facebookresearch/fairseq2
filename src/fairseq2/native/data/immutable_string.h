@@ -37,18 +37,18 @@ public:
     immutable_string() noexcept = default;
 
     immutable_string(const char *s)
-        : immutable_string{std::string_view{s}}
+      : immutable_string{std::string_view{s}}
     {}
 
     immutable_string(const std::string &s)
-        : immutable_string{static_cast<std::string_view>(s)}
+      : immutable_string{static_cast<std::string_view>(s)}
     {}
 
     immutable_string(std::string_view s);
 
     explicit
     immutable_string(memory_block storage) noexcept
-        : storage_{std::move(storage)}
+      : storage_{std::move(storage)}
     {}
 
     immutable_string(const immutable_string &other) noexcept
@@ -192,8 +192,8 @@ private:
 template <>
 struct std::hash<fairseq2::immutable_string> {
     inline std::size_t
-    operator()(const fairseq2::immutable_string &v) const noexcept
+    operator()(const fairseq2::immutable_string &s) const noexcept
     {
-        return std::hash<std::string_view>{}(v);
+        return std::hash<std::string_view>{}(s);
     }
 };

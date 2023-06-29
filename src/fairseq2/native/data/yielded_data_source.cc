@@ -45,7 +45,7 @@ yielded_data_source::reload_position(tape &t)
     example_ = t.read<std::optional<data>>();
 
     if (example_) {
-        data_pipeline_ = invoke_yield_fn(*example_);
+        data_pipeline_ = invoke_fn(*example_);
 
         data_pipeline_.reload_position(t);
     }
@@ -61,7 +61,7 @@ yielded_data_source::load_next_data_pipeline()
     example_ = inner_->next();
 
     if (example_)
-        data_pipeline_ = invoke_yield_fn(*example_);
+        data_pipeline_ = invoke_fn(*example_);
     else
         data_pipeline_ = {};
 
@@ -69,7 +69,7 @@ yielded_data_source::load_next_data_pipeline()
 }
 
 data_pipeline
-yielded_data_source::invoke_yield_fn(data &example)
+yielded_data_source::invoke_fn(data &example)
 {
     try {
         return fn_(example);

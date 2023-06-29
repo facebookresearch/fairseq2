@@ -22,6 +22,9 @@ void
 def_data(pybind11::module_ &base_module);
 
 void
+def_data_pipeline(pybind11::module_ &data_module);
+
+void
 def_memory(pybind11::module_ &data_module);
 
 void

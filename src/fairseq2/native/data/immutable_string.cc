@@ -27,27 +27,28 @@ immutable_string::get_code_point_length() const
 memory_block
 immutable_string::copy_string(std::string_view s)
 {
-    writable_memory_block blk = allocate_memory(s.size());
+    writable_memory_block b = allocate_memory(s.size());
 
-    std::copy(s.begin(), s.end(), blk.cast<value_type>().begin());
+    std::copy(s.begin(), s.end(), b.cast<value_type>().begin());
 
-    return blk;
+    return b;
 }
 
 std::vector<immutable_string>
 immutable_string::split(char separator) const
 {
-    std::vector<immutable_string> result{};
+    std::vector<immutable_string> r{};
 
-    split(separator, [&result](immutable_string &&s) {
-        result.push_back(std::move(s));
+    split(separator, [&r](immutable_string &&s) {
+        r.push_back(std::move(s));
     });
 
-    return result;
+    return r;
 }
 
 void
-immutable_string::split(char separator, const std::function<void(immutable_string &&)> &handler) const
+immutable_string::split(
+    char separator, const std::function<void(immutable_string &&)> &handler) const
 {
     std::string_view s = view();
 

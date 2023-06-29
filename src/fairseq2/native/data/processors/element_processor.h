@@ -6,32 +6,29 @@
 
 #pragma once
 
-#include <vector>
-
-#include <ATen/Tensor.h>
+#include <memory>
+#include <string_view>
+#include <utility>
 
 #include "fairseq2/native/api.h"
-#include "fairseq2/native/data/text/dicttokenizer/dict_model.h"
-#include "fairseq2/native/span.h"
-#include "fairseq2/native/data/data.h"
 #include "fairseq2/native/data/data_processor.h"
+#include "fairseq2/native/data/element_selector.h"
 
 namespace fairseq2 {
 
-class FAIRSEQ2_API dict_decoder final : public data_processor {
-
+class FAIRSEQ2_API element_processor final : public data_processor {
 public:
     explicit
-    dict_decoder(const dict_model *model) noexcept;
+    element_processor(std::shared_ptr<const data_processor> p, std::string_view selector) noexcept
+      : processor_{std::move(p)}, selector_{selector}
+    {}
 
     data
     process(data &&d) const override;
 
 private:
-    const dict_model *model_;
-
-    std::vector<data>
-    decode(at::Tensor &&t) const;
+    std::shared_ptr<const data_processor> processor_;
+    detail::element_selector selector_;
 };
 
 }  // namespace fairseq2

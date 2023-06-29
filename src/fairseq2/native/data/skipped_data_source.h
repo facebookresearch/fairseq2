@@ -18,7 +18,7 @@ class skipped_data_source final : public data_source {
 public:
     explicit
     skipped_data_source(std::unique_ptr<data_source> &&inner, std::size_t num_examples) noexcept
-        : inner_{std::move(inner)}, num_examples_{num_examples}
+      : inner_{std::move(inner)}, num_examples_{num_examples}
     {}
 
     std::optional<data>

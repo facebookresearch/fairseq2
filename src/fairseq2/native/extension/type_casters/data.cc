@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <stdexcept>
+#include <string>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
@@ -26,6 +27,11 @@
 using namespace fairseq2;
 
 namespace pybind11::detail {
+
+template <typename Key, typename Value, typename Hash, typename Equal, typename Alloc>
+struct type_caster<fairseq2::flat_hash_map<Key, Value, Hash, Equal, Alloc>>
+    : map_caster<fairseq2::flat_hash_map<Key, Value, Hash, Equal, Alloc>, Key, Value>
+{};
 
 data
 type_caster<data>::cast_from_py(handle src)
@@ -55,7 +61,7 @@ type_caster<data>::cast_from_py(handle src)
         return src.cast<py_object>();
 
     if (isinstance<dict>(src))
-        return src.cast<flat_hash_map<immutable_string, data>>();
+        return src.cast<flat_hash_map<std::string, data>>();
 
     if (isinstance<sequence>(src))
         return src.cast<std::vector<data>>();
@@ -94,8 +100,7 @@ type_caster<data>::cast_from_cc(T &&src)
     if (src.is_py())
         return pybind11::cast(std::forward<T>(src).as_py());
 
-    throw std::runtime_error{
-        "The specified fairseq2::data instance cannot be converted to a Python object."};
+    throw std::runtime_error{"The data instance cannot be converted to a Python object."};
 }
 
 template

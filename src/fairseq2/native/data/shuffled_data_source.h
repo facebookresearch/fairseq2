@@ -18,8 +18,9 @@ namespace fairseq2::detail {
 class shuffled_data_source final : public data_source {
 public:
     explicit
-    shuffled_data_source(std::unique_ptr<data_source> &&inner, std::size_t shuffle_window, bool strict)
-        : inner_{std::move(inner)}, strict_{strict}
+    shuffled_data_source(
+        std::unique_ptr<data_source> &&inner, std::size_t shuffle_window, bool strict) noexcept
+      : inner_{std::move(inner)}, strict_{strict}
     {
         if (shuffle_window == 0)
             shuffle_window_ = std::numeric_limits<std::size_t>::max();

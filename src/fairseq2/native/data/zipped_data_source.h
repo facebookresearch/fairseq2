@@ -18,8 +18,11 @@ namespace fairseq2::detail {
 class zipped_data_source final : public data_source {
 public:
     explicit
-    zipped_data_source(std::vector<data_pipeline> &&pipelines, bool warn_only, bool disable_parallelism) noexcept
-        : pipelines_(std::move(pipelines)), warn_only_{warn_only}, disable_parallelism_{disable_parallelism}
+    zipped_data_source(
+        std::vector<data_pipeline> &&pipelines, bool warn_only, bool disable_parallelism) noexcept
+      : pipelines_(std::move(pipelines)),
+        warn_only_{warn_only},
+        disable_parallelism_{disable_parallelism}
     {}
 
     std::optional<data>

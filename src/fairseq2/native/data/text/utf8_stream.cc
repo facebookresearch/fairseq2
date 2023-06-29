@@ -22,7 +22,7 @@ utf8_stream::utf8_stream(
     std::unique_ptr<stream> &&inner,
     std::optional<std::string> encoding,
     std::size_t chunk_size) noexcept
-    : inner_{std::move(inner)}
+  : inner_{std::move(inner)}
 {
     if (encoding)
         encoding_ = *encoding;
@@ -127,13 +127,13 @@ utf8_stream::move_leftover_bits()
     if (leftover_bits_.empty())
         return;
 
-    writable_memory_block blk = allocate_memory(leftover_bits_.size() + inner_chunk_.size());
+    writable_memory_block b = allocate_memory(leftover_bits_.size() + inner_chunk_.size());
 
-    auto iter = std::copy(leftover_bits_.begin(), leftover_bits_.end(), blk.begin());
+    auto iter = std::copy(leftover_bits_.begin(), leftover_bits_.end(), b.begin());
 
     std::copy(inner_chunk_.begin(), inner_chunk_.end(), iter);
 
-    inner_chunk_ = blk;
+    inner_chunk_ = b;
 
     leftover_bits_ = {};
 }
@@ -141,16 +141,16 @@ utf8_stream::move_leftover_bits()
 utf8_stream::iconv_status
 utf8_stream::decode_inner_chunk(writable_memory_span &out)
 {
-    span<const char> inp_chars = inner_chunk_.cast<const char>();
+    span<const char> inp_chrs = inner_chunk_.cast<const char>();
 
-    span<char> out_chars = cast<char>(out);
+    span<char> out_chrs = cast<char>(out);
 
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-    auto inp_data = const_cast<char *>(inp_chars.data());
-    auto inp_left = inp_chars.size();
+    auto inp_data = const_cast<char *>(inp_chrs.data());
+    auto inp_left = inp_chrs.size();
 
-    auto out_data = out_chars.data();
-    auto out_left = out_chars.size();
+    auto out_data = out_chrs.data();
+    auto out_left = out_chrs.size();
 
     std::size_t r = ::iconv(iconv_, &inp_data, &inp_left, &out_data, &out_left);
 

@@ -24,7 +24,7 @@
 namespace fairseq2::detail {
 
 text_data_source::text_data_source(std::string &&pathname, text_options &&opts)
-    : pathname_{std::move(pathname)}, opts_{std::move(opts)}
+  : pathname_{std::move(pathname)}, opts_{std::move(opts)}
 {
     try {
         reader_ = make_text_line_reader();
@@ -47,15 +47,15 @@ text_data_source::next()
     if (line.empty())
         return {};
 
-    immutable_string example{std::move(line)};
+    immutable_string output{std::move(line)};
 
     if (opts_.ltrim())
-        example = ltrim(example);
+        output = ltrim(output);
 
     if (opts_.rtrim())
-        example = rtrim(example);
+        output = rtrim(output);
 
-    return example;
+    return output;
 }
 
 void

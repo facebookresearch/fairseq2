@@ -4,26 +4,18 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
-#include "fairseq2/native/extension/module.h"
-
-namespace py = pybind11;
+#include "fairseq2/native/data/processors/element_processor.h"
 
 namespace fairseq2 {
 
-void
-def_data(py::module_ &base)
+data
+element_processor::process(data &&d) const
 {
-    py::module_ m = base.def_submodule("data");
+    selector_.visit(d, [this](data &e) {
+        e = processor_->process(std::move(e));
+    });
 
-    def_data_pipeline(m);
-
-    def_memory(m);
-
-    def_processors(m);
-
-    def_string(m);
-
-    def_text(m);
+    return std::move(d);
 }
 
 }  // namespace fairseq2

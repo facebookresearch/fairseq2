@@ -19,7 +19,7 @@
 namespace fairseq2::detail {
 
 file_stream::file_stream(file_desc &&fd, std::string pathname, std::size_t chunk_size) noexcept
-    : fd_{std::move(fd)}, pathname_{std::move(pathname)}, chunk_size_{chunk_size}
+  : fd_{std::move(fd)}, pathname_{std::move(pathname)}, chunk_size_{chunk_size}
 {
     hint_sequential_file();
 }

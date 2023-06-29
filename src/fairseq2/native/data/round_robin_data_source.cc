@@ -17,7 +17,7 @@ round_robin_data_source::next()
     // At the beginning of the next round, check if all data pipelines had at
     // least one epoch. If that is the case, we can signal EOD.
     if (buffer_idx_ == 0) {
-        if (std::all_of(epoch_done_.begin(), epoch_done_.end(), [](bool v) { return v; })) {
+        if (std::all_of(epoch_done_.begin(), epoch_done_.end(), [](bool b) { return b; })) {
             eod_ = true;
 
             return std::nullopt;
@@ -59,8 +59,8 @@ round_robin_data_source::reset()
 
     eod_ = false;
 
-    for (data_pipeline &dp : pipelines_)
-        dp.reset();
+    for (data_pipeline &p : pipelines_)
+        p.reset();
 }
 
 void
@@ -72,8 +72,8 @@ round_robin_data_source::record_position(tape &t) const
 
     t.record(epoch_done_);
 
-    for (const data_pipeline &dp : pipelines_)
-        dp.record_position(t);
+    for (const data_pipeline &p : pipelines_)
+        p.record_position(t);
 }
 
 void
@@ -87,23 +87,23 @@ round_robin_data_source::reload_position(tape &t)
 
     eod_ = false;
 
-    for (data_pipeline &dp : pipelines_)
-        dp.reload_position(t);
+    for (data_pipeline &p : pipelines_)
+        p.reload_position(t);
 }
 
 std::optional<data>
 round_robin_data_source::next_in_pipeline(std::size_t pipeline_idx)
 {
-    data_pipeline &dp = pipelines_[pipeline_idx];
+    data_pipeline &p = pipelines_[pipeline_idx];
 
-    std::optional<data> d = dp.next();
+    std::optional<data> d = p.next();
     if (!d) {
         epoch_done_[pipeline_idx] = true;
 
-        dp.reset();
+        p.reset();
 
         // Circle back to the first example.
-        d = dp.next();
+        d = p.next();
     }
 
     return d;

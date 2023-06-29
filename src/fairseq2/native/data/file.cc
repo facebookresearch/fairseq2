@@ -83,9 +83,8 @@ read_file(const std::string &pathname, const file_options &opts)
         hint_sequential_memory(data, pathname);
 
         s = std::make_unique<memory_stream>(std::move(data));
-    } else {
+    } else
         s = std::make_unique<file_stream>(std::move(fd), pathname, chunk_size);
-    }
 
     if (opts.mode() == file_mode::text)
         s = std::make_unique<utf8_stream>(std::move(s), opts.text_encoding(), chunk_size);
