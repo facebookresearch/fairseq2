@@ -123,6 +123,7 @@ def_data_pipeline(py::module_ &data_module)
             "zip",
             [](
                 std::vector<std::reference_wrapper<data_pipeline>> &refs,
+                std::optional<std::vector<std::string>> names,
                 bool warn_only,
                 bool disable_parallelism)
             {
@@ -135,9 +136,11 @@ def_data_pipeline(py::module_ &data_module)
                         return std::move(r.get());
                     });
 
-                return data_pipeline::zip(std::move(pipelines), warn_only, disable_parallelism);
+                return data_pipeline::zip(
+                    std::move(pipelines), std::move(names), warn_only, disable_parallelism);
             },
             py::arg("pipelines"),
+            py::arg("names") = std::nullopt,
             py::arg("warn_only") = false,
             py::arg("disable_parallelism") = false)
         .def_static(
@@ -298,7 +301,7 @@ def_data_pipeline(py::module_ &data_module)
             py::arg("num_examples"))
         .def(
             "yield_from",
-            [](data_pipeline_builder &self, yield_fn &&f) -> data_pipeline_builder &
+            [](data_pipeline_builder &self, yield_fn f) -> data_pipeline_builder &
             {
                 self = std::move(self).yield_from(std::move(f));
 

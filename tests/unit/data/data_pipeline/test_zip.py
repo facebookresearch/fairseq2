@@ -43,6 +43,23 @@ class TestZipOp:
 
             zdp.reset()
 
+    def test_op_works_as_expected_with_names(self) -> None:
+        dp1 = read_sequence([1, 2, 3, 4]).and_return()
+        dp2 = read_sequence([5, 6, 7, 8]).and_return()
+        dp3 = read_sequence([0, 2, 4, 6]).and_return()
+
+        zdp = DataPipeline.zip([dp1, dp2, dp3], names=["p1", "p2", "p3"]).and_return()
+
+        for _ in range(2):
+            assert list(zdp) == [
+                {"p1": 1, "p2": 5, "p3": 0},
+                {"p1": 2, "p2": 6, "p3": 2},
+                {"p1": 3, "p2": 7, "p3": 4},
+                {"p1": 4, "p2": 8, "p3": 6},
+            ]
+
+            zdp.reset()
+
     def test_op_raises_error_if_lengths_are_not_equal(self) -> None:
         dp1 = read_sequence([1, 2, 3]).and_return()
         dp2 = read_sequence([5, 6, 7, 8]).and_return()
@@ -68,6 +85,16 @@ class TestZipOp:
             # TODO: assert that warning is printed.
 
             zdp.reset()
+
+    def test_op_raises_error_if_pipelines_and_names_do_not_match(self) -> None:
+        dp1 = read_sequence([]).and_return()
+        dp2 = read_sequence([]).and_return()
+
+        with pytest.raises(
+            ValueError,
+            match=r"^The number of `pipelines` and the number of `names` must be equal, but are 2 and 3 instead\.$",
+        ):
+            DataPipeline.zip([dp1, dp2], ["p1", "p2", "p3"])
 
     def test_op_raises_error_if_one_of_the_pipelines_is_broken(self) -> None:
         def err(e: Any) -> NoReturn:

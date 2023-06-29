@@ -33,14 +33,15 @@ def_processors(py::module_ &data_module)
     // StrSplitter
     py::class_<string_splitter, data_processor, std::shared_ptr<string_splitter>>(m, "StrSplitter")
         .def(
-            py::init([](std::string_view sep)
+            py::init([](std::string_view sep, std::optional<std::vector<std::string>> names)
             {
                 if (sep.size() != 1)
                     throw std::invalid_argument{"`sep` must be of length 1."};
 
-                return string_splitter{sep[0]};
+                return string_splitter{sep[0], std::move(names)};
             }),
-            py::arg("sep") = '\t');
+            py::arg("sep") = '\t',
+            py::arg("names") = std::nullopt);
 
     // StrToIntConverter
     py::class_<

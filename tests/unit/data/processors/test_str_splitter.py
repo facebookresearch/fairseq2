@@ -17,7 +17,7 @@ class TestStrToTensorConverter:
 
         assert splitter(s) == ["23", "9", "12", "abc", "34", "~~", "90", " 1 ", " "]
 
-    def test_splits_as_expected_with_custom_sep(self) -> None:
+    def test_splits_with_custom_sep_as_expected(self) -> None:
         s = "23 9 12  abc 34 ~~  90 \t 1  "
 
         splitter = StrSplitter(sep=" ")
@@ -29,3 +29,21 @@ class TestStrToTensorConverter:
         splitter = StrSplitter()
 
         assert splitter(s) == []
+
+    def test_splits_with_names_as_expected(self) -> None:
+        s = "1\t2\t3"
+
+        splitter = StrSplitter(names=["a", "b", "c"])
+
+        assert splitter(s) == {"a": "1", "b": "2", "c": "3"}
+
+    def test_raises_error_if_fields_and_names_do_not_match(self) -> None:
+        s = "1\t2\t3"
+
+        splitter = StrSplitter(names=["a", "b"])
+
+        with pytest.raises(
+            ValueError,
+            match=r"^The number of fields must match the number of names \(2\), but is 3 instead\.$",
+        ):
+            splitter(s)

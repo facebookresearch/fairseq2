@@ -59,6 +59,7 @@ if TYPE_CHECKING or _DOC_MODE:
         @staticmethod
         def zip(
             pipelines: Sequence["DataPipeline"],
+            names: Optional[Sequence[str]] = None,
             warn_only: bool = False,
             disable_parallelism: bool = False,
         ) -> "DataPipelineBuilder":
@@ -66,6 +67,8 @@ if TYPE_CHECKING or _DOC_MODE:
 
             :param pipelines:
                 The data pipelines to zip.
+            :param names:
+                The names to assign to the data pipelines.
             :param warn_only:
                 If ``True``, prints a warning, instead of raising an error, when the
                 data pipelines do not have equal length.

@@ -57,6 +57,7 @@ public:
     static data_pipeline_builder
     zip(
         std::vector<data_pipeline> pipelines,
+        std::optional<std::vector<std::string>> names = {},
         bool warn_only = false,
         bool disable_parallelism = false);
 

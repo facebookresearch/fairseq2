@@ -19,11 +19,10 @@ class zipped_data_source final : public data_source {
 public:
     explicit
     zipped_data_source(
-        std::vector<data_pipeline> &&pipelines, bool warn_only, bool disable_parallelism) noexcept
-      : pipelines_(std::move(pipelines)),
-        warn_only_{warn_only},
-        disable_parallelism_{disable_parallelism}
-    {}
+        std::vector<data_pipeline> &&pipelines,
+        std::optional<std::vector<std::string>> &&names,
+        bool warn_only,
+        bool disable_parallelism) noexcept;
 
     std::optional<data>
     next() override;
@@ -39,6 +38,7 @@ public:
 
 private:
     std::vector<data_pipeline> pipelines_;
+    std::vector<std::string> names_;
     bool warn_only_;
     bool disable_parallelism_;
 };

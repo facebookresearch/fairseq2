@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import TYPE_CHECKING, List, Optional, Sequence
+from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Union
 
 from torch import Tensor
 
@@ -15,10 +15,14 @@ from fairseq2.typing import DataType
 if TYPE_CHECKING or _DOC_MODE:
 
     class StrSplitter:
-        def __init__(self, sep: str = "\t") -> None:
+        def __init__(
+            self, sep: str = "\t", names: Optional[Sequence[str]] = None
+        ) -> None:
             ...
 
-        def __call__(self, s: StringLike) -> List[StringLike]:
+        def __call__(
+            self, s: StringLike
+        ) -> Union[List[StringLike], Dict[str, StringLike]]:
             ...
 
     class StrToIntConverter:

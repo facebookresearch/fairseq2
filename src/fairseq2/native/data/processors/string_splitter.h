@@ -6,6 +6,10 @@
 
 #pragma once
 
+#include <optional>
+#include <string>
+#include <vector>
+
 #include "fairseq2/native/api.h"
 #include "fairseq2/native/data/data_processor.h"
 
@@ -14,15 +18,14 @@ namespace fairseq2 {
 class FAIRSEQ2_API string_splitter final : public data_processor {
 public:
     explicit
-    string_splitter(char sep = '\t') noexcept
-      : sep_{sep}
-    {}
+    string_splitter(char sep = '\t', std::optional<std::vector<std::string>> names = {}) noexcept;
 
     data
     process(data &&d) const override;
 
 private:
     char sep_;
+    std::vector<std::string> names_;
 };
 
 }  // namespace fairseq2

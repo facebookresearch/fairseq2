@@ -15,6 +15,19 @@
 
 namespace fairseq2::detail {
 
+zipped_data_source::zipped_data_source(
+    std::vector<data_pipeline> &&pipelines,
+    std::optional<std::vector<std::string>> &&names,
+    bool warn_only,
+    bool disable_parallelism) noexcept
+  : pipelines_(std::move(pipelines)),
+    warn_only_{warn_only},
+    disable_parallelism_{disable_parallelism}
+{
+    if (names)
+        names_ = *std::move(names);
+}
+
 std::optional<data>
 zipped_data_source::next()
 {
@@ -50,7 +63,17 @@ zipped_data_source::next()
         if (eod[0] == 1)
             return std::nullopt;
 
-        return zip;
+        // If no names specified, return as list.
+        if (names_.empty())
+            return data{std::move(zip)};
+
+        // Otherwise, as dictionary.
+        flat_hash_map<std::string, data> m{};
+
+        for (std::size_t i = 0; i < zip.size(); ++i)
+            m.emplace(names_[i], std::move(zip[i]));
+
+        return data{std::move(m)};
     }
 
     if (!warn_only_)

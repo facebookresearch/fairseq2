@@ -314,8 +314,18 @@ data_pipeline_builder::yield_from(yield_fn f) &&
 }
 
 data_pipeline_builder
-data_pipeline::zip(std::vector<data_pipeline> pipelines, bool warn_only, bool disable_parallelism)
+data_pipeline::zip(
+    std::vector<data_pipeline> pipelines,
+    std::optional<std::vector<std::string>> names,
+    bool warn_only,
+    bool disable_parallelism)
 {
+    if (names) {
+        if (pipelines.size() != names->size())
+            throw std::invalid_argument{
+                fmt::format("The number of `pipelines` and the number of `names` must be equal, but are {} and {} instead.", pipelines.size(), names->size())};
+    }
+
     bool is_broken = std::any_of(pipelines.begin(), pipelines.end(), [](const data_pipeline &p) {
         return p.is_broken();
     });
@@ -326,9 +336,9 @@ data_pipeline::zip(std::vector<data_pipeline> pipelines, bool warn_only, bool di
 
     auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
 
-    auto f = [tmp, warn_only, disable_parallelism]() mutable {
+    auto f = [n = std::move(names), tmp, warn_only, disable_parallelism]() mutable {
         return std::make_unique<zipped_data_source>(
-            std::move(*tmp), warn_only, disable_parallelism);
+            std::move(*tmp), std::move(n), warn_only, disable_parallelism);
     };
 
     return data_pipeline_builder{std::move(f)};
