@@ -137,7 +137,6 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
         kernel_size: int,
         num_groups: int,
         num_layers: int,
-        norm_eps: float = 1e-5,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -151,9 +150,6 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
             The number of convolution groups.
         :param num_layers:
             The number of convolution layers.
-        :param norm_eps:
-            The epsilon value to add to the denominator of the
-            :class:`~torch.nn.LayerNorm` modules for numerical stability.
         """
         super().__init__(model_dim, max_seq_len=None)
 
@@ -163,7 +159,7 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
 
         for _ in range(num_layers):
             layer = Wav2Vec2PositionEncoderLayer(
-                model_dim, k, num_groups, norm_eps, device, dtype
+                model_dim, k, num_groups, device, dtype
             )
 
             self.layers.append(layer)
@@ -209,7 +205,6 @@ class Wav2Vec2PositionEncoderLayer(Module):
         model_dim: int,
         kernel_size: int,
         num_groups: int,
-        norm_eps: float = 1e-5,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -226,7 +221,7 @@ class Wav2Vec2PositionEncoderLayer(Module):
         )
 
         self.layer_norm = StandardLayerNorm(
-            model_dim, norm_eps, elementwise_affine=False, device=device, dtype=dtype
+            model_dim, elementwise_affine=False, device=device, dtype=dtype
         )
 
         self.activation = GELU()

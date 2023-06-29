@@ -41,6 +41,10 @@ from fairseq2.nn.transformer.ffn import FeedForwardNetwork as FeedForwardNetwork
 from fairseq2.nn.transformer.ffn import (
     StandardFeedForwardNetwork as StandardFeedForwardNetwork,
 )
+from fairseq2.nn.transformer.layer_norm import LayerNormFactory as LayerNormFactory
+from fairseq2.nn.transformer.layer_norm import (
+    create_default_layer_norm as create_default_layer_norm,
+)
 from fairseq2.nn.transformer.multihead_attention import (
     AttentionWeightHook as AttentionWeightHook,
 )

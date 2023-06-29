@@ -11,11 +11,13 @@ from torch import Tensor
 from torch.nn import Dropout
 
 from fairseq2.models.conformer.convolution import ConformerConvolution
-from fairseq2.nn.normalization import LayerNorm, StandardLayerNorm
+from fairseq2.nn.normalization import LayerNorm
 from fairseq2.nn.transformer import (
     FeedForwardNetwork,
+    LayerNormFactory,
     MultiheadAttention,
     TransformerEncoderLayer,
+    create_default_layer_norm,
 )
 from fairseq2.typing import DataType, Device
 
@@ -45,7 +47,7 @@ class ConformerBlock(TransformerEncoderLayer):
         conv: ConformerConvolution,
         ffn2: FeedForwardNetwork,
         dropout_p: float = 0.1,
-        norm_eps: float = 1e-5,
+        layer_norm_fn: Optional[LayerNormFactory] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -61,9 +63,8 @@ class ConformerBlock(TransformerEncoderLayer):
         :param dropout_p:
             The dropout probability on outputs of the self attention layer, the
             feed-forward networks, and the Conformer convolution module.
-        :param norm_eps:
-            The epsilon value to add to the denominator of the
-            :class:`~torch.nn.LayerNorm` modules for numerical stability.
+        :param layer_norm_fn:
+            The factory to use to construct the Layer Normalization modules.
         """
         model_dim = self_attn.model_dim
 
@@ -74,9 +75,10 @@ class ConformerBlock(TransformerEncoderLayer):
                 f"`model_dim` of `ffn1` and `model_dim` of `self_attn` must be equal, but are {ffn1.model_dim} and {model_dim} instead."
             )
 
-        self.ffn1_layer_norm = StandardLayerNorm(
-            model_dim, norm_eps, device=device, dtype=dtype
-        )
+        if layer_norm_fn is None:
+            layer_norm_fn = create_default_layer_norm
+
+        self.ffn1_layer_norm = layer_norm_fn(model_dim, device, dtype)
 
         self.ffn1 = ffn1
 
@@ -85,9 +87,7 @@ class ConformerBlock(TransformerEncoderLayer):
         else:
             self.register_module("ffn1_dropout", None)
 
-        self.self_attn_layer_norm = StandardLayerNorm(
-            model_dim, norm_eps, device=device, dtype=dtype
-        )
+        self.self_attn_layer_norm = layer_norm_fn(model_dim, device, dtype)
 
         self.self_attn = self_attn
 
@@ -101,9 +101,7 @@ class ConformerBlock(TransformerEncoderLayer):
                 f"`model_dim` of `conv` and `model_dim` of `self_attn` must be equal, but are {conv.model_dim} and {model_dim} instead."
             )
 
-        self.conv_layer_norm = StandardLayerNorm(
-            model_dim, norm_eps, device=device, dtype=dtype
-        )
+        self.conv_layer_norm = layer_norm_fn(model_dim, device, dtype)
 
         self.conv = conv
 
@@ -117,9 +115,7 @@ class ConformerBlock(TransformerEncoderLayer):
                 f"`model_dim` of `ffn2` and `model_dim` of `self_attn` must be equal, but are {ffn2.model_dim} and {model_dim} instead."
             )
 
-        self.ffn2_layer_norm = StandardLayerNorm(
-            model_dim, norm_eps, device=device, dtype=dtype
-        )
+        self.ffn2_layer_norm = layer_norm_fn(model_dim, device, dtype)
 
         self.ffn2 = ffn2
 
@@ -128,9 +124,7 @@ class ConformerBlock(TransformerEncoderLayer):
         else:
             self.register_module("ffn2_dropout", None)
 
-        self.layer_norm = StandardLayerNorm(
-            model_dim, norm_eps, device=device, dtype=dtype
-        )
+        self.layer_norm = layer_norm_fn(model_dim, device, dtype)
 
     @finaloverride
     def forward(self, seqs: Tensor, padding_mask: Optional[Tensor]) -> Tensor:

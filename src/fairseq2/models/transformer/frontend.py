@@ -6,7 +6,7 @@
 
 import math
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, Type, final
+from typing import Optional, Tuple, final
 
 from overrides import final as finaloverride
 from torch import Tensor
@@ -14,8 +14,12 @@ from torch.nn import Dropout, Module
 
 from fairseq2.nn.embedding import Embedding
 from fairseq2.nn.incremental_state import IncrementalStateBag
-from fairseq2.nn.normalization import LayerNorm, StandardLayerNorm
+from fairseq2.nn.normalization import LayerNorm
 from fairseq2.nn.position_encoder import PositionEncoder
+from fairseq2.nn.transformer.layer_norm import (
+    LayerNormFactory,
+    create_default_layer_norm,
+)
 from fairseq2.nn.utils.mask import to_padding_mask
 from fairseq2.typing import DataType, Device
 
@@ -86,8 +90,7 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
         no_scale: bool = False,
         layer_norm: bool = False,
         dropout_p: float = 0.1,
-        layer_norm_kls: Optional[Type[LayerNorm]] = None,
-        norm_eps: float = 1e-5,
+        layer_norm_fn: Optional[LayerNormFactory] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -104,11 +107,8 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
             dropout.
         :param dropout_p:
             The dropout probability on embeddings.
-        :param layer_norm_kls:
-            The type of Layer Normalization to use.
-        :param norm_eps:
-            The epsilon value to add to the denominator of the
-            :class:`~torch.nn.LayerNorm` module for numerical stability.
+        :param layer_norm_fn:
+            The factory to use to construct the Layer Normalization module.
         """
         model_dim = embed.embedding_dim
 
@@ -129,12 +129,10 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
             self.register_module("pos_encoder", None)
 
         if layer_norm:
-            if layer_norm_kls is None:
-                layer_norm_kls = StandardLayerNorm
+            if layer_norm_fn is None:
+                layer_norm_fn = create_default_layer_norm
 
-            self.layer_norm = layer_norm_kls(
-                model_dim, norm_eps, device=device, dtype=dtype
-            )
+            self.layer_norm = layer_norm_fn(model_dim, device, dtype)
         else:
             self.register_module("layer_norm", None)
 

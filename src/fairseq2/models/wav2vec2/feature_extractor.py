@@ -37,7 +37,6 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
         dropout_p: float = 0.0,
         layer_norm: bool = False,
         grad_scale: float = 1.0,
-        norm_eps: float = 1e-5,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -56,10 +55,6 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
             The scale factor for gradients of extracted features. Setting to a
             value less than 1.0 allows the feature extractor to learn at a lower
             rate than the rest of the model.
-        :param norm_eps:
-            The epsilon value to add to the denominator of
-            :class:`~torch.nn.LayerNorm` or :class:`~torch.nn.GroupNorm` modules
-            for numerical stability.
         """
         # The output dimensionality of the last feature extraction layer.
         feature_dim = layer_descs[-1][0]
@@ -79,9 +74,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
 
             # If Layer Normalization is requested, apply it in all layers.
             if layer_norm:
-                layer_norm_ = Float32LayerNorm(
-                    output_dim, norm_eps, device=device, dtype=dtype
-                )
+                layer_norm_ = Float32LayerNorm(output_dim, device=device, dtype=dtype)
 
                 group_norm_ = None
 
@@ -89,7 +82,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
             # not apply any normalization in other layers.
             elif i == 0:
                 group_norm_ = Float32GroupNorm(
-                    output_dim, output_dim, norm_eps, device=device, dtype=dtype
+                    output_dim, output_dim, device=device, dtype=dtype
                 )
 
                 layer_norm_ = None

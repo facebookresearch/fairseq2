@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import Optional, Type, cast, final
+from typing import Optional, cast, final
 
 import torch
 import torch.nn as nn
@@ -15,8 +15,12 @@ from torch.nn import Dropout, Module
 from torch.nn.parameter import Parameter
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
-from fairseq2.nn.normalization import LayerNorm, StandardLayerNorm
+from fairseq2.nn.normalization import LayerNorm
 from fairseq2.nn.transformer.ffn import FeedForwardNetwork
+from fairseq2.nn.transformer.layer_norm import (
+    LayerNormFactory,
+    create_default_layer_norm,
+)
 from fairseq2.nn.transformer.multihead_attention import MultiheadAttention
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
 from fairseq2.typing import DataType, Device
@@ -105,8 +109,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         scale_residual: bool = False,
         dropout_p: float = 0.1,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
-        layer_norm_kls: Optional[Type[LayerNorm]] = None,
-        norm_eps: float = 1e-5,
+        layer_norm_fn: Optional[LayerNormFactory] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -125,24 +128,19 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         :param dropout_p:
             The dropout probability on outputs of the attention layers and the
             feed-forward network.
-        :param layer_norm_kls:
-            The type of Layer Normalization to use.
         :param norm_order:
             The Layer Normalization order to use.
-        :param norm_eps:
-            The epsilon value to add to the denominator of the
-            :class:`~torch.nn.LayerNorm` modules for numerical stability.
+        :param layer_norm_fn:
+            The factory to use to construct the Layer Normalization modules.
         """
         model_dim = self_attn.model_dim
 
         super().__init__(model_dim)
 
-        if layer_norm_kls is None:
-            layer_norm_kls = StandardLayerNorm
+        if layer_norm_fn is None:
+            layer_norm_fn = create_default_layer_norm
 
-        self_attn_layer_norm = layer_norm_kls(
-            model_dim, norm_eps, device=device, dtype=dtype
-        )
+        self_attn_layer_norm = layer_norm_fn(model_dim, device, dtype)
 
         if norm_order != TransformerNormOrder.POST:
             self.self_attn_layer_norm = self_attn_layer_norm
@@ -150,9 +148,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         self.self_attn = self_attn
 
         if norm_order == TransformerNormOrder.PRE_WITH_NORMFORMER:
-            self.self_attn_norm = layer_norm_kls(
-                model_dim, norm_eps, device=device, dtype=dtype
-            )
+            self.self_attn_norm = layer_norm_fn(model_dim, device, dtype)
         else:
             self.register_module("self_attn_norm", None)
 
@@ -173,9 +169,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
                     f"`model_dim` of `encoder_decoder_attn` and `model_dim` of `self_attn` must be equal, but are {encoder_decoder_attn.model_dim} and {model_dim} instead."
                 )
 
-            encoder_decoder_attn_layer_norm = layer_norm_kls(
-                model_dim, norm_eps, device=device, dtype=dtype
-            )
+            encoder_decoder_attn_layer_norm = layer_norm_fn(model_dim, device, dtype)
 
             if norm_order != TransformerNormOrder.POST:
                 self.encoder_decoder_attn_layer_norm = encoder_decoder_attn_layer_norm
@@ -195,7 +189,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
                 f"`model_dim` of `ffn` and `model_dim` of `self_attn` must be equal, but are {ffn.model_dim} and {model_dim} instead."
             )
 
-        ffn_layer_norm = layer_norm_kls(model_dim, norm_eps, device=device, dtype=dtype)
+        ffn_layer_norm = layer_norm_fn(model_dim, device, dtype)
 
         if norm_order != TransformerNormOrder.POST:
             self.ffn_layer_norm = ffn_layer_norm

@@ -44,7 +44,6 @@ class Wav2Vec2Frontend(TransformerFrontend):
         first_pass_dropout_p: float = 0.0,
         layer_norm: bool = False,
         dropout_p: float = 0.1,
-        norm_eps: float = 1e-5,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -66,9 +65,6 @@ class Wav2Vec2Frontend(TransformerFrontend):
             before dropout.
         :param dropout_p:
             The dropout probability on extracted features.
-        :param norm_eps:
-            The epsilon value to add to the denominator of the
-            :class:`~torch.nn.LayerNorm` module for numerical stability.
         """
         super().__init__(model_dim)
 
@@ -85,7 +81,7 @@ class Wav2Vec2Frontend(TransformerFrontend):
             self.register_module("feature_extractor", None)
 
         self.post_extract_layer_norm = StandardLayerNorm(
-            feature_dim, norm_eps, device=device, dtype=dtype
+            feature_dim, device=device, dtype=dtype
         )
 
         if feature_dim != model_dim:
@@ -111,9 +107,7 @@ class Wav2Vec2Frontend(TransformerFrontend):
             self.register_module("pos_encoder", None)
 
         if layer_norm:
-            self.layer_norm = StandardLayerNorm(
-                model_dim, norm_eps, device=device, dtype=dtype
-            )
+            self.layer_norm = StandardLayerNorm(model_dim, device=device, dtype=dtype)
         else:
             self.register_module("layer_norm", None)
 
