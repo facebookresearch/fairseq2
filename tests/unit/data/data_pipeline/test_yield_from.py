@@ -16,7 +16,9 @@ class TestYieldFromOp:
         def fn(d: Tuple[int, int]) -> DataPipeline:
             a, b = d
 
-            return read_sequence(list(range(a, b))).and_return()
+            seq = list(range(a, b))
+
+            return read_sequence(seq).and_return()
 
         dp = read_sequence([[1, 5], [9, 14]]).yield_from(fn).and_return()
 
@@ -29,7 +31,9 @@ class TestYieldFromOp:
         def fn(d: Tuple[int, int]) -> DataPipeline:
             a, b = d
 
-            return read_sequence(list(range(a, b))).and_return()
+            seq = list(range(a, b))
+
+            return read_sequence(seq).and_return()
 
         dp = read_sequence([[1, 5], [9, 14]]).yield_from(fn).and_return()
 

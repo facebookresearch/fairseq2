@@ -14,6 +14,7 @@ from typing import (
     Optional,
     Sequence,
     Tuple,
+    Union,
 )
 
 from fairseq2 import _DOC_MODE
@@ -116,7 +117,7 @@ if TYPE_CHECKING or _DOC_MODE:
 
         def map(
             self,
-            fn: Callable[[Any], Any],
+            fn: Union[Callable[[Any], Any], Sequence[Callable[[Any], Any]]],
             selector: Optional[str] = None,
             num_parallel_calls: int = 1,
         ) -> "DataPipelineBuilder":

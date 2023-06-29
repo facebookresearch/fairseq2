@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from typing import Any, NoReturn
+
 import pytest
 
 from fairseq2.data import DataPipeline, DataPipelineError, read_sequence
@@ -66,6 +68,25 @@ class TestZipOp:
             # TODO: assert that warning is printed.
 
             zdp.reset()
+
+    def test_op_raises_error_if_one_of_the_pipelines_is_broken(self) -> None:
+        def err(e: Any) -> NoReturn:
+            raise ValueError()
+
+        dp1 = read_sequence([1]).map(err).and_return()
+        dp2 = read_sequence([1]).and_return()
+
+        # Break the first pipeline.
+        try:
+            next(iter(dp1))
+        except ValueError:
+            pass
+
+        with pytest.raises(
+            DataPipelineError,
+            match=r"^At least one of the specified data pipelines is broken and cannot be zipped\.$",
+        ):
+            DataPipeline.zip([dp1, dp2]).and_return()
 
     def test_record_reload_position_works_as_expected(self) -> None:
         dp1 = read_sequence([1, 2, 3, 4]).and_return()

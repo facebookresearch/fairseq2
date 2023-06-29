@@ -19,7 +19,7 @@ namespace fairseq2 {
 class FAIRSEQ2_API element_processor final : public data_processor {
 public:
     explicit
-    element_processor(std::shared_ptr<const data_processor> p, std::string_view selector) noexcept
+    element_processor(std::shared_ptr<const data_processor> p, std::string_view selector)
       : processor_{std::move(p)}, selector_{selector}
     {}
 

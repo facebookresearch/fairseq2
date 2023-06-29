@@ -22,7 +22,7 @@ namespace fairseq2::detail {
 class FAIRSEQ2_API element_selector {
     using path_segment = std::variant<std::string, std::size_t>;
 
-    enum class parser_state { parsing_key, parsing_index, parsed_index };
+    enum class path_parser_state { parsing_key, parsing_index, parsed_index };
 
 public:
     explicit
@@ -44,14 +44,17 @@ public:
     visit(const data &d, const std::function<void(const data &)> &f) const;
 
 private:
-    static std::vector<path_segment>
-    parse_path(std::string_view &s);
+    static std::optional<std::vector<path_segment>>
+    maybe_parse_path(std::string_view &s);
 
     static void
     visit(
         const data &d,
         const std::function<void(const data &)> &f,
         const std::vector<path_segment> &p);
+
+    [[noreturn]] static void
+    throw_invalid_path(const std::vector<path_segment> &p);
 
 private:
     std::vector<std::vector<path_segment>> paths_{};

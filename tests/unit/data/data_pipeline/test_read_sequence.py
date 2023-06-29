@@ -29,7 +29,9 @@ class TestReadSequenceOp:
             dp.reset()
 
     def test_record_reload_position_works_as_expected(self) -> None:
-        dp = read_sequence(list(range(1, 10))).and_return()
+        seq = list(range(1, 10))
+
+        dp = read_sequence(seq).and_return()
 
         d = None
 

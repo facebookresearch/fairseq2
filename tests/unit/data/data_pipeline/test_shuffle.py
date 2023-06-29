@@ -17,7 +17,7 @@ class TestShuffleOp:
     def test_op_works_as_expected(self) -> None:
         cpu = torch.device("cpu")
 
-        seq = range(1, 10)
+        seq = list(range(1, 10))
 
         dp = read_sequence(seq).shuffle(100).and_return()
 
@@ -51,14 +51,14 @@ class TestShuffleOp:
 
                 dp.reset()
 
-    @pytest.mark.parametrize("shuffle_window", [10, 100, 1000])
-    def test_record_reload_position_works_as_expected(
-        self, shuffle_window: int
-    ) -> None:
+    @pytest.mark.parametrize("window", [10, 100, 1000])
+    def test_record_reload_position_works_as_expected(self, window: int) -> None:
         cpu = torch.device("cpu")
 
-        dp1 = read_sequence(list(range(5000))).shuffle(shuffle_window).and_return()
-        dp2 = read_sequence(list(range(5000))).shuffle(shuffle_window).and_return()
+        seq = list(range(5000))
+
+        dp1 = read_sequence(seq).shuffle(window).and_return()
+        dp2 = read_sequence(seq).shuffle(window).and_return()
 
         with tmp_rng_seed(cpu, seed=2):
             expected_output1 = list(islice(dp1, 4000))
@@ -98,7 +98,9 @@ class TestShuffleOp:
             next(iter(dp2))
 
     def test_record_reload_position_works_as_expected_with_no_strict(self) -> None:
-        dp = read_sequence(list(range(100))).shuffle(80, strict=False).and_return()
+        seq = list(range(100))
+
+        dp = read_sequence(seq).shuffle(80, strict=False).and_return()
 
         # Do one dummy iteration to force to fill the buffer.
         next(iter(dp))
