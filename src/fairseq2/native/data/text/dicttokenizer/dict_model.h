@@ -7,7 +7,7 @@
 #pragma once
 
 #include <array>
-#include <map>
+#include <unordered_map>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -40,7 +40,7 @@ public:
     const std::array<std::string, 4> symbols = { "<unk>", "<s>", "</s>", "<pad>" };
 
 private:
-    std::map<std::string, std::int64_t> token_to_index_;
+    std::unordered_map<std::string, std::int64_t> token_to_index_;
     std::vector<std::string> index_to_token_;
 
     void
