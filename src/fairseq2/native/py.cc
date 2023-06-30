@@ -15,6 +15,17 @@ using namespace fairseq2::detail;
 
 namespace {
 
+int
+Py_IsFinalizing() noexcept
+{
+    static auto fn = reinterpret_cast<int (*)()>(
+        ::dlsym(RTLD_DEFAULT, "_Py_IsFinalizing"));
+
+    assert(fn != nullptr);
+
+    return fn();
+}
+
 void
 Py_IncRef(void *ptr) noexcept
 {
@@ -124,6 +135,12 @@ py_gil_release::acquire_gil() noexcept
 {
     if (thread_state_ != nullptr)
         PyEval_RestoreThread(thread_state_);
+}
+
+bool
+py_is_finalizing() noexcept
+{
+    return Py_IsFinalizing() != 0;
 }
 
 }  // namespace detail

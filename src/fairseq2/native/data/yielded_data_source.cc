@@ -6,6 +6,8 @@
 
 #include "fairseq2/native/data/yielded_data_source.h"
 
+#include "fairseq2/native/py.h"
+
 namespace fairseq2::detail {
 
 std::optional<data>
@@ -58,6 +60,10 @@ yielded_data_source::reload_position(tape &t)
 bool
 yielded_data_source::load_next_data_pipeline()
 {
+    // See the note [Python Finalization].
+    if (py_is_finalizing())
+        return false;
+
     example_ = inner_->next();
 
     if (example_)
@@ -69,15 +75,15 @@ yielded_data_source::load_next_data_pipeline()
 }
 
 data_pipeline
-yielded_data_source::invoke_fn(data &example)
+yielded_data_source::invoke_fn(data &d)
 {
     try {
-        return fn_(example);
+        return fn_(d);
     } catch (const data_pipeline_error &) {
         throw;
     } catch (...) {
         data_pipeline_error::throw_nested(
-            "The yield function has failed.", std::move(example_));
+            "The yield operation has failed.", std::move(d));
     }
 }
 

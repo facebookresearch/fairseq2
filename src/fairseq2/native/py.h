@@ -71,6 +71,9 @@ private:
     void *thread_state_ = nullptr;
 };
 
+FAIRSEQ2_API bool
+py_is_finalizing() noexcept;
+
 }  // namespace detail
 
 class FAIRSEQ2_API py_object {
@@ -125,6 +128,20 @@ public:
 
    ~py_object()
     {
+        // NOTE [Python Finalization]
+        //
+        // This likely has an impact on the runtime performance, but, as of
+        // CPython 3.10, there is no graceful way to dispose Python objects
+        // used in background threads.
+        //
+        // Also note that there is still a race condition between this check
+        // and the time we attempt to acquire GIL. So this is only a partial
+        // mitigation.
+        //
+        // See https://github.com/python/cpython/pull/28525.
+        if (detail::py_is_finalizing())
+            return;
+
         xdec_ref();
     }
 

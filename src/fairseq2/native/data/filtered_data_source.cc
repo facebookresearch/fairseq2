@@ -39,6 +39,10 @@ filtered_data_source::reload_position(tape &t)
 bool
 filtered_data_source::invoke_fn(data &d)
 {
+    // See the note [Python Finalization].
+    if (py_is_finalizing())
+        return true;
+
     try {
         return fn_(d);
     } catch (const data_pipeline_error &) {

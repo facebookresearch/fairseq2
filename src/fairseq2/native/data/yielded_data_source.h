@@ -39,7 +39,7 @@ private:
     load_next_data_pipeline();
 
     data_pipeline
-    invoke_fn(data &example);
+    invoke_fn(data &d);
 
 private:
     std::unique_ptr<data_source> inner_;

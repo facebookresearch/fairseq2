@@ -45,8 +45,11 @@ as_data_processor_core(const py::object &fn)
         return std::make_shared<string_to_tensor_converter>();
 
     // Callable
-    if (py::isinstance<py::function>(fn))
-        return std::make_shared<custom_data_processor>(fn.cast<std::function<data(data &&)>>());
+    if (py::isinstance<py::function>(fn)) {
+        auto f = fn.cast<std::function<data(data &&)>>();
+
+        return std::make_shared<custom_data_processor>(std::move(f));
+    }
 
     throw std::invalid_argument{"The specified object must be callable."};
 }

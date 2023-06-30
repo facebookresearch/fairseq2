@@ -6,11 +6,17 @@
 
 #include "fairseq2/native/data/processors/custom_data_processor.h"
 
+#include "fairseq2/native/py.h"
+
 namespace fairseq2 {
 
 data
 custom_data_processor::process(data &&d) const
 {
+    // See the note [Python Finalization].
+    if (detail::py_is_finalizing())
+        return data{};
+
     return fn_(std::move(d));
 }
 
