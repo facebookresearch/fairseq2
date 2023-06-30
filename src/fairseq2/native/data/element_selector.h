@@ -45,7 +45,7 @@ public:
 
 private:
     static std::optional<std::vector<path_segment>>
-    maybe_parse_path(std::string_view &s);
+    maybe_parse_path(std::string_view s);
 
     static void
     visit(

@@ -6,22 +6,39 @@
 
 #include "fairseq2/native/data/element_selector.h"
 
+#include <cctype>
 #include <stdexcept>
 
 #include <fmt/core.h>
+
+#include "fairseq2/native/utils/string.h"
 
 namespace fairseq2::detail {
 
 element_selector::element_selector(std::string_view s)
 {
-    // TODO: handle comman separated multi-path.
+    // The selector might contain one or more paths separated by comma.
+    auto parse_next_path = [this, s](std::string_view tmp) -> std::optional<std::string_view> {
+        std::size_t pos = tmp.find_first_of(',');
 
-    std::optional<std::vector<path_segment>> pth = maybe_parse_path(s);
-    if (!pth)
-        throw std::invalid_argument{
-            fmt::format("`selector` must be a well-formatted element path, but is '{}' instead.", s)};
+        std::string_view path_str = tmp.substr(0, pos);
 
-    paths_.push_back(*std::move(pth));
+        std::optional<std::vector<path_segment>> p = maybe_parse_path(trim(path_str));
+        if (!p)
+            throw std::invalid_argument{
+                fmt::format("`selector` must be a well-formatted element path, but is '{}' instead.", s)};
+
+        paths_.push_back(*std::move(p));
+
+        if (pos == std::string_view::npos)
+            return std::nullopt;
+
+        return tmp.substr(pos + 1);
+    };
+
+    std::optional<std::string_view> n = s;
+    while (n)
+        n = parse_next_path(*n);
 }
 
 void
@@ -42,12 +59,20 @@ element_selector::visit(const data &d, const std::function<void(const data &)> &
 }
 
 std::optional<std::vector<element_selector::path_segment>>
-element_selector::maybe_parse_path(std::string_view &s)
+element_selector::maybe_parse_path(std::string_view s)
 {
     if (s.empty())
         return std::nullopt;
 
     std::vector<path_segment> output{};
+
+    auto record_key = [&output, &s](std::size_t b, std::size_t e = std::string_view::npos) {
+        output.emplace_back(std::string{s.substr(b, e)});
+    };
+
+    auto record_idx = [&output](std::size_t idx) {
+        output.emplace_back(idx);
+    };
 
     auto state = path_parser_state::parsing_key;
 
@@ -64,7 +89,7 @@ element_selector::maybe_parse_path(std::string_view &s)
                     // Empty path segment.
                     return std::nullopt;
 
-                output.emplace_back(std::string{s.substr(path_segment_offset, chr_idx)});
+                record_key(path_segment_offset, chr_idx);
 
                 path_segment_offset = chr_idx + 1;
             } else if (chr == '[') {
@@ -73,19 +98,20 @@ element_selector::maybe_parse_path(std::string_view &s)
                     if (chr_idx != 0)
                         return std::nullopt;
                 } else
-                    output.emplace_back(std::string{s.substr(path_segment_offset, chr_idx)});
+                    record_key(path_segment_offset, chr_idx);
 
                 path_segment_offset = chr_idx + 1;
 
                 state = path_parser_state::parsing_index;
-            }
+            } else if (std::isspace(chr) != 0)
+                return std::nullopt;
         } else if (state == path_parser_state::parsing_index) {
             if (chr == ']') {
                 if (chr_idx == path_segment_offset)
                     // Empty index.
                     return std::nullopt;
 
-                output.emplace_back(idx);
+                record_idx(idx);
 
                 idx = 0;
 
@@ -114,7 +140,7 @@ element_selector::maybe_parse_path(std::string_view &s)
             // If the segment is empty, it means the selector ends with a '.'.
             return std::nullopt;
 
-        output.emplace_back(std::string{s.substr(path_segment_offset)});
+        record_key(path_segment_offset);
     } else if (state != path_parser_state::parsed_index)
         // Incomplete index op.
         return std::nullopt;
@@ -138,7 +164,6 @@ element_selector::visit(
             auto &dct = node->as_dict();
 
             auto pos = dct.find(std::get<std::string>(s));
-
             if (pos == dct.end())
                 throw_invalid_path(p);
 
@@ -150,7 +175,6 @@ element_selector::visit(
             auto &lst = node->as_list();
 
             auto idx = std::get<std::size_t>(s);
-
             if (idx >= lst.size())
                 throw_invalid_path(p);
 

@@ -123,15 +123,82 @@ class TestMapOp:
 
             dp.reset()
 
+    def test_op_works_with_multiple_selectors_as_expected(self) -> None:
+        def fn(d: int) -> int:
+            return d + 10
+
+        d1 = {
+            "foo1": 1,
+            "foo2": [2, 3, {"foo4": 4}],
+            "foo3": [5],
+        }
+        d2 = {
+            "foo1": 6,
+            "foo2": [7, 8, {"foo4": 9}],
+            "foo3": [0],
+        }
+
+        e1 = copy.deepcopy(d1)
+        e2 = copy.deepcopy(d2)
+
+        e1["foo1"] = 11
+        e2["foo1"] = 16
+        e1["foo2"][2]["foo4"] = 14  # type: ignore[index]
+        e2["foo2"][2]["foo4"] = 19  # type: ignore[index]
+        e1["foo3"] = [15]
+        e2["foo3"] = [10]
+
+        selector = "foo2[2].foo4,foo3[0], foo1"
+
+        dp = read_sequence([d1, d2]).map(fn, selector=selector).and_return()
+
+        for _ in range(2):
+            it = iter(dp)
+
+            assert next(it) == e1
+            assert next(it) == e2
+
+            dp.reset()
+
     @pytest.mark.parametrize(
         "s",
-        ["[0]", "[0][1]", "foo", "foo1.foo2", "foo[0]", "foo[0][1]", "foo1.foo2[0]"],
+        [
+            "[0]",
+            "[0][1]",
+            "foo",
+            "  foo ",
+            "foo1.foo2",
+            "foo[0]",
+            "foo[0][1]",
+            "foo1.foo2[0]",
+            "foo1,foo2",
+            "foo1[0],foo2[0]",
+            " foo1[0]  , foo2[1],foo3",
+        ],
     )
     def test_op_accepts_well_formatted_selectors(self, s: str) -> None:
         read_sequence([]).map(lambda x: x, selector=s).and_return()
 
     @pytest.mark.parametrize(
-        "s", ["", ".", "foo.", "foo[[0]", "foo[", "foo[0", "foo.[0]", ".foo"]
+        "s",
+        [
+            "",
+            "  ",
+            ".",
+            "foo.",
+            "foo[[0]",
+            "foo[",
+            "foo[]",
+            "foo[0",
+            "foo.[0]",
+            ".foo",
+            ",",
+            " , ",
+            "foo,",
+            " , foo",
+            "fo o",
+            "foo [0]",
+        ],
     )
     def test_op_raises_error_if_selector_is_not_well_formatted(self, s: str) -> None:
         with pytest.raises(

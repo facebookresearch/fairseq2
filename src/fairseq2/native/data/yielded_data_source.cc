@@ -15,7 +15,10 @@ yielded_data_source::next()
 {
     std::optional<data> d{};
 
-    while (!(d = data_pipeline_.next()) && load_next_data_pipeline());
+    while (!(d = data_pipeline_.next())) {
+        if (!load_next_data_pipeline())
+            break;
+    }
 
     return d;
 }

@@ -187,6 +187,18 @@ private:
     memory_block storage_{};
 };
 
+inline immutable_string
+remove_prefix(const immutable_string &s, immutable_string::size_type n) noexcept
+{
+    return s.remove_prefix(n);
+}
+
+inline immutable_string
+remove_suffix(const immutable_string &s, immutable_string::size_type n) noexcept
+{
+    return s.remove_suffix(n);
+}
+
 }  // namespace fairseq2
 
 template <>

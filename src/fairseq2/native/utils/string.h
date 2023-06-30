@@ -25,31 +25,55 @@ find_first_non_space(It first, It last) noexcept
 
 }  // namespace detail
 
+inline std::string_view
+remove_prefix(std::string_view s, std::string_view::size_type n) noexcept
+{
+    auto t = s;
+
+    t.remove_prefix(n);
+
+    return t;
+}
+
+inline std::string_view
+remove_suffix(std::string_view s, std::string_view::size_type n) noexcept
+{
+    auto t = s;
+
+    t.remove_suffix(n);
+
+    return t;
+}
+
 template <typename StringViewLike>
 inline auto
 ltrim(const StringViewLike &s) noexcept
 {
-    auto offset = detail::find_first_non_space<StringViewLike>(s.begin(), s.end());
+    auto b = s.begin();
+    auto e = s.end();
 
-    return s.remove_prefix(offset);
+    auto offset = detail::find_first_non_space<StringViewLike>(b, e);
+
+    return remove_prefix(s, offset);
 }
 
 template <typename StringViewLike>
 inline auto
 rtrim(const StringViewLike &s) noexcept
 {
-    auto offset = detail::find_first_non_space<StringViewLike>(s.rbegin(), s.rend());
+    auto b = s.rbegin();
+    auto e = s.rend();
 
-    return s.remove_suffix(offset);
+    auto offset = detail::find_first_non_space<StringViewLike>(b, e);
+
+    return remove_suffix(s, offset);
 }
 
 template <typename StringViewLike>
 inline auto
 trim(const StringViewLike &s) noexcept
 {
-    StringViewLike t = ltrim(s);
-
-    return rtrim(t);
+    return rtrim(ltrim(s));
 }
 
 }  // namespace fairseq2

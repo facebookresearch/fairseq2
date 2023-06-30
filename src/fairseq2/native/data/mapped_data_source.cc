@@ -19,7 +19,11 @@ mapped_data_source::next()
     if (num_parallel_calls_ <= 1) {
         std::optional<data> d{};
 
-        while ((d = inner_->next()) && !(d = invoke_processor(*std::move(d))));
+        while ((d = inner_->next())) {
+            d = invoke_processor(*std::move(d));
+            if (d)
+                break;
+        }
 
         return d;
     }
