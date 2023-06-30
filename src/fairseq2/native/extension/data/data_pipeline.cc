@@ -235,15 +235,18 @@ def_data_pipeline(py::module_ &data_module)
                 data_pipeline_builder &self,
                 const py::object &fn,
                 std::optional<std::string_view> selector,
-                std::size_t num_parallel_calls) -> data_pipeline_builder &
+                std::size_t num_parallel_calls,
+                bool warn_only) -> data_pipeline_builder &
             {
-                self = std::move(self).map(as_data_processor(fn, selector), num_parallel_calls);
+                self = std::move(self).map(
+                    as_data_processor(fn, selector), num_parallel_calls, warn_only);
 
                 return self;
             },
             py::arg("fn"),
             py::arg("selector") = std::nullopt,
-            py::arg("num_parallel_calls") = 1)
+            py::arg("num_parallel_calls") = 1,
+            py::arg("warn_only") = false)
         .def(
             "prefetch",
             [](data_pipeline_builder &self, std::size_t num_examples) -> data_pipeline_builder &

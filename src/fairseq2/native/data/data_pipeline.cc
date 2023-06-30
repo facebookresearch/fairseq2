@@ -228,18 +228,19 @@ data_pipeline_builder::filter(predicate_fn f) &&
 }
 
 data_pipeline_builder
-data_pipeline_builder::map(map_fn f, std::size_t num_parallel_calls) &&
+data_pipeline_builder::map(map_fn f, std::size_t num_parallel_calls, bool warn_only) &&
 {
     return std::move(*this).map(
-        std::make_shared<custom_data_processor>(std::move(f)), num_parallel_calls);
+        std::make_shared<custom_data_processor>(std::move(f)), num_parallel_calls, warn_only);
 }
 
 data_pipeline_builder
 data_pipeline_builder::map(
-    std::shared_ptr<const data_processor> p, std::size_t num_parallel_calls) &&
+    std::shared_ptr<const data_processor> p, std::size_t num_parallel_calls, bool warn_only) &&
 {
     factory_ = [=, p = std::move(p), inner = std::move(factory_)]() mutable {
-        return std::make_unique<mapped_data_source>(inner(), std::move(p), num_parallel_calls);
+        return std::make_unique<mapped_data_source>(
+            inner(), std::move(p), num_parallel_calls, warn_only);
     };
 
     return std::move(*this);

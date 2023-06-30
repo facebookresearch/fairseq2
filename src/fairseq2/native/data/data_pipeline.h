@@ -129,10 +129,13 @@ public:
     filter(predicate_fn f) &&;
 
     data_pipeline_builder
-    map(map_fn f, std::size_t num_parallel_calls = 1) &&;
+    map(map_fn f, std::size_t num_parallel_calls = 1, bool warn_only = false) &&;
 
     data_pipeline_builder
-    map(std::shared_ptr<const data_processor> p, std::size_t num_parallel_calls = 1) &&;
+    map(
+        std::shared_ptr<const data_processor> p,
+        std::size_t num_parallel_calls = 1,
+        bool warn_only = false) &&;
 
     data_pipeline_builder
     prefetch(std::size_t num_examples) &&;

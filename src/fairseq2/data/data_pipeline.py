@@ -123,13 +123,16 @@ if TYPE_CHECKING or _DOC_MODE:
             fn: Union[Callable[[Any], Any], Sequence[Callable[[Any], Any]]],
             selector: Optional[str] = None,
             num_parallel_calls: int = 1,
+            warn_only: bool = False,
         ) -> "DataPipelineBuilder":
             """Apply ``fn`` to every example.
 
             :param fn:
                 The function to apply.
+            :param selector:
             :param num_parallel_calls:
                 The number of examples to process in parallel.
+            :param warn_only:
             """
 
         def prefetch(self, num_examples: int) -> "DataPipelineBuilder":

@@ -14,15 +14,17 @@ from fairseq2.data.processors import StrToIntConverter
 
 
 class TestMapOp:
-    @pytest.mark.parametrize("p", [0, 1, 4, 20])
+    @pytest.mark.parametrize("p", [0, 1, 4, 10, 20])
     def test_op_works_as_expected(self, p: int) -> None:
         def fn(d: int) -> int:
             return d**2
 
-        dp = read_sequence([1, 2, 3, 4]).map(fn, num_parallel_calls=p).and_return()
+        seq = list(range(1, 10))
+
+        dp = read_sequence(seq).map(fn, num_parallel_calls=p).and_return()
 
         for _ in range(2):
-            assert list(dp) == [1, 4, 9, 16]
+            assert list(dp) == [i**2 for i in seq]
 
             dp.reset()
 
@@ -46,6 +48,27 @@ class TestMapOp:
 
         for _ in range(2):
             assert list(dp) == [1, 4, 9, 16]
+
+            dp.reset()
+
+    @pytest.mark.parametrize("p", [0, 1, 4, 10, 20])
+    def test_op_works_with_warn_only_as_expected(self, p: int) -> None:
+        def fn(d: int) -> int:
+            if d % 2 == 0:
+                raise ValueError("foo")
+
+            return d**2
+
+        seq = list(range(1, 10))
+
+        dp = (
+            read_sequence(seq)
+            .map(fn, num_parallel_calls=p, warn_only=True)
+            .and_return()
+        )
+
+        for _ in range(2):
+            assert list(dp) == [i**2 for i in range(1, 10, 2)]
 
             dp.reset()
 

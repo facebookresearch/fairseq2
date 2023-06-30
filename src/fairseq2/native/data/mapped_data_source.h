@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -22,8 +23,12 @@ public:
     mapped_data_source(
         std::unique_ptr<data_source> &&inner,
         std::shared_ptr<const data_processor> &&p,
-        std::size_t num_parallel_calls) noexcept
-      : inner_{std::move(inner)}, processor_{std::move(p)}, num_parallel_calls_{num_parallel_calls}
+        std::size_t num_parallel_calls,
+        bool warn_only) noexcept
+      : inner_{std::move(inner)},
+        processor_{std::move(p)},
+        num_parallel_calls_{num_parallel_calls},
+        warn_only_{warn_only}
     {
         buffer_.reserve(num_parallel_calls);
 
@@ -46,15 +51,16 @@ private:
     bool
     fill_buffer();
 
-    data
+    std::optional<data>
     invoke_processor(data &&d);
 
 private:
     std::unique_ptr<data_source> inner_;
     std::shared_ptr<const data_processor> processor_;
     std::size_t num_parallel_calls_;
-    std::vector<data> buffer_{};
-    std::vector<data>::iterator buffer_iter_{};
+    bool warn_only_;
+    std::vector<std::optional<data>> buffer_{};
+    std::vector<std::optional<data>>::iterator buffer_iter_{};
 };
 
 }  // namespace fairseq2::detail
