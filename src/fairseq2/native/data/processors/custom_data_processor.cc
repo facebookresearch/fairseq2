@@ -14,8 +14,7 @@ data
 custom_data_processor::process(data &&d) const
 {
     // See the note [Python Finalization].
-    if (detail::py_is_finalizing())
-        return data{};
+    detail::throw_if_py_is_finalizing();
 
     return fn_(std::move(d));
 }

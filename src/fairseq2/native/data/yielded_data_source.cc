@@ -63,10 +63,6 @@ yielded_data_source::reload_position(tape &t)
 bool
 yielded_data_source::load_next_data_pipeline()
 {
-    // See the note [Python Finalization].
-    if (py_is_finalizing())
-        return false;
-
     example_ = inner_->next();
 
     if (example_)
@@ -80,6 +76,9 @@ yielded_data_source::load_next_data_pipeline()
 data_pipeline
 yielded_data_source::invoke_fn(data &d)
 {
+    // See the note [Python Finalization].
+    throw_if_py_is_finalizing();
+
     try {
         return fn_(d);
     } catch (const data_pipeline_error &) {

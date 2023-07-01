@@ -108,8 +108,7 @@ mapped_data_source::fill_buffer()
 std::optional<data>
 mapped_data_source::invoke_processor(data &&d) {
     // See the note [Python Finalization].
-    if (py_is_finalizing())
-        return std::nullopt;
+    throw_if_py_is_finalizing();
 
     try {
         return processor_->process(std::move(d));

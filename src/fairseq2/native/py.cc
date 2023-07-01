@@ -21,7 +21,8 @@ Py_IsFinalizing() noexcept
     static auto fn = reinterpret_cast<int (*)()>(
         ::dlsym(RTLD_DEFAULT, "_Py_IsFinalizing"));
 
-    assert(fn != nullptr);
+    if (fn == nullptr)
+        return 0;
 
     return fn();
 }
@@ -141,6 +142,13 @@ bool
 py_is_finalizing() noexcept
 {
     return Py_IsFinalizing() != 0;
+}
+
+void
+throw_if_py_is_finalizing()
+{
+    if (py_is_finalizing())
+        throw std::domain_error{"CPython interpreter is being finalized."};
 }
 
 }  // namespace detail

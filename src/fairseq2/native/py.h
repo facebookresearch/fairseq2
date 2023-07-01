@@ -74,6 +74,9 @@ private:
 FAIRSEQ2_API bool
 py_is_finalizing() noexcept;
 
+void
+throw_if_py_is_finalizing();
+
 }  // namespace detail
 
 class FAIRSEQ2_API py_object {

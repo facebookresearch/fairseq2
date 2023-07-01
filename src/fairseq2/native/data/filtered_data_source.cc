@@ -14,8 +14,8 @@ filtered_data_source::next()
     std::optional<data> d{};
 
     while ((d = inner_->next())) {
-       if (invoke_fn(*d))
-           break;
+        if (invoke_fn(*d))
+            break;
     }
 
     return d;
@@ -43,8 +43,7 @@ bool
 filtered_data_source::invoke_fn(data &d)
 {
     // See the note [Python Finalization].
-    if (py_is_finalizing())
-        return true;
+    throw_if_py_is_finalizing();
 
     try {
         return fn_(d);
