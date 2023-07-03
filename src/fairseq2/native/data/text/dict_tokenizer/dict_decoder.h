@@ -11,7 +11,7 @@
 #include <ATen/Tensor.h>
 
 #include "fairseq2/native/api.h"
-#include "fairseq2/native/data/text/dicttokenizer/dict_model.h"
+#include "fairseq2/native/data/text/dict_tokenizer/dict_model.h"
 #include "fairseq2/native/span.h"
 #include "fairseq2/native/data/data.h"
 #include "fairseq2/native/data/data_processor.h"

@@ -14,8 +14,8 @@
 #include "fairseq2/native/memory.h"
 #include "fairseq2/native/span.h"
 #include "fairseq2/native/data/data_source.h"
-#include "fairseq2/native/data/text/text.h"
 #include "fairseq2/native/data/text/text_line_reader.h"
+#include "fairseq2/native/data/text/text_reader.h"
 
 namespace fairseq2::detail {
 

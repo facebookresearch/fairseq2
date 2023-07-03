@@ -177,12 +177,12 @@ class Seq2Seq(tnt.AutoUnit[Seq2SeqBatch]):
     ) -> None:
         """Track loss normalized by number of tokens and token per second"""
         metrics = self.active_metrics(state)
-        tgt_num_tokens = data.target_seq_lens.sum() - data.target_seq_lens.numel()
+        tgt_num_tokens = data.num_target_tokens()
         nll_loss = loss.detach() / tgt_num_tokens / math.log(2)
         # compute the loss metric on device to avoid a cuda.synchronize
         metrics["loss"].update(nll_loss, weight=tgt_num_tokens)
         metrics["tgt_num_tokens"].update(tgt_num_tokens)
-        metrics["src_num_tokens"].update(data.source_seq_lens.sum())
+        metrics["src_num_tokens"].update(data.num_source_tokens())
         metrics["tps"].update(
             tgt_num_tokens, elapsed_time_sec=state.timer.interval_time_seconds
         )
@@ -239,8 +239,11 @@ class Seq2Seq(tnt.AutoUnit[Seq2SeqBatch]):
         target = token_decoder(data.target_seqs)
 
         # TODO: move to data loading
-        padding_mask = data.source_seqs.ne(self.tokenizer.vocab_info.pad_idx)
-        source_lens = torch.count_nonzero(padding_mask, dim=-1)
+        if self.tokenizer.vocab_info.pad_idx is not None:
+            padding_mask = data.source_seqs.ne(self.tokenizer.vocab_info.pad_idx)
+            source_lens = torch.count_nonzero(padding_mask, dim=-1)
+        else:
+            source_lens = None
 
         strategy = self.default_strategy()
         with self.maybe_autocast_precision:

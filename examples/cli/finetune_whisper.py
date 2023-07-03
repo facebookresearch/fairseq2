@@ -12,17 +12,7 @@ import functools
 import itertools
 import logging
 from datetime import timedelta
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Iterable,
-    Iterator,
-    List,
-    Optional,
-    Sequence,
-    Tuple,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Iterable, Iterator, List, Optional, Tuple
 
 import torch
 from torch import Tensor
@@ -35,7 +25,7 @@ from transformers import (  # type: ignore[import]
 
 import fairseq2
 from fairseq2.cli.api import Env, Seq2Seq, Seq2SeqStr
-from fairseq2.data import StringLike
+from fairseq2.data import Collater, StringLike
 from fairseq2.data.text import TokenDecoder, TokenEncoder, Tokenizer, VocabularyInfo
 from fairseq2.metrics import Metrics
 from fairseq2.models.seq2seq import Seq2SeqBatch
@@ -86,23 +76,16 @@ class HfTokenizer(Tokenizer):
         task: Optional[str] = None,
         lang: Optional[str] = None,
         mode: Optional[str] = None,
-        batch_size: Optional[int] = None,
         device: Optional[Device] = None,
         pin_memory: bool = False,
-        dtype: DataType = torch.int32,
-        disable_parallelism: bool = False,
     ) -> TokenEncoder:
         return functools.partial(self._encode, device=device)  # type: ignore[return-value]
 
     def create_decoder(self) -> TokenDecoder:
         return self._decode  # type: ignore[return-value]
 
-    def _encode(
-        self,
-        sentences: Union[StringLike, Sequence[StringLike]],
-        device: Optional[Device],
-    ) -> Tensor:
-        t = self.tokenizer(sentences, return_tensors="pt", padding=True).to(device)
+    def _encode(self, sentence: StringLike, device: Optional[Device]) -> Tensor:
+        t = self.tokenizer(sentence, return_tensors="pt", padding=True).to(device)
 
         return t["input_ids"]  # type: ignore[no-any-return]
 
@@ -188,9 +171,18 @@ class AsrDataloader(Iterable[Seq2SeqBatch]):
         )
         self.epoch = 0
 
+        self.collater = Collater(self.pad_idx)
+
     def _finalize_batch(self, batch: AsrBatch) -> Seq2SeqBatch:
         device = self.env.device
-        target = self.token_encoder(batch.sentences)
+
+        target_tokens = []
+
+        # TODO: expose parallel_for
+        for s in batch.sentences:
+            target_tokens.append(self.token_encoder(s))
+
+        target = self.collater(target_tokens)
         source, src_seq_lens = self._encode_audio(batch.audio_features)
         return Seq2SeqBatch(
             source,

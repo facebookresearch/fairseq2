@@ -26,10 +26,10 @@ def test_load_dense_distill_600m() -> None:
     fra = strategy.generate_str(
         model,
         tokenizer,
-        [ENG],
+        ENG,
         src_lang="eng_Latn",
         tgt_lang="fra_Latn",
         device=device,
     )
 
-    assert fra == [FRA]
+    assert fra == FRA

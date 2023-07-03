@@ -6,13 +6,12 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional, Sequence, Union
+from typing import Optional, Sequence
 
-import torch
 from torch import Tensor
 
 from fairseq2.data.typing import StringLike
-from fairseq2.typing import DataType, Device
+from fairseq2.typing import Device
 
 
 class Tokenizer(ABC):
@@ -33,11 +32,8 @@ class Tokenizer(ABC):
         task: Optional[str] = None,
         lang: Optional[str] = None,
         mode: Optional[str] = None,
-        batch_size: Optional[int] = None,
         device: Optional[Device] = None,
         pin_memory: bool = False,
-        dtype: DataType = torch.int64,
-        disable_parallelism: bool = False,
     ) -> "TokenEncoder":
         """Create a token encoder.
 
@@ -46,35 +42,26 @@ class Tokenizer(ABC):
         for more information.
 
         :param task:
-            An optional implementation-specific task such as 'translation' or
-            'transcription' for which to generate token indices.
+            The task for which to generate token indices. Typically, multi-task
+            jobs use ``task`` to distinguish between different tasks such as
+            'translation' or 'transcription'.
         :param lang:
-            An optional implementation-specific identifier indicating the
-            language of generated token indices. Typically used by multilingual
-            tokenizers for distinguishing between different source and target
-            languages.
+            The language of generated token indices. Typically, multilingual
+            translation tasks use ``lang`` to distinguish between different
+            languages such as 'en-US' or 'de-DE'.
         :param mode:
-            An optional implementation-specific mode in which to generate token
-            indices. Typically used by translation tasks to indicate whether the
-            encoding is done for source or target sentences.
-        :param batch_size:
-            If the number of sentences to encode is less than ``batch_size``,
-            the output will be padded.
+            The mode in which to generate token indices. Typically, translation
+            tasks use ``mode`` to distinguish between different modes such as
+            'source' or 'target'.
         :param device:
-            The device on which to initialize token indices.
+            The device on which to construct tensors.
         :param pin_memory:
-            If ``True``, uses pinned memory before copying token indices to the
-            target device. (only supported by CUDA devices)
-        :param dtype:
-            The integral data type of generated token indices.
-        :param disabled_parallelism:
-            If ``True``, disables parallelism and uses the calling thread only.
+            If ``True``, uses pinned memory while constructing tensors.
         """
 
     @abstractmethod
     def create_decoder(self) -> "TokenDecoder":
         """Create a token decoder."""
-        pass
 
 
 @dataclass(frozen=True)
@@ -82,16 +69,16 @@ class VocabularyInfo:
     size: int
     """The size of the vocabulary."""
 
-    unk_idx: int
+    unk_idx: Optional[int]
     """The index of the symbol that represents an unknown word."""
 
-    bos_idx: int
+    bos_idx: Optional[int]
     """The index of the symbol that represents the beginning of a sentence."""
 
-    eos_idx: int
+    eos_idx: Optional[int]
     """The index of the symbol that represents the end of a sentence."""
 
-    pad_idx: int
+    pad_idx: Optional[int]
     """The index of the symbol that is used to pad a sentence."""
 
 
@@ -99,10 +86,10 @@ class TokenEncoder(ABC):
     """Encodes sentences into token indices."""
 
     @abstractmethod
-    def __call__(self, sentences: Union[StringLike, Sequence[StringLike]]) -> Tensor:
+    def __call__(self, sentence: StringLike) -> Tensor:
         """
-        :param sentences:
-            The sentences to encode.
+        :param sentence:
+            The sentence to encode.
         """
 
 

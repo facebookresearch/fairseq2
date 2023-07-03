@@ -42,7 +42,7 @@ def test_pickling_() -> None:
     encoder2 = tokenizer2.create_encoder()
     decoder2 = tokenizer2.create_decoder()
 
-    X = ["hello world it is me"]
+    X = "hello world it is me"
     assert_equal(encoder(X), encoder2(X))
     Y = encoder(X)
     assert decoder(Y) == decoder2(Y)
@@ -56,19 +56,12 @@ def test_vocab_info() -> None:
     assert actual == expected
 
 
-def test_encoder_string_arg_throws() -> None:
-    tokenizer = DictTokenizer(10, vocab)
-    encoder = tokenizer.create_encoder()
-    with pytest.raises(ValueError):
-        encoder("hello world!")
-
-
 def test_encoder_one_line() -> None:
     tokenizer = DictTokenizer(10, vocab)
     encoder = tokenizer.create_encoder()
     sentence = "hello world from one person"
-    expected = torch.tensor([[1, 4, 7, 0, 5, 0, 2, 3, 3, 3]])
-    actual = encoder([sentence])
+    expected = torch.tensor([1, 4, 7, 0, 5, 0, 2, 3, 3, 3])
+    actual = encoder(sentence)
     assert torch.equal(actual, expected)
 
 
@@ -90,7 +83,8 @@ def test_enocder_multi_line() -> None:
         ]
     )
 
-    actual = encoder(sentences)
+    actual = torch.stack([encoder(s) for s in sentences], dim=0)
+
     assert torch.equal(actual, expected)
 
 

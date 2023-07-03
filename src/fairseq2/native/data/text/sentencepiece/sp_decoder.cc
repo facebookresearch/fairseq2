@@ -17,10 +17,7 @@
 #include <ATen/Functions.h>
 #include <ATen/ScalarType.h>
 #include <ATen/Storage.h>
-#include <oneapi/tbb.h>
 
-#include "fairseq2/native/memory.h"
-#include "fairseq2/native/exception.h"
 #include "fairseq2/native/data/text/sentencepiece/sp_model.h"
 #include "fairseq2/native/data/text/sentencepiece/sp_processor.h"
 #include "fairseq2/native/utils/cast.h"
@@ -31,7 +28,7 @@ namespace detail {
 class decoder_op {
 public:
     explicit
-    decoder_op(const sp_decoder *d, const sp_processor *proc, at::Tensor &&t);
+    decoder_op(const sp_decoder *decoder, const sp_processor *processor, at::Tensor &&tensor);
 
     std::vector<data> &&
     run() &&;
@@ -48,51 +45,46 @@ private:
     const sp_decoder *decoder_;
     const sp_processor *processor_;
     at::Tensor tensor_;
-    std::size_t batch_size_;
-    std::vector<std::vector<std::string_view>> tokens_{};
     std::vector<data> sentences_{};
 };
 
 }  // namespace detail
 
-sp_decoder::sp_decoder(
-    std::shared_ptr<const sp_model> m, bool reverse, bool disable_parallelism) noexcept
-  : model_{std::move(m)}, reverse_{reverse}, disable_parallelism_{disable_parallelism}
+sp_decoder::sp_decoder(std::shared_ptr<const sp_model> model, bool reverse) noexcept
+  : model_{std::move(model)}, reverse_{reverse}
 {}
 
 data
 sp_decoder::process(data &&d) const
 {
     if (!d.is_tensor())
-        throw std::invalid_argument{
-            "The SentencePiece decoder expects as input a tensor."};
+        throw std::invalid_argument{"The input must be of type Tensor."};
 
-    at::Tensor t = d.as_tensor();
+    at::Tensor tensor = d.as_tensor();
 
-    if (t.dim() == 1)
-        t = t.unsqueeze(0);
+    if (tensor.dim() == 1)
+        tensor = tensor.unsqueeze(0);
 
-    return decode(std::move(t));
+    return decode(std::move(tensor));
 }
 
 std::vector<data>
-sp_decoder::decode(at::Tensor &&t) const
+sp_decoder::decode(at::Tensor &&tensor) const
 {
-    detail::decoder_op op{this, model_->processor_.get(), std::move(t)};
+    detail::decoder_op op{this, model_->processor_.get(), std::move(tensor)};
 
     return std::move(op).run();
 }
 
 namespace detail {
 
-decoder_op::decoder_op(const sp_decoder *d, const sp_processor *proc, at::Tensor &&t)
-    : decoder_{d}, processor_{proc}, tensor_{std::move(t)}
+decoder_op::decoder_op(
+    const sp_decoder *decoder, const sp_processor *processor, at::Tensor &&tensor)
+  : decoder_{decoder}, processor_{processor}, tensor_{std::move(tensor)}
 {
-    batch_size_ = static_cast<std::size_t>(tensor_.size(0));
+    auto batch_size = static_cast<std::size_t>(tensor_.size(0));
 
-    tokens_.resize(batch_size_);
-
-    sentences_.resize(batch_size_);
+    sentences_.reserve(batch_size);
 }
 
 std::vector<data> &&
@@ -122,8 +114,7 @@ decoder_op::decode()
         break;
 
     default:
-        throw not_supported_error{
-            "The specified integral type is not supported."};
+        throw std::invalid_argument{"The specified integral type is not supported."};
     }
 }
 
@@ -131,40 +122,31 @@ template <typename T>
 void
 decoder_op::decode()
 {
-    auto seq_dim = static_cast<std::size_t>(tensor_.size(1));
+    std::int64_t seq_len = tensor_.size(1);
 
-    const at::Storage &s = tensor_.storage();
+    std::vector<std::string_view> tokens{};
 
-    memory_span bits{s.unsafe_data<const std::byte>(), s.nbytes()};
+    tokens.reserve(static_cast<std::size_t>(seq_len));
 
-    span data = cast<const T>(bits);
+    auto accessor = tensor_.accessor<T, 2>();
 
-    auto op = [this, data, seq_dim](const tbb::blocked_range<std::size_t> &rng) {
-        for (auto i = rng.begin(); i < rng.end(); ++i) {
-            std::vector<std::string_view> &tokens = tokens_[i];
+    for (std::int64_t i = 0; i < tensor_.size(0); ++i) {
+        tokens.clear();
 
-            span seq_data = data.subspan(i * seq_dim, seq_dim);
+        for (std::int64_t j = 0; j < seq_len; j++) {
+            T token_idx = accessor[i][decoder_->reverse_ ? seq_len - 1 - j : j];
 
-            for (std::size_t j = 0; j < seq_dim; j++) {
-                T token_idx = seq_data[decoder_->reverse_ ? seq_dim - 1 - j : j];
+            auto token_idx_32bit = conditional_cast<std::int32_t>(token_idx);
 
-                auto token_idx_32bit = conditional_cast<std::int32_t>(token_idx);
+            std::string_view token = processor_->index_to_token(token_idx_32bit);
 
-                std::string_view token = processor_->index_to_token(token_idx_32bit);
-
-                tokens.push_back(token);
-            }
-
-            sentences_[i] = processor_->decode(tokens);
+            tokens.push_back(token);
         }
-    };
 
-    tbb::blocked_range<std::size_t> full_rng{0, batch_size_};
+        std::string sentence = processor_->decode(tokens);
 
-    if (decoder_->disable_parallelism_)
-        op(full_rng);
-    else
-        tbb::parallel_for(full_rng, op);
+        sentences_.emplace_back(std::move(sentence));
+    }
 }
 
 }  // namespace detail

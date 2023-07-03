@@ -24,7 +24,7 @@ class sp_model_proto_loader {
 public:
     explicit
     sp_model_proto_loader(std::string_view pathname, sp_model_options &&opts) noexcept
-        : pathname_{pathname}, opts_{std::move(opts)}
+      : pathname_{pathname}, opts_{std::move(opts)}
     {}
 
     std::unique_ptr<ModelProto> &&
@@ -35,7 +35,7 @@ private:
     load_proto();
 
     void
-    add_control_tokens();
+    add_control_symbols();
 
     void
     add_piece(std::string &&piece);
@@ -52,7 +52,7 @@ sp_model_proto_loader::load() &&
 {
     load_proto();
 
-    add_control_tokens();
+    add_control_symbols();
 
     return std::move(proto_);
 }
@@ -78,30 +78,30 @@ sp_model_proto_loader::load_proto()
 }
 
 void
-sp_model_proto_loader::add_control_tokens()
+sp_model_proto_loader::add_control_symbols()
 {
-    for (std::string &token : opts_.control_tokens()) {
-        if (token.empty())
+    for (std::string &symbol : opts_.control_symbols()) {
+        if (symbol.empty())
             continue;
 
-        if (token == "<pad>" || token == "<pad>@0") {
+        if (symbol == "<pad>" || symbol == "<pad>@0") {
             proto_->mutable_trainer_spec()->set_pad_piece("<pad>");
 
             add_piece("<pad>");
 
             // This is a workaround for SentencePiece models that, for legacy
-            // reasons, do not have a pad token, but expected to have one at
+            // reasons, do not have a pad symbol, but expected to have one at
             // index 0 (e.g. NLLB models).
-            if (token == "<pad>@0") {
+            if (symbol == "<pad>@0") {
                 auto *pieces = proto_->mutable_pieces();
 
-                // RepeatedPtrField does not offer an insert method, so we move
-                // our pad token from the end to the beginning of the list.
+                // `RepeatedPtrField` does not have an insert method, so we move
+                // our pad symbol from the end to the beginning of the list.
                 for (int i = pieces->size() - 1; i > 0; --i)
                     pieces->SwapElements(i, i - 1);
             }
         } else
-            add_piece(std::move(token));
+            add_piece(std::move(symbol));
     }
 }
 
@@ -116,7 +116,7 @@ sp_model_proto_loader::add_piece(std::string &&piece)
 }
 
 sp_processor::sp_processor(std::string_view model_pathname, sp_model_options &&opts)
-    : sp_processor{sp_model_proto_loader{model_pathname, std::move(opts)}.load()}
+  : sp_processor{sp_model_proto_loader{model_pathname, std::move(opts)}.load()}
 {}
 
 std::unique_ptr<sp_processor>
@@ -128,9 +128,9 @@ sp_processor::from_serialized(std::string_view serialized)
     if (!r)
         throw std::runtime_error{"The serialized SentencePiece model cannot be parsed."};
 
-    sp_processor proc{std::move(proto)};
+    sp_processor processor{std::move(proto)};
 
-    return std::make_unique<sp_processor>(std::move(proc));
+    return std::make_unique<sp_processor>(std::move(processor));
 }
 
 ImmutableSentencePieceText
@@ -179,7 +179,7 @@ std::string_view
 sp_processor::index_to_token(std::int32_t idx) const
 {
     if (static_cast<std::size_t>(idx) >= vocab_size)
-        throw std::domain_error{"The specified index is out of range."};
+        throw std::invalid_argument{"The specified token index is out of range."};
 
     return native_->IdToPiece(conditional_cast<int>(idx));
 }
@@ -202,9 +202,6 @@ sp_processor::sp_processor(std::unique_ptr<ModelProto> &&proto)
     bos_idx = conditional_cast<std::int32_t>(native_->bos_id());
     eos_idx = conditional_cast<std::int32_t>(native_->eos_id());
     pad_idx = conditional_cast<std::int32_t>(native_->pad_id());
-
-    if (pad_idx < 0)
-        throw std::runtime_error{"The model has no padding token specified."};
 
     vocab_size = conditional_cast<std::size_t>(native_->GetPieceSize());
 }

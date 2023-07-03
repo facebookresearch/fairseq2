@@ -34,7 +34,7 @@ class SequenceBatch:
     size, :math:`S` is the sequence length, and :math:`*` is any number of
     sequence-specific dimensions including none."""
 
-    seq_lens: Tensor
+    seq_lens: Optional[Tensor]
     """An array where each element represents the length of the sequence at the
     same index in :attr:`seqs`. *Shape:* :math:`(N)`, where :math:`N` is the
     batch size."""
@@ -46,6 +46,9 @@ class SequenceBatch:
 
     def num_tokens(self) -> Tensor:
         """Return the number of tokens."""
+        if self.seq_lens is None:
+            return torch.full((), self.seqs.numel(), device=self.seqs.device)
+
         return self.seq_lens.sum()
 
 

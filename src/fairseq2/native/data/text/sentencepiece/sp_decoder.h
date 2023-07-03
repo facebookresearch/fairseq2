@@ -12,7 +12,6 @@
 #include <ATen/Tensor.h>
 
 #include "fairseq2/native/api.h"
-#include "fairseq2/native/span.h"
 #include "fairseq2/native/data/data.h"
 #include "fairseq2/native/data/data_processor.h"
 
@@ -30,22 +29,18 @@ class FAIRSEQ2_API sp_decoder final : public data_processor {
 
 public:
     explicit
-    sp_decoder(
-        std::shared_ptr<const sp_model> m,
-        bool reverse = false,
-        bool disable_parallelism = false) noexcept;
+    sp_decoder(std::shared_ptr<const sp_model> model, bool reverse = false) noexcept;
 
     data
     process(data &&d) const override;
 
 private:
     std::vector<data>
-    decode(at::Tensor &&t) const;
+    decode(at::Tensor &&tensor) const;
 
 private:
     std::shared_ptr<const sp_model> model_;
     bool reverse_;
-    bool disable_parallelism_;
 };
 
 }  // namespace fairseq2

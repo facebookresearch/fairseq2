@@ -20,6 +20,7 @@ from torch import Tensor
 
 import fairseq2.cli
 from fairseq2.cli.api import Env, TranslationTask
+from fairseq2.data import Collater
 from fairseq2.data.text import MultilingualTokenizer, Tokenizer, VocabularyInfo
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.nllb import NllbConfig, create_nllb_model
@@ -67,10 +68,10 @@ class NllbDataLoader(Iterable[Seq2SeqBatch]):
             tsk = "translation"
 
             self.src_encoder = tokenizer.create_encoder(
-                tsk, lang=src, mode="source", device=env.device, pin_memory=True
+                tsk, lang=src, mode="source", pin_memory=True
             )
             self.tgt_encoder = tokenizer.create_encoder(
-                tsk, lang=tgt, mode="target", device=env.device, pin_memory=True
+                tsk, lang=tgt, mode="target", pin_memory=True
             )
 
         data: Mapping[str, datasets.Dataset] = {}
@@ -94,6 +95,8 @@ class NllbDataLoader(Iterable[Seq2SeqBatch]):
             self.data = data[flores_split]
             self.extract_src = lambda sample: sample["sentence_" + src]
             self.extract_tgt = lambda sample: sample["sentence_" + tgt]
+
+        self.collater = Collater(self.pad_idx)
         # HF doesn't allow to shard and stream at the same time ?
         # self.data = self.data.shard(num_shards=self.world_size, index=self.global_rank)
 
@@ -102,8 +105,16 @@ class NllbDataLoader(Iterable[Seq2SeqBatch]):
 
     def __iter__(self) -> Iterator[Seq2SeqBatch]:
         for src_sentences, tgt_sentences in self._iter_str():
-            source = self.src_encoder(src_sentences)
-            target = self.tgt_encoder(tgt_sentences)
+            source_tokens = []
+            target_tokens = []
+
+            # TODO: expose parallel_for
+            for s, t in zip(src_sentences, tgt_sentences):
+                source_tokens.append(self.src_encoder(s))
+                target_tokens.append(self.tgt_encoder(s))
+
+            source = self.collater(source_tokens)
+            target = self.collater(target_tokens)
 
             yield Seq2SeqBatch(
                 source, self._num_tokens(source), target, self._num_tokens(target)

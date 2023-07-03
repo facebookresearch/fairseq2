@@ -260,9 +260,12 @@ def load_data_from_manifest(
     def generate_batch(b: List[Tensor]) -> Seq2SeqBatch:
         target = b[2].to(device)
 
-        target_mask = target.ne(pad_idx)
+        if pad_idx is not None:
+            target_mask = target.ne(pad_idx)
 
-        target_lens = torch.count_nonzero(target_mask, dim=-1)
+            target_lens = torch.count_nonzero(target_mask, dim=-1)
+        else:
+            target_lens = None
 
         return Seq2SeqBatch(
             # Move batch to gpu

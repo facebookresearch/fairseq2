@@ -2,14 +2,11 @@ import os
 import time
 from typing import Any, Dict
 
-import torch
 from torch import Tensor
 
-from fairseq2.data import DataPipeline, StringLike, list_files
+from fairseq2.data import Collater, DataPipeline, StringLike, list_files
 from fairseq2.data.text import SentencePieceEncoder, SentencePieceModel, read_text
 from fairseq2.typing import Device
-
-torch.cuda.init()
 
 # Using Guillaume's IWSLT EN-DE dataset.
 dataset_dir = "/checkpoint/guw/fairseq/iwslt14.tokenized.de-en/"
@@ -17,11 +14,11 @@ dataset_dir = "/checkpoint/guw/fairseq/iwslt14.tokenized.de-en/"
 # This is our SentencePiece model API implemented in C++.
 spm = SentencePieceModel(
     pathname=os.path.join(dataset_dir, "spm.model"),
-    # The `control_tokens` parameter is used to natively add custom tokens (e.g.
+    # The `control_symbols` parameter is used to natively add custom tokens (e.g.
     # pad, language markers) directly at the Protobuf level. Here we add <pad>
     # since the IWSLT SentencePiece model does not have a pad token, plus <en>
     # and <de> as beginning-of-sentece markers for a translation task.
-    control_tokens=["<pad>", "<en>", "<de>"],
+    control_symbols=["<pad>", "<en>", "<de>"],
 )
 
 
@@ -48,11 +45,11 @@ def build_lang_pipeline(
             # character.
             read_text(pathname, rtrim=True, memory_map=True)
             # We batch every 128 lines. We return a partial batch at the end.
-            # This is fine since our SentencePiece encoder (see below) handles
-            # both vertical and horizontal padding.
             .bucket(128, drop_remainder=False)
             # Tokenize the batch of text lines.
             .map(encoder)
+            # We convert our buckets to batches.
+            .map(Collater(pad_idx=spm.pad_idx))
             # Replace <bos> with the language token.
             .map(replace_bos)
             # And construct the pipeline.
@@ -77,9 +74,7 @@ def build_data_pipeline(
     tgt_lang: str,
     split: str,
 ) -> DataPipeline:
-    # For demonstration purposes, we allocate our batches on the first CUDA
-    # device.
-    device = Device("cuda:0")
+    device = Device("cpu")
 
     # Unlike the official SentencePiece API we refactored our encoding/decoding
     # API from the actual model API.
@@ -92,18 +87,9 @@ def build_data_pipeline(
         # them here for demonstration purposes.
         nbest_size=1,
         alpha=0.1,
-        # If the number of input text lines is less than 16, pad the batch
-        # vertically.
-        batch_size=16,
-        # We support int16, int32, and int64 (int8 coming later).
-        dtype=torch.int16,
         # We are using the lowest-level SentencePiece API which makes it
         # possible for us to tokenize the text directly into the tensor storage.
         device=device,
-        # We pin the host memory to speed up the GPU data transfer after
-        # tokenization.
-        pin_memory=True,
-        disable_parallelism=False,
     )
 
     # Build the sub-data pipelines for the source and target (i.e. en, de)
@@ -136,8 +122,6 @@ for batch in dp:
         dp.load_state_dict(state)
 
     num_batches += 1
-
-torch.cuda.synchronize()
 
 elapsed_time = time.perf_counter() - start_time
 

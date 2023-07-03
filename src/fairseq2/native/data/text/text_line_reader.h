@@ -9,10 +9,10 @@
 #include <memory>
 #include <utility>
 
+#include "fairseq2/native/span.h"
 #include "fairseq2/native/data/record_reader.h"
 #include "fairseq2/native/data/stream.h"
-#include "fairseq2/native/data/text/text.h"
-#include "fairseq2/native/span.h"
+#include "fairseq2/native/data/text/text_reader.h"
 
 namespace fairseq2::detail {
 

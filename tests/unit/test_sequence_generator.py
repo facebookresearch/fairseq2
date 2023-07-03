@@ -107,7 +107,14 @@ def test_force_token() -> None:
 
 
 def test_prepare_state_noprefix() -> None:
-    vocab_info = VocabularyInfo(size=8, bos_idx=0, eos_idx=1, unk_idx=2, pad_idx=3)
+    bos_idx = 0
+    eos_idx = 1
+    unk_idx = 2
+    pad_idx = 3
+
+    vocab_info = VocabularyInfo(
+        size=8, bos_idx=bos_idx, eos_idx=eos_idx, unk_idx=unk_idx, pad_idx=pad_idx
+    )
     bs = search.BeamSearchStrategy(vocab_info=vocab_info, max_len=100, beam_size=3)
     src_tokens = torch.tensor(
         [[1, 2, 3, 4], [7, 8, 9, 10]], dtype=torch.int64, device=device
@@ -117,8 +124,8 @@ def test_prepare_state_noprefix() -> None:
     exp_max_len = 18
     # (bsz:2, beam_size:3, (exp_max_len:18 + 2))
     # (2, 3, 20)
-    expected_tokens = torch.full((2, 3, 20), vocab_info.pad_idx, device=device)
-    expected_tokens[:, :, 0] = vocab_info.bos_idx
+    expected_tokens = torch.full((2, 3, 20), pad_idx, device=device)
+    expected_tokens[:, :, 0] = bos_idx
 
     s = bs.new_search_job(src_tokens)
 
@@ -134,7 +141,14 @@ def test_prepare_state_noprefix() -> None:
 
 
 def test_prepare_state_noprefix_maxlen() -> None:
-    vocab_info = VocabularyInfo(size=8, bos_idx=0, eos_idx=1, unk_idx=2, pad_idx=3)
+    bos_idx = 0
+    eos_idx = 1
+    unk_idx = 2
+    pad_idx = 3
+
+    vocab_info = VocabularyInfo(
+        size=8, bos_idx=bos_idx, eos_idx=eos_idx, unk_idx=unk_idx, pad_idx=pad_idx
+    )
 
     bs = search.BeamSearchStrategy(vocab_info=vocab_info, max_len=10, beam_size=1)
 
@@ -147,8 +161,8 @@ def test_prepare_state_noprefix_maxlen() -> None:
 
     # (bsz:2, beam_size:1, (exp_max_len:10 + 2))
     # (2, 12)
-    expected_tokens = torch.full((2, 1, 12), vocab_info.pad_idx, device=device)
-    expected_tokens[:, :, 0] = vocab_info.bos_idx
+    expected_tokens = torch.full((2, 1, 12), pad_idx, device=device)
+    expected_tokens[:, :, 0] = bos_idx
 
     s = bs.new_search_job(src_tokens)
 
@@ -158,7 +172,14 @@ def test_prepare_state_noprefix_maxlen() -> None:
 
 
 def test_prepare_state_prefix_single() -> None:
-    vocab_info = VocabularyInfo(size=8, bos_idx=0, eos_idx=1, unk_idx=2, pad_idx=3)
+    bos_idx = 0
+    eos_idx = 1
+    unk_idx = 2
+    pad_idx = 3
+
+    vocab_info = VocabularyInfo(
+        size=8, bos_idx=bos_idx, eos_idx=eos_idx, unk_idx=unk_idx, pad_idx=pad_idx
+    )
 
     bs = search.BeamSearchStrategy(vocab_info=vocab_info, max_len=10, beam_size=2)
     src_tokens = torch.tensor(
@@ -169,7 +190,7 @@ def test_prepare_state_prefix_single() -> None:
     # min(100, 2 * 4 + 10) -> 18
     exp_max_len = 10
 
-    P = vocab_info.pad_idx
+    P = pad_idx
     expected_tokens = torch.tensor(
         [
             [
@@ -199,7 +220,14 @@ def test_prepare_state_prefix_single() -> None:
 
 
 def test_prepare_state_prefix_batched() -> None:
-    vocab_info = VocabularyInfo(size=8, bos_idx=0, eos_idx=1, unk_idx=2, pad_idx=3)
+    bos_idx = 0
+    eos_idx = 1
+    unk_idx = 2
+    pad_idx = 3
+
+    vocab_info = VocabularyInfo(
+        size=8, bos_idx=bos_idx, eos_idx=eos_idx, unk_idx=unk_idx, pad_idx=pad_idx
+    )
 
     bs = search.BeamSearchStrategy(vocab_info=vocab_info, max_len=10, beam_size=2)
     src_tokens = torch.tensor([[1, 2, 3, 4], [7, 8, 9, 10]], dtype=torch.int64)
@@ -207,7 +235,7 @@ def test_prepare_state_prefix_batched() -> None:
 
     # min(100, 2 * 4 + 10) -> 18
     exp_max_len = 10
-    P = vocab_info.pad_idx
+    P = pad_idx
     expected_tokens = torch.tensor(
         [
             [
@@ -518,7 +546,15 @@ def test_finalize_notop() -> None:
 
 
 def test_finalize_top() -> None:
-    vocab_info = VocabularyInfo(size=8, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=3)
+    bos_idx = 0
+    eos_idx = 1
+    unk_idx = 2
+    pad_idx = 3
+
+    vocab_info = VocabularyInfo(
+        size=8, bos_idx=bos_idx, eos_idx=eos_idx, unk_idx=unk_idx, pad_idx=pad_idx
+    )
+
     bs = search.BeamSearchStrategy(vocab_info=vocab_info, max_len=10, beam_size=3)
 
     src_tokens = torch.tensor([[1, 2, 3, 4], [7, 8, 9, 10]], dtype=torch.int64)
@@ -531,7 +567,7 @@ def test_finalize_top() -> None:
     s.tokens = torch.randint_like(s.tokens, low=0, high=1000)
     s.scores = torch.rand_like(s.scores)
 
-    s.tokens[:, :, s.step + 1 :] = vocab_info.pad_idx
+    s.tokens[:, :, s.step + 1 :] = pad_idx
     s.scores[:, :, s.step + 1 :] = -torch.inf
 
     # Force scores at step with a known sort order.
@@ -586,7 +622,14 @@ def test_choose_beams() -> None:
 
 
 def test_log_prob_below_min() -> None:
-    vocab_info = VocabularyInfo(size=8, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=3)
+    bos_idx = 0
+    eos_idx = 1
+    unk_idx = 2
+    pad_idx = 3
+
+    vocab_info = VocabularyInfo(
+        size=8, bos_idx=bos_idx, eos_idx=eos_idx, unk_idx=unk_idx, pad_idx=pad_idx
+    )
 
     max_len = 20
     bs = search.BeamSearchStrategy(vocab_info=vocab_info, min_len=10, max_len=max_len)
@@ -603,13 +646,9 @@ def test_log_prob_below_min() -> None:
     step = 1
     lprobs = s._log_prob(t, step=step, max_len=max_len)
 
-    raw = search.decoder_out_to_log_prob(
-        t, temperature=0.1, pad=vocab_info.pad_idx, bos=vocab_info.bos_idx
-    )
-    assert_equal(
-        lprobs[:, vocab_info.unk_idx], (raw[:, vocab_info.unk_idx] - bs.unk_penalty)
-    )
-    assert_equal(lprobs[:, vocab_info.pad_idx], torch.tensor([-torch.inf, -torch.inf]))
+    raw = search.decoder_out_to_log_prob(t, temperature=0.1, pad=pad_idx, bos=bos_idx)
+    assert_equal(lprobs[:, unk_idx], (raw[:, unk_idx] - bs.unk_penalty))
+    assert_equal(lprobs[:, pad_idx], torch.tensor([-torch.inf, -torch.inf]))
 
     # Since we aren't forcing EOS, other tokens should not have -inf
     assert step < bs.max_len, (step, bs.max_len)
@@ -618,11 +657,18 @@ def test_log_prob_below_min() -> None:
 
     # Since we've not yet reached min_len, EOS should have -inf.
     assert step < bs.min_len, (step, bs.min_len)
-    assert_equal(lprobs[:, vocab_info.eos_idx], torch.tensor([-torch.inf, -torch.inf]))
+    assert_equal(lprobs[:, eos_idx], torch.tensor([-torch.inf, -torch.inf]))
 
 
 def test_log_prob_running() -> None:
-    vocab_info = VocabularyInfo(size=8, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=3)
+    bos_idx = 0
+    eos_idx = 1
+    unk_idx = 2
+    pad_idx = 3
+
+    vocab_info = VocabularyInfo(
+        size=8, bos_idx=bos_idx, eos_idx=eos_idx, unk_idx=unk_idx, pad_idx=pad_idx
+    )
     max_len = 20
     bs = search.BeamSearchStrategy(vocab_info=vocab_info, min_len=10, max_len=max_len)
 
@@ -640,14 +686,10 @@ def test_log_prob_running() -> None:
 
     lprobs = s._log_prob(t, step=step, max_len=max_len)
 
-    raw = search.decoder_out_to_log_prob(
-        t, temperature=0.1, pad=vocab_info.pad_idx, bos=vocab_info.bos_idx
-    )
+    raw = search.decoder_out_to_log_prob(t, temperature=0.1, pad=pad_idx, bos=bos_idx)
 
-    assert_equal(
-        lprobs[:, vocab_info.unk_idx], raw[:, vocab_info.unk_idx] - bs.unk_penalty
-    )
-    assert_equal(lprobs[:, vocab_info.pad_idx], torch.tensor([-torch.inf, -torch.inf]))
+    assert_equal(lprobs[:, unk_idx], raw[:, unk_idx] - bs.unk_penalty)
+    assert_equal(lprobs[:, pad_idx], torch.tensor([-torch.inf, -torch.inf]))
 
     # Since we aren't forcing EOS, other tokens should not have -inf
     assert step < bs.max_len, (step, bs.max_len)
@@ -656,8 +698,8 @@ def test_log_prob_running() -> None:
 
     # Since we aren't preventing EOS, EOS should not have -inf
     assert step > bs.min_len, (step, bs.min_len)
-    assert has_no_inf(lprobs[:, vocab_info.eos_idx])
-    assert has_no_nan(lprobs[:, vocab_info.eos_idx])
+    assert has_no_inf(lprobs[:, eos_idx])
+    assert has_no_nan(lprobs[:, eos_idx])
 
 
 def test_log_prob_above_max() -> None:

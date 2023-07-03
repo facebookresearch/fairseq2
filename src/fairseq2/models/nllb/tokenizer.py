@@ -6,7 +6,6 @@
 
 from typing import Optional, Sequence, Set, final
 
-import torch
 from overrides import final as finaloverride
 
 from fairseq2.data.text import (
@@ -19,7 +18,7 @@ from fairseq2.data.text import (
     vocab_from_sentencepiece,
 )
 from fairseq2.data.typing import PathLike
-from fairseq2.typing import DataType, Device
+from fairseq2.typing import Device
 
 
 @final
@@ -41,18 +40,18 @@ class NllbTokenizer(Tokenizer):
         :param default_lang:
             The fall-back language if no language is specified.
         """
-        # Each language is represented by a __lang__ control token.
-        control_tokens = [f"__{lang}__" for lang in langs]
+        # Each language is represented by a `__lang__` control symbol.
+        control_symbols = [f"__{lang}__" for lang in langs]
 
-        # Internal control tokens that are not relevant for public use.
-        control_tokens.extend(["<MINED_DATA>", "<MMT_BT_DATA>", "<SMT_BT_DATA>"])
+        # Internal control symbols that are not relevant for eval use.
+        control_symbols.extend(["<MINED_DATA>", "<MMT_BT_DATA>", "<SMT_BT_DATA>"])
 
         # The SentencePiece model of NLLB is peculiar as it does not define a
-        # pad token. We use an undocumented feature of our underlying C++ API
-        # to insert a pad token to the model at index 0.
-        control_tokens.append("<pad>@0")
+        # pad symbol. We use an undocumented feature of our C++ API to insert
+        # a pad symbol to the model at index 0.
+        control_symbols.append("<pad>@0")
 
-        self.model = SentencePieceModel(pathname, control_tokens)
+        self.model = SentencePieceModel(pathname, control_symbols)
 
         self.langs = set(langs)
 
@@ -68,40 +67,29 @@ class NllbTokenizer(Tokenizer):
         task: Optional[str] = None,
         lang: Optional[str] = None,
         mode: Optional[str] = None,
-        batch_size: Optional[int] = None,
         device: Optional[Device] = None,
         pin_memory: bool = False,
-        dtype: DataType = torch.int64,
-        disable_parallelism: bool = False,
     ) -> TokenEncoder:
         """Create a token encoder.
 
         :param task:
-            The only valid value is 'translation'. If ``None``, defaults to
-            'translation'.
+            Must be 'translation'. If ``None``, defaults to 'translation'.
         :param lang:
-            A language from :attr:`langs`.
+            A language from :attr:`langs`. If ``None``, defaults to
+            :attr:`default_lang`.
         :param mode:
-            The valid values are 'source' and 'target'. Set to 'source' if
-            ``lang`` is the source language; set to 'target' if ``lang`` is the
-            target language. If ``None``, defaults to 'source'.
-        :param batch_size:
-            If the number of sentences to encode is less than ``batch_size``,
-            the output will be padded.
+            Must be 'source' or 'target'. Set to 'source' if ``lang`` is the
+            source language; set to 'target' if ``lang`` is the target language.
+            If ``None``, defaults to 'source'.
         :param device:
-            The device on which to initialize token indices.
+            The device on which to construct tensors.
         :param pin_memory:
-            If ``True``, uses pinned memory before copying token indices to the
-            target device. (only supported by CUDA devices)
-        :param dtype:
-            The integral data type of generated token indices.
-        :param disabled_parallelism:
-            If ``True``, disables parallelism and uses the calling thread only.
+            If ``True``, uses pinned memory while constructing tensors.
         """
-        if task and task != "translation":
+        if task is not None and task != "translation":
             raise ValueError(f"`task` must be 'translation', but is '{task}' instead.")
 
-        if not lang:
+        if lang is None:
             lang = self.default_lang
 
         if lang not in self.langs:
@@ -109,7 +97,7 @@ class NllbTokenizer(Tokenizer):
                 f"`lang` must be a supported language, but is '{lang}' instead."
             )
 
-        if not mode or mode == "source":
+        if mode is None or mode == "source":
             # NLLB models expect a language token in place of BOS in source
             # sequences.
             prefix_tokens = [f"__{lang}__"]
@@ -137,11 +125,8 @@ class NllbTokenizer(Tokenizer):
             self.model,
             prefix_tokens=prefix_tokens,
             suffix_tokens=suffix_tokens,
-            batch_size=batch_size,
             device=device,
             pin_memory=pin_memory,
-            dtype=dtype,
-            disable_parallelism=disable_parallelism,
         )
 
     @finaloverride

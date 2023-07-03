@@ -6,7 +6,9 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Optional
 
+import torch
 from torch import Tensor
 from torch.nn import Module
 
@@ -31,7 +33,7 @@ class Seq2SeqBatch:
     the batch size, :math:`S_{src}` is the source sequence length, and :math:`*`
     is any number of sequence-specific dimensions including none."""
 
-    source_seq_lens: Tensor
+    source_seq_lens: Optional[Tensor]
     """An array where each element represents the length of the sequence at the
     same index in :attr:`source_seqs`. *Shape:* :math:`(N)`, where :math:`N` is
     the batch size."""
@@ -41,7 +43,7 @@ class Seq2SeqBatch:
     the batch size, :math:`S_{tgt}` is the target sequence length, and :math:`*`
     is any number of sequence-specific dimensions including none."""
 
-    target_seq_lens: Tensor
+    target_seq_lens: Optional[Tensor]
     """An array where each element represents the length of the sequence at the
     same index in :attr:`target_seqs`. *Shape:* :math:`(N)`, where :math:`N` is
     the batch size."""
@@ -53,8 +55,18 @@ class Seq2SeqBatch:
 
     def num_source_tokens(self) -> Tensor:
         """Return the number of source tokens."""
+        if self.source_seq_lens is None:
+            return torch.full(
+                (), self.source_seqs.numel(), device=self.source_seqs.device
+            )
+
         return self.source_seq_lens.sum()
 
     def num_target_tokens(self) -> Tensor:
         """Return the number of target tokens."""
+        if self.target_seq_lens is None:
+            return torch.full(
+                (), self.target_seqs.numel(), device=self.target_seqs.device
+            )
+
         return self.target_seq_lens.sum()

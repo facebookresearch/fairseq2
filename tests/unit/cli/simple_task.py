@@ -1,6 +1,6 @@
 import logging
 import random
-from typing import Iterable, NamedTuple, Optional, Sequence
+from typing import Iterable, NamedTuple, Optional
 
 import torch
 import torchtnt.utils
@@ -9,12 +9,12 @@ from torch import Tensor
 import fairseq2.cli
 from fairseq2 import data
 from fairseq2.cli.api import Env
-from fairseq2.data import Collater, CString, StringLike
+from fairseq2.data import Collater, StringLike
 from fairseq2.data.text import TokenDecoder, TokenEncoder, Tokenizer, VocabularyInfo
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.nllb import NllbConfig, create_nllb_model
 from fairseq2.models.seq2seq import Seq2SeqBatch
-from fairseq2.typing import DataType, Device
+from fairseq2.typing import Device
 
 log = logging.getLogger(__name__)
 random.seed(0)
@@ -31,18 +31,13 @@ class NumberTokenizer(Tokenizer):
         task: Optional[str] = None,
         lang: Optional[str] = None,
         mode: Optional[str] = None,
-        batch_size: Optional[int] = None,
         device: Optional[Device] = None,
         pin_memory: bool = False,
-        dtype: DataType = torch.int64,
-        disable_parallelism: bool = False,
     ) -> "TokenEncoder":
-        def encode(sentences: Sequence[StringLike]) -> Tensor:
-            if isinstance(sentences, CString):
-                sentences = [sentences]
+        def encode(sentence: StringLike) -> Tensor:
             return torch.tensor(
-                [[int(x) for x in str(s).split()] for s in sentences],
-                dtype=dtype,
+                [int(x) for x in str(sentence).split()],
+                dtype=torch.int64,
                 device=device,
             )
 
@@ -83,9 +78,9 @@ def generate_samples(
     return (
         data.read_sequence(range(num_examples))
         .map(text_example)
+        .map(tokenizer.create_encoder(device=env.device))
         .bucket(batch_size)
         .map(Collater())
-        .map(tokenizer.create_encoder(device=env.device, dtype=torch.int64))
         .map(make_batch)
         .and_return()
     )  # type: ignore[no-any-return]

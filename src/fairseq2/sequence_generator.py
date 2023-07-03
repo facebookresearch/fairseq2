@@ -6,14 +6,14 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import NamedTuple, Optional, Sequence, Union
+from typing import NamedTuple, Optional, Union
 
 import torch
 from overrides import overrides
 from torch import Tensor
 from torch.nn.functional import log_softmax
 
-from fairseq2.data import CString, StringLike
+from fairseq2.data import StringLike
 from fairseq2.data.text import Tokenizer, VocabularyInfo
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.nn.incremental_state import IncrementalStateBag
@@ -93,12 +93,30 @@ class BeamChoice(NamedTuple):
     beams: Tensor
 
 
-@dataclass(frozen=True)
 class SearchStrategy(ABC):
     """Abstract token generation search strategy."""
 
     beam_size: int
-    vocab_info: VocabularyInfo
+    unk_idx: int
+    bos_idx: int
+    eos_idx: int
+    pad_idx: int
+    vocab_size: int
+
+    def __init__(self, beam_size: int, vocab_info: VocabularyInfo) -> None:
+        self.beam_size = beam_size
+
+        assert vocab_info.unk_idx is not None
+        assert vocab_info.bos_idx is not None
+        assert vocab_info.eos_idx is not None
+        assert vocab_info.pad_idx is not None
+
+        self.unk_idx = vocab_info.unk_idx
+        self.bos_idx = vocab_info.bos_idx
+        self.eos_idx = vocab_info.eos_idx
+        self.pad_idx = vocab_info.pad_idx
+
+        self.vocab_size = vocab_info.size
 
     @dataclass
     class SearchJob(ABC):
@@ -191,7 +209,7 @@ class SearchStrategy(ABC):
             with torch.autograd.profiler.record_function("forward_decoder"):
                 query_tokens = job.next_query()
 
-                padding_mask = query_tokens.ne(self.vocab_info.pad_idx)
+                padding_mask = query_tokens.ne(self.pad_idx)
                 seq_lens = torch.count_nonzero(padding_mask, dim=-1)
 
                 decoder_out = model.decode_and_project(
@@ -212,15 +230,12 @@ class SearchStrategy(ABC):
         self,
         model: EncoderDecoderModel,
         tokenizer: Tokenizer,
-        sentences: Union[StringLike, Sequence[StringLike]],
+        sentence: StringLike,
         *,
         src_lang: Optional[str] = None,
         tgt_lang: Optional[str] = None,
         device: Device,
-    ) -> Sequence[StringLike]:
-        if isinstance(sentences, (str, CString)):
-            sentences = [sentences]
-
+    ) -> StringLike:
         task = "translation"
 
         src_encoder = tokenizer.create_encoder(
@@ -232,18 +247,18 @@ class SearchStrategy(ABC):
 
         tgt_decoder = tokenizer.create_decoder()
 
-        src_indices = src_encoder(sentences)
+        src_indices = src_encoder(sentence).unsqueeze(0)
         # Start with an empty sentence.
-        tgt_indices = tgt_encoder([""] * len(sentences))
+        tgt_indices = tgt_encoder("").unsqueeze(0)
 
-        padding_mask = src_indices.ne(self.vocab_info.pad_idx)
+        padding_mask = src_indices.ne(self.pad_idx)
         src_indices_lens = torch.count_nonzero(padding_mask, dim=-1)
 
         tgt_indices = self.generate(
             model, src_indices, src_indices_lens, top=1, prefix_tokens=tgt_indices
         )
 
-        return tgt_decoder(tgt_indices.squeeze(1))
+        return tgt_decoder(tgt_indices.squeeze(1))[0]
 
 
 @dataclass
@@ -295,14 +310,14 @@ class BeamSearchJob(SearchStrategy.SearchJob):
 
         self.tokens = torch.full(
             size=state_size,
-            fill_value=strategy.vocab_info.pad_idx,
+            fill_value=strategy.pad_idx,
             dtype=torch.long,
             device=src_tokens.device,
         )
 
         self.step = 0
         if prefix_tokens is None:
-            self.tokens[:, :, 0] = strategy.vocab_info.bos_idx
+            self.tokens[:, :, 0] = strategy.bos_idx
             self.n_prefix_tokens = 1
         elif prefix_tokens.ndim == 0:
             self.tokens[:, :, 0] = prefix_tokens
@@ -355,9 +370,9 @@ class BeamSearchJob(SearchStrategy.SearchJob):
             f"state beam_size {self.beam_size}"
         )
 
-        assert decoder_out.shape[1] == self.strategy.vocab_info.size, (
+        assert decoder_out.shape[1] == self.strategy.vocab_size, (
             f"Input decoder_out vocab size {decoder_out.shape[1]}) != "
-            f"tokenizer vocab size: {self.strategy.vocab_info.size}"
+            f"tokenizer vocab size: {self.strategy.vocab_size}"
         )
 
         self.step += 1
@@ -378,7 +393,7 @@ class BeamSearchJob(SearchStrategy.SearchJob):
 
         if self.finished_mask.any():
             # for any finished beam, force PAD, but keep the beam score.
-            PAD = self.strategy.vocab_info.pad_idx
+            PAD = self.strategy.pad_idx
             lprobs_beam.masked_fill_(self.finished_mask.unsqueeze(-1), -torch.inf)
             final_scores = self.scores[self.finished_mask][:, self.step - 1]
             lprobs_beam[:, :, PAD].masked_scatter_(self.finished_mask, final_scores)
@@ -415,9 +430,7 @@ class BeamSearchJob(SearchStrategy.SearchJob):
         self.scores[:, :, self.step] = next_scores
 
         # Generations are marked as finished at the first EOS
-        self.finished_mask += (
-            self.tokens[:, :, self.step] == self.strategy.vocab_info.eos_idx
-        )
+        self.finished_mask += self.tokens[:, :, self.step] == self.strategy.eos_idx
         self.done = (self.step >= self.max_len) or bool(self.finished_mask.all())
 
         return not self.done
@@ -432,23 +445,21 @@ class BeamSearchJob(SearchStrategy.SearchJob):
         lprobs = decoder_out_to_log_prob(
             decoder_out,
             temperature=0.1,
-            pad=self.strategy.vocab_info.pad_idx,
-            bos=self.strategy.vocab_info.bos_idx,
+            pad=self.strategy.pad_idx,
+            bos=self.strategy.bos_idx,
         )
 
         token_penalty_(
             lprobs,
-            token=self.strategy.vocab_info.unk_idx,
+            token=self.strategy.unk_idx,
             penalty=self.strategy.unk_penalty,
         )
         if step >= max_len:
-            force_token_(lprobs, token=self.strategy.vocab_info.eos_idx)
+            force_token_(lprobs, token=self.strategy.eos_idx)
 
         if step < self.strategy.min_len:
             # minimum length constraint (does not apply if using prefix_tokens)
-            token_penalty_(
-                lprobs, token=self.strategy.vocab_info.eos_idx, penalty=torch.inf
-            )
+            token_penalty_(lprobs, token=self.strategy.eos_idx, penalty=torch.inf)
 
         # if self.should_set_src_lengths:
         #     self.search.set_src_lengths(src_lengths)
@@ -534,7 +545,7 @@ class BeamSearchJob(SearchStrategy.SearchJob):
         return SearchResult(tokens=tokens, scores=scores)
 
 
-@dataclass(frozen=True)
+@dataclass
 class BeamSearchStrategy(SearchStrategy):
     min_len: int
     max_len: int

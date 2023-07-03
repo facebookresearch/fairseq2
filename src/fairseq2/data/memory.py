@@ -33,7 +33,6 @@ if TYPE_CHECKING or _DOC_MODE:
             :param copy:
                 If ``True``, copies ``buffer``.
             """
-            ...
 
 else:
     from fairseq2.C.data.memory import MemoryBlock as MemoryBlock

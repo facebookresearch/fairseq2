@@ -11,12 +11,14 @@
 
 #include <ATen/Tensor.h>
 
-#include "fairseq2/native/data/text/dicttokenizer/dict_model.h"
+#include "fairseq2/native/data/text/dict_tokenizer/dict_model.h"
 #include "fairseq2/native/span.h"
 #include "fairseq2/native/data/data.h"
 #include "fairseq2/native/data/data_processor.h"
 
 namespace fairseq2 {
+
+class immutable_string;
 
 class FAIRSEQ2_API dict_encoder final : public data_processor {
 
@@ -32,7 +34,7 @@ private:
     const std::int64_t max_seq_len_;
 
     at::Tensor
-    encode(span<const data> sentences) const;
+    encode(const immutable_string &sentence) const;
 };
 
 }  // namespace fairseq2

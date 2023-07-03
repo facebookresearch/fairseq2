@@ -6,7 +6,6 @@
 
 from typing import Optional, Set, final
 
-import torch
 from overrides import final as finaloverride
 
 from fairseq2.data.text.sentencepiece import (
@@ -17,7 +16,7 @@ from fairseq2.data.text.sentencepiece import (
 )
 from fairseq2.data.text.tokenizer import TokenDecoder, TokenEncoder, Tokenizer
 from fairseq2.data.typing import PathLike
-from fairseq2.typing import DataType, Device
+from fairseq2.typing import Device
 
 
 @final
@@ -26,44 +25,44 @@ class MultilingualTokenizer(Tokenizer):
 
     model: SentencePieceModel
     task: str
-    src_langs: Set[str]
-    tgt_langs: Set[str]
-    default_src_lang: str
-    default_tgt_lang: str
+    source_langs: Set[str]
+    target_langs: Set[str]
+    default_source_lang: str
+    default_target_lang: str
 
     def __init__(
         self,
         pathname: PathLike,
         task: str,
-        src_langs: Set[str],
-        tgt_langs: Set[str],
-        default_src_lang: str,
-        default_tgt_lang: str,
+        source_langs: Set[str],
+        target_langs: Set[str],
+        default_source_lang: str,
+        default_target_lang: str,
     ) -> None:
         """
         :param pathname:
             The pathname of the SentencePiece model file.
         :param task:
-            A user-defined task; it has no meaning to the tokenizer, but will
-            be checked in :meth:`create_encoder`.
-        :param src_langs:
+            A user-defined task. It is not used by the tokenizer, but will be
+            validated in :meth:`create_encoder`.
+        :param source_langs:
             The list of supported source languages.
-        :param tgt_langs:
+        :param target_langs:
             The list of supported target languages.
-        :param default_src_lang:
+        :param default_source_lang:
             The fall-back language if no source language is specified.
-        :param default_tgt_lang:
+        :param default_target_lang:
             The fall-back language if no target language is specified.
         """
         self.model = SentencePieceModel(pathname)
 
         self.task = task
 
-        self.src_langs = set(src_langs)
-        self.tgt_langs = set(tgt_langs)
+        self.source_langs = set(source_langs)
+        self.target_langs = set(target_langs)
 
-        self.default_src_lang = default_src_lang
-        self.default_tgt_lang = default_tgt_lang
+        self.default_source_lang = default_source_lang
+        self.default_target_lang = default_target_lang
 
         vocab_info = vocab_from_sentencepiece(self.model)
 
@@ -75,56 +74,45 @@ class MultilingualTokenizer(Tokenizer):
         task: Optional[str] = None,
         lang: Optional[str] = None,
         mode: Optional[str] = None,
-        batch_size: Optional[int] = None,
         device: Optional[Device] = None,
         pin_memory: bool = False,
-        dtype: DataType = torch.int64,
-        disable_parallelism: bool = False,
     ) -> TokenEncoder:
         """Create a token encoder.
 
         :param task:
-            The specified task must match :attr:`task`.
+            Must match :attr:`task`. If ``None``, defaults to :attr:`task`.
         :param lang:
-            A language from :attr:`src_langs` if ``mode`` is 'source', or a
-            language from :attr:`tgt_langs` if ``mode`` is 'target'. If
-            ``None``, defaults to either :attr:`default_src_lang` or
-            :attr:`default_tgt_lang` depending on the mode.
+            A language from :attr:`source_langs` if ``mode`` is 'source', or a
+            language from :attr:`target_langs` if ``mode`` is 'target'. If
+            ``None``, defaults to either :attr:`default_source_lang` or
+            :attr:`default_target_lang` depending on ``mode``.
         :param mode:
-            The valid values are 'source' and 'target'. Set to 'source' if
-            ``lang`` is the source language; set to 'target' if ``lang`` is the
-            target language. If ``None``, defaults to 'source'.
-        :param batch_size:
-            If the number of sentences to encode is less than ``batch_size``,
-            the output will be padded.
+            Must be 'source' or 'target'. Set to 'source' if ``lang`` is the
+            source language; set to 'target' if ``lang`` is the target language.
+            If ``None``, defaults to 'source'.
         :param device:
-            The device on which to initialize token indices.
+            The device on which to construct tensors.
         :param pin_memory:
-            If ``True``, uses pinned memory before copying token indices to the
-            target device. (only supported by CUDA devices)
-        :param dtype:
-            The integral data type of generated token indices.
-        :param disabled_parallelism:
-            If ``True``, disables parallelism and uses the calling thread only.
+            If ``True``, uses pinned memory while constructing tensors.
         """
-        if task and task != self.task:
+        if task is not None and task != self.task:
             raise ValueError(f"`task` must be '{self.task}', but is '{task}' instead.")
 
-        if not mode or mode == "source":
-            if not lang:
-                lang = self.default_src_lang
+        if mode is None or mode == "source":
+            if lang is None:
+                lang = self.default_source_lang
 
-            if lang not in self.src_langs:
+            if lang not in self.source_langs:
                 raise ValueError(
-                    f"`lang` ({lang}) is not a supported source language. Choose from {self.src_langs}"
+                    f"`lang` ({lang}) is not a supported source language. It must be one of: {self.source_langs}"
                 )
         elif mode == "target":
-            if not lang:
-                lang = self.default_tgt_lang
+            if lang is None:
+                lang = self.default_target_lang
 
-            if lang not in self.tgt_langs:
+            if lang not in self.target_langs:
                 raise ValueError(
-                    f"`lang` ({lang}) is not a supported target language. Choose from {self.tgt_langs}"
+                    f"`lang` ({lang}) is not a supported target language. It must be one of: {self.target_langs}"
                 )
         else:
             raise ValueError(
@@ -135,11 +123,8 @@ class MultilingualTokenizer(Tokenizer):
             self.model,
             prefix_tokens=[f"<lang:{lang}>"],
             suffix_tokens=["</s>"],
-            batch_size=batch_size,
             device=device,
             pin_memory=pin_memory,
-            dtype=dtype,
-            disable_parallelism=disable_parallelism,
         )
 
     @finaloverride

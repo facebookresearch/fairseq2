@@ -6,7 +6,6 @@
 
 from typing import Optional, Set, final
 
-import torch
 from overrides import final as finaloverride
 
 from fairseq2.data.text import (
@@ -19,7 +18,7 @@ from fairseq2.data.text import (
 )
 from fairseq2.data.text.sentencepiece import vocab_from_sentencepiece
 from fairseq2.data.typing import PathLike
-from fairseq2.typing import DataType, Device
+from fairseq2.typing import Device
 
 
 @final
@@ -28,15 +27,15 @@ class S2TTransformerTokenizer(Tokenizer):
 
     model: SentencePieceModel
     task: str
-    tgt_langs: Set[str]
-    default_tgt_lang: str
+    target_langs: Set[str]
+    default_target_lang: str
 
     def __init__(
         self,
         pathname: PathLike,
         task: str,
-        tgt_langs: Set[str],
-        default_tgt_lang: str,
+        target_langs: Set[str],
+        default_target_lang: str,
     ) -> None:
         """
         :param pathname:
@@ -44,9 +43,9 @@ class S2TTransformerTokenizer(Tokenizer):
         :param task:
             The task for which to generate token indices. The valid values are
             'transcription' and 'translation'.
-        :param tgt_langs:
+        :param target_langs:
             The list of supported target languages.
-        :param default_tgt_lang:
+        :param default_target_lang:
             The fall-back language if no target language is specified.
         """
         if task != "transcription" and task != "translation":
@@ -57,8 +56,8 @@ class S2TTransformerTokenizer(Tokenizer):
         self.model = SentencePieceModel(pathname)
 
         self.task = task
-        self.tgt_langs = tgt_langs
-        self.default_tgt_lang = default_tgt_lang
+        self.target_langs = target_langs
+        self.default_target_lang = default_target_lang
 
         vocab_info = vocab_from_sentencepiece(self.model)
 
@@ -70,28 +69,39 @@ class S2TTransformerTokenizer(Tokenizer):
         task: Optional[str] = None,
         lang: Optional[str] = None,
         mode: Optional[str] = None,
-        batch_size: Optional[int] = None,
         device: Optional[Device] = None,
         pin_memory: bool = False,
-        dtype: DataType = torch.int32,
-        disable_parallelism: bool = False,
     ) -> TokenEncoder:
-        if task and task != self.task:
+        """Create a token encoder.
+
+        :param task:
+            Must match :attr:`task`. If ``None``, defaults to :attr:`task`.
+        :param lang:
+            A language from :attr:`target_langs`. If ``None``, defaults to
+            :attr:`default_target_lang`.
+        :param mode:
+            Must be 'target'. If ``None``, defaults to 'target'.
+        :param device:
+            The device on which to construct tensors.
+        :param pin_memory:
+            If ``True``, uses pinned memory while constructing tensors.
+        """
+        if task is not None and task != self.task:
             raise ValueError(f"`task` must be '{self.task}', but is '{task}' instead.")
 
-        if mode and mode != "target":
+        if mode is not None and mode != "target":
             raise ValueError(f"`mode` must be 'target', but is '{mode}' instead.")
 
-        if not lang:
-            lang = self.default_tgt_lang
+        if lang is None:
+            lang = self.default_target_lang
 
-        if lang not in self.tgt_langs:
+        if lang not in self.target_langs:
             raise ValueError(
                 f"`lang` must be a supported language, but is '{lang}' instead."
             )
 
         # For multilingual speech translation we prepend the language token.
-        if self.task == "translation" and len(self.tgt_langs) > 1:
+        if self.task == "translation" and len(self.target_langs) > 1:
             prefix_tokens = ["</s>", f"<lang:{lang}>"]
         else:
             prefix_tokens = ["</s>"]
@@ -99,11 +109,8 @@ class S2TTransformerTokenizer(Tokenizer):
         return SentencePieceEncoder(
             self.model,
             prefix_tokens=prefix_tokens,
-            batch_size=batch_size,
             device=device,
             pin_memory=pin_memory,
-            dtype=dtype,
-            disable_parallelism=disable_parallelism,
         )
 
     @finaloverride

@@ -1,9 +1,15 @@
-from typing import Optional, Sequence
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
 
-import torch
-from overrides import final
+from typing import TYPE_CHECKING, List, Optional, Sequence, final
 
-from fairseq2.data.text.dict_model import DictDecoder, DictEncoder, DictModel
+from overrides import final as finaloverride
+from torch import Tensor
+
+from fairseq2 import _DOC_MODE
 from fairseq2.data.text.tokenizer import (
     TokenDecoder,
     TokenEncoder,
@@ -11,12 +17,78 @@ from fairseq2.data.text.tokenizer import (
     VocabularyInfo,
 )
 from fairseq2.data.typing import StringLike
-from fairseq2.typing import DataType, Device
+from fairseq2.typing import Device
+
+if TYPE_CHECKING or _DOC_MODE:
+
+    @final
+    class DictModel:
+        def __init__(self, vocab: Sequence[StringLike]) -> None:
+            ...
+
+        def token_to_index(self, token: StringLike) -> int:
+            ...
+
+        def index_to_token(self, idx: int) -> str:
+            ...
+
+        @property
+        def unk_idx(self) -> int:
+            ...
+
+        @property
+        def bos_idx(self) -> int:
+            ...
+
+        @property
+        def eos_idx(self) -> int:
+            ...
+
+        @property
+        def pad_idx(self) -> int:
+            ...
+
+        @property
+        def vocab_size(self) -> int:
+            ...
+
+    @final
+    class DictEncoder(TokenEncoder):
+        def __init__(self, processor: DictModel, dim: int) -> None:
+            ...
+
+        def __call__(self, sentence: StringLike) -> Tensor:
+            ...
+
+    @final
+    class DictDecoder(TokenDecoder):
+        def __init__(self, processor: DictModel) -> None:
+            ...
+
+        def __call__(self, token_indices: Tensor) -> List[StringLike]:
+            ...
+
+else:
+    from fairseq2.C.data.text.dict_tokenizer import DictDecoder as DictDecoder
+    from fairseq2.C.data.text.dict_tokenizer import DictEncoder as DictEncoder
+    from fairseq2.C.data.text.dict_tokenizer import DictModel as DictModel
+
+    # Ensure that extension types are virtual subclasses of their corresponding
+    # abstract base types.
+    TokenEncoder.register(DictEncoder)
+    TokenDecoder.register(DictDecoder)
+
+    def _set_module_name() -> None:
+        for t in [DictEncoder, DictDecoder, DictModel]:
+            t.__module__ = __name__
+
+    _set_module_name()
 
 
 @final
 class DictTokenizer(Tokenizer):
-    """Represents a simple tokenizer that splits on space and replace word by token found in dict."""
+    """Represents a simple tokenizer that splits on space and replace word by
+    token found in dict."""
 
     model: DictModel
     dim: int
@@ -24,6 +96,7 @@ class DictTokenizer(Tokenizer):
     def __init__(self, dim: int, vocab: Sequence[StringLike]) -> None:
         self.dim = dim
         self.model = DictModel(vocab)
+
         vocab_info = VocabularyInfo(
             self.model.vocab_size,
             self.model.unk_idx,
@@ -34,49 +107,17 @@ class DictTokenizer(Tokenizer):
 
         super().__init__(vocab_info)
 
+    @finaloverride
     def create_encoder(
         self,
         task: Optional[str] = None,
         lang: Optional[str] = None,
         mode: Optional[str] = None,
-        batch_size: Optional[int] = None,
         device: Optional[Device] = None,
         pin_memory: bool = False,
-        dtype: DataType = torch.int32,
-        disable_parallelism: bool = False,
     ) -> "TokenEncoder":
-        """Create a token encoder.
-
-        The valid arguments for the ``task``, ``lang``, and ``mode`` parameters
-        are implementation specific. Refer to concrete ``Tokenizer`` subclasses
-        for more information.
-
-        :param task:
-            An optional implementation-specific task such as 'translation' or
-            'transcription' for which to generate token indices.
-        :param lang:
-            An optional identifier indicating the language of generated token
-            indices. Typically used by multilingual tokenizers for
-            distinguishing between different source and target languages.
-        :param mode:
-            An optional implementation-specific mode in which to generate token
-            indices. Typically used by translation tasks to indicate whether the
-            encoding is done for source or target sentences.
-        :param batch_size:
-            If the number of sentences to encode is less than ``batch_size``,
-            the output will be padded.
-        :param device:
-            The device on which to initialize token indices.
-        :param pin_memory:
-            If ``True``, uses pinned memory before copying token indices to the
-            target device. (only supported by CUDA devices)
-        :param dtype:
-            The integral data type of generated token indices.
-        :param disabled_parallelism:
-            If ``True``, disables parallelism and uses the calling thread only.
-        """
         return DictEncoder(self.model, self.dim)
 
+    @finaloverride
     def create_decoder(self) -> "TokenDecoder":
-        """Create a token decoder."""
         return DictDecoder(self.model)

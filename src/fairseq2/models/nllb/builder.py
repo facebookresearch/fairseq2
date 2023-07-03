@@ -48,7 +48,7 @@ class NllbConfig:
     vocabulary_size: int
     """The size of the vocabulary."""
 
-    pad_idx: int
+    pad_idx: Optional[int]
     """The index of the pad symbol in the vocabulary."""
 
     num_encoder_layers: int

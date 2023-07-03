@@ -20,9 +20,9 @@ sp_model::sp_model(std::string_view pathname, sp_model_options opts)
 sp_model
 sp_model::from_serialized(std::string_view serialized)
 {
-    std::unique_ptr<sp_processor> proc = sp_processor::from_serialized(serialized);
+    std::unique_ptr<sp_processor> processor = sp_processor::from_serialized(serialized);
 
-    return sp_model{std::move(proc)};
+    return sp_model{std::move(processor)};
 }
 
 sp_model::sp_model(sp_model &&) noexcept = default;
@@ -30,39 +30,51 @@ sp_model &sp_model::operator=(sp_model &&) noexcept = default;
 
 sp_model::~sp_model() = default;
 
-std::int32_t
+std::int64_t
 sp_model::token_to_index(std::string_view token) const
 {
     return processor_->token_to_index(token);
 }
 
 std::string_view
-sp_model::index_to_token(std::int32_t idx) const
+sp_model::index_to_token(std::int64_t idx) const
 {
-    return processor_->index_to_token(idx);
+    return processor_->index_to_token(static_cast<std::int32_t>(idx));
 }
 
-std::int32_t
+std::optional<std::int64_t>
 sp_model::unk_idx() const
 {
+    if (processor_->unk_idx < 0)
+        return std::nullopt;
+
     return processor_->unk_idx;
 }
 
-std::int32_t
+std::optional<std::int64_t>
 sp_model::bos_idx() const
 {
+    if (processor_->bos_idx < 0)
+        return std::nullopt;
+
     return processor_->bos_idx;
 }
 
-std::int32_t
+std::optional<std::int64_t>
 sp_model::eos_idx() const
 {
+    if (processor_->eos_idx < 0)
+        return std::nullopt;
+
     return processor_->eos_idx;
 }
 
-std::int32_t
+std::optional<std::int64_t>
 sp_model::pad_idx() const
 {
+    if (processor_->pad_idx < 0)
+        return std::nullopt;
+
     return processor_->pad_idx;
 }
 
@@ -78,8 +90,8 @@ sp_model::serialize() const
     return processor_->serialize();
 }
 
-sp_model::sp_model(std::unique_ptr<sp_processor> &&proc) noexcept
-    : processor_{std::move(proc)}
+sp_model::sp_model(std::unique_ptr<sp_processor> &&processor) noexcept
+  : processor_{std::move(processor)}
 {}
 
 }  // namespace fairseq2

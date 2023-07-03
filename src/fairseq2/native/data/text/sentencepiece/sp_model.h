@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -21,27 +22,27 @@ namespace fairseq2 {
 class sp_model_options {
 public:
     sp_model_options
-    control_token(std::string value) &&
+    control_symbols(std::string value) &&
     {
-        control_tokens_.push_back(std::move(value));
+        control_symbols_.push_back(std::move(value));
 
         return std::move(*this);
     }
 
     std::vector<std::string> &
-    control_tokens() noexcept
+    control_symbols() noexcept
     {
-        return control_tokens_;
+        return control_symbols_;
     }
 
     const std::vector<std::string> &
-    control_tokens() const noexcept
+    control_symbols() const noexcept
     {
-        return control_tokens_;
+        return control_symbols_;
     }
 
 private:
-    std::vector<std::string> control_tokens_{};
+    std::vector<std::string> control_symbols_{};
 };
 
 namespace detail {
@@ -69,22 +70,22 @@ public:
 
    ~sp_model();
 
-    std::int32_t
+    std::int64_t
     token_to_index(std::string_view token) const;
 
     std::string_view
-    index_to_token(std::int32_t idx) const;
+    index_to_token(std::int64_t idx) const;
 
-    std::int32_t
+    std::optional<std::int64_t>
     unk_idx() const;
 
-    std::int32_t
+    std::optional<std::int64_t>
     bos_idx() const;
 
-    std::int32_t
+    std::optional<std::int64_t>
     eos_idx() const;
 
-    std::int32_t
+    std::optional<std::int64_t>
     pad_idx() const;
 
     std::size_t
@@ -94,7 +95,8 @@ public:
     serialize() const;
 
 private:
-    sp_model(std::unique_ptr<detail::sp_processor> &&proc) noexcept;
+    explicit
+    sp_model(std::unique_ptr<detail::sp_processor> &&processor) noexcept;
 
 private:
     std::unique_ptr<detail::sp_processor> processor_;

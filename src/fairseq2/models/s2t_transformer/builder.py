@@ -59,7 +59,7 @@ class S2TTransformerConfig:
     target_vocabulary_size: int
     """The size of the target vocabulary."""
 
-    target_pad_idx: int
+    target_pad_idx: Optional[int]
     """The index of the pad symbol in the target vocabulary."""
 
     use_relative_pos: bool

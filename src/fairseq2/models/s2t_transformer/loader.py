@@ -139,10 +139,10 @@ class S2TTransformerTokenizerLoader:
 
         task = card.field("task").as_one_of({"transcription", "translation"})
 
-        tgt_langs = card.field("tgt_langs").as_list(str)
+        target_langs = card.field("tgt_langs").as_list(str)
 
         return S2TTransformerTokenizer(
-            pathname, task, set(tgt_langs), default_tgt_lang=tgt_langs[0]
+            pathname, task, set(target_langs), default_target_lang=target_langs[0]
         )
 
 

@@ -52,14 +52,14 @@ target_sources(fairseq2
         data/processors/string_splitter.cc
         data/processors/string_to_integer_converter.cc
         data/processors/string_to_tensor_converter.cc
-        data/text/text.cc
         data/text/text_data_source.cc
         data/text/text_line_reader.cc
+        data/text/text_reader.cc
         data/text/utf8_stream.cc
         data/text/detail/utf.cc
-        data/text/dicttokenizer/dict_encoder.cc
-        data/text/dicttokenizer/dict_decoder.cc
-        data/text/dicttokenizer/dict_model.cc
+        data/text/dict_tokenizer/dict_encoder.cc
+        data/text/dict_tokenizer/dict_decoder.cc
+        data/text/dict_tokenizer/dict_model.cc
         data/text/sentencepiece/sp_decoder.cc
         data/text/sentencepiece/sp_encoder.cc
         data/text/sentencepiece/sp_model.cc

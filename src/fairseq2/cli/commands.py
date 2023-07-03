@@ -483,13 +483,11 @@ def inference(
         **beam_search_kwargs,  # type: ignore
     )
 
-    def gen(batch: List[str]) -> Sequence[StringLike]:
-        if not batch:
-            return []
+    def gen(s: str) -> StringLike:
         return strategy.generate_str(
             task.module,  # type: ignore[arg-type]
             task.tokenizer,
-            batch,
+            s,
             src_lang=src_lang,
             tgt_lang=tgt_lang,
             device=env.device,
@@ -502,14 +500,14 @@ def inference(
         batch.append(line.strip())
         if len(batch) < batch_size:
             continue
-        for translation in gen(batch):
-            print(translation)
+        for s in batch:
+            print(gen(s))
         if tty:
             print("> ", end="", flush=True)
         batch.clear()
 
-    for translation in gen(batch):
-        print(translation)
+    for s in batch:
+        print(gen(s))
 
 
 def help(script: Path, overrides: List[str] = []) -> None:

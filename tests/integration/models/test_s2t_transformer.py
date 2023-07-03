@@ -91,7 +91,7 @@ def assert_translation(
     # TODO: This is a manual, boilerplate code to run beam search with S2T
     # Transformer. It has to be reduced to a single line after revising the
     # strategy API.
-    job = strategy.new_search_job(fbanks, prefix_tokens=encoder([""]))
+    job = strategy.new_search_job(fbanks, prefix_tokens=encoder("").unsqueeze(0))
 
     state_bag = IncrementalStateBag()
 
