@@ -16,6 +16,7 @@
 #include <utility>
 #include <vector>
 
+#include <fairseq2/native/data/collater.h>
 #include <fairseq2/native/data/data.h>
 #include <fairseq2/native/data/data_length_extractor.h>
 #include <fairseq2/native/data/data_pipeline.h>
@@ -171,10 +172,6 @@ def_data_pipeline(py::module_ &data_module)
             })
         .def("__next__", &data_pipeline_iterator::next);
 
-    // DataPipelineError
-    static py::exception<data_pipeline_error> py_data_pipeline_error{
-        m, "DataPipelineError", PyExc_RuntimeError};
-
     // DataPipelineBuilder
     py::class_<data_pipeline_builder>(m, "DataPipelineBuilder")
         .def(
@@ -214,17 +211,6 @@ def_data_pipeline(py::module_ &data_module)
             py::arg("selector") = std::nullopt,
             py::arg("drop_remainder") = false,
             py::arg("warn_only") = false)
-        .def(
-            "collate",
-            [](
-                data_pipeline_builder &self,
-                std::optional<std::int32_t> pad_idx) -> data_pipeline_builder &
-            {
-                self = std::move(self).collate(pad_idx);
-
-                return self;
-            },
-            py::arg("pad_idx") = std::nullopt)
         .def(
             "filter",
             [](data_pipeline_builder &self, predicate_fn &&f) -> data_pipeline_builder &
@@ -322,6 +308,10 @@ def_data_pipeline(py::module_ &data_module)
                 return std::move(self).and_return();
             });
 
+    // DataPipelineError
+    static py::exception<data_pipeline_error> py_data_pipeline_error{
+        m, "DataPipelineError", PyExc_RuntimeError};
+
     // DataProcessor
     py::class_<data_processor, std::shared_ptr<data_processor>>(m, "_DataProcessor")
         .def("__call__", &data_processor::process, py::call_guard<py::gil_scoped_release>{});
@@ -332,6 +322,10 @@ def_data_pipeline(py::module_ &data_module)
     m.def("read_sequence", &read_list, py::arg("seq"));
 
     m.def("read_zipped_records", &read_zipped_records, py::arg("pathname"));
+
+    // Collater
+    py::class_<collater, data_processor, std::shared_ptr<collater>>(m, "Collater")
+        .def(py::init<std::optional<std::int64_t>>(), py::arg("pad_idx") = std::nullopt);
 
     // TODO: Fix!
     static py::exception<stream_error> py_stream_error{m, "StreamError", PyExc_RuntimeError};

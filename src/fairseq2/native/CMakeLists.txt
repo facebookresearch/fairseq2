@@ -18,7 +18,7 @@ target_sources(fairseq2
         py.cc
         data/bucket_by_length_data_source.cc
         data/bucket_data_source.cc
-        data/collated_data_source.cc
+        data/collater.cc
         data/data.cc
         data/data_length_extractor.cc
         data/data_pipeline.cc

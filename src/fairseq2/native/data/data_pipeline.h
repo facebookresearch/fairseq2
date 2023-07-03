@@ -124,9 +124,6 @@ public:
         bool warn_only = false) &&;
 
     data_pipeline_builder
-    collate(std::optional<std::int32_t> pad_idx = {}) &&;
-
-    data_pipeline_builder
     filter(predicate_fn f) &&;
 
     data_pipeline_builder

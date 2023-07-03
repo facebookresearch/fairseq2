@@ -11,6 +11,7 @@ import pytest
 import torch
 
 import fairseq2.data.text
+from fairseq2.data import Collater
 
 FILE = Path(__file__)
 FILE_LINES = FILE.read_text().splitlines()
@@ -34,7 +35,7 @@ def test_bucket() -> None:
     dataloader_drop_remainder = (
         fairseq2.data.text.read_text(FILE, rtrim=True)
         .bucket(8, drop_remainder=True)
-        .collate()
+        .map(Collater())
         .and_return()
     )
 
@@ -57,7 +58,7 @@ def test_bucket_tensors_of_same_lengths() -> None:
         fairseq2.data.read_sequence(range(9))
         .map(lambda l: torch.ones(5))
         .bucket(4)
-        .collate()
+        .map(Collater())
         .map(lambda x: x.shape)
         .and_return()
     )
@@ -70,7 +71,7 @@ def test_bucket_tensors_of_different_lengths() -> None:
         fairseq2.data.read_sequence(raw_lengths)
         .map(lambda l: torch.ones(l) * l)
         .bucket(4)
-        .collate(pad_idx=0)
+        .map(Collater(pad_idx=0))
         .map(lambda x: x.shape)
         .and_return()
     )
@@ -81,7 +82,7 @@ def test_bucket_tensors_of_different_lengths() -> None:
         fairseq2.data.read_sequence(raw_lengths)
         .map(lambda l: torch.ones(l) * l)
         .bucket(4)
-        .collate()
+        .map(Collater())
         .map(lambda x: x.shape)
         .and_return()
     )
@@ -97,7 +98,7 @@ def test_bucket_tuples() -> None:
         # Batching tuples yields tuples of lists.
         .map(lambda l: (l, len(l)))
         .bucket(8)
-        .collate()
+        .map(Collater())
         .and_return()
     )
     dataset = list(dataloader)
@@ -123,7 +124,7 @@ def test_bucket_by_length() -> None:
         # We want batches of 4 one-length elements
         # and batches of 3 seven-length elements
         .bucket_by_length([(4, 1), (3, 7)], max_data_length=7)
-        .collate(pad_idx=0)
+        .map(Collater(pad_idx=0))
         .map(lambda x: x.tolist())
         .and_return()
     )
@@ -143,7 +144,7 @@ def test_bucket_by_length_2D() -> None:
         fairseq2.data.read_sequence(raw_lengths)
         .map(lambda l: torch.ones(l, 2) * l)
         .bucket_by_length([(4, 1), (3, 7)], max_data_length=7)
-        .collate(pad_idx=0)
+        .map(Collater(pad_idx=0))
         .map(lambda t: t.shape)
         .and_return()
     )
@@ -160,7 +161,7 @@ def test_bucket_by_length_can_resume(tmp_path: Path) -> None:
         # We want batches of 4 one-length elements
         # and batches of 3 seven-length elements
         .bucket_by_length([(4, 1), (3, 7)], max_data_length=7)
-        .collate(pad_idx=0)
+        .map(Collater(pad_idx=0))
         .and_return()
     )
     it = iter(dataloader)

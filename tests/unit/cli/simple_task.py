@@ -9,7 +9,7 @@ from torch import Tensor
 import fairseq2.cli
 from fairseq2 import data
 from fairseq2.cli.api import Env
-from fairseq2.data import CString, StringLike
+from fairseq2.data import Collater, CString, StringLike
 from fairseq2.data.text import TokenDecoder, TokenEncoder, Tokenizer, VocabularyInfo
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.nllb import NllbConfig, create_nllb_model
@@ -84,7 +84,7 @@ def generate_samples(
         data.read_sequence(range(num_examples))
         .map(text_example)
         .bucket(batch_size)
-        .collate()
+        .map(Collater())
         .map(tokenizer.create_encoder(device=env.device, dtype=torch.int64))
         .map(make_batch)
         .and_return()

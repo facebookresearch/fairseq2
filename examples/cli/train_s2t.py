@@ -19,7 +19,7 @@ import fairseq2.cli
 import fairseq2.models.s2t_transformer as s2t
 from fairseq2 import data
 from fairseq2.cli.api import Env, Seq2Seq
-from fairseq2.data import DataPipelineBuilder, StringLike
+from fairseq2.data import Collater, DataPipelineBuilder, StringLike
 from fairseq2.data.text import MultilingualTokenizer, Tokenizer, VocabularyInfo
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.transformer import TransformerModel
@@ -234,14 +234,14 @@ def load_data_from_manifest(
         _read_tsv_shard(manifest_path, env)
         .map(_load_audio_feats, num_parallel_calls=num_parallel_calls)
         .bucket(batch_size)
-        .collate(pad_idx=0)
+        .map(Collater(pad_idx=0))
         .and_return()
     )
     src_n_frames_dataloader = (
         _read_tsv_shard(manifest_path, env)
         .map(lambda line: torch.tensor(int(str(line).split("\t")[2])))
         .bucket(batch_size)
-        .collate()
+        .map(Collater())
         .prefetch(1)
         .and_return()
     )
@@ -253,7 +253,7 @@ def load_data_from_manifest(
             num_parallel_calls=num_parallel_calls,
         )
         .bucket(batch_size)
-        .collate(pad_idx)
+        .map(Collater(pad_idx))
         .and_return()
     )
 

@@ -16,7 +16,6 @@
 #include "fairseq2/native/py.h"
 #include "fairseq2/native/data/bucket_by_length_data_source.h"
 #include "fairseq2/native/data/bucket_data_source.h"
-#include "fairseq2/native/data/collated_data_source.h"
 #include "fairseq2/native/data/data_processor.h"
 #include "fairseq2/native/data/filtered_data_source.h"
 #include "fairseq2/native/data/list_data_source.h"
@@ -211,16 +210,6 @@ data_pipeline_builder::bucket_by_length(
             std::move(f),
             drop_remainder,
             warn_only);
-    };
-
-    return std::move(*this);
-}
-
-data_pipeline_builder
-data_pipeline_builder::collate(std::optional<std::int32_t> pad_idx) &&
-{
-    factory_ = [pad_idx, inner = std::move(factory_)]() {
-        return std::make_unique<collated_data_source>(inner(), pad_idx);
     };
 
     return std::move(*this);

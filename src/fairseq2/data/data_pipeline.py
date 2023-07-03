@@ -107,9 +107,6 @@ if TYPE_CHECKING or _DOC_MODE:
         ) -> "DataPipelineBuilder":
             """Combine examples of similar shape into batches."""
 
-        def collate(self, pad_idx: Optional[int] = None) -> "DataPipelineBuilder":
-            ...
-
         def filter(self, predicate: Callable[[Any], Any]) -> "DataPipelineBuilder":
             """Filter examples from data pipeline and keep only those who match
             ``predicate``.
@@ -216,6 +213,13 @@ if TYPE_CHECKING or _DOC_MODE:
     def read_zipped_records(pathname: PathLike) -> DataPipelineBuilder:
         ...
 
+    class Collater:
+        def __init__(self, pad_idx: Optional[int] = None) -> None:
+            ...
+
+        def __call__(self, data: Any) -> Any:
+            ...
+
     class StreamError(RuntimeError):
         """Raised when a dataset cannot be read."""
 
@@ -223,6 +227,7 @@ if TYPE_CHECKING or _DOC_MODE:
         """Raised when a corrupt record is encountered while reading a dataset."""
 
 else:
+    from fairseq2.C.data.data_pipeline import Collater as Collater
     from fairseq2.C.data.data_pipeline import DataPipeline as DataPipeline
     from fairseq2.C.data.data_pipeline import DataPipelineBuilder as DataPipelineBuilder
     from fairseq2.C.data.data_pipeline import DataPipelineError as DataPipelineError
@@ -234,6 +239,7 @@ else:
 
     def _set_module_name() -> None:
         ctypes = [
+            Collater,
             DataPipeline,
             DataPipelineBuilder,
             DataPipelineError,

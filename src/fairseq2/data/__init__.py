@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from fairseq2.data.cstring import CString as CString
+from fairseq2.data.data_pipeline import Collater as Collater
 from fairseq2.data.data_pipeline import DataPipeline as DataPipeline
 from fairseq2.data.data_pipeline import DataPipelineBuilder as DataPipelineBuilder
 from fairseq2.data.data_pipeline import DataPipelineError as DataPipelineError
