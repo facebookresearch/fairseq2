@@ -50,7 +50,7 @@ def build_lang_pipeline(
             # We batch every 128 lines. We return a partial batch at the end.
             # This is fine since our SentencePiece encoder (see below) handles
             # both vertical and horizontal padding.
-            .batch(128, drop_remainder=False)
+            .bucket(128, drop_remainder=False)
             # Tokenize the batch of text lines.
             .map(encoder)
             # Replace <bos> with the language token.

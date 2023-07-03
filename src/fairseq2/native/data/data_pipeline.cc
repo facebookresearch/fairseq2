@@ -14,8 +14,8 @@
 #include <fmt/core.h>
 
 #include "fairseq2/native/py.h"
-#include "fairseq2/native/data/batched_by_length_data_source.h"
-#include "fairseq2/native/data/batched_data_source.h"
+#include "fairseq2/native/data/bucket_by_length_data_source.h"
+#include "fairseq2/native/data/bucket_data_source.h"
 #include "fairseq2/native/data/collated_data_source.h"
 #include "fairseq2/native/data/data_processor.h"
 #include "fairseq2/native/data/filtered_data_source.h"
@@ -165,23 +165,24 @@ data_pipeline::check_if_broken() const
 }
 
 data_pipeline_builder
-data_pipeline_builder::batch(std::size_t batch_size, bool drop_remainder) &&
+data_pipeline_builder::bucket(std::size_t bucket_size, bool drop_remainder) &&
 {
-    if (batch_size == 0)
-        throw std::invalid_argument{"`batch_size` must be greater than zero."};
+    if (bucket_size == 0)
+        throw std::invalid_argument{"`bucket_size` must be greater than zero."};
 
-    factory_ = [=, inner = std::move(factory_)]() {
-        return std::make_unique<batched_data_source>(inner(), batch_size, drop_remainder);
+    factory_ = [=, inner = std::move(factory_)]()
+    {
+        return std::make_unique<bucket_data_source>(inner(), bucket_size, drop_remainder);
     };
 
     return std::move(*this);
 }
 
 data_pipeline_builder
-data_pipeline_builder::batch_by_length(
+data_pipeline_builder::bucket_by_length(
     std::vector<std::pair<std::size_t, std::size_t>> bucket_sizes,
-    std::size_t max_seq_len,
-    std::optional<std::string_view> selector,
+    std::size_t max_data_length,
+    data_length_fn f,
     bool drop_remainder,
     bool warn_only) &&
 {
@@ -192,16 +193,24 @@ data_pipeline_builder::batch_by_length(
         return x.second < y.second;
     });
 
-    if (std::size_t max_bucket_len = bucket_sizes.back().second; max_seq_len > max_bucket_len)
+    std::size_t max_bucket_length = bucket_sizes.back().second;
+    if (max_data_length > max_bucket_length)
         throw std::invalid_argument{
-            fmt::format("`max_seq_len` must be less than or equal to {}, but is {} instead.", max_bucket_len, max_seq_len)};
-
-    std::optional<element_selector> s = element_selector::maybe_parse(selector);
+            fmt::format("`max_data_length` must be less than or equal to {}, but is {} instead.", max_bucket_length, max_data_length)};
 
     factory_ = [
-        =, b = std::move(bucket_sizes), s = std::move(s), inner = std::move(factory_)]() mutable {
-        return std::make_unique<batched_by_length_data_source>(
-            inner(), std::move(b), max_seq_len, std::move(s), drop_remainder, warn_only);
+        =,
+        bucket_sizes = std::move(bucket_sizes),
+        f = std::move(f),
+        inner = std::move(factory_)]() mutable
+    {
+        return std::make_unique<bucket_by_length_data_source>(
+            inner(),
+            std::move(bucket_sizes),
+            max_data_length,
+            std::move(f),
+            drop_remainder,
+            warn_only);
     };
 
     return std::move(*this);

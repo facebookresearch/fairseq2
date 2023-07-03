@@ -203,7 +203,7 @@ class TestMapOp:
     def test_op_raises_error_if_selector_is_not_well_formatted(self, s: str) -> None:
         with pytest.raises(
             ValueError,
-            match=rf"^`selector` must be a well-formatted element path, but is '{re.escape(s)}' instead\.$",
+            match=rf"^`selector` must contain one or more well-formatted element paths, but is '{re.escape(s)}' instead\.$",
         ):
             read_sequence([]).map(lambda x: x, selector=s).and_return()
 

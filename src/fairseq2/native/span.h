@@ -21,17 +21,18 @@ template <typename T, typename = void>
 inline constexpr bool is_container_v = false;
 
 template <typename T>
-inline constexpr bool is_container_v<T, std::void_t<
-    decltype(std::declval<T>().data()), decltype(std::declval<T>().size())>> = true;
+inline constexpr bool is_container_v<
+    T, std::void_t<decltype(std::declval<T>().data()), decltype(std::declval<T>().size())>> = true;
 
 // is_compatible_container
 template <typename T, typename ElementT, typename = void>
 inline constexpr bool is_compatible_container_v = false;
 
 template <typename T, typename ElementT>
-inline constexpr bool is_compatible_container_v<T, ElementT, std::enable_if_t<
-    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays)
-    std::is_convertible_v<element_type_t<T>(*)[], ElementT(*)[]>>> = true;
+inline constexpr bool is_compatible_container_v<
+    T, ElementT, std::enable_if_t<
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays)
+        std::is_convertible_v<element_type_t<T>(*)[], ElementT(*)[]>>> = true;
 
 }  // namespace detail
 
@@ -75,39 +76,33 @@ public:
       : data_{data}, size_{size}
     {}
 
-    template <typename U>
+    // The elements of `U` must be convertible to `element_type`.
+    // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays)
+    template <typename U, typename = std::enable_if_t<std::is_convertible_v<U(*)[], T(*)[]>>>
     constexpr
     span(const span<U> &other) noexcept
       : data_{other.data_}, size_{other.size_}
-    {
-        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays, modernize-avoid-c-arrays)
-        static_assert(std::is_convertible_v<U(*)[], T(*)[]>,
-            "The element type of U must be convertible to the element type of this span.");
-    }
+    {}
 
-    template <typename Container>
+    // The elements of `Container` must be convertible to `element_type`.
+    template <
+        typename Container,
+        typename = std::enable_if_t<
+            detail::is_container_v<Container> && detail::is_compatible_container_v<Container, T>>>
     constexpr
     span(Container &c)
       : data_{c.data()}, size_{static_cast<size_type>(c.size())}
-    {
-        static_assert(detail::is_container_v<Container>,
-            "Container must have data() and size() accessors.");
+    {}
 
-        static_assert(detail::is_compatible_container_v<Container, T>,
-            "The element type of Container must be convertible to the element type of this span.");
-    }
-
-    template <typename Container>
+    // The elements of `Container` must be convertible to `element_type`.
+    template <
+        typename Container,
+        typename = std::enable_if_t<
+            detail::is_container_v<Container> && detail::is_compatible_container_v<Container, T>>>
     constexpr
     span(const Container &c)
       : data_{c.data()}, size_{static_cast<size_type>(c.size())}
-    {
-        static_assert(detail::is_container_v<Container>,
-            "Container must have data() and size() accessors.");
-
-        static_assert(detail::is_compatible_container_v<const Container, T>,
-            "The element type of Container must be convertible to the element type of this span.");
-    }
+    {}
 
    ~span() = default;
 
@@ -192,13 +187,11 @@ as_bytes(span<T> s) noexcept
     return {reinterpret_cast<const std::byte *>(s.data()), s.size_bytes()};
 }
 
-template <typename T>
+// The element type of `s` must be non-const.
+template <typename T, typename = std::enable_if_t<!std::is_const_v<T>>>
 inline constexpr span<std::byte>
 as_writable_bytes(span<T> s) noexcept
 {
-    static_assert(!std::is_const_v<T>,
-        "The element type of s must be non-const.");
-
     return {reinterpret_cast<std::byte *>(s.data()), s.size_bytes()};
 }
 

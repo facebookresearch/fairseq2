@@ -83,7 +83,7 @@ def generate_samples(
     return (
         data.read_sequence(range(num_examples))
         .map(text_example)
-        .batch(batch_size)
+        .bucket(batch_size)
         .collate()
         .map(tokenizer.create_encoder(device=env.device, dtype=torch.int64))
         .map(make_batch)

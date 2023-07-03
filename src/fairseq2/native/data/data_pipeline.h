@@ -20,7 +20,6 @@
 #include "fairseq2/native/api.h"
 #include "fairseq2/native/data/data.h"
 #include "fairseq2/native/data/data_source.h"
-#include "fairseq2/native/data/element_selector.h"
 #include "fairseq2/native/data/tape.h"
 
 namespace fairseq2 {
@@ -88,6 +87,8 @@ private:
     mutable bool is_broken_ = false;
 };
 
+using data_length_fn = std::function<std::size_t(const data &)>;
+
 using map_fn = std::function<data(data &&)>;
 
 using predicate_fn = std::function<bool(const data &)>;
@@ -112,13 +113,13 @@ public:
    ~data_pipeline_builder() = default;
 
     data_pipeline_builder
-    batch(std::size_t batch_size, bool drop_remainder = false) &&;
+    bucket(std::size_t bucket_size, bool drop_remainder = false) &&;
 
     data_pipeline_builder
-    batch_by_length(
+    bucket_by_length(
         std::vector<std::pair<std::size_t, std::size_t>> bucket_sizes,
-        std::size_t max_seq_len,
-        std::optional<std::string_view> selector = {},
+        std::size_t max_data_length,
+        data_length_fn f,
         bool drop_remainder = false,
         bool warn_only = false) &&;
 

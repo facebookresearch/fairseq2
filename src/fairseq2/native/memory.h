@@ -80,13 +80,11 @@ public:
     explicit
     basic_memory_block(pointer data, size_type size, void *ctx, memory_deallocator d);
 
-    template <typename U>
+    // A `memory_block` cannot be converted into a `writable_memory_block`.
+    template <typename U, typename = std::enable_if_t<std::is_convertible_v<U *, T*>>>
     basic_memory_block(const basic_memory_block<U> &other) noexcept
         : data_{other.data_}, size_{other.size_}, holder_{other.holder_}
-    {
-        static_assert(std::is_convertible_v<U *, T *>,
-            "A `memory_block` cannot be converted into a `writable_memory_block`.");
-    }
+    {}
 
     basic_memory_block(const basic_memory_block &) noexcept = default;
     basic_memory_block &operator=(const basic_memory_block &) noexcept = default;
@@ -164,13 +162,11 @@ public:
         return size_ == 0;
     }
 
-    template <typename U>
+    // A `memory_block` cannot be cast to a non-const type.
+    template <typename U, typename = std::enable_if_t<std::is_const_v<U> || !std::is_const_v<T>>>
     span<U>
     cast() const noexcept
     {
-        static_assert(std::is_const_v<U> || !std::is_const_v<T>,
-            "A `memory_block` cannot be cast to a non-const type.");
-
         return {reinterpret_cast<U *>(data_), size_ / sizeof(U)};
     }
 
@@ -212,13 +208,11 @@ using writable_memory_block = basic_memory_block<std::byte>;
 using memory_span = span<const std::byte>;
 using writable_memory_span = span<std::byte>;
 
-template <typename T>
+// `T` must be const.
+template <typename T, typename = std::enable_if_t<std::is_const_v<T>>>
 inline span<T>
 cast(memory_span s) noexcept
 {
-    static_assert(std::is_const_v<T>,
-        "`T` must be const.");
-
     return {reinterpret_cast<T *>(s.data()), s.size() / sizeof(T)};
 }
 

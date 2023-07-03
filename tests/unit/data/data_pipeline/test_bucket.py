@@ -9,13 +9,13 @@ import pytest
 from fairseq2.data import read_sequence
 
 
-class TestBatchOp:
+class TestBucketOp:
     def test_op_works_as_expected(self) -> None:
         seq = list(range(100))
 
-        batch_size = 4
+        bucket_size = 4
 
-        dp = read_sequence(seq).batch(batch_size).and_return()
+        dp = read_sequence(seq).bucket(bucket_size).and_return()
 
         for _ in range(2):
             it = iter(dp)
@@ -23,7 +23,7 @@ class TestBatchOp:
             for i in range(25):
                 d = next(it)
 
-                offset = i * batch_size
+                offset = i * bucket_size
 
                 assert d == [offset + i for i in range(4)]
 
@@ -32,10 +32,10 @@ class TestBatchOp:
 
             dp.reset()
 
-    def test_op_works_with_batch_size_of_1_as_expected(self) -> None:
+    def test_op_works_with_bucket_size_of_1_as_expected(self) -> None:
         seq = list(range(100))
 
-        dp = read_sequence(seq).batch(1).and_return()
+        dp = read_sequence(seq).bucket(1).and_return()
 
         for _ in range(2):
             it = iter(dp)
@@ -50,19 +50,19 @@ class TestBatchOp:
 
             dp.reset()
 
-    def test_op_raises_error_if_batch_size_is_0(self) -> None:
+    def test_op_raises_error_if_bucket_size_is_0(self) -> None:
         with pytest.raises(
-            ValueError, match=r"^`batch_size` must be greater than zero\.$"
+            ValueError, match=r"^`bucket_size` must be greater than zero\.$"
         ):
-            read_sequence(list(range(100))).batch(0).and_return()
+            read_sequence(list(range(100))).bucket(0).and_return()
 
     @pytest.mark.parametrize("drop", [False, True])
-    def test_op_works_with_partial_final_batch_as_expected(self, drop: bool) -> None:
-        batch_size = 7
+    def test_op_works_with_partial_final_bucket_as_expected(self, drop: bool) -> None:
+        bucket_size = 7
 
         seq = list(range(100))
 
-        dp = read_sequence(seq).batch(batch_size, drop).and_return()
+        dp = read_sequence(seq).bucket(bucket_size, drop).and_return()
 
         for _ in range(2):
             it = iter(dp)
@@ -70,7 +70,7 @@ class TestBatchOp:
             for i in range(14):
                 d = next(it)
 
-                offset = i * batch_size
+                offset = i * bucket_size
 
                 assert d == [offset + i for i in range(7)]
 
@@ -87,7 +87,7 @@ class TestBatchOp:
     def test_record_reload_position_works_as_expected(self) -> None:
         seq = list(range(1, 10))
 
-        dp = read_sequence(seq).batch(2).and_return()
+        dp = read_sequence(seq).bucket(2).and_return()
 
         d = None
 

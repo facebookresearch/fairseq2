@@ -85,22 +85,22 @@ if TYPE_CHECKING or _DOC_MODE:
             """
 
     class DataPipelineBuilder:
-        def batch(
-            self, batch_size: int, drop_remainder: bool = False
+        def bucket(
+            self, bucket_size: int, drop_remainder: bool = False
         ) -> "DataPipelineBuilder":
             """Combine a number of consecutive examples into a single example.
 
-            :param batch_size:
+            :param bucket_size:
                 The number of examples to combine.
             :param drop_remainder:
-                If ``True``, drops the last batch in case it has fewer than
-                ``batch_size`` examples.
+                If ``True``, drops the last bucket in case it has fewer than
+                ``bucket_size`` examples.
             """
 
-        def batch_by_length(
+        def bucket_by_length(
             self,
             bucket_sizes: Sequence[Tuple[int, int]],
-            max_seq_len: int,
+            max_data_length: int,
             selector: Optional[str] = None,
             drop_remainder: bool = False,
             warn_only: bool = False,

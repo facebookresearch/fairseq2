@@ -17,6 +17,7 @@
 #include <vector>
 
 #include <fairseq2/native/data/data.h>
+#include <fairseq2/native/data/data_length_extractor.h>
 #include <fairseq2/native/data/data_pipeline.h>
 #include <fairseq2/native/data/data_processor.h>
 #include <fairseq2/native/data/record_reader.h>
@@ -177,35 +178,39 @@ def_data_pipeline(py::module_ &data_module)
     // DataPipelineBuilder
     py::class_<data_pipeline_builder>(m, "DataPipelineBuilder")
         .def(
-            "batch",
+            "bucket",
             [](
                 data_pipeline_builder &self,
-                std::size_t batch_size,
+                std::size_t bucket_size,
                 bool drop_remainder) -> data_pipeline_builder &
             {
-                self = std::move(self).batch(batch_size, drop_remainder);
+                self = std::move(self).bucket(bucket_size, drop_remainder);
 
                 return self;
             },
-            py::arg("batch_size"),
+            py::arg("bucket_size"),
             py::arg("drop_remainder") = false)
         .def(
-            "batch_by_length",
+            "bucket_by_length",
             [](
                 data_pipeline_builder &self,
                 std::vector<std::pair<std::size_t, std::size_t>> bucket_sizes,
-                std::size_t max_seq_len,
+                std::size_t max_data_length,
                 std::optional<std::string_view> selector,
                 bool drop_remainder,
                 bool warn_only) -> data_pipeline_builder &
             {
-                self = std::move(self).batch_by_length(
-                    std::move(bucket_sizes), max_seq_len, selector, drop_remainder, warn_only);
+                self = std::move(self).bucket_by_length(
+                    std::move(bucket_sizes),
+                    max_data_length,
+                    data_length_extractor{selector},
+                    drop_remainder,
+                    warn_only);
 
                 return self;
             },
             py::arg("bucket_sizes"),
-            py::arg("max_seq_len"),
+            py::arg("max_data_length"),
             py::arg("selector") = std::nullopt,
             py::arg("drop_remainder") = false,
             py::arg("warn_only") = false)

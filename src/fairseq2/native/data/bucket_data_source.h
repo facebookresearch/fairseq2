@@ -14,12 +14,12 @@
 
 namespace fairseq2::detail {
 
-class batched_data_source final : public data_source {
+class bucket_data_source final : public data_source {
 public:
     explicit
-    batched_data_source(
-        std::unique_ptr<data_source> &&inner, std::size_t batch_size, bool drop_remainder) noexcept
-      : inner_{std::move(inner)}, batch_size_{batch_size}, drop_remainder_{drop_remainder}
+    bucket_data_source(
+        std::unique_ptr<data_source> &&inner, std::size_t bucket_size, bool drop_remainder) noexcept
+      : inner_{std::move(inner)}, bucket_size_{bucket_size}, drop_remainder_{drop_remainder}
     {}
 
     std::optional<data>
@@ -36,7 +36,7 @@ public:
 
 private:
     std::unique_ptr<data_source> inner_;
-    std::size_t batch_size_;
+    std::size_t bucket_size_;
     bool drop_remainder_;
 };
 

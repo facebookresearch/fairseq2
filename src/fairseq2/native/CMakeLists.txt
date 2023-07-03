@@ -16,9 +16,11 @@ target_sources(fairseq2
         exception.cc
         memory.cc
         py.cc
-        data/batched_by_length_data_source.cc
-        data/batched_data_source.cc
+        data/bucket_by_length_data_source.cc
+        data/bucket_data_source.cc
         data/collated_data_source.cc
+        data/data.cc
+        data/data_length_extractor.cc
         data/data_pipeline.cc
         data/data_processor.cc
         data/data_source.cc

@@ -11,7 +11,7 @@ namespace fairseq2 {
 data
 element_processor::process(data &&d) const
 {
-    selector_.visit(d, [this](data &e) {
+    selector_.visit(d, [this](data &e, detail::element_path_ref) {
         e = processor_->process(std::move(e));
     });
 

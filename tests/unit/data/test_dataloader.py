@@ -29,11 +29,11 @@ def test_read_text_skip_empty() -> None:
     assert_eq_twice(dataloader, ACTUAL_LINES)
 
 
-def test_batch() -> None:
-    dataloader = fairseq2.data.text.read_text(FILE, rtrim=True).batch(8).and_return()
+def test_bucket() -> None:
+    dataloader = fairseq2.data.text.read_text(FILE, rtrim=True).bucket(8).and_return()
     dataloader_drop_remainder = (
         fairseq2.data.text.read_text(FILE, rtrim=True)
-        .batch(8, drop_remainder=True)
+        .bucket(8, drop_remainder=True)
         .collate()
         .and_return()
     )
@@ -52,11 +52,11 @@ def test_batch() -> None:
     assert [len(batch) for batch in dataset] == expected_batch_sizes
 
 
-def test_batch_tensors_of_same_lengths() -> None:
+def test_bucket_tensors_of_same_lengths() -> None:
     dataloader = (
         fairseq2.data.read_sequence(range(9))
         .map(lambda l: torch.ones(5))
-        .batch(4)
+        .bucket(4)
         .collate()
         .map(lambda x: x.shape)
         .and_return()
@@ -64,12 +64,12 @@ def test_batch_tensors_of_same_lengths() -> None:
     assert_eq_twice(dataloader, [[4, 5], [4, 5], [1, 5]])
 
 
-def test_batch_tensors_of_different_lengths() -> None:
+def test_bucket_tensors_of_different_lengths() -> None:
     raw_lengths = [1, 5, 6, 1, 1, 1, 7, 1, 1]
     dataloader = (
         fairseq2.data.read_sequence(raw_lengths)
         .map(lambda l: torch.ones(l) * l)
-        .batch(4)
+        .bucket(4)
         .collate(pad_idx=0)
         .map(lambda x: x.shape)
         .and_return()
@@ -80,7 +80,7 @@ def test_batch_tensors_of_different_lengths() -> None:
     dataloader = (
         fairseq2.data.read_sequence(raw_lengths)
         .map(lambda l: torch.ones(l) * l)
-        .batch(4)
+        .bucket(4)
         .collate()
         .map(lambda x: x.shape)
         .and_return()
@@ -91,12 +91,12 @@ def test_batch_tensors_of_different_lengths() -> None:
         list(dataloader)
 
 
-def test_batch_tuples() -> None:
+def test_bucket_tuples() -> None:
     dataloader = (
         fairseq2.data.text.read_text(FILE, rtrim=True)
         # Batching tuples yields tuples of lists.
         .map(lambda l: (l, len(l)))
-        .batch(8)
+        .bucket(8)
         .collate()
         .and_return()
     )
@@ -115,14 +115,14 @@ def test_batch_tuples() -> None:
         assert lengths == [len(line) for line in lines]
 
 
-def test_batch_by_length() -> None:
+def test_bucket_by_length() -> None:
     raw_lengths = [1, 5, 6, 1, 1, 1, 7, 1, 1]
     dataloader = (
         fairseq2.data.read_sequence(raw_lengths)
         .map(lambda l: torch.ones(l) * l)
         # We want batches of 4 one-length elements
         # and batches of 3 seven-length elements
-        .batch_by_length([(4, 1), (3, 7)], max_seq_len=7)
+        .bucket_by_length([(4, 1), (3, 7)], max_data_length=7)
         .collate(pad_idx=0)
         .map(lambda x: x.tolist())
         .and_return()
@@ -137,12 +137,12 @@ def test_batch_by_length() -> None:
     )
 
 
-def test_batch_by_length_2D() -> None:
+def test_bucket_by_length_2D() -> None:
     raw_lengths = [1, 5, 6, 1, 1, 1, 7, 1, 1]
     dataloader = (
         fairseq2.data.read_sequence(raw_lengths)
         .map(lambda l: torch.ones(l, 2) * l)
-        .batch_by_length([(4, 1), (3, 7)], max_seq_len=7)
+        .bucket_by_length([(4, 1), (3, 7)], max_data_length=7)
         .collate(pad_idx=0)
         .map(lambda t: t.shape)
         .and_return()
@@ -152,14 +152,14 @@ def test_batch_by_length_2D() -> None:
 
 
 @pytest.mark.xfail(reason="https://github.com/fairinternal/fairseq2/issues/267")
-def test_batch_by_length_can_resume(tmp_path: Path) -> None:
+def test_bucket_by_length_can_resume(tmp_path: Path) -> None:
     raw_lengths = [1, 5, 6, 1, 1, 1, 7, 1, 1]
     dataloader = (
         fairseq2.data.read_sequence(raw_lengths)
         .map(lambda l: torch.ones(l) * l)
         # We want batches of 4 one-length elements
         # and batches of 3 seven-length elements
-        .batch_by_length([(4, 1), (3, 7)], max_seq_len=7)
+        .bucket_by_length([(4, 1), (3, 7)], max_data_length=7)
         .collate(pad_idx=0)
         .and_return()
     )

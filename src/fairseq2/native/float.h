@@ -32,13 +32,11 @@ struct rel<float64> {
 
 }  // namespace detail
 
-template <typename T>
+// `T` must be a floating-point type.
+template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
 inline constexpr bool
 are_close(T lhs, T rhs, T rel = detail::rel<T>::value) noexcept
 {
-    static_assert(std::is_floating_point_v<T>,
-        "T must be a floating-point type.");
-
     return std::abs(rhs - lhs) < rel * std::max(std::abs(lhs), std::abs(rhs));
 }
 

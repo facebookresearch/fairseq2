@@ -19,10 +19,12 @@
 #include <ATen/Tensor.h>
 #include <c10/util/order_preserving_flat_hash_map.h>
 
+#include "fairseq2/native/api.h"
 #include "fairseq2/native/float.h"
 #include "fairseq2/native/memory.h"
 #include "fairseq2/native/py.h"
 #include "fairseq2/native/data/immutable_string.h"
+#include "fairseq2/native/utils/cast.h"
 
 namespace fairseq2 {
 
@@ -35,6 +37,18 @@ template <
 using flat_hash_map = ska_ordered::order_preserving_flat_hash_map<
     Key, T, Hash, KeyEqual, Allocator>;
 
+enum class data_type : std::int16_t {
+    bool_,
+    int_,
+    float_,
+    string_,
+    tensor,
+    memory_block_,
+    list,
+    dict,
+    pyobj,
+};
+
 class data {
 public:
     data() noexcept = default;
@@ -46,6 +60,12 @@ public:
     data &operator=(data &&other) noexcept = default;
 
    ~data() = default;
+
+    data_type
+    type() const noexcept
+    {
+        return data_type{detail::conditional_cast<std::int16_t>(payload_.index())};
+    }
 
     // bool
     data(bool value) noexcept
@@ -343,5 +363,8 @@ private:
         flat_hash_map<std::string, data>,
         py_object> payload_{};
 };
+
+FAIRSEQ2_API std::string
+repr(data_type dt);
 
 }  // namespace fairseq2
