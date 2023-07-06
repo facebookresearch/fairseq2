@@ -17,6 +17,7 @@
 
 #include <ATen/Tensor.h>
 
+#include <fairseq2/native/exception.h>
 #include <fairseq2/native/float.h>
 #include <fairseq2/native/data/immutable_string.h>
 
@@ -100,7 +101,8 @@ type_caster<data>::cast_from_cc(T &&src)
     if (src.is_py())
         return pybind11::cast(std::forward<T>(src).as_py());
 
-    throw std::runtime_error{"The data instance cannot be converted to a Python object."};
+    throw internal_error{
+        "The `data` instance cannot be converted to a Python object. Please file a bug report."};
 }
 
 template

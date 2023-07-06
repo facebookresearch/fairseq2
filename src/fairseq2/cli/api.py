@@ -88,7 +88,7 @@ class Seq2Seq(tnt.AutoUnit[Seq2SeqBatch]):
         self.optimizer = optimizer
         # tnt and us both have a type alias for LRScheduler
         self.lr_scheduler = lr_scheduler  # type: ignore[assignment]
-        self.pad_idx = self.tokenizer.vocab_info.pad_idx if self.tokenizer else 0
+        self.pad_idx = self.tokenizer.vocabulary_info.pad_idx if self.tokenizer else 0
 
         self.eval_gen = False
 
@@ -228,7 +228,7 @@ class Seq2Seq(tnt.AutoUnit[Seq2SeqBatch]):
     @functools.lru_cache()
     def default_strategy(self) -> SearchStrategy:
         return BeamSearchStrategy(
-            beam_size=5, max_len=512, vocab_info=self.tokenizer.vocab_info
+            beam_size=5, max_len=512, vocab_info=self.tokenizer.vocabulary_info
         )
 
     @torch.inference_mode()
@@ -239,8 +239,8 @@ class Seq2Seq(tnt.AutoUnit[Seq2SeqBatch]):
         target = token_decoder(data.target_seqs)
 
         # TODO: move to data loading
-        if self.tokenizer.vocab_info.pad_idx is not None:
-            padding_mask = data.source_seqs.ne(self.tokenizer.vocab_info.pad_idx)
+        if self.tokenizer.vocabulary_info.pad_idx is not None:
+            padding_mask = data.source_seqs.ne(self.tokenizer.vocabulary_info.pad_idx)
             source_lens = torch.count_nonzero(padding_mask, dim=-1)
         else:
             source_lens = None

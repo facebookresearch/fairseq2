@@ -27,54 +27,54 @@ file_stream::file_stream(file_desc &&fd, std::string pathname, std::size_t chunk
 memory_block
 file_stream::read_chunk()
 {
-    if (eod_)
+    if (is_eod_)
         return {};
 
     writable_memory_block chunk = allocate_memory(chunk_size_);
 
-    writable_memory_span s = chunk;
+    writable_memory_span remaining_space = chunk;
 
-    while (!s.empty()) {
-        std::size_t num_bytes_read = fill_chunk(s);
+    while (!remaining_space.empty()) {
+        std::size_t num_bytes_read = fill_chunk(remaining_space);
         if (num_bytes_read == 0) {
-            eod_ = true;
+            is_eod_ = true;
 
             break;
         }
 
-        s = s.subspan(num_bytes_read);
+        remaining_space = remaining_space.subspan(num_bytes_read);
     }
 
-    if (s.empty())
+    if (remaining_space.empty())
         return chunk;
 
-    return chunk.share_first(chunk.size() - s.size());
+    return chunk.share_first(chunk.size() - remaining_space.size());
 }
 
 void
 file_stream::reset()
 {
-    ::off_t o = ::lseek(fd_.get(), 0, SEEK_SET);
-    if (o == -1) {
+    ::off_t offset = ::lseek(fd_.get(), 0, SEEK_SET);
+    if (offset == -1) {
         std::error_code err = last_error();
 
         if (err == std::errc::invalid_seek)
-            throw stream_error{
-                fmt::format("'{}' cannot be reset since it is not seekable.", pathname_)};
+            throw byte_stream_error{
+                fmt::format("'{}' is not seekable and cannot be reset.", pathname_)};
 
         throw std::system_error{err,
             fmt::format("'{}' cannot be reset", pathname_)};
     }
 
-    eod_ = false;
+    is_eod_ = false;
 }
 
 void
 file_stream::hint_sequential_file() noexcept
 {
 #ifdef __linux__
-    int r = ::posix_fadvise(fd_.get(), 0, 0, POSIX_FADV_SEQUENTIAL);
-    if (r != 0) {
+    int result = ::posix_fadvise(fd_.get(), 0, 0, POSIX_FADV_SEQUENTIAL);
+    if (result != 0) {
         // TODO: warn
     }
 #endif

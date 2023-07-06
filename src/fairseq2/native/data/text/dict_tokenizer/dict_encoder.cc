@@ -19,7 +19,7 @@ dict_encoder::dict_encoder(const dict_model *model, std::int64_t max_seq_len)
 }
 
 data
-dict_encoder::process(data &&d) const
+dict_encoder::operator()(data &&d) const
 {
     if (!d.is_string())
         throw std::invalid_argument{"The input data must be of type string."};

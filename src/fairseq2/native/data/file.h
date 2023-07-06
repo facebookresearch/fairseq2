@@ -16,7 +16,7 @@
 
 namespace fairseq2 {
 
-class stream;
+class byte_stream;
 
 enum class file_mode {
     binary,
@@ -94,7 +94,7 @@ text_file_options(std::optional<std::string> text_encoding = {}) noexcept
     return file_options().mode(file_mode::text).text_encoding(std::move(text_encoding));
 }
 
-FAIRSEQ2_API std::unique_ptr<stream>
-read_file(const std::string &pathname, const file_options &opts = {});
+FAIRSEQ2_API std::unique_ptr<byte_stream>
+open_file(const std::string &pathname, const file_options &opts = {});
 
 }  // namespace fairseq2

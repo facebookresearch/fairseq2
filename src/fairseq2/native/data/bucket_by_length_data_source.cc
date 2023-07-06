@@ -14,13 +14,13 @@ bucket_by_length_data_source::bucket_by_length_data_source(
     std::unique_ptr<data_source> &&inner,
     std::vector<std::pair<std::size_t, std::size_t>> &&bucket_sizes,
     std::size_t max_data_length,
-    data_length_fn &&f,
+    data_length_fn &&fn,
     bool drop_remainder,
     bool warn_only)
   : inner_{std::move(inner)},
     bucket_sizes_(std::move(bucket_sizes)),
     max_data_length_{max_data_length},
-    data_length_fn_{std::move(f)},
+    data_length_fn_{std::move(fn)},
     drop_remainder_{drop_remainder},
     warn_only_{warn_only}
 {

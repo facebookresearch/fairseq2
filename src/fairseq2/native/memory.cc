@@ -18,7 +18,8 @@ void
 deallocate(const void *addr, std::size_t, void *) noexcept
 {
     if (addr != nullptr)
-        ::operator delete(const_cast<void *>(addr)); // NOLINT(cppcoreguidelines-pro-type-const-cast)
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
+        ::operator delete(const_cast<void *>(addr));
 }
 
 }  // namespace
@@ -33,13 +34,13 @@ allocate_memory(std::size_t size)
 }
 
 writable_memory_block
-copy_memory(memory_span src)
+copy_memory(memory_span source)
 {
-    writable_memory_block b = allocate_memory(src.size());
+    writable_memory_block target = allocate_memory(source.size());
 
-    std::copy(src.begin(), src.end(), b.begin());
+    std::copy(source.begin(), source.end(), target.begin());
 
-    return b;
+    return target;
 }
 
 }  // namespace fairseq2

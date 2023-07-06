@@ -13,25 +13,22 @@
 
 #include <fmt/core.h>
 
-#include "fairseq2/native/py.h"
 #include "fairseq2/native/data/bucket_by_length_data_source.h"
 #include "fairseq2/native/data/bucket_data_source.h"
-#include "fairseq2/native/data/data_processor.h"
-#include "fairseq2/native/data/filtered_data_source.h"
+#include "fairseq2/native/data/filter_data_source.h"
 #include "fairseq2/native/data/list_data_source.h"
-#include "fairseq2/native/data/mapped_data_source.h"
-#include "fairseq2/native/data/prefetched_data_source.h"
-#include "fairseq2/native/data/ranged_data_source.h"
+#include "fairseq2/native/data/map_data_source.h"
+#include "fairseq2/native/data/prefetch_data_source.h"
+#include "fairseq2/native/data/take_data_source.h"
 #include "fairseq2/native/data/round_robin_data_source.h"
-#include "fairseq2/native/data/sharded_data_source.h"
-#include "fairseq2/native/data/shuffled_data_source.h"
-#include "fairseq2/native/data/skipped_data_source.h"
+#include "fairseq2/native/data/shard_data_source.h"
+#include "fairseq2/native/data/shuffle_data_source.h"
+#include "fairseq2/native/data/skip_data_source.h"
 #include "fairseq2/native/data/tape.h"
-#include "fairseq2/native/data/yielded_data_source.h"
+#include "fairseq2/native/data/yield_from_data_source.h"
 #include "fairseq2/native/data/zip_data_source.h"
-#include "fairseq2/native/data/zipped_data_source.h"
+#include "fairseq2/native/data/zip_file_data_source.h"
 #include "fairseq2/native/data/detail/file_system.h"
-#include "fairseq2/native/data/processors/custom_data_processor.h"
 
 using namespace fairseq2::detail;
 
@@ -44,19 +41,15 @@ data_pipeline::next()
 
     ensure_initialized();
 
-    if (!src_)
-        return {};
+    if (!source_)
+        return std::nullopt;
 
-    {
-        py_gil_release no_gil{};
+    try {
+        return source_->next();
+    } catch (...) {
+        is_broken_ = true;
 
-        try {
-            return src_->next();
-        } catch (...) {
-            is_broken_ = true;
-
-            throw;
-        }
+        throw;
     }
 }
 
@@ -65,19 +58,15 @@ data_pipeline::reset()
 {
     check_if_broken();
 
-    if (!src_)
+    if (!source_)
         return;
 
-    {
-        py_gil_release no_gil{};
+    try {
+        source_->reset();
+    } catch (...) {
+        is_broken_ = true;
 
-        try {
-            src_->reset();
-        } catch (...) {
-            is_broken_ = true;
-
-            throw;
-        }
+        throw;
     }
 }
 
@@ -86,22 +75,18 @@ data_pipeline::record_position(tape &t) const
 {
     check_if_broken();
 
-    if (initialized()) {
+    if (is_initialized()) {
         t.record(true);
 
-        if (!src_)
+        if (!source_)
             return;
 
-        {
-            py_gil_release no_gil{};
+        try {
+            source_->record_position(t);
+        } catch (...) {
+            is_broken_ = true;
 
-            try {
-                src_->record_position(t);
-            } catch (...) {
-                is_broken_ = true;
-
-                throw;
-            }
+            throw;
         }
     } else
         t.record(false);
@@ -115,26 +100,22 @@ data_pipeline::reload_position(tape &t)
     if (t.read<bool>()) {
         ensure_initialized();
 
-        if (!src_)
+        if (!source_)
             return;
 
-        {
-            py_gil_release no_gil{};
+        try {
+            source_->reload_position(t);
+        } catch (...) {
+            is_broken_ = true;
 
-            try {
-                src_->reload_position(t);
-            } catch (...) {
-                is_broken_ = true;
-
-                throw;
-            }
+            throw;
         }
     } else
         reset();
 }
 
 inline bool
-data_pipeline::initialized() const noexcept
+data_pipeline::is_initialized() const noexcept
 {
     return factory_ == nullptr;
 }
@@ -145,10 +126,10 @@ data_pipeline::ensure_initialized()
     if (factory_ == nullptr)
         return;
 
-    data_source_factory fn = std::exchange(factory_, nullptr);
+    data_source_factory factory = std::exchange(factory_, nullptr);
 
     try {
-        src_ = fn();
+        source_ = factory();
     } catch (...) {
         is_broken_ = true;
 
@@ -169,7 +150,7 @@ data_pipeline_builder::bucket(std::size_t bucket_size, bool drop_remainder) &&
     if (bucket_size == 0)
         throw std::invalid_argument{"`bucket_size` must be greater than zero."};
 
-    factory_ = [=, inner = std::move(factory_)]()
+    factory_ = [=, inner = std::move(factory_)]
     {
         return std::make_unique<bucket_data_source>(inner(), bucket_size, drop_remainder);
     };
@@ -181,14 +162,15 @@ data_pipeline_builder
 data_pipeline_builder::bucket_by_length(
     std::vector<std::pair<std::size_t, std::size_t>> bucket_sizes,
     std::size_t max_data_length,
-    data_length_fn f,
+    data_length_fn fn,
     bool drop_remainder,
     bool warn_only) &&
 {
     if (bucket_sizes.empty())
         throw std::invalid_argument{"`bucket_sizes` must contain at least one element."};
 
-    std::sort(bucket_sizes.begin(), bucket_sizes.end(), [](auto x, auto y) {
+    std::sort(bucket_sizes.begin(), bucket_sizes.end(), [](auto x, auto y)
+    {
         return x.second < y.second;
     });
 
@@ -200,14 +182,14 @@ data_pipeline_builder::bucket_by_length(
     factory_ = [
         =,
         bucket_sizes = std::move(bucket_sizes),
-        f = std::move(f),
+        fn = std::move(fn),
         inner = std::move(factory_)]() mutable
     {
         return std::make_unique<bucket_by_length_data_source>(
             inner(),
             std::move(bucket_sizes),
             max_data_length,
-            std::move(f),
+            std::move(fn),
             drop_remainder,
             warn_only);
     };
@@ -216,29 +198,23 @@ data_pipeline_builder::bucket_by_length(
 }
 
 data_pipeline_builder
-data_pipeline_builder::filter(predicate_fn f) &&
+data_pipeline_builder::filter(predicate_fn fn) &&
 {
-    factory_ = [f = std::move(f), inner = std::move(factory_)]() mutable {
-        return std::make_unique<filtered_data_source>(inner(), std::move(f));
+    factory_ = [fn = std::move(fn), inner = std::move(factory_)]() mutable
+    {
+        return std::make_unique<filter_data_source>(inner(), std::move(fn));
     };
 
     return std::move(*this);
 }
 
 data_pipeline_builder
-data_pipeline_builder::map(map_fn f, std::size_t num_parallel_calls, bool warn_only) &&
+data_pipeline_builder::map(map_fn fn, std::size_t num_parallel_calls, bool warn_only) &&
 {
-    return std::move(*this).map(
-        std::make_shared<custom_data_processor>(std::move(f)), num_parallel_calls, warn_only);
-}
-
-data_pipeline_builder
-data_pipeline_builder::map(
-    std::shared_ptr<const data_processor> p, std::size_t num_parallel_calls, bool warn_only) &&
-{
-    factory_ = [=, p = std::move(p), inner = std::move(factory_)]() mutable {
-        return std::make_unique<mapped_data_source>(
-            inner(), std::move(p), num_parallel_calls, warn_only);
+    factory_ = [=, fn = std::move(fn), inner = std::move(factory_)]() mutable
+    {
+        return std::make_unique<map_data_source>(
+            inner(), std::move(fn), num_parallel_calls, warn_only);
     };
 
     return std::move(*this);
@@ -248,8 +224,9 @@ data_pipeline_builder
 data_pipeline_builder::prefetch(std::size_t num_examples) &&
 {
     if (num_examples > 0)
-        factory_ = [=, inner = std::move(factory_)]() {
-            return std::make_unique<prefetched_data_source>(inner(), num_examples);
+        factory_ = [=, inner = std::move(factory_)]
+        {
+            return std::make_unique<prefetch_data_source>(inner(), num_examples);
         };
 
     return std::move(*this);
@@ -263,8 +240,9 @@ data_pipeline_builder::shard(std::size_t shard_idx, std::size_t num_shards) &&
             fmt::format("`shard_idx` must be less than `num_shards` ({}), but is {} instead.", num_shards, shard_idx)};
 
     if (num_shards > 1)
-        factory_ = [=, inner = std::move(factory_)]() {
-            return std::make_unique<sharded_data_source>(inner(), shard_idx, num_shards);
+        factory_ = [=, inner = std::move(factory_)]
+        {
+            return std::make_unique<shard_data_source>(inner(), shard_idx, num_shards);
         };
 
     return std::move(*this);
@@ -274,8 +252,9 @@ data_pipeline_builder
 data_pipeline_builder::shuffle(std::size_t shuffle_window, bool strict, bool enabled) &&
 {
     if (enabled)
-        factory_ = [=, inner = std::move(factory_)]() {
-            return std::make_unique<shuffled_data_source>(inner(), shuffle_window, strict);
+        factory_ = [=, inner = std::move(factory_)]
+        {
+            return std::make_unique<shuffle_data_source>(inner(), shuffle_window, strict);
         };
 
     return std::move(*this);
@@ -285,8 +264,9 @@ data_pipeline_builder
 data_pipeline_builder::skip(std::size_t num_examples) &&
 {
     if (num_examples > 0)
-        factory_ = [=, inner = std::move(factory_)]() {
-            return std::make_unique<skipped_data_source>(inner(), num_examples);
+        factory_ = [=, inner = std::move(factory_)]
+        {
+            return std::make_unique<skip_data_source>(inner(), num_examples);
         };
 
     return std::move(*this);
@@ -295,18 +275,20 @@ data_pipeline_builder::skip(std::size_t num_examples) &&
 data_pipeline_builder
 data_pipeline_builder::take(std::size_t num_examples) &&
 {
-    factory_ = [=, inner = std::move(factory_)]() {
-        return std::make_unique<ranged_data_source>(inner(), num_examples);
+    factory_ = [=, inner = std::move(factory_)]
+    {
+        return std::make_unique<take_data_source>(inner(), num_examples);
     };
 
     return std::move(*this);
 }
 
 data_pipeline_builder
-data_pipeline_builder::yield_from(yield_fn f) &&
+data_pipeline_builder::yield_from(yield_fn fn) &&
 {
-    factory_ = [f = std::move(f), inner = std::move(factory_)]() mutable {
-        return std::make_unique<yielded_data_source>(inner(), std::move(f));
+    factory_ = [fn = std::move(fn), inner = std::move(factory_)]() mutable
+    {
+        return std::make_unique<yield_from_data_source>(inner(), std::move(fn));
     };
 
     return std::move(*this);
@@ -319,15 +301,16 @@ data_pipeline::zip(
     bool warn_only,
     bool disable_parallelism)
 {
-    if (names) {
+    if (names)
         if (pipelines.size() != names->size())
             throw std::invalid_argument{
                 fmt::format("The number of `pipelines` and the number of `names` must be equal, but are {} and {} instead.", pipelines.size(), names->size())};
-    }
 
-    bool is_broken = std::any_of(pipelines.begin(), pipelines.end(), [](const data_pipeline &p) {
-        return p.is_broken();
-    });
+    bool is_broken = std::any_of(
+        pipelines.begin(), pipelines.end(), [](const data_pipeline &pipeline)
+        {
+            return pipeline.is_broken();
+        });
 
     if (is_broken)
         throw data_pipeline_error{
@@ -335,20 +318,23 @@ data_pipeline::zip(
 
     auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
 
-    auto f = [n = std::move(names), tmp, warn_only, disable_parallelism]() mutable {
-        return std::make_unique<zipped_data_source>(
-            std::move(*tmp), std::move(n), warn_only, disable_parallelism);
+    auto factory = [names = std::move(names), tmp, warn_only, disable_parallelism]() mutable
+    {
+        return std::make_unique<zip_data_source>(
+            std::move(*tmp), std::move(names), warn_only, disable_parallelism);
     };
 
-    return data_pipeline_builder{std::move(f)};
+    return data_pipeline_builder{std::move(factory)};
 }
 
 data_pipeline_builder
 data_pipeline::round_robin(std::vector<data_pipeline> pipelines)
 {
-    bool is_broken = std::any_of(pipelines.begin(), pipelines.end(), [](const data_pipeline &p) {
-        return p.is_broken();
-    });
+    bool is_broken = std::any_of(
+        pipelines.begin(), pipelines.end(), [](const data_pipeline &pipeline)
+        {
+            return pipeline.is_broken();
+        });
 
     if (is_broken)
         throw data_pipeline_error{
@@ -356,11 +342,12 @@ data_pipeline::round_robin(std::vector<data_pipeline> pipelines)
 
     auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
 
-    auto f = [tmp]() mutable {
+    auto factory = [tmp]() mutable
+    {
         return std::make_unique<round_robin_data_source>(std::move(*tmp));
     };
 
-    return data_pipeline_builder{std::move(f)};
+    return data_pipeline_builder{std::move(factory)};
 }
 
 data_pipeline
@@ -369,16 +356,16 @@ data_pipeline_builder::and_return() &&
     if (factory_ == nullptr)
         throw std::runtime_error{"The data pipeline has already been constructed."};
 
-    data_source_factory f = std::exchange(factory_, nullptr);
+    data_source_factory factory = std::exchange(factory_, nullptr);
 
-    return data_pipeline{std::move(f)};
+    return data_pipeline{std::move(factory)};
 }
 
 void
-data_pipeline_error::throw_nested(const std::string &msg, std::optional<data> example)
+data_pipeline_error::throw_nested(const std::string &message, std::optional<data> example)
 {
     std::throw_with_nested(data_pipeline_error{
-        fmt::format("{} See nested exception for details.", msg), std::move(example)});
+        fmt::format("{} See nested exception for details.", message), std::move(example)});
 }
 
 data_pipeline_error::~data_pipeline_error() = default;
@@ -386,42 +373,43 @@ data_pipeline_error::~data_pipeline_error() = default;
 data_pipeline_builder
 list_files(std::string pathname, std::optional<std::string> pattern)
 {
-    auto f = [p = std::move(pathname), pattern = std::move(pattern)]() {
-        std::vector<data> lst{};
+    auto factory = [pathname = std::move(pathname), pattern = std::move(pattern)]
+    {
+        std::vector<data> list{};
 
         try {
-            py_gil_release no_gil{};
-
-            lst = detail::list_files(p, pattern);
+            list = detail::list_files(pathname, pattern);
         } catch (const std::system_error &) {
             data_pipeline_error::throw_nested(
-                fmt::format("The list of files under '{}' cannot be retrieved.", p));
+                fmt::format("The list of files under '{}' cannot be retrieved.", pathname));
         }
 
-        return std::make_unique<list_data_source>(std::move(lst));
+        return std::make_unique<list_data_source>(std::move(list));
     };
 
-    return data_pipeline_builder{std::move(f)};
+    return data_pipeline_builder{std::move(factory)};
 }
 
 data_pipeline_builder
-read_list(std::vector<data> lst)
+read_list(std::vector<data> list)
 {
-    auto f = [l = std::move(lst)]() mutable {
-        return std::make_unique<list_data_source>(std::move(l));
+    auto factory = [list = std::move(list)]() mutable
+    {
+        return std::make_unique<list_data_source>(std::move(list));
     };
 
-    return data_pipeline_builder{std::move(f)};
+    return data_pipeline_builder{std::move(factory)};
 }
 
 data_pipeline_builder
 read_zipped_records(std::string pathname)
 {
-    auto f = [p = std::move(pathname)]() mutable {
-        return std::make_unique<zip_data_source>(std::move(p));
+    auto factory = [pathname = std::move(pathname)]() mutable
+    {
+        return std::make_unique<zip_file_data_source>(std::move(pathname));
     };
 
-    return data_pipeline_builder{std::move(f)};
+    return data_pipeline_builder{std::move(factory)};
 }
 
 }  // namespace fairseq2

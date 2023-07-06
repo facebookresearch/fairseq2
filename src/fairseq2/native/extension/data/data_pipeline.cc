@@ -13,19 +13,20 @@
 #include <iterator>
 #include <memory>
 #include <optional>
+#include <unordered_set>
 #include <utility>
+#include <variant>
 #include <vector>
 
+#include <fairseq2/native/exception.h>
+#include <fairseq2/native/data/byte_stream.h>
 #include <fairseq2/native/data/collater.h>
+#include <fairseq2/native/data/element_mapper.h>
 #include <fairseq2/native/data/data.h>
 #include <fairseq2/native/data/data_length_extractor.h>
 #include <fairseq2/native/data/data_pipeline.h>
-#include <fairseq2/native/data/data_processor.h>
 #include <fairseq2/native/data/record_reader.h>
-#include <fairseq2/native/data/stream.h>
 #include <fairseq2/native/data/tape.h>
-
-#include "fairseq2/native/extension/data/utils.h"
 
 namespace py = pybind11;
 
@@ -34,6 +35,102 @@ using namespace fairseq2::detail;
 namespace fairseq2 {
 namespace detail {
 namespace {
+
+// This class help us to gracefully delete data pipelines with active daemon
+// threads (e.g. a running prefetch op) during Python interpreter shutdown.
+class data_pipeline_tracker {
+    struct py_handle_hash {
+        std::size_t
+        operator()(const py::handle &h) const noexcept
+        {
+            return std::hash<void *>{}(h.ptr());
+        }
+    };
+
+public:
+    // Registers a hook with the `atexit` module to delete any data pipeline
+    // that is still alive.
+    void
+    register_atexit_hook();
+
+    // Delete `pipeline` during interpreter shutdown if it is still alive.
+    void
+    track(py::object pipeline);
+
+private:
+    void
+    reset_alive_pipelines();
+
+private:
+    std::unordered_set<py::weakref, py_handle_hash> alive_pipelines_{};
+};
+
+void
+data_pipeline_tracker::register_atexit_hook()
+{
+    py::module_ atexit_module = py::module_::import("atexit");
+
+    auto hook = [this]
+    {
+        reset_alive_pipelines();
+    };
+
+    atexit_module.attr("register")(py::cpp_function{hook});
+}
+
+void
+data_pipeline_tracker::track(py::object pipeline)
+{
+    // This `weakref` callback will be called when `pipeline` gets deleted
+    // before interpreter shutdown. In such case, we just stop tracking it.
+    auto remove_weakref = [this](const py::weakref &weakref)
+    {
+        alive_pipelines_.erase(weakref);
+    };
+
+    // We internally store a weak reference to `pipeline`. If it is still alive
+    // by the time the interpreter is shutdown, we will use this weak reference
+    // to get a handle to it.
+    alive_pipelines_.emplace(std::move(pipeline), py::cpp_function{remove_weakref});
+}
+
+void
+data_pipeline_tracker::reset_alive_pipelines()
+{
+    for (auto &weakref : alive_pipelines_) {
+        py::object pipeline_obj = weakref();
+
+        if (pipeline_obj.is_none())
+            throw internal_error{
+                "One of the tracked data pipelines has already been deleted. Please file a bug report."};
+
+        auto &pipeline = pipeline_obj.cast<data_pipeline &>();
+
+        // A broken data pipeline does not have any active daemon threads.
+        if (pipeline.is_broken())
+            continue;
+
+        {
+            py::gil_scoped_release no_gil{};
+
+            // By calling `reset()`, we indirectly stop all active daemon
+            // threads used within `pipeline`.
+            try {
+                pipeline.reset();
+            } catch (const data_pipeline_error &) {}
+        }
+    }
+
+    alive_pipelines_.clear();
+}
+
+data_pipeline_tracker &
+data_pipeline_tracker_() noexcept
+{
+    static data_pipeline_tracker tracker{};
+
+    return tracker;
+}
 
 class data_pipeline_iterator {
 public:
@@ -45,7 +142,14 @@ public:
     data
     next()
     {
-        std::optional<data> d = pipeline_->next();
+        std::optional<data> d{};
+
+        {
+            py::gil_scoped_release no_gil{};
+
+            d = pipeline_->next();
+        }
+
         if (!d)
             throw py::stop_iteration();
 
@@ -62,6 +166,8 @@ private:
 void
 def_data_pipeline(py::module_ &data_module)
 {
+    data_pipeline_tracker_().register_atexit_hook();
+
     py::module_ m = data_module.def_submodule("data_pipeline");
 
     // DataPipeline
@@ -76,7 +182,7 @@ def_data_pipeline(py::module_ &data_module)
             },
             py::keep_alive<0, 1>{})
 
-        .def("reset", &data_pipeline::reset)
+        .def("reset", &data_pipeline::reset, py::call_guard<py::gil_scoped_release>{})
 
         .def_property_readonly("is_broken", &data_pipeline::is_broken)
 
@@ -87,7 +193,11 @@ def_data_pipeline(py::module_ &data_module)
             {
                 tape t{};
 
-                self.record_position(t);
+                {
+                    py::gil_scoped_release no_gil{};
+
+                    self.record_position(t);
+                }
 
                 return py::dict{py::arg("position") = py::cast(t.storage())};
             })
@@ -115,7 +225,11 @@ def_data_pipeline(py::module_ &data_module)
 
                 tape t{std::move(storage)};
 
-                self.reload_position(t);
+                {
+                    py::gil_scoped_release no_gil{};
+
+                    self.reload_position(t);
+                }
             },
             py::arg("state_dict"),
             py::arg("strict") = true)
@@ -213,24 +327,39 @@ def_data_pipeline(py::module_ &data_module)
             py::arg("warn_only") = false)
         .def(
             "filter",
-            [](data_pipeline_builder &self, predicate_fn &&f) -> data_pipeline_builder &
+            [](data_pipeline_builder &self, predicate_fn fn) -> data_pipeline_builder &
             {
-                self = std::move(self).filter(std::move(f));
+                self = std::move(self).filter(std::move(fn));
 
                 return self;
             },
-            py::arg("f"))
+            py::arg("fn"))
         .def(
             "map",
             [](
                 data_pipeline_builder &self,
-                const py::object &fn,
+                std::variant<map_fn, std::vector<map_fn>> fn,
                 std::optional<std::string_view> selector,
                 std::size_t num_parallel_calls,
                 bool warn_only) -> data_pipeline_builder &
             {
+                map_fn f{};
+
+                if (auto *map_functions = std::get_if<std::vector<map_fn>>(&fn))
+                    // Combine all map functions in a single lambda and pass it
+                    // to the C++ API.
+                    f = [map_functions = std::move(*map_functions)](data &&d)
+                    {
+                        for (const map_fn &mf : map_functions)
+                            d = mf(std::move(d));
+
+                        return std::move(d);
+                    };
+                else
+                    f = std::get<map_fn>(std::move(fn));
+
                 self = std::move(self).map(
-                    as_data_processor(fn, selector), num_parallel_calls, warn_only);
+                    element_mapper{std::move(f), selector}, num_parallel_calls, warn_only);
 
                 return self;
             },
@@ -295,26 +424,31 @@ def_data_pipeline(py::module_ &data_module)
             py::arg("num_examples"))
         .def(
             "yield_from",
-            [](data_pipeline_builder &self, yield_fn f) -> data_pipeline_builder &
+            [](data_pipeline_builder &self, yield_fn fn) -> data_pipeline_builder &
             {
-                self = std::move(self).yield_from(std::move(f));
+                self = std::move(self).yield_from(std::move(fn));
 
                 return self;
             },
-            py::arg("f"))
-        .def("and_return",
-            [](data_pipeline_builder &self) -> data_pipeline
+            py::arg("fn"))
+        .def(
+            "and_return",
+            [](data_pipeline_builder &self)
             {
-                return std::move(self).and_return();
+                data_pipeline pipeline = std::move(self).and_return();
+
+                py::object obj = py::cast(std::move(pipeline));
+
+                // Ensure that the pipeline gets deleted during interpreter
+                // shutdown if it is still alive.
+                data_pipeline_tracker_().track(obj);
+
+                return obj;
             });
 
     // DataPipelineError
     static py::exception<data_pipeline_error> py_data_pipeline_error{
         m, "DataPipelineError", PyExc_RuntimeError};
-
-    // DataProcessor
-    py::class_<data_processor, std::shared_ptr<data_processor>>(m, "_DataProcessor")
-        .def("__call__", &data_processor::process, py::call_guard<py::gil_scoped_release>{});
 
     // Factories
     m.def("list_files", &list_files, py::arg("pathname"), py::arg("pattern") = std::nullopt);
@@ -324,11 +458,15 @@ def_data_pipeline(py::module_ &data_module)
     m.def("read_zipped_records", &read_zipped_records, py::arg("pathname"));
 
     // Collater
-    py::class_<collater, data_processor, std::shared_ptr<collater>>(m, "Collater")
-        .def(py::init<std::optional<std::int64_t>>(), py::arg("pad_idx") = std::nullopt);
+    py::class_<collater, std::shared_ptr<collater>>(m, "Collater")
+        .def(py::init<std::optional<std::int64_t>>(), py::arg("pad_idx") = std::nullopt)
+        .def("__call__", &collater::operator(), py::call_guard<py::gil_scoped_release>{});
+
+    map_functors().register_<collater>();
 
     // TODO: Fix!
-    static py::exception<stream_error> py_stream_error{m, "StreamError", PyExc_RuntimeError};
+    static py::exception<byte_stream_error> py_stream_error{m, "ByteStreamError", PyExc_RuntimeError};
+
     static py::exception<record_error> py_record_error{m, "RecordError", PyExc_RuntimeError};
 
     // NOLINTNEXTLINE(performance-unnecessary-value-param)
@@ -345,7 +483,7 @@ def_data_pipeline(py::module_ &data_module)
 
         try {
             std::rethrow_exception(ptr);
-        } catch (const stream_error &e) {
+        } catch (const byte_stream_error &e) {
             raise_error(e, py_stream_error);
         } catch (const record_error &e) {
             raise_error(e, py_record_error);

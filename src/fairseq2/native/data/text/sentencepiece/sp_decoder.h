@@ -13,7 +13,6 @@
 
 #include "fairseq2/native/api.h"
 #include "fairseq2/native/data/data.h"
-#include "fairseq2/native/data/data_processor.h"
 
 namespace fairseq2 {
 namespace detail {
@@ -24,7 +23,7 @@ class decoder_op;
 
 class sp_model;
 
-class FAIRSEQ2_API sp_decoder final : public data_processor {
+class FAIRSEQ2_API sp_decoder final {
     friend class detail::decoder_op;
 
 public:
@@ -32,7 +31,7 @@ public:
     sp_decoder(std::shared_ptr<const sp_model> model, bool reverse = false) noexcept;
 
     data
-    process(data &&d) const override;
+    operator()(data &&d) const;
 
 private:
     std::vector<data>

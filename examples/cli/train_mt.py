@@ -63,7 +63,7 @@ class NllbDataLoader(Iterable[Seq2SeqBatch]):
         self.epoch = 0
 
         if tokenizer:
-            self.pad_idx = tokenizer.vocab_info.pad_idx
+            self.pad_idx = tokenizer.vocabulary_info.pad_idx
 
             tsk = "translation"
 
@@ -319,7 +319,7 @@ def valid_data(
 
 def vocab_info(tokenizer: Tokenizer) -> VocabularyInfo:
     """Cache metadata about the tokenizer"""
-    return tokenizer.vocab_info
+    return tokenizer.vocabulary_info
 
 
 def module(env: Env, model_config: NllbConfig) -> EncoderDecoderModel:

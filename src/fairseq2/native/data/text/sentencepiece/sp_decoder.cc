@@ -55,7 +55,7 @@ sp_decoder::sp_decoder(std::shared_ptr<const sp_model> model, bool reverse) noex
 {}
 
 data
-sp_decoder::process(data &&d) const
+sp_decoder::operator()(data &&d) const
 {
     if (!d.is_tensor())
         throw std::invalid_argument{"The input must be of type Tensor."};

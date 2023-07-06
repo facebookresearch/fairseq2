@@ -178,7 +178,7 @@ sp_processor::token_to_index(std::string_view token) const
 std::string_view
 sp_processor::index_to_token(std::int32_t idx) const
 {
-    if (static_cast<std::size_t>(idx) >= vocab_size)
+    if (static_cast<std::size_t>(idx) >= vocabulary_size)
         throw std::invalid_argument{"The specified token index is out of range."};
 
     return native_->IdToPiece(conditional_cast<int>(idx));
@@ -203,7 +203,7 @@ sp_processor::sp_processor(std::unique_ptr<ModelProto> &&proto)
     eos_idx = conditional_cast<std::int32_t>(native_->eos_id());
     pad_idx = conditional_cast<std::int32_t>(native_->pad_id());
 
-    vocab_size = conditional_cast<std::size_t>(native_->GetPieceSize());
+    vocabulary_size = conditional_cast<std::size_t>(native_->GetPieceSize());
 }
 
 }  // namespace fairseq2::detail

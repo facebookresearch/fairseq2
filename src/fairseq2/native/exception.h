@@ -12,6 +12,17 @@
 
 namespace fairseq2 {
 
+class FAIRSEQ2_API internal_error : public std::runtime_error {
+public:
+    using std::runtime_error::runtime_error;
+
+public:
+    internal_error(const internal_error &) = default;
+    internal_error &operator=(const internal_error &) = default;
+
+   ~internal_error() override;
+};
+
 class FAIRSEQ2_API not_supported_error : public std::logic_error {
 public:
     using std::logic_error::logic_error;

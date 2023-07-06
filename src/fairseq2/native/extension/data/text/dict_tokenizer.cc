@@ -74,7 +74,7 @@ def_dict_tokenizer(py::module_ &text_module)
         .def_property_readonly("vocab_size", &dict_model::vocab_size);
 
     // DictEncoder
-    py::class_<dict_encoder, data_processor, std::shared_ptr<dict_encoder>>(m, "DictEncoder")
+    py::class_<dict_encoder, std::shared_ptr<dict_encoder>>(m, "DictEncoder")
         .def(
             py::init([](const dict_model *model, std::int64_t max_seq_len)
             {
@@ -82,17 +82,22 @@ def_dict_tokenizer(py::module_ &text_module)
             }),
             py::keep_alive<1, 2>{},
             py::arg("vocab"),
-            py::arg("max_seq_len"));
+            py::arg("max_seq_len"))
+        .def("__call__", &dict_encoder::operator(), py::call_guard<py::gil_scoped_release>{});
 
     // DictDecoder
-    py::class_<dict_decoder, data_processor, std::shared_ptr<dict_decoder>>(m, "DictDecoder")
+    py::class_<dict_decoder, std::shared_ptr<dict_decoder>>(m, "DictDecoder")
         .def(
             py::init([](const dict_model *model)
             {
                 return dict_decoder(model);
             }),
             py::keep_alive<1, 2>{},
-            py::arg("vocab"));
+            py::arg("vocab"))
+        .def("__call__", &dict_decoder::operator(), py::call_guard<py::gil_scoped_release>{});
+
+    map_functors().register_<dict_encoder>();
+    map_functors().register_<dict_decoder>();
 }
 
 }  // namespace fairseq2

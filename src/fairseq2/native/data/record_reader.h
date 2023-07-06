@@ -15,15 +15,15 @@
 
 #include "fairseq2/native/api.h"
 #include "fairseq2/native/memory.h"
-#include "fairseq2/native/data/stream.h"
+#include "fairseq2/native/data/byte_stream.h"
 
 namespace fairseq2 {
 
 class FAIRSEQ2_API record_reader {
 protected:
     explicit
-    record_reader(std::unique_ptr<stream> &&s) noexcept
-      : stream_{std::move(s)}
+    record_reader(std::unique_ptr<byte_stream> &&stream) noexcept
+      : stream_{std::move(stream)}
     {}
 
 public:
@@ -44,7 +44,7 @@ public:
 
 private:
     bool
-    load_record();
+    load_next_record();
 
     virtual std::optional<std::size_t>
     find_record_end(memory_span chunk, bool first_chunk) = 0;
@@ -59,11 +59,11 @@ private:
     move_to_next_record();
 
 private:
-    std::unique_ptr<stream> stream_;
-    memory_block last_chunk_{};
-    std::vector<memory_block> prev_chunks_{};
-    std::size_t record_size_ = 0;
-    std::size_t next_record_offset_ = 0;
+    std::unique_ptr<byte_stream> stream_;
+    memory_block current_chunk_{};
+    std::vector<memory_block> previous_chunks_{};
+    std::size_t record_length_ = 0;
+    std::size_t record_end_offset_ = 0;
 };
 
 class FAIRSEQ2_API record_error : public std::runtime_error {

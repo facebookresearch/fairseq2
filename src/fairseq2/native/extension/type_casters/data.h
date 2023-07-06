@@ -10,48 +10,52 @@
 
 #include <fairseq2/native/data/data.h>
 
+namespace pybind11::detail {
+
 template <>
-struct pybind11::detail::type_caster<fairseq2::data> {
-    PYBIND11_TYPE_CASTER(fairseq2::data, pybind11::detail::const_name("Any"));
+struct type_caster<fairseq2::data> {
+    PYBIND11_TYPE_CASTER(fairseq2::data, const_name("Any"));
 
 public:
     bool
-    load(pybind11::handle src, bool)
+    load(handle src, bool)
     {
         value = cast_from_py(src);
 
         return true;
     }
 
-    static pybind11::handle
-    cast(const fairseq2::data &src, pybind11::return_value_policy, pybind11::handle)
+    static handle
+    cast(const fairseq2::data &src, return_value_policy, handle)
     {
-        pybind11::object o = cast_from_cc(src);
+        object obj = cast_from_cc(src);
 
-        return o.release();
+        return obj.release();
     }
 
-    static pybind11::handle
-    cast(fairseq2::data &&src, pybind11::return_value_policy, pybind11::handle)
+    static handle
+    cast(fairseq2::data &&src, return_value_policy, handle)
     {
-        pybind11::object o = cast_from_cc(std::move(src));
+        object obj = cast_from_cc(std::move(src));
 
-        return o.release();
+        return obj.release();
     }
 
 private:
     static fairseq2::data
-    cast_from_py(pybind11::handle src);
+    cast_from_py(handle src);
 
     template <typename T>
-    static pybind11::object
+    static object
     cast_from_cc(T &&src);
 };
 
 extern template
-pybind11::object
-pybind11::detail::type_caster<fairseq2::data>::cast_from_cc(const fairseq2::data &src);
+object
+type_caster<fairseq2::data>::cast_from_cc(const fairseq2::data &src);
 
 extern template
-pybind11::object
-pybind11::detail::type_caster<fairseq2::data>::cast_from_cc(fairseq2::data &&src);
+object
+type_caster<fairseq2::data>::cast_from_cc(fairseq2::data &&src);
+
+}  // namespace pybind11::detail

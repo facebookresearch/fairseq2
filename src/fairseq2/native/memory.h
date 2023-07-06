@@ -26,8 +26,9 @@ using memory_deallocator = void (*)(const void *addr, std::size_t size, void *ct
 class FAIRSEQ2_API memory_holder {
 public:
     explicit
-    memory_holder(const void *addr, std::size_t size, void *ctx, memory_deallocator d) noexcept
-      : addr_{addr}, size_{size}, ctx_{ctx}, deallocate_{d}
+    memory_holder(
+        const void *addr, std::size_t size, void *ctx, memory_deallocator deallocator) noexcept
+      : addr_{addr}, size_{size}, ctx_{ctx}, deallocator_{deallocator}
     {}
 
     memory_holder(const memory_holder &) = delete;
@@ -38,15 +39,15 @@ public:
 
    ~memory_holder()
     {
-        if (deallocate_ != nullptr)
-            deallocate_(addr_, size_, ctx_);
+        if (deallocator_ != nullptr)
+            deallocator_(addr_, size_, ctx_);
     }
 
 private:
     const void *addr_;
     std::size_t size_;
     void *ctx_;
-    memory_deallocator deallocate_;
+    memory_deallocator deallocator_;
 };
 
 // A `memory_block` is intended to be used for zero-copy memory sharing. The
@@ -74,11 +75,11 @@ public:
 
     explicit
     basic_memory_block(pointer data, size_type size) noexcept
-        : data_{data}, size_{size}
+      : data_{data}, size_{size}
     {}
 
     explicit
-    basic_memory_block(pointer data, size_type size, void *ctx, memory_deallocator d);
+    basic_memory_block(pointer data, size_type size, void *ctx, memory_deallocator deallocator);
 
     // A `memory_block` cannot be converted into a `writable_memory_block`.
     template <typename U, typename = std::enable_if_t<std::is_convertible_v<U *, T*>>>
@@ -173,7 +174,7 @@ public:
 private:
     explicit
     basic_memory_block(const basic_memory_block &other, pointer data, std::size_t size) noexcept
-        : data_{data}, size_{size}
+      : data_{data}, size_{size}
     {
         if (size_ > 0)
             holder_ = other.holder_;
@@ -187,16 +188,16 @@ private:
 
 template <typename T>
 basic_memory_block<T>::basic_memory_block(
-    pointer data, size_type size, void *ctx, memory_deallocator d
-) : data_{data}, size_{size}
+    pointer data, size_type size, void *ctx, memory_deallocator deallocator)
+  : data_{data}, size_{size}
 {
     // As a contract, we take the ownership of `data`. This means we have to
     // make sure that we don't leak in case of a failure.
     try {
-        holder_ = std::make_shared<memory_holder>(data, size, ctx, d);
+        holder_ = std::make_shared<memory_holder>(data, size, ctx, deallocator);
     } catch (...) {
-        if (d != nullptr)
-            d(data, size, ctx);
+        if (deallocator != nullptr)
+            deallocator(data, size, ctx);
 
         throw;
     }
@@ -227,6 +228,6 @@ FAIRSEQ2_API writable_memory_block
 allocate_memory(std::size_t size);
 
 FAIRSEQ2_API writable_memory_block
-copy_memory(memory_span src);
+copy_memory(memory_span source);
 
 }  // namespace fairseq2

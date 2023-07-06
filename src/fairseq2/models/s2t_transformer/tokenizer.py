@@ -16,7 +16,7 @@ from fairseq2.data.text import (
     TokenEncoder,
     Tokenizer,
 )
-from fairseq2.data.text.sentencepiece import vocab_from_sentencepiece
+from fairseq2.data.text.sentencepiece import vocabulary_from_sentencepiece
 from fairseq2.data.typing import PathLike
 from fairseq2.typing import Device
 
@@ -59,9 +59,9 @@ class S2TTransformerTokenizer(Tokenizer):
         self.target_langs = target_langs
         self.default_target_lang = default_target_lang
 
-        vocab_info = vocab_from_sentencepiece(self.model)
+        vocabulary_info = vocabulary_from_sentencepiece(self.model)
 
-        super().__init__(vocab_info)
+        super().__init__(vocabulary_info)
 
     @finaloverride
     def create_encoder(

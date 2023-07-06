@@ -11,44 +11,48 @@
 
 #include <pybind11/pybind11.h>
 
+namespace pybind11::detail {
+
 template <>
-struct pybind11::detail::type_caster<std::string> {
-    PYBIND11_TYPE_CASTER(std::string, pybind11::detail::const_name("str"));
+struct type_caster<std::string> {
+    PYBIND11_TYPE_CASTER(std::string, const_name("str"));
 
 private:
-    using subcaster = pybind11::detail::string_caster<std::string, false>;
+    using inner_caster = string_caster<std::string, false>;
 
 public:
     bool
-    load(pybind11::handle src, bool convert);
+    load(handle src, bool convert);
 
-    static pybind11::handle
-    cast(const std::string &src, pybind11::return_value_policy policy, pybind11::handle parent)
+    static handle
+    cast(const std::string &src, return_value_policy policy, handle parent)
     {
-        return subcaster::cast(src, policy, parent);
+        return inner_caster::cast(src, policy, parent);
     }
 
 private:
-    subcaster subcaster_{};
+    inner_caster inner_caster_{};
 };
 
 template <>
-struct pybind11::detail::type_caster<std::string_view> {
-    PYBIND11_TYPE_CASTER(std::string_view, pybind11::detail::const_name("str"));
+struct type_caster<std::string_view> {
+    PYBIND11_TYPE_CASTER(std::string_view, const_name("str"));
 
 private:
-    using subcaster = pybind11::detail::string_caster<std::string_view, true>;
+    using inner_caster = string_caster<std::string_view, true>;
 
 public:
     bool
-    load(pybind11::handle src, bool convert);
+    load(handle src, bool convert);
 
-    static pybind11::handle
-    cast(const std::string_view &src, pybind11::return_value_policy policy, pybind11::handle parent)
+    static handle
+    cast(const std::string_view &src, return_value_policy policy, handle parent)
     {
-        return subcaster::cast(src, policy, parent);
+        return inner_caster::cast(src, policy, parent);
     }
 
 private:
-    subcaster subcaster_{};
+    inner_caster inner_caster_{};
 };
+
+}  // namespace pybind11::detail

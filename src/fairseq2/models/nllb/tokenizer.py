@@ -15,7 +15,7 @@ from fairseq2.data.text import (
     TokenDecoder,
     TokenEncoder,
     Tokenizer,
-    vocab_from_sentencepiece,
+    vocabulary_from_sentencepiece,
 )
 from fairseq2.data.typing import PathLike
 from fairseq2.typing import Device
@@ -57,9 +57,9 @@ class NllbTokenizer(Tokenizer):
 
         self.default_lang = default_lang
 
-        vocab_info = vocab_from_sentencepiece(self.model)
+        vocabulary_info = vocabulary_from_sentencepiece(self.model)
 
-        super().__init__(vocab_info)
+        super().__init__(vocabulary_info)
 
     @finaloverride
     def create_encoder(

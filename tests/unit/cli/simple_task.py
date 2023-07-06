@@ -58,7 +58,7 @@ def custom() -> CustomClass:
 def generate_samples(
     env: Env, tokenizer: Tokenizer, batch_size: int, num_examples: int
 ) -> Iterable[Seq2SeqBatch]:
-    vocab_size = tokenizer.vocab_info.size
+    vocab_size = tokenizer.vocabulary_info.size
     src_seq_lens = torch.ones((batch_size, 1), device=env.device, dtype=torch.int64) * 2
     tgt_seq_lens = torch.ones((batch_size, 1), device=env.device, dtype=torch.int64) * 2
 

@@ -67,7 +67,7 @@ sp_encoder::sp_encoder(std::shared_ptr<const sp_model> model, sp_encoder_options
 }
 
 data
-sp_encoder::process(data &&d) const
+sp_encoder::operator()(data &&d) const
 {
     if (!d.is_string())
         throw std::invalid_argument{"The input data must be of type string."};

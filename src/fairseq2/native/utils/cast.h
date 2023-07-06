@@ -16,9 +16,9 @@ namespace fairseq2::detail {
 
 template <typename Container>
 inline constexpr auto
-ssize(const Container &c) noexcept
+ssize(const Container &container) noexcept
 {
-    return static_cast<typename Container::difference_type>(c.size());
+    return static_cast<typename Container::difference_type>(container.size());
 }
 
 template <typename T, typename U>

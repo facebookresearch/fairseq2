@@ -19,7 +19,7 @@
 namespace fairseq2::detail {
 
 utf8_stream::utf8_stream(
-    std::unique_ptr<stream> &&inner,
+    std::unique_ptr<byte_stream> &&inner,
     std::optional<std::string> encoding,
     std::size_t chunk_size) noexcept
   : inner_{std::move(inner)}
@@ -43,21 +43,24 @@ utf8_stream::~utf8_stream()
 memory_block
 utf8_stream::read_chunk()
 {
-    if (eod_)
+    if (is_eod_)
         return {};
 
-    if (inner_chunk_.empty())
-        inner_chunk_ = inner_->read_chunk();
+    if (encoded_chunk_.empty())
+        encoded_chunk_ = inner_->read_chunk();
 
+    // If the stream is already in UTF-8, take the shortcut.
     if (is_utf8_)
-        return std::exchange(inner_chunk_, {});
+        return std::exchange(encoded_chunk_, {});
 
     ensure_iconv_initialized();
 
+    // If iconv is initialized in this call, `is_utf8_` might be updated. Let's
+    // double check it.
     if (is_utf8_)
-        return std::exchange(inner_chunk_, {});
+        return std::exchange(encoded_chunk_, {});
 
-    return read_chunk_core();
+    return do_read_chunk();
 }
 
 void
@@ -65,58 +68,58 @@ utf8_stream::reset()
 {
     inner_->reset();
 
-    inner_chunk_ = {};
+    encoded_chunk_ = {};
 
     leftover_bits_ = {};
 
-    eod_ = false;
+    is_eod_ = false;
 
     reset_iconv();
 }
 
 memory_block
-utf8_stream::read_chunk_core()
+utf8_stream::do_read_chunk()
 {
-    writable_memory_block chunk = allocate_memory(chunk_size_);
+    writable_memory_block decoded_chunk = allocate_memory(chunk_size_);
 
-    writable_memory_span s = chunk;
+    writable_memory_span remaining_space = decoded_chunk;
 
-    while (!s.empty()) {
-        if (inner_chunk_.empty()) {
-            if (!load_next_inner_chunk())
+    while (!remaining_space.empty()) {
+        if (encoded_chunk_.empty()) {
+            if (!load_next_encoded_chunk())
                 break;
 
             move_leftover_bits();
         }
 
-        iconv_status st = decode_inner_chunk(s);
+        iconv_status st = decode_encoded_chunk(remaining_space);
 
         if (st == iconv_status::input_too_big)
             break;
 
         if (st == iconv_status::incomplete_sequence)
-            leftover_bits_ = std::exchange(inner_chunk_, {});
+            leftover_bits_ = std::exchange(encoded_chunk_, {});
     }
 
-    if (s.empty())
-        return chunk;
+    if (remaining_space.empty())
+        return decoded_chunk;
 
-    return chunk.share_first(chunk.size() - s.size());
+    return decoded_chunk.share_first(decoded_chunk.size() - remaining_space.size());
 }
 
 bool
-utf8_stream::load_next_inner_chunk()
+utf8_stream::load_next_encoded_chunk()
 {
-    inner_chunk_ = inner_->read_chunk();
+    encoded_chunk_ = inner_->read_chunk();
 
-    if (!inner_chunk_.empty())
+    if (!encoded_chunk_.empty())
         return true;
 
     if (!leftover_bits_.empty())
-        throw stream_error{
+        throw byte_stream_error{
             fmt::format("The stream ends with an invalid {} byte sequence.", encoding_)};
 
-    eod_ = true;
+    is_eod_ = true;
 
     return false;
 }
@@ -127,38 +130,38 @@ utf8_stream::move_leftover_bits()
     if (leftover_bits_.empty())
         return;
 
-    writable_memory_block b = allocate_memory(leftover_bits_.size() + inner_chunk_.size());
+    writable_memory_block block = allocate_memory(leftover_bits_.size() + encoded_chunk_.size());
 
-    auto iter = std::copy(leftover_bits_.begin(), leftover_bits_.end(), b.begin());
+    auto iter = std::copy(leftover_bits_.begin(), leftover_bits_.end(), block.begin());
 
-    std::copy(inner_chunk_.begin(), inner_chunk_.end(), iter);
+    std::copy(encoded_chunk_.begin(), encoded_chunk_.end(), iter);
 
-    inner_chunk_ = b;
+    encoded_chunk_ = block;
 
     leftover_bits_ = {};
 }
 
 utf8_stream::iconv_status
-utf8_stream::decode_inner_chunk(writable_memory_span &out)
+utf8_stream::decode_encoded_chunk(writable_memory_span &output)
 {
-    span<const char> inp_chrs = inner_chunk_.cast<const char>();
+    span<const char> input_chars = encoded_chunk_.cast<const char>();
 
-    span<char> out_chrs = cast<char>(out);
+    span<char> output_chars = cast<char>(output);
 
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-    auto inp_data = const_cast<char *>(inp_chrs.data());
-    auto inp_left = inp_chrs.size();
+    auto input_data = const_cast<char *>(input_chars.data());
+    auto input_left = input_chars.size();
 
-    auto out_data = out_chrs.data();
-    auto out_left = out_chrs.size();
+    auto output_data = output_chars.data();
+    auto output_left = output_chars.size();
 
-    std::size_t r = ::iconv(iconv_, &inp_data, &inp_left, &out_data, &out_left);
+    std::size_t result = ::iconv(iconv_, &input_data, &input_left, &output_data, &output_left);
 
-    inner_chunk_ = inner_chunk_.share_last(inp_left);
+    encoded_chunk_ = encoded_chunk_.share_last(input_left);
 
-    out = out.last(out_left);
+    output = output.last(output_left);
 
-    if (r != static_cast<std::size_t>(-1))
+    if (result != static_cast<std::size_t>(-1))
         return iconv_status::ok;
 
     std::error_code err = last_error();
@@ -170,11 +173,11 @@ utf8_stream::decode_inner_chunk(writable_memory_span &out)
         return iconv_status::incomplete_sequence;
 
     if (err == std::errc::illegal_byte_sequence)
-        throw stream_error{
-            fmt::format("An invalid {} byte sequence encountered.", encoding_)};
+        throw byte_stream_error{
+            fmt::format("An invalid {} byte sequence has been encountered.", encoding_)};
 
     throw std::system_error{err,
-        fmt::format("A system error occurred while decoding the {} stream", encoding_)};
+        fmt::format("A system error has occurred while decoding the {} stream", encoding_)};
 }
 
 void
@@ -184,7 +187,7 @@ utf8_stream::ensure_iconv_initialized()
         return;
 
     if (encoding_.empty()) {
-        encoding_ = infer_bom_encoding(inner_chunk_);
+        encoding_ = infer_bom_encoding(encoded_chunk_);
 
         if (is_utf8_encoding()) {
             is_utf8_ = true;

@@ -54,7 +54,7 @@ public:
     std::int32_t eos_idx;
     std::int32_t pad_idx;
 
-    std::size_t vocab_size;
+    std::size_t vocabulary_size;
 
 private:
     std::unique_ptr<sentencepiece::SentencePieceProcessor> native_;

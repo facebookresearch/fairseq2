@@ -92,34 +92,34 @@ element_selector::maybe_parse_path(std::string_view path)
 
     std::size_t segment_offset = 0;
 
-    for (std::size_t chr_idx = 0; chr_idx < path.size(); ++chr_idx) {
-        char chr = path[chr_idx];
+    for (std::size_t char_idx = 0; char_idx < path.size(); ++char_idx) {
+        char chr = path[char_idx];
 
         if (state == path_parser_state::parsing_key) {
             if (chr == '.') {
-                if (chr_idx == segment_offset)
+                if (char_idx == segment_offset)
                     // Empty path segment.
                     return std::nullopt;
 
-                record_key_segment(segment_offset, chr_idx);
+                record_key_segment(segment_offset, char_idx);
 
-                segment_offset = chr_idx + 1;
+                segment_offset = char_idx + 1;
             } else if (chr == '[') {
-                if (chr_idx == segment_offset) {
+                if (char_idx == segment_offset) {
                     // We allow indexing at the root (e.g. "[0]").
-                    if (chr_idx != 0)
+                    if (char_idx != 0)
                         return std::nullopt;
                 } else
-                    record_key_segment(segment_offset, chr_idx);
+                    record_key_segment(segment_offset, char_idx);
 
-                segment_offset = chr_idx + 1;
+                segment_offset = char_idx + 1;
 
                 state = path_parser_state::parsing_index;
             } else if (std::isspace(chr) != 0)
                 return std::nullopt;
         } else if (state == path_parser_state::parsing_index) {
             if (chr == ']') {
-                if (chr_idx == segment_offset)
+                if (char_idx == segment_offset)
                     // Empty index.
                     return std::nullopt;
 
@@ -134,11 +134,11 @@ element_selector::maybe_parse_path(std::string_view path)
                 return std::nullopt;
         } else if (state == path_parser_state::parsed_index) {
             if (chr == '[') {
-                segment_offset = chr_idx + 1;
+                segment_offset = char_idx + 1;
 
                 state = path_parser_state::parsing_index;
             } else if (chr == '.') {
-                segment_offset = chr_idx + 1;
+                segment_offset = char_idx + 1;
 
                 state = path_parser_state::parsing_key;
             } else

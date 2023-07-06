@@ -8,6 +8,8 @@
 
 #include <algorithm>
 
+#include <fmt/core.h>
+
 #include "fairseq2/native/error.h"
 
 using namespace fairseq2::detail;
@@ -19,7 +21,7 @@ record_reader::~record_reader() = default;
 memory_block
 record_reader::next()
 {
-    if (!load_record())
+    if (!load_next_record())
         return {};
 
     memory_block record = extract_record();
@@ -32,39 +34,50 @@ record_reader::next()
 void
 record_reader::reset()
 {
-    last_chunk_ = {};
+    current_chunk_ = {};
 
-    prev_chunks_.clear();
+    previous_chunks_.clear();
 
     stream_->reset();
 }
 
 bool
-record_reader::load_record()
+record_reader::load_next_record()
 {
-    record_size_ = 0;
+    record_length_ = 0;
 
-    std::optional<std::size_t> record_offset{};
+    std::optional<std::size_t> record_end_offset{};
 
-    while (!(record_offset = find_record_end(last_chunk_, prev_chunks_.empty()))) {
+    bool first_chunk = true;
+
+    // Load and store memory chunks until we find the end of the next record.
+    while (!(record_end_offset = find_record_end(current_chunk_, first_chunk))) {
         memory_block next_chunk = stream_->read_chunk();
         if (next_chunk.empty()) {
-            if (last_chunk_.empty())
+            // If `next_chunk` is empty and we don't have any partial record
+            // stored from a previous call, we have reached end of data.
+            if (current_chunk_.empty())
                 return false;
 
-            throw record_error{"The stream ends with a partial record."};
+            throw record_error{
+                fmt::format("The stream ends with a partial record of {} byte(s).", current_chunk_.size())};
         }
 
-        record_size_ += last_chunk_.size();
+        // Move `current_chunk_` to previous chunks and attempt to find the record
+        // end within `next_chunk` in the next iteration.
+        record_length_ += current_chunk_.size();
 
-        prev_chunks_.push_back(std::move(last_chunk_));
+        previous_chunks_.push_back(std::move(current_chunk_));
 
-        last_chunk_ = std::move(next_chunk);
+        current_chunk_ = std::move(next_chunk);
+
+        first_chunk = false;
     }
 
-    record_size_ += *record_offset;
+    record_length_ += *record_end_offset;
 
-    next_record_offset_ = *record_offset;
+    // The distance to the end of the record within `current_chunk_`.
+    record_end_offset_ = *record_end_offset;
 
     return true;
 }
@@ -72,24 +85,29 @@ record_reader::load_record()
 memory_block
 record_reader::extract_record()
 {
-    if (prev_chunks_.empty())
-        return last_chunk_.share_first(record_size_);
+    // If the entire record is contained within `current_chunk_`, just return a
+    // reference to it.
+    if (previous_chunks_.empty())
+        return current_chunk_.share_first(record_length_);
 
+    // Otherwise, merge all previous chunks plus the first `record_end_offset_` bytes
+    // of `current_chunk_` into a contiguous memory block.
     return copy_split_record();
 }
 
 memory_block
 record_reader::copy_split_record()
 {
-    writable_memory_block record = allocate_memory(record_size_);
+    writable_memory_block record = allocate_memory(record_length_);
 
     auto iter = record.begin();
 
-    std::for_each(prev_chunks_.begin(), prev_chunks_.end(), [&iter](const memory_block &b) {
-        iter = std::copy(b.begin(), b.end(), iter);
-    });
+    std::for_each(
+        previous_chunks_.begin(), previous_chunks_.end(), [&iter](const memory_block &block) {
+            iter = std::copy(block.begin(), block.end(), iter);
+        });
 
-    std::copy(last_chunk_.begin(), last_chunk_.begin() + next_record_offset_, iter);
+    std::copy(current_chunk_.begin(), current_chunk_.begin() + record_end_offset_, iter);
 
     return record;
 }
@@ -97,9 +115,9 @@ record_reader::copy_split_record()
 void
 record_reader::move_to_next_record()
 {
-    last_chunk_ = last_chunk_.share_slice(next_record_offset_);
+    current_chunk_ = current_chunk_.share_slice(record_end_offset_);
 
-    prev_chunks_.clear();
+    previous_chunks_.clear();
 }
 
 record_error::~record_error() = default;

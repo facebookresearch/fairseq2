@@ -20,6 +20,8 @@ def_text(py::module_ &data_module)
     def_sentencepiece(m);
 
     def_text_reader(m);
+
+    def_text_converters(m);
 }
 
 }  // namespace fairseq2

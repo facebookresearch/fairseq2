@@ -5,12 +5,12 @@
 # LICENSE file in the root directory of this source tree.
 
 from fairseq2.data.cstring import CString as CString
+from fairseq2.data.data_pipeline import ByteStreamError as ByteStreamError
 from fairseq2.data.data_pipeline import Collater as Collater
 from fairseq2.data.data_pipeline import DataPipeline as DataPipeline
 from fairseq2.data.data_pipeline import DataPipelineBuilder as DataPipelineBuilder
 from fairseq2.data.data_pipeline import DataPipelineError as DataPipelineError
 from fairseq2.data.data_pipeline import RecordError as RecordError
-from fairseq2.data.data_pipeline import StreamError as StreamError
 from fairseq2.data.data_pipeline import list_files as list_files
 from fairseq2.data.data_pipeline import read_sequence as read_sequence
 from fairseq2.data.data_pipeline import read_zipped_records as read_zipped_records

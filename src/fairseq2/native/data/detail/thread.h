@@ -17,7 +17,7 @@ namespace fairseq2::detail {
 
 template<typename Func, typename... Args>
 std::thread
-start_thread(Func &&f, Args &&... args)
+start_thread(Func &&f, Args &&...args)
 {
     ::sigset_t mask{};
     ::sigset_t original_mask{};
@@ -25,16 +25,16 @@ start_thread(Func &&f, Args &&... args)
     sigfillset(&mask);
 
     // Block all async signals in the new thread.
-    int s = ::pthread_sigmask(SIG_SETMASK, &mask, &original_mask);
-    if (s != 0)
-        throw std::system_error{s, std::generic_category()};
+    int result = ::pthread_sigmask(SIG_SETMASK, &mask, &original_mask);
+    if (result != 0)
+        throw std::system_error{result, std::generic_category()};
 
     std::thread t{std::forward<Func>(f), std::forward<Args>(args)...};
 
     // Restore the signal mask.
-    s = ::pthread_sigmask(SIG_SETMASK, &original_mask, nullptr);
-    if (s != 0)
-        throw std::system_error{s, std::generic_category()};
+    result = ::pthread_sigmask(SIG_SETMASK, &original_mask, nullptr);
+    if (result != 0)
+        throw std::system_error{result, std::generic_category()};
 
     return t;
 }

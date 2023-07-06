@@ -28,7 +28,7 @@ data_length_extractor::operator()(const data &d) const
     auto extract_length = [this](const data &element, element_path_ref path = {})
     {
         if (element.is_tensor())
-            return static_cast<std::size_t>(element.as_tensor().size(0));
+            return conditional_cast<std::size_t>(element.as_tensor().size(0));
 
         if (element.is_int())
             return conditional_cast<std::size_t>(element.as_int());

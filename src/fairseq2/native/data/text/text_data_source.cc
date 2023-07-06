@@ -14,11 +14,11 @@
 
 #include <fmt/core.h>
 
-#include "fairseq2/native/error.h"
+#include "fairseq2/native/exception.h"
+#include "fairseq2/native/data/byte_stream.h"
 #include "fairseq2/native/data/data_pipeline.h"
 #include "fairseq2/native/data/file.h"
 #include "fairseq2/native/data/immutable_string.h"
-#include "fairseq2/native/data/stream.h"
 #include "fairseq2/native/utils/string.h"
 
 namespace fairseq2::detail {
@@ -27,7 +27,7 @@ text_data_source::text_data_source(std::string &&pathname, text_options &&opts)
   : pathname_{std::move(pathname)}, opts_{std::move(opts)}
 {
     try {
-        reader_ = make_text_line_reader();
+        line_reader_ = make_text_line_reader();
     } catch (const std::exception &) {
         handle_error();
     }
@@ -36,16 +36,16 @@ text_data_source::text_data_source(std::string &&pathname, text_options &&opts)
 std::optional<data>
 text_data_source::next()
 {
-    memory_block line;
+    memory_block line{};
 
     try {
-        line = next_line();
+        line = read_next_line();
     } catch (const std::exception &) {
         handle_error();
     }
 
     if (line.empty())
-        return {};
+        return std::nullopt;
 
     immutable_string output{std::move(line)};
 
@@ -62,7 +62,7 @@ void
 text_data_source::reset()
 {
     try {
-        reader_->reset();
+        line_reader_->reset();
     } catch (const std::exception &) {
         handle_error();
     }
@@ -83,8 +83,8 @@ text_data_source::reload_position(tape &t)
 
     reset();
 
-    for (std::size_t i = 0; i < num_lines_read; i++)
-        next_line();
+    for (std::size_t i = 0; i < num_lines_read; ++i)
+        read_next_line();
 }
 
 std::unique_ptr<text_line_reader>
@@ -97,20 +97,19 @@ text_data_source::make_text_line_reader()
     auto opts = text_file_options(opts_.encoding())
         .memory_map(opts_.memory_map()).block_size(std::max(chunk_size, min_chunk_size));
 
-    std::unique_ptr<stream> s = read_file(pathname_, opts);
+    std::unique_ptr<byte_stream> stream = open_file(pathname_, opts);
 
-    return std::make_unique<text_line_reader>(std::move(s), opts_.line_ending());
+    return std::make_unique<text_line_reader>(std::move(stream), opts_.line_ending());
 }
 
 memory_block
-text_data_source::next_line()
+text_data_source::read_next_line()
 {
     memory_block line{};
 
-    while (!(line = reader_->next()).empty()) {
+    while (!(line = line_reader_->next()).empty())
         if (!opts_.skip_empty() || !is_empty(line))
             break;
-    }
 
     num_lines_read_++;
 
@@ -118,15 +117,16 @@ text_data_source::next_line()
 }
 
 bool
-text_data_source::is_empty(memory_span line) const noexcept
+text_data_source::is_empty(memory_span line) const
 {
-    switch (reader_->actual_line_ending()) {
+    switch (line_reader_->actual_line_ending()) {
     case line_ending::lf:
         return line.size() == 1;
     case line_ending::crlf:
         return line.size() == 2;
     case line_ending::infer:
-        unreachable();
+        throw internal_error{
+            "The line ending has not been set. Please file a bug report."};
     }
 
     return false;
@@ -137,7 +137,7 @@ text_data_source::handle_error()
 {
     try {
         throw;
-    } catch (const stream_error &) {
+    } catch (const byte_stream_error &) {
         throw_read_failure();
     } catch (const record_error &) {
         throw_read_failure();

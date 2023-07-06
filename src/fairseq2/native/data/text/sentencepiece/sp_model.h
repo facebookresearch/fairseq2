@@ -89,7 +89,7 @@ public:
     pad_idx() const;
 
     std::size_t
-    vocab_size() const;
+    vocabulary_size() const;
 
     std::string
     serialize() const;

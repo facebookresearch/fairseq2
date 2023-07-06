@@ -79,9 +79,9 @@ sp_model::pad_idx() const
 }
 
 std::size_t
-sp_model::vocab_size() const
+sp_model::vocabulary_size() const
 {
-    return processor_->vocab_size;
+    return processor_->vocabulary_size;
 }
 
 std::string

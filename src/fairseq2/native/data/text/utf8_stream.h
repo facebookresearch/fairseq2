@@ -14,21 +14,17 @@
 #include <iconv.h>
 
 #include "fairseq2/native/memory.h"
-#include "fairseq2/native/data/stream.h"
+#include "fairseq2/native/data/byte_stream.h"
 
 namespace fairseq2::detail {
 
-class utf8_stream final : public stream {
-    enum class iconv_status {
-        ok,
-        input_too_big,
-        incomplete_sequence
-    };
+class utf8_stream final : public byte_stream {
+    enum class iconv_status { ok, input_too_big, incomplete_sequence };
 
 public:
     explicit
     utf8_stream(
-        std::unique_ptr<stream> &&inner,
+        std::unique_ptr<byte_stream> &&inner,
         std::optional<std::string> encoding,
         std::size_t chunk_size) noexcept;
 
@@ -54,16 +50,16 @@ private:
     }
 
     memory_block
-    read_chunk_core();
+    do_read_chunk();
 
     bool
-    load_next_inner_chunk();
+    load_next_encoded_chunk();
 
     void
     move_leftover_bits();
 
     iconv_status
-    decode_inner_chunk(writable_memory_span &out);
+    decode_encoded_chunk(writable_memory_span &output);
 
     void
     ensure_iconv_initialized();
@@ -74,14 +70,14 @@ private:
 private:
     static const ::iconv_t invalid_iconv_;
 
-    std::unique_ptr<stream> inner_;
+    std::unique_ptr<byte_stream> inner_;
     std::string encoding_{};
     bool is_utf8_;
     std::size_t chunk_size_;
-    ::iconv_t iconv_{invalid_iconv_};
-    memory_block inner_chunk_{};
+    ::iconv_t iconv_ = invalid_iconv_;
+    memory_block encoded_chunk_{};
     memory_block leftover_bits_{};
-    bool eod_ = false;
+    bool is_eod_ = false;
 };
 
 }  // namespace fairseq2::detail

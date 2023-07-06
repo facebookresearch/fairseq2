@@ -12,6 +12,7 @@
 #include <pybind11/stl.h>
 
 #include "fairseq2/native/extension/type_casters/data.h"
+#include "fairseq2/native/extension/type_casters/map_fn.h"
 #include "fairseq2/native/extension/type_casters/py.h"
 #include "fairseq2/native/extension/type_casters/string.h"
 #include "fairseq2/native/extension/type_casters/torch.h"
@@ -31,9 +32,6 @@ void
 def_memory(pybind11::module_ &data_module);
 
 void
-def_processors(pybind11::module_ &data_module);
-
-void
 def_sentencepiece(pybind11::module_ &text_module);
 
 void
@@ -41,6 +39,9 @@ def_string(pybind11::module_ &data_module);
 
 void
 def_text(pybind11::module_ &data_module);
+
+void
+def_text_converters(pybind11::module_ &text_module);
 
 void
 def_text_reader(pybind11::module_ &text_module);

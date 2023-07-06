@@ -229,7 +229,7 @@ def load_data_from_manifest(
     env: Env,
 ) -> Iterable[Seq2SeqBatch]:
     num_parallel_calls = 8
-    pad_idx = tokenizer.vocab_info.pad_idx
+    pad_idx = tokenizer.vocabulary_info.pad_idx
     src_audio_dataloader = (
         _read_tsv_shard(manifest_path, env)
         .map(_load_audio_feats, num_parallel_calls=num_parallel_calls)
@@ -315,8 +315,8 @@ def _load_audio_feats_byteoffset(parts: List[str]) -> Tensor:
 
 def vocab_info(tokenizer: Tokenizer) -> VocabularyInfo:
     """Cache metadata about the tokenizer"""
-    log.info(f"vocab_info: {tokenizer.vocab_info}")
-    return tokenizer.vocab_info
+    log.info(f"vocab_info: {tokenizer.vocabulary_info}")
+    return tokenizer.vocabulary_info
 
 
 # This is important, it tells torch.hub how to reload our "task" which contains model and tokenizer.

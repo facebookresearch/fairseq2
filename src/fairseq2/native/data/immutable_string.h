@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <functional>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -198,6 +199,17 @@ remove_suffix(const immutable_string &s, immutable_string::size_type n) noexcept
 {
     return s.remove_suffix(n);
 }
+
+class FAIRSEQ2_API invalid_utf8_error : public std::logic_error {
+public:
+    using std::logic_error::logic_error;
+
+public:
+    invalid_utf8_error(const invalid_utf8_error &) = default;
+    invalid_utf8_error &operator=(const invalid_utf8_error &) = default;
+
+   ~invalid_utf8_error() override;
+};
 
 }  // namespace fairseq2
 

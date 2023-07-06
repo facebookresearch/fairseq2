@@ -12,46 +12,42 @@ add_library(fairseq2 SHARED)
 
 target_sources(fairseq2
     PRIVATE
-        error.cc
         exception.cc
         memory.cc
-        py.cc
         data/bucket_by_length_data_source.cc
         data/bucket_data_source.cc
+        data/byte_stream.cc
         data/collater.cc
         data/data.cc
         data/data_length_extractor.cc
         data/data_pipeline.cc
-        data/data_processor.cc
         data/data_source.cc
+        data/element_mapper.cc
         data/element_selector.cc
         data/file.cc
         data/file_stream.cc
-        data/filtered_data_source.cc
+        data/filter_data_source.cc
         data/immutable_string.cc
         data/list_data_source.cc
-        data/mapped_data_source.cc
+        data/map_data_source.cc
         data/memory_stream.cc
-        data/prefetched_data_source.cc
-        data/ranged_data_source.cc
+        data/prefetch_data_source.cc
+        data/py.cc
         data/record_reader.cc
         data/round_robin_data_source.cc
-        data/sharded_data_source.cc
-        data/shuffled_data_source.cc
-        data/skipped_data_source.cc
-        data/stream.cc
+        data/shard_data_source.cc
+        data/shuffle_data_source.cc
+        data/skip_data_source.cc
+        data/take_data_source.cc
         data/tape.cc
-        data/yielded_data_source.cc
+        data/yield_from_data_source.cc
         data/zip_data_source.cc
-        data/zipped_data_source.cc
+        data/zip_file_data_source.cc
         data/detail/file.cc
         data/detail/file_system.cc
-        data/processors/composite_data_processor.cc
-        data/processors/custom_data_processor.cc
-        data/processors/element_processor.cc
-        data/processors/string_splitter.cc
-        data/processors/string_to_integer_converter.cc
-        data/processors/string_to_tensor_converter.cc
+        data/text/string_splitter.cc
+        data/text/string_to_int_converter.cc
+        data/text/string_to_tensor_converter.cc
         data/text/text_data_source.cc
         data/text/text_line_reader.cc
         data/text/text_reader.cc

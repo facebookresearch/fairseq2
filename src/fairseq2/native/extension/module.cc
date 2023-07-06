@@ -19,7 +19,7 @@ PYBIND11_MODULE(C, m)
 
     m.def(
         "_supports_cuda",
-        []()
+        []
         {
           return supports_cuda;
         });
@@ -30,7 +30,7 @@ PYBIND11_MODULE(C, m)
 
     m.def(
         "_cuda_version",
-        []()
+        []
         {
           if constexpr (cuda_version_major)
               return py::make_tuple(*cuda_version_major, *cuda_version_minor);

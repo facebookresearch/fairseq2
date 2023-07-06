@@ -7,94 +7,107 @@
 #include "fairseq2/native/data/zip_data_source.h"
 
 #include <algorithm>
-#include <cstddef>
-#include <exception>
-#include <system_error>
-#include <utility>
+#include <cstdint>
 
-#include <fmt/core.h>
+#include <oneapi/tbb.h>
 
-#include "fairseq2/native/error.h"
 #include "fairseq2/native/data/data_pipeline.h"
-#include "fairseq2/native/data/file.h"
-#include "fairseq2/native/data/immutable_string.h"
-#include "fairseq2/native/data/stream.h"
-#include "fairseq2/native/utils/string.h"
-#include <zip/src/zip.h>
-#include "fairseq2/native/memory.h"
 
 namespace fairseq2::detail {
 
-zip_data_source::zip_data_source(std::string &&pathname)
-    : pathname_{std::move(pathname)}
+zip_data_source::zip_data_source(
+    std::vector<data_pipeline> &&pipelines,
+    std::optional<std::vector<std::string>> &&names,
+    bool warn_only,
+    bool disable_parallelism) noexcept
+  : pipelines_(std::move(pipelines)),
+    warn_only_{warn_only},
+    disable_parallelism_{disable_parallelism}
 {
-    try {
-        zip_reader_ = zip_open(pathname_.c_str(), ZIP_DEFAULT_COMPRESSION_LEVEL, 'r');
-        num_entries_ = (std::size_t)zip_entries_total(zip_reader_);
-    } catch (const std::exception &) {
-        handle_error();
-    }
+    if (names)
+        names_ = *std::move(names);
 }
 
 std::optional<data>
 zip_data_source::next()
 {
-    if (num_files_read_ >= num_entries_) return std::nullopt;
+    if (pipelines_.empty())
+        return std::nullopt;
 
-    fairseq2::writable_memory_block zip_entry;
-    zip_entry_openbyindex(zip_reader_, num_files_read_);
+    std::vector<data> zip(pipelines_.size());
+
+    // Do not use `bool` here as, per standard, it is not thread-safe even for
+    // distinct elements.
+    std::vector<std::int8_t> is_eod(pipelines_.size());
+
+    // Fetch the next set of elements from the zip data pipelines.
+    auto fetch_next = [this, &zip, &is_eod](const tbb::blocked_range<std::size_t> &range)
     {
-        auto size = zip_entry_size(zip_reader_);
-        zip_entry = fairseq2::allocate_memory(size);
-        zip_entry_noallocread(zip_reader_, (void *)zip_entry.data(), size);
-    }
-    zip_entry_close(zip_reader_);
+        for (auto i = range.begin(); i < range.end(); ++i) {
+            std::optional<data> d = pipelines_[i].next();
+            if (d)
+                zip[i] = *std::move(d);
+            else
+                is_eod[i] = 1;
+        }
+    };
 
-    num_files_read_ += 1;
-    return immutable_string{zip_entry};
+    tbb::blocked_range<std::size_t> range{0, pipelines_.size()};
+
+    if (disable_parallelism_ || pipelines_.size() == 1)
+        fetch_next(range);
+    else
+        tbb::parallel_for(range, fetch_next);
+
+    // Check whether all data pipelines are in sync.
+    bool are_in_sync = std::all_of(
+        is_eod.begin() + 1, is_eod.end(), [&is_eod](std::int8_t b) { return b == is_eod[0]; });
+
+    if (are_in_sync) {
+        if (is_eod[0] == 1)
+            return std::nullopt;
+
+        // If no names specified, return as list.
+        if (names_.empty())
+            return zip;
+
+        // Otherwise, as dictionary.
+        flat_hash_map<std::string, data> dict{};
+
+        for (std::size_t i = 0; i < zip.size(); ++i)
+            dict.emplace(names_[i], std::move(zip[i]));
+
+        return dict;
+    }
+
+    if (!warn_only_)
+        throw data_pipeline_error{
+            "The zipped data pipelines are expected to have equal length, but at least one data pipeline has more examples than the others."};
+
+    // TODO: print warning.
+
+    return std::nullopt;
 }
 
 void
 zip_data_source::reset()
 {
-    num_files_read_ = 0;
+    for (auto &pipeline : pipelines_)
+        pipeline.reset();
 }
 
 void
 zip_data_source::record_position(tape &t) const
 {
-    t.record(num_files_read_);
+    for (auto &pipeline : pipelines_)
+        pipeline.record_position(t);
 }
 
 void
 zip_data_source::reload_position(tape &t)
 {
-    auto num_files_read = t.read<std::size_t>();
-
-    reset();
-
-    // TODO: use random access
-    for (std::size_t i = 0; i < num_files_read; i++)
-        next();
-}
-
-void
-zip_data_source::handle_error()
-{
-    try {
-        throw;
-    } catch (const stream_error &) {
-        throw_read_failure();
-    } catch (const std::system_error &) {
-        throw_read_failure();
-    }
-}
-
-inline void
-zip_data_source::throw_read_failure()
-{
-    data_pipeline_error::throw_nested(
-        fmt::format("The data pipeline cannot read from '{}'.", pathname_));
+    for (auto &pipeline : pipelines_)
+        pipeline.reload_position(t);
 }
 
 }  // namespace fairseq2::detail

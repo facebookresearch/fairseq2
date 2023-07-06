@@ -11,6 +11,8 @@
 
 #include <fairseq2/native/data/immutable_string.h>
 
+using namespace fairseq2;
+
 namespace pybind11::detail {
 namespace {
 
@@ -31,22 +33,24 @@ maybe_as_pathname(handle src) {
 bool
 type_caster<std::string>::load(handle src, bool convert)
 {
-    if (isinstance<fairseq2::immutable_string>(src)) {
-        value = src.cast<fairseq2::immutable_string &>().to_string();
+    if (isinstance<immutable_string>(src)) {
+        value = src.cast<immutable_string &>().to_string();
 
         return true;
-    } else if (subcaster_.load(src, convert)) {
-        value = static_cast<std::string &&>(std::move(subcaster_));
+    }
+
+    if (inner_caster_.load(src, convert)) {
+        value = static_cast<std::string &&>(std::move(inner_caster_));
 
         return true;
-    } else {
-        object pathname = maybe_as_pathname(src);
+    }
 
-        if (subcaster_.load(pathname, convert)) {
-            value = static_cast<std::string &&>(std::move(subcaster_));
+    object pathname = maybe_as_pathname(src);
 
-            return true;
-        }
+    if (inner_caster_.load(pathname, convert)) {
+        value = static_cast<std::string &&>(std::move(inner_caster_));
+
+        return true;
     }
 
     return false;
@@ -55,26 +59,28 @@ type_caster<std::string>::load(handle src, bool convert)
 bool
 type_caster<std::string_view>::load(handle src, bool convert)
 {
-    if (isinstance<fairseq2::immutable_string>(src)) {
-        value = static_cast<std::string_view>(src.cast<fairseq2::immutable_string &>());
+    if (isinstance<immutable_string>(src)) {
+        value = static_cast<std::string_view>(src.cast<immutable_string &>());
 
         return true;
-    } else if (subcaster_.load(src, convert)) {
-        value = static_cast<std::string_view>(subcaster_);
+    }
+
+    if (inner_caster_.load(src, convert)) {
+        value = static_cast<std::string_view>(inner_caster_);
 
         return true;
-    } else {
-        object pathname = maybe_as_pathname(src);
+    }
 
-        if (subcaster_.load(pathname, convert)) {
-            value = static_cast<std::string_view>(subcaster_);
+    object pathname = maybe_as_pathname(src);
 
-            // We have to keep the pathname alive until the enclosing function
-            // returns.
-            loader_life_support::add_patient(pathname);
+    if (inner_caster_.load(pathname, convert)) {
+        value = static_cast<std::string_view>(inner_caster_);
 
-            return true;
-        }
+        // We have to keep the pathname alive until the enclosing function
+        // returns.
+        loader_life_support::add_patient(pathname);
+
+        return true;
     }
 
     return false;

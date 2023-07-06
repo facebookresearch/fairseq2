@@ -6,7 +6,7 @@
 
 import pytest
 
-from fairseq2.data.processors import StrSplitter
+from fairseq2.data.text.converters import StrSplitter
 
 
 class TestStrToTensorConverter:

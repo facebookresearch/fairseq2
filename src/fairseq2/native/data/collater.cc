@@ -18,7 +18,7 @@
 namespace fairseq2 {
 
 data
-collater::process(data &&d) const
+collater::operator()(data &&d) const
 {
     if (!d.is_list())
         return d;
@@ -63,7 +63,7 @@ collater::process(data &&d) const
         std::vector<data> collated_columns = {};
         collated_columns.reserve(n_cols);
         for (std::size_t col = 0; col < n_cols; ++col) {
-            collated_columns.emplace_back(process(columns[col]));
+            collated_columns.emplace_back((*this)(columns[col]));
         }
         return collated_columns;
     }

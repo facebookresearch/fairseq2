@@ -17,19 +17,4 @@ last_error() noexcept
     return std::error_code{errno, std::generic_category()};
 }
 
-#ifdef NDEBUG
-
-[[noreturn]] inline void
-unreachable()
-{
-    __builtin_unreachable();
-}
-
-#else
-
-[[noreturn]] void
-unreachable(const char *file = __builtin_FILE(), int line = __builtin_LINE());
-
-#endif
-
 }  // namespace fairseq2::detail

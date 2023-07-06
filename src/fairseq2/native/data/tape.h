@@ -88,7 +88,8 @@ public:
 inline void
 tape::throw_corrupt()
 {
-    throw corrupt_tape_error{"The tape is corrupt. The state of the data pipeline cannot be restored."};
+    throw corrupt_tape_error{
+        "The tape is corrupt. The state of the data pipeline cannot be restored."};
 }
 
 }  // namespace fairseq2

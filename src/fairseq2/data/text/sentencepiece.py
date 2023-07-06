@@ -47,7 +47,7 @@ if TYPE_CHECKING or _DOC_MODE:
             ...
 
         @property
-        def vocab_size(self) -> int:
+        def vocabulary_size(self) -> int:
             ...
 
     @final
@@ -100,8 +100,12 @@ else:
     _set_module_name()
 
 
-def vocab_from_sentencepiece(model: SentencePieceModel) -> VocabularyInfo:
+def vocabulary_from_sentencepiece(model: SentencePieceModel) -> VocabularyInfo:
     """Return the vocabulary information of ``model``."""
     return VocabularyInfo(
-        model.vocab_size, model.unk_idx, model.bos_idx, model.eos_idx, model.pad_idx
+        model.vocabulary_size,
+        model.unk_idx,
+        model.bos_idx,
+        model.eos_idx,
+        model.pad_idx,
     )

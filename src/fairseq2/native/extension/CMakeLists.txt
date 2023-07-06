@@ -18,14 +18,14 @@ target_sources(extension
         data/data_pipeline.cc
         data/init.cc
         data/memory.cc
-        data/processors.cc
         data/string.cc
-        data/utils.cc
+        data/text/converters.cc
         data/text/init.cc
         data/text/dict_tokenizer.cc
         data/text/sentencepiece.cc
         data/text/text_reader.cc
         type_casters/data.cc
+        type_casters/map_fn.cc
         type_casters/string.cc
         type_casters/torch.cc
 )

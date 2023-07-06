@@ -10,12 +10,12 @@
 #include <string>
 
 #include "fairseq2/native/memory.h"
-#include "fairseq2/native/data/stream.h"
+#include "fairseq2/native/data/byte_stream.h"
 #include "fairseq2/native/data/detail/file.h"
 
 namespace fairseq2::detail {
 
-class file_stream final : public stream {
+class file_stream final : public byte_stream {
 public:
     explicit
     file_stream(file_desc &&fd, std::string pathname, std::size_t chunk_size) noexcept;
@@ -37,7 +37,7 @@ private:
     file_desc fd_;
     std::string pathname_;
     std::size_t chunk_size_;
-    bool eod_ = false;
+    bool is_eod_ = false;
 };
 
 }  // namespace fairseq2::detail

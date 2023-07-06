@@ -134,7 +134,7 @@ class AsrDataloader(Iterable[Seq2SeqBatch]):
         self.device = env.device
         self.dtype = dtype
 
-        self.pad_idx = tokenizer.vocab_info.pad_idx
+        self.pad_idx = tokenizer.vocabulary_info.pad_idx
 
         self.token_encoder = tokenizer.create_encoder(
             task="transcribe",

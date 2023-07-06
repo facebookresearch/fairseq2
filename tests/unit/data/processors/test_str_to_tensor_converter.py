@@ -9,7 +9,7 @@ from typing import Any, Optional, Sequence
 import pytest
 import torch
 
-from fairseq2.data.processors import StrToTensorConverter
+from fairseq2.data.text.converters import StrToTensorConverter
 from fairseq2.typing import DataType
 from tests.common import assert_equal
 

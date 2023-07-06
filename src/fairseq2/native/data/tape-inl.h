@@ -113,14 +113,14 @@ tape::read()
             if (std::size_t size = 0; detail::try_narrow(d.as_int(), size)) {
                 using U = typename T::value_type;
 
-                std::vector<U> v{};
+                std::vector<U> output{};
 
-                v.reserve(size);
+                output.reserve(size);
 
-                for (std::size_t i = 0; i < size; i++)
-                    v.push_back(read<U>());
+                for (std::size_t i = 0; i < size; ++i)
+                    output.push_back(read<U>());
 
-                return v;
+                return output;
             }
         }
     } else if constexpr (detail::is_optional_v<T>) {
@@ -128,11 +128,11 @@ tape::read()
             if (d.as_bool())
                 return read<typename T::value_type>();
 
-            return {};
+            return std::nullopt;
         }
     } else
         static_assert(std::is_same_v<T, detail::not_same>,
-            "T is an unsupported data type.");
+            "`T` is an unsupported data type.");
 
     throw_corrupt();
 }

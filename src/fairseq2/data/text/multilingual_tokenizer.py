@@ -12,7 +12,7 @@ from fairseq2.data.text.sentencepiece import (
     SentencePieceDecoder,
     SentencePieceEncoder,
     SentencePieceModel,
-    vocab_from_sentencepiece,
+    vocabulary_from_sentencepiece,
 )
 from fairseq2.data.text.tokenizer import TokenDecoder, TokenEncoder, Tokenizer
 from fairseq2.data.typing import PathLike
@@ -64,9 +64,9 @@ class MultilingualTokenizer(Tokenizer):
         self.default_source_lang = default_source_lang
         self.default_target_lang = default_target_lang
 
-        vocab_info = vocab_from_sentencepiece(self.model)
+        vocabulary_info = vocabulary_from_sentencepiece(self.model)
 
-        super().__init__(vocab_info)
+        super().__init__(vocabulary_info)
 
     @finaloverride
     def create_encoder(

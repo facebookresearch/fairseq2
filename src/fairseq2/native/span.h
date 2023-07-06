@@ -36,8 +36,6 @@ inline constexpr bool is_compatible_container_v<
 
 }  // namespace detail
 
-// Since we cannot use C++20 (yet) due to our CUDA requirements, we have our own
-// simplified version of std::span here.
 template <typename T>
 class span {
 

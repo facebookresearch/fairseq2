@@ -34,16 +34,6 @@ public:
     explicit
     element_selector(std::string_view selector);
 
-    // TODO: remove??
-    static std::optional<element_selector>
-    maybe_parse(std::optional<std::string_view> selector)
-    {
-        if (!selector)
-            return std::nullopt;
-
-        return element_selector{*selector};
-    }
-
     void
     visit(data &d, const std::function<void(data &, element_path_ref)> &visitor) const;
 

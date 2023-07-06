@@ -10,18 +10,18 @@ import re
 import pytest
 
 from fairseq2.data import read_sequence
-from fairseq2.data.processors import StrToIntConverter
+from fairseq2.data.text.converters import StrToIntConverter
 
 
 class TestMapOp:
-    @pytest.mark.parametrize("p", [0, 1, 4, 10, 20])
-    def test_op_works_as_expected(self, p: int) -> None:
+    @pytest.mark.parametrize("num_parallel_calls", [0, 1, 4, 10, 20])
+    def test_op_works_as_expected(self, num_parallel_calls: int) -> None:
         def fn(d: int) -> int:
             return d**2
 
         seq = list(range(1, 10))
 
-        dp = read_sequence(seq).map(fn, num_parallel_calls=p).and_return()
+        dp = read_sequence(seq).map(fn, None, num_parallel_calls).and_return()
 
         for _ in range(2):
             assert list(dp) == [i**2 for i in seq]
@@ -51,8 +51,8 @@ class TestMapOp:
 
             dp.reset()
 
-    @pytest.mark.parametrize("p", [0, 1, 4, 10, 20])
-    def test_op_works_with_warn_only_as_expected(self, p: int) -> None:
+    @pytest.mark.parametrize("num_parallel_calls", [0, 1, 4, 10, 20])
+    def test_op_works_with_warn_only_as_expected(self, num_parallel_calls: int) -> None:
         def fn(d: int) -> int:
             if d % 2 == 0:
                 raise ValueError("foo")
@@ -61,11 +61,7 @@ class TestMapOp:
 
         seq = list(range(1, 10))
 
-        dp = (
-            read_sequence(seq)
-            .map(fn, num_parallel_calls=p, warn_only=True)
-            .and_return()
-        )
+        dp = read_sequence(seq).map(fn, None, num_parallel_calls, True).and_return()
 
         for _ in range(2):
             assert list(dp) == [i**2 for i in range(1, 10, 2)]
@@ -223,28 +219,30 @@ class TestMapOp:
         ):
             next(iter(dp))
 
-    @pytest.mark.parametrize("p", [0, 1, 4, 20])
-    def test_op_propagates_errors_as_expected(self, p: int) -> None:
+    @pytest.mark.parametrize("num_parallel_calls", [0, 1, 4, 20])
+    def test_op_propagates_errors_as_expected(self, num_parallel_calls: int) -> None:
         def fn(d: int) -> int:
             if d == 3:
                 raise ValueError("map error")
 
             return d
 
-        dp = read_sequence([1, 2, 3, 4]).map(fn, num_parallel_calls=p).and_return()
+        dp = read_sequence([1, 2, 3, 4]).map(fn, None, num_parallel_calls).and_return()
 
         with pytest.raises(ValueError, match=r"^map error$"):
             for d in dp:
                 pass
 
-    @pytest.mark.parametrize("p", [0, 1, 4, 20])
-    def test_record_reload_position_works_as_expected(self, p: int) -> None:
+    @pytest.mark.parametrize("num_parallel_calls", [0, 1, 4, 20])
+    def test_record_reload_position_works_as_expected(
+        self, num_parallel_calls: int
+    ) -> None:
         def fn(d: int) -> int:
             return d
 
         seq = list(range(1, 10))
 
-        dp = read_sequence(seq).map(fn, num_parallel_calls=p).and_return()
+        dp = read_sequence(seq).map(fn, None, num_parallel_calls).and_return()
 
         d = None
 

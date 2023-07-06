@@ -6,7 +6,7 @@
 
 #include "fairseq2/native/extension/type_casters/torch.h"
 
-#include <stdexcept>
+#include <fairseq2/native/exception.h>
 
 #include "fairseq2/native/extension/type_casters/string.h"
 
@@ -38,7 +38,6 @@ struct THPDtype {
 };
 
 extern PyTypeObject THPDtypeType;
-
 
 namespace pybind11 {
 
@@ -119,8 +118,8 @@ type_caster<at::ScalarType>::cast(const at::ScalarType &src, return_value_policy
         break;
     }
 
-    throw std::runtime_error{
-        "The specified at::ScalarType to torch.dtype conversion is not supported."};
+    throw fairseq2::not_supported_error{
+        "The specified `at::ScalarType` to `torch.dtype` conversion is not supported."};
 }
 
 handle
@@ -128,9 +127,9 @@ type_caster<at::ScalarType>::get_dtype(const char *type_name)
 {
     static object torch_module = module_::import("torch");
 
-    object o = torch_module.attr(type_name);
+    object obj = torch_module.attr(type_name);
 
-    return o.release();
+    return obj.release();
 }
 
 }  // namespace detail

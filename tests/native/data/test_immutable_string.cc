@@ -11,8 +11,6 @@
 
 #include <gtest/gtest.h>
 
-#include <fairseq2/native/data/text/detail/utf.h>
-
 using namespace fairseq2;
 
 // Also see the Python tests.

@@ -76,7 +76,7 @@ def assert_translation(
     # TODO: The strategy API needs to be revised to be generic. As of today, it
     # is pretty much limited to `TransformerModel`.
     strategy = BeamSearchStrategy(
-        vocab_info=tokenizer.vocab_info, beam_size=1, max_len=256
+        vocab_info=tokenizer.vocabulary_info, beam_size=1, max_len=256
     )
 
     encoder = tokenizer.create_encoder(lang="de", device=device)

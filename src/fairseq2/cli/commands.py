@@ -479,7 +479,7 @@ def inference(
     if tty:
         batch_size = 1
     strategy = BeamSearchStrategy(
-        vocab_info=task.tokenizer.vocab_info,
+        vocab_info=task.tokenizer.vocabulary_info,
         **beam_search_kwargs,  # type: ignore
     )
 

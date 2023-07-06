@@ -10,6 +10,11 @@
 
 namespace fairseq2::detail {
 
+bucket_data_source::bucket_data_source(
+    std::unique_ptr<data_source> &&inner, std::size_t bucket_size, bool drop_remainder) noexcept
+  : inner_{std::move(inner)}, bucket_size_{bucket_size}, drop_remainder_{drop_remainder}
+{}
+
 std::optional<data>
 bucket_data_source::next()
 {
@@ -31,7 +36,7 @@ bucket_data_source::next()
     if (drop_remainder_ && output.size() < bucket_size_)
         return std::nullopt;
 
-    return data{std::move(output)};
+    return output;
 }
 
 void

@@ -15,7 +15,7 @@ using namespace fairseq2::detail;
 namespace fairseq2 {
 
 immutable_string::immutable_string(std::string_view s)
-    : storage_{copy_string(s)}
+  : storage_{copy_string(s)}
 {}
 
 std::size_t
@@ -27,23 +27,23 @@ immutable_string::get_code_point_length() const
 memory_block
 immutable_string::copy_string(std::string_view s)
 {
-    writable_memory_block b = allocate_memory(s.size());
+    writable_memory_block block = allocate_memory(s.size());
 
-    std::copy(s.begin(), s.end(), b.cast<value_type>().begin());
+    std::copy(s.begin(), s.end(), block.cast<value_type>().begin());
 
-    return b;
+    return block;
 }
 
 std::vector<immutable_string>
 immutable_string::split(char separator) const
 {
-    std::vector<immutable_string> r{};
+    std::vector<immutable_string> output{};
 
-    split(separator, [&r](immutable_string &&s) {
-        r.push_back(std::move(s));
+    split(separator, [&output](immutable_string &&s) {
+        output.push_back(std::move(s));
     });
 
-    return r;
+    return output;
 }
 
 void
@@ -54,20 +54,22 @@ immutable_string::split(
 
     std::size_t offset = 0;
 
-    for (std::size_t i = 0; i < s.size(); i++) {
-        if (s[i] == separator) {
-            if (offset != i) {
-                immutable_string part{storage_.share_slice(offset, i - offset)};
+    for (std::size_t char_idx = 0; char_idx < s.size(); ++char_idx) {
+        if (s[char_idx] == separator) {
+            if (offset != char_idx) {
+                immutable_string part{storage_.share_slice(offset, char_idx - offset)};
 
                 handler(std::move(part));
             }
 
-            offset = i + 1;
+            offset = char_idx + 1;
         }
     }
 
     if (offset != s.size())
         handler(remove_prefix(offset));
 }
+
+invalid_utf8_error::~invalid_utf8_error() = default;
 
 }  // namespace fairseq2

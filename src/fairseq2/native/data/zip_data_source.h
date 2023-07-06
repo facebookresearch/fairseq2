@@ -6,15 +6,11 @@
 
 #pragma once
 
-#include <cstddef>
 #include <memory>
-#include <string>
 #include <utility>
+#include <vector>
 
-#include <zip.h>
-
-#include "fairseq2/native/memory.h"
-#include "fairseq2/native/span.h"
+#include "fairseq2/native/data/data_pipeline.h"
 #include "fairseq2/native/data/data_source.h"
 
 namespace fairseq2::detail {
@@ -22,7 +18,11 @@ namespace fairseq2::detail {
 class zip_data_source final : public data_source {
 public:
     explicit
-    zip_data_source(std::string &&pathname);
+    zip_data_source(
+        std::vector<data_pipeline> &&pipelines,
+        std::optional<std::vector<std::string>> &&names,
+        bool warn_only,
+        bool disable_parallelism) noexcept;
 
     std::optional<data>
     next() override;
@@ -37,20 +37,10 @@ public:
     reload_position(tape &t) override;
 
 private:
-    memory_block
-    next_line();
-
-    [[noreturn]] void
-    handle_error();
-
-    [[noreturn]] void
-    throw_read_failure();
-
-private:
-    std::string pathname_;
-    zip_t* zip_reader_;
-    std::size_t num_entries_;
-    std::size_t num_files_read_ = 0;
+    std::vector<data_pipeline> pipelines_;
+    std::vector<std::string> names_;
+    bool warn_only_;
+    bool disable_parallelism_;
 };
 
 }  // namespace fairseq2::detail

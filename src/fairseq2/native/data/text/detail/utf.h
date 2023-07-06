@@ -7,15 +7,12 @@
 #pragma once
 
 #include <cstddef>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 
-#include "fairseq2/native/api.h"
 #include "fairseq2/native/memory.h"
 
-namespace fairseq2 {
-namespace detail {
+namespace fairseq2::detail {
 
 std::size_t
 compute_code_point_length(std::string_view s);
@@ -23,17 +20,4 @@ compute_code_point_length(std::string_view s);
 std::string
 infer_bom_encoding(memory_span preamble) noexcept;
 
-}
-
-class FAIRSEQ2_API invalid_utf8_error : public std::logic_error {
-public:
-    using std::logic_error::logic_error;
-
-public:
-    invalid_utf8_error(const invalid_utf8_error &) = default;
-    invalid_utf8_error &operator=(const invalid_utf8_error &) = default;
-
-   ~invalid_utf8_error() override;
-};
-
-}  // namespace fairseq2
+}  // namespace fairseq2::detail

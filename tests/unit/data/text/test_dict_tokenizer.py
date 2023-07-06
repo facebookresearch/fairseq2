@@ -50,7 +50,7 @@ def test_pickling_() -> None:
 
 def test_vocab_info() -> None:
     tokenizer = DictTokenizer(10, vocab)
-    actual = tokenizer.vocab_info
+    actual = tokenizer.vocabulary_info
     expected: VocabularyInfo = VocabularyInfo(len(vocab) + 4, 0, 1, 2, 3)
 
     assert actual == expected

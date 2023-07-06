@@ -9,15 +9,15 @@
 #include <utility>
 
 #include "fairseq2/native/memory.h"
-#include "fairseq2/native/data/stream.h"
+#include "fairseq2/native/data/byte_stream.h"
 
 namespace fairseq2::detail {
 
-class memory_stream final : public stream {
+class memory_stream final : public byte_stream {
 public:
     explicit
-    memory_stream(memory_block b) noexcept
-      : block_{std::move(b)}
+    memory_stream(memory_block block) noexcept
+      : block_{std::move(block)}
     {
         original_block_ = block_;
     }

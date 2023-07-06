@@ -14,20 +14,19 @@
 #include "fairseq2/native/data/text/dict_tokenizer/dict_model.h"
 #include "fairseq2/native/span.h"
 #include "fairseq2/native/data/data.h"
-#include "fairseq2/native/data/data_processor.h"
 
 namespace fairseq2 {
 
 class immutable_string;
 
-class FAIRSEQ2_API dict_encoder final : public data_processor {
+class FAIRSEQ2_API dict_encoder final {
 
 public:
     explicit
     dict_encoder(const dict_model *model, std::int64_t max_seq_len);
 
     data
-    process(data &&d) const override;
+    operator()(data &&d) const;
 
 private:
     const dict_model *model_;

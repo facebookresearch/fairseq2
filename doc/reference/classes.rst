@@ -13,7 +13,6 @@ Classes
     data.DataPipelineBuilder
     data.StringLike
     data.DataPipelineError
-    data.StreamError
     data.RecordError
     data.text.SentencePieceModel
     data.text.MultilingualTokenizer

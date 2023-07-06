@@ -22,8 +22,8 @@
 #include "fairseq2/native/api.h"
 #include "fairseq2/native/float.h"
 #include "fairseq2/native/memory.h"
-#include "fairseq2/native/py.h"
 #include "fairseq2/native/data/immutable_string.h"
+#include "fairseq2/native/data/py.h"
 #include "fairseq2/native/utils/cast.h"
 
 namespace fairseq2 {

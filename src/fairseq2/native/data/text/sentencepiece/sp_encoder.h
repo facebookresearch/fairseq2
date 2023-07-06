@@ -20,7 +20,6 @@
 #include "fairseq2/native/float.h"
 #include "fairseq2/native/span.h"
 #include "fairseq2/native/data/data.h"
-#include "fairseq2/native/data/data_processor.h"
 
 namespace fairseq2 {
 
@@ -171,7 +170,7 @@ class immutable_string;
 
 class sp_model;
 
-class FAIRSEQ2_API sp_encoder final : public data_processor {
+class FAIRSEQ2_API sp_encoder final {
     friend class detail::encoder_op;
 
 public:
@@ -179,7 +178,7 @@ public:
     sp_encoder(std::shared_ptr<const sp_model> model, sp_encoder_options opts = {});
 
     data
-    process(data &&d) const override;
+    operator()(data &&d) const;
 
 private:
     at::Tensor

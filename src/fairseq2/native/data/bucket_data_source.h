@@ -18,9 +18,9 @@ class bucket_data_source final : public data_source {
 public:
     explicit
     bucket_data_source(
-        std::unique_ptr<data_source> &&inner, std::size_t bucket_size, bool drop_remainder) noexcept
-      : inner_{std::move(inner)}, bucket_size_{bucket_size}, drop_remainder_{drop_remainder}
-    {}
+        std::unique_ptr<data_source> &&inner,
+        std::size_t bucket_size,
+        bool drop_remainder) noexcept;
 
     std::optional<data>
     next() override;

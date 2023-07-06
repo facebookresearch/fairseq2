@@ -6,61 +6,60 @@
 
 #include "fairseq2/native/data/text/text_line_reader.h"
 
-#include "fairseq2/native/error.h"
+#include "fairseq2/native/exception.h"
 
 namespace fairseq2::detail {
 
 std::optional<std::size_t>
 text_line_reader::find_record_end(memory_span chunk, bool)
 {
-    auto chrs = cast<const char>(chunk);
+    auto chars = cast<const char>(chunk);
 
     if (line_ending_ == line_ending::infer)
-        if (!infer_line_ending(chrs))
+        if (!infer_line_ending(chars))
             return std::nullopt;
 
-    auto iter = chrs.begin();
+    auto iter = chars.begin();
 
     switch (line_ending_) {
     case line_ending::lf: {
-        for (; iter < chrs.end(); ++iter) {
+        for (; iter < chars.end(); ++iter)
             if (*iter == '\n')
                 break;
-        }
 
         break;
     }
     case line_ending::crlf: {
         bool has_cr = false;
 
-        for (; iter < chrs.end(); ++iter) {
+        for (; iter < chars.end(); ++iter) {
             if (*iter == '\n') {
                 if (has_cr)
                     break;
-            } else {
+            } else
                 has_cr = *iter == '\r';
-            }
         }
 
         break;
     }
     case line_ending::infer:
-        unreachable();
+        throw internal_error{
+            "The line ending has not been set. Please file a bug report."};
     }
 
-    if (iter == chrs.end())
+    if (iter == chars.end())
         return std::nullopt;
 
-    return static_cast<std::size_t>(iter - chrs.begin() + 1);
+    return static_cast<std::size_t>(iter - chars.begin() + 1);
 }
 
 bool
-text_line_reader::infer_line_ending(span<const char> chrs)
+text_line_reader::infer_line_ending(span<const char> chars)
 {
     bool has_cr = false;
 
-    for (char c : chrs) {
-        if (c == '\n') {
+    for (char chr : chars) {
+        if (chr == '\n') {
             if (has_cr)
                 line_ending_ = line_ending::crlf;
             else
@@ -69,7 +68,7 @@ text_line_reader::infer_line_ending(span<const char> chrs)
             break;
         }
 
-        has_cr = c == '\r';
+        has_cr = chr == '\r';
     }
 
     return line_ending_ != line_ending::infer;

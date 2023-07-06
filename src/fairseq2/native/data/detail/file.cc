@@ -32,7 +32,7 @@ mmap_deallocate(const void *addr, std::size_t size, void *) noexcept
 memory_block
 memory_map_file(const file_desc &fd, std::string_view pathname)
 {
-    struct ::stat buf = {};
+    struct ::stat buf{};
     if (::fstat(fd.get(), &buf) == -1)
         throw std::system_error{last_error(),
             fmt::format("The file size of '{}' cannot be retrieved", pathname)};

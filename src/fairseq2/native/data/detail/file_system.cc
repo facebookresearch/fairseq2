@@ -41,12 +41,12 @@ natural_sort(const ::FTSENT **a, const ::FTSENT **b)
 auto
 make_fts(const std::string &pathname)
 {
-    std::array<const char *, 2> a{pathname.c_str(), nullptr};
+    std::array<const char *, 2> arr{pathname.c_str(), nullptr};
 
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-    auto *p = const_cast<char * const *>(a.data());
+    auto *ptr = const_cast<char * const *>(arr.data());
 
-    ::FTS *fts = ::fts_open(p, FTS_LOGICAL | FTS_NOCHDIR, natural_sort);
+    ::FTS *fts = ::fts_open(ptr, FTS_LOGICAL | FTS_NOCHDIR, natural_sort);
     if (fts == nullptr)
         throw std::system_error{last_error(),
             fmt::format("'{}' cannot be traversed", pathname)};
@@ -63,28 +63,30 @@ list_files(const std::string &pathname, const std::optional<std::string> &patter
 
     std::vector<data> output{};
 
-    ::FTSENT *e = nullptr;
-    while ((e = ::fts_read(fts.get())) != nullptr) {
-        if (e->fts_info == FTS_ERR || e->fts_info == FTS_DNR || e->fts_info == FTS_NS)
+    ::FTSENT *ent = nullptr;
+    while ((ent = ::fts_read(fts.get())) != nullptr) {
+        if (ent->fts_info == FTS_ERR || ent->fts_info == FTS_DNR || ent->fts_info == FTS_NS)
             throw std::system_error{last_error(),
-                fmt::format("'{}' cannot be traversed", e->fts_accpath)};
+                fmt::format("'{}' cannot be traversed", ent->fts_accpath)};
 
-        if (e->fts_info != FTS_F)
+        if (ent->fts_info != FTS_F)
             continue;
 
         // We only return regular and block files.
-        if (!S_ISREG(e->fts_statp->st_mode) && !S_ISBLK(e->fts_statp->st_mode))
+        if (!S_ISREG(ent->fts_statp->st_mode) && !S_ISBLK(ent->fts_statp->st_mode))
             continue;
 
         if (pattern && !pattern->empty()) {
-            int r = ::fnmatch(pattern->c_str(), e->fts_accpath, 0);
-            if (r == FNM_NOMATCH)
+            int result = ::fnmatch(pattern->c_str(), ent->fts_accpath, 0);
+
+            if (result == FNM_NOMATCH)
                 continue;
-            if (r != 0)
+
+            if (result != 0)
                 throw std::invalid_argument{"pattern is invalid."};
         }
 
-        output.emplace_back(e->fts_accpath);
+        output.emplace_back(ent->fts_accpath);
     }
 
     std::error_code err = last_error();

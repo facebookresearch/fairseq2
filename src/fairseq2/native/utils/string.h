@@ -16,8 +16,9 @@ template <typename StringViewLike, typename It>
 auto
 find_first_non_space(It first, It last) noexcept
 {
-    auto iter = std::find_if_not(first, last, [](int c) {
-        return std::isspace(c);
+    auto iter = std::find_if_not(first, last, [](int chr)
+    {
+        return std::isspace(chr);
     });
 
     return static_cast<typename StringViewLike::size_type>(iter - first);
@@ -28,31 +29,31 @@ find_first_non_space(It first, It last) noexcept
 inline std::string_view
 remove_prefix(std::string_view s, std::string_view::size_type n) noexcept
 {
-    auto t = s;
+    auto tmp = s;
 
-    t.remove_prefix(n);
+    tmp.remove_prefix(n);
 
-    return t;
+    return tmp;
 }
 
 inline std::string_view
 remove_suffix(std::string_view s, std::string_view::size_type n) noexcept
 {
-    auto t = s;
+    auto tmp = s;
 
-    t.remove_suffix(n);
+    tmp.remove_suffix(n);
 
-    return t;
+    return tmp;
 }
 
 template <typename StringViewLike>
 inline auto
 ltrim(const StringViewLike &s) noexcept
 {
-    auto b = s.begin();
-    auto e = s.end();
+    auto begin = s.begin();
+    auto end = s.end();
 
-    auto offset = detail::find_first_non_space<StringViewLike>(b, e);
+    auto offset = detail::find_first_non_space<StringViewLike>(begin, end);
 
     return remove_prefix(s, offset);
 }
@@ -61,10 +62,10 @@ template <typename StringViewLike>
 inline auto
 rtrim(const StringViewLike &s) noexcept
 {
-    auto b = s.rbegin();
-    auto e = s.rend();
+    auto begin = s.rbegin();
+    auto end = s.rend();
 
-    auto offset = detail::find_first_non_space<StringViewLike>(b, e);
+    auto offset = detail::find_first_non_space<StringViewLike>(begin, end);
 
     return remove_suffix(s, offset);
 }

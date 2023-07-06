@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from fairseq2.data.processors import StrToIntConverter
+from fairseq2.data.text.converters import StrToIntConverter
 
 
 class TestStrToIntConverter:

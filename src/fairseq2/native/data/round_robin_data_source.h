@@ -19,7 +19,7 @@ class round_robin_data_source final : public data_source {
 public:
     explicit
     round_robin_data_source(std::vector<data_pipeline> &&pipelines)
-      : pipelines_(std::move(pipelines)), epoch_done_(pipelines_.size())
+      : pipelines_(std::move(pipelines)), is_epoch_done_(pipelines_.size())
     {
         buffer_.reserve(pipelines_.size());
     }
@@ -44,8 +44,8 @@ private:
     std::vector<data_pipeline> pipelines_;
     std::vector<std::optional<data>> buffer_{};
     std::size_t buffer_idx_ = 0;
-    std::vector<bool> epoch_done_;
-    bool eod_ = false;
+    std::vector<bool> is_epoch_done_;
+    bool is_eod_ = false;
 };
 
 }  // namespace fairseq2::detail

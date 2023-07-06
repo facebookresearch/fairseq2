@@ -6,20 +6,41 @@
 
 #include "fairseq2/native/extension/module.h"
 
+#include "fairseq2/native/data/py.h"
+
 namespace py = pybind11;
 
 namespace fairseq2 {
+namespace {
+
+void
+inc_ref(py_object &obj) noexcept  // NOLINT(bugprone-exception-escape)
+{
+    py::gil_scoped_acquire gil{};
+
+    Py_IncRef(static_cast<PyObject *>(obj.ptr()));
+}
+
+void
+dec_ref(py_object &obj) noexcept // NOLINT(bugprone-exception-escape)
+{
+    py::gil_scoped_acquire gil{};
+
+    Py_DecRef(static_cast<PyObject *>(obj.ptr()));
+}
+
+}  // namespace
 
 void
 def_data(py::module_ &base)
 {
+    detail::register_py_interpreter(inc_ref, dec_ref);
+
     py::module_ m = base.def_submodule("data");
 
     def_data_pipeline(m);
 
     def_memory(m);
-
-    def_processors(m);
 
     def_string(m);
 

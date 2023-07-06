@@ -11,24 +11,26 @@ namespace fairseq2::detail {
 std::optional<data>
 round_robin_data_source::next()
 {
-    if (pipelines_.empty() || eod_)
+    if (pipelines_.empty() || is_eod_)
         return std::nullopt;
 
     // At the beginning of the next round, check if all data pipelines had at
     // least one epoch. If that is the case, we can signal EOD.
     if (buffer_idx_ == 0) {
-        if (std::all_of(epoch_done_.begin(), epoch_done_.end(), [](bool b) { return b; })) {
-            eod_ = true;
+        bool all_done = std::all_of(
+            is_epoch_done_.begin(), is_epoch_done_.end(), [](bool b) { return b; });
+
+        if (all_done) {
+            is_eod_ = true;
 
             return std::nullopt;
         }
     }
 
     // If this is the first call, gather the first round of examples.
-    if (buffer_.empty()) {
+    if (buffer_.empty())
         for (std::size_t i = 0; i < pipelines_.size(); i++)
             buffer_.push_back(next_in_pipeline(i));
-    }
 
     std::optional<data> output{};
 
@@ -55,12 +57,12 @@ round_robin_data_source::reset()
 
     buffer_idx_ = 0;
 
-    epoch_done_.assign(pipelines_.size(), false);
+    is_epoch_done_.assign(pipelines_.size(), false);
 
-    eod_ = false;
+    is_eod_ = false;
 
-    for (data_pipeline &p : pipelines_)
-        p.reset();
+    for (data_pipeline &pipeline : pipelines_)
+        pipeline.reset();
 }
 
 void
@@ -70,10 +72,10 @@ round_robin_data_source::record_position(tape &t) const
 
     t.record(buffer_idx_);
 
-    t.record(epoch_done_);
+    t.record(is_epoch_done_);
 
-    for (const data_pipeline &p : pipelines_)
-        p.record_position(t);
+    for (const data_pipeline &pipeline : pipelines_)
+        pipeline.record_position(t);
 }
 
 void
@@ -83,12 +85,12 @@ round_robin_data_source::reload_position(tape &t)
 
     buffer_idx_ = t.read<std::size_t>();
 
-    epoch_done_ = t.read<std::vector<bool>>();
+    is_epoch_done_ = t.read<std::vector<bool>>();
 
-    eod_ = false;
+    is_eod_ = false;
 
-    for (data_pipeline &p : pipelines_)
-        p.reload_position(t);
+    for (data_pipeline &pipeline : pipelines_)
+        pipeline.reload_position(t);
 }
 
 std::optional<data>
@@ -98,7 +100,7 @@ round_robin_data_source::next_in_pipeline(std::size_t pipeline_idx)
 
     std::optional<data> d = p.next();
     if (!d) {
-        epoch_done_[pipeline_idx] = true;
+        is_epoch_done_[pipeline_idx] = true;
 
         p.reset();
 

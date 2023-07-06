@@ -1,0 +1,37 @@
+// Copyright (c) Meta Platforms, Inc. and affiliates.
+// All rights reserved.
+//
+// This source code is licensed under the BSD-style license found in the
+// LICENSE file in the root directory of this source tree.
+
+#include "fairseq2/native/data/element_mapper.h"
+
+#include <exception>
+#include <stdexcept>
+
+#include <fmt/core.h>
+
+#include "fairseq2/native/fmt.h"
+
+namespace fairseq2 {
+
+data
+element_mapper::operator()(data &&d)
+{
+    if (!selector_)
+        return map_fn_(std::move(d));
+
+    selector_->visit(d, [this](data &element, detail::element_path_ref path)
+    {
+        try {
+            element = map_fn_(std::move(element));
+        } catch (const std::exception &) {
+            std::throw_with_nested(std::runtime_error{
+                fmt::format("The map function has failed while processing the path '{}' of the input data. See nested exception for details.", path)});
+        }
+    });
+
+    return std::move(d);
+}
+
+}  // namespace fairseq2

@@ -20,7 +20,7 @@ def test_load_dense_distill_600m() -> None:
     model.eval()
 
     strategy = BeamSearchStrategy(
-        vocab_info=tokenizer.vocab_info, beam_size=1, max_len=256
+        vocab_info=tokenizer.vocabulary_info, beam_size=1, max_len=256
     )
 
     fra = strategy.generate_str(

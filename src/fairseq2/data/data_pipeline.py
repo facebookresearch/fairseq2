@@ -220,31 +220,31 @@ if TYPE_CHECKING or _DOC_MODE:
         def __call__(self, data: Any) -> Any:
             ...
 
-    class StreamError(RuntimeError):
+    class ByteStreamError(RuntimeError):
         """Raised when a dataset cannot be read."""
 
     class RecordError(RuntimeError):
         """Raised when a corrupt record is encountered while reading a dataset."""
 
 else:
+    from fairseq2.C.data.data_pipeline import ByteStreamError as ByteStreamError
     from fairseq2.C.data.data_pipeline import Collater as Collater
     from fairseq2.C.data.data_pipeline import DataPipeline as DataPipeline
     from fairseq2.C.data.data_pipeline import DataPipelineBuilder as DataPipelineBuilder
     from fairseq2.C.data.data_pipeline import DataPipelineError as DataPipelineError
     from fairseq2.C.data.data_pipeline import RecordError as RecordError
-    from fairseq2.C.data.data_pipeline import StreamError as StreamError
     from fairseq2.C.data.data_pipeline import list_files as list_files
     from fairseq2.C.data.data_pipeline import read_sequence as read_sequence
     from fairseq2.C.data.data_pipeline import read_zipped_records as read_zipped_records
 
     def _set_module_name() -> None:
         ctypes = [
+            ByteStreamError,
             Collater,
             DataPipeline,
             DataPipelineBuilder,
             DataPipelineError,
             RecordError,
-            StreamError,
             list_files,
             read_sequence,
             read_zipped_records,

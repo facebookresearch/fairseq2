@@ -10,8 +10,8 @@
 #include <utility>
 
 #include "fairseq2/native/span.h"
+#include "fairseq2/native/data/byte_stream.h"
 #include "fairseq2/native/data/record_reader.h"
-#include "fairseq2/native/data/stream.h"
 #include "fairseq2/native/data/text/text_reader.h"
 
 namespace fairseq2::detail {
@@ -19,8 +19,8 @@ namespace fairseq2::detail {
 class text_line_reader final : public record_reader {
 public:
     explicit
-    text_line_reader(std::unique_ptr<stream> &&s, line_ending le)
-      : record_reader{std::move(s)}, line_ending_{le}
+    text_line_reader(std::unique_ptr<byte_stream> &&stream, line_ending le)
+      : record_reader{std::move(stream)}, line_ending_{le}
     {}
 
     line_ending
@@ -34,7 +34,7 @@ private:
     find_record_end(memory_span chunk, bool first_chunk) override;
 
     bool
-    infer_line_ending(span<const char> chrs);
+    infer_line_ending(span<const char> chars);
 
 private:
     line_ending line_ending_;

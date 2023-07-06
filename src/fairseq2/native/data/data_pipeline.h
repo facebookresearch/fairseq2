@@ -65,12 +65,12 @@ public:
 
 private:
     explicit
-    data_pipeline(data_source_factory &&fc) noexcept
-      : factory_{std::move(fc)}
+    data_pipeline(data_source_factory &&factory) noexcept
+      : factory_{std::move(factory)}
     {}
 
     bool
-    initialized() const noexcept;
+    is_initialized() const noexcept;
 
     void
     ensure_initialized();
@@ -83,7 +83,7 @@ private:
 
 private:
     data_source_factory factory_{};
-    std::unique_ptr<data_source> src_{};
+    std::unique_ptr<data_source> source_{};
     mutable bool is_broken_ = false;
 };
 
@@ -95,13 +95,11 @@ using predicate_fn = std::function<bool(const data &)>;
 
 using yield_fn = std::function<data_pipeline(const data &)>;
 
-class data_processor;
-
 class FAIRSEQ2_API data_pipeline_builder {
 public:
     explicit
-    data_pipeline_builder(data_source_factory f) noexcept
-      : factory_{std::move(f)}
+    data_pipeline_builder(data_source_factory factory) noexcept
+      : factory_{std::move(factory)}
     {}
 
     data_pipeline_builder(const data_pipeline_builder &) = delete;
@@ -119,21 +117,15 @@ public:
     bucket_by_length(
         std::vector<std::pair<std::size_t, std::size_t>> bucket_sizes,
         std::size_t max_data_length,
-        data_length_fn f,
+        data_length_fn fn,
         bool drop_remainder = false,
         bool warn_only = false) &&;
 
     data_pipeline_builder
-    filter(predicate_fn f) &&;
+    filter(predicate_fn fn) &&;
 
     data_pipeline_builder
-    map(map_fn f, std::size_t num_parallel_calls = 1, bool warn_only = false) &&;
-
-    data_pipeline_builder
-    map(
-        std::shared_ptr<const data_processor> p,
-        std::size_t num_parallel_calls = 1,
-        bool warn_only = false) &&;
+    map(map_fn fn, std::size_t num_parallel_calls = 1, bool warn_only = false) &&;
 
     data_pipeline_builder
     prefetch(std::size_t num_examples) &&;
@@ -151,7 +143,7 @@ public:
     take(std::size_t num_examples) &&;
 
     data_pipeline_builder
-    yield_from(yield_fn f) &&;
+    yield_from(yield_fn fn) &&;
 
     data_pipeline
     and_return() &&;
@@ -163,12 +155,12 @@ private:
 class FAIRSEQ2_API data_pipeline_error : public std::runtime_error {
 public:
     [[noreturn]] static void
-    throw_nested(const std::string &msg, std::optional<data> example = {});
+    throw_nested(const std::string &message, std::optional<data> example = {});
 
 public:
     explicit
-    data_pipeline_error(const std::string &msg, std::optional<data> &&example = {}) noexcept
-        : std::runtime_error{msg}, example_{std::move(example)}
+    data_pipeline_error(const std::string &message, std::optional<data> &&example = {}) noexcept
+        : std::runtime_error{message}, example_{std::move(example)}
     {}
 
     data_pipeline_error(const data_pipeline_error &) = default;
@@ -190,7 +182,7 @@ FAIRSEQ2_API data_pipeline_builder
 list_files(std::string pathname, std::optional<std::string> pattern = {});
 
 FAIRSEQ2_API data_pipeline_builder
-read_list(std::vector<data> lst);
+read_list(std::vector<data> list);
 
 FAIRSEQ2_API data_pipeline_builder
 read_zipped_records(std::string pathname);

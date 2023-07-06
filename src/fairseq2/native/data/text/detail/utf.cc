@@ -9,9 +9,9 @@
 #include <cstdint>
 
 #include "fairseq2/native/span.h"
+#include "fairseq2/native/data/immutable_string.h"
 
-namespace fairseq2 {
-namespace detail {
+namespace fairseq2::detail {
 
 std::size_t
 compute_code_point_length(std::string_view s)
@@ -32,7 +32,7 @@ compute_code_point_length(std::string_view s)
             size = 4;
 
         if (size == 0 || static_cast<std::size_t>(s.end() - iter) < size)
-            throw invalid_utf8_error{"The specified string has an invalid UTF-8 code point."};
+            throw invalid_utf8_error{"`s` has an invalid UTF-8 code point."};
 
         iter += size;
 
@@ -70,8 +70,4 @@ infer_bom_encoding(memory_span preamble) noexcept
     return "UTF-8";
 }
 
-}  // namespace detail
-
-invalid_utf8_error::~invalid_utf8_error() = default;
-
-}  // namespace fairseq2
+}  // namespace fairseq2::detail

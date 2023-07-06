@@ -14,7 +14,6 @@
 #include <utility>
 #include <vector>
 
-#include <fairseq2/native/data/data_processor.h>
 #include <fairseq2/native/data/text/sentencepiece/sentencepiece.h>
 
 namespace py = pybind11;
@@ -64,9 +63,9 @@ def_sentencepiece(py::module_ &text_module)
         .def_property_readonly("eos_idx", &sp_model::eos_idx)
         .def_property_readonly("pad_idx", &sp_model::pad_idx)
 
-        .def_property_readonly("vocab_size", &sp_model::vocab_size);
+        .def_property_readonly("vocabulary_size", &sp_model::vocabulary_size);
 
-    py::class_<sp_encoder, data_processor, std::shared_ptr<sp_encoder>>(m, "SentencePieceEncoder")
+    py::class_<sp_encoder, std::shared_ptr<sp_encoder>>(m, "SentencePieceEncoder")
         .def(
             py::init([](
                 std::shared_ptr<const sp_model> model,
@@ -103,13 +102,18 @@ def_sentencepiece(py::module_ &text_module)
             py::arg("nbest_size")      = -1,
             py::arg("alpha")           = 0.1,
             py::arg("device")          = std::nullopt,
-            py::arg("pin_memory")      = false);
+            py::arg("pin_memory")      = false)
+        .def("__call__", &sp_encoder::operator(), py::call_guard<py::gil_scoped_release>{});
 
-    py::class_<sp_decoder, data_processor, std::shared_ptr<sp_decoder>>(m, "SentencePieceDecoder")
+    py::class_<sp_decoder, std::shared_ptr<sp_decoder>>(m, "SentencePieceDecoder")
         .def(
             py::init<std::shared_ptr<const sp_model>, bool>(),
             py::arg("model"),
-            py::arg("reverse") = false);
+            py::arg("reverse") = false)
+        .def("__call__", &sp_decoder::operator(), py::call_guard<py::gil_scoped_release>{});
+
+    map_functors().register_<sp_encoder>();
+    map_functors().register_<sp_decoder>();
 }
 
 }  // namespace fairseq2

@@ -41,10 +41,10 @@ private:
     make_text_line_reader();
 
     memory_block
-    next_line();
+    read_next_line();
 
     bool
-    is_empty(memory_span line) const noexcept;
+    is_empty(memory_span line) const;
 
     [[noreturn]] void
     handle_error();
@@ -55,7 +55,7 @@ private:
 private:
     std::string pathname_;
     text_options opts_;
-    std::unique_ptr<text_line_reader> reader_;
+    std::unique_ptr<text_line_reader> line_reader_;
     std::size_t num_lines_read_ = 0;
 };
 

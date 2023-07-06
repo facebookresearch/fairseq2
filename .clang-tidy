@@ -37,6 +37,7 @@ Checks: >
     -readability-named-parameter,
     -readability-qualified-auto,
     -readability-redundant-access-specifiers,
+    -readability-suspicious-call-argument,
     -zircon-*
 CheckOptions:
   - key:   cppcoreguidelines-special-member-functions.AllowMissingMoveFunctions
