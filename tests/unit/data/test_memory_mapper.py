@@ -1,0 +1,181 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+from pathlib import Path
+from typing import Any, Final, Optional
+
+import pytest
+
+from fairseq2.data import MemoryBlock, MemoryMapper
+
+TEST_FILE_PATH: Final = Path(__file__).parent.joinpath("text", "test.spm")
+
+
+class TestMemoryMapper:
+    def test_maps_file_as_expected(self) -> None:
+        mapper = MemoryMapper()
+
+        for _ in range(2):
+            m = mapper(TEST_FILE_PATH)
+
+            self.assert_file(m, TEST_FILE_PATH)
+
+    def test_maps_file_with_offset_as_expected(self) -> None:
+        mapper = MemoryMapper()
+
+        pathname = f"{TEST_FILE_PATH}:100"
+
+        for _ in range(2):
+            m = mapper(pathname)
+
+            self.assert_file(m, TEST_FILE_PATH, offset=100)
+
+    def test_maps_file_with_offset_and_size_as_expected(self) -> None:
+        mapper = MemoryMapper()
+
+        pathname = f"{TEST_FILE_PATH}:100:200"
+
+        for _ in range(2):
+            m = mapper(pathname)
+
+            self.assert_file(m, TEST_FILE_PATH, offset=100, size=200)
+
+    def test_maps_file_with_root_directory_as_expected(self) -> None:
+        root_dir = TEST_FILE_PATH.parent.parent
+
+        mapper = MemoryMapper(root_dir)
+
+        m = mapper(TEST_FILE_PATH.relative_to(root_dir))
+
+        self.assert_file(m, TEST_FILE_PATH)
+
+    @staticmethod
+    def assert_file(
+        block: MemoryBlock, pathname: Path, offset: int = 0, size: Optional[int] = None
+    ) -> None:
+        if size is None:
+            size = pathname.stat().st_size - offset
+
+        assert len(block) == size
+
+        with pathname.open(mode="rb") as fp:
+            content = fp.read()
+
+        assert content[offset : offset + size] == memoryview(block)  # type: ignore[arg-type]
+
+    @pytest.mark.parametrize(
+        "value,type_name", [(None, "pyobj"), (123, "int"), (1.2, "float")]
+    )
+    def test_raises_error_if_input_is_not_string(
+        self, value: Any, type_name: str
+    ) -> None:
+        mapper = MemoryMapper()
+
+        with pytest.raises(
+            ValueError,
+            match=rf"^The input data must be of type `string`, but is of type `{type_name}` instead\.$",
+        ):
+            mapper(value)
+
+    @pytest.mark.parametrize(
+        "pathname",
+        [
+            "",
+            "  ",
+            ":",
+            "::",
+            "  : :",
+            "foo:",
+            "foo::",
+            ":12:",
+            ":12:34",
+            "foo:12:34:56",
+        ],
+    )
+    def test_raises_error_if_pathname_is_invalid(self, pathname: str) -> None:
+        mapper = MemoryMapper()
+
+        with pytest.raises(
+            ValueError,
+            match=rf"^The input string must be a pathname with optional offset and size specifiers, but is '{pathname}' instead\.$",
+        ):
+            mapper(pathname)
+
+    @pytest.mark.parametrize("offset", ["ab", "12a", "a12", "12 34"])
+    def test_raises_error_if_offset_is_invalid(self, offset: str) -> None:
+        mapper = MemoryMapper()
+
+        pathname = f"foo:{offset}:34"
+
+        with pytest.raises(
+            ValueError,
+            match=rf"^The offset specifier of '{pathname}' must be an integer, but is '{offset}' instead\.$",
+        ):
+            mapper(pathname)
+
+    def test_raises_error_if_offset_is_out_of_range(self) -> None:
+        mapper = MemoryMapper()
+
+        offset = 9999999999999999999999999
+
+        pathname = f"foo:{offset}:34"
+
+        with pytest.raises(
+            ValueError,
+            match=rf"^The offset specifier of '{pathname}' must be a machine-representable integer, but is '{offset}' instead, which is out of range\.$",
+        ):
+            mapper(pathname)
+
+    @pytest.mark.parametrize("size", ["ab", "12a", "a12", "12 34"])
+    def test_raises_error_if_size_is_invalid(self, size: str) -> None:
+        mapper = MemoryMapper()
+
+        pathname = f"foo:12:{size}"
+
+        with pytest.raises(
+            ValueError,
+            match=rf"^The size specifier of '{pathname}' must be an integer, but is '{size}' instead\.$",
+        ):
+            mapper(pathname)
+
+    def test_raises_error_if_size_is_out_of_range(self) -> None:
+        mapper = MemoryMapper()
+
+        size = 9999999999999999999999999
+
+        pathname = f"foo:12:{size}"
+
+        with pytest.raises(
+            ValueError,
+            match=rf"^The size specifier of '{pathname}' must be a machine-representable integer, but is '{size}' instead, which is out of range\.$",
+        ):
+            mapper(pathname)
+
+    def test_raises_error_if_offset_is_larger_than_file_size(self) -> None:
+        mapper = MemoryMapper()
+
+        file_size = TEST_FILE_PATH.stat().st_size
+
+        pathname = f"{TEST_FILE_PATH}:{file_size + 1}"
+
+        with pytest.raises(
+            ValueError,
+            match=rf"^The specified offset within '{pathname}' must be less than or equal to the file size \({file_size}\), but is {file_size + 1} instead\.$",
+        ):
+            mapper(pathname)
+
+    def test_raises_error_if_offset_plus_size_is_larger_than_file_size(self) -> None:
+        mapper = MemoryMapper()
+
+        file_size = TEST_FILE_PATH.stat().st_size
+
+        pathname = f"{TEST_FILE_PATH}:{file_size - 10}:11"
+
+        with pytest.raises(
+            ValueError,
+            match=rf"^The specified offset plus size within '{pathname}' must be less than or equal to the file size \({file_size}\), but is {file_size + 1} instead\.$",
+        ):
+            mapper(pathname)

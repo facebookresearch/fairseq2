@@ -220,6 +220,17 @@ if TYPE_CHECKING or _DOC_MODE:
         def __call__(self, data: Any) -> Any:
             ...
 
+    class MemoryMapper:
+        def __init__(
+            self,
+            root_dir: Optional[PathLike] = None,
+            cached_fd_count: Optional[int] = None,
+        ) -> None:
+            ...
+
+        def __call__(self, data: Any) -> Any:
+            ...
+
     class ByteStreamError(RuntimeError):
         """Raised when a dataset cannot be read."""
 
@@ -232,6 +243,7 @@ else:
     from fairseq2.C.data.data_pipeline import DataPipeline as DataPipeline
     from fairseq2.C.data.data_pipeline import DataPipelineBuilder as DataPipelineBuilder
     from fairseq2.C.data.data_pipeline import DataPipelineError as DataPipelineError
+    from fairseq2.C.data.data_pipeline import MemoryMapper as MemoryMapper
     from fairseq2.C.data.data_pipeline import RecordError as RecordError
     from fairseq2.C.data.data_pipeline import list_files as list_files
     from fairseq2.C.data.data_pipeline import read_sequence as read_sequence
@@ -244,6 +256,7 @@ else:
             DataPipeline,
             DataPipelineBuilder,
             DataPipelineError,
+            MemoryMapper,
             RecordError,
             list_files,
             read_sequence,

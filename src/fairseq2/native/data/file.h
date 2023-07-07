@@ -13,6 +13,7 @@
 #include <utility>
 
 #include "fairseq2/native/api.h"
+#include "fairseq2/native/memory.h"
 
 namespace fairseq2 {
 
@@ -96,5 +97,8 @@ text_file_options(std::optional<std::string> text_encoding = {}) noexcept
 
 FAIRSEQ2_API std::unique_ptr<byte_stream>
 open_file(const std::string &pathname, const file_options &opts = {});
+
+FAIRSEQ2_API memory_block
+memory_map_file(const std::string &pathname, bool sequential = false);
 
 }  // namespace fairseq2

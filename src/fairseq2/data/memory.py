@@ -34,6 +34,9 @@ if TYPE_CHECKING or _DOC_MODE:
                 If ``True``, copies ``buffer``.
             """
 
+        def __len__(self) -> int:
+            ...
+
 else:
     from fairseq2.C.data.memory import MemoryBlock as MemoryBlock
 

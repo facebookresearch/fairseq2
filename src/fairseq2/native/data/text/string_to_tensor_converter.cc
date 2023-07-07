@@ -6,7 +6,6 @@
 
 #include "fairseq2/native/data/text/string_to_tensor_converter.h"
 
-#include <charconv>
 #include <stdexcept>
 
 #include <ATen/Dispatch.h>
@@ -14,6 +13,8 @@
 
 #include <fmt/core.h>
 
+#include "fairseq2/native/fmt.h"
+#include "fairseq2/native/utils/string.h"
 #include "fairseq2/native/exception.h"
 #include "fairseq2/native/data/immutable_string.h"
 
@@ -62,9 +63,20 @@ data
 string_to_tensor_converter::operator()(data &&d) const
 {
     if (!d.is_string())
-        throw std::invalid_argument{"The input data must be of type string."};
+        throw std::invalid_argument{
+            fmt::format("The input data must be of type `string`, but is of type `{}` instead.", d.type())};
 
-    std::vector<immutable_string> strings = d.as_string().split(' ');
+    immutable_string s = d.as_string();
+
+    std::vector<immutable_string> strings{};
+
+    s.split(' ', [&strings](immutable_string &&value)
+    {
+        if (value.empty())
+            return;
+
+        strings.push_back(std::move(value));
+    });
 
     auto dim = static_cast<std::int64_t>(strings.size());
 
@@ -87,25 +99,21 @@ string_to_tensor_converter::fill_storage(
 {
     std::int64_t idx = 0;
 
-    auto tensor_accessor = tensor.accessor<T, 1>();
+    auto tensor_data = tensor.accessor<T, 1>();
 
     for (const immutable_string &s : strings) {
-        const char *str_end = s.data() + s.size();
-
-        T parsed_value{};
-
-        std::from_chars_result result = std::from_chars(s.data(), str_end, parsed_value);
-        if (result.ec == std::errc{} && result.ptr == str_end) {
-            tensor_accessor[idx++] = parsed_value;
-        } else {
+        try {
+            tensor_data[idx++] = from_string<T>(s);
+        } catch (const std::out_of_range &) {
             auto type_name = detail::get_dtype_name<T>();
 
-            if (result.ec == std::errc::result_out_of_range)
-                throw std::invalid_argument{
-                    fmt::format("The input string must be a space-separated list of type `{0}`, but contains an element with value '{1}' that is out of range for `{0}`.", type_name, s)};
-            else
-                throw std::invalid_argument{
-                    fmt::format("The input string must be a space-separated list of type `{0}`, but contains an element with value '{1}' that cannot be parsed as `{0}`.", type_name, s)};
+            throw std::invalid_argument{
+                fmt::format("The input string must be a space-separated list representing values of type `{0}`, but contains an element with value '{1}' that is out of range for `{0}`.", type_name, s)};
+        } catch (const std::invalid_argument &) {
+            auto type_name = detail::get_dtype_name<T>();
+
+            throw std::invalid_argument{
+                fmt::format("The input string must be a space-separated list representing values of type `{0}`, but contains an element with value '{1}' that cannot be parsed as `{0}`.", type_name, s)};
         }
     }
 }

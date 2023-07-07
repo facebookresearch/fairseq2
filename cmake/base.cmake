@@ -61,7 +61,7 @@ function(fairseq2_set_compile_options target)
                 -Wlogical-op
                 -Wno-unknown-pragmas
                 -Wpointer-arith
-                -Wshadow
+                -Wshadow=compatible-local
                 -Wsign-conversion
                 -Wswitch
                 -Wunused

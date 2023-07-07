@@ -30,6 +30,7 @@ target_sources(fairseq2
         data/immutable_string.cc
         data/list_data_source.cc
         data/map_data_source.cc
+        data/memory_mapper.cc
         data/memory_stream.cc
         data/prefetch_data_source.cc
         data/py.cc

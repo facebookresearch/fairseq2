@@ -6,11 +6,12 @@
 
 #include "fairseq2/native/data/text/string_to_int_converter.h"
 
-#include <charconv>
 #include <stdexcept>
 
 #include <fmt/core.h>
 
+#include "fairseq2/native/fmt.h"
+#include "fairseq2/native/utils/string.h"
 #include "fairseq2/native/data/immutable_string.h"
 
 namespace fairseq2 {
@@ -19,24 +20,20 @@ data
 string_to_int_converter::operator()(data &&d) const
 {
     if (!d.is_string())
-        throw std::invalid_argument{"The input data must be of type string."};
-
-    immutable_string s = d.as_string();
-
-    const char *str_end = s.data() + s.size();
-
-    std::int64_t parsed_value{};
-
-    std::from_chars_result result = std::from_chars(s.data(), str_end, parsed_value, base_);
-    if (result.ec == std::errc{} && result.ptr == str_end)
-        return parsed_value;
-
-    if (result.ec == std::errc::result_out_of_range)
         throw std::invalid_argument{
-            fmt::format("The input string must be a signed 64-bit integer, but is '{}' instead.", s)};
-    else
+            fmt::format("The input data must be of type `string`, but is of type `{}` instead.", d.type())};
+
+    const immutable_string &s = d.as_string();
+
+    try {
+        return from_string<std::int64_t>(s, base_);
+    } catch (const std::out_of_range &) {
         throw std::invalid_argument{
-            fmt::format("The input string must be an integer, but is '{}' instead.", s)};
+            fmt::format("The input string must represent a signed 64-bit integer, but is '{}' instead, which is out of range.", s)};
+    } catch (const std::invalid_argument &) {
+        throw std::invalid_argument{
+            fmt::format("The input string must represent a signed 64-bit integer, but is '{}' instead.", s)};
+    }
 }
 
 }  // namespace fairseq2

@@ -65,7 +65,7 @@ class TestStrToTensorConverter:
 
         with pytest.raises(
             ValueError,
-            match=rf"^The input string must be a space-separated list of type `torch.int32`, but contains an element with value '{value}' that cannot be parsed as `torch.int32`\.$",
+            match=rf"^The input string must be a space-separated list representing values of type `torch.int32`, but contains an element with value '{value}' that cannot be parsed as `torch.int32`\.$",
         ):
             converter(s)
 
@@ -78,16 +78,21 @@ class TestStrToTensorConverter:
 
         with pytest.raises(
             ValueError,
-            match=rf"^The input string must be a space-separated list of type `torch.int16`, but contains an element with value '{value}' that is out of range for `torch.int16`\.$",
+            match=rf"^The input string must be a space-separated list representing values of type `torch.int16`, but contains an element with value '{value}' that is out of range for `torch.int16`\.$",
         ):
             converter(s)
 
-    @pytest.mark.parametrize("value", [None, 123, 1.2])
-    def test_raises_error_if_input_is_not_string(self, value: Any) -> None:
+    @pytest.mark.parametrize(
+        "value,type_name", [(None, "pyobj"), (123, "int"), (1.2, "float")]
+    )
+    def test_raises_error_if_input_is_not_string(
+        self, value: Any, type_name: str
+    ) -> None:
         converter = StrToTensorConverter()
 
         with pytest.raises(
-            ValueError, match=r"^The input data must be of type string\.$"
+            ValueError,
+            match=rf"^The input data must be of type `string`, but is of type `{type_name}` instead\.$",
         ):
             converter(value)
 

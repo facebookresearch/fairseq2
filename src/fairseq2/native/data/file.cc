@@ -28,7 +28,7 @@ namespace detail {
 namespace {
 
 file_desc
-open_file(const std::string &pathname)
+do_open_file(const std::string &pathname)
 {
     file_desc fd = ::open(pathname.c_str(), O_RDONLY | O_CLOEXEC);
     if (fd != invalid_fd)
@@ -71,18 +71,18 @@ hint_sequential_memory(const memory_block &block, std::string_view) noexcept
 std::unique_ptr<byte_stream>
 open_file(const std::string &pathname, const file_options &opts)
 {
-    file_desc fd = detail::open_file(pathname);
+    file_desc fd = do_open_file(pathname);
 
     std::size_t chunk_size = opts.block_size().value_or(0x0010'0000);  // 1 MiB
 
     std::unique_ptr<byte_stream> stream{};
 
     if (opts.memory_map()) {
-        memory_block data = memory_map_file(fd, pathname);
+        memory_block block = memory_map_file(fd, pathname);
 
-        hint_sequential_memory(data, pathname);
+        hint_sequential_memory(block, pathname);
 
-        stream = std::make_unique<memory_stream>(std::move(data));
+        stream = std::make_unique<memory_stream>(std::move(block));
     } else
         stream = std::make_unique<file_stream>(std::move(fd), pathname, chunk_size);
 
@@ -90,6 +90,19 @@ open_file(const std::string &pathname, const file_options &opts)
         stream = std::make_unique<utf8_stream>(std::move(stream), opts.text_encoding(), chunk_size);
 
     return stream;
+}
+
+memory_block
+memory_map_file(const std::string &pathname, bool sequential)
+{
+    file_desc fd = do_open_file(pathname);
+
+    memory_block block = memory_map_file(fd, pathname);
+
+    if (sequential)
+        hint_sequential_memory(block, pathname);
+
+    return block;
 }
 
 }

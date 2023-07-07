@@ -8,6 +8,11 @@
 
 #include <algorithm>
 #include <cctype>
+#include <charconv>
+#include <cstdint>
+#include <stdexcept>
+#include <system_error>
+#include <type_traits>
 
 namespace fairseq2 {
 namespace detail {
@@ -75,6 +80,24 @@ inline auto
 trim(const StringViewLike &s) noexcept
 {
     return rtrim(ltrim(s));
+}
+
+template <typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
+T
+from_string(std::string_view s, std::int16_t base = 10)
+{
+    const char *s_end = s.data() + s.size();
+
+    T parsed_value{};
+
+    std::from_chars_result result = std::from_chars(s.data(), s_end, parsed_value, base);
+    if (result.ec == std::errc{} && result.ptr == s_end)
+        return parsed_value;
+
+    if (result.ec == std::errc::result_out_of_range)
+        throw std::out_of_range{"`s` is out of range."};
+
+    throw std::invalid_argument{"`s` does not represent a valid integer value."};
 }
 
 }  // namespace fairseq2

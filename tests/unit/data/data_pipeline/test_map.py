@@ -194,6 +194,7 @@ class TestMapOp:
             " , foo",
             "fo o",
             "foo [0]",
+            "foo[999999999999999999999999999999]",  # overflow
         ],
     )
     def test_op_raises_error_if_selector_is_not_well_formatted(self, s: str) -> None:

@@ -25,6 +25,7 @@
 #include <fairseq2/native/data/data.h>
 #include <fairseq2/native/data/data_length_extractor.h>
 #include <fairseq2/native/data/data_pipeline.h>
+#include <fairseq2/native/data/memory_mapper.h>
 #include <fairseq2/native/data/record_reader.h>
 #include <fairseq2/native/data/tape.h>
 
@@ -125,9 +126,9 @@ data_pipeline_tracker::reset_alive_pipelines()
 }
 
 data_pipeline_tracker &
-data_pipeline_tracker_() noexcept
+data_pipeline_tracker() noexcept
 {
-    static data_pipeline_tracker tracker{};
+    static class data_pipeline_tracker tracker{};
 
     return tracker;
 }
@@ -166,7 +167,7 @@ private:
 void
 def_data_pipeline(py::module_ &data_module)
 {
-    data_pipeline_tracker_().register_atexit_hook();
+    data_pipeline_tracker().register_atexit_hook();
 
     py::module_ m = data_module.def_submodule("data_pipeline");
 
@@ -441,7 +442,7 @@ def_data_pipeline(py::module_ &data_module)
 
                 // Ensure that the pipeline gets deleted during interpreter
                 // shutdown if it is still alive.
-                data_pipeline_tracker_().track(obj);
+                data_pipeline_tracker().track(obj);
 
                 return obj;
             });
@@ -463,6 +464,18 @@ def_data_pipeline(py::module_ &data_module)
         .def("__call__", &collater::operator(), py::call_guard<py::gil_scoped_release>{});
 
     map_functors().register_<collater>();
+
+    // MemoryMapper
+    py::class_<memory_mapper, std::shared_ptr<memory_mapper>>(m, "MemoryMapper")
+        .def(
+            py::init<std::optional<std::string>, std::optional<std::size_t>>(),
+            py::arg("root_dir") = std::nullopt,
+            py::arg("cached_fd_count") = std::nullopt)
+        .def("__call__", &memory_mapper::operator(), py::call_guard<py::gil_scoped_release>{});
+
+    map_functors().register_<memory_mapper>();
+
+
 
     // TODO: Fix!
     static py::exception<byte_stream_error> py_stream_error{m, "ByteStreamError", PyExc_RuntimeError};

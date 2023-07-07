@@ -25,11 +25,11 @@ element_selector::element_selector(std::string_view selector)
     auto parse_next_path = [this, selector](
         std::string_view remaining_paths) -> std::optional<std::string_view>
     {
-        std::size_t comma_pos = remaining_paths.find_first_of(',');
+        std::size_t comma_idx = remaining_paths.find_first_of(',');
 
-        std::string_view next_path = remaining_paths.substr(0, comma_pos);
+        std::optional<element_path> parsed_path = maybe_parse_path(
+            /*path=*/remaining_paths.substr(0, comma_idx));
 
-        std::optional<element_path> parsed_path = maybe_parse_path(trim(next_path));
         if (!parsed_path)
             throw std::invalid_argument{
                 fmt::format("`selector` must contain one or more well-formatted element paths, but is '{}' instead.", selector)};
@@ -37,10 +37,10 @@ element_selector::element_selector(std::string_view selector)
         paths_.push_back(*std::move(parsed_path));
 
         // We have reached the end of the selector string.
-        if (comma_pos == std::string_view::npos)
+        if (comma_idx == std::string_view::npos)
             return std::nullopt;
 
-        return remaining_paths.substr(comma_pos + 1);
+        return remaining_paths.substr(comma_idx + 1);
     };
 
     std::optional<std::string_view> remaining_paths = selector;
@@ -70,6 +70,8 @@ element_selector::visit(
 std::optional<element_path>
 element_selector::maybe_parse_path(std::string_view path)
 {
+    path = trim(path);
+
     if (path.empty())
         return std::nullopt;
 
@@ -129,7 +131,13 @@ element_selector::maybe_parse_path(std::string_view path)
 
                 state = path_parser_state::parsed_index;
             } else if (chr >= '0' && chr <= '9') {
-                idx = (10 * idx) + static_cast<std::size_t>(chr - '0');
+                auto tmp = (10 * idx) + static_cast<std::size_t>(chr - '0');
+
+                // Check overflow.
+                if (idx > tmp)
+                    return std::nullopt;
+
+                idx = tmp;
             } else
                 return std::nullopt;
         } else if (state == path_parser_state::parsed_index) {

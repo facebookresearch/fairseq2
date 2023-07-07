@@ -33,7 +33,7 @@ class TestStrToIntConverter:
 
         with pytest.raises(
             ValueError,
-            match=rf"^The input string must be an integer, but is '{value}' instead\.$",
+            match=rf"^The input string must represent a signed 64-bit integer, but is '{value}' instead\.$",
         ):
             converter(value)
 
@@ -44,15 +44,20 @@ class TestStrToIntConverter:
 
         with pytest.raises(
             ValueError,
-            match=rf"^The input string must be a signed 64-bit integer, but is '{value}' instead\.$",
+            match=rf"^The input string must represent a signed 64-bit integer, but is '{value}' instead, which is out of range\.$",
         ):
             converter(value)
 
-    @pytest.mark.parametrize("value", [None, 123, 1.2])
-    def test_raises_error_if_input_is_not_string(self, value: Any) -> None:
+    @pytest.mark.parametrize(
+        "value,type_name", [(None, "pyobj"), (123, "int"), (1.2, "float")]
+    )
+    def test_raises_error_if_input_is_not_string(
+        self, value: Any, type_name: str
+    ) -> None:
         converter = StrToIntConverter()
 
         with pytest.raises(
-            ValueError, match=r"^The input data must be of type string\.$"
+            ValueError,
+            match=rf"^The input data must be of type `string`, but is of type `{type_name}` instead\.$",
         ):
             converter(value)

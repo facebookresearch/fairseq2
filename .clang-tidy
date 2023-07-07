@@ -32,6 +32,7 @@ Checks: >
     -readability-else-after-return,
     -readability-function-cognitive-complexity,
     -readability-identifier-length,
+    -readability-isolate-declaration,
     -readability-magic-numbers,
     -readability-misleading-indentation,
     -readability-named-parameter,

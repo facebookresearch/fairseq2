@@ -17,6 +17,8 @@
 namespace fairseq2::detail {
 
 class shuffle_data_source final : public data_source {
+    static constexpr std::size_t max_pre_alloc_size_ = 100'000;
+
 public:
     explicit
     shuffle_data_source(
@@ -39,8 +41,6 @@ private:
     random_index();
 
 private:
-    static constexpr std::size_t max_pre_alloc_size_ = 100'000;
-
     std::unique_ptr<data_source> inner_;
     std::vector<data> buffer_{};
     std::size_t shuffle_window_;

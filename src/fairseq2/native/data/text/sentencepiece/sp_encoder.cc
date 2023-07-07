@@ -13,6 +13,7 @@
 #include <ATen/Functions.h>
 #include <ATen/Storage.h>
 
+#include "fairseq2/native/fmt.h"
 #include "fairseq2/native/memory.h"
 #include "fairseq2/native/span.h"
 #include "fairseq2/native/data/immutable_string.h"
@@ -70,7 +71,8 @@ data
 sp_encoder::operator()(data &&d) const
 {
     if (!d.is_string())
-        throw std::invalid_argument{"The input data must be of type string."};
+        throw std::invalid_argument{
+            fmt::format("The input data must be of type `string`, but is of type `{}` instead.", d.type())};
 
     return encode(std::move(d).as_string());
 }

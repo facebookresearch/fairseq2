@@ -11,6 +11,8 @@
 
 #include <fmt/core.h>
 
+#include "fairseq2/native/fmt.h"
+
 namespace fairseq2 {
 
 string_splitter::string_splitter(
@@ -25,7 +27,8 @@ data
 string_splitter::operator()(data &&d) const
 {
     if (!d.is_string())
-        throw std::invalid_argument{"The input data must be of type string."};
+        throw std::invalid_argument{
+            fmt::format("The input data must be of type `string`, but is of type `{}` instead.", d.type())};
 
     std::vector<data> fields{};
 

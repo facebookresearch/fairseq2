@@ -67,6 +67,10 @@ type_caster<data>::cast_from_py(handle src)
     if (isinstance<sequence>(src))
         return src.cast<std::vector<data>>();
 
+    // path-like.
+    if (hasattr(src, "__fspath__"))
+        return src.cast<std::string_view>();
+
     return src.cast<py_object>();
 }
 

@@ -139,11 +139,11 @@ class TestCString:
 
         r = s.split("h")
 
-        assert r == ["ello world! t", "is is a string"]
+        assert r == ["", "ello world! t", "is is a string"]
 
         r = s.split(sep="g")
 
-        assert r == ["hello world! this is a strin"]
+        assert r == ["hello world! this is a strin", ""]
 
     def test_split_returns_correct_list_with_default_separator(self) -> None:
         s = CString("hello\tworld!\tthis\tis\ta\tstring")
@@ -152,19 +152,27 @@ class TestCString:
 
         assert r == ["hello", "world!", "this", "is", "a", "string"]
 
+    @pytest.mark.parametrize("v", ["", "  "])
+    def test_split_returs_list_of_length_1_if_the_string_is_empty(self, v: str) -> None:
+        s = CString(v)
+
+        r = s.split()
+
+        assert r == [v]
+
+    def test_split_returns_empty_strings(self) -> None:
+        s = CString(":  :: :")
+
+        r = s.split(":")
+
+        assert r == ["", "  ", "", " ", ""]
+
     def test_split_returns_list_of_length_1_if_separator_is_not_found(self) -> None:
         s = CString("hello world! this is a string")
 
         r = s.split(sep="z")
 
         assert r == ["hello world! this is a string"]
-
-    def test_split_returns_correct_list_if_string_has_consecutive_sep(self) -> None:
-        s = CString("hello world!  this is    a string")
-
-        r = s.split(sep=" ")
-
-        assert r == ["hello", "world!", "this", "is", "a", "string"]
 
     def test_split_raises_error_if_separater_is_not_char(self) -> None:
         s = CString("hello world! this is a string")

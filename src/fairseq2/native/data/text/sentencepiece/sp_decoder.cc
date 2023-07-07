@@ -18,6 +18,7 @@
 #include <ATen/ScalarType.h>
 #include <ATen/Storage.h>
 
+#include "fairseq2/native/fmt.h"
 #include "fairseq2/native/data/text/sentencepiece/sp_model.h"
 #include "fairseq2/native/data/text/sentencepiece/sp_processor.h"
 #include "fairseq2/native/utils/cast.h"
@@ -58,7 +59,8 @@ data
 sp_decoder::operator()(data &&d) const
 {
     if (!d.is_tensor())
-        throw std::invalid_argument{"The input must be of type Tensor."};
+        throw std::invalid_argument{
+            fmt::format("The input data must be of type `torch.Tensor`, but is of type `{}` instead.", d.type())};
 
     at::Tensor tensor = d.as_tensor();
 
@@ -128,13 +130,13 @@ decoder_op::decode()
 
     tokens.reserve(static_cast<std::size_t>(seq_len));
 
-    auto accessor = tensor_.accessor<T, 2>();
+    auto tensor_data = tensor_.accessor<T, 2>();
 
     for (std::int64_t i = 0; i < tensor_.size(0); ++i) {
         tokens.clear();
 
         for (std::int64_t j = 0; j < seq_len; j++) {
-            T token_idx = accessor[i][decoder_->reverse_ ? seq_len - 1 - j : j];
+            T token_idx = tensor_data[i][decoder_->reverse_ ? seq_len - 1 - j : j];
 
             auto token_idx_32bit = conditional_cast<std::int32_t>(token_idx);
 

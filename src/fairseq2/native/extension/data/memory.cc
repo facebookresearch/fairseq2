@@ -76,6 +76,9 @@ def_memory(py::module_ &data_module)
             }),
             py::arg("buffer"),
             py::arg("copy") = false)
+
+        .def("__len__", &memory_block::size)
+
         .def_buffer(
             [](const memory_block &self)
             {

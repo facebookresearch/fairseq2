@@ -56,18 +56,15 @@ immutable_string::split(
 
     for (std::size_t char_idx = 0; char_idx < s.size(); ++char_idx) {
         if (s[char_idx] == separator) {
-            if (offset != char_idx) {
-                immutable_string part{storage_.share_slice(offset, char_idx - offset)};
+            immutable_string part{storage_.share_slice(offset, char_idx - offset)};
 
-                handler(std::move(part));
-            }
+            handler(std::move(part));
 
             offset = char_idx + 1;
         }
     }
 
-    if (offset != s.size())
-        handler(remove_prefix(offset));
+    handler(remove_prefix(offset));
 }
 
 invalid_utf8_error::~invalid_utf8_error() = default;
