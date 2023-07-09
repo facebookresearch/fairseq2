@@ -29,7 +29,7 @@ public:
 private:
     const dict_model *model_;
 
-    std::vector<data>
+    data_list
     decode(at::Tensor &&t) const;
 };
 

@@ -20,11 +20,11 @@ repr(data_type dt)
         return "int";
     case data_type::float_:
         return "float";
-    case data_type::string_:
+    case data_type::string:
         return "string";
     case data_type::tensor:
         return "torch.Tensor";
-    case data_type::memory_block_:
+    case data_type::memory_block:
         return "memory_block";
     case data_type::list:
         return "list";

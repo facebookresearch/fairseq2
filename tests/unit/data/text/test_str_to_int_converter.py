@@ -13,22 +13,18 @@ from fairseq2.data.text.converters import StrToIntConverter
 
 class TestStrToIntConverter:
     @pytest.mark.parametrize("value", [4, 1000, -34, 56])
-    def test_converts_as_expected(self, value: int) -> None:
+    def test_call_works(self, value: int) -> None:
         converter = StrToIntConverter()
 
-        i = converter(str(value))
+        assert converter(str(value)) == value
 
-        assert i == value
-
-    def test_converts_non_default_base_as_expected(self) -> None:
+    def test_call_works_when_base_is_specified(self) -> None:
         converter = StrToIntConverter(base=8)
 
-        i = converter("034")
-
-        assert i == 0o34
+        assert converter("034") == 0o34
 
     @pytest.mark.parametrize("value", ["", "foo", "12foo", "foo12", "12foo12"])
-    def test_raises_error_if_string_is_invalid(self, value: str) -> None:
+    def test_call_raises_error_when_input_is_invalid(self, value: str) -> None:
         converter = StrToIntConverter()
 
         with pytest.raises(
@@ -37,7 +33,7 @@ class TestStrToIntConverter:
         ):
             converter(value)
 
-    def test_raises_error_if_string_is_out_of_range(self) -> None:
+    def test_call_raises_error_when_input_is_out_of_range(self) -> None:
         value = "999999999999999999999999999999999999"
 
         converter = StrToIntConverter()
@@ -51,7 +47,7 @@ class TestStrToIntConverter:
     @pytest.mark.parametrize(
         "value,type_name", [(None, "pyobj"), (123, "int"), (1.2, "float")]
     )
-    def test_raises_error_if_input_is_not_string(
+    def test_raises_error_when_input_is_not_string(
         self, value: Any, type_name: str
     ) -> None:
         converter = StrToIntConverter()

@@ -90,8 +90,7 @@ audio_decoder::operator()(data &&d) const
         tensor = tensor.to(device);
 
     // Pack audio, sample_rate, and format as output.
-    flat_hash_map<std::string, data> output{
-        {"sample_rate", file.sample_rate()}, {"format", file.format()}};
+    data_dict output{{"sample_rate", file.sample_rate()}, {"format", file.format()}};
 
     output["audio"] = std::move(tensor);
 

@@ -14,11 +14,11 @@ set_property(TARGET extension PROPERTY OUTPUT_NAME C)
 
 target_sources(extension
     PRIVATE
+        memory.cc
         module.cc
         data/audio.cc
         data/data_pipeline.cc
         data/init.cc
-        data/memory.cc
         data/string.cc
         data/text/converters.cc
         data/text/init.cc

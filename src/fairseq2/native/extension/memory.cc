@@ -36,7 +36,7 @@ compute_buffer_size(const py::buffer_info &info)
 }
 
 void
-release_buffer(const void *, std::size_t, void *ctx) noexcept  // NOLINT(bugprone-exception-escape)
+release_py_buffer(const void *, std::size_t, void *ctx) noexcept  // NOLINT(bugprone-exception-escape)
 {
     py::gil_scoped_acquire gil{};
 
@@ -47,35 +47,36 @@ release_buffer(const void *, std::size_t, void *ctx) noexcept  // NOLINT(bugpron
     delete buffer;  // NOLINT(cppcoreguidelines-owning-memory)
 }
 
+memory_block
+memory_block_from_buffer(const py::buffer &buffer, bool copy)
+{
+    py::buffer_info info = buffer.request();
+
+    auto data = static_cast<memory_block::const_pointer>(info.ptr);
+
+    std::size_t size = compute_buffer_size(info);
+
+    if (copy)
+        return copy_memory({data, size});
+
+    // Steal the raw buffer pointer.
+    Py_buffer *ptr = std::exchange(info.view(), nullptr);
+
+    return memory_block{data, size, ptr, release_py_buffer};
+}
+
 }  // namespace
 }  // namespace detail
 
 void
-def_memory(py::module_ &data_module)
+def_memory(py::module_ &base_module)
 {
-    py::module_ m = data_module.def_submodule("memory");
+    py::module_ m = base_module.def_submodule("memory");
 
     // MemoryBlock
     py::class_<memory_block>(m, "MemoryBlock", py::buffer_protocol())
         .def(py::init<>())
-        .def(
-            py::init([](const py::buffer &buf, bool copy) -> memory_block
-            {
-                py::buffer_info info = buf.request();
-
-                auto data = static_cast<memory_block::const_pointer>(info.ptr);
-
-                std::size_t size = compute_buffer_size(info);
-
-                if (copy)
-                    return copy_memory({data, size});
-
-                Py_buffer *ptr = std::exchange(info.view(), nullptr);
-
-                return memory_block{data, size, ptr, release_buffer};
-            }),
-            py::arg("buffer"),
-            py::arg("copy") = false)
+        .def(py::init(&memory_block_from_buffer), py::arg("buffer"), py::arg("copy") = false)
 
         .def("__len__", &memory_block::size)
 
@@ -88,7 +89,21 @@ def_memory(py::module_ &data_module)
                     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
                     const_cast<T *>(self.data()), sizeof(T), "B", ssize(self), /*readonly=*/true
                 };
-            });
+            })
+
+        .def(
+            py::pickle(
+                [](const py::object &self)
+                {
+                    return py::reinterpret_steal<py::object>(
+                        ::PyPickleBuffer_FromObject(self.ptr()));
+                },
+                [](const py::object &bytes) -> memory_block
+                {
+                    auto buffer = bytes.cast<py::buffer>();
+
+                    return memory_block_from_buffer(buffer, /*copy=*/false);
+                }));
 }
 
 }  // namespace fairseq2

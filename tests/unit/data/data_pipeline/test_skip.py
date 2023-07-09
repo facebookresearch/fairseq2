@@ -10,7 +10,7 @@ from fairseq2.data import read_sequence
 
 
 class TestSkipOp:
-    def test_op_works_as_expected(self) -> None:
+    def test_op_works(self) -> None:
         pipeline = read_sequence([1, 2, 3, 4, 5, 6, 7, 8, 9]).skip(3).and_return()
 
         for _ in range(2):
@@ -18,7 +18,7 @@ class TestSkipOp:
 
             pipeline.reset()
 
-    def test_op_works_if_count_is_larger_than_data(self) -> None:
+    def test_op_works_when_count_is_greater_than_the_number_of_elements(self) -> None:
         pipeline = read_sequence([1, 2, 3]).skip(5).and_return()
 
         for _ in range(2):
@@ -26,7 +26,7 @@ class TestSkipOp:
 
             pipeline.reset()
 
-    def test_op_works_if_count_is_zero(self) -> None:
+    def test_op_works_when_count_is_zero(self) -> None:
         pipeline = read_sequence([1, 2, 3]).skip(0).and_return()
 
         for _ in range(2):
@@ -34,7 +34,7 @@ class TestSkipOp:
 
             pipeline.reset()
 
-    def test_record_reload_position_works_as_expected(self) -> None:
+    def test_op_saves_and_restores_its_state(self) -> None:
         pipeline = read_sequence([1, 2, 3, 4, 5, 6, 7, 8, 9]).skip(3).and_return()
 
         d = None

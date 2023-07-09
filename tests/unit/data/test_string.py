@@ -4,13 +4,21 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import pickle
+
 import pytest
 
 from fairseq2.data import CString
 
 
 class TestCString:
-    def test_len_returns_correct_length(self) -> None:
+    def test_init_works_when_input_is_a_python_string(self) -> None:
+        s1 = "schöne Grüße!"
+        s2 = CString(s1)
+
+        assert s1 == s2
+
+    def test_len_works(self) -> None:
         s1 = "schöne Grüße!"
         s2 = CString("schöne Grüße!")
 
@@ -27,7 +35,7 @@ class TestCString:
 
         assert len(s1) == len(s2)
 
-    def test_len_returns_zero_if_string_is_empty(self) -> None:
+    def test_len_works_when_string_is_empty(self) -> None:
         s = CString()
 
         assert len(s) == 0
@@ -36,7 +44,7 @@ class TestCString:
 
         assert len(s) == 0
 
-    def test_eq_returns_true_if_strings_are_equal(self) -> None:
+    def test_eq_works_when_strings_are_equal(self) -> None:
         s1 = CString("schöne Grüße!")
         s2 = CString("schöne Grüße!")
 
@@ -48,7 +56,7 @@ class TestCString:
 
         assert not r
 
-    def test_eq_returns_true_if_string_and_python_string_are_equal(self) -> None:
+    def test_eq_works_when_string_and_python_string_are_equal(self) -> None:
         s1 = "schöne Grüße!"
         s2 = CString("schöne Grüße!")
 
@@ -68,7 +76,7 @@ class TestCString:
 
         assert not r
 
-    def test_eq_returns_false_if_strings_are_not_equal(self) -> None:
+    def test_eq_works_when_strings_are_not_equal(self) -> None:
         s1 = CString("schöne Grüße!")
         s2 = CString("schone Grüße!")
 
@@ -80,7 +88,7 @@ class TestCString:
 
         assert r
 
-    def test_eq_returns_false_if_string_and_python_string_are_not_equal(self) -> None:
+    def test_eq_works_when_string_and_python_string_are_not_equal(self) -> None:
         s1 = "schöne Grüße!"
         s2 = CString("schöne Grüsse!")
 
@@ -100,13 +108,7 @@ class TestCString:
 
         assert r
 
-    def test_init_initializes_correctly_with_python_string(self) -> None:
-        s1 = "schöne Grüße!"
-        s2 = CString(s1)
-
-        assert s1 == s2
-
-    def test_hash_returns_same_value_with_each_call(self) -> None:
+    def test_hash_works_when_called_multiple_times(self) -> None:
         s = CString("schöne Grüsse!")
 
         h1 = hash(s)
@@ -114,7 +116,7 @@ class TestCString:
 
         assert h1 == h2
 
-    def test_str_returns_python_str(self) -> None:
+    def test_str_works(self) -> None:
         s = CString("schöne Grüße!")
 
         r = str(s)
@@ -125,12 +127,19 @@ class TestCString:
 
         assert r == "schöne Grüße!"
 
-    def test_repr_returns_quoted_string(self) -> None:
+    def test_repr_works(self) -> None:
         s = CString("schöne Grüße!")
 
         assert "CString('schöne Grüße!')" == repr(s)
 
-    def test_split_returns_correct_list(self) -> None:
+    def test_split_works_when_no_separator_is_specified(self) -> None:
+        s = CString("hello\tworld!\tthis\tis\ta\tstring")
+
+        r = s.split()
+
+        assert r == ["hello", "world!", "this", "is", "a", "string"]
+
+    def test_split_works_when_separator_is_specified(self) -> None:
         s = CString("hello world! this is a string")
 
         r = s.split(sep=" ")
@@ -145,37 +154,41 @@ class TestCString:
 
         assert r == ["hello world! this is a strin", ""]
 
-    def test_split_returns_correct_list_with_default_separator(self) -> None:
-        s = CString("hello\tworld!\tthis\tis\ta\tstring")
-
-        r = s.split()
-
-        assert r == ["hello", "world!", "this", "is", "a", "string"]
-
     @pytest.mark.parametrize("v", ["", "  "])
-    def test_split_returs_list_of_length_1_if_the_string_is_empty(self, v: str) -> None:
+    def test_split_works_when_string_is_empty(self, v: str) -> None:
         s = CString(v)
 
         r = s.split()
 
         assert r == [v]
 
-    def test_split_returns_empty_strings(self) -> None:
+    def test_split_works_when_string_contains_only_separators(self) -> None:
         s = CString(":  :: :")
 
         r = s.split(":")
 
         assert r == ["", "  ", "", " ", ""]
 
-    def test_split_returns_list_of_length_1_if_separator_is_not_found(self) -> None:
+    def test_split_works_when_separator_is_not_found_in_string(self) -> None:
         s = CString("hello world! this is a string")
 
         r = s.split(sep="z")
 
         assert r == ["hello world! this is a string"]
 
-    def test_split_raises_error_if_separater_is_not_char(self) -> None:
+    def test_split_raises_error_when_separator_is_not_char(self) -> None:
         s = CString("hello world! this is a string")
 
         with pytest.raises(ValueError, match=r"^`sep` must be of length 1\.$"):
             s.split("<>")
+
+    def test_pickle_works(self) -> None:
+        s = CString("hello world!")
+
+        dump = pickle.dumps(s)
+
+        del s
+
+        s = pickle.loads(dump)
+
+        assert s == "hello world!"

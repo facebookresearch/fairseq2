@@ -14,15 +14,15 @@ from tests.common import tmp_rng_seed
 
 
 class TestShuffleOp:
-    def test_op_works_as_expected(self) -> None:
-        cpu = torch.device("cpu")
+    def test_op_works(self) -> None:
+        cpu_device = torch.device("cpu")
 
         seq = list(range(1, 10))
 
         pipeline = read_sequence(seq).shuffle(100).and_return()
 
         for _ in range(2):
-            with tmp_rng_seed(cpu, seed=2):
+            with tmp_rng_seed(cpu_device, seed=2):
                 assert list(pipeline) == [7, 1, 3, 2, 6, 5, 8, 4, 9]
 
                 pipeline.reset()
@@ -30,7 +30,7 @@ class TestShuffleOp:
         pipeline = read_sequence(seq).shuffle(0).and_return()
 
         for _ in range(2):
-            with tmp_rng_seed(cpu, seed=2):
+            with tmp_rng_seed(cpu_device, seed=2):
                 assert list(pipeline) == [7, 1, 3, 2, 6, 5, 8, 4, 9]
 
                 pipeline.reset()
@@ -38,7 +38,7 @@ class TestShuffleOp:
         pipeline = read_sequence(seq).shuffle(3).and_return()
 
         for _ in range(2):
-            with tmp_rng_seed(cpu, seed=2):
+            with tmp_rng_seed(cpu_device, seed=2):
                 assert list(pipeline) == [1, 3, 5, 2, 6, 7, 4, 9, 8]
 
                 pipeline.reset()
@@ -46,56 +46,56 @@ class TestShuffleOp:
         pipeline = read_sequence(seq).shuffle(1).and_return()
 
         for _ in range(2):
-            with tmp_rng_seed(cpu, seed=2):
+            with tmp_rng_seed(cpu_device, seed=2):
                 assert list(pipeline) == [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
                 pipeline.reset()
 
     @pytest.mark.parametrize("window", [10, 100, 1000])
-    def test_record_reload_position_works_as_expected(self, window: int) -> None:
-        cpu = torch.device("cpu")
+    def test_op_saves_and_restores_its_state(self, window: int) -> None:
+        cpu_device = torch.device("cpu")
 
         seq = list(range(5000))
 
-        dp1 = read_sequence(seq).shuffle(window).and_return()
-        dp2 = read_sequence(seq).shuffle(window).and_return()
+        pipeline1 = read_sequence(seq).shuffle(window).and_return()
+        pipeline2 = read_sequence(seq).shuffle(window).and_return()
 
-        with tmp_rng_seed(cpu, seed=2):
-            expected_output1 = list(islice(dp1, 4000))
+        with tmp_rng_seed(cpu_device, seed=2):
+            expected_output1 = list(islice(pipeline1, 4000))
 
-        with tmp_rng_seed(cpu, seed=3):
-            expected_output2 = list(islice(dp1, 1000))
+        with tmp_rng_seed(cpu_device, seed=3):
+            expected_output2 = list(islice(pipeline1, 1000))
 
-        with tmp_rng_seed(cpu, seed=2):
-            assert list(islice(dp2, 4000)) == expected_output1
+        with tmp_rng_seed(cpu_device, seed=2):
+            assert list(islice(pipeline2, 4000)) == expected_output1
 
-        state_dict = dp2.state_dict()
+        state_dict = pipeline2.state_dict()
 
-        with tmp_rng_seed(cpu, seed=3):
-            assert list(islice(dp2, 1000)) == expected_output2
+        with tmp_rng_seed(cpu_device, seed=3):
+            assert list(islice(pipeline2, 1000)) == expected_output2
 
-        dp2.load_state_dict(state_dict)
+        pipeline2.load_state_dict(state_dict)
 
-        with tmp_rng_seed(cpu, seed=3):
-            assert list(islice(dp2, 1000)) == expected_output2
+        with tmp_rng_seed(cpu_device, seed=3):
+            assert list(islice(pipeline2, 1000)) == expected_output2
 
-        dp2.reset()
-        dp2.load_state_dict(state_dict)
+        pipeline2.reset()
+        pipeline2.load_state_dict(state_dict)
 
-        with tmp_rng_seed(cpu, seed=3):
-            assert list(islice(dp2, 1000)) == expected_output2
+        with tmp_rng_seed(cpu_device, seed=3):
+            assert list(islice(pipeline2, 1000)) == expected_output2
 
-        state_dict = dp2.state_dict()
-
-        with pytest.raises(StopIteration):
-            next(iter(dp2))
-
-        dp2.reset()
-
-        dp2.load_state_dict(state_dict)
+        state_dict = pipeline2.state_dict()
 
         with pytest.raises(StopIteration):
-            next(iter(dp2))
+            next(iter(pipeline2))
+
+        pipeline2.reset()
+
+        pipeline2.load_state_dict(state_dict)
+
+        with pytest.raises(StopIteration):
+            next(iter(pipeline2))
 
     def test_record_reload_position_works_as_expected_with_no_strict(self) -> None:
         seq = list(range(100))

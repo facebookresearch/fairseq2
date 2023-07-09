@@ -34,7 +34,7 @@ public:
     operator()(data &&d) const;
 
 private:
-    std::vector<data>
+    data_list
     decode(at::Tensor &&tensor) const;
 
 private:

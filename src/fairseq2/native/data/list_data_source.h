@@ -16,7 +16,7 @@ namespace fairseq2::detail {
 class list_data_source final : public data_source {
 public:
     explicit
-    list_data_source(std::vector<data> &&list) noexcept
+    list_data_source(data_list &&list) noexcept
       : list_(std::move(list)), iter_{list_.begin()}
     {}
 
@@ -33,8 +33,8 @@ public:
     reload_position(tape &t) override;
 
 private:
-    std::vector<data> list_;
-    std::vector<data>::iterator iter_;
+    data_list list_;
+    data_list::iterator iter_;
 };
 
 }  // namespace fairseq2::detail

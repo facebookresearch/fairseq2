@@ -10,7 +10,7 @@ from fairseq2.data import read_sequence
 
 
 class TestReadSequenceOp:
-    def test_op_works_as_expected(self) -> None:
+    def test_op_works(self) -> None:
         seq = list(range(1, 10))
 
         pipeline = read_sequence(seq).and_return()
@@ -20,7 +20,7 @@ class TestReadSequenceOp:
 
             pipeline.reset()
 
-    def test_op_works_as_expected_with_empty_sequence(self) -> None:
+    def test_op_works_when_input_sequence_is_empty(self) -> None:
         pipeline = read_sequence([]).and_return()
 
         for _ in range(2):
@@ -28,7 +28,7 @@ class TestReadSequenceOp:
 
             pipeline.reset()
 
-    def test_record_reload_position_works_as_expected(self) -> None:
+    def test_op_saves_and_restores_its_state(self) -> None:
         seq = list(range(1, 10))
 
         pipeline = read_sequence(seq).and_return()

@@ -56,12 +56,12 @@ make_fts(const std::string &pathname)
 
 }  // namespace
 
-std::vector<data>
+data_list
 list_files(const std::string &pathname, const std::optional<std::string> &pattern)
 {
     auto fts = make_fts(pathname);
 
-    std::vector<data> output{};
+    data_list output{};
 
     ::FTSENT *ent = nullptr;
     while ((ent = ::fts_read(fts.get())) != nullptr) {

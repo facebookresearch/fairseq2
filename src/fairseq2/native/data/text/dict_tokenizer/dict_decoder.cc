@@ -28,7 +28,7 @@ dict_decoder::operator()(data &&d) const
     return decode(std::move(tensor));
 }
 
-std::vector<data>
+data_list
 dict_decoder::decode(at::Tensor &&tensor) const
 {
     tensor = tensor.to(at::kCPU);
@@ -36,7 +36,7 @@ dict_decoder::decode(at::Tensor &&tensor) const
     auto batch_size = tensor.size(0);
     auto seq_dim = tensor.size(1);
 
-    std::vector<data> sentences;
+    data_list sentences;
     sentences.reserve(static_cast<std::size_t>(batch_size));
     for (auto i = 0; i < batch_size; ++i) {
         std::string sentence;

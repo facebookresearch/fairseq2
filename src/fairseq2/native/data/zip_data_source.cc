@@ -34,7 +34,7 @@ zip_data_source::next()
     if (pipelines_.empty())
         return std::nullopt;
 
-    std::vector<data> zip(pipelines_.size());
+    data_list zip(pipelines_.size());
 
     // Do not use `bool` here as, per standard, it is not thread-safe even for
     // distinct elements.
@@ -72,7 +72,7 @@ zip_data_source::next()
             return zip;
 
         // Otherwise, as dictionary.
-        flat_hash_map<std::string, data> dict{};
+        data_dict dict{};
 
         for (std::size_t i = 0; i < zip.size(); ++i)
             dict.emplace(names_[i], std::move(zip[i]));

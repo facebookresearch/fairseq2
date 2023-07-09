@@ -216,9 +216,9 @@ def_data_pipeline(py::module_ &data_module)
                     throw;
                 }
 
-                std::vector<data> storage{};
+                data_list storage{};
                 try {
-                    storage = value.cast<std::vector<data>>();
+                    storage = value.cast<data_list>();
                 } catch (const py::cast_error &) {
                     throw std::invalid_argument{
                         "The specified data pipeline state is corrupt."};

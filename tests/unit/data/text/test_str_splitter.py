@@ -10,7 +10,7 @@ from fairseq2.data.text.converters import StrSplitter
 
 
 class TestStrSplitter:
-    def test_splits_as_expected(self) -> None:
+    def test_call_works(self) -> None:
         s = "23\t9\t12\t\tabc\t34\t~~\t\t90\t 1 \t "
 
         splitter = StrSplitter()
@@ -29,7 +29,7 @@ class TestStrSplitter:
             " ",
         ]
 
-    def test_splits_with_custom_sep_as_expected(self) -> None:
+    def test_call_works_when_separator_is_specified(self) -> None:
         s = "23 9 12  abc 34 ~~  90 \t 1  "
 
         splitter = StrSplitter(sep=" ")
@@ -50,19 +50,19 @@ class TestStrSplitter:
             "",
         ]
 
-    def test_splits_empty_string_as_expected(self) -> None:
+    def test_call_works_when_input_is_empty(self) -> None:
         splitter = StrSplitter()
 
         assert splitter("") == [""]
 
-    def test_splits_with_names_as_expected(self) -> None:
+    def test_call_works_when_names_are_specified(self) -> None:
         s = "1\t2\t3"
 
         splitter = StrSplitter(names=["a", "b", "c"])
 
         assert splitter(s) == {"a": "1", "b": "2", "c": "3"}
 
-    def test_raises_error_if_fields_and_names_do_not_match(self) -> None:
+    def test_call_raises_error_when_fields_and_names_do_not_match(self) -> None:
         s = "1\t2\t3"
 
         splitter = StrSplitter(names=["a", "b"])

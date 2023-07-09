@@ -10,15 +10,15 @@ from typing import Any, Final
 import pytest
 import torch
 
-from fairseq2.data import MemoryBlock
 from fairseq2.data.audio import AudioDecoder
+from fairseq2.memory import MemoryBlock
 from tests.common import assert_close, device
 
 TEST_OGG_PATH: Final = Path(__file__).parent.joinpath("test.ogg")
 
 
 class TestAudioDecoder:
-    def test_encodes_as_expected(self) -> None:
+    def test_call_works(self) -> None:
         decoder = AudioDecoder(device=device)
 
         with TEST_OGG_PATH.open("rb") as fb:
@@ -45,7 +45,7 @@ class TestAudioDecoder:
     @pytest.mark.parametrize(
         "value,type_name", [(None, "pyobj"), (123, "int"), ("s", "string")]
     )
-    def test_raises_error_if_input_is_not_memory_block(
+    def test_call_raises_error_when_input_is_not_memory_block(
         self, value: Any, type_name: str
     ) -> None:
         decoder = AudioDecoder()
@@ -56,7 +56,7 @@ class TestAudioDecoder:
         ):
             decoder(value)
 
-    def test_raises_error_if_input_is_empty(self) -> None:
+    def test_call_raises_error_when_input_is_empty(self) -> None:
         decoder = AudioDecoder()
 
         empty_block = MemoryBlock()
@@ -67,7 +67,7 @@ class TestAudioDecoder:
         ):
             decoder(empty_block)
 
-    def test_raises_error_if_input_is_invalid(self) -> None:
+    def test_call_raises_error_when_input_is_invalid(self) -> None:
         decoder = AudioDecoder()
 
         block = MemoryBlock(b"foo")

@@ -32,7 +32,7 @@ void
 def_dict_tokenizer(pybind11::module_ &text_module);
 
 void
-def_memory(pybind11::module_ &data_module);
+def_memory(pybind11::module_ &base_module);
 
 void
 def_sentencepiece(pybind11::module_ &text_module);

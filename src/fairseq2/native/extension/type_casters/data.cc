@@ -62,10 +62,10 @@ type_caster<data>::cast_from_py(handle src)
         return src.cast<py_object>();
 
     if (isinstance<dict>(src))
-        return src.cast<flat_hash_map<std::string, data>>();
+        return src.cast<data_dict>();
 
     if (isinstance<sequence>(src))
-        return src.cast<std::vector<data>>();
+        return src.cast<data_list>();
 
     // path-like.
     if (hasattr(src, "__fspath__"))

@@ -14,7 +14,7 @@
 
 using namespace fairseq2::detail;
 
-TEST(test_lru_cache, evicts_entries_as_expected)
+TEST(test_lru_cache, add_and_get_if_work)
 {
     lru_cache<std::int32_t> cache{/*capacity=*/5};
 

@@ -14,14 +14,14 @@
 using namespace fairseq2;
 
 // Also see the Python tests.
-TEST(test_immutable_string, constructor_throws_exception_if_string_is_invalid_utf8)
+TEST(test_immutable_string, constructor_throws_exception_when_string_is_invalid_utf8)
 {
     immutable_string s{"\xfe\xfe\xff\xff"};
 
     EXPECT_THROW(s.get_code_point_length(), invalid_utf8_error);
 }
 
-TEST(test_immutable_string, copy_constructor_shares_memory)
+TEST(test_immutable_string, copy_constructor_works)
 {
     immutable_string s1 = "foo";
 

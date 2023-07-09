@@ -41,9 +41,9 @@ enum class data_type : std::int16_t {
     bool_,
     int_,
     float_,
-    string_,
+    string,
     tensor,
-    memory_block_,
+    memory_block,
     list,
     dict,
     pyobj,
@@ -363,6 +363,10 @@ private:
         flat_hash_map<std::string, data>,
         py_object> payload_{};
 };
+
+using data_list = std::vector<data>;
+
+using data_dict = flat_hash_map<std::string, data>;
 
 FAIRSEQ2_API std::string
 repr(data_type dt);

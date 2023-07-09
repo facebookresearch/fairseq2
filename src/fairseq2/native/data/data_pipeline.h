@@ -181,7 +181,7 @@ FAIRSEQ2_API data_pipeline_builder
 list_files(std::string pathname, std::optional<std::string> pattern = {});
 
 FAIRSEQ2_API data_pipeline_builder
-read_list(std::vector<data> list);
+read_list(data_list list);
 
 FAIRSEQ2_API data_pipeline_builder
 read_zipped_records(std::string pathname);

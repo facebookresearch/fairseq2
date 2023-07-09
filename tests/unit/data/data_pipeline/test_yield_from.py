@@ -12,7 +12,7 @@ from fairseq2.data import DataPipeline, read_sequence
 
 
 class TestYieldFromOp:
-    def test_op_works_as_expected(self) -> None:
+    def test_op_works(self) -> None:
         def fn(d: Tuple[int, int]) -> DataPipeline:
             a, b = d
 
@@ -27,7 +27,7 @@ class TestYieldFromOp:
 
             pipeline.reset()
 
-    def test_record_reload_position_works_as_expected(self) -> None:
+    def test_op_saves_and_restores_its_state(self) -> None:
         def fn(d: Tuple[int, int]) -> DataPipeline:
             a, b = d
 

@@ -20,14 +20,14 @@ namespace detail {
 template <typename T>
 inline constexpr bool is_vector_v = false;
 
-template <typename T>
-inline constexpr bool is_vector_v<std::vector<T>> = true;
+template <typename U>
+inline constexpr bool is_vector_v<std::vector<U>> = true;
 
 template <typename T>
 inline constexpr bool is_optional_v = false;
 
-template <typename T>
-inline constexpr bool is_optional_v<std::optional<T>> = true;
+template <typename U>
+inline constexpr bool is_optional_v<std::optional<U>> = true;
 
 // Used as a workaround for static_assert(false).
 struct not_same {};
@@ -38,12 +38,19 @@ template <typename T>
 inline void
 tape::record(const T &d)
 {
+    // Treat `bool` specially to avoid ambiguity with integer types.
     if constexpr (std::is_same_v<T, bool>)
         record_data(d);
+
+    // Convert all integer types to 64-bit.
     else if constexpr (std::is_integral_v<T>)
         record_data(detail::conditional_cast<std::int64_t>(d));
+
+    // Convert all floating-point types to double precision.
     else if constexpr (std::is_floating_point_v<T>)
         record_data(detail::conditional_cast<float64>(d));
+
+    // Otherwise, only allow types that are implicitly convertible to `data`.
     else if constexpr (std::is_convertible_v<T, data>)
         record_data(detail::conditional_cast<data>(d));
     else
@@ -90,11 +97,11 @@ tape::read()
             return d.as_bool();
     } else if constexpr (std::is_integral_v<T>) {
         if (d.is_int())
-            if (T i{}; detail::try_narrow(d.as_int(), i))
+            if (T i{}; detail::maybe_narrow(d.as_int(), i))
                 return i;
     } else if constexpr (std::is_floating_point_v<T>) {
         if (d.is_float())
-            if (T f{}; detail::try_narrow(d.as_float(), f))
+            if (T f{}; detail::maybe_narrow(d.as_float(), f))
                 return f;
     } else if constexpr (std::is_same_v<T, immutable_string>) {
         if (d.is_string())
@@ -102,18 +109,24 @@ tape::read()
     } else if constexpr (std::is_same_v<T, at::Tensor>) {
         if (d.is_tensor())
             return d.as_tensor();
-    } else if constexpr (std::is_same_v<T, std::vector<data>>) {
+    } else if constexpr (std::is_same_v<T, memory_block>) {
+        if (d.is_memory_block())
+            return d.as_memory_block();
+    } else if constexpr (std::is_same_v<T, data_list>) {
         if (d.is_list())
             return d.as_list();
+    } else if constexpr (std::is_same_v<T, data_dict>) {
+        if (d.is_dict())
+            return d.as_dict();
     } else if constexpr (std::is_same_v<T, py_object>) {
         if (d.is_py())
             return d.as_py();
     } else if constexpr (detail::is_vector_v<T>) {
         if (d.is_int()) {
-            if (std::size_t size = 0; detail::try_narrow(d.as_int(), size)) {
+            if (std::size_t size = 0; detail::maybe_narrow(d.as_int(), size)) {
                 using U = typename T::value_type;
 
-                std::vector<U> output{};
+                T output{};
 
                 output.reserve(size);
 

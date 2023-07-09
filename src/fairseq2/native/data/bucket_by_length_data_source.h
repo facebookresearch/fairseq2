@@ -50,7 +50,7 @@ private:
     data_length_fn data_length_fn_;
     bool drop_remainder_;
     bool warn_only_;
-    std::vector<std::vector<data>> buckets_{};
+    std::vector<data_list> buckets_{};
 };
 
 }  // namespace fairseq2::detail

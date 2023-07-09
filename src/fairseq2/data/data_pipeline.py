@@ -19,8 +19,8 @@ from typing import (
 )
 
 from fairseq2 import _DOC_MODE
-from fairseq2.data.memory import MemoryBlock
 from fairseq2.data.typing import PathLike, StringLike
+from fairseq2.memory import MemoryBlock
 
 if TYPE_CHECKING or _DOC_MODE:
 

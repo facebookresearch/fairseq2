@@ -10,7 +10,7 @@ from fairseq2.data import read_sequence
 
 
 class TestShardOp:
-    def test_op_works_as_expected(self) -> None:
+    def test_op_works(self) -> None:
         seq = list(range(1, 23))
 
         pipeline = read_sequence(seq).shard(1, 5).and_return()
@@ -37,14 +37,14 @@ class TestShardOp:
             pipeline.reset()
 
     @pytest.mark.parametrize("idx", [4, 5])
-    def test_op_raises_error_if_shard_idx_is_invalid(self, idx: int) -> None:
+    def test_op_raises_error_when_shard_idx_is_invalid(self, idx: int) -> None:
         with pytest.raises(
             ValueError,
             match=rf"^`shard_idx` must be less than `num_shards` \(4\), but is {idx} instead\.$",
         ):
             read_sequence([1, 2, 3, 4]).shard(idx, 4).and_return()
 
-    def test_record_reload_position_works_as_expected(self) -> None:
+    def test_op_saves_and_restores_its_state(self) -> None:
         seq = list(range(1, 23))
 
         pipeline = read_sequence(seq).shard(2, 5).and_return()

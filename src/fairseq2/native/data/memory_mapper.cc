@@ -81,7 +81,7 @@ memory_mapper::operator()(data &&d) const
 
     auto pack_output = [&d](memory_block &&blk)
     {
-        flat_hash_map<std::string, data> output{};
+        data_dict output{};
 
         output["path"] = std::move(d);
         output["data"] = std::move(blk);

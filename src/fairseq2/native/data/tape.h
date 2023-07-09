@@ -19,7 +19,7 @@ namespace fairseq2 {
 class FAIRSEQ2_API tape {
 public:
     explicit
-    tape(std::vector<data> storage = {}) noexcept
+    tape(data_list storage = {}) noexcept
       : storage_(std::move(storage))
     {}
 
@@ -51,7 +51,7 @@ public:
         iter_ = storage_.begin();
     }
 
-    const std::vector<data> &
+    const data_list &
     storage() const noexcept
     {
         return storage_;
@@ -62,8 +62,8 @@ private:
     throw_corrupt();
 
 private:
-    std::vector<data> storage_;
-    std::vector<data>::iterator iter_ = storage_.begin();
+    data_list storage_;
+    data_list::iterator iter_ = storage_.begin();
 };
 
 class FAIRSEQ2_API corrupt_tape_error : public std::logic_error {

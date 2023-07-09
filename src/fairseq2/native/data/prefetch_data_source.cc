@@ -76,8 +76,8 @@ prefetch_data_source::record_position(tape &t) const
     if (state_ == prefetch_state::faulted)
         std::rethrow_exception(exception_ptr_);
 
-    std::vector<data> fill_buffer{fill_queue_.begin(), fill_queue_.end()};
-    std::vector<data> next_buffer{next_queue_.begin(), next_queue_.end()};
+    data_list fill_buffer{fill_queue_.begin(), fill_queue_.end()};
+    data_list next_buffer{next_queue_.begin(), next_queue_.end()};
 
     t.record(fill_buffer);
     t.record(next_buffer);
@@ -95,8 +95,8 @@ prefetch_data_source::reload_position(tape &t)
 
     state_ = prefetch_state::not_running;
 
-    auto fill_buffer = t.read<std::vector<data>>();
-    auto next_buffer = t.read<std::vector<data>>();
+    auto fill_buffer = t.read<data_list>();
+    auto next_buffer = t.read<data_list>();
 
     fill_queue_.assign(fill_buffer.begin(), fill_buffer.end());
     next_queue_.assign(next_buffer.begin(), next_buffer.end());

@@ -43,7 +43,7 @@ are_equal(const T &lhs, const T &rhs) noexcept
 
 template <typename T, typename U>
 inline constexpr bool
-try_narrow(U u, T &t) noexcept
+maybe_narrow(U u, T &t) noexcept
 {
     if constexpr (std::is_same_v<T, U>) {
         t = u;

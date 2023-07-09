@@ -16,32 +16,32 @@
 using namespace fairseq2;
 using namespace fairseq2::detail;
 
-TEST(test_cast, try_narrow_returns_true_if_value_within_range)
+TEST(test_cast, maybe_narrow_works_when_value_is_within_range)
 {
     std::int64_t a = 100;
     std::int32_t b = 0;
 
-    EXPECT_TRUE(try_narrow(a, b));
+    EXPECT_TRUE(maybe_narrow(a, b));
 
     EXPECT_EQ(b, 100);
 
     float64 c = 12.0;
     float32 d = 0;
 
-    EXPECT_TRUE(try_narrow(c, d));
+    EXPECT_TRUE(maybe_narrow(c, d));
 
     EXPECT_EQ(d, 12.0);
 }
 
-TEST(test_cast, try_narrow_returns_false_if_value_outside_of_range)
+TEST(test_cast, maybe_narrow_works_when_value_is_out_of_range)
 {
     std::int64_t a = std::numeric_limits<std::int64_t>::max();
     std::int32_t b = 0;
 
-    EXPECT_FALSE(try_narrow(a, b));
+    EXPECT_FALSE(maybe_narrow(a, b));
 
     float64 c = std::numeric_limits<float64>::max();
     float32 d = 0;
 
-    EXPECT_FALSE(try_narrow(c, d));
+    EXPECT_FALSE(maybe_narrow(c, d));
 }

@@ -41,6 +41,8 @@ PYBIND11_MODULE(C, m)
 #pragma clang diagnostic pop
 
     def_data(m);
+
+    def_memory(m);
 }
 
 }  // namespace fairseq2

@@ -48,9 +48,9 @@ def_sentencepiece(py::module_ &text_module)
 
                     return py::bytes(serialized);
                 },
-                [](const py::bytes &bits)
+                [](const py::bytes &bytes)
                 {
-                    auto serialized = bits.cast<std::string>();
+                    auto serialized = bytes.cast<std::string>();
 
                     return sp_model::from_serialized(serialized);
                 }))

@@ -60,7 +60,7 @@ bucket_by_length_data_source::next()
             auto [bucket_batch_size, bucket_data_length] = bucket_sizes_[i];
 
             if (data_length <= bucket_data_length) {
-                std::vector<data> &bucket = buckets_[i];
+                data_list &bucket = buckets_[i];
 
                 bucket.push_back(*std::move(d));
 
@@ -79,7 +79,7 @@ bucket_by_length_data_source::next()
 
     if (!drop_remainder_) {
         // Return the smallest partially filled bucket.
-        for (std::vector<data> &bucket : buckets_) {
+        for (data_list &bucket : buckets_) {
             if (bucket.empty())
                 continue;
 
@@ -93,7 +93,7 @@ bucket_by_length_data_source::next()
 void
 bucket_by_length_data_source::reset()
 {
-    for (std::vector<data> &bucket : buckets_)
+    for (data_list &bucket : buckets_)
         bucket.clear();
 
     inner_->reset();
@@ -110,7 +110,7 @@ bucket_by_length_data_source::record_position(tape &t) const
 void
 bucket_by_length_data_source::reload_position(tape &t)
 {
-    buckets_ = t.read<std::vector<std::vector<data>>>();
+    buckets_ = t.read<std::vector<data_list>>();
 
     inner_->reload_position(t);
 }

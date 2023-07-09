@@ -23,7 +23,7 @@ collater::operator()(data &&d) const
     if (!d.is_list())
         return d;
 
-    std::vector<data> bucket = d.as_list();
+    data_list bucket = d.as_list();
 
     if (bucket.front().is_tensor()) {
         std::vector<at::Tensor> s{};
@@ -44,14 +44,14 @@ collater::operator()(data &&d) const
         auto bs = bucket.size();
         auto n_cols = bucket.front().as_list().size();
 
-        std::vector<std::vector<data>> columns(n_cols);
+        std::vector<data_list> columns(n_cols);
         for (auto column : columns)
             column.reserve(bs);
 
         for (auto maybe_row: bucket) {
             if (!maybe_row.is_list())
                 throw not_supported_error{"All rows need to have the same type to be used."};
-            std::vector<data> row = maybe_row.as_list();
+            data_list row = maybe_row.as_list();
             if (row.size() != n_cols)
                 throw not_supported_error{"All rows need to have the same size to be used."};
 
@@ -60,7 +60,7 @@ collater::operator()(data &&d) const
             }
         }
 
-        std::vector<data> collated_columns = {};
+        data_list collated_columns = {};
         collated_columns.reserve(n_cols);
         for (std::size_t col = 0; col < n_cols; ++col) {
             collated_columns.emplace_back((*this)(columns[col]));

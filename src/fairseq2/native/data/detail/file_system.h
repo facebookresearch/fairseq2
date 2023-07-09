@@ -14,7 +14,7 @@
 
 namespace fairseq2::detail {
 
-std::vector<data>
+data_list
 list_files(const std::string &pathname, const std::optional<std::string> &pattern);
 
 }

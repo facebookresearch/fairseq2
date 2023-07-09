@@ -364,7 +364,7 @@ list_files(std::string pathname, std::optional<std::string> pattern)
 {
     auto factory = [pathname = std::move(pathname), pattern = std::move(pattern)]
     {
-        std::vector<data> list{};
+        data_list list{};
 
         try {
             list = detail::list_files(pathname, pattern);
@@ -380,7 +380,7 @@ list_files(std::string pathname, std::optional<std::string> pattern)
 }
 
 data_pipeline_builder
-read_list(std::vector<data> list)
+read_list(data_list list)
 {
     auto factory = [list = std::move(list)]() mutable
     {

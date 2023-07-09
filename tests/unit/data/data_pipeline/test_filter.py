@@ -10,7 +10,7 @@ from fairseq2.data import read_sequence
 
 
 class TestFilterOp:
-    def test_op_works_as_expected(self) -> None:
+    def test_op_works(self) -> None:
         def fn(d: int) -> bool:
             return d % 2 == 1
 
@@ -21,7 +21,7 @@ class TestFilterOp:
 
             pipeline.reset()
 
-    def test_op_propagates_errors_as_expected(self) -> None:
+    def test_op_raises_nested_error_when_callable_fails(self) -> None:
         def fn(d: int) -> bool:
             if d == 3:
                 raise ValueError("filter error")

@@ -13,7 +13,7 @@
 
 using fairseq2::span;
 
-TEST(test_span, default_constructed_is_empty)
+TEST(test_span, constructor_works)
 {
     span<const char> s{};
 
@@ -23,7 +23,7 @@ TEST(test_span, default_constructed_is_empty)
     EXPECT_TRUE(s.empty());
 }
 
-TEST(test_span, can_construct_from_iterator_pair)
+TEST(test_span, constructor_works_when_iterator_pair_is_specified)
 {
     std::array<const char, 5> a = {'a', 'b', 'c', 'd', 'e'};
 
@@ -35,7 +35,7 @@ TEST(test_span, can_construct_from_iterator_pair)
     EXPECT_FALSE(s.empty());
 }
 
-TEST(test_span, can_construct_from_data_and_size)
+TEST(test_span, constructor_works_when_data_and_size_are_specified)
 {
     std::array<const char, 5> a = {'a', 'b', 'c', 'd', 'e'};
 
@@ -47,7 +47,7 @@ TEST(test_span, can_construct_from_data_and_size)
     EXPECT_FALSE(s.empty());
 }
 
-TEST(test_span, can_construct_from_container)
+TEST(test_span, constructor_works_when_container_is_specified)
 {
     std::array<const char, 5> a = {'a', 'b', 'c', 'd', 'e'};
 
@@ -59,7 +59,7 @@ TEST(test_span, can_construct_from_container)
     EXPECT_FALSE(s.empty());
 }
 
-TEST(test_span, subspan_returns_correct_range)
+TEST(test_span, subspan_works)
 {
     std::array<const char, 5> a = {'a', 'b', 'c', 'd', 'e'};
 
@@ -73,7 +73,7 @@ TEST(test_span, subspan_returns_correct_range)
     EXPECT_FALSE(s.empty());
 }
 
-TEST(test_span, subspan_with_count_returns_correct_range)
+TEST(test_span, subspan_works_when_count_is_specified)
 {
     std::array<const char, 5> a = {'a', 'b', 'c', 'd', 'e'};
 
@@ -87,7 +87,7 @@ TEST(test_span, subspan_with_count_returns_correct_range)
     EXPECT_FALSE(s.empty());
 }
 
-TEST(test_span, first_returns_correct_range)
+TEST(test_span, first_works)
 {
     std::array<const char, 5> a = {'a', 'b', 'c', 'd', 'e'};
 
@@ -101,7 +101,7 @@ TEST(test_span, first_returns_correct_range)
     EXPECT_FALSE(s.empty());
 }
 
-TEST(test_span, last_returns_correct_range)
+TEST(test_span, last_works)
 {
     std::array<const char, 5> a = {'a', 'b', 'c', 'd', 'e'};
 
@@ -115,7 +115,7 @@ TEST(test_span, last_returns_correct_range)
     EXPECT_FALSE(s.empty());
 }
 
-TEST(test_span, size_bytes_returns_correct_value)
+TEST(test_span, size_bytes_works)
 {
     std::array<const std::int32_t, 5> a = {1, 2, 3, 4, 5};
 

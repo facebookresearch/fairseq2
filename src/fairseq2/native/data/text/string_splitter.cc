@@ -30,7 +30,7 @@ string_splitter::operator()(data &&d) const
         throw std::invalid_argument{
             fmt::format("The input data must be of type `string`, but is of type `{}` instead.", d.type())};
 
-    std::vector<data> fields{};
+    data_list fields{};
 
     d.as_string().split(separator_, [&fields](immutable_string &&s) {
         fields.emplace_back(std::move(s));
@@ -45,7 +45,7 @@ string_splitter::operator()(data &&d) const
         throw std::invalid_argument{
             fmt::format("The number of fields must match the number of names ({}), but is {} instead.", names_.size(), fields.size())};
 
-    flat_hash_map<std::string, data> dict{};
+    data_dict dict{};
 
     for (std::size_t i = 0; i < fields.size(); ++i)
         dict.emplace(names_[i], std::move(fields[i]));

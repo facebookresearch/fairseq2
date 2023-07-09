@@ -15,7 +15,7 @@ TEST_BIN_PATH: Final = Path(__file__).parent.joinpath("text", "test.spm")
 
 
 class TestMemoryMapper:
-    def test_maps_file_as_expected(self) -> None:
+    def test_call_works(self) -> None:
         mapper = MemoryMapper()
 
         for _ in range(2):
@@ -25,7 +25,7 @@ class TestMemoryMapper:
 
             self.assert_file(output, TEST_BIN_PATH)
 
-    def test_maps_file_with_offset_as_expected(self) -> None:
+    def test_call_works_when_offset_is_specified(self) -> None:
         mapper = MemoryMapper()
 
         pathname = f"{TEST_BIN_PATH}:100"
@@ -37,7 +37,7 @@ class TestMemoryMapper:
 
             self.assert_file(output, TEST_BIN_PATH, offset=100)
 
-    def test_maps_file_with_offset_and_size_as_expected(self) -> None:
+    def test_call_works_when_offset_and_size_are_specified(self) -> None:
         mapper = MemoryMapper()
 
         pathname = f"{TEST_BIN_PATH}:100:200"
@@ -49,7 +49,7 @@ class TestMemoryMapper:
 
             self.assert_file(output, TEST_BIN_PATH, offset=100, size=200)
 
-    def test_maps_file_with_root_directory_as_expected(self) -> None:
+    def test_call_works_when_root_directory_is_specified(self) -> None:
         root_dir = TEST_BIN_PATH.parent.parent
 
         mapper = MemoryMapper(root_dir)
@@ -84,7 +84,7 @@ class TestMemoryMapper:
     @pytest.mark.parametrize(
         "value,type_name", [(None, "pyobj"), (123, "int"), (1.2, "float")]
     )
-    def test_raises_error_if_input_is_not_string(
+    def test_call_raises_error_when_input_is_not_string(
         self, value: Any, type_name: str
     ) -> None:
         mapper = MemoryMapper()
@@ -110,7 +110,7 @@ class TestMemoryMapper:
             "foo:12:34:56",
         ],
     )
-    def test_raises_error_if_pathname_is_invalid(self, pathname: str) -> None:
+    def test_call_raises_error_when_pathname_is_invalid(self, pathname: str) -> None:
         mapper = MemoryMapper()
 
         with pytest.raises(
@@ -120,7 +120,7 @@ class TestMemoryMapper:
             mapper(pathname)
 
     @pytest.mark.parametrize("offset", ["ab", "12a", "a12", "12 34"])
-    def test_raises_error_if_offset_is_invalid(self, offset: str) -> None:
+    def test_call_raises_error_when_offset_is_invalid(self, offset: str) -> None:
         mapper = MemoryMapper()
 
         pathname = f"foo:{offset}:34"
@@ -131,7 +131,7 @@ class TestMemoryMapper:
         ):
             mapper(pathname)
 
-    def test_raises_error_if_offset_is_out_of_range(self) -> None:
+    def test_call_raises_error_when_offset_is_out_of_range(self) -> None:
         mapper = MemoryMapper()
 
         offset = 9999999999999999999999999
@@ -145,7 +145,7 @@ class TestMemoryMapper:
             mapper(pathname)
 
     @pytest.mark.parametrize("size", ["ab", "12a", "a12", "12 34"])
-    def test_raises_error_if_size_is_invalid(self, size: str) -> None:
+    def test_call_raises_error_when_size_is_invalid(self, size: str) -> None:
         mapper = MemoryMapper()
 
         pathname = f"foo:12:{size}"
@@ -156,7 +156,7 @@ class TestMemoryMapper:
         ):
             mapper(pathname)
 
-    def test_raises_error_if_size_is_out_of_range(self) -> None:
+    def test_call_raises_error_when_size_is_out_of_range(self) -> None:
         mapper = MemoryMapper()
 
         size = 9999999999999999999999999
@@ -169,7 +169,7 @@ class TestMemoryMapper:
         ):
             mapper(pathname)
 
-    def test_raises_error_if_offset_is_larger_than_file_size(self) -> None:
+    def test_call_raises_error_when_offset_is_larger_than_file_size(self) -> None:
         mapper = MemoryMapper()
 
         file_size = TEST_BIN_PATH.stat().st_size
@@ -182,7 +182,9 @@ class TestMemoryMapper:
         ):
             mapper(pathname)
 
-    def test_raises_error_if_offset_plus_size_is_larger_than_file_size(self) -> None:
+    def test_call_raises_error_when_offset_plus_size_is_larger_than_file_size(
+        self,
+    ) -> None:
         mapper = MemoryMapper()
 
         file_size = TEST_BIN_PATH.stat().st_size

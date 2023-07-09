@@ -31,7 +31,7 @@ public:
     explicit
     decoder_op(const sp_decoder *decoder, const sp_processor *processor, at::Tensor &&tensor);
 
-    std::vector<data> &&
+    data_list &&
     run() &&;
 
 private:
@@ -46,7 +46,7 @@ private:
     const sp_decoder *decoder_;
     const sp_processor *processor_;
     at::Tensor tensor_;
-    std::vector<data> sentences_{};
+    data_list sentences_{};
 };
 
 }  // namespace detail
@@ -70,7 +70,7 @@ sp_decoder::operator()(data &&d) const
     return decode(std::move(tensor));
 }
 
-std::vector<data>
+data_list
 sp_decoder::decode(at::Tensor &&tensor) const
 {
     detail::decoder_op op{this, model_->processor_.get(), std::move(tensor)};
@@ -89,7 +89,7 @@ decoder_op::decoder_op(
     sentences_.reserve(batch_size);
 }
 
-std::vector<data> &&
+data_list &&
 decoder_op::run() &&
 {
     tensor_ = tensor_.to(at::kCPU);

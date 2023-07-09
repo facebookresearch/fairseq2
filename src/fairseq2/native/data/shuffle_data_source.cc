@@ -103,7 +103,7 @@ void
 shuffle_data_source::reload_position(tape &t)
 {
     if (strict_) {
-        buffer_ = t.read<std::vector<data>>();
+        buffer_ = t.read<data_list>();
 
         fill_buffer_ = t.read<bool>();
     } else {

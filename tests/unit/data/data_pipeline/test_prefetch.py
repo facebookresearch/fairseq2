@@ -13,7 +13,7 @@ from fairseq2.data import read_sequence
 
 class TestPrefetchOp:
     @pytest.mark.parametrize("num_examples", [0, 1, 4, 20])
-    def test_op_works_as_expected(self, num_examples: int) -> None:
+    def test_op_works(self, num_examples: int) -> None:
         seq = list(range(1, 100))
 
         pipeline = read_sequence(seq).prefetch(num_examples).and_return()
@@ -24,7 +24,7 @@ class TestPrefetchOp:
             pipeline.reset()
 
     @pytest.mark.parametrize("num_examples", [0, 1, 4, 20])
-    def test_op_works_as_expected_if_reset(self, num_examples: int) -> None:
+    def test_op_works_after_reset(self, num_examples: int) -> None:
         seq = list(range(1, 100))
 
         pipeline = read_sequence(seq).prefetch(num_examples).and_return()
@@ -35,7 +35,7 @@ class TestPrefetchOp:
             pipeline.reset()
 
     @pytest.mark.parametrize("num_examples", [0, 1, 4, 20])
-    def test_op_works_as_expected_with_no_data(self, num_examples: int) -> None:
+    def test_op_works_when_no_data_is_specified(self, num_examples: int) -> None:
         pipeline = read_sequence([]).prefetch(num_examples).and_return()
 
         for _ in range(2):
@@ -44,7 +44,7 @@ class TestPrefetchOp:
             pipeline.reset()
 
     @pytest.mark.parametrize("num_examples", [0, 1, 4, 20])
-    def test_op_propagates_errors_as_expected(self, num_examples: int) -> None:
+    def test_op_propagates_errors(self, num_examples: int) -> None:
         def fn(d: int) -> int:
             if d == 60:
                 raise ValueError("map error")
@@ -60,7 +60,7 @@ class TestPrefetchOp:
                 pass
 
     @pytest.mark.parametrize("num_examples", [0, 1, 4, 20])
-    def test_record_reload_position_works_as_expected(self, num_examples: int) -> None:
+    def test_op_saves_and_restores_its_state(self, num_examples: int) -> None:
         seq = list(range(1, 100))
 
         pipeline = read_sequence(seq).prefetch(num_examples).and_return()

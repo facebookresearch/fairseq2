@@ -10,7 +10,7 @@
 
 using namespace fairseq2;
 
-TEST(test_cast, are_close_returns_true_when_equal)
+TEST(test_cast, are_close_works_when_inputs_are_equal)
 {
     float32 a = 1.0F;
     float32 b = 1.0F;
@@ -23,7 +23,7 @@ TEST(test_cast, are_close_returns_true_when_equal)
     EXPECT_TRUE(are_close(c, d));
 }
 
-TEST(test_cast, are_close_returns_true_when_within_relative_distance)
+TEST(test_cast, are_close_works_when_inputs_are_within_relative_distance)
 {
     float32 a = 3.0F;
     // This is the maximum tolerance we have for the relative difference
@@ -38,7 +38,7 @@ TEST(test_cast, are_close_returns_true_when_within_relative_distance)
     EXPECT_TRUE(are_close(a, c));
 }
 
-TEST(test_cast, are_close_returns_false_when_outside_of_relative_distance)
+TEST(test_cast, are_close_works_when_inputs_are_outside_of_relative_distance)
 {
     float32 a = 3.0F;
     // This is beyond our tolerance threshold.

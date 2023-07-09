@@ -42,8 +42,6 @@ def_data(py::module_ &base)
 
     def_data_pipeline(m);
 
-    def_memory(m);
-
     def_string(m);
 
     def_text(m);

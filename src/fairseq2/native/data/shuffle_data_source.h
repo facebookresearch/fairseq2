@@ -42,7 +42,7 @@ private:
 
 private:
     std::unique_ptr<data_source> inner_;
-    std::vector<data> buffer_{};
+    data_list buffer_{};
     std::size_t shuffle_window_;
     at::Generator generator_;
     bool strict_;

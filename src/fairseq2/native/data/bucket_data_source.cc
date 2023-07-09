@@ -18,7 +18,7 @@ bucket_data_source::bucket_data_source(
 std::optional<data>
 bucket_data_source::next()
 {
-    std::vector<data> output{};
+    data_list output{};
 
     output.reserve(bucket_size_);
 

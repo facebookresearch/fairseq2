@@ -6,6 +6,7 @@
 
 import copy
 import re
+from dataclasses import dataclass
 
 import pytest
 
@@ -15,20 +16,24 @@ from fairseq2.data.text.converters import StrToIntConverter
 
 class TestMapOp:
     @pytest.mark.parametrize("num_parallel_calls", [0, 1, 4, 10, 20])
-    def test_op_works_as_expected(self, num_parallel_calls: int) -> None:
+    def test_op_works(self, num_parallel_calls: int) -> None:
         def fn(d: int) -> int:
             return d**2
 
         seq = list(range(1, 10))
 
-        pipeline = read_sequence(seq).map(fn, None, num_parallel_calls).and_return()
+        pipeline = (
+            read_sequence(seq)
+            .map(fn, num_parallel_calls=num_parallel_calls)
+            .and_return()
+        )
 
         for _ in range(2):
             assert list(pipeline) == [i**2 for i in seq]
 
             pipeline.reset()
 
-    def test_op_works_with_data_processor_as_expected(self) -> None:
+    def test_op_works_when_callable_is_native(self) -> None:
         fn = StrToIntConverter()
 
         pipeline = read_sequence(["1", "2", "3", "4"]).map(fn).and_return()
@@ -38,7 +43,7 @@ class TestMapOp:
 
             pipeline.reset()
 
-    def test_op_works_with_function_array_as_expected(self) -> None:
+    def test_op_works_when_callable_is_a_list(self) -> None:
         fn1 = StrToIntConverter()
 
         def fn2(d: int) -> int:
@@ -52,7 +57,7 @@ class TestMapOp:
             pipeline.reset()
 
     @pytest.mark.parametrize("num_parallel_calls", [0, 1, 4, 10, 20])
-    def test_op_works_with_warn_only_as_expected(self, num_parallel_calls: int) -> None:
+    def test_op_works_when_warn_only_is_true(self, num_parallel_calls: int) -> None:
         def fn(d: int) -> int:
             if d % 2 == 0:
                 raise ValueError("foo")
@@ -62,7 +67,9 @@ class TestMapOp:
         seq = list(range(1, 10))
 
         pipeline = (
-            read_sequence(seq).map(fn, None, num_parallel_calls, True).and_return()
+            read_sequence(seq)
+            .map(fn, num_parallel_calls=num_parallel_calls, warn_only=True)
+            .and_return()
         )
 
         for _ in range(2):
@@ -70,7 +77,27 @@ class TestMapOp:
 
             pipeline.reset()
 
-    def test_op_works_with_basic_selector_as_expected(self) -> None:
+    def test_op_works_when_input_is_python_object(self) -> None:
+        @dataclass
+        class Foo:
+            value: int
+
+        def fn(d: Foo) -> Foo:
+            d.value += 2
+
+            return d
+
+        pipeline = read_sequence([Foo(1), Foo(2)]).map(fn).and_return()
+
+        it = iter(pipeline)
+
+        for i in range(1, 3):
+            assert next(it) == Foo(1 + (i * 2))
+            assert next(it) == Foo(2 + (i * 2))
+
+            pipeline.reset()
+
+    def test_op_works_when_selector_is_basic(self) -> None:
         def fn1(d: int) -> int:
             return d + 10
 
@@ -90,7 +117,7 @@ class TestMapOp:
 
             pipeline.reset()
 
-    def test_op_works_with_complex_selector_as_expected(self) -> None:
+    def test_op_works_when_selector_is_complex(self) -> None:
         def fn(d: int) -> int:
             return d + 10
 
@@ -121,7 +148,7 @@ class TestMapOp:
 
             pipeline.reset()
 
-    def test_op_works_with_multiple_selectors_as_expected(self) -> None:
+    def test_op_works_when_selector_has_multiple_paths(self) -> None:
         def fn(d: int) -> int:
             return d + 10
 
@@ -178,7 +205,7 @@ class TestMapOp:
             " foo1[0]  , foo2[1],foo3",
         ],
     )
-    def test_op_accepts_well_formatted_selectors(self, s: str) -> None:
+    def test_op_inits_when_selectors_are_well_formatted(self, s: str) -> None:
         read_sequence([]).map(lambda x: x, selector=s).and_return()
 
     @pytest.mark.parametrize(
@@ -203,7 +230,7 @@ class TestMapOp:
             "foo[999999999999999999999999999999]",  # overflow
         ],
     )
-    def test_op_raises_error_if_selector_is_not_well_formatted(self, s: str) -> None:
+    def test_op_raises_error_when_selector_is_not_well_formatted(self, s: str) -> None:
         with pytest.raises(
             ValueError,
             match=rf"^`selector` must contain one or more well-formatted element paths, but is '{re.escape(s)}' instead\.$",
@@ -211,7 +238,7 @@ class TestMapOp:
             read_sequence([]).map(lambda x: x, selector=s).and_return()
 
     @pytest.mark.parametrize("s", ["[0]", "foo1.foo2", "foo2[3]", "foo1[1].foo3"])
-    def test_op_raises_error_if_selector_is_not_valid(self, s: str) -> None:
+    def test_op_raises_error_when_selector_is_not_valid(self, s: str) -> None:
         d = {
             "foo1": 1,
             "foo2": [2, 3, {"foo4": 4}],
@@ -227,7 +254,9 @@ class TestMapOp:
             next(iter(pipeline))
 
     @pytest.mark.parametrize("num_parallel_calls", [0, 1, 4, 20])
-    def test_op_propagates_errors_as_expected(self, num_parallel_calls: int) -> None:
+    def test_op_raises_nested_error_when_callable_fails(
+        self, num_parallel_calls: int
+    ) -> None:
         def fn(d: int) -> int:
             if d == 3:
                 raise ValueError("map error")
@@ -235,7 +264,9 @@ class TestMapOp:
             return d
 
         pipeline = (
-            read_sequence([1, 2, 3, 4]).map(fn, None, num_parallel_calls).and_return()
+            read_sequence([1, 2, 3, 4])
+            .map(fn, num_parallel_calls=num_parallel_calls)
+            .and_return()
         )
 
         with pytest.raises(ValueError, match=r"^map error$"):
@@ -243,15 +274,17 @@ class TestMapOp:
                 pass
 
     @pytest.mark.parametrize("num_parallel_calls", [0, 1, 4, 20])
-    def test_record_reload_position_works_as_expected(
-        self, num_parallel_calls: int
-    ) -> None:
+    def test_op_saves_and_restores_its_state(self, num_parallel_calls: int) -> None:
         def fn(d: int) -> int:
             return d
 
         seq = list(range(1, 10))
 
-        pipeline = read_sequence(seq).map(fn, None, num_parallel_calls).and_return()
+        pipeline = (
+            read_sequence(seq)
+            .map(fn, num_parallel_calls=num_parallel_calls)
+            .and_return()
+        )
 
         d = None
 

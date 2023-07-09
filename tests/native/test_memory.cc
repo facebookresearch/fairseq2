@@ -14,7 +14,7 @@
 
 using namespace fairseq2;
 
-TEST(test_memory_block, default_constructed_is_empty)
+TEST(test_memory_block, constructor_works)
 {
     memory_block b{};
 
@@ -24,7 +24,7 @@ TEST(test_memory_block, default_constructed_is_empty)
     EXPECT_TRUE(b.empty());
 }
 
-TEST(test_memory_block, can_construct_from_data_and_size)
+TEST(test_memory_block, constructor_works_when_data_and_size_are_specified)
 {
     std::array<std::byte, 5> a{};
 
@@ -36,7 +36,7 @@ TEST(test_memory_block, can_construct_from_data_and_size)
     EXPECT_FALSE(b.empty());
 }
 
-TEST(test_memory_block, move_constructed_from_block_becomes_empty)
+TEST(test_memory_block, move_constructor_works)
 {
     std::array<std::byte, 5> a{};
 
@@ -59,7 +59,7 @@ TEST(test_memory_block, move_constructed_from_block_becomes_empty)
     EXPECT_TRUE(b.empty());
 }
 
-TEST(test_memory_block, move_assigned_from_block_becomes_empty)
+TEST(test_memory_block, move_operator_works)
 {
     std::array<std::byte, 5> a{};
 
@@ -91,7 +91,7 @@ test_dealloc(const void *ptr, std::size_t size, void *) noexcept
     *static_cast<std::size_t *>(const_cast<void *>(ptr)) = size;  // NOLINT
 }
 
-TEST(test_memory_block, destructor_calls_deallocator)
+TEST(test_memory_block, destructor_works)
 {
     std::array<std::byte, sizeof(std::size_t)> a{};
 
@@ -106,7 +106,7 @@ TEST(test_memory_block, destructor_calls_deallocator)
     EXPECT_EQ(*data, a.size());
 }
 
-TEST(test_memory_block, cast_returns_correct_range)
+TEST(test_memory_block, cast_works)
 {
     std::array<std::byte, 16> a{};
 

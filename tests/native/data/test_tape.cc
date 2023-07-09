@@ -17,7 +17,7 @@
 
 using namespace fairseq2;
 
-TEST(test_tape, records_and_reads_primitives_as_expected)
+TEST(test_tape, record_and_read_work)
 {
     tape t{};
 
@@ -27,6 +27,8 @@ TEST(test_tape, records_and_reads_primitives_as_expected)
     float32 d = 0.1F;
     float64 e = 3.2;
     immutable_string f = "hello";
+    data_list g{data{"a"}, data{"b"}};
+    data_dict h{{"a", data{"a"}}, {"b", data{"b"}}};
 
     t.record(a);
     t.record(b);
@@ -34,6 +36,8 @@ TEST(test_tape, records_and_reads_primitives_as_expected)
     t.record(d);
     t.record(e);
     t.record(f);
+    t.record(g);
+    t.record(h);
 
     for (std::size_t i = 0; i < 3; i++) {
         t.rewind();
@@ -44,10 +48,30 @@ TEST(test_tape, records_and_reads_primitives_as_expected)
         EXPECT_EQ(d, t.read<float32>());
         EXPECT_EQ(e, t.read<float64>());
         EXPECT_EQ(f, t.read<immutable_string>());
+
+        auto x = t.read<data_list>();
+
+        EXPECT_EQ(x.size(), 2);
+
+        EXPECT_TRUE(x[0].is_string());
+        EXPECT_TRUE(x[1].is_string());
+
+        EXPECT_EQ(x[0].as_string(), g[0].as_string());
+        EXPECT_EQ(x[1].as_string(), g[1].as_string());
+
+        auto y = t.read<data_dict>();
+
+        EXPECT_EQ(y.size(), 2);
+
+        EXPECT_TRUE(y["a"].is_string());
+        EXPECT_TRUE(y["b"].is_string());
+
+        EXPECT_EQ(y["a"].as_string(), h["a"].as_string());
+        EXPECT_EQ(y["b"].as_string(), h["b"].as_string());
     }
 }
 
-TEST(test_tape, records_and_reads_composite_objects_as_expected)
+TEST(test_tape, record_and_read_work_when_inputs_are_composite)
 {
     using T = std::vector<std::int32_t>;
 
@@ -71,14 +95,14 @@ TEST(test_tape, records_and_reads_composite_objects_as_expected)
     }
 }
 
-TEST(test_tape, read_without_record_raises_error)
+TEST(test_tape, read_throws_exception_when_record_is_not_called)
 {
     tape t{};
 
     EXPECT_THROW(t.read_data(), corrupt_tape_error);
 }
 
-TEST(test_tape, unpaired_read_and_record_raises_error)
+TEST(test_tape, read_throws_exception_when_record_is_of_different_type)
 {
     tape t{};
 
@@ -89,7 +113,7 @@ TEST(test_tape, unpaired_read_and_record_raises_error)
     EXPECT_THROW(t.read<std::int32_t>(), corrupt_tape_error);
 }
 
-TEST(test_tape, reading_end_of_tape_raises_error)
+TEST(test_tape, read_throws_exception_when_end_of_tape_is_reached)
 {
     tape t{};
 

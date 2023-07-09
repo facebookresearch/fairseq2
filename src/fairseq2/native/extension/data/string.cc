@@ -99,11 +99,11 @@ def_string(py::module_ &data_module)
             py::pickle(
                 [](const immutable_string &self)
                 {
-                    return py::cast(static_cast<std::string_view>(self));
+                    return static_cast<std::string_view>(self);
                 },
-                [](const py::object &o) -> immutable_string
+                [](std::string_view s)
                 {
-                    return o.cast<std::string_view>();
+                    return immutable_string{s};
                 }));
 
     py::implicitly_convertible<std::string_view, immutable_string>();
