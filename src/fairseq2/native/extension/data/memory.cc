@@ -40,11 +40,11 @@ release_buffer(const void *, std::size_t, void *ctx) noexcept  // NOLINT(bugpron
 {
     py::gil_scoped_acquire gil{};
 
-    auto buf = static_cast<Py_buffer *>(ctx);
+    auto buffer = static_cast<Py_buffer *>(ctx);
 
-    PyBuffer_Release(buf);
+    PyBuffer_Release(buffer);
 
-    delete buf;  // NOLINT(cppcoreguidelines-owning-memory)
+    delete buffer;  // NOLINT(cppcoreguidelines-owning-memory)
 }
 
 }  // namespace

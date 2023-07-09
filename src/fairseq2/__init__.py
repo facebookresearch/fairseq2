@@ -4,10 +4,21 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from ctypes.util import find_library
 from pathlib import Path
 from typing import Optional, Tuple
 
 __version__ = "0.1.0.dev0"
+
+
+# Make sure that we have libsndfile on the system before loading our extension
+# module.
+libsndfile = find_library("sndfile")
+if libsndfile is None:
+    raise OSError(
+        "libsndfile cannot be found on your system. Use your system package manager to install it (e.g. `apt install libsndfile1`)."
+    )
+
 
 from fairseq2 import C  # type: ignore[attr-defined]
 

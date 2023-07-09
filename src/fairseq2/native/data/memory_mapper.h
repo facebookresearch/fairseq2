@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <filesystem>
+#include <mutex>
 #include <optional>
 #include <string>
 
@@ -38,6 +39,7 @@ private:
 
 private:
     std::filesystem::path root_dir_{};
+    mutable std::mutex cache_mutex_{};
     mutable detail::lru_cache<memory_block> cache_;
 };
 

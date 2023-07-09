@@ -23,7 +23,6 @@ public:
     bucket_by_length_data_source(
         std::unique_ptr<data_source> &&inner,
         std::vector<std::pair<std::size_t, std::size_t>> &&bucket_sizes,
-        std::size_t max_data_length,
         data_length_fn &&fn,
         bool drop_remainder,
         bool warn_only);

@@ -33,40 +33,45 @@ set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 # Options
 # ------------------------------------------------------------
 
+option(FAIRSEQ2_BUILD_FOR_WHEEL_BUNDLE
+    #DESCRIPTION
+        "Builds the shared library in a way so that it can be bundled with the Python wheel package."
+    #VALUE
+        ON
+)
+
 option(FAIRSEQ2_BUILD_FOR_NATIVE
     #DESCRIPTION
         "Builds for the processor type of the compiling machine."
     #VALUE
         OFF
 )
-option(FAIRSEQ2_EDITABLE_PYTHON
+
+option(FAIRSEQ2_PYTHON_DEVEL
     #DESCRIPTION
-        "Copies Python extension module to the source tree for `pip install --editable`."
+        "Copies the Python extension module to the source tree for `pip install --editable`."
     #VALUE
         ON
 )
-option(FAIRSEQ2_INSTALL_STANDALONE
+
+cmake_dependent_option(FAIRSEQ2_INSTALL_STANDALONE
     #DESCRIPTION
-        "Installs with relative rpath to the lib directory."
+        "Installs under a 'fairseq2' directory with relative rpaths."
     #VALUE
-        ON
-)
-cmake_dependent_option(FAIRSEQ2_PYENV
-    #DESCRIPTION
-        "Installs with relative rpath to the lib directory of the Python virtual environment."
-    #VALUE
-        ON
-    #DEPENDS
-        FAIRSEQ2_INSTALL_STANDALONE
-    #HIDDEN_VALUE
         OFF
+    #DEPENDS_ON
+        "NOT FAIRSEQ2_BUILD_FOR_WHEEL_BUNDLE"
+    #HIDDEN_VALUE
+        ON
 )
+
 option(FAIRSEQ2_PERFORM_LTO
     #DESCRIPTION
         "Performs link-time optimization."
     #VALUE
         OFF
 )
+
 option(FAIRSEQ2_RUN_CLANG_TIDY
     #DESCRIPTION
         "Runs clang-tidy as static analyzer during compilation."
@@ -80,7 +85,7 @@ set(FAIRSEQ2_SANITIZERS
     #TYPE
         CACHE STRING
     #DESCRIPTION
-        "Sanitizers to use. Supported values are 'asan', 'ubsan', and 'tsan'."
+        "Sanitizers to enable."
 )
 set_property(CACHE FAIRSEQ2_SANITIZERS PROPERTY
     STRINGS
@@ -93,6 +98,7 @@ option(FAIRSEQ2_TREAT_WARNINGS_AS_ERRORS
     #VALUE
         OFF
 )
+
 option(FAIRSEQ2_USE_CUDA
     #DESCRIPTION
         "Builds the CUDA kernels."
@@ -116,6 +122,8 @@ if(Python3_VERSION VERSION_LESS 3.8)
 endif()
 
 find_package(Iconv REQUIRED)
+
+find_package(SndFile 1.0.25 REQUIRED)
 
 find_package(Threads REQUIRED)
 
@@ -181,22 +189,16 @@ if(FAIRSEQ2_USE_CUDA)
 endif()
 
 # ------------------------------------------------------------
-# Targets
-# ------------------------------------------------------------
-
-add_subdirectory(src/fairseq2/native)
-
-if(PROJECT_IS_TOP_LEVEL)
-    add_subdirectory(src/fairseq2/native/extension)
-
-    if(BUILD_TESTING)
-        add_subdirectory(tests/native)
-    endif()
-endif()
-
-# ------------------------------------------------------------
 # Package Installation
 # ------------------------------------------------------------
+
+if(FAIRSEQ2_INSTALL_STANDALONE)
+    set(install_lib_dir fairseq2/lib)
+    set(install_inc_dir fairseq2/include)
+else()
+    set(install_lib_dir ${CMAKE_INSTALL_LIBDIR})
+    set(install_inc_dir ${CMAKE_INSTALL_INCLUDEDIR})
+endif()
 
 set(install_pkg_dir ${install_lib_dir}/cmake/fairseq2-${PROJECT_VERSION})
 
@@ -250,6 +252,20 @@ export(
     NAMESPACE
         fairseq2::
 )
+
+# ------------------------------------------------------------
+# Targets
+# ------------------------------------------------------------
+
+add_subdirectory(src/fairseq2/native)
+
+if(PROJECT_IS_TOP_LEVEL)
+    add_subdirectory(src/fairseq2/native/extension)
+
+    if(BUILD_TESTING)
+        add_subdirectory(tests/native)
+    endif()
+endif()
 
 # ------------------------------------------------------------
 # Summary

@@ -16,32 +16,32 @@ class TestPrefetchOp:
     def test_op_works_as_expected(self, num_examples: int) -> None:
         seq = list(range(1, 100))
 
-        dp = read_sequence(seq).prefetch(num_examples).and_return()
+        pipeline = read_sequence(seq).prefetch(num_examples).and_return()
 
         for _ in range(2):
-            assert list(dp) == seq
+            assert list(pipeline) == seq
 
-            dp.reset()
+            pipeline.reset()
 
     @pytest.mark.parametrize("num_examples", [0, 1, 4, 20])
     def test_op_works_as_expected_if_reset(self, num_examples: int) -> None:
         seq = list(range(1, 100))
 
-        dp = read_sequence(seq).prefetch(num_examples).and_return()
+        pipeline = read_sequence(seq).prefetch(num_examples).and_return()
 
         for _ in range(2):
-            assert list(islice(dp, 50)) == seq[:50]
+            assert list(islice(pipeline, 50)) == seq[:50]
 
-            dp.reset()
+            pipeline.reset()
 
     @pytest.mark.parametrize("num_examples", [0, 1, 4, 20])
     def test_op_works_as_expected_with_no_data(self, num_examples: int) -> None:
-        dp = read_sequence([]).prefetch(num_examples).and_return()
+        pipeline = read_sequence([]).prefetch(num_examples).and_return()
 
         for _ in range(2):
-            assert list(dp) == []
+            assert list(pipeline) == []
 
-            dp.reset()
+            pipeline.reset()
 
     @pytest.mark.parametrize("num_examples", [0, 1, 4, 20])
     def test_op_propagates_errors_as_expected(self, num_examples: int) -> None:
@@ -53,21 +53,21 @@ class TestPrefetchOp:
 
         seq = list(range(1, 100))
 
-        dp = read_sequence(seq).map(fn).prefetch(num_examples).and_return()
+        pipeline = read_sequence(seq).map(fn).prefetch(num_examples).and_return()
 
         with pytest.raises(ValueError, match=r"^map error$"):
-            for d in dp:
+            for d in pipeline:
                 pass
 
     @pytest.mark.parametrize("num_examples", [0, 1, 4, 20])
     def test_record_reload_position_works_as_expected(self, num_examples: int) -> None:
         seq = list(range(1, 100))
 
-        dp = read_sequence(seq).prefetch(num_examples).and_return()
+        pipeline = read_sequence(seq).prefetch(num_examples).and_return()
 
         d = None
 
-        it = iter(dp)
+        it = iter(pipeline)
 
         # Move the the second example.
         for _ in range(28):
@@ -75,7 +75,7 @@ class TestPrefetchOp:
 
         assert d == 28
 
-        state_dict = dp.state_dict()
+        state_dict = pipeline.state_dict()
 
         # Read a few examples before we roll back.
         for _ in range(4):
@@ -84,7 +84,7 @@ class TestPrefetchOp:
         assert d == 32
 
         # Expected to roll back to the second example.
-        dp.load_state_dict(state_dict)
+        pipeline.load_state_dict(state_dict)
 
         # Move to EOD.
         for _ in range(71):
@@ -92,12 +92,12 @@ class TestPrefetchOp:
 
         assert d == 99
 
-        state_dict = dp.state_dict()
+        state_dict = pipeline.state_dict()
 
-        dp.reset()
+        pipeline.reset()
 
         # Expected to be EOD.
-        dp.load_state_dict(state_dict)
+        pipeline.load_state_dict(state_dict)
 
         with pytest.raises(StopIteration):
-            next(iter(dp))
+            next(iter(pipeline))

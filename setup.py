@@ -43,7 +43,7 @@ class install(install_base):
 class install_cmake(Command):
     cmake_build_dir: str
     install_dir: str
-    is_standalone: bool
+    bundle_lib: bool
     verbose: bool
 
     description: Final = "install CMake artifacts"
@@ -63,20 +63,18 @@ class install_cmake(Command):
 
         self.set_undefined_options("install", ("install_lib", "install_dir"))
 
-        # Indicates whether we should inject all CMake artifacts (e.g. shared
-        # libraries) into the distribution.
-        self.is_standalone = self._should_install_standalone()
+        # Check if we should bundle our shared library with the distribution.
+        self.bundle_lib = self._should_bundle_lib()
 
-    def _should_install_standalone(self) -> bool:
+    def _should_bundle_lib(self) -> bool:
         try:
             f = open(path.join(self.cmake_build_dir, "CMakeCache.txt"))
         except FileNotFoundError:
             raise FileError("CMakeCache.txt is not found. Run CMake first.")
 
-        # Read `FAIRSEQ2_INSTALL_STANDALONE` from cache.
         with f:
             for line in f:
-                if line.startswith("FAIRSEQ2_INSTALL_STANDALONE"):
+                if line.startswith("FAIRSEQ2_BUILD_FOR_WHEEL_BUNDLE"):
                     _, value = line.strip().split("=", 1)
 
                     return value.upper() in ["1", "ON", "TRUE", "YES", "Y"]
@@ -84,7 +82,7 @@ class install_cmake(Command):
         return False
 
     def run(self) -> None:
-        if self.is_standalone:
+        if self.bundle_lib:
             self._cmake_install()
 
         self._cmake_install(component="python")
@@ -105,7 +103,7 @@ class install_cmake(Command):
     def get_outputs(self) -> List[str]:
         outputs = []
 
-        if self.is_standalone:
+        if self.bundle_lib:
             manifests = ["install_manifest.txt"]
         else:
             manifests = []
@@ -114,13 +112,13 @@ class install_cmake(Command):
 
         # We have to strip the file paths to the install directory to be
         # consistent with the setuptools commands.
-        lstrip_to = len(path.abspath(self.install_dir)) + 1
+        strip_length = len(path.abspath(self.install_dir)) + 1
 
         # Extract the list of files from the CMake install manifests.
         for m in manifests:
             with open(path.join(self.cmake_build_dir, m)) as fp:
                 for pathname in fp:
-                    pathname = pathname[lstrip_to:].rstrip()
+                    pathname = pathname[strip_length:].rstrip()
 
                     outputs.append(path.join(self.install_dir, pathname))
 

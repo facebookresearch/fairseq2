@@ -15,10 +15,10 @@ class TestBucketOp:
 
         bucket_size = 4
 
-        dp = read_sequence(seq).bucket(bucket_size).and_return()
+        pipeline = read_sequence(seq).bucket(bucket_size).and_return()
 
         for _ in range(2):
-            it = iter(dp)
+            it = iter(pipeline)
 
             for i in range(25):
                 d = next(it)
@@ -30,15 +30,15 @@ class TestBucketOp:
             with pytest.raises(StopIteration):
                 next(it)
 
-            dp.reset()
+            pipeline.reset()
 
     def test_op_works_with_bucket_size_of_1_as_expected(self) -> None:
         seq = list(range(100))
 
-        dp = read_sequence(seq).bucket(1).and_return()
+        pipeline = read_sequence(seq).bucket(1).and_return()
 
         for _ in range(2):
-            it = iter(dp)
+            it = iter(pipeline)
 
             for i in range(100):
                 d = next(it)
@@ -48,7 +48,7 @@ class TestBucketOp:
             with pytest.raises(StopIteration):
                 next(it)
 
-            dp.reset()
+            pipeline.reset()
 
     def test_op_raises_error_if_bucket_size_is_0(self) -> None:
         with pytest.raises(
@@ -62,10 +62,10 @@ class TestBucketOp:
 
         seq = list(range(100))
 
-        dp = read_sequence(seq).bucket(bucket_size, drop).and_return()
+        pipeline = read_sequence(seq).bucket(bucket_size, drop).and_return()
 
         for _ in range(2):
-            it = iter(dp)
+            it = iter(pipeline)
 
             for i in range(14):
                 d = next(it)
@@ -82,16 +82,16 @@ class TestBucketOp:
             with pytest.raises(StopIteration):
                 next(it)
 
-            dp.reset()
+            pipeline.reset()
 
     def test_record_reload_position_works_as_expected(self) -> None:
         seq = list(range(1, 10))
 
-        dp = read_sequence(seq).bucket(2).and_return()
+        pipeline = read_sequence(seq).bucket(2).and_return()
 
         d = None
 
-        it = iter(dp)
+        it = iter(pipeline)
 
         # Move the the second example.
         for _ in range(2):
@@ -99,7 +99,7 @@ class TestBucketOp:
 
         assert d == [3, 4]
 
-        state_dict = dp.state_dict()
+        state_dict = pipeline.state_dict()
 
         # Read a few examples before we roll back.
         for _ in range(2):
@@ -108,7 +108,7 @@ class TestBucketOp:
         assert d == [7, 8]
 
         # Expected to roll back to the second example.
-        dp.load_state_dict(state_dict)
+        pipeline.load_state_dict(state_dict)
 
         # Move to EOD.
         for _ in range(3):
@@ -116,12 +116,12 @@ class TestBucketOp:
 
         assert d == [9]
 
-        state_dict = dp.state_dict()
+        state_dict = pipeline.state_dict()
 
-        dp.reset()
+        pipeline.reset()
 
         # Expected to be EOD.
-        dp.load_state_dict(state_dict)
+        pipeline.load_state_dict(state_dict)
 
         with pytest.raises(StopIteration):
-            next(iter(dp))
+            next(iter(pipeline))

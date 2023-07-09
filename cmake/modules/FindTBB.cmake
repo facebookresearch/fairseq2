@@ -6,42 +6,42 @@
 
 include(FindPackageHandleStandardArgs)
 
-find_package(TBB QUIET CONFIG)
-if(TBB_FOUND)
-    find_package_handle_standard_args(TBB CONFIG_MODE)
+# When bundled with a wheel, we depend on Intel's PyPI packages instead of the
+# system-provided oneAPI libraries.
+if(FAIRSEQ2_BUILD_FOR_WHEEL_BUNDLE)
+    # The tbb PyPI package installs TBB under the lib directory of the virtual
+    # environment. Check if we can find it there.
+    set(base_dir ${Python3_EXECUTABLE})
 
-    return()
-endif()
+    cmake_path(GET base_dir PARENT_PATH base_dir)
+    cmake_path(GET base_dir PARENT_PATH base_dir)
 
-# The tbb PyPI package installs TBB under the lib directory of the Python
-# environment. Check if we can find it there.
-set(base_dir ${Python3_EXECUTABLE})
+    find_library(TBB_LIBRARY tbb PATHS ${base_dir}/lib NO_DEFAULT_PATH)
 
-cmake_path(GET base_dir PARENT_PATH base_dir)
-cmake_path(GET base_dir PARENT_PATH base_dir)
+    find_library(TBBMALLOC_LIBRARY tbbmalloc PATHS ${base_dir}/lib NO_DEFAULT_PATH)
 
-find_library(TBB_LIBRARY tbb PATHS ${base_dir}/lib NO_DEFAULT_PATH)
-find_library(TBBMALLOC_LIBRARY tbbmalloc PATHS ${base_dir}/lib NO_DEFAULT_PATH)
+    find_path(TBB_INCLUDE_DIR tbb PATHS ${base_dir}/include NO_DEFAULT_PATH)
 
-find_path(TBB_INCLUDE_DIR tbb PATHS ${base_dir}/include NO_DEFAULT_PATH)
+    mark_as_advanced(TBB_LIBRARY TBBMALLOC_LIBRARY TBB_INCLUDE_DIR)
 
-mark_as_advanced(TBB_LIBRARY TBBMALLOC_LIBRARY TBB_INCLUDE_DIR)
+    if(TBB_INCLUDE_DIR)
+        # TODO: Infer this from the installation!
+        set(TBB_VERSION 2021.9.0)
+    endif()
 
-if(TBB_INCLUDE_DIR)
-    # TODO: Infer this from the installation!
-    set(TBB_VERSION 2021.9.0)
-endif()
+    find_package_handle_standard_args(TBB
+        REQUIRED_VARS
+            TBB_LIBRARY TBBMALLOC_LIBRARY TBB_INCLUDE_DIR
+        VERSION_VAR
+            TBB_VERSION
+    )
 
-find_package_handle_standard_args(TBB
-    REQUIRED_VARS
-        TBB_LIBRARY TBBMALLOC_LIBRARY TBB_INCLUDE_DIR
-    VERSION_VAR
-        TBB_VERSION
-)
+    unset(base_dir)
 
-unset(base_dir)
+    if(NOT TBB_FOUND)
+        return()
+    endif()
 
-if(TBB_FOUND)
     if(NOT TARGET TBB::tbb)
         add_library(TBB::tbb SHARED IMPORTED)
 
@@ -57,4 +57,8 @@ if(TBB_FOUND)
 
         target_include_directories(TBB::tbbmalloc INTERFACE ${TBB_INCLUDE_DIR})
     endif()
+else()
+    find_package(TBB QUIET CONFIG)
+
+    find_package_handle_standard_args(TBB CONFIG_MODE)
 endif()

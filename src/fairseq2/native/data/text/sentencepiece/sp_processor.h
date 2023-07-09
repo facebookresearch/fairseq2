@@ -21,11 +21,12 @@ namespace fairseq2::detail {
 
 class sp_processor {
 public:
-    explicit
-    sp_processor(std::string_view model_pathname, sp_model_options &&opts);
-
     static std::unique_ptr<sp_processor>
     from_serialized(std::string_view serialized);
+
+public:
+    explicit
+    sp_processor(std::string_view model_pathname, sp_model_options &&opts);
 
     sentencepiece::ImmutableSentencePieceText
     encode(std::string_view text) const;

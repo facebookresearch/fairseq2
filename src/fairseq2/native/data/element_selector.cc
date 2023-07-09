@@ -80,7 +80,7 @@ element_selector::maybe_parse_path(std::string_view path)
     auto record_key_segment = [&output, &path](
         std::size_t start_idx, std::size_t end_idx = std::string_view::npos)
     {
-        output.emplace_back(std::string{path.substr(start_idx, end_idx)});
+        output.emplace_back(std::string{path.substr(start_idx, end_idx - start_idx)});
     };
 
     auto record_index_segment = [&output](std::size_t idx)

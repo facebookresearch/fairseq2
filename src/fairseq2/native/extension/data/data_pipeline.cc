@@ -307,14 +307,12 @@ def_data_pipeline(py::module_ &data_module)
             [](
                 data_pipeline_builder &self,
                 std::vector<std::pair<std::size_t, std::size_t>> bucket_sizes,
-                std::size_t max_data_length,
                 std::optional<std::string_view> selector,
                 bool drop_remainder,
                 bool warn_only) -> data_pipeline_builder &
             {
                 self = std::move(self).bucket_by_length(
                     std::move(bucket_sizes),
-                    max_data_length,
                     data_length_extractor{selector},
                     drop_remainder,
                     warn_only);
@@ -322,7 +320,6 @@ def_data_pipeline(py::module_ &data_module)
                 return self;
             },
             py::arg("bucket_sizes"),
-            py::arg("max_data_length"),
             py::arg("selector") = std::nullopt,
             py::arg("drop_remainder") = false,
             py::arg("warn_only") = false)

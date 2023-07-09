@@ -44,7 +44,7 @@ text_line_reader::find_record_end(memory_span chunk, bool)
     }
     case line_ending::infer:
         throw internal_error{
-            "The line ending has not been set. Please file a bug report."};
+            "`text_line_reader` has not set the line ending. Please file a bug report."};
     }
 
     if (iter == chars.end())

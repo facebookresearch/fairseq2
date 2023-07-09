@@ -44,6 +44,8 @@ target_sources(fairseq2
         data/yield_from_data_source.cc
         data/zip_data_source.cc
         data/zip_file_data_source.cc
+        data/audio/audio_decoder.cc
+        data/audio/detail/sndfile.cc
         data/detail/file.cc
         data/detail/file_system.cc
         data/text/string_splitter.cc
@@ -84,6 +86,7 @@ target_link_libraries(fairseq2
         ${CMAKE_DL_LIBS}
     PRIVATE
         Iconv::Iconv
+        SndFile::sndfile
         TBB::tbb
         Threads::Threads
         fmt::fmt
@@ -105,7 +108,7 @@ if(FAIRSEQ2_INSTALL_STANDALONE)
 
     set_target_properties(fairseq2 PROPERTIES INSTALL_RPATH ${rpath_origin}/.)
 
-    if(FAIRSEQ2_PYENV)
+    if(FAIRSEQ2_BUILD_FOR_WHEEL_BUNDLE)
         set_property(
             TARGET
                 fairseq2
@@ -125,14 +128,6 @@ else()
 endif()
 
 add_library(fairseq2::fairseq2 ALIAS fairseq2)
-
-if(FAIRSEQ2_INSTALL_STANDALONE)
-    set(install_lib_dir fairseq2/lib)
-    set(install_inc_dir fairseq2/include)
-else()
-    set(install_lib_dir ${CMAKE_INSTALL_LIBDIR})
-    set(install_inc_dir ${CMAKE_INSTALL_INCLUDEDIR})
-endif()
 
 install(
     TARGETS

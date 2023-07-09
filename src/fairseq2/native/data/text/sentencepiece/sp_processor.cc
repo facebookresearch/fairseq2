@@ -115,10 +115,6 @@ sp_model_proto_loader::add_piece(std::string &&piece)
     sp->set_type(ModelProto_SentencePiece::CONTROL);
 }
 
-sp_processor::sp_processor(std::string_view model_pathname, sp_model_options &&opts)
-  : sp_processor{sp_model_proto_loader{model_pathname, std::move(opts)}.load()}
-{}
-
 std::unique_ptr<sp_processor>
 sp_processor::from_serialized(std::string_view serialized)
 {
@@ -132,6 +128,10 @@ sp_processor::from_serialized(std::string_view serialized)
 
     return std::make_unique<sp_processor>(std::move(processor));
 }
+
+sp_processor::sp_processor(std::string_view model_pathname, sp_model_options &&opts)
+  : sp_processor{sp_model_proto_loader{model_pathname, std::move(opts)}.load()}
+{}
 
 ImmutableSentencePieceText
 sp_processor::encode(std::string_view text) const

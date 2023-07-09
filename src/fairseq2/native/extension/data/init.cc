@@ -38,6 +38,8 @@ def_data(py::module_ &base)
 
     py::module_ m = base.def_submodule("data");
 
+    def_audio(m);
+
     def_data_pipeline(m);
 
     def_memory(m);

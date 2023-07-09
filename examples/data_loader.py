@@ -101,7 +101,7 @@ def build_data_pipeline(
     return DataPipeline.zip([src_dp, tgt_dp]).prefetch(10).and_return()
 
 
-dp = build_data_pipeline(src_lang="en", tgt_lang="de", split="train")
+pipeline = build_data_pipeline(src_lang="en", tgt_lang="de", split="train")
 
 start_time = time.perf_counter()
 
@@ -111,15 +111,15 @@ state: Dict[str, Any] = {}
 
 # Just a noop iterator. Each `batch` is a pair of tensors representing the
 # source and target language data.
-for batch in dp:
+for batch in pipeline:
     # Preserve the position of the data pipeline after the 100th iteration.
     if num_batches == 100:
-        state = dp.state_dict()
+        state = pipeline.state_dict()
 
     # Restore the previously saved state; effectively roll back to the 100th
     # iteration and repeat the last 200 batches.
     if num_batches == 300:
-        dp.load_state_dict(state)
+        pipeline.load_state_dict(state)
 
     num_batches += 1
 

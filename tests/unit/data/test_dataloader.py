@@ -123,7 +123,7 @@ def test_bucket_by_length() -> None:
         .map(lambda l: torch.ones(l) * l)
         # We want batches of 4 one-length elements
         # and batches of 3 seven-length elements
-        .bucket_by_length([(4, 1), (3, 7)], max_data_length=7)
+        .bucket_by_length([(4, 1), (3, 7)])
         .map(Collater(pad_idx=0))
         .map(lambda x: x.tolist())
         .and_return()
@@ -143,7 +143,7 @@ def test_bucket_by_length_2D() -> None:
     dataloader = (
         fairseq2.data.read_sequence(raw_lengths)
         .map(lambda l: torch.ones(l, 2) * l)
-        .bucket_by_length([(4, 1), (3, 7)], max_data_length=7)
+        .bucket_by_length([(4, 1), (3, 7)])
         .map(Collater(pad_idx=0))
         .map(lambda t: t.shape)
         .and_return()
@@ -160,7 +160,7 @@ def test_bucket_by_length_can_resume(tmp_path: Path) -> None:
         .map(lambda l: torch.ones(l) * l)
         # We want batches of 4 one-length elements
         # and batches of 3 seven-length elements
-        .bucket_by_length([(4, 1), (3, 7)], max_data_length=7)
+        .bucket_by_length([(4, 1), (3, 7)])
         .map(Collater(pad_idx=0))
         .and_return()
     )

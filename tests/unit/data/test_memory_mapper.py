@@ -9,9 +9,9 @@ from typing import Any, Final, Optional
 
 import pytest
 
-from fairseq2.data import MemoryBlock, MemoryMapper
+from fairseq2.data import MemoryMapper, MemoryMapperOutput
 
-TEST_FILE_PATH: Final = Path(__file__).parent.joinpath("text", "test.spm")
+TEST_BIN_PATH: Final = Path(__file__).parent.joinpath("text", "test.spm")
 
 
 class TestMemoryMapper:
@@ -19,52 +19,67 @@ class TestMemoryMapper:
         mapper = MemoryMapper()
 
         for _ in range(2):
-            m = mapper(TEST_FILE_PATH)
+            output = mapper(TEST_BIN_PATH)
 
-            self.assert_file(m, TEST_FILE_PATH)
+            assert output["path"] == TEST_BIN_PATH
+
+            self.assert_file(output, TEST_BIN_PATH)
 
     def test_maps_file_with_offset_as_expected(self) -> None:
         mapper = MemoryMapper()
 
-        pathname = f"{TEST_FILE_PATH}:100"
+        pathname = f"{TEST_BIN_PATH}:100"
 
         for _ in range(2):
-            m = mapper(pathname)
+            output = mapper(pathname)
 
-            self.assert_file(m, TEST_FILE_PATH, offset=100)
+            assert output["path"] == pathname
+
+            self.assert_file(output, TEST_BIN_PATH, offset=100)
 
     def test_maps_file_with_offset_and_size_as_expected(self) -> None:
         mapper = MemoryMapper()
 
-        pathname = f"{TEST_FILE_PATH}:100:200"
+        pathname = f"{TEST_BIN_PATH}:100:200"
 
         for _ in range(2):
-            m = mapper(pathname)
+            output = mapper(pathname)
 
-            self.assert_file(m, TEST_FILE_PATH, offset=100, size=200)
+            assert output["path"] == pathname
+
+            self.assert_file(output, TEST_BIN_PATH, offset=100, size=200)
 
     def test_maps_file_with_root_directory_as_expected(self) -> None:
-        root_dir = TEST_FILE_PATH.parent.parent
+        root_dir = TEST_BIN_PATH.parent.parent
 
         mapper = MemoryMapper(root_dir)
 
-        m = mapper(TEST_FILE_PATH.relative_to(root_dir))
+        pathname = TEST_BIN_PATH.relative_to(root_dir)
 
-        self.assert_file(m, TEST_FILE_PATH)
+        output = mapper(pathname)
+
+        assert output["path"] == pathname
+
+        self.assert_file(output, TEST_BIN_PATH)
 
     @staticmethod
     def assert_file(
-        block: MemoryBlock, pathname: Path, offset: int = 0, size: Optional[int] = None
+        output: MemoryMapperOutput,
+        pathname: Path,
+        offset: int = 0,
+        size: Optional[int] = None,
     ) -> None:
+        data = output["data"]
+
         if size is None:
             size = pathname.stat().st_size - offset
 
-        assert len(block) == size
+        assert len(data) == size
 
         with pathname.open(mode="rb") as fp:
             content = fp.read()
 
-        assert content[offset : offset + size] == memoryview(block)  # type: ignore[arg-type]
+        assert content[offset : offset + size] == memoryview(data)  # type: ignore[arg-type]
 
     @pytest.mark.parametrize(
         "value,type_name", [(None, "pyobj"), (123, "int"), (1.2, "float")]
@@ -157,9 +172,9 @@ class TestMemoryMapper:
     def test_raises_error_if_offset_is_larger_than_file_size(self) -> None:
         mapper = MemoryMapper()
 
-        file_size = TEST_FILE_PATH.stat().st_size
+        file_size = TEST_BIN_PATH.stat().st_size
 
-        pathname = f"{TEST_FILE_PATH}:{file_size + 1}"
+        pathname = f"{TEST_BIN_PATH}:{file_size + 1}"
 
         with pytest.raises(
             ValueError,
@@ -170,9 +185,9 @@ class TestMemoryMapper:
     def test_raises_error_if_offset_plus_size_is_larger_than_file_size(self) -> None:
         mapper = MemoryMapper()
 
-        file_size = TEST_FILE_PATH.stat().st_size
+        file_size = TEST_BIN_PATH.stat().st_size
 
-        pathname = f"{TEST_FILE_PATH}:{file_size - 10}:11"
+        pathname = f"{TEST_BIN_PATH}:{file_size - 10}:11"
 
         with pytest.raises(
             ValueError,

@@ -15,6 +15,7 @@ set_property(TARGET extension PROPERTY OUTPUT_NAME C)
 target_sources(extension
     PRIVATE
         module.cc
+        data/audio.cc
         data/data_pipeline.cc
         data/init.cc
         data/memory.cc
@@ -41,7 +42,7 @@ target_link_libraries(extension
 
 fairseq2_set_link_options(extension ALLOW_UNDEFINED_SYMBOLS)
 
-if(FAIRSEQ2_EDITABLE_PYTHON)
+if(FAIRSEQ2_PYTHON_DEVEL)
     # We have to use absolute rpath so that the in-source copy of the extension
     # module can find its dependencies under the build tree.
     set_property(TARGET extension PROPERTY BUILD_RPATH_USE_ORIGIN OFF)
@@ -58,21 +59,23 @@ if(FAIRSEQ2_EDITABLE_PYTHON)
     add_dependencies(extension_in_source extension)
 endif()
 
-if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    set(rpath_origin @loader_path)
-else()
-    set(rpath_origin \$ORIGIN)
-endif()
+if(FAIRSEQ2_BUILD_FOR_WHEEL_BUNDLE)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+        set(rpath_origin @loader_path)
+    else()
+        set(rpath_origin \$ORIGIN)
+    endif()
 
-set_property(
-    TARGET
-        extension
-    APPEND PROPERTY
-        INSTALL_RPATH
-            ${rpath_origin}/lib
-            ${rpath_origin}/../../..
-            ${rpath_origin}/../torch/lib
-)
+    set_property(
+        TARGET
+            extension
+        APPEND PROPERTY
+            INSTALL_RPATH
+                ${rpath_origin}/lib
+                ${rpath_origin}/../../..
+                ${rpath_origin}/../torch/lib
+    )
+endif()
 
 install(
     TARGETS

@@ -116,7 +116,6 @@ public:
     data_pipeline_builder
     bucket_by_length(
         std::vector<std::pair<std::size_t, std::size_t>> bucket_sizes,
-        std::size_t max_data_length,
         data_length_fn fn,
         bool drop_remainder = false,
         bool warn_only = false) &&;

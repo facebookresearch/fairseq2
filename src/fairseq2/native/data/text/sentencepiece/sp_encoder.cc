@@ -3,7 +3,6 @@
 //
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
-//#define _GLIBCXX_USE_TBB_PAR_BACKEND 1
 
 #include "fairseq2/native/data/text/sentencepiece/sp_encoder.h"
 
@@ -38,9 +37,6 @@ public:
 private:
     void
     encode_string();
-
-    void
-    fill_tensor();
 
 private:
     const sp_encoder *encoder_;
@@ -114,31 +110,6 @@ encoder_op::run() &&
     tensor_ = at::zeros({static_cast<std::int64_t>(seq_len_)},
         at::dtype(at::kLong).device(at::kCPU).pinned_memory(encoder_->opts_.pin_memory()));
 
-    fill_tensor();
-
-    std::optional<at::Device> device = encoder_->opts_.device();
-    if (device)
-        tensor_ = tensor_.to(*device);
-
-    return std::move(tensor_);
-}
-
-void
-encoder_op::encode_string()
-{
-    auto &opts = encoder_->opts_;
-
-    if (opts.enable_sampling())
-        spt_ = processor_->sample(sentence_, opts.nbest_size(), opts.alpha());
-    else
-        spt_ = processor_->encode(sentence_);
-
-    seq_len_ = spt_.pieces_size() + extra_tokens_len_;
-}
-
-void
-encoder_op::fill_tensor()
-{
     const at::Storage &storage = tensor_.storage();
 
     writable_memory_span tensor_bits{storage.unsafe_data<std::byte>(), storage.nbytes()};
@@ -168,6 +139,25 @@ encoder_op::fill_tensor()
         for (std::int64_t suffix_idx : encoder_->suffix_token_indices_)
             tensor_data[i++] = suffix_idx;
     }
+
+    at::Device device = encoder_->opts_.device().value_or(at::kCPU);
+    if (device != at::kCPU)
+        tensor_ = tensor_.to(device);
+
+    return std::move(tensor_);
+}
+
+void
+encoder_op::encode_string()
+{
+    auto &opts = encoder_->opts_;
+
+    if (opts.enable_sampling())
+        spt_ = processor_->sample(sentence_, opts.nbest_size(), opts.alpha());
+    else
+        spt_ = processor_->encode(sentence_);
+
+    seq_len_ = spt_.pieces_size() + extra_tokens_len_;
 }
 
 }  // namespace detail

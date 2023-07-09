@@ -19,37 +19,37 @@ class TestShuffleOp:
 
         seq = list(range(1, 10))
 
-        dp = read_sequence(seq).shuffle(100).and_return()
+        pipeline = read_sequence(seq).shuffle(100).and_return()
 
         for _ in range(2):
             with tmp_rng_seed(cpu, seed=2):
-                assert list(dp) == [7, 1, 3, 2, 6, 5, 8, 4, 9]
+                assert list(pipeline) == [7, 1, 3, 2, 6, 5, 8, 4, 9]
 
-                dp.reset()
+                pipeline.reset()
 
-        dp = read_sequence(seq).shuffle(0).and_return()
-
-        for _ in range(2):
-            with tmp_rng_seed(cpu, seed=2):
-                assert list(dp) == [7, 1, 3, 2, 6, 5, 8, 4, 9]
-
-                dp.reset()
-
-        dp = read_sequence(seq).shuffle(3).and_return()
+        pipeline = read_sequence(seq).shuffle(0).and_return()
 
         for _ in range(2):
             with tmp_rng_seed(cpu, seed=2):
-                assert list(dp) == [1, 3, 5, 2, 6, 7, 4, 9, 8]
+                assert list(pipeline) == [7, 1, 3, 2, 6, 5, 8, 4, 9]
 
-                dp.reset()
+                pipeline.reset()
 
-        dp = read_sequence(seq).shuffle(1).and_return()
+        pipeline = read_sequence(seq).shuffle(3).and_return()
 
         for _ in range(2):
             with tmp_rng_seed(cpu, seed=2):
-                assert list(dp) == [1, 2, 3, 4, 5, 6, 7, 8, 9]
+                assert list(pipeline) == [1, 3, 5, 2, 6, 7, 4, 9, 8]
 
-                dp.reset()
+                pipeline.reset()
+
+        pipeline = read_sequence(seq).shuffle(1).and_return()
+
+        for _ in range(2):
+            with tmp_rng_seed(cpu, seed=2):
+                assert list(pipeline) == [1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+                pipeline.reset()
 
     @pytest.mark.parametrize("window", [10, 100, 1000])
     def test_record_reload_position_works_as_expected(self, window: int) -> None:
@@ -100,13 +100,13 @@ class TestShuffleOp:
     def test_record_reload_position_works_as_expected_with_no_strict(self) -> None:
         seq = list(range(100))
 
-        dp = read_sequence(seq).shuffle(80, strict=False).and_return()
+        pipeline = read_sequence(seq).shuffle(80, strict=False).and_return()
 
         # Do one dummy iteration to force to fill the buffer.
-        next(iter(dp))
+        next(iter(pipeline))
 
-        state_dict = dp.state_dict()
+        state_dict = pipeline.state_dict()
 
-        dp.load_state_dict(state_dict)
+        pipeline.load_state_dict(state_dict)
 
-        assert min(dp) == 81
+        assert min(pipeline) == 81

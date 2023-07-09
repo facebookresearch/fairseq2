@@ -12,17 +12,17 @@ using namespace fairseq2::detail;
 
 namespace fairseq2 {
 
-sp_model::sp_model(std::string_view pathname, sp_model_options opts)
-{
-    processor_ = std::make_unique<sp_processor>(pathname, std::move(opts));
-}
-
 sp_model
 sp_model::from_serialized(std::string_view serialized)
 {
     std::unique_ptr<sp_processor> processor = sp_processor::from_serialized(serialized);
 
     return sp_model{std::move(processor)};
+}
+
+sp_model::sp_model(std::string_view pathname, sp_model_options opts)
+{
+    processor_ = std::make_unique<sp_processor>(pathname, std::move(opts));
 }
 
 sp_model::sp_model(sp_model &&) noexcept = default;

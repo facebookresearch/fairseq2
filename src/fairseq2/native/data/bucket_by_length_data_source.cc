@@ -13,13 +13,12 @@ namespace fairseq2::detail {
 bucket_by_length_data_source::bucket_by_length_data_source(
     std::unique_ptr<data_source> &&inner,
     std::vector<std::pair<std::size_t, std::size_t>> &&bucket_sizes,
-    std::size_t max_data_length,
     data_length_fn &&fn,
     bool drop_remainder,
     bool warn_only)
   : inner_{std::move(inner)},
     bucket_sizes_(std::move(bucket_sizes)),
-    max_data_length_{max_data_length},
+    max_data_length_{bucket_sizes_.back().second},
     data_length_fn_{std::move(fn)},
     drop_remainder_{drop_remainder},
     warn_only_{warn_only}
@@ -37,11 +36,18 @@ bucket_by_length_data_source::next()
         if (!d)
             break;
 
-        std::size_t data_length = data_length_fn_(*d);
+        std::size_t data_length{};
+        try {
+            data_length = data_length_fn_(*d);
+        } catch (const std::invalid_argument &) {
+            data_pipeline_error::throw_nested(
+                "The length of the input data cannot be determined.", std::move(d));
+        }
+
         if (data_length > max_data_length_) {
             if (!warn_only_)
                 throw data_pipeline_error{
-                    fmt::format("The length of the input data must be less than or equal to {}, but is {} instead.", max_data_length_, data_length)};
+                    fmt::format("The length of the input data must be less than or equal to the maximum bucket data length ({}), but is {} instead.", max_data_length_, data_length)};
 
             // TODO warn
 

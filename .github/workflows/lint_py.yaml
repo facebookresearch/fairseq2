@@ -26,6 +26,9 @@ jobs:
     steps:
       - name: Check-out the repository
         uses: actions/checkout@v3
+      - name: Install libsndfile
+        run: |
+          yum --assumeyes install libsndfile-devel
       - name: Set up the Python virtual environment
         run: |
           python3.10 -m venv ~/venv

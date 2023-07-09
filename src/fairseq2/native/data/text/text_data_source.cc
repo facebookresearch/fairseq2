@@ -126,7 +126,7 @@ text_data_source::is_empty(memory_span line) const
         return line.size() == 2;
     case line_ending::infer:
         throw internal_error{
-            "The line ending has not been set. Please file a bug report."};
+            "`text_data_source` has not set the line ending. Please file a bug report."};
     }
 
     return false;

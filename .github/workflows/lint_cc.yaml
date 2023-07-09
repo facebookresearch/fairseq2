@@ -30,6 +30,9 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 2
+      - name: Install libsndfile
+        run: |
+          yum --assumeyes install libsndfile-devel
       - name: Set up the Python virtual environment
         run: |
           python3.10 -m venv ~/venv

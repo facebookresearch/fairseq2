@@ -13,28 +13,28 @@ class TestShardOp:
     def test_op_works_as_expected(self) -> None:
         seq = list(range(1, 23))
 
-        dp = read_sequence(seq).shard(1, 5).and_return()
+        pipeline = read_sequence(seq).shard(1, 5).and_return()
 
         for _ in range(2):
-            assert list(dp) == [2, 7, 12, 17]
+            assert list(pipeline) == [2, 7, 12, 17]
 
-            dp.reset()
+            pipeline.reset()
 
-        dp = read_sequence(seq).shard(4, 5).and_return()
+        pipeline = read_sequence(seq).shard(4, 5).and_return()
 
         for _ in range(2):
-            assert list(dp) == [5, 10, 15, 20]
+            assert list(pipeline) == [5, 10, 15, 20]
 
-            dp.reset()
+            pipeline.reset()
 
         seq = list(range(1, 4))
 
-        dp = read_sequence(seq).shard(0, 5).and_return()
+        pipeline = read_sequence(seq).shard(0, 5).and_return()
 
         for _ in range(2):
-            assert list(dp) == []
+            assert list(pipeline) == []
 
-            dp.reset()
+            pipeline.reset()
 
     @pytest.mark.parametrize("idx", [4, 5])
     def test_op_raises_error_if_shard_idx_is_invalid(self, idx: int) -> None:
@@ -47,11 +47,11 @@ class TestShardOp:
     def test_record_reload_position_works_as_expected(self) -> None:
         seq = list(range(1, 23))
 
-        dp = read_sequence(seq).shard(2, 5).and_return()
+        pipeline = read_sequence(seq).shard(2, 5).and_return()
 
         d = None
 
-        it = iter(dp)
+        it = iter(pipeline)
 
         # Move the the second example.
         for _ in range(2):
@@ -59,7 +59,7 @@ class TestShardOp:
 
         assert d == 8
 
-        state_dict = dp.state_dict()
+        state_dict = pipeline.state_dict()
 
         # Read one more example before we roll back.
         d = next(it)
@@ -67,7 +67,7 @@ class TestShardOp:
         assert d == 13
 
         # Expected to roll back to the second example.
-        dp.load_state_dict(state_dict)
+        pipeline.load_state_dict(state_dict)
 
         d = next(it)
 
@@ -78,12 +78,12 @@ class TestShardOp:
 
         assert d == 18
 
-        state_dict = dp.state_dict()
+        state_dict = pipeline.state_dict()
 
-        dp.reset()
+        pipeline.reset()
 
         # Expected to be EOD.
-        dp.load_state_dict(state_dict)
+        pipeline.load_state_dict(state_dict)
 
         with pytest.raises(StopIteration):
-            next(iter(dp))
+            next(iter(pipeline))

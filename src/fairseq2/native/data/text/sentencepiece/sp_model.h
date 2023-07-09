@@ -56,11 +56,12 @@ class FAIRSEQ2_API sp_model {
     friend class sp_encoder;
 
 public:
-    explicit
-    sp_model(std::string_view pathname, sp_model_options opts = {});
-
     static sp_model
     from_serialized(std::string_view serialized);
+
+public:
+    explicit
+    sp_model(std::string_view pathname, sp_model_options opts = {});
 
     sp_model(const sp_model &) = delete;
     sp_model &operator=(const sp_model &) = delete;

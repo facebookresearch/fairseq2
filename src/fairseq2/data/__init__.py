@@ -11,6 +11,7 @@ from fairseq2.data.data_pipeline import DataPipeline as DataPipeline
 from fairseq2.data.data_pipeline import DataPipelineBuilder as DataPipelineBuilder
 from fairseq2.data.data_pipeline import DataPipelineError as DataPipelineError
 from fairseq2.data.data_pipeline import MemoryMapper as MemoryMapper
+from fairseq2.data.data_pipeline import MemoryMapperOutput as MemoryMapperOutput
 from fairseq2.data.data_pipeline import RecordError as RecordError
 from fairseq2.data.data_pipeline import list_files as list_files
 from fairseq2.data.data_pipeline import read_sequence as read_sequence

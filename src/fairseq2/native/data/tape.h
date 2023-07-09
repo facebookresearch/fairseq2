@@ -18,14 +18,6 @@ namespace fairseq2 {
 
 class FAIRSEQ2_API tape {
 public:
-    static void
-    check(bool expr)
-    {
-        if (!expr)
-            throw_corrupt();
-    }
-
-public:
     explicit
     tape(std::vector<data> storage = {}) noexcept
       : storage_(std::move(storage))

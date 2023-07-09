@@ -21,22 +21,22 @@ class TestMapOp:
 
         seq = list(range(1, 10))
 
-        dp = read_sequence(seq).map(fn, None, num_parallel_calls).and_return()
+        pipeline = read_sequence(seq).map(fn, None, num_parallel_calls).and_return()
 
         for _ in range(2):
-            assert list(dp) == [i**2 for i in seq]
+            assert list(pipeline) == [i**2 for i in seq]
 
-            dp.reset()
+            pipeline.reset()
 
     def test_op_works_with_data_processor_as_expected(self) -> None:
         fn = StrToIntConverter()
 
-        dp = read_sequence(["1", "2", "3", "4"]).map(fn).and_return()
+        pipeline = read_sequence(["1", "2", "3", "4"]).map(fn).and_return()
 
         for _ in range(2):
-            assert list(dp) == [1, 2, 3, 4]
+            assert list(pipeline) == [1, 2, 3, 4]
 
-            dp.reset()
+            pipeline.reset()
 
     def test_op_works_with_function_array_as_expected(self) -> None:
         fn1 = StrToIntConverter()
@@ -44,12 +44,12 @@ class TestMapOp:
         def fn2(d: int) -> int:
             return d**2
 
-        dp = read_sequence(["1", "2", "3", "4"]).map([fn1, fn2]).and_return()
+        pipeline = read_sequence(["1", "2", "3", "4"]).map([fn1, fn2]).and_return()
 
         for _ in range(2):
-            assert list(dp) == [1, 4, 9, 16]
+            assert list(pipeline) == [1, 4, 9, 16]
 
-            dp.reset()
+            pipeline.reset()
 
     @pytest.mark.parametrize("num_parallel_calls", [0, 1, 4, 10, 20])
     def test_op_works_with_warn_only_as_expected(self, num_parallel_calls: int) -> None:
@@ -61,12 +61,14 @@ class TestMapOp:
 
         seq = list(range(1, 10))
 
-        dp = read_sequence(seq).map(fn, None, num_parallel_calls, True).and_return()
+        pipeline = (
+            read_sequence(seq).map(fn, None, num_parallel_calls, True).and_return()
+        )
 
         for _ in range(2):
-            assert list(dp) == [i**2 for i in range(1, 10, 2)]
+            assert list(pipeline) == [i**2 for i in range(1, 10, 2)]
 
-            dp.reset()
+            pipeline.reset()
 
     def test_op_works_with_basic_selector_as_expected(self) -> None:
         def fn1(d: int) -> int:
@@ -77,16 +79,16 @@ class TestMapOp:
 
         seq = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
 
-        dp = read_sequence(seq).map([fn1, fn2], selector="[1]").and_return()
+        pipeline = read_sequence(seq).map([fn1, fn2], selector="[1]").and_return()
 
         for _ in range(2):
-            it = iter(dp)
+            it = iter(pipeline)
 
             assert next(it) == [1, 24, 3]
             assert next(it) == [4, 30, 6]
             assert next(it) == [7, 36, 9]
 
-            dp.reset()
+            pipeline.reset()
 
     def test_op_works_with_complex_selector_as_expected(self) -> None:
         def fn(d: int) -> int:
@@ -109,15 +111,15 @@ class TestMapOp:
         e1["foo2"][2]["foo4"] = 14  # type: ignore[index]
         e2["foo2"][2]["foo4"] = 19  # type: ignore[index]
 
-        dp = read_sequence([d1, d2]).map(fn, selector="foo2[2].foo4").and_return()
+        pipeline = read_sequence([d1, d2]).map(fn, selector="foo2[2].foo4").and_return()
 
         for _ in range(2):
-            it = iter(dp)
+            it = iter(pipeline)
 
             assert next(it) == e1
             assert next(it) == e2
 
-            dp.reset()
+            pipeline.reset()
 
     def test_op_works_with_multiple_selectors_as_expected(self) -> None:
         def fn(d: int) -> int:
@@ -127,11 +129,13 @@ class TestMapOp:
             "foo1": 1,
             "foo2": [2, 3, {"foo4": 4}],
             "foo3": [5],
+            "foo5": {"foo6": {"foo7": 1}},
         }
         d2 = {
             "foo1": 6,
             "foo2": [7, 8, {"foo4": 9}],
             "foo3": [0],
+            "foo5": {"foo6": {"foo7": 2}},
         }
 
         e1 = copy.deepcopy(d1)
@@ -143,18 +147,20 @@ class TestMapOp:
         e2["foo2"][2]["foo4"] = 19  # type: ignore[index]
         e1["foo3"] = [15]
         e2["foo3"] = [10]
+        e1["foo5"]["foo6"]["foo7"] = 11  # type: ignore[index]
+        e2["foo5"]["foo6"]["foo7"] = 12  # type: ignore[index]
 
-        selector = "foo2[2].foo4,foo3[0], foo1"
+        selector = "foo2[2].foo4,foo3[0], foo1,foo5.foo6.foo7"
 
-        dp = read_sequence([d1, d2]).map(fn, selector=selector).and_return()
+        pipeline = read_sequence([d1, d2]).map(fn, selector=selector).and_return()
 
         for _ in range(2):
-            it = iter(dp)
+            it = iter(pipeline)
 
             assert next(it) == e1
             assert next(it) == e2
 
-            dp.reset()
+            pipeline.reset()
 
     @pytest.mark.parametrize(
         "s",
@@ -212,13 +218,13 @@ class TestMapOp:
             "foo3": [5],
         }
 
-        dp = read_sequence([d]).map(lambda x: x, selector=s).and_return()
+        pipeline = read_sequence([d]).map(lambda x: x, selector=s).and_return()
 
         with pytest.raises(
             ValueError,
             match=rf"^The input data does not have an element at path '{re.escape(s)}'\.$",
         ):
-            next(iter(dp))
+            next(iter(pipeline))
 
     @pytest.mark.parametrize("num_parallel_calls", [0, 1, 4, 20])
     def test_op_propagates_errors_as_expected(self, num_parallel_calls: int) -> None:
@@ -228,10 +234,12 @@ class TestMapOp:
 
             return d
 
-        dp = read_sequence([1, 2, 3, 4]).map(fn, None, num_parallel_calls).and_return()
+        pipeline = (
+            read_sequence([1, 2, 3, 4]).map(fn, None, num_parallel_calls).and_return()
+        )
 
         with pytest.raises(ValueError, match=r"^map error$"):
-            for d in dp:
+            for d in pipeline:
                 pass
 
     @pytest.mark.parametrize("num_parallel_calls", [0, 1, 4, 20])
@@ -243,11 +251,11 @@ class TestMapOp:
 
         seq = list(range(1, 10))
 
-        dp = read_sequence(seq).map(fn, None, num_parallel_calls).and_return()
+        pipeline = read_sequence(seq).map(fn, None, num_parallel_calls).and_return()
 
         d = None
 
-        it = iter(dp)
+        it = iter(pipeline)
 
         # Move the the second example.
         for _ in range(2):
@@ -255,7 +263,7 @@ class TestMapOp:
 
         assert d == 2
 
-        state_dict = dp.state_dict()
+        state_dict = pipeline.state_dict()
 
         # Read a few examples before we roll back.
         for _ in range(4):
@@ -264,7 +272,7 @@ class TestMapOp:
         assert d == 6
 
         # Expected to roll back to the second example.
-        dp.load_state_dict(state_dict)
+        pipeline.load_state_dict(state_dict)
 
         # Move to EOD.
         for _ in range(7):
@@ -272,12 +280,12 @@ class TestMapOp:
 
         assert d == 9
 
-        state_dict = dp.state_dict()
+        state_dict = pipeline.state_dict()
 
-        dp.reset()
+        pipeline.reset()
 
         # Expected to be EOD.
-        dp.load_state_dict(state_dict)
+        pipeline.load_state_dict(state_dict)
 
         with pytest.raises(StopIteration):
-            next(iter(dp))
+            next(iter(pipeline))

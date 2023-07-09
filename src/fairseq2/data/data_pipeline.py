@@ -14,10 +14,12 @@ from typing import (
     Optional,
     Sequence,
     Tuple,
+    TypedDict,
     Union,
 )
 
 from fairseq2 import _DOC_MODE
+from fairseq2.data.memory import MemoryBlock
 from fairseq2.data.typing import PathLike, StringLike
 
 if TYPE_CHECKING or _DOC_MODE:
@@ -100,7 +102,6 @@ if TYPE_CHECKING or _DOC_MODE:
         def bucket_by_length(
             self,
             bucket_sizes: Sequence[Tuple[int, int]],
-            max_data_length: int,
             selector: Optional[str] = None,
             drop_remainder: bool = False,
             warn_only: bool = False,
@@ -228,7 +229,7 @@ if TYPE_CHECKING or _DOC_MODE:
         ) -> None:
             ...
 
-        def __call__(self, data: Any) -> Any:
+        def __call__(self, pathname: PathLike) -> "MemoryMapperOutput":
             ...
 
     class ByteStreamError(RuntimeError):
@@ -267,3 +268,8 @@ else:
             t.__module__ = __name__
 
     _set_module_name()
+
+
+class MemoryMapperOutput(TypedDict):
+    path: PathLike
+    data: MemoryBlock

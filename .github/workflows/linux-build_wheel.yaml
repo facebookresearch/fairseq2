@@ -43,6 +43,9 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: recursive
+      - name: Install libsndfile
+        run: |
+          yum --assumeyes install libsndfile-devel
       - name: Set up the Python virtual environment
         run: |
           python${{ inputs.py }} -m venv ~/venv
@@ -90,7 +93,7 @@ jobs:
           cmake -GNinja\
                 -DCMAKE_BUILD_TYPE=$build_type\
                 -DCMAKE_CUDA_ARCHITECTURES=$cuda_archs\
-                -DFAIRSEQ2_EDITABLE_PYTHON=OFF\
+                -DFAIRSEQ2_PYTHON_DEVEL=OFF\
                 -DFAIRSEQ2_PERFORM_LTO=$lto\
                 -DFAIRSEQ2_SANITIZERS="${SANITIZERS/_/;}"\
                 -DFAIRSEQ2_TREAT_WARNINGS_AS_ERRORS=ON\

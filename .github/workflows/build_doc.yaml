@@ -27,6 +27,9 @@ jobs:
     container:
       image: ghcr.io/fairinternal/fairseq2-ci-manylinux_x86_64:1-cpu
     steps:
+      - name: Install libsndfile
+        run: |
+          yum --assumeyes install libsndfile-devel
       - name: Download the wheel from staging
         uses: actions/download-artifact@v3
         with:

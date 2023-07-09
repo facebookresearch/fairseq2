@@ -20,12 +20,12 @@ class TestYieldFromOp:
 
             return read_sequence(seq).and_return()
 
-        dp = read_sequence([[1, 5], [9, 14]]).yield_from(fn).and_return()
+        pipeline = read_sequence([[1, 5], [9, 14]]).yield_from(fn).and_return()
 
         for _ in range(2):
-            assert list(dp) == [1, 2, 3, 4, 9, 10, 11, 12, 13]
+            assert list(pipeline) == [1, 2, 3, 4, 9, 10, 11, 12, 13]
 
-            dp.reset()
+            pipeline.reset()
 
     def test_record_reload_position_works_as_expected(self) -> None:
         def fn(d: Tuple[int, int]) -> DataPipeline:
@@ -35,11 +35,11 @@ class TestYieldFromOp:
 
             return read_sequence(seq).and_return()
 
-        dp = read_sequence([[1, 5], [9, 14]]).yield_from(fn).and_return()
+        pipeline = read_sequence([[1, 5], [9, 14]]).yield_from(fn).and_return()
 
         d = None
 
-        it = iter(dp)
+        it = iter(pipeline)
 
         # Move the the second example.
         for _ in range(2):
@@ -47,7 +47,7 @@ class TestYieldFromOp:
 
         assert d == 2
 
-        state_dict = dp.state_dict()
+        state_dict = pipeline.state_dict()
 
         # Read a few examples before we roll back.
         for _ in range(5):
@@ -56,7 +56,7 @@ class TestYieldFromOp:
         assert d == 11
 
         # Expected to roll back to the second example.
-        dp.load_state_dict(state_dict)
+        pipeline.load_state_dict(state_dict)
 
         # Move to EOD.
         for _ in range(7):
@@ -64,12 +64,12 @@ class TestYieldFromOp:
 
         assert d == 13
 
-        state_dict = dp.state_dict()
+        state_dict = pipeline.state_dict()
 
-        dp.reset()
+        pipeline.reset()
 
         # Expected to be EOD.
-        dp.load_state_dict(state_dict)
+        pipeline.load_state_dict(state_dict)
 
         with pytest.raises(StopIteration):
-            next(iter(dp))
+            next(iter(pipeline))

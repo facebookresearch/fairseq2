@@ -79,9 +79,19 @@ memory_mapper::operator()(data &&d) const
 
     memory_block block = get_memory_map(parts[0]);
 
+    auto pack_output = [&d](memory_block &&blk)
+    {
+        flat_hash_map<std::string, data> output{};
+
+        output["path"] = std::move(d);
+        output["data"] = std::move(blk);
+
+        return output;
+    };
+
     // If we don't have an offset, return the entire memory map.
     if (!offset)
-        return block;
+        return pack_output(std::move(block));
 
     if (*offset > block.size())
         throw std::invalid_argument{
@@ -90,19 +100,21 @@ memory_mapper::operator()(data &&d) const
     // If we have an offset but not a size, return the memory map from the
     // offset to the end.
     if (!size)
-        return block.share_slice(*offset);
+        return pack_output(block.share_slice(*offset));
 
     if (std::size_t upper_boundary = *offset + *size; upper_boundary > block.size())
         throw std::invalid_argument{
             fmt::format("The specified offset plus size within '{}' must be less than or equal to the file size ({}), but is {} instead.", pathname, block.size(), upper_boundary)};
 
     // Otherwise, return the memory map region specified by the offset and size.
-    return block.share_slice(*offset, *size);
+    return pack_output(block.share_slice(*offset, *size));
 }
 
 memory_block
 memory_mapper::get_memory_map(const immutable_string &pathname) const
 {
+    std::lock_guard<std::mutex> cache_lock{cache_mutex_};
+
     // Check the LRU cache first.
     if (memory_block *cached_block = cache_.get_if(pathname); cached_block != nullptr)
         return *cached_block;
