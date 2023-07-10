@@ -9,7 +9,7 @@
 #include <cstdint>
 
 #include "fairseq2/native/span.h"
-#include "fairseq2/native/data/immutable_string.h"
+#include "fairseq2/native/detail/exception.h"
 
 namespace fairseq2::detail {
 
@@ -32,7 +32,7 @@ compute_code_point_length(std::string_view s)
             size = 4;
 
         if (size == 0 || static_cast<std::size_t>(s.end() - iter) < size)
-            throw invalid_utf8_error{"`s` has an invalid UTF-8 code point."};
+            throw_<std::invalid_argument>("`s` has an invalid UTF-8 code point.");
 
         iter += size;
 

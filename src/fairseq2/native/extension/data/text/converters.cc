@@ -19,8 +19,11 @@
 #include <fairseq2/native/data/text/string_splitter.h>
 #include <fairseq2/native/data/text/string_to_int_converter.h>
 #include <fairseq2/native/data/text/string_to_tensor_converter.h>
+#include <fairseq2/native/detail/exception.h>
 
 namespace py = pybind11;
+
+using namespace fairseq2::detail;
 
 namespace fairseq2 {
 
@@ -35,7 +38,8 @@ def_text_converters(py::module_ &text_module)
             py::init([](std::string_view sep, std::optional<std::vector<std::string>> names)
             {
                 if (sep.size() != 1)
-                    throw std::invalid_argument{"`sep` must be of length 1."};
+                    throw_<std::invalid_argument>(
+                        "`sep` must be of length 1, but is of length {} instead.", sep.size());
 
                 return string_splitter{sep[0], std::move(names)};
             }),

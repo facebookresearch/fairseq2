@@ -12,14 +12,13 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 
-#include <fmt/core.h>
-
-#include "fairseq2/native/error.h"
 #include "fairseq2/native/data/byte_stream.h"
 #include "fairseq2/native/data/file_stream.h"
 #include "fairseq2/native/data/memory_stream.h"
 #include "fairseq2/native/data/detail/file.h"
 #include "fairseq2/native/data/text/utf8_stream.h"
+#include "fairseq2/native/detail/error.h"
+#include "fairseq2/native/detail/exception.h"
 
 using namespace fairseq2::detail;
 
@@ -37,16 +36,14 @@ do_open_file(const std::string &pathname)
     std::error_code err = last_error();
 
     if (err == std::errc::no_such_file_or_directory)
-        throw byte_stream_error{
-            fmt::format("'{}' does not exist.", pathname)};
+        throw_<byte_stream_error>("'{}' does not exist.", pathname);
 
     if (err == std::errc::permission_denied) {
-        throw byte_stream_error{
-            fmt::format("The permission to read '{}' has been denied.", pathname)};
+        throw_<byte_stream_error>("The permission to read '{}' has been denied.", pathname);
     }
 
-    throw std::system_error{err,
-        fmt::format("'{}' cannot be opened", pathname)};
+    throw_system_error(err,
+        "'{}' cannot be opened", pathname);
 }
 
 void

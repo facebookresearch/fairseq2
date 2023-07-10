@@ -6,6 +6,8 @@
 
 #include "fairseq2/native/data/prefetch_data_source.h"
 
+#include <exception>
+
 #include "fairseq2/native/data/detail/thread.h"
 
 namespace fairseq2::detail {
@@ -125,7 +127,7 @@ prefetch_data_source::prefetch()
         std::optional<data> d{};
         try {
             d = inner_->next();
-        } catch (...) {
+        } catch (const std::exception &) {
             exception_ptr_ = std::current_exception();
         }
 

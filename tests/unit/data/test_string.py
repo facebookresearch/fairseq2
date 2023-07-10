@@ -179,7 +179,10 @@ class TestCString:
     def test_split_raises_error_when_separator_is_not_char(self) -> None:
         s = CString("hello world! this is a string")
 
-        with pytest.raises(ValueError, match=r"^`sep` must be of length 1\.$"):
+        with pytest.raises(
+            ValueError,
+            match=r"^`sep` must be of length 1, but is of length 2 instead\.$",
+        ):
             s.split("<>")
 
     def test_pickle_works(self) -> None:

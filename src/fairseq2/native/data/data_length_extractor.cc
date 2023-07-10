@@ -12,10 +12,9 @@
 
 #include <ATen/Tensor.h>
 
-#include <fmt/core.h>
-
 #include "fairseq2/native/fmt.h"
 #include "fairseq2/native/data/data.h"
+#include "fairseq2/native/detail/exception.h"
 #include "fairseq2/native/utils/cast.h"
 
 using namespace fairseq2::detail;
@@ -37,11 +36,11 @@ data_length_extractor::operator()(const data &d) const
             return element.as_list().size();
 
         if (selector_)
-            throw std::invalid_argument{
-                fmt::format("The element at '{}' in the input data must be of type `int`, `list`, or `torch.Tensor` to determine its length, but is of type `{}` instead.", path, element.type())};
+            throw_<std::invalid_argument>(
+                "The element at '{}' in the input data must be of type `int`, `list`, or `torch.Tensor` to determine its length, but is of type `{}` instead.", path, element.type());
         else
-            throw std::invalid_argument{
-                fmt::format("The input data must be of type `int`, `list`, or `torch.Tensor` to determine its length, but is of type `{}` instead.", element.type())};
+            throw_<std::invalid_argument>(
+                "The input data must be of type `int`, `list`, or `torch.Tensor` to determine its length, but is of type `{}` instead.", element.type());
     };
 
     if (!selector_)

@@ -23,9 +23,9 @@ public:
    ~internal_error() override;
 };
 
-class FAIRSEQ2_API not_supported_error : public std::logic_error {
+class FAIRSEQ2_API not_supported_error : public std::domain_error {
 public:
-    using std::logic_error::logic_error;
+    using std::domain_error::domain_error;
 
 public:
     not_supported_error(const not_supported_error &) = default;

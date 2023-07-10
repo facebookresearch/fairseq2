@@ -150,7 +150,7 @@ class TestZipOp:
         # Break the first pipeline.
         try:
             next(iter(pipeline1))
-        except ValueError:
+        except DataPipelineError:
             pass
 
         with pytest.raises(

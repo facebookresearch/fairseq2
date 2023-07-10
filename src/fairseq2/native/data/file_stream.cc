@@ -12,9 +12,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-#include <fmt/core.h>
-
-#include "fairseq2/native/error.h"
+#include "fairseq2/native/detail/error.h"
+#include "fairseq2/native/detail/exception.h"
 
 namespace fairseq2::detail {
 
@@ -59,11 +58,10 @@ file_stream::reset()
         std::error_code err = last_error();
 
         if (err == std::errc::invalid_seek)
-            throw byte_stream_error{
-                fmt::format("'{}' is not seekable and cannot be reset.", pathname_)};
+            throw_<byte_stream_error>("'{}' is not seekable and cannot be reset.", pathname_);
 
-        throw std::system_error{err,
-            fmt::format("'{}' cannot be reset", pathname_)};
+        throw_system_error(err,
+            "'{}' cannot be reset", pathname_);
     }
 
     is_eod_ = false;
@@ -85,8 +83,8 @@ file_stream::fill_chunk(writable_memory_span chunk)
 {
     ssize_t num_bytes_read = ::read(fd_.get(), chunk.data(), chunk.size());
     if (num_bytes_read == -1)
-        throw std::system_error{last_error(),
-            fmt::format("'{}' cannot be read", pathname_)};
+        throw_system_error(last_error(),
+            "'{}' cannot be read", pathname_);
 
     return static_cast<std::size_t>(num_bytes_read);
 }

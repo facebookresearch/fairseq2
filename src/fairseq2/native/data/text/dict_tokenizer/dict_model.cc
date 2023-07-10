@@ -7,7 +7,10 @@
 #include "fairseq2/native/data/text/dict_tokenizer/dict_model.h"
 
 #include <string>
-#include <stdexcept>
+
+#include "fairseq2/native/detail/exception.h"
+
+using namespace fairseq2::detail;
 
 namespace fairseq2 {
 
@@ -30,7 +33,7 @@ dict_model::index_to_token(std::int64_t idx) const
 {
     auto unsigned_idx = static_cast<std::size_t>(idx); // we need idx to be signed for pytorch compatibility
     if (unsigned_idx > index_to_token_.size())
-        throw std::invalid_argument("Index out of range: " + std::to_string(unsigned_idx));
+        throw_<std::invalid_argument>("Index out of range: {}", unsigned_idx);
 
     return index_to_token_[unsigned_idx];
 }
@@ -50,7 +53,8 @@ dict_model::init_token_to_index()
     std::int64_t index = 0;
     for (const auto& word: index_to_token_) {
         if (token_to_index_.find(word) != token_to_index_.end())
-            throw std::invalid_argument("vocab argument should contain unique words only. Found duplicate for: '" + word + "'.");
+            throw_<std::invalid_argument>(
+                "vocab argument should contain unique words only. Found duplicate for: '{}'.", word);
 
         token_to_index_.insert(std::pair{word, index++});
     }

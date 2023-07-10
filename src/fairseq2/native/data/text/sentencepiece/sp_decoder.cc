@@ -21,7 +21,10 @@
 #include "fairseq2/native/fmt.h"
 #include "fairseq2/native/data/text/sentencepiece/sp_model.h"
 #include "fairseq2/native/data/text/sentencepiece/sp_processor.h"
+#include "fairseq2/native/detail/exception.h"
 #include "fairseq2/native/utils/cast.h"
+
+using namespace fairseq2::detail;
 
 namespace fairseq2 {
 namespace detail {
@@ -59,8 +62,8 @@ data
 sp_decoder::operator()(data &&d) const
 {
     if (!d.is_tensor())
-        throw std::invalid_argument{
-            fmt::format("The input data must be of type `torch.Tensor`, but is of type `{}` instead.", d.type())};
+        throw_<std::invalid_argument>(
+            "The input data must be of type `torch.Tensor`, but is of type `{}` instead.", d.type());
 
     at::Tensor tensor = d.as_tensor();
 
@@ -73,7 +76,7 @@ sp_decoder::operator()(data &&d) const
 data_list
 sp_decoder::decode(at::Tensor &&tensor) const
 {
-    detail::decoder_op op{this, model_->processor_.get(), std::move(tensor)};
+    decoder_op op{this, model_->processor_.get(), std::move(tensor)};
 
     return std::move(op).run();
 }
@@ -116,7 +119,7 @@ decoder_op::decode()
         break;
 
     default:
-        throw std::invalid_argument{"The specified integral type is not supported."};
+        throw_<std::invalid_argument>("The specified integral type is not supported.");
     }
 }
 

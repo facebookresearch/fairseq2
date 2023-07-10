@@ -11,10 +11,9 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 
-#include <fmt/core.h>
-
-#include "fairseq2/native/error.h"
 #include "fairseq2/native/memory.h"
+#include "fairseq2/native/detail/error.h"
+#include "fairseq2/native/detail/exception.h"
 
 namespace fairseq2::detail {
 namespace {
@@ -34,8 +33,8 @@ memory_map_file(const file_desc &fd, std::string_view pathname)
 {
     struct ::stat buf{};
     if (::fstat(fd.get(), &buf) == -1)
-        throw std::system_error{last_error(),
-            fmt::format("The file size of '{}' cannot be retrieved", pathname)};
+        throw_system_error(last_error(),
+            "The file size of '{}' cannot be determined", pathname);
 
     auto size = static_cast<std::size_t>(buf.st_size);
     if (size == 0)
@@ -43,8 +42,8 @@ memory_map_file(const file_desc &fd, std::string_view pathname)
 
     void *addr = ::mmap(nullptr, size, PROT_READ, MAP_PRIVATE, fd.get(), 0);
     if (addr == MAP_FAILED)
-        throw std::system_error{last_error(),
-            fmt::format("'{}' cannot be mapped to memory", pathname)};
+        throw_system_error(last_error(),
+            "'{}' cannot be memory mapped", pathname);
 
     return memory_block{static_cast<std::byte *>(addr), size, nullptr, mmap_deallocate};
 }

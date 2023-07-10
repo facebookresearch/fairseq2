@@ -29,7 +29,7 @@ class TestStrToIntConverter:
 
         with pytest.raises(
             ValueError,
-            match=rf"^The input string must represent a signed 64-bit integer, but is '{value}' instead\.$",
+            match=rf"^The input string must represent a 64-bit integer, but is '{value}' instead\.$",
         ):
             converter(value)
 
@@ -40,7 +40,7 @@ class TestStrToIntConverter:
 
         with pytest.raises(
             ValueError,
-            match=rf"^The input string must represent a signed 64-bit integer, but is '{value}' instead, which is out of range\.$",
+            match=rf"^The input string must represent a 64-bit integer, but is '{value}' instead, which is out of range\.$",
         ):
             converter(value)
 

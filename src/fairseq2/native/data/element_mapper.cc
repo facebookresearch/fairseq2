@@ -9,9 +9,10 @@
 #include <exception>
 #include <stdexcept>
 
-#include <fmt/core.h>
-
 #include "fairseq2/native/fmt.h"
+#include "fairseq2/native/detail/exception.h"
+
+using namespace fairseq2::detail;
 
 namespace fairseq2 {
 
@@ -21,13 +22,13 @@ element_mapper::operator()(data &&d)
     if (!selector_)
         return map_fn_(std::move(d));
 
-    selector_->visit(d, [this](data &element, detail::element_path_ref path)
+    selector_->visit(d, [this](data &element, element_path_ref path)
     {
         try {
             element = map_fn_(std::move(element));
         } catch (const std::exception &) {
-            std::throw_with_nested(std::runtime_error{
-                fmt::format("The map function has failed while processing the path '{}' of the input data. See nested exception for details.", path)});
+            throw_with_nested<std::runtime_error>(
+                "The map function has failed while processing the path '{}' of the input data. See nested exception for details.", path);
         }
     });
 

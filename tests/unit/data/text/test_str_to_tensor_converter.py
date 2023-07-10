@@ -16,9 +16,7 @@ from tests.common import assert_equal
 
 class TestStrToTensorConverter:
     def test_init_raises_error_when_data_type_is_not_supported(self) -> None:
-        with pytest.raises(
-            RuntimeError, match=r"^Only integral types are supported\.$"
-        ):
+        with pytest.raises(ValueError, match=r"^Only integral types are supported\.$"):
             StrToTensorConverter(dtype=torch.half)
 
     @pytest.mark.parametrize("dtype", [None, torch.int16, torch.int32, torch.int64])

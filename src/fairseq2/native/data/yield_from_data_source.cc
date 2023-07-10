@@ -6,6 +6,10 @@
 
 #include "fairseq2/native/data/yield_from_data_source.h"
 
+#include <exception>
+
+#include "fairseq2/native/data/detail/exception.h"
+
 namespace fairseq2::detail {
 
 std::optional<data>
@@ -80,9 +84,9 @@ yield_from_data_source::invoke_function(data &d)
         return yield_fn_(d);
     } catch (const data_pipeline_error &) {
         throw;
-    } catch (...) {
-        data_pipeline_error::throw_nested(
-            "The yield operation has failed.", std::move(d));
+    } catch (const std::exception &) {
+        throw_data_pipeline_error_with_nested(std::move(d),
+            "The yield operation has failed. See nested exception for details.");
     }
 }
 

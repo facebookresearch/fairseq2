@@ -6,10 +6,13 @@
 
 #include "fairseq2/native/data/text/dict_tokenizer/dict_encoder.h"
 
+#include <ATen/ops/full.h>
+
 #include "fairseq2/native/span.h"
 #include "fairseq2/native/data/immutable_string.h"
+#include "fairseq2/native/detail/exception.h"
 
-#include <ATen/ops/full.h>
+using namespace fairseq2::detail;
 
 namespace fairseq2 {
 
@@ -22,7 +25,7 @@ data
 dict_encoder::operator()(data &&d) const
 {
     if (!d.is_string())
-        throw std::invalid_argument{"The input data must be of type string."};
+        throw_<std::invalid_argument>("The input data must be of type string.");
 
     return encode(d.as_string());
 }

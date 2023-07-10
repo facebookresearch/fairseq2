@@ -7,6 +7,7 @@
 #include "fairseq2/native/data/text/text_line_reader.h"
 
 #include "fairseq2/native/exception.h"
+#include "fairseq2/native/detail/exception.h"
 
 namespace fairseq2::detail {
 
@@ -43,8 +44,8 @@ text_line_reader::find_record_end(memory_span chunk, bool)
         break;
     }
     case line_ending::infer:
-        throw internal_error{
-            "`text_line_reader` has not set the line ending. Please file a bug report."};
+        throw_<internal_error>(
+            "`text_line_reader` has not set the line ending. Please file a bug report.");
     }
 
     if (iter == chars.end())

@@ -9,10 +9,10 @@
 #include <cctype>
 #include <stdexcept>
 
-#include <fmt/core.h>
 #include <fmt/format.h>
 
 #include "fairseq2/native/fmt.h"
+#include "fairseq2/native/detail/exception.h"
 #include "fairseq2/native/utils/string.h"
 
 using namespace fairseq2::detail;
@@ -32,8 +32,8 @@ element_selector::element_selector(std::string_view selector)
             /*path=*/remaining_paths.substr(0, comma_idx));
 
         if (!parsed_path)
-            throw std::invalid_argument{
-                fmt::format("`selector` must contain one or more well-formatted element paths, but is '{}' instead.", selector)};
+            throw_<std::invalid_argument>(
+                "`selector` must contain one or more well-formatted element paths, but is '{}' instead.", selector);
 
         paths_.push_back(*std::move(parsed_path));
 
@@ -209,8 +209,7 @@ element_selector::visit(
 void
 element_selector::throw_invalid_path(element_path_ref path)
 {
-    throw std::invalid_argument{
-        fmt::format("The input data does not have an element at path '{}'.", path)};
+    throw_<std::invalid_argument>("The input data does not have an element at path '{}'.", path);
 }
 
 }  // namespace detail

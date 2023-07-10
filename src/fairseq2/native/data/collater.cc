@@ -14,6 +14,9 @@
 
 #include "fairseq2/native/exception.h"
 #include "fairseq2/native/float.h"
+#include "fairseq2/native/detail/exception.h"
+
+using namespace fairseq2::detail;
 
 namespace fairseq2 {
 
@@ -50,10 +53,10 @@ collater::operator()(data &&d) const
 
         for (auto maybe_row: bucket) {
             if (!maybe_row.is_list())
-                throw not_supported_error{"All rows need to have the same type to be used."};
+                throw_<not_supported_error>("All rows need to have the same type to be used.");
             data_list row = maybe_row.as_list();
             if (row.size() != n_cols)
-                throw not_supported_error{"All rows need to have the same size to be used."};
+                throw_<not_supported_error>("All rows need to have the same size to be used.");
 
             for (std::size_t col = 0; col < n_cols; ++col) {
                 columns.at(col).emplace_back(std::move(row.at(col)));

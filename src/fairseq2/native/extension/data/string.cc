@@ -11,9 +11,12 @@
 #include <fmt/core.h>
 
 #include <fairseq2/native/data/immutable_string.h>
+#include <fairseq2/native/detail/exception.h>
 #include <fairseq2/native/utils/string.h>
 
 namespace py = pybind11;
+
+using namespace fairseq2::detail;
 
 namespace fairseq2 {
 
@@ -89,7 +92,8 @@ def_string(py::module_ &data_module)
             [](const immutable_string &self, std::string_view sep)
             {
                 if (sep.size() != 1)
-                    throw std::invalid_argument{"`sep` must be of length 1."};
+                    throw_<std::invalid_argument>(
+                        "`sep` must be of length 1, but is of length {} instead.", sep.size());
 
                 return self.split(sep[0]);
             },

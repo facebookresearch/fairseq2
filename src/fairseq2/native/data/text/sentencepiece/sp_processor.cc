@@ -7,10 +7,12 @@
 #include "fairseq2/native/data/text/sentencepiece/sp_processor.h"
 
 #include <stdexcept>
+#include <system_error>
 
 #include <fmt/format.h>
 #include <sentencepiece/src/builtin_pb/sentencepiece_model.pb.h>
 
+#include "fairseq2/native/detail/exception.h"
 #include "fairseq2/native/utils/cast.h"
 
 using sentencepiece::ImmutableSentencePieceText;
@@ -67,14 +69,15 @@ sp_model_proto_loader::load_proto()
         return;
 
     if (st.code() == sentencepiece::util::StatusCode::kNotFound)
-        throw std::system_error{
-            std::make_error_code(std::errc::no_such_file_or_directory)};
+        throw_system_error(std::make_error_code(std::errc::no_such_file_or_directory),
+            "The SentencePiece model '{}' cannot be opened", pathname_);
 
     if (st.code() == sentencepiece::util::StatusCode::kPermissionDenied)
-        throw std::system_error{
-            std::make_error_code(std::errc::permission_denied)};
+        throw_system_error(std::make_error_code(std::errc::permission_denied),
+            "The SentencePiece model '{}' cannot be opened", pathname_);
 
-    throw std::runtime_error{st.message()};
+    throw_<std::runtime_error>(
+        "The SentecePiece model '{}' cannot be opened. {}", pathname_, st.message());
 }
 
 void
@@ -122,7 +125,8 @@ sp_processor::from_serialized(std::string_view serialized)
 
     bool r = proto->ParseFromArray(serialized.data(), static_cast<int>(serialized.size()));
     if (!r)
-        throw std::runtime_error{"The serialized SentencePiece model cannot be parsed."};
+        throw_<std::invalid_argument>(
+            "`serialized` must be a serialized Protobuf object, but cannot be parsed as such.");
 
     sp_processor processor{std::move(proto)};
 
@@ -140,7 +144,7 @@ sp_processor::encode(std::string_view text) const
 
     auto st = native_->Encode(text, spt.mutable_proto());
     if (!st.ok())
-        throw std::runtime_error{st.message()};
+        throw_<std::runtime_error>(st.message());
 
     return spt;
 }
@@ -152,7 +156,7 @@ sp_processor::sample(std::string_view text, std::int32_t nbest_size, float alpha
 
     auto st = native_->SampleEncode(text, nbest_size, alpha, spt.mutable_proto());
     if (!st.ok())
-        throw std::runtime_error{st.message()};
+        throw_<std::runtime_error>(st.message());
 
     return spt;
 }
@@ -164,7 +168,7 @@ sp_processor::decode(const std::vector<std::string_view> &tokens) const
 
     auto st = native_->Decode(tokens, &text);
     if (!st.ok())
-        throw std::runtime_error{st.message()};
+        throw_<std::runtime_error>(st.message());
 
     return text;
 }
@@ -179,7 +183,8 @@ std::string_view
 sp_processor::index_to_token(std::int32_t idx) const
 {
     if (static_cast<std::size_t>(idx) >= vocabulary_size)
-        throw std::invalid_argument{"The specified token index is out of range."};
+        throw_<std::invalid_argument>(
+            "`idx` must be less than vocabulary size ({}), but is {} instead.", vocabulary_size, idx);
 
     return native_->IdToPiece(conditional_cast<int>(idx));
 }
@@ -196,7 +201,7 @@ sp_processor::sp_processor(std::unique_ptr<ModelProto> &&proto)
 
     auto st = native_->Load(std::move(proto));
     if (!st.ok())
-        throw std::runtime_error{st.message()};
+        throw_<std::runtime_error>(st.message());
 
     unk_idx = conditional_cast<std::int32_t>(native_->unk_id());
     bos_idx = conditional_cast<std::int32_t>(native_->bos_id());

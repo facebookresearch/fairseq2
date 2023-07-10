@@ -9,9 +9,10 @@
 #include <stdexcept>
 #include <utility>
 
-#include <fmt/core.h>
-
 #include "fairseq2/native/fmt.h"
+#include "fairseq2/native/detail/exception.h"
+
+using namespace fairseq2::detail;
 
 namespace fairseq2 {
 
@@ -27,8 +28,8 @@ data
 string_splitter::operator()(data &&d) const
 {
     if (!d.is_string())
-        throw std::invalid_argument{
-            fmt::format("The input data must be of type `string`, but is of type `{}` instead.", d.type())};
+        throw_<std::invalid_argument>(
+            "The input data must be of type `string`, but is of type `{}` instead.", d.type());
 
     data_list fields{};
 
@@ -42,8 +43,8 @@ string_splitter::operator()(data &&d) const
 
     // Otherwise, as dictionary.
     if (names_.size() != fields.size())
-        throw std::invalid_argument{
-            fmt::format("The number of fields must match the number of names ({}), but is {} instead.", names_.size(), fields.size())};
+        throw_<std::invalid_argument>(
+            "The number of fields must match the number of names ({}), but is {} instead.", names_.size(), fields.size());
 
     data_dict dict{};
 

@@ -8,6 +8,10 @@
 
 #include <ATen/core/TensorBody.h>
 
+#include "fairseq2/native/detail/exception.h"
+
+using namespace fairseq2::detail;
+
 namespace fairseq2 {
 
 dict_decoder::dict_decoder(const dict_model *model) noexcept
@@ -19,7 +23,7 @@ data
 dict_decoder::operator()(data &&d) const
 {
     if (!d.is_tensor())
-        throw std::invalid_argument{"Decoder expects as input a tensor."};
+        throw_<std::invalid_argument>("Decoder expects as input a tensor.");
 
     at::Tensor tensor = d.as_tensor();
     if (tensor.dim() == 1)

@@ -66,9 +66,9 @@ private:
     data_list::iterator iter_ = storage_.begin();
 };
 
-class FAIRSEQ2_API corrupt_tape_error : public std::logic_error {
+class FAIRSEQ2_API corrupt_tape_error : public std::domain_error {
 public:
-    using std::logic_error::logic_error;
+    using std::domain_error::domain_error;
 
 public:
     corrupt_tape_error(const corrupt_tape_error &) = default;

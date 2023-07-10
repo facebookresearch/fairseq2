@@ -10,6 +10,7 @@
 #include <utility>
 
 #include <fairseq2/native/memory.h>
+#include <fairseq2/native/detail/exception.h>
 #include <fairseq2/native/utils/cast.h>
 
 namespace py = pybind11;
@@ -27,7 +28,8 @@ compute_buffer_size(const py::buffer_info &info)
 
     for (std::size_t i = info.shape.size(); i > 0; --i) {
         if (info.strides[i - 1] != size)
-            throw std::invalid_argument{"The specified buffer must be contiguous."};
+            throw_<std::invalid_argument>(
+                "The specified buffer must be contiguous to be used as a `MemoryBlock`.");
 
         size *= info.shape[i - 1];
     }

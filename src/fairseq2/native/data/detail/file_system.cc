@@ -15,10 +15,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include <fmt/core.h>
 #include <strnatcmp.h>
 
-#include "fairseq2/native/error.h"
+#include "fairseq2/native/detail/error.h"
+#include "fairseq2/native/detail/exception.h"
 
 namespace fairseq2::detail {
 namespace {
@@ -48,8 +48,8 @@ make_fts(const std::string &pathname)
 
     ::FTS *fts = ::fts_open(ptr, FTS_LOGICAL | FTS_NOCHDIR, natural_sort);
     if (fts == nullptr)
-        throw std::system_error{last_error(),
-            fmt::format("'{}' cannot be traversed", pathname)};
+        throw_system_error(last_error(),
+            "'{}' cannot be traversed", pathname);
 
     return std::unique_ptr<::FTS, fts_deleter>(fts);
 }
@@ -66,8 +66,8 @@ list_files(const std::string &pathname, const std::optional<std::string> &patter
     ::FTSENT *ent = nullptr;
     while ((ent = ::fts_read(fts.get())) != nullptr) {
         if (ent->fts_info == FTS_ERR || ent->fts_info == FTS_DNR || ent->fts_info == FTS_NS)
-            throw std::system_error{last_error(),
-                fmt::format("'{}' cannot be traversed", ent->fts_accpath)};
+            throw_system_error(last_error(),
+                "'{}' cannot be traversed", ent->fts_accpath);
 
         if (ent->fts_info != FTS_F)
             continue;
@@ -83,7 +83,7 @@ list_files(const std::string &pathname, const std::optional<std::string> &patter
                 continue;
 
             if (result != 0)
-                throw std::invalid_argument{"pattern is invalid."};
+                throw_<std::invalid_argument>("`pattern` is invalid.");
         }
 
         output.emplace_back(ent->fts_accpath);
@@ -91,8 +91,8 @@ list_files(const std::string &pathname, const std::optional<std::string> &patter
 
     std::error_code err = last_error();
     if (err)
-        throw std::system_error{err,
-            fmt::format("'{}' cannot be traversed", pathname)};
+        throw_system_error(err,
+            "'{}' cannot be traversed", pathname);
 
     return output;
 }

@@ -10,6 +10,8 @@
 
 #include <new>
 
+using namespace fairseq2::detail;
+
 namespace fairseq2 {
 namespace detail {
 namespace {
@@ -30,7 +32,7 @@ allocate_memory(std::size_t size)
 {
     void *addr = ::operator new(size);
 
-    return writable_memory_block{static_cast<std::byte *>(addr), size, nullptr, detail::deallocate};
+    return writable_memory_block{static_cast<std::byte *>(addr), size, nullptr, deallocate};
 }
 
 writable_memory_block

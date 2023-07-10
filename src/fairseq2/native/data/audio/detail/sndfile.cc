@@ -11,6 +11,7 @@
 #include <stdexcept>
 
 #include "fairseq2/native/exception.h"
+#include "fairseq2/native/detail/exception.h"
 
 namespace fairseq2::detail {
 
@@ -120,8 +121,8 @@ sndfile::decode_into(span<float32> target)
     ::sf_count_t num_frames_decoded = ::sf_readf_float(handle_, target.data(), audio_info_.frames);
 
     if (num_frames_decoded != audio_info_.frames)
-        throw internal_error{
-            "`sndfile` has failed to decode the input audio. Please file a bug report."};
+        throw_<internal_error>(
+            "`sndfile` has failed to decode the input audio. Please file a bug report.");
 }
 
 void
@@ -133,8 +134,8 @@ sndfile::decode_into(span<std::int32_t> target)
     ::sf_count_t num_frames_decoded = ::sf_readf_int(handle_, target.data(), audio_info_.frames);
 
     if (num_frames_decoded != audio_info_.frames)
-        throw internal_error{
-            "`sndfile` has failed to decode the input audio. Please file a bug report."};
+        throw_<internal_error>(
+            "`sndfile` has failed to decode the input audio. Please file a bug report.");
 }
 
 void
@@ -149,9 +150,9 @@ sndfile::check_handle(::SNDFILE *handle)
         err_msg = "An unknown libsndfile error has occurred.";
 
     if (err_num == ::SF_ERR_SYSTEM || err_num == ::SF_ERR_UNSUPPORTED_ENCODING)
-        throw std::runtime_error{err_msg};
+        throw_<std::runtime_error>(err_msg);
     else
-        throw std::invalid_argument{err_msg};
+        throw_<std::invalid_argument>(err_msg);
 }
 
 }  // namespace fairseq2::detail

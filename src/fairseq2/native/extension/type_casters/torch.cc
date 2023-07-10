@@ -7,8 +7,12 @@
 #include "fairseq2/native/extension/type_casters/torch.h"
 
 #include <fairseq2/native/exception.h>
+#include <fairseq2/native/detail/exception.h>
 
 #include "fairseq2/native/extension/type_casters/string.h"
+
+using namespace fairseq2;
+using namespace fairseq2::detail;
 
 // Taken from <torch/csrc/autograd/python_variable.h>
 struct THPVariable {
@@ -118,8 +122,8 @@ type_caster<at::ScalarType>::cast(const at::ScalarType &src, return_value_policy
         break;
     }
 
-    throw fairseq2::not_supported_error{
-        "The specified `at::ScalarType` to `torch.dtype` conversion is not supported."};
+    throw_<not_supported_error>(
+        "The specified `at::ScalarType` to `torch.dtype` conversion is not supported.");
 }
 
 handle

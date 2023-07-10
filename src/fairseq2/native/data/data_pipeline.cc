@@ -11,8 +11,6 @@
 #include <system_error>
 #include <utility>
 
-#include <fmt/core.h>
-
 #include "fairseq2/native/data/bucket_by_length_data_source.h"
 #include "fairseq2/native/data/bucket_data_source.h"
 #include "fairseq2/native/data/filter_data_source.h"
@@ -29,6 +27,7 @@
 #include "fairseq2/native/data/zip_data_source.h"
 #include "fairseq2/native/data/zip_file_data_source.h"
 #include "fairseq2/native/data/detail/file_system.h"
+#include "fairseq2/native/detail/exception.h"
 
 using namespace fairseq2::detail;
 
@@ -141,14 +140,15 @@ void
 data_pipeline::check_if_broken() const
 {
     if (is_broken_)
-        throw data_pipeline_error{"The data pipeline is broken by a previous operation."};
+        throw_<data_pipeline_error>(
+            "The data pipeline is broken by a previous operation and cannot be used.");
 }
 
 data_pipeline_builder
 data_pipeline_builder::bucket(std::size_t bucket_size, bool drop_remainder) &&
 {
     if (bucket_size == 0)
-        throw std::invalid_argument{"`bucket_size` must be greater than zero."};
+        throw_<std::invalid_argument>("`bucket_size` must be greater than zero.");
 
     factory_ = [=, inner = std::move(factory_)]
     {
@@ -166,7 +166,7 @@ data_pipeline_builder::bucket_by_length(
     bool warn_only) &&
 {
     if (bucket_sizes.empty())
-        throw std::invalid_argument{"`bucket_sizes` must contain at least one element."};
+        throw_<std::invalid_argument>("`bucket_sizes` must contain at least one element.");
 
     std::sort(bucket_sizes.begin(), bucket_sizes.end(), [](auto x, auto y)
     {
@@ -225,8 +225,8 @@ data_pipeline_builder
 data_pipeline_builder::shard(std::size_t shard_idx, std::size_t num_shards) &&
 {
     if (shard_idx >= num_shards)
-        throw std::invalid_argument{
-            fmt::format("`shard_idx` must be less than `num_shards` ({}), but is {} instead.", num_shards, shard_idx)};
+        throw_<std::invalid_argument>(
+            "`shard_idx` must be less than `num_shards` ({}), but is {} instead.", num_shards, shard_idx);
 
     if (num_shards > 1)
         factory_ = [=, inner = std::move(factory_)]
@@ -292,13 +292,13 @@ data_pipeline::zip(
     bool disable_parallelism)
 {
     if (names && !names->empty() && flatten)
-        throw std::invalid_argument{
-            "`names` and `flatten` are mutually exclusive and cannot be specified at the same time."};
+        throw_<std::invalid_argument>(
+            "`names` and `flatten` are mutually exclusive and cannot be specified at the same time.");
 
     if (names)
         if (pipelines.size() != names->size())
-            throw std::invalid_argument{
-                fmt::format("The number of `pipelines` and the number of `names` must be equal, but are {} and {} instead.", pipelines.size(), names->size())};
+            throw_<std::invalid_argument>(
+                "The number of `pipelines` and the number of `names` must be equal, but are {} and {} instead.", pipelines.size(), names->size());
 
     bool is_broken = std::any_of(
         pipelines.begin(), pipelines.end(), [](const data_pipeline &pipeline)
@@ -307,8 +307,8 @@ data_pipeline::zip(
         });
 
     if (is_broken)
-        throw std::invalid_argument{
-            "At least one of the specified data pipelines is broken and cannot be zipped."};
+        throw_<std::invalid_argument>(
+            "At least one of the specified data pipelines is broken and cannot be zipped.");
 
     auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
 
@@ -332,8 +332,8 @@ data_pipeline::round_robin(std::vector<data_pipeline> pipelines)
         });
 
     if (is_broken)
-        throw std::invalid_argument{
-            "At least one of the specified data pipelines is broken and cannot be used in round robin."};
+        throw_<std::invalid_argument>(
+            "At least one of the specified data pipelines is broken and cannot be used in round robin.");
 
     auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
 
@@ -349,18 +349,11 @@ data_pipeline
 data_pipeline_builder::and_return() &&
 {
     if (factory_ == nullptr)
-        throw std::runtime_error{"The data pipeline has already been constructed."};
+        throw_<std::domain_error>("The data pipeline has already been constructed.");
 
     data_source_factory factory = std::exchange(factory_, nullptr);
 
     return data_pipeline{std::move(factory)};
-}
-
-void
-data_pipeline_error::throw_nested(const std::string &message, std::optional<data> example)
-{
-    std::throw_with_nested(data_pipeline_error{
-        fmt::format("{} See nested exception for details.", message), std::move(example)});
 }
 
 data_pipeline_error::~data_pipeline_error() = default;
@@ -375,8 +368,8 @@ list_files(std::string pathname, std::optional<std::string> pattern)
         try {
             list = detail::list_files(pathname, pattern);
         } catch (const std::system_error &) {
-            data_pipeline_error::throw_nested(
-                fmt::format("The list of files under '{}' cannot be retrieved.", pathname));
+            throw_with_nested<data_pipeline_error>(
+                "The list of files under '{}' cannot be retrieved.", pathname);
         }
 
         return std::make_unique<list_data_source>(std::move(list));

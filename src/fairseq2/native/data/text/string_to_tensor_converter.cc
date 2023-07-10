@@ -11,12 +11,13 @@
 #include <ATen/Dispatch.h>
 #include <ATen/Functions.h>
 
-#include <fmt/core.h>
-
 #include "fairseq2/native/fmt.h"
 #include "fairseq2/native/utils/string.h"
 #include "fairseq2/native/exception.h"
 #include "fairseq2/native/data/immutable_string.h"
+#include "fairseq2/native/detail/exception.h"
+
+using namespace fairseq2::detail;
 
 namespace fairseq2 {
 namespace detail {
@@ -56,15 +57,15 @@ string_to_tensor_converter::string_to_tensor_converter(
   : size_{std::move(size)}, dtype_{dtype.value_or(at::kInt)}
 {
     if (!isIntegralType(dtype_, /*includeBool=*/false))
-        throw not_supported_error{"Only integral types are supported."};
+        throw_<not_supported_error>("Only integral types are supported.");
 }
 
 data
 string_to_tensor_converter::operator()(data &&d) const
 {
     if (!d.is_string())
-        throw std::invalid_argument{
-            fmt::format("The input data must be of type `string`, but is of type `{}` instead.", d.type())};
+        throw_<std::invalid_argument>(
+            "The input data must be of type `string`, but is of type `{}` instead.", d.type());
 
     immutable_string s = d.as_string();
 
@@ -105,15 +106,15 @@ string_to_tensor_converter::fill_storage(
         try {
             tensor_data[idx++] = from_string<T>(s);
         } catch (const std::out_of_range &) {
-            auto type_name = detail::get_dtype_name<T>();
+            auto type_name = get_dtype_name<T>();
 
-            throw std::invalid_argument{
-                fmt::format("The input string must be a space-separated list representing values of type `{0}`, but contains an element with value '{1}' that is out of range for `{0}`.", type_name, s)};
+            throw_<std::invalid_argument>(
+                "The input string must be a space-separated list representing values of type `{0}`, but contains an element with value '{1}' that is out of range for `{0}`.", type_name, s);
         } catch (const std::invalid_argument &) {
-            auto type_name = detail::get_dtype_name<T>();
+            auto type_name = get_dtype_name<T>();
 
-            throw std::invalid_argument{
-                fmt::format("The input string must be a space-separated list representing values of type `{0}`, but contains an element with value '{1}' that cannot be parsed as `{0}`.", type_name, s)};
+            throw_<std::invalid_argument>(
+                "The input string must be a space-separated list representing values of type `{0}`, but contains an element with value '{1}' that cannot be parsed as `{0}`.", type_name, s);
         }
     }
 }

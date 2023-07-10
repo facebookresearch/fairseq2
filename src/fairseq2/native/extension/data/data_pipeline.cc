@@ -28,6 +28,7 @@
 #include <fairseq2/native/data/memory_mapper.h>
 #include <fairseq2/native/data/record_reader.h>
 #include <fairseq2/native/data/tape.h>
+#include <fairseq2/native/detail/exception.h>
 
 namespace py = pybind11;
 
@@ -102,8 +103,8 @@ data_pipeline_tracker::reset_alive_pipelines()
         py::object pipeline_obj = weakref();
 
         if (pipeline_obj.is_none())
-            throw internal_error{
-                "One of the tracked data pipelines has already been deleted. Please file a bug report."};
+            throw_<internal_error>(
+                "One of the tracked data pipelines has already been deleted. Please file a bug report.");
 
         auto &pipeline = pipeline_obj.cast<data_pipeline &>();
 
@@ -220,8 +221,8 @@ def_data_pipeline(py::module_ &data_module)
                 try {
                     storage = value.cast<data_list>();
                 } catch (const py::cast_error &) {
-                    throw std::invalid_argument{
-                        "The specified data pipeline state is corrupt."};
+                    throw_<std::invalid_argument>(
+                        "`state_dict` must contain a valid data pipeline state, but cannot be parsed as such.");
                 }
 
                 tape t{std::move(storage)};
@@ -477,29 +478,29 @@ def_data_pipeline(py::module_ &data_module)
 
     map_functors().register_<memory_mapper>();
 
-
-
-    // TODO: Fix!
-    static py::exception<byte_stream_error> py_stream_error{m, "ByteStreamError", PyExc_RuntimeError};
-
+    // RecordError
     static py::exception<record_error> py_record_error{m, "RecordError", PyExc_RuntimeError};
 
-    // NOLINTNEXTLINE(performance-unnecessary-value-param)
+    // ByteStreamError
+    static py::exception<byte_stream_error> py_byte_stream_error{
+        m, "ByteStreamError", PyExc_RuntimeError};
+
+    // TODO: Remove once https://github.com/pybind/pybind11/pull/4366 lands.
     py::register_exception_translator([](std::exception_ptr ptr)
     {
         if (!ptr)
             return;
 
         auto raise_error = [&ptr](const std::exception &e, const py::object &err) {
-            py::detail::raise_err(err.ptr(), e.what());
-
             py::detail::handle_nested_exception(e, ptr);
+
+            py::detail::raise_err(err.ptr(), e.what());
         };
 
         try {
             std::rethrow_exception(ptr);
         } catch (const byte_stream_error &e) {
-            raise_error(e, py_stream_error);
+            raise_error(e, py_byte_stream_error);
         } catch (const record_error &e) {
             raise_error(e, py_record_error);
         } catch (const data_pipeline_error &e) {

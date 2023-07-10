@@ -7,14 +7,14 @@
 #include "fairseq2/native/data/text/utf8_stream.h"
 
 #include <algorithm>
-#include <system_error>
 #include <utility>
+#include <system_error>
 
 #include <iconv.h>
-#include <fmt/core.h>
 
-#include "fairseq2/native/error.h"
 #include "fairseq2/native/data/text/detail/utf.h"
+#include "fairseq2/native/detail/error.h"
+#include "fairseq2/native/detail/exception.h"
 
 namespace fairseq2::detail {
 
@@ -116,8 +116,8 @@ utf8_stream::load_next_encoded_chunk()
         return true;
 
     if (!leftover_bits_.empty())
-        throw byte_stream_error{
-            fmt::format("The stream ends with an invalid {} byte sequence.", encoding_)};
+        throw_<byte_stream_error>(
+            "The stream ends with an invalid {} byte sequence.", encoding_);
 
     is_eod_ = true;
 
@@ -173,11 +173,11 @@ utf8_stream::decode_encoded_chunk(writable_memory_span &output)
         return iconv_status::incomplete_sequence;
 
     if (err == std::errc::illegal_byte_sequence)
-        throw byte_stream_error{
-            fmt::format("An invalid {} byte sequence has been encountered.", encoding_)};
+        throw_<byte_stream_error>(
+            "An invalid {} byte sequence has been encountered.", encoding_);
 
-    throw std::system_error{err,
-        fmt::format("A system error has occurred while decoding the {} stream", encoding_)};
+    throw_system_error(err,
+        "The stream cannot be decoded as {}.", encoding_);
 }
 
 void
@@ -203,10 +203,11 @@ utf8_stream::ensure_iconv_initialized()
     std::error_code err = last_error();
 
     if (err == std::errc::invalid_argument)
-        throw std::system_error{err,
-            fmt::format("The {} encoding is not supported by the system", encoding_)};
+        throw_system_error(err,
+            "The {} encoding is not supported by the system", encoding_);
 
-    throw std::system_error{err};
+    throw_system_error(err,
+        "The stream cannot be decoded as {}.", encoding_);
 }
 
 inline void

@@ -9,6 +9,7 @@
 #include <algorithm>
 
 #include "fairseq2/native/data/text/detail/utf.h"
+#include "fairseq2/native/detail/exception.h"
 
 using namespace fairseq2::detail;
 
@@ -21,7 +22,11 @@ immutable_string::immutable_string(std::string_view s)
 std::size_t
 immutable_string::get_code_point_length() const
 {
-    return compute_code_point_length(view());
+    try {
+        return compute_code_point_length(view());
+    } catch (const std::invalid_argument &) {
+        throw_<invalid_utf8_error>("The string has one or more invalid UTF-8 code points.");
+    }
 }
 
 memory_block

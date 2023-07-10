@@ -154,13 +154,9 @@ private:
 
 class FAIRSEQ2_API data_pipeline_error : public std::runtime_error {
 public:
-    [[noreturn]] static void
-    throw_nested(const std::string &message, std::optional<data> example = {});
-
-public:
     explicit
-    data_pipeline_error(const std::string &message, std::optional<data> &&example = {}) noexcept
-        : std::runtime_error{message}, example_{std::move(example)}
+    data_pipeline_error(const std::string &message, std::optional<data> example = {}) noexcept
+      : std::runtime_error{message}, example_{std::move(example)}
     {}
 
     data_pipeline_error(const data_pipeline_error &) = default;
@@ -175,7 +171,7 @@ public:
     }
 
 private:
-    std::optional<data> example_;
+    std::optional<data> example_{};
 };
 
 FAIRSEQ2_API data_pipeline_builder

@@ -18,9 +18,12 @@
 #include "fairseq2/native/data/immutable_string.h"
 #include "fairseq2/native/data/text/sentencepiece/sp_model.h"
 #include "fairseq2/native/data/text/sentencepiece/sp_processor.h"
+#include "fairseq2/native/detail/exception.h"
 #include "fairseq2/native/utils/cast.h"
 
 using sentencepiece::ImmutableSentencePieceText;
+
+using namespace fairseq2::detail;
 
 namespace fairseq2 {
 namespace detail {
@@ -67,8 +70,8 @@ data
 sp_encoder::operator()(data &&d) const
 {
     if (!d.is_string())
-        throw std::invalid_argument{
-            fmt::format("The input data must be of type `string`, but is of type `{}` instead.", d.type())};
+        throw_<std::invalid_argument>(
+            "The input data must be of type `string`, but is of type `{}` instead.", d.type());
 
     return encode(std::move(d).as_string());
 }
@@ -76,7 +79,7 @@ sp_encoder::operator()(data &&d) const
 at::Tensor
 sp_encoder::encode(immutable_string &&sentence) const
 {
-    detail::encoder_op op{this, model_->processor_.get(), std::move(sentence)};
+    encoder_op op{this, model_->processor_.get(), std::move(sentence)};
 
     return std::move(op).run();
 }

@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from fairseq2.data import read_sequence
+from fairseq2.data import DataPipelineError, read_sequence
 from fairseq2.data.text.converters import StrToIntConverter
 
 
@@ -247,11 +247,14 @@ class TestMapOp:
 
         pipeline = read_sequence([d]).map(lambda x: x, selector=s).and_return()
 
-        with pytest.raises(
-            ValueError,
-            match=rf"^The input data does not have an element at path '{re.escape(s)}'\.$",
-        ):
+        with pytest.raises(DataPipelineError) as exc_info:
             next(iter(pipeline))
+
+        cause = exc_info.value.__cause__
+
+        assert isinstance(cause, ValueError)
+
+        assert str(cause) == f"The input data does not have an element at path '{s}'."
 
     @pytest.mark.parametrize("num_parallel_calls", [0, 1, 4, 20])
     def test_op_raises_nested_error_when_callable_fails(
@@ -269,9 +272,15 @@ class TestMapOp:
             .and_return()
         )
 
-        with pytest.raises(ValueError, match=r"^map error$"):
+        with pytest.raises(DataPipelineError) as exc_info:
             for d in pipeline:
                 pass
+
+        cause = exc_info.value.__cause__
+
+        assert isinstance(cause, ValueError)
+
+        assert str(cause) == "map error"
 
     @pytest.mark.parametrize("num_parallel_calls", [0, 1, 4, 20])
     def test_op_saves_and_restores_its_state(self, num_parallel_calls: int) -> None:

@@ -12,13 +12,12 @@
 #include <system_error>
 #include <utility>
 
-#include <fmt/core.h>
-
 #include "fairseq2/native/exception.h"
 #include "fairseq2/native/data/byte_stream.h"
 #include "fairseq2/native/data/data_pipeline.h"
 #include "fairseq2/native/data/file.h"
 #include "fairseq2/native/data/immutable_string.h"
+#include "fairseq2/native/detail/exception.h"
 #include "fairseq2/native/utils/string.h"
 
 namespace fairseq2::detail {
@@ -125,8 +124,8 @@ text_data_source::is_empty(memory_span line) const
     case line_ending::crlf:
         return line.size() == 2;
     case line_ending::infer:
-        throw internal_error{
-            "`text_data_source` has not set the line ending. Please file a bug report."};
+        throw_<internal_error>(
+            "`text_data_source` has not set the line ending. Please file a bug report.");
     }
 
     return false;
@@ -149,8 +148,8 @@ text_data_source::handle_error()
 inline void
 text_data_source::throw_read_failure()
 {
-    data_pipeline_error::throw_nested(
-        fmt::format("The data pipeline cannot read from '{}'.", pathname_));
+    throw_with_nested<data_pipeline_error>(
+        "The data pipeline cannot read from '{}'. See nested exception for details.", pathname_);
 }
 
 }  // namespace fairseq2::detail

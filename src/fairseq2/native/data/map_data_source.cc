@@ -6,9 +6,12 @@
 
 #include "fairseq2/native/data/map_data_source.h"
 
+#include <exception>
+
 #include <oneapi/tbb.h>
 
 #include "fairseq2/native/data/data_pipeline.h"
+#include "fairseq2/native/detail/exception.h"
 
 namespace fairseq2::detail {
 
@@ -128,9 +131,10 @@ map_data_source::invoke_function(data &&d)
     } catch (const data_pipeline_error &) {
         if (!warn_only_)
             throw;
-    } catch (...) {
+    } catch (const std::exception &) {
         if (!warn_only_)
-            data_pipeline_error::throw_nested("The map operation has failed.");
+            throw_with_nested<data_pipeline_error>(
+                "The map operation has failed. See nested exception for details.");
     }
 
     // TODO: warn

@@ -8,7 +8,7 @@ from typing import Any, NoReturn
 
 import pytest
 
-from fairseq2.data import DataPipeline, read_sequence
+from fairseq2.data import DataPipeline, DataPipelineError, read_sequence
 
 
 class TestZipOp:
@@ -87,7 +87,7 @@ class TestZipOp:
         # Break the first pipeline.
         try:
             next(iter(pipeline1))
-        except ValueError:
+        except DataPipelineError:
             pass
 
         with pytest.raises(

@@ -19,6 +19,7 @@
 #include "fairseq2/native/memory.h"
 #include "fairseq2/native/span.h"
 #include "fairseq2/native/data/audio/detail/sndfile.h"
+#include "fairseq2/native/detail/exception.h"
 
 using namespace fairseq2::detail;
 
@@ -29,31 +30,31 @@ audio_decoder::audio_decoder(audio_decoder_options opts)
 {
     at::ScalarType dtype = opts_.dtype().value_or(at::kFloat);
     if (dtype != at::kFloat && dtype != at::kInt)
-        throw not_supported_error{
-            "`audio_decoder` supports only `torch.float` and `torch.int` data types."};
+        throw_<not_supported_error>(
+            "`audio_decoder` supports only `torch.float` and `torch.int` data types.");
 }
 
 data
 audio_decoder::operator()(data &&d) const
 {
     if (!d.is_memory_block())
-        throw std::invalid_argument{
-            fmt::format("The input data must be of type `memory_block`, but is of type `{}` instead.", d.type())};
+        throw_<std::invalid_argument>(
+            "The input data must be of type `memory_block`, but is of type `{}` instead.", d.type());
 
     const memory_block &block = d.as_memory_block();
     if (block.empty())
-        throw std::invalid_argument{
-            "The input memory block has zero length and cannot be decoded as audio."};
+        throw_<std::invalid_argument>(
+            "The input memory block has zero length and cannot be decoded as audio.");
 
     sndfile file{};
     try {
         file = sndfile::from_memory(block);
     } catch (const std::invalid_argument &) {
-        std::throw_with_nested(std::invalid_argument{
-            "The input audio cannot be decoded. See nested exception for details."});
+        throw_with_nested<std::invalid_argument>(
+            "The input audio cannot be decoded. See nested exception for details.");
     } catch (const std::runtime_error &) {
-        std::throw_with_nested(std::runtime_error{
-            "The input audio cannot be decoded. See nested exception for details."});
+        throw_with_nested<std::invalid_argument>(
+            "The input audio cannot be decoded. See nested exception for details.");
     }
 
     at::ScalarType dtype = opts_.dtype().value_or(at::kFloat);
@@ -81,8 +82,8 @@ audio_decoder::operator()(data &&d) const
         break;
     }
     default:
-        throw internal_error{
-            "`audio_decoder` uses an unsupported data type. Please file a bug report."};
+        throw_<internal_error>(
+            "`audio_decoder` uses an unsupported data type. Please file a bug report.");
     };
 
     at::Device device = opts_.device().value_or(at::kCPU);

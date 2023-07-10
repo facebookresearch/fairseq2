@@ -20,18 +20,20 @@
 #include <fairseq2/native/exception.h>
 #include <fairseq2/native/float.h>
 #include <fairseq2/native/data/immutable_string.h>
+#include <fairseq2/native/detail/exception.h>
 
 #include "fairseq2/native/extension/type_casters/py.h"
 #include "fairseq2/native/extension/type_casters/string.h"
 #include "fairseq2/native/extension/type_casters/torch.h"
 
 using namespace fairseq2;
+using namespace fairseq2::detail;
 
 namespace pybind11::detail {
 
 template <typename Key, typename Value, typename Hash, typename Equal, typename Alloc>
-struct type_caster<fairseq2::flat_hash_map<Key, Value, Hash, Equal, Alloc>>
-    : map_caster<fairseq2::flat_hash_map<Key, Value, Hash, Equal, Alloc>, Key, Value>
+struct type_caster<flat_hash_map<Key, Value, Hash, Equal, Alloc>>
+    : map_caster<flat_hash_map<Key, Value, Hash, Equal, Alloc>, Key, Value>
 {};
 
 data
@@ -105,8 +107,8 @@ type_caster<data>::cast_from_cc(T &&src)
     if (src.is_py())
         return pybind11::cast(std::forward<T>(src).as_py());
 
-    throw internal_error{
-        "The `data` instance cannot be converted to a Python object. Please file a bug report."};
+    throw_<internal_error>(
+        "The `data` instance cannot be converted to a Python object. Please file a bug report.");
 }
 
 template

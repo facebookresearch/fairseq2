@@ -10,13 +10,15 @@
 #include <filesystem>
 #include <stdexcept>
 
-#include <fmt/core.h>
 #include <fmt/format.h>
 
 #include "fairseq2/native/fmt.h"
 #include "fairseq2/native/utils/string.h"
 #include "fairseq2/native/data/immutable_string.h"
 #include "fairseq2/native/data/file.h"
+#include "fairseq2/native/detail/exception.h"
+
+using namespace fairseq2::detail;
 
 namespace fairseq2 {
 
@@ -32,8 +34,8 @@ data
 memory_mapper::operator()(data &&d) const
 {
     if (!d.is_string())
-        throw std::invalid_argument{
-            fmt::format("The input data must be of type `string`, but is of type `{}` instead.", d.type())};
+        throw_<std::invalid_argument>(
+            "The input data must be of type `string`, but is of type `{}` instead.", d.type());
 
     immutable_string &pathname = d.as_string();
 
@@ -46,14 +48,14 @@ memory_mapper::operator()(data &&d) const
     pathname.split(':', [&pathname, &parts, &iter](immutable_string &&part)
     {
         if (iter == parts.end())
-            throw std::invalid_argument{
-                fmt::format("The input string must be a pathname with optional offset and size specifiers, but is '{}' instead.", pathname)};
+            throw_<std::invalid_argument>(
+                "The input string must be a pathname with optional offset and size specifiers, but is '{}' instead.", pathname);
 
         part = trim(part);
 
         if (part.empty())
-            throw std::invalid_argument{
-                fmt::format("The input string must be a pathname with optional offset and size specifiers, but is '{}' instead.", pathname)};
+            throw_<std::invalid_argument>(
+                "The input string must be a pathname with optional offset and size specifiers, but is '{}' instead.", pathname);
 
         *iter++ = std::move(part);
     });
@@ -63,11 +65,11 @@ memory_mapper::operator()(data &&d) const
         try {
             return from_string<std::size_t>(part);
         } catch (const std::out_of_range &) {
-            throw std::invalid_argument{
-                fmt::format("The {} specifier of '{}' must be a machine-representable integer, but is '{}' instead, which is out of range.", specifier_name, pathname, part)};
+            throw_<std::invalid_argument>(
+                "The {} specifier of '{}' must be a machine-representable integer, but is '{}' instead, which is out of range.", specifier_name, pathname, part);
         } catch (const std::invalid_argument &) {
-            throw std::invalid_argument{
-                fmt::format("The {} specifier of '{}' must be an integer, but is '{}' instead.", specifier_name, pathname, part)};
+            throw_<std::invalid_argument>(
+                "The {} specifier of '{}' must be an integer, but is '{}' instead.", specifier_name, pathname, part);
         }
     };
 
@@ -97,8 +99,8 @@ memory_mapper::operator()(data &&d) const
         return pack_output(std::move(block));
 
     if (*offset > block.size())
-        throw std::invalid_argument{
-            fmt::format("The specified offset within '{}' must be less than or equal to the file size ({} bytes), but is {} instead.", pathname, fmt::group_digits(block.size()), fmt::group_digits(*offset))};
+        throw_<std::invalid_argument>(
+            "The specified offset within '{}' must be less than or equal to the file size ({} bytes), but is {} instead.", pathname, fmt::group_digits(block.size()), fmt::group_digits(*offset));
 
     // If we have an offset but not a size, return the memory map from the
     // offset to the end.
@@ -106,8 +108,8 @@ memory_mapper::operator()(data &&d) const
         return pack_output(block.share_slice(*offset));
 
     if (std::size_t upper_boundary = *offset + *size; upper_boundary > block.size())
-        throw std::invalid_argument{
-            fmt::format("The end of the specified region within '{}' must be less than or equal to the file size ({} bytes), but is {} instead.", pathname, fmt::group_digits(block.size()), fmt::group_digits(upper_boundary))};
+        throw_<std::invalid_argument>(
+            "The end of the specified region within '{}' must be less than or equal to the file size ({} bytes), but is {} instead.", pathname, fmt::group_digits(block.size()), fmt::group_digits(upper_boundary));
 
     // Otherwise, return the memory map region specified by the offset and size.
     return pack_output(block.share_slice(*offset, *size));

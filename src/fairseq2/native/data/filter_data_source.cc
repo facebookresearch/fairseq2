@@ -6,6 +6,10 @@
 
 #include "fairseq2/native/data/filter_data_source.h"
 
+#include <exception>
+
+#include "fairseq2/native/data/detail/exception.h"
+
 namespace fairseq2::detail {
 
 std::optional<data>
@@ -45,9 +49,9 @@ filter_data_source::invoke_function(data &d)
         return predicate_fn_(d);
     } catch (const data_pipeline_error &) {
         throw;
-    } catch (...) {
-        data_pipeline_error::throw_nested(
-            "The filter operation has failed.", std::move(d));
+    } catch (const std::exception &) {
+        throw_data_pipeline_error_with_nested(std::move(d),
+            "The filter operation has failed. See nested exception for details.");
     }
 }
 

@@ -6,13 +6,17 @@
 
 #include "fairseq2/native/data/tape.h"
 
+#include "fairseq2/native/detail/exception.h"
+
+using namespace fairseq2::detail;
+
 namespace fairseq2 {
 
 void
 tape::record_data(const data &d)
 {
     if (iter_ != storage_.end())
-        throw std::logic_error{"New data can only be recorded to the end of the tape."};
+        throw_<std::domain_error>("New data can only be recorded to the end of the tape.");
 
     storage_.push_back(d);
 

@@ -8,6 +8,10 @@
 
 #include <stdexcept>
 
+#include "fairseq2/native/detail/exception.h"
+
+using namespace fairseq2::detail;
+
 namespace fairseq2 {
 
 std::string
@@ -34,7 +38,7 @@ repr(data_type dt)
         return "pyobj";
     };
 
-    throw std::invalid_argument{"`dt` is not a valid data type."};
+    throw_<std::invalid_argument>("`dt` is not a valid data type.");
 }
 
 }  // namespace fairseq2

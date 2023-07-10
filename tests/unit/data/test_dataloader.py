@@ -11,7 +11,7 @@ import pytest
 import torch
 
 import fairseq2.data.text
-from fairseq2.data import Collater
+from fairseq2.data import Collater, DataPipelineError
 
 FILE = Path(__file__)
 FILE_LINES = FILE.read_text().splitlines()
@@ -86,10 +86,10 @@ def test_bucket_tensors_of_different_lengths() -> None:
         .map(lambda x: x.shape)
         .and_return()
     )
-    with pytest.raises(
-        RuntimeError, match="stack expects each tensor to be equal size"
-    ):
+    with pytest.raises(DataPipelineError) as exc_info:
         list(dataloader)
+
+    assert isinstance(exc_info.value.__cause__, RuntimeError)
 
 
 def test_bucket_tuples() -> None:

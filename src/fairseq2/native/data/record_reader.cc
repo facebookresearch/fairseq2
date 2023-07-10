@@ -8,10 +8,9 @@
 
 #include <algorithm>
 
-#include <fmt/core.h>
 #include <fmt/format.h>
 
-#include "fairseq2/native/error.h"
+#include "fairseq2/native/detail/exception.h"
 
 using namespace fairseq2::detail;
 
@@ -60,8 +59,8 @@ record_reader::load_next_record()
             if (current_chunk_.empty())
                 return false;
 
-            throw record_error{
-                fmt::format("The stream ends with a partial record of {} byte(s).", fmt::group_digits(current_chunk_.size()))};
+            throw_<record_error>(
+                "The stream ends with a partial record of {} byte(s).", fmt::group_digits(current_chunk_.size()));
         }
 
         // Move `current_chunk_` to previous chunks and attempt to find the record

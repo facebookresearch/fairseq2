@@ -6,7 +6,7 @@
 
 #include "fairseq2/native/data/bucket_by_length_data_source.h"
 
-#include <fmt/core.h>
+#include "fairseq2/native/data/detail/exception.h"
 
 namespace fairseq2::detail {
 
@@ -40,14 +40,14 @@ bucket_by_length_data_source::next()
         try {
             data_length = data_length_fn_(*d);
         } catch (const std::invalid_argument &) {
-            data_pipeline_error::throw_nested(
-                "The length of the input data cannot be determined.", std::move(d));
+            throw_data_pipeline_error_with_nested(std::move(d),
+                "The length of the input data cannot be determined.");
         }
 
         if (data_length > max_data_length_) {
             if (!warn_only_)
-                throw data_pipeline_error{
-                    fmt::format("The length of the input data must be less than or equal to the maximum bucket data length ({}), but is {} instead.", max_data_length_, data_length)};
+                throw_data_pipeline_error(std::move(d),
+                    "The length of the input data must be less than or equal to the maximum bucket data length ({}), but is {} instead.", max_data_length_, data_length);
 
             // TODO warn
 

@@ -200,9 +200,9 @@ remove_suffix(const immutable_string &s, immutable_string::size_type n) noexcept
     return s.remove_suffix(n);
 }
 
-class FAIRSEQ2_API invalid_utf8_error : public std::logic_error {
+class FAIRSEQ2_API invalid_utf8_error : public std::domain_error {
 public:
-    using std::logic_error::logic_error;
+    using std::domain_error::domain_error;
 
 public:
     invalid_utf8_error(const invalid_utf8_error &) = default;
