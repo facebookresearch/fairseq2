@@ -287,9 +287,14 @@ data_pipeline_builder
 data_pipeline::zip(
     std::vector<data_pipeline> pipelines,
     std::optional<std::vector<std::string>> names,
+    bool flatten,
     bool warn_only,
     bool disable_parallelism)
 {
+    if (names && !names->empty() && flatten)
+        throw std::invalid_argument{
+            "`names` and `flatten` are mutually exclusive and cannot be specified at the same time."};
+
     if (names)
         if (pipelines.size() != names->size())
             throw std::invalid_argument{
@@ -302,15 +307,16 @@ data_pipeline::zip(
         });
 
     if (is_broken)
-        throw data_pipeline_error{
+        throw std::invalid_argument{
             "At least one of the specified data pipelines is broken and cannot be zipped."};
 
     auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
 
-    auto factory = [names = std::move(names), tmp, warn_only, disable_parallelism]() mutable
+    auto factory = [
+        names = std::move(names), tmp, flatten, warn_only, disable_parallelism]() mutable
     {
         return std::make_unique<zip_data_source>(
-            std::move(*tmp), std::move(names), warn_only, disable_parallelism);
+            std::move(*tmp), std::move(names), flatten, warn_only, disable_parallelism);
     };
 
     return data_pipeline_builder{std::move(factory)};
@@ -326,7 +332,7 @@ data_pipeline::round_robin(std::vector<data_pipeline> pipelines)
         });
 
     if (is_broken)
-        throw data_pipeline_error{
+        throw std::invalid_argument{
             "At least one of the specified data pipelines is broken and cannot be used in round robin."};
 
     auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));

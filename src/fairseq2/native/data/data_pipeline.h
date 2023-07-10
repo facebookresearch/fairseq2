@@ -57,6 +57,7 @@ public:
     zip(
         std::vector<data_pipeline> pipelines,
         std::optional<std::vector<std::string>> names = {},
+        bool flatten = false,
         bool warn_only = false,
         bool disable_parallelism = false);
 

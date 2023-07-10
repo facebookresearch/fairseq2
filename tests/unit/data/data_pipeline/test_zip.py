@@ -24,7 +24,7 @@ class TestZipOp:
 
             pipeline.reset()
 
-    def test_works_when_a_single_pipeline_is_specified(self) -> None:
+    def test_op_works_when_a_single_pipeline_is_specified(self) -> None:
         pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
 
         pipeline = DataPipeline.zip([pipeline1]).and_return()
@@ -62,7 +62,41 @@ class TestZipOp:
 
             pipeline.reset()
 
-    def test_works_when_warn_only_is_true_and_pipelines_have_different_lengths(
+    def test_op_works_when_flatten_is_true_and_inputs_are_lists(self) -> None:
+        pipeline1 = read_sequence([1, 2, 3]).and_return()
+        pipeline2 = read_sequence([[1, 2], [3, 4], [5, 6]]).and_return()
+        pipeline3 = read_sequence([[4], [5], [6]]).and_return()
+
+        pipeline = DataPipeline.zip(
+            [pipeline1, pipeline2, pipeline3], flatten=True
+        ).and_return()
+
+        for _ in range(2):
+            assert list(pipeline) == [[1, 1, 2, 4], [2, 3, 4, 5], [3, 5, 6, 6]]
+
+            pipeline.reset()
+
+    def test_op_works_when_flatten_is_true_and_inputs_are_dicts(self) -> None:
+        pipeline1 = read_sequence([{"foo1": 1}, {"foo1": 2}, {"foo1": 3}]).and_return()
+        pipeline2 = read_sequence(
+            [{"foo2": 4, "foo3": 5}, {"foo2": 6, "foo3": 7}, {"foo2": 8, "foo3": 9}]
+        ).and_return()
+        pipeline3 = read_sequence([{"foo4": 2}, {"foo4": 3}, {"foo4": 4}]).and_return()
+
+        pipeline = DataPipeline.zip(
+            [pipeline1, pipeline2, pipeline3], flatten=True
+        ).and_return()
+
+        for _ in range(2):
+            assert list(pipeline) == [
+                {"foo1": 1, "foo2": 4, "foo3": 5, "foo4": 2},
+                {"foo1": 2, "foo2": 6, "foo3": 7, "foo4": 3},
+                {"foo1": 3, "foo2": 8, "foo3": 9, "foo4": 4},
+            ]
+
+            pipeline.reset()
+
+    def test_op_works_when_warn_only_is_true_and_pipelines_have_different_lengths(
         self,
     ) -> None:
         pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
@@ -80,19 +114,21 @@ class TestZipOp:
 
             pipeline.reset()
 
-    def test_raises_error_when_pipelines_have_different_lengths(self) -> None:
+    def test_op_raises_error_when_pipelines_have_different_lengths(self) -> None:
         pipeline1 = read_sequence([1, 2, 3]).and_return()
         pipeline2 = read_sequence([5, 6, 7, 8]).and_return()
+        pipeline3 = read_sequence([5, 6, 7, 8]).and_return()
 
-        pipeline = DataPipeline.zip([pipeline1, pipeline2]).and_return()
+        pipeline = DataPipeline.zip([pipeline1, pipeline2, pipeline3]).and_return()
 
         with pytest.raises(
-            DataPipelineError, match=r"^The zipped data pipelines are expected"
+            DataPipelineError,
+            match=r"^The zipped data pipelines must all have the same length, but the data pipelines at the following indices have more examples than the others\. Indices: 1, 2$",
         ):
             for d in pipeline:
                 pass
 
-    def test_raises_error_when_the_number_of_pipelines_and_names_do_not_match(
+    def test_op_raises_error_when_the_number_of_pipelines_and_names_do_not_match(
         self,
     ) -> None:
         pipeline1 = read_sequence([]).and_return()
@@ -104,7 +140,7 @@ class TestZipOp:
         ):
             DataPipeline.zip([pipeline1, pipeline2], ["p1", "p2", "p3"])
 
-    def test_raises_error_when_one_of_the_pipelines_is_broken(self) -> None:
+    def test_op_raises_error_when_one_of_the_pipelines_is_broken(self) -> None:
         def err(e: Any) -> NoReturn:
             raise ValueError()
 
@@ -118,12 +154,64 @@ class TestZipOp:
             pass
 
         with pytest.raises(
-            DataPipelineError,
+            ValueError,
             match=r"^At least one of the specified data pipelines is broken and cannot be zipped\.$",
         ):
             DataPipeline.zip([pipeline1, pipeline2]).and_return()
 
-    def test_saves_and_restores_its_state(self) -> None:
+    def test_op_raises_error_when_both_names_and_flatten_are_specified(self) -> None:
+        pipeline1 = read_sequence([1]).and_return()
+        pipeline2 = read_sequence([1]).and_return()
+
+        with pytest.raises(
+            ValueError,
+            match=r"^`names` and `flatten` are mutually exclusive and cannot be specified at the same time\.$",
+        ):
+            DataPipeline.zip([pipeline1, pipeline2], names=["foo"], flatten=True)
+
+    def test_op_raises_error_when_flatten_is_true_and_input_has_both_list_and_dict(
+        self,
+    ) -> None:
+        pipeline1 = read_sequence([1]).and_return()
+        pipeline2 = read_sequence([{"foo1": 1}]).and_return()
+
+        pipeline = DataPipeline.zip([pipeline1, pipeline2], flatten=True).and_return()
+
+        with pytest.raises(
+            DataPipelineError,
+            match=r"^The zipped data pipelines must all return only dicts, or only non-dicts when `flatten` is set\.$",
+        ):
+            next(iter(pipeline))
+
+        pipeline1 = read_sequence([{"foo1": 1}]).and_return()
+        pipeline2 = read_sequence([1]).and_return()
+
+        pipeline = DataPipeline.zip([pipeline1, pipeline2], flatten=True).and_return()
+
+        with pytest.raises(
+            DataPipelineError,
+            match=r"^The zipped data pipelines must all return only dicts, or only non-dicts when `flatten` is set\.$",
+        ):
+            next(iter(pipeline))
+
+    def test_op_raises_error_when_flatten_is_true_and_dict_keys_are_not_unique(
+        self,
+    ) -> None:
+        pipeline1 = read_sequence([{"foo1": 1}]).and_return()
+        pipeline2 = read_sequence([{"foo2": 1}]).and_return()
+        pipeline3 = read_sequence([{"foo1": 1}]).and_return()
+
+        pipeline = DataPipeline.zip(
+            [pipeline1, pipeline2, pipeline3], flatten=True
+        ).and_return()
+
+        with pytest.raises(
+            DataPipelineError,
+            match=r"^The zipped data pipelines must all return unique keys when `flatten` is set, but the key 'foo1' is not unique\.$",
+        ):
+            next(iter(pipeline))
+
+    def test_op_saves_and_restores_its_state(self) -> None:
         pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
         pipeline2 = read_sequence([5, 6, 7, 8]).and_return()
         pipeline3 = read_sequence([0, 2, 4, 6]).and_return()

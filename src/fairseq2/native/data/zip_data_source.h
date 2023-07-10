@@ -21,6 +21,7 @@ public:
     zip_data_source(
         std::vector<data_pipeline> &&pipelines,
         std::optional<std::vector<std::string>> &&names,
+        bool flatten,
         bool warn_only,
         bool disable_parallelism) noexcept;
 
@@ -37,8 +38,16 @@ public:
     reload_position(tape &t) override;
 
 private:
+    std::optional<data>
+    flatten_to_dict(data_list &zip) const;
+
+    std::optional<data>
+    flatten_to_list(data_list &zip) const;
+
+private:
     std::vector<data_pipeline> pipelines_;
     std::vector<std::string> names_;
+    bool flatten_;
     bool warn_only_;
     bool disable_parallelism_;
 };

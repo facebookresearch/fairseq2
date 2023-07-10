@@ -10,6 +10,7 @@
 #include <stdexcept>
 
 #include <fmt/core.h>
+#include <fmt/format.h>
 
 #include "fairseq2/native/fmt.h"
 #include "fairseq2/native/utils/string.h"
@@ -226,7 +227,7 @@ repr(element_path_ref path)
 
             output += std::get<std::string>(segment);
         } else
-            output += "[" + std::to_string(std::get<std::size_t>(segment)) + "]";
+            output += "[" + fmt::to_string(std::get<std::size_t>(segment)) + "]";
     }
 
     return output;

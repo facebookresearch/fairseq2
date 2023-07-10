@@ -178,7 +178,7 @@ class TestMemoryMapper:
 
         with pytest.raises(
             ValueError,
-            match=rf"^The specified offset within '{pathname}' must be less than or equal to the file size \({file_size}\), but is {file_size + 1} instead\.$",
+            match=rf"^The specified offset within '{pathname}' must be less than or equal to the file size \({file_size:,} bytes\), but is {file_size + 1:,} instead\.$",
         ):
             mapper(pathname)
 
@@ -193,6 +193,6 @@ class TestMemoryMapper:
 
         with pytest.raises(
             ValueError,
-            match=rf"^The specified offset plus size within '{pathname}' must be less than or equal to the file size \({file_size}\), but is {file_size + 1} instead\.$",
+            match=rf"^The end of the specified region within '{pathname}' must be less than or equal to the file size \({file_size:,} bytes\), but is {file_size + 1:,} instead\.$",
         ):
             mapper(pathname)

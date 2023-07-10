@@ -8,7 +8,7 @@ from typing import Any, NoReturn
 
 import pytest
 
-from fairseq2.data import DataPipeline, DataPipelineError, read_sequence
+from fairseq2.data import DataPipeline, read_sequence
 
 
 class TestZipOp:
@@ -91,7 +91,7 @@ class TestZipOp:
             pass
 
         with pytest.raises(
-            DataPipelineError,
+            ValueError,
             match=r"^At least one of the specified data pipelines is broken and cannot be used in round robin\.$",
         ):
             DataPipeline.round_robin([pipeline1, pipeline2]).and_return()

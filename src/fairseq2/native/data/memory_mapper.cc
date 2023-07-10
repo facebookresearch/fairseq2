@@ -10,6 +10,9 @@
 #include <filesystem>
 #include <stdexcept>
 
+#include <fmt/core.h>
+#include <fmt/format.h>
+
 #include "fairseq2/native/fmt.h"
 #include "fairseq2/native/utils/string.h"
 #include "fairseq2/native/data/immutable_string.h"
@@ -95,7 +98,7 @@ memory_mapper::operator()(data &&d) const
 
     if (*offset > block.size())
         throw std::invalid_argument{
-            fmt::format("The specified offset within '{}' must be less than or equal to the file size ({}), but is {} instead.", pathname, block.size(), *offset)};
+            fmt::format("The specified offset within '{}' must be less than or equal to the file size ({} bytes), but is {} instead.", pathname, fmt::group_digits(block.size()), fmt::group_digits(*offset))};
 
     // If we have an offset but not a size, return the memory map from the
     // offset to the end.
@@ -104,7 +107,7 @@ memory_mapper::operator()(data &&d) const
 
     if (std::size_t upper_boundary = *offset + *size; upper_boundary > block.size())
         throw std::invalid_argument{
-            fmt::format("The specified offset plus size within '{}' must be less than or equal to the file size ({}), but is {} instead.", pathname, block.size(), upper_boundary)};
+            fmt::format("The end of the specified region within '{}' must be less than or equal to the file size ({} bytes), but is {} instead.", pathname, fmt::group_digits(block.size()), fmt::group_digits(upper_boundary))};
 
     // Otherwise, return the memory map region specified by the offset and size.
     return pack_output(block.share_slice(*offset, *size));

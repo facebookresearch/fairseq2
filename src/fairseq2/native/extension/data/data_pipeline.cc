@@ -241,6 +241,7 @@ def_data_pipeline(py::module_ &data_module)
             [](
                 std::vector<std::reference_wrapper<data_pipeline>> &refs,
                 std::optional<std::vector<std::string>> names,
+                bool flatten,
                 bool warn_only,
                 bool disable_parallelism)
             {
@@ -254,10 +255,14 @@ def_data_pipeline(py::module_ &data_module)
                     });
 
                 return data_pipeline::zip(
-                    std::move(pipelines), std::move(names), warn_only, disable_parallelism);
+                    std::move(pipelines),
+                    std::move(names),
+                    flatten, warn_only,
+                    disable_parallelism);
             },
             py::arg("pipelines"),
             py::arg("names") = std::nullopt,
+            py::arg("flatten") = false,
             py::arg("warn_only") = false,
             py::arg("disable_parallelism") = false)
         .def_static(

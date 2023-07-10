@@ -9,6 +9,8 @@
 #include <algorithm>
 #include <cstdint>
 
+#include <fmt/core.h>
+#include <fmt/format.h>
 #include <oneapi/tbb.h>
 
 #include "fairseq2/native/data/data_pipeline.h"
@@ -18,9 +20,11 @@ namespace fairseq2::detail {
 zip_data_source::zip_data_source(
     std::vector<data_pipeline> &&pipelines,
     std::optional<std::vector<std::string>> &&names,
+    bool flatten,
     bool warn_only,
     bool disable_parallelism) noexcept
   : pipelines_(std::move(pipelines)),
+    flatten_{flatten},
     warn_only_{warn_only},
     disable_parallelism_{disable_parallelism}
 {
@@ -63,30 +67,110 @@ zip_data_source::next()
     bool are_in_sync = std::all_of(
         is_eod.begin() + 1, is_eod.end(), [&is_eod](std::int8_t b) { return b == is_eod[0]; });
 
-    if (are_in_sync) {
-        if (is_eod[0] == 1)
-            return std::nullopt;
+    if (!are_in_sync) {
+        // Collect pipelines that have not reached their end of data yet.
+        std::vector<std::size_t> not_eod{};
+        for (std::size_t i = 0; i < is_eod.size(); ++i)
+            if (is_eod[i] == 0)
+                not_eod.push_back(i);
 
-        // If no names specified, return as list.
-        if (names_.empty())
-            return zip;
+        if (!warn_only_)
+            throw data_pipeline_error{
+                fmt::format("The zipped data pipelines must all have the same length, but the data pipelines at the following indices have more examples than the others. Indices: {}", fmt::join(not_eod, ", "))};
 
-        // Otherwise, as dictionary.
-        data_dict dict{};
+        // TODO: print warning.
 
-        for (std::size_t i = 0; i < zip.size(); ++i)
-            dict.emplace(names_[i], std::move(zip[i]));
-
-        return dict;
+        return std::nullopt;
     }
 
-    if (!warn_only_)
-        throw data_pipeline_error{
-            "The zipped data pipelines are expected to have equal length, but at least one data pipeline has more examples than the others."};
+    if (is_eod[0] == 1)
+        return std::nullopt;
 
-    // TODO: print warning.
+    if (flatten_) {
+        // We expect all pipelines to match the return type of the first
+        // pipeline.
+        if (zip[0].is_dict())
+            return flatten_to_dict(zip);
+        else
+            return flatten_to_list(zip);
+    }
 
-    return std::nullopt;
+    // If no names specified, return as list.
+    if (names_.empty())
+        return zip;
+
+    // Otherwise, as dictionary.
+    data_dict dict{};
+
+    for (std::size_t i = 0; i < zip.size(); ++i)
+        dict.emplace(names_[i], std::move(zip[i]));
+
+    return dict;
+}
+
+std::optional<data>
+zip_data_source::flatten_to_dict(data_list &zip) const
+{
+    data_dict output{};
+
+    for (data &d : zip) {
+        // If the first pipeline has returned a `dict`, we expect all other
+        // pipelines to return dicts as well.
+        if (d.is_dict())
+            for (auto &[key, value] : d.as_dict()) {
+                // All keys in the flattened dict must be unique.
+                if (auto pos = output.find(key); pos != output.end()) {
+                    if (!warn_only_)
+                        throw data_pipeline_error{
+                            fmt::format("The zipped data pipelines must all return unique keys when `flatten` is set, but the key '{}' is not unique.", key)};
+
+                    // TODO: warn
+
+                    return std::nullopt;
+                }
+
+                output.emplace(key, std::move(value));
+            }
+        else {
+            if (!warn_only_)
+                throw data_pipeline_error{
+                    "The zipped data pipelines must all return only dicts, or only non-dicts when `flatten` is set.", std::move(zip)};
+
+            // TODO: warn
+
+            return std::nullopt;
+        }
+    }
+
+    return output;
+}
+
+std::optional<data>
+zip_data_source::flatten_to_list(data_list &zip) const
+{
+    data_list output{};
+
+    for (data &d : zip) {
+        // If the first pipeline has returned an example that is not `dict`, we
+        // expect all other pipelines to return non-dicts as well.
+        if (d.is_dict()) {
+            if (!warn_only_)
+                throw data_pipeline_error{
+                    "The zipped data pipelines must all return only dicts, or only non-dicts when `flatten` is set.", std::move(zip)};
+
+            // TODO: warn
+
+            return std::nullopt;
+        }
+
+        if (d.is_list())
+            for (data &element : d.as_list())
+                output.push_back(std::move(element));
+        else
+            output.push_back(std::move(d));
+    }
+
+    return output;
 }
 
 void

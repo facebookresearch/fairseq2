@@ -9,6 +9,7 @@
 #include <algorithm>
 
 #include <fmt/core.h>
+#include <fmt/format.h>
 
 #include "fairseq2/native/error.h"
 
@@ -60,7 +61,7 @@ record_reader::load_next_record()
                 return false;
 
             throw record_error{
-                fmt::format("The stream ends with a partial record of {} byte(s).", current_chunk_.size())};
+                fmt::format("The stream ends with a partial record of {} byte(s).", fmt::group_digits(current_chunk_.size()))};
         }
 
         // Move `current_chunk_` to previous chunks and attempt to find the record
