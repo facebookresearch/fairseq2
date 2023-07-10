@@ -22,6 +22,10 @@ namespace detail {
 
 element_selector::element_selector(std::string_view selector)
 {
+    std::string_view trimmed_selector = trim(selector);
+    if (trimmed_selector.empty())
+        return;
+
     // The selector might contain one or more paths separated by comma.
     auto parse_next_path = [this, selector](
         std::string_view remaining_paths) -> std::optional<std::string_view>
@@ -44,7 +48,7 @@ element_selector::element_selector(std::string_view selector)
         return remaining_paths.substr(comma_idx + 1);
     };
 
-    std::optional<std::string_view> remaining_paths = selector;
+    std::optional<std::string_view> remaining_paths = trimmed_selector;
     while (remaining_paths)
         remaining_paths = parse_next_path(*remaining_paths);
 }
