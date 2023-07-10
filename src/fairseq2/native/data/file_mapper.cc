@@ -4,7 +4,7 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
-#include "fairseq2/native/data/memory_mapper.h"
+#include "fairseq2/native/data/file_mapper.h"
 
 #include <array>
 #include <filesystem>
@@ -22,7 +22,7 @@ using namespace fairseq2::detail;
 
 namespace fairseq2 {
 
-memory_mapper::memory_mapper(
+file_mapper::file_mapper(
     std::optional<std::string> root_dir, std::optional<std::size_t> cached_fd_count) noexcept
   : cache_{/*capacity=*/cached_fd_count.value_or(default_cached_fd_count)}
 {
@@ -31,7 +31,7 @@ memory_mapper::memory_mapper(
 }
 
 data
-memory_mapper::operator()(data &&d) const
+file_mapper::operator()(data &&d) const
 {
     if (!d.is_string())
         throw_<std::invalid_argument>(
@@ -116,7 +116,7 @@ memory_mapper::operator()(data &&d) const
 }
 
 memory_block
-memory_mapper::get_memory_map(const immutable_string &pathname) const
+file_mapper::get_memory_map(const immutable_string &pathname) const
 {
     std::lock_guard<std::mutex> cache_lock{cache_mutex_};
 

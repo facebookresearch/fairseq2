@@ -25,12 +25,12 @@ target_sources(fairseq2
         data/element_mapper.cc
         data/element_selector.cc
         data/file.cc
+        data/file_mapper.cc
         data/file_stream.cc
         data/filter_data_source.cc
         data/immutable_string.cc
         data/list_data_source.cc
         data/map_data_source.cc
-        data/memory_mapper.cc
         data/memory_stream.cc
         data/prefetch_data_source.cc
         data/py.cc

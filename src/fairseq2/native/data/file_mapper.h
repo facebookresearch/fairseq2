@@ -21,12 +21,12 @@ namespace fairseq2 {
 
 class immutable_string;
 
-class FAIRSEQ2_API memory_mapper {
+class FAIRSEQ2_API file_mapper {
     static constexpr std::size_t default_cached_fd_count = 100;
 
 public:
     explicit
-    memory_mapper(
+    file_mapper(
         std::optional<std::string> root_dir,
         std::optional<std::size_t> cached_fd_count = {}) noexcept;
 

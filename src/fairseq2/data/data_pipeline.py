@@ -223,7 +223,7 @@ if TYPE_CHECKING or _DOC_MODE:
         def __call__(self, data: Any) -> Any:
             ...
 
-    class MemoryMapper:
+    class FileMapper:
         def __init__(
             self,
             root_dir: Optional[PathLike] = None,
@@ -231,7 +231,7 @@ if TYPE_CHECKING or _DOC_MODE:
         ) -> None:
             ...
 
-        def __call__(self, pathname: PathLike) -> "MemoryMapperOutput":
+        def __call__(self, pathname: PathLike) -> "FileMapperOutput":
             ...
 
     class ByteStreamError(RuntimeError):
@@ -246,7 +246,7 @@ else:
     from fairseq2.C.data.data_pipeline import DataPipeline as DataPipeline
     from fairseq2.C.data.data_pipeline import DataPipelineBuilder as DataPipelineBuilder
     from fairseq2.C.data.data_pipeline import DataPipelineError as DataPipelineError
-    from fairseq2.C.data.data_pipeline import MemoryMapper as MemoryMapper
+    from fairseq2.C.data.data_pipeline import FileMapper as FileMapper
     from fairseq2.C.data.data_pipeline import RecordError as RecordError
     from fairseq2.C.data.data_pipeline import list_files as list_files
     from fairseq2.C.data.data_pipeline import read_sequence as read_sequence
@@ -259,7 +259,7 @@ else:
             DataPipeline,
             DataPipelineBuilder,
             DataPipelineError,
-            MemoryMapper,
+            FileMapper,
             RecordError,
             list_files,
             read_sequence,
@@ -272,6 +272,6 @@ else:
     _set_module_name()
 
 
-class MemoryMapperOutput(TypedDict):
+class FileMapperOutput(TypedDict):
     path: PathLike
     data: MemoryBlock

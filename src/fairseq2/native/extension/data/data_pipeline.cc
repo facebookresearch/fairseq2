@@ -25,7 +25,7 @@
 #include <fairseq2/native/data/data.h>
 #include <fairseq2/native/data/data_length_extractor.h>
 #include <fairseq2/native/data/data_pipeline.h>
-#include <fairseq2/native/data/memory_mapper.h>
+#include <fairseq2/native/data/file_mapper.h>
 #include <fairseq2/native/data/record_reader.h>
 #include <fairseq2/native/data/tape.h>
 #include <fairseq2/native/detail/exception.h>
@@ -468,15 +468,15 @@ def_data_pipeline(py::module_ &data_module)
 
     map_functors().register_<collater>();
 
-    // MemoryMapper
-    py::class_<memory_mapper, std::shared_ptr<memory_mapper>>(m, "MemoryMapper")
+    // FileMapper
+    py::class_<file_mapper, std::shared_ptr<file_mapper>>(m, "FileMapper")
         .def(
             py::init<std::optional<std::string>, std::optional<std::size_t>>(),
             py::arg("root_dir") = std::nullopt,
             py::arg("cached_fd_count") = std::nullopt)
-        .def("__call__", &memory_mapper::operator(), py::call_guard<py::gil_scoped_release>{});
+        .def("__call__", &file_mapper::operator(), py::call_guard<py::gil_scoped_release>{});
 
-    map_functors().register_<memory_mapper>();
+    map_functors().register_<file_mapper>();
 
     // RecordError
     static py::exception<record_error> py_record_error{m, "RecordError", PyExc_RuntimeError};
