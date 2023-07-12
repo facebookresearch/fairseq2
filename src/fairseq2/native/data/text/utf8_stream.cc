@@ -20,12 +20,12 @@ namespace fairseq2::detail {
 
 utf8_stream::utf8_stream(
     std::unique_ptr<byte_stream> &&inner,
-    std::optional<std::string> encoding,
+    std::optional<std::string> maybe_encoding,
     std::size_t chunk_size) noexcept
   : inner_{std::move(inner)}
 {
-    if (encoding)
-        encoding_ = *encoding;
+    if (maybe_encoding)
+        encoding_ = *std::move(maybe_encoding);
 
     is_utf8_ = is_utf8_encoding();
 

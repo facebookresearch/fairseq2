@@ -42,11 +42,11 @@ shuffle_data_source::next()
         buffer_.reserve(std::min(shuffle_window_, max_pre_alloc_size_));
 
         for (std::size_t i = 0; i < shuffle_window_; i++) {
-            std::optional<data> d = inner_->next();
-            if (!d)
+            std::optional<data> maybe_example = inner_->next();
+            if (!maybe_example)
                 break;
 
-            buffer_.push_back(*std::move(d));
+            buffer_.push_back(*std::move(maybe_example));
         }
 
         fill_buffer_ = false;
@@ -63,9 +63,9 @@ shuffle_data_source::next()
     data output = std::move(picked_element);
 
     // Fill the position of the moved element with a new example.
-    std::optional<data> d = inner_->next();
-    if (d) {
-        picked_element = *std::move(d);
+    std::optional<data> maybe_example = inner_->next();
+    if (maybe_example) {
+        picked_element = *std::move(maybe_example);
     } else {
         // If we can't fill the position with a new example, it means we reached
         // the end of data; start shrinking the size of the buffer.

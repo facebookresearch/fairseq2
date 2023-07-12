@@ -6,6 +6,17 @@
 
 #pragma once
 
+namespace fairseq2 {
+
+template <typename T>
+struct repr {};  // disabled (i.e. poisoned)
+
+}  // namespace fairseq2
+
+
+// Allow the use of this header file even if libfmt is not available.
+#if __has_include(<fmt/core.h>)
+
 #include <string>
 #include <type_traits>
 
@@ -13,15 +24,14 @@
 #include <fmt/format.h>
 
 template <typename T>
-struct fmt::formatter<
-    T, std::enable_if_t<
-        // `T` must have a `fairseq2::repr()` overload.
-        std::is_same_v<decltype(fairseq2::repr(std::declval<T>())), std::string>, char>>
+struct fmt::formatter<T, std::enable_if_t<std::is_invocable_v<fairseq2::repr<T>, T>, char>>
   : fmt::formatter<std::string> {
 
     auto
     format(const T &t, format_context &ctx) const
     {
-        return formatter<std::string>::format(fairseq2::repr(t), ctx);
+        return formatter<std::string>::format(fairseq2::repr<T>{}(t), ctx);
     }
 };
+
+#endif

@@ -19,39 +19,45 @@ namespace fairseq2 {
 class audio_decoder_options {
 public:
     audio_decoder_options
-    dtype(std::optional<at::ScalarType> dtype) && noexcept
+    maybe_dtype(std::optional<at::ScalarType> value) noexcept
     {
-        dtype_ = dtype;
+        auto tmp = *this;
 
-        return *this;
+        tmp.maybe_dtype_ = value;
+
+        return tmp;
     }
 
     std::optional<at::ScalarType>
-    dtype() const noexcept
+    maybe_dtype() const noexcept
     {
-        return dtype_;
+        return maybe_dtype_;
     }
 
     audio_decoder_options
-    device(std::optional<at::Device> value) && noexcept
+    maybe_device(std::optional<at::Device> value) noexcept
     {
-        device_ = value;
+        auto tmp = *this;
 
-        return *this;
+        tmp.maybe_device_ = value;
+
+        return tmp;
     }
 
     std::optional<at::Device>
-    device() const noexcept
+    maybe_device() const noexcept
     {
-        return device_;
+        return maybe_device_;
     }
 
     audio_decoder_options
-    pin_memory(bool value) && noexcept
+    pin_memory(bool value) noexcept
     {
-        pin_memory_ = value;
+        auto tmp = *this;
 
-        return *this;
+        tmp.pin_memory_ = value;
+
+        return tmp;
     }
 
     bool
@@ -61,8 +67,8 @@ public:
     }
 
 private:
-    std::optional<at::ScalarType> dtype_{};
-    std::optional<at::Device> device_{};
+    std::optional<at::ScalarType> maybe_dtype_{};
+    std::optional<at::Device> maybe_device_{};
     bool pin_memory_ = false;
 };
 

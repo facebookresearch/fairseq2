@@ -28,12 +28,13 @@ def_sentencepiece(py::module_ &text_module)
     py::class_<sp_model, std::shared_ptr<sp_model>>(m, "SentencePieceModel")
         .def(
             py::init([](
-                std::string_view pathname, std::optional<std::vector<std::string>> control_symbols)
+                std::string_view pathname,
+                std::optional<std::vector<std::string>> maybe_control_symbols)
             {
                 sp_model_options opts{};
 
-                if (control_symbols)
-                    opts.control_symbols() = *std::move(control_symbols);
+                if (maybe_control_symbols)
+                    opts.control_symbols() = *std::move(maybe_control_symbols);
 
                 return std::make_unique<sp_model>(pathname, std::move(opts));
             }),
@@ -69,13 +70,13 @@ def_sentencepiece(py::module_ &text_module)
         .def(
             py::init([](
                 std::shared_ptr<const sp_model> model,
-                std::optional<std::vector<std::string>> prefix_tokens,
-                std::optional<std::vector<std::string>> suffix_tokens,
+                std::optional<std::vector<std::string>> maybe_prefix_tokens,
+                std::optional<std::vector<std::string>> maybe_suffix_tokens,
                 bool reverse,
                 bool enable_sampling,
                 std::int32_t nbest_size,
                 float alpha,
-                std::optional<at::Device> device,
+                std::optional<at::Device> maybe_device,
                 bool pin_memory)
             {
                 auto opts = sp_encoder_options()
@@ -83,14 +84,14 @@ def_sentencepiece(py::module_ &text_module)
                     .enable_sampling(enable_sampling)
                     .nbest_size(nbest_size)
                     .alpha(alpha)
-                    .device(device)
+                    .maybe_device(maybe_device)
                     .pin_memory(pin_memory);
 
-                if (prefix_tokens)
-                    opts.prefix_tokens() = *std::move(prefix_tokens);
+                if (maybe_prefix_tokens)
+                    opts.prefix_tokens() = *std::move(maybe_prefix_tokens);
 
-                if (suffix_tokens)
-                    opts.suffix_tokens() = *std::move(suffix_tokens);
+                if (maybe_suffix_tokens)
+                    opts.suffix_tokens() = *std::move(maybe_suffix_tokens);
 
                 return sp_encoder{std::move(model), std::move(opts)};
             }),

@@ -8,24 +8,99 @@
 
 #include <cstdint>
 #include <optional>
+#include <string>
+#include <utility>
+#include <vector>
 
 #include "fairseq2/native/api.h"
-#include "fairseq2/native/data/data.h"
+#include "fairseq2/native/data/element_selector.h"
 
 namespace fairseq2 {
 
-class FAIRSEQ2_API collater {
+class collate_options {
+public:
+    collate_options
+    maybe_pad_idx(std::optional<std::int64_t> value) noexcept
+    {
+        auto tmp = *this;
+
+        tmp.maybe_pad_idx_ = value;
+
+        return tmp;
+    }
+
+    std::optional<std::int64_t>
+    maybe_pad_idx() const noexcept
+    {
+        return maybe_pad_idx_;
+    }
+
+    collate_options
+    pad_to_multiple(std::int64_t value) noexcept
+    {
+        auto tmp = *this;
+
+        tmp.pad_to_multiple_ = value;
+
+        return tmp;
+    }
+
+    std::int64_t
+    pad_to_multiple() const noexcept
+    {
+        return pad_to_multiple_;
+    }
+
+private:
+    std::optional<std::int64_t> maybe_pad_idx_;
+    std::int64_t pad_to_multiple_ = 1;
+};
+
+class collate_options_override {
 public:
     explicit
-    collater(std::optional<std::int64_t> pad_idx) noexcept
-      : pad_idx_{pad_idx}
+    collate_options_override(std::string selector, collate_options opts)
+      : selector_{std::move(selector)}, opts_{opts}
     {}
+
+    const element_selector &
+    selector() const noexcept
+    {
+        return selector_;
+    }
+
+    const collate_options &
+    options() const noexcept
+    {
+        return opts_;
+    }
+
+private:
+    element_selector selector_;
+    collate_options opts_;
+};
+
+class data;
+
+namespace detail {
+
+class collate_op;
+
+}  // namespace detail
+
+class FAIRSEQ2_API collater {
+    friend class detail::collate_op;
+
+public:
+    explicit
+    collater(collate_options opts = {}, std::vector<collate_options_override> opt_overrides = {});
 
     data
     operator()(data &&d) const;
 
 private:
-    std::optional<std::int64_t> pad_idx_;
+    collate_options opts_;
+    std::vector<collate_options_override> opt_overrides_;
 };
 
 }  // namespace fairseq2

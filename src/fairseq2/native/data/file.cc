@@ -70,7 +70,7 @@ open_file(const std::string &pathname, const file_options &opts)
 {
     file_desc fd = do_open_file(pathname);
 
-    std::size_t chunk_size = opts.block_size().value_or(0x0010'0000);  // 1 MiB
+    std::size_t chunk_size = opts.maybe_block_size().value_or(0x0010'0000);  // 1 MiB
 
     std::unique_ptr<byte_stream> stream{};
 
@@ -84,19 +84,20 @@ open_file(const std::string &pathname, const file_options &opts)
         stream = std::make_unique<file_stream>(std::move(fd), pathname, chunk_size);
 
     if (opts.mode() == file_mode::text)
-        stream = std::make_unique<utf8_stream>(std::move(stream), opts.text_encoding(), chunk_size);
+        stream = std::make_unique<utf8_stream>(
+            std::move(stream), opts.maybe_text_encoding(), chunk_size);
 
     return stream;
 }
 
 memory_block
-memory_map_file(const std::string &pathname, bool sequential)
+memory_map_file(const std::string &pathname, bool hint_sequential)
 {
     file_desc fd = do_open_file(pathname);
 
     memory_block block = memory_map_file(fd, pathname);
 
-    if (sequential)
+    if (hint_sequential)
         hint_sequential_memory(block, pathname);
 
     return block;

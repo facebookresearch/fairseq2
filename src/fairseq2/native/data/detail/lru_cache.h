@@ -33,7 +33,7 @@ public:
     // If `key` is in the cache, marks it as the most-recently-used entry, and
     // returns its value; otherwise, returns `nullptr`.
     T *
-    get_if(const immutable_string &key);
+    maybe_get(const immutable_string &key);
 
     void
     clear() noexcept
@@ -96,7 +96,7 @@ lru_cache<T>::add(immutable_string key, T value)
 
 template <typename T>
 T *
-lru_cache<T>::get_if(const immutable_string &key)
+lru_cache<T>::maybe_get(const immutable_string &key)
 {
     if (auto pos = map_.find(key); pos != map_.end()) {
         auto &entry_node = pos->second;

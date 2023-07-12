@@ -133,6 +133,22 @@ sp_processor::from_serialized(std::string_view serialized)
     return std::make_unique<sp_processor>(std::move(processor));
 }
 
+sp_processor::sp_processor(std::unique_ptr<ModelProto> &&proto)
+{
+    native_ = std::make_unique<SentencePieceProcessor>();
+
+    auto st = native_->Load(std::move(proto));
+    if (!st.ok())
+        throw_<std::runtime_error>(st.message());
+
+    unk_idx = conditional_cast<std::int32_t>(native_->unk_id());
+    bos_idx = conditional_cast<std::int32_t>(native_->bos_id());
+    eos_idx = conditional_cast<std::int32_t>(native_->eos_id());
+    pad_idx = conditional_cast<std::int32_t>(native_->pad_id());
+
+    vocabulary_size = conditional_cast<std::size_t>(native_->GetPieceSize());
+}
+
 sp_processor::sp_processor(std::string_view model_pathname, sp_model_options &&opts)
   : sp_processor{sp_model_proto_loader{model_pathname, std::move(opts)}.load()}
 {}
@@ -193,22 +209,6 @@ std::string
 sp_processor::serialize() const
 {
     return native_->model_proto().SerializeAsString();
-}
-
-sp_processor::sp_processor(std::unique_ptr<ModelProto> &&proto)
-{
-    native_ = std::make_unique<SentencePieceProcessor>();
-
-    auto st = native_->Load(std::move(proto));
-    if (!st.ok())
-        throw_<std::runtime_error>(st.message());
-
-    unk_idx = conditional_cast<std::int32_t>(native_->unk_id());
-    bos_idx = conditional_cast<std::int32_t>(native_->bos_id());
-    eos_idx = conditional_cast<std::int32_t>(native_->eos_id());
-    pad_idx = conditional_cast<std::int32_t>(native_->pad_id());
-
-    vocabulary_size = conditional_cast<std::size_t>(native_->GetPieceSize());
 }
 
 }  // namespace fairseq2::detail

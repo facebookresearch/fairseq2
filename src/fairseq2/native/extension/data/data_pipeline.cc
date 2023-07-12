@@ -144,18 +144,18 @@ public:
     data
     next()
     {
-        std::optional<data> d{};
+        std::optional<data> maybe_example{};
 
         {
             py::gil_scoped_release no_gil{};
 
-            d = pipeline_->next();
+            maybe_example = pipeline_->next();
         }
 
-        if (!d)
+        if (!maybe_example)
             throw py::stop_iteration();
 
-        return *std::move(d);
+        return *std::move(maybe_example);
     }
 
 private:
@@ -241,7 +241,7 @@ def_data_pipeline(py::module_ &data_module)
             "zip",
             [](
                 std::vector<std::reference_wrapper<data_pipeline>> &refs,
-                std::optional<std::vector<std::string>> names,
+                std::optional<std::vector<std::string>> maybe_names,
                 bool flatten,
                 bool warn_only,
                 bool disable_parallelism)
@@ -255,10 +255,15 @@ def_data_pipeline(py::module_ &data_module)
                         return std::move(r.get());
                     });
 
+                std::vector<std::string> names{};
+                if (maybe_names)
+                    names = *std::move(maybe_names);
+
                 return data_pipeline::zip(
                     std::move(pipelines),
                     std::move(names),
-                    flatten, warn_only,
+                    flatten,
+                    warn_only,
                     disable_parallelism);
             },
             py::arg("pipelines"),
@@ -313,13 +318,13 @@ def_data_pipeline(py::module_ &data_module)
             [](
                 data_pipeline_builder &self,
                 std::vector<std::pair<std::size_t, std::size_t>> bucket_sizes,
-                std::optional<std::string_view> selector,
+                std::optional<std::string> maybe_selector,
                 bool drop_remainder,
                 bool warn_only) -> data_pipeline_builder &
             {
                 self = std::move(self).bucket_by_length(
                     std::move(bucket_sizes),
-                    data_length_extractor{selector},
+                    data_length_extractor{std::move(maybe_selector)},
                     drop_remainder,
                     warn_only);
 
@@ -343,7 +348,7 @@ def_data_pipeline(py::module_ &data_module)
             [](
                 data_pipeline_builder &self,
                 std::variant<map_fn, std::vector<map_fn>> fn,
-                std::optional<std::string_view> selector,
+                std::optional<std::string> maybe_selector,
                 std::size_t num_parallel_calls,
                 bool warn_only) -> data_pipeline_builder &
             {
@@ -352,18 +357,19 @@ def_data_pipeline(py::module_ &data_module)
                 if (auto *map_functions = std::get_if<std::vector<map_fn>>(&fn))
                     // Combine all map functions in a single lambda and pass it
                     // to the C++ API.
-                    f = [map_functions = std::move(*map_functions)](data &&d)
+                    f = [map_functions = std::move(*map_functions)](data &&example)
                     {
                         for (const map_fn &mf : map_functions)
-                            d = mf(std::move(d));
+                            example = mf(std::move(example));
 
-                        return std::move(d);
+                        return std::move(example);
                     };
                 else
                     f = std::get<map_fn>(std::move(fn));
 
-                self = std::move(self).map(
-                    element_mapper{std::move(f), selector}, num_parallel_calls, warn_only);
+                element_mapper mapper{std::move(f), std::move(maybe_selector)};
+
+                self = std::move(self).map(std::move(mapper), num_parallel_calls, warn_only);
 
                 return self;
             },
@@ -454,7 +460,7 @@ def_data_pipeline(py::module_ &data_module)
     static py::exception<data_pipeline_error> py_data_pipeline_error{
         m, "DataPipelineError", PyExc_RuntimeError};
 
-    // Factories
+    // DataPipeline Factories
     m.def("list_files", &list_files, py::arg("pathname"), py::arg("pattern") = std::nullopt);
 
     m.def("read_sequence", &read_list, py::arg("seq"));
@@ -462,8 +468,59 @@ def_data_pipeline(py::module_ &data_module)
     m.def("read_zipped_records", &read_zipped_records, py::arg("pathname"));
 
     // Collater
+    py::class_<collate_options_override>(m, "CollateOptionsOverride")
+        .def(
+            py::init([](
+                std::string selector,
+                std::optional<std::int64_t> maybe_pad_idx,
+                std::int64_t pad_to_multiple)
+            {
+                return collate_options_override{std::move(selector),
+                    collate_options()
+                        .maybe_pad_idx(maybe_pad_idx)
+                        .pad_to_multiple(pad_to_multiple)};
+            }),
+            py::arg("selector"),
+            py::arg("pad_idx") = std::nullopt,
+            py::arg("pad_to_multiple") = 1)
+        .def_property_readonly(
+            "selector",
+            [](const collate_options_override &self)
+            {
+                return self.selector().string_();
+            })
+        .def_property_readonly(
+            "pad_idx",
+            [](const collate_options_override &self)
+            {
+                return self.options().maybe_pad_idx();
+            })
+        .def_property_readonly(
+            "pad_to_multiple",
+            [](const collate_options_override &self)
+            {
+                return self.options().pad_to_multiple();
+            });
+
     py::class_<collater, std::shared_ptr<collater>>(m, "Collater")
-        .def(py::init<std::optional<std::int64_t>>(), py::arg("pad_idx") = std::nullopt)
+        .def(
+            py::init([](
+                std::optional<std::int64_t> maybe_pad_idx,
+                std::int64_t pad_to_multiple,
+                std::optional<std::vector<collate_options_override>> maybe_opt_overrides)
+            {
+                auto opts = collate_options()
+                    .maybe_pad_idx(maybe_pad_idx).pad_to_multiple(pad_to_multiple);
+
+                std::vector<collate_options_override> opt_overrides{};
+                if (maybe_opt_overrides)
+                    opt_overrides = *std::move(maybe_opt_overrides);
+
+                return collater{opts, std::move(opt_overrides)};
+            }),
+            py::arg("pad_idx") = std::nullopt,
+            py::arg("pad_to_multiple") = 1,
+            py::arg("overrides") = std::nullopt)
         .def("__call__", &collater::operator(), py::call_guard<py::gil_scoped_release>{});
 
     map_functors().register_<collater>();

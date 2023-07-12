@@ -23,11 +23,12 @@ using namespace fairseq2::detail;
 namespace fairseq2 {
 
 file_mapper::file_mapper(
-    std::optional<std::string> root_dir, std::optional<std::size_t> cached_fd_count) noexcept
-  : cache_{/*capacity=*/cached_fd_count.value_or(default_cached_fd_count)}
+    std::optional<std::string> maybe_root_dir,
+    std::optional<std::size_t> maybe_cached_fd_count) noexcept
+  : cache_{/*capacity=*/maybe_cached_fd_count.value_or(default_cached_fd_count)}
 {
-    if (root_dir)
-        root_dir_ = *std::move(root_dir);
+    if (maybe_root_dir)
+        root_dir_ = *std::move(maybe_root_dir);
 }
 
 data
@@ -73,13 +74,13 @@ file_mapper::operator()(data &&d) const
         }
     };
 
-    std::optional<std::size_t> offset{}, size{};
+    std::optional<std::size_t> maybe_offset{}, maybe_size{};
 
     if (!parts[1].empty()) {
-        offset = parse_specifier(parts[1], "offset");
+        maybe_offset = parse_specifier(parts[1], "offset");
 
         if (!parts[2].empty())
-            size = parse_specifier(parts[2], "size");
+            maybe_size = parse_specifier(parts[2], "size");
     }
 
     memory_block block = get_memory_map(parts[0]);
@@ -88,31 +89,35 @@ file_mapper::operator()(data &&d) const
     {
         data_dict output{};
 
-        output["path"] = std::move(d);
-        output["data"] = std::move(blk);
+        output.emplace("path", std::move(d));
+        output.emplace("data", std::move(blk));
 
         return output;
     };
 
     // If we don't have an offset, return the entire memory map.
-    if (!offset)
+    if (!maybe_offset)
         return pack_output(std::move(block));
 
-    if (*offset > block.size())
+    std::size_t offset = *maybe_offset;
+
+    if (offset > block.size())
         throw_<std::invalid_argument>(
-            "The specified offset within '{}' must be less than or equal to the file size ({} bytes), but is {} instead.", pathname, fmt::group_digits(block.size()), fmt::group_digits(*offset));
+            "The specified offset within '{}' must be less than or equal to the file size ({} bytes), but is {} instead.", pathname, fmt::group_digits(block.size()), fmt::group_digits(offset));
 
     // If we have an offset but not a size, return the memory map from the
     // offset to the end.
-    if (!size)
-        return pack_output(block.share_slice(*offset));
+    if (!maybe_size)
+        return pack_output(block.share_slice(offset));
 
-    if (std::size_t upper_boundary = *offset + *size; upper_boundary > block.size())
+    std::size_t size = *maybe_size;
+
+    if (std::size_t upper_boundary = offset + size; upper_boundary > block.size())
         throw_<std::invalid_argument>(
             "The end of the specified region within '{}' must be less than or equal to the file size ({} bytes), but is {} instead.", pathname, fmt::group_digits(block.size()), fmt::group_digits(upper_boundary));
 
     // Otherwise, return the memory map region specified by the offset and size.
-    return pack_output(block.share_slice(*offset, *size));
+    return pack_output(block.share_slice(offset, size));
 }
 
 memory_block
@@ -121,8 +126,9 @@ file_mapper::get_memory_map(const immutable_string &pathname) const
     std::lock_guard<std::mutex> cache_lock{cache_mutex_};
 
     // Check the LRU cache first.
-    if (memory_block *cached_block = cache_.get_if(pathname); cached_block != nullptr)
-        return *cached_block;
+    memory_block *maybe_cached_block = cache_.maybe_get(pathname);
+    if (maybe_cached_block != nullptr)
+        return *maybe_cached_block;
 
     memory_block block = memory_map_file(root_dir_ / pathname.to_string());
 

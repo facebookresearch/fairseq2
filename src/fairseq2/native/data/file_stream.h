@@ -20,6 +20,11 @@ public:
     explicit
     file_stream(file_desc &&fd, std::string pathname, std::size_t chunk_size) noexcept;
 
+private:
+    void
+    hint_sequential_file() noexcept;
+
+public:
     memory_block
     read_chunk() override;
 
@@ -27,9 +32,6 @@ public:
     reset() override;
 
 private:
-    void
-    hint_sequential_file() noexcept;
-
     std::size_t
     fill_chunk(writable_memory_span chunk);
 

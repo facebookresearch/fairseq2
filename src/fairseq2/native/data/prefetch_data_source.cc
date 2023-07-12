@@ -47,11 +47,11 @@ prefetch_data_source::next()
     if (next_queue_.empty())
         return std::nullopt;
 
-    data d = std::move(next_queue_.front());
+    data example = std::move(next_queue_.front());
 
     next_queue_.pop_front();
 
-    return d;
+    return example;
 }
 
 void
@@ -124,9 +124,9 @@ void
 prefetch_data_source::prefetch()
 {
     while (state_ == prefetch_state::running) {
-        std::optional<data> d{};
+        std::optional<data> maybe_example{};
         try {
-            d = inner_->next();
+            maybe_example = inner_->next();
         } catch (const std::exception &) {
             exception_ptr_ = std::current_exception();
         }
@@ -141,10 +141,10 @@ prefetch_data_source::prefetch()
 
             if (exception_ptr_) {
                 state_ = prefetch_state::faulted;
-            } else if (!d) {
+            } else if (!maybe_example) {
                 state_ = prefetch_state::eod;
             } else {
-                fill_queue_.push_back(*std::move(d));
+                fill_queue_.push_back(*std::move(maybe_example));
 
                 if (should_stop_prefetch_)
                     state_ = prefetch_state::not_running;

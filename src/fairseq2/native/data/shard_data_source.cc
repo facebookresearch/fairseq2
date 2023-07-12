@@ -15,15 +15,15 @@ shard_data_source::next()
         if (!inner_->next())
             return std::nullopt;
 
-    std::optional<data> d = inner_->next();
-    if (!d)
+    std::optional<data> maybe_example = inner_->next();
+    if (!maybe_example)
         return std::nullopt;
 
     for (std::size_t i = 0; i < num_shards_ - shard_idx_ - 1; i++)
         if (!inner_->next())
             return std::nullopt;
 
-    return d;
+    return maybe_example;
 }
 
 void

@@ -18,6 +18,8 @@ from typing import (
     Union,
 )
 
+from torch import Tensor
+
 from fairseq2 import _DOC_MODE
 from fairseq2.data.typing import PathLike, StringLike
 from fairseq2.memory import MemoryBlock
@@ -216,8 +218,34 @@ if TYPE_CHECKING or _DOC_MODE:
     def read_zipped_records(pathname: PathLike) -> DataPipelineBuilder:
         ...
 
+    class CollateOptionsOverride:
+        def __init__(
+            self,
+            selector: str,
+            pad_idx: Optional[int] = None,
+            pad_to_multiple: int = 1,
+        ) -> None:
+            ...
+
+        @property
+        def selector(self) -> str:
+            ...
+
+        @property
+        def pad_idx(self) -> Optional[int]:
+            ...
+
+        @property
+        def pad_to_multiple(self) -> int:
+            ...
+
     class Collater:
-        def __init__(self, pad_idx: Optional[int] = None) -> None:
+        def __init__(
+            self,
+            pad_idx: Optional[int] = None,
+            pad_to_multiple: int = 1,
+            overrides: Optional[Sequence[CollateOptionsOverride]] = None,
+        ) -> None:
             ...
 
         def __call__(self, data: Any) -> Any:
@@ -242,6 +270,9 @@ if TYPE_CHECKING or _DOC_MODE:
 
 else:
     from fairseq2.C.data.data_pipeline import ByteStreamError as ByteStreamError
+    from fairseq2.C.data.data_pipeline import (
+        CollateOptionsOverride as CollateOptionsOverride,
+    )
     from fairseq2.C.data.data_pipeline import Collater as Collater
     from fairseq2.C.data.data_pipeline import DataPipeline as DataPipeline
     from fairseq2.C.data.data_pipeline import DataPipelineBuilder as DataPipelineBuilder
@@ -255,6 +286,7 @@ else:
     def _set_module_name() -> None:
         ctypes = [
             ByteStreamError,
+            CollateOptionsOverride,
             Collater,
             DataPipeline,
             DataPipelineBuilder,
@@ -270,6 +302,12 @@ else:
             t.__module__ = __name__
 
     _set_module_name()
+
+
+class SequenceData(TypedDict):
+    seqs: Tensor
+    seq_lens: Tensor
+    ragged: bool
 
 
 class FileMapperOutput(TypedDict):

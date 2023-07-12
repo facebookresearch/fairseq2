@@ -145,6 +145,67 @@ data_pipeline::check_if_broken() const
 }
 
 data_pipeline_builder
+data_pipeline::zip(
+    std::vector<data_pipeline> pipelines,
+    std::vector<std::string> names,
+    bool flatten,
+    bool warn_only,
+    bool disable_parallelism)
+{
+    if (!names.empty() && flatten)
+        throw_<std::invalid_argument>(
+            "`names` and `flatten` are mutually exclusive and cannot be specified at the same time.");
+
+    if (!names.empty() && pipelines.size() != names.size())
+        throw_<std::invalid_argument>(
+            "The number of `pipelines` and the number of `names` must be equal, but are {} and {} instead.", pipelines.size(), names.size());
+
+    bool is_broken = std::any_of(
+        pipelines.begin(), pipelines.end(), [](const data_pipeline &pipeline)
+        {
+            return pipeline.is_broken();
+        });
+
+    if (is_broken)
+        throw_<std::invalid_argument>(
+            "At least one of the specified data pipelines is broken and cannot be zipped.");
+
+    auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
+
+    auto factory = [
+        names = std::move(names), tmp, flatten, warn_only, disable_parallelism]() mutable
+    {
+        return std::make_unique<zip_data_source>(
+            std::move(*tmp), std::move(names), flatten, warn_only, disable_parallelism);
+    };
+
+    return data_pipeline_builder{std::move(factory)};
+}
+
+data_pipeline_builder
+data_pipeline::round_robin(std::vector<data_pipeline> pipelines)
+{
+    bool is_broken = std::any_of(
+        pipelines.begin(), pipelines.end(), [](const data_pipeline &pipeline)
+        {
+            return pipeline.is_broken();
+        });
+
+    if (is_broken)
+        throw_<std::invalid_argument>(
+            "At least one of the specified data pipelines is broken and cannot be used in round robin.");
+
+    auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
+
+    auto factory = [tmp]() mutable
+    {
+        return std::make_unique<round_robin_data_source>(std::move(*tmp));
+    };
+
+    return data_pipeline_builder{std::move(factory)};
+}
+
+data_pipeline_builder
 data_pipeline_builder::bucket(std::size_t bucket_size, bool drop_remainder) &&
 {
     if (bucket_size == 0)
@@ -283,68 +344,6 @@ data_pipeline_builder::yield_from(yield_fn fn) &&
     return std::move(*this);
 }
 
-data_pipeline_builder
-data_pipeline::zip(
-    std::vector<data_pipeline> pipelines,
-    std::optional<std::vector<std::string>> names,
-    bool flatten,
-    bool warn_only,
-    bool disable_parallelism)
-{
-    if (names && !names->empty() && flatten)
-        throw_<std::invalid_argument>(
-            "`names` and `flatten` are mutually exclusive and cannot be specified at the same time.");
-
-    if (names)
-        if (pipelines.size() != names->size())
-            throw_<std::invalid_argument>(
-                "The number of `pipelines` and the number of `names` must be equal, but are {} and {} instead.", pipelines.size(), names->size());
-
-    bool is_broken = std::any_of(
-        pipelines.begin(), pipelines.end(), [](const data_pipeline &pipeline)
-        {
-            return pipeline.is_broken();
-        });
-
-    if (is_broken)
-        throw_<std::invalid_argument>(
-            "At least one of the specified data pipelines is broken and cannot be zipped.");
-
-    auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
-
-    auto factory = [
-        names = std::move(names), tmp, flatten, warn_only, disable_parallelism]() mutable
-    {
-        return std::make_unique<zip_data_source>(
-            std::move(*tmp), std::move(names), flatten, warn_only, disable_parallelism);
-    };
-
-    return data_pipeline_builder{std::move(factory)};
-}
-
-data_pipeline_builder
-data_pipeline::round_robin(std::vector<data_pipeline> pipelines)
-{
-    bool is_broken = std::any_of(
-        pipelines.begin(), pipelines.end(), [](const data_pipeline &pipeline)
-        {
-            return pipeline.is_broken();
-        });
-
-    if (is_broken)
-        throw_<std::invalid_argument>(
-            "At least one of the specified data pipelines is broken and cannot be used in round robin.");
-
-    auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
-
-    auto factory = [tmp]() mutable
-    {
-        return std::make_unique<round_robin_data_source>(std::move(*tmp));
-    };
-
-    return data_pipeline_builder{std::move(factory)};
-}
-
 data_pipeline
 data_pipeline_builder::and_return() &&
 {
@@ -359,14 +358,14 @@ data_pipeline_builder::and_return() &&
 data_pipeline_error::~data_pipeline_error() = default;
 
 data_pipeline_builder
-list_files(std::string pathname, std::optional<std::string> pattern)
+list_files(std::string pathname, std::optional<std::string> maybe_pattern)
 {
-    auto factory = [pathname = std::move(pathname), pattern = std::move(pattern)]
+    auto factory = [pathname = std::move(pathname), maybe_pattern = std::move(maybe_pattern)]
     {
         data_list list{};
 
         try {
-            list = detail::list_files(pathname, pattern);
+            list = detail::list_files(pathname, maybe_pattern);
         } catch (const std::system_error &) {
             throw_with_nested<data_pipeline_error>(
                 "The list of files under '{}' cannot be retrieved.", pathname);

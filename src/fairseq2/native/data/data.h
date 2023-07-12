@@ -21,6 +21,7 @@
 
 #include "fairseq2/native/api.h"
 #include "fairseq2/native/float.h"
+#include "fairseq2/native/fmt.h"
 #include "fairseq2/native/memory.h"
 #include "fairseq2/native/data/immutable_string.h"
 #include "fairseq2/native/data/py.h"
@@ -368,7 +369,10 @@ using data_list = std::vector<data>;
 
 using data_dict = flat_hash_map<std::string, data>;
 
-FAIRSEQ2_API std::string
-repr(data_type dt);
+template <>
+struct FAIRSEQ2_API repr<data_type> {
+    std::string
+    operator()(data_type dt) const;
+};
 
 }  // namespace fairseq2

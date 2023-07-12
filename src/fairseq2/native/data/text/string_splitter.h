@@ -18,8 +18,7 @@ namespace fairseq2 {
 class FAIRSEQ2_API string_splitter final {
 public:
     explicit
-    string_splitter(
-        char separator = '\t', std::optional<std::vector<std::string>> names = {}) noexcept;
+    string_splitter(char separator = '\t', std::vector<std::string> names = {}) noexcept;
 
     data
     operator()(data &&d) const;

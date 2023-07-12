@@ -59,6 +59,10 @@ public:
     static sp_model
     from_serialized(std::string_view serialized);
 
+private:
+    explicit
+    sp_model(std::unique_ptr<detail::sp_processor> &&processor) noexcept;
+
 public:
     explicit
     sp_model(std::string_view pathname, sp_model_options opts = {});
@@ -94,10 +98,6 @@ public:
 
     std::string
     serialize() const;
-
-private:
-    explicit
-    sp_model(std::unique_ptr<detail::sp_processor> &&processor) noexcept;
 
 private:
     std::unique_ptr<detail::sp_processor> processor_;

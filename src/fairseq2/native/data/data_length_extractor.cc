@@ -21,6 +21,12 @@ using namespace fairseq2::detail;
 
 namespace fairseq2 {
 
+data_length_extractor::data_length_extractor(std::optional<std::string> maybe_selector)
+{
+    if (maybe_selector)
+        maybe_selector_ = element_selector{*std::move(maybe_selector)};
+}
+
 std::size_t
 data_length_extractor::operator()(const data &d) const
 {
@@ -35,7 +41,7 @@ data_length_extractor::operator()(const data &d) const
         if (element.is_list())
             return element.as_list().size();
 
-        if (selector_)
+        if (maybe_selector_)
             throw_<std::invalid_argument>(
                 "The element at '{}' in the input data must be of type `int`, `list`, or `torch.Tensor` to determine its length, but is of type `{}` instead.", path, element.type());
         else
@@ -43,15 +49,16 @@ data_length_extractor::operator()(const data &d) const
                 "The input data must be of type `int`, `list`, or `torch.Tensor` to determine its length, but is of type `{}` instead.", element.type());
     };
 
-    if (!selector_)
+    if (!maybe_selector_)
         return extract_length(d);
 
     std::size_t data_length = 0;
 
-    selector_->visit(d, [&data_length, &extract_length](const data &element, element_path_ref path)
-    {
-        data_length = std::max(data_length, extract_length(element, path));
-    });
+    maybe_selector_->visit(
+        d, [&data_length, &extract_length](const data &element, element_path_ref path)
+        {
+            data_length = std::max(data_length, extract_length(element, path));
+        });
 
     return data_length;
 }

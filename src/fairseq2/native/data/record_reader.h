@@ -47,7 +47,7 @@ private:
     load_next_record();
 
     virtual std::optional<std::size_t>
-    find_record_end(memory_span chunk, bool first_chunk) = 0;
+    maybe_find_record_end(memory_span chunk, bool first_chunk) = 0;
 
     memory_block
     extract_record();

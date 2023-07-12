@@ -57,7 +57,7 @@ make_fts(const std::string &pathname)
 }  // namespace
 
 data_list
-list_files(const std::string &pathname, const std::optional<std::string> &pattern)
+list_files(const std::string &pathname, const std::optional<std::string> &maybe_pattern)
 {
     auto fts = make_fts(pathname);
 
@@ -76,8 +76,8 @@ list_files(const std::string &pathname, const std::optional<std::string> &patter
         if (!S_ISREG(ent->fts_statp->st_mode) && !S_ISBLK(ent->fts_statp->st_mode))
             continue;
 
-        if (pattern && !pattern->empty()) {
-            int result = ::fnmatch(pattern->c_str(), ent->fts_accpath, 0);
+        if (maybe_pattern) {
+            int result = ::fnmatch(maybe_pattern->c_str(), ent->fts_accpath, 0);
 
             if (result == FNM_NOMATCH)
                 continue;

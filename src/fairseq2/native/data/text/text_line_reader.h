@@ -31,7 +31,7 @@ public:
 
 private:
     std::optional<std::size_t>
-    find_record_end(memory_span chunk, bool first_chunk) override;
+    maybe_find_record_end(memory_span chunk, bool first_chunk) override;
 
     bool
     infer_line_ending(span<const char> chars);

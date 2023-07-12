@@ -43,7 +43,7 @@ private:
     fill_buffer();
 
     std::optional<data>
-    invoke_function(data &&d);
+    invoke_function(data &&example);
 
 private:
     std::unique_ptr<data_source> inner_;

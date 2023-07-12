@@ -12,7 +12,7 @@
 namespace fairseq2::detail {
 
 std::optional<std::size_t>
-text_line_reader::find_record_end(memory_span chunk, bool)
+text_line_reader::maybe_find_record_end(memory_span chunk, bool)
 {
     auto chars = cast<const char>(chunk);
 

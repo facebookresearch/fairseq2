@@ -143,7 +143,7 @@ encoder_op::run() &&
             tensor_data[i++] = suffix_idx;
     }
 
-    at::Device device = encoder_->opts_.device().value_or(at::kCPU);
+    at::Device device = encoder_->opts_.maybe_device().value_or(at::kCPU);
     if (device != at::kCPU)
         tensor_ = tensor_.to(device);
 

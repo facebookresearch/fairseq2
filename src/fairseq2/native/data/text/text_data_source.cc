@@ -91,10 +91,10 @@ text_data_source::make_text_line_reader()
 {
     constexpr std::size_t min_chunk_size = 0x0400; // 1 KiB
 
-    std::size_t chunk_size = opts_.block_size().value_or(0x0800'0000); // 128 MiB
+    std::size_t chunk_size = opts_.maybe_block_size().value_or(0x0800'0000); // 128 MiB
 
-    auto opts = text_file_options(opts_.encoding())
-        .memory_map(opts_.memory_map()).block_size(std::max(chunk_size, min_chunk_size));
+    auto opts = text_file_options(opts_.maybe_encoding())
+        .memory_map(opts_.memory_map()).maybe_block_size(std::max(chunk_size, min_chunk_size));
 
     std::unique_ptr<byte_stream> stream = open_file(pathname_, opts);
 

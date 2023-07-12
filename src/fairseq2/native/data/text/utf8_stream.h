@@ -25,7 +25,7 @@ public:
     explicit
     utf8_stream(
         std::unique_ptr<byte_stream> &&inner,
-        std::optional<std::string> encoding,
+        std::optional<std::string> maybe_encoding,
         std::size_t chunk_size) noexcept;
 
     utf8_stream(const utf8_stream &) = delete;

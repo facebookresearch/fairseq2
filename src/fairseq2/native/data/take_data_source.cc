@@ -14,11 +14,11 @@ take_data_source::next()
     if (num_examples_read_ == num_examples_)
         return std::nullopt;
 
-    std::optional<data> d = inner_->next();
-    if (d)
+    std::optional<data> maybe_example = inner_->next();
+    if (maybe_example)
         num_examples_read_++;
 
-    return d;
+    return maybe_example;
 }
 
 void

@@ -24,6 +24,9 @@ public:
     static std::unique_ptr<sp_processor>
     from_serialized(std::string_view serialized);
 
+private:
+    sp_processor(std::unique_ptr<sentencepiece::ModelProto> &&proto);
+
 public:
     explicit
     sp_processor(std::string_view model_pathname, sp_model_options &&opts);
@@ -45,9 +48,6 @@ public:
 
     std::string
     serialize() const;
-
-private:
-    sp_processor(std::unique_ptr<sentencepiece::ModelProto> &&proto);
 
 public:
     std::int32_t unk_idx;

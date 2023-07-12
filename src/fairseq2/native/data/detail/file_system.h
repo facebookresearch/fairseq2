@@ -15,6 +15,6 @@
 namespace fairseq2::detail {
 
 data_list
-list_files(const std::string &pathname, const std::optional<std::string> &pattern);
+list_files(const std::string &pathname, const std::optional<std::string> &maybe_pattern);
 
 }

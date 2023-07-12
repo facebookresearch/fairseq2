@@ -24,8 +24,7 @@ class FAIRSEQ2_API string_to_tensor_converter final {
 public:
     explicit
     string_to_tensor_converter(
-        std::optional<std::vector<std::int64_t>> size = {},
-        std::optional<at::ScalarType> dtype = {});
+        std::vector<std::int64_t> size = {}, std::optional<at::ScalarType> maybe_dtype = {});
 
     data
     operator()(data &&d) const;
@@ -36,7 +35,7 @@ private:
     fill_storage(at::Tensor &tensor, const std::vector<immutable_string> &strings) const;
 
 private:
-    std::optional<std::vector<std::int64_t>> size_;
+    std::vector<std::int64_t> size_;
     at::ScalarType dtype_;
 };
 

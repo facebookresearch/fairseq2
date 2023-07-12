@@ -35,11 +35,15 @@ def_text_converters(py::module_ &text_module)
     // StrSplitter
     py::class_<string_splitter, std::shared_ptr<string_splitter>>(m, "StrSplitter")
         .def(
-            py::init([](std::string_view sep, std::optional<std::vector<std::string>> names)
+            py::init([](std::string_view sep, std::optional<std::vector<std::string>> maybe_names)
             {
                 if (sep.size() != 1)
                     throw_<std::invalid_argument>(
                         "`sep` must be of length 1, but is of length {} instead.", sep.size());
+
+                std::vector<std::string> names{};
+                if (maybe_names)
+                    names = *std::move(maybe_names);
 
                 return string_splitter{sep[0], std::move(names)};
             }),
@@ -58,7 +62,16 @@ def_text_converters(py::module_ &text_module)
         string_to_tensor_converter,
         std::shared_ptr<string_to_tensor_converter>>(m, "StrToTensorConverter")
         .def(
-            py::init<std::optional<std::vector<std::int64_t>>, std::optional<at::ScalarType>>(),
+            py::init([](
+                std::optional<std::vector<std::int64_t>> maybe_size,
+                std::optional<at::ScalarType> maybe_dtype)
+            {
+                std::vector<std::int64_t> size{};
+                if (maybe_size)
+                    size = *std::move(maybe_size);
+
+                return string_to_tensor_converter{std::move(size), maybe_dtype};
+            }),
             py::arg("size") = std::nullopt,
             py::arg("dtype") = std::nullopt)
         .def(

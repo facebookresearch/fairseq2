@@ -31,22 +31,22 @@ def_text_reader(py::module_ &text_module)
         "read_text",
         [](
             std::string pathname,
-            std::optional<std::string> encoding,
+            std::optional<std::string> maybe_encoding,
             line_ending le,
             bool ltrim,
             bool rtrim,
             bool skip_empty,
             bool memory_map,
-            std::optional<std::size_t> block_size)
+            std::optional<std::size_t> maybe_block_size)
         {
             auto opts = text_options()
-                .encoding(std::move(encoding))
+                .maybe_encoding(std::move(maybe_encoding))
                 .line_ending(le)
                 .ltrim(ltrim)
                 .rtrim(rtrim)
                 .skip_empty(skip_empty)
                 .memory_map(memory_map)
-                .block_size(block_size);
+                .maybe_block_size(maybe_block_size);
 
             return read_text(std::move(pathname), std::move(opts));
         },

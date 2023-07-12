@@ -55,50 +55,50 @@ public:
     }
 
     file_options
-    block_size(std::optional<std::size_t> value) && noexcept
+    maybe_block_size(std::optional<std::size_t> value) && noexcept
     {
-        block_size_ = value;
+        maybe_block_size_ = value;
 
         return std::move(*this);
     }
 
     std::optional<std::size_t>
-    block_size() const noexcept
+    maybe_block_size() const noexcept
     {
-        return block_size_;
+        return maybe_block_size_;
     }
 
     file_options
-    text_encoding(std::optional<std::string> value) && noexcept
+    maybe_text_encoding(std::optional<std::string> value) && noexcept
     {
-        text_encoding_ = std::move(value);
+        maybe_text_encoding_ = std::move(value);
 
         return std::move(*this);
     }
 
     const std::optional<std::string> &
-    text_encoding() const noexcept
+    maybe_text_encoding() const noexcept
     {
-        return text_encoding_;
+        return maybe_text_encoding_;
     }
 
 private:
     file_mode mode_ = file_mode::binary;
     bool memory_map_ = false;
-    std::optional<std::size_t> block_size_{};
-    std::optional<std::string> text_encoding_{};
+    std::optional<std::size_t> maybe_block_size_{};
+    std::optional<std::string> maybe_text_encoding_{};
 };
 
 inline file_options
-text_file_options(std::optional<std::string> text_encoding = {}) noexcept
+text_file_options(std::optional<std::string> maybe_text_encoding = {}) noexcept
 {
-    return file_options().mode(file_mode::text).text_encoding(std::move(text_encoding));
+    return file_options().mode(file_mode::text).maybe_text_encoding(std::move(maybe_text_encoding));
 }
 
 FAIRSEQ2_API std::unique_ptr<byte_stream>
 open_file(const std::string &pathname, const file_options &opts = {});
 
 FAIRSEQ2_API memory_block
-memory_map_file(const std::string &pathname, bool sequential = false);
+memory_map_file(const std::string &pathname, bool hint_sequential = false);
 
 }  // namespace fairseq2

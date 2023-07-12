@@ -37,10 +37,10 @@ round_robin_data_source::next()
     // One or more data pipelines might be empty, so we have to check if a
     // buffered example has a value before returning it.
     for (; !output && buffer_idx_ < buffer_.size(); buffer_idx_++) {
-        std::optional<data> &d = buffer_[buffer_idx_];
-        if (d)
+        std::optional<data> &maybe_example = buffer_[buffer_idx_];
+        if (maybe_example)
             // Fill the position with the next round's example.
-            output = std::exchange(d, next_in_pipeline(buffer_idx_));
+            output = std::exchange(maybe_example, next_in_pipeline(buffer_idx_));
     }
 
     if (buffer_idx_ == buffer_.size())
@@ -96,19 +96,19 @@ round_robin_data_source::reload_position(tape &t)
 std::optional<data>
 round_robin_data_source::next_in_pipeline(std::size_t pipeline_idx)
 {
-    data_pipeline &p = pipelines_[pipeline_idx];
+    data_pipeline &pipeline = pipelines_[pipeline_idx];
 
-    std::optional<data> d = p.next();
-    if (!d) {
+    std::optional<data> maybe_example = pipeline.next();
+    if (!maybe_example) {
         is_epoch_done_[pipeline_idx] = true;
 
-        p.reset();
+        pipeline.reset();
 
         // Circle back to the first example.
-        d = p.next();
+        maybe_example = pipeline.next();
     }
 
-    return d;
+    return maybe_example;
 }
 
 }  // namespace fairseq2::detail

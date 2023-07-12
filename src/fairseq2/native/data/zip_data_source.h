@@ -20,7 +20,7 @@ public:
     explicit
     zip_data_source(
         std::vector<data_pipeline> &&pipelines,
-        std::optional<std::vector<std::string>> &&names,
+        std::vector<std::string> &&names,
         bool flatten,
         bool warn_only,
         bool disable_parallelism) noexcept;

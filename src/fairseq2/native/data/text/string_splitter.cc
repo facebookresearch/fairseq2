@@ -16,13 +16,9 @@ using namespace fairseq2::detail;
 
 namespace fairseq2 {
 
-string_splitter::string_splitter(
-    char separator, std::optional<std::vector<std::string>> names) noexcept
-  : separator_{separator}
-{
-    if (names)
-        names_ = *std::move(names);
-}
+string_splitter::string_splitter(char separator, std::vector<std::string> names) noexcept
+  : separator_{separator}, names_(std::move(names))
+{}
 
 data
 string_splitter::operator()(data &&d) const

@@ -23,11 +23,11 @@ bucket_data_source::next()
     output.reserve(bucket_size_);
 
     for (std::size_t i = 0; i < bucket_size_; ++i) {
-        std::optional<data> d = inner_->next();
-        if (!d)
+        std::optional<data> maybe_example = inner_->next();
+        if (!maybe_example)
             break;
 
-        output.push_back(*std::move(d));
+        output.push_back(*std::move(maybe_example));
     }
 
     if (output.empty())

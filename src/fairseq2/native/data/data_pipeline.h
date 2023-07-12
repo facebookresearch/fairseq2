@@ -31,6 +31,12 @@ class data_pipeline_builder;
 class FAIRSEQ2_API data_pipeline {
     friend class data_pipeline_builder;
 
+private:
+    explicit
+    data_pipeline(data_source_factory &&factory) noexcept
+      : factory_{std::move(factory)}
+    {}
+
 public:
     data_pipeline() noexcept = default;
 
@@ -52,24 +58,7 @@ public:
         return is_broken_;
     }
 
-public:
-    static data_pipeline_builder
-    zip(
-        std::vector<data_pipeline> pipelines,
-        std::optional<std::vector<std::string>> names = {},
-        bool flatten = false,
-        bool warn_only = false,
-        bool disable_parallelism = false);
-
-    static data_pipeline_builder
-    round_robin(std::vector<data_pipeline> pipelines);
-
 private:
-    explicit
-    data_pipeline(data_source_factory &&factory) noexcept
-      : factory_{std::move(factory)}
-    {}
-
     bool
     is_initialized() const noexcept;
 
@@ -81,6 +70,18 @@ private:
 
     [[noreturn]] static void
     throw_broken();
+
+public:
+    static data_pipeline_builder
+    zip(
+        std::vector<data_pipeline> pipelines,
+        std::vector<std::string> names = {},
+        bool flatten = false,
+        bool warn_only = false,
+        bool disable_parallelism = false);
+
+    static data_pipeline_builder
+    round_robin(std::vector<data_pipeline> pipelines);
 
 private:
     data_source_factory factory_{};
@@ -155,8 +156,8 @@ private:
 class FAIRSEQ2_API data_pipeline_error : public std::runtime_error {
 public:
     explicit
-    data_pipeline_error(const std::string &message, std::optional<data> example = {}) noexcept
-      : std::runtime_error{message}, example_{std::move(example)}
+    data_pipeline_error(const std::string &message, std::optional<data> maybe_example = {}) noexcept
+      : std::runtime_error{message}, maybe_example_{std::move(maybe_example)}
     {}
 
     data_pipeline_error(const data_pipeline_error &) = default;
@@ -165,17 +166,17 @@ public:
    ~data_pipeline_error() override;
 
     const std::optional<data> &
-    example() const noexcept
+    maybe_example() const noexcept
     {
-        return example_;
+        return maybe_example_;
     }
 
 private:
-    std::optional<data> example_{};
+    std::optional<data> maybe_example_{};
 };
 
 FAIRSEQ2_API data_pipeline_builder
-list_files(std::string pathname, std::optional<std::string> pattern = {});
+list_files(std::string pathname, std::optional<std::string> maybe_pattern = {});
 
 FAIRSEQ2_API data_pipeline_builder
 read_list(data_list list);

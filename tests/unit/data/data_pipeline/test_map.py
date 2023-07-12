@@ -97,17 +97,6 @@ class TestMapOp:
 
             pipeline.reset()
 
-    def test_op_works_when_selector_is_empty(self) -> None:
-        def fn(d: int) -> int:
-            return d + 10
-
-        pipeline = read_sequence([1, 2, 3]).map(fn, selector="").and_return()
-
-        for _ in range(2):
-            list(pipeline) == [11, 12, 13]
-
-            pipeline.reset()
-
     def test_op_works_when_selector_is_basic(self) -> None:
         def fn1(d: int) -> int:
             return d + 10
@@ -222,6 +211,8 @@ class TestMapOp:
     @pytest.mark.parametrize(
         "s",
         [
+            "",
+            "  ",
             ".",
             "foo.",
             "foo[[0]",

@@ -25,15 +25,15 @@ public:
 
     template <typename T>
     void
-    record(const T &d);
+    record(const T &value);
 
     template <typename T>
     void
-    record(const std::vector<T> &d);
+    record(const std::vector<T> &value);
 
     template <typename T>
     void
-    record(const std::optional<T> &d);
+    record(const std::optional<T> &maybe_value);
 
     void
     record_data(const data &d);

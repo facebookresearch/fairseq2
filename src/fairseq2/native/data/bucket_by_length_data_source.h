@@ -40,10 +40,6 @@ public:
     reload_position(tape &t) override;
 
 private:
-    std::optional<std::size_t>
-    determine_data_length(const data &d);
-
-private:
     std::unique_ptr<data_source> inner_;
     std::vector<std::pair<std::size_t, std::size_t>> bucket_sizes_;
     std::size_t max_data_length_;

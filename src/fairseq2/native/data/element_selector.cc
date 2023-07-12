@@ -6,6 +6,7 @@
 
 #include "fairseq2/native/data/element_selector.h"
 
+#include <algorithm>
 #include <cctype>
 #include <stdexcept>
 
@@ -18,28 +19,24 @@
 using namespace fairseq2::detail;
 
 namespace fairseq2 {
-namespace detail {
 
-element_selector::element_selector(std::string_view selector)
+element_selector::element_selector(std::string selector)
+  : str_{std::move(selector)}
 {
-    std::string_view trimmed_selector = trim(selector);
-    if (trimmed_selector.empty())
-        return;
-
     // The selector might contain one or more paths separated by comma.
-    auto parse_next_path = [this, selector](
+    auto parse_next_path = [this](
         std::string_view remaining_paths) -> std::optional<std::string_view>
     {
         std::size_t comma_idx = remaining_paths.find_first_of(',');
 
-        std::optional<element_path> parsed_path = maybe_parse_path(
+        std::optional<element_path> maybe_parsed_path = maybe_parse_path(
             /*path=*/remaining_paths.substr(0, comma_idx));
 
-        if (!parsed_path)
+        if (!maybe_parsed_path)
             throw_<std::invalid_argument>(
-                "`selector` must contain one or more well-formatted element paths, but is '{}' instead.", selector);
+                "`selector` must contain one or more well-formatted element paths, but is '{}' instead.", str_);
 
-        paths_.push_back(*std::move(parsed_path));
+        paths_.push_back(*std::move(maybe_parsed_path));
 
         // We have reached the end of the selector string.
         if (comma_idx == std::string_view::npos)
@@ -48,28 +45,9 @@ element_selector::element_selector(std::string_view selector)
         return remaining_paths.substr(comma_idx + 1);
     };
 
-    std::optional<std::string_view> remaining_paths = trimmed_selector;
-    while (remaining_paths)
-        remaining_paths = parse_next_path(*remaining_paths);
-}
-
-void
-element_selector::visit(data &d, const std::function<void(data &, element_path_ref)> &visitor) const
-{
-    auto const_visitor = [&visitor](const data &element, element_path_ref path)
-    {
-        visitor(const_cast<data &>(element), path); // NOLINT(cppcoreguidelines-pro-type-const-cast)
-    };
-
-    visit(static_cast<const data &>(d), const_visitor);
-}
-
-void
-element_selector::visit(
-    const data &d, const std::function<void(const data &, element_path_ref)> &visitor) const
-{
-    for (const element_path &path : paths_)
-        visit(d, visitor, path);
+    std::optional<std::string_view> maybe_remaining_paths = str_;
+    while (maybe_remaining_paths)
+        maybe_remaining_paths = parse_next_path(*maybe_remaining_paths);
 }
 
 std::optional<element_path>
@@ -173,53 +151,93 @@ element_selector::maybe_parse_path(std::string_view path)
     return output;
 }
 
-void
-element_selector::visit(
-    const data &d,
-    const std::function<void(const data &, element_path_ref)> &visitor,
-    const element_path &path)
+bool
+element_selector::matches(element_path_ref path) const
 {
-    const data *node = &d;
+    auto matches_path = [&path](const element_path &p)
+    {
+        if (p.size() != path.size())
+            return false;
+
+        for (std::size_t i = 0; i < p.size(); ++i)
+            if (p[i] != path[i])
+                return false;
+
+        return true;
+    };
+
+    return std::any_of(paths_.begin(), paths_.end(), matches_path);
+}
+
+void
+element_selector::visit(data &d, const visitor_fn &visitor) const
+{
+    for (const element_path &path : paths_)
+        if (!visit(d, path, visitor))
+            throw_<std::invalid_argument>(
+                "The input data does not have an element at path '{}'.", path);
+}
+
+void
+element_selector::visit(const data &d, const const_visitor_fn &visitor) const {
+    for (const element_path &path : paths_)
+        if (!visit(d, path, visitor))
+            throw_<std::invalid_argument>(
+                "The input data does not have an element at path '{}'.", path);
+}
+
+bool
+element_selector::visit(data &d, element_path_ref path, const visitor_fn &visitor)
+{
+    return visit<data>(d, path, visitor);
+}
+
+bool
+element_selector::visit(const data &d, element_path_ref path, const const_visitor_fn &visitor)
+{
+    return visit<const data>(d, path, visitor);
+}
+
+template <typename T>
+bool
+element_selector::visit(
+    T &d, element_path_ref path, const std::function<void(T &, element_path_ref)> &visitor)
+{
+    T *element = &d;
 
     for (const element_path_segment &segment : path) {
         if (std::holds_alternative<std::string>(segment)) {
-            if (!node->is_dict())
-                throw_invalid_path(path);
+            if (!element->is_dict())
+                return false;
 
-            auto &dict = node->as_dict();
+            auto &dict = element->as_dict();
 
             auto dict_entry = dict.find(std::get<std::string>(segment));
             if (dict_entry == dict.end())
-                throw_invalid_path(path);
+                return false;
 
-            node = &dict_entry->second;
+            element = &dict_entry->second;
         } else {
-            if (!node->is_list())
-                throw_invalid_path(path);
+            if (!element->is_list())
+                return false;
 
-            auto &list = node->as_list();
+            auto &list = element->as_list();
 
             auto idx = std::get<std::size_t>(segment);
             if (idx >= list.size())
-                throw_invalid_path(path);
+                return false;
 
-            node = &list[idx];
+            element = &list[idx];
         }
     }
 
-    visitor(*node, path);
-}
+    visitor(*element, path);
 
-void
-element_selector::throw_invalid_path(element_path_ref path)
-{
-    throw_<std::invalid_argument>("The input data does not have an element at path '{}'.", path);
+    return true;
 }
-
-}  // namespace detail
 
 std::string
-repr(element_path_ref path)
+repr<element_path_ref>::operator()(element_path_ref path) const
 {
     std::string output{};
 

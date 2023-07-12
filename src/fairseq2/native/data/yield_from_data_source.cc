@@ -15,19 +15,19 @@ namespace fairseq2::detail {
 std::optional<data>
 yield_from_data_source::next()
 {
-    std::optional<data> d{};
+    std::optional<data> maybe_example{};
 
-    while (!(d = data_pipeline_.next()))
+    while (!(maybe_example = data_pipeline_.next()))
         if (!load_next_data_pipeline())
             break;
 
-    return d;
+    return maybe_example;
 }
 
 void
 yield_from_data_source::reset()
 {
-    example_ = {};
+    maybe_current_example_ = {};
 
     data_pipeline_ = {};
 
@@ -37,9 +37,9 @@ yield_from_data_source::reset()
 void
 yield_from_data_source::record_position(tape &t) const
 {
-    t.record(example_);
+    t.record(maybe_current_example_);
 
-    if (example_)
+    if (maybe_current_example_)
         data_pipeline_.record_position(t);
 
     inner_->record_position(t);
@@ -48,12 +48,12 @@ yield_from_data_source::record_position(tape &t) const
 void
 yield_from_data_source::reload_position(tape &t)
 {
-    example_ = t.read<std::optional<data>>();
+    maybe_current_example_ = t.read<std::optional<data>>();
 
-    if (example_) {
+    if (maybe_current_example_) {
         // The assumption we make is that the recorded example will fully
         // reconstruct the original yielded-from data pipeline.
-        data_pipeline_ = invoke_function(*example_);
+        data_pipeline_ = invoke_function(*maybe_current_example_);
 
         // With that assumption, we restore the recorded state.
         data_pipeline_.reload_position(t);
@@ -67,25 +67,25 @@ yield_from_data_source::reload_position(tape &t)
 bool
 yield_from_data_source::load_next_data_pipeline()
 {
-    example_ = inner_->next();
+    maybe_current_example_ = inner_->next();
 
-    if (example_)
-        data_pipeline_ = invoke_function(*example_);
+    if (maybe_current_example_)
+        data_pipeline_ = invoke_function(*maybe_current_example_);
     else
         data_pipeline_ = {};
 
-    return example_.has_value();
+    return maybe_current_example_.has_value();
 }
 
 data_pipeline
-yield_from_data_source::invoke_function(data &d)
+yield_from_data_source::invoke_function(data &example)
 {
     try {
-        return yield_fn_(d);
+        return yield_fn_(example);
     } catch (const data_pipeline_error &) {
         throw;
     } catch (const std::exception &) {
-        throw_data_pipeline_error_with_nested(std::move(d),
+        throw_data_pipeline_error_with_nested(std::move(example),
             "The yield operation has failed. See nested exception for details.");
     }
 }

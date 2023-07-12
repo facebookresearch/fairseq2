@@ -24,17 +24,17 @@ enum class line_ending {
 class text_options {
 public:
     text_options
-    encoding(std::optional<std::string> value) && noexcept
+    maybe_encoding(std::optional<std::string> value) && noexcept
     {
-        encoding_ = std::move(value);
+        maybe_encoding_ = std::move(value);
 
         return std::move(*this);
     }
 
     const std::optional<std::string> &
-    encoding() const noexcept
+    maybe_encoding() const noexcept
     {
-        return encoding_;
+        return maybe_encoding_;
     }
 
     text_options
@@ -108,27 +108,27 @@ public:
     }
 
     text_options
-    block_size(std::optional<std::size_t> value) && noexcept
+    maybe_block_size(std::optional<std::size_t> value) && noexcept
     {
-        block_size_ = value;
+        maybe_block_size_ = value;
 
         return std::move(*this);
     }
 
     std::optional<std::size_t>
-    block_size() const noexcept
+    maybe_block_size() const noexcept
     {
-        return block_size_;
+        return maybe_block_size_;
     }
 
 private:
-    std::optional<std::string> encoding_{};
+    std::optional<std::string> maybe_encoding_{};
     fairseq2::line_ending line_ending_{};
     bool ltrim_ = false;
     bool rtrim_ = false;
     bool skip_empty_ = false;
     bool memory_map_ = false;
-    std::optional<std::size_t> block_size_{};
+    std::optional<std::size_t> maybe_block_size_{};
 };
 
 class data_pipeline_builder;

@@ -15,51 +15,77 @@
 #include <vector>
 
 #include "fairseq2/native/api.h"
+#include "fairseq2/native/fmt.h"
 #include "fairseq2/native/span.h"
 #include "fairseq2/native/data/data.h"
 
 namespace fairseq2 {
-namespace detail {
 
 using element_path_segment = std::variant<std::string, std::size_t>;
 
 using element_path = std::vector<element_path_segment>;
-
 using element_path_ref = span<const element_path_segment>;
 
 class FAIRSEQ2_API element_selector {
     enum class path_parser_state { parsing_key, parsing_index, parsed_index };
 
 public:
+    using visitor_fn = std::function<void(data &, element_path_ref)>;
+    using const_visitor_fn = std::function<void(const data &, element_path_ref)>;
+
+public:
     explicit
-    element_selector(std::string_view selector);
-
-    void
-    visit(data &d, const std::function<void(data &, element_path_ref)> &visitor) const;
-
-    void
-    visit(const data &d, const std::function<void(const data &, element_path_ref)> &visitor) const;
+    element_selector(std::string selector);
 
 private:
     static std::optional<element_path>
     maybe_parse_path(std::string_view path);
 
-    static void
-    visit(
-        const data &d,
-        const std::function<void(const data &, element_path_ref)> &visitor,
-        const element_path &path);
+public:
+    bool
+    matches(element_path_ref path) const;
 
-    [[noreturn]] static void
-    throw_invalid_path(element_path_ref path);
+    void
+    visit(data &d, const visitor_fn &visitor) const;
+
+    void
+    visit(const data &d, const const_visitor_fn &visitor) const;
+
+    static bool
+    visit(data &d, element_path_ref path, const visitor_fn &visitor);
+
+    static bool
+    visit(const data &d, element_path_ref path, const const_visitor_fn &visitor);
+
+    const std::string &
+    string_() const noexcept
+    {
+        return str_;
+    }
 
 private:
+    template <typename T>
+    static bool
+    visit(T &d, element_path_ref path, const std::function<void(T &, element_path_ref)> &visitor);
+
+private:
+    std::string str_;
     std::vector<element_path> paths_{};
 };
 
-}  // namespace detail
+template <>
+struct FAIRSEQ2_API repr<element_path_ref> {
+    std::string
+    operator()(element_path_ref path) const;
+};
 
-FAIRSEQ2_API std::string
-repr(detail::element_path_ref path);
+template <>
+struct repr<element_path> {
+    std::string
+    operator()(const element_path &path) const
+    {
+        return repr<element_path_ref>{}(path);
+    }
+};
 
 }  // namespace fairseq2

@@ -34,15 +34,15 @@ std::optional<data>
 map_data_source::next()
 {
     if (num_parallel_calls_ <= 1) {
-        std::optional<data> d{};
+        std::optional<data> maybe_example{};
 
-        while ((d = inner_->next())) {
-            d = invoke_function(*std::move(d));
-            if (d)
+        while ((maybe_example = inner_->next())) {
+            maybe_example = invoke_function(*std::move(maybe_example));
+            if (maybe_example)
                 break;
         }
 
-        return d;
+        return maybe_example;
     }
 
     do {
@@ -93,11 +93,11 @@ map_data_source::fill_buffer()
     buffer_.clear();
 
     for (std::size_t i = 0; i < num_parallel_calls_; i++) {
-        std::optional<data> d = inner_->next();
-        if (!d)
+        std::optional<data> maybe_example = inner_->next();
+        if (!maybe_example)
             break;
 
-        buffer_.push_back(std::move(d));
+        buffer_.push_back(std::move(maybe_example));
     }
 
     if (buffer_.empty())
@@ -124,10 +124,10 @@ map_data_source::fill_buffer()
 }
 
 std::optional<data>
-map_data_source::invoke_function(data &&d)
+map_data_source::invoke_function(data &&example)
 {
     try {
-        return map_fn_(std::move(d));
+        return map_fn_(std::move(example));
     } catch (const data_pipeline_error &) {
         if (!warn_only_)
             throw;

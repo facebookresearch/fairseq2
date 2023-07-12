@@ -15,7 +15,7 @@ using namespace fairseq2::detail;
 namespace fairseq2 {
 
 std::string
-repr(data_type dt)
+repr<data_type>::operator()(data_type dt) const
 {
     switch (dt) {
     case data_type::bool_:

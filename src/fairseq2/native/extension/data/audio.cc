@@ -26,12 +26,12 @@ def_audio(py::module_ &data_module)
     py::class_<audio_decoder, std::shared_ptr<audio_decoder>>(m, "AudioDecoder")
         .def(
             py::init([](
-                std::optional<at::ScalarType> dtype,
-                std::optional<at::Device> device,
+                std::optional<at::ScalarType> maybe_dtype,
+                std::optional<at::Device> maybe_device,
                 bool pin_memory)
             {
                 auto opts = audio_decoder_options()
-                    .dtype(dtype).device(device).pin_memory(pin_memory);
+                    .maybe_dtype(maybe_dtype).maybe_device(maybe_device).pin_memory(pin_memory);
 
                 return audio_decoder{opts};
             }),

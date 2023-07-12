@@ -32,21 +32,23 @@ bucket_by_length_data_source::bucket_by_length_data_source(
 std::optional<data>
 bucket_by_length_data_source::next()
 {
-    while (std::optional<data> d = inner_->next()) {
-        if (!d)
+    while (std::optional<data> maybe_example = inner_->next()) {
+        if (!maybe_example)
             break;
+
+        data &example = *maybe_example;
 
         std::size_t data_length{};
         try {
-            data_length = data_length_fn_(*d);
+            data_length = data_length_fn_(example);
         } catch (const std::invalid_argument &) {
-            throw_data_pipeline_error_with_nested(std::move(d),
+            throw_data_pipeline_error_with_nested(std::move(maybe_example),
                 "The length of the input data cannot be determined.");
         }
 
         if (data_length > max_data_length_) {
             if (!warn_only_)
-                throw_data_pipeline_error(std::move(d),
+                throw_data_pipeline_error(std::move(maybe_example),
                     "The length of the input data must be less than or equal to the maximum bucket data length ({}), but is {} instead.", max_data_length_, data_length);
 
             // TODO warn
@@ -54,7 +56,7 @@ bucket_by_length_data_source::next()
             continue;
         }
 
-        // Find the smallest bucket that would fit `d`, and return that bucket
+        // Find the smallest bucket that would fit `example`, and return that bucket
         // if it is full.
         for (std::size_t i = 0; i < buckets_.size(); i++) {
             auto [bucket_batch_size, bucket_data_length] = bucket_sizes_[i];
@@ -62,7 +64,7 @@ bucket_by_length_data_source::next()
             if (data_length <= bucket_data_length) {
                 data_list &bucket = buckets_[i];
 
-                bucket.push_back(*std::move(d));
+                bucket.push_back(std::move(example));
 
                 if (bucket.size() >= bucket_batch_size) {
                     data output = data{std::exchange(bucket, {})};

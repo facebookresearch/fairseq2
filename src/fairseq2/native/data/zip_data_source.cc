@@ -19,18 +19,16 @@ namespace fairseq2::detail {
 
 zip_data_source::zip_data_source(
     std::vector<data_pipeline> &&pipelines,
-    std::optional<std::vector<std::string>> &&names,
+    std::vector<std::string> &&names,
     bool flatten,
     bool warn_only,
     bool disable_parallelism) noexcept
   : pipelines_(std::move(pipelines)),
+    names_(std::move(names)),
     flatten_{flatten},
     warn_only_{warn_only},
     disable_parallelism_{disable_parallelism}
-{
-    if (names)
-        names_ = *std::move(names);
-}
+{}
 
 std::optional<data>
 zip_data_source::next()
@@ -48,9 +46,9 @@ zip_data_source::next()
     auto fetch_next = [this, &zip, &is_eod](const tbb::blocked_range<std::size_t> &range)
     {
         for (auto i = range.begin(); i < range.end(); ++i) {
-            std::optional<data> d = pipelines_[i].next();
-            if (d)
-                zip[i] = *std::move(d);
+            std::optional<data> maybe_example = pipelines_[i].next();
+            if (maybe_example)
+                zip[i] = *std::move(maybe_example);
             else
                 is_eod[i] = 1;
         }
@@ -113,11 +111,11 @@ zip_data_source::flatten_to_dict(data_list &zip) const
 {
     data_dict output{};
 
-    for (data &d : zip) {
+    for (data &example : zip) {
         // If the first pipeline has returned a `dict`, we expect all other
         // pipelines to return dicts as well.
-        if (d.is_dict())
-            for (auto &[key, value] : d.as_dict()) {
+        if (example.is_dict())
+            for (auto &[key, value] : example.as_dict()) {
                 // All keys in the flattened dict must be unique.
                 if (auto pos = output.find(key); pos != output.end()) {
                     if (!warn_only_)
@@ -150,10 +148,10 @@ zip_data_source::flatten_to_list(data_list &zip) const
 {
     data_list output{};
 
-    for (data &d : zip) {
+    for (data &example : zip) {
         // If the first pipeline has returned an example that is not `dict`, we
         // expect all other pipelines to return non-dicts as well.
-        if (d.is_dict()) {
+        if (example.is_dict()) {
             if (!warn_only_)
                 throw_data_pipeline_error(std::move(zip),
                     "The zipped data pipelines must all return only dicts, or only non-dicts when `flatten` is set.");
@@ -163,11 +161,11 @@ zip_data_source::flatten_to_list(data_list &zip) const
             return std::nullopt;
         }
 
-        if (d.is_list())
-            for (data &element : d.as_list())
+        if (example.is_list())
+            for (data &element : example.as_list())
                 output.push_back(std::move(element));
         else
-            output.push_back(std::move(d));
+            output.push_back(std::move(example));
     }
 
     return output;

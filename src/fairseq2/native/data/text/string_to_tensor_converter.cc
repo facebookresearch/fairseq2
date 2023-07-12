@@ -53,8 +53,8 @@ get_dtype_name()
 }  // namespace detail
 
 string_to_tensor_converter::string_to_tensor_converter(
-    std::optional<std::vector<std::int64_t>> size, std::optional<at::ScalarType> dtype)
-  : size_{std::move(size)}, dtype_{dtype.value_or(at::kInt)}
+    std::vector<std::int64_t> size, std::optional<at::ScalarType> maybe_dtype)
+  : size_{std::move(size)}, dtype_{maybe_dtype.value_or(at::kInt)}
 {
     if (!isIntegralType(dtype_, /*includeBool=*/false))
         throw_<not_supported_error>("Only integral types are supported.");
@@ -87,10 +87,10 @@ string_to_tensor_converter::operator()(data &&d) const
         fill_storage<scalar_t>(tensor, strings);
     });
 
-    if (size_)
-        tensor = tensor.view(*size_);
+    if (size_.empty())
+        return tensor;
 
-    return tensor;
+    return tensor.view(size_);
 }
 
 template <typename T>

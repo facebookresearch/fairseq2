@@ -8,7 +8,7 @@
 
 #include <cstddef>
 #include <optional>
-#include <string_view>
+#include <string>
 
 #include "fairseq2/native/api.h"
 #include "fairseq2/native/data/element_selector.h"
@@ -20,17 +20,13 @@ class data;
 class FAIRSEQ2_API data_length_extractor {
 public:
     explicit
-    data_length_extractor(std::optional<std::string_view> selector)
-    {
-        if (selector)
-            selector_ = detail::element_selector{*selector};
-    }
+    data_length_extractor(std::optional<std::string> maybe_selector);
 
     std::size_t
     operator()(const data &d) const;
 
 private:
-    std::optional<detail::element_selector> selector_{};
+    std::optional<element_selector> maybe_selector_{};
 };
 
 }  // namespace fairseq2

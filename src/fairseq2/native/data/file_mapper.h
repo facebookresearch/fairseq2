@@ -27,8 +27,8 @@ class FAIRSEQ2_API file_mapper {
 public:
     explicit
     file_mapper(
-        std::optional<std::string> root_dir,
-        std::optional<std::size_t> cached_fd_count = {}) noexcept;
+        std::optional<std::string> maybe_root_dir,
+        std::optional<std::size_t> maybe_cached_fd_count = {}) noexcept;
 
     data
     operator()(data &&d) const;

@@ -23,6 +23,17 @@ file_stream::file_stream(file_desc &&fd, std::string pathname, std::size_t chunk
     hint_sequential_file();
 }
 
+void
+file_stream::hint_sequential_file() noexcept
+{
+#ifdef __linux__
+    int result = ::posix_fadvise(fd_.get(), 0, 0, POSIX_FADV_SEQUENTIAL);
+    if (result != 0) {
+        // TODO: warn
+    }
+#endif
+}
+
 memory_block
 file_stream::read_chunk()
 {
@@ -65,17 +76,6 @@ file_stream::reset()
     }
 
     is_eod_ = false;
-}
-
-void
-file_stream::hint_sequential_file() noexcept
-{
-#ifdef __linux__
-    int result = ::posix_fadvise(fd_.get(), 0, 0, POSIX_FADV_SEQUENTIAL);
-    if (result != 0) {
-        // TODO: warn
-    }
-#endif
 }
 
 std::size_t

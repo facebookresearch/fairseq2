@@ -122,17 +122,17 @@ public:
     }
 
     sp_encoder_options
-    device(std::optional<at::Device> value) && noexcept
+    maybe_device(std::optional<at::Device> value) && noexcept
     {
-        device_ = value;
+        maybe_device_ = value;
 
         return std::move(*this);
     }
 
     std::optional<at::Device>
-    device() const noexcept
+    maybe_device() const noexcept
     {
-        return device_;
+        return maybe_device_;
     }
 
     sp_encoder_options
@@ -156,7 +156,7 @@ private:
     bool enable_sampling_{};
     std::int32_t nbest_size_ = -1;
     float32 alpha_ = 0.1F;
-    std::optional<at::Device> device_{};
+    std::optional<at::Device> maybe_device_{};
     bool pin_memory_ = false;
 };
 

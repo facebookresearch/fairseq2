@@ -14,7 +14,7 @@
 
 using namespace fairseq2::detail;
 
-TEST(test_lru_cache, add_and_get_if_work)
+TEST(test_lru_cache, add_and_maybe_get_work)
 {
     lru_cache<std::int32_t> cache{/*capacity=*/5};
 
@@ -25,7 +25,7 @@ TEST(test_lru_cache, add_and_get_if_work)
     cache.add("5", 5);
 
     // Mark 1 as the least-recently-used entry.
-    EXPECT_NE(cache.get_if("1"), nullptr);
+    EXPECT_NE(cache.maybe_get("1"), nullptr);
 
     EXPECT_EQ(cache.size(), 5);
 
@@ -34,24 +34,24 @@ TEST(test_lru_cache, add_and_get_if_work)
 
     EXPECT_EQ(cache.size(), 5);
 
-    EXPECT_EQ(cache.get_if("2"), nullptr);
+    EXPECT_EQ(cache.maybe_get("2"), nullptr);
 
     // Exceed capacity again; we expect 3 to be evicted.
     cache.add("7", 7);
 
     EXPECT_EQ(cache.size(), 5);
 
-    EXPECT_EQ(cache.get_if("3"), nullptr);
+    EXPECT_EQ(cache.maybe_get("3"), nullptr);
 
     // This time touch 4, and mark it as least-recently-used.
-    EXPECT_NE(cache.get_if("4"), nullptr);
+    EXPECT_NE(cache.maybe_get("4"), nullptr);
 
     // Exceed capacity again; we expect 5 to be evicted.
     cache.add("8", 8);
 
     EXPECT_EQ(cache.size(), 5);
 
-    EXPECT_EQ(cache.get_if("5"), nullptr);
+    EXPECT_EQ(cache.maybe_get("5"), nullptr);
 
     cache.clear();
 

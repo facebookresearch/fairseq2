@@ -20,6 +20,10 @@ sp_model::from_serialized(std::string_view serialized)
     return sp_model{std::move(processor)};
 }
 
+sp_model::sp_model(std::unique_ptr<sp_processor> &&processor) noexcept
+  : processor_{std::move(processor)}
+{}
+
 sp_model::sp_model(std::string_view pathname, sp_model_options opts)
 {
     processor_ = std::make_unique<sp_processor>(pathname, std::move(opts));
@@ -89,9 +93,5 @@ sp_model::serialize() const
 {
     return processor_->serialize();
 }
-
-sp_model::sp_model(std::unique_ptr<sp_processor> &&processor) noexcept
-  : processor_{std::move(processor)}
-{}
 
 }  // namespace fairseq2

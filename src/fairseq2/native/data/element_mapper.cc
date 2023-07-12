@@ -16,13 +16,19 @@ using namespace fairseq2::detail;
 
 namespace fairseq2 {
 
+element_mapper::element_mapper(map_fn fn, std::optional<std::string> maybe_selector)
+  : map_fn_{std::move(fn)}
+{
+    if (maybe_selector)
+        maybe_selector_ = element_selector{*std::move(maybe_selector)};
+}
 data
 element_mapper::operator()(data &&d)
 {
-    if (!selector_)
+    if (!maybe_selector_)
         return map_fn_(std::move(d));
 
-    selector_->visit(d, [this](data &element, element_path_ref path)
+    maybe_selector_->visit(d, [this](data &element, element_path_ref path)
     {
         try {
             element = map_fn_(std::move(element));

@@ -65,6 +65,12 @@ public:
     static sndfile
     from_memory(memory_block block);
 
+private:
+    explicit
+    sndfile(::SNDFILE *handle, ::SF_INFO audio_info, std::unique_ptr<vio_file> &&file) noexcept
+      : handle_{handle}, audio_info_{audio_info}, file_{std::move(file)}
+    {}
+
 public:
     sndfile() noexcept = default;
 
@@ -124,11 +130,6 @@ public:
     }
 
 private:
-    explicit
-    sndfile(::SNDFILE *handle, ::SF_INFO audio_info, std::unique_ptr<vio_file> &&file) noexcept
-      : handle_{handle}, audio_info_{audio_info}, file_{std::move(file)}
-    {}
-
     void
     check_handle()
     {

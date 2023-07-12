@@ -28,7 +28,7 @@ namespace fairseq2 {
 audio_decoder::audio_decoder(audio_decoder_options opts)
   : opts_{opts}
 {
-    at::ScalarType dtype = opts_.dtype().value_or(at::kFloat);
+    at::ScalarType dtype = opts_.maybe_dtype().value_or(at::kFloat);
     if (dtype != at::kFloat && dtype != at::kInt)
         throw_<not_supported_error>(
             "`audio_decoder` supports only `torch.float` and `torch.int` data types.");
@@ -57,7 +57,7 @@ audio_decoder::operator()(data &&d) const
             "The input audio cannot be decoded. See nested exception for details.");
     }
 
-    at::ScalarType dtype = opts_.dtype().value_or(at::kFloat);
+    at::ScalarType dtype = opts_.maybe_dtype().value_or(at::kFloat);
 
     at::Tensor tensor = at::empty({file.num_frames(), file.num_channels()},
         at::dtype(dtype).device(at::kCPU).pinned_memory(opts_.pin_memory()));
@@ -86,14 +86,14 @@ audio_decoder::operator()(data &&d) const
             "`audio_decoder` uses an unsupported data type. Please file a bug report.");
     };
 
-    at::Device device = opts_.device().value_or(at::kCPU);
+    at::Device device = opts_.maybe_device().value_or(at::kCPU);
     if (device != at::kCPU)
         tensor = tensor.to(device);
 
     // Pack audio, sample_rate, and format as output.
     data_dict output{{"sample_rate", file.sample_rate()}, {"format", file.format()}};
 
-    output["audio"] = std::move(tensor);
+    output.emplace("audio", std::move(tensor));
 
     return output;
 }

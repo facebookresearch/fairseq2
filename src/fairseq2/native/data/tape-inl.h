@@ -36,23 +36,23 @@ struct not_same {};
 
 template <typename T>
 inline void
-tape::record(const T &d)
+tape::record(const T &value)
 {
     // Treat `bool` specially to avoid ambiguity with integer types.
     if constexpr (std::is_same_v<T, bool>)
-        record_data(d);
+        record_data(value);
 
     // Convert all integer types to 64-bit.
     else if constexpr (std::is_integral_v<T>)
-        record_data(detail::conditional_cast<std::int64_t>(d));
+        record_data(detail::conditional_cast<std::int64_t>(value));
 
     // Convert all floating-point types to double precision.
     else if constexpr (std::is_floating_point_v<T>)
-        record_data(detail::conditional_cast<float64>(d));
+        record_data(detail::conditional_cast<float64>(value));
 
     // Otherwise, only allow types that are implicitly convertible to `data`.
     else if constexpr (std::is_convertible_v<T, data>)
-        record_data(detail::conditional_cast<data>(d));
+        record_data(detail::conditional_cast<data>(value));
     else
         static_assert(std::is_same_v<T, detail::not_same>,
             "T is an unsupported data type.");
@@ -60,26 +60,26 @@ tape::record(const T &d)
 
 template <typename T>
 inline void
-tape::record(const std::vector<T> &d)
+tape::record(const std::vector<T> &value)
 {
     if constexpr (std::is_same_v<T, data>) {
-        record_data(d);
+        record_data(value);
     } else {
-        record(d.size());
+        record(value.size());
 
-        for (const T &v : d)
-            record(v);
+        for (const T &element : value)
+            record(element);
     }
 }
 
 template <typename T>
 inline void
-tape::record(const std::optional<T> &d)
+tape::record(const std::optional<T> &maybe_value)
 {
-    if (d) {
+    if (maybe_value) {
         record_data(true);
 
-        record(*d);
+        record(maybe_value.value());
     } else
         record_data(false);
 }

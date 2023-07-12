@@ -38,12 +38,12 @@ private:
     load_next_data_pipeline();
 
     data_pipeline
-    invoke_function(data &d);
+    invoke_function(data &example);
 
 private:
     std::unique_ptr<data_source> inner_;
     yield_fn yield_fn_;
-    std::optional<data> example_{};
+    std::optional<data> maybe_current_example_{};
     data_pipeline data_pipeline_{};
 };
 

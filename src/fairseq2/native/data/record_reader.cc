@@ -46,12 +46,12 @@ record_reader::load_next_record()
 {
     record_length_ = 0;
 
-    std::optional<std::size_t> record_end_offset{};
+    std::optional<std::size_t> maybe_record_end_offset{};
 
     bool first_chunk = true;
 
     // Load and store memory chunks until we find the end of the next record.
-    while (!(record_end_offset = find_record_end(current_chunk_, first_chunk))) {
+    while (!(maybe_record_end_offset = maybe_find_record_end(current_chunk_, first_chunk))) {
         memory_block next_chunk = stream_->read_chunk();
         if (next_chunk.empty()) {
             // If `next_chunk` is empty and we don't have any partial record
@@ -74,10 +74,10 @@ record_reader::load_next_record()
         first_chunk = false;
     }
 
-    record_length_ += *record_end_offset;
+    record_length_ += *maybe_record_end_offset;
 
     // The distance to the end of the record within `current_chunk_`.
-    record_end_offset_ = *record_end_offset;
+    record_end_offset_ = *maybe_record_end_offset;
 
     return true;
 }
