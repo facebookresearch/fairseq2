@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import abstractmethod
-from typing import Optional
+from typing import Optional, Tuple
 
 from overrides import override
 from torch import Tensor
@@ -30,17 +30,18 @@ class DecoderModel(SequenceModel):
 
     @override
     def forward(self, batch: SequenceBatch) -> SequenceModelOutput:
-        return self.decode_and_project(batch.seqs, batch.seq_lens)
+        decoder_output, decoder_padding_mask = self.decode(batch.seqs, batch.seq_lens)
+
+        return self.project(decoder_output, decoder_padding_mask)
 
     @abstractmethod
-    def decode_and_project(
+    def decode(
         self,
         seqs: Tensor,
         seq_lens: Optional[Tensor],
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> SequenceModelOutput:
-        """Decode the specified sequences and produce logits for next-step
-        prediction.
+    ) -> Tuple[Tensor, Optional[Tensor]]:
+        """Decode the specified sequences.
 
         :param seqs:
             The sequences to decode. *Shape:* :math:`(N,S,*)`, where :math:`N`
@@ -52,6 +53,30 @@ class DecoderModel(SequenceModel):
             the batch size.
         :param state_bag:
             The state bag to use for incremental evaluation.
+
+        :returns:
+            - The decoder output. *Shape:* :math:`(N,S,M)`, where :math:`N` is
+              the batch size, :math:`S` is the target sequence length, and
+              :math:`M` is the dimensionality of the model.
+            - The float padding mask of the decoder output. *Shape:*
+              :math:`(N,S)`, where :math:`N` is the batch size and :math:`S` is
+              the target sequence length.
+        """
+
+    @abstractmethod
+    def project(
+        self, decoder_output: Tensor, decoder_padding_mask: Optional[Tensor]
+    ) -> SequenceModelOutput:
+        """Produce logits for next-step prediction.
+
+        :param decoder_output:
+            The decoder output. *Shape:* :math:`(N,S,M)`, where :math:`N` is the
+            batch size, :math:`S` is the sequence length, and :math:`M` is the
+            dimensionality of the model.
+        :param decoder_padding_mask:
+            The float padding mask of the decoder output. *Shape:*
+            :math:`(N,S)`, where :math:`N` is the batch size and :math:`S` is
+            the sequence length.
         """
 
     def extra_repr(self) -> str:

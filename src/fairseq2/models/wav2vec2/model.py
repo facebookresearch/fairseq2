@@ -126,9 +126,9 @@ class Wav2Vec2Model(Module):
         seqs, padding_mask, targets, temporal_mask = self.run_frontend(seqs, seq_lens)
 
         # TODO: Should pad for fp16?
-        seqs, _ = self.encoder(seqs, padding_mask)
+        encoder_output, _ = self.encoder(seqs, padding_mask)
 
-        return self.quantize_and_contrast(seqs, targets, temporal_mask)
+        return self.quantize_and_contrast(encoder_output, targets, temporal_mask)
 
     def run_frontend(
         self, seqs: Tensor, seq_lens: Optional[Tensor]

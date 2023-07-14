@@ -94,10 +94,23 @@ class W2VBertModel(Module):
             seqs, seq_lens
         )
 
+        w2v2_layer_output = None
+
+        def layer_output_hook(
+            layer_idx: int,
+            layer_output: Tensor,
+            layer_padding_mask: Optional[Tensor],
+            num_layers: int,
+        ) -> None:
+            nonlocal w2v2_layer_output
+
+            if layer_idx == num_layers - self.num_bert_encoder_layers - 1:
+                w2v2_layer_output = layer_output
+
         # TODO: Should we pad for fp16?
-        encoder_output, w2v2_layer_output = self.w2v2.encoder(
-            seqs, padding_mask, return_hidden=-self.num_bert_encoder_layers - 1
-        )
+        encoder_output, _ = self.w2v2.encoder(seqs, padding_mask, layer_output_hook)
+
+        assert w2v2_layer_output is not None
 
         w2v2_output = self.w2v2.quantize_and_contrast(
             w2v2_layer_output, targets, temporal_mask

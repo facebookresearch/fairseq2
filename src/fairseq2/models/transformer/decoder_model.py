@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Optional, final
+from typing import Optional, Tuple, final
 
 from overrides import override as finaloverride
 from torch import Tensor
@@ -60,12 +60,12 @@ class TransformerDecoderModel(DecoderModel):
         self.target_pad_idx = target_pad_idx
 
     @finaloverride
-    def decode_and_project(
+    def decode(
         self,
         seqs: Tensor,
         seq_lens: Optional[Tensor],
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> SequenceModelOutput:
+    ) -> Tuple[Tensor, Optional[Tensor]]:
         if state_bag is None:
             seqs = seqs[:, :-1]
 
@@ -74,8 +74,16 @@ class TransformerDecoderModel(DecoderModel):
 
         seqs, padding_mask = self.decoder_frontend(seqs, seq_lens, state_bag)
 
-        seqs, _ = self.decoder(seqs, padding_mask, state_bag=state_bag)
+        decoder_output, decoder_padding_mask = self.decoder(
+            seqs, padding_mask, state_bag
+        )
 
-        logits = self.final_proj(seqs)
+        return decoder_output, decoder_padding_mask
+
+    @finaloverride
+    def project(
+        self, decoder_output: Tensor, decoder_padding_mask: Optional[Tensor]
+    ) -> SequenceModelOutput:
+        logits = self.final_proj(decoder_output)
 
         return SequenceModelOutput(logits, self.target_pad_idx)

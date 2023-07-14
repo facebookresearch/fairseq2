@@ -169,7 +169,7 @@ class NllbBuilder:
             dtype=self.dtype,
         )
 
-        frontend = self.build_frontend(embed)
+        frontend = self.build_shared_frontend(embed)
 
         encoder = self.build_encoder()
         decoder = self.build_decoder()
@@ -180,7 +180,7 @@ class NllbBuilder:
             frontend, encoder, frontend, decoder, final_proj, self.config.pad_idx
         )
 
-    def build_frontend(self, embed: Embedding) -> TransformerFrontend:
+    def build_shared_frontend(self, embed: Embedding) -> TransformerFrontend:
         """Build a shared Transformer encoder/decoder front-end."""
         pos_encoder = SinusoidalPositionEncoder(
             self.config.model_dim,

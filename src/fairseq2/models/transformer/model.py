@@ -89,19 +89,19 @@ class TransformerModel(EncoderDecoderModel):
     ) -> Tuple[Tensor, Optional[Tensor]]:
         seqs, padding_mask = self.encoder_frontend(seqs, seq_lens)
 
-        seqs, _ = self.encoder(seqs, padding_mask)
+        encoder_output, padding_mask = self.encoder(seqs, padding_mask)
 
-        return seqs, padding_mask
+        return encoder_output, padding_mask
 
     @finaloverride
-    def decode_and_project(
+    def decode(
         self,
         seqs: Tensor,
         seq_lens: Optional[Tensor],
         encoder_output: Tensor,
         encoder_padding_mask: Optional[Tensor],
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> SequenceModelOutput:
+    ) -> Tuple[Tensor, Optional[Tensor]]:
         if state_bag is None:
             seqs = seqs[:, :-1]
 
@@ -110,15 +110,21 @@ class TransformerModel(EncoderDecoderModel):
 
         seqs, padding_mask = self.decoder_frontend(seqs, seq_lens, state_bag)
 
-        seqs, _ = self.decoder(
+        decoder_output, decoder_padding_mask = self.decoder(
             seqs,
             padding_mask,
             encoder_output,
             encoder_padding_mask,
-            state_bag=state_bag,
+            state_bag,
         )
 
-        logits = self.final_proj(seqs)
+        return decoder_output, decoder_padding_mask
+
+    @finaloverride
+    def project(
+        self, decoder_output: Tensor, decoder_padding_mask: Optional[Tensor]
+    ) -> SequenceModelOutput:
+        logits = self.final_proj(decoder_output)
 
         return SequenceModelOutput(logits, self.target_pad_idx)
 

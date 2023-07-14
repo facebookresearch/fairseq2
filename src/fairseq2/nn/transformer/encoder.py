@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import Iterable, Optional, Tuple, final
+from typing import Iterable, Optional, Protocol, Tuple, final
 
 from overrides import final as finaloverride
 from torch import Tensor
@@ -42,7 +42,7 @@ class TransformerEncoder(Module, ABC):
         self,
         seqs: Tensor,
         padding_mask: Optional[Tensor],
-        return_hidden: Optional[int] = None,
+        layer_output_hook: Optional["EncoderLayerOutputHook"] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         """
         :param seqs:
@@ -52,19 +52,41 @@ class TransformerEncoder(Module, ABC):
         :param padding_mask:
             The float padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where
             :math:`N` is the batch size and :math:`S` is the sequence length.
-        :param return_hidden:
-            If not ``None``, specifies the index of the encoder layer whose
-            output should be returned along with the encoder output.
+        :param layer_output_hook:
+            If not ``None``, it will be called with the output of each layer in
+            the encoder stack.
 
         :returns:
             - The encoder output. *Shape:* Same as ``seqs``.
-            - The output of the encoder layer specified by ``return_hidden``.
-              *Shape:* Same as ``seqs``.
+            - The float padding mask of the encoder output. *Shape:* Same as
+              ``padding_mask``.
         """
 
     def extra_repr(self) -> str:
         """:meta private:"""
         return f"model_dim={self.model_dim}"
+
+
+class EncoderLayerOutputHook(Protocol):
+    """Represents a hook to pass to :meth:`~TransformerEncoder.forward`."""
+
+    def __call__(
+        self,
+        layer_idx: int,
+        layer_output: Tensor,
+        layer_padding_mask: Optional[Tensor],
+        num_layers: int,
+    ) -> None:
+        """
+        :param layer_idx:
+            The index of the layer in the encoder stack.
+        :param layer_output:
+            The encoded output of the layer.
+        :param layer_padding_mask:
+            The padding mask of `layer_output`.
+        :param num_layers:
+            The number of layers in the encoder stack.
+        """
 
 
 @final
@@ -126,29 +148,23 @@ class StandardTransformerEncoder(TransformerEncoder):
         self,
         seqs: Tensor,
         padding_mask: Optional[Tensor],
-        return_hidden: Optional[int] = None,
+        layer_output_hook: Optional[EncoderLayerOutputHook] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
-        if return_hidden is not None:
-            if self.layers.drop_p > 0.0:
-                raise ValueError(
-                    "`return_hidden` must be `None` when LayerDrop is enabled."
-                )
+        if layer_output_hook is not None and self.layers.drop_p > 0.0:
+            raise ValueError("`layer_hook` must be `None` when LayerDrop is enabled.")
 
-            if return_hidden < 0:
-                return_hidden = len(self.layers) + return_hidden
-
-        layer_output = None
+        num_layers = len(self.layers)
 
         for layer_idx, layer in enumerate(self.layers.drop_iter()):
-            seqs = layer(seqs, padding_mask)
+            seqs, padding_mask = layer(seqs, padding_mask)
 
-            if layer_idx == return_hidden:
-                layer_output = seqs
+            if layer_output_hook is not None:
+                layer_output_hook(layer_idx, seqs, padding_mask, num_layers)
 
         if self.layer_norm is not None:
             seqs = self.layer_norm(seqs)
 
-        return seqs, layer_output
+        return seqs, padding_mask
 
     def extra_repr(self) -> str:
         """:meta private:"""

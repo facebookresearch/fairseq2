@@ -215,7 +215,7 @@ class Wav2Vec2EncoderBuilder:
         """Reset the internal state of the builder."""
         self.cached_rel_pos_encoding = None
 
-    def build_encoder_frontend(self) -> Wav2Vec2Frontend:
+    def build_frontend(self) -> Wav2Vec2Frontend:
         """Build a wav2vec 2.0 Transformer encoder front-end."""
         feature_extractor = self.build_feature_extractor()
 
@@ -306,7 +306,7 @@ class Wav2Vec2EncoderBuilder:
             dtype=self.dtype,
         )
 
-    def build_conformer_block(self) -> TransformerEncoderLayer:
+    def build_conformer_block(self) -> ConformerBlock:
         """Build a Conformer block."""
         ffn1 = self.build_ffn(use_swish=True)
 
@@ -390,7 +390,7 @@ class Wav2Vec2EncoderBuilder:
 class Wav2Vec2Config:
     """Holds the configuration of a wav2vec 2.0 model."""
 
-    encoder: Wav2Vec2EncoderConfig
+    encoder_config: Wav2Vec2EncoderConfig
     """The configuration of the wav2vec 2.0 encoder."""
 
     final_dim: int
@@ -448,10 +448,10 @@ wav2vec2_arch = wav2vec2_archs.marker
 
 @wav2vec2_arch("base")
 def _base() -> Wav2Vec2Config:
-    encoder = _encoder_base()
+    encoder_config = _encoder_base()
 
     return Wav2Vec2Config(
-        encoder,
+        encoder_config,
         final_dim=256,
         final_proj_bias=True,
         temporal_mask_span_len=10,
@@ -505,7 +505,7 @@ class Wav2Vec2Builder:
 
     def build_model(self) -> Wav2Vec2Model:
         """Build a model."""
-        encoder_frontend = self.encoder_builder.build_encoder_frontend()
+        encoder_frontend = self.encoder_builder.build_frontend()
 
         encoder = self.encoder_builder.build_encoder()
 
@@ -530,7 +530,7 @@ class Wav2Vec2Builder:
     def build_masker(self) -> Wav2Vec2Masker:
         """Build a temporal/spatial feature masker."""
         return Wav2Vec2Masker(
-            self.config.encoder.model_dim,
+            self.config.encoder_config.model_dim,
             self.config.temporal_mask_span_len,
             self.config.max_temporal_mask_prob,
             self.config.spatial_mask_span_len,
@@ -542,7 +542,7 @@ class Wav2Vec2Builder:
     def build_quantizer(self) -> VectorQuantizer:
         """Build a vector quantizer."""
         return GumbelVectorQuantizer(
-            self.config.encoder.feature_dim,
+            self.config.encoder_config.feature_dim,
             self.config.quantized_dim,
             self.config.num_codebooks,
             self.config.num_codebook_entries,
@@ -566,6 +566,6 @@ def create_wav2vec2_model(
     :param dtype:
         The data type of module parameters and buffers.
     """
-    encoder_builder = Wav2Vec2EncoderBuilder(config.encoder, device, dtype)
+    encoder_builder = Wav2Vec2EncoderBuilder(config.encoder_config, device, dtype)
 
     return Wav2Vec2Builder(config, encoder_builder, device, dtype).build_model()

@@ -31,7 +31,7 @@ class Wav2Vec2Loader(ModelLoader[Wav2Vec2Model, Wav2Vec2Config]):
     ) -> Dict[str, Any]:
         state_dict = checkpoint["model"]
 
-        if config.encoder.norm_order == TransformerNormOrder.POST:
+        if config.encoder_config.norm_order == TransformerNormOrder.POST:
             # fmt: off
             state_dict["encoder_frontend.layer_norm.weight"] = state_dict["encoder.layer_norm.weight"]
             state_dict["encoder_frontend.layer_norm.bias"]   = state_dict["encoder.layer_norm.bias"]

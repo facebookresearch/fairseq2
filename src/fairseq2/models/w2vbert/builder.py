@@ -50,7 +50,7 @@ def _encoder_600m() -> Wav2Vec2EncoderConfig:
 class W2VBertConfig:
     """Holds the configuration of a w2v-BERT model."""
 
-    w2v2: Wav2Vec2Config
+    w2v2_config: Wav2Vec2Config
     """The configuration of the wav2vec 2.0 model."""
 
     num_bert_encoder_layers: int
@@ -77,10 +77,10 @@ w2vbert_arch = w2vbert_archs.marker
 
 @w2vbert_arch("600m")
 def _600m() -> W2VBertConfig:
-    encoder = _encoder_600m()
+    w2v2_encoder_config = _encoder_600m()
 
     w2v2_config = Wav2Vec2Config(
-        encoder,
+        w2v2_encoder_config,
         final_dim=768,
         final_proj_bias=True,
         temporal_mask_span_len=10,
@@ -189,8 +189,10 @@ def create_w2vbert_model(
     :param dtype:
         The data type of module parameters and buffers.
     """
-    encoder_builder = Wav2Vec2EncoderBuilder(config.w2v2.encoder, device, dtype)
+    encoder_builder = Wav2Vec2EncoderBuilder(
+        config.w2v2_config.encoder_config, device, dtype
+    )
 
-    w2v2_builder = Wav2Vec2Builder(config.w2v2, encoder_builder, device, dtype)
+    w2v2_builder = Wav2Vec2Builder(config.w2v2_config, encoder_builder, device, dtype)
 
     return W2VBertBuilder(config, w2v2_builder, device, dtype).build_model()

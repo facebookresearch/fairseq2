@@ -35,12 +35,14 @@ class EncoderDecoderModel(Seq2SeqModel):
             batch.source_seqs, batch.source_seq_lens
         )
 
-        return self.decode_and_project(
+        decoder_output, decoder_padding_mask = self.decode(
             batch.target_seqs,
             batch.target_seq_lens,
             encoder_output,
             encoder_padding_mask,
         )
+
+        return self.project(decoder_output, decoder_padding_mask)
 
     @abstractmethod
     def encode(
@@ -68,16 +70,15 @@ class EncoderDecoderModel(Seq2SeqModel):
         """
 
     @abstractmethod
-    def decode_and_project(
+    def decode(
         self,
         seqs: Tensor,
         seq_lens: Optional[Tensor],
         encoder_output: Tensor,
         encoder_padding_mask: Optional[Tensor],
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> SequenceModelOutput:
-        """Decode the specified target sequences and produce logits for
-        next-step prediction.
+    ) -> Tuple[Tensor, Optional[Tensor]]:
+        """Decode the specified target sequences.
 
         :param seqs:
             The target sequences to decode. *Shape:* :math:`(N,S_{tgt},*)`,
@@ -99,6 +100,30 @@ class EncoderDecoderModel(Seq2SeqModel):
             :math:`S_{enc}` is the encoder output sequence length.
         :param state_bag:
             The state bag to use for incremental evaluation.
+
+        :returns:
+            - The decoder output. *Shape:* :math:`(N,S_{tgt},M)`, where
+              :math:`N` is the batch size, :math:`S_{tgt}` is the target
+              sequence length, and :math:`M` is the dimensionality of the model.
+            - The float padding mask of the decoder output. *Shape:*
+              :math:`(N,S_{tgt})`, where :math:`N` is the batch size and
+              :math:`S_{tgt}` is the target sequence length.
+        """
+
+    @abstractmethod
+    def project(
+        self, decoder_output: Tensor, decoder_padding_mask: Optional[Tensor]
+    ) -> SequenceModelOutput:
+        """Produce logits for next-step prediction.
+
+        :param decoder_output:
+            The decoder output. *Shape:* :math:`(N,S_{tgt},M)`, where :math:`N`
+            is the batch size, :math:`S_{tgt}` is the target sequence length,
+            and :math:`M` is the dimensionality of the model.
+        :param decoder_padding_mask:
+            The float padding mask of the decoder output. *Shape:*
+            :math:`(N,S_{tgt})`, where :math:`N` is the batch size and
+            :math:`S_{tgt}` is the target sequence length.
         """
 
     def extra_repr(self) -> str:

@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import Optional, final
+from typing import Optional, Tuple, final
 
 import torch
 import torch.nn as nn
@@ -40,7 +40,9 @@ class TransformerEncoderLayer(Module, ABC):
         self.model_dim = model_dim
 
     @abstractmethod
-    def forward(self, seqs: Tensor, padding_mask: Optional[Tensor]) -> Tensor:
+    def forward(
+        self, seqs: Tensor, padding_mask: Optional[Tensor]
+    ) -> Tuple[Tensor, Optional[Tensor]]:
         """
         :param seqs:
             The sequences to process. *Shape:* :math:`(N,S,M)`, where :math:`N`
@@ -51,7 +53,9 @@ class TransformerEncoderLayer(Module, ABC):
             :math:`N` is the batch size and :math:`S` is the sequence length.
 
         :returns:
-            The encoder layer output. *Shape:* Same as ``seqs``.
+            - The encoder layer output. *Shape:* Same as ``seqs``.
+            - The float padding mask of the encoder layer output. *Shape:* Same
+              as ``padding_mask``.
         """
 
     def extra_repr(self) -> str:
@@ -73,7 +77,6 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
     ffn_dropout: Optional[Dropout]
     residual_scale: Optional[Parameter]
     ffn_layer_norm: LayerNorm
-    dropout_p: float
     norm_order: TransformerNormOrder
 
     def __init__(
@@ -169,12 +172,14 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
             nn.init.ones_(self.residual_scale)
 
     @finaloverride
-    def forward(self, seqs: Tensor, padding_mask: Optional[Tensor]) -> Tensor:
+    def forward(
+        self, seqs: Tensor, padding_mask: Optional[Tensor]
+    ) -> Tuple[Tensor, Optional[Tensor]]:
         seqs = self._forward_self_attn(seqs, padding_mask)
 
         seqs = self._forward_ffn(seqs)
 
-        return seqs
+        return seqs, padding_mask
 
     def _forward_self_attn(
         self, seqs: Tensor, padding_mask: Optional[Tensor]

@@ -105,11 +105,13 @@ def assert_translation(
     while not job.done:
         query_tokens = job.next_query()
 
-        seq2seq_out = model.decode_and_project(
+        decoder_out, decoder_padding_mask = model.decode(
             query_tokens, None, encoder_out, encoder_padding_mask, state_bag
         )
 
-        logits = seq2seq_out.logits.squeeze(1)
+        model_out = model.project(decoder_out, decoder_padding_mask)
+
+        logits = model_out.logits.squeeze(1)
 
         state_bag.increment_step()
 

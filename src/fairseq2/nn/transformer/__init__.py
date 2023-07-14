@@ -18,6 +18,9 @@ from fairseq2.nn.transformer.attention_mask import (
     CausalAttentionMaskGenerator as CausalAttentionMaskGenerator,
 )
 from fairseq2.nn.transformer.decoder import (
+    DecoderLayerOutputHook as DecoderLayerOutputHook,
+)
+from fairseq2.nn.transformer.decoder import (
     StandardTransformerDecoder as StandardTransformerDecoder,
 )
 from fairseq2.nn.transformer.decoder import TransformerDecoder as TransformerDecoder
@@ -26,6 +29,9 @@ from fairseq2.nn.transformer.decoder_layer import (
 )
 from fairseq2.nn.transformer.decoder_layer import (
     TransformerDecoderLayer as TransformerDecoderLayer,
+)
+from fairseq2.nn.transformer.encoder import (
+    EncoderLayerOutputHook as EncoderLayerOutputHook,
 )
 from fairseq2.nn.transformer.encoder import (
     StandardTransformerEncoder as StandardTransformerEncoder,

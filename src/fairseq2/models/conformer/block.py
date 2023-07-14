@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Optional
+from typing import Optional, Tuple
 
 from overrides import final as finaloverride
 from torch import Tensor
@@ -127,7 +127,9 @@ class ConformerBlock(TransformerEncoderLayer):
         self.layer_norm = layer_norm_fn(model_dim, device, dtype)
 
     @finaloverride
-    def forward(self, seqs: Tensor, padding_mask: Optional[Tensor]) -> Tensor:
+    def forward(
+        self, seqs: Tensor, padding_mask: Optional[Tensor]
+    ) -> Tuple[Tensor, Optional[Tensor]]:
         seqs = self._forward_ffn1(seqs)
 
         seqs = self._forward_self_attn(seqs, padding_mask)
@@ -138,7 +140,7 @@ class ConformerBlock(TransformerEncoderLayer):
 
         seqs = self.layer_norm(seqs)
 
-        return seqs  # type: ignore[no-any-return]
+        return seqs, padding_mask
 
     def _forward_ffn1(self, seqs: Tensor) -> Tensor:
         residual = seqs

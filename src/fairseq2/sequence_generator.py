@@ -212,10 +212,11 @@ class SearchStrategy(ABC):
                 padding_mask = query_tokens.ne(self.pad_idx)
                 seq_lens = torch.count_nonzero(padding_mask, dim=-1)
 
-                decoder_out = model.decode_and_project(
+                decoder_output, decoder_padding_mask = model.decode(
                     query_tokens, seq_lens, encoder_out, encoder_padding_mask, state_bag
                 )
-                logits = decoder_out.logits.squeeze(1)
+                model_output = model.project(decoder_output, decoder_padding_mask)
+                logits = model_output.logits.squeeze(1)
 
                 state_bag.increment_step()
 

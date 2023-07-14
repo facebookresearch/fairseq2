@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import Optional, cast, final
+from typing import Optional, Tuple, cast, final
 
 import torch
 import torch.nn as nn
@@ -49,7 +49,7 @@ class TransformerDecoderLayer(Module, ABC):
         encoder_output: Optional[Tensor] = None,
         encoder_padding_mask: Optional[Tensor] = None,
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tensor:
+    ) -> Tuple[Tensor, Optional[Tensor]]:
         """
         :param seqs:
             The sequences to process. *Shape:* :math:`(N,S,M)`, where :math:`N`
@@ -75,7 +75,9 @@ class TransformerDecoderLayer(Module, ABC):
             The state bag to use for incremental evaluation.
 
         :returns:
-            The decoder layer output. *Shape:* Same as ``seqs``.
+            - The decoder layer output. *Shape:* Same as ``seqs``.
+            - The float padding mask of the decoder layer output. *Shape:* Same
+              as ``padding_mask``.
         """
 
     def extra_repr(self) -> str:
@@ -229,7 +231,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         encoder_output: Optional[Tensor] = None,
         encoder_padding_mask: Optional[Tensor] = None,
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tensor:
+    ) -> Tuple[Tensor, Optional[Tensor]]:
         seqs = self._forward_self_attn(seqs, padding_mask, self_attn_mask, state_bag)
 
         seqs = self._forward_encoder_decoder_attn(
@@ -238,7 +240,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
 
         seqs = self._forward_ffn(seqs)
 
-        return seqs
+        return seqs, padding_mask
 
     def _forward_self_attn(
         self,
