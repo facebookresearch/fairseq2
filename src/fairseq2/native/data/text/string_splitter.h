@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <optional>
 #include <string>
 #include <vector>
@@ -18,7 +19,11 @@ namespace fairseq2 {
 class FAIRSEQ2_API string_splitter final {
 public:
     explicit
-    string_splitter(char separator = '\t', std::vector<std::string> names = {}) noexcept;
+    string_splitter(
+        char separator = '\t',
+        std::vector<std::string> names = {},
+        std::vector<std::size_t> indices = {},
+        bool exclude = false);
 
     data
     operator()(data &&d) const;
@@ -26,6 +31,8 @@ public:
 private:
     char separator_;
     std::vector<std::string> names_;
+    std::vector<std::size_t> indices_;
+    bool exclude_;
 };
 
 }  // namespace fairseq2

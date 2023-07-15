@@ -16,7 +16,11 @@ if TYPE_CHECKING or _DOC_MODE:
 
     class StrSplitter:
         def __init__(
-            self, sep: str = "\t", names: Optional[Sequence[str]] = None
+            self,
+            sep: str = "\t",
+            names: Optional[Sequence[str]] = None,
+            indices: Optional[Sequence[int]] = None,
+            exclude: bool = False,
         ) -> None:
             ...
 

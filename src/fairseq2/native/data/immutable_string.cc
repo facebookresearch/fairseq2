@@ -44,8 +44,11 @@ immutable_string::split(char separator) const
 {
     std::vector<immutable_string> output{};
 
-    split(separator, [&output](immutable_string &&s) {
+    split(separator, [&output](immutable_string &&s)
+    {
         output.push_back(std::move(s));
+
+        return true;
     });
 
     return output;
@@ -53,7 +56,7 @@ immutable_string::split(char separator) const
 
 void
 immutable_string::split(
-    char separator, const std::function<void(immutable_string &&)> &handler) const
+    char separator, const std::function<bool(immutable_string &&)> &handler) const
 {
     std::string_view s = view();
 
@@ -63,7 +66,8 @@ immutable_string::split(
         if (s[char_idx] == separator) {
             immutable_string part{storage_.share_slice(offset, char_idx - offset)};
 
-            handler(std::move(part));
+            if (!handler(std::move(part)))
+                return;
 
             offset = char_idx + 1;
         }

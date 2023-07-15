@@ -6,6 +6,7 @@
 
 #include "fairseq2/native/data/text/string_splitter.h"
 
+#include <algorithm>
 #include <stdexcept>
 #include <utility>
 
@@ -16,9 +17,22 @@ using namespace fairseq2::detail;
 
 namespace fairseq2 {
 
-string_splitter::string_splitter(char separator, std::vector<std::string> names) noexcept
-  : separator_{separator}, names_(std::move(names))
-{}
+string_splitter::string_splitter(
+    char separator,
+    std::vector<std::string> names,
+    std::vector<std::size_t> indices,
+    bool exclude)
+  : separator_{separator}, names_(std::move(names)), indices_{std::move(indices)}, exclude_{exclude}
+{
+    if (indices_.empty())
+        return;
+
+    if (!names_.empty() && names_.size() != indices_.size())
+        throw_<std::invalid_argument>(
+            "`names` and `indices` must have the same length, but have the lengths {} and {} instead.", names_.size(), indices_.size());
+
+    std::sort(indices_.begin(), indices_.end());
+}
 
 data
 string_splitter::operator()(data &&d) const
@@ -29,9 +43,38 @@ string_splitter::operator()(data &&d) const
 
     data_list fields{};
 
-    d.as_string().split(separator_, [&fields](immutable_string &&s) {
-        fields.emplace_back(std::move(s));
+    auto idx_iter = indices_.begin();
+
+    std::size_t idx = 0;
+
+    d.as_string().split(separator_, [this, &fields, &idx_iter, &idx](immutable_string &&s) {
+        if (idx_iter == indices_.end()) {
+            fields.emplace_back(std::move(s));
+        } else {
+            if (exclude_) {
+                if (idx != *idx_iter)
+                    fields.emplace_back(std::move(s));
+                else
+                    ++idx_iter;
+            } else {
+                if (idx == *idx_iter) {
+                    fields.emplace_back(std::move(s));
+
+                    // We got all fields we need, no need to process the rest.
+                    if (++idx_iter == indices_.end())
+                        return false;
+                }
+            }
+        }
+
+        idx++;
+
+        return true;
     });
+
+    if (idx_iter != indices_.end())
+        throw_<std::invalid_argument>(
+            "The input string must have at least {} field(s), but has {} instead.", indices_.back(), idx);
 
     // If no names specified, return as list.
     if (names_.empty())

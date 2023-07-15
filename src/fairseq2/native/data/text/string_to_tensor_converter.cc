@@ -73,10 +73,10 @@ string_to_tensor_converter::operator()(data &&d) const
 
     s.split(' ', [&strings](immutable_string &&value)
     {
-        if (value.empty())
-            return;
+        if (!value.empty())
+            strings.push_back(std::move(value));
 
-        strings.push_back(std::move(value));
+        return true;
     });
 
     auto dim = static_cast<std::int64_t>(strings.size());

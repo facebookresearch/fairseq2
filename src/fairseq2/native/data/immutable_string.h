@@ -155,7 +155,7 @@ public:
     split(char separator) const;
 
     void
-    split(char separator, const std::function<void(immutable_string &&)> &handler) const;
+    split(char separator, const std::function<bool(immutable_string &&)> &handler) const;
 
     operator std::string_view() const noexcept
     {

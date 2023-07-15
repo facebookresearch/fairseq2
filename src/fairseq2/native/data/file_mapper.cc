@@ -59,6 +59,8 @@ file_mapper::operator()(data &&d) const
                 "The input string must be a pathname with optional offset and size specifiers, but is '{}' instead.", pathname);
 
         *iter++ = std::move(part);
+
+        return true;
     });
 
     auto parse_specifier = [&pathname](std::string_view part, std::string_view specifier_name)

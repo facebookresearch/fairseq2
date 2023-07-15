@@ -35,7 +35,11 @@ def_text_converters(py::module_ &text_module)
     // StrSplitter
     py::class_<string_splitter, std::shared_ptr<string_splitter>>(m, "StrSplitter")
         .def(
-            py::init([](std::string_view sep, std::optional<std::vector<std::string>> maybe_names)
+            py::init([](
+                std::string_view sep,
+                std::optional<std::vector<std::string>> maybe_names,
+                std::optional<std::vector<std::size_t>> maybe_indices,
+                bool exclude)
             {
                 if (sep.size() != 1)
                     throw_<std::invalid_argument>(
@@ -45,10 +49,16 @@ def_text_converters(py::module_ &text_module)
                 if (maybe_names)
                     names = *std::move(maybe_names);
 
-                return string_splitter{sep[0], std::move(names)};
+                std::vector<std::size_t> indices{};
+                if (maybe_indices)
+                    indices = *std::move(maybe_indices);
+
+                return string_splitter{sep[0], std::move(names), std::move(indices), exclude};
             }),
             py::arg("sep") = '\t',
-            py::arg("names") = std::nullopt)
+            py::arg("names") = std::nullopt,
+            py::arg("indices") = std::nullopt,
+            py::arg("exclude") = false)
         .def("__call__", &string_splitter::operator(), py::call_guard<py::gil_scoped_release>{});
 
     // StrToIntConverter
