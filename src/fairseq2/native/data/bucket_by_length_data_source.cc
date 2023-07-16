@@ -14,18 +14,16 @@ bucket_by_length_data_source::bucket_by_length_data_source(
     std::unique_ptr<data_source> &&inner,
     std::vector<std::pair<std::size_t, std::size_t>> &&bucket_sizes,
     data_length_fn &&fn,
-    bool drop_remainder,
-    bool warn_only)
+    bool drop_remainder)
   : inner_{std::move(inner)},
     bucket_sizes_(std::move(bucket_sizes)),
-    max_data_length_{bucket_sizes_.back().second},
+    max_data_len_{bucket_sizes_.back().second},
     data_length_fn_{std::move(fn)},
-    drop_remainder_{drop_remainder},
-    warn_only_{warn_only}
+    drop_remainder_{drop_remainder}
 {
     buckets_.reserve(bucket_sizes_.size());
 
-    for (auto [bucket_batch_size, bucket_data_length] : bucket_sizes_)
+    for (auto [bucket_batch_size, bucket_data_len] : bucket_sizes_)
         buckets_.emplace_back().reserve(bucket_batch_size);
 }
 
@@ -33,35 +31,26 @@ std::optional<data>
 bucket_by_length_data_source::next()
 {
     while (std::optional<data> maybe_example = inner_->next()) {
-        if (!maybe_example)
-            break;
-
         data &example = *maybe_example;
 
-        std::size_t data_length{};
+        std::size_t data_len{};
         try {
-            data_length = data_length_fn_(example);
+            data_len = data_length_fn_(example);
         } catch (const std::invalid_argument &) {
-            throw_data_pipeline_error_with_nested(std::move(maybe_example),
+            throw_data_pipeline_error_with_nested(std::move(maybe_example), /*recoverable=*/true,
                 "The length of the input data cannot be determined.");
         }
 
-        if (data_length > max_data_length_) {
-            if (!warn_only_)
-                throw_data_pipeline_error(std::move(maybe_example),
-                    "The length of the input data must be less than or equal to the maximum bucket data length ({}), but is {} instead.", max_data_length_, data_length);
-
-            // TODO warn
-
-            continue;
-        }
+        if (data_len > max_data_len_)
+            throw_data_pipeline_error(std::move(maybe_example), /*recoverable=*/true,
+                "The length of the input data must be less than or equal to the maximum bucket data length ({}), but is {} instead.", max_data_len_, data_len);
 
         // Find the smallest bucket that would fit `example`, and return that bucket
         // if it is full.
         for (std::size_t i = 0; i < buckets_.size(); i++) {
-            auto [bucket_batch_size, bucket_data_length] = bucket_sizes_[i];
+            auto [bucket_batch_size, bucket_data_len] = bucket_sizes_[i];
 
-            if (data_length <= bucket_data_length) {
+            if (data_len <= bucket_data_len) {
                 data_list &bucket = buckets_[i];
 
                 bucket.push_back(std::move(example));

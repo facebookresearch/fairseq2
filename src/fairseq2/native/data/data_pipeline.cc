@@ -43,12 +43,31 @@ data_pipeline::next()
     if (!source_)
         return std::nullopt;
 
-    try {
-        return source_->next();
-    } catch (...) {
-        is_broken_ = true;
+    while (true) {
+        try {
+            return source_->next();
+        } catch (const data_pipeline_error &ex) {
+            if (ex.recoverable() && warning_count_ < max_num_warnings_) {
+                warning_count_++;
 
-        throw;
+                // TODO: log exception
+            } else {
+                if (max_num_warnings_ > 0) {
+                    // TODO: log max number of warnings reached.
+                }
+
+                // If the error is not recoverable, any further attempt to read
+                // from this pipeline will fail immediately.
+                if (!ex.recoverable())
+                    is_broken_ = true;
+
+                throw;
+            }
+        } catch (const std::exception &) {
+            is_broken_ = true;
+
+            throw;
+        }
     }
 }
 
@@ -62,7 +81,7 @@ data_pipeline::reset()
 
     try {
         source_->reset();
-    } catch (...) {
+    } catch (const std::exception &) {
         is_broken_ = true;
 
         throw;
@@ -82,7 +101,7 @@ data_pipeline::record_position(tape &t) const
 
         try {
             source_->record_position(t);
-        } catch (...) {
+        } catch (const std::exception &) {
             is_broken_ = true;
 
             throw;
@@ -104,7 +123,7 @@ data_pipeline::reload_position(tape &t)
 
         try {
             source_->reload_position(t);
-        } catch (...) {
+        } catch (const std::exception &) {
             is_broken_ = true;
 
             throw;
@@ -129,7 +148,7 @@ data_pipeline::ensure_initialized()
 
     try {
         source_ = factory();
-    } catch (...) {
+    } catch (const std::exception &) {
         is_broken_ = true;
 
         throw;
@@ -149,7 +168,6 @@ data_pipeline::zip(
     std::vector<data_pipeline> pipelines,
     std::vector<std::string> names,
     bool flatten,
-    bool warn_only,
     bool disable_parallelism)
 {
     if (!names.empty() && flatten)
@@ -172,11 +190,10 @@ data_pipeline::zip(
 
     auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
 
-    auto factory = [
-        names = std::move(names), tmp, flatten, warn_only, disable_parallelism]() mutable
+    auto factory = [names = std::move(names), tmp, flatten, disable_parallelism]() mutable
     {
         return std::make_unique<zip_data_source>(
-            std::move(*tmp), std::move(names), flatten, warn_only, disable_parallelism);
+            std::move(*tmp), std::move(names), flatten, disable_parallelism);
     };
 
     return data_pipeline_builder{std::move(factory)};
@@ -223,16 +240,16 @@ data_pipeline_builder
 data_pipeline_builder::bucket_by_length(
     std::vector<std::pair<std::size_t, std::size_t>> bucket_sizes,
     data_length_fn fn,
-    bool drop_remainder,
-    bool warn_only) &&
+    bool drop_remainder) &&
 {
     if (bucket_sizes.empty())
         throw_<std::invalid_argument>("`bucket_sizes` must contain at least one element.");
 
-    std::sort(bucket_sizes.begin(), bucket_sizes.end(), [](auto x, auto y)
-    {
-        return x.second < y.second;
-    });
+    std::sort(
+        bucket_sizes.begin(), bucket_sizes.end(), [](auto x, auto y)
+        {
+            return x.second < y.second;
+        });
 
     factory_ = [
         =,
@@ -241,7 +258,7 @@ data_pipeline_builder::bucket_by_length(
         inner = std::move(factory_)]() mutable
     {
         return std::make_unique<bucket_by_length_data_source>(
-            inner(), std::move(bucket_sizes), std::move(fn), drop_remainder, warn_only);
+            inner(), std::move(bucket_sizes), std::move(fn), drop_remainder);
     };
 
     return std::move(*this);
@@ -259,12 +276,11 @@ data_pipeline_builder::filter(predicate_fn fn) &&
 }
 
 data_pipeline_builder
-data_pipeline_builder::map(map_fn fn, std::size_t num_parallel_calls, bool warn_only) &&
+data_pipeline_builder::map(map_fn fn, std::size_t num_parallel_calls) &&
 {
     factory_ = [=, fn = std::move(fn), inner = std::move(factory_)]() mutable
     {
-        return std::make_unique<map_data_source>(
-            inner(), std::move(fn), num_parallel_calls, warn_only);
+        return std::make_unique<map_data_source>(inner(), std::move(fn), num_parallel_calls);
     };
 
     return std::move(*this);
@@ -345,14 +361,14 @@ data_pipeline_builder::yield_from(yield_fn fn) &&
 }
 
 data_pipeline
-data_pipeline_builder::and_return() &&
+data_pipeline_builder::and_return(std::size_t max_num_warnings) &&
 {
     if (factory_ == nullptr)
         throw_<std::domain_error>("The data pipeline has already been constructed.");
 
     data_source_factory factory = std::exchange(factory_, nullptr);
 
-    return data_pipeline{std::move(factory)};
+    return data_pipeline{std::move(factory), max_num_warnings};
 }
 
 data_pipeline_error::~data_pipeline_error() = default;

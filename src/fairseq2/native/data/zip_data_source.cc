@@ -21,12 +21,10 @@ zip_data_source::zip_data_source(
     std::vector<data_pipeline> &&pipelines,
     std::vector<std::string> &&names,
     bool flatten,
-    bool warn_only,
     bool disable_parallelism) noexcept
   : pipelines_(std::move(pipelines)),
     names_(std::move(names)),
     flatten_{flatten},
-    warn_only_{warn_only},
     disable_parallelism_{disable_parallelism}
 {}
 
@@ -63,7 +61,10 @@ zip_data_source::next()
 
     // Check whether all data pipelines are in sync.
     bool are_in_sync = std::all_of(
-        is_eod.begin() + 1, is_eod.end(), [&is_eod](std::int8_t b) { return b == is_eod[0]; });
+        is_eod.begin() + 1, is_eod.end(), [&is_eod](std::int8_t b)
+        {
+            return b == is_eod[0];
+        });
 
     if (!are_in_sync) {
         // Collect pipelines that have not reached their end of data yet.
@@ -72,13 +73,8 @@ zip_data_source::next()
             if (is_eod[i] == 0)
                 not_eod.push_back(i);
 
-        if (!warn_only_)
-            throw_<data_pipeline_error>(
-                "The zipped data pipelines must all have the same length, but the data pipelines at the following indices have more examples than the others. Indices: {}", fmt::join(not_eod, ", "));
-
-        // TODO: print warning.
-
-        return std::nullopt;
+        throw_<data_pipeline_error>(
+            "The zipped data pipelines must all have the same length, but the data pipelines at the following indices have more examples than the others. Indices: {}", fmt::join(not_eod, ", "));
     }
 
     if (is_eod[0] == 1)
@@ -107,7 +103,7 @@ zip_data_source::next()
 }
 
 std::optional<data>
-zip_data_source::flatten_to_dict(data_list &zip) const
+zip_data_source::flatten_to_dict(data_list &zip)
 {
     data_dict output{};
 
@@ -117,49 +113,31 @@ zip_data_source::flatten_to_dict(data_list &zip) const
         if (example.is_dict())
             for (auto &[key, value] : example.as_dict()) {
                 // All keys in the flattened dict must be unique.
-                if (auto pos = output.find(key); pos != output.end()) {
-                    if (!warn_only_)
-                        throw_data_pipeline_error(std::move(zip),
-                            "The zipped data pipelines must all return unique keys when `flatten` is set, but the key '{}' is not unique.", key);
-
-                    // TODO: warn
-
-                    return std::nullopt;
-                }
+                if (auto pos = output.find(key); pos != output.end())
+                    throw_data_pipeline_error(std::move(zip), /*recoverable=*/true,
+                        "The zipped data pipelines must all return unique keys when `flatten` is set, but the key '{}' is not unique.", key);
 
                 output.emplace(key, std::move(value));
             }
-        else {
-            if (!warn_only_)
-                throw_data_pipeline_error(std::move(zip),
-                    "The zipped data pipelines must all return only dicts, or only non-dicts when `flatten` is set.");
-
-            // TODO: warn
-
-            return std::nullopt;
-        }
+        else
+            throw_data_pipeline_error(std::move(zip), /*recoverable=*/true,
+                "The zipped data pipelines must all return only dicts, or only non-dicts when `flatten` is set.");
     }
 
     return output;
 }
 
 std::optional<data>
-zip_data_source::flatten_to_list(data_list &zip) const
+zip_data_source::flatten_to_list(data_list &zip)
 {
     data_list output{};
 
     for (data &example : zip) {
         // If the first pipeline has returned an example that is not `dict`, we
         // expect all other pipelines to return non-dicts as well.
-        if (example.is_dict()) {
-            if (!warn_only_)
-                throw_data_pipeline_error(std::move(zip),
-                    "The zipped data pipelines must all return only dicts, or only non-dicts when `flatten` is set.");
-
-            // TODO: warn
-
-            return std::nullopt;
-        }
+        if (example.is_dict())
+            throw_data_pipeline_error(std::move(zip), /*recoverable=*/true,
+                "The zipped data pipelines must all return only dicts, or only non-dicts when `flatten` is set.");
 
         if (example.is_list())
             for (data &element : example.as_list())

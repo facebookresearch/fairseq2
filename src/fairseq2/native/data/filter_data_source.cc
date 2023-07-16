@@ -15,13 +15,11 @@ namespace fairseq2::detail {
 std::optional<data>
 filter_data_source::next()
 {
-    std::optional<data> maybe_example{};
-
-    while ((maybe_example = inner_->next()))
+    while (std::optional<data> maybe_example = inner_->next())
         if (invoke_function(*maybe_example))
-            break;
+            return maybe_example;
 
-    return maybe_example;
+    return std::nullopt;
 }
 
 void
@@ -50,7 +48,7 @@ filter_data_source::invoke_function(data &example)
     } catch (const data_pipeline_error &) {
         throw;
     } catch (const std::exception &) {
-        throw_data_pipeline_error_with_nested(std::move(example),
+        throw_data_pipeline_error_with_nested(std::move(example), /*recoverable=*/true,
             "The filter operation has failed. See nested exception for details.");
     }
 }

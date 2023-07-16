@@ -134,6 +134,11 @@ data_pipeline_tracker() noexcept
     return tracker;
 }
 
+// In extension modules, defining Python exception types with custom attributes
+// is rather complicated; therefore, we use a thread-local variable to hold the
+// context of the last failed pipeline operation.
+thread_local std::optional<data> last_failed_example_;
+
 class data_pipeline_iterator {
 public:
     explicit
@@ -149,7 +154,16 @@ public:
         {
             py::gil_scoped_release no_gil{};
 
-            maybe_example = pipeline_->next();
+            try {
+                maybe_example = pipeline_->next();
+            } catch (data_pipeline_error &ex) {
+                last_failed_example_ = std::move(ex.maybe_example());
+
+                throw;
+            }
+
+            // The operation was successful, clear the error state.
+            last_failed_example_ = std::nullopt;
         }
 
         if (!maybe_example)
@@ -243,7 +257,6 @@ def_data_pipeline(py::module_ &data_module)
                 std::vector<std::reference_wrapper<data_pipeline>> &refs,
                 std::optional<std::vector<std::string>> maybe_names,
                 bool flatten,
-                bool warn_only,
                 bool disable_parallelism)
             {
                 std::vector<data_pipeline> pipelines{};
@@ -260,16 +273,11 @@ def_data_pipeline(py::module_ &data_module)
                     names = *std::move(maybe_names);
 
                 return data_pipeline::zip(
-                    std::move(pipelines),
-                    std::move(names),
-                    flatten,
-                    warn_only,
-                    disable_parallelism);
+                    std::move(pipelines), std::move(names), flatten, disable_parallelism);
             },
             py::arg("pipelines"),
             py::arg("names") = std::nullopt,
             py::arg("flatten") = false,
-            py::arg("warn_only") = false,
             py::arg("disable_parallelism") = false)
         .def_static(
             "round_robin",
@@ -319,21 +327,18 @@ def_data_pipeline(py::module_ &data_module)
                 data_pipeline_builder &self,
                 std::vector<std::pair<std::size_t, std::size_t>> bucket_sizes,
                 std::optional<std::string> maybe_selector,
-                bool drop_remainder,
-                bool warn_only) -> data_pipeline_builder &
+                bool drop_remainder) -> data_pipeline_builder &
             {
                 self = std::move(self).bucket_by_length(
                     std::move(bucket_sizes),
                     data_length_extractor{std::move(maybe_selector)},
-                    drop_remainder,
-                    warn_only);
+                    drop_remainder);
 
                 return self;
             },
             py::arg("bucket_sizes"),
             py::arg("selector") = std::nullopt,
-            py::arg("drop_remainder") = false,
-            py::arg("warn_only") = false)
+            py::arg("drop_remainder") = false)
         .def(
             "filter",
             [](data_pipeline_builder &self, predicate_fn fn) -> data_pipeline_builder &
@@ -349,8 +354,7 @@ def_data_pipeline(py::module_ &data_module)
                 data_pipeline_builder &self,
                 std::variant<map_fn, std::vector<map_fn>> fn,
                 std::optional<std::string> maybe_selector,
-                std::size_t num_parallel_calls,
-                bool warn_only) -> data_pipeline_builder &
+                std::size_t num_parallel_calls) -> data_pipeline_builder &
             {
                 map_fn f{};
 
@@ -369,14 +373,13 @@ def_data_pipeline(py::module_ &data_module)
 
                 element_mapper mapper{std::move(f), std::move(maybe_selector)};
 
-                self = std::move(self).map(std::move(mapper), num_parallel_calls, warn_only);
+                self = std::move(self).map(std::move(mapper), num_parallel_calls);
 
                 return self;
             },
             py::arg("fn"),
             py::arg("selector") = std::nullopt,
-            py::arg("num_parallel_calls") = 1,
-            py::arg("warn_only") = false)
+            py::arg("num_parallel_calls") = 1)
         .def(
             "prefetch",
             [](data_pipeline_builder &self, std::size_t num_examples) -> data_pipeline_builder &
@@ -443,9 +446,9 @@ def_data_pipeline(py::module_ &data_module)
             py::arg("fn"))
         .def(
             "and_return",
-            [](data_pipeline_builder &self)
+            [](data_pipeline_builder &self, std::size_t max_num_warnings)
             {
-                data_pipeline pipeline = std::move(self).and_return();
+                data_pipeline pipeline = std::move(self).and_return(max_num_warnings);
 
                 py::object obj = py::cast(std::move(pipeline));
 
@@ -454,11 +457,20 @@ def_data_pipeline(py::module_ &data_module)
                 data_pipeline_tracker().track(obj);
 
                 return obj;
-            });
+            },
+            py::arg("max_num_warnings") = 0);
 
     // DataPipelineError
     static py::exception<data_pipeline_error> py_data_pipeline_error{
         m, "DataPipelineError", PyExc_RuntimeError};
+
+    m.def(
+        "get_last_failed_example",
+        []
+        {
+            return last_failed_example_;
+        });
+
 
     // DataPipeline Factories
     m.def("list_files", &list_files, py::arg("pathname"), py::arg("pattern") = std::nullopt);

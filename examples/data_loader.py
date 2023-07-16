@@ -2,8 +2,6 @@ import os
 import time
 from typing import Any, Dict
 
-from torch import Tensor
-
 from fairseq2.data import Collater, DataPipeline, StringLike, list_files
 from fairseq2.data.text import SentencePieceEncoder, SentencePieceModel, read_text
 from fairseq2.typing import Device
@@ -32,9 +30,9 @@ def build_lang_pipeline(
     # specified language. We use this index to replace the <bos> token.
     lang_token_idx = spm.token_to_index(f"<{lang}>")
 
-    def replace_bos(batch: Tensor) -> Tensor:
+    def replace_bos(batch: Any) -> Any:
         # Replace <bos> with the language token (e.g. <en>, <de>).
-        batch[:, 0] = lang_token_idx
+        batch["seqs"][:, 0] = lang_token_idx
 
         return batch
 

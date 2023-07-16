@@ -56,27 +56,6 @@ class TestMapOp:
 
             pipeline.reset()
 
-    @pytest.mark.parametrize("num_parallel_calls", [0, 1, 4, 10, 20])
-    def test_op_works_when_warn_only_is_true(self, num_parallel_calls: int) -> None:
-        def fn(d: int) -> int:
-            if d % 2 == 0:
-                raise ValueError("foo")
-
-            return d**2
-
-        seq = list(range(1, 10))
-
-        pipeline = (
-            read_sequence(seq)
-            .map(fn, num_parallel_calls=num_parallel_calls, warn_only=True)
-            .and_return()
-        )
-
-        for _ in range(2):
-            assert list(pipeline) == [i**2 for i in range(1, 10, 2)]
-
-            pipeline.reset()
-
     def test_op_works_when_input_is_python_object(self) -> None:
         @dataclass
         class Foo:

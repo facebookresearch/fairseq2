@@ -44,7 +44,7 @@ record_reader::reset()
 bool
 record_reader::load_next_record()
 {
-    record_length_ = 0;
+    record_len_ = 0;
 
     std::optional<std::size_t> maybe_record_end_offset{};
 
@@ -65,7 +65,7 @@ record_reader::load_next_record()
 
         // Move `current_chunk_` to previous chunks and attempt to find the record
         // end within `next_chunk` in the next iteration.
-        record_length_ += current_chunk_.size();
+        record_len_ += current_chunk_.size();
 
         previous_chunks_.push_back(std::move(current_chunk_));
 
@@ -74,7 +74,7 @@ record_reader::load_next_record()
         first_chunk = false;
     }
 
-    record_length_ += *maybe_record_end_offset;
+    record_len_ += *maybe_record_end_offset;
 
     // The distance to the end of the record within `current_chunk_`.
     record_end_offset_ = *maybe_record_end_offset;
@@ -88,7 +88,7 @@ record_reader::extract_record()
     // If the entire record is contained within `current_chunk_`, just return a
     // reference to it.
     if (previous_chunks_.empty())
-        return current_chunk_.share_first(record_length_);
+        return current_chunk_.share_first(record_len_);
 
     // Otherwise, merge all previous chunks plus the first `record_end_offset_` bytes
     // of `current_chunk_` into a contiguous memory block.
@@ -98,7 +98,7 @@ record_reader::extract_record()
 memory_block
 record_reader::copy_split_record()
 {
-    writable_memory_block record = allocate_memory(record_length_);
+    writable_memory_block record = allocate_memory(record_len_);
 
     auto iter = record.begin();
 

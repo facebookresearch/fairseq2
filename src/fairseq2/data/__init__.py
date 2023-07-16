@@ -15,6 +15,9 @@ from fairseq2.data.data_pipeline import FileMapper as FileMapper
 from fairseq2.data.data_pipeline import FileMapperOutput as FileMapperOutput
 from fairseq2.data.data_pipeline import RecordError as RecordError
 from fairseq2.data.data_pipeline import SequenceData as SequenceData
+from fairseq2.data.data_pipeline import (
+    get_last_failed_example as get_last_failed_example,
+)
 from fairseq2.data.data_pipeline import list_files as list_files
 from fairseq2.data.data_pipeline import read_sequence as read_sequence
 from fairseq2.data.data_pipeline import read_zipped_records as read_zipped_records

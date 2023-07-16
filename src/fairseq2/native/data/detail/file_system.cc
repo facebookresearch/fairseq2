@@ -63,8 +63,7 @@ list_files(const std::string &pathname, const std::optional<std::string> &maybe_
 
     data_list output{};
 
-    ::FTSENT *ent = nullptr;
-    while ((ent = ::fts_read(fts.get())) != nullptr) {
+    while (::FTSENT *ent = ::fts_read(fts.get())) {
         if (ent->fts_info == FTS_ERR || ent->fts_info == FTS_DNR || ent->fts_info == FTS_NS)
             throw_system_error(last_error(),
                 "'{}' cannot be traversed", ent->fts_accpath);

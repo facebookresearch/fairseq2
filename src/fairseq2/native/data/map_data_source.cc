@@ -11,19 +11,13 @@
 #include <oneapi/tbb.h>
 
 #include "fairseq2/native/data/data_pipeline.h"
-#include "fairseq2/native/detail/exception.h"
+#include "fairseq2/native/data/detail/exception.h"
 
 namespace fairseq2::detail {
 
 map_data_source::map_data_source(
-    std::unique_ptr<data_source> &&inner,
-    map_fn &&fn,
-    std::size_t num_parallel_calls,
-    bool warn_only) noexcept
-  : inner_{std::move(inner)},
-    map_fn_{std::move(fn)},
-    num_parallel_calls_{num_parallel_calls},
-    warn_only_{warn_only}
+    std::unique_ptr<data_source> &&inner, map_fn &&fn, std::size_t num_parallel_calls)
+  : inner_{std::move(inner)}, map_fn_{std::move(fn)}, num_parallel_calls_{num_parallel_calls}
 {
     buffer_.reserve(num_parallel_calls);
 
@@ -34,15 +28,13 @@ std::optional<data>
 map_data_source::next()
 {
     if (num_parallel_calls_ <= 1) {
-        std::optional<data> maybe_example{};
-
-        while ((maybe_example = inner_->next())) {
+        while (std::optional<data> maybe_example = inner_->next()) {
             maybe_example = invoke_function(*std::move(maybe_example));
             if (maybe_example)
-                break;
+                return maybe_example;
         }
 
-        return maybe_example;
+        return std::nullopt;
     }
 
     do {
@@ -129,17 +121,11 @@ map_data_source::invoke_function(data &&example)
     try {
         return map_fn_(std::move(example));
     } catch (const data_pipeline_error &) {
-        if (!warn_only_)
-            throw;
+        throw;
     } catch (const std::exception &) {
-        if (!warn_only_)
-            throw_with_nested<data_pipeline_error>(
-                "The map operation has failed. See nested exception for details.");
+        throw_data_pipeline_error_with_nested(std::nullopt, /*recoverable=*/true,
+            "The map operation has failed. See nested exception for details.");
     }
-
-    // TODO: warn
-
-    return std::nullopt;
 }
 
 }  // namespace fairseq2::detail

@@ -20,19 +20,27 @@ namespace fairseq2::detail {
 template <typename... Args>
 [[noreturn]] inline void
 throw_data_pipeline_error(
-    std::optional<data> maybe_example, fmt::format_string<Args...> format, Args &&...args)
+    std::optional<data> maybe_example,
+    bool recoverable,
+    fmt::format_string<Args...> format, Args &&...args)
 {
     throw data_pipeline_error{
-        fmt::vformat(format, fmt::make_format_args(args...)), std::move(maybe_example)};
+        fmt::vformat(format, fmt::make_format_args(args...)),
+        std::move(maybe_example),
+        recoverable};
 }
 
 template <typename... Args>
 [[noreturn]] inline void
 throw_data_pipeline_error_with_nested(
-    std::optional<data> maybe_example, fmt::format_string<Args...> format, Args &&...args)
+    std::optional<data> maybe_example,
+    bool recoverable,
+    fmt::format_string<Args...> format, Args &&...args)
 {
     std::throw_with_nested(data_pipeline_error{
-        fmt::vformat(format, fmt::make_format_args(args...)), std::move(maybe_example)});
+        fmt::vformat(format, fmt::make_format_args(args...)),
+        std::move(maybe_example),
+        recoverable});
 }
 
 }  // namespace fairseq2::detail

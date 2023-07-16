@@ -85,7 +85,7 @@ yield_from_data_source::invoke_function(data &example)
     } catch (const data_pipeline_error &) {
         throw;
     } catch (const std::exception &) {
-        throw_data_pipeline_error_with_nested(std::move(example),
+        throw_data_pipeline_error_with_nested(std::move(example), /*recoverable=*/true,
             "The yield operation has failed. See nested exception for details.");
     }
 }

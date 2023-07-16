@@ -24,8 +24,7 @@ public:
         std::unique_ptr<data_source> &&inner,
         std::vector<std::pair<std::size_t, std::size_t>> &&bucket_sizes,
         data_length_fn &&fn,
-        bool drop_remainder,
-        bool warn_only);
+        bool drop_remainder);
 
     std::optional<data>
     next() override;
@@ -42,10 +41,9 @@ public:
 private:
     std::unique_ptr<data_source> inner_;
     std::vector<std::pair<std::size_t, std::size_t>> bucket_sizes_;
-    std::size_t max_data_length_;
+    std::size_t max_data_len_;
     data_length_fn data_length_fn_;
     bool drop_remainder_;
-    bool warn_only_;
     std::vector<data_list> buckets_{};
 };
 

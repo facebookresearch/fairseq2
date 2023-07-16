@@ -4,11 +4,10 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, NoReturn
-
 import pytest
 
 from fairseq2.data import DataPipeline, DataPipelineError, read_sequence
+from fairseq2.data.text import read_text
 
 
 class TestZipOp:
@@ -96,24 +95,6 @@ class TestZipOp:
 
             pipeline.reset()
 
-    def test_op_works_when_warn_only_is_true_and_pipelines_have_different_lengths(
-        self,
-    ) -> None:
-        pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
-        pipeline2 = read_sequence([5, 6, 7]).and_return()
-        pipeline3 = read_sequence([0, 2, 4, 6]).and_return()
-
-        pipeline = DataPipeline.zip(
-            [pipeline1, pipeline2, pipeline3], warn_only=True
-        ).and_return()
-
-        for _ in range(2):
-            assert list(pipeline) == [[1, 5, 0], [2, 6, 2], [3, 7, 4]]
-
-            # TODO: assert that warning is printed.
-
-            pipeline.reset()
-
     def test_op_raises_error_when_pipelines_have_different_lengths(self) -> None:
         pipeline1 = read_sequence([1, 2, 3]).and_return()
         pipeline2 = read_sequence([5, 6, 7, 8]).and_return()
@@ -141,17 +122,15 @@ class TestZipOp:
             DataPipeline.zip([pipeline1, pipeline2], ["p1", "p2", "p3"])
 
     def test_op_raises_error_when_one_of_the_pipelines_is_broken(self) -> None:
-        def err(e: Any) -> NoReturn:
-            raise ValueError()
-
-        pipeline1 = read_sequence([1]).map(err).and_return()
-        pipeline2 = read_sequence([1]).and_return()
+        # Force a non-recoverable error.
+        pipeline1 = read_text(pathname=" &^#").and_return()
+        pipeline2 = read_text(pathname=" &^#").and_return()
 
         # Break the first pipeline.
         try:
             next(iter(pipeline1))
         except DataPipelineError:
-            pass
+            assert pipeline1.is_broken
 
         with pytest.raises(
             ValueError,

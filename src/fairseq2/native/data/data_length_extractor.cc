@@ -52,15 +52,15 @@ data_length_extractor::operator()(const data &d) const
     if (!maybe_selector_)
         return extract_length(d);
 
-    std::size_t data_length = 0;
+    std::size_t data_len = 0;
 
     maybe_selector_->visit(
-        d, [&data_length, &extract_length](const data &element, element_path_ref path)
+        d, [&data_len, &extract_length](const data &element, element_path_ref path)
         {
-            data_length = std::max(data_length, extract_length(element, path));
+            data_len = std::max(data_len, extract_length(element, path));
         });
 
-    return data_length;
+    return data_len;
 }
 
 }  // namespace fairseq2

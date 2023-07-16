@@ -62,7 +62,7 @@ private:
     std::unique_ptr<byte_stream> stream_;
     memory_block current_chunk_{};
     std::vector<memory_block> previous_chunks_{};
-    std::size_t record_length_ = 0;
+    std::size_t record_len_ = 0;
     std::size_t record_end_offset_ = 0;
 };
 

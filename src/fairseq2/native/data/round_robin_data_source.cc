@@ -18,7 +18,10 @@ round_robin_data_source::next()
     // least one epoch. If that is the case, we can signal EOD.
     if (buffer_idx_ == 0) {
         bool all_done = std::all_of(
-            is_epoch_done_.begin(), is_epoch_done_.end(), [](bool b) { return b; });
+            is_epoch_done_.begin(), is_epoch_done_.end(), [](bool b)
+            {
+                return b;
+            });
 
         if (all_done) {
             is_eod_ = true;

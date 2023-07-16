@@ -21,10 +21,7 @@ class map_data_source final : public data_source {
 public:
     explicit
     map_data_source(
-        std::unique_ptr<data_source> &&inner,
-        map_fn &&fn,
-        std::size_t num_parallel_calls,
-        bool warn_only) noexcept;
+        std::unique_ptr<data_source> &&inner, map_fn &&fn, std::size_t num_parallel_calls);
 
     std::optional<data>
     next() override;
@@ -49,7 +46,6 @@ private:
     std::unique_ptr<data_source> inner_;
     map_fn map_fn_;
     std::size_t num_parallel_calls_;
-    bool warn_only_;
     std::vector<std::optional<data>> buffer_{};
     std::vector<std::optional<data>>::iterator buffer_iter_{};
 };

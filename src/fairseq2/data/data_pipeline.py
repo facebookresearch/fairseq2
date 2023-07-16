@@ -65,7 +65,6 @@ if TYPE_CHECKING or _DOC_MODE:
             pipelines: Sequence["DataPipeline"],
             names: Optional[Sequence[str]] = None,
             flatten: bool = False,
-            warn_only: bool = False,
             disable_parallelism: bool = False,
         ) -> "DataPipelineBuilder":
             """Zip together examples read from ``pipelines``.
@@ -75,9 +74,6 @@ if TYPE_CHECKING or _DOC_MODE:
             :param names:
                 The names to assign to the data pipelines.
             :param flatten:
-            :param warn_only:
-                If ``True``, prints a warning, instead of raising an error, when the
-                data pipelines do not have equal length.
             :param disable_parallelism:
                 If ``True``, calls each data pipeline sequentially.
             """
@@ -108,7 +104,6 @@ if TYPE_CHECKING or _DOC_MODE:
             bucket_sizes: Sequence[Tuple[int, int]],
             selector: Optional[str] = None,
             drop_remainder: bool = False,
-            warn_only: bool = False,
         ) -> "DataPipelineBuilder":
             """Combine examples of similar shape into batches."""
 
@@ -125,7 +120,6 @@ if TYPE_CHECKING or _DOC_MODE:
             fn: Union[Callable[[Any], Any], Sequence[Callable[[Any], Any]]],
             selector: Optional[str] = None,
             num_parallel_calls: int = 1,
-            warn_only: bool = False,
         ) -> "DataPipelineBuilder":
             """Apply ``fn`` to every example.
 
@@ -134,7 +128,6 @@ if TYPE_CHECKING or _DOC_MODE:
             :param selector:
             :param num_parallel_calls:
                 The number of examples to process in parallel.
-            :param warn_only:
             """
 
         def prefetch(self, num_examples: int) -> "DataPipelineBuilder":
@@ -191,11 +184,14 @@ if TYPE_CHECKING or _DOC_MODE:
                 The function to map examples to data pipelines.
             """
 
-        def and_return(self) -> DataPipeline:
+        def and_return(self, max_num_warnings: int = 0) -> DataPipeline:
             """Return a new :class:`DataPipeline` instance."""
 
     class DataPipelineError(RuntimeError):
         """Raised when an error occurs while reading from a data pipeline."""
+
+    def get_last_failed_example() -> Any:
+        ...
 
     def list_files(
         pathname: PathLike, pattern: Optional[StringLike] = None
@@ -279,6 +275,9 @@ else:
     from fairseq2.C.data.data_pipeline import DataPipelineError as DataPipelineError
     from fairseq2.C.data.data_pipeline import FileMapper as FileMapper
     from fairseq2.C.data.data_pipeline import RecordError as RecordError
+    from fairseq2.C.data.data_pipeline import (
+        get_last_failed_example as get_last_failed_example,
+    )
     from fairseq2.C.data.data_pipeline import list_files as list_files
     from fairseq2.C.data.data_pipeline import read_sequence as read_sequence
     from fairseq2.C.data.data_pipeline import read_zipped_records as read_zipped_records
@@ -293,6 +292,7 @@ else:
             DataPipelineError,
             FileMapper,
             RecordError,
+            get_last_failed_example,
             list_files,
             read_sequence,
             read_zipped_records,

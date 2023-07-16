@@ -33,8 +33,8 @@ class FAIRSEQ2_API data_pipeline {
 
 private:
     explicit
-    data_pipeline(data_source_factory &&factory) noexcept
-      : factory_{std::move(factory)}
+    data_pipeline(data_source_factory &&factory, std::size_t max_num_warnings) noexcept
+      : factory_{std::move(factory)}, max_num_warnings_{max_num_warnings}
     {}
 
 public:
@@ -77,7 +77,6 @@ public:
         std::vector<data_pipeline> pipelines,
         std::vector<std::string> names = {},
         bool flatten = false,
-        bool warn_only = false,
         bool disable_parallelism = false);
 
     static data_pipeline_builder
@@ -86,6 +85,8 @@ public:
 private:
     data_source_factory factory_{};
     std::unique_ptr<data_source> source_{};
+    std::size_t max_num_warnings_{};
+    std::size_t warning_count_{};
     mutable bool is_broken_ = false;
 };
 
@@ -119,14 +120,13 @@ public:
     bucket_by_length(
         std::vector<std::pair<std::size_t, std::size_t>> bucket_sizes,
         data_length_fn fn,
-        bool drop_remainder = false,
-        bool warn_only = false) &&;
+        bool drop_remainder = false) &&;
 
     data_pipeline_builder
     filter(predicate_fn fn) &&;
 
     data_pipeline_builder
-    map(map_fn fn, std::size_t num_parallel_calls = 1, bool warn_only = false) &&;
+    map(map_fn fn, std::size_t num_parallel_calls = 1) &&;
 
     data_pipeline_builder
     prefetch(std::size_t num_examples) &&;
@@ -147,7 +147,7 @@ public:
     yield_from(yield_fn fn) &&;
 
     data_pipeline
-    and_return() &&;
+    and_return(std::size_t max_num_warnings = 0) &&;
 
 private:
     data_source_factory factory_;
@@ -156,8 +156,13 @@ private:
 class FAIRSEQ2_API data_pipeline_error : public std::runtime_error {
 public:
     explicit
-    data_pipeline_error(const std::string &message, std::optional<data> maybe_example = {}) noexcept
-      : std::runtime_error{message}, maybe_example_{std::move(maybe_example)}
+    data_pipeline_error(
+        const std::string &message,
+        std::optional<data> maybe_example = {},
+        bool recoverable = false) noexcept
+      : std::runtime_error{message},
+        maybe_example_{std::move(maybe_example)},
+        recoverable_{recoverable}
     {}
 
     data_pipeline_error(const data_pipeline_error &) = default;
@@ -165,14 +170,27 @@ public:
 
    ~data_pipeline_error() override;
 
+    std::optional<data> &
+    maybe_example() noexcept
+    {
+        return maybe_example_;
+    }
+
     const std::optional<data> &
     maybe_example() const noexcept
     {
         return maybe_example_;
     }
 
+    bool
+    recoverable() const noexcept
+    {
+        return recoverable_;
+    }
+
 private:
     std::optional<data> maybe_example_{};
+    bool recoverable_;
 };
 
 FAIRSEQ2_API data_pipeline_builder
