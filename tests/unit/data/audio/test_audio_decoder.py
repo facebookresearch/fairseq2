@@ -12,12 +12,23 @@ import torch
 
 from fairseq2.data.audio import AudioDecoder
 from fairseq2.memory import MemoryBlock
+from fairseq2.typing import DataType
 from tests.common import assert_close, device
 
 TEST_OGG_PATH: Final = Path(__file__).parent.joinpath("test.ogg")
 
 
 class TestAudioDecoder:
+    @pytest.mark.parametrize("dtype", [torch.float16, torch.int64])
+    def test_init_raises_error_when_data_type_is_not_supported(
+        self, dtype: DataType
+    ) -> None:
+        with pytest.raises(
+            ValueError,
+            match=r"^`audio_decoder` supports only `torch.float32`, `torch.int32`, and `torch.int16` data types\.$",
+        ):
+            AudioDecoder(dtype=dtype)
+
     def test_call_works(self) -> None:
         decoder = AudioDecoder(device=device)
 

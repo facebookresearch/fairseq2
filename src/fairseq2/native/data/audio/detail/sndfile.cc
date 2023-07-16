@@ -139,6 +139,19 @@ sndfile::decode_into(span<std::int32_t> target)
 }
 
 void
+sndfile::decode_into(span<std::int16_t> target)
+{
+    static_assert(sizeof(short int) == sizeof(std::int16_t),
+        "The host platform's `short int` data type must be 16-bit.");
+
+    ::sf_count_t num_frames_decoded = ::sf_readf_short(handle_, target.data(), audio_info_.frames);
+
+    if (num_frames_decoded != audio_info_.frames)
+        throw_<internal_error>(
+            "`sndfile` has failed to decode the input audio. Please file a bug report.");
+}
+
+void
 sndfile::check_handle(::SNDFILE *handle)
 {
     int err_num = ::sf_error(handle);

@@ -103,6 +103,9 @@ public:
     decode_into(span<float32> target);
 
     void
+    decode_into(span<std::int16_t> target);
+
+    void
     decode_into(span<std::int32_t> target);
 
     std::int64_t

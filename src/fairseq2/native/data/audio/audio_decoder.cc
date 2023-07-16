@@ -29,9 +29,9 @@ audio_decoder::audio_decoder(audio_decoder_options opts)
   : opts_{opts}
 {
     at::ScalarType dtype = opts_.maybe_dtype().value_or(at::kFloat);
-    if (dtype != at::kFloat && dtype != at::kInt)
+    if (dtype != at::kFloat && dtype != at::kInt && dtype != at::kShort)
         throw_<not_supported_error>(
-            "`audio_decoder` supports only `torch.float` and `torch.int` data types.");
+            "`audio_decoder` supports only `torch.float32`, `torch.int32`, and `torch.int16` data types.");
 }
 
 data
@@ -69,6 +69,13 @@ audio_decoder::operator()(data &&d) const
     switch (dtype) {
     case at::kFloat: {
         span tensor_data = cast<float32>(tensor_bits);
+
+        file.decode_into(tensor_data);
+
+        break;
+    }
+    case at::kShort: {
+        span tensor_data = cast<std::int16_t>(tensor_bits);
 
         file.decode_into(tensor_data);
 
