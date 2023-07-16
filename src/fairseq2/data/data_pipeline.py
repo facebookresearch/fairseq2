@@ -86,6 +86,14 @@ if TYPE_CHECKING or _DOC_MODE:
                 The data pipelines to round robin.
             """
 
+        @staticmethod
+        def constant(example: Any) -> "DataPipelineBuilder":
+            ...
+
+        @staticmethod
+        def count(start: int = 0) -> "DataPipelineBuilder":
+            ...
+
     class DataPipelineBuilder:
         def bucket(
             self, bucket_size: int, drop_remainder: bool = False

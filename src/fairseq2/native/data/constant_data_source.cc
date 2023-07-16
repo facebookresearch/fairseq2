@@ -1,0 +1,29 @@
+// Copyright (c) Meta Platforms, Inc. and affiliates.
+// All rights reserved.
+//
+// This source code is licensed under the BSD-style license found in the
+// LICENSE file in the root directory of this source tree.
+
+#include "fairseq2/native/data/constant_data_source.h"
+
+namespace fairseq2::detail {
+
+std::optional<data>
+constant_data_source::next()
+{
+    return example_;
+}
+
+void
+constant_data_source::reset()
+{}
+
+void
+constant_data_source::record_position(tape &) const
+{}
+
+void
+constant_data_source::reload_position(tape &)
+{}
+
+}

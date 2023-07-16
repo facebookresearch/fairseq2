@@ -10,7 +10,7 @@ from fairseq2.data import DataPipeline, DataPipelineError, read_sequence
 from fairseq2.data.text import read_text
 
 
-class TestZipOp:
+class TestRoundRobinOp:
     def test_op_works(self) -> None:
         pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
         pipeline2 = read_sequence([5, 6, 7, 8]).and_return()
@@ -107,7 +107,7 @@ class TestZipOp:
 
         it = iter(pipeline)
 
-        # Move the the second example.
+        # Move the the fifth example.
         for _ in range(5):
             d = next(it)
 
@@ -121,7 +121,7 @@ class TestZipOp:
 
         assert d == 9
 
-        # Expected to roll back to the second example.
+        # Expected to roll back to the fifth example.
         pipeline.load_state_dict(state_dict)
 
         # Move to EOD.

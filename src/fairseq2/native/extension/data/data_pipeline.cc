@@ -294,7 +294,21 @@ def_data_pipeline(py::module_ &data_module)
 
                 return data_pipeline::round_robin(std::move(pipelines));
             },
-            py::arg("pipelines"));
+            py::arg("pipelines"))
+        .def_static(
+            "constant",
+            [](data example)
+            {
+                return data_pipeline::constant(std::move(example));
+            },
+            py::arg("example"))
+        .def_static(
+            "count",
+            [](std::int64_t start)
+            {
+                return data_pipeline::count(start);
+            },
+            py::arg("start") = 0);
 
     // DataPipelineIterator
     py::class_<data_pipeline_iterator>(m, "_DataPipelineIterator")

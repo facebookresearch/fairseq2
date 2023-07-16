@@ -82,6 +82,12 @@ public:
     static data_pipeline_builder
     round_robin(std::vector<data_pipeline> pipelines);
 
+    static data_pipeline_builder
+    constant(data example);
+
+    static data_pipeline_builder
+    count(std::int64_t start = 0);
+
 private:
     data_source_factory factory_{};
     std::unique_ptr<data_source> source_{};

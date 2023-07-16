@@ -13,6 +13,8 @@
 
 #include "fairseq2/native/data/bucket_by_length_data_source.h"
 #include "fairseq2/native/data/bucket_data_source.h"
+#include "fairseq2/native/data/constant_data_source.h"
+#include "fairseq2/native/data/count_data_source.h"
 #include "fairseq2/native/data/filter_data_source.h"
 #include "fairseq2/native/data/list_data_source.h"
 #include "fairseq2/native/data/map_data_source.h"
@@ -217,6 +219,28 @@ data_pipeline::round_robin(std::vector<data_pipeline> pipelines)
     auto factory = [tmp]() mutable
     {
         return std::make_unique<round_robin_data_source>(std::move(*tmp));
+    };
+
+    return data_pipeline_builder{std::move(factory)};
+}
+
+data_pipeline_builder
+data_pipeline::constant(data example)
+{
+    auto factory = [example = std::move(example)]() mutable
+    {
+        return std::make_unique<constant_data_source>(std::move(example));
+    };
+
+    return data_pipeline_builder{std::move(factory)};
+}
+
+data_pipeline_builder
+data_pipeline::count(std::int64_t start)
+{
+    auto factory = [start]
+    {
+        return std::make_unique<count_data_source>(start);
     };
 
     return data_pipeline_builder{std::move(factory)};

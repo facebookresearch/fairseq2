@@ -18,6 +18,8 @@ target_sources(fairseq2
         data/bucket_data_source.cc
         data/byte_stream.cc
         data/collater.cc
+        data/constant_data_source.cc
+        data/count_data_source.cc
         data/data.cc
         data/data_length_extractor.cc
         data/data_pipeline.cc
