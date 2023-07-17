@@ -13,3 +13,6 @@
 [submodule "third-party/zip"]
 	path = third-party/zip
 	url = https://github.com/kuba--/zip.git
+[submodule "third-party/kaldi-native-fbank"]
+	path = third-party/kaldi-native-fbank
+	url = https://github.com/cbalioglu/kaldi-native-fbank.git

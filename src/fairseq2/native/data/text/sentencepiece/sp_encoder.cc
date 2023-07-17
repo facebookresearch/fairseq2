@@ -28,10 +28,10 @@ using namespace fairseq2::detail;
 namespace fairseq2 {
 namespace detail {
 
-class encoder_op {
+class sp_encoder_op {
 public:
     explicit
-    encoder_op(
+    sp_encoder_op(
         const sp_encoder *encoder, const sp_processor *processor, immutable_string &&sentence);
 
     at::Tensor &&
@@ -51,40 +51,6 @@ private:
     at::Tensor tensor_{};
 };
 
-}  // namespace detail
-
-sp_encoder::sp_encoder(std::shared_ptr<const sp_model> model, sp_encoder_options opts)
-  : model_{std::move(model)}, opts_{std::move(opts)}
-{
-    prefix_token_indices_.reserve(opts_.prefix_tokens().size());
-    suffix_token_indices_.reserve(opts_.suffix_tokens().size());
-
-    for (const std::string &token : opts_.prefix_tokens())
-        prefix_token_indices_.push_back(model_->token_to_index(token));
-
-    for (const std::string &token : opts_.suffix_tokens())
-        suffix_token_indices_.push_back(model_->token_to_index(token));
-}
-
-data
-sp_encoder::operator()(data &&d) const
-{
-    if (!d.is_string())
-        throw_<std::invalid_argument>(
-            "The input data must be of type `string`, but is of type `{}` instead.", d.type());
-
-    return encode(std::move(d).as_string());
-}
-
-at::Tensor
-sp_encoder::encode(immutable_string &&sentence) const
-{
-    encoder_op op{this, model_->processor_.get(), std::move(sentence)};
-
-    return std::move(op).run();
-}
-
-namespace detail {
 namespace {
 
 std::int64_t
@@ -97,7 +63,7 @@ get_token_idx(const ImmutableSentencePieceText &spt, std::size_t idx) noexcept
 
 }  // namespace
 
-encoder_op::encoder_op(
+sp_encoder_op::sp_encoder_op(
     const sp_encoder *encoder, const sp_processor *processor, immutable_string &&sentence)
   : encoder_{encoder}, processor_{processor}, sentence_{std::move(sentence)}
 {
@@ -106,7 +72,7 @@ encoder_op::encoder_op(
 }
 
 at::Tensor &&
-encoder_op::run() &&
+sp_encoder_op::run() &&
 {
     encode_string();
 
@@ -151,7 +117,7 @@ encoder_op::run() &&
 }
 
 void
-encoder_op::encode_string()
+sp_encoder_op::encode_string()
 {
     auto &opts = encoder_->opts_;
 
@@ -164,4 +130,34 @@ encoder_op::encode_string()
 }
 
 }  // namespace detail
+
+sp_encoder::sp_encoder(std::shared_ptr<const sp_model> model, sp_encoder_options opts)
+  : model_{std::move(model)}, opts_{std::move(opts)}
+{
+    prefix_token_indices_.reserve(opts_.prefix_tokens().size());
+    suffix_token_indices_.reserve(opts_.suffix_tokens().size());
+
+    for (const std::string &token : opts_.prefix_tokens())
+        prefix_token_indices_.push_back(model_->token_to_index(token));
+
+    for (const std::string &token : opts_.suffix_tokens())
+        suffix_token_indices_.push_back(model_->token_to_index(token));
+}
+
+data
+sp_encoder::operator()(data &&d) const
+{
+    if (!d.is_string())
+        throw_<std::invalid_argument>(
+            "The input data must be of type `string`, but is of type `{}` instead.", d.type());
+
+    return encode(std::move(d).as_string());
+}
+
+at::Tensor
+sp_encoder::encode(immutable_string &&sentence) const
+{
+    return sp_encoder_op{this, model_->processor_.get(), std::move(sentence)}.run();
+}
+
 }  // namespace fairseq2

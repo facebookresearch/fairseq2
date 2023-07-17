@@ -143,6 +143,8 @@ add_subdirectory(third-party)
 
 fairseq2_add_fmt()
 
+fairseq2_add_kaldi_native_fbank()
+
 fairseq2_add_natsort()
 
 fairseq2_add_pybind11()

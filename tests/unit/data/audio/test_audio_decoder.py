@@ -41,17 +41,17 @@ class TestAudioDecoder:
 
         assert output["sample_rate"] == 16000
 
-        audio = output["audio"]
+        waveform = output["waveform"]
 
-        assert audio.shape == (28800, 1)
+        assert waveform.shape == (28800, 1)
 
-        assert audio.dtype == torch.float
+        assert waveform.dtype == torch.float
 
-        assert audio.device == device
+        assert waveform.device == device
 
-        assert_close(audio[0][0], torch.tensor(9.0017202e-6, device=device))
+        assert_close(waveform[0][0], torch.tensor(9.0017202e-6, device=device))
 
-        assert_close(audio.sum(), torch.tensor(-0.753374, device=device))
+        assert_close(waveform.sum(), torch.tensor(-0.753374, device=device))
 
     @pytest.mark.parametrize(
         "value,type_name", [(None, "pyobj"), (123, "int"), ("s", "string")]

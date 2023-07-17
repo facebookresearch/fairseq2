@@ -17,14 +17,14 @@
 namespace fairseq2 {
 namespace detail {
 
-class decoder_op;
+class sp_decoder_op;
 
 }
 
 class sp_model;
 
 class FAIRSEQ2_API sp_decoder final {
-    friend class detail::decoder_op;
+    friend class detail::sp_decoder_op;
 
 public:
     explicit

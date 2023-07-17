@@ -48,6 +48,6 @@ class TestArchitectureRegistry:
 
         with pytest.raises(
             ValueError,
-            match=r"The registry of 'model' does not contain an architecture named 'foo'\.$",
+            match=r"^The registry of 'model' does not contain an architecture named 'foo'\.$",
         ):
             registry.get_config("foo")

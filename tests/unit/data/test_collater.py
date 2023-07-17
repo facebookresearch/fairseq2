@@ -99,7 +99,7 @@ class TestCollater:
         assert_close(output["seqs"], expected_seqs)
         assert_equal(output["seq_lens"], expected_seq_lens)
 
-        assert output["ragged"] == False
+        assert output["is_ragged"] == False
 
     def test_call_works_when_input_has_ragged_sequence_tensors(self) -> None:
         bucket = [
@@ -127,7 +127,7 @@ class TestCollater:
         assert_close(output["foo1"]["seqs"], expected_seqs)
         assert_equal(output["foo1"]["seq_lens"], expected_seq_lens)
 
-        assert output["foo1"]["ragged"] == True
+        assert output["foo1"]["is_ragged"] == True
 
     def test_call_works_when_options_are_overriden(self) -> None:
         # fmt: off
@@ -173,8 +173,8 @@ class TestCollater:
         assert_equal(output["foo1"]["seq_lens"], expected_seq_lens)
         assert_equal(output["foo2"]["seq_lens"], expected_seq_lens)
 
-        assert output["foo1"]["ragged"] == True
-        assert output["foo2"]["ragged"] == True
+        assert output["foo1"]["is_ragged"] == True
+        assert output["foo2"]["is_ragged"] == True
 
     def test_call_works_when_input_has_composite_elements(self) -> None:
         # fmt: off
@@ -249,7 +249,7 @@ class TestCollater:
 
         with pytest.raises(
             ValueError,
-            match=r"^The bucket item 1 must be of type `torch.Tensor`, but is of type `int` instead\.$",
+            match=r"^The bucket item 1 must be of type `torch\.Tensor`, but is of type `int` instead\.$",
         ):
             collater(bucket)
 

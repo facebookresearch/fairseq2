@@ -6,6 +6,7 @@
 
 include(fmt.cmake)
 include(gtest.cmake)
+include(kaldi-native-fbank.cmake)
 include(natsort.cmake)
 include(pybind11.cmake)
 include(sentencepiece.cmake)

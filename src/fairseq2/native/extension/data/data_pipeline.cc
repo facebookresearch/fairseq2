@@ -542,7 +542,7 @@ def_data_pipeline(py::module_ &data_module)
                 if (maybe_opt_overrides)
                     opt_overrides = *std::move(maybe_opt_overrides);
 
-                return collater{opts, std::move(opt_overrides)};
+                return std::make_shared<collater>(opts, std::move(opt_overrides));
             }),
             py::arg("pad_idx") = std::nullopt,
             py::arg("pad_to_multiple") = 1,

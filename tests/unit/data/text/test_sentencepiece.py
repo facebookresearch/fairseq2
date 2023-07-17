@@ -66,8 +66,11 @@ class TestSentencePieceModel:
     def test_index_to_token_raises_error_when_input_is_out_of_range(self) -> None:
         model = self.build_model()
 
-        with pytest.raises(ValueError):
-            model.index_to_token(4867847)
+        with pytest.raises(
+            ValueError,
+            match=r"^`idx` must be less than vocabulary size \(1001\), but is 1005 instead\.$",
+        ):
+            model.index_to_token(1005)
 
     def test_encode_decode_work(self) -> None:
         model = self.build_model()
@@ -171,7 +174,7 @@ class TestSentencePieceModel:
 
     @pytest.mark.parametrize("dtype", [torch.int16, torch.int32, torch.int64])
     def test_decode_works_when_input_is_batched(self, dtype: DataType) -> None:
-        model = self.build_model(control_symbols=["<foo>"])
+        model = self.build_model()
 
         decoder = SentencePieceDecoder(model)
 
@@ -192,13 +195,32 @@ class TestSentencePieceModel:
     def test_decode_raises_error_when_data_type_is_not_supported(
         self, dtype: DataType
     ) -> None:
-        model = self.build_model(control_symbols=["<foo>"])
+        model = self.build_model()
 
         decoder = SentencePieceDecoder(model)
 
         indices = torch.zeros((10,), device=device, dtype=dtype)
 
-        with pytest.raises(ValueError):
+        with pytest.raises(
+            ValueError,
+            match=r"^`sp_decoder` supports only `torch.int16`, `torch.int32`, and `torch.int64` data types\.$",
+        ):
+            decoder(indices)
+
+    @pytest.mark.parametrize("shape", [(), (4, 4, 4)])
+    def test_decode_raises_error_when_input_has_more_than_2_dimensions(
+        self, shape: Sequence[int]
+    ) -> None:
+        model = self.build_model()
+
+        decoder = SentencePieceDecoder(model)
+
+        indices = torch.zeros(shape, device=device)
+
+        with pytest.raises(
+            ValueError,
+            match=rf"^The input tensor must be one or two dimensional, but has {len(shape)} dimensions instead\.$",
+        ):
             decoder(indices)
 
     def test_pickle_works(self) -> None:

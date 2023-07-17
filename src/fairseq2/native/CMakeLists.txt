@@ -47,6 +47,8 @@ target_sources(fairseq2
         data/zip_data_source.cc
         data/zip_file_data_source.cc
         data/audio/audio_decoder.cc
+        data/audio/waveform_to_fbank_converter.cc
+        data/audio/detail/kaldi_fbank.cc
         data/audio/detail/sndfile.cc
         data/detail/file.cc
         data/detail/file_system.cc
@@ -87,14 +89,15 @@ target_link_libraries(fairseq2
     PRIVATE
         ${CMAKE_DL_LIBS}
     PRIVATE
+        fmt::fmt
         Iconv::Iconv
-        SndFile::sndfile
+        kaldi-native-fbank::core
+        kuba-zip
+        natsort
         TBB::tbb
         Threads::Threads
-        fmt::fmt
-        natsort
         sentencepiece-static
-        kuba-zip
+        SndFile::sndfile
     PUBLIC
         torch
 )

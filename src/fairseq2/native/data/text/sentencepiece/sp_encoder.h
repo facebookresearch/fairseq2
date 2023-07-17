@@ -162,7 +162,7 @@ private:
 
 namespace detail {
 
-class encoder_op;
+class sp_encoder_op;
 
 }
 
@@ -171,7 +171,7 @@ class immutable_string;
 class sp_model;
 
 class FAIRSEQ2_API sp_encoder final {
-    friend class detail::encoder_op;
+    friend class detail::sp_encoder_op;
 
 public:
     explicit

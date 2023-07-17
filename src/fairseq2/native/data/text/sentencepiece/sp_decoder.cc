@@ -18,6 +18,7 @@
 #include <ATen/ScalarType.h>
 #include <ATen/Storage.h>
 
+#include "fairseq2/native/exception.h"
 #include "fairseq2/native/fmt.h"
 #include "fairseq2/native/data/text/sentencepiece/sp_model.h"
 #include "fairseq2/native/data/text/sentencepiece/sp_processor.h"
@@ -29,10 +30,10 @@ using namespace fairseq2::detail;
 namespace fairseq2 {
 namespace detail {
 
-class decoder_op {
+class sp_decoder_op {
 public:
     explicit
-    decoder_op(const sp_decoder *decoder, const sp_processor *processor, at::Tensor &&tensor);
+    sp_decoder_op(const sp_decoder *decoder, const sp_processor *processor, at::Tensor &&tensor);
 
     data_list &&
     run() &&;
@@ -52,38 +53,7 @@ private:
     data_list sentences_{};
 };
 
-}  // namespace detail
-
-sp_decoder::sp_decoder(std::shared_ptr<const sp_model> model, bool reverse) noexcept
-  : model_{std::move(model)}, reverse_{reverse}
-{}
-
-data
-sp_decoder::operator()(data &&d) const
-{
-    if (!d.is_tensor())
-        throw_<std::invalid_argument>(
-            "The input data must be of type `torch.Tensor`, but is of type `{}` instead.", d.type());
-
-    at::Tensor tensor = d.as_tensor();
-
-    if (tensor.dim() == 1)
-        tensor = tensor.unsqueeze(0);
-
-    return decode(std::move(tensor));
-}
-
-data_list
-sp_decoder::decode(at::Tensor &&tensor) const
-{
-    decoder_op op{this, model_->processor_.get(), std::move(tensor)};
-
-    return std::move(op).run();
-}
-
-namespace detail {
-
-decoder_op::decoder_op(
+sp_decoder_op::sp_decoder_op(
     const sp_decoder *decoder, const sp_processor *processor, at::Tensor &&tensor)
   : decoder_{decoder}, processor_{processor}, tensor_{std::move(tensor)}
 {
@@ -93,7 +63,7 @@ decoder_op::decoder_op(
 }
 
 data_list &&
-decoder_op::run() &&
+sp_decoder_op::run() &&
 {
     tensor_ = tensor_.to(at::kCPU);
 
@@ -103,7 +73,7 @@ decoder_op::run() &&
 }
 
 void
-decoder_op::decode()
+sp_decoder_op::decode()
 {
     switch (tensor_.scalar_type()) {
     case at::ScalarType::Short:
@@ -119,13 +89,14 @@ decoder_op::decode()
         break;
 
     default:
-        throw_<std::invalid_argument>("The specified integral type is not supported.");
+        throw_<not_supported_error>(
+            "`sp_decoder` supports only `torch.int16`, `torch.int32`, and `torch.int64` data types.");
     }
 }
 
 template <typename T>
 void
-decoder_op::decode()
+sp_decoder_op::decode()
 {
     std::int64_t seq_len = tensor_.size(1);
 
@@ -155,4 +126,34 @@ decoder_op::decode()
 }
 
 }  // namespace detail
+
+sp_decoder::sp_decoder(std::shared_ptr<const sp_model> model, bool reverse) noexcept
+  : model_{std::move(model)}, reverse_{reverse}
+{}
+
+data
+sp_decoder::operator()(data &&d) const
+{
+    if (!d.is_tensor())
+        throw_<std::invalid_argument>(
+            "The input data must be of type `torch.Tensor`, but is of type `{}` instead.", d.type());
+
+    at::Tensor tensor = d.as_tensor();
+
+    if (tensor.dim() == 0 || tensor.dim() > 2)
+        throw_<std::invalid_argument>(
+            "The input tensor must be one or two dimensional, but has {} dimensions instead.", tensor.dim());
+
+    if (tensor.dim() == 1)
+        tensor = tensor.unsqueeze(0);
+
+    return decode(std::move(tensor));
+}
+
+data_list
+sp_decoder::decode(at::Tensor &&tensor) const
+{
+    return sp_decoder_op{this, model_->processor_.get(), std::move(tensor)}.run();
+}
+
 }  // namespace fairseq2

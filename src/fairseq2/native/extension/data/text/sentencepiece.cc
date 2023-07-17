@@ -36,7 +36,7 @@ def_sentencepiece(py::module_ &text_module)
                 if (maybe_control_symbols)
                     opts.control_symbols() = *std::move(maybe_control_symbols);
 
-                return std::make_unique<sp_model>(pathname, std::move(opts));
+                return std::make_shared<sp_model>(pathname, std::move(opts));
             }),
             py::arg("pathname"),
             py::arg("control_symbols") = std::nullopt)
@@ -93,7 +93,7 @@ def_sentencepiece(py::module_ &text_module)
                 if (maybe_suffix_tokens)
                     opts.suffix_tokens() = *std::move(maybe_suffix_tokens);
 
-                return sp_encoder{std::move(model), std::move(opts)};
+                return std::make_shared<sp_encoder>(std::move(model), std::move(opts));
             }),
             py::arg("model"),
             py::arg("prefix_tokens")   = std::nullopt,

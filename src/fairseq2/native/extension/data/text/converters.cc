@@ -53,7 +53,8 @@ def_text_converters(py::module_ &text_module)
                 if (maybe_indices)
                     indices = *std::move(maybe_indices);
 
-                return string_splitter{sep[0], std::move(names), std::move(indices), exclude};
+                return std::make_shared<string_splitter>(
+                    sep[0], std::move(names), std::move(indices), exclude);
             }),
             py::arg("sep") = '\t',
             py::arg("names") = std::nullopt,
@@ -80,7 +81,7 @@ def_text_converters(py::module_ &text_module)
                 if (maybe_size)
                     size = *std::move(maybe_size);
 
-                return string_to_tensor_converter{std::move(size), maybe_dtype};
+                return std::make_shared<string_to_tensor_converter>(std::move(size), maybe_dtype);
             }),
             py::arg("size") = std::nullopt,
             py::arg("dtype") = std::nullopt)

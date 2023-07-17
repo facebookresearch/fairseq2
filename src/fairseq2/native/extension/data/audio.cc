@@ -6,12 +6,15 @@
 
 #include "fairseq2/native/extension/module.h"
 
+#include <cstdint>
 #include <memory>
 
 #include <ATen/Device.h>
 #include <ATen/ScalarType.h>
 
-#include "fairseq2/native/data/audio/audio_decoder.h"
+#include <fairseq2/native/float.h>
+#include <fairseq2/native/data/audio/audio_decoder.h>
+#include <fairseq2/native/data/audio/waveform_to_fbank_converter.h>
 
 namespace py = pybind11;
 
@@ -33,7 +36,7 @@ def_audio(py::module_ &data_module)
                 auto opts = audio_decoder_options()
                     .maybe_dtype(maybe_dtype).maybe_device(maybe_device).pin_memory(pin_memory);
 
-                return audio_decoder{opts};
+                return std::make_shared<audio_decoder>(opts);
             }),
             py::arg("dtype") = std::nullopt,
             py::arg("device") = std::nullopt,
@@ -41,6 +44,35 @@ def_audio(py::module_ &data_module)
         .def("__call__", &audio_decoder::operator(), py::call_guard<py::gil_scoped_release>{});
 
     map_functors().register_<audio_decoder>();
+
+    // WaveformToFbankConverter
+    py::class_<
+        waveform_to_fbank_converter, std::shared_ptr<waveform_to_fbank_converter>>(
+            m, "WaveformToFbankConverter")
+        .def(
+            py::init([](
+                std::int32_t num_mel_bins,
+                bool channel_last,
+                bool standardize,
+                bool pin_memory,
+                bool keep_waveform)
+            {
+                return std::make_shared<waveform_to_fbank_converter>(
+                    fbank_options()
+                        .num_mel_bins(num_mel_bins)
+                        .channel_last(channel_last)
+                        .standardize(standardize)
+                        .pin_memory(pin_memory)
+                        .keep_waveform(keep_waveform));
+            }),
+            py::arg("num_mel_bins") = 80,
+            py::arg("channel_last") = false,
+            py::arg("standardize") = false,
+            py::arg("pin_memory") = false,
+            py::arg("keep_waveform") = false)
+        .def("__call__", &waveform_to_fbank_converter::operator());
+
+    map_functors().register_<waveform_to_fbank_converter>();
 }
 
 }  // namespace fairseq2

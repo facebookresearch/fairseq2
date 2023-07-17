@@ -15,6 +15,7 @@
 #include <ATen/Tensor.h>
 
 #include "fairseq2/native/exception.h"
+#include "fairseq2/native/float.h"
 #include "fairseq2/native/fmt.h"
 #include "fairseq2/native/memory.h"
 #include "fairseq2/native/span.h"
@@ -59,32 +60,32 @@ audio_decoder::operator()(data &&d) const
 
     at::ScalarType dtype = opts_.maybe_dtype().value_or(at::kFloat);
 
-    at::Tensor tensor = at::empty({file.num_frames(), file.num_channels()},
+    at::Tensor waveform = at::empty({file.num_frames(), file.num_channels()},
         at::dtype(dtype).device(at::kCPU).pinned_memory(opts_.pin_memory()));
 
-    const at::Storage &storage = tensor.storage();
+    const at::Storage &storage = waveform.storage();
 
-    writable_memory_span tensor_bits{storage.unsafe_data<std::byte>(), storage.nbytes()};
+    writable_memory_span waveform_bits{storage.unsafe_data<std::byte>(), storage.nbytes()};
 
     switch (dtype) {
     case at::kFloat: {
-        span tensor_data = cast<float32>(tensor_bits);
+        span waveform_data = cast<float32>(waveform_bits);
 
-        file.decode_into(tensor_data);
+        file.decode_into(waveform_data);
 
         break;
     }
     case at::kShort: {
-        span tensor_data = cast<std::int16_t>(tensor_bits);
+        span waveform_data = cast<std::int16_t>(waveform_bits);
 
-        file.decode_into(tensor_data);
+        file.decode_into(waveform_data);
 
         break;
     }
     case at::kInt: {
-        span tensor_data = cast<std::int32_t>(tensor_bits);
+        span waveform_data = cast<std::int32_t>(waveform_bits);
 
-        file.decode_into(tensor_data);
+        file.decode_into(waveform_data);
 
         break;
     }
@@ -95,12 +96,14 @@ audio_decoder::operator()(data &&d) const
 
     at::Device device = opts_.maybe_device().value_or(at::kCPU);
     if (device != at::kCPU)
-        tensor = tensor.to(device);
+        waveform = waveform.to(device);
 
-    // Pack audio, sample_rate, and format as output.
-    data_dict output{{"sample_rate", file.sample_rate()}, {"format", file.format()}};
 
-    output.emplace("audio", std::move(tensor));
+    // Pack audio (i.e. waveform), sample_rate, and format as output.
+    data_dict output{
+        {"sample_rate", static_cast<float32>(file.sample_rate())}, {"format", file.format()}};
+
+    output.emplace("waveform", std::move(waveform));
 
     return output;
 }

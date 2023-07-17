@@ -6,7 +6,7 @@
 
 macro(fairseq2_add_zip)
     if(NOT TARGET zip::zip)
-        set(tmp ${BUILD_SHARED_LIBS})
+        set(backup ${BUILD_SHARED_LIBS})
 
         # Force the library to be static.
         set(BUILD_SHARED_LIBS FALSE)
@@ -14,9 +14,9 @@ macro(fairseq2_add_zip)
         add_subdirectory(${PROJECT_SOURCE_DIR}/third-party/zip EXCLUDE_FROM_ALL)
 
         # Revert.
-        set(BUILD_SHARED_LIBS ${tmp})
+        set(BUILD_SHARED_LIBS ${backup})
 
-        unset(tmp)
+        unset(backup)
     endif()
 
     if(NOT TARGET kuba-zip)

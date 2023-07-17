@@ -65,7 +65,7 @@ private:
     get_options_for_current_path() const;
 
     static data
-    pad_sequence_tensors(span<at::Tensor> tensors, const collate_options &opts);
+    pad_tensors(span<at::Tensor> tensors, std::int64_t pad_idx, const collate_options &opts);
 
 private:
     const collater *collater_;
@@ -74,28 +74,6 @@ private:
 };
 
 }  // namespace detail
-
-collater::collater(collate_options opts, std::vector<collate_options_override> opt_overrides)
-  : opts_{opts}, opt_overrides_{std::move(opt_overrides)}
-{
-    if (opts_.pad_to_multiple() > 1 && !opts_.maybe_pad_idx())
-        throw_<std::invalid_argument>(
-            "`pad_idx` must be set when `pad_to_multiple` is greater than 1.");
-
-    for (collate_options_override &ov : opt_overrides_)
-        if (ov.options().pad_to_multiple() > 1 && !ov.options().maybe_pad_idx())
-            throw_<std::invalid_argument>(
-                "`pad_idx` of the selector '{}' must be set when `pad_to_multiple` is greater than 1.", ov.selector().string_());
-}
-
-data
-collater::operator()(data &&d) const
-{
-    if (!d.is_list())
-        d = data_list{std::move(d)};
-
-    return collate_op{this, std::move(d).as_list()}.run();
-}
 
 data
 collate_op::run()
@@ -219,8 +197,8 @@ collate_op::collate(at::Tensor &tensor)
     });
 
     const collate_options &opts = get_options_for_current_path();
-    if (opts.maybe_pad_idx())
-        return pad_sequence_tensors(tensors, opts);
+    if (std::optional<std::int64_t> maybe_pad_idx = opts.maybe_pad_idx(); maybe_pad_idx)
+        return pad_tensors(tensors, *maybe_pad_idx, opts);
 
     try {
         return at::stack(tensors);
@@ -312,10 +290,8 @@ collate_op::get_options_for_current_path() const
 }
 
 data
-collate_op::pad_sequence_tensors(span<at::Tensor> tensors, const collate_options &opts)
+collate_op::pad_tensors(span<at::Tensor> tensors, std::int64_t pad_idx, const collate_options &opts)
 {
-    std::int64_t pad_idx = opts.maybe_pad_idx().value(); // NOLINT(bugprone-unchecked-optional-access)
-
     at::Tensor seqs{};
 
     // Pad.
@@ -332,6 +308,8 @@ collate_op::pad_sequence_tensors(span<at::Tensor> tensors, const collate_options
 
         at::Tensor pad = tmp.new_full(pad_shape, pad_idx);
 
+        // PyTorch has trouble with LSan when a tensor is used both as an input
+        // and as an output to `concat`. `tmp` is a workaround for that.
         seqs = at::concat({tmp, pad}, /*dim=*/1);
     } else
         seqs = tmp;
@@ -339,7 +317,7 @@ collate_op::pad_sequence_tensors(span<at::Tensor> tensors, const collate_options
     // Construct sequence length tensor.
     at::Tensor seq_lens = at::empty({shape[0]}, at::dtype(at::kLong));
 
-    bool ragged = false;
+    bool is_ragged = false;
 
     auto seq_lens_data = seq_lens.accessor<std::int64_t, 1>();
 
@@ -350,7 +328,7 @@ collate_op::pad_sequence_tensors(span<at::Tensor> tensors, const collate_options
         seq_lens_data[i] = seq_len;
 
         if (i > 0 && seq_lens_data[i - 1] != seq_len)
-            ragged = true;
+            is_ragged = true;
 
         ++i;
     }
@@ -358,12 +336,34 @@ collate_op::pad_sequence_tensors(span<at::Tensor> tensors, const collate_options
     seq_lens = seq_lens.to(seqs.device());
 
     // Pack the sequences and their lengths into a dict.
-    data_dict output{{"ragged", ragged}};
+    data_dict output{{"is_ragged", is_ragged}};
 
     output.emplace("seqs", std::move(seqs));
     output.emplace("seq_lens", std::move(seq_lens));
 
     return output;
+}
+
+collater::collater(collate_options opts, std::vector<collate_options_override> opt_overrides)
+  : opts_{opts}, opt_overrides_{std::move(opt_overrides)}
+{
+    if (opts_.pad_to_multiple() > 1 && !opts_.maybe_pad_idx())
+        throw_<std::invalid_argument>(
+            "`pad_idx` must be set when `pad_to_multiple` is greater than 1.");
+
+    for (collate_options_override &ov : opt_overrides_)
+        if (ov.options().pad_to_multiple() > 1 && !ov.options().maybe_pad_idx())
+            throw_<std::invalid_argument>(
+                "`pad_idx` of the selector '{}' must be set when `pad_to_multiple` is greater than 1.", ov.selector().string_());
+}
+
+data
+collater::operator()(data &&d) const
+{
+    if (!d.is_list())
+        d = data_list{std::move(d)};
+
+    return collate_op{this, std::move(d).as_list()}.run();
 }
 
 }  // namespace fairseq2
