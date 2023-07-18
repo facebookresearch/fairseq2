@@ -64,8 +64,7 @@ class NllbConfig:
     """The number of attention heads in Transformer decoder layers."""
 
     ffn_inner_dim: int
-    """The dimensionality of inner projection layers in Transformer feed-forward
-    networks."""
+    """The inner dimensionality of Transformer feed-forward networks."""
 
     dropout_p: float
     """The dropout probability in Transformer layers."""

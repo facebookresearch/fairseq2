@@ -28,6 +28,8 @@ class Seq2SeqModel(Module, ABC):
 
 @dataclass
 class Seq2SeqBatch:
+    """Represents a sequence-to-sequence batch."""
+
     source_seqs: Tensor
     """The source sequences. *Shape:* :math:`(N,S_{src},*)`, where :math:`N` is
     the batch size, :math:`S_{src}` is the source sequence length, and :math:`*`

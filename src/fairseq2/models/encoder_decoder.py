@@ -82,9 +82,9 @@ class EncoderDecoderModel(Seq2SeqModel):
 
         :param seqs:
             The target sequences to decode. *Shape:* :math:`(N,S_{tgt},*)`,
-            where :math:`N` is the batch size, :math:`S_{tgt}` is the sequence
-            length, and :math:`*` is any number of sequence-specific dimensions
-            including none.
+            where :math:`N` is the batch size, :math:`S_{tgt}` is the target
+            sequence length, and :math:`*` is any number of sequence-specific
+            dimensions including none.
         :param seq_lens:
             An array where each element represents the length of the sequence at
             the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is

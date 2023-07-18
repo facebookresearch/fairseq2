@@ -29,6 +29,8 @@ class SequenceModel(Module, ABC):
 
 @dataclass
 class SequenceBatch:
+    """Represents a sequence batch."""
+
     seqs: Tensor
     """The sequences. *Shape:* :math:`(N,S,*)`, where :math:`N` is the batch
     size, :math:`S` is the sequence length, and :math:`*` is any number of
