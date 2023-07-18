@@ -13,7 +13,6 @@
 #include <vector>
 
 #include <ATen/Device.h>
-#include <ATen/ScalarType.h>
 #include <ATen/Tensor.h>
 
 #include "fairseq2/native/api.h"

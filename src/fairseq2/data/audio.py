@@ -33,8 +33,10 @@ if TYPE_CHECKING or _DOC_MODE:
             num_mel_bins: int = 80,
             channel_last: bool = False,
             standardize: bool = False,
-            pin_memory: bool = False,
             keep_waveform: bool = False,
+            dtype: Optional[DataType] = None,
+            device: Optional[Device] = None,
+            pin_memory: bool = False,
         ) -> None:
             ...
 

@@ -9,6 +9,10 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
+
+#include <ATen/Device.h>
+#include <ATen/ScalarType.h>
 
 #include "fairseq2/native/api.h"
 #include "fairseq2/native/float.h"
@@ -67,22 +71,6 @@ public:
     }
 
     fbank_options
-    pin_memory(bool value) && noexcept
-    {
-        auto tmp = *this;
-
-        tmp.pin_memory_ = value;
-
-        return tmp;
-    }
-
-    bool
-    pin_memory() const noexcept
-    {
-        return pin_memory_;
-    }
-
-    fbank_options
     keep_waveform(bool value) noexcept
     {
         auto tmp = *this;
@@ -98,12 +86,62 @@ public:
         return keep_waveform_;
     }
 
+    fbank_options
+    maybe_dtype(std::optional<at::ScalarType> value) noexcept
+    {
+        auto tmp = *this;
+
+        tmp.maybe_dtype_ = value;
+
+        return tmp;
+    }
+
+    std::optional<at::ScalarType>
+    maybe_dtype() const noexcept
+    {
+        return maybe_dtype_;
+    }
+
+    fbank_options
+    maybe_device(std::optional<at::Device> value) && noexcept
+    {
+        auto tmp = *this;
+
+        tmp.maybe_device_ = value;
+
+        return tmp;
+    }
+
+    std::optional<at::Device>
+    maybe_device() const noexcept
+    {
+        return maybe_device_;
+    }
+
+    fbank_options
+    pin_memory(bool value) && noexcept
+    {
+        auto tmp = *this;
+
+        tmp.pin_memory_ = value;
+
+        return tmp;
+    }
+
+    bool
+    pin_memory() const noexcept
+    {
+        return pin_memory_;
+    }
+
 private:
     std::int32_t num_mel_bins_ = 80;
     bool channel_last_ = false;
     bool standardize_ = false;
-    bool pin_memory_ = false;
     bool keep_waveform_ = false;
+    std::optional<at::ScalarType> maybe_dtype_{};
+    std::optional<at::Device> maybe_device_{};
+    bool pin_memory_ = false;
 };
 
 namespace detail {

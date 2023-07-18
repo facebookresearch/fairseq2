@@ -26,7 +26,7 @@ def test_compute_mask_returns_same_number_of_masked_elements_in_each_row() -> No
     assert (num_masked == num_masked[0]).all() == True
 
 
-def test_compute_mask_returns_mask_with_correct_shape_device_dtype() -> None:
+def test_compute_mask_returns_mask_with_correct_shape_device_data_type() -> None:
     shape = (4, 16)
 
     mask = compute_mask(shape, span_len=4, max_mask_prob=1.0, device=device)

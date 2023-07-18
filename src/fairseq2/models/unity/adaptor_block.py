@@ -399,7 +399,7 @@ def _compute_new_padding_mask(
 
     pad = kernel_size // 2
 
-    seq_lens = seqs.size(1) - torch.nan_to_num(padding_mask, neginf=1.0).sum(1)
+    seq_lens = padding_mask.size(1) - torch.nan_to_num(padding_mask, neginf=1.0).sum(1)
 
     seq_lens = ((seq_lens + 2 * pad - kernel_size) / stride) + 1
 

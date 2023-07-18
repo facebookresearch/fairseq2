@@ -54,22 +54,28 @@ def_audio(py::module_ &data_module)
                 std::int32_t num_mel_bins,
                 bool channel_last,
                 bool standardize,
-                bool pin_memory,
-                bool keep_waveform)
+                bool keep_waveform,
+                std::optional<at::ScalarType> dtype,
+                std::optional<at::Device> device,
+                bool pin_memory)
             {
                 return std::make_shared<waveform_to_fbank_converter>(
                     fbank_options()
                         .num_mel_bins(num_mel_bins)
                         .channel_last(channel_last)
                         .standardize(standardize)
-                        .pin_memory(pin_memory)
-                        .keep_waveform(keep_waveform));
+                        .keep_waveform(keep_waveform)
+                        .maybe_dtype(dtype)
+                        .maybe_device(device)
+                        .pin_memory(pin_memory));
             }),
             py::arg("num_mel_bins") = 80,
             py::arg("channel_last") = false,
             py::arg("standardize") = false,
-            py::arg("pin_memory") = false,
-            py::arg("keep_waveform") = false)
+            py::arg("keep_waveform") = false,
+            py::arg("dtype") = std::nullopt,
+            py::arg("device") = std::nullopt,
+            py::arg("pin_memory") = false)
         .def("__call__", &waveform_to_fbank_converter::operator());
 
     map_functors().register_<waveform_to_fbank_converter>();

@@ -33,11 +33,15 @@ class UnitYS2TLoader(ModelLoader[TransformerModel, UnitYS2TConfig]):
     def _upgrade_checkpoint(
         self, checkpoint: Dict[str, Any], config: UnitYS2TConfig
     ) -> Dict[str, Any]:
+        state_dict = checkpoint["model"]
+
+        # Check if we have a fairseq2 checkpoint.
+        if "decoder_frontend.embed.weight" in state_dict:
+            return checkpoint
+
         key_map = self._fairseq_key_map(config)
 
         checkpoint = upgrade_fairseq_checkpoint(checkpoint, key_map)
-
-        state_dict = checkpoint["model"]
 
         del state_dict["encoder.w2v_encoder.w2v_model.mask_emb"]
 
@@ -155,11 +159,15 @@ class UnitYLoader(ModelLoader[UnitYModel, UnitYConfig]):
     def _upgrade_checkpoint(
         self, checkpoint: Dict[str, Any], config: UnitYConfig
     ) -> Dict[str, Any]:
+        state_dict = checkpoint["model"]
+
+        # Check if we have a fairseq2 checkpoint.
+        if "s2t_model.decoder_frontend.embed.weight" in state_dict:
+            return checkpoint
+
         key_map = self._fairseq_key_map(config)
 
         checkpoint = upgrade_fairseq_checkpoint(checkpoint, key_map)
-
-        state_dict = checkpoint["model"]
 
         del state_dict["target_letter_decoder.version"]
         del state_dict["target_letter_decoder.embed_positions._float_tensor"]

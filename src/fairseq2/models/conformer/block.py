@@ -134,7 +134,7 @@ class ConformerBlock(TransformerEncoderLayer):
 
         seqs = self._forward_self_attn(seqs, padding_mask)
 
-        seqs = self._forward_conv(seqs)
+        seqs = self._forward_conv(seqs, padding_mask)
 
         seqs = self._forward_ffn2(seqs)
 
@@ -174,12 +174,12 @@ class ConformerBlock(TransformerEncoderLayer):
 
         return seqs + residual
 
-    def _forward_conv(self, seqs: Tensor) -> Tensor:
+    def _forward_conv(self, seqs: Tensor, padding_mask: Optional[Tensor]) -> Tensor:
         residual = seqs
 
         seqs = self.conv_layer_norm(seqs)
 
-        seqs = self.conv(seqs)
+        seqs = self.conv(seqs, padding_mask)
 
         if self.conv_dropout is not None:
             seqs = self.conv_dropout(seqs)

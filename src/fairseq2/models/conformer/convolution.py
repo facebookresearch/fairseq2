@@ -9,6 +9,7 @@ from typing import Optional
 from torch import Tensor
 from torch.nn import GLU, BatchNorm1d, Conv1d, Module, SiLU
 
+from fairseq2.nn.utils.mask import apply_padding_mask
 from fairseq2.typing import DataType, Device
 
 
@@ -88,16 +89,22 @@ class ConformerConvolution(Module):
             dtype=dtype,
         )
 
-    def forward(self, seqs: Tensor) -> Tensor:
+    def forward(self, seqs: Tensor, padding_mask: Optional[Tensor]) -> Tensor:
         """
         :param seqs:
             The sequences to process. *Shape:* :math:`(N,S,M)`, where :math:`N`
             is the batch size, :math:`S` is the sequence length, and :math:`M`
             is the dimensionality of the model.
+        :param padding_mask:
+            The float padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where
+            :math:`N` is the batch size and :math:`S` is the sequence length.
 
         :returns:
             The processed sequences. *Shape:* Same as ``seqs``.
         """
+        # Ensure that we do not leak padded positions in depthwise convolution.
+        seqs = apply_padding_mask(seqs, padding_mask)
+
         # (N, S, M) -> (N, M, S)
         seqs = seqs.transpose(1, 2)
 

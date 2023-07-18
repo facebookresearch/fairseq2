@@ -70,7 +70,13 @@ waveform_to_fbank_converter::operator()(data &&d) const
         fbank = at::divide(at::subtract(fbank, mean), stdev);
     }
 
-    fbank = fbank.to(waveform.device());
+    // If no device is specified, we fallback to the device of the waveform
+    // instead of the default floating-point type.
+    at::Device device = opts_.maybe_device().value_or(waveform.device());
+
+    at::ScalarType dtype = opts_.maybe_dtype().value_or(at::kFloat);
+
+    fbank = fbank.to(device, dtype);
 
     if (!opts_.keep_waveform())
         dict.erase("waveform");

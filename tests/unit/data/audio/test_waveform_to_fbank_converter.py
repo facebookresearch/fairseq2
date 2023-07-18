@@ -80,6 +80,17 @@ class TestWaveformToFbankConverter:
 
         assert_equal(output["waveform"], audio["waveform"])
 
+    def test_call_works_when_data_type_is_specified(self) -> None:
+        audio = self.get_audio()
+
+        converter = WaveformToFbankConverter(channel_last=True, dtype=torch.float64)
+
+        output = converter(audio)
+
+        fbank = output["fbank"]
+
+        assert fbank.dtype == torch.float64
+
     def test_call_raises_error_when_input_is_not_dict(self) -> None:
         converter = WaveformToFbankConverter()
 

@@ -123,7 +123,7 @@ class UnitYModel(Module):
 
         t2u_output = self.final_proj(t2u_decoder_output, t2u_decoder_padding_mask)
 
-        return UnitYOutput(t2u_output, s2t_output)
+        return UnitYOutput(s2t_output, t2u_output)
 
     def encode(
         self,
