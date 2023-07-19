@@ -39,6 +39,22 @@ public:
     }
 
     fbank_options
+    waveform_scale(float32 value) noexcept
+    {
+        auto tmp = *this;
+
+        tmp.waveform_scale_ = value;
+
+        return tmp;
+    }
+
+    float32
+    waveform_scale() const noexcept
+    {
+        return waveform_scale_;
+    }
+
+    fbank_options
     channel_last(bool value) noexcept
     {
         auto tmp = *this;
@@ -136,6 +152,7 @@ public:
 
 private:
     std::int32_t num_mel_bins_ = 80;
+    float32 waveform_scale_ = 1.0;
     bool channel_last_ = false;
     bool standardize_ = false;
     bool keep_waveform_ = false;

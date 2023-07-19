@@ -13,8 +13,8 @@ namespace fairseq2::detail {
 std::optional<data>
 constant_data_source::next()
 {
-    if (field_name_)
-        return data_dict{{*field_name_, example_}};
+    if (key_)
+        return data_dict{{*key_, example_}};
 
     return example_;
 }

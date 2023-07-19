@@ -63,15 +63,14 @@ def_text_converters(py::module_ &text_module)
         .def("__call__", &string_splitter::operator(), py::call_guard<py::gil_scoped_release>{});
 
     // StrToIntConverter
-    py::class_<
-        string_to_int_converter, std::shared_ptr<string_to_int_converter>>(m, "StrToIntConverter")
+    py::class_<string_to_int_converter, std::shared_ptr<string_to_int_converter>>(
+        m, "StrToIntConverter")
         .def(py::init<std::int16_t>(), py::arg("base") = 10)
         .def("__call__", &string_to_int_converter::operator());
 
     // StrToTensorConverter
-    py::class_<
-        string_to_tensor_converter,
-        std::shared_ptr<string_to_tensor_converter>>(m, "StrToTensorConverter")
+    py::class_<string_to_tensor_converter, std::shared_ptr<string_to_tensor_converter>>(
+        m, "StrToTensorConverter")
         .def(
             py::init([](
                 std::optional<std::vector<std::int64_t>> maybe_size,

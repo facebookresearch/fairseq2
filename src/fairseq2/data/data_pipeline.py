@@ -64,6 +64,7 @@ if TYPE_CHECKING or _DOC_MODE:
         def zip(
             pipelines: Sequence["DataPipeline"],
             names: Optional[Sequence[str]] = None,
+            zip_to_shortest: bool = False,
             flatten: bool = False,
             disable_parallelism: bool = False,
         ) -> "DataPipelineBuilder":
@@ -87,15 +88,11 @@ if TYPE_CHECKING or _DOC_MODE:
             """
 
         @staticmethod
-        def constant(
-            example: Any, field_name: Optional[str] = None
-        ) -> "DataPipelineBuilder":
+        def constant(example: Any, key: Optional[str] = None) -> "DataPipelineBuilder":
             ...
 
         @staticmethod
-        def count(
-            start: int = 0, field_name: Optional[str] = None
-        ) -> "DataPipelineBuilder":
+        def count(start: int = 0, key: Optional[str] = None) -> "DataPipelineBuilder":
             ...
 
     class DataPipelineBuilder:

@@ -76,6 +76,7 @@ public:
     zip(
         std::vector<data_pipeline> pipelines,
         std::vector<std::string> names = {},
+        bool zip_to_shortest = false,
         bool flatten = false,
         bool disable_parallelism = false);
 
@@ -83,10 +84,10 @@ public:
     round_robin(std::vector<data_pipeline> pipelines);
 
     static data_pipeline_builder
-    constant(data example, std::optional<std::string> field_name = {});
+    constant(data example, std::optional<std::string> key = {});
 
     static data_pipeline_builder
-    count(std::int64_t start = 0, std::optional<std::string> field_name = {});
+    count(std::int64_t start = 0, std::optional<std::string> key = {});
 
 private:
     data_source_factory factory_{};

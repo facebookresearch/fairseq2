@@ -31,6 +31,7 @@ if TYPE_CHECKING or _DOC_MODE:
         def __init__(
             self,
             num_mel_bins: int = 80,
+            waveform_scale: float = 1.0,
             channel_last: bool = False,
             standardize: bool = False,
             keep_waveform: bool = False,

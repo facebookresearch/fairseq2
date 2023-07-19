@@ -21,45 +21,28 @@ class TestStrSplitter:
         ):
             StrSplitter(names=["a", "b"], indices=[1, 2, 3])
 
+    def test_init_does_not_raise_error_when_names_and_exclude_indices_have_different_lengths(
+        self,
+    ) -> None:
+        StrSplitter(names=["a", "b"], indices=[1, 2, 3], exclude=True)
+
     def test_call_works(self) -> None:
+        # fmt: off
         s = "23\t9\t12\t\tabc\t34\t~~\t\t90\t 1 \t "
 
         splitter = StrSplitter()
 
-        assert splitter(s) == [
-            "23",
-            "9",
-            "12",
-            "",
-            "abc",
-            "34",
-            "~~",
-            "",
-            "90",
-            " 1 ",
-            " ",
-        ]
+        assert splitter(s) == ["23", "9", "12", "", "abc", "34", "~~", "", "90", " 1 ", " "]
+        # fmt: on
 
     def test_call_works_when_separator_is_specified(self) -> None:
+        # fmt: off
         s = "23 9 12  abc 34 ~~  90 \t 1  "
 
         splitter = StrSplitter(sep=" ")
 
-        assert splitter(s) == [
-            "23",
-            "9",
-            "12",
-            "",
-            "abc",
-            "34",
-            "~~",
-            "",
-            "90",
-            "\t",
-            "1",
-            "",
-            "",
-        ]
+        assert splitter(s) == ["23", "9", "12", "", "abc", "34", "~~", "", "90", "\t", "1", "", ""]
+        # fmt: on
 
     def test_call_works_when_input_is_empty(self) -> None:
         splitter = StrSplitter()
@@ -109,19 +92,8 @@ class TestStrSplitter:
 
         assert splitter(s) == ["0", "1", "2", "3", "4"]
 
-    def test_call_raises_error_when_fields_and_names_do_not_match(self) -> None:
-        s = "1\t2\t3"
-
-        splitter = StrSplitter(names=["a", "b"])
-
-        with pytest.raises(
-            ValueError,
-            match=r"^The number of fields must match the number of names \(2\), but is 3 instead\.$",
-        ):
-            splitter(s)
-
     @pytest.mark.parametrize("exclude", [False, True])
-    def test_call_raises_error_when_the_number_of_fields_does_match_indices(
+    def test_call_raises_error_when_the_number_of_fields_is_less_than_or_equal_to_highest_index(
         self, exclude: bool
     ) -> None:
         s = "0,1,2,3,4"
@@ -131,5 +103,18 @@ class TestStrSplitter:
         with pytest.raises(
             ValueError,
             match=r"^The input string must have at least 7 field\(s\), but has 5 instead\.$",
+        ):
+            splitter(s)
+
+    def test_call_raises_error_when_the_number_of_fields_and_names_do_not_match(
+        self,
+    ) -> None:
+        s = "1\t2\t3"
+
+        splitter = StrSplitter(names=["a", "b"])
+
+        with pytest.raises(
+            ValueError,
+            match=r"^The number of fields must match the number of names \(2\), but is 3 instead\.$",
         ):
             splitter(s)

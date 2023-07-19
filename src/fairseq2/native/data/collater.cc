@@ -301,7 +301,7 @@ collate_op::pad_tensors(span<at::Tensor> tensors, std::int64_t pad_idx, const co
     at::IntArrayRef shape = tmp.sizes();
 
     // Pad to multiple.
-    if (opts.pad_to_multiple() > 1) {
+    if (opts.pad_to_multiple() > 1 && shape[1] % opts.pad_to_multiple() > 0) {
         std::vector<std::int64_t> pad_shape(shape.begin(), shape.end());
 
         pad_shape[1] = opts.pad_to_multiple() - (shape[1] % opts.pad_to_multiple());

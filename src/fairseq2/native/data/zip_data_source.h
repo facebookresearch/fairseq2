@@ -21,6 +21,7 @@ public:
     zip_data_source(
         std::vector<data_pipeline> &&pipelines,
         std::vector<std::string> &&names,
+        bool zip_to_shortest,
         bool flatten,
         bool disable_parallelism) noexcept;
 
@@ -46,6 +47,7 @@ private:
 private:
     std::vector<data_pipeline> pipelines_;
     std::vector<std::string> names_;
+    bool zip_to_shortest_;
     bool flatten_;
     bool disable_parallelism_;
 };

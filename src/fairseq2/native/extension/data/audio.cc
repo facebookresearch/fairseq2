@@ -46,12 +46,12 @@ def_audio(py::module_ &data_module)
     map_functors().register_<audio_decoder>();
 
     // WaveformToFbankConverter
-    py::class_<
-        waveform_to_fbank_converter, std::shared_ptr<waveform_to_fbank_converter>>(
-            m, "WaveformToFbankConverter")
+    py::class_<waveform_to_fbank_converter, std::shared_ptr<waveform_to_fbank_converter>>(
+        m, "WaveformToFbankConverter")
         .def(
             py::init([](
                 std::int32_t num_mel_bins,
+                float32 waveform_scale,
                 bool channel_last,
                 bool standardize,
                 bool keep_waveform,
@@ -62,6 +62,7 @@ def_audio(py::module_ &data_module)
                 return std::make_shared<waveform_to_fbank_converter>(
                     fbank_options()
                         .num_mel_bins(num_mel_bins)
+                        .waveform_scale(waveform_scale)
                         .channel_last(channel_last)
                         .standardize(standardize)
                         .keep_waveform(keep_waveform)
@@ -70,6 +71,7 @@ def_audio(py::module_ &data_module)
                         .pin_memory(pin_memory));
             }),
             py::arg("num_mel_bins") = 80,
+            py::arg("waveform_scale") = 1.0,
             py::arg("channel_last") = false,
             py::arg("standardize") = false,
             py::arg("keep_waveform") = false,

@@ -76,9 +76,7 @@ data_pipeline::next()
 void
 data_pipeline::reset()
 {
-    check_if_broken();
-
-    if (!source_)
+    if (is_broken_ || !source_)
         return;
 
     try {
@@ -169,6 +167,7 @@ data_pipeline_builder
 data_pipeline::zip(
     std::vector<data_pipeline> pipelines,
     std::vector<std::string> names,
+    bool zip_to_shortest,
     bool flatten,
     bool disable_parallelism)
 {
@@ -192,10 +191,11 @@ data_pipeline::zip(
 
     auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
 
-    auto factory = [names = std::move(names), tmp, flatten, disable_parallelism]() mutable
+    auto factory = [
+        names = std::move(names), tmp, zip_to_shortest, flatten, disable_parallelism]() mutable
     {
         return std::make_unique<zip_data_source>(
-            std::move(*tmp), std::move(names), flatten, disable_parallelism);
+            std::move(*tmp), std::move(names), zip_to_shortest, flatten, disable_parallelism);
     };
 
     return data_pipeline_builder{std::move(factory)};
@@ -225,22 +225,22 @@ data_pipeline::round_robin(std::vector<data_pipeline> pipelines)
 }
 
 data_pipeline_builder
-data_pipeline::constant(data example, std::optional<std::string> field_name)
+data_pipeline::constant(data example, std::optional<std::string> key)
 {
-    auto factory = [example = std::move(example), field_name = std::move(field_name)]() mutable
+    auto factory = [example = std::move(example), key = std::move(key)]() mutable
     {
-        return std::make_unique<constant_data_source>(std::move(example), std::move(field_name));
+        return std::make_unique<constant_data_source>(std::move(example), std::move(key));
     };
 
     return data_pipeline_builder{std::move(factory)};
 }
 
 data_pipeline_builder
-data_pipeline::count(std::int64_t start, std::optional<std::string> field_name)
+data_pipeline::count(std::int64_t start, std::optional<std::string> key)
 {
-    auto factory = [start, field_name = std::move(field_name)]() mutable
+    auto factory = [start, key = std::move(key)]() mutable
     {
-        return std::make_unique<count_data_source>(start, std::move(field_name));
+        return std::make_unique<count_data_source>(start, std::move(key));
     };
 
     return data_pipeline_builder{std::move(factory)};

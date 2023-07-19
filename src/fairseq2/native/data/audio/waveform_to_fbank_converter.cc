@@ -54,11 +54,15 @@ waveform_to_fbank_converter::operator()(data &&d) const
     }
 
     at::Tensor waveform = find_waveform(dict);
+
     if (opts_.channel_last())
         waveform = waveform.transpose(0, 1);
 
     waveform = waveform.to(
         at::kCPU, at::kFloat, /*non_blocking=*/false, /*copy=*/false, at::MemoryFormat::Contiguous);
+
+    if (!are_close(opts_.waveform_scale(), 1.0F))
+        waveform = at::multiply(waveform, opts_.waveform_scale());
 
     at::Tensor fbank = computer_->compute(waveform, opts_.pin_memory());
 

@@ -45,7 +45,7 @@ def build_data_pipeline(ctx: InferenceContext) -> DataPipeline:
     # Open TSV, skip the header line, split into fields, and return three fields
     # only.
     split_tsv = StrSplitter(
-        names=["id", "audio_file", "raw_target_text"], indices=[0, 2, 4]
+        names=["id", "audio_file", "raw_target_text"], indices=[0, 1, 3]
     )
 
     pipeline_builder = read_text(ctx.data_file, rtrim=True).skip(1).map(split_tsv)
@@ -57,10 +57,11 @@ def build_data_pipeline(ctx: InferenceContext) -> DataPipeline:
 
     # Decode mmap'ed audio using libsndfile and convert them from waveform to
     # fbank.
-    decode_audio = AudioDecoder(dtype=torch.int16)
+    decode_audio = AudioDecoder(dtype=torch.float32)
 
     convert_to_fbank = WaveformToFbankConverter(
         num_mel_bins=80,
+        waveform_scale=2**15,
         channel_last=True,
         standardize=True,
         device=ctx.device,
@@ -80,8 +81,11 @@ def build_data_pipeline(ctx: InferenceContext) -> DataPipeline:
 
     pipeline_builder.map(collate, num_parallel_calls=n_parallel)
 
+    # Prefetch up to 4 batches in background.
+    pipeline_builder.prefetch(4)
+
     # Build and return the data pipeline.
-    return pipeline_builder.prefetch(4).and_return()
+    return pipeline_builder.and_return()
 
 
 def run_inference(ctx: InferenceContext) -> None:
@@ -119,7 +123,7 @@ if __name__ == "__main__":
     # fmt: off
     ctx = InferenceContext(
         model_name="unity_s2t_demo",
-        data_file=Path("/large_experiments/seamless/ust/data/st50_manifests/s2t_phase4/test_fleurs_deu-eng.tsv"),
+        data_file=Path("/large_experiments/seamless/ust/balioglu/sample-datasets/test_cvst2_spa-eng.tsv"),
         audio_root_dir=Path("/large_experiments/seamless/ust/data/audio_zips"),
         target_lang="eng_Latn",
         batch_size=4,

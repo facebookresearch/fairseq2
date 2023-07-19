@@ -38,8 +38,26 @@ namespace fairseq2 {
 namespace detail {
 namespace {
 
+struct data_pipeline_deleter {
+    void
+    operator()(data_pipeline *pipeline) const
+    {
+        py::gil_scoped_release no_gil{};
+
+        // By calling `reset()` here, we indirectly stop all daemon threads used
+        // by `pipeline` without holding GIL. This way, we prevent any deadlocks
+        // that might happen due to Python callbacks.
+        try {
+            pipeline->reset();
+        } catch (const data_pipeline_error &) {}
+
+        // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
+        delete pipeline;
+    }
+};
+
 // This class help us to gracefully delete data pipelines with active daemon
-// threads (e.g. a running prefetch op) during Python interpreter shutdown.
+// threads (e.g. a prefetch op) during Python interpreter shutdown.
 class data_pipeline_tracker {
     struct py_handle_hash {
         std::size_t
@@ -50,18 +68,18 @@ class data_pipeline_tracker {
     };
 
 public:
-    // Registers a hook with the `atexit` module to delete any data pipeline
-    // that is still alive.
+    // Registers a hook with the `atexit` module to delete data pipelines that
+    // are still alive during interpreter shutdown.
     void
     register_atexit_hook();
 
-    // Delete `pipeline` during interpreter shutdown if it is still alive.
+    // Delete `pipeline` if it is alive.
     void
     track(py::object pipeline);
 
 private:
     void
-    reset_alive_pipelines();
+    delete_alive_pipelines();
 
 private:
     std::unordered_set<py::weakref, py_handle_hash> alive_pipelines_{};
@@ -74,7 +92,7 @@ data_pipeline_tracker::register_atexit_hook()
 
     auto hook = [this]
     {
-        reset_alive_pipelines();
+        delete_alive_pipelines();
     };
 
     atexit_module.attr("register")(py::cpp_function{hook});
@@ -97,7 +115,7 @@ data_pipeline_tracker::track(py::object pipeline)
 }
 
 void
-data_pipeline_tracker::reset_alive_pipelines()
+data_pipeline_tracker::delete_alive_pipelines()
 {
     for (auto &weakref : alive_pipelines_) {
         py::object pipeline_obj = weakref();
@@ -115,11 +133,9 @@ data_pipeline_tracker::reset_alive_pipelines()
         {
             py::gil_scoped_release no_gil{};
 
-            // By calling `reset()`, we indirectly stop all active daemon
-            // threads used within `pipeline`.
-            try {
-                pipeline.reset();
-            } catch (const data_pipeline_error &) {}
+            // By replacing with an empty one, we effectively delete the data
+            // pipeline.
+            pipeline = {};
         }
     }
 
@@ -136,14 +152,14 @@ data_pipeline_tracker() noexcept
 
 // In extension modules, defining Python exception types with custom attributes
 // is rather complicated; therefore, we use a thread-local variable to hold the
-// context of the last failed pipeline operation.
+// example of the last failed pipeline operation.
 thread_local std::optional<data> last_failed_example_;
 
 class data_pipeline_iterator {
 public:
     explicit
-    data_pipeline_iterator(data_pipeline &p) noexcept
-      : pipeline_{&p}
+    data_pipeline_iterator(data_pipeline &pipeline) noexcept
+      : pipeline_{&pipeline}
     {}
 
     data
@@ -187,7 +203,8 @@ def_data_pipeline(py::module_ &data_module)
     py::module_ m = data_module.def_submodule("data_pipeline");
 
     // DataPipeline
-    py::class_<data_pipeline>(m, "DataPipeline")
+    py::class_<data_pipeline, std::unique_ptr<data_pipeline, data_pipeline_deleter>>(
+        m, "DataPipeline")
         .def(py::init<>())
 
         .def(
@@ -256,6 +273,7 @@ def_data_pipeline(py::module_ &data_module)
             [](
                 std::vector<std::reference_wrapper<data_pipeline>> &refs,
                 std::optional<std::vector<std::string>> maybe_names,
+                bool zip_to_shortest,
                 bool flatten,
                 bool disable_parallelism)
             {
@@ -273,10 +291,15 @@ def_data_pipeline(py::module_ &data_module)
                     names = *std::move(maybe_names);
 
                 return data_pipeline::zip(
-                    std::move(pipelines), std::move(names), flatten, disable_parallelism);
+                    std::move(pipelines),
+                    std::move(names),
+                    zip_to_shortest,
+                    flatten,
+                    disable_parallelism);
             },
             py::arg("pipelines"),
             py::arg("names") = std::nullopt,
+            py::arg("zip_to_shortest") = false,
             py::arg("flatten") = false,
             py::arg("disable_parallelism") = false)
         .def_static(
@@ -297,20 +320,20 @@ def_data_pipeline(py::module_ &data_module)
             py::arg("pipelines"))
         .def_static(
             "constant",
-            [](data example, std::optional<std::string> field_name)
+            [](data example, std::optional<std::string> key)
             {
-                return data_pipeline::constant(std::move(example), std::move(field_name));
+                return data_pipeline::constant(std::move(example), std::move(key));
             },
             py::arg("example"),
-            py::arg("field_name") = std::nullopt)
+            py::arg("key") = std::nullopt)
         .def_static(
             "count",
-            [](std::int64_t start, std::optional<std::string> field_name)
+            [](std::int64_t start, std::optional<std::string> key)
             {
-                return data_pipeline::count(start, std::move(field_name));
+                return data_pipeline::count(start, std::move(key));
             },
             py::arg("start") = 0,
-            py::arg("field_name") = std::nullopt);
+            py::arg("key") = std::nullopt);
 
     // DataPipelineIterator
     py::class_<data_pipeline_iterator>(m, "_DataPipelineIterator")

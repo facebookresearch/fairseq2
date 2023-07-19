@@ -61,6 +61,20 @@ class TestZipOp:
 
             pipeline.reset()
 
+    def test_op_raises_error_when_zip_to_shortest_is_true(self) -> None:
+        pipeline1 = read_sequence([1, 2, 3]).and_return()
+        pipeline2 = read_sequence([5, 6, 7, 8]).and_return()
+        pipeline3 = read_sequence([3, 4, 5, 6]).and_return()
+
+        pipeline = DataPipeline.zip(
+            [pipeline1, pipeline2, pipeline3], zip_to_shortest=True
+        ).and_return()
+
+        for _ in range(2):
+            assert list(pipeline) == [[1, 5, 3], [2, 6, 4], [3, 7, 5]]
+
+            pipeline.reset()
+
     def test_op_works_when_flatten_is_true_and_inputs_are_lists(self) -> None:
         pipeline1 = read_sequence([1, 2, 3]).and_return()
         pipeline2 = read_sequence([[1, 2], [3, 4], [5, 6]]).and_return()

@@ -82,7 +82,9 @@ def create_file_pipeline(
     # Effectively prepend line number and filename to each line read from the
     # TSV file.
     pipeline_builder = DataPipeline.zip(
-        [line_numbers, filename, tsv_lines], names=["line_number", "filename", "line"]
+        [line_numbers, filename, tsv_lines],
+        names=["line_number", "filename", "line"],
+        zip_to_shortest=True,
     )
 
     # Read every `world_size`th line starting from `rank`th item in the file.
@@ -228,7 +230,7 @@ def run_training_loop() -> None:
         root_dir=Path("/large_experiments/seamless/ust/spopuri/H1_2023/S2ST/T2U_V4/manifests_10K"),
         audio_root_dir=Path("/large_experiments/seamless/ust/data/audio_zips"),
         split="train",
-        num_examples_to_read=10,
+        num_examples_to_read=1000,
     )
     # fmt: on
 
@@ -240,10 +242,12 @@ def run_training_loop() -> None:
             # This is your training/eval/inference code.
             pass
     except DataPipelineError:
+        raise
+
         # If the pipeline is not broken, we can call `next()` on the iterator
         # and get the next example. We do not demonstrate it here.
-        if unity_pipeline.is_broken:
-            return
+        # if unity_pipeline.is_broken:
+        #    return
 
     # Once we reach the end of data, we have to "reset" the data pipeline if we
     # want to read it again.

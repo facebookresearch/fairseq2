@@ -20,10 +20,12 @@ namespace fairseq2::detail {
 zip_data_source::zip_data_source(
     std::vector<data_pipeline> &&pipelines,
     std::vector<std::string> &&names,
+    bool zip_to_shortest,
     bool flatten,
     bool disable_parallelism) noexcept
   : pipelines_(std::move(pipelines)),
     names_(std::move(names)),
+    zip_to_shortest_{zip_to_shortest},
     flatten_{flatten},
     disable_parallelism_{disable_parallelism}
 {}
@@ -67,6 +69,9 @@ zip_data_source::next()
         });
 
     if (!are_in_sync) {
+        if (zip_to_shortest_)
+            return std::nullopt;
+
         // Collect pipelines that have not reached their end of data yet.
         std::vector<std::size_t> not_eod{};
         for (std::size_t i = 0; i < is_eod.size(); ++i)

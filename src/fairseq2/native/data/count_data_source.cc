@@ -13,8 +13,8 @@ namespace fairseq2::detail {
 std::optional<data>
 count_data_source::next()
 {
-    if (field_name_)
-        return data_dict{{*field_name_, counter_++}};
+    if (key_)
+        return data_dict{{*key_, counter_++}};
 
     return counter_++;
 }

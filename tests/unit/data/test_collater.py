@@ -6,6 +6,7 @@
 
 import pytest
 import torch
+from torch.nn.functional import pad
 
 from fairseq2.data import CollateOptionsOverride, Collater
 from tests.common import assert_close, assert_equal, device
@@ -73,26 +74,33 @@ class TestCollater:
 
         assert_close(collater(bucket), expected_tensor)
 
-    def test_call_works_when_input_has_sequence_tensors(self) -> None:
+    @pytest.mark.parametrize(
+        "pad_to_multiple,pad_size", [(1, 0), (2, 0), (3, 2), (8, 4)]
+    )
+    def test_call_works_when_input_has_sequence_tensors(
+        self, pad_to_multiple: int, pad_size: int
+    ) -> None:
         bucket = [
             torch.full((4, 2), 0, device=device, dtype=torch.int),
             torch.full((4, 2), 1, device=device, dtype=torch.int),
             torch.full((4, 2), 2, device=device, dtype=torch.int),
         ]
 
-        collater = Collater(pad_idx=3, pad_to_multiple=3)
+        collater = Collater(pad_idx=3, pad_to_multiple=pad_to_multiple)
 
         output = collater(bucket)
 
         expected_seqs = torch.tensor(
             [
-                [[0, 0], [0, 0], [0, 0], [0, 0], [3, 3], [3, 3]],
-                [[1, 1], [1, 1], [1, 1], [1, 1], [3, 3], [3, 3]],
-                [[2, 2], [2, 2], [2, 2], [2, 2], [3, 3], [3, 3]],
+                [[0, 0], [0, 0], [0, 0], [0, 0]],
+                [[1, 1], [1, 1], [1, 1], [1, 1]],
+                [[2, 2], [2, 2], [2, 2], [2, 2]],
             ],
             device=device,
             dtype=torch.int,
         )
+
+        expected_seqs = pad(expected_seqs, (0, 0, 0, pad_size), value=3)
 
         expected_seq_lens = torch.tensor([4, 4, 4], device=device, dtype=torch.int64)
 
