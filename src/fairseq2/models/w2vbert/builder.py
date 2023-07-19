@@ -18,7 +18,7 @@ from fairseq2.typing import DataType, Device
 def _encoder_600m() -> Wav2Vec2EncoderConfig:
     return Wav2Vec2EncoderConfig(
         model_dim=1024,
-        max_seq_len=1024,
+        max_seq_len=2048,
         feature_dim=160,
         use_fbank=True,
         first_pass_dropout_p=0.0,

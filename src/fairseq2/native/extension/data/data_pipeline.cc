@@ -297,18 +297,20 @@ def_data_pipeline(py::module_ &data_module)
             py::arg("pipelines"))
         .def_static(
             "constant",
-            [](data example)
+            [](data example, std::optional<std::string> field_name)
             {
-                return data_pipeline::constant(std::move(example));
+                return data_pipeline::constant(std::move(example), std::move(field_name));
             },
-            py::arg("example"))
+            py::arg("example"),
+            py::arg("field_name") = std::nullopt)
         .def_static(
             "count",
-            [](std::int64_t start)
+            [](std::int64_t start, std::optional<std::string> field_name)
             {
-                return data_pipeline::count(start);
+                return data_pipeline::count(start, std::move(field_name));
             },
-            py::arg("start") = 0);
+            py::arg("start") = 0,
+            py::arg("field_name") = std::nullopt);
 
     // DataPipelineIterator
     py::class_<data_pipeline_iterator>(m, "_DataPipelineIterator")

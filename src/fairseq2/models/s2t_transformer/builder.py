@@ -196,26 +196,6 @@ def _conformer() -> S2TTransformerConfig:
     )
 
 
-@s2t_transformer_arch("conformer_rel_pos")
-def _conformer_rel_pos() -> S2TTransformerConfig:
-    return S2TTransformerConfig(
-        model_dim=256,
-        max_seq_len=6000,
-        num_fbank_channels=80,
-        target_vocabulary_size=181,
-        target_pad_idx=1,
-        use_relative_pos=True,
-        use_conformer=True,
-        num_encoder_layers=12,
-        num_decoder_layers=6,
-        num_encoder_attn_heads=4,
-        num_decoder_attn_heads=8,
-        ffn_inner_dim=512 * 4,
-        dropout_p=0.1,
-        depthwise_conv_kernel_size=31,
-    )
-
-
 class S2TTransformerBuilder:
     """Builds modules of an S2T Transformer model as described in
     :cite:t:`https://doi.org/10.48550/arxiv.1911.08460`.

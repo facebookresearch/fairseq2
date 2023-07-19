@@ -100,7 +100,7 @@ def _base_s2t() -> UnitYS2TConfig:
 
     return UnitYS2TConfig(
         model_dim=1024,
-        target_max_seq_len=1024,
+        target_max_seq_len=2048,
         target_vocabulary_size=256206,  # NLLB-200
         target_pad_idx=0,
         w2v2_encoder_config=w2vbert_config.w2v2_config.encoder_config,

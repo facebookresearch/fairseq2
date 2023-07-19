@@ -114,13 +114,13 @@ zip_data_source::flatten_to_dict(data_list &zip)
             for (auto &[key, value] : example.as_dict()) {
                 // All keys in the flattened dict must be unique.
                 if (auto pos = output.find(key); pos != output.end())
-                    throw_data_pipeline_error(std::move(zip), /*recoverable=*/true,
+                    throw_data_pipeline_error(std::nullopt, /*recoverable=*/true,
                         "The zipped data pipelines must all return unique keys when `flatten` is set, but the key '{}' is not unique.", key);
 
                 output.emplace(key, std::move(value));
             }
         else
-            throw_data_pipeline_error(std::move(zip), /*recoverable=*/true,
+            throw_data_pipeline_error(std::nullopt, /*recoverable=*/true,
                 "The zipped data pipelines must all return only dicts, or only non-dicts when `flatten` is set.");
     }
 
@@ -136,7 +136,7 @@ zip_data_source::flatten_to_list(data_list &zip)
         // If the first pipeline has returned an example that is not `dict`, we
         // expect all other pipelines to return non-dicts as well.
         if (example.is_dict())
-            throw_data_pipeline_error(std::move(zip), /*recoverable=*/true,
+            throw_data_pipeline_error(std::nullopt, /*recoverable=*/true,
                 "The zipped data pipelines must all return only dicts, or only non-dicts when `flatten` is set.");
 
         if (example.is_list())

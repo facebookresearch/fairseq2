@@ -145,7 +145,7 @@ def _encoder_base() -> Wav2Vec2EncoderConfig:
 
     return Wav2Vec2EncoderConfig(
         model_dim=768,
-        max_seq_len=1024,
+        max_seq_len=2048,
         feature_dim=512,
         use_fbank=False,
         first_pass_dropout_p=0.0,

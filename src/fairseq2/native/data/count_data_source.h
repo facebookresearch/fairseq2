@@ -15,8 +15,8 @@ namespace fairseq2::detail {
 class count_data_source final : public data_source {
 public:
     explicit
-    count_data_source(std::int64_t start) noexcept
-      : start_{start}, counter_{start}
+    count_data_source(std::int64_t start, std::optional<std::string> field_name) noexcept
+      : start_{start}, counter_{start}, field_name_{std::move(field_name)}
     {}
 
     std::optional<data>
@@ -34,6 +34,7 @@ public:
 private:
     std::int64_t start_;
     std::int64_t counter_;
+    std::optional<std::string> field_name_;
 };
 
 }  // namespace fairseq2::detail

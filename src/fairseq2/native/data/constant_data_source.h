@@ -16,8 +16,8 @@ namespace fairseq2::detail {
 class constant_data_source final : public data_source {
 public:
     explicit
-    constant_data_source(data &&example) noexcept
-      : example_{std::move(example)}
+    constant_data_source(data &&example, std::optional<std::string> field_name) noexcept
+      : example_{std::move(example)}, field_name_{std::move(field_name)}
     {}
 
     std::optional<data>
@@ -34,6 +34,7 @@ public:
 
 private:
     data example_;
+    std::optional<std::string> field_name_;
 };
 
 }  // namespace fairseq2::detail

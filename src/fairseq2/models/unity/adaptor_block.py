@@ -287,9 +287,7 @@ class UnitYTransformerAdaptorLayer(TransformerEncoderLayer):
         if self.ffn_dropout is not None:
             seqs = self.ffn_dropout(seqs)
 
-        seqs = seqs + residual
-
-        return seqs
+        return seqs + residual
 
     def extra_repr(self) -> str:
         """:meta private:"""

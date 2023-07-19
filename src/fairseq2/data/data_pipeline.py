@@ -87,11 +87,15 @@ if TYPE_CHECKING or _DOC_MODE:
             """
 
         @staticmethod
-        def constant(example: Any) -> "DataPipelineBuilder":
+        def constant(
+            example: Any, field_name: Optional[str] = None
+        ) -> "DataPipelineBuilder":
             ...
 
         @staticmethod
-        def count(start: int = 0) -> "DataPipelineBuilder":
+        def count(
+            start: int = 0, field_name: Optional[str] = None
+        ) -> "DataPipelineBuilder":
             ...
 
     class DataPipelineBuilder:

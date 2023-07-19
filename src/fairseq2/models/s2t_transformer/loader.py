@@ -124,6 +124,7 @@ class S2TTransformerTokenizerLoader:
             uri, card.name, force=force, progress=progress
         )
 
+        # The tokenizer is stored in a zip file, so we have to extract it first.
         filename = card.field("tokenizer_file").as_filename()
 
         pathname = zip_pathname.with_name(filename)
@@ -137,6 +138,7 @@ class S2TTransformerTokenizerLoader:
                     f"The load of the target tokenizer of the model '{card.name}' has failed. Please file a bug report."
                 ) from ex
 
+        # S2T Transformer only supports transcription and translation.
         task = card.field("task").as_one_of({"transcription", "translation"})
 
         target_langs = card.field("tgt_langs").as_list(str)

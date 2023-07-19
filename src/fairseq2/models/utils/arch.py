@@ -28,7 +28,7 @@ class ArchitectureRegistry(Generic[ModelConfigT]):
 
         self.configs = {}
 
-    def register_architecture(
+    def register(
         self, arch_name: str, config_factory: ModelConfigFactory[ModelConfigT]
     ) -> None:
         """Register a new architecture.
@@ -66,8 +66,8 @@ class ArchitectureRegistry(Generic[ModelConfigT]):
     def marker(
         self, arch_name: str
     ) -> Callable[[ModelConfigFactory[ModelConfigT]], ModelConfigFactory[ModelConfigT]]:
-        """A parametrized decorator that registers the specified architecture
-        with the decorated callable as its model configuration factory.
+        """A decorator that registers the specified architecture with the
+        decorated callable as its model configuration factory.
 
         :param arch_name:
             The name of the architecture.
@@ -76,7 +76,7 @@ class ArchitectureRegistry(Generic[ModelConfigT]):
         def register(
             config_factory: ModelConfigFactory[ModelConfigT],
         ) -> ModelConfigFactory[ModelConfigT]:
-            self.register_architecture(arch_name, config_factory)
+            self.register(arch_name, config_factory)
 
             return config_factory
 

@@ -8,6 +8,7 @@ import re
 from typing import Any, Callable, Dict, Mapping, NoReturn, Optional, Union
 
 import torch
+from torch import Tensor
 from typing_extensions import TypeAlias
 
 from fairseq2.data.typing import PathLike
@@ -15,7 +16,7 @@ from fairseq2.typing import Device
 
 # TODO: Use `torch.serialization.MAP_LOCATION` after PT 1.12.1
 MapLocation: TypeAlias = Optional[
-    Union[Callable[[torch.Tensor, str], torch.Tensor], Device, str, Dict[str, str]]
+    Union[Callable[[Tensor, str], Tensor], Device, str, Dict[str, str]]
 ]
 
 CheckpointUpgrader: TypeAlias = Callable[[Dict[str, Any]], Dict[str, Any]]
@@ -93,7 +94,7 @@ def upgrade_fairseq_checkpoint(
 
         new_state_dict[new_key] = old_state_dict[old_key]
 
-    # Use the built-in version attribute of Module.
+    # Use the built-in version attribute of `torch.Module`.
     try:
         del new_state_dict["encoder.version"]
     except KeyError:
@@ -103,8 +104,6 @@ def upgrade_fairseq_checkpoint(
     except KeyError:
         pass
 
-    # Positional encodings don't have to be stored in the checkpoint since we
-    # can generate them on-the-fly.
     try:
         del new_state_dict["encoder.embed_positions._float_tensor"]
     except KeyError:

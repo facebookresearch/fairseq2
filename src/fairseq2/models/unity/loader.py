@@ -41,17 +41,29 @@ class UnitYS2TLoader(ModelLoader[TransformerModel, UnitYS2TConfig]):
 
         key_map = self._fairseq_key_map(config)
 
+        # Convert to fairseq2.
         checkpoint = upgrade_fairseq_checkpoint(checkpoint, key_map)
 
+        state_dict = checkpoint["model"]
+
+        # Remnant of wav2vec2 pretraining, not needed for eval or fine-tuning.
         del state_dict["encoder.w2v_encoder.w2v_model.mask_emb"]
 
-        # fairseq checkpoints have duplicate embedding weights.
         embeds = state_dict["final_proj.weight"]
 
+        # fairseq had a bug that accidentally introduced a dummy token in the
+        # embedding table of NLLB-100. We just discard it.
+        if embeds.size(0) == 256103:  # means NLLB-100
+            embeds = embeds[:-1]
+
+            state_dict["final_proj.weight"] = embeds
+
+        # fairseq checkpoints have duplicate embedding weights. Ensure that we
+        # use a single embedding table in fairseq2.
         state_dict["decoder_frontend.embed.weight"] = embeds
 
-        # The embedding positions of the control tokens do not match the
-        # SentencePiece model of the tokenizer.
+        # The embedding positions of the control symbols in fairseq's dict do
+        # not match the SentencePiece model of the tokenizer.
         with torch.inference_mode():
             # (BOS, PAD, EOS, UNK) -> (PAD, UNK, BOS, EOS)
             embeds[[0, 1, 2, 3]] = embeds[[1, 3, 0, 2]]
@@ -169,20 +181,33 @@ class UnitYLoader(ModelLoader[UnitYModel, UnitYConfig]):
 
         checkpoint = upgrade_fairseq_checkpoint(checkpoint, key_map)
 
+        state_dict = checkpoint["model"]
+
+        # Use the built-in version attribute of `torch.Module`.
         del state_dict["target_letter_decoder.version"]
         del state_dict["target_letter_decoder.embed_positions._float_tensor"]
+
+        # Remnant of wav2vec2 pretraining, not needed for eval or fine-tuning.
         del state_dict["encoder.w2v_encoder.w2v_model.mask_emb"]
 
         # TODO: Do for Unit embeddings??
         # TODO: Unit pad index?
 
-        # fairseq checkpoints have duplicate embedding weights.
         embeds = state_dict["s2t_model.final_proj.weight"]
 
+        # fairseq had a bug that accidentally introduced a dummy token in the
+        # embedding table of NLLB-100. We just discard it.
+        if embeds.size(0) == 256103:  # means NLLB-100
+            embeds = embeds[:-1]
+
+            state_dict["final_proj.weight"] = embeds
+
+        # fairseq checkpoints have duplicate embedding weights. Ensure that we
+        # use a single embedding table in fairseq2.
         state_dict["s2t_model.decoder_frontend.embed.weight"] = embeds
 
-        # The embedding positions of the control tokens do not match the
-        # SentencePiece model of the tokenizer.
+        # The embedding positions of the control symbols in fairseq's dict do
+        # not match the SentencePiece model of the tokenizer.
         with torch.inference_mode():
             # (BOS, PAD, EOS, UNK) -> (PAD, UNK, BOS, EOS)
             embeds[[0, 1, 2, 3]] = embeds[[1, 3, 0, 2]]

@@ -27,7 +27,7 @@ string_splitter::string_splitter(
     if (indices_.empty())
         return;
 
-    if (!names_.empty() && names_.size() != indices_.size())
+    if (!names_.empty() && !exclude && names_.size() != indices_.size())
         throw_<std::invalid_argument>(
             "`names` and `indices` must have the same length, but have the lengths {} and {} instead.", names_.size(), indices_.size());
 

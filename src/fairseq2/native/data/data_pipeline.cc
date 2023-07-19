@@ -225,22 +225,22 @@ data_pipeline::round_robin(std::vector<data_pipeline> pipelines)
 }
 
 data_pipeline_builder
-data_pipeline::constant(data example)
+data_pipeline::constant(data example, std::optional<std::string> field_name)
 {
-    auto factory = [example = std::move(example)]() mutable
+    auto factory = [example = std::move(example), field_name = std::move(field_name)]() mutable
     {
-        return std::make_unique<constant_data_source>(std::move(example));
+        return std::make_unique<constant_data_source>(std::move(example), std::move(field_name));
     };
 
     return data_pipeline_builder{std::move(factory)};
 }
 
 data_pipeline_builder
-data_pipeline::count(std::int64_t start)
+data_pipeline::count(std::int64_t start, std::optional<std::string> field_name)
 {
-    auto factory = [start]
+    auto factory = [start, field_name = std::move(field_name)]() mutable
     {
-        return std::make_unique<count_data_source>(start);
+        return std::make_unique<count_data_source>(start, std::move(field_name));
     };
 
     return data_pipeline_builder{std::move(factory)};

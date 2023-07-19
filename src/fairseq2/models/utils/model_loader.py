@@ -10,7 +10,11 @@ from typing import Any, Callable, Dict, Generic, Optional, TypeVar
 from torch.nn import Module
 from typing_extensions import TypeAlias
 
-from fairseq2.assets import AssetDownloadManager, AssetStore
+from fairseq2.assets import (
+    AssetCardFieldNotFoundError,
+    AssetDownloadManager,
+    AssetStore,
+)
 from fairseq2.models.utils.arch import ArchitectureRegistry
 from fairseq2.models.utils.checkpoint import MapLocation, load_checkpoint
 from fairseq2.typing import DataType, Device
@@ -51,14 +55,23 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
 
         card.field("model_type").check_equals(self.archs.model_type)
 
-        arch_names = self.archs.names()
+        # Ensure that the card has a valid model architecture.
+        arch_name = card.field("model_arch").as_one_of(self.archs.names())
 
-        arch_name = card.field("model_arch").as_one_of(arch_names)
-
+        # Construct the model.
         config = self.archs.get_config(arch_name)
+
+        try:
+            config_overrides = card.field("model_config").as_(Dict[str, Any])
+
+            # TODO: This is just a placeholder for the actual impl.
+            config.__dict__.update(config_overrides)
+        except AssetCardFieldNotFoundError:
+            pass
 
         model = self.model_factory(config, device, dtype)
 
+        # Load the model from the checkpoint field stored in the card.
         uri = card.field("checkpoint").as_uri()
 
         pathname = self.download_manager.download_checkpoint(
