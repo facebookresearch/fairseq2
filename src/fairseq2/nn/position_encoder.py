@@ -160,6 +160,11 @@ class SinusoidalPositionEncoder(PositionEncoder):
     ) -> None:
         super().__init__(encoding_dim, max_seq_len)
 
+        if encoding_dim % 2 != 0:
+            raise ValueError(
+                f"`encoding_dim` must be even, but is {encoding_dim} instead."
+            )
+
         # This is a legacy parameter that should only be set when the encodings
         # must be compatible with fairseq.
         if _legacy_pad_idx is None:
@@ -176,10 +181,6 @@ class SinusoidalPositionEncoder(PositionEncoder):
     def reset_parameters(self) -> None:
         """Reset the parameters and buffers of the module."""
         num_sin = self.encoding_dim // 2
-
-        # Zero pad if the dimensionality of the model is odd.
-        if self.encoding_dim > 2 * num_sin:
-            self.weight[:, -1:] = 0
 
         l_half = self.weight[:, :num_sin]
         r_half = self.weight[:, num_sin:]
