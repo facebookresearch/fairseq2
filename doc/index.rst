@@ -16,14 +16,6 @@ other content generation tasks.
 Installation
 ------------
 
-Check out :ref:`installation` for installation instructions.
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Getting Started
-
-   intro/install
-
 .. toctree::
    :maxdepth: 1
    :caption: Tutorials
