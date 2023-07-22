@@ -205,8 +205,7 @@ class S2TTransformerBuilder:
     """
 
     config: S2TTransformerConfig
-    encoder_norm_order: TransformerNormOrder
-    cached_rel_pos_encoding: Optional[RelativePositionalEncoding]
+    rel_pos_encoding: Optional[RelativePositionalEncoding]
     device: Optional[Device]
     dtype: Optional[DataType]
 
@@ -225,20 +224,9 @@ class S2TTransformerBuilder:
             The data type of module parameters and buffers.
         """
         self.config = config
-
-        if self.config.use_conformer:
-            self.encoder_norm_order = TransformerNormOrder.POST
-        else:
-            self.encoder_norm_order = TransformerNormOrder.PRE
-
-        self.cached_rel_pos_encoding = None
-
+        self.rel_pos_encoding = None
         self.device = device
         self.dtype = dtype
-
-    def reset(self) -> None:
-        """Reset the internal state of the builder."""
-        self.cached_rel_pos_encoding = None
 
     def build_model(self) -> TransformerModel:
         """Build a model."""
@@ -336,11 +324,13 @@ class S2TTransformerBuilder:
 
         layers = [self.build_encoder_layer() for _ in range(num_layers)]
 
+        if self.config.use_conformer:
+            encoder_norm_order = TransformerNormOrder.POST
+        else:
+            encoder_norm_order = TransformerNormOrder.PRE
+
         return StandardTransformerEncoder(
-            layers,
-            norm_order=self.encoder_norm_order,
-            device=self.device,
-            dtype=self.dtype,
+            layers, norm_order=encoder_norm_order, device=self.device, dtype=self.dtype
         )
 
     def build_decoder(self) -> TransformerDecoder:
@@ -365,11 +355,16 @@ class S2TTransformerBuilder:
 
         ffn = self.build_ffn()
 
+        if self.config.use_conformer:
+            encoder_norm_order = TransformerNormOrder.POST
+        else:
+            encoder_norm_order = TransformerNormOrder.PRE
+
         return StandardTransformerEncoderLayer(
             self_attn,
             ffn,
             dropout_p=self.config.dropout_p,
-            norm_order=self.encoder_norm_order,
+            norm_order=encoder_norm_order,
             device=self.device,
             dtype=self.dtype,
         )
@@ -422,18 +417,12 @@ class S2TTransformerBuilder:
         sdpa: SDPA
 
         if self.config.use_relative_pos:
-            if self.cached_rel_pos_encoding is None:
-                self.cached_rel_pos_encoding = RelativePositionalEncoding(
-                    self.config.model_dim,
-                    self.config.max_seq_len,
-                    self.device,
-                    self.dtype,
-                )
+            rel_pos_encoding = self.get_relative_positional_encoding()
 
             sdpa = RelativePositionSDPA(
                 self.config.model_dim,
                 self.config.num_encoder_attn_heads,
-                self.cached_rel_pos_encoding,
+                rel_pos_encoding,
                 attn_dropout_p=self.config.dropout_p,
                 device=self.device,
                 dtype=self.dtype,
@@ -471,6 +460,18 @@ class S2TTransformerBuilder:
             device=self.device,
             dtype=self.dtype,
         )
+
+    def get_relative_positional_encoding(self) -> RelativePositionalEncoding:
+        """Get the cached relative positional encoding table."""
+        if self.rel_pos_encoding is None:
+            self.rel_pos_encoding = RelativePositionalEncoding(
+                self.config.model_dim,
+                self.config.max_seq_len,
+                self.device,
+                self.dtype,
+            )
+
+        return self.rel_pos_encoding
 
 
 def create_s2t_transformer_model(

@@ -8,7 +8,7 @@ import logging
 import math
 from dataclasses import dataclass
 from logging import Logger
-from typing import Any, Callable, Dict, Optional, Tuple, cast
+from typing import Any, Callable, Dict, Mapping, Optional, Tuple, cast
 
 from torch import Tensor
 from torch.cuda.amp.grad_scaler import GradScaler
@@ -88,7 +88,7 @@ class DynamicLossScaler:
     def state_dict(self) -> Dict[str, Any]:
         return {"grad_scaler": self._grad_scaler.state_dict()}
 
-    def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
+    def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
         self._grad_scaler.load_state_dict(state_dict["grad_scaler"])
 
     def run_optimizer_step(

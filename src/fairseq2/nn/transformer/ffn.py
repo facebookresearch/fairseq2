@@ -95,6 +95,9 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         """
         super().__init__(model_dim)
 
+        if layer_norm_fn is None:
+            layer_norm_fn = create_default_layer_norm
+
         self.inner_proj = Linear(model_dim, inner_dim, bias, device=device, dtype=dtype)
 
         if inner_activation is None:
@@ -108,9 +111,6 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
             self.register_module("inner_dropout", None)
 
         if norm_order == TransformerNormOrder.PRE_WITH_NORMFORMER:
-            if layer_norm_fn is None:
-                layer_norm_fn = create_default_layer_norm
-
             self.inner_layer_norm = layer_norm_fn(inner_dim, device, dtype)
         else:
             self.register_module("inner_layer_norm", None)

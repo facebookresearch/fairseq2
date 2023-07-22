@@ -18,7 +18,7 @@ from fairseq2.typing import DataType, Device
 def _encoder_600m() -> Wav2Vec2EncoderConfig:
     return Wav2Vec2EncoderConfig(
         model_dim=1024,
-        max_seq_len=2048,
+        max_seq_len=4096,
         feature_dim=160,
         use_fbank=True,
         first_pass_dropout_p=0.0,
@@ -155,9 +155,6 @@ class W2VBertBuilder:
         self.w2v2_builder = w2v2_builder
         self.device = device
         self.dtype = dtype
-
-    def reset(self) -> None:
-        """Reset the internal state of the builder."""
 
     def build_model(self) -> W2VBertModel:
         """Build a model."""

@@ -8,7 +8,6 @@ import os
 from typing import (
     AbstractSet,
     Any,
-    Dict,
     List,
     Mapping,
     NoReturn,
@@ -39,7 +38,7 @@ class AssetCard:
     base: Optional["AssetCard"]
 
     def __init__(
-        self, name: str, data: Dict[str, Any], base: Optional["AssetCard"] = None
+        self, name: str, data: Mapping[str, Any], base: Optional["AssetCard"] = None
     ) -> None:
         """
         :param name:

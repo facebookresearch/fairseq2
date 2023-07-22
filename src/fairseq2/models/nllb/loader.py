@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, final
+from typing import Any, Dict, Mapping, final
 
 import torch
 from overrides import override as finaloverride
@@ -28,8 +28,8 @@ class NllbLoader(ModelLoader[TransformerModel, NllbConfig]):
 
     @finaloverride
     def _upgrade_checkpoint(
-        self, checkpoint: Dict[str, Any], config: NllbConfig
-    ) -> Dict[str, Any]:
+        self, checkpoint: Mapping[str, Any], config: NllbConfig
+    ) -> Mapping[str, Any]:
         state_dict = checkpoint["model"]
 
         # Check if we have a fairseq2 checkpoint.

@@ -7,7 +7,7 @@
 import os
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, Optional, final
+from typing import Any, Dict, Mapping, Optional, final
 
 import yaml
 from overrides import final as finaloverride
@@ -32,7 +32,7 @@ class AssetCardStorage(ABC):
 
     @abstractmethod
     def save_card(
-        self, name: str, card: Dict[str, Any], env: Optional[str] = None
+        self, name: str, card: Mapping[str, Any], env: Optional[str] = None
     ) -> None:
         """Save the card of the specified asset.
 
@@ -96,7 +96,7 @@ class LocalAssetCardStorage(AssetCardStorage):
 
     @finaloverride
     def save_card(
-        self, name: str, data: Dict[str, Any], env: Optional[str] = None
+        self, name: str, data: Mapping[str, Any], env: Optional[str] = None
     ) -> None:
         raise NotImplementedError()
 

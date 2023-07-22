@@ -13,14 +13,16 @@ from torch.nn import GLU, Conv1d, Dropout, ReLU
 
 from fairseq2.models.conformer import ConformerBlock
 from fairseq2.nn.module_list import ModuleList
-from fairseq2.nn.normalization import StandardLayerNorm
+from fairseq2.nn.normalization import LayerNorm
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer import (
     EncoderLayerOutputHook,
     FeedForwardNetwork,
+    LayerNormFactory,
     MultiheadAttention,
     TransformerEncoder,
     TransformerEncoderLayer,
+    create_default_layer_norm,
 )
 from fairseq2.nn.utils.mask import to_padding_mask
 from fairseq2.typing import DataType, Device
@@ -32,16 +34,19 @@ class UnitYS2TEncoderAdaptor(TransformerEncoder):
     it to be used with the UnitY architecture."""
 
     inner: TransformerEncoder
+    inner_layer_norm: Optional[LayerNorm]
     proj1: Linear
     activation: ReLU
     proj2: Linear
     adaptor_layers: ModuleList
-    layer_norm: StandardLayerNorm
+    layer_norm: LayerNorm
 
     def __init__(
         self,
         inner: TransformerEncoder,
         adaptor_layers: Iterable[TransformerEncoderLayer],
+        inner_layer_norm: bool = False,
+        layer_norm_fn: Optional[LayerNormFactory] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -50,22 +55,24 @@ class UnitYS2TEncoderAdaptor(TransformerEncoder):
             The speech encoder to wrap.
         :param adaptor_layers:
             The adaptor layers to stack on top of ``inner``.
+        :param inner_layer_norm:
+            If ``True``, applies Layer Normalization to outputs of ``inner``.
+        :param layer_norm_fn:
+            The factory to use to construct the Layer Normalization modules.
         """
         model_dim = inner.model_dim
 
-        layer_list = ModuleList(adaptor_layers)
-        if not layer_list:
-            raise ValueError("`adaptor_layers` must be non-empty.")
-
-        for idx, layer in enumerate(adaptor_layers):
-            if layer.model_dim != model_dim:
-                raise ValueError(
-                    f"`model_dim` of `inner` and `model_dim` of the adaptor layer {idx} must be equal, but are {model_dim} and {layer.model_dim} instead."
-                )
-
         super().__init__(model_dim)
 
+        if layer_norm_fn is None:
+            layer_norm_fn = create_default_layer_norm
+
         self.inner = inner
+
+        if inner_layer_norm:
+            self.inner_layer_norm = layer_norm_fn(model_dim, device, dtype)
+        else:
+            self.register_module("inner_layer_norm", None)
 
         self.proj1 = Linear(
             model_dim, model_dim * 4, bias=True, device=device, dtype=dtype
@@ -77,9 +84,19 @@ class UnitYS2TEncoderAdaptor(TransformerEncoder):
             model_dim * 4, model_dim, bias=True, device=device, dtype=dtype
         )
 
+        layer_list = ModuleList(adaptor_layers)
+        if not layer_list:
+            raise ValueError("`adaptor_layers` must be non-empty.")
+
+        for idx, layer in enumerate(adaptor_layers):
+            if layer.model_dim != model_dim:
+                raise ValueError(
+                    f"`model_dim` of `inner` and `model_dim` of the adaptor layer {idx} must be equal, but are {model_dim} and {layer.model_dim} instead."
+                )
+
         self.adaptor_layers = layer_list
 
-        self.layer_norm = StandardLayerNorm(model_dim, device=device, dtype=dtype)
+        self.layer_norm = layer_norm_fn(model_dim, device, dtype)
 
     @finaloverride
     def forward(
@@ -89,6 +106,9 @@ class UnitYS2TEncoderAdaptor(TransformerEncoder):
         layer_output_hook: Optional[EncoderLayerOutputHook] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         seqs, padding_mask = self.inner(seqs, padding_mask, layer_output_hook)
+
+        if self.inner_layer_norm is not None:
+            seqs = self.inner_layer_norm(seqs)
 
         # Only difference compared to a vanilla Transformer encoder.
         seqs = seqs + 0.5 * self._expand_contract(seqs)
@@ -121,15 +141,15 @@ class UnitYTransformerAdaptorLayer(TransformerEncoderLayer):
 
     kernel_size: int
     stride: int
-    residual_layer_norm: StandardLayerNorm
+    residual_layer_norm: LayerNorm
     residual_conv: Conv1d
     residual_activation: GLU
-    self_attn_layer_norm: StandardLayerNorm
+    self_attn_layer_norm: LayerNorm
     self_attn_conv: Conv1d
     self_attn_activation: GLU
     self_attn: MultiheadAttention
     self_attn_dropout: Optional[Dropout]
-    ffn_layer_norm: StandardLayerNorm
+    ffn_layer_norm: LayerNorm
     ffn: FeedForwardNetwork
     ffn_dropout: Optional[Dropout]
 
@@ -140,6 +160,7 @@ class UnitYTransformerAdaptorLayer(TransformerEncoderLayer):
         kernel_size: int = 8,
         stride: int = 8,
         dropout_p: float = 0.1,
+        layer_norm_fn: Optional[LayerNormFactory] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -155,17 +176,20 @@ class UnitYTransformerAdaptorLayer(TransformerEncoderLayer):
         :param dropout_p:
             The dropout probability on outputs of the self attention layer and
             the feed-forward network.
+        :param layer_norm_fn:
+            The factory to use to construct the Layer Normalization modules.
         """
         model_dim = self_attn.model_dim
 
         super().__init__(model_dim)
 
+        if layer_norm_fn is None:
+            layer_norm_fn = create_default_layer_norm
+
         self.kernel_size = kernel_size
         self.stride = stride
 
-        self.residual_layer_norm = StandardLayerNorm(
-            model_dim, device=device, dtype=dtype
-        )
+        self.residual_layer_norm = layer_norm_fn(model_dim, device, dtype)
 
         self.residual_conv = Conv1d(
             model_dim,
@@ -179,9 +203,7 @@ class UnitYTransformerAdaptorLayer(TransformerEncoderLayer):
 
         self.residual_activation = GLU(dim=1)
 
-        self.self_attn_layer_norm = StandardLayerNorm(
-            model_dim, device=device, dtype=dtype
-        )
+        self.self_attn_layer_norm = layer_norm_fn(model_dim, device, dtype)
 
         self.self_attn_conv = Conv1d(
             model_dim,
@@ -202,12 +224,12 @@ class UnitYTransformerAdaptorLayer(TransformerEncoderLayer):
         else:
             self.register_module("self_attn_dropout", None)
 
+        self.ffn_layer_norm = layer_norm_fn(model_dim, device, dtype)
+
         if ffn.model_dim != model_dim:
             raise ValueError(
                 f"`model_dim` of `ffn` and `model_dim` of `self_attn` must be equal, but are {ffn.model_dim} and {model_dim} instead."
             )
-
-        self.ffn_layer_norm = StandardLayerNorm(model_dim, device=device, dtype=dtype)
 
         self.ffn = ffn
 
@@ -308,7 +330,7 @@ class UnitYConformerAdaptorLayer(TransformerEncoderLayer):
 
     kernel_size: int
     stride: int
-    layer_norm: Optional[StandardLayerNorm]
+    layer_norm: Optional[LayerNorm]
     conv: Conv1d
     activation: GLU
     block: ConformerBlock
@@ -319,6 +341,7 @@ class UnitYConformerAdaptorLayer(TransformerEncoderLayer):
         kernel_size: int = 8,
         stride: int = 8,
         layer_norm: bool = False,
+        layer_norm_fn: Optional[LayerNormFactory] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -331,18 +354,21 @@ class UnitYConformerAdaptorLayer(TransformerEncoderLayer):
             The stride for 1D pooling convolutions.
         :param layer_norm:
             If ``True``, applies Layer Normalization to inputs before pooling.
+        :param layer_norm_fn:
+            The factory to use to construct the Layer Normalization modules.
         """
         super().__init__(block.model_dim)
+
+        if layer_norm_fn is None:
+            layer_norm_fn = create_default_layer_norm
 
         self.kernel_size = kernel_size
         self.stride = stride
 
         if layer_norm:
-            self.layer_norm = StandardLayerNorm(
-                self.model_dim, device=device, dtype=dtype
-            )
+            self.layer_norm = layer_norm_fn(self.model_dim, device, dtype)
         else:
-            self.register_parameter("layer_norm", None)
+            self.register_module("layer_norm", None)
 
         self.conv = Conv1d(
             self.model_dim,

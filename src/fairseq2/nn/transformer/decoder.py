@@ -147,25 +147,25 @@ class StandardTransformerDecoder(TransformerDecoder):
 
         model_dim = layer_list[0].model_dim
 
-        for idx, layer in enumerate(layers):
-            if layer.model_dim != model_dim:
-                raise ValueError(
-                    f"`model_dim` of the decoder layer 0 and `model_dim` of the decoder layer {idx} must be equal, but are {model_dim} and {layer.model_dim} instead."
-                )
-
         super().__init__(model_dim)
+
+        if layer_norm_fn is None:
+            layer_norm_fn = create_default_layer_norm
 
         if self_attn_mask_gen is None:
             self.self_attn_mask_gen = CausalAttentionMaskGenerator()
         else:
             self.self_attn_mask_gen = self_attn_mask_gen
 
+        for idx, layer in enumerate(layers):
+            if layer.model_dim != model_dim:
+                raise ValueError(
+                    f"`model_dim` of the decoder layer 0 and `model_dim` of the decoder layer {idx} must be equal, but are {model_dim} and {layer.model_dim} instead."
+                )
+
         self.layers = layer_list
 
         if norm_order != TransformerNormOrder.POST:
-            if layer_norm_fn is None:
-                layer_norm_fn = create_default_layer_norm
-
             self.layer_norm = layer_norm_fn(model_dim, device, dtype)
         else:
             self.register_module("layer_norm", None)

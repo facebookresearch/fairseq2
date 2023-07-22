@@ -14,7 +14,7 @@ from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.models.transformer import TransformerModel
 from fairseq2.models.transformer.frontend import TransformerFrontend
 from fairseq2.nn.incremental_state import IncrementalStateBag
-from fairseq2.nn.projection import Linear, Projection
+from fairseq2.nn.projection import Projection
 from fairseq2.nn.transformer import TransformerDecoder, TransformerEncoder
 
 
@@ -65,11 +65,6 @@ class UnitYModel(Module):
                 raise ValueError(
                     f"`model_dim` of `s2t_model` and `model_dim` of `t2u_encoder` must be equal, but are {self.model_dim} and {t2u_encoder.model_dim} instead."
                 )
-
-            self.t2u_proj = Sequential(
-                Linear(self.model_dim, self.model_dim, bias=False),
-                Linear(self.model_dim, self.model_dim, bias=False),
-            )
 
             self.t2u_encoder = t2u_encoder
 
@@ -153,11 +148,7 @@ class UnitYModel(Module):
         if self.t2u_encoder is None:
             return s2t_decoder_output, s2t_decoder_padding_mask
 
-        assert self.t2u_proj is not None
-
-        seqs = self.t2u_proj(s2t_decoder_output)
-
-        return self.t2u_encoder(seqs, s2t_decoder_padding_mask)  # type: ignore[no-any-return]
+        return self.t2u_encoder(s2t_decoder_output, s2t_decoder_padding_mask)  # type: ignore[no-any-return]
 
     def decode(
         self,

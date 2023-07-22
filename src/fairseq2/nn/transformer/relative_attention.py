@@ -57,17 +57,17 @@ class RelativePositionSDPA(SDPA):
                 f"`model_dim` must be divisible by `num_heads` ({num_heads}), but is {model_dim} instead."
             )
 
+        self.model_dim = model_dim
+        self.num_heads = num_heads
+
         if pos_encoding.encoding_dim != model_dim:
             raise ValueError(
                 f"`encoding_dim` of `pos_encoding` and `model_dim` must be equal, but are {pos_encoding.encoding_dim} and {model_dim} instead."
             )
 
-        head_dim = model_dim // num_heads
-
-        self.model_dim = model_dim
-        self.num_heads = num_heads
-
         self.pos_encoding = pos_encoding
+
+        head_dim = model_dim // num_heads
 
         self.u_bias = Parameter(
             torch.empty((num_heads, head_dim), device=device, dtype=dtype)

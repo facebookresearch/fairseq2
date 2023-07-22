@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, final
+from typing import Any, Dict, Mapping, final
 
 import torch
 from overrides import override as finaloverride
@@ -27,9 +27,13 @@ class Wav2Vec2Loader(ModelLoader[Wav2Vec2Model, Wav2Vec2Config]):
 
     @finaloverride
     def _upgrade_checkpoint(
-        self, checkpoint: Dict[str, Any], config: Wav2Vec2Config
-    ) -> Dict[str, Any]:
+        self, checkpoint: Mapping[str, Any], config: Wav2Vec2Config
+    ) -> Mapping[str, Any]:
         state_dict = checkpoint["model"]
+
+        # Check if we have a fairseq2 checkpoint.
+        if "final_target_proj.weight" in state_dict:
+            return checkpoint
 
         if config.encoder_config.norm_order == TransformerNormOrder.POST:
             # fmt: off

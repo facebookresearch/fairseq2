@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, final
+from typing import Any, Dict, Mapping, final
 from zipfile import ZipFile
 
 from overrides import override as finaloverride
@@ -32,8 +32,8 @@ class S2TTransformerLoader(ModelLoader[TransformerModel, S2TTransformerConfig]):
 
     @finaloverride
     def _upgrade_checkpoint(
-        self, checkpoint: Dict[str, Any], config: S2TTransformerConfig
-    ) -> Dict[str, Any]:
+        self, checkpoint: Mapping[str, Any], config: S2TTransformerConfig
+    ) -> Mapping[str, Any]:
         key_map = self._fairseq_key_map()
 
         return upgrade_fairseq_checkpoint(checkpoint, key_map)
@@ -138,7 +138,7 @@ class S2TTransformerTokenizerLoader:
                     f"The load of the target tokenizer of the model '{card.name}' has failed. Please file a bug report."
                 ) from ex
 
-        # S2T Transformer only supports transcription and translation.
+        # The valid task names ares transcription and translation.
         task = card.field("task").as_one_of({"transcription", "translation"})
 
         target_langs = card.field("tgt_langs").as_list(str)

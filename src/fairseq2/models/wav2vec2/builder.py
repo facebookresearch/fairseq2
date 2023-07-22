@@ -145,7 +145,7 @@ def _encoder_base() -> Wav2Vec2EncoderConfig:
 
     return Wav2Vec2EncoderConfig(
         model_dim=768,
-        max_seq_len=2048,
+        max_seq_len=4096,
         feature_dim=512,
         use_fbank=False,
         first_pass_dropout_p=0.0,
@@ -182,7 +182,7 @@ class Wav2Vec2EncoderBuilder:
     """
 
     config: Wav2Vec2EncoderConfig
-    cached_rel_pos_encoding: Optional[RelativePositionalEncoding]
+    rel_pos_encoding: Optional[RelativePositionalEncoding]
     device: Optional[Device]
     dtype: Optional[DataType]
 
@@ -202,17 +202,13 @@ class Wav2Vec2EncoderBuilder:
         """
         if config.use_conformer and config.norm_order != TransformerNormOrder.POST:
             raise ValueError(
-                f"`config.norm_order` must be `POST` when `config.use_conformer` is `True`, but is {config.norm_order} instead."
+                f"`config.norm_order` must be `POST` when `config.use_conformer` is `True`, but is `{config.norm_order}` instead."
             )
 
         self.config = config
-        self.cached_rel_pos_encoding = None
+        self.rel_pos_encoding = None
         self.device = device
         self.dtype = dtype
-
-    def reset(self) -> None:
-        """Reset the internal state of the builder."""
-        self.cached_rel_pos_encoding = None
 
     def build_frontend(self) -> Wav2Vec2Frontend:
         """Build a wav2vec 2.0 Transformer encoder front-end."""
@@ -345,18 +341,12 @@ class Wav2Vec2EncoderBuilder:
         sdpa: SDPA
 
         if self.config.pos_encoder_type == "relative":
-            if self.cached_rel_pos_encoding is None:
-                self.cached_rel_pos_encoding = RelativePositionalEncoding(
-                    self.config.model_dim,
-                    self.config.max_seq_len,
-                    self.device,
-                    self.dtype,
-                )
+            rel_pos_encoding = self.get_relative_positional_encoding()
 
             sdpa = RelativePositionSDPA(
                 self.config.model_dim,
                 self.config.num_encoder_attn_heads,
-                self.cached_rel_pos_encoding,
+                rel_pos_encoding,
                 attn_dropout_p=self.config.attn_dropout_p,
                 device=self.device,
                 dtype=self.dtype,
@@ -383,6 +373,18 @@ class Wav2Vec2EncoderBuilder:
             device=self.device,
             dtype=self.dtype,
         )
+
+    def get_relative_positional_encoding(self) -> RelativePositionalEncoding:
+        """Get the cached relative positional encoding table."""
+        if self.rel_pos_encoding is None:
+            self.rel_pos_encoding = RelativePositionalEncoding(
+                self.config.model_dim,
+                self.config.max_seq_len,
+                self.device,
+                self.dtype,
+            )
+
+        return self.rel_pos_encoding
 
 
 @dataclass

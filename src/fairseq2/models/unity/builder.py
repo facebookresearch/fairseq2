@@ -75,6 +75,9 @@ class UnitYS2TConfig:
     adaptor_stride: int
     """The stride of 1D convolutions in the adaptor block."""
 
+    adaptor_layer_norm: bool
+    """If ``True``, applies Layer Normalization to outputs of wav2vec 2.0 encoder."""
+
     num_decoder_layers: int
     """The number of Transformer decoder layers."""
 
@@ -110,6 +113,7 @@ def _base_s2t() -> UnitYS2TConfig:
         num_adaptor_layers=1,
         adaptor_kernel_size=8,
         adaptor_stride=8,
+        adaptor_layer_norm=False,
         ffn_inner_dim=1024 * 8,
         dropout_p=0.1,
     )
@@ -155,26 +159,14 @@ class UnitYS2TBuilder:
         self.device = device
         self.dtype = dtype
 
-    def reset(self) -> None:
-        """Reset the internal state of the builder."""
-
     def build_model(self) -> TransformerModel:
         """Build a model."""
+        embed = self.build_text_embedding()
+
         encoder_frontend = self.build_encoder_frontend()
-
-        encoder = self.build_encoder()
-
-        embed = Embedding(
-            num_embeddings=self.config.target_vocabulary_size,
-            embedding_dim=self.config.model_dim,
-            pad_idx=self.config.target_pad_idx,
-            scaled=True,
-            device=self.device,
-            dtype=self.dtype,
-        )
-
         decoder_frontend = self.build_decoder_frontend(embed)
 
+        encoder = self.build_encoder()
         decoder = self.build_decoder()
 
         final_proj = TiedProjection(embed.weight)
@@ -186,6 +178,17 @@ class UnitYS2TBuilder:
             decoder,
             final_proj,
             self.config.target_pad_idx,
+        )
+
+    def build_text_embedding(self) -> Embedding:
+        """Build a text embedding table."""
+        return Embedding(
+            num_embeddings=self.config.target_vocabulary_size,
+            embedding_dim=self.config.model_dim,
+            pad_idx=self.config.target_pad_idx,
+            scaled=True,
+            device=self.device,
+            dtype=self.dtype,
         )
 
     def build_encoder_frontend(self) -> TransformerFrontend:
@@ -215,17 +218,23 @@ class UnitYS2TBuilder:
         w2v2_encoder = self.w2v2_encoder_builder.build_encoder()
 
         # For Conformer-based wav2vec 2.0 architectures (e.g. w2v-BERT), we
-        # typically use a special type of adapter layer.
-        if self.config.use_conformer_adaptor:
-            build_adaptor_layer = self.build_conformer_adaptor_layer
-        else:
+        # typically use a special type of adaptor layer.
+        if not self.config.use_conformer_adaptor:
             build_adaptor_layer = self.build_adaptor_layer
+        else:
+            build_adaptor_layer = self.build_conformer_adaptor_layer
 
         num_layers = self.config.num_adaptor_layers
 
         layers = [build_adaptor_layer(i) for i in range(num_layers)]
 
-        return UnitYS2TEncoderAdaptor(w2v2_encoder, layers, self.device, self.dtype)
+        return UnitYS2TEncoderAdaptor(
+            w2v2_encoder,
+            layers,
+            self.config.adaptor_layer_norm,
+            device=self.device,
+            dtype=self.dtype,
+        )
 
     def build_adaptor_layer(self, idx: int) -> TransformerEncoderLayer:
         """Build a Transformer-based encoder adaptor layer."""
@@ -233,7 +242,14 @@ class UnitYS2TBuilder:
             self.w2v2_encoder_builder.config.num_encoder_attn_heads
         )
 
-        ffn = self.w2v2_encoder_builder.build_ffn()
+        # Unlike wav2vec2, we use ReLU (i.e. standard FFN activation function)
+        # instead of GELU.
+        ffn = StandardFeedForwardNetwork(
+            self.config.model_dim,
+            self.w2v2_encoder_builder.config.ffn_inner_dim,
+            device=self.device,
+            dtype=self.dtype,
+        )
 
         return UnitYTransformerAdaptorLayer(
             self_attn,
@@ -241,8 +257,8 @@ class UnitYS2TBuilder:
             self.config.adaptor_kernel_size,
             self.config.adaptor_stride,
             self.config.dropout_p,
-            self.device,
-            self.dtype,
+            device=self.device,
+            dtype=self.dtype,
         )
 
     def build_conformer_adaptor_layer(self, idx: int) -> TransformerEncoderLayer:
@@ -281,8 +297,8 @@ class UnitYS2TBuilder:
             self.config.adaptor_kernel_size,
             self.config.adaptor_stride,
             layer_norm,
-            self.device,
-            self.dtype,
+            device=self.device,
+            dtype=self.dtype,
         )
 
     def build_decoder(self) -> TransformerDecoder:
@@ -401,10 +417,9 @@ def _base() -> UnitYConfig:
 
     return UnitYConfig(
         unit_max_seq_len=1024,
-        unit_vocabulary_size=1026,
+        unit_vocabulary_size=10082,
         unit_pad_idx=0,
         s2t_model_config=s2t_model_config,
-        # TODO: LAYERDROP??
         num_t2u_encoder_layers=6,
         num_t2u_decoder_layers=6,
         num_t2u_encoder_attn_heads=16,
@@ -440,29 +455,18 @@ class UnitYBuilder:
         self.device = device
         self.dtype = dtype
 
-    def reset(self) -> None:
-        """Reset the internal state of the builder."""
-
     def build_model(self) -> UnitYModel:
         """Build a model."""
         s2t_model = self.s2t_model_builder.build_model()
 
-        unit_embed = Embedding(
-            num_embeddings=self.config.unit_vocabulary_size,
-            embedding_dim=self.config.s2t_model_config.model_dim,
-            pad_idx=self.config.unit_pad_idx,
-            scaled=True,
-            device=self.device,
-            dtype=self.dtype,
-        )
+        embed = self.build_unit_embedding()
+
+        t2u_decoder_frontend = self.build_t2u_decoder_frontend(embed)
 
         t2u_encoder = self.build_t2u_encoder()
-
-        t2u_decoder_frontend = self.build_t2u_decoder_frontend(unit_embed)
-
         t2u_decoder = self.build_t2u_decoder()
 
-        final_proj = TiedProjection(unit_embed.weight)
+        final_proj = TiedProjection(embed.weight)
 
         return UnitYModel(
             s2t_model,
@@ -473,13 +477,26 @@ class UnitYBuilder:
             self.config.unit_pad_idx,
         )
 
+    def build_unit_embedding(self) -> Embedding:
+        """Build a unit embedding table."""
+        return Embedding(
+            num_embeddings=self.config.unit_vocabulary_size,
+            embedding_dim=self.config.s2t_model_config.model_dim,
+            pad_idx=self.config.unit_pad_idx,
+            scaled=True,
+            device=self.device,
+            dtype=self.dtype,
+        )
+
     def build_t2u_decoder_frontend(self, embed: Embedding) -> TransformerFrontend:
         """Build a T2U Transformer decoder front-end."""
         return self.s2t_model_builder.build_decoder_frontend(embed)
 
-    def build_t2u_encoder(self) -> TransformerEncoder:
+    def build_t2u_encoder(self) -> Optional[TransformerEncoder]:
         """Build a T2U Transformer encoder."""
         num_layers = self.config.num_t2u_encoder_layers
+        if num_layers == 0:
+            return None
 
         layers = [self.build_t2u_encoder_layer() for _ in range(num_layers)]
 

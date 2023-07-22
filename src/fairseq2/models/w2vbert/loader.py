@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, final
+from typing import Any, Dict, Mapping, final
 
 import torch
 from overrides import override as finaloverride
@@ -26,9 +26,13 @@ class W2VBertLoader(ModelLoader[W2VBertModel, W2VBertConfig]):
 
     @finaloverride
     def _upgrade_checkpoint(
-        self, checkpoint: Dict[str, Any], config: W2VBertConfig
-    ) -> Dict[str, Any]:
+        self, checkpoint: Mapping[str, Any], config: W2VBertConfig
+    ) -> Mapping[str, Any]:
         state_dict = checkpoint["model"]
+
+        # Check if we have a fairseq2 checkpoint.
+        if "w2v2.final_target_proj.weight" in state_dict:
+            return checkpoint
 
         state_dict["w2v2.quantizer.num_updates"] = torch.zeros((), device="cpu")
 

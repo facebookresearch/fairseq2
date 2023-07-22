@@ -308,12 +308,12 @@ class RotaryEncoder(PositionEncoder):
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
+        super().__init__(encoding_dim, max_seq_len)
+
         if encoding_dim % 2 != 0:
             raise ValueError(
                 f"`encoding_dim` must be even, but is {encoding_dim} instead."
             )
-
-        super().__init__(encoding_dim, max_seq_len)
 
         cos = torch.empty((max_seq_len, encoding_dim), device=device, dtype=dtype)
         sin = torch.empty((max_seq_len, encoding_dim), device=device, dtype=dtype)

@@ -123,20 +123,20 @@ class StandardTransformerEncoder(TransformerEncoder):
 
         model_dim = layer_list[0].model_dim
 
+        super().__init__(model_dim)
+
+        if layer_norm_fn is None:
+            layer_norm_fn = create_default_layer_norm
+
         for idx, layer in enumerate(layers):
             if layer.model_dim != model_dim:
                 raise ValueError(
                     f"`model_dim` of the encoder layer 0 and `model_dim` of the encoder layer {idx} must be equal, but are {model_dim} and {layer.model_dim} instead."
                 )
 
-        super().__init__(model_dim)
-
         self.layers = layer_list
 
         if norm_order != TransformerNormOrder.POST:
-            if layer_norm_fn is None:
-                layer_norm_fn = create_default_layer_norm
-
             self.layer_norm = layer_norm_fn(model_dim, device, dtype)
         else:
             self.register_module("layer_norm", None)

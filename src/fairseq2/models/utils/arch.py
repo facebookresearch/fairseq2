@@ -4,13 +4,16 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import AbstractSet, Callable, Dict, Generic, TypeVar
+from typing import AbstractSet, Callable, Dict, Generic, Protocol, TypeVar
 
-from typing_extensions import TypeAlias
+ModelConfigT = TypeVar("ModelConfigT", covariant=True)
 
-ModelConfigT = TypeVar("ModelConfigT")
 
-ModelConfigFactory: TypeAlias = Callable[[], ModelConfigT]
+class ModelConfigFactory(Protocol[ModelConfigT]):
+    """Constructs instances of ``ModelConfigT``."""
+
+    def __call__(self) -> ModelConfigT:
+        ...
 
 
 class ArchitectureRegistry(Generic[ModelConfigT]):
@@ -66,7 +69,7 @@ class ArchitectureRegistry(Generic[ModelConfigT]):
     def marker(
         self, arch_name: str
     ) -> Callable[[ModelConfigFactory[ModelConfigT]], ModelConfigFactory[ModelConfigT]]:
-        """A decorator that registers the specified architecture with the
+        """Return a decorator that registers the specified architecture with the
         decorated callable as its model configuration factory.
 
         :param arch_name:

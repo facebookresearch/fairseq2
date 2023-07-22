@@ -41,7 +41,7 @@ class Profiler:
         :param gang:
             The associated gang.
         :param enabled:
-            If ``False``, skips recording and profiler steps become no-op.
+            If ``False``, skips recording and becomes a no-op.
         """
         if skip_first <= 0:
             raise ValueError("`skip_first` must be greater than zero.")

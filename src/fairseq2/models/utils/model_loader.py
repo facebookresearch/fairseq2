@@ -4,32 +4,47 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from copy import deepcopy
 from functools import partial
-from typing import Any, Callable, Dict, Generic, Optional, TypeVar
+from typing import Any, Generic, Mapping, MutableMapping, Optional, Protocol, TypeVar
 
 from torch.nn import Module
-from typing_extensions import TypeAlias
 
 from fairseq2.assets import (
     AssetCardFieldNotFoundError,
     AssetDownloadManager,
+    AssetError,
     AssetStore,
 )
 from fairseq2.models.utils.arch import ArchitectureRegistry
 from fairseq2.models.utils.checkpoint import MapLocation, load_checkpoint
 from fairseq2.typing import DataType, Device
+from fairseq2.utils.dataclass import update_dataclass
 
-ModelT = TypeVar("ModelT", bound=Module)
+ModelT = TypeVar("ModelT", bound=Module, covariant=True)
 
-ModelConfigT = TypeVar("ModelConfigT")
-
-ModelFactory: TypeAlias = Callable[
-    [ModelConfigT, Optional[Device], Optional[DataType]], ModelT
-]
+ModelConfigT = TypeVar("ModelConfigT", contravariant=True)
 
 
-# TODO: Clean up and document once asset APIs are finalized.
+class ModelFactory(Protocol[ModelConfigT, ModelT]):
+    """Constructs models of type ``ModelT``."""
+
+    def __call__(
+        self, config: ModelConfigT, device: Optional[Device], dtype: Optional[DataType]
+    ) -> ModelT:
+        """
+        :param config:
+            The model configuration to use.
+        :param device:
+            The device on which to initialize the model.
+        :param dtype:
+            The data type of the model parameters and buffers.
+        """
+
+
 class ModelLoader(Generic[ModelT, ModelConfigT]):
+    """Loads models of type ``ModelT``."""
+
     def __init__(
         self,
         asset_store: AssetStore,
@@ -37,6 +52,16 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
         model_factory: ModelFactory[ModelConfigT, ModelT],
         archs: ArchitectureRegistry[ModelConfigT],
     ) -> None:
+        """
+        :param asset_store:
+            The asset store where to check for available models.
+        :param download_manager:
+            The download manager to use to download model checkpoints.
+        :param model_factory:
+            The callable responsible for constructing models.
+        :param archs:
+            The registry containing all supported model architectures.
+        """
         self.asset_store = asset_store
         self.download_manager = download_manager
         self.model_factory = model_factory
@@ -51,6 +76,23 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> ModelT:
+        """
+        :param model_name:
+            The name of the model to load.
+        :param force:
+            If ``True``, downloads the checkpoint even if it is already in cache.
+        :param progress:
+            If ``True``, displays a progress bar to stderr.
+        :param map_location:
+            See `map_location` in :func:`torch.load`.
+        :param device:
+            The device on which to load the model.
+        :param dtype:
+            The data type of the model parameters and buffers.
+
+        :returns:
+            A model loaded from the checkpoint of ``model_name``.
+        """
         card = self.asset_store.retrieve_card(model_name)
 
         card.field("model_type").check_equals(self.archs.model_type)
@@ -58,20 +100,23 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
         # Ensure that the card has a valid model architecture.
         arch_name = card.field("model_arch").as_one_of(self.archs.names())
 
-        # Construct the model.
+        # Load the model configuration.
         config = self.archs.get_config(arch_name)
 
         try:
-            config_overrides = card.field("model_config").as_(Dict[str, Any])
-
-            # TODO: This is just a placeholder for the actual impl.
-            config.__dict__.update(config_overrides)
+            config_overrides = card.field("model_config").as_(MutableMapping[str, Any])
         except AssetCardFieldNotFoundError:
-            pass
+            config_overrides = None
 
-        model = self.model_factory(config, device, dtype)
+        if config_overrides:
+            try:
+                update_dataclass(config, deepcopy(config_overrides))
+            except ValueError as ex:
+                raise AssetError(
+                    f"The model configuration of the asset card '{card.name}' contains one or more invalid keys. See nested exception for details."
+                ) from ex
 
-        # Load the model from the checkpoint field stored in the card.
+        # Load the checkpoint.
         uri = card.field("checkpoint").as_uri()
 
         pathname = self.download_manager.download_checkpoint(
@@ -82,14 +127,39 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
             pathname,
             card.name,
             map_location=map_location,
-            upgrader=partial(self._upgrade_checkpoint, config=config),
+            converter=partial(self._upgrade_checkpoint, config=config),
         )
 
-        model.load_state_dict(checkpoint["model"])
+        # Construct and load the model.
+        model = self.model_factory(config, device, dtype)
+
+        try:
+            state_dict = checkpoint["model"]
+        except KeyError:
+            raise AssetError(
+                f"The checkpoint of the model '{model_name}' does not contain a 'model' entry."
+            )
+
+        try:
+            model.load_state_dict(state_dict)
+        except (KeyError, ValueError) as ex:
+            raise AssetError(
+                f"The checkpoint of the model '{model_name}' cannot be loaded. See nested exception for details."
+            ) from ex
 
         return model
 
     def _upgrade_checkpoint(
-        self, checkpoint: Dict[str, Any], config: ModelConfigT
-    ) -> Dict[str, Any]:
+        self, checkpoint: Mapping[str, Any], config: ModelConfigT
+    ) -> Mapping[str, Any]:
+        """Upgrade ``checkpoint`` to be compatible with fairseq2.
+
+        :param checkpoint:
+            The legacy checkpoint.
+        :param config:
+            The configuration of the model about to be constructed.
+
+        :returns:
+            A checkpoint that is compatible with fairseq2.
+        """
         return checkpoint

@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, final
+from typing import Any, Dict, Mapping, final
 
 import torch
 from overrides import override as finaloverride
@@ -31,8 +31,8 @@ class UnitYS2TLoader(ModelLoader[TransformerModel, UnitYS2TConfig]):
 
     @finaloverride
     def _upgrade_checkpoint(
-        self, checkpoint: Dict[str, Any], config: UnitYS2TConfig
-    ) -> Dict[str, Any]:
+        self, checkpoint: Mapping[str, Any], config: UnitYS2TConfig
+    ) -> Mapping[str, Any]:
         state_dict = checkpoint["model"]
 
         # Check if we have a fairseq2 checkpoint.
@@ -119,6 +119,24 @@ class UnitYS2TLoader(ModelLoader[TransformerModel, UnitYS2TConfig]):
             # fmt: on
         }
 
+        # In normal circumstances, we should never encounter a `LayerNorm` when
+        # `use_conformer` is `True`. Unfortunately, the w2v-BERT pretraining in
+        # fairseq was accidentally run with a pre-LN encoder, and ended up with
+        # a redundant `LayerNorm` right after the Conformer blocks. We mitigate
+        # that issue here by moving that `LayerNorm` to the adaptor block.
+        if config.w2v2_encoder_config.use_conformer:
+            key_map.update(
+                {
+                    r"^encoder\.w2v_encoder\.w2v_model\.encoder\.layer_norm\.": r"encoder.inner_layer_norm."
+                }
+            )
+        else:
+            key_map.update(
+                {
+                    r"^encoder\.w2v_encoder\.w2v_model\.encoder\.layer_norm\.": r"encoder.inner.layer_norm."
+                }
+            )
+
         # fmt: off
         if config.use_conformer_adaptor:
             key_map.update(
@@ -169,8 +187,8 @@ class UnitYLoader(ModelLoader[UnitYModel, UnitYConfig]):
 
     @finaloverride
     def _upgrade_checkpoint(
-        self, checkpoint: Dict[str, Any], config: UnitYConfig
-    ) -> Dict[str, Any]:
+        self, checkpoint: Mapping[str, Any], config: UnitYConfig
+    ) -> Mapping[str, Any]:
         state_dict = checkpoint["model"]
 
         # Check if we have a fairseq2 checkpoint.
@@ -190,9 +208,6 @@ class UnitYLoader(ModelLoader[UnitYModel, UnitYConfig]):
         # Remnant of wav2vec2 pretraining, not needed for eval or fine-tuning.
         del state_dict["encoder.w2v_encoder.w2v_model.mask_emb"]
 
-        # TODO: Do for Unit embeddings??
-        # TODO: Unit pad index?
-
         embeds = state_dict["s2t_model.final_proj.weight"]
 
         # fairseq had a bug that accidentally introduced a dummy token in the
@@ -200,7 +215,7 @@ class UnitYLoader(ModelLoader[UnitYModel, UnitYConfig]):
         if embeds.size(0) == 256103:  # means NLLB-100
             embeds = embeds[:-1]
 
-            state_dict["final_proj.weight"] = embeds
+            state_dict["s2t_model.final_proj.weight"] = embeds
 
         # fairseq checkpoints have duplicate embedding weights. Ensure that we
         # use a single embedding table in fairseq2.
@@ -211,6 +226,14 @@ class UnitYLoader(ModelLoader[UnitYModel, UnitYConfig]):
         with torch.inference_mode():
             # (BOS, PAD, EOS, UNK) -> (PAD, UNK, BOS, EOS)
             embeds[[0, 1, 2, 3]] = embeds[[1, 3, 0, 2]]
+
+        # fairseq checkpoints have duplicate embedding weights. Ensure that we
+        # use a single embedding table in fairseq2.
+        embeds = state_dict["final_proj.weight"]
+
+        state_dict["t2u_decoder_frontend.embed.weight"] = embeds
+
+        # TODO: Unit pad index?
 
         return checkpoint
 

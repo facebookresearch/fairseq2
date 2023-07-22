@@ -70,15 +70,15 @@ class ConformerBlock(TransformerEncoderLayer):
 
         super().__init__(model_dim)
 
-        if ffn1.model_dim != model_dim:
-            raise ValueError(
-                f"`model_dim` of `ffn1` and `model_dim` of `self_attn` must be equal, but are {ffn1.model_dim} and {model_dim} instead."
-            )
-
         if layer_norm_fn is None:
             layer_norm_fn = create_default_layer_norm
 
         self.ffn1_layer_norm = layer_norm_fn(model_dim, device, dtype)
+
+        if ffn1.model_dim != model_dim:
+            raise ValueError(
+                f"`model_dim` of `ffn1` and `model_dim` of `self_attn` must be equal, but are {ffn1.model_dim} and {model_dim} instead."
+            )
 
         self.ffn1 = ffn1
 

@@ -114,6 +114,9 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
 
         super().__init__(model_dim)
 
+        if layer_norm_fn is None:
+            layer_norm_fn = create_default_layer_norm
+
         self.embed = embed
 
         self.scale = 1.0 if no_scale else math.sqrt(model_dim)
@@ -129,9 +132,6 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
             self.register_module("pos_encoder", None)
 
         if layer_norm:
-            if layer_norm_fn is None:
-                layer_norm_fn = create_default_layer_norm
-
             self.layer_norm = layer_norm_fn(model_dim, device, dtype)
         else:
             self.register_module("layer_norm", None)

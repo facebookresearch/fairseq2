@@ -28,7 +28,7 @@ class _GradScaler(Function):
     @staticmethod
     def forward(ctx: Any, x: Tensor, scale: float) -> Tensor:  # type: ignore[override]
         if not x.dtype.is_floating_point:
-            raise ValueError(
+            raise TypeError(
                 f"`x` must be a float tensor, but is of type `{x.dtype}` instead."
             )
 

@@ -29,7 +29,7 @@ def test_scale_grad_raises_error_if_tensor_is_non_float() -> None:
     a = torch.ones((2, 2), dtype=torch.int32)
 
     with pytest.raises(
-        ValueError,
+        TypeError,
         match=r"^`x` must be a float tensor, but is of type `torch\.int32` instead\.$",
     ):
         scale_grad(a, 1.0)

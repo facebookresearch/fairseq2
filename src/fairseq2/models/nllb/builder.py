@@ -154,19 +154,9 @@ class NllbBuilder:
         self.device = device
         self.dtype = dtype
 
-    def reset(self) -> None:
-        """Reset the internal state of the builder."""
-
     def build_model(self) -> TransformerModel:
         """Build a model."""
-        embed = Embedding(
-            num_embeddings=self.config.vocabulary_size,
-            embedding_dim=self.config.model_dim,
-            pad_idx=self.config.pad_idx,
-            scaled=True,
-            device=self.device,
-            dtype=self.dtype,
-        )
+        embed = self.build_embedding()
 
         frontend = self.build_shared_frontend(embed)
 
@@ -177,6 +167,17 @@ class NllbBuilder:
 
         return TransformerModel(
             frontend, encoder, frontend, decoder, final_proj, self.config.pad_idx
+        )
+
+    def build_embedding(self) -> Embedding:
+        """Build an embedding table."""
+        return Embedding(
+            num_embeddings=self.config.vocabulary_size,
+            embedding_dim=self.config.model_dim,
+            pad_idx=self.config.pad_idx,
+            scaled=True,
+            device=self.device,
+            dtype=self.dtype,
         )
 
     def build_shared_frontend(self, embed: Embedding) -> TransformerFrontend:
