@@ -14,11 +14,9 @@ from torch import Tensor
 from torchtnt.framework.state import State
 from torchtnt.utils import TLRScheduler
 
-import fairseq2.nn
-import fairseq2.optim.lr_scheduler
+from fairseq2.cli.metrics import Bleu, Metrics
 from fairseq2.data import DataPipeline, StringLike
 from fairseq2.data.text import Tokenizer
-from fairseq2.metrics import Metrics
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.optim.lr_scheduler import LRScheduler
 from fairseq2.sequence_generator import BeamSearchStrategy, SearchStrategy
@@ -279,9 +277,9 @@ class TranslationTask(Seq2Seq):
 
         if mode == "eval":
             # TODO: propagate the target language here so we can pass it to sacrebleu for best tokenization.
-            metrics["bleu"] = fairseq2.metrics.Bleu()
-            metrics["chrf"] = fairseq2.metrics.Bleu(sacrebleu.CHRF())  # type: ignore
-            metrics["chrf++"] = fairseq2.metrics.Bleu(sacrebleu.CHRF(word_order=2))  # type: ignore
+            metrics["bleu"] = Bleu()
+            metrics["chrf"] = Bleu(sacrebleu.CHRF())  # type: ignore
+            metrics["chrf++"] = Bleu(sacrebleu.CHRF(word_order=2))  # type: ignore
 
         return metrics
 
