@@ -55,18 +55,27 @@ class Projection(Module, ABC):
         return f"input_dim={self.input_dim}, output_dim={self.output_dim}"
 
 
-class ResettableProjection(Projection):
-    """Applies a linear transformation to incoming data using weights and bias
-    that can be re-initialized by calling :meth:`reset_parameters`."""
+class Linear(Projection):
+    """Applies a linear transformation to incoming data using weights and bias.
+
+    Unless overridden by a subclass, the weights and bias are initialized from
+    :math:`\\mathcal{U}(-\\sqrt{k}, \\sqrt{k})`, where
+    :math:`k = \\frac{1}{\\text{input_dim}}`.
+
+    .. note::
+        This class is identical to :class:`torch.nn.Linear`.
+    """
 
     weight: Parameter
     bias: Optional[Parameter]
+    skip_init: bool
 
     def __init__(
         self,
         input_dim: int,
         output_dim: int,
         bias: bool,
+        skip_init: bool = False,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -77,6 +86,12 @@ class ResettableProjection(Projection):
             The dimensionality of projected outputs.
         :param bias:
             If ``True``, learns an additive bias.
+        :param skip_init:
+            If ``True``, the weights and bias will be left uninitialized, and
+            :meth:`reset_parameters` will become noop.
+
+            This parameter is intended to be used by module authors who want to
+            use a different weight initialization method in their modules.
         """
         super().__init__(input_dim, output_dim)
 
@@ -91,11 +106,26 @@ class ResettableProjection(Projection):
         else:
             self.register_parameter("bias", None)
 
+        self.skip_init = skip_init
+
         self.reset_parameters()
 
-    @abstractmethod
     def reset_parameters(self) -> None:
         """Reset the parameters and buffers of the module."""
+        if not self.skip_init:
+            self._do_reset_parameters()
+
+    def _do_reset_parameters(self) -> None:
+        """Reset the parameters and buffers of the module."""
+        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
+
+        if self.bias is not None:
+            # We do not calculate the true standard deviation of the uniform
+            # distribution (i.e. multiply with sqrt(3)). See
+            # https://github.com/pytorch/pytorch/issues/57109#issuecomment-828847575.
+            bound = 1 / math.sqrt(self.input_dim) if self.input_dim > 0 else 0
+
+            nn.init.uniform_(self.bias, -bound, bound)
 
     @override
     def forward(self, x: Tensor) -> Tensor:
@@ -106,29 +136,6 @@ class ResettableProjection(Projection):
         s = super().extra_repr()
 
         return s + f", bias={self.bias is not None}"
-
-
-@final
-class Linear(ResettableProjection):
-    """Applies a linear transformation to incoming data using weights and bias
-    initialized from :math:`\\mathcal{U}(-\\sqrt{k}, \\sqrt{k})`, where
-    :math:`k = \\frac{1}{\\text{input_dim}}`.
-
-    .. note::
-        This class is identical to :class:`torch.nn.Linear`.
-    """
-
-    @finaloverride
-    def reset_parameters(self) -> None:
-        nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
-
-        if self.bias is not None:
-            # We do not calculate the true standard deviation of the uniform
-            # distribution (i.e. multiply with sqrt(3)). See
-            # https://github.com/pytorch/pytorch/issues/57109#issuecomment-828847575.
-            bound = 1 / math.sqrt(self.input_dim) if self.input_dim > 0 else 0
-
-            nn.init.uniform_(self.bias, -bound, bound)
 
 
 @final

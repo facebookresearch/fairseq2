@@ -230,6 +230,10 @@ class RelativePositionalEncoding(Module):
 
     def reset_parameters(self) -> None:
         """Reset the parameters and buffers of the module."""
+        self.reset_non_persistent_buffers()
+
+    def reset_non_persistent_buffers(self) -> None:
+        """Reset the non-persistent buffers of the module."""
         positive_w = self.weight[: self.max_seq_len]
         negative_w = self.weight[self.max_seq_len :]
 

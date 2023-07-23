@@ -23,7 +23,7 @@ from fairseq2.models.s2t_transformer.builder import (
 from fairseq2.models.s2t_transformer.tokenizer import S2TTransformerTokenizer
 from fairseq2.models.transformer import TransformerModel
 from fairseq2.models.utils.checkpoint import upgrade_fairseq_checkpoint
-from fairseq2.models.utils.model_loader import ModelLoader
+from fairseq2.models.utils.model_loader import ModelConfigLoader, ModelLoader
 
 
 @final
@@ -87,6 +87,11 @@ class S2TTransformerLoader(ModelLoader[TransformerModel, S2TTransformerConfig]):
 
 load_s2t_transformer_model = S2TTransformerLoader(
     asset_store, download_manager, create_s2t_transformer_model, s2t_transformer_archs
+)
+
+
+load_s2t_transformer_config = ModelConfigLoader[S2TTransformerConfig](
+    asset_store, s2t_transformer_archs
 )
 
 

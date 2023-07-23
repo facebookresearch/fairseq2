@@ -22,7 +22,7 @@ from fairseq2.models.unity.builder import (
 )
 from fairseq2.models.unity.model import UnitYModel
 from fairseq2.models.utils.checkpoint import upgrade_fairseq_checkpoint
-from fairseq2.models.utils.model_loader import ModelLoader
+from fairseq2.models.utils.model_loader import ModelConfigLoader, ModelLoader
 
 
 @final
@@ -179,6 +179,9 @@ class UnitYS2TLoader(ModelLoader[TransformerModel, UnitYS2TConfig]):
 load_unity_s2t_model = UnitYS2TLoader(
     asset_store, download_manager, create_unity_s2t_model, unity_s2t_archs
 )
+
+
+load_unity_s2t_config = ModelConfigLoader[UnitYS2TConfig](asset_store, unity_s2t_archs)
 
 
 @final
@@ -352,5 +355,9 @@ class UnitYLoader(ModelLoader[UnitYModel, UnitYConfig]):
 load_unity_model = UnitYLoader(
     asset_store, download_manager, create_unity_model, unity_archs
 )
+
+
+load_unity_config = ModelConfigLoader[UnitYConfig](asset_store, unity_archs)
+
 
 load_unity_text_tokenizer = NllbTokenizerLoader(asset_store, download_manager)

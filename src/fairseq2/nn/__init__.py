@@ -18,5 +18,4 @@ from fairseq2.nn.position_encoder import (
 )
 from fairseq2.nn.projection import Linear as Linear
 from fairseq2.nn.projection import Projection as Projection
-from fairseq2.nn.projection import ResettableProjection as ResettableProjection
 from fairseq2.nn.projection import TiedProjection as TiedProjection

@@ -20,7 +20,7 @@ from torch.utils.hooks import RemovableHandle
 
 from fairseq2.nn.incremental_state import IncrementalState, IncrementalStateBag
 from fairseq2.nn.position_encoder import PositionEncoder
-from fairseq2.nn.projection import Projection, ResettableProjection
+from fairseq2.nn.projection import Linear, Projection
 from fairseq2.nn.transformer.attention import SDPA, get_default_sdpa
 from fairseq2.typing import DataType, Device
 
@@ -493,7 +493,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         return s
 
 
-class QKVProjection(ResettableProjection):
+class QKVProjection(Linear):
     """Represents the default projection used for queries, keys, and values."""
 
     def __init__(
@@ -506,7 +506,7 @@ class QKVProjection(ResettableProjection):
         super().__init__(model_dim, model_dim, bias=bias, device=device, dtype=dtype)
 
     @override
-    def reset_parameters(self) -> None:
+    def _do_reset_parameters(self) -> None:
         # Empirically observed the convergence to be much better with the
         # scaled initialization.
         nn.init.xavier_uniform_(self.weight, gain=2**-0.5)
@@ -515,7 +515,7 @@ class QKVProjection(ResettableProjection):
             nn.init.zeros_(self.bias)
 
 
-class AttentionOutputProjection(ResettableProjection):
+class AttentionOutputProjection(Linear):
     """Represents the default projection used for attention outputs."""
 
     def __init__(
@@ -529,7 +529,7 @@ class AttentionOutputProjection(ResettableProjection):
         super().__init__(v_proj_dim, model_dim, bias=bias, device=device, dtype=dtype)
 
     @override
-    def reset_parameters(self) -> None:
+    def _do_reset_parameters(self) -> None:
         nn.init.xavier_uniform_(self.weight)
 
         if self.bias is not None:

@@ -19,7 +19,7 @@ from fairseq2.models.nllb.builder import NllbConfig, create_nllb_model, nllb_arc
 from fairseq2.models.nllb.tokenizer import NllbTokenizer
 from fairseq2.models.transformer import TransformerModel
 from fairseq2.models.utils.checkpoint import upgrade_fairseq_checkpoint
-from fairseq2.models.utils.model_loader import ModelLoader
+from fairseq2.models.utils.model_loader import ModelConfigLoader, ModelLoader
 
 
 @final
@@ -90,6 +90,9 @@ class NllbLoader(ModelLoader[TransformerModel, NllbConfig]):
 load_nllb_model = NllbLoader(
     asset_store, download_manager, create_nllb_model, nllb_archs
 )
+
+
+load_nllb_config = ModelConfigLoader[NllbConfig](asset_store, nllb_archs)
 
 
 class NllbTokenizerLoader:

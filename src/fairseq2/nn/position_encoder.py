@@ -180,6 +180,10 @@ class SinusoidalPositionEncoder(PositionEncoder):
 
     def reset_parameters(self) -> None:
         """Reset the parameters and buffers of the module."""
+        self.reset_non_persistent_buffers()
+
+    def reset_non_persistent_buffers(self) -> None:
+        """Reset the non-persistent buffers of the module."""
         num_sin = self.encoding_dim // 2
 
         l_half = self.weight[:, :num_sin]
@@ -326,6 +330,10 @@ class RotaryEncoder(PositionEncoder):
 
     def reset_parameters(self) -> None:
         """Reset the parameters and buffers of the module."""
+        self.reset_non_persistent_buffers()
+
+    def reset_non_persistent_buffers(self) -> None:
+        """Reset the non-persistent buffers of the module."""
         device, dtype = self.sin_weight.device, self.sin_weight.dtype
 
         # (E)

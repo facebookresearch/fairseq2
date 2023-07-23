@@ -417,12 +417,13 @@ class S2TTransformerBuilder:
         sdpa: SDPA
 
         if self.config.use_relative_pos:
-            rel_pos_encoding = self.get_relative_positional_encoding()
+            if self.rel_pos_encoding is None:
+                self.rel_pos_encoding = self.build_relative_positional_encoding()
 
             sdpa = RelativePositionSDPA(
                 self.config.model_dim,
                 self.config.num_encoder_attn_heads,
-                rel_pos_encoding,
+                self.rel_pos_encoding,
                 attn_dropout_p=self.config.dropout_p,
                 device=self.device,
                 dtype=self.dtype,
@@ -461,17 +462,14 @@ class S2TTransformerBuilder:
             dtype=self.dtype,
         )
 
-    def get_relative_positional_encoding(self) -> RelativePositionalEncoding:
-        """Get the cached relative positional encoding table."""
-        if self.rel_pos_encoding is None:
-            self.rel_pos_encoding = RelativePositionalEncoding(
-                self.config.model_dim,
-                self.config.max_seq_len,
-                self.device,
-                self.dtype,
-            )
-
-        return self.rel_pos_encoding
+    def build_relative_positional_encoding(self) -> RelativePositionalEncoding:
+        """Build a relative positional encoding table."""
+        return RelativePositionalEncoding(
+            self.config.model_dim,
+            self.config.max_seq_len,
+            self.device,
+            self.dtype,
+        )
 
 
 def create_s2t_transformer_model(

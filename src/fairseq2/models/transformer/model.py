@@ -14,7 +14,7 @@ from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.models.transformer.frontend import TransformerFrontend
 from fairseq2.nn.incremental_state import IncrementalStateBag
-from fairseq2.nn.projection import Projection, ResettableProjection
+from fairseq2.nn.projection import Linear, Projection
 from fairseq2.nn.transformer import TransformerDecoder, TransformerEncoder
 from fairseq2.typing import DataType, Device
 
@@ -130,7 +130,7 @@ class TransformerModel(EncoderDecoderModel):
 
 
 @final
-class FinalProjection(ResettableProjection):
+class FinalProjection(Linear):
     """Produces logits from outputs of a Transformer decoder."""
 
     def __init__(
@@ -151,7 +151,7 @@ class FinalProjection(ResettableProjection):
         )
 
     @finaloverride
-    def reset_parameters(self) -> None:
+    def _do_reset_parameters(self) -> None:
         """Reset the parameters and buffers of the module."""
         nn.init.normal_(self.weight, std=self.input_dim**-0.5)
 

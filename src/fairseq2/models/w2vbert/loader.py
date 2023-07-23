@@ -11,7 +11,7 @@ from overrides import override as finaloverride
 
 from fairseq2.assets import asset_store, download_manager
 from fairseq2.models.utils.checkpoint import upgrade_fairseq_checkpoint
-from fairseq2.models.utils.model_loader import ModelLoader
+from fairseq2.models.utils.model_loader import ModelConfigLoader, ModelLoader
 from fairseq2.models.w2vbert.builder import (
     W2VBertConfig,
     create_w2vbert_model,
@@ -78,3 +78,6 @@ class W2VBertLoader(ModelLoader[W2VBertModel, W2VBertConfig]):
 load_w2vbert_model = W2VBertLoader(
     asset_store, download_manager, create_w2vbert_model, w2vbert_archs
 )
+
+
+load_w2vbert_config = ModelConfigLoader[W2VBertConfig](asset_store, w2vbert_archs)

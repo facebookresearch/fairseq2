@@ -10,12 +10,11 @@ from typing import Optional, Tuple, final
 import torch
 import torch.nn as nn
 from overrides import final as finaloverride
-from overrides import override
 from torch import Tensor
 from torch.nn import Module, Parameter
 from torch.nn.functional import gumbel_softmax
 
-from fairseq2.nn.projection import Projection, ResettableProjection
+from fairseq2.nn.projection import Linear
 from fairseq2.typing import DataType, Device
 
 
@@ -71,7 +70,7 @@ class GumbelVectorQuantizer(VectorQuantizer):
     min_temp: float
     max_temp: float
     temp_decay: float
-    entry_proj: Projection
+    entry_proj: Linear
     entries: Parameter
     num_updates: Tensor
 
@@ -115,8 +114,13 @@ class GumbelVectorQuantizer(VectorQuantizer):
 
         num_total_entries = num_codebooks * num_codebook_entries
 
-        self.entry_proj = NormalLinear(
-            self.input_dim, num_total_entries, bias=True, device=device, dtype=dtype
+        self.entry_proj = Linear(
+            self.input_dim,
+            num_total_entries,
+            bias=True,
+            skip_init=True,
+            device=device,
+            dtype=dtype,
         )
 
         self.entries = Parameter(
@@ -132,6 +136,12 @@ class GumbelVectorQuantizer(VectorQuantizer):
     def reset_parameters(self) -> None:
         """Reset the parameters and buffers of the module."""
         nn.init.uniform_(self.entries)
+
+        nn.init.normal_(self.entry_proj.weight, mean=0.0, std=1.0)
+
+        assert self.entry_proj.bias is not None
+
+        nn.init.zeros_(self.entry_proj.bias)
 
         self.num_updates.zero_()
 
@@ -203,15 +213,6 @@ class GumbelVectorQuantizer(VectorQuantizer):
             self.num_updates.add_(1)
 
         return max(temp, self.min_temp)
-
-
-class NormalLinear(ResettableProjection):
-    @override
-    def reset_parameters(self) -> None:
-        nn.init.normal_(self.weight, mean=0.0, std=1.0)
-
-        if self.bias is not None:
-            nn.init.zeros_(self.bias)
 
 
 @final

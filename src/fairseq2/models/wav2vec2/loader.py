@@ -11,7 +11,7 @@ from overrides import override as finaloverride
 
 from fairseq2.assets import asset_store, download_manager
 from fairseq2.models.utils.checkpoint import upgrade_fairseq_checkpoint
-from fairseq2.models.utils.model_loader import ModelLoader
+from fairseq2.models.utils.model_loader import ModelConfigLoader, ModelLoader
 from fairseq2.models.wav2vec2.builder import (
     Wav2Vec2Config,
     create_wav2vec2_model,
@@ -76,3 +76,6 @@ class Wav2Vec2Loader(ModelLoader[Wav2Vec2Model, Wav2Vec2Config]):
 load_wav2vec2_model = Wav2Vec2Loader(
     asset_store, download_manager, create_wav2vec2_model, wav2vec2_archs
 )
+
+
+load_wav2vec2_config = ModelConfigLoader[Wav2Vec2Config](asset_store, wav2vec2_archs)
