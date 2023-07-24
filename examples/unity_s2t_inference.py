@@ -131,4 +131,5 @@ if __name__ == "__main__":
     )
     # fmt: on
 
-    run_inference(ctx)
+    with torch.inference_mode():
+        run_inference(ctx)

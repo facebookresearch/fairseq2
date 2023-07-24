@@ -38,7 +38,7 @@ from fairseq2.nn.transformer import (
     TransformerEncoder,
     TransformerEncoderLayer,
     TransformerNormOrder,
-    get_default_sdpa,
+    create_default_sdpa,
 )
 from fairseq2.typing import DataType, Device
 
@@ -308,7 +308,7 @@ class S2TTransformerBuilder:
             dtype=self.dtype,
         )
 
-    def build_target_position_encoder(self) -> Optional[PositionEncoder]:
+    def build_target_position_encoder(self) -> PositionEncoder:
         """Build a position encoder for target sequences."""
         return SinusoidalPositionEncoder(
             self.config.model_dim,
@@ -418,7 +418,12 @@ class S2TTransformerBuilder:
 
         if self.config.use_relative_pos:
             if self.rel_pos_encoding is None:
-                self.rel_pos_encoding = self.build_relative_positional_encoding()
+                self.rel_pos_encoding = RelativePositionalEncoding(
+                    self.config.model_dim,
+                    self.config.max_seq_len,
+                    self.device,
+                    self.dtype,
+                )
 
             sdpa = RelativePositionSDPA(
                 self.config.model_dim,
@@ -429,7 +434,7 @@ class S2TTransformerBuilder:
                 dtype=self.dtype,
             )
         else:
-            sdpa = get_default_sdpa(attn_dropout_p=self.config.dropout_p)
+            sdpa = create_default_sdpa(attn_dropout_p=self.config.dropout_p)
 
         return StandardMultiheadAttention(
             self.config.model_dim,
@@ -441,7 +446,7 @@ class S2TTransformerBuilder:
 
     def build_decoder_attention(self) -> MultiheadAttention:
         """Build a Transformer decoder multi-head attention layer."""
-        sdpa = get_default_sdpa(attn_dropout_p=self.config.dropout_p)
+        sdpa = create_default_sdpa(attn_dropout_p=self.config.dropout_p)
 
         return StandardMultiheadAttention(
             self.config.model_dim,
@@ -460,15 +465,6 @@ class S2TTransformerBuilder:
             inner_dropout_p=self.config.dropout_p,
             device=self.device,
             dtype=self.dtype,
-        )
-
-    def build_relative_positional_encoding(self) -> RelativePositionalEncoding:
-        """Build a relative positional encoding table."""
-        return RelativePositionalEncoding(
-            self.config.model_dim,
-            self.config.max_seq_len,
-            self.device,
-            self.dtype,
         )
 
 

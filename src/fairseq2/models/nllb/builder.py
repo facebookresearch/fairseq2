@@ -30,7 +30,7 @@ from fairseq2.nn.transformer import (
     TransformerEncoder,
     TransformerEncoderLayer,
     TransformerNormOrder,
-    get_default_sdpa,
+    create_default_sdpa,
 )
 from fairseq2.typing import DataType, Device
 
@@ -133,6 +133,7 @@ class NllbBuilder:
     """
 
     config: NllbConfig
+    embed: Optional[Embedding]
     device: Optional[Device]
     dtype: Optional[DataType]
 
@@ -151,19 +152,20 @@ class NllbBuilder:
             The data type of module parameters and buffers.
         """
         self.config = config
+        self.embed = None
         self.device = device
         self.dtype = dtype
 
     def build_model(self) -> TransformerModel:
         """Build a model."""
-        embed = self.build_embedding()
+        self.embed = self.build_embedding()
 
-        frontend = self.build_shared_frontend(embed)
+        frontend = self.build_shared_frontend()
 
         encoder = self.build_encoder()
         decoder = self.build_decoder()
 
-        final_proj = TiedProjection(embed.weight)
+        final_proj = TiedProjection(self.embed.weight)
 
         return TransformerModel(
             frontend, encoder, frontend, decoder, final_proj, self.config.pad_idx
@@ -180,8 +182,11 @@ class NllbBuilder:
             dtype=self.dtype,
         )
 
-    def build_shared_frontend(self, embed: Embedding) -> TransformerFrontend:
+    def build_shared_frontend(self) -> TransformerFrontend:
         """Build a shared Transformer encoder/decoder front-end."""
+        if self.embed is None:
+            self.embed = self.build_embedding()
+
         pos_encoder = SinusoidalPositionEncoder(
             self.config.model_dim,
             self.config.max_seq_len,
@@ -191,7 +196,7 @@ class NllbBuilder:
         )
 
         return TransformerEmbeddingFrontend(
-            embed,
+            self.embed,
             pos_encoder,
             dropout_p=self.config.dropout_p,
             device=self.device,
@@ -259,7 +264,7 @@ class NllbBuilder:
 
     def build_attention(self, num_heads: int) -> MultiheadAttention:
         """Build a Transformer multi-head attention layer."""
-        sdpa = get_default_sdpa(attn_dropout_p=self.config.dropout_p)
+        sdpa = create_default_sdpa(attn_dropout_p=self.config.dropout_p)
 
         return StandardMultiheadAttention(
             self.config.model_dim,

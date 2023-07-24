@@ -41,7 +41,7 @@ from fairseq2.nn.transformer import (
     TransformerEncoder,
     TransformerEncoderLayer,
     TransformerNormOrder,
-    get_default_sdpa,
+    create_default_sdpa,
 )
 from fairseq2.typing import DataType, Device
 
@@ -301,7 +301,7 @@ class Wav2Vec2EncoderBuilder:
             dtype=self.dtype,
         )
 
-    def build_conformer_block(self) -> ConformerBlock:
+    def build_conformer_block(self) -> TransformerEncoderLayer:
         """Build a Conformer block."""
         ffn1 = self.build_ffn(use_swish=True)
 
@@ -342,7 +342,12 @@ class Wav2Vec2EncoderBuilder:
 
         if self.config.pos_encoder_type == "relative":
             if self.rel_pos_encoding is None:
-                self.rel_pos_encoding = self.build_relative_positional_encoding()
+                self.rel_pos_encoding = RelativePositionalEncoding(
+                    self.config.model_dim,
+                    self.config.max_seq_len,
+                    self.device,
+                    self.dtype,
+                )
 
             sdpa = RelativePositionSDPA(
                 self.config.model_dim,
@@ -353,7 +358,7 @@ class Wav2Vec2EncoderBuilder:
                 dtype=self.dtype,
             )
         else:
-            sdpa = get_default_sdpa(self.config.attn_dropout_p)
+            sdpa = create_default_sdpa(self.config.attn_dropout_p)
 
         return StandardMultiheadAttention(
             self.config.model_dim,
@@ -373,15 +378,6 @@ class Wav2Vec2EncoderBuilder:
             norm_order=self.config.norm_order,
             device=self.device,
             dtype=self.dtype,
-        )
-
-    def build_relative_positional_encoding(self) -> RelativePositionalEncoding:
-        """Build a relative positional encoding table."""
-        return RelativePositionalEncoding(
-            self.config.model_dim,
-            self.config.max_seq_len,
-            self.device,
-            self.dtype,
         )
 
 

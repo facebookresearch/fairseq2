@@ -173,8 +173,8 @@ class NaiveSDPA(SDPA):
         )
 
 
-def get_default_sdpa(attn_dropout_p: float = 0.0) -> SDPA:
-    """Return the default scaled dot-product attention module.
+def create_default_sdpa(attn_dropout_p: float = 0.0) -> SDPA:
+    """Create an instance of the default scaled dot-product attention module.
 
     :param attn_dropout_p:
         The dropout probability on attention weights.

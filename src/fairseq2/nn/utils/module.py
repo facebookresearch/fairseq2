@@ -16,7 +16,7 @@ class ModuleWithParameter(Protocol):
 
 
 def reset_parameters(module: Module) -> None:
-    """Reset the parameters and buffers of ``module`` and all its submodules.
+    """Reset the parameters and buffers of ``module`` and its submodules.
 
     :param module:
         The module to reset.
@@ -36,7 +36,7 @@ class ModuleWithNonPersistentBuffer(Protocol):
 
 
 def reset_non_persistent_buffers(module: Module) -> None:
-    """Reset the non-persistent buffers of ``module`` and all its submodules.
+    """Reset the non-persistent buffers of ``module`` and its submodules.
 
     :param module:
         The module to reset.
@@ -52,7 +52,7 @@ def reset_non_persistent_buffers(module: Module) -> None:
 def apply_depth_first(
     module: Module, fn: Callable[[Module], None], memo: Optional[Set[Module]] = None
 ) -> None:
-    """Apply ``fn`` to ``module`` and all it submodules in a depth-first order.
+    """Apply ``fn`` to ``module`` and it submodules in a depth-first order.
 
     :param module:
         The module to process.
@@ -75,3 +75,9 @@ def apply_depth_first(
             apply_depth_first(submodule, fn, memo)
 
     fn(module)
+
+
+def freeze(module: Module, value: bool) -> None:
+    """Change if ``module`` and its submodules should freeze (i.e. stop learning)."""
+    for param in module.parameters():
+        param.requires_grad_(not value)
