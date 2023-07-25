@@ -6,7 +6,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 
 import torch
 from torch import Tensor
@@ -40,6 +40,9 @@ class SequenceBatch:
     """An array where each element represents the length of the sequence at the
     same index in :attr:`seqs`. *Shape:* :math:`(N)`, where :math:`N` is the
     batch size."""
+
+    example: Any = None
+    """The data example from which this batch was constructed."""
 
     @property
     def batch_size(self) -> int:

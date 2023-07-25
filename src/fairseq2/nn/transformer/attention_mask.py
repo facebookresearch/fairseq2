@@ -71,7 +71,7 @@ class CausalAttentionMaskGenerator:
         seq_len = seqs.size(1)
 
         if mask is None or mask.device != seqs.device or mask.size(0) < seq_len:
-            mask = seqs.new_full([seq_len, seq_len], _neg_inf)
+            mask = seqs.new_full([seq_len, seq_len], -torch.inf)
 
             mask.triu_(diagonal=1)
 
@@ -151,6 +151,3 @@ class ALiBiAttentionMaskGenerator:
 
     def __repr__(self) -> str:
         return "ALiBiAttentionMaskGenerator"
-
-
-_neg_inf = float("-inf")

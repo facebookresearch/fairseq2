@@ -181,7 +181,7 @@ def to_padding_mask(seqs: Tensor, seq_lens: Optional[Tensor]) -> Optional[Tensor
 
     mask = seqs.new_zeros((batch_size, mask_seq_len))
 
-    mask.masked_fill_(bool_mask, _neg_inf)
+    mask.masked_fill_(bool_mask, -torch.inf)
 
     return mask
 
@@ -194,7 +194,7 @@ def to_float_mask(mask: Tensor, dtype: DataType = torch.float32) -> Tensor:
     :param dtype:
         The floating-point type of the converted mask.
     """
-    return torch.zeros_like(mask, dtype=dtype).masked_fill_(mask, _neg_inf)
+    return torch.zeros_like(mask, dtype=dtype).masked_fill_(mask, -torch.inf)
 
 
 def apply_padding_mask(seqs: Tensor, padding_mask: Optional[Tensor]) -> Tensor:
@@ -224,6 +224,3 @@ def apply_padding_mask(seqs: Tensor, padding_mask: Optional[Tensor]) -> Tensor:
         bool_mask = bool_mask.repeat(seq_batch_size // mask_batch_size, 1)
 
     return seqs.masked_fill(bool_mask.unsqueeze(2), 0.0)
-
-
-_neg_inf = float("-inf")

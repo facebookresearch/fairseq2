@@ -12,6 +12,7 @@ from torch import Tensor
 from torch.nn import Module
 from torch.nn.functional import cross_entropy
 
+from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2.frontend import Wav2Vec2Frontend
 from fairseq2.models.wav2vec2.masker import Wav2Vec2Masker, apply_temporal_mask
 from fairseq2.models.wav2vec2.vector_quantizer import (
@@ -112,18 +113,14 @@ class Wav2Vec2Model(Module):
         self.logit_temp = logit_temp
         self.diversity_loss_weight = diversity_loss_weight
 
-    def forward(self, seqs: Tensor, seq_lens: Optional[Tensor]) -> "Wav2Vec2Output":
+    def forward(self, batch: SequenceBatch) -> "Wav2Vec2Output":
         """
-        :param seqs:
-            The sequences to encode. *Shape:* :math:`(N,S,*)`, where :math:`N`
-            is the batch size, :math:`S` is the sequence length, and :math:`*`
-            is any number of sequence-specific dimensions including none.
-        :param seq_lens:
-            An array where each element represents the length of the sequence at
-            the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
-            the batch size.
+        :param batch:
+            The batch of sequences to process.
         """
-        seqs, padding_mask, targets, temporal_mask = self.run_frontend(seqs, seq_lens)
+        seqs, padding_mask, targets, temporal_mask = self.run_frontend(
+            batch.seqs, batch.seq_lens
+        )
 
         # TODO: Should pad for fp16?
         encoder_output, _ = self.encoder(seqs, padding_mask)
@@ -288,7 +285,7 @@ class Wav2Vec2Model(Module):
         # If `True`, it means codebook utilization is low. In such case we
         # mask the corresponding logits.
         if distractor_is_target.any():
-            logits[:, :, 1:][distractor_is_target] = float("-inf")
+            logits[:, :, 1:][distractor_is_target] = -torch.inf
 
         return logits.type_as(seqs)
 

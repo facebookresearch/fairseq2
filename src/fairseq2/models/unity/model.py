@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 from torch import Tensor
 from torch.nn import Module, Sequential
@@ -258,6 +258,9 @@ class UnitYBatch:
     """An array where each element represents the length of the sequence at the
     same index in :attr:`unit_seqs`. *Shape:* :math:`(N)`, where :math:`N` is
     the batch size."""
+
+    example: Any = None
+    """The data example from which this batch was constructed."""
 
 
 @dataclass

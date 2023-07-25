@@ -11,6 +11,7 @@ from torch import Tensor
 from torch.nn import Module
 from torch.nn.functional import cross_entropy
 
+from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import Wav2Vec2Loss, Wav2Vec2Model, Wav2Vec2Output
 from fairseq2.models.wav2vec2.masker import apply_temporal_mask
 from fairseq2.nn.projection import Linear
@@ -78,20 +79,13 @@ class W2VBertModel(Module):
         self.bert_loss_weight = bert_loss_weight
         self.bert_label_smoothing = bert_label_smoothing
 
-    def forward(self, seqs: Tensor, seq_lens: Optional[Tensor]) -> "W2VBertOutput":
+    def forward(self, batch: SequenceBatch) -> "W2VBertOutput":
         """
-        :param seqs:
-            The source sequences to encode. *Shape:* :math:`(N,S,*)`, where
-            :math:`N` is the batch size, :math:`S` is the source sequence
-            length, and :math:`*` is any number of sequence-specific dimensions
-            including none.
-        :param seq_lens:
-            An array where each element represents the length of the sequence at
-            the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
-            the batch size.
+        :param batch:
+            The batch of sequences to process.
         """
         seqs, padding_mask, targets, temporal_mask = self.w2v2.run_frontend(
-            seqs, seq_lens
+            batch.seqs, batch.seq_lens
         )
 
         w2v2_layer_output = None
