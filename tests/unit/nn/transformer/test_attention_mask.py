@@ -21,7 +21,7 @@ class TestCausalAttentionMaskGenerator:
 
         assert mask.shape == (4, 4)
 
-        inf = float("-inf")
+        inf = -torch.inf
 
         expected_mask = torch.tensor(
             [
@@ -72,7 +72,7 @@ class TestALiBiAttentionMaskGenerator:
 
         assert mask.shape == (4, 4, 4)
 
-        inf = float("-inf")
+        inf = -torch.inf
 
         expected_mask = torch.tensor(
             [

@@ -81,7 +81,7 @@ def test_to_padding_mask_returns_correct_mask() -> None:
 
     mask = to_padding_mask(seqs, seq_lens)
 
-    inf = float("-inf")
+    inf = -torch.inf
 
     expected_mask = torch.tensor(
         [

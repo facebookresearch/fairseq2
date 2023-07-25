@@ -102,12 +102,6 @@ class TransformerModel(EncoderDecoderModel):
         encoder_padding_mask: Optional[Tensor],
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
-        if state_bag is None:
-            seqs = seqs[:, :-1]
-
-            if seq_lens is not None:
-                seq_lens = seq_lens - 1
-
         seqs, padding_mask = self.decoder_frontend(seqs, seq_lens, state_bag)
 
         decoder_output, decoder_padding_mask = self.decoder(

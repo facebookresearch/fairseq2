@@ -187,7 +187,7 @@ class StandardTransformerDecoder(TransformerDecoder):
 
         num_layers = len(self.layers)
 
-        if self.training or state_bag is None:
+        if seqs.size(1) > 1:
             self_attn_mask = self.self_attn_mask_gen(seqs)
         else:
             self_attn_mask = None

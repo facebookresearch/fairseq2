@@ -188,12 +188,6 @@ class UnitYModel(Module):
               :math:`(N,S_{unt})`, where :math:`N` is the batch size and
               :math:`S_{unt}` is the unit sequence length.
         """
-        if state_bag is None:
-            unit_seqs = unit_seqs[:, :-1]
-
-            if unit_seq_lens is not None:
-                unit_seq_lens = unit_seq_lens - 1
-
         unit_seqs, unit_padding_mask = self.t2u_decoder_frontend(
             unit_seqs, unit_seq_lens
         )
