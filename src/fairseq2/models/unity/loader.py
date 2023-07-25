@@ -236,8 +236,6 @@ class UnitYLoader(ModelLoader[UnitYModel, UnitYConfig]):
 
         state_dict["t2u_decoder_frontend.embed.weight"] = embeds
 
-        # TODO: Unit pad index?
-
         return checkpoint
 
     @staticmethod
@@ -312,6 +310,24 @@ class UnitYLoader(ModelLoader[UnitYModel, UnitYConfig]):
             r"^decoder\.output_projection\.":                         r"final_proj.",
             # fmt: on
         }
+
+        # In normal circumstances, we should never encounter a `LayerNorm` when
+        # `use_conformer` is `True`. Unfortunately, the w2v-BERT pretraining in
+        # fairseq was accidentally run with a pre-LN encoder, and ended up with
+        # a redundant `LayerNorm` right after the Conformer blocks. We mitigate
+        # that issue here by moving that `LayerNorm` to the adaptor block.
+        if config.s2t_model_config.w2v2_encoder_config.use_conformer:
+            key_map.update(
+                {
+                    r"^encoder\.w2v_encoder\.w2v_model\.encoder\.layer_norm\.": r"s2t_model.encoder.inner_layer_norm."
+                }
+            )
+        else:
+            key_map.update(
+                {
+                    r"^encoder\.w2v_encoder\.w2v_model\.encoder\.layer_norm\.": r"s2t_model.encoder.inner.layer_norm."
+                }
+            )
 
         # fmt: off
         if config.s2t_model_config.use_conformer_adaptor:

@@ -6,7 +6,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 
 import torch
 from torch import Tensor
@@ -52,6 +52,27 @@ class Seq2SeqBatch:
 
     example: Any = None
     """The data example from which this batch was constructed."""
+
+    def as_training_input(self) -> Tuple["Seq2SeqBatch", Tensor]:
+        """Return a copy of this batch for model training.
+
+        :returns:
+          - The copy with target sequences trimmed one step from the end.
+          - The target sequences shifted one step to the left for use as targets
+            in loss computation.
+        """
+        target_seqs = self.target_seqs[:, :-1]  # TODO: even padding for fp16?
+
+        if self.target_seq_lens is None:
+            target_seq_lens = None
+        else:
+            target_seq_lens = self.target_seq_lens - 1
+
+        batch = Seq2SeqBatch(
+            self.source_seqs, self.source_seq_lens, target_seqs, target_seq_lens
+        )
+
+        return batch, self.target_seqs[:, 1:]
 
     @property
     def batch_size(self) -> int:
