@@ -25,9 +25,9 @@ from transformers import (  # type: ignore[import]
 
 import fairseq2
 from fairseq2.cli.api import Env, Seq2Seq, Seq2SeqStr
+from fairseq2.cli.metrics import Metrics
 from fairseq2.data import Collater, StringLike
 from fairseq2.data.text import TokenDecoder, TokenEncoder, Tokenizer, VocabularyInfo
-from fairseq2.metrics import Metrics
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.typing import DataType, Device
 
@@ -246,7 +246,7 @@ class AsrTask(Seq2Seq):
         self.best_metric = "wer" if self.eval_gen else "loss"
 
         if mode == "eval":
-            metrics["wer"] = fairseq2.metrics.WER()
+            metrics["wer"] = fairseq2.cli.metrics.WER()
         return metrics
 
     def eval_step(self, state: State, data: Seq2SeqBatch) -> Any:

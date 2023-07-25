@@ -15,8 +15,6 @@ from typing import Iterable, Iterator, List, Mapping, Optional, Sequence, Tuple
 
 import torch
 import torchtnt.utils
-from fairse2.models.seq2seq import Seq2SeqBatch
-from torch import Tensor
 
 import fairseq2.cli
 from fairseq2.cli.api import Env, TranslationTask
@@ -24,6 +22,7 @@ from fairseq2.data import Collater
 from fairseq2.data.text import MultilingualTokenizer, Tokenizer, VocabularyInfo
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.nllb import NllbConfig, create_nllb_model
+from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.typing import Device
 
 try:
@@ -74,6 +73,8 @@ class NllbDataLoader(Iterable[Seq2SeqBatch]):
                 tsk, lang=tgt, mode="target", pin_memory=True
             )
 
+            self.collater = Collater(self.pad_idx)
+
         data: Mapping[str, datasets.Dataset] = {}
         assert split in ("train", "valid", "test")
         if split == "train":
@@ -96,12 +97,8 @@ class NllbDataLoader(Iterable[Seq2SeqBatch]):
             self.extract_src = lambda sample: sample["sentence_" + src]
             self.extract_tgt = lambda sample: sample["sentence_" + tgt]
 
-        self.collater = Collater(self.pad_idx)
         # HF doesn't allow to shard and stream at the same time ?
         # self.data = self.data.shard(num_shards=self.world_size, index=self.global_rank)
-
-    def _num_tokens(self, tokens: Tensor) -> Tensor:
-        return (tokens != self.pad_idx).sum(dim=-1)
 
     def __iter__(self) -> Iterator[Seq2SeqBatch]:
         for src_sentences, tgt_sentences in self._iter_str():
@@ -117,7 +114,7 @@ class NllbDataLoader(Iterable[Seq2SeqBatch]):
             target = self.collater(target_tokens)
 
             yield Seq2SeqBatch(
-                source, self._num_tokens(source), target, self._num_tokens(target)
+                source["seqs"], source["seq_lens"], target["seqs"], target["seq_lens"]
             )
 
     def _iter_str(self) -> Iterator[Tuple[Sequence[str], Sequence[str]]]:
