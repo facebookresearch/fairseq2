@@ -145,17 +145,7 @@ dependencies = [
     "typing_extensions~=4.3",
 ]
 
-cli_dependencies = [
-    "func_argparse~=1.1",
-    "omegaconf~=2.2",
-    "submitit~=1.4",
-    "torchsnapshot~=0.1.0",
-    "torchtnt~=0.0.7",
-    "torchx~=0.5",
-    "wandb~=0.13",
-]
-
-all_dependencies = dependencies + cli_dependencies
+all_dependencies = dependencies
 
 
 setup(
@@ -189,12 +179,6 @@ setup(
     python_requires=">=3.8",
     install_requires=dependencies,
     extras_require={
-        "cli": cli_dependencies,
         "all": all_dependencies,
-    },
-    entry_points={
-        "console_scripts": [
-            "fairseq2 = fairseq2.cli.commands:main",
-        ],
     },
 )

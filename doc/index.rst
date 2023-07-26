@@ -20,8 +20,6 @@ Installation
    :maxdepth: 1
    :caption: Tutorials
 
-   tutorials/cli/training
-   tutorials/cli/authoring
    tutorials/data
 
 .. toctree::
@@ -32,7 +30,6 @@ Installation
    reference/classes
    reference/enums
    reference/functions
-   reference/cli
    reference/all
 
 .. toctree::
