@@ -12,9 +12,9 @@ from fairseq2.data.text import (
     SentencePieceDecoder,
     SentencePieceEncoder,
     SentencePieceModel,
-    TokenDecoder,
-    TokenEncoder,
-    Tokenizer,
+    TextTokenDecoder,
+    TextTokenEncoder,
+    TextTokenizer,
 )
 from fairseq2.data.text.sentencepiece import vocabulary_from_sentencepiece
 from fairseq2.data.typing import PathLike
@@ -22,7 +22,7 @@ from fairseq2.typing import Device
 
 
 @final
-class S2TTransformerTokenizer(Tokenizer):
+class S2TTransformerTokenizer(TextTokenizer):
     """Represents the tokenizer used by S2T Transformer models."""
 
     model: SentencePieceModel
@@ -71,7 +71,7 @@ class S2TTransformerTokenizer(Tokenizer):
         mode: Optional[str] = None,
         device: Optional[Device] = None,
         pin_memory: bool = False,
-    ) -> TokenEncoder:
+    ) -> TextTokenEncoder:
         """Create a token encoder.
 
         :param task:
@@ -114,5 +114,5 @@ class S2TTransformerTokenizer(Tokenizer):
         )
 
     @finaloverride
-    def create_decoder(self) -> TokenDecoder:
+    def create_decoder(self) -> TextTokenDecoder:
         return SentencePieceDecoder(self.model)

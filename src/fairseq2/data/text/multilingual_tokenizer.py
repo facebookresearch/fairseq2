@@ -14,14 +14,18 @@ from fairseq2.data.text.sentencepiece import (
     SentencePieceModel,
     vocabulary_from_sentencepiece,
 )
-from fairseq2.data.text.tokenizer import TokenDecoder, TokenEncoder, Tokenizer
+from fairseq2.data.text.tokenizer import (
+    TextTokenDecoder,
+    TextTokenEncoder,
+    TextTokenizer,
+)
 from fairseq2.data.typing import PathLike
 from fairseq2.typing import Device
 
 
 @final
-class MultilingualTokenizer(Tokenizer):
-    """Represents a generic bilingual/multilingual tokenizer."""
+class MultilingualTextTokenizer(TextTokenizer):
+    """Represents a generic bilingual/multilingual text tokenizer."""
 
     model: SentencePieceModel
     task: str
@@ -76,7 +80,7 @@ class MultilingualTokenizer(Tokenizer):
         mode: Optional[str] = None,
         device: Optional[Device] = None,
         pin_memory: bool = False,
-    ) -> TokenEncoder:
+    ) -> TextTokenEncoder:
         """Create a token encoder.
 
         :param task:
@@ -128,5 +132,5 @@ class MultilingualTokenizer(Tokenizer):
         )
 
     @finaloverride
-    def create_decoder(self) -> TokenDecoder:
+    def create_decoder(self) -> TextTokenDecoder:
         return SentencePieceDecoder(self.model)

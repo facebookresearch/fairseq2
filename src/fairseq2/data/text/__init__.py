@@ -12,7 +12,7 @@ from fairseq2.data.text.dict_tokenizer import DictEncoder as DictEncoder
 from fairseq2.data.text.dict_tokenizer import DictModel as DictModel
 from fairseq2.data.text.dict_tokenizer import DictTokenizer as DictTokenizer
 from fairseq2.data.text.multilingual_tokenizer import (
-    MultilingualTokenizer as MultilingualTokenizer,
+    MultilingualTextTokenizer as MultilingualTextTokenizer,
 )
 from fairseq2.data.text.sentencepiece import (
     SentencePieceDecoder as SentencePieceDecoder,
@@ -26,7 +26,6 @@ from fairseq2.data.text.sentencepiece import (
 )
 from fairseq2.data.text.text_reader import LineEnding as LineEnding
 from fairseq2.data.text.text_reader import read_text as read_text
-from fairseq2.data.text.tokenizer import TokenDecoder as TokenDecoder
-from fairseq2.data.text.tokenizer import TokenEncoder as TokenEncoder
-from fairseq2.data.text.tokenizer import Tokenizer as Tokenizer
-from fairseq2.data.text.tokenizer import VocabularyInfo as VocabularyInfo
+from fairseq2.data.text.tokenizer import TextTokenDecoder as TextTokenDecoder
+from fairseq2.data.text.tokenizer import TextTokenEncoder as TextTokenEncoder
+from fairseq2.data.text.tokenizer import TextTokenizer as TextTokenizer

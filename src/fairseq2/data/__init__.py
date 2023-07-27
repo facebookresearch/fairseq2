@@ -24,3 +24,4 @@ from fairseq2.data.data_pipeline import read_zipped_records as read_zipped_recor
 from fairseq2.data.typing import PathLike as PathLike
 from fairseq2.data.typing import StringLike as StringLike
 from fairseq2.data.typing import is_string_like as is_string_like
+from fairseq2.data.vocabulary_info import VocabularyInfo as VocabularyInfo

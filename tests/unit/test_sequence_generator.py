@@ -5,7 +5,7 @@ import pytest
 import torch
 
 from fairseq2 import sequence_generator as search
-from fairseq2.data.text import VocabularyInfo
+from fairseq2.data import VocabularyInfo
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.nllb import NllbConfig, create_nllb_model
 from fairseq2.nn.transformer import StoreAttentionWeights

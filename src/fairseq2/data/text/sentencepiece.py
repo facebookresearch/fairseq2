@@ -9,8 +9,9 @@ from typing import TYPE_CHECKING, List, Optional, Sequence, final
 from torch import Tensor
 
 from fairseq2 import _DOC_MODE
-from fairseq2.data.text.tokenizer import TokenDecoder, TokenEncoder, VocabularyInfo
+from fairseq2.data.text.tokenizer import TextTokenDecoder, TextTokenEncoder
 from fairseq2.data.typing import PathLike, StringLike
+from fairseq2.data.vocabulary_info import VocabularyInfo
 from fairseq2.typing import Device
 
 if TYPE_CHECKING or _DOC_MODE:
@@ -51,7 +52,7 @@ if TYPE_CHECKING or _DOC_MODE:
             ...
 
     @final
-    class SentencePieceEncoder(TokenEncoder):
+    class SentencePieceEncoder(TextTokenEncoder):
         def __init__(
             self,
             model: SentencePieceModel,
@@ -70,7 +71,7 @@ if TYPE_CHECKING or _DOC_MODE:
             ...
 
     @final
-    class SentencePieceDecoder(TokenDecoder):
+    class SentencePieceDecoder(TextTokenDecoder):
         def __init__(self, model: SentencePieceModel, reverse: bool = False) -> None:
             ...
 
@@ -90,8 +91,8 @@ else:
 
     # Ensure that extension types are virtual subclasses of their corresponding
     # abstract base types.
-    TokenEncoder.register(SentencePieceEncoder)
-    TokenDecoder.register(SentencePieceDecoder)
+    TextTokenEncoder.register(SentencePieceEncoder)
+    TextTokenDecoder.register(SentencePieceDecoder)
 
     def _set_module_name() -> None:
         for t in [SentencePieceDecoder, SentencePieceEncoder, SentencePieceModel]:

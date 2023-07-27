@@ -9,8 +9,8 @@ from typing import Optional, Sequence
 import torch
 from torch import Tensor
 
-from fairseq2.data import StringLike
-from fairseq2.data.text import TokenDecoder, TokenEncoder, Tokenizer, VocabularyInfo
+from fairseq2.data import StringLike, VocabularyInfo
+from fairseq2.data.text import TextTokenDecoder, TextTokenEncoder, TextTokenizer
 from fairseq2.models.transformer import TransformerModel
 from fairseq2.nn import IncrementalStateBag
 from fairseq2.sequence_generator import (
@@ -24,8 +24,8 @@ from fairseq2.typing import Device
 # TODO: This is a temporary class for demo purposes and will be removed.
 class Translator:
     model: TransformerModel
-    token_encoder: TokenEncoder
-    token_decoder: TokenDecoder
+    token_encoder: TextTokenEncoder
+    token_decoder: TextTokenDecoder
     vocabulary_info: VocabularyInfo
     strategy: SearchStrategy
     device: Device
@@ -33,7 +33,7 @@ class Translator:
     def __init__(
         self,
         model: TransformerModel,
-        tokenizer: Tokenizer,
+        tokenizer: TextTokenizer,
         target_lang: str,
         device: Device,
     ) -> None:

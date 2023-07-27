@@ -316,7 +316,7 @@ else:
 class SequenceData(TypedDict):
     seqs: Tensor
     seq_lens: Tensor
-    ragged: bool
+    is_ragged: bool
 
 
 class FileMapperOutput(TypedDict):

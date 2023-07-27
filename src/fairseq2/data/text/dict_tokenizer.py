@@ -11,12 +11,12 @@ from torch import Tensor
 
 from fairseq2 import _DOC_MODE
 from fairseq2.data.text.tokenizer import (
-    TokenDecoder,
-    TokenEncoder,
-    Tokenizer,
-    VocabularyInfo,
+    TextTokenDecoder,
+    TextTokenEncoder,
+    TextTokenizer,
 )
 from fairseq2.data.typing import StringLike
+from fairseq2.data.vocabulary_info import VocabularyInfo
 from fairseq2.typing import Device
 
 if TYPE_CHECKING or _DOC_MODE:
@@ -53,7 +53,7 @@ if TYPE_CHECKING or _DOC_MODE:
             ...
 
     @final
-    class DictEncoder(TokenEncoder):
+    class DictEncoder(TextTokenEncoder):
         def __init__(self, processor: DictModel, dim: int) -> None:
             ...
 
@@ -61,7 +61,7 @@ if TYPE_CHECKING or _DOC_MODE:
             ...
 
     @final
-    class DictDecoder(TokenDecoder):
+    class DictDecoder(TextTokenDecoder):
         def __init__(self, processor: DictModel) -> None:
             ...
 
@@ -75,8 +75,8 @@ else:
 
     # Ensure that extension types are virtual subclasses of their corresponding
     # abstract base types.
-    TokenEncoder.register(DictEncoder)
-    TokenDecoder.register(DictDecoder)
+    TextTokenEncoder.register(DictEncoder)
+    TextTokenDecoder.register(DictDecoder)
 
     def _set_module_name() -> None:
         for t in [DictEncoder, DictDecoder, DictModel]:
@@ -86,7 +86,7 @@ else:
 
 
 @final
-class DictTokenizer(Tokenizer):
+class DictTokenizer(TextTokenizer):
     """Represents a simple tokenizer that splits on space and replace word by
     token found in dict."""
 
@@ -97,7 +97,7 @@ class DictTokenizer(Tokenizer):
         self.dim = dim
         self.model = DictModel(vocab)
 
-        vocab_info = VocabularyInfo(
+        vocabulary_info = VocabularyInfo(
             self.model.vocab_size,
             self.model.unk_idx,
             self.model.bos_idx,
@@ -105,7 +105,7 @@ class DictTokenizer(Tokenizer):
             self.model.pad_idx,
         )
 
-        super().__init__(vocab_info)
+        super().__init__(vocabulary_info)
 
     @finaloverride
     def create_encoder(
@@ -115,9 +115,9 @@ class DictTokenizer(Tokenizer):
         mode: Optional[str] = None,
         device: Optional[Device] = None,
         pin_memory: bool = False,
-    ) -> "TokenEncoder":
+    ) -> "TextTokenEncoder":
         return DictEncoder(self.model, self.dim)
 
     @finaloverride
-    def create_decoder(self) -> "TokenDecoder":
+    def create_decoder(self) -> "TextTokenDecoder":
         return DictDecoder(self.model)

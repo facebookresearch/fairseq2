@@ -5,21 +5,21 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Optional, Sequence
+from typing import List, Optional
 
 from torch import Tensor
 
 from fairseq2.data.typing import StringLike
+from fairseq2.data.vocabulary_info import VocabularyInfo
 from fairseq2.typing import Device
 
 
-class Tokenizer(ABC):
+class TextTokenizer(ABC):
     """Represents a tokenizer to encode and decode sentences."""
 
-    vocabulary_info: "VocabularyInfo"
+    vocabulary_info: VocabularyInfo
 
-    def __init__(self, vocabulary_info: "VocabularyInfo") -> None:
+    def __init__(self, vocabulary_info: VocabularyInfo) -> None:
         """
         :param vocabulary_info:
             The vocabulary information associated with the tokenizer.
@@ -34,12 +34,12 @@ class Tokenizer(ABC):
         mode: Optional[str] = None,
         device: Optional[Device] = None,
         pin_memory: bool = False,
-    ) -> "TokenEncoder":
+    ) -> "TextTokenEncoder":
         """Create a token encoder.
 
         The valid arguments for the ``task``, ``lang``, and ``mode`` parameters
-        are implementation specific. Refer to concrete ``Tokenizer`` subclasses
-        for more information.
+        are implementation specific. Refer to concrete ``TextTokenizer``
+        subclasses for more information.
 
         :param task:
             The task for which to generate token indices. Typically, multi-task
@@ -60,29 +60,11 @@ class Tokenizer(ABC):
         """
 
     @abstractmethod
-    def create_decoder(self) -> "TokenDecoder":
+    def create_decoder(self) -> "TextTokenDecoder":
         """Create a token decoder."""
 
 
-@dataclass(frozen=True)
-class VocabularyInfo:
-    size: int
-    """The size of the vocabulary."""
-
-    unk_idx: Optional[int]
-    """The index of the symbol that represents an unknown word."""
-
-    bos_idx: Optional[int]
-    """The index of the symbol that represents the beginning of a sentence."""
-
-    eos_idx: Optional[int]
-    """The index of the symbol that represents the end of a sentence."""
-
-    pad_idx: Optional[int]
-    """The index of the symbol that is used to pad a sentence."""
-
-
-class TokenEncoder(ABC):
+class TextTokenEncoder(ABC):
     """Encodes sentences into token indices."""
 
     @abstractmethod
@@ -93,11 +75,11 @@ class TokenEncoder(ABC):
         """
 
 
-class TokenDecoder(ABC):
+class TextTokenDecoder(ABC):
     """Decodes sentences from token indices."""
 
     @abstractmethod
-    def __call__(self, token_indices: Tensor) -> Sequence[StringLike]:
+    def __call__(self, token_indices: Tensor) -> List[StringLike]:
         """
         :param token_indices:
             The token indices to decode from.

@@ -4,7 +4,8 @@ from typing import Sequence
 import pytest
 import torch
 
-from fairseq2.data.text import DictModel, DictTokenizer, VocabularyInfo
+from fairseq2.data import VocabularyInfo
+from fairseq2.data.text import DictModel, DictTokenizer
 from fairseq2.data.typing import StringLike
 from tests.common import assert_equal
 

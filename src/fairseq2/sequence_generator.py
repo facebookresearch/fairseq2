@@ -13,8 +13,8 @@ from overrides import overrides
 from torch import Tensor
 from torch.nn.functional import log_softmax
 
-from fairseq2.data import StringLike
-from fairseq2.data.text import Tokenizer, VocabularyInfo
+from fairseq2.data import StringLike, VocabularyInfo
+from fairseq2.data.text import TextTokenizer
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.typing import Device
@@ -230,7 +230,7 @@ class SearchStrategy(ABC):
     def generate_str(
         self,
         model: EncoderDecoderModel,
-        tokenizer: Tokenizer,
+        tokenizer: TextTokenizer,
         sentence: StringLike,
         *,
         src_lang: Optional[str] = None,

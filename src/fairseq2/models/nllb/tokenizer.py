@@ -12,9 +12,9 @@ from fairseq2.data.text import (
     SentencePieceDecoder,
     SentencePieceEncoder,
     SentencePieceModel,
-    TokenDecoder,
-    TokenEncoder,
-    Tokenizer,
+    TextTokenDecoder,
+    TextTokenEncoder,
+    TextTokenizer,
     vocabulary_from_sentencepiece,
 )
 from fairseq2.data.typing import PathLike
@@ -22,7 +22,7 @@ from fairseq2.typing import Device
 
 
 @final
-class NllbTokenizer(Tokenizer):
+class NllbTokenizer(TextTokenizer):
     """Represents the tokenizer used by NLLB models."""
 
     model: SentencePieceModel
@@ -69,7 +69,7 @@ class NllbTokenizer(Tokenizer):
         mode: Optional[str] = None,
         device: Optional[Device] = None,
         pin_memory: bool = False,
-    ) -> TokenEncoder:
+    ) -> TextTokenEncoder:
         """Create a token encoder.
 
         :param task:
@@ -130,5 +130,5 @@ class NllbTokenizer(Tokenizer):
         )
 
     @finaloverride
-    def create_decoder(self) -> TokenDecoder:
+    def create_decoder(self) -> TextTokenDecoder:
         return SentencePieceDecoder(self.model)
