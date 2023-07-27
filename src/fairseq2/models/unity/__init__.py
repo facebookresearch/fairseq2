@@ -23,6 +23,12 @@ from fairseq2.models.unity.loader import load_unity_s2t_model as load_unity_s2t_
 from fairseq2.models.unity.loader import (
     load_unity_text_tokenizer as load_unity_text_tokenizer,
 )
+from fairseq2.models.unity.loader import (
+    load_unity_unit_tokenizer as load_unity_unit_tokenizer,
+)
 from fairseq2.models.unity.model import UnitYBatch as UnitYBatch
 from fairseq2.models.unity.model import UnitYModel as UnitYModel
 from fairseq2.models.unity.model import UnitYOutput as UnitYOutput
+from fairseq2.models.unity.unit_tokenizer import UnitTokenDecoder as UnitTokenDecoder
+from fairseq2.models.unity.unit_tokenizer import UnitTokenEncoder as UnitTokenEncoder
+from fairseq2.models.unity.unit_tokenizer import UnitTokenizer as UnitTokenizer

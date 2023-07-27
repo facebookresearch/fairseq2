@@ -9,7 +9,7 @@ from typing import Any, Dict, Mapping, final
 import torch
 from overrides import override as finaloverride
 
-from fairseq2.assets import asset_store, download_manager
+from fairseq2.assets import AssetStore, asset_store, download_manager
 from fairseq2.models.nllb.loader import NllbTokenizerLoader
 from fairseq2.models.transformer import TransformerModel
 from fairseq2.models.unity.builder import (
@@ -21,6 +21,7 @@ from fairseq2.models.unity.builder import (
     unity_s2t_archs,
 )
 from fairseq2.models.unity.model import UnitYModel
+from fairseq2.models.unity.unit_tokenizer import UnitTokenizer
 from fairseq2.models.utils.checkpoint import upgrade_fairseq_checkpoint
 from fairseq2.models.utils.model_loader import ModelConfigLoader, ModelLoader
 
@@ -377,3 +378,28 @@ load_unity_config = ModelConfigLoader[UnitYConfig](asset_store, unity_archs)
 
 
 load_unity_text_tokenizer = NllbTokenizerLoader(asset_store, download_manager)
+
+
+class UnitTokenizerLoader:
+    """Loads speech unit tokenizers of UnitY models."""
+
+    def __init__(self, asset_store: AssetStore) -> None:
+        """
+        :param asset_store:
+            The asset store to retrieve the model information.
+        """
+        self.asset_store = asset_store
+
+    def __call__(self, model_name: str) -> UnitTokenizer:
+        """
+        :param name:
+            The name of the model.
+        """
+        card = self.asset_store.retrieve_card(model_name)
+
+        return UnitTokenizer(
+            card.field("num_units").as_(int), card.field("unit_langs").as_list(str)
+        )
+
+
+load_unity_unit_tokenizer = UnitTokenizerLoader(asset_store)

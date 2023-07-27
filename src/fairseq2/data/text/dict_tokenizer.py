@@ -10,7 +10,7 @@ from overrides import final as finaloverride
 from torch import Tensor
 
 from fairseq2 import _DOC_MODE
-from fairseq2.data.text.tokenizer import (
+from fairseq2.data.text.text_tokenizer import (
     TextTokenDecoder,
     TextTokenEncoder,
     TextTokenizer,

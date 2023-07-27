@@ -14,7 +14,7 @@ from fairseq2.data.text.sentencepiece import (
     SentencePieceModel,
     vocabulary_from_sentencepiece,
 )
-from fairseq2.data.text.tokenizer import (
+from fairseq2.data.text.text_tokenizer import (
     TextTokenDecoder,
     TextTokenEncoder,
     TextTokenizer,

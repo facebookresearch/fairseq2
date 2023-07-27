@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, List, Optional, Sequence, final
 from torch import Tensor
 
 from fairseq2 import _DOC_MODE
-from fairseq2.data.text.tokenizer import TextTokenDecoder, TextTokenEncoder
+from fairseq2.data.text.text_tokenizer import TextTokenDecoder, TextTokenEncoder
 from fairseq2.data.typing import PathLike, StringLike
 from fairseq2.data.vocabulary_info import VocabularyInfo
 from fairseq2.typing import Device
