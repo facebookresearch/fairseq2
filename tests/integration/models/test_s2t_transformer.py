@@ -15,8 +15,7 @@ from fairseq2.models.s2t_transformer import (
     load_s2t_transformer_tokenizer,
 )
 from fairseq2.models.transformer import TransformerModel
-from fairseq2.nn import IncrementalStateBag
-from fairseq2.sequence_generator import BeamSearchStrategy, _stretch_to_beams
+from fairseq2.text_generator import SequenceToTextGenerator
 from tests.common import device
 
 TEST_FBANK_PATH: Final = Path(__file__).parent.joinpath("fbank.pt")
@@ -28,7 +27,7 @@ CONFORMER_DE: Final = (
 )
 
 CONFORMER_REL_POS_DE: Final = (
-    "Essen war Essenszeit, und wir beginnen damit, nach Ort zu suchen."
+    "Es war Essenszeit, und wir beginnen damit, nach Ort zu suchen."
 )
 
 
@@ -71,56 +70,8 @@ def test_load_s2t_conformer_rel_pos_covost_st_en_de() -> None:
 def assert_translation(
     model: TransformerModel, tokenizer: S2TTransformerTokenizer, expected: str
 ) -> None:
-    model.eval()
+    fbanks = torch.load(TEST_FBANK_PATH).unsqueeze(0).to(device)
 
-    # TODO: The strategy API needs to be revised to be generic. As of today, it
-    # is pretty much limited to `TransformerModel`.
-    strategy = BeamSearchStrategy(
-        vocab_info=tokenizer.vocabulary_info, beam_size=1, max_len=256
-    )
+    s2t_translator = SequenceToTextGenerator(model, tokenizer, target_lang="de")
 
-    encoder = tokenizer.create_encoder(lang="de", device=device)
-    decoder = tokenizer.create_decoder()
-
-    # TODO(bug): BeamSearchStrategy does not support unbatched input.
-    fbanks = torch.load(TEST_FBANK_PATH).to(device).unsqueeze(0)
-    num_frames = torch.tensor(fbanks.size(1)).unsqueeze(0)
-
-    encoder_out, encoder_padding_mask = model.encode(fbanks, num_frames)
-
-    # TODO: This is a manual, boilerplate code to run beam search with S2T
-    # Transformer. It has to be reduced to a single line after revising the
-    # strategy API.
-    job = strategy.new_search_job(fbanks, prefix_tokens=encoder("").unsqueeze(0))
-
-    state_bag = IncrementalStateBag()
-
-    # `prefix_tokens` has already </s> and <lang:de> tokens.
-    state_bag.increment_step(2)
-
-    encoder_out = _stretch_to_beams(encoder_out, beam_size=1)
-    if encoder_padding_mask is not None:
-        encoder_padding_mask = _stretch_to_beams(encoder_padding_mask, beam_size=1)
-
-    while not job.done:
-        query_tokens = job.next_query()
-
-        decoder_out, decoder_padding_mask = model.decode(
-            query_tokens, None, encoder_out, encoder_padding_mask, state_bag
-        )
-
-        model_out = model.project(decoder_out, decoder_padding_mask)
-
-        logits = model_out.logits.squeeze(1)
-
-        state_bag.increment_step()
-
-        job.update(logits)
-
-    tokens = job.finalize(top=0).tokens
-
-    tokens = tokens.view(-1, tokens.shape[-1])
-
-    de = decoder(tokens)
-
-    assert de == [expected]
+    assert s2t_translator(fbanks, None) == [expected]

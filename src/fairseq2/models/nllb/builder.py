@@ -133,7 +133,6 @@ class NllbBuilder:
     """
 
     config: NllbConfig
-    embed: Optional[Embedding]
     device: Optional[Device]
     dtype: Optional[DataType]
 
@@ -152,20 +151,19 @@ class NllbBuilder:
             The data type of module parameters and buffers.
         """
         self.config = config
-        self.embed = None
         self.device = device
         self.dtype = dtype
 
     def build_model(self) -> TransformerModel:
         """Build a model."""
-        self.embed = self.build_embedding()
+        embed = self.build_embedding()
 
-        frontend = self.build_shared_frontend()
+        frontend = self.build_frontend(embed)
 
         encoder = self.build_encoder()
         decoder = self.build_decoder()
 
-        final_proj = TiedProjection(self.embed.weight)
+        final_proj = TiedProjection(embed.weight)
 
         return TransformerModel(
             frontend, encoder, frontend, decoder, final_proj, self.config.pad_idx
@@ -182,11 +180,8 @@ class NllbBuilder:
             dtype=self.dtype,
         )
 
-    def build_shared_frontend(self) -> TransformerFrontend:
-        """Build a shared Transformer encoder/decoder front-end."""
-        if self.embed is None:
-            self.embed = self.build_embedding()
-
+    def build_frontend(self, embed: Embedding) -> TransformerFrontend:
+        """Build a Transformer encoder/decoder front-end."""
         pos_encoder = SinusoidalPositionEncoder(
             self.config.model_dim,
             self.config.max_seq_len,
@@ -196,7 +191,7 @@ class NllbBuilder:
         )
 
         return TransformerEmbeddingFrontend(
-            self.embed,
+            embed,
             pos_encoder,
             dropout_p=self.config.dropout_p,
             device=self.device,

@@ -6,18 +6,66 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import NamedTuple, Optional, Union
+from typing import NamedTuple, Optional, Tuple, Union
 
 import torch
 from overrides import overrides
 from torch import Tensor
 from torch.nn.functional import log_softmax
 
-from fairseq2.data import StringLike, VocabularyInfo
-from fairseq2.data.text import TextTokenizer
-from fairseq2.models.encoder_decoder import EncoderDecoderModel
+from fairseq2.data import VocabularyInfo
+from fairseq2.models.encoder_decoder import EncoderDecoderModel, Seq2SeqDecoder
 from fairseq2.nn.incremental_state import IncrementalStateBag
-from fairseq2.typing import Device
+
+
+@dataclass
+class SequenceOptions:
+    min_seq_len: int = 1
+    max_seq_len: int = 256
+    max_seq_len_a: float = 1
+    max_seq_len_b: float = 200
+    len_penalty: float = 1.0
+    unk_penalty: float = 0.0
+
+
+class Seq2SeqGenerator(ABC):
+    decoder: Seq2SeqDecoder
+    vocab_info: VocabularyInfo
+    opts: SequenceOptions
+
+    def __init__(
+        self,
+        decoder: Seq2SeqDecoder,
+        vocab_info: VocabularyInfo,
+        opts: Optional[SequenceOptions] = None,
+    ) -> None:
+        self.decoder = decoder
+
+        self.vocab_info = vocab_info
+
+        self.opts = opts or SequenceOptions()
+
+        self.legacy = BeamSearchStrategy(vocab_info=vocab_info, beam_size=1)
+
+    def __call__(
+        self,
+        prefix_seq: Optional[Tensor],
+        encoder_output: Tensor,
+        encoder_padding_mask: Optional[Tensor],
+        source_seq_len: Optional[int] = None,
+    ) -> Tuple[Tensor, Optional[Tensor]]:
+        target_seqs = self.legacy.generate_(
+            self.decoder,
+            encoder_output,
+            encoder_padding_mask,
+            prefix_seq,
+            1,
+            source_seq_len,
+        )
+
+        target_seq_lens = torch.sum(target_seqs != self.vocab_info.pad_idx, dim=1)
+
+        return target_seqs, target_seq_lens
 
 
 def token_penalty_(
@@ -195,6 +243,28 @@ class SearchStrategy(ABC):
         with torch.autograd.profiler.record_function("forward_encoder"):
             encoder_out, encoder_padding_mask = model.encode(src_tokens, src_token_lens)
 
+        return self.generate_(
+            model,
+            encoder_out,
+            encoder_padding_mask,
+            prefix_tokens,
+            top,
+            src_tokens.size(1),
+        )
+
+    @torch.inference_mode()
+    def generate_(
+        self,
+        model: Seq2SeqDecoder,
+        encoder_out: Tensor,
+        encoder_padding_mask: Optional[Tensor],
+        prefix_tokens: Optional[Tensor] = None,
+        top: int = 0,
+        source_seq_len: Optional[int] = None,
+    ) -> torch.Tensor:
+        if prefix_tokens is not None and prefix_tokens.dim() == 1:
+            prefix_tokens = prefix_tokens.unsqueeze(0)
+
         encoder_out = _stretch_to_beams(encoder_out, self.beam_size)
         if encoder_padding_mask is not None:
             encoder_padding_mask = _stretch_to_beams(
@@ -202,8 +272,11 @@ class SearchStrategy(ABC):
             )
 
         # prepare the search state
-        job = self.new_search_job(src_tokens, prefix_tokens=prefix_tokens)
+        job = self.new_search_job(encoder_out, prefix_tokens=prefix_tokens)
         state_bag = IncrementalStateBag()
+
+        if prefix_tokens is not None:
+            state_bag.increment_step(prefix_tokens.size(0))
 
         while not job.done:
             with torch.autograd.profiler.record_function("forward_decoder"):
@@ -226,40 +299,6 @@ class SearchStrategy(ABC):
 
         tokens = job.finalize(top=top).tokens
         return tokens.view(-1, tokens.shape[-1])
-
-    def generate_str(
-        self,
-        model: EncoderDecoderModel,
-        tokenizer: TextTokenizer,
-        sentence: StringLike,
-        *,
-        src_lang: Optional[str] = None,
-        tgt_lang: Optional[str] = None,
-        device: Device,
-    ) -> StringLike:
-        task = "translation"
-
-        src_encoder = tokenizer.create_encoder(
-            task, lang=src_lang, mode="source", device=device
-        )
-        tgt_encoder = tokenizer.create_encoder(
-            task, lang=tgt_lang, mode="target", device=device
-        )
-
-        tgt_decoder = tokenizer.create_decoder()
-
-        src_indices = src_encoder(sentence).unsqueeze(0)
-        # Start with an empty sentence.
-        tgt_indices = tgt_encoder("").unsqueeze(0)
-
-        padding_mask = src_indices.ne(self.pad_idx)
-        src_indices_lens = torch.count_nonzero(padding_mask, dim=-1)
-
-        tgt_indices = self.generate(
-            model, src_indices, src_indices_lens, top=1, prefix_tokens=tgt_indices
-        )
-
-        return tgt_decoder(tgt_indices.squeeze(1))[0]
 
 
 @dataclass

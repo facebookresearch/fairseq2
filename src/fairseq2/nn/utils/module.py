@@ -8,6 +8,8 @@ from typing import Callable, Optional, Protocol, Set, runtime_checkable
 
 from torch.nn import Module
 
+from fairseq2.typing import Device
+
 
 @runtime_checkable
 class ModuleWithParameter(Protocol):
@@ -81,3 +83,13 @@ def freeze(module: Module, value: bool) -> None:
     """Change if ``module`` and its submodules should freeze (i.e. stop learning)."""
     for param in module.parameters():
         param.requires_grad_(not value)
+
+
+def infer_device(module: Module) -> Device:
+    """Infer the device on which ``module``'s parameter(s) reside."""
+    try:
+        param = next(iter(module.parameters()))
+    except StopIteration:
+        return Device("cpu")
+
+    return param.device

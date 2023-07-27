@@ -89,9 +89,7 @@ class TransformerModel(EncoderDecoderModel):
     ) -> Tuple[Tensor, Optional[Tensor]]:
         seqs, padding_mask = self.encoder_frontend(seqs, seq_lens)
 
-        encoder_output, padding_mask = self.encoder(seqs, padding_mask)
-
-        return encoder_output, padding_mask
+        return self.encoder(seqs, padding_mask)  # type: ignore[no-any-return]
 
     @finaloverride
     def decode(
@@ -104,15 +102,9 @@ class TransformerModel(EncoderDecoderModel):
     ) -> Tuple[Tensor, Optional[Tensor]]:
         seqs, padding_mask = self.decoder_frontend(seqs, seq_lens, state_bag)
 
-        decoder_output, decoder_padding_mask = self.decoder(
-            seqs,
-            padding_mask,
-            encoder_output,
-            encoder_padding_mask,
-            state_bag,
+        return self.decoder(  # type: ignore[no-any-return]
+            seqs, padding_mask, encoder_output, encoder_padding_mask, state_bag
         )
-
-        return decoder_output, decoder_padding_mask
 
     @finaloverride
     def project(
