@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 from typing import Optional, Tuple
 
 from overrides import override
@@ -14,25 +14,8 @@ from fairseq2.models.sequence import SequenceBatch, SequenceModel, SequenceModel
 from fairseq2.nn.incremental_state import IncrementalStateBag
 
 
-class DecoderModel(SequenceModel):
-    """Represents a decoder model."""
-
-    model_dim: int
-
-    def __init__(self, model_dim: int) -> None:
-        """
-        :param model_dim:
-            The dimensionality of the model.
-        """
-        super().__init__()
-
-        self.model_dim = model_dim
-
-    @override
-    def forward(self, batch: SequenceBatch) -> SequenceModelOutput:
-        decoder_output, decoder_padding_mask = self.decode(batch.seqs, batch.seq_lens)
-
-        return self.project(decoder_output, decoder_padding_mask)
+class SequenceDecoder(ABC):
+    """Represents a sequence decoder such as a :class:`DecoderModel`."""
 
     @abstractmethod
     def decode(
@@ -78,6 +61,27 @@ class DecoderModel(SequenceModel):
             :math:`(N,S)`, where :math:`N` is the batch size and :math:`S` is
             the sequence length.
         """
+
+
+class DecoderModel(SequenceModel, SequenceDecoder):
+    """Represents a decoder model."""
+
+    model_dim: int
+
+    def __init__(self, model_dim: int) -> None:
+        """
+        :param model_dim:
+            The dimensionality of the model.
+        """
+        super().__init__()
+
+        self.model_dim = model_dim
+
+    @override
+    def forward(self, batch: SequenceBatch) -> SequenceModelOutput:
+        decoder_output, decoder_padding_mask = self.decode(batch.seqs, batch.seq_lens)
+
+        return self.project(decoder_output, decoder_padding_mask)
 
     def extra_repr(self) -> str:
         """:meta private:"""

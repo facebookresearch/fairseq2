@@ -5,11 +5,13 @@
 # LICENSE file in the root directory of this source tree.
 
 from dataclasses import dataclass
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Tuple, final
 
+from overrides import final as finaloverride
 from torch import Tensor
 from torch.nn import Module, Sequential
 
+from fairseq2.models.encoder_decoder import Seq2SeqDecoder
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.models.transformer import TransformerModel
 from fairseq2.models.transformer.frontend import TransformerFrontend
@@ -18,7 +20,8 @@ from fairseq2.nn.projection import Projection
 from fairseq2.nn.transformer import TransformerDecoder, TransformerEncoder
 
 
-class UnitYModel(Module):
+@final
+class UnitYModel(Module, Seq2SeqDecoder):
     """Represents a UnitY model as described in
     :cite:t`https://doi.org/10.48550/arxiv.2212.08055`."""
 
@@ -150,73 +153,28 @@ class UnitYModel(Module):
 
         return self.t2u_encoder(s2t_decoder_output, s2t_decoder_padding_mask)  # type: ignore[no-any-return]
 
+    @finaloverride
     def decode(
         self,
-        unit_seqs: Tensor,
-        unit_seq_lens: Optional[Tensor],
-        t2u_encoder_output: Tensor,
-        t2u_encoder_padding_mask: Optional[Tensor],
+        seqs: Tensor,
+        seq_lens: Optional[Tensor],
+        encoder_output: Tensor,
+        encoder_padding_mask: Optional[Tensor],
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
-        """Decode the specified unit sequences.
+        seqs, padding_mask = self.t2u_decoder_frontend(seqs, seq_lens)
 
-        :param unit_seqs:
-            The unit sequences to decode. *Shape:* :math:`(N,S_{unt})`, where
-            :math:`N` is the batch size and :math:`S_{unt}` is the unit sequence
-            length.
-        :param unit_seq_lens:
-            An array where each element represents the length of the sequence at
-            the same index in ``unit_seqs``. *Shape:* :math:`(N)`, where
-            :math:`N` is the batch size.
-        :param t2u_encoder_output:
-            The T2U encoder output to use in encoder-decoder attention. *Shape:*
-            :math:`(N,S_{enc},M)`, where :math:`N` is the batch size,
-            :math:`S_{enc}` is the encoder output sequence length, and :math:`M`
-            is the dimensionality of the model.
-        :param t2u_encoder_padding_mask:
-            The float padding mask of ``t2u_encoder_out``. *Shape:*
-            :math:`(N,S_{enc})`, where :math:`N` is the batch size and
-            :math:`S_{enc}` is the encoder output sequence length.
-        :param state_bag:
-            The state bag to use for incremental evaluation.
-
-        :returns:
-            - The T2U decoder output. *Shape:* :math:`(N,S_{unt},M)`, where
-              :math:`N` is the batch size, :math:`S_{unt}` is the unit sequence
-              length, and :math:`M` is the dimensionality of the model.
-            - The float padding mask of the T2U decoder output. *Shape:*
-              :math:`(N,S_{unt})`, where :math:`N` is the batch size and
-              :math:`S_{unt}` is the unit sequence length.
-        """
-        unit_seqs, unit_padding_mask = self.t2u_decoder_frontend(
-            unit_seqs, unit_seq_lens
+        decoder_output, decoder_padding_mask = self.t2u_decoder(
+            seqs, padding_mask, encoder_output, encoder_padding_mask, state_bag
         )
 
-        t2u_decoder_output, t2u_decoder_padding_mask = self.t2u_decoder(
-            unit_seqs,
-            unit_padding_mask,
-            t2u_encoder_output,
-            t2u_encoder_padding_mask,
-            state_bag,
-        )
+        return decoder_output, decoder_padding_mask
 
-        return t2u_decoder_output, t2u_decoder_padding_mask
-
+    @finaloverride
     def project(
-        self, t2u_decoder_output: Tensor, t2u_decoder_padding_mask: Optional[Tensor]
+        self, decoder_output: Tensor, decoder_padding_mask: Optional[Tensor]
     ) -> SequenceModelOutput:
-        """Produce logits for next-step unit prediction.
-
-        :param t2u_decoder_output:
-            The T2U decoder output. *Shape:* :math:`(N,S_{unt},M)`, where
-            :math:`N` is the batch size, :math:`S_{unt}` is the unit sequence
-            length, and :math:`M` is the dimensionality of the model.
-        :param t2u_decoder_padding_mask:
-            The float padding mask of the T2U decoder output. *Shape:*
-            :math:`(N,S_{unt})`, where :math:`N` is the batch size and
-            :math:`S_{unt}` is the unit sequence length.
-        """
-        logits = self.final_proj(t2u_decoder_output)
+        logits = self.final_proj(decoder_output)
 
         return SequenceModelOutput(logits, self.target_pad_idx)
 
