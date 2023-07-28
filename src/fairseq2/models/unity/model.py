@@ -5,15 +5,15 @@
 # LICENSE file in the root directory of this source tree.
 
 from dataclasses import dataclass
-from typing import Any, Optional, Tuple, final
+from typing import Literal, Optional, Tuple, final
 
 from overrides import final as finaloverride
 from torch import Tensor
-from torch.nn import Module, Sequential
+from torch.nn import Module
 
-from fairseq2.models.encoder_decoder import Seq2SeqDecoder
+from fairseq2.models.encoder_decoder import EncoderDecoderModel, Seq2SeqDecoder
+from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceModelOutput
-from fairseq2.models.transformer import TransformerModel
 from fairseq2.models.transformer.frontend import TransformerFrontend
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.projection import Projection
@@ -21,137 +21,92 @@ from fairseq2.nn.transformer import TransformerDecoder, TransformerEncoder
 
 
 @final
-class UnitYModel(Module, Seq2SeqDecoder):
+class UnitYModel(EncoderDecoderModel):
     """Represents a UnitY model as described in
-    :cite:t`https://doi.org/10.48550/arxiv.2212.08055`."""
+    :cite:t`https://doi.org/10.48550/arxiv.2212.08055`.
+
+    Note that this implementation is augmented with a text encoder to enable
+    translating from text.
+    """
 
     model_dim: int
-    s2t_model: TransformerModel
-    t2u_proj: Optional[Sequential]
-    t2u_encoder: Optional[TransformerEncoder]
-    t2u_decoder_frontend: TransformerFrontend
-    t2u_decoder: TransformerDecoder
+    default_input_modality: str
+    speech_encoder_frontend: TransformerFrontend
+    speech_encoder: TransformerEncoder
+    text_encoder_frontend: Optional[TransformerFrontend]
+    text_encoder: Optional[TransformerEncoder]
+    text_decoder_frontend: TransformerFrontend
+    text_decoder: TransformerDecoder
     final_proj: Projection
-    target_pad_idx: Optional[int]
+    t2u_model: "UnitYT2UModel"
+    pad_idx: Optional[int]
 
     def __init__(
         self,
-        s2t_model: TransformerModel,
-        t2u_encoder: Optional[TransformerEncoder],
-        t2u_decoder_frontend: TransformerFrontend,
-        t2u_decoder: TransformerDecoder,
+        speech_encoder_frontend: TransformerFrontend,
+        speech_encoder: TransformerEncoder,
+        text_encoder_frontend: Optional[TransformerFrontend],
+        text_encoder: Optional[TransformerEncoder],
+        text_decoder_frontend: TransformerFrontend,
+        text_decoder: TransformerDecoder,
         final_proj: Projection,
-        target_pad_idx: Optional[int],
+        t2u_model: "UnitYT2UModel",
+        pad_idx: Optional[int],
+        default_input_modality: Literal["speech", "text"] = "speech",
     ) -> None:
-        """
-        :param s2t_model:
-            The S2T UnitY model.
-        :param t2u_encoder:
-            The T2U encoder.
-        :param t2u_decoder_frontend:
-            The T2U decoder frontend.
-        :param t2u_decoder:
-            The T2U decoder.
-        :param final_proj:
-            The projection to apply to T2U decoder outputs to produce logits.
-        :param target_pad_idx:
-            The index of the pad symbol in the unit vocabulary.
-        """
-        super().__init__()
+        model_dim = speech_encoder.model_dim
 
-        self.model_dim = s2t_model.model_dim
+        super().__init__(model_dim)
 
-        self.s2t_model = s2t_model
+        self.default_input_modality = default_input_modality
 
-        if t2u_encoder is not None:
-            if t2u_encoder.model_dim != self.model_dim:
-                raise ValueError(
-                    f"`model_dim` of `s2t_model` and `model_dim` of `t2u_encoder` must be equal, but are {self.model_dim} and {t2u_encoder.model_dim} instead."
-                )
+        self.speech_encoder_frontend = speech_encoder_frontend
+        self.speech_encoder = speech_encoder
 
-            self.t2u_encoder = t2u_encoder
+        self.text_encoder_frontend = text_encoder_frontend
+        self.text_encoder = text_encoder
 
-        if t2u_decoder_frontend.model_dim != self.model_dim:
-            raise ValueError(
-                f"`model_dim` of `s2t_model` and `model_dim` of `t2u_decoder_frontend` must be equal, but are {self.model_dim} and {t2u_decoder_frontend.model_dim} instead."
-            )
-
-        if t2u_decoder.model_dim != self.model_dim:
-            raise ValueError(
-                f"`model_dim` of `s2t_model` and `model_dim` of `t2u_decoder` must be equal, but are {self.model_dim} and {t2u_decoder_frontend.model_dim} instead."
-            )
-
-        self.t2u_decoder_frontend = t2u_decoder_frontend
-        self.t2u_decoder = t2u_decoder
+        self.text_decoder_frontend = text_decoder_frontend
+        self.text_decoder = text_decoder
 
         self.final_proj = final_proj
 
-        self.target_pad_idx = target_pad_idx
+        self.t2u_model = t2u_model
 
-    def forward(self, batch: "UnitYBatch") -> "UnitYOutput":
-        """
-        :param batch:
-            The batch of speech, text, and unit sequences to process.
-        """
-        s2t_encoder_output, s2t_encoder_padding_mask = self.s2t_model.encode(
-            batch.speech_seqs, batch.speech_seq_lens
-        )
+        self.pad_idx = pad_idx
 
-        s2t_decoder_output, s2t_decoder_padding_mask = self.s2t_model.decode(
-            batch.text_seqs,
-            batch.text_seq_lens,
-            s2t_encoder_output,
-            s2t_encoder_padding_mask,
-        )
-
-        s2t_output = self.s2t_model.project(
-            s2t_decoder_output, s2t_decoder_padding_mask
-        )
-
-        t2u_encoder_output, t2u_encoder_padding_mask = self.encode(
-            s2t_decoder_output, s2t_decoder_padding_mask
-        )
-
-        t2u_decoder_output, t2u_decoder_padding_mask = self.decode(
-            batch.unit_seqs,
-            batch.unit_seq_lens,
-            t2u_encoder_output,
-            t2u_encoder_padding_mask,
-        )
-
-        t2u_output = self.final_proj(t2u_decoder_output, t2u_decoder_padding_mask)
-
-        return UnitYOutput(s2t_output, t2u_output)
-
+    @finaloverride
     def encode(
-        self,
-        s2t_decoder_output: Tensor,
-        s2t_decoder_padding_mask: Optional[Tensor],
+        self, seqs: Tensor, seq_lens: Optional[Tensor]
     ) -> Tuple[Tensor, Optional[Tensor]]:
-        """Encode the specified S2T decoder output for unit generation.
+        if self.default_input_modality == "speech":
+            return self.encode_speech(seqs, seq_lens)
 
-        :param s2t_decoder_output:
-            The S2T decoder output to encode. *Shape:* :math:`(N,S_{dec},M)`,
-            where :math:`N` is the batch size, :math:`S_{dec}` is the decoder
-            output sequence length, and :math:`M` is the dimensionality of the
-            model.
-        :param s2t_decoder_padding_mask:
-            The float padding mask of ``s2t_decoder_out``. *Shape:*
-            :math:`(N,S_{dec})`, where :math:`N` is the batch size and
-            :math:`S_{dec}` is the decoder output sequence length.
+        if self.default_input_modality == "text":
+            return self.encode_text(seqs, seq_lens)
 
-        :returns:
-            - The encoder output. *Shape:* :math:`(N,S_{out},M)`, where
-              :math:`N` is the batch size, :math:`S_{out}` is the output
-              sequence length, and :math:`M` is the dimensionality of the model.
-            - The float padding mask of the encoder output. *Shape:*
-              :math:`(N,S_{out})`, where :math:`N` is the batch size and
-              :math:`S_{out}` is the output sequence length.
-        """
-        if self.t2u_encoder is None:
-            return s2t_decoder_output, s2t_decoder_padding_mask
+        raise RuntimeError(
+            f"`default_input_modality` must be 'speech' or 'text', but is '{self.default_input_modality}' instead."
+        )
 
-        return self.t2u_encoder(s2t_decoder_output, s2t_decoder_padding_mask)  # type: ignore[no-any-return]
+    def encode_speech(
+        self, seqs: Tensor, seq_lens: Optional[Tensor]
+    ) -> Tuple[Tensor, Optional[Tensor]]:
+        seqs, padding_mask = self.speech_encoder_frontend(seqs, seq_lens)
+
+        return self.speech_encoder(seqs, padding_mask)  # type: ignore[no-any-return]
+
+    def encode_text(
+        self, seqs: Tensor, seq_lens: Optional[Tensor]
+    ) -> Tuple[Tensor, Optional[Tensor]]:
+        if self.text_encoder is None or self.text_encoder_frontend is None:
+            raise ValueError(
+                "MT task requires a text encoder, but the current UnitY model does not have one."
+            )
+
+        seqs, padding_mask = self.text_encoder_frontend(seqs, seq_lens)
+
+        return self.text_encoder(seqs, padding_mask)  # type: ignore[no-any-return]
 
     @finaloverride
     def decode(
@@ -162,13 +117,11 @@ class UnitYModel(Module, Seq2SeqDecoder):
         encoder_padding_mask: Optional[Tensor],
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
-        seqs, padding_mask = self.t2u_decoder_frontend(seqs, seq_lens)
+        seqs, padding_mask = self.text_decoder_frontend(seqs, seq_lens, state_bag)
 
-        decoder_output, decoder_padding_mask = self.t2u_decoder(
+        return self.text_decoder(  # type: ignore[no-any-return]
             seqs, padding_mask, encoder_output, encoder_padding_mask, state_bag
         )
-
-        return decoder_output, decoder_padding_mask
 
     @finaloverride
     def project(
@@ -176,43 +129,83 @@ class UnitYModel(Module, Seq2SeqDecoder):
     ) -> SequenceModelOutput:
         logits = self.final_proj(decoder_output)
 
-        return SequenceModelOutput(logits, self.target_pad_idx)
+        return SequenceModelOutput(logits, self.pad_idx)
 
 
-@dataclass
-class UnitYBatch:
-    """Represents a batch to be passed to a :class:`UnitYModel` instance."""
+@final
+class UnitYT2UModel(Module, Seq2SeqDecoder):
+    """Represents a UnitY T2U model as described in
+    :cite:t`https://doi.org/10.48550/arxiv.2212.08055`."""
 
-    speech_seqs: Tensor
-    """The speech sequences. *Shape:* :math:`(N,S_{sph},*)`, where :math:`N` is
-    the batch size, :math:`S_{sph}` is the speech sequence length, and :math:`*`
-    is any number of sequence-specific dimensions."""
+    encoder: Optional[TransformerEncoder]
+    decoder_frontend: TransformerFrontend
+    decoder: TransformerDecoder
+    final_proj: Projection
+    pad_idx: Optional[int]
 
-    speech_seq_lens: Optional[Tensor]
-    """An array where each element represents the length of the sequence at the
-    same index in :attr:`speech_seqs`. *Shape:* :math:`(N)`, where :math:`N` is
-    the batch size."""
+    def __init__(
+        self,
+        encoder: Optional[TransformerEncoder],
+        decoder_frontend: TransformerFrontend,
+        decoder: TransformerDecoder,
+        final_proj: Projection,
+        pad_idx: Optional[int],
+    ) -> None:
+        super().__init__()
 
-    text_seqs: Tensor
-    """The text sequences. *Shape:* :math:`(N,S_{txt})`, where :math:`N` is the
-    batch size and :math:`S_{src}` is the text sequence length."""
+        self.encoder = encoder
 
-    text_seq_lens: Optional[Tensor]
-    """An array where each element represents the length of the sequence at the
-    same index in :attr:`text_seqs`. *Shape:* :math:`(N)`, where :math:`N` is
-    the batch size."""
+        self.decoder_frontend = decoder_frontend
+        self.decoder = decoder
 
-    unit_seqs: Tensor
-    """The unit sequences. *Shape:* :math:`(N,S_{unt})`, where :math:`N` is the
-    batch size and :math:`S_{unt}` is the unit sequence length."""
+        self.final_proj = final_proj
 
-    unit_seq_lens: Optional[Tensor]
-    """An array where each element represents the length of the sequence at the
-    same index in :attr:`unit_seqs`. *Shape:* :math:`(N)`, where :math:`N` is
-    the batch size."""
+        self.pad_idx = pad_idx
 
-    example: Any = None
-    """The data example from which this batch was constructed."""
+    def forward(self, batch: Seq2SeqBatch) -> SequenceModelOutput:
+        encoder_output, encoder_padding_mask = self.encode(
+            batch.source_seqs, batch.source_seq_lens
+        )
+
+        decoder_output, decoder_padding_mask = self.decode(
+            batch.target_seqs,
+            batch.target_seq_lens,
+            encoder_output,
+            encoder_padding_mask,
+        )
+
+        return self.project(decoder_output, decoder_padding_mask)
+
+    def encode(
+        self,
+        text_decoder_output: Tensor,
+        text_decoder_padding_mask: Optional[Tensor],
+    ) -> Tuple[Tensor, Optional[Tensor]]:
+        if self.encoder is None:
+            return text_decoder_output, text_decoder_padding_mask
+
+        return self.encoder(text_decoder_output, text_decoder_padding_mask)  # type: ignore[no-any-return]
+
+    def decode(
+        self,
+        seqs: Tensor,
+        seq_lens: Optional[Tensor],
+        encoder_output: Tensor,
+        encoder_padding_mask: Optional[Tensor],
+        state_bag: Optional[IncrementalStateBag] = None,
+    ) -> Tuple[Tensor, Optional[Tensor]]:
+        seqs, padding_mask = self.decoder_frontend(seqs, seq_lens)
+
+        return self.decoder(  # type: ignore[no-any-return]
+            seqs, padding_mask, encoder_output, encoder_padding_mask, state_bag
+        )
+
+    def project(
+        self, decoder_output: Tensor, decoder_padding_mask: Optional[Tensor]
+    ) -> SequenceModelOutput:
+        logits = self.final_proj(decoder_output)
+
+        return SequenceModelOutput(logits, self.pad_idx)
 
 
 @dataclass
@@ -220,10 +213,13 @@ class UnitYOutput:
     """Holds the output of a UnitY model."""
 
     s2t_output: SequenceModelOutput
-    """The output of the S2T model."""
+    """The S2T output of the multitask model."""
+
+    mt_output: SequenceModelOutput
+    """The MT output of the multitask model."""
 
     t2u_output: SequenceModelOutput
-    """The output of the T2U encoder/decoder."""
+    """The output of the T2U model."""
 
     def compute_loss(
         self, targets: Tensor, ignore_prefix_size: int = 0, label_smoothing: float = 0.0

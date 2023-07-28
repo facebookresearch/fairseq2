@@ -29,7 +29,7 @@ from fairseq2.typing import DataType, Device
 
 
 @final
-class UnitYS2TEncoderAdaptor(TransformerEncoder):
+class UnitYEncoderAdaptor(TransformerEncoder):
     """Represents a Transformer encoder that wraps a speech encoder and adapts
     it to be used with the UnitY architecture."""
 

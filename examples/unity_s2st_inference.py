@@ -6,14 +6,20 @@
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Generator, Optional, Sequence, Tuple
 
 import torch
+from torch import Tensor
 
-from fairseq2.data import Collater, DataPipeline, FileMapper
+from fairseq2.data import Collater, DataPipeline, FileMapper, StringLike
 from fairseq2.data.audio import AudioDecoder, WaveformToFbankConverter
 from fairseq2.data.text import StrSplitter, read_text
-from fairseq2.models.unity import load_unity_s2t_model, load_unity_text_tokenizer
-from fairseq2.models.unity.translator import Translator
+from fairseq2.models.unity import (
+    UnitYGenerator,
+    load_unity_model,
+    load_unity_text_tokenizer,
+    load_unity_unit_tokenizer,
+)
 from fairseq2.typing import Device
 
 
@@ -30,6 +36,9 @@ class InferenceContext:
 
     target_lang: str
     """The target translation language."""
+
+    text_only: bool
+    """If ``True``, generates only text output."""
 
     batch_size: int
     """The batch size for model input."""
@@ -88,48 +97,58 @@ def build_data_pipeline(ctx: InferenceContext) -> DataPipeline:
     return pipeline_builder.and_return()
 
 
-def run_inference(ctx: InferenceContext) -> None:
-    # Load the demo S2T Unity model in fp16.
-    model = load_unity_s2t_model(ctx.model_name, device=ctx.device, dtype=torch.float16)
-
-    model.eval()
-
-    # Load the tokenizer. As of today, it is NLLB-200 or NLLB-100 depending on
-    # the model.
-    tokenizer = load_unity_text_tokenizer(ctx.model_name)
-
+def run_inference(
+    ctx: InferenceContext,
+) -> Generator[
+    Tuple[Sequence[StringLike], Sequence[StringLike], Optional[Tensor]], None, None
+]:
+    """Iterate through the specified TSV file and return translation + reference text + units"""
     # Build a simple pipeline that just reads a single TSV file.
     pipeline = build_data_pipeline(ctx)
 
-    # TODO: This is a temporary class with potential perf improvements and will
-    # be revised soon.
-    translator = Translator(model, tokenizer, ctx.target_lang, ctx.device)
+    # Load the Unity model in fp16.
+    model = load_unity_model(ctx.model_name, device=ctx.device, dtype=torch.float16)
+
+    model.eval()
+
+    text_tokenizer = load_unity_text_tokenizer(ctx.model_name)
+    unit_tokenizer = load_unity_unit_tokenizer(ctx.model_name)
+
+    generator = UnitYGenerator(model, text_tokenizer, unit_tokenizer, ctx.target_lang)
 
     # Iterate through each example in the TSV file until CTRL-C.
     for example in pipeline:
         speech = example["audio_file"]["data"]["fbank"]
 
-        translation = translator.translate_batch(speech["seqs"], speech["seq_lens"])
+        translation, units = generator(
+            speech["seqs"], speech["seq_lens"], text_only=ctx.text_only
+        )
 
         reference_text = example["raw_target_text"]
 
-        for i in range(ctx.batch_size):
-            print(f"Ref: {reference_text[i]}")
-            print(f"Out: {translation[i]}")
-            print()
+        yield translation, reference_text, units
 
 
 if __name__ == "__main__":
     # fmt: off
     ctx = InferenceContext(
-        model_name="unity_s2t_demo",
+        model_name="maha_multitask_unity",
         data_file=Path("/large_experiments/seamless/ust/balioglu/sample-datasets/test_cvst2_spa-eng.tsv"),
         audio_root_dir=Path("/large_experiments/seamless/ust/data/audio_zips"),
-        target_lang="eng_Latn",
+        target_lang="eng",
+        text_only=False,
         batch_size=4,
         device=torch.device("cuda:0"),
     )
     # fmt: on
 
     with torch.inference_mode():
-        run_inference(ctx)
+        for t, r, u in run_inference(ctx):
+            print("TRANSLATION")
+            print(t)
+            print("REFERENCE")
+            print(r)
+            if u is not None:
+                print("UNITS")
+                print(u.shape)
+            print()
