@@ -15,8 +15,6 @@ def_text(py::module_ &data_module)
 {
     py::module_ m = data_module.def_submodule("text");
 
-    def_dict_tokenizer(m);
-
     def_sentencepiece(m);
 
     def_text_reader(m);

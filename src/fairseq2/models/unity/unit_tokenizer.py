@@ -4,12 +4,13 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Dict, Sequence
+from typing import Dict, Optional, Sequence
 
 import torch
 from torch import Tensor
 
 from fairseq2.data import VocabularyInfo
+from fairseq2.typing import Device
 
 
 class UnitTokenizer:
@@ -40,15 +41,18 @@ class UnitTokenizer:
 
     def lang_to_index(self, lang: str) -> int:
         """Return the symbol index of the specified language."""
-        return self.num_units + len(self.langs) + self.langs[lang] + 5
+        # +4 for PAD/EOS/BOS/UNK, and +1 for the `<mask>` token.
+        return self.num_units + self.langs[lang] + 4
 
-    def create_encoder(self, lang: str) -> "UnitTokenEncoder":
+    def create_encoder(
+        self, lang: str, device: Optional[Device] = None
+    ) -> "UnitTokenEncoder":
         """Create a token encoder.
 
         :param lang:
             The language of generated token indices.
         """
-        return UnitTokenEncoder(self, lang)
+        return UnitTokenEncoder(self, lang, device)
 
     def create_decoder(self) -> "UnitTokenDecoder":
         """Create a token decoder."""
@@ -62,8 +66,11 @@ class UnitTokenEncoder:
     eos_idx: int
     unk_idx: int
     lang_idx: int
+    prefix_indices: Tensor
 
-    def __init__(self, tokenizer: UnitTokenizer, lang: str) -> None:
+    def __init__(
+        self, tokenizer: UnitTokenizer, lang: str, device: Optional[Device] = None
+    ) -> None:
         """
         :param tokenizer:
             The unit tokenizer to use.
@@ -87,6 +94,14 @@ class UnitTokenEncoder:
 
         self.lang_idx = tokenizer.lang_to_index(lang)
 
+        if device is None:
+            device = Device("cpu")
+
+        # We always start sequences with EOS, followed by the language token.
+        self.prefix_indices = torch.tensor(
+            [self.eos_idx, self.lang_idx], device=device, dtype=torch.int32
+        )
+
     def __call__(self, units: Tensor) -> Tensor:
         """Encode ``units`` to token indices.
 
@@ -101,20 +116,18 @@ class UnitTokenEncoder:
         """
         batch_size = units.size(0)
 
-        # We always start sequences with EOS, followed by the language token.
-        prefix_seq = torch.tensor(
-            [self.eos_idx, self.lang_idx], device=units.device, dtype=units.dtype
-        )
-
         token_indices = torch.cat(
-            [prefix_seq.expand(batch_size, -1), units.detach()], dim=1
+            [self.prefix_indices.clone().expand(batch_size, -1), units.detach()], dim=1
         )
 
         # Ensure that non-symbol indices larger than `num_units` are replaced
         # with UNK.
         seqs = token_indices[:, 2:]
 
-        seqs[seqs >= self.tokenizer.num_units] = self.unk_idx
+        # Add offset for control symbols.
+        seqs += 4
+
+        seqs[seqs >= self.tokenizer.num_units + 4] = self.unk_idx
 
         return token_indices
 
@@ -157,5 +170,10 @@ class UnitTokenDecoder:
 
         # Also, replace EOS with PAD at sequence ends.
         units[units == self.eos_idx] = self.pad_idx
+
+        units[units == self.pad_idx] = self.pad_idx + 4
+
+        # Remove offset of control symbols (exclude language symbol).
+        units[:, 1:] -= 4
 
         return units

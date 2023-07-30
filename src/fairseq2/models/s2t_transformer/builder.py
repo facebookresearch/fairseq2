@@ -231,9 +231,9 @@ class S2TTransformerBuilder:
     def build_model(self) -> TransformerModel:
         """Build a model."""
         encoder_frontend = self.build_encoder_frontend()
-        decoder_frontend = self.build_decoder_frontend()
-
         encoder = self.build_encoder()
+
+        decoder_frontend = self.build_decoder_frontend()
         decoder = self.build_decoder()
 
         final_proj = FinalProjection(

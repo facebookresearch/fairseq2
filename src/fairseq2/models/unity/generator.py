@@ -4,28 +4,32 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import List, Optional, Tuple
+from dataclasses import dataclass
+from typing import Optional, Tuple
 
 import torch
 from torch import Tensor
 
-from fairseq2.data import StringLike
-from fairseq2.data.text import TextTokenDecoder, TextTokenizer
+from fairseq2.data.text import TextTokenizer
+from fairseq2.generation import (
+    Seq2SeqGenerator,
+    SequenceGeneratorOptions,
+    SequenceGeneratorOutput,
+    SequenceToTextGenerator,
+    SequenceToTextOutput,
+)
 from fairseq2.models.unity.model import UnitYModel
 from fairseq2.models.unity.unit_tokenizer import UnitTokenDecoder, UnitTokenizer
 from fairseq2.nn.utils.module import infer_device
-from fairseq2.sequence_generator import Seq2SeqGenerator, SequenceOptions
 
 
 class UnitYGenerator:
-    """Generates text translations and speech units from a provided UnitY model."""
+    """Generates text translations and speech units from a UnitY model."""
 
     model: UnitYModel
-    text_token_decoder: TextTokenDecoder
-    text_prefix_seq: Tensor
-    text_seq_generator: Seq2SeqGenerator
+    text_generator: SequenceToTextGenerator
     unit_token_decoder: UnitTokenDecoder
-    unit_prefix_seq: Tensor
+    unit_prefix_indices: Tensor
     unit_seq_generator: Seq2SeqGenerator
 
     def __init__(
@@ -34,8 +38,8 @@ class UnitYGenerator:
         text_tokenizer: TextTokenizer,
         unit_tokenizer: UnitTokenizer,
         target_lang: str,
-        text_seq_opts: Optional[SequenceOptions] = None,
-        unit_seq_opts: Optional[SequenceOptions] = None,
+        text_generator_opts: Optional[SequenceGeneratorOptions] = None,
+        unit_generator_opts: Optional[SequenceGeneratorOptions] = None,
     ) -> None:
         """
         :param model:
@@ -46,50 +50,41 @@ class UnitYGenerator:
             The unit tokenizer to use.
         :param target_lang:
             The target language.
-        :param text_seq_opts:
+        :param text_generator_opts:
             The options to pass to the underlying text :class:`Seq2SeqGenerator`.
-        :param unit_seq_opts:
+        :param unit_generator_opts:
             The options to pass to the underlying unit :class:`Seq2SeqGenerator`.
         """
+        if model.t2u_model is None:
+            raise ValueError(
+                "`model` does not have a T2U sub-model. For text generation only, use `SequenceToTextGenerator` instead."
+            )
+
         model.eval()
 
         self.model = model
 
-        self.text_token_decoder = text_tokenizer.create_decoder()
-
-        device = infer_device(model)
-
-        # Set up text sequence generator.
-        text_token_encoder = text_tokenizer.create_encoder(
-            task="translation", lang=target_lang, mode="target", device=device
-        )
-
-        self.text_prefix_seq = text_token_encoder("")
-
-        self.text_seq_generator = Seq2SeqGenerator(
-            model, text_tokenizer.vocabulary_info, text_seq_opts
+        self.text_generator = SequenceToTextGenerator(
+            model, text_tokenizer, target_lang, text_generator_opts
         )
 
         # Set up unit sequence generator.
         self.unit_token_decoder = unit_tokenizer.create_decoder()
 
-        unit_token_encoder = unit_tokenizer.create_encoder(lang=target_lang)
-
-        self.unit_prefix_seq = unit_token_encoder(
-            torch.empty((1, 0), device=device, dtype=torch.int)
+        unit_token_encoder = unit_tokenizer.create_encoder(
+            lang=target_lang, device=infer_device(model.t2u_model)
         )
 
+        self.unit_prefix_indices = unit_token_encoder.prefix_indices
+
         self.unit_seq_generator = Seq2SeqGenerator(
-            model.t2u_model, unit_tokenizer.vocabulary_info, unit_seq_opts
+            model.t2u_model, unit_tokenizer.vocabulary_info, unit_generator_opts
         )
 
     @torch.inference_mode()
     def __call__(
-        self,
-        source_seqs: Tensor,
-        source_seq_lens: Optional[Tensor],
-        text_only: bool = False,
-    ) -> Tuple[List[StringLike], Optional[Tensor]]:
+        self, source_seqs: Tensor, source_seq_lens: Optional[Tensor]
+    ) -> Tuple[SequenceToTextOutput, "SequenceToUnitOutput"]:
         """
         :param source_seqs:
             The source sequences to use for generation. *Shape:* :math:`(N,S,*)`,
@@ -100,40 +95,59 @@ class UnitYGenerator:
             An array where each element represents the length of the sequence at
             the same index in ``source_seqs``. *Shape:* :math:`(N)`, where
             :math:`N` is the batch size.
-        :param text_only:
-            If ``True``, generates text output only, and skips speech unit
-            generation.
 
         :returns:
-            - The generated text sentences.
-            - The generated speech units.
+            - The output of the text generator.
+            - The output of the unit generator.
         """
-        encoder_output, encoder_padding_mask = self.model.encode(
-            source_seqs, source_seq_lens
-        )
+        text_output = self.text_generator(source_seqs, source_seq_lens)
 
-        text_seqs, text_seq_lens = self.text_seq_generator(
-            self.text_prefix_seq, encoder_output, encoder_padding_mask
-        )
-
-        sentences = self.text_token_decoder(text_seqs)
-
-        if text_only:
-            return sentences, None
+        text_seqs, text_seq_lens = text_output.generator_output.collate()
 
         # Use the output of the text generator to compute the decoder output.
         decoder_output, decoder_padding_mask = self.model.decode(
-            text_seqs, text_seq_lens, encoder_output, encoder_padding_mask
+            text_seqs,
+            text_seq_lens,
+            text_output.encoder_output,
+            text_output.encoder_padding_mask,
         )
 
-        encoder_output, encoder_padding_mask = self.model.t2u_model.encode(
+        assert self.model.t2u_model is not None
+
+        t2u_encoder_output, t2u_encoder_padding_mask = self.model.t2u_model.encode(
             decoder_output, decoder_padding_mask
         )
 
-        unit_seqs, _ = self.unit_seq_generator(
-            self.unit_prefix_seq, encoder_output, encoder_padding_mask
+        unit_gen_output = self.unit_seq_generator(
+            self.unit_prefix_indices, t2u_encoder_output, t2u_encoder_padding_mask
         )
+
+        unit_seqs, unit_seq_lens = unit_gen_output.collate()
 
         units = self.unit_token_decoder(unit_seqs)
 
-        return sentences, units
+        unit_output = SequenceToUnitOutput(
+            units, unit_gen_output, t2u_encoder_output, t2u_encoder_padding_mask
+        )
+
+        return text_output, unit_output
+
+
+@dataclass
+class SequenceToUnitOutput:
+    units: Tensor
+    """The generated units."""
+
+    generator_output: SequenceGeneratorOutput
+    """The output of the underlying :class:`Seq2SeqGenerator`."""
+
+    t2u_encoder_output: Tensor
+    """The encoder output of the underlying UnitY T2U model used to generate the
+    units. *Shape:* :math:`(N,S_{enc},M)`, where :math:`N` is the batch size,
+    :math:`S_{enc}` is the encoder output sequence length, and :math:`M` is the
+    dimensionality of the model."""
+
+    t2u_encoder_padding_mask: Optional[Tensor]
+    """The float padding mask of :attr:`encoder_output`. *Shape:*
+    :math:`(N,S_{enc})`, where :math:`N` is the batch size and :math:`S_{enc}`
+    is the encoder output sequence length."""

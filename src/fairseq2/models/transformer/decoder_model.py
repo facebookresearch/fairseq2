@@ -39,9 +39,9 @@ class TransformerDecoderModel(DecoderModel):
         :param decoder:
             The decoder.
         :param final_proj:
-            The projection to apply to outputs to produce logits.
+            The projection to apply to decoder outputs to produce logits.
         :param target_pad_idx:
-            The index of the pad symbol in the target domain (e.g. vocabulary).
+            The index of the pad symbol in the target vocabulary.
         """
         model_dim = decoder.model_dim
 

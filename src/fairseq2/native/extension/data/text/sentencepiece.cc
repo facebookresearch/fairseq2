@@ -104,7 +104,10 @@ def_sentencepiece(py::module_ &text_module)
             py::arg("alpha")           = 0.1,
             py::arg("device")          = std::nullopt,
             py::arg("pin_memory")      = false)
-        .def("__call__", &sp_encoder::operator(), py::call_guard<py::gil_scoped_release>{});
+        .def("__call__", &sp_encoder::operator(), py::call_guard<py::gil_scoped_release>{})
+
+        .def_property_readonly("prefix_indices", &sp_encoder::prefix_indices)
+        .def_property_readonly("suffix_indices", &sp_encoder::suffix_indices);
 
     py::class_<sp_decoder, std::shared_ptr<sp_decoder>>(m, "SentencePieceDecoder")
         .def(

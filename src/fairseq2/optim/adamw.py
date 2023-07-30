@@ -231,7 +231,7 @@ class AdamW(OptimizerBase):
                 device = None
 
             # Step counter.
-            state["step"] = torch.zeros((), device=device, dtype=torch.float)
+            state["step"] = torch.zeros((), device=device, dtype=torch.float32)
 
             # Exponential moving average of gradient values.
             state["exp_avg"] = torch.zeros_like(fp32_param)

@@ -22,7 +22,6 @@ target_sources(extension
         data/string.cc
         data/text/converters.cc
         data/text/init.cc
-        data/text/dict_tokenizer.cc
         data/text/sentencepiece.cc
         data/text/text_reader.cc
         type_casters/data.cc

@@ -38,7 +38,7 @@ class UnitYModel(EncoderDecoderModel):
     text_decoder_frontend: TransformerFrontend
     text_decoder: TransformerDecoder
     final_proj: Projection
-    t2u_model: "UnitYT2UModel"
+    t2u_model: Optional["UnitYT2UModel"]
     pad_idx: Optional[int]
 
     def __init__(
@@ -50,7 +50,7 @@ class UnitYModel(EncoderDecoderModel):
         text_decoder_frontend: TransformerFrontend,
         text_decoder: TransformerDecoder,
         final_proj: Projection,
-        t2u_model: "UnitYT2UModel",
+        t2u_model: Optional["UnitYT2UModel"],
         pad_idx: Optional[int],
         default_input_modality: Literal["speech", "text"] = "speech",
     ) -> None:
@@ -60,18 +60,65 @@ class UnitYModel(EncoderDecoderModel):
 
         self.default_input_modality = default_input_modality
 
+        if speech_encoder_frontend.model_dim != model_dim:
+            raise ValueError(
+                f"`model_dim` of `speech_encoder_frontend` and `model_dim` of `speech_encoder` must be equal, but are {speech_encoder_frontend.model_dim} and {model_dim} instead."
+            )
+
         self.speech_encoder_frontend = speech_encoder_frontend
         self.speech_encoder = speech_encoder
 
-        self.text_encoder_frontend = text_encoder_frontend
-        self.text_encoder = text_encoder
+        if text_encoder is not None:
+            if text_encoder_frontend is None:
+                raise ValueError(
+                    "Both `text_encoder` and `text_encoder_frontend` must be specified, but `text_encoder_frontend` is `None`."
+                )
+
+            if text_encoder.model_dim != model_dim:
+                raise ValueError(
+                    f"`model_dim` of `text_encoder` and `model_dim` of `speech_encoder` must be equal, but are {text_encoder.model_dim} and {model_dim} instead."
+                )
+
+            if text_encoder_frontend.model_dim != model_dim:
+                raise ValueError(
+                    f"`model_dim` of `text_encoder_frontend` and `model_dim` of `text_encoder` must be equal, but are {text_encoder_frontend.model_dim} and {model_dim} instead."
+                )
+
+            self.text_encoder_frontend = text_encoder_frontend
+            self.text_encoder = text_encoder
+        else:
+            if text_encoder_frontend is not None:
+                raise ValueError(
+                    "Both `text_encoder` and `text_encoder_frontend` must be specified, but `text_encoder` is `None`."
+                )
+
+            self.register_module("text_encoder_frontend", None)
+            self.register_module("text_encoder", None)
+
+        if text_decoder.model_dim != model_dim:
+            raise ValueError(
+                f"`model_dim` of `text_decoder` and `model_dim` of `speech_encoder` must be equal, but are {text_decoder.model_dim} and {model_dim} instead."
+            )
+
+        if text_decoder_frontend.model_dim != model_dim:
+            raise ValueError(
+                f"`model_dim` of `text_decoder_frontend` and `model_dim` of `text_decoder` must be equal, but are {text_decoder_frontend.model_dim} and {model_dim} instead."
+            )
 
         self.text_decoder_frontend = text_decoder_frontend
         self.text_decoder = text_decoder
 
         self.final_proj = final_proj
 
-        self.t2u_model = t2u_model
+        if t2u_model is not None:
+            if t2u_model.model_dim != model_dim:
+                raise ValueError(
+                    f"`model_dim` of the model and `model_dim` of `t2u_model` must be equal, but are {model_dim} and {t2u_model.model_dim} instead."
+                )
+
+            self.t2u_model = t2u_model
+        else:
+            self.register_module("t2u_model", None)
 
         self.pad_idx = pad_idx
 
@@ -101,7 +148,7 @@ class UnitYModel(EncoderDecoderModel):
     ) -> Tuple[Tensor, Optional[Tensor]]:
         if self.text_encoder is None or self.text_encoder_frontend is None:
             raise ValueError(
-                "MT task requires a text encoder, but the current UnitY model does not have one."
+                "`encode_text()` requires a text encoder, but the current UnitY model does not have one."
             )
 
         seqs, padding_mask = self.text_encoder_frontend(seqs, seq_lens)
@@ -137,6 +184,7 @@ class UnitYT2UModel(Module, Seq2SeqDecoder):
     """Represents a UnitY T2U model as described in
     :cite:t`https://doi.org/10.48550/arxiv.2212.08055`."""
 
+    model_dim: int
     encoder: Optional[TransformerEncoder]
     decoder_frontend: TransformerFrontend
     decoder: TransformerDecoder
@@ -153,7 +201,22 @@ class UnitYT2UModel(Module, Seq2SeqDecoder):
     ) -> None:
         super().__init__()
 
-        self.encoder = encoder
+        self.model_dim = decoder.model_dim
+
+        if encoder is not None:
+            if encoder.model_dim != self.model_dim:
+                raise ValueError(
+                    f"`model_dim` of `encoder` and `model_dim` of `decoder` must be equal, but are {encoder.model_dim} and {self.model_dim} instead."
+                )
+
+            self.encoder = encoder
+        else:
+            self.register_module("encoder", None)
+
+        if decoder_frontend.model_dim != self.model_dim:
+            raise ValueError(
+                f"`model_dim` of `decoder_frontend` and `model_dim` of `decoder` must be equal, but are {decoder_frontend.model_dim} and {self.model_dim} instead."
+            )
 
         self.decoder_frontend = decoder_frontend
         self.decoder = decoder

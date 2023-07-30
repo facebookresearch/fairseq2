@@ -24,7 +24,7 @@ class TestUnitTokenizer:
     def test_lang_to_index_works(self) -> None:
         tokenizer = UnitTokenizer(num_units=100, langs=["eng", "deu", "fra"])
 
-        assert tokenizer.lang_to_index("deu") == 109
+        assert tokenizer.lang_to_index("deu") == 105
 
 
 class TestUnitEncoder:
@@ -40,7 +40,7 @@ class TestUnitEncoder:
     def test_call_works(self) -> None:
         tokenizer = UnitTokenizer(num_units=100, langs=["eng", "deu", "fra"])
 
-        prefix = torch.tensor([2, 109], device=device, dtype=torch.int)
+        prefix = torch.tensor([2, 105], device=device, dtype=torch.int)
 
         encoder = tokenizer.create_encoder(lang="deu")
 
@@ -52,7 +52,9 @@ class TestUnitEncoder:
         # Batched units.
         units = torch.ones((6, 4), device=device, dtype=torch.int)
 
-        assert_equal(encoder(units), torch.cat([prefix.expand(6, -1), units], dim=1))
+        assert_equal(
+            encoder(units), torch.cat([prefix.expand(6, -1), units + 4], dim=1)
+        )
 
     def test_call_works_when_units_have_unks(self) -> None:
         tokenizer = UnitTokenizer(num_units=100, langs=["eng", "deu", "fra"])
@@ -82,12 +84,14 @@ class TestUnitDecoder:
 
         units1 = torch.ones((6, 4), device=device, dtype=torch.int)
 
-        units1[2, 2] = tokenizer.vocabulary_info.eos_idx
+        encoded_units = encoder(units1)
 
-        units2 = decoder(encoder(units1))
+        encoded_units[2, 2] = tokenizer.vocabulary_info.eos_idx
+
+        units2 = decoder(encoded_units)
 
         units1[2, 2] = tokenizer.vocabulary_info.pad_idx
 
-        prefix = torch.tensor([109], device=device, dtype=torch.int)
+        prefix = torch.tensor([105], device=device, dtype=torch.int)
 
         assert_equal(torch.cat([prefix.expand(6, -1), units1], dim=1), units2)

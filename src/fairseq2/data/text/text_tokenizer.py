@@ -74,6 +74,18 @@ class TextTokenEncoder(ABC):
             The sentence to encode.
         """
 
+    @property
+    @abstractmethod
+    def prefix_indices(self) -> Optional[Tensor]:
+        """Get the indices of the prefix tokens. *Shape:* :math:`(S)`, where
+        :math:`S` is the number of indices."""
+
+    @property
+    @abstractmethod
+    def suffix_indices(self) -> Optional[Tensor]:
+        """Get the indices of the suffix tokens. *Shape:* :math:`(S)`, where
+        :math:`S` is the number of indices."""
+
 
 class TextTokenDecoder(ABC):
     """Decodes sentences from token indices."""

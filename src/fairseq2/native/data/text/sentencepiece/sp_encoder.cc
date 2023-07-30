@@ -134,6 +134,7 @@ sp_encoder_op::encode_string()
 sp_encoder::sp_encoder(std::shared_ptr<const sp_model> model, sp_encoder_options opts)
   : model_{std::move(model)}, opts_{std::move(opts)}
 {
+    // Initialize prefix/suffix indices.
     prefix_token_indices_.reserve(opts_.prefix_tokens().size());
     suffix_token_indices_.reserve(opts_.suffix_tokens().size());
 
@@ -142,6 +143,31 @@ sp_encoder::sp_encoder(std::shared_ptr<const sp_model> model, sp_encoder_options
 
     for (const std::string &token : opts_.suffix_tokens())
         suffix_token_indices_.push_back(model_->token_to_index(token));
+
+    // Create prefix/suffix index tensors.
+    auto make_index_tensor = [this](const std::vector<std::int64_t> &indices)
+    {
+        at::Tensor tensor = at::empty(
+            conditional_cast<std::int64_t>(indices.size()), at::dtype(at::kLong).device(at::kCPU));
+
+        auto tensor_data = tensor.accessor<std::int64_t, 1>();
+
+        std::int64_t i = 0;
+        for (std::int64_t idx : indices)
+            tensor_data[i++] = idx;
+
+        at::Device device = opts_.maybe_device().value_or(at::kCPU);
+        if (device != at::kCPU)
+            tensor = tensor.to(device);
+
+        return tensor;
+    };
+
+    if (!prefix_token_indices_.empty())
+        prefix_index_tensor_ = make_index_tensor(prefix_token_indices_);
+
+    if (!suffix_token_indices_.empty())
+        suffix_index_tensor_ = make_index_tensor(suffix_token_indices_);
 }
 
 data

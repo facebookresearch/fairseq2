@@ -57,7 +57,7 @@ class ModuleList(ModuleListBase):
     def drop_iter(self) -> Iterator[Module]:
         """Return an iterator that drops a random set of submodules."""
         if self.drop_p > 0.0 and self.training:
-            prob_dist = torch.rand(len(self), device="cpu", dtype=torch.float)
+            prob_dist = torch.rand(len(self), device="cpu", dtype=torch.float32)
         else:
             prob_dist = None
 

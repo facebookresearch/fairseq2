@@ -6,6 +6,7 @@
 
 from typing import TYPE_CHECKING, List, Optional, Sequence, final
 
+from overrides import final as finaloverride
 from torch import Tensor
 
 from fairseq2 import _DOC_MODE
@@ -67,7 +68,18 @@ if TYPE_CHECKING or _DOC_MODE:
         ) -> None:
             ...
 
+        @finaloverride
         def __call__(self, sentence: StringLike) -> Tensor:
+            ...
+
+        @property
+        @finaloverride
+        def prefix_indices(self) -> Optional[Tensor]:
+            ...
+
+        @property
+        @finaloverride
+        def suffix_indices(self) -> Optional[Tensor]:
             ...
 
     @final
@@ -75,6 +87,7 @@ if TYPE_CHECKING or _DOC_MODE:
         def __init__(self, model: SentencePieceModel, reverse: bool = False) -> None:
             ...
 
+        @finaloverride
         def __call__(self, token_indices: Tensor) -> List[StringLike]:
             ...
 

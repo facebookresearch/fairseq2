@@ -9,26 +9,22 @@ from typing import Final
 
 import torch
 
+from fairseq2.generation import SequenceToTextGenerator
 from fairseq2.models.s2t_transformer import (
     S2TTransformerTokenizer,
     load_s2t_transformer_model,
     load_s2t_transformer_tokenizer,
 )
 from fairseq2.models.transformer import TransformerModel
-from fairseq2.text_generator import SequenceToTextGenerator
 from tests.common import device
 
 TEST_FBANK_PATH: Final = Path(__file__).parent.joinpath("fbank.pt")
 
-TRANSFORMER_DE: Final = "<lang:de> Es war Zeit des Abendessens, und wir suchten nach einem Ort, wo man essen kann."
-
-CONFORMER_DE: Final = (
-    "Es war das Essenszeit-Abendessen und wir begannen, nach dem Abendessen zu suchen."
-)
-
-CONFORMER_REL_POS_DE: Final = (
-    "Es war Essenszeit, und wir beginnen damit, nach Ort zu suchen."
-)
+# fmt: off
+TRANSFORMER_DE:       Final = "<lang:de> Es war Zeit des Abendessens und wir suchten nach einem Ort, wo man essen kann."
+CONFORMER_DE:         Final = "Es war das Abendessen, und wir begannen, nach dem Essen zu suchen."
+CONFORMER_REL_POS_DE: Final = "Es war Essenszeit, und wir beginnen nach Ort zu suchen."
+# fmt: on
 
 
 def test_load_s2t_transformer_mustc_st_jt_m() -> None:
@@ -72,6 +68,8 @@ def assert_translation(
 ) -> None:
     fbanks = torch.load(TEST_FBANK_PATH).unsqueeze(0).to(device)
 
-    s2t_translator = SequenceToTextGenerator(model, tokenizer, target_lang="de")
+    generator = SequenceToTextGenerator(model, tokenizer, target_lang="de")
 
-    assert s2t_translator(fbanks, None) == [expected]
+    output = generator(fbanks, None)
+
+    assert output.sentences == [expected]

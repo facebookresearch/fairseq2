@@ -42,8 +42,7 @@ class UnitYLoader(ModelLoader[UnitYModel, UnitYConfig]):
         del state_dict["target_letter_decoder.version"]
         del state_dict["target_letter_decoder.embed_positions._float_tensor"]
 
-        # Text encoder is optional, so make sure that we have it.
-        if "text_encoder.version" in state_dict:
+        if config.use_text_encoder:
             del state_dict["text_encoder.version"]
             del state_dict["text_encoder.embed_positions._float_tensor"]
 
@@ -63,10 +62,8 @@ class UnitYLoader(ModelLoader[UnitYModel, UnitYConfig]):
         # use a single embedding table in fairseq2.
         state_dict["text_decoder_frontend.embed.weight"] = embeds
 
-        try:
+        if config.use_text_encoder:
             state_dict["text_encoder_frontend.embed.weight"] = embeds
-        except KeyError:
-            pass
 
         # The embedding positions of the control symbols in fairseq's dict do
         # not match the SentencePiece model of the tokenizer.
@@ -74,11 +71,12 @@ class UnitYLoader(ModelLoader[UnitYModel, UnitYConfig]):
             # (BOS, PAD, EOS, UNK) -> (PAD, UNK, BOS, EOS)
             embeds[[0, 1, 2, 3]] = embeds[[1, 3, 0, 2]]
 
-        # fairseq checkpoints have duplicate embedding weights. Ensure that we
-        # use a single embedding table in fairseq2.
-        embeds = state_dict["t2u_model.final_proj.weight"]
+        if config.t2u_config is not None:
+            # fairseq checkpoints have duplicate embedding weights. Ensure that we
+            # use a single embedding table in fairseq2.
+            embeds = state_dict["t2u_model.final_proj.weight"]
 
-        state_dict["t2u_model.decoder_frontend.embed.weight"] = embeds
+            state_dict["t2u_model.decoder_frontend.embed.weight"] = embeds
 
         return checkpoint
 

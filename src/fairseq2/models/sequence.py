@@ -64,10 +64,10 @@ class SequenceModelOutput:
     logits: Tensor
     """The logits for next-step prediction. *Shape:* :math:`(N,S,T)`, where
     :math:`N` is the batch size, :math:`S` is the sequence length, and :math:`T`
-    is the size of the target domain (e.g. vocabulary)."""
+    is the size of the target vocabulary."""
 
     pad_idx: Optional[int] = None
-    """The index of the pad symbol in the target domain."""
+    """The index of the pad symbol in the target vocabulary."""
 
     def compute_loss(
         self, targets: Tensor, ignore_prefix_size: int = 0, label_smoothing: float = 0.0

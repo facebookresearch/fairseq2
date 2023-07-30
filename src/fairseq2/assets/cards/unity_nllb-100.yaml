@@ -5,8 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 model_type: unity
-#model_config:
-#    target_vocabulary_size: 256102
 tokenizer: "file://large_experiments/seamless/ust/balioglu/tokenizers/spm_256k_nllb100.model"
 default_lang: eng
 langs:

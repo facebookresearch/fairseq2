@@ -172,7 +172,9 @@ class SinusoidalPositionEncoder(PositionEncoder):
         else:
             self._sin_offset = 1 + _legacy_pad_idx
 
-        weight = torch.empty((max_seq_len, encoding_dim), device=device, dtype=dtype)
+        weight = torch.empty(
+            (max_seq_len, encoding_dim), device=device, dtype=torch.float32
+        )
 
         self.register_buffer("weight", weight, persistent=False)
 
@@ -232,7 +234,7 @@ class SinusoidalPositionEncoder(PositionEncoder):
         else:
             start_step = 0
 
-        return seqs + self.weight[start_step : start_step + seq_len]
+        return seqs + self.weight[start_step : start_step + seq_len].type_as(seqs)
 
 
 @final
@@ -320,8 +322,12 @@ class RotaryEncoder(PositionEncoder):
                 f"`encoding_dim` must be even, but is {encoding_dim} instead."
             )
 
-        cos = torch.empty((max_seq_len, encoding_dim), device=device, dtype=dtype)
-        sin = torch.empty((max_seq_len, encoding_dim), device=device, dtype=dtype)
+        cos = torch.empty(
+            (max_seq_len, encoding_dim), device=device, dtype=torch.float32
+        )
+        sin = torch.empty(
+            (max_seq_len, encoding_dim), device=device, dtype=torch.float32
+        )
 
         self.register_buffer("cos_weight", cos, persistent=False)
         self.register_buffer("sin_weight", sin, persistent=False)
@@ -379,7 +385,7 @@ class RotaryEncoder(PositionEncoder):
         cos = self.cos_weight[start_step : start_step + seq_len] * seqs
         sin = self.sin_weight[start_step : start_step + seq_len] * seqs_swapped
 
-        return cos + sin
+        return (cos + sin).type_as(seqs)
 
     @staticmethod
     def _swap_pairs(seqs: Tensor) -> Tensor:

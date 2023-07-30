@@ -68,7 +68,7 @@ class TransformerDecoderLayer(Module, ABC):
             :math:`S_{enc}` is the encoder output sequence length, and
             :math:`M_{enc}` is the dimensionality of the encoder.
         :param encoder_padding_mask:
-            The float padding mask of ``encoder_out``. *Shape:*
+            The float padding mask of ``encoder_output``. *Shape:*
             :math:`(N,S_{enc})`, where :math:`N` is the batch size and
             :math:`S_{enc}` is the encoder output sequence length.
         :param state_bag:

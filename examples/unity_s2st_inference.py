@@ -6,7 +6,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Generator, Optional, Sequence, Tuple
+from typing import Generator, Sequence, Tuple
 
 import torch
 from torch import Tensor
@@ -14,6 +14,7 @@ from torch import Tensor
 from fairseq2.data import Collater, DataPipeline, FileMapper, StringLike
 from fairseq2.data.audio import AudioDecoder, WaveformToFbankConverter
 from fairseq2.data.text import StrSplitter, read_text
+from fairseq2.generation import SequenceGeneratorOptions
 from fairseq2.models.unity import (
     UnitYGenerator,
     load_unity_model,
@@ -36,9 +37,6 @@ class InferenceContext:
 
     target_lang: str
     """The target translation language."""
-
-    text_only: bool
-    """If ``True``, generates only text output."""
 
     batch_size: int
     """The batch size for model input."""
@@ -99,9 +97,7 @@ def build_data_pipeline(ctx: InferenceContext) -> DataPipeline:
 
 def run_inference(
     ctx: InferenceContext,
-) -> Generator[
-    Tuple[Sequence[StringLike], Sequence[StringLike], Optional[Tensor]], None, None
-]:
+) -> Generator[Tuple[Sequence[StringLike], Sequence[StringLike], Tensor], None, None]:
     """Iterate through the specified TSV file and return translation + reference text + units"""
     # Build a simple pipeline that just reads a single TSV file.
     pipeline = build_data_pipeline(ctx)
@@ -114,29 +110,32 @@ def run_inference(
     text_tokenizer = load_unity_text_tokenizer(ctx.model_name)
     unit_tokenizer = load_unity_unit_tokenizer(ctx.model_name)
 
-    generator = UnitYGenerator(model, text_tokenizer, unit_tokenizer, ctx.target_lang)
+    generator = UnitYGenerator(
+        model,
+        text_tokenizer,
+        unit_tokenizer,
+        ctx.target_lang,
+        unit_generator_opts=SequenceGeneratorOptions(max_seq_len=300),
+    )
 
     # Iterate through each example in the TSV file until CTRL-C.
     for example in pipeline:
         speech = example["audio_file"]["data"]["fbank"]
 
-        translation, units = generator(
-            speech["seqs"], speech["seq_lens"], text_only=ctx.text_only
-        )
+        text_output, unit_output = generator(speech["seqs"], speech["seq_lens"])
 
         reference_text = example["raw_target_text"]
 
-        yield translation, reference_text, units
+        yield text_output.sentences, reference_text, unit_output.units
 
 
 if __name__ == "__main__":
     # fmt: off
     ctx = InferenceContext(
-        model_name="maha_multitask_unity",
+        model_name="multitask_unity",
         data_file=Path("/large_experiments/seamless/ust/balioglu/sample-datasets/test_cvst2_spa-eng.tsv"),
         audio_root_dir=Path("/large_experiments/seamless/ust/data/audio_zips"),
         target_lang="eng",
-        text_only=False,
         batch_size=4,
         device=torch.device("cuda:0"),
     )
@@ -148,7 +147,6 @@ if __name__ == "__main__":
             print(t)
             print("REFERENCE")
             print(r)
-            if u is not None:
-                print("UNITS")
-                print(u.shape)
+            print("UNITS")
+            print(u.shape)
             print()

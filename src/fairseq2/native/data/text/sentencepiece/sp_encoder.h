@@ -179,6 +179,18 @@ public:
     data
     operator()(data &&d) const;
 
+    const std::optional<at::Tensor> &
+    prefix_indices() const
+    {
+        return prefix_index_tensor_;
+    }
+
+    const std::optional<at::Tensor> &
+    suffix_indices() const
+    {
+        return suffix_index_tensor_;
+    }
+
 private:
     at::Tensor
     encode(immutable_string &&sentence) const;
@@ -188,6 +200,8 @@ private:
     sp_encoder_options opts_;
     std::vector<std::int64_t> prefix_token_indices_{};
     std::vector<std::int64_t> suffix_token_indices_{};
+    std::optional<at::Tensor> prefix_index_tensor_;
+    std::optional<at::Tensor> suffix_index_tensor_;
 };
 
 }  // namespace fairseq2

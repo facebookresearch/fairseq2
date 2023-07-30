@@ -221,7 +221,7 @@ class RelativePositionalEncoding(Module):
         self.max_seq_len = max_seq_len
 
         weight = torch.empty(
-            ((max_seq_len * 2) - 1, encoding_dim), device=device, dtype=dtype
+            ((max_seq_len * 2) - 1, encoding_dim), device=device, dtype=torch.float32
         )
 
         self.register_buffer("weight", weight, persistent=False)
@@ -289,7 +289,11 @@ class RelativePositionalEncoding(Module):
                 f"The input sequence length must be less than or equal to the maximum sequence length ({self.max_seq_len}), but is {seq_len} instead."
             )
 
-        return self.weight[self.max_seq_len - seq_len : self.max_seq_len + seq_len - 1]
+        weight = self.weight[
+            self.max_seq_len - seq_len : self.max_seq_len + seq_len - 1
+        ]
+
+        return weight.type_as(seqs)
 
     def extra_repr(self) -> str:
         """:meta private:"""

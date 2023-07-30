@@ -58,7 +58,7 @@ class UnitYConfig:
     nllb_config: NllbConfig
     """The configuration of the underlying NLLB text encoder-decoder."""
 
-    t2u_config: "UnitYT2UConfig"
+    t2u_config: Optional["UnitYT2UConfig"]
     """The configuration of the UnitY T2U sub-model."""
 
     use_text_encoder: bool
@@ -96,6 +96,8 @@ def _base() -> UnitYConfig:
 
     nllb_config = nllb_archs.get_config("dense_1b")
 
+    nllb_config.vocabulary_size = 256102  # NLLB-100
+
     t2u_config = unity_t2u_archs.get_config("base")
 
     return UnitYConfig(
@@ -103,12 +105,12 @@ def _base() -> UnitYConfig:
         w2v2_encoder_config=w2vbert_config.w2v2_config.encoder_config,
         nllb_config=nllb_config,
         t2u_config=t2u_config,
-        use_text_encoder=False,
-        use_conformer_adaptor=True,
+        use_text_encoder=True,
+        use_conformer_adaptor=False,
         num_adaptor_layers=1,
         adaptor_kernel_size=8,
         adaptor_stride=8,
-        adaptor_layer_norm=False,
+        adaptor_layer_norm=True,
         adaptor_dropout_p=0.1,
     )
 
@@ -123,7 +125,7 @@ class UnitYBuilder:
     config: UnitYConfig
     w2v2_encoder_builder: Wav2Vec2EncoderBuilder
     nllb_builder: NllbBuilder
-    t2u_builder: "UnitYT2UBuilder"
+    t2u_builder: Optional["UnitYT2UBuilder"]
     device: Optional[Device]
     dtype: Optional[DataType]
 
@@ -132,7 +134,7 @@ class UnitYBuilder:
         config: UnitYConfig,
         w2v2_encoder_builder: Wav2Vec2EncoderBuilder,
         nllb_builder: NllbBuilder,
-        t2u_builder: "UnitYT2UBuilder",
+        t2u_builder: Optional["UnitYT2UBuilder"],
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -150,19 +152,19 @@ class UnitYBuilder:
         :param dtype:
             The data type of module parameters and buffers.
         """
-        if config.model_dim != w2v2_encoder_builder.config.model_dim:
+        if w2v2_encoder_builder.config.model_dim != config.model_dim:
             raise ValueError(
                 f"`model_dim` and `model_dim` of `w2v2_encoder_builder.config` must be equal, but are {config.model_dim} and {w2v2_encoder_builder.config.model_dim} instead."
             )
 
-        if config.model_dim != nllb_builder.config.model_dim:
+        if nllb_builder.config.model_dim != config.model_dim:
             raise ValueError(
                 f"`model_dim` and `model_dim` of `nllb_builder.config` must be equal, but are {config.model_dim} and {nllb_builder.config.model_dim} instead."
             )
 
-        if config.model_dim != t2u_builder.config.model_dim:
+        if t2u_builder is not None and t2u_builder.config.model_dim != config.model_dim:
             raise ValueError(
-                f"`model_dim` and `model_dim` of `t2u_config.config` must be equal, but are {config.model_dim} and {t2u_builder.config.model_dim} instead."
+                f"`model_dim` and `model_dim` of `t2u_builder.config` must be equal, but are {config.model_dim} and {t2u_builder.config.model_dim} instead."
             )
 
         self.config = config
@@ -192,7 +194,10 @@ class UnitYBuilder:
 
         final_proj = TiedProjection(text_embed.weight)
 
-        t2u_model = self.t2u_builder.build_model()
+        if self.t2u_builder is None:
+            t2u_model = None
+        else:
+            t2u_model = self.t2u_builder.build_model()
 
         return UnitYModel(
             speech_encoder_frontend,
@@ -327,7 +332,10 @@ def create_unity_model(
 
     nllb_builder = NllbBuilder(config.nllb_config, device, dtype)
 
-    t2u_builder = UnitYT2UBuilder(config.t2u_config, device, dtype)
+    if config.t2u_config is None:
+        t2u_builder = None
+    else:
+        t2u_builder = UnitYT2UBuilder(config.t2u_config, device, dtype)
 
     unity_builder = UnitYBuilder(
         config, w2v2_encoder_builder, nllb_builder, t2u_builder, device, dtype

@@ -21,9 +21,9 @@ def nll_loss(
     In contrast to :func:`torch.nn.functional.nll_loss`, this function expects
     ``lprobs`` to be of shape :math:`(N,S,T)`, where :math:`N` is the batch
     size, :math:`S` is the sequence length, and :math:`T` is the size of the
-    target domain (e.g. vocabulary). The loss is computed over the last
-    dimension which avoids strided access and improves runtime performance, in
-    particular for large target domains.
+    target vocabulary. The loss is computed over the last dimension which avoids
+    strided access and improves runtime performance, in particular for large
+    vocabularies.
 
     :param lprobs:
         The log-probabilities. *Shape:* See the function description.
@@ -31,7 +31,7 @@ def nll_loss(
         The target indices. *Shape:* :math:`(N,S)`, where :math:`N` is the batch
         size and :math:`S` is the sequence length.
     :param pad_idx:
-        The index of the pad symbol in the target domain.
+        The index of the pad symbol in the target vocabulary.
     :param label_smoothing:
         The amount of label smoothing when computing the loss.
     :param reduction:
