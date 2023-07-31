@@ -23,6 +23,7 @@ from fairseq2.nn.transformer.layer_norm import (
 )
 from fairseq2.nn.transformer.multihead_attention import MultiheadAttention
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
+from fairseq2.nn.utils.module import check_model_dim
 from fairseq2.typing import DataType, Device
 
 
@@ -166,11 +167,6 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
             self.register_module("encoder_decoder_attn", None)
             self.register_module("encoder_decoder_attn_layer_norm", None)
         else:
-            if encoder_decoder_attn.model_dim != model_dim:
-                raise ValueError(
-                    f"`model_dim` of `encoder_decoder_attn` and `model_dim` of `self_attn` must be equal, but are {encoder_decoder_attn.model_dim} and {model_dim} instead."
-                )
-
             encoder_decoder_attn_layer_norm = layer_norm_fn(model_dim, device, dtype)
 
             if norm_order != TransformerNormOrder.POST:
@@ -185,11 +181,6 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
 
             if norm_order == TransformerNormOrder.POST:
                 self.encoder_decoder_attn_layer_norm = encoder_decoder_attn_layer_norm
-
-        if ffn.model_dim != model_dim:
-            raise ValueError(
-                f"`model_dim` of `ffn` and `model_dim` of `self_attn` must be equal, but are {ffn.model_dim} and {model_dim} instead."
-            )
 
         ffn_layer_norm = layer_norm_fn(model_dim, device, dtype)
 
@@ -214,6 +205,8 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
             self.ffn_layer_norm = ffn_layer_norm
 
         self.norm_order = norm_order
+
+        check_model_dim(self)
 
         self.reset_parameters()
 

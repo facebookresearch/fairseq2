@@ -25,6 +25,7 @@ from fairseq2.nn.transformer import (
     create_default_layer_norm,
 )
 from fairseq2.nn.utils.mask import to_padding_mask
+from fairseq2.nn.utils.module import check_model_dim
 from fairseq2.typing import DataType, Device
 
 
@@ -88,15 +89,11 @@ class UnitYEncoderAdaptor(TransformerEncoder):
         if not layer_list:
             raise ValueError("`adaptor_layers` must be non-empty.")
 
-        for idx, layer in enumerate(adaptor_layers):
-            if layer.model_dim != model_dim:
-                raise ValueError(
-                    f"`model_dim` of `inner` and `model_dim` of the adaptor layer {idx} must be equal, but are {model_dim} and {layer.model_dim} instead."
-                )
-
         self.adaptor_layers = layer_list
 
         self.layer_norm = layer_norm_fn(model_dim, device, dtype)
+
+        check_model_dim(self)
 
     @finaloverride
     def forward(
@@ -226,17 +223,14 @@ class UnitYTransformerAdaptorLayer(TransformerEncoderLayer):
 
         self.ffn_layer_norm = layer_norm_fn(model_dim, device, dtype)
 
-        if ffn.model_dim != model_dim:
-            raise ValueError(
-                f"`model_dim` of `ffn` and `model_dim` of `self_attn` must be equal, but are {ffn.model_dim} and {model_dim} instead."
-            )
-
         self.ffn = ffn
 
         if dropout_p > 0.0:
             self.ffn_dropout = Dropout(dropout_p)
         else:
             self.register_module("ffn_dropout", None)
+
+        check_model_dim(self)
 
     @finaloverride
     def forward(

@@ -245,7 +245,7 @@ class StandardMultiheadAttention(MultiheadAttention):
 
             if q_proj.input_dim != model_dim:
                 raise ValueError(
-                    f"`input_dim` of `q_proj` and `model_dim` must be equal, but are {q_proj.input_dim} and {model_dim} instead."
+                    f"`input_dim` of `q_proj` must be equal to `model_dim` ({model_dim}), but is {q_proj.input_dim} instead."
                 )
 
             if q_proj.output_dim != k_proj.output_dim:
@@ -315,7 +315,7 @@ class StandardMultiheadAttention(MultiheadAttention):
 
             if output_proj.output_dim != model_dim:
                 raise ValueError(
-                    f"`output_dim` of `output_proj` and `model_dim` must be equal, but are {output_proj.output_dim} and {model_dim} instead."
+                    f"`output_dim` of `output_proj` must be equal to `model_dim` ({model_dim}), but is {output_proj.output_dim} instead."
                 )
 
             self.output_proj = output_proj

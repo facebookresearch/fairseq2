@@ -18,6 +18,7 @@ from fairseq2.models.transformer.frontend import TransformerFrontend
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.projection import Projection
 from fairseq2.nn.transformer import TransformerDecoder, TransformerEncoder
+from fairseq2.nn.utils.module import check_model_dim
 
 
 @final
@@ -60,11 +61,6 @@ class UnitYModel(EncoderDecoderModel):
 
         self.default_input_modality = default_input_modality
 
-        if speech_encoder_frontend.model_dim != model_dim:
-            raise ValueError(
-                f"`model_dim` of `speech_encoder_frontend` and `model_dim` of `speech_encoder` must be equal, but are {speech_encoder_frontend.model_dim} and {model_dim} instead."
-            )
-
         self.speech_encoder_frontend = speech_encoder_frontend
         self.speech_encoder = speech_encoder
 
@@ -72,16 +68,6 @@ class UnitYModel(EncoderDecoderModel):
             if text_encoder_frontend is None:
                 raise ValueError(
                     "Both `text_encoder` and `text_encoder_frontend` must be specified, but `text_encoder_frontend` is `None`."
-                )
-
-            if text_encoder.model_dim != model_dim:
-                raise ValueError(
-                    f"`model_dim` of `text_encoder` and `model_dim` of `speech_encoder` must be equal, but are {text_encoder.model_dim} and {model_dim} instead."
-                )
-
-            if text_encoder_frontend.model_dim != model_dim:
-                raise ValueError(
-                    f"`model_dim` of `text_encoder_frontend` and `model_dim` of `text_encoder` must be equal, but are {text_encoder_frontend.model_dim} and {model_dim} instead."
                 )
 
             self.text_encoder_frontend = text_encoder_frontend
@@ -95,32 +81,19 @@ class UnitYModel(EncoderDecoderModel):
             self.register_module("text_encoder_frontend", None)
             self.register_module("text_encoder", None)
 
-        if text_decoder.model_dim != model_dim:
-            raise ValueError(
-                f"`model_dim` of `text_decoder` and `model_dim` of `speech_encoder` must be equal, but are {text_decoder.model_dim} and {model_dim} instead."
-            )
-
-        if text_decoder_frontend.model_dim != model_dim:
-            raise ValueError(
-                f"`model_dim` of `text_decoder_frontend` and `model_dim` of `text_decoder` must be equal, but are {text_decoder_frontend.model_dim} and {model_dim} instead."
-            )
-
         self.text_decoder_frontend = text_decoder_frontend
         self.text_decoder = text_decoder
 
         self.final_proj = final_proj
 
         if t2u_model is not None:
-            if t2u_model.model_dim != model_dim:
-                raise ValueError(
-                    f"`model_dim` of the model and `model_dim` of `t2u_model` must be equal, but are {model_dim} and {t2u_model.model_dim} instead."
-                )
-
             self.t2u_model = t2u_model
         else:
             self.register_module("t2u_model", None)
 
         self.pad_idx = pad_idx
+
+        check_model_dim(self)
 
     @finaloverride
     def encode(

@@ -21,6 +21,7 @@ from fairseq2.models.wav2vec2.vector_quantizer import (
 )
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer import TransformerEncoder
+from fairseq2.nn.utils.module import check_model_dim
 from fairseq2.typing import DataType, Device
 
 
@@ -78,11 +79,6 @@ class Wav2Vec2Model(Module):
 
         model_dim = encoder.model_dim
 
-        if encoder_frontend.model_dim != model_dim:
-            raise ValueError(
-                f"`model_dim` of `encoder_frontend` and `model_dim` of `encoder` must be equal, but are {encoder_frontend.model_dim} and {model_dim} instead."
-            )
-
         self.model_dim = model_dim
 
         self.encoder_frontend = encoder_frontend
@@ -112,6 +108,8 @@ class Wav2Vec2Model(Module):
         self.num_distractors = num_distractors
         self.logit_temp = logit_temp
         self.diversity_loss_weight = diversity_loss_weight
+
+        check_model_dim(self)
 
     def forward(self, batch: SequenceBatch) -> "Wav2Vec2Output":
         """

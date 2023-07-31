@@ -19,6 +19,7 @@ from fairseq2.nn.transformer import (
     TransformerEncoderLayer,
     create_default_layer_norm,
 )
+from fairseq2.nn.utils.module import check_model_dim
 from fairseq2.typing import DataType, Device
 
 
@@ -75,11 +76,6 @@ class ConformerBlock(TransformerEncoderLayer):
 
         self.ffn1_layer_norm = layer_norm_fn(model_dim, device, dtype)
 
-        if ffn1.model_dim != model_dim:
-            raise ValueError(
-                f"`model_dim` of `ffn1` and `model_dim` of `self_attn` must be equal, but are {ffn1.model_dim} and {model_dim} instead."
-            )
-
         self.ffn1 = ffn1
 
         if dropout_p > 0.0:
@@ -96,11 +92,6 @@ class ConformerBlock(TransformerEncoderLayer):
         else:
             self.register_module("self_attn_dropout", None)
 
-        if conv.model_dim != model_dim:
-            raise ValueError(
-                f"`model_dim` of `conv` and `model_dim` of `self_attn` must be equal, but are {conv.model_dim} and {model_dim} instead."
-            )
-
         self.conv_layer_norm = layer_norm_fn(model_dim, device, dtype)
 
         self.conv = conv
@@ -109,11 +100,6 @@ class ConformerBlock(TransformerEncoderLayer):
             self.conv_dropout = Dropout(dropout_p)
         else:
             self.register_module("conv_dropout", None)
-
-        if ffn2.model_dim != model_dim:
-            raise ValueError(
-                f"`model_dim` of `ffn2` and `model_dim` of `self_attn` must be equal, but are {ffn2.model_dim} and {model_dim} instead."
-            )
 
         self.ffn2_layer_norm = layer_norm_fn(model_dim, device, dtype)
 
@@ -125,6 +111,8 @@ class ConformerBlock(TransformerEncoderLayer):
             self.register_module("ffn2_dropout", None)
 
         self.layer_norm = layer_norm_fn(model_dim, device, dtype)
+
+        check_model_dim(self)
 
     @finaloverride
     def forward(

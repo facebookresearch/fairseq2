@@ -61,7 +61,7 @@ class S2TTransformerFrontend(TransformerFrontend):
         if feature_extractor is not None:
             if feature_extractor.feature_dim != model_dim:
                 raise ValueError(
-                    f"`feature_dim` of `feature_extractor` and `model_dim` must be equal, but are {feature_extractor.feature_dim} and {model_dim} instead."
+                    f"`feature_dim` of `feature_extractor` must be equal to `model_dim` ({model_dim}), but is {feature_extractor.feature_dim} instead."
                 )
 
             self.feature_extractor = feature_extractor
@@ -73,7 +73,7 @@ class S2TTransformerFrontend(TransformerFrontend):
         if pos_encoder is not None:
             if pos_encoder.encoding_dim != model_dim:
                 raise ValueError(
-                    f"`encoding_dim` of `pos_encoder` and `model_dim` must be equal, but are {pos_encoder.encoding_dim} and {model_dim} instead."
+                    f"`encoding_dim` of `pos_encoder` must be equal to `model_dim` ({model_dim}), but is {pos_encoder.encoding_dim} instead."
                 )
 
             self.pos_encoder = pos_encoder

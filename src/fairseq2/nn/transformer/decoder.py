@@ -24,6 +24,7 @@ from fairseq2.nn.transformer.layer_norm import (
     create_default_layer_norm,
 )
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
+from fairseq2.nn.utils.module import check_model_dim
 from fairseq2.typing import DataType, Device
 
 
@@ -157,12 +158,6 @@ class StandardTransformerDecoder(TransformerDecoder):
         else:
             self.self_attn_mask_gen = self_attn_mask_gen
 
-        for idx, layer in enumerate(layers):
-            if layer.model_dim != model_dim:
-                raise ValueError(
-                    f"`model_dim` of the decoder layer 0 and `model_dim` of the decoder layer {idx} must be equal, but are {model_dim} and {layer.model_dim} instead."
-                )
-
         self.layers = layer_list
 
         if norm_order != TransformerNormOrder.POST:
@@ -171,6 +166,8 @@ class StandardTransformerDecoder(TransformerDecoder):
             self.register_module("layer_norm", None)
 
         self.norm_order = norm_order
+
+        check_model_dim(self)
 
     @finaloverride
     def forward(

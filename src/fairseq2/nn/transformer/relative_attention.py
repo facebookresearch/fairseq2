@@ -62,7 +62,7 @@ class RelativePositionSDPA(SDPA):
 
         if pos_encoding.encoding_dim != model_dim:
             raise ValueError(
-                f"`encoding_dim` of `pos_encoding` and `model_dim` must be equal, but are {pos_encoding.encoding_dim} and {model_dim} instead."
+                f"`encoding_dim` of `pos_encoding` must be equal `model_dim` ({model_dim}), but is {pos_encoding.encoding_dim} instead."
             )
 
         self.pos_encoding = pos_encoding

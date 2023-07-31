@@ -15,6 +15,7 @@ from fairseq2.models.transformer.frontend import TransformerFrontend
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.projection import Projection
 from fairseq2.nn.transformer import TransformerDecoder
+from fairseq2.nn.utils.module import check_model_dim
 
 
 @final
@@ -47,17 +48,14 @@ class TransformerDecoderModel(DecoderModel):
 
         super().__init__(model_dim)
 
-        if decoder_frontend.model_dim != model_dim:
-            raise ValueError(
-                f"`model_dim` of `decoder_frontend` and `model_dim` of `decoder` must be equal, but are {decoder_frontend.model_dim} and {model_dim} instead."
-            )
-
         self.decoder_frontend = decoder_frontend
         self.decoder = decoder
 
         self.final_proj = final_proj
 
         self.target_pad_idx = target_pad_idx
+
+        check_model_dim(self)
 
     @finaloverride
     def decode(
