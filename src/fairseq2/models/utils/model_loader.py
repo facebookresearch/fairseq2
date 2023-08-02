@@ -26,8 +26,8 @@ from fairseq2.assets import (
     AssetError,
     AssetStore,
 )
-from fairseq2.models.utils.arch import ArchitectureRegistry
-from fairseq2.models.utils.checkpoint import load_checkpoint
+from fairseq2.models.utils.arch_registry import ArchitectureRegistry
+from fairseq2.models.utils.checkpoint_loader import load_checkpoint
 from fairseq2.nn.utils.module import reset_non_persistent_buffers
 from fairseq2.typing import DataType, Device
 from fairseq2.utils.dataclass import update_dataclass

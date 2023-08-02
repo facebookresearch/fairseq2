@@ -30,19 +30,19 @@ class UnitTokenizer:
 
         self.langs = {lang: idx for idx, lang in enumerate(langs)}
 
-        # For legacy reasons, we have to repeat the language symbols twice along
-        # with a placeholder `<mask>` token.
+        # For legacy reasons, we have to repeat the language symbols twice,
+        # along with a placeholder `<mask>` token.
         vocab_size = num_units + (2 * (len(langs) + 1)) + 4
 
         # We use fairseq's control symbol order.
-        self.vocabulary_info = VocabularyInfo(
+        self.vocab_info = VocabularyInfo(
             size=vocab_size, bos_idx=0, pad_idx=1, eos_idx=2, unk_idx=3
         )
 
     def lang_to_index(self, lang: str) -> int:
         """Return the symbol index of the specified language."""
         # +4 for PAD/EOS/BOS/UNK, and +1 for the `<mask>` token.
-        return self.num_units + self.langs[lang] + 4
+        return self.num_units + len(self.langs) + self.langs[lang] + 5
 
     def create_encoder(
         self, lang: str, device: Optional[Device] = None
@@ -86,11 +86,11 @@ class UnitTokenEncoder:
 
         self.tokenizer = tokenizer
 
-        assert tokenizer.vocabulary_info.eos_idx is not None
-        assert tokenizer.vocabulary_info.unk_idx is not None
+        assert tokenizer.vocab_info.eos_idx is not None
+        assert tokenizer.vocab_info.unk_idx is not None
 
-        self.eos_idx = tokenizer.vocabulary_info.eos_idx
-        self.unk_idx = tokenizer.vocabulary_info.unk_idx
+        self.eos_idx = tokenizer.vocab_info.eos_idx
+        self.unk_idx = tokenizer.vocab_info.unk_idx
 
         self.lang_idx = tokenizer.lang_to_index(lang)
 
@@ -99,7 +99,7 @@ class UnitTokenEncoder:
 
         # We always start sequences with EOS, followed by the language token.
         self.prefix_indices = torch.tensor(
-            [self.eos_idx, self.lang_idx], device=device, dtype=torch.int32
+            [self.eos_idx, self.lang_idx], device=device, dtype=torch.int64
         )
 
     def __call__(self, units: Tensor) -> Tensor:
@@ -143,11 +143,11 @@ class UnitTokenDecoder:
         :param tokenizer:
             The unit tokenizer to use.
         """
-        assert tokenizer.vocabulary_info.eos_idx is not None
-        assert tokenizer.vocabulary_info.pad_idx is not None
+        assert tokenizer.vocab_info.eos_idx is not None
+        assert tokenizer.vocab_info.pad_idx is not None
 
-        self.eos_idx = tokenizer.vocabulary_info.eos_idx
-        self.pad_idx = tokenizer.vocabulary_info.pad_idx
+        self.eos_idx = tokenizer.vocab_info.eos_idx
+        self.pad_idx = tokenizer.vocab_info.pad_idx
 
     def __call__(self, token_indices: Tensor) -> Tensor:
         """Decode ``token_indices`` to speech units.

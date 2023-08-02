@@ -31,7 +31,7 @@ class TestWaveformToFbankConverter:
 
         fbank = output["fbank"]
 
-        assert fbank.dtype == torch.float
+        assert fbank.dtype == torch.float32
 
         assert fbank.shape == (178, 80)
 
@@ -48,7 +48,7 @@ class TestWaveformToFbankConverter:
 
         fbank = output["fbank"]
 
-        assert fbank.dtype == torch.float
+        assert fbank.dtype == torch.float32
 
         assert fbank.shape == (178, 80)
 
@@ -63,7 +63,7 @@ class TestWaveformToFbankConverter:
 
         fbank = output["fbank"]
 
-        assert fbank.dtype == torch.float
+        assert fbank.dtype == torch.float32
 
         assert fbank.shape == (178, 80)
 

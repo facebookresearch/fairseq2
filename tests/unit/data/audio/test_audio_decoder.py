@@ -45,7 +45,7 @@ class TestAudioDecoder:
 
         assert waveform.shape == (28800, 1)
 
-        assert waveform.dtype == torch.float
+        assert waveform.dtype == torch.float32
 
         assert waveform.device == device
 

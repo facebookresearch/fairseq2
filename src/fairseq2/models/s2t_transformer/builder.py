@@ -9,6 +9,7 @@ from typing import Optional
 
 from torch.nn import SiLU
 
+from fairseq2.data import VocabularyInfo
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
 from fairseq2.models.s2t_transformer.feature_extractor import Conv1dFbankSubsampler
 from fairseq2.models.s2t_transformer.frontend import S2TTransformerFrontend
@@ -18,7 +19,7 @@ from fairseq2.models.transformer import (
     TransformerFrontend,
     TransformerModel,
 )
-from fairseq2.models.utils.arch import ArchitectureRegistry
+from fairseq2.models.utils.arch_registry import ArchitectureRegistry
 from fairseq2.nn.embedding import Embedding
 from fairseq2.nn.position_encoder import PositionEncoder, SinusoidalPositionEncoder
 from fairseq2.nn.transformer import (
@@ -88,6 +89,10 @@ class S2TTransformerConfig:
 
     depthwise_conv_kernel_size: int
     """The kernel size of depthwise convolutions in Conformer blocks."""
+
+    def update_target_vocabulary(self, info: VocabularyInfo) -> None:
+        """Update target vocabulary configuration from ``info``."""
+        self.target_vocabulary_size, self.target_pad_idx = info.size, info.pad_idx
 
 
 s2t_transformer_archs = ArchitectureRegistry[S2TTransformerConfig]("s2t_transformer")

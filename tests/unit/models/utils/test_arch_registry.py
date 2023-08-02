@@ -6,7 +6,7 @@
 
 import pytest
 
-from fairseq2.models.utils.arch import ArchitectureRegistry
+from fairseq2.models.utils.arch_registry import ArchitectureRegistry
 
 
 class TestArchitectureRegistry:

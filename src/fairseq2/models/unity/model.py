@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from dataclasses import dataclass
-from typing import Literal, Optional, Tuple, final
+from typing import Optional, Tuple, final
 
 from overrides import final as finaloverride
 from torch import Tensor
@@ -53,7 +53,7 @@ class UnitYModel(EncoderDecoderModel):
         final_proj: Projection,
         t2u_model: Optional["UnitYT2UModel"],
         pad_idx: Optional[int],
-        default_input_modality: Literal["speech", "text"] = "speech",
+        default_input_modality: str = "speech",
     ) -> None:
         model_dim = speech_encoder.model_dim
 
@@ -119,10 +119,12 @@ class UnitYModel(EncoderDecoderModel):
     def encode_text(
         self, seqs: Tensor, seq_lens: Optional[Tensor]
     ) -> Tuple[Tensor, Optional[Tensor]]:
-        if self.text_encoder is None or self.text_encoder_frontend is None:
+        if self.text_encoder is None:
             raise ValueError(
                 "`encode_text()` requires a text encoder, but the current UnitY model does not have one."
             )
+
+        assert self.text_encoder_frontend is not None
 
         seqs, padding_mask = self.text_encoder_frontend(seqs, seq_lens)
 

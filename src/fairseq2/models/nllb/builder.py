@@ -7,12 +7,13 @@
 from dataclasses import dataclass
 from typing import Optional
 
+from fairseq2.data import VocabularyInfo
 from fairseq2.models.transformer import (
     TransformerEmbeddingFrontend,
     TransformerFrontend,
     TransformerModel,
 )
-from fairseq2.models.utils.arch import ArchitectureRegistry
+from fairseq2.models.utils.arch_registry import ArchitectureRegistry
 from fairseq2.nn.embedding import Embedding
 from fairseq2.nn.position_encoder import SinusoidalPositionEncoder
 from fairseq2.nn.projection import TiedProjection
@@ -68,6 +69,10 @@ class NllbConfig:
 
     dropout_p: float
     """The dropout probability in Transformer layers."""
+
+    def update_vocabulary(self, info: VocabularyInfo) -> None:
+        """Update vocabulary configuration from ``info``."""
+        self.vocabulary_size, self.pad_idx = info.size, info.pad_idx
 
 
 nllb_archs = ArchitectureRegistry[NllbConfig]("nllb")

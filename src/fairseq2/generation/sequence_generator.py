@@ -6,7 +6,7 @@
 
 import math
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple, cast
+from typing import List, Optional, Tuple, Union, cast
 
 import torch
 from torch import Tensor
@@ -27,20 +27,16 @@ class SequenceGeneratorOptions:
     """The beam size."""
 
     min_seq_len: int = 1
-    """The minimum length of generated sequences, not including the length of
-    prefix and suffix sequences."""
+    """The minimum length of generated sequences, including prefix sequence."""
 
-    max_seq_len: int = 256
-    """The maximum length of generated sequences, not including the length of
-    prefix and suffix sequences. See also ``seq_len_a`` and ``seq_len_b``."""
+    soft_max_seq_len: Optional[Tuple[int, int]] = (1, 200)
+    """The terms ``a`` and ``b`` of ``ax + b`` where ``x`` is the source
+    sequence length. The generated sequences, including prefix sequence, will
+    have the maximum length of ``min(hard_max_seq_len, ax + b). See also
+    ``hard_max_seq_len``."""
 
-    seq_len_a: float = 1
-    """The `a` term of `ax + b` where `x` is the source sequence length. The
-    generated sequences will have the maximum length ``min(max_seq_len, ax + b)``."""
-
-    seq_len_b: float = 100
-    """The `b` term of `ax + b` where `x` is the source sequence length. The
-    generated sequences will have the maximum length ``min(max_seq_len, ax + b)``."""
+    hard_max_seq_len: int = 1024
+    """The hard limit on maximum length of generated sequences."""
 
     len_penalty: float = 1.0
     """The length penalty, where values less than 1.0 favor shorter, values
@@ -54,7 +50,7 @@ class SequenceGeneratorOptions:
     """If ``True``, normalizes scores by the length of generated sequences."""
 
     search: Optional[BeamSearch] = None
-    """The beam search implementation to use."""
+    """The beam search algorithm to use."""
 
 
 class Seq2SeqGenerator:
@@ -66,201 +62,169 @@ class Seq2SeqGenerator:
     eos_idx: int
     pad_idx: Optional[int]
     unk_idx: Optional[int]
-    vocabulary_info: VocabularyInfo
+    prefix_seq: Union[int, Tensor]
+    prefix_seq_len: int
     search: BeamSearch
     collater: Collater
 
     def __init__(
         self,
         decoder: Seq2SeqDecoder,
-        vocabulary_info: VocabularyInfo,
+        vocab_info: VocabularyInfo,
+        prefix_seq: Optional[Union[int, Tensor]],
         opts: Optional[SequenceGeneratorOptions] = None,
     ) -> None:
         """
         :param decoder:
             The decoder to use.
-        :param vocabulary_info:
-            The vocabulary information for the generated sequences.
+        :param vocab_info:
+            The vocabulary information to use.
+        :param prefix_seq:
+            The prefix of generated sequences, typically contains one or more
+            control symbols indicating the beginning of a sequence. *Shape:*
+            :math:`()` (i.e. scalar) or :math:`(S)`, where :math:`S` is the
+            prefix sequence length.
+
+            If ``None``, the EOS control symbol will be used as prefix.
         :param opts:
-            The sequence generation options.
+            The generation options.
         """
         self.decoder = decoder
 
         self.opts = opts or SequenceGeneratorOptions()
 
-        if vocabulary_info.pad_idx is None:
-            self.beam_size = min(self.opts.beam_size, vocabulary_info.size)
+        # Set beam size.
+        if vocab_info.pad_idx is None:
+            self.beam_size = min(self.opts.beam_size, vocab_info.size)
         else:
             # -1 since we never select PAD.
-            self.beam_size = min(self.opts.beam_size, vocabulary_info.size - 1)
+            self.beam_size = min(self.opts.beam_size, vocab_info.size - 1)
 
-        if vocabulary_info.eos_idx is None:
+        if vocab_info.eos_idx is None:
             raise ValueError(
-                "`vocabulary_info` must have `eos_idx` set for sequence generation."
+                "`vocab_info` must have `eos_idx` set for sequence generation."
             )
 
-        self.eos_idx = vocabulary_info.eos_idx
-        self.unk_idx = vocabulary_info.unk_idx
-        self.pad_idx = vocabulary_info.pad_idx
+        # Set vocab info.
+        self.eos_idx = vocab_info.eos_idx
+        self.unk_idx = vocab_info.unk_idx
+        self.pad_idx = vocab_info.pad_idx
 
-        self.vocabulary_size = vocabulary_info.size
+        # Set prefix sequence.
+        if prefix_seq is None:
+            # If `None`, we follow fairseq's convention and use EOS as the
+            # prefix.
+            self.prefix_seq, self.prefix_seq_len = self.eos_idx, 1
+        else:
+            self.prefix_seq = prefix_seq
 
+            if isinstance(prefix_seq, Tensor):
+                num_dim = prefix_seq.dim()
+
+                if num_dim >= 2:
+                    raise ValueError(
+                        f"`prefix_seq` must be a scalar or a 1-dimensional tensor, but is {num_dim}-dimensional instead."
+                    )
+
+                self.prefix_seq_len = 1 if num_dim == 0 else prefix_seq.size(0)
+            else:
+                self.prefix_seq_len = 1
+
+        # Set beam search.
         self.search = self.opts.search or StandardBeamSearch()
 
-        if vocabulary_info.pad_idx is None:
+        if vocab_info.pad_idx is None:
             self.collater = Collater()
         else:
             self.collater = Collater(self.pad_idx, pad_to_multiple=2)
 
+    @torch.inference_mode()
     def __call__(
         self,
-        prefix_tokens: Optional[Tensor],
         encoder_output: Tensor,
         encoder_padding_mask: Optional[Tensor],
         source_seq_len: Optional[int] = None,
     ) -> "SequenceGeneratorOutput":
         opts = self.opts
 
-        if source_seq_len is None:
-            max_seq_len = opts.max_seq_len
-        else:
-            max_seq_len = min(
-                opts.max_seq_len, int(opts.seq_len_a * source_seq_len + opts.seq_len_b)
-            )
-
-        if opts.min_seq_len > max_seq_len:
-            raise ValueError(
-                f"The maximum sequence length must be greater than or equal to `min_seq_len` ({opts.min_seq_len}), but is {max_seq_len} instead."
-            )
-
-        device = encoder_output.device
+        num_searches = encoder_output.size(0)
 
         beam_size = opts.beam_size
 
-        batch_size = encoder_output.size(0)
-        bsz = batch_size
+        max_seq_len = self._determine_max_seq_len(source_seq_len)
 
-        # Fan out `encoder_output` to `batch_size` x `beam_size`.
-        # (N)
-        fan_out_indices = torch.arange(batch_size, device=device)
+        device = encoder_output.device
 
-        # (N) -> (N x B)
-        fan_out_indices = fan_out_indices.repeat_interleave(beam_size)
-        # (N) -> (N x B)
-        encoder_output = encoder_output.index_select(dim=0, index=fan_out_indices)
-        # (N) -> (N x B)
-        if encoder_padding_mask is not None:
-            encoder_padding_mask = encoder_padding_mask.index_select(
-                dim=0, index=fan_out_indices
-            )
+        encoder_output, encoder_padding_mask = self._fan_out_encoder_output(
+            encoder_output, encoder_padding_mask
+        )
 
-        # initialize buffers
-        scores = (
-            torch.zeros(bsz * beam_size, max_seq_len + 1).to(encoder_output).float()
-        )  # +1 for eos; pad is never chosen for scoring
-        tokens = (
-            torch.zeros(bsz * beam_size, max_seq_len + 1).to(encoder_output).long()
-        )  # +2 for eos and pad
-        if self.pad_idx is not None:
-            tokens.fill_(self.pad_idx)
+        # Each element contains the "id" of the search corresponding to a single
+        # source sequence and its finalized hypotheses.
+        active_searches: List[Tuple[int, List[Hypothesis]]] = [
+            (search_idx, []) for search_idx in range(num_searches)
+        ]
 
-        # A list that indicates candidates that should be ignored.
-        # For example, suppose we're sampling and have already finalized 2/5
-        # samples. Then cands_to_ignore would mark 2 positions as being ignored,
-        # so that we only finalize the remaining 3 samples.
-        cands_to_ignore = (
-            torch.zeros(bsz, beam_size).to(encoder_output).eq(-1)
-        )  # forward and backward-compatible False mask
+        # Once a source sequence has `beam_size` finalized hypotheses, its
+        # search is moved from `active_searches` to `finished_searches`.
+        finished_searches: List[List[Hypothesis]] = [[] for i in range(num_searches)]
 
-        # list of completed sentences
-        finalized: List[List[Hypothesis]] = [[] for i in range(bsz)]
-        # contains lists of dictionaries of infomation about the hypothesis being finalized at each step
+        num_remaining_searches = num_searches
 
-        # a boolean array indicating if the sentence at the index is finished or not
-        finished = [False for i in range(bsz)]
-        num_remaining_sent = bsz  # number of sentences remaining
+        # Initialize buffers.
+        # (N x B, S)
+        seqs = torch.zeros(
+            (num_searches * beam_size, max_seq_len), device=device, dtype=torch.int64
+        )
 
-        if prefix_tokens is None:
-            prefix_seq_len = 1
+        # (N x B, S)
+        scores = torch.zeros(
+            (num_searches * beam_size, max_seq_len), device=device, dtype=torch.float32
+        )
 
-            tokens[:, 0] = self.eos_idx  # if bos_token is None else bos_token
-        else:
-            # We have to copy `prefix_seq` to `tokens` and ensure that `decoder`
-            # is run once before the actual search to bootstrap its state.
-            if prefix_tokens.dim() >= 2:
-                raise ValueError(
-                    f"`prefix_tokens` must be a scalar or a 1-dimensional tensor, but is {prefix_tokens.dim()}-dimensional instead."
-                )
+        # A list that indicates beams that should be ignored in the next step.
+        ignored_beam_mask = torch.full(
+            (num_searches, beam_size), False, device=device, dtype=torch.bool
+        )
 
-            if prefix_tokens.dim() == 0:
-                prefix_seq_len = 1
-            else:
-                prefix_seq_len = prefix_tokens.size(0)
+        # An offset array for converting between batch-wide and search-local
+        # beam indices.
+        # (B)
+        search_offsets = torch.arange(num_searches, device=device) * beam_size
 
-            if prefix_seq_len > max_seq_len:
-                raise ValueError(
-                    f"The length of `prefix_seq` must be less than or equal to the maximum sequence length ({max_seq_len}), but is {prefix_seq_len} instead."
-                )
+        # (B) - > (B, 1)
+        search_offsets.unsqueeze_(-1)
 
-            tokens[:, :prefix_seq_len] = prefix_tokens
+        cand_offsets = torch.arange(2 * beam_size, device=device)
 
-        # The state bag of `decoder`.
         state_bag = IncrementalStateBag()
 
-        decoder_output, decoder_padding_mask = self.decoder.decode(
-            tokens[:, :prefix_seq_len],
-            None,
-            encoder_output,
-            encoder_padding_mask,
-            state_bag,
+        # At this point, the state is fully initialized, kick off the search.
+        self._bootstrap_seqs_and_scores(
+            seqs, scores, encoder_output, encoder_padding_mask, state_bag
         )
 
-        state_bag.increment_step(prefix_seq_len)
+        start_step = self.prefix_seq_len - 1
 
-        start_step = prefix_seq_len - 1
+        active_beam_indices: Optional[Tensor] = None
+        search_indices: Optional[Tensor] = None
 
-        # number of candidate hypos per step
-        cand_size = 2 * beam_size  # 2 x beam size in case half are EOS
-
-        # offset arrays for converting between different indexing schemes
-        bbsz_offsets = (
-            (torch.arange(0, bsz) * beam_size)
-            .unsqueeze(1)
-            .type_as(tokens)
-            .to(encoder_output.device)
-        )
-        cand_offsets = (
-            torch.arange(0, cand_size).type_as(tokens).to(encoder_output.device)
-        )
-
-        reorder_state: Optional[Tensor] = None
-        batch_idxs: Optional[Tensor] = None
-
-        for step in range(start_step, max_seq_len + 1):  # one extra step for EOS marker
-            # reorder decoder internal states based on the prev choice of beams
-            if reorder_state is not None:
-                if batch_idxs is not None:
+        for step_nr in range(start_step, max_seq_len - 1):
+            if active_beam_indices is not None:
+                if search_indices is not None:
                     # update beam indices to take into account removed sentences
-                    corr = batch_idxs - torch.arange(batch_idxs.numel()).type_as(
-                        batch_idxs
-                    )
-                    reorder_state.view(-1, beam_size).add_(
+                    corr = search_indices - torch.arange(
+                        search_indices.numel()
+                    ).type_as(search_indices)
+                    active_beam_indices.view(-1, beam_size).add_(
                         corr.unsqueeze(-1) * beam_size
                     )
-                # Update beam indices in the decoder's state bag.
-                state_bag.reorder(reorder_state)
 
-                # And, update the encoder output too.
-                encoder_output = encoder_output.index_select(dim=0, index=reorder_state)
+                state_bag.reorder(active_beam_indices)
 
-                if encoder_padding_mask is not None:
-                    encoder_padding_mask = encoder_padding_mask.index_select(
-                        dim=0, index=reorder_state
-                    )
-            # Get log-probs for next sequence step.
             decoder_output, decoder_padding_mask = self.decoder.decode(
-                tokens[:, step : step + 1],
-                None,  # We never select PAD.
+                seqs[:, step_nr : step_nr + 1],
+                None,  # We never generate PAD.
                 encoder_output,
                 encoder_padding_mask,
                 state_bag,
@@ -270,294 +234,326 @@ class Seq2SeqGenerator:
 
             model_output = self.decoder.project(decoder_output, decoder_padding_mask)
 
-            # For numerical stability run in single precision.
-            # (N x B, 1, V)
+            # lprobs:          (1, V)
+            # model_output: (N, 1, V)
             lprobs = log_softmax(model_output.logits, dim=-1, dtype=torch.float32)
 
-            lprobs[lprobs != lprobs] = torch.tensor(-math.inf).to(lprobs)
+            # Do not allow EOS before reaching the minimum sequence length.
+            if step_nr < self.opts.min_seq_len:
+                lprobs[:, :, self.eos_idx] = -torch.inf
 
+            # fmt: off
+            # If we have reached the maximum length, force the last step to be
+            # EOS.
+            if step_nr == max_seq_len - 2:
+                lprobs[:, :, : self.eos_idx]       = -torch.inf
+                lprobs[:, :,   self.eos_idx + 1 :] = -torch.inf
+            # fmt: on
+
+            # Never allow PAD.
             if self.pad_idx is not None:
-                lprobs[:, :, self.pad_idx] = -math.inf  # never select pad
+                lprobs[:, :, self.pad_idx] = -torch.inf
 
+            # Apply UNK penalty.
             if self.unk_idx is not None:
-                lprobs[:, :, self.unk_idx] -= self.opts.unk_penalty  # apply unk penalty
+                lprobs[:, :, self.unk_idx] -= self.opts.unk_penalty
 
-            # handle max length constraint
-            if step >= max_seq_len:
-                lprobs[:, :, : self.eos_idx] = -math.inf
-                lprobs[:, :, self.eos_idx + 1 :] = -math.inf
-
-            # handle prefix tokens (possibly with different lengths)
-            if step < self.opts.min_seq_len:
-                # minimum length constraint (does not apply if using prefix_tokens)
-                lprobs[:, :, self.eos_idx] = -math.inf
-
-            scores = scores.type_as(lprobs)
-            eos_bbsz_idx = torch.empty(0).to(
-                tokens
-            )  # indices of hypothesis ending with eos (finished sentences)
-            eos_scores = torch.empty(0).to(
-                scores
-            )  # scores of hypothesis ending with eos (finished sentences)
-
-            cand_scores, cand_indices, cand_beams = self.search.step(
-                step,
-                step == start_step,
-                lprobs.view(bsz, -1, self.vocabulary_size),
-                scores.view(bsz, beam_size, -1)[:, :, :step],
+            # Call the beam search algorithm.
+            # (N, 2 x B)
+            cand_scores, cand_indices, cand_beam_indices = self.search.step(
+                step_nr,
+                step_nr == start_step,
+                lprobs.view(num_searches, beam_size, -1),
+                scores.view(num_searches, beam_size, -1)[:, :, : step_nr + 1],
             )
 
-            # cand_bbsz_idx contains beam indices for the top candidate
-            # hypotheses, with a range of values: [0, bsz*beam_size),
-            # and dimensions: [bsz, cand_size]
-            cand_bbsz_idx = cand_beams.add(bbsz_offsets)
+            # Convert search-local beam indices to batch-wide beam indices.
+            # (N, 2 x B) + (N) -> (N, 2 x B)
+            global_cand_beam_indices = cand_beam_indices + search_offsets
 
-            # finalize hypotheses that end in eos
-            # Shape of eos_mask: (batch size, beam size)
-            eos_mask = cand_indices.eq(self.eos_idx) & cand_scores.ne(-math.inf)
-            eos_mask[:, :beam_size][cands_to_ignore] = torch.tensor(0).to(eos_mask)
+            # Finalize hypotheses that reached the minimum length and that end
+            # with an EOS.
+            # (N, 2 x B)
+            eos_mask = (cand_indices == self.eos_idx) & (cand_scores != -math.inf)
 
-            # only consider eos when it's among the top beam_size indices
-            # Now we know what beam item(s) to finish
-            # Shape: 1d list of absolute-numbered
-            eos_bbsz_idx = torch.masked_select(
-                cand_bbsz_idx[:, :beam_size], mask=eos_mask[:, :beam_size]
+            # Do not attempt to finalize hypotheses that are already finalized.
+            eos_mask[:, :beam_size][ignored_beam_mask] = False
+
+            # Only consider EOS when it's among the top `beam_size` indices. Now
+            # we know what beam(s) to finalize.
+            # (N, B)
+            eos_beam_indices = torch.masked_select(
+                global_cand_beam_indices[:, :beam_size], mask=eos_mask[:, :beam_size]
             )
 
-            finalized_sents: List[int] = []
-            if eos_bbsz_idx.numel() > 0:
+            if eos_beam_indices.numel() > 0:
+                # Select the scores of the finalized hypotheses.
+                # (N, B)
                 eos_scores = torch.masked_select(
                     cand_scores[:, :beam_size], mask=eos_mask[:, :beam_size]
                 )
 
-                finalized_sents = self.finalize_hypos(
-                    step,
-                    eos_bbsz_idx,
+                newly_finished_searches = self._finalize_hypothesis(
+                    step_nr,
+                    eos_beam_indices,
                     eos_scores,
-                    tokens,
+                    seqs,
                     scores,
-                    finalized,
-                    finished,
-                    beam_size,
-                    max_seq_len,
+                    active_searches,
+                    finished_searches,
                 )
-                num_remaining_sent -= len(finalized_sents)
 
-            assert num_remaining_sent >= 0
-            if num_remaining_sent == 0:
-                break
+                num_remaining_searches -= len(newly_finished_searches)
 
-            # Remove finalized sentences (ones for which {beam_size}
-            # finished hypotheses have been generated) from the batch.
-            if len(finalized_sents) > 0:
-                new_bsz = bsz - len(finalized_sents)
-
-                # construct batch_idxs which holds indices of batches to keep for the next pass
-                batch_mask = torch.ones(
-                    bsz, dtype=torch.bool, device=cand_indices.device
-                )
-                batch_mask[finalized_sents] = False
-                # TODO replace `nonzero(as_tuple=False)` after TorchScript supports it
-                batch_idxs = torch.arange(
-                    bsz, device=cand_indices.device
-                ).masked_select(batch_mask)
-
-                eos_mask = eos_mask[batch_idxs]
-                cand_beams = cand_beams[batch_idxs]
-                bbsz_offsets.resize_(new_bsz, 1)
-                cand_bbsz_idx = cand_beams.add(bbsz_offsets)
-                cand_scores = cand_scores[batch_idxs]
-                cand_indices = cand_indices[batch_idxs]
-
-                cands_to_ignore = cands_to_ignore[batch_idxs]
-
-                scores = scores.view(bsz, -1)[batch_idxs].view(new_bsz * beam_size, -1)
-                tokens = tokens.view(bsz, -1)[batch_idxs].view(new_bsz * beam_size, -1)
-                bsz = new_bsz
+                if num_remaining_searches == 0:
+                    break
             else:
-                batch_idxs = None
+                newly_finished_searches = None
 
-            # Set active_mask so that values > cand_size indicate eos hypos
-            # and values < cand_size indicate candidate active hypos.
-            # After, the min values per row are the top candidate active hypos
+            # Remove finished searches (ones for which `beam_size` finalized
+            # hypotheses have been generated) from the batch.
+            if newly_finished_searches:
+                new_batch_size = num_searches - len(newly_finished_searches)
 
-            # Rewrite the operator since the element wise or is not supported in torchscript.
+                batch_mask = torch.full((num_searches,), True, device=device)
+                batch_mask[newly_finished_searches] = False
 
-            eos_mask[:, :beam_size] = ~((~cands_to_ignore) & (~eos_mask[:, :beam_size]))
-            active_mask = torch.add(
-                eos_mask.type_as(cand_offsets) * cand_size,
-                cand_offsets[: eos_mask.size(1)],
-            )
+                search_indices = torch.arange(num_searches, device=device)
 
-            # get the top beam_size active hypotheses, which are just
-            # the hypos with the smallest values in active_mask.
-            # {active_hypos} indicates which {beam_size} hypotheses
-            # from the list of {2 * beam_size} candidates were
-            # selected. Shapes: (batch size, beam size)
-            new_cands_to_ignore, active_hypos = torch.topk(
-                active_mask, k=beam_size, dim=1, largest=False
-            )
+                search_indices = search_indices.masked_select(batch_mask)
 
-            # update cands_to_ignore to ignore any finalized hypos.
-            cands_to_ignore = new_cands_to_ignore.ge(cand_size)[:, :beam_size]
-            # Make sure there is at least one active item for each sentence in the batch.
-            assert (~cands_to_ignore).any(dim=1).all()
-            # update cands_to_ignore to ignore any finalized hypos
+                eos_mask = eos_mask[search_indices]
+                cand_beam_indices = cand_beam_indices[search_indices]
+                search_offsets.resize_(new_batch_size, 1)
 
-            # {active_bbsz_idx} denotes which beam number is continued for each new hypothesis (a beam
-            # can be selected more than once).
-            active_bbsz_idx = torch.gather(cand_bbsz_idx, dim=1, index=active_hypos)
-            active_scores = torch.gather(cand_scores, dim=1, index=active_hypos)
+                global_cand_beam_indices = cand_beam_indices + search_offsets
 
-            active_bbsz_idx = active_bbsz_idx.view(-1)
-            active_scores = active_scores.view(-1)
+                cand_scores = cand_scores[search_indices]
 
-            # copy tokens and scores for active hypotheses
+                cand_indices = cand_indices[search_indices]
 
-            # Set the tokens for each beam (can select the same row more than once)
-            # Till start step all token rows are identical.
-            if step > start_step:
-                tokens[:, : step + 1] = torch.index_select(
-                    tokens[:, : step + 1], dim=0, index=active_bbsz_idx
+                ignored_beam_mask = ignored_beam_mask[search_indices]
+
+                scores = scores.view(num_searches, -1)[search_indices].view(
+                    new_batch_size * beam_size, -1
+                )
+                seqs = seqs.view(num_searches, -1)[search_indices].view(
+                    new_batch_size * beam_size, -1
                 )
 
-            tokens.view(bsz, beam_size, -1)[:, :, step + 1] = torch.gather(
-                cand_indices, dim=1, index=active_hypos
+                encoder_output = encoder_output.unflatten(0, (num_searches, -1))[
+                    search_indices
+                ].flatten(0, 1)
+                if encoder_padding_mask is not None:
+                    encoder_padding_mask = encoder_padding_mask.unflatten(
+                        0, (num_searches, -1)
+                    )[search_indices].flatten(0, 1)
+
+                num_searches = new_batch_size
+            else:
+                search_indices = None
+
+            #            eos_mask[:, :beam_size][ignored_beam_mask] = True
+            eos_mask[:, :beam_size] = ~(
+                (~ignored_beam_mask) & (~eos_mask[:, :beam_size])
             )
 
-            # Till start step all score rows are identical.
-            if step > start_step:
-                scores[:, : step + 1] = torch.index_select(
-                    scores[:, : step + 1], dim=0, index=active_bbsz_idx
+            beam_weights = cand_offsets + (eos_mask * (2 * beam_size))
+
+            active_beam_weights, active_beams = torch.topk(
+                beam_weights, k=beam_size, dim=1, largest=False
+            )
+
+            ignored_beam_mask = active_beam_weights >= 2 * beam_size
+            assert (~ignored_beam_mask).any(dim=1).all()
+
+            active_beam_indices = torch.gather(
+                global_cand_beam_indices, dim=1, index=active_beams
+            )
+
+            active_beam_indices = active_beam_indices.view(-1)
+
+            if step_nr > start_step:
+                seqs[:, : step_nr + 1] = torch.index_select(
+                    seqs[:, : step_nr + 1], dim=0, index=active_beam_indices
                 )
 
-            scores.view(bsz, beam_size, -1)[:, :, step + 1] = torch.gather(
-                cand_scores, dim=1, index=active_hypos
+            seqs.view(num_searches, beam_size, -1)[:, :, step_nr + 1] = torch.gather(
+                cand_indices, dim=1, index=active_beams
             )
 
-            # reorder incremental state in decoder
-            reorder_state = active_bbsz_idx
+            if step_nr > start_step:
+                scores[:, : step_nr + 1] = torch.index_select(
+                    scores[:, : step_nr + 1], dim=0, index=active_beam_indices
+                )
 
-        # sort by score descending
-        for sent in range(len(finalized)):
-            scores = torch.tensor(
-                [float(elem.score.item()) for elem in finalized[sent]]
+            scores.view(num_searches, beam_size, -1)[:, :, step_nr + 1] = torch.gather(
+                cand_scores, dim=1, index=active_beams
             )
-            _, sorted_scores_indices = torch.sort(scores, descending=True)
-            finalized[sent] = [finalized[sent][ssi] for ssi in sorted_scores_indices]
-            finalized[sent] = torch.jit.annotate(
-                List[Dict[str, Tensor]], finalized[sent]
-            )
+
+        for batch in finished_searches:
+            batch.sort(key=lambda b: b.score, reverse=True)  # type: ignore[arg-type, return-value]
+
         return SequenceGeneratorOutput(
-            batches=finalized, device=device, collater=self.collater
+            batches=finished_searches, device=device, collater=self.collater
         )
 
-    def finalize_hypos(
+    def _determine_max_seq_len(self, source_seq_len: Optional[int]) -> int:
+        opts = self.opts
+
+        if source_seq_len is None or opts.soft_max_seq_len is None:
+            max_seq_len = opts.hard_max_seq_len
+        else:
+            at, bt = opts.soft_max_seq_len
+
+            max_seq_len = min(opts.hard_max_seq_len, int(at * source_seq_len + bt))
+
+        if opts.min_seq_len > max_seq_len:
+            raise ValueError(
+                f"The effective maximum sequence length must be greater than or equal to `min_seq_len` ({opts.min_seq_len}), but is {max_seq_len} instead. Adjust your soft and hard maximum sequence length limits."
+            )
+
+        if self.prefix_seq_len >= max_seq_len:
+            raise ValueError(
+                f"The effective maximum sequence length must be greater than `prefix_seq_len` ({self.prefix_seq_len}), but is {max_seq_len} instead."
+            )
+
+        return max_seq_len
+
+    def _fan_out_encoder_output(
+        self, encoder_output: Tensor, encoder_padding_mask: Optional[Tensor]
+    ) -> Tuple[Tensor, Optional[Tensor]]:
+        batch_size = encoder_output.size(0)
+
+        # Fan out `encoder_output` to `batch_size` x `beam_size`.
+        # (N)
+        fan_out_indices = torch.arange(batch_size, device=encoder_output.device)
+
+        # (N) -> (N x B)
+        fan_out_indices = fan_out_indices.repeat_interleave(self.beam_size)
+
+        # (N, S_enc, M) -> (N x B, S_enc, M)
+        encoder_output = encoder_output.index_select(dim=0, index=fan_out_indices)
+
+        # (N, S_enc, M) -> (N x B, S_enc, M)
+        if encoder_padding_mask is not None:
+            encoder_padding_mask = encoder_padding_mask.index_select(
+                dim=0, index=fan_out_indices
+            )
+
+        return encoder_output, encoder_padding_mask
+
+    def _bootstrap_seqs_and_scores(
         self,
-        step: int,
-        bbsz_idx: Tensor,
-        eos_scores: Tensor,
-        tokens: Tensor,
+        seqs: Tensor,
         scores: Tensor,
-        finalized: List[List["Hypothesis"]],
-        finished: List[bool],
-        beam_size: int,
-        max_len: int,
+        encoder_output: Tensor,
+        encoder_padding_mask: Optional[Tensor],
+        state_bag: IncrementalStateBag,
+    ) -> None:
+        assert self.prefix_seq_len > 0
+
+        seqs[:, : self.prefix_seq_len] = self.prefix_seq
+
+        if self.prefix_seq_len == 1:
+            return
+
+        assert isinstance(self.prefix_seq, Tensor)
+
+        # We have to bootstrap the model with the already fanned-out encoder
+        # output to correctly initialize its incremental state. This causes some
+        # redundancy as we have to expand `decoder_input` to match the shape of
+        # `encoder_output`.
+        # (S_pfx) -> (N x B, S_pfx - 1)
+        decoder_input = self.prefix_seq[:-1].expand(encoder_output.size(0), -1)
+
+        # Bootstrap the model state with prefix sequence.
+        decoder_output, decoder_padding_mask = self.decoder.decode(
+            decoder_input,
+            None,
+            encoder_output,
+            encoder_padding_mask,
+            state_bag,
+        )
+
+        state_bag.increment_step(self.prefix_seq_len - 1)
+
+        model_output = self.decoder.project(decoder_output, decoder_padding_mask)
+
+        # lprobs:          (S_pfx - 1, V)
+        # model_output: (N, S_pfx - 1, V) -> (S_pfx - 1, V)
+        lprobs = log_softmax(model_output.logits[0], dim=-1, dtype=torch.float32)
+
+        # Fetch scores of next steps.
+        # (S_pfx - 1, 1)
+        prefix_scores = torch.take_along_dim(
+            lprobs, indices=self.prefix_seq[1:].unsqueeze(1), dim=-1
+        )
+
+        # (S_pfx - 1, 1) -> (S_pfx - 1)
+        prefix_scores.squeeze_(1).cumsum_(dim=0)
+
+        # First step (e.g. EOS)'s score is always 0.
+        scores[:, 1 : self.prefix_seq_len] = prefix_scores
+
+    def _finalize_hypothesis(
+        self,
+        step_nr: int,
+        eos_beam_indices: Tensor,
+        eos_scores: Tensor,
+        seqs: Tensor,
+        scores: Tensor,
+        active_searches: List[Tuple[int, List["Hypothesis"]]],
+        finished_searches: List[List["Hypothesis"]],
     ) -> List[int]:
-        """Finalize hypothesis, store finalized information in `finalized`, and change `finished` accordingly.
-        A sentence is finalized when {beam_size} finished items have been collected for it.
+        finished_seqs = seqs.index_select(dim=0, index=eos_beam_indices)
 
-        Returns number of sentences (not beam items) being finalized.
-        These will be removed from the batch and not processed further.
-        Args:
-            bbsz_idx (Tensor):
-        """
-        assert bbsz_idx.numel() == eos_scores.numel()
+        finished_seqs = finished_seqs[:, : step_nr + 2]
 
-        # clone relevant token and attention tensors.
-        # tokens is (batch * beam, max_len). So the index_select
-        # gets the newly EOS rows, then selects cols 1..{step + 2}
-        tokens_clone = tokens.index_select(0, bbsz_idx)[:, : step + 1]
+        finished_seqs[:, -1] = self.eos_idx
 
-        # compute scores per token position
-        pos_scores = scores.index_select(0, bbsz_idx)[:, : step + 1]
-        pos_scores[:, step] = eos_scores
-        # convert from cumulative to per-position scores
-        pos_scores[:, 1:] = pos_scores[:, 1:] - pos_scores[:, :-1]
+        finished_scores = scores.index_select(dim=0, index=eos_beam_indices)
 
-        # normalize sentence-level scores
+        finished_scores = finished_scores[:, : step_nr + 2]
+
+        finished_scores[:, -1] = eos_scores
+
+        finished_scores[:, 1:] = finished_scores[:, 1:] - finished_scores[:, :-1]
+
         if self.opts.normalize_scores:
-            eos_scores /= (step + 1) ** self.opts.len_penalty
-
-        # cum_unfin records which sentences in the batch are finished.
-        # It helps match indexing between (a) the original sentences
-        # in the batch and (b) the current, possibly-reduced set of
-        # sentences.
-        cum_unfin: List[int] = []
-        prev = 0
-        for f in finished:
-            if f:
-                prev += 1
-            else:
-                cum_unfin.append(prev)
-        cum_fin_tensor = torch.tensor(cum_unfin, dtype=torch.int).to(bbsz_idx)
-
-        unfin_idx = torch.div(bbsz_idx, beam_size, rounding_mode="trunc")
-        sent = unfin_idx + torch.index_select(cum_fin_tensor, 0, unfin_idx)
-
-        # Create a set of "{sent}{unfin_idx}", where
-        # "unfin_idx" is the index in the current (possibly reduced)
-        # list of sentences, and "sent" is the index in the original,
-        # unreduced batch
-        # For every finished beam item
-        # sentence index in the current (possibly reduced) batch
-        seen = (sent << 32) + unfin_idx
-        unique_seen: List[int] = torch.unique(seen).tolist()
-
-        sent_list: List[int] = sent.tolist()
-        for i in range(bbsz_idx.size()[0]):
-            # An input sentence (among those in a batch) is finished when
-            # beam_size hypotheses have been collected for it
-            if len(finalized[sent_list[i]]) < beam_size:
-                finalized[sent_list[i]].append(
-                    Hypothesis(
-                        seq=tokens_clone[i],
-                        score=eos_scores[i],
-                        step_scores=pos_scores[i],
-                    )
-                )
+            eos_scores /= (
+                step_nr + 1
+            ) ** self.opts.len_penalty  # skip first EOS since it is always 0 and skews normalization
 
         newly_finished: List[int] = []
-        for unique_s in unique_seen:
-            # check termination conditions for this sentence
-            unique_sent: int = unique_s >> 32
-            unique_unfin_idx: int = unique_s - (unique_sent << 32)
 
-            if not finished[unique_sent] and self.is_finished(
-                step, unique_unfin_idx, max_len, len(finalized[unique_sent]), beam_size
-            ):
-                finished[unique_sent] = True
-                newly_finished.append(unique_unfin_idx)
+        for i in range(finished_seqs.size(0)):
+            batch_idx = (eos_beam_indices[i] // self.beam_size).item()
+
+            search_id, hypothesis = active_searches[batch_idx]
+
+            if len(hypothesis) == self.beam_size:
+                continue
+
+            hypothesis.append(
+                Hypothesis(
+                    seq=finished_seqs[i],
+                    score=eos_scores[i],
+                    step_scores=finished_scores[i],
+                )
+            )
+
+            if len(hypothesis) == self.beam_size:
+                newly_finished.append(batch_idx)
+
+                finished_searches[search_id] = hypothesis
+
+        newly_finished.sort()
+
+        for i in reversed(newly_finished):
+            del active_searches[i]
 
         return newly_finished
-
-    def is_finished(
-        self,
-        step: int,
-        unfin_idx: int,
-        max_len: int,
-        finalized_sent_len: int,
-        beam_size: int,
-    ) -> bool:
-        """
-        Check whether decoding for a sentence is finished, which
-        occurs when the list of finalized sentences has reached the
-        beam size, or when we reach the maximum length.
-        """
-        assert finalized_sent_len <= beam_size
-        if finalized_sent_len == beam_size or step == max_len:
-            return True
-        return False
 
 
 @dataclass
@@ -613,7 +609,7 @@ class SequenceGeneratorOutput:
 
         if not seqs:
             # Return a zero-dimensional (not scalar!) tensor.
-            return torch.empty((0,), device=self.device, dtype=torch.int), None
+            return torch.empty((0,), device=self.device, dtype=torch.int64), None
 
         output = cast(SequenceData, self.collater(seqs))
 

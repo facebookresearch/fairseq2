@@ -19,6 +19,7 @@ from typing import (
 )
 
 from torch import Tensor
+from typing_extensions import Self
 
 from fairseq2 import _DOC_MODE
 from fairseq2.data.typing import PathLike, StringLike
@@ -96,9 +97,7 @@ if TYPE_CHECKING or _DOC_MODE:
             ...
 
     class DataPipelineBuilder:
-        def bucket(
-            self, bucket_size: int, drop_remainder: bool = False
-        ) -> "DataPipelineBuilder":
+        def bucket(self, bucket_size: int, drop_remainder: bool = False) -> Self:
             """Combine a number of consecutive examples into a single example.
 
             :param bucket_size:
@@ -113,10 +112,10 @@ if TYPE_CHECKING or _DOC_MODE:
             bucket_sizes: Sequence[Tuple[int, int]],
             selector: Optional[str] = None,
             drop_remainder: bool = False,
-        ) -> "DataPipelineBuilder":
+        ) -> Self:
             """Combine examples of similar shape into batches."""
 
-        def filter(self, predicate: Callable[[Any], Any]) -> "DataPipelineBuilder":
+        def filter(self, predicate: Callable[[Any], Any]) -> Self:
             """Filter examples from data pipeline and keep only those who match
             ``predicate``.
 
@@ -129,7 +128,7 @@ if TYPE_CHECKING or _DOC_MODE:
             fn: Union[Callable[[Any], Any], Sequence[Callable[[Any], Any]]],
             selector: Optional[str] = None,
             num_parallel_calls: int = 1,
-        ) -> "DataPipelineBuilder":
+        ) -> Self:
             """Apply ``fn`` to every example.
 
             :param fn:
@@ -139,7 +138,7 @@ if TYPE_CHECKING or _DOC_MODE:
                 The number of examples to process in parallel.
             """
 
-        def prefetch(self, num_examples: int) -> "DataPipelineBuilder":
+        def prefetch(self, num_examples: int) -> Self:
             """Prefetch examples in the background while the current example is
             being processed.
 
@@ -147,7 +146,7 @@ if TYPE_CHECKING or _DOC_MODE:
                 The number of examples to prefetch.
             """
 
-        def shard(self, shard_idx: int, num_shards: int) -> "DataPipelineBuilder":
+        def shard(self, shard_idx: int, num_shards: int) -> Self:
             """Read only 1/``num_shards`` of the examples in the data pipeline.
 
             :param shard_idx:
@@ -158,7 +157,7 @@ if TYPE_CHECKING or _DOC_MODE:
 
         def shuffle(
             self, shuffle_window: int, strict: bool = True, enabled: bool = True
-        ) -> "DataPipelineBuilder":
+        ) -> Self:
             """Shuffle examples using a fixed sized buffer.
 
             :param shuffle_window:
@@ -176,15 +175,13 @@ if TYPE_CHECKING or _DOC_MODE:
                 If ``False``, disables shuffling.
             """
 
-        def skip(self, num_examples: int) -> "DataPipelineBuilder":
+        def skip(self, num_examples: int) -> Self:
             """Skip ``num_examples`` examples."""
 
-        def take(self, num_examples: int) -> "DataPipelineBuilder":
+        def take(self, num_examples: int) -> Self:
             """Return at most ``num_examples`` examples."""
 
-        def yield_from(
-            self, fn: Callable[[Any], DataPipeline]
-        ) -> "DataPipelineBuilder":
+        def yield_from(self, fn: Callable[[Any], DataPipeline]) -> Self:
             """
             Map every example to a data pipeline and yield the examples returned
             from the mapped data pipelines.

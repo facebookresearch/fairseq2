@@ -17,14 +17,14 @@ from fairseq2.typing import Device
 class TextTokenizer(ABC):
     """Represents a tokenizer to encode and decode sentences."""
 
-    vocabulary_info: VocabularyInfo
+    vocab_info: VocabularyInfo
 
-    def __init__(self, vocabulary_info: VocabularyInfo) -> None:
+    def __init__(self, vocab_info: VocabularyInfo) -> None:
         """
-        :param vocabulary_info:
+        :param vocab_info:
             The vocabulary information associated with the tokenizer.
         """
-        self.vocabulary_info = vocabulary_info
+        self.vocab_info = vocab_info
 
     @abstractmethod
     def create_encoder(

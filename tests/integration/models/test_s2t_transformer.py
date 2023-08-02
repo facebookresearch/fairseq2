@@ -21,7 +21,7 @@ from tests.common import device
 TEST_FBANK_PATH: Final = Path(__file__).parent.joinpath("fbank.pt")
 
 # fmt: off
-TRANSFORMER_DE:       Final = "<lang:de> Es war Zeit des Abendessens und wir suchten nach einem Ort, wo man essen kann."
+TRANSFORMER_DE:       Final = "<lang:de> Es war Zeit des Abendessens, und wir suchten nach einem Ort, an dem wir essen konnten."
 CONFORMER_DE:         Final = "Es war das Abendessen, und wir begannen, nach dem Essen zu suchen."
 CONFORMER_REL_POS_DE: Final = "Es war Essenszeit, und wir beginnen nach Ort zu suchen."
 # fmt: on
@@ -70,6 +70,4 @@ def assert_translation(
 
     generator = SequenceToTextGenerator(model, tokenizer, target_lang="de")
 
-    output = generator(fbanks, None)
-
-    assert output.sentences == [expected]
+    assert generator(fbanks, None) == [expected]

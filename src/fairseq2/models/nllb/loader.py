@@ -18,7 +18,7 @@ from fairseq2.assets import (
 from fairseq2.models.nllb.builder import NllbConfig, create_nllb_model, nllb_archs
 from fairseq2.models.nllb.tokenizer import NllbTokenizer
 from fairseq2.models.transformer import TransformerModel
-from fairseq2.models.utils.checkpoint import upgrade_fairseq_checkpoint
+from fairseq2.models.utils.checkpoint_loader import upgrade_fairseq_checkpoint
 from fairseq2.models.utils.model_loader import ModelConfigLoader, ModelLoader
 
 

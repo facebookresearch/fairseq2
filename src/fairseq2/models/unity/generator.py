@@ -28,9 +28,8 @@ class UnitYGenerator:
 
     model: UnitYModel
     text_generator: SequenceToTextGenerator
-    unit_token_decoder: UnitTokenDecoder
-    unit_prefix_indices: Tensor
-    unit_seq_generator: Seq2SeqGenerator
+    unit_decoder: UnitTokenDecoder
+    unit_generator: Seq2SeqGenerator
 
     def __init__(
         self,
@@ -38,8 +37,8 @@ class UnitYGenerator:
         text_tokenizer: TextTokenizer,
         unit_tokenizer: UnitTokenizer,
         target_lang: str,
-        text_generator_opts: Optional[SequenceGeneratorOptions] = None,
-        unit_generator_opts: Optional[SequenceGeneratorOptions] = None,
+        text_opts: Optional[SequenceGeneratorOptions] = None,
+        unit_opts: Optional[SequenceGeneratorOptions] = None,
     ) -> None:
         """
         :param model:
@@ -65,20 +64,27 @@ class UnitYGenerator:
         self.model = model
 
         self.text_generator = SequenceToTextGenerator(
-            model, text_tokenizer, target_lang, text_generator_opts
+            model, text_tokenizer, target_lang, text_opts
         )
 
-        # Set up unit sequence generator.
-        self.unit_token_decoder = unit_tokenizer.create_decoder()
+        # Set up unit generator.
+        self.unit_decoder = unit_tokenizer.create_decoder()
 
-        unit_token_encoder = unit_tokenizer.create_encoder(
+        unit_encoder = unit_tokenizer.create_encoder(
             lang=target_lang, device=infer_device(model.t2u_model)
         )
 
-        self.unit_prefix_indices = unit_token_encoder.prefix_indices
+        if unit_opts is None:
+            # Speech sequences are typically much longer than text sequences.
+            unit_opts = SequenceGeneratorOptions(
+                soft_max_seq_len=(1, 50), hard_max_seq_len=5000
+            )
 
-        self.unit_seq_generator = Seq2SeqGenerator(
-            model.t2u_model, unit_tokenizer.vocabulary_info, unit_generator_opts
+        self.unit_generator = Seq2SeqGenerator(
+            model.t2u_model,
+            unit_tokenizer.vocab_info,
+            unit_encoder.prefix_indices,
+            unit_opts,
         )
 
     @torch.inference_mode()
@@ -100,7 +106,7 @@ class UnitYGenerator:
             - The output of the text generator.
             - The output of the unit generator.
         """
-        text_output = self.text_generator(source_seqs, source_seq_lens)
+        text_output = self.text_generator.generate_ex(source_seqs, source_seq_lens)
 
         text_seqs, text_seq_lens = text_output.generator_output.collate()
 
@@ -118,13 +124,16 @@ class UnitYGenerator:
             decoder_output, decoder_padding_mask
         )
 
-        unit_gen_output = self.unit_seq_generator(
-            self.unit_prefix_indices, t2u_encoder_output, t2u_encoder_padding_mask
+        unit_gen_output = self.unit_generator(
+            t2u_encoder_output,
+            t2u_encoder_padding_mask,
+            source_seq_len=source_seqs.size(1),
         )
 
-        unit_seqs, unit_seq_lens = unit_gen_output.collate()
+        unit_seqs, _ = unit_gen_output.collate()
 
-        units = self.unit_token_decoder(unit_seqs)
+        # Convert to speech units.
+        units = self.unit_decoder(unit_seqs)
 
         unit_output = SequenceToUnitOutput(
             units, unit_gen_output, t2u_encoder_output, t2u_encoder_padding_mask

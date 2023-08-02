@@ -35,7 +35,7 @@ def test_incremental_decoding_works() -> None:
 
     tokenizer = load_nllb_tokenizer("nllb-200_dense_distill_600m", progress=False)
 
-    pad_idx = tokenizer.vocabulary_info.pad_idx
+    pad_idx = tokenizer.vocab_info.pad_idx
 
     # Set up encoder and decoder inputs.
     source_token_encoder = tokenizer.create_encoder(
@@ -109,5 +109,4 @@ def test_incremental_decoding_works() -> None:
 
     assert_close(decoder_output,       incremental_output)
     assert_close(decoder_padding_mask, incremental_padding_mask)
-
     # fmt: on

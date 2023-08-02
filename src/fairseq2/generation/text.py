@@ -26,8 +26,6 @@ class SequenceToTextGeneratorBase:
 
     model: EncoderDecoderModel
     token_decoder: TextTokenDecoder
-    prefix_indices: Optional[Tensor]
-    suffix_indices: Optional[Tensor]
     generator: Seq2SeqGenerator
 
     def __init__(
@@ -35,7 +33,7 @@ class SequenceToTextGeneratorBase:
         model: EncoderDecoderModel,
         tokenizer: TextTokenizer,
         target_lang: Optional[str] = None,
-        generator_opts: Optional[SequenceGeneratorOptions] = None,
+        opts: Optional[SequenceGeneratorOptions] = None,
     ) -> None:
         """
         :param model:
@@ -44,7 +42,7 @@ class SequenceToTextGeneratorBase:
             The text tokenizer to use.
         :param target_lang:
             The target language.
-        :param generator_opts:
+        :param opts:
             The options to pass to the underlying :class:`Seq2SeqGenerator`.
         """
         model.eval()
@@ -55,19 +53,17 @@ class SequenceToTextGeneratorBase:
 
         device = infer_device(model)
 
-        target_token_encoder = tokenizer.create_encoder(
+        target_encoder = tokenizer.create_encoder(
             task="translation", lang=target_lang, mode="target", device=device
         )
 
         # Most tokenizers typically use one or more control symbols to indicate
-        # the beginning/end of a sentence.
-        self.prefix_indices = target_token_encoder.prefix_indices
-        self.suffix_indices = target_token_encoder.suffix_indices
-
+        # the beginning of a sentence.
         self.generator = Seq2SeqGenerator(
-            self.model, tokenizer.vocabulary_info, generator_opts
+            self.model, tokenizer.vocab_info, target_encoder.prefix_indices, opts
         )
 
+    @torch.inference_mode()
     def _do_generate(
         self, source_seqs: Tensor, source_seq_lens: Optional[Tensor]
     ) -> "SequenceToTextOutput":
@@ -76,48 +72,16 @@ class SequenceToTextGeneratorBase:
             source_seqs, source_seq_lens
         )
 
-        # TODO: suffix tokens!
-        generator_output = self.generator(
-            self.prefix_indices,
-            encoder_output,
-            encoder_padding_mask,
-            source_seq_len=source_seqs.size(1),
+        gen_output = self.generator(
+            encoder_output, encoder_padding_mask, source_seq_len=source_seqs.size(1)
         )
 
         # TODO: use parallel_invoke
-        sentences = [self.token_decoder(b[0].seq)[0] for b in generator_output.batches]
+        sentences = [self.token_decoder(b[0].seq)[0] for b in gen_output.batches]
 
         return SequenceToTextOutput(
-            sentences, generator_output, encoder_output, encoder_padding_mask
+            sentences, gen_output, encoder_output, encoder_padding_mask
         )
-
-
-class SequenceToTextGenerator(SequenceToTextGeneratorBase):
-    """Generates text output from input sequences.
-
-    The interpretation of input sequences depends on the underlying encoder-
-    decoder model.
-    """
-
-    @torch.inference_mode()
-    def __call__(
-        self, source_seqs: Tensor, source_seq_lens: Optional[Tensor]
-    ) -> "SequenceToTextOutput":
-        """
-        :param source_seqs:
-            The source sequences to use for generation. *Shape:* :math:`(N,S,*)`,
-            where :math:`N` is the batch size, :math:`S` is the sequence length,
-            and :math:`*` is any number of sequence-specific dimensions
-            including none.
-        :param source_seq_lens:
-            An array where each element represents the length of the sequence at
-            the same index in ``source_seqs``. *Shape:* :math:`(N)`, where
-            :math:`N` is the batch size.
-
-        :returns:
-            The generated text sentences.
-        """
-        return self._do_generate(source_seqs, source_seq_lens)
 
 
 @dataclass
@@ -142,10 +106,59 @@ class SequenceToTextOutput:
     is the encoder output sequence length."""
 
 
+class SequenceToTextGenerator(SequenceToTextGeneratorBase):
+    """Generates text output from input sequences.
+
+    The interpretation of input sequences depends on the underlying encoder-
+    decoder model.
+    """
+
+    def __call__(
+        self,
+        source_seqs: Tensor,
+        source_seq_lens: Optional[Tensor],
+    ) -> List[StringLike]:
+        """
+        :param source_seqs:
+            The source sequences to use for generation. *Shape:* :math:`(N,S,*)`,
+            where :math:`N` is the batch size, :math:`S` is the sequence length,
+            and :math:`*` is any number of sequence-specific dimensions
+            including none.
+        :param source_seq_lens:
+            An array where each element represents the length of the sequence at
+            the same index in ``source_seqs``. *Shape:* :math:`(N)`, where
+            :math:`N` is the batch size.
+
+        :returns:
+            The generated text sentences.
+        """
+        output = self.generate_ex(source_seqs, source_seq_lens)
+
+        return output.sentences
+
+    def generate_ex(
+        self,
+        source_seqs: Tensor,
+        source_seq_lens: Optional[Tensor],
+    ) -> SequenceToTextOutput:
+        """
+        :param source_seqs:
+            The source sequences to use for generation. *Shape:* :math:`(N,S,*)`,
+            where :math:`N` is the batch size, :math:`S` is the sequence length,
+            and :math:`*` is any number of sequence-specific dimensions
+            including none.
+        :param source_seq_lens:
+            An array where each element represents the length of the sequence at
+            the same index in ``source_seqs``. *Shape:* :math:`(N)`, where
+            :math:`N` is the batch size.
+        """
+        return self._do_generate(source_seqs, source_seq_lens)
+
+
 class TextTranslator(SequenceToTextGeneratorBase):
     """Translates text from one language to another."""
 
-    source_token_encoder: TextTokenEncoder
+    source_encoder: TextTokenEncoder
     collater: Collater
 
     def __init__(
@@ -154,7 +167,7 @@ class TextTranslator(SequenceToTextGeneratorBase):
         tokenizer: TextTokenizer,
         source_lang: Optional[str] = None,
         target_lang: Optional[str] = None,
-        generator_opts: Optional[SequenceGeneratorOptions] = None,
+        opts: Optional[SequenceGeneratorOptions] = None,
     ) -> None:
         """
         :param model:
@@ -165,21 +178,34 @@ class TextTranslator(SequenceToTextGeneratorBase):
             The source language.
         :param target_lang:
             The target language.
-        :param generator_opts:
+        :param opts:
             The options to pass to the underlying :class:`Seq2SeqGenerator`.
         """
-        super().__init__(model, tokenizer, target_lang, generator_opts)
+        super().__init__(model, tokenizer, target_lang, opts)
 
         device = infer_device(model)
 
-        self.source_token_encoder = tokenizer.create_encoder(
+        self.source_encoder = tokenizer.create_encoder(
             task="translation", lang=source_lang, mode="source", device=device
         )
 
-        self.collater = Collater(pad_idx=tokenizer.vocabulary_info.pad_idx)
+        self.collater = Collater(pad_idx=tokenizer.vocab_info.pad_idx)
 
-    @torch.inference_mode()
-    def __call__(self, source_sentences: Sequence[StringLike]) -> SequenceToTextOutput:
+    def __call__(self, source_sentences: Sequence[StringLike]) -> List[StringLike]:
+        """
+        :param source_sentences:
+            The sentences in the source language.
+
+        :returns:
+            The translated sentences in target language.
+        """
+        output = self.translate_ex(source_sentences)
+
+        return output.sentences
+
+    def translate_ex(
+        self, source_sentences: Sequence[StringLike]
+    ) -> SequenceToTextOutput:
         """
         :param source_sentences:
             The sentences in the source language.
@@ -188,7 +214,7 @@ class TextTranslator(SequenceToTextGeneratorBase):
 
         # TODO: use parallel_invoke
         for source_sentence in source_sentences:
-            indices.append(self.source_token_encoder(source_sentence))
+            indices.append(self.source_encoder(source_sentence))
 
         batch = cast(SequenceData, self.collater(indices))
 

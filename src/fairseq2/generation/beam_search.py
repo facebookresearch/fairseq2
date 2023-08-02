@@ -27,7 +27,7 @@ class BeamSearch(ABC):
         """Take a single search step.
 
         :param step_nr:
-            The current search step number.
+            The number of the current search step.
         :param is_start_step:
             If ``True``, this is the initial step in the search. Note that the
             start step is not necessarily the first step in the sequence. When
@@ -38,10 +38,10 @@ class BeamSearch(ABC):
             :math:`(N,B,V)`, where :math:`N` is the batch size, :math:`B` is
             the number of beams, and :math:`V` is the size of the vocabulary.
         :probs scores:
-            The cumulative beam score of each previous step in the search.
-            *Shape:* :math:`(N,B,S_{prv})`, where :math:`N` is the batch size,
-            :math:`B` is the number of beams, and :math:`S_{prev}` is the length
-            of the generated sequence so far.
+            The cumulative score of each step in the search so far. *Shape:*
+            :math:`(N,B,S)`, where :math:`N` is the batch size, :math:`B` is the
+            number of beams, and :math:`S` is the length of the generated
+            sequence.
 
         :returns:
             - The top 2 x beam size scores. *Shape:* :math:`(N,2xB)`, where
@@ -49,7 +49,7 @@ class BeamSearch(ABC):
               size.
             - The indices of the top scores within their beams. *Shape:* Same
               as the first return value.
-            - The indices of the beams of the top scores within their batch.
+            - The indices of the beams of the top scores within their buckets.
               *Shape:* Same as the first return value.
         """
 
@@ -68,15 +68,20 @@ class StandardBeamSearch(BeamSearch):
             # At the initial step, all hypotheses are equally likely, so we use
             # only the first beam.
             lprobs = lprobs[:, ::beam_size, :].contiguous()
+
+            # The first step always indicates the beginning of the sequence and
+            # has no score.
+            if step_nr > 0:
+                lprobs = lprobs + scores[:, ::beam_size, step_nr].unsqueeze(-1)
         else:
             # Make probabilities contain cumulative scores for each hypothesis.
-            lprobs = lprobs + scores[:, :, step_nr - 1].unsqueeze(-1)
+            lprobs = lprobs + scores[:, :, step_nr].unsqueeze(-1)
 
         # Take the best 2 x `beam_size` predictions. We'll choose the first
         # `beam_size` of these which don't predict EOS to continue with.
         # (N, 2 x B)
         top_scores, top_indices = torch.topk(
-            lprobs.view(batch_size, -1), k=min(2 * beam_size, vocab_size)
+            lprobs.view(batch_size, -1), k=min(2 * beam_size, vocab_size - 1)
         )
 
         # Return scores, beam-relative indices, and beam indices.

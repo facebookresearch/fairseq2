@@ -14,7 +14,7 @@ from fairseq2.models.nllb.loader import NllbTokenizerLoader
 from fairseq2.models.unity.builder import UnitYConfig, create_unity_model, unity_archs
 from fairseq2.models.unity.model import UnitYModel
 from fairseq2.models.unity.unit_tokenizer import UnitTokenizer
-from fairseq2.models.utils.checkpoint import upgrade_fairseq_checkpoint
+from fairseq2.models.utils.checkpoint_loader import upgrade_fairseq_checkpoint
 from fairseq2.models.utils.model_loader import ModelConfigLoader, ModelLoader
 
 

@@ -164,7 +164,7 @@ class TestLearnedPositionEncoder:
         with tmp_rng_seed(device):
             m = LearnedPositionEncoder(encoding_dim=32, max_seq_len=10, device=device)
 
-        assert m.weight.dtype == torch.float
+        assert m.weight.dtype == torch.float32
 
         with tmp_rng_seed(device):
             expected_weight = torch.randn(10, 32, device=device)

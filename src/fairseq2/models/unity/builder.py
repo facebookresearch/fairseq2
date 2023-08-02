@@ -7,6 +7,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
+from fairseq2.data import VocabularyInfo
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
 from fairseq2.models.nllb import NllbBuilder, NllbConfig, nllb_archs
 from fairseq2.models.transformer import (
@@ -19,7 +20,7 @@ from fairseq2.models.unity.adaptor_block import (
     UnitYTransformerAdaptorLayer,
 )
 from fairseq2.models.unity.model import UnitYModel, UnitYT2UModel
-from fairseq2.models.utils.arch import ArchitectureRegistry
+from fairseq2.models.utils.arch_registry import ArchitectureRegistry
 from fairseq2.models.w2vbert import w2vbert_archs
 from fairseq2.models.wav2vec2 import Wav2Vec2EncoderBuilder, Wav2Vec2EncoderConfig
 from fairseq2.nn.embedding import Embedding
@@ -378,6 +379,10 @@ class UnitYT2UConfig:
 
     dropout_p: float
     """The dropout probability in Transformer layers."""
+
+    def update_unit_vocabulary(self, info: VocabularyInfo) -> None:
+        """Update unit vocabulary configuration from ``info``."""
+        self.unit_vocabulary_size, self.unit_pad_idx = info.size, info.pad_idx
 
 
 unity_t2u_archs = ArchitectureRegistry[UnitYT2UConfig]("unity_t2u")

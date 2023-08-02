@@ -19,12 +19,12 @@ class TestUnitTokenizer:
 
         assert tokenizer.langs == {"eng": 0, "deu": 1, "fra": 2}
 
-        assert tokenizer.vocabulary_info.size == 112
+        assert tokenizer.vocab_info.size == 112
 
     def test_lang_to_index_works(self) -> None:
         tokenizer = UnitTokenizer(num_units=100, langs=["eng", "deu", "fra"])
 
-        assert tokenizer.lang_to_index("deu") == 105
+        assert tokenizer.lang_to_index("deu") == 109
 
 
 class TestUnitEncoder:
@@ -40,17 +40,17 @@ class TestUnitEncoder:
     def test_call_works(self) -> None:
         tokenizer = UnitTokenizer(num_units=100, langs=["eng", "deu", "fra"])
 
-        prefix = torch.tensor([2, 105], device=device, dtype=torch.int)
+        prefix = torch.tensor([2, 109], device=device, dtype=torch.int64)
 
         encoder = tokenizer.create_encoder(lang="deu")
 
         # Empty units.
-        units = torch.ones((1, 0), device=device, dtype=torch.int)
+        units = torch.ones((1, 0), device=device, dtype=torch.int64)
 
         assert_equal(encoder(units), prefix.expand(1, -1))
 
         # Batched units.
-        units = torch.ones((6, 4), device=device, dtype=torch.int)
+        units = torch.ones((6, 4), device=device, dtype=torch.int64)
 
         assert_equal(
             encoder(units), torch.cat([prefix.expand(6, -1), units + 4], dim=1)
@@ -61,15 +61,15 @@ class TestUnitEncoder:
 
         encoder = tokenizer.create_encoder(lang="deu")
 
-        units = torch.ones((6, 4), device=device, dtype=torch.int)
+        units = torch.ones((6, 4), device=device, dtype=torch.int64)
 
         units[1, 3] = 100
         units[2, 1] = 101
 
         token_indices = encoder(units)
 
-        assert token_indices[1, 5].item() == tokenizer.vocabulary_info.unk_idx
-        assert token_indices[2, 3].item() == tokenizer.vocabulary_info.unk_idx
+        assert token_indices[1, 5].item() == tokenizer.vocab_info.unk_idx
+        assert token_indices[2, 3].item() == tokenizer.vocab_info.unk_idx
 
 
 class TestUnitDecoder:
@@ -79,19 +79,19 @@ class TestUnitDecoder:
         encoder = tokenizer.create_encoder(lang="deu")
         decoder = tokenizer.create_decoder()
 
-        assert tokenizer.vocabulary_info.eos_idx is not None
-        assert tokenizer.vocabulary_info.pad_idx is not None
+        assert tokenizer.vocab_info.eos_idx is not None
+        assert tokenizer.vocab_info.pad_idx is not None
 
-        units1 = torch.ones((6, 4), device=device, dtype=torch.int)
+        units1 = torch.ones((6, 4), device=device, dtype=torch.int64)
 
         encoded_units = encoder(units1)
 
-        encoded_units[2, 2] = tokenizer.vocabulary_info.eos_idx
+        encoded_units[2, 2] = tokenizer.vocab_info.eos_idx
 
         units2 = decoder(encoded_units)
 
-        units1[2, 2] = tokenizer.vocabulary_info.pad_idx
+        units1[2, 2] = tokenizer.vocab_info.pad_idx
 
-        prefix = torch.tensor([105], device=device, dtype=torch.int)
+        prefix = torch.tensor([109], device=device, dtype=torch.int64)
 
         assert_equal(torch.cat([prefix.expand(6, -1), units1], dim=1), units2)

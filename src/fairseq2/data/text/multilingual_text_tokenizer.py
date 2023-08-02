@@ -68,9 +68,9 @@ class MultilingualTextTokenizer(TextTokenizer):
         self.default_source_lang = default_source_lang
         self.default_target_lang = default_target_lang
 
-        vocabulary_info = vocabulary_from_sentencepiece(self.model)
+        vocab_info = vocabulary_from_sentencepiece(self.model)
 
-        super().__init__(vocabulary_info)
+        super().__init__(vocab_info)
 
     @finaloverride
     def create_encoder(

@@ -10,7 +10,7 @@ import torch
 from overrides import override as finaloverride
 
 from fairseq2.assets import asset_store, download_manager
-from fairseq2.models.utils.checkpoint import upgrade_fairseq_checkpoint
+from fairseq2.models.utils.checkpoint_loader import upgrade_fairseq_checkpoint
 from fairseq2.models.utils.model_loader import ModelConfigLoader, ModelLoader
 from fairseq2.models.w2vbert.builder import (
     W2VBertConfig,

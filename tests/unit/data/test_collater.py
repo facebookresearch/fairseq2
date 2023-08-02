@@ -59,15 +59,15 @@ class TestCollater:
 
     def test_call_works_when_input_has_tensors(self) -> None:
         bucket = [
-            torch.full((4,), 0.0, device=device, dtype=torch.float),
-            torch.full((4,), 1.0, device=device, dtype=torch.float),
-            torch.full((4,), 2.0, device=device, dtype=torch.float),
+            torch.full((4,), 0.0, device=device, dtype=torch.float32),
+            torch.full((4,), 1.0, device=device, dtype=torch.float32),
+            torch.full((4,), 2.0, device=device, dtype=torch.float32),
         ]
 
         collater = Collater()
 
         expected_tensor = torch.tensor(
-            [0.0, 1.0, 2.0], device=device, dtype=torch.float
+            [0.0, 1.0, 2.0], device=device, dtype=torch.float32
         )
 
         expected_tensor = expected_tensor.unsqueeze(-1).expand(-1, 4)
@@ -81,9 +81,9 @@ class TestCollater:
         self, pad_to_multiple: int, pad_size: int
     ) -> None:
         bucket = [
-            torch.full((4, 2), 0, device=device, dtype=torch.int),
-            torch.full((4, 2), 1, device=device, dtype=torch.int),
-            torch.full((4, 2), 2, device=device, dtype=torch.int),
+            torch.full((4, 2), 0, device=device, dtype=torch.int64),
+            torch.full((4, 2), 1, device=device, dtype=torch.int64),
+            torch.full((4, 2), 2, device=device, dtype=torch.int64),
         ]
 
         collater = Collater(pad_idx=3, pad_to_multiple=pad_to_multiple)
@@ -97,7 +97,7 @@ class TestCollater:
                 [[2, 2], [2, 2], [2, 2], [2, 2]],
             ],
             device=device,
-            dtype=torch.int,
+            dtype=torch.int64,
         )
 
         expected_seqs = pad(expected_seqs, (0, 0, 0, pad_size), value=3)
@@ -111,9 +111,9 @@ class TestCollater:
 
     def test_call_works_when_input_has_ragged_sequence_tensors(self) -> None:
         bucket = [
-            {"foo1": torch.full((4, 2), 0, device=device, dtype=torch.int)},
-            {"foo1": torch.full((2, 2), 1, device=device, dtype=torch.int)},
-            {"foo1": torch.full((3, 2), 2, device=device, dtype=torch.int)},
+            {"foo1": torch.full((4, 2), 0, device=device, dtype=torch.int64)},
+            {"foo1": torch.full((2, 2), 1, device=device, dtype=torch.int64)},
+            {"foo1": torch.full((3, 2), 2, device=device, dtype=torch.int64)},
         ]
 
         collater = Collater(pad_idx=3, pad_to_multiple=3)
@@ -127,7 +127,7 @@ class TestCollater:
                 [[2, 2], [2, 2], [2, 2], [3, 3], [3, 3], [3, 3]],
             ],
             device=device,
-            dtype=torch.int,
+            dtype=torch.int64,
         )
 
         expected_seq_lens = torch.tensor([4, 2, 3], device=device, dtype=torch.int64)
@@ -140,9 +140,9 @@ class TestCollater:
     def test_call_works_when_options_are_overriden(self) -> None:
         # fmt: off
         bucket = [
-            {"foo1": torch.full((4,2), 0, device=device, dtype=torch.int), "foo2": torch.full((4,2), 0, device=device, dtype=torch.int)},
-            {"foo1": torch.full((2,2), 1, device=device, dtype=torch.int), "foo2": torch.full((2,2), 1, device=device, dtype=torch.int)},
-            {"foo1": torch.full((3,2), 2, device=device, dtype=torch.int), "foo2": torch.full((3,2), 2, device=device, dtype=torch.int)},
+            {"foo1": torch.full((4,2), 0, device=device, dtype=torch.int32), "foo2": torch.full((4,2), 0, device=device, dtype=torch.int64)},
+            {"foo1": torch.full((2,2), 1, device=device, dtype=torch.int32), "foo2": torch.full((2,2), 1, device=device, dtype=torch.int64)},
+            {"foo1": torch.full((3,2), 2, device=device, dtype=torch.int32), "foo2": torch.full((3,2), 2, device=device, dtype=torch.int64)},
         ]
         # fmt: on
 
@@ -160,7 +160,7 @@ class TestCollater:
                 [[2, 2], [2, 2], [2, 2], [3, 3], [3, 3], [3, 3]],
             ],
             device=device,
-            dtype=torch.int,
+            dtype=torch.int32,
         )
 
         expected_seqs2 = torch.tensor(
@@ -170,7 +170,7 @@ class TestCollater:
                 [[2, 2], [2, 2], [2, 2], [1, 1]],
             ],
             device=device,
-            dtype=torch.int,
+            dtype=torch.int64,
         )
 
         expected_seq_lens = torch.tensor([4, 2, 3], device=device, dtype=torch.int64)
@@ -196,7 +196,7 @@ class TestCollater:
         collater = Collater()
 
         expected_tensor = torch.tensor(
-            [0.0, 1.0, 2.0], device=device, dtype=torch.float
+            [0.0, 1.0, 2.0], device=device, dtype=torch.float32
         )
 
         expected_tensor = expected_tensor.unsqueeze(-1).expand(-1, 4)

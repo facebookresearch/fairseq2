@@ -14,7 +14,6 @@ from torch import Tensor
 from fairseq2.data import Collater, DataPipeline, FileMapper, StringLike
 from fairseq2.data.audio import AudioDecoder, WaveformToFbankConverter
 from fairseq2.data.text import StrSplitter, read_text
-from fairseq2.generation import SequenceGeneratorOptions
 from fairseq2.models.unity import (
     UnitYGenerator,
     load_unity_model,
@@ -110,13 +109,7 @@ def run_inference(
     text_tokenizer = load_unity_text_tokenizer(ctx.model_name)
     unit_tokenizer = load_unity_unit_tokenizer(ctx.model_name)
 
-    generator = UnitYGenerator(
-        model,
-        text_tokenizer,
-        unit_tokenizer,
-        ctx.target_lang,
-        unit_generator_opts=SequenceGeneratorOptions(max_seq_len=300),
-    )
+    generator = UnitYGenerator(model, text_tokenizer, unit_tokenizer, ctx.target_lang)
 
     # Iterate through each example in the TSV file until CTRL-C.
     for example in pipeline:
@@ -136,7 +129,7 @@ if __name__ == "__main__":
         data_file=Path("/large_experiments/seamless/ust/balioglu/sample-datasets/test_cvst2_spa-eng.tsv"),
         audio_root_dir=Path("/large_experiments/seamless/ust/data/audio_zips"),
         target_lang="eng",
-        batch_size=4,
+        batch_size=1,
         device=torch.device("cuda:0"),
     )
     # fmt: on

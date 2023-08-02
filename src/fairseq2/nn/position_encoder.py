@@ -172,9 +172,7 @@ class SinusoidalPositionEncoder(PositionEncoder):
         else:
             self._sin_offset = 1 + _legacy_pad_idx
 
-        weight = torch.empty(
-            (max_seq_len, encoding_dim), device=device, dtype=torch.float32
-        )
+        weight = torch.empty((max_seq_len, encoding_dim), device=device, dtype=dtype)
 
         self.register_buffer("weight", weight, persistent=False)
 
@@ -188,10 +186,14 @@ class SinusoidalPositionEncoder(PositionEncoder):
         """Reset the non-persistent buffers of the module."""
         num_sin = self.encoding_dim // 2
 
-        l_half = self.weight[:, :num_sin]
-        r_half = self.weight[:, num_sin:]
+        dtype = torch.float32
 
-        device, dtype = self.weight.device, self.weight.dtype
+        weight = self.weight.to(dtype)
+
+        l_half = weight[:, :num_sin]
+        r_half = weight[:, num_sin:]
+
+        device = weight.device
 
         # (1, E)
         indices = torch.arange(num_sin, device=device, dtype=dtype).unsqueeze(0)
@@ -219,6 +221,8 @@ class SinusoidalPositionEncoder(PositionEncoder):
         l_half.sin_()
         r_half.cos_()
 
+        self.weight.copy_(weight)
+
     @finaloverride
     def _do_forward(
         self,
@@ -234,7 +238,7 @@ class SinusoidalPositionEncoder(PositionEncoder):
         else:
             start_step = 0
 
-        return seqs + self.weight[start_step : start_step + seq_len].type_as(seqs)
+        return seqs + self.weight[start_step : start_step + seq_len]
 
 
 @final
@@ -322,12 +326,8 @@ class RotaryEncoder(PositionEncoder):
                 f"`encoding_dim` must be even, but is {encoding_dim} instead."
             )
 
-        cos = torch.empty(
-            (max_seq_len, encoding_dim), device=device, dtype=torch.float32
-        )
-        sin = torch.empty(
-            (max_seq_len, encoding_dim), device=device, dtype=torch.float32
-        )
+        cos = torch.empty((max_seq_len, encoding_dim), device=device, dtype=dtype)
+        sin = torch.empty((max_seq_len, encoding_dim), device=device, dtype=dtype)
 
         self.register_buffer("cos_weight", cos, persistent=False)
         self.register_buffer("sin_weight", sin, persistent=False)
@@ -340,7 +340,7 @@ class RotaryEncoder(PositionEncoder):
 
     def reset_non_persistent_buffers(self) -> None:
         """Reset the non-persistent buffers of the module."""
-        device, dtype = self.sin_weight.device, self.sin_weight.dtype
+        device, dtype = self.sin_weight.device, torch.float32
 
         # (E)
         indices = torch.arange(self.encoding_dim // 2, device=device, dtype=dtype)
@@ -385,7 +385,7 @@ class RotaryEncoder(PositionEncoder):
         cos = self.cos_weight[start_step : start_step + seq_len] * seqs
         sin = self.sin_weight[start_step : start_step + seq_len] * seqs_swapped
 
-        return (cos + sin).type_as(seqs)
+        return cos + sin
 
     @staticmethod
     def _swap_pairs(seqs: Tensor) -> Tensor:
