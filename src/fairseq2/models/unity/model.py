@@ -232,7 +232,7 @@ class UnitYT2UModel(Module, Seq2SeqDecoder):
         encoder_padding_mask: Optional[Tensor],
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
-        seqs, padding_mask = self.decoder_frontend(seqs, seq_lens)
+        seqs, padding_mask = self.decoder_frontend(seqs, seq_lens, state_bag)
 
         return self.decoder(  # type: ignore[no-any-return]
             seqs, padding_mask, encoder_output, encoder_padding_mask, state_bag
