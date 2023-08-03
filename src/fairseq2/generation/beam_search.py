@@ -82,7 +82,7 @@ class StandardBeamSearch(BeamSearch):
         # (N, 2 x B)
         top_scores, top_indices = torch.topk(
             lprobs.view(batch_size, -1), k=min(2 * beam_size, vocab_size - 1)
-        )
+        )  # `vocab_size` - 1 to never select PAD.
 
         # Return scores, beam-relative indices, and beam indices.
         return top_scores, top_indices % vocab_size, top_indices // vocab_size

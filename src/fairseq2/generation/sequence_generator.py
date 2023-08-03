@@ -27,12 +27,12 @@ class SequenceGeneratorOptions:
     """The beam size."""
 
     min_seq_len: int = 1
-    """The minimum length of generated sequences, including prefix sequence."""
+    """The minimum length of generated sequences (including prefix sequence)."""
 
     soft_max_seq_len: Optional[Tuple[int, int]] = (1, 200)
     """The terms ``a`` and ``b`` of ``ax + b`` where ``x`` is the source
-    sequence length. The generated sequences, including prefix sequence, will
-    have the maximum length of ``min(hard_max_seq_len, ax + b). See also
+    sequence length. The generated sequences (including prefix sequence) will
+    have the maximum length of ``min(hard_max_seq_len, ax + b)``. See also
     ``hard_max_seq_len``."""
 
     hard_max_seq_len: int = 1024
@@ -80,12 +80,10 @@ class Seq2SeqGenerator:
         :param vocab_info:
             The vocabulary information to use.
         :param prefix_seq:
-            The prefix of generated sequences, typically contains one or more
-            control symbols indicating the beginning of a sequence. *Shape:*
-            :math:`()` (i.e. scalar) or :math:`(S)`, where :math:`S` is the
-            prefix sequence length.
-
-            If ``None``, the EOS control symbol will be used as prefix.
+            The prefix sequence, typically one or more control symbols
+            indicating the beginning of a sequence. *Shape:* :math:`()` or
+            :math:`(S)`, where :math:`S` is the sequence length. If ``None``,
+            the EOS symbol will be used as prefix.
         :param opts:
             The generation options.
         """
@@ -112,7 +110,7 @@ class Seq2SeqGenerator:
 
         # Set prefix sequence.
         if prefix_seq is None:
-            # If `None`, we follow fairseq's convention and use EOS as the
+            # If `None`, we follow fairseq's convention, and use EOS as the
             # prefix.
             self.prefix_seq, self.prefix_seq_len = self.eos_idx, 1
         else:
@@ -159,14 +157,14 @@ class Seq2SeqGenerator:
             encoder_output, encoder_padding_mask
         )
 
-        # Each element contains the "id" of the search corresponding to a single
-        # source sequence and its finalized hypotheses.
+        # Each element contains the id of the search corresponding to a single
+        # source sequence and its hypotheses.
         active_searches: List[Tuple[int, List[Hypothesis]]] = [
             (search_idx, []) for search_idx in range(num_searches)
         ]
 
-        # Once a source sequence has `beam_size` finalized hypotheses, its
-        # search is moved from `active_searches` to `finished_searches`.
+        # Once a source sequence has `beam_size` hypotheses, its search is moved
+        # from `active_searches` to `finished_searches`.
         finished_searches: List[List[Hypothesis]] = [[] for i in range(num_searches)]
 
         num_remaining_searches = num_searches
@@ -192,7 +190,7 @@ class Seq2SeqGenerator:
         # (B)
         search_offsets = torch.arange(num_searches, device=device) * beam_size
 
-        # (B) - > (B, 1)
+        # (B) -> (B, 1)
         search_offsets.unsqueeze_(-1)
 
         cand_offsets = torch.arange(2 * beam_size, device=device)
@@ -206,21 +204,33 @@ class Seq2SeqGenerator:
 
         start_step = self.prefix_seq_len - 1
 
-        active_beam_indices: Optional[Tensor] = None
+        # Holds the indices of beams (a beam can occur more than once) that we
+        # should continue with in the next step.
+        beam_indices: Optional[Tensor] = None
+
+        # Holds the indices of searches that we should continue with in the next
+        # step. If not `None`, it means we finalized one or more searches in the
+        # last step.
         search_indices: Optional[Tensor] = None
 
         for step_nr in range(start_step, max_seq_len - 1):
-            if active_beam_indices is not None:
+            if beam_indices is not None:
+                # If not `None`, it means in the last step we finalized one or
+                # more searches. We should ensure that we adjust `beam_indices`
+                # before reordering `decoder`'s incremental state.
                 if search_indices is not None:
-                    # update beam indices to take into account removed sentences
-                    corr = search_indices - torch.arange(
-                        search_indices.numel()
-                    ).type_as(search_indices)
-                    active_beam_indices.view(-1, beam_size).add_(
-                        corr.unsqueeze(-1) * beam_size
-                    )
+                    num_searches = search_indices.numel()
 
-                state_bag.reorder(active_beam_indices)
+                    # (N)
+                    delta = search_indices - torch.arange(num_searches, device=device)
+
+                    # (N) -> (N, 1)
+                    delta.unsqueeze_(-1)
+
+                    # Adjust indices to take into account removed searches.
+                    beam_indices.view(num_searches, beam_size).add_(delta * beam_size)
+
+                state_bag.reorder(beam_indices)
 
             decoder_output, decoder_padding_mask = self.decoder.decode(
                 seqs[:, step_nr : step_nr + 1],
@@ -258,7 +268,7 @@ class Seq2SeqGenerator:
             if self.unk_idx is not None:
                 lprobs[:, :, self.unk_idx] -= self.opts.unk_penalty
 
-            # Call the beam search algorithm.
+            # Determine candidates for the next step.
             # (N, 2 x B)
             cand_scores, cand_indices, cand_beam_indices = self.search.step(
                 step_nr,
@@ -271,12 +281,12 @@ class Seq2SeqGenerator:
             # (N, 2 x B) + (N) -> (N, 2 x B)
             global_cand_beam_indices = cand_beam_indices + search_offsets
 
-            # Finalize hypotheses that reached the minimum length and that end
-            # with an EOS.
+            # Finalize beams that reached the minimum length and that end with
+            # an EOS.
             # (N, 2 x B)
             eos_mask = (cand_indices == self.eos_idx) & (cand_scores != -math.inf)
 
-            # Do not attempt to finalize hypotheses that are already finalized.
+            # Do not attempt to finalize beams that should be ignored.
             eos_mask[:, :beam_size][ignored_beam_mask] = False
 
             # Only consider EOS when it's among the top `beam_size` indices. Now
@@ -287,7 +297,7 @@ class Seq2SeqGenerator:
             )
 
             if eos_beam_indices.numel() > 0:
-                # Select the scores of the finalized hypotheses.
+                # Select the scores of the finalized beams.
                 # (N, B)
                 eos_scores = torch.masked_select(
                     cand_scores[:, :beam_size], mask=eos_mask[:, :beam_size]
@@ -311,91 +321,122 @@ class Seq2SeqGenerator:
                 newly_finished_searches = None
 
             # Remove finished searches (ones for which `beam_size` finalized
-            # hypotheses have been generated) from the batch.
+            # beams have been generated) from the batch.
             if newly_finished_searches:
-                new_batch_size = num_searches - len(newly_finished_searches)
+                new_num_searches = num_searches - len(newly_finished_searches)
 
-                batch_mask = torch.full((num_searches,), True, device=device)
-                batch_mask[newly_finished_searches] = False
+                # Construct `search_indices` which holds indices of searches
+                # to keep for the next step.
+                search_mask = torch.full((num_searches,), True, device=device)
+
+                search_mask[newly_finished_searches] = False
 
                 search_indices = torch.arange(num_searches, device=device)
 
-                search_indices = search_indices.masked_select(batch_mask)
+                search_indices = search_indices.masked_select(search_mask)
 
-                eos_mask = eos_mask[search_indices]
-                cand_beam_indices = cand_beam_indices[search_indices]
-                search_offsets.resize_(new_batch_size, 1)
-
-                global_cand_beam_indices = cand_beam_indices + search_offsets
-
-                cand_scores = cand_scores[search_indices]
-
-                cand_indices = cand_indices[search_indices]
-
+                # fmt: off
+                # Filter out removed batches from state variables.
+                # (N, B) -> (N - F, B)
                 ignored_beam_mask = ignored_beam_mask[search_indices]
 
-                scores = scores.view(num_searches, -1)[search_indices].view(
-                    new_batch_size * beam_size, -1
-                )
-                seqs = seqs.view(num_searches, -1)[search_indices].view(
-                    new_batch_size * beam_size, -1
-                )
+                # (N, 2 x B) -> (N - F, 2 x B)
+                cand_scores       = cand_scores      [search_indices]
+                cand_indices      = cand_indices     [search_indices]
+                cand_beam_indices = cand_beam_indices[search_indices]
 
-                encoder_output = encoder_output.unflatten(0, (num_searches, -1))[
-                    search_indices
-                ].flatten(0, 1)
+                # (N) -> (N - F)
+                search_offsets.resize_(new_num_searches, 1)
+
+                # (N - F, 2 x B) + (N - F) -> (N - F, 2 x B)
+                global_cand_beam_indices = cand_beam_indices + search_offsets
+
+                # (N, 2 x B) -> (N - F, 2 x B)
+                eos_mask = eos_mask[search_indices]
+
+                # (N x B, S) -> (N, B, S)
+                seqs   = seqs  .view(num_searches, -1)
+                scores = scores.view(num_searches, -1)
+
+                # (N, B, S + 1) -> ((N - F) x B, S)
+                seqs   = seqs  [search_indices].view(new_num_searches * beam_size, -1)
+                scores = scores[search_indices].view(new_num_searches * beam_size, -1)
+
+                # (N x B, S_enc, M) -> (N, B, S_enc, M)
+                encoder_output = encoder_output.unflatten(0, (num_searches, -1))
+
+                # (N, B, S_enc, M) -> ((N - F) x B, S_enc, M)
+                encoder_output = encoder_output[search_indices].flatten(0, 1)
+
                 if encoder_padding_mask is not None:
-                    encoder_padding_mask = encoder_padding_mask.unflatten(
-                        0, (num_searches, -1)
-                    )[search_indices].flatten(0, 1)
+                    # (N x B, S_enc, M) -> (N, B, S_enc, M)
+                    padding_mask = encoder_padding_mask.unflatten(0, (num_searches, -1))
 
-                num_searches = new_batch_size
+                    # (N, B, S_enc, M) -> ((N - F) x B, S_enc, M)
+                    encoder_padding_mask = padding_mask[search_indices].flatten(0, 1)
+                # fmt: on
+
+                num_searches = new_num_searches
             else:
                 search_indices = None
 
-            #            eos_mask[:, :beam_size][ignored_beam_mask] = True
-            eos_mask[:, :beam_size] = ~(
-                (~ignored_beam_mask) & (~eos_mask[:, :beam_size])
-            )
+            eos_mask[:, :beam_size][ignored_beam_mask] = True
 
+            # Set `beam_weights` so that values greater than or equal to 2 x
+            # `beam_size` indicate finished beams (i.e. end with EOS) and values
+            # less than 2 x `beam_size` indicate active beams.
+            # (N, 2 x B)
             beam_weights = cand_offsets + (eos_mask * (2 * beam_size))
 
+            # Get the top `beam_size` active beams, which are the beams with the
+            # smallest weights in `active_beam_weights`.
+            # (N, B)
             active_beam_weights, active_beams = torch.topk(
                 beam_weights, k=beam_size, dim=1, largest=False
             )
 
+            # Update to ignore finalized beams in the next step.
+            # (N, B)
             ignored_beam_mask = active_beam_weights >= 2 * beam_size
+
+            # We should always have at least one active beam in each search.
             assert (~ignored_beam_mask).any(dim=1).all()
 
-            active_beam_indices = torch.gather(
+            # Denotes which beams are continued for each new hypothesis (a beam
+            # can be selected more than once).
+            # (N, B)
+            beam_indices = torch.gather(
                 global_cand_beam_indices, dim=1, index=active_beams
             )
 
-            active_beam_indices = active_beam_indices.view(-1)
+            # (N, B) -> (N x B)
+            beam_indices = beam_indices.view(-1)
 
+            # fmt: off
+            # Reorder beams in the `seq` and `score` buffers. The same beam can
+            # be selected more than once.
             if step_nr > start_step:
-                seqs[:, : step_nr + 1] = torch.index_select(
-                    seqs[:, : step_nr + 1], dim=0, index=active_beam_indices
+                seqs  [:, : step_nr + 1] = torch.index_select(
+                    seqs  [:, : step_nr + 1], dim=0, index=beam_indices
                 )
-
-            seqs.view(num_searches, beam_size, -1)[:, :, step_nr + 1] = torch.gather(
-                cand_indices, dim=1, index=active_beams
-            )
-
-            if step_nr > start_step:
                 scores[:, : step_nr + 1] = torch.index_select(
-                    scores[:, : step_nr + 1], dim=0, index=active_beam_indices
+                    scores[:, : step_nr + 1], dim=0, index=beam_indices
                 )
 
-            scores.view(num_searches, beam_size, -1)[:, :, step_nr + 1] = torch.gather(
-                cand_scores, dim=1, index=active_beams
-            )
+            # (N x B, S) -> (N, B, S)
+            seqs_view   = seqs  .view(num_searches, beam_size, -1)
+            scores_view = scores.view(num_searches, beam_size, -1)
 
+            seqs_view  [:, :, step_nr + 1] = torch.gather(cand_indices, dim=1, index=active_beams)
+            scores_view[:, :, step_nr + 1] = torch.gather(cand_scores,  dim=1, index=active_beams)
+            # fmt: on
+
+        # Ensure that hypotheses are sorted by their scores before returning.
         for batch in finished_searches:
             batch.sort(key=lambda b: b.score, reverse=True)  # type: ignore[arg-type, return-value]
 
         return SequenceGeneratorOutput(
-            batches=finished_searches, device=device, collater=self.collater
+            results=finished_searches, device=device, collater=self.collater
         )
 
     def _determine_max_seq_len(self, source_seq_len: Optional[int]) -> int:
@@ -423,11 +464,11 @@ class Seq2SeqGenerator:
     def _fan_out_encoder_output(
         self, encoder_output: Tensor, encoder_padding_mask: Optional[Tensor]
     ) -> Tuple[Tensor, Optional[Tensor]]:
-        batch_size = encoder_output.size(0)
+        num_searches = encoder_output.size(0)  # i.e. batch size
 
-        # Fan out `encoder_output` to `batch_size` x `beam_size`.
+        # Fan out `encoder_output` to `num_searches` x `beam_size`.
         # (N)
-        fan_out_indices = torch.arange(batch_size, device=encoder_output.device)
+        fan_out_indices = torch.arange(num_searches, device=encoder_output.device)
 
         # (N) -> (N x B)
         fan_out_indices = fan_out_indices.repeat_interleave(self.beam_size)
@@ -506,52 +547,58 @@ class Seq2SeqGenerator:
         active_searches: List[Tuple[int, List["Hypothesis"]]],
         finished_searches: List[List["Hypothesis"]],
     ) -> List[int]:
-        finished_seqs = seqs.index_select(dim=0, index=eos_beam_indices)
+        # fmt: off
+        finalized_seqs   = seqs  .index_select(dim=0, index=eos_beam_indices)
+        finalized_scores = scores.index_select(dim=0, index=eos_beam_indices)
 
-        finished_seqs = finished_seqs[:, : step_nr + 2]
+        finalized_seqs   = finalized_seqs  [:, : step_nr + 2]
+        finalized_scores = finalized_scores[:, : step_nr + 2]
 
-        finished_seqs[:, -1] = self.eos_idx
+        # Finalize beams.
+        finalized_seqs  [:, -1] = self.eos_idx
+        finalized_scores[:, -1] = eos_scores
+        # fmt: on
 
-        finished_scores = scores.index_select(dim=0, index=eos_beam_indices)
+        # Convert from cumulative to per-step scores.
+        finalized_scores[:, 1:] = finalized_scores[:, 1:] - finalized_scores[:, :-1]
 
-        finished_scores = finished_scores[:, : step_nr + 2]
-
-        finished_scores[:, -1] = eos_scores
-
-        finished_scores[:, 1:] = finished_scores[:, 1:] - finished_scores[:, :-1]
-
+        # Skip first EOS since it is always 0 and skews normalization.
         if self.opts.normalize_scores:
-            eos_scores /= (
-                step_nr + 1
-            ) ** self.opts.len_penalty  # skip first EOS since it is always 0 and skews normalization
+            eos_scores /= (step_nr + 1) ** self.opts.len_penalty
 
+        # Holds the ids of finished searches.
         newly_finished: List[int] = []
 
-        for i in range(finished_seqs.size(0)):
-            batch_idx = (eos_beam_indices[i] // self.beam_size).item()
+        active_search_indices = (eos_beam_indices // self.beam_size).tolist()
 
-            search_id, hypothesis = active_searches[batch_idx]
+        for beam_idx, search_idx in enumerate(active_search_indices):
+            search_id, hypotheses = active_searches[search_idx]
 
-            if len(hypothesis) == self.beam_size:
+            # We might have more than one beam finalized in one step that would
+            # potentially exceed `beam_size` hypotheses.
+            if len(hypotheses) == self.beam_size:
                 continue
 
-            hypothesis.append(
+            hypotheses.append(
                 Hypothesis(
-                    seq=finished_seqs[i],
-                    score=eos_scores[i],
-                    step_scores=finished_scores[i],
+                    seq=finalized_seqs[beam_idx],
+                    score=eos_scores[beam_idx],
+                    step_scores=finalized_scores[beam_idx],
                 )
             )
 
-            if len(hypothesis) == self.beam_size:
-                newly_finished.append(batch_idx)
+            if len(hypotheses) == self.beam_size:
+                # We have `beam_size` hypotheses for this particular search, so
+                # we finish it now.
+                newly_finished.append(search_idx)
 
-                finished_searches[search_id] = hypothesis
+                finished_searches[search_id] = hypotheses
 
         newly_finished.sort()
 
-        for i in reversed(newly_finished):
-            del active_searches[i]
+        # Remove finished searches from the active list.
+        for idx in reversed(newly_finished):
+            del active_searches[idx]
 
         return newly_finished
 
@@ -560,8 +607,8 @@ class Seq2SeqGenerator:
 class SequenceGeneratorOutput:
     """Holds the output of a sequence generator."""
 
-    batches: List[List["Hypothesis"]]
-    """The list of hypothesis generated per batch per beam."""
+    results: List[List["Hypothesis"]]
+    """The list of hypothesis generated per search, ordered by score."""
 
     device: Device
     """The device on which generated sequences reside."""
@@ -572,40 +619,40 @@ class SequenceGeneratorOutput:
     def collate(
         self, hypo_idx: int = 0, skip_batch: bool = False
     ) -> Tuple[Tensor, Optional[Tensor]]:
-        """Collate the generated sequences at index ``hypo_idx`` in each batch
-        into a single tensor.
+        """Collate the generated sequences at index ``hypo_idx`` in each search
+        result into a single tensor.
 
         :param hypo_idx:
-            The index of hypothesis to extract from each batch.
+            The index of hypothesis to extract from each search result.
         :param skip_batch:
-            If ``True``, if a batch has no hypothesis at index `hypo_idx`, it
-            will be skipped instead of raising an error.
+            If ``True``, if a search result has no hypothesis at index `hypo_idx`,
+            it will be skipped instead of raising an error.
 
         :returns:
           - The collated sequences. *Shape:* :math:`(N,S)`, where :math:`N` is
-            the length of :attr:`batches` and :math:`S` is the sequence length.
+            the number of search results and :math:`S` is the sequence length.
           - An array where each element represents the length of the sequence at
-            the same index in the first returned value. *Shape:* where :math:`N`
-            is the batch size.
+            the same index in the first returned value. *Shape:* :math:`(N)`,
+            where :math:`N` is the number of search results.
         """
         if self.collater is None:
             raise RuntimeError("The output has no associated `Collater` instance.")
 
-        if not self.batches and not skip_batch:
-            raise ValueError("The output must contain at least one batch.")
+        if not self.results and not skip_batch:
+            raise ValueError("The output must contain at least one search result.")
 
         seqs = []
 
-        for batch_idx, batch in enumerate(self.batches):
-            if hypo_idx >= len(batch):
+        for search_idx, result in enumerate(self.results):
+            if hypo_idx >= len(result):
                 if not skip_batch:
                     raise ValueError(
-                        f"Each batch must have at least {hypo_idx + 1} hypotheses, but batch {batch_idx} has only {len(batch)}."
+                        f"Each search result must have at least {hypo_idx + 1} hypotheses, but search {search_idx} has only {len(result)}."
                     )
 
                 continue
 
-            seqs.append(batch[hypo_idx].seq)
+            seqs.append(result[hypo_idx].seq)
 
         if not seqs:
             # Return a zero-dimensional (not scalar!) tensor.

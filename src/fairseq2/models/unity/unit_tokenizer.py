@@ -17,7 +17,8 @@ class UnitTokenizer:
     """Represents a tokenizer to encode and decode UnitY speech units."""
 
     num_units: int
-    langs: Dict[str, int]
+    langs: Sequence[str]
+    lang_map: Dict[str, int]
 
     def __init__(self, num_units: int, langs: Sequence[str]) -> None:
         """
@@ -28,7 +29,9 @@ class UnitTokenizer:
         """
         self.num_units = num_units
 
-        self.langs = {lang: idx for idx, lang in enumerate(langs)}
+        self.langs = langs
+
+        self.lang_map = {lang: idx for idx, lang in enumerate(langs)}
 
         # For legacy reasons, we have to repeat the language symbols twice,
         # along with a placeholder `<mask>` token.
@@ -42,7 +45,25 @@ class UnitTokenizer:
     def lang_to_index(self, lang: str) -> int:
         """Return the symbol index of the specified language."""
         # +4 for PAD/EOS/BOS/UNK, and +1 for the `<mask>` token.
-        return self.num_units + len(self.langs) + self.langs[lang] + 5
+        try:
+            return self.num_units + len(self.langs) + self.lang_map[lang] + 5
+        except KeyError:
+            langs = ", ".join(self.langs)
+
+            raise ValueError(
+                f"`lang` must be one of the supported languages, but is '{lang}' instead. Supported languages: {langs}"
+            )
+
+    def index_to_lang(self, idx: int) -> str:
+        """Return the language of the specified language symbol index."""
+        relative_idx = idx - self.num_units - len(self.langs) - 5
+
+        if relative_idx < 0 or relative_idx >= len(self.langs):
+            raise ValueError(
+                f"`idx` must correspond to one of the supported language symbol indices (0 to {len(self.langs) - 1}), but is {idx} instead."
+            )
+
+        return self.langs[relative_idx]
 
     def create_encoder(
         self, lang: str, device: Optional[Device] = None
@@ -77,8 +98,8 @@ class UnitTokenEncoder:
         :param lang:
             The language of generated token indices.
         """
-        if not lang in tokenizer.langs:
-            langs = ", ".join(tokenizer.langs.keys())
+        if not lang in tokenizer.lang_map:
+            langs = ", ".join(tokenizer.langs)
 
             raise ValueError(
                 f"`lang` must be one of the supported languages, but is '{lang}' instead. Supported languages: {langs}"

@@ -77,7 +77,7 @@ class SequenceToTextGeneratorBase:
         )
 
         # TODO: use parallel_invoke
-        sentences = [self.token_decoder(b[0].seq)[0] for b in gen_output.batches]
+        sentences = [self.token_decoder(b[0].seq)[0] for b in gen_output.results]
 
         return SequenceToTextOutput(
             sentences, gen_output, encoder_output, encoder_padding_mask

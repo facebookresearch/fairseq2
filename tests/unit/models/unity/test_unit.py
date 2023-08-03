@@ -17,7 +17,7 @@ class TestUnitTokenizer:
 
         assert tokenizer.num_units == 100
 
-        assert tokenizer.langs == {"eng": 0, "deu": 1, "fra": 2}
+        assert tokenizer.lang_map == {"eng": 0, "deu": 1, "fra": 2}
 
         assert tokenizer.vocab_info.size == 112
 
@@ -25,6 +25,29 @@ class TestUnitTokenizer:
         tokenizer = UnitTokenizer(num_units=100, langs=["eng", "deu", "fra"])
 
         assert tokenizer.lang_to_index("deu") == 109
+
+    def test_lang_to_index_raises_error_when_lang_is_not_supported(self) -> None:
+        tokenizer = UnitTokenizer(num_units=100, langs=["eng", "deu", "fra"])
+
+        with pytest.raises(
+            ValueError,
+            match=r"^`lang` must be one of the supported languages, but is 'foo' instead\. Supported languages: eng, deu, fra$",
+        ):
+            tokenizer.lang_to_index("foo")
+
+    def test_index_to_lang_works(self) -> None:
+        tokenizer = UnitTokenizer(num_units=100, langs=["eng", "deu", "fra"])
+
+        assert tokenizer.index_to_lang(109) == "deu"
+
+    def test_index_to_lang_raises_error_when_idx_is_out_of_range(self) -> None:
+        tokenizer = UnitTokenizer(num_units=100, langs=["eng", "deu", "fra"])
+
+        with pytest.raises(
+            ValueError,
+            match=r"^`idx` must correspond to one of the supported language symbol indices \(0 to 2\), but is 1234 instead\.$",
+        ):
+            tokenizer.index_to_lang(1234)
 
 
 class TestUnitEncoder:
