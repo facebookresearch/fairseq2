@@ -63,7 +63,12 @@ class PositionEncoder(Module, ABC):
             Same as ``seqs``.
         """
         if self.max_seq_len is not None:
-            if (seq_len := seqs.size(1)) > self.max_seq_len:
+            if not self.training and state_bag is not None:
+                start_step = state_bag.step
+            else:
+                start_step = 0
+
+            if (seq_len := start_step + seqs.size(1)) > self.max_seq_len:
                 raise ValueError(
                     f"The input sequence length must be less than or equal to the maximum sequence length ({self.max_seq_len}), but is {seq_len} instead."
                 )
