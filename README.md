@@ -47,7 +47,7 @@ achieve the same effect:
 git submodule update --init --recursive
 ```
 
-### 2. Optional (Strongly Recommended): Set Up a Virtual Environment
+### 2. Set Up a Virtual Environment
 If you are not already in a Python virtual environment (e.g. Python `venv` or
 Conda), we strongly recommend setting up one; otherwise, fairseq2 will be
 installed to your user-wide or, if you have admin privileges, to the system-wide
@@ -60,30 +60,33 @@ to learn how to set up a virtual environment using the standard tooling. If you
 prefer Conda, similar instructions can be found
 [here](https://conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-with-commands).
 
-### 3. Install the Build Dependencies
-fairseq2 has a small set of prerequisites. You can install them (in your virtual
-environment) via pip:
+### 3a. Install the Build Dependencies (Python Virtual Environment)
+*For Conda, follow the instructions in the next section!*
+
+fairseq2 has a small set of prerequisites. You can install them via pip:
 
 ```
-pip install -r requirements-build.txt
+pip install torch -r requirements-devel.txt
 ```
 
-If you plan to play with or contribute to fairseq2, you should instead use:
-
-```
-pip install -r requirements-devel.txt
-```
-
-This second command will install linters, code formatters, and testing tools in
-addition to build dependencies. Check out our
-[contribution guidelines](./CONTRIBUTING.md) to learn how to use them.
-
-### 4. Install PyTorch
-Follow the instructions at [pytorch.org](https://pytorch.org/get-started) to
-install PyTorch (in your virtual environment). Note that fairseq2 supports only
+This command will install PyTorch, build dependencies, linters, and testing
+tools. To install a specific version of PyTorch, follow the instructions at
+[pytorch.org](https://pytorch.org/get-started). Note that fairseq2 supports only
 PyTorch 1.12.1 and later.
 
-### 5. Build the C++ Extension Module
+### 3b. Install the Build Dependencies (Conda)
+fairseq2 has a small set of prerequisites. You can install them via conda:
+
+```
+conda install -c pytorch -c nvidia -c conda-forge pytorch pytorch-cuda=11.7 --file requirements-conda.txt
+```
+
+This command will install PyTorch, build dependencies, linters, and testing
+tools. To install a specific version of PyTorch, follow the instructions at
+[pytorch.org](https://pytorch.org/get-started). Note that fairseq2 supports only
+PyTorch 1.12.1 and later.
+
+### 4. Build the C++ Extension Module
 The final step before installing fairseq2 is to build its C++ extension module.
 Run the following command at the root directory of your repository to configure
 the build:
@@ -128,7 +131,7 @@ for the Ampere architecture (e.g. for A100).
 cmake -GNinja -DCMAKE_CUDA_ARCHITECTURES="80-real;80-virtual" -DFAIRSEQ2_USE_CUDA=ON -B build
 ```
 
-### 6. Install the Package
+### 5. Install the Package
 Once you have built the extension module, the actual Python package installation
 is pretty straightforward:
 
@@ -144,7 +147,7 @@ develop) mode:
 pip install -e .
 ```
 
-### 7. Optional: Sanity Check
+### 6. Optional: Sanity Check
 To make sure that your installation has no issues, you can run the Python tests:
 
 ```
@@ -155,7 +158,7 @@ By default, the tests will be run on CPU; optionally pass the `--device` (short
 form `-d`) argument to run them on a specific device (e.g. NVIDIA GPU).
 
 ```
-pytest --device cuda:1
+pytest --device cuda:0
 ```
 
 ## Contributing

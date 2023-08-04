@@ -12,6 +12,12 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY VALUE RelWithDebInfo)
 endif()
 
+if(DEFINED ENV{CONDA_PREFIX} AND NOT DEFINED ENV{CONDA_BUILD_SYSROOT})
+    message(FATAL_ERROR
+        "It looks like you are in a Conda environment, but the compiler packages are not installed. Please run `conda install -c conda-forge compilers` first."
+    )
+endif()
+
 include(CMakeDependentOption)
 include(CMakePackageConfigHelpers)
 include(CheckLanguage)
@@ -33,11 +39,17 @@ set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 # Options
 # ------------------------------------------------------------
 
+if(DEFINED ENV{CONDA_PREFIX})
+    set(build_for_wheel_bundle OFF)
+else()
+    set(build_for_wheel_bundle ON)
+endif()
+
 option(FAIRSEQ2_BUILD_FOR_WHEEL_BUNDLE
     #DESCRIPTION
         "Builds the shared library in a way so that it can be bundled with the Python wheel package."
     #VALUE
-        ON
+        ${build_for_wheel_bundle}
 )
 
 option(FAIRSEQ2_BUILD_FOR_NATIVE
@@ -127,7 +139,7 @@ find_package(SndFile 1.0.25 REQUIRED)
 
 find_package(Threads REQUIRED)
 
-find_package(TBB 2021.9 REQUIRED)
+find_package(TBB 2021.8 REQUIRED)
 
 find_package(Torch 1.12 REQUIRED)
 

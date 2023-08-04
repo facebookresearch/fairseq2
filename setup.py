@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from os import path
+from os import environ, path
 from typing import Final, List, Optional
 
 import torch
@@ -129,21 +129,29 @@ class install_cmake(Command):
         return []
 
 
-dependencies = [
-    "jiwer~=3.0",
-    "numpy~=1.23",
-    "overrides~=7.3",
-    "packaging~=23.1",
-    "pyyaml~=6.0",
-    "sacrebleu~=2.3",
-    "tbb==2021.9.0",
-    # PyTorch has no ABI compatibility between releases; this means we have to
-    # ensure that we depend on the exact same version that was used to build our
-    # extension module.
-    "torch==" + version.parse(torch.__version__).public,
-    "torcheval~=0.0.6",
-    "typing_extensions~=4.3",
-]
+# If we are in a Conda environment, we expect the dependencies to be installed
+# via conda-build or requirements-conda.txt.
+if "CONDA_PREFIX" in environ:
+    dependencies = []
+else:
+    dependencies = [
+        "jiwer~=3.0",
+        "numpy~=1.23",
+        "overrides~=7.3",
+        "packaging~=23.1",
+        "pyyaml~=6.0",
+        "sacrebleu~=2.3",
+        "tbb==2021.9.0",
+        # PyTorch has no ABI compatibility between releases; this means we have
+        # to ensure that we depend on the exact same version that was used to
+        # build our extension module.
+        "torch==" + version.parse(torch.__version__).public,
+        "torcheval~=0.0.6",
+        "typing_extensions~=4.3",
+    ]
+
+# torcheval is not available in any Conda channel.
+dependencies.append("torcheval~=0.0.6")
 
 all_dependencies = dependencies
 
