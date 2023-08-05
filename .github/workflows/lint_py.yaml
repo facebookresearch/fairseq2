@@ -36,7 +36,7 @@ jobs:
           echo ~/venv/bin >> "$GITHUB_PATH"
       - name: Install PyTorch
         run: |
-          pip install torch==2.0\
+          pip install torch==2.0.1\
             --extra-index-url https://download.pytorch.org/whl/cpu
       - name: Install the requirements
         run: |
@@ -44,7 +44,7 @@ jobs:
       - name: Install the package
         id: setup
         run: |
-          pip install --editable ".[all]"
+          pip install --editable .
       - name: Run isort
         if: success() || (failure() && steps.setup.outcome == 'success')
         run: |

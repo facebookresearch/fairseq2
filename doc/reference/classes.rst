@@ -15,7 +15,7 @@ Classes
     data.DataPipelineError
     data.RecordError
     data.text.SentencePieceModel
-    data.text.MultilingualTokenizer
+    data.text.MultilingualTextTokenizer
     models.transformer.FinalProjection
     models.transformer.TransformerModel
     nn.Embedding

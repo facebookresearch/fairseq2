@@ -22,8 +22,3 @@ Functions
 ---------
 .. include:: functions.rst
    :start-after: .. body
-
-Fairseq2 cli
-------------
-.. include:: cli.rst
-   :start-after: .. body

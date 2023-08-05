@@ -11,7 +11,6 @@ ABCs and Protocols
     gang.Gang
     nn.PositionEncoder
     nn.Projection
-    nn.ResettableProjection
     nn.transformer.AttentionMaskGenerator
     nn.transformer.AttentionWeightHook
     nn.transformer.FeedForwardNetwork

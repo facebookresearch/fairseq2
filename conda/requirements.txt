@@ -1,0 +1,14 @@
+cmake>=3.26,<3.27
+compilers
+jiwer=3
+libsndfile==1.0.31  # v1.1 and v1.2 do not work in Conda!
+numpy>=1.23,<2
+ninja>=1.11,<2
+overrides>=7.3,<8
+packaging>=23.1,<24
+pyyaml=6
+sacrebleu>=2.3,<3
+setuptools>=67.8,<68
+tbb-devel>=2021.8
+typing_extensions>=4.3,<5
+wheel>=0.40,<1

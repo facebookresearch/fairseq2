@@ -1,9 +1,6 @@
 # Problem Matchers for GA
 
-This directory contains the problem matchers used in the GitHub Actions
-workflows.
-
-## References
+This directory contains the problem matchers used in GitHub Actions workflows.
 
 | Matcher | Source                                                                                                                     | License                                                                                                                                        |
 |---------|----------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|

@@ -1,5 +1,5 @@
 cmake~=3.26.4
-ninja~=1.11.1
+ninja~=1.11
 packaging~=23.1
 setuptools~=67.8
 tbb-devel==2021.9.0

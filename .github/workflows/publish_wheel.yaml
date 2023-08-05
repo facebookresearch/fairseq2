@@ -9,24 +9,24 @@ name: Publish wheel
 on:
   workflow_call:
     inputs:
-      release_type:
-        type: string
-        required: true
-      py:
+      os:
         type: string
         required: true
       torch:
         type: string
         required: true
-      os:
+      py:
         type: string
         required: true
       arch:
         type: string
-        default: 'x86_64'
+        required: true
       variant:
         type: string
-        default: 'cpu'
+        required: true
+      release_type:
+        type: string
+        required: true
 
 defaults:
   run:
@@ -40,8 +40,8 @@ jobs:
       - name: Download the wheel from staging
         uses: actions/download-artifact@v3
         with:
-          name: wheel-${{ inputs.os }}_${{ inputs.arch }}-py${{ inputs.py }}-pt${{ inputs.torch }}-${{ inputs.variant }}-nosan
-          path: ~/wheelhouse/
+          name: artifacts-pt${{ inputs.torch }}-py${{ inputs.py }}-${{ inputs.os }}_${{ inputs.arch }}-${{ inputs.variant }}-nosan
+          path: ~/build-artifacts/
       - name: Upload the wheel to S3
         env:
           TORCH: ${{ inputs.torch }}
@@ -50,6 +50,6 @@ jobs:
 #          AWS_SECRET_ACCESS_KEY: ${{ secrets.aws_access_key }}
 #          AWS_DEFAULT_REGION: us-east-1
         run: |
-          for pkg in ~/wheelhouse/*.whl; do
+          for pkg in ~/build-artifacts/wheelhouse/*.whl; do
               echo aws s3 cp "$pkg" "s3://dl.fbaipublicfiles.com/fairseq2/${{ inputs.release_type }}/pt${TORCH/./}/$VARIANT/" --acl public-read
           done

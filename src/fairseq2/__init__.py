@@ -20,9 +20,6 @@ if libsndfile is None:
     )
 
 
-from fairseq2 import C  # type: ignore[attr-defined]
-
-
 def get_lib() -> Path:
     """Return the directory that contains libfairseq2."""
     return Path(__file__).parent.joinpath("lib")
@@ -40,7 +37,9 @@ def get_cmake_prefix_path() -> Path:
 
 def supports_cuda() -> bool:
     """Return ``True`` if libfairseq2 supports CUDA."""
-    return C._supports_cuda()  # type: ignore[no-any-return]
+    from fairseq2.C import _supports_cuda  # type: ignore[attr-defined]
+
+    return _supports_cuda()  # type: ignore[no-any-return]
 
 
 def cuda_version() -> Optional[Tuple[int, int]]:
@@ -49,7 +48,9 @@ def cuda_version() -> Optional[Tuple[int, int]]:
     :returns:
         The major and minor version segments.
     """
-    return C._cuda_version()  # type: ignore[no-any-return]
+    from fairseq2.C import _cuda_version  # type: ignore[attr-defined]
+
+    return _cuda_version()  # type: ignore[no-any-return]
 
 
 # If ``True``, indicates that we are run under Sphinx.

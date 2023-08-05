@@ -32,207 +32,217 @@ jobs:
     uses: ./.github/workflows/lint_py.yaml
 
   lint_sh:
-    name: Lint the shell scripts
+    name: Lint shell scripts
     uses: ./.github/workflows/lint_sh.yaml
 
-  linux_pt112-build:
-    name: Build the wheel (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.12.1, ${{ matrix.variant }}, nosan)
+  build_doc:
+    name: Build documentation
+    uses: ./.github/workflows/build_doc.yaml
+
+  build_wheel-linux-x86_64:
+    name: Build wheel (pt${{matrix.torch}}, py${{ matrix.py}}, linux_x86_64, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
     needs: [lint_cc, lint_py, lint_sh]
+    uses: ./.github/workflows/build_wheel-linux.yaml
     strategy:
       matrix:
-        py: ['3.8', '3.9', '3.10']
-        arch: ['x86_64']
-        variant: ['cpu', 'cu113', 'cu116']
-    uses: ./.github/workflows/linux-build_wheel.yaml
-    with:
-      py: ${{ matrix.py }}
-      torch: '1.12.1'
-      arch: ${{ matrix.arch }}
-      variant: ${{ matrix.variant }}
-      dev_stamp: ${{ github.event_name == 'schedule' || inputs.release_type == 'nightly' }}
-
-  linux_pt112-test:
-    name: Run the tests (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.12.1, ${{ matrix.variant }}, nosan)
-    needs: linux_pt112-build
-    strategy:
-      matrix:
-        py: ['3.8', '3.9', '3.10']
-        arch: ['x86_64']
-#        variant: ['cpu', 'cu113', 'cu116']
-        variant: ['cpu']
-    uses: ./.github/workflows/linux-run_tests.yaml
-    with:
-      py: ${{ matrix.py }}
-      torch: '1.12.1'
-      arch: ${{ matrix.arch }}
-      variant: ${{ matrix.variant }}
-#      run_on_cuda:
-
-  linux_pt113-build:
-    name: Build the wheel (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.13.1, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
-    needs: [lint_cc, lint_py, lint_sh]
-    strategy:
-      matrix:
-        py: ['3.8', '3.9', '3.10']
-        arch: ['x86_64']
-        variant: ['cpu', 'cu116']
-    uses: ./.github/workflows/linux-build_wheel.yaml
-    with:
-      py: ${{ matrix.py }}
-      torch: '1.13.1'
-      arch: ${{ matrix.arch }}
-      variant: ${{ matrix.variant }}
-      dev_stamp: ${{ github.event_name == 'schedule' || inputs.release_type == 'nightly' }}
-
-  linux_pt113-test:
-    name: Run the tests (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.13.1, ${{ matrix.variant }}, nosan)
-    needs: linux_pt113-build
-    strategy:
-      matrix:
-        py: ['3.8', '3.9', '3.10']
-        arch: ['x86_64']
-#        variant: ['cpu', 'cu116']
-        variant: ['cpu']
-    uses: ./.github/workflows/linux-run_tests.yaml
-    with:
-      py: ${{ matrix.py }}
-      torch: '1.13.1'
-      arch: ${{ matrix.arch }}
-      variant: ${{ matrix.variant }}
-#      run_on_cuda:
-
-  linux_pt20-build:
-    name: Build the wheel (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt2.0, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
-    needs: [lint_cc, lint_py, lint_sh]
-    strategy:
-      matrix:
-        py: ['3.8', '3.9', '3.10']
-        arch: ['x86_64']
-        variant: ['cpu', 'cu117', 'cu118']
-        sanitizers: ['nosan']
         include:
-          - py: '3.8'
-            arch: 'x86_64'
-            variant: 'cpu'
-            sanitizers: 'asan_ubsan'
-#          - py: '3.8'
-#            arch: 'x86_64'
-#            variant: 'cpu'
-#            sanitizers: 'tsan'
-    uses: ./.github/workflows/linux-build_wheel.yaml
-    with:
-      py: ${{ matrix.py }}
-      torch: '2.0'
-      arch: ${{ matrix.arch }}
-      variant: ${{ matrix.variant }}
-      sanitizers: ${{ matrix.sanitizers }}
-      dev_stamp: ${{ github.event_name == 'schedule' || inputs.release_type == 'nightly' }}
-
-  linux_pt20-test:
-    name: Run the tests (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt2.0, ${{ matrix.variant }}, nosan)
-    needs: linux_pt20-build
-    strategy:
-      matrix:
-        py: ['3.8', '3.9', '3.10']
-        arch: ['x86_64']
-#        variant: ['cpu', 'cu117', 'cu118']
-        variant: ['cpu']
-        sanitizers: ['nosan']
-        run_integration: [false]
-        exclude:
-          - py: '3.8'
-            arch: 'x86_64'
-            variant: 'cpu'
-        include:
-          - py: '3.8'
-            arch: 'x86_64'
+          # PT 1.12.1
+          - torch: '1.12.1'  # CPU
+            py: '3.8'
             variant: 'cpu'
             sanitizers: 'nosan'
-            run_integration: true
-          - py: '3.8'
-            arch: 'x86_64'
+          - torch: '1.12.1'
+            py: '3.9'
+            variant: 'cpu'
+            sanitizers: 'nosan'
+          - torch: '1.12.1'
+            py: '3.10'
+            variant: 'cpu'
+            sanitizers: 'nosan'
+
+          - torch: '1.12.1'  # CUDA 11.6
+            py: '3.8'
+            variant: 'cu116'
+            sanitizers: 'nosan'
+          - torch: '1.12.1'
+            py: '3.9'
+            variant: 'cu116'
+            sanitizers: 'nosan'
+          - torch: '1.12.1'
+            py: '3.10'
+            variant: 'cu116'
+            sanitizers: 'nosan'
+
+          # PT 1.13.1
+          - torch: '1.13.1'  # CPU
+            py: '3.8'
+            variant: 'cpu'
+            sanitizers: 'nosan'
+          - torch: '1.13.1'
+            py: '3.9'
+            variant: 'cpu'
+            sanitizers: 'nosan'
+          - torch: '1.13.1'
+            py: '3.10'
+            variant: 'cpu'
+            sanitizers: 'nosan'
+
+          - torch: '1.13.1'  # CUDA 11.6
+            py: '3.8'
+            variant: 'cu116'
+            sanitizers: 'nosan'
+          - torch: '1.13.1'
+            py: '3.9'
+            variant: 'cu116'
+            sanitizers: 'nosan'
+          - torch: '1.13.1'
+            py: '3.10'
+            variant: 'cu116'
+            sanitizers: 'nosan'
+
+          # PT 2.0.1
+          - torch: '2.0.1'   # CPU
+            py: '3.8'
+            variant: 'cpu'
+            sanitizers: 'nosan'
+          - torch: '2.0.1'
+            py: '3.9'
+            variant: 'cpu'
+            sanitizers: 'nosan'
+          - torch: '2.0.1'
+            py: '3.10'
+            variant: 'cpu'
+            sanitizers: 'nosan'
+
+          - torch: '2.0.1'   # CUDA 11.7
+            py: '3.8'
+            variant: 'cu117'
+            sanitizers: 'nosan'
+          - torch: '2.0.1'
+            py: '3.9'
+            variant: 'cu117'
+            sanitizers: 'nosan'
+          - torch: '2.0.1'
+            py: '3.10'
+            variant: 'cu117'
+            sanitizers: 'nosan'
+
+          - torch: '2.0.1'   # CUDA 11.8
+            py: '3.8'
+            variant: 'cu118'
+            sanitizers: 'nosan'
+          - torch: '2.0.1'
+            py: '3.9'
+            variant: 'cu118'
+            sanitizers: 'nosan'
+          - torch: '2.0.1'
+            py: '3.10'
+            variant: 'cu118'
+            sanitizers: 'nosan'
+
+          - torch: '2.0.1'   # ASAN_UBSAN
+            py: '3.10'
             variant: 'cpu'
             sanitizers: 'asan_ubsan'
-            run_integration: false
-#          - py: '3.8'
-#            arch: 'x86_64'
-#            variant: 'cpu'
-#            sanitizers: 'tsan'
-#            run_integration: false
-    uses: ./.github/workflows/linux-run_tests.yaml
     with:
+      torch: ${{ matrix.torch }}
       py: ${{ matrix.py }}
-      torch: '2.0'
-      arch: ${{ matrix.arch }}
+      arch: 'x86_64'
       variant: ${{ matrix.variant }}
       sanitizers: ${{ matrix.sanitizers }}
-#      run_on_cuda:
 
-  build_doc:
-    name: Build the documentation
-    needs: linux_pt20-build
-    uses: ./.github/workflows/build_doc.yaml
-    with:
-      py: '3.8'
-      torch: '2.0'
-
-  linux_pt112-publish:
-    name: Publish the wheel (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.12.1, ${{ matrix.variant }})
-    needs: [linux_pt112-test, linux_pt113-test, linux_pt20-test, build_doc]
+  publish_linux-x86_64:
+    name: Publish wheel (pt${{ matrix.torch }}, py${{ matrix.py }}, linux_${{ matrix.arch }}, ${{ matrix.variant }})
+    needs: [build_doc, build_wheel-linux-x86_64]
     strategy:
       max-parallel: 1
       matrix:
-        py: ['3.8', '3.9', '3.10']
-        arch: ['x86_64']
-        variant: ['cpu', 'cu113', 'cu116']
+        include:
+          # PT 1.12.1
+          - torch: '1.12.1'  # CPU
+            py: '3.8'
+            variant: 'cpu'
+          - torch: '1.12.1'
+            py: '3.9'
+            variant: 'cpu'
+          - torch: '1.12.1'
+            py: '3.10'
+            variant: 'cpu'
+
+          - torch: '1.12.1'  # CUDA 11.6
+            py: '3.8'
+            variant: 'cu116'
+          - torch: '1.12.1'
+            py: '3.9'
+            variant: 'cu116'
+          - torch: '1.12.1'
+            py: '3.10'
+            variant: 'cu116'
+
+          # PT 1.13.1
+          - torch: '1.13.1'  # CPU
+            py: '3.8'
+            variant: 'cpu'
+          - torch: '1.13.1'
+            py: '3.9'
+            variant: 'cpu'
+          - torch: '1.13.1'
+            py: '3.10'
+            variant: 'cpu'
+
+          - torch: '1.13.1'  # CUDA 11.6
+            py: '3.8'
+            variant: 'cu116'
+          - torch: '1.13.1'
+            py: '3.9'
+            variant: 'cu116'
+          - torch: '1.13.1'
+            py: '3.10'
+            variant: 'cu116'
+
+          # PT 2.0.1
+          - torch: '2.0.1'   # CPU
+            py: '3.8'
+            variant: 'cpu'
+          - torch: '2.0.1'
+            py: '3.9'
+            variant: 'cpu'
+          - torch: '2.0.1'
+            py: '3.10'
+            variant: 'cpu'
+
+          - torch: '2.0.1'   # CUDA 11.7
+            py: '3.8'
+            variant: 'cu117'
+          - torch: '2.0.1'
+            py: '3.9'
+            variant: 'cu117'
+          - torch: '2.0.1'
+            py: '3.10'
+            variant: 'cu117'
+
+          - torch: '2.0.1'   # CUDA 11.8
+            py: '3.8'
+            variant: 'cu118'
+            sanitizers: 'nosan'
+          - torch: '2.0.1'
+            py: '3.9'
+            variant: 'cu118'
+          - torch: '2.0.1'
+            py: '3.10'
+            variant: 'cu118'
     uses: ./.github/workflows/publish_wheel.yaml
     with:
-      release_type: ${{ inputs.release_type || 'nightly' }}
-      py: ${{ matrix.py }}
-      torch: '1.12.1'
       os: 'linux'
-      arch: ${{ matrix.arch }}
-      variant: ${{ matrix.variant }}
-
-  linux_pt113-publish:
-    name: Publish the wheel (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt1.13.1, ${{ matrix.variant }})
-    needs: linux_pt112-publish
-    strategy:
-      max-parallel: 1
-      matrix:
-        py: ['3.8', '3.9', '3.10']
-        arch: ['x86_64']
-        variant: ['cpu', 'cu116']
-    uses: ./.github/workflows/publish_wheel.yaml
-    with:
-      release_type: ${{ inputs.release_type || 'nightly' }}
+      torch: ${{ matrix.torch }}
       py: ${{ matrix.py }}
-      torch: '1.13.1'
-      os: 'linux'
-      arch: ${{ matrix.arch }}
+      arch: 'x86_64'
       variant: ${{ matrix.variant }}
-
-  linux_pt20-publish:
-    name: Publish the wheel (linux_${{ matrix.arch }}, py${{ matrix.py }}, pt2.0, ${{ matrix.variant }})
-    needs: linux_pt113-publish
-    strategy:
-      max-parallel: 1
-      matrix:
-        py: ['3.8', '3.9', '3.10']
-        arch: ['x86_64']
-        variant: ['cpu', 'cu117', 'cu118']
-    uses: ./.github/workflows/publish_wheel.yaml
-    with:
       release_type: ${{ inputs.release_type || 'nightly' }}
-      py: ${{ matrix.py }}
-      torch: '2.0'
-      os: 'linux'
-      arch: ${{ matrix.arch }}
-      variant: ${{ matrix.variant }}
 
-  publish-doc:
-    name: Publish the documentation
-    needs: linux_pt20-publish
+  publish_doc:
+    name: Publish documentation
+    needs: [build_doc, build_wheel-linux-x86_64]
     uses: ./.github/workflows/publish_doc.yaml
     with:
       nightly: ${{ github.event_name == 'schedule' || inputs.release_type == 'nightly' }}

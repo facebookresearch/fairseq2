@@ -8,19 +8,12 @@ fairseq2 is a sequence modeling toolkit that allows researchers and developers
 to train custom models for translation, summarization, language modeling, and
 other content generation tasks.
 
-.. note::
-   Please note that fairseq2 is primarily a research library with no guaranteed
-   backwards compatibility between releases. You should exercise caution if you
-   plan to use it in production.
-
-Installation
-------------
-
 .. toctree::
    :maxdepth: 1
-   :caption: Tutorials
+   :caption: Installation
 
-   tutorials/data
+   installation/from_source
+   installation/from_source_conda
 
 .. toctree::
    :maxdepth: 1
