@@ -14,6 +14,7 @@ from torch.nn.functional import log_softmax
 
 from fairseq2.data import Collater, SequenceData, VocabularyInfo
 from fairseq2.generation.beam_search import BeamSearch, StandardBeamSearch
+from fairseq2.generation.logits_processor import LogitsProcessor
 from fairseq2.models.encoder_decoder import Seq2SeqDecoder
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.typing import Device
@@ -52,6 +53,9 @@ class SequenceGeneratorOptions:
     search: Optional[BeamSearch] = None
     """The beam search algorithm to use."""
 
+    logits_processor: Optional[LogitsProcessor] = None
+    """Logits processor called before applying beam search step."""
+
 
 class Seq2SeqGenerator:
     """Represents a sequence-to-sequence generator."""
@@ -65,6 +69,7 @@ class Seq2SeqGenerator:
     prefix_seq: Union[int, Tensor]
     prefix_seq_len: int
     search: BeamSearch
+    logits_processor: Optional[LogitsProcessor]
     collater: Collater
 
     def __init__(
@@ -130,6 +135,7 @@ class Seq2SeqGenerator:
 
         # Set beam search.
         self.search = self.opts.search or StandardBeamSearch()
+        self.logits_processor = self.opts.logits_processor
 
         if vocab_info.pad_idx is None:
             self.collater = Collater()
@@ -267,6 +273,13 @@ class Seq2SeqGenerator:
             # Apply UNK penalty.
             if self.unk_idx is not None:
                 lprobs[:, :, self.unk_idx] -= self.opts.unk_penalty
+
+            # update scores in place using logits_processor
+            if self.logits_processor is not None:
+                self.logits_processor(
+                    seqs.view(num_searches, beam_size, -1)[:, :, : step_nr + 1],
+                    lprobs.view(num_searches, beam_size, -1),
+                )
 
             # Determine candidates for the next step.
             # (N, 2 x B)
