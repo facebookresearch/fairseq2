@@ -4,12 +4,13 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, Mapping, final
+from typing import Any, Dict, Mapping, Union, final
 
 import torch
 from overrides import override as finaloverride
 
 from fairseq2.assets import AssetStore, asset_store, download_manager
+from fairseq2.assets.card import AssetCard
 from fairseq2.models.nllb.loader import NllbTokenizerLoader
 from fairseq2.models.unity.builder import UnitYConfig, create_unity_model, unity_archs
 from fairseq2.models.unity.model import UnitYModel
@@ -243,12 +244,15 @@ class UnitYUnitTokenizerLoader:
         """
         self.asset_store = asset_store
 
-    def __call__(self, model_name: str) -> UnitTokenizer:
+    def __call__(self, model_name_or_card: Union[str, AssetCard]) -> UnitTokenizer:
         """
-        :param name:
-            The name of the model.
+        :param model_name_or_card:
+            The name of the model or an already loaded AssetCard
         """
-        card = self.asset_store.retrieve_card(model_name)
+        if isinstance(model_name_or_card, AssetCard):
+            card: AssetCard = model_name_or_card
+        else:
+            card = self.asset_store.retrieve_card(model_name_or_card)
 
         return UnitTokenizer(
             card.field("num_units").as_(int), card.field("unit_langs").as_list(str)
