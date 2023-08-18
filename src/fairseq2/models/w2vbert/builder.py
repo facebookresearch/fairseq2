@@ -46,6 +46,37 @@ def _encoder_600m() -> Wav2Vec2EncoderConfig:
     )
 
 
+def _encoder_300m() -> Wav2Vec2EncoderConfig:
+    return Wav2Vec2EncoderConfig(
+        model_dim=1024,
+        max_seq_len=4096,
+        feature_dim=160,
+        use_fbank=True,
+        first_pass_dropout_p=0.0,
+        layer_norm_features=False,
+        feature_extractor_layer_descs=[],
+        feature_extractor_bias=False,
+        feature_extractor_layer_norm_convs=False,
+        feature_grad_scale=0,
+        num_fbank_channels=80,
+        fbank_stride=2,
+        sample_fbank_every_k=1,
+        pos_encoder_type="relative",
+        pos_encoder_depth=0,
+        pos_conv_kernel_size=0,
+        num_pos_conv_groups=0,
+        use_conformer=True,
+        num_encoder_layers=12,
+        num_encoder_attn_heads=16,
+        ffn_inner_dim=4096,
+        dropout_p=0.0,
+        attn_dropout_p=0.0,
+        layer_drop_p=0.0,
+        norm_order=TransformerNormOrder.POST,
+        depthwise_conv_kernel_size=31,
+    )
+
+
 @dataclass
 class W2VBertConfig:
     """Holds the configuration of a w2v-BERT model."""
@@ -99,6 +130,37 @@ def _600m() -> W2VBertConfig:
     return W2VBertConfig(
         w2v2_config,
         num_bert_encoder_layers=16,
+        num_target_codebooks=1,
+        w2v2_loss_weight=1.0,
+        bert_loss_weight=1.0,
+        bert_label_smoothing=0.0,
+    )
+
+
+@w2vbert_arch("300m")
+def _300m() -> W2VBertConfig:
+    w2v2_encoder_config = _encoder_300m()
+
+    w2v2_config = Wav2Vec2Config(
+        w2v2_encoder_config,
+        final_dim=768,
+        final_proj_bias=True,
+        temporal_mask_span_len=10,
+        max_temporal_mask_prob=0.65,
+        spatial_mask_span_len=10,
+        max_spatial_mask_prob=0.0,
+        quantized_dim=1024,
+        num_codebooks=1,
+        num_codebook_entries=1024,
+        codebook_sampling_temperature=(2.0, 0.1, 0.999995),
+        num_distractors=100,
+        logit_temp=0.1,
+        diversity_loss_weight=0.2,
+    )
+
+    return W2VBertConfig(
+        w2v2_config,
+        num_bert_encoder_layers=8,
         num_target_codebooks=1,
         w2v2_loss_weight=1.0,
         bert_loss_weight=1.0,
