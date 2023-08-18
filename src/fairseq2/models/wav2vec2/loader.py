@@ -61,8 +61,9 @@ class Wav2Vec2Loader(ModelLoader[Wav2Vec2Model, Wav2Vec2Config]):
             r"^decoder\.layers\.([0-9]+)\.final_layer_norm\.":    r"decoder.layers.\1.ffn_layer_norm.",
             r"^encoder\.embed_tokens\.":                          r"encoder_frontend.embed.",
             r"^encoder\.pos_conv\.0\.":                           r"encoder_frontend.pos_encoder.conv.",
-            r"^feature_extractor\.conv_layers\.([0-9]+)\.0.":     r"encoder_frontend.feature_extractor.layers.\1.conv.",
-            r"^feature_extractor\.conv_layers\.0\.2.":            r"encoder_frontend.feature_extractor.layers.0.group_norm.",
+            r"^feature_extractor\.conv_layers\.([0-9]+)\.0\.":    r"encoder_frontend.feature_extractor.layers.\1.conv.",
+            r"^feature_extractor\.conv_layers\.([0-9]+)\.2\.1\.": r"encoder_frontend.feature_extractor.layers.\1.layer_norm.",
+            r"^feature_extractor\.conv_layers\.0\.2\.":           r"encoder_frontend.feature_extractor.layers.0.group_norm.",
             r"^layer_norm\.":                                     r"encoder_frontend.post_extract_layer_norm.",
             r"^post_extract_proj\.":                              r"encoder_frontend.model_dim_proj.",
             r"^mask_emb":                                         r"masker.temporal_mask_embed",
@@ -74,7 +75,13 @@ class Wav2Vec2Loader(ModelLoader[Wav2Vec2Model, Wav2Vec2Config]):
 
 
 load_wav2vec2_model = Wav2Vec2Loader(
-    asset_store, download_manager, create_wav2vec2_model, wav2vec2_archs
+    asset_store,
+    download_manager,
+    create_wav2vec2_model,
+    wav2vec2_archs,
+    # `weight_norm` used in `Wav2Vec2PositionEncoder` does not support meta
+    # initialization.
+    use_meta=False,
 )
 
 

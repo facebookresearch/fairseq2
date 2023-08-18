@@ -121,6 +121,7 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
     asset_store: AssetStore
     download_manager: AssetDownloadManager
     model_factory: ModelFactory[ModelConfigT, ModelT]
+    use_meta: bool
     config_loader: ModelConfigLoader[ModelConfigT]
 
     def __init__(
@@ -129,6 +130,7 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
         download_manager: AssetDownloadManager,
         model_factory: ModelFactory[ModelConfigT, ModelT],
         archs: ArchitectureRegistry[ModelConfigT],
+        use_meta: bool = True,
     ) -> None:
         """
         :param asset_store:
@@ -139,10 +141,13 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
             The callable responsible for constructing models.
         :param archs:
             The registry containing all supported model architectures.
+        :param use_meta:
+            If ``True``, uses meta device to skip redudant model initialization.
         """
         self.asset_store = asset_store
         self.download_manager = download_manager
         self.model_factory = model_factory
+        self.use_meta = use_meta
 
         self.config_loader = ModelConfigLoader(asset_store, archs)
 
@@ -190,12 +195,16 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
             converter=partial(self._upgrade_checkpoint, config=config),
         )
 
-        # Construct the model on the meta device.
-        model = self.model_factory(config, Device("meta"), dtype)
+        if self.use_meta:
+            # Construct the model on the meta device.
+            model = self.model_factory(config, Device("meta"), dtype)
 
-        # And, move to the actual device without initializing its parameters and
-        # buffers; they will be overwritten by the checkpoint anyways.
-        model = model.to_empty(device=device or "cpu")
+            # And, move to the actual device without initializing its parameters
+            # and buffers; they will be overwritten by the checkpoint anyways.
+            model = model.to_empty(device=device or "cpu")
+        else:
+            # Do regular model initialization.
+            model = self.model_factory(config, device, dtype)
 
         # Load the model.
         try:

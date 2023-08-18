@@ -76,7 +76,13 @@ class W2VBertLoader(ModelLoader[W2VBertModel, W2VBertConfig]):
 
 
 load_w2vbert_model = W2VBertLoader(
-    asset_store, download_manager, create_w2vbert_model, w2vbert_archs
+    asset_store,
+    download_manager,
+    create_w2vbert_model,
+    w2vbert_archs,
+    # `weight_norm` used in `Wav2Vec2PositionEncoder` does not support meta
+    # initialization.
+    use_meta=False,
 )
 
 
