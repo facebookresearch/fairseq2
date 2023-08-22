@@ -18,7 +18,7 @@ other content generation tasks. It is also the successor of [fairseq](https://gi
 
 ## Getting Started
 You can find our full documentation including tutorials and API reference
-[here](https://facebookresearch.github.io/fairseq2/v0.1.0)
+[here](https://facebookresearch.github.io/fairseq2/stable)
 ([nightly](https://facebookresearch.github.io/fairseq2/nightly)).
 
 For recent changes, you can check out our [changelog](CHANGELOG.md).
