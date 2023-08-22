@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" >
+<head>
+  <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Classes &mdash; fairseq2 0.1.0 documentation</title>
+      <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+      <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <!--[if lt IE 9]>
+    <script src="../_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="../_static/jquery.js"></script>
+        <script src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+        <script src="../_static/doctools.js"></script>
+        <script src="../_static/sphinx_highlight.js"></script>
+    <script src="../_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Embedding" href="generated/classes/fairseq2.nn.Embedding.html" />
+    <link rel="prev" title="TransformerEncoderLayer" href="generated/abc/fairseq2.nn.transformer.TransformerEncoderLayer.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="../index.html" class="icon icon-home">
+            fairseq2
+          </a>
+              <div class="version">
+                0.1.0
+              </div>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Installation</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../installation/from_source.html">Install From Source (C++/CUDA)</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../installation/from_source.html#clone-the-repository">1. Clone the Repository</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation/from_source.html#set-up-a-python-virtual-environment">2. Set Up a Python Virtual Environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation/from_source.html#install-the-dependencies">3. Install the Dependencies</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../installation/from_source.html#system">System</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../installation/from_source.html#cuda">CUDA</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../installation/from_source.html#pip">pip</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../installation/from_source.html#build-the-extension-module">4. Build the Extension Module</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../installation/from_source.html#cpu-only-builds">CPU-Only Builds</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../installation/from_source.html#cuda-builds">CUDA Builds</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../installation/from_source.html#cuda-architectures">CUDA Architectures</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../installation/from_source.html#install-the-package">5. Install the Package</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../installation/from_source.html#optional-sanity-check">6. Optional: Sanity Check</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">fairseq2.nn Reference</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="abc.html">ABCs and Protocols</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="generated/abc/fairseq2.gang.Gang.html">Gang</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/abc/fairseq2.gang.Gang.html#fairseq2.gang.Gang"><code class="docutils literal notranslate"><span class="pre">Gang</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/abc/fairseq2.nn.PositionEncoder.html">PositionEncoder</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/abc/fairseq2.nn.PositionEncoder.html#fairseq2.nn.PositionEncoder"><code class="docutils literal notranslate"><span class="pre">PositionEncoder</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/abc/fairseq2.nn.Projection.html">Projection</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/abc/fairseq2.nn.Projection.html#fairseq2.nn.Projection"><code class="docutils literal notranslate"><span class="pre">Projection</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/abc/fairseq2.nn.transformer.AttentionMaskGenerator.html">AttentionMaskGenerator</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/abc/fairseq2.nn.transformer.AttentionMaskGenerator.html#fairseq2.nn.transformer.AttentionMaskGenerator"><code class="docutils literal notranslate"><span class="pre">AttentionMaskGenerator</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/abc/fairseq2.nn.transformer.AttentionWeightHook.html">AttentionWeightHook</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/abc/fairseq2.nn.transformer.AttentionWeightHook.html#fairseq2.nn.transformer.AttentionWeightHook"><code class="docutils literal notranslate"><span class="pre">AttentionWeightHook</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/abc/fairseq2.nn.transformer.FeedForwardNetwork.html">FeedForwardNetwork</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/abc/fairseq2.nn.transformer.FeedForwardNetwork.html#fairseq2.nn.transformer.FeedForwardNetwork"><code class="docutils literal notranslate"><span class="pre">FeedForwardNetwork</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/abc/fairseq2.nn.transformer.MultiheadAttention.html">MultiheadAttention</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/abc/fairseq2.nn.transformer.MultiheadAttention.html#fairseq2.nn.transformer.MultiheadAttention"><code class="docutils literal notranslate"><span class="pre">MultiheadAttention</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/abc/fairseq2.nn.transformer.SDPA.html">SDPA</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/abc/fairseq2.nn.transformer.SDPA.html#fairseq2.nn.transformer.SDPA"><code class="docutils literal notranslate"><span class="pre">SDPA</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/abc/fairseq2.nn.transformer.TransformerDecoder.html">TransformerDecoder</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/abc/fairseq2.nn.transformer.TransformerDecoder.html#fairseq2.nn.transformer.TransformerDecoder"><code class="docutils literal notranslate"><span class="pre">TransformerDecoder</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/abc/fairseq2.nn.transformer.TransformerDecoderLayer.html">TransformerDecoderLayer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/abc/fairseq2.nn.transformer.TransformerDecoderLayer.html#fairseq2.nn.transformer.TransformerDecoderLayer"><code class="docutils literal notranslate"><span class="pre">TransformerDecoderLayer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/abc/fairseq2.nn.transformer.TransformerEncoder.html">TransformerEncoder</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/abc/fairseq2.nn.transformer.TransformerEncoder.html#fairseq2.nn.transformer.TransformerEncoder"><code class="docutils literal notranslate"><span class="pre">TransformerEncoder</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/abc/fairseq2.nn.transformer.TransformerEncoderLayer.html">TransformerEncoderLayer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/abc/fairseq2.nn.transformer.TransformerEncoderLayer.html#fairseq2.nn.transformer.TransformerEncoderLayer"><code class="docutils literal notranslate"><span class="pre">TransformerEncoderLayer</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Classes</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="generated/classes/fairseq2.nn.Embedding.html">Embedding</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/classes/fairseq2.nn.Embedding.html#fairseq2.nn.Embedding"><code class="docutils literal notranslate"><span class="pre">Embedding</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/classes/fairseq2.nn.IncrementalState.html">IncrementalState</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/classes/fairseq2.nn.IncrementalState.html#fairseq2.nn.IncrementalState"><code class="docutils literal notranslate"><span class="pre">IncrementalState</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/classes/fairseq2.nn.IncrementalStateBag.html">IncrementalStateBag</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/classes/fairseq2.nn.IncrementalStateBag.html#fairseq2.nn.IncrementalStateBag"><code class="docutils literal notranslate"><span class="pre">IncrementalStateBag</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/classes/fairseq2.nn.LearnedPositionEncoder.html">LearnedPositionEncoder</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/classes/fairseq2.nn.LearnedPositionEncoder.html#fairseq2.nn.LearnedPositionEncoder"><code class="docutils literal notranslate"><span class="pre">LearnedPositionEncoder</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/classes/fairseq2.nn.Linear.html">Linear</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/classes/fairseq2.nn.Linear.html#fairseq2.nn.Linear"><code class="docutils literal notranslate"><span class="pre">Linear</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/classes/fairseq2.nn.ModuleList.html">ModuleList</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/classes/fairseq2.nn.ModuleList.html#fairseq2.nn.ModuleList"><code class="docutils literal notranslate"><span class="pre">ModuleList</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/classes/fairseq2.nn.RotaryEncoder.html">RotaryEncoder</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/classes/fairseq2.nn.RotaryEncoder.html#fairseq2.nn.RotaryEncoder"><code class="docutils literal notranslate"><span class="pre">RotaryEncoder</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/classes/fairseq2.nn.SinusoidalPositionEncoder.html">SinusoidalPositionEncoder</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/classes/fairseq2.nn.SinusoidalPositionEncoder.html#fairseq2.nn.SinusoidalPositionEncoder"><code class="docutils literal notranslate"><span class="pre">SinusoidalPositionEncoder</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/classes/fairseq2.nn.TiedProjection.html">TiedProjection</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/classes/fairseq2.nn.TiedProjection.html#fairseq2.nn.TiedProjection"><code class="docutils literal notranslate"><span class="pre">TiedProjection</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.ALiBiAttentionMaskGenerator.html">ALiBiAttentionMaskGenerator</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.ALiBiAttentionMaskGenerator.html#fairseq2.nn.transformer.ALiBiAttentionMaskGenerator"><code class="docutils literal notranslate"><span class="pre">ALiBiAttentionMaskGenerator</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.CausalAttentionMaskGenerator.html">CausalAttentionMaskGenerator</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.CausalAttentionMaskGenerator.html#fairseq2.nn.transformer.CausalAttentionMaskGenerator"><code class="docutils literal notranslate"><span class="pre">CausalAttentionMaskGenerator</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.MultiheadAttentionState.html">MultiheadAttentionState</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.MultiheadAttentionState.html#fairseq2.nn.transformer.MultiheadAttentionState"><code class="docutils literal notranslate"><span class="pre">MultiheadAttentionState</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.RelativePositionSDPA.html">RelativePositionSDPA</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.RelativePositionSDPA.html#fairseq2.nn.transformer.RelativePositionSDPA"><code class="docutils literal notranslate"><span class="pre">RelativePositionSDPA</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardFeedForwardNetwork.html">StandardFeedForwardNetwork</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardFeedForwardNetwork.html#fairseq2.nn.transformer.StandardFeedForwardNetwork"><code class="docutils literal notranslate"><span class="pre">StandardFeedForwardNetwork</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardMultiheadAttention.html">StandardMultiheadAttention</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardMultiheadAttention.html#fairseq2.nn.transformer.StandardMultiheadAttention"><code class="docutils literal notranslate"><span class="pre">StandardMultiheadAttention</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardTransformerDecoder.html">StandardTransformerDecoder</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardTransformerDecoder.html#fairseq2.nn.transformer.StandardTransformerDecoder"><code class="docutils literal notranslate"><span class="pre">StandardTransformerDecoder</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardTransformerDecoderLayer.html">StandardTransformerDecoderLayer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardTransformerDecoderLayer.html#fairseq2.nn.transformer.StandardTransformerDecoderLayer"><code class="docutils literal notranslate"><span class="pre">StandardTransformerDecoderLayer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardTransformerEncoder.html">StandardTransformerEncoder</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardTransformerEncoder.html#fairseq2.nn.transformer.StandardTransformerEncoder"><code class="docutils literal notranslate"><span class="pre">StandardTransformerEncoder</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardTransformerEncoderLayer.html">StandardTransformerEncoderLayer</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardTransformerEncoderLayer.html#fairseq2.nn.transformer.StandardTransformerEncoderLayer"><code class="docutils literal notranslate"><span class="pre">StandardTransformerEncoderLayer</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StoreAttentionWeights.html">StoreAttentionWeights</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StoreAttentionWeights.html#fairseq2.nn.transformer.StoreAttentionWeights"><code class="docutils literal notranslate"><span class="pre">StoreAttentionWeights</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.CosineAnnealingLR.html">CosineAnnealingLR</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.CosineAnnealingLR.html#fairseq2.optim.lr_scheduler.CosineAnnealingLR"><code class="docutils literal notranslate"><span class="pre">CosineAnnealingLR</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.LRSchedulerBase.html">LRSchedulerBase</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.LRSchedulerBase.html#fairseq2.optim.lr_scheduler.LRSchedulerBase"><code class="docutils literal notranslate"><span class="pre">LRSchedulerBase</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.MyleLR.html">MyleLR</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.MyleLR.html#fairseq2.optim.lr_scheduler.MyleLR"><code class="docutils literal notranslate"><span class="pre">MyleLR</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.NoamLR.html">NoamLR</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.NoamLR.html#fairseq2.optim.lr_scheduler.NoamLR"><code class="docutils literal notranslate"><span class="pre">NoamLR</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.PolynomialDecayLR.html">PolynomialDecayLR</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.PolynomialDecayLR.html#fairseq2.optim.lr_scheduler.PolynomialDecayLR"><code class="docutils literal notranslate"><span class="pre">PolynomialDecayLR</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="enums.html">Enums</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="generated/enums/fairseq2.nn.transformer.TransformerNormOrder.html">TransformerNormOrder</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/enums/fairseq2.nn.transformer.TransformerNormOrder.html#fairseq2.nn.transformer.TransformerNormOrder"><code class="docutils literal notranslate"><span class="pre">TransformerNormOrder</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="functions.html">Functions</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="generated/functions/fairseq2.nn.utils.mask.to_float_mask.html">to_float_mask</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/functions/fairseq2.nn.utils.mask.to_float_mask.html#fairseq2.nn.utils.mask.to_float_mask"><code class="docutils literal notranslate"><span class="pre">to_float_mask()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/functions/fairseq2.nn.utils.mask.to_padding_mask.html">to_padding_mask</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/functions/fairseq2.nn.utils.mask.to_padding_mask.html#fairseq2.nn.utils.mask.to_padding_mask"><code class="docutils literal notranslate"><span class="pre">to_padding_mask()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="all.html">All</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Misc</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../bibliography.html">Bibliography</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">fairseq2</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Classes</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="../_sources/reference/classes.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="classes">
+<h1>Classes<a class="headerlink" href="#classes" title="Permalink to this heading"></a></h1>
+<table class="autosummary longtable docutils align-default">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.Embedding.html#fairseq2.nn.Embedding" title="fairseq2.nn.Embedding"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.Embedding</span></code></a></p></td>
+<td><p>Stores embeddings of a fixed dictionary and size.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.IncrementalState.html#fairseq2.nn.IncrementalState" title="fairseq2.nn.IncrementalState"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.IncrementalState</span></code></a></p></td>
+<td><p>Holds the state of a module during an incremental evaluation.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.IncrementalStateBag.html#fairseq2.nn.IncrementalStateBag" title="fairseq2.nn.IncrementalStateBag"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.IncrementalStateBag</span></code></a></p></td>
+<td><p>Holds the module states during an incremental evaluation.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.LearnedPositionEncoder.html#fairseq2.nn.LearnedPositionEncoder" title="fairseq2.nn.LearnedPositionEncoder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.LearnedPositionEncoder</span></code></a></p></td>
+<td><p>Encodes sequences with learned positional embeddings.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.Linear.html#fairseq2.nn.Linear" title="fairseq2.nn.Linear"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.Linear</span></code></a></p></td>
+<td><p>Applies a linear transformation to incoming data using weights and bias.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.ModuleList.html#fairseq2.nn.ModuleList" title="fairseq2.nn.ModuleList"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.ModuleList</span></code></a></p></td>
+<td><p>Holds submodules in a list.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.RotaryEncoder.html#fairseq2.nn.RotaryEncoder" title="fairseq2.nn.RotaryEncoder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.RotaryEncoder</span></code></a></p></td>
+<td><p>Encodes sequences with relative positional information as described in <span id="id1">Su <em>et al.</em> [<a class="reference internal" href="../bibliography.html#id13" title="Jianlin Su, Yu Lu, Shengfeng Pan, Ahmed Murtadha, Bo Wen, and Yunfeng Liu. Roformer: enhanced transformer with rotary position embedding. 2021. URL: https://arxiv.org/abs/2104.09864, doi:10.48550/ARXIV.2104.09864.">SLP+21</a>]</span>.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.SinusoidalPositionEncoder.html#fairseq2.nn.SinusoidalPositionEncoder" title="fairseq2.nn.SinusoidalPositionEncoder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.SinusoidalPositionEncoder</span></code></a></p></td>
+<td><p>Encodes sequences with fixed sinusoidal positional information.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.TiedProjection.html#fairseq2.nn.TiedProjection" title="fairseq2.nn.TiedProjection"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.TiedProjection</span></code></a></p></td>
+<td><p>Applies a linear transformation to incoming data using the weights and bias of another <a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.0)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a> instance.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.ALiBiAttentionMaskGenerator.html#fairseq2.nn.transformer.ALiBiAttentionMaskGenerator" title="fairseq2.nn.transformer.ALiBiAttentionMaskGenerator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.ALiBiAttentionMaskGenerator</span></code></a></p></td>
+<td><p>Generates a mask for self attention as described in <span id="id2">Press <em>et al.</em> [<a class="reference internal" href="../bibliography.html#id15" title="Ofir Press, Noah A. Smith, and Mike Lewis. Train short, test long: attention with linear biases enables input length extrapolation. 2021. URL: https://arxiv.org/abs/2108.12409, doi:10.48550/ARXIV.2108.12409.">PSL21</a>]</span>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.CausalAttentionMaskGenerator.html#fairseq2.nn.transformer.CausalAttentionMaskGenerator" title="fairseq2.nn.transformer.CausalAttentionMaskGenerator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.CausalAttentionMaskGenerator</span></code></a></p></td>
+<td><p>Generates a causal attention mask for self attention.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.MultiheadAttentionState.html#fairseq2.nn.transformer.MultiheadAttentionState" title="fairseq2.nn.transformer.MultiheadAttentionState"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.MultiheadAttentionState</span></code></a></p></td>
+<td><p>Holds the state of a <code class="xref py py-class docutils literal notranslate"><span class="pre">MultiheadAttention</span></code> module during an incremental evaluation.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.RelativePositionSDPA.html#fairseq2.nn.transformer.RelativePositionSDPA" title="fairseq2.nn.transformer.RelativePositionSDPA"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.RelativePositionSDPA</span></code></a></p></td>
+<td><p>Computes scaled dot-product attention as described in <span id="id3">Dai <em>et al.</em> [<a class="reference internal" href="../bibliography.html#id5" title="Zihang Dai, Zhilin Yang, Yiming Yang, Jaime Carbonell, Quoc V. Le, and Ruslan Salakhutdinov. Transformer-xl: attentive language models beyond a fixed-length context. 2019. arXiv:1901.02860.">DYY+19</a>]</span>.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardFeedForwardNetwork.html#fairseq2.nn.transformer.StandardFeedForwardNetwork" title="fairseq2.nn.transformer.StandardFeedForwardNetwork"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.StandardFeedForwardNetwork</span></code></a></p></td>
+<td><p>Represents a Transformer feed-forward network as described in <span id="id4">Vaswani <em>et al.</em> [<a class="reference internal" href="../bibliography.html#id4" title="Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser, and Illia Polosukhin. Attention is all you need. 2017. URL: https://arxiv.org/abs/1706.03762, doi:10.48550/ARXIV.1706.03762.">VSP+17</a>]</span>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardMultiheadAttention.html#fairseq2.nn.transformer.StandardMultiheadAttention" title="fairseq2.nn.transformer.StandardMultiheadAttention"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.StandardMultiheadAttention</span></code></a></p></td>
+<td><p>Represents a Transformer multi-head attention as described in <span id="id5">Vaswani <em>et al.</em> [<a class="reference internal" href="../bibliography.html#id4" title="Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser, and Illia Polosukhin. Attention is all you need. 2017. URL: https://arxiv.org/abs/1706.03762, doi:10.48550/ARXIV.1706.03762.">VSP+17</a>]</span>.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardTransformerDecoder.html#fairseq2.nn.transformer.StandardTransformerDecoder" title="fairseq2.nn.transformer.StandardTransformerDecoder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.StandardTransformerDecoder</span></code></a></p></td>
+<td><p>Represents a Transformer decoder as described in <span id="id6">Vaswani <em>et al.</em> [<a class="reference internal" href="../bibliography.html#id4" title="Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser, and Illia Polosukhin. Attention is all you need. 2017. URL: https://arxiv.org/abs/1706.03762, doi:10.48550/ARXIV.1706.03762.">VSP+17</a>]</span>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardTransformerDecoderLayer.html#fairseq2.nn.transformer.StandardTransformerDecoderLayer" title="fairseq2.nn.transformer.StandardTransformerDecoderLayer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.StandardTransformerDecoderLayer</span></code></a></p></td>
+<td><p>Represents a Transformer decoder layer as described in <span id="id7">Vaswani <em>et al.</em> [<a class="reference internal" href="../bibliography.html#id4" title="Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser, and Illia Polosukhin. Attention is all you need. 2017. URL: https://arxiv.org/abs/1706.03762, doi:10.48550/ARXIV.1706.03762.">VSP+17</a>]</span>.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardTransformerEncoder.html#fairseq2.nn.transformer.StandardTransformerEncoder" title="fairseq2.nn.transformer.StandardTransformerEncoder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.StandardTransformerEncoder</span></code></a></p></td>
+<td><p>Represents a Transformer encoder as described in <span id="id8">Vaswani <em>et al.</em> [<a class="reference internal" href="../bibliography.html#id4" title="Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser, and Illia Polosukhin. Attention is all you need. 2017. URL: https://arxiv.org/abs/1706.03762, doi:10.48550/ARXIV.1706.03762.">VSP+17</a>]</span>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardTransformerEncoderLayer.html#fairseq2.nn.transformer.StandardTransformerEncoderLayer" title="fairseq2.nn.transformer.StandardTransformerEncoderLayer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.StandardTransformerEncoderLayer</span></code></a></p></td>
+<td><p>Represents a Transformer encoder layer as described in <span id="id9">Vaswani <em>et al.</em> [<a class="reference internal" href="../bibliography.html#id4" title="Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser, and Illia Polosukhin. Attention is all you need. 2017. URL: https://arxiv.org/abs/1706.03762, doi:10.48550/ARXIV.1706.03762.">VSP+17</a>]</span>.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StoreAttentionWeights.html#fairseq2.nn.transformer.StoreAttentionWeights" title="fairseq2.nn.transformer.StoreAttentionWeights"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.StoreAttentionWeights</span></code></a></p></td>
+<td><p>Stores attention weights in a provided storage.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.CosineAnnealingLR.html#fairseq2.optim.lr_scheduler.CosineAnnealingLR" title="fairseq2.optim.lr_scheduler.CosineAnnealingLR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">optim.lr_scheduler.CosineAnnealingLR</span></code></a></p></td>
+<td><p>Represents the learning rate schedule described in <span id="id10">Loshchilov and Hutter [<a class="reference internal" href="../bibliography.html#id2" title="Ilya Loshchilov and Frank Hutter. Sgdr: stochastic gradient descent with warm restarts. 2017. arXiv:1608.03983.">LH17</a>]</span>.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.LRSchedulerBase.html#fairseq2.optim.lr_scheduler.LRSchedulerBase" title="fairseq2.optim.lr_scheduler.LRSchedulerBase"><code class="xref py py-obj docutils literal notranslate"><span class="pre">optim.lr_scheduler.LRSchedulerBase</span></code></a></p></td>
+<td><p>Represents the abstract base class for learning rate schedulers.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.MyleLR.html#fairseq2.optim.lr_scheduler.MyleLR" title="fairseq2.optim.lr_scheduler.MyleLR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">optim.lr_scheduler.MyleLR</span></code></a></p></td>
+<td><p>Represents a scaled version of <code class="xref py py-class docutils literal notranslate"><span class="pre">NoamLR</span></code> that preserves the base learning rate of the associated optimizer.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.NoamLR.html#fairseq2.optim.lr_scheduler.NoamLR" title="fairseq2.optim.lr_scheduler.NoamLR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">optim.lr_scheduler.NoamLR</span></code></a></p></td>
+<td><p>Represents the learning rate schedule described in Section 5.3 of <span id="id11">Vaswani <em>et al.</em> [<a class="reference internal" href="../bibliography.html#id4" title="Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser, and Illia Polosukhin. Attention is all you need. 2017. URL: https://arxiv.org/abs/1706.03762, doi:10.48550/ARXIV.1706.03762.">VSP+17</a>]</span>.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.PolynomialDecayLR.html#fairseq2.optim.lr_scheduler.PolynomialDecayLR" title="fairseq2.optim.lr_scheduler.PolynomialDecayLR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">optim.lr_scheduler.PolynomialDecayLR</span></code></a></p></td>
+<td><p>Represents the polynomial decay learning rate schedule.</p></td>
+</tr>
+</tbody>
+</table>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="generated/abc/fairseq2.nn.transformer.TransformerEncoderLayer.html" class="btn btn-neutral float-left" title="TransformerEncoderLayer" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="generated/classes/fairseq2.nn.Embedding.html" class="btn btn-neutral float-right" title="Embedding" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright Meta Platforms, Inc. and affiliates.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>

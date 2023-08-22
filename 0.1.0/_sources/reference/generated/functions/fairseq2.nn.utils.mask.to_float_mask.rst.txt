@@ -1,0 +1,6 @@
+﻿.. currentmodule:: fairseq2.nn.utils.mask
+
+to\_float\_mask
+===============
+
+.. autofunction:: to_float_mask
