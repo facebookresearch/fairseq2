@@ -16,7 +16,7 @@ compatibility with different Linux distributions.
 
 ### Deployment Instructions
 As of this writing, all images are readily available in the
-[ghcr.io/fairinternal](https://github.com/orgs/fairinternal/packages/container/package/fairseq2-ci-wheel)
+[ghcr.io/facebookresearch](https://github.com/orgs/facebookresearch/packages/container/package/fairseq2-ci-wheel)
 registry. You should follow these instructions if, for any reason, an image
 should be updated. In such case, make sure to increment `<VERSION>` in the
 Dockerfile, in GA workflows, and in the commands below.
@@ -25,7 +25,7 @@ Dockerfile, in GA workflows, and in the commands below.
 The `<VARIANT>` must be one of `cpu`, `cu117`, `cu118`, or `cu118-clang`.
 
 ```
-docker build --network host --tag ghcr.io/fairinternal/fairseq2-ci-manylinux_<ARCH>:<VERSION>-<VARIANT> -f Dockerfile.<VARIANT> .
+docker build --network host --tag ghcr.io/facebookresearch/fairseq2-ci-manylinux_<ARCH>:<VERSION>-<VARIANT> -f Dockerfile.<VARIANT> .
 ```
 
 #### 2. Push to the GitHub Container Registry
@@ -42,7 +42,7 @@ docker login ghcr.io -u <GITHUB_USERNAME> --password-stdin
 Then, push the image:
 
 ```
-docker push ghcr.io/fairinternal/fairseq2-ci-manylinux_<ARCH>:<VERSION>-<VARIANT>
+docker push ghcr.io/facebookresearch/fairseq2-ci-manylinux_<ARCH>:<VERSION>-<VARIANT>
 ```
 
 Lastly, log out to avoid any accidental or malicious use of the registry:

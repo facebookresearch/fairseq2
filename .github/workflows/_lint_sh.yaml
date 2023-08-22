@@ -18,7 +18,7 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/fairinternal/fairseq2-ci-manylinux_x86_64:1-cpu
+      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_x86_64:1-cpu
     steps:
       - name: Check-out the repository
         uses: actions/checkout@v3

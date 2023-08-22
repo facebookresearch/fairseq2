@@ -8,7 +8,7 @@ As first step, clone the fairseq2 Git repository to your machine:
 
 .. code-block::
 
-    git clone --recurse-submodules https://github.com/fairinternal/fairseq2.git
+    git clone --recurse-submodules https://github.com/facebookresearch/fairseq2.git
 
 Note the ``--recurse-submodules`` option that asks Git to clone the third-party
 dependencies along with fairseq2. If you have already cloned fairseq2 without

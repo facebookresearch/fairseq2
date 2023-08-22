@@ -40,7 +40,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/fairinternal/fairseq2-ci-manylinux_${{ inputs.arch }}:1-${{ inputs.variant }}
+      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_${{ inputs.arch }}:1-${{ inputs.variant }}
     steps:
       - name: Check-out the repository
         uses: actions/checkout@v3
@@ -135,7 +135,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/fairinternal/fairseq2-ci-manylinux_${{ inputs.arch }}:1-${{ inputs.variant }}
+      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_${{ inputs.arch }}:1-${{ inputs.variant }}
     steps:
       - name: Install libsndfile
         run: |

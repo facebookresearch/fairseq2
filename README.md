@@ -7,7 +7,7 @@
 [![Nightly](https://github.com/facebookresearch/fairseq2/actions/workflows/nightly.yaml/badge.svg)](https://github.com/facebookresearch/fairseq2/actions/workflows/nightly.yaml)
 [![PyPI version](https://img.shields.io/pypi/v/fairseq2)](https://pypi.org/project/fairseq2/)
 
-[**Documentation**](https://fairinternal.github.io/fairseq2/nightly) | **Install From: [PyPI](#install-from-pypi), [Source](#install-from-source)**
+[**Documentation**](https://facebookresearch.github.io/fairseq2/nightly) | **Install From: [PyPI](#install-from-pypi), [Source](#install-from-source)**
 
 > ❗fairseq2 is still under heavy development (early beta quality). Please use with caution and do not hesitate to share feedback with us!
 

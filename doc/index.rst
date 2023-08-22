@@ -1,4 +1,4 @@
-:github_url: https://github.com/fairinternal/fairseq2
+:github_url: https://github.com/facebookresearch/fairseq2
 
 
 fairseq2 documentation
