@@ -1,0 +1,99 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+on:
+  workflow_call:
+
+env:
+    TORCH: '2.0.1'
+    PY: '3.11'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/fairinternal/fairseq2-ci-manylinux_x86_64:1-cpu
+    steps:
+      - name: Check-out the repository
+        uses: actions/checkout@v3
+      - name: Install libsndfile
+        run: |
+          yum --assumeyes install libsndfile-devel
+      - name: Create the Python virtual environment
+        run: |
+          python$PY -m venv ~/venv
+
+          echo ~/venv/bin >> "$GITHUB_PATH"
+      - name: Install PyTorch
+        run: |
+          pip install torch==$TORCH\
+            --extra-index-url https://download.pytorch.org/whl/cpu
+      - name: Install linters
+        run: |
+          pip install --requirement requirements-devel.txt
+      - name: Install fairseq2n
+        run: |
+          pip install --editable fairseq2n/python
+      - name: Install fairseq2
+        id: install_fairseq2
+        run: |
+          pip install --editable .
+      - name: Run isort
+        if: success() || (failure() && steps.install_fairseq2.outcome == 'success')
+        run: |
+          echo "::add-matcher::./ci/problem-matchers/isort.json"
+
+          function remove_matcher
+          {
+            echo "::remove-matcher owner=isort::"
+          }
+
+          trap remove_matcher EXIT
+
+          isort --check .
+      - name: Run black
+        if: success() || (failure() && steps.install_fairseq2.outcome == 'success')
+        run: |
+          echo "::add-matcher::./ci/problem-matchers/black.json"
+
+          function remove_matcher
+          {
+            echo "::remove-matcher owner=black::"
+          }
+
+          trap remove_matcher EXIT
+
+          black --check .
+      - name: Run flake8
+        if: success() || (failure() && steps.install_fairseq2.outcome == 'success')
+        run: |
+          echo "::add-matcher::./ci/problem-matchers/flake8.json"
+
+          function remove_matcher
+          {
+            echo "::remove-matcher owner=flake8::"
+          }
+
+          trap remove_matcher EXIT
+
+          flake8 .
+      - name: Run mypy
+        if: success() || (failure() && steps.install_fairseq2.outcome == 'success')
+        run: |
+          echo "::add-matcher::./ci/problem-matchers/mypy.json"
+
+          function remove_matcher
+          {
+            echo "::remove-matcher owner=mypy::"
+          }
+
+          trap remove_matcher EXIT
+
+          mypy .

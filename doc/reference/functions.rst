@@ -8,13 +8,5 @@ Functions
     :toctree: generated/functions
     :nosignatures:
 
-    cuda_version
-    get_cmake_prefix_path
-    get_include
-    get_lib
-    supports_cuda
-    data.list_files
-    data.read_sequence
-    data.text.read_text
     nn.utils.mask.to_float_mask
     nn.utils.mask.to_padding_mask

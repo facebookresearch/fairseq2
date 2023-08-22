@@ -1,0 +1,40 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+on:
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'ci/**'
+      - 'doc/**'
+
+jobs:
+  build_pt112_wheel-linux:
+    uses: ./.github/workflows/_build_wheel-linux.yaml
+    with:
+      torch: '1.12.1'
+      py: '3.8'
+
+  build_pt20_wheel-linux:
+    uses: ./.github/workflows/_build_wheel-linux.yaml
+    strategy:
+      matrix:
+        variant: ['cpu', 'cu117', 'cu118']
+        sanitizers: ['nosan']
+        include:
+          - run_integration_tests: false
+          - variant: 'cpu'
+            sanitizers: 'asan_ubsan'
+            run_integration_tests: false
+          - variant: 'cpu'
+            sanitizers: 'nosan'
+            run_integration_tests: true
+    with:
+      torch: '2.0.1'
+      py: '3.11'
+      variant: ${{ matrix.variant }}
+      sanitizers: ${{ matrix.sanitizers }}
+      run_integration_tests: ${{ matrix.run_integration_tests }}

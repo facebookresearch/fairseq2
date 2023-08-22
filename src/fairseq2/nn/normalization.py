@@ -9,12 +9,11 @@ from typing import Optional, Sequence, Tuple, Union, final
 
 import torch
 import torch.nn as nn
-from overrides import override as finaloverride
 from torch import Tensor
 from torch.nn import Module, Parameter
 from torch.nn.functional import layer_norm
 
-from fairseq2.typing import DataType, Device
+from fairseq2.typing import DataType, Device, finaloverride
 
 
 class LayerNorm(Module, ABC):

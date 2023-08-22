@@ -7,8 +7,6 @@
 from typing import Optional, final
 
 import torch.nn as nn
-from overrides import final as finaloverride
-from overrides import override
 from torch import Tensor
 from torch.nn import GELU, Conv1d, Module, Sequential
 from torch.nn.utils.weight_norm import remove_weight_norm, weight_norm
@@ -17,7 +15,7 @@ from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.normalization import LayerNorm, StandardLayerNorm
 from fairseq2.nn.position_encoder import PositionEncoder
 from fairseq2.nn.utils.mask import apply_padding_mask
-from fairseq2.typing import DataType, Device
+from fairseq2.typing import DataType, Device, finaloverride, override
 
 
 @final

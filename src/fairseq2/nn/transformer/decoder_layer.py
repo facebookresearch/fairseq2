@@ -9,7 +9,6 @@ from typing import Optional, Tuple, cast, final
 
 import torch
 import torch.nn as nn
-from overrides import final as finaloverride
 from torch import Tensor
 from torch.nn import Dropout, Module
 from torch.nn.parameter import Parameter
@@ -24,7 +23,7 @@ from fairseq2.nn.transformer.layer_norm import (
 from fairseq2.nn.transformer.multihead_attention import MultiheadAttention
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
 from fairseq2.nn.utils.module import check_model_dim
-from fairseq2.typing import DataType, Device
+from fairseq2.typing import DataType, Device, finaloverride
 
 
 class TransformerDecoderLayer(Module, ABC):

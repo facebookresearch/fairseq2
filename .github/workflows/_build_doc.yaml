@@ -1,0 +1,66 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        default: ''
+
+env:
+    TORCH: '2.0.1'
+    PY: '3.11'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/fairinternal/fairseq2-ci-manylinux_x86_64:1-cpu
+    steps:
+      - name: Check-out the repository
+        uses: actions/checkout@v3
+      - name: Install libsndfile
+        run: |
+          yum --assumeyes install libsndfile-devel
+      - name: Create the Python virtual environment
+        run: |
+          python$PY -m venv ~/venv
+
+          echo ~/venv/bin >> "$GITHUB_PATH"
+      - name: Install PyTorch
+        run: |
+          pip install torch==$TORCH\
+            --extra-index-url https://download.pytorch.org/whl/cpu
+      - name: Install Sphinx
+        run: |
+          pip install\
+            --requirement fairseq2n/python/requirements-build.txt\
+            --requirement doc/requirements.txt
+      - name: Set version
+        if: inputs.version
+        run: |
+          tools/set-project-version.sh ${{ inputs.version }}
+      - name: Install fairseq2n
+        run: |
+          pip install --editable fairseq2n/python
+      - name: Install fairseq2
+        run: |
+          pip install --editable .
+      - name: Generate documentation
+        working-directory: doc
+        run: |
+          make html SPHINXOPTS="-W"
+      - name: Upload documentation to staging
+        uses: actions/upload-artifact@v3
+        with:
+          name: doc
+          path: doc/build/html/
+          retention-days: 1

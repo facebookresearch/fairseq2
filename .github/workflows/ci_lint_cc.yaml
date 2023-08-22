@@ -1,0 +1,16 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+on:
+  pull_request:
+    paths:
+      - '**.h'
+      - '**.cc'
+      - '**.cu'
+
+jobs:
+  lint_cc:
+    uses: ./.github/workflows/_lint_cc.yaml

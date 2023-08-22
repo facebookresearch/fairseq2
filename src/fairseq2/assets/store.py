@@ -9,14 +9,13 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Dict, Optional, final
 
-from overrides import final as finaloverride
-
 from fairseq2.assets.card import AssetCard, AssetCardError
 from fairseq2.assets.card_storage import (
     AssetCardNotFoundError,
     AssetCardStorage,
     LocalAssetCardStorage,
 )
+from fairseq2.typing import finaloverride
 
 
 class AssetStore(ABC):

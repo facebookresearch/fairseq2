@@ -10,11 +10,11 @@ from typing import Optional, Tuple, final
 
 import torch
 import torch.nn.functional as F
-from overrides import final as finaloverride
 from torch import Tensor
 from torch.nn import Module
 from torch.nn.functional import dropout, softmax
 
+from fairseq2.typing import finaloverride
 from fairseq2.utils.version import is_pt2_or_greater
 
 logger = logging.getLogger(__name__)

@@ -1,0 +1,62 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        type: string
+        default: ''
+
+jobs:
+  build_pt121_wheel-linux:
+    uses: ./.github/workflows/_build_wheel-linux.yaml
+    strategy:
+      matrix:
+        py: ['3.8', '3.9', '3.10']
+        variant: ['cpu', 'cu116']
+    with:
+      torch: '1.12.1'
+      py: ${{ matrix.py }}
+      variant: ${{ matrix.variant }}
+      version: ${{ inputs.version }}
+
+  build_pt131_wheel-linux:
+    uses: ./.github/workflows/_build_wheel-linux.yaml
+    strategy:
+      matrix:
+        py: ['3.8', '3.9', '3.10']
+        variant: ['cpu', 'cu116']
+    with:
+      torch: '1.13.1'
+      py: ${{ matrix.py }}
+      variant: ${{ matrix.variant }}
+      version: ${{ inputs.version }}
+
+  build_pt20_wheel-linux:
+    uses: ./.github/workflows/_build_wheel-linux.yaml
+    strategy:
+      matrix:
+        py: ['3.8', '3.9', '3.10', '3.11']
+        variant: ['cpu', 'cu117', 'cu118']
+        sanitizers: ['nosan']
+        include:
+          - run_integration_tests: false
+          - py: '3.11'
+            variant: 'cpu'
+            sanitizers: 'asan_ubsan'
+            run_integration_tests: false
+          - py: '3.11'
+            variant: 'cpu'
+            sanitizers: 'nosan'
+            run_integration_tests: true
+    with:
+      torch: '2.0.1'
+      py: ${{ matrix.py }}
+      variant: ${{ matrix.variant }}
+      version: ${{ inputs.version }}
+      sanitizers: ${{ matrix.sanitizers }}
+      run_integration_tests: ${{ matrix.run_integration_tests }}

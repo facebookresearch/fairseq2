@@ -1,0 +1,228 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+on:
+  workflow_call:
+    inputs:
+      torch:
+        type: string
+        required: true
+      py:
+        type: string
+        required: true
+      arch:
+        type: string
+        default: 'x86_64'
+      variant:
+        type: string
+        default: 'cpu'
+      version:
+        type: string
+        default: ''
+      sanitizers:
+        type: string
+        default: 'nosan'
+      run_integration_tests:
+        type: boolean
+        default: false
+      run_on_device:
+        type: boolean
+        default: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/fairinternal/fairseq2-ci-manylinux_${{ inputs.arch }}:1-${{ inputs.variant }}
+    steps:
+      - name: Check-out the repository
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Install libsndfile
+        run: |
+          yum --assumeyes install libsndfile-devel
+      - name: Create the Python virtual environment
+        run: |
+          python${{ inputs.py }} -m venv ~/venv
+
+          echo ~/venv/bin >> "$GITHUB_PATH"
+      - name: Install PyTorch
+        run: |
+          pip install torch==${{ inputs.torch }}\
+            --extra-index-url https://download.pytorch.org/whl/${{ inputs.variant }}
+      - name: Install build requirements for fairseq2n
+        run: |
+          pip install --requirement fairseq2n/python/requirements-build.txt
+      - name: Set version
+        if: inputs.version
+        run: |
+          tools/set-project-version.sh ${{ inputs.version }}
+      - name: Build fairseq2n
+        working-directory: fairseq2n
+        env:
+          VARIANT: ${{ inputs.variant }}
+          SANITIZERS: ${{ inputs.sanitizers }}
+        run: |
+          # We build our CUDA kernels for Volta and Ampere.
+          if [[ $VARIANT == cu* ]]; then
+            cuda_archs="70-real;80-real;80-virtual"
+
+            cuda=ON
+          else
+            cuda=OFF
+          fi
+
+          # Since they do not play well together, we perform LTO only if no
+          # sanitizer is enabled.
+          if [[ $SANITIZERS == nosan ]]; then
+            build_type=Release
+
+            lto=ON
+          else
+            build_type=Debug
+
+            lto=OFF
+          fi
+
+          cmake\
+            -GNinja\
+            -DCMAKE_BUILD_TYPE=$build_type\
+            -DCMAKE_CUDA_ARCHITECTURES=$cuda_archs\
+            -DFAIRSEQ2N_INSTALL_STANDALONE=ON\
+            -DFAIRSEQ2N_PERFORM_LTO=$lto\
+            -DFAIRSEQ2N_SANITIZERS="${SANITIZERS/_/;}"\
+            -DFAIRSEQ2N_TREAT_WARNINGS_AS_ERRORS=ON\
+            -DFAIRSEQ2N_USE_CUDA=$cuda\
+            -DFAIRSEQ2N_BUILD_PYTHON_BINDINGS=ON\
+            -DFAIRSEQ2N_PYTHON_DEVEL=OFF\
+            -B build
+
+          cmake --build build
+      - name: Package fairseq2n
+        working-directory: fairseq2n/python
+        run: |
+          # We follow PEP 600 and use the new `manylinux_2_17_x86_64` platform
+          # tag which means we support glibc >= 2.17.
+          pip wheel .\
+            --use-pep517\
+            --no-build-isolation\
+            --no-deps\
+            --config-settings "--build-option=--plat-name"\
+            --config-settings "--build-option=manylinux_2_17_x86_64"\
+            --wheel-dir build/wheelhouse
+      - name: Package fairseq2
+        run: |
+          pip wheel . --no-deps --wheel-dir build/wheelhouse
+      - name: Upload wheels and native tests to staging
+        uses: actions/upload-artifact@v3
+        with:
+          name: artifacts-pt${{ inputs.torch }}-py${{ inputs.py }}-linux_${{ inputs.arch }}-${{ inputs.variant }}-${{ inputs.sanitizers }}
+          path: |
+            build/wheelhouse/*.whl
+            fairseq2n/build/tests/run-tests
+            fairseq2n/python/build/wheelhouse/*.whl
+          retention-days: 1
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/fairinternal/fairseq2-ci-manylinux_${{ inputs.arch }}:1-${{ inputs.variant }}
+    steps:
+      - name: Install libsndfile
+        run: |
+          yum --assumeyes install libsndfile-devel
+      - name: Download the wheels and native tests from staging
+        uses: actions/download-artifact@v3
+        with:
+          name: artifacts-pt${{ inputs.torch }}-py${{ inputs.py }}-linux_${{ inputs.arch }}-${{ inputs.variant }}-${{ inputs.sanitizers }}
+          path: ~/artifacts/
+      - name: Check-out the repository
+        uses: actions/checkout@v3
+      - name: Create the Python virtual environment
+        run: |
+          python${{ inputs.py }} -m venv ~/venv
+
+          echo ~/venv/bin >> "$GITHUB_PATH"
+      - name: Install PyTorch
+        run: |
+          pip install torch==${{ inputs.torch }}\
+            --extra-index-url https://download.pytorch.org/whl/${{ inputs.variant }}
+      - name: Install pytest
+        run: |
+          pip install --requirement requirements-devel.txt
+      - name: Install fairseq2n
+        run: |
+          pip install ~/artifacts/fairseq2n/python/build/wheelhouse/*.whl --no-cache-dir
+      - name: Install fairseq2
+        run: |
+          pip install ~/artifacts/build/wheelhouse/*.whl --no-cache-dir
+      - name: Set the sanitizer variables
+        if: inputs.sanitizers != 'nosan'
+        env:
+          SANITIZERS: ${{ inputs.sanitizers }}
+        run: |
+          {
+            # We can't enable container overflow checks due to false positives
+            # in non-instrumented dependencies.
+            echo ASAN_OPTIONS=detect_container_overflow=0
+
+            echo LSAN_OPTIONS=suppressions=fairseq2n/LSan.supp,exitcode=0,log_path=$HOME/lsan.out
+
+            for sanitizer in ${SANITIZERS//_/ }; do
+              # LIBASAN and LIBTSAN environment variables are defined in the
+              # container image.
+              if [[ $sanitizer == asan ]]; then
+                echo SANITIZER_LIB=$(echo $LIBASAN)
+
+                break
+              fi
+
+              if [[ $sanitizer == tsan ]]; then
+                echo SANITIZER_LIB=$(echo $LIBTSAN)
+
+                break
+              fi
+            done
+          } >> "$GITHUB_ENV"
+      - name: Run native tests
+        run: |
+          chmod 755 ~/artifacts/fairseq2n/build/tests/run-tests
+
+          LD_LIBRARY_PATH=~/venv/lib/python${{ inputs.py }}/site-packages/fairseq2n/lib\
+            ~/artifacts/fairseq2n/build/tests/run-tests
+      - name: Run Python tests
+        env:
+          RUN_INTEGRATION_TESTS: ${{ inputs.run_integration_tests }}
+          RUN_ON_DEVICE: ${{ inputs.run_on_device }}
+        run: |
+          if [[ $RUN_INTEGRATION_TESTS == true ]]; then
+            integration=--integration
+          fi
+
+          if [[ $RUN_ON_DEVICE != true ]]; then
+            dev=cpu
+          else
+            dev=cuda:0
+          fi
+
+          LD_PRELOAD=${SANITIZER_LIB} pytest -rP --device $dev $integration --verbose
+      - name: Check the output of the leak sanitizer
+        if: env.LSAN_OPTIONS != ''
+        run: |
+          # Unfortunately Python leaks quite a bit of memory, so we cannot rely
+          # on the raw output of LSan. As a rudimentary workaround, we check if
+          # any stack frame has a symbol containing the word 'fairseq2'.
+          for f in ~/lsan.out.*; do
+            if cat $f | tee /dev/stderr | grep --quiet 'fairseq2'; then
+              exit 1
+            fi
+          done

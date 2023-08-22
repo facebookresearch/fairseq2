@@ -55,6 +55,6 @@ if TYPE_CHECKING or _DOC_MODE:
             """Return a list of the words in string using sep as the delimiter string."""
 
 else:
-    from fairseq2.C.data.string import CString as CString
+    from fairseq2n.bindings.data.string import CString as CString
 
     CString.__module__ = __name__

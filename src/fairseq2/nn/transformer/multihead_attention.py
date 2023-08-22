@@ -10,8 +10,6 @@ from typing import Dict, MutableSequence, Optional, Protocol, Tuple, final
 
 import torch
 import torch.nn as nn
-from overrides import final as finaloverride
-from overrides import override
 from torch import Tensor
 from torch.nn import Module
 from torch.nn.functional import pad
@@ -22,7 +20,7 @@ from fairseq2.nn.incremental_state import IncrementalState, IncrementalStateBag
 from fairseq2.nn.position_encoder import PositionEncoder
 from fairseq2.nn.projection import Linear, Projection
 from fairseq2.nn.transformer.attention import SDPA, create_default_sdpa
-from fairseq2.typing import DataType, Device
+from fairseq2.typing import DataType, Device, finaloverride, override
 
 
 class MultiheadAttention(Module, ABC):

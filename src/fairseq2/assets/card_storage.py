@@ -10,11 +10,11 @@ from pathlib import Path
 from typing import Any, Dict, Mapping, Optional, final
 
 import yaml
-from overrides import final as finaloverride
 from yaml import YAMLError
 
 from fairseq2.assets.card import AssetCardError
 from fairseq2.assets.error import AssetError
+from fairseq2.typing import finaloverride
 
 
 class AssetCardStorage(ABC):

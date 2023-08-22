@@ -9,10 +9,11 @@ import warnings
 from abc import ABC, abstractmethod
 from typing import List, Sequence, Union, final
 
-from overrides import override as finaloverride
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
 from typing_extensions import TypeAlias
+
+from fairseq2.typing import finaloverride
 
 LRScheduler: TypeAlias = _LRScheduler
 

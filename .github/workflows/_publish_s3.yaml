@@ -1,0 +1,83 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+on:
+  workflow_call:
+    inputs:
+      os:
+        type: string
+        required: true
+      torch:
+        type: string
+        required: true
+      py:
+        type: string
+        required: true
+      arch:
+        type: string
+        required: true
+      variant:
+        type: string
+        required: true
+      release_type:
+        type: string
+        required: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      # Needed to check out the repository.
+      contents: read
+      # Needed to interact with GitHub's OIDC Token endpoint.
+      id-token: write
+    steps:
+      - name: Download the artifacts from staging
+        uses: actions/download-artifact@v3
+        with:
+          name: artifacts-pt${{ inputs.torch }}-py${{ inputs.py }}-${{ inputs.os }}_${{ inputs.arch }}-${{ inputs.variant }}-nosan
+          path: ~/artifacts/
+      - name: Check-out the repository
+        uses: actions/checkout@v3
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-region: us-east-1
+          role-to-assume: arn:aws:iam::465485888595:role/GitHubActionsS3Access
+      - name: Set S3 bucket and prefix
+        env:
+          TORCH: ${{ inputs.torch }}
+          VARIANT: ${{ inputs.variant }}
+          RELEASE_TYPE: ${{ inputs.release_type }}
+        run: |
+          echo S3_BUCKET=fair-package-repo >> "$GITHUB_ENV"
+
+          if [[ $RELEASE_TYPE == "stable" ]]; then
+            s3_prefix="fairseq2/whl/pt$TORCH/$VARIANT"
+          else
+            s3_prefix="fairseq2/whl/$RELEASE_TYPE/pt$TORCH/$VARIANT"
+          fi
+
+          echo S3_PREFIX=$s3_prefix >> "$GITHUB_ENV"
+      - name: Upload wheel
+        run: |
+          for pkg in ~/artifacts/fairseq2n/python/build/wheelhouse/*.whl; do
+            aws s3 cp "$pkg" s3://$S3_BUCKET/$S3_PREFIX/fairseq2n/
+          done
+
+          for pkg in ~/artifacts/build/wheelhouse/*.whl; do
+            aws s3 cp "$pkg" s3://$S3_BUCKET/$S3_PREFIX/fairseq2/
+          done
+      - name: Update PEP 503 index
+        run: |
+            python3 -m pip install boto3
+
+            python3 ci/scripts/update_pep503_index.py\
+              $S3_BUCKET $S3_PREFIX fairseq2n fairseq2

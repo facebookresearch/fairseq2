@@ -8,8 +8,6 @@ from typing import List, Optional, Sequence, Tuple, final
 
 import torch
 import torch.nn as nn
-from overrides import final as finaloverride
-from overrides import override
 from torch import Tensor
 from torch.nn import GELU, Conv1d, Dropout, GroupNorm, Module, Sequential
 from torch.nn.functional import group_norm, layer_norm
@@ -17,7 +15,7 @@ from torch.nn.functional import group_norm, layer_norm
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.nn.normalization import LayerNorm
 from fairseq2.nn.utils.grad import scale_grad
-from fairseq2.typing import DataType, Device
+from fairseq2.typing import DataType, Device, finaloverride, override
 
 
 @final
@@ -127,11 +125,6 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
             batch size and :math:`(S)` is the sequence length.
         """
         # (N, S) -> (N, C, S)
-        if seq_lens is not None:
-            assert seq_lens.max() <= seqs.size(1), (
-                "Input seq_lens doesn't match with shape of input seqs:"
-                f"{seqs.shape=}, {seq_lens.max().item()=}"
-            )
         seqs = seqs.unsqueeze(1)
 
         # (N, C, S) -> (N, E, S)

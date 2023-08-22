@@ -7,7 +7,6 @@
 from typing import Any, Dict, Mapping, final
 
 import torch
-from overrides import override as finaloverride
 
 from fairseq2.assets import asset_store, download_manager
 from fairseq2.models.utils.checkpoint_loader import upgrade_fairseq_checkpoint
@@ -18,6 +17,7 @@ from fairseq2.models.w2vbert.builder import (
     w2vbert_archs,
 )
 from fairseq2.models.w2vbert.model import W2VBertModel
+from fairseq2.typing import finaloverride
 
 
 @final
@@ -76,13 +76,7 @@ class W2VBertLoader(ModelLoader[W2VBertModel, W2VBertConfig]):
 
 
 load_w2vbert_model = W2VBertLoader(
-    asset_store,
-    download_manager,
-    create_w2vbert_model,
-    w2vbert_archs,
-    # `weight_norm` used in `Wav2Vec2PositionEncoder` does not support meta
-    # initialization.
-    use_meta=False,
+    asset_store, download_manager, create_w2vbert_model, w2vbert_archs
 )
 
 

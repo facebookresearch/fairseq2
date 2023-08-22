@@ -8,16 +8,6 @@ Classes
     :toctree: generated/classes
     :nosignatures:
 
-    data.CString
-    data.DataPipeline
-    data.DataPipelineBuilder
-    data.StringLike
-    data.DataPipelineError
-    data.RecordError
-    data.text.SentencePieceModel
-    data.text.MultilingualTextTokenizer
-    models.transformer.FinalProjection
-    models.transformer.TransformerModel
     nn.Embedding
     nn.IncrementalState
     nn.IncrementalStateBag

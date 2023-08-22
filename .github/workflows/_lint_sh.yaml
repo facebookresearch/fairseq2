@@ -1,0 +1,49 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+on:
+  workflow_call:
+
+env:
+    PY: '3.11'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/fairinternal/fairseq2-ci-manylinux_x86_64:1-cpu
+    steps:
+      - name: Check-out the repository
+        uses: actions/checkout@v3
+      - name: Install libsndfile
+        run: |
+          yum --assumeyes install libsndfile-devel
+      - name: Create the Python virtual environment
+        run: |
+          python$PY -m venv ~/venv
+
+          echo ~/venv/bin >> "$GITHUB_PATH"
+      - name: Install shellcheck
+        id: setup
+        run: |
+          pip install --requirement requirements-devel.txt
+      - name: Run shellcheck
+        if: success() || (failure() && steps.setup.outcome == 'success')
+        run: |
+          echo "::add-matcher::./ci/problem-matchers/gcc.json"
+
+          function remove_matcher
+          {
+            echo "::remove-matcher owner=gcc::"
+          }
+
+          trap remove_matcher EXIT
+
+          tools/run-shellcheck.sh .

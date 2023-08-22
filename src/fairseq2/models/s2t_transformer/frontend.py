@@ -7,7 +7,6 @@
 import math
 from typing import Optional, Tuple, final
 
-from overrides import final as finaloverride
 from torch import Tensor
 from torch.nn import Dropout
 
@@ -17,7 +16,7 @@ from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.position_encoder import PositionEncoder
 from fairseq2.nn.projection import Linear, Projection
 from fairseq2.nn.utils.mask import to_padding_mask
-from fairseq2.typing import DataType, Device
+from fairseq2.typing import DataType, Device, finaloverride
 
 
 @final

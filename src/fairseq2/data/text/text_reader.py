@@ -31,8 +31,8 @@ if TYPE_CHECKING or _DOC_MODE:
         ...
 
 else:
-    from fairseq2.C.data.text.text_reader import LineEnding as LineEnding
-    from fairseq2.C.data.text.text_reader import read_text as read_text
+    from fairseq2n.bindings.data.text.text_reader import LineEnding as LineEnding
+    from fairseq2n.bindings.data.text.text_reader import read_text as read_text
 
     def _set_module_name() -> None:
         for t in [LineEnding, read_text]:

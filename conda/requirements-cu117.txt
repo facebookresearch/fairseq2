@@ -1,2 +1,0 @@
-gxx==11.2.0
-pytorch-cuda=11.7

@@ -7,11 +7,11 @@
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple
 
-from overrides import override
 from torch import Tensor
 
 from fairseq2.models.sequence import SequenceBatch, SequenceModel, SequenceModelOutput
 from fairseq2.nn.incremental_state import IncrementalStateBag
+from fairseq2.typing import override
 
 
 class SequenceDecoder(ABC):

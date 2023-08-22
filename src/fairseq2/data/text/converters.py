@@ -48,9 +48,11 @@ if TYPE_CHECKING or _DOC_MODE:
             ...
 
 else:
-    from fairseq2.C.data.text.converters import StrSplitter as StrSplitter
-    from fairseq2.C.data.text.converters import StrToIntConverter as StrToIntConverter
-    from fairseq2.C.data.text.converters import (
+    from fairseq2n.bindings.data.text.converters import StrSplitter as StrSplitter
+    from fairseq2n.bindings.data.text.converters import (
+        StrToIntConverter as StrToIntConverter,
+    )
+    from fairseq2n.bindings.data.text.converters import (
         StrToTensorConverter as StrToTensorConverter,
     )
 

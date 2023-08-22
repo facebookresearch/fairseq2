@@ -1,0 +1,15 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+on:
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'ci/**'
+
+jobs:
+  build_doc:
+    uses: ./.github/workflows/_build_doc.yaml

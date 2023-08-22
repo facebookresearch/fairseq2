@@ -45,8 +45,8 @@ if TYPE_CHECKING or _DOC_MODE:
             ...
 
 else:
-    from fairseq2.C.data.audio import AudioDecoder as AudioDecoder
-    from fairseq2.C.data.audio import (
+    from fairseq2n.bindings.data.audio import AudioDecoder as AudioDecoder
+    from fairseq2n.bindings.data.audio import (
         WaveformToFbankConverter as WaveformToFbankConverter,
     )
 

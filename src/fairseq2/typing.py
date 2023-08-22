@@ -4,11 +4,13 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from overrides import final
+from overrides import override as override  # noqa: F401
 from torch import device, dtype
 from typing_extensions import TypeAlias
 
-# Type aliases for `torch.device` and `torch.dtype` to make them consistent with
-# the regular Python naming convention.
+finaloverride = final
+
 Device: TypeAlias = device
 
 DataType: TypeAlias = dtype

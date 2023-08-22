@@ -7,20 +7,20 @@
 from typing import Any, Dict, Mapping, Union, final
 
 import torch
-from overrides import override as finaloverride
 
 from fairseq2.assets import (
+    AssetCard,
     AssetDownloadManager,
     AssetStore,
     asset_store,
     download_manager,
 )
-from fairseq2.assets.card import AssetCard
 from fairseq2.models.nllb.builder import NllbConfig, create_nllb_model, nllb_archs
 from fairseq2.models.nllb.tokenizer import NllbTokenizer
 from fairseq2.models.transformer import TransformerModel
 from fairseq2.models.utils.checkpoint_loader import upgrade_fairseq_checkpoint
 from fairseq2.models.utils.model_loader import ModelConfigLoader, ModelLoader
+from fairseq2.typing import finaloverride
 
 
 @final
@@ -119,7 +119,7 @@ class NllbTokenizerLoader:
     ) -> NllbTokenizer:
         """
         :param model_name_or_card:
-            The name of the model or an already loaded AssetCard
+            The name or asset card of the model whose tokenizer to load.
         :param force:
             If ``True``, downloads the tokenizer even if it is already in cache.
         :param progress:

@@ -8,7 +8,6 @@ import math
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple, final
 
-from overrides import final as finaloverride
 from torch import Tensor
 from torch.nn import Dropout, Module
 
@@ -21,7 +20,7 @@ from fairseq2.nn.transformer.layer_norm import (
     create_default_layer_norm,
 )
 from fairseq2.nn.utils.mask import to_padding_mask
-from fairseq2.typing import DataType, Device
+from fairseq2.typing import DataType, Device, finaloverride
 
 
 class TransformerFrontend(Module, ABC):

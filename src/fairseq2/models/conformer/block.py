@@ -6,7 +6,6 @@
 
 from typing import Optional, Tuple
 
-from overrides import final as finaloverride
 from torch import Tensor
 from torch.nn import Dropout
 
@@ -20,7 +19,7 @@ from fairseq2.nn.transformer import (
     create_default_layer_norm,
 )
 from fairseq2.nn.utils.module import check_model_dim
-from fairseq2.typing import DataType, Device
+from fairseq2.typing import DataType, Device, finaloverride
 
 
 class ConformerBlock(TransformerEncoderLayer):

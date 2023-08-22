@@ -1,0 +1,50 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+on:
+  workflow_call:
+    inputs:
+      os:
+        type: string
+        required: true
+      torch:
+        type: string
+        required: true
+      py:
+        type: string
+        required: true
+      arch:
+        type: string
+        required: true
+      variant:
+        type: string
+        required: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      # Needed to interact with GitHub's OIDC Token endpoint.
+      id-token: write
+    steps:
+      - name: Download the artifacts from staging
+        uses: actions/download-artifact@v3
+        with:
+          name: artifacts-pt${{ inputs.torch }}-py${{ inputs.py }}-${{ inputs.os }}_${{ inputs.arch }}-${{ inputs.variant }}-nosan
+          path: artifacts/
+      - name: Publish fairseq2n
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+            packages-dir: artifacts/fairseq2n/python/build/wheelhouse
+      - name: Publish fairseq2
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+            packages-dir: artifacts/build/wheelhouse
+            skip-existing: true

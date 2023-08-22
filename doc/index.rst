@@ -13,11 +13,10 @@ other content generation tasks.
    :caption: Installation
 
    installation/from_source
-   installation/from_source_conda
 
 .. toctree::
    :maxdepth: 1
-   :caption: Library Reference
+   :caption: fairseq2.nn Reference
 
    reference/abc
    reference/classes

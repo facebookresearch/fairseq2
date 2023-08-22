@@ -1,4 +1,4 @@
-# Contributing to FAIR Sequence Modeling Toolkit v2 (fairseq2)
+# Contributing to fairseq2
 We want to make contributing to this project as easy and transparent as
 possible.
 
@@ -8,12 +8,9 @@ We actively welcome your pull requests.
 1. Fork the repository and create your branch from `main`.
 2. If you've added code that should be tested, add tests.
 3. If you've changed the API, update the documentation.
-4. Ensure the test suite passes `make test`.
-If you changed the Python/C++ API you'll need to run `make install` before that.
-If you changed only C++ code only `make build` is required.
-If you changed only Python code, `make test` is enough.
-5. Make sure your code is formatted: `make fmt`
-6. Make sure your code lints: `make lint`
+4. Ensure the test suite passes `pytest`.
+5. Make sure your code is formatted: `isort . && black .`
+6. Make sure your code lints: `mypy . && flake8 .`
 7. If you haven't already, complete the Contributor License Agreement ("CLA").
 
 ## Contributor License Agreement ("CLA")

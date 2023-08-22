@@ -271,22 +271,28 @@ if TYPE_CHECKING or _DOC_MODE:
         """Raised when a corrupt record is encountered while reading a dataset."""
 
 else:
-    from fairseq2.C.data.data_pipeline import ByteStreamError as ByteStreamError
-    from fairseq2.C.data.data_pipeline import (
+    from fairseq2n.bindings.data.data_pipeline import ByteStreamError as ByteStreamError
+    from fairseq2n.bindings.data.data_pipeline import (
         CollateOptionsOverride as CollateOptionsOverride,
     )
-    from fairseq2.C.data.data_pipeline import Collater as Collater
-    from fairseq2.C.data.data_pipeline import DataPipeline as DataPipeline
-    from fairseq2.C.data.data_pipeline import DataPipelineBuilder as DataPipelineBuilder
-    from fairseq2.C.data.data_pipeline import DataPipelineError as DataPipelineError
-    from fairseq2.C.data.data_pipeline import FileMapper as FileMapper
-    from fairseq2.C.data.data_pipeline import RecordError as RecordError
-    from fairseq2.C.data.data_pipeline import (
+    from fairseq2n.bindings.data.data_pipeline import Collater as Collater
+    from fairseq2n.bindings.data.data_pipeline import DataPipeline as DataPipeline
+    from fairseq2n.bindings.data.data_pipeline import (
+        DataPipelineBuilder as DataPipelineBuilder,
+    )
+    from fairseq2n.bindings.data.data_pipeline import (
+        DataPipelineError as DataPipelineError,
+    )
+    from fairseq2n.bindings.data.data_pipeline import FileMapper as FileMapper
+    from fairseq2n.bindings.data.data_pipeline import RecordError as RecordError
+    from fairseq2n.bindings.data.data_pipeline import (
         get_last_failed_example as get_last_failed_example,
     )
-    from fairseq2.C.data.data_pipeline import list_files as list_files
-    from fairseq2.C.data.data_pipeline import read_sequence as read_sequence
-    from fairseq2.C.data.data_pipeline import read_zipped_records as read_zipped_records
+    from fairseq2n.bindings.data.data_pipeline import list_files as list_files
+    from fairseq2n.bindings.data.data_pipeline import read_sequence as read_sequence
+    from fairseq2n.bindings.data.data_pipeline import (
+        read_zipped_records as read_zipped_records,
+    )
 
     def _set_module_name() -> None:
         ctypes = [

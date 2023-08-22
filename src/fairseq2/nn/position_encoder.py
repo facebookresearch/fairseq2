@@ -10,14 +10,13 @@ from typing import Optional, final
 
 import torch
 import torch.nn as nn
-from overrides import final as finaloverride
 from torch import Tensor
 from torch.nn import Module
 from torch.nn.functional import embedding
 from torch.nn.parameter import Parameter
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
-from fairseq2.typing import DataType, Device
+from fairseq2.typing import DataType, Device, finaloverride
 
 
 class PositionEncoder(Module, ABC):

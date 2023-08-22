@@ -7,12 +7,12 @@
 from abc import ABC, abstractmethod
 from typing import Optional, Tuple
 
-from overrides import override
 from torch import Tensor
 
 from fairseq2.models.seq2seq import Seq2SeqBatch, Seq2SeqModel
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.nn.incremental_state import IncrementalStateBag
+from fairseq2.typing import override
 
 
 class Seq2SeqDecoder(ABC):

@@ -6,12 +6,11 @@
 
 from typing import Final, Optional, Sequence, Tuple, final
 
-from overrides import final as finaloverride
 from torch import Tensor
 from torch.nn import GLU, Conv1d, Sequential
 
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
-from fairseq2.typing import DataType, Device
+from fairseq2.typing import DataType, Device, finaloverride
 
 
 @final

@@ -38,6 +38,6 @@ if TYPE_CHECKING or _DOC_MODE:
             ...
 
 else:
-    from fairseq2.C.memory import MemoryBlock as MemoryBlock
+    from fairseq2n.bindings.memory import MemoryBlock as MemoryBlock
 
     MemoryBlock.__module__ = __name__

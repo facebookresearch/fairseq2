@@ -11,11 +11,10 @@ from typing import final
 
 import torch
 import torch.distributed as dist
-from overrides import final as finaloverride
 from torch import Tensor
 from torch.distributed import ProcessGroup, ReduceOp  # type: ignore[attr-defined]
 
-from fairseq2.typing import Device
+from fairseq2.typing import Device, finaloverride
 
 
 class ReduceOperation(Enum):

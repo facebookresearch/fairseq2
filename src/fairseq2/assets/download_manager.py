@@ -17,10 +17,10 @@ from urllib.parse import urlparse
 from urllib.request import urlopen
 
 import torch
-from overrides import final as finaloverride
 from tqdm import tqdm  # type: ignore[import]
 
 from fairseq2.assets.error import AssetError
+from fairseq2.typing import finaloverride
 
 
 class AssetDownloadManager(ABC):

@@ -1,35 +1,22 @@
-# Byte-Compiled Modules
-__pycache__/
-
-# Extension Modules
-*.so
-
 # Build Artifacts
 build/
 
 # Core Dumps
 core
 
+# Byte-Compiled Modules
+__pycache__/
+
+# Extension Modules
+*.so
+
 # Packaging Artifacts
 *.egg-info
 *.whl
-dist/
 
-# IDEs and Python Virtual Environments
+# IDEs and Tools
 .idea/
-.venv/
-venv/
 .gdb_history
-
-# Weights & Biases
-wandb/
 
 # Other
 .DS_Store
-nohup.out
-
-# Since we cannot use PEP 517 (i.e. pyproject.toml), there is no way for us to
-# configure the Black formatter. As a workaround, we "ignore" the Python files
-# under the third-party directory to force Black to skip them.
-third-party/**/*.py
-third-party/**/*.pyi

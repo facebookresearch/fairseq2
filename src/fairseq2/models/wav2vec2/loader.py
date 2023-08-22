@@ -7,7 +7,6 @@
 from typing import Any, Dict, Mapping, final
 
 import torch
-from overrides import override as finaloverride
 
 from fairseq2.assets import asset_store, download_manager
 from fairseq2.models.utils.checkpoint_loader import upgrade_fairseq_checkpoint
@@ -19,6 +18,7 @@ from fairseq2.models.wav2vec2.builder import (
 )
 from fairseq2.models.wav2vec2.model import Wav2Vec2Model
 from fairseq2.nn.transformer import TransformerNormOrder
+from fairseq2.typing import finaloverride
 
 
 @final
@@ -75,13 +75,7 @@ class Wav2Vec2Loader(ModelLoader[Wav2Vec2Model, Wav2Vec2Config]):
 
 
 load_wav2vec2_model = Wav2Vec2Loader(
-    asset_store,
-    download_manager,
-    create_wav2vec2_model,
-    wav2vec2_archs,
-    # `weight_norm` used in `Wav2Vec2PositionEncoder` does not support meta
-    # initialization.
-    use_meta=False,
+    asset_store, download_manager, create_wav2vec2_model, wav2vec2_archs
 )
 
 

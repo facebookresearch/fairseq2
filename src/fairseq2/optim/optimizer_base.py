@@ -8,8 +8,9 @@ from abc import ABC, abstractmethod
 from typing import Callable, Optional
 
 import torch
-from overrides import override as finaloverride
 from torch.optim import Optimizer
+
+from fairseq2.typing import finaloverride
 
 
 class OptimizerBase(ABC, Optimizer):

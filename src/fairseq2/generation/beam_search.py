@@ -8,8 +8,9 @@ from abc import ABC, abstractmethod
 from typing import Tuple, final
 
 import torch
-from overrides import final as finaloverride
 from torch import Tensor
+
+from fairseq2.typing import finaloverride
 
 
 class BeamSearch(ABC):

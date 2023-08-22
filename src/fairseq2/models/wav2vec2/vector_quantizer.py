@@ -9,13 +9,12 @@ from typing import Optional, Tuple, final
 
 import torch
 import torch.nn as nn
-from overrides import final as finaloverride
 from torch import Tensor
 from torch.nn import Module, Parameter
 from torch.nn.functional import gumbel_softmax
 
 from fairseq2.nn.projection import Linear
-from fairseq2.typing import DataType, Device
+from fairseq2.typing import DataType, Device, finaloverride
 
 
 class VectorQuantizer(Module, ABC):

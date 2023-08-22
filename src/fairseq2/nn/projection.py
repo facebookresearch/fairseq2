@@ -10,14 +10,12 @@ from typing import Optional, final
 
 import torch
 import torch.nn as nn
-from overrides import final as finaloverride
-from overrides import override
 from torch import Tensor
 from torch.nn import Module
 from torch.nn.functional import linear
 from torch.nn.parameter import Parameter
 
-from fairseq2.typing import DataType, Device
+from fairseq2.typing import DataType, Device, finaloverride, override
 
 
 class Projection(Module, ABC):

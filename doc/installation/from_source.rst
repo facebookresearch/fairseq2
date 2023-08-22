@@ -1,10 +1,5 @@
-Install From Source
-===================
-
-.. warning::
-
-    If you want to build and install fairseq2 in a Conda environment, follow the
-    instructions :doc:`here <from_source_conda>`.
+Install From Source (C++/CUDA)
+==============================
 
 
 1. Clone the Repository
@@ -67,12 +62,6 @@ Similarly, on Fedora run:
 
     sudo dnf install libsndfile-devel
 
-.. note::
-
-    If these libraries are not readily available on your system and you do not
-    have sudo access to install them, check out the :doc:`Conda instructions <from_source_conda>`
-    as an alternative installation method.
-
 CUDA
 ^^^^
 If you plan to build fairseq2 in a CUDA environment, you first have to install a
@@ -91,18 +80,7 @@ To install fairseq2's build dependencies, use:
 
 .. code-block::
 
-    pip install torch -r requirements-build.txt
-
-If you would like to tinker with fairseq2, use this alternative that also
-installs the development tools:
-
-.. code-block::
-
-    pip install torch -r requirements-devel.txt
-
-Note that both commands will install the latest PyTorch version available in
-PyPI. If you would like to install a specific version, follow the instructions
-at `pytorch.org <https://pytorch.org/get-started>`_.
+    pip install torch -r fairseq2n/python/requirements-build.txt
 
 
 4. Build the Extension Module
@@ -115,6 +93,8 @@ Run the following command at the root directory of your repository to configure
 the build:
 
 .. code-block::
+
+    cd fairseq2n
 
     cmake -GNinja -B build
 
@@ -137,13 +117,13 @@ CUDA Builds
     you can typically activate a specific CUDA Toolkit version by
     ``module load cuda/<VERSION>``.
 
-If you would like to build fairseq2's CUDA kernels, set the ``FAIRSEQ2_USE_CUDA``
+If you would like to build fairseq2's CUDA kernels, set the ``FAIRSEQ2N_USE_CUDA``
 option ``ON``. When turned on, the version of the CUDA Toolkit installed on your
 machine and the version of CUDA that was used to build PyTorch must match.
 
 .. code-block::
 
-    cmake -GNinja -DFAIRSEQ2_USE_CUDA=ON -B build
+    cmake -GNinja -DFAIRSEQ2N_USE_CUDA=ON -B build
 
 Similar to CPU-only build, follow this command with:
 
@@ -161,25 +141,27 @@ for the Ampere architecture (e.g. for A100).
 
 .. code-block::
 
-    cmake -GNinja -DCMAKE_CUDA_ARCHITECTURES="80-real;80-virtual" -DFAIRSEQ2_USE_CUDA=ON -B build
+    cmake -GNinja -DCMAKE_CUDA_ARCHITECTURES="80-real;80-virtual" -DFAIRSEQ2N_USE_CUDA=ON -B build
 
 
 5. Install the Package
 ----------------------
 Once you have built the extension module, the actual Python package installation
-is straightforward:
+is straightforward. First install fairseq2n:
 
 .. code-block::
 
-    pip install .
-
-If you plan to play with fairseq2, you can also install it in
-`editable <https://pip.pypa.io/en/stable/cli/pip_install/#cmdoption-e>`_ (a.k.a.
-develop) mode:
-
-.. code-block::
+    cd fairseq2n/python
 
     pip install -e .
+
+    cd ../..
+
+And then, fairseq2:
+
+.. code-block::
+
+    FAIRSEQ2N_DEVEL=1 pip install -e .
 
 
 6. Optional: Sanity Check

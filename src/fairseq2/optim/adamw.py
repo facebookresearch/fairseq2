@@ -7,11 +7,11 @@
 from typing import Any, Dict, Iterable, List, Literal, Tuple, Union, cast, final
 
 import torch
-from overrides import override as finaloverride
 from torch import Tensor
 from torch.optim.adamw import adamw  # type: ignore[attr-defined]
 
 from fairseq2.optim.optimizer_base import OptimizerBase
+from fairseq2.typing import finaloverride
 from fairseq2.utils.version import is_pt2_or_greater
 
 

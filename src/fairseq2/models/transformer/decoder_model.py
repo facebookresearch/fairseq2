@@ -6,7 +6,6 @@
 
 from typing import Optional, Tuple, final
 
-from overrides import override as finaloverride
 from torch import Tensor
 
 from fairseq2.models.decoder import DecoderModel
@@ -16,6 +15,7 @@ from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.projection import Projection
 from fairseq2.nn.transformer import TransformerDecoder
 from fairseq2.nn.utils.module import check_model_dim
+from fairseq2.typing import finaloverride
 
 
 @final
