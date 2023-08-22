@@ -85,7 +85,6 @@ pip install -r requirements-devel.txt
 pip install -e .
 ```
 
-
 ## Contributing
 We always welcome contributions to fairseq2! Please refer to our
 [contribution guidelines](./CONTRIBUTING.md) to learn how to format, test, and
@@ -94,3 +93,9 @@ submit your work.
 
 ## License
 This project is MIT licensed, as found in the [LICENSE](LICENSE) file.
+
+
+## Legal
+[Terms of Use](https://opensource.fb.com/legal/terms), [Privacy Policy](https://opensource.fb.com/legal/privacy)
+
+Copyright © Meta Platforms, Inc
