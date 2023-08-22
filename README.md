@@ -7,7 +7,7 @@
 [![Nightly](https://github.com/facebookresearch/fairseq2/actions/workflows/nightly.yaml/badge.svg)](https://github.com/facebookresearch/fairseq2/actions/workflows/nightly.yaml)
 [![PyPI version](https://img.shields.io/pypi/v/fairseq2)](https://pypi.org/project/fairseq2/)
 
-[**Documentation**](https://facebookresearch.github.io/fairseq2/nightly) | **Install From: [PyPI](#install-from-pypi), [Source](#install-from-source)**
+[**Documentation**](https://facebookresearch.github.io/fairseq2/stable) ([**Nightly**](https://facebookresearch.github.io/fairseq2/nightly)) | **Install From: [PyPI](#install-from-pypi), [Source](#install-from-source)**
 
 > ❗fairseq2 is still under heavy development (early beta quality). Please use with caution and do not hesitate to share feedback with us!
 
@@ -61,7 +61,7 @@ This will install a version of fairseq2 that is compatible with the latest PyTor
 fairseq2 consists of two packages; the user-facing fairseq2 package implemented in pure Python, and fairseq2n that contains
 the C++ and CUDA pieces of the library. If you are interested in Python parts only, you can use the following
 instructions. For C++/CUDA development, please follow the instructions
-[here](https://facebookresearch.github.io/fairseq2/nightly/installation/from_source).
+[here](https://facebookresearch.github.io/fairseq2/stable/installation/from_source).
 
 First, clone the fairseq2 repository to your machine:
 
