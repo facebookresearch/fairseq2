@@ -12,7 +12,7 @@ from os import environ
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-__version__ = "0.1.0"
+__version__ = "0.2.0+devel"
 
 
 # We import `torch` to ensure that libtorch and libtorch_python are loaded into
