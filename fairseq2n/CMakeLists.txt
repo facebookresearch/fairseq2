@@ -101,6 +101,31 @@ option(FAIRSEQ2N_USE_CUDA
         OFF
 )
 
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+    set(default_thread_lib tbb)
+else()
+    set(default_thread_lib)
+endif()
+
+set(FAIRSEQ2N_THREAD_LIB
+    #VALUE
+        ${default_thread_lib}
+    #TYPE
+        CACHE STRING
+    #DESCRIPTION
+        "Thread library to use."
+)
+set_property(CACHE FAIRSEQ2N_THREAD_LIB PROPERTY
+    STRINGS
+        "" "tbb"
+)
+
+if(FAIRSEQ2N_THREAD_LIB STREQUAL "tbb")
+    if(NOT CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
+        message(FATAL_ERROR "Intel oneTBB is only supported on x86-64 systems.")
+    endif()
+endif()
+
 option(FAIRSEQ2N_BUILD_PYTHON_BINDINGS
     #DESCRIPTION
         "Builds the Python bindings."
@@ -135,7 +160,9 @@ find_package(SndFile 1.0.25 REQUIRED)
 
 find_package(Threads REQUIRED)
 
-find_package(TBB 2021.8 REQUIRED)
+if(FAIRSEQ2N_THREAD_LIB STREQUAL "tbb")
+    find_package(TBB 2021.8 REQUIRED)
+endif()
 
 find_package(Torch 1.12 REQUIRED)
 

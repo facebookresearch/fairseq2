@@ -12,10 +12,10 @@
 
 #include <ATen/Functions.h>
 #include <ATen/Storage.h>
-#include <oneapi/tbb.h>
 
 #include "fairseq2n/memory.h"
 #include "fairseq2n/span.h"
+#include "fairseq2n/detail/parallel.h"
 
 namespace fairseq2n::detail {
 
@@ -64,11 +64,11 @@ kaldi_fbank_compute_op::run() &&
     span<const float32> waveform_data = get_waveform_storage();
 
     auto compute_fbank = [this, &frame_opts, &fbank_data, &waveform_data](
-        const tbb::blocked_range<std::int32_t> &range)
+        std::int32_t begin, std::int32_t end)
     {
         std::vector<float32> signal_frame{};
 
-        for (std::int32_t frame_nr = range.begin(); frame_nr < range.end(); ++frame_nr) {
+        for (std::int32_t frame_nr = begin; frame_nr < end; ++frame_nr) {
             signal_frame.resize(0);
 
             // Extract the frame from the waveform tensor.
@@ -91,9 +91,7 @@ kaldi_fbank_compute_op::run() &&
         }
     };
 
-    tbb::blocked_range<std::int32_t> range{0, num_frames};
-
-    tbb::parallel_for(range, compute_fbank);
+    parallel_for<std::int32_t>(compute_fbank, num_frames);
 
     return std::move(fbank_);
 }

@@ -4,6 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import platform
 import site
 import sys
 from ctypes import CDLL, RTLD_GLOBAL
@@ -86,7 +87,9 @@ def _load_sndfile() -> None:
 
 # We load the shared libraries we depend on using our own extended lookup logic
 # since they might be located in a virtual environment.
-_load_tbb()
+if (uname := platform.uname()).machine == "x86_64":
+    _load_tbb()
+
 _load_sndfile()
 
 

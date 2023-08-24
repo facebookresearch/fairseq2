@@ -38,7 +38,7 @@ find_path(TBB_INCLUDE_DIR tbb HINTS ${tbb_include_dir} NO_DEFAULT_PATH)
 mark_as_advanced(TBB_LIBRARY TBBMALLOC_LIBRARY TBB_INCLUDE_DIR)
 
 if(TBB_INCLUDE_DIR)
-    set(TBB_VERSION 2021.9.0)  # TODO(balioglu): Infer this!
+    set(TBB_VERSION 2021.8.0)  # TODO(balioglu): Infer this!
 endif()
 
 find_package_handle_standard_args(TBB

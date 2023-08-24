@@ -89,6 +89,7 @@ function(fairseq2n_set_compile_options target)
                 -Wno-missing-variable-declarations
                 -Wno-old-style-cast
                 -Wno-padded
+                -Wno-poison-system-directories
                 -Wno-reserved-id-macro
                 -Wno-shadow-uncaptured-local
                 -Wno-switch-enum

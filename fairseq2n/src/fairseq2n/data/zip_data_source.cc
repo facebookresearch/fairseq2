@@ -10,9 +10,9 @@
 #include <cstdint>
 
 #include <fmt/format.h>
-#include <oneapi/tbb.h>
 
 #include "fairseq2n/detail/exception.h"
+#include "fairseq2n/detail/parallel.h"
 #include "fairseq2n/data/detail/exception.h"
 
 namespace fairseq2n::detail {
@@ -43,9 +43,9 @@ zip_data_source::next()
     std::vector<std::int8_t> is_eod(pipelines_.size());
 
     // Fetch the next set of elements from the zip data pipelines.
-    auto fetch_next = [this, &zip, &is_eod](const tbb::blocked_range<std::size_t> &range)
+    auto fetch_next = [this, &zip, &is_eod](std::size_t begin, std::size_t end)
     {
-        for (auto i = range.begin(); i < range.end(); ++i) {
+        for (auto i = begin; i < end; ++i) {
             std::optional<data> maybe_example = pipelines_[i].next();
             if (maybe_example)
                 zip[i] = *std::move(maybe_example);
@@ -54,12 +54,10 @@ zip_data_source::next()
         }
     };
 
-    tbb::blocked_range<std::size_t> range{0, pipelines_.size()};
-
     if (disable_parallelism_ || pipelines_.size() == 1)
-        fetch_next(range);
+        fetch_next(0, pipelines_.size());
     else
-        tbb::parallel_for(range, fetch_next);
+        parallel_for<std::size_t>(fetch_next, pipelines_.size());
 
     // Check whether all data pipelines are in sync.
     bool are_in_sync = std::all_of(
