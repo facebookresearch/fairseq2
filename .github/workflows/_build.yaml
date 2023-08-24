@@ -13,6 +13,7 @@ on:
 
 jobs:
   build_pt121_wheel-linux:
+    name: Build PyTorch 1.12.1 wheel (Linux) - (${{ matrix }})
     uses: ./.github/workflows/_build_wheel-linux.yaml
     strategy:
       matrix:
@@ -25,6 +26,7 @@ jobs:
       version: ${{ inputs.version }}
 
   build_pt131_wheel-linux:
+    name: Build PyTorch 1.13.1 wheel (Linux) - (${{ matrix }})
     uses: ./.github/workflows/_build_wheel-linux.yaml
     strategy:
       matrix:
@@ -37,6 +39,7 @@ jobs:
       version: ${{ inputs.version }}
 
   build_pt20_wheel-linux:
+    name: Build PyTorch 2.0.1 wheel (Linux) - (${{ matrix }})
     uses: ./.github/workflows/_build_wheel-linux.yaml
     strategy:
       matrix:

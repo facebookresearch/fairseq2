@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+name: CI - Lint
+
 on:
   pull_request:
     paths:
@@ -13,4 +15,5 @@ on:
 
 jobs:
   lint_cc:
+    name: Lint C++
     uses: ./.github/workflows/_lint_cc.yaml

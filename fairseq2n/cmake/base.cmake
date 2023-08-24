@@ -82,6 +82,7 @@ function(fairseq2n_set_compile_options target)
                 -Weverything
                 -Wno-c++98-compat
                 -Wno-c++98-compat-pedantic
+                -Wno-disabled-macro-expansion
                 -Wno-exit-time-destructors
                 -Wno-extra-semi-stmt
                 -Wno-global-constructors

@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+name: CI - Build
+
 on:
   pull_request:
     paths-ignore:
@@ -13,12 +15,21 @@ on:
 
 jobs:
   build_pt112_wheel-linux:
+    name: Build PyTorch 1.12.1 wheel (Linux)
     uses: ./.github/workflows/_build_wheel-linux.yaml
     with:
       torch: '1.12.1'
       py: '3.8'
 
+  build_pt112_wheel-macos:
+    name: Build PyTorch 1.12.1 wheel (macOS)
+    uses: ./.github/workflows/_build_wheel-macos.yaml
+    with:
+      torch: '1.12.1'
+      py: '3.8'
+
   build_pt20_wheel-linux:
+    name: Build PyTorch 2.0.1 wheel (Linux) (${{ matrix }})
     uses: ./.github/workflows/_build_wheel-linux.yaml
     strategy:
       matrix:
@@ -38,3 +49,10 @@ jobs:
       variant: ${{ matrix.variant }}
       sanitizers: ${{ matrix.sanitizers }}
       run_integration_tests: ${{ matrix.run_integration_tests }}
+
+  build_pt20_wheel-macos:
+    name: Build PyTorch 2.0.1 wheel (macOS)
+    uses: ./.github/workflows/_build_wheel-macos.yaml
+    with:
+      torch: '2.0.1'
+      py: '3.11'

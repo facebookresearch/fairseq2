@@ -109,14 +109,12 @@ jobs:
       - name: Package fairseq2n
         working-directory: fairseq2n/python
         run: |
-          # We follow PEP 600 and use the new `manylinux_2_17_x86_64` platform
-          # tag which means we support glibc >= 2.17.
           pip wheel .\
             --use-pep517\
             --no-build-isolation\
             --no-deps\
             --config-settings "--build-option=--plat-name"\
-            --config-settings "--build-option=manylinux_2_17_x86_64"\
+            --config-settings "--build-option=manylinux2014_${{ inputs.arch }}"\
             --wheel-dir build/wheelhouse
       - name: Package fairseq2
         run: |
@@ -197,7 +195,7 @@ jobs:
         run: |
           chmod 755 ~/artifacts/fairseq2n/build/tests/run-tests
 
-          LD_LIBRARY_PATH=~/venv/lib/python${{ inputs.py }}/site-packages/fairseq2n/lib\
+          LD_LIBRARY_PATH=~/venv/lib:~/venv/lib/python${{ inputs.py }}/site-packages/torch/lib:~/venv/lib/python${{ inputs.py }}/site-packages/fairseq2n/lib\
             ~/artifacts/fairseq2n/build/tests/run-tests
       - name: Run Python tests
         env:
