@@ -10,12 +10,12 @@
 #include <stdexcept>
 
 #include <ATen/Functions.h>
-#include <ATen/Storage.h>
 
 #include "fairseq2n/fmt.h"
 #include "fairseq2n/memory.h"
 #include "fairseq2n/span.h"
 #include "fairseq2n/data/immutable_string.h"
+#include "fairseq2n/data/detail/tensor_storage.h"
 #include "fairseq2n/data/text/sentencepiece/sp_model.h"
 #include "fairseq2n/data/text/sentencepiece/sp_processor.h"
 #include "fairseq2n/detail/exception.h"
@@ -79,9 +79,7 @@ sp_encoder_op::run() &&
     tensor_ = at::zeros({static_cast<std::int64_t>(seq_len_)},
         at::dtype(at::kLong).device(at::kCPU).pinned_memory(encoder_->opts_.pin_memory()));
 
-    const at::Storage &storage = tensor_.storage();
-
-    writable_memory_span tensor_bits{storage.unsafe_data<std::byte>(), storage.nbytes()};
+    writable_memory_span tensor_bits = get_raw_mutable_storage(tensor_);
 
     span tensor_data = cast<std::int64_t>(tensor_bits);
 
