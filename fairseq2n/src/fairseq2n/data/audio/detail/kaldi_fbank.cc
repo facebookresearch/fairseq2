@@ -11,10 +11,10 @@
 #include <utility>
 
 #include <ATen/Functions.h>
-#include <ATen/Storage.h>
 
 #include "fairseq2n/memory.h"
 #include "fairseq2n/span.h"
+#include "fairseq2n/data/detail/tensor_storage.h"
 #include "fairseq2n/detail/parallel.h"
 
 namespace fairseq2n::detail {
@@ -96,22 +96,18 @@ kaldi_fbank_compute_op::run() &&
     return std::move(fbank_);
 }
 
-span<float32>
+inline span<float32>
 kaldi_fbank_compute_op::get_fbank_storage() noexcept
 {
-    const at::Storage &storage = fbank_.storage();
-
-    writable_memory_span bits{storage.unsafe_data<std::byte>(), storage.nbytes()};
+    writable_memory_span bits = get_raw_mutable_storage(fbank_);
 
     return cast<float32>(bits);
 }
 
-span<const float32>
+inline span<const float32>
 kaldi_fbank_compute_op::get_waveform_storage() const noexcept
 {
-    const at::Storage &storage = waveform_->storage();
-
-    memory_span bits{storage.unsafe_data<std::byte>(), storage.nbytes()};
+    memory_span bits = get_raw_storage(*waveform_);
 
     return cast<const float32>(bits);
 }

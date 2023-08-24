@@ -11,7 +11,6 @@
 #include <stdexcept>
 
 #include <ATen/Functions.h>
-#include <ATen/Storage.h>
 #include <ATen/Tensor.h>
 
 #include "fairseq2n/exception.h"
@@ -20,6 +19,7 @@
 #include "fairseq2n/memory.h"
 #include "fairseq2n/span.h"
 #include "fairseq2n/data/audio/detail/sndfile.h"
+#include "fairseq2n/data/detail/tensor_storage.h"
 #include "fairseq2n/detail/exception.h"
 
 using namespace fairseq2n::detail;
@@ -63,9 +63,7 @@ audio_decoder::operator()(data &&d) const
     at::Tensor waveform = at::empty({file.num_frames(), file.num_channels()},
         at::dtype(dtype).device(at::kCPU).pinned_memory(opts_.pin_memory()));
 
-    const at::Storage &storage = waveform.storage();
-
-    writable_memory_span waveform_bits{storage.unsafe_data<std::byte>(), storage.nbytes()};
+    writable_memory_span waveform_bits = get_raw_mutable_storage(waveform);
 
     switch (dtype) {
     case at::kFloat: {

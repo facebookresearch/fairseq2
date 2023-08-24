@@ -73,6 +73,15 @@ if(Python3_Interpreter_FOUND)
     cmake_path(REPLACE_FILENAME torch_init_file lib OUTPUT_VARIABLE torch_lib_dir)
     cmake_path(REPLACE_FILENAME torch_init_file include OUTPUT_VARIABLE torch_include_dir)
 
+    cmake_path(
+        APPEND
+            torch_include_dir
+        #INPUTS
+            torch csrc api include
+        OUTPUT_VARIABLE
+            torch_api_include_dir
+    )
+
     unset(torch_init_file)
 endif()
 
@@ -86,8 +95,15 @@ find_library(C10_CUDA_LIBRARY c10_cuda HINTS ${torch_lib_dir} NO_DEFAULT_PATH)
 find_library(TORCH_PYTHON_LIBRARY torch_python HINTS ${torch_lib_dir} NO_DEFAULT_PATH)
 
 find_path(TORCH_INCLUDE_DIR torch HINTS ${torch_include_dir} NO_DEFAULT_PATH)
+find_path(TORCH_API_INCLUDE_DIR torch HINTS ${torch_api_include_dir} NO_DEFAULT_PATH)
 
-set(torch_required_vars TORCH_LIBRARY TORCH_CPU_LIBRARY C10_LIBRARY TORCH_INCLUDE_DIR)
+set(torch_required_vars
+    TORCH_LIBRARY
+    TORCH_CPU_LIBRARY
+    C10_LIBRARY
+    TORCH_INCLUDE_DIR
+    TORCH_API_INCLUDE_DIR
+)
 
 mark_as_advanced(${torch_required_vars} TORCH_CUDA_LIBRARY C10_CUDA_LIBRARY TORCH_PYTHON_LIBRARY)
 
@@ -104,6 +120,7 @@ find_package_handle_standard_args(Torch
 
 unset(torch_lib_dir)
 unset(torch_include_dir)
+unset(torch_api_include_dir)
 unset(torch_required_vars)
 
 if(NOT Torch_FOUND)
@@ -144,7 +161,7 @@ if(NOT TARGET torch)
 
     set_property(TARGET torch PROPERTY IMPORTED_LOCATION ${TORCH_LIBRARY})
 
-    target_include_directories(torch INTERFACE ${TORCH_INCLUDE_DIR})
+    target_include_directories(torch INTERFACE ${TORCH_INCLUDE_DIR} ${TORCH_API_INCLUDE_DIR})
 
     target_link_libraries(torch INTERFACE ${TORCH_CPU_LIBRARY} ${C10_LIBRARY} torch_cxx11_abi)
 
