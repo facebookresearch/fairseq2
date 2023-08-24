@@ -77,6 +77,10 @@ fairseq2n_set_compile_options(fairseq2n)
 
 target_compile_features(fairseq2n PUBLIC cxx_std_17)
 
+if(FAIRSEQ2N_THREAD_LIB STREQUAL "tbb")
+    target_compile_definitions(fairseq2n PRIVATE FAIRSEQ2N_USE_TBB)
+endif()
+
 if(FAIRSEQ2N_USE_CUDA)
     target_compile_features(fairseq2n PRIVATE cuda_std_17)
 
@@ -111,6 +115,10 @@ target_link_libraries(fairseq2n
     PUBLIC
         torch
 )
+
+if(FAIRSEQ2N_THREAD_LIB STREQUAL "tbb")
+    target_link_libraries(fairseq2n PRIVATE TBB::tbb)
+endif()
 
 if(FAIRSEQ2N_USE_CUDA)
     target_link_libraries(fairseq2n PRIVATE CUDA::cudart)

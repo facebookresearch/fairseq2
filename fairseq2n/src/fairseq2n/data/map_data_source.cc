@@ -8,10 +8,9 @@
 
 #include <exception>
 
-#include <oneapi/tbb.h>
-
 #include "fairseq2n/data/data_pipeline.h"
 #include "fairseq2n/data/detail/exception.h"
+#include "fairseq2n/detail/parallel.h"
 
 namespace fairseq2n::detail {
 
@@ -96,19 +95,17 @@ map_data_source::fill_buffer()
         return false;
 
     // Apply the processor to all buffered examples.
-    auto apply_function = [this](const tbb::blocked_range<std::size_t> &range)
+    auto apply_function = [this](std::size_t begin, std::size_t end)
     {
-        for (auto i = range.begin(); i < range.end(); ++i)
+        for (auto i = begin; i < end; ++i)
             buffer_[i] = invoke_function(*std::move(buffer_[i]));
     };
 
-    tbb::blocked_range<std::size_t> range{0, buffer_.size()};
-
     // Avoid threading overhead if we have just one example.
     if (buffer_.size() == 1)
-        apply_function(range);
+        apply_function(0, buffer_.size());
     else
-        tbb::parallel_for(range, apply_function);
+        parallel_for<std::size_t>(apply_function, buffer_.size());
 
     buffer_iter_ = buffer_.begin();
 
