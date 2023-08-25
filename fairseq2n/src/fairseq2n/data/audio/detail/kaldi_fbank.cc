@@ -14,7 +14,7 @@
 
 #include "fairseq2n/memory.h"
 #include "fairseq2n/span.h"
-#include "fairseq2n/data/detail/tensor_storage.h"
+#include "fairseq2n/data/detail/tensor_helpers.h"
 #include "fairseq2n/detail/parallel.h"
 
 namespace fairseq2n::detail {

@@ -19,7 +19,7 @@
 #include "fairseq2n/memory.h"
 #include "fairseq2n/span.h"
 #include "fairseq2n/data/audio/detail/sndfile.h"
-#include "fairseq2n/data/detail/tensor_storage.h"
+#include "fairseq2n/data/detail/tensor_helpers.h"
 #include "fairseq2n/detail/exception.h"
 
 using namespace fairseq2n::detail;

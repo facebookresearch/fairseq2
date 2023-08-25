@@ -25,50 +25,58 @@ on:
           - 'stable'
 
 jobs:
-  set_version:
+  process_version:
+    name: Process project version
     outputs:
-      version: ${{ steps.set_version.outputs.version }}
+      version_overwrite: ${{ steps.stamp_version.outputs.version_overwrite }}
     runs-on: ubuntu-latest
     steps:
       - name: Check-out the repository
         uses: actions/checkout@v3
-      - name: Set version
-        id: set_version
+      - name: Validate version
         env:
           RELEASE_TYPE: ${{ inputs.release_type }}
         run: |
           version=$(cat VERSION)
 
-          if [[ $RELEASE_TYPE == nightly ]]; then
-            version=${version%+devel}.dev$(date +%Y%m%d)
-          else
+          if [[ $RELEASE_TYPE != nightly ]]; then
             if [[ $version == *+* ]]; then
-              echo "A PEP 440 version with a local label cannot be released as 'stable' or 'rc'." >&2
+              echo "A PEP 440 version with a local label cannot be released as '$RELEASE_TYPE'." >&2
 
               exit 1
             fi
           fi
+      - name: Stamp version with the current date if nightly
+        id: stamp_version
+        if: inputs.release_type == 'nightly'
+        run: |
+          version=$(cat VERSION)
 
-          echo version=$version >> "$GITHUB_OUTPUT"
-
-  build_doc:
-    needs: set_version
-    uses: ./.github/workflows/_build_doc.yaml
-    with:
-      version: ${{ needs.set_version.outputs.version }}
+          # Remove local version label and append date-stamped dev segment.
+          echo version_overwrite=${version%+*}.dev$(date +%Y%m%d) >> "$GITHUB_OUTPUT"
 
   lint:
+    name: Lint
     uses: ./.github/workflows/_lint.yaml
 
-  build:
-    needs: [set_version, lint]
-    uses: ./.github/workflows/_build.yaml
+  build_wheels:
+    name: Build wheels
+    needs: [process_version, lint]
+    uses: ./.github/workflows/_build_wheels.yaml
     with:
-      version: ${{ needs.set_version.outputs.version }}
+      release_type: ${{ inputs.release_type }}
+      version_overwrite: ${{ needs.process_version.outputs.version_overwrite }}
+
+  build_doc:
+    name: Build documentation
+    needs: [process_version]
+    uses: ./.github/workflows/_build_doc.yaml
+    with:
+      version_overwrite: ${{ needs.process_version.outputs.version_overwrite }}
 
   publish:
-    needs: [set_version, build, build_doc]
+    name: Publish
+    needs: [build_wheels, build_doc]
     uses: ./.github/workflows/_publish.yaml
     with:
-      version: ${{ needs.set_version.outputs.version }}
       release_type: ${{ inputs.release_type }}

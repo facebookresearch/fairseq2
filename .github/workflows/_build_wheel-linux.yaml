@@ -13,18 +13,24 @@ on:
       py:
         type: string
         required: true
+      variant:
+        type: string
+        required: true
       arch:
         type: string
         default: 'x86_64'
-      variant:
-        type: string
-        default: 'cpu'
-      version:
-        type: string
-        default: ''
       sanitizers:
         type: string
         default: 'nosan'
+      artifacts_name:
+        type: string
+        default: 'wheels'
+      version_overwrite:
+        type: string
+        default: ''
+      label_version_with_variant:
+        type: boolean
+        default: true
       run_integration_tests:
         type: boolean
         default: false
@@ -38,6 +44,7 @@ defaults:
 
 jobs:
   build:
+    name: Build
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_${{ inputs.arch }}:1-${{ inputs.variant }}
@@ -61,10 +68,23 @@ jobs:
       - name: Install build requirements for fairseq2n
         run: |
           pip install --requirement fairseq2n/python/requirements-build.txt
-      - name: Set version
-        if: inputs.version
+      - name: Override project version
+        if: inputs.version_overwrite
         run: |
-          tools/set-project-version.sh ${{ inputs.version }}
+          tools/set-project-version.sh ${{ inputs.version_overwrite }}
+      - name: Set build variant as local version label
+        if: inputs.label_version_with_variant
+        env:
+          VARIANT: ${{ inputs.variant }}
+        run: |
+          version=$(cat VERSION)
+
+          # If the version has already a local label, append the variant.
+          if [[ $version == *+* ]]; then
+              tools/set-project-version.sh $version.$VARIANT
+          else
+              tools/set-project-version.sh $version+$VARIANT
+          fi
       - name: Build fairseq2n
         working-directory: fairseq2n
         env:
@@ -122,7 +142,7 @@ jobs:
       - name: Upload wheels and native tests to staging
         uses: actions/upload-artifact@v3
         with:
-          name: artifacts-pt${{ inputs.torch }}-py${{ inputs.py }}-linux_${{ inputs.arch }}-${{ inputs.variant }}-${{ inputs.sanitizers }}
+          name: ${{ inputs.artifacts_name }}-pt${{ inputs.torch }}-py${{ inputs.py }}-linux_${{ inputs.arch }}-${{ inputs.variant }}-${{ inputs.sanitizers }}
           path: |
             build/wheelhouse/*.whl
             fairseq2n/build/tests/run-tests
@@ -130,6 +150,7 @@ jobs:
           retention-days: 1
 
   test:
+    name: Test
     needs: build
     runs-on: ubuntu-latest
     container:
@@ -138,10 +159,10 @@ jobs:
       - name: Install libsndfile
         run: |
           yum --assumeyes install libsndfile-devel
-      - name: Download the wheels and native tests from staging
+      - name: Download wheels and native tests from staging
         uses: actions/download-artifact@v3
         with:
-          name: artifacts-pt${{ inputs.torch }}-py${{ inputs.py }}-linux_${{ inputs.arch }}-${{ inputs.variant }}-${{ inputs.sanitizers }}
+          name: ${{ inputs.artifacts_name }}-pt${{ inputs.torch }}-py${{ inputs.py }}-linux_${{ inputs.arch }}-${{ inputs.variant }}-${{ inputs.sanitizers }}
           path: ~/artifacts/
       - name: Check-out the repository
         uses: actions/checkout@v3

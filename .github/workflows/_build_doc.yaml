@@ -7,7 +7,7 @@
 on:
   workflow_call:
     inputs:
-      version:
+      version_overwrite:
         type: string
         default: ''
 
@@ -21,6 +21,7 @@ defaults:
 
 jobs:
   build:
+    name: Build
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_x86_64:1-cpu
@@ -44,10 +45,10 @@ jobs:
           pip install\
             --requirement fairseq2n/python/requirements-build.txt\
             --requirement doc/requirements.txt
-      - name: Set version
-        if: inputs.version
+      - name: Overwrite project version
+        if: inputs.version_overwrite
         run: |
-          tools/set-project-version.sh ${{ inputs.version }}
+          tools/set-project-version.sh ${{ inputs.version_overwrite }}
       - name: Install fairseq2n
         run: |
           pip install --editable fairseq2n/python
@@ -58,6 +59,9 @@ jobs:
         working-directory: doc
         run: |
           make html SPHINXOPTS="-W"
+      - name: Copy VERSION into the documentation
+        run: |
+          cp VERSION doc/build/html
       - name: Upload documentation to staging
         uses: actions/upload-artifact@v3
         with:

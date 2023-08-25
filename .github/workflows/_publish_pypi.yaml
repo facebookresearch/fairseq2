@@ -16,12 +16,12 @@ on:
       py:
         type: string
         required: true
-      arch:
-        type: string
-        required: true
       variant:
         type: string
-        required: true
+        default: 'cpu'
+      arch:
+        type: string
+        default: 'x86_64'
 
 defaults:
   run:
@@ -29,15 +29,16 @@ defaults:
 
 jobs:
   publish:
+    name: Publish
     runs-on: ubuntu-latest
     permissions:
       # Needed to interact with GitHub's OIDC Token endpoint.
       id-token: write
     steps:
-      - name: Download the artifacts from staging
+      - name: Download wheels from staging
         uses: actions/download-artifact@v3
         with:
-          name: artifacts-pt${{ inputs.torch }}-py${{ inputs.py }}-${{ inputs.os }}_${{ inputs.arch }}-${{ inputs.variant }}-nosan
+          name: pypi-pt${{ inputs.torch }}-py${{ inputs.py }}-${{ inputs.os }}_${{ inputs.arch }}-${{ inputs.variant }}-nosan
           path: artifacts/
       - name: Publish fairseq2n
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -47,4 +48,6 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
             packages-dir: artifacts/build/wheelhouse
+            # Multiple build variants will attempt to publish the same fairseq2
+            # package. Ignore all but the first one.
             skip-existing: true

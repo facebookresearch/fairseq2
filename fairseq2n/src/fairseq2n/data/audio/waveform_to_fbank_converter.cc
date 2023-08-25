@@ -6,6 +6,7 @@
 
 #include "fairseq2n/data/audio/waveform_to_fbank_converter.h"
 
+#include <limits>
 #include <tuple>
 #include <utility>
 
@@ -17,6 +18,7 @@
 #include "fairseq2n/detail/exception.h"
 #include "fairseq2n/data/audio/detail/kaldi_fbank.h"
 
+#include <iostream>
 using namespace fairseq2n::detail;
 
 namespace fairseq2n {
@@ -82,6 +84,9 @@ waveform_to_fbank_converter::operator()(data &&d) const
 
     fbank = fbank.to(device, dtype);
 
+    // Ensure that we return the sample rate always in floating-point.
+    dict["sample_rate"] = static_cast<float64>(sample_rate);
+
     if (!opts_.keep_waveform())
         dict.erase("waveform");
 
@@ -121,14 +126,20 @@ waveform_to_fbank_converter::find_sample_rate(const data_dict &dict)
             "The input dictionary must contain the waveform sample rate under a key named `sample_rate`, but does not contain such key.");
 
     const data &element = pos->second;
-    if (!element.is_float())
+    if (!element.is_float() && !element.is_int())
         throw_<std::invalid_argument>(
-            "The input sample rate must be of type `float`, but is of type `{}` instead.", element.type());
+            "The input sample rate must be of type `float` or `int`, but is of type `{}` instead.", element.type());
+
+    float64 fp64_sample_rate{};
+    if (element.is_float())
+        fp64_sample_rate = element.as_float();
+    else
+        fp64_sample_rate = static_cast<float64>(element.as_int());
 
     float32 sample_rate{};
-    if (!maybe_narrow(element.as_float(), sample_rate))
+    if (!maybe_narrow(fp64_sample_rate, sample_rate))
         throw_<std::invalid_argument>(
-            "The input sample rate must be representable in single precision (32-bit), but is {:G} instead.", element.as_float());
+            "The input sample rate must be representable in single precision (32-bit), but is {:G} instead.", fp64_sample_rate);
 
     return sample_rate;
 }

@@ -56,30 +56,37 @@ mmp_ver=$(extract_mmp_version "$1")
 
 base=$(cd "$(dirname "$0")/.." && pwd)
 
-# Update the Python distribution.
+# Update Python distribution.
 replace_match\
     "$base/setup.py"\
     "s/^version = \".*\"$/version = \"$pep_ver\"/"
 
-# Update the Python package.
+# Update Python package.
 replace_match\
     "$base/src/fairseq2/__init__.py"\
     "s/^__version__ = \".*\"$/__version__ = \"$pep_ver\"/"
 
-# Update the fairseq2n CMake project.
+# Update fairseq2n CMake project.
 replace_match\
     "$base/fairseq2n/CMakeLists.txt"\
     "s/VERSION .* LANGUAGES/VERSION $mmp_ver LANGUAGES/"
 
-# Update the fairseq2n Python distribution.
+# Update fairseq2n Python distribution.
 replace_match\
     "$base/fairseq2n/python/setup.py"\
     "s/    version=\".*\",$/    version=\"$pep_ver\",/"
 
-# Update the fairseq2n Python package.
+# Update fairseq2n Python package.
 replace_match\
     "$base/fairseq2n/python/src/fairseq2n/__init__.py"\
     "s/^__version__ = \".*\"$/__version__ = \"$pep_ver\"/"
 
-# Update the VERSION file.
+if [[ $pep_ver != *+devel ]]; then
+    # Update fairseq2n fallback version.
+    replace_match\
+        "$base/setup.py"\
+        "s/^fallback_fairseq2n_version = \".*\"$/fallback_fairseq2n_version = \"$pep_ver\"/"
+fi
+
+# Update VERSION file.
 echo "$pep_ver" > "$base/VERSION"

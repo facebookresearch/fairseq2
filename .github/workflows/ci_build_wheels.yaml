@@ -1,0 +1,83 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+name: CI - Build wheels
+
+on:
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'ci/**'
+      - 'doc/**'
+
+jobs:
+  build_pt112_wheel-linux:
+    name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
+    uses: ./.github/workflows/_build_wheel-linux.yaml
+    strategy:
+      matrix:
+        include:
+          - torch: '1.12.1'
+            py: '3.8'
+            variant: 'cpu'
+            sanitizers: 'nosan'
+    with:
+      torch: ${{ matrix.torch }}
+      py: ${{ matrix.py }}
+      variant: ${{ matrix.variant }}
+      sanitizers: ${{ matrix.sanitizers }}
+
+  build_pt20_wheel-linux:
+    name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
+    uses: ./.github/workflows/_build_wheel-linux.yaml
+    strategy:
+      matrix:
+        torch: ['2.0.1']
+        py: ['3.11']
+        variant: ['cpu', 'cu117', 'cu118']
+        sanitizers: ['nosan']
+        include:
+          - run_integration_tests: false
+          - torch: '2.0.1'
+            py: '3.11'
+            variant: 'cpu'
+            sanitizers: 'asan_ubsan'
+            run_integration_tests: false
+          - torch: '2.0.1'
+            py: '3.11'
+            variant: 'cpu'
+            sanitizers: 'nosan'
+            run_integration_tests: true
+    with:
+      torch: ${{ matrix.torch }}
+      py: ${{ matrix.py }}
+      variant: ${{ matrix.variant }}
+      sanitizers: ${{ matrix.sanitizers }}
+      run_integration_tests: ${{ matrix.run_integration_tests }}
+
+  build_pt121_wheel-macos:
+    name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, macos-x86_64)
+    uses: ./.github/workflows/_build_wheel-macos.yaml
+    strategy:
+      matrix:
+        include:
+          - torch: '1.12.1'
+            py: '3.8'
+    with:
+      torch: ${{ matrix.torch }}
+      py: ${{ matrix.py }}
+
+  build_pt20_wheel-macos:
+    name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, macos-x86_64)
+    uses: ./.github/workflows/_build_wheel-macos.yaml
+    strategy:
+      matrix:
+        include:
+          - torch: '2.0.1'
+            py: '3.10'
+    with:
+      torch: ${{ matrix.torch }}
+      py: ${{ matrix.py }}
