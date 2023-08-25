@@ -108,7 +108,6 @@ target_link_libraries(fairseq2n
         kaldi-native-fbank::core
         kuba-zip
         natsort
-        TBB::tbb
         Threads::Threads
         sentencepiece-static
         SndFile::sndfile
