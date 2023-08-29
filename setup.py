@@ -10,7 +10,7 @@ from setuptools import find_packages, setup
 
 version = "0.2.0+devel"
 
-# Do not forget to update the fallback version with each release!
+# DO NOT forget to update the fallback version with each release!
 fallback_fairseq2n_version = "0.1.0"
 
 if "CI" in environ or "FAIRSEQ2N_DEVEL" in environ:
@@ -30,7 +30,7 @@ setup(
     author="Fundamental AI Research (FAIR) at Meta",
     keywords=["machine learning"],
     classifiers=[
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 3 - Beta",
         "Intended Audience :: Developers",
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: MIT License",
@@ -38,6 +38,7 @@ setup(
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Topic :: Scientific/Engineering :: Artificial Intelligence",
     ],
     package_dir={"": "src"},
@@ -55,6 +56,7 @@ setup(
         "sacrebleu~=2.3",
         "torch>=1.12.1",
         "torcheval~=0.0.6",
+        "tqdm~=4.62",
         "typing_extensions~=4.3;python_version<'3.10'",
     ],
 )

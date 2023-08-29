@@ -16,15 +16,15 @@ on:
       py:
         type: string
         required: true
-      arch:
-        type: string
-        required: true
       variant:
         type: string
         required: true
       release_type:
         type: string
         required: true
+      arch:
+        type: string
+        default: 'x86_64'
 
 defaults:
   run:
@@ -32,6 +32,7 @@ defaults:
 
 jobs:
   publish:
+    name: Publish
     runs-on: ubuntu-latest
     permissions:
       # Needed to check out the repository.
@@ -39,10 +40,10 @@ jobs:
       # Needed to interact with GitHub's OIDC Token endpoint.
       id-token: write
     steps:
-      - name: Download the artifacts from staging
+      - name: Download wheels from staging
         uses: actions/download-artifact@v3
         with:
-          name: artifacts-pt${{ inputs.torch }}-py${{ inputs.py }}-${{ inputs.os }}_${{ inputs.arch }}-${{ inputs.variant }}-nosan
+          name: wheels-pt${{ inputs.torch }}-py${{ inputs.py }}-${{ inputs.os }}_${{ inputs.arch }}-${{ inputs.variant }}-nosan
           path: ~/artifacts/
       - name: Check-out the repository
         uses: actions/checkout@v3

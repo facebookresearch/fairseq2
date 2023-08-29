@@ -78,9 +78,14 @@ def _load_sndfile() -> None:
 
     libsndfile = _load_shared_library(lib_name)
     if libsndfile is None:
-        raise OSError(
-            "libsndfile is not found!. Use your system package manager to install it (e.g. `apt install libsndfile1`)."
-        )
+        if "CONDA_PREFIX" in environ:
+            raise OSError(
+                "libsndfile is not found! Since you are in a Conda environment, use `conda install -c conda-forge libsndfile==1.0.31` to install it."
+            )
+        else:
+            raise OSError(
+                "libsndfile is not found! Use your system package manager to install it (e.g. `apt install libsndfile1`)."
+            )
 
     _libs.append(libsndfile)
 
