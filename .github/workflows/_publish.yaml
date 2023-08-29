@@ -7,87 +7,99 @@
 on:
   workflow_call:
     inputs:
-      version:
-        type: string
-        required: true
       release_type:
         type: string
         required: true
 
 jobs:
   publish_pt112_s3-linux:
+    name: Publish to S3 (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }})
     strategy:
       matrix:
+        torch: ['1.12.1']
         py: ['3.8', '3.9', '3.10']
-        arch: ['x86_64']
         variant: ['cpu', 'cu116']
       max-parallel: 1
     uses: ./.github/workflows/_publish_s3.yaml
     with:
       os: 'linux'
-      torch: '1.12.1'
+      torch: ${{ matrix.torch }}
       py: ${{ matrix.py }}
-      arch: ${{ matrix.arch }}
       variant: ${{ matrix.variant }}
       release_type: ${{ inputs.release_type }}
 
   publish_pt113_s3-linux:
+    name: Publish to S3 (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }})
     strategy:
       matrix:
+        torch: ['1.13.1']
         py: ['3.8', '3.9', '3.10']
-        arch: ['x86_64']
         variant: ['cpu', 'cu116']
       max-parallel: 1
     uses: ./.github/workflows/_publish_s3.yaml
     with:
       os: 'linux'
-      torch: '1.13.1'
+      torch: ${{ matrix.torch }}
       py: ${{ matrix.py }}
-      arch: ${{ matrix.arch }}
       variant: ${{ matrix.variant }}
       release_type: ${{ inputs.release_type }}
 
   publish_pt20_s3-linux:
+    name: Publish to S3 (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }})
     strategy:
       matrix:
+        torch: ['2.0.1']
         py: ['3.8', '3.9', '3.10', '3.11']
-        arch: ['x86_64']
         variant: ['cpu', 'cu117', 'cu118']
       max-parallel: 1
     uses: ./.github/workflows/_publish_s3.yaml
     with:
       os: 'linux'
-      torch: '2.0.1'
+      torch: ${{ matrix.torch }}
       py: ${{ matrix.py }}
-      arch: ${{ matrix.arch }}
       variant: ${{ matrix.variant }}
       release_type: ${{ inputs.release_type }}
 
-  publish_pypi:
-    needs: 
+  publish_pypi-linux:
+    name: Publish to PyPI (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }})
+    needs:
       - publish_pt112_s3-linux
       - publish_pt113_s3-linux
       - publish_pt20_s3-linux
-    if: inputs.release_type != 'nightly'
+    if: inputs.release_type == 'stable'
     uses: ./.github/workflows/_publish_pypi.yaml
     strategy:
       matrix:
+        torch: ['2.0.1']
         py: ['3.8', '3.9', '3.10', '3.11']
-        arch: ['x86_64']
+        variant: ['cu117']
       max-parallel: 1
     with:
       os: 'linux'
-      torch: '2.0.1'
+      torch: ${{ matrix.torch }}
       py: ${{ matrix.py }}
-      arch: ${{ matrix.arch }}
-      variant: 'cu117'
+      variant: ${{ matrix.variant }}
+
+#  publish_pypi-macos:
+#    name: Publish to PyPI (pt${{ matrix.torch }}, py${{ matrix.py }}, macos-x86_64)
+#    needs: [publish_pypy-linux]
+#    if: inputs.release_type == 'stable'
+#    uses: ./.github/workflows/_publish_pypi.yaml
+#    strategy:
+#      matrix:
+#        torch: ['2.0.1']
+#        py: ['3.8', '3.9', '3.10', '3.11']
+#      max-parallel: 1
+#    with:
+#      os: 'macos'
+#      torch: ${{ matrix.torch }}
+#      py: ${{ matrix.py }}
 
   publish_doc:
-    needs: publish_pypi
-    # As of today, we can't use `success()` here, see
+    name: Publish documentation
+    needs: [publish_pypi-linux]
+#    needs: [publish_pypi-macos]
+    # We can't use `success()` here, see
     # https://github.com/orgs/community/discussions/45058.
     if: ${{ !failure() && !cancelled() }}
     uses: ./.github/workflows/_publish_doc.yaml
-    with:
-      version: ${{ inputs.version }}
-      release_type: ${{ inputs.release_type }}

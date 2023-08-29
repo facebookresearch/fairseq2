@@ -1,0 +1,136 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+on:
+  workflow_call:
+    inputs:
+      torch:
+        type: string
+        required: true
+      py:
+        type: string
+        required: true
+      arch:
+        type: string
+        default: 'x86_64'
+      artifacts_name:
+        type: string
+        default: 'wheels'
+      version_overwrite:
+        type: string
+        default: ''
+
+jobs:
+  build:
+    name: Build
+    runs-on: macos-12
+    steps:
+      - name: Check-out the repository
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Install system dependencies
+        env:
+          HOMEBREW_NO_INSTALL_UPGRADE: 1
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
+        run: |
+          brew install libsndfile python@${{ inputs.py }} || true
+      - name: Create the Python virtual environment
+        run: |
+          /usr/local/bin/python${{ inputs.py }} -m venv ~/venv
+
+          echo ~/venv/bin >> "$GITHUB_PATH"
+      - name: Install PyTorch
+        run: |
+          pip install torch==${{ inputs.torch }}
+      - name: Install build requirements for fairseq2n
+        run: |
+          pip install --requirement fairseq2n/python/requirements-build.txt
+      - name: Override project version
+        if: inputs.version_overwrite
+        run: |
+          tools/set-project-version.sh ${{ inputs.version_overwrite }}
+      - name: Build fairseq2n
+        working-directory: fairseq2n
+        run: |
+          cmake\
+            -GNinja\
+            -DCMAKE_BUILD_TYPE=Release\
+            -DPython3_FIND_FRAMEWORK=NEVER\
+            -DFAIRSEQ2N_INSTALL_STANDALONE=ON\
+            -DFAIRSEQ2N_PERFORM_LTO=OFF\
+            -DFAIRSEQ2N_TREAT_WARNINGS_AS_ERRORS=ON\
+            -DFAIRSEQ2N_THREAD_LIB=""\
+            -DFAIRSEQ2N_BUILD_PYTHON_BINDINGS=ON\
+            -DFAIRSEQ2N_PYTHON_DEVEL=OFF\
+            -B build
+
+          cmake --build build
+      - name: Package fairseq2n
+        working-directory: fairseq2n/python
+        run: |
+          pip wheel .\
+            --use-pep517\
+            --no-build-isolation\
+            --no-deps\
+            --wheel-dir build/wheelhouse
+      - name: Package fairseq2
+        run: |
+          pip wheel . --no-deps --wheel-dir build/wheelhouse
+      - name: Upload wheels and native tests to staging
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ inputs.artifacts_name }}-pt${{ inputs.torch }}-py${{ inputs.py }}-macos_${{ inputs.arch }}-cpu
+          path: |
+            build/wheelhouse/*.whl
+            fairseq2n/build/tests/run-tests
+            fairseq2n/python/build/wheelhouse/*.whl
+          retention-days: 1
+
+  test:
+    name: Test
+    needs: build
+    runs-on: macos-12
+    steps:
+      - name: Install system dependencies
+        env:
+          HOMEBREW_NO_INSTALL_UPGRADE: 1
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
+        run: |
+          brew install libsndfile python@${{ inputs.py }} || true
+      - name: Download wheels and native tests from staging
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ inputs.artifacts_name }}-pt${{ inputs.torch }}-py${{ inputs.py }}-macos_${{ inputs.arch }}-cpu
+          path: ~/artifacts/
+      - name: Check-out the repository
+        uses: actions/checkout@v3
+      - name: Create the Python virtual environment
+        run: |
+          /usr/local/bin/python${{ inputs.py }} -m venv ~/venv
+
+          echo ~/venv/bin >> "$GITHUB_PATH"
+      - name: Install PyTorch
+        run: |
+          pip install torch==${{ inputs.torch }}
+      - name: Install pytest
+        run: |
+          pip install --requirement requirements-devel.txt
+      - name: Install fairseq2n
+        run: |
+          pip install ~/artifacts/fairseq2n/python/build/wheelhouse/*.whl --no-cache-dir
+      - name: Install fairseq2
+        run: |
+          pip install ~/artifacts/build/wheelhouse/*.whl --no-cache-dir
+      - name: Run native tests
+        run: |
+          chmod 755 ~/artifacts/fairseq2n/build/tests/run-tests
+
+          DYLD_LIBRARY_PATH=~/venv/lib:~/venv/lib/python${{ inputs.py }}/site-packages/torch/lib:~/venv/lib/python${{ inputs.py }}/site-packages/fairseq2n/lib\
+            ~/artifacts/fairseq2n/build/tests/run-tests
+      - name: Run Python tests
+        run: |
+          pytest -rP --verbose

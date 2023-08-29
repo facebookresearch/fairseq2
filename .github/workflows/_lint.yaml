@@ -9,10 +9,13 @@ on:
 
 jobs:
   lint_cc:
+    name: Lint C++
     uses: ./.github/workflows/_lint_cc.yaml
 
   lint_py:
+    name: Lint Python
     uses: ./.github/workflows/_lint_py.yaml
 
   lint_sh:
+    name: Lint shell scripts
     uses: ./.github/workflows/_lint_sh.yaml

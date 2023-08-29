@@ -6,13 +6,6 @@
 
 on:
   workflow_call:
-    inputs:
-      version:
-        type: string
-        required: true
-      release_type:
-        type: string
-        required: true
 
 defaults:
   run:
@@ -20,6 +13,7 @@ defaults:
 
 jobs:
   publish:
+    name: Publish
     runs-on: ubuntu-latest
     steps:
       - name: Download documentation from staging
@@ -36,14 +30,13 @@ jobs:
           git config user.name  "github-actions"
           git config user.email "github-actions@github.com"
       - name: Commit and push the documentation
-        env:
-          VERSION: ${{ inputs.version }}
-          RELEASE_TYPE: ${{ inputs.release_type }}
         run: |
-          if [[ $RELEASE_TYPE == nightly ]]; then
+          version=$(cat ~/doc/VERSION)
+
+          if [[ $version == *.dev* ]]; then
             doc_dir=nightly
           else
-            doc_dir=$VERSION
+            doc_dir=$version
           fi
 
           rsync --recursive --delete-after ~/doc/ $doc_dir
