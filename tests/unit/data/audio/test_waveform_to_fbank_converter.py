@@ -118,14 +118,14 @@ class TestWaveformToFbankConverter:
         ):
             converter({"sample_rate": 16000.0})  # type: ignore[typeddict-item]
 
-    def test_call_raises_error_when_sample_rate_is_not_float(self) -> None:
+    def test_call_raises_error_when_sample_rate_is_not_float_or_int(self) -> None:
         converter = WaveformToFbankConverter()
 
         with pytest.raises(
             ValueError,
-            match=r"^The input sample rate must be of type `float`, but is of type `int` instead\.$",
+            match=r"^The input sample rate must be of type `float` or `int`, but is of type `string` instead\.$",
         ):
-            converter({"waveform": torch.zeros((), device=device), "sample_rate": 1})
+            converter({"waveform": torch.zeros((), device=device), "sample_rate": "foo"})  # type: ignore[typeddict-item]
 
     def test_call_raises_error_when_sample_rate_is_too_large(self) -> None:
         converter = WaveformToFbankConverter()
@@ -158,11 +158,11 @@ class TestWaveformToFbankConverter:
 
         converter(audio)
 
-        audio["sample_rate"] = 17000.0
+        audio["sample_rate"] = 18000
 
         with pytest.raises(
             ValueError,
-            match=r"^The input waveform must have a sample rate of 16000, but has a sample rate of 17000 instead\.$",
+            match=r"^The input waveform must have a sample rate of 16000, but has a sample rate of 18000 instead\.$",
         ):
             converter(audio)
 

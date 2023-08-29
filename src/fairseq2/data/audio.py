@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import TYPE_CHECKING, Optional, TypedDict
+from typing import TYPE_CHECKING, Optional, TypedDict, Union
 
 from torch import Tensor
 from typing_extensions import NotRequired
@@ -65,7 +65,7 @@ class AudioDecoderOutput(TypedDict):
 
 class WaveformToFbankInput(TypedDict):
     waveform: Tensor
-    sample_rate: float
+    sample_rate: Union[int, float]
 
 
 class WaveformToFbankOutput(TypedDict):
