@@ -77,7 +77,7 @@ jobs:
       matrix:
         include:
           - torch: '2.0.1'
-            py: '3.10'
+            py: '3.11'
     with:
       torch: ${{ matrix.torch }}
       py: ${{ matrix.py }}
