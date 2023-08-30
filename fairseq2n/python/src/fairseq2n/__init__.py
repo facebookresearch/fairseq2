@@ -16,19 +16,59 @@ from typing import List, Optional, Tuple
 __version__ = "0.2.0+devel"
 
 
-# We import `torch` to ensure that libtorch and libtorch_python are loaded into
-# the process before our extension module.
-import torch  # noqa: F401
-
-# Holds the shared libraries that we loaded using our own extended lookup logic
+# Keeps the shared libraries that we load using our own extended lookup logic
 # in memory.
 _libs: List[CDLL] = []
 
 
+def _load_shared_libraries() -> None:
+    # We import `torch` to ensure that libtorch and libtorch_python are loaded
+    # into the process before our extension module.
+    import torch
+
+    # Intel oneTBB is only available on x86_64 systems.
+    if platform.machine() == "x86_64":
+        _load_tbb()
+
+    _load_sndfile()
+
+
+def _load_tbb() -> None:
+    if platform.system() == "Darwin":
+        lib_name = "libtbb.12.dylib"
+    else:
+        lib_name = "libtbb.so.12"
+
+    libtbb = _load_shared_library(lib_name)
+    if libtbb is None:
+        raise OSError("Intel oneTBB is not found! Check your fairseq2 installation!")
+
+    _libs.append(libtbb)
+
+
+def _load_sndfile() -> None:
+    if platform.system() == "Darwin":
+        lib_name = "libsndfile.1.dylib"
+    else:
+        lib_name = "libsndfile.so.1"
+
+    libsndfile = _load_shared_library(lib_name)
+    if libsndfile is None:
+        if "CONDA_PREFIX" in environ:
+            raise OSError(
+                "libsndfile is not found! Since you are in a Conda environment, use `conda install -c conda-forge libsndfile==1.0.31` to install it."
+            )
+        else:
+            raise OSError(
+                "libsndfile is not found! Use your system package manager to install it (e.g. `apt install libsndfile1`)."
+            )
+
+    _libs.append(libsndfile)
+
+
 def _load_shared_library(lib_name: str) -> Optional[CDLL]:
-    # If we are not in a Conda environment, try to load the library using the
-    # default lookup rules of the dynamic linker first. In Conda environments
-    # we always expect native libraries to be part of the environment.
+    # In Conda environments, we always expect native libraries to be part of the
+    # environment, so we skip the default lookup rules of the dynamic linker.
     if not "CONDA_PREFIX" in environ:
         try:
             # Use the global namespace to ensure that all modules use the same
@@ -36,6 +76,14 @@ def _load_shared_library(lib_name: str) -> Optional[CDLL]:
             return CDLL(lib_name, mode=RTLD_GLOBAL)
         except OSError:
             pass
+
+        # On macOS, we also explicitly check the standard Homebrew locations.
+        if platform.system() == "Darwin":
+            for brew_path in ["/usr/local/lib", "/opt/homebrew/lib"]:
+                try:
+                    return CDLL(str(Path(brew_path, lib_name)), mode=RTLD_GLOBAL)
+                except OSError:
+                    pass
 
     if site.ENABLE_USER_SITE:
         site_packages = [site.getusersitepackages()]
@@ -57,45 +105,9 @@ def _load_shared_library(lib_name: str) -> Optional[CDLL]:
     return None
 
 
-def _load_tbb() -> None:
-    if sys.platform == "darwin":
-        lib_name = "libtbb.12.dylib"
-    else:
-        lib_name = "libtbb.so.12"
-
-    libtbb = _load_shared_library(lib_name)
-    if libtbb is None:
-        raise OSError("Intel oneTBB is not found! Check your fairseq2n installation!")
-
-    _libs.append(libtbb)
-
-
-def _load_sndfile() -> None:
-    if sys.platform == "darwin":
-        lib_name = "libsndfile.1.dylib"
-    else:
-        lib_name = "libsndfile.so.1"
-
-    libsndfile = _load_shared_library(lib_name)
-    if libsndfile is None:
-        if "CONDA_PREFIX" in environ:
-            raise OSError(
-                "libsndfile is not found! Since you are in a Conda environment, use `conda install -c conda-forge libsndfile==1.0.31` to install it."
-            )
-        else:
-            raise OSError(
-                "libsndfile is not found! Use your system package manager to install it (e.g. `apt install libsndfile1`)."
-            )
-
-    _libs.append(libsndfile)
-
-
-# We load the shared libraries we depend on using our own extended lookup logic
-# since they might be located in a virtual environment.
-if (uname := platform.uname()).machine == "x86_64":
-    _load_tbb()
-
-_load_sndfile()
+# We load shared libraries that we depend on using our own extended lookup logic
+# since they might be located in non-default locations.
+_load_shared_libraries()
 
 
 def get_lib() -> Path:
