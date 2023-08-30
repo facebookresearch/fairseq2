@@ -20,8 +20,6 @@ release = fairseq2.__version__
 
 author = "Fundamental AI Research (FAIR) at Meta"
 
-copyright = "Meta Platforms, Inc. and affiliates"
-
 # ------------------------------------------------------------
 # General Configuration
 # ------------------------------------------------------------
@@ -70,5 +68,7 @@ html_theme_options = {
     "collapse_navigation": False,
     "navigation_depth": 3,
 }
+
+html_show_copyright = False
 
 html_static_path = ["static"]
