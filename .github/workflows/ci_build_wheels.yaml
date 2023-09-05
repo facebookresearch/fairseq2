@@ -45,7 +45,7 @@ jobs:
           - torch: '1.12.1'
             py: '3.8'
             variant: 'cpu'
-            sanitizer: 'nosan'
+            sanitizers: 'nosan'
             run_integration_tests: false
     with:
       torch: ${{ matrix.torch }}
