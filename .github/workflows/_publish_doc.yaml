@@ -36,7 +36,15 @@ jobs:
           if [[ $version == *.dev* ]]; then
             doc_dir=nightly
           else
-            doc_dir=$version
+            # Ignore pre-release segment for directory name.
+            mmp_version=$(echo $version | grep --only-matching --extended-regexp '^([0-9]+\.)*[0-9]+' -)
+
+            doc_dir=$mmp_version
+
+            # If we have a stable release, update the 'stable' symlink.
+            if [[ $version == $mmp_version]]; then
+                ln --symbolic --no-target-directory --force $doc_dir stable
+            fi
           fi
 
           rsync --recursive --delete-after ~/doc/ $doc_dir
