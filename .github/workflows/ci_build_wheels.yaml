@@ -14,26 +14,11 @@ on:
       - 'doc/**'
 
 jobs:
-  build_pt112_wheel-linux:
+  build_wheel-linux:
     name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
     uses: ./.github/workflows/_build_wheel-linux.yaml
     strategy:
-      matrix:
-        include:
-          - torch: '1.12.1'
-            py: '3.8'
-            variant: 'cpu'
-            sanitizers: 'nosan'
-    with:
-      torch: ${{ matrix.torch }}
-      py: ${{ matrix.py }}
-      variant: ${{ matrix.variant }}
-      sanitizers: ${{ matrix.sanitizers }}
-
-  build_pt20_wheel-linux:
-    name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
-    uses: ./.github/workflows/_build_wheel-linux.yaml
-    strategy:
+      fail-fast: false
       matrix:
         torch: ['2.0.1']
         py: ['3.11']
@@ -41,16 +26,27 @@ jobs:
         sanitizers: ['nosan']
         include:
           - run_integration_tests: false
-          - torch: '2.0.1'
-            py: '3.11'
-            variant: 'cpu'
-            sanitizers: 'asan_ubsan'
-            run_integration_tests: false
+
+          # Integration Tests
           - torch: '2.0.1'
             py: '3.11'
             variant: 'cpu'
             sanitizers: 'nosan'
             run_integration_tests: true
+
+          # ASAN/UBSAN
+          - torch: '2.0.1'
+            py: '3.11'
+            variant: 'cpu'
+            sanitizers: 'asan_ubsan'
+            run_integration_tests: false
+
+          # Lowest Supported Version
+          - torch: '1.12.1'
+            py: '3.8'
+            variant: 'cpu'
+            sanitizer: 'nosan'
+            run_integration_tests: false
     with:
       torch: ${{ matrix.torch }}
       py: ${{ matrix.py }}
@@ -58,26 +54,19 @@ jobs:
       sanitizers: ${{ matrix.sanitizers }}
       run_integration_tests: ${{ matrix.run_integration_tests }}
 
-  build_pt121_wheel-macos:
+  build_wheel-macos:
     name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, macos-x86_64)
     uses: ./.github/workflows/_build_wheel-macos.yaml
     strategy:
-      matrix:
-        include:
-          - torch: '1.12.1'
-            py: '3.8'
-    with:
-      torch: ${{ matrix.torch }}
-      py: ${{ matrix.py }}
-
-  build_pt20_wheel-macos:
-    name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, macos-x86_64)
-    uses: ./.github/workflows/_build_wheel-macos.yaml
-    strategy:
+      fail-fast: false
       matrix:
         include:
           - torch: '2.0.1'
             py: '3.11'
+
+          # Lowest Supported Version
+          - torch: '1.12.1'
+            py: '3.8'
     with:
       torch: ${{ matrix.torch }}
       py: ${{ matrix.py }}

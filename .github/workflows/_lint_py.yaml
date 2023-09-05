@@ -6,10 +6,13 @@
 
 on:
   workflow_call:
-
-env:
-    TORCH: '2.0.1'
-    PY: '3.11'
+    inputs:
+      torch:
+        type: string
+        default: '2.0.1'
+      py:
+        type: string
+        default: '3.11'
 
 defaults:
   run:
@@ -29,12 +32,12 @@ jobs:
           yum --assumeyes install libsndfile-devel
       - name: Create the Python virtual environment
         run: |
-          python$PY -m venv ~/venv
+          python${{ inputs.py }} -m venv ~/venv
 
           echo ~/venv/bin >> "$GITHUB_PATH"
       - name: Install PyTorch
         run: |
-          pip install torch==$TORCH\
+          pip install torch==${{ inputs.torch }}\
             --extra-index-url https://download.pytorch.org/whl/cpu
       - name: Install linters
         run: |
