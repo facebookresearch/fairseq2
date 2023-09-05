@@ -40,7 +40,7 @@ function extract_pep_version
 function extract_mmp_version
 {
     # Grep major, minor, and patch segments.
-    echo "$1" | grep --only-matching --extended-regexp '^([0-9]+\.)*[0-9]+'
+    echo "$1" | grep --only-matching --extended-regexp '^([0-9]+\.)*[0-9]+' -
 }
 
 if [[ $# -ne 1 ]]; then
