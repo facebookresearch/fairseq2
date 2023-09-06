@@ -366,8 +366,12 @@ class RotaryEncoder(PositionEncoder):
         cos = torch.cos(table)
         sin = torch.sin(table)
 
-        self.cos_weight[:] = torch.repeat_interleave(cos, 2, dim=-1)
-        self.sin_weight[:] = torch.repeat_interleave(sin, 2, dim=-1)
+        self.cos_weight[:] = torch.repeat_interleave(
+            cos, 2, dim=-1, output_size=self.encoding_dim
+        )
+        self.sin_weight[:] = torch.repeat_interleave(
+            sin, 2, dim=-1, output_size=self.encoding_dim
+        )
 
     @finaloverride
     def _do_forward(
