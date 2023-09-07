@@ -21,6 +21,7 @@
 #include "fairseq2n/data/prefetch_data_source.h"
 #include "fairseq2n/data/take_data_source.h"
 #include "fairseq2n/data/round_robin_data_source.h"
+#include "fairseq2n/data/sample_data_source.h"
 #include "fairseq2n/data/shard_data_source.h"
 #include "fairseq2n/data/shuffle_data_source.h"
 #include "fairseq2n/data/skip_data_source.h"
