@@ -8,10 +8,10 @@ from os import environ
 
 from setuptools import find_packages, setup
 
-version = "0.2.0+devel"
+version = "0.1.1"
 
 # DO NOT forget to update the fallback version with each release!
-fallback_fairseq2n_version = "0.1.0"
+fallback_fairseq2n_version = "0.1.1"
 
 if "CI" in environ or "FAIRSEQ2N_DEVEL" in environ:
     fairseq2n_version = version
