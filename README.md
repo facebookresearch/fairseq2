@@ -7,95 +7,182 @@
 [![Nightly](https://github.com/facebookresearch/fairseq2/actions/workflows/nightly.yaml/badge.svg)](https://github.com/facebookresearch/fairseq2/actions/workflows/nightly.yaml)
 [![PyPI version](https://img.shields.io/pypi/v/fairseq2)](https://pypi.org/project/fairseq2/)
 
-[**Documentation**](https://facebookresearch.github.io/fairseq2/stable) ([**Nightly**](https://facebookresearch.github.io/fairseq2/nightly)) | **Install From: [PyPI](#install-from-pypi), [Source](#install-from-source)**
-
-> ❗fairseq2 is still under heavy development (early beta quality). Please use with caution and do not hesitate to share feedback with us!
+**Documentation: [Stable](https://facebookresearch.github.io/fairseq2/stable), [Nightly](https://facebookresearch.github.io/fairseq2/nightly)** | **Install: [Linux](#installing-on-linux), [macOS](#installing-on-macos), [Windows](#installing-on-windows), [From Source](#installing-from-source)**
 
 fairseq2 is a sequence modeling toolkit that allows researchers and developers
 to train custom models for translation, summarization, language modeling, and
-other content generation tasks. It is also the successor of [fairseq](https://github.com/facebookresearch/fairseq).
+other content generation tasks. It is also the successor of
+[fairseq](https://github.com/facebookresearch/fairseq).
 
 
 ## Getting Started
 You can find our full documentation including tutorials and API reference
-[here](https://facebookresearch.github.io/fairseq2/stable)
-([nightly](https://facebookresearch.github.io/fairseq2/nightly)).
+[here](https://facebookresearch.github.io/fairseq2/stable).
 
 For recent changes, you can check out our [changelog](CHANGELOG.md).
 
-Note that fairseq2 mainly supports Linux. There is partial support for macOS with limited
-feature set (i.e. no CUDA). Windows support is not planned.
+
+## Models
+As of today, the following pre-trained models are available in fairseq2 (in
+alphabetical order):
+
+ * [NLLB-200](src/fairseq2/models/nllb)
+ * [S2T Transformer + Conformer](src/fairseq2/models/s2t_transformer)
+ * [w2v-BERT](src/fairseq2/models/w2vbert)
+ * [wav2vec 2.0](src/fairseq2/models/wav2vec2)
+
+fairseq2 is also used by various external projects such as:
+
+ * [SeamlessM4T](https://github.com/facebookresearch/seamless_communication)
+ * [SONAR](https://github.com/facebookresearch/SONAR)
 
 
-## Pre-trained Models and Examples
-As of today, the following projects use fairseq2:
+## Installing on Linux
 
-- [SeamlessM4T](https://github.com/facebookresearch/seamless_communication): A state-of-the-art, all-in-one, multimodel translation model
-- [SONAR](https://github.com/facebookresearch/SONAR): A multilingual and multimodal fixed-size sentence embedding space, with a full suite of speech and text encoders and decoders
-
-In the following 0.x releases, we will gradually add examples and recipes for training, fine-tuning, and evaluation of different model architectures.
-
-
-## Install From PyPI
-
-> As of today, we only provide pre-built wheels for Linux x86-64. For installation on macOS, please
-> follow the instructions at "Install from Source".
-
-The easiest way to start with fairseq2 is to install it via pip. Before you proceed, make sure that you
-have an up-to-date version of pip.
+### System Dependencies
+fairseq2 has a dependency on
+[libsndfile](https://github.com/libsndfile/libsndfile) that can be installed via
+the system package manager on most Linux distributions. For Ubuntu-based
+systems, run:
 
 ```sh
-pip install --upgrade pip
+sudo apt install libsndfile1
 ```
 
-And, use the following command:
+Similarly, on Fedora, run:
+
+```sh
+sudo dnf install libsndfile
+```
+
+For other Linux distributions, please consult its documentation on how to
+install packages.
+
+### pip
+To install fairseq2 on Linux x86-64, run:
 
 ```sh
 pip install fairseq2
 ```
 
-This will install a version of fairseq2 that is compatible with the latest PyTorch version hosted on PyPI.
+This command will install a version of fairseq2 that is compatible with PyTorch
+hosted on PyPI.
 
+At this time, we do not offer a pre-built package for ARM-based systems such as
+Raspberry PI or NVIDIA Jetson. Please refer to
+[Install From Source](INSTALL_FROM_SOURCE.md) to learn how to build and install
+fairseq2 on those systems.
 
-## Install From Source
-fairseq2 consists of two packages; the user-facing fairseq2 package implemented in pure Python, and fairseq2n that contains
-the C++ and CUDA pieces of the library. If you are interested in Python parts only, you can use the following
-instructions. For C++/CUDA development, please follow the instructions
-[here](https://facebookresearch.github.io/fairseq2/stable/installation/from_source).
+### Variants
+Besides PyPI, fairseq2 has also pre-built packages available for different
+PyTorch and CUDA versions hosted on FAIR's package repository. The following
+matrix shows the supported combinations.
 
-First, clone the fairseq2 repository to your machine:
+| PyTorch          | Python            | Variant*               | Arch     |
+| ---------------- | ----------------- | ---------------------- | -------- |
+| `1.12.1`         | `>=3.8`, `<=3.10` | `cpu`, `cu116`         | `x86_64` |
+| `1.13.1`         | `>=3.8`, `<=3.10` | `cpu`, `cu116`         | `x86_64` |
+| `2.0.0`, `2.0.1` | `>=3.8`, `<=3.11` | `cpu`, `cu117` `cu118` | `x86_64` |
+
+*\* cuXYZ refers to CUDA X.YZ (e.g. cu118 means CUDA 11.8)*
+
+To install a specific combination, first follow the installation instructions on
+[pytorch.org](https://pytorch.org) for the desired PyTorch version, and then use
+the following command template.
 
 ```sh
-git clone https://github.com/facebookresearch/fairseq2.git
+PYTORCH=<version> # set to desired version
+VARIANT=<variant> # set to desired variant
 
-cd fairseq2
+pip install --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt$PYTORCH/$VARIANT fairseq2
 ```
 
-And, install the fairseq2 package from the repo directory:
+For example, for PyTorch 2.0.1 with CUDA 11.8, use:
 
 ```sh
-pip install .
+pip install --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.0.1/cu118 fairseq2
 ```
 
-If you are interested in editing Python code and/or contributing to fairseq2, you can instead use the editable mode:
+
+> [!WARNING]
+> fairseq2 relies on the C++ API of PyTorch which has no API/ABI compatibility
+> between releases. This means you have to ensure that you **use the exact same
+> PyTorch version and variant as your fairseq2 installation was built against**;
+> otherwise, you might experience issues like immediate process crashes or
+> spurious segfaults.
+
+### Nightlies
+For Linux, we also host nightly builds on FAIR's package repository. The
+supported variants are identical to the ones listed in *Variants* above. Once
+you have installed the desired PyTorch version, you can use the following
+command template to install the corresponding nightly package.
 
 ```sh
-pip install -r requirements-devel.txt
+PYTORCH=<version> # set to desired version
+VARIANT=<variant> # set to desired variant
 
-pip install -e .
+pip install --pre --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt$PYTORCH/$VARIANT fairseq2
 ```
+
+
+## Installing on macOS
+
+### System Dependencies
+fairseq2 has a dependency on
+[libsndfile](https://github.com/libsndfile/libsndfile) that can be installed via
+Homebrew.
+
+```sh
+brew install libsndfile
+```
+
+### pip
+To install fairseq2 on ARM64-based (i.e. Apple silicon) Mac computers, run:
+
+```sh
+pip install fairseq2
+```
+
+This command will install a version of fairseq2 that is compatible with PyTorch
+hosted on PyPI.
+
+At this time, we do not offer a pre-built package for Intel-based Mac computers.
+Please refer to [Install From Source](INSTALL_FROM_SOURCE.md) to learn how to
+build and install fairseq2 on Intel machines.
+
+
+## Installing on Windows
+fairseq2 does not have native support for Windows and there are no plans to
+support it in the foreseeable future. However, you can use fairseq2 via the
+[Windows Subsystem for Linux](https://learn.microsoft.com/en-us/windows/wsl/about)
+(a.k.a. WSL) along with full CUDA support introduced in WSL 2. Please follow the
+instructions in the [Installing on Linux](#installing-on-linux) section for a
+WSL-based installation.
+
+
+## Installing From Source
+See [here](INSTALL_FROM_SOURCE.md).
+
 
 ## Contributing
-We always welcome contributions to fairseq2! Please refer to our
-[contribution guidelines](./CONTRIBUTING.md) to learn how to format, test, and
+We always welcome contributions to fairseq2! Please refer to
+[Contribution Guidelines](CONTRIBUTING.md) to learn how to format, test, and
 submit your work.
+
+
+## Citing fairseq2
+If you use fairseq2 in your research and wish to refer to it, please use the
+following BibTeX entry.
+
+```
+@software{balioglu2023fairseq2,
+  author = {Can Balioglu},
+  title = {fairseq2},
+  url = {http://github.com/facebookresearch/fairseq2},
+  year = {2023},
+}
+```
 
 
 ## License
 This project is MIT licensed, as found in the [LICENSE](LICENSE) file.
-
-
-## Legal
-[Terms of Use](https://opensource.fb.com/legal/terms), [Privacy Policy](https://opensource.fb.com/legal/privacy)
-
-Copyright © Meta Platforms, Inc
