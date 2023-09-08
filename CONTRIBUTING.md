@@ -10,12 +10,12 @@ portions of the library. If fairseq2n is available as a pre-built package for
 your system (check installation instructions for your operating system in
 [README](.)), and if you are interested in only modifying Python portions of
 fairseq2, you can use an editable pip installation as described below.
-Otherwise, if you are planning to work on C++/CUDA, or if fairseq2n is not
+Otherwise, if you are planning to work on C++ or CUDA, or if fairseq2n is not
 available as a pre-built package for your system, please follow the install
 instructions [here](INSTALL_FROM_SOURCE.md).
 
 For an editable installation, first, clone the fairseq2 repository to your
-machine.
+machine:
 
 ```sh
 git clone https://github.com/facebookresearch/fairseq2.git
@@ -23,14 +23,14 @@ git clone https://github.com/facebookresearch/fairseq2.git
 cd fairseq2
 ```
 
-Then, install the fairseq2 package in editable mode.
+Then, install the fairseq2 package in editable mode:
 
 ```sh
 pip install -e .
 ```
 
 Finally, make sure to install the development tools (e.g. linters and
-formatters).
+formatters):
 
 ```sh
 pip install -r requirements-devel.txt
@@ -39,25 +39,25 @@ pip install -r requirements-devel.txt
 
 ## Testing Your Work
 
-### Python and C++/CUDA
+### Python and C++
 Any work that you plan to contribute should ideally be covered by a unit or
 integration test. Once you have all your tests in place, ensure the full test
-suite passes.
+suite passes:
 
 ```sh
 pytest
 ```
 
 By default, the tests will be run on CPU; pass the `--device` (short form `-d`)
-option to run them on a specific device (e.g. GPU).
+option to run them on a specific device (e.g. GPU):
 
 ```sh
 pytest --device cuda:0
 ```
 
-### C++/CUDA
+### C++
 If you have changes in C++ or CUDA, in addition to `pytest`, also run the native
-tests.
+tests:
 
 ```sh
 fairseq2n/build/tests/run-tests
@@ -72,7 +72,7 @@ one or more Sphinx RST files. For docstrings, make sure to follow our formatting
 conventions. You can check out any Python file in our code base to study how we
 format our docstrings.
 
-To build and test out the library documentation, run the following commands.
+To build and test out the library documentation, run the following commands:
 
 ```sh
 cd doc
@@ -92,16 +92,16 @@ and, visit http://localhost:8084 in your browser.
 ## Linting Your Work
 
 ### Python
-If you have made changes to the Python code, run the following commands and
-address any issues reported.
+If you have made changes to the Python code, run the following command and
+address any issues reported:
 
 ```sh
 mypy . && flake8 .
 ```
 
-### C++/CUDA
+### C++
 If you have touched C++ or CUDA files, lint your code with an up-to-date version
-of the clang toolkit and address any issues reported.
+of the clang toolkit and address any issues reported:
 
 ```sh
 cd fairseq2n
@@ -125,14 +125,14 @@ run-clang-tidy -p build
 ## Formatting Your Work
 
 ### Python
-For Python code, run the following commands.
+For Python code, run the following command:
 
 ```sh
 isort . && black .
 ```
 
-### C++/CUDA
-For C++, we do not enforce our coding conventions via a tool (e.g.
+### C++
+For C++ and CUDA , we do not enforce our coding conventions via a tool (e.g.
 clang-format), but we expect you to follow them. You can check out any C++ file
 in our code base to study our conventions. Since C++ syntax can become pretty
 complex at times, refrain from being too pedantic and prioritize readability

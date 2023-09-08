@@ -74,7 +74,7 @@ Raspberry PI or NVIDIA Jetson. Please refer to
 fairseq2 on those systems.
 
 ### Variants
-Besides PyPI, fairseq2 has also pre-built packages available for different
+Besides PyPI, fairseq2 also has pre-built packages available for different
 PyTorch and CUDA versions hosted on FAIR's package repository. The following
 matrix shows the supported combinations.
 
@@ -84,23 +84,15 @@ matrix shows the supported combinations.
 | `1.13.1`         | `>=3.8`, `<=3.10` | `cpu`, `cu116`         | `x86_64` |
 | `2.0.0`, `2.0.1` | `>=3.8`, `<=3.11` | `cpu`, `cu117` `cu118` | `x86_64` |
 
-*\* cuXYZ refers to CUDA X.YZ (e.g. cu118 means CUDA 11.8)*
+*\* cuXYZ refers to CUDA XY.Z (e.g. cu118 means CUDA 11.8)*
 
 To install a specific combination, first follow the installation instructions on
 [pytorch.org](https://pytorch.org) for the desired PyTorch version, and then use
-the following command template.
+the following command (shown for PyTorch `2.0.1` and variant `cu118`):
 
 ```sh
-PYTORCH=<version> # set to desired version
-VARIANT=<variant> # set to desired variant
-
-pip install --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt$PYTORCH/$VARIANT fairseq2
-```
-
-For example, for PyTorch 2.0.1 with CUDA 11.8, use:
-
-```sh
-pip install --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.0.1/cu118 fairseq2
+pip install fairseq2\
+  --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.0.1/cu118
 ```
 
 
@@ -115,13 +107,12 @@ pip install --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.0.1/c
 For Linux, we also host nightly builds on FAIR's package repository. The
 supported variants are identical to the ones listed in *Variants* above. Once
 you have installed the desired PyTorch version, you can use the following
-command template to install the corresponding nightly package.
+command to install the corresponding nightly package  (shown for PyTorch `2.0.1`
+and variant `cu118`):
 
 ```sh
-PYTORCH=<version> # set to desired version
-VARIANT=<variant> # set to desired variant
-
-pip install --pre --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt$PYTORCH/$VARIANT fairseq2
+pip install fairseq2\
+  --pre --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.0.1/cu118
 ```
 
 
@@ -130,7 +121,7 @@ pip install --pre --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nig
 ### System Dependencies
 fairseq2 has a dependency on
 [libsndfile](https://github.com/libsndfile/libsndfile) that can be installed via
-Homebrew.
+Homebrew:
 
 ```sh
 brew install libsndfile
