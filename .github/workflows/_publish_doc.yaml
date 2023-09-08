@@ -42,7 +42,7 @@ jobs:
             doc_dir=$mmp_version
 
             # If we have a stable release, update the 'stable' symlink.
-            if [[ $version == $mmp_version]]; then
+            if [[ $version == $mmp_version ]]; then
                 ln --symbolic --no-target-directory --force $doc_dir stable
             fi
           fi
