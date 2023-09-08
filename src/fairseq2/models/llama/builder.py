@@ -7,6 +7,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
+from fairseq2.models.llama.attention import GroupedQueryAttention
 from fairseq2.models.transformer import (
     FinalProjection,
     TransformerDecoderModel,
@@ -21,7 +22,6 @@ from fairseq2.nn.transformer import (
     FeedForwardNetwork,
     GLUFeedForwardNetwork,
     MultiheadAttention,
-    StandardMultiheadAttention,
     StandardTransformerDecoder,
     StandardTransformerDecoderLayer,
     TransformerDecoder,
@@ -51,6 +51,12 @@ class LLaMAConfig:
     num_attn_heads: int
     """The number of attention heads in Transformer decoder layers."""
 
+    num_key_value_heads: int
+    """The number of key_value heads used to implement Grouped Query Attention
+    (GQA) in LLaMA-2. If set to ``num_attn_heads``, it is equivalent to normal
+    Multi Head Attention (MHA). If set to ``1``, it is equivalent to
+    Multi Query Attention (MQA)."""
+
     ffn_inner_dim: int
     """The dimensionality of inner projection layers in Transformer feed-forward
     networks."""
@@ -59,8 +65,14 @@ class LLaMAConfig:
     """The scaled dimensionality of inner projection layers is rounded up to the
     nearest multiple of the specified value."""
 
+    ffn_inner_dim_multiplier: float
+    """The multiplier of the ffn hidden dimension"""
+
     dropout_p: float
     """The dropout probability in Transformer layers."""
+
+    norm_eps: float
+    """The eps value of RMSNorm"""
 
 
 llama_archs = ArchitectureRegistry[LLaMAConfig]("llama")
@@ -77,9 +89,12 @@ def _7b() -> LLaMAConfig:
         vocabulary_size=32000,
         num_layers=32,
         num_attn_heads=32,
+        num_key_value_heads=32,
         ffn_inner_dim=4096 * 4,
         ffn_inner_scale_to_multiple=256,
+        ffn_inner_dim_multiplier=1.0,
         dropout_p=0.1,
+        norm_eps=1e-5,
     )
 
 
@@ -91,9 +106,12 @@ def _13b() -> LLaMAConfig:
         vocabulary_size=32000,
         num_layers=40,
         num_attn_heads=40,
+        num_key_value_heads=40,
         ffn_inner_dim=5120 * 4,
         ffn_inner_scale_to_multiple=256,
+        ffn_inner_dim_multiplier=1.0,
         dropout_p=0.1,
+        norm_eps=1e-5,
     )
 
 
@@ -105,9 +123,12 @@ def _33b() -> LLaMAConfig:
         vocabulary_size=32000,
         num_layers=60,
         num_attn_heads=52,
+        num_key_value_heads=52,
         ffn_inner_dim=6656 * 4,
         ffn_inner_scale_to_multiple=256,
+        ffn_inner_dim_multiplier=1.0,
         dropout_p=0.1,
+        norm_eps=1e-5,
     )
 
 
@@ -119,15 +140,70 @@ def _65b() -> LLaMAConfig:
         vocabulary_size=32000,
         num_layers=80,
         num_attn_heads=64,
+        num_key_value_heads=64,
         ffn_inner_dim=8192 * 4,
         ffn_inner_scale_to_multiple=256,
+        ffn_inner_dim_multiplier=1.0,
         dropout_p=0.1,
+        norm_eps=1e-5,
+    )
+
+
+@llama_arch("llama2_7b")
+def _llama2_7b() -> LLaMAConfig:
+    return LLaMAConfig(
+        model_dim=4096,
+        max_seq_len=4096,
+        vocabulary_size=32000,
+        num_layers=32,
+        num_attn_heads=32,
+        num_key_value_heads=32,
+        ffn_inner_dim=4096 * 4,
+        ffn_inner_scale_to_multiple=256,
+        ffn_inner_dim_multiplier=1.0,
+        dropout_p=0.1,
+        norm_eps=1e-5,
+    )
+
+
+@llama_arch("llama2_13b")
+def _llama2_13b() -> LLaMAConfig:
+    return LLaMAConfig(
+        model_dim=5120,
+        max_seq_len=4096,
+        vocabulary_size=32000,
+        num_layers=40,
+        num_attn_heads=40,
+        num_key_value_heads=40,
+        ffn_inner_dim=5120 * 4,
+        ffn_inner_scale_to_multiple=256,
+        ffn_inner_dim_multiplier=1.0,
+        dropout_p=0.1,
+        norm_eps=1e-5,
+    )
+
+
+@llama_arch("llama2_70b")
+def _llama2_70b() -> LLaMAConfig:
+    return LLaMAConfig(
+        model_dim=8192,
+        max_seq_len=4096,
+        vocabulary_size=32000,
+        num_layers=80,
+        num_attn_heads=64,
+        num_key_value_heads=8,
+        ffn_inner_dim=8192 * 4,
+        ffn_inner_scale_to_multiple=4096,
+        ffn_inner_dim_multiplier=1.3,
+        dropout_p=0.1,
+        norm_eps=1e-5,
     )
 
 
 class LLaMABuilder:
     """Builds modules of a LLaMA model as described in
-    :cite:t:`https://doi.org/10.48550/arxiv.2302.13971`.
+    :cite:t:`https://doi.org/10.48550/arxiv.2302.13971` and
+    :cite:t:`https://doi.org/10.48550/arXiv.2307.09288`.
 
     To tweak the architecture, you can derive from this class and override the
     corresponding methods.
@@ -208,11 +284,12 @@ class LLaMABuilder:
 
     def build_decoder_layer(self) -> TransformerDecoderLayer:
         """Build a Transformer decoder layer."""
-        self_attn = self.build_attention(self.config.num_attn_heads)
-
-        ffn = self.build_ffn()
+        self_attn = self.build_attention(
+            self.config.num_attn_heads, self.config.num_key_value_heads
+        )
 
         rms_norm_fn = self.build_layer_norm
+        ffn = self.build_ffn()
 
         return StandardTransformerDecoderLayer(
             self_attn,
@@ -225,7 +302,9 @@ class LLaMABuilder:
             dtype=self.dtype,
         )
 
-    def build_attention(self, num_heads: int) -> MultiheadAttention:
+    def build_attention(
+        self, num_heads: int, num_key_value_heads: int
+    ) -> MultiheadAttention:
         """Build a Transformer multi-head attention layer."""
         sdpa = create_default_sdpa(attn_dropout_p=self.config.dropout_p)
 
@@ -236,9 +315,10 @@ class LLaMABuilder:
             dtype=self.dtype,
         )
 
-        return StandardMultiheadAttention(
+        return GroupedQueryAttention(
             self.config.model_dim,
             num_heads,
+            num_key_value_heads=num_key_value_heads,
             sdpa=sdpa,
             pos_encoder=pos_encoder,
             bias=False,
@@ -251,19 +331,22 @@ class LLaMABuilder:
         return GLUFeedForwardNetwork(
             self.config.model_dim,
             self.config.ffn_inner_dim,
+            inner_scale=2 / 3 * self.config.ffn_inner_dim_multiplier,
             inner_scale_to_multiple=self.config.ffn_inner_scale_to_multiple,
             device=self.device,
             dtype=self.dtype,
         )
 
-    @staticmethod
     def build_layer_norm(
+        self,
         model_dim: int,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> LayerNorm:
         """Constructs an RMSNorm layer."""
-        return RMSNorm(model_dim, bias=False, device=device, dtype=dtype)
+        return RMSNorm(
+            model_dim, eps=self.config.norm_eps, bias=False, device=device, dtype=dtype
+        )
 
 
 def create_llama_model(
