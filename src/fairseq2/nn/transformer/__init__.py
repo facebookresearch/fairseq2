@@ -44,11 +44,9 @@ from fairseq2.nn.transformer.encoder_layer import (
     TransformerEncoderLayer as TransformerEncoderLayer,
 )
 from fairseq2.nn.transformer.ffn import FeedForwardNetwork as FeedForwardNetwork
+from fairseq2.nn.transformer.ffn import GLUFeedForwardNetwork as GLUFeedForwardNetwork
 from fairseq2.nn.transformer.ffn import (
     StandardFeedForwardNetwork as StandardFeedForwardNetwork,
-)
-from fairseq2.nn.transformer.ffn import (
-    SwiGLUFeedForwardNetwork as SwiGLUFeedForwardNetwork,
 )
 from fairseq2.nn.transformer.layer_norm import LayerNormFactory as LayerNormFactory
 from fairseq2.nn.transformer.layer_norm import (

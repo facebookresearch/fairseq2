@@ -19,11 +19,11 @@ from fairseq2.nn.normalization import LayerNorm, RMSNorm
 from fairseq2.nn.position_encoder import RotaryEncoder
 from fairseq2.nn.transformer import (
     FeedForwardNetwork,
+    GLUFeedForwardNetwork,
     MultiheadAttention,
     StandardMultiheadAttention,
     StandardTransformerDecoder,
     StandardTransformerDecoderLayer,
-    SwiGLUFeedForwardNetwork,
     TransformerDecoder,
     TransformerDecoderLayer,
     TransformerNormOrder,
@@ -34,7 +34,7 @@ from fairseq2.typing import DataType, Device
 
 @dataclass
 class LLaMAConfig:
-    """Holds the configuration of an LLaMA model."""
+    """Holds the configuration of a LLaMA model."""
 
     model_dim: int
     """The dimensionality of the model."""
@@ -43,7 +43,7 @@ class LLaMAConfig:
     """The expected maximum sequence length."""
 
     vocabulary_size: int
-    """The size of the vocabulary, one should define their own vocab size"""
+    """The size of the vocabulary."""
 
     num_layers: int
     """The number of Transformer decoder layers."""
@@ -55,8 +55,9 @@ class LLaMAConfig:
     """The dimensionality of inner projection layers in Transformer feed-forward
     networks."""
 
-    ffn_round_to_multiple: int
-    """The number that SwiGLU hidden dim is round to, should be a large power of 2"""
+    ffn_inner_scale_to_multiple: int
+    """The scaled dimensionality of inner projection layers is rounded up to the
+    nearest multiple of the specified value."""
 
     dropout_p: float
     """The dropout probability in Transformer layers."""
@@ -68,9 +69,8 @@ llama_archs = ArchitectureRegistry[LLaMAConfig]("llama")
 llama_arch = llama_archs.marker
 
 
-@llama_arch("llama_7b")
-def _llama_7b() -> LLaMAConfig:
-    """7B model config"""
+@llama_arch("7b")
+def _7b() -> LLaMAConfig:
     return LLaMAConfig(
         model_dim=4096,
         max_seq_len=2048,
@@ -78,14 +78,13 @@ def _llama_7b() -> LLaMAConfig:
         num_layers=32,
         num_attn_heads=32,
         ffn_inner_dim=4096 * 4,
-        ffn_round_to_multiple=256,
+        ffn_inner_scale_to_multiple=256,
         dropout_p=0.1,
     )
 
 
-@llama_arch("llama_13b")
-def _llama_13b() -> LLaMAConfig:
-    """13B model config"""
+@llama_arch("13b")
+def _13b() -> LLaMAConfig:
     return LLaMAConfig(
         model_dim=5120,
         max_seq_len=2048,
@@ -93,14 +92,13 @@ def _llama_13b() -> LLaMAConfig:
         num_layers=40,
         num_attn_heads=40,
         ffn_inner_dim=5120 * 4,
-        ffn_round_to_multiple=256,
+        ffn_inner_scale_to_multiple=256,
         dropout_p=0.1,
     )
 
 
-@llama_arch("llama_33b")
-def _llama_33b() -> LLaMAConfig:
-    """33B model config"""
+@llama_arch("33b")
+def _33b() -> LLaMAConfig:
     return LLaMAConfig(
         model_dim=6656,
         max_seq_len=2048,
@@ -108,14 +106,13 @@ def _llama_33b() -> LLaMAConfig:
         num_layers=60,
         num_attn_heads=52,
         ffn_inner_dim=6656 * 4,
-        ffn_round_to_multiple=256,
+        ffn_inner_scale_to_multiple=256,
         dropout_p=0.1,
     )
 
 
-@llama_arch("llama_65b")
-def _llama_65b() -> LLaMAConfig:
-    """65B model config"""
+@llama_arch("65b")
+def _65b() -> LLaMAConfig:
     return LLaMAConfig(
         model_dim=8192,
         max_seq_len=2048,
@@ -123,13 +120,13 @@ def _llama_65b() -> LLaMAConfig:
         num_layers=80,
         num_attn_heads=64,
         ffn_inner_dim=8192 * 4,
-        ffn_round_to_multiple=256,
+        ffn_inner_scale_to_multiple=256,
         dropout_p=0.1,
     )
 
 
 class LLaMABuilder:
-    """Builds modules of an LLaMA model as described in
+    """Builds modules of a LLaMA model as described in
     :cite:t:`https://doi.org/10.48550/arxiv.2302.13971`.
 
     To tweak the architecture, you can derive from this class and override the
@@ -159,7 +156,7 @@ class LLaMABuilder:
         self.dtype = dtype
 
     def build_model(self) -> TransformerDecoderModel:
-        """Build a LLaMA model."""
+        """Build a model."""
         frontend = self.build_frontend()
 
         decoder = self.build_decoder()
@@ -172,14 +169,11 @@ class LLaMABuilder:
         )
 
         return TransformerDecoderModel(
-            frontend,
-            decoder,
-            final_proj,
-            target_pad_idx=None,
+            frontend, decoder, final_proj, target_pad_idx=None
         )
 
     def build_frontend(self) -> TransformerFrontend:
-        """Build a LLaMA Transformer decoder front-end."""
+        """Build a Transformer decoder front-end."""
         embed = Embedding(
             num_embeddings=self.config.vocabulary_size,
             embedding_dim=self.config.model_dim,
@@ -190,14 +184,14 @@ class LLaMABuilder:
         return TransformerEmbeddingFrontend(
             embed,
             pos_encoder=None,
-            no_scale=True,  # LLaMA does not use embedding scaling
+            no_scale=True,  # LLaMA does not use embedding scaling.
             dropout_p=self.config.dropout_p,
             device=self.device,
             dtype=self.dtype,
         )
 
     def build_decoder(self) -> TransformerDecoder:
-        """Build a LLaMA Transformer decoder."""
+        """Build a Transformer decoder."""
         num_layers = self.config.num_layers
 
         layers = [self.build_decoder_layer() for _ in range(num_layers)]
@@ -212,27 +206,13 @@ class LLaMABuilder:
             dtype=self.dtype,
         )
 
-    @staticmethod
-    def build_layer_norm(
-        model_dim: int,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
-    ) -> LayerNorm:
-        """Constructs an RMSNorm layer."""
-        return RMSNorm(
-            model_dim,
-            bias=False,  # LLaMA does not use bias parameters by default
-            device=device,
-            dtype=dtype,
-        )
-
     def build_decoder_layer(self) -> TransformerDecoderLayer:
-        """Build a LLaMA Transformer decoder layer."""
+        """Build a Transformer decoder layer."""
         self_attn = self.build_attention(self.config.num_attn_heads)
 
-        rms_norm_fn = self.build_layer_norm
-
         ffn = self.build_ffn()
+
+        rms_norm_fn = self.build_layer_norm
 
         return StandardTransformerDecoderLayer(
             self_attn,
@@ -246,7 +226,7 @@ class LLaMABuilder:
         )
 
     def build_attention(self, num_heads: int) -> MultiheadAttention:
-        """Build a LLaMA Transformer multi-head attention layer."""
+        """Build a Transformer multi-head attention layer."""
         sdpa = create_default_sdpa(attn_dropout_p=self.config.dropout_p)
 
         pos_encoder = RotaryEncoder(
@@ -261,20 +241,29 @@ class LLaMABuilder:
             num_heads,
             sdpa=sdpa,
             pos_encoder=pos_encoder,
-            bias=False,  # LLaMA does not use bias parameters by default
+            bias=False,
             device=self.device,
             dtype=self.dtype,
         )
 
     def build_ffn(self) -> FeedForwardNetwork:
-        """Build a LLaMA Transformer feed-forward network."""
-        return SwiGLUFeedForwardNetwork(
+        """Build a Transformer feed-forward network."""
+        return GLUFeedForwardNetwork(
             self.config.model_dim,
             self.config.ffn_inner_dim,
-            self.config.ffn_round_to_multiple,
+            inner_scale_to_multiple=self.config.ffn_inner_scale_to_multiple,
             device=self.device,
             dtype=self.dtype,
         )
+
+    @staticmethod
+    def build_layer_norm(
+        model_dim: int,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
+    ) -> LayerNorm:
+        """Constructs an RMSNorm layer."""
+        return RMSNorm(model_dim, bias=False, device=device, dtype=dtype)
 
 
 def create_llama_model(
