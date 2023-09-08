@@ -13,7 +13,7 @@ from os import environ
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-__version__ = "0.1.1"
+__version__ = "0.2.0+devel"
 
 
 # Keeps the shared libraries that we load using our own extended lookup logic

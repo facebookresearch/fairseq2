@@ -8,7 +8,7 @@ from os import environ
 
 from setuptools import find_packages, setup
 
-version = "0.1.1"
+version = "0.2.0+devel"
 
 # DO NOT forget to update the fallback version with each release!
 fallback_fairseq2n_version = "0.1.1"
