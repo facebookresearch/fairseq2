@@ -106,7 +106,7 @@ class TestSampleOp:
         rdp = DataPipeline.sample([dl1, dl2], [0.5, -2]).and_return()
         with pytest.raises(
             RuntimeError,
-            match=r"^probability tensor contains either `inf`, `nan` or element < 0\n",
+            match=r"^probability tensor contains either `inf`, `nan` or element < 0",
         ):
             list(rdp)
 
@@ -127,7 +127,7 @@ class TestSampleOp:
 
         with pytest.raises(
             RuntimeError,
-            match=r"^invalid multinomial distribution \(sum of probabilities <= 0\)\n",
+            match=r"^invalid multinomial distribution \(sum of probabilities <= 0\)",
         ):
             list(rdp)
 
