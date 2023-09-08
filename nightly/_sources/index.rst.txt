@@ -10,12 +10,6 @@ other content generation tasks.
 
 .. toctree::
    :maxdepth: 1
-   :caption: Installation
-
-   installation/from_source
-
-.. toctree::
-   :maxdepth: 1
    :caption: fairseq2.nn Reference
 
    reference/abc
