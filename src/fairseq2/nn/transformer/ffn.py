@@ -136,13 +136,13 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
 
 
 @final
-class SwiGLUFeedForwardNetwork(FeedForwardNetwork):
-    """Represents a SwiGLU fead forward neural network defined in
+class GLUFeedForwardNetwork(FeedForwardNetwork):
+    """Represents a GLU-based Transformer feed-forward network as described in
     :cite:t:`https://doi.org/10.48550/arxiv.2002.05202`"""
 
+    gate_proj: Linear
+    gate_activation: Module
     inner_proj: Linear
-    inner_activation: Module
-    swiglu_proj: Linear
     inner_dropout: Optional[Dropout]
     output_proj: Linear
 
@@ -150,7 +150,9 @@ class SwiGLUFeedForwardNetwork(FeedForwardNetwork):
         self,
         model_dim: int,
         inner_dim: int,
-        multiple_of: int,
+        gate_activation: Optional[Module] = None,
+        inner_scale: float = 2 / 3,
+        inner_scale_to_multiple: int = 2,
         inner_dropout_p: float = 0.0,
         bias: bool = False,
         device: Optional[Device] = None,
@@ -160,28 +162,39 @@ class SwiGLUFeedForwardNetwork(FeedForwardNetwork):
         :param model_dim:
             The dimensionality of the model.
         :param inner_dim:
-            The dimensionality of the inner projection layer.
-        :param multiple_of:
-            Hidden dimension will be rounded to multiple of ``multiple_of``.
+            The non-scaled dimensionality of the inner projection layer.
+        :param gate_activation:
+            The activation to apply to outputs of the gate projection. If
+            ``None``, :func:`~torch.nn.SiLU` will be used.
+        :param inner_scale:
+            The scale factor for the dimensionality of the inner projection
+            layer.
+        :param inner_scale_to_multiple:
+            The scaled dimensionality of the inner projection layer is rounded
+            up to the nearest multiple of the specified value.
         :param inner_dropout_p:
             The dropout probability on outputs of the inner projection layer.
         :param bias:
-            If ``True``, all projections learn an additive
-            bias.
+            If ``True``, all projections learn an additive bias.
         """
         super().__init__(model_dim)
 
-        inner_dim = int(2 * inner_dim / 3)
+        if inner_scale != 1.0:
+            inner_dim = int(inner_dim * inner_scale)
 
-        inner_dim = multiple_of * ((inner_dim + multiple_of - 1) // multiple_of)
+        if inner_scale_to_multiple != 1.0:
+            inner_dim = inner_scale_to_multiple * (
+                (inner_dim + inner_scale_to_multiple - 1) // inner_scale_to_multiple
+            )
+
+        self.gate_proj = Linear(model_dim, inner_dim, bias, device=device, dtype=dtype)
+
+        if gate_activation is None:
+            self.gate_activation = SiLU()
+        else:
+            self.gate_activation = gate_activation
 
         self.inner_proj = Linear(model_dim, inner_dim, bias, device=device, dtype=dtype)
-
-        self.inner_activation = SiLU()
-
-        self.swiglu_proj = Linear(
-            model_dim, inner_dim, bias, device=device, dtype=dtype
-        )
 
         if inner_dropout_p > 0.0:
             self.inner_dropout = Dropout(inner_dropout_p)
@@ -194,9 +207,13 @@ class SwiGLUFeedForwardNetwork(FeedForwardNetwork):
 
     @finaloverride
     def forward(self, seqs: Tensor) -> Tensor:
-        hidden = self.inner_proj(seqs)
+        gate = self.gate_proj(seqs)  # TODO(balioglu): Write as CUDA kernel?
 
-        seqs = self.inner_activation(hidden) * self.swiglu_proj(seqs)
+        gate = self.gate_activation(gate)
+
+        seqs = self.inner_proj(seqs)
+
+        seqs = seqs * gate
 
         if self.inner_dropout is not None:
             seqs = self.inner_dropout(seqs)
