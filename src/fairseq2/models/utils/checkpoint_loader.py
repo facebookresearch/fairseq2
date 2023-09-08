@@ -87,20 +87,19 @@ def load_checkpoint(
     return checkpoint
 
 
-def upgrade_fairseq_checkpoint(
-    checkpoint: Mapping[str, Any], key_map: Mapping[str, str]
+def convert_model_state_dict(
+    state_dict: Mapping[str, Any], key_map: Mapping[str, str]
 ) -> Dict[str, Any]:
-    """Upgrade a fairseq checkpoint.
+    """Make an external model state dictionary fairseq2 compatible.
 
-    :param checkpoint:
-        The original fairseq checkpoint.
+    :param state_dict:
+        The original state dictionary.
     :param key_map:
-        A map of regex patterns to replacement strings to modify the model keys.
+        A map of regex patterns to fairseq2 model keys.
 
     :returns:
-        A converted checkpoint that is compatible with fairseq2.
+        A converted state dictionary that is compatible with fairseq2.
     """
-    old_state_dict = checkpoint["model"]
     new_state_dict = {}
 
     def get_new_key(old_key: str) -> str:
@@ -111,12 +110,32 @@ def upgrade_fairseq_checkpoint(
         return old_key
 
     # Convert module keys from fairseq to fairseq2.
-    for old_key in old_state_dict.keys():
+    for old_key in state_dict.keys():
         new_key = get_new_key(old_key)
 
-        new_state_dict[new_key] = old_state_dict[old_key]
+        new_state_dict[new_key] = state_dict[old_key]
 
-    # Use the built-in version attribute of `torch.nn.Module`.
+    return new_state_dict
+
+
+def upgrade_fairseq_checkpoint(
+    checkpoint: Mapping[str, Any], key_map: Mapping[str, str]
+) -> Dict[str, Any]:
+    """Upgrade a fairseq checkpoint.
+
+    :param checkpoint:
+        The original fairseq checkpoint.
+    :param key_map:
+        A map of regex patterns to fairseq2 model keys.
+
+    :returns:
+        A converted checkpoint that is compatible with fairseq2.
+    """
+    old_state_dict = checkpoint["model"]
+
+    new_state_dict = convert_model_state_dict(old_state_dict, key_map)
+
+    # We use the built-in version attribute of `torch.nn.Module`.
     try:
         del new_state_dict["encoder.version"]
     except KeyError:
