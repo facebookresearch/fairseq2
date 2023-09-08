@@ -145,7 +145,7 @@ setup(
     author="Fundamental AI Research (FAIR) at Meta",
     keywords=["machine learning"],
     classifiers=[
-        "Development Status :: 3 - Beta",
+        "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: MIT License",
