@@ -17,7 +17,7 @@ from fairseq2.assets import (
 from fairseq2.models.llama.builder import LLaMAConfig, create_llama_model, llama_archs
 from fairseq2.models.llama.tokenizer import LLaMATokenizer
 from fairseq2.models.transformer import TransformerDecoderModel
-from fairseq2.models.utils.checkpoint_loader import upgrade_fairseq_checkpoint
+from fairseq2.models.utils.checkpoint_loader import convert_model_state_dict
 from fairseq2.models.utils.model_loader import ModelConfigLoader, ModelLoader
 
 
@@ -29,34 +29,31 @@ class LLaMALoader(ModelLoader[TransformerDecoderModel, LLaMAConfig]):
     def _upgrade_checkpoint(
         self, checkpoint: Mapping[str, Any], config: LLaMAConfig
     ) -> Mapping[str, Any]:
-        key_map = self._fairseq_key_map()
+        key_map = self._key_map()
 
-        # do not need the pre-computed rope.freqs parameters, note in pre-trained models
-        # larger than 13b, each attention block can have a rope.freqs parameter.
+        # We do not need the pre-computed 'rope.freqs' buffers.
         checkpoint = {k: v for (k, v) in checkpoint.items() if "rope.freqs" not in k}
 
-        checkpoint = {"model": checkpoint}
+        checkpoint = convert_model_state_dict(checkpoint, key_map)
 
-        checkpoint = upgrade_fairseq_checkpoint(checkpoint, key_map)
-
-        return checkpoint
+        return {"model": checkpoint}
 
     @staticmethod
-    def _fairseq_key_map() -> Dict[str, str]:
+    def _key_map() -> Dict[str, str]:
         return {
             # fmt: off
-            r"^layers\.([0-9]+)\.attention\.wq\.":     r"decoder.layers.\1.self_attn.q_proj.",
-            r"^layers\.([0-9]+)\.attention\.wk\.":     r"decoder.layers.\1.self_attn.k_proj.",
-            r"^layers\.([0-9]+)\.attention\.wv\.":     r"decoder.layers.\1.self_attn.v_proj.",
-            r"^layers\.([0-9]+)\.attention\.wo\.":     r"decoder.layers.\1.self_attn.output_proj.",
-            r"^layers\.([0-9]+)\.attention_norm\.":    r"decoder.layers.\1.self_attn_layer_norm.",
-            r"^layers\.([0-9]+)\.feed_forward\.w1\.":  r"decoder.layers.\1.ffn.inner_proj.",
-            r"^layers\.([0-9]+)\.feed_forward\.w2\.":  r"decoder.layers.\1.ffn.output_proj.",
-            r"^layers\.([0-9]+)\.feed_forward\.w3\.":  r"decoder.layers.\1.ffn.swiglu_proj.",
-            r"^layers\.([0-9]+)\.ffn_norm\.":          r"decoder.layers.\1.ffn_layer_norm.",
-            r"^norm\.":                                r"decoder.layer_norm.",
-            r"^tok_embeddings\.":                      r"decoder_frontend.embed.",
-            r"^output\.":                              r"final_proj.",
+            r"^layers\.([0-9]+)\.attention\.wq\.":    r"decoder.layers.\1.self_attn.q_proj.",
+            r"^layers\.([0-9]+)\.attention\.wk\.":    r"decoder.layers.\1.self_attn.k_proj.",
+            r"^layers\.([0-9]+)\.attention\.wv\.":    r"decoder.layers.\1.self_attn.v_proj.",
+            r"^layers\.([0-9]+)\.attention\.wo\.":    r"decoder.layers.\1.self_attn.output_proj.",
+            r"^layers\.([0-9]+)\.attention_norm\.":   r"decoder.layers.\1.self_attn_layer_norm.",
+            r"^layers\.([0-9]+)\.feed_forward\.w1\.": r"decoder.layers.\1.ffn.gate_proj.",
+            r"^layers\.([0-9]+)\.feed_forward\.w2\.": r"decoder.layers.\1.ffn.output_proj.",
+            r"^layers\.([0-9]+)\.feed_forward\.w3\.": r"decoder.layers.\1.ffn.inner_proj.",
+            r"^layers\.([0-9]+)\.ffn_norm\.":         r"decoder.layers.\1.ffn_layer_norm.",
+            r"^norm\.":                               r"decoder.layer_norm.",
+            r"^tok_embeddings\.":                     r"decoder_frontend.embed.",
+            r"^output\.":                             r"final_proj.",
             # fmt: on
         }
 

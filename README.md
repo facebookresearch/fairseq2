@@ -26,6 +26,7 @@ For recent changes, you can check out our [changelog](CHANGELOG.md).
 As of today, the following pre-trained models are available in fairseq2 (in
 alphabetical order):
 
+ * [LLaMA](src/fairseq2/models/llama)
  * [NLLB-200](src/fairseq2/models/nllb)
  * [S2T Transformer + Conformer](src/fairseq2/models/s2t_transformer)
  * [w2v-BERT](src/fairseq2/models/w2vbert)
