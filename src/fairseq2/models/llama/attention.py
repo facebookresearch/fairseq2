@@ -257,9 +257,9 @@ class GroupedQueryAttention(MultiheadAttention):
 
         return attn  # type: ignore
 
-    def _repeat_kv(self, seqs: Tensor):
+    def _repeat_kv(self, seqs: Tensor) -> Tensor:
         """
-        This is the equivalent of torch.repeat_interleave(x, dim=1, repeats=n_rep).
+        This is equivalent to torch.repeat_interleave(x, dim=1, repeats=n_rep).
         The keys and values go from (N x H_kv, S_kv, head_dim) to
         (N x H, S_kv, head_dim)
         """
