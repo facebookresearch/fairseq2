@@ -6,8 +6,6 @@
 
 from typing import Any, Dict, Mapping, Union, final
 
-import torch
-
 from fairseq2.assets import (
     AssetCard,
     AssetDownloadManager,
@@ -46,23 +44,10 @@ class mBartLoader(ModelLoader[TransformerModel, mBartConfig]):
 
         embeds = state_dict["final_proj.weight"]
 
-        # fairseq had a bug that accidentally introduced a dummy token in the
-        # embedding table of NLLB-100. We just discard it.
-        if embeds.size(0) == 256103:  # means NLLB-100
-            embeds = embeds[:-1]
-
-            state_dict["final_proj.weight"] = embeds
-
         # fairseq checkpoints have duplicate embedding weights. Ensure that we
         # use a single embedding table in fairseq2.
         state_dict["encoder_frontend.embed.weight"] = embeds
         state_dict["decoder_frontend.embed.weight"] = embeds
-
-        # The embedding positions of the control symbols in fairseq's dict do
-        # not match the SentencePiece model of the tokenizer.
-        with torch.inference_mode():
-            # (BOS, PAD, EOS, UNK) -> (PAD, UNK, BOS, EOS)
-            embeds[[0, 1, 2, 3]] = embeds[[1, 3, 0, 2]]
 
         return checkpoint
 

@@ -38,8 +38,8 @@ class mBartTokenizer(TextTokenizer):
         :param default_lang:
             The fall-back language if no language is specified.
         """
-        # Each language is represented by a `[lang_XX]` control symbol.
-        control_symbols = [f"[{lang}_XX]" for lang in langs]
+        # Each language is represented by a `[lang]` control symbol.
+        control_symbols = [f"[{lang}]" for lang in langs]
 
         control_symbols.append("<mask>")
 
@@ -91,9 +91,9 @@ class mBartTokenizer(TextTokenizer):
 
         if mode is None or mode == "source":
             prefix_tokens = ["<s>"]
-            suffix_tokens = ["</s>", f"[{lang}_XX]"]
+            suffix_tokens = ["</s>", f"[{lang}]"]
         elif mode == "target":
-            prefix_tokens = [f"[{lang}_XX]", "<s>"]
+            prefix_tokens = [f"[{lang}]", "<s>"]
             suffix_tokens = ["</s>"]
         else:
             raise ValueError(

@@ -74,14 +74,11 @@ class mBartConfig:
     pos_encoder_type: Literal["sinusoidal", "learned"]
     """The type of position encoder."""
 
-    frontend_layernorm: bool
-    """Whether to add the layernorm in the encoder, decoder frontend."""
+    layer_norm_embed: bool
+    """Adds a layernorm to the embedding in the Transformer encoder."""
 
     dropout_p: float
     """The dropout probability in Transformer layers."""
-
-    norm_order: TransformerNormOrder
-    """The Layer Normalization order."""
 
     def update_vocabulary(self, info: VocabularyInfo) -> None:
         """Update vocabulary configuration from ``info``."""
@@ -107,9 +104,8 @@ def _base() -> mBartConfig:
         num_decoder_attn_heads=16,
         ffn_inner_dim=4096,
         pos_encoder_type="learned",
-        frontend_layernorm=True,
+        layer_norm_embed=True,
         dropout_p=0.1,
-        norm_order=TransformerNormOrder.POST,
     )
 
 
@@ -190,7 +186,7 @@ class mBartBuilder:
         return TransformerEmbeddingFrontend(
             embed,
             pos_encoder,
-            layer_norm=self.config.frontend_layernorm,
+            layer_norm=self.config.layer_norm_embed,
             dropout_p=self.config.dropout_p,
             device=self.device,
             dtype=self.dtype,
@@ -204,7 +200,7 @@ class mBartBuilder:
 
         return StandardTransformerEncoder(
             layers,
-            norm_order=self.config.norm_order,
+            norm_order=TransformerNormOrder.PRE,
             device=self.device,
             dtype=self.dtype,
         )
@@ -217,7 +213,7 @@ class mBartBuilder:
 
         return StandardTransformerDecoder(
             layers,
-            norm_order=self.config.norm_order,
+            norm_order=TransformerNormOrder.PRE,
             device=self.device,
             dtype=self.dtype,
         )
@@ -232,7 +228,7 @@ class mBartBuilder:
             self_attn,
             ffn,
             dropout_p=self.config.dropout_p,
-            norm_order=self.config.norm_order,
+            norm_order=TransformerNormOrder.PRE,
             device=self.device,
             dtype=self.dtype,
         )
@@ -250,7 +246,7 @@ class mBartBuilder:
             encoder_decoder_attn,
             ffn,
             dropout_p=self.config.dropout_p,
-            norm_order=self.config.norm_order,
+            norm_order=TransformerNormOrder.PRE,
             device=self.device,
             dtype=self.dtype,
         )
@@ -272,7 +268,7 @@ class mBartBuilder:
         return StandardFeedForwardNetwork(
             self.config.model_dim,
             self.config.ffn_inner_dim,
-            norm_order=self.config.norm_order,
+            norm_order=TransformerNormOrder.PRE,
             device=self.device,
             dtype=self.dtype,
         )
