@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>StandardMultiheadAttention &mdash; fairseq2 0.2.0.dev20230908 documentation</title>
+  <title>StandardMultiheadAttention &mdash; fairseq2 0.2.0.dev20230911 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -36,7 +36,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20230908
+                0.2.0.dev20230911
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -277,7 +277,7 @@
 <li><p><strong>sdpa</strong> (<a class="reference internal" href="../abc/fairseq2.nn.transformer.SDPA.html#fairseq2.nn.transformer.SDPA" title="fairseq2.nn.transformer.attention.SDPA"><em>SDPA</em></a>) – The scaled dot-product attention module to compute head attentions.
 If <code class="docutils literal notranslate"><span class="pre">None</span></code>, a default implementation will be used.</p></li>
 <li><p><strong>scale_heads</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, applies head scaling as described in
-<span id="id2">Shleifer <em>et al.</em> [<a class="reference internal" href="../../../bibliography.html#id16" title="Sam Shleifer, Jason Weston, and Myle Ott. Normformer: improved transformer pretraining with extra normalization. 2021. URL: https://arxiv.org/abs/2110.09456, doi:10.48550/ARXIV.2110.09456.">SWO21</a>]</span></p></li>
+<span id="id2">Shleifer <em>et al.</em> [<a class="reference internal" href="../../../bibliography.html#id19" title="Sam Shleifer, Jason Weston, and Myle Ott. Normformer: improved transformer pretraining with extra normalization. 2021. URL: https://arxiv.org/abs/2110.09456, doi:10.48550/ARXIV.2110.09456.">SWO21</a>]</span></p></li>
 <li><p><strong>output_proj</strong> (<a class="reference internal" href="../abc/fairseq2.nn.Projection.html#fairseq2.nn.Projection" title="fairseq2.nn.projection.Projection"><em>Projection</em></a>) – The projection to produce final attentions. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, a
 default projection will be used.</p></li>
 <li><p><strong>bias</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, query, key, value, and output projections learn an
