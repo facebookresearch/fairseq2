@@ -112,7 +112,7 @@ configure the build:
 ```sh
 cd fairseq2n
 
-cmake -GNinja -B build
+cmake -GNinja -DFAIRSEQ2N_INSTALL_STANDALONE=ON -B build
 ```
 
 Once the configuration step is complete, build fairseq2n using:
@@ -138,7 +138,7 @@ option `ON`. When turned on, the version of the CUDA Toolkit installed on your
 machine and the version of CUDA that was used to build PyTorch must match:
 
 ```sh
-cmake -GNinja -DFAIRSEQ2N_USE_CUDA=ON -B build
+cmake -GNinja -DFAIRSEQ2N_INSTALL_STANDALONE=ON -DFAIRSEQ2N_USE_CUDA=ON -B build
 ```
 
 Similar to CPU-only build, follow this command with:
