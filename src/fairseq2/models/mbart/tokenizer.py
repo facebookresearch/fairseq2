@@ -91,9 +91,9 @@ class mBartTokenizer(TextTokenizer):
 
         if mode is None or mode == "source":
             prefix_tokens = ["<s>"]
-            suffix_tokens = ["</s>", f"__{lang}__"]
+            suffix_tokens = ["</s>", f"[{lang}_XX]"]
         elif mode == "target":
-            prefix_tokens = [f"__{lang}__", "<s>"]
+            prefix_tokens = [f"[{lang}_XX]", "<s>"]
             suffix_tokens = ["</s>"]
         else:
             raise ValueError(

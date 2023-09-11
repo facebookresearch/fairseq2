@@ -75,9 +75,13 @@ class mBartConfig:
     """The type of position encoder."""
 
     frontend_layernorm: bool
+    """Whether to add the layernorm in the encoder, decoder frontend."""
 
     dropout_p: float
     """The dropout probability in Transformer layers."""
+
+    norm_order: TransformerNormOrder
+    """The Layer Normalization order."""
 
     def update_vocabulary(self, info: VocabularyInfo) -> None:
         """Update vocabulary configuration from ``info``."""
@@ -105,6 +109,7 @@ def _base() -> mBartConfig:
         pos_encoder_type="learned",
         frontend_layernorm=True,
         dropout_p=0.1,
+        norm_order=TransformerNormOrder.POST,
     )
 
 
@@ -199,7 +204,7 @@ class mBartBuilder:
 
         return StandardTransformerEncoder(
             layers,
-            norm_order=TransformerNormOrder.PRE,
+            norm_order=self.config.norm_order,
             device=self.device,
             dtype=self.dtype,
         )
@@ -212,7 +217,7 @@ class mBartBuilder:
 
         return StandardTransformerDecoder(
             layers,
-            norm_order=TransformerNormOrder.PRE,
+            norm_order=self.config.norm_order,
             device=self.device,
             dtype=self.dtype,
         )
@@ -227,7 +232,7 @@ class mBartBuilder:
             self_attn,
             ffn,
             dropout_p=self.config.dropout_p,
-            norm_order=TransformerNormOrder.PRE,
+            norm_order=self.config.norm_order,
             device=self.device,
             dtype=self.dtype,
         )
@@ -245,7 +250,7 @@ class mBartBuilder:
             encoder_decoder_attn,
             ffn,
             dropout_p=self.config.dropout_p,
-            norm_order=TransformerNormOrder.PRE,
+            norm_order=self.config.norm_order,
             device=self.device,
             dtype=self.dtype,
         )
@@ -267,7 +272,7 @@ class mBartBuilder:
         return StandardFeedForwardNetwork(
             self.config.model_dim,
             self.config.ffn_inner_dim,
-            norm_order=TransformerNormOrder.PRE,
+            norm_order=self.config.norm_order,
             device=self.device,
             dtype=self.dtype,
         )
