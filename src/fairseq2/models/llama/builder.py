@@ -7,7 +7,6 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from fairseq2.models.llama.attention import GroupedQueryAttention
 from fairseq2.models.transformer import (
     FinalProjection,
     TransformerDecoderModel,
@@ -22,6 +21,7 @@ from fairseq2.nn.transformer import (
     FeedForwardNetwork,
     GLUFeedForwardNetwork,
     MultiheadAttention,
+    StandardMultiheadAttention,
     StandardTransformerDecoder,
     StandardTransformerDecoderLayer,
     TransformerDecoder,
@@ -315,7 +315,7 @@ class LLaMABuilder:
             dtype=self.dtype,
         )
 
-        return GroupedQueryAttention(
+        return StandardMultiheadAttention(
             self.config.model_dim,
             num_heads,
             num_key_value_heads=num_key_value_heads,
