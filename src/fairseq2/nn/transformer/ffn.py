@@ -142,6 +142,8 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
 
     gate_proj: Linear
     gate_activation: Module
+    inner_dim_scale: float
+    inner_dim_to_multiple: int
     inner_proj: Linear
     inner_dropout: Optional[Dropout]
     output_proj: Linear
@@ -151,8 +153,8 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
         model_dim: int,
         inner_dim: int,
         gate_activation: Optional[Module] = None,
-        inner_scale: float = 2 / 3,
-        inner_scale_to_multiple: int = 2,
+        inner_dim_scale: float = 2 / 3,
+        inner_dim_to_multiple: int = 2,
         inner_dropout_p: float = 0.0,
         bias: bool = False,
         device: Optional[Device] = None,
@@ -166,11 +168,11 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
         :param gate_activation:
             The activation to apply to outputs of the gate projection. If
             ``None``, :func:`~torch.nn.SiLU` will be used.
-        :param inner_scale:
+        :param inner_dim_scale:
             The scale factor for the dimensionality of the inner projection
             layer.
-        :param inner_scale_to_multiple:
-            The scaled dimensionality of the inner projection layer is rounded
+        :param inner_dim_to_multiple:
+            The dimensionality of the inner projection layer is rounded
             up to the nearest multiple of the specified value.
         :param inner_dropout_p:
             The dropout probability on outputs of the inner projection layer.
@@ -179,12 +181,16 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
         """
         super().__init__(model_dim)
 
-        if inner_scale != 1.0:
-            inner_dim = int(inner_dim * inner_scale)
+        self.inner_dim_scale = inner_dim_scale
 
-        if inner_scale_to_multiple != 1.0:
-            inner_dim = inner_scale_to_multiple * (
-                (inner_dim + inner_scale_to_multiple - 1) // inner_scale_to_multiple
+        if inner_dim_scale != 1.0:
+            inner_dim = int(inner_dim * inner_dim_scale)
+
+        self.inner_dim_to_multiple = inner_dim_to_multiple
+
+        if inner_dim_to_multiple != 1.0:
+            inner_dim = inner_dim_to_multiple * (
+                (inner_dim + inner_dim_to_multiple - 1) // inner_dim_to_multiple
             )
 
         self.gate_proj = Linear(model_dim, inner_dim, bias, device=device, dtype=dtype)
@@ -207,7 +213,7 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
 
     @finaloverride
     def forward(self, seqs: Tensor) -> Tensor:
-        gate = self.gate_proj(seqs)  # TODO(balioglu): Write as CUDA kernel?
+        gate = self.gate_proj(seqs)
 
         gate = self.gate_activation(gate)
 
@@ -221,3 +227,9 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
         seqs = self.output_proj(seqs)
 
         return seqs
+
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        s = super().extra_repr()
+
+        return f"{s}, inner_dim_scale={self.inner_dim_scale}, inner_dim_to_multiple={self.inner_dim_to_multiple}"
