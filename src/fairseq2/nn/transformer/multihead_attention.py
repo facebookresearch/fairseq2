@@ -183,6 +183,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         self,
         model_dim: int,
         num_heads: int,
+        num_key_value_heads: Optional[int] = None,
         q_proj: Optional[Projection] = None,
         k_proj: Optional[Projection] = None,
         v_proj: Optional[Projection] = None,
@@ -201,6 +202,11 @@ class StandardMultiheadAttention(MultiheadAttention):
             The dimensionality of the model.
         :param num_heads:
             The number of attention heads.
+        :param num_key_value_heads:
+            The number of key-value heads for Grouped Query Attention.
+            If set to ``num_attn_heads``, it is equivalent to normal
+            Multi Head Attention (MHA). If set to ``1``, it is equivalent to
+            Multi Query Attention (MQA).
         :param q_proj:
             The projection to apply to queries before computing attention. If
             ``None``, a default projection will be used.
@@ -231,10 +237,33 @@ class StandardMultiheadAttention(MultiheadAttention):
         """
         super().__init__(model_dim, num_heads)
 
+        if num_key_value_heads is None:
+            self.num_key_value_heads = num_heads
+        else:
+            self.num_key_value_heads = num_key_value_heads
+            if num_heads % num_key_value_heads != 0:
+                raise ValueError(
+                    f"`num_heads` must be divisible by `num_key_value_heads` ({num_key_value_heads}), but is {num_heads} instead."
+                )
+        self.head_dim = model_dim // num_heads
+        self.num_key_value_groups = self.num_heads // self.num_key_value_heads
+
         if q_proj is None and k_proj is None and v_proj is None:
             q_proj = QKVProjection(model_dim, bias, device=device, dtype=dtype)
-            k_proj = QKVProjection(model_dim, bias, device=device, dtype=dtype)
-            v_proj = QKVProjection(model_dim, bias, device=device, dtype=dtype)
+            k_proj = Linear(
+                model_dim,
+                self.head_dim * self.num_key_value_heads,
+                bias,
+                device=device,
+                dtype=dtype,
+            )
+            v_proj = Linear(
+                model_dim,
+                self.head_dim * self.num_key_value_heads,
+                bias,
+                device=device,
+                dtype=dtype,
+            )
         else:
             if q_proj is None or k_proj is None or v_proj is None:
                 raise ValueError(
@@ -246,19 +275,19 @@ class StandardMultiheadAttention(MultiheadAttention):
                     f"`input_dim` of `q_proj` must be equal to `model_dim` ({model_dim}), but is {q_proj.input_dim} instead."
                 )
 
-            if q_proj.output_dim != k_proj.output_dim:
+            if q_proj.output_dim != k_proj.output_dim * self.num_key_value_groups:
                 raise ValueError(
-                    f"`output_dim` of `q_proj` and `output_dim` of `k_proj` must be equal, but are {q_proj.output_dim} and {k_proj.output_dim} instead."
+                    f"`output_dim` of `q_proj` and `output_dim` of `k_proj` times `num_key_value_groups` must be equal, but are {q_proj.output_dim} and {k_proj.output_dim * self.num_key_value_groups} instead."
                 )
 
-        if k_proj.output_dim % num_heads != 0:
+        if k_proj.output_dim % self.num_key_value_heads != 0:
             raise ValueError(
-                f"`output_dim` of `k_proj` must be divisible by `num_heads` ({num_heads}), but is {k_proj.output_dim} instead."
+                f"`output_dim` of `k_proj` must be divisible by `num_key_value_heads` ({self.num_key_value_heads}), but is {k_proj.output_dim} instead."
             )
 
-        if v_proj.output_dim % num_heads != 0:
+        if v_proj.output_dim % self.num_key_value_heads != 0:
             raise ValueError(
-                f"`output_dim` of `v_proj` must be divisible by `num_heads` ({num_heads}), but is {v_proj.output_dim} instead."
+                f"`output_dim` of `v_proj` must be divisible by `num_key_value_heads` ({self.num_key_value_heads}), but is {v_proj.output_dim} instead."
             )
 
         self.q_proj = q_proj
@@ -266,9 +295,9 @@ class StandardMultiheadAttention(MultiheadAttention):
         self.v_proj = v_proj
 
         if pos_encoder is not None:
-            if (head_dim := k_proj.output_dim // num_heads) != pos_encoder.encoding_dim:
+            if self.head_dim != pos_encoder.encoding_dim:
                 raise ValueError(
-                    f"`encoding_dim` of `pos_encoder` and the size of the header key dimension must be equal, but are {pos_encoder.encoding_dim} and {head_dim} instead."
+                    f"`encoding_dim` of `pos_encoder` and the size of the header key dimension must be equal, but are {pos_encoder.encoding_dim} and {self.head_dim} instead."
                 )
 
             self.pos_encoder = pos_encoder
@@ -303,12 +332,16 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         if output_proj is None:
             self.output_proj = AttentionOutputProjection(
-                v_proj.output_dim, model_dim, bias, device=device, dtype=dtype
+                v_proj.output_dim * self.num_key_value_groups,
+                model_dim,
+                bias,
+                device=device,
+                dtype=dtype,
             )
         else:
-            if output_proj.input_dim != v_proj.output_dim:
+            if output_proj.input_dim != v_proj.output_dim * self.num_key_value_groups:
                 raise ValueError(
-                    f"`input_dim` of `output_proj` and `output_dim` of `v_proj` must be equal, but are {output_proj.input_dim} and {v_proj.output_dim} instead."
+                    f"`input_dim` of `output_proj` and `output_dim` of `v_proj` times `num_key_value_groups` must be equal, but are {output_proj.input_dim} and {v_proj.output_dim * self.num_key_value_groups} instead."
                 )
 
             if output_proj.output_dim != model_dim:
@@ -380,19 +413,26 @@ class StandardMultiheadAttention(MultiheadAttention):
                         self, MultiheadAttentionState(k, v, key_padding_mask)
                     )
 
-        # (N, S, K_proj) -> (N, S, H, K_h)
+        # (N, S, Q_proj) -> (N, S, H, K_h)
         q = q.unflatten(-1, (self.num_heads, -1))
-        # (N, S_kv, K_proj) -> (N, S_kv, H, K_h)
-        k = k.unflatten(-1, (self.num_heads, -1))
-        # (N, S_kv, V_proj) -> (N, S_kv, H, V_h)
-        v = v.unflatten(-1, (self.num_heads, -1))
+        # (N, S_kv, K_proj) -> (N, S_kv, H_kv, K_h)
+        k = k.unflatten(-1, (self.num_key_value_heads, -1))
+        # (N, S_kv, V_proj) -> (N, S_kv, H_kv, V_h)
+        v = v.unflatten(-1, (self.num_key_value_heads, -1))
 
         # (N, S, H, K_h) -> (N, H, S, K_h)
         q = q.transpose(1, 2)
-        # (N, S_kv, H, K_h) -> (N, H, S_kv, K_h)
+        # (N, S_kv, H_kv, K_h) -> (N, H_kv, S_kv, K_h)
         k = k.transpose(1, 2)
-        # (N, S_kv, H, V_h) -> (N, H, S_kv, V_h)
+        # (N, S_kv, H_kv, V_h) -> (N, H_kv, S_kv, V_h)
         v = v.transpose(1, 2)
+
+        # With grouped-query attention, each kv_head is repeated
+        # self.num_key_value_groups times to match num_heads
+        # (N, H_kv, S_kv, K_h) -> (N, H, S_kv, K_h)
+        k = torch.repeat_interleave(k, dim=1, repeats=self.num_key_value_groups)
+        # (N, H_kv, S_kv, K_h) -> (N, H, S_kv, K_h)
+        v = torch.repeat_interleave(v, dim=1, repeats=self.num_key_value_groups)
 
         # (N, H, S, K_h) -> (N x H, S, K_h)
         q = q.flatten(0, 1)
