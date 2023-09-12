@@ -246,7 +246,7 @@ class LLaMABuilder:
         )
 
         return TransformerEmbeddingFrontend(
-            embed=embed,
+            embed,
             pos_encoder=None,
             no_scale=True,  # LLaMA does not use embedding scaling.
             dropout_p=self.config.dropout_p,
@@ -320,6 +320,7 @@ class LLaMABuilder:
         return GLUFeedForwardNetwork(
             self.config.model_dim,
             self.config.ffn_inner_dim,
+            bias=False,
             inner_dim_to_multiple=self.config.ffn_inner_dim_to_multiple,
             device=self.device,
             dtype=self.dtype,
@@ -334,7 +335,7 @@ class LLaMABuilder:
     ) -> LayerNorm:
         """Build a Layer Normalization module."""
         return RMSNorm(
-            model_dim, eps=self.config.norm_eps, bias=False, device=device, dtype=dtype
+            model_dim, bias=False, eps=self.config.norm_eps, device=device, dtype=dtype
         )
 
 

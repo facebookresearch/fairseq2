@@ -32,9 +32,9 @@ class W2VBertModel(Module):
 
     def __init__(
         self,
-        *,
         w2v2_model: Wav2Vec2Model,
         num_bert_encoder_layers: int,
+        *,
         num_target_codebooks: int = 1,
         w2v2_loss_weight: float = 1.0,
         bert_loss_weight: float = 1.0,

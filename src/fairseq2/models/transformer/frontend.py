@@ -85,9 +85,9 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
 
     def __init__(
         self,
-        *,
         embed: Embedding,
         pos_encoder: Optional[PositionEncoder],
+        *,
         no_scale: bool = False,
         layer_norm: bool = False,
         dropout_p: float = 0.1,

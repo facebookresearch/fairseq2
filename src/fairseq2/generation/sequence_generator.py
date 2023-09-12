@@ -284,10 +284,10 @@ class Seq2SeqGenerator:
             # Determine candidates for the next step.
             # (N, 2 x B)
             cand_scores, cand_indices, cand_beam_indices = self.search.step(
-                step_nr=step_nr,
-                is_start_step=step_nr == start_step,
-                lprobs=lprobs.view(num_searches, beam_size, -1),
-                scores=scores.view(num_searches, beam_size, -1)[:, :, : step_nr + 1],
+                step_nr,
+                step_nr == start_step,
+                lprobs.view(num_searches, beam_size, -1),
+                scores.view(num_searches, beam_size, -1)[:, :, : step_nr + 1],
             )
 
             # Convert search-local beam indices to batch-wide beam indices.

@@ -72,8 +72,8 @@ class Linear(Projection):
         self,
         input_dim: int,
         output_dim: int,
-        *,
         bias: bool,
+        *,
         skip_init: bool = False,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
@@ -145,7 +145,7 @@ class TiedProjection(Projection):
     weight: Parameter
     bias: Optional[Parameter]
 
-    def __init__(self, weight: Parameter, *, bias: Optional[Parameter] = None) -> None:
+    def __init__(self, weight: Parameter, bias: Optional[Parameter]) -> None:
         """
         :param weight:
             The shared weights.

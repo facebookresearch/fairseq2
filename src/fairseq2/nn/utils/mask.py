@@ -89,7 +89,6 @@ def apply_padding_mask(seqs: Tensor, padding_mask: Optional[Tensor]) -> Tensor:
 
 
 def compute_mask(
-    *,
     shape: Tuple[int, int],
     span_len: int,
     max_mask_prob: float,

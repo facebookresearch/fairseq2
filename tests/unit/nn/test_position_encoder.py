@@ -110,7 +110,7 @@ class TestSinusoidalPositionEncoder:
 
         x = torch.randn((3, 9, 4), device=device)
 
-        y = m(x)
+        y = m(x, padding_mask=None)
 
         assert y.shape == (3, 9, 4)
 
@@ -129,7 +129,7 @@ class TestSinusoidalPositionEncoder:
 
         x = torch.randn((5, seq_len, 32), device=device)
 
-        y = m(x, state_bag=state_bag)
+        y = m(x, padding_mask=None, state_bag=state_bag)
 
         assert y.shape == (5, seq_len, 32)
 
@@ -144,7 +144,7 @@ class TestSinusoidalPositionEncoder:
             ValueError,
             match=r"^The input sequence length must be less than or equal to the maximum sequence length \(3\), but is 5 instead\.$",
         ):
-            m(x)
+            m(x, padding_mask=None)
 
     def test_forward_works_when_state_bag_is_not_none_in_training(self) -> None:
         m = SinusoidalPositionEncoder(encoding_dim=32, max_seq_len=3, device=device)
@@ -154,7 +154,7 @@ class TestSinusoidalPositionEncoder:
         state_bag = IncrementalStateBag()
         state_bag.increment_step(delta=20)  # out of range
 
-        y = m(x, state_bag)
+        y = m(x, padding_mask=None, state_bag=state_bag)
 
         assert y.shape == (5, 2, 32)
 
@@ -176,7 +176,7 @@ class TestLearnedPositionEncoder:
 
         x = torch.randn((3, 9, 4), device=device)
 
-        y = m(x)
+        y = m(x, padding_mask=None)
 
         assert y.shape == (3, 9, 4)
 
@@ -195,7 +195,7 @@ class TestLearnedPositionEncoder:
 
         x = torch.randn((5, seq_len, 32), device=device)
 
-        y = m(x, state_bag=state_bag)
+        y = m(x, padding_mask=None, state_bag=state_bag)
 
         assert y.shape == (5, seq_len, 32)
 
@@ -210,7 +210,7 @@ class TestLearnedPositionEncoder:
             ValueError,
             match=r"^The input sequence length must be less than or equal to the maximum sequence length \(3\), but is 5 instead\.$",
         ):
-            m(x)
+            m(x, padding_mask=None)
 
     def test_forward_works_when_state_bag_is_not_none_in_training(self) -> None:
         m = LearnedPositionEncoder(encoding_dim=32, max_seq_len=3, device=device)
@@ -220,7 +220,7 @@ class TestLearnedPositionEncoder:
         state_bag = IncrementalStateBag()
         state_bag.increment_step(delta=20)  # out of range
 
-        y = m(x, state_bag)
+        y = m(x, padding_mask=None, state_bag=state_bag)
 
         assert y.shape == (5, 2, 32)
 
@@ -237,7 +237,7 @@ class TestRotaryEncoder:
 
         x = torch.randn((3, 9, 4), device=device)
 
-        y = m(x)
+        y = m(x, padding_mask=None)
 
         # We apply a rotation, the magnitudes should stay the same.
         assert_close(torch.norm(x), torch.norm(y))
@@ -250,14 +250,14 @@ class TestRotaryEncoder:
         seq1[0, 1] = x1
         seq1[0, 4] = x2
 
-        y1 = m(seq1)
+        y1 = m(seq1, padding_mask=None)
 
         seq2 = torch.zeros((1, 6, 4), device=device)
 
         seq2[0, 2] = x1
         seq2[0, 5] = x2
 
-        y2 = m(seq2)
+        y2 = m(seq2, padding_mask=None)
 
         # If the angles are same, the dot-product must be same as well.
         dot1 = torch.dot(y1[0, 1], y1[0, 4])
@@ -278,13 +278,13 @@ class TestRotaryEncoder:
 
         x1 = torch.ones((5, seq_len, 32), device=device)
 
-        y1 = m(x1, state_bag=state_bag)
+        y1 = m(x1, padding_mask=None, state_bag=state_bag)
 
         assert y1.shape == (5, seq_len, 32)
 
         x2 = torch.ones((5, seq_len + step, 32), device=device)
 
-        y2 = m(x2)
+        y2 = m(x2, padding_mask=None)
 
         assert_close(y1, y2[:, step:])
 
@@ -297,7 +297,7 @@ class TestRotaryEncoder:
             ValueError,
             match=r"^The input sequence length must be less than or equal to the maximum sequence length \(3\), but is 5 instead\.$",
         ):
-            m(x)
+            m(x, padding_mask=None)
 
     def test_forward_works_when_state_bag_is_not_none_in_training(self) -> None:
         m = RotaryEncoder(encoding_dim=32, max_seq_len=3, device=device)
@@ -307,6 +307,6 @@ class TestRotaryEncoder:
         state_bag = IncrementalStateBag()
         state_bag.increment_step(delta=20)  # out of range
 
-        y = m(x, state_bag)
+        y = m(x, padding_mask=None, state_bag=state_bag)
 
         assert y.shape == (5, 2, 32)

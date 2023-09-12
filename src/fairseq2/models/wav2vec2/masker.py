@@ -28,11 +28,11 @@ class Wav2Vec2Masker(Module):
     def __init__(
         self,
         model_dim: int,
-        *,
         temporal_span_len: int = 10,
         max_temporal_mask_prob: float = 0.65,
         spatial_span_len: int = 10,
         max_spatial_mask_prob: float = 0.0,
+        *,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:

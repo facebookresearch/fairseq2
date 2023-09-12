@@ -30,9 +30,9 @@ class Wav2Vec2PositionEncoder(PositionEncoder):
     def __init__(
         self,
         model_dim: int,
+        kernel_size: int,
+        num_groups: int,
         *,
-        kernel_size: int = 128,
-        num_groups: int = 16,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -133,10 +133,10 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
     def __init__(
         self,
         model_dim: int,
-        *,
         kernel_size: int,
         num_groups: int,
         num_layers: int,
+        *,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -160,8 +160,8 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
         for _ in range(num_layers):
             layer = Wav2Vec2PositionEncoderLayer(
                 model_dim,
-                kernel_size=k,
-                num_groups=num_groups,
+                k,
+                num_groups,
                 device=device,
                 dtype=dtype,
             )
@@ -207,9 +207,9 @@ class Wav2Vec2PositionEncoderLayer(Module):
     def __init__(
         self,
         model_dim: int,
-        *,
         kernel_size: int,
         num_groups: int,
+        *,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -226,7 +226,7 @@ class Wav2Vec2PositionEncoderLayer(Module):
         )
 
         self.layer_norm = StandardLayerNorm(
-            model_dim, elementwise_affine=False, device=device, dtype=dtype
+            model_dim, bias=True, elementwise_affine=False, device=device, dtype=dtype
         )
 
         self.activation = GELU()

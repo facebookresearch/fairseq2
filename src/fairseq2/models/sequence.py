@@ -98,6 +98,4 @@ class SequenceModelOutput:
         # For numerical stability run in single precision.
         lprobs = log_softmax(logits, dim=-1, dtype=torch.float32)
 
-        return nll_loss(
-            lprobs, targets, pad_idx=self.pad_idx, label_smoothing=label_smoothing
-        )
+        return nll_loss(lprobs, targets, self.pad_idx, label_smoothing=label_smoothing)

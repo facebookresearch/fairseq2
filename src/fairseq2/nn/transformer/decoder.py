@@ -50,8 +50,8 @@ class TransformerDecoder(Module, ABC):
         encoder_output: Optional[Tensor] = None,
         encoder_padding_mask: Optional[Tensor] = None,
         *,
-        state_bag: Optional[IncrementalStateBag] = None,
         layer_output_hook: Optional["DecoderLayerOutputHook"] = None,
+        state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         """
         :param seqs:
@@ -70,11 +70,11 @@ class TransformerDecoder(Module, ABC):
             The float padding mask of ``encoder_out``. *Shape:*
             :math:`(N,S_{enc})`, where :math:`N` is the batch size and
             :math:`S_{enc}` is the encoder output sequence length.
-        :param state_bag:
-            The state bag to use for incremental evaluation.
         :param layer_output_hook:
             If not ``None``, it will be called with the output of each layer in
             the decoder stack.
+        :param state_bag:
+            The state bag to use for incremental evaluation.
 
         :returns:
             - The decoder output. *Shape:* Same as ``seqs``.
@@ -178,8 +178,8 @@ class StandardTransformerDecoder(TransformerDecoder):
         encoder_output: Optional[Tensor] = None,
         encoder_padding_mask: Optional[Tensor] = None,
         *,
-        state_bag: Optional[IncrementalStateBag] = None,
         layer_output_hook: Optional[DecoderLayerOutputHook] = None,
+        state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         if layer_output_hook is not None and self.layers.drop_p > 0.0:
             raise ValueError("`layer_hook` must be `None` when LayerDrop is enabled.")

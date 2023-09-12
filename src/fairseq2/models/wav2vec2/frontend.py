@@ -37,10 +37,10 @@ class Wav2Vec2Frontend(TransformerFrontend):
     def __init__(
         self,
         model_dim: int,
-        *,
         feature_dim: int,
         feature_extractor: Optional[SequenceFeatureExtractor],
         pos_encoder: Optional[PositionEncoder],
+        *,
         first_pass_dropout_p: float = 0.0,
         layer_norm: bool = False,
         dropout_p: float = 0.1,
@@ -81,7 +81,7 @@ class Wav2Vec2Frontend(TransformerFrontend):
             self.register_module("feature_extractor", None)
 
         self.post_extract_layer_norm = StandardLayerNorm(
-            feature_dim, device=device, dtype=dtype
+            feature_dim, bias=True, device=device, dtype=dtype
         )
 
         if feature_dim != model_dim:
@@ -107,7 +107,9 @@ class Wav2Vec2Frontend(TransformerFrontend):
             self.register_module("pos_encoder", None)
 
         if layer_norm:
-            self.layer_norm = StandardLayerNorm(model_dim, device=device, dtype=dtype)
+            self.layer_norm = StandardLayerNorm(
+                model_dim, bias=True, device=device, dtype=dtype
+            )
         else:
             self.register_module("layer_norm", None)
 
@@ -170,7 +172,6 @@ class Wav2Vec2Frontend(TransformerFrontend):
         self,
         seqs: Tensor,
         seq_lens: Optional[Tensor],
-        *,
         masker: Optional[Wav2Vec2Masker] = None,
     ) -> Tuple[Tensor, Optional[Tensor], Optional[Tensor]]:
         """Process extracted features.

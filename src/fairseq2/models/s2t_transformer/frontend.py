@@ -33,9 +33,9 @@ class S2TTransformerFrontend(TransformerFrontend):
     def __init__(
         self,
         model_dim: int,
-        *,
         feature_extractor: Optional[SequenceFeatureExtractor],
         pos_encoder: Optional[PositionEncoder],
+        *,
         proj: bool = False,
         dropout_p: float = 0.1,
         device: Optional[Device] = None,

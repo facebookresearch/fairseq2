@@ -103,8 +103,8 @@ class ModelFactory(Protocol[ModelConfigT_contra, ModelT_co]):
         self,
         config: ModelConfigT_contra,
         *,
-        device: Optional[Device],
-        dtype: Optional[DataType],
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> ModelT_co:
         """
         :param config:

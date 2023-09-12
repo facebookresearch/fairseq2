@@ -27,10 +27,10 @@ class Conv1dFbankSubsampler(SequenceFeatureExtractor):
 
     def __init__(
         self,
-        *,
         num_channels: int,
         inner_dim: int,
         feature_dim: int,
+        *,
         kernel_sizes: Optional[Sequence[int]] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,

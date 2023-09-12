@@ -14,7 +14,7 @@ from tests.common import assert_equal, device
 def test_compute_mask_returns_same_number_of_masked_elements_in_each_row() -> None:
     shape = (32, 512)
 
-    mask = compute_mask(shape=shape, span_len=10, max_mask_prob=0.65, device=device)
+    mask = compute_mask(shape, span_len=10, max_mask_prob=0.65, device=device)
 
     assert mask is not None
 
@@ -29,7 +29,7 @@ def test_compute_mask_returns_same_number_of_masked_elements_in_each_row() -> No
 def test_compute_mask_returns_mask_with_correct_shape_device_data_type() -> None:
     shape = (4, 16)
 
-    mask = compute_mask(shape=shape, span_len=4, max_mask_prob=1.0, device=device)
+    mask = compute_mask(shape, span_len=4, max_mask_prob=1.0, device=device)
 
     assert mask is not None
 
@@ -48,7 +48,7 @@ def test_compute_mask_returns_mask_with_correct_shape_device_dtype_if_row_lens_i
     row_lens = torch.tensor([16, 14, 15, 16], device="cpu")
 
     mask = compute_mask(
-        shape=shape, span_len=4, max_mask_prob=1.0, device=device, row_lens=row_lens
+        shape, span_len=4, max_mask_prob=1.0, device=device, row_lens=row_lens
     )
 
     assert mask is not None
@@ -70,7 +70,7 @@ def test_compute_mask_raises_error_if_row_length_is_smaller_than_span_len() -> N
         match=r"^All lengths in `row_lens` must be greater than 4, but at least one length is smaller\. row_lens: tensor",
     ):
         compute_mask(
-            shape=shape, span_len=4, max_mask_prob=1.0, row_lens=row_lens, device=device
+            shape, span_len=4, max_mask_prob=1.0, row_lens=row_lens, device=device
         )
 
 

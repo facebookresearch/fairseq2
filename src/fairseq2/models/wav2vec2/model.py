@@ -44,10 +44,10 @@ class Wav2Vec2Model(Module):
         self,
         encoder_frontend: Wav2Vec2Frontend,
         encoder: TransformerEncoder,
-        *,
         masker: Wav2Vec2Masker,
         quantizer: VectorQuantizer,
         final_dim: int,
+        *,
         final_proj_bias: bool = True,
         num_distractors: int = 100,
         logit_temp: float = 0.1,
@@ -95,7 +95,7 @@ class Wav2Vec2Model(Module):
         self.quantizer = quantizer
 
         self.final_proj = Linear(
-            model_dim, final_dim, bias=final_proj_bias, device=device, dtype=dtype
+            model_dim, final_dim, final_proj_bias, device=device, dtype=dtype
         )
 
         self.final_target_proj = Linear(
@@ -169,7 +169,7 @@ class Wav2Vec2Model(Module):
             targets = frontend.first_pass_dropout(targets)
 
         seqs, padding_mask, temporal_mask = frontend.process_features(
-            seqs, seq_lens, masker=self.masker
+            seqs, seq_lens, self.masker
         )
 
         assert temporal_mask is not None

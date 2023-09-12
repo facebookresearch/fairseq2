@@ -262,19 +262,19 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         if q_proj is None and k_proj is None and v_proj is None:
             q_proj = QKVProjection(
-                model_dim, model_dim, bias=bias, device=device, dtype=dtype
+                model_dim, model_dim, bias, device=device, dtype=dtype
             )
             k_proj = QKVProjection(
                 model_dim,
                 head_dim * self.num_key_value_heads,
-                bias=bias,
+                bias,
                 device=device,
                 dtype=dtype,
             )
             v_proj = QKVProjection(
                 model_dim,
                 head_dim * self.num_key_value_heads,
-                bias=bias,
+                bias,
                 device=device,
                 dtype=dtype,
             )
@@ -348,7 +348,7 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         if output_proj is None:
             self.output_proj = AttentionOutputProjection(
-                v_dim, model_dim, bias=bias, device=device, dtype=dtype
+                v_dim, model_dim, bias, device=device, dtype=dtype
             )
         else:
             if v_dim != output_proj.input_dim:
@@ -558,12 +558,12 @@ class QKVProjection(Linear):
         self,
         model_dim: int,
         output_dim: int,
+        bias: bool,
         *,
-        bias: bool = True,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
-        super().__init__(model_dim, output_dim, bias=bias, device=device, dtype=dtype)
+        super().__init__(model_dim, output_dim, bias, device=device, dtype=dtype)
 
     @override
     def _do_reset_parameters(self) -> None:
@@ -582,12 +582,12 @@ class AttentionOutputProjection(Linear):
         self,
         v_dim: int,
         model_dim: int,
+        bias: bool,
         *,
-        bias: bool = True,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
-        super().__init__(v_dim, model_dim, bias=bias, device=device, dtype=dtype)
+        super().__init__(v_dim, model_dim, bias, device=device, dtype=dtype)
 
     @override
     def _do_reset_parameters(self) -> None:
