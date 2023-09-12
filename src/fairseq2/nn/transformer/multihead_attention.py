@@ -246,7 +246,7 @@ class StandardMultiheadAttention(MultiheadAttention):
                     f"`num_heads` must be divisible by `num_key_value_heads` ({num_key_value_heads}), but is {num_heads} instead."
                 )
         self.head_dim = model_dim // num_heads
-        self.kv_repeats = self.num_heads // self.num_key_value_heads
+        self.num_key_value_groups = self.num_heads // self.num_key_value_heads
 
         if q_proj is None and k_proj is None and v_proj is None:
             q_proj = QKVProjection(model_dim, bias, device=device, dtype=dtype)
@@ -275,9 +275,9 @@ class StandardMultiheadAttention(MultiheadAttention):
                     f"`input_dim` of `q_proj` must be equal to `model_dim` ({model_dim}), but is {q_proj.input_dim} instead."
                 )
 
-            if q_proj.output_dim != k_proj.output_dim * self.kv_repeats:
+            if q_proj.output_dim != k_proj.output_dim * self.num_key_value_groups:
                 raise ValueError(
-                    f"`output_dim` of `q_proj` and `output_dim` of `k_proj` time `kv_repeats` must be equal, but are {q_proj.output_dim} and {k_proj.output_dim * self.kv_repeats} instead."
+                    f"`output_dim` of `q_proj` and `output_dim` of `k_proj` times `num_key_value_groups` must be equal, but are {q_proj.output_dim} and {k_proj.output_dim * self.num_key_value_groups} instead."
                 )
 
         if k_proj.output_dim % self.num_key_value_heads != 0:
@@ -332,16 +332,16 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         if output_proj is None:
             self.output_proj = AttentionOutputProjection(
-                v_proj.output_dim * self.kv_repeats,
+                v_proj.output_dim * self.num_key_value_groups,
                 model_dim,
                 bias,
                 device=device,
                 dtype=dtype,
             )
         else:
-            if output_proj.input_dim != v_proj.output_dim * self.kv_repeats:
+            if output_proj.input_dim != v_proj.output_dim * self.num_key_value_groups:
                 raise ValueError(
-                    f"`input_dim` of `output_proj` and `output_dim` of `v_proj` times `kv_repeats` must be equal, but are {output_proj.input_dim} and {v_proj.output_dim * self.kv_repeats} instead."
+                    f"`input_dim` of `output_proj` and `output_dim` of `v_proj` times `num_key_value_groups` must be equal, but are {output_proj.input_dim} and {v_proj.output_dim * self.num_key_value_groups} instead."
                 )
 
             if output_proj.output_dim != model_dim:
@@ -428,11 +428,11 @@ class StandardMultiheadAttention(MultiheadAttention):
         v = v.transpose(1, 2)
 
         # With grouped-query attention, each kv_head is repeated
-        # self.kv_repeats times to match num_heads
+        # self.num_key_value_groups times to match num_heads
         # (N, H_kv, S_kv, K_h) -> (N, H, S_kv, K_h)
-        k = self._repeat_kv(k)
+        k = torch.repeat_interleave(k, dim=1, repeats=self.num_key_value_groups)
         # (N, H_kv, S_kv, K_h) -> (N, H, S_kv, K_h)
-        v = self._repeat_kv(v)
+        v = torch.repeat_interleave(v, dim=1, repeats=self.num_key_value_groups)
 
         # (N, H, S, K_h) -> (N x H, S, K_h)
         q = q.flatten(0, 1)
@@ -520,10 +520,6 @@ class StandardMultiheadAttention(MultiheadAttention):
         attn = self.output_proj(attn)
 
         return attn  # type: ignore
-
-    def _repeat_kv(self, seqs: Tensor) -> Tensor:
-        """Repeat the keys and values to match the size of the queries."""
-        return torch.repeat_interleave(seqs, dim=1, repeats=self.kv_repeats)
 
     def extra_repr(self) -> str:
         """:meta private:"""
