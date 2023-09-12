@@ -75,6 +75,7 @@ class GumbelVectorQuantizer(VectorQuantizer):
 
     def __init__(
         self,
+        *,
         input_dim: int,
         output_dim: int,
         num_codebooks: int,

@@ -185,6 +185,7 @@ class W2VBertBuilder:
         self,
         config: W2VBertConfig,
         w2v2_builder: Wav2Vec2Builder,
+        *,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -220,15 +221,15 @@ class W2VBertBuilder:
 
     def build_model(self) -> W2VBertModel:
         """Build a model."""
-        w2v2 = self.w2v2_builder.build_model()
+        w2v2_model = self.w2v2_builder.build_model()
 
         return W2VBertModel(
-            w2v2,
-            self.config.num_bert_encoder_layers,
-            self.config.num_target_codebooks,
-            self.config.w2v2_loss_weight,
-            self.config.bert_loss_weight,
-            self.config.bert_label_smoothing,
+            w2v2_model=w2v2_model,
+            num_bert_encoder_layers=self.config.num_bert_encoder_layers,
+            num_target_codebooks=self.config.num_target_codebooks,
+            w2v2_loss_weight=self.config.w2v2_loss_weight,
+            bert_loss_weight=self.config.bert_loss_weight,
+            bert_label_smoothing=self.config.bert_label_smoothing,
             device=self.device,
             dtype=self.dtype,
         )
@@ -236,6 +237,7 @@ class W2VBertBuilder:
 
 def create_w2vbert_model(
     config: W2VBertConfig,
+    *,
     device: Optional[Device] = None,
     dtype: Optional[DataType] = None,
 ) -> W2VBertModel:
@@ -249,9 +251,13 @@ def create_w2vbert_model(
         The data type of module parameters and buffers.
     """
     encoder_builder = Wav2Vec2EncoderBuilder(
-        config.w2v2_config.encoder_config, device, dtype
+        config.w2v2_config.encoder_config, device=device, dtype=dtype
     )
 
-    w2v2_builder = Wav2Vec2Builder(config.w2v2_config, encoder_builder, device, dtype)
+    w2v2_builder = Wav2Vec2Builder(
+        config.w2v2_config, encoder_builder, device=device, dtype=dtype
+    )
 
-    return W2VBertBuilder(config, w2v2_builder, device, dtype).build_model()
+    builder = W2VBertBuilder(config, w2v2_builder, device=device, dtype=dtype)
+
+    return builder.build_model()

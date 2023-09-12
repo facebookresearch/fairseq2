@@ -30,6 +30,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
 
     def __init__(
         self,
+        *,
         layer_descs: Sequence[Tuple[int, int, int]],
         bias: bool = False,
         dropout_p: float = 0.0,
@@ -89,16 +90,16 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
                 layer_norm_ = None
 
             layer = Wav2Vec2FeatureExtractionLayer(
-                input_dim,
-                output_dim,
-                kernel_size,
-                stride,
-                bias,
-                dropout_p,
-                group_norm_,
-                layer_norm_,
-                device,
-                dtype,
+                input_dim=input_dim,
+                output_dim=output_dim,
+                kernel_size=kernel_size,
+                stride=stride,
+                bias=bias,
+                dropout_p=dropout_p,
+                group_norm=group_norm_,
+                layer_norm=layer_norm_,
+                device=device,
+                dtype=dtype,
             )
 
             self.layers.append(layer)
@@ -172,6 +173,7 @@ class Wav2Vec2FeatureExtractionLayer(Module):
 
     def __init__(
         self,
+        *,
         input_dim: int,
         output_dim: int,
         kernel_size: int,
@@ -253,7 +255,9 @@ class Wav2Vec2FbankFeatureExtractor(SequenceFeatureExtractor):
     stride: int
     sample_every_k: int
 
-    def __init__(self, num_fbank_channels: int, stride: int, sample_every_k: int = 1):
+    def __init__(
+        self, *, num_fbank_channels: int, stride: int, sample_every_k: int = 1
+    ):
         super().__init__(feature_dim=num_fbank_channels * stride)
 
         self.num_fbank_channels = num_fbank_channels

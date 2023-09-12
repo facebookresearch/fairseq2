@@ -22,6 +22,7 @@ class SequenceDecoder(ABC):
         self,
         seqs: Tensor,
         seq_lens: Optional[Tensor],
+        *,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         """Decode the specified sequences.

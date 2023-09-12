@@ -32,8 +32,8 @@ class TestScaledDotProductAttention:
     def test_torch_sdpa(
         self, mask: bool, attn_dropout_p: float, training: bool
     ) -> None:
-        torch_sdpa = TorchSDPA(attn_dropout_p)
-        naive_sdpa = NaiveSDPA(attn_dropout_p)
+        torch_sdpa = TorchSDPA(attn_dropout_p=attn_dropout_p)
+        naive_sdpa = NaiveSDPA(attn_dropout_p=attn_dropout_p)
 
         if training:
             torch_sdpa.eval()

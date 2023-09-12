@@ -35,6 +35,7 @@ class MultilingualTextTokenizer(TextTokenizer):
     def __init__(
         self,
         pathname: PathLike,
+        *,
         task: str,
         source_langs: Set[str],
         target_langs: Set[str],
@@ -73,6 +74,7 @@ class MultilingualTextTokenizer(TextTokenizer):
     @finaloverride
     def create_encoder(
         self,
+        *,
         task: Optional[str] = None,
         lang: Optional[str] = None,
         mode: Optional[str] = None,

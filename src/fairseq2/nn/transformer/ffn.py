@@ -66,6 +66,7 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         self,
         model_dim: int,
         inner_dim: int,
+        *,
         inner_activation: Optional[Module] = None,
         inner_dropout_p: float = 0.0,
         bias: bool = True,
@@ -97,7 +98,9 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         if layer_norm_fn is None:
             layer_norm_fn = create_default_layer_norm
 
-        self.inner_proj = Linear(model_dim, inner_dim, bias, device=device, dtype=dtype)
+        self.inner_proj = Linear(
+            model_dim, inner_dim, bias=bias, device=device, dtype=dtype
+        )
 
         if inner_activation is None:
             self.inner_activation = ReLU()
@@ -110,12 +113,12 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
             self.register_module("inner_dropout", None)
 
         if norm_order == TransformerNormOrder.PRE_WITH_NORMFORMER:
-            self.inner_layer_norm = layer_norm_fn(inner_dim, device, dtype)
+            self.inner_layer_norm = layer_norm_fn(inner_dim, device=device, dtype=dtype)
         else:
             self.register_module("inner_layer_norm", None)
 
         self.output_proj = Linear(
-            inner_dim, model_dim, bias, device=device, dtype=dtype
+            inner_dim, model_dim, bias=bias, device=device, dtype=dtype
         )
 
     @finaloverride
@@ -152,6 +155,7 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
         self,
         model_dim: int,
         inner_dim: int,
+        *,
         gate_activation: Optional[Module] = None,
         inner_dim_scale: float = 2 / 3,
         inner_dim_to_multiple: int = 2,
@@ -193,14 +197,18 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
                 (inner_dim + inner_dim_to_multiple - 1) // inner_dim_to_multiple
             )
 
-        self.gate_proj = Linear(model_dim, inner_dim, bias, device=device, dtype=dtype)
+        self.gate_proj = Linear(
+            model_dim, inner_dim, bias=bias, device=device, dtype=dtype
+        )
 
         if gate_activation is None:
             self.gate_activation = SiLU()
         else:
             self.gate_activation = gate_activation
 
-        self.inner_proj = Linear(model_dim, inner_dim, bias, device=device, dtype=dtype)
+        self.inner_proj = Linear(
+            model_dim, inner_dim, bias=bias, device=device, dtype=dtype
+        )
 
         if inner_dropout_p > 0.0:
             self.inner_dropout = Dropout(inner_dropout_p)
@@ -208,7 +216,7 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
             self.register_module("inner_dropout", None)
 
         self.output_proj = Linear(
-            inner_dim, model_dim, bias, device=device, dtype=dtype
+            inner_dim, model_dim, bias=bias, device=device, dtype=dtype
         )
 
     @finaloverride

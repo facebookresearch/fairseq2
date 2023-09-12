@@ -37,6 +37,7 @@ class Wav2Vec2Frontend(TransformerFrontend):
     def __init__(
         self,
         model_dim: int,
+        *,
         feature_dim: int,
         feature_extractor: Optional[SequenceFeatureExtractor],
         pos_encoder: Optional[PositionEncoder],
@@ -120,6 +121,7 @@ class Wav2Vec2Frontend(TransformerFrontend):
         self,
         seqs: Tensor,
         seq_lens: Optional[Tensor],
+        *,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         if state_bag is not None:
@@ -168,6 +170,7 @@ class Wav2Vec2Frontend(TransformerFrontend):
         self,
         seqs: Tensor,
         seq_lens: Optional[Tensor],
+        *,
         masker: Optional[Wav2Vec2Masker] = None,
     ) -> Tuple[Tensor, Optional[Tensor], Optional[Tensor]]:
         """Process extracted features.

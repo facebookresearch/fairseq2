@@ -64,6 +64,7 @@ class S2TTransformerTokenizer(TextTokenizer):
     @finaloverride
     def create_encoder(
         self,
+        *,
         task: Optional[str] = None,
         lang: Optional[str] = None,
         mode: Optional[str] = None,

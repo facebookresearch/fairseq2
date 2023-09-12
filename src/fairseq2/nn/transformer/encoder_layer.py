@@ -83,6 +83,7 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
         self,
         self_attn: MultiheadAttention,
         ffn: FeedForwardNetwork,
+        *,
         scale_residual: bool = False,
         dropout_p: float = 0.1,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
@@ -115,7 +116,7 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
         if layer_norm_fn is None:
             layer_norm_fn = create_default_layer_norm
 
-        self_attn_layer_norm = layer_norm_fn(model_dim, device, dtype)
+        self_attn_layer_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
 
         if norm_order != TransformerNormOrder.POST:
             self.self_attn_layer_norm = self_attn_layer_norm
@@ -123,7 +124,7 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
         self.self_attn = self_attn
 
         if norm_order == TransformerNormOrder.PRE_WITH_NORMFORMER:
-            self.self_attn_norm = layer_norm_fn(model_dim, device, dtype)
+            self.self_attn_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
         else:
             self.register_module("self_attn_norm", None)
 
@@ -135,7 +136,7 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
         if norm_order == TransformerNormOrder.POST:
             self.self_attn_layer_norm = self_attn_layer_norm
 
-        ffn_layer_norm = layer_norm_fn(model_dim, device, dtype)
+        ffn_layer_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
 
         if norm_order != TransformerNormOrder.POST:
             self.ffn_layer_norm = ffn_layer_norm

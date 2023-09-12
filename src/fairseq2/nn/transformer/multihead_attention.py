@@ -52,6 +52,7 @@ class MultiheadAttention(Module, ABC):
         padding_mask: Optional[Tensor],
         keys: Tensor,
         values: Tensor,
+        *,
         attn_mask: Optional[Tensor] = None,
         key_padding_mask: Optional[Tensor] = None,
         state_bag: Optional[IncrementalStateBag] = None,
@@ -261,19 +262,19 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         if q_proj is None and k_proj is None and v_proj is None:
             q_proj = QKVProjection(
-                model_dim, model_dim, bias, device=device, dtype=dtype
+                model_dim, model_dim, bias=bias, device=device, dtype=dtype
             )
             k_proj = QKVProjection(
                 model_dim,
                 head_dim * self.num_key_value_heads,
-                bias,
+                bias=bias,
                 device=device,
                 dtype=dtype,
             )
             v_proj = QKVProjection(
                 model_dim,
                 head_dim * self.num_key_value_heads,
-                bias,
+                bias=bias,
                 device=device,
                 dtype=dtype,
             )
@@ -347,7 +348,7 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         if output_proj is None:
             self.output_proj = AttentionOutputProjection(
-                v_dim, model_dim, bias, device=device, dtype=dtype
+                v_dim, model_dim, bias=bias, device=device, dtype=dtype
             )
         else:
             if v_dim != output_proj.input_dim:
@@ -381,6 +382,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         padding_mask: Optional[Tensor],
         keys: Tensor,
         values: Tensor,
+        *,
         attn_mask: Optional[Tensor] = None,
         key_padding_mask: Optional[Tensor] = None,
         state_bag: Optional[IncrementalStateBag] = None,
@@ -512,7 +514,9 @@ class StandardMultiheadAttention(MultiheadAttention):
 
         # attn:         (N x H, S, V_h)
         # attn_weights: (N x H, S, S_kv)
-        attn, attn_weights = self.sdpa(q, k, v, attn_mask, needs_weights)
+        attn, attn_weights = self.sdpa(
+            q, k, v, mask=attn_mask, needs_weights=needs_weights
+        )
 
         if attn_weights is not None:
             self._run_attn_weight_hooks(attn_weights)
@@ -554,6 +558,7 @@ class QKVProjection(Linear):
         self,
         model_dim: int,
         output_dim: int,
+        *,
         bias: bool = True,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
@@ -577,6 +582,7 @@ class AttentionOutputProjection(Linear):
         self,
         v_dim: int,
         model_dim: int,
+        *,
         bias: bool = True,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,

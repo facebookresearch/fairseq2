@@ -61,6 +61,7 @@ class NoamLR(LRSchedulerBase):
     def __init__(
         self,
         optimizer: Optimizer,
+        *,
         num_warmup_steps: int,
         last_epoch: int = -1,
         verbose: bool = False,
@@ -123,6 +124,7 @@ class MyleLR(LRSchedulerBase):
     def __init__(
         self,
         optimizer: Optimizer,
+        *,
         num_warmup_steps: int,
         start_lr: Union[float, Sequence[float]] = 0.0,
         last_epoch: int = -1,
@@ -197,6 +199,7 @@ class PolynomialDecayLR(LRSchedulerBase):
     def __init__(
         self,
         optimizer: Optimizer,
+        *,
         num_steps: int,
         num_warmup_steps: int,
         power: float = 1.0,
@@ -305,6 +308,7 @@ class CosineAnnealingLR(LRSchedulerBase):
     def __init__(
         self,
         optimizer: Optimizer,
+        *,
         cycle_len: int,
         num_warmup_steps: int,
         cycle_mul: float = 1.0,

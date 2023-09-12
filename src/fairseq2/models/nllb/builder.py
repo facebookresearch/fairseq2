@@ -144,6 +144,7 @@ class NllbBuilder:
     def __init__(
         self,
         config: NllbConfig,
+        *,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -171,7 +172,12 @@ class NllbBuilder:
         final_proj = TiedProjection(embed.weight)
 
         return TransformerModel(
-            frontend, encoder, frontend, decoder, final_proj, self.config.pad_idx
+            frontend,
+            encoder,
+            frontend,
+            decoder,
+            final_proj,
+            target_pad_idx=self.config.pad_idx,
         )
 
     def build_embedding(self) -> Embedding:
@@ -196,8 +202,8 @@ class NllbBuilder:
         )
 
         return TransformerEmbeddingFrontend(
-            embed,
-            pos_encoder,
+            embed=embed,
+            pos_encoder=pos_encoder,
             dropout_p=self.config.dropout_p,
             device=self.device,
             dtype=self.dtype,
@@ -287,6 +293,7 @@ class NllbBuilder:
 
 def create_nllb_model(
     config: NllbConfig,
+    *,
     device: Optional[Device] = None,
     dtype: Optional[DataType] = None,
 ) -> TransformerModel:
@@ -299,4 +306,4 @@ def create_nllb_model(
     :param dtype:
         The data type of module parameters and buffers.
     """
-    return NllbBuilder(config, device, dtype).build_model()
+    return NllbBuilder(config, device=device, dtype=dtype).build_model()

@@ -30,6 +30,7 @@ class Wav2Vec2PositionEncoder(PositionEncoder):
     def __init__(
         self,
         model_dim: int,
+        *,
         kernel_size: int = 128,
         num_groups: int = 16,
         device: Optional[Device] = None,
@@ -132,6 +133,7 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
     def __init__(
         self,
         model_dim: int,
+        *,
         kernel_size: int,
         num_groups: int,
         num_layers: int,
@@ -157,7 +159,11 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
 
         for _ in range(num_layers):
             layer = Wav2Vec2PositionEncoderLayer(
-                model_dim, k, num_groups, device, dtype
+                model_dim,
+                kernel_size=k,
+                num_groups=num_groups,
+                device=device,
+                dtype=dtype,
             )
 
             self.layers.append(layer)
@@ -201,6 +207,7 @@ class Wav2Vec2PositionEncoderLayer(Module):
     def __init__(
         self,
         model_dim: int,
+        *,
         kernel_size: int,
         num_groups: int,
         device: Optional[Device] = None,

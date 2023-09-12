@@ -12,6 +12,7 @@ from torch import Tensor
 def nll_loss(
     lprobs: Tensor,
     targets: Tensor,
+    *,
     pad_idx: Optional[int] = None,
     label_smoothing: float = 0.0,
     reduction: Literal["none", "sum"] = "sum",

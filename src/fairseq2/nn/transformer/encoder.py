@@ -42,6 +42,7 @@ class TransformerEncoder(Module, ABC):
         self,
         seqs: Tensor,
         padding_mask: Optional[Tensor],
+        *,
         layer_output_hook: Optional["EncoderLayerOutputHook"] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         """
@@ -100,6 +101,7 @@ class StandardTransformerEncoder(TransformerEncoder):
     def __init__(
         self,
         layers: Iterable[TransformerEncoderLayer],
+        *,
         layer_drop_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         layer_norm_fn: Optional[LayerNormFactory] = None,
@@ -117,7 +119,7 @@ class StandardTransformerEncoder(TransformerEncoder):
         :param layer_norm_fn:
             The factory to use to construct the Layer Normalization module.
         """
-        layer_list = ModuleList(layers, layer_drop_p)
+        layer_list = ModuleList(layers, drop_p=layer_drop_p)
         if not layer_list:
             raise ValueError("`layers` must be non-empty.")
 
@@ -131,7 +133,7 @@ class StandardTransformerEncoder(TransformerEncoder):
         self.layers = layer_list
 
         if norm_order != TransformerNormOrder.POST:
-            self.layer_norm = layer_norm_fn(model_dim, device, dtype)
+            self.layer_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
         else:
             self.register_module("layer_norm", None)
 
@@ -144,6 +146,7 @@ class StandardTransformerEncoder(TransformerEncoder):
         self,
         seqs: Tensor,
         padding_mask: Optional[Tensor],
+        *,
         layer_output_hook: Optional[EncoderLayerOutputHook] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         if layer_output_hook is not None and self.layers.drop_p > 0.0:

@@ -243,7 +243,7 @@ class Seq2SeqGenerator:
                 None,  # We never generate PAD.
                 encoder_output,
                 encoder_padding_mask,
-                state_bag,
+                state_bag=state_bag,
             )
 
             state_bag.increment_step()
@@ -284,10 +284,10 @@ class Seq2SeqGenerator:
             # Determine candidates for the next step.
             # (N, 2 x B)
             cand_scores, cand_indices, cand_beam_indices = self.search.step(
-                step_nr,
-                step_nr == start_step,
-                lprobs.view(num_searches, beam_size, -1),
-                scores.view(num_searches, beam_size, -1)[:, :, : step_nr + 1],
+                step_nr=step_nr,
+                is_start_step=step_nr == start_step,
+                lprobs=lprobs.view(num_searches, beam_size, -1),
+                scores=scores.view(num_searches, beam_size, -1)[:, :, : step_nr + 1],
             )
 
             # Convert search-local beam indices to batch-wide beam indices.
@@ -527,7 +527,7 @@ class Seq2SeqGenerator:
             None,
             encoder_output,
             encoder_padding_mask,
-            state_bag,
+            state_bag=state_bag,
         )
 
         state_bag.increment_step(self.prefix_seq_len - 1)
@@ -630,7 +630,7 @@ class SequenceGeneratorOutput:
     """The collater to use in :meth:`collate`."""
 
     def collate(
-        self, hypo_idx: int = 0, skip_batch: bool = False
+        self, *, hypo_idx: int = 0, skip_batch: bool = False
     ) -> Tuple[Tensor, Optional[Tensor]]:
         """Collate the generated sequences at index ``hypo_idx`` in each search
         result into a single tensor.

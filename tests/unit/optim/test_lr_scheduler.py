@@ -55,7 +55,7 @@ class TestLRSchedulers:
     def test_noam(self) -> None:
         num_warmup_steps = 100
 
-        scheduler = NoamLR(self.opt, num_warmup_steps)
+        scheduler = NoamLR(self.opt, num_warmup_steps=num_warmup_steps)
 
         assert scheduler.get_last_lr() == [0.0, 0.0]
 
@@ -130,7 +130,9 @@ class TestLRSchedulers:
 
         num_warmup_steps = 100
 
-        scheduler = MyleLR(self.opt, num_warmup_steps, start_lr)
+        scheduler = MyleLR(
+            self.opt, num_warmup_steps=num_warmup_steps, start_lr=start_lr
+        )
 
         assert scheduler.get_last_lr() == [start_lr1, start_lr2]
 
@@ -209,11 +211,11 @@ class TestLRSchedulers:
 
         scheduler = PolynomialDecayLR(
             self.opt,
-            num_steps,
-            num_warmup_steps,
-            power,
-            [start_lr1, start_lr2],
-            [final_lr1, final_lr2],
+            num_steps=num_steps,
+            num_warmup_steps=num_warmup_steps,
+            power=power,
+            start_lr=[start_lr1, start_lr2],
+            final_lr=[final_lr1, final_lr2],
         )
 
         assert scheduler.get_last_lr() == [start_lr1, start_lr2]
@@ -288,12 +290,12 @@ class TestLRSchedulers:
 
         scheduler = CosineAnnealingLR(
             self.opt,
-            cycle_len,
-            num_warmup_steps,
-            cycle_mul,
-            lr_mul,
-            [start_lr1, start_lr2],
-            [final_lr1, final_lr2],
+            cycle_len=cycle_len,
+            num_warmup_steps=num_warmup_steps,
+            cycle_mul=cycle_mul,
+            lr_mul=lr_mul,
+            start_lr=[start_lr1, start_lr2],
+            final_lr=[final_lr1, final_lr2],
         )
 
         assert scheduler.get_last_lr() == [start_lr1, start_lr2]
@@ -389,8 +391,8 @@ class TestLRSchedulers:
 
         scheduler = CosineAnnealingLR(
             self.opt,
-            cycle_len,
-            num_warmup_steps,
+            cycle_len=cycle_len,
+            num_warmup_steps=num_warmup_steps,
             start_lr=[start_lr1, start_lr2],
             final_lr=[final_lr1, final_lr2],
         )

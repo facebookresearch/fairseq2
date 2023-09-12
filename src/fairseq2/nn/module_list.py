@@ -42,7 +42,7 @@ class ModuleList(ModuleListBase):
     drop_p: float
 
     def __init__(
-        self, modules: Optional[Iterable[Module]] = None, drop_p: float = 0.0
+        self, modules: Optional[Iterable[Module]] = None, *, drop_p: float = 0.0
     ) -> None:
         """
         :param modules:

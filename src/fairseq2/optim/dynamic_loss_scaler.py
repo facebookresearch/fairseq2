@@ -37,6 +37,7 @@ class DynamicLossScaler:
         self,
         optimizer: Optimizer,
         gang: Gang,
+        *,
         init_scale: float = 2.0**15,
         scale_factor: float = 2.0,
         scale_window: int = 2000,

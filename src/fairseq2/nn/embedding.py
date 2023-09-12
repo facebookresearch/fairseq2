@@ -31,6 +31,7 @@ class Embedding(Module):
         self,
         num_embeddings: int,
         embedding_dim: int,
+        *,
         pad_idx: Optional[int] = None,
         scaled: bool = False,
         device: Optional[Device] = None,
