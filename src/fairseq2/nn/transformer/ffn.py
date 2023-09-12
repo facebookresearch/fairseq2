@@ -172,8 +172,8 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
             The scale factor for the dimensionality of the inner projection
             layer.
         :param inner_dim_to_multiple:
-            The dimensionality of the inner projection layer is rounded
-            up to the nearest multiple of the specified value.
+            The dimensionality of the inner projection layer is rounded up to
+            the nearest multiple of the specified value.
         :param inner_dropout_p:
             The dropout probability on outputs of the inner projection layer.
         :param bias:

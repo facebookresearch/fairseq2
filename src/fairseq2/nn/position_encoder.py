@@ -108,7 +108,7 @@ class PositionEncoder(Module, ABC):
         s = f"encoding_dim={self.encoding_dim}"
 
         if self.max_seq_len is not None:
-            s += f", max_seq_len={self.max_seq_len}"
+            s = f"{s}, max_seq_len={self.max_seq_len}"
 
         return s
 

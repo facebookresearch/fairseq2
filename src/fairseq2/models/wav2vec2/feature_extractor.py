@@ -157,7 +157,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
         """:meta private:"""
         s = super().extra_repr()
 
-        return s + f", grad_scale={self.grad_scale}"
+        return f"{s}, grad_scale={self.grad_scale}"
 
 
 class Wav2Vec2FeatureExtractionLayer(Module):

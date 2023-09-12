@@ -169,4 +169,4 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
         """:meta private:"""
         s = super().extra_repr()
 
-        return s + ", no_scale=False" if self.scale != 1.0 else ""
+        return f"{s}, no_scale=False" if self.scale != 1.0 else ""

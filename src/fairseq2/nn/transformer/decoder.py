@@ -214,4 +214,4 @@ class StandardTransformerDecoder(TransformerDecoder):
             self.self_attn_mask_gen, "__name__", repr(self.self_attn_mask_gen)
         )
 
-        return s + f", norm_order={self.norm_order}, self_attn_mask_gen={mask_gen_name}"
+        return f"{s}, norm_order={self.norm_order}, self_attn_mask_gen={mask_gen_name}"

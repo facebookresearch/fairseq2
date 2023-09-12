@@ -133,7 +133,7 @@ class Linear(Projection):
         """:meta private:"""
         s = super().extra_repr()
 
-        return s + f", bias={self.bias is not None}"
+        return f"{s}, bias={self.bias is not None}"
 
 
 @final
