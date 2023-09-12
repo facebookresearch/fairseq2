@@ -52,27 +52,21 @@ class LLaMAConfig:
     """The number of attention heads in Transformer decoder layers."""
 
     num_key_value_heads: int
-    """The number of key_value heads used to implement Grouped Query Attention
-    (GQA) in LLaMA-2. If set to ``num_attn_heads``, it is equivalent to normal
-    Multi Head Attention (MHA). If set to ``1``, it is equivalent to
-    Multi Query Attention (MQA)."""
+    """The number of key/value heads for Grouped Query Attention."""
 
     ffn_inner_dim: int
     """The dimensionality of inner projection layers in Transformer feed-forward
     networks."""
 
-    ffn_inner_scale_to_multiple: int
-    """The scaled dimensionality of inner projection layers is rounded up to the
-    nearest multiple of the specified value."""
-
-    ffn_inner_dim_multiplier: float
-    """The multiplier of the ffn hidden dimension"""
+    ffn_inner_dim_to_multiple: int
+    """The dimensionality of inner projection layers in Transformer feed-forward
+    networks is rounded up to the nearest multiple of the specified value."""
 
     dropout_p: float
     """The dropout probability in Transformer layers."""
 
     norm_eps: float
-    """The eps value of RMSNorm"""
+    """The epsilon used by Layer Normalization modules."""
 
 
 llama_archs = ArchitectureRegistry[LLaMAConfig]("llama")
@@ -91,8 +85,7 @@ def _7b() -> LLaMAConfig:
         num_attn_heads=32,
         num_key_value_heads=32,
         ffn_inner_dim=4096 * 4,
-        ffn_inner_scale_to_multiple=256,
-        ffn_inner_dim_multiplier=1.0,
+        ffn_inner_dim_to_multiple=256,
         dropout_p=0.1,
         norm_eps=1e-5,
     )
@@ -108,8 +101,7 @@ def _13b() -> LLaMAConfig:
         num_attn_heads=40,
         num_key_value_heads=40,
         ffn_inner_dim=5120 * 4,
-        ffn_inner_scale_to_multiple=256,
-        ffn_inner_dim_multiplier=1.0,
+        ffn_inner_dim_to_multiple=256,
         dropout_p=0.1,
         norm_eps=1e-5,
     )
@@ -125,8 +117,7 @@ def _33b() -> LLaMAConfig:
         num_attn_heads=52,
         num_key_value_heads=52,
         ffn_inner_dim=6656 * 4,
-        ffn_inner_scale_to_multiple=256,
-        ffn_inner_dim_multiplier=1.0,
+        ffn_inner_dim_to_multiple=256,
         dropout_p=0.1,
         norm_eps=1e-5,
     )
@@ -142,8 +133,7 @@ def _65b() -> LLaMAConfig:
         num_attn_heads=64,
         num_key_value_heads=64,
         ffn_inner_dim=8192 * 4,
-        ffn_inner_scale_to_multiple=256,
-        ffn_inner_dim_multiplier=1.0,
+        ffn_inner_dim_to_multiple=256,
         dropout_p=0.1,
         norm_eps=1e-5,
     )
@@ -159,10 +149,9 @@ def _llama2_7b() -> LLaMAConfig:
         num_attn_heads=32,
         num_key_value_heads=32,
         ffn_inner_dim=4096 * 4,
-        ffn_inner_scale_to_multiple=256,
-        ffn_inner_dim_multiplier=1.0,
+        ffn_inner_dim_to_multiple=256,
         dropout_p=0.1,
-        norm_eps=1e-5,
+        norm_eps=1e-6,
     )
 
 
@@ -176,8 +165,7 @@ def _llama2_13b() -> LLaMAConfig:
         num_attn_heads=40,
         num_key_value_heads=40,
         ffn_inner_dim=5120 * 4,
-        ffn_inner_scale_to_multiple=256,
-        ffn_inner_dim_multiplier=1.0,
+        ffn_inner_dim_to_multiple=256,
         dropout_p=0.1,
         norm_eps=1e-5,
     )
@@ -192,9 +180,8 @@ def _llama2_70b() -> LLaMAConfig:
         num_layers=80,
         num_attn_heads=64,
         num_key_value_heads=8,
-        ffn_inner_dim=8192 * 4,
-        ffn_inner_scale_to_multiple=4096,
-        ffn_inner_dim_multiplier=1.3,
+        ffn_inner_dim=int(8192 * 4 * 1.3),  # See A.2.1 in LLaMA 2
+        ffn_inner_dim_to_multiple=4096,
         dropout_p=0.1,
         norm_eps=1e-5,
     )
@@ -288,8 +275,9 @@ class LLaMABuilder:
             self.config.num_attn_heads, self.config.num_key_value_heads
         )
 
-        rms_norm_fn = self.build_layer_norm
         ffn = self.build_ffn()
+
+        rms_norm_fn = self.build_layer_norm
 
         return StandardTransformerDecoderLayer(
             self_attn,
@@ -331,8 +319,7 @@ class LLaMABuilder:
         return GLUFeedForwardNetwork(
             self.config.model_dim,
             self.config.ffn_inner_dim,
-            inner_scale=2 / 3 * self.config.ffn_inner_dim_multiplier,
-            inner_scale_to_multiple=self.config.ffn_inner_scale_to_multiple,
+            inner_dim_to_multiple=self.config.ffn_inner_dim_to_multiple,
             device=self.device,
             dtype=self.dtype,
         )
@@ -343,7 +330,7 @@ class LLaMABuilder:
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> LayerNorm:
-        """Constructs an RMSNorm layer."""
+        """Build a Layer Normalization module."""
         return RMSNorm(
             model_dim, eps=self.config.norm_eps, bias=False, device=device, dtype=dtype
         )

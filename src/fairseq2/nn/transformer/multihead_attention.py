@@ -168,6 +168,7 @@ class StandardMultiheadAttention(MultiheadAttention):
     """Represents a Transformer multi-head attention as described in
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
+    num_key_value_heads: int
     q_proj: Projection
     k_proj: Projection
     v_proj: Projection
@@ -183,6 +184,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         self,
         model_dim: int,
         num_heads: int,
+        *,
         num_key_value_heads: Optional[int] = None,
         q_proj: Optional[Projection] = None,
         k_proj: Optional[Projection] = None,
@@ -203,10 +205,11 @@ class StandardMultiheadAttention(MultiheadAttention):
         :param num_heads:
             The number of attention heads.
         :param num_key_value_heads:
-            The number of key-value heads for Grouped Query Attention.
-            If set to ``num_attn_heads``, it is equivalent to normal
-            Multi Head Attention (MHA). If set to ``1``, it is equivalent to
-            Multi Query Attention (MQA).
+            The number of key/value heads for Grouped Query Attention as
+            described in :cite:t:`https://doi.org/10.48550/arXiv.2305.13245`.
+            If ``None`` or set to ``num_heads``, it is equivalent to standard
+            Multi Head Attention (MHA). If set to 1, it is equivalent to Multi
+            Query Attention (MQA).
         :param q_proj:
             The projection to apply to queries before computing attention. If
             ``None``, a default projection will be used.
@@ -229,8 +232,8 @@ class StandardMultiheadAttention(MultiheadAttention):
             If ``True``, applies head scaling as described in
             :cite:t:`https://doi.org/10.48550/arxiv.2110.09456`
         :param output_proj:
-            The projection to produce final attentions. If ``None``, a
-            default projection will be used.
+            The projection to produce final attentions. If ``None``, a default
+            projection will be used.
         :param bias:
             If ``True``, query, key, value, and output projections learn an
             additive bias. Ignored for explicitly specified projections.
@@ -240,26 +243,36 @@ class StandardMultiheadAttention(MultiheadAttention):
         if num_key_value_heads is None:
             self.num_key_value_heads = num_heads
         else:
-            self.num_key_value_heads = num_key_value_heads
+            if num_heads < num_key_value_heads:
+                raise ValueError(
+                    f"`num_heads` must be greater than or equal to `num_key_value_heads` ({num_key_value_heads}), but is {num_heads} instead."
+                )
+
             if num_heads % num_key_value_heads != 0:
                 raise ValueError(
                     f"`num_heads` must be divisible by `num_key_value_heads` ({num_key_value_heads}), but is {num_heads} instead."
                 )
-        self.head_dim = model_dim // num_heads
-        self.num_key_value_groups = self.num_heads // self.num_key_value_heads
+
+            self.num_key_value_heads = num_key_value_heads
+
+        head_dim = model_dim // num_heads
+
+        num_query_groups = num_heads // self.num_key_value_heads
 
         if q_proj is None and k_proj is None and v_proj is None:
-            q_proj = QKVProjection(model_dim, bias, device=device, dtype=dtype)
-            k_proj = Linear(
+            q_proj = QKVProjection(
+                model_dim, model_dim, bias, device=device, dtype=dtype
+            )
+            k_proj = QKVProjection(
                 model_dim,
-                self.head_dim * self.num_key_value_heads,
+                head_dim * self.num_key_value_heads,
                 bias,
                 device=device,
                 dtype=dtype,
             )
-            v_proj = Linear(
+            v_proj = QKVProjection(
                 model_dim,
-                self.head_dim * self.num_key_value_heads,
+                head_dim * self.num_key_value_heads,
                 bias,
                 device=device,
                 dtype=dtype,
@@ -275,29 +288,29 @@ class StandardMultiheadAttention(MultiheadAttention):
                     f"`input_dim` of `q_proj` must be equal to `model_dim` ({model_dim}), but is {q_proj.input_dim} instead."
                 )
 
-            if q_proj.output_dim != k_proj.output_dim * self.num_key_value_groups:
+            if (k_dim := k_proj.output_dim * num_query_groups) != q_proj.output_dim:
                 raise ValueError(
-                    f"`output_dim` of `q_proj` and `output_dim` of `k_proj` times `num_key_value_groups` must be equal, but are {q_proj.output_dim} and {k_proj.output_dim * self.num_key_value_groups} instead."
+                    f"`output_dim` of `q_proj` and `output_dim` of `k_proj` (times the number of query groups when GQA) must be equal, but are {q_proj.output_dim} and {k_dim} instead."
                 )
 
-        if k_proj.output_dim % self.num_key_value_heads != 0:
-            raise ValueError(
-                f"`output_dim` of `k_proj` must be divisible by `num_key_value_heads` ({self.num_key_value_heads}), but is {k_proj.output_dim} instead."
-            )
+            if k_proj.output_dim % self.num_key_value_heads != 0:
+                raise ValueError(
+                    f"`output_dim` of `k_proj` must be divisible by `num_key_value_heads` ({self.num_key_value_heads}), but is {k_proj.output_dim} instead."
+                )
 
-        if v_proj.output_dim % self.num_key_value_heads != 0:
-            raise ValueError(
-                f"`output_dim` of `v_proj` must be divisible by `num_key_value_heads` ({self.num_key_value_heads}), but is {v_proj.output_dim} instead."
-            )
+            if v_proj.output_dim % self.num_key_value_heads != 0:
+                raise ValueError(
+                    f"`output_dim` of `v_proj` must be divisible by `num_key_value_heads` ({self.num_key_value_heads}), but is {v_proj.output_dim} instead."
+                )
 
         self.q_proj = q_proj
         self.k_proj = k_proj
         self.v_proj = v_proj
 
         if pos_encoder is not None:
-            if self.head_dim != pos_encoder.encoding_dim:
+            if head_dim != pos_encoder.encoding_dim:
                 raise ValueError(
-                    f"`encoding_dim` of `pos_encoder` and the size of the header key dimension must be equal, but are {pos_encoder.encoding_dim} and {self.head_dim} instead."
+                    f"`encoding_dim` of `pos_encoder` must be equal to the size of the header dimension ({head_dim}), but is {pos_encoder.encoding_dim} instead."
                 )
 
             self.pos_encoder = pos_encoder
@@ -330,18 +343,16 @@ class StandardMultiheadAttention(MultiheadAttention):
         else:
             self.register_parameter("head_scale_weight", None)
 
+        v_dim = v_proj.output_dim * num_query_groups
+
         if output_proj is None:
             self.output_proj = AttentionOutputProjection(
-                v_proj.output_dim * self.num_key_value_groups,
-                model_dim,
-                bias,
-                device=device,
-                dtype=dtype,
+                v_dim, model_dim, bias, device=device, dtype=dtype
             )
         else:
-            if output_proj.input_dim != v_proj.output_dim * self.num_key_value_groups:
+            if v_dim != output_proj.input_dim:
                 raise ValueError(
-                    f"`input_dim` of `output_proj` and `output_dim` of `v_proj` times `num_key_value_groups` must be equal, but are {output_proj.input_dim} and {v_proj.output_dim * self.num_key_value_groups} instead."
+                    f"`output_dim` of `v_proj` (times the number of query groups when GQA) and `input_dim` of `output_proj` must be equal, but are {v_dim} and {output_proj.input_dim} instead."
                 )
 
             if output_proj.output_dim != model_dim:
@@ -389,7 +400,7 @@ class StandardMultiheadAttention(MultiheadAttention):
 
             if encoder_decoder_attn:
                 # The K and V tensors of an encoder-decoder attention (i.e. the
-                # projected encoder outputs) remain static during an evaluation.
+                # projected encoder outputs) remain static during evaluation.
                 if state is not None:
                     k = state.prev_k
                     v = state.prev_v
@@ -427,12 +438,14 @@ class StandardMultiheadAttention(MultiheadAttention):
         # (N, S_kv, H_kv, V_h) -> (N, H_kv, S_kv, V_h)
         v = v.transpose(1, 2)
 
-        # With grouped-query attention, each kv_head is repeated
-        # self.num_key_value_groups times to match num_heads
+        # With Grouped Query Attention, each key/value head is repeated
+        # `num_query_groups` times to match `num_heads`.
+        num_query_groups = self.num_heads // self.num_key_value_heads
+
         # (N, H_kv, S_kv, K_h) -> (N, H, S_kv, K_h)
-        k = torch.repeat_interleave(k, dim=1, repeats=self.num_key_value_groups)
+        k = torch.repeat_interleave(k, dim=1, repeats=num_query_groups)
         # (N, H_kv, S_kv, K_h) -> (N, H, S_kv, K_h)
-        v = torch.repeat_interleave(v, dim=1, repeats=self.num_key_value_groups)
+        v = torch.repeat_interleave(v, dim=1, repeats=num_query_groups)
 
         # (N, H, S, K_h) -> (N x H, S, K_h)
         q = q.flatten(0, 1)
@@ -525,8 +538,11 @@ class StandardMultiheadAttention(MultiheadAttention):
         """:meta private:"""
         s = super().extra_repr()
 
+        if self.num_key_value_heads != self.num_heads:
+            s = f"{s}, num_key_value_heads={self.num_key_value_heads}"
+
         if self.add_zero_attn:
-            s += ", add_zero_attn=True"
+            s = f"{s}, add_zero_attn=True"
 
         return s
 
@@ -537,16 +553,17 @@ class QKVProjection(Linear):
     def __init__(
         self,
         model_dim: int,
+        output_dim: int,
         bias: bool = True,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
-        super().__init__(model_dim, model_dim, bias=bias, device=device, dtype=dtype)
+        super().__init__(model_dim, output_dim, bias=bias, device=device, dtype=dtype)
 
     @override
     def _do_reset_parameters(self) -> None:
-        # Empirically observed the convergence to be much better with the
-        # scaled initialization.
+        # Empirically observed the convergence to be much better with the scaled
+        # initialization.
         nn.init.xavier_uniform_(self.weight, gain=2**-0.5)
 
         if self.bias is not None:
@@ -558,13 +575,13 @@ class AttentionOutputProjection(Linear):
 
     def __init__(
         self,
-        v_proj_dim: int,
+        v_dim: int,
         model_dim: int,
         bias: bool = True,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
-        super().__init__(v_proj_dim, model_dim, bias=bias, device=device, dtype=dtype)
+        super().__init__(v_dim, model_dim, bias=bias, device=device, dtype=dtype)
 
     @override
     def _do_reset_parameters(self) -> None:
