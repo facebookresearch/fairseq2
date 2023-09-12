@@ -185,7 +185,7 @@ class RelativePositionSDPA(SDPA):
         """:meta private:"""
         s = super().extra_repr()
 
-        return s + f", model_dim={self.model_dim}, num_heads={self.num_heads}"
+        return f"{s}, model_dim={self.model_dim}, num_heads={self.num_heads}"
 
 
 class RelativePositionalEncoding(Module):
