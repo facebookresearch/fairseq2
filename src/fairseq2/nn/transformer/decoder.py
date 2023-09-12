@@ -49,6 +49,7 @@ class TransformerDecoder(Module, ABC):
         padding_mask: Optional[Tensor],
         encoder_output: Optional[Tensor] = None,
         encoder_padding_mask: Optional[Tensor] = None,
+        *,
         state_bag: Optional[IncrementalStateBag] = None,
         layer_output_hook: Optional["DecoderLayerOutputHook"] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
@@ -120,6 +121,7 @@ class StandardTransformerDecoder(TransformerDecoder):
     def __init__(
         self,
         layers: Iterable[TransformerDecoderLayer],
+        *,
         self_attn_mask_gen: Optional[AttentionMaskGenerator] = None,
         layer_drop_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
@@ -141,7 +143,7 @@ class StandardTransformerDecoder(TransformerDecoder):
         :param layer_norm_fn:
             The factory to use to construct the Layer Normalization module.
         """
-        layer_list = ModuleList(layers, layer_drop_p)
+        layer_list = ModuleList(layers, drop_p=layer_drop_p)
         if not layer_list:
             raise ValueError("`layers` must be non-empty.")
 
@@ -160,7 +162,7 @@ class StandardTransformerDecoder(TransformerDecoder):
         self.layers = layer_list
 
         if norm_order != TransformerNormOrder.POST:
-            self.layer_norm = layer_norm_fn(model_dim, device, dtype)
+            self.layer_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
         else:
             self.register_module("layer_norm", None)
 
@@ -175,6 +177,7 @@ class StandardTransformerDecoder(TransformerDecoder):
         padding_mask: Optional[Tensor],
         encoder_output: Optional[Tensor] = None,
         encoder_padding_mask: Optional[Tensor] = None,
+        *,
         state_bag: Optional[IncrementalStateBag] = None,
         layer_output_hook: Optional[DecoderLayerOutputHook] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
@@ -195,7 +198,7 @@ class StandardTransformerDecoder(TransformerDecoder):
                 self_attn_mask,
                 encoder_output,
                 encoder_padding_mask,
-                state_bag,
+                state_bag=state_bag,
             )
 
             if layer_output_hook is not None:

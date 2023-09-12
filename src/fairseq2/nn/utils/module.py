@@ -108,10 +108,10 @@ def check_model_dim(module: Module) -> None:
 
     for name, child in module.named_children():
         if isinstance(child, ModuleList) or isinstance(child, Sequential):
-            for subname, grandchild in child.named_children():
-                if (grandchild_model_dim := get_model_dim(grandchild)) != model_dim:
+            for subname, descendant in child.named_children():
+                if (descendant_model_dim := get_model_dim(descendant)) != model_dim:
                     raise ValueError(
-                        f"`model_dim` of `{name}.{subname}` must be equal to `model_dim` ({model_dim}), but is {grandchild_model_dim} is instead."
+                        f"`model_dim` of `{name}.{subname}` must be equal to `model_dim` ({model_dim}), but is {descendant_model_dim} is instead."
                     )
         else:
             if (child_model_dim := get_model_dim(child)) != model_dim:

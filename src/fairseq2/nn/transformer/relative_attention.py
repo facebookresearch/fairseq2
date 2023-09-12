@@ -34,6 +34,7 @@ class RelativePositionSDPA(SDPA):
         self,
         model_dim: int,
         num_heads: int,
+        *,
         pos_encoding: "RelativePositionalEncoding",
         attn_dropout_p: float = 0.0,
         device: Optional[Device] = None,
@@ -49,7 +50,7 @@ class RelativePositionSDPA(SDPA):
         :param attn_dropout_p:
             The dropout probability on attention weights.
         """
-        super().__init__(attn_dropout_p)
+        super().__init__(attn_dropout_p=attn_dropout_p)
 
         if model_dim % num_heads != 0:
             raise ValueError(
@@ -92,6 +93,7 @@ class RelativePositionSDPA(SDPA):
         queries: Tensor,
         keys: Tensor,
         values: Tensor,
+        *,
         mask: Optional[Tensor] = None,
         needs_weights: bool = False,
     ) -> Tuple[Tensor, Optional[Tensor]]:
@@ -200,6 +202,7 @@ class RelativePositionalEncoding(Module):
         self,
         encoding_dim: int,
         max_seq_len: int,
+        *,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:

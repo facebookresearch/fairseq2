@@ -38,6 +38,7 @@ class TransformerModel(EncoderDecoderModel):
         decoder_frontend: TransformerFrontend,
         decoder: TransformerDecoder,
         final_proj: Projection,
+        *,
         target_pad_idx: Optional[int],
     ) -> None:
         """
@@ -85,12 +86,17 @@ class TransformerModel(EncoderDecoderModel):
         seq_lens: Optional[Tensor],
         encoder_output: Tensor,
         encoder_padding_mask: Optional[Tensor],
+        *,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
-        seqs, padding_mask = self.decoder_frontend(seqs, seq_lens, state_bag)
+        seqs, padding_mask = self.decoder_frontend(seqs, seq_lens, state_bag=state_bag)
 
         return self.decoder(  # type: ignore[no-any-return]
-            seqs, padding_mask, encoder_output, encoder_padding_mask, state_bag
+            seqs,
+            padding_mask,
+            encoder_output,
+            encoder_padding_mask,
+            state_bag=state_bag,
         )
 
     @finaloverride
@@ -110,6 +116,7 @@ class FinalProjection(Linear):
         self,
         model_dim: int,
         target_vocabulary_size: int,
+        *,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:

@@ -30,6 +30,7 @@ class AdamW(OptimizerBase):
         self,
         params: Union[Iterable[Tensor], Iterable[Dict[str, Any]]],
         lr: float = 1e-3,
+        *,
         betas: Tuple[float, float] = (0.9, 0.999),
         eps: float = 1e-8,
         weight_decay: float = 0.0,

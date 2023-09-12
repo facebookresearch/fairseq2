@@ -34,7 +34,7 @@ class AssetStore(ABC):
     """
 
     @abstractmethod
-    def retrieve_card(self, name: str, ignore_cache: bool = False) -> AssetCard:
+    def retrieve_card(self, name: str, *, ignore_cache: bool = False) -> AssetCard:
         """Retrieve the card of the specified asset.
 
         :param name:
@@ -45,7 +45,7 @@ class AssetStore(ABC):
         """
 
     @abstractmethod
-    def register_card(self, card: AssetCard, env: Optional[str] = None) -> None:
+    def register_card(self, card: AssetCard, *, env: Optional[str] = None) -> None:
         """Register the specified asset card.
 
         :param card:
@@ -66,7 +66,7 @@ class DefaultAssetStore(AssetStore):
     _storage: AssetCardStorage
     _cache: Dict[str, AssetCard]
 
-    def __init__(self, storage: AssetCardStorage, ignore_env: bool = False) -> None:
+    def __init__(self, storage: AssetCardStorage, *, ignore_env: bool = False) -> None:
         """
         :param storage:
             The asset card storage to use.
@@ -91,7 +91,7 @@ class DefaultAssetStore(AssetStore):
         return None
 
     @finaloverride
-    def retrieve_card(self, name: str, ignore_cache: bool = False) -> AssetCard:
+    def retrieve_card(self, name: str, *, ignore_cache: bool = False) -> AssetCard:
         if not ignore_cache:
             try:
                 return self._cache[name]
@@ -102,7 +102,7 @@ class DefaultAssetStore(AssetStore):
 
         if self.env:
             try:
-                env_data = self._storage.load_card(name, self.env)
+                env_data = self._storage.load_card(name, env=self.env)
 
                 # If we have an environment-specific asset card, merge it with
                 # the generic one.
@@ -125,7 +125,7 @@ class DefaultAssetStore(AssetStore):
                     f"The type of the field 'base' of the asset card '{name}' must be `{str}`, but is `{type(base_name)}` instead."
                 )
 
-            base = self.retrieve_card(base_name, ignore_cache)
+            base = self.retrieve_card(base_name, ignore_cache=ignore_cache)
 
         card = AssetCard(name, data, base)
 
@@ -134,7 +134,7 @@ class DefaultAssetStore(AssetStore):
         return card
 
     @finaloverride
-    def register_card(self, card: AssetCard, env: Optional[str] = None) -> None:
+    def register_card(self, card: AssetCard, *, env: Optional[str] = None) -> None:
         raise NotImplementedError()
 
     @finaloverride

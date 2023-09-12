@@ -217,6 +217,7 @@ class S2TTransformerBuilder:
     def __init__(
         self,
         config: S2TTransformerConfig,
+        *,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -254,7 +255,7 @@ class S2TTransformerBuilder:
             decoder_frontend,
             decoder,
             final_proj,
-            self.config.target_pad_idx,
+            target_pad_idx=self.config.target_pad_idx,
         )
 
     def build_encoder_frontend(self) -> TransformerFrontend:
@@ -272,8 +273,8 @@ class S2TTransformerBuilder:
 
         return S2TTransformerFrontend(
             self.config.model_dim,
-            feat_extractor,
-            pos_encoder,
+            feature_extractor=feat_extractor,
+            pos_encoder=pos_encoder,
             proj=self.config.use_conformer,
             dropout_p=self.config.dropout_p,
             device=self.device,
@@ -294,8 +295,8 @@ class S2TTransformerBuilder:
         pos_encoder = self.build_target_position_encoder()
 
         return TransformerEmbeddingFrontend(
-            embed,
-            pos_encoder,
+            embed=embed,
+            pos_encoder=pos_encoder,
             dropout_p=self.config.dropout_p,
             device=self.device,
             dtype=self.dtype,
@@ -426,14 +427,14 @@ class S2TTransformerBuilder:
                 self.rel_pos_encoding = RelativePositionalEncoding(
                     self.config.model_dim,
                     self.config.max_seq_len,
-                    self.device,
-                    self.dtype,
+                    device=self.device,
+                    dtype=self.dtype,
                 )
 
             sdpa = RelativePositionSDPA(
                 self.config.model_dim,
                 self.config.num_encoder_attn_heads,
-                self.rel_pos_encoding,
+                pos_encoding=self.rel_pos_encoding,
                 attn_dropout_p=self.config.dropout_p,
                 device=self.device,
                 dtype=self.dtype,
@@ -475,6 +476,7 @@ class S2TTransformerBuilder:
 
 def create_s2t_transformer_model(
     config: S2TTransformerConfig,
+    *,
     device: Optional[Device] = None,
     dtype: Optional[DataType] = None,
 ) -> TransformerModel:
@@ -487,4 +489,4 @@ def create_s2t_transformer_model(
     :param dtype:
         The data type of module parameters and buffers.
     """
-    return S2TTransformerBuilder(config, device, dtype).build_model()
+    return S2TTransformerBuilder(config, device=device, dtype=dtype).build_model()

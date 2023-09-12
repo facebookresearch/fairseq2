@@ -203,6 +203,7 @@ class LLaMABuilder:
     def __init__(
         self,
         config: LLaMAConfig,
+        *,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -245,7 +246,7 @@ class LLaMABuilder:
         )
 
         return TransformerEmbeddingFrontend(
-            embed,
+            embed=embed,
             pos_encoder=None,
             no_scale=True,  # LLaMA does not use embedding scaling.
             dropout_p=self.config.dropout_p,
@@ -327,6 +328,7 @@ class LLaMABuilder:
     def build_layer_norm(
         self,
         model_dim: int,
+        *,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> LayerNorm:
@@ -338,6 +340,7 @@ class LLaMABuilder:
 
 def create_llama_model(
     config: LLaMAConfig,
+    *,
     device: Optional[Device] = None,
     dtype: Optional[DataType] = None,
 ) -> TransformerDecoderModel:
@@ -350,4 +353,4 @@ def create_llama_model(
     :param dtype:
         The data type of module parameters and buffers.
     """
-    return LLaMABuilder(config, device, dtype).build_model()
+    return LLaMABuilder(config, device=device, dtype=dtype).build_model()

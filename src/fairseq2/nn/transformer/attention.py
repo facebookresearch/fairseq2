@@ -25,7 +25,7 @@ class SDPA(Module, ABC):
 
     attn_dropout_p: float
 
-    def __init__(self, attn_dropout_p: float = 0.0) -> None:
+    def __init__(self, *, attn_dropout_p: float = 0.0) -> None:
         """
         :param attn_dropout_p:
             The dropout probability on attention weights.
@@ -40,6 +40,7 @@ class SDPA(Module, ABC):
         queries: Tensor,
         keys: Tensor,
         values: Tensor,
+        *,
         mask: Optional[Tensor] = None,
         needs_weights: bool = False,
     ) -> Tuple[Tensor, Optional[Tensor]]:
@@ -83,8 +84,8 @@ class SDPA(Module, ABC):
 class TorchSDPA(SDPA):
     """Computes scaled dot-product attention using PyTorch SDPA v2."""
 
-    def __init__(self, attn_dropout_p: float = 0.0) -> None:
-        super().__init__(attn_dropout_p)
+    def __init__(self, *, attn_dropout_p: float = 0.0) -> None:
+        super().__init__(attn_dropout_p=attn_dropout_p)
 
         if not is_pt2_or_greater():
             raise ValueError("`TorchSDPA` requires PyTorch 2.0.0 or greater.")
@@ -97,6 +98,7 @@ class TorchSDPA(SDPA):
         queries: Tensor,
         keys: Tensor,
         values: Tensor,
+        *,
         mask: Optional[Tensor] = None,
         needs_weights: bool = False,
     ) -> Tuple[Tensor, Optional[Tensor]]:
@@ -159,6 +161,7 @@ class NaiveSDPA(SDPA):
         queries: Tensor,
         keys: Tensor,
         values: Tensor,
+        *,
         mask: Optional[Tensor] = None,
         needs_weights: bool = False,
     ) -> Tuple[Tensor, Optional[Tensor]]:
@@ -173,16 +176,16 @@ class NaiveSDPA(SDPA):
         )
 
 
-def create_default_sdpa(attn_dropout_p: float = 0.0) -> SDPA:
+def create_default_sdpa(*, attn_dropout_p: float = 0.0) -> SDPA:
     """Create an instance of the default scaled dot-product attention module.
 
     :param attn_dropout_p:
         The dropout probability on attention weights.
     """
     if is_pt2_or_greater():
-        return TorchSDPA(attn_dropout_p)
+        return TorchSDPA(attn_dropout_p=attn_dropout_p)
     else:
-        return NaiveSDPA(attn_dropout_p)
+        return NaiveSDPA(attn_dropout_p=attn_dropout_p)
 
 
 def _naive_scaled_dot_product_attention(

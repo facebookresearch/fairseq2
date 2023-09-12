@@ -33,6 +33,7 @@ class S2TTransformerFrontend(TransformerFrontend):
     def __init__(
         self,
         model_dim: int,
+        *,
         feature_extractor: Optional[SequenceFeatureExtractor],
         pos_encoder: Optional[PositionEncoder],
         proj: bool = False,
@@ -96,6 +97,7 @@ class S2TTransformerFrontend(TransformerFrontend):
         self,
         seqs: Tensor,
         seq_lens: Optional[Tensor],
+        *,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         if state_bag is not None:

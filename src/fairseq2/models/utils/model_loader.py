@@ -102,6 +102,7 @@ class ModelFactory(Protocol[ModelConfigT_contra, ModelT_co]):
     def __call__(
         self,
         config: ModelConfigT_contra,
+        *,
         device: Optional[Device],
         dtype: Optional[DataType],
     ) -> ModelT_co:
@@ -149,6 +150,7 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
     def __call__(
         self,
         model_name_or_card: Union[str, AssetCard],
+        *,
         force: bool = False,
         progress: bool = True,
         device: Optional[Device] = None,
@@ -192,11 +194,11 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
 
         try:
             # Try to construct the model on the meta device.
-            model = self.model_factory(config, Device("meta"), dtype)
+            model = self.model_factory(config, device=Device("meta"), dtype=dtype)
         except NotImplementedError:
             # If we are here, it means the model has at least one operator that
             # does not support meta device. Do regular model initialization.
-            model = self.model_factory(config, device, dtype)
+            model = self.model_factory(config, device=device, dtype=dtype)
         else:
             # Move the model to the actual device without initializing. Its
             # state will be overwritten by the checkpoint anyways.

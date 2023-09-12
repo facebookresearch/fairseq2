@@ -23,7 +23,7 @@ class W2VBertModel(Module):
     :cite:t`https://doi.org/10.48550/arxiv.2108.06209`."""
 
     model_dim: int
-    w2v2: Wav2Vec2Model
+    w2v2_model: Wav2Vec2Model
     num_bert_encoder_layers: int
     num_target_codebooks: int
     w2v2_loss_weight: float
@@ -32,7 +32,8 @@ class W2VBertModel(Module):
 
     def __init__(
         self,
-        w2v2: Wav2Vec2Model,
+        *,
+        w2v2_model: Wav2Vec2Model,
         num_bert_encoder_layers: int,
         num_target_codebooks: int = 1,
         w2v2_loss_weight: float = 1.0,
@@ -42,7 +43,7 @@ class W2VBertModel(Module):
         dtype: Optional[DataType] = None,
     ) -> None:
         """
-        :param w2v2:
+        :param w2v2_model:
             The wav2vec 2.0 model to use.
         :param num_bert_encoder_layers:
             The number of Transformer encoder layers to use for masked
@@ -59,15 +60,15 @@ class W2VBertModel(Module):
         """
         super().__init__()
 
-        self.model_dim = w2v2.model_dim
+        self.model_dim = w2v2_model.model_dim
 
-        self.w2v2 = w2v2
+        self.w2v2_model = w2v2_model
 
         self.num_bert_encoder_layers = num_bert_encoder_layers
 
         self.final_bert_proj = Linear(
             self.model_dim,
-            w2v2.quantizer.num_codebook_entries * num_target_codebooks,
+            w2v2_model.quantizer.num_codebook_entries * num_target_codebooks,
             bias=True,
             device=device,
             dtype=dtype,
@@ -84,7 +85,7 @@ class W2VBertModel(Module):
         :param batch:
             The batch of sequences to process.
         """
-        seqs, padding_mask, targets, temporal_mask = self.w2v2.run_frontend(
+        seqs, padding_mask, targets, temporal_mask = self.w2v2_model.run_frontend(
             batch.seqs, batch.seq_lens
         )
 
@@ -102,11 +103,13 @@ class W2VBertModel(Module):
                 w2v2_layer_output = layer_output
 
         # TODO: Should we pad for fp16?
-        encoder_output, _ = self.w2v2.encoder(seqs, padding_mask, layer_output_hook)
+        encoder_output, _ = self.w2v2_model.encoder(
+            seqs, padding_mask, layer_output_hook=layer_output_hook
+        )
 
         assert w2v2_layer_output is not None
 
-        w2v2_output = self.w2v2.quantize_and_contrast(
+        w2v2_output = self.w2v2_model.quantize_and_contrast(
             w2v2_layer_output, targets, temporal_mask
         )
 
@@ -116,7 +119,9 @@ class W2VBertModel(Module):
 
         # (N, S_msk, V x G) -> (N x S_msk, V, G)
         bert_logits = bert_logits.view(
-            -1, self.w2v2.quantizer.num_codebook_entries, self.num_target_codebooks
+            -1,
+            self.w2v2_model.quantizer.num_codebook_entries,
+            self.num_target_codebooks,
         )
 
         bert_targets = w2v2_output.quantizer_output.get_target_indices(
@@ -196,7 +201,7 @@ class W2VBertLoss:
     bert: Tensor
     """The masked prediction loss."""
 
-    w2v2: Wav2Vec2Loss
+    w2v2_loss: Wav2Vec2Loss
     """The loss of the wav2vec 2.0 model."""
 
     def backward(self) -> None:

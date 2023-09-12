@@ -46,6 +46,7 @@ class ConformerBlock(TransformerEncoderLayer):
         self_attn: MultiheadAttention,
         conv: ConformerConvolution,
         ffn2: FeedForwardNetwork,
+        *,
         dropout_p: float = 0.1,
         layer_norm_fn: Optional[LayerNormFactory] = None,
         device: Optional[Device] = None,
@@ -73,7 +74,7 @@ class ConformerBlock(TransformerEncoderLayer):
         if layer_norm_fn is None:
             layer_norm_fn = create_default_layer_norm
 
-        self.ffn1_layer_norm = layer_norm_fn(model_dim, device, dtype)
+        self.ffn1_layer_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
 
         self.ffn1 = ffn1
 
@@ -82,7 +83,7 @@ class ConformerBlock(TransformerEncoderLayer):
         else:
             self.register_module("ffn1_dropout", None)
 
-        self.self_attn_layer_norm = layer_norm_fn(model_dim, device, dtype)
+        self.self_attn_layer_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
 
         self.self_attn = self_attn
 
@@ -91,7 +92,7 @@ class ConformerBlock(TransformerEncoderLayer):
         else:
             self.register_module("self_attn_dropout", None)
 
-        self.conv_layer_norm = layer_norm_fn(model_dim, device, dtype)
+        self.conv_layer_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
 
         self.conv = conv
 
@@ -100,7 +101,7 @@ class ConformerBlock(TransformerEncoderLayer):
         else:
             self.register_module("conv_dropout", None)
 
-        self.ffn2_layer_norm = layer_norm_fn(model_dim, device, dtype)
+        self.ffn2_layer_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
 
         self.ffn2 = ffn2
 
@@ -109,7 +110,7 @@ class ConformerBlock(TransformerEncoderLayer):
         else:
             self.register_module("ffn2_dropout", None)
 
-        self.layer_norm = layer_norm_fn(model_dim, device, dtype)
+        self.layer_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
 
         check_model_dim(self)
 

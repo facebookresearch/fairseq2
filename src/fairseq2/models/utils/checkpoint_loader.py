@@ -35,6 +35,7 @@ class CheckpointConverter(Protocol):
 def load_checkpoint(
     pathname: PathLike,
     model_name: str,
+    *,
     checkpoint_name: Optional[str] = None,
     map_location: MapLocation = None,
     restrict: bool = False,

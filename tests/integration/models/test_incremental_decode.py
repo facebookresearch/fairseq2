@@ -94,7 +94,7 @@ def test_incremental_decoding_works() -> None:
             target_seq_len_mask[:, idx],
             encoder_output,
             encoder_padding_mask,
-            state_bag,
+            state_bag=state_bag,
         )
 
         state_bag.increment_step()

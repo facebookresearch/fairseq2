@@ -44,6 +44,7 @@ class Wav2Vec2Model(Module):
         self,
         encoder_frontend: Wav2Vec2Frontend,
         encoder: TransformerEncoder,
+        *,
         masker: Wav2Vec2Masker,
         quantizer: VectorQuantizer,
         final_dim: int,
@@ -168,7 +169,7 @@ class Wav2Vec2Model(Module):
             targets = frontend.first_pass_dropout(targets)
 
         seqs, padding_mask, temporal_mask = frontend.process_features(
-            seqs, seq_lens, self.masker
+            seqs, seq_lens, masker=self.masker
         )
 
         assert temporal_mask is not None

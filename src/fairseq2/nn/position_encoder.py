@@ -41,6 +41,7 @@ class PositionEncoder(Module, ABC):
         self,
         seqs: Tensor,
         padding_mask: Optional[Tensor] = None,
+        *,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
         """
@@ -158,6 +159,7 @@ class SinusoidalPositionEncoder(PositionEncoder):
         self,
         encoding_dim: int,
         max_seq_len: int,
+        *,
         _legacy_pad_idx: Optional[int] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
@@ -271,6 +273,7 @@ class LearnedPositionEncoder(PositionEncoder):
         self,
         encoding_dim: int,
         max_seq_len: int,
+        *,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -320,6 +323,7 @@ class RotaryEncoder(PositionEncoder):
         self,
         encoding_dim: int,
         max_seq_len: int,
+        *,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:

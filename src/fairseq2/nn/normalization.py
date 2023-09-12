@@ -28,6 +28,7 @@ class LayerNorm(Module, ABC):
     def __init__(
         self,
         normalized_shape: Union[int, Sequence[int], torch.Size],
+        *,
         eps: float = 1e-5,
         elementwise_affine: bool = True,
         bias: bool = True,

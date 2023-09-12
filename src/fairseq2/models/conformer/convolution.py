@@ -28,6 +28,7 @@ class ConformerConvolution(Module):
     def __init__(
         self,
         model_dim: int,
+        *,
         depthwise_kernel_size: int,
         depthwise_activation: Optional[Module] = None,
         device: Optional[Device] = None,

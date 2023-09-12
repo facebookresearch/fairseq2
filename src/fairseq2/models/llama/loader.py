@@ -82,7 +82,7 @@ class LLaMATokenizerLoader:
         self.download_manager = download_manager
 
     def __call__(
-        self, model_name: str, force: bool = False, progress: bool = True
+        self, model_name: str, *, force: bool = False, progress: bool = True
     ) -> LLaMATokenizer:
         """
         :param name:

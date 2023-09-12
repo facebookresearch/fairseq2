@@ -23,7 +23,7 @@ class BeamSearch(ABC):
 
     @abstractmethod
     def step(
-        self, step_nr: int, is_start_step: bool, lprobs: Tensor, scores: Tensor
+        self, *, step_nr: int, is_start_step: bool, lprobs: Tensor, scores: Tensor
     ) -> Tuple[Tensor, Tensor, Tensor]:
         """Take a single search step.
 
@@ -61,7 +61,7 @@ class StandardBeamSearch(BeamSearch):
 
     @finaloverride
     def step(
-        self, step_nr: int, is_start_step: bool, lprobs: Tensor, scores: Tensor
+        self, *, step_nr: int, is_start_step: bool, lprobs: Tensor, scores: Tensor
     ) -> Tuple[Tensor, Tensor, Tensor]:
         batch_size, beam_size, vocab_size = lprobs.size()
 

@@ -41,6 +41,7 @@ class LLaMATokenizer(TextTokenizer):
     @finaloverride
     def create_encoder(
         self,
+        *,
         task: Optional[str] = None,
         lang: Optional[str] = None,
         mode: Optional[str] = None,

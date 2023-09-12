@@ -24,6 +24,7 @@ class Profiler:
 
     def __init__(
         self,
+        *,
         skip_first: int,
         active: int,
         log_dir: PathLike,
