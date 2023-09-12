@@ -383,7 +383,7 @@ class S2TTransformerBuilder:
 
         conv = ConformerConvolution(
             self.config.model_dim,
-            self.config.depthwise_conv_kernel_size,
+            depthwise_kernel_size=self.config.depthwise_conv_kernel_size,
             device=self.device,
             dtype=self.dtype,
         )
