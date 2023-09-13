@@ -147,10 +147,10 @@ class S2TTransformerTokenizerLoader:
                     fp.extract(filename, path=zip_pathname.parent)
             except (KeyError, IOError) as ex:
                 raise RuntimeError(
-                    f"The load of the target tokenizer of the model '{card.name}' has failed. Please file a bug report."
+                    f"The tokenizer of {card.name} cannot be loaded. Please file a bug report."
                 ) from ex
 
-        # The valid task names ares transcription and translation.
+        # The only valid task names ares transcription and translation.
         task = card.field("task").as_one_of({"transcription", "translation"})
 
         target_langs = card.field("tgt_langs").as_list(str)

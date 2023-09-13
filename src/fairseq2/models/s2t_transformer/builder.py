@@ -181,8 +181,8 @@ def _large() -> S2TTransformerConfig:
     )
 
 
-@s2t_transformer_arch("conformer")
-def _conformer() -> S2TTransformerConfig:
+@s2t_transformer_arch("conformer_medium")
+def _conformer_medium() -> S2TTransformerConfig:
     return S2TTransformerConfig(
         model_dim=256,
         max_seq_len=6000,
