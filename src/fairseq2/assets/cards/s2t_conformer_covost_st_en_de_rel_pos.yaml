@@ -4,9 +4,9 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-name: s2t_conformer_rel_pos_covost_st_en_de
+name: s2t_conformer_covost_st_en_de_rel_pos
 model_type: s2t_transformer
-model_arch: conformer
+model_arch: conformer_medium
 model_config:
     use_relative_pos: true
 task: translation

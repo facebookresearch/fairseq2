@@ -23,7 +23,7 @@ TEST_FBANK_PATH: Final = Path(__file__).parent.joinpath("fbank.pt")
 # fmt: off
 TRANSFORMER_DE:       Final = "<lang:de> Es war Zeit des Abendessens, und wir suchten nach einem Ort, an dem wir essen konnten."
 CONFORMER_DE:         Final = "Es war das Abendessen, und wir begannen, nach dem Essen zu suchen."
-CONFORMER_REL_POS_DE: Final = "Es war Essenszeit, und wir beginnen nach Ort zu suchen."
+CONFORMER_DE_REL_POS: Final = "Es war Essenszeit, und wir beginnen nach Ort zu suchen."
 # fmt: on
 
 
@@ -53,14 +53,14 @@ def test_load_s2t_conformer_covost_st_en_de() -> None:
 
 def test_load_s2t_conformer_rel_pos_covost_st_en_de() -> None:
     model = load_s2t_transformer_model(
-        "s2t_conformer_rel_pos_covost_st_en_de", device=device, progress=False
+        "s2t_conformer_covost_st_en_de_rel_pos", device=device, progress=False
     )
 
     tokenizer = load_s2t_transformer_tokenizer(
-        "s2t_conformer_rel_pos_covost_st_en_de", progress=False
+        "s2t_conformer_covost_st_en_de_rel_pos", progress=False
     )
 
-    assert_translation(model, tokenizer, expected=CONFORMER_REL_POS_DE)
+    assert_translation(model, tokenizer, expected=CONFORMER_DE_REL_POS)
 
 
 def assert_translation(

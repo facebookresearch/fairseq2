@@ -6,7 +6,7 @@
 
 name: s2t_conformer_covost_st_en_de
 model_type: s2t_transformer
-model_arch: conformer
+model_arch: conformer_medium
 task: translation
 tgt_langs: [de]
 tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/covost2_en_de_st_vocab_char.zip"
