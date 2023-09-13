@@ -89,7 +89,11 @@ class NllbLoader(ModelLoader[TransformerModel, NllbConfig]):
 
 
 load_nllb_model = NllbLoader(
-    asset_store, download_manager, create_nllb_model, nllb_archs
+    asset_store,
+    download_manager,
+    create_nllb_model,
+    nllb_archs,
+    restrict_checkpoints=False,
 )
 
 

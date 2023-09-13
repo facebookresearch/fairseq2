@@ -123,6 +123,7 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
     download_manager: AssetDownloadManager
     model_factory: ModelFactory[ModelConfigT, ModelT]
     config_loader: ModelConfigLoader[ModelConfigT]
+    restrict_checkpoints: bool
 
     def __init__(
         self,
@@ -130,6 +131,7 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
         download_manager: AssetDownloadManager,
         model_factory: ModelFactory[ModelConfigT, ModelT],
         archs: ArchitectureRegistry[ModelConfigT],
+        restrict_checkpoints: bool = True,
     ) -> None:
         """
         :param asset_store:
@@ -140,12 +142,17 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
             The callable responsible for constructing models.
         :param archs:
             The registry containing all supported model architectures.
+        :param restrict_checkpoints:
+            If ``True``, restricts the Python unpickler to load only tensors,
+            primitive types, and dictionaries.
         """
         self.asset_store = asset_store
         self.download_manager = download_manager
         self.model_factory = model_factory
 
         self.config_loader = ModelConfigLoader(asset_store, archs)
+
+        self.restrict_checkpoints = restrict_checkpoints
 
     def __call__(
         self,
@@ -189,6 +196,7 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
             pathname,
             card.name,
             map_location="cpu",
+            restrict=self.restrict_checkpoints,
             converter=partial(self._upgrade_checkpoint, config=config),
         )
 

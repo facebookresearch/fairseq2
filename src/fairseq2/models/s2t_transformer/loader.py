@@ -86,7 +86,11 @@ class S2TTransformerLoader(ModelLoader[TransformerModel, S2TTransformerConfig]):
 
 
 load_s2t_transformer_model = S2TTransformerLoader(
-    asset_store, download_manager, create_s2t_transformer_model, s2t_transformer_archs
+    asset_store,
+    download_manager,
+    create_s2t_transformer_model,
+    s2t_transformer_archs,
+    restrict_checkpoints=False,
 )
 
 
