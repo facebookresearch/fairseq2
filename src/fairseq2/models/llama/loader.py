@@ -4,11 +4,12 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, Mapping, final
+from typing import Any, Dict, Mapping, Union, final
 
 from overrides import override as finaloverride
 
 from fairseq2.assets import (
+    AssetCard,
     AssetDownloadManager,
     AssetStore,
     asset_store,
@@ -82,17 +83,24 @@ class LLaMATokenizerLoader:
         self.download_manager = download_manager
 
     def __call__(
-        self, model_name: str, *, force: bool = False, progress: bool = True
+        self,
+        model_name_or_card: Union[str, AssetCard],
+        *,
+        force: bool = False,
+        progress: bool = True,
     ) -> LLaMATokenizer:
         """
-        :param name:
-            The name of the model.
+        :param model_name_or_card:
+            The name or asset card of the model whose tokenizer to load.
         :param force:
             If ``True``, downloads the tokenizer even if it is already in cache.
         :param progress:
             If ``True``, displays a progress bar to stderr.
         """
-        card = self.asset_store.retrieve_card(model_name)
+        if isinstance(model_name_or_card, AssetCard):
+            card: AssetCard = model_name_or_card
+        else:
+            card = self.asset_store.retrieve_card(model_name_or_card)
 
         uri = card.field("tokenizer").as_uri()
 
