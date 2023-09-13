@@ -169,7 +169,7 @@ class NllbBuilder:
         encoder = self.build_encoder()
         decoder = self.build_decoder()
 
-        final_proj = TiedProjection(embed.weight)
+        final_proj = TiedProjection(embed.weight, bias=None)
 
         return TransformerModel(
             frontend,
@@ -202,8 +202,8 @@ class NllbBuilder:
         )
 
         return TransformerEmbeddingFrontend(
-            embed=embed,
-            pos_encoder=pos_encoder,
+            embed,
+            pos_encoder,
             dropout_p=self.config.dropout_p,
             device=self.device,
             dtype=self.dtype,
@@ -285,6 +285,7 @@ class NllbBuilder:
         return StandardFeedForwardNetwork(
             self.config.model_dim,
             self.config.ffn_inner_dim,
+            bias=True,
             norm_order=TransformerNormOrder.PRE,
             device=self.device,
             dtype=self.dtype,

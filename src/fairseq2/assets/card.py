@@ -104,7 +104,7 @@ class AssetCardField:
         self.path = path
         self.data = data
 
-    def as_(self, kls: Type[T], *, allow_empty: bool = False) -> T:
+    def as_(self, kls: Type[T], allow_empty: bool = False) -> T:
         """Return the value of this field if it exists and is of type ``kls``;
         otherwise, raise an :class:`AssertCardError`.
 
@@ -159,7 +159,7 @@ class AssetCardField:
 
         return value
 
-    def as_list(self, kls: Type[T], *, allow_empty: bool = False) -> List[T]:
+    def as_list(self, kls: Type[T], allow_empty: bool = False) -> List[T]:
         """Return the value of this field as a :class:`list` if all its elements
         are of type ``kls``; otherwise, raise an :class:`AssertCardError`.
 
@@ -168,7 +168,7 @@ class AssetCardField:
         :param allow_empty:
             If ``True``, allows the list to be empty.
         """
-        value = self.as_(list, allow_empty=allow_empty)
+        value = self.as_(list, allow_empty)
 
         for elem in value:
             if not isinstance(elem, kls):

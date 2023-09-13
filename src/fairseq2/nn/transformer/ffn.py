@@ -66,10 +66,10 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         self,
         model_dim: int,
         inner_dim: int,
+        bias: bool,
         *,
         inner_activation: Optional[Module] = None,
         inner_dropout_p: float = 0.0,
-        bias: bool = True,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         layer_norm_fn: Optional[LayerNormFactory] = None,
         device: Optional[Device] = None,
@@ -80,14 +80,14 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
             The dimensionality of the model.
         :param inner_dim:
             The dimensionality of the inner projection layer.
+        :param bias:
+            If ``True``, both the inner and output projection learn an additive
+            bias.
         :param inner_activation:
             The activation to apply to outputs of the inner projection layer. If
             ``None``, :func:`~torch.nn.ReLU` will be used.
         :param inner_dropout_p:
             The dropout probability on outputs of the inner projection layer.
-        :param bias:
-            If ``True``, both the inner and output projections learn an additive
-            bias.
         :param norm_order:
             The Layer Normalization order to use.
         :param layer_norm_fn:
@@ -98,9 +98,7 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         if layer_norm_fn is None:
             layer_norm_fn = create_default_layer_norm
 
-        self.inner_proj = Linear(
-            model_dim, inner_dim, bias=bias, device=device, dtype=dtype
-        )
+        self.inner_proj = Linear(model_dim, inner_dim, bias, device=device, dtype=dtype)
 
         if inner_activation is None:
             self.inner_activation = ReLU()
@@ -118,7 +116,7 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
             self.register_module("inner_layer_norm", None)
 
         self.output_proj = Linear(
-            inner_dim, model_dim, bias=bias, device=device, dtype=dtype
+            inner_dim, model_dim, bias, device=device, dtype=dtype
         )
 
     @finaloverride
@@ -155,12 +153,12 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
         self,
         model_dim: int,
         inner_dim: int,
+        bias: bool,
         *,
         gate_activation: Optional[Module] = None,
         inner_dim_scale: float = 2 / 3,
         inner_dim_to_multiple: int = 2,
         inner_dropout_p: float = 0.0,
-        bias: bool = False,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -169,6 +167,8 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
             The dimensionality of the model.
         :param inner_dim:
             The non-scaled dimensionality of the inner projection layer.
+        :param bias:
+            If ``True``, all projections learn an additive bias.
         :param gate_activation:
             The activation to apply to outputs of the gate projection. If
             ``None``, :func:`~torch.nn.SiLU` will be used.
@@ -180,8 +180,6 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
             the nearest multiple of the specified value.
         :param inner_dropout_p:
             The dropout probability on outputs of the inner projection layer.
-        :param bias:
-            If ``True``, all projections learn an additive bias.
         """
         super().__init__(model_dim)
 
@@ -197,18 +195,14 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
                 (inner_dim + inner_dim_to_multiple - 1) // inner_dim_to_multiple
             )
 
-        self.gate_proj = Linear(
-            model_dim, inner_dim, bias=bias, device=device, dtype=dtype
-        )
+        self.gate_proj = Linear(model_dim, inner_dim, bias, device=device, dtype=dtype)
 
         if gate_activation is None:
             self.gate_activation = SiLU()
         else:
             self.gate_activation = gate_activation
 
-        self.inner_proj = Linear(
-            model_dim, inner_dim, bias=bias, device=device, dtype=dtype
-        )
+        self.inner_proj = Linear(model_dim, inner_dim, bias, device=device, dtype=dtype)
 
         if inner_dropout_p > 0.0:
             self.inner_dropout = Dropout(inner_dropout_p)
@@ -216,7 +210,7 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
             self.register_module("inner_dropout", None)
 
         self.output_proj = Linear(
-            inner_dim, model_dim, bias=bias, device=device, dtype=dtype
+            inner_dim, model_dim, bias, device=device, dtype=dtype
         )
 
     @finaloverride

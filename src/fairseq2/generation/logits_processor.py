@@ -58,9 +58,7 @@ class BannedSequenceLogitsProcessor(LogitsProcessor):
     device: Device
     """device used for all inner tensors."""
 
-    def __init__(
-        self, *, banned_seqs: List[Tensor], pad_idx: int, device: Device
-    ) -> None:
+    def __init__(self, banned_seqs: List[Tensor], pad_idx: int, device: Device) -> None:
         """
         :param banned_seqs:
             list of token sequences to ban.

@@ -40,7 +40,7 @@ class PositionEncoder(Module, ABC):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[Tensor] = None,
+        padding_mask: Optional[Tensor],
         *,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:

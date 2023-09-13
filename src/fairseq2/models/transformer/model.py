@@ -38,7 +38,6 @@ class TransformerModel(EncoderDecoderModel):
         decoder_frontend: TransformerFrontend,
         decoder: TransformerDecoder,
         final_proj: Projection,
-        *,
         target_pad_idx: Optional[int],
     ) -> None:
         """

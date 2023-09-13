@@ -28,7 +28,7 @@ def seed(value: int) -> None:
     torch.manual_seed(value)
 
 
-def use_deterministic(value: bool, *, warn_only: bool = False) -> None:
+def use_deterministic(value: bool, warn_only: bool = False) -> None:
     """Set whether PyTorch algorithms must use deterministic algorithms.
 
     :param value:

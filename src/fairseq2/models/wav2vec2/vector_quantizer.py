@@ -75,11 +75,11 @@ class GumbelVectorQuantizer(VectorQuantizer):
 
     def __init__(
         self,
-        *,
         input_dim: int,
         output_dim: int,
         num_codebooks: int,
         num_codebook_entries: int,
+        *,
         codebook_sampling_temperature: Tuple[float, float, float],
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,

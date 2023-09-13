@@ -273,8 +273,8 @@ class S2TTransformerBuilder:
 
         return S2TTransformerFrontend(
             self.config.model_dim,
-            feature_extractor=feat_extractor,
-            pos_encoder=pos_encoder,
+            feat_extractor,
+            pos_encoder,
             proj=self.config.use_conformer,
             dropout_p=self.config.dropout_p,
             device=self.device,
@@ -295,8 +295,8 @@ class S2TTransformerBuilder:
         pos_encoder = self.build_target_position_encoder()
 
         return TransformerEmbeddingFrontend(
-            embed=embed,
-            pos_encoder=pos_encoder,
+            embed,
+            pos_encoder,
             dropout_p=self.config.dropout_p,
             device=self.device,
             dtype=self.dtype,
@@ -383,7 +383,7 @@ class S2TTransformerBuilder:
 
         conv = ConformerConvolution(
             self.config.model_dim,
-            depthwise_kernel_size=self.config.depthwise_conv_kernel_size,
+            self.config.depthwise_conv_kernel_size,
             device=self.device,
             dtype=self.dtype,
         )
@@ -434,7 +434,7 @@ class S2TTransformerBuilder:
             sdpa = RelativePositionSDPA(
                 self.config.model_dim,
                 self.config.num_encoder_attn_heads,
-                pos_encoding=self.rel_pos_encoding,
+                self.rel_pos_encoding,
                 attn_dropout_p=self.config.dropout_p,
                 device=self.device,
                 dtype=self.dtype,
@@ -467,6 +467,7 @@ class S2TTransformerBuilder:
         return StandardFeedForwardNetwork(
             self.config.model_dim,
             self.config.ffn_inner_dim,
+            bias=True,
             inner_activation=SiLU() if use_swish else None,
             inner_dropout_p=self.config.dropout_p,
             device=self.device,

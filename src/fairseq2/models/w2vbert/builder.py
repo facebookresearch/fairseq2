@@ -224,8 +224,8 @@ class W2VBertBuilder:
         w2v2_model = self.w2v2_builder.build_model()
 
         return W2VBertModel(
-            w2v2_model=w2v2_model,
-            num_bert_encoder_layers=self.config.num_bert_encoder_layers,
+            w2v2_model,
+            self.config.num_bert_encoder_layers,
             num_target_codebooks=self.config.num_target_codebooks,
             w2v2_loss_weight=self.config.w2v2_loss_weight,
             bert_loss_weight=self.config.bert_loss_weight,

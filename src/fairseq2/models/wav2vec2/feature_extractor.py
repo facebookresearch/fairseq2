@@ -30,9 +30,9 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
 
     def __init__(
         self,
-        *,
         layer_descs: Sequence[Tuple[int, int, int]],
-        bias: bool = False,
+        bias: bool,
+        *,
         dropout_p: float = 0.0,
         layer_norm: bool = False,
         grad_scale: float = 1.0,
@@ -73,7 +73,9 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
 
             # If Layer Normalization is requested, apply it in all layers.
             if layer_norm:
-                layer_norm_ = Float32LayerNorm(output_dim, device=device, dtype=dtype)
+                layer_norm_ = Float32LayerNorm(
+                    output_dim, bias=True, device=device, dtype=dtype
+                )
 
                 group_norm_ = None
 
@@ -90,11 +92,11 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
                 layer_norm_ = None
 
             layer = Wav2Vec2FeatureExtractionLayer(
-                input_dim=input_dim,
-                output_dim=output_dim,
-                kernel_size=kernel_size,
-                stride=stride,
-                bias=bias,
+                input_dim,
+                output_dim,
+                kernel_size,
+                stride,
+                bias,
                 dropout_p=dropout_p,
                 group_norm=group_norm_,
                 layer_norm=layer_norm_,
@@ -173,12 +175,12 @@ class Wav2Vec2FeatureExtractionLayer(Module):
 
     def __init__(
         self,
-        *,
         input_dim: int,
         output_dim: int,
         kernel_size: int,
         stride: int,
-        bias: bool = False,
+        bias: bool,
+        *,
         dropout_p: float = 0.0,
         group_norm: Optional[GroupNorm] = None,
         layer_norm: Optional[LayerNorm] = None,
@@ -256,7 +258,7 @@ class Wav2Vec2FbankFeatureExtractor(SequenceFeatureExtractor):
     sample_every_k: int
 
     def __init__(
-        self, *, num_fbank_channels: int, stride: int, sample_every_k: int = 1
+        self, num_fbank_channels: int, stride: int, *, sample_every_k: int = 1
     ):
         super().__init__(feature_dim=num_fbank_channels * stride)
 
