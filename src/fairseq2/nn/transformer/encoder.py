@@ -77,16 +77,22 @@ class EncoderLayerOutputHook(Protocol):
         layer_output: Tensor,
         layer_padding_mask: Optional[Tensor],
         num_layers: int,
-    ) -> None:
+    ) -> bool:
         """
         :param layer_idx:
             The index of the layer in the encoder stack.
         :param layer_output:
             The encoded output of the layer.
         :param layer_padding_mask:
-            The padding mask of `layer_output`.
+            The padding mask of ``layer_output``.
         :param num_layers:
             The number of layers in the encoder stack.
+
+        :returns:
+            ``True`` if the encoder should continue executing the remaining
+            layers in the stack; ``False`` if the encoder should stop executing
+            the remaining layers and treat this layer as the final layer in the
+            stack.
         """
 
 
@@ -158,7 +164,8 @@ class StandardTransformerEncoder(TransformerEncoder):
             seqs, padding_mask = layer(seqs, padding_mask)
 
             if layer_output_hook is not None:
-                layer_output_hook(layer_idx, seqs, padding_mask, num_layers)
+                if not layer_output_hook(layer_idx, seqs, padding_mask, num_layers):
+                    break
 
         if self.layer_norm is not None:
             seqs = self.layer_norm(seqs)

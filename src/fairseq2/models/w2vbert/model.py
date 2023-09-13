@@ -96,11 +96,13 @@ class W2VBertModel(Module):
             layer_output: Tensor,
             layer_padding_mask: Optional[Tensor],
             num_layers: int,
-        ) -> None:
+        ) -> bool:
             nonlocal w2v2_layer_output
 
             if layer_idx == num_layers - self.num_bert_encoder_layers - 1:
                 w2v2_layer_output = layer_output
+
+            return True
 
         # TODO: Should we pad for fp16?
         encoder_output, _ = self.w2v2_model.encoder(
