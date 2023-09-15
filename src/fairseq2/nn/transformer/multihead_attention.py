@@ -457,7 +457,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         v = v.flatten(0, 1)
 
         if self.pos_encoder is not None:
-            q = self.pos_encoder(q, padding_mask, state_bag)
+            q = self.pos_encoder(q, padding_mask, state_bag=state_bag)
             k = self.pos_encoder(k, key_padding_mask)
 
         mask_pad = 0
