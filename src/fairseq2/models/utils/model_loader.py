@@ -197,7 +197,7 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
             card.name,
             map_location="cpu",
             restrict=self.restrict_checkpoints,
-            converter=partial(self._upgrade_checkpoint, config=config),
+            converter=partial(self._convert_checkpoint, config=config),
         )
 
         try:
@@ -233,7 +233,7 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
 
         return model
 
-    def _upgrade_checkpoint(
+    def _convert_checkpoint(
         self, checkpoint: Mapping[str, Any], config: ModelConfigT
     ) -> Mapping[str, Any]:
         """Upgrade ``checkpoint`` to be compatible with fairseq2.

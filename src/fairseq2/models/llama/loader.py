@@ -27,7 +27,7 @@ class LLaMALoader(ModelLoader[TransformerDecoderModel, LLaMAConfig]):
     """Loads LLaMA models."""
 
     @finaloverride
-    def _upgrade_checkpoint(
+    def _convert_checkpoint(
         self, checkpoint: Mapping[str, Any], config: LLaMAConfig
     ) -> Mapping[str, Any]:
         key_map = self._key_map()

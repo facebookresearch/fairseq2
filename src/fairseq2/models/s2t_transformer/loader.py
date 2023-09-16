@@ -31,7 +31,7 @@ class S2TTransformerLoader(ModelLoader[TransformerModel, S2TTransformerConfig]):
     """Loads S2T Transformer models."""
 
     @finaloverride
-    def _upgrade_checkpoint(
+    def _convert_checkpoint(
         self, checkpoint: Mapping[str, Any], config: S2TTransformerConfig
     ) -> Mapping[str, Any]:
         key_map = self._fairseq_key_map()
