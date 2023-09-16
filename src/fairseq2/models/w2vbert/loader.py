@@ -25,7 +25,7 @@ class W2VBertLoader(ModelLoader[W2VBertModel, W2VBertConfig]):
     """Loads w2v-BERT models."""
 
     @finaloverride
-    def _upgrade_checkpoint(
+    def _convert_checkpoint(
         self, checkpoint: Mapping[str, Any], config: W2VBertConfig
     ) -> Mapping[str, Any]:
         state_dict = checkpoint["model"]

@@ -26,7 +26,7 @@ class Wav2Vec2Loader(ModelLoader[Wav2Vec2Model, Wav2Vec2Config]):
     """Loads wav2vec 2.0 models."""
 
     @finaloverride
-    def _upgrade_checkpoint(
+    def _convert_checkpoint(
         self, checkpoint: Mapping[str, Any], config: Wav2Vec2Config
     ) -> Mapping[str, Any]:
         state_dict = checkpoint["model"]
