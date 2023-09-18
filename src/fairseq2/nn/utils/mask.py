@@ -101,8 +101,12 @@ def apply_padding_mask(seqs: Tensor, padding_mask: Optional[Tensor]) -> Tensor:
     bool_mask = padding_mask.isinf()
 
     seq_batch_size, mask_batch_size = seqs.size(0), padding_mask.size(0)
-
     if seq_batch_size != mask_batch_size:
+        if seq_batch_size % mask_batch_size != 0:
+            raise ValueError(
+                f"`seqs.size(0)` must be a multiple of `padding_mask.size(0)` ({mask_batch_size}), but is {seq_batch_size} instead."
+            )
+
         bool_mask = bool_mask.repeat(seq_batch_size // mask_batch_size, 1)
 
     if seqs.ndim > 2:

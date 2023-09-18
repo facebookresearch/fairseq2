@@ -54,7 +54,7 @@ class RelativePositionSDPA(SDPA):
 
         if model_dim % num_heads != 0:
             raise ValueError(
-                f"`model_dim` must be divisible by `num_heads` ({num_heads}), but is {model_dim} instead."
+                f"`model_dim` must be a multiple of `num_heads` ({num_heads}), but is {model_dim} instead."
             )
 
         self.model_dim = model_dim
