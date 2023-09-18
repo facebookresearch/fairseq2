@@ -251,7 +251,7 @@ class StandardMultiheadAttention(MultiheadAttention):
 
             if num_heads % num_key_value_heads != 0:
                 raise ValueError(
-                    f"`num_heads` must be divisible by `num_key_value_heads` ({num_key_value_heads}), but is {num_heads} instead."
+                    f"`num_heads` must be a multiple of `num_key_value_heads` ({num_key_value_heads}), but is {num_heads} instead."
                 )
 
             self.num_key_value_heads = num_key_value_heads
@@ -296,12 +296,12 @@ class StandardMultiheadAttention(MultiheadAttention):
 
             if k_proj.output_dim % self.num_key_value_heads != 0:
                 raise ValueError(
-                    f"`output_dim` of `k_proj` must be divisible by `num_key_value_heads` ({self.num_key_value_heads}), but is {k_proj.output_dim} instead."
+                    f"`output_dim` of `k_proj` must be a multiple of `num_key_value_heads` ({self.num_key_value_heads}), but is {k_proj.output_dim} instead."
                 )
 
             if v_proj.output_dim % self.num_key_value_heads != 0:
                 raise ValueError(
-                    f"`output_dim` of `v_proj` must be divisible by `num_key_value_heads` ({self.num_key_value_heads}), but is {v_proj.output_dim} instead."
+                    f"`output_dim` of `v_proj` must be a multiple of `num_key_value_heads` ({self.num_key_value_heads}), but is {v_proj.output_dim} instead."
                 )
 
         self.q_proj = q_proj

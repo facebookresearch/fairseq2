@@ -101,7 +101,7 @@ class GumbelVectorQuantizer(VectorQuantizer):
 
         if output_dim % num_codebooks != 0:
             raise ValueError(
-                f"`output_dim` must be divisible by `num_codebooks` ({num_codebooks}), but is {output_dim} instead."
+                f"`output_dim` must be a multiple of `num_codebooks` ({num_codebooks}), but is {output_dim} instead."
             )
 
         entry_dim = output_dim // num_codebooks
