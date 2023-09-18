@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.nn.transformer.ffn &mdash; fairseq2 0.2.0.dev20230911 documentation</title>
+  <title>fairseq2.nn.transformer.ffn &mdash; fairseq2 0.2.0.dev20230918 documentation</title>
       <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20230911
+                0.2.0.dev20230918
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
@@ -316,9 +316,10 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="n">inner_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">bias</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
         <span class="n">inner_activation</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">inner_dropout_p</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
-        <span class="n">bias</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
         <span class="n">norm_order</span><span class="p">:</span> <span class="n">TransformerNormOrder</span> <span class="o">=</span> <span class="n">TransformerNormOrder</span><span class="o">.</span><span class="n">POST</span><span class="p">,</span>
         <span class="n">layer_norm_fn</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">LayerNormFactory</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -329,14 +330,14 @@
 <span class="sd">            The dimensionality of the model.</span>
 <span class="sd">        :param inner_dim:</span>
 <span class="sd">            The dimensionality of the inner projection layer.</span>
+<span class="sd">        :param bias:</span>
+<span class="sd">            If ``True``, both the inner and output projection learn an additive</span>
+<span class="sd">            bias.</span>
 <span class="sd">        :param inner_activation:</span>
 <span class="sd">            The activation to apply to outputs of the inner projection layer. If</span>
 <span class="sd">            ``None``, :func:`~torch.nn.ReLU` will be used.</span>
 <span class="sd">        :param inner_dropout_p:</span>
 <span class="sd">            The dropout probability on outputs of the inner projection layer.</span>
-<span class="sd">        :param bias:</span>
-<span class="sd">            If ``True``, both the inner and output projections learn an additive</span>
-<span class="sd">            bias.</span>
 <span class="sd">        :param norm_order:</span>
 <span class="sd">            The Layer Normalization order to use.</span>
 <span class="sd">        :param layer_norm_fn:</span>
@@ -360,7 +361,7 @@
             <span class="bp">self</span><span class="o">.</span><span class="n">register_module</span><span class="p">(</span><span class="s2">&quot;inner_dropout&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">norm_order</span> <span class="o">==</span> <span class="n">TransformerNormOrder</span><span class="o">.</span><span class="n">PRE_WITH_NORMFORMER</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">inner_layer_norm</span> <span class="o">=</span> <span class="n">layer_norm_fn</span><span class="p">(</span><span class="n">inner_dim</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">inner_layer_norm</span> <span class="o">=</span> <span class="n">layer_norm_fn</span><span class="p">(</span><span class="n">inner_dim</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">register_module</span><span class="p">(</span><span class="s2">&quot;inner_layer_norm&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
@@ -392,6 +393,8 @@
 
     <span class="n">gate_proj</span><span class="p">:</span> <span class="n">Linear</span>
     <span class="n">gate_activation</span><span class="p">:</span> <span class="n">Module</span>
+    <span class="n">inner_dim_scale</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">inner_dim_to_multiple</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">inner_proj</span><span class="p">:</span> <span class="n">Linear</span>
     <span class="n">inner_dropout</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dropout</span><span class="p">]</span>
     <span class="n">output_proj</span><span class="p">:</span> <span class="n">Linear</span>
@@ -400,11 +403,12 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="n">inner_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">bias</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
         <span class="n">gate_activation</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">inner_scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">/</span> <span class="mi">3</span><span class="p">,</span>
-        <span class="n">inner_scale_to_multiple</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="n">inner_dim_scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">/</span> <span class="mi">3</span><span class="p">,</span>
+        <span class="n">inner_dim_to_multiple</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
         <span class="n">inner_dropout_p</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
-        <span class="n">bias</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DataType</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -413,28 +417,32 @@
 <span class="sd">            The dimensionality of the model.</span>
 <span class="sd">        :param inner_dim:</span>
 <span class="sd">            The non-scaled dimensionality of the inner projection layer.</span>
+<span class="sd">        :param bias:</span>
+<span class="sd">            If ``True``, all projections learn an additive bias.</span>
 <span class="sd">        :param gate_activation:</span>
 <span class="sd">            The activation to apply to outputs of the gate projection. If</span>
 <span class="sd">            ``None``, :func:`~torch.nn.SiLU` will be used.</span>
-<span class="sd">        :param inner_scale:</span>
+<span class="sd">        :param inner_dim_scale:</span>
 <span class="sd">            The scale factor for the dimensionality of the inner projection</span>
 <span class="sd">            layer.</span>
-<span class="sd">        :param inner_scale_to_multiple:</span>
-<span class="sd">            The scaled dimensionality of the inner projection layer is rounded</span>
-<span class="sd">            up to the nearest multiple of the specified value.</span>
+<span class="sd">        :param inner_dim_to_multiple:</span>
+<span class="sd">            The dimensionality of the inner projection layer is rounded up to</span>
+<span class="sd">            the nearest multiple of the specified value.</span>
 <span class="sd">        :param inner_dropout_p:</span>
 <span class="sd">            The dropout probability on outputs of the inner projection layer.</span>
-<span class="sd">        :param bias:</span>
-<span class="sd">            If ``True``, all projections learn an additive bias.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model_dim</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">inner_scale</span> <span class="o">!=</span> <span class="mf">1.0</span><span class="p">:</span>
-            <span class="n">inner_dim</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">inner_dim</span> <span class="o">*</span> <span class="n">inner_scale</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inner_dim_scale</span> <span class="o">=</span> <span class="n">inner_dim_scale</span>
 
-        <span class="k">if</span> <span class="n">inner_scale_to_multiple</span> <span class="o">!=</span> <span class="mf">1.0</span><span class="p">:</span>
-            <span class="n">inner_dim</span> <span class="o">=</span> <span class="n">inner_scale_to_multiple</span> <span class="o">*</span> <span class="p">(</span>
-                <span class="p">(</span><span class="n">inner_dim</span> <span class="o">+</span> <span class="n">inner_scale_to_multiple</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="n">inner_scale_to_multiple</span>
+        <span class="k">if</span> <span class="n">inner_dim_scale</span> <span class="o">!=</span> <span class="mf">1.0</span><span class="p">:</span>
+            <span class="n">inner_dim</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">inner_dim</span> <span class="o">*</span> <span class="n">inner_dim_scale</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">inner_dim_to_multiple</span> <span class="o">=</span> <span class="n">inner_dim_to_multiple</span>
+
+        <span class="k">if</span> <span class="n">inner_dim_to_multiple</span> <span class="o">!=</span> <span class="mf">1.0</span><span class="p">:</span>
+            <span class="n">inner_dim</span> <span class="o">=</span> <span class="n">inner_dim_to_multiple</span> <span class="o">*</span> <span class="p">(</span>
+                <span class="p">(</span><span class="n">inner_dim</span> <span class="o">+</span> <span class="n">inner_dim_to_multiple</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="n">inner_dim_to_multiple</span>
             <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">gate_proj</span> <span class="o">=</span> <span class="n">Linear</span><span class="p">(</span><span class="n">model_dim</span><span class="p">,</span> <span class="n">inner_dim</span><span class="p">,</span> <span class="n">bias</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
@@ -457,7 +465,7 @@
 
     <span class="nd">@finaloverride</span>
     <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">seqs</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
-        <span class="n">gate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gate_proj</span><span class="p">(</span><span class="n">seqs</span><span class="p">)</span>  <span class="c1"># TODO(balioglu): Write as CUDA kernel?</span>
+        <span class="n">gate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gate_proj</span><span class="p">(</span><span class="n">seqs</span><span class="p">)</span>
 
         <span class="n">gate</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gate_activation</span><span class="p">(</span><span class="n">gate</span><span class="p">)</span>
 
@@ -471,6 +479,12 @@
         <span class="n">seqs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">output_proj</span><span class="p">(</span><span class="n">seqs</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">seqs</span>
+
+    <span class="k">def</span> <span class="nf">extra_repr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;:meta private:&quot;&quot;&quot;</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">extra_repr</span><span class="p">()</span>
+
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">, inner_dim_scale=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">inner_dim_scale</span><span class="si">}</span><span class="s2">, inner_dim_to_multiple=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">inner_dim_to_multiple</span><span class="si">}</span><span class="s2">&quot;</span>
 </pre></div>
 
            </div>

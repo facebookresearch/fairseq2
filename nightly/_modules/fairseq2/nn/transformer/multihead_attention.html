@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.nn.transformer.multihead_attention &mdash; fairseq2 0.2.0.dev20230911 documentation</title>
+  <title>fairseq2.nn.transformer.multihead_attention &mdash; fairseq2 0.2.0.dev20230918 documentation</title>
       <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20230911
+                0.2.0.dev20230918
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
@@ -302,6 +302,7 @@
         <span class="n">padding_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
         <span class="n">keys</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
         <span class="n">values</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
         <span class="n">attn_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">key_padding_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">state_bag</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">IncrementalStateBag</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -418,6 +419,7 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a Transformer multi-head attention as described in</span>
 <span class="sd">    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.&quot;&quot;&quot;</span>
 
+    <span class="n">num_key_value_heads</span><span class="p">:</span> <span class="nb">int</span>
     <span class="n">q_proj</span><span class="p">:</span> <span class="n">Projection</span>
     <span class="n">k_proj</span><span class="p">:</span> <span class="n">Projection</span>
     <span class="n">v_proj</span><span class="p">:</span> <span class="n">Projection</span>
@@ -433,6 +435,8 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="n">num_heads</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">num_key_value_heads</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">q_proj</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Projection</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">k_proj</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Projection</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">v_proj</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Projection</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -451,6 +455,12 @@
 <span class="sd">            The dimensionality of the model.</span>
 <span class="sd">        :param num_heads:</span>
 <span class="sd">            The number of attention heads.</span>
+<span class="sd">        :param num_key_value_heads:</span>
+<span class="sd">            The number of key/value heads for Grouped Query Attention as</span>
+<span class="sd">            described in :cite:t:`https://doi.org/10.48550/arXiv.2305.13245`.</span>
+<span class="sd">            If ``None`` or set to ``num_heads``, it is equivalent to standard</span>
+<span class="sd">            Multi Head Attention (MHA). If set to 1, it is equivalent to Multi</span>
+<span class="sd">            Query Attention (MQA).</span>
 <span class="sd">        :param q_proj:</span>
 <span class="sd">            The projection to apply to queries before computing attention. If</span>
 <span class="sd">            ``None``, a default projection will be used.</span>
@@ -473,18 +483,51 @@
 <span class="sd">            If ``True``, applies head scaling as described in</span>
 <span class="sd">            :cite:t:`https://doi.org/10.48550/arxiv.2110.09456`</span>
 <span class="sd">        :param output_proj:</span>
-<span class="sd">            The projection to produce final attentions. If ``None``, a</span>
-<span class="sd">            default projection will be used.</span>
+<span class="sd">            The projection to produce final attentions. If ``None``, a default</span>
+<span class="sd">            projection will be used.</span>
 <span class="sd">        :param bias:</span>
 <span class="sd">            If ``True``, query, key, value, and output projections learn an</span>
 <span class="sd">            additive bias. Ignored for explicitly specified projections.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model_dim</span><span class="p">,</span> <span class="n">num_heads</span><span class="p">)</span>
 
+        <span class="k">if</span> <span class="n">num_key_value_heads</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">num_key_value_heads</span> <span class="o">=</span> <span class="n">num_heads</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">num_heads</span> <span class="o">&lt;</span> <span class="n">num_key_value_heads</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;`num_heads` must be greater than or equal to `num_key_value_heads` (</span><span class="si">{</span><span class="n">num_key_value_heads</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">num_heads</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+                <span class="p">)</span>
+
+            <span class="k">if</span> <span class="n">num_heads</span> <span class="o">%</span> <span class="n">num_key_value_heads</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;`num_heads` must be divisible by `num_key_value_heads` (</span><span class="si">{</span><span class="n">num_key_value_heads</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">num_heads</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+                <span class="p">)</span>
+
+            <span class="bp">self</span><span class="o">.</span><span class="n">num_key_value_heads</span> <span class="o">=</span> <span class="n">num_key_value_heads</span>
+
+        <span class="n">head_dim</span> <span class="o">=</span> <span class="n">model_dim</span> <span class="o">//</span> <span class="n">num_heads</span>
+
+        <span class="n">num_query_groups</span> <span class="o">=</span> <span class="n">num_heads</span> <span class="o">//</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_key_value_heads</span>
+
         <span class="k">if</span> <span class="n">q_proj</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">k_proj</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">v_proj</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">q_proj</span> <span class="o">=</span> <span class="n">QKVProjection</span><span class="p">(</span><span class="n">model_dim</span><span class="p">,</span> <span class="n">bias</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
-            <span class="n">k_proj</span> <span class="o">=</span> <span class="n">QKVProjection</span><span class="p">(</span><span class="n">model_dim</span><span class="p">,</span> <span class="n">bias</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
-            <span class="n">v_proj</span> <span class="o">=</span> <span class="n">QKVProjection</span><span class="p">(</span><span class="n">model_dim</span><span class="p">,</span> <span class="n">bias</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+            <span class="n">q_proj</span> <span class="o">=</span> <span class="n">QKVProjection</span><span class="p">(</span>
+                <span class="n">model_dim</span><span class="p">,</span> <span class="n">model_dim</span><span class="p">,</span> <span class="n">bias</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span>
+            <span class="p">)</span>
+            <span class="n">k_proj</span> <span class="o">=</span> <span class="n">QKVProjection</span><span class="p">(</span>
+                <span class="n">model_dim</span><span class="p">,</span>
+                <span class="n">head_dim</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_key_value_heads</span><span class="p">,</span>
+                <span class="n">bias</span><span class="p">,</span>
+                <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+                <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span>
+            <span class="p">)</span>
+            <span class="n">v_proj</span> <span class="o">=</span> <span class="n">QKVProjection</span><span class="p">(</span>
+                <span class="n">model_dim</span><span class="p">,</span>
+                <span class="n">head_dim</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_key_value_heads</span><span class="p">,</span>
+                <span class="n">bias</span><span class="p">,</span>
+                <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span>
+                <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span>
+            <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">q_proj</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">k_proj</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">v_proj</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
@@ -496,29 +539,29 @@
                     <span class="sa">f</span><span class="s2">&quot;`input_dim` of `q_proj` must be equal to `model_dim` (</span><span class="si">{</span><span class="n">model_dim</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">q_proj</span><span class="o">.</span><span class="n">input_dim</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
                 <span class="p">)</span>
 
-            <span class="k">if</span> <span class="n">q_proj</span><span class="o">.</span><span class="n">output_dim</span> <span class="o">!=</span> <span class="n">k_proj</span><span class="o">.</span><span class="n">output_dim</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">k_dim</span> <span class="o">:=</span> <span class="n">k_proj</span><span class="o">.</span><span class="n">output_dim</span> <span class="o">*</span> <span class="n">num_query_groups</span><span class="p">)</span> <span class="o">!=</span> <span class="n">q_proj</span><span class="o">.</span><span class="n">output_dim</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;`output_dim` of `q_proj` and `output_dim` of `k_proj` must be equal, but are </span><span class="si">{</span><span class="n">q_proj</span><span class="o">.</span><span class="n">output_dim</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">k_proj</span><span class="o">.</span><span class="n">output_dim</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;`output_dim` of `q_proj` and `output_dim` of `k_proj` (times the number of query groups when GQA) must be equal, but are </span><span class="si">{</span><span class="n">q_proj</span><span class="o">.</span><span class="n">output_dim</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">k_dim</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
                 <span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">k_proj</span><span class="o">.</span><span class="n">output_dim</span> <span class="o">%</span> <span class="n">num_heads</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;`output_dim` of `k_proj` must be divisible by `num_heads` (</span><span class="si">{</span><span class="n">num_heads</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">k_proj</span><span class="o">.</span><span class="n">output_dim</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
-            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">k_proj</span><span class="o">.</span><span class="n">output_dim</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_key_value_heads</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;`output_dim` of `k_proj` must be divisible by `num_key_value_heads` (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">num_key_value_heads</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">k_proj</span><span class="o">.</span><span class="n">output_dim</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+                <span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">v_proj</span><span class="o">.</span><span class="n">output_dim</span> <span class="o">%</span> <span class="n">num_heads</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;`output_dim` of `v_proj` must be divisible by `num_heads` (</span><span class="si">{</span><span class="n">num_heads</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">v_proj</span><span class="o">.</span><span class="n">output_dim</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
-            <span class="p">)</span>
+            <span class="k">if</span> <span class="n">v_proj</span><span class="o">.</span><span class="n">output_dim</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_key_value_heads</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;`output_dim` of `v_proj` must be divisible by `num_key_value_heads` (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">num_key_value_heads</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">v_proj</span><span class="o">.</span><span class="n">output_dim</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+                <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">q_proj</span> <span class="o">=</span> <span class="n">q_proj</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">k_proj</span> <span class="o">=</span> <span class="n">k_proj</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">v_proj</span> <span class="o">=</span> <span class="n">v_proj</span>
 
         <span class="k">if</span> <span class="n">pos_encoder</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">if</span> <span class="p">(</span><span class="n">head_dim</span> <span class="o">:=</span> <span class="n">k_proj</span><span class="o">.</span><span class="n">output_dim</span> <span class="o">//</span> <span class="n">num_heads</span><span class="p">)</span> <span class="o">!=</span> <span class="n">pos_encoder</span><span class="o">.</span><span class="n">encoding_dim</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">head_dim</span> <span class="o">!=</span> <span class="n">pos_encoder</span><span class="o">.</span><span class="n">encoding_dim</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;`encoding_dim` of `pos_encoder` and the size of the header key dimension must be equal, but are </span><span class="si">{</span><span class="n">pos_encoder</span><span class="o">.</span><span class="n">encoding_dim</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">head_dim</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;`encoding_dim` of `pos_encoder` must be equal to the size of the header dimension (</span><span class="si">{</span><span class="n">head_dim</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">pos_encoder</span><span class="o">.</span><span class="n">encoding_dim</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
                 <span class="p">)</span>
 
             <span class="bp">self</span><span class="o">.</span><span class="n">pos_encoder</span> <span class="o">=</span> <span class="n">pos_encoder</span>
@@ -551,14 +594,16 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">register_parameter</span><span class="p">(</span><span class="s2">&quot;head_scale_weight&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
+        <span class="n">v_dim</span> <span class="o">=</span> <span class="n">v_proj</span><span class="o">.</span><span class="n">output_dim</span> <span class="o">*</span> <span class="n">num_query_groups</span>
+
         <span class="k">if</span> <span class="n">output_proj</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">output_proj</span> <span class="o">=</span> <span class="n">AttentionOutputProjection</span><span class="p">(</span>
-                <span class="n">v_proj</span><span class="o">.</span><span class="n">output_dim</span><span class="p">,</span> <span class="n">model_dim</span><span class="p">,</span> <span class="n">bias</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span>
+                <span class="n">v_dim</span><span class="p">,</span> <span class="n">model_dim</span><span class="p">,</span> <span class="n">bias</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span>
             <span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">output_proj</span><span class="o">.</span><span class="n">input_dim</span> <span class="o">!=</span> <span class="n">v_proj</span><span class="o">.</span><span class="n">output_dim</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">v_dim</span> <span class="o">!=</span> <span class="n">output_proj</span><span class="o">.</span><span class="n">input_dim</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;`input_dim` of `output_proj` and `output_dim` of `v_proj` must be equal, but are </span><span class="si">{</span><span class="n">output_proj</span><span class="o">.</span><span class="n">input_dim</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">v_proj</span><span class="o">.</span><span class="n">output_dim</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;`output_dim` of `v_proj` (times the number of query groups when GQA) and `input_dim` of `output_proj` must be equal, but are </span><span class="si">{</span><span class="n">v_dim</span><span class="si">}</span><span class="s2"> and </span><span class="si">{</span><span class="n">output_proj</span><span class="o">.</span><span class="n">input_dim</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
                 <span class="p">)</span>
 
             <span class="k">if</span> <span class="n">output_proj</span><span class="o">.</span><span class="n">output_dim</span> <span class="o">!=</span> <span class="n">model_dim</span><span class="p">:</span>
@@ -587,6 +632,7 @@
         <span class="n">padding_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
         <span class="n">keys</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
         <span class="n">values</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
         <span class="n">attn_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">key_padding_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">state_bag</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">IncrementalStateBag</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -606,7 +652,7 @@
 
             <span class="k">if</span> <span class="n">encoder_decoder_attn</span><span class="p">:</span>
                 <span class="c1"># The K and V tensors of an encoder-decoder attention (i.e. the</span>
-                <span class="c1"># projected encoder outputs) remain static during an evaluation.</span>
+                <span class="c1"># projected encoder outputs) remain static during evaluation.</span>
                 <span class="k">if</span> <span class="n">state</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="n">k</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">prev_k</span>
                     <span class="n">v</span> <span class="o">=</span> <span class="n">state</span><span class="o">.</span><span class="n">prev_v</span>
@@ -630,19 +676,28 @@
                         <span class="bp">self</span><span class="p">,</span> <span class="n">MultiheadAttentionState</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">key_padding_mask</span><span class="p">)</span>
                     <span class="p">)</span>
 
-        <span class="c1"># (N, S, K_proj) -&gt; (N, S, H, K_h)</span>
+        <span class="c1"># (N, S, Q_proj) -&gt; (N, S, H, K_h)</span>
         <span class="n">q</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">unflatten</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_heads</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
-        <span class="c1"># (N, S_kv, K_proj) -&gt; (N, S_kv, H, K_h)</span>
-        <span class="n">k</span> <span class="o">=</span> <span class="n">k</span><span class="o">.</span><span class="n">unflatten</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_heads</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
-        <span class="c1"># (N, S_kv, V_proj) -&gt; (N, S_kv, H, V_h)</span>
-        <span class="n">v</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">unflatten</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_heads</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+        <span class="c1"># (N, S_kv, K_proj) -&gt; (N, S_kv, H_kv, K_h)</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="n">k</span><span class="o">.</span><span class="n">unflatten</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_key_value_heads</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
+        <span class="c1"># (N, S_kv, V_proj) -&gt; (N, S_kv, H_kv, V_h)</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">unflatten</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_key_value_heads</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">))</span>
 
         <span class="c1"># (N, S, H, K_h) -&gt; (N, H, S, K_h)</span>
         <span class="n">q</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
-        <span class="c1"># (N, S_kv, H, K_h) -&gt; (N, H, S_kv, K_h)</span>
+        <span class="c1"># (N, S_kv, H_kv, K_h) -&gt; (N, H_kv, S_kv, K_h)</span>
         <span class="n">k</span> <span class="o">=</span> <span class="n">k</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
-        <span class="c1"># (N, S_kv, H, V_h) -&gt; (N, H, S_kv, V_h)</span>
+        <span class="c1"># (N, S_kv, H_kv, V_h) -&gt; (N, H_kv, S_kv, V_h)</span>
         <span class="n">v</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+
+        <span class="c1"># With Grouped Query Attention, each key/value head is repeated</span>
+        <span class="c1"># `num_query_groups` times to match `num_heads`.</span>
+        <span class="n">num_query_groups</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_heads</span> <span class="o">//</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_key_value_heads</span>
+
+        <span class="c1"># (N, H_kv, S_kv, K_h) -&gt; (N, H, S_kv, K_h)</span>
+        <span class="n">k</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">repeat_interleave</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">repeats</span><span class="o">=</span><span class="n">num_query_groups</span><span class="p">)</span>
+        <span class="c1"># (N, H_kv, S_kv, K_h) -&gt; (N, H, S_kv, K_h)</span>
+        <span class="n">v</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">repeat_interleave</span><span class="p">(</span><span class="n">v</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">repeats</span><span class="o">=</span><span class="n">num_query_groups</span><span class="p">)</span>
 
         <span class="c1"># (N, H, S, K_h) -&gt; (N x H, S, K_h)</span>
         <span class="n">q</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
@@ -652,7 +707,7 @@
         <span class="n">v</span> <span class="o">=</span> <span class="n">v</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pos_encoder</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pos_encoder</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">padding_mask</span><span class="p">,</span> <span class="n">state_bag</span><span class="p">)</span>
+            <span class="n">q</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pos_encoder</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">padding_mask</span><span class="p">,</span> <span class="n">state_bag</span><span class="o">=</span><span class="n">state_bag</span><span class="p">)</span>
             <span class="n">k</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pos_encoder</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">key_padding_mask</span><span class="p">)</span>
 
         <span class="n">mask_pad</span> <span class="o">=</span> <span class="mi">0</span>
@@ -709,7 +764,9 @@
 
         <span class="c1"># attn:         (N x H, S, V_h)</span>
         <span class="c1"># attn_weights: (N x H, S, S_kv)</span>
-        <span class="n">attn</span><span class="p">,</span> <span class="n">attn_weights</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sdpa</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">attn_mask</span><span class="p">,</span> <span class="n">needs_weights</span><span class="p">)</span>
+        <span class="n">attn</span><span class="p">,</span> <span class="n">attn_weights</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sdpa</span><span class="p">(</span>
+            <span class="n">q</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">mask</span><span class="o">=</span><span class="n">attn_mask</span><span class="p">,</span> <span class="n">needs_weights</span><span class="o">=</span><span class="n">needs_weights</span>
+        <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">attn_weights</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_run_attn_weight_hooks</span><span class="p">(</span><span class="n">attn_weights</span><span class="p">)</span>
@@ -735,8 +792,11 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;:meta private:&quot;&quot;&quot;</span>
         <span class="n">s</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">extra_repr</span><span class="p">()</span>
 
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_key_value_heads</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_heads</span><span class="p">:</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">, num_key_value_heads=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">num_key_value_heads</span><span class="si">}</span><span class="s2">&quot;</span>
+
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">add_zero_attn</span><span class="p">:</span>
-            <span class="n">s</span> <span class="o">+=</span> <span class="s2">&quot;, add_zero_attn=True&quot;</span>
+            <span class="n">s</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">, add_zero_attn=True&quot;</span>
 
         <span class="k">return</span> <span class="n">s</span></div>
 
@@ -747,16 +807,18 @@
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">model_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-        <span class="n">bias</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">output_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">bias</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DataType</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model_dim</span><span class="p">,</span> <span class="n">model_dim</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">model_dim</span><span class="p">,</span> <span class="n">output_dim</span><span class="p">,</span> <span class="n">bias</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
 
     <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">_do_reset_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="c1"># Empirically observed the convergence to be much better with the</span>
-        <span class="c1"># scaled initialization.</span>
+        <span class="c1"># Empirically observed the convergence to be much better with the scaled</span>
+        <span class="c1"># initialization.</span>
         <span class="n">nn</span><span class="o">.</span><span class="n">init</span><span class="o">.</span><span class="n">xavier_uniform_</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">,</span> <span class="n">gain</span><span class="o">=</span><span class="mi">2</span><span class="o">**-</span><span class="mf">0.5</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">bias</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -768,13 +830,14 @@
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
-        <span class="n">v_proj_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">v_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="n">model_dim</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-        <span class="n">bias</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">bias</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DataType</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">v_proj_dim</span><span class="p">,</span> <span class="n">model_dim</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">v_dim</span><span class="p">,</span> <span class="n">model_dim</span><span class="p">,</span> <span class="n">bias</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
 
     <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">_do_reset_parameters</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>

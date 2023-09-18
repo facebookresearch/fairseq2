@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.nn.utils.mask &mdash; fairseq2 0.2.0.dev20230911 documentation</title>
+  <title>fairseq2.nn.utils.mask &mdash; fairseq2 0.2.0.dev20230918 documentation</title>
       <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20230911
+                0.2.0.dev20230918
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
@@ -278,6 +278,29 @@
 <span class="sd">        The float padding mask. *Shape:* :math:`(N,S)`, where :math:`N` is the</span>
 <span class="sd">        batch size and :math:`S` is the sequence length.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">bool_mask</span> <span class="o">=</span> <span class="n">to_bool_padding_mask</span><span class="p">(</span><span class="n">seqs</span><span class="p">,</span> <span class="n">seq_lens</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">bool_mask</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">return</span> <span class="n">to_float_mask</span><span class="p">(</span><span class="n">bool_mask</span><span class="p">,</span> <span class="n">seqs</span><span class="o">.</span><span class="n">dtype</span> <span class="k">if</span> <span class="n">seqs</span><span class="o">.</span><span class="n">is_floating_point</span><span class="p">()</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span></div>
+
+
+<span class="k">def</span> <span class="nf">to_bool_padding_mask</span><span class="p">(</span><span class="n">seqs</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">seq_lens</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a sequence length array to a boolean padding mask.</span>
+
+<span class="sd">    :param seqs:</span>
+<span class="sd">        The sequences to mask. *Shape:* :math:`(N,S,*)`, where :math:`N` is the</span>
+<span class="sd">        batch size, :math:`S` is the sequence length, and :math:`*` is any</span>
+<span class="sd">        number of sequence-specific dimensions including none.</span>
+<span class="sd">    :param seq_lens:</span>
+<span class="sd">        An array where each element represents the length of the sequence at the</span>
+<span class="sd">        same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is the</span>
+<span class="sd">        batch size.</span>
+
+<span class="sd">    :returns:</span>
+<span class="sd">        The boolean padding mask. *Shape:* :math:`(N,S)`, where :math:`N` is the</span>
+<span class="sd">        batch size and :math:`S` is the sequence length.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">seq_lens</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">return</span> <span class="kc">None</span>
 
@@ -289,16 +312,10 @@
 
     <span class="n">indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">mask_seq_len</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">seq_lens</span><span class="o">.</span><span class="n">device</span><span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
 
-    <span class="n">bool_mask</span> <span class="o">=</span> <span class="n">indices</span> <span class="o">&gt;=</span> <span class="n">seq_lens</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">mask_seq_len</span><span class="p">)</span>
-
-    <span class="n">mask</span> <span class="o">=</span> <span class="n">seqs</span><span class="o">.</span><span class="n">new_zeros</span><span class="p">((</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">mask_seq_len</span><span class="p">))</span>
-
-    <span class="n">mask</span><span class="o">.</span><span class="n">masked_fill_</span><span class="p">(</span><span class="n">bool_mask</span><span class="p">,</span> <span class="o">-</span><span class="n">torch</span><span class="o">.</span><span class="n">inf</span><span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">mask</span></div>
+    <span class="k">return</span> <span class="n">indices</span> <span class="o">&gt;=</span> <span class="n">seq_lens</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">mask_seq_len</span><span class="p">)</span>
 
 
-<div class="viewcode-block" id="to_float_mask"><a class="viewcode-back" href="../../../../reference/generated/functions/fairseq2.nn.utils.mask.to_float_mask.html#fairseq2.nn.utils.mask.to_float_mask">[docs]</a><span class="k">def</span> <span class="nf">to_float_mask</span><span class="p">(</span><span class="n">mask</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="n">DataType</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+<div class="viewcode-block" id="to_float_mask"><a class="viewcode-back" href="../../../../reference/generated/functions/fairseq2.nn.utils.mask.to_float_mask.html#fairseq2.nn.utils.mask.to_float_mask">[docs]</a><span class="k">def</span> <span class="nf">to_float_mask</span><span class="p">(</span><span class="n">mask</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DataType</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a boolean mask to a float mask.</span>
 
 <span class="sd">    :param mask:</span>
@@ -306,6 +323,9 @@
 <span class="sd">    :param dtype:</span>
 <span class="sd">        The floating-point type of the converted mask.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">dtype</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">dtype</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">get_default_dtype</span><span class="p">()</span>
+
     <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">masked_fill_</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="o">-</span><span class="n">torch</span><span class="o">.</span><span class="n">inf</span><span class="p">)</span></div>
 
 

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.nn.transformer.encoder &mdash; fairseq2 0.2.0.dev20230911 documentation</title>
+  <title>fairseq2.nn.transformer.encoder &mdash; fairseq2 0.2.0.dev20230918 documentation</title>
       <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20230911
+                0.2.0.dev20230918
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
@@ -292,6 +292,7 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">seqs</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
         <span class="n">padding_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="o">*</span><span class="p">,</span>
         <span class="n">layer_output_hook</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="s2">&quot;EncoderLayerOutputHook&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
@@ -326,16 +327,22 @@
         <span class="n">layer_output</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
         <span class="n">layer_padding_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
         <span class="n">num_layers</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :param layer_idx:</span>
 <span class="sd">            The index of the layer in the encoder stack.</span>
 <span class="sd">        :param layer_output:</span>
 <span class="sd">            The encoded output of the layer.</span>
 <span class="sd">        :param layer_padding_mask:</span>
-<span class="sd">            The padding mask of `layer_output`.</span>
+<span class="sd">            The padding mask of ``layer_output``.</span>
 <span class="sd">        :param num_layers:</span>
 <span class="sd">            The number of layers in the encoder stack.</span>
+
+<span class="sd">        :returns:</span>
+<span class="sd">            ``True`` if the encoder should continue executing the remaining</span>
+<span class="sd">            layers in the stack; ``False`` if the encoder should stop executing</span>
+<span class="sd">            the remaining layers and treat this layer as the final layer in the</span>
+<span class="sd">            stack.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
 
@@ -350,6 +357,7 @@
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">layers</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">TransformerEncoderLayer</span><span class="p">],</span>
+        <span class="o">*</span><span class="p">,</span>
         <span class="n">layer_drop_p</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
         <span class="n">norm_order</span><span class="p">:</span> <span class="n">TransformerNormOrder</span> <span class="o">=</span> <span class="n">TransformerNormOrder</span><span class="o">.</span><span class="n">POST</span><span class="p">,</span>
         <span class="n">layer_norm_fn</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">LayerNormFactory</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -367,7 +375,7 @@
 <span class="sd">        :param layer_norm_fn:</span>
 <span class="sd">            The factory to use to construct the Layer Normalization module.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">layer_list</span> <span class="o">=</span> <span class="n">ModuleList</span><span class="p">(</span><span class="n">layers</span><span class="p">,</span> <span class="n">layer_drop_p</span><span class="p">)</span>
+        <span class="n">layer_list</span> <span class="o">=</span> <span class="n">ModuleList</span><span class="p">(</span><span class="n">layers</span><span class="p">,</span> <span class="n">drop_p</span><span class="o">=</span><span class="n">layer_drop_p</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">layer_list</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`layers` must be non-empty.&quot;</span><span class="p">)</span>
 
@@ -381,7 +389,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">layers</span> <span class="o">=</span> <span class="n">layer_list</span>
 
         <span class="k">if</span> <span class="n">norm_order</span> <span class="o">!=</span> <span class="n">TransformerNormOrder</span><span class="o">.</span><span class="n">POST</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">layer_norm</span> <span class="o">=</span> <span class="n">layer_norm_fn</span><span class="p">(</span><span class="n">model_dim</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">layer_norm</span> <span class="o">=</span> <span class="n">layer_norm_fn</span><span class="p">(</span><span class="n">model_dim</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">register_module</span><span class="p">(</span><span class="s2">&quot;layer_norm&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
 
@@ -394,6 +402,7 @@
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">seqs</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span>
         <span class="n">padding_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span>
+        <span class="o">*</span><span class="p">,</span>
         <span class="n">layer_output_hook</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">EncoderLayerOutputHook</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]]:</span>
         <span class="k">if</span> <span class="n">layer_output_hook</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">drop_p</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
@@ -405,7 +414,8 @@
             <span class="n">seqs</span><span class="p">,</span> <span class="n">padding_mask</span> <span class="o">=</span> <span class="n">layer</span><span class="p">(</span><span class="n">seqs</span><span class="p">,</span> <span class="n">padding_mask</span><span class="p">)</span>
 
             <span class="k">if</span> <span class="n">layer_output_hook</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">layer_output_hook</span><span class="p">(</span><span class="n">layer_idx</span><span class="p">,</span> <span class="n">seqs</span><span class="p">,</span> <span class="n">padding_mask</span><span class="p">,</span> <span class="n">num_layers</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">layer_output_hook</span><span class="p">(</span><span class="n">layer_idx</span><span class="p">,</span> <span class="n">seqs</span><span class="p">,</span> <span class="n">padding_mask</span><span class="p">,</span> <span class="n">num_layers</span><span class="p">):</span>
+                    <span class="k">break</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">layer_norm</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">seqs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">layer_norm</span><span class="p">(</span><span class="n">seqs</span><span class="p">)</span>
@@ -416,7 +426,7 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;:meta private:&quot;&quot;&quot;</span>
         <span class="n">s</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">extra_repr</span><span class="p">()</span>
 
-        <span class="k">return</span> <span class="n">s</span> <span class="o">+</span> <span class="sa">f</span><span class="s2">&quot;, norm_order=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">norm_order</span><span class="si">}</span><span class="s2">&quot;</span></div>
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">s</span><span class="si">}</span><span class="s2">, norm_order=</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">norm_order</span><span class="si">}</span><span class="s2">&quot;</span></div>
 </pre></div>
 
            </div>
