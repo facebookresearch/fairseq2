@@ -23,7 +23,7 @@ from fairseq2.typing import Device
 
 @final
 class LLaMATokenizer(TextTokenizer):
-    """Represents the tokenizer used by NLLB models."""
+    """Represents the tokenizer used by LLaMA models."""
 
     model: SentencePieceModel
 
@@ -35,6 +35,10 @@ class LLaMATokenizer(TextTokenizer):
         self.model = SentencePieceModel(pathname)
 
         vocabulary_info = vocabulary_from_sentencepiece(self.model)
+
+        # LLaMA tokenizer has no PAD symbol defined in its SentencePiece model
+        # and uses EOS instead.
+        vocabulary_info.pad_idx = vocabulary_info.eos_idx
 
         super().__init__(vocabulary_info)
 
@@ -51,18 +55,38 @@ class LLaMATokenizer(TextTokenizer):
         """Create a token encoder.
 
         :param task:
-            Not used in LLaMA, defaults to ``None``.
+            Not used.
         :param lang:
-            Not used in LLaMA, defaults to ``None``.
+            Not used.
         :param mode:
-            Not used in LLaMA, defaults to ``None``.
+            Must be 'default' or 'prompt'. If ``None``, defaults to 'default'.
         :param device:
             The device on which to construct tensors.
         :param pin_memory:
             If ``True``, uses pinned memory while constructing tensors.
         """
+        if task is not None:
+            raise ValueError(f"`task` must be `None`, but is '{task}' instead.")
+
+        if lang is not None:
+            raise ValueError(f"`lang` must be `None`, but is '{lang}' instead.")
+
+        if mode is None or mode == "default":
+            prefix_tokens = ["<s>"]
+            suffix_tokens = ["</s>"]
+        elif mode == "prompt":
+            prefix_tokens = ["<s>"]
+            # In prompt mode, we expect the generator to finish the sequence.
+            suffix_tokens = None
+        else:
+            raise ValueError(
+                f"`mode` must be 'default' or 'prompt', but is '{mode}' instead."
+            )
+
         return SentencePieceEncoder(
             self.model,
+            prefix_tokens=prefix_tokens,
+            suffix_tokens=suffix_tokens,
             device=device,
             pin_memory=pin_memory,
         )
