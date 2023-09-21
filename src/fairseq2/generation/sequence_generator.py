@@ -17,7 +17,7 @@ from fairseq2.generation.beam_search import BeamSearch, StandardBeamSearch
 from fairseq2.generation.logits_processor import LogitsProcessor
 from fairseq2.models.encoder_decoder import Seq2SeqDecoder
 from fairseq2.nn.incremental_state import IncrementalStateBag
-from fairseq2.nn.utils.seq import pad_sequence
+from fairseq2.nn.ops import pad_sequence, repeat_interleave
 from fairseq2.typing import Device
 
 
@@ -480,7 +480,9 @@ class Seq2SeqGenerator:
         fan_out_indices = torch.arange(num_searches, device=encoder_output.device)
 
         # (N) -> (N x B)
-        fan_out_indices = fan_out_indices.repeat_interleave(self.beam_size)
+        fan_out_indices = repeat_interleave(
+            fan_out_indices, dim=0, repeat=self.beam_size
+        )
 
         # (N, S_enc, M) -> (N x B, S_enc, M)
         encoder_output = encoder_output.index_select(dim=0, index=fan_out_indices)

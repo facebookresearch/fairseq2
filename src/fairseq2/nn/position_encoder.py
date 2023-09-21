@@ -16,6 +16,7 @@ from torch.nn.functional import embedding
 from torch.nn.parameter import Parameter
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
+from fairseq2.nn.ops import repeat_interleave
 from fairseq2.typing import DataType, Device, finaloverride
 
 
@@ -367,12 +368,8 @@ class RotaryEncoder(PositionEncoder):
         cos = torch.cos(table)
         sin = torch.sin(table)
 
-        self.cos_weight[:] = torch.repeat_interleave(
-            cos, 2, dim=-1, output_size=self.encoding_dim
-        )
-        self.sin_weight[:] = torch.repeat_interleave(
-            sin, 2, dim=-1, output_size=self.encoding_dim
-        )
+        self.cos_weight[:] = repeat_interleave(cos, dim=-1, repeat=2)
+        self.sin_weight[:] = repeat_interleave(sin, dim=-1, repeat=2)
 
     @finaloverride
     def _do_forward(

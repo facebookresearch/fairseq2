@@ -17,6 +17,7 @@ from torch.nn.parameter import Parameter
 from torch.utils.hooks import RemovableHandle
 
 from fairseq2.nn.incremental_state import IncrementalState, IncrementalStateBag
+from fairseq2.nn.ops import repeat_interleave
 from fairseq2.nn.position_encoder import PositionEncoder
 from fairseq2.nn.projection import Linear, Projection
 from fairseq2.nn.transformer.attention import SDPA, create_default_sdpa
@@ -440,9 +441,9 @@ class StandardMultiheadAttention(MultiheadAttention):
         # With Grouped Query Attention, each key/value head is repeated.
         if (num_query_groups := self.num_heads // self.num_key_value_heads) > 1:
             # (N, H_kv, S_kv, K_h) -> (N, H, S_kv, K_h)
-            k = torch.repeat_interleave(k, dim=1, repeats=num_query_groups)
+            k = repeat_interleave(k, dim=1, repeat=num_query_groups)
             # (N, H_kv, S_kv, K_h) -> (N, H, S_kv, V_h)
-            v = torch.repeat_interleave(v, dim=1, repeats=num_query_groups)
+            v = repeat_interleave(v, dim=1, repeat=num_query_groups)
 
         mask_pad = 0
 

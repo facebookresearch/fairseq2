@@ -18,8 +18,8 @@ from fairseq2.generation.sequence_generator import (
     SequenceGeneratorOutput,
 )
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
+from fairseq2.nn.ops import pad_sequence
 from fairseq2.nn.utils.module import infer_device
-from fairseq2.nn.utils.seq import pad_sequence
 
 
 class SequenceToTextGeneratorBase:
