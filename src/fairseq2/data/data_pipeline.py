@@ -254,14 +254,15 @@ if TYPE_CHECKING or _DOC_MODE:
 
     class Collater:
         """Concatenate a list of tensors into a single tensor.
-        Used to create batches.
-        Batches are represented by a dictionary with the following keys:
 
-        {
-            "is_ragged": True/False # TODO what does this mean ???
-            "seqs": Tensor the concatenated tensors from the input
-            "seq_lens": A tensor describing the original length of each input tensor
-        }
+        Used to create batches.
+        Batches are represented by a dictionary with the following keys::
+
+            {
+                "is_ragged": True/False # TODO what does this mean ???
+                "seqs": [[1, 4, 5, 0], [1, 2, 3, 4]]  # "(Tensor) the concatenated tensors from the input
+                "seq_lens": [3, 4]  # A tensor describing the original length of each input tensor
+            }
 
         Collater will try to preserve the columns in the original data.
         Applied to a tuple of lists, it will return a tuple of batches.

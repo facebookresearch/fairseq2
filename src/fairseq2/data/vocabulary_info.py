@@ -10,6 +10,8 @@ from typing import Optional
 
 @dataclass
 class VocabularyInfo:
+    """Describes the vocabulary used by a :py:class:`fairseq2.data.text.TextTokenizer`"""
+
     size: int
     """The size of the vocabulary."""
 
