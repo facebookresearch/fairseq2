@@ -116,6 +116,15 @@ class TestSinusoidalPositionEncoder:
 
         assert_close(y - x, m.weight[:9].expand_as(y))
 
+        # Test with multiple batch dimensions.
+        x = torch.randn((4, 3, 9, 4), device=device)
+
+        y = m(x, padding_mask=None)
+
+        assert y.shape == (4, 3, 9, 4)
+
+        assert_close(y - x, m.weight[:9].expand_as(y))
+
     @pytest.mark.parametrize("step", [0, 1, 2])
     def test_forward_works_in_incremental_eval(self, step: int) -> None:
         m = SinusoidalPositionEncoder(encoding_dim=32, max_seq_len=4, device=device)
@@ -182,6 +191,15 @@ class TestLearnedPositionEncoder:
 
         assert_close(y - x, m.weight[:9].expand_as(y))
 
+        # Test with multiple batch dimensions.
+        x = torch.randn((4, 3, 9, 4), device=device)
+
+        y = m(x, padding_mask=None)
+
+        assert y.shape == (4, 3, 9, 4)
+
+        assert_close(y - x, m.weight[:9].expand_as(y))
+
     @pytest.mark.parametrize("step", [0, 1, 2])
     def test_forward_works_in_incremental_eval(self, step: int) -> None:
         m = LearnedPositionEncoder(encoding_dim=32, max_seq_len=4, device=device)
@@ -235,7 +253,7 @@ class TestRotaryEncoder:
     def test_forward_works(self) -> None:
         m = RotaryEncoder(encoding_dim=4, max_seq_len=10, device=device)
 
-        x = torch.randn((3, 9, 4), device=device)
+        x = torch.randn((4, 3, 9, 4), device=device)
 
         y = m(x, padding_mask=None)
 
