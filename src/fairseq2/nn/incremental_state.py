@@ -58,8 +58,8 @@ class IncrementalStateBag:
         """Increment the step.
 
         This method should be called after every incremental evaluation (e.g.
-        beam search). It is used by modules to keep track of the position in
-        the sequence.
+        beam search) step. It is used by modules to keep track of the position
+        in the sequence.
 
         :param delta:
             The value by which to increment the step.
