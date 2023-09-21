@@ -9,6 +9,7 @@ from typing import (
     Any,
     Callable,
     Dict,
+    Iterable,
     Iterator,
     Mapping,
     Optional,
@@ -27,7 +28,14 @@ from fairseq2.memory import MemoryBlock
 
 if TYPE_CHECKING or _DOC_MODE:
 
-    class DataPipeline:
+    class DataPipeline(Iterable[Any]):
+        """fairseq2 native data pipeline.
+
+        The pipeline state can be persisted to the disk, allowing it to be resumed later.
+        It is a Python Iterable, but the returned iterator isn't standalone.
+        Calling `iter` a seconde time while the first iterator is still being used will segfault or worse.
+        """
+
         def __iter__(self) -> Iterator[Any]:
             """Return an iterator over the examples in the data pipeline."""
 
@@ -97,6 +105,8 @@ if TYPE_CHECKING or _DOC_MODE:
             ...
 
     class DataPipelineBuilder:
+        """API to create DataPipeline"""
+
         def bucket(self, bucket_size: int, drop_remainder: bool = False) -> Self:
             """Combine a number of consecutive examples into a single example.
 
@@ -218,6 +228,7 @@ if TYPE_CHECKING or _DOC_MODE:
         """
 
     def read_zipped_records(pathname: PathLike) -> DataPipelineBuilder:
+        """Read each file in a zip archive"""
         ...
 
     class CollateOptionsOverride:
@@ -242,6 +253,20 @@ if TYPE_CHECKING or _DOC_MODE:
             ...
 
     class Collater:
+        """Concatenate a list of tensors into a single tensor.
+        Used to create batches.
+        Batches are represented by a dictionary with the following keys:
+
+        {
+            "is_ragged": True/False # TODO what does this mean ???
+            "seqs": Tensor the concatenated tensors from the input
+            "seq_lens": A tensor describing the original length of each input tensor
+        }
+
+        Collater will try to preserve the columns in the original data.
+        Applied to a tuple of lists, it will return a tuple of batches.
+        """
+
         def __init__(
             self,
             pad_idx: Optional[int] = None,

@@ -10,12 +10,17 @@ other content generation tasks.
 
 .. toctree::
    :maxdepth: 1
-   :caption: fairseq2.nn Reference
+   :caption: Tutorials
 
-   reference/abc
-   reference/classes
-   reference/enums
-   reference/functions
+   tutorials/cli/training
+   tutorials/cli/authoring
+   tutorials/data
+
+.. toctree::
+   :caption: fairseq2 Reference
+
+   reference/cli
+   reference/dataloader
    reference/all
 
 .. toctree::
