@@ -9,6 +9,7 @@ from typing import Optional, Tuple, cast
 import torch
 from torch import Tensor
 
+from fairseq2.nn.ops import repeat_interleave
 from fairseq2.typing import DataType, Device
 
 
@@ -191,7 +192,7 @@ def _compute_mask_spans(
     span_start_range = row_lens - span_len + 1
 
     # (R) -> (R x N)
-    span_start_range = span_start_range.repeat_interleave(num_spans)
+    span_start_range = repeat_interleave(span_start_range, dim=0, repeat=num_spans)
 
     # Unlike the fairseq implementation, we do sample with replacement, which is
     # more consistent with the overlap strategy.
@@ -208,7 +209,7 @@ def _compute_mask_spans(
     span_offsets = span_offsets.type(dtype).view(num_rows, -1)
 
     # (R, N) -> (R, N x L)
-    span_offsets = span_offsets.repeat_interleave(span_len, dim=-1)
+    span_offsets = repeat_interleave(span_offsets, dim=-1, repeat=span_len)
 
     # (L)
     indices = torch.arange(span_len, device=device, dtype=dtype)
