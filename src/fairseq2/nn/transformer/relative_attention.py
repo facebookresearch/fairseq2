@@ -62,7 +62,7 @@ class RelativePositionSDPA(SDPA):
 
         if pos_encoding.encoding_dim != model_dim:
             raise ValueError(
-                f"`encoding_dim` of `pos_encoding` must be equal `model_dim` ({model_dim}), but is {pos_encoding.encoding_dim} instead."
+                f"`encoding_dim` of `pos_encoding` must be equal to `model_dim` ({model_dim}), but is {pos_encoding.encoding_dim} instead."
             )
 
         self.pos_encoding = pos_encoding
@@ -97,6 +97,11 @@ class RelativePositionSDPA(SDPA):
         mask: Optional[Tensor] = None,
         needs_weights: bool = False,
     ) -> Tuple[Tensor, Optional[Tensor]]:
+        if queries.ndim != 4 or keys.ndim != 4 or values.ndim != 4:
+            raise ValueError(
+                "`RelativePositionSDPA` can only be used as part of a multi-head attention layer and expects its input tensors to be 4 dimensional."
+            )
+
         q = queries
         k = keys
 
@@ -104,29 +109,23 @@ class RelativePositionSDPA(SDPA):
         u_bias = self.u_bias.unsqueeze(1)
         v_bias = self.v_bias.unsqueeze(1)
 
-        # (N x H, S, K_h) -> (N, H, S, K_h)
-        q = q.unflatten(0, (-1, self.num_heads))
-
         # (N, H, S, K_h) + (H, 1, K_h) -> (N, H, S, K_h)
         q_with_u_bias = q + u_bias
         q_with_v_bias = q + v_bias
 
-        # (N, H, S, K_h) -> (N x H, S, K_h)
-        q_with_u_bias = q_with_u_bias.flatten(0, 1)
-        q_with_v_bias = q_with_v_bias.flatten(0, 1)
-
-        # (N x H, 2 x S - 1, K_h)
+        # (N, H, 2 x S - 1, K_h)
         r = self._compute_r(k, batch_size=q.size(0))
 
-        # (N x H, S, K_h) @ (N x H, K_h, S) = (N x H, S, S)
-        ac = torch.bmm(q_with_u_bias, k.transpose(1, 2))
+        # (N, H, S, K_h) @ (N, H, K_h, S) = (N, H, S, S)
+        ac = torch.matmul(q_with_u_bias, k.transpose(-1, -2))
 
-        # (N x H, S, K_h) @ (N x H, K_h, 2 x S - 1) = (N x H, S, 2 x S - 1)
-        bd = torch.bmm(q_with_v_bias, r.transpose(1, 2))
+        # (N, H, S, K_h) @ (N, H, K_h, 2 x S - 1) = (N, H, S, 2 x S - 1)
+        bd = torch.matmul(q_with_v_bias, r.transpose(-1, -2))
 
-        # (N x H, S, 2 x S -1) -> (N x H, S, S)
+        # (N, H, S, 2 x S - 1) -> (N, H, S, S)
         bd = self._shift_bd(bd)
 
+        # (N, H, S, S)
         attn_weights = (ac + bd) * (q.size(-1) ** -0.5)
 
         if mask is not None:
@@ -139,47 +138,44 @@ class RelativePositionSDPA(SDPA):
         if self.training and self.attn_dropout_p > 0.0:
             attn_weights = dropout(attn_weights, self.attn_dropout_p)
 
-        # (N x H, S, S) @ (N x H, S, V_h) = (N x H, S, V_h)
-        attn = torch.bmm(attn_weights, values)
+        # (N, H, S, S) @ (N, H, S, V_h) = (N, H, S, V_h)
+        attn = torch.matmul(attn_weights, values)
 
         return attn, attn_weights if needs_weights else None
 
     def _compute_r(self, k: Tensor, batch_size: int) -> Tensor:
-        # (S, K) -> (2 x S - 1, K)
+        # (2 x S - 1, K)
         r = self.pos_encoding(k)
 
         # (2 x S - 1, K) -> (2 x S - 1, K)
         r = self.r_proj(r)
 
         # (2 x S - 1, K) -> (1, 2 x S - 1, H, K_h)
-        r = r.view(1, -1, self.num_heads, k.size(2))
+        r = r.view(1, -1, self.num_heads, k.size(-1))
 
         # (1, 2 x S - 1, H, K_h) -> (N, H, 2 x S - 1, K_h)
         r = r.transpose(1, 2).expand(batch_size, -1, -1, -1)
 
-        # (N, H, 2 x S - 1, K_h) -> (N x H, 2 x S - 1, K_h)
-        r = r.flatten(0, 1)
-
         return r  # type: ignore[no-any-return]
 
     def _shift_bd(self, bd: Tensor) -> Tensor:
-        # (N x H, S, 2 x S - 1) -> (N x H, S, 2 x S)
+        # (N, H, S, 2 x S - 1) -> (N, H, S, 2 x S)
         x = pad(bd, (1, 0))
 
-        # (N x H, S, 2 x S) -> (N x H, 2 x S, S)
-        x = x.view(x.size(0), x.size(2), x.size(1))
+        # (N, H, S, 2 x S) -> (N, H, 2 x S, S)
+        x = x.view(x.size(0), x.size(1), x.size(3), x.size(2))
 
         # Discard the first set of positive positions.
-        # (N x H, 2 x S, S) -> (N x H, 2 x S - 1, S)
-        x = x[:, 1:, :]
+        # (N, H, 2 x S, S) -> (N, H, 2 x S - 1, S)
+        x = x[:, :, 1:, :]
 
         # This op effectively shifts each row by an extra step.
-        # (N x H, S, 2 x S - 1)
+        # (N, H, 2 x S - 1, S) -> (N, H, S, 2 x S - 1)
         x = x.view_as(bd)
 
         # Discard positions used for shift.
-        # (N x H, S, 2 x S - 1) -> (N x H, S, S)
-        x = x[..., : bd.size(1)]
+        # (N, H, S, 2 x S - 1) -> (N, H, S, S)
+        x = x[..., : bd.size(2)]
 
         return x
 
@@ -280,9 +276,9 @@ class RelativePositionalEncoding(Module):
         """
         :param seqs:
             The sequences for which to return positional encodings. *Shape:*
-            :math:`(N,S,*)`, where :math:`N` is the batch size, :math:`S` is the
-            sequence length, and :math:`*` is any number of sequence-specific
-            dimensions including none.
+            :math:`(*,S,E)`, where :math:`*` is any number of batch dimensions
+            including none, :math:`S` is the sequence length, and :math:`E` is
+            the dimensionality of the positional encodings.
 
         :returns:
             The positional encodings to use in shift trick in
@@ -290,7 +286,7 @@ class RelativePositionalEncoding(Module):
             where :math:`S` is the sequence length and :math:`E` is the
             dimensionality of the positional encodings.
         """
-        seq_len = seqs.size(1)
+        seq_len = seqs.size(-2)
 
         if seq_len > self.max_seq_len:
             raise ValueError(
