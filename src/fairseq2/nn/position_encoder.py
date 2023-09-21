@@ -47,14 +47,13 @@ class PositionEncoder(Module, ABC):
         """
         :param seqs:
             The sequences to encode with positional information. *Shape:*
-            :math:`(N,S,E)`, where :math:`N` is the batch size, :math:`S` is the
-            sequence length, and :math:`E` is the dimensionality of the
-            positional encodings.
+            :math:`(*,S,E)`, where :math:`*` is any number of batch dimensions
+            including none, :math:`S` is the sequence length, and :math:`E` is
+            the dimensionality of the positional encodings.
         :param padding_mask:
-            The float padding mask of ``seqs``. *Shape:* :math:`(N_{msk},S)`,
-            where :math:`N_{msk}` is the mask batch size and :math:`S` is the
-            sequence length. :math:`N` can be a multiple of :math:`N_{msk}` in
-            which case the mask will be tiled before being applied.
+            The float padding mask of ``seqs``. *Shape:* :math:`(*,S)`, where
+            :math:`*` is any number of batch dimensions including none and
+            :math:`S` is the sequence length.
         :param state_bag:
             The state bag to use for incremental evaluation.
 
@@ -68,7 +67,7 @@ class PositionEncoder(Module, ABC):
             else:
                 start_step = 0
 
-            if (seq_len := start_step + seqs.size(1)) > self.max_seq_len:
+            if (seq_len := start_step + seqs.size(-2)) > self.max_seq_len:
                 raise ValueError(
                     f"The input sequence length must be less than or equal to the maximum sequence length ({self.max_seq_len}), but is {seq_len} instead."
                 )
@@ -85,15 +84,13 @@ class PositionEncoder(Module, ABC):
         """
         :param seqs:
             The sequences to encode with positional information. *Shape:*
-            :math:`(N,S,E)`, where :math:`N` is the batch size, :math:`S` is the
-            sequence length, and :math:`E` is the dimensionality of the
-            positional encodings.
+            :math:`(*,S,E)`, where :math:`*` is any number of batch dimensions
+            including none, :math:`S` is the sequence length, and :math:`E` is
+            the dimensionality of the positional encodings.
         :param padding_mask:
-            The float padding mask of ``seqs``. *Shape:* :math:`(N_{msk},S)`,
-            where :math:`N_{msk}` is the mask batch size and :math:`S` is the
-            sequence length. If padding has to be applied, a derived class
-            should use the :func:`~fairseq2.nn.utils.mask.apply_padding_mask`
-            function that handles tiling.
+            The float padding mask of ``seqs``. *Shape:* :math:`(*,S)`, where
+            :math:`*` is any number of batch dimensions including none and
+            :math:`S` is the sequence length.
         :param state_bag:
             The state bag to use for incremental evaluation.
 
@@ -237,7 +234,7 @@ class SinusoidalPositionEncoder(PositionEncoder):
         state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
         """:meta private:"""
-        seq_len = seqs.size(1)
+        seq_len = seqs.size(-2)
 
         if not self.training and state_bag is not None:
             start_step = state_bag.step
@@ -297,7 +294,7 @@ class LearnedPositionEncoder(PositionEncoder):
         state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
         """:meta private:"""
-        seq_len = seqs.size(1)
+        seq_len = seqs.size(-2)
 
         if not self.training and state_bag is not None:
             start_step = state_bag.step
@@ -385,7 +382,7 @@ class RotaryEncoder(PositionEncoder):
         state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
         """:meta private:"""
-        seq_len = seqs.size(1)
+        seq_len = seqs.size(-2)
 
         if not self.training and state_bag is not None:
             start_step = state_bag.step
