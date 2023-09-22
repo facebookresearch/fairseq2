@@ -9,17 +9,8 @@ to train custom models for translation, summarization, language modeling, and
 other content generation tasks.
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Tutorials
-
-   tutorials/cli/training
-   tutorials/cli/authoring
-   tutorials/data
-
-.. toctree::
    :caption: fairseq2 Reference
 
-   reference/cli
    reference/dataloader
    reference/all
 
