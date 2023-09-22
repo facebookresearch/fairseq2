@@ -308,10 +308,7 @@ class S2TTransformerBuilder:
             return None
 
         return SinusoidalPositionEncoder(
-            self.config.model_dim,
-            self.config.max_seq_len,
-            device=self.device,
-            dtype=self.dtype,
+            self.config.model_dim, self.config.max_seq_len, device=self.device
         )
 
     def build_target_position_encoder(self) -> PositionEncoder:
@@ -321,7 +318,6 @@ class S2TTransformerBuilder:
             self.config.max_seq_len,
             _legacy_pad_idx=self.config.target_pad_idx,
             device=self.device,
-            dtype=self.dtype,
         )
 
     def build_encoder(self) -> TransformerEncoder:
@@ -425,10 +421,7 @@ class S2TTransformerBuilder:
         if self.config.use_relative_pos:
             if self.rel_pos_encoding is None:
                 self.rel_pos_encoding = RelativePositionalEncoding(
-                    self.config.model_dim,
-                    self.config.max_seq_len,
-                    device=self.device,
-                    dtype=self.dtype,
+                    self.config.model_dim, self.config.max_seq_len, device=self.device
                 )
 
             sdpa = RelativePositionSDPA(
