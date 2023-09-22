@@ -288,13 +288,14 @@ if TYPE_CHECKING or _DOC_MODE:
         The batch is returned as a dictionary with the following keys::
 
             {
-                "is_ragged": True/False # TODO what does this mean ???
+                "is_ragged": True/False # True if padding was needed
                 "seqs": [[1, 4, 5, 0], [1, 2, 3, 4]]  # "(Tensor) concatenated and padded tensors from the input
                 "seq_lens": [3, 4]  # A tensor describing the original length of each input tensor
             }
 
-        Collater will try to preserve the columns in the original data.
-        Applied to a tuple of lists, it will return a tuple of batches.
+        Collater preserves the shape of the original data.
+        For a tuple of lists, it returns a tuple of batches.
+        For a dict of lists, it returns a dict of lists.
         """
 
         def __init__(
@@ -305,7 +306,7 @@ if TYPE_CHECKING or _DOC_MODE:
         ) -> None:
             ...
 
-        def __call__(self, data: Sequence[Any]) -> Any:
+        def __call__(self, data: Any) -> Any:
             """Concatenates the input tensors"""
             ...
 

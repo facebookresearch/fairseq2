@@ -217,6 +217,7 @@ class TestCollater:
         collater = Collater()
 
         assert collater(bucket) == {"foo1": [1]}
+        assert collater(1) == [1]
 
     def test_call_raises_error_when_items_have_different_types(self) -> None:
         bucket = [1, "foo", 2]
