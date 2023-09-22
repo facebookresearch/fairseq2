@@ -139,9 +139,10 @@ if TYPE_CHECKING or _DOC_MODE:
             selector: Optional[str] = None,
             num_parallel_calls: int = 1,
         ) -> Self:
-            """Apply ``fn`` to every example.
+            """Apply ``fn`` to each example.
 
             Example usage::
+
                 data = [2, 5]
                 data.map(lambda x: x + 10)
                 # yields: 12, 15
@@ -155,6 +156,9 @@ if TYPE_CHECKING or _DOC_MODE:
 
             :param fn:
                 The function to apply.
+                If it's a list of function, they will be automatically chained.
+                ``.map([f1, f2])`` is the more efficient version of ``.map(f1).map(f2)``
+
             :param selector:
                 The column to apply the function to. Several colums can be specified by separating them with a ",".
             :param num_parallel_calls:
@@ -245,15 +249,20 @@ if TYPE_CHECKING or _DOC_MODE:
         ...
 
     class CollateOptionsOverride:
+        """Overrides how the collater should create batch for a particular column.
+
+        Useful if not all columns should use the same padding idx.
+        See :py:class:`Collater` for details.
+
+        :param selector: the column this overrides applies to.
+        """
+
         def __init__(
             self,
             selector: str,
             pad_idx: Optional[int] = None,
             pad_to_multiple: int = 1,
         ) -> None:
-            """Overrides how the collater should create batch for a particular column.
-            Useful if not all columns should use the same padding idx.
-            """
             ...
 
         @property
@@ -269,13 +278,13 @@ if TYPE_CHECKING or _DOC_MODE:
             ...
 
     class Collater:
-        """Concatenate a list of tensors into a single tensor.
+        """Concatenate a list of tensors into a single contiguous tensor.
 
         Used to create batches. If all tensors in the input list have the same last dimension,
-        `Collater` returns the concatenated tensors.
+        ``Collater`` returns the concatenated tensors.
 
-        Otherwise `pad_idx` is required, and the last dimension of the batch will
-        be the enough to fit the longest tensor, rounded up to `pad_to_multiple`.
+        Otherwise ``pad_idx`` is required, and the last dimension of the batch will
+        be the enough to fit the longest tensor, rounded up to ``pad_to_multiple``.
         The batch is returned as a dictionary with the following keys::
 
             {
@@ -296,30 +305,24 @@ if TYPE_CHECKING or _DOC_MODE:
         ) -> None:
             ...
 
-        def __call__(self, data: Any) -> Any:
+        def __call__(self, data: Sequence[Any]) -> Any:
+            """Concatenates the input tensors"""
             ...
 
     class FileMapper:
         """For a given file name, returns the file content as bytes.
 
         The file name can also specify a slice of the file in bytes:
-        `FileMapper("big_file.txt:1024:48")` will read 48 bytes at offset 1024.
+        ``FileMapper("big_file.txt:1024:48")`` will read 48 bytes at offset 1024.
 
-        :returns:
-            A dict with the following keys::
-
-                {
-                    "path": "the/path.txt" # the relative path of the file
-                    "data": MemoryBlock  # a memory block with the content of the file. You can use `bytes` to get a regular python object.
-                }
 
         :param root_dir:
             Root directory for looking up relative file names.
             Warning, this is not enforced, FileMapper will happily read any file on the system.
 
         :param cached_fd_count:
-            Enables an LRU cache on the last `cached_fd_count` files read.
-            `FileMapper` will memory map all the cached file,
+            Enables an LRU cache on the last ``cached_fd_count`` files read.
+            ``FileMapper`` will memory map all the cached file,
             so this is especially useful for reading several slices of the same file.
         """
 
@@ -330,7 +333,17 @@ if TYPE_CHECKING or _DOC_MODE:
         ) -> None:
             ...
 
-        def __call__(self, pathname: PathLike) -> "FileMapperOutput":
+        def __call__(self, filename: PathLike) -> "FileMapperOutput":
+            """Parses the file name and returns the file bytes.
+
+            :returns:
+                A dict with the following keys::
+
+                    {
+                        "path": "the/path.txt" # the relative path of the file
+                        "data": MemoryBlock  # a memory block with the content of the file. You can use `bytes` to get a regular python object.
+                    }
+            """
             ...
 
     class ByteStreamError(RuntimeError):
