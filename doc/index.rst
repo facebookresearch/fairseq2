@@ -10,6 +10,7 @@ other content generation tasks.
 
 .. toctree::
    :caption: fairseq2 Reference
+   :maxdepth: 1
 
    reference/data
    reference/all
