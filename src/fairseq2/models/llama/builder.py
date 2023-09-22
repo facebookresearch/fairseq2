@@ -304,7 +304,6 @@ class LLaMABuilder:
                 self.config.model_dim // num_heads,
                 self.config.max_seq_len,
                 device=self.device,
-                dtype=self.dtype,
             )
 
         return StandardMultiheadAttention(

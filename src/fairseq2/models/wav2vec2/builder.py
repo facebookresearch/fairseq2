@@ -344,10 +344,7 @@ class Wav2Vec2EncoderBuilder:
         if self.config.pos_encoder_type == "relative":
             if self.rel_pos_encoding is None:
                 self.rel_pos_encoding = RelativePositionalEncoding(
-                    self.config.model_dim,
-                    self.config.max_seq_len,
-                    device=self.device,
-                    dtype=self.dtype,
+                    self.config.model_dim, self.config.max_seq_len, device=self.device
                 )
 
             sdpa = RelativePositionSDPA(
