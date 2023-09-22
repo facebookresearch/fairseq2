@@ -37,6 +37,9 @@ if TYPE_CHECKING or _DOC_MODE:
         def __len__(self) -> int:
             ...
 
+        def __bytes__(self) -> bytes:
+            ...
+
 else:
     from fairseq2n.bindings.memory import MemoryBlock as MemoryBlock
 

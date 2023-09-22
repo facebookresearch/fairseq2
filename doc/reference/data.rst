@@ -5,7 +5,7 @@ fairseq2.data
 .. currentmodule:: fairseq2.data
 
 .. autosummary::
-    :toctree: generated/dataloader
+    :toctree: generated/data
 
     DataPipeline
     DataPipelineBuilder
@@ -22,9 +22,7 @@ fairseq2.data
     ByteStreamError
     CollateOptionsOverride
     DataPipelineError
-    FileMapperOutput
     RecordError
-    SequenceData
     PathLike
     StringLike
     get_last_failed_example

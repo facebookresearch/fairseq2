@@ -141,9 +141,22 @@ if TYPE_CHECKING or _DOC_MODE:
         ) -> Self:
             """Apply ``fn`` to every example.
 
+            Example usage::
+                data = [2, 5]
+                data.map(lambda x: x + 10)
+                # yields: 12, 15
+                data.map(lambda x: x + 10, num_parallel_calls=8)
+                # same results but will use more cores
+                data = [{"a": 2, "b": 1}, {"a": 5, "b": 3}]
+                data.map(lambda x: x + 10, selector="a")
+                # yields: {"a": 12, "b": 1}, {"a": 15, "b": 3}
+                data.map(lambda x: x + 10, selector="a,b")
+                # yields: {"a": 12, "b": 11}, {"a": 15, "b": 13}
+
             :param fn:
                 The function to apply.
             :param selector:
+                The column to apply the function to. Several colums can be specified by separating them with a ",".
             :param num_parallel_calls:
                 The number of examples to process in parallel.
             """
@@ -238,6 +251,9 @@ if TYPE_CHECKING or _DOC_MODE:
             pad_idx: Optional[int] = None,
             pad_to_multiple: int = 1,
         ) -> None:
+            """Overrides how the collater should create batch for a particular column.
+            Useful if not all columns should use the same padding idx.
+            """
             ...
 
         @property
@@ -255,12 +271,16 @@ if TYPE_CHECKING or _DOC_MODE:
     class Collater:
         """Concatenate a list of tensors into a single tensor.
 
-        Used to create batches.
-        Batches are represented by a dictionary with the following keys::
+        Used to create batches. If all tensors in the input list have the same last dimension,
+        `Collater` returns the concatenated tensors.
+
+        Otherwise `pad_idx` is required, and the last dimension of the batch will
+        be the enough to fit the longest tensor, rounded up to `pad_to_multiple`.
+        The batch is returned as a dictionary with the following keys::
 
             {
                 "is_ragged": True/False # TODO what does this mean ???
-                "seqs": [[1, 4, 5, 0], [1, 2, 3, 4]]  # "(Tensor) the concatenated tensors from the input
+                "seqs": [[1, 4, 5, 0], [1, 2, 3, 4]]  # "(Tensor) concatenated and padded tensors from the input
                 "seq_lens": [3, 4]  # A tensor describing the original length of each input tensor
             }
 
@@ -280,6 +300,29 @@ if TYPE_CHECKING or _DOC_MODE:
             ...
 
     class FileMapper:
+        """For a given file name, returns the file content as bytes.
+
+        The file name can also specify a slice of the file in bytes:
+        `FileMapper("big_file.txt:1024:48")` will read 48 bytes at offset 1024.
+
+        :returns:
+            A dict with the following keys::
+
+                {
+                    "path": "the/path.txt" # the relative path of the file
+                    "data": MemoryBlock  # a memory block with the content of the file. You can use `bytes` to get a regular python object.
+                }
+
+        :param root_dir:
+            Root directory for looking up relative file names.
+            Warning, this is not enforced, FileMapper will happily read any file on the system.
+
+        :param cached_fd_count:
+            Enables an LRU cache on the last `cached_fd_count` files read.
+            `FileMapper` will memory map all the cached file,
+            so this is especially useful for reading several slices of the same file.
+        """
+
         def __init__(
             self,
             root_dir: Optional[PathLike] = None,

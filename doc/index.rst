@@ -11,7 +11,7 @@ other content generation tasks.
 .. toctree::
    :caption: fairseq2 Reference
 
-   reference/dataloader
+   reference/data
    reference/all
 
 .. toctree::
