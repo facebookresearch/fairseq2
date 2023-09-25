@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>IncrementalStateBag &mdash; fairseq2 0.2.0.dev20230918 documentation</title>
+  <title>IncrementalStateBag &mdash; fairseq2 0.2.0.dev20230925 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -35,7 +35,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20230918
+                0.2.0.dev20230925
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -288,8 +288,8 @@ be returned.</p></li>
 <span class="sig-name descname"><span class="pre">increment_step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">delta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/nn/incremental_state.html#IncrementalStateBag.increment_step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.IncrementalStateBag.increment_step" title="Permalink to this definition"></a></dt>
 <dd><p>Increment the step.</p>
 <p>This method should be called after every incremental evaluation (e.g.
-beam search). It is used by modules to keep track of the position in
-the sequence.</p>
+beam search) step. It is used by modules to keep track of the position
+in the sequence.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>delta</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – The value by which to increment the step.</p>

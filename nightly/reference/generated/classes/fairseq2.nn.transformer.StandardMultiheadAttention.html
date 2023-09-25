@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>StandardMultiheadAttention &mdash; fairseq2 0.2.0.dev20230918 documentation</title>
+  <title>StandardMultiheadAttention &mdash; fairseq2 0.2.0.dev20230925 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -36,7 +36,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20230918
+                0.2.0.dev20230925
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -268,7 +268,7 @@
 <li><p><strong>num_key_value_heads</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – The number of key/value heads for Grouped Query Attention as
 described in <span id="id2">Ainslie <em>et al.</em> [<a class="reference internal" href="../../../bibliography.html#id22" title="Joshua Ainslie, James Lee-Thorp, Michiel de Jong, Yury Zemlyanskiy, Federico Lebrón, and Sumit Sanghai. Gqa: training generalized multi-query transformer models from multi-head checkpoints. 2023. arXiv:2305.13245.">ALTdJ+23</a>]</span>.
 If <code class="docutils literal notranslate"><span class="pre">None</span></code> or set to <code class="docutils literal notranslate"><span class="pre">num_heads</span></code>, it is equivalent to standard
-Multi Head Attention (MHA). If set to 1, it is equivalent to Multi
+Multi Head Attention (MHA); if set to 1, it is equivalent to Multi
 Query Attention (MQA).</p></li>
 <li><p><strong>q_proj</strong> (<a class="reference internal" href="../abc/fairseq2.nn.Projection.html#fairseq2.nn.Projection" title="fairseq2.nn.projection.Projection"><em>Projection</em></a>) – The projection to apply to queries before computing attention. If
 <code class="docutils literal notranslate"><span class="pre">None</span></code>, a default projection will be used.</p></li>
@@ -292,13 +292,18 @@ additive bias. Ignored for explicitly specified projections.</p></li>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.nn.transformer.StandardMultiheadAttention._run_attn_weight_hooks">
-<span class="sig-name descname"><span class="pre">_run_attn_weight_hooks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">attn_weights</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fairseq2.nn.transformer.StandardMultiheadAttention._run_attn_weight_hooks" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">_run_attn_weight_hooks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">attn</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">attn_weights</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#fairseq2.nn.transformer.StandardMultiheadAttention._run_attn_weight_hooks" title="Permalink to this definition"></a></dt>
 <dd><p>Run registered attention weight hooks.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>attn_weights</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a>) – The computed attention weights. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S,S_{kv})\)</span>, where
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>attn</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a>) – The computed attention values. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S,V)\)</span>, where
 <span class="math notranslate nohighlight">\(N\)</span> is the batch size, <span class="math notranslate nohighlight">\(S\)</span> is the sequence length, and
-<span class="math notranslate nohighlight">\(S_{kv}\)</span> is the key/value sequence length.</p>
+<span class="math notranslate nohighlight">\(V\)</span> is the value size.</p></li>
+<li><p><strong>attn_weights</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a>) – The computed attention weights. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S,S_{kv})\)</span>, where
+<span class="math notranslate nohighlight">\(N\)</span> is the batch size, <span class="math notranslate nohighlight">\(S\)</span> is the sequence length, and
+<span class="math notranslate nohighlight">\(S_{kv}\)</span> is the key/value sequence length.</p></li>
+</ul>
 </dd>
 </dl>
 </dd></dl>

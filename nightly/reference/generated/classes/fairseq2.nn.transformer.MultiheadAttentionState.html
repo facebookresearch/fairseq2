@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MultiheadAttentionState &mdash; fairseq2 0.2.0.dev20230918 documentation</title>
+  <title>MultiheadAttentionState &mdash; fairseq2 0.2.0.dev20230925 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -36,7 +36,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20230918
+                0.2.0.dev20230925
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -256,24 +256,15 @@
 <h1>MultiheadAttentionState<a class="headerlink" href="#multiheadattentionstate" title="Permalink to this heading"></a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.nn.transformer.MultiheadAttentionState">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.nn.transformer.</span></span><span class="sig-name descname"><span class="pre">MultiheadAttentionState</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">k</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key_padding_mask</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/nn/transformer/multihead_attention.html#MultiheadAttentionState"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.transformer.MultiheadAttentionState" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.nn.transformer.</span></span><span class="sig-name descname"><span class="pre">MultiheadAttentionState</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">k</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/nn/transformer/multihead_attention.html#MultiheadAttentionState"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.transformer.MultiheadAttentionState" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="fairseq2.nn.IncrementalState.html#fairseq2.nn.IncrementalState" title="fairseq2.nn.incremental_state.IncrementalState"><code class="xref py py-class docutils literal notranslate"><span class="pre">IncrementalState</span></code></a></p>
 <p>Holds the state of a <a class="reference internal" href="../abc/fairseq2.nn.transformer.MultiheadAttention.html#fairseq2.nn.transformer.MultiheadAttention" title="fairseq2.nn.transformer.MultiheadAttention"><code class="xref py py-class docutils literal notranslate"><span class="pre">MultiheadAttention</span></code></a> module during an
 incremental evaluation.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>k</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a>) – The initial projected keys. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S_{int},K_{proj})\)</span>,
-where <span class="math notranslate nohighlight">\(N\)</span> is the batch size, <span class="math notranslate nohighlight">\(S_{int}\)</span> is the initial
-key/value sequence length, and <span class="math notranslate nohighlight">\(K_{proj}\)</span> is the projected key
-size.</p></li>
-<li><p><strong>v</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a>) – The initial projected values. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S_{int},V_{proj})\)</span>,
-where <span class="math notranslate nohighlight">\(N\)</span> is the batch size, <span class="math notranslate nohighlight">\(S_{int}\)</span> is the initial
-key/value sequence length, and <span class="math notranslate nohighlight">\(V_{proj}\)</span> is the projected
-value size.</p></li>
-<li><p><strong>key_padding_mask</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a><em> | </em><em>None</em>) – The initial float key padding mask. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S_{int})\)</span>,
-where <span class="math notranslate nohighlight">\(N\)</span> is the batch size and <span class="math notranslate nohighlight">\(S_{int}\)</span> is the initial
-key/value sequence length.</p></li>
+<li><p><strong>k</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a>) – The projected keys to bootstrap the internal state.</p></li>
+<li><p><strong>v</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a>) – The projected values to bootstrap the internal state.</p></li>
 </ul>
 </dd>
 </dl>
@@ -281,22 +272,24 @@ key/value sequence length.</p></li>
 <dt class="sig sig-object py" id="fairseq2.nn.transformer.MultiheadAttentionState.append">
 <span class="sig-name descname"><span class="pre">append</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">k</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">v</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">key_padding_mask</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/nn/transformer/multihead_attention.html#MultiheadAttentionState.append"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.transformer.MultiheadAttentionState.append" title="Permalink to this definition"></a></dt>
 <dd><p>Append the projected key, projected value, and float key padding mask
-of the current incremental evaluation to <a class="reference internal" href="#fairseq2.nn.transformer.MultiheadAttentionState.prev_k" title="fairseq2.nn.transformer.MultiheadAttentionState.prev_k"><code class="xref py py-attr docutils literal notranslate"><span class="pre">prev_k</span></code></a>, <a class="reference internal" href="#fairseq2.nn.transformer.MultiheadAttentionState.prev_v" title="fairseq2.nn.transformer.MultiheadAttentionState.prev_v"><code class="xref py py-attr docutils literal notranslate"><span class="pre">prev_v</span></code></a>,
-and <code class="xref py py-attr docutils literal notranslate"><span class="pre">key_padding_mask</span></code>.</p>
+of the current incremental evaluation step to <a class="reference internal" href="#fairseq2.nn.transformer.MultiheadAttentionState.k" title="fairseq2.nn.transformer.MultiheadAttentionState.k"><code class="xref py py-attr docutils literal notranslate"><span class="pre">k</span></code></a>,
+<a class="reference internal" href="#fairseq2.nn.transformer.MultiheadAttentionState.v" title="fairseq2.nn.transformer.MultiheadAttentionState.v"><code class="xref py py-attr docutils literal notranslate"><span class="pre">v</span></code></a>, and <a class="reference internal" href="#fairseq2.nn.transformer.MultiheadAttentionState.key_padding_mask" title="fairseq2.nn.transformer.MultiheadAttentionState.key_padding_mask"><code class="xref py py-attr docutils literal notranslate"><span class="pre">key_padding_mask</span></code></a>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>k</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a>) – The projected key of the current incremental evaluation. <em>Shape:</em>
-<span class="math notranslate nohighlight">\((N,S_{stp},K_{proj})\)</span>, where <span class="math notranslate nohighlight">\(N\)</span> is the batch size,
-<span class="math notranslate nohighlight">\(S_{stp}\)</span> is the step length (e.g. 1), and <span class="math notranslate nohighlight">\(K_{proj}\)</span> is
-the projected key size.</p></li>
-<li><p><strong>v</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a>) – The projected value of the current incremental evaluation. <em>Shape:</em>
-<span class="math notranslate nohighlight">\((N,S_{stp},V_{proj})\)</span>, where <span class="math notranslate nohighlight">\(N\)</span> is the batch size,
-<span class="math notranslate nohighlight">\(S_{stp}\)</span> is the step length (e.g. 1), and <span class="math notranslate nohighlight">\(V_{proj}\)</span> is
-the projected value size.</p></li>
-<li><p><strong>key_padding_mask</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a><em> | </em><em>None</em>) – The float key padding mask of the current incremental evaluation.
-<em>Shape:</em> <span class="math notranslate nohighlight">\((N,S_{stp})\)</span>, where <span class="math notranslate nohighlight">\(N\)</span> is the batch size and
-<span class="math notranslate nohighlight">\(S_{stp}\)</span> is the step length (e.g. 1).</p></li>
+<li><p><strong>k</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a>) – The projected key of the current incremental evaluation step.
+<em>Shape:</em> <span class="math notranslate nohighlight">\((N,H,S_{stp},K_{proj})\)</span>, where <span class="math notranslate nohighlight">\(N\)</span> is the
+batch size, <span class="math notranslate nohighlight">\(H\)</span> is the number of heads, <span class="math notranslate nohighlight">\(S_{stp}\)</span> is the
+step length (e.g. 1), and <span class="math notranslate nohighlight">\(K_{proj}\)</span> is the projected key
+size.</p></li>
+<li><p><strong>v</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a>) – The projected value of the current incremental evaluation step.
+<em>Shape:</em> <span class="math notranslate nohighlight">\((N,H,S_{stp},V_{proj})\)</span>, where <span class="math notranslate nohighlight">\(N\)</span> is the
+batch size, <span class="math notranslate nohighlight">\(H\)</span> is the number of heads, <span class="math notranslate nohighlight">\(S_{stp}\)</span> is the
+step length (e.g. 1), and <span class="math notranslate nohighlight">\(V_{proj}\)</span> is the projected value
+size.</p></li>
+<li><p><strong>key_padding_mask</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a><em> | </em><em>None</em>) – The float key padding mask of the current incremental evaluation
+step. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S_{stp})\)</span>, where <span class="math notranslate nohighlight">\(N\)</span> is the batch
+size and <span class="math notranslate nohighlight">\(S_{stp}\)</span> is the step length (e.g. 1).</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -326,29 +319,42 @@ based on the selection of beams.</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="fairseq2.nn.transformer.MultiheadAttentionState.prev_k">
-<span class="sig-name descname"><span class="pre">prev_k</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><span class="pre">Tensor</span></a></em><a class="headerlink" href="#fairseq2.nn.transformer.MultiheadAttentionState.prev_k" title="Permalink to this definition"></a></dt>
-<dd><p>The projected keys accumulated from the past incremental evaluations.
-<em>Shape:</em> <span class="math notranslate nohighlight">\((N,S_{prv},K_{proj})\)</span>, where <span class="math notranslate nohighlight">\(N\)</span> is the batch size,
-<span class="math notranslate nohighlight">\(S_{prv}\)</span> is the accumulated key/value sequence length, and
-<span class="math notranslate nohighlight">\(K_{proj}\)</span> is the projected key size.</p>
+<dt class="sig sig-object py" id="fairseq2.nn.transformer.MultiheadAttentionState.cache_reserve_size">
+<span class="sig-name descname"><span class="pre">cache_reserve_size</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">512</span></em><a class="headerlink" href="#fairseq2.nn.transformer.MultiheadAttentionState.cache_reserve_size" title="Permalink to this definition"></a></dt>
+<dd><p>The reserved sequence length capacity of <a class="reference internal" href="#fairseq2.nn.transformer.MultiheadAttentionState.k" title="fairseq2.nn.transformer.MultiheadAttentionState.k"><code class="xref py py-attr docutils literal notranslate"><span class="pre">k</span></code></a> and <a class="reference internal" href="#fairseq2.nn.transformer.MultiheadAttentionState.v" title="fairseq2.nn.transformer.MultiheadAttentionState.v"><code class="xref py py-attr docutils literal notranslate"><span class="pre">v</span></code></a> will be
+increased by multiplies of the specified value.</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="fairseq2.nn.transformer.MultiheadAttentionState.prev_key_padding_mask">
-<span class="sig-name descname"><span class="pre">prev_key_padding_mask</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><span class="pre">Tensor</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></em><a class="headerlink" href="#fairseq2.nn.transformer.MultiheadAttentionState.prev_key_padding_mask" title="Permalink to this definition"></a></dt>
+<dt class="sig sig-object py" id="fairseq2.nn.transformer.MultiheadAttentionState.k">
+<span class="sig-name descname"><span class="pre">k</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><span class="pre">Tensor</span></a></em><a class="headerlink" href="#fairseq2.nn.transformer.MultiheadAttentionState.k" title="Permalink to this definition"></a></dt>
+<dd><p>The projected keys accumulated from the past incremental evaluation
+steps. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,H,S,K_{proj})\)</span>, where <span class="math notranslate nohighlight">\(N\)</span> is the batch
+size, <span class="math notranslate nohighlight">\(H\)</span> is the number of heads, <span class="math notranslate nohighlight">\(S\)</span> is the reserved sequence
+length capacity, and <span class="math notranslate nohighlight">\(K_{proj}\)</span> is the projected key size.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.nn.transformer.MultiheadAttentionState.key_padding_mask">
+<span class="sig-name descname"><span class="pre">key_padding_mask</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><span class="pre">Tensor</span></a></em><a class="headerlink" href="#fairseq2.nn.transformer.MultiheadAttentionState.key_padding_mask" title="Permalink to this definition"></a></dt>
 <dd><p>The float key padding mask accumulated from the past incremental
-evaluations. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S_{prv})\)</span>, where <span class="math notranslate nohighlight">\(N\)</span> is the batch size
-and <span class="math notranslate nohighlight">\(S_{prv}\)</span> is the accumulated key/value sequence length.</p>
+evaluation steps. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S)\)</span>, where <span class="math notranslate nohighlight">\(N\)</span> is the batch
+size and <span class="math notranslate nohighlight">\(S\)</span> is the reserved sequence length capacity.</p>
 </dd></dl>
 
 <dl class="py attribute">
-<dt class="sig sig-object py" id="fairseq2.nn.transformer.MultiheadAttentionState.prev_v">
-<span class="sig-name descname"><span class="pre">prev_v</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><span class="pre">Tensor</span></a></em><a class="headerlink" href="#fairseq2.nn.transformer.MultiheadAttentionState.prev_v" title="Permalink to this definition"></a></dt>
-<dd><p>The projected values accumulated from the past incremental evaluations.
-<em>Shape:</em> <span class="math notranslate nohighlight">\((N,S_{prv},V_{proj})\)</span>, where <span class="math notranslate nohighlight">\(N\)</span> is the batch size,
-<span class="math notranslate nohighlight">\(S_{prv}\)</span> is the accumulated key/value sequence length, and
-<span class="math notranslate nohighlight">\(V_{proj}\)</span> is the projected value size.</p>
+<dt class="sig sig-object py" id="fairseq2.nn.transformer.MultiheadAttentionState.seq_len">
+<span class="sig-name descname"><span class="pre">seq_len</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#fairseq2.nn.transformer.MultiheadAttentionState.seq_len" title="Permalink to this definition"></a></dt>
+<dd><p>The current sequence length of <a class="reference internal" href="#fairseq2.nn.transformer.MultiheadAttentionState.k" title="fairseq2.nn.transformer.MultiheadAttentionState.k"><code class="xref py py-attr docutils literal notranslate"><span class="pre">k</span></code></a> and <a class="reference internal" href="#fairseq2.nn.transformer.MultiheadAttentionState.v" title="fairseq2.nn.transformer.MultiheadAttentionState.v"><code class="xref py py-attr docutils literal notranslate"><span class="pre">v</span></code></a>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="fairseq2.nn.transformer.MultiheadAttentionState.v">
+<span class="sig-name descname"><span class="pre">v</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><span class="pre">Tensor</span></a></em><a class="headerlink" href="#fairseq2.nn.transformer.MultiheadAttentionState.v" title="Permalink to this definition"></a></dt>
+<dd><p>The projected values accumulated from the past incremental evaluation
+steps. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,H,S,V_{proj})\)</span>, where <span class="math notranslate nohighlight">\(N\)</span> is the batch
+size, <span class="math notranslate nohighlight">\(H\)</span> is the number of heads, <span class="math notranslate nohighlight">\(S\)</span> is the reserved sequence
+length capacity, and <span class="math notranslate nohighlight">\(V_{proj}\)</span> is the projected value size.</p>
 </dd></dl>
 
 </dd></dl>

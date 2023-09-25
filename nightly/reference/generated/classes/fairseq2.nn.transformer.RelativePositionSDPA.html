@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RelativePositionSDPA &mdash; fairseq2 0.2.0.dev20230918 documentation</title>
+  <title>RelativePositionSDPA &mdash; fairseq2 0.2.0.dev20230925 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -36,7 +36,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20230918
+                0.2.0.dev20230925
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -282,31 +282,32 @@ The relative positional encoding table.</p>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>queries</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a>) – The queries. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S,K)\)</span>, where <span class="math notranslate nohighlight">\(N\)</span> is the batch
-size, <span class="math notranslate nohighlight">\(S\)</span> is the sequence length, and <span class="math notranslate nohighlight">\(K\)</span> is the key
-size.</p></li>
-<li><p><strong>keys</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a>) – The keys. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S_{kv},K)\)</span>, where <span class="math notranslate nohighlight">\(N\)</span> is the
-batch size, <span class="math notranslate nohighlight">\(S_{kv}\)</span> is the key/value sequence length, and
-<span class="math notranslate nohighlight">\(K\)</span> is the key size.</p></li>
-<li><p><strong>values</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a>) – The values. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S_{kv},V)\)</span>, where <span class="math notranslate nohighlight">\(N\)</span> is the
-batch size, <span class="math notranslate nohighlight">\(S_{kv}\)</span> is the key/value sequence length, and
-<span class="math notranslate nohighlight">\(V\)</span> is the value size.</p></li>
+<li><p><strong>queries</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a>) – The queries. <em>Shape:</em> <span class="math notranslate nohighlight">\((*,S,K)\)</span>, where <span class="math notranslate nohighlight">\(*\)</span> is any number
+of batch dimensions including none, <span class="math notranslate nohighlight">\(S\)</span> is the sequence
+length, and <span class="math notranslate nohighlight">\(K\)</span> is the key size.</p></li>
+<li><p><strong>keys</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a>) – The keys. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S_{kv},K)\)</span>, where <span class="math notranslate nohighlight">\(*\)</span> is any
+number of batch dimensions including none, <span class="math notranslate nohighlight">\(S_{kv}\)</span> is the
+key/value sequence length, and <span class="math notranslate nohighlight">\(K\)</span> is the key size.</p></li>
+<li><p><strong>values</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a>) – The values. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S_{kv},V)\)</span>, where <span class="math notranslate nohighlight">\(*\)</span> is any
+number of batch dimensions including none, <span class="math notranslate nohighlight">\(S_{kv}\)</span> is the
+key/value sequence length, and <span class="math notranslate nohighlight">\(V\)</span> is the value size.</p></li>
 <li><p><strong>mask</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a><em> | </em><em>None</em>) – The float mask that will be added to the attention weights before
 computing the attention. <em>Shape:</em> <span class="math notranslate nohighlight">\((S,S_{kv})\)</span> or
-<span class="math notranslate nohighlight">\((N,S,S_{kv})\)</span>, where <span class="math notranslate nohighlight">\(N\)</span> is the batch size,
-<span class="math notranslate nohighlight">\(S\)</span> is the sequence length, and <span class="math notranslate nohighlight">\(S_{kv}\)</span> is the
-key/value sequence length.</p></li>
+<span class="math notranslate nohighlight">\((*,S,S_{kv})\)</span>, where <span class="math notranslate nohighlight">\(*\)</span> is any number of batch
+dimensions including none, <span class="math notranslate nohighlight">\(S\)</span> is the sequence length, and
+<span class="math notranslate nohighlight">\(S_{kv}\)</span> is the key/value sequence length.</p></li>
 <li><p><strong>needs_weights</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, returns the attention weights.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
 <dd class="field-even"><p><ul class="simple">
-<li><p>The attention values. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S,V)\)</span>, where
-<span class="math notranslate nohighlight">\(N\)</span> is the batch size, <span class="math notranslate nohighlight">\(S\)</span> is the sequence length, and
-<span class="math notranslate nohighlight">\(V\)</span> is the value size.</p></li>
-<li><p>The attention weights. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S,S_{kv})\)</span>, where
-<span class="math notranslate nohighlight">\(N\)</span> is the batch size, <span class="math notranslate nohighlight">\(S\)</span> is the sequence length, and
-<span class="math notranslate nohighlight">\(S_{kv}\)</span> is the key/value sequence length.</p></li>
+<li><p>The attention values. <em>Shape:</em> <span class="math notranslate nohighlight">\((*,S,V)\)</span>, where <span class="math notranslate nohighlight">\(*\)</span>
+is the same batch dimensions as input, <span class="math notranslate nohighlight">\(S\)</span> is the sequence
+length, and <span class="math notranslate nohighlight">\(V\)</span> is the value size.</p></li>
+<li><p>The attention weights. <em>Shape:</em> <span class="math notranslate nohighlight">\((*,S,S_{kv})\)</span>, where
+<span class="math notranslate nohighlight">\(*\)</span> is the same batch dimensions as input, <span class="math notranslate nohighlight">\(S\)</span> is the
+sequence length, and <span class="math notranslate nohighlight">\(S_{kv}\)</span> is the key/value sequence
+length.</p></li>
 </ul>
 </p>
 </dd>

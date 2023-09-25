@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.nn.position_encoder &mdash; fairseq2 0.2.0.dev20230918 documentation</title>
+  <title>fairseq2.nn.position_encoder &mdash; fairseq2 0.2.0.dev20230925 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20230918
+                0.2.0.dev20230925
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -266,6 +266,7 @@
 <span class="kn">from</span> <span class="nn">torch.nn.parameter</span> <span class="kn">import</span> <span class="n">Parameter</span>
 
 <span class="kn">from</span> <span class="nn">fairseq2.nn.incremental_state</span> <span class="kn">import</span> <span class="n">IncrementalStateBag</span>
+<span class="kn">from</span> <span class="nn">fairseq2.nn.ops</span> <span class="kn">import</span> <span class="n">repeat_interleave</span>
 <span class="kn">from</span> <span class="nn">fairseq2.typing</span> <span class="kn">import</span> <span class="n">DataType</span><span class="p">,</span> <span class="n">Device</span><span class="p">,</span> <span class="n">finaloverride</span>
 
 
@@ -297,14 +298,13 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :param seqs:</span>
 <span class="sd">            The sequences to encode with positional information. *Shape:*</span>
-<span class="sd">            :math:`(N,S,E)`, where :math:`N` is the batch size, :math:`S` is the</span>
-<span class="sd">            sequence length, and :math:`E` is the dimensionality of the</span>
-<span class="sd">            positional encodings.</span>
+<span class="sd">            :math:`(*,S,E)`, where :math:`*` is any number of batch dimensions</span>
+<span class="sd">            including none, :math:`S` is the sequence length, and :math:`E` is</span>
+<span class="sd">            the dimensionality of the positional encodings.</span>
 <span class="sd">        :param padding_mask:</span>
-<span class="sd">            The float padding mask of ``seqs``. *Shape:* :math:`(N_{msk},S)`,</span>
-<span class="sd">            where :math:`N_{msk}` is the mask batch size and :math:`S` is the</span>
-<span class="sd">            sequence length. :math:`N` can be a multiple of :math:`N_{msk}` in</span>
-<span class="sd">            which case the mask will be tiled before being applied.</span>
+<span class="sd">            The float padding mask of ``seqs``. *Shape:* :math:`(*,S)`, where</span>
+<span class="sd">            :math:`*` is any number of batch dimensions including none and</span>
+<span class="sd">            :math:`S` is the sequence length.</span>
 <span class="sd">        :param state_bag:</span>
 <span class="sd">            The state bag to use for incremental evaluation.</span>
 
@@ -314,11 +314,11 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">training</span> <span class="ow">and</span> <span class="n">state_bag</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">start_step</span> <span class="o">=</span> <span class="n">state_bag</span><span class="o">.</span><span class="n">step</span>
+                <span class="n">start</span> <span class="o">=</span> <span class="n">state_bag</span><span class="o">.</span><span class="n">step</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">start_step</span> <span class="o">=</span> <span class="mi">0</span>
+                <span class="n">start</span> <span class="o">=</span> <span class="mi">0</span>
 
-            <span class="k">if</span> <span class="p">(</span><span class="n">seq_len</span> <span class="o">:=</span> <span class="n">start_step</span> <span class="o">+</span> <span class="n">seqs</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span><span class="p">:</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">seq_len</span> <span class="o">:=</span> <span class="n">start</span> <span class="o">+</span> <span class="n">seqs</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">))</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;The input sequence length must be less than or equal to the maximum sequence length (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">seq_len</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
                 <span class="p">)</span>
@@ -335,15 +335,13 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :param seqs:</span>
 <span class="sd">            The sequences to encode with positional information. *Shape:*</span>
-<span class="sd">            :math:`(N,S,E)`, where :math:`N` is the batch size, :math:`S` is the</span>
-<span class="sd">            sequence length, and :math:`E` is the dimensionality of the</span>
-<span class="sd">            positional encodings.</span>
+<span class="sd">            :math:`(*,S,E)`, where :math:`*` is any number of batch dimensions</span>
+<span class="sd">            including none, :math:`S` is the sequence length, and :math:`E` is</span>
+<span class="sd">            the dimensionality of the positional encodings.</span>
 <span class="sd">        :param padding_mask:</span>
-<span class="sd">            The float padding mask of ``seqs``. *Shape:* :math:`(N_{msk},S)`,</span>
-<span class="sd">            where :math:`N_{msk}` is the mask batch size and :math:`S` is the</span>
-<span class="sd">            sequence length. If padding has to be applied, a derived class</span>
-<span class="sd">            should use the :func:`~fairseq2.nn.utils.mask.apply_padding_mask`</span>
-<span class="sd">            function that handles tiling.</span>
+<span class="sd">            The float padding mask of ``seqs``. *Shape:* :math:`(*,S)`, where</span>
+<span class="sd">            :math:`*` is any number of batch dimensions including none and</span>
+<span class="sd">            :math:`S` is the sequence length.</span>
 <span class="sd">        :param state_bag:</span>
 <span class="sd">            The state bag to use for incremental evaluation.</span>
 
@@ -412,7 +410,6 @@
         <span class="o">*</span><span class="p">,</span>
         <span class="n">_legacy_pad_idx</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DataType</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">encoding_dim</span><span class="p">,</span> <span class="n">max_seq_len</span><span class="p">)</span>
 
@@ -428,7 +425,9 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_sin_offset</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">_legacy_pad_idx</span>
 
-        <span class="n">weight</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">max_seq_len</span><span class="p">,</span> <span class="n">encoding_dim</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">weight</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">max_seq_len</span><span class="p">,</span> <span class="n">encoding_dim</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
+        <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;weight&quot;</span><span class="p">,</span> <span class="n">weight</span><span class="p">,</span> <span class="n">persistent</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
@@ -442,25 +441,21 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset the non-persistent buffers of the module.&quot;&quot;&quot;</span>
         <span class="n">num_sin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">encoding_dim</span> <span class="o">//</span> <span class="mi">2</span>
 
-        <span class="n">dtype</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
+        <span class="n">device</span><span class="p">,</span> <span class="n">dtype</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">dtype</span>
 
-        <span class="n">weight</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
-
-        <span class="n">l_half</span> <span class="o">=</span> <span class="n">weight</span><span class="p">[:,</span> <span class="p">:</span><span class="n">num_sin</span><span class="p">]</span>
-        <span class="n">r_half</span> <span class="o">=</span> <span class="n">weight</span><span class="p">[:,</span> <span class="n">num_sin</span><span class="p">:]</span>
-
-        <span class="n">device</span> <span class="o">=</span> <span class="n">weight</span><span class="o">.</span><span class="n">device</span>
+        <span class="n">l_half</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">[:,</span> <span class="p">:</span><span class="n">num_sin</span><span class="p">]</span>
+        <span class="n">r_half</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">[:,</span> <span class="n">num_sin</span><span class="p">:]</span>
 
         <span class="c1"># (1, E)</span>
         <span class="n">indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">num_sin</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
 
-        <span class="n">start_step</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sin_offset</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sin_offset</span>
 
         <span class="k">assert</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
 
         <span class="c1"># (S)</span>
         <span class="n">steps</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span>
-            <span class="n">start_step</span><span class="p">,</span> <span class="n">start_step</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span>
+            <span class="n">start</span><span class="p">,</span> <span class="n">start</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span>
         <span class="p">)</span>
 
         <span class="c1"># (S) -&gt; (S, 1)</span>
@@ -475,9 +470,7 @@
         <span class="n">r_half</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">l_half</span><span class="p">)</span>
 
         <span class="n">l_half</span><span class="o">.</span><span class="n">sin_</span><span class="p">()</span>
-        <span class="n">r_half</span><span class="o">.</span><span class="n">cos_</span><span class="p">()</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">weight</span><span class="p">)</span></div>
+        <span class="n">r_half</span><span class="o">.</span><span class="n">cos_</span><span class="p">()</span></div>
 
     <span class="nd">@finaloverride</span>
     <span class="k">def</span> <span class="nf">_do_forward</span><span class="p">(</span>
@@ -487,14 +480,16 @@
         <span class="n">state_bag</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">IncrementalStateBag</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;:meta private:&quot;&quot;&quot;</span>
-        <span class="n">seq_len</span> <span class="o">=</span> <span class="n">seqs</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">seq_len</span> <span class="o">=</span> <span class="n">seqs</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">training</span> <span class="ow">and</span> <span class="n">state_bag</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">start_step</span> <span class="o">=</span> <span class="n">state_bag</span><span class="o">.</span><span class="n">step</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">state_bag</span><span class="o">.</span><span class="n">step</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">start_step</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="mi">0</span>
 
-        <span class="k">return</span> <span class="n">seqs</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">[</span><span class="n">start_step</span> <span class="p">:</span> <span class="n">start_step</span> <span class="o">+</span> <span class="n">seq_len</span><span class="p">]</span></div>
+        <span class="n">fp32_seqs</span> <span class="o">=</span> <span class="n">seqs</span><span class="o">.</span><span class="n">float</span><span class="p">()</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">[</span><span class="n">start</span> <span class="p">:</span> <span class="n">start</span> <span class="o">+</span> <span class="n">seq_len</span><span class="p">]</span>
+
+        <span class="k">return</span> <span class="n">fp32_seqs</span><span class="o">.</span><span class="n">type_as</span><span class="p">(</span><span class="n">seqs</span><span class="p">)</span></div>
 
 
 <div class="viewcode-block" id="LearnedPositionEncoder"><a class="viewcode-back" href="../../../reference/generated/classes/fairseq2.nn.LearnedPositionEncoder.html#fairseq2.nn.LearnedPositionEncoder">[docs]</a><span class="nd">@final</span>
@@ -547,15 +542,15 @@
         <span class="n">state_bag</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">IncrementalStateBag</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;:meta private:&quot;&quot;&quot;</span>
-        <span class="n">seq_len</span> <span class="o">=</span> <span class="n">seqs</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">seq_len</span> <span class="o">=</span> <span class="n">seqs</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">training</span> <span class="ow">and</span> <span class="n">state_bag</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">start_step</span> <span class="o">=</span> <span class="n">state_bag</span><span class="o">.</span><span class="n">step</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">state_bag</span><span class="o">.</span><span class="n">step</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">start_step</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="mi">0</span>
 
         <span class="n">steps</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span>
-            <span class="n">start_step</span><span class="p">,</span> <span class="n">start_step</span> <span class="o">+</span> <span class="n">seq_len</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">seqs</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span>
+            <span class="n">start</span><span class="p">,</span> <span class="n">start</span> <span class="o">+</span> <span class="n">seq_len</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">seqs</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span>
         <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">seqs</span> <span class="o">+</span> <span class="n">embedding</span><span class="p">(</span><span class="n">steps</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">)</span></div>
@@ -575,7 +570,6 @@
         <span class="n">max_seq_len</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DataType</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">encoding_dim</span><span class="p">,</span> <span class="n">max_seq_len</span><span class="p">)</span>
 
@@ -584,8 +578,12 @@
                 <span class="sa">f</span><span class="s2">&quot;`encoding_dim` must be even, but is </span><span class="si">{</span><span class="n">encoding_dim</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
             <span class="p">)</span>
 
-        <span class="n">cos</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">max_seq_len</span><span class="p">,</span> <span class="n">encoding_dim</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
-        <span class="n">sin</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">max_seq_len</span><span class="p">,</span> <span class="n">encoding_dim</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+        <span class="n">cos</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">max_seq_len</span><span class="p">,</span> <span class="n">encoding_dim</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
+        <span class="p">)</span>
+        <span class="n">sin</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
+            <span class="p">(</span><span class="n">max_seq_len</span><span class="p">,</span> <span class="n">encoding_dim</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
+        <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;cos_weight&quot;</span><span class="p">,</span> <span class="n">cos</span><span class="p">,</span> <span class="n">persistent</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;sin_weight&quot;</span><span class="p">,</span> <span class="n">sin</span><span class="p">,</span> <span class="n">persistent</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
@@ -598,7 +596,7 @@
 
 <div class="viewcode-block" id="RotaryEncoder.reset_non_persistent_buffers"><a class="viewcode-back" href="../../../reference/generated/classes/fairseq2.nn.RotaryEncoder.html#fairseq2.nn.RotaryEncoder.reset_non_persistent_buffers">[docs]</a>    <span class="k">def</span> <span class="nf">reset_non_persistent_buffers</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset the non-persistent buffers of the module.&quot;&quot;&quot;</span>
-        <span class="n">device</span><span class="p">,</span> <span class="n">dtype</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sin_weight</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
+        <span class="n">device</span><span class="p">,</span> <span class="n">dtype</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sin_weight</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">sin_weight</span><span class="o">.</span><span class="n">dtype</span>
 
         <span class="c1"># (E)</span>
         <span class="n">indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">encoding_dim</span> <span class="o">//</span> <span class="mi">2</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
@@ -620,12 +618,8 @@
         <span class="n">cos</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">table</span><span class="p">)</span>
         <span class="n">sin</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">table</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">cos_weight</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">repeat_interleave</span><span class="p">(</span>
-            <span class="n">cos</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">output_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">encoding_dim</span>
-        <span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">sin_weight</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">repeat_interleave</span><span class="p">(</span>
-            <span class="n">sin</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">output_size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">encoding_dim</span>
-        <span class="p">)</span></div>
+        <span class="bp">self</span><span class="o">.</span><span class="n">cos_weight</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">repeat_interleave</span><span class="p">(</span><span class="n">cos</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">repeat</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sin_weight</span><span class="p">[:]</span> <span class="o">=</span> <span class="n">repeat_interleave</span><span class="p">(</span><span class="n">sin</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">repeat</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span></div>
 
     <span class="nd">@finaloverride</span>
     <span class="k">def</span> <span class="nf">_do_forward</span><span class="p">(</span>
@@ -635,19 +629,19 @@
         <span class="n">state_bag</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">IncrementalStateBag</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;:meta private:&quot;&quot;&quot;</span>
-        <span class="n">seq_len</span> <span class="o">=</span> <span class="n">seqs</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">seq_len</span> <span class="o">=</span> <span class="n">seqs</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">training</span> <span class="ow">and</span> <span class="n">state_bag</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">start_step</span> <span class="o">=</span> <span class="n">state_bag</span><span class="o">.</span><span class="n">step</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">state_bag</span><span class="o">.</span><span class="n">step</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">start_step</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="mi">0</span>
 
         <span class="n">seqs_swapped</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_swap_pairs</span><span class="p">(</span><span class="n">seqs</span><span class="p">)</span>
 
-        <span class="n">cos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cos_weight</span><span class="p">[</span><span class="n">start_step</span> <span class="p">:</span> <span class="n">start_step</span> <span class="o">+</span> <span class="n">seq_len</span><span class="p">]</span> <span class="o">*</span> <span class="n">seqs</span>
-        <span class="n">sin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sin_weight</span><span class="p">[</span><span class="n">start_step</span> <span class="p">:</span> <span class="n">start_step</span> <span class="o">+</span> <span class="n">seq_len</span><span class="p">]</span> <span class="o">*</span> <span class="n">seqs_swapped</span>
+        <span class="n">fp32_cos</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cos_weight</span><span class="p">[</span><span class="n">start</span> <span class="p">:</span> <span class="n">start</span> <span class="o">+</span> <span class="n">seq_len</span><span class="p">]</span> <span class="o">*</span> <span class="n">seqs</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
+        <span class="n">fp32_sin</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sin_weight</span><span class="p">[</span><span class="n">start</span> <span class="p">:</span> <span class="n">start</span> <span class="o">+</span> <span class="n">seq_len</span><span class="p">]</span> <span class="o">*</span> <span class="n">seqs_swapped</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>
 
-        <span class="k">return</span> <span class="n">cos</span> <span class="o">+</span> <span class="n">sin</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">fp32_cos</span> <span class="o">+</span> <span class="n">fp32_sin</span><span class="p">)</span><span class="o">.</span><span class="n">type_as</span><span class="p">(</span><span class="n">seqs</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_swap_pairs</span><span class="p">(</span><span class="n">seqs</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>

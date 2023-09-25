@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.nn.transformer.attention_mask &mdash; fairseq2 0.2.0.dev20230918 documentation</title>
+  <title>fairseq2.nn.transformer.attention_mask &mdash; fairseq2 0.2.0.dev20230925 documentation</title>
       <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20230918
+                0.2.0.dev20230925
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
@@ -327,11 +327,13 @@
 
             <span class="bp">self</span><span class="o">.</span><span class="n">_cached_attn_mask</span> <span class="o">=</span> <span class="n">mask</span>
 
+        <span class="n">mask</span> <span class="o">=</span> <span class="n">mask</span><span class="p">[:</span><span class="n">seq_len</span><span class="p">,</span> <span class="p">:</span><span class="n">seq_len</span><span class="p">]</span>
+
         <span class="c1"># The `is_causal` tag is checked by efficient SDPA implementations to</span>
         <span class="c1"># optimize attention masking.</span>
         <span class="nb">setattr</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="s2">&quot;is_causal&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">mask</span><span class="p">[:</span><span class="n">seq_len</span><span class="p">,</span> <span class="p">:</span><span class="n">seq_len</span><span class="p">]</span></div>
+        <span class="k">return</span> <span class="n">mask</span></div>
 
     <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="s2">&quot;CausalAttentionMaskGenerator&quot;</span></div>

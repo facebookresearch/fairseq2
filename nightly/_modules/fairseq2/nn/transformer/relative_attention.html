@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.nn.transformer.relative_attention &mdash; fairseq2 0.2.0.dev20230918 documentation</title>
+  <title>fairseq2.nn.transformer.relative_attention &mdash; fairseq2 0.2.0.dev20230925 documentation</title>
       <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20230918
+                0.2.0.dev20230925
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
@@ -304,7 +304,7 @@
 
         <span class="k">if</span> <span class="n">model_dim</span> <span class="o">%</span> <span class="n">num_heads</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;`model_dim` must be divisible by `num_heads` (</span><span class="si">{</span><span class="n">num_heads</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">model_dim</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;`model_dim` must be a multiple of `num_heads` (</span><span class="si">{</span><span class="n">num_heads</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">model_dim</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
             <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">model_dim</span> <span class="o">=</span> <span class="n">model_dim</span>
@@ -312,7 +312,7 @@
 
         <span class="k">if</span> <span class="n">pos_encoding</span><span class="o">.</span><span class="n">encoding_dim</span> <span class="o">!=</span> <span class="n">model_dim</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;`encoding_dim` of `pos_encoding` must be equal `model_dim` (</span><span class="si">{</span><span class="n">model_dim</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">pos_encoding</span><span class="o">.</span><span class="n">encoding_dim</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;`encoding_dim` of `pos_encoding` must be equal to `model_dim` (</span><span class="si">{</span><span class="n">model_dim</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">pos_encoding</span><span class="o">.</span><span class="n">encoding_dim</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
             <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">pos_encoding</span> <span class="o">=</span> <span class="n">pos_encoding</span>
@@ -327,7 +327,7 @@
         <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">r_proj</span> <span class="o">=</span> <span class="n">Linear</span><span class="p">(</span>
-            <span class="n">model_dim</span><span class="p">,</span> <span class="n">model_dim</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span>
+            <span class="n">model_dim</span><span class="p">,</span> <span class="n">model_dim</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
         <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">reset_parameters</span><span class="p">()</span>
@@ -347,6 +347,11 @@
         <span class="n">mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">needs_weights</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]]:</span>
+        <span class="k">if</span> <span class="n">queries</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">4</span> <span class="ow">or</span> <span class="n">keys</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">4</span> <span class="ow">or</span> <span class="n">values</span><span class="o">.</span><span class="n">ndim</span> <span class="o">!=</span> <span class="mi">4</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;`RelativePositionSDPA` can only be used as part of a multi-head attention layer and expects its input tensors to be 4 dimensional.&quot;</span>
+            <span class="p">)</span>
+
         <span class="n">q</span> <span class="o">=</span> <span class="n">queries</span>
         <span class="n">k</span> <span class="o">=</span> <span class="n">keys</span>
 
@@ -354,29 +359,26 @@
         <span class="n">u_bias</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">u_bias</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
         <span class="n">v_bias</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">v_bias</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
 
-        <span class="c1"># (N x H, S, K_h) -&gt; (N, H, S, K_h)</span>
-        <span class="n">q</span> <span class="o">=</span> <span class="n">q</span><span class="o">.</span><span class="n">unflatten</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_heads</span><span class="p">))</span>
-
         <span class="c1"># (N, H, S, K_h) + (H, 1, K_h) -&gt; (N, H, S, K_h)</span>
         <span class="n">q_with_u_bias</span> <span class="o">=</span> <span class="n">q</span> <span class="o">+</span> <span class="n">u_bias</span>
         <span class="n">q_with_v_bias</span> <span class="o">=</span> <span class="n">q</span> <span class="o">+</span> <span class="n">v_bias</span>
 
-        <span class="c1"># (N, H, S, K_h) -&gt; (N x H, S, K_h)</span>
-        <span class="n">q_with_u_bias</span> <span class="o">=</span> <span class="n">q_with_u_bias</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-        <span class="n">q_with_v_bias</span> <span class="o">=</span> <span class="n">q_with_v_bias</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-
-        <span class="c1"># (N x H, 2 x S - 1, K_h)</span>
+        <span class="c1"># (N, H, 2 x S - 1, K_h)</span>
         <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_r</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">q</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">))</span>
 
-        <span class="c1"># (N x H, S, K_h) @ (N x H, K_h, S) = (N x H, S, S)</span>
-        <span class="n">ac</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">bmm</span><span class="p">(</span><span class="n">q_with_u_bias</span><span class="p">,</span> <span class="n">k</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+        <span class="c1"># For numerical stability, we compute `r` always in single precision.</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">type_as</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
 
-        <span class="c1"># (N x H, S, K_h) @ (N x H, K_h, 2 x S - 1) = (N x H, S, 2 x S - 1)</span>
-        <span class="n">bd</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">bmm</span><span class="p">(</span><span class="n">q_with_v_bias</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+        <span class="c1"># (N, H, S, K_h) @ (N, H, K_h, S) = (N, H, S, S)</span>
+        <span class="n">ac</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">q_with_u_bias</span><span class="p">,</span> <span class="n">k</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">2</span><span class="p">))</span>
 
-        <span class="c1"># (N x H, S, 2 x S -1) -&gt; (N x H, S, S)</span>
+        <span class="c1"># (N, H, S, K_h) @ (N, H, K_h, 2 x S - 1) = (N, H, S, 2 x S - 1)</span>
+        <span class="n">bd</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">q_with_v_bias</span><span class="p">,</span> <span class="n">r</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">2</span><span class="p">))</span>
+
+        <span class="c1"># (N, H, S, 2 x S - 1) -&gt; (N, H, S, S)</span>
         <span class="n">bd</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_shift_bd</span><span class="p">(</span><span class="n">bd</span><span class="p">)</span>
 
+        <span class="c1"># (N, H, S, S)</span>
         <span class="n">attn_weights</span> <span class="o">=</span> <span class="p">(</span><span class="n">ac</span> <span class="o">+</span> <span class="n">bd</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">q</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">**</span> <span class="o">-</span><span class="mf">0.5</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -389,47 +391,44 @@
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">training</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">attn_dropout_p</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
             <span class="n">attn_weights</span> <span class="o">=</span> <span class="n">dropout</span><span class="p">(</span><span class="n">attn_weights</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">attn_dropout_p</span><span class="p">)</span>
 
-        <span class="c1"># (N x H, S, S) @ (N x H, S, V_h) = (N x H, S, V_h)</span>
-        <span class="n">attn</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">bmm</span><span class="p">(</span><span class="n">attn_weights</span><span class="p">,</span> <span class="n">values</span><span class="p">)</span>
+        <span class="c1"># (N, H, S, S) @ (N, H, S, V_h) = (N, H, S, V_h)</span>
+        <span class="n">attn</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">attn_weights</span><span class="p">,</span> <span class="n">values</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="n">attn</span><span class="p">,</span> <span class="n">attn_weights</span> <span class="k">if</span> <span class="n">needs_weights</span> <span class="k">else</span> <span class="kc">None</span></div>
 
     <span class="k">def</span> <span class="nf">_compute_r</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">k</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
-        <span class="c1"># (S, K) -&gt; (2 x S - 1, K)</span>
+        <span class="c1"># (2 x S - 1, K)</span>
         <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pos_encoding</span><span class="p">(</span><span class="n">k</span><span class="p">)</span>
 
         <span class="c1"># (2 x S - 1, K) -&gt; (2 x S - 1, K)</span>
         <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">r_proj</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
 
         <span class="c1"># (2 x S - 1, K) -&gt; (1, 2 x S - 1, H, K_h)</span>
-        <span class="n">r</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_heads</span><span class="p">,</span> <span class="n">k</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_heads</span><span class="p">,</span> <span class="n">k</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">))</span>
 
         <span class="c1"># (1, 2 x S - 1, H, K_h) -&gt; (N, H, 2 x S - 1, K_h)</span>
         <span class="n">r</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
 
-        <span class="c1"># (N, H, 2 x S - 1, K_h) -&gt; (N x H, 2 x S - 1, K_h)</span>
-        <span class="n">r</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-
         <span class="k">return</span> <span class="n">r</span>  <span class="c1"># type: ignore[no-any-return]</span>
 
     <span class="k">def</span> <span class="nf">_shift_bd</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bd</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
-        <span class="c1"># (N x H, S, 2 x S - 1) -&gt; (N x H, S, 2 x S)</span>
+        <span class="c1"># (N, H, S, 2 x S - 1) -&gt; (N, H, S, 2 x S)</span>
         <span class="n">x</span> <span class="o">=</span> <span class="n">pad</span><span class="p">(</span><span class="n">bd</span><span class="p">,</span> <span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
 
-        <span class="c1"># (N x H, S, 2 x S) -&gt; (N x H, 2 x S, S)</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span> <span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+        <span class="c1"># (N, H, S, 2 x S) -&gt; (N, H, 2 x S, S)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="n">x</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
 
         <span class="c1"># Discard the first set of positive positions.</span>
-        <span class="c1"># (N x H, 2 x S, S) -&gt; (N x H, 2 x S - 1, S)</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">:,</span> <span class="p">:]</span>
+        <span class="c1"># (N, H, 2 x S, S) -&gt; (N, H, 2 x S - 1, S)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">1</span><span class="p">:,</span> <span class="p">:]</span>
 
         <span class="c1"># This op effectively shifts each row by an extra step.</span>
-        <span class="c1"># (N x H, S, 2 x S - 1)</span>
+        <span class="c1"># (N, H, 2 x S - 1, S) -&gt; (N, H, S, 2 x S - 1)</span>
         <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="o">.</span><span class="n">view_as</span><span class="p">(</span><span class="n">bd</span><span class="p">)</span>
 
         <span class="c1"># Discard positions used for shift.</span>
-        <span class="c1"># (N x H, S, 2 x S - 1) -&gt; (N x H, S, S)</span>
-        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="p">:</span> <span class="n">bd</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">1</span><span class="p">)]</span>
+        <span class="c1"># (N, H, S, 2 x S - 1) -&gt; (N, H, S, S)</span>
+        <span class="n">x</span> <span class="o">=</span> <span class="n">x</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="p">:</span> <span class="n">bd</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">2</span><span class="p">)]</span>
 
         <span class="k">return</span> <span class="n">x</span>
 
@@ -454,7 +453,6 @@
         <span class="n">max_seq_len</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
         <span class="o">*</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DataType</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :param encoding_dim:</span>
@@ -473,7 +471,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span> <span class="o">=</span> <span class="n">max_seq_len</span>
 
         <span class="n">weight</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span>
-            <span class="p">((</span><span class="n">max_seq_len</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">encoding_dim</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span>
+            <span class="p">((</span><span class="n">max_seq_len</span> <span class="o">*</span> <span class="mi">2</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">encoding_dim</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
         <span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">register_buffer</span><span class="p">(</span><span class="s2">&quot;weight&quot;</span><span class="p">,</span> <span class="n">weight</span><span class="p">,</span> <span class="n">persistent</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
@@ -486,14 +484,10 @@
 
     <span class="k">def</span> <span class="nf">reset_non_persistent_buffers</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Reset the non-persistent buffers of the module.&quot;&quot;&quot;</span>
-        <span class="n">dtype</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">float32</span>
+        <span class="n">device</span><span class="p">,</span> <span class="n">dtype</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">dtype</span>
 
-        <span class="n">weight</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span>
-
-        <span class="n">positive_w</span> <span class="o">=</span> <span class="n">weight</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span><span class="p">]</span>
-        <span class="n">negative_w</span> <span class="o">=</span> <span class="n">weight</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span> <span class="p">:]</span>
-
-        <span class="n">device</span> <span class="o">=</span> <span class="n">weight</span><span class="o">.</span><span class="n">device</span>
+        <span class="n">positive_w</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">[:</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span><span class="p">]</span>
+        <span class="n">negative_w</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span> <span class="p">:]</span>
 
         <span class="c1"># (E / 2)</span>
         <span class="n">indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">encoding_dim</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
@@ -524,15 +518,13 @@
         <span class="n">torch</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span> <span class="o">*</span> <span class="n">factors</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">out</span><span class="o">=</span><span class="n">negative_w</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">::</span><span class="mi">2</span><span class="p">])</span>
         <span class="n">torch</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span> <span class="o">*</span> <span class="n">factors</span><span class="p">[</span><span class="mi">1</span><span class="p">:],</span> <span class="n">out</span><span class="o">=</span><span class="n">negative_w</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">::</span><span class="mi">2</span><span class="p">])</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">weight</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">weight</span><span class="p">)</span>
-
     <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">seqs</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :param seqs:</span>
 <span class="sd">            The sequences for which to return positional encodings. *Shape:*</span>
-<span class="sd">            :math:`(N,S,*)`, where :math:`N` is the batch size, :math:`S` is the</span>
-<span class="sd">            sequence length, and :math:`*` is any number of sequence-specific</span>
-<span class="sd">            dimensions including none.</span>
+<span class="sd">            :math:`(*,S,E)`, where :math:`*` is any number of batch dimensions</span>
+<span class="sd">            including none, :math:`S` is the sequence length, and :math:`E` is</span>
+<span class="sd">            the dimensionality of the positional encodings.</span>
 
 <span class="sd">        :returns:</span>
 <span class="sd">            The positional encodings to use in shift trick in</span>
@@ -540,7 +532,7 @@
 <span class="sd">            where :math:`S` is the sequence length and :math:`E` is the</span>
 <span class="sd">            dimensionality of the positional encodings.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">seq_len</span> <span class="o">=</span> <span class="n">seqs</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">seq_len</span> <span class="o">=</span> <span class="n">seqs</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">2</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">seq_len</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_seq_len</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>

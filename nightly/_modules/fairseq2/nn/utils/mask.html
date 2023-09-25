@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.nn.utils.mask &mdash; fairseq2 0.2.0.dev20230918 documentation</title>
+  <title>fairseq2.nn.utils.mask &mdash; fairseq2 0.2.0.dev20230925 documentation</title>
       <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20230918
+                0.2.0.dev20230925
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
@@ -259,6 +259,7 @@
 <span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
 
+<span class="kn">from</span> <span class="nn">fairseq2.nn.ops</span> <span class="kn">import</span> <span class="n">repeat_interleave</span>
 <span class="kn">from</span> <span class="nn">fairseq2.typing</span> <span class="kn">import</span> <span class="n">DataType</span><span class="p">,</span> <span class="n">Device</span>
 
 
@@ -337,10 +338,8 @@
 <span class="sd">        the batch size, :math:`S` is the sequence length, and :math:`*` is any</span>
 <span class="sd">        number of sequence-specific dimensions including none.</span>
 <span class="sd">    :param padding_mask:</span>
-<span class="sd">        The float padding mask to apply. *Shape:* :math:`(N_{msk},S)`, where</span>
-<span class="sd">        :math:`N_{msk}` is the mask batch size and :math:`S` is the sequence</span>
-<span class="sd">        length. :math:`N` can be a multiple of :math:`N_{msk}` in which case the</span>
-<span class="sd">        mask will be tiled before being applied.</span>
+<span class="sd">        The float padding mask to apply. *Shape:* :math:`(N,S)`, where :math:`N`</span>
+<span class="sd">        is the batch size and :math:`S` is the sequence length.</span>
 
 <span class="sd">    :returns:</span>
 <span class="sd">        The input sequences with mask applied. *Shape:* Same as ``seqs``.</span>
@@ -350,12 +349,10 @@
 
     <span class="n">bool_mask</span> <span class="o">=</span> <span class="n">padding_mask</span><span class="o">.</span><span class="n">isinf</span><span class="p">()</span>
 
-    <span class="n">seq_batch_size</span><span class="p">,</span> <span class="n">mask_batch_size</span> <span class="o">=</span> <span class="n">seqs</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">padding_mask</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">seqs</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="n">bool_mask</span> <span class="o">=</span> <span class="n">bool_mask</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">seq_batch_size</span> <span class="o">!=</span> <span class="n">mask_batch_size</span><span class="p">:</span>
-        <span class="n">bool_mask</span> <span class="o">=</span> <span class="n">bool_mask</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">seq_batch_size</span> <span class="o">//</span> <span class="n">mask_batch_size</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">seqs</span><span class="o">.</span><span class="n">masked_fill</span><span class="p">(</span><span class="n">bool_mask</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span> <span class="mf">0.0</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">seqs</span><span class="o">.</span><span class="n">masked_fill</span><span class="p">(</span><span class="n">bool_mask</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
 
 
 <span class="k">def</span> <span class="nf">compute_mask</span><span class="p">(</span>
@@ -445,7 +442,7 @@
     <span class="n">span_start_range</span> <span class="o">=</span> <span class="n">row_lens</span> <span class="o">-</span> <span class="n">span_len</span> <span class="o">+</span> <span class="mi">1</span>
 
     <span class="c1"># (R) -&gt; (R x N)</span>
-    <span class="n">span_start_range</span> <span class="o">=</span> <span class="n">span_start_range</span><span class="o">.</span><span class="n">repeat_interleave</span><span class="p">(</span><span class="n">num_spans</span><span class="p">)</span>
+    <span class="n">span_start_range</span> <span class="o">=</span> <span class="n">repeat_interleave</span><span class="p">(</span><span class="n">span_start_range</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">repeat</span><span class="o">=</span><span class="n">num_spans</span><span class="p">)</span>
 
     <span class="c1"># Unlike the fairseq implementation, we do sample with replacement, which is</span>
     <span class="c1"># more consistent with the overlap strategy.</span>
@@ -462,7 +459,7 @@
     <span class="n">span_offsets</span> <span class="o">=</span> <span class="n">span_offsets</span><span class="o">.</span><span class="n">type</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">num_rows</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
 
     <span class="c1"># (R, N) -&gt; (R, N x L)</span>
-    <span class="n">span_offsets</span> <span class="o">=</span> <span class="n">span_offsets</span><span class="o">.</span><span class="n">repeat_interleave</span><span class="p">(</span><span class="n">span_len</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">span_offsets</span> <span class="o">=</span> <span class="n">repeat_interleave</span><span class="p">(</span><span class="n">span_offsets</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">repeat</span><span class="o">=</span><span class="n">span_len</span><span class="p">)</span>
 
     <span class="c1"># (L)</span>
     <span class="n">indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">span_len</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>

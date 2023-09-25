@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.nn.transformer.attention &mdash; fairseq2 0.2.0.dev20230918 documentation</title>
+  <title>fairseq2.nn.transformer.attention &mdash; fairseq2 0.2.0.dev20230925 documentation</title>
       <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20230918
+                0.2.0.dev20230925
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
@@ -296,33 +296,34 @@
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :param queries:</span>
-<span class="sd">            The queries. *Shape:* :math:`(N,S,K)`, where :math:`N` is the batch</span>
-<span class="sd">            size, :math:`S` is the sequence length, and :math:`K` is the key</span>
-<span class="sd">            size.</span>
+<span class="sd">            The queries. *Shape:* :math:`(*,S,K)`, where :math:`*` is any number</span>
+<span class="sd">            of batch dimensions including none, :math:`S` is the sequence</span>
+<span class="sd">            length, and :math:`K` is the key size.</span>
 <span class="sd">        :param keys:</span>
-<span class="sd">            The keys. *Shape:* :math:`(N,S_{kv},K)`, where :math:`N` is the</span>
-<span class="sd">            batch size, :math:`S_{kv}` is the key/value sequence length, and</span>
-<span class="sd">            :math:`K` is the key size.</span>
+<span class="sd">            The keys. *Shape:* :math:`(N,S_{kv},K)`, where :math:`*` is any</span>
+<span class="sd">            number of batch dimensions including none, :math:`S_{kv}` is the</span>
+<span class="sd">            key/value sequence length, and :math:`K` is the key size.</span>
 <span class="sd">        :param values:</span>
-<span class="sd">            The values. *Shape:* :math:`(N,S_{kv},V)`, where :math:`N` is the</span>
-<span class="sd">            batch size, :math:`S_{kv}` is the key/value sequence length, and</span>
-<span class="sd">            :math:`V` is the value size.</span>
+<span class="sd">            The values. *Shape:* :math:`(N,S_{kv},V)`, where :math:`*` is any</span>
+<span class="sd">            number of batch dimensions including none, :math:`S_{kv}` is the</span>
+<span class="sd">            key/value sequence length, and :math:`V` is the value size.</span>
 <span class="sd">        :param mask:</span>
 <span class="sd">            The float mask that will be added to the attention weights before</span>
 <span class="sd">            computing the attention. *Shape:* :math:`(S,S_{kv})` or</span>
-<span class="sd">            :math:`(N,S,S_{kv})`, where :math:`N` is the batch size,</span>
-<span class="sd">            :math:`S` is the sequence length, and :math:`S_{kv}` is the</span>
-<span class="sd">            key/value sequence length.</span>
+<span class="sd">            :math:`(*,S,S_{kv})`, where :math:`*` is any number of batch</span>
+<span class="sd">            dimensions including none, :math:`S` is the sequence length, and</span>
+<span class="sd">            :math:`S_{kv}` is the key/value sequence length.</span>
 <span class="sd">        :param needs_weights:</span>
 <span class="sd">            If ``True``, returns the attention weights.</span>
 
 <span class="sd">        :returns:</span>
-<span class="sd">            - The attention values. *Shape:* :math:`(N,S,V)`, where</span>
-<span class="sd">              :math:`N` is the batch size, :math:`S` is the sequence length, and</span>
-<span class="sd">              :math:`V` is the value size.</span>
-<span class="sd">            - The attention weights. *Shape:* :math:`(N,S,S_{kv})`, where</span>
-<span class="sd">              :math:`N` is the batch size, :math:`S` is the sequence length, and</span>
-<span class="sd">              :math:`S_{kv}` is the key/value sequence length.</span>
+<span class="sd">            - The attention values. *Shape:* :math:`(*,S,V)`, where :math:`*`</span>
+<span class="sd">              is the same batch dimensions as input, :math:`S` is the sequence</span>
+<span class="sd">              length, and :math:`V` is the value size.</span>
+<span class="sd">            - The attention weights. *Shape:* :math:`(*,S,S_{kv})`, where</span>
+<span class="sd">              :math:`*` is the same batch dimensions as input, :math:`S` is the</span>
+<span class="sd">              sequence length, and :math:`S_{kv}` is the key/value sequence</span>
+<span class="sd">              length.</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
     <span class="k">def</span> <span class="nf">extra_repr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
@@ -447,14 +448,13 @@
     <span class="n">needs_weights</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
     <span class="n">training</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]]:</span>
-    <span class="n">queries</span> <span class="o">=</span> <span class="n">queries</span> <span class="o">*</span> <span class="p">(</span><span class="n">queries</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">**</span> <span class="o">-</span><span class="mf">0.5</span><span class="p">)</span>
+    <span class="c1"># (*, S, K) @ (*, K, S_kv) = (*, S, S_kv)</span>
+    <span class="n">attn_weights</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">queries</span><span class="p">,</span> <span class="n">keys</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">2</span><span class="p">))</span>
 
-    <span class="k">if</span> <span class="n">mask</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="c1"># (N, S, K) @ (N, K, S_kv) = (N, S, S_kv)</span>
-        <span class="n">attn_weights</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">bmm</span><span class="p">(</span><span class="n">queries</span><span class="p">,</span> <span class="n">keys</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="c1"># (N, S, S_kv) + ((N, S, K) @ (N, K, S_kv)) = (N, S, S_kv)</span>
-        <span class="n">attn_weights</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">baddbmm</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">queries</span><span class="p">,</span> <span class="n">keys</span><span class="o">.</span><span class="n">transpose</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+    <span class="n">attn_weights</span> <span class="o">=</span> <span class="n">attn_weights</span> <span class="o">*</span> <span class="p">(</span><span class="n">queries</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">**</span> <span class="o">-</span><span class="mf">0.5</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">mask</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">attn_weights</span> <span class="o">=</span> <span class="n">attn_weights</span> <span class="o">+</span> <span class="n">mask</span>
 
     <span class="c1"># For numerical stability run in single precision.</span>
     <span class="n">attn_weights</span> <span class="o">=</span> <span class="n">softmax</span><span class="p">(</span><span class="n">attn_weights</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
@@ -464,8 +464,8 @@
     <span class="k">if</span> <span class="n">training</span> <span class="ow">and</span> <span class="n">dropout_p</span> <span class="o">&gt;</span> <span class="mf">0.0</span><span class="p">:</span>
         <span class="n">attn_weights</span> <span class="o">=</span> <span class="n">dropout</span><span class="p">(</span><span class="n">attn_weights</span><span class="p">,</span> <span class="n">dropout_p</span><span class="p">)</span>
 
-    <span class="c1"># (N, S, S_kv) @ (N, S_kv, V) = (N, S, V)</span>
-    <span class="n">attn</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">bmm</span><span class="p">(</span><span class="n">attn_weights</span><span class="p">,</span> <span class="n">values</span><span class="p">)</span>
+    <span class="c1"># (*, S, S_kv) @ (*, S_kv, V) = (*, S, V)</span>
+    <span class="n">attn</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">matmul</span><span class="p">(</span><span class="n">attn_weights</span><span class="p">,</span> <span class="n">values</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">attn</span><span class="p">,</span> <span class="n">attn_weights</span> <span class="k">if</span> <span class="n">needs_weights</span> <span class="k">else</span> <span class="kc">None</span>
 </pre></div>
