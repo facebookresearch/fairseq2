@@ -28,7 +28,7 @@ if TYPE_CHECKING or _DOC_MODE:
         memory_map: bool = False,
         block_size: Optional[int] = None,
     ) -> DataPipelineBuilder:
-        """Opens a text files and returns a data pipeline reading lines one by one."""
+        """Open a text files and return a data pipeline reading lines one by one."""
         ...
 
 else:

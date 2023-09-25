@@ -161,6 +161,7 @@ if TYPE_CHECKING or _DOC_MODE:
 
             :param selector:
                 The column to apply the function to. Several colums can be specified by separating them with a ",".
+                See :ref:`reference/data:column syntax` for more details.
             :param num_parallel_calls:
                 The number of examples to process in parallel.
             """
@@ -251,10 +252,12 @@ if TYPE_CHECKING or _DOC_MODE:
     class CollateOptionsOverride:
         """Overrides how the collater should create batch for a particular column.
 
-        Useful if not all columns should use the same padding idx.
+        Useful if not all columns should use the same padding idx, or padding multiple.
         See :py:class:`Collater` for details.
 
-        :param selector: the column this overrides applies to.
+        :param selector:
+            The columns this overrides applies to.
+            See :ref:`reference/data:column syntax` for details on how the columns can be specified.
         """
 
         def __init__(
@@ -296,6 +299,17 @@ if TYPE_CHECKING or _DOC_MODE:
         Collater preserves the shape of the original data.
         For a tuple of lists, it returns a tuple of batches.
         For a dict of lists, it returns a dict of lists.
+
+        :param pad_idx:
+            When concatenating tensors of different lenght,
+            the value used to pad the shortest tensor
+
+        :param pad_to_multiple:
+            Always pad to a lenght of that multiple.
+
+        :param overrides:
+            List of overrides :py:class:`CollateOptionsOverride`.
+            Allows to override ``pad_idx`` and ``pad_to_multiple`` for specific columns.
         """
 
         def __init__(
@@ -307,7 +321,7 @@ if TYPE_CHECKING or _DOC_MODE:
             ...
 
         def __call__(self, data: Any) -> Any:
-            """Concatenates the input tensors"""
+            """Concatenate the input tensors"""
             ...
 
     class FileMapper:
