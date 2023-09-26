@@ -32,12 +32,17 @@ if TYPE_CHECKING or _DOC_MODE:
         """fairseq2 native data pipeline.
 
         The pipeline state can be persisted to the disk, allowing it to be resumed later.
-        It is a Python Iterable, but the returned iterator isn't standalone.
-        Calling `iter` a seconde time while the first iterator is still being used will segfault or worse.
+        It is a Python Iterable, but it also contains the iterator states.
+        Calling `iter` a second time while the first iterator is still being used
+        will segfault or worse.
         """
 
         def __iter__(self) -> Iterator[Any]:
-            """Return an iterator over the examples in the data pipeline."""
+            """Return an iterator over the examples in the data pipeline.
+
+            The iterator will modify the internal state of the this DataPipeline,
+            so it's not safe to have several iterators over the same DataPipeline.
+            """
 
         def reset(self) -> None:
             """Move back to the first example in the data pipeline."""
@@ -257,7 +262,7 @@ if TYPE_CHECKING or _DOC_MODE:
 
         :param selector:
             The columns this overrides applies to.
-            See :ref:`reference/data:column syntax` for details on how the columns can be specified.
+            See :ref:`reference/data:column syntax` for details on how to specify columns.
         """
 
         def __init__(
@@ -281,14 +286,15 @@ if TYPE_CHECKING or _DOC_MODE:
             ...
 
     class Collater:
-        """Concatenate a list of tensors into a single contiguous tensor.
+        """Concatenate a list of inputs into a single inputs.
 
-        Used to create batches. If all tensors in the input list have the same last dimension,
+        Used to create batches.
+        If all tensors in the input example have the same last dimension,
         ``Collater`` returns the concatenated tensors.
 
         Otherwise ``pad_idx`` is required, and the last dimension of the batch will
-        be the enough to fit the longest tensor, rounded up to ``pad_to_multiple``.
-        The batch is returned as a dictionary with the following keys::
+        be made long enough to fit the longest tensor, rounded up to ``pad_to_multiple``.
+        The returned batch is then a dictionary with the following keys::
 
             {
                 "is_ragged": True/False # True if padding was needed
@@ -301,11 +307,11 @@ if TYPE_CHECKING or _DOC_MODE:
         For a dict of lists, it returns a dict of lists.
 
         :param pad_idx:
-            When concatenating tensors of different lenght,
+            When concatenating tensors of different lengths,
             the value used to pad the shortest tensor
 
         :param pad_to_multiple:
-            Always pad to a lenght of that multiple.
+            Always pad to a length of that multiple.
 
         :param overrides:
             List of overrides :py:class:`CollateOptionsOverride`.
@@ -329,7 +335,6 @@ if TYPE_CHECKING or _DOC_MODE:
 
         The file name can also specify a slice of the file in bytes:
         ``FileMapper("big_file.txt:1024:48")`` will read 48 bytes at offset 1024.
-
 
         :param root_dir:
             Root directory for looking up relative file names.
@@ -362,7 +367,7 @@ if TYPE_CHECKING or _DOC_MODE:
             ...
 
     class ByteStreamError(RuntimeError):
-        """Raised when a dataset cannot be read."""
+        """Raised when a dataset file can't be read."""
 
     class RecordError(RuntimeError):
         """Raised when a corrupt record is encountered while reading a dataset."""
