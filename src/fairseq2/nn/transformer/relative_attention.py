@@ -239,22 +239,16 @@ class RelativePositionalEncoding(Module):
         positive_w = self.weight[: self.max_seq_len]
         negative_w = self.weight[self.max_seq_len :]
 
-        # (E / 2)
-        indices = torch.arange(0, self.encoding_dim, step=2, device=device, dtype=dtype)
-
-        # (1, E / 2)
-        indices = indices.unsqueeze(0)
-
         # (S)
         steps = torch.arange(self.max_seq_len, device=device, dtype=dtype)
 
-        # (S, 1)
-        steps = steps.unsqueeze(1)
+        # (E / 2)
+        indices = torch.arange(0, self.encoding_dim, step=2, device=device, dtype=dtype)
 
         factors = torch.exp(indices * -math.log(10000) / self.encoding_dim)
 
-        # (S, 1) x (1, E / 2) -> (S, E / 2)
-        factors = torch.matmul(steps, factors)
+        # (S) x (E / 2) -> (S, E / 2)
+        factors = torch.outer(steps, factors)
 
         flipped_factors = factors.flip([0])
 

@@ -505,7 +505,7 @@ class StandardMultiheadAttention(MultiheadAttention):
             self._run_attn_weight_hooks(attn, attn_weights)
 
         # (N, H, S, V_h) -> (N, S, H, V_h)
-        attn = attn.permute(0, 2, 1, 3)
+        attn = attn.transpose(1, 2)
 
         if self.head_scale_weight is not None:
             attn = torch.einsum("nshv,h->nshv", attn, self.head_scale_weight)
