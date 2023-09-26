@@ -19,7 +19,7 @@ from tests.common import assert_close, device, tmp_rng_seed
 
 class TestSinusoidalPositionEncoder:
     @staticmethod
-    def expected_weight() -> Tensor:
+    def expected_freqs() -> Tensor:
         # fmt: off
         return torch.tensor([
             [ 0.0000e+00,  0.0000e+00,  0.0000e+00,  0.0000e+00,  0.0000e+00,
@@ -97,7 +97,7 @@ class TestSinusoidalPositionEncoder:
     def test_init_works(self) -> None:
         m = SinusoidalPositionEncoder(encoding_dim=32, max_seq_len=10, device=device)
 
-        assert_close(m.weight, self.expected_weight())
+        assert_close(m.freqs, self.expected_freqs())
 
     def test_init_raises_error_when_encoding_dim_is_odd(self) -> None:
         with pytest.raises(
@@ -114,7 +114,7 @@ class TestSinusoidalPositionEncoder:
 
         assert y.shape == (3, 9, 4)
 
-        assert_close(y - x, m.weight[:9].expand_as(y))
+        assert_close(y - x, m.freqs[:9].expand_as(y))
 
         # Test with multiple batch dimensions.
         x = torch.randn((4, 3, 9, 4), device=device)
@@ -123,7 +123,7 @@ class TestSinusoidalPositionEncoder:
 
         assert y.shape == (4, 3, 9, 4)
 
-        assert_close(y - x, m.weight[:9].expand_as(y))
+        assert_close(y - x, m.freqs[:9].expand_as(y))
 
     @pytest.mark.parametrize("step", [0, 1, 2])
     def test_forward_works_in_incremental_eval(self, step: int) -> None:
@@ -142,7 +142,7 @@ class TestSinusoidalPositionEncoder:
 
         assert y.shape == (5, seq_len, 32)
 
-        assert_close(y - x, m.weight[step : step + seq_len].expand_as(y))
+        assert_close(y - x, m.freqs[step : step + seq_len].expand_as(y))
 
     def test_forward_raises_error_when_seq_len_is_out_of_range(self) -> None:
         m = SinusoidalPositionEncoder(encoding_dim=32, max_seq_len=3, device=device)
