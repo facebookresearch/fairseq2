@@ -404,6 +404,33 @@ def_data_pipeline(py::module_ &data_module)
             py::arg("selector") = std::nullopt,
             py::arg("drop_remainder") = false)
         .def(
+            "collate",
+            [](
+                data_pipeline_builder &self,
+                std::optional<std::int64_t> maybe_pad_idx,
+                std::int64_t pad_to_multiple,
+                std::optional<std::vector<collate_options_override>> maybe_opt_overrides,
+                std::size_t num_parallel_calls) -> data_pipeline_builder &
+            {
+                auto opts = collate_options()
+                    .maybe_pad_idx(maybe_pad_idx).pad_to_multiple(pad_to_multiple);
+
+                std::vector<collate_options_override> opt_overrides{};
+                if (maybe_opt_overrides)
+                    opt_overrides = *std::move(maybe_opt_overrides);
+
+                map_fn f = collater(opts, std::move(opt_overrides));
+                element_mapper mapper{f, std::nullopt};
+
+                self = std::move(self).map(std::move(mapper), num_parallel_calls);
+
+                return self;
+            },
+            py::arg("pad_idx") = std::nullopt,
+            py::arg("pad_to_multiple") = 1,
+            py::arg("overrides") = std::nullopt,
+            py::arg("num_parallel_calls") = 1)
+        .def(
             "filter",
             [](data_pipeline_builder &self, predicate_fn fn) -> data_pipeline_builder &
             {

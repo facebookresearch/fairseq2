@@ -155,6 +155,17 @@ if TYPE_CHECKING or _DOC_MODE:
         ) -> Self:
             """Combine examples of similar shape into batches."""
 
+        def collate(
+            self,
+            pad_idx: Optional[int] = None,
+            pad_to_multiple: int = 1,
+            overrides: Optional[Sequence["CollateOptionsOverride"]] = None,
+        ) -> Self:
+            """Concatenate a list of inputs into a single inputs.
+
+            See :py:class:`fairseq2.data.Collater` for details.
+            """
+
         def filter(self, predicate: Callable[[Any], Any]) -> Self:
             """Filter examples from data pipeline and keep only those who match
             ``predicate``.

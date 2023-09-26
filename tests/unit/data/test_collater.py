@@ -8,7 +8,7 @@ import pytest
 import torch
 from torch.nn.functional import pad
 
-from fairseq2.data import CollateOptionsOverride, Collater
+from fairseq2.data import CollateOptionsOverride, Collater, read_sequence
 from tests.common import assert_close, assert_equal, device
 
 
@@ -378,3 +378,50 @@ class TestCollater:
             match=r"^`pad_idx` of the selector 'foo' must be set when `pad_to_multiple` is greater than 1\.$",
         ):
             Collater(overrides=[CollateOptionsOverride("foo", pad_to_multiple=2)])
+
+
+@pytest.mark.parametrize("pad_to_multiple,pad_size", [(1, 0), (2, 0), (3, 2), (8, 4)])
+def test_collate_works_when_input_has_sequence_tensors(
+    pad_to_multiple: int, pad_size: int
+) -> None:
+    bucket1 = [
+        torch.full((4, 2), 0, device=device, dtype=torch.int64),
+        torch.full((4, 2), 1, device=device, dtype=torch.int64),
+        torch.full((4, 2), 2, device=device, dtype=torch.int64),
+    ]
+
+    bucket2 = [
+        [{"foo1": 0, "foo2": 1}, {"foo3": 2, "foo4": 3}],
+        [{"foo1": 4, "foo2": 5}, {"foo3": 6, "foo4": 7}],
+        [{"foo1": 8, "foo2": 9}, {"foo3": 0, "foo4": 1}],
+    ]
+
+    expected1_seqs = torch.tensor(
+        [
+            [[0, 0], [0, 0], [0, 0], [0, 0]],
+            [[1, 1], [1, 1], [1, 1], [1, 1]],
+            [[2, 2], [2, 2], [2, 2], [2, 2]],
+        ],
+        device=device,
+        dtype=torch.int64,
+    )
+    expected1_seqs = pad(expected1_seqs, (0, 0, 0, pad_size), value=3)
+    expected1_seq_lens = torch.tensor([4, 4, 4], device=device, dtype=torch.int64)
+
+    expected2 = [
+        {"foo1": [0, 4, 8], "foo2": [1, 5, 9]},
+        {"foo3": [2, 6, 0], "foo4": [3, 7, 1]},
+    ]
+
+    data = (
+        read_sequence([bucket1, bucket2])
+        .collate(pad_idx=3, pad_to_multiple=pad_to_multiple)
+        .and_return()
+    )
+    output1, output2 = list(data)
+
+    assert_close(output1["seqs"], expected1_seqs)
+    assert_equal(output1["seq_lens"], expected1_seq_lens)
+    assert output1["is_ragged"] == False
+
+    assert output2 == expected2
