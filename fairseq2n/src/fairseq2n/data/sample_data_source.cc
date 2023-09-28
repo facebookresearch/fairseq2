@@ -39,9 +39,7 @@ sample_data_source::next()
 void
 sample_data_source::reset()
 {
-    auto seed = generator_.current_seed();
     generator_ = at::globalContext().defaultGenerator(c10::DeviceType::CPU);
-    generator_.set_current_seed(seed);
 
     eod_ = false;
     for (data_pipeline &p : pipelines_)
