@@ -4,6 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import logging
 from copy import deepcopy
 from functools import partial
 from typing import (
@@ -31,6 +32,9 @@ from fairseq2.models.utils.checkpoint_loader import load_checkpoint
 from fairseq2.nn.utils.module import reset_non_persistent_buffers
 from fairseq2.typing import DataType, Device
 from fairseq2.utils.dataclass import update_dataclass
+
+logger = logging.getLogger("fairseq2.models")
+
 
 ModelT = TypeVar("ModelT", bound=Module)
 
@@ -204,10 +208,18 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
             # Try to construct the model on the meta device.
             model = self.model_factory(config, device=Device("meta"), dtype=dtype)
         except NotImplementedError:
+            is_meta = False
+
+            logger.warning(
+                f"One or more operators in {card.name} constructor do not support meta device. Skipping lazy initialization."
+            )
+
             # If we are here, it means the model has at least one operator that
             # does not support meta device. Do regular model initialization.
             model = self.model_factory(config, device=device, dtype=dtype)
         else:
+            is_meta = True
+
             # Move the model to the actual device without initializing. Its
             # state will be overwritten by the checkpoint anyways.
             model = model.to_empty(device=device or "cpu")
@@ -217,19 +229,20 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
             state_dict = checkpoint["model"]
         except KeyError:
             raise AssetError(
-                f"The checkpoint of the model '{card.name}' does not contain a 'model' entry."
+                f"The checkpoint of {card.name} does not contain a 'model' entry."
             )
 
         try:
             model.load_state_dict(state_dict)
         except (KeyError, ValueError) as ex:
             raise AssetError(
-                f"The checkpoint of the model '{card.name}' cannot be loaded. See nested exception for details."
+                f"The checkpoint of {card.name} cannot be loaded. See nested exception for details."
             ) from ex
 
-        # Non-persistent buffers are not included in the checkpoint, so we have
-        # to explicitly initialize them.
-        reset_non_persistent_buffers(model)
+        if is_meta:
+            # Non-persistent buffers are not included in the checkpoint, so we
+            # have to explicitly initialize them.
+            reset_non_persistent_buffers(model)
 
         return model
 
