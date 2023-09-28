@@ -739,8 +739,7 @@ class MultiheadAttentionState(IncrementalState):
         self.k = self.k.index_select(0, new_order)
         self.v = self.v.index_select(0, new_order)
 
-        if self.has_mask:
-            self.key_padding_mask = self.key_padding_mask.index_select(0, new_order)
+        self.key_padding_mask = self.key_padding_mask.index_select(0, new_order)
 
 
 class StaticMultiheadAttentionState(IncrementalState):
