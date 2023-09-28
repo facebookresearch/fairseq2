@@ -331,7 +331,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
             seqs = self.ffn_dropout(seqs)
 
         if self.residual_scale is not None:
-            residual = torch.mul(self.residual_scale, residual)
+            residual = self.residual_scale * residual
 
         seqs = seqs + residual
 
