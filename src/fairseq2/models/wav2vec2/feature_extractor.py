@@ -154,7 +154,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
 
             seq_lens = (((seq_lens - kernel_size) / stride) + 1.0).floor()
 
-        return seq_lens.type(num_frames.dtype)
+        return seq_lens.type_as(num_frames)
 
     def extra_repr(self) -> str:
         """:meta private:"""

@@ -421,7 +421,10 @@ class S2TTransformerBuilder:
         if self.config.use_relative_pos:
             if self.rel_pos_encoding is None:
                 self.rel_pos_encoding = RelativePositionalEncoding(
-                    self.config.model_dim, self.config.max_seq_len, device=self.device
+                    self.config.model_dim,
+                    self.config.max_seq_len,
+                    device=self.device,
+                    dtype=self.dtype,
                 )
 
             sdpa = RelativePositionSDPA(

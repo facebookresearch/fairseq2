@@ -198,10 +198,10 @@ def _naive_scaled_dot_product_attention(
     needs_weights: bool,
     training: bool,
 ) -> Tuple[Tensor, Optional[Tensor]]:
-    queries = queries * (queries.size(-1) ** -0.5)
-
     # (*, S, K) @ (*, K, S_kv) = (*, S, S_kv)
     attn_weights = torch.matmul(queries, keys.transpose(-1, -2))
+
+    attn_weights = attn_weights * (queries.size(-1) ** -0.5)
 
     if mask is not None:
         attn_weights = attn_weights + mask
