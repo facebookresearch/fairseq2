@@ -208,7 +208,7 @@ class SinusoidalPositionEncoder(PositionEncoder):
         indices = torch.arange(num_sin, device=device, dtype=dtype)
 
         # This is identical to tensor2tensor's implementation.
-        freqs = torch.exp(indices * -math.log(10000) / (num_sin - 1))
+        freqs = torch.exp(indices * -math.log(10000.0) / (num_sin - 1))
 
         # (S) x (E) -> (S, E)
         torch.outer(steps, freqs, out=l_half)
@@ -340,6 +340,11 @@ class RotaryEncoder(PositionEncoder):
         device = self.freqs.device
 
         assert self.max_seq_len is not None
+
+        # As of PyTorch 2.0, `torch.polar` does not support meta device, but we
+        # do not want to lose benefit of lazy initialization.
+        if device.type == "meta":
+            return
 
         # (S)
         steps = torch.arange(self.max_seq_len, device=device, dtype=torch.float32)
