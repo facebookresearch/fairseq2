@@ -16,7 +16,7 @@
 
 namespace fairseq2n::detail {
 
-sample_data_source::sample_data_source(std::vector<data_pipeline> &&pipelines, std::vector<float> &&weights)
+sample_data_source::sample_data_source(std::vector<data_pipeline> &&pipelines, std::vector<float32> &&weights)
     : pipelines_(std::move(pipelines))
 {
     auto pipelines_count = pipelines_.size();

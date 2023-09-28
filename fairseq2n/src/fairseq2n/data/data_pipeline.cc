@@ -228,7 +228,7 @@ data_pipeline::round_robin(std::vector<data_pipeline> pipelines)
 data_pipeline_builder
 data_pipeline::sample(
     std::vector<data_pipeline> pipelines,
-    std::optional<std::vector<float>> weights)
+    std::optional<std::vector<float32>> weights)
 {
     if (pipelines.empty())
         throw_<std::invalid_argument>(
@@ -244,7 +244,7 @@ data_pipeline::sample(
             "At least one of the specified data pipelines is broken and cannot be used in sample.");
 
     if (!weights)
-        weights = std::vector<float>(pipelines.size(), 1.0F / static_cast<float>(pipelines.size()));
+        weights = std::vector<float32>(pipelines.size(), 1.0F / static_cast<float32>(pipelines.size()));
     else if (weights.value().size() != pipelines.size())
         throw_<std::invalid_argument>(
             "`weights` should have the same size as `pipelines`.");
