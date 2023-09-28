@@ -150,11 +150,11 @@ class RelativePositionSDPA(SDPA):
         # (2 x S - 1, K) -> (2 x S - 1, K)
         r = self.r_proj(r)
 
-        # (2 x S - 1, K) -> (N, 2 x S - 1, H, K_h)
-        r = r.view(batch_size, -1, self.num_heads, k.size(-1))
+        # (2 x S - 1, K) -> (1, 2 x S - 1, H, K_h)
+        r = r.view(1, -1, self.num_heads, k.size(-1))
 
-        # (N, 2 x S - 1, H, K_h) -> (N, H, 2 x S - 1, K_h)
-        r = r.transpose(1, 2)
+        # (1, 2 x S - 1, H, K_h) -> (N, H, 2 x S - 1, K_h)
+        r = r.transpose(1, 2).expand(batch_size, -1, -1, -1)
 
         return r  # type: ignore[no-any-return]
 
