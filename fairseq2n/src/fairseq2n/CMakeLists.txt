@@ -17,6 +17,7 @@ target_sources(fairseq2n
         data/bucket_by_length_data_source.cc
         data/bucket_data_source.cc
         data/byte_stream.cc
+        data/circular_data_source.cc
         data/collater.cc
         data/constant_data_source.cc
         data/count_data_source.cc
