@@ -107,6 +107,7 @@ if TYPE_CHECKING or _DOC_MODE:
             weights: Optional[Sequence[float]] = None,
         ) -> "DataPipelineBuilder":
             """Extract examples from ``pipelines`` by sampling based on ``weights``.
+
             :param data_pipelines:
                 The data pipelines to sample from.
             :param weights:
