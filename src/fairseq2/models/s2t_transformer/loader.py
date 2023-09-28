@@ -31,7 +31,7 @@ class S2TTransformerLoader(ModelLoader[TransformerModel, S2TTransformerConfig]):
     """Loads S2T Transformer models."""
 
     @finaloverride
-    def _upgrade_checkpoint(
+    def _convert_checkpoint(
         self, checkpoint: Mapping[str, Any], config: S2TTransformerConfig
     ) -> Mapping[str, Any]:
         key_map = self._fairseq_key_map()
@@ -42,23 +42,23 @@ class S2TTransformerLoader(ModelLoader[TransformerModel, S2TTransformerConfig]):
     def _fairseq_key_map() -> Dict[str, str]:
         return {
             # fmt: off
-            r"^encoder\.subsample\.conv_layers\.([0-9]+)\.":                    r"encoder_frontend.feature_extractor.layers.\1.conv.",
-            r"^encoder\.transformer_layers\.([0-9]+)\.self_attn_layer_norm\.":  r"encoder.layers.\1.self_attn_layer_norm.",
-            r"^encoder\.transformer_layers\.([0-9]+)\.self_attn\.out_proj\.":   r"encoder.layers.\1.self_attn.output_proj.",
-            r"^encoder\.transformer_layers\.([0-9]+)\.self_attn\.":             r"encoder.layers.\1.self_attn.",
-            r"^encoder\.transformer_layers\.([0-9]+)\.final_layer_norm\.":      r"encoder.layers.\1.ffn_layer_norm.",
-            r"^encoder\.transformer_layers\.([0-9]+)\.fc1\.":                   r"encoder.layers.\1.ffn.inner_proj.",
-            r"^encoder\.transformer_layers\.([0-9]+)\.fc2\.":                   r"encoder.layers.\1.ffn.output_proj.",
-            r"^decoder\.layers\.([0-9]+)\.encoder_attn\.out_proj\.":            r"decoder.layers.\1.encoder_decoder_attn.output_proj.",
-            r"^decoder\.layers\.([0-9]+)\.encoder_attn\.out_proj\.":            r"decoder.layers.\1.encoder_decoder_attn.output_proj.",
-            r"^decoder\.layers\.([0-9]+)\.self_attn\.out_proj\.":               r"decoder.layers.\1.self_attn.output_proj.",
-            r"^decoder\.layers\.([0-9]+)\.encoder_attn\.":                      r"decoder.layers.\1.encoder_decoder_attn.",
-            r"^decoder\.layers\.([0-9]+)\.encoder_attn_layer_norm\.":           r"decoder.layers.\1.encoder_decoder_attn_layer_norm.",
-            r"^decoder\.layers\.([0-9]+)\.fc1\.":                               r"decoder.layers.\1.ffn.inner_proj.",
-            r"^decoder\.layers\.([0-9]+)\.fc2\.":                               r"decoder.layers.\1.ffn.output_proj.",
-            r"^decoder\.layers\.([0-9]+)\.final_layer_norm\.":                  r"decoder.layers.\1.ffn_layer_norm.",
-            r"^decoder\.embed_tokens\.":                                        r"decoder_frontend.embed.",
-            r"^decoder\.output_projection\.":                                   r"final_proj.",
+            r"^encoder\.subsample\.conv_layers\.([0-9]+)\.":                   r"encoder_frontend.feature_extractor.layers.\1.conv.",
+            r"^encoder\.transformer_layers\.([0-9]+)\.self_attn_layer_norm\.": r"encoder.layers.\1.self_attn_layer_norm.",
+            r"^encoder\.transformer_layers\.([0-9]+)\.self_attn\.out_proj\.":  r"encoder.layers.\1.self_attn.output_proj.",
+            r"^encoder\.transformer_layers\.([0-9]+)\.self_attn\.":            r"encoder.layers.\1.self_attn.",
+            r"^encoder\.transformer_layers\.([0-9]+)\.final_layer_norm\.":     r"encoder.layers.\1.ffn_layer_norm.",
+            r"^encoder\.transformer_layers\.([0-9]+)\.fc1\.":                  r"encoder.layers.\1.ffn.inner_proj.",
+            r"^encoder\.transformer_layers\.([0-9]+)\.fc2\.":                  r"encoder.layers.\1.ffn.output_proj.",
+            r"^decoder\.layers\.([0-9]+)\.encoder_attn\.out_proj\.":           r"decoder.layers.\1.encoder_decoder_attn.output_proj.",
+            r"^decoder\.layers\.([0-9]+)\.encoder_attn\.out_proj\.":           r"decoder.layers.\1.encoder_decoder_attn.output_proj.",
+            r"^decoder\.layers\.([0-9]+)\.self_attn\.out_proj\.":              r"decoder.layers.\1.self_attn.output_proj.",
+            r"^decoder\.layers\.([0-9]+)\.encoder_attn\.":                     r"decoder.layers.\1.encoder_decoder_attn.",
+            r"^decoder\.layers\.([0-9]+)\.encoder_attn_layer_norm\.":          r"decoder.layers.\1.encoder_decoder_attn_layer_norm.",
+            r"^decoder\.layers\.([0-9]+)\.fc1\.":                              r"decoder.layers.\1.ffn.inner_proj.",
+            r"^decoder\.layers\.([0-9]+)\.fc2\.":                              r"decoder.layers.\1.ffn.output_proj.",
+            r"^decoder\.layers\.([0-9]+)\.final_layer_norm\.":                 r"decoder.layers.\1.ffn_layer_norm.",
+            r"^decoder\.embed_tokens\.":                                       r"decoder_frontend.embed.",
+            r"^decoder\.output_projection\.":                                  r"final_proj.",
 
             # S2T Conformer
             r"^encoder\.linear\.":                                                   r"encoder_frontend.proj.",
@@ -86,7 +86,11 @@ class S2TTransformerLoader(ModelLoader[TransformerModel, S2TTransformerConfig]):
 
 
 load_s2t_transformer_model = S2TTransformerLoader(
-    asset_store, download_manager, create_s2t_transformer_model, s2t_transformer_archs
+    asset_store,
+    download_manager,
+    create_s2t_transformer_model,
+    s2t_transformer_archs,
+    restrict_checkpoints=False,
 )
 
 
@@ -113,6 +117,7 @@ class S2TTransformerTokenizerLoader:
     def __call__(
         self,
         model_name_or_card: Union[str, AssetCard],
+        *,
         force: bool = False,
         progress: bool = True,
     ) -> S2TTransformerTokenizer:
@@ -146,10 +151,10 @@ class S2TTransformerTokenizerLoader:
                     fp.extract(filename, path=zip_pathname.parent)
             except (KeyError, IOError) as ex:
                 raise RuntimeError(
-                    f"The load of the target tokenizer of the model '{card.name}' has failed. Please file a bug report."
+                    f"The tokenizer of {card.name} cannot be loaded. Please file a bug report."
                 ) from ex
 
-        # The valid task names ares transcription and translation.
+        # The only valid task names ares transcription and translation.
         task = card.field("task").as_one_of({"transcription", "translation"})
 
         target_langs = card.field("tgt_langs").as_list(str)

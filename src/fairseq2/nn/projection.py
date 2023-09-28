@@ -73,6 +73,7 @@ class Linear(Projection):
         input_dim: int,
         output_dim: int,
         bias: bool,
+        *,
         skip_init: bool = False,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
@@ -133,7 +134,7 @@ class Linear(Projection):
         """:meta private:"""
         s = super().extra_repr()
 
-        return s + f", bias={self.bias is not None}"
+        return f"{s}, bias={self.bias is not None}"
 
 
 @final
@@ -144,7 +145,7 @@ class TiedProjection(Projection):
     weight: Parameter
     bias: Optional[Parameter]
 
-    def __init__(self, weight: Parameter, bias: Optional[Parameter] = None) -> None:
+    def __init__(self, weight: Parameter, bias: Optional[Parameter]) -> None:
         """
         :param weight:
             The shared weights.

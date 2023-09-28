@@ -19,6 +19,7 @@ from fairseq2.models.wav2vec2.vector_quantizer import (
     VectorQuantizer,
     VectorQuantizerOutput,
 )
+from fairseq2.nn.ops import repeat_interleave
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer import TransformerEncoder
 from fairseq2.nn.utils.module import check_model_dim
@@ -47,6 +48,7 @@ class Wav2Vec2Model(Module):
         masker: Wav2Vec2Masker,
         quantizer: VectorQuantizer,
         final_dim: int,
+        *,
         final_proj_bias: bool = True,
         num_distractors: int = 100,
         logit_temp: float = 0.1,
@@ -94,7 +96,7 @@ class Wav2Vec2Model(Module):
         self.quantizer = quantizer
 
         self.final_proj = Linear(
-            model_dim, final_dim, bias=final_proj_bias, device=device, dtype=dtype
+            model_dim, final_dim, final_proj_bias, device=device, dtype=dtype
         )
 
         self.final_target_proj = Linear(
@@ -229,7 +231,7 @@ class Wav2Vec2Model(Module):
         indices = torch.arange(seq_len, device=device)
 
         # (S) -> (S x L)
-        indices = indices.repeat_interleave(self.num_distractors)
+        indices = repeat_interleave(indices, dim=0, repeat=self.num_distractors)
 
         # (N, S x L)
         rand_indices = torch.randint(

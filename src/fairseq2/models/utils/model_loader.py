@@ -4,6 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import logging
 from copy import deepcopy
 from functools import partial
 from typing import (
@@ -31,6 +32,9 @@ from fairseq2.models.utils.checkpoint_loader import load_checkpoint
 from fairseq2.nn.utils.module import reset_non_persistent_buffers
 from fairseq2.typing import DataType, Device
 from fairseq2.utils.dataclass import update_dataclass
+
+logger = logging.getLogger("fairseq2.models")
+
 
 ModelT = TypeVar("ModelT", bound=Module)
 
@@ -102,8 +106,9 @@ class ModelFactory(Protocol[ModelConfigT_contra, ModelT_co]):
     def __call__(
         self,
         config: ModelConfigT_contra,
-        device: Optional[Device],
-        dtype: Optional[DataType],
+        *,
+        device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> ModelT_co:
         """
         :param config:
@@ -122,6 +127,7 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
     download_manager: AssetDownloadManager
     model_factory: ModelFactory[ModelConfigT, ModelT]
     config_loader: ModelConfigLoader[ModelConfigT]
+    restrict_checkpoints: bool
 
     def __init__(
         self,
@@ -129,6 +135,7 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
         download_manager: AssetDownloadManager,
         model_factory: ModelFactory[ModelConfigT, ModelT],
         archs: ArchitectureRegistry[ModelConfigT],
+        restrict_checkpoints: bool = True,
     ) -> None:
         """
         :param asset_store:
@@ -139,6 +146,9 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
             The callable responsible for constructing models.
         :param archs:
             The registry containing all supported model architectures.
+        :param restrict_checkpoints:
+            If ``True``, restricts the Python unpickler to load only tensors,
+            primitive types, and dictionaries.
         """
         self.asset_store = asset_store
         self.download_manager = download_manager
@@ -146,9 +156,12 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
 
         self.config_loader = ModelConfigLoader(asset_store, archs)
 
+        self.restrict_checkpoints = restrict_checkpoints
+
     def __call__(
         self,
         model_name_or_card: Union[str, AssetCard],
+        *,
         force: bool = False,
         progress: bool = True,
         device: Optional[Device] = None,
@@ -187,17 +200,26 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
             pathname,
             card.name,
             map_location="cpu",
-            converter=partial(self._upgrade_checkpoint, config=config),
+            restrict=self.restrict_checkpoints,
+            converter=partial(self._convert_checkpoint, config=config),
         )
 
         try:
             # Try to construct the model on the meta device.
-            model = self.model_factory(config, Device("meta"), dtype)
+            model = self.model_factory(config, device=Device("meta"), dtype=dtype)
         except NotImplementedError:
+            is_meta = False
+
+            logger.warning(
+                f"One or more operators in {card.name} constructor do not support meta device. Skipping lazy initialization."
+            )
+
             # If we are here, it means the model has at least one operator that
             # does not support meta device. Do regular model initialization.
-            model = self.model_factory(config, device, dtype)
+            model = self.model_factory(config, device=device, dtype=dtype)
         else:
+            is_meta = True
+
             # Move the model to the actual device without initializing. Its
             # state will be overwritten by the checkpoint anyways.
             model = model.to_empty(device=device or "cpu")
@@ -207,23 +229,24 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
             state_dict = checkpoint["model"]
         except KeyError:
             raise AssetError(
-                f"The checkpoint of the model '{card.name}' does not contain a 'model' entry."
+                f"The checkpoint of {card.name} does not contain a 'model' entry."
             )
 
         try:
             model.load_state_dict(state_dict)
         except (KeyError, ValueError) as ex:
             raise AssetError(
-                f"The checkpoint of the model '{card.name}' cannot be loaded. See nested exception for details."
+                f"The checkpoint of {card.name} cannot be loaded. See nested exception for details."
             ) from ex
 
-        # Non-persistent buffers are not included in the checkpoint, so we have
-        # to explicitly initialize them.
-        reset_non_persistent_buffers(model)
+        if is_meta:
+            # Non-persistent buffers are not included in the checkpoint, so we
+            # have to explicitly initialize them.
+            reset_non_persistent_buffers(model)
 
         return model
 
-    def _upgrade_checkpoint(
+    def _convert_checkpoint(
         self, checkpoint: Mapping[str, Any], config: ModelConfigT
     ) -> Mapping[str, Any]:
         """Upgrade ``checkpoint`` to be compatible with fairseq2.

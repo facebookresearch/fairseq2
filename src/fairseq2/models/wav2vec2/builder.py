@@ -189,6 +189,7 @@ class Wav2Vec2EncoderBuilder:
     def __init__(
         self,
         config: Wav2Vec2EncoderConfig,
+        *,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -234,7 +235,7 @@ class Wav2Vec2EncoderBuilder:
             return Wav2Vec2FbankFeatureExtractor(
                 self.config.num_fbank_channels,
                 self.config.fbank_stride,
-                self.config.sample_fbank_every_k,
+                sample_every_k=self.config.sample_fbank_every_k,
             )
 
         return Wav2Vec2FeatureExtractor(
@@ -345,8 +346,8 @@ class Wav2Vec2EncoderBuilder:
                 self.rel_pos_encoding = RelativePositionalEncoding(
                     self.config.model_dim,
                     self.config.max_seq_len,
-                    self.device,
-                    self.dtype,
+                    device=self.device,
+                    dtype=self.dtype,
                 )
 
             sdpa = RelativePositionSDPA(
@@ -374,6 +375,7 @@ class Wav2Vec2EncoderBuilder:
         return StandardFeedForwardNetwork(
             self.config.model_dim,
             self.config.ffn_inner_dim,
+            bias=True,
             inner_activation=SiLU() if use_swish else GELU(),
             norm_order=self.config.norm_order,
             device=self.device,
@@ -480,6 +482,7 @@ class Wav2Vec2Builder:
         self,
         config: Wav2Vec2Config,
         encoder_builder: Wav2Vec2EncoderBuilder,
+        *,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -514,10 +517,10 @@ class Wav2Vec2Builder:
             masker,
             quantizer,
             self.config.final_dim,
-            self.config.final_proj_bias,
-            self.config.num_distractors,
-            self.config.logit_temp,
-            self.config.diversity_loss_weight,
+            final_proj_bias=self.config.final_proj_bias,
+            num_distractors=self.config.num_distractors,
+            logit_temp=self.config.logit_temp,
+            diversity_loss_weight=self.config.diversity_loss_weight,
             device=self.device,
             dtype=self.dtype,
         )
@@ -541,7 +544,7 @@ class Wav2Vec2Builder:
             self.config.quantized_dim,
             self.config.num_codebooks,
             self.config.num_codebook_entries,
-            self.config.codebook_sampling_temperature,
+            codebook_sampling_temperature=self.config.codebook_sampling_temperature,
             device=self.device,
             dtype=self.dtype,
         )
@@ -549,6 +552,7 @@ class Wav2Vec2Builder:
 
 def create_wav2vec2_model(
     config: Wav2Vec2Config,
+    *,
     device: Optional[Device] = None,
     dtype: Optional[DataType] = None,
 ) -> Wav2Vec2Model:
@@ -561,6 +565,10 @@ def create_wav2vec2_model(
     :param dtype:
         The data type of module parameters and buffers.
     """
-    encoder_builder = Wav2Vec2EncoderBuilder(config.encoder_config, device, dtype)
+    encoder_builder = Wav2Vec2EncoderBuilder(
+        config.encoder_config, device=device, dtype=dtype
+    )
 
-    return Wav2Vec2Builder(config, encoder_builder, device, dtype).build_model()
+    builder = Wav2Vec2Builder(config, encoder_builder, device=device, dtype=dtype)
+
+    return builder.build_model()

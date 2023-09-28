@@ -9,6 +9,7 @@ from typing import Optional, Tuple, cast
 import torch
 from torch import Tensor
 
+from fairseq2.nn.ops import repeat_interleave
 from fairseq2.typing import DataType, Device
 
 
@@ -28,6 +29,29 @@ def to_padding_mask(seqs: Tensor, seq_lens: Optional[Tensor]) -> Optional[Tensor
         The float padding mask. *Shape:* :math:`(N,S)`, where :math:`N` is the
         batch size and :math:`S` is the sequence length.
     """
+    bool_mask = to_bool_padding_mask(seqs, seq_lens)
+    if bool_mask is None:
+        return None
+
+    return to_float_mask(bool_mask, seqs.dtype if seqs.is_floating_point() else None)
+
+
+def to_bool_padding_mask(seqs: Tensor, seq_lens: Optional[Tensor]) -> Optional[Tensor]:
+    """Convert a sequence length array to a boolean padding mask.
+
+    :param seqs:
+        The sequences to mask. *Shape:* :math:`(N,S,*)`, where :math:`N` is the
+        batch size, :math:`S` is the sequence length, and :math:`*` is any
+        number of sequence-specific dimensions including none.
+    :param seq_lens:
+        An array where each element represents the length of the sequence at the
+        same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is the
+        batch size.
+
+    :returns:
+        The boolean padding mask. *Shape:* :math:`(N,S)`, where :math:`N` is the
+        batch size and :math:`S` is the sequence length.
+    """
     if seq_lens is None:
         return None
 
@@ -39,16 +63,10 @@ def to_padding_mask(seqs: Tensor, seq_lens: Optional[Tensor]) -> Optional[Tensor
 
     indices = torch.arange(mask_seq_len, device=seq_lens.device).expand(batch_size, -1)
 
-    bool_mask = indices >= seq_lens.unsqueeze(1).expand(-1, mask_seq_len)
-
-    mask = seqs.new_zeros((batch_size, mask_seq_len))
-
-    mask.masked_fill_(bool_mask, -torch.inf)
-
-    return mask
+    return indices >= seq_lens.unsqueeze(1).expand(-1, mask_seq_len)
 
 
-def to_float_mask(mask: Tensor, dtype: DataType = torch.float32) -> Tensor:
+def to_float_mask(mask: Tensor, dtype: Optional[DataType] = None) -> Tensor:
     """Convert a boolean mask to a float mask.
 
     :param mask:
@@ -56,6 +74,9 @@ def to_float_mask(mask: Tensor, dtype: DataType = torch.float32) -> Tensor:
     :param dtype:
         The floating-point type of the converted mask.
     """
+    if dtype is None:
+        dtype = torch.get_default_dtype()
+
     return torch.zeros_like(mask, dtype=dtype).masked_fill_(mask, -torch.inf)
 
 
@@ -67,10 +88,8 @@ def apply_padding_mask(seqs: Tensor, padding_mask: Optional[Tensor]) -> Tensor:
         the batch size, :math:`S` is the sequence length, and :math:`*` is any
         number of sequence-specific dimensions including none.
     :param padding_mask:
-        The float padding mask to apply. *Shape:* :math:`(N_{msk},S)`, where
-        :math:`N_{msk}` is the mask batch size and :math:`S` is the sequence
-        length. :math:`N` can be a multiple of :math:`N_{msk}` in which case the
-        mask will be tiled before being applied.
+        The float padding mask to apply. *Shape:* :math:`(N,S)`, where :math:`N`
+        is the batch size and :math:`S` is the sequence length.
 
     :returns:
         The input sequences with mask applied. *Shape:* Same as ``seqs``.
@@ -80,12 +99,10 @@ def apply_padding_mask(seqs: Tensor, padding_mask: Optional[Tensor]) -> Tensor:
 
     bool_mask = padding_mask.isinf()
 
-    seq_batch_size, mask_batch_size = seqs.size(0), padding_mask.size(0)
+    if seqs.ndim > 2:
+        bool_mask = bool_mask.unsqueeze(2)
 
-    if seq_batch_size != mask_batch_size:
-        bool_mask = bool_mask.repeat(seq_batch_size // mask_batch_size, 1)
-
-    return seqs.masked_fill(bool_mask.unsqueeze(2), 0.0)
+    return seqs.masked_fill(bool_mask, 0.0)
 
 
 def compute_mask(
@@ -175,7 +192,7 @@ def _compute_mask_spans(
     span_start_range = row_lens - span_len + 1
 
     # (R) -> (R x N)
-    span_start_range = span_start_range.repeat_interleave(num_spans)
+    span_start_range = repeat_interleave(span_start_range, dim=0, repeat=num_spans)
 
     # Unlike the fairseq implementation, we do sample with replacement, which is
     # more consistent with the overlap strategy.
@@ -192,7 +209,7 @@ def _compute_mask_spans(
     span_offsets = span_offsets.type(dtype).view(num_rows, -1)
 
     # (R, N) -> (R, N x L)
-    span_offsets = span_offsets.repeat_interleave(span_len, dim=-1)
+    span_offsets = repeat_interleave(span_offsets, dim=-1, repeat=span_len)
 
     # (L)
     indices = torch.arange(span_len, device=device, dtype=dtype)

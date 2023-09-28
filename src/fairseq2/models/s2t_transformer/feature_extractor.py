@@ -30,6 +30,7 @@ class Conv1dFbankSubsampler(SequenceFeatureExtractor):
         num_channels: int,
         inner_dim: int,
         feature_dim: int,
+        *,
         kernel_sizes: Optional[Sequence[int]] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
@@ -116,4 +117,4 @@ class Conv1dFbankSubsampler(SequenceFeatureExtractor):
         for _ in range(len(self.layers)):
             seq_lens = (((seq_lens - 1) / self.stride) + 1.0).floor()
 
-        return seq_lens.type(num_frames.dtype)
+        return seq_lens.type_as(num_frames)

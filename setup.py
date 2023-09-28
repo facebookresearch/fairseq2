@@ -11,7 +11,7 @@ from setuptools import find_packages, setup
 version = "0.2.0+devel"
 
 # DO NOT forget to update the fallback version with each release!
-fallback_fairseq2n_version = "0.1.0"
+fallback_fairseq2n_version = "0.1.1"
 
 if "CI" in environ or "FAIRSEQ2N_DEVEL" in environ:
     fairseq2n_version = version
@@ -30,7 +30,7 @@ setup(
     author="Fundamental AI Research (FAIR) at Meta",
     keywords=["machine learning"],
     classifiers=[
-        "Development Status :: 3 - Beta",
+        "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: MIT License",

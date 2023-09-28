@@ -33,6 +33,7 @@ class Embedding(Module):
         embedding_dim: int,
         pad_idx: Optional[int] = None,
         scaled: bool = False,
+        *,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -94,9 +95,9 @@ class Embedding(Module):
         s = f"num_embeddings={self.num_embeddings}, embedding_dim={self.embedding_dim}"
 
         if self.pad_idx is not None:
-            s += f", pad_idx={self.pad_idx}"
+            s = f"{s}, pad_idx={self.pad_idx}"
 
         if self.scaled:
-            s += ", scaled=True"
+            s = f"{s}, scaled=True"
 
         return s

@@ -21,7 +21,7 @@ class AssetCardStorage(ABC):
     """Stores asset cards on a persistent storage."""
 
     @abstractmethod
-    def load_card(self, name: str, env: Optional[str] = None) -> Dict[str, Any]:
+    def load_card(self, name: str, *, env: Optional[str] = None) -> Dict[str, Any]:
         """Load the card of the specified asset.
 
         :param name:
@@ -32,7 +32,7 @@ class AssetCardStorage(ABC):
 
     @abstractmethod
     def save_card(
-        self, name: str, card: Mapping[str, Any], env: Optional[str] = None
+        self, name: str, card: Mapping[str, Any], *, env: Optional[str] = None
     ) -> None:
         """Save the card of the specified asset.
 
@@ -59,7 +59,7 @@ class LocalAssetCardStorage(AssetCardStorage):
         self.base_pathname = base_pathname
 
     @finaloverride
-    def load_card(self, name: str, env: Optional[str] = None) -> Dict[str, Any]:
+    def load_card(self, name: str, *, env: Optional[str] = None) -> Dict[str, Any]:
         if os.sep in name or (os.altsep and os.altsep in name):
             raise ValueError(
                 f"`name` must be a valid filename, but is '{name}' instead."
@@ -96,7 +96,7 @@ class LocalAssetCardStorage(AssetCardStorage):
 
     @finaloverride
     def save_card(
-        self, name: str, data: Mapping[str, Any], env: Optional[str] = None
+        self, name: str, data: Mapping[str, Any], *, env: Optional[str] = None
     ) -> None:
         raise NotImplementedError()
 

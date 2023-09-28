@@ -28,7 +28,7 @@ class NllbLoader(ModelLoader[TransformerModel, NllbConfig]):
     """Loads NLLB models."""
 
     @finaloverride
-    def _upgrade_checkpoint(
+    def _convert_checkpoint(
         self, checkpoint: Mapping[str, Any], config: NllbConfig
     ) -> Mapping[str, Any]:
         state_dict = checkpoint["model"]
@@ -89,7 +89,11 @@ class NllbLoader(ModelLoader[TransformerModel, NllbConfig]):
 
 
 load_nllb_model = NllbLoader(
-    asset_store, download_manager, create_nllb_model, nllb_archs
+    asset_store,
+    download_manager,
+    create_nllb_model,
+    nllb_archs,
+    restrict_checkpoints=False,
 )
 
 
@@ -114,6 +118,7 @@ class NllbTokenizerLoader:
     def __call__(
         self,
         model_name_or_card: Union[str, AssetCard],
+        *,
         force: bool = False,
         progress: bool = True,
     ) -> NllbTokenizer:

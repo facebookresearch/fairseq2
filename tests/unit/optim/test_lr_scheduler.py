@@ -130,7 +130,7 @@ class TestLRSchedulers:
 
         num_warmup_steps = 100
 
-        scheduler = MyleLR(self.opt, num_warmup_steps, start_lr)
+        scheduler = MyleLR(self.opt, num_warmup_steps, start_lr=start_lr)
 
         assert scheduler.get_last_lr() == [start_lr1, start_lr2]
 
@@ -179,13 +179,13 @@ class TestLRSchedulers:
     def test_myle_raises_error_if_number_of_start_lrs_is_wrong(self) -> None:
         with pytest.raises(
             ValueError,
-            match=r"^The length of `start_lr` and the number of parameter groups must be equal, but are 1 and 2 instead\.$",
+            match=r"^The length of `start_lr` must be equal to the number of parameter groups \(2\), but is 1 instead\.$",
         ):
             MyleLR(self.opt, num_warmup_steps=10, start_lr=[0])
 
         with pytest.raises(
             ValueError,
-            match=r"^The length of `start_lr` and the number of parameter groups must be equal, but are 3 and 2 instead\.$",
+            match=r"^The length of `start_lr` must be equal to the number of parameter groups \(2\), but is 3 instead\.$",
         ):
             MyleLR(self.opt, num_warmup_steps=10, start_lr=(0, 2, 3))
 
@@ -211,9 +211,9 @@ class TestLRSchedulers:
             self.opt,
             num_steps,
             num_warmup_steps,
-            power,
-            [start_lr1, start_lr2],
-            [final_lr1, final_lr2],
+            power=power,
+            start_lr=[start_lr1, start_lr2],
+            final_lr=[final_lr1, final_lr2],
         )
 
         assert scheduler.get_last_lr() == [start_lr1, start_lr2]
@@ -290,10 +290,10 @@ class TestLRSchedulers:
             self.opt,
             cycle_len,
             num_warmup_steps,
-            cycle_mul,
-            lr_mul,
-            [start_lr1, start_lr2],
-            [final_lr1, final_lr2],
+            cycle_mul=cycle_mul,
+            lr_mul=lr_mul,
+            start_lr=[start_lr1, start_lr2],
+            final_lr=[final_lr1, final_lr2],
         )
 
         assert scheduler.get_last_lr() == [start_lr1, start_lr2]

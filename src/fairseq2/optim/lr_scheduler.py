@@ -62,6 +62,7 @@ class NoamLR(LRSchedulerBase):
         self,
         optimizer: Optimizer,
         num_warmup_steps: int,
+        *,
         last_epoch: int = -1,
         verbose: bool = False,
     ) -> None:
@@ -124,6 +125,7 @@ class MyleLR(LRSchedulerBase):
         self,
         optimizer: Optimizer,
         num_warmup_steps: int,
+        *,
         start_lr: Union[float, Sequence[float]] = 0.0,
         last_epoch: int = -1,
         verbose: bool = False,
@@ -199,6 +201,7 @@ class PolynomialDecayLR(LRSchedulerBase):
         optimizer: Optimizer,
         num_steps: int,
         num_warmup_steps: int,
+        *,
         power: float = 1.0,
         start_lr: Union[float, Sequence[float]] = 0.0,
         final_lr: Union[float, Sequence[float]] = 0.0,
@@ -307,6 +310,7 @@ class CosineAnnealingLR(LRSchedulerBase):
         optimizer: Optimizer,
         cycle_len: int,
         num_warmup_steps: int,
+        *,
         cycle_mul: float = 1.0,
         lr_mul: float = 1.0,
         start_lr: Union[float, Sequence[float]] = 0.0,
@@ -410,7 +414,7 @@ def _get_per_param_group(
 
     if len(value) != num_param_groups:
         raise ValueError(
-            f"The length of `{name}` and the number of parameter groups must be equal, but are {len(value)} and {num_param_groups} instead."
+            f"The length of `{name}` must be equal to the number of parameter groups ({num_param_groups}), but is {len(value)} instead."
         )
 
     return value

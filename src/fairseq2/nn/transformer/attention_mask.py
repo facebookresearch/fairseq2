@@ -77,11 +77,13 @@ class CausalAttentionMaskGenerator:
 
             self._cached_attn_mask = mask
 
+        mask = mask[:seq_len, :seq_len]
+
         # The `is_causal` tag is checked by efficient SDPA implementations to
         # optimize attention masking.
         setattr(mask, "is_causal", True)
 
-        return mask[:seq_len, :seq_len]
+        return mask
 
     def __repr__(self) -> str:
         return "CausalAttentionMaskGenerator"

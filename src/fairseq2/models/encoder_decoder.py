@@ -26,6 +26,7 @@ class Seq2SeqDecoder(ABC):
         seq_lens: Optional[Tensor],
         encoder_output: Tensor,
         encoder_padding_mask: Optional[Tensor],
+        *,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         """Decode the specified target sequences.

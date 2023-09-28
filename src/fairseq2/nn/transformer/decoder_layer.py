@@ -48,6 +48,7 @@ class TransformerDecoderLayer(Module, ABC):
         self_attn_mask: Optional[Tensor] = None,
         encoder_output: Optional[Tensor] = None,
         encoder_padding_mask: Optional[Tensor] = None,
+        *,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         """
@@ -108,6 +109,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         self_attn: MultiheadAttention,
         encoder_decoder_attn: Optional[MultiheadAttention],
         ffn: FeedForwardNetwork,
+        *,
         scale_residual: bool = False,
         dropout_p: float = 0.1,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
@@ -142,7 +144,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         if layer_norm_fn is None:
             layer_norm_fn = create_default_layer_norm
 
-        self_attn_layer_norm = layer_norm_fn(model_dim, device, dtype)
+        self_attn_layer_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
 
         if norm_order != TransformerNormOrder.POST:
             self.self_attn_layer_norm = self_attn_layer_norm
@@ -150,7 +152,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         self.self_attn = self_attn
 
         if norm_order == TransformerNormOrder.PRE_WITH_NORMFORMER:
-            self.self_attn_norm = layer_norm_fn(model_dim, device, dtype)
+            self.self_attn_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
         else:
             self.register_module("self_attn_norm", None)
 
@@ -166,7 +168,9 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
             self.register_module("encoder_decoder_attn", None)
             self.register_module("encoder_decoder_attn_layer_norm", None)
         else:
-            encoder_decoder_attn_layer_norm = layer_norm_fn(model_dim, device, dtype)
+            encoder_decoder_attn_layer_norm = layer_norm_fn(
+                model_dim, device=device, dtype=dtype
+            )
 
             if norm_order != TransformerNormOrder.POST:
                 self.encoder_decoder_attn_layer_norm = encoder_decoder_attn_layer_norm
@@ -181,7 +185,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
             if norm_order == TransformerNormOrder.POST:
                 self.encoder_decoder_attn_layer_norm = encoder_decoder_attn_layer_norm
 
-        ffn_layer_norm = layer_norm_fn(model_dim, device, dtype)
+        ffn_layer_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
 
         if norm_order != TransformerNormOrder.POST:
             self.ffn_layer_norm = ffn_layer_norm
@@ -222,6 +226,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         self_attn_mask: Optional[Tensor] = None,
         encoder_output: Optional[Tensor] = None,
         encoder_padding_mask: Optional[Tensor] = None,
+        *,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         seqs = self._forward_self_attn(seqs, padding_mask, self_attn_mask, state_bag)
@@ -326,7 +331,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
             seqs = self.ffn_dropout(seqs)
 
         if self.residual_scale is not None:
-            residual = torch.mul(self.residual_scale, residual)
+            residual = self.residual_scale * residual
 
         seqs = seqs + residual
 
@@ -339,4 +344,4 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         """:meta private:"""
         s = super().extra_repr()
 
-        return s + f", norm_order={self.norm_order}"
+        return f"{s}, norm_order={self.norm_order}"

@@ -79,6 +79,7 @@ class GumbelVectorQuantizer(VectorQuantizer):
         output_dim: int,
         num_codebooks: int,
         num_codebook_entries: int,
+        *,
         codebook_sampling_temperature: Tuple[float, float, float],
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
@@ -100,7 +101,7 @@ class GumbelVectorQuantizer(VectorQuantizer):
 
         if output_dim % num_codebooks != 0:
             raise ValueError(
-                f"`output_dim` must be divisible by `num_codebooks` ({num_codebooks}), but is {output_dim} instead."
+                f"`output_dim` must be a multiple of `num_codebooks` ({num_codebooks}), but is {output_dim} instead."
             )
 
         entry_dim = output_dim // num_codebooks

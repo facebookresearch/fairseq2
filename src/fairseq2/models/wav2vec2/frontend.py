@@ -40,6 +40,7 @@ class Wav2Vec2Frontend(TransformerFrontend):
         feature_dim: int,
         feature_extractor: Optional[SequenceFeatureExtractor],
         pos_encoder: Optional[PositionEncoder],
+        *,
         first_pass_dropout_p: float = 0.0,
         layer_norm: bool = False,
         dropout_p: float = 0.1,
@@ -72,7 +73,7 @@ class Wav2Vec2Frontend(TransformerFrontend):
         if feature_extractor is not None:
             if feature_dim != feature_extractor.feature_dim:
                 raise ValueError(
-                    f"`feature_dim` of `feature_extractor` and `feature_dim` must be equal, but are {feature_extractor.feature_dim} and {feature_dim} instead."
+                    f"`feature_dim` of `feature_extractor` must be equal to `feature_dim` ({feature_dim}), but is {feature_extractor.feature_dim} instead."
                 )
 
             self.feature_extractor = feature_extractor
@@ -80,7 +81,7 @@ class Wav2Vec2Frontend(TransformerFrontend):
             self.register_module("feature_extractor", None)
 
         self.post_extract_layer_norm = StandardLayerNorm(
-            feature_dim, device=device, dtype=dtype
+            feature_dim, bias=True, device=device, dtype=dtype
         )
 
         if feature_dim != model_dim:
@@ -98,7 +99,7 @@ class Wav2Vec2Frontend(TransformerFrontend):
         if pos_encoder is not None:
             if pos_encoder.encoding_dim != model_dim:
                 raise ValueError(
-                    f"`encoding_dim` of `pos_encoder` and `model_dim` must be equal, but are {pos_encoder.encoding_dim} and {model_dim} instead."
+                    f"`encoding_dim` of `pos_encoder` must be equal to `model_dim` ({model_dim}), but is {pos_encoder.encoding_dim} instead."
                 )
 
             self.pos_encoder = pos_encoder
@@ -106,7 +107,9 @@ class Wav2Vec2Frontend(TransformerFrontend):
             self.register_module("pos_encoder", None)
 
         if layer_norm:
-            self.layer_norm = StandardLayerNorm(model_dim, device=device, dtype=dtype)
+            self.layer_norm = StandardLayerNorm(
+                model_dim, bias=True, device=device, dtype=dtype
+            )
         else:
             self.register_module("layer_norm", None)
 
@@ -120,6 +123,7 @@ class Wav2Vec2Frontend(TransformerFrontend):
         self,
         seqs: Tensor,
         seq_lens: Optional[Tensor],
+        *,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         if state_bag is not None:
@@ -224,4 +228,4 @@ class Wav2Vec2Frontend(TransformerFrontend):
         """:meta private:"""
         s = super().extra_repr()
 
-        return s + f", feature_dim={self.feature_dim}"
+        return f"{s}, feature_dim={self.feature_dim}"

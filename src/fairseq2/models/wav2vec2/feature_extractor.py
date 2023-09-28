@@ -31,7 +31,8 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
     def __init__(
         self,
         layer_descs: Sequence[Tuple[int, int, int]],
-        bias: bool = False,
+        bias: bool,
+        *,
         dropout_p: float = 0.0,
         layer_norm: bool = False,
         grad_scale: float = 1.0,
@@ -72,7 +73,9 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
 
             # If Layer Normalization is requested, apply it in all layers.
             if layer_norm:
-                layer_norm_ = Float32LayerNorm(output_dim, device=device, dtype=dtype)
+                layer_norm_ = Float32LayerNorm(
+                    output_dim, bias=True, device=device, dtype=dtype
+                )
 
                 group_norm_ = None
 
@@ -94,11 +97,11 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
                 kernel_size,
                 stride,
                 bias,
-                dropout_p,
-                group_norm_,
-                layer_norm_,
-                device,
-                dtype,
+                dropout_p=dropout_p,
+                group_norm=group_norm_,
+                layer_norm=layer_norm_,
+                device=device,
+                dtype=dtype,
             )
 
             self.layers.append(layer)
@@ -151,13 +154,13 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
 
             seq_lens = (((seq_lens - kernel_size) / stride) + 1.0).floor()
 
-        return seq_lens.type(num_frames.dtype)
+        return seq_lens.type_as(num_frames)
 
     def extra_repr(self) -> str:
         """:meta private:"""
         s = super().extra_repr()
 
-        return s + f", grad_scale={self.grad_scale}"
+        return f"{s}, grad_scale={self.grad_scale}"
 
 
 class Wav2Vec2FeatureExtractionLayer(Module):
@@ -176,7 +179,8 @@ class Wav2Vec2FeatureExtractionLayer(Module):
         output_dim: int,
         kernel_size: int,
         stride: int,
-        bias: bool = False,
+        bias: bool,
+        *,
         dropout_p: float = 0.0,
         group_norm: Optional[GroupNorm] = None,
         layer_norm: Optional[LayerNorm] = None,
@@ -253,7 +257,9 @@ class Wav2Vec2FbankFeatureExtractor(SequenceFeatureExtractor):
     stride: int
     sample_every_k: int
 
-    def __init__(self, num_fbank_channels: int, stride: int, sample_every_k: int = 1):
+    def __init__(
+        self, num_fbank_channels: int, stride: int, *, sample_every_k: int = 1
+    ):
         super().__init__(feature_dim=num_fbank_channels * stride)
 
         self.num_fbank_channels = num_fbank_channels

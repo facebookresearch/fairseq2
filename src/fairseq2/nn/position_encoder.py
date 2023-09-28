@@ -40,20 +40,20 @@ class PositionEncoder(Module, ABC):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[Tensor] = None,
+        padding_mask: Optional[Tensor],
+        *,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
         """
         :param seqs:
             The sequences to encode with positional information. *Shape:*
-            :math:`(N,S,E)`, where :math:`N` is the batch size, :math:`S` is the
-            sequence length, and :math:`E` is the dimensionality of the
-            positional encodings.
+            :math:`(*,S,E)`, where :math:`*` is any number of batch dimensions
+            including none, :math:`S` is the sequence length, and :math:`E` is
+            the dimensionality of the positional encodings.
         :param padding_mask:
-            The float padding mask of ``seqs``. *Shape:* :math:`(N_{msk},S)`,
-            where :math:`N_{msk}` is the mask batch size and :math:`S` is the
-            sequence length. :math:`N` can be a multiple of :math:`N_{msk}` in
-            which case the mask will be tiled before being applied.
+            The float padding mask of ``seqs``. *Shape:* :math:`(*,S)`, where
+            :math:`*` is any number of batch dimensions including none and
+            :math:`S` is the sequence length.
         :param state_bag:
             The state bag to use for incremental evaluation.
 
@@ -63,11 +63,11 @@ class PositionEncoder(Module, ABC):
         """
         if self.max_seq_len is not None:
             if not self.training and state_bag is not None:
-                start_step = state_bag.step
+                start = state_bag.step
             else:
-                start_step = 0
+                start = 0
 
-            if (seq_len := start_step + seqs.size(1)) > self.max_seq_len:
+            if (seq_len := start + seqs.size(-2)) > self.max_seq_len:
                 raise ValueError(
                     f"The input sequence length must be less than or equal to the maximum sequence length ({self.max_seq_len}), but is {seq_len} instead."
                 )
@@ -84,15 +84,13 @@ class PositionEncoder(Module, ABC):
         """
         :param seqs:
             The sequences to encode with positional information. *Shape:*
-            :math:`(N,S,E)`, where :math:`N` is the batch size, :math:`S` is the
-            sequence length, and :math:`E` is the dimensionality of the
-            positional encodings.
+            :math:`(*,S,E)`, where :math:`*` is any number of batch dimensions
+            including none, :math:`S` is the sequence length, and :math:`E` is
+            the dimensionality of the positional encodings.
         :param padding_mask:
-            The float padding mask of ``seqs``. *Shape:* :math:`(N_{msk},S)`,
-            where :math:`N_{msk}` is the mask batch size and :math:`S` is the
-            sequence length. If padding has to be applied, a derived class
-            should use the :func:`~fairseq2.nn.utils.mask.apply_padding_mask`
-            function that handles tiling.
+            The float padding mask of ``seqs``. *Shape:* :math:`(*,S)`, where
+            :math:`*` is any number of batch dimensions including none and
+            :math:`S` is the sequence length.
         :param state_bag:
             The state bag to use for incremental evaluation.
 
@@ -108,7 +106,7 @@ class PositionEncoder(Module, ABC):
         s = f"encoding_dim={self.encoding_dim}"
 
         if self.max_seq_len is not None:
-            s += f", max_seq_len={self.max_seq_len}"
+            s = f"{s}, max_seq_len={self.max_seq_len}"
 
         return s
 
@@ -152,15 +150,15 @@ class SinusoidalPositionEncoder(PositionEncoder):
             [ 1.0930e-02,  3.0000e-04, -5.1615e-01,  2.0000e+00]]) # pos 2
     """
 
-    weight: Tensor
+    freqs: Tensor
 
     def __init__(
         self,
         encoding_dim: int,
         max_seq_len: int,
+        *,
         _legacy_pad_idx: Optional[int] = None,
         device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
     ) -> None:
         super().__init__(encoding_dim, max_seq_len)
 
@@ -176,9 +174,11 @@ class SinusoidalPositionEncoder(PositionEncoder):
         else:
             self._sin_offset = 1 + _legacy_pad_idx
 
-        weight = torch.empty((max_seq_len, encoding_dim), device=device, dtype=dtype)
+        freqs = torch.empty(
+            (max_seq_len, encoding_dim), device=device, dtype=torch.float32
+        )
 
-        self.register_buffer("weight", weight, persistent=False)
+        self.register_buffer("freqs", freqs, persistent=False)
 
         self.reset_parameters()
 
@@ -190,42 +190,33 @@ class SinusoidalPositionEncoder(PositionEncoder):
         """Reset the non-persistent buffers of the module."""
         num_sin = self.encoding_dim // 2
 
-        dtype = torch.float32
+        device, dtype = self.freqs.device, self.freqs.dtype
 
-        weight = self.weight.to(dtype)
+        l_half = self.freqs[:, :num_sin]
+        r_half = self.freqs[:, num_sin:]
 
-        l_half = weight[:, :num_sin]
-        r_half = weight[:, num_sin:]
-
-        device = weight.device
-
-        # (1, E)
-        indices = torch.arange(num_sin, device=device, dtype=dtype).unsqueeze(0)
-
-        start_step = self._sin_offset
+        start = self._sin_offset
 
         assert self.max_seq_len is not None
 
         # (S)
         steps = torch.arange(
-            start_step, start_step + self.max_seq_len, device=device, dtype=dtype
+            start, start + self.max_seq_len, device=device, dtype=dtype
         )
 
-        # (S) -> (S, 1)
-        steps = steps.unsqueeze(1)
+        # (E)
+        indices = torch.arange(num_sin, device=device, dtype=dtype)
 
         # This is identical to tensor2tensor's implementation.
-        factors = torch.exp(indices * -math.log(10000) / (num_sin - 1))
+        freqs = torch.exp(indices * -math.log(10000.0) / (num_sin - 1))
 
-        # (S, 1) x (1, E) -> (S, E)
-        torch.matmul(steps, factors, out=l_half)
+        # (S) x (E) -> (S, E)
+        torch.outer(steps, freqs, out=l_half)
 
         r_half.copy_(l_half)
 
         l_half.sin_()
         r_half.cos_()
-
-        self.weight.copy_(weight)
 
     @finaloverride
     def _do_forward(
@@ -235,14 +226,16 @@ class SinusoidalPositionEncoder(PositionEncoder):
         state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
         """:meta private:"""
-        seq_len = seqs.size(1)
+        seq_len = seqs.size(-2)
 
         if not self.training and state_bag is not None:
-            start_step = state_bag.step
+            start = state_bag.step
         else:
-            start_step = 0
+            start = 0
 
-        return seqs + self.weight[start_step : start_step + seq_len]
+        fp32_seqs = seqs.float() + self.freqs[start : start + seq_len]
+
+        return fp32_seqs.type_as(seqs)
 
 
 @final
@@ -271,6 +264,7 @@ class LearnedPositionEncoder(PositionEncoder):
         self,
         encoding_dim: int,
         max_seq_len: int,
+        *,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -294,15 +288,15 @@ class LearnedPositionEncoder(PositionEncoder):
         state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
         """:meta private:"""
-        seq_len = seqs.size(1)
+        seq_len = seqs.size(-2)
 
         if not self.training and state_bag is not None:
-            start_step = state_bag.step
+            start = state_bag.step
         else:
-            start_step = 0
+            start = 0
 
         steps = torch.arange(
-            start_step, start_step + seq_len, device=seqs.device, dtype=torch.int64
+            start, start + seq_len, device=seqs.device, dtype=torch.int64
         )
 
         return seqs + embedding(steps, self.weight)
@@ -313,15 +307,14 @@ class RotaryEncoder(PositionEncoder):
     """Encodes sequences with relative positional information as described in
     :cite:t:`https://doi.org/10.48550/arxiv.2104.09864`."""
 
-    cos_weight: Tensor
-    sin_weight: Tensor
+    freqs: Tensor
 
     def __init__(
         self,
         encoding_dim: int,
         max_seq_len: int,
+        *,
         device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
     ) -> None:
         super().__init__(encoding_dim, max_seq_len)
 
@@ -330,11 +323,11 @@ class RotaryEncoder(PositionEncoder):
                 f"`encoding_dim` must be even, but is {encoding_dim} instead."
             )
 
-        cos = torch.empty((max_seq_len, encoding_dim), device=device, dtype=dtype)
-        sin = torch.empty((max_seq_len, encoding_dim), device=device, dtype=dtype)
+        freqs = torch.empty(
+            (max_seq_len, encoding_dim // 2), device=device, dtype=torch.complex64
+        )
 
-        self.register_buffer("cos_weight", cos, persistent=False)
-        self.register_buffer("sin_weight", sin, persistent=False)
+        self.register_buffer("freqs", freqs, persistent=False)
 
         self.reset_parameters()
 
@@ -344,30 +337,30 @@ class RotaryEncoder(PositionEncoder):
 
     def reset_non_persistent_buffers(self) -> None:
         """Reset the non-persistent buffers of the module."""
-        device, dtype = self.sin_weight.device, torch.float32
-
-        # (E)
-        indices = torch.arange(self.encoding_dim // 2, device=device, dtype=dtype)
-
-        # (E) -> (1, E)
-        indices = indices.unsqueeze(0)
+        device = self.freqs.device
 
         assert self.max_seq_len is not None
 
+        # As of PyTorch 2.0, `torch.polar` does not support meta device, but we
+        # do not want to lose benefit of lazy initialization.
+        if device.type == "meta":
+            return
+
         # (S)
-        steps = torch.arange(self.max_seq_len, device=device, dtype=dtype)
+        steps = torch.arange(self.max_seq_len, device=device, dtype=torch.float32)
 
-        # (S, 1)
-        steps = steps.unsqueeze(1)
+        # (E / 2)
+        indices = torch.arange(
+            0, self.encoding_dim, step=2, device=device, dtype=torch.float32
+        )
 
-        # (S, 1) x (1, E) -> (S, E)
-        table = torch.matmul(steps, 10000 ** (-2.0 * indices / self.encoding_dim))
+        freqs = 1.0 / (10000.0 ** (indices / self.encoding_dim))
 
-        cos = torch.cos(table)
-        sin = torch.sin(table)
+        # (S) x (E / 2) -> (S, E / 2)
+        freqs = torch.outer(steps, freqs)
 
-        self.cos_weight[:] = torch.repeat_interleave(cos, 2, dim=-1)
-        self.sin_weight[:] = torch.repeat_interleave(sin, 2, dim=-1)
+        # (S, E / 2)
+        torch.polar(torch.ones_like(freqs), freqs, out=self.freqs)
 
     @finaloverride
     def _do_forward(
@@ -376,24 +369,21 @@ class RotaryEncoder(PositionEncoder):
         padding_mask: Optional[Tensor],
         state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
-        """:meta private:"""
-        seq_len = seqs.size(1)
+        seq_len = seqs.size(-2)
 
         if not self.training and state_bag is not None:
-            start_step = state_bag.step
+            start = state_bag.step
         else:
-            start_step = 0
+            start = 0
 
-        seqs_swapped = self._swap_pairs(seqs)
+        # (*, S, E) -> (*, S, E / 2, 2)
+        seqs = seqs.unflatten(-1, (-1, 2))
 
-        cos = self.cos_weight[start_step : start_step + seq_len] * seqs
-        sin = self.sin_weight[start_step : start_step + seq_len] * seqs_swapped
+        complex_seqs = torch.view_as_complex(seqs.float())
 
-        return cos + sin
+        complex_seqs = complex_seqs * self.freqs[start : start + seq_len]
 
-    @staticmethod
-    def _swap_pairs(seqs: Tensor) -> Tensor:
-        x1 = seqs[..., 0::2]
-        x2 = seqs[..., 1::2]
+        # (*, S, E / 2, 2) -> (*, S, E)
+        fp32_seqs = torch.view_as_real(complex_seqs).flatten(-2)
 
-        return torch.stack((-x2, x1), dim=-1).reshape(seqs.shape)
+        return fp32_seqs.type_as(seqs)

@@ -5,12 +5,12 @@
 # LICENSE file in the root directory of this source tree.
 
 from dataclasses import dataclass
-from typing import List, Optional, Sequence, cast
+from typing import List, Optional, Sequence
 
 import torch
 from torch import Tensor
 
-from fairseq2.data import Collater, SequenceData, StringLike
+from fairseq2.data import StringLike
 from fairseq2.data.text import TextTokenDecoder, TextTokenEncoder, TextTokenizer
 from fairseq2.generation.sequence_generator import (
     Seq2SeqGenerator,
@@ -18,6 +18,7 @@ from fairseq2.generation.sequence_generator import (
     SequenceGeneratorOutput,
 )
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
+from fairseq2.nn.ops import pad_sequence
 from fairseq2.nn.utils.module import infer_device
 
 
@@ -76,7 +77,6 @@ class SequenceToTextGeneratorBase:
             encoder_output, encoder_padding_mask, source_seq_len=source_seqs.size(1)
         )
 
-        # TODO: use parallel_invoke
         sentences = [self.token_decoder(b[0].seq)[0] for b in gen_output.results]
 
         return SequenceToTextOutput(
@@ -114,9 +114,7 @@ class SequenceToTextGenerator(SequenceToTextGeneratorBase):
     """
 
     def __call__(
-        self,
-        source_seqs: Tensor,
-        source_seq_lens: Optional[Tensor],
+        self, source_seqs: Tensor, source_seq_lens: Optional[Tensor]
     ) -> List[StringLike]:
         """
         :param source_seqs:
@@ -137,9 +135,7 @@ class SequenceToTextGenerator(SequenceToTextGeneratorBase):
         return output.sentences
 
     def generate_ex(
-        self,
-        source_seqs: Tensor,
-        source_seq_lens: Optional[Tensor],
+        self, source_seqs: Tensor, source_seq_lens: Optional[Tensor]
     ) -> SequenceToTextOutput:
         """
         :param source_seqs:
@@ -159,7 +155,7 @@ class TextTranslator(SequenceToTextGeneratorBase):
     """Translates text from one language to another."""
 
     source_encoder: TextTokenEncoder
-    collater: Collater
+    pad_idx: int
 
     def __init__(
         self,
@@ -189,7 +185,12 @@ class TextTranslator(SequenceToTextGeneratorBase):
             task="translation", lang=source_lang, mode="source", device=device
         )
 
-        self.collater = Collater(pad_idx=tokenizer.vocab_info.pad_idx)
+        if tokenizer.vocab_info.pad_idx is None:
+            raise ValueError(
+                "`tokenizer.vocab_info` must have `pad_idx` set for sequence generation."
+            )
+
+        self.pad_idx = tokenizer.vocab_info.pad_idx
 
     def __call__(self, source_sentences: Sequence[StringLike]) -> List[StringLike]:
         """
@@ -210,14 +211,8 @@ class TextTranslator(SequenceToTextGeneratorBase):
         :param source_sentences:
             The sentences in the source language.
         """
-        indices: List[Tensor] = []
-
-        # TODO: use parallel_invoke
-        for source_sentence in source_sentences:
-            indices.append(self.source_encoder(source_sentence))
-
-        batch = cast(SequenceData, self.collater(indices))
-
-        return self._do_generate(
-            batch["seqs"], batch["seq_lens"] if batch["is_ragged"] else None
+        seqs, seq_lens = pad_sequence(
+            [self.source_encoder(s) for s in source_sentences], pad_idx=self.pad_idx
         )
+
+        return self._do_generate(seqs, seq_lens)

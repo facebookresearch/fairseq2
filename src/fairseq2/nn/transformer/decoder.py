@@ -49,8 +49,9 @@ class TransformerDecoder(Module, ABC):
         padding_mask: Optional[Tensor],
         encoder_output: Optional[Tensor] = None,
         encoder_padding_mask: Optional[Tensor] = None,
-        state_bag: Optional[IncrementalStateBag] = None,
+        *,
         layer_output_hook: Optional["DecoderLayerOutputHook"] = None,
+        state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         """
         :param seqs:
@@ -69,11 +70,11 @@ class TransformerDecoder(Module, ABC):
             The float padding mask of ``encoder_out``. *Shape:*
             :math:`(N,S_{enc})`, where :math:`N` is the batch size and
             :math:`S_{enc}` is the encoder output sequence length.
-        :param state_bag:
-            The state bag to use for incremental evaluation.
         :param layer_output_hook:
             If not ``None``, it will be called with the output of each layer in
             the decoder stack.
+        :param state_bag:
+            The state bag to use for incremental evaluation.
 
         :returns:
             - The decoder output. *Shape:* Same as ``seqs``.
@@ -95,16 +96,22 @@ class DecoderLayerOutputHook(Protocol):
         layer_output: Tensor,
         layer_padding_mask: Optional[Tensor],
         num_layers: int,
-    ) -> None:
+    ) -> bool:
         """
         :param layer_idx:
             The index of the layer in the decoder stack.
         :param layer_output:
             The decoded output of the layer.
         :param layer_padding_mask:
-            The padding mask of `layer_output`.
+            The padding mask of ``layer_output``.
         :param num_layers:
             The number of layers in the decoder stack.
+
+        :returns:
+            ``True`` if the decoder should continue executing the remaining
+            layers in the stack; ``False`` if the decoder should stop executing
+            the remaining layers and treat this layer as the final layer in the
+            stack.
         """
 
 
@@ -120,6 +127,7 @@ class StandardTransformerDecoder(TransformerDecoder):
     def __init__(
         self,
         layers: Iterable[TransformerDecoderLayer],
+        *,
         self_attn_mask_gen: Optional[AttentionMaskGenerator] = None,
         layer_drop_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
@@ -141,7 +149,7 @@ class StandardTransformerDecoder(TransformerDecoder):
         :param layer_norm_fn:
             The factory to use to construct the Layer Normalization module.
         """
-        layer_list = ModuleList(layers, layer_drop_p)
+        layer_list = ModuleList(layers, drop_p=layer_drop_p)
         if not layer_list:
             raise ValueError("`layers` must be non-empty.")
 
@@ -160,7 +168,7 @@ class StandardTransformerDecoder(TransformerDecoder):
         self.layers = layer_list
 
         if norm_order != TransformerNormOrder.POST:
-            self.layer_norm = layer_norm_fn(model_dim, device, dtype)
+            self.layer_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
         else:
             self.register_module("layer_norm", None)
 
@@ -175,8 +183,9 @@ class StandardTransformerDecoder(TransformerDecoder):
         padding_mask: Optional[Tensor],
         encoder_output: Optional[Tensor] = None,
         encoder_padding_mask: Optional[Tensor] = None,
-        state_bag: Optional[IncrementalStateBag] = None,
+        *,
         layer_output_hook: Optional[DecoderLayerOutputHook] = None,
+        state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         if layer_output_hook is not None and self.layers.drop_p > 0.0:
             raise ValueError("`layer_hook` must be `None` when LayerDrop is enabled.")
@@ -195,11 +204,12 @@ class StandardTransformerDecoder(TransformerDecoder):
                 self_attn_mask,
                 encoder_output,
                 encoder_padding_mask,
-                state_bag,
+                state_bag=state_bag,
             )
 
             if layer_output_hook is not None:
-                layer_output_hook(layer_idx, seqs, padding_mask, num_layers)
+                if not layer_output_hook(layer_idx, seqs, padding_mask, num_layers):
+                    break
 
         if self.layer_norm is not None:
             seqs = self.layer_norm(seqs)
@@ -214,4 +224,4 @@ class StandardTransformerDecoder(TransformerDecoder):
             self.self_attn_mask_gen, "__name__", repr(self.self_attn_mask_gen)
         )
 
-        return s + f", norm_order={self.norm_order}, self_attn_mask_gen={mask_gen_name}"
+        return f"{s}, norm_order={self.norm_order}, self_attn_mask_gen={mask_gen_name}"

@@ -8,8 +8,10 @@ from dataclasses import dataclass
 from typing import Optional
 
 
-@dataclass(frozen=True)
+@dataclass
 class VocabularyInfo:
+    """Describes the vocabulary used by a tokenizer"""
+
     size: int
     """The size of the vocabulary."""
 

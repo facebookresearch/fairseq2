@@ -70,7 +70,11 @@ class SequenceModelOutput:
     """The index of the pad symbol in the target vocabulary."""
 
     def compute_loss(
-        self, targets: Tensor, ignore_prefix_size: int = 0, label_smoothing: float = 0.0
+        self,
+        targets: Tensor,
+        *,
+        ignore_prefix_size: int = 0,
+        label_smoothing: float = 0.0,
     ) -> Tensor:
         """Compute the negative log-likelihood loss.
 
@@ -94,4 +98,4 @@ class SequenceModelOutput:
         # For numerical stability run in single precision.
         lprobs = log_softmax(logits, dim=-1, dtype=torch.float32)
 
-        return nll_loss(lprobs, targets, self.pad_idx, label_smoothing)
+        return nll_loss(lprobs, targets, self.pad_idx, label_smoothing=label_smoothing)

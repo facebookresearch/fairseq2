@@ -42,6 +42,7 @@ class TransformerFrontend(Module, ABC):
         self,
         seqs: Tensor,
         seq_lens: Optional[Tensor],
+        *,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         """
@@ -86,6 +87,7 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
         self,
         embed: Embedding,
         pos_encoder: Optional[PositionEncoder],
+        *,
         no_scale: bool = False,
         layer_norm: bool = False,
         dropout_p: float = 0.1,
@@ -131,7 +133,7 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
             self.register_module("pos_encoder", None)
 
         if layer_norm:
-            self.layer_norm = layer_norm_fn(model_dim, device, dtype)
+            self.layer_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
         else:
             self.register_module("layer_norm", None)
 
@@ -145,6 +147,7 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
         self,
         seqs: Tensor,
         seq_lens: Optional[Tensor],
+        *,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         embeds = self.embed(seqs)
@@ -155,7 +158,7 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
             embeds = embeds * self.scale
 
         if self.pos_encoder is not None:
-            embeds = self.pos_encoder(embeds, padding_mask, state_bag)
+            embeds = self.pos_encoder(embeds, padding_mask, state_bag=state_bag)
 
         if self.layer_norm is not None:
             embeds = self.layer_norm(embeds)
@@ -169,4 +172,4 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
         """:meta private:"""
         s = super().extra_repr()
 
-        return s + ", no_scale=False" if self.scale != 1.0 else ""
+        return f"{s}, no_scale=False" if self.scale != 1.0 else ""

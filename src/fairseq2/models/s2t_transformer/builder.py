@@ -181,8 +181,8 @@ def _large() -> S2TTransformerConfig:
     )
 
 
-@s2t_transformer_arch("conformer")
-def _conformer() -> S2TTransformerConfig:
+@s2t_transformer_arch("conformer_medium")
+def _conformer_medium() -> S2TTransformerConfig:
     return S2TTransformerConfig(
         model_dim=256,
         max_seq_len=6000,
@@ -217,6 +217,7 @@ class S2TTransformerBuilder:
     def __init__(
         self,
         config: S2TTransformerConfig,
+        *,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -254,7 +255,7 @@ class S2TTransformerBuilder:
             decoder_frontend,
             decoder,
             final_proj,
-            self.config.target_pad_idx,
+            target_pad_idx=self.config.target_pad_idx,
         )
 
     def build_encoder_frontend(self) -> TransformerFrontend:
@@ -307,10 +308,7 @@ class S2TTransformerBuilder:
             return None
 
         return SinusoidalPositionEncoder(
-            self.config.model_dim,
-            self.config.max_seq_len,
-            device=self.device,
-            dtype=self.dtype,
+            self.config.model_dim, self.config.max_seq_len, device=self.device
         )
 
     def build_target_position_encoder(self) -> PositionEncoder:
@@ -320,7 +318,6 @@ class S2TTransformerBuilder:
             self.config.max_seq_len,
             _legacy_pad_idx=self.config.target_pad_idx,
             device=self.device,
-            dtype=self.dtype,
         )
 
     def build_encoder(self) -> TransformerEncoder:
@@ -426,8 +423,8 @@ class S2TTransformerBuilder:
                 self.rel_pos_encoding = RelativePositionalEncoding(
                     self.config.model_dim,
                     self.config.max_seq_len,
-                    self.device,
-                    self.dtype,
+                    device=self.device,
+                    dtype=self.dtype,
                 )
 
             sdpa = RelativePositionSDPA(
@@ -466,6 +463,7 @@ class S2TTransformerBuilder:
         return StandardFeedForwardNetwork(
             self.config.model_dim,
             self.config.ffn_inner_dim,
+            bias=True,
             inner_activation=SiLU() if use_swish else None,
             inner_dropout_p=self.config.dropout_p,
             device=self.device,
@@ -475,6 +473,7 @@ class S2TTransformerBuilder:
 
 def create_s2t_transformer_model(
     config: S2TTransformerConfig,
+    *,
     device: Optional[Device] = None,
     dtype: Optional[DataType] = None,
 ) -> TransformerModel:
@@ -487,4 +486,4 @@ def create_s2t_transformer_model(
     :param dtype:
         The data type of module parameters and buffers.
     """
-    return S2TTransformerBuilder(config, device, dtype).build_model()
+    return S2TTransformerBuilder(config, device=device, dtype=dtype).build_model()

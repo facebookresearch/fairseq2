@@ -9,19 +9,10 @@ to train custom models for translation, summarization, language modeling, and
 other content generation tasks.
 
 .. toctree::
+   :caption: fairseq2 Reference
    :maxdepth: 1
-   :caption: Installation
 
-   installation/from_source
-
-.. toctree::
-   :maxdepth: 1
-   :caption: fairseq2.nn Reference
-
-   reference/abc
-   reference/classes
-   reference/enums
-   reference/functions
+   reference/data
    reference/all
 
 .. toctree::

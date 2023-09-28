@@ -44,6 +44,7 @@ from fairseq2.nn.transformer.encoder_layer import (
     TransformerEncoderLayer as TransformerEncoderLayer,
 )
 from fairseq2.nn.transformer.ffn import FeedForwardNetwork as FeedForwardNetwork
+from fairseq2.nn.transformer.ffn import GLUFeedForwardNetwork as GLUFeedForwardNetwork
 from fairseq2.nn.transformer.ffn import (
     StandardFeedForwardNetwork as StandardFeedForwardNetwork,
 )

@@ -6,17 +6,18 @@
 
 import math
 from dataclasses import dataclass
-from typing import List, Optional, Tuple, Union, cast
+from typing import List, Optional, Tuple, Union
 
 import torch
 from torch import Tensor
 from torch.nn.functional import log_softmax
 
-from fairseq2.data import Collater, SequenceData, VocabularyInfo
+from fairseq2.data import VocabularyInfo
 from fairseq2.generation.beam_search import BeamSearch, StandardBeamSearch
 from fairseq2.generation.logits_processor import LogitsProcessor
 from fairseq2.models.encoder_decoder import Seq2SeqDecoder
 from fairseq2.nn.incremental_state import IncrementalStateBag
+from fairseq2.nn.ops import pad_sequence, repeat_interleave
 from fairseq2.typing import Device
 
 
@@ -63,14 +64,13 @@ class Seq2SeqGenerator:
     decoder: Seq2SeqDecoder
     opts: SequenceGeneratorOptions
     beam_size: int
-    eos_idx: int
-    pad_idx: Optional[int]
     unk_idx: Optional[int]
+    eos_idx: int
+    pad_idx: int
     prefix_seq: Union[int, Tensor]
     prefix_seq_len: int
     search: BeamSearch
     logits_processor: Optional[LogitsProcessor]
-    collater: Collater
 
     def __init__(
         self,
@@ -96,21 +96,22 @@ class Seq2SeqGenerator:
 
         self.opts = opts or SequenceGeneratorOptions()
 
-        # Set beam size.
-        if vocab_info.pad_idx is None:
-            self.beam_size = min(self.opts.beam_size, vocab_info.size)
-        else:
-            # -1 since we never select PAD.
-            self.beam_size = min(self.opts.beam_size, vocab_info.size - 1)
+        # Set beam size. -1 since we never select PAD.
+        self.beam_size = min(self.opts.beam_size, vocab_info.size - 1)
 
         if vocab_info.eos_idx is None:
             raise ValueError(
                 "`vocab_info` must have `eos_idx` set for sequence generation."
             )
 
+        if vocab_info.pad_idx is None:
+            raise ValueError(
+                "`vocab_info` must have `pad_idx` set for sequence generation."
+            )
+
         # Set vocab info.
-        self.eos_idx = vocab_info.eos_idx
         self.unk_idx = vocab_info.unk_idx
+        self.eos_idx = vocab_info.eos_idx
         self.pad_idx = vocab_info.pad_idx
 
         # Set prefix sequence.
@@ -135,12 +136,8 @@ class Seq2SeqGenerator:
 
         # Set beam search.
         self.search = self.opts.search or StandardBeamSearch()
-        self.logits_processor = self.opts.logits_processor
 
-        if vocab_info.pad_idx is None:
-            self.collater = Collater()
-        else:
-            self.collater = Collater(self.pad_idx, pad_to_multiple=2)
+        self.logits_processor = self.opts.logits_processor
 
     @torch.inference_mode()
     def __call__(
@@ -243,7 +240,7 @@ class Seq2SeqGenerator:
                 None,  # We never generate PAD.
                 encoder_output,
                 encoder_padding_mask,
-                state_bag,
+                state_bag=state_bag,
             )
 
             state_bag.increment_step()
@@ -267,8 +264,7 @@ class Seq2SeqGenerator:
             # fmt: on
 
             # Never allow PAD.
-            if self.pad_idx is not None:
-                lprobs[:, :, self.pad_idx] = -torch.inf
+            lprobs[:, :, self.pad_idx] = -torch.inf
 
             # Apply UNK penalty.
             if self.unk_idx is not None:
@@ -449,7 +445,7 @@ class Seq2SeqGenerator:
             batch.sort(key=lambda b: b.score, reverse=True)  # type: ignore[arg-type, return-value]
 
         return SequenceGeneratorOutput(
-            results=finished_searches, device=device, collater=self.collater
+            results=finished_searches, device=device, pad_idx=self.pad_idx
         )
 
     def _determine_max_seq_len(self, source_seq_len: Optional[int]) -> int:
@@ -484,7 +480,9 @@ class Seq2SeqGenerator:
         fan_out_indices = torch.arange(num_searches, device=encoder_output.device)
 
         # (N) -> (N x B)
-        fan_out_indices = fan_out_indices.repeat_interleave(self.beam_size)
+        fan_out_indices = repeat_interleave(
+            fan_out_indices, dim=0, repeat=self.beam_size
+        )
 
         # (N, S_enc, M) -> (N x B, S_enc, M)
         encoder_output = encoder_output.index_select(dim=0, index=fan_out_indices)
@@ -527,7 +525,7 @@ class Seq2SeqGenerator:
             None,
             encoder_output,
             encoder_padding_mask,
-            state_bag,
+            state_bag=state_bag,
         )
 
         state_bag.increment_step(self.prefix_seq_len - 1)
@@ -626,11 +624,11 @@ class SequenceGeneratorOutput:
     device: Device
     """The device on which generated sequences reside."""
 
-    collater: Optional[Collater] = None
-    """The collater to use in :meth:`collate`."""
+    pad_idx: int
+    """The index of the PAD symbol."""
 
     def collate(
-        self, hypo_idx: int = 0, skip_batch: bool = False
+        self, *, hypo_idx: int = 0, skip_batch: bool = False
     ) -> Tuple[Tensor, Optional[Tensor]]:
         """Collate the generated sequences at index ``hypo_idx`` in each search
         result into a single tensor.
@@ -648,9 +646,6 @@ class SequenceGeneratorOutput:
             the same index in the first returned value. *Shape:* :math:`(N)`,
             where :math:`N` is the number of search results.
         """
-        if self.collater is None:
-            raise RuntimeError("The output has no associated `Collater` instance.")
-
         if not self.results and not skip_batch:
             raise ValueError("The output must contain at least one search result.")
 
@@ -671,9 +666,7 @@ class SequenceGeneratorOutput:
             # Return a zero-dimensional (not scalar!) tensor.
             return torch.empty((0,), device=self.device, dtype=torch.int64), None
 
-        output = cast(SequenceData, self.collater(seqs))
-
-        return output["seqs"], output["seq_lens"] if output["is_ragged"] else None
+        return pad_sequence(seqs, self.pad_idx, pad_to_multiple=2)
 
 
 @dataclass

@@ -15,6 +15,29 @@ from fairseq2.typing import DataType
 if TYPE_CHECKING or _DOC_MODE:
 
     class StrSplitter:
+        """Split string on a given character.
+
+        :param sep:
+            The character to split on (default to tab)
+
+        :param names:
+            names of the corresponding columns of the input tsv file
+            Will create dictionaries object with one entry per column
+
+        :param indices:
+            The indices of the column to keep.
+
+        Example usage::
+
+            # read all columns: ["Go.", "Va !", "CC-BY 2.0 (France)"]
+            dataloader = read_text("tatoeba.tsv").map(StrSplitter()).and_return()
+            # keep only the second column and convert to string: "Va !"
+            dataloader = read_text("tatoeba.tsv").map(StrSplitter(indices=[1])).map(lambda x: x[0]).and_return()
+            # keep only the first and second column and convert to dict: {"en": "Go.", "fr": "Va !"}
+            dataloader = read_text("tatoeba.tsv").map(StrSplitter(names=["en", "fr"], indices=[0, 1])).and_return()
+
+        """
+
         def __init__(
             self,
             sep: str = "\t",
@@ -30,6 +53,8 @@ if TYPE_CHECKING or _DOC_MODE:
             ...
 
     class StrToIntConverter:
+        """Parses integers in a given base"""
+
         def __init__(self, base: int = 10) -> None:
             ...
 

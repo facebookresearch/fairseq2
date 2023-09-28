@@ -28,9 +28,10 @@ class LayerNorm(Module, ABC):
     def __init__(
         self,
         normalized_shape: Union[int, Sequence[int], torch.Size],
+        bias: bool,
+        *,
         eps: float = 1e-5,
         elementwise_affine: bool = True,
-        bias: bool = True,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -39,13 +40,13 @@ class LayerNorm(Module, ABC):
             The shape over which to normalize incoming data. For example, if the
             shape is ``(3, 5)``, the incoming data is normalized over the last 2
             dimensions (i.e. ``input.mean((-2, -1))``).
+        :param bias:
+            If ``True``, learns an additive bias. Ignored if
+            ``elementwise_affine`` is ``False``.
         :param eps:
             The value to add to the denominator for numerical stability.
         :param elementwise_affine:
             If ``True``, learns an affine transformation.
-        :param bias:
-            If ``True``, learns an additive bias. Ignored if
-            ``elementwise_affine`` is ``False``.
         """
         super().__init__()
 

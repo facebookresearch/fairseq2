@@ -62,12 +62,13 @@ class TransformerDecoderModel(DecoderModel):
         self,
         seqs: Tensor,
         seq_lens: Optional[Tensor],
+        *,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         seqs, padding_mask = self.decoder_frontend(seqs, seq_lens, state_bag=state_bag)
 
         decoder_output, decoder_padding_mask = self.decoder(
-            seqs, padding_mask, state_bag
+            seqs, padding_mask, state_bag=state_bag
         )
 
         return decoder_output, decoder_padding_mask
