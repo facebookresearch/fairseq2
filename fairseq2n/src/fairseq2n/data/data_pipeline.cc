@@ -247,7 +247,7 @@ data_pipeline::sample(
         weights = std::vector<float32>(pipelines.size(), 1.0F / static_cast<float32>(pipelines.size()));
     else if (weights.value().size() != pipelines.size())
         throw_<std::invalid_argument>(
-            "`weights` should have the same size as `pipelines`.");
+            "The number of `pipelines` and the number of `weights` must be equal, but are {} and {} instead.", pipelines.size(), weights.value().size());
 
     auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
 

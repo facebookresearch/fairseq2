@@ -19,9 +19,7 @@ namespace fairseq2n::detail {
 sample_data_source::sample_data_source(std::vector<data_pipeline> &&pipelines, std::vector<float32> &&weights)
     : pipelines_(std::move(pipelines))
 {
-    auto pipelines_count = pipelines_.size();
-
-    weights_ = make_tensor_from_vector(weights, { static_cast<std::int64_t>(pipelines_count) });
+    weights_ = make_tensor_from_vector(weights, { static_cast<std::int64_t>(pipelines_.size()) });
     generator_ = at::globalContext().defaultGenerator(c10::DeviceType::CPU);
 }
 

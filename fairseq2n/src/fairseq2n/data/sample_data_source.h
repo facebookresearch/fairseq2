@@ -21,8 +21,7 @@ namespace fairseq2n::detail {
 class sample_data_source final : public data_source {
 public:
     explicit
-    sample_data_source(std::vector<data_pipeline> &&pipelines,
-     std::vector<float32> &&weights);
+    sample_data_source(std::vector<data_pipeline> &&pipelines, std::vector<float32> &&weights);
 
     std::optional<data>
     next() override;

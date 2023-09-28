@@ -115,7 +115,7 @@ class TestSampleOp:
         dl1 = read_sequence([1, 2, 3, 4, 5]).and_return()
         dl2 = read_sequence([11, 12]).and_return()
         with pytest.raises(
-            ValueError, match=r"^`weights` should have the same size as `pipelines`\.$"
+            ValueError, match=r"^The number of `pipelines` and the number of `weights` must be equal, but are 2 and 3 instead\.$"
         ):
             DataPipeline.sample([dl1, dl2], [0.3, 0.3, 2]).and_return()
 

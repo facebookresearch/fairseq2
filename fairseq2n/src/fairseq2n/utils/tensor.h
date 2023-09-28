@@ -16,8 +16,8 @@ namespace fairseq2n::detail {
 template <typename T>
 inline at::Tensor
 make_tensor_from_vector(
-    const std::vector<T>& src,
-    const std::initializer_list<std::int64_t>& shape) noexcept
+    const std::vector<T> &src,
+    const std::initializer_list<std::int64_t> &shape) noexcept
 {
     auto storage = std::make_shared<std::vector<T>>(src);
 
