@@ -171,6 +171,7 @@ class TestSampleOp:
         assert d == 1
 
         state_dict = rdp.state_dict()
+        gen_state = torch.get_rng_state()
 
         # Read a few examples before we roll back.
         for _ in range(7):
@@ -179,7 +180,9 @@ class TestSampleOp:
         assert d == 25
 
         # Expected to roll back to the fifth example.
+        rdp.reset()
         rdp.load_state_dict(state_dict)
+        torch.set_rng_state(gen_state)
 
         # Move to EOD.
         for _ in range(9):

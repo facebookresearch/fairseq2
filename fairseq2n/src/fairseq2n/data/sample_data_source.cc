@@ -39,8 +39,6 @@ sample_data_source::next()
 void
 sample_data_source::reset()
 {
-    generator_ = at::globalContext().defaultGenerator(c10::DeviceType::CPU);
-
     eod_ = false;
     for (data_pipeline &p : pipelines_)
         p.reset();
@@ -49,8 +47,6 @@ sample_data_source::reset()
 void
 sample_data_source::record_position(tape &t) const
 {
-    t.record(generator_.get_state());
-
     t.record(eod_);
     for (const data_pipeline &p : pipelines_)
         p.record_position(t);
@@ -59,9 +55,6 @@ sample_data_source::record_position(tape &t) const
 void
 sample_data_source::reload_position(tape &t)
 {
-    auto state = t.read<at::Tensor>();
-    generator_.set_state(state);
-
     eod_ = t.read<bool>();
     for (data_pipeline &p : pipelines_)
         p.reload_position(t);
