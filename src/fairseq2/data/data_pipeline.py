@@ -102,6 +102,19 @@ if TYPE_CHECKING or _DOC_MODE:
             """
 
         @staticmethod
+        def sample(
+            pipelines: Sequence["DataPipeline"],
+            weights: Optional[Sequence[float]] = None,
+        ) -> "DataPipelineBuilder":
+            """Extract examples from ``pipelines`` by sampling based on ``weights``.
+
+            :param data_pipelines:
+                The data pipelines to sample from.
+            :param weights:
+                Desired distribution of pipelines. If None, use uniform distribution.
+            """
+
+        @staticmethod
         def constant(example: Any, key: Optional[str] = None) -> "DataPipelineBuilder":
             ...
 

@@ -319,6 +319,26 @@ def_data_pipeline(py::module_ &data_module)
             },
             py::arg("pipelines"))
         .def_static(
+            "sample",
+            [](
+                std::vector<std::reference_wrapper<data_pipeline>> &refs,
+                std::optional<std::vector<float>> weights)
+            {
+                std::vector<data_pipeline> pipelines{};
+
+                pipelines.reserve(refs.size());
+
+                std::transform(
+                    refs.begin(), refs.end(), std::back_inserter(pipelines), [](auto &r) {
+                        return std::move(r.get());
+                    });
+
+                return data_pipeline::sample(
+                    std::move(pipelines), std::move(weights));
+            },
+            py::arg("pipelines"),
+            py::arg("weights") = std::nullopt)
+        .def_static(
             "constant",
             [](data example, std::optional<std::string> key)
             {
