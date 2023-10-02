@@ -1,0 +1,6 @@
+﻿.. currentmodule:: fairseq2.data.text
+
+read\_text
+==========
+
+.. autofunction:: read_text
