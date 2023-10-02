@@ -48,6 +48,8 @@ jobs:
           pip install torch==${{ inputs.torch }}
       - name: Install fairseq2
         run: |
+          unset CI
+
           pip install --editable .
       - name: Install pytest
         run: |
