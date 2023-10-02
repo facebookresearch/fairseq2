@@ -18,16 +18,17 @@ circular_data_source::circular_data_source(std::vector<data_pipeline> &&pipeline
 std::optional<data>
 circular_data_source::next()
 {
-    if (eod())
-        return {};
+    // One or more data pipelines might be empty, so we have to keep looping
+    std::optional<data> output{};
+    while (!output && !eod()) {
+        auto pipeline_idx = next_index_gen_();
 
-    auto pipeline_idx = next_index_gen_();
+        if (!buffer_[pipeline_idx]) // init buffer at index
+            buffer_[pipeline_idx] = next_in_pipeline(pipeline_idx);
 
-    if (!buffer_[pipeline_idx]) // init buffer at index
+        output = buffer_[pipeline_idx];
         buffer_[pipeline_idx] = next_in_pipeline(pipeline_idx);
-
-    auto output = buffer_[pipeline_idx];
-    buffer_[pipeline_idx] = next_in_pipeline(pipeline_idx);
+    }
 
     return output;
 }
@@ -35,7 +36,7 @@ circular_data_source::next()
 void
 circular_data_source::reset()
 {
-    buffer_.clear();
+    buffer_.assign(pipelines_.size(), std::nullopt);
 
     is_epoch_done_.assign(pipelines_.size(), false);
 
