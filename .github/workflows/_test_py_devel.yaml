@@ -1,0 +1,65 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+on:
+  workflow_call:
+    inputs:
+      torch:
+        type: string
+        required: true
+      py:
+        type: string
+        required: true
+      arch:
+        type: string
+        default: 'x86_64'
+      run_on_device:
+        type: boolean
+        default: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_${{ inputs.arch }}:1-cpu
+    steps:
+      - name: Check-out the repository
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Install libsndfile
+        run: |
+          yum --assumeyes install libsndfile-devel
+      - name: Create the Python virtual environment
+        run: |
+          python${{ inputs.py }} -m venv ~/venv
+
+          echo ~/venv/bin >> "$GITHUB_PATH"
+      - name: Install PyTorch
+        run: |
+          pip install torch==${{ inputs.torch }}
+      - name: Install fairseq2
+        run: |
+          pip install --editable .
+      - name: Install pytest
+        run: |
+          pip install --requirement requirements-devel.txt
+      - name: Run Python tests
+        env:
+          RUN_ON_DEVICE: ${{ inputs.run_on_device }}
+        run: |
+          if [[ $RUN_ON_DEVICE != true ]]; then
+            dev=cpu
+          else
+            dev=cuda:0
+          fi
+
+          pytest -rP --device $dev --verbose
