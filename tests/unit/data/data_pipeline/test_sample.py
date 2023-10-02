@@ -10,66 +10,81 @@ import torch
 from fairseq2.data import DataPipeline, read_sequence
 from fairseq2.data.text.text_reader import read_text
 from fairseq2.utils.version import is_pt2_or_greater
+from tests.common import python_devel_only, tmp_rng_seed
+
+cpu_device = torch.device("cpu")
 
 
 @pytest.mark.skipif(
+    python_devel_only(),
+    reason="New fairseq2n API in Python-only installation. Skipping till v0.2.",
+)
+@pytest.mark.skipif(
     not is_pt2_or_greater(),
-    reason="different sampling results with versions lower than PyTorch 2.0.0",
+    reason="Different sampling results with versions lower than PyTorch 2.0",
 )
 class TestSampleOp:
-    def test_op_works_as_expected(self) -> None:
+    def test_op_works(self) -> None:
         dp1 = read_sequence([1, 2, 3]).and_return()
         dp2 = read_sequence([11, 12, 13]).and_return()
+
         rdp = DataPipeline.sample([dp1, dp2], [0.5, 0.5]).and_return()
 
-        for i in range(5):
-            torch.manual_seed(1234)  # We need to set seed after reset
-            assert list(rdp) == [11, 1, 12, 2, 3, 13]
-            rdp.reset()
+        for _ in range(5):
+            with tmp_rng_seed(cpu_device, seed=1234):
+                assert list(rdp) == [11, 1, 12, 2, 3, 13]
 
-    def test_op_works_as_expected_with_different_lenghts(self) -> None:
+                rdp.reset()
+
+    def test_op_works_when_pipelines_have_different_lengths(self) -> None:
         dp1 = read_sequence([1, 2, 3]).and_return()
         dp2 = read_sequence([11, 12]).and_return()
 
         rdp = DataPipeline.sample([dp1, dp2], [7, 4]).and_return()
-        for _ in range(2):
-            torch.manual_seed(1234)  # We need to set seed after reset
-            assert list(rdp) == [1, 2, 11, 3]
-            rdp.reset()
 
-    def test_op_works_as_expected_with_default_weights(self) -> None:
+        for _ in range(2):
+            with tmp_rng_seed(cpu_device, seed=1234):
+                assert list(rdp) == [1, 2, 11, 3]
+
+                rdp.reset()
+
+    def test_op_works_when_no_weights_is_specified(self) -> None:
         dp1 = read_sequence([1, 2, 3, 4, 5]).and_return()
         dp2 = read_sequence([11, 12]).and_return()
         dp3 = read_sequence([101, 102, 103]).and_return()
+
         rdp = DataPipeline.sample([dp1, dp2, dp3]).and_return()
 
-        expected = [11, 1, 12, 101, 2, 102, 103]
         for _ in range(2):
-            torch.manual_seed(1234)  # We need to set seed after reset
-            assert list(rdp) == expected
-            rdp.reset()
+            with tmp_rng_seed(cpu_device, seed=1234):
+                assert list(rdp) == [11, 1, 12, 101, 2, 102, 103]
 
-    def test_op_works_as_expected_with_low_prob(self) -> None:
+                rdp.reset()
+
+    def test_op_works_when_weight_is_low(self) -> None:
         dp1 = read_sequence([1, 2, 3, 4, 5]).and_return()
         dp2 = read_sequence([11, 12]).and_return()
+
         rdp = DataPipeline.sample([dp1, dp2], [0.9, 0.1]).and_return()
 
-        expected = [1, 2, 3, 4, 5]
         for _ in range(2):
-            torch.manual_seed(1234)  # We need to set seed after reset
-            assert list(rdp) == expected
-            rdp.reset()
+            with tmp_rng_seed(cpu_device, seed=1234):
+                assert list(rdp) == [1, 2, 3, 4, 5]
 
-    def test_op_works_as_expected_with_single_data_pipeline(self) -> None:
+                rdp.reset()
+
+    def test_op_works_when_a_single_pipeline_is_specified(self) -> None:
         dp = read_sequence([1, 2, 3, 4, 5]).and_return()
+
         rdp = DataPipeline.sample([dp]).and_return()
 
         for _ in range(2):
-            torch.manual_seed(1234)  # We need to set seed after reset
-            assert list(rdp) == [1, 2, 3, 4, 5]
-            rdp.reset()
+            with tmp_rng_seed(cpu_device, seed=1234):
+                assert list(rdp) == [1, 2, 3, 4, 5]
 
-    def test_op_works_as_expected_with_empty_data_pipelines(self) -> None:
+                rdp.reset()
+
+    def test_op_works_when_pipelines_are_empty(self) -> None:
         dp1 = read_sequence([]).and_return()
         dp2 = read_sequence([]).and_return()
         dp3 = read_sequence([]).and_return()
@@ -82,43 +97,52 @@ class TestSampleOp:
 
             rdp.reset()
 
-    def test_op_works_as_expected_with_manual_seed(self) -> None:
+    def test_op_works_when_seed_is_set_manually(self) -> None:
         dp1 = read_sequence([1, 2, 3]).and_return()
         dp2 = read_sequence([11, 12]).and_return()
 
         rdp = DataPipeline.sample([dp1, dp2], [0.4, 0.6]).and_return()
-        for _ in range(2):
-            torch.manual_seed(1234)
-            assert list(rdp) == [11, 1, 12, 2, 3]
-            rdp.reset()
 
         for _ in range(2):
-            torch.manual_seed(5678)
-            assert list(rdp) == [1, 11, 12]
-            rdp.reset()
+            with tmp_rng_seed(cpu_device, seed=1234):
+                assert list(rdp) == [11, 1, 12, 2, 3]
 
-    def test_op_raises_invalid_argument_if_negative_weights(self) -> None:
+                rdp.reset()
+
+        for _ in range(2):
+            with tmp_rng_seed(cpu_device, seed=5678):
+                assert list(rdp) == [1, 11, 12]
+
+                rdp.reset()
+
+    def test_op_raises_error_when_weight_is_negative(self) -> None:
         dl1 = read_sequence([1, 2, 3, 4, 5]).and_return()
         dl2 = read_sequence([11, 12]).and_return()
+
         rdp = DataPipeline.sample([dl1, dl2], [0.5, -2]).and_return()
+
         with pytest.raises(
             RuntimeError,
             match=r"^probability tensor contains either `inf`, `nan` or element < 0",
         ):
             list(rdp)
 
-    def test_op_raises_invalid_argument_if_weights_wrong_size(self) -> None:
+    def test_op_raises_error_when_pipelines_and_weights_have_different_lengths(
+        self,
+    ) -> None:
         dl1 = read_sequence([1, 2, 3, 4, 5]).and_return()
         dl2 = read_sequence([11, 12]).and_return()
+
         with pytest.raises(
             ValueError,
             match=r"^The number of `pipelines` and the number of `weights` must be equal, but are 2 and 3 instead\.$",
         ):
             DataPipeline.sample([dl1, dl2], [0.3, 0.3, 2]).and_return()
 
-    def test_op_raises_invalid_argument_if_weights_sum_to_zero(self) -> None:
+    def test_op_raises_error_when_sum_of_weights_is_zero(self) -> None:
         dl1 = read_sequence([1, 2, 3, 4, 5]).and_return()
         dl2 = read_sequence([11, 12]).and_return()
+
         rdp = DataPipeline.sample([dl1, dl2], [0, 0]).and_return()
 
         with pytest.raises(
@@ -127,14 +151,14 @@ class TestSampleOp:
         ):
             list(rdp)
 
-    def test_op_raises_error_if_no_data_pipeline(self) -> None:
+    def test_op_raises_error_when_no_pipeline_is_specified(self) -> None:
         with pytest.raises(
             ValueError,
             match=r"^`pipelines` does not contain any elements\. Can not sample from empty set\.$",
         ):
             DataPipeline.sample([]).and_return()
 
-    def test_op_raises_error_if_one_of_the_pipelines_is_broken(self) -> None:
+    def test_op_raises_error_when_one_of_the_pipelines_is_broken(self) -> None:
         # Force a non-recoverable error.
         pipeline1 = read_text(pathname=" &^#").and_return()
         pipeline2 = read_text(pathname=" &^#").and_return()
@@ -147,55 +171,58 @@ class TestSampleOp:
 
         with pytest.raises(
             ValueError,
-            match=r"^At least one of the specified data pipelines is broken and cannot be used in sample\.$",
+            match=r"^At least one of the specified data pipelines is broken and cannot be sampled\.$",
         ):
             DataPipeline.sample([pipeline1, pipeline2]).and_return()
 
-    def test_record_reload_position_works_as_expected(self) -> None:
-        torch.manual_seed(1234)
+    def test_op_saves_and_restores_its_state(self) -> None:
         dp1 = read_sequence(list(range(7))).and_return()
         dp2 = read_sequence(list(range(10, 18))).and_return()
         dp3 = read_sequence(list(range(20, 26))).and_return()
 
-        rdp = DataPipeline.sample([dp1, dp2, dp3]).and_return()
         # [10, 0, 11, 20, 1, 21, 22, 23, 24, 12, 2, 25, 13, 3]
+        rdp = DataPipeline.sample([dp1, dp2, dp3]).and_return()
 
         d = None
 
         it = iter(rdp)
 
-        # Move the the fifth example.
-        for _ in range(5):
-            d = next(it)
+        with tmp_rng_seed(cpu_device, seed=1234):
+            # Move the the fifth example.
+            for _ in range(5):
+                d = next(it)
 
-        assert d == 1
+            assert d == 1
 
-        state_dict = rdp.state_dict()
-        gen_state = torch.get_rng_state()
+            state_dict = rdp.state_dict()
 
-        # Read a few examples before we roll back.
-        for _ in range(7):
-            d = next(it)
+            gen_state = torch.get_rng_state()
 
-        assert d == 25
+            # Read a few examples before we roll back.
+            for _ in range(7):
+                d = next(it)
 
-        # Expected to roll back to the fifth example.
-        rdp.reset()
-        rdp.load_state_dict(state_dict)
-        torch.set_rng_state(gen_state)
+            assert d == 25
 
-        # Move to EOD.
-        for _ in range(9):
-            d = next(it)
+            # Expected to roll back to the fifth example.
+            rdp.reset()
 
-        assert d == 3
+            rdp.load_state_dict(state_dict)
 
-        state_dict = rdp.state_dict()
+            torch.set_rng_state(gen_state)
 
-        rdp.reset()
+            # Move to EOD.
+            for _ in range(9):
+                d = next(it)
 
-        # Expected to be EOD.
-        rdp.load_state_dict(state_dict)
+            assert d == 3
 
-        with pytest.raises(StopIteration):
-            next(iter(rdp))
+            state_dict = rdp.state_dict()
+
+            rdp.reset()
+
+            # Expected to be EOD.
+            rdp.load_state_dict(state_dict)
+
+            with pytest.raises(StopIteration):
+                next(iter(rdp))

@@ -14,6 +14,13 @@ on:
       - 'doc/**'
 
 jobs:
+  test_py_devel:
+    name: Test Python development
+    uses: ./.github/workflows/_test_py_devel.yaml
+    with:
+      torch: '2.0.1'
+      py: '3.11'
+
   build_wheel-linux:
     name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
     uses: ./.github/workflows/_build_wheel-linux.yaml
