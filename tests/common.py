@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import contextlib
+from contextlib import contextmanager
 from typing import Any, Generator, List, Union
 
 import torch
@@ -43,7 +43,7 @@ def has_no_nan(a: Tensor) -> bool:
     return not torch.any(torch.isnan(a))
 
 
-@contextlib.contextmanager
+@contextmanager
 def tmp_rng_seed(device: Device, seed: int = 0) -> Generator[None, None, None]:
     """Set a temporary manual RNG seed.
 
