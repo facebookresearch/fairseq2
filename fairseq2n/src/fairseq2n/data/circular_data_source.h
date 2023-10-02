@@ -15,7 +15,7 @@ namespace fairseq2n::detail {
 class circular_data_source final : public data_source {
 public:
     explicit
-    circular_data_source(std::vector<data_pipeline> &&pipelines, index_generator_fn &&index_gen_fn);
+    circular_data_source(std::vector<data_pipeline> &&pipelines, index_generator_fn &&index_gen_fn, bool stop_at_shortest);
 
     std::optional<data>
     next() override;
@@ -42,6 +42,7 @@ private:
     std::vector<std::optional<data>> buffer_{};
     std::vector<bool> is_epoch_done_;
     bool is_eod_ = false;
+    bool stop_at_shortest_;
 };
 
 }  // namespace fairseq2n::detail

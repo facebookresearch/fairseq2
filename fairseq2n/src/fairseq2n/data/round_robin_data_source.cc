@@ -8,7 +8,7 @@
 
 namespace fairseq2n::detail {
 
-round_robin_data_source::round_robin_data_source(std::vector<data_pipeline> &&pipelines)
+round_robin_data_source::round_robin_data_source(std::vector<data_pipeline> &&pipelines, bool stop_at_shortest)
 {
     pipelines_count_ = pipelines.size();
     pipeline_idx_ = 0;
@@ -20,7 +20,7 @@ round_robin_data_source::round_robin_data_source(std::vector<data_pipeline> &&pi
         return this->pipeline_idx_++;
     };
 
-    circular_ = std::make_unique<circular_data_source>(std::move(pipelines), std::move(gen));
+    circular_ = std::make_unique<circular_data_source>(std::move(pipelines), std::move(gen), stop_at_shortest);
 }
 
 

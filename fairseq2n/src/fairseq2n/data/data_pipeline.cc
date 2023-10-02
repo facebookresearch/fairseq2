@@ -203,7 +203,9 @@ data_pipeline::zip(
 }
 
 data_pipeline_builder
-data_pipeline::round_robin(std::vector<data_pipeline> pipelines)
+data_pipeline::round_robin(
+    std::vector<data_pipeline> pipelines,
+    bool stop_at_shortest)
 {
     bool is_broken = std::any_of(
         pipelines.begin(), pipelines.end(), [](const data_pipeline &pipeline)
@@ -217,9 +219,9 @@ data_pipeline::round_robin(std::vector<data_pipeline> pipelines)
 
     auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
 
-    auto factory = [tmp]() mutable
+    auto factory = [tmp, stop_at_shortest]() mutable
     {
-        return std::make_unique<round_robin_data_source>(std::move(*tmp));
+        return std::make_unique<round_robin_data_source>(std::move(*tmp), stop_at_shortest);
     };
 
     return data_pipeline_builder{std::move(factory)};

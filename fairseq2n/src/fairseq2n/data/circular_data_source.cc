@@ -8,8 +8,8 @@
 
 namespace fairseq2n::detail {
 
-circular_data_source::circular_data_source(std::vector<data_pipeline> &&pipelines, index_generator_fn &&index_gen_fn)
-    : pipelines_(std::move(pipelines)), next_index_gen_(std::move(index_gen_fn))
+circular_data_source::circular_data_source(std::vector<data_pipeline> &&pipelines, index_generator_fn &&index_gen_fn, bool stop_at_shortest)
+    : pipelines_(std::move(pipelines)), next_index_gen_(std::move(index_gen_fn)), stop_at_shortest_(stop_at_shortest)
 {
     is_epoch_done_ = std::vector<bool>(pipelines_.size(), false);
     buffer_ = std::vector<std::optional<data>>(pipelines_.size(), std::nullopt);
@@ -78,6 +78,8 @@ circular_data_source::next_in_pipeline(std::size_t pipeline_idx)
     std::optional<data> maybe_example = pipeline.next();
     if (!maybe_example) {
         is_epoch_done_[pipeline_idx] = true;
+        if (stop_at_shortest_) // we flag eod here for effeciency
+            is_eod_ = true;
 
         pipeline.reset();
 

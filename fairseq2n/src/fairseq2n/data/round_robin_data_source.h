@@ -19,7 +19,7 @@ namespace fairseq2n::detail {
 class round_robin_data_source final : public data_source {
 public:
     explicit
-    round_robin_data_source(std::vector<data_pipeline> &&pipelines);
+    round_robin_data_source(std::vector<data_pipeline> &&pipelines, bool stop_at_shortest);
 
     std::optional<data>
     next() override;
