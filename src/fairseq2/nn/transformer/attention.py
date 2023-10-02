@@ -6,7 +6,8 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional, Tuple, final
+from contextlib import contextmanager
+from typing import Generator, Optional, Protocol, Tuple, final
 
 import torch
 import torch.nn.functional as F
@@ -177,18 +178,6 @@ class NaiveSDPA(SDPA):
         )
 
 
-def create_default_sdpa(*, attn_dropout_p: float = 0.0) -> SDPA:
-    """Create an instance of the default scaled dot-product attention module.
-
-    :param attn_dropout_p:
-        The dropout probability on attention weights.
-    """
-    if is_pt2_or_greater():
-        return TorchSDPA(attn_dropout_p=attn_dropout_p)
-    else:
-        return NaiveSDPA(attn_dropout_p=attn_dropout_p)
-
-
 def _naive_scaled_dot_product_attention(
     queries: Tensor,
     keys: Tensor,
@@ -218,3 +207,59 @@ def _naive_scaled_dot_product_attention(
     attn = torch.matmul(attn_weights, values)
 
     return attn, attn_weights if needs_weights else None
+
+
+class SDPAFactory(Protocol):
+    """Creates instances of :class:`SDPA`."""
+
+    def __call__(self, *, attn_dropout_p: float) -> SDPA:
+        """
+        :param attn_dropout_p:
+            The dropout probability on attention weights.
+        """
+
+
+def _get_fallback_sdpa_factory() -> SDPAFactory:
+    if is_pt2_or_greater():
+        return TorchSDPA
+    else:
+        return NaiveSDPA
+
+
+_sdpa_factory: SDPAFactory = _get_fallback_sdpa_factory()
+
+
+def set_default_sdpa(factory: Optional[SDPAFactory]) -> None:
+    """Set the process-wide default scaled dot-product attention module.
+
+    If ``None``, defaults to :class:`TorchSDPA` if available; otherwise, to
+    :class:`NaiveSDPA`.
+    """
+    global _sdpa_factory
+
+    if factory is not None:
+        _sdpa_factory = factory
+    else:
+        _sdpa_factory = _get_fallback_sdpa_factory()
+
+
+@contextmanager
+def sdpa(factory: Optional[SDPAFactory]) -> Generator[None, None, None]:
+    """Set a temporary default scaled dot-product attention module."""
+    original_factory = _sdpa_factory
+
+    set_default_sdpa(factory)
+
+    try:
+        yield
+    finally:
+        set_default_sdpa(original_factory)
+
+
+def create_default_sdpa(*, attn_dropout_p: float = 0.0) -> SDPA:
+    """Create an instance of the default scaled dot-product attention module.
+
+    :param attn_dropout_p:
+        The dropout probability on attention weights.
+    """
+    return _sdpa_factory(attn_dropout_p=attn_dropout_p)
