@@ -16,7 +16,7 @@
 
 namespace fairseq2n::detail {
 
-sample_data_source::sample_data_source(std::vector<data_pipeline> &&pipelines, std::vector<float32> &&weights)
+sample_data_source::sample_data_source(std::vector<data_pipeline> &&pipelines, std::vector<float32> &&weights, bool stop_at_shortest)
     : pipelines_(std::move(pipelines))
 {
     weights_ = make_tensor_from_vector(weights, { static_cast<std::int64_t>(pipelines_.size()) });

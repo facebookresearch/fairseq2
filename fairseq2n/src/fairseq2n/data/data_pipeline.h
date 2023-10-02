@@ -86,7 +86,8 @@ public:
     static data_pipeline_builder
     sample(
         std::vector<data_pipeline> pipelines,
-        std::optional<std::vector<float>> weights = {});
+        std::optional<std::vector<float>> weights = {},
+        bool stop_at_shortest = true);
 
     static data_pipeline_builder
     constant(data example, std::optional<std::string> key = {});

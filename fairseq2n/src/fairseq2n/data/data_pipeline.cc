@@ -228,7 +228,8 @@ data_pipeline::round_robin(std::vector<data_pipeline> pipelines)
 data_pipeline_builder
 data_pipeline::sample(
     std::vector<data_pipeline> pipelines,
-    std::optional<std::vector<float32>> weights)
+    std::optional<std::vector<float32>> weights,
+    bool stop_at_shortest)
 {
     if (pipelines.empty())
         throw_<std::invalid_argument>(
@@ -251,8 +252,8 @@ data_pipeline::sample(
 
     auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
 
-    auto factory = [tmp, weights=std::move(weights.value())]() mutable {
-        return std::make_unique<sample_data_source>(std::move(*tmp), std::move(weights));
+    auto factory = [tmp, weights=std::move(weights.value()), stop_at_shortest]() mutable {
+        return std::make_unique<sample_data_source>(std::move(*tmp), std::move(weights), stop_at_shortest);
     };
 
     return data_pipeline_builder{std::move(factory)};

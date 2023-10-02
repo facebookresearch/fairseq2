@@ -105,6 +105,7 @@ if TYPE_CHECKING or _DOC_MODE:
         def sample(
             pipelines: Sequence["DataPipeline"],
             weights: Optional[Sequence[float]] = None,
+            stop_at_shortest: bool = True,
         ) -> "DataPipelineBuilder":
             """Extract examples from ``pipelines`` by sampling based on ``weights``.
 
@@ -112,6 +113,8 @@ if TYPE_CHECKING or _DOC_MODE:
                 The data pipelines to sample from.
             :param weights:
                 Desired distribution of pipelines. If None, use uniform distribution.
+            :param stop_at_shortest:
+                Flag to stop sampling when first pipeline reaches its end.
             """
 
         @staticmethod
