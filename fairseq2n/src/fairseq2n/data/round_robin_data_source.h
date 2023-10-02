@@ -12,17 +12,14 @@
 
 #include "fairseq2n/data/data_pipeline.h"
 #include "fairseq2n/data/data_source.h"
+#include "fairseq2n/data/circular_data_source.h"
 
 namespace fairseq2n::detail {
 
 class round_robin_data_source final : public data_source {
 public:
     explicit
-    round_robin_data_source(std::vector<data_pipeline> &&pipelines)
-      : pipelines_(std::move(pipelines)), is_epoch_done_(pipelines_.size())
-    {
-        buffer_.reserve(pipelines_.size());
-    }
+    round_robin_data_source(std::vector<data_pipeline> &&pipelines);
 
     std::optional<data>
     next() override;
@@ -41,11 +38,9 @@ private:
     next_in_pipeline(std::size_t pipeline_idx);
 
 private:
-    std::vector<data_pipeline> pipelines_;
-    std::vector<std::optional<data>> buffer_{};
-    std::size_t buffer_idx_ = 0;
-    std::vector<bool> is_epoch_done_;
-    bool is_eod_ = false;
+    std::unique_ptr<circular_data_source> circular_;
+    std::size_t pipeline_idx_;
+    std::size_t pipelines_count_;
 };
 
 }  // namespace fairseq2n::detail
