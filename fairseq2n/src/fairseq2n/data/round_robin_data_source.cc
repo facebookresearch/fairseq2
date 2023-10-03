@@ -23,7 +23,6 @@ round_robin_data_source::round_robin_data_source(std::vector<data_pipeline> &&pi
     inner_ = std::make_unique<multi_data_source>(std::move(pipelines), std::move(gen), stop_at_shortest);
 }
 
-
 std::optional<data>
 round_robin_data_source::next()
 {
