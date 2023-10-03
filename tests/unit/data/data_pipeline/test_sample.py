@@ -97,6 +97,16 @@ class TestSampleOp:
             assert list(rdp) == [1, 11, 12]
             rdp.reset()
 
+    def test_op_works_as_expected_with_up_sampling(self) -> None:
+        dp1 = read_sequence([1, 2, 3, 4, 5]).and_return()
+        dp2 = read_sequence([11, 12]).and_return()
+
+        rdp = DataPipeline.sample([dp1, dp2], [0.5, 0.5], stop_at_shortest=False).and_return()
+        for _ in range(2):
+            torch.manual_seed(1234)  # We need to set seed after reset
+            assert list(rdp) == [11, 1, 12, 2, 3, 11, 4, 12, 11, 12, 5]
+            rdp.reset()
+
     def test_op_raises_invalid_argument_if_negative_weights(self) -> None:
         dl1 = read_sequence([1, 2, 3, 4, 5]).and_return()
         dl2 = read_sequence([11, 12]).and_return()
