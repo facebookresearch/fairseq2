@@ -20,7 +20,7 @@ class TestSampleOp:
     def test_op_works_as_expected(self) -> None:
         dp1 = read_sequence([1, 2, 3]).and_return()
         dp2 = read_sequence([11, 12, 13]).and_return()
-        rdp = DataPipeline.sample([dp1, dp2], [0.5, 0.5]).and_return()
+        rdp = DataPipeline.sample([dp1, dp2], [0.5, 0.5], stop_at_shortest=True).and_return()
 
         for i in range(5):
             torch.manual_seed(1234)  # We need to set seed after reset
@@ -31,7 +31,7 @@ class TestSampleOp:
         dp1 = read_sequence([1, 2, 3]).and_return()
         dp2 = read_sequence([11, 12]).and_return()
 
-        rdp = DataPipeline.sample([dp1, dp2], [7, 4]).and_return()
+        rdp = DataPipeline.sample([dp1, dp2], [7, 4], stop_at_shortest=True).and_return()
         for _ in range(2):
             torch.manual_seed(1234)  # We need to set seed after reset
             assert list(rdp) == [1, 2, 11, 3]
@@ -41,7 +41,7 @@ class TestSampleOp:
         dp1 = read_sequence([1, 2, 3, 4, 5]).and_return()
         dp2 = read_sequence([11, 12]).and_return()
         dp3 = read_sequence([101, 102, 103]).and_return()
-        rdp = DataPipeline.sample([dp1, dp2, dp3]).and_return()
+        rdp = DataPipeline.sample([dp1, dp2, dp3], stop_at_shortest=True).and_return()
 
         expected = [11, 1, 12, 101, 2, 102, 103]
         for _ in range(2):
@@ -52,7 +52,7 @@ class TestSampleOp:
     def test_op_works_as_expected_with_low_prob(self) -> None:
         dp1 = read_sequence([1, 2, 3, 4, 5]).and_return()
         dp2 = read_sequence([11, 12]).and_return()
-        rdp = DataPipeline.sample([dp1, dp2], [0.9, 0.1]).and_return()
+        rdp = DataPipeline.sample([dp1, dp2], [0.9, 0.1], stop_at_shortest=True).and_return()
 
         expected = [1, 2, 3, 4, 5]
         for _ in range(2):
@@ -62,7 +62,7 @@ class TestSampleOp:
 
     def test_op_works_as_expected_with_single_data_pipeline(self) -> None:
         dp = read_sequence([1, 2, 3, 4, 5]).and_return()
-        rdp = DataPipeline.sample([dp]).and_return()
+        rdp = DataPipeline.sample([dp], stop_at_shortest=True).and_return()
 
         for _ in range(2):
             torch.manual_seed(1234)  # We need to set seed after reset
@@ -86,7 +86,7 @@ class TestSampleOp:
         dp1 = read_sequence([1, 2, 3]).and_return()
         dp2 = read_sequence([11, 12]).and_return()
 
-        rdp = DataPipeline.sample([dp1, dp2], [0.4, 0.6]).and_return()
+        rdp = DataPipeline.sample([dp1, dp2], [0.4, 0.6], stop_at_shortest=True).and_return()
         for _ in range(2):
             torch.manual_seed(1234)
             assert list(rdp) == [11, 1, 12, 2, 3]
@@ -157,7 +157,7 @@ class TestSampleOp:
         dp2 = read_sequence(list(range(10, 18))).and_return()
         dp3 = read_sequence(list(range(20, 26))).and_return()
 
-        rdp = DataPipeline.sample([dp1, dp2, dp3]).and_return()
+        rdp = DataPipeline.sample([dp1, dp2, dp3], stop_at_shortest=True).and_return()
         # [10, 0, 11, 20, 1, 21, 22, 23, 24, 12, 2, 25, 13, 3]
 
         d = None
