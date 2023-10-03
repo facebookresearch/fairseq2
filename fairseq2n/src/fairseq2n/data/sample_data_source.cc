@@ -27,13 +27,13 @@ sample_data_source::sample_data_source(std::vector<data_pipeline> &&pipelines, s
         return static_cast<std::size_t>(result);
     };
 
-    circular_ = std::make_unique<circular_data_source>(std::move(pipelines), std::move(gen), stop_at_shortest);
+    inner_ = std::make_unique<multi_data_source>(std::move(pipelines), std::move(gen), stop_at_shortest);
 }
 
 std::optional<data>
 sample_data_source::next()
 {
-    auto output = circular_->next();
+    auto output = inner_->next();
     if (!output)
         return std::nullopt;
 
@@ -43,19 +43,19 @@ sample_data_source::next()
 void
 sample_data_source::reset()
 {
-    circular_->reset();
+    inner_->reset();
 }
 
 void
 sample_data_source::record_position(tape &t) const
 {
-    circular_->record_position(t);
+    inner_->record_position(t);
 }
 
 void
 sample_data_source::reload_position(tape &t)
 {
-    circular_->reload_position(t);
+    inner_->reload_position(t);
 }
 
 }  // namespace fairseq2::detail

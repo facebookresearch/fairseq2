@@ -20,14 +20,14 @@ round_robin_data_source::round_robin_data_source(std::vector<data_pipeline> &&pi
         return this->pipeline_idx_++;
     };
 
-    circular_ = std::make_unique<circular_data_source>(std::move(pipelines), std::move(gen), stop_at_shortest);
+    inner_ = std::make_unique<multi_data_source>(std::move(pipelines), std::move(gen), stop_at_shortest);
 }
 
 
 std::optional<data>
 round_robin_data_source::next()
 {
-    auto output = circular_->next();
+    auto output = inner_->next();
     if (!output)
         return std::nullopt;
 
@@ -37,7 +37,7 @@ round_robin_data_source::next()
 void
 round_robin_data_source::reset()
 {
-    circular_->reset();
+    inner_->reset();
 
     pipeline_idx_ = 0;
 }
@@ -45,7 +45,7 @@ round_robin_data_source::reset()
 void
 round_robin_data_source::record_position(tape &t) const
 {
-    circular_->record_position(t);
+    inner_->record_position(t);
 
     t.record(pipeline_idx_);
 }
@@ -53,7 +53,7 @@ round_robin_data_source::record_position(tape &t) const
 void
 round_robin_data_source::reload_position(tape &t)
 {
-    circular_->reload_position(t);
+    inner_->reload_position(t);
 
     pipeline_idx_ = t.read<std::size_t>();
 }

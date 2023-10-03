@@ -12,10 +12,10 @@
 
 namespace fairseq2n::detail {
 
-class circular_data_source final : public data_source {
+class multi_data_source final : public data_source {
 public:
     explicit
-    circular_data_source(std::vector<data_pipeline> &&pipelines, index_generator_fn &&index_gen_fn, bool stop_at_shortest);
+    multi_data_source(std::vector<data_pipeline> &&pipelines, index_generator_fn &&index_gen_fn, bool stop_at_shortest);
 
     std::optional<data>
     next() override;

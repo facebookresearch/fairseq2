@@ -4,11 +4,11 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
-#include "fairseq2n/data/circular_data_source.h"
+#include "fairseq2n/data/multi_data_source.h"
 
 namespace fairseq2n::detail {
 
-circular_data_source::circular_data_source(std::vector<data_pipeline> &&pipelines, index_generator_fn &&index_gen_fn, bool stop_at_shortest)
+multi_data_source::multi_data_source(std::vector<data_pipeline> &&pipelines, index_generator_fn &&index_gen_fn, bool stop_at_shortest)
     : pipelines_(std::move(pipelines)), next_index_gen_(std::move(index_gen_fn)), stop_at_shortest_(stop_at_shortest)
 {
     is_epoch_done_ = std::vector<bool>(pipelines_.size(), false);
@@ -16,7 +16,7 @@ circular_data_source::circular_data_source(std::vector<data_pipeline> &&pipeline
 }
 
 std::optional<data>
-circular_data_source::next()
+multi_data_source::next()
 {
     if (stop_at_shortest_) // with this flag on, the operator is a simple iterator
         return pipelines_[next_index_gen_()].next();
@@ -37,7 +37,7 @@ circular_data_source::next()
 }
 
 void
-circular_data_source::reset()
+multi_data_source::reset()
 {
     for (data_pipeline &pipeline : pipelines_)
         pipeline.reset();
@@ -50,7 +50,7 @@ circular_data_source::reset()
 }
 
 void
-circular_data_source::record_position(tape &t) const
+multi_data_source::record_position(tape &t) const
 {
     for (const data_pipeline &pipeline : pipelines_)
         pipeline.record_position(t);
@@ -62,7 +62,7 @@ circular_data_source::record_position(tape &t) const
 }
 
 void
-circular_data_source::reload_position(tape &t)
+multi_data_source::reload_position(tape &t)
 {
     for (data_pipeline &pipeline : pipelines_)
         pipeline.reload_position(t);
@@ -75,7 +75,7 @@ circular_data_source::reload_position(tape &t)
 }
 
 std::optional<data>
-circular_data_source::next_in_pipeline(std::size_t pipeline_idx)
+multi_data_source::next_in_pipeline(std::size_t pipeline_idx)
 {
     data_pipeline &pipeline = pipelines_[pipeline_idx];
 
@@ -93,7 +93,7 @@ circular_data_source::next_in_pipeline(std::size_t pipeline_idx)
 }
 
 bool
-circular_data_source::eod()
+multi_data_source::eod()
 {
     is_eod_ = is_eod_ || std::all_of(
         is_epoch_done_.begin(), is_epoch_done_.end(), [](bool b)
