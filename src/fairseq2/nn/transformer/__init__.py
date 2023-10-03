@@ -6,8 +6,11 @@
 
 from fairseq2.nn.transformer.attention import SDPA as SDPA
 from fairseq2.nn.transformer.attention import NaiveSDPA as NaiveSDPA
+from fairseq2.nn.transformer.attention import SDPAFactory as SDPAFactory
 from fairseq2.nn.transformer.attention import TorchSDPA as TorchSDPA
 from fairseq2.nn.transformer.attention import create_default_sdpa as create_default_sdpa
+from fairseq2.nn.transformer.attention import sdpa as sdpa
+from fairseq2.nn.transformer.attention import set_default_sdpa as set_default_sdpa
 from fairseq2.nn.transformer.attention_mask import (
     ALiBiAttentionMaskGenerator as ALiBiAttentionMaskGenerator,
 )

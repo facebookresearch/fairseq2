@@ -244,7 +244,7 @@ data_pipeline::sample(
         });
     if (is_broken)
         throw_<std::invalid_argument>(
-            "At least one of the specified data pipelines is broken and cannot be used in sample.");
+            "At least one of the specified data pipelines is broken and cannot be sampled.");
 
     if (!weights)
         weights = std::vector<float32>(pipelines.size(), 1.0F / static_cast<float32>(pipelines.size()));

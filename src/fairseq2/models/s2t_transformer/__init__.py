@@ -26,6 +26,9 @@ from fairseq2.models.s2t_transformer.frontend import (
     S2TTransformerFrontend as S2TTransformerFrontend,
 )
 from fairseq2.models.s2t_transformer.loader import (
+    load_s2t_transformer_config as load_s2t_transformer_config,
+)
+from fairseq2.models.s2t_transformer.loader import (
     load_s2t_transformer_model as load_s2t_transformer_model,
 )
 from fairseq2.models.s2t_transformer.loader import (
