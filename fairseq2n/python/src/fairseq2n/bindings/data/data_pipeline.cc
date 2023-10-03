@@ -420,9 +420,8 @@ def_data_pipeline(py::module_ &data_module)
                     opt_overrides = *std::move(maybe_opt_overrides);
 
                 map_fn f = collater(opts, std::move(opt_overrides));
-                element_mapper mapper{f, std::nullopt};
 
-                self = std::move(self).map(std::move(mapper), num_parallel_calls);
+                self = std::move(self).map(std::move(f), num_parallel_calls);
 
                 return self;
             },

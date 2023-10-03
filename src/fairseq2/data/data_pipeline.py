@@ -163,6 +163,7 @@ if TYPE_CHECKING or _DOC_MODE:
         ) -> Self:
             """Concatenate a list of inputs into a single inputs.
 
+            This is equivalent to calling `.map(Collater())`.
             See :py:class:`fairseq2.data.Collater` for details.
             """
 
