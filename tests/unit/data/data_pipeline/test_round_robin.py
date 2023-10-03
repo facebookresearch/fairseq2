@@ -76,6 +76,23 @@ class TestRoundRobinOp:
 
             pipeline.reset()
 
+    def test_op_works_when_pipelines_have_different_lengths_stop_on_shortest(self) -> None:
+        pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
+        pipeline2 = read_sequence([5, 6]).and_return()
+        pipeline3 = read_sequence([7, 8, 9, 0, 1, 2]).and_return()
+
+        pipeline = DataPipeline.round_robin(
+            [pipeline1, pipeline2, pipeline3],
+            stop_at_shortest=True
+        ).and_return()
+
+        seq = [1, 5, 7, 2, 6, 8, 3]
+
+        for _ in range(2):
+            assert list(pipeline) == seq
+
+            pipeline.reset()
+
     def test_op_raises_error_when_one_of_the_pipelines_is_broken(self) -> None:
         # Force a non-recoverable error.
         pipeline1 = read_text(pathname=" &^#").and_return()
