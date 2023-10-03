@@ -14,7 +14,7 @@ from fairseq2.models.transformer import (
     TransformerFrontend,
 )
 from fairseq2.models.utils.arch_registry import ArchitectureRegistry
-from fairseq2.nn.embedding import Embedding
+from fairseq2.nn.embedding import StandardEmbedding
 from fairseq2.nn.normalization import LayerNorm, RMSNorm
 from fairseq2.nn.position_encoder import RotaryEncoder
 from fairseq2.nn.transformer import (
@@ -240,7 +240,7 @@ class LLaMABuilder:
 
     def build_frontend(self) -> TransformerFrontend:
         """Build a Transformer decoder front-end."""
-        embed = Embedding(
+        embed = StandardEmbedding(
             num_embeddings=self.config.vocabulary_size,
             embedding_dim=self.config.model_dim,
             device=self.device,

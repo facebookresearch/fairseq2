@@ -20,7 +20,7 @@ from fairseq2.models.transformer import (
     TransformerModel,
 )
 from fairseq2.models.utils.arch_registry import ArchitectureRegistry
-from fairseq2.nn.embedding import Embedding
+from fairseq2.nn.embedding import StandardEmbedding
 from fairseq2.nn.position_encoder import PositionEncoder, SinusoidalPositionEncoder
 from fairseq2.nn.transformer import (
     SDPA,
@@ -283,7 +283,7 @@ class S2TTransformerBuilder:
 
     def build_decoder_frontend(self) -> TransformerFrontend:
         """Build a Transformer decoder front-end."""
-        embed = Embedding(
+        embed = StandardEmbedding(
             num_embeddings=self.config.target_vocabulary_size,
             embedding_dim=self.config.model_dim,
             pad_idx=self.config.target_pad_idx,
