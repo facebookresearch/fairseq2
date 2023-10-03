@@ -103,7 +103,9 @@ if TYPE_CHECKING or _DOC_MODE:
             :param pipelines:
                 The data pipelines to round robin.
             :param stop_at_shortest:
-                Flag to stop sampling when first pipeline reaches its end.
+                Flag to stop round_robin when first pipeline reaches its end.
+                If set to False, we circle around finished pipelines until all
+                data pipelines reach their end.
             """
 
         @staticmethod
@@ -120,6 +122,8 @@ if TYPE_CHECKING or _DOC_MODE:
                 Desired distribution of pipelines. If None, use uniform distribution.
             :param stop_at_shortest:
                 Flag to stop sampling when first pipeline reaches its end.
+                If set to False, we circle around finished pipelines until all
+                data pipelines reach their end.
             """
 
         @staticmethod
