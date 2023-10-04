@@ -10,15 +10,12 @@ import torch
 from fairseq2.data import DataPipeline, read_sequence
 from fairseq2.data.text.text_reader import read_text
 from fairseq2.utils.version import is_pt2_or_greater
-from tests.common import python_devel_only, tmp_rng_seed
+from tests.common import tmp_rng_seed
 
 cpu_device = torch.device("cpu")
 
 
-@pytest.mark.skipif(
-    python_devel_only(),
-    reason="New fairseq2n API in Python-only installation. Skipping till v0.2.",
-)
+@pytest.mark.fairseq2n("0.2a0")
 @pytest.mark.skipif(
     not is_pt2_or_greater(),
     reason="Different sampling results with versions lower than PyTorch 2.0",

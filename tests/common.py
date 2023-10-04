@@ -60,11 +60,3 @@ def tmp_rng_seed(device: Device, seed: int = 0) -> Generator[None, None, None]:
         torch.manual_seed(seed)
 
         yield
-
-
-def python_devel_only() -> bool:
-    """Return ``True`` if fairseq2 is installed for Python development only."""
-    import fairseq2
-    import fairseq2n
-
-    return fairseq2.__version__ != fairseq2n.__version__
