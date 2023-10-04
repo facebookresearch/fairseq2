@@ -359,24 +359,25 @@ def_data_pipeline(py::module_ &data_module)
             [](
                 std::vector<std::reference_wrapper<data_pipeline>> &refs1,
                 std::vector<std::reference_wrapper<data_pipeline>> &refs2
-            ) -> data_pipeline
+            )
             {
-           
-                std::vector<data_pipeline> pipelines{};
+                std::vector<std::reference_wrapper<data_pipeline>> pipelines1{};
+                std::vector<std::reference_wrapper<data_pipeline>> pipelines2{};
 
-                pipelines.reserve(refs1.size() + refs2.size());
+                pipelines1.reserve(refs1.size());
+                pipelines2.reserve(refs2.size());
 
                 std::transform(
-                    refs1.begin(), refs1.end(), std::back_inserter(pipelines), [](auto &r) {
+                    refs1.begin(), refs1.end(), std::back_inserter(pipelines1), [](auto &r) {
                         return std::move(r.get());
                     });
 
                 std::transform(
-                    refs2.begin(), refs2.end(), std::back_inserter(pipelines), [](auto &r) {
+                    refs2.begin(), refs2.end(), std::back_inserter(pipelines2), [](auto &r) {
                         return std::move(r.get());
                     });
 
-                return data_pipeline::cat(std::move(pipelines));
+                return data_pipeline::cat(std::move(pipelines1), std::move(pipelines2));
             },
             py::arg("dp1"),
             py::arg("dp2"));
