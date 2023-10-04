@@ -11,25 +11,27 @@
 #include <system_error>
 #include <utility>
 
+#include "data_pipeline.h"
 #include "fairseq2n/data/bucket_by_length_data_source.h"
 #include "fairseq2n/data/bucket_data_source.h"
+#include "fairseq2n/data/cat_data_source.h"
 #include "fairseq2n/data/constant_data_source.h"
 #include "fairseq2n/data/count_data_source.h"
+#include "fairseq2n/data/detail/file_system.h"
 #include "fairseq2n/data/filter_data_source.h"
 #include "fairseq2n/data/list_data_source.h"
 #include "fairseq2n/data/map_data_source.h"
 #include "fairseq2n/data/prefetch_data_source.h"
-#include "fairseq2n/data/take_data_source.h"
 #include "fairseq2n/data/round_robin_data_source.h"
 #include "fairseq2n/data/sample_data_source.h"
 #include "fairseq2n/data/shard_data_source.h"
 #include "fairseq2n/data/shuffle_data_source.h"
 #include "fairseq2n/data/skip_data_source.h"
+#include "fairseq2n/data/take_data_source.h"
 #include "fairseq2n/data/tape.h"
 #include "fairseq2n/data/yield_from_data_source.h"
 #include "fairseq2n/data/zip_data_source.h"
 #include "fairseq2n/data/zip_file_data_source.h"
-#include "fairseq2n/data/detail/file_system.h"
 #include "fairseq2n/detail/exception.h"
 
 using namespace fairseq2n::detail;
@@ -277,6 +279,21 @@ data_pipeline::count(std::int64_t start, std::optional<std::string> key)
         return std::make_unique<count_data_source>(start, std::move(key));
     };
 
+    return data_pipeline_builder{std::move(factory)};
+}
+
+data_pipeline_builder
+data_pipeline::cat(
+    std::vector<std::reference_wrapper<data_pipeline>> pipeline1,
+    std::vector<std::reference_wrapper<data_pipeline>> pipeline2)
+{
+    auto factory = [
+        pipeline1 = std::move(pipeline1),
+        pipeline2 = std::move(pipeline2)]() mutable
+    {
+        return std::make_unique<cat_data_source>(std::move(pipeline1), std::move(pipeline2));
+    };
+    
     return data_pipeline_builder{std::move(factory)};
 }
 
