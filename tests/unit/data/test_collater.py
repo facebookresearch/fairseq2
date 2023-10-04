@@ -9,7 +9,7 @@ import torch
 from torch.nn.functional import pad
 
 from fairseq2.data import CollateOptionsOverride, Collater, read_sequence
-from tests.common import assert_close, assert_equal, device
+from tests.common import assert_close, assert_equal, device, python_devel_only
 
 
 class TestCollater:
@@ -380,6 +380,7 @@ class TestCollater:
             Collater(overrides=[CollateOptionsOverride("foo", pad_to_multiple=2)])
 
 
+@pytest.mark.skipif(python_devel_only(), reason="fairseq2n 0.2.0")
 @pytest.mark.parametrize("pad_to_multiple,pad_size", [(1, 0), (2, 0), (3, 2), (8, 4)])
 def test_collate_works_when_input_has_sequence_tensors(
     pad_to_multiple: int, pad_size: int
