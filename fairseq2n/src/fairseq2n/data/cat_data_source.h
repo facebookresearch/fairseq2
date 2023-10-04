@@ -19,8 +19,8 @@ class cat_data_source final : public data_source {
 public:
     explicit
     cat_data_source(
-        std::vector<std::reference_wrapper<data_pipeline>> &&pipeline1,
-        std::vector<std::reference_wrapper<data_pipeline>> &&pipeline2);
+        std::vector<data_pipeline> &&pipeline1,
+        std::vector<data_pipeline> &&pipeline2);
 
     std::optional<data>
     next() override;
@@ -34,9 +34,14 @@ public:
     void
     reload_position(tape &t) override;
 
+    std::vector<data_pipeline>
+    concatenate(
+        std::vector<data_pipeline> &&pipeline1,
+        std::vector<data_pipeline> &&pipeline2);
+
 private:
-    std::vector<std::reference_wrapper<data_pipeline>> pipeline1_;
-    std::vector<std::reference_wrapper<data_pipeline>> pipeline2_;
+    std::vector<data_pipeline> pipeline1_;
+    std::vector<data_pipeline> pipeline2_;
 };
 
 }  // namespace fairseq2n::detail

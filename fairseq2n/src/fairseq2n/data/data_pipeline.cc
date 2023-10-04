@@ -287,6 +287,8 @@ data_pipeline::cat(
     std::vector<std::reference_wrapper<data_pipeline>> pipeline1,
     std::vector<std::reference_wrapper<data_pipeline>> pipeline2)
 {
+    auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipeline1), std::move(pipeline2));
+
     auto factory = [
         pipeline1 = std::move(pipeline1),
         pipeline2 = std::move(pipeline2)]() mutable

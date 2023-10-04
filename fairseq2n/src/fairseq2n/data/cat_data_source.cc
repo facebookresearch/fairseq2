@@ -10,19 +10,30 @@
 namespace fairseq2n::detail {
 
 cat_data_source::cat_data_source(
-    std::vector<std::reference_wrapper<data_pipeline>> &&pipeline1,
-    std::vector<std::reference_wrapper<data_pipeline>> &&pipeline2)
+    std::vector<data_pipeline> &&pipeline1,
+    std::vector<data_pipeline> &&pipeline2)
     : pipeline1_{std::move(pipeline1)}
     , pipeline2_{std::move(pipeline2)}
 {
 }
 
-
 std::optional<data>
 cat_data_source::next()
 {
-    
-    
+    std::optional<data> d;
+    for (auto &p : pipeline1_) {
+        d = p.next();
+        if (d) {
+            return d;
+        }
+    }
+    for (auto &p : pipeline2_) {
+        d = p.next();
+        if (d) {
+            return d;
+        }
+    }
+    return {};
 }
 
 void cat_data_source::reset()
@@ -33,14 +44,28 @@ void cat_data_source::reset()
 
 void cat_data_source::record_position(tape &t) const
 {
-    t.record(pipeline1_);
-    t.record(pipeline2_);
+    for (auto &pipeline : pipeline1_)
+        pipeline.record_position(t);
+    for (auto &pipeline : pipeline2_)
+        pipeline.record_position(t);
 }
 
 void cat_data_source::reload_position(tape &t)
 {
-
-    
+    for (auto &pipeline : pipeline1_)
+        pipeline.reload_position(t);
+    for (auto &pipeline : pipeline2_)
+        pipeline.reload_position(t);
 }
 
+std::vector<data_pipeline> cat_data_source::concatenate(
+    std::vector<data_pipeline> &&pipeline1,
+    std::vector<data_pipeline> &&pipeline2)
+{
+    std::vector<data_pipeline> result;
+    result.reserve(pipeline1.size() + pipeline2.size());
+    result.insert(result.end(), pipeline1.begin(), pipeline1.end());
+    result.insert(result.end(), pipeline2.begin(), pipeline2.end());
+    return result;
+}
 } // namespace fairseq2n::detail
