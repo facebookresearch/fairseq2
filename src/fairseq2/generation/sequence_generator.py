@@ -198,7 +198,7 @@ class Seq2SeqGenerator:
 
         cand_offsets = torch.arange(2 * beam_size, device=device)
 
-        state_bag = IncrementalStateBag()
+        state_bag = IncrementalStateBag(max_seq_len)
 
         # At this point, the state is fully initialized, kick off the search.
         self._bootstrap_seqs_and_scores(

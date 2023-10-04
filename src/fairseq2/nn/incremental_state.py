@@ -41,18 +41,20 @@ T = TypeVar("T", bound=IncrementalState)
 class IncrementalStateBag:
     """Holds the module states during an incremental evaluation."""
 
-    _step: int
+    step: int
+    max_num_steps: int
+
     _module_states: Dict[Module, IncrementalState]
 
-    def __init__(self) -> None:
-        self._step = 0
+    def __init__(self, max_num_steps: int) -> None:
+        """
+        :param max_num_steps:
+            The expected maximum number of steps to take.
+        """
+        self.step = 0
+        self.max_num_steps = max_num_steps
 
         self._module_states = {}
-
-    @property
-    def step(self) -> int:
-        """Return the current step in the sequence."""
-        return self._step
 
     def increment_step(self, delta: int = 1) -> None:
         """Increment the step.
@@ -64,7 +66,14 @@ class IncrementalStateBag:
         :param delta:
             The value by which to increment the step.
         """
-        self._step += delta
+        step = self.step + delta
+
+        if step >= self.max_num_steps:
+            raise ValueError(
+                f"The `delta` increment ({delta}) to the current step ({self.step}) exceeds the maximum number of steps ({self.max_num_steps})."
+            )
+
+        self.step = step
 
     def get_state(self, m: Module, kls: Type[T]) -> Optional[T]:
         """Get the incremental state of ``m``, or ``None`` if ``m`` is not
