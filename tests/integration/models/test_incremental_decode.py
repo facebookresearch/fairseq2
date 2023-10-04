@@ -83,7 +83,7 @@ def test_incremental_decoding_works() -> None:
     assert decoder_padding_mask is not None
 
     # Now try to match the decoder output with incremental decoding.
-    state_bag = IncrementalStateBag()
+    state_bag = IncrementalStateBag(max_num_steps=256)
 
     incremental_output       = torch.empty((3, 0, model.model_dim), device=device, dtype=torch.float32)
     incremental_padding_mask = torch.empty((3, 0),                  device=device, dtype=torch.float32)

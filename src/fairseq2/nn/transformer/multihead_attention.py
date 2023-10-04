@@ -430,7 +430,7 @@ class StandardMultiheadAttention(MultiheadAttention):
 
                 state = state_bag.get_state(self, MultiheadAttentionState)
                 if state is None:
-                    state = MultiheadAttentionState(k, v)
+                    state = MultiheadAttentionState(k, v, state_bag.max_num_steps)
 
                     state_bag.set_state(self, state)
 
@@ -620,10 +620,6 @@ class MultiheadAttentionState(IncrementalState):
     """Holds the state of a :class:`MultiheadAttention` module during an
     incremental evaluation."""
 
-    cache_reserve_size = 512
-    """The reserved sequence length capacity of :attr:`k` and :attr:`v` will be
-    increased by multiplies of the specified value."""
-
     seq_len: int
     """The current sequence length of :attr:`k` and :attr:`v`."""
 
@@ -646,21 +642,23 @@ class MultiheadAttentionState(IncrementalState):
 
     has_mask: bool
 
-    def __init__(self, k: Tensor, v: Tensor) -> None:
+    def __init__(self, k: Tensor, v: Tensor, max_seq_len: int) -> None:
         """
         :param k:
-            The projected keys to bootstrap the internal state.
+            The initial projected keys.
         :param v:
-            The projected values to bootstrap the internal state.
+            The initial projected values.
+        :param max_seq_len:
+            The expected maximum sequence length.
         """
         batch_size, num_heads, _, head_dim = k.shape
 
         self.seq_len = 0
 
-        self.k = k.new_empty((batch_size, num_heads, 0, head_dim))
-        self.v = v.new_empty((batch_size, num_heads, 0, head_dim))
+        self.k = k.new_empty((batch_size, num_heads, max_seq_len, head_dim))
+        self.v = v.new_empty((batch_size, num_heads, max_seq_len, head_dim))
 
-        self.key_padding_mask = k.new_zeros((batch_size, 0))
+        self.key_padding_mask = k.new_zeros((batch_size, max_seq_len))
 
         self.has_mask = False
 
@@ -692,30 +690,7 @@ class MultiheadAttentionState(IncrementalState):
             The projected keys, projected values, and float key padding mask
             that should be used to compute the attention.
         """
-        seq_len = k.size(2)
-
-        start, end = self.seq_len, self.seq_len + seq_len
-
-        if end > self.k.size(2):
-            batch_size, num_heads, seq_len, head_dim = k.shape
-
-            # Ensure that the reserved space is always at least as long as the
-            # input sequence.
-            extra_capacity = self.cache_reserve_size * (
-                (self.cache_reserve_size + seq_len - 1) // self.cache_reserve_size
-            )
-
-            cache_k = k.new_empty((batch_size, num_heads, extra_capacity, head_dim))
-            cache_v = v.new_empty((batch_size, num_heads, extra_capacity, head_dim))
-
-            self.k = torch.cat([self.k, cache_k], dim=2)
-            self.v = torch.cat([self.v, cache_v], dim=2)
-
-            cache_key_padding_mask = k.new_zeros((batch_size, extra_capacity))
-
-            self.key_padding_mask = torch.cat(
-                [self.key_padding_mask, cache_key_padding_mask], dim=1
-            )
+        start, end = self.seq_len, self.seq_len + k.size(2)
 
         self.k[:, :, start:end] = k
         self.v[:, :, start:end] = v
