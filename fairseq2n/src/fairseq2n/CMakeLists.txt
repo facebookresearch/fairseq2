@@ -34,6 +34,7 @@ target_sources(fairseq2n
         data/list_data_source.cc
         data/map_data_source.cc
         data/memory_stream.cc
+        data/composite_data_source.cc
         data/prefetch_data_source.cc
         data/py.cc
         data/record_reader.cc

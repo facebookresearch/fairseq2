@@ -14,6 +14,7 @@
 
 #include "fairseq2n/data/data_pipeline.h"
 #include "fairseq2n/data/data_source.h"
+#include "fairseq2n/data/composite_data_source.h"
 
 namespace fairseq2n::detail {
 
@@ -21,7 +22,7 @@ namespace fairseq2n::detail {
 class sample_data_source final : public data_source {
 public:
     explicit
-    sample_data_source(std::vector<data_pipeline> &&pipelines, std::vector<float32> &&weights);
+    sample_data_source(std::vector<data_pipeline> &&pipelines, std::vector<float32> &&weights, bool stop_at_shortest);
 
     std::optional<data>
     next() override;
@@ -40,8 +41,7 @@ private:
     next_index();
 
 private:
-    std::vector<data_pipeline> pipelines_;
-    bool eod_ = false;
+    std::unique_ptr<composite_data_source> inner_;
 
     at::Generator generator_;
     at::Tensor weights_;

@@ -94,17 +94,25 @@ if TYPE_CHECKING or _DOC_MODE:
             """
 
         @staticmethod
-        def round_robin(pipelines: Sequence["DataPipeline"]) -> "DataPipelineBuilder":
+        def round_robin(
+            pipelines: Sequence["DataPipeline"],
+            stop_at_shortest: bool = False,
+        ) -> "DataPipelineBuilder":
             """Extract examples from ``pipelines`` in round robin.
 
             :param pipelines:
                 The data pipelines to round robin.
+            :param stop_at_shortest:
+                If ``True``, stop round_robin when first pipeline reaches its end.
+                If ``False``, circle around finished pipelines until all pipelines
+                reach their end.
             """
 
         @staticmethod
         def sample(
             pipelines: Sequence["DataPipeline"],
             weights: Optional[Sequence[float]] = None,
+            stop_at_shortest: bool = False,
         ) -> "DataPipelineBuilder":
             """Extract examples from ``pipelines`` by sampling based on ``weights``.
 
@@ -112,6 +120,10 @@ if TYPE_CHECKING or _DOC_MODE:
                 The data pipelines to sample from.
             :param weights:
                 Desired distribution of pipelines. If None, use uniform distribution.
+            :param stop_at_shortest:
+                If ``True``, stop sampling when first pipeline reaches its end.
+                If ``False``, circle around finished pipelines until all pipelines
+                reach their end.
             """
 
         @staticmethod
