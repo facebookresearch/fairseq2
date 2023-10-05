@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass
-from typing import List, Literal, Optional, final
+from typing import Any, Dict, List, Literal, Optional, final
 
 import math
 import torch
@@ -226,6 +226,16 @@ def unmerge_lora(module: nn.Module) -> None:
     for submodule in module.modules():
         if isinstance(submodule, LoRALayer):
             submodule.unmerge()
+
+
+def lora_state_dict(module: nn.Module) -> Dict[str, Any]:
+    state_dict = module.state_dict()
+    lora_states = {
+        name: state
+        for name, state in state_dict.items()
+        if "lora_" in name
+    }
+    return lora_states
 
 
 def freeze_non_lora(module: nn.Module, unfreeze_bias: Literal["none", "all", "lora_only"] = "none") -> None:
