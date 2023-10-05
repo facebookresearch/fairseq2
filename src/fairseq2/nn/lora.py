@@ -118,8 +118,7 @@ class LoRALinear(Projection, LoRALayer):
         """Reset the parameters and buffers of the module."""
         if not self.skip_init:
             nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
-
-            nn.init.kaiming_uniform_(self.lora_B, a=math.sqrt(5))
+            nn.init.zeros_(self.lora_B)
 
     def wrapped_module(self) -> nn.Module:
         return self
