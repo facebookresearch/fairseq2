@@ -13,8 +13,8 @@ composite_data_source::composite_data_source(
     index_generator_fn &&index_gen_fn,
     bool stop_at_shortest)
   : pipelines_(std::move(pipelines)),
-    next_index_gen_(std::move(index_gen_fn)),
-    stop_at_shortest_(stop_at_shortest)
+    next_index_gen_{std::move(index_gen_fn)},
+    stop_at_shortest_{stop_at_shortest}
 {
     if (!stop_at_shortest) {
         is_epoch_done_ = std::vector<bool>(pipelines_.size(), false);
