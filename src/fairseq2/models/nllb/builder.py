@@ -14,7 +14,7 @@ from fairseq2.models.transformer import (
     TransformerModel,
 )
 from fairseq2.models.utils.arch_registry import ArchitectureRegistry
-from fairseq2.nn.embedding import Embedding
+from fairseq2.nn.embedding import Embedding, StandardEmbedding
 from fairseq2.nn.position_encoder import SinusoidalPositionEncoder
 from fairseq2.nn.projection import TiedProjection
 from fairseq2.nn.transformer import (
@@ -182,7 +182,7 @@ class NllbBuilder:
 
     def build_embedding(self) -> Embedding:
         """Build an embedding table."""
-        return Embedding(
+        return StandardEmbedding(
             num_embeddings=self.config.vocabulary_size,
             embedding_dim=self.config.model_dim,
             pad_idx=self.config.pad_idx,

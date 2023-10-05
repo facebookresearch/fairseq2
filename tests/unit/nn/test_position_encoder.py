@@ -129,7 +129,7 @@ class TestSinusoidalPositionEncoder:
     def test_forward_works_in_incremental_eval(self, step: int) -> None:
         m = SinusoidalPositionEncoder(encoding_dim=32, max_seq_len=4, device=device)
 
-        state_bag = IncrementalStateBag()
+        state_bag = IncrementalStateBag(max_num_steps=3)
         state_bag.increment_step(delta=step)
 
         seq_len = 2
@@ -160,7 +160,7 @@ class TestSinusoidalPositionEncoder:
 
         x = torch.randn((5, 2, 32), device=device)
 
-        state_bag = IncrementalStateBag()
+        state_bag = IncrementalStateBag(max_num_steps=30)
         state_bag.increment_step(delta=20)  # out of range
 
         y = m(x, padding_mask=None, state_bag=state_bag)
@@ -204,7 +204,7 @@ class TestLearnedPositionEncoder:
     def test_forward_works_in_incremental_eval(self, step: int) -> None:
         m = LearnedPositionEncoder(encoding_dim=32, max_seq_len=4, device=device)
 
-        state_bag = IncrementalStateBag()
+        state_bag = IncrementalStateBag(max_num_steps=3)
         state_bag.increment_step(delta=step)
 
         seq_len = 2
@@ -235,7 +235,7 @@ class TestLearnedPositionEncoder:
 
         x = torch.randn((5, 2, 32), device=device)
 
-        state_bag = IncrementalStateBag()
+        state_bag = IncrementalStateBag(max_num_steps=30)
         state_bag.increment_step(delta=20)  # out of range
 
         y = m(x, padding_mask=None, state_bag=state_bag)
@@ -287,7 +287,7 @@ class TestRotaryEncoder:
     def test_forward_works_in_incremental_eval(self, step: int) -> None:
         m = RotaryEncoder(encoding_dim=32, max_seq_len=4, device=device)
 
-        state_bag = IncrementalStateBag()
+        state_bag = IncrementalStateBag(max_num_steps=3)
         state_bag.increment_step(delta=step)
 
         seq_len = 2
@@ -322,7 +322,7 @@ class TestRotaryEncoder:
 
         x = torch.randn((5, 2, 32), device=device)
 
-        state_bag = IncrementalStateBag()
+        state_bag = IncrementalStateBag(max_num_steps=30)
         state_bag.increment_step(delta=20)  # out of range
 
         y = m(x, padding_mask=None, state_bag=state_bag)
