@@ -6,20 +6,19 @@
 
 #pragma once
 
-#include <cstddef>
-#include <utility>
 #include <vector>
 
 #include "fairseq2n/data/data_pipeline.h"
-#include "fairseq2n/data/data_source.h"
-#include "fairseq2n/data/composite_data_source.h"
+
+
+using index_generator_fn = std::function<std::size_t()>;
 
 namespace fairseq2n::detail {
 
-class round_robin_data_source final : public data_source {
+class composite_data_source final : public data_source {
 public:
     explicit
-    round_robin_data_source(std::vector<data_pipeline> &&pipelines, bool stop_at_shortest);
+    composite_data_source(std::vector<data_pipeline> &&pipelines, index_generator_fn &&index_gen_fn, bool stop_at_shortest);
 
     std::optional<data>
     next() override;
@@ -37,10 +36,16 @@ private:
     std::optional<data>
     next_in_pipeline(std::size_t pipeline_idx);
 
+    bool
+    eod();
+
 private:
-    std::unique_ptr<composite_data_source> inner_;
-    std::size_t pipeline_idx_;
-    std::size_t pipelines_count_;
+    std::vector<data_pipeline> pipelines_;
+    index_generator_fn next_index_gen_;
+    std::vector<std::optional<data>> buffer_{};
+    std::vector<bool> is_epoch_done_;
+    bool is_eod_ = false;
+    bool stop_at_shortest_;
 };
 
 }  // namespace fairseq2n::detail
