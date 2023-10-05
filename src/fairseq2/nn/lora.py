@@ -1,5 +1,6 @@
+import re
 from dataclasses import dataclass
-from typing import List, Optional, final
+from typing import List, Literal, Optional, final
 
 import math
 import torch
@@ -7,7 +8,7 @@ from torch import Tensor
 import torch.nn as nn
 
 from abc import ABC, abstractmethod
-from fairseq2.nn import Embedding, Projection
+from fairseq2.nn import Embedding, Linear, Projection
 from torch.nn import Dropout
 from torch.nn.functional import linear
 from torch.nn.parameter import Parameter
@@ -137,3 +138,114 @@ class LoRALinear(Projection, LoRALayer):
             self.weight.data -= torch.matmul(self.lora_B.data, self.lora_A.data) * self.scaling
 
             self.merged = False
+
+
+def wrap_lora(
+    module: nn.Module,
+    config: LoRAConfig,
+    skip_init: bool = False
+) -> nn.Module:
+    """Iterate all submodules. If `config.keys` regex matches module name,
+	wrap it with a LoRALayer based on module's type. Note that the wrapping
+    also happens in-place."""
+    for name, submodule in module.named_modules():
+        if not _is_target_module(name, config.keys):
+            continue
+
+        submodule_path = name.split(".")
+        parent = module.get_submodule(".".join(submodule_path[:-1]))
+        submodule_name = submodule_path[-1]
+
+        if isinstance(submodule, Projection):
+            lora_layer = LoRALinear(
+                wrapped=submodule,
+                config=config,
+                skip_init=skip_init,
+                device=submodule.weight.device,
+                dtype=submodule.weight.dtype
+            )
+        else:
+            raise ValueError(f"Cannot wrap the module '{name}' with LoRA as the module type '{type(submodule).__name__}' is not supported.")
+
+        lora_layer.train(mode=submodule.training)
+        setattr(parent, submodule_name, lora_layer)
+
+    return module
+
+
+def unwrap_lora(module: nn.Module, merge: bool = True) -> nn.Module:
+	# Reverses the model to its original architecture by replacing all
+	# `LoRALayers` back with their original wrapped modules.
+    # By default, we perform `merge_lora` before unwrapping.
+    # Note that the unwrapping also happends in-place.
+    if merge:
+        merge_lora(module)
+
+    for name, submodule in module.named_modules():
+        if not isinstance(submodule, LoRALayer):
+            continue
+
+        submodule_path = name.split(".")
+        parent = module.get_submodule(".".join(submodule_path[:-1]))
+        submodule_name = submodule_path[-1]
+
+        if isinstance(submodule, LoRALinear):
+            # TODO: currently there's no way to distinguish which type the
+            # original module is (`Linear` or `TiedProjection` or
+            # `QKVProjection`). I believe using `Linear` is functionally
+            # identical (output would be the same), but since it might be a
+            # different projection layer, it might cause issues in
+            # downstream operations.
+            unwrapped_layer = Linear(
+                submodule.input_dim,
+                submodule.output_dim,
+                bias=submodule.bias is not None,
+                skip_init=True
+            )
+            unwrapped_layer.weight = submodule.weight
+            if submodule.bias is not None:
+                unwrapped_layer.bias = submodule.bias
+        else:
+            raise ValueError(f"Cannot unwrap the module '{name}' as the module type '{type(submodule).__name__}' is not supported.")
+
+        unwrapped_layer.train(mode=submodule.training)
+        setattr(parent, submodule_name, unwrapped_layer)
+
+    return module
+
+
+def merge_lora(module: nn.Module) -> None:
+	# Iterate through all `LoRALayer`s in `module`, and call their `merge`
+	# method which is expected to merge LoRA A, B weights with the wrapped W.
+    for submodule in module.modules():
+        if isinstance(submodule, LoRALayer):
+            submodule.merge()
+
+
+def unmerge_lora(module: nn.Module) -> None:
+    for submodule in module.modules():
+        if isinstance(submodule, LoRALayer):
+            submodule.unmerge()
+
+
+def freeze_non_lora(module: nn.Module, unfreeze_bias: Literal["none", "all", "lora_only"] = "none") -> None:
+    # Set requires_grad to False for all parameters in the module except
+    # lora layers
+    for name, param in module.named_parameters():
+        param.requires_grad = ("lora_" in name)
+
+    if unfreeze_bias == "all":
+        for name, param in module.named_parameters():
+            if "bias" in name:
+                param.requires_grad = True
+    elif unfreeze_bias == "lora_only":
+        for submodule in module.modules():
+            if isinstance(submodule, LoRALayer) and getattr(submodule, "bias", None) is not None:
+                submodule.bias.requires_grad = True
+
+
+def _is_target_module(name: str, target_keys: List[str]) -> bool:
+    # Check if the `name` matches any of the `target_keys``.
+    return any(re.match(key, name) for key in target_keys) or any(
+        name == key for key in target_keys
+    )
