@@ -365,5 +365,5 @@ def get_llama_lora_config() -> LoRAConfig:
         r=8,
         alpha=16.0,
         dropout_p=0.05,
-        keys=[".*decoder.layers.*.self_attn.*(q_proj|v_proj)$"]
+        keys=[".*decoder.layers.*.self_attn.*(q_proj|v_proj)$"],
     )

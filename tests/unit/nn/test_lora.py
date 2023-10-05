@@ -5,30 +5,21 @@
 # LICENSE file in the root directory of this source tree.
 
 import math
+
 import torch
+from torch.nn.functional import embedding, linear
 
 from fairseq2.nn import Linear
 from fairseq2.nn.embedding import StandardEmbedding
-from fairseq2.nn.lora import (
-    LoRAConfig,
-    LoRAEmbedding,
-    LoRALinear
-)
-
-from torch.nn.functional import embedding, linear
+from fairseq2.nn.lora import LoRAConfig, LoRAEmbedding, LoRALinear
 
 
 def test_lora_liner_works() -> None:
-    lora_config = LoRAConfig(
-        r=4,
-        alpha=1.,
-        dropout_p=0.,
-        keys=None
-    )
+    lora_config = LoRAConfig(r=4, alpha=1.0, dropout_p=0.0, keys=[])
 
     linear_layer = Linear(8, 8, bias=True)
 
-    lora_linear = LoRALinear(linear_layer, lora_config, skip_init=False, device='cpu')
+    lora_linear = LoRALinear(linear_layer, lora_config, skip_init=False, device=torch.device("cpu"))
 
     torch.nn.init.kaiming_uniform_(lora_linear.lora_B, a=math.sqrt(5))
 
@@ -42,22 +33,19 @@ def test_lora_liner_works() -> None:
 
     lora_out = lora_linear(seqs)
 
-    lora_partial_out = linear(seqs, lora_linear.lora_B @ lora_linear.lora_A) * lora_linear.scaling
+    lora_partial_out = (
+        linear(seqs, lora_linear.lora_B @ lora_linear.lora_A) * lora_linear.scaling
+    )
 
     torch.testing.assert_close(lora_out - orig_out, lora_partial_out)
 
 
 def test_lora_liner_merge_unmerge_work() -> None:
-    lora_config = LoRAConfig(
-        r=4,
-        alpha=1.,
-        dropout_p=0.,
-        keys=None
-    )
+    lora_config = LoRAConfig(r=4, alpha=1.0, dropout_p=0.0, keys=[])
 
     linear_layer = Linear(8, 8, bias=True)
 
-    lora_linear = LoRALinear(linear_layer, lora_config, skip_init=False, device='cpu')
+    lora_linear = LoRALinear(linear_layer, lora_config, skip_init=False, device=torch.device("cpu"))
 
     torch.nn.init.kaiming_uniform_(lora_linear.lora_B, a=math.sqrt(5))
 
@@ -91,18 +79,13 @@ def test_lora_liner_merge_unmerge_work() -> None:
 
 
 def test_lora_embedding_works() -> None:
-    lora_config = LoRAConfig(
-        r=4,
-        alpha=1.,
-        dropout_p=0.,
-        keys=None
-    )
+    lora_config = LoRAConfig(r=4, alpha=1.0, dropout_p=0.0, keys=[])
 
     pad_idx = 0
 
     embed_layer = StandardEmbedding(4, 8, pad_idx)
 
-    lora_embed = LoRAEmbedding(embed_layer, lora_config, device='cpu')
+    lora_embed = LoRAEmbedding(embed_layer, lora_config, device=torch.device("cpu"))
 
     torch.nn.init.normal_(lora_embed.lora_A)
 
@@ -117,25 +100,20 @@ def test_lora_embedding_works() -> None:
     lora_out = lora_embed(seqs)
 
     lora_partial_out = embedding(
-        seqs, (lora_embed.lora_B @ lora_embed.lora_A).T * lora_embed.scaling,
-        pad_idx)
+        seqs, (lora_embed.lora_B @ lora_embed.lora_A).T * lora_embed.scaling, pad_idx
+    )
 
     torch.testing.assert_close(lora_out - orig_out, lora_partial_out)
 
 
 def test_lora_embedding_merge_unmerge_work() -> None:
-    lora_config = LoRAConfig(
-        r=4,
-        alpha=1.,
-        dropout_p=0.,
-        keys=None
-    )
+    lora_config = LoRAConfig(r=4, alpha=1.0, dropout_p=0.0, keys=[])
 
     pad_idx = 0
 
     embed_layer = StandardEmbedding(4, 8, pad_idx)
 
-    lora_embed = LoRAEmbedding(embed_layer, lora_config, device='cpu')
+    lora_embed = LoRAEmbedding(embed_layer, lora_config, device=torch.device("cpu"))
 
     torch.nn.init.normal_(lora_embed.lora_A)
 
