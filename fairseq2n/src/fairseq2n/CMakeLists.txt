@@ -38,6 +38,7 @@ target_sources(fairseq2n
         data/py.cc
         data/record_reader.cc
         data/round_robin_data_source.cc
+        data/sample_data_source.cc
         data/shard_data_source.cc
         data/shuffle_data_source.cc
         data/skip_data_source.cc

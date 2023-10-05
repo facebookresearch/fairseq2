@@ -4,6 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from abc import ABC, abstractmethod
 from typing import Optional, final
 
 import torch
@@ -13,17 +14,65 @@ from torch.nn import Module
 from torch.nn.functional import embedding
 from torch.nn.parameter import Parameter
 
-from fairseq2.typing import DataType, Device
+from fairseq2.typing import DataType, Device, finaloverride
 
 
-@final
-class Embedding(Module):
+class Embedding(Module, ABC):
     """Stores embeddings of a fixed dictionary and size."""
 
     num_embeddings: int
     embedding_dim: int
     pad_idx: Optional[int]
     padding_idx: Optional[int]  # Compat
+
+    def __init__(
+        self, num_embeddings: int, embedding_dim: int, pad_idx: Optional[int] = None
+    ) -> None:
+        """
+        :param num_embeddings:
+            The size of the embedding table.
+        :param embedding_dim:
+            The dimensionality of returned embeddings.
+        :param pad_idx:
+            If not ``None``, entries at ``pad_idx`` do not contribute to the
+            gradient; therefore, the embedding at ``pad_idx`` is not updated
+            during training.
+        """
+        super().__init__()
+
+        self.num_embeddings = num_embeddings
+        self.embedding_dim = embedding_dim
+        self.pad_idx = pad_idx
+
+        # Alias field for compatibility with `torch.nn.Embedding`.
+        self.padding_idx = pad_idx
+
+    @abstractmethod
+    def forward(self, x: Tensor) -> Tensor:
+        """
+        :param x:
+            The embedding indices. *Shape:* Any.
+
+        :returns:
+            The embeddings corresponding to the specified indices. *Shape:*
+            :math:`(*,E)`, where :math:`*` is the input shape and :math:`E` is
+            the dimensionality of the embeddings.
+        """
+
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        s = f"num_embeddings={self.num_embeddings}, embedding_dim={self.embedding_dim}"
+
+        if self.pad_idx is not None:
+            s = f"{s}, pad_idx={self.pad_idx}"
+
+        return s
+
+
+@final
+class StandardEmbedding(Embedding):
+    """Stores embeddings of a fixed dictionary and size in an in-memory table."""
+
     scaled: bool
     weight: Parameter
 
@@ -51,15 +100,9 @@ class Embedding(Module):
             :math:`\\mathcal{N}(0, \\frac{1}{\\text{embedding_dim}})`; otherwise,
             from :math:`\\mathcal{N}(0, 1)`.
         """
-        super().__init__()
+        super().__init__(num_embeddings, embedding_dim, pad_idx)
 
-        self.num_embeddings = num_embeddings
-        self.embedding_dim = embedding_dim
-        self.pad_idx = pad_idx
         self.scaled = scaled
-
-        # Alias field for compatibility with `torch.nn.Embedding`.
-        self.padding_idx = pad_idx
 
         self.weight = Parameter(
             torch.empty((num_embeddings, embedding_dim), device=device, dtype=dtype)
@@ -78,24 +121,13 @@ class Embedding(Module):
             with torch.no_grad():
                 self.weight[self.pad_idx].fill_(0.0)
 
+    @finaloverride
     def forward(self, x: Tensor) -> Tensor:
-        """
-        :param x:
-            The embedding indices. *Shape:* Any.
-
-        :returns:
-            The embeddings corresponding to the specified indices. *Shape:*
-            :math:`(*,E)`, where :math:`*` is the input shape and :math:`E` is
-            the dimensionality of the embeddings.
-        """
         return embedding(x, self.weight, self.pad_idx)
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = f"num_embeddings={self.num_embeddings}, embedding_dim={self.embedding_dim}"
-
-        if self.pad_idx is not None:
-            s = f"{s}, pad_idx={self.pad_idx}"
+        s = super().extra_repr()
 
         if self.scaled:
             s = f"{s}, scaled=True"

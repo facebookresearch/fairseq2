@@ -84,6 +84,11 @@ public:
     round_robin(std::vector<data_pipeline> pipelines);
 
     static data_pipeline_builder
+    sample(
+        std::vector<data_pipeline> pipelines,
+        std::optional<std::vector<float>> weights = {});
+
+    static data_pipeline_builder
     constant(data example, std::optional<std::string> key = {});
 
     static data_pipeline_builder

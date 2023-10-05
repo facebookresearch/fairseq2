@@ -9,6 +9,7 @@ from typing import (
     Any,
     Callable,
     Dict,
+    Iterable,
     Iterator,
     Mapping,
     Optional,
@@ -27,9 +28,21 @@ from fairseq2.memory import MemoryBlock
 
 if TYPE_CHECKING or _DOC_MODE:
 
-    class DataPipeline:
+    class DataPipeline(Iterable[Any]):
+        """fairseq2 native data pipeline.
+
+        The pipeline state can be persisted to the disk, allowing it to be resumed later.
+        It is a Python Iterable, but it also contains the iterator states.
+        Calling `iter` a second time while the first iterator is still being used
+        will segfault or worse.
+        """
+
         def __iter__(self) -> Iterator[Any]:
-            """Return an iterator over the examples in the data pipeline."""
+            """Return an iterator over the examples in the data pipeline.
+
+            The iterator will modify the internal state of the this DataPipeline,
+            so it's not safe to have several iterators over the same DataPipeline.
+            """
 
         def reset(self) -> None:
             """Move back to the first example in the data pipeline."""
@@ -89,6 +102,19 @@ if TYPE_CHECKING or _DOC_MODE:
             """
 
         @staticmethod
+        def sample(
+            pipelines: Sequence["DataPipeline"],
+            weights: Optional[Sequence[float]] = None,
+        ) -> "DataPipelineBuilder":
+            """Extract examples from ``pipelines`` by sampling based on ``weights``.
+
+            :param data_pipelines:
+                The data pipelines to sample from.
+            :param weights:
+                Desired distribution of pipelines. If None, use uniform distribution.
+            """
+
+        @staticmethod
         def constant(example: Any, key: Optional[str] = None) -> "DataPipelineBuilder":
             ...
 
@@ -97,6 +123,8 @@ if TYPE_CHECKING or _DOC_MODE:
             ...
 
     class DataPipelineBuilder:
+        """API to create DataPipeline"""
+
         def bucket(self, bucket_size: int, drop_remainder: bool = False) -> Self:
             """Combine a number of consecutive examples into a single example.
 
@@ -129,11 +157,29 @@ if TYPE_CHECKING or _DOC_MODE:
             selector: Optional[str] = None,
             num_parallel_calls: int = 1,
         ) -> Self:
-            """Apply ``fn`` to every example.
+            """Apply ``fn`` to each example.
+
+            Example usage::
+
+                data = [2, 5]
+                data.map(lambda x: x + 10)
+                # yields: 12, 15
+                data.map(lambda x: x + 10, num_parallel_calls=8)
+                # same results but will use more cores
+                data = [{"a": 2, "b": 1}, {"a": 5, "b": 3}]
+                data.map(lambda x: x + 10, selector="a")
+                # yields: {"a": 12, "b": 1}, {"a": 15, "b": 3}
+                data.map(lambda x: x + 10, selector="a,b")
+                # yields: {"a": 12, "b": 11}, {"a": 15, "b": 13}
 
             :param fn:
                 The function to apply.
+                If it's a list of function, they will be automatically chained.
+                ``.map([f1, f2])`` is the more efficient version of ``.map(f1).map(f2)``
+
             :param selector:
+                The column to apply the function to. Several colums can be specified by separating them with a ",".
+                See :ref:`reference/data:column syntax` for more details.
             :param num_parallel_calls:
                 The number of examples to process in parallel.
             """
@@ -218,9 +264,20 @@ if TYPE_CHECKING or _DOC_MODE:
         """
 
     def read_zipped_records(pathname: PathLike) -> DataPipelineBuilder:
+        """Read each file in a zip archive"""
         ...
 
     class CollateOptionsOverride:
+        """Overrides how the collater should create batch for a particular column.
+
+        Useful if not all columns should use the same padding idx, or padding multiple.
+        See :py:class:`Collater` for details.
+
+        :param selector:
+            The columns this overrides applies to.
+            See :ref:`reference/data:column syntax` for details on how to specify columns.
+        """
+
         def __init__(
             self,
             selector: str,
@@ -242,6 +299,38 @@ if TYPE_CHECKING or _DOC_MODE:
             ...
 
     class Collater:
+        """Concatenate a list of inputs into a single inputs.
+
+        Used to create batches.
+        If all tensors in the input example have the same last dimension,
+        ``Collater`` returns the concatenated tensors.
+
+        Otherwise ``pad_idx`` is required, and the last dimension of the batch will
+        be made long enough to fit the longest tensor, rounded up to ``pad_to_multiple``.
+        The returned batch is then a dictionary with the following keys::
+
+            {
+                "is_ragged": True/False # True if padding was needed
+                "seqs": [[1, 4, 5, 0], [1, 2, 3, 4]]  # "(Tensor) concatenated and padded tensors from the input
+                "seq_lens": [3, 4]  # A tensor describing the original length of each input tensor
+            }
+
+        Collater preserves the shape of the original data.
+        For a tuple of lists, it returns a tuple of batches.
+        For a dict of lists, it returns a dict of lists.
+
+        :param pad_idx:
+            When concatenating tensors of different lengths,
+            the value used to pad the shortest tensor
+
+        :param pad_to_multiple:
+            Always pad to a length of that multiple.
+
+        :param overrides:
+            List of overrides :py:class:`CollateOptionsOverride`.
+            Allows to override ``pad_idx`` and ``pad_to_multiple`` for specific columns.
+        """
+
         def __init__(
             self,
             pad_idx: Optional[int] = None,
@@ -251,9 +340,25 @@ if TYPE_CHECKING or _DOC_MODE:
             ...
 
         def __call__(self, data: Any) -> Any:
+            """Concatenate the input tensors"""
             ...
 
     class FileMapper:
+        """For a given file name, returns the file content as bytes.
+
+        The file name can also specify a slice of the file in bytes:
+        ``FileMapper("big_file.txt:1024:48")`` will read 48 bytes at offset 1024.
+
+        :param root_dir:
+            Root directory for looking up relative file names.
+            Warning, this is not enforced, FileMapper will happily read any file on the system.
+
+        :param cached_fd_count:
+            Enables an LRU cache on the last ``cached_fd_count`` files read.
+            ``FileMapper`` will memory map all the cached file,
+            so this is especially useful for reading several slices of the same file.
+        """
+
         def __init__(
             self,
             root_dir: Optional[PathLike] = None,
@@ -261,11 +366,21 @@ if TYPE_CHECKING or _DOC_MODE:
         ) -> None:
             ...
 
-        def __call__(self, pathname: PathLike) -> "FileMapperOutput":
+        def __call__(self, filename: PathLike) -> "FileMapperOutput":
+            """Parses the file name and returns the file bytes.
+
+            :returns:
+                A dict with the following keys::
+
+                    {
+                        "path": "the/path.txt" # the relative path of the file
+                        "data": MemoryBlock  # a memory block with the content of the file. You can use `bytes` to get a regular python object.
+                    }
+            """
             ...
 
     class ByteStreamError(RuntimeError):
-        """Raised when a dataset cannot be read."""
+        """Raised when a dataset file can't be read."""
 
     class RecordError(RuntimeError):
         """Raised when a corrupt record is encountered while reading a dataset."""

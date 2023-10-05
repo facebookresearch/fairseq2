@@ -77,7 +77,7 @@ class RelativePositionSDPA(SDPA):
         )
 
         self.r_proj = Linear(
-            model_dim, model_dim, bias=False, device=device, dtype=torch.float32
+            model_dim, model_dim, bias=False, device=device, dtype=dtype
         )
 
         self.reset_parameters()
@@ -115,9 +115,6 @@ class RelativePositionSDPA(SDPA):
 
         # (N, H, 2 x S - 1, K_h)
         r = self._compute_r(k, batch_size=q.size(0))
-
-        # For numerical stability, we compute `r` always in single precision.
-        r = r.type_as(k)
 
         # (N, H, S, K_h) @ (N, H, K_h, S) = (N, H, S, S)
         ac = torch.matmul(q_with_u_bias, k.transpose(-1, -2))
@@ -195,7 +192,7 @@ class RelativePositionalEncoding(Module):
 
     encoding_dim: int
     max_seq_len: int
-    weight: Tensor
+    freqs: Tensor
 
     def __init__(
         self,
@@ -203,6 +200,7 @@ class RelativePositionalEncoding(Module):
         max_seq_len: int,
         *,
         device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         """
         :param encoding_dim:
@@ -220,11 +218,11 @@ class RelativePositionalEncoding(Module):
         self.encoding_dim = encoding_dim
         self.max_seq_len = max_seq_len
 
-        weight = torch.empty(
-            ((max_seq_len * 2) - 1, encoding_dim), device=device, dtype=torch.float32
+        freqs = torch.empty(
+            ((max_seq_len * 2) - 1, encoding_dim), device=device, dtype=dtype
         )
 
-        self.register_buffer("weight", weight, persistent=False)
+        self.register_buffer("freqs", freqs, persistent=False)
 
         self.reset_parameters()
 
@@ -234,39 +232,37 @@ class RelativePositionalEncoding(Module):
 
     def reset_non_persistent_buffers(self) -> None:
         """Reset the non-persistent buffers of the module."""
-        device, dtype = self.weight.device, self.weight.dtype
+        fp32_freqs = self.freqs.float()
 
-        positive_w = self.weight[: self.max_seq_len]
-        negative_w = self.weight[self.max_seq_len :]
+        device, dtype = fp32_freqs.device, fp32_freqs.dtype
 
-        # (E / 2)
-        indices = torch.arange(0, self.encoding_dim, step=2, device=device, dtype=dtype)
-
-        # (1, E / 2)
-        indices = indices.unsqueeze(0)
+        positive_half = fp32_freqs[: self.max_seq_len]
+        negative_half = fp32_freqs[self.max_seq_len :]
 
         # (S)
         steps = torch.arange(self.max_seq_len, device=device, dtype=dtype)
 
-        # (S, 1)
-        steps = steps.unsqueeze(1)
+        # (E / 2)
+        indices = torch.arange(0, self.encoding_dim, step=2, device=device, dtype=dtype)
 
-        factors = torch.exp(indices * -math.log(10000) / self.encoding_dim)
+        freqs = torch.exp(indices * -math.log(10000.0) / self.encoding_dim)
 
-        # (S, 1) x (1, E / 2) -> (S, E / 2)
-        factors = torch.matmul(steps, factors)
+        # (S) x (E / 2) -> (S, E / 2)
+        freqs = torch.outer(steps, freqs)
 
-        flipped_factors = factors.flip([0])
+        flipped_freqs = freqs.flip([0])
 
         # A mirrored matrix of sinusoidal positive and negative positional
         # encodings to use in shift trick.
         #
         # [max, ...,  3,  2,  1,  0, -1, -2, -3, ..., min]
-        torch.sin(flipped_factors, out=positive_w[:, 0::2])
-        torch.cos(flipped_factors, out=positive_w[:, 1::2])
+        torch.sin(flipped_freqs, out=positive_half[:, 0::2])
+        torch.cos(flipped_freqs, out=positive_half[:, 1::2])
 
-        torch.sin(-1 * factors[1:], out=negative_w[:, 0::2])
-        torch.cos(-1 * factors[1:], out=negative_w[:, 1::2])
+        torch.sin(-1 * freqs[1:], out=negative_half[:, 0::2])
+        torch.cos(-1 * freqs[1:], out=negative_half[:, 1::2])
+
+        self.freqs.copy_(fp32_freqs)
 
     def forward(self, seqs: Tensor) -> Tensor:
         """
@@ -289,7 +285,7 @@ class RelativePositionalEncoding(Module):
                 f"The input sequence length must be less than or equal to the maximum sequence length ({self.max_seq_len}), but is {seq_len} instead."
             )
 
-        return self.weight[self.max_seq_len - seq_len : self.max_seq_len + seq_len - 1]
+        return self.freqs[self.max_seq_len - seq_len : self.max_seq_len + seq_len - 1]
 
     def extra_repr(self) -> str:
         """:meta private:"""

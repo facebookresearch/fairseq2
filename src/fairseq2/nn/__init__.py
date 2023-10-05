@@ -8,6 +8,9 @@ from fairseq2.nn.embedding import Embedding as Embedding
 from fairseq2.nn.incremental_state import IncrementalState as IncrementalState
 from fairseq2.nn.incremental_state import IncrementalStateBag as IncrementalStateBag
 from fairseq2.nn.module_list import ModuleList as ModuleList
+from fairseq2.nn.normalization import LayerNorm as LayerNorm
+from fairseq2.nn.normalization import RMSNorm as RMSNorm
+from fairseq2.nn.normalization import StandardLayerNorm as StandardLayerNorm
 from fairseq2.nn.position_encoder import (
     LearnedPositionEncoder as LearnedPositionEncoder,
 )

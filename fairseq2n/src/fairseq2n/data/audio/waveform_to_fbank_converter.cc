@@ -70,7 +70,7 @@ waveform_to_fbank_converter::operator()(data &&d) const
     if (opts_.standardize()) {
         at::Tensor stdev{}, mean{};
 
-        std::tie(stdev, mean) = at::std_mean(fbank, /*dim=*/0, /*unbiased=*/true);
+        std::tie(stdev, mean) = at::std_mean(fbank, /*dim=*/0);
 
         fbank = at::divide(at::subtract(fbank, mean), stdev);
     }

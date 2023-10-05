@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import contextlib
+from contextlib import contextmanager
 from typing import Any, Generator, List, Union
 
 import torch
@@ -43,7 +43,7 @@ def has_no_nan(a: Tensor) -> bool:
     return not torch.any(torch.isnan(a))
 
 
-@contextlib.contextmanager
+@contextmanager
 def tmp_rng_seed(device: Device, seed: int = 0) -> Generator[None, None, None]:
     """Set a temporary manual RNG seed.
 
@@ -60,3 +60,11 @@ def tmp_rng_seed(device: Device, seed: int = 0) -> Generator[None, None, None]:
         torch.manual_seed(seed)
 
         yield
+
+
+def python_devel_only() -> bool:
+    """Return ``True`` if fairseq2 is installed for Python development only."""
+    import fairseq2
+    import fairseq2n
+
+    return fairseq2.__version__ != fairseq2n.__version__

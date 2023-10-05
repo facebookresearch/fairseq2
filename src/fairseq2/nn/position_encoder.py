@@ -16,7 +16,6 @@ from torch.nn.functional import embedding
 from torch.nn.parameter import Parameter
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
-from fairseq2.nn.ops import repeat_interleave
 from fairseq2.typing import DataType, Device, finaloverride
 
 
@@ -151,7 +150,7 @@ class SinusoidalPositionEncoder(PositionEncoder):
             [ 1.0930e-02,  3.0000e-04, -5.1615e-01,  2.0000e+00]]) # pos 2
     """
 
-    weight: Tensor
+    freqs: Tensor
 
     def __init__(
         self,
@@ -175,11 +174,11 @@ class SinusoidalPositionEncoder(PositionEncoder):
         else:
             self._sin_offset = 1 + _legacy_pad_idx
 
-        weight = torch.empty(
+        freqs = torch.empty(
             (max_seq_len, encoding_dim), device=device, dtype=torch.float32
         )
 
-        self.register_buffer("weight", weight, persistent=False)
+        self.register_buffer("freqs", freqs, persistent=False)
 
         self.reset_parameters()
 
@@ -191,13 +190,10 @@ class SinusoidalPositionEncoder(PositionEncoder):
         """Reset the non-persistent buffers of the module."""
         num_sin = self.encoding_dim // 2
 
-        device, dtype = self.weight.device, self.weight.dtype
+        device, dtype = self.freqs.device, self.freqs.dtype
 
-        l_half = self.weight[:, :num_sin]
-        r_half = self.weight[:, num_sin:]
-
-        # (1, E)
-        indices = torch.arange(num_sin, device=device, dtype=dtype).unsqueeze(0)
+        l_half = self.freqs[:, :num_sin]
+        r_half = self.freqs[:, num_sin:]
 
         start = self._sin_offset
 
@@ -208,14 +204,14 @@ class SinusoidalPositionEncoder(PositionEncoder):
             start, start + self.max_seq_len, device=device, dtype=dtype
         )
 
-        # (S) -> (S, 1)
-        steps = steps.unsqueeze(1)
+        # (E)
+        indices = torch.arange(num_sin, device=device, dtype=dtype)
 
         # This is identical to tensor2tensor's implementation.
-        factors = torch.exp(indices * -math.log(10000) / (num_sin - 1))
+        freqs = torch.exp(indices * -math.log(10000.0) / (num_sin - 1))
 
-        # (S, 1) x (1, E) -> (S, E)
-        torch.matmul(steps, factors, out=l_half)
+        # (S) x (E) -> (S, E)
+        torch.outer(steps, freqs, out=l_half)
 
         r_half.copy_(l_half)
 
@@ -237,7 +233,7 @@ class SinusoidalPositionEncoder(PositionEncoder):
         else:
             start = 0
 
-        fp32_seqs = seqs.float() + self.weight[start : start + seq_len]
+        fp32_seqs = seqs.float() + self.freqs[start : start + seq_len]
 
         return fp32_seqs.type_as(seqs)
 
@@ -311,8 +307,7 @@ class RotaryEncoder(PositionEncoder):
     """Encodes sequences with relative positional information as described in
     :cite:t:`https://doi.org/10.48550/arxiv.2104.09864`."""
 
-    cos_weight: Tensor
-    sin_weight: Tensor
+    freqs: Tensor
 
     def __init__(
         self,
@@ -328,15 +323,11 @@ class RotaryEncoder(PositionEncoder):
                 f"`encoding_dim` must be even, but is {encoding_dim} instead."
             )
 
-        cos = torch.empty(
-            (max_seq_len, encoding_dim), device=device, dtype=torch.float32
-        )
-        sin = torch.empty(
-            (max_seq_len, encoding_dim), device=device, dtype=torch.float32
+        freqs = torch.empty(
+            (max_seq_len, encoding_dim // 2), device=device, dtype=torch.complex64
         )
 
-        self.register_buffer("cos_weight", cos, persistent=False)
-        self.register_buffer("sin_weight", sin, persistent=False)
+        self.register_buffer("freqs", freqs, persistent=False)
 
         self.reset_parameters()
 
@@ -346,30 +337,30 @@ class RotaryEncoder(PositionEncoder):
 
     def reset_non_persistent_buffers(self) -> None:
         """Reset the non-persistent buffers of the module."""
-        device, dtype = self.sin_weight.device, self.sin_weight.dtype
-
-        # (E)
-        indices = torch.arange(self.encoding_dim // 2, device=device, dtype=dtype)
-
-        # (E) -> (1, E)
-        indices = indices.unsqueeze(0)
+        device = self.freqs.device
 
         assert self.max_seq_len is not None
 
+        # As of PyTorch 2.0, `torch.polar` does not support meta device, but we
+        # do not want to lose benefit of lazy initialization.
+        if device.type == "meta":
+            return
+
         # (S)
-        steps = torch.arange(self.max_seq_len, device=device, dtype=dtype)
+        steps = torch.arange(self.max_seq_len, device=device, dtype=torch.float32)
 
-        # (S, 1)
-        steps = steps.unsqueeze(1)
+        # (E / 2)
+        indices = torch.arange(
+            0, self.encoding_dim, step=2, device=device, dtype=torch.float32
+        )
 
-        # (S, 1) x (1, E) -> (S, E)
-        table = torch.matmul(steps, 10000 ** (-2.0 * indices / self.encoding_dim))
+        freqs = 1.0 / (10000.0 ** (indices / self.encoding_dim))
 
-        cos = torch.cos(table)
-        sin = torch.sin(table)
+        # (S) x (E / 2) -> (S, E / 2)
+        freqs = torch.outer(steps, freqs)
 
-        self.cos_weight[:] = repeat_interleave(cos, dim=-1, repeat=2)
-        self.sin_weight[:] = repeat_interleave(sin, dim=-1, repeat=2)
+        # (S, E / 2)
+        torch.polar(torch.ones_like(freqs), freqs, out=self.freqs)
 
     @finaloverride
     def _do_forward(
@@ -378,7 +369,6 @@ class RotaryEncoder(PositionEncoder):
         padding_mask: Optional[Tensor],
         state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
-        """:meta private:"""
         seq_len = seqs.size(-2)
 
         if not self.training and state_bag is not None:
@@ -386,16 +376,14 @@ class RotaryEncoder(PositionEncoder):
         else:
             start = 0
 
-        seqs_swapped = self._swap_pairs(seqs)
+        # (*, S, E) -> (*, S, E / 2, 2)
+        seqs = seqs.unflatten(-1, (-1, 2))
 
-        fp32_cos = self.cos_weight[start : start + seq_len] * seqs.float()
-        fp32_sin = self.sin_weight[start : start + seq_len] * seqs_swapped.float()
+        complex_seqs = torch.view_as_complex(seqs.float())
 
-        return (fp32_cos + fp32_sin).type_as(seqs)
+        complex_seqs = complex_seqs * self.freqs[start : start + seq_len]
 
-    @staticmethod
-    def _swap_pairs(seqs: Tensor) -> Tensor:
-        x1 = seqs[..., 0::2]
-        x2 = seqs[..., 1::2]
+        # (*, S, E / 2, 2) -> (*, S, E)
+        fp32_seqs = torch.view_as_real(complex_seqs).flatten(-2)
 
-        return torch.stack((-x2, x1), dim=-1).reshape(seqs.shape)
+        return fp32_seqs.type_as(seqs)

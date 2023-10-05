@@ -4,6 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import logging
 from copy import deepcopy
 from functools import partial
 from typing import (
@@ -28,9 +29,12 @@ from fairseq2.assets import (
 )
 from fairseq2.models.utils.arch_registry import ArchitectureRegistry
 from fairseq2.models.utils.checkpoint_loader import load_checkpoint
-from fairseq2.nn.utils.module import reset_non_persistent_buffers
+from fairseq2.nn.utils.module import infer_device, reset_non_persistent_buffers
 from fairseq2.typing import DataType, Device
 from fairseq2.utils.dataclass import update_dataclass
+
+logger = logging.getLogger("fairseq2.models")
+
 
 ModelT = TypeVar("ModelT", bound=Module)
 
@@ -158,22 +162,25 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
         self,
         model_name_or_card: Union[str, AssetCard],
         *,
-        force: bool = False,
-        progress: bool = True,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
+        out: Optional[ModelT] = None,
+        force: bool = False,
+        progress: bool = True,
     ) -> ModelT:
         """
         :param model_name_or_card:
             The name or asset card of the model to load.
-        :param force:
-            If ``True``, downloads the checkpoint even if it is already in cache.
-        :param progress:
-            If ``True``, displays a progress bar to stderr.
         :param device:
             The device on which to load the model.
         :param dtype:
             The data type of the model parameters and buffers.
+        :param out:
+            The output model to load.
+        :param force:
+            If ``True``, downloads the checkpoint even if it is already in cache.
+        :param progress:
+            If ``True``, displays a progress bar to stderr.
 
         :returns:
             A model loaded from the checkpoint of ``model_name_or_card``.
@@ -200,14 +207,28 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
             converter=partial(self._convert_checkpoint, config=config),
         )
 
-        try:
-            # Try to construct the model on the meta device.
-            model = self.model_factory(config, device=Device("meta"), dtype=dtype)
-        except NotImplementedError:
-            # If we are here, it means the model has at least one operator that
-            # does not support meta device. Do regular model initialization.
-            model = self.model_factory(config, device=device, dtype=dtype)
+        if out is not None:
+            model = out
+
+            is_meta = infer_device(model).type == "meta"
         else:
+            try:
+                # Try to construct the model on the meta device.
+                model = self.model_factory(config, device=Device("meta"), dtype=dtype)
+
+                is_meta = True
+            except NotImplementedError:
+                is_meta = False
+
+                logger.warning(
+                    f"One or more operators in {card.name} constructor do not support meta device. Skipping lazy initialization."
+                )
+
+                # If we are here, it means the model has at least one operator that
+                # does not support meta device. Do regular model initialization.
+                model = self.model_factory(config, device=device, dtype=dtype)
+
+        if is_meta:
             # Move the model to the actual device without initializing. Its
             # state will be overwritten by the checkpoint anyways.
             model = model.to_empty(device=device or "cpu")
@@ -217,19 +238,20 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
             state_dict = checkpoint["model"]
         except KeyError:
             raise AssetError(
-                f"The checkpoint of the model '{card.name}' does not contain a 'model' entry."
+                f"The checkpoint of {card.name} does not contain a 'model' entry."
             )
 
         try:
             model.load_state_dict(state_dict)
         except (KeyError, ValueError) as ex:
             raise AssetError(
-                f"The checkpoint of the model '{card.name}' cannot be loaded. See nested exception for details."
+                f"The checkpoint of {card.name} cannot be loaded. See nested exception for details."
             ) from ex
 
-        # Non-persistent buffers are not included in the checkpoint, so we have
-        # to explicitly initialize them.
-        reset_non_persistent_buffers(model)
+        if is_meta:
+            # Non-persistent buffers are not included in the checkpoint, so we
+            # have to explicitly initialize them.
+            reset_non_persistent_buffers(model)
 
         return model
 
