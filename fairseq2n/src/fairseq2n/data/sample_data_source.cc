@@ -21,7 +21,7 @@ sample_data_source::sample_data_source(std::vector<data_pipeline> &&pipelines, s
 
     auto gen = [this]()
     {
-        auto result = at::multinomial(this->weights_, 1, false, this->generator_)
+        auto result = at::multinomial(weights_, 1, false, generator_)
             .item<std::int64_t>();
 
         return static_cast<std::size_t>(result);

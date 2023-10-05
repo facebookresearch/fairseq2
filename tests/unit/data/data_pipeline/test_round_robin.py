@@ -81,7 +81,7 @@ class TestRoundRobinOp:
         python_devel_only(),
         reason="New fairseq2n API in Python-only installation. Skipping till v0.2.",
     )
-    def test_op_works_when_pipelines_have_different_lengths_stop_on_shortest(
+    def test_op_works_when_pipelines_have_different_lengths_stop_at_shortest(
         self,
     ) -> None:
         pipeline1 = read_sequence([1, 2, 3, 4]).and_return()

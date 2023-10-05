@@ -111,8 +111,6 @@ using map_fn = std::function<data(data &&)>;
 
 using predicate_fn = std::function<bool(const data &)>;
 
-using index_generator_fn = std::function<std::size_t()>;
-
 using yield_fn = std::function<data_pipeline(const data &)>;
 
 class FAIRSEQ2_API data_pipeline_builder {

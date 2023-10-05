@@ -15,9 +15,9 @@ round_robin_data_source::round_robin_data_source(std::vector<data_pipeline> &&pi
 
     auto gen = [this]()
     {
-        this->pipeline_idx_ %= pipelines_count_;
+        pipeline_idx_ %= pipelines_count_;
 
-        return this->pipeline_idx_++;
+        return pipeline_idx_++;
     };
 
     inner_ = std::make_unique<multi_data_source>(std::move(pipelines), std::move(gen), stop_at_shortest);

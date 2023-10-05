@@ -8,11 +8,18 @@
 
 namespace fairseq2n::detail {
 
-multi_data_source::multi_data_source(std::vector<data_pipeline> &&pipelines, index_generator_fn &&index_gen_fn, bool stop_at_shortest)
-    : pipelines_(std::move(pipelines)), next_index_gen_(std::move(index_gen_fn)), stop_at_shortest_(stop_at_shortest)
+multi_data_source::multi_data_source(
+    std::vector<data_pipeline> &&pipelines,
+    index_generator_fn &&index_gen_fn,
+    bool stop_at_shortest)
+  : pipelines_(std::move(pipelines)),
+    next_index_gen_(std::move(index_gen_fn)),
+    stop_at_shortest_(stop_at_shortest)
 {
-    is_epoch_done_ = std::vector<bool>(pipelines_.size(), false);
-    buffer_ = std::vector<std::optional<data>>(pipelines_.size(), std::nullopt);
+    if (!stop_at_shortest) {
+        is_epoch_done_ = std::vector<bool>(pipelines_.size(), false);
+        buffer_ = std::vector<std::optional<data>>(pipelines_.size(), std::nullopt);
+    }
 }
 
 std::optional<data>

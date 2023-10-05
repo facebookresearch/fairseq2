@@ -10,6 +10,9 @@
 
 #include "fairseq2n/data/data_pipeline.h"
 
+
+using index_generator_fn = std::function<std::size_t()>;
+
 namespace fairseq2n::detail {
 
 class multi_data_source final : public data_source {
