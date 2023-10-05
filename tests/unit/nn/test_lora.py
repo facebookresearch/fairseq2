@@ -19,7 +19,9 @@ def test_lora_liner_works() -> None:
 
     linear_layer = Linear(8, 8, bias=True)
 
-    lora_linear = LoRALinear(linear_layer, lora_config, skip_init=False, device=torch.device("cpu"))
+    lora_linear = LoRALinear(
+        linear_layer, lora_config, skip_init=False, device=torch.device("cpu")
+    )
 
     torch.nn.init.kaiming_uniform_(lora_linear.lora_B, a=math.sqrt(5))
 
@@ -45,7 +47,9 @@ def test_lora_liner_merge_unmerge_work() -> None:
 
     linear_layer = Linear(8, 8, bias=True)
 
-    lora_linear = LoRALinear(linear_layer, lora_config, skip_init=False, device=torch.device("cpu"))
+    lora_linear = LoRALinear(
+        linear_layer, lora_config, skip_init=False, device=torch.device("cpu")
+    )
 
     torch.nn.init.kaiming_uniform_(lora_linear.lora_B, a=math.sqrt(5))
 

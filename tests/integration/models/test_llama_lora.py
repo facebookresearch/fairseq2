@@ -6,7 +6,7 @@
 
 import torch
 
-from fairseq2.models.llama import create_llama_model, get_llama_lora_config, llama_archs
+from fairseq2.models.llama import LLaMAConfig, create_llama_model, get_llama_lora_config
 from fairseq2.nn.lora import (
     freeze_non_lora,
     merge_lora,
@@ -17,19 +17,31 @@ from fairseq2.nn.lora import (
 
 
 def test_lora_wrappers_llama_works() -> None:
-    llama_config = llama_archs.get_config("7b")
-    model = create_llama_model(llama_config, device="cpu")
+    # Construct a smaller LLaMAModel to prevent CI from failing
+    llama_config = LLaMAConfig(
+        model_dim=1024,
+        max_seq_len=2048,
+        vocabulary_size=32001,
+        num_layers=16,
+        num_attn_heads=8,
+        num_key_value_heads=8,
+        ffn_inner_dim=1024 * 4,
+        ffn_inner_dim_to_multiple=1,
+        dropout_p=0.1,
+        norm_eps=1e-5,
+    )
+    model = create_llama_model(llama_config, device=torch.device("cpu"))
 
     lora_config = get_llama_lora_config()
 
-    inputs = torch.LongTensor([[1, 2], [1, 3]], device="cpu")
+    inputs = torch.LongTensor([[1, 2], [1, 3]], device=torch.device("cpu"))
 
     model.eval()
 
     with torch.inference_mode():
         output_before_wrap, _ = model.decode(seqs=inputs, seq_lens=None)
 
-    model = wrap_lora(model, lora_config)
+    model = wrap_lora(model, lora_config)  # type: ignore[assignment]
 
     with torch.inference_mode():
         output_after_wrap, _ = model.decode(seqs=inputs, seq_lens=None)
@@ -37,14 +49,14 @@ def test_lora_wrappers_llama_works() -> None:
     # Outputs should be the same as lora_B is initialized with zeros.
     torch.testing.assert_close(output_before_wrap, output_after_wrap)
 
-    model = unwrap_lora(model, merge=False)
+    model = unwrap_lora(model, merge=False)  # type: ignore[assignment]
 
     with torch.inference_mode():
         output_after_unwrap, _ = model.decode(seqs=inputs, seq_lens=None)
 
     torch.testing.assert_close(output_after_wrap, output_after_unwrap)
 
-    model = wrap_lora(model, lora_config)
+    model = wrap_lora(model, lora_config)  # type: ignore[assignment]
     merge_lora(model)
 
     with torch.inference_mode():
