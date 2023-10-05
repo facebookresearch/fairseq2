@@ -10,7 +10,7 @@ import torch.nn as nn
 from abc import ABC, abstractmethod
 from fairseq2.nn import Embedding, Linear, Projection
 from torch.nn import Dropout
-from torch.nn.functional import linear
+from torch.nn.functional import embedding, linear
 from torch.nn.parameter import Parameter
 
 from fairseq2.typing import DataType, Device
@@ -46,6 +46,88 @@ class LoRALayer(ABC):
 
 
 @final
+class LoRAEmbedding(Embedding, LoRALayer):
+
+    weight: Parameter
+    lora_A: Parameter
+    lora_B: Parameter
+    merged: bool
+
+    def __init__(
+            self,
+            wrapped: Embedding,
+            config: LoRAConfig,
+            device: Optional[Device] = None,
+            dtype: Optional[DataType] = None,
+        ) -> None:
+        """
+        :param wrapped:
+            The Embedding module to be wrapped.
+        :param config:
+            The LoRA config.
+        """
+        Embedding.__init__(
+            self,
+            wrapped.num_embeddings,
+            wrapped.embedding_dim,
+            wrapped.pad_idx,
+        )
+        LoRALayer.__init__(self, config)
+
+        self.weight = Parameter(
+            wrapped.weight, requires_grad=False
+        )
+
+        self.lora_A = Parameter(
+            torch.empty((self.r, self.num_embeddings), device=device, dtype=dtype)
+        )
+
+        self.lora_B = Parameter(
+            torch.empty((self.embedding_dim, self.r), device=device, dtype=dtype)
+        )
+
+        self.merged = False
+
+        self.reset_lora_parameters()
+
+    def forward(self, x: Tensor) -> Tensor:
+        if self.merged:
+            return embedding(x, self.weight, self.pad_idx)
+
+        else:
+            return embedding(
+                x,
+                self.weight + (self.lora_B @ self.lora_A).T * self.scaling,
+                self.pad_idx
+            )
+
+    def reset_lora_parameters(self) -> None:
+        """Reset the parameters and buffers of the module."""
+        nn.init.zeros_(self.lora_A)
+        nn.init.normal_(self.lora_B)
+
+    def wrapped_module(self) -> nn.Module:
+        return self
+
+    def merge(self) -> None:
+        if self.merged:
+            return
+
+        self.weight.data += (self.lora_B.data @ self.lora_A.data).T * self.scaling
+
+        self.merged = True
+
+    def unmerge(self) -> None:
+        if not self.merged:
+            return
+
+        else:
+            self.weight.data -= (self.lora_B.data @ self.lora_A.data).T * self.scaling
+
+            self.merged = False
+
+
+@final
 class LoRALinear(Projection, LoRALayer):
 
     weight: Parameter
@@ -61,9 +143,18 @@ class LoRALinear(Projection, LoRALayer):
             wrapped: Projection,
             config: LoRAConfig,
             skip_init: bool = False,
-            device: Device=None,
-            dtype: DataType=None
+            device: Optional[Device] = None,
+            dtype: Optional[DataType] = None,
         ) -> None:
+        """
+        :param wrapped:
+            The Linear module to be wrapped.
+        :param config:
+            The LoRA config.
+        :param skip_init:
+            If ``True``, the weights and bias will be left uninitialized, and
+            :meth:`reset_lora_parameters` will become noop.
+        """
         Projection.__init__(self, wrapped.input_dim, wrapped.output_dim)
 
         LoRALayer.__init__(self, config)
@@ -97,7 +188,7 @@ class LoRALinear(Projection, LoRALayer):
 
         self.skip_init = skip_init
 
-        self.reset_parameters()
+        self.reset_lora_parameters()
 
     def forward(self, x: Tensor) -> Tensor:
         if self.merged:
@@ -114,7 +205,7 @@ class LoRALinear(Projection, LoRALayer):
 
             return h1 + h2
     
-    def reset_parameters(self) -> None:
+    def reset_lora_parameters(self) -> None:
         """Reset the parameters and buffers of the module."""
         if not self.skip_init:
             nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
@@ -126,7 +217,7 @@ class LoRALinear(Projection, LoRALayer):
     def merge(self) -> None:
         if self.merged:
             return
-        self.weight.data += torch.matmul(self.lora_B.data, self.lora_A.data) * self.scaling
+        self.weight.data += self.lora_B.data @ self.lora_A.data * self.scaling
 
         self.merged = True
     
@@ -134,7 +225,7 @@ class LoRALinear(Projection, LoRALayer):
         if not self.merged:
             return
         else:
-            self.weight.data -= torch.matmul(self.lora_B.data, self.lora_A.data) * self.scaling
+            self.weight.data -= self.lora_B.data @ self.lora_A.data * self.scaling
 
             self.merged = False
 
