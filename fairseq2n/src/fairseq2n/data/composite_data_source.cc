@@ -32,12 +32,12 @@ composite_data_source::next()
     std::optional<data> output{};
     while (!output && !eod()) {
         auto pipeline_idx = next_index_gen_();
+        auto &maybe_example = buffer_[pipeline_idx];
 
-        if (!buffer_[pipeline_idx]) // init buffer at index
-            buffer_[pipeline_idx] = next_in_pipeline(pipeline_idx);
+        if (!maybe_example) // init buffer at first call
+            maybe_example = next_in_pipeline(pipeline_idx);
 
-        output = buffer_[pipeline_idx];
-        buffer_[pipeline_idx] = next_in_pipeline(pipeline_idx);
+        output = std::exchange(maybe_example, next_in_pipeline(pipeline_idx));
     }
 
     return output;
