@@ -12,7 +12,7 @@
 
 #include "fairseq2n/data/data_pipeline.h"
 #include "fairseq2n/data/data_source.h"
-#include "fairseq2n/data/multi_data_source.h"
+#include "fairseq2n/data/composite_data_source.h"
 
 namespace fairseq2n::detail {
 
@@ -38,7 +38,7 @@ private:
     next_in_pipeline(std::size_t pipeline_idx);
 
 private:
-    std::unique_ptr<multi_data_source> inner_;
+    std::unique_ptr<composite_data_source> inner_;
     std::size_t pipeline_idx_;
     std::size_t pipelines_count_;
 };

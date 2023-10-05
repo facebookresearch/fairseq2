@@ -27,7 +27,7 @@ sample_data_source::sample_data_source(std::vector<data_pipeline> &&pipelines, s
         return static_cast<std::size_t>(result);
     };
 
-    inner_ = std::make_unique<multi_data_source>(std::move(pipelines), std::move(gen), stop_at_shortest);
+    inner_ = std::make_unique<composite_data_source>(std::move(pipelines), std::move(gen), stop_at_shortest);
 }
 
 std::optional<data>

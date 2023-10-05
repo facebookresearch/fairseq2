@@ -20,7 +20,7 @@ round_robin_data_source::round_robin_data_source(std::vector<data_pipeline> &&pi
         return pipeline_idx_++;
     };
 
-    inner_ = std::make_unique<multi_data_source>(std::move(pipelines), std::move(gen), stop_at_shortest);
+    inner_ = std::make_unique<composite_data_source>(std::move(pipelines), std::move(gen), stop_at_shortest);
 }
 
 std::optional<data>

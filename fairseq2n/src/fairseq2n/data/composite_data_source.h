@@ -15,10 +15,10 @@ using index_generator_fn = std::function<std::size_t()>;
 
 namespace fairseq2n::detail {
 
-class multi_data_source final : public data_source {
+class composite_data_source final : public data_source {
 public:
     explicit
-    multi_data_source(std::vector<data_pipeline> &&pipelines, index_generator_fn &&index_gen_fn, bool stop_at_shortest);
+    composite_data_source(std::vector<data_pipeline> &&pipelines, index_generator_fn &&index_gen_fn, bool stop_at_shortest);
 
     std::optional<data>
     next() override;
