@@ -17,7 +17,7 @@ from torch.nn import Dropout
 from torch.nn.functional import embedding, linear
 from torch.nn.parameter import Parameter
 
-from fairseq2.nn import Embedding, Linear, Projection
+from fairseq2.nn import Embedding, Linear, Projection, StandardEmbedding
 from fairseq2.typing import DataType, Device
 
 
@@ -243,13 +243,21 @@ def wrap_lora(
         parent = module.get_submodule(".".join(submodule_path[:-1]))
         submodule_name = submodule_path[-1]
 
+        lora_layer: Optional[LoRALayer] = None
         if isinstance(submodule, Projection):
             lora_layer = LoRALinear(
                 wrapped=submodule,
                 config=config,
                 skip_init=skip_init,
-                device=submodule.weight.data.device,  # type: ignore[arg-type]
-                dtype=submodule.weight.data.dtype,  # type: ignore[arg-type]
+                device=submodule.weight.device,  # type: ignore[arg-type]
+                dtype=submodule.weight.dtype,  # type: ignore[arg-type]
+            )
+        elif isinstance(submodule, Embedding):
+            lora_layer = LoRAEmbedding(
+                wrapped=submodule,
+                config=config,
+                device=submodule.weight.device,  # type: ignore[arg-type]
+                dtype=submodule.weight.dtype,  # type: ignore[arg-type]
             )
         else:
             raise ValueError(
@@ -278,6 +286,7 @@ def unwrap_lora(module: nn.Module, merge: bool = True) -> nn.Module:
         parent = module.get_submodule(".".join(submodule_path[:-1]))
         submodule_name = submodule_path[-1]
 
+        unwrapped_layer: Optional[nn.Module] = None
         if isinstance(submodule, LoRALinear):
             # TODO: currently there's no way to distinguish which type the
             # original module is (`Linear` or `TiedProjection` or
@@ -290,10 +299,21 @@ def unwrap_lora(module: nn.Module, merge: bool = True) -> nn.Module:
                 submodule.output_dim,
                 bias=submodule.bias is not None,
                 skip_init=True,
+                device=submodule.weight.device,  # type: ignore[arg-type]
+                dtype=submodule.weight.dtype,  # type: ignore[arg-type]
             )
             unwrapped_layer.weight = submodule.weight
             if submodule.bias is not None:
                 unwrapped_layer.bias = submodule.bias
+        elif isinstance(submodule, LoRAEmbedding):
+            unwrapped_layer = StandardEmbedding(
+                num_embeddings=submodule.num_embeddings,
+                embedding_dim=submodule.embedding_dim,
+                pad_idx=submodule.pad_idx,
+                device=submodule.weight.device,  # type: ignore[arg-type]
+                dtype=submodule.weight.dtype,  # type: ignore[arg-type]
+            )
+            unwrapped_layer.weight = submodule.weight
         else:
             raise ValueError(
                 f"Cannot unwrap the module '{name}' as the module type '{type(submodule).__name__}' is not supported."
