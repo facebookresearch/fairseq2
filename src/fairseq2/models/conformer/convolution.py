@@ -9,6 +9,8 @@ from typing import Optional
 from torch import Tensor
 from torch.nn import GLU, BatchNorm1d, Conv1d, Module, SiLU
 
+from fairseq2.nn.normalization import LayerNorm
+from fairseq2.nn.transformer import create_default_layer_norm
 from fairseq2.nn.utils.mask import apply_padding_mask
 from fairseq2.typing import DataType, Device
 
@@ -21,7 +23,8 @@ class ConformerConvolution(Module):
     pointwise_conv1: Conv1d
     pointwise_conv1_activation: GLU
     depthwise_conv: Conv1d
-    batch_norm: BatchNorm1d
+    batch_norm: Optional[BatchNorm1d]
+    layer_norm: Optional[LayerNorm]
     depthwise_activation: Module
     pointwise_conv2: Conv1d
 
@@ -30,6 +33,7 @@ class ConformerConvolution(Module):
         model_dim: int,
         depthwise_kernel_size: int,
         *,
+        normalization: str = "batch_norm",
         depthwise_activation: Optional[Module] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
@@ -74,7 +78,22 @@ class ConformerConvolution(Module):
             dtype=dtype,
         )
 
-        self.batch_norm = BatchNorm1d(model_dim, device=device, dtype=dtype)
+        if normalization not in ("batch_norm", "layer_norm"):
+            raise ValueError(
+                "We only support batch_norm and layer_norm within the `ConformerConvolution` module."
+            )
+
+        if normalization == "batch_norm":
+            self.batch_norm = BatchNorm1d(model_dim, device=device, dtype=dtype)
+        else:
+            self.register_module("batch_norm", None)
+
+        if normalization == "layer_norm":
+            self.layer_norm = create_default_layer_norm(
+                model_dim, device=device, dtype=dtype
+            )
+        else:
+            self.register_module("layer_norm", None)
 
         if depthwise_activation is None:
             self.depthwise_activation = SiLU()  # a.k.a. swish
@@ -119,7 +138,11 @@ class ConformerConvolution(Module):
         # (N, M, S) -> (N, M, S)
         seqs = self.depthwise_conv(seqs)
 
-        seqs = self.batch_norm(seqs)
+        if self.batch_norm is not None:
+            seqs = self.batch_norm(seqs)
+        else:
+            assert self.layer_norm is not None
+            seqs = self.layer_norm(seqs)
 
         seqs = self.depthwise_activation(seqs)
 
