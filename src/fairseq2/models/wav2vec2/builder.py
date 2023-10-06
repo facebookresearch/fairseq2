@@ -139,6 +139,9 @@ class Wav2Vec2EncoderConfig:
     depthwise_conv_kernel_size: int
     """The kernel size of depthwise convolutions in Conformer blocks."""
 
+    conv_norm_type: Literal["batch_norm", "layer_norm"]
+    """The type of norm layer in the Conformer convolution module."""
+
 
 def _encoder_base() -> Wav2Vec2EncoderConfig:
     layer_descs = [(512, 10, 5)] + [(512, 3, 2)] * 4 + [(512, 2, 2)] * 2
@@ -170,6 +173,7 @@ def _encoder_base() -> Wav2Vec2EncoderConfig:
         layer_drop_p=0.05,
         norm_order=TransformerNormOrder.POST,
         depthwise_conv_kernel_size=0,
+        conv_norm_type="batch_norm",
     )
 
 
@@ -311,6 +315,7 @@ class Wav2Vec2EncoderBuilder:
         conv = ConformerConvolution(
             self.config.model_dim,
             self.config.depthwise_conv_kernel_size,
+            norm_type=self.config.conv_norm_type,
             device=self.device,
             dtype=self.dtype,
         )

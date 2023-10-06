@@ -43,6 +43,7 @@ def _encoder_600m() -> Wav2Vec2EncoderConfig:
         layer_drop_p=0.0,
         norm_order=TransformerNormOrder.POST,
         depthwise_conv_kernel_size=31,
+        conv_norm_type="batch_norm",
     )
 
 
@@ -74,6 +75,7 @@ def _encoder_300m() -> Wav2Vec2EncoderConfig:
         layer_drop_p=0.0,
         norm_order=TransformerNormOrder.POST,
         depthwise_conv_kernel_size=31,
+        conv_norm_type="batch_norm",
     )
 
 
