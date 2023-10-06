@@ -14,8 +14,7 @@ cat_data_source::cat_data_source(
     std::vector<data_pipeline> &&pipeline2)
     : pipeline1_{std::move(pipeline1)}
     , pipeline2_{std::move(pipeline2)}
-{
-}
+{}
 
 std::optional<data>
 cat_data_source::next()

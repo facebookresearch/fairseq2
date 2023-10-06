@@ -34,7 +34,7 @@ public:
     void
     reload_position(tape &t) override;
 
-    std::vector<data_pipeline>
+    static std::vector<data_pipeline>
     concatenate(
         std::vector<data_pipeline> &&pipeline1,
         std::vector<data_pipeline> &&pipeline2);
