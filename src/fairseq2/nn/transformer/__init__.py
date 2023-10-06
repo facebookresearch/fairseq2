@@ -59,10 +59,19 @@ from fairseq2.nn.transformer.multihead_attention import (
     AttentionWeightHook as AttentionWeightHook,
 )
 from fairseq2.nn.transformer.multihead_attention import (
+    EncoderDecoderAttentionState as EncoderDecoderAttentionState,
+)
+from fairseq2.nn.transformer.multihead_attention import (
+    GlobalSelfAttentionState as GlobalSelfAttentionState,
+)
+from fairseq2.nn.transformer.multihead_attention import (
     MultiheadAttention as MultiheadAttention,
 )
 from fairseq2.nn.transformer.multihead_attention import (
-    MultiheadAttentionState as MultiheadAttentionState,
+    SelfAttentionState as SelfAttentionState,
+)
+from fairseq2.nn.transformer.multihead_attention import (
+    SelfAttentionStateFactory as SelfAttentionStateFactory,
 )
 from fairseq2.nn.transformer.multihead_attention import (
     StandardMultiheadAttention as StandardMultiheadAttention,

@@ -143,7 +143,7 @@ class ModelLoader(Generic[ModelT, ModelConfigT]):
         :param download_manager:
             The download manager to use to download model checkpoints.
         :param model_factory:
-            The callable responsible for constructing models.
+            The factory to use to construct models.
         :param archs:
             The registry containing all supported model architectures.
         :param restrict_checkpoints:

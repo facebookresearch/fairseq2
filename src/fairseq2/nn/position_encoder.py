@@ -55,7 +55,7 @@ class PositionEncoder(Module, ABC):
             :math:`*` is any number of batch dimensions including none and
             :math:`S` is the sequence length.
         :param state_bag:
-            The state bag to use for incremental evaluation.
+            The state bag to use for incremental decoding.
 
         :returns:
             The input sequences with positional information encoded. *Shape:*
@@ -92,7 +92,7 @@ class PositionEncoder(Module, ABC):
             :math:`*` is any number of batch dimensions including none and
             :math:`S` is the sequence length.
         :param state_bag:
-            The state bag to use for incremental evaluation.
+            The state bag to use for incremental decoding.
 
         :returns:
             The input sequences with positional information encoded. *Shape:*

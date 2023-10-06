@@ -74,7 +74,7 @@ class TransformerDecoder(Module, ABC):
             If not ``None``, it will be called with the output of each layer in
             the decoder stack.
         :param state_bag:
-            The state bag to use for incremental evaluation.
+            The state bag to use for incremental decoding.
 
         :returns:
             - The decoder output. *Shape:* Same as ``seqs``.

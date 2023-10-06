@@ -70,7 +70,7 @@ class Wav2Vec2PositionEncoder(PositionEncoder):
         """:meta private:"""
         if state_bag is not None:
             raise ValueError(
-                "`Wav2Vec2PositionEncoder` does not support incremental evaluation."
+                "`Wav2Vec2PositionEncoder` does not support incremental decoding."
             )
 
         # We have to ensure that the padded elements are correctly set to
@@ -178,7 +178,7 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
         """:meta private:"""
         if state_bag is not None:
             raise ValueError(
-                "`Wav2Vec2StackedPositionEncoder` does not support incremental evaluation."
+                "`Wav2Vec2StackedPositionEncoder` does not support incremental decoding."
             )
 
         # We have to ensure that the padded elements are correctly set to
