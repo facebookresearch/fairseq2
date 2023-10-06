@@ -9,6 +9,7 @@ from typing import Optional
 from torch import Tensor
 from torch.nn import GLU, BatchNorm1d, Conv1d, Module, SiLU
 
+from fairseq2.nn.normalization import LayerNorm, StandardLayerNorm
 from fairseq2.nn.utils.mask import apply_padding_mask
 from fairseq2.typing import DataType, Device
 
@@ -21,7 +22,8 @@ class ConformerConvolution(Module):
     pointwise_conv1: Conv1d
     pointwise_conv1_activation: GLU
     depthwise_conv: Conv1d
-    batch_norm: BatchNorm1d
+    batch_norm: Optional[BatchNorm1d]
+    layer_norm: Optional[LayerNorm]
     depthwise_activation: Module
     pointwise_conv2: Conv1d
 
@@ -30,6 +32,7 @@ class ConformerConvolution(Module):
         model_dim: int,
         depthwise_kernel_size: int,
         *,
+        norm_type: str = "batch_norm",
         depthwise_activation: Optional[Module] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
@@ -39,6 +42,8 @@ class ConformerConvolution(Module):
             The dimensionality of the model.
         :param depthwise_kernel_size:
             The kernel size of the depthwise convolution.
+        :param norm_type:
+            The type of norm layer applied after the depthwise convolution.
         :param depthwise_activation:
             The activation to apply to outputs of the depthwise convolution. If
             ``None``, :func:`~torch.nn.SiLU` (a.k.a. swish) will be used.
@@ -74,7 +79,22 @@ class ConformerConvolution(Module):
             dtype=dtype,
         )
 
-        self.batch_norm = BatchNorm1d(model_dim, device=device, dtype=dtype)
+        if norm_type not in ("batch_norm", "layer_norm"):
+            raise ValueError(
+                f"`norm_type` must be 'batch_norm' or 'layer_norm', but is '{norm_type}' instead."
+            )
+
+        if norm_type == "batch_norm":
+            self.batch_norm = BatchNorm1d(model_dim, device=device, dtype=dtype)
+        else:
+            self.register_module("batch_norm", None)
+
+        if norm_type == "layer_norm":
+            self.layer_norm = StandardLayerNorm(
+                model_dim, bias=True, device=device, dtype=dtype
+            )
+        else:
+            self.register_module("layer_norm", None)
 
         if depthwise_activation is None:
             self.depthwise_activation = SiLU()  # a.k.a. swish
@@ -119,7 +139,11 @@ class ConformerConvolution(Module):
         # (N, M, S) -> (N, M, S)
         seqs = self.depthwise_conv(seqs)
 
-        seqs = self.batch_norm(seqs)
+        if self.batch_norm is not None:
+            seqs = self.batch_norm(seqs)
+        else:
+            assert self.layer_norm is not None
+            seqs = self.layer_norm(seqs)
 
         seqs = self.depthwise_activation(seqs)
 
