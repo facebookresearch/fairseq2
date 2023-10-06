@@ -746,7 +746,7 @@ class GlobalSelfAttentionState(SelfAttentionState):
 
         return k, v, key_padding_mask
 
-    @override
+    @finaloverride
     def reorder(self, new_order: Tensor) -> None:
         self.k = self.k.index_select(0, new_order)
         self.v = self.v.index_select(0, new_order)
