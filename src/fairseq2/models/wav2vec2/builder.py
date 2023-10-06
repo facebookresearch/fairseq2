@@ -34,6 +34,7 @@ from fairseq2.nn.transformer import (
     MultiheadAttention,
     RelativePositionalEncoding,
     RelativePositionSDPA,
+    ShawRelativePositionSDPA,
     StandardFeedForwardNetwork,
     StandardMultiheadAttention,
     StandardTransformerEncoder,
@@ -44,6 +45,18 @@ from fairseq2.nn.transformer import (
     create_default_sdpa,
 )
 from fairseq2.typing import DataType, Device
+
+
+@dataclass
+class ShawRelativePositionSDPAConfig:
+    max_left_rel_position: int
+    """The left clipping value for relative positions."""
+
+    max_right_rel_position: Optional[int]
+    """The right clipping value for relative positions."""
+
+    use_rel_position_values: bool = False
+    """Whether to use relative position values to compute relative attention."""
 
 
 @dataclass
@@ -97,7 +110,7 @@ class Wav2Vec2EncoderConfig:
     sample_fbank_every_k: int
 
     # Position Encoder
-    pos_encoder_type: Literal["conv", "relative", "rotary"]
+    pos_encoder_type: Literal["conv", "relative", "relative_shaw", "rotary"]
     """The type of position encoder."""
 
     # Convolutional Position Encoder
@@ -139,6 +152,9 @@ class Wav2Vec2EncoderConfig:
     depthwise_conv_kernel_size: int
     """The kernel size of depthwise convolutions in Conformer blocks."""
 
+    shaw_rel_position_sdpa_config: Optional[ShawRelativePositionSDPAConfig]
+    """The parameters for ShawRelativePositionSDPA."""
+
 
 def _encoder_base() -> Wav2Vec2EncoderConfig:
     layer_descs = [(512, 10, 5)] + [(512, 3, 2)] * 4 + [(512, 2, 2)] * 2
@@ -170,6 +186,7 @@ def _encoder_base() -> Wav2Vec2EncoderConfig:
         layer_drop_p=0.05,
         norm_order=TransformerNormOrder.POST,
         depthwise_conv_kernel_size=0,
+        shaw_rel_position_sdpa_config=None,
     )
 
 
@@ -354,6 +371,18 @@ class Wav2Vec2EncoderBuilder:
                 self.config.model_dim,
                 self.config.num_encoder_attn_heads,
                 self.rel_pos_encoding,
+                attn_dropout_p=self.config.attn_dropout_p,
+                device=self.device,
+                dtype=self.dtype,
+            )
+        elif self.config.pos_encoder_type == "relative_shaw":
+            sdpa_config = self.config.shaw_rel_position_sdpa_config
+            sdpa = ShawRelativePositionSDPA(
+                self.config.model_dim,
+                self.config.num_encoder_attn_heads,
+                sdpa_config.max_left_rel_position,
+                max_right_rel_position=sdpa_config.max_right_rel_position,
+                use_rel_position_values=sdpa_config.use_rel_position_values,
                 attn_dropout_p=self.config.attn_dropout_p,
                 device=self.device,
                 dtype=self.dtype,
