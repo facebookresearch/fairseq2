@@ -9,8 +9,7 @@ from typing import Optional
 from torch import Tensor
 from torch.nn import GLU, BatchNorm1d, Conv1d, Module, SiLU
 
-from fairseq2.nn.normalization import LayerNorm
-from fairseq2.nn.transformer import create_default_layer_norm
+from fairseq2.nn.normalization import LayerNorm, StandardLayerNorm
 from fairseq2.nn.utils.mask import apply_padding_mask
 from fairseq2.typing import DataType, Device
 
@@ -33,7 +32,7 @@ class ConformerConvolution(Module):
         model_dim: int,
         depthwise_kernel_size: int,
         *,
-        normalization: str = "batch_norm",
+        norm_type: str = "batch_norm",
         depthwise_activation: Optional[Module] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
@@ -43,6 +42,8 @@ class ConformerConvolution(Module):
             The dimensionality of the model.
         :param depthwise_kernel_size:
             The kernel size of the depthwise convolution.
+        :param norm_type:
+            The type of norm layer applied after the depthwise convolution.
         :param depthwise_activation:
             The activation to apply to outputs of the depthwise convolution. If
             ``None``, :func:`~torch.nn.SiLU` (a.k.a. swish) will be used.
@@ -78,19 +79,19 @@ class ConformerConvolution(Module):
             dtype=dtype,
         )
 
-        if normalization not in ("batch_norm", "layer_norm"):
+        if norm_type not in ("batch_norm", "layer_norm"):
             raise ValueError(
-                "We only support batch_norm and layer_norm within the `ConformerConvolution` module."
+                f"`norm_type` must be 'batch_norm' or 'layer_norm', but is '{norm_type}' instead."
             )
 
-        if normalization == "batch_norm":
+        if norm_type == "batch_norm":
             self.batch_norm = BatchNorm1d(model_dim, device=device, dtype=dtype)
         else:
             self.register_module("batch_norm", None)
 
-        if normalization == "layer_norm":
-            self.layer_norm = create_default_layer_norm(
-                model_dim, device=device, dtype=dtype
+        if norm_type == "layer_norm":
+            self.layer_norm = StandardLayerNorm(
+                model_dim, bias=True, device=device, dtype=dtype
             )
         else:
             self.register_module("layer_norm", None)
