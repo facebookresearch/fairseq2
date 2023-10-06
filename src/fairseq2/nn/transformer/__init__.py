@@ -80,5 +80,5 @@ from fairseq2.nn.transformer.relative_attention import (
     RelativePositionSDPA as RelativePositionSDPA,
 )
 from fairseq2.nn.transformer.relative_position_attention import (
-    ShawRelativePositionSDPA as ShawRelativePositionSDPA
+    ShawRelativePositionSDPA as ShawRelativePositionSDPA,
 )

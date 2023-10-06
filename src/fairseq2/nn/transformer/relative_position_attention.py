@@ -9,16 +9,16 @@ from typing import Optional, Tuple, final
 import torch
 import torch.nn as nn
 from torch import Tensor
+from torch.nn import Embedding
 from torch.nn.functional import dropout, softmax
 
-from fairseq2.nn.embedding import Embedding, StandardEmbedding
 from fairseq2.nn.transformer.attention import SDPA
 from fairseq2.typing import DataType, Device, finaloverride
 
 
 @final
 class ShawRelativePositionSDPA(SDPA):
-    """Computes relative position scaled dot-product attention 
+    """Computes relative position scaled dot-product attention
     as described in :cite:t:`https://arxiv.org/pdf/1803.02155v2.pdf`."""
 
     model_dim: int
@@ -75,10 +75,14 @@ class ShawRelativePositionSDPA(SDPA):
         )
         num_positions = self.max_left_rel_position + 1 + self.max_right_rel_position
 
-        self.rel_k_embedding = StandardEmbedding(num_positions, head_dim, device=device, dtype=dtype)
-        
+        self.rel_k_embedding = Embedding(
+            num_positions, head_dim, device=device, dtype=dtype
+        )
+
         if use_rel_position_values:
-            self.rel_v_embedding = StandardEmbedding(num_positions, head_dim, device=device, dtype=dtype)
+            self.rel_v_embedding = Embedding(
+                num_positions, head_dim, device=device, dtype=dtype
+            )
         else:
             self.register_module("rel_v_embedding", None)
 
@@ -127,7 +131,7 @@ class ShawRelativePositionSDPA(SDPA):
         rel_position_keys = self.rel_k_embedding(rel_position_indices)[-query_length:]
 
         # (N, H, S, head_dim) @ (S, S_kv, head_dim) = (N, H, S, S_kv)
-        rel_attn_weights = torch.einsum('nhsm,stm->nhst', queries, rel_position_keys)
+        rel_attn_weights = torch.einsum("nhsm,stm->nhst", queries, rel_position_keys)
 
         attn_weights += rel_attn_weights
 
@@ -148,10 +152,12 @@ class ShawRelativePositionSDPA(SDPA):
 
         if self.rel_v_embedding is not None:
             # (S, S_kv, head_dim)
-            rel_position_values = self.rel_v_embedding(rel_position_indices)[-query_length:]
+            rel_position_values = self.rel_v_embedding(rel_position_indices)[
+                -query_length:
+            ]
 
             # (N, H, S, S_kv) @ (S, S_kv, head_dim) = (N, H, S, head_dim)
-            rel_attn = torch.einsum('nhst,stm->nhsm', attn_weights, rel_position_values)
+            rel_attn = torch.einsum("nhst,stm->nhsm", attn_weights, rel_position_values)
 
             attn += rel_attn
 
