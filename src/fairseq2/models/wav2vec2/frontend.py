@@ -128,7 +128,7 @@ class Wav2Vec2Frontend(TransformerFrontend):
     ) -> Tuple[Tensor, Optional[Tensor]]:
         if state_bag is not None:
             raise ValueError(
-                "`Wav2Vec2Frontend` does not support incremental evaluation."
+                "`Wav2Vec2Frontend` does not support incremental decoding."
             )
 
         seqs, seq_lens = self.extract_features(seqs, seq_lens)

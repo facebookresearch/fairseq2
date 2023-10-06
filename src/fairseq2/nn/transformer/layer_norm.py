@@ -11,7 +11,7 @@ from fairseq2.typing import DataType, Device
 
 
 class LayerNormFactory(Protocol):
-    """Creates instances of :class:`LayerNorm`."""
+    """Constructs instances of :class:`LayerNorm`."""
 
     def __call__(
         self,

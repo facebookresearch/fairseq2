@@ -55,17 +55,24 @@ from fairseq2.nn.transformer.layer_norm import LayerNormFactory as LayerNormFact
 from fairseq2.nn.transformer.layer_norm import (
     create_default_layer_norm as create_default_layer_norm,
 )
+from fairseq2.nn.transformer.multihead_attention import AttentionState as AttentionState
+from fairseq2.nn.transformer.multihead_attention import (
+    AttentionStateFactory as AttentionStateFactory,
+)
 from fairseq2.nn.transformer.multihead_attention import (
     AttentionWeightHook as AttentionWeightHook,
+)
+from fairseq2.nn.transformer.multihead_attention import (
+    GlobalAttentionState as GlobalAttentionState,
 )
 from fairseq2.nn.transformer.multihead_attention import (
     MultiheadAttention as MultiheadAttention,
 )
 from fairseq2.nn.transformer.multihead_attention import (
-    MultiheadAttentionState as MultiheadAttentionState,
+    StandardMultiheadAttention as StandardMultiheadAttention,
 )
 from fairseq2.nn.transformer.multihead_attention import (
-    StandardMultiheadAttention as StandardMultiheadAttention,
+    StaticAttentionState as StaticAttentionState,
 )
 from fairseq2.nn.transformer.multihead_attention import (
     StoreAttentionWeights as StoreAttentionWeights,
