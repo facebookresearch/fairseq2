@@ -135,7 +135,7 @@ if TYPE_CHECKING or _DOC_MODE:
             ...
 
         @staticmethod
-        def cat(pipeline1: "DataPipeline", pipeline2: "DataPipeline") -> "DataPipelineBuilder":
+        def cat(pipeline1: Sequence["DataPipeline"], pipeline2: Sequence["DataPipeline"]) -> "DataPipelineBuilder":
             """Concatenate examples from ``pipelines``.
 
             :param pipelines:
