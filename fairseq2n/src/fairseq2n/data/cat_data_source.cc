@@ -32,13 +32,15 @@ cat_data_source::next()
             return d;
         }
     }
-    return {};
+    return {}; 
 }
 
 void cat_data_source::reset()
 {
-    pipeline1_ = {};
-    pipeline2_ = {};
+    for (auto &pipeline : pipeline1_)
+        pipeline.reset();
+    for (auto &pipeline : pipeline2_)
+        pipeline.reset();
 }  
 
 void cat_data_source::record_position(tape &t) const
@@ -63,8 +65,15 @@ std::vector<data_pipeline> cat_data_source::concatenate(
 {
     std::vector<data_pipeline> result;
     result.reserve(pipeline1.size() + pipeline2.size());
-    result.insert(result.end(), pipeline1.begin(), pipeline1.end());
-    result.insert(result.end(), pipeline2.begin(), pipeline2.end());
+
+    for (auto &&pipeline : pipeline1) {
+        result.push_back(std::move(pipeline));
+    }
+
+    for (auto &&pipeline : pipeline2) {
+        result.push_back(std::move(pipeline));
+    }
+
     return result;
 }
 } // namespace fairseq2n::detail
