@@ -85,7 +85,7 @@ class MultiheadAttention(Module, ABC):
             :math:`N` is the batch size and :math:`S_{kv}` is the key/value
             sequence length.
         :param state_bag:
-            The state bag to use for incremental evaluation.
+            The state bag to use for incremental decoding.
 
         :returns:
             The attention values for ``queries``. *Shape:* :math:`(N,S,M)`,
@@ -193,6 +193,7 @@ class StandardMultiheadAttention(MultiheadAttention):
     sdpa: SDPA
     head_scale_weight: Optional[Parameter]
     output_proj: Projection
+    state_factory: "SelfAttentionStateFactory"
 
     def __init__(
         self,
@@ -210,6 +211,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         scale_heads: bool = False,
         output_proj: Optional[Projection] = None,
         bias: bool = True,
+        self_attn_state_factory: Optional["SelfAttentionStateFactory"] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -251,6 +253,9 @@ class StandardMultiheadAttention(MultiheadAttention):
         :param bias:
             If ``True``, query, key, value, and output projections learn an
             additive bias. Ignored for explicitly specified projections.
+        :param self_attn_state_factory:
+            The factory to use to construct self attention state for incremental
+            decoding.
         """
         super().__init__(model_dim, num_heads)
 
@@ -376,6 +381,11 @@ class StandardMultiheadAttention(MultiheadAttention):
 
             self.output_proj = output_proj
 
+        if self_attn_state_factory is not None:
+            self.self_attn_state_factory = self_attn_state_factory
+        else:
+            self.self_attn_state_factory = GlobalSelfAttentionState
+
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
@@ -410,10 +420,10 @@ class StandardMultiheadAttention(MultiheadAttention):
         else:
             encoder_decoder_attn = keys is values and keys is not queries
             if encoder_decoder_attn:
-                static_state = state_bag.get_state(self, StaticMultiheadAttentionState)
+                static_state = state_bag.get_state(self, EncoderDecoderAttentionState)
 
                 # The K and V tensors of an encoder-decoder attention (i.e. the
-                # projected encoder outputs) remain static during evaluation.
+                # projected encoder outputs) remain static during decoding.
                 if static_state is not None:
                     k = static_state.k
                     v = static_state.v
@@ -422,15 +432,15 @@ class StandardMultiheadAttention(MultiheadAttention):
                     # v: (N, S_kv, M) -> (N, H_kv, S_kv, V_h)
                     k, v = self._project_kv(keys, key_padding_mask, values)
 
-                    state_bag.set_state(self, StaticMultiheadAttentionState(k, v))
+                    state_bag.set_state(self, EncoderDecoderAttentionState(k, v))
             else:
                 # k: (N, S_step, M) -> (N, H_kv, S_step, K_h)
                 # v: (N, S_step, M) -> (N, H_kv, S_step, V_h)
                 k, v = self._project_kv(keys, key_padding_mask, values, state_bag)
 
-                state = state_bag.get_state(self, MultiheadAttentionState)
+                state = state_bag.get_state(self, SelfAttentionState)
                 if state is None:
-                    state = MultiheadAttentionState(k, v, state_bag.max_num_steps)
+                    state = self.self_attn_state_factory(k, v, state_bag.max_num_steps)
 
                     state_bag.set_state(self, state)
 
@@ -616,29 +626,80 @@ class AttentionOutputProjection(Linear):
             nn.init.zeros_(self.bias)
 
 
-class MultiheadAttentionState(IncrementalState):
-    """Holds the state of a :class:`MultiheadAttention` module during an
-    incremental evaluation."""
+class SelfAttentionState(IncrementalState):
+    """Holds the self attention state of a :class:`MultiheadAttention` module
+    during incremental decoding."""
+
+    @abstractmethod
+    def append(
+        self, k: Tensor, v: Tensor, key_padding_mask: Optional[Tensor]
+    ) -> Tuple[Tensor, Tensor, Optional[Tensor]]:
+        """Append the projected keys, projected values, and float key padding
+        mask to the current incremental state.
+
+        :param k:
+            The projected keys. *Shape:* :math:`(N,H,S_{stp},K_{proj})`, where
+            :math:`N` is the batch size, :math:`H` is the number of heads,
+            :math:`S_{stp}` is the number of steps (e.g. 1), and :math:`K_{proj}`
+            is the projected key size.
+        :param v:
+            The projected values. *Shape:* :math:`(N,H,S_{stp},V_{proj})`, where
+            :math:`N` is the batch size, :math:`H` is the number of heads,
+            :math:`S_{stp}` is the number of steps (e.g. 1), and :math:`V_{proj}`
+            is the projected value size.
+        :param key_padding_mask:
+            The float key padding mask. *Shape:* :math:`(N,S_{stp})`, where
+            :math:`N` is the batch size and :math:`S_{stp}` is the number of
+            steps (e.g. 1).
+
+        :returns:
+            The projected keys, projected values, and float key padding mask
+            that should be used to compute the attention.
+        """
+
+
+class SelfAttentionStateFactory(Protocol):
+    """Constructs instances of :class:`SelfAttentionState`."""
+
+    def __call__(self, k: Tensor, v: Tensor, max_seq_len: int) -> SelfAttentionState:
+        """
+        :param k:
+            The initial projected keys.
+        :param v:
+            The initial projected values.
+        :param max_seq_len:
+            The expected maximum sequence length.
+        """
+
+
+@final
+class GlobalSelfAttentionState(SelfAttentionState):
+    """Holds the self attention state of a :class:`MultiheadAttention` module
+    during incremental decoding.
+
+    This (default) implementation caches the entirety of the projected keys and
+    values seen so far in the sequence.
+    """
 
     seq_len: int
     """The current sequence length of :attr:`k` and :attr:`v`."""
 
     k: Tensor
-    """The projected keys accumulated from the past incremental evaluation
-    steps. *Shape:* :math:`(N,H,S,K_{proj})`, where :math:`N` is the batch
-    size, :math:`H` is the number of heads, :math:`S` is the reserved sequence
-    length capacity, and :math:`K_{proj}` is the projected key size."""
+    """The projected keys accumulated from the past decoding steps. *Shape:*
+    :math:`(N,H,S,K_{proj})`, where :math:`N` is the batch size, :math:`H` is
+    the number of heads, :math:`S` is the reserved sequence length capacity, and
+    :math:`K_{proj}` is the projected key size."""
 
     v: Tensor
-    """The projected values accumulated from the past incremental evaluation
-    steps. *Shape:* :math:`(N,H,S,V_{proj})`, where :math:`N` is the batch
-    size, :math:`H` is the number of heads, :math:`S` is the reserved sequence
-    length capacity, and :math:`V_{proj}` is the projected value size."""
+    """The projected values accumulated from the past decoding steps. *Shape:*
+    :math:`(N,H,S,V_{proj})`, where :math:`N` is the batch size, :math:`H` is
+    the number of heads, :math:`S` is the reserved sequence length capacity, and
+    :math:`V_{proj}` is the projected value size."""
 
     key_padding_mask: Tensor
-    """The float key padding mask accumulated from the past incremental
-    evaluation steps. *Shape:* :math:`(N,S)`, where :math:`N` is the batch
-    size and :math:`S` is the reserved sequence length capacity."""
+    """The float key padding mask accumulated from the past decoding steps.
+    *Shape:* :math:`(N,S)`, where :math:`N` is the batch size and :math:`S` is
+    the reserved sequence length capacity."""
 
     has_mask: bool
 
@@ -662,34 +723,10 @@ class MultiheadAttentionState(IncrementalState):
 
         self.has_mask = False
 
+    @finaloverride
     def append(
         self, k: Tensor, v: Tensor, key_padding_mask: Optional[Tensor]
     ) -> Tuple[Tensor, Tensor, Optional[Tensor]]:
-        """Append the projected key, projected value, and float key padding mask
-        of the current incremental evaluation step to :attr:`k`,
-        :attr:`v`, and :attr:`key_padding_mask`.
-
-        :param k:
-            The projected key of the current incremental evaluation step.
-            *Shape:* :math:`(N,H,S_{stp},K_{proj})`, where :math:`N` is the
-            batch size, :math:`H` is the number of heads, :math:`S_{stp}` is the
-            step length (e.g. 1), and :math:`K_{proj}` is the projected key
-            size.
-        :param v:
-            The projected value of the current incremental evaluation step.
-            *Shape:* :math:`(N,H,S_{stp},V_{proj})`, where :math:`N` is the
-            batch size, :math:`H` is the number of heads, :math:`S_{stp}` is the
-            step length (e.g. 1), and :math:`V_{proj}` is the projected value
-            size.
-        :param key_padding_mask:
-            The float key padding mask of the current incremental evaluation
-            step. *Shape:* :math:`(N,S_{stp})`, where :math:`N` is the batch
-            size and :math:`S_{stp}` is the step length (e.g. 1).
-
-        :returns:
-            The projected keys, projected values, and float key padding mask
-            that should be used to compute the attention.
-        """
         start, end = self.seq_len, self.seq_len + k.size(2)
 
         self.k[:, :, start:end] = k
@@ -709,7 +746,7 @@ class MultiheadAttentionState(IncrementalState):
 
         return k, v, key_padding_mask
 
-    @override
+    @finaloverride
     def reorder(self, new_order: Tensor) -> None:
         self.k = self.k.index_select(0, new_order)
         self.v = self.v.index_select(0, new_order)
@@ -717,9 +754,10 @@ class MultiheadAttentionState(IncrementalState):
         self.key_padding_mask = self.key_padding_mask.index_select(0, new_order)
 
 
-class StaticMultiheadAttentionState(IncrementalState):
-    """Holds the state of an encoder-decoder :class:`MultiheadAttention` module
-    during an incremental evaluation."""
+@final
+class EncoderDecoderAttentionState(IncrementalState):
+    """Holds the encoder-decoder state of a :class:`MultiheadAttention` module
+    during incremental decoding."""
 
     k: Tensor
     v: Tensor
@@ -734,7 +772,7 @@ class StaticMultiheadAttentionState(IncrementalState):
         self.k = k
         self.v = v
 
-    @override
+    @finaloverride
     def reorder(self, new_order: Tensor) -> None:
         self.k = self.k.index_select(0, new_order)
         self.v = self.v.index_select(0, new_order)

@@ -210,7 +210,7 @@ def _naive_scaled_dot_product_attention(
 
 
 class SDPAFactory(Protocol):
-    """Creates instances of :class:`SDPA`."""
+    """Constructs instances of :class:`SDPA`."""
 
     def __call__(self, *, attn_dropout_p: float) -> SDPA:
         """

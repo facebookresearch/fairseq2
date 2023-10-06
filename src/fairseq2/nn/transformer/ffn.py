@@ -157,7 +157,7 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
         *,
         gate_activation: Optional[Module] = None,
         inner_dim_scale: float = 2 / 3,
-        inner_dim_to_multiple: int = 2,
+        inner_dim_to_multiple: int = 1,
         inner_dropout_p: float = 0.0,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
@@ -190,7 +190,7 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
 
         self.inner_dim_to_multiple = inner_dim_to_multiple
 
-        if inner_dim_to_multiple != 1.0:
+        if inner_dim_to_multiple != 1:
             inner_dim = inner_dim_to_multiple * (
                 (inner_dim + inner_dim_to_multiple - 1) // inner_dim_to_multiple
             )

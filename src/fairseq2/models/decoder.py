@@ -36,7 +36,7 @@ class SequenceDecoder(ABC):
             the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
             the batch size.
         :param state_bag:
-            The state bag to use for incremental evaluation.
+            The state bag to use for incremental decoding.
 
         :returns:
             - The decoder output. *Shape:* :math:`(N,S,M)`, where :math:`N` is

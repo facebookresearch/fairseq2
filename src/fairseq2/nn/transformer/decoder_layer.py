@@ -73,7 +73,7 @@ class TransformerDecoderLayer(Module, ABC):
             :math:`(N,S_{enc})`, where :math:`N` is the batch size and
             :math:`S_{enc}` is the encoder output sequence length.
         :param state_bag:
-            The state bag to use for incremental evaluation.
+            The state bag to use for incremental decoding.
 
         :returns:
             - The decoder layer output. *Shape:* Same as ``seqs``.
