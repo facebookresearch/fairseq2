@@ -143,7 +143,13 @@ class ConformerConvolution(Module):
             seqs = self.batch_norm(seqs)
         else:
             assert self.layer_norm is not None
+            # (N, M, S) -> (N, S, M)
+            seqs = seqs.transpose(1, 2)
+
             seqs = self.layer_norm(seqs)
+
+            # (N, S, M) -> (N, M, S)
+            seqs = seqs.transpose(1, 2)
 
         seqs = self.depthwise_activation(seqs)
 
