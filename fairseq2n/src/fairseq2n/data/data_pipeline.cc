@@ -290,6 +290,24 @@ data_pipeline::cat(
     std::vector<data_pipeline> pipeline1,
     std::vector<data_pipeline> pipeline2)
 {
+    bool is_broken = false;
+
+    is_broken = std::any_of(
+        pipeline1.begin(), pipeline1.end(), [](const data_pipeline &pipeline)
+        {
+            return pipeline.is_broken();
+        });
+
+    is_broken = is_broken || std::any_of(
+        pipeline2.begin(), pipeline2.end(), [](const data_pipeline &pipeline)
+        {
+            return pipeline.is_broken();
+        });
+
+    if (is_broken)
+        throw_<std::invalid_argument>(
+            "At least one of the specified data pipelines is broken and cannot be used in cat.");
+
     auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipeline1));
     auto tmp2 = std::make_shared<std::vector<data_pipeline>>(std::move(pipeline2));
 

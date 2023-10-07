@@ -32,7 +32,7 @@ cat_data_source::next()
             return d;
         }
     }
-    return {}; 
+    return {};
 }
 
 void cat_data_source::reset()
@@ -65,15 +65,12 @@ std::vector<data_pipeline> cat_data_source::concatenate(
 {
     std::vector<data_pipeline> result;
     result.reserve(pipeline1.size() + pipeline2.size());
-
     for (auto &&pipeline : pipeline1) {
         result.push_back(std::move(pipeline));
     }
-
     for (auto &&pipeline : pipeline2) {
         result.push_back(std::move(pipeline));
     }
-
     return result;
 }
 } // namespace fairseq2n::detail
