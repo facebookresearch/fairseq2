@@ -48,7 +48,7 @@ class ConformerConvolution(Module):
             The kernel size of the depthwise convolution.
         :param causal_depthwise_conv:
             If True, uses a causal depthwise convolution similar to that described in
-            Section 2.1 of :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`.
+            Section 2.1 of :cite:t:`https://doi.org/10.48550/arxiv.1609.03499`.
         :param norm_type:
             The type of norm layer applied after the depthwise convolution.
         :param depthwise_activation:

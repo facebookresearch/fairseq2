@@ -141,7 +141,7 @@ class Wav2Vec2EncoderConfig:
 
     causal_depthwise_conv: bool
     """If True, uses a causal depthwise convolution similar to that described in
-    Section 2.1 of :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`."""
+    Section 2.1 of :cite:t:`https://doi.org/10.48550/arxiv.1609.03499`."""
 
     conv_norm_type: Literal["batch_norm", "layer_norm"]
     """The type of normalization to use in the Conformer convolution module."""
