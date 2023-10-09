@@ -49,14 +49,16 @@ from fairseq2.typing import DataType, Device
 
 @dataclass
 class ShawRelativePositionSDPAConfig:
-    max_left_rel_position: int
+    """Holds the configuration of the :class:ShawRelativePositionSDPA module."""
+
+    max_left_rel_pos: int
     """The left clipping value for relative positions."""
 
-    max_right_rel_position: Optional[int]
+    max_right_rel_pos: Optional[int]
     """The right clipping value for relative positions."""
 
-    use_rel_position_values: bool = False
-    """Whether to use relative position values to compute relative attention."""
+    use_rel_pos_values: bool = False
+    """If True, also uses relative position values to compute relative attention."""
 
 
 @dataclass
@@ -159,7 +161,7 @@ class Wav2Vec2EncoderConfig:
     conv_norm_type: Literal["batch_norm", "layer_norm"]
     """The type of normalization to use in the Conformer convolution module."""
 
-    shaw_rel_position_sdpa_config: Optional[ShawRelativePositionSDPAConfig]
+    shaw_rel_pos_sdpa_config: Optional[ShawRelativePositionSDPAConfig]
     """The parameters for ShawRelativePositionSDPA."""
 
 
@@ -195,7 +197,7 @@ def _encoder_base() -> Wav2Vec2EncoderConfig:
         depthwise_conv_kernel_size=0,
         causal_depthwise_conv=False,
         conv_norm_type="batch_norm",
-        shaw_rel_position_sdpa_config=None,
+        shaw_rel_pos_sdpa_config=None,
     )
 
 
@@ -387,13 +389,13 @@ class Wav2Vec2EncoderBuilder:
                 dtype=self.dtype,
             )
         elif self.config.pos_encoder_type == "relative_shaw":
-            sdpa_config = self.config.shaw_rel_position_sdpa_config
+            sdpa_config = self.config.shaw_rel_pos_sdpa_config
             sdpa = ShawRelativePositionSDPA(
                 self.config.model_dim,
                 self.config.num_encoder_attn_heads,
-                sdpa_config.max_left_rel_position,
-                max_right_rel_position=sdpa_config.max_right_rel_position,
-                use_rel_position_values=sdpa_config.use_rel_position_values,
+                sdpa_config.max_left_rel_pos,
+                max_right_rel_pos=sdpa_config.max_right_rel_pos,
+                use_rel_pos_values=sdpa_config.use_rel_pos_values,
                 attn_dropout_p=self.config.attn_dropout_p,
                 device=self.device,
                 dtype=self.dtype,

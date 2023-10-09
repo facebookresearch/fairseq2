@@ -9,9 +9,9 @@ from typing import Optional, Tuple, final
 import torch
 import torch.nn as nn
 from torch import Tensor
-from torch.nn import Embedding
 from torch.nn.functional import dropout, softmax
 
+from fairseq2.nn.embedding import Embedding, StandardEmbedding
 from fairseq2.nn.transformer.attention import SDPA
 from fairseq2.typing import DataType, Device, finaloverride
 
@@ -19,24 +19,23 @@ from fairseq2.typing import DataType, Device, finaloverride
 @final
 class ShawRelativePositionSDPA(SDPA):
     """Computes relative position scaled dot-product attention
-    as described in :cite:t:`https://arxiv.org/pdf/1803.02155v2.pdf`."""
+    as described in :cite:t:`https://doi.org/10.48550/arxiv.1803.02155`."""
 
     model_dim: int
     num_heads: int
-    max_left_rel_position: int
-    max_right_rel_position: Optional[int]
-    rel_k_embedding: Embedding
-    rel_v_embedding: Optional[Embedding]
-    device: Optional[Device]
+    max_left_rel_pos: int
+    max_right_rel_pos: Optional[int]
+    rel_k_embed: Embedding
+    rel_v_embed: Optional[Embedding]
 
     def __init__(
         self,
         model_dim: int,
         num_heads: int,
-        max_left_rel_position: int,
+        max_left_rel_pos: int,
         *,
-        max_right_rel_position: Optional[int] = None,
-        use_rel_position_values: bool = False,
+        max_right_rel_pos: Optional[int] = None,
+        use_rel_pos_values: bool = False,
         attn_dropout_p: float = 0.0,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
@@ -46,12 +45,12 @@ class ShawRelativePositionSDPA(SDPA):
             The dimensionality of the model.
         :param: num_heads:
             The number of attention heads.
-        :param: max_left_rel_position:
+        :param: max_left_rel_pos:
             The left clipping value for relative positions.
-        :param: max_right_rel_position:
+        :param: max_right_rel_pos:
             The right clipping value for relative positions.
-        :param: use_rel_position_values:
-            Whether to use relative position values to compute relative attention.
+        :param: use_rel_pos_values:
+            If True, also uses relative position values to compute relative attention.
         :param attn_dropout_p:
             The dropout probability on attention weights.
         """
@@ -67,40 +66,40 @@ class ShawRelativePositionSDPA(SDPA):
 
         head_dim = model_dim // num_heads
 
-        self.max_left_rel_position = max_left_rel_position
-        self.max_right_rel_position = (
-            max_right_rel_position
-            if max_right_rel_position is not None
-            else max_left_rel_position
+        self.max_left_rel_pos = max_left_rel_pos
+        self.max_right_rel_pos = (
+            max_right_rel_pos if max_right_rel_pos is not None else max_left_rel_pos
         )
-        num_positions = self.max_left_rel_position + 1 + self.max_right_rel_position
+        num_pos = self.max_left_rel_pos + 1 + self.max_right_rel_pos
 
-        self.rel_k_embedding = Embedding(
-            num_positions, head_dim, device=device, dtype=dtype
+        self.rel_k_embed = StandardEmbedding(
+            num_pos, head_dim, device=device, dtype=dtype
         )
 
-        if use_rel_position_values:
-            self.rel_v_embedding = Embedding(
-                num_positions, head_dim, device=device, dtype=dtype
+        if use_rel_pos_values:
+            self.rel_v_embed = StandardEmbedding(
+                num_pos, head_dim, device=device, dtype=dtype
             )
         else:
-            self.register_module("rel_v_embedding", None)
+            self.register_module("rel_v_embed", None)
 
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
         """Reset the parameters and buffers of the module."""
-        nn.init.xavier_uniform_(self.rel_k_embedding.weight)
-        if self.rel_v_embedding is not None:
-            nn.init.xavier_uniform_(self.rel_v_embedding.weight)
 
-    def rel_position_indices(self, seq_len: int) -> Tensor:
-        positions = torch.arange(seq_len).unsqueeze(0)
-        rel_dist = positions - positions.t()
-        rel_dist = torch.clamp(
-            rel_dist, -self.max_left_rel_position, self.max_right_rel_position
-        )
-        return rel_dist + self.max_left_rel_position
+        assert isinstance(self.rel_k_embed.weight, Tensor)
+        nn.init.xavier_uniform_(self.rel_k_embed.weight)
+
+        if self.rel_v_embed is not None:
+            assert isinstance(self.rel_v_embed.weight, Tensor)
+            nn.init.xavier_uniform_(self.rel_v_embed.weight)
+
+    def rel_pos_indices(self, seq_len: int, device: Device) -> Tensor:
+        pos = torch.arange(seq_len, device=device).unsqueeze(0)
+        rel_dist = pos - pos.transpose(0, 1)
+        rel_dist = torch.clamp(rel_dist, -self.max_left_rel_pos, self.max_right_rel_pos)
+        return rel_dist + self.max_left_rel_pos
 
     @finaloverride
     def forward(
@@ -120,18 +119,16 @@ class ShawRelativePositionSDPA(SDPA):
         # (N, H, S, head_dim) @ (N, H, head_dim, S_kv) = (N, H, S, S_kv)
         attn_weights = torch.matmul(queries, keys.transpose(-1, -2))
 
-        query_length, kv_length = queries.shape[2], keys.shape[2]
+        query_len, kv_len = queries.size(2), keys.size(2)
 
         # (S_kv, S_kv)
-        rel_position_indices = self.rel_position_indices(kv_length)
-
-        rel_position_indices = rel_position_indices.to(device=queries.device)
+        rel_pos_indices = self.rel_pos_indices(kv_len, queries.device)
 
         # (S, S_kv, head_dim)
-        rel_position_keys = self.rel_k_embedding(rel_position_indices)[-query_length:]
+        rel_pos_keys = self.rel_k_embed(rel_pos_indices)[-query_len:]
 
         # (N, H, S, head_dim) @ (S, S_kv, head_dim) = (N, H, S, S_kv)
-        rel_attn_weights = torch.einsum("nhsm,stm->nhst", queries, rel_position_keys)
+        rel_attn_weights = torch.einsum("nhsm,stm->nhst", queries, rel_pos_keys)
 
         attn_weights += rel_attn_weights
 
@@ -150,14 +147,12 @@ class ShawRelativePositionSDPA(SDPA):
         # (N, H, S, S_kv) @ (N, H, S_kv, head_dim) = (N, H, S, head_dim)
         attn = torch.matmul(attn_weights, values)
 
-        if self.rel_v_embedding is not None:
+        if self.rel_v_embed is not None:
             # (S, S_kv, head_dim)
-            rel_position_values = self.rel_v_embedding(rel_position_indices)[
-                -query_length:
-            ]
+            rel_pos_values = self.rel_v_embed(rel_pos_indices)[-query_len:]
 
             # (N, H, S, S_kv) @ (S, S_kv, head_dim) = (N, H, S, head_dim)
-            rel_attn = torch.einsum("nhst,stm->nhsm", attn_weights, rel_position_values)
+            rel_attn = torch.einsum("nhst,stm->nhsm", attn_weights, rel_pos_values)
 
             attn += rel_attn
 
@@ -167,4 +162,10 @@ class ShawRelativePositionSDPA(SDPA):
         """:meta private:"""
         s = super().extra_repr()
 
-        return f"{s}, model_dim={self.model_dim}, num_heads={self.num_heads}"
+        return (
+            f"{s}, "
+            f"model_dim={self.model_dim}, "
+            f"num_heads={self.num_heads}, "
+            f"max_left_rel_pos={self.max_left_rel_pos}, "
+            f"max_right_rel_pos={self.max_right_rel_pos}"
+        )
