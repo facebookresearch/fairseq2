@@ -45,6 +45,7 @@ def _encoder_600m() -> Wav2Vec2EncoderConfig:
         depthwise_conv_kernel_size=31,
         causal_depthwise_conv=False,
         conv_norm_type="batch_norm",
+        shaw_rel_pos_sdpa_config=None,
     )
 
 
@@ -78,6 +79,7 @@ def _encoder_300m() -> Wav2Vec2EncoderConfig:
         depthwise_conv_kernel_size=31,
         causal_depthwise_conv=False,
         conv_norm_type="batch_norm",
+        shaw_rel_pos_sdpa_config=None,
     )
 
 
