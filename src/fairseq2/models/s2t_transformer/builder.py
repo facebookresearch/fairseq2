@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import Optional
 
 from torch.nn import SiLU
 
@@ -90,9 +90,6 @@ class S2TTransformerConfig:
     depthwise_conv_kernel_size: int
     """The kernel size of depthwise convolutions in Conformer blocks."""
 
-    conv_norm_type: Literal["batch_norm", "layer_norm"]
-    """The type of norm layer in the Conformer convolution module."""
-
     def update_target_vocabulary(self, info: VocabularyInfo) -> None:
         """Update target vocabulary configuration from ``info``."""
         self.target_vocabulary_size, self.target_pad_idx = info.size, info.pad_idx
@@ -121,7 +118,6 @@ def _tiny() -> S2TTransformerConfig:
         ffn_inner_dim=256 * 4,
         dropout_p=0.3,
         depthwise_conv_kernel_size=0,
-        conv_norm_type="batch_norm",
     )
 
 
@@ -142,7 +138,6 @@ def _small() -> S2TTransformerConfig:
         ffn_inner_dim=256 * 8,
         dropout_p=0.1,
         depthwise_conv_kernel_size=0,
-        conv_norm_type="batch_norm",
     )
 
 
@@ -163,7 +158,6 @@ def _medium() -> S2TTransformerConfig:
         ffn_inner_dim=512 * 4,
         dropout_p=0.15,
         depthwise_conv_kernel_size=0,
-        conv_norm_type="batch_norm",
     )
 
 
@@ -184,7 +178,6 @@ def _large() -> S2TTransformerConfig:
         ffn_inner_dim=1024 * 4,
         dropout_p=0.2,
         depthwise_conv_kernel_size=0,
-        conv_norm_type="batch_norm",
     )
 
 
@@ -205,7 +198,6 @@ def _conformer_medium() -> S2TTransformerConfig:
         ffn_inner_dim=512 * 4,
         dropout_p=0.1,
         depthwise_conv_kernel_size=31,
-        conv_norm_type="batch_norm",
     )
 
 
@@ -388,7 +380,6 @@ class S2TTransformerBuilder:
         conv = ConformerConvolution(
             self.config.model_dim,
             self.config.depthwise_conv_kernel_size,
-            norm_type=self.config.conv_norm_type,
             device=self.device,
             dtype=self.dtype,
         )

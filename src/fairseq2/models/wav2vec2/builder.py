@@ -140,7 +140,7 @@ class Wav2Vec2EncoderConfig:
     """The kernel size of depthwise convolutions in Conformer blocks."""
 
     conv_norm_type: Literal["batch_norm", "layer_norm"]
-    """The type of norm layer in the Conformer convolution module."""
+    """The type of normalization to use in the Conformer convolution module."""
 
 
 def _encoder_base() -> Wav2Vec2EncoderConfig:
