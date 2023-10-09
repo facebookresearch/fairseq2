@@ -116,11 +116,14 @@ class ConformerBlock(TransformerEncoderLayer):
 
     @finaloverride
     def forward(
-        self, seqs: Tensor, padding_mask: Optional[Tensor]
+        self,
+        seqs: Tensor,
+        padding_mask: Optional[Tensor],
+        self_attn_mask: Optional[Tensor] = None,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         seqs = self._forward_ffn1(seqs)
 
-        seqs = self._forward_self_attn(seqs, padding_mask)
+        seqs = self._forward_self_attn(seqs, padding_mask, self_attn_mask)
 
         seqs = self._forward_conv(seqs, padding_mask)
 
@@ -143,7 +146,10 @@ class ConformerBlock(TransformerEncoderLayer):
         return seqs + residual
 
     def _forward_self_attn(
-        self, seqs: Tensor, padding_mask: Optional[Tensor]
+        self,
+        seqs: Tensor,
+        padding_mask: Optional[Tensor],
+        self_attn_mask: Optional[Tensor],
     ) -> Tensor:
         residual = seqs
 
@@ -154,6 +160,7 @@ class ConformerBlock(TransformerEncoderLayer):
             padding_mask,
             keys=seqs,
             values=seqs,
+            attn_mask=self_attn_mask,
             key_padding_mask=padding_mask,
         )
 
