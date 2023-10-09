@@ -11,7 +11,7 @@ import torch.nn as nn
 from torch import Tensor
 from torch.nn.functional import dropout, softmax
 
-from fairseq2.nn.embedding import Embedding, StandardEmbedding
+from fairseq2.nn.embedding import StandardEmbedding
 from fairseq2.nn.transformer.attention import SDPA
 from fairseq2.typing import DataType, Device, finaloverride
 
@@ -25,8 +25,8 @@ class ShawRelativePositionSDPA(SDPA):
     num_heads: int
     max_left_rel_pos: int
     max_right_rel_pos: Optional[int]
-    rel_k_embed: Embedding
-    rel_v_embed: Optional[Embedding]
+    rel_k_embed: StandardEmbedding
+    rel_v_embed: Optional[StandardEmbedding]
 
     def __init__(
         self,
@@ -87,19 +87,10 @@ class ShawRelativePositionSDPA(SDPA):
 
     def reset_parameters(self) -> None:
         """Reset the parameters and buffers of the module."""
-
-        assert isinstance(self.rel_k_embed.weight, Tensor)
         nn.init.xavier_uniform_(self.rel_k_embed.weight)
 
         if self.rel_v_embed is not None:
-            assert isinstance(self.rel_v_embed.weight, Tensor)
             nn.init.xavier_uniform_(self.rel_v_embed.weight)
-
-    def rel_pos_indices(self, seq_len: int, device: Device) -> Tensor:
-        pos = torch.arange(seq_len, device=device).unsqueeze(0)
-        rel_dist = pos - pos.transpose(0, 1)
-        rel_dist = torch.clamp(rel_dist, -self.max_left_rel_pos, self.max_right_rel_pos)
-        return rel_dist + self.max_left_rel_pos
 
     @finaloverride
     def forward(
@@ -122,7 +113,7 @@ class ShawRelativePositionSDPA(SDPA):
         query_len, kv_len = queries.size(2), keys.size(2)
 
         # (S_kv, S_kv)
-        rel_pos_indices = self.rel_pos_indices(kv_len, queries.device)
+        rel_pos_indices = self._rel_pos_indices(kv_len, queries.device)
 
         # (S, S_kv, head_dim)
         rel_pos_keys = self.rel_k_embed(rel_pos_indices)[-query_len:]
@@ -157,6 +148,12 @@ class ShawRelativePositionSDPA(SDPA):
             attn += rel_attn
 
         return attn, attn_weights if needs_weights else None
+
+    def _rel_pos_indices(self, seq_len: int, device: Device) -> Tensor:
+        pos = torch.arange(seq_len, device=device).unsqueeze(0)
+        rel_dist = pos - pos.transpose(0, 1)
+        rel_dist = torch.clamp(rel_dist, -self.max_left_rel_pos, self.max_right_rel_pos)
+        return rel_dist + self.max_left_rel_pos
 
     def extra_repr(self) -> str:
         """:meta private:"""
