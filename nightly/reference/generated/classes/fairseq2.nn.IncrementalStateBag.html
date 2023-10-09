@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>IncrementalStateBag &mdash; fairseq2 0.2.0.dev20231002 documentation</title>
+  <title>IncrementalStateBag &mdash; fairseq2 0.2.0.dev20231009 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -35,7 +35,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20231002
+                0.2.0.dev20231009
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -150,10 +150,13 @@
 <h1>IncrementalStateBag<a class="headerlink" href="#incrementalstatebag" title="Permalink to this heading"></a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.nn.IncrementalStateBag">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.nn.</span></span><span class="sig-name descname"><span class="pre">IncrementalStateBag</span></span><a class="reference internal" href="../../../_modules/fairseq2/nn/incremental_state.html#IncrementalStateBag"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.IncrementalStateBag" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
-<p>Holds the module states during an incremental evaluation.</p>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.nn.</span></span><span class="sig-name descname"><span class="pre">IncrementalStateBag</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">max_num_steps</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/nn/incremental_state.html#IncrementalStateBag"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.IncrementalStateBag" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<p>Holds the module states during incremental decoding.</p>
 <dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>max_num_steps</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><em>int</em></a>) – The expected maximum number of steps to take.</p>
+</dd>
 </dl>
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.nn.IncrementalStateBag.get_state">
@@ -163,8 +166,8 @@ present in the bag.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>m</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.0)"><em>Module</em></a>) – The module.</p></li>
-<li><p><strong>kls</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Type" title="(in Python v3.11)"><em>Type</em></a><em>[</em><em>T</em><em>]</em>) – The expected <code class="docutils literal notranslate"><span class="pre">type</span></code> of the incremental state. If the type of the
+<li><p><strong>m</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.1)"><em>Module</em></a>) – The module.</p></li>
+<li><p><strong>kls</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Type" title="(in Python v3.12)"><em>Type</em></a><em>[</em><em>T</em><em>]</em>) – The expected <code class="docutils literal notranslate"><span class="pre">type</span></code> of the incremental state. If the type of the
 incremental state in the bag does not match <code class="docutils literal notranslate"><span class="pre">kls</span></code>, <code class="docutils literal notranslate"><span class="pre">None</span></code> will
 be returned.</p></li>
 </ul>
@@ -182,12 +185,11 @@ be returned.</p></li>
 <dt class="sig sig-object py" id="fairseq2.nn.IncrementalStateBag.increment_step">
 <span class="sig-name descname"><span class="pre">increment_step</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">delta</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/nn/incremental_state.html#IncrementalStateBag.increment_step"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.IncrementalStateBag.increment_step" title="Permalink to this definition"></a></dt>
 <dd><p>Increment the step.</p>
-<p>This method should be called after every incremental evaluation (e.g.
-beam search) step. It is used by modules to keep track of the position
-in the sequence.</p>
+<p>This method should be called after every decoding step. It is used by
+modules to keep track of the position in the sequence.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>delta</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – The value by which to increment the step.</p>
+<dd class="field-odd"><p><strong>delta</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><em>int</em></a>) – The value by which to increment the step.</p>
 </dd>
 </dl>
 </dd></dl>
@@ -208,17 +210,11 @@ in the sequence.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>m</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.0)"><em>Module</em></a>) – The module.</p></li>
+<li><p><strong>m</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.1)"><em>Module</em></a>) – The module.</p></li>
 <li><p><strong>state</strong> (<a class="reference internal" href="fairseq2.nn.IncrementalState.html#fairseq2.nn.IncrementalState" title="fairseq2.nn.incremental_state.IncrementalState"><em>IncrementalState</em></a>) – The incremental state to store.</p></li>
 </ul>
 </dd>
 </dl>
-</dd></dl>
-
-<dl class="py property">
-<dt class="sig sig-object py" id="fairseq2.nn.IncrementalStateBag.step">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">step</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#fairseq2.nn.IncrementalStateBag.step" title="Permalink to this definition"></a></dt>
-<dd><p>Return the current step in the sequence.</p>
 </dd></dl>
 
 </dd></dl>

@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VocabularyInfo &mdash; fairseq2 0.2.0.dev20231002 documentation</title>
+  <title>VocabularyInfo &mdash; fairseq2 0.2.0.dev20231009 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -35,7 +35,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20231002
+                0.2.0.dev20231009
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -151,37 +151,37 @@
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.data.VocabularyInfo">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.data.</span></span><span class="sig-name descname"><span class="pre">VocabularyInfo</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">size</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">unk_idx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bos_idx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eos_idx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pad_idx</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/vocabulary_info.html#VocabularyInfo"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.VocabularyInfo" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Describes the vocabulary used by a tokenizer</p>
 <dl class="field-list simple">
 </dl>
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.data.VocabularyInfo.bos_idx">
-<span class="sig-name descname"><span class="pre">bos_idx</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></em><a class="headerlink" href="#fairseq2.data.VocabularyInfo.bos_idx" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">bos_idx</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.12)"><span class="pre">None</span></a></em><a class="headerlink" href="#fairseq2.data.VocabularyInfo.bos_idx" title="Permalink to this definition"></a></dt>
 <dd><p>The index of the symbol that represents the beginning of a sequence.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.data.VocabularyInfo.eos_idx">
-<span class="sig-name descname"><span class="pre">eos_idx</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></em><a class="headerlink" href="#fairseq2.data.VocabularyInfo.eos_idx" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">eos_idx</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.12)"><span class="pre">None</span></a></em><a class="headerlink" href="#fairseq2.data.VocabularyInfo.eos_idx" title="Permalink to this definition"></a></dt>
 <dd><p>The index of the symbol that represents the end of a sequence.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.data.VocabularyInfo.pad_idx">
-<span class="sig-name descname"><span class="pre">pad_idx</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></em><a class="headerlink" href="#fairseq2.data.VocabularyInfo.pad_idx" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">pad_idx</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.12)"><span class="pre">None</span></a></em><a class="headerlink" href="#fairseq2.data.VocabularyInfo.pad_idx" title="Permalink to this definition"></a></dt>
 <dd><p>The index of the symbol that is used to pad a sequence.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.data.VocabularyInfo.size">
-<span class="sig-name descname"><span class="pre">size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a></em><a class="headerlink" href="#fairseq2.data.VocabularyInfo.size" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">size</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><span class="pre">int</span></a></em><a class="headerlink" href="#fairseq2.data.VocabularyInfo.size" title="Permalink to this definition"></a></dt>
 <dd><p>The size of the vocabulary.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.data.VocabularyInfo.unk_idx">
-<span class="sig-name descname"><span class="pre">unk_idx</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.11)"><span class="pre">None</span></a></em><a class="headerlink" href="#fairseq2.data.VocabularyInfo.unk_idx" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">unk_idx</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><span class="pre">int</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.12)"><span class="pre">None</span></a></em><a class="headerlink" href="#fairseq2.data.VocabularyInfo.unk_idx" title="Permalink to this definition"></a></dt>
 <dd><p>The index of the symbol that represents an unknown element.</p>
 </dd></dl>
 

@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>IncrementalState &mdash; fairseq2 0.2.0.dev20231002 documentation</title>
+  <title>IncrementalState &mdash; fairseq2 0.2.0.dev20231009 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -36,7 +36,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20231002
+                0.2.0.dev20231009
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -152,12 +152,12 @@
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.nn.IncrementalState">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.nn.</span></span><span class="sig-name descname"><span class="pre">IncrementalState</span></span><a class="reference internal" href="../../../_modules/fairseq2/nn/incremental_state.html#IncrementalState"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.IncrementalState" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
-<p>Holds the state of a module during an incremental evaluation.</p>
-<p>Incremental evaluation is a special mode where the module only receives an
-input corresponding to the previous output and must produce the next output
-incrementally. Thus the module must cache any long-term state that is needed
-about the sequence.</p>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
+<p>Holds the state of a module during incremental decoding.</p>
+<p>Incremental decoding is a special mode at inference time where the module
+only receives an input corresponding to the previous output and must produce
+the next output incrementally. Thus the module must cache any long-term
+state that is needed about the sequence.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.nn.IncrementalState.reorder">
 <em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">reorder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">new_order</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/nn/incremental_state.html#IncrementalState.reorder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.IncrementalState.reorder" title="Permalink to this definition"></a></dt>
@@ -167,8 +167,8 @@ use case is beam search, where the batch order changes between steps
 based on the selection of beams.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>new_order</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a>) – The new order of the batch. It is frequently used with
-<a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.index_select.html#torch.index_select" title="(in PyTorch v2.0)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.index_select()</span></code></a> to rearrange the state tensors. <em>Shape:</em>
+<dd class="field-odd"><p><strong>new_order</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.1)"><em>Tensor</em></a>) – The new order of the batch. It is frequently used with
+<a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.index_select.html#torch.index_select" title="(in PyTorch v2.1)"><code class="xref py py-func docutils literal notranslate"><span class="pre">torch.index_select()</span></code></a> to rearrange the state tensors. <em>Shape:</em>
 <span class="math notranslate nohighlight">\((N)\)</span>, where <span class="math notranslate nohighlight">\(N\)</span> is the batch size.</p>
 </dd>
 </dl>

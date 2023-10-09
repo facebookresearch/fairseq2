@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.nn.transformer.ffn &mdash; fairseq2 0.2.0.dev20231002 documentation</title>
+  <title>fairseq2.nn.transformer.ffn &mdash; fairseq2 0.2.0.dev20231009 documentation</title>
       <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20231002
+                0.2.0.dev20231009
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
@@ -302,7 +302,7 @@
         <span class="o">*</span><span class="p">,</span>
         <span class="n">gate_activation</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Module</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">inner_dim_scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">/</span> <span class="mi">3</span><span class="p">,</span>
-        <span class="n">inner_dim_to_multiple</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="n">inner_dim_to_multiple</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
         <span class="n">inner_dropout_p</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.0</span><span class="p">,</span>
         <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DataType</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -335,7 +335,7 @@
 
         <span class="bp">self</span><span class="o">.</span><span class="n">inner_dim_to_multiple</span> <span class="o">=</span> <span class="n">inner_dim_to_multiple</span>
 
-        <span class="k">if</span> <span class="n">inner_dim_to_multiple</span> <span class="o">!=</span> <span class="mf">1.0</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">inner_dim_to_multiple</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">:</span>
             <span class="n">inner_dim</span> <span class="o">=</span> <span class="n">inner_dim_to_multiple</span> <span class="o">*</span> <span class="p">(</span>
                 <span class="p">(</span><span class="n">inner_dim</span> <span class="o">+</span> <span class="n">inner_dim_to_multiple</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="n">inner_dim_to_multiple</span>
             <span class="p">)</span>

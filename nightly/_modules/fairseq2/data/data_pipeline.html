@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.data_pipeline &mdash; fairseq2 0.2.0.dev20231002 documentation</title>
+  <title>fairseq2.data.data_pipeline &mdash; fairseq2 0.2.0.dev20231009 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20231002
+                0.2.0.dev20231009
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -239,17 +239,25 @@
 <span class="sd">            &quot;&quot;&quot;</span></div>
 
 <div class="viewcode-block" id="DataPipeline.round_robin"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.round_robin">[docs]</a>        <span class="nd">@staticmethod</span>
-        <span class="k">def</span> <span class="nf">round_robin</span><span class="p">(</span><span class="n">pipelines</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="s2">&quot;DataPipeline&quot;</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s2">&quot;DataPipelineBuilder&quot;</span><span class="p">:</span>
+        <span class="k">def</span> <span class="nf">round_robin</span><span class="p">(</span>
+            <span class="n">pipelines</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="s2">&quot;DataPipeline&quot;</span><span class="p">],</span>
+            <span class="n">stop_at_shortest</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;DataPipelineBuilder&quot;</span><span class="p">:</span>
 <span class="w">            </span><span class="sd">&quot;&quot;&quot;Extract examples from ``pipelines`` in round robin.</span>
 
 <span class="sd">            :param pipelines:</span>
 <span class="sd">                The data pipelines to round robin.</span>
+<span class="sd">            :param stop_at_shortest:</span>
+<span class="sd">                If ``True``, stop round_robin when first pipeline reaches its end.</span>
+<span class="sd">                If ``False``, circle around finished pipelines until all pipelines</span>
+<span class="sd">                reach their end.</span>
 <span class="sd">            &quot;&quot;&quot;</span></div>
 
 <div class="viewcode-block" id="DataPipeline.sample"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.sample">[docs]</a>        <span class="nd">@staticmethod</span>
         <span class="k">def</span> <span class="nf">sample</span><span class="p">(</span>
             <span class="n">pipelines</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="s2">&quot;DataPipeline&quot;</span><span class="p">],</span>
             <span class="n">weights</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">stop_at_shortest</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;DataPipelineBuilder&quot;</span><span class="p">:</span>
 <span class="w">            </span><span class="sd">&quot;&quot;&quot;Extract examples from ``pipelines`` by sampling based on ``weights``.</span>
 
@@ -257,6 +265,10 @@
 <span class="sd">                The data pipelines to sample from.</span>
 <span class="sd">            :param weights:</span>
 <span class="sd">                Desired distribution of pipelines. If None, use uniform distribution.</span>
+<span class="sd">            :param stop_at_shortest:</span>
+<span class="sd">                If ``True``, stop sampling when first pipeline reaches its end.</span>
+<span class="sd">                If ``False``, circle around finished pipelines until all pipelines</span>
+<span class="sd">                reach their end.</span>
 <span class="sd">            &quot;&quot;&quot;</span></div>
 
         <span class="nd">@staticmethod</span>

@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Classes &mdash; fairseq2 0.2.0.dev20231002 documentation</title>
+  <title>Classes &mdash; fairseq2 0.2.0.dev20231009 documentation</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -33,7 +33,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20231002
+                0.2.0.dev20231009
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
@@ -151,10 +151,10 @@
 <td><p>Stores embeddings of a fixed dictionary and size.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.IncrementalState.html#fairseq2.nn.IncrementalState" title="fairseq2.nn.IncrementalState"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.IncrementalState</span></code></a></p></td>
-<td><p>Holds the state of a module during an incremental evaluation.</p></td>
+<td><p>Holds the state of a module during incremental decoding.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.IncrementalStateBag.html#fairseq2.nn.IncrementalStateBag" title="fairseq2.nn.IncrementalStateBag"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.IncrementalStateBag</span></code></a></p></td>
-<td><p>Holds the module states during an incremental evaluation.</p></td>
+<td><p>Holds the module states during incremental decoding.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.LearnedPositionEncoder.html#fairseq2.nn.LearnedPositionEncoder" title="fairseq2.nn.LearnedPositionEncoder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.LearnedPositionEncoder</span></code></a></p></td>
 <td><p>Encodes sequences with learned positional embeddings.</p></td>
@@ -172,7 +172,7 @@
 <td><p>Encodes sequences with fixed sinusoidal positional information.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.TiedProjection.html#fairseq2.nn.TiedProjection" title="fairseq2.nn.TiedProjection"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.TiedProjection</span></code></a></p></td>
-<td><p>Applies a linear transformation to incoming data using the weights and bias of another <a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.0)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a> instance.</p></td>
+<td><p>Applies a linear transformation to incoming data using the weights and bias of another <a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.1)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a> instance.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.ALiBiAttentionMaskGenerator.html#fairseq2.nn.transformer.ALiBiAttentionMaskGenerator" title="fairseq2.nn.transformer.ALiBiAttentionMaskGenerator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.ALiBiAttentionMaskGenerator</span></code></a></p></td>
 <td><p>Generates a mask for self attention as described in <span id="id2">Press <em>et al.</em> [<a class="reference internal" href="../bibliography.html#id16" title="Ofir Press, Noah A. Smith, and Mike Lewis. Train short, test long: attention with linear biases enables input length extrapolation. 2021. URL: https://arxiv.org/abs/2108.12409, doi:10.48550/ARXIV.2108.12409.">PSL21</a>]</span>.</p></td>
@@ -180,46 +180,43 @@
 <tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.CausalAttentionMaskGenerator.html#fairseq2.nn.transformer.CausalAttentionMaskGenerator" title="fairseq2.nn.transformer.CausalAttentionMaskGenerator"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.CausalAttentionMaskGenerator</span></code></a></p></td>
 <td><p>Generates a causal attention mask for self attention.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.MultiheadAttentionState.html#fairseq2.nn.transformer.MultiheadAttentionState" title="fairseq2.nn.transformer.MultiheadAttentionState"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.MultiheadAttentionState</span></code></a></p></td>
-<td><p>Holds the state of a <code class="xref py py-class docutils literal notranslate"><span class="pre">MultiheadAttention</span></code> module during an incremental evaluation.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.RelativePositionSDPA.html#fairseq2.nn.transformer.RelativePositionSDPA" title="fairseq2.nn.transformer.RelativePositionSDPA"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.RelativePositionSDPA</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.RelativePositionSDPA.html#fairseq2.nn.transformer.RelativePositionSDPA" title="fairseq2.nn.transformer.RelativePositionSDPA"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.RelativePositionSDPA</span></code></a></p></td>
 <td><p>Computes scaled dot-product attention as described in <span id="id3">Dai <em>et al.</em> [<a class="reference internal" href="../bibliography.html#id5" title="Zihang Dai, Zhilin Yang, Yiming Yang, Jaime Carbonell, Quoc V. Le, and Ruslan Salakhutdinov. Transformer-xl: attentive language models beyond a fixed-length context. 2019. arXiv:1901.02860.">DYY+19</a>]</span>.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardFeedForwardNetwork.html#fairseq2.nn.transformer.StandardFeedForwardNetwork" title="fairseq2.nn.transformer.StandardFeedForwardNetwork"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.StandardFeedForwardNetwork</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardFeedForwardNetwork.html#fairseq2.nn.transformer.StandardFeedForwardNetwork" title="fairseq2.nn.transformer.StandardFeedForwardNetwork"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.StandardFeedForwardNetwork</span></code></a></p></td>
 <td><p>Represents a Transformer feed-forward network as described in <span id="id4">Vaswani <em>et al.</em> [<a class="reference internal" href="../bibliography.html#id4" title="Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser, and Illia Polosukhin. Attention is all you need. 2017. URL: https://arxiv.org/abs/1706.03762, doi:10.48550/ARXIV.1706.03762.">VSP+17</a>]</span>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardMultiheadAttention.html#fairseq2.nn.transformer.StandardMultiheadAttention" title="fairseq2.nn.transformer.StandardMultiheadAttention"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.StandardMultiheadAttention</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardMultiheadAttention.html#fairseq2.nn.transformer.StandardMultiheadAttention" title="fairseq2.nn.transformer.StandardMultiheadAttention"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.StandardMultiheadAttention</span></code></a></p></td>
 <td><p>Represents a Transformer multi-head attention as described in <span id="id5">Vaswani <em>et al.</em> [<a class="reference internal" href="../bibliography.html#id4" title="Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser, and Illia Polosukhin. Attention is all you need. 2017. URL: https://arxiv.org/abs/1706.03762, doi:10.48550/ARXIV.1706.03762.">VSP+17</a>]</span>.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardTransformerDecoder.html#fairseq2.nn.transformer.StandardTransformerDecoder" title="fairseq2.nn.transformer.StandardTransformerDecoder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.StandardTransformerDecoder</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardTransformerDecoder.html#fairseq2.nn.transformer.StandardTransformerDecoder" title="fairseq2.nn.transformer.StandardTransformerDecoder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.StandardTransformerDecoder</span></code></a></p></td>
 <td><p>Represents a Transformer decoder as described in <span id="id6">Vaswani <em>et al.</em> [<a class="reference internal" href="../bibliography.html#id4" title="Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser, and Illia Polosukhin. Attention is all you need. 2017. URL: https://arxiv.org/abs/1706.03762, doi:10.48550/ARXIV.1706.03762.">VSP+17</a>]</span>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardTransformerDecoderLayer.html#fairseq2.nn.transformer.StandardTransformerDecoderLayer" title="fairseq2.nn.transformer.StandardTransformerDecoderLayer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.StandardTransformerDecoderLayer</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardTransformerDecoderLayer.html#fairseq2.nn.transformer.StandardTransformerDecoderLayer" title="fairseq2.nn.transformer.StandardTransformerDecoderLayer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.StandardTransformerDecoderLayer</span></code></a></p></td>
 <td><p>Represents a Transformer decoder layer as described in <span id="id7">Vaswani <em>et al.</em> [<a class="reference internal" href="../bibliography.html#id4" title="Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser, and Illia Polosukhin. Attention is all you need. 2017. URL: https://arxiv.org/abs/1706.03762, doi:10.48550/ARXIV.1706.03762.">VSP+17</a>]</span>.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardTransformerEncoder.html#fairseq2.nn.transformer.StandardTransformerEncoder" title="fairseq2.nn.transformer.StandardTransformerEncoder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.StandardTransformerEncoder</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardTransformerEncoder.html#fairseq2.nn.transformer.StandardTransformerEncoder" title="fairseq2.nn.transformer.StandardTransformerEncoder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.StandardTransformerEncoder</span></code></a></p></td>
 <td><p>Represents a Transformer encoder as described in <span id="id8">Vaswani <em>et al.</em> [<a class="reference internal" href="../bibliography.html#id4" title="Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser, and Illia Polosukhin. Attention is all you need. 2017. URL: https://arxiv.org/abs/1706.03762, doi:10.48550/ARXIV.1706.03762.">VSP+17</a>]</span>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardTransformerEncoderLayer.html#fairseq2.nn.transformer.StandardTransformerEncoderLayer" title="fairseq2.nn.transformer.StandardTransformerEncoderLayer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.StandardTransformerEncoderLayer</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StandardTransformerEncoderLayer.html#fairseq2.nn.transformer.StandardTransformerEncoderLayer" title="fairseq2.nn.transformer.StandardTransformerEncoderLayer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.StandardTransformerEncoderLayer</span></code></a></p></td>
 <td><p>Represents a Transformer encoder layer as described in <span id="id9">Vaswani <em>et al.</em> [<a class="reference internal" href="../bibliography.html#id4" title="Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser, and Illia Polosukhin. Attention is all you need. 2017. URL: https://arxiv.org/abs/1706.03762, doi:10.48550/ARXIV.1706.03762.">VSP+17</a>]</span>.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StoreAttentionWeights.html#fairseq2.nn.transformer.StoreAttentionWeights" title="fairseq2.nn.transformer.StoreAttentionWeights"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.StoreAttentionWeights</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.nn.transformer.StoreAttentionWeights.html#fairseq2.nn.transformer.StoreAttentionWeights" title="fairseq2.nn.transformer.StoreAttentionWeights"><code class="xref py py-obj docutils literal notranslate"><span class="pre">nn.transformer.StoreAttentionWeights</span></code></a></p></td>
 <td><p>Stores attention weights in a provided storage.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.CosineAnnealingLR.html#fairseq2.optim.lr_scheduler.CosineAnnealingLR" title="fairseq2.optim.lr_scheduler.CosineAnnealingLR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">optim.lr_scheduler.CosineAnnealingLR</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.CosineAnnealingLR.html#fairseq2.optim.lr_scheduler.CosineAnnealingLR" title="fairseq2.optim.lr_scheduler.CosineAnnealingLR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">optim.lr_scheduler.CosineAnnealingLR</span></code></a></p></td>
 <td><p>Represents the learning rate schedule described in <span id="id10">Loshchilov and Hutter [<a class="reference internal" href="../bibliography.html#id2" title="Ilya Loshchilov and Frank Hutter. Sgdr: stochastic gradient descent with warm restarts. 2017. arXiv:1608.03983.">LH17</a>]</span>.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.LRSchedulerBase.html#fairseq2.optim.lr_scheduler.LRSchedulerBase" title="fairseq2.optim.lr_scheduler.LRSchedulerBase"><code class="xref py py-obj docutils literal notranslate"><span class="pre">optim.lr_scheduler.LRSchedulerBase</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.LRSchedulerBase.html#fairseq2.optim.lr_scheduler.LRSchedulerBase" title="fairseq2.optim.lr_scheduler.LRSchedulerBase"><code class="xref py py-obj docutils literal notranslate"><span class="pre">optim.lr_scheduler.LRSchedulerBase</span></code></a></p></td>
 <td><p>Represents the abstract base class for learning rate schedulers.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.MyleLR.html#fairseq2.optim.lr_scheduler.MyleLR" title="fairseq2.optim.lr_scheduler.MyleLR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">optim.lr_scheduler.MyleLR</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.MyleLR.html#fairseq2.optim.lr_scheduler.MyleLR" title="fairseq2.optim.lr_scheduler.MyleLR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">optim.lr_scheduler.MyleLR</span></code></a></p></td>
 <td><p>Represents a scaled version of <code class="xref py py-class docutils literal notranslate"><span class="pre">NoamLR</span></code> that preserves the base learning rate of the associated optimizer.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.NoamLR.html#fairseq2.optim.lr_scheduler.NoamLR" title="fairseq2.optim.lr_scheduler.NoamLR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">optim.lr_scheduler.NoamLR</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.NoamLR.html#fairseq2.optim.lr_scheduler.NoamLR" title="fairseq2.optim.lr_scheduler.NoamLR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">optim.lr_scheduler.NoamLR</span></code></a></p></td>
 <td><p>Represents the learning rate schedule described in Section 5.3 of <span id="id11">Vaswani <em>et al.</em> [<a class="reference internal" href="../bibliography.html#id4" title="Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser, and Illia Polosukhin. Attention is all you need. 2017. URL: https://arxiv.org/abs/1706.03762, doi:10.48550/ARXIV.1706.03762.">VSP+17</a>]</span>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.PolynomialDecayLR.html#fairseq2.optim.lr_scheduler.PolynomialDecayLR" title="fairseq2.optim.lr_scheduler.PolynomialDecayLR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">optim.lr_scheduler.PolynomialDecayLR</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.PolynomialDecayLR.html#fairseq2.optim.lr_scheduler.PolynomialDecayLR" title="fairseq2.optim.lr_scheduler.PolynomialDecayLR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">optim.lr_scheduler.PolynomialDecayLR</span></code></a></p></td>
 <td><p>Represents the polynomial decay learning rate schedule.</p></td>
 </tr>
 </tbody>

@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>FeedForwardNetwork &mdash; fairseq2 0.2.0.dev20231002 documentation</title>
+  <title>FeedForwardNetwork &mdash; fairseq2 0.2.0.dev20231009 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -36,7 +36,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20231002
+                0.2.0.dev20231009
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -152,11 +152,11 @@
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.nn.transformer.FeedForwardNetwork">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.nn.transformer.</span></span><span class="sig-name descname"><span class="pre">FeedForwardNetwork</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_dim</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/nn/transformer/ffn.html#FeedForwardNetwork"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.transformer.FeedForwardNetwork" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.0)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
+<dd><p>Bases: <a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.1)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
 <p>Represents a Transformer feed-forward network.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>model_dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – The dimensionality of the model.</p>
+<dd class="field-odd"><p><strong>model_dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><em>int</em></a>) – The dimensionality of the model.</p>
 </dd>
 </dl>
 <dl class="py method">
@@ -164,7 +164,7 @@
 <em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seqs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/nn/transformer/ffn.html#FeedForwardNetwork.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.transformer.FeedForwardNetwork.forward" title="Permalink to this definition"></a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>seqs</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a>) – The sequences to project. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S,M)\)</span>, where <span class="math notranslate nohighlight">\(N\)</span>
+<dd class="field-odd"><p><strong>seqs</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.1)"><em>Tensor</em></a>) – The sequences to project. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S,M)\)</span>, where <span class="math notranslate nohighlight">\(N\)</span>
 is the batch size, <span class="math notranslate nohighlight">\(S\)</span> is the sequence length, and <span class="math notranslate nohighlight">\(M\)</span>
 is the dimensionality of the model.</p>
 </dd>
@@ -172,7 +172,7 @@ is the dimensionality of the model.</p>
 <dd class="field-even"><p>The projected sequences. <em>Shape:</em> Same as <code class="docutils literal notranslate"><span class="pre">seqs</span></code>.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.1)"><em>Tensor</em></a></p>
 </dd>
 </dl>
 </dd></dl>

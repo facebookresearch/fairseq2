@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SinusoidalPositionEncoder &mdash; fairseq2 0.2.0.dev20231002 documentation</title>
+  <title>SinusoidalPositionEncoder &mdash; fairseq2 0.2.0.dev20231009 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -36,7 +36,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20231002
+                0.2.0.dev20231009
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -182,8 +182,8 @@ information.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>encoding_dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – The dimensionality of positional encodings.</p></li>
-<li><p><strong>max_seq_len</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em> | </em><em>None</em>) – The expected maximum sequence length.</p></li>
+<li><p><strong>encoding_dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><em>int</em></a>) – The dimensionality of positional encodings.</p></li>
+<li><p><strong>max_seq_len</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><em>int</em></a><em> | </em><em>None</em>) – The expected maximum sequence length.</p></li>
 </ul>
 </dd>
 </dl>
@@ -193,14 +193,14 @@ information.</p>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>seqs</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a>) – The sequences to encode with positional information. <em>Shape:</em>
+<li><p><strong>seqs</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.1)"><em>Tensor</em></a>) – The sequences to encode with positional information. <em>Shape:</em>
 <span class="math notranslate nohighlight">\((*,S,E)\)</span>, where <span class="math notranslate nohighlight">\(*\)</span> is any number of batch dimensions
 including none, <span class="math notranslate nohighlight">\(S\)</span> is the sequence length, and <span class="math notranslate nohighlight">\(E\)</span> is
 the dimensionality of the positional encodings.</p></li>
-<li><p><strong>padding_mask</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a><em> | </em><em>None</em>) – The float padding mask of <code class="docutils literal notranslate"><span class="pre">seqs</span></code>. <em>Shape:</em> <span class="math notranslate nohighlight">\((*,S)\)</span>, where
+<li><p><strong>padding_mask</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.1)"><em>Tensor</em></a><em> | </em><em>None</em>) – The float padding mask of <code class="docutils literal notranslate"><span class="pre">seqs</span></code>. <em>Shape:</em> <span class="math notranslate nohighlight">\((*,S)\)</span>, where
 <span class="math notranslate nohighlight">\(*\)</span> is any number of batch dimensions including none and
 <span class="math notranslate nohighlight">\(S\)</span> is the sequence length.</p></li>
-<li><p><strong>state_bag</strong> (<a class="reference internal" href="fairseq2.nn.IncrementalStateBag.html#fairseq2.nn.IncrementalStateBag" title="fairseq2.nn.incremental_state.IncrementalStateBag"><em>IncrementalStateBag</em></a><em> | </em><em>None</em>) – The state bag to use for incremental evaluation.</p></li>
+<li><p><strong>state_bag</strong> (<a class="reference internal" href="fairseq2.nn.IncrementalStateBag.html#fairseq2.nn.IncrementalStateBag" title="fairseq2.nn.incremental_state.IncrementalStateBag"><em>IncrementalStateBag</em></a><em> | </em><em>None</em>) – The state bag to use for incremental decoding.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -208,7 +208,7 @@ the dimensionality of the positional encodings.</p></li>
 Same as <code class="docutils literal notranslate"><span class="pre">seqs</span></code>.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.1)"><em>Tensor</em></a></p>
 </dd>
 </dl>
 </dd></dl>

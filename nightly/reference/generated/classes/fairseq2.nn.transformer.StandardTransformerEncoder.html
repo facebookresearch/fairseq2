@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>StandardTransformerEncoder &mdash; fairseq2 0.2.0.dev20231002 documentation</title>
+  <title>StandardTransformerEncoder &mdash; fairseq2 0.2.0.dev20231009 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -36,7 +36,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20231002
+                0.2.0.dev20231009
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -159,7 +159,7 @@
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>layers</strong> (<a class="reference internal" href="fairseq2.nn.ModuleList.html#fairseq2.nn.ModuleList" title="fairseq2.nn.module_list.ModuleList"><em>ModuleList</em></a>) – The encoder layers.</p></li>
-<li><p><strong>layer_drop_p</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.11)"><em>float</em></a>) – If greater than zero, applies LayerDrop to the encoder layers as
+<li><p><strong>layer_drop_p</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.12)"><em>float</em></a>) – If greater than zero, applies LayerDrop to the encoder layers as
 described in <span id="id2">Fan <em>et al.</em> [<a class="reference internal" href="../../../bibliography.html#id6" title="Angela Fan, Edouard Grave, and Armand Joulin. Reducing transformer depth on demand with structured dropout. 2019. URL: https://arxiv.org/abs/1909.11556, doi:10.48550/ARXIV.1909.11556.">FGJ19</a>]</span>.</p></li>
 <li><p><strong>norm_order</strong> (<a class="reference internal" href="../enums/fairseq2.nn.transformer.TransformerNormOrder.html#fairseq2.nn.transformer.TransformerNormOrder" title="fairseq2.nn.transformer.norm_order.TransformerNormOrder"><em>TransformerNormOrder</em></a>) – The Layer Normalization order to use.</p></li>
 <li><p><strong>layer_norm_fn</strong> (<em>LayerNormFactory</em><em> | </em><em>None</em>) – The factory to use to construct the Layer Normalization module.</p></li>
@@ -172,10 +172,10 @@ described in <span id="id2">Fan <em>et al.</em> [<a class="reference internal" h
 <dd><dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>seqs</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a>) – The sequences to encode. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S,M)\)</span>, where <span class="math notranslate nohighlight">\(N\)</span>
+<li><p><strong>seqs</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.1)"><em>Tensor</em></a>) – The sequences to encode. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S,M)\)</span>, where <span class="math notranslate nohighlight">\(N\)</span>
 is the batch size, <span class="math notranslate nohighlight">\(S\)</span> is the sequence length, and <span class="math notranslate nohighlight">\(M\)</span>
 is the dimensionality of the model.</p></li>
-<li><p><strong>padding_mask</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a><em> | </em><em>None</em>) – The float padding mask of <code class="docutils literal notranslate"><span class="pre">seqs</span></code>. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S)\)</span>, where
+<li><p><strong>padding_mask</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.1)"><em>Tensor</em></a><em> | </em><em>None</em>) – The float padding mask of <code class="docutils literal notranslate"><span class="pre">seqs</span></code>. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S)\)</span>, where
 <span class="math notranslate nohighlight">\(N\)</span> is the batch size and <span class="math notranslate nohighlight">\(S\)</span> is the sequence length.</p></li>
 <li><p><strong>layer_output_hook</strong> (<em>EncoderLayerOutputHook</em><em> | </em><em>None</em>) – If not <code class="docutils literal notranslate"><span class="pre">None</span></code>, it will be called with the output of each layer in
 the encoder stack.</p></li>
@@ -190,7 +190,7 @@ the encoder stack.</p></li>
 </p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.11)"><em>Tuple</em></a>[<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a>, <a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a> | None]</p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.12)"><em>Tuple</em></a>[<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.1)"><em>Tensor</em></a>, <a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.1)"><em>Tensor</em></a> | None]</p>
 </dd>
 </dl>
 </dd></dl>

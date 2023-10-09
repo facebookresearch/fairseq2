@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Linear &mdash; fairseq2 0.2.0.dev20231002 documentation</title>
+  <title>Linear &mdash; fairseq2 0.2.0.dev20231009 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -36,7 +36,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20231002
+                0.2.0.dev20231009
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -159,15 +159,15 @@
 <span class="math notranslate nohighlight">\(k = \frac{1}{\text{input_dim}}\)</span>.</p>
 <div class="admonition note">
 <p class="admonition-title">Note</p>
-<p>This class is identical to <a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.Linear.html#torch.nn.Linear" title="(in PyTorch v2.0)"><code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.Linear</span></code></a>.</p>
+<p>This class is identical to <a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.Linear.html#torch.nn.Linear" title="(in PyTorch v2.1)"><code class="xref py py-class docutils literal notranslate"><span class="pre">torch.nn.Linear</span></code></a>.</p>
 </div>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>input_dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – The dimensionality of inputs.</p></li>
-<li><p><strong>output_dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – The dimensionality of projected outputs.</p></li>
-<li><p><strong>bias</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.parameter.Parameter.html#torch.nn.parameter.Parameter" title="(in PyTorch v2.0)"><em>Parameter</em></a><em> | </em><em>None</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, learns an additive bias.</p></li>
-<li><p><strong>skip_init</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – <p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, the weights and bias will be left uninitialized, and
+<li><p><strong>input_dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><em>int</em></a>) – The dimensionality of inputs.</p></li>
+<li><p><strong>output_dim</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><em>int</em></a>) – The dimensionality of projected outputs.</p></li>
+<li><p><strong>bias</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.parameter.Parameter.html#torch.nn.parameter.Parameter" title="(in PyTorch v2.1)"><em>Parameter</em></a><em> | </em><em>None</em>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, learns an additive bias.</p></li>
+<li><p><strong>skip_init</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.12)"><em>bool</em></a>) – <p>If <code class="docutils literal notranslate"><span class="pre">True</span></code>, the weights and bias will be left uninitialized, and
 <a class="reference internal" href="#fairseq2.nn.Linear.reset_parameters" title="fairseq2.nn.Linear.reset_parameters"><code class="xref py py-meth docutils literal notranslate"><span class="pre">reset_parameters()</span></code></a> will become noop.</p>
 <p>This parameter is intended to be used by module authors who want to
 use a different weight initialization method in their modules.</p>
@@ -180,7 +180,7 @@ use a different weight initialization method in their modules.</p>
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/nn/projection.html#Linear.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.Linear.forward" title="Permalink to this definition"></a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>x</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a>) – The input to project. <em>Shape:</em> <span class="math notranslate nohighlight">\((*,H_{inp})\)</span>, where
+<dd class="field-odd"><p><strong>x</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.1)"><em>Tensor</em></a>) – The input to project. <em>Shape:</em> <span class="math notranslate nohighlight">\((*,H_{inp})\)</span>, where
 <span class="math notranslate nohighlight">\(H_{inp}\)</span> is the input dimensionality.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -189,7 +189,7 @@ the last dimension are the same shape as the input and
 <span class="math notranslate nohighlight">\(H_{out}\)</span> is the output dimensionality.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.1)"><em>Tensor</em></a></p>
 </dd>
 </dl>
 </dd></dl>

@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TiedProjection &mdash; fairseq2 0.2.0.dev20231002 documentation</title>
+  <title>TiedProjection &mdash; fairseq2 0.2.0.dev20231009 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -36,7 +36,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20231002
+                0.2.0.dev20231009
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -154,12 +154,12 @@
 <em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.nn.</span></span><span class="sig-name descname"><span class="pre">TiedProjection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">weight</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bias</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/nn/projection.html#TiedProjection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.TiedProjection" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference internal" href="../abc/fairseq2.nn.Projection.html#fairseq2.nn.Projection" title="fairseq2.nn.projection.Projection"><code class="xref py py-class docutils literal notranslate"><span class="pre">Projection</span></code></a></p>
 <p>Applies a linear transformation to incoming data using the weights and
-bias of another <a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.0)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a> instance.</p>
+bias of another <a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module" title="(in PyTorch v2.1)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Module</span></code></a> instance.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>weight</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.parameter.Parameter.html#torch.nn.parameter.Parameter" title="(in PyTorch v2.0)"><em>Parameter</em></a>) – The shared weights.</p></li>
-<li><p><strong>bias</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.parameter.Parameter.html#torch.nn.parameter.Parameter" title="(in PyTorch v2.0)"><em>Parameter</em></a><em> | </em><em>None</em>) – The shared bias.</p></li>
+<li><p><strong>weight</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.parameter.Parameter.html#torch.nn.parameter.Parameter" title="(in PyTorch v2.1)"><em>Parameter</em></a>) – The shared weights.</p></li>
+<li><p><strong>bias</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/generated/torch.nn.parameter.Parameter.html#torch.nn.parameter.Parameter" title="(in PyTorch v2.1)"><em>Parameter</em></a><em> | </em><em>None</em>) – The shared bias.</p></li>
 </ul>
 </dd>
 </dl>
@@ -168,7 +168,7 @@ bias of another <a class="reference external" href="https://pytorch.org/docs/sta
 <span class="sig-name descname"><span class="pre">forward</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/nn/projection.html#TiedProjection.forward"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.TiedProjection.forward" title="Permalink to this definition"></a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>x</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a>) – The input to project. <em>Shape:</em> <span class="math notranslate nohighlight">\((*,H_{inp})\)</span>, where
+<dd class="field-odd"><p><strong>x</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.1)"><em>Tensor</em></a>) – The input to project. <em>Shape:</em> <span class="math notranslate nohighlight">\((*,H_{inp})\)</span>, where
 <span class="math notranslate nohighlight">\(H_{inp}\)</span> is the input dimensionality.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
@@ -177,7 +177,7 @@ the last dimension are the same shape as the input and
 <span class="math notranslate nohighlight">\(H_{out}\)</span> is the output dimensionality.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.1)"><em>Tensor</em></a></p>
 </dd>
 </dl>
 </dd></dl>

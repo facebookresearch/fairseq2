@@ -19,7 +19,6 @@ Classes
     nn.TiedProjection
     nn.transformer.ALiBiAttentionMaskGenerator
     nn.transformer.CausalAttentionMaskGenerator
-    nn.transformer.MultiheadAttentionState
     nn.transformer.RelativePositionSDPA
     nn.transformer.StandardFeedForwardNetwork
     nn.transformer.StandardMultiheadAttention

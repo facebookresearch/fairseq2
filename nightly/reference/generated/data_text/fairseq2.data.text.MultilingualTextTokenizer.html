@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MultilingualTextTokenizer &mdash; fairseq2 0.2.0.dev20231002 documentation</title>
+  <title>MultilingualTextTokenizer &mdash; fairseq2 0.2.0.dev20231009 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -35,7 +35,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20231002
+                0.2.0.dev20231009
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -156,13 +156,13 @@
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>pathname</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em> | </em><a class="reference internal" href="../data/fairseq2.data.CString.html#fairseq2.data.CString" title="fairseq2.data.cstring.CString"><em>CString</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/library/os.html#os.PathLike" title="(in Python v3.11)"><em>os.PathLike</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em>) – The pathname of the SentencePiece model file.</p></li>
-<li><p><strong>task</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – A user-defined task. It is not used by the tokenizer, but will be
+<li><p><strong>pathname</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a><em> | </em><a class="reference internal" href="../data/fairseq2.data.CString.html#fairseq2.data.CString" title="fairseq2.data.cstring.CString"><em>CString</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/library/os.html#os.PathLike" title="(in Python v3.12)"><em>os.PathLike</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a><em>]</em>) – The pathname of the SentencePiece model file.</p></li>
+<li><p><strong>task</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a>) – A user-defined task. It is not used by the tokenizer, but will be
 validated in <a class="reference internal" href="#fairseq2.data.text.MultilingualTextTokenizer.create_encoder" title="fairseq2.data.text.MultilingualTextTokenizer.create_encoder"><code class="xref py py-meth docutils literal notranslate"><span class="pre">create_encoder()</span></code></a>.</p></li>
-<li><p><strong>source_langs</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Set" title="(in Python v3.11)"><em>Set</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em>) – The list of supported source languages.</p></li>
-<li><p><strong>target_langs</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Set" title="(in Python v3.11)"><em>Set</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em>]</em>) – The list of supported target languages.</p></li>
-<li><p><strong>default_source_lang</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – The fall-back language if no source language is specified.</p></li>
-<li><p><strong>default_target_lang</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a>) – The fall-back language if no target language is specified.</p></li>
+<li><p><strong>source_langs</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Set" title="(in Python v3.12)"><em>Set</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a><em>]</em>) – The list of supported source languages.</p></li>
+<li><p><strong>target_langs</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Set" title="(in Python v3.12)"><em>Set</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a><em>]</em>) – The list of supported target languages.</p></li>
+<li><p><strong>default_source_lang</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a>) – The fall-back language if no source language is specified.</p></li>
+<li><p><strong>default_target_lang</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a>) – The fall-back language if no target language is specified.</p></li>
 </ul>
 </dd>
 </dl>
@@ -184,16 +184,16 @@ validated in <a class="reference internal" href="#fairseq2.data.text.Multilingua
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>task</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em> | </em><em>None</em>) – Must match <code class="xref py py-attr docutils literal notranslate"><span class="pre">task</span></code>. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, defaults to <code class="xref py py-attr docutils literal notranslate"><span class="pre">task</span></code>.</p></li>
-<li><p><strong>lang</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em> | </em><em>None</em>) – A language from <code class="xref py py-attr docutils literal notranslate"><span class="pre">source_langs</span></code> if <code class="docutils literal notranslate"><span class="pre">mode</span></code> is ‘source’, or a
+<li><p><strong>task</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a><em> | </em><em>None</em>) – Must match <code class="xref py py-attr docutils literal notranslate"><span class="pre">task</span></code>. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, defaults to <code class="xref py py-attr docutils literal notranslate"><span class="pre">task</span></code>.</p></li>
+<li><p><strong>lang</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a><em> | </em><em>None</em>) – A language from <code class="xref py py-attr docutils literal notranslate"><span class="pre">source_langs</span></code> if <code class="docutils literal notranslate"><span class="pre">mode</span></code> is ‘source’, or a
 language from <code class="xref py py-attr docutils literal notranslate"><span class="pre">target_langs</span></code> if <code class="docutils literal notranslate"><span class="pre">mode</span></code> is ‘target’. If
 <code class="docutils literal notranslate"><span class="pre">None</span></code>, defaults to either <code class="xref py py-attr docutils literal notranslate"><span class="pre">default_source_lang</span></code> or
 <code class="xref py py-attr docutils literal notranslate"><span class="pre">default_target_lang</span></code> depending on <code class="docutils literal notranslate"><span class="pre">mode</span></code>.</p></li>
-<li><p><strong>mode</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.11)"><em>str</em></a><em> | </em><em>None</em>) – Must be ‘source’ or ‘target’. Set to ‘source’ if <code class="docutils literal notranslate"><span class="pre">lang</span></code> is the
+<li><p><strong>mode</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a><em> | </em><em>None</em>) – Must be ‘source’ or ‘target’. Set to ‘source’ if <code class="docutils literal notranslate"><span class="pre">lang</span></code> is the
 source language; set to ‘target’ if <code class="docutils literal notranslate"><span class="pre">lang</span></code> is the target language.
 If <code class="docutils literal notranslate"><span class="pre">None</span></code>, defaults to ‘source’.</p></li>
-<li><p><strong>device</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensor_attributes.html#torch.device" title="(in PyTorch v2.0)"><em>device</em></a><em> | </em><em>None</em>) – The device on which to construct tensors.</p></li>
-<li><p><strong>pin_memory</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.11)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, uses pinned memory while constructing tensors.</p></li>
+<li><p><strong>device</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensor_attributes.html#torch.device" title="(in PyTorch v2.1)"><em>device</em></a><em> | </em><em>None</em>) – The device on which to construct tensors.</p></li>
+<li><p><strong>pin_memory</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.12)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, uses pinned memory while constructing tensors.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>

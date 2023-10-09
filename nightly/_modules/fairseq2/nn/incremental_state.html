@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.nn.incremental_state &mdash; fairseq2 0.2.0.dev20231002 documentation</title>
+  <title>fairseq2.nn.incremental_state &mdash; fairseq2 0.2.0.dev20231009 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20231002
+                0.2.0.dev20231009
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -157,12 +157,12 @@
 
 
 <div class="viewcode-block" id="IncrementalState"><a class="viewcode-back" href="../../../reference/generated/classes/fairseq2.nn.IncrementalState.html#fairseq2.nn.IncrementalState">[docs]</a><span class="k">class</span> <span class="nc">IncrementalState</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Holds the state of a module during an incremental evaluation.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Holds the state of a module during incremental decoding.</span>
 
-<span class="sd">    Incremental evaluation is a special mode where the module only receives an</span>
-<span class="sd">    input corresponding to the previous output and must produce the next output</span>
-<span class="sd">    incrementally. Thus the module must cache any long-term state that is needed</span>
-<span class="sd">    about the sequence.</span>
+<span class="sd">    Incremental decoding is a special mode at inference time where the module</span>
+<span class="sd">    only receives an input corresponding to the previous output and must produce</span>
+<span class="sd">    the next output incrementally. Thus the module must cache any long-term</span>
+<span class="sd">    state that is needed about the sequence.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="IncrementalState.reorder"><a class="viewcode-back" href="../../../reference/generated/classes/fairseq2.nn.IncrementalState.html#fairseq2.nn.IncrementalState.reorder">[docs]</a>    <span class="nd">@abstractmethod</span>
@@ -184,32 +184,40 @@
 
 
 <div class="viewcode-block" id="IncrementalStateBag"><a class="viewcode-back" href="../../../reference/generated/classes/fairseq2.nn.IncrementalStateBag.html#fairseq2.nn.IncrementalStateBag">[docs]</a><span class="k">class</span> <span class="nc">IncrementalStateBag</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Holds the module states during an incremental evaluation.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Holds the module states during incremental decoding.&quot;&quot;&quot;</span>
 
-    <span class="n">_step</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">step</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">max_num_steps</span><span class="p">:</span> <span class="nb">int</span>
+
     <span class="n">_module_states</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="n">Module</span><span class="p">,</span> <span class="n">IncrementalState</span><span class="p">]</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_step</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">max_num_steps</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param max_num_steps:</span>
+<span class="sd">            The expected maximum number of steps to take.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_num_steps</span> <span class="o">=</span> <span class="n">max_num_steps</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_module_states</span> <span class="o">=</span> <span class="p">{}</span>
-
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">step</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the current step in the sequence.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_step</span>
 
 <div class="viewcode-block" id="IncrementalStateBag.increment_step"><a class="viewcode-back" href="../../../reference/generated/classes/fairseq2.nn.IncrementalStateBag.html#fairseq2.nn.IncrementalStateBag.increment_step">[docs]</a>    <span class="k">def</span> <span class="nf">increment_step</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">delta</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Increment the step.</span>
 
-<span class="sd">        This method should be called after every incremental evaluation (e.g.</span>
-<span class="sd">        beam search) step. It is used by modules to keep track of the position</span>
-<span class="sd">        in the sequence.</span>
+<span class="sd">        This method should be called after every decoding step. It is used by</span>
+<span class="sd">        modules to keep track of the position in the sequence.</span>
 
 <span class="sd">        :param delta:</span>
 <span class="sd">            The value by which to increment the step.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_step</span> <span class="o">+=</span> <span class="n">delta</span></div>
+        <span class="n">step</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">+</span> <span class="n">delta</span>
+
+        <span class="k">if</span> <span class="n">step</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_num_steps</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;The `delta` increment (</span><span class="si">{</span><span class="n">delta</span><span class="si">}</span><span class="s2">) to the current step (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">step</span><span class="si">}</span><span class="s2">) exceeds the maximum number of steps (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">max_num_steps</span><span class="si">}</span><span class="s2">).&quot;</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">step</span> <span class="o">=</span> <span class="n">step</span></div>
 
 <div class="viewcode-block" id="IncrementalStateBag.get_state"><a class="viewcode-back" href="../../../reference/generated/classes/fairseq2.nn.IncrementalStateBag.html#fairseq2.nn.IncrementalStateBag.get_state">[docs]</a>    <span class="k">def</span> <span class="nf">get_state</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">m</span><span class="p">:</span> <span class="n">Module</span><span class="p">,</span> <span class="n">kls</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">T</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">T</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the incremental state of ``m``, or ``None`` if ``m`` is not</span>

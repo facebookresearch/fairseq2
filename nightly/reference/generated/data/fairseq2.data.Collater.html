@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Collater &mdash; fairseq2 0.2.0.dev20231002 documentation</title>
+  <title>Collater &mdash; fairseq2 0.2.0.dev20231009 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -35,7 +35,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20231002
+                0.2.0.dev20231009
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -151,7 +151,7 @@
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.data.Collater">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.data.</span></span><span class="sig-name descname"><span class="pre">Collater</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pad_idx</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pad_to_multiple</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overrides</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#Collater"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.Collater" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Concatenate a list of inputs into a single inputs.</p>
 <p>Used to create batches.
 If all tensors in the input example have the same last dimension,
@@ -172,10 +172,10 @@ For a dict of lists, it returns a dict of lists.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>pad_idx</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a><em> | </em><em>None</em>) – When concatenating tensors of different lengths,
+<li><p><strong>pad_idx</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><em>int</em></a><em> | </em><em>None</em>) – When concatenating tensors of different lengths,
 the value used to pad the shortest tensor</p></li>
-<li><p><strong>pad_to_multiple</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.11)"><em>int</em></a>) – Always pad to a length of that multiple.</p></li>
-<li><p><strong>overrides</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.11)"><em>Sequence</em></a><em>[</em><a class="reference internal" href="fairseq2.data.CollateOptionsOverride.html#fairseq2.data.CollateOptionsOverride" title="fairseq2.data.data_pipeline.CollateOptionsOverride"><em>CollateOptionsOverride</em></a><em>] </em><em>| </em><em>None</em>) – List of overrides <a class="reference internal" href="fairseq2.data.CollateOptionsOverride.html#fairseq2.data.CollateOptionsOverride" title="fairseq2.data.CollateOptionsOverride"><code class="xref py py-class docutils literal notranslate"><span class="pre">CollateOptionsOverride</span></code></a>.
+<li><p><strong>pad_to_multiple</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><em>int</em></a>) – Always pad to a length of that multiple.</p></li>
+<li><p><strong>overrides</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.12)"><em>Sequence</em></a><em>[</em><a class="reference internal" href="fairseq2.data.CollateOptionsOverride.html#fairseq2.data.CollateOptionsOverride" title="fairseq2.data.data_pipeline.CollateOptionsOverride"><em>CollateOptionsOverride</em></a><em>] </em><em>| </em><em>None</em>) – List of overrides <a class="reference internal" href="fairseq2.data.CollateOptionsOverride.html#fairseq2.data.CollateOptionsOverride" title="fairseq2.data.CollateOptionsOverride"><code class="xref py py-class docutils literal notranslate"><span class="pre">CollateOptionsOverride</span></code></a>.
 Allows to override <code class="docutils literal notranslate"><span class="pre">pad_idx</span></code> and <code class="docutils literal notranslate"><span class="pre">pad_to_multiple</span></code> for specific columns.</p></li>
 </ul>
 </dd>
@@ -186,7 +186,7 @@ Allows to override <code class="docutils literal notranslate"><span class="pre">
 <dd><p>Concatenate the input tensors</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.11)"><em>Any</em></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.12)"><em>Any</em></a></p>
 </dd>
 </dl>
 </dd></dl>

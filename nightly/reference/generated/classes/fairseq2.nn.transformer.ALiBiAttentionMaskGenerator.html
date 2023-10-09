@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ALiBiAttentionMaskGenerator &mdash; fairseq2 0.2.0.dev20231002 documentation</title>
+  <title>ALiBiAttentionMaskGenerator &mdash; fairseq2 0.2.0.dev20231009 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -36,7 +36,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20231002
+                0.2.0.dev20231009
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -152,7 +152,7 @@
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.nn.transformer.ALiBiAttentionMaskGenerator">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.nn.transformer.</span></span><span class="sig-name descname"><span class="pre">ALiBiAttentionMaskGenerator</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">num_heads</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/nn/transformer/attention_mask.html#ALiBiAttentionMaskGenerator"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.transformer.ALiBiAttentionMaskGenerator" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Generates a mask for self attention as described in
 <span id="id1">Press <em>et al.</em> [<a class="reference internal" href="../../../bibliography.html#id16" title="Ofir Press, Noah A. Smith, and Mike Lewis. Train short, test long: attention with linear biases enables input length extrapolation. 2021. URL: https://arxiv.org/abs/2108.12409, doi:10.48550/ARXIV.2108.12409.">PSL21</a>]</span>.</p>
 <div class="admonition note">
@@ -166,7 +166,7 @@
 <span class="sig-name descname"><span class="pre">__call__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">seqs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/nn/transformer/attention_mask.html#ALiBiAttentionMaskGenerator.__call__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.transformer.ALiBiAttentionMaskGenerator.__call__" title="Permalink to this definition"></a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>seqs</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a>) – The sequences for which to generate the mask. <em>Shape:</em>
+<dd class="field-odd"><p><strong>seqs</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.1)"><em>Tensor</em></a>) – The sequences for which to generate the mask. <em>Shape:</em>
 <span class="math notranslate nohighlight">\((N,S,M)\)</span>, where <span class="math notranslate nohighlight">\(N\)</span> is the batch size, <span class="math notranslate nohighlight">\(S\)</span> is the
 sequence length, and <span class="math notranslate nohighlight">\(M\)</span> is the dimensionality of the model.</p>
 </dd>
@@ -176,7 +176,7 @@ is the sequence length and <span class="math notranslate nohighlight">\(H\)</spa
 heads.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a></p>
+<dd class="field-odd"><p><a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.1)"><em>Tensor</em></a></p>
 </dd>
 </dl>
 </dd></dl>

@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AttentionWeightHook &mdash; fairseq2 0.2.0.dev20231002 documentation</title>
+  <title>AttentionWeightHook &mdash; fairseq2 0.2.0.dev20231009 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -36,7 +36,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20231002
+                0.2.0.dev20231009
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -152,7 +152,7 @@
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.nn.transformer.AttentionWeightHook">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.nn.transformer.</span></span><span class="sig-name descname"><span class="pre">AttentionWeightHook</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/nn/transformer/multihead_attention.html#AttentionWeightHook"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.nn.transformer.AttentionWeightHook" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Protocol" title="(in Python v3.11)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Protocol</span></code></a></p>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Protocol" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">Protocol</span></code></a></p>
 <p>Represents a hook to pass to
 <a class="reference internal" href="fairseq2.nn.transformer.MultiheadAttention.html#fairseq2.nn.transformer.MultiheadAttention.register_attn_weight_hook" title="fairseq2.nn.transformer.MultiheadAttention.register_attn_weight_hook"><code class="xref py py-meth docutils literal notranslate"><span class="pre">register_attn_weight_hook()</span></code></a>.</p>
 <dl class="py method">
@@ -162,10 +162,10 @@
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>m</strong> (<a class="reference internal" href="fairseq2.nn.transformer.MultiheadAttention.html#fairseq2.nn.transformer.MultiheadAttention" title="fairseq2.nn.transformer.multihead_attention.MultiheadAttention"><em>MultiheadAttention</em></a>) – The module that has computed the attention weights.</p></li>
-<li><p><strong>attn</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a>) – The computed attention values. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S,V)\)</span>, where
+<li><p><strong>attn</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.1)"><em>Tensor</em></a>) – The computed attention values. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S,V)\)</span>, where
 <span class="math notranslate nohighlight">\(N\)</span> is the batch size, <span class="math notranslate nohighlight">\(S\)</span> is the sequence length, and
 <span class="math notranslate nohighlight">\(V\)</span> is the value size.</p></li>
-<li><p><strong>attn_weights</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.0)"><em>Tensor</em></a>) – The computed attention weights. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S,S_{kv})\)</span>, where
+<li><p><strong>attn_weights</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.1)"><em>Tensor</em></a>) – The computed attention weights. <em>Shape:</em> <span class="math notranslate nohighlight">\((N,S,S_{kv})\)</span>, where
 <span class="math notranslate nohighlight">\(N\)</span> is the batch size, <span class="math notranslate nohighlight">\(S\)</span> is the sequence length, and
 <span class="math notranslate nohighlight">\(S_{kv}\)</span> is the key/value sequence length.</p></li>
 </ul>
