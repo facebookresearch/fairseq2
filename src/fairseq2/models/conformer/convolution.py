@@ -8,6 +8,7 @@ from typing import Optional
 
 from torch import Tensor
 from torch.nn import GLU, BatchNorm1d, Conv1d, Module, SiLU
+from torch.nn.functional import pad
 
 from fairseq2.nn.normalization import LayerNorm, StandardLayerNorm
 from fairseq2.nn.utils.mask import apply_padding_mask
@@ -22,6 +23,8 @@ class ConformerConvolution(Module):
     pointwise_conv1: Conv1d
     pointwise_conv1_activation: GLU
     depthwise_conv: Conv1d
+    depthwise_kernel_size: int
+    causal_depthwise_conv: bool
     batch_norm: Optional[BatchNorm1d]
     layer_norm: Optional[LayerNorm]
     depthwise_activation: Module
@@ -32,6 +35,7 @@ class ConformerConvolution(Module):
         model_dim: int,
         depthwise_kernel_size: int,
         *,
+        causal_depthwise_conv: bool = False,
         norm_type: str = "batch_norm",
         depthwise_activation: Optional[Module] = None,
         device: Optional[Device] = None,
@@ -42,6 +46,9 @@ class ConformerConvolution(Module):
             The dimensionality of the model.
         :param depthwise_kernel_size:
             The kernel size of the depthwise convolution.
+        :param causal_depthwise_conv:
+            If True, uses a causal depthwise convolution similar to that described in
+            Section 2.1 of :cite:t:`https://doi.org/10.48550/arxiv.1609.03499`.
         :param norm_type:
             The type of norm layer applied after the depthwise convolution.
         :param depthwise_activation:
@@ -71,13 +78,15 @@ class ConformerConvolution(Module):
             model_dim,
             depthwise_kernel_size,
             # We preserve the sequence length regardless of the kernel size.
-            padding="same",
+            padding="same" if not causal_depthwise_conv else 0,
             # We want to perform depthwise convolution.
             groups=model_dim,
             bias=False,
             device=device,
             dtype=dtype,
         )
+        self.depthwise_kernel_size = depthwise_kernel_size
+        self.causal_depthwise_conv = causal_depthwise_conv
 
         if norm_type not in ("batch_norm", "layer_norm"):
             raise ValueError(
@@ -135,6 +144,10 @@ class ConformerConvolution(Module):
 
         # (N, 2 * M, S) -> (N, M, S)
         seqs = self.pointwise_conv1_activation(seqs)
+
+        # Pad the sequence entirely on the left in the case of a causal convolution.
+        if self.causal_depthwise_conv:
+            seqs = pad(seqs, (self.depthwise_kernel_size - 1, 0))
 
         # (N, M, S) -> (N, M, S)
         seqs = self.depthwise_conv(seqs)
