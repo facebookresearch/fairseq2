@@ -18,13 +18,13 @@ from fairseq2.typing import DataType, Device, finaloverride
 
 @final
 class ShawRelativePositionSDPA(SDPA):
-    """Computes relative position scaled dot-product attention
-    as described in :cite:t:`https://doi.org/10.48550/arxiv.1803.02155`."""
+    """Computes scaled dot-product attention as described in
+    :cite:t:`https://doi.org/10.48550/arxiv.1803.02155`."""
 
     model_dim: int
     num_heads: int
     max_left_rel_pos: int
-    max_right_rel_pos: Optional[int]
+    max_right_rel_pos: int
     rel_k_embed: StandardEmbedding
     rel_v_embed: Optional[StandardEmbedding]
 
@@ -50,7 +50,7 @@ class ShawRelativePositionSDPA(SDPA):
         :param: max_right_rel_pos:
             The right clipping value for relative positions.
         :param: use_rel_pos_values:
-            If True, also uses relative position values to compute relative attention.
+            If ``True``, uses relative position values to compute attention.
         :param attn_dropout_p:
             The dropout probability on attention weights.
         """
@@ -67,30 +67,27 @@ class ShawRelativePositionSDPA(SDPA):
         head_dim = model_dim // num_heads
 
         self.max_left_rel_pos = max_left_rel_pos
+
         self.max_right_rel_pos = (
-            max_right_rel_pos if max_right_rel_pos is not None else max_left_rel_pos
+            max_left_rel_pos if max_right_rel_pos is None else max_right_rel_pos
         )
+
         num_pos = self.max_left_rel_pos + 1 + self.max_right_rel_pos
 
         self.rel_k_embed = StandardEmbedding(
-            num_pos, head_dim, device=device, dtype=dtype
+            num_pos, head_dim, init_fn=init_shaw_embedding, device=device, dtype=dtype
         )
 
         if use_rel_pos_values:
             self.rel_v_embed = StandardEmbedding(
-                num_pos, head_dim, device=device, dtype=dtype
+                num_pos,
+                head_dim,
+                init_fn=init_shaw_embedding,
+                device=device,
+                dtype=dtype,
             )
         else:
             self.register_module("rel_v_embed", None)
-
-        self.reset_parameters()
-
-    def reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
-        nn.init.xavier_uniform_(self.rel_k_embed.weight)
-
-        if self.rel_v_embed is not None:
-            nn.init.xavier_uniform_(self.rel_v_embed.weight)
 
     @finaloverride
     def forward(
@@ -166,3 +163,8 @@ class ShawRelativePositionSDPA(SDPA):
             f"max_left_rel_pos={self.max_left_rel_pos}, "
             f"max_right_rel_pos={self.max_right_rel_pos}"
         )
+
+
+def init_shaw_embedding(embed: StandardEmbedding) -> None:
+    """Initialize ``embed`` for use in :class:`ShawRelativePositionSDPA`."""
+    nn.init.xavier_uniform_(embed.weight)

@@ -8,15 +8,16 @@ from dataclasses import dataclass
 from typing import Optional
 
 from fairseq2.models.transformer import (
-    FinalProjection,
     TransformerDecoderModel,
     TransformerEmbeddingFrontend,
     TransformerFrontend,
+    init_final_projection,
 )
 from fairseq2.models.utils.arch_registry import ArchitectureRegistry
 from fairseq2.nn.embedding import StandardEmbedding
 from fairseq2.nn.normalization import LayerNorm, RMSNorm
 from fairseq2.nn.position_encoder import RotaryEncoder
+from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer import (
     FeedForwardNetwork,
     GLUFeedForwardNetwork,
@@ -227,9 +228,11 @@ class LLaMABuilder:
 
         decoder = self.build_decoder()
 
-        final_proj = FinalProjection(
+        final_proj = Linear(
             self.config.model_dim,
             self.config.vocabulary_size,
+            bias=False,
+            init_fn=init_final_projection,
             device=self.device,
             dtype=self.dtype,
         )
