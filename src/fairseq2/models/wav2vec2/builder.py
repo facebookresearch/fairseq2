@@ -98,7 +98,7 @@ class Wav2Vec2EncoderConfig:
 
     # Position Encoder
     pos_encoder_type: str
-    """The type of position encoder."""
+    """The type of position encoder ('conv', 'relative', 'rotary')."""
 
     # Convolutional Position Encoder
     pos_encoder_depth: int
@@ -355,7 +355,7 @@ class Wav2Vec2EncoderBuilder:
                     dtype=self.dtype,
                 )
 
-            sdpa = RelativePositionSDPA(
+            return RelativePositionSDPA(
                 self.config.model_dim,
                 self.config.num_encoder_attn_heads,
                 self.rel_pos_encoding,
@@ -363,10 +363,8 @@ class Wav2Vec2EncoderBuilder:
                 device=self.device,
                 dtype=self.dtype,
             )
-        else:
-            sdpa = create_default_sdpa(self.config.attn_dropout_p)
 
-        return sdpa
+        return create_default_sdpa(self.config.attn_dropout_p)
 
     def build_conformer_conv(self) -> ConformerConvolution:
         return ConformerConvolution(
