@@ -291,7 +291,12 @@ class Wav2Vec2Model(Module):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"model_dim={self.model_dim}, num_distractors={self.num_distractors}, logit_temp={self.logit_temp}, diversity_loss_weight={self.diversity_loss_weight}"
+        return (
+            f"model_dim={self.model_dim}, "
+            f"num_distractors={self.num_distractors}, "
+            f"logit_temp={self.logit_temp}, "
+            f"diversity_loss_weight={self.diversity_loss_weight}"
+        )
 
 
 @dataclass

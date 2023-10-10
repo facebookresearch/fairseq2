@@ -603,7 +603,11 @@ class StandardMultiheadAttention(MultiheadAttention):
         if self.add_zero_attn:
             s = f"{s}, add_zero_attn=True"
 
-        return f"{s}, state_factory={self.state_factory}"
+        state_factory_field = getattr(
+            self.state_factory, "__name__", self.state_factory
+        )
+
+        return f"{s}, state_factory={state_factory_field}"
 
 
 def init_qkv_projection(proj: Linear) -> None:

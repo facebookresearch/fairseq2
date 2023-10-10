@@ -95,7 +95,11 @@ class LayerNorm(Module, ABC):
         """
 
     def extra_repr(self) -> str:
-        return f"normalized_shape={self.normalized_shape}, eps={self.eps}, elementwise_affine={self.elementwise_affine}"
+        return (
+            f"normalized_shape={self.normalized_shape}, "
+            f"eps={self.eps}, "
+            f"elementwise_affine={self.elementwise_affine}"
+        )
 
 
 @final

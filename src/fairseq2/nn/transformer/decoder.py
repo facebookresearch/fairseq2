@@ -220,8 +220,12 @@ class StandardTransformerDecoder(TransformerDecoder):
         """:meta private:"""
         s = super().extra_repr()
 
-        mask_gen_name = getattr(
-            self.self_attn_mask_gen, "__name__", repr(self.self_attn_mask_gen)
+        self_attn_mask_gen_field = getattr(
+            self.self_attn_mask_gen, "__name__", self.self_attn_mask_gen
         )
 
-        return f"{s}, norm_order={self.norm_order}, self_attn_mask_gen={mask_gen_name}"
+        return (
+            f"{s}, "
+            f"norm_order={self.norm_order}, "
+            f"self_attn_mask_gen={self_attn_mask_gen_field}"
+        )

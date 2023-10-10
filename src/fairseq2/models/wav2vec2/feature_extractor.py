@@ -313,7 +313,11 @@ class Wav2Vec2FbankFeatureExtractor(SequenceFeatureExtractor):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"num_fbank_channels={self.num_fbank_channels}, stride={self.stride}, sample_every_k={self.sample_every_k}"
+        return (
+            f"num_fbank_channels={self.num_fbank_channels}, "
+            f"stride={self.stride}, "
+            f"sample_every_k={self.sample_every_k}"
+        )
 
 
 class Float32LayerNorm(LayerNorm):
