@@ -35,5 +35,19 @@ image_decoder::image_decoder(image_decoder_options opts)
             "`image_decoder` supports only `torch.float32` and `torch.uint8` data types.");
 }
 
+data
+image_decoder::operator()(data &&d) const
+{
+    if (!d.is_memory_block())
+        throw_<std::invalid_argument>(
+            "The input data must be of type `memory_block`, but is of type `{}` instead.", d.type());
 
+    const memory_block &block = d.as_memory_block();
+    if (block.empty())
+        throw_<std::invalid_argument>(
+            "The input memory block has zero length and cannot be decoded as audio.");
+
+
+    at::ScalarType dtype = opts_.maybe_dtype().value_or(at::kFloat);
+}
 };
