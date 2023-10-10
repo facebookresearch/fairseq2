@@ -89,3 +89,6 @@ from fairseq2.nn.transformer.relative_attention import (
 from fairseq2.nn.transformer.shaw_attention import (
     ShawRelativePositionSDPA as ShawRelativePositionSDPA,
 )
+from fairseq2.nn.transformer.shaw_attention import (
+    init_shaw_embedding as init_shaw_embedding,
+)

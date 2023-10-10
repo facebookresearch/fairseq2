@@ -234,4 +234,8 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
         """:meta private:"""
         s = super().extra_repr()
 
-        return f"{s}, inner_dim_scale={self.inner_dim_scale}, inner_dim_to_multiple={self.inner_dim_to_multiple}"
+        return (
+            f"{s}, "
+            f"inner_dim_scale={self.inner_dim_scale}, "
+            f"inner_dim_to_multiple={self.inner_dim_to_multiple}"
+        )

@@ -127,7 +127,12 @@ class Wav2Vec2Masker(Module):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"temporal_span_len={self.temporal_span_len}, max_temporal_mask_prob={self.max_temporal_mask_prob}, spatial_span_len={self.spatial_span_len}, max_spatial_mask_prob={self.max_spatial_mask_prob}"
+        return (
+            f"temporal_span_len={self.temporal_span_len}, "
+            f"max_temporal_mask_prob={self.max_temporal_mask_prob}, "
+            f"spatial_span_len={self.spatial_span_len}, "
+            f"max_spatial_mask_prob={self.max_spatial_mask_prob}"
+        )
 
 
 def apply_temporal_mask(x: Tensor, temporal_mask: Tensor) -> Tensor:

@@ -141,7 +141,11 @@ class W2VBertModel(Module):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"model_dim={self.model_dim}, num_bert_encoder_layers={self.num_bert_encoder_layers}, num_target_codebooks={self.num_target_codebooks}"
+        return (
+            f"model_dim={self.model_dim}, "
+            f"num_bert_encoder_layers={self.num_bert_encoder_layers}, "
+            f"num_target_codebooks={self.num_target_codebooks}"
+        )
 
 
 @dataclass

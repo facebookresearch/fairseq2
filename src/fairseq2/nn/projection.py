@@ -134,7 +134,9 @@ class Linear(Projection):
         s = f"{s}, bias={self.bias is not None}"
 
         if self.init_fn is not None:
-            s = f"{s}, init_fn={getattr(self.init_fn, '__name__', self.init_fn)}"
+            init_fn_field = getattr(self.init_fn, "__name__", self.init_fn)
+
+            s = f"{s}, init_fn={init_fn_field}"
 
         return s
 
