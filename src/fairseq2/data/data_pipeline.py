@@ -33,8 +33,9 @@ if TYPE_CHECKING or _DOC_MODE:
 
         The pipeline state can be persisted to the disk, allowing it to be resumed later.
         It is a Python Iterable, but it also contains the iterator states.
-        Calling `iter` a second time while the first iterator is still being used
-        will segfault or worse.
+
+        Calling `iter` twice will create two iterators reading from the same dataloader,
+        and sharing the same state, so it will behave inconcistently.
         """
 
         def __iter__(self) -> Iterator[Any]:
