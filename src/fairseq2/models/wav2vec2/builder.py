@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from dataclasses import dataclass
-from typing import List, Literal, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from torch.nn import GELU, SiLU
 
@@ -34,7 +34,6 @@ from fairseq2.nn.transformer import (
     MultiheadAttention,
     RelativePositionalEncoding,
     RelativePositionSDPA,
-    ShawRelativePositionSDPA,
     StandardFeedForwardNetwork,
     StandardMultiheadAttention,
     StandardTransformerEncoder,
@@ -45,20 +44,6 @@ from fairseq2.nn.transformer import (
     create_default_sdpa,
 )
 from fairseq2.typing import DataType, Device
-
-
-@dataclass
-class ShawRelativePositionSDPAConfig:
-    """Holds the configuration of the :class:ShawRelativePositionSDPA module."""
-
-    max_left_rel_pos: int
-    """The left clipping value for relative positions."""
-
-    max_right_rel_pos: Optional[int]
-    """The right clipping value for relative positions."""
-
-    use_rel_pos_values: bool = False
-    """If True, also uses relative position values to compute relative attention."""
 
 
 @dataclass
@@ -112,7 +97,7 @@ class Wav2Vec2EncoderConfig:
     sample_fbank_every_k: int
 
     # Position Encoder
-    pos_encoder_type: Literal["conv", "relative", "relative_shaw", "rotary"]
+    pos_encoder_type: str
     """The type of position encoder."""
 
     # Convolutional Position Encoder
@@ -154,16 +139,6 @@ class Wav2Vec2EncoderConfig:
     depthwise_conv_kernel_size: int
     """The kernel size of depthwise convolutions in Conformer blocks."""
 
-    causal_depthwise_conv: bool
-    """If True, uses a causal depthwise convolution similar to that described in
-    Section 2.1 of :cite:t:`https://doi.org/10.48550/arxiv.1609.03499`."""
-
-    conv_norm_type: Literal["batch_norm", "layer_norm"]
-    """The type of normalization to use in the Conformer convolution module."""
-
-    shaw_rel_pos_sdpa_config: Optional[ShawRelativePositionSDPAConfig]
-    """The parameters for ShawRelativePositionSDPA."""
-
 
 def _encoder_base() -> Wav2Vec2EncoderConfig:
     layer_descs = [(512, 10, 5)] + [(512, 3, 2)] * 4 + [(512, 2, 2)] * 2
@@ -195,9 +170,6 @@ def _encoder_base() -> Wav2Vec2EncoderConfig:
         layer_drop_p=0.05,
         norm_order=TransformerNormOrder.POST,
         depthwise_conv_kernel_size=0,
-        causal_depthwise_conv=False,
-        conv_norm_type="batch_norm",
-        shaw_rel_pos_sdpa_config=None,
     )
 
 
@@ -336,14 +308,7 @@ class Wav2Vec2EncoderBuilder:
 
         self_attn = self.build_attention()
 
-        conv = ConformerConvolution(
-            self.config.model_dim,
-            self.config.depthwise_conv_kernel_size,
-            causal_depthwise_conv=self.config.causal_depthwise_conv,
-            norm_type=self.config.conv_norm_type,
-            device=self.device,
-            dtype=self.dtype,
-        )
+        conv = self.build_conformer_conv()
 
         ffn2 = self.build_ffn(use_swish=True)
 
@@ -369,8 +334,18 @@ class Wav2Vec2EncoderBuilder:
         else:
             pos_encoder = None
 
-        sdpa: SDPA
+        sdpa = self.build_sdpa()
 
+        return StandardMultiheadAttention(
+            self.config.model_dim,
+            self.config.num_encoder_attn_heads,
+            pos_encoder=pos_encoder,
+            sdpa=sdpa,
+            device=self.device,
+            dtype=self.dtype,
+        )
+
+    def build_sdpa(self) -> SDPA:
         if self.config.pos_encoder_type == "relative":
             if self.rel_pos_encoding is None:
                 self.rel_pos_encoding = RelativePositionalEncoding(
@@ -388,26 +363,15 @@ class Wav2Vec2EncoderBuilder:
                 device=self.device,
                 dtype=self.dtype,
             )
-        elif self.config.pos_encoder_type == "relative_shaw":
-            sdpa_config = self.config.shaw_rel_pos_sdpa_config
-            sdpa = ShawRelativePositionSDPA(
-                self.config.model_dim,
-                self.config.num_encoder_attn_heads,
-                sdpa_config.max_left_rel_pos,
-                max_right_rel_pos=sdpa_config.max_right_rel_pos,
-                use_rel_pos_values=sdpa_config.use_rel_pos_values,
-                attn_dropout_p=self.config.attn_dropout_p,
-                device=self.device,
-                dtype=self.dtype,
-            )
         else:
             sdpa = create_default_sdpa(self.config.attn_dropout_p)
 
-        return StandardMultiheadAttention(
+        return sdpa
+
+    def build_conformer_conv(self) -> ConformerConvolution:
+        return ConformerConvolution(
             self.config.model_dim,
-            self.config.num_encoder_attn_heads,
-            pos_encoder=pos_encoder,
-            sdpa=sdpa,
+            self.config.depthwise_conv_kernel_size,
             device=self.device,
             dtype=self.dtype,
         )
