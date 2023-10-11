@@ -265,12 +265,10 @@ class LLaMABuilder:
 
         layers = [self.build_decoder_layer() for _ in range(num_layers)]
 
-        rms_norm_fn = self.build_layer_norm
-
         return StandardTransformerDecoder(
             layers,
             norm_order=TransformerNormOrder.PRE,
-            layer_norm_fn=rms_norm_fn,
+            layer_norm_factory=self.build_layer_norm,
             device=self.device,
             dtype=self.dtype,
         )
@@ -283,15 +281,13 @@ class LLaMABuilder:
 
         ffn = self.build_ffn()
 
-        rms_norm_fn = self.build_layer_norm
-
         return StandardTransformerDecoderLayer(
             self_attn,
             encoder_decoder_attn=None,
             ffn=ffn,
             dropout_p=self.config.dropout_p,
             norm_order=TransformerNormOrder.PRE,
-            layer_norm_fn=rms_norm_fn,
+            layer_norm_factory=self.build_layer_norm,
             device=self.device,
             dtype=self.dtype,
         )

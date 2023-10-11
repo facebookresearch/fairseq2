@@ -131,7 +131,7 @@ class StandardTransformerDecoder(TransformerDecoder):
         self_attn_mask_gen: Optional[AttentionMaskGenerator] = None,
         layer_drop_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
-        layer_norm_fn: Optional[LayerNormFactory] = None,
+        layer_norm_factory: Optional[LayerNormFactory] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -146,7 +146,7 @@ class StandardTransformerDecoder(TransformerDecoder):
             described in :cite:t:`https://doi.org/10.48550/arxiv.1909.11556`.
         :param norm_order:
             The Layer Normalization order to use.
-        :param layer_norm_fn:
+        :param layer_norm_factory:
             The factory to use to construct the Layer Normalization module.
         """
         layer_list = ModuleList(layers, drop_p=layer_drop_p)
@@ -157,8 +157,8 @@ class StandardTransformerDecoder(TransformerDecoder):
 
         super().__init__(model_dim)
 
-        if layer_norm_fn is None:
-            layer_norm_fn = create_default_layer_norm
+        if layer_norm_factory is None:
+            layer_norm_factory = create_default_layer_norm
 
         if self_attn_mask_gen is None:
             self.self_attn_mask_gen = CausalAttentionMaskGenerator()
@@ -168,7 +168,7 @@ class StandardTransformerDecoder(TransformerDecoder):
         self.layers = layer_list
 
         if norm_order != TransformerNormOrder.POST:
-            self.layer_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
+            self.layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
         else:
             self.register_module("layer_norm", None)
 
