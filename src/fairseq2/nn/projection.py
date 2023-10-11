@@ -6,7 +6,7 @@
 
 import math
 from abc import ABC, abstractmethod
-from typing import Optional, final
+from typing import Callable, Optional, final
 
 import torch
 import torch.nn as nn
@@ -15,7 +15,7 @@ from torch.nn import Module
 from torch.nn.functional import linear
 from torch.nn.parameter import Parameter
 
-from fairseq2.typing import DataType, Device, finaloverride, override
+from fairseq2.typing import DataType, Device, finaloverride
 
 
 class Projection(Module, ABC):
@@ -53,6 +53,7 @@ class Projection(Module, ABC):
         return f"input_dim={self.input_dim}, output_dim={self.output_dim}"
 
 
+@final
 class Linear(Projection):
     """Applies a linear transformation to incoming data using weights and bias.
 
@@ -66,7 +67,7 @@ class Linear(Projection):
 
     weight: Parameter
     bias: Optional[Parameter]
-    skip_init: bool
+    init_fn: Optional[Callable[["Linear"], None]]
 
     def __init__(
         self,
@@ -74,7 +75,7 @@ class Linear(Projection):
         output_dim: int,
         bias: bool,
         *,
-        skip_init: bool = False,
+        init_fn: Optional[Callable[["Linear"], None]] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -85,12 +86,8 @@ class Linear(Projection):
             The dimensionality of projected outputs.
         :param bias:
             If ``True``, learns an additive bias.
-        :param skip_init:
-            If ``True``, the weights and bias will be left uninitialized, and
-            :meth:`reset_parameters` will become noop.
-
-            This parameter is intended to be used by module authors who want to
-            use a different weight initialization method in their modules.
+        :param init_fn:
+            The callable to use for parameter initialization.
         """
         super().__init__(input_dim, output_dim)
 
@@ -105,17 +102,17 @@ class Linear(Projection):
         else:
             self.register_parameter("bias", None)
 
-        self.skip_init = skip_init
+        self.init_fn = init_fn
 
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
         """Reset the parameters and buffers of the module."""
-        if not self.skip_init:
-            self._do_reset_parameters()
+        if self.init_fn is not None:
+            self.init_fn(self)
 
-    def _do_reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
+            return
+
         nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5))
 
         if self.bias is not None:
@@ -126,7 +123,7 @@ class Linear(Projection):
 
             nn.init.uniform_(self.bias, -bound, bound)
 
-    @override
+    @finaloverride
     def forward(self, x: Tensor) -> Tensor:
         return linear(x, self.weight, self.bias)
 
@@ -134,7 +131,14 @@ class Linear(Projection):
         """:meta private:"""
         s = super().extra_repr()
 
-        return f"{s}, bias={self.bias is not None}"
+        s = f"{s}, bias={self.bias is not None}"
+
+        if self.init_fn is not None:
+            init_fn_field = getattr(self.init_fn, "__name__", self.init_fn)
+
+            s = f"{s}, init_fn={init_fn_field}"
+
+        return s
 
 
 @final

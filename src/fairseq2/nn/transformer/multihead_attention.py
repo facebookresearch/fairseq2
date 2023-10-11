@@ -21,7 +21,7 @@ from fairseq2.nn.ops import repeat_interleave
 from fairseq2.nn.position_encoder import PositionEncoder
 from fairseq2.nn.projection import Linear, Projection
 from fairseq2.nn.transformer.attention import SDPA, create_default_sdpa
-from fairseq2.typing import DataType, Device, finaloverride, override
+from fairseq2.typing import DataType, Device, finaloverride
 
 
 class MultiheadAttention(Module, ABC):
@@ -286,20 +286,27 @@ class StandardMultiheadAttention(MultiheadAttention):
         num_query_groups = num_heads // self.num_key_value_heads
 
         if q_proj is None and k_proj is None and v_proj is None:
-            q_proj = QKVProjection(
-                model_dim, model_dim, bias, device=device, dtype=dtype
-            )
-            k_proj = QKVProjection(
+            q_proj = Linear(
                 model_dim,
-                head_dim * self.num_key_value_heads,
+                model_dim,
                 bias,
+                init_fn=init_qkv_projection,
                 device=device,
                 dtype=dtype,
             )
-            v_proj = QKVProjection(
+            k_proj = Linear(
                 model_dim,
                 head_dim * self.num_key_value_heads,
                 bias,
+                init_fn=init_qkv_projection,
+                device=device,
+                dtype=dtype,
+            )
+            v_proj = Linear(
+                model_dim,
+                head_dim * self.num_key_value_heads,
+                bias,
+                init_fn=init_qkv_projection,
                 device=device,
                 dtype=dtype,
             )
@@ -372,8 +379,13 @@ class StandardMultiheadAttention(MultiheadAttention):
         v_dim = v_proj.output_dim * num_query_groups
 
         if output_proj is None:
-            self.output_proj = AttentionOutputProjection(
-                v_dim, model_dim, bias, device=device, dtype=dtype
+            self.output_proj = Linear(
+                v_dim,
+                model_dim,
+                bias,
+                init_fn=init_output_projection,
+                device=device,
+                dtype=dtype,
             )
         else:
             if v_dim != output_proj.input_dim:
@@ -591,53 +603,29 @@ class StandardMultiheadAttention(MultiheadAttention):
         if self.add_zero_attn:
             s = f"{s}, add_zero_attn=True"
 
-        return f"{s}, state_factory={self.state_factory}"
+        state_factory_field = getattr(
+            self.state_factory, "__name__", self.state_factory
+        )
+
+        return f"{s}, state_factory={state_factory_field}"
 
 
-class QKVProjection(Linear):
-    """Represents the default projection used for queries, keys, and values."""
+def init_qkv_projection(proj: Linear) -> None:
+    """Initialize ``proj`` as a multi-head attention input projection."""
+    # Empirically observed the convergence to be much better with the scaled
+    # initialization.
+    nn.init.xavier_uniform_(proj.weight, gain=2**-0.5)
 
-    def __init__(
-        self,
-        model_dim: int,
-        output_dim: int,
-        bias: bool,
-        *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
-    ) -> None:
-        super().__init__(model_dim, output_dim, bias, device=device, dtype=dtype)
-
-    @override
-    def _do_reset_parameters(self) -> None:
-        # Empirically observed the convergence to be much better with the scaled
-        # initialization.
-        nn.init.xavier_uniform_(self.weight, gain=2**-0.5)
-
-        if self.bias is not None:
-            nn.init.zeros_(self.bias)
+    if proj.bias is not None:
+        nn.init.zeros_(proj.bias)
 
 
-class AttentionOutputProjection(Linear):
-    """Represents the default projection used for attention outputs."""
+def init_output_projection(proj: Linear) -> None:
+    """Initialize ``proj`` as a multi-head attention output projection."""
+    nn.init.xavier_uniform_(proj.weight)
 
-    def __init__(
-        self,
-        v_dim: int,
-        model_dim: int,
-        bias: bool,
-        *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
-    ) -> None:
-        super().__init__(v_dim, model_dim, bias, device=device, dtype=dtype)
-
-    @override
-    def _do_reset_parameters(self) -> None:
-        nn.init.xavier_uniform_(self.weight)
-
-        if self.bias is not None:
-            nn.init.zeros_(self.bias)
+    if proj.bias is not None:
+        nn.init.zeros_(proj.bias)
 
 
 class AttentionState(IncrementalState):

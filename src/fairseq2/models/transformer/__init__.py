@@ -13,5 +13,7 @@ from fairseq2.models.transformer.frontend import (
 from fairseq2.models.transformer.frontend import (
     TransformerFrontend as TransformerFrontend,
 )
-from fairseq2.models.transformer.model import FinalProjection as FinalProjection
 from fairseq2.models.transformer.model import TransformerModel as TransformerModel
+from fairseq2.models.transformer.model import (
+    init_final_projection as init_final_projection,
+)

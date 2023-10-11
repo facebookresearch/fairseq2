@@ -67,4 +67,9 @@ class ModuleList(ModuleListBase):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"drop_p={self.drop_p}" if self.drop_p > 0.0 else ""
+        s = super().extra_repr()
+
+        if self.drop_p > 0.0:
+            s = f"{s}, drop_p={self.drop_p}"
+
+        return s

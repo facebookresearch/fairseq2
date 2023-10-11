@@ -8,15 +8,16 @@ from dataclasses import dataclass
 from typing import Optional
 
 from fairseq2.models.transformer import (
-    FinalProjection,
     TransformerDecoderModel,
     TransformerEmbeddingFrontend,
     TransformerFrontend,
+    init_final_projection,
 )
 from fairseq2.models.utils.arch_registry import ArchitectureRegistry
 from fairseq2.nn.embedding import StandardEmbedding
 from fairseq2.nn.normalization import LayerNorm, RMSNorm
 from fairseq2.nn.position_encoder import RotaryEncoder
+from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer import (
     FeedForwardNetwork,
     GLUFeedForwardNetwork,
@@ -227,9 +228,11 @@ class LLaMABuilder:
 
         decoder = self.build_decoder()
 
-        final_proj = FinalProjection(
+        final_proj = Linear(
             self.config.model_dim,
             self.config.vocabulary_size,
+            bias=False,
+            init_fn=init_final_projection,
             device=self.device,
             dtype=self.dtype,
         )
@@ -262,12 +265,10 @@ class LLaMABuilder:
 
         layers = [self.build_decoder_layer() for _ in range(num_layers)]
 
-        rms_norm_fn = self.build_layer_norm
-
         return StandardTransformerDecoder(
             layers,
             norm_order=TransformerNormOrder.PRE,
-            layer_norm_fn=rms_norm_fn,
+            layer_norm_factory=self.build_layer_norm,
             device=self.device,
             dtype=self.dtype,
         )
@@ -280,15 +281,13 @@ class LLaMABuilder:
 
         ffn = self.build_ffn()
 
-        rms_norm_fn = self.build_layer_norm
-
         return StandardTransformerDecoderLayer(
             self_attn,
             encoder_decoder_attn=None,
             ffn=ffn,
             dropout_p=self.config.dropout_p,
             norm_order=TransformerNormOrder.PRE,
-            layer_norm_fn=rms_norm_fn,
+            layer_norm_factory=self.build_layer_norm,
             device=self.device,
             dtype=self.dtype,
         )

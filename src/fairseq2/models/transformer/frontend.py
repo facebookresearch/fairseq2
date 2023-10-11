@@ -91,7 +91,7 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
         no_scale: bool = False,
         layer_norm: bool = False,
         dropout_p: float = 0.1,
-        layer_norm_fn: Optional[LayerNormFactory] = None,
+        layer_norm_factory: Optional[LayerNormFactory] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -108,15 +108,15 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
             dropout.
         :param dropout_p:
             The dropout probability on embeddings.
-        :param layer_norm_fn:
+        :param layer_norm_factory:
             The factory to use to construct the Layer Normalization module.
         """
         model_dim = embed.embedding_dim
 
         super().__init__(model_dim)
 
-        if layer_norm_fn is None:
-            layer_norm_fn = create_default_layer_norm
+        if layer_norm_factory is None:
+            layer_norm_factory = create_default_layer_norm
 
         self.embed = embed
 
@@ -133,7 +133,7 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
             self.register_module("pos_encoder", None)
 
         if layer_norm:
-            self.layer_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
+            self.layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
         else:
             self.register_module("layer_norm", None)
 
@@ -172,4 +172,7 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
         """:meta private:"""
         s = super().extra_repr()
 
-        return f"{s}, no_scale=False" if self.scale != 1.0 else ""
+        if self.scale != 1.0:
+            s = f"{s}, no_scale=False"
+
+        return s
