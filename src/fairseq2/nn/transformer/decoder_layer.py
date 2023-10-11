@@ -113,7 +113,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         scale_residual: bool = False,
         dropout_p: float = 0.1,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
-        layer_norm_fn: Optional[LayerNormFactory] = None,
+        layer_norm_factory: Optional[LayerNormFactory] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -134,17 +134,17 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
             feed-forward network.
         :param norm_order:
             The Layer Normalization order to use.
-        :param layer_norm_fn:
+        :param layer_norm_factory:
             The factory to use to construct the Layer Normalization modules.
         """
         model_dim = self_attn.model_dim
 
         super().__init__(model_dim)
 
-        if layer_norm_fn is None:
-            layer_norm_fn = create_default_layer_norm
+        if layer_norm_factory is None:
+            layer_norm_factory = create_default_layer_norm
 
-        self_attn_layer_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
+        self_attn_layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
 
         if norm_order != TransformerNormOrder.POST:
             self.self_attn_layer_norm = self_attn_layer_norm
@@ -152,7 +152,9 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         self.self_attn = self_attn
 
         if norm_order == TransformerNormOrder.PRE_WITH_NORMFORMER:
-            self.self_attn_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
+            self.self_attn_norm = layer_norm_factory(
+                model_dim, device=device, dtype=dtype
+            )
         else:
             self.register_module("self_attn_norm", None)
 
@@ -168,7 +170,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
             self.register_module("encoder_decoder_attn", None)
             self.register_module("encoder_decoder_attn_layer_norm", None)
         else:
-            encoder_decoder_attn_layer_norm = layer_norm_fn(
+            encoder_decoder_attn_layer_norm = layer_norm_factory(
                 model_dim, device=device, dtype=dtype
             )
 
@@ -185,7 +187,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
             if norm_order == TransformerNormOrder.POST:
                 self.encoder_decoder_attn_layer_norm = encoder_decoder_attn_layer_norm
 
-        ffn_layer_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
+        ffn_layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
 
         if norm_order != TransformerNormOrder.POST:
             self.ffn_layer_norm = ffn_layer_norm

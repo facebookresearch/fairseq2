@@ -118,7 +118,7 @@ class GumbelVectorQuantizer(VectorQuantizer):
             self.input_dim,
             num_total_entries,
             bias=True,
-            skip_init=True,
+            init_fn=init_entry_projection,
             device=device,
             dtype=dtype,
         )
@@ -136,12 +136,6 @@ class GumbelVectorQuantizer(VectorQuantizer):
     def reset_parameters(self) -> None:
         """Reset the parameters and buffers of the module."""
         nn.init.uniform_(self.entries)
-
-        nn.init.normal_(self.entry_proj.weight, mean=0.0, std=1.0)
-
-        assert self.entry_proj.bias is not None
-
-        nn.init.zeros_(self.entry_proj.bias)
 
         self.num_updates.zero_()
 
@@ -213,6 +207,14 @@ class GumbelVectorQuantizer(VectorQuantizer):
             self.num_updates.add_(1)
 
         return max(temp, self.min_temp)
+
+
+def init_entry_projection(proj: Linear) -> None:
+    nn.init.normal_(proj.weight, mean=0.0, std=1.0)
+
+    assert proj.bias is not None
+
+    nn.init.zeros_(proj.bias)
 
 
 @final

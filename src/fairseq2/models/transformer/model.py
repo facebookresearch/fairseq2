@@ -16,7 +16,7 @@ from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.projection import Linear, Projection
 from fairseq2.nn.transformer import TransformerDecoder, TransformerEncoder
 from fairseq2.nn.utils.module import check_model_dim
-from fairseq2.typing import DataType, Device, finaloverride
+from fairseq2.typing import finaloverride
 
 
 @final
@@ -107,32 +107,8 @@ class TransformerModel(EncoderDecoderModel):
         return SequenceModelOutput(logits, self.target_pad_idx)
 
 
-@final
-class FinalProjection(Linear):
-    """Produces logits from outputs of a Transformer decoder."""
+def init_final_projection(proj: Linear) -> None:
+    nn.init.normal_(proj.weight, std=proj.input_dim**-0.5)
 
-    def __init__(
-        self,
-        model_dim: int,
-        target_vocabulary_size: int,
-        *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
-    ) -> None:
-        """
-        :param model_dim:
-            The dimensionality of the model.
-        :param target_vocabulary_size:
-            The size of the target vocabulary.
-        """
-        super().__init__(
-            model_dim, target_vocabulary_size, bias=False, device=device, dtype=dtype
-        )
-
-    @finaloverride
-    def _do_reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
-        nn.init.normal_(self.weight, std=self.input_dim**-0.5)
-
-        if self.bias is not None:
-            nn.init.zeros_(self.bias)
+    if proj.bias is not None:
+        nn.init.zeros_(proj.bias)
