@@ -55,13 +55,21 @@ def test_lora_liner_merge_unmerge_work() -> None:
 
     seqs = torch.randn([2, 8])
 
-    orig_weight = lora_linear.weight.clone()
+    orig_weight = lora_linear.weight.data.clone()
+
+    wrapped_org_weight = lora_linear.wrapped.weight.data.clone()  # type: ignore[operator]
+
+    torch.testing.assert_close(orig_weight, wrapped_org_weight)
 
     lora_linear.merge()
 
     assert lora_linear.merged
 
-    merged_weight = lora_linear.weight.clone()
+    merged_weight = lora_linear.weight.data.clone()
+
+    wrapped_merged_weight = lora_linear.wrapped.weight.data.clone()  # type: ignore[operator]
+
+    torch.testing.assert_close(merged_weight, wrapped_merged_weight)
 
     merged_out = lora_linear(seqs)
 
@@ -69,7 +77,11 @@ def test_lora_liner_merge_unmerge_work() -> None:
 
     assert not lora_linear.merged
 
-    un_merged_weight = lora_linear.weight.clone()
+    un_merged_weight = lora_linear.weight.data.clone()
+
+    wrapped_un_merged_weight = lora_linear.wrapped.weight.data.clone()
+
+    torch.testing.assert_close(un_merged_weight, wrapped_un_merged_weight)
 
     un_merged_out = lora_linear(seqs)
 
@@ -123,13 +135,21 @@ def test_lora_embedding_merge_unmerge_work() -> None:
 
     seqs = torch.randint(0, 4, [2, 5])
 
-    orig_weight = lora_embed.weight.clone()
+    orig_weight = lora_embed.weight.data.clone()
+
+    wrapped_orig_weight = lora_embed.wrapped.weight.data.clone()  # type: ignore[operator]
+
+    torch.testing.assert_close(orig_weight, wrapped_orig_weight)
 
     lora_embed.merge()
 
     assert lora_embed.merged
 
-    merged_weight = lora_embed.weight.clone()
+    merged_weight = lora_embed.weight.data.clone()
+
+    wrapped_merged_weight = lora_embed.wrapped.weight.data.clone()  # type: ignore[operator]
+
+    torch.testing.assert_close(merged_weight, wrapped_merged_weight)
 
     merged_out = lora_embed(seqs)
 
@@ -137,7 +157,11 @@ def test_lora_embedding_merge_unmerge_work() -> None:
 
     assert not lora_embed.merged
 
-    un_merged_weight = lora_embed.weight.clone()
+    un_merged_weight = lora_embed.weight.data.clone()
+
+    wrapped_un_merged_weight = lora_embed.wrapped.weight.data.clone()
+
+    torch.testing.assert_close(un_merged_weight, wrapped_un_merged_weight)
 
     un_merged_out = lora_embed(seqs)
 

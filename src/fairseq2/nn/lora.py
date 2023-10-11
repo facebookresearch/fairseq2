@@ -52,6 +52,7 @@ class LoRALayer(ABC):
 
 @final
 class LoRAEmbedding(Embedding, LoRALayer):
+    wrapped: Embedding
     weight: Parameter
     lora_A: Parameter
     lora_B: Parameter
@@ -78,9 +79,11 @@ class LoRAEmbedding(Embedding, LoRALayer):
         )
         LoRALayer.__init__(self, config)
 
-        self.weight = Parameter(
-            wrapped.weight, requires_grad=False  # type: ignore[arg-type]
-        )
+        self.wrapped = wrapped
+
+        self.wrapped.weight.requires_grad_(False)
+
+        self.weight = self.wrapped.weight  # type: ignore[assignment]
 
         self.lora_A = Parameter(
             torch.empty((self.r, self.num_embeddings), device=device, dtype=dtype)
@@ -110,26 +113,31 @@ class LoRAEmbedding(Embedding, LoRALayer):
         nn.init.normal_(self.lora_B)
 
     @property
-    def wrapped_module(self) -> nn.Module:
-        return self
+    def wrapped_module(self) -> Embedding:
+        return self.wrapped
 
     def merge(self) -> None:
         if self.merged:
             return
 
-        self.weight.data += (self.lora_B.data @ self.lora_A.data).T * self.scaling
+        with torch.no_grad():
+            self.weight += (self.lora_B @ self.lora_A).T * self.scaling  # type: ignore[misc]
+
         self.merged = True
 
     def unmerge(self) -> None:
         if not self.merged:
             return
 
-        self.weight.data -= (self.lora_B.data @ self.lora_A.data).T * self.scaling
+        with torch.no_grad():
+            self.weight -= (self.lora_B @ self.lora_A).T * self.scaling  # type: ignore[misc]
+
         self.merged = False
 
 
 @final
 class LoRALinear(Projection, LoRALayer):
+    wrapped: Projection
     weight: Parameter
     bias: Optional[Parameter]
     lora_A: Parameter
@@ -156,17 +164,17 @@ class LoRALinear(Projection, LoRALayer):
             :meth:`reset_lora_parameters` will become noop.
         """
         Projection.__init__(self, wrapped.input_dim, wrapped.output_dim)
-
         LoRALayer.__init__(self, config)
 
-        self.weight = Parameter(
-            wrapped.weight, requires_grad=False  # type: ignore[arg-type]
-        )
+        self.wrapped = wrapped
 
-        if wrapped.bias is not None:
-            self.bias = Parameter(
-                wrapped.bias, requires_grad=False  # type: ignore[arg-type]
-            )
+        self.wrapped.weight.requires_grad_(False)
+
+        self.weight = self.wrapped.weight  # type: ignore[assignment]
+
+        if self.wrapped.bias is not None:
+            self.wrapped.bias.requires_grad_(False)
+            self.bias = self.wrapped.bias  # type: ignore[assignment]
         else:
             self.register_module("bias", None)
 
@@ -180,7 +188,6 @@ class LoRALinear(Projection, LoRALayer):
 
         if self.dropout_p > 0.0:
             self.dropout = Dropout(self.dropout_p)
-
         else:
             self.register_module("dropout", None)
 
@@ -197,9 +204,9 @@ class LoRALinear(Projection, LoRALayer):
             h1 = linear(x, self.weight, self.bias)
 
             if self.dropout is not None:
-                h2 = linear(self.dropout(x), self.lora_B @ self.lora_A * self.scaling)
-            else:
-                h2 = linear(x, self.lora_B @ self.lora_A * self.scaling)
+                x = self.dropout(x)
+
+            h2 = linear(x, self.lora_B @ self.lora_A * self.scaling)
 
             return h1 + h2
 
@@ -210,23 +217,26 @@ class LoRALinear(Projection, LoRALayer):
             nn.init.zeros_(self.lora_B)
 
     @property
-    def wrapped_module(self) -> nn.Module:
-        return self
+    def wrapped_module(self) -> Projection:
+        return self.wrapped
 
     def merge(self) -> None:
         if self.merged:
             return
-        self.weight.data += self.lora_B.data @ self.lora_A.data * self.scaling
+
+        with torch.no_grad():
+            self.weight += self.lora_B @ self.lora_A * self.scaling  # type: ignore[misc]
 
         self.merged = True
 
     def unmerge(self) -> None:
         if not self.merged:
             return
-        else:
-            self.weight.data -= self.lora_B.data @ self.lora_A.data * self.scaling
 
-            self.merged = False
+        with torch.no_grad():
+            self.weight -= self.lora_B @ self.lora_A * self.scaling  # type: ignore[misc]
+
+        self.merged = False
 
 
 def wrap_lora(
