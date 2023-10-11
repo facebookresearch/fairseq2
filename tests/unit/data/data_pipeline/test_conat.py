@@ -9,6 +9,7 @@ import pytest
 from fairseq2.data import DataPipeline, DataPipelineError, read_sequence
 from fairseq2.data.text import read_text
 
+
 class TestConcatOp:
     def test_op_works(self) -> None:
         pipeline1 = read_sequence([1, 2, 3, 4]).and_return()

@@ -142,6 +142,7 @@ if TYPE_CHECKING or _DOC_MODE:
             :param pipelines:
                 The data pipelines to concatenate.
             """
+            ...
 
     class DataPipelineBuilder:
         """API to create DataPipeline"""
