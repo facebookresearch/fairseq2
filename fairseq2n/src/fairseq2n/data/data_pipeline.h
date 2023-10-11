@@ -98,8 +98,7 @@ public:
     count(std::int64_t start = 0, std::optional<std::string> key = {});
 
     static data_pipeline_builder
-    cat(std::vector<data_pipeline> pipeline1,
-        std::vector<data_pipeline> pipeline2);
+    concat(std::vector<data_pipeline> pipelines);
 
 private:
     data_source_factory factory_{};

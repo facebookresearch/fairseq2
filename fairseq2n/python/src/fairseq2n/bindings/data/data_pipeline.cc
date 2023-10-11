@@ -360,32 +360,21 @@ def_data_pipeline(py::module_ &data_module)
             py::arg("start") = 0,
             py::arg("key") = std::nullopt)
         .def_static(
-            "cat",
-            [](
-                std::vector<std::reference_wrapper<data_pipeline>> &refs1,
-                std::vector<std::reference_wrapper<data_pipeline>> &refs2
-            )
+            "concat",
+            [](std::vector<std::reference_wrapper<data_pipeline>> &refs)
             {
-                std::vector<data_pipeline> pipeline1{};
-                std::vector<data_pipeline> pipeline2{};
+                std::vector<data_pipeline> pipelines{};
 
-                pipeline1.reserve(refs1.size());
-                pipeline2.reserve(refs2.size());
+                pipelines.reserve(refs.size());
 
                 std::transform(
-                    refs1.begin(), refs1.end(), std::back_inserter(pipeline1), [](auto &r) {
+                    refs.begin(), refs.end(), std::back_inserter(pipelines), [](auto &r) {
                         return std::move(r.get());
                     });
 
-                std::transform(
-                    refs2.begin(), refs2.end(), std::back_inserter(pipeline2), [](auto &r) {
-                        return std::move(r.get());
-                    });
-
-                return data_pipeline::cat(std::move(pipeline1), std::move(pipeline2));
+                return data_pipeline::concat(std::move(pipelines));
             },
-            py::arg("pipeline1"),
-            py::arg("pipeline2"));
+            py::arg("pipelines"));
         
     // DataPipelineIterator
     py::class_<data_pipeline_iterator>(m, "_DataPipelineIterator")

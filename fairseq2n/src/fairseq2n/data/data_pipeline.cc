@@ -14,7 +14,7 @@
 #include "data_pipeline.h"
 #include "fairseq2n/data/bucket_by_length_data_source.h"
 #include "fairseq2n/data/bucket_data_source.h"
-#include "fairseq2n/data/cat_data_source.h"
+#include "fairseq2n/data/concat_data_source.h"
 #include "fairseq2n/data/constant_data_source.h"
 #include "fairseq2n/data/count_data_source.h"
 #include "fairseq2n/data/detail/file_system.h"
@@ -286,36 +286,28 @@ data_pipeline::count(std::int64_t start, std::optional<std::string> key)
 }
 
 data_pipeline_builder
-data_pipeline::cat(
-    std::vector<data_pipeline> pipeline1,
-    std::vector<data_pipeline> pipeline2)
+data_pipeline::concat(
+    std::vector<data_pipeline> pipelines)
 {
-    bool is_broken = false;
+    if (pipelines.empty())
+        throw_<std::invalid_argument>(
+            "`pipelines` does not contain any elements. Can not concatenate from empty set.");
 
-    is_broken = std::any_of(
-        pipeline1.begin(), pipeline1.end(), [](const data_pipeline &pipeline)
-        {
-            return pipeline.is_broken();
-        });
-
-    is_broken = is_broken || std::any_of(
-        pipeline2.begin(), pipeline2.end(), [](const data_pipeline &pipeline)
+    bool is_broken = std::any_of(
+        pipelines.begin(), pipelines.end(), [](const data_pipeline &pipeline)
         {
             return pipeline.is_broken();
         });
 
     if (is_broken)
         throw_<std::invalid_argument>(
-            "At least one of the specified data pipelines is broken and cannot be used in cat.");
+            "At least one of the specified data pipelines is broken and cannot be used in concat.");
 
-    auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipeline1));
-    auto tmp2 = std::make_shared<std::vector<data_pipeline>>(std::move(pipeline2));
+    auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
 
-    auto factory = [
-        tmp,
-        tmp2]() mutable
+    auto factory = [tmp]() mutable
     {
-        return std::make_unique<cat_data_source>(std::move(*tmp), std::move(*tmp2));
+        return std::make_unique<concat_data_source>(std::move(*tmp));
     };
     
     return data_pipeline_builder{std::move(factory)};
