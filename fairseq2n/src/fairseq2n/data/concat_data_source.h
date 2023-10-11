@@ -33,11 +33,6 @@ public:
     void
     reload_position(tape &t) override;
 
-private: 
-    static data_pipeline_builder
-    concatenate(
-        std::vector<data_pipeline> &&pipelines);
-
 private:
     std::vector<data_pipeline> pipelines_;
 };

@@ -24,6 +24,7 @@ concat_data_source::next()
             return d;
         }
     }
+    return {};
 }
 
 void concat_data_source::reset()
@@ -42,20 +43,6 @@ void concat_data_source::reload_position(tape &t)
 {
     for (auto &pipeline : pipelines_)
         pipeline.reload_position(t);
-}
-
-data_pipeline_builder concat_data_source::concatenate(
-    std::vector<data_pipeline> &&pipelines)
-{
-    std::vector<data> all_data;
-    std::optional<data> d;
-    for (auto &p : pipelines) {
-        d = p.next();
-        if (d) {
-            all_data.push_back(std::move(*d));
-        }
-    }
-    return read_list(std::move(all_data));
 }
 
 } // namespace fairseq2n::detail
