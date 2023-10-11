@@ -48,7 +48,7 @@ class ConformerBlock(TransformerEncoderLayer):
         ffn2: FeedForwardNetwork,
         *,
         dropout_p: float = 0.1,
-        layer_norm_fn: Optional[LayerNormFactory] = None,
+        layer_norm_factory: Optional[LayerNormFactory] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -64,17 +64,17 @@ class ConformerBlock(TransformerEncoderLayer):
         :param dropout_p:
             The dropout probability on outputs of the self attention layer, the
             feed-forward networks, and the Conformer convolution module.
-        :param layer_norm_fn:
+        :param layer_norm_factory:
             The factory to use to construct the Layer Normalization modules.
         """
         model_dim = self_attn.model_dim
 
         super().__init__(model_dim)
 
-        if layer_norm_fn is None:
-            layer_norm_fn = create_default_layer_norm
+        if layer_norm_factory is None:
+            layer_norm_factory = create_default_layer_norm
 
-        self.ffn1_layer_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
+        self.ffn1_layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
 
         self.ffn1 = ffn1
 
@@ -83,7 +83,9 @@ class ConformerBlock(TransformerEncoderLayer):
         else:
             self.register_module("ffn1_dropout", None)
 
-        self.self_attn_layer_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
+        self.self_attn_layer_norm = layer_norm_factory(
+            model_dim, device=device, dtype=dtype
+        )
 
         self.self_attn = self_attn
 
@@ -92,7 +94,7 @@ class ConformerBlock(TransformerEncoderLayer):
         else:
             self.register_module("self_attn_dropout", None)
 
-        self.conv_layer_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
+        self.conv_layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
 
         self.conv = conv
 
@@ -101,7 +103,7 @@ class ConformerBlock(TransformerEncoderLayer):
         else:
             self.register_module("conv_dropout", None)
 
-        self.ffn2_layer_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
+        self.ffn2_layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
 
         self.ffn2 = ffn2
 
@@ -110,7 +112,7 @@ class ConformerBlock(TransformerEncoderLayer):
         else:
             self.register_module("ffn2_dropout", None)
 
-        self.layer_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
+        self.layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
 
         check_model_dim(self)
 
