@@ -104,21 +104,24 @@ class ShawRelativePositionSDPA(SDPA):
                 "`ShawRelativePositionSDPA` can only be used as part of a multi-head attention layer and expects its input tensors to be 4 dimensional."
             )
 
-        # (N, H, S, head_dim) @ (N, H, head_dim, S_kv) = (N, H, S, S_kv)
+        q_len = queries.size(2)
+
+        # (N, H, S, K_h) @ (N, H, K_h, S_kv) = (N, H, S, S_kv)
         attn_weights = torch.matmul(queries, keys.transpose(-1, -2))
 
-        query_len, kv_len = queries.size(2), keys.size(2)
-
         # (S_kv, S_kv)
-        rel_pos_indices = self._rel_pos_indices(kv_len, queries.device)
+        rel_indices = self._get_relative_indices(keys)
 
-        # (S, S_kv, head_dim)
-        rel_pos_keys = self.rel_k_embed(rel_pos_indices)[-query_len:]
+        # (S_kv, S_kv, K_h)
+        rel_keys = self.rel_k_embed(rel_indices)
 
-        # (N, H, S, head_dim) @ (S, S_kv, head_dim) = (N, H, S, S_kv)
-        rel_attn_weights = torch.einsum("nhsm,stm->nhst", queries, rel_pos_keys)
+        # (S_kv, S_kv, K_h) -> (S, S_kv, K_h)
+        rel_keys = rel_keys[-q_len:]
 
-        attn_weights += rel_attn_weights
+        # (N, H, S, K_h) @ (S, S_kv, K_h) = (N, H, S, S_kv)
+        rel_attn_weights = torch.einsum("nhsk,stk->nhst", queries, rel_keys)
+
+        attn_weights = attn_weights + rel_attn_weights
 
         attn_weights = attn_weights * (queries.size(-1) ** -0.5)
 
@@ -132,25 +135,35 @@ class ShawRelativePositionSDPA(SDPA):
         if self.training and self.attn_dropout_p > 0.0:
             attn_weights = dropout(attn_weights, self.attn_dropout_p)
 
-        # (N, H, S, S_kv) @ (N, H, S_kv, head_dim) = (N, H, S, head_dim)
+        # (N, H, S, S_kv) @ (N, H, S_kv, V_h) = (N, H, S, V_h)
         attn = torch.matmul(attn_weights, values)
 
         if self.rel_v_embed is not None:
-            # (S, S_kv, head_dim)
-            rel_pos_values = self.rel_v_embed(rel_pos_indices)[-query_len:]
+            # (S_kv, S_kv, V_h)
+            rel_pos_values = self.rel_v_embed(rel_indices)
 
-            # (N, H, S, S_kv) @ (S, S_kv, head_dim) = (N, H, S, head_dim)
-            rel_attn = torch.einsum("nhst,stm->nhsm", attn_weights, rel_pos_values)
+            # (S_kv, S_kv, V_h) -> (S, S_kv, V_h)
+            rel_pos_values = rel_pos_values[-q_len:]
 
-            attn += rel_attn
+            # (N, H, S, S_kv) @ (S, S_kv, V_h) = (N, H, S, V_h)
+            rel_attn = torch.einsum("nhst,stv->nhsv", attn_weights, rel_pos_values)
+
+            attn = attn + rel_attn
 
         return attn, attn_weights if needs_weights else None
 
-    def _rel_pos_indices(self, seq_len: int, device: Device) -> Tensor:
-        pos = torch.arange(seq_len, device=device).unsqueeze(0)
-        rel_dist = pos - pos.transpose(0, 1)
-        rel_dist = torch.clamp(rel_dist, -self.max_left_rel_pos, self.max_right_rel_pos)
-        return rel_dist + self.max_left_rel_pos
+    def _get_relative_indices(self, keys: Tensor) -> Tensor:
+        # (S, 1)
+        indices = torch.arange(keys.size(2), device=keys.device).unsqueeze(0)
+
+        # (S, S)
+        rel_indices = indices - indices.transpose(0, 1)
+
+        rel_indices = torch.clamp(
+            rel_indices, -self.max_left_rel_pos, self.max_right_rel_pos
+        )
+
+        return rel_indices + self.max_left_rel_pos
 
     def extra_repr(self) -> str:
         """:meta private:"""
