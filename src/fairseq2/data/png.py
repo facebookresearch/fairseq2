@@ -15,7 +15,7 @@ from fairseq2.typing import DataType, Device
 
 if TYPE_CHECKING or _DOC_MODE:
 
-    class ImageDecoder:
+    class PNGDecoder:
         def __init__(
             self,
             dtype: Optional[DataType] = None,
@@ -24,17 +24,17 @@ if TYPE_CHECKING or _DOC_MODE:
         ) -> None:
             ...
 
-        def __call__(self, memory_block: MemoryBlock) -> "ImageDecoderOutput":
+        def __call__(self, memory_block: MemoryBlock) -> "PNGDecoderOutput":
             ...
 
 else:
-    from fairseq2n.bindings.data.png import ImageDecoder as ImageDecoder
+    from fairseq2n.bindings.data.png import PNGDecoder as PNGDecoder
 
     def _set_module_name() -> None:
-        for t in [ImageDecoder]:
+        for t in [PNGDecoder]:
             t.__module__ = __name__
 
     _set_module_name()
 
-class ImageDecoderOutput(TypedDict):
+class PNGDecoderOutput(TypedDict):
     format: int
