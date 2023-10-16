@@ -9,9 +9,13 @@ import torch
 from torch.nn.functional import pad
 
 from fairseq2.data import CollateOptionsOverride, Collater
-from tests.common import assert_close, assert_equal, device
+from tests.common import assert_close, assert_equal, device, python_devel_only
 
 
+@pytest.mark.skipif(
+    python_devel_only(),
+    reason="New fairseq2n API in Python-only installation. Skipping till v0.2.",
+)
 class TestCollater:
     def test_call_works_when_input_has_only_non_composite_types(self) -> None:
         # fmt: off
