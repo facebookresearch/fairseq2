@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <exception>
 #include <stdexcept>
+#include <png.h>
 
 #include <ATen/Functions.h>
 #include <ATen/Tensor.h>
@@ -47,7 +48,63 @@ image_decoder::operator()(data &&d) const
         throw_<std::invalid_argument>(
             "The input memory block has zero length and cannot be decoded as audio.");
 
+    png_bytep buffer = reinterpret_cast<png_bytep>(const_cast<void*>(static_cast<const void*>(block.data())));
+
+    png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+    if (!png_ptr) {
+        // Handle error
+    }
+    png_infop info_ptr = png_create_info_struct(png_ptr);
+    if (!info_ptr) {
+        png_destroy_read_struct(&png_ptr, NULL, NULL);
+        // Handle error
+    }
+    
+    png_rw_ptr read_fn = [](png_structp png_ptr, png_bytep data, png_size_t length) {
+        png_bytep& buffer = *reinterpret_cast<png_bytep*>(png_get_io_ptr(png_ptr));
+        memcpy(data, buffer, length);
+        buffer += length;
+    };
+    png_set_read_fn(png_ptr, &buffer, read_fn);
+
+    png_read_info(png_ptr, info_ptr);
+    png_uint_32 width = png_get_image_width(png_ptr, info_ptr);
+    png_uint_32 height = png_get_image_height(png_ptr, info_ptr);
+    int bit_depth = png_get_bit_depth(png_ptr, info_ptr);
+    int color_type = png_get_color_type(png_ptr, info_ptr);
+
+   
 
     at::ScalarType dtype = opts_.maybe_dtype().value_or(at::kFloat);
+
+    at::Tensor rgb = at::empty({width, height},
+        at::dtype(dtype).device(at::kCPU).pinned_memory(opts_.pin_memory()));
+
+    writable_memory_span rgb_bits = get_raw_mutable_storage(rgb);
+
+    switch (dtype) {
+    case at::kFloat: {
+        span waveform_data = cast<float32>(rgb_bits);
+
+        buffer.decode_into(waveform_data);
+
+        break;
+    }
+    case at::kByte: {
+        span waveform_data = cast<std::uint8_t>(rgb_bits);
+
+        file.decode_into(waveform_data);
+
+        break;
+    }
+    default:
+        throw_<internal_error>(
+            "`audio_decoder` uses an unsupported data type. Please file a bug report.");
+    };
+
+    at::Device device = opts_.maybe_device().value_or(at::kCPU);
+    if (device != at::kCPU)
+        waveform = waveform.to(device);
+
 }
 };
