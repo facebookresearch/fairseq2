@@ -17,6 +17,7 @@ target_sources(py_bindings
         init.cc
         memory.cc
         data/audio.cc
+        data/png.cc
         data/data_pipeline.cc
         data/init.cc
         data/string.cc
