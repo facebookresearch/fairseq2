@@ -12,7 +12,9 @@ from torch import Tensor
 from torch.nn.functional import dropout, softmax
 
 from fairseq2.nn.embedding import StandardEmbedding
+from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer.attention import SDPA
+from fairseq2.nn.transformer.attention_mask import AttentionMask
 from fairseq2.typing import DataType, Device, finaloverride
 
 
@@ -94,16 +96,12 @@ class ShawRelativePositionSDPA(SDPA):
         self,
         queries: Tensor,
         keys: Tensor,
+        key_padding_mask: Optional[PaddingMask],
         values: Tensor,
         *,
-        mask: Optional[Tensor] = None,
+        attn_mask: Optional[AttentionMask] = None,
         needs_weights: bool = False,
     ) -> Tuple[Tensor, Optional[Tensor]]:
-        if queries.ndim != 4 or keys.ndim != 4 or values.ndim != 4:
-            raise ValueError(
-                "`ShawRelativePositionSDPA` can only be used as part of a multi-head attention layer and expects its input tensors to be 4 dimensional."
-            )
-
         q_len = queries.size(2)
 
         # (N, H, S, K_h) @ (N, H, K_h, S_kv) = (N, H, S, S_kv)
@@ -125,8 +123,21 @@ class ShawRelativePositionSDPA(SDPA):
 
         attn_weights = attn_weights * (queries.size(-1) ** -0.5)
 
-        if mask is not None:
-            attn_weights = attn_weights + mask
+        if attn_mask is not None:
+            # (S, S_kv)
+            m = attn_mask.materialize()
+
+            # (N, H, S, S_kv) + (S, S_kv) -> (N, H, S, S_kv)
+            attn_weights = attn_weights + m
+
+        if key_padding_mask is not None:
+            # (N, S_kv)
+            m = key_padding_mask.materialize()
+
+            m = m[:, None, None, :]
+
+            # (N, H, S, S_kv)
+            attn_weights = torch.where(m, attn_weights, -torch.inf)
 
         attn_weights = softmax(attn_weights, dim=-1, dtype=torch.float32)
 

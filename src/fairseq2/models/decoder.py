@@ -11,6 +11,7 @@ from torch import Tensor
 
 from fairseq2.models.sequence import SequenceBatch, SequenceModel, SequenceModelOutput
 from fairseq2.nn.incremental_state import IncrementalStateBag
+from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import override
 
 
@@ -21,20 +22,19 @@ class SequenceDecoder(ABC):
     def decode(
         self,
         seqs: Tensor,
-        seq_lens: Optional[Tensor],
+        padding_mask: Optional[PaddingMask],
         *,
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[Tensor]]:
+    ) -> Tuple[Tensor, Optional[PaddingMask]]:
         """Decode the specified sequences.
 
         :param seqs:
             The sequences to decode. *Shape:* :math:`(N,S,*)`, where :math:`N`
             is the batch size, :math:`S` is the sequence length, and :math:`*`
             is any number of sequence-specific dimensions including none.
-        :param seq_lens:
-            An array where each element represents the length of the sequence at
-            the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
-            the batch size.
+        :param padding_mask:
+            The padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where :math:`N`
+            is the batch size and :math:`S` is the sequence length.
         :param state_bag:
             The state bag to use for incremental decoding.
 
@@ -42,14 +42,14 @@ class SequenceDecoder(ABC):
             - The decoder output. *Shape:* :math:`(N,S,M)`, where :math:`N` is
               the batch size, :math:`S` is the target sequence length, and
               :math:`M` is the dimensionality of the model.
-            - The float padding mask of the decoder output. *Shape:*
-              :math:`(N,S)`, where :math:`N` is the batch size and :math:`S` is
-              the target sequence length.
+            - The padding mask of the decoder output. *Shape:* :math:`(N,S)`,
+              where :math:`N` is the batch size and :math:`S` is the target
+              sequence length.
         """
 
     @abstractmethod
     def project(
-        self, decoder_output: Tensor, decoder_padding_mask: Optional[Tensor]
+        self, decoder_output: Tensor, decoder_padding_mask: Optional[PaddingMask]
     ) -> SequenceModelOutput:
         """Produce logits for next-step prediction.
 
@@ -58,9 +58,9 @@ class SequenceDecoder(ABC):
             batch size, :math:`S` is the sequence length, and :math:`M` is the
             dimensionality of the model.
         :param decoder_padding_mask:
-            The float padding mask of the decoder output. *Shape:*
-            :math:`(N,S)`, where :math:`N` is the batch size and :math:`S` is
-            the sequence length.
+            The padding mask of the decoder output. *Shape:* :math:`(N,S)`,
+            where :math:`N` is the batch size and :math:`S` is the sequence
+            length.
         """
 
 
@@ -80,7 +80,9 @@ class DecoderModel(SequenceModel, SequenceDecoder):
 
     @override
     def forward(self, batch: SequenceBatch) -> SequenceModelOutput:
-        decoder_output, decoder_padding_mask = self.decode(batch.seqs, batch.seq_lens)
+        decoder_output, decoder_padding_mask = self.decode(
+            batch.seqs, batch.padding_mask
+        )
 
         return self.project(decoder_output, decoder_padding_mask)
 

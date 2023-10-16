@@ -13,66 +13,14 @@ from fairseq2.nn.ops import repeat_interleave
 from fairseq2.typing import DataType, Device
 
 
-def to_padding_mask(seqs: Tensor, seq_lens: Optional[Tensor]) -> Optional[Tensor]:
-    """Convert a sequence length array to a float padding mask.
-
-    :param seqs:
-        The sequences to mask. *Shape:* :math:`(N,S,*)`, where :math:`N` is the
-        batch size, :math:`S` is the sequence length, and :math:`*` is any
-        number of sequence-specific dimensions including none.
-    :param seq_lens:
-        An array where each element represents the length of the sequence at the
-        same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is the
-        batch size.
-
-    :returns:
-        The float padding mask. *Shape:* :math:`(N,S)`, where :math:`N` is the
-        batch size and :math:`S` is the sequence length.
-    """
-    bool_mask = to_bool_padding_mask(seqs, seq_lens)
-    if bool_mask is None:
-        return None
-
-    return to_float_mask(bool_mask, seqs.dtype if seqs.is_floating_point() else None)
-
-
-def to_bool_padding_mask(seqs: Tensor, seq_lens: Optional[Tensor]) -> Optional[Tensor]:
-    """Convert a sequence length array to a boolean padding mask.
-
-    :param seqs:
-        The sequences to mask. *Shape:* :math:`(N,S,*)`, where :math:`N` is the
-        batch size, :math:`S` is the sequence length, and :math:`*` is any
-        number of sequence-specific dimensions including none.
-    :param seq_lens:
-        An array where each element represents the length of the sequence at the
-        same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is the
-        batch size.
-
-    :returns:
-        The boolean padding mask. *Shape:* :math:`(N,S)`, where :math:`N` is the
-        batch size and :math:`S` is the sequence length.
-    """
-    if seq_lens is None:
-        return None
-
-    batch_size, mask_seq_len = seqs.shape[:2]
-
-    # No need to construct a mask if all sequences have the same length.
-    if (seq_lens == mask_seq_len).all():
-        return None
-
-    indices = torch.arange(mask_seq_len, device=seq_lens.device).expand(batch_size, -1)
-
-    return indices >= seq_lens.unsqueeze(1).expand(-1, mask_seq_len)
-
-
 def to_float_mask(mask: Tensor, dtype: Optional[DataType] = None) -> Tensor:
     """Convert a boolean mask to a float mask.
 
     :param mask:
-        The mask tensor. *Shape:* Any.
+        The boolean mask. *Shape:* Any.
     :param dtype:
-        The floating-point type of the converted mask.
+        The data type of the float mask. If ``None``, the default floating-point
+        type will be used.
     """
     if dtype is None:
         dtype = torch.get_default_dtype()
@@ -80,32 +28,7 @@ def to_float_mask(mask: Tensor, dtype: Optional[DataType] = None) -> Tensor:
     return torch.zeros_like(mask, dtype=dtype).masked_fill_(mask, -torch.inf)
 
 
-def apply_padding_mask(seqs: Tensor, padding_mask: Optional[Tensor]) -> Tensor:
-    """Apply the specified padding mask to ``seqs``.
-
-    :param seqs:
-        The sequences to mask. *Shape:* :math:`(N,S,*)`, where :math:`N` is the
-        the batch size, :math:`S` is the sequence length, and :math:`*` is any
-        number of sequence-specific dimensions including none.
-    :param padding_mask:
-        The float padding mask to apply. *Shape:* :math:`(N,S)`, where :math:`N`
-        is the batch size and :math:`S` is the sequence length.
-
-    :returns:
-        The input sequences with mask applied. *Shape:* Same as ``seqs``.
-    """
-    if padding_mask is None:
-        return seqs
-
-    bool_mask = padding_mask.isinf()
-
-    if seqs.ndim > 2:
-        bool_mask = bool_mask.unsqueeze(2)
-
-    return seqs.masked_fill(bool_mask, 0.0)
-
-
-def compute_mask(
+def compute_row_mask(
     shape: Tuple[int, int],
     span_len: int,
     max_mask_prob: float,
@@ -113,10 +36,10 @@ def compute_mask(
     min_num_spans: int = 0,
     device: Optional[Device] = None,
 ) -> Optional[Tensor]:
-    """Compute a random mask for the specified shape.
+    """Compute a random row mask of the specified shape.
 
     :param shape:
-        The two dimensional shape for which to compute a mask.
+        The shape of the mask.
     :param span_len:
         The length of each mask span.
     :param max_mask_prob:
@@ -125,14 +48,14 @@ def compute_mask(
         might be smaller. The implementation also guarantees that there is
         always at least one unmasked element in each row.
     :param row_lens:
-        The length of each row if ``shape`` is ragged.
+        The length of each row.
     :param min_num_spans:
         The minimum number of mask spans per row.
     :param device:
         The device on which to initialize the mask.
 
     :returns:
-        A boolean mask. *:Shape:* ``shape``.
+        The boolean row mask. *:Shape:* ``shape``.
     """
     num_rows, max_row_len = shape
 
@@ -166,7 +89,7 @@ def compute_mask(
 def _compute_mask_spans(
     row_lens: Tensor, span_len: int, max_mask_prob: float, min_num_spans: int
 ) -> Optional[Tensor]:
-    """Compute random mask spans for the specified (ragged) shape."""
+    """Compute random mask spans of the specified shape."""
     device, dtype = row_lens.device, row_lens.dtype
 
     num_rows = row_lens.size(0)

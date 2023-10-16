@@ -31,45 +31,45 @@ CONFORMER_DE_REL_POS: Final = "Es war Essenszeit, und wir beginnen nach Ort zu s
 
 
 def test_load_s2t_transformer_mustc_st_jt_m() -> None:
+    model_name = "s2t_transformer_mustc_st_jt_m"
+
     model = load_s2t_transformer_model(
-        "s2t_transformer_mustc_st_jt_m", device=device, progress=False
+        model_name, device=device, dtype=torch.float32, progress=False
     )
 
-    tokenizer = load_s2t_transformer_tokenizer(
-        "s2t_transformer_mustc_st_jt_m", progress=False
-    )
+    tokenizer = load_s2t_transformer_tokenizer(model_name, progress=False)
 
     assert_translation(model, tokenizer, expected=TRANSFORMER_DE)
 
 
 def test_load_s2t_conformer_covost_st_en_de() -> None:
-    config = load_s2t_transformer_config("s2t_conformer_covost_st_en_de")
+    model_name = "s2t_conformer_covost_st_en_de"
+
+    config = load_s2t_transformer_config(model_name)
 
     model = create_s2t_transformer_model(config, device=Device("meta"))
 
     load_s2t_transformer_model(
-        "s2t_conformer_covost_st_en_de", device=device, out=model, progress=False
+        model_name, device=device, dtype=torch.float32, out=model, progress=False
     )
 
-    tokenizer = load_s2t_transformer_tokenizer(
-        "s2t_conformer_covost_st_en_de", progress=False
-    )
+    tokenizer = load_s2t_transformer_tokenizer(model_name, progress=False)
 
     assert_translation(model, tokenizer, expected=CONFORMER_DE)
 
 
 def test_load_s2t_conformer_rel_pos_covost_st_en_de() -> None:
-    config = load_s2t_transformer_config("s2t_conformer_covost_st_en_de_rel_pos")
+    model_name = "s2t_conformer_covost_st_en_de_rel_pos"
+
+    config = load_s2t_transformer_config(model_name)
 
     model = create_s2t_transformer_model(config, device=device)
 
     load_s2t_transformer_model(
-        "s2t_conformer_covost_st_en_de_rel_pos", out=model, progress=False
+        model_name, dtype=torch.float32, out=model, progress=False
     )
 
-    tokenizer = load_s2t_transformer_tokenizer(
-        "s2t_conformer_covost_st_en_de_rel_pos", progress=False
-    )
+    tokenizer = load_s2t_transformer_tokenizer(model_name, progress=False)
 
     assert_translation(model, tokenizer, expected=CONFORMER_DE_REL_POS)
 

@@ -30,8 +30,8 @@ class LayerNormFactory(Protocol):
         """
 
 
-def create_default_layer_norm(
+def create_standard_layer_norm(
     model_dim: int, *, device: Optional[Device] = None, dtype: Optional[DataType] = None
 ) -> LayerNorm:
-    """Create a :class:`StandardLayerNorm` instance."""
+    """Construct instances of :class:`StandardLayerNorm`."""
     return StandardLayerNorm(model_dim, bias=True, device=device, dtype=dtype)

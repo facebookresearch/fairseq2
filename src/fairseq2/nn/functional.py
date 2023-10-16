@@ -34,7 +34,7 @@ def nll_loss(
     :param pad_idx:
         The index of the pad symbol in the target vocabulary.
     :param label_smoothing:
-        The amount of label smoothing when computing the loss.
+        The amount of label smoothing to apply while computing the loss.
     :param reduction:
         The reduction to apply to the output.
     """

@@ -8,7 +8,7 @@ import pytest
 import torch
 
 from fairseq2.data import DataPipeline, read_sequence
-from fairseq2.data.text.text_reader import read_text
+from fairseq2.data.text import read_text
 from fairseq2.utils.version import is_pt2_or_greater
 from tests.common import python_devel_only, tmp_rng_seed
 

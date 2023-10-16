@@ -231,9 +231,10 @@ class S2TTransformerBuilder:
             The data type of module parameters and buffers.
         """
         self.config = config
+
         self.rel_pos_encoding = None
-        self.device = device
-        self.dtype = dtype
+
+        self.device, self.dtype = device, dtype
 
     def build_model(self) -> TransformerModel:
         """Build a model."""

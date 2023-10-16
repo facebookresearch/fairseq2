@@ -207,9 +207,10 @@ class Wav2Vec2EncoderBuilder:
             )
 
         self.config = config
+
         self.rel_pos_encoding = None
-        self.device = device
-        self.dtype = dtype
+
+        self.device, self.dtype = device, dtype
 
     def build_frontend(self) -> Wav2Vec2Frontend:
         """Build a wav2vec 2.0 Transformer encoder front-end."""
@@ -501,9 +502,10 @@ class Wav2Vec2Builder:
             The data type of module parameters and buffers.
         """
         self.config = config
+
         self.encoder_builder = encoder_builder
-        self.device = device
-        self.dtype = dtype
+
+        self.device, self.dtype = device, dtype
 
     def build_model(self) -> Wav2Vec2Model:
         """Build a model."""
