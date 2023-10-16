@@ -55,7 +55,7 @@ target_sources(fairseq2n
         data/audio/detail/sndfile.cc
         data/detail/file.cc
         data/detail/file_system.cc
-        data/image/image_decoder.cc
+        data/image/png_decoder.cc
         data/text/string_splitter.cc
         data/text/string_to_int_converter.cc
         data/text/string_to_tensor_converter.cc
