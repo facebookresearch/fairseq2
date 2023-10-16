@@ -10,6 +10,7 @@ from torch import Tensor
 from torch.nn import GLU, Conv1d, Sequential
 
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
+from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import DataType, Device, finaloverride
 
 
@@ -84,8 +85,8 @@ class Conv1dFbankSubsampler(SequenceFeatureExtractor):
 
     @finaloverride
     def forward(
-        self, seqs: Tensor, seq_lens: Optional[Tensor]
-    ) -> Tuple[Tensor, Optional[Tensor]]:
+        self, seqs: Tensor, padding_mask: Optional[PaddingMask]
+    ) -> Tuple[Tensor, Optional[PaddingMask]]:
         """See the base :meth:`SequenceFeatureExtractor.forward`.
 
         :param seqs:
@@ -104,14 +105,16 @@ class Conv1dFbankSubsampler(SequenceFeatureExtractor):
         # (N, F, S_out) -> (N, S_out, F)
         features = features.transpose(1, 2)
 
-        if seq_lens is not None:
-            # Since we contracted the temporal dimension, we should re-compute
-            # the sequence lengths.
-            seq_lens = self._compute_seq_lens(seq_lens)
+        # Since we contracted the temporal dimension, we should re-compute
+        # the sequence lengths.
+        if padding_mask is not None:
+            seq_lens = self._contract_seq_lens(padding_mask.seq_lens)
 
-        return features, seq_lens
+            padding_mask = PaddingMask(seq_lens, batch_seq_len=features.size(1))
 
-    def _compute_seq_lens(self, num_frames: Tensor) -> Tensor:
+        return features, padding_mask
+
+    def _contract_seq_lens(self, num_frames: Tensor) -> Tensor:
         seq_lens = num_frames.clone()
 
         for _ in range(len(self.layers)):

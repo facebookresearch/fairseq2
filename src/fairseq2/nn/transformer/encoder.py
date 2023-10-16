@@ -12,10 +12,11 @@ from torch.nn import Module
 
 from fairseq2.nn.module_list import ModuleList
 from fairseq2.nn.normalization import LayerNorm
+from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer.encoder_layer import TransformerEncoderLayer
 from fairseq2.nn.transformer.layer_norm import (
     LayerNormFactory,
-    create_default_layer_norm,
+    create_standard_layer_norm,
 )
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
 from fairseq2.nn.utils.module import check_model_dim
@@ -41,25 +42,25 @@ class TransformerEncoder(Module, ABC):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[Tensor],
+        padding_mask: Optional[PaddingMask],
         *,
         layer_output_hook: Optional["EncoderLayerOutputHook"] = None,
-    ) -> Tuple[Tensor, Optional[Tensor]]:
+    ) -> Tuple[Tensor, Optional[PaddingMask]]:
         """
         :param seqs:
             The sequences to encode. *Shape:* :math:`(N,S,M)`, where :math:`N`
             is the batch size, :math:`S` is the sequence length, and :math:`M`
             is the dimensionality of the model.
         :param padding_mask:
-            The float padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where
-            :math:`N` is the batch size and :math:`S` is the sequence length.
+            The padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where :math:`N`
+            is the batch size and :math:`S` is the sequence length.
         :param layer_output_hook:
             If not ``None``, it will be called with the output of each layer in
             the encoder stack.
 
         :returns:
             - The encoder output. *Shape:* Same as ``seqs``.
-            - The float padding mask of the encoder output. *Shape:* Same as
+            - The padding mask of the encoder output. *Shape:* Same as
               ``padding_mask``.
         """
 
@@ -75,7 +76,7 @@ class EncoderLayerOutputHook(Protocol):
         self,
         layer_idx: int,
         layer_output: Tensor,
-        layer_padding_mask: Optional[Tensor],
+        layer_padding_mask: Optional[PaddingMask],
         num_layers: int,
     ) -> bool:
         """
@@ -90,9 +91,8 @@ class EncoderLayerOutputHook(Protocol):
 
         :returns:
             ``True`` if the encoder should continue executing the remaining
-            layers in the stack; ``False`` if the encoder should stop executing
-            the remaining layers and treat this layer as the final layer in the
-            stack.
+            layers in the stack; ``False`` if the encoder should treat this
+            layer as the final layer in the stack.
         """
 
 
@@ -134,7 +134,7 @@ class StandardTransformerEncoder(TransformerEncoder):
         super().__init__(model_dim)
 
         if layer_norm_factory is None:
-            layer_norm_factory = create_default_layer_norm
+            layer_norm_factory = create_standard_layer_norm
 
         self.layers = layer_list
 
@@ -151,10 +151,10 @@ class StandardTransformerEncoder(TransformerEncoder):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[Tensor],
+        padding_mask: Optional[PaddingMask],
         *,
         layer_output_hook: Optional[EncoderLayerOutputHook] = None,
-    ) -> Tuple[Tensor, Optional[Tensor]]:
+    ) -> Tuple[Tensor, Optional[PaddingMask]]:
         if layer_output_hook is not None and self.layers.drop_p > 0.0:
             raise ValueError("`layer_hook` must be `None` when LayerDrop is enabled.")
 

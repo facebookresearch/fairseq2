@@ -157,8 +157,8 @@ class NllbBuilder:
             The data type of module parameters and buffers.
         """
         self.config = config
-        self.device = device
-        self.dtype = dtype
+
+        self.device, self.dtype = device, dtype
 
     def build_model(self) -> TransformerModel:
         """Build a model."""

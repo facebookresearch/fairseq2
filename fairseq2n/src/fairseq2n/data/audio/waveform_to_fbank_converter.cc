@@ -63,7 +63,7 @@ waveform_to_fbank_converter::operator()(data &&d) const
         at::kCPU, at::kFloat, /*non_blocking=*/false, /*copy=*/false, at::MemoryFormat::Contiguous);
 
     if (!are_close(opts_.waveform_scale(), 1.0F))
-        waveform = at::multiply(waveform, opts_.waveform_scale());
+        waveform = waveform.multiply(opts_.waveform_scale());
 
     at::Tensor fbank = computer_->compute(waveform, opts_.pin_memory());
 
@@ -72,7 +72,7 @@ waveform_to_fbank_converter::operator()(data &&d) const
 
         std::tie(stdev, mean) = at::std_mean(fbank, /*dim=*/0);
 
-        fbank = at::divide(at::subtract(fbank, mean), stdev);
+        fbank = fbank.subtract(mean).divide(stdev);
     }
 
     // If no device is specified, we fallback to the device of the waveform

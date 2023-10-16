@@ -12,6 +12,7 @@ from torch import Tensor
 from fairseq2.models.seq2seq import Seq2SeqBatch, Seq2SeqModel
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.nn.incremental_state import IncrementalStateBag
+from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import override
 
 
@@ -23,12 +24,12 @@ class Seq2SeqDecoder(ABC):
     def decode(
         self,
         seqs: Tensor,
-        seq_lens: Optional[Tensor],
+        padding_mask: Optional[PaddingMask],
         encoder_output: Tensor,
-        encoder_padding_mask: Optional[Tensor],
+        encoder_padding_mask: Optional[PaddingMask],
         *,
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[Tensor]]:
+    ) -> Tuple[Tensor, Optional[PaddingMask]]:
         """Decode the specified target sequences.
 
         :param seqs:
@@ -36,19 +37,18 @@ class Seq2SeqDecoder(ABC):
             where :math:`N` is the batch size, :math:`S_{tgt}` is the target
             sequence length, and :math:`*` is any number of sequence-specific
             dimensions including none.
-        :param seq_lens:
-            An array where each element represents the length of the sequence at
-            the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
-            the batch size.
+        :param padding_mask:
+            The padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where :math:`N`
+            is the batch size and :math:`S` is the sequence length.
         :param encoder_output:
             The encoder output to use in encoder-decoder attention. *Shape:*
             :math:`(N,S_{enc},M)`, where :math:`N` is the batch size,
             :math:`S_{enc}` is the encoder output sequence length, and :math:`M`
             is the dimensionality of the model.
         :param encoder_padding_mask:
-            The float padding mask of ``encoder_output``. *Shape:*
-            :math:`(N,S_{enc})`, where :math:`N` is the batch size and
-            :math:`S_{enc}` is the encoder output sequence length.
+            The padding mask of ``encoder_output``. *Shape:* :math:`(N,S_{enc})`,
+            where :math:`N` is the batch size and :math:`S_{enc}` is the encoder
+            output sequence length.
         :param state_bag:
             The state bag to use for incremental decoding.
 
@@ -56,14 +56,14 @@ class Seq2SeqDecoder(ABC):
             - The decoder output. *Shape:* :math:`(N,S_{tgt},M)`, where
               :math:`N` is the batch size, :math:`S_{tgt}` is the target
               sequence length, and :math:`M` is the dimensionality of the model.
-            - The float padding mask of the decoder output. *Shape:*
+            - The padding mask of the decoder output. *Shape:*
               :math:`(N,S_{tgt})`, where :math:`N` is the batch size and
               :math:`S_{tgt}` is the target sequence length.
         """
 
     @abstractmethod
     def project(
-        self, decoder_output: Tensor, decoder_padding_mask: Optional[Tensor]
+        self, decoder_output: Tensor, decoder_padding_mask: Optional[PaddingMask]
     ) -> SequenceModelOutput:
         """Produce logits for next-step prediction.
 
@@ -72,9 +72,9 @@ class Seq2SeqDecoder(ABC):
             is the batch size, :math:`S_{tgt}` is the target sequence length,
             and :math:`M` is the dimensionality of the model.
         :param decoder_padding_mask:
-            The float padding mask of the decoder output. *Shape:*
-            :math:`(N,S_{tgt})`, where :math:`N` is the batch size and
-            :math:`S_{tgt}` is the target sequence length.
+            The padding mask of the decoder output. *Shape:* :math:`(N,S_{tgt})`,
+            where :math:`N` is the batch size and :math:`S_{tgt}` is the target
+            sequence length.
         """
 
 
@@ -95,12 +95,12 @@ class EncoderDecoderModel(Seq2SeqModel, Seq2SeqDecoder):
     @override
     def forward(self, batch: Seq2SeqBatch) -> SequenceModelOutput:
         encoder_output, encoder_padding_mask = self.encode(
-            batch.source_seqs, batch.source_seq_lens
+            batch.source_seqs, batch.source_padding_mask
         )
 
         decoder_output, decoder_padding_mask = self.decode(
             batch.target_seqs,
-            batch.target_seq_lens,
+            batch.target_padding_mask,
             encoder_output,
             encoder_padding_mask,
         )
@@ -109,8 +109,8 @@ class EncoderDecoderModel(Seq2SeqModel, Seq2SeqDecoder):
 
     @abstractmethod
     def encode(
-        self, seqs: Tensor, seq_lens: Optional[Tensor]
-    ) -> Tuple[Tensor, Optional[Tensor]]:
+        self, seqs: Tensor, padding_mask: Optional[PaddingMask]
+    ) -> Tuple[Tensor, Optional[PaddingMask]]:
         """Encode the specified source sequences.
 
         :param seqs:
@@ -118,16 +118,15 @@ class EncoderDecoderModel(Seq2SeqModel, Seq2SeqDecoder):
             where :math:`N` is the batch size, :math:`S_{src}` is the source
             sequence length, and :math:`*` is any number of sequence-specific
             dimensions including none.
-        :param seq_lens:
-            An array where each element represents the length of the sequence at
-            the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
-            the batch size.
+        :param padding_mask:
+            The padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where :math:`N`
+            is the batch size and :math:`S` is the sequence length.
 
         :returns:
             - The encoder output. *Shape:* :math:`(N,S_{out},M)`, where
               :math:`N` is the batch size, :math:`S_{out}` is the output
               sequence length, and :math:`M` is the dimensionality of the model.
-            - The float padding mask of the encoder output. *Shape:*
+            - The padding mask of the encoder output. *Shape:*
               :math:`(N,S_{out})`, where :math:`N` is the batch size and
               :math:`S_{out}` is the output sequence length.
         """

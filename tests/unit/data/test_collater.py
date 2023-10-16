@@ -8,10 +8,14 @@ import pytest
 import torch
 from torch.nn.functional import pad
 
-from fairseq2.data import CollateOptionsOverride, Collater, read_sequence
+from fairseq2.data import CollateOptionsOverride, Collater
 from tests.common import assert_close, assert_equal, device, python_devel_only
 
 
+@pytest.mark.skipif(
+    python_devel_only(),
+    reason="New fairseq2n API in Python-only installation. Skipping till v0.2.",
+)
 class TestCollater:
     def test_call_works_when_input_has_only_non_composite_types(self) -> None:
         # fmt: off
@@ -107,7 +111,7 @@ class TestCollater:
         assert_close(output["seqs"], expected_seqs)
         assert_equal(output["seq_lens"], expected_seq_lens)
 
-        assert output["is_ragged"] == False
+        assert output["is_ragged"] == (pad_to_multiple > 2)
 
     def test_call_works_when_input_has_ragged_sequence_tensors(self) -> None:
         bucket = [
@@ -195,13 +199,13 @@ class TestCollater:
 
         collater = Collater()
 
+        output = collater(bucket)
+
         expected_tensor = torch.tensor(
             [0.0, 1.0, 2.0], device=device, dtype=torch.float32
         )
 
         expected_tensor = expected_tensor.unsqueeze(-1).expand(-1, 4)
-
-        output = collater(bucket)
 
         assert_close(output["foo2"]["subfoo2"], expected_tensor)
 
@@ -378,51 +382,3 @@ class TestCollater:
             match=r"^`pad_idx` of the selector 'foo' must be set when `pad_to_multiple` is greater than 1\.$",
         ):
             Collater(overrides=[CollateOptionsOverride("foo", pad_to_multiple=2)])
-
-
-@pytest.mark.skipif(python_devel_only(), reason="fairseq2n 0.2.0")
-@pytest.mark.parametrize("pad_to_multiple,pad_size", [(1, 0), (2, 0), (3, 2), (8, 4)])
-def test_collate_works_when_input_has_sequence_tensors(
-    pad_to_multiple: int, pad_size: int
-) -> None:
-    bucket1 = [
-        torch.full((4, 2), 0, device=device, dtype=torch.int64),
-        torch.full((4, 2), 1, device=device, dtype=torch.int64),
-        torch.full((4, 2), 2, device=device, dtype=torch.int64),
-    ]
-
-    bucket2 = [
-        [{"foo1": 0, "foo2": 1}, {"foo3": 2, "foo4": 3}],
-        [{"foo1": 4, "foo2": 5}, {"foo3": 6, "foo4": 7}],
-        [{"foo1": 8, "foo2": 9}, {"foo3": 0, "foo4": 1}],
-    ]
-
-    expected1_seqs = torch.tensor(
-        [
-            [[0, 0], [0, 0], [0, 0], [0, 0]],
-            [[1, 1], [1, 1], [1, 1], [1, 1]],
-            [[2, 2], [2, 2], [2, 2], [2, 2]],
-        ],
-        device=device,
-        dtype=torch.int64,
-    )
-    expected1_seqs = pad(expected1_seqs, (0, 0, 0, pad_size), value=3)
-    expected1_seq_lens = torch.tensor([4, 4, 4], device=device, dtype=torch.int64)
-
-    expected2 = [
-        {"foo1": [0, 4, 8], "foo2": [1, 5, 9]},
-        {"foo3": [2, 6, 0], "foo4": [3, 7, 1]},
-    ]
-
-    data = (
-        read_sequence([bucket1, bucket2])
-        .collate(pad_idx=3, pad_to_multiple=pad_to_multiple)
-        .and_return()
-    )
-    output1, output2 = list(data)
-
-    assert_close(output1["seqs"], expected1_seqs)
-    assert_equal(output1["seq_lens"], expected1_seq_lens)
-    assert output1["is_ragged"] == False
-
-    assert output2 == expected2

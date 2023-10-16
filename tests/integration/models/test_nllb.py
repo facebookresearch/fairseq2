@@ -6,6 +6,8 @@
 
 from typing import Final
 
+import torch
+
 from fairseq2.generation import TextTranslator
 from fairseq2.models.nllb import load_nllb_model, load_nllb_tokenizer
 from tests.common import device
@@ -15,11 +17,13 @@ DEU_SENTENCE: Final = "Am Montag kündigten Wissenschaftler der Medizinischen Fa
 
 
 def test_load_dense_distill_600m() -> None:
+    model_name = "nllb-200_dense_distill_600m"
+
     model = load_nllb_model(
-        "nllb-200_dense_distill_600m", device=device, progress=False
+        model_name, device=device, dtype=torch.float32, progress=False
     )
 
-    tokenizer = load_nllb_tokenizer("nllb-200_dense_distill_600m", progress=False)
+    tokenizer = load_nllb_tokenizer(model_name, progress=False)
 
     translator = TextTranslator(
         model, tokenizer, source_lang="eng_Latn", target_lang="deu_Latn"

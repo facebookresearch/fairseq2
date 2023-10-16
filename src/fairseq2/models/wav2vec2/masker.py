@@ -11,7 +11,8 @@ import torch.nn as nn
 from torch import Tensor
 from torch.nn import Module, Parameter
 
-from fairseq2.nn.utils.mask import compute_mask
+from fairseq2.nn.padding import PaddingMask
+from fairseq2.nn.utils.mask import compute_row_mask
 from fairseq2.typing import DataType, Device
 
 
@@ -73,7 +74,7 @@ class Wav2Vec2Masker(Module):
         nn.init.uniform_(self.temporal_mask_embed)
 
     def forward(
-        self, seqs: Tensor, seq_lens: Optional[Tensor]
+        self, seqs: Tensor, padding_mask: Optional[PaddingMask]
     ) -> Tuple[Tensor, Tensor]:
         """
         :param seqs:
@@ -87,18 +88,18 @@ class Wav2Vec2Masker(Module):
 
         :returns:
             - The input sequences with mask applied. *Shape:* Same as ``seqs``.
-            - The boolean temporal mask that has been applied to ``seqs``.
-              *Shape:* :math:`(N,S)`, where :math:`N` is the batch size and
-              :math`S` is the sequence length.
+            - The temporal mask that has been applied to ``seqs``. *Shape:*
+              :math:`(N,S)`, where :math:`N` is the batch size and :math`S` is
+              the sequence length.
         """
         batch_size, seq_len, model_dim = seqs.shape
 
         # Temporal mask over time steps.
-        temporal_mask = compute_mask(
+        temporal_mask = compute_row_mask(
             shape=(batch_size, seq_len),
             span_len=self.temporal_span_len,
             max_mask_prob=self.max_temporal_mask_prob,
-            row_lens=seq_lens,
+            row_lens=padding_mask.seq_lens if padding_mask is not None else None,
             min_num_spans=2,
             device=seqs.device,
         )
@@ -109,7 +110,8 @@ class Wav2Vec2Masker(Module):
 
         if self.max_spatial_mask_prob > 0.0:
             # Spatial mask over features.
-            spatial_mask = compute_mask(
+            # (N, M)
+            spatial_mask = compute_row_mask(
                 shape=(batch_size, model_dim),
                 span_len=self.spatial_span_len,
                 max_mask_prob=self.max_spatial_mask_prob,
@@ -119,6 +121,7 @@ class Wav2Vec2Masker(Module):
 
             assert spatial_mask is not None
 
+            # (N, M) -> (N, S, M)
             spatial_mask = spatial_mask.unsqueeze(1).expand(-1, seq_len, -1)
 
             seqs[spatial_mask] = 0.0
@@ -135,6 +138,19 @@ class Wav2Vec2Masker(Module):
         )
 
 
-def apply_temporal_mask(x: Tensor, temporal_mask: Tensor) -> Tensor:
-    """Apply the specified temporal mask to ``x``."""
-    return x[temporal_mask].unflatten(0, (x.size(0), -1))  # type: ignore[no-any-return]
+def extract_masked_elements(seqs: Tensor, temporal_mask: Tensor) -> Tensor:
+    """Extract masked elements from ``seqs``.
+
+    :param seqs:
+        The sequences. *Shape:* :math:`(N,S,M)`, where :math:`N` is the batch
+        size, :math:`S` is the sequence length, and :math:`M` is the
+        dimensionality of the model.
+    :param temporal_mask:
+        The temporal mask. *Shape:* :math:`(N,S)`, where :math:`N` is the batch
+        size and :math`S` is the sequence length.
+    """
+    # (N, S, M) -> (N x T, M)
+    seqs = seqs[temporal_mask]
+
+    # (N x T, M) -> (N, T, M)
+    return seqs.unflatten(0, (seqs.size(0), -1))  # type: ignore[no-any-return]

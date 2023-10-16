@@ -14,9 +14,9 @@ from fairseq2.models.transformer import TransformerFrontend
 from fairseq2.models.wav2vec2.masker import Wav2Vec2Masker
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.normalization import LayerNorm, StandardLayerNorm
+from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.position_encoder import PositionEncoder
 from fairseq2.nn.projection import Linear
-from fairseq2.nn.utils.mask import to_padding_mask
 from fairseq2.typing import DataType, Device, finaloverride
 
 
@@ -122,24 +122,24 @@ class Wav2Vec2Frontend(TransformerFrontend):
     def forward(
         self,
         seqs: Tensor,
-        seq_lens: Optional[Tensor],
+        padding_mask: Optional[PaddingMask],
         *,
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[Tensor]]:
+    ) -> Tuple[Tensor, Optional[PaddingMask]]:
         if state_bag is not None:
             raise ValueError(
                 "`Wav2Vec2Frontend` does not support incremental decoding."
             )
 
-        seqs, seq_lens = self.extract_features(seqs, seq_lens)
+        seqs, padding_mask = self.extract_features(seqs, padding_mask)
 
-        seqs, padding_mask, _ = self.process_features(seqs, seq_lens)
+        seqs, padding_mask, _ = self.process_features(seqs, padding_mask)
 
         return seqs, padding_mask
 
     def extract_features(
-        self, seqs: Tensor, seq_lens: Optional[Tensor]
-    ) -> Tuple[Tensor, Optional[Tensor]]:
+        self, seqs: Tensor, padding_mask: Optional[PaddingMask]
+    ) -> Tuple[Tensor, Optional[PaddingMask]]:
         """Extract features from the specified sequences.
 
         :param seqs:
@@ -147,43 +147,41 @@ class Wav2Vec2Frontend(TransformerFrontend):
             :math:`(N,S,*)`, where :math:`N` is the batch size, :math:`S` is the
             sequence length, and :math:`*` is any number of sequence-specific
             dimensions including none.
-        :param seq_lens:
-            An array where each element represents the length of the sequence at
-            the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
-            the batch size.
+        :param padding_mask:
+            The padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where :math:`N`
+            is the batch size and :math:`S` is the sequence length.
 
         :returns:
             - The extracted features. *Shape:* :math:`(N,S_{out},F)`, where
               :math:`N` is the batch size, :math:`S_{out}` is the output
               sequence length, and :math:`F` is the dimensionality of the
               extracted features.
-            - An array where each element represents the length of the sequence
-              at the same index in the extracted features. *Shape:* :math:`(N)`,
-              where :math:`N` is the batch size.
+            - The padding mask of the extracted features. *Shape:*
+              :math:`(N,S_{out})`, where :math:`N` is the batch size and
+              :math:`S_{out}` is the output sequence length.
         """
         if self.feature_extractor is not None:
-            seqs, seq_lens = self.feature_extractor(seqs, seq_lens)
+            seqs, padding_mask = self.feature_extractor(seqs, padding_mask)
 
         seqs = self.post_extract_layer_norm(seqs)
 
-        return seqs, seq_lens
+        return seqs, padding_mask
 
     def process_features(
         self,
         seqs: Tensor,
-        seq_lens: Optional[Tensor],
+        padding_mask: Optional[PaddingMask],
         masker: Optional[Wav2Vec2Masker] = None,
-    ) -> Tuple[Tensor, Optional[Tensor], Optional[Tensor]]:
+    ) -> Tuple[Tensor, Optional[PaddingMask], Tensor]:
         """Process extracted features.
 
         :param seqs:
             The features to process. *Shape:* :math:`(N,S,F)`, where :math:`N`
             is the batch size, :math:`S` is the sequence length, and :math:`F`
             is the dimensionality of the features.
-        :param seq_lens:
-            An array where each element represents the length of the sequence at
-            the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
-            the batch size.
+        :param padding_mask:
+            The padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where :math:`N`
+            is the batch size and :math:`S` is the sequence length.
         :param masker:
             If not ``None``, the features will be masked and the applied
             temporal mask will be returned as the third tuple element.
@@ -193,12 +191,12 @@ class Wav2Vec2Frontend(TransformerFrontend):
               :math:`(N,S,M)`, where :math:`N` is the batch size, :math:`S` is
               the sequence length, and :math:`M` is the dimensionality of the
               model.
-            - The float padding mask of the processed sequences. *Shape:*
-              :math:`(N,S)`, where :math:`N` is the batch size and :math:`S` is
-              the output sequence length.
-            - The boolean temporal mask that has been applied to the processed
-              sequences. *Shape:* :math:`(N,S)`, where :math:`N` is the batch
-              size and :math`S` is the sequence length.
+            - The padding mask of the processed sequences. *Shape:* :math:`(N,S)`,
+              where :math:`N` is the batch size and :math:`S` is the output
+              sequence length.
+            - The temporal mask that has been applied to the processed sequences.
+              *Shape:* :math:`(N,S)`, where :math:`N` is the batch size and
+              :math`S` is the sequence length.
         """
         if self.model_dim_proj is not None:
             seqs = self.model_dim_proj(seqs)
@@ -207,11 +205,9 @@ class Wav2Vec2Frontend(TransformerFrontend):
             seqs = self.first_pass_dropout(seqs)
 
         if masker is not None:
-            seqs, temporal_mask = masker(seqs, seq_lens)
+            seqs, temporal_mask = masker(seqs, padding_mask)
         else:
             temporal_mask = None
-
-        padding_mask = to_padding_mask(seqs, seq_lens)
 
         if self.pos_encoder is not None:
             seqs = self.pos_encoder(seqs, padding_mask)

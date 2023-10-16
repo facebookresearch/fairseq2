@@ -215,9 +215,10 @@ class W2VBertBuilder:
             )
 
         self.config = config
+
         self.w2v2_builder = w2v2_builder
-        self.device = device
-        self.dtype = dtype
+
+        self.device, self.dtype = device, dtype
 
     def build_model(self) -> W2VBertModel:
         """Build a model."""
