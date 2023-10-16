@@ -86,25 +86,25 @@ image_decoder::operator()(data &&d) const
     case at::kFloat: {
         span waveform_data = cast<float32>(rgb_bits);
 
-        buffer.decode_into(waveform_data);
+        // todo
 
         break;
     }
     case at::kByte: {
         span waveform_data = cast<std::uint8_t>(rgb_bits);
 
-        file.decode_into(waveform_data);
+        // todo
 
         break;
     }
     default:
         throw_<internal_error>(
-            "`audio_decoder` uses an unsupported data type. Please file a bug report.");
+            "`image_decoder` uses an unsupported data type. Please file a bug report.");
     };
 
     at::Device device = opts_.maybe_device().value_or(at::kCPU);
     if (device != at::kCPU)
-        waveform = waveform.to(device);
+        // todo
 
 }
 };
