@@ -13,7 +13,8 @@ from torch.nn.functional import cross_entropy
 
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import Wav2Vec2Loss, Wav2Vec2Model, Wav2Vec2Output
-from fairseq2.models.wav2vec2.masker import apply_temporal_mask
+from fairseq2.models.wav2vec2.masker import extract_masked_elements
+from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.projection import Linear
 from fairseq2.typing import DataType, Device
 
@@ -86,7 +87,7 @@ class W2VBertModel(Module):
             The batch of sequences to process.
         """
         seqs, padding_mask, targets, temporal_mask = self.w2v2_model.run_frontend(
-            batch.seqs, batch.seq_lens
+            batch.seqs, batch.padding_mask
         )
 
         w2v2_layer_output = None
@@ -94,7 +95,7 @@ class W2VBertModel(Module):
         def layer_output_hook(
             layer_idx: int,
             layer_output: Tensor,
-            layer_padding_mask: Optional[Tensor],
+            layer_padding_mask: PaddingMask,
             num_layers: int,
         ) -> bool:
             nonlocal w2v2_layer_output
@@ -115,7 +116,7 @@ class W2VBertModel(Module):
             w2v2_layer_output, targets, temporal_mask
         )
 
-        seqs = apply_temporal_mask(encoder_output, temporal_mask)
+        seqs = extract_masked_elements(encoder_output, temporal_mask)
 
         bert_logits = self.final_bert_proj(seqs)
 

@@ -12,6 +12,7 @@ from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.models.transformer.frontend import TransformerFrontend
 from fairseq2.nn.incremental_state import IncrementalStateBag
+from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.projection import Projection
 from fairseq2.nn.transformer import TransformerDecoder
 from fairseq2.nn.utils.module import check_model_dim
@@ -61,11 +62,13 @@ class TransformerDecoderModel(DecoderModel):
     def decode(
         self,
         seqs: Tensor,
-        seq_lens: Optional[Tensor],
+        padding_mask: Optional[PaddingMask],
         *,
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[Tensor]]:
-        seqs, padding_mask = self.decoder_frontend(seqs, seq_lens, state_bag=state_bag)
+    ) -> Tuple[Tensor, PaddingMask]:
+        seqs, padding_mask = self.decoder_frontend(
+            seqs, padding_mask, state_bag=state_bag
+        )
 
         decoder_output, decoder_padding_mask = self.decoder(
             seqs, padding_mask, state_bag=state_bag
@@ -75,7 +78,7 @@ class TransformerDecoderModel(DecoderModel):
 
     @finaloverride
     def project(
-        self, decoder_output: Tensor, decoder_padding_mask: Optional[Tensor]
+        self, decoder_output: Tensor, decoder_padding_mask: Optional[PaddingMask]
     ) -> SequenceModelOutput:
         logits = self.final_proj(decoder_output)
 

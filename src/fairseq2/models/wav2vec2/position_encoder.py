@@ -13,8 +13,8 @@ from torch.nn.utils.weight_norm import remove_weight_norm, weight_norm
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.normalization import LayerNorm, StandardLayerNorm
+from fairseq2.nn.padding import PaddingMask, apply_padding_mask
 from fairseq2.nn.position_encoder import PositionEncoder
-from fairseq2.nn.utils.mask import apply_padding_mask
 from fairseq2.typing import DataType, Device, finaloverride, override
 
 
@@ -64,7 +64,7 @@ class Wav2Vec2PositionEncoder(PositionEncoder):
     def _do_forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[Tensor],
+        padding_mask: Optional[PaddingMask],
         state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
         """:meta private:"""
@@ -172,7 +172,7 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
     def _do_forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[Tensor],
+        padding_mask: Optional[PaddingMask],
         state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
         """:meta private:"""

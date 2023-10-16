@@ -13,7 +13,7 @@ from torch.nn import Conv2d, Module
 from torch.nn.functional import relu
 from torch.optim import AdamW as BaseAdamW
 
-from fairseq2.optim.adamw import AdamW
+from fairseq2.optim import AdamW
 from fairseq2.typing import DataType
 from tests.common import assert_close, device, tmp_rng_seed
 

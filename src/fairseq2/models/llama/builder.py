@@ -218,9 +218,10 @@ class LLaMABuilder:
             The data type of module parameters and buffers.
         """
         self.config = config
+
         self.pos_encoder = None
-        self.device = device
-        self.dtype = dtype
+
+        self.device, self.dtype = device, dtype
 
     def build_model(self) -> TransformerDecoderModel:
         """Build a model."""

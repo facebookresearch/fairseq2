@@ -17,7 +17,8 @@ from fairseq2.generation.beam_search import BeamSearch, StandardBeamSearch
 from fairseq2.generation.logits_processor import LogitsProcessor
 from fairseq2.models.encoder_decoder import Seq2SeqDecoder
 from fairseq2.nn.incremental_state import IncrementalStateBag
-from fairseq2.nn.ops import pad_sequence, repeat_interleave
+from fairseq2.nn.ops import repeat_interleave
+from fairseq2.nn.padding import PaddingMask, pad_seqs
 from fairseq2.typing import Device
 
 
@@ -143,7 +144,7 @@ class Seq2SeqGenerator:
     def __call__(
         self,
         encoder_output: Tensor,
-        encoder_padding_mask: Optional[Tensor],
+        encoder_padding_mask: Optional[PaddingMask],
         source_seq_len: Optional[int] = None,
     ) -> "SequenceGeneratorOutput":
         opts = self.opts
@@ -378,11 +379,18 @@ class Seq2SeqGenerator:
                 encoder_output = encoder_output[search_indices].flatten(0, 1)
 
                 if encoder_padding_mask is not None:
-                    # (N x B, S_enc, M) -> (N, B, S_enc, M)
-                    padding_mask = encoder_padding_mask.unflatten(0, (num_searches, -1))
+                    # (N x B)
+                    seq_lens = encoder_padding_mask.seq_lens
 
-                    # (N, B, S_enc, M) -> ((N - F) x B, S_enc, M)
-                    encoder_padding_mask = padding_mask[search_indices].flatten(0, 1)
+                    # (N x B) -> (N, B)
+                    seq_lens = seq_lens.unflatten(0, (num_searches, -1))
+
+                    # (N, B) -> ((N - F) x B)
+                    seq_lens = seq_lens[search_indices].flatten(0, 1)
+
+                    encoder_padding_mask = PaddingMask(
+                        seq_lens, batch_seq_len=encoder_output.size(1)
+                    )
                 # fmt: on
 
                 num_searches = new_num_searches
@@ -471,26 +479,20 @@ class Seq2SeqGenerator:
         return max_seq_len
 
     def _fan_out_encoder_output(
-        self, encoder_output: Tensor, encoder_padding_mask: Optional[Tensor]
-    ) -> Tuple[Tensor, Optional[Tensor]]:
-        num_searches = encoder_output.size(0)  # i.e. batch size
-
+        self, encoder_output: Tensor, encoder_padding_mask: Optional[PaddingMask]
+    ) -> Tuple[Tensor, Optional[PaddingMask]]:
         # Fan out `encoder_output` to `num_searches` x `beam_size`.
-        # (N)
-        fan_out_indices = torch.arange(num_searches, device=encoder_output.device)
-
-        # (N) -> (N x B)
-        fan_out_indices = repeat_interleave(
-            fan_out_indices, dim=0, repeat=self.beam_size
-        )
-
         # (N, S_enc, M) -> (N x B, S_enc, M)
-        encoder_output = encoder_output.index_select(dim=0, index=fan_out_indices)
+        encoder_output = repeat_interleave(encoder_output, dim=0, repeat=self.beam_size)
 
         # (N, S_enc, M) -> (N x B, S_enc, M)
         if encoder_padding_mask is not None:
-            encoder_padding_mask = encoder_padding_mask.index_select(
-                dim=0, index=fan_out_indices
+            seq_lens = encoder_padding_mask.seq_lens
+
+            seq_lens = repeat_interleave(seq_lens, dim=0, repeat=self.beam_size)
+
+            encoder_padding_mask = PaddingMask(
+                seq_lens, batch_seq_len=encoder_output.size(1)
             )
 
         return encoder_output, encoder_padding_mask
@@ -500,7 +502,7 @@ class Seq2SeqGenerator:
         seqs: Tensor,
         scores: Tensor,
         encoder_output: Tensor,
-        encoder_padding_mask: Optional[Tensor],
+        encoder_padding_mask: Optional[PaddingMask],
         state_bag: IncrementalStateBag,
     ) -> None:
         assert self.prefix_seq_len > 0
@@ -633,7 +635,7 @@ class SequenceGeneratorOutput:
 
     def collate(
         self, *, hypo_idx: int = 0, skip_batch: bool = False
-    ) -> Tuple[Tensor, Optional[Tensor]]:
+    ) -> Tuple[Tensor, Optional[PaddingMask]]:
         """Collate the generated sequences at index ``hypo_idx`` in each search
         result into a single tensor.
 
@@ -670,7 +672,7 @@ class SequenceGeneratorOutput:
             # Return a zero-dimensional (not scalar!) tensor.
             return torch.empty((0,), device=self.device, dtype=torch.int64), None
 
-        return pad_sequence(seqs, self.pad_idx, pad_to_multiple=2)
+        return pad_seqs(seqs, self.pad_idx)
 
 
 @dataclass

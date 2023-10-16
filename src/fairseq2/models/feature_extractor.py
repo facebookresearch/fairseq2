@@ -10,6 +10,8 @@ from typing import Optional, Tuple
 from torch import Tensor
 from torch.nn import Module
 
+from fairseq2.nn.padding import PaddingMask
+
 
 class SequenceFeatureExtractor(Module, ABC):
     """Extracts features from sequences and embeds them in a latent space."""
@@ -27,27 +29,26 @@ class SequenceFeatureExtractor(Module, ABC):
 
     @abstractmethod
     def forward(
-        self, seqs: Tensor, seq_lens: Optional[Tensor]
-    ) -> Tuple[Tensor, Optional[Tensor]]:
+        self, seqs: Tensor, padding_mask: Optional[PaddingMask]
+    ) -> Tuple[Tensor, Optional[PaddingMask]]:
         """
         :param seqs:
             The sequences from which to extract features. *Shape:*
             :math:`(N,S,*)`, where :math:`N` is the batch size, :math:`S` is the
             sequence length, and :math:`*` is any number of sequence-specific
             dimensions including none.
-        :param seq_lens:
-            An array where each element represents the length of the sequence at
-            the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
-            the batch size.
+        :param padding_mask:
+            The padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where :math:`N`
+            is the batch size and :math:`S` is the sequence length.
 
         :returns:
             - The extracted features. *Shape:* :math:`(N,S_{out},F)`, where
               :math:`N` is the batch size, :math:`S_{out}` is the output
               sequence length, and :math:`F` is the dimensionality of the
               features.
-            - An array where each element represents the length of the sequence
-              at the same index in the extracted features. *Shape:* :math:`(N)`,
-              where :math:`N` is the batch size.
+            - The padding mask of the extracted features. *Shape:*
+              :math:`(N,S_{out})`, where :math:`N` is the batch size and
+              :math:`S_{out}` is the output sequence length.
         """
 
     def extra_repr(self) -> str:

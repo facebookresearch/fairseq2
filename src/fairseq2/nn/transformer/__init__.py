@@ -11,14 +11,20 @@ from fairseq2.nn.transformer.attention import TorchSDPA as TorchSDPA
 from fairseq2.nn.transformer.attention import create_default_sdpa as create_default_sdpa
 from fairseq2.nn.transformer.attention import sdpa as sdpa
 from fairseq2.nn.transformer.attention import set_default_sdpa as set_default_sdpa
+from fairseq2.nn.transformer.attention_mask import ALiBiMask as ALiBiMask
+from fairseq2.nn.transformer.attention_mask import ALiBiMaskFactory as ALiBiMaskFactory
+from fairseq2.nn.transformer.attention_mask import AttentionMask as AttentionMask
 from fairseq2.nn.transformer.attention_mask import (
-    ALiBiAttentionMaskGenerator as ALiBiAttentionMaskGenerator,
+    AttentionMaskFactory as AttentionMaskFactory,
 )
 from fairseq2.nn.transformer.attention_mask import (
-    AttentionMaskGenerator as AttentionMaskGenerator,
+    CustomAttentionMask as CustomAttentionMask,
 )
 from fairseq2.nn.transformer.attention_mask import (
-    CausalAttentionMaskGenerator as CausalAttentionMaskGenerator,
+    GlobalCausalAttentionMask as GlobalCausalAttentionMask,
+)
+from fairseq2.nn.transformer.attention_mask import (
+    GlobalCausalAttentionMaskFactory as GlobalCausalAttentionMaskFactory,
 )
 from fairseq2.nn.transformer.decoder import (
     DecoderLayerOutputHook as DecoderLayerOutputHook,
@@ -53,7 +59,7 @@ from fairseq2.nn.transformer.ffn import (
 )
 from fairseq2.nn.transformer.layer_norm import LayerNormFactory as LayerNormFactory
 from fairseq2.nn.transformer.layer_norm import (
-    create_default_layer_norm as create_default_layer_norm,
+    create_standard_layer_norm as create_standard_layer_norm,
 )
 from fairseq2.nn.transformer.multihead_attention import AttentionState as AttentionState
 from fairseq2.nn.transformer.multihead_attention import (
