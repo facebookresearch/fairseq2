@@ -16,6 +16,7 @@ from torch.nn.functional import embedding
 from torch.nn.parameter import Parameter
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
+from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import DataType, Device, finaloverride
 
 
@@ -40,7 +41,7 @@ class PositionEncoder(Module, ABC):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[Tensor],
+        padding_mask: Optional[PaddingMask],
         *,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
@@ -51,9 +52,9 @@ class PositionEncoder(Module, ABC):
             including none, :math:`S` is the sequence length, and :math:`E` is
             the dimensionality of the positional encodings.
         :param padding_mask:
-            The float padding mask of ``seqs``. *Shape:* :math:`(*,S)`, where
-            :math:`*` is any number of batch dimensions including none and
-            :math:`S` is the sequence length.
+            The padding mask of ``seqs``. *Shape:* :math:`(*,S)`, where :math:`*`
+            is any number of batch dimensions including none and :math:`S` is
+            the sequence length.
         :param state_bag:
             The state bag to use for incremental decoding.
 
@@ -78,7 +79,7 @@ class PositionEncoder(Module, ABC):
     def _do_forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[Tensor],
+        padding_mask: Optional[PaddingMask],
         state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
         """
@@ -88,9 +89,9 @@ class PositionEncoder(Module, ABC):
             including none, :math:`S` is the sequence length, and :math:`E` is
             the dimensionality of the positional encodings.
         :param padding_mask:
-            The float padding mask of ``seqs``. *Shape:* :math:`(*,S)`, where
-            :math:`*` is any number of batch dimensions including none and
-            :math:`S` is the sequence length.
+            The padding mask of ``seqs``. *Shape:* :math:`(*,S)`, where :math:`*`
+            is any number of batch dimensions including none and :math:`S` is
+            the sequence length.
         :param state_bag:
             The state bag to use for incremental decoding.
 
@@ -222,7 +223,7 @@ class SinusoidalPositionEncoder(PositionEncoder):
     def _do_forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[Tensor],
+        padding_mask: Optional[PaddingMask],
         state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
         """:meta private:"""
@@ -284,7 +285,7 @@ class LearnedPositionEncoder(PositionEncoder):
     def _do_forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[Tensor],
+        padding_mask: Optional[PaddingMask],
         state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
         """:meta private:"""
@@ -366,9 +367,10 @@ class RotaryEncoder(PositionEncoder):
     def _do_forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[Tensor],
+        padding_mask: Optional[PaddingMask],
         state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
+        """:meta private:"""
         seq_len = seqs.size(-2)
 
         if not self.training and state_bag is not None:

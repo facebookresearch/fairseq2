@@ -15,6 +15,11 @@ from torch import Tensor
 from torch.nn import Module
 from torch.nn.functional import dropout, softmax
 
+from fairseq2.nn.padding import PaddingMask
+from fairseq2.nn.transformer.attention_mask import (
+    AttentionMask,
+    GlobalCausalAttentionMask,
+)
 from fairseq2.typing import finaloverride
 from fairseq2.utils.version import is_pt2_or_greater
 
@@ -40,41 +45,46 @@ class SDPA(Module, ABC):
         self,
         queries: Tensor,
         keys: Tensor,
+        key_padding_mask: Optional[PaddingMask],
         values: Tensor,
         *,
-        mask: Optional[Tensor] = None,
+        attn_mask: Optional[AttentionMask] = None,
         needs_weights: bool = False,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         """
         :param queries:
-            The queries. *Shape:* :math:`(*,S,K)`, where :math:`*` is any number
-            of batch dimensions including none, :math:`S` is the sequence
-            length, and :math:`K` is the key size.
+            The queries. *Shape:* :math:`(N,H,S,K)`, where :math:`N` is the
+            batch size, :math:`H` is the number of heads, :math:`S` is the
+            sequence length, and :math:`K` is the key size.
         :param keys:
-            The keys. *Shape:* :math:`(N,S_{kv},K)`, where :math:`*` is any
-            number of batch dimensions including none, :math:`S_{kv}` is the
+            The keys. *Shape:* :math:`(N,H,S_{kv},K)`, where :math:`N` is the
+            batch size, :math:`H` is the number of heads, :math:`S_{kv}` is the
             key/value sequence length, and :math:`K` is the key size.
+        :param key_padding_mask:
+            The padding mask indicating which key positions to ignore for the
+            purpose of attention. *Shape:* :math:`(N,S_{kv})`, where :math:`N`
+            is the batch size and :math:`S_{kv}` is the key/value sequence
+            length.
         :param values:
-            The values. *Shape:* :math:`(N,S_{kv},V)`, where :math:`*` is any
-            number of batch dimensions including none, :math:`S_{kv}` is the
+            The values. *Shape:* :math:`(N,H,S_{kv},V)`, where :math:`N` is the
+            batch size, :math:`H` is the number of heads, :math:`S_{kv}` is the
             key/value sequence length, and :math:`V` is the value size.
-        :param mask:
-            The float mask that will be added to the attention weights before
-            computing the attention. *Shape:* :math:`(S,S_{kv})` or
-            :math:`(*,S,S_{kv})`, where :math:`*` is any number of batch
-            dimensions including none, :math:`S` is the sequence length, and
+        :param attn_mask:
+            The mask that will be added to attention weights before computing
+            the attention. *Shape:* :math:`([H],S,S_{kv})`, where :math:`H` is
+            the number of heads, :math:`S` is the sequence length, and
             :math:`S_{kv}` is the key/value sequence length.
         :param needs_weights:
             If ``True``, returns the attention weights.
 
         :returns:
-            - The attention values. *Shape:* :math:`(*,S,V)`, where :math:`*`
-              is the same batch dimensions as input, :math:`S` is the sequence
-              length, and :math:`V` is the value size.
-            - The attention weights. *Shape:* :math:`(*,S,S_{kv})`, where
-              :math:`*` is the same batch dimensions as input, :math:`S` is the
-              sequence length, and :math:`S_{kv}` is the key/value sequence
-              length.
+            - The attention values. *Shape:* :math:`(N,H,S,V)`, where :math:`N`
+              is the batch size, :math:`H` is the number of heads, :math:`S` is
+              the sequence length, and :math:`V` is the value size.
+            - The attention weights. *Shape:* :math:`(N,H,S,S_{kv})`, where
+              :math:`N` is the batch size, :math:`H` is the number of heads,
+              :math:`S` is the sequence length, and :math:`S_{kv}` is the
+              key/value sequence length.
         """
 
     def extra_repr(self) -> str:
@@ -99,17 +109,19 @@ class TorchSDPA(SDPA):
         self,
         queries: Tensor,
         keys: Tensor,
+        key_padding_mask: Optional[PaddingMask],
         values: Tensor,
         *,
-        mask: Optional[Tensor] = None,
+        attn_mask: Optional[AttentionMask] = None,
         needs_weights: bool = False,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         if not queries.is_cuda:
             return _naive_scaled_dot_product_attention(
                 queries,
                 keys,
+                key_padding_mask,
                 values,
-                mask,
+                attn_mask,
                 self.attn_dropout_p,
                 needs_weights,
                 self.training,
@@ -126,8 +138,9 @@ class TorchSDPA(SDPA):
             return _naive_scaled_dot_product_attention(
                 queries,
                 keys,
+                key_padding_mask,
                 values,
-                mask,
+                attn_mask,
                 self.attn_dropout_p,
                 needs_weights,
                 self.training,
@@ -138,16 +151,40 @@ class TorchSDPA(SDPA):
         else:
             dropout_p = self.attn_dropout_p
 
-        # Check if the mask is causal.
-        is_causal_mask: bool = getattr(mask, "is_causal", False)
+        is_causal = False
+
+        if key_padding_mask is not None:
+            mask = key_padding_mask.materialize()
+
+            # (N, S_kv) -> (N, 1, 1, S_kv)
+            mask = mask[:, None, None, :]
+
+            # (N, 1, 1, S_kv) -> (N, H, S, S_kv)
+            mask = mask.expand(-1, queries.size(1), queries.size(2), -1)
+
+            if attn_mask is not None:
+                # ([H], S, S_kv)
+                m = attn_mask.materialize()
+
+                # (N, H, S, S_kv)
+                mask = torch.where(mask, m, -torch.inf)
+        elif isinstance(attn_mask, GlobalCausalAttentionMask):
+            mask = None
+
+            is_causal = True
+        elif attn_mask is not None:
+            # ([H], S, S_kv)
+            mask = attn_mask.materialize()
+        else:
+            mask = None
 
         attn = F.scaled_dot_product_attention(  # type: ignore[attr-defined]
             queries,
             keys,
             values,
-            attn_mask=None if is_causal_mask else mask,
+            attn_mask=mask,
             dropout_p=dropout_p,
-            is_causal=is_causal_mask,
+            is_causal=is_causal,
         )
 
         return attn, None
@@ -162,16 +199,18 @@ class NaiveSDPA(SDPA):
         self,
         queries: Tensor,
         keys: Tensor,
+        key_padding_mask: Optional[PaddingMask],
         values: Tensor,
         *,
-        mask: Optional[Tensor] = None,
+        attn_mask: Optional[AttentionMask] = None,
         needs_weights: bool = False,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         return _naive_scaled_dot_product_attention(
             queries,
             keys,
+            key_padding_mask,
             values,
-            mask,
+            attn_mask,
             self.attn_dropout_p,
             needs_weights,
             self.training,
@@ -181,19 +220,33 @@ class NaiveSDPA(SDPA):
 def _naive_scaled_dot_product_attention(
     queries: Tensor,
     keys: Tensor,
+    key_padding_mask: Optional[PaddingMask],
     values: Tensor,
-    mask: Optional[Tensor],
+    attn_mask: Optional[AttentionMask],
     dropout_p: float,
     needs_weights: bool,
     training: bool,
 ) -> Tuple[Tensor, Optional[Tensor]]:
-    # (*, S, K) @ (*, K, S_kv) = (*, S, S_kv)
+    # (N, H, S, K) @ (N, H, K, S_kv) = (N, H, S, S_kv)
     attn_weights = torch.matmul(queries, keys.transpose(-1, -2))
 
     attn_weights = attn_weights * (queries.size(-1) ** -0.5)
 
-    if mask is not None:
-        attn_weights = attn_weights + mask
+    if attn_mask is not None:
+        # (S, S_kv)
+        m = attn_mask.materialize()
+
+        # (N, H, S, S_kv) + (S, S_kv) -> (N, H, S, S_kv)
+        attn_weights = attn_weights + m
+
+    if key_padding_mask is not None:
+        # (N, S_kv)
+        m = key_padding_mask.materialize()
+
+        m = m[:, None, None, :]
+
+        # (N, H, S, S_kv) + (N, 1, 1, S_kv) -> (N. H, S, S_kv)
+        attn_weights = torch.where(m, attn_weights, -torch.inf)
 
     # For numerical stability run in single precision.
     attn_weights = softmax(attn_weights, dim=-1, dtype=torch.float32)
@@ -203,7 +256,7 @@ def _naive_scaled_dot_product_attention(
     if training and dropout_p > 0.0:
         attn_weights = dropout(attn_weights, dropout_p)
 
-    # (*, S, S_kv) @ (*, S_kv, V) = (*, S, V)
+    # (N, H, S, S_kv) @ (N, H, S_kv, V) = (N, H, S, V)
     attn = torch.matmul(attn_weights, values)
 
     return attn, attn_weights if needs_weights else None
@@ -212,7 +265,7 @@ def _naive_scaled_dot_product_attention(
 class SDPAFactory(Protocol):
     """Constructs instances of :class:`SDPA`."""
 
-    def __call__(self, *, attn_dropout_p: float) -> SDPA:
+    def __call__(self, *, attn_dropout_p: float = 0.0) -> SDPA:
         """
         :param attn_dropout_p:
             The dropout probability on attention weights.

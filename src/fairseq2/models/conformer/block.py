@@ -11,12 +11,14 @@ from torch.nn import Dropout
 
 from fairseq2.models.conformer.convolution import ConformerConvolution
 from fairseq2.nn.normalization import LayerNorm
+from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer import (
+    AttentionMask,
     FeedForwardNetwork,
     LayerNormFactory,
     MultiheadAttention,
     TransformerEncoderLayer,
-    create_default_layer_norm,
+    create_standard_layer_norm,
 )
 from fairseq2.nn.utils.module import check_model_dim
 from fairseq2.typing import DataType, Device, finaloverride
@@ -72,7 +74,7 @@ class ConformerBlock(TransformerEncoderLayer):
         super().__init__(model_dim)
 
         if layer_norm_factory is None:
-            layer_norm_factory = create_default_layer_norm
+            layer_norm_factory = create_standard_layer_norm
 
         self.ffn1_layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
 
@@ -120,9 +122,9 @@ class ConformerBlock(TransformerEncoderLayer):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[Tensor],
-        self_attn_mask: Optional[Tensor] = None,
-    ) -> Tuple[Tensor, Optional[Tensor]]:
+        padding_mask: Optional[PaddingMask],
+        self_attn_mask: Optional[AttentionMask] = None,
+    ) -> Tuple[Tensor, Optional[PaddingMask]]:
         seqs = self._forward_ffn1(seqs)
 
         seqs = self._forward_self_attn(seqs, padding_mask, self_attn_mask)
@@ -150,8 +152,8 @@ class ConformerBlock(TransformerEncoderLayer):
     def _forward_self_attn(
         self,
         seqs: Tensor,
-        padding_mask: Optional[Tensor],
-        self_attn_mask: Optional[Tensor],
+        padding_mask: Optional[PaddingMask],
+        self_attn_mask: Optional[AttentionMask],
     ) -> Tensor:
         residual = seqs
 
@@ -161,9 +163,9 @@ class ConformerBlock(TransformerEncoderLayer):
             seqs,
             padding_mask,
             keys=seqs,
+            key_padding_mask=padding_mask,
             values=seqs,
             attn_mask=self_attn_mask,
-            key_padding_mask=padding_mask,
         )
 
         if self.self_attn_dropout is not None:
@@ -171,7 +173,9 @@ class ConformerBlock(TransformerEncoderLayer):
 
         return seqs + residual
 
-    def _forward_conv(self, seqs: Tensor, padding_mask: Optional[Tensor]) -> Tensor:
+    def _forward_conv(
+        self, seqs: Tensor, padding_mask: Optional[PaddingMask]
+    ) -> Tensor:
         residual = seqs
 
         seqs = self.conv_layer_norm(seqs)

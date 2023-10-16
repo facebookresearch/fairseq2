@@ -333,6 +333,11 @@ collate_op::pad_tensors(span<at::Tensor> tensors, std::int64_t pad_idx, const co
         ++i;
     }
 
+    // We might still need to return as ragged even if all sequences have the
+    // same length if `seqs` has extra padding due to `pad_to_multiple`.
+    if (!is_ragged && !tensors.empty() && seq_lens_data[0] != seqs.size(1))
+        is_ragged = true;
+
     seq_lens = seq_lens.to(seqs.device());
 
     // Pack the sequences and their lengths into a dict.

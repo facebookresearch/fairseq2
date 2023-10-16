@@ -7,81 +7,14 @@
 import pytest
 import torch
 
-from fairseq2.nn.utils.mask import compute_mask, to_padding_mask
-from tests.common import assert_equal, device
+from fairseq2.nn.utils.mask import compute_row_mask
+from tests.common import device
 
 
-def test_to_padding_mask_works() -> None:
-    seqs = torch.zeros((4, 6), device=device, dtype=torch.float64)
-
-    seq_lens = torch.tensor([4, 2, 0, 5], device=device, dtype=torch.int32)
-
-    mask = to_padding_mask(seqs, seq_lens)
-
-    inf = -torch.inf
-
-    expected_mask = torch.tensor(
-        [
-            [0.0, 0.0, 0.0, 0.0, inf, inf],
-            [0.0, 0.0, inf, inf, inf, inf],
-            [inf, inf, inf, inf, inf, inf],
-            [0.0, 0.0, 0.0, 0.0, 0.0, inf],
-        ],
-        device=device,
-        dtype=torch.float64,
-    )
-
-    assert mask is not None
-
-    assert_equal(mask, expected_mask)
-
-
-def test_to_padding_mask_works_when_seq_lens_is_none() -> None:
-    seqs = torch.zeros((4, 6), device=device)
-
-    mask = to_padding_mask(seqs, seq_lens=None)
-
-    assert mask is None
-
-
-def test_to_padding_mask_works_when_all_seq_lens_are_equal() -> None:
-    seqs = torch.zeros((2, 4), device=device)
-
-    seq_lens = torch.tensor([4, 4], device=device, dtype=torch.int32)
-
-    mask = to_padding_mask(seqs, seq_lens)
-
-    assert mask is None
-
-
-def test_to_padding_mask_works_when_seqs_is_not_floating_point() -> None:
-    seqs = torch.zeros((4, 6), device=device, dtype=torch.int64)
-
-    seq_lens = torch.tensor([4, 2, 0, 5], device=device, dtype=torch.int32)
-
-    mask = to_padding_mask(seqs, seq_lens)
-
-    inf = -torch.inf
-
-    expected_mask = torch.tensor(
-        [
-            [0.0, 0.0, 0.0, 0.0, inf, inf],
-            [0.0, 0.0, inf, inf, inf, inf],
-            [inf, inf, inf, inf, inf, inf],
-            [0.0, 0.0, 0.0, 0.0, 0.0, inf],
-        ],
-        device=device,
-    )
-
-    assert mask is not None
-
-    assert_equal(mask, expected_mask)
-
-
-def test_compute_mask_works() -> None:
+def test_compute_row_mask_works() -> None:
     shape = (32, 512)
 
-    mask = compute_mask(shape, span_len=10, max_mask_prob=0.65, device=device)
+    mask = compute_row_mask(shape, span_len=10, max_mask_prob=0.65, device=device)
 
     assert mask is not None
 
@@ -97,12 +30,12 @@ def test_compute_mask_works() -> None:
     assert (num_masked == num_masked[0]).all() == True
 
 
-def test_compute_mask_works_when_row_lens_is_specified() -> None:
+def test_compute_row_mask_works_when_row_lens_is_specified() -> None:
     shape = (4, 16)
 
     row_lens = torch.tensor([16, 14, 15, 16], device="cpu")
 
-    mask = compute_mask(
+    mask = compute_row_mask(
         shape, span_len=4, max_mask_prob=1.0, device=device, row_lens=row_lens
     )
 
@@ -115,7 +48,9 @@ def test_compute_mask_works_when_row_lens_is_specified() -> None:
     assert mask.any()
 
 
-def test_compute_mask_raises_error_when_row_length_is_smaller_than_span_len() -> None:
+def test_compute_row_mask_raises_error_when_row_length_is_smaller_than_span_len() -> (
+    None
+):
     shape = (4, 16)
 
     row_lens = torch.tensor([16, 8, 5, 3], device=device)
@@ -124,6 +59,6 @@ def test_compute_mask_raises_error_when_row_length_is_smaller_than_span_len() ->
         ValueError,
         match=r"^All lengths in `row_lens` must be greater than 4, but at least one length is smaller\. row_lens: tensor",
     ):
-        compute_mask(
+        compute_row_mask(
             shape, span_len=4, max_mask_prob=1.0, row_lens=row_lens, device=device
         )

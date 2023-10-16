@@ -13,6 +13,7 @@ from torch import Tensor
 from torch.nn import Module
 
 from fairseq2.models.sequence import SequenceModelOutput
+from fairseq2.nn.padding import PaddingMask
 
 
 class Seq2SeqModel(Module, ABC):
@@ -35,20 +36,20 @@ class Seq2SeqBatch:
     the batch size, :math:`S_{src}` is the source sequence length, and :math:`*`
     is any number of sequence-specific dimensions including none."""
 
-    source_seq_lens: Optional[Tensor]
-    """An array where each element represents the length of the sequence at the
-    same index in :attr:`source_seqs`. *Shape:* :math:`(N)`, where :math:`N` is
-    the batch size."""
+    source_padding_mask: Optional[PaddingMask]
+    """The padding mask of ``source_seqs``. *Shape:* :math:`(N,S_{src})`, where
+    :math:`N` is the batch size and :math:`S_{src}` is the source sequence
+    length."""
 
     target_seqs: Tensor
     """The target sequences. *Shape:* :math:`(N,S_{tgt},*)`, where :math:`N` is
     the batch size, :math:`S_{tgt}` is the target sequence length, and :math:`*`
     is any number of sequence-specific dimensions including none."""
 
-    target_seq_lens: Optional[Tensor]
-    """An array where each element represents the length of the sequence at the
-    same index in :attr:`target_seqs`. *Shape:* :math:`(N)`, where :math:`N` is
-    the batch size."""
+    target_padding_mask: Optional[PaddingMask]
+    """The padding mask of ``target_seqs``. *Shape:* :math:`(N,S_{tgt})`, where
+    :math:`N` is the batch size and :math:`S_{tgt}` is the target sequence
+    length."""
 
     example: Any = None
     """The data example from which this batch was constructed."""
@@ -57,19 +58,25 @@ class Seq2SeqBatch:
         """Return a copy of this batch for model training.
 
         :returns:
-          - The copy with target sequences trimmed one step from the end.
-          - The target sequences shifted one step to the left for use as targets
-            in loss computation.
+          - The batch with target sequences trimmed one step from the end to use
+            as model input.
+          - The target sequences trimmed one step from the beginning to use as
+            targets in loss computation.
         """
+        if (target_seq_len := self.target_seqs.size(1)) < 2:
+            raise ValueError(
+                f"The sequence length of `target_seqs` must be at least 2 for training, but is {target_seq_len} instead."
+            )
+
         target_seqs = self.target_seqs[:, :-1]  # TODO: even padding for fp16?
 
-        if self.target_seq_lens is None:
-            target_seq_lens = None
+        if self.target_padding_mask is None:
+            target_padding_mask = None
         else:
-            target_seq_lens = self.target_seq_lens - 1
+            target_padding_mask = self.target_padding_mask.trim(1)
 
         batch = Seq2SeqBatch(
-            self.source_seqs, self.source_seq_lens, target_seqs, target_seq_lens
+            self.source_seqs, self.source_padding_mask, target_seqs, target_padding_mask
         )
 
         return batch, self.target_seqs[:, 1:]
@@ -79,20 +86,20 @@ class Seq2SeqBatch:
         """The size of the batch."""
         return self.target_seqs.size(0)
 
-    def num_source_tokens(self) -> Tensor:
-        """Return the number of source tokens."""
-        if self.source_seq_lens is None:
+    def compute_num_source_tokens(self) -> Tensor:
+        """Compute the number of source tokens in this batch."""
+        if self.source_padding_mask is None:
             return torch.full(
                 (), self.source_seqs.numel(), device=self.source_seqs.device
             )
 
-        return self.source_seq_lens.sum()
+        return self.source_padding_mask.seq_lens.sum()
 
-    def num_target_tokens(self) -> Tensor:
-        """Return the number of target tokens."""
-        if self.target_seq_lens is None:
+    def compute_num_target_tokens(self) -> Tensor:
+        """Compute the number of target tokens in this batch."""
+        if self.target_padding_mask is None:
             return torch.full(
                 (), self.target_seqs.numel(), device=self.target_seqs.device
             )
 
-        return self.target_seq_lens.sum()
+        return self.target_padding_mask.seq_lens.sum()
