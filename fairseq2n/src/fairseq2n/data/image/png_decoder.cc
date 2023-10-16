@@ -20,7 +20,6 @@
 #include "fairseq2n/fmt.h"
 #include "fairseq2n/memory.h"
 #include "fairseq2n/span.h"
-#include "fairseq2n/data/audio/detail/sndfile.h"
 #include "fairseq2n/data/detail/tensor_helpers.h"
 #include "fairseq2n/detail/exception.h"
 
