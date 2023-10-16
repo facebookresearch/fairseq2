@@ -37,6 +37,4 @@ else:
     _set_module_name()
 
 class ImageDecoderOutput(TypedDict):
-    waveform: Tensor
-    sample_rate: float
     format: int

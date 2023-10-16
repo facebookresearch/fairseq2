@@ -16,9 +16,9 @@
 
 namespace fairseq2n {
 
-class image_decoder_options {
+class png_decoder_options {
 public:
-    image_decoder_options
+    png_decoder_options
     maybe_dtype(std::optional<at::ScalarType> value) noexcept
     {
         auto tmp = *this;
@@ -34,7 +34,7 @@ public:
         return maybe_dtype_;
     }
 
-    image_decoder_options
+    png_decoder_options
     maybe_device(std::optional<at::Device> value) noexcept
     {
         auto tmp = *this;
@@ -50,7 +50,7 @@ public:
         return maybe_device_;
     }
 
-    image_decoder_options
+    png_decoder_options
     pin_memory(bool value) noexcept
     {
         auto tmp = *this;
@@ -72,16 +72,16 @@ private:
     bool pin_memory_ = false;
 };
 
-class FAIRSEQ2_API image_decoder {
+class FAIRSEQ2_API png_decoder {
 public:
     explicit
-    image_decoder(image_decoder_options opts = {});
+    png_decoder(png_decoder_options opts = {});
 
     data
     operator()(data &&d) const;
 
 private:
-    image_decoder_options opts_;
+    png_decoder_options opts_;
 };
 
 }  //
