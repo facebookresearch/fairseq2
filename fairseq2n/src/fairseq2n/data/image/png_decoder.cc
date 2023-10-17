@@ -60,7 +60,7 @@ png_decoder::operator()(data &&d) const
 
     auto data_ptr = block.data();
     auto data_len = block.size();
-    std::cout << "len " << data_len << std::endl;
+
     struct Reader {
     png_const_bytep ptr;
     png_size_t count;
@@ -73,7 +73,6 @@ png_decoder::operator()(data &&d) const
                           png_bytep output,
                           png_size_t bytes) {
     auto reader = static_cast<Reader*>(png_get_io_ptr(png_ptr));
-    std::cout << "reader->count: " << reader->count <<  " bytes " << bytes << std::endl;
     std::copy(reader->ptr, reader->ptr + bytes, output);
     reader->ptr += bytes;
     reader->count -= bytes;
