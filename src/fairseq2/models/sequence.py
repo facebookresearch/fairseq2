@@ -37,7 +37,7 @@ class SequenceBatch:
     size, :math:`S` is the sequence length, and :math:`*` is any number of
     sequence-specific dimensions including none."""
 
-    padding_mask: PaddingMask
+    padding_mask: Optional[PaddingMask]
     """The padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where :math:`N` is
     the batch size and :math:`S` is the sequence length."""
 
@@ -51,6 +51,9 @@ class SequenceBatch:
 
     def compute_num_tokens(self) -> Tensor:
         """Compute the number of tokens in this batch."""
+        if self.padding_mask is None:
+            return torch.full((), self.seqs.numel(), device=self.seqs.device)
+
         return self.padding_mask.seq_lens.sum()
 
 
