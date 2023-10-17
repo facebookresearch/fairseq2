@@ -68,7 +68,8 @@ png_decoder::operator()(data &&d) const
 
     reader.ptr = png_const_bytep(data_ptr) + 8;
     reader.count = data_len - 8;
-
+    
+    // Define custom read function
     auto read_callback = [](png_structp png_ptr,
                           png_bytep output,
                           png_size_t bytes) {
@@ -87,12 +88,39 @@ png_decoder::operator()(data &&d) const
     int bit_depth = png_get_bit_depth(png_ptr, info_ptr);
     int color_type = png_get_color_type(png_ptr, info_ptr);
     int channels = png_get_channels(png_ptr, info_ptr);
-    
+
+    // Allocate memory for image data
+    int rowbytes = png_get_rowbytes(png_ptr, info_ptr);
+    png_bytep* row_pointers = (png_bytep*) malloc(sizeof(png_bytep) * height);
+    for (int y = 0; y < height; y++) {
+        row_pointers[y] = (png_byte*) malloc(rowbytes);
+    }
+
+    // Read image data row by row
+    png_read_image(png_ptr, row_pointers);
+
+    // Specify tensor data type
     at::ScalarType dtype = opts_.maybe_dtype().value_or(at::kFloat);
 
-    at::Tensor image = at::empty({width, height},
-        at::dtype(dtype).device(at::kCPU).pinned_memory(opts_.pin_memory()));
+    // Copy image data into tensor object
+    at::Tensor image = at::empty({height, width, 3}, at::dtype(dtype).device(at::kCPU).pinned_memory(opts_.pin_memory()));
+    for (int y = 0; y < height; y++) {
+        png_bytep row = row_pointers[y];
+        for (int x = 0; x < width; x++) {
+            png_bytep px = &(row[x * 3]);
+            image[y][x][0] = px[0];
+            image[y][x][1] = px[1];
+            image[y][x][2] = px[2];
+        }
+    }
 
+    // Free memory for image data 
+    for (int y = 0; y < height; y++) {
+        free(row_pointers[y]);
+    }
+    free(row_pointers);
+ 
+    // Move tensor to specified device
     at::Device device = opts_.maybe_device().value_or(at::kCPU);
     if (device != at::kCPU)
         image = image.to(device);
