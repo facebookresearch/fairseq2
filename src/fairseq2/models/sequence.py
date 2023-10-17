@@ -51,6 +51,9 @@ class SequenceBatch:
 
     def compute_num_tokens(self) -> Tensor:
         """Compute the number of tokens in this batch."""
+        if self.padding_mask is None:
+            return torch.full((), self.seqs.numel(), device=self.seqs.device)
+
         return self.padding_mask.seq_lens.sum()
 
 
