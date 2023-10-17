@@ -47,7 +47,7 @@ png_decoder::operator()(data &&d) const
     if (block.empty())
         throw_<std::invalid_argument>(
             "The input memory block has zero length and cannot be decoded as png.");
-
+  
     png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
     if (!png_ptr) {
         throw_<internal_error>("Failed to create PNG read struct.");
@@ -58,30 +58,24 @@ png_decoder::operator()(data &&d) const
         throw_<internal_error>("Failed to create PNG info struct.");
     }
 
-    // Set up error handling.
-    if (setjmp(png_jmpbuf(png_ptr))) {
-        png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
-        throw std::runtime_error("Error reading PNG image from memory");
-    }
-
-    auto datap = block.data();
-    auto datap_len = block.size();
+    auto data_ptr = block.data();
+    auto data_len = block.size();
 
     struct Reader {
     png_const_bytep ptr;
     png_size_t count;
     } reader;
 
-    reader.ptr = png_const_bytep(datap) + 8;
-    reader.count = datap_len - 8;
+    reader.ptr = png_const_bytep(data_ptr) + 8;
+    reader.count = data_len - 8;
 
     auto read_callback = [](png_structp png_ptr,
                           png_bytep output,
                           png_size_t bytes) {
     auto reader = static_cast<Reader*>(png_get_io_ptr(png_ptr));
-    TORCH_CHECK(
-        reader->count >= bytes,
-        "Out of bound read in png_decoder. Probably, the input image is corrupted");
+    if (reader->count > bytes) {
+        throw std::runtime_error("Out of bound read in png_decoder. Probably, the input image is corrupted");
+    }
     std::copy(reader->ptr, reader->ptr + bytes, output);
     reader->ptr += bytes;
     reader->count -= bytes;
@@ -94,48 +88,29 @@ png_decoder::operator()(data &&d) const
     png_uint_32 height = png_get_image_height(png_ptr, info_ptr);
     int bit_depth = png_get_bit_depth(png_ptr, info_ptr);
     int color_type = png_get_color_type(png_ptr, info_ptr);
-
+    int channels = png_get_channels(png_ptr, info_ptr);
     
     // temporary check to confirm image is being read
     std::cout << "img width:" << width << std::endl;
     
-    /*
     at::ScalarType dtype = opts_.maybe_dtype().value_or(at::kFloat);
 
-    at::Tensor rgb = at::empty({width, height},
+    at::Tensor image = at::empty({width, height, channels},
         at::dtype(dtype).device(at::kCPU).pinned_memory(opts_.pin_memory()));
-
-    writable_memory_span rgb_bits = get_raw_mutable_storage(rgb);
-    
-
-    switch (dtype) {
-    case at::kFloat: {
-        span waveform_data = cast<float32>(rgb_bits);
-
-        // todo
-
-        break;
-    }
-    case at::kByte: {
-        span waveform_data = cast<std::uint8_t>(rgb_bits);
-
-        // todo
-
-        break;
-    }
-    default:
-        throw_<internal_error>(
-            "`image_decoder` uses an unsupported data type. Please file a bug report.");
-    };
 
     at::Device device = opts_.maybe_device().value_or(at::kCPU);
     if (device != at::kCPU)
-        {// todo
-        }
+        image = image.to(device);
 
-    */
+    // Pack png data and format as output.
+    data_dict output{
+        {"bit_depth", static_cast<float32>(bit_depth)}, {"color_type", static_cast<float32>(color_type)}, 
+        {"channels", static_cast<float32>(channels)}, {"height", static_cast<float32>(height)}, 
+        {"width", static_cast<float32>(width)}};
 
+    output.emplace("image", std::move(image));
     
-
+    png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
+    return output;
 }
 };
