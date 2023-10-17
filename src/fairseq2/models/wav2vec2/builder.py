@@ -365,7 +365,7 @@ class Wav2Vec2EncoderBuilder:
                 dtype=self.dtype,
             )
 
-        return create_default_sdpa(self.config.attn_dropout_p)
+        return create_default_sdpa(attn_dropout_p=self.config.attn_dropout_p)
 
     def build_conformer_conv(self) -> ConformerConvolution:
         return ConformerConvolution(
