@@ -10,7 +10,6 @@
 #include <exception>
 #include <stdexcept>
 #include <png.h>
-#include <iostream>
 
 #include <ATen/Functions.h>
 #include <ATen/Tensor.h>
