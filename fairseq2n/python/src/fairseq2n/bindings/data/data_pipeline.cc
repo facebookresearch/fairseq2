@@ -358,8 +358,24 @@ def_data_pipeline(py::module_ &data_module)
                 return data_pipeline::count(start, std::move(key));
             },
             py::arg("start") = 0,
-            py::arg("key") = std::nullopt);
+            py::arg("key") = std::nullopt)
+        .def_static(
+            "concat",
+            [](std::vector<std::reference_wrapper<data_pipeline>> &refs)
+            {
+                std::vector<data_pipeline> pipelines{};
 
+                pipelines.reserve(refs.size());
+
+                std::transform(
+                    refs.begin(), refs.end(), std::back_inserter(pipelines), [](auto &r) {
+                        return std::move(r.get());
+                    });
+
+                return data_pipeline::concat(std::move(pipelines));
+            },
+            py::arg("pipelines"));
+        
     // DataPipelineIterator
     py::class_<data_pipeline_iterator>(m, "_DataPipelineIterator")
         .def(
