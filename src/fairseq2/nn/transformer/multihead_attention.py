@@ -426,6 +426,10 @@ class StandardMultiheadAttention(MultiheadAttention):
                     state = self.state_factory(k, v, max_seq_len=k.size(2))
 
                     state_bag.set_state(self, state)
+                else:
+                    # k: (N, H_kv, S_kv, K_h)
+                    # v: (N, H_kv, S_kv, V_h)
+                    k, v = state.get()
             else:
                 if key_padding_mask is not None:
                     raise ValueError(
@@ -444,9 +448,9 @@ class StandardMultiheadAttention(MultiheadAttention):
                 else:
                     state.append(k, v)
 
-            # k: (N, H_kv, S_kv, K_h)
-            # v: (N, H_kv, S_kv, V_h)
-            k, v = state.get()
+                    # k: (N, H_kv, S_kv, K_h)
+                    # v: (N, H_kv, S_kv, V_h)
+                    k, v = state.get()
 
         # With Grouped Query Attention, each key/value head is repeated.
         if (num_query_groups := self.num_heads // self.num_key_value_heads) > 1:
@@ -558,23 +562,23 @@ def init_output_projection(proj: Linear) -> None:
 
 
 class AttentionState(IncrementalState):
-    """Holds the state of a :class:`MultiheadAttention` module during
-    incremental decoding."""
+    """Holds the projected keys and values of a :class:`MultiheadAttention`
+    module during incremental decoding."""
 
     @abstractmethod
     def append(self, k: Tensor, v: Tensor) -> None:
-        """Update the state with ``k``, ``v``, and ``key_padding_mask``.
+        """Update the state with ``k`` and ``v``.
 
         :param k:
-            The projected keys. *Shape:* :math:`(N,H,S_{stp},K_{proj})`, where
-            :math:`N` is the batch size, :math:`H` is the number of heads,
-            :math:`S_{stp}` is the number of steps (e.g. 1), and :math:`K_{proj}`
-            is the projected key size.
+            The projected keys of the current step. *Shape:*
+            :math:`(N,H,1,K_{proj})`, where :math:`N` is the batch size,
+            :math:`H` is the number of heads, :math:`1` is the step length, and
+            :math:`K_{proj}` is the projected key size.
         :param v:
-            The projected values. *Shape:* :math:`(N,H,S_{stp},V_{proj})`, where
-            :math:`N` is the batch size, :math:`H` is the number of heads,
-            :math:`S_{stp}` is the number of steps (e.g. 1), and :math:`V_{proj}`
-            is the projected value size.
+            The projected values of the current step. *Shape:*
+            :math:`(N,H,1,V_{proj})`, where :math:`N` is the batch size,
+            :math:`H` is the number of heads, :math:`1` is the step length, and
+            :math:`V_{proj}` is the projected value size.
         """
 
     @abstractmethod
@@ -603,7 +607,7 @@ class AttentionStateFactory(Protocol):
 
 @final
 class GlobalAttentionState(AttentionState):
-    """Holds the projected keys and values of a :class:`MultiheadAttention`
+    """Holds the past projected keys and values of a :class:`MultiheadAttention`
     module during incremental decoding."""
 
     seq_len: int
@@ -611,34 +615,35 @@ class GlobalAttentionState(AttentionState):
 
     k: Tensor
     """The projected keys accumulated from the past decoding steps. *Shape:*
-    :math:`(N,H,S,K_{proj})`, where :math:`N` is the batch size, :math:`H` is
-    the number of heads, :math:`S` is the reserved sequence length capacity, and
-    :math:`K_{proj}` is the projected key size."""
+    :math:`(N,H,S_{res},K_{proj})`, where :math:`N` is the batch size, :math:`H`
+    is the number of heads, :math:`S_{res}` is the reserved sequence length
+    capacity, and :math:`K_{proj}` is the projected key size."""
 
     v: Tensor
     """The projected values accumulated from the past decoding steps. *Shape:*
-    :math:`(N,H,S,V_{proj})`, where :math:`N` is the batch size, :math:`H` is
-    the number of heads, :math:`S` is the reserved sequence length capacity, and
-    :math:`V_{proj}` is the projected value size."""
+    :math:`(N,H,S_{res},V_{proj})`, where :math:`N` is the batch size, :math:`H`
+    is the number of heads, :math:`S_{res}` is the reserved sequence length
+    capacity, and :math:`V_{proj}` is the projected value size."""
 
     def __init__(self, k: Tensor, v: Tensor, max_seq_len: int) -> None:
-        batch_size, num_heads, _, head_dim = k.shape
-
-        self.seq_len = 0
+        batch_size, num_heads, seq_len, head_dim = k.shape
 
         self.k = k.new_empty((batch_size, num_heads, max_seq_len, head_dim))
         self.v = v.new_empty((batch_size, num_heads, max_seq_len, head_dim))
 
-        self.append(k, v)
+        self.k[:, :, :seq_len] = k
+        self.v[:, :, :seq_len] = v
+
+        self.seq_len = seq_len
 
     @finaloverride
     def append(self, k: Tensor, v: Tensor) -> None:
-        start, end = self.seq_len, self.seq_len + k.size(2)
+        pos = self.seq_len
 
-        self.k[:, :, start:end] = k
-        self.v[:, :, start:end] = v
+        self.k[:, :, pos : pos + 1] = k
+        self.v[:, :, pos : pos + 1] = v
 
-        self.seq_len = end
+        self.seq_len += 1
 
     @finaloverride
     def get(self) -> Tuple[Tensor, Tensor]:
@@ -651,6 +656,97 @@ class GlobalAttentionState(AttentionState):
     def reorder(self, new_order: Tensor) -> None:
         self.k = self.k.index_select(0, new_order)
         self.v = self.v.index_select(0, new_order)
+
+
+@final
+class LocalAttentionState(AttentionState):
+    """Holds the past :attr:`attn_window_len` projected keys and values of a
+    :class:`MultiheadAttention` module during incremental decoding.
+
+    The intended use of this class is with Sliding Window Attention as described
+    in :cite:t:`https://doi.org/10.48550/arxiv.2004.05150`.
+    """
+
+    seq_len: int
+    """The current sequence length of :attr:`k` and :attr:`v`."""
+
+    attn_window_len: int
+    """The attention window length."""
+
+    k: Tensor
+    """The projected keys accumulated from the past :attr:`attn_window_len`
+    decoding steps. *Shape:* :math:`(N,H,S_{wnd},K_{proj})`, where :math:`N` is
+    the batch size, :math:`H` is the number of heads, :math:`S_{wnd}` is the
+    attention window length (i.e. :attr:`attn_window_len`), and :math:`K_{proj}`
+    is the projected key size."""
+
+    v: Tensor
+    """The projected values accumulated from the past :attr:`attn_window_len`
+    decoding steps. *Shape:* :math:`(N,H,S_{wnd},V_{proj})`, where :math:`N` is
+    the batch size, :math:`H` is the number of heads, :math:`S_{wnd}` is the
+    attention window length (i.e. :attr:`attn_window_len`), and :math:`V_{proj}`
+    is the projected value size."""
+
+    def __init__(
+        self, k: Tensor, v: Tensor, max_seq_len: int, attn_window_len: int
+    ) -> None:
+        batch_size, num_heads, seq_len, head_dim = k.shape
+
+        self.attn_window_len = min(max_seq_len, attn_window_len)
+
+        self.k = k.new_empty((batch_size, num_heads, self.attn_window_len, head_dim))
+        self.v = v.new_empty((batch_size, num_heads, self.attn_window_len, head_dim))
+
+        pos = min(seq_len, self.attn_window_len)
+
+        self.k[:, :, :pos] = k[:, :, -pos:]
+        self.v[:, :, :pos] = v[:, :, -pos:]
+
+        self.seq_len = seq_len
+
+    @finaloverride
+    def append(self, k: Tensor, v: Tensor) -> None:
+        if self.seq_len >= self.attn_window_len:
+            self.k = torch.roll(self.k, shifts=-1, dims=2)
+            self.v = torch.roll(self.v, shifts=-1, dims=2)
+
+            pos = self.attn_window_len - 1
+        else:
+            pos = self.seq_len
+
+        self.k[:, :, pos : pos + 1] = k
+        self.v[:, :, pos : pos + 1] = v
+
+        self.seq_len += 1
+
+    @finaloverride
+    def get(self) -> Tuple[Tensor, Tensor]:
+        k = self.k[:, :, : self.seq_len]
+        v = self.v[:, :, : self.seq_len]
+
+        return k, v
+
+    @finaloverride
+    def reorder(self, new_order: Tensor) -> None:
+        self.k = self.k.index_select(0, new_order)
+        self.v = self.v.index_select(0, new_order)
+
+
+class LocalAttentionStateFactory:
+    """Constructs instances of :class:`LocalAttentionState`."""
+
+    def __init__(self, attn_window_len: int) -> None:
+        """
+        :param attn_window_len:
+            The attention window length.
+        """
+        self.attn_window_len = attn_window_len
+
+    def __call__(self, k: Tensor, v: Tensor, max_seq_len: int) -> LocalAttentionState:
+        return LocalAttentionState(k, v, max_seq_len, self.attn_window_len)
+
+    def __repr__(self) -> str:
+        return f"LocalAttentionStateFactory(attn_window_len={self.attn_window_len})"
 
 
 @final
