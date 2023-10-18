@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.data_pipeline &mdash; fairseq2 0.2.0.dev20231009 documentation</title>
+  <title>fairseq2.data.data_pipeline &mdash; fairseq2 0.2.0.dev20231018 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20231009
+                0.2.0.dev20231018
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -178,8 +178,9 @@
 
 <span class="sd">        The pipeline state can be persisted to the disk, allowing it to be resumed later.</span>
 <span class="sd">        It is a Python Iterable, but it also contains the iterator states.</span>
-<span class="sd">        Calling `iter` a second time while the first iterator is still being used</span>
-<span class="sd">        will segfault or worse.</span>
+
+<span class="sd">        Calling `iter` twice will create two iterators reading from the same dataloader,</span>
+<span class="sd">        and sharing the same state, so it will behave inconcistently.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="DataPipeline.__iter__"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.__iter__">[docs]</a>        <span class="k">def</span> <span class="fm">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterator</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
@@ -277,7 +278,16 @@
 
         <span class="nd">@staticmethod</span>
         <span class="k">def</span> <span class="nf">count</span><span class="p">(</span><span class="n">start</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;DataPipelineBuilder&quot;</span><span class="p">:</span>
-            <span class="o">...</span></div>
+            <span class="o">...</span>
+
+<div class="viewcode-block" id="DataPipeline.concat"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.concat">[docs]</a>        <span class="nd">@staticmethod</span>
+        <span class="k">def</span> <span class="nf">concat</span><span class="p">(</span><span class="n">pipelines</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="s2">&quot;DataPipeline&quot;</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s2">&quot;DataPipelineBuilder&quot;</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Concatenate examples from ``pipelines``.</span>
+
+<span class="sd">            :param pipelines:</span>
+<span class="sd">                The data pipelines to concatenate.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="o">...</span></div></div>
 
 <div class="viewcode-block" id="DataPipelineBuilder"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder">[docs]</a>    <span class="k">class</span> <span class="nc">DataPipelineBuilder</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;API to create DataPipeline&quot;&quot;&quot;</span>
@@ -299,6 +309,18 @@
             <span class="n">drop_remainder</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
 <span class="w">            </span><span class="sd">&quot;&quot;&quot;Combine examples of similar shape into batches.&quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="DataPipelineBuilder.collate"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder.collate">[docs]</a>        <span class="k">def</span> <span class="nf">collate</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">pad_idx</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">pad_to_multiple</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
+            <span class="n">overrides</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="s2">&quot;CollateOptionsOverride&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Concatenate a list of inputs into a single inputs.</span>
+
+<span class="sd">            This is equivalent to calling `.map(Collater())`.</span>
+<span class="sd">            See :py:class:`fairseq2.data.Collater` for details.</span>
+<span class="sd">            &quot;&quot;&quot;</span></div>
 
 <div class="viewcode-block" id="DataPipelineBuilder.filter"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder.filter">[docs]</a>        <span class="k">def</span> <span class="nf">filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">predicate</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">],</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
 <span class="w">            </span><span class="sd">&quot;&quot;&quot;Filter examples from data pipeline and keep only those who match</span>

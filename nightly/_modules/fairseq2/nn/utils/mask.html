@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.nn.utils.mask &mdash; fairseq2 0.2.0.dev20231009 documentation</title>
+  <title>fairseq2.nn.utils.mask &mdash; fairseq2 0.2.0.dev20231018 documentation</title>
       <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20231009
+                0.2.0.dev20231018
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
@@ -158,66 +158,14 @@
 <span class="kn">from</span> <span class="nn">fairseq2.typing</span> <span class="kn">import</span> <span class="n">DataType</span><span class="p">,</span> <span class="n">Device</span>
 
 
-<div class="viewcode-block" id="to_padding_mask"><a class="viewcode-back" href="../../../../reference/generated/functions/fairseq2.nn.utils.mask.to_padding_mask.html#fairseq2.nn.utils.mask.to_padding_mask">[docs]</a><span class="k">def</span> <span class="nf">to_padding_mask</span><span class="p">(</span><span class="n">seqs</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">seq_lens</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a sequence length array to a float padding mask.</span>
-
-<span class="sd">    :param seqs:</span>
-<span class="sd">        The sequences to mask. *Shape:* :math:`(N,S,*)`, where :math:`N` is the</span>
-<span class="sd">        batch size, :math:`S` is the sequence length, and :math:`*` is any</span>
-<span class="sd">        number of sequence-specific dimensions including none.</span>
-<span class="sd">    :param seq_lens:</span>
-<span class="sd">        An array where each element represents the length of the sequence at the</span>
-<span class="sd">        same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is the</span>
-<span class="sd">        batch size.</span>
-
-<span class="sd">    :returns:</span>
-<span class="sd">        The float padding mask. *Shape:* :math:`(N,S)`, where :math:`N` is the</span>
-<span class="sd">        batch size and :math:`S` is the sequence length.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">bool_mask</span> <span class="o">=</span> <span class="n">to_bool_padding_mask</span><span class="p">(</span><span class="n">seqs</span><span class="p">,</span> <span class="n">seq_lens</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">bool_mask</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">return</span> <span class="kc">None</span>
-
-    <span class="k">return</span> <span class="n">to_float_mask</span><span class="p">(</span><span class="n">bool_mask</span><span class="p">,</span> <span class="n">seqs</span><span class="o">.</span><span class="n">dtype</span> <span class="k">if</span> <span class="n">seqs</span><span class="o">.</span><span class="n">is_floating_point</span><span class="p">()</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span></div>
-
-
-<span class="k">def</span> <span class="nf">to_bool_padding_mask</span><span class="p">(</span><span class="n">seqs</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">seq_lens</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a sequence length array to a boolean padding mask.</span>
-
-<span class="sd">    :param seqs:</span>
-<span class="sd">        The sequences to mask. *Shape:* :math:`(N,S,*)`, where :math:`N` is the</span>
-<span class="sd">        batch size, :math:`S` is the sequence length, and :math:`*` is any</span>
-<span class="sd">        number of sequence-specific dimensions including none.</span>
-<span class="sd">    :param seq_lens:</span>
-<span class="sd">        An array where each element represents the length of the sequence at the</span>
-<span class="sd">        same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is the</span>
-<span class="sd">        batch size.</span>
-
-<span class="sd">    :returns:</span>
-<span class="sd">        The boolean padding mask. *Shape:* :math:`(N,S)`, where :math:`N` is the</span>
-<span class="sd">        batch size and :math:`S` is the sequence length.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">seq_lens</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">return</span> <span class="kc">None</span>
-
-    <span class="n">batch_size</span><span class="p">,</span> <span class="n">mask_seq_len</span> <span class="o">=</span> <span class="n">seqs</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="mi">2</span><span class="p">]</span>
-
-    <span class="c1"># No need to construct a mask if all sequences have the same length.</span>
-    <span class="k">if</span> <span class="p">(</span><span class="n">seq_lens</span> <span class="o">==</span> <span class="n">mask_seq_len</span><span class="p">)</span><span class="o">.</span><span class="n">all</span><span class="p">():</span>
-        <span class="k">return</span> <span class="kc">None</span>
-
-    <span class="n">indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">mask_seq_len</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">seq_lens</span><span class="o">.</span><span class="n">device</span><span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">batch_size</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">indices</span> <span class="o">&gt;=</span> <span class="n">seq_lens</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">mask_seq_len</span><span class="p">)</span>
-
-
 <div class="viewcode-block" id="to_float_mask"><a class="viewcode-back" href="../../../../reference/generated/functions/fairseq2.nn.utils.mask.to_float_mask.html#fairseq2.nn.utils.mask.to_float_mask">[docs]</a><span class="k">def</span> <span class="nf">to_float_mask</span><span class="p">(</span><span class="n">mask</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">dtype</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">DataType</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a boolean mask to a float mask.</span>
 
 <span class="sd">    :param mask:</span>
-<span class="sd">        The mask tensor. *Shape:* Any.</span>
+<span class="sd">        The boolean mask. *Shape:* Any.</span>
 <span class="sd">    :param dtype:</span>
-<span class="sd">        The floating-point type of the converted mask.</span>
+<span class="sd">        The data type of the float mask. If ``None``, the default floating-point</span>
+<span class="sd">        type will be used.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">dtype</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">dtype</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">get_default_dtype</span><span class="p">()</span>
@@ -225,32 +173,7 @@
     <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">masked_fill_</span><span class="p">(</span><span class="n">mask</span><span class="p">,</span> <span class="o">-</span><span class="n">torch</span><span class="o">.</span><span class="n">inf</span><span class="p">)</span></div>
 
 
-<span class="k">def</span> <span class="nf">apply_padding_mask</span><span class="p">(</span><span class="n">seqs</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">padding_mask</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply the specified padding mask to ``seqs``.</span>
-
-<span class="sd">    :param seqs:</span>
-<span class="sd">        The sequences to mask. *Shape:* :math:`(N,S,*)`, where :math:`N` is the</span>
-<span class="sd">        the batch size, :math:`S` is the sequence length, and :math:`*` is any</span>
-<span class="sd">        number of sequence-specific dimensions including none.</span>
-<span class="sd">    :param padding_mask:</span>
-<span class="sd">        The float padding mask to apply. *Shape:* :math:`(N,S)`, where :math:`N`</span>
-<span class="sd">        is the batch size and :math:`S` is the sequence length.</span>
-
-<span class="sd">    :returns:</span>
-<span class="sd">        The input sequences with mask applied. *Shape:* Same as ``seqs``.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">padding_mask</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">seqs</span>
-
-    <span class="n">bool_mask</span> <span class="o">=</span> <span class="n">padding_mask</span><span class="o">.</span><span class="n">isinf</span><span class="p">()</span>
-
-    <span class="k">if</span> <span class="n">seqs</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
-        <span class="n">bool_mask</span> <span class="o">=</span> <span class="n">bool_mask</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">seqs</span><span class="o">.</span><span class="n">masked_fill</span><span class="p">(</span><span class="n">bool_mask</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
-
-
-<span class="k">def</span> <span class="nf">compute_mask</span><span class="p">(</span>
+<span class="k">def</span> <span class="nf">compute_row_mask</span><span class="p">(</span>
     <span class="n">shape</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">],</span>
     <span class="n">span_len</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
     <span class="n">max_mask_prob</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
@@ -258,10 +181,10 @@
     <span class="n">min_num_spans</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
     <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute a random mask for the specified shape.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute a random row mask of the specified shape.</span>
 
 <span class="sd">    :param shape:</span>
-<span class="sd">        The two dimensional shape for which to compute a mask.</span>
+<span class="sd">        The shape of the mask.</span>
 <span class="sd">    :param span_len:</span>
 <span class="sd">        The length of each mask span.</span>
 <span class="sd">    :param max_mask_prob:</span>
@@ -270,14 +193,14 @@
 <span class="sd">        might be smaller. The implementation also guarantees that there is</span>
 <span class="sd">        always at least one unmasked element in each row.</span>
 <span class="sd">    :param row_lens:</span>
-<span class="sd">        The length of each row if ``shape`` is ragged.</span>
+<span class="sd">        The length of each row.</span>
 <span class="sd">    :param min_num_spans:</span>
 <span class="sd">        The minimum number of mask spans per row.</span>
 <span class="sd">    :param device:</span>
 <span class="sd">        The device on which to initialize the mask.</span>
 
 <span class="sd">    :returns:</span>
-<span class="sd">        A boolean mask. *:Shape:* ``shape``.</span>
+<span class="sd">        The boolean row mask. *:Shape:* ``shape``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">num_rows</span><span class="p">,</span> <span class="n">max_row_len</span> <span class="o">=</span> <span class="n">shape</span>
 
@@ -311,7 +234,7 @@
 <span class="k">def</span> <span class="nf">_compute_mask_spans</span><span class="p">(</span>
     <span class="n">row_lens</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">span_len</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">max_mask_prob</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">min_num_spans</span><span class="p">:</span> <span class="nb">int</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute random mask spans for the specified (ragged) shape.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute random mask spans of the specified shape.&quot;&quot;&quot;</span>
     <span class="n">device</span><span class="p">,</span> <span class="n">dtype</span> <span class="o">=</span> <span class="n">row_lens</span><span class="o">.</span><span class="n">device</span><span class="p">,</span> <span class="n">row_lens</span><span class="o">.</span><span class="n">dtype</span>
 
     <span class="n">num_rows</span> <span class="o">=</span> <span class="n">row_lens</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>

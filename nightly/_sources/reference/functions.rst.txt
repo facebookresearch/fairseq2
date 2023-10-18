@@ -9,4 +9,3 @@ Functions
     :nosignatures:
 
     nn.utils.mask.to_float_mask
-    nn.utils.mask.to_padding_mask
