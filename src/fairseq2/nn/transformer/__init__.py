@@ -72,6 +72,12 @@ from fairseq2.nn.transformer.multihead_attention import (
     GlobalAttentionState as GlobalAttentionState,
 )
 from fairseq2.nn.transformer.multihead_attention import (
+    LocalAttentionState as LocalAttentionState,
+)
+from fairseq2.nn.transformer.multihead_attention import (
+    LocalAttentionStateFactory as LocalAttentionStateFactory,
+)
+from fairseq2.nn.transformer.multihead_attention import (
     MultiheadAttention as MultiheadAttention,
 )
 from fairseq2.nn.transformer.multihead_attention import (
