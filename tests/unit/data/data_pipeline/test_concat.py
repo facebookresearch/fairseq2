@@ -59,7 +59,7 @@ class TestConcatOp:
 
         with pytest.raises(
             ValueError,
-            match=r"^At least one of the specified data pipelines is broken and cannot be used in concat\.$",
+            match=r"^At least one of the specified data pipelines is broken and cannot be concatenated\.$",
         ):
             DataPipeline.concat([pipeline1, pipeline2]).and_return()
 
