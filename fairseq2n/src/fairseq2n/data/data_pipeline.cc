@@ -11,25 +11,27 @@
 #include <system_error>
 #include <utility>
 
+#include "data_pipeline.h"
 #include "fairseq2n/data/bucket_by_length_data_source.h"
 #include "fairseq2n/data/bucket_data_source.h"
+#include "fairseq2n/data/concat_data_source.h"
 #include "fairseq2n/data/constant_data_source.h"
 #include "fairseq2n/data/count_data_source.h"
+#include "fairseq2n/data/detail/file_system.h"
 #include "fairseq2n/data/filter_data_source.h"
 #include "fairseq2n/data/list_data_source.h"
 #include "fairseq2n/data/map_data_source.h"
 #include "fairseq2n/data/prefetch_data_source.h"
-#include "fairseq2n/data/take_data_source.h"
 #include "fairseq2n/data/round_robin_data_source.h"
 #include "fairseq2n/data/sample_data_source.h"
 #include "fairseq2n/data/shard_data_source.h"
 #include "fairseq2n/data/shuffle_data_source.h"
 #include "fairseq2n/data/skip_data_source.h"
+#include "fairseq2n/data/take_data_source.h"
 #include "fairseq2n/data/tape.h"
 #include "fairseq2n/data/yield_from_data_source.h"
 #include "fairseq2n/data/zip_data_source.h"
 #include "fairseq2n/data/zip_file_data_source.h"
-#include "fairseq2n/data/detail/file_system.h"
 #include "fairseq2n/detail/exception.h"
 
 using namespace fairseq2n::detail;
@@ -280,6 +282,34 @@ data_pipeline::count(std::int64_t start, std::optional<std::string> key)
         return std::make_unique<count_data_source>(start, std::move(key));
     };
 
+    return data_pipeline_builder{std::move(factory)};
+}
+
+data_pipeline_builder
+data_pipeline::concat(
+    std::vector<data_pipeline> pipelines)
+{
+    if (pipelines.empty())
+        throw_<std::invalid_argument>(
+            "`pipelines` does not contain any elements. Can not concatenate from empty set.");
+
+    bool is_broken = std::any_of(
+        pipelines.begin(), pipelines.end(), [](const data_pipeline &pipeline)
+        {
+            return pipeline.is_broken();
+        });
+
+    if (is_broken)
+        throw_<std::invalid_argument>(
+            "At least one of the specified data pipelines is broken and cannot be concatenated.");
+
+    auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
+
+    auto factory = [tmp]() mutable
+    {
+        return std::make_unique<concat_data_source>(std::move(*tmp));
+    };
+    
     return data_pipeline_builder{std::move(factory)};
 }
 
