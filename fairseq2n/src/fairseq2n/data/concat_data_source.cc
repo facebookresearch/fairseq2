@@ -9,9 +9,8 @@
 
 namespace fairseq2n::detail {
 
-concat_data_source::concat_data_source(
-    std::vector<data_pipeline> &&pipelines)
-    : pipelines_{std::move(pipelines)}
+concat_data_source::concat_data_source(std::vector<data_pipeline> &&pipelines)
+    : pipelines_(std::move(pipelines))
 {}
 
 std::optional<data>
@@ -20,9 +19,8 @@ concat_data_source::next()
     std::optional<data> d;
     for (auto &p : pipelines_) {
         d = p.next();
-        if (d) {
-            return d;
-        }
+        if (d)
+          return d;
     }
     return {};
 }
