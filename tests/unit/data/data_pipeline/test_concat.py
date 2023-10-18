@@ -10,11 +10,11 @@ from fairseq2.data import DataPipeline, DataPipelineError, read_sequence
 from fairseq2.data.text import read_text
 from tests.common import python_devel_only
 
+
 @pytest.mark.skipif(
     python_devel_only(),
     reason="New fairseq2n API in Python-only installation. Skipping till v0.2.",
 )
-
 class TestConcatOp:
     def test_op_works(self) -> None:
         pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
