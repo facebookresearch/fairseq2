@@ -51,7 +51,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-region: us-east-1
-          role-to-assume: arn:aws:iam::465485888595:role/GitHubActionsS3Access
+          role-to-assume: arn:aws:iam::465485888595:role/fair-package-repo-fairseq2
       - name: Set S3 bucket and prefix
         env:
           TORCH: ${{ inputs.torch }}
