@@ -16,10 +16,7 @@ from torch.nn import Module
 from torch.nn.functional import dropout, softmax
 
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.nn.transformer.attention_mask import (
-    AttentionMask,
-    GlobalCausalAttentionMask,
-)
+from fairseq2.nn.transformer.attention_mask import AttentionMask, CausalAttentionMask
 from fairseq2.typing import finaloverride
 from fairseq2.utils.version import is_pt2_or_greater
 
@@ -43,7 +40,7 @@ class SDPA(Module, ABC):
     @abstractmethod
     def forward(
         self,
-        queries: Tensor,
+        seqs: Tensor,
         keys: Tensor,
         key_padding_mask: Optional[PaddingMask],
         values: Tensor,
@@ -52,10 +49,10 @@ class SDPA(Module, ABC):
         needs_weights: bool = False,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         """
-        :param queries:
-            The queries. *Shape:* :math:`(N,H,S,K)`, where :math:`N` is the
-            batch size, :math:`H` is the number of heads, :math:`S` is the
-            sequence length, and :math:`K` is the key size.
+        :param seqs:
+            The sequences to query. *Shape:* :math:`(N,H,S,K)`, where :math:`N`
+            is the batch size, :math:`H` is the number of heads, :math:`S` is
+            the sequence length, and :math:`K` is the key size.
         :param keys:
             The keys. *Shape:* :math:`(N,H,S_{kv},K)`, where :math:`N` is the
             batch size, :math:`H` is the number of heads, :math:`S_{kv}` is the
@@ -107,7 +104,7 @@ class TorchSDPA(SDPA):
     @finaloverride
     def forward(
         self,
-        queries: Tensor,
+        seqs: Tensor,
         keys: Tensor,
         key_padding_mask: Optional[PaddingMask],
         values: Tensor,
@@ -115,9 +112,9 @@ class TorchSDPA(SDPA):
         attn_mask: Optional[AttentionMask] = None,
         needs_weights: bool = False,
     ) -> Tuple[Tensor, Optional[Tensor]]:
-        if not queries.is_cuda:
+        if not seqs.is_cuda:
             return _naive_scaled_dot_product_attention(
-                queries,
+                seqs,
                 keys,
                 key_padding_mask,
                 values,
@@ -136,7 +133,7 @@ class TorchSDPA(SDPA):
                 self._has_warned = True
 
             return _naive_scaled_dot_product_attention(
-                queries,
+                seqs,
                 keys,
                 key_padding_mask,
                 values,
@@ -160,7 +157,7 @@ class TorchSDPA(SDPA):
             mask = mask[:, None, None, :]
 
             # (N, 1, 1, S_kv) -> (N, H, S, S_kv)
-            mask = mask.expand(-1, queries.size(1), queries.size(2), -1)
+            mask = mask.expand(-1, seqs.size(1), seqs.size(2), -1)
 
             if attn_mask is not None:
                 # ([H], S, S_kv)
@@ -168,10 +165,15 @@ class TorchSDPA(SDPA):
 
                 # (N, H, S, S_kv)
                 mask = torch.where(mask, m, -torch.inf)
-        elif isinstance(attn_mask, GlobalCausalAttentionMask):
-            mask = None
+        elif isinstance(attn_mask, CausalAttentionMask):
+            # PyTorch SDPA supports only full causal attention.
+            if attn_mask.attn_window_len is None:
+                mask = None
 
-            is_causal = True
+                is_causal = True
+            else:
+                # ([H], S, S_kv)
+                mask = attn_mask.materialize()
         elif attn_mask is not None:
             # ([H], S, S_kv)
             mask = attn_mask.materialize()
@@ -179,7 +181,7 @@ class TorchSDPA(SDPA):
             mask = None
 
         attn = F.scaled_dot_product_attention(  # type: ignore[attr-defined]
-            queries,
+            seqs,
             keys,
             values,
             attn_mask=mask,
@@ -197,7 +199,7 @@ class NaiveSDPA(SDPA):
     @finaloverride
     def forward(
         self,
-        queries: Tensor,
+        seqs: Tensor,
         keys: Tensor,
         key_padding_mask: Optional[PaddingMask],
         values: Tensor,
@@ -206,7 +208,7 @@ class NaiveSDPA(SDPA):
         needs_weights: bool = False,
     ) -> Tuple[Tensor, Optional[Tensor]]:
         return _naive_scaled_dot_product_attention(
-            queries,
+            seqs,
             keys,
             key_padding_mask,
             values,
@@ -218,7 +220,7 @@ class NaiveSDPA(SDPA):
 
 
 def _naive_scaled_dot_product_attention(
-    queries: Tensor,
+    seqs: Tensor,
     keys: Tensor,
     key_padding_mask: Optional[PaddingMask],
     values: Tensor,
@@ -228,9 +230,9 @@ def _naive_scaled_dot_product_attention(
     training: bool,
 ) -> Tuple[Tensor, Optional[Tensor]]:
     # (N, H, S, K) @ (N, H, K, S_kv) = (N, H, S, S_kv)
-    attn_weights = torch.matmul(queries, keys.transpose(-1, -2))
+    attn_weights = torch.matmul(seqs, keys.transpose(-1, -2))
 
-    attn_weights = attn_weights * (queries.size(-1) ** -0.5)
+    attn_weights = attn_weights * (seqs.size(-1) ** -0.5)
 
     if attn_mask is not None:
         # (S, S_kv)
@@ -251,7 +253,7 @@ def _naive_scaled_dot_product_attention(
     # For numerical stability run in single precision.
     attn_weights = softmax(attn_weights, dim=-1, dtype=torch.float32)
 
-    attn_weights = attn_weights.type_as(queries)
+    attn_weights = attn_weights.type_as(seqs)
 
     if training and dropout_p > 0.0:
         attn_weights = dropout(attn_weights, dropout_p)

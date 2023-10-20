@@ -20,7 +20,6 @@ from fairseq2.nn.transformer import (
     TransformerEncoderLayer,
     create_standard_layer_norm,
 )
-from fairseq2.nn.utils.module import check_model_dim
 from fairseq2.typing import DataType, Device, finaloverride
 
 
@@ -115,8 +114,6 @@ class ConformerBlock(TransformerEncoderLayer):
             self.register_module("ffn2_dropout", None)
 
         self.layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
-
-        check_model_dim(self)
 
     @finaloverride
     def forward(

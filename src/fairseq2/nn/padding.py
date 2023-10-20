@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Optional, Sequence, Tuple, cast
+from typing import Any, Optional, Sequence, Tuple, cast
 
 import torch
 from torch import Tensor
@@ -76,7 +76,7 @@ def to_padding_mask(seq_lens: Tensor, batch_seq_len: int) -> Tensor:
 
 
 def apply_padding_mask(
-    seqs: Tensor, padding_mask: Optional[PaddingMask], fill_value: float = 0.0
+    seqs: Tensor, padding_mask: Optional[PaddingMask], fill_value: Any = 0
 ) -> Tensor:
     """Apply the specified padding mask to ``seqs``.
 

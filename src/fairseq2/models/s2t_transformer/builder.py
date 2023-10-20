@@ -404,7 +404,7 @@ class S2TTransformerBuilder:
         """Build a Transformer decoder layer."""
         self_attn = self.build_decoder_attention()
 
-        encoder_decoder_attn = self.build_decoder_attention(encoder_decoder=True)
+        encoder_decoder_attn = self.build_decoder_attention()
 
         ffn = self.build_ffn()
 
@@ -450,16 +450,13 @@ class S2TTransformerBuilder:
             dtype=self.dtype,
         )
 
-    def build_decoder_attention(
-        self, encoder_decoder: bool = False
-    ) -> MultiheadAttention:
+    def build_decoder_attention(self) -> MultiheadAttention:
         """Build a Transformer decoder multi-head attention layer."""
         sdpa = create_default_sdpa(attn_dropout_p=self.config.dropout_p)
 
         return StandardMultiheadAttention(
             self.config.model_dim,
             self.config.num_decoder_attn_heads,
-            static_kv=encoder_decoder,
             sdpa=sdpa,
             device=self.device,
             dtype=self.dtype,
