@@ -13,6 +13,7 @@ from torch.nn import Module
 from fairseq2.nn.module_list import ModuleList
 from fairseq2.nn.normalization import LayerNorm
 from fairseq2.nn.padding import PaddingMask
+from fairseq2.nn.transformer.attention_mask import AttentionMaskFactory
 from fairseq2.nn.transformer.encoder_layer import TransformerEncoderLayer
 from fairseq2.nn.transformer.layer_norm import (
     LayerNormFactory,
@@ -101,6 +102,7 @@ class StandardTransformerEncoder(TransformerEncoder):
     """Represents a Transformer encoder as described in
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
+    self_attn_mask_factory: Optional[AttentionMaskFactory]
     layer_norm: Optional[LayerNorm]
     norm_order: TransformerNormOrder
 
@@ -108,6 +110,7 @@ class StandardTransformerEncoder(TransformerEncoder):
         self,
         layers: Iterable[TransformerEncoderLayer],
         *,
+        self_attn_mask_factory: Optional[AttentionMaskFactory] = None,
         layer_drop_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         layer_norm_factory: Optional[LayerNormFactory] = None,
@@ -117,6 +120,8 @@ class StandardTransformerEncoder(TransformerEncoder):
         """
         :param layers:
             The encoder layers.
+        :param self_attn_mask_factory:
+            The self attention mask factory.
         :param layer_drop_p:
             If greater than zero, applies LayerDrop to the encoder layers as
             described in :cite:t:`https://doi.org/10.48550/arxiv.1909.11556`.
@@ -135,6 +140,8 @@ class StandardTransformerEncoder(TransformerEncoder):
 
         if layer_norm_factory is None:
             layer_norm_factory = create_standard_layer_norm
+
+        self.self_attn_mask_factory = self_attn_mask_factory
 
         self.layers = layer_list
 
@@ -160,8 +167,15 @@ class StandardTransformerEncoder(TransformerEncoder):
 
         num_layers = len(self.layers)
 
+        if self.self_attn_mask_factory is None:
+            self_attn_mask = None
+        else:
+            self_attn_mask = self.self_attn_mask_factory(
+                seqs, keys=seqs, training=self.training
+            )
+
         for layer_idx, layer in enumerate(self.layers.drop_iter()):
-            seqs, padding_mask = layer(seqs, padding_mask)
+            seqs, padding_mask = layer(seqs, padding_mask, self_attn_mask)
 
             if layer_output_hook is not None:
                 if not layer_output_hook(layer_idx, seqs, padding_mask, num_layers):
@@ -175,5 +189,12 @@ class StandardTransformerEncoder(TransformerEncoder):
     def extra_repr(self) -> str:
         """:meta private:"""
         s = super().extra_repr()
+
+        if self.self_attn_mask_factory is not None:
+            self_attn_mask_factory = getattr(
+                self.self_attn_mask_factory, "__name__", self.self_attn_mask_factory
+            )
+
+            s = f"{s}, self_attn_mask_factory={self_attn_mask_factory}"
 
         return f"{s}, norm_order={self.norm_order}"

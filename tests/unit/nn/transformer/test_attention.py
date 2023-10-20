@@ -92,7 +92,7 @@ class TestScaledDotProductAttention:
             attn_mask = None
 
         return {
-            "queries": q,
+            "seqs": q,
             "keys": k,
             "key_padding_mask": key_padding_mask,
             "values": v,

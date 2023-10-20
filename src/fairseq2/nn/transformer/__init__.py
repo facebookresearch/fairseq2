@@ -18,13 +18,13 @@ from fairseq2.nn.transformer.attention_mask import (
     AttentionMaskFactory as AttentionMaskFactory,
 )
 from fairseq2.nn.transformer.attention_mask import (
+    CausalAttentionMask as CausalAttentionMask,
+)
+from fairseq2.nn.transformer.attention_mask import (
+    CausalAttentionMaskFactory as CausalAttentionMaskFactory,
+)
+from fairseq2.nn.transformer.attention_mask import (
     CustomAttentionMask as CustomAttentionMask,
-)
-from fairseq2.nn.transformer.attention_mask import (
-    GlobalCausalAttentionMask as GlobalCausalAttentionMask,
-)
-from fairseq2.nn.transformer.attention_mask import (
-    GlobalCausalAttentionMaskFactory as GlobalCausalAttentionMaskFactory,
 )
 from fairseq2.nn.transformer.decoder import (
     DecoderLayerOutputHook as DecoderLayerOutputHook,
@@ -69,7 +69,7 @@ from fairseq2.nn.transformer.multihead_attention import (
     AttentionWeightHook as AttentionWeightHook,
 )
 from fairseq2.nn.transformer.multihead_attention import (
-    GlobalAttentionState as GlobalAttentionState,
+    FullAttentionState as FullAttentionState,
 )
 from fairseq2.nn.transformer.multihead_attention import (
     LocalAttentionState as LocalAttentionState,

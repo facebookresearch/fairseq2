@@ -253,9 +253,7 @@ class NllbBuilder:
         """Build a Transformer decoder layer."""
         self_attn = self.build_attention(self.config.num_decoder_attn_heads)
 
-        encoder_decoder_attn = self.build_attention(
-            self.config.num_decoder_attn_heads, encoder_decoder=True
-        )
+        encoder_decoder_attn = self.build_attention(self.config.num_decoder_attn_heads)
 
         ffn = self.build_ffn()
 
@@ -269,16 +267,13 @@ class NllbBuilder:
             dtype=self.dtype,
         )
 
-    def build_attention(
-        self, num_heads: int, encoder_decoder: bool = False
-    ) -> MultiheadAttention:
+    def build_attention(self, num_heads: int) -> MultiheadAttention:
         """Build a Transformer multi-head attention layer."""
         sdpa = create_default_sdpa(attn_dropout_p=self.config.dropout_p)
 
         return StandardMultiheadAttention(
             self.config.model_dim,
             num_heads,
-            static_kv=encoder_decoder,
             sdpa=sdpa,
             device=self.device,
             dtype=self.dtype,

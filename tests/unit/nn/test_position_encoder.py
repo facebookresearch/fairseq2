@@ -126,7 +126,7 @@ class TestSinusoidalPositionEncoder:
         assert_close(y - x, m.freqs[:9].expand_as(y))
 
     @pytest.mark.parametrize("step", [0, 1, 2])
-    def test_forward_works_in_incremental_eval(self, step: int) -> None:
+    def test_forward_works_in_incremental_decode(self, step: int) -> None:
         m = SinusoidalPositionEncoder(encoding_dim=32, max_seq_len=4, device=device)
 
         state_bag = IncrementalStateBag(max_num_steps=3)
@@ -201,7 +201,7 @@ class TestLearnedPositionEncoder:
         assert_close(y - x, m.weight[:9].expand_as(y))
 
     @pytest.mark.parametrize("step", [0, 1, 2])
-    def test_forward_works_in_incremental_eval(self, step: int) -> None:
+    def test_forward_works_in_incremental_decode(self, step: int) -> None:
         m = LearnedPositionEncoder(encoding_dim=32, max_seq_len=4, device=device)
 
         state_bag = IncrementalStateBag(max_num_steps=3)
@@ -284,7 +284,7 @@ class TestRotaryEncoder:
         assert_close(dot1, dot2)
 
     @pytest.mark.parametrize("step", [0, 1, 2])
-    def test_forward_works_in_incremental_eval(self, step: int) -> None:
+    def test_forward_works_in_incremental_decode(self, step: int) -> None:
         m = RotaryEncoder(encoding_dim=32, max_seq_len=4, device=device)
 
         state_bag = IncrementalStateBag(max_num_steps=3)
