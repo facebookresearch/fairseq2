@@ -23,7 +23,6 @@ from fairseq2.nn.ops import repeat_interleave
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer import TransformerEncoder
-from fairseq2.nn.utils.module import check_model_dim
 from fairseq2.typing import DataType, Device
 
 
@@ -111,8 +110,6 @@ class Wav2Vec2Model(Module):
         self.num_distractors = num_distractors
         self.logit_temp = logit_temp
         self.diversity_loss_weight = diversity_loss_weight
-
-        check_model_dim(self)
 
     def forward(self, batch: SequenceBatch) -> "Wav2Vec2Output":
         """

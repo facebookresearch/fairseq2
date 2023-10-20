@@ -94,7 +94,7 @@ class ShawRelativePositionSDPA(SDPA):
     @finaloverride
     def forward(
         self,
-        queries: Tensor,
+        seqs: Tensor,
         keys: Tensor,
         key_padding_mask: Optional[PaddingMask],
         values: Tensor,
@@ -102,10 +102,10 @@ class ShawRelativePositionSDPA(SDPA):
         attn_mask: Optional[AttentionMask] = None,
         needs_weights: bool = False,
     ) -> Tuple[Tensor, Optional[Tensor]]:
-        q_len = queries.size(2)
+        q_len = seqs.size(2)
 
         # (N, H, S, K_h) @ (N, H, K_h, S_kv) = (N, H, S, S_kv)
-        attn_weights = torch.matmul(queries, keys.transpose(-1, -2))
+        attn_weights = torch.matmul(seqs, keys.transpose(-1, -2))
 
         # (S_kv, S_kv)
         rel_indices = self._get_relative_indices(keys)
@@ -117,11 +117,11 @@ class ShawRelativePositionSDPA(SDPA):
         rel_keys = rel_keys[-q_len:]
 
         # (N, H, S, K_h) @ (S, S_kv, K_h) = (N, H, S, S_kv)
-        rel_attn_weights = torch.einsum("nhsk,stk->nhst", queries, rel_keys)
+        rel_attn_weights = torch.einsum("nhsk,stk->nhst", seqs, rel_keys)
 
         attn_weights = attn_weights + rel_attn_weights
 
-        attn_weights = attn_weights * (queries.size(-1) ** -0.5)
+        attn_weights = attn_weights * (seqs.size(-1) ** -0.5)
 
         if attn_mask is not None:
             # (S, S_kv)
@@ -141,7 +141,7 @@ class ShawRelativePositionSDPA(SDPA):
 
         attn_weights = softmax(attn_weights, dim=-1, dtype=torch.float32)
 
-        attn_weights = attn_weights.type_as(queries)
+        attn_weights = attn_weights.type_as(seqs)
 
         if self.training and self.attn_dropout_p > 0.0:
             attn_weights = dropout(attn_weights, self.attn_dropout_p)

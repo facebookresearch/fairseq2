@@ -15,7 +15,6 @@ from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.projection import Projection
 from fairseq2.nn.transformer import TransformerDecoder
-from fairseq2.nn.utils.module import check_model_dim
 from fairseq2.typing import finaloverride
 
 
@@ -55,8 +54,6 @@ class TransformerDecoderModel(DecoderModel):
         self.final_proj = final_proj
 
         self.target_pad_idx = target_pad_idx
-
-        check_model_dim(self)
 
     @finaloverride
     def decode(

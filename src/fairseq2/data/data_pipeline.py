@@ -135,6 +135,15 @@ if TYPE_CHECKING or _DOC_MODE:
         def count(start: int = 0, key: Optional[str] = None) -> "DataPipelineBuilder":
             ...
 
+        @staticmethod
+        def concat(pipelines: Sequence["DataPipeline"]) -> "DataPipelineBuilder":
+            """Concatenate examples from ``pipelines``.
+
+            :param pipelines:
+                The data pipelines to concatenate.
+            """
+            ...
+
     class DataPipelineBuilder:
         """API to create DataPipeline"""
 
