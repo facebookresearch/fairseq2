@@ -90,21 +90,23 @@ png_decoder::operator()(data &&d) const
     int channels = png_get_channels(png_ptr, info_ptr);
 
     at::ScalarType dtype = opts_.maybe_dtype().value_or(at::kByte);
-    at::Tensor image = at::empty({height, width, 4}, at::dtype(dtype).device(at::kCPU).pinned_memory(opts_.pin_memory()));
-    size_t rowbytes = png_get_rowbytes(png_ptr, info_ptr);
-    auto t_ptr = image.accessor<uint8_t, 3>().data();
-  
-    // Copy image data into tensor object
-    for (png_uint_32 i = 0; i < height; ++i) {
-        png_read_row(png_ptr, t_ptr, nullptr);
-        t_ptr += rowbytes;
-    }
-    t_ptr = image.accessor<uint8_t, 3>().data();
+    at::Tensor image = at::empty({height, width, channels}, at::dtype(dtype).device(at::kCPU).pinned_memory(opts_.pin_memory()));
     
+    size_t rowbytes = png_get_rowbytes(png_ptr, info_ptr);
+    writable_memory_span image_bits = get_raw_mutable_storage(image);
+    png_bytep image_data = reinterpret_cast<png_bytep>(image_bits.data());
+    
+    // Read image data into tensor
+    for (png_uint_32 i = 0; i < height; ++i) {
+        png_read_row(png_ptr, image_data, nullptr);
+        image_data += rowbytes;
+    }
+
     // Move tensor to specified device
     at::Device device = opts_.maybe_device().value_or(at::kCPU);
     if (device != at::kCPU)
         image = image.to(device);
+
 
     // Pack png data and format as output.
     data_dict output{
