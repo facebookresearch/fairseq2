@@ -20,7 +20,6 @@ from fairseq2.nn.transformer.layer_norm import (
     create_standard_layer_norm,
 )
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
-from fairseq2.nn.utils.module import check_model_dim
 from fairseq2.typing import DataType, Device, finaloverride
 
 
@@ -151,8 +150,6 @@ class StandardTransformerEncoder(TransformerEncoder):
             self.register_module("layer_norm", None)
 
         self.norm_order = norm_order
-
-        check_model_dim(self)
 
     @finaloverride
     def forward(
