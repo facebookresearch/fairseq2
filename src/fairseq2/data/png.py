@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Optional, TypedDict
 
 from fairseq2 import _DOC_MODE
 from fairseq2.memory import MemoryBlock
-from fairseq2.typing import DataType, Device
+from fairseq2.typing import Device
 
 if TYPE_CHECKING or _DOC_MODE:
 

@@ -128,7 +128,7 @@ png_decoder::operator()(data &&d) const
         }
     } else { // image is 16 bit
         for (png_uint_32 i = 0; i < height; ++i) {
-            png_read_row(png_ptr, (uint8_t*)image_data, nullptr);
+            png_read_row(png_ptr, image_data, nullptr);
             for (size_t j = 0; j < rowbytes; ++j) {
                 image_data[j] = (int32_t)image_data[j];
             }
