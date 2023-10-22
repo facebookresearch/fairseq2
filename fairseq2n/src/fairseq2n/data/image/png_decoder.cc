@@ -29,11 +29,12 @@ namespace fairseq2n {
     
 png_decoder::png_decoder(png_decoder_options opts)
   : opts_{opts}
-{
-    at::ScalarType dtype = opts_.maybe_dtype().value_or(at::kFloat);
-    if (dtype != at::kFloat && dtype != at::kByte)
-        throw_<not_supported_error>(
-            "`png_decoder` supports only `torch.float32` and `torch.uint8` data types.");
+{}
+
+bool 
+png_decoder::is_little_endian() const {
+  uint32_t x = 1;
+  return *(uint8_t*)&x;
 }
 
 data
@@ -58,18 +59,23 @@ png_decoder::operator()(data &&d) const
         throw_<internal_error>("Failed to create PNG info struct.");
     }
 
-    auto data_ptr = block.data();
+    auto data_ptr = png_const_bytep(block.data());
     auto data_len = block.size();
+    /*
+    if(png_sig_cmp(data_ptr, 0, 8) == 0) {
+        png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
+        throw_<std::invalid_argument>("The input data is not a valid PNG image.");
+    };
+    */
 
     struct Reader {
     png_const_bytep ptr;
     png_size_t count;
     } reader;
 
-    reader.ptr = png_const_bytep(data_ptr) + 8;
+    reader.ptr = data_ptr + 8;
     reader.count = data_len - 8;
     
-    // Define custom read function
     auto read_callback = [](png_structp png_ptr2,
                           png_bytep output,
                           png_size_t bytes) {
@@ -83,13 +89,31 @@ png_decoder::operator()(data &&d) const
     png_set_read_fn(png_ptr, &reader, read_callback);
     png_read_info(png_ptr, info_ptr);
 
-    png_uint_32 width = png_get_image_width(png_ptr, info_ptr);
-    png_uint_32 height = png_get_image_height(png_ptr, info_ptr);
-    int bit_depth = png_get_bit_depth(png_ptr, info_ptr);
-    int color_type = png_get_color_type(png_ptr, info_ptr);
+    png_uint_32 width, height;
+    int bit_depth, color_type;
+    int interlace_type;
+    auto retval = png_get_IHDR(
+        png_ptr,
+        info_ptr,
+        &width,
+        &height,
+        &bit_depth,
+        &color_type,
+        &interlace_type,
+        nullptr,
+        nullptr);
+
+    if (retval != 1) {
+        png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
+        throw_<std::invalid_argument>("Could not read image metadata from content.");
+    }
+
+    if (is_little_endian()) {
+      png_set_swap(png_ptr);
+    }
     int channels = png_get_channels(png_ptr, info_ptr);
 
-    at::ScalarType dtype = opts_.maybe_dtype().value_or(at::kByte);
+    at::ScalarType dtype = bit_depth <= 8 ? at::kByte : at::kFloat;
     at::Tensor image = at::empty({height, width, channels}, at::dtype(dtype).device(at::kCPU).pinned_memory(opts_.pin_memory()));
     
     size_t rowbytes = png_get_rowbytes(png_ptr, info_ptr);
@@ -97,16 +121,24 @@ png_decoder::operator()(data &&d) const
     png_bytep image_data = reinterpret_cast<png_bytep>(image_bits.data());
     
     // Read image data into tensor
-    for (png_uint_32 i = 0; i < height; ++i) {
-        png_read_row(png_ptr, image_data, nullptr);
-        image_data += rowbytes;
+    if (dtype == at::kByte) {
+        for (png_uint_32 i = 0; i < height; ++i) {
+            png_read_row(png_ptr, image_data, nullptr);
+            image_data += rowbytes;
+        }
+    } else { // image is 16 bit
+        for (png_uint_32 i = 0; i < height; ++i) {
+            png_read_row(png_ptr, (uint8_t*)image_data, nullptr);
+            for (size_t j = 0; j < rowbytes; ++j) {
+                image_data[j] = (int32_t)image_data[j];
+            }
+            image_data += rowbytes;
+        }
     }
 
-    // Move tensor to specified device
     at::Device device = opts_.maybe_device().value_or(at::kCPU);
     if (device != at::kCPU)
         image = image.to(device);
-
 
     // Pack png data and format as output.
     data_dict output{

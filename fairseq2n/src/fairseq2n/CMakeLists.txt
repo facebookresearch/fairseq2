@@ -104,7 +104,6 @@ target_include_directories(fairseq2n ${system}
 )
 
 find_package(PNG REQUIRED)
-find_package(JPEG REQUIRED)
 
 target_link_libraries(fairseq2n
     PRIVATE
@@ -119,7 +118,6 @@ target_link_libraries(fairseq2n
         sentencepiece-static
         SndFile::sndfile
         PNG::PNG
-        JPEG::JPEG
     PUBLIC
         torch
 )

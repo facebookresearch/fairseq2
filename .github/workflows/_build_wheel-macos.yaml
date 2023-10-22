@@ -38,6 +38,7 @@ jobs:
           HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
         run: |
           brew install libsndfile python@${{ inputs.py }} || true
+          brew install libpng || true
       - name: Create the Python virtual environment
         run: |
           /usr/local/bin/python${{ inputs.py }} -m venv ~/venv
@@ -101,6 +102,7 @@ jobs:
           HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
         run: |
           brew install libsndfile python@${{ inputs.py }} || true
+          brew install libpng || true
       - name: Download wheels and native tests from staging
         uses: actions/download-artifact@v3
         with:

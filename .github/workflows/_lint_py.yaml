@@ -30,6 +30,9 @@ jobs:
       - name: Install libsndfile
         run: |
           yum --assumeyes install libsndfile-devel
+      - name: Install libpng-dev
+        run: |
+          yum --assumeyes install libpng-devel
       - name: Create the Python virtual environment
         run: |
           python${{ inputs.py }} -m venv ~/venv

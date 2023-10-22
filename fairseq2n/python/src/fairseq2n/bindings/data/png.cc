@@ -28,16 +28,14 @@ def_png(py::module_ &data_module)
     py::class_<png_decoder, std::shared_ptr<png_decoder>>(m, "PNGDecoder")
         .def(
             py::init([](
-                std::optional<at::ScalarType> maybe_dtype,
                 std::optional<at::Device> maybe_device,
                 bool pin_memory)
             {
                 auto opts = png_decoder_options()
-                    .maybe_dtype(maybe_dtype).maybe_device(maybe_device).pin_memory(pin_memory);
+                    .maybe_device(maybe_device).pin_memory(pin_memory);
 
                 return std::make_shared<png_decoder>(opts);
             }),
-            py::arg("dtype") = std::nullopt,
             py::arg("device") = std::nullopt,
             py::arg("pin_memory") = false)
         .def("__call__", &png_decoder::operator(), py::call_guard<py::gil_scoped_release>{});
