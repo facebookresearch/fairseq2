@@ -19,22 +19,6 @@ namespace fairseq2n {
 class png_decoder_options {
 public:
     png_decoder_options
-    maybe_dtype(std::optional<at::ScalarType> value) noexcept
-    {
-        auto tmp = *this;
-
-        tmp.maybe_dtype_ = value;
-
-        return tmp;
-    }
-
-    std::optional<at::ScalarType>
-    maybe_dtype() const noexcept
-    {
-        return maybe_dtype_;
-    }
-
-    png_decoder_options
     maybe_device(std::optional<at::Device> value) noexcept
     {
         auto tmp = *this;
@@ -67,7 +51,6 @@ public:
     }
 
 private:
-    std::optional<at::ScalarType> maybe_dtype_{};
     std::optional<at::Device> maybe_device_{};
     bool pin_memory_ = false;
 };
@@ -82,6 +65,8 @@ public:
 
 private:
     png_decoder_options opts_;
-};
 
-}  //
+    bool 
+    is_little_endian() const;
+};
+}  // namespace fairseq2n

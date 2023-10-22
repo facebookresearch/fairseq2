@@ -156,6 +156,15 @@ jobs:
       run:
         shell: bash
     steps:
+<<<<<<< HEAD
+=======
+      - name: Install libsndfile
+        run: |
+          yum --assumeyes install libsndfile-devel
+      - name: Install libpng-dev
+        run: |
+          yum --assumeyes install libpng-devel
+>>>>>>> 18f3c8e9 (add png to build configs, support float32 tensor)
       - name: Download wheels and native tests from staging
         uses: actions/download-artifact@v3
         with:
