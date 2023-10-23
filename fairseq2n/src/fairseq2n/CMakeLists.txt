@@ -55,7 +55,7 @@ target_sources(fairseq2n
         data/audio/detail/sndfile.cc
         data/detail/file.cc
         data/detail/file_system.cc
-        data/image/png_decoder.cc
+        data/image/image_decoder.cc
         data/text/string_splitter.cc
         data/text/string_to_int_converter.cc
         data/text/string_to_tensor_converter.cc
@@ -104,6 +104,7 @@ target_include_directories(fairseq2n ${system}
 )
 
 find_package(PNG REQUIRED)
+find_package(JPEG REQUIRED)
 
 target_link_libraries(fairseq2n
     PRIVATE
@@ -118,6 +119,7 @@ target_link_libraries(fairseq2n
         sentencepiece-static
         SndFile::sndfile
         PNG::PNG
+        JPEG::JPEG
     PUBLIC
         torch
 )
