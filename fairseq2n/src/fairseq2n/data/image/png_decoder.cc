@@ -106,7 +106,7 @@ png_decoder::operator()(data &&d) const
     }
     int channels = png_get_channels(png_ptr, info_ptr);
 
-    at::ScalarType dtype = bit_depth <= 8 ? at::kByte : at::kFloat;
+    at::ScalarType dtype = bit_depth <= 8 ? at::kByte : at::kShort;
     at::Tensor image = at::empty({height, width, channels}, at::dtype(dtype).device(at::kCPU).pinned_memory(opts_.pin_memory()));
     
     size_t rowbytes = png_get_rowbytes(png_ptr, info_ptr);
@@ -114,22 +114,9 @@ png_decoder::operator()(data &&d) const
     auto image_data = reinterpret_cast<png_bytep>(image_bits.data());
     
     // Read image data into tensor
-    if (dtype == at::kByte) {
-        for (png_uint_32 i = 0; i < height; ++i) {
-            png_read_row(png_ptr, image_data, nullptr);
-            image_data += rowbytes;
-        }
-    } else { 
-        // Image is 16 bit. Pytorch does not support uint16 tensors, so we
-        // read into a uint16 vector and then cast into a float32 tensor.
-        std::vector<std::vector<uint16_t>> row_pointers(height, std::vector<uint16_t>(rowbytes / sizeof(uint16_t)));
-        for (png_uint_32 i = 0; i < height; ++i) {
-            png_read_row(png_ptr, reinterpret_cast<uint8_t*>(row_pointers[i].data()), nullptr);
-            for (size_t j = 0; j < rowbytes; ++j) {
-                image_data[j] = static_cast<int32_t>(row_pointers[i][j]);
-            }
-            image_data += rowbytes;
-        }
+    for (png_uint_32 i = 0; i < height; ++i) {
+        png_read_row(png_ptr, image_data, nullptr);
+        image_data += rowbytes;
     }
 
     at::Device device = opts_.maybe_device().value_or(at::kCPU);
