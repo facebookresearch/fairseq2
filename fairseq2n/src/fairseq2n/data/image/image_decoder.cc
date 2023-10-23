@@ -159,14 +159,13 @@ image_decoder::decode_jpeg(const memory_block &block) const
 {
     auto data_ptr = block.data();
     auto data_len = block.size();
-    std::vector<unsigned char> data_copy(data_ptr, data_ptr + data_len);
 
     // Set up decompression process
     struct jpeg_decompress_struct cinfo = {};
     struct jpeg_error_mgr jerr = {};
     cinfo.err = jpeg_std_error(&jerr);
     jpeg_create_decompress(&cinfo);
-    jpeg_mem_src(&cinfo, data_copy.data(), data_len);
+    jpeg_mem_src(&cinfo, reinterpret_cast<const uint8_t *>(data_ptr), data_len);
     jpeg_read_header(&cinfo, TRUE);
     jpeg_start_decompress(&cinfo);
 
