@@ -32,9 +32,9 @@ png_decoder::png_decoder(png_decoder_options opts)
 {}
 
 bool 
-png_decoder::is_little_endian() const {
+png_decoder::is_little_endian() {
   uint32_t x = 1;
-  return *(uint8_t*)&x;
+  return (*reinterpret_cast<uint8_t*>(&x) == 1);
 }
 
 data
@@ -49,32 +49,25 @@ png_decoder::operator()(data &&d) const
         throw_<std::invalid_argument>(
             "The input memory block has zero length and cannot be decoded as png.");
   
-    png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-    if (!png_ptr) {
+    png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+    if (png_ptr == nullptr) {
         throw_<internal_error>("Failed to create PNG read struct.");
     }
     png_infop info_ptr = png_create_info_struct(png_ptr);
-    if (!info_ptr) {
-        png_destroy_read_struct(&png_ptr, NULL, NULL);
+    if (info_ptr == nullptr) {
+        png_destroy_read_struct(&png_ptr, nullptr, nullptr);
         throw_<internal_error>("Failed to create PNG info struct.");
     }
 
     auto data_ptr = png_const_bytep(block.data());
     auto data_len = block.size();
-    /*
-    if(png_sig_cmp(data_ptr, 0, 8) == 0) {
-        png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
-        throw_<std::invalid_argument>("The input data is not a valid PNG image.");
-    };
-    */
 
     struct Reader {
     png_const_bytep ptr;
     png_size_t count;
-    } reader;
-
-    reader.ptr = data_ptr + 8;
-    reader.count = data_len - 8;
+    Reader(png_const_bytep p, png_size_t c) : ptr(p), count(c) {}
+    };
+    Reader reader(data_ptr + 8, data_len - 8);
     
     auto read_callback = [](png_structp png_ptr2,
                           png_bytep output,
@@ -89,9 +82,9 @@ png_decoder::operator()(data &&d) const
     png_set_read_fn(png_ptr, &reader, read_callback);
     png_read_info(png_ptr, info_ptr);
 
-    png_uint_32 width, height;
-    int bit_depth, color_type;
-    int interlace_type;
+    png_uint_32 width=0, height=0;
+    int bit_depth=0, color_type=0;
+    int interlace_type=0;
     auto retval = png_get_IHDR(
         png_ptr,
         info_ptr,
@@ -118,7 +111,7 @@ png_decoder::operator()(data &&d) const
     
     size_t rowbytes = png_get_rowbytes(png_ptr, info_ptr);
     writable_memory_span image_bits = get_raw_mutable_storage(image);
-    png_bytep image_data = reinterpret_cast<png_bytep>(image_bits.data());
+    auto image_data = reinterpret_cast<png_bytep>(image_bits.data());
     
     // Read image data into tensor
     if (dtype == at::kByte) {
@@ -126,11 +119,14 @@ png_decoder::operator()(data &&d) const
             png_read_row(png_ptr, image_data, nullptr);
             image_data += rowbytes;
         }
-    } else { // image is 16 bit
+    } else { 
+        // Image is 16 bit. Pytorch does not support uint16 tensors, so we
+        // read into a uint16 vector and then cast into a float32 tensor.
+        std::vector<std::vector<uint16_t>> row_pointers(height, std::vector<uint16_t>(rowbytes / sizeof(uint16_t)));
         for (png_uint_32 i = 0; i < height; ++i) {
-            png_read_row(png_ptr, image_data, nullptr);
+            png_read_row(png_ptr, reinterpret_cast<uint8_t*>(row_pointers[i].data()), nullptr);
             for (size_t j = 0; j < rowbytes; ++j) {
-                image_data[j] = static_cast<float>(image_data[j]);
+                image_data[j] = static_cast<int32_t>(row_pointers[i][j]);
             }
             image_data += rowbytes;
         }
