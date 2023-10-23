@@ -172,7 +172,7 @@ image_decoder::decode_jpeg(const memory_block &block) const
     auto width = cinfo.output_width;
     auto height = cinfo.output_height;
     auto channels = cinfo.output_components;
-    auto row_size = static_cast<unsigned int>(width) * static_cast<unsigned int>(channels);
+    auto row_size = width * static_cast<unsigned int>(channels);
     int bit_depth = cinfo.data_precision;
 
     at::ScalarType dtype = bit_depth <= 8 ? at::kByte : at::kShort;
