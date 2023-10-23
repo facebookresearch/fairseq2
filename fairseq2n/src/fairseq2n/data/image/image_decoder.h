@@ -13,12 +13,13 @@
 
 #include <ATen/Device.h>
 #include <ATen/ScalarType.h>
+#include <png.h>
 
 namespace fairseq2n {
 
-class png_decoder_options {
+class image_decoder_options {
 public:
-    png_decoder_options
+    image_decoder_options
     maybe_device(std::optional<at::Device> value) noexcept
     {
         auto tmp = *this;
@@ -34,7 +35,7 @@ public:
         return maybe_device_;
     }
 
-    png_decoder_options
+    image_decoder_options
     pin_memory(bool value) noexcept
     {
         auto tmp = *this;
@@ -55,18 +56,24 @@ private:
     bool pin_memory_ = false;
 };
 
-class FAIRSEQ2_API png_decoder {
+class FAIRSEQ2_API image_decoder {
 public:
     explicit
-    png_decoder(png_decoder_options opts = {});
+    image_decoder(image_decoder_options opts = {});
 
     data
     operator()(data &&d) const;
 
 private:
-    png_decoder_options opts_;
+    image_decoder_options opts_;
 
     static bool 
     is_little_endian();
+
+    data
+    decode_png(memory_block &block) const;
+
+    data
+    decode_jpeg(memory_block &block) const;
 };
 }  // namespace fairseq2n

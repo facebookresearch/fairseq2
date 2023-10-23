@@ -4,12 +4,11 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
-#include "fairseq2n/data/image/png_decoder.h"
+#include "fairseq2n/data/image/image_decoder.h"
 
 #include <cstdint>
 #include <exception>
 #include <stdexcept>
-#include <png.h>
 #include <iostream>
 
 #include <ATen/Functions.h>
@@ -27,28 +26,48 @@ using namespace fairseq2n::detail;
 
 namespace fairseq2n {
     
-png_decoder::png_decoder(png_decoder_options opts)
+image_decoder::image_decoder(image_decoder_options opts)
   : opts_{opts}
 {}
 
 bool 
-png_decoder::is_little_endian() {
+image_decoder::is_little_endian() {
   uint32_t x = 1;
   return (*reinterpret_cast<uint8_t*>(&x) == 1);
 }
 
 data
-png_decoder::operator()(data &&d) const
+image_decoder::operator()(data &&d) const
 {
     if (!d.is_memory_block())
         throw_<std::invalid_argument>(
             "The input data must be of type `memory_block`, but is of type `{}` instead.", d.type());
-
+    
     const memory_block &block = d.as_memory_block();
     if (block.empty())
         throw_<std::invalid_argument>(
-            "The input memory block has zero length and cannot be decoded as png.");
-  
+            "The input memory block has zero length and cannot be decoded.");
+
+    auto data_ptr = block.data();
+    data output;
+
+    const uint8_t jpeg_signature[3] = {255, 216, 255}; 
+    const uint8_t png_signature[4] = {137, 80, 78, 71}; 
+
+    if(memcmp(jpeg_signature, data_ptr, 3) == 0) {
+        output = decode_jpeg(const_cast<memory_block&>(block));
+    } else if(memcmp(png_signature, data_ptr, 4) == 0) {
+        output = decode_png(const_cast<memory_block&>(block));
+    } else {
+        throw_<std::invalid_argument>(
+            "Unsupported image file. Only jpeg and png are currently supported.");
+    }
+    return output;
+}
+
+data
+image_decoder::decode_png(memory_block &block) const 
+{
     png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
     if (png_ptr == nullptr) {
         throw_<internal_error>("Failed to create PNG read struct.");
@@ -134,4 +153,10 @@ png_decoder::operator()(data &&d) const
     png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
     return output;
 }
-};
+
+data
+image_decoder::decode_jpeg(memory_block &block) const {
+    data output;
+    return output;
+}
+}; // namespace fairseq2n
