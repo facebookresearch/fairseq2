@@ -66,7 +66,7 @@ public:
 private:
     png_decoder_options opts_;
 
-    bool 
-    is_little_endian() const;
+    static bool 
+    is_little_endian();
 };
 }  // namespace fairseq2n
