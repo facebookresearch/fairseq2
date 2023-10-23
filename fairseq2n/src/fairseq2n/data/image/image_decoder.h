@@ -14,6 +14,7 @@
 #include <ATen/Device.h>
 #include <ATen/ScalarType.h>
 #include <png.h>
+#include <jpeglib.h>
 
 namespace fairseq2n {
 
@@ -71,9 +72,9 @@ private:
     is_little_endian();
 
     data
-    decode_png(memory_block &block) const;
+    decode_png(const memory_block &block) const;
 
     data
-    decode_jpeg(memory_block &block) const;
+    decode_jpeg(const memory_block &block) const;
 };
 }  // namespace fairseq2n

@@ -50,14 +50,14 @@ image_decoder::operator()(data &&d) const
 
     auto data_ptr = block.data();
     data output;
+ 
+    const std::array<uint8_t, 3> jpeg_signature = {255, 216, 255};
+    const std::array<uint8_t, 4> png_signature = {137, 80, 78, 71};
 
-    const uint8_t jpeg_signature[3] = {255, 216, 255}; 
-    const uint8_t png_signature[4] = {137, 80, 78, 71}; 
-
-    if(memcmp(jpeg_signature, data_ptr, 3) == 0) {
-        output = decode_jpeg(const_cast<memory_block&>(block));
-    } else if(memcmp(png_signature, data_ptr, 4) == 0) {
-        output = decode_png(const_cast<memory_block&>(block));
+    if(memcmp(jpeg_signature.data(), data_ptr, 3) == 0) {
+        output = decode_jpeg(block);
+    } else if(memcmp(png_signature.data(), data_ptr, 4) == 0) {
+        output = decode_png(block);
     } else {
         throw_<std::invalid_argument>(
             "Unsupported image file. Only jpeg and png are currently supported.");
@@ -66,7 +66,7 @@ image_decoder::operator()(data &&d) const
 }
 
 data
-image_decoder::decode_png(memory_block &block) const 
+image_decoder::decode_png(const memory_block &block) const 
 {
     png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
     if (png_ptr == nullptr) {
@@ -155,8 +155,50 @@ image_decoder::decode_png(memory_block &block) const
 }
 
 data
-image_decoder::decode_jpeg(memory_block &block) const {
-    data output;
+image_decoder::decode_jpeg(const memory_block &block) const 
+{
+    auto data_ptr = block.data();
+    auto data_len = block.size();
+
+    // Set up decompression process
+    struct jpeg_decompress_struct cinfo = {};
+    struct jpeg_error_mgr jerr = {};
+    cinfo.err = jpeg_std_error(&jerr);
+    jpeg_create_decompress(&cinfo);
+    jpeg_mem_src(&cinfo, reinterpret_cast<const unsigned char*>(data_ptr), data_len);
+    jpeg_read_header(&cinfo, TRUE);
+    jpeg_start_decompress(&cinfo);
+
+    auto width = cinfo.output_width;
+    auto height = cinfo.output_height;
+    auto channels = cinfo.output_components;
+    auto row_size = static_cast<unsigned int>(width) * static_cast<unsigned int>(channels);
+    int bit_depth = cinfo.data_precision;
+
+    at::ScalarType dtype = bit_depth <= 8 ? at::kByte : at::kShort;
+    at::Tensor image = at::empty({height, width, channels}, at::dtype(dtype).device(at::kCPU).pinned_memory(opts_.pin_memory()));
+    writable_memory_span image_bits = get_raw_mutable_storage(image);
+    auto image_data = reinterpret_cast<uint8_t*>(image_bits.data());
+
+    // Read image into tensor
+    while (cinfo.output_scanline < cinfo.output_height) {
+        jpeg_read_scanlines(&cinfo, &image_data, 1);
+        image_data += row_size;
+    }
+    jpeg_finish_decompress(&cinfo);
+    jpeg_destroy_decompress(&cinfo);
+
+    at::Device device = opts_.maybe_device().value_or(at::kCPU);
+    if (device != at::kCPU)
+        image = image.to(device);
+
+    // Pack jpeg data and format as output.
+    data_dict output{
+        {{"channels", static_cast<float32>(channels)}, {"height", static_cast<float32>(height)}, 
+        {"width", static_cast<float32>(width)}, {"bit_depth", static_cast<float32>(bit_depth)}}};
+
+    output.emplace("image", std::move(image));
+
     return output;
 }
 }; // namespace fairseq2n
