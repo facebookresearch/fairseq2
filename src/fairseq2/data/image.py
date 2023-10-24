@@ -6,6 +6,8 @@
 
 from typing import TYPE_CHECKING, Optional, TypedDict
 
+from torch import Tensor
+
 from fairseq2 import _DOC_MODE
 from fairseq2.memory import MemoryBlock
 from fairseq2.typing import Device
@@ -34,4 +36,9 @@ else:
 
 
 class ImageDecoderOutput(TypedDict):
-    format: int
+    bit_depth: float
+    color_type: float
+    channels: float
+    height: float
+    width: float
+    image: Tensor
