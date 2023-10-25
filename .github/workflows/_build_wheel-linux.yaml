@@ -61,7 +61,7 @@ jobs:
           yum --assumeyes install libpng-devel
       - name: Install libjpeg-dev
         run: |
-          yum --assumeyes install libjpeg-dev
+          yum --assumeyes install libjpeg-devel
       - name: Create the Python virtual environment
         run: |
           python${{ inputs.py }} -m venv ~/venv
@@ -170,7 +170,7 @@ jobs:
           yum --assumeyes install libpng-devel
       - name: Install libjpeg-dev
         run: |
-          yum --assumeyes install libjpeg-dev
+          yum --assumeyes install libjpeg-devel
       - name: Download wheels and native tests from staging
         uses: actions/download-artifact@v3
         with:
