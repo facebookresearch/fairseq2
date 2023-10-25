@@ -16,6 +16,7 @@ from torch.nn.functional import embedding
 from torch.nn.parameter import Parameter
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
+from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import DataType, Device, finaloverride
 
 
@@ -40,7 +41,7 @@ class PositionEncoder(Module, ABC):
     def forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[Tensor],
+        padding_mask: Optional[PaddingMask],
         *,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tensor:
@@ -51,23 +52,23 @@ class PositionEncoder(Module, ABC):
             including none, :math:`S` is the sequence length, and :math:`E` is
             the dimensionality of the positional encodings.
         :param padding_mask:
-            The float padding mask of ``seqs``. *Shape:* :math:`(*,S)`, where
-            :math:`*` is any number of batch dimensions including none and
-            :math:`S` is the sequence length.
+            The padding mask of ``seqs``. *Shape:* :math:`(*,S)`, where :math:`*`
+            is any number of batch dimensions including none and :math:`S` is
+            the sequence length.
         :param state_bag:
-            The state bag to use for incremental evaluation.
+            The state bag to use for incremental decoding.
 
         :returns:
             The input sequences with positional information encoded. *Shape:*
             Same as ``seqs``.
         """
         if self.max_seq_len is not None:
-            if not self.training and state_bag is not None:
-                start = state_bag.step
+            if self.training or state_bag is None:
+                start_step = 0
             else:
-                start = 0
+                start_step = state_bag.step
 
-            if (seq_len := start + seqs.size(-2)) > self.max_seq_len:
+            if (seq_len := start_step + seqs.size(-2)) > self.max_seq_len:
                 raise ValueError(
                     f"The input sequence length must be less than or equal to the maximum sequence length ({self.max_seq_len}), but is {seq_len} instead."
                 )
@@ -78,7 +79,7 @@ class PositionEncoder(Module, ABC):
     def _do_forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[Tensor],
+        padding_mask: Optional[PaddingMask],
         state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
         """
@@ -88,11 +89,11 @@ class PositionEncoder(Module, ABC):
             including none, :math:`S` is the sequence length, and :math:`E` is
             the dimensionality of the positional encodings.
         :param padding_mask:
-            The float padding mask of ``seqs``. *Shape:* :math:`(*,S)`, where
-            :math:`*` is any number of batch dimensions including none and
-            :math:`S` is the sequence length.
+            The padding mask of ``seqs``. *Shape:* :math:`(*,S)`, where :math:`*`
+            is any number of batch dimensions including none and :math:`S` is
+            the sequence length.
         :param state_bag:
-            The state bag to use for incremental evaluation.
+            The state bag to use for incremental decoding.
 
         :returns:
             The input sequences with positional information encoded. *Shape:*
@@ -195,13 +196,13 @@ class SinusoidalPositionEncoder(PositionEncoder):
         l_half = self.freqs[:, :num_sin]
         r_half = self.freqs[:, num_sin:]
 
-        start = self._sin_offset
+        start_step = self._sin_offset
 
         assert self.max_seq_len is not None
 
         # (S)
         steps = torch.arange(
-            start, start + self.max_seq_len, device=device, dtype=dtype
+            start_step, start_step + self.max_seq_len, device=device, dtype=dtype
         )
 
         # (E)
@@ -222,18 +223,18 @@ class SinusoidalPositionEncoder(PositionEncoder):
     def _do_forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[Tensor],
+        padding_mask: Optional[PaddingMask],
         state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
         """:meta private:"""
         seq_len = seqs.size(-2)
 
-        if not self.training and state_bag is not None:
-            start = state_bag.step
+        if self.training or state_bag is None:
+            start_step = 0
         else:
-            start = 0
+            start_step = state_bag.step
 
-        fp32_seqs = seqs.float() + self.freqs[start : start + seq_len]
+        fp32_seqs = seqs.float() + self.freqs[start_step : start_step + seq_len]
 
         return fp32_seqs.type_as(seqs)
 
@@ -284,19 +285,19 @@ class LearnedPositionEncoder(PositionEncoder):
     def _do_forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[Tensor],
+        padding_mask: Optional[PaddingMask],
         state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
         """:meta private:"""
         seq_len = seqs.size(-2)
 
-        if not self.training and state_bag is not None:
-            start = state_bag.step
+        if self.training or state_bag is None:
+            start_step = 0
         else:
-            start = 0
+            start_step = state_bag.step
 
         steps = torch.arange(
-            start, start + seq_len, device=seqs.device, dtype=torch.int64
+            start_step, start_step + seq_len, device=seqs.device, dtype=torch.int64
         )
 
         return seqs + embedding(steps, self.weight)
@@ -366,22 +367,23 @@ class RotaryEncoder(PositionEncoder):
     def _do_forward(
         self,
         seqs: Tensor,
-        padding_mask: Optional[Tensor],
+        padding_mask: Optional[PaddingMask],
         state_bag: Optional[IncrementalStateBag],
     ) -> Tensor:
+        """:meta private:"""
         seq_len = seqs.size(-2)
 
-        if not self.training and state_bag is not None:
-            start = state_bag.step
+        if self.training or state_bag is None:
+            start_step = 0
         else:
-            start = 0
+            start_step = state_bag.step
 
         # (*, S, E) -> (*, S, E / 2, 2)
         seqs = seqs.unflatten(-1, (-1, 2))
 
         complex_seqs = torch.view_as_complex(seqs.float())
 
-        complex_seqs = complex_seqs * self.freqs[start : start + seq_len]
+        complex_seqs = complex_seqs * self.freqs[start_step : start_step + seq_len]
 
         # (*, S, E / 2, 2) -> (*, S, E)
         fp32_seqs = torch.view_as_real(complex_seqs).flatten(-2)

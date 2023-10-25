@@ -14,7 +14,7 @@ from fairseq2.models.transformer import (
     TransformerModel,
 )
 from fairseq2.models.utils.arch_registry import ArchitectureRegistry
-from fairseq2.nn.embedding import Embedding, StandardEmbedding
+from fairseq2.nn.embedding import Embedding, StandardEmbedding, init_scaled_embedding
 from fairseq2.nn.position_encoder import SinusoidalPositionEncoder
 from fairseq2.nn.projection import TiedProjection
 from fairseq2.nn.transformer import (
@@ -157,8 +157,8 @@ class NllbBuilder:
             The data type of module parameters and buffers.
         """
         self.config = config
-        self.device = device
-        self.dtype = dtype
+
+        self.device, self.dtype = device, dtype
 
     def build_model(self) -> TransformerModel:
         """Build a model."""
@@ -180,13 +180,13 @@ class NllbBuilder:
             target_pad_idx=self.config.pad_idx,
         )
 
-    def build_embedding(self) -> Embedding:
+    def build_embedding(self) -> StandardEmbedding:
         """Build an embedding table."""
         return StandardEmbedding(
             num_embeddings=self.config.vocabulary_size,
             embedding_dim=self.config.model_dim,
             pad_idx=self.config.pad_idx,
-            scaled=True,
+            init_fn=init_scaled_embedding,
             device=self.device,
             dtype=self.dtype,
         )

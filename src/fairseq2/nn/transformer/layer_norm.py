@@ -11,7 +11,7 @@ from fairseq2.typing import DataType, Device
 
 
 class LayerNormFactory(Protocol):
-    """Creates instances of :class:`LayerNorm`."""
+    """Constructs instances of :class:`LayerNorm`."""
 
     def __call__(
         self,
@@ -30,8 +30,8 @@ class LayerNormFactory(Protocol):
         """
 
 
-def create_default_layer_norm(
+def create_standard_layer_norm(
     model_dim: int, *, device: Optional[Device] = None, dtype: Optional[DataType] = None
 ) -> LayerNorm:
-    """Create a :class:`StandardLayerNorm` instance."""
+    """Construct instances of :class:`StandardLayerNorm`."""
     return StandardLayerNorm(model_dim, bias=True, device=device, dtype=dtype)

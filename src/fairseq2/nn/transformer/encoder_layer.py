@@ -14,14 +14,15 @@ from torch.nn import Dropout, Module
 from torch.nn.parameter import Parameter
 
 from fairseq2.nn.normalization import LayerNorm
+from fairseq2.nn.padding import PaddingMask
+from fairseq2.nn.transformer.attention_mask import AttentionMask
 from fairseq2.nn.transformer.ffn import FeedForwardNetwork
 from fairseq2.nn.transformer.layer_norm import (
     LayerNormFactory,
-    create_default_layer_norm,
+    create_standard_layer_norm,
 )
 from fairseq2.nn.transformer.multihead_attention import MultiheadAttention
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
-from fairseq2.nn.utils.module import check_model_dim
 from fairseq2.typing import DataType, Device, finaloverride
 
 
@@ -41,21 +42,28 @@ class TransformerEncoderLayer(Module, ABC):
 
     @abstractmethod
     def forward(
-        self, seqs: Tensor, padding_mask: Optional[Tensor]
-    ) -> Tuple[Tensor, Optional[Tensor]]:
+        self,
+        seqs: Tensor,
+        padding_mask: Optional[PaddingMask],
+        self_attn_mask: Optional[AttentionMask] = None,
+    ) -> Tuple[Tensor, Optional[PaddingMask]]:
         """
         :param seqs:
             The sequences to process. *Shape:* :math:`(N,S,M)`, where :math:`N`
             is the batch size, :math:`S` is the sequence length, and :math:`M`
             is the dimensionality of the model.
         :param padding_mask:
-            The float padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where
-            :math:`N` is the batch size and :math:`S` is the sequence length.
+            The padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where :math:`N`
+            is the batch size and :math:`S` is the sequence length.
+        :param self_attn_mask:
+            The mask that will be added to attention weights before computing
+            the self attention. *Shape:* :math:`([H],S,S)`, where :math:`H` is
+            the number of attention heads and :math:`S` is the sequence length.
 
         :returns:
             - The encoder layer output. *Shape:* Same as ``seqs``.
-            - The float padding mask of the encoder layer output. *Shape:* Same
-              as ``padding_mask``.
+            - The padding mask of the encoder layer output. *Shape:* Same as
+              ``padding_mask``.
         """
 
     def extra_repr(self) -> str:
@@ -87,7 +95,7 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
         scale_residual: bool = False,
         dropout_p: float = 0.1,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
-        layer_norm_fn: Optional[LayerNormFactory] = None,
+        layer_norm_factory: Optional[LayerNormFactory] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -98,25 +106,24 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
             The feed-forward network.
         :param scale_residual:
             If ``True``, scales residuals before adding them to the output of
-            the feed-forward network. See
-            :cite:t:`https://doi.org/10.48550/arxiv.2110.09456` for more
-            information.
+            the feed-forward network as described in
+            :cite:t:`https://doi.org/10.48550/arxiv.2110.09456`.
         :param dropout_p:
             The dropout probability on outputs of the self attention layer and
             the feed-forward network.
         :param norm_order:
             The Layer Normalization order to use.
-        :param layer_norm_fn:
+        :param layer_norm_factory:
             The factory to use to construct the Layer Normalization modules.
         """
         model_dim = self_attn.model_dim
 
         super().__init__(model_dim)
 
-        if layer_norm_fn is None:
-            layer_norm_fn = create_default_layer_norm
+        if layer_norm_factory is None:
+            layer_norm_factory = create_standard_layer_norm
 
-        self_attn_layer_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
+        self_attn_layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
 
         if norm_order != TransformerNormOrder.POST:
             self.self_attn_layer_norm = self_attn_layer_norm
@@ -124,7 +131,9 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
         self.self_attn = self_attn
 
         if norm_order == TransformerNormOrder.PRE_WITH_NORMFORMER:
-            self.self_attn_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
+            self.self_attn_norm = layer_norm_factory(
+                model_dim, device=device, dtype=dtype
+            )
         else:
             self.register_module("self_attn_norm", None)
 
@@ -136,7 +145,7 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
         if norm_order == TransformerNormOrder.POST:
             self.self_attn_layer_norm = self_attn_layer_norm
 
-        ffn_layer_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
+        ffn_layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
 
         if norm_order != TransformerNormOrder.POST:
             self.ffn_layer_norm = ffn_layer_norm
@@ -160,8 +169,6 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
 
         self.norm_order = norm_order
 
-        check_model_dim(self)
-
         self.reset_parameters()
 
     def reset_parameters(self) -> None:
@@ -171,16 +178,22 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
 
     @finaloverride
     def forward(
-        self, seqs: Tensor, padding_mask: Optional[Tensor]
-    ) -> Tuple[Tensor, Optional[Tensor]]:
-        seqs = self._forward_self_attn(seqs, padding_mask)
+        self,
+        seqs: Tensor,
+        padding_mask: Optional[PaddingMask],
+        self_attn_mask: Optional[AttentionMask] = None,
+    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+        seqs = self._forward_self_attn(seqs, padding_mask, self_attn_mask)
 
         seqs = self._forward_ffn(seqs)
 
         return seqs, padding_mask
 
     def _forward_self_attn(
-        self, seqs: Tensor, padding_mask: Optional[Tensor]
+        self,
+        seqs: Tensor,
+        padding_mask: Optional[PaddingMask],
+        self_attn_mask: Optional[AttentionMask],
     ) -> Tensor:
         residual = seqs
 
@@ -191,8 +204,9 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
             seqs,
             padding_mask,
             keys=seqs,
-            values=seqs,
             key_padding_mask=padding_mask,
+            values=seqs,
+            attn_mask=self_attn_mask,
         )
 
         if self.self_attn_norm is not None:

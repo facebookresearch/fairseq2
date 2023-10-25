@@ -6,133 +6,158 @@
 
 import torch
 
-from fairseq2.nn.transformer import CausalAttentionMaskGenerator
+from fairseq2.nn import IncrementalStateBag
+from fairseq2.nn.transformer import ALiBiMaskFactory, CausalAttentionMaskFactory
 from tests.common import assert_close, device
 
 
-class TestCausalAttentionMaskGenerator:
-    def test_call_generates_correct_mask(self) -> None:
-        g = CausalAttentionMaskGenerator()
+class TestCausalAttentionMaskFactory:
+    def test_call_works(self) -> None:
+        factory = CausalAttentionMaskFactory()
 
-        mask = g(torch.ones((6, 4, 3), device=device))
+        q = torch.ones((6, 4, 3), device=device)
+        k = torch.ones((6, 6, 3), device=device)
 
-        assert mask.shape == (4, 4)
+        mask = factory(seqs=q, keys=k)
+
+        assert mask is not None
+
+        m = mask.materialize()
+
+        assert m.shape == (4, 6)
 
         inf = -torch.inf
 
         expected_mask = torch.tensor(
             [
-                [0.0, inf, inf, inf],
-                [0.0, 0.0, inf, inf],
-                [0.0, 0.0, 0.0, inf],
-                [0.0, 0.0, 0.0, 0.0],
+                [0.0, inf, inf, inf, inf, inf],
+                [0.0, 0.0, inf, inf, inf, inf],
+                [0.0, 0.0, 0.0, inf, inf, inf],
+                [0.0, 0.0, 0.0, 0.0, inf, inf],
             ],
             device=device,
         )
 
-        assert_close(mask, expected_mask)
+        assert_close(m, expected_mask)
 
-    def test_call_returns_same_mask_if_seq_len_is_equal_or_less(self) -> None:
-        g = CausalAttentionMaskGenerator()
+    def test_call_works_when_attn_window_len_is_specified(self) -> None:
+        factory = CausalAttentionMaskFactory(attn_window_len=2)
 
-        mask1 = g(torch.ones((2, 4, 3), device=device))
-        mask2 = g(torch.ones((2, 4, 3), device=device))
-        mask3 = g(torch.ones((2, 3, 3), device=device))
+        q = torch.ones((6, 4, 3), device=device)
+        k = torch.ones((6, 6, 3), device=device)
 
-        assert mask1.data_ptr() == mask2.data_ptr()
-        assert mask1.data_ptr() == mask3.data_ptr()
+        mask = factory(seqs=q, keys=k)
 
-        assert mask1.shape == (4, 4)
-        assert mask2.shape == (4, 4)
-        assert mask3.shape == (3, 3)
+        assert mask is not None
 
-    def test_call_returns_new_mask_if_seq_len_is_greater(self) -> None:
-        g = CausalAttentionMaskGenerator()
+        m = mask.materialize()
 
-        mask1 = g(torch.ones((2, 4, 3), device=device))
-        mask2 = g(torch.ones((2, 5, 3), device=device))
-        mask3 = g(torch.ones((2, 8, 3), device=device))
+        assert m.shape == (4, 6)
 
-        assert mask1.data_ptr() != mask2.data_ptr()
-        assert mask1.data_ptr() != mask3.data_ptr()
+        inf = -torch.inf
 
-        assert mask1.shape == (4, 4)
-        assert mask2.shape == (5, 5)
-        assert mask3.shape == (8, 8)
+        expected_mask = torch.tensor(
+            [
+                [0.0, inf, inf, inf, inf, inf],
+                [0.0, 0.0, inf, inf, inf, inf],
+                [inf, 0.0, 0.0, inf, inf, inf],
+                [inf, inf, 0.0, 0.0, inf, inf],
+            ],
+            device=device,
+        )
+
+        assert_close(m, expected_mask)
 
 
-# class TestALiBiAttentionMaskGenerator:
-#    def test_call_generates_correct_mask(self) -> None:
-#        g = ALiBiAttentionMaskGenerator(num_heads=4)
-#
-#        mask = g(torch.ones((32, 4, 1), device=device))
-#
-#        assert mask.shape == (4, 4, 4)
-#
-#        inf = -torch.inf
-#
-#        expected_mask = torch.tensor(
-#            [
-#                [
-#                    [0.00000, inf, inf, inf],
-#                    [0.00000, 0.25000, inf, inf],
-#                    [0.00000, 0.25000, 0.50000, inf],
-#                    [0.00000, 0.25000, 0.50000, 0.75000],
-#                ],
-#                [
-#                    [0.00000, inf, inf, inf],
-#                    [0.00000, 0.06250, inf, inf],
-#                    [0.00000, 0.06250, 0.12500, inf],
-#                    [0.00000, 0.06250, 0.12500, 0.18750],
-#                ],
-#                [
-#                    [0.00000, inf, inf, inf],
-#                    [0.00000, 0.01562, inf, inf],
-#                    [0.00000, 0.01562, 0.03125, inf],
-#                    [0.00000, 0.01562, 0.03125, 0.04688],
-#                ],
-#                [
-#                    [0.00000, inf, inf, inf],
-#                    [0.00000, 0.00391, inf, inf],
-#                    [0.00000, 0.00391, 0.00781, inf],
-#                    [0.00000, 0.00391, 0.00781, 0.01172],
-#                ],
-#            ],
-#            device=device,
-#        )
-#
-#        assert_close(mask, expected_mask)
-#
-#        assert_close(mask, expected_mask)
-#
-#    def test_call_returns_same_mask_if_seq_len_is_equal_or_less(self) -> None:
-#        num_heads = 8
-#
-#        g = ALiBiAttentionMaskGenerator(num_heads)
-#
-#        mask1 = g(torch.ones((2, 4, 1), device=device))
-#        mask2 = g(torch.ones((2, 4, 1), device=device))
-#        mask3 = g(torch.ones((2, 3, 1), device=device))
-#
-#        assert mask1.data_ptr() == mask2.data_ptr()
-#        assert mask1.data_ptr() == mask3.data_ptr()
-#
-#        assert mask1.shape == (num_heads, 4, 4)
-#        assert mask2.shape == (num_heads, 4, 4)
-#        assert mask3.shape == (num_heads, 3, 3)
-#
-#    def test_call_returns_new_mask_if_seq_len_is_greater(self) -> None:
-#        num_heads = 8
-#
-#        g = ALiBiAttentionMaskGenerator(num_heads)
-#
-#        mask1 = g(torch.ones((2, 4, 1), device=device))
-#        mask2 = g(torch.ones((2, 5, 1), device=device))
-#        mask3 = g(torch.ones((2, 8, 1), device=device))
-#
-#        assert mask1.data_ptr() != mask2.data_ptr()
-#        assert mask1.data_ptr() != mask3.data_ptr()
-#
-#        assert mask1.shape == (num_heads, 4, 4)
-#        assert mask2.shape == (num_heads, 5, 5)
-#        assert mask3.shape == (num_heads, 8, 8)
+class TestALiBiAttentionMaskGenerator:
+    def test_call_works(self) -> None:
+        factory = ALiBiMaskFactory(num_attn_heads=4)
+
+        q = torch.ones((32, 4, 3), device=device)
+        k = torch.ones((32, 6, 3), device=device)
+
+        mask = factory(seqs=q, keys=k)
+
+        assert mask is not None
+
+        m = mask.materialize()
+
+        assert m.shape == (4, 4, 6)
+
+        inf = -torch.inf
+
+        # fmt: off
+        expected_mask = torch.tensor(
+            [
+                [
+                    [0.00000,     inf,     inf,     inf, inf, inf],
+                    [0.00000, 0.25000,     inf,     inf, inf, inf],
+                    [0.00000, 0.25000, 0.50000,     inf, inf, inf],
+                    [0.00000, 0.25000, 0.50000, 0.75000, inf, inf],
+                ],
+                [
+                    [0.00000,     inf,     inf,     inf, inf, inf],
+                    [0.00000, 0.06250,     inf,     inf, inf, inf],
+                    [0.00000, 0.06250, 0.12500,     inf, inf, inf],
+                    [0.00000, 0.06250, 0.12500, 0.18750, inf, inf],
+                ],
+                [
+                    [0.00000,     inf,     inf,     inf, inf, inf],
+                    [0.00000, 0.01562,     inf,     inf, inf, inf],
+                    [0.00000, 0.01562, 0.03125,     inf, inf, inf],
+                    [0.00000, 0.01562, 0.03125, 0.04688, inf, inf],
+                ],
+                [
+                    [0.00000,     inf,     inf,     inf, inf, inf],
+                    [0.00000, 0.00391,     inf,     inf, inf, inf],
+                    [0.00000, 0.00391, 0.00781,     inf, inf, inf],
+                    [0.00000, 0.00391, 0.00781, 0.01172, inf, inf],
+                ],
+            ],
+            device=device,
+        )
+        # fmt: on
+
+        assert_close(m, expected_mask)
+
+    def test_call_works_in_incremental_decode(self) -> None:
+        factory = ALiBiMaskFactory(num_attn_heads=4)
+
+        q = torch.ones((32, 1, 3), device=device)
+        k = torch.ones((32, 6, 3), device=device)
+
+        state_bag = IncrementalStateBag(max_num_steps=100)
+
+        state_bag.increment_step(3)
+
+        mask = factory(seqs=q, keys=k, training=False, state_bag=state_bag)
+
+        assert mask is not None
+
+        m = mask.materialize()
+
+        assert m.shape == (4, 1, 6)
+
+        inf = -torch.inf
+
+        # fmt: off
+        expected_mask = torch.tensor(
+            [
+                [
+                    [0.00000, 0.25000, 0.50000, 0.75000, inf, inf],
+                ],
+                [
+                    [0.00000, 0.06250, 0.12500, 0.18750, inf, inf],
+                ],
+                [
+                    [0.00000, 0.01562, 0.03125, 0.04688, inf, inf],
+                ],
+                [
+                    [0.00000, 0.00391, 0.00781, 0.01172, inf, inf],
+                ],
+            ],
+            device=device,
+        )
+        # fmt: on
+
+        assert_close(m, expected_mask)

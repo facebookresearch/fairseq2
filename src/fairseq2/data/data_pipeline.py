@@ -33,8 +33,9 @@ if TYPE_CHECKING or _DOC_MODE:
 
         The pipeline state can be persisted to the disk, allowing it to be resumed later.
         It is a Python Iterable, but it also contains the iterator states.
-        Calling `iter` a second time while the first iterator is still being used
-        will segfault or worse.
+
+        Calling `iter` twice will create two iterators reading from the same dataloader,
+        and sharing the same state, so it will behave inconcistently.
         """
 
         def __iter__(self) -> Iterator[Any]:
@@ -134,6 +135,15 @@ if TYPE_CHECKING or _DOC_MODE:
         def count(start: int = 0, key: Optional[str] = None) -> "DataPipelineBuilder":
             ...
 
+        @staticmethod
+        def concat(pipelines: Sequence["DataPipeline"]) -> "DataPipelineBuilder":
+            """Concatenate examples from ``pipelines``.
+
+            :param pipelines:
+                The data pipelines to concatenate.
+            """
+            ...
+
     class DataPipelineBuilder:
         """API to create DataPipeline"""
 
@@ -154,6 +164,18 @@ if TYPE_CHECKING or _DOC_MODE:
             drop_remainder: bool = False,
         ) -> Self:
             """Combine examples of similar shape into batches."""
+
+        def collate(
+            self,
+            pad_idx: Optional[int] = None,
+            pad_to_multiple: int = 1,
+            overrides: Optional[Sequence["CollateOptionsOverride"]] = None,
+        ) -> Self:
+            """Concatenate a list of inputs into a single inputs.
+
+            This is equivalent to calling `.map(Collater())`.
+            See :py:class:`fairseq2.data.Collater` for details.
+            """
 
         def filter(self, predicate: Callable[[Any], Any]) -> Self:
             """Filter examples from data pipeline and keep only those who match

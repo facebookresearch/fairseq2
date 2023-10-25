@@ -14,7 +14,7 @@ from fairseq2.nn.normalization import LayerNorm
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer.layer_norm import (
     LayerNormFactory,
-    create_default_layer_norm,
+    create_standard_layer_norm,
 )
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
 from fairseq2.typing import DataType, Device, finaloverride
@@ -71,7 +71,7 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         inner_activation: Optional[Module] = None,
         inner_dropout_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
-        layer_norm_fn: Optional[LayerNormFactory] = None,
+        layer_norm_factory: Optional[LayerNormFactory] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -90,13 +90,13 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
             The dropout probability on outputs of the inner projection layer.
         :param norm_order:
             The Layer Normalization order to use.
-        :param layer_norm_fn:
+        :param layer_norm_factory:
             The factory to use to construct the Layer Normalization module.
         """
         super().__init__(model_dim)
 
-        if layer_norm_fn is None:
-            layer_norm_fn = create_default_layer_norm
+        if layer_norm_factory is None:
+            layer_norm_factory = create_standard_layer_norm
 
         self.inner_proj = Linear(model_dim, inner_dim, bias, device=device, dtype=dtype)
 
@@ -111,7 +111,9 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
             self.register_module("inner_dropout", None)
 
         if norm_order == TransformerNormOrder.PRE_WITH_NORMFORMER:
-            self.inner_layer_norm = layer_norm_fn(inner_dim, device=device, dtype=dtype)
+            self.inner_layer_norm = layer_norm_factory(
+                inner_dim, device=device, dtype=dtype
+            )
         else:
             self.register_module("inner_layer_norm", None)
 
@@ -157,7 +159,7 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
         *,
         gate_activation: Optional[Module] = None,
         inner_dim_scale: float = 2 / 3,
-        inner_dim_to_multiple: int = 2,
+        inner_dim_to_multiple: int = 1,
         inner_dropout_p: float = 0.0,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
@@ -190,7 +192,7 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
 
         self.inner_dim_to_multiple = inner_dim_to_multiple
 
-        if inner_dim_to_multiple != 1.0:
+        if inner_dim_to_multiple != 1:
             inner_dim = inner_dim_to_multiple * (
                 (inner_dim + inner_dim_to_multiple - 1) // inner_dim_to_multiple
             )
@@ -234,4 +236,8 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
         """:meta private:"""
         s = super().extra_repr()
 
-        return f"{s}, inner_dim_scale={self.inner_dim_scale}, inner_dim_to_multiple={self.inner_dim_to_multiple}"
+        return (
+            f"{s}, "
+            f"inner_dim_scale={self.inner_dim_scale}, "
+            f"inner_dim_to_multiple={self.inner_dim_to_multiple}"
+        )

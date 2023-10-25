@@ -14,14 +14,15 @@ from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
 from fairseq2.models.s2t_transformer.feature_extractor import Conv1dFbankSubsampler
 from fairseq2.models.s2t_transformer.frontend import S2TTransformerFrontend
 from fairseq2.models.transformer import (
-    FinalProjection,
     TransformerEmbeddingFrontend,
     TransformerFrontend,
     TransformerModel,
+    init_final_projection,
 )
 from fairseq2.models.utils.arch_registry import ArchitectureRegistry
-from fairseq2.nn.embedding import StandardEmbedding
+from fairseq2.nn.embedding import StandardEmbedding, init_scaled_embedding
 from fairseq2.nn.position_encoder import PositionEncoder, SinusoidalPositionEncoder
+from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer import (
     SDPA,
     FeedForwardNetwork,
@@ -230,9 +231,10 @@ class S2TTransformerBuilder:
             The data type of module parameters and buffers.
         """
         self.config = config
+
         self.rel_pos_encoding = None
-        self.device = device
-        self.dtype = dtype
+
+        self.device, self.dtype = device, dtype
 
     def build_model(self) -> TransformerModel:
         """Build a model."""
@@ -242,9 +244,11 @@ class S2TTransformerBuilder:
         decoder_frontend = self.build_decoder_frontend()
         decoder = self.build_decoder()
 
-        final_proj = FinalProjection(
+        final_proj = Linear(
             self.config.model_dim,
             self.config.target_vocabulary_size,
+            bias=False,
+            init_fn=init_final_projection,
             device=self.device,
             dtype=self.dtype,
         )
@@ -287,7 +291,7 @@ class S2TTransformerBuilder:
             num_embeddings=self.config.target_vocabulary_size,
             embedding_dim=self.config.model_dim,
             pad_idx=self.config.target_pad_idx,
-            scaled=True,
+            init_fn=init_scaled_embedding,
             device=self.device,
             dtype=self.dtype,
         )

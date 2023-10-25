@@ -11,14 +11,20 @@ from fairseq2.nn.transformer.attention import TorchSDPA as TorchSDPA
 from fairseq2.nn.transformer.attention import create_default_sdpa as create_default_sdpa
 from fairseq2.nn.transformer.attention import sdpa as sdpa
 from fairseq2.nn.transformer.attention import set_default_sdpa as set_default_sdpa
+from fairseq2.nn.transformer.attention_mask import ALiBiMask as ALiBiMask
+from fairseq2.nn.transformer.attention_mask import ALiBiMaskFactory as ALiBiMaskFactory
+from fairseq2.nn.transformer.attention_mask import AttentionMask as AttentionMask
 from fairseq2.nn.transformer.attention_mask import (
-    ALiBiAttentionMaskGenerator as ALiBiAttentionMaskGenerator,
+    AttentionMaskFactory as AttentionMaskFactory,
 )
 from fairseq2.nn.transformer.attention_mask import (
-    AttentionMaskGenerator as AttentionMaskGenerator,
+    CausalAttentionMask as CausalAttentionMask,
 )
 from fairseq2.nn.transformer.attention_mask import (
-    CausalAttentionMaskGenerator as CausalAttentionMaskGenerator,
+    CausalAttentionMaskFactory as CausalAttentionMaskFactory,
+)
+from fairseq2.nn.transformer.attention_mask import (
+    CustomAttentionMask as CustomAttentionMask,
 )
 from fairseq2.nn.transformer.decoder import (
     DecoderLayerOutputHook as DecoderLayerOutputHook,
@@ -53,19 +59,32 @@ from fairseq2.nn.transformer.ffn import (
 )
 from fairseq2.nn.transformer.layer_norm import LayerNormFactory as LayerNormFactory
 from fairseq2.nn.transformer.layer_norm import (
-    create_default_layer_norm as create_default_layer_norm,
+    create_standard_layer_norm as create_standard_layer_norm,
+)
+from fairseq2.nn.transformer.multihead_attention import AttentionState as AttentionState
+from fairseq2.nn.transformer.multihead_attention import (
+    AttentionStateFactory as AttentionStateFactory,
 )
 from fairseq2.nn.transformer.multihead_attention import (
     AttentionWeightHook as AttentionWeightHook,
 )
 from fairseq2.nn.transformer.multihead_attention import (
+    FullAttentionState as FullAttentionState,
+)
+from fairseq2.nn.transformer.multihead_attention import (
+    LocalAttentionState as LocalAttentionState,
+)
+from fairseq2.nn.transformer.multihead_attention import (
+    LocalAttentionStateFactory as LocalAttentionStateFactory,
+)
+from fairseq2.nn.transformer.multihead_attention import (
     MultiheadAttention as MultiheadAttention,
 )
 from fairseq2.nn.transformer.multihead_attention import (
-    MultiheadAttentionState as MultiheadAttentionState,
+    StandardMultiheadAttention as StandardMultiheadAttention,
 )
 from fairseq2.nn.transformer.multihead_attention import (
-    StandardMultiheadAttention as StandardMultiheadAttention,
+    StaticAttentionState as StaticAttentionState,
 )
 from fairseq2.nn.transformer.multihead_attention import (
     StoreAttentionWeights as StoreAttentionWeights,
@@ -78,4 +97,10 @@ from fairseq2.nn.transformer.relative_attention import (
 )
 from fairseq2.nn.transformer.relative_attention import (
     RelativePositionSDPA as RelativePositionSDPA,
+)
+from fairseq2.nn.transformer.shaw_attention import (
+    ShawRelativePositionSDPA as ShawRelativePositionSDPA,
+)
+from fairseq2.nn.transformer.shaw_attention import (
+    init_shaw_embedding as init_shaw_embedding,
 )

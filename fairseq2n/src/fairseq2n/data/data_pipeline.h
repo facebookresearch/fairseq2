@@ -97,6 +97,9 @@ public:
     static data_pipeline_builder
     count(std::int64_t start = 0, std::optional<std::string> key = {});
 
+    static data_pipeline_builder
+    concat(std::vector<data_pipeline> pipelines);
+
 private:
     data_source_factory factory_{};
     std::unique_ptr<data_source> source_{};

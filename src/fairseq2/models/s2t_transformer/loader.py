@@ -137,7 +137,7 @@ class S2TTransformerTokenizerLoader:
         uri = card.field("tokenizer").as_uri()
 
         zip_pathname = self.download_manager.download_tokenizer(
-            uri, card.name, force=force, progress=progress
+            uri, card.name, tokenizer_name="target", force=force, progress=progress
         )
 
         # The tokenizer is stored in a zip file, so we have to extract it first.
@@ -154,7 +154,7 @@ class S2TTransformerTokenizerLoader:
                     f"The tokenizer of {card.name} cannot be loaded. Please file a bug report."
                 ) from ex
 
-        # The only valid task names ares transcription and translation.
+        # The only valid task names are transcription and translation.
         task = card.field("task").as_one_of({"transcription", "translation"})
 
         target_langs = card.field("tgt_langs").as_list(str)

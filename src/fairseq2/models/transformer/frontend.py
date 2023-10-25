@@ -14,12 +14,12 @@ from torch.nn import Dropout, Module
 from fairseq2.nn.embedding import Embedding
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.normalization import LayerNorm
+from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.position_encoder import PositionEncoder
 from fairseq2.nn.transformer.layer_norm import (
     LayerNormFactory,
-    create_default_layer_norm,
+    create_standard_layer_norm,
 )
-from fairseq2.nn.utils.mask import to_padding_mask
 from fairseq2.typing import DataType, Device, finaloverride
 
 
@@ -41,28 +41,27 @@ class TransformerFrontend(Module, ABC):
     def forward(
         self,
         seqs: Tensor,
-        seq_lens: Optional[Tensor],
+        padding_mask: Optional[PaddingMask],
         *,
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[Tensor]]:
+    ) -> Tuple[Tensor, Optional[PaddingMask]]:
         """
         :param seqs:
             The sequences to process. *Shape:* :math:`(N,S,*)`, where :math:`N`
             is the batch size, :math:`S` is the sequence length, and :math:`*`
             is any number of sequence-specific dimensions including none.
-        :param seq_lens:
-            An array where each element represents the length of the sequence at
-            the same index in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is
-            the batch size.
+        :param padding_mask:
+            The padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where :math:`N`
+            is the batch size and :math:`S` is the sequence length.
         :param state_bag:
-            The state bag to use for incremental evaluation.
+            The state bag to use for incremental decoding.
 
         :returns:
             - The processed sequences to pass to a Transformer encoder/decoder.
               *Shape:* :math:`(N,S_{out},M)`, where :math:`N` is the batch size,
               :math:`S_{out}` is the output sequence length, and :math:`M` is
               the dimensionality of the model.
-            - The float padding mask of the processed sequences. *Shape:*
+            - The padding mask of the processed sequences. *Shape:*
               :math:`(N,S_{out})`, where :math:`N` is the batch size and
               :math:`S_{out}` is the output sequence length.
         """
@@ -91,7 +90,7 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
         no_scale: bool = False,
         layer_norm: bool = False,
         dropout_p: float = 0.1,
-        layer_norm_fn: Optional[LayerNormFactory] = None,
+        layer_norm_factory: Optional[LayerNormFactory] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -108,15 +107,15 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
             dropout.
         :param dropout_p:
             The dropout probability on embeddings.
-        :param layer_norm_fn:
+        :param layer_norm_factory:
             The factory to use to construct the Layer Normalization module.
         """
         model_dim = embed.embedding_dim
 
         super().__init__(model_dim)
 
-        if layer_norm_fn is None:
-            layer_norm_fn = create_default_layer_norm
+        if layer_norm_factory is None:
+            layer_norm_factory = create_standard_layer_norm
 
         self.embed = embed
 
@@ -133,7 +132,7 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
             self.register_module("pos_encoder", None)
 
         if layer_norm:
-            self.layer_norm = layer_norm_fn(model_dim, device=device, dtype=dtype)
+            self.layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
         else:
             self.register_module("layer_norm", None)
 
@@ -146,13 +145,11 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
     def forward(
         self,
         seqs: Tensor,
-        seq_lens: Optional[Tensor],
+        padding_mask: Optional[PaddingMask],
         *,
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[Tensor]]:
+    ) -> Tuple[Tensor, Optional[PaddingMask]]:
         embeds = self.embed(seqs)
-
-        padding_mask = to_padding_mask(embeds, seq_lens)
 
         if self.scale != 1.0:
             embeds = embeds * self.scale
@@ -172,4 +169,7 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
         """:meta private:"""
         s = super().extra_repr()
 
-        return f"{s}, no_scale=False" if self.scale != 1.0 else ""
+        if self.scale != 1.0:
+            s = f"{s}, no_scale=False"
+
+        return s

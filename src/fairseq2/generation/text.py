@@ -18,7 +18,7 @@ from fairseq2.generation.sequence_generator import (
     SequenceGeneratorOutput,
 )
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
-from fairseq2.nn.ops import pad_sequence
+from fairseq2.nn.padding import PaddingMask, pad_seqs
 from fairseq2.nn.utils.module import infer_device
 
 
@@ -66,11 +66,11 @@ class SequenceToTextGeneratorBase:
 
     @torch.inference_mode()
     def _do_generate(
-        self, source_seqs: Tensor, source_seq_lens: Optional[Tensor]
+        self, source_seqs: Tensor, source_padding_mask: Optional[PaddingMask]
     ) -> "SequenceToTextOutput":
         """A subclass should call this function for the actual text generation."""
         encoder_output, encoder_padding_mask = self.model.encode(
-            source_seqs, source_seq_lens
+            source_seqs, source_padding_mask
         )
 
         gen_output = self.generator(
@@ -100,10 +100,10 @@ class SequenceToTextOutput:
     the batch size, :math:`S_{enc}` is the encoder output sequence length, and
     :math:`M` is the dimensionality of the model."""
 
-    encoder_padding_mask: Optional[Tensor]
-    """The float padding mask of :attr:`encoder_output`. *Shape:*
-    :math:`(N,S_{enc})`, where :math:`N` is the batch size and :math:`S_{enc}`
-    is the encoder output sequence length."""
+    encoder_padding_mask: Optional[PaddingMask]
+    """The padding mask of :attr:`encoder_output`. *Shape:* :math:`(N,S_{enc})`,
+    where :math:`N` is the batch size and :math:`S_{enc}` is the encoder output
+    sequence length."""
 
 
 class SequenceToTextGenerator(SequenceToTextGeneratorBase):
@@ -114,7 +114,7 @@ class SequenceToTextGenerator(SequenceToTextGeneratorBase):
     """
 
     def __call__(
-        self, source_seqs: Tensor, source_seq_lens: Optional[Tensor]
+        self, source_seqs: Tensor, source_padding_mask: Optional[PaddingMask]
     ) -> List[StringLike]:
         """
         :param source_seqs:
@@ -122,20 +122,19 @@ class SequenceToTextGenerator(SequenceToTextGeneratorBase):
             where :math:`N` is the batch size, :math:`S` is the sequence length,
             and :math:`*` is any number of sequence-specific dimensions
             including none.
-        :param source_seq_lens:
-            An array where each element represents the length of the sequence at
-            the same index in ``source_seqs``. *Shape:* :math:`(N)`, where
-            :math:`N` is the batch size.
+        :param source_padding_mask:
+            The padding mask of ``source_seqs``. *Shape:* :math:`(N,S)`, where
+            :math:`N` is the batch size and :math:`S` is the sequence length.
 
         :returns:
             The generated text sentences.
         """
-        output = self.generate_ex(source_seqs, source_seq_lens)
+        output = self.generate_ex(source_seqs, source_padding_mask)
 
         return output.sentences
 
     def generate_ex(
-        self, source_seqs: Tensor, source_seq_lens: Optional[Tensor]
+        self, source_seqs: Tensor, source_padding_mask: Optional[PaddingMask]
     ) -> SequenceToTextOutput:
         """
         :param source_seqs:
@@ -143,12 +142,11 @@ class SequenceToTextGenerator(SequenceToTextGeneratorBase):
             where :math:`N` is the batch size, :math:`S` is the sequence length,
             and :math:`*` is any number of sequence-specific dimensions
             including none.
-        :param source_seq_lens:
-            An array where each element represents the length of the sequence at
-            the same index in ``source_seqs``. *Shape:* :math:`(N)`, where
-            :math:`N` is the batch size.
+        :param source_padding_mask:
+            The padding mask of ``source_seqs``. *Shape:* :math:`(N,S)`, where
+            :math:`N` is the batch size and :math:`S` is the sequence length.
         """
-        return self._do_generate(source_seqs, source_seq_lens)
+        return self._do_generate(source_seqs, source_padding_mask)
 
 
 class TextTranslator(SequenceToTextGeneratorBase):
@@ -211,8 +209,8 @@ class TextTranslator(SequenceToTextGeneratorBase):
         :param source_sentences:
             The sentences in the source language.
         """
-        seqs, seq_lens = pad_sequence(
+        seqs, padding_mask = pad_seqs(
             [self.source_encoder(s) for s in source_sentences], pad_idx=self.pad_idx
         )
 
-        return self._do_generate(seqs, seq_lens)
+        return self._do_generate(seqs, padding_mask)

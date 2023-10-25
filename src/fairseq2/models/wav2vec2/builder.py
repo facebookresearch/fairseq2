@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from dataclasses import dataclass
-from typing import List, Literal, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from torch.nn import GELU, SiLU
 
@@ -97,8 +97,8 @@ class Wav2Vec2EncoderConfig:
     sample_fbank_every_k: int
 
     # Position Encoder
-    pos_encoder_type: Literal["conv", "relative", "rotary"]
-    """The type of position encoder."""
+    pos_encoder_type: str
+    """The type of position encoder ('conv', 'relative', 'rotary')."""
 
     # Convolutional Position Encoder
     pos_encoder_depth: int
@@ -207,9 +207,10 @@ class Wav2Vec2EncoderBuilder:
             )
 
         self.config = config
+
         self.rel_pos_encoding = None
-        self.device = device
-        self.dtype = dtype
+
+        self.device, self.dtype = device, dtype
 
     def build_frontend(self) -> Wav2Vec2Frontend:
         """Build a wav2vec 2.0 Transformer encoder front-end."""
@@ -308,12 +309,7 @@ class Wav2Vec2EncoderBuilder:
 
         self_attn = self.build_attention()
 
-        conv = ConformerConvolution(
-            self.config.model_dim,
-            self.config.depthwise_conv_kernel_size,
-            device=self.device,
-            dtype=self.dtype,
-        )
+        conv = self.build_conformer_conv()
 
         ffn2 = self.build_ffn(use_swish=True)
 
@@ -339,8 +335,18 @@ class Wav2Vec2EncoderBuilder:
         else:
             pos_encoder = None
 
-        sdpa: SDPA
+        sdpa = self.build_sdpa()
 
+        return StandardMultiheadAttention(
+            self.config.model_dim,
+            self.config.num_encoder_attn_heads,
+            pos_encoder=pos_encoder,
+            sdpa=sdpa,
+            device=self.device,
+            dtype=self.dtype,
+        )
+
+    def build_sdpa(self) -> SDPA:
         if self.config.pos_encoder_type == "relative":
             if self.rel_pos_encoding is None:
                 self.rel_pos_encoding = RelativePositionalEncoding(
@@ -350,7 +356,7 @@ class Wav2Vec2EncoderBuilder:
                     dtype=self.dtype,
                 )
 
-            sdpa = RelativePositionSDPA(
+            return RelativePositionSDPA(
                 self.config.model_dim,
                 self.config.num_encoder_attn_heads,
                 self.rel_pos_encoding,
@@ -358,14 +364,13 @@ class Wav2Vec2EncoderBuilder:
                 device=self.device,
                 dtype=self.dtype,
             )
-        else:
-            sdpa = create_default_sdpa(self.config.attn_dropout_p)
 
-        return StandardMultiheadAttention(
+        return create_default_sdpa(attn_dropout_p=self.config.attn_dropout_p)
+
+    def build_conformer_conv(self) -> ConformerConvolution:
+        return ConformerConvolution(
             self.config.model_dim,
-            self.config.num_encoder_attn_heads,
-            pos_encoder=pos_encoder,
-            sdpa=sdpa,
+            self.config.depthwise_conv_kernel_size,
             device=self.device,
             dtype=self.dtype,
         )
@@ -497,9 +502,10 @@ class Wav2Vec2Builder:
             The data type of module parameters and buffers.
         """
         self.config = config
+
         self.encoder_builder = encoder_builder
-        self.device = device
-        self.dtype = dtype
+
+        self.device, self.dtype = device, dtype
 
     def build_model(self) -> Wav2Vec2Model:
         """Build a model."""

@@ -12,12 +12,12 @@ from torch.nn import Module
 
 
 class IncrementalState(ABC):
-    """Holds the state of a module during an incremental evaluation.
+    """Holds the state of a module during incremental decoding.
 
-    Incremental evaluation is a special mode where the module only receives an
-    input corresponding to the previous output and must produce the next output
-    incrementally. Thus the module must cache any long-term state that is needed
-    about the sequence.
+    Incremental decoding is a special mode at inference time where the module
+    only receives an input corresponding to the previous output and must produce
+    the next output incrementally. Thus the module must cache any long-term
+    state that is needed about the sequence.
     """
 
     @abstractmethod
@@ -39,7 +39,7 @@ T = TypeVar("T", bound=IncrementalState)
 
 
 class IncrementalStateBag:
-    """Holds the module states during an incremental evaluation."""
+    """Holds the module states during incremental decoding."""
 
     step: int
     max_num_steps: int
@@ -59,9 +59,8 @@ class IncrementalStateBag:
     def increment_step(self, delta: int = 1) -> None:
         """Increment the step.
 
-        This method should be called after every incremental evaluation (e.g.
-        beam search) step. It is used by modules to keep track of the position
-        in the sequence.
+        This method should be called after every decoding step. It is used by
+        modules to keep track of the position in the sequence.
 
         :param delta:
             The value by which to increment the step.

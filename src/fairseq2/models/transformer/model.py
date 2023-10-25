@@ -13,10 +13,10 @@ from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.models.transformer.frontend import TransformerFrontend
 from fairseq2.nn.incremental_state import IncrementalStateBag
+from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.projection import Linear, Projection
 from fairseq2.nn.transformer import TransformerDecoder, TransformerEncoder
-from fairseq2.nn.utils.module import check_model_dim
-from fairseq2.typing import DataType, Device, finaloverride
+from fairseq2.typing import finaloverride
 
 
 @final
@@ -68,13 +68,11 @@ class TransformerModel(EncoderDecoderModel):
 
         self.target_pad_idx = target_pad_idx
 
-        check_model_dim(self)
-
     @finaloverride
     def encode(
-        self, seqs: Tensor, seq_lens: Optional[Tensor]
-    ) -> Tuple[Tensor, Optional[Tensor]]:
-        seqs, padding_mask = self.encoder_frontend(seqs, seq_lens)
+        self, seqs: Tensor, padding_mask: Optional[PaddingMask]
+    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+        seqs, padding_mask = self.encoder_frontend(seqs, padding_mask)
 
         return self.encoder(seqs, padding_mask)  # type: ignore[no-any-return]
 
@@ -82,13 +80,15 @@ class TransformerModel(EncoderDecoderModel):
     def decode(
         self,
         seqs: Tensor,
-        seq_lens: Optional[Tensor],
+        padding_mask: Optional[PaddingMask],
         encoder_output: Tensor,
-        encoder_padding_mask: Optional[Tensor],
+        encoder_padding_mask: Optional[PaddingMask],
         *,
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[Tensor]]:
-        seqs, padding_mask = self.decoder_frontend(seqs, seq_lens, state_bag=state_bag)
+    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+        seqs, padding_mask = self.decoder_frontend(
+            seqs, padding_mask, state_bag=state_bag
+        )
 
         return self.decoder(  # type: ignore[no-any-return]
             seqs,
@@ -100,39 +100,15 @@ class TransformerModel(EncoderDecoderModel):
 
     @finaloverride
     def project(
-        self, decoder_output: Tensor, decoder_padding_mask: Optional[Tensor]
+        self, decoder_output: Tensor, decoder_padding_mask: Optional[PaddingMask]
     ) -> SequenceModelOutput:
         logits = self.final_proj(decoder_output)
 
         return SequenceModelOutput(logits, self.target_pad_idx)
 
 
-@final
-class FinalProjection(Linear):
-    """Produces logits from outputs of a Transformer decoder."""
+def init_final_projection(proj: Linear) -> None:
+    nn.init.normal_(proj.weight, std=proj.input_dim**-0.5)
 
-    def __init__(
-        self,
-        model_dim: int,
-        target_vocabulary_size: int,
-        *,
-        device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
-    ) -> None:
-        """
-        :param model_dim:
-            The dimensionality of the model.
-        :param target_vocabulary_size:
-            The size of the target vocabulary.
-        """
-        super().__init__(
-            model_dim, target_vocabulary_size, bias=False, device=device, dtype=dtype
-        )
-
-    @finaloverride
-    def _do_reset_parameters(self) -> None:
-        """Reset the parameters and buffers of the module."""
-        nn.init.normal_(self.weight, std=self.input_dim**-0.5)
-
-        if self.bias is not None:
-            nn.init.zeros_(self.bias)
+    if proj.bias is not None:
+        nn.init.zeros_(proj.bias)

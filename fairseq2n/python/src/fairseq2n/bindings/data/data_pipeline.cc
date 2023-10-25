@@ -358,8 +358,24 @@ def_data_pipeline(py::module_ &data_module)
                 return data_pipeline::count(start, std::move(key));
             },
             py::arg("start") = 0,
-            py::arg("key") = std::nullopt);
+            py::arg("key") = std::nullopt)
+        .def_static(
+            "concat",
+            [](std::vector<std::reference_wrapper<data_pipeline>> &refs)
+            {
+                std::vector<data_pipeline> pipelines{};
 
+                pipelines.reserve(refs.size());
+
+                std::transform(
+                    refs.begin(), refs.end(), std::back_inserter(pipelines), [](auto &r) {
+                        return std::move(r.get());
+                    });
+
+                return data_pipeline::concat(std::move(pipelines));
+            },
+            py::arg("pipelines"));
+        
     // DataPipelineIterator
     py::class_<data_pipeline_iterator>(m, "_DataPipelineIterator")
         .def(
@@ -403,6 +419,32 @@ def_data_pipeline(py::module_ &data_module)
             py::arg("bucket_sizes"),
             py::arg("selector") = std::nullopt,
             py::arg("drop_remainder") = false)
+        .def(
+            "collate",
+            [](
+                data_pipeline_builder &self,
+                std::optional<std::int64_t> maybe_pad_idx,
+                std::int64_t pad_to_multiple,
+                std::optional<std::vector<collate_options_override>> maybe_opt_overrides,
+                std::size_t num_parallel_calls) -> data_pipeline_builder &
+            {
+                auto opts = collate_options()
+                    .maybe_pad_idx(maybe_pad_idx).pad_to_multiple(pad_to_multiple);
+
+                std::vector<collate_options_override> opt_overrides{};
+                if (maybe_opt_overrides)
+                    opt_overrides = *std::move(maybe_opt_overrides);
+
+                map_fn f = collater(opts, std::move(opt_overrides));
+
+                self = std::move(self).map(std::move(f), num_parallel_calls);
+
+                return self;
+            },
+            py::arg("pad_idx") = std::nullopt,
+            py::arg("pad_to_multiple") = 1,
+            py::arg("overrides") = std::nullopt,
+            py::arg("num_parallel_calls") = 1)
         .def(
             "filter",
             [](data_pipeline_builder &self, predicate_fn fn) -> data_pipeline_builder &

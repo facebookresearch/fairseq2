@@ -14,6 +14,7 @@ from torch.nn.functional import group_norm, layer_norm
 
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.nn.normalization import LayerNorm
+from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.utils.grad import scale_grad
 from fairseq2.typing import DataType, Device, finaloverride, override
 
@@ -119,8 +120,8 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
 
     @finaloverride
     def forward(
-        self, seqs: Tensor, seq_lens: Optional[Tensor]
-    ) -> Tuple[Tensor, Optional[Tensor]]:
+        self, seqs: Tensor, padding_mask: Optional[PaddingMask]
+    ) -> Tuple[Tensor, Optional[PaddingMask]]:
         """See the base :meth:`SequenceFeatureExtractor.forward`.
 
         :param seqs:
@@ -139,14 +140,16 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
         # (N, E, S) -> (N, S, E)
         features = features.transpose(1, 2)
 
-        if seq_lens is not None:
-            # Since we contracted the temporal dimension, we should re-compute
-            # the sequence lengths.
-            seq_lens = self._compute_seq_lens(seq_lens)
+        # Since we contracted the temporal dimension, we should re-compute
+        # the sequence lengths.
+        if padding_mask is not None:
+            seq_lens = self._contract_seq_lens(padding_mask.seq_lens)
 
-        return features, seq_lens
+            padding_mask = PaddingMask(seq_lens, batch_seq_len=features.size(1))
 
-    def _compute_seq_lens(self, num_frames: Tensor) -> Tensor:
+        return features, padding_mask
+
+    def _contract_seq_lens(self, num_frames: Tensor) -> Tensor:
         seq_lens = num_frames.clone()
 
         for desc in self.layer_descs:
@@ -268,8 +271,8 @@ class Wav2Vec2FbankFeatureExtractor(SequenceFeatureExtractor):
 
     @finaloverride
     def forward(
-        self, seqs: Tensor, seq_lens: Optional[Tensor]
-    ) -> Tuple[Tensor, Optional[Tensor]]:
+        self, seqs: Tensor, padding_mask: Optional[PaddingMask]
+    ) -> Tuple[Tensor, Optional[PaddingMask]]:
         """See the base :meth:`SequenceFeatureExtractor.forward`.
 
         :param seqs:
@@ -279,12 +282,19 @@ class Wav2Vec2FbankFeatureExtractor(SequenceFeatureExtractor):
         """
         batch_size, num_frames, num_channels = seqs.shape
 
+        if padding_mask is None:
+            seq_lens = None
+        else:
+            seq_lens = padding_mask.seq_lens
+
         if (r := num_frames % self.stride) != 0:
             num_frames -= r
 
             seqs = seqs[:, :num_frames, :]
 
             if seq_lens is not None:
+                seq_lens = seq_lens.clone()
+
                 seq_lens[seq_lens > num_frames] = num_frames
 
         seqs = seqs.view(
@@ -299,11 +309,13 @@ class Wav2Vec2FbankFeatureExtractor(SequenceFeatureExtractor):
         if seq_lens is not None:
             # Since we contracted the temporal dimension, we should re-compute
             # the sequence lengths.
-            seq_lens = self._compute_seq_lens(seq_lens)
+            seq_lens = self._contract_seq_lens(seq_lens)
 
-        return seqs, seq_lens
+            padding_mask = PaddingMask(seq_lens, batch_seq_len=seqs.size(1))
 
-    def _compute_seq_lens(self, num_frames: Tensor) -> Tensor:
+        return seqs, padding_mask
+
+    def _contract_seq_lens(self, num_frames: Tensor) -> Tensor:
         num_frames = num_frames // self.stride
 
         if self.sample_every_k > 1:
@@ -313,7 +325,11 @@ class Wav2Vec2FbankFeatureExtractor(SequenceFeatureExtractor):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"num_fbank_channels={self.num_fbank_channels}, stride={self.stride}, sample_every_k={self.sample_every_k}"
+        return (
+            f"num_fbank_channels={self.num_fbank_channels}, "
+            f"stride={self.stride}, "
+            f"sample_every_k={self.sample_every_k}"
+        )
 
 
 class Float32LayerNorm(LayerNorm):

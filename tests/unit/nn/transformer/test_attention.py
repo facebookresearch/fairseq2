@@ -10,27 +10,34 @@ import pytest
 import torch
 from torch import Tensor
 
-from fairseq2.nn.transformer.attention import NaiveSDPA, TorchSDPA
+from fairseq2.nn.padding import PaddingMask
+from fairseq2.nn.transformer import CustomAttentionMask, NaiveSDPA, TorchSDPA
 from fairseq2.utils.version import is_pt2_or_greater
 from tests.common import assert_close, device, tmp_rng_seed
 
 
 class TestScaledDotProductAttention:
+    @pytest.mark.skipif(
+        not is_pt2_or_greater(), reason="requires PyTorch 2.0.0 or greater"
+    )
     # fmt: off
-    @pytest.mark.skipif(not is_pt2_or_greater(), reason="requires PyTorch 2.0.0 or greater")
-    @pytest.mark.parametrize("mask,attn_dropout_p,training",
+    @pytest.mark.parametrize("use_key_padding_mask,use_attn_mask,attn_dropout_p,training",
         [
-            (False, 0.0, True),
-            (True,  0.0, True),
-            (False, 0.5, True),
-            (True,  0.5, True),
-            (False, 0.5, False),
-            (False, 0.9, False),
+            (False, False, 0.0, True),
+            (True,  True,  0.0, True),
+            (False, True,  0.5, True),
+            (True,  False, 0.5, True),
+            (False, False, 0.5, False),
+            (False, True,  0.9, False),
         ],
     )
     # fmt: on
     def test_torch_sdpa(
-        self, mask: bool, attn_dropout_p: float, training: bool
+        self,
+        use_key_padding_mask: bool,
+        use_attn_mask: bool,
+        attn_dropout_p: float,
+        training: bool,
     ) -> None:
         torch_sdpa = TorchSDPA(attn_dropout_p=attn_dropout_p)
         naive_sdpa = NaiveSDPA(attn_dropout_p=attn_dropout_p)
@@ -39,44 +46,55 @@ class TestScaledDotProductAttention:
             torch_sdpa.eval()
             naive_sdpa.eval()
 
-        attn_args = self._get_attn_args(mask)
+        kwargs = self._get_sdpa_args(use_key_padding_mask, use_attn_mask)
 
         with tmp_rng_seed(device):
-            attn1, _ = torch_sdpa(**attn_args)
+            attn1, _ = torch_sdpa(**kwargs)
 
         with tmp_rng_seed(device):
-            attn2, _ = naive_sdpa(**attn_args)
+            attn2, _ = naive_sdpa(**kwargs)
 
         assert_close(attn1, attn2)
 
     @staticmethod
-    def _get_attn_args(mask: bool) -> Dict[str, Any]:
-        N = 2  # Batch
-        S = 3  # Source Sequence
-        T = 2  # Target Sequence
-        K = 2  # Key
-        V = 3  # Value
+    def _get_sdpa_args(
+        use_key_padding_mask: bool, use_attn_mask: bool
+    ) -> Dict[str, Any]:
+        batch_size = 2
 
-        def t(*args: int) -> Tensor:
+        num_heads = 4
+
+        source_seq_len = 3
+        target_seq_len = 2
+
+        k_size = 2
+        v_size = 3
+
+        def random_tensor(*args: int) -> Tensor:
             return torch.randn(*args, device=device)
 
-        def q() -> Tensor:
-            return t(N, T, K)
+        q = random_tensor(batch_size, num_heads, target_seq_len, k_size)
+        k = random_tensor(batch_size, num_heads, source_seq_len, k_size)
+        v = random_tensor(batch_size, num_heads, source_seq_len, v_size)
 
-        def k() -> Tensor:
-            return t(N, S, K)
+        if use_key_padding_mask:
+            key_padding_mask = PaddingMask(
+                torch.tensor([2, 3], device=device), source_seq_len
+            )
+        else:
+            key_padding_mask = None
 
-        def v() -> Tensor:
-            return t(N, S, V)
+        if use_attn_mask:
+            m = random_tensor(target_seq_len, source_seq_len)
 
-        def m() -> Tensor:
-            return t(T, S)
+            attn_mask = CustomAttentionMask(m)
+        else:
+            attn_mask = None
 
-        kwargs: Dict[str, Any] = {
-            "queries": q(),
-            "keys": k(),
-            "values": v(),
-            "mask": m() if mask else None,
+        return {
+            "seqs": q,
+            "keys": k,
+            "key_padding_mask": key_padding_mask,
+            "values": v,
+            "attn_mask": attn_mask,
         }
-
-        return kwargs

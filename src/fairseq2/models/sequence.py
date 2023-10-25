@@ -14,6 +14,7 @@ from torch.nn import Module
 from torch.nn.functional import log_softmax
 
 from fairseq2.nn.functional import nll_loss
+from fairseq2.nn.padding import PaddingMask
 
 
 class SequenceModel(Module, ABC):
@@ -36,10 +37,9 @@ class SequenceBatch:
     size, :math:`S` is the sequence length, and :math:`*` is any number of
     sequence-specific dimensions including none."""
 
-    seq_lens: Optional[Tensor]
-    """An array where each element represents the length of the sequence at the
-    same index in :attr:`seqs`. *Shape:* :math:`(N)`, where :math:`N` is the
-    batch size."""
+    padding_mask: Optional[PaddingMask]
+    """The padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where :math:`N` is
+    the batch size and :math:`S` is the sequence length."""
 
     example: Any = None
     """The data example from which this batch was constructed."""
@@ -49,12 +49,12 @@ class SequenceBatch:
         """The size of the batch."""
         return self.seqs.size(0)
 
-    def num_tokens(self) -> Tensor:
-        """Return the number of tokens."""
-        if self.seq_lens is None:
+    def compute_num_tokens(self) -> Tensor:
+        """Compute the number of tokens in this batch."""
+        if self.padding_mask is None:
             return torch.full((), self.seqs.numel(), device=self.seqs.device)
 
-        return self.seq_lens.sum()
+        return self.padding_mask.seq_lens.sum()
 
 
 @dataclass
@@ -85,7 +85,7 @@ class SequenceModelOutput:
             The number of logits from the beginning of the sequence that should
             be ignored in the loss computation.
         :param label_smoothing:
-            The amount of label smoothing when computing the loss.
+            The amount of label smoothing to apply while computing the loss.
         """
         if ignore_prefix_size > 0:
             logits = self.logits[:, ignore_prefix_size:, :]

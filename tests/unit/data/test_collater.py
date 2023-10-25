@@ -9,9 +9,13 @@ import torch
 from torch.nn.functional import pad
 
 from fairseq2.data import CollateOptionsOverride, Collater
-from tests.common import assert_close, assert_equal, device
+from tests.common import assert_close, assert_equal, device, python_devel_only
 
 
+@pytest.mark.skipif(
+    python_devel_only(),
+    reason="New fairseq2n API in Python-only installation. Skipping till v0.2.",
+)
 class TestCollater:
     def test_call_works_when_input_has_only_non_composite_types(self) -> None:
         # fmt: off
@@ -107,7 +111,7 @@ class TestCollater:
         assert_close(output["seqs"], expected_seqs)
         assert_equal(output["seq_lens"], expected_seq_lens)
 
-        assert output["is_ragged"] == False
+        assert output["is_ragged"] == (pad_to_multiple > 2)
 
     def test_call_works_when_input_has_ragged_sequence_tensors(self) -> None:
         bucket = [
@@ -195,13 +199,13 @@ class TestCollater:
 
         collater = Collater()
 
+        output = collater(bucket)
+
         expected_tensor = torch.tensor(
             [0.0, 1.0, 2.0], device=device, dtype=torch.float32
         )
 
         expected_tensor = expected_tensor.unsqueeze(-1).expand(-1, 4)
-
-        output = collater(bucket)
 
         assert_close(output["foo2"]["subfoo2"], expected_tensor)
 

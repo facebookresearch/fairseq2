@@ -13,9 +13,9 @@ from torch.nn import Dropout
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.models.transformer import TransformerFrontend
 from fairseq2.nn.incremental_state import IncrementalStateBag
+from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.position_encoder import PositionEncoder
 from fairseq2.nn.projection import Linear, Projection
-from fairseq2.nn.utils.mask import to_padding_mask
 from fairseq2.typing import DataType, Device, finaloverride
 
 
@@ -96,21 +96,19 @@ class S2TTransformerFrontend(TransformerFrontend):
     def forward(
         self,
         seqs: Tensor,
-        seq_lens: Optional[Tensor],
+        padding_mask: Optional[PaddingMask],
         *,
         state_bag: Optional[IncrementalStateBag] = None,
-    ) -> Tuple[Tensor, Optional[Tensor]]:
+    ) -> Tuple[Tensor, Optional[PaddingMask]]:
         if state_bag is not None:
             raise ValueError(
-                "`S2TTransformerFrontend` does not support incremental evaluation."
+                "`S2TTransformerFrontend` does not support incremental decoding."
             )
 
         if self.feature_extractor is not None:
-            features, seq_lens = self.feature_extractor(seqs, seq_lens)
+            features, padding_mask = self.feature_extractor(seqs, padding_mask)
         else:
             features = seqs
-
-        padding_mask = to_padding_mask(features, seq_lens)
 
         features = features * self.scale
 
