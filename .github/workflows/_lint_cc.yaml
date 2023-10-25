@@ -30,6 +30,18 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 2
+<<<<<<< HEAD
+=======
+      - name: Install libsndfile
+        run: |
+          yum --assumeyes install libsndfile-devel
+      - name: Install libpng-dev
+        run: |
+          yum --assumeyes install libpng-devel
+      - name: Install libjpeg-dev
+        run: |
+          yum --assumeyes install libjpeg-devel
+>>>>>>> 9be595fe (fix typo)
       - name: Create the Python virtual environment
         run: |
           python${{ inputs.py }} -m venv ~/venv

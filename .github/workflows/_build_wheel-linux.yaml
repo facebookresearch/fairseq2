@@ -53,6 +53,18 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: recursive
+<<<<<<< HEAD
+=======
+      - name: Install libsndfile
+        run: |
+          yum --assumeyes install libsndfile-devel
+      - name: Install libpng-dev
+        run: |
+          yum --assumeyes install libpng-devel
+      - name: Install libjpeg-dev
+        run: |
+          yum --assumeyes install libjpeg-devel
+>>>>>>> 9be595fe (fix typo)
       - name: Create the Python virtual environment
         run: |
           python${{ inputs.py }} -m venv ~/venv
@@ -181,8 +193,12 @@ jobs:
 =======
       - name: Install libjpeg-dev
         run: |
+<<<<<<< HEAD
           yum --assumeyes install libjpeg-dev
 >>>>>>> b31b48e5 (change package name)
+=======
+          yum --assumeyes install libjpeg-devel
+>>>>>>> 9be595fe (fix typo)
       - name: Download wheels and native tests from staging
         uses: actions/download-artifact@v3
         with:
