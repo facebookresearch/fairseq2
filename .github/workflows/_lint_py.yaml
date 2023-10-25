@@ -37,8 +37,12 @@ jobs:
           yum --assumeyes install libpng-devel
       - name: Install libjpeg-dev
         run: |
+<<<<<<< HEAD
           yum --assumeyes install libjpeg-devel
 >>>>>>> 9be595fe (fix typo)
+=======
+          yum --assumeyes install libjpeg-devel-2.1.2
+>>>>>>> 9caad8cc (download libjpeg 1.5 and use const data_ptr)
       - name: Create the Python virtual environment
         run: |
           python${{ inputs.py }} -m venv ~/venv
