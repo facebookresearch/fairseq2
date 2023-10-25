@@ -181,7 +181,7 @@ jobs:
 =======
       - name: Install libsndfile
         run: |
-          yum --assumeyes install libsndfile-develPyTorchjpeg
+          yum --assumeyes install libsndfile-devel
       - name: Install libpng-dev
         run: |
           yum --assumeyes install libpng-devel
