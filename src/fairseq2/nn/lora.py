@@ -350,8 +350,13 @@ def unmerge_lora(module: nn.Module) -> None:
 
 
 def lora_state_dict(module: nn.Module) -> Dict[str, Any]:
+    lora_names = []
+    for name, submodule in module.named_modules():
+        if isinstance(submodule, LoRALayer):
+            lora_names.append(name)
+
     state_dict = module.state_dict()
-    lora_states = {name: state for name, state in state_dict.items() if "lora_" in name}
+    lora_states = {name: state_dict[name] for name in lora_names}
     return lora_states
 
 
@@ -360,24 +365,23 @@ def freeze_non_lora(
 ) -> None:
     # Set requires_grad to False for all parameters in the module except
     # lora layers
-    for name, param in module.named_parameters():
-        param.requires_grad = "lora_" in name
-
-    if unfreeze_bias == "all":
-        for name, param in module.named_parameters():
-            if "bias" in name:
-                param.requires_grad = True
-    elif unfreeze_bias == "lora_only":
-        for submodule in module.modules():
-            if (
-                isinstance(submodule, LoRALayer)
-                and getattr(submodule, "bias", None) is not None
-            ):
-                submodule.bias.requires_grad = True
+    for submodule in module.modules():
+        if isinstance(submodule, LoRALayer):
+            for param_name, param in submodule.named_parameters(recurse=False):
+                if param_name in ["lora_A", "lora_B"]:
+                    param.requires_grad = True
+                elif param_name == "bias" and unfreeze_bias in ["all", "lora_only"]:
+                    param.requires_grad = True
+                else:
+                    param.requires_grad = False
+        else:
+            for param_name, param in submodule.named_parameters(recurse=False):
+                if param_name == "bias" and unfreeze_bias == "all":
+                    param.requires_grad = True
+                else:
+                    param.requires_grad = False
 
 
 def _is_target_module(name: str, target_keys: List[str]) -> bool:
     # Check if the `name` matches any of the `target_keys``.
-    return any(re.match(key, name) for key in target_keys) or any(
-        name == key for key in target_keys
-    )
+    return any(name == key or re.match(key, name) for key in target_keys)
