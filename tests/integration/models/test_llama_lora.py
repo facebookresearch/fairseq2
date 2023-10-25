@@ -39,12 +39,12 @@ def test_lora_wrappers_llama_works() -> None:
     model.eval()
 
     with torch.inference_mode():
-        output_before_wrap, _ = model.decode(seqs=inputs, seq_lens=None)
+        output_before_wrap, _ = model.decode(seqs=inputs, padding_mask=None)
 
     model = wrap_lora(model, lora_config)  # type: ignore[assignment]
 
     with torch.inference_mode():
-        output_after_wrap, _ = model.decode(seqs=inputs, seq_lens=None)
+        output_after_wrap, _ = model.decode(seqs=inputs, padding_mask=None)
 
     # Outputs should be the same as lora_B is initialized with zeros.
     torch.testing.assert_close(output_before_wrap, output_after_wrap)
@@ -52,7 +52,7 @@ def test_lora_wrappers_llama_works() -> None:
     model = unwrap_lora(model, merge=False)  # type: ignore[assignment]
 
     with torch.inference_mode():
-        output_after_unwrap, _ = model.decode(seqs=inputs, seq_lens=None)
+        output_after_unwrap, _ = model.decode(seqs=inputs, padding_mask=None)
 
     torch.testing.assert_close(output_after_wrap, output_after_unwrap)
 
@@ -60,14 +60,14 @@ def test_lora_wrappers_llama_works() -> None:
     merge_lora(model)
 
     with torch.inference_mode():
-        output_after_merge, _ = model.decode(seqs=inputs, seq_lens=None)
+        output_after_merge, _ = model.decode(seqs=inputs, padding_mask=None)
 
     torch.testing.assert_close(output_after_unwrap, output_after_merge)
 
     unmerge_lora(model)
 
     with torch.inference_mode():
-        output_after_unmerge, _ = model.decode(seqs=inputs, seq_lens=None)
+        output_after_unmerge, _ = model.decode(seqs=inputs, padding_mask=None)
 
     torch.testing.assert_close(output_after_merge, output_after_unmerge)
 
