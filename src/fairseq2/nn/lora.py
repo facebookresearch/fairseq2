@@ -17,7 +17,7 @@ from torch.nn import Dropout
 from torch.nn.functional import embedding, linear
 from torch.nn.parameter import Parameter
 
-from fairseq2.nn import Embedding, Linear, Projection, StandardEmbedding
+from fairseq2.nn import Embedding, Projection
 from fairseq2.typing import DataType, Device
 
 
@@ -304,7 +304,6 @@ def unwrap_lora(module: nn.Module, merge: bool = True) -> nn.Module:
                 f"Cannot unwrap the module '{name}' as the module type '{type(submodule).__name__}' is not supported."
             )
 
-        unwrapped_layer.train(mode=submodule.training)
         setattr(parent, submodule_name, unwrapped_layer)
 
     return module
