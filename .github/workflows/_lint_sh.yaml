@@ -30,9 +30,9 @@ jobs:
       - name: Install libpng-dev
         run: |
           yum --assumeyes install libpng-devel
-      - name: Install libjpeg-dev
+      - name: Install libjpeg8-dev
         run: |
-          yum --assumeyes install libjpeg-devel
+          yum --assumeyes install libjpeg8-devel
       - name: Create the Python virtual environment
         run: |
           python${{ inputs.py }} -m venv ~/venv
