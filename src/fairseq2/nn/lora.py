@@ -284,7 +284,7 @@ def unwrap_lora(module: nn.Module, merge: bool = True) -> nn.Module:
     # Reverses the model to its original architecture by replacing all
     # `LoRALayers` back with their original wrapped modules.
     # By default, we perform `merge_lora` before unwrapping.
-    # Note that the unwrapping also happends in-place.
+    # Note that the unwrapping also happens in-place.
     if merge:
         merge_lora(module)
 
@@ -297,33 +297,8 @@ def unwrap_lora(module: nn.Module, merge: bool = True) -> nn.Module:
         submodule_name = submodule_path[-1]
 
         unwrapped_layer: Optional[nn.Module] = None
-        if isinstance(submodule, LoRALinear):
-            # TODO: currently there's no way to distinguish which type the
-            # original module is (`Linear` or `TiedProjection` or
-            # `QKVProjection`). Using `Linear` should be functionally
-            # identical (output would be the same), but since it might be a
-            # different projection layer, it might cause issues in
-            # downstream operations.
-            unwrapped_layer = Linear(
-                submodule.input_dim,
-                submodule.output_dim,
-                bias=submodule.bias is not None,
-                skip_init=True,
-                device=submodule.weight.device,  # type: ignore[arg-type]
-                dtype=submodule.weight.dtype,  # type: ignore[arg-type]
-            )
-            unwrapped_layer.weight = submodule.weight
-            if submodule.bias is not None:
-                unwrapped_layer.bias = submodule.bias
-        elif isinstance(submodule, LoRAEmbedding):
-            unwrapped_layer = StandardEmbedding(
-                num_embeddings=submodule.num_embeddings,
-                embedding_dim=submodule.embedding_dim,
-                pad_idx=submodule.pad_idx,
-                device=submodule.weight.device,  # type: ignore[arg-type]
-                dtype=submodule.weight.dtype,  # type: ignore[arg-type]
-            )
-            unwrapped_layer.weight = submodule.weight
+        if isinstance(submodule, LoRALayer):
+            unwrapped_layer = submodule.wrapped_module
         else:
             raise ValueError(
                 f"Cannot unwrap the module '{name}' as the module type '{type(submodule).__name__}' is not supported."
