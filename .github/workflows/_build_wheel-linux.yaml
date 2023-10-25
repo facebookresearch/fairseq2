@@ -166,6 +166,7 @@ jobs:
           yum --assumeyes install libpng-devel
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 >>>>>>> 18f3c8e9 (add png to build configs, support float32 tensor)
 =======
       - name: Install libjpeg-dev
@@ -177,6 +178,11 @@ jobs:
         run: |
           yum --assumeyes install libjpeg-turbo
 >>>>>>> e0dcbd24 (change package name)
+=======
+      - name: Install libjpeg-dev
+        run: |
+          yum --assumeyes install libjpeg-dev
+>>>>>>> b31b48e5 (change package name)
       - name: Download wheels and native tests from staging
         uses: actions/download-artifact@v3
         with:

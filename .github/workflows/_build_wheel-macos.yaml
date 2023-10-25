@@ -39,7 +39,7 @@ jobs:
         run: |
           brew install libsndfile python@${{ inputs.py }} || true
           brew install libpng || true
-          brew install jpeg-turbo || true
+          brew install libjpeg || true
       - name: Create the Python virtual environment
         run: |
           /usr/local/bin/python${{ inputs.py }} -m venv ~/venv
