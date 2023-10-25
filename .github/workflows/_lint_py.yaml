@@ -38,11 +38,16 @@ jobs:
       - name: Install libjpeg-dev
         run: |
 <<<<<<< HEAD
+<<<<<<< HEAD
           yum --assumeyes install libjpeg-devel
 >>>>>>> 9be595fe (fix typo)
 =======
           yum --assumeyes install libjpeg-devel-2.1.2
 >>>>>>> 9caad8cc (download libjpeg 1.5 and use const data_ptr)
+=======
+          yum --assumeyes install https://rpmfind.net/linux/centos/8-stream/AppStream/x86_64/os/Packages/libjpeg-turbo-1.5.3-12.el8.x86_64.rpm
+          yum --assumeyes install https://rpmfind.net/linux/centos/8-stream/AppStream/x86_64/os/Packages/libjpeg-turbo-devel-1.5.3-12.el8.x86_64.rpm 
+>>>>>>> a06b73b1 (libjpeg 1.5)
       - name: Create the Python virtual environment
         run: |
           python${{ inputs.py }} -m venv ~/venv
