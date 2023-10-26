@@ -14,7 +14,7 @@ from fairseq2.nn.embedding import StandardEmbedding
 from fairseq2.nn.lora import LoRAConfig, LoRAEmbedding, LoRALinear
 
 
-def test_lora_liner_works() -> None:
+def test_lora_linear_works() -> None:
     lora_config = LoRAConfig(r=4, alpha=1.0, dropout_p=0.0, keys=[])
 
     linear_layer = Linear(8, 8, bias=True)

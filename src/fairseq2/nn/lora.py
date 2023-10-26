@@ -176,7 +176,7 @@ class LoRALinear(Projection, LoRALayer):
             self.wrapped.bias.requires_grad_(False)
             self.bias = self.wrapped.bias  # type: ignore[assignment]
         else:
-            self.register_module("bias", None)
+            self.register_parameter("bias", None)
 
         self.lora_A = Parameter(
             torch.empty((self.r, self.input_dim), device=device, dtype=dtype)
