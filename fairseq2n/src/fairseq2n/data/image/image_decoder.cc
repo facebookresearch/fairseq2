@@ -13,6 +13,7 @@
 
 #include <ATen/Functions.h>
 #include <ATen/Tensor.h>
+#include <setjmp.h>
 
 #include "fairseq2n/exception.h"
 #include "fairseq2n/float.h"
@@ -54,15 +55,13 @@ image_decoder::operator()(data &&d) const
     const std::array<uint8_t, 3> jpeg_signature = {255, 216, 255};
     const std::array<uint8_t, 4> png_signature = {137, 80, 78, 71};
 
-    if(memcmp(jpeg_signature.data(), data_ptr, 3) == 0) {
-        output = decode_jpeg(block);
-    } else if(memcmp(png_signature.data(), data_ptr, 4) == 0) {
-        output = decode_png(block);
-    } else {
-        throw_<std::invalid_argument>(
-            "Unsupported image file. Only jpeg and png are currently supported.");
-    }
-    return output;
+    if(std::memcmp(jpeg_signature.data(), data_ptr, jpeg_signature.size()) == 0) {
+        return decode_jpeg(block);
+    } else if(std::memcmp(png_signature.data(), data_ptr, 4) == 0) {
+        return decode_png(block);
+    } 
+    throw_<std::invalid_argument>(
+        "Unsupported image file. Only jpeg and png are currently supported.");
 }
 
 data
@@ -80,6 +79,12 @@ image_decoder::decode_png(const memory_block &block) const
 
     auto data_ptr = png_const_bytep(block.data());
     auto data_len = block.size();
+    // If an error occurs, libpng will longjmp back to setjmp
+    if (setjmp(png_jmpbuf(png_ptr))) {
+        // If we get here, libpng has signaled an error
+        png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
+        throw_<internal_error>("Internal error.");
+    }
 
     struct Reader {
     png_const_bytep ptr;
@@ -142,7 +147,7 @@ image_decoder::decode_png(const memory_block &block) const
     if (device != at::kCPU)
         image = image.to(device);
 
-    // Pack png data and format as output.
+    // Pack png data and format as output
     data_dict output{
         {"bit_depth", static_cast<float32>(bit_depth)}, {"color_type", static_cast<float32>(color_type)}, 
         {"channels", static_cast<float32>(channels)}, {"height", static_cast<float32>(height)}, 
@@ -157,13 +162,33 @@ image_decoder::decode_png(const memory_block &block) const
 data
 image_decoder::decode_jpeg(const memory_block &block) const 
 {
+    struct custom_error_mgr {
+        struct jpeg_error_mgr pub;	// Public fields
+        jmp_buf setjmp_buffer;	// Return to caller 
+    };
+    typedef struct custom_error_mgr * error_ptr;
+
     auto data_ptr = block.data();
     auto data_len = block.size();
 
     // Set up decompression process
     struct jpeg_decompress_struct cinfo = {};
-    struct jpeg_error_mgr jerr = {};
-    cinfo.err = jpeg_std_error(&jerr);
+    struct custom_error_mgr jerr = {};
+    cinfo.err = jpeg_std_error(&jerr.pub);
+    // error_exit is called by libjpeg when fatal error occurs
+    jerr.pub.error_exit = [](j_common_ptr cinfo) {
+        // cinfo->err really points to a custom_error_mgr struct, so coerce pointer 
+        error_ptr myerr = (error_ptr) cinfo->err;
+        (*cinfo->err->output_message) (cinfo);
+        // Return control to the setjmp point 
+        longjmp(myerr->setjmp_buffer, 1);
+    };
+    // If an error occurs, error_exit will longjmp back to setjmp
+    if (setjmp(jerr.setjmp_buffer)) {
+        // If we get here, libjpeg has signaled an error
+        jpeg_destroy_decompress(&cinfo);
+        throw std::runtime_error("JPEG decompression failed");
+    }
     jpeg_create_decompress(&cinfo);
     jpeg_mem_src(&cinfo, reinterpret_cast<const unsigned char *>(data_ptr), data_len);
     jpeg_read_header(&cinfo, TRUE);
