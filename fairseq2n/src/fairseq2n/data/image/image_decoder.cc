@@ -9,17 +9,17 @@
 #include <cstdint>
 #include <exception>
 #include <stdexcept>
-#include <iostream>
 
 #include <ATen/Functions.h>
 #include <ATen/Tensor.h>
-#include <setjmp.h>
+#include <csetjmp>
 
 #include "fairseq2n/exception.h"
 #include "fairseq2n/float.h"
 #include "fairseq2n/fmt.h"
 #include "fairseq2n/memory.h"
-#include "fairseq2n/span.h"
+#include "fairseq2n/data/image/detail/png_read_struct.h"
+#include "fairseq2n/data/image/detail/jpeg_decompress_struct.h"
 #include "fairseq2n/data/detail/tensor_helpers.h"
 #include "fairseq2n/detail/exception.h"
 
@@ -67,15 +67,9 @@ image_decoder::operator()(data &&d) const
 data
 image_decoder::decode_png(const memory_block &block) const 
 {
-    png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
-    if (png_ptr == nullptr) {
-        throw_<internal_error>("Failed to create PNG read struct.");
-    }
-    png_infop info_ptr = png_create_info_struct(png_ptr);
-    if (info_ptr == nullptr) {
-        png_destroy_read_struct(&png_ptr, nullptr, nullptr);
-        throw_<internal_error>("Failed to create PNG info struct.");
-    }
+    png_read pngReadStruct; 
+    png_structp png_ptr = pngReadStruct.getPngPtr();
+    png_infop info_ptr = pngReadStruct.getInfoPtr();
 
     auto data_ptr = png_const_bytep(block.data());
     auto data_len = block.size();
@@ -162,25 +156,25 @@ image_decoder::decode_png(const memory_block &block) const
 data
 image_decoder::decode_jpeg(const memory_block &block) const 
 {
+    jpeg_decompress jpegDecompressStruct;
+    jpeg_decompress_struct cinfo = jpegDecompressStruct.get();
+
+    auto data_ptr = block.data();
+    auto data_len = block.size();
+    
     struct custom_error_mgr {
         struct jpeg_error_mgr pub;	// Public fields
         jmp_buf setjmp_buffer;	// Return to caller 
     };
-    typedef struct custom_error_mgr * error_ptr;
-
-    auto data_ptr = block.data();
-    auto data_len = block.size();
-
-    // Set up decompression process
-    struct jpeg_decompress_struct cinfo = {};
     struct custom_error_mgr jerr = {};
+    typedef struct custom_error_mgr * error_ptr;
     cinfo.err = jpeg_std_error(&jerr.pub);
-    // error_exit is called by libjpeg when fatal error occurs
+    // error_exit is called by libjpeg when a fatal error occurs
     jerr.pub.error_exit = [](j_common_ptr cinfo) {
-        // cinfo->err really points to a custom_error_mgr struct, so coerce pointer 
-        error_ptr myerr = (error_ptr) cinfo->err;
-        (*cinfo->err->output_message) (cinfo);
-        // Return control to the setjmp point 
+        // Coerce pointer to custom_error_mgr struct
+        auto myerr = reinterpret_cast<error_ptr>(cinfo->err);
+        (*cinfo->err->output_message)(cinfo);
+        // Return control to the setjmp point
         longjmp(myerr->setjmp_buffer, 1);
     };
     // If an error occurs, error_exit will longjmp back to setjmp
