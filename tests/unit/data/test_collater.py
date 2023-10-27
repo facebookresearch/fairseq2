@@ -90,7 +90,7 @@ class TestCollater:
             torch.full((4, 2), 2, device=device, dtype=torch.int64),
         ]
 
-        collater = Collater(pad_idx=3, pad_to_multiple=pad_to_multiple)
+        collater = Collater(pad_value=3, pad_to_multiple=pad_to_multiple)
 
         output = collater(bucket)
 
@@ -120,7 +120,7 @@ class TestCollater:
             {"foo1": torch.full((3, 2), 2, device=device, dtype=torch.int64)},
         ]
 
-        collater = Collater(pad_idx=3, pad_to_multiple=3)
+        collater = Collater(pad_value=3, pad_to_multiple=3)
 
         output = collater(bucket)
 
@@ -151,8 +151,8 @@ class TestCollater:
         # fmt: on
 
         collater = Collater(
-            pad_idx=1,
-            overrides=[CollateOptionsOverride("foo1", pad_idx=3, pad_to_multiple=3)],
+            pad_value=1,
+            overrides=[CollateOptionsOverride("foo1", pad_value=3, pad_to_multiple=3)],
         )
 
         output = collater(bucket)
@@ -368,17 +368,17 @@ class TestCollater:
         ):
             collater(bucket2)
 
-    def test_init_raises_error_when_pad_idx_is_none_and_pad_to_multiple_is_greater_than_1(
+    def test_init_raises_error_when_pad_value_is_none_and_pad_to_multiple_is_greater_than_1(
         self,
     ) -> None:
         with pytest.raises(
             ValueError,
-            match=r"^`pad_idx` must be set when `pad_to_multiple` is greater than 1\.$",
+            match=r"^`pad_value` must be set when `pad_to_multiple` is greater than 1\.$",
         ):
             Collater(pad_to_multiple=4)
 
         with pytest.raises(
             ValueError,
-            match=r"^`pad_idx` of the selector 'foo' must be set when `pad_to_multiple` is greater than 1\.$",
+            match=r"^`pad_value` of the selector 'foo' must be set when `pad_to_multiple` is greater than 1\.$",
         ):
             Collater(overrides=[CollateOptionsOverride("foo", pad_to_multiple=2)])

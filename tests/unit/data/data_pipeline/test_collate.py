@@ -15,7 +15,7 @@ class TestCollateOp:
     @pytest.mark.skipif(python_devel_only(), reason="fairseq2n 0.2.0")
     @pytest.mark.parametrize("pad_to_multiple", [1, 2, 3, 8])
     def test_op_works(self, pad_to_multiple: int) -> None:
-        pad_idx = 3
+        pad_value = 3
 
         bucket1 = [
             torch.full((4, 2), 0, device=device, dtype=torch.int64),
@@ -31,11 +31,11 @@ class TestCollateOp:
 
         seq = [bucket1, bucket2]
 
-        pipeline = read_sequence(seq).collate(pad_idx, pad_to_multiple).and_return()
+        pipeline = read_sequence(seq).collate(pad_value, pad_to_multiple).and_return()
 
         output1, output2 = list(pipeline)
 
-        collater = Collater(pad_idx, pad_to_multiple)
+        collater = Collater(pad_value, pad_to_multiple)
 
         expected_output1 = collater(bucket1)
         expected_output2 = collater(bucket2)

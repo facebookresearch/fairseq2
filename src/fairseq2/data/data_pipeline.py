@@ -167,7 +167,7 @@ if TYPE_CHECKING or _DOC_MODE:
 
         def collate(
             self,
-            pad_idx: Optional[int] = None,
+            pad_value: Optional[int] = None,
             pad_to_multiple: int = 1,
             overrides: Optional[Sequence["CollateOptionsOverride"]] = None,
         ) -> Self:
@@ -315,7 +315,7 @@ if TYPE_CHECKING or _DOC_MODE:
         def __init__(
             self,
             selector: str,
-            pad_idx: Optional[int] = None,
+            pad_value: Optional[int] = None,
             pad_to_multiple: int = 1,
         ) -> None:
             ...
@@ -325,7 +325,7 @@ if TYPE_CHECKING or _DOC_MODE:
             ...
 
         @property
-        def pad_idx(self) -> Optional[int]:
+        def pad_value(self) -> Optional[int]:
             ...
 
         @property
@@ -339,7 +339,7 @@ if TYPE_CHECKING or _DOC_MODE:
         If all tensors in the input example have the same last dimension,
         ``Collater`` returns the concatenated tensors.
 
-        Otherwise ``pad_idx`` is required, and the last dimension of the batch will
+        Otherwise ``pad_value`` is required, and the last dimension of the batch will
         be made long enough to fit the longest tensor, rounded up to ``pad_to_multiple``.
         The returned batch is then a dictionary with the following keys::
 
@@ -353,7 +353,7 @@ if TYPE_CHECKING or _DOC_MODE:
         For a tuple of lists, it returns a tuple of batches.
         For a dict of lists, it returns a dict of lists.
 
-        :param pad_idx:
+        :param pad_value:
             When concatenating tensors of different lengths,
             the value used to pad the shortest tensor
 
@@ -362,12 +362,12 @@ if TYPE_CHECKING or _DOC_MODE:
 
         :param overrides:
             List of overrides :py:class:`CollateOptionsOverride`.
-            Allows to override ``pad_idx`` and ``pad_to_multiple`` for specific columns.
+            Allows to override ``pad_value`` and ``pad_to_multiple`` for specific columns.
         """
 
         def __init__(
             self,
-            pad_idx: Optional[int] = None,
+            pad_value: Optional[int] = None,
             pad_to_multiple: int = 1,
             overrides: Optional[Sequence[CollateOptionsOverride]] = None,
         ) -> None:

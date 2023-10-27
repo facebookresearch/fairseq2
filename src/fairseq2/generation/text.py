@@ -210,7 +210,7 @@ class TextTranslator(SequenceToTextGeneratorBase):
             The sentences in the source language.
         """
         seqs, padding_mask = pad_seqs(
-            [self.source_encoder(s) for s in source_sentences], pad_idx=self.pad_idx
+            [self.source_encoder(s) for s in source_sentences], self.pad_idx
         )
 
         return self._do_generate(seqs, padding_mask)
