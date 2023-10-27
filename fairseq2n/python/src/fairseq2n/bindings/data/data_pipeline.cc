@@ -423,13 +423,13 @@ def_data_pipeline(py::module_ &data_module)
             "collate",
             [](
                 data_pipeline_builder &self,
-                std::optional<std::int64_t> maybe_pad_idx,
+                std::optional<std::int64_t> maybe_pad_value,
                 std::int64_t pad_to_multiple,
                 std::optional<std::vector<collate_options_override>> maybe_opt_overrides,
                 std::size_t num_parallel_calls) -> data_pipeline_builder &
             {
                 auto opts = collate_options()
-                    .maybe_pad_idx(maybe_pad_idx).pad_to_multiple(pad_to_multiple);
+                    .maybe_pad_value(maybe_pad_value).pad_to_multiple(pad_to_multiple);
 
                 std::vector<collate_options_override> opt_overrides{};
                 if (maybe_opt_overrides)
@@ -441,7 +441,7 @@ def_data_pipeline(py::module_ &data_module)
 
                 return self;
             },
-            py::arg("pad_idx") = std::nullopt,
+            py::arg("pad_value") = std::nullopt,
             py::arg("pad_to_multiple") = 1,
             py::arg("overrides") = std::nullopt,
             py::arg("num_parallel_calls") = 1)
@@ -590,16 +590,16 @@ def_data_pipeline(py::module_ &data_module)
         .def(
             py::init([](
                 std::string selector,
-                std::optional<std::int64_t> maybe_pad_idx,
+                std::optional<std::int64_t> maybe_pad_value,
                 std::int64_t pad_to_multiple)
             {
                 return collate_options_override{std::move(selector),
                     collate_options()
-                        .maybe_pad_idx(maybe_pad_idx)
+                        .maybe_pad_value(maybe_pad_value)
                         .pad_to_multiple(pad_to_multiple)};
             }),
             py::arg("selector"),
-            py::arg("pad_idx") = std::nullopt,
+            py::arg("pad_value") = std::nullopt,
             py::arg("pad_to_multiple") = 1)
         .def_property_readonly(
             "selector",
@@ -608,10 +608,10 @@ def_data_pipeline(py::module_ &data_module)
                 return self.selector().string_();
             })
         .def_property_readonly(
-            "pad_idx",
+            "pad_value",
             [](const collate_options_override &self)
             {
-                return self.options().maybe_pad_idx();
+                return self.options().maybe_pad_value();
             })
         .def_property_readonly(
             "pad_to_multiple",
@@ -623,12 +623,12 @@ def_data_pipeline(py::module_ &data_module)
     py::class_<collater, std::shared_ptr<collater>>(m, "Collater")
         .def(
             py::init([](
-                std::optional<std::int64_t> maybe_pad_idx,
+                std::optional<std::int64_t> maybe_pad_value,
                 std::int64_t pad_to_multiple,
                 std::optional<std::vector<collate_options_override>> maybe_opt_overrides)
             {
                 auto opts = collate_options()
-                    .maybe_pad_idx(maybe_pad_idx).pad_to_multiple(pad_to_multiple);
+                    .maybe_pad_value(maybe_pad_value).pad_to_multiple(pad_to_multiple);
 
                 std::vector<collate_options_override> opt_overrides{};
                 if (maybe_opt_overrides)
@@ -636,7 +636,7 @@ def_data_pipeline(py::module_ &data_module)
 
                 return std::make_shared<collater>(opts, std::move(opt_overrides));
             }),
-            py::arg("pad_idx") = std::nullopt,
+            py::arg("pad_value") = std::nullopt,
             py::arg("pad_to_multiple") = 1,
             py::arg("overrides") = std::nullopt)
         .def("__call__", &collater::operator(), py::call_guard<py::gil_scoped_release>{});
