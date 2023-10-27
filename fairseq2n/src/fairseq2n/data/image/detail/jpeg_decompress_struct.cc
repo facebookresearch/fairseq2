@@ -6,11 +6,6 @@
 
 #include "fairseq2n/data/image/detail/jpeg_decompress_struct.h"
 
-#include <jpeglib.h>
-
-#include "fairseq2n/exception.h"
-#include "fairseq2n/detail/exception.h"
-
 namespace fairseq2n::detail {
 
 jpeg_decompress::jpeg_decompress() {}
