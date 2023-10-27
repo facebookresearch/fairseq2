@@ -56,6 +56,8 @@ target_sources(fairseq2n
         data/detail/file.cc
         data/detail/file_system.cc
         data/image/image_decoder.cc
+        data/image/detail/jpeg_decompress_struct.cc
+        data/image/detail/png_read_struct.cc
         data/text/string_splitter.cc
         data/text/string_to_int_converter.cc
         data/text/string_to_tensor_converter.cc

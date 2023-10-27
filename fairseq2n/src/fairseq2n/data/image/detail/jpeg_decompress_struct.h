@@ -6,8 +6,11 @@
 
 #pragma once
 
+#include <cstddef>
 #include <jpeglib.h>
+
 #include "fairseq2n/exception.h"
+#include "fairseq2n/detail/exception.h"
 
 namespace fairseq2n::detail {
 
