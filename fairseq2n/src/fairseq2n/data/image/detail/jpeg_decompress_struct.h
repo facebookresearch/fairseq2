@@ -7,6 +7,8 @@
 #pragma once
 
 #include <cstddef>
+// Forward declaration
+typedef struct _IO_FILE FILE;
 #include <jpeglib.h>
 
 #include "fairseq2n/exception.h"
