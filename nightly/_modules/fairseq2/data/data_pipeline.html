@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.data_pipeline &mdash; fairseq2 0.2.0.dev20231023 documentation</title>
+  <title>fairseq2.data.data_pipeline &mdash; fairseq2 0.2.0.dev20231030 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20231023
+                0.2.0.dev20231030
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -312,7 +312,7 @@
 
 <div class="viewcode-block" id="DataPipelineBuilder.collate"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder.collate">[docs]</a>        <span class="k">def</span> <span class="nf">collate</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span>
-            <span class="n">pad_idx</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">pad_value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">pad_to_multiple</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
             <span class="n">overrides</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="s2">&quot;CollateOptionsOverride&quot;</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
@@ -460,7 +460,7 @@
         <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span>
             <span class="n">selector</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-            <span class="n">pad_idx</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">pad_value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">pad_to_multiple</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
             <span class="o">...</span>
@@ -470,7 +470,7 @@
             <span class="o">...</span>
 
         <span class="nd">@property</span>
-        <span class="k">def</span> <span class="nf">pad_idx</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+        <span class="k">def</span> <span class="nf">pad_value</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
             <span class="o">...</span>
 
         <span class="nd">@property</span>
@@ -484,7 +484,7 @@
 <span class="sd">        If all tensors in the input example have the same last dimension,</span>
 <span class="sd">        ``Collater`` returns the concatenated tensors.</span>
 
-<span class="sd">        Otherwise ``pad_idx`` is required, and the last dimension of the batch will</span>
+<span class="sd">        Otherwise ``pad_value`` is required, and the last dimension of the batch will</span>
 <span class="sd">        be made long enough to fit the longest tensor, rounded up to ``pad_to_multiple``.</span>
 <span class="sd">        The returned batch is then a dictionary with the following keys::</span>
 
@@ -498,7 +498,7 @@
 <span class="sd">        For a tuple of lists, it returns a tuple of batches.</span>
 <span class="sd">        For a dict of lists, it returns a dict of lists.</span>
 
-<span class="sd">        :param pad_idx:</span>
+<span class="sd">        :param pad_value:</span>
 <span class="sd">            When concatenating tensors of different lengths,</span>
 <span class="sd">            the value used to pad the shortest tensor</span>
 
@@ -507,12 +507,12 @@
 
 <span class="sd">        :param overrides:</span>
 <span class="sd">            List of overrides :py:class:`CollateOptionsOverride`.</span>
-<span class="sd">            Allows to override ``pad_idx`` and ``pad_to_multiple`` for specific columns.</span>
+<span class="sd">            Allows to override ``pad_value`` and ``pad_to_multiple`` for specific columns.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
         <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span>
-            <span class="n">pad_idx</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">pad_value</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">pad_to_multiple</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
             <span class="n">overrides</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="n">CollateOptionsOverride</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
