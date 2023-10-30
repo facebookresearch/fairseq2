@@ -76,7 +76,7 @@ def to_padding_mask(seq_lens: Tensor, batch_seq_len: int) -> Tensor:
 
 
 def apply_padding_mask(
-    seqs: Tensor, padding_mask: Optional[PaddingMask], fill_value: Any = 0
+    seqs: Tensor, padding_mask: Optional[PaddingMask], pad_value: Any = 0
 ) -> Tensor:
     """Apply the specified padding mask to ``seqs``.
 
@@ -87,8 +87,8 @@ def apply_padding_mask(
     :param padding_mask:
         The padding mask to apply. *Shape:* :math:`(N,S)`, where :math:`N` is
         the batch size and :math:`S` is the sequence length.
-    :param fill_value:
-        The value for padded elements.
+    :param pad_value:
+        The value for padded positions.
 
     :returns:
         The input sequences with mask applied. *Shape:* Same as ``seqs``.
@@ -101,7 +101,7 @@ def apply_padding_mask(
     for _ in range(seqs.ndim - m.ndim):
         m = m.unsqueeze(-1)
 
-    return seqs.where(m, fill_value)
+    return seqs.where(m, pad_value)
 
 
 def get_seqs_and_padding_mask(
@@ -122,14 +122,14 @@ def get_seqs_and_padding_mask(
 
 
 def pad_seqs(
-    seqs: Sequence[Tensor], pad_idx: int = 0, pad_to_multiple: int = 1
+    seqs: Sequence[Tensor], pad_value: int = 0, pad_to_multiple: int = 1
 ) -> Tuple[Tensor, Optional[PaddingMask]]:
     """Stack ``seqs`` along a new batch dimension and pad them to equal length.
 
     :param seqs:
         The list of variable length sequences. All elements in ``seqs`` are
         expected to have the same shape except the first dimension.
-    :param pad_idx:
+    :param pad_value:
         The value for padded positions.
     :param pad_to_multiple:
         The sequence dimension is rounded up to the nearest multiple of the
@@ -142,7 +142,7 @@ def pad_seqs(
         - The padding mask of the sequence stack. *Shape:* :math:`(N,S)`, where
           :math:`N` is the batch size and :math:`S` is the sequence length.
     """
-    collater = Collater(pad_idx=pad_idx, pad_to_multiple=pad_to_multiple)
+    collater = Collater(pad_value=pad_value, pad_to_multiple=pad_to_multiple)
 
     seq_data = cast(SequenceData, collater(seqs))
 

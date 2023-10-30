@@ -15,6 +15,7 @@ from fairseq2.models.transformer import (
 )
 from fairseq2.models.utils.arch_registry import ArchitectureRegistry
 from fairseq2.nn.embedding import StandardEmbedding
+from fairseq2.nn.lora import LoRAConfig
 from fairseq2.nn.normalization import LayerNorm, RMSNorm
 from fairseq2.nn.position_encoder import RotaryEncoder
 from fairseq2.nn.projection import Linear
@@ -357,3 +358,12 @@ def create_llama_model(
         The data type of module parameters and buffers.
     """
     return LLaMABuilder(config, device=device, dtype=dtype).build_model()
+
+
+def get_llama_lora_config() -> LoRAConfig:
+    return LoRAConfig(
+        r=8,
+        alpha=16.0,
+        dropout_p=0.05,
+        keys=[".*decoder.layers.*.self_attn.*(q_proj|v_proj)$"],
+    )

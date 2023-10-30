@@ -20,19 +20,19 @@ namespace fairseq2n {
 class collate_options {
 public:
     collate_options
-    maybe_pad_idx(std::optional<std::int64_t> value) noexcept
+    maybe_pad_value(std::optional<std::int64_t> value) noexcept
     {
         auto tmp = *this;
 
-        tmp.maybe_pad_idx_ = value;
+        tmp.maybe_pad_value_ = value;
 
         return tmp;
     }
 
     std::optional<std::int64_t>
-    maybe_pad_idx() const noexcept
+    maybe_pad_value() const noexcept
     {
-        return maybe_pad_idx_;
+        return maybe_pad_value_;
     }
 
     collate_options
@@ -52,7 +52,7 @@ public:
     }
 
 private:
-    std::optional<std::int64_t> maybe_pad_idx_;
+    std::optional<std::int64_t> maybe_pad_value_;
     std::int64_t pad_to_multiple_ = 1;
 };
 
