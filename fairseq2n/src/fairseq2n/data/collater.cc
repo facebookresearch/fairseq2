@@ -65,7 +65,7 @@ private:
     get_options_for_current_path() const;
 
     static data
-    pad_tensors(span<at::Tensor> tensors, std::int64_t pad_idx, const collate_options &opts);
+    pad_tensors(span<at::Tensor> tensors, std::int64_t pad_value, const collate_options &opts);
 
 private:
     const collater *collater_;
@@ -197,8 +197,8 @@ collate_op::collate(at::Tensor &tensor)
     });
 
     const collate_options &opts = get_options_for_current_path();
-    if (std::optional<std::int64_t> maybe_pad_idx = opts.maybe_pad_idx(); maybe_pad_idx)
-        return pad_tensors(tensors, *maybe_pad_idx, opts);
+    if (std::optional<std::int64_t> maybe_pad_value = opts.maybe_pad_value(); maybe_pad_value)
+        return pad_tensors(tensors, *maybe_pad_value, opts);
 
     try {
         return at::stack(tensors);
@@ -290,13 +290,13 @@ collate_op::get_options_for_current_path() const
 }
 
 data
-collate_op::pad_tensors(span<at::Tensor> tensors, std::int64_t pad_idx, const collate_options &opts)
+collate_op::pad_tensors(span<at::Tensor> tensors, std::int64_t pad_value, const collate_options &opts)
 {
     at::Tensor seqs{};
 
     // Pad.
     at::Tensor tmp = at::pad_sequence(
-        tensors, /*batch_first=*/true, static_cast<float64>(pad_idx));
+        tensors, /*batch_first=*/true, static_cast<float64>(pad_value));
 
     at::IntArrayRef shape = tmp.sizes();
 
@@ -306,7 +306,7 @@ collate_op::pad_tensors(span<at::Tensor> tensors, std::int64_t pad_idx, const co
 
         pad_shape[1] = opts.pad_to_multiple() - (shape[1] % opts.pad_to_multiple());
 
-        at::Tensor pad = tmp.new_full(pad_shape, pad_idx);
+        at::Tensor pad = tmp.new_full(pad_shape, pad_value);
 
         // PyTorch has trouble with LSan when a tensor is used both as an input
         // and as an output to `concat`. `tmp` is a workaround for that.
@@ -352,14 +352,14 @@ collate_op::pad_tensors(span<at::Tensor> tensors, std::int64_t pad_idx, const co
 collater::collater(collate_options opts, std::vector<collate_options_override> opt_overrides)
   : opts_{opts}, opt_overrides_{std::move(opt_overrides)}
 {
-    if (opts_.pad_to_multiple() > 1 && !opts_.maybe_pad_idx())
+    if (opts_.pad_to_multiple() > 1 && !opts_.maybe_pad_value())
         throw_<std::invalid_argument>(
-            "`pad_idx` must be set when `pad_to_multiple` is greater than 1.");
+            "`pad_value` must be set when `pad_to_multiple` is greater than 1.");
 
     for (collate_options_override &ov : opt_overrides_)
-        if (ov.options().pad_to_multiple() > 1 && !ov.options().maybe_pad_idx())
+        if (ov.options().pad_to_multiple() > 1 && !ov.options().maybe_pad_value())
             throw_<std::invalid_argument>(
-                "`pad_idx` of the selector '{}' must be set when `pad_to_multiple` is greater than 1.", ov.selector().string_());
+                "`pad_value` of the selector '{}' must be set when `pad_to_multiple` is greater than 1.", ov.selector().string_());
 }
 
 data
