@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from typing import Optional
 
@@ -35,7 +37,7 @@ class TextTokenizer(ABC):
         mode: Optional[str] = None,
         device: Optional[Device] = None,
         pin_memory: bool = False,
-    ) -> "TextTokenEncoder":
+    ) -> TextTokenEncoder:
         """Create a token encoder.
 
         The valid arguments for the ``task``, ``lang``, and ``mode`` parameters
@@ -61,7 +63,19 @@ class TextTokenizer(ABC):
         """
 
     @abstractmethod
-    def create_decoder(self) -> "TextTokenDecoder":
+    def create_raw_encoder(
+        self, *, device: Optional[Device] = None, pin_memory: bool = False
+    ) -> TextTokenEncoder:
+        """Create a raw token encoder with no control symbols.
+
+        :param device:
+            The device on which to construct tensors.
+        :param pin_memory:
+            If ``True``, uses pinned memory while constructing tensors.
+        """
+
+    @abstractmethod
+    def create_decoder(self) -> TextTokenDecoder:
         """Create a token decoder."""
 
 
