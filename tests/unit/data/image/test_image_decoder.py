@@ -9,7 +9,6 @@ from typing import Any, Final
 
 import pytest
 import torch
-import warnings
 
 from fairseq2.data.image import ImageDecoder
 from fairseq2.memory import MemoryBlock
@@ -19,6 +18,7 @@ TEST_PNG_PATH: Final = Path(__file__).parent.joinpath("test.png")
 TEST_JPG_PATH: Final = Path(__file__).parent.joinpath("test.jpg")
 TEST_CORRUPT_JPG_PATH: Final = Path(__file__).parent.joinpath("test_corrupt.jpg")
 TEST_CORRUPT_PNG_PATH: Final = Path(__file__).parent.joinpath("test_corrupt.png")
+
 
 class TestImageDecoder:
     def test_init(self) -> None:
@@ -79,7 +79,7 @@ class TestImageDecoder:
 
         assert_close(image.sum(), torch.tensor(902747049, device=device))
 
-    def test_call_raises_error_when_input_is_corrupted_png(self) -> None: 
+    def test_call_raises_error_when_input_is_corrupted_png(self) -> None:
         decoder = ImageDecoder(device=device)
 
         with TEST_CORRUPT_PNG_PATH.open("rb") as fb:
