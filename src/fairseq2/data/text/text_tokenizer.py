@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Optional
 
 from torch import Tensor
 
@@ -92,7 +92,7 @@ class TextTokenDecoder(ABC):
     """Decodes sentences from token indices."""
 
     @abstractmethod
-    def __call__(self, token_indices: Tensor) -> List[StringLike]:
+    def __call__(self, token_indices: Tensor) -> StringLike:
         """
         :param token_indices:
             The token indices to decode from.

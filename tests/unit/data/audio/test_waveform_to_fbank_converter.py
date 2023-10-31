@@ -16,11 +16,15 @@ from fairseq2.data.audio import (
     WaveformToFbankConverter,
 )
 from fairseq2.memory import MemoryBlock
-from tests.common import assert_equal, device
+from tests.common import assert_equal, device, python_devel_only
 
 TEST_OGG_PATH: Final = Path(__file__).parent.joinpath("test.ogg")
 
 
+@pytest.mark.skipif(
+    python_devel_only(),
+    reason="New fairseq2n API in Python-only installation. Skipping till v0.2.",
+)
 class TestWaveformToFbankConverter:
     def test_call_works(self) -> None:
         audio = self.get_audio()
@@ -185,7 +189,7 @@ class TestWaveformToFbankConverter:
 
         with pytest.raises(
             ValueError,
-            match=rf"^The input waveform must be two dimensional, but has {len(shape)} dimensions instead\.$",
+            match=rf"^The input waveform must be two dimensional, but has {len(shape)} dimension\(s\) instead\.$",
         ):
             converter({"waveform": waveform, "sample_rate": 16000.0})
 
