@@ -8,10 +8,14 @@
 
 namespace fairseq2n::detail {
 
-jpeg_decompress::jpeg_decompress() {}
+jpeg_decompress::jpeg_decompress() : cinfo() {
+    jpeg_create_decompress(&cinfo);
+}
 
 jpeg_decompress::~jpeg_decompress() {
-    jpeg_destroy_decompress(&cinfo);
+    if(cinfo.err != nullptr) {
+        jpeg_destroy_decompress(&cinfo);
+    }
 }
 
 jpeg_decompress_struct& jpeg_decompress::get() {

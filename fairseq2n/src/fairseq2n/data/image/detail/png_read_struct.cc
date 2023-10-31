@@ -24,7 +24,7 @@ png_read::png_read() : png_ptr(nullptr), info_ptr(nullptr) {
 }
 
 png_read::~png_read() {
-    if (png_ptr) {
+    if (png_ptr != nullptr) {
         png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
     }
 }

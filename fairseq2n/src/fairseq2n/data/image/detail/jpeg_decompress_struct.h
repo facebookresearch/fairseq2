@@ -8,7 +8,7 @@
 
 #include <cstddef>
 // Forward declaration
-typedef struct _IO_FILE FILE;
+using FILE = struct _IO_FILE;
 #include <jpeglib.h>
 
 #include "fairseq2n/exception.h"
@@ -20,13 +20,12 @@ class jpeg_decompress {
 public:
     jpeg_decompress();
     ~jpeg_decompress();
-
     jpeg_decompress_struct& get();
+    jpeg_decompress(const jpeg_decompress&) = delete; 
+    jpeg_decompress& operator=(const jpeg_decompress&) = delete; 
 
 private:
     jpeg_decompress_struct cinfo;
-    jpeg_decompress(const jpeg_decompress&); 
-    jpeg_decompress& operator=(const jpeg_decompress&); 
 };
 
 } // namespace fairseq2n::detail

@@ -14,15 +14,14 @@ class png_read{
 public:
     png_read();
     ~png_read();
-
     png_structp getPngPtr() const;
     png_infop getInfoPtr() const;
+    png_read(const png_read&) = delete;
+    png_read& operator=(const png_read&) = delete; 
 
 private:
     png_structp png_ptr;
     png_infop info_ptr;
-    png_read(const png_read&);
-    png_read& operator=(const png_read&); 
 };
 
 } // namespace fairseq2n::detail
