@@ -75,9 +75,7 @@ image_decoder::decode_png(const memory_block &block) const
     auto data_len = block.size();
     // If an error occurs, libpng will longjmp back to setjmp
     if (setjmp(png_jmpbuf(png_ptr))) {
-        // If we get here, libpng has signaled an error
-        png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
-        throw_<internal_error>("Internal error.");
+        throw_<std::runtime_error>("libpng internal error.");
     }
 
     struct Reader {
@@ -115,7 +113,6 @@ image_decoder::decode_png(const memory_block &block) const
         nullptr);
 
     if (retval != 1) {
-        png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
         throw_<std::invalid_argument>("Could not read image metadata from content.");
     }
 
@@ -178,9 +175,7 @@ image_decoder::decode_jpeg(const memory_block &block) const
     };
     // If an error occurs, error_exit will longjmp back to setjmp
     if (setjmp(jerr.setjmp_buffer)) {
-        // If we get here, libjpeg has signaled an error
-        jpeg_destroy_decompress(&cinfo);
-        throw std::runtime_error("JPEG decompression failed");
+        throw_<std::runtime_error>("JPEG decompression failed.");
     }
  
     //jpeg_create_decompress(&cinfo);
