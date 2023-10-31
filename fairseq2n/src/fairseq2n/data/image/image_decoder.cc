@@ -149,7 +149,6 @@ image_decoder::decode_png(const memory_block &block) const
 
     output.emplace("image", std::move(image));
     
-    png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
     return output;
 }
 
@@ -167,7 +166,7 @@ image_decoder::decode_jpeg(const memory_block &block) const
         jmp_buf setjmp_buffer;	// Return to caller 
     };
     struct custom_error_mgr jerr = {};
-    typedef struct custom_error_mgr * error_ptr;
+    using error_ptr = struct custom_error_mgr *;
     cinfo.err = jpeg_std_error(&jerr.pub);
     // error_exit is called by libjpeg when a fatal error occurs
     jerr.pub.error_exit = [](j_common_ptr cinfo) {
@@ -183,11 +182,12 @@ image_decoder::decode_jpeg(const memory_block &block) const
         jpeg_destroy_decompress(&cinfo);
         throw std::runtime_error("JPEG decompression failed");
     }
-    jpeg_create_decompress(&cinfo);
+ 
+    //jpeg_create_decompress(&cinfo);
     jpeg_mem_src(&cinfo, reinterpret_cast<const unsigned char *>(data_ptr), data_len);
     jpeg_read_header(&cinfo, TRUE);
     jpeg_start_decompress(&cinfo);
-
+  
     auto width = cinfo.output_width;
     auto height = cinfo.output_height;
     auto channels = cinfo.output_components;
@@ -205,19 +205,18 @@ image_decoder::decode_jpeg(const memory_block &block) const
         image_data += row_size;
     }
     jpeg_finish_decompress(&cinfo);
-    jpeg_destroy_decompress(&cinfo);
 
     at::Device device = opts_.maybe_device().value_or(at::kCPU);
     if (device != at::kCPU)
         image = image.to(device);
-
+   
     // Pack jpeg data and format as output.
     data_dict output{
         {{"channels", static_cast<float32>(channels)}, {"height", static_cast<float32>(height)}, 
         {"width", static_cast<float32>(width)}, {"bit_depth", static_cast<float32>(bit_depth)}}};
-
+   
     output.emplace("image", std::move(image));
-
+    
     return output;
 }
 }; // namespace fairseq2n
