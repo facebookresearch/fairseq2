@@ -77,7 +77,7 @@ class SequenceToTextGeneratorBase:
             encoder_output, encoder_padding_mask, source_seq_len=source_seqs.size(1)
         )
 
-        sentences = [self.token_decoder(b[0].seq)[0] for b in gen_output.results]
+        sentences = [self.token_decoder(b[0].seq) for b in gen_output.results]
 
         return SequenceToTextOutput(
             sentences, gen_output, encoder_output, encoder_padding_mask
