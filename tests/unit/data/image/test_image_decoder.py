@@ -79,7 +79,7 @@ class TestImageDecoder:
 
         assert_close(image.sum(), torch.tensor(902747049, device=device))
 
-    def test_corrupted_png(self) -> None: 
+    def test_call_raises_error_when_input_is_corrupted_png(self) -> None: 
         decoder = ImageDecoder(device=device)
 
         with TEST_CORRUPT_PNG_PATH.open("rb") as fb:
@@ -91,7 +91,7 @@ class TestImageDecoder:
         ):
             decoder(block)
 
-    def test_corrupted_jpg(self) -> None:
+    def test_call_raises_error_when_input_is_corrupted_jpg(self) -> None:
         decoder = ImageDecoder(device=device)
 
         with TEST_CORRUPT_JPG_PATH.open("rb") as fb:
