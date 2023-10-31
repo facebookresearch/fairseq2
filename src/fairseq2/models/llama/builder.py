@@ -67,9 +67,6 @@ class LLaMAConfig:
     dropout_p: float
     """The dropout probability in Transformer layers."""
 
-    norm_eps: float
-    """The epsilon used by Layer Normalization modules."""
-
 
 llama_archs = ArchitectureRegistry[LLaMAConfig]("llama")
 
@@ -89,7 +86,6 @@ def _7b() -> LLaMAConfig:
         ffn_inner_dim=4096 * 4,
         ffn_inner_dim_to_multiple=256,
         dropout_p=0.1,
-        norm_eps=1e-5,
     )
 
 
@@ -105,7 +101,6 @@ def _13b() -> LLaMAConfig:
         ffn_inner_dim=5120 * 4,
         ffn_inner_dim_to_multiple=256,
         dropout_p=0.1,
-        norm_eps=1e-5,
     )
 
 
@@ -121,7 +116,6 @@ def _33b() -> LLaMAConfig:
         ffn_inner_dim=6656 * 4,
         ffn_inner_dim_to_multiple=256,
         dropout_p=0.1,
-        norm_eps=1e-5,
     )
 
 
@@ -137,7 +131,6 @@ def _65b() -> LLaMAConfig:
         ffn_inner_dim=8192 * 4,
         ffn_inner_dim_to_multiple=256,
         dropout_p=0.1,
-        norm_eps=1e-5,
     )
 
 
@@ -153,7 +146,6 @@ def _llama2_7b() -> LLaMAConfig:
         ffn_inner_dim=4096 * 4,
         ffn_inner_dim_to_multiple=256,
         dropout_p=0.1,
-        norm_eps=1e-6,
     )
 
 
@@ -169,7 +161,6 @@ def _llama2_13b() -> LLaMAConfig:
         ffn_inner_dim=5120 * 4,
         ffn_inner_dim_to_multiple=256,
         dropout_p=0.1,
-        norm_eps=1e-5,
     )
 
 
@@ -185,7 +176,6 @@ def _llama2_70b() -> LLaMAConfig:
         ffn_inner_dim=int(8192 * 4 * 1.3),  # See A.2.1 in LLaMA 2
         ffn_inner_dim_to_multiple=4096,
         dropout_p=0.1,
-        norm_eps=1e-5,
     )
 
 
@@ -337,9 +327,7 @@ class LLaMABuilder:
         dtype: Optional[DataType] = None,
     ) -> LayerNorm:
         """Build a Layer Normalization module."""
-        return RMSNorm(
-            model_dim, bias=False, eps=self.config.norm_eps, device=device, dtype=dtype
-        )
+        return RMSNorm(model_dim, bias=False, device=device, dtype=dtype)
 
 
 def create_llama_model(
