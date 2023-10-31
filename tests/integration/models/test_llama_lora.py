@@ -28,7 +28,6 @@ def test_lora_wrappers_llama_works() -> None:
         ffn_inner_dim=1024 * 4,
         ffn_inner_dim_to_multiple=1,
         dropout_p=0.1,
-        norm_eps=1e-5,
     )
     model = create_llama_model(llama_config, device=torch.device("cpu"))
 

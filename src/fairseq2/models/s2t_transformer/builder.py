@@ -62,7 +62,7 @@ class S2TTransformerConfig:
     """The size of the target vocabulary."""
 
     target_pad_idx: Optional[int]
-    """The index of the pad symbol in the target vocabulary."""
+    """The index of the PAD symbol in the target vocabulary."""
 
     use_relative_pos: bool
     """If ``True``, uses relative positional encodings for source sequences."""
