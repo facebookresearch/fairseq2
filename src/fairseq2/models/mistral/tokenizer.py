@@ -36,10 +36,6 @@ class MistralTokenizer(TextTokenizer):
 
         vocabulary_info = vocabulary_from_sentencepiece(self.model)
 
-        # Mistral tokenizer has no PAD symbol defined in its SentencePiece model
-        # and uses EOS instead.
-        vocabulary_info.pad_idx = vocabulary_info.eos_idx
-
         super().__init__(vocabulary_info)
 
     @finaloverride

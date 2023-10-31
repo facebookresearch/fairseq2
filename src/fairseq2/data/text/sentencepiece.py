@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import TYPE_CHECKING, List, Optional, Sequence, final
+from typing import TYPE_CHECKING, Optional, Sequence, final
 
 from torch import Tensor
 
@@ -87,7 +87,7 @@ if TYPE_CHECKING or _DOC_MODE:
             ...
 
         @finaloverride
-        def __call__(self, token_indices: Tensor) -> List[StringLike]:
+        def __call__(self, token_indices: Tensor) -> StringLike:
             ...
 
 else:

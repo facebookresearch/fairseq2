@@ -76,6 +76,12 @@ def_string(py::module_ &data_module)
             })
 
         .def(
+            "strip",
+            [](const immutable_string &self)
+            {
+                return rtrim(ltrim(self));
+            })
+        .def(
             "lstrip",
             [](const immutable_string &self)
             {

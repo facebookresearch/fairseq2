@@ -45,6 +45,9 @@ if TYPE_CHECKING or _DOC_MODE:
         def bytes(self) -> bytes:
             """Return a copy of this string as :class:`bytes`."""
 
+        def strip(self) -> "CString":
+            """Return a copy of this string with no whitespace at the beginning and end."""
+
         def lstrip(self) -> "CString":
             """Return a copy of this string with no whitespace at the beginning."""
 

@@ -67,7 +67,7 @@ class SequenceModelOutput:
     is the size of the target vocabulary."""
 
     pad_idx: Optional[int] = None
-    """The index of the pad symbol in the target vocabulary."""
+    """The index of the PAD symbol in the target vocabulary."""
 
     def compute_loss(
         self,

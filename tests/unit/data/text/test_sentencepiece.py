@@ -11,32 +11,33 @@ from typing import ClassVar, Final, List, Optional, Sequence
 import pytest
 import torch
 
+from fairseq2.data import CString
 from fairseq2.data.text import (
     SentencePieceDecoder,
     SentencePieceEncoder,
     SentencePieceModel,
 )
 from fairseq2.typing import DataType
-from tests.common import assert_equal, device
+from tests.common import assert_equal, device, python_devel_only
 
 TEST_SPM_PATH: Final = Path(__file__).parent.joinpath("test.spm")
 
 
+@pytest.mark.skipif(
+    python_devel_only(),
+    reason="New fairseq2n API in Python-only installation. Skipping till v0.2.",
+)
 class TestSentencePieceModel:
-    sentences: ClassVar[List[str]]
-    token_indices: ClassVar[List[List[int]]]
+    sentence: ClassVar[str]
+    token_indices: ClassVar[List[int]]
 
     @classmethod
     def setup_class(cls) -> None:
-        cls.sentences = [
-            "Hello world! How are you?",
-            "What's up? Hope you are doing well today.",
-        ]
+        cls.sentence = "What's up? Hope you are doing well today."
 
         # fmt: off
         cls.token_indices = [
-            [132, 30, 131, 114, 52, 418, 68, 166, 106, 40, 11],
-            [169, 87, 5, 227, 11, 424, 294, 40, 106, 120, 26, 597, 19, 303, 4]
+            169, 87, 5, 227, 11, 424, 294, 40, 106, 120, 26, 597, 19, 303, 4
         ]
         # fmt: on
 
@@ -78,19 +79,17 @@ class TestSentencePieceModel:
         encoder = SentencePieceEncoder(model, device=device)
         decoder = SentencePieceDecoder(model)
 
-        indices = encoder(self.sentences[0])
+        indices = encoder(self.sentence)
 
         # Assert encoder.
-        assert_equal(indices, self.token_indices[0])
+        assert_equal(indices, self.token_indices)
 
-        sentences = decoder(indices)
+        sentence = decoder(indices)
 
         # Assert decoder
-        assert isinstance(sentences, list)
+        assert isinstance(sentence, CString)
 
-        assert len(sentences) == 1
-
-        assert sentences[0] == self.sentences[0]
+        assert sentence == self.sentence
 
     def test_encode_decode_work_when_reverse_is_true(self) -> None:
         model = self.build_model()
@@ -98,19 +97,17 @@ class TestSentencePieceModel:
         encoder = SentencePieceEncoder(model, device=device, reverse=True)
         decoder = SentencePieceDecoder(model, reverse=True)
 
-        indices = encoder(self.sentences[0])
+        indices = encoder(self.sentence)
 
         # Assert encoder.
-        assert_equal(indices, self.token_indices[0][::-1])
+        assert_equal(indices, self.token_indices[::-1])
 
-        sentences = decoder(indices)
+        sentence = decoder(indices)
 
         # Assert decoder.
-        assert isinstance(sentences, list)
+        assert isinstance(sentence, CString)
 
-        assert len(sentences) == 1
-
-        assert sentences[0] == self.sentences[0]
+        assert sentence == self.sentence
 
     def test_decode_works_when_control_symbols_are_specified(self) -> None:
         model = self.build_model(control_symbols=["<foo>"])
@@ -118,10 +115,10 @@ class TestSentencePieceModel:
         encoder = SentencePieceEncoder(model, device=device)
         decoder = SentencePieceDecoder(model)
 
-        indices = encoder(self.sentences[0])
+        indices = encoder(self.sentence)
 
         # Assert encoder.
-        assert_equal(indices, self.token_indices[0])
+        assert_equal(indices, self.token_indices)
 
         # We inject a dummy <foo> token to the returned tokens.
         foo_idx = model.token_to_index("<foo>")
@@ -131,14 +128,12 @@ class TestSentencePieceModel:
         indices = torch.cat([indices[:2], foo, indices[2:]])
 
         # We expect the decoder to ignore the <foo> tokens.
-        sentences = decoder(indices)
+        sentence = decoder(indices)
 
         # Assert decoder.
-        assert isinstance(sentences, list)
+        assert isinstance(sentence, CString)
 
-        assert len(sentences) == 1
-
-        assert sentences[0] == self.sentences[0]
+        assert sentence == self.sentence
 
     def test_encode_works_when_prefix_and_suffix_tokens_are_specified(self) -> None:
         model = self.build_model(control_symbols=["<foo1>", "<foo2>", "<foo3>"])
@@ -151,45 +146,25 @@ class TestSentencePieceModel:
         )
         decoder = SentencePieceDecoder(model)
 
-        indices = encoder(self.sentences[0])
+        indices = encoder(self.sentence)
 
         # Assert encoder.
         foo1_idx = model.token_to_index("<foo1>")
         foo2_idx = model.token_to_index("<foo2>")
         foo3_idx = model.token_to_index("<foo3>")
 
-        e = (
-            [foo1_idx, model.bos_idx]
-            + self.token_indices[0]
-            + [foo2_idx, model.eos_idx, foo3_idx]
-        )
+        bos_idx = model.bos_idx
+        eos_idx = model.eos_idx
+
+        e = [foo1_idx, bos_idx] + self.token_indices + [foo2_idx, eos_idx, foo3_idx]
 
         assert_equal(indices, e)
 
         # We expect the decoder to ignore the prefix and suffix tokens.
-        sentences = decoder(indices)
+        sentence = decoder(indices)
 
         # Assert decoder.
-        assert sentences[0] == self.sentences[0]
-
-    @pytest.mark.parametrize("dtype", [torch.int16, torch.int32, torch.int64])
-    def test_decode_works_when_input_is_batched(self, dtype: DataType) -> None:
-        model = self.build_model()
-
-        decoder = SentencePieceDecoder(model)
-
-        indices1 = torch.tensor(self.token_indices[0], device=device, dtype=dtype)
-        indices2 = torch.tensor(self.token_indices[1], device=device, dtype=dtype)
-
-        batch = torch.nn.utils.rnn.pad_sequence([indices1, indices2], batch_first=True)
-
-        sentences = decoder(batch)
-
-        assert isinstance(sentences, list)
-
-        assert len(sentences) == 2
-
-        assert sentences == self.sentences
+        assert sentence == self.sentence
 
     @pytest.mark.parametrize("dtype", [torch.float32, torch.int8])
     def test_decode_raises_error_when_data_type_is_not_supported(
@@ -208,7 +183,7 @@ class TestSentencePieceModel:
             decoder(indices)
 
     @pytest.mark.parametrize("shape", [(), (4, 4, 4)])
-    def test_decode_raises_error_when_input_has_more_than_2_dimensions(
+    def test_decode_raises_error_when_input_has_more_than_1_dimension(
         self, shape: Sequence[int]
     ) -> None:
         model = self.build_model()
@@ -219,7 +194,7 @@ class TestSentencePieceModel:
 
         with pytest.raises(
             ValueError,
-            match=rf"^The input tensor must be one or two dimensional, but has {len(shape)} dimensions instead\.$",
+            match=rf"^The input tensor must be one dimensional, but has {len(shape)} dimension\(s\) instead\.$",
         ):
             decoder(indices)
 
