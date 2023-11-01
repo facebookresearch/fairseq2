@@ -368,7 +368,13 @@ collater::operator()(data &&d) const
     if (!d.is_list())
         d = data_list{std::move(d)};
 
-    return collate_op{this, std::move(d).as_list()}.run();
+    data_list &bucket = d.as_list();
+
+    if (bucket.empty())
+        throw_<std::invalid_argument>(
+            "The bucket must contain at least one element, but is empty instead.");
+
+    return collate_op{this, std::move(bucket)}.run();
 }
 
 }  // namespace fairseq2n
