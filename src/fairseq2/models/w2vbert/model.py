@@ -92,10 +92,10 @@ class W2VBertModel(Module):
 
         w2v2_layer_output = None
 
-        def layer_output_hook(
+        def hook(
             layer_idx: int,
             layer_output: Tensor,
-            layer_padding_mask: PaddingMask,
+            layer_padding_mask: Optional[PaddingMask],
             num_layers: int,
         ) -> bool:
             nonlocal w2v2_layer_output
@@ -105,10 +105,8 @@ class W2VBertModel(Module):
 
             return True
 
-        # TODO: Should we pad for fp16?
-        encoder_output, _ = self.w2v2_model.encoder(
-            seqs, padding_mask, layer_output_hook=layer_output_hook
-        )
+        with self.w2v2_model.encoder.register_layer_output_hook(hook):
+            encoder_output, _ = self.w2v2_model.encoder(seqs, padding_mask)
 
         assert w2v2_layer_output is not None
 

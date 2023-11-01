@@ -4,11 +4,15 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import Iterable, Optional, Protocol, Tuple, final
+from collections import OrderedDict
+from typing import Dict, Iterable, Optional, Protocol, Tuple, final
 
 from torch import Tensor
 from torch.nn import Module
+from torch.utils.hooks import RemovableHandle
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.module_list import ModuleList
@@ -33,6 +37,8 @@ class TransformerDecoder(Module, ABC):
     model_dim: int
     layers: ModuleList
 
+    _layer_output_hooks: Dict[int, DecoderLayerOutputHook]
+
     def __init__(self, model_dim: int) -> None:
         """
         :param model_dim:
@@ -42,6 +48,8 @@ class TransformerDecoder(Module, ABC):
 
         self.model_dim = model_dim
 
+        self._layer_output_hooks = OrderedDict()
+
     @abstractmethod
     def forward(
         self,
@@ -50,7 +58,6 @@ class TransformerDecoder(Module, ABC):
         encoder_output: Optional[Tensor] = None,
         encoder_padding_mask: Optional[PaddingMask] = None,
         *,
-        layer_output_hook: Optional["DecoderLayerOutputHook"] = None,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tuple[Tensor, Optional[PaddingMask]]:
         """
@@ -70,9 +77,6 @@ class TransformerDecoder(Module, ABC):
             The padding mask of ``encoder_output``. *Shape:* :math:`(N,S_{enc})`,
             where :math:`N` is the batch size and :math:`S_{enc}` is the encoder
             output sequence length.
-        :param layer_output_hook:
-            If not ``None``, it will be called with the output of each layer in
-            the decoder stack.
         :param state_bag:
             The state bag to use for incremental decoding.
 
@@ -81,6 +85,27 @@ class TransformerDecoder(Module, ABC):
             - The padding mask of the decoder output. *Shape:* Same as
               ``padding_mask``.
         """
+
+    def register_layer_output_hook(
+        self, hook: DecoderLayerOutputHook
+    ) -> RemovableHandle:
+        """Register a layer output hook on the module.
+
+        The hook will be called every time after a layer in the decoder stack
+        has computed an output.
+
+        :param hook:
+            The hook to register.
+
+        :returns:
+            A handle that can be used to remove the added hook by calling
+            ``handle.remove()``.
+        """
+        handle = RemovableHandle(self._layer_output_hooks)
+
+        self._layer_output_hooks[handle.id] = hook
+
+        return handle
 
     def extra_repr(self) -> str:
         """:meta private:"""
@@ -187,11 +212,12 @@ class StandardTransformerDecoder(TransformerDecoder):
         encoder_output: Optional[Tensor] = None,
         encoder_padding_mask: Optional[PaddingMask] = None,
         *,
-        layer_output_hook: Optional[DecoderLayerOutputHook] = None,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Tuple[Tensor, Optional[PaddingMask]]:
-        if layer_output_hook is not None and self.layers.drop_p > 0.0:
-            raise ValueError("`layer_hook` must be `None` when LayerDrop is enabled.")
+        if self._layer_output_hooks and self.layers.drop_p > 0.0:
+            raise ValueError(
+                "The layer output hooks cannot be run when LayerDrop is enabled."
+            )
 
         num_layers = len(self.layers)
 
@@ -212,8 +238,8 @@ class StandardTransformerDecoder(TransformerDecoder):
                 state_bag=state_bag,
             )
 
-            if layer_output_hook is not None:
-                if not layer_output_hook(layer_idx, seqs, padding_mask, num_layers):
+            for hook in self._layer_output_hooks.values():
+                if not hook(layer_idx, seqs, padding_mask, num_layers):
                     break
 
         if self.layer_norm is not None:

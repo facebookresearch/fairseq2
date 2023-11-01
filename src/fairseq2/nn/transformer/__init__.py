@@ -69,6 +69,9 @@ from fairseq2.nn.transformer.multihead_attention import (
     AttentionWeightHook as AttentionWeightHook,
 )
 from fairseq2.nn.transformer.multihead_attention import (
+    AttentionWeightStoreHook as AttentionWeightStoreHook,
+)
+from fairseq2.nn.transformer.multihead_attention import (
     FullAttentionState as FullAttentionState,
 )
 from fairseq2.nn.transformer.multihead_attention import (
@@ -85,9 +88,6 @@ from fairseq2.nn.transformer.multihead_attention import (
 )
 from fairseq2.nn.transformer.multihead_attention import (
     StaticAttentionState as StaticAttentionState,
-)
-from fairseq2.nn.transformer.multihead_attention import (
-    StoreAttentionWeights as StoreAttentionWeights,
 )
 from fairseq2.nn.transformer.norm_order import (
     TransformerNormOrder as TransformerNormOrder,
