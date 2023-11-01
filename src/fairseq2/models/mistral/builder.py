@@ -80,7 +80,7 @@ def _7b() -> MistralConfig:
         model_dim=4096,
         max_seq_len=8192,
         vocabulary_size=32000,
-        attn_window_len=4,
+        attn_window_len=4096,
         num_layers=32,
         num_attn_heads=32,
         num_key_value_heads=8,
