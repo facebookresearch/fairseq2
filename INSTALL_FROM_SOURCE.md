@@ -4,9 +4,9 @@ system for which no pre-built fairseq2 package is available, or for users who
 want to work on the C++/CUDA code of fairseq2.
 
 > [!NOTE]
-> If you plan to only modify Python portions of fairseq2, and if fairseq2
-> provides a pre-built nightly package for your system, we recommend using an
-> editable pip installation as described in
+> If you plan to edit and only modify Python portions of fairseq2, and if
+> fairseq2 provides a pre-built nightly package for your system, we recommend
+> using an editable pip installation as described in
 > [Contribution Guidelines](CONTRIBUTING.md#setting-up-development-environment).
 
 
