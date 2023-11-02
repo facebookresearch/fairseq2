@@ -24,7 +24,8 @@ defaults:
 jobs:
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on:
+      labels: 4-core-ubuntu
     container:
       image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_x86_64:2
       env:
