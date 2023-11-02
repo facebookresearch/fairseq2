@@ -101,11 +101,11 @@ pip install fairseq2\
 
 > [!WARNING]
 > fairseq2 relies on the C++ API of PyTorch which has no API/ABI compatibility
-> between releases. This means you have to **first install a PyTorch version
-> that exactly matches the version that fairseq2 was built against**. Otherwise,
-> you might experience issues like immediate process crashes or spurious
-> segfaults. For the same reason, if you upgrade your PyTorch version, you must
-> also upgrade your fairseq2 installation.
+> between releases. This means **you have to install the fairseq2 variant that
+> exactly matches your PyTorch version**. Otherwise, you might experience issues
+> like immediate process crashes or spurious segfaults. For the same reason, if
+> you upgrade your PyTorch version, you must also upgrade your fairseq2
+> installation.
 
 ### Nightlies
 For Linux, we also host nightly builds on FAIR's package repository. The
