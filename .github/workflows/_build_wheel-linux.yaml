@@ -25,7 +25,7 @@ on:
       artifacts_name:
         type: string
         default: 'wheels'
-      version_overwrite:
+      version_override:
         type: string
         default: ''
       label_version_with_variant:
@@ -76,9 +76,9 @@ jobs:
         run: |
           pip install --requirement fairseq2n/python/requirements-build.txt
       - name: Override project version
-        if: inputs.version_overwrite
+        if: inputs.version_override
         run: |
-          tools/set-project-version.sh ${{ inputs.version_overwrite }}
+          tools/set-project-version.sh ${{ inputs.version_override }}
       - name: Set build variant as local version label
         if: inputs.label_version_with_variant
         env:
@@ -123,7 +123,6 @@ jobs:
             -GNinja\
             -DCMAKE_BUILD_TYPE=$build_type\
             -DCMAKE_CUDA_ARCHITECTURES=$cuda_archs\
-            -DFAIRSEQ2N_INSTALL_STANDALONE=ON\
             -DFAIRSEQ2N_PERFORM_LTO=$lto\
             -DFAIRSEQ2N_SANITIZERS="${SANITIZERS/_/;}"\
             -DFAIRSEQ2N_TREAT_WARNINGS_AS_ERRORS=ON\

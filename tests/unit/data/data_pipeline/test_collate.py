@@ -8,11 +8,10 @@ import pytest
 import torch
 
 from fairseq2.data import Collater, read_sequence
-from tests.common import assert_equal, device, python_devel_only
+from tests.common import assert_equal, device
 
 
 class TestCollateOp:
-    @pytest.mark.skipif(python_devel_only(), reason="fairseq2n 0.2.0")
     @pytest.mark.parametrize("pad_to_multiple", [1, 2, 3, 8])
     def test_op_works(self, pad_to_multiple: int) -> None:
         pad_value = 3

@@ -4,9 +4,9 @@ system for which no pre-built fairseq2 package is available, or for users who
 want to work on the C++/CUDA code of fairseq2.
 
 > [!NOTE]
-> If you plan to only modify Python portions of fairseq2, and if fairseq2
-> provides a pre-built package for your system, we recommend using an editable
-> pip installation as described in
+> If you plan to edit and only modify Python portions of fairseq2, and if
+> fairseq2 provides a pre-built nightly package for your system, we recommend
+> using an editable pip installation as described in
 > [Contribution Guidelines](CONTRIBUTING.md#setting-up-development-environment).
 
 
@@ -81,7 +81,7 @@ brew install libsndfile
 
 ### 3.2 PyTorch
 Follow the instructions on [pytorch.org](https://pytorch.org) to install the
-desired PyTorch version. Note that fairseq2 supports only PyTorch 1.12 or
+desired PyTorch version.
 greater.
 
 ### 3.3 CUDA
@@ -112,7 +112,7 @@ configure the build:
 ```sh
 cd fairseq2n
 
-cmake -GNinja -DFAIRSEQ2N_INSTALL_STANDALONE=ON -B build
+cmake -GNinja -B build
 ```
 
 Once the configuration step is complete, build fairseq2n using:
@@ -138,7 +138,7 @@ option `ON`. When turned on, the version of the CUDA Toolkit installed on your
 machine and the version of CUDA that was used to build PyTorch must match:
 
 ```sh
-cmake -GNinja -DFAIRSEQ2N_INSTALL_STANDALONE=ON -DFAIRSEQ2N_USE_CUDA=ON -B build
+cmake -GNinja -DFAIRSEQ2N_USE_CUDA=ON -B build
 ```
 
 Similar to CPU-only build, follow this command with:
@@ -170,10 +170,10 @@ pip install .
 cd -
 ```
 
-Then, fairseq2 (note the `FAIRSEQ2N_DEVEL` environment variable):
+Then, fairseq2:
 
 ```sh
-FAIRSEQ2N_DEVEL=1 pip install .
+pip install .
 ```
 
 ### Editable Install
@@ -187,7 +187,7 @@ pip install -e .
 
 cd -
 
-FAIRSEQ2N_DEVEL=1 pip install -e .
+pip install -e .
 ```
 
 Optionally, you can also install the development tools (e.g. linters,

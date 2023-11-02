@@ -19,7 +19,7 @@ on:
       artifacts_name:
         type: string
         default: 'wheels'
-      version_overwrite:
+      version_override:
         type: string
         default: ''
 
@@ -52,9 +52,9 @@ jobs:
         run: |
           pip install --requirement fairseq2n/python/requirements-build.txt
       - name: Override project version
-        if: inputs.version_overwrite
+        if: inputs.version_override
         run: |
-          tools/set-project-version.sh ${{ inputs.version_overwrite }}
+          tools/set-project-version.sh ${{ inputs.version_override }}
       - name: Build fairseq2n
         working-directory: fairseq2n
         run: |
@@ -62,7 +62,6 @@ jobs:
             -GNinja\
             -DCMAKE_BUILD_TYPE=Release\
             -DPython3_FIND_FRAMEWORK=NEVER\
-            -DFAIRSEQ2N_INSTALL_STANDALONE=ON\
             -DFAIRSEQ2N_PERFORM_LTO=OFF\
             -DFAIRSEQ2N_TREAT_WARNINGS_AS_ERRORS=ON\
             -DFAIRSEQ2N_THREAD_LIB=""\
