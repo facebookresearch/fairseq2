@@ -6,12 +6,14 @@
 
 #pragma once
 
-#include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
-#include <libswscale/swscale.h>
+#include <decord/video_interface.h>
+#include <optional>
 
 #include "fairseq2n/api.h"
 #include "fairseq2n/data/data.h"
+
+#include <ATen/Device.h>
+#include <ATen/ScalarType.h>
 
 namespace fairseq2n {
 
@@ -74,7 +76,7 @@ private:
 class FAIRSEQ2_API video_decoder {
 public:
     explicit
-    video_decoder(video_decoder_options opts = {});
+    video_decoder(video_decoder_options opts = {}, bool pin_memory = false);
 
     data
     operator()(data &&d) const;
@@ -82,5 +84,4 @@ public:
 private:
     video_decoder_options opts_;
 };
-
 }  // namespace fairseq2n
