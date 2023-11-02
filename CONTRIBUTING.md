@@ -1,21 +1,28 @@
 # Contributing to fairseq2
-We want to make contributing to fairseq2 as easy and transparent as possible.
-Please make sure to read this guideline carefully.
+We want to make contributing to fairseq2 as easy as possible. Please make sure
+to read this guideline carefully.
 
 
 ## Setting up Development Environment
 fairseq2 consists of two packages; the user-facing fairseq2 package implemented
 in pure Python, and the fairseq2n package that contains the C++ and CUDA
-portions of the library. If fairseq2n is available as a pre-built package for
-your system (check installation instructions for your operating system in
-[README](.)), and if you are interested in only modifying Python portions of
+portions of the library. If pre-built fairseq2n nightlies are available for your
+system (check installation instructions for your operating
+system in [README](.#nightlies)), and if you are interested in only modifying Python portions of
 fairseq2, you can use an editable pip installation as described below.
 Otherwise, if you are planning to work on C++ or CUDA, or if fairseq2n is not
-available as a pre-built package for your system, please follow the install
+available as a pre-built package for your system, please follow the installation
 instructions [here](INSTALL_FROM_SOURCE.md).
 
-For an editable installation, first, clone the fairseq2 repository to your
-machine:
+For an editable installation, first, install a nightly build of fairseq2n (shown
+for PyTorch `2.0.1` and variant `cu118`):
+
+```sh
+pip install fairseq2n\
+  --pre --upgrade --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.0.1/cu118
+```
+
+Then, clone the fairseq2 repository to your machine:
 
 ```sh
 git clone https://github.com/facebookresearch/fairseq2.git
@@ -23,7 +30,7 @@ git clone https://github.com/facebookresearch/fairseq2.git
 cd fairseq2
 ```
 
-Then, install the fairseq2 package in editable mode:
+And, install the fairseq2 package in editable mode:
 
 ```sh
 pip install -e .
