@@ -50,7 +50,7 @@ option(FAIRSEQ2N_INSTALL_STANDALONE
     #DESCRIPTION
         "Installs with relative rpaths."
     #VALUE
-        OFF
+        ON
 )
 
 option(FAIRSEQ2N_PERFORM_LTO

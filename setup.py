@@ -4,20 +4,16 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from os import environ
-
 from setuptools import find_packages, setup
 
-version = "0.2.0+devel"
+version = "0.2.0.dev0"
 
-# DO NOT forget to update the fallback version with each release!
-fallback_fairseq2n_version = "0.1.1"
-
-if "CI" in environ or "FAIRSEQ2N_DEVEL" in environ:
-    fairseq2n_version = version
+# If this is a local development install, allow nightly fairseq2n builds to
+# take precedence.
+if version.endswith(".dev0"):
+    fairseq2n_version_spec = f">={version},<={version[:-5]}"
 else:
-    fairseq2n_version = fallback_fairseq2n_version
-
+    fairseq2n_version_spec = f"=={version}"
 
 setup(
     name="fairseq2",
@@ -47,7 +43,7 @@ setup(
     zip_safe=False,
     python_requires=">=3.8",
     install_requires=[
-        "fairseq2n==" + fairseq2n_version,
+        "fairseq2n" + fairseq2n_version_spec,
         "jiwer~=3.0",
         "numpy~=1.23",
         "overrides~=7.3",

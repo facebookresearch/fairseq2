@@ -13,7 +13,7 @@ on:
       py:
         type: string
         default: '3.11'
-      version_overwrite:
+      version_override:
         type: string
         default: ''
 
@@ -48,9 +48,9 @@ jobs:
             --requirement fairseq2n/python/requirements-build.txt\
             --requirement doc/requirements.txt
       - name: Overwrite project version
-        if: inputs.version_overwrite
+        if: inputs.version_override
         run: |
-          tools/set-project-version.sh ${{ inputs.version_overwrite }}
+          tools/set-project-version.sh ${{ inputs.version_override }}
       - name: Install fairseq2n
         run: |
           pip install --editable fairseq2n/python

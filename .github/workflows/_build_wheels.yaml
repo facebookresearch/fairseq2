@@ -10,7 +10,7 @@ on:
       release_type:
         type: string
         required: true
-      version_overwrite:
+      version_override:
         type: string
         required: true
 
@@ -30,7 +30,7 @@ jobs:
       py: ${{ matrix.py }}
       variant: ${{ matrix.variant }}
       sanitizers: ${{ matrix.sanitizers }}
-      version_overwrite: ${{ inputs.version_overwrite }}
+      version_override: ${{ inputs.version_override }}
 
   build_pt131_wheel-linux:
     name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
@@ -47,7 +47,7 @@ jobs:
       py: ${{ matrix.py }}
       variant: ${{ matrix.variant }}
       sanitizers: ${{ matrix.sanitizers }}
-      version_overwrite: ${{ inputs.version_overwrite }}
+      version_override: ${{ inputs.version_override }}
 
   build_pt20_wheel-linux:
     name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
@@ -80,7 +80,7 @@ jobs:
       py: ${{ matrix.py }}
       variant: ${{ matrix.variant }}
       sanitizers: ${{ matrix.sanitizers }}
-      version_overwrite: ${{ inputs.version_overwrite }}
+      version_override: ${{ inputs.version_override }}
       run_integration_tests: ${{ matrix.run_integration_tests }}
 
   build_pypi_wheel-linux:
@@ -98,7 +98,7 @@ jobs:
       py: ${{ matrix.py }}
       variant: ${{ matrix.variant }}
       artifacts_name: 'pypi'
-      version_overwrite: ${{ inputs.version_overwrite }}
+      version_override: ${{ inputs.version_override }}
       label_version_with_variant: false
 
 #  build_pypi_wheel-macos:
@@ -114,4 +114,4 @@ jobs:
 #      torch: ${{ matrix.torch }}
 #      py: ${{ matrix.py }}
 #      artifacts_name: 'pypi'
-#      version_overwrite: ${{ inputs.version_overwrite }}
+#      version_override: ${{ inputs.version_override }}
