@@ -20,13 +20,12 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_x86_64:1-cpu
+      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux:2
+      env:
+        VARIANT: 'cpu'
     steps:
       - name: Check-out the repository
         uses: actions/checkout@v3
-      - name: Install libsndfile
-        run: |
-          yum --assumeyes install libsndfile-devel
       - name: Create the Python virtual environment
         run: |
           python${{ inputs.py }} -m venv ~/venv

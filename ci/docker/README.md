@@ -4,11 +4,9 @@ used in GitHub Actions.
 
 ## manylinux
 The images with the `manylinux` tag are used to build and test fairseq2 on
-Linux. They have the tag format
-`fairseq2-ci-manylinux_<ARCH>:<VERSION>-<VARIANT>`, where `<ARCH>` is the
-architecture (e.g. `x86_64`), `<VERSION>` is the current version of the image
-(e.g. `1`), and `<VARIANT>` is either `cpu` or a CUDA version specifier (e.g.
-`cu117`).
+Linux. They have the tag format `fairseq2-ci-manylinux_<ARCH>:<VERSION>`, where
+`<ARCH>` is the architecture (e.g. `x86_64`) and `<VERSION>` is the current
+version of the image (e.g. `2`).
 
 The images are based of PyPA's
 [manylinux2014](https://github.com/pypa/manylinux) to ensure maximum binary
@@ -16,16 +14,14 @@ compatibility with different Linux distributions.
 
 ### Deployment Instructions
 As of this writing, all images are readily available in the
-[ghcr.io/facebookresearch](https://github.com/orgs/facebookresearch/packages/container/package/fairseq2-ci-wheel)
+[ghcr.io/facebookresearch](https://github.com/orgs/facebookresearch/packages)
 registry. You should follow these instructions if, for any reason, an image
 should be updated. In such case, make sure to increment `<VERSION>` in the
 Dockerfile, in GA workflows, and in the commands below.
 
 #### 1. Build the Docker Image
-The `<VARIANT>` must be one of `cpu`, `cu117`, `cu118`, or `cu118-clang`.
-
 ```
-docker build --network host --tag ghcr.io/facebookresearch/fairseq2-ci-manylinux_<ARCH>:<VERSION>-<VARIANT> -f Dockerfile.<VARIANT> .
+docker build --network host --tag ghcr.io/facebookresearch/fairseq2-ci-manylinux_<ARCH>:<VERSION> .
 ```
 
 #### 2. Push to the GitHub Container Registry
@@ -42,7 +38,7 @@ docker login ghcr.io -u <GITHUB_USERNAME> --password-stdin
 Then, push the image:
 
 ```
-docker push ghcr.io/facebookresearch/fairseq2-ci-manylinux_<ARCH>:<VERSION>-<VARIANT>
+docker push ghcr.io/facebookresearch/fairseq2-ci-manylinux_<ARCH>:<VERSION>
 ```
 
 Lastly, log out to avoid any accidental or malicious use of the registry:

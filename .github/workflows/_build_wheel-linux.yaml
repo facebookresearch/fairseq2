@@ -47,15 +47,14 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_${{ inputs.arch }}:1-${{ inputs.variant }}
+      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux:2
+      env:
+        VARIANT: ${{ inputs.variant }}
     steps:
       - name: Check-out the repository
         uses: actions/checkout@v3
         with:
           submodules: recursive
-      - name: Install libsndfile
-        run: |
-          yum --assumeyes install libsndfile-devel
       - name: Create the Python virtual environment
         run: |
           python${{ inputs.py }} -m venv ~/venv
@@ -153,11 +152,10 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_${{ inputs.arch }}:1-${{ inputs.variant }}
+      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux:2
+      env:
+        VARIANT: ${{ inputs.variant }}
     steps:
-      - name: Install libsndfile
-        run: |
-          yum --assumeyes install libsndfile-devel
       - name: Download wheels and native tests from staging
         uses: actions/download-artifact@v3
         with:
@@ -198,18 +196,18 @@ jobs:
             for sanitizer in ${SANITIZERS//_/ }; do
               # LIBASAN and LIBTSAN environment variables are defined in the
               # container image.
-              if [[ $sanitizer == asan ]]; then
+              case @sanitizer in
+              asan)
                 echo SANITIZER_LIB=$(echo $LIBASAN)
 
                 break
-              fi
-
-              if [[ $sanitizer == tsan ]]; then
+                ;;
+              tsan)
                 echo SANITIZER_LIB=$(echo $LIBTSAN)
 
                 break
-              fi
-            done
+                ;;
+              esac
           } >> "$GITHUB_ENV"
       - name: Run native tests
         run: |
