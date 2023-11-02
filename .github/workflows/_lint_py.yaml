@@ -23,7 +23,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux:2
+      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_x86_64:2
       env:
         VARIANT: 'cpu'
     steps:
