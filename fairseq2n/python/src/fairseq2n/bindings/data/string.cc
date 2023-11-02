@@ -69,7 +69,7 @@ def_string(py::module_ &data_module)
             })
 
         .def(
-            "bytes",
+            "__bytes__",
             [](const immutable_string &self)
             {
                 return py::bytes(static_cast<std::string_view>(self));
