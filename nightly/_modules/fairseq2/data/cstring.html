@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.cstring &mdash; fairseq2 0.2.0.dev20231030 documentation</title>
+  <title>fairseq2.data.cstring &mdash; fairseq2 0.2.0.dev20231102 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20231030
+                0.2.0.dev20231102
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -187,8 +187,11 @@
         <span class="k">def</span> <span class="fm">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
             <span class="o">...</span>
 
-<div class="viewcode-block" id="CString.bytes"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.CString.html#fairseq2.data.CString.bytes">[docs]</a>        <span class="k">def</span> <span class="nf">bytes</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Return a copy of this string as :class:`bytes`.&quot;&quot;&quot;</span></div>
+        <span class="k">def</span> <span class="fm">__bytes__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bytes</span><span class="p">:</span>
+            <span class="o">...</span>
+
+<div class="viewcode-block" id="CString.strip"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.CString.html#fairseq2.data.CString.strip">[docs]</a>        <span class="k">def</span> <span class="nf">strip</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;CString&quot;</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Return a copy of this string with no whitespace at the beginning and end.&quot;&quot;&quot;</span></div>
 
 <div class="viewcode-block" id="CString.lstrip"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.CString.html#fairseq2.data.CString.lstrip">[docs]</a>        <span class="k">def</span> <span class="nf">lstrip</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="s2">&quot;CString&quot;</span><span class="p">:</span>
 <span class="w">            </span><span class="sd">&quot;&quot;&quot;Return a copy of this string with no whitespace at the beginning.&quot;&quot;&quot;</span></div>

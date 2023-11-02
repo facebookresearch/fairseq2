@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MultilingualTextTokenizer &mdash; fairseq2 0.2.0.dev20231030 documentation</title>
+  <title>MultilingualTextTokenizer &mdash; fairseq2 0.2.0.dev20231102 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -35,7 +35,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20231030
+                0.2.0.dev20231102
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -192,6 +192,23 @@ language from <code class="xref py py-attr docutils literal notranslate"><span c
 <li><p><strong>mode</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a><em> | </em><em>None</em>) – Must be ‘source’ or ‘target’. Set to ‘source’ if <code class="docutils literal notranslate"><span class="pre">lang</span></code> is the
 source language; set to ‘target’ if <code class="docutils literal notranslate"><span class="pre">lang</span></code> is the target language.
 If <code class="docutils literal notranslate"><span class="pre">None</span></code>, defaults to ‘source’.</p></li>
+<li><p><strong>device</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensor_attributes.html#torch.device" title="(in PyTorch v2.1)"><em>device</em></a><em> | </em><em>None</em>) – The device on which to construct tensors.</p></li>
+<li><p><strong>pin_memory</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.12)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, uses pinned memory while constructing tensors.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference internal" href="fairseq2.data.text.TextTokenEncoder.html#fairseq2.data.text.TextTokenEncoder" title="fairseq2.data.text.text_tokenizer.TextTokenEncoder"><em>TextTokenEncoder</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.text.MultilingualTextTokenizer.create_raw_encoder">
+<span class="sig-name descname"><span class="pre">create_raw_encoder</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">device</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pin_memory</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/text/multilingual_text_tokenizer.html#MultilingualTextTokenizer.create_raw_encoder"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.text.MultilingualTextTokenizer.create_raw_encoder" title="Permalink to this definition"></a></dt>
+<dd><p>Create a raw token encoder with no control symbols.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
 <li><p><strong>device</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensor_attributes.html#torch.device" title="(in PyTorch v2.1)"><em>device</em></a><em> | </em><em>None</em>) – The device on which to construct tensors.</p></li>
 <li><p><strong>pin_memory</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.12)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, uses pinned memory while constructing tensors.</p></li>
 </ul>
