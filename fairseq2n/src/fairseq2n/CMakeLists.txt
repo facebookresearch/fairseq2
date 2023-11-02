@@ -67,6 +67,7 @@ target_sources(fairseq2n
         data/text/sentencepiece/sp_encoder.cc
         data/text/sentencepiece/sp_model.cc
         data/text/sentencepiece/sp_processor.cc
+        data/video/video_decoder.cc
 )
 
 if(FAIRSEQ2N_USE_CUDA)
@@ -100,7 +101,10 @@ target_include_directories(fairseq2n ${system}
     PUBLIC
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
         $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/src>
+        ${DECORD_PATH}/include
 )
+
+option(DECORD_PATH "Path to Decord library" "")
 
 target_link_libraries(fairseq2n
     PRIVATE
@@ -114,6 +118,7 @@ target_link_libraries(fairseq2n
         Threads::Threads
         sentencepiece-static
         SndFile::sndfile
+        ${DECORD_PATH}/build/libdecord.so
     PUBLIC
         torch
 )
