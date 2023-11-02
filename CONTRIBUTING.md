@@ -6,13 +6,12 @@ to read this guideline carefully.
 ## Setting up Development Environment
 fairseq2 consists of two packages; the user-facing fairseq2 package implemented
 in pure Python, and the fairseq2n package that contains the C++ and CUDA
-portions of the library. If pre-built fairseq2n nightlies are available for your
-system (check installation instructions for your operating
-system in [README](.#nightlies)), and if you are interested in only modifying Python portions of
-fairseq2, you can use an editable pip installation as described below.
-Otherwise, if you are planning to work on C++ or CUDA, or if fairseq2n is not
-available as a pre-built package for your system, please follow the installation
-instructions [here](INSTALL_FROM_SOURCE.md).
+portions of the library. If pre-built fairseq2n nightly packages are available
+for your system (check [README](.#nightlies)), and if you are interested in only
+modifying Python portions of fairseq2, you can use an editable pip installation
+as described below. Otherwise, if you are planning to work on C++ or CUDA, or if
+fairseq2n is not available as a pre-built package for your system, please follow
+the installation instructions [here](INSTALL_FROM_SOURCE.md).
 
 For an editable installation, first, install a nightly build of fairseq2n (shown
 for PyTorch `2.0.1` and variant `cu118`):
@@ -21,6 +20,14 @@ for PyTorch `2.0.1` and variant `cu118`):
 pip install fairseq2n\
   --pre --upgrade --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.0.1/cu118
 ```
+
+> [!WARNING]
+> fairseq2n relies on the C++ API of PyTorch which has no API/ABI compatibility
+> between releases. This means **you have to install the fairseq2n variant that
+> exactly matches your PyTorch version**. Otherwise, you might experience issues
+> like immediate process crashes or spurious segfaults. For the same reason, if
+> you upgrade your PyTorch version, you must also upgrade your fairseq2n
+> installation.
 
 Then, clone the fairseq2 repository to your machine:
 

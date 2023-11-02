@@ -5,8 +5,8 @@ want to work on the C++/CUDA code of fairseq2.
 
 > [!NOTE]
 > If you plan to only modify Python portions of fairseq2, and if fairseq2
-> provides a pre-built package for your system, we recommend using an editable
-> pip installation as described in
+> provides a pre-built nightly package for your system, we recommend using an
+> editable pip installation as described in
 > [Contribution Guidelines](CONTRIBUTING.md#setting-up-development-environment).
 
 
@@ -81,7 +81,7 @@ brew install libsndfile
 
 ### 3.2 PyTorch
 Follow the instructions on [pytorch.org](https://pytorch.org) to install the
-desired PyTorch version. Note that fairseq2 supports only PyTorch 1.12 or
+desired PyTorch version.
 greater.
 
 ### 3.3 CUDA
