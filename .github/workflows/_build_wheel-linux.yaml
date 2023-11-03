@@ -44,9 +44,7 @@ jobs:
     runs-on:
       labels: 4-core-ubuntu
     container:
-      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_x86_64:2
-      env:
-        VARIANT: ${{ inputs.variant }}
+      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_${{ inputs.arch }}:2-${{ inputs.variant }}
     defaults:
       run:
         shell: bash
@@ -153,9 +151,7 @@ jobs:
     runs-on:
       labels: 4-core-ubuntu
     container:
-      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_x86_64:2
-      env:
-        VARIANT: ${{ inputs.variant }}
+      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_${{ inputs.arch }}:2-${{ inputs.variant }}
     defaults:
       run:
         shell: bash
@@ -242,7 +238,6 @@ jobs:
           # Unfortunately Python leaks quite a bit of memory, so we cannot rely
           # on the raw output of LSan. As a rudimentary workaround, we check if
           # any stack frame has a symbol containing the word 'fairseq2'.
-          ls ~/lsan.out.*
           for f in ~/lsan.out.*; do
             if grep --silent 'fairseq2' $f; then
                 cat $f

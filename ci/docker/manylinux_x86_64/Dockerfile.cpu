@@ -6,11 +6,6 @@
 
 FROM quay.io/pypa/manylinux2014_x86_64
 
-ENV LIBASAN=/usr/lib64/libasan.so.6
-ENV LIBTSAN=/usr/lib64/libtsan.so.0
-
-COPY build-scripts/install-*.sh /build-scripts/
-
 # Install system dependencies.
 RUN yum --assumeyes install\
         devtoolset-10-lib{asan,lsan,ubsan,tsan}-devel lib{sndfile,png,jpeg}-devel &&\
@@ -19,20 +14,12 @@ RUN yum --assumeyes install\
 # Install Ninja.
 RUN pipx install --pip-args=--no-cache-dir ninja
 
-# Instal LLVM.
-RUN /build-scripts/install-llvm.sh
+# Install LLVM.
+COPY build-scripts/install-llvm.sh /build-scripts/
 
-# Install CUDA Toolkits.
-RUN /build-scripts/install-cuda-11.6.sh
-RUN /build-scripts/install-cuda-11.7.sh
-RUN /build-scripts/install-cuda-11.8.sh
-RUN /build-scripts/install-cuda-12.1.sh
+RUN /build-scripts/install-llvm.sh && rm -rf /build-scripts
 
-# Clean up.
-RUN rm -rf /build-scripts
-
-COPY manylinux-entrypoint.sh /usr/local/bin/
-
-ENTRYPOINT ["manylinux-entrypoint.sh"]
+ENV LIBASAN=/usr/lib64/libasan.so.6
+ENV LIBTSAN=/usr/lib64/libtsan.so.0
 
 CMD ["/bin/bash"]
