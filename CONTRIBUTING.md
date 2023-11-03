@@ -55,7 +55,7 @@ pip install -r requirements-devel.txt
 > the fairseq2n installation command above to get the most up-to-date binary. If
 > you observe runtime or test failures after the installation, it might be
 > because the latest nightlies are not published yet. If the problem persists
-> after about 12 hours, please create a GitHub issue.
+> after about 12 hours, please create a [GitHub issue](issues).
 
 ## Testing Your Work
 
