@@ -247,10 +247,10 @@ jobs:
           for f in ~/lsan.out.*; do
             echo "FIRST FILE"
             echo $f
-            if cat $f | grep --silent 'fairseq2'; then
-              echo $f
-              echo "SHOULD FAIL"
-              exit 1
+            if grep --silent 'fairseq2' $f; then
+                cat $f
+                echo "SHOULD FAIL"
+                exit 1
             fi
             echo "SHOULD NEVER SEE"
           done
