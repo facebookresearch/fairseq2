@@ -14,10 +14,6 @@ on:
         type: string
         default: '3.11'
 
-defaults:
-  run:
-    shell: bash
-
 jobs:
   lint:
     name: Lint
@@ -27,6 +23,9 @@ jobs:
       image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_x86_64:2
       env:
         VARIANT: 'cpu'
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Check-out the repository
         uses: actions/checkout@v3

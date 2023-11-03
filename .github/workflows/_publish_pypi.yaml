@@ -23,14 +23,13 @@ on:
         type: string
         default: 'x86_64'
 
-defaults:
-  run:
-    shell: bash
-
 jobs:
   publish:
     name: Publish
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     permissions:
       # Needed to interact with GitHub's OIDC Token endpoint.
       id-token: write

@@ -17,10 +17,6 @@ on:
         type: string
         default: ''
 
-defaults:
-  run:
-    shell: bash
-
 jobs:
   build:
     name: Build
@@ -30,6 +26,9 @@ jobs:
       image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_x86_64:2
       env:
         VARIANT: ${{ inputs.variant }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Check-out the repository
         uses: actions/checkout@v3

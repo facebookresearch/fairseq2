@@ -38,10 +38,6 @@ on:
         type: boolean
         default: false
 
-defaults:
-  run:
-    shell: bash
-
 jobs:
   build:
     name: Build
@@ -51,6 +47,9 @@ jobs:
       image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_x86_64:2
       env:
         VARIANT: ${{ inputs.variant }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Check-out the repository
         uses: actions/checkout@v3
@@ -58,7 +57,6 @@ jobs:
           submodules: recursive
       - name: Create the Python virtual environment
         run: |
-          printenv
           python${{ inputs.py }} -m venv ~/venv
 
           echo ~/venv/bin >> "$GITHUB_PATH"
@@ -159,6 +157,9 @@ jobs:
       image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_x86_64:2
       env:
         VARIANT: ${{ inputs.variant }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Download wheels and native tests from staging
         uses: actions/download-artifact@v3
@@ -246,7 +247,7 @@ jobs:
           for f in ~/lsan.out.*; do
             echo "FIRST FILE"
             echo $f
-            if cat $f | tee /dev/stderr | grep 'fairseq2'; then
+            if cat $f | tee /dev/stderr | grep --silent 'fairseq2'; then
               echo "SHOULD FAIL"
               exit 1
             fi
