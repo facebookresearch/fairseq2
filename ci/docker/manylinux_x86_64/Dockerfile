@@ -13,14 +13,11 @@ COPY build-scripts/install-*.sh /build-scripts/
 
 # Install system dependencies.
 RUN yum --assumeyes install\
-        devtoolset-10-lib{asan,lsan,ubsan,tsan}-devel\
-        libsndfile-devel\
-        libpng-devel\
-        libjpeg-devel&&\
+        devtoolset-10-lib{asan,lsan,ubsan,tsan}-devel lib{sndfile,png,jpeg}-devel &&\
     yum clean all
 
 # Install Ninja.
-RUN pipx install ninja
+RUN pipx install --pip-args=--no-cache-dir ninja
 
 # Instal LLVM.
 RUN /build-scripts/install-llvm.sh

@@ -14,3 +14,5 @@ curl --location --fail --output cuda.run\
 sh cuda.run --silent --toolkit --override --no-man-page
 
 rm cuda.run
+
+rm -rf /usr/local/cuda-11.8/nsight* /usr/local/cuda-11.8/lib64/*.a
