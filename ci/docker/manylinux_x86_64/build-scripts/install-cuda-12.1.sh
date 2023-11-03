@@ -17,3 +17,6 @@ rm cuda.run
 
 # We don't need Nsight.
 rm -rf /usr/local/cuda-12.1/nsight*
+
+# Add CUDA libraries to the lookup cache of the dynamic linker.
+ldconfig

@@ -11,7 +11,4 @@ COPY build-scripts/install-cuda-11.6.sh /build-scripts/
 
 RUN /build-scripts/install-cuda-11.6.sh && rm -rf /build-scripts
 
-# Set environment variables.
 ENV PATH=/usr/local/cuda-11.6/bin:$PATH
-
-ENV LD_LIBRARY_PATH=/usr/local/cuda-11.6/lib64:$LD_LIBRARY_PATH

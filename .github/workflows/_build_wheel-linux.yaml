@@ -222,7 +222,9 @@ jobs:
         run: |
           chmod 755 ~/artifacts/fairseq2n/build/tests/run-tests
 
-          LD_LIBRARY_PATH=~/venv/lib:~/venv/lib/python${{ inputs.py }}/site-packages/torch/lib:~/venv/lib/python${{ inputs.py }}/site-packages/fairseq2n/lib\
+          site_packages=~/venv/lib/python${{ inputs.py }}/site-packages
+
+          LD_LIBRARY_PATH=~/venv/lib:$site_packages/torch/lib:$site_packages/fairseq2n/lib:$LD_LIBRARY_PATH\
             ~/artifacts/fairseq2n/build/tests/run-tests
       - name: Run Python tests
         env:
@@ -247,9 +249,9 @@ jobs:
           # on the raw output of LSan. As a rudimentary workaround, we check if
           # any stack frame has a symbol containing the word 'fairseq2'.
           for f in ~/lsan.out.*; do
-            if grep --silent 'fairseq2' $f; then
-                cat $f
+            cat $f
 
+            if grep --silent 'fairseq2' $f; then
                 exit 1
             fi
           done
