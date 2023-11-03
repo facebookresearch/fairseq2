@@ -44,11 +44,11 @@ jobs:
           pip install --requirement requirements-devel.txt
       - name: Install fairseq2n
         run: |
-          pip install --editable fairseq2n/python
+          pip install --no-build-isolation --editable fairseq2n/python
       - name: Install fairseq2
         id: install_fairseq2
         run: |
-          pip install --editable .
+          pip install --no-build-isolation --editable .
       - name: Run isort
         if: success() || (failure() && steps.install_fairseq2.outcome == 'success')
         run: |
