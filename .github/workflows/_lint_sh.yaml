@@ -11,28 +11,25 @@ on:
         type: string
         default: '3.11'
 
-defaults:
-  run:
-    shell: bash
-
 jobs:
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on:
+      labels: 4-core-ubuntu
     container:
-      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_x86_64:1-cpu
+      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_x86_64:2-cpu
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Check-out the repository
         uses: actions/checkout@v3
-      - name: Install libsndfile
-        run: |
-          yum --assumeyes install libsndfile-devel
       - name: Create the Python virtual environment
         run: |
           python${{ inputs.py }} -m venv ~/venv
 
           echo ~/venv/bin >> "$GITHUB_PATH"
-      - name: Install shellcheck
+      - name: Install requirements
         id: setup
         run: |
           pip install --requirement requirements-devel.txt

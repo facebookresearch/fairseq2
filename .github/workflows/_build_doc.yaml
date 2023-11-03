@@ -17,22 +17,19 @@ on:
         type: string
         default: ''
 
-defaults:
-  run:
-    shell: bash
-
 jobs:
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on:
+      labels: 4-core-ubuntu
     container:
-      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_x86_64:1-cpu
+      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_x86_64:2-cpu
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Check-out the repository
         uses: actions/checkout@v3
-      - name: Install libsndfile
-        run: |
-          yum --assumeyes install libsndfile-devel
       - name: Create the Python virtual environment
         run: |
           python${{ inputs.py }} -m venv ~/venv
@@ -40,13 +37,14 @@ jobs:
           echo ~/venv/bin >> "$GITHUB_PATH"
       - name: Install PyTorch
         run: |
-          pip install torch==${{ inputs.torch }}\
-            --extra-index-url https://download.pytorch.org/whl/cpu
+          pip install --extra-index-url https://download.pytorch.org/whl/cpu\
+            torch==${{ inputs.torch }}
+      - name: Install requirements
+        run: |
+          pip install --requirement fairseq2n/python/requirements-build.txt
       - name: Install Sphinx
         run: |
-          pip install\
-            --requirement fairseq2n/python/requirements-build.txt\
-            --requirement doc/requirements.txt
+          pip install --requirement doc/requirements.txt
       - name: Overwrite project version
         if: inputs.version_override
         run: |

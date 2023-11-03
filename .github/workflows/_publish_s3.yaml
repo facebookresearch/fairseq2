@@ -26,14 +26,13 @@ on:
         type: string
         default: 'x86_64'
 
-defaults:
-  run:
-    shell: bash
-
 jobs:
   publish:
     name: Publish
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     permissions:
       # Needed to check out the repository.
       contents: read

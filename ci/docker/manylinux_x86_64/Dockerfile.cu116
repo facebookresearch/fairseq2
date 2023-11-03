@@ -4,24 +4,11 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-FROM ghcr.io/facebookresearch/fairseq2-ci-manylinux_x86_64:1-cpu
+FROM ghcr.io/facebookresearch/fairseq2-ci-manylinux_x86_64:2-cpu
 
-ENV PATH=/usr/local/cuda-11.6/bin:$PATH
-
-ENV LD_LIBRARY_PATH=/usr/local/cuda-11.6/lib64:$LD_LIBRARY_PATH
-
-# CUDA 11.6 requires GCC 11.x.
-ENV DEVTOOLSET=11
-
-ENV LIBASAN=/usr/lib64/libasan.so.6
-ENV LIBTSAN=/usr/lib64/libtsan.so.0
-
+# Install CUDA.
 COPY build-scripts/install-cuda-11.6.sh /build-scripts/
 
-RUN yum --assumeyes install\
-        devtoolset-$DEVTOOLSET-gcc\
-        devtoolset-$DEVTOOLSET-gcc-c++\
-        devtoolset-$DEVTOOLSET-lib{asan,lsan,ubsan,tsan}-devel &&\
-    yum clean all
-
 RUN /build-scripts/install-cuda-11.6.sh && rm -rf /build-scripts
+
+ENV PATH=/usr/local/cuda-11.6/bin:$PATH

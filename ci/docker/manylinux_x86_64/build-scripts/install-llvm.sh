@@ -11,13 +11,14 @@ set -eo pipefail
 git clone --depth 1 --recurse-submodules --shallow-submodules --branch llvmorg-15.0.3\
     https://github.com/llvm/llvm-project.git /llvm
 
-cmake -GNinja\
-      -S /llvm/llvm\
-      -B /llvm-build\
-      -DCMAKE_BUILD_TYPE=Release\
-      -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra;openmp"\
-      -DLLVM_TARGETS_TO_BUILD=host\
-      -Wno-dev
+cmake\
+    -GNinja\
+    -S /llvm/llvm\
+    -B /llvm-build\
+    -DCMAKE_BUILD_TYPE=Release\
+    -DLLVM_ENABLE_PROJECTS="clang;clang-tools-extra;openmp"\
+    -DLLVM_TARGETS_TO_BUILD=host\
+    -Wno-dev
 
 cmake --build /llvm-build && cmake --install /llvm-build
 

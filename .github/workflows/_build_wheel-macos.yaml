@@ -46,7 +46,7 @@ jobs:
       - name: Install PyTorch
         run: |
           pip install torch==${{ inputs.torch }}
-      - name: Install build requirements for fairseq2n
+      - name: Install requirements
         run: |
           pip install --requirement fairseq2n/python/requirements-build.txt
       - name: Override project version
@@ -71,14 +71,15 @@ jobs:
       - name: Package fairseq2n
         working-directory: fairseq2n/python
         run: |
-          pip wheel .\
+          pip wheel\
             --use-pep517\
             --no-build-isolation\
             --no-deps\
-            --wheel-dir build/wheelhouse
+            --wheel-dir build/wheelhouse\
+            .
       - name: Package fairseq2
         run: |
-          pip wheel . --no-deps --wheel-dir build/wheelhouse
+          pip wheel --no-deps --wheel-dir build/wheelhouse .
       - name: Upload wheels and native tests to staging
         uses: actions/upload-artifact@v3
         with:
@@ -115,15 +116,15 @@ jobs:
       - name: Install PyTorch
         run: |
           pip install torch==${{ inputs.torch }}
-      - name: Install pytest
+      - name: Install requirements
         run: |
           pip install --requirement requirements-devel.txt
       - name: Install fairseq2n
         run: |
-          pip install ~/artifacts/fairseq2n/python/build/wheelhouse/*.whl --no-cache-dir
+          pip install --no-cache-dir ~/artifacts/fairseq2n/python/build/wheelhouse/*.whl
       - name: Install fairseq2
         run: |
-          pip install ~/artifacts/build/wheelhouse/*.whl --no-cache-dir
+          pip install --no-cache-dir ~/artifacts/build/wheelhouse/*.whl
       - name: Run native tests
         run: |
           chmod 755 ~/artifacts/fairseq2n/build/tests/run-tests
