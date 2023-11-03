@@ -41,11 +41,10 @@ jobs:
             torch==${{ inputs.torch }}
       - name: Install linters
         run: |
-          pip install --upgrade pip
           pip install --requirement requirements-devel.txt
       - name: Install fairseq2n
         run: |
-          pip install --editable fairseq2n/python
+          pip install --no-use-pep517 --editable fairseq2n/python
       - name: Install fairseq2
         id: install_fairseq2
         run: |
