@@ -40,8 +40,8 @@ jobs:
           echo ~/venv/bin >> "$GITHUB_PATH"
       - name: Install PyTorch
         run: |
-          pip install torch==${{ inputs.torch }}\
-            --extra-index-url https://download.pytorch.org/whl/cpu
+          pip install --extra-index-url https://download.pytorch.org/whl/cpu\
+            torch==${{ inputs.torch }}
       - name: Install Sphinx
         run: |
           pip install\

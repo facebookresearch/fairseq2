@@ -37,18 +37,19 @@ jobs:
           echo ~/venv/bin >> "$GITHUB_PATH"
       - name: Install PyTorch
         run: |
-          pip install torch==${{ inputs.torch }}\
-            --extra-index-url https://download.pytorch.org/whl/cpu
+          pip install --extra-index-url https://download.pytorch.org/whl/cpu\
+            torch==${{ inputs.torch }}
       - name: Install linters
         run: |
+          pip install --upgrade pip
           pip install --requirement requirements-devel.txt
       - name: Install fairseq2n
         run: |
-          pip install --no-build-isolation --editable fairseq2n/python
+          pip install --editable fairseq2n/python
       - name: Install fairseq2
         id: install_fairseq2
         run: |
-          pip install --no-build-isolation --editable .
+          pip install --editable .
       - name: Run isort
         if: success() || (failure() && steps.install_fairseq2.outcome == 'success')
         run: |

@@ -40,8 +40,8 @@ jobs:
           echo ~/venv/bin >> "$GITHUB_PATH"
       - name: Install PyTorch
         run: |
-          pip install torch==${{ inputs.torch }}\
-            --extra-index-url https://download.pytorch.org/whl/cu118
+          pip install --extra-index-url https://download.pytorch.org/whl/cu118\
+            torch==${{ inputs.torch }}\
       - name: Install build requirements for fairseq2n
         run: |
           pip install --requirement fairseq2n/python/requirements-build.txt
