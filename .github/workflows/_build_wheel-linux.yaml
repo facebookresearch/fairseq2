@@ -246,9 +246,9 @@ jobs:
           for f in ~/lsan.out.*; do
             echo "FIRST FILE"
             echo $f
-            if cat $f | tee /dev/stderr | grep --quiet 'fairseq2'; then
+            if cat $f | tee /dev/stderr | grep 'fairseq2'; then
               echo "SHOULD FAIL"
               exit 1
-              echo "SHOULD NEVER SEE"
             fi
+            echo "SHOULD NEVER SEE"
           done
