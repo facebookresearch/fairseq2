@@ -58,6 +58,7 @@ jobs:
           submodules: recursive
       - name: Create the Python virtual environment
         run: |
+          printenv
           python${{ inputs.py }} -m venv ~/venv
 
           echo ~/venv/bin >> "$GITHUB_PATH"
@@ -175,7 +176,7 @@ jobs:
         run: |
           pip install --extra-index-url https://download.pytorch.org/whl/${{ inputs.variant }}\
             torch==${{ inputs.torch }}
-      - name: Install pytest
+      - name: Install requirements
         run: |
           pip install --requirement requirements-devel.txt
       - name: Install fairseq2n
@@ -199,7 +200,7 @@ jobs:
             for sanitizer in ${SANITIZERS//_/ }; do
               # LIBASAN and LIBTSAN environment variables are defined in the
               # container image.
-              case @sanitizer in
+              case $sanitizer in
               asan)
                 echo SANITIZER_LIB=$(echo $LIBASAN)
 
@@ -211,6 +212,7 @@ jobs:
                 break
                 ;;
               esac
+            done
           } >> "$GITHUB_ENV"
       - name: Run native tests
         run: |

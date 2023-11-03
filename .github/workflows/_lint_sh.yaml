@@ -32,7 +32,7 @@ jobs:
           python${{ inputs.py }} -m venv ~/venv
 
           echo ~/venv/bin >> "$GITHUB_PATH"
-      - name: Install shellcheck
+      - name: Install requirements
         id: setup
         run: |
           pip install --requirement requirements-devel.txt

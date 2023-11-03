@@ -42,11 +42,12 @@ jobs:
         run: |
           pip install --extra-index-url https://download.pytorch.org/whl/cpu\
             torch==${{ inputs.torch }}
+      - name: Install requirements
+        run: |
+          pip install --requirement fairseq2n/python/requirements-build.txt
       - name: Install Sphinx
         run: |
-          pip install\
-            --requirement fairseq2n/python/requirements-build.txt\
-            --requirement doc/requirements.txt
+          pip install --requirement doc/requirements.txt
       - name: Overwrite project version
         if: inputs.version_override
         run: |

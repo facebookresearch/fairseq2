@@ -116,7 +116,7 @@ jobs:
       - name: Install PyTorch
         run: |
           pip install torch==${{ inputs.torch }}
-      - name: Install pytest
+      - name: Install requirements
         run: |
           pip install --requirement requirements-devel.txt
       - name: Install fairseq2n
