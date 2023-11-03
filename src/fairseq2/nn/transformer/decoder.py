@@ -189,6 +189,7 @@ class StandardTransformerDecoder(TransformerDecoder):
         *,
         layer_output_hook: Optional[DecoderLayerOutputHook] = None,
         state_bag: Optional[IncrementalStateBag] = None,
+        **kwargs,
     ) -> Tuple[Tensor, Optional[PaddingMask]]:
         if layer_output_hook is not None and self.layers.drop_p > 0.0:
             raise ValueError("`layer_hook` must be `None` when LayerDrop is enabled.")
@@ -210,6 +211,7 @@ class StandardTransformerDecoder(TransformerDecoder):
                 encoder_output,
                 encoder_padding_mask,
                 state_bag=state_bag,
+                **kwargs,
             )
 
             if layer_output_hook is not None:
