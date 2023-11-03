@@ -242,4 +242,13 @@ jobs:
           # Unfortunately Python leaks quite a bit of memory, so we cannot rely
           # on the raw output of LSan. As a rudimentary workaround, we check if
           # any stack frame has a symbol containing the word 'fairseq2'.
-          exit 1
+          echo "STARTED"
+          for f in ~/lsan.out.*; do
+            echo "FIRST FILE"
+            echo $f
+            if cat $f | tee /dev/stderr | grep --quiet 'fairseq2'; then
+              echo "SHOULD FAIL"
+              exit 1
+              echo "SHOULD NEVER SEE"
+            fi
+          done
