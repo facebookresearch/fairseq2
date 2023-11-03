@@ -173,8 +173,16 @@ jobs:
           pip install --extra-index-url https://download.pytorch.org/whl/${{ inputs.variant }}\
             torch==${{ inputs.torch }}
       - name: Install requirements
+        env:
+            ARCH: ${{ inputs.arch }}
         run: |
           pip install --requirement requirements-devel.txt
+
+          if [[ $ARCH == x86_64 ]]; then
+              # Our Docker images have glibc 2.17, but tbb versions later than
+              # 2021.9 are built against a newer glibc.
+              pip install tbb==2021.8
+          fi
       - name: Install fairseq2n
         run: |
           pip install --no-cache-dir ~/artifacts/fairseq2n/python/build/wheelhouse/*.whl

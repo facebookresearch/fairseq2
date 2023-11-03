@@ -15,4 +15,5 @@ sh cuda.run --silent --toolkit --override --no-man-page
 
 rm cuda.run
 
-rm -rf /usr/local/cuda-11.7/nsight* /usr/local/cuda-11.7/lib64/*.a
+# We don't need Nsight.
+rm -rf /usr/local/cuda-11.7/nsight*
