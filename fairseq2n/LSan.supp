@@ -7,3 +7,4 @@
 leak:numpy
 leak:pybind11::cpp_function::initialize_generic
 leak:pybind11::cpp_function::make_function_record
+leak:torch::jit
