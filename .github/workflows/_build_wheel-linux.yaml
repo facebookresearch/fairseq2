@@ -242,8 +242,4 @@ jobs:
           # Unfortunately Python leaks quite a bit of memory, so we cannot rely
           # on the raw output of LSan. As a rudimentary workaround, we check if
           # any stack frame has a symbol containing the word 'fairseq2'.
-          for f in ~/lsan.out.*; do
-            if cat $f | tee /dev/stderr | grep --quiet 'fairseq2'; then
-              exit 1
-            fi
-          done
+          exit 1
