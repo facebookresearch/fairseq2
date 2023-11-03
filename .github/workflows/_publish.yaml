@@ -63,9 +63,9 @@ jobs:
   publish_pypi-linux:
     name: Publish to PyPI (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }})
     needs:
-      - publish_pt112_s3-linux
       - publish_pt113_s3-linux
       - publish_pt20_s3-linux
+      - publish_pt21_s3-linux
     if: inputs.release_type == 'stable'
     uses: ./.github/workflows/_publish_pypi.yaml
     strategy:
