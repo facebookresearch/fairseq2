@@ -81,8 +81,8 @@ brew install libsndfile
 
 ### 3.2 PyTorch
 Follow the instructions on [pytorch.org](https://pytorch.org) to install the
-desired PyTorch version.
-greater.
+desired PyTorch version. Make sure that the version you install is
+[supported](.#variants) by fairseq2.
 
 ### 3.3 CUDA
 If you plan to build fairseq2 in a CUDA environment, you first have to install
