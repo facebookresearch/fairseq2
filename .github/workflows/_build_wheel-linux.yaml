@@ -65,7 +65,7 @@ jobs:
         run: |
           pip install --extra-index-url https://download.pytorch.org/whl/${{ inputs.variant }}\
             torch==${{ inputs.torch }}
-      - name: Install build requirements for fairseq2n
+      - name: Install requirements
         run: |
           pip install --requirement fairseq2n/python/requirements-build.txt
       - name: Override project version

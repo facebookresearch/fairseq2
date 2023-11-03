@@ -46,7 +46,7 @@ jobs:
       - name: Install PyTorch
         run: |
           pip install torch==${{ inputs.torch }}
-      - name: Install build requirements for fairseq2n
+      - name: Install requirements
         run: |
           pip install --requirement fairseq2n/python/requirements-build.txt
       - name: Override project version

@@ -42,7 +42,7 @@ jobs:
         run: |
           pip install --extra-index-url https://download.pytorch.org/whl/cu118\
             torch==${{ inputs.torch }}\
-      - name: Install build requirements for fairseq2n
+      - name: Install requirements
         run: |
           pip install --requirement fairseq2n/python/requirements-build.txt
       - name: Build the compilation database

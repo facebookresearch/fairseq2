@@ -39,12 +39,14 @@ jobs:
         run: |
           pip install --extra-index-url https://download.pytorch.org/whl/cpu\
             torch==${{ inputs.torch }}
-      - name: Install linters
+      - name: Install requirements
         run: |
+          pip install --requirement fairseq2n/python/requirements-build.txt
+
           pip install --requirement requirements-devel.txt
       - name: Install fairseq2n
         run: |
-          pip install --no-use-pep517 --editable fairseq2n/python
+          pip install --editable fairseq2n/python
       - name: Install fairseq2
         id: install_fairseq2
         run: |
