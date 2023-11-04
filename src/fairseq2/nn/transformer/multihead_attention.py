@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from typing import Dict, MutableSequence, Optional, Protocol, Tuple, final
@@ -31,7 +33,7 @@ class MultiheadAttention(Module, ABC):
     num_heads: int
     model_dim: int
 
-    _attn_weight_hooks: Dict[int, "AttentionWeightHook"]
+    _attn_weight_hooks: Dict[int, AttentionWeightHook]
 
     def __init__(self, model_dim: int, num_heads: int) -> None:
         """
@@ -94,11 +96,11 @@ class MultiheadAttention(Module, ABC):
             :math:`M` is the dimensionality of the model.
         """
 
-    def register_attn_weight_hook(self, hook: "AttentionWeightHook") -> RemovableHandle:
+    def register_attn_weight_hook(self, hook: AttentionWeightHook) -> RemovableHandle:
         """Register an attention weight hook on the module.
 
-        The hook will be called every time after the module computes attention
-        weights.
+        The hook will be called every time after the module has computed
+        attention weights.
 
         :param hook:
             The hook to register.
@@ -112,23 +114,6 @@ class MultiheadAttention(Module, ABC):
         self._attn_weight_hooks[handle.id] = hook
 
         return handle
-
-    def _run_attn_weight_hooks(self, attn: Tensor, attn_weights: Tensor) -> None:
-        """Run registered attention weight hooks.
-
-        :param attn:
-            The computed attention values. *Shape:* :math:`(N,S,V)`, where
-            :math:`N` is the batch size, :math:`S` is the sequence length, and
-            :math:`V` is the value size.
-        :param attn_weights:
-            The computed attention weights. *Shape:* :math:`(N,S,S_{kv})`, where
-            :math:`N` is the batch size, :math:`S` is the sequence length, and
-            :math:`S_{kv}` is the key/value sequence length.
-
-        :meta public:
-        """
-        for hook in self._attn_weight_hooks.values():
-            hook(self, attn, attn_weights)
 
     def extra_repr(self) -> str:
         """:meta private:"""
@@ -156,7 +141,7 @@ class AttentionWeightHook(Protocol):
         """
 
 
-class StoreAttentionWeights:
+class AttentionWeightStoreHook:
     """Stores attention weights in a provided storage.
 
     .. note::
@@ -195,7 +180,7 @@ class StandardMultiheadAttention(MultiheadAttention):
     sdpa: SDPA
     head_scale_weight: Optional[Parameter]
     output_proj: Projection
-    state_factory: Optional["AttentionStateFactory"]
+    state_factory: Optional[AttentionStateFactory]
 
     def __init__(
         self,
@@ -212,7 +197,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         scale_heads: bool = False,
         output_proj: Optional[Projection] = None,
         bias: bool = True,
-        state_factory: Optional["AttentionStateFactory"] = None,
+        state_factory: Optional[AttentionStateFactory] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -475,7 +460,8 @@ class StandardMultiheadAttention(MultiheadAttention):
         )
 
         if attn_weights is not None:
-            self._run_attn_weight_hooks(attn, attn_weights)
+            for hook in self._attn_weight_hooks.values():
+                hook(self, attn, attn_weights)
 
         # (N, H, S, V_h) -> (N, S, H, V_h)
         attn = attn.transpose(1, 2)

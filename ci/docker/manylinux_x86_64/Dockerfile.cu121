@@ -7,8 +7,8 @@
 FROM ghcr.io/facebookresearch/fairseq2-ci-manylinux_x86_64:2-cpu
 
 # Install CUDA.
-COPY build-scripts/install-cuda-11.7.sh /build-scripts/
+COPY build-scripts/install-cuda-12.1.sh /build-scripts/
 
-RUN /build-scripts/install-cuda-11.7.sh && rm -rf /build-scripts
+RUN /build-scripts/install-cuda-12.1.sh && rm -rf /build-scripts
 
-ENV PATH=/usr/local/cuda-11.7/bin:$PATH
+ENV PATH=/usr/local/cuda-12.1/bin:$PATH

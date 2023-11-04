@@ -9,13 +9,9 @@ import torch
 from torch.nn.functional import pad
 
 from fairseq2.data import CollateOptionsOverride, Collater
-from tests.common import assert_close, assert_equal, device, python_devel_only
+from tests.common import assert_close, assert_equal, device
 
 
-@pytest.mark.skipif(
-    python_devel_only(),
-    reason="New fairseq2n API in Python-only installation. Skipping till v0.2.",
-)
 class TestCollater:
     def test_call_works_when_input_has_only_non_composite_types(self) -> None:
         # fmt: off
@@ -214,6 +210,15 @@ class TestCollater:
         # fmt: off
         assert output == {"foo1": [[0, 3, 6], [1, 4, 7], [2, 5, 8]], "foo2": {"subfoo1": [0, 1, 2]}, "foo3": [1, 2, 3]}
         # fmt: on
+
+    def test_call_raises_error_when_input_is_empty(self) -> None:
+        collater = Collater()
+
+        with pytest.raises(
+            ValueError,
+            match=r"^The bucket must contain at least one element, but is empty instead\.$",
+        ):
+            collater([])
 
     def test_call_works_when_input_is_not_a_bucket(self) -> None:
         bucket = {"foo1": 1}

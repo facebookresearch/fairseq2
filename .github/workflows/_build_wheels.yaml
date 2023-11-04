@@ -10,28 +10,11 @@ on:
       release_type:
         type: string
         required: true
-      version_overwrite:
+      version_override:
         type: string
         required: true
 
 jobs:
-  build_pt121_wheel-linux:
-    name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
-    uses: ./.github/workflows/_build_wheel-linux.yaml
-    strategy:
-      fail-fast: false
-      matrix:
-        torch: ['1.12.1']
-        py: ['3.8', '3.9', '3.10']
-        variant: ['cpu', 'cu116']
-        sanitizers: ['nosan']
-    with:
-      torch: ${{ matrix.torch }}
-      py: ${{ matrix.py }}
-      variant: ${{ matrix.variant }}
-      sanitizers: ${{ matrix.sanitizers }}
-      version_overwrite: ${{ inputs.version_overwrite }}
-
   build_pt131_wheel-linux:
     name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
     uses: ./.github/workflows/_build_wheel-linux.yaml
@@ -47,7 +30,7 @@ jobs:
       py: ${{ matrix.py }}
       variant: ${{ matrix.variant }}
       sanitizers: ${{ matrix.sanitizers }}
-      version_overwrite: ${{ inputs.version_overwrite }}
+      version_override: ${{ inputs.version_override }}
 
   build_pt20_wheel-linux:
     name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
@@ -59,18 +42,35 @@ jobs:
         py: ['3.8', '3.9', '3.10', '3.11']
         variant: ['cpu', 'cu117', 'cu118']
         sanitizers: ['nosan']
+    with:
+      torch: ${{ matrix.torch }}
+      py: ${{ matrix.py }}
+      variant: ${{ matrix.variant }}
+      sanitizers: ${{ matrix.sanitizers }}
+      version_override: ${{ inputs.version_override }}
+
+  build_pt21_wheel-linux:
+    name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
+    uses: ./.github/workflows/_build_wheel-linux.yaml
+    strategy:
+      fail-fast: false
+      matrix:
+        torch: ['2.1.0']
+        py: ['3.8', '3.9', '3.10', '3.11']
+        variant: ['cpu', 'cu118', 'cu121']
+        sanitizers: ['nosan']
         include:
           - run_integration_tests: false
 
           # Integration Tests
-          - torch: '2.0.1'
+          - torch: '2.1.0'
             py: '3.11'
             variant: 'cpu'
             sanitizers: 'nosan'
             run_integration_tests: true
 
           # ASAN/UBSAN
-          - torch: '2.0.1'
+          - torch: '2.1.0'
             py: '3.11'
             variant: 'cpu'
             sanitizers: 'asan_ubsan'
@@ -80,7 +80,7 @@ jobs:
       py: ${{ matrix.py }}
       variant: ${{ matrix.variant }}
       sanitizers: ${{ matrix.sanitizers }}
-      version_overwrite: ${{ inputs.version_overwrite }}
+      version_override: ${{ inputs.version_override }}
       run_integration_tests: ${{ matrix.run_integration_tests }}
 
   build_pypi_wheel-linux:
@@ -90,15 +90,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        torch: ['2.0.1']
+        torch: ['2.1.0']
         py: ['3.8', '3.9', '3.10', '3.11']
-        variant: ['cu117']
+        variant: ['cu118']
     with:
       torch: ${{ matrix.torch }}
       py: ${{ matrix.py }}
       variant: ${{ matrix.variant }}
       artifacts_name: 'pypi'
-      version_overwrite: ${{ inputs.version_overwrite }}
+      version_override: ${{ inputs.version_override }}
       label_version_with_variant: false
 
 #  build_pypi_wheel-macos:
@@ -114,4 +114,4 @@ jobs:
 #      torch: ${{ matrix.torch }}
 #      py: ${{ matrix.py }}
 #      artifacts_name: 'pypi'
-#      version_overwrite: ${{ inputs.version_overwrite }}
+#      version_override: ${{ inputs.version_override }}

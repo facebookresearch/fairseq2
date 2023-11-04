@@ -18,15 +18,11 @@ from fairseq2.data.text import (
     SentencePieceModel,
 )
 from fairseq2.typing import DataType
-from tests.common import assert_equal, device, python_devel_only
+from tests.common import assert_equal, device
 
 TEST_SPM_PATH: Final = Path(__file__).parent.joinpath("test.spm")
 
 
-@pytest.mark.skipif(
-    python_devel_only(),
-    reason="New fairseq2n API in Python-only installation. Skipping till v0.2.",
-)
 class TestSentencePieceModel:
     sentence: ClassVar[str]
     token_indices: ClassVar[List[int]]

@@ -37,9 +37,9 @@ function extract_pep_version
     echo "$1"
 }
 
-function extract_mmp_version
+function extract_mmm_version
 {
-    # Grep major, minor, and patch segments.
+    # Grep major, minor, and micro segments.
     echo "$1" | grep --only-matching --extended-regexp '^([0-9]+\.)*[0-9]+' -
 }
 
@@ -52,7 +52,7 @@ if [[ $1 == -h || $1 == --help ]]; then
 fi
 
 pep_ver=$(extract_pep_version "$1")
-mmp_ver=$(extract_mmp_version "$1")
+mmm_ver=$(extract_mmm_version "$1")
 
 base=$(cd "$(dirname "$0")/.." && pwd)
 
@@ -69,7 +69,7 @@ replace_match\
 # Update fairseq2n CMake project.
 replace_match\
     "$base/fairseq2n/CMakeLists.txt"\
-    "s/VERSION .* LANGUAGES/VERSION $mmp_ver LANGUAGES/"
+    "s/VERSION .* LANGUAGES/VERSION $mmm_ver LANGUAGES/"
 
 # Update fairseq2n Python distribution.
 replace_match\
@@ -80,13 +80,6 @@ replace_match\
 replace_match\
     "$base/fairseq2n/python/src/fairseq2n/__init__.py"\
     "s/^__version__ = \".*\"$/__version__ = \"$pep_ver\"/"
-
-if [[ $pep_ver != *+devel ]]; then
-    # Update fairseq2n fallback version.
-    replace_match\
-        "$base/setup.py"\
-        "s/^fallback_fairseq2n_version = \".*\"$/fallback_fairseq2n_version = \"$pep_ver\"/"
-fi
 
 # Update VERSION file.
 echo "$pep_ver" > "$base/VERSION"

@@ -25,7 +25,7 @@ on:
       artifacts_name:
         type: string
         default: 'wheels'
-      version_overwrite:
+      version_override:
         type: string
         default: ''
       label_version_with_variant:
@@ -38,24 +38,21 @@ on:
         type: boolean
         default: false
 
-defaults:
-  run:
-    shell: bash
-
 jobs:
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on:
+      labels: 4-core-ubuntu
     container:
-      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_${{ inputs.arch }}:1-${{ inputs.variant }}
+      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_${{ inputs.arch }}:2-${{ inputs.variant }}
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Check-out the repository
         uses: actions/checkout@v3
         with:
           submodules: recursive
-      - name: Install libsndfile
-        run: |
-          yum --assumeyes install libsndfile-devel
       - name: Create the Python virtual environment
         run: |
           python${{ inputs.py }} -m venv ~/venv
@@ -63,15 +60,15 @@ jobs:
           echo ~/venv/bin >> "$GITHUB_PATH"
       - name: Install PyTorch
         run: |
-          pip install torch==${{ inputs.torch }}\
-            --extra-index-url https://download.pytorch.org/whl/${{ inputs.variant }}
-      - name: Install build requirements for fairseq2n
+          pip install --extra-index-url https://download.pytorch.org/whl/${{ inputs.variant }}\
+            torch==${{ inputs.torch }}
+      - name: Install requirements
         run: |
           pip install --requirement fairseq2n/python/requirements-build.txt
       - name: Override project version
-        if: inputs.version_overwrite
+        if: inputs.version_override
         run: |
-          tools/set-project-version.sh ${{ inputs.version_overwrite }}
+          tools/set-project-version.sh ${{ inputs.version_override }}
       - name: Set build variant as local version label
         if: inputs.label_version_with_variant
         env:
@@ -116,12 +113,10 @@ jobs:
             -GNinja\
             -DCMAKE_BUILD_TYPE=$build_type\
             -DCMAKE_CUDA_ARCHITECTURES=$cuda_archs\
-            -DFAIRSEQ2N_INSTALL_STANDALONE=ON\
             -DFAIRSEQ2N_PERFORM_LTO=$lto\
             -DFAIRSEQ2N_SANITIZERS="${SANITIZERS/_/;}"\
             -DFAIRSEQ2N_TREAT_WARNINGS_AS_ERRORS=ON\
             -DFAIRSEQ2N_USE_CUDA=$cuda\
-            -DFAIRSEQ2N_BUILD_PYTHON_BINDINGS=ON\
             -DFAIRSEQ2N_PYTHON_DEVEL=OFF\
             -B build
 
@@ -129,16 +124,17 @@ jobs:
       - name: Package fairseq2n
         working-directory: fairseq2n/python
         run: |
-          pip wheel .\
+          pip wheel\
             --use-pep517\
             --no-build-isolation\
             --no-deps\
             --config-settings "--build-option=--plat-name"\
             --config-settings "--build-option=manylinux2014_${{ inputs.arch }}"\
-            --wheel-dir build/wheelhouse
+            --wheel-dir build/wheelhouse\
+            .
       - name: Package fairseq2
         run: |
-          pip wheel . --no-deps --wheel-dir build/wheelhouse
+          pip wheel --no-deps --wheel-dir build/wheelhouse .
       - name: Upload wheels and native tests to staging
         uses: actions/upload-artifact@v3
         with:
@@ -152,13 +148,14 @@ jobs:
   test:
     name: Test
     needs: build
-    runs-on: ubuntu-latest
+    runs-on:
+      labels: 4-core-ubuntu
     container:
-      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_${{ inputs.arch }}:1-${{ inputs.variant }}
+      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_${{ inputs.arch }}:2-${{ inputs.variant }}
+    defaults:
+      run:
+        shell: bash
     steps:
-      - name: Install libsndfile
-        run: |
-          yum --assumeyes install libsndfile-devel
       - name: Download wheels and native tests from staging
         uses: actions/download-artifact@v3
         with:
@@ -173,17 +170,25 @@ jobs:
           echo ~/venv/bin >> "$GITHUB_PATH"
       - name: Install PyTorch
         run: |
-          pip install torch==${{ inputs.torch }}\
-            --extra-index-url https://download.pytorch.org/whl/${{ inputs.variant }}
-      - name: Install pytest
+          pip install --extra-index-url https://download.pytorch.org/whl/${{ inputs.variant }}\
+            torch==${{ inputs.torch }}
+      - name: Install requirements
+        env:
+            ARCH: ${{ inputs.arch }}
         run: |
           pip install --requirement requirements-devel.txt
+
+          if [[ $ARCH == x86_64 ]]; then
+              # Our Docker images have glibc 2.17, but tbb versions later than
+              # 2021.9 are built against a newer glibc.
+              pip install tbb==2021.8
+          fi
       - name: Install fairseq2n
         run: |
-          pip install ~/artifacts/fairseq2n/python/build/wheelhouse/*.whl --no-cache-dir
+          pip install --no-cache-dir ~/artifacts/fairseq2n/python/build/wheelhouse/*.whl
       - name: Install fairseq2
         run: |
-          pip install ~/artifacts/build/wheelhouse/*.whl --no-cache-dir
+          pip install --no-cache-dir ~/artifacts/build/wheelhouse/*.whl
       - name: Set the sanitizer variables
         if: inputs.sanitizers != 'nosan'
         env:
@@ -199,24 +204,27 @@ jobs:
             for sanitizer in ${SANITIZERS//_/ }; do
               # LIBASAN and LIBTSAN environment variables are defined in the
               # container image.
-              if [[ $sanitizer == asan ]]; then
+              case $sanitizer in
+              asan)
                 echo SANITIZER_LIB=$(echo $LIBASAN)
 
                 break
-              fi
-
-              if [[ $sanitizer == tsan ]]; then
+                ;;
+              tsan)
                 echo SANITIZER_LIB=$(echo $LIBTSAN)
 
                 break
-              fi
+                ;;
+              esac
             done
           } >> "$GITHUB_ENV"
       - name: Run native tests
         run: |
           chmod 755 ~/artifacts/fairseq2n/build/tests/run-tests
 
-          LD_LIBRARY_PATH=~/venv/lib:~/venv/lib/python${{ inputs.py }}/site-packages/torch/lib:~/venv/lib/python${{ inputs.py }}/site-packages/fairseq2n/lib\
+          site_packages=~/venv/lib/python${{ inputs.py }}/site-packages
+
+          LD_LIBRARY_PATH=~/venv/lib:$site_packages/torch/lib:$site_packages/fairseq2n/lib:$LD_LIBRARY_PATH\
             ~/artifacts/fairseq2n/build/tests/run-tests
       - name: Run Python tests
         env:
@@ -241,7 +249,9 @@ jobs:
           # on the raw output of LSan. As a rudimentary workaround, we check if
           # any stack frame has a symbol containing the word 'fairseq2'.
           for f in ~/lsan.out.*; do
-            if cat $f | tee /dev/stderr | grep --quiet 'fairseq2'; then
-              exit 1
+            cat $f
+
+            if grep --silent 'fairseq2' $f; then
+                exit 1
             fi
           done

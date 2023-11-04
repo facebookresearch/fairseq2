@@ -14,3 +14,9 @@ curl --location --fail --output cuda.run\
 sh cuda.run --silent --toolkit --override --no-man-page
 
 rm cuda.run
+
+# We don't need Nsight.
+rm -rf /usr/local/cuda-11.8/nsight*
+
+# Add CUDA libraries to the lookup cache of the dynamic linker.
+ldconfig
