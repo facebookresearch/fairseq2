@@ -81,7 +81,7 @@ def create_or_update_package_index(
 
 
 def upload_index(bucket: "Bucket", prefix: str, index: str) -> None:
-    metadata = {"ContentType": "text/html", "Cache-Control": "max-age=300"}
+    metadata = {"ContentType": "text/html", "CacheControl": "max-age=300"}
 
     with BytesIO(index.encode("utf-8")) as fp:
         bucket.upload_fileobj(  # type: ignore[attr-defined]
