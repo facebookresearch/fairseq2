@@ -48,7 +48,6 @@ jobs:
       variant: ${{ matrix.variant }}
       sanitizers: ${{ matrix.sanitizers }}
       version_override: ${{ inputs.version_override }}
-      run_integration_tests: ${{ matrix.run_integration_tests }}
 
   build_pt21_wheel-linux:
     name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
