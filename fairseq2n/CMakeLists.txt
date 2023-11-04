@@ -164,7 +164,7 @@ if(FAIRSEQ2N_THREAD_LIB STREQUAL "tbb")
     find_package(TBB 2021.8 REQUIRED)
 endif()
 
-find_package(Torch 1.12 REQUIRED)
+find_package(Torch 1.13 REQUIRED)
 
 if(FAIRSEQ2N_BUILD_PYTHON_BINDINGS)
     find_package(Python3 REQUIRED COMPONENTS Interpreter Development.Module)

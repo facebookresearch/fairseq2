@@ -9,27 +9,24 @@ on:
     inputs:
       torch:
         type: string
-        default: '2.0.1'
+        default: '2.1.0'
       py:
         type: string
         default: '3.11'
 
-defaults:
-  run:
-    shell: bash
-
 jobs:
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on:
+      labels: 4-core-ubuntu
     container:
-      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_x86_64:1-cpu
+      image: ghcr.io/facebookresearch/fairseq2-ci-manylinux_x86_64:2-cpu
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Check-out the repository
         uses: actions/checkout@v3
-      - name: Install libsndfile
-        run: |
-          yum --assumeyes install libsndfile-devel
       - name: Install libpng-dev
         run: |
           yum --assumeyes install libpng-devel
@@ -44,10 +41,12 @@ jobs:
           echo ~/venv/bin >> "$GITHUB_PATH"
       - name: Install PyTorch
         run: |
-          pip install torch==${{ inputs.torch }}\
-            --extra-index-url https://download.pytorch.org/whl/cpu
-      - name: Install linters
+          pip install --extra-index-url https://download.pytorch.org/whl/cpu\
+            torch==${{ inputs.torch }}
+      - name: Install requirements
         run: |
+          pip install --requirement fairseq2n/python/requirements-build.txt
+
           pip install --requirement requirements-devel.txt
       - name: Install fairseq2n
         run: |

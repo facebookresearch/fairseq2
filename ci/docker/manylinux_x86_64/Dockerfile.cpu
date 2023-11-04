@@ -6,19 +6,21 @@
 
 FROM quay.io/pypa/manylinux2014_x86_64
 
-ENV DEVTOOLSET=10
-
-ENV LIBASAN=/usr/lib64/libasan.so.6
-ENV LIBTSAN=/usr/lib64/libtsan.so.0
-
-# GCC 10.2 is already installed on manylinux2014; therefore, we just install the
-# missing sanitizers.
+# Install system dependencies.
 RUN yum --assumeyes install\
-        devtoolset-$DEVTOOLSET-lib{asan,lsan,ubsan,tsan}-devel &&\
+        devtoolset-10-lib{asan,lsan,ubsan,tsan}-devel lib{sndfile,png,jpeg}-devel &&\
     yum clean all
 
-COPY manylinux-entrypoint.sh /usr/local/bin/
+# Install Ninja.
+RUN pipx install --pip-args=--no-cache-dir ninja
 
-ENTRYPOINT ["manylinux-entrypoint.sh"]
+# Install LLVM.
+COPY build-scripts/install-llvm.sh /build-scripts/
+
+RUN /build-scripts/install-llvm.sh && rm -rf /build-scripts
+
+# Path to sanitizer libs. Used by the CI tests.
+ENV LIBASAN=/usr/lib64/libasan.so.6
+ENV LIBTSAN=/usr/lib64/libtsan.so.0
 
 CMD ["/bin/bash"]
