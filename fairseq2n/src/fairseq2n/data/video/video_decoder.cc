@@ -12,7 +12,7 @@
 
 #include <ATen/Functions.h>
 #include <ATen/Tensor.h>
-#include <csetjmp>
+#include <libavcodec/avcodec.h>
 
 #include "fairseq2n/exception.h"
 #include "fairseq2n/float.h"

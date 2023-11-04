@@ -101,10 +101,9 @@ target_include_directories(fairseq2n ${system}
     PUBLIC
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
         $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/src>
-        ${DECORD_PATH}/include
 )
 
-option(DECORD_PATH "Path to Decord library" "")
+find_package(Libavcodec REQUIRED)
 
 target_link_libraries(fairseq2n
     PRIVATE
@@ -118,7 +117,7 @@ target_link_libraries(fairseq2n
         Threads::Threads
         sentencepiece-static
         SndFile::sndfile
-        ${DECORD_PATH}/build/libdecord.so
+        Libavcodec::Libavcodec
     PUBLIC
         torch
 )
