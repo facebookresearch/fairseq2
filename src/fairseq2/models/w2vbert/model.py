@@ -155,10 +155,11 @@ class W2VBertOutput:
     """The output of the wav2vec 2.0 model."""
 
     bert_logits: Tensor
-    """The logits for masked prediction. *Shape:* :math:`(NxS_{msk},V,G_{tgt})`,
-    where :math:`N` is the batch size, :math:`S_{msk}` is the masked sequence
-    length, :math:`V` is the number of entries per codebook, and :math:`G_{tgt}`
-    is the number of target codebooks."""
+    """The logits for masked feature prediction. *Shape:*
+    :math:`(NxS_{msk},V,G_{tgt})`, where :math:`N` is the batch size,
+    :math:`S_{msk}` is the masked sequence length, :math:`V` is the number of
+    entries per codebook, and :math:`G_{tgt}` is the number of target
+    codebooks."""
 
     bert_targets: Tensor
     """The target entry index per target codebook. *Shape:*

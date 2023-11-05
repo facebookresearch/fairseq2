@@ -82,7 +82,7 @@ class SequenceModelOutput:
             The target indices. *Shape:* :math:`(N,S)`, where :math:`N` is the
             batch size and :math:`S` is the sequence length.
         :param ignore_prefix_size:
-            The number of logits from the beginning of the sequence that should
+            The number of steps from the beginning of the sequence that should
             be ignored in the loss computation.
         :param label_smoothing:
             The amount of label smoothing to apply while computing the loss.
