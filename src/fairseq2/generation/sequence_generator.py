@@ -271,11 +271,10 @@ class Seq2SeqGenerator:
             if self.unk_idx is not None:
                 lprobs[:, :, self.unk_idx] -= self.opts.unk_penalty
 
-            # update scores in place using logits_processor
+            # Update `lprobs` in-place if requested.
             if self.logits_processor is not None:
                 self.logits_processor(
-                    seqs.view(num_searches, beam_size, -1)[:, :, : step_nr + 1],
-                    lprobs.view(num_searches, beam_size, -1),
+                    seqs[:, : step_nr + 1], lprobs.squeeze(1), lprob=True
                 )
 
             # Determine candidates for the next step.
