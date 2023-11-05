@@ -299,10 +299,10 @@ class Wav2Vec2Output:
     """Holds the output of a wav2vec 2.0 model."""
 
     logits: Tensor
-    """The logits for contrastive prediction. *Shape:* :math:`(N,S_{msk},L)`,
-    where :math:`N` is the batch size, :math:`S_{msk}` is the masked sequence
-    length, and :math:`L` is the number of candidates (i.e. the number of
-    distractors plus 1 for the target)."""
+    """The logits for contrastive feature prediction. *Shape:*
+    :math:`(N,S_{msk},L)`, where :math:`N` is the batch size, :math:`S_{msk}`
+    is the masked sequence length, and :math:`L` is the number of candidates
+    (i.e. the number of distractors plus 1 for the target)."""
 
     quantized_targets: Tensor
     """The quantized context network targets that have been extracted from the
