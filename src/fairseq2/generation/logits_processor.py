@@ -4,172 +4,127 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-
+import sys
 from abc import ABC, abstractmethod
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence, final
 
 import torch
 from torch import Tensor
+from torch.nn.functional import pad
 
-from fairseq2.data.text.text_tokenizer import TextTokenEncoder
-from fairseq2.data.typing import StringLike
-from fairseq2.typing import Device
+from fairseq2.typing import finaloverride
 
 
 class LogitsProcessor(ABC):
-    """Abstracte base class for updating scores in place"""
+    """Processes next-step probabilities during sequence generation."""
 
     @abstractmethod
-    def __call__(self, seqs: Tensor, lprobs: Tensor) -> None:
-        """Update next-step log probabilities inplace based on given token sequence.
-
+    def __call__(self, seqs: Tensor, probs: Tensor, lprob: bool = False) -> None:
+        """
         :param seqs:
-            The sequence of tokens generated in current beam search step.
-            :math:`(N,B,S)`, where :math:`N` is the batch size, :math:`B` is
-            the number of beams, and :math:`S` is the size of the sequence.
-        :param lprobs:
-            The next-step log probability of each vocabulary entry. *Shape:*
-            :math:`(N,B,V)`, where :math:`N` is the batch size, :math:`B` is
-            the number of beams, and :math:`V` is the size of the vocabulary.
-
-        :returns:
-            None
+            The sequences that are in process of being generated. *Shape:*
+            :math:`(N,S)`, where :math`N` is the batch size and :math:`S` is the
+            sequence length generated so far.
+        :param probs:
+            The next-step probabilities of ``seqs``. *Shape:* :math:`(N,V)`,
+            where :math:`N` is the batch size and :math:`V` is the size of the
+            target vocabulary.
+        :param lprob:
+            If ``True``, ``probs`` contains log probabilities.
         """
 
 
-class BannedSequenceLogitsProcessor(LogitsProcessor):
-    """Processor used to penalize scores of multiple banned sequences of words."""
+@final
+class BannedSequenceProcessor(LogitsProcessor):
+    """Prevents a provided list of banned sequences from being generated."""
 
-    banned_tokens: Tensor
-    """Vector of shape (nb_banned_sequences, 1) containing last token of each sequence to ban."""
+    _banned_seqs: Optional[Tensor]
+    _banned_mask: Optional[Tensor]
 
-    banned_prefix: Tensor
-    """Matrix of shape (nb_banned_sequences, max_banned_tokens_len - 1) padded with 0s on the left."""
-
-    banned_prefix_mask: Tensor
-    """mask of 0s and 1s based on each banned token sequence and max prefix len."""
-
-    max_prefix_len: int
-    """length of biggest banned sequence - 1."""
-
-    pad_idx: int
-    """Padding index used for encoding banned sequences."""
-
-    device: Device
-    """device used for all inner tensors."""
-
-    def __init__(self, banned_seqs: List[Tensor], pad_idx: int, device: Device) -> None:
+    def __init__(self, banned_seqs: Sequence[Tensor]) -> None:
         """
         :param banned_seqs:
-            list of token sequences to ban.
-        :param pad_idx:
-            padding index used for encoding banned sequences.
-        :param device:
-            device
+            The list of banned sequences.
         """
-        if len(banned_seqs) == 0:
-            raise ValueError("`banned_seqs` should contain at least one element.")
-        if any([t.ndim != 1 for t in banned_seqs]):
-            raise ValueError(
-                "`banned_seqs` should contain only one dimensional tensors."
+        batch_size = len(banned_seqs)
+
+        if batch_size == 0:
+            self._banned_seqs = None
+            self._banned_mask = None
+
+            return
+
+        max_seq_len = 0
+        min_seq_len = sys.maxsize
+
+        seq_lens: List[int] = []
+
+        for idx, seq in enumerate(banned_seqs):
+            seq_len = len(seq)
+            if seq_len == 0:
+                raise ValueError(f"`banned_seqs[{idx}]` must not be empty.")
+
+            seq_lens.append(seq_len)
+
+            max_seq_len = max(seq_len, max_seq_len)
+            min_seq_len = min(seq_len, min_seq_len)
+
+        device = banned_seqs[0].device
+
+        # (N, S)
+        self._banned_seqs = torch.zeros(
+            (batch_size, max_seq_len), device=device, dtype=torch.int64
+        )
+
+        if max_seq_len != min_seq_len:
+            # (N, S)
+            self._banned_mask = torch.full(
+                (batch_size, max_seq_len), True, device=device
             )
-
-        self.pad_idx = pad_idx
-        self.device = device
-
-        self.max_prefix_len = max([len(t) - 1 for t in banned_seqs])
-        self.banned_prefix = self._create_pad_tensor(
-            size=(len(banned_seqs), self.max_prefix_len)
-        )
-        self.banned_tokens = torch.empty(
-            size=(len(banned_seqs), 1), dtype=torch.int64, device=self.device
-        )
-        for i, seq in enumerate(banned_seqs):
-            if (len(seq)) > 1:
-                self.banned_prefix[i, -len(seq) + 1 :] = seq[:-1]
-            self.banned_tokens[i] = seq[-1]
-
-        self.banned_prefix_mask = torch.where(
-            self.banned_prefix == self.pad_idx, 0, 1
-        ).to(device=self.device)
-
-    def __call__(self, seqs: Tensor, lprobs: Tensor) -> None:
-        """Apply score penalty of banend tokens inplace"""
-        seqs = self._pad_left_short_sequence(seqs)
-
-        if self.max_prefix_len == 0:
-            lprobs[:, :, self.banned_tokens] = -torch.inf
         else:
-            prefix_diff = (
-                seqs[:, :, -self.max_prefix_len :].unsqueeze(2)
-                * self.banned_prefix_mask
-                - self.banned_prefix
-            )
-            batch_idx, beam_idx, match_idx = (prefix_diff.sum(dim=-1) == 0).nonzero(
-                as_tuple=True
-            )
-            if len(batch_idx) > 0:
-                lprobs[batch_idx, beam_idx, self.banned_tokens[match_idx]] = -torch.inf
+            self._banned_mask = None
 
-    def _pad_left_short_sequence(self, tokens: Tensor) -> Tensor:
-        batch_size, beam_size, seq_len = tokens.shape
-        if seq_len < self.max_prefix_len:
-            tmp = self._create_pad_tensor(
-                size=(batch_size, beam_size, self.max_prefix_len)
-            )
-            tmp[:, :, -seq_len:] = tokens
-            tokens = tmp
+        for row, seq in enumerate(banned_seqs):
+            if self._banned_mask is None:
+                self._banned_seqs[row] = seq
+            else:
+                self._banned_seqs[row, -seq_lens[row] :] = seq
+                self._banned_mask[row, -seq_lens[row] :] = False
 
-        return tokens
+    @finaloverride
+    def __call__(self, seqs: Tensor, probs: Tensor, lprob: bool = False) -> None:
+        if self._banned_seqs is None:
+            return
 
-    def _create_pad_tensor(self, size: Tuple[int, ...]) -> Tensor:
-        return torch.full(
-            size=size,
-            fill_value=self.pad_idx,
-            dtype=torch.int64,
-            device=self.device,
-        )
+        ban_value = -torch.inf if lprob else 0
 
-    # This is not the best place but the whole file needs a refactoring
-    # We need target decoder to create this tensor
-    @staticmethod
-    def compute_banned_words_seqs(
-        banned_strings: Sequence[StringLike],
-        token_encoder: TextTokenEncoder,
-    ) -> List[Tensor]:
-        """Compute sequences of tokens to ban from encoder and banned strings
+        banned_prefix_len = self._banned_seqs.size(1) - 1
+        if banned_prefix_len == 0:
+            probs[:, self._banned_seqs[:, 0]] = ban_value
 
-        :params banned_strings:
-            The list of strings to ban in sequence generation.
-        :params token_encoder:
-            Encoder to use for tokenizing input strings.
+            return
 
-        :returns:
-            List of token sequences to ban.
-        """
-        if not banned_strings:
-            return []
+        if (len_delta := banned_prefix_len - seqs.size(1)) > 0:
+            # (N, S) -> (N, S_pre)
+            seqs = pad(seqs, (len_delta, -1))
+        elif len_delta < 0:
+            # (N, S) -> (N, S_pre)
+            seqs = seqs[:, -banned_prefix_len:]
 
-        control_tokens = BannedSequenceLogitsProcessor._concat_optional_tensors(
-            [token_encoder.prefix_indices, token_encoder.suffix_indices]
-        )
+        # (N, S_pre) -> (N, 1, S_pre)
+        seqs = seqs.unsqueeze(1)
 
-        def encode(s: StringLike) -> torch.Tensor:
-            seq = token_encoder(s)
-            if control_tokens is None:
-                return seq
+        # (N, 1, S_pre) - (B, S_pre) -> (N, B, S_pre)
+        seqs = seqs - self._banned_seqs[:, :-1]
 
-            mask = torch.isin(seq, control_tokens, invert=True)
-            return seq[mask]
+        if self._banned_mask is not None:
+            seqs.masked_fill_(self._banned_mask[:, :-1], 0)
 
-        return [encode(x) for x in banned_strings]
+        # (N, B, S_pre) -> (N, B)
+        banned_prefix_matches = seqs.sum(dim=-1)
 
-    @staticmethod
-    def _concat_optional_tensors(tensors: List[Optional[Tensor]]) -> Optional[Tensor]:
-        not_none_tensors = [t for t in tensors if t is not None]
+        # (N, B) -> (N), (B)
+        batch_indices, banned_indices = torch.where(banned_prefix_matches == 0)
 
-        result: Optional[Tensor] = None
-        if len(not_none_tensors) > 0:
-            result = torch.cat(not_none_tensors).unique()
-
-        return result
+        if len(batch_indices) > 0:
+            probs[batch_indices, self._banned_seqs[:, -1][banned_indices]] = ban_value

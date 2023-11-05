@@ -7,7 +7,7 @@
 from fairseq2.generation.beam_search import BeamSearch as BeamSearch
 from fairseq2.generation.beam_search import StandardBeamSearch as StandardBeamSearch
 from fairseq2.generation.logits_processor import (
-    BannedSequenceLogitsProcessor as BannedSequenceLogitsProcessor,
+    BannedSequenceProcessor as BannedSequenceProcessor,
 )
 from fairseq2.generation.logits_processor import LogitsProcessor as LogitsProcessor
 from fairseq2.generation.sequence_generator import Hypothesis as Hypothesis
