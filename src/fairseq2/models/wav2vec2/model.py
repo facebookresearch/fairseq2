@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
@@ -111,7 +113,7 @@ class Wav2Vec2Model(Module):
         self.logit_temp = logit_temp
         self.diversity_loss_weight = diversity_loss_weight
 
-    def forward(self, batch: SequenceBatch) -> "Wav2Vec2Output":
+    def forward(self, batch: SequenceBatch) -> Wav2Vec2Output:
         """
         :param batch:
             The batch of sequences to process.
@@ -321,7 +323,7 @@ class Wav2Vec2Output:
     diversity_loss_weight: float
     """The weight of diversity in loss computation."""
 
-    def compute_loss(self) -> "Wav2Vec2Loss":
+    def compute_loss(self) -> Wav2Vec2Loss:
         """Compute the loss."""
         contrastive_loss = self.compute_contrastive_loss()
 

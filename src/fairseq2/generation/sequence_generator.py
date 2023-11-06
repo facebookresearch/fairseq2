@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import math
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, Union
@@ -146,7 +148,7 @@ class Seq2SeqGenerator:
         encoder_output: Tensor,
         encoder_padding_mask: Optional[PaddingMask],
         source_seq_len: Optional[int] = None,
-    ) -> "SequenceGeneratorOutput":
+    ) -> SequenceGeneratorOutput:
         opts = self.opts
 
         num_searches = encoder_output.size(0)
@@ -560,8 +562,8 @@ class Seq2SeqGenerator:
         eos_scores: Tensor,
         seqs: Tensor,
         scores: Tensor,
-        active_searches: List[Tuple[int, List["Hypothesis"]]],
-        finished_searches: List[List["Hypothesis"]],
+        active_searches: List[Tuple[int, List[Hypothesis]]],
+        finished_searches: List[List[Hypothesis]],
     ) -> List[int]:
         # fmt: off
         finalized_seqs   = seqs  .index_select(dim=0, index=eos_beam_indices)
@@ -623,7 +625,7 @@ class Seq2SeqGenerator:
 class SequenceGeneratorOutput:
     """Holds the output of a sequence generator."""
 
-    results: List[List["Hypothesis"]]
+    results: List[List[Hypothesis]]
     """The list of hypothesis generated per search, ordered by score."""
 
     device: Device

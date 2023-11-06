@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Optional
 
@@ -81,7 +83,7 @@ class W2VBertModel(Module):
         self.bert_loss_weight = bert_loss_weight
         self.bert_label_smoothing = bert_label_smoothing
 
-    def forward(self, batch: SequenceBatch) -> "W2VBertOutput":
+    def forward(self, batch: SequenceBatch) -> W2VBertOutput:
         """
         :param batch:
             The batch of sequences to process.
@@ -176,7 +178,7 @@ class W2VBertOutput:
     bert_label_smoothing: float = 0.0
     """The amount of label smoothing when computing masked prediction loss."""
 
-    def compute_loss(self) -> "W2VBertLoss":
+    def compute_loss(self) -> W2VBertLoss:
         """Compute the loss."""
         bert_loss = self.compute_bert_loss()
 
