@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Optional, TypedDict, Union
 
 from torch import Tensor
@@ -24,7 +26,7 @@ if TYPE_CHECKING or _DOC_MODE:
         ) -> None:
             ...
 
-        def __call__(self, memory_block: MemoryBlock) -> "AudioDecoderOutput":
+        def __call__(self, memory_block: MemoryBlock) -> AudioDecoderOutput:
             ...
 
     class WaveformToFbankConverter:
@@ -41,7 +43,7 @@ if TYPE_CHECKING or _DOC_MODE:
         ) -> None:
             ...
 
-        def __call__(self, waveform: "WaveformToFbankInput") -> "WaveformToFbankOutput":
+        def __call__(self, waveform: WaveformToFbankInput) -> WaveformToFbankOutput:
             ...
 
 else:

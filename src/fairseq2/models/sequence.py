@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Optional
@@ -21,7 +23,7 @@ class SequenceModel(Module, ABC):
     """Represents a sequence model."""
 
     @abstractmethod
-    def forward(self, batch: "SequenceBatch") -> "SequenceModelOutput":
+    def forward(self, batch: SequenceBatch) -> SequenceModelOutput:
         """
         :param batch:
             The batch of sequences to process.

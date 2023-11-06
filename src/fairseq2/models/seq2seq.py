@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Optional, Tuple
@@ -20,7 +22,7 @@ class Seq2SeqModel(Module, ABC):
     """Represents a sequence-to-sequence model."""
 
     @abstractmethod
-    def forward(self, batch: "Seq2SeqBatch") -> SequenceModelOutput:
+    def forward(self, batch: Seq2SeqBatch) -> SequenceModelOutput:
         """
         :param batch:
             The batch of sequences to process.
@@ -54,7 +56,7 @@ class Seq2SeqBatch:
     example: Any = None
     """The data example from which this batch was constructed."""
 
-    def as_training_input(self) -> Tuple["Seq2SeqBatch", Tensor]:
+    def as_training_input(self) -> Tuple[Seq2SeqBatch, Tensor]:
         """Return a copy of this batch for model training.
 
         :returns:
