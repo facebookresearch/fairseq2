@@ -58,11 +58,8 @@ class S2TTransformerConfig:
     num_fbank_channels: int
     """The number of source log-mel filterbank channels."""
 
-    target_vocabulary_size: int
-    """The size of the target vocabulary."""
-
-    target_pad_idx: Optional[int]
-    """The index of the PAD symbol in the target vocabulary."""
+    target_vocab_info: VocabularyInfo
+    """The target vocabulary information."""
 
     use_relative_pos: bool
     """If ``True``, uses relative positional encodings for source sequences."""
@@ -91,10 +88,6 @@ class S2TTransformerConfig:
     depthwise_conv_kernel_size: int
     """The kernel size of depthwise convolutions in Conformer blocks."""
 
-    def update_target_vocabulary(self, info: VocabularyInfo) -> None:
-        """Update target vocabulary configuration from ``info``."""
-        self.target_vocabulary_size, self.target_pad_idx = info.size, info.pad_idx
-
 
 s2t_transformer_archs = ArchitectureRegistry[S2TTransformerConfig]("s2t_transformer")
 
@@ -108,8 +101,9 @@ def _tiny() -> S2TTransformerConfig:
         model_dim=256,
         max_seq_len=1024,
         num_fbank_channels=80,
-        target_vocabulary_size=10000,
-        target_pad_idx=1,
+        target_vocab_info=VocabularyInfo(
+            size=10000, unk_idx=0, bos_idx=0, eos_idx=0, pad_idx=1
+        ),
         use_relative_pos=False,
         use_conformer=False,
         num_encoder_layers=6,
@@ -128,8 +122,9 @@ def _small() -> S2TTransformerConfig:
         model_dim=256,
         max_seq_len=1024,
         num_fbank_channels=80,
-        target_vocabulary_size=10000,
-        target_pad_idx=1,
+        target_vocab_info=VocabularyInfo(
+            size=10000, unk_idx=3, bos_idx=0, eos_idx=2, pad_idx=1
+        ),
         use_relative_pos=False,
         use_conformer=False,
         num_encoder_layers=12,
@@ -148,8 +143,9 @@ def _medium() -> S2TTransformerConfig:
         model_dim=512,
         max_seq_len=1024,
         num_fbank_channels=80,
-        target_vocabulary_size=10000,
-        target_pad_idx=1,
+        target_vocab_info=VocabularyInfo(
+            size=10000, unk_idx=3, bos_idx=0, eos_idx=2, pad_idx=1
+        ),
         use_relative_pos=False,
         use_conformer=False,
         num_encoder_layers=12,
@@ -168,8 +164,9 @@ def _large() -> S2TTransformerConfig:
         model_dim=1024,
         max_seq_len=1024,
         num_fbank_channels=80,
-        target_vocabulary_size=10000,
-        target_pad_idx=1,
+        target_vocab_info=VocabularyInfo(
+            size=10000, unk_idx=0, bos_idx=0, eos_idx=0, pad_idx=1
+        ),
         use_relative_pos=False,
         use_conformer=False,
         num_encoder_layers=12,
@@ -188,8 +185,9 @@ def _conformer_medium() -> S2TTransformerConfig:
         model_dim=256,
         max_seq_len=6000,
         num_fbank_channels=80,
-        target_vocabulary_size=181,
-        target_pad_idx=1,
+        target_vocab_info=VocabularyInfo(
+            size=181, unk_idx=3, bos_idx=0, eos_idx=2, pad_idx=1
+        ),
         use_relative_pos=False,
         use_conformer=True,
         num_encoder_layers=12,
@@ -246,7 +244,7 @@ class S2TTransformerBuilder:
 
         final_proj = Linear(
             self.config.model_dim,
-            self.config.target_vocabulary_size,
+            self.config.target_vocab_info.size,
             bias=False,
             init_fn=init_final_projection,
             device=self.device,
@@ -259,7 +257,7 @@ class S2TTransformerBuilder:
             decoder_frontend,
             decoder,
             final_proj,
-            target_pad_idx=self.config.target_pad_idx,
+            self.config.target_vocab_info,
         )
 
     def build_encoder_frontend(self) -> TransformerFrontend:
@@ -288,9 +286,9 @@ class S2TTransformerBuilder:
     def build_decoder_frontend(self) -> TransformerFrontend:
         """Build a Transformer decoder front-end."""
         embed = StandardEmbedding(
-            num_embeddings=self.config.target_vocabulary_size,
+            num_embeddings=self.config.target_vocab_info.size,
             embedding_dim=self.config.model_dim,
-            pad_idx=self.config.target_pad_idx,
+            pad_idx=self.config.target_vocab_info.pad_idx,
             init_fn=init_scaled_embedding,
             device=self.device,
             dtype=self.dtype,
@@ -320,7 +318,7 @@ class S2TTransformerBuilder:
         return SinusoidalPositionEncoder(
             self.config.model_dim,
             self.config.max_seq_len,
-            _legacy_pad_idx=self.config.target_pad_idx,
+            _legacy_pad_idx=self.config.target_vocab_info.pad_idx,
             device=self.device,
         )
 

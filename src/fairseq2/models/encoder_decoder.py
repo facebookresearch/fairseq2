@@ -9,6 +9,7 @@ from typing import Optional, Tuple
 
 from torch import Tensor
 
+from fairseq2.data import VocabularyInfo
 from fairseq2.models.seq2seq import Seq2SeqBatch, Seq2SeqModel
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.nn.incremental_state import IncrementalStateBag
@@ -83,12 +84,14 @@ class EncoderDecoderModel(Seq2SeqModel, Seq2SeqDecoder):
 
     model_dim: int
 
-    def __init__(self, model_dim: int) -> None:
+    def __init__(self, model_dim: int, target_vocab_info: VocabularyInfo) -> None:
         """
         :param model_dim:
             The dimensionality of the model.
+        :param target_vocab_info:
+            The vocabulary information of sequences produced by the model.
         """
-        super().__init__()
+        super().__init__(target_vocab_info)
 
         self.model_dim = model_dim
 
