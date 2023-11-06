@@ -106,7 +106,7 @@ class BannedSequenceProcessor(StepProcessor):
 
         if (len_delta := banned_prefix_len - seqs.size(1)) > 0:
             # (N, S) -> (N, S_pre)
-            seqs = pad(seqs, (len_delta, -1))
+            seqs = pad(seqs, (len_delta, 0), value=-1)
         elif len_delta < 0:
             # (N, S) -> (N, S_pre)
             seqs = seqs[:, -banned_prefix_len:]
