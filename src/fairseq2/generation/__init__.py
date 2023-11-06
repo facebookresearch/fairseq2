@@ -6,10 +6,6 @@
 
 from fairseq2.generation.beam_search import BeamSearch as BeamSearch
 from fairseq2.generation.beam_search import StandardBeamSearch as StandardBeamSearch
-from fairseq2.generation.logits_processor import (
-    BannedSequenceProcessor as BannedSequenceProcessor,
-)
-from fairseq2.generation.logits_processor import LogitsProcessor as LogitsProcessor
 from fairseq2.generation.sequence_generator import Hypothesis as Hypothesis
 from fairseq2.generation.sequence_generator import Seq2SeqGenerator as Seq2SeqGenerator
 from fairseq2.generation.sequence_generator import (
@@ -18,6 +14,10 @@ from fairseq2.generation.sequence_generator import (
 from fairseq2.generation.sequence_generator import (
     SequenceGeneratorOutput as SequenceGeneratorOutput,
 )
+from fairseq2.generation.step_processor import (
+    BannedSequenceProcessor as BannedSequenceProcessor,
+)
+from fairseq2.generation.step_processor import StepProcessor as StepProcessor
 from fairseq2.generation.text import SequenceToTextGenerator as SequenceToTextGenerator
 from fairseq2.generation.text import SequenceToTextOutput as SequenceToTextOutput
 from fairseq2.generation.text import TextTranslator as TextTranslator
