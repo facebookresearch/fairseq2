@@ -7,6 +7,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
+from fairseq2.data import VocabularyInfo
 from fairseq2.models.transformer import (
     TransformerDecoderModel,
     TransformerEmbeddingFrontend,
@@ -44,8 +45,8 @@ class LLaMAConfig:
     max_seq_len: int
     """The expected maximum sequence length."""
 
-    vocabulary_size: int
-    """The size of the vocabulary."""
+    vocab_info: VocabularyInfo
+    """The vocabulary information."""
 
     num_layers: int
     """The number of Transformer decoder layers."""
@@ -79,7 +80,9 @@ def _7b() -> LLaMAConfig:
     return LLaMAConfig(
         model_dim=4096,
         max_seq_len=2048,
-        vocabulary_size=32000,
+        vocab_info=VocabularyInfo(
+            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
+        ),
         num_layers=32,
         num_attn_heads=32,
         num_key_value_heads=32,
@@ -94,7 +97,9 @@ def _13b() -> LLaMAConfig:
     return LLaMAConfig(
         model_dim=5120,
         max_seq_len=2048,
-        vocabulary_size=32000,
+        vocab_info=VocabularyInfo(
+            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
+        ),
         num_layers=40,
         num_attn_heads=40,
         num_key_value_heads=40,
@@ -109,7 +114,9 @@ def _33b() -> LLaMAConfig:
     return LLaMAConfig(
         model_dim=6656,
         max_seq_len=2048,
-        vocabulary_size=32000,
+        vocab_info=VocabularyInfo(
+            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
+        ),
         num_layers=60,
         num_attn_heads=52,
         num_key_value_heads=52,
@@ -124,7 +131,9 @@ def _65b() -> LLaMAConfig:
     return LLaMAConfig(
         model_dim=8192,
         max_seq_len=2048,
-        vocabulary_size=32000,
+        vocab_info=VocabularyInfo(
+            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
+        ),
         num_layers=80,
         num_attn_heads=64,
         num_key_value_heads=64,
@@ -139,7 +148,9 @@ def _llama2_7b() -> LLaMAConfig:
     return LLaMAConfig(
         model_dim=4096,
         max_seq_len=4096,
-        vocabulary_size=32000,
+        vocab_info=VocabularyInfo(
+            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
+        ),
         num_layers=32,
         num_attn_heads=32,
         num_key_value_heads=32,
@@ -154,7 +165,9 @@ def _llama2_13b() -> LLaMAConfig:
     return LLaMAConfig(
         model_dim=5120,
         max_seq_len=4096,
-        vocabulary_size=32000,
+        vocab_info=VocabularyInfo(
+            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
+        ),
         num_layers=40,
         num_attn_heads=40,
         num_key_value_heads=40,
@@ -169,7 +182,9 @@ def _llama2_70b() -> LLaMAConfig:
     return LLaMAConfig(
         model_dim=8192,
         max_seq_len=4096,
-        vocabulary_size=32000,
+        vocab_info=VocabularyInfo(
+            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
+        ),
         num_layers=80,
         num_attn_heads=64,
         num_key_value_heads=8,
@@ -222,7 +237,7 @@ class LLaMABuilder:
 
         final_proj = Linear(
             self.config.model_dim,
-            self.config.vocabulary_size,
+            self.config.vocab_info.size,
             bias=False,
             init_fn=init_final_projection,
             device=self.device,
@@ -230,13 +245,13 @@ class LLaMABuilder:
         )
 
         return TransformerDecoderModel(
-            frontend, decoder, final_proj, target_pad_idx=None
+            frontend, decoder, final_proj, self.config.vocab_info
         )
 
     def build_frontend(self) -> TransformerFrontend:
         """Build a Transformer decoder front-end."""
         embed = StandardEmbedding(
-            num_embeddings=self.config.vocabulary_size,
+            num_embeddings=self.config.vocab_info.size,
             embedding_dim=self.config.model_dim,
             device=self.device,
             dtype=self.dtype,

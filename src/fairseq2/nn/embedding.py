@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from typing import Callable, Optional, final
 
@@ -74,7 +76,7 @@ class StandardEmbedding(Embedding):
     """Stores embeddings of a fixed dictionary and size in an in-memory table."""
 
     weight: Parameter
-    init_fn: Optional[Callable[["StandardEmbedding"], None]]
+    init_fn: Optional[Callable[[StandardEmbedding], None]]
 
     def __init__(
         self,
@@ -82,7 +84,7 @@ class StandardEmbedding(Embedding):
         embedding_dim: int,
         pad_idx: Optional[int] = None,
         *,
-        init_fn: Optional[Callable[["StandardEmbedding"], None]] = None,
+        init_fn: Optional[Callable[[StandardEmbedding], None]] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:

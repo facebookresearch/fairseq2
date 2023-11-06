@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import List, Optional, Sequence
 
@@ -67,7 +69,7 @@ class SequenceToTextGeneratorBase:
     @torch.inference_mode()
     def _do_generate(
         self, source_seqs: Tensor, source_padding_mask: Optional[PaddingMask]
-    ) -> "SequenceToTextOutput":
+    ) -> SequenceToTextOutput:
         """A subclass should call this function for the actual text generation."""
         encoder_output, encoder_padding_mask = self.model.encode(
             source_seqs, source_padding_mask

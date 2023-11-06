@@ -204,7 +204,6 @@ def _determine_default_cuda_device() -> Device:
     # We use the `LOCAL_RANK` environment variable to determine which GPU to
     # pick in case the process has more than one GPU available.
     local_rank_env = os.getenv("LOCAL_RANK")
-
     if local_rank_env is None:
         if num_devices > 1:
             raise RuntimeError(

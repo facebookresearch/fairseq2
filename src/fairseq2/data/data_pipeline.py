@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -77,12 +79,12 @@ if TYPE_CHECKING or _DOC_MODE:
 
         @staticmethod
         def zip(
-            pipelines: Sequence["DataPipeline"],
+            pipelines: Sequence[DataPipeline],
             names: Optional[Sequence[str]] = None,
             zip_to_shortest: bool = False,
             flatten: bool = False,
             disable_parallelism: bool = False,
-        ) -> "DataPipelineBuilder":
+        ) -> DataPipelineBuilder:
             """Zip together examples read from ``pipelines``.
 
             :param pipelines:
@@ -96,9 +98,9 @@ if TYPE_CHECKING or _DOC_MODE:
 
         @staticmethod
         def round_robin(
-            pipelines: Sequence["DataPipeline"],
+            pipelines: Sequence[DataPipeline],
             stop_at_shortest: bool = False,
-        ) -> "DataPipelineBuilder":
+        ) -> DataPipelineBuilder:
             """Extract examples from ``pipelines`` in round robin.
 
             :param pipelines:
@@ -111,10 +113,10 @@ if TYPE_CHECKING or _DOC_MODE:
 
         @staticmethod
         def sample(
-            pipelines: Sequence["DataPipeline"],
+            pipelines: Sequence[DataPipeline],
             weights: Optional[Sequence[float]] = None,
             stop_at_shortest: bool = False,
-        ) -> "DataPipelineBuilder":
+        ) -> DataPipelineBuilder:
             """Extract examples from ``pipelines`` by sampling based on ``weights``.
 
             :param data_pipelines:
@@ -128,15 +130,15 @@ if TYPE_CHECKING or _DOC_MODE:
             """
 
         @staticmethod
-        def constant(example: Any, key: Optional[str] = None) -> "DataPipelineBuilder":
+        def constant(example: Any, key: Optional[str] = None) -> DataPipelineBuilder:
             ...
 
         @staticmethod
-        def count(start: int = 0, key: Optional[str] = None) -> "DataPipelineBuilder":
+        def count(start: int = 0, key: Optional[str] = None) -> DataPipelineBuilder:
             ...
 
         @staticmethod
-        def concat(pipelines: Sequence["DataPipeline"]) -> "DataPipelineBuilder":
+        def concat(pipelines: Sequence[DataPipeline]) -> DataPipelineBuilder:
             """Concatenate examples from ``pipelines``.
 
             :param pipelines:
@@ -169,7 +171,7 @@ if TYPE_CHECKING or _DOC_MODE:
             self,
             pad_value: Optional[int] = None,
             pad_to_multiple: int = 1,
-            overrides: Optional[Sequence["CollateOptionsOverride"]] = None,
+            overrides: Optional[Sequence[CollateOptionsOverride]] = None,
         ) -> Self:
             """Concatenate a list of inputs into a single inputs.
 
@@ -281,7 +283,7 @@ if TYPE_CHECKING or _DOC_MODE:
 
     def list_files(
         pathname: PathLike, pattern: Optional[StringLike] = None
-    ) -> "DataPipelineBuilder":
+    ) -> DataPipelineBuilder:
         """List recursively all files under ``pathname`` that matches ``pattern``.
 
         :param pathname:
@@ -400,7 +402,7 @@ if TYPE_CHECKING or _DOC_MODE:
         ) -> None:
             ...
 
-        def __call__(self, filename: PathLike) -> "FileMapperOutput":
+        def __call__(self, filename: PathLike) -> FileMapperOutput:
             """Parses the file name and returns the file bytes.
 
             :returns:
