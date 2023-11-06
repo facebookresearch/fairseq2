@@ -14,12 +14,24 @@ import torch
 from torch import Tensor
 from torch.nn import Module
 
+from fairseq2.data import VocabularyInfo
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.nn.padding import PaddingMask
 
 
 class Seq2SeqModel(Module, ABC):
     """Represents a sequence-to-sequence model."""
+
+    target_vocab_info: VocabularyInfo
+
+    def __init__(self, target_vocab_info: VocabularyInfo) -> None:
+        """
+        :param target_vocab_info:
+            The vocabulary information of sequences produced by the model.
+        """
+        super().__init__()
+
+        self.target_vocab_info = target_vocab_info
 
     @abstractmethod
     def forward(self, batch: Seq2SeqBatch) -> SequenceModelOutput:

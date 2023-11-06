@@ -15,12 +15,24 @@ from torch import Tensor
 from torch.nn import Module
 from torch.nn.functional import log_softmax
 
+from fairseq2.data import VocabularyInfo
 from fairseq2.nn.functional import nll_loss
 from fairseq2.nn.padding import PaddingMask
 
 
 class SequenceModel(Module, ABC):
     """Represents a sequence model."""
+
+    vocab_info: VocabularyInfo
+
+    def __init__(self, vocab_info: VocabularyInfo) -> None:
+        """
+        :param vocab_info:
+            The vocabulary information of sequences produced by the model.
+        """
+        super().__init__()
+
+        self.vocab_info = vocab_info
 
     @abstractmethod
     def forward(self, batch: SequenceBatch) -> SequenceModelOutput:
@@ -66,10 +78,10 @@ class SequenceModelOutput:
     logits: Tensor
     """The logits for next-step prediction. *Shape:* :math:`(N,S,T)`, where
     :math:`N` is the batch size, :math:`S` is the sequence length, and :math:`T`
-    is the size of the target vocabulary."""
+    is the size of the vocabulary."""
 
-    pad_idx: Optional[int] = None
-    """The index of the PAD symbol in the target vocabulary."""
+    vocab_info: VocabularyInfo
+    """The vocabulary information."""
 
     def compute_loss(
         self,
@@ -100,4 +112,6 @@ class SequenceModelOutput:
         # For numerical stability run in single precision.
         lprobs = log_softmax(logits, dim=-1, dtype=torch.float32)
 
-        return nll_loss(lprobs, targets, self.pad_idx, label_smoothing=label_smoothing)
+        return nll_loss(
+            lprobs, targets, self.vocab_info.pad_idx, label_smoothing=label_smoothing
+        )
