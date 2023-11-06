@@ -15,7 +15,7 @@ from torch.nn.functional import pad
 from fairseq2.typing import finaloverride
 
 
-class LogitsProcessor(ABC):
+class StepProcessor(ABC):
     """Processes next-step probabilities during sequence generation."""
 
     @abstractmethod
@@ -35,7 +35,7 @@ class LogitsProcessor(ABC):
 
 
 @final
-class BannedSequenceProcessor(LogitsProcessor):
+class BannedSequenceProcessor(StepProcessor):
     """Prevents a provided list of banned sequences from being generated."""
 
     _banned_seqs: Optional[Tensor]

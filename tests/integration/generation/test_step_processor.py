@@ -85,7 +85,7 @@ class TestBannedSequenceProcessor:
         banned_seqs = [text_encoder(b) for b in banned_words]
 
         opts = SequenceGeneratorOptions(
-            logits_processor=BannedSequenceProcessor(banned_seqs)
+            step_processor=BannedSequenceProcessor(banned_seqs)
         )
 
         translator = TextTranslator(
