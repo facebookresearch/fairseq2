@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.gang &mdash; fairseq2 0.2.0.dev20231104 documentation</title>
+  <title>fairseq2.gang &mdash; fairseq2 0.2.0.dev20231106 documentation</title>
       <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20231104
+                0.2.0.dev20231106
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -349,7 +349,6 @@
     <span class="c1"># We use the `LOCAL_RANK` environment variable to determine which GPU to</span>
     <span class="c1"># pick in case the process has more than one GPU available.</span>
     <span class="n">local_rank_env</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;LOCAL_RANK&quot;</span><span class="p">)</span>
-
     <span class="k">if</span> <span class="n">local_rank_env</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">num_devices</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
