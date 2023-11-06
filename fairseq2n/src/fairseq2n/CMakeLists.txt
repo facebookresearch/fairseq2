@@ -104,6 +104,7 @@ target_include_directories(fairseq2n ${system}
 )
 
 find_package(Libavcodec REQUIRED)
+find_package(Libavformat REQUIRED)
 
 target_link_libraries(fairseq2n
     PRIVATE
@@ -118,6 +119,7 @@ target_link_libraries(fairseq2n
         sentencepiece-static
         SndFile::sndfile
         Libavcodec::Libavcodec
+        Libavformat::Libavformat
     PUBLIC
         torch
 )

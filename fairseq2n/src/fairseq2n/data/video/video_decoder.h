@@ -78,10 +78,44 @@ public:
     explicit
     video_decoder(video_decoder_options opts = {}, bool pin_memory = false);
 
+    struct decoder_metadata {
+    unsigned long format;
+    };
+
+    struct decoder_header {
+    unsigned long format;
+    };
+
+    class byte_storage {
+    public:
+    virtual ~byte_storage() = default;
+    virtual size_t length() const = 0;
+    };
+
+    struct decoder_output {
+    decoder_header header;
+    std::unique_ptr<byte_storage> payload;
+    };
+
     data
     operator()(data &&d) const;
 
+    static int
+    read_callback(void *opaque, uint8_t *buf, int buf_size);
+
+    static int
+    seek_callback(void *opaque, int64_t offset, int whence);
+
+    int 
+    decode_video(decoder_output* out);
+
+    int
+    decode_frame();
+
 private:
     video_decoder_options opts_;
+    std::list<decoder_output> queue_;
+    bool eof_{false};
 };
+
 }  // namespace fairseq2n
