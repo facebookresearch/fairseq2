@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import math
 from abc import ABC, abstractmethod
 from typing import Callable, Optional, final
@@ -67,7 +69,7 @@ class Linear(Projection):
 
     weight: Parameter
     bias: Optional[Parameter]
-    init_fn: Optional[Callable[["Linear"], None]]
+    init_fn: Optional[Callable[[Linear], None]]
 
     def __init__(
         self,
@@ -75,7 +77,7 @@ class Linear(Projection):
         output_dim: int,
         bias: bool,
         *,
-        init_fn: Optional[Callable[["Linear"], None]] = None,
+        init_fn: Optional[Callable[[Linear], None]] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:

@@ -61,7 +61,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
 
         super().__init__(feature_dim)
 
-        if not layer_descs:
+        if len(layer_descs) == 0:
             raise ValueError("`layer_descs` must be non-empty.")
 
         self.layers = Sequential()

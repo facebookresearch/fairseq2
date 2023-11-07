@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import math
 from typing import Optional, Tuple, final
 
@@ -27,7 +29,7 @@ class RelativePositionSDPA(SDPA):
 
     model_dim: int
     num_heads: int
-    pos_encoding: "RelativePositionalEncoding"
+    pos_encoding: RelativePositionalEncoding
     u_bias: Parameter
     v_bias: Parameter
     r_proj: Linear
@@ -36,7 +38,7 @@ class RelativePositionSDPA(SDPA):
         self,
         model_dim: int,
         num_heads: int,
-        pos_encoding: "RelativePositionalEncoding",
+        pos_encoding: RelativePositionalEncoding,
         *,
         attn_dropout_p: float = 0.0,
         device: Optional[Device] = None,

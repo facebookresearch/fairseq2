@@ -6,6 +6,7 @@
 
 import torch
 
+from fairseq2.data import VocabularyInfo
 from fairseq2.models.llama import LLaMAConfig, create_llama_model, get_llama_lora_config
 from fairseq2.nn.lora import (
     freeze_non_lora,
@@ -21,7 +22,9 @@ def test_lora_wrappers_llama_works() -> None:
     llama_config = LLaMAConfig(
         model_dim=1024,
         max_seq_len=2048,
-        vocabulary_size=32001,
+        vocab_info=VocabularyInfo(
+            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
+        ),
         num_layers=16,
         num_attn_heads=8,
         num_key_value_heads=8,

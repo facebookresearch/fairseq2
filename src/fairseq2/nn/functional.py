@@ -27,7 +27,7 @@ def nll_loss(
     vocabularies.
 
     :param lprobs:
-        The log-probabilities. *Shape:* See the function description.
+        The log probabilities. *Shape:* See the function description.
     :param targets:
         The target indices. *Shape:* :math:`(N,S)`, where :math:`N` is the batch
         size and :math:`S` is the sequence length.

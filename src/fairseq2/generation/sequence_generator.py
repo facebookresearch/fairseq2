@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import math
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, Union
@@ -14,7 +16,7 @@ from torch.nn.functional import log_softmax
 
 from fairseq2.data import VocabularyInfo
 from fairseq2.generation.beam_search import BeamSearch, StandardBeamSearch
-from fairseq2.generation.logits_processor import LogitsProcessor
+from fairseq2.generation.step_processor import StepProcessor
 from fairseq2.models.encoder_decoder import Seq2SeqDecoder
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.ops import repeat_interleave
@@ -55,8 +57,8 @@ class SequenceGeneratorOptions:
     search: Optional[BeamSearch] = None
     """The beam search algorithm to use."""
 
-    logits_processor: Optional[LogitsProcessor] = None
-    """Logits processor called before applying beam search step."""
+    step_processor: Optional[StepProcessor] = None
+    """The processor called at each generation step."""
 
 
 class Seq2SeqGenerator:
@@ -71,7 +73,7 @@ class Seq2SeqGenerator:
     prefix_seq: Union[int, Tensor]
     prefix_seq_len: int
     search: BeamSearch
-    logits_processor: Optional[LogitsProcessor]
+    step_processor: Optional[StepProcessor]
 
     def __init__(
         self,
@@ -138,7 +140,7 @@ class Seq2SeqGenerator:
         # Set beam search.
         self.search = self.opts.search or StandardBeamSearch()
 
-        self.logits_processor = self.opts.logits_processor
+        self.step_processor = self.opts.step_processor
 
     @torch.inference_mode()
     def __call__(
@@ -146,7 +148,7 @@ class Seq2SeqGenerator:
         encoder_output: Tensor,
         encoder_padding_mask: Optional[PaddingMask],
         source_seq_len: Optional[int] = None,
-    ) -> "SequenceGeneratorOutput":
+    ) -> SequenceGeneratorOutput:
         opts = self.opts
 
         num_searches = encoder_output.size(0)
@@ -271,11 +273,10 @@ class Seq2SeqGenerator:
             if self.unk_idx is not None:
                 lprobs[:, :, self.unk_idx] -= self.opts.unk_penalty
 
-            # update scores in place using logits_processor
-            if self.logits_processor is not None:
-                self.logits_processor(
-                    seqs.view(num_searches, beam_size, -1)[:, :, : step_nr + 1],
-                    lprobs.view(num_searches, beam_size, -1),
+            # Update `lprobs` in-place if requested.
+            if self.step_processor is not None:
+                self.step_processor(
+                    seqs[:, : step_nr + 1], lprobs.squeeze(1), lprob=True
                 )
 
             # Determine candidates for the next step.
@@ -561,8 +562,8 @@ class Seq2SeqGenerator:
         eos_scores: Tensor,
         seqs: Tensor,
         scores: Tensor,
-        active_searches: List[Tuple[int, List["Hypothesis"]]],
-        finished_searches: List[List["Hypothesis"]],
+        active_searches: List[Tuple[int, List[Hypothesis]]],
+        finished_searches: List[List[Hypothesis]],
     ) -> List[int]:
         # fmt: off
         finalized_seqs   = seqs  .index_select(dim=0, index=eos_beam_indices)
@@ -624,7 +625,7 @@ class Seq2SeqGenerator:
 class SequenceGeneratorOutput:
     """Holds the output of a sequence generator."""
 
-    results: List[List["Hypothesis"]]
+    results: List[List[Hypothesis]]
     """The list of hypothesis generated per search, ordered by score."""
 
     device: Device
