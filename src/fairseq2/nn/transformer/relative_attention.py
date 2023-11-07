@@ -116,45 +116,75 @@ class RelativePositionSDPA(SDPA):
         # (N, H, 2 x S - 1, K_h)
         r = self._compute_r(k, batch_size=q.size(0))
 
-        # (N, H, S, K_h) @ (N, H, K_h, S) = (N, H, S, S)
-        ac = torch.matmul(q_with_u_bias, k.transpose(-1, -2))
-
         # (N, H, S, K_h) @ (N, H, K_h, 2 x S - 1) = (N, H, S, 2 x S - 1)
         bd = torch.matmul(q_with_v_bias, r.transpose(-1, -2))
 
         # (N, H, S, 2 x S - 1) -> (N, H, S, S)
         bd = self._shift_bd(bd)
 
-        # (N, H, S, S)
-        attn_weights = (ac + bd) * (q.size(-1) ** -0.5)
+        if needs_weights:
+            # (N, H, S, K_h) @ (N, H, K_h, S) = (N, H, S, S)
+            ac = torch.matmul(q_with_u_bias, k.transpose(-1, -2))
 
-        if attn_mask is not None:
-            # (S, S_kv)
-            m = attn_mask.materialize()
+            # (N, H, S, S)
+            attn_weights = (ac + bd) * (q.size(-1) ** -0.5)
 
-            # (N, H, S, S_kv) + (S, S_kv) -> (N, H, S, S_kv)
-            attn_weights = attn_weights + m
+            if attn_mask is not None:
+                # (S, S_kv)
+                m = attn_mask.materialize()
 
-        if key_padding_mask is not None:
-            # (N, S_kv)
-            m = key_padding_mask.materialize()
+                # (N, H, S, S_kv) + (S, S_kv) -> (N, H, S, S_kv)
+                attn_weights = attn_weights + m
 
-            m = m[:, None, None, :]
+            if key_padding_mask is not None:
+                # (N, S_kv)
+                m = key_padding_mask.materialize()
 
-            # (N, H, S, S_kv)
-            attn_weights = torch.where(m, attn_weights, -torch.inf)
+                m = m[:, None, None, :]
 
-        attn_weights = softmax(attn_weights, dim=-1, dtype=torch.float32)
+                # (N, H, S, S_kv)
+                attn_weights = torch.where(m, attn_weights, -torch.inf)
 
-        attn_weights = attn_weights.type_as(seqs)
+            attn_weights = softmax(attn_weights, dim=-1, dtype=torch.float32)
 
-        if self.training and self.attn_dropout_p > 0.0:
-            attn_weights = dropout(attn_weights, self.attn_dropout_p)
+            attn_weights = attn_weights.type_as(seqs)
 
-        # (N, H, S, S) @ (N, H, S, V_h) = (N, H, S, V_h)
-        attn = torch.matmul(attn_weights, values)
+            if self.training and self.attn_dropout_p > 0.0:
+                attn_weights = dropout(attn_weights, self.attn_dropout_p)
 
-        return attn, attn_weights if needs_weights else None
+            # (N, H, S, S) @ (N, H, S, V_h) = (N, H, S, V_h)
+            attn = torch.matmul(attn_weights, values)
+
+            return attn, attn_weights
+
+        else:
+            mask = bd*(q.size(-1)**-0.5)
+
+            if attn_mask is not None and not isinstance(attn_mask, CausalAttentionMask):
+                # (S, S_kv)
+                m = attn_mask.materialize()
+
+                # (N, H, S, S_kv) + (S, S_kv) -> (N, H, S, S_kv)
+                mask += m
+
+            if key_padding_mask is not None:
+                # (N, S_kv)
+                key_padding_mask = key_padding_mask.materialize()
+
+                key_padding_mask = key_padding_mask[:, None, None, :]
+
+                # (N, H, S, S_kv)
+                key_padding_mask = torch.where(key_padding_mask, 0, -torch.inf).half()
+            
+                mask += key_padding_mask
+
+            attn = torch.nn.functional.scaled_dot_product_attention(q_with_u_bias, k, values, 
+                                                                    attn_mask=mask,
+                                                                    dropout_p=self.attn_dropout_p if self.training and self.attn_dropout_p > 0.0 else 0.0, 
+                                                                    is_causal=isinstance(attn_mask, CausalAttentionMask), scale=None)
+                
+
+            return attn, None
 
     def _compute_r(self, k: Tensor, batch_size: int) -> Tensor:
         # (2 x S - 1, K)
