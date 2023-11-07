@@ -103,12 +103,26 @@ target_include_directories(fairseq2n ${system}
         $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/src>
 )
 
-find_package(Libavcodec REQUIRED)
-find_package(Libavformat REQUIRED)
+find_path(AVCODEC_INCLUDE_DIR libavcodec/avcodec.h)
+find_library(AVCODEC_LIBRARY avcodec)
+find_path(AVFORMAT_INCLUDE_DIR libavformat/avformat.h)
+find_library(AVFORMAT_LIBRARY avformat)
+find_path(AVUTIL_INCLUDE_DIR libavutil/avutil.h)
+find_library(AVUTIL_LIBRARY avutil)
+
+target_include_directories(fairseq2n 
+    PRIVATE 
+        ${AVCODEC_INCLUDE_DIR} 
+        ${AVFORMAT_INCLUDE_DIR} 
+        ${AVUTIL_INCLUDE_DIR} 
+)
 
 target_link_libraries(fairseq2n
     PRIVATE
         ${CMAKE_DL_LIBS}
+        ${AVCODEC_LIBRARY}
+        ${AVFORMAT_LIBRARY}
+        ${AVUTIL_LIBRARY}
     PRIVATE
         fmt::fmt
         Iconv::Iconv
@@ -118,8 +132,6 @@ target_link_libraries(fairseq2n
         Threads::Threads
         sentencepiece-static
         SndFile::sndfile
-        Libavcodec::Libavcodec
-        Libavformat::Libavformat
     PUBLIC
         torch
 )

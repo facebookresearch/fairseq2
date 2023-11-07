@@ -9,11 +9,15 @@
 #include <cstdint>
 #include <exception>
 #include <stdexcept>
+#include <iostream>
 
 #include <ATen/Functions.h>
 #include <ATen/Tensor.h>
-#include <libavcodec/avcodec.h>
-#include <libavformat/avformat.h>
+extern "C" {
+    #include <libavcodec/avcodec.h>
+    #include <libavformat/avformat.h>
+    #include <libavutil/avutil.h>
+}
 
 #include "fairseq2n/exception.h"
 #include "fairseq2n/float.h"
@@ -67,13 +71,14 @@ video_decoder::operator()(data &&d) const
     auto data_ptr = block.data();
     data output;
 
+    std::cout << "check 1 " << std::endl;
     auto input_ctx = avformat_alloc_context();
     if (input_ctx == nullptr)
         throw std::runtime_error("Failed to allocate AVFormatContext.");
 
     constexpr size_t io_buff_size = 96 * 1024;
     constexpr size_t io_pad_size = 64;
-    constexpr size_t log_buff_size = 1024;
+    //constexpr size_t log_buff_size = 1024;
     const size_t avio_ctx_buff_size = io_buff_size;
     uint8_t* avio_ctx_buff =
         (uint8_t*)av_malloc(avio_ctx_buff_size + io_pad_size);
@@ -105,13 +110,13 @@ video_decoder::operator()(data &&d) const
         avformat_free_context(input_ctx);
         throw std::runtime_error("Failed to open input format context.");
     }
-
+    std::cout << "check 2 " << std::endl;
     result = avformat_find_stream_info(input_ctx, nullptr);
     if (result < 0) {
         avformat_close_input(&input_ctx);
         throw std::runtime_error("Failed to find stream info.");
     }
-
+    std::cout << "check 3 " << std::endl;
     av_dump_format(input_ctx, 0, nullptr, 0);
     avformat_close_input(&input_ctx);
     avformat_free_context(input_ctx);
@@ -143,7 +148,6 @@ video_decoder::operator()(data &&d) const
     }
    */
 
-   data_dict output;
    return output;
 
 }  // namespace fairseq2n

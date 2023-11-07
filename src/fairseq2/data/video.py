@@ -26,10 +26,10 @@ if TYPE_CHECKING or _DOC_MODE:
             ...
 
 else:
-    from fairseq2n.bindings.data.image import VideoDecoder as VideoDecoder
+    from fairseq2n.bindings.data.video import VideoDecoder as VideoDecoder
 
     def _set_module_name() -> None:
-        for t in [ImageDecoder]:
+        for t in [VideoDecoder]:
             t.__module__ = __name__
 
     _set_module_name()

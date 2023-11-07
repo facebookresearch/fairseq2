@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include <decord/video_interface.h>
 #include <optional>
 
 #include "fairseq2n/api.h"
@@ -114,7 +113,7 @@ public:
 
 private:
     video_decoder_options opts_;
-    std::list<decoder_output> queue_;
+    std::vector<decoder_output> queue_;
     bool eof_{false};
 };
 
