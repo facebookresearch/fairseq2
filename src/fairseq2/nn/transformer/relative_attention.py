@@ -18,7 +18,7 @@ from torch.nn.functional import dropout, pad, softmax
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer.attention import SDPA
-from fairseq2.nn.transformer.attention_mask import AttentionMask
+from fairseq2.nn.transformer.attention_mask import AttentionMask, CausalAttentionMask
 from fairseq2.typing import DataType, Device, finaloverride
 
 
