@@ -201,7 +201,7 @@ class GumbelVectorQuantizer(VectorQuantizer):
         )
 
     def _compute_current_temp(self) -> float:
-        temp = self.max_temp * self.temp_decay ** self.num_updates.item()
+        temp = self.max_temp * self.temp_decay ** int(self.num_updates)
 
         if self.training:
             self.num_updates.add_(1)

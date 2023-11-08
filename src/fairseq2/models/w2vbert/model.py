@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Optional
 
@@ -81,7 +83,7 @@ class W2VBertModel(Module):
         self.bert_loss_weight = bert_loss_weight
         self.bert_label_smoothing = bert_label_smoothing
 
-    def forward(self, batch: SequenceBatch) -> "W2VBertOutput":
+    def forward(self, batch: SequenceBatch) -> W2VBertOutput:
         """
         :param batch:
             The batch of sequences to process.
@@ -92,10 +94,10 @@ class W2VBertModel(Module):
 
         w2v2_layer_output = None
 
-        def layer_output_hook(
+        def hook(
             layer_idx: int,
             layer_output: Tensor,
-            layer_padding_mask: PaddingMask,
+            layer_padding_mask: Optional[PaddingMask],
             num_layers: int,
         ) -> bool:
             nonlocal w2v2_layer_output
@@ -105,10 +107,8 @@ class W2VBertModel(Module):
 
             return True
 
-        # TODO: Should we pad for fp16?
-        encoder_output, _ = self.w2v2_model.encoder(
-            seqs, padding_mask, layer_output_hook=layer_output_hook
-        )
+        with self.w2v2_model.encoder.register_layer_output_hook(hook):
+            encoder_output, _ = self.w2v2_model.encoder(seqs, padding_mask)
 
         assert w2v2_layer_output is not None
 
@@ -157,10 +157,11 @@ class W2VBertOutput:
     """The output of the wav2vec 2.0 model."""
 
     bert_logits: Tensor
-    """The logits for masked prediction. *Shape:* :math:`(NxS_{msk},V,G_{tgt})`,
-    where :math:`N` is the batch size, :math:`S_{msk}` is the masked sequence
-    length, :math:`V` is the number of entries per codebook, and :math:`G_{tgt}`
-    is the number of target codebooks."""
+    """The logits for masked feature prediction. *Shape:*
+    :math:`(NxS_{msk},V,G_{tgt})`, where :math:`N` is the batch size,
+    :math:`S_{msk}` is the masked sequence length, :math:`V` is the number of
+    entries per codebook, and :math:`G_{tgt}` is the number of target
+    codebooks."""
 
     bert_targets: Tensor
     """The target entry index per target codebook. *Shape:*
@@ -177,7 +178,7 @@ class W2VBertOutput:
     bert_label_smoothing: float = 0.0
     """The amount of label smoothing when computing masked prediction loss."""
 
-    def compute_loss(self) -> "W2VBertLoss":
+    def compute_loss(self) -> W2VBertLoss:
         """Compute the loss."""
         bert_loss = self.compute_bert_loss()
 

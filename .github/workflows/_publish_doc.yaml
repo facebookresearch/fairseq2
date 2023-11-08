@@ -7,14 +7,13 @@
 on:
   workflow_call:
 
-defaults:
-  run:
-    shell: bash
-
 jobs:
   publish:
     name: Publish
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     steps:
       - name: Download documentation from staging
         uses: actions/download-artifact@v3
@@ -37,12 +36,12 @@ jobs:
             doc_dir=nightly
           else
             # Ignore pre-release segment for directory name.
-            mmp_version=$(echo $version | grep --only-matching --extended-regexp '^([0-9]+\.)*[0-9]+' -)
+            mmm_version=$(echo $version | grep --only-matching --extended-regexp '^([0-9]+\.)*[0-9]+' -)
 
-            doc_dir=$mmp_version
+            doc_dir=$mmm_version
 
             # If we have a stable release, update the 'stable' symlink.
-            if [[ $version == $mmp_version ]]; then
+            if [[ $version == $mmm_version ]]; then
                 ln --symbolic --no-target-directory --force $doc_dir stable
             fi
           fi

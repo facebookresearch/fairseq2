@@ -36,10 +36,6 @@ class MistralTokenizer(TextTokenizer):
 
         vocabulary_info = vocabulary_from_sentencepiece(self.model)
 
-        # Mistral tokenizer has no PAD symbol defined in its SentencePiece model
-        # and uses EOS instead.
-        vocabulary_info.pad_idx = vocabulary_info.eos_idx
-
         super().__init__(vocabulary_info)
 
     @finaloverride
@@ -59,7 +55,7 @@ class MistralTokenizer(TextTokenizer):
         :param lang:
             Not used.
         :param mode:
-            Must be 'prompt'. If ``None``, defaults to 'prompt'.
+            Must be 'default' or 'prompt'. If ``None``, defaults to 'default'.
         :param device:
             The device on which to construct tensors.
         :param pin_memory:
@@ -71,12 +67,17 @@ class MistralTokenizer(TextTokenizer):
         if lang is not None:
             raise ValueError(f"`lang` must be `None`, but is '{lang}' instead.")
 
-        if mode is None or mode == "prompt":
+        if mode is None or mode == "default":
+            prefix_tokens = ["<s>"]
+            suffix_tokens = ["</s>"]
+        elif mode == "prompt":
             prefix_tokens = ["<s>"]
             # In prompt mode, we expect the generator to finish the sequence.
             suffix_tokens = None
         else:
-            raise ValueError(f"`mode` must be 'prompt', but is '{mode}' instead.")
+            raise ValueError(
+                f"`mode` must be 'default' or 'prompt', but is '{mode}' instead."
+            )
 
         return SentencePieceEncoder(
             self.model,
@@ -85,6 +86,12 @@ class MistralTokenizer(TextTokenizer):
             device=device,
             pin_memory=pin_memory,
         )
+
+    @finaloverride
+    def create_raw_encoder(
+        self, *, device: Optional[Device] = None, pin_memory: bool = False
+    ) -> TextTokenEncoder:
+        return SentencePieceEncoder(self.model, device=device, pin_memory=pin_memory)
 
     @finaloverride
     def create_decoder(self) -> TextTokenDecoder:

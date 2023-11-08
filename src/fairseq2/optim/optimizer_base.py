@@ -10,14 +10,13 @@ from typing import Callable, Optional
 import torch
 from torch.optim import Optimizer
 
-from fairseq2.typing import finaloverride
-
 
 class OptimizerBase(ABC, Optimizer):
     """Represents the base class for all optimizers."""
 
-    @finaloverride
-    def step(self, closure: Optional[Callable[[], float]] = None) -> Optional[float]:
+    def step(  # type: ignore[override]
+        self, closure: Optional[Callable[[], float]] = None
+    ) -> Optional[float]:
         loss = None
 
         prev_grad = torch.is_grad_enabled()

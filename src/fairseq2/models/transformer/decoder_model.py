@@ -8,6 +8,7 @@ from typing import Optional, Tuple, final
 
 from torch import Tensor
 
+from fairseq2.data import VocabularyInfo
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.models.transformer.frontend import TransformerFrontend
@@ -25,14 +26,13 @@ class TransformerDecoderModel(DecoderModel):
     decoder_frontend: TransformerFrontend
     decoder: TransformerDecoder
     final_proj: Projection
-    target_pad_idx: Optional[int]
 
     def __init__(
         self,
         decoder_frontend: TransformerFrontend,
         decoder: TransformerDecoder,
         final_proj: Projection,
-        target_pad_idx: Optional[int],
+        vocab_info: VocabularyInfo,
     ) -> None:
         """
         :param decoder_frontend:
@@ -40,20 +40,18 @@ class TransformerDecoderModel(DecoderModel):
         :param decoder:
             The decoder.
         :param final_proj:
-            The projection to apply to decoder outputs to produce logits.
-        :param target_pad_idx:
-            The index of the pad symbol in the target vocabulary.
+            The projection to apply to decoder outputs.
+        :param vocab_info:
+            The vocabulary information of sequences produced by the model.
         """
         model_dim = decoder.model_dim
 
-        super().__init__(model_dim)
+        super().__init__(model_dim, vocab_info)
 
         self.decoder_frontend = decoder_frontend
         self.decoder = decoder
 
         self.final_proj = final_proj
-
-        self.target_pad_idx = target_pad_idx
 
     @finaloverride
     def decode(
@@ -79,4 +77,4 @@ class TransformerDecoderModel(DecoderModel):
     ) -> SequenceModelOutput:
         logits = self.final_proj(decoder_output)
 
-        return SequenceModelOutput(logits, self.target_pad_idx)
+        return SequenceModelOutput(logits, self.vocab_info)

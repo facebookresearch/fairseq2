@@ -45,8 +45,8 @@ class NllbTokenizer(TextTokenizer):
         control_symbols.extend(["<MINED_DATA>", "<MMT_BT_DATA>", "<SMT_BT_DATA>"])
 
         # The SentencePiece model of NLLB is peculiar as it does not define a
-        # pad symbol. We use an undocumented feature of our C++ API to insert
-        # a pad symbol to the model at index 0.
+        # PAD symbol. We use an undocumented feature of our C++ API to insert
+        # it to the model at index 0.
         control_symbols.append("<pad>@0")
 
         self.model = SentencePieceModel(pathname, control_symbols)
@@ -127,6 +127,12 @@ class NllbTokenizer(TextTokenizer):
             device=device,
             pin_memory=pin_memory,
         )
+
+    @finaloverride
+    def create_raw_encoder(
+        self, *, device: Optional[Device] = None, pin_memory: bool = False
+    ) -> TextTokenEncoder:
+        return SentencePieceEncoder(self.model, device=device, pin_memory=pin_memory)
 
     @finaloverride
     def create_decoder(self) -> TextTokenDecoder:

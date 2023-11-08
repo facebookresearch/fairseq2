@@ -46,11 +46,8 @@ class NllbConfig:
     max_seq_len: int
     """The expected maximum sequence length."""
 
-    vocabulary_size: int
-    """The size of the vocabulary."""
-
-    pad_idx: Optional[int]
-    """The index of the pad symbol in the vocabulary."""
+    vocab_info: VocabularyInfo
+    """The vocabulary information."""
 
     num_encoder_layers: int
     """The number of Transformer encoder layers."""
@@ -70,10 +67,6 @@ class NllbConfig:
     dropout_p: float
     """The dropout probability in Transformer layers."""
 
-    def update_vocabulary(self, info: VocabularyInfo) -> None:
-        """Update vocabulary configuration from ``info``."""
-        self.vocabulary_size, self.pad_idx = info.size, info.pad_idx
-
 
 nllb_archs = ArchitectureRegistry[NllbConfig]("nllb")
 
@@ -86,8 +79,9 @@ def _dense_1b() -> NllbConfig:
     return NllbConfig(
         model_dim=1024,
         max_seq_len=1024,
-        vocabulary_size=256206,
-        pad_idx=0,
+        vocab_info=VocabularyInfo(
+            size=256206, unk_idx=1, bos_idx=2, eos_idx=3, pad_idx=0
+        ),
         num_encoder_layers=24,
         num_decoder_layers=24,
         num_encoder_attn_heads=16,
@@ -102,8 +96,9 @@ def _dense_3b() -> NllbConfig:
     return NllbConfig(
         model_dim=2048,
         max_seq_len=1024,
-        vocabulary_size=256206,
-        pad_idx=0,
+        vocab_info=VocabularyInfo(
+            size=256206, unk_idx=1, bos_idx=2, eos_idx=3, pad_idx=0
+        ),
         num_encoder_layers=24,
         num_decoder_layers=24,
         num_encoder_attn_heads=16,
@@ -118,8 +113,9 @@ def _dense_600m() -> NllbConfig:
     return NllbConfig(
         model_dim=1024,
         max_seq_len=1024,
-        vocabulary_size=256206,
-        pad_idx=0,
+        vocab_info=VocabularyInfo(
+            size=256206, unk_idx=1, bos_idx=2, eos_idx=3, pad_idx=0
+        ),
         num_encoder_layers=12,
         num_decoder_layers=12,
         num_encoder_attn_heads=16,
@@ -177,15 +173,15 @@ class NllbBuilder:
             frontend,
             decoder,
             final_proj,
-            target_pad_idx=self.config.pad_idx,
+            self.config.vocab_info,
         )
 
     def build_embedding(self) -> StandardEmbedding:
         """Build an embedding table."""
         return StandardEmbedding(
-            num_embeddings=self.config.vocabulary_size,
+            num_embeddings=self.config.vocab_info.size,
             embedding_dim=self.config.model_dim,
-            pad_idx=self.config.pad_idx,
+            pad_idx=self.config.vocab_info.pad_idx,
             init_fn=init_scaled_embedding,
             device=self.device,
             dtype=self.dtype,
@@ -196,7 +192,7 @@ class NllbBuilder:
         pos_encoder = SinusoidalPositionEncoder(
             self.config.model_dim,
             self.config.max_seq_len,
-            _legacy_pad_idx=self.config.pad_idx,
+            _legacy_pad_idx=self.config.vocab_info.pad_idx,
             device=self.device,
         )
 

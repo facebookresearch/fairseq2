@@ -107,7 +107,7 @@ class MultilingualTextTokenizer(TextTokenizer):
 
             if lang not in self.source_langs:
                 raise ValueError(
-                    f"`lang` ({lang}) is not a supported source language. It must be one of: {self.source_langs}"
+                    f"`lang` must be a supported source language, but is '{lang}' instead. Supported source languages: {self.source_langs}"
                 )
         elif mode == "target":
             if lang is None:
@@ -115,7 +115,7 @@ class MultilingualTextTokenizer(TextTokenizer):
 
             if lang not in self.target_langs:
                 raise ValueError(
-                    f"`lang` ({lang}) is not a supported target language. It must be one of: {self.target_langs}"
+                    f"`lang` must be a supported target language, but is '{lang}' instead. Supported target languages: {self.source_langs}"
                 )
         else:
             raise ValueError(
@@ -129,6 +129,12 @@ class MultilingualTextTokenizer(TextTokenizer):
             device=device,
             pin_memory=pin_memory,
         )
+
+    @finaloverride
+    def create_raw_encoder(
+        self, *, device: Optional[Device] = None, pin_memory: bool = False
+    ) -> TextTokenEncoder:
+        return SentencePieceEncoder(self.model, device=device, pin_memory=pin_memory)
 
     @finaloverride
     def create_decoder(self) -> TextTokenDecoder:

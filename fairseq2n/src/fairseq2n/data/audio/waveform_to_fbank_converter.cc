@@ -111,7 +111,7 @@ waveform_to_fbank_converter::find_waveform(data_dict &dict)
 
     if (waveform.dim() != 2)
         throw_<std::invalid_argument>(
-            "The input waveform must be two dimensional, but has {} dimensions instead.", waveform.dim());
+            "The input waveform must be two dimensional, but has {} dimension(s) instead.", waveform.dim());
 
     return waveform;
 }

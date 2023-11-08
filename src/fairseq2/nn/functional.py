@@ -27,12 +27,12 @@ def nll_loss(
     vocabularies.
 
     :param lprobs:
-        The log-probabilities. *Shape:* See the function description.
+        The log probabilities. *Shape:* See the function description.
     :param targets:
         The target indices. *Shape:* :math:`(N,S)`, where :math:`N` is the batch
         size and :math:`S` is the sequence length.
     :param pad_idx:
-        The index of the pad symbol in the target vocabulary.
+        The index of the PAD symbol in the target vocabulary.
     :param label_smoothing:
         The amount of label smoothing to apply while computing the loss.
     :param reduction:

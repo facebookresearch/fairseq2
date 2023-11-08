@@ -9,6 +9,7 @@ from typing import Optional, Tuple, final
 import torch.nn as nn
 from torch import Tensor
 
+from fairseq2.data import VocabularyInfo
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.models.transformer.frontend import TransformerFrontend
@@ -29,7 +30,6 @@ class TransformerModel(EncoderDecoderModel):
     decoder_frontend: TransformerFrontend
     decoder: TransformerDecoder
     final_proj: Projection
-    target_pad_idx: Optional[int]
 
     def __init__(
         self,
@@ -38,7 +38,7 @@ class TransformerModel(EncoderDecoderModel):
         decoder_frontend: TransformerFrontend,
         decoder: TransformerDecoder,
         final_proj: Projection,
-        target_pad_idx: Optional[int],
+        target_vocab_info: VocabularyInfo,
     ) -> None:
         """
         :param encoder_frontend:
@@ -50,13 +50,13 @@ class TransformerModel(EncoderDecoderModel):
         :param decoder:
             The decoder.
         :param final_proj:
-            The projection to apply to decoder outputs to produce logits.
-        :param target_pad_idx:
-            The index of the pad symbol in the target vocabulary.
+            The projection to apply to decoder outputs.
+        :param target_vocab_info:
+            The vocabulary information of sequences produced by the model.
         """
         model_dim = encoder.model_dim
 
-        super().__init__(model_dim)
+        super().__init__(model_dim, target_vocab_info)
 
         self.encoder_frontend = encoder_frontend
         self.encoder = encoder
@@ -65,8 +65,6 @@ class TransformerModel(EncoderDecoderModel):
         self.decoder = decoder
 
         self.final_proj = final_proj
-
-        self.target_pad_idx = target_pad_idx
 
     @finaloverride
     def encode(
@@ -104,7 +102,7 @@ class TransformerModel(EncoderDecoderModel):
     ) -> SequenceModelOutput:
         logits = self.final_proj(decoder_output)
 
-        return SequenceModelOutput(logits, self.target_pad_idx)
+        return SequenceModelOutput(logits, self.target_vocab_info)
 
 
 def init_final_projection(proj: Linear) -> None:

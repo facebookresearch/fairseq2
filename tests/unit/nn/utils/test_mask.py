@@ -57,7 +57,7 @@ def test_compute_row_mask_raises_error_when_row_length_is_smaller_than_span_len(
 
     with pytest.raises(
         ValueError,
-        match=r"^All lengths in `row_lens` must be greater than 4, but at least one length is smaller\. row_lens: tensor",
+        match=r"^All lengths in `row_lens` must be greater than `span_len` \(4\), but at least one length is smaller\. row_lens: tensor",
     ):
         compute_row_mask(
             shape, span_len=4, max_mask_prob=1.0, row_lens=row_lens, device=device

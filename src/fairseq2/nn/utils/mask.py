@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Optional, Tuple, cast
+from typing import Optional, Tuple
 
 import torch
 from torch import Tensor
@@ -48,7 +48,8 @@ def compute_row_mask(
         might be smaller. The implementation also guarantees that there is
         always at least one unmasked element in each row.
     :param row_lens:
-        The length of each row.
+        The length of each row. *Shape:* :math:`(R)`, where :math:`R` is the
+        number of rows.
     :param min_num_spans:
         The minimum number of mask spans per row.
     :param device:
@@ -63,7 +64,7 @@ def compute_row_mask(
         # We only mask rows that are longer than the mask span length.
         if span_len >= max_row_len:
             raise ValueError(
-                f"The size of the second dimension of `shape` must be greater than {span_len}, but is {max_row_len} instead."
+                f"The size of the second dimension of `shape` must be greater than `span_len` ({span_len}), but is {max_row_len} instead."
             )
 
         row_lens = torch.full(
@@ -75,11 +76,10 @@ def compute_row_mask(
         # We only mask rows that are longer than the mask span length.
         if (span_len >= row_lens).any():
             raise ValueError(
-                f"All lengths in `row_lens` must be greater than {span_len}, but at least one length is smaller. row_lens: {row_lens}"
+                f"All lengths in `row_lens` must be greater than `span_len` ({span_len}), but at least one length is smaller. row_lens: {row_lens}"
             )
 
     indices = _compute_mask_spans(row_lens, span_len, max_mask_prob, min_num_spans)
-
     if indices is None:
         return row_lens.new_empty((0, 0))
 
@@ -92,7 +92,7 @@ def _compute_mask_spans(
     """Compute random mask spans of the specified shape."""
     device, dtype = row_lens.device, row_lens.dtype
 
-    num_rows = row_lens.size(0)
+    num_rows = len(row_lens)
     if num_rows == 0:
         return None
 
@@ -101,7 +101,7 @@ def _compute_mask_spans(
     num_spans_per_row = (max_mask_prob / span_len) * (row_lens - 1)
 
     # Require the same number of mask spans for all rows.
-    num_spans = cast(int, num_spans_per_row.type(dtype).min().item())
+    num_spans = int(num_spans_per_row.to(dtype).min())
 
     if min_num_spans > num_spans:
         raise ValueError(
@@ -129,7 +129,7 @@ def _compute_mask_spans(
     # The following ops convert the mask span offsets (i.e. start indices) to
     # mask spans (i.e. index ranges).
     # (R x N) -> (R, N)
-    span_offsets = span_offsets.type(dtype).view(num_rows, -1)
+    span_offsets = span_offsets.to(dtype).view(num_rows, -1)
 
     # (R, N) -> (R, N x L)
     span_offsets = repeat_interleave(span_offsets, dim=-1, repeat=span_len)
@@ -153,7 +153,7 @@ def _generate_mask(indices: Tensor, max_row_len: int) -> Tensor:
     # Since mask spans may overlap, rows might have varying number of masked
     # elements; therefore, we have to randomly unmask some of the elements to
     # ensure that all rows have the same amount of masking.
-    min_num_masked = cast(int, torch.count_nonzero(float_mask, dim=-1).min().item())
+    min_num_masked = int(torch.count_nonzero(float_mask, dim=-1).min())
 
     # We randomly pick `min_num_masked` masked elements from each row, which
     # effectively unmasks the remaining elements.

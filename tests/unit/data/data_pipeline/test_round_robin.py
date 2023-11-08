@@ -8,7 +8,6 @@ import pytest
 
 from fairseq2.data import DataPipeline, DataPipelineError, read_sequence
 from fairseq2.data.text import read_text
-from tests.common import python_devel_only
 
 
 class TestRoundRobinOp:
@@ -77,10 +76,6 @@ class TestRoundRobinOp:
 
             pipeline.reset()
 
-    @pytest.mark.skipif(
-        python_devel_only(),
-        reason="New fairseq2n API in Python-only installation. Skipping till v0.2.",
-    )
     def test_op_works_when_pipelines_have_different_lengths_stop_at_shortest(
         self,
     ) -> None:
