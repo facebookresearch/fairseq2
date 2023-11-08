@@ -7,78 +7,26 @@ import numpy as np
 import torch
 from typeguard import check_argument_types, check_return_type
 
-from espnet2.diar.layers.abs_mask import AbsMask
-from espnet2.diar.layers.multi_mask import MultiMask
-from espnet2.diar.separator.tcn_separator_nomask import TCNSeparatorNomask
-from espnet2.enh.decoder.abs_decoder import AbsDecoder
-from espnet2.enh.decoder.conv_decoder import ConvDecoder
-from espnet2.enh.decoder.null_decoder import NullDecoder
-from espnet2.enh.decoder.stft_decoder import STFTDecoder
-from espnet2.enh.encoder.abs_encoder import AbsEncoder
-from espnet2.enh.encoder.conv_encoder import ConvEncoder
-from espnet2.enh.encoder.null_encoder import NullEncoder
-from espnet2.enh.encoder.stft_encoder import STFTEncoder
-from espnet2.enh.espnet_model import ESPnetEnhancementModel
-from espnet2.enh.loss.criterions.abs_loss import AbsEnhLoss
-from espnet2.enh.loss.criterions.tf_domain import (
-    FrequencyDomainAbsCoherence,
-    FrequencyDomainDPCL,
-    FrequencyDomainL1,
-    FrequencyDomainMSE,
-)
-from espnet2.enh.loss.criterions.time_domain import (
-    CISDRLoss,
-    MultiResL1SpecLoss,
-    SDRLoss,
-    SISNRLoss,
-    SNRLoss,
-    TimeDomainL1,
-    TimeDomainMSE,
-)
-from espnet2.enh.loss.wrappers.abs_wrapper import AbsLossWrapper
-from espnet2.enh.loss.wrappers.dpcl_solver import DPCLSolver
-from espnet2.enh.loss.wrappers.fixed_order import FixedOrderSolver
-from espnet2.enh.loss.wrappers.mixit_solver import MixITSolver
-from espnet2.enh.loss.wrappers.multilayer_pit_solver import MultiLayerPITSolver
-from espnet2.enh.loss.wrappers.pit_solver import PITSolver
-from espnet2.enh.separator.abs_separator import AbsSeparator
-from espnet2.enh.separator.asteroid_models import AsteroidModel_Converter
-from espnet2.enh.separator.conformer_separator import ConformerSeparator
-from espnet2.enh.separator.dan_separator import DANSeparator
-from espnet2.enh.separator.dc_crn_separator import DC_CRNSeparator
-from espnet2.enh.separator.dccrn_separator import DCCRNSeparator
-from espnet2.enh.separator.dpcl_e2e_separator import DPCLE2ESeparator
-from espnet2.enh.separator.dpcl_separator import DPCLSeparator
-from espnet2.enh.separator.dprnn_separator import DPRNNSeparator
-from espnet2.enh.separator.dptnet_separator import DPTNetSeparator
-from espnet2.enh.separator.fasnet_separator import FaSNetSeparator
-from espnet2.enh.separator.ineube_separator import iNeuBe
-from espnet2.enh.separator.neural_beamformer import NeuralBeamformer
-from espnet2.enh.separator.rnn_separator import RNNSeparator
-from espnet2.enh.separator.skim_separator import SkiMSeparator
-from espnet2.enh.separator.svoice_separator import SVoiceSeparator
-from espnet2.enh.separator.tcn_separator import TCNSeparator
-from espnet2.enh.separator.tfgridnet_separator import TFGridNet
-from espnet2.enh.separator.transformer_separator import TransformerSeparator
-from espnet2.iterators.abs_iter_factory import AbsIterFactory
-from espnet2.tasks.abs_task import AbsTask
-from espnet2.torch_utils.initialize import initialize
-from espnet2.train.class_choices import ClassChoices
-from espnet2.train.collate_fn import CommonCollateFn
-from espnet2.train.distributed_utils import DistributedOption
-from espnet2.train.preprocessor import (
+from fairseq2.utils.tfgridnet.mask import AbsMask, MultiMask
+from fairseq2.utils.tfgridnet.enh.decoder import AbsDecoder, ConvDecoder, STFTDecoder
+from fairseq2.utils.tfgridnet.enh.encoder import AbsEncoder, ConvEncoder, STFTEncoder
+from fairseq2.utils.tfgridnet.train.espnet_model import ESPnetEnhancementModel
+from fairseq2.utils.tfgridnet.enh.loss_criterion import AbsEnhLoss, SISNRLoss
+from fairseq2.utils.tfgridnet.enh.wrappers import AbsLossWrapper, PITSolver
+from fairseq2.utils.tfgridnet.enh.separator import AbsSeparator, RNNSeparator, TCNSeparator
+
+from fairseq2.utils.tfgridnet.tasks.abs_task import AbsTask
+from fairseq2.utils.tfgridnet.torch_utils.initialize import initialize
+from fairseq2.utils.tfgridnet.train.class_choices import ClassChoices
+from fairseq2.utils.tfgridnet.train.preprocessor import (
     AbsPreprocessor,
     DynamicMixingPreprocessor,
     EnhPreprocessor,
 )
-from espnet2.train.trainer import Trainer
-from espnet2.utils.get_default_kwargs import get_default_kwargs
-from espnet2.utils.nested_dict_action import NestedDictAction
-from espnet2.utils.types import str2bool, str_or_none
 
 encoder_choices = ClassChoices(
     name="encoder",
-    classes=dict(stft=STFTEncoder, conv=ConvEncoder, same=NullEncoder),
+    classes=dict(stft=STFTEncoder, conv=ConvEncoder),
     type_check=AbsEncoder,
     default="stft",
 )
@@ -86,26 +34,9 @@ encoder_choices = ClassChoices(
 separator_choices = ClassChoices(
     name="separator",
     classes=dict(
-        asteroid=AsteroidModel_Converter,
-        conformer=ConformerSeparator,
-        dan=DANSeparator,
-        dc_crn=DC_CRNSeparator,
-        dccrn=DCCRNSeparator,
-        dpcl=DPCLSeparator,
-        dpcl_e2e=DPCLE2ESeparator,
-        dprnn=DPRNNSeparator,
-        dptnet=DPTNetSeparator,
-        fasnet=FaSNetSeparator,
         rnn=RNNSeparator,
-        skim=SkiMSeparator,
-        svoice=SVoiceSeparator,
-        tcn=TCNSeparator,
-        transformer=TransformerSeparator,
-        wpe_beamformer=NeuralBeamformer,
-        tcn_nomask=TCNSeparatorNomask,
-        ineube=iNeuBe,
-        tfgridnet=TFGridNet,
-    ),
+        tcn=TCNSeparator
+        ),
     type_check=AbsSeparator,
     default="rnn",
 )
@@ -119,7 +50,7 @@ mask_module_choices = ClassChoices(
 
 decoder_choices = ClassChoices(
     name="decoder",
-    classes=dict(stft=STFTDecoder, conv=ConvDecoder, same=NullDecoder),
+    classes=dict(stft=STFTDecoder,conv=ConvDecoder),
     type_check=AbsDecoder,
     default="stft",
 )
@@ -128,34 +59,18 @@ loss_wrapper_choices = ClassChoices(
     name="loss_wrappers",
     classes=dict(
         pit=PITSolver,
-        fixed_order=FixedOrderSolver,
-        multilayer_pit=MultiLayerPITSolver,
-        dpcl=DPCLSolver,
-        mixit=MixITSolver,
     ),
     type_check=AbsLossWrapper,
-    default=None,
+    default="pit",
 )
 
 criterion_choices = ClassChoices(
     name="criterions",
     classes=dict(
-        ci_sdr=CISDRLoss,
-        coh=FrequencyDomainAbsCoherence,
-        sdr=SDRLoss,
         si_snr=SISNRLoss,
-        snr=SNRLoss,
-        l1=FrequencyDomainL1,
-        dpcl=FrequencyDomainDPCL,
-        l1_fd=FrequencyDomainL1,
-        l1_td=TimeDomainL1,
-        mse=FrequencyDomainMSE,
-        mse_fd=FrequencyDomainMSE,
-        mse_td=TimeDomainMSE,
-        mr_l1_tfd=MultiResL1SpecLoss,
     ),
     type_check=AbsEnhLoss,
-    default=None,
+    default="SISNRLoss",
 )
 
 preprocessor_choices = ClassChoices(
@@ -169,7 +84,6 @@ preprocessor_choices = ClassChoices(
 )
 
 MAX_REFERENCE_NUM = 100
-
 
 class EnhancementTask(AbsTask):
     # If you need more than one optimizers, change this value
@@ -189,7 +103,7 @@ class EnhancementTask(AbsTask):
     ]
 
     # If you need to modify train() or eval() procedures, change Trainer class here
-    trainer = Trainer
+    #trainer = Trainer
 
     @classmethod
     def add_task_arguments(cls, parser: argparse.ArgumentParser):
@@ -328,6 +242,28 @@ class EnhancementTask(AbsTask):
             help="The set of all possible categories in the dataset. Used to add the "
             "category information to each sample",
         )
+        group.add_argument(
+            "--speech_segment",
+            type=int_or_none,
+            default=None,
+            help="Truncate the audios to the specified length (in samples) if not None",
+        )
+        group.add_argument(
+            "--avoid_allzero_segment",
+            type=str2bool,
+            default=True,
+            help="Only used when --speech_segment is specified. If True, make sure "
+            "all truncated segments are not all-zero",
+        )
+        group.add_argument(
+            "--flexible_numspk",
+            type=str2bool,
+            default=False,
+            help="Whether to load variable numbers of speakers in each sample. "
+            "In this case, only the first-speaker files such as 'spk1.scp' and "
+            "'dereverb1.scp' are used, which are expected to have multiple columns. "
+            "Other numbered files such as 'spk2.scp' and 'dereverb2.scp' are ignored.",
+        )
 
         group.add_argument(
             "--dynamic_mixing",
@@ -416,6 +352,9 @@ class EnhancementTask(AbsTask):
                     force_single_channel=getattr(args, "force_single_channel", False),
                     channel_reordering=getattr(args, "channel_reordering", False),
                     categories=getattr(args, "categories", None),
+                    speech_segment=getattr(args, "speech_segment", None),
+                    avoid_allzero_segment=getattr(args, "avoid_allzero_segment", True),
+                    flexible_numspk=getattr(args, "flexible_numspk", False),
                 )
                 kwargs.update(args.preprocessor_conf)
                 retval = preprocessor_choices.get_class(args.preprocessor)(
@@ -501,18 +440,3 @@ class EnhancementTask(AbsTask):
 
         assert check_return_type(model)
         return model
-
-    @classmethod
-    def build_iter_factory(
-        cls,
-        args: argparse.Namespace,
-        distributed_option: DistributedOption,
-        mode: str,
-        kwargs: dict = None,
-    ) -> AbsIterFactory:
-        dynamic_mixing = getattr(args, "dynamic_mixing", False)
-        if dynamic_mixing and mode == "train":
-            args = copy.deepcopy(args)
-            args.fold_length = args.fold_length[0:1]
-
-        return super().build_iter_factory(args, distributed_option, mode, kwargs)

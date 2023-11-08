@@ -1,8 +1,4 @@
 import dataclasses
-import warnings
-
-import random
-
 import numpy as np
 import torch
 
@@ -33,4 +29,3 @@ def to_device(data, device=None, dtype=None, non_blocking=False, copy=False):
         return data.to(device, dtype, non_blocking, copy)
     else:
         return data
-

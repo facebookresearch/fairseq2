@@ -1,11 +1,28 @@
+from abc import ABC, abstractmethod
+from typing import Dict, List, Tuple
 from collections import defaultdict
 from itertools import permutations
 
 import torch
 
-from fairseq2.utils.tfgridnet_utils.loss_criterions.abs_loss import AbsEnhLoss
-from fairseq2.utils.tfgridnet_utils.loss_wrappers.abs_wrapper import AbsLossWrapper
+from fairseq2.utils.tfgridnet.enh.loss_criterion import AbsEnhLoss
 
+class AbsLossWrapper(torch.nn.Module, ABC):
+    """Base class for all Enhancement loss wrapper modules."""
+
+    # The weight for the current loss in the multi-task learning.
+    # The overall training target will be combined as:
+    # loss = weight_1 * loss_1 + ... + weight_N * loss_N
+    weight = 1.0
+
+    @abstractmethod
+    def forward(
+        self,
+        ref: List,
+        inf: List,
+        others: Dict,
+    ) -> Tuple[torch.Tensor, Dict, Dict]:
+        raise NotImplementedError
 
 class PITSolver(AbsLossWrapper):
     def __init__(
