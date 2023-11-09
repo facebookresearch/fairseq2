@@ -69,7 +69,7 @@ class NllbConfig:
     dropout_p: float
     """The dropout probability in Transformer layers."""
 
-    decoder_activate_fn: Module = ReLU()
+    decoder_activation_fn: Module = ReLU()
     """The activation func for decoder layers, (ReLU or GELU)"""
 
 
@@ -286,7 +286,7 @@ class NllbBuilder:
             self.config.model_dim,
             self.config.ffn_inner_dim,
             bias=True,
-            inner_activation=self.config.decoder_activate_fn,
+            inner_activation=self.config.decoder_activation_fn,
             norm_order=TransformerNormOrder.PRE,
             device=self.device,
             dtype=self.dtype,
