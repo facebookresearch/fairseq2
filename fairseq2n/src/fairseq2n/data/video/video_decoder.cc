@@ -71,13 +71,15 @@ video_decoder::operator()(data &&d) const
 
     auto data_ptr = block.data();
     data output;
-    
+    av_register_all();
+    AVInputFormat* fmt = nullptr;
+    const char *fmtName = "png_pipe"; // temp
+    fmt = (AVInputFormat*)av_find_input_format(fmtName);
 
-    std::cout << "check 1 " << std::endl;
     auto input_ctx = avformat_alloc_context();
     if (input_ctx == nullptr)
         throw std::runtime_error("Failed to allocate AVFormatContext.");
-    std::cout << "check 2 " << std::endl;
+    /*
     constexpr size_t io_buff_size = 96 * 1024;
     constexpr size_t io_pad_size = 64;
     //constexpr size_t log_buff_size = 1024;
@@ -87,17 +89,16 @@ video_decoder::operator()(data &&d) const
     if (!avio_ctx_buff) {
         throw std::runtime_error("Failed to allocate AVIOContext buffer.");
     }
-    std::cout << "check 3 " << std::endl;
+    */
     AVIOContext *avio_ctx = avio_alloc_context(
         reinterpret_cast<unsigned char*>(const_cast<std::byte*>(data_ptr)),
-        avio_ctx_buff_size,                            
+        block.size(),                            
         0,                                           
         reinterpret_cast<void*>(const_cast<video_decoder*>(this)),                               
         &video_decoder::read_callback,                      
         nullptr,                                    
         nullptr                                      
     );
-    std::cout << "check 4 " << std::endl;
     if (avio_ctx == nullptr) {
         avformat_free_context(input_ctx);
         throw std::runtime_error("Failed to allocate AVIOContext.");
@@ -105,23 +106,21 @@ video_decoder::operator()(data &&d) const
     input_ctx->pb = avio_ctx;
     input_ctx->flags |= AVFMT_FLAG_CUSTOM_IO;
     input_ctx->opaque = reinterpret_cast<void*>(const_cast<video_decoder*>(this));
-    //input_ctx->interrupt_callback.callback = 
     input_ctx->interrupt_callback.opaque = reinterpret_cast<void*>(const_cast<video_decoder*>(this));
     input_ctx->flags |= AVFMT_FLAG_NONBLOCK;
 
-    int result = avformat_open_input(&input_ctx, nullptr, nullptr, nullptr);
-    std::cout << "check 5 " << std::endl;
+    int result = avformat_open_input(&input_ctx, nullptr, fmt, nullptr);
     if (result < 0) {
         avformat_free_context(input_ctx);
         throw std::runtime_error("Failed to open input format context.");
     }
-    std::cout << "check 6 " << std::endl;
+    std::cout << "check 2" << std::endl;
     result = avformat_find_stream_info(input_ctx, nullptr);
     if (result < 0) {
         avformat_close_input(&input_ctx);
         throw std::runtime_error("Failed to find stream info.");
     }
-    std::cout << "check 7 " << std::endl;
+    std::cout << "check 2" << std::endl;
     av_dump_format(input_ctx, 0, nullptr, 0);
     avformat_close_input(&input_ctx);
     avformat_free_context(input_ctx);
