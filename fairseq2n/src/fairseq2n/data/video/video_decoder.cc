@@ -17,6 +17,7 @@
 extern "C" {
     #include <libavcodec/avcodec.h>
     #include <libavformat/avformat.h>
+    #include <libavformat/avio.h>
     #include <libavutil/avutil.h>
 }
 
@@ -42,20 +43,25 @@ video_decoder::video_decoder(video_decoder_options opts, bool pin_memory)
             "`video_decoder` supports only `torch.float32`, `torch.int32`, and `torch.int16` data types.");
 }
 
+struct BufferData {
+    const uint8_t *ptr; 
+    size_t size;        
+};
+
 int 
 video_decoder::read_callback(void *opaque, uint8_t *buf, int buf_size) {
-    video_decoder *decoder = static_cast<video_decoder*>(opaque);
-    if (decoder == nullptr)
-        return 0;
-    long pos=0;
-    long len=buf_size;
-    if (pos < len) {
-        auto available = std::min(int(len - pos), buf_size);
-        memcpy(buf, buf+pos, available);
-        pos += available;
-        return available;
-    }
-    return 0;
+    
+    BufferData *bd = static_cast<BufferData *>(opaque);
+    buf_size = std::min(buf_size, static_cast<int>(bd->size));
+
+    if (buf_size <= 0)
+        return AVERROR_EOF;
+
+    // Copy internal buffer data to buf
+    memcpy(buf, bd->ptr, buf_size);
+    bd->ptr += buf_size;
+    bd->size -= buf_size;
+    return buf_size;
 }
 
 data
@@ -69,63 +75,74 @@ video_decoder::operator()(data &&d) const
     if (block.empty())
         throw std::invalid_argument("The input memory block has zero length and cannot be decoded.");
 
-    auto data_ptr = block.data();
-    data output;
-    av_register_all();
-    AVInputFormat* fmt = nullptr;
-    const char *fmtName = "png_pipe"; // temp
-    fmt = (AVInputFormat*)av_find_input_format(fmtName);
+    auto data_ptr = reinterpret_cast<const uint8_t*>(block.data());
+    //av_register_all();
+    AVFormatContext* fmt_ctx = nullptr;
+    AVIOContext *avio_ctx = nullptr;
+    size_t data_size = block.size();
+    int ret = 0;
+    BufferData bd = {0};
+    bd.ptr = data_ptr;
+    bd.size = data_size;
 
-    auto input_ctx = avformat_alloc_context();
-    if (input_ctx == nullptr)
+    if (!(fmt_ctx = avformat_alloc_context())) {
+        ret = AVERROR(ENOMEM);
         throw std::runtime_error("Failed to allocate AVFormatContext.");
-    /*
-    constexpr size_t io_buff_size = 96 * 1024;
-    constexpr size_t io_pad_size = 64;
-    //constexpr size_t log_buff_size = 1024;
-    const size_t avio_ctx_buff_size = io_buff_size;
-    uint8_t* avio_ctx_buff =
-        (uint8_t*)av_malloc(avio_ctx_buff_size + io_pad_size);
-    if (!avio_ctx_buff) {
+    }
+
+    uint8_t *avio_ctx_buffer = (uint8_t*)av_malloc(data_size + AV_INPUT_BUFFER_PADDING_SIZE);
+    if (!avio_ctx_buffer) {
+        ret = AVERROR(ENOMEM);
+        avformat_close_input(&fmt_ctx);
         throw std::runtime_error("Failed to allocate AVIOContext buffer.");
     }
-    */
-    AVIOContext *avio_ctx = avio_alloc_context(
-        reinterpret_cast<unsigned char*>(const_cast<std::byte*>(data_ptr)),
-        block.size(),                            
-        0,                                           
-        reinterpret_cast<void*>(const_cast<video_decoder*>(this)),                               
-        &video_decoder::read_callback,                      
-        nullptr,                                    
-        nullptr                                      
-    );
-    if (avio_ctx == nullptr) {
-        avformat_free_context(input_ctx);
+    
+
+    avio_ctx = avio_alloc_context(avio_ctx_buffer, data_size, 0, &bd, &video_decoder::read_callback, nullptr, nullptr);
+    if (!avio_ctx) {
+        ret = AVERROR(ENOMEM);
+        avformat_close_input(&fmt_ctx);
+        av_freep(&avio_ctx_buffer);
         throw std::runtime_error("Failed to allocate AVIOContext.");
     }
-    input_ctx->pb = avio_ctx;
-    input_ctx->flags |= AVFMT_FLAG_CUSTOM_IO;
-    input_ctx->opaque = reinterpret_cast<void*>(const_cast<video_decoder*>(this));
-    input_ctx->interrupt_callback.opaque = reinterpret_cast<void*>(const_cast<video_decoder*>(this));
-    input_ctx->flags |= AVFMT_FLAG_NONBLOCK;
+    fmt_ctx->pb = avio_ctx;
+    fmt_ctx->flags |= AVFMT_FLAG_CUSTOM_IO;
+    fmt_ctx->flags |= AVFMT_FLAG_NONBLOCK;
 
-    int result = avformat_open_input(&input_ctx, nullptr, fmt, nullptr);
-    if (result < 0) {
-        avformat_free_context(input_ctx);
-        throw std::runtime_error("Failed to open input format context.");
+    AVProbeData probe_data = {0};
+    probe_data.buf = const_cast<uint8_t *>(data_ptr);
+    probe_data.buf_size = data_size + data_size;
+    probe_data.filename = "";  
+
+    // Determine the input format
+    fmt_ctx->iformat = av_probe_input_format(&probe_data, 1);
+
+    ret = avformat_open_input(&fmt_ctx, nullptr, fmt_ctx->iformat, nullptr);
+    if (ret < 0) {
+        fprintf(stderr, "Could not open input\n");
+        avformat_close_input(&fmt_ctx);
+        av_freep(&avio_ctx->buffer);
+        avio_context_free(&avio_ctx);
+        throw std::runtime_error("Failed to open input.");
     }
-    std::cout << "check 2" << std::endl;
-    result = avformat_find_stream_info(input_ctx, nullptr);
-    if (result < 0) {
-        avformat_close_input(&input_ctx);
-        throw std::runtime_error("Failed to find stream info.");
+
+    ret = avformat_find_stream_info(fmt_ctx, nullptr);
+    if (ret < 0) {
+        fprintf(stderr, "Could not find stream information\n");
+        avformat_close_input(&fmt_ctx);
+        av_freep(&avio_ctx->buffer);
+        avio_context_free(&avio_ctx);
+        throw std::runtime_error("Failed to find stream information.");
     }
-    std::cout << "check 2" << std::endl;
-    av_dump_format(input_ctx, 0, nullptr, 0);
-    avformat_close_input(&input_ctx);
-    avformat_free_context(input_ctx);
 
 
+
+    av_dump_format(fmt_ctx, 0, nullptr, 0);
+    avformat_close_input(&fmt_ctx);
+    av_freep(&avio_ctx->buffer);
+    avio_context_free(&avio_ctx);
+
+    data output;
     return output;
 
 }  // namespace fairseq2n
