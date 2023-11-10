@@ -193,7 +193,7 @@ public:
 
 private:
     at::Tensor
-    encode(immutable_string &&sentence) const;
+    encode(immutable_string &&text) const;
 
 private:
     std::shared_ptr<const sp_model> model_;
