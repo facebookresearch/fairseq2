@@ -5,7 +5,6 @@
 // LICENSE file in the root directory of this source tree.
 
 #include "fairseq2n/data/video/video_decoder.h"
-#include "fairseq2n/data/video/detail/memory_buffer.h"
 #include "fairseq2n/data/video/detail/utils.h"
 
 #include <cstdint>
@@ -39,7 +38,7 @@ video_decoder::video_decoder(video_decoder_options opts, bool pin_memory)
 }
 
 data
-video_decoder::operator()(data &&d) const
+video_decoder::operator()(data &&d) 
 {
     if (!d.is_memory_block())
         throw std::invalid_argument(fmt::format(
@@ -57,42 +56,41 @@ video_decoder::operator()(data &&d) const
 } 
 
 int
-video_decoder::open_container(memory_block block) const
+video_decoder::open_container(memory_block block)
 {
     // Opens the media container and reads the metadata.
 
     auto data_ptr = reinterpret_cast<const uint8_t*>(block.data());
     //av_register_all();
-    AVFormatContext* fmt_ctx = nullptr;
-    AVIOContext *avio_ctx = nullptr;
+    //AVFormatContext* fmt_ctx = nullptr;
+    //AVIOContext *avio_ctx_ = nullptr;
     size_t data_size = block.size();
     int ret = 0;
     buffer_data bd = {0};   
     bd.ptr = data_ptr;
     bd.size = data_size;
-
-    if (!(fmt_ctx = avformat_alloc_context())) {
+    
+    if (!(fmt_ctx_ = avformat_alloc_context())) {
         ret = AVERROR(ENOMEM);
         throw std::runtime_error("Failed to allocate AVFormatContext.");
     }
-
-    uint8_t *avio_ctx_buffer = (uint8_t*)av_malloc(data_size + AV_INPUT_BUFFER_PADDING_SIZE);
-    if (!avio_ctx_buffer) {
+    
+    avio_ctx_buffer_ = (uint8_t*)av_malloc(data_size + AV_INPUT_BUFFER_PADDING_SIZE);
+    if (!avio_ctx_buffer_) {
         ret = AVERROR(ENOMEM);
-        avformat_close_input(&fmt_ctx);
+        clean();
         throw std::runtime_error("Failed to allocate AVIOContext buffer.");
     }
 
-    avio_ctx = avio_alloc_context(avio_ctx_buffer, data_size, 0, &bd, &video_decoder::read_callback, nullptr, nullptr);
-    if (!avio_ctx) {
+    avio_ctx_ = avio_alloc_context(avio_ctx_buffer_, data_size, 0, &bd, &video_decoder::read_callback, nullptr, nullptr);
+    if (!avio_ctx_) {
         ret = AVERROR(ENOMEM);
-        avformat_close_input(&fmt_ctx);
-        av_freep(&avio_ctx_buffer);
+        clean();
         throw std::runtime_error("Failed to allocate AVIOContext.");
     }
-    fmt_ctx->pb = avio_ctx;
-    fmt_ctx->flags |= AVFMT_FLAG_CUSTOM_IO;
-    fmt_ctx->flags |= AVFMT_FLAG_NONBLOCK;
+    fmt_ctx_->pb = avio_ctx_;
+    fmt_ctx_->flags |= AVFMT_FLAG_CUSTOM_IO;
+    fmt_ctx_->flags |= AVFMT_FLAG_NONBLOCK;
     // TODO: Determine the input format, currently causes seg fauit
     /*
     AVProbeData probe_data = {0};
@@ -101,33 +99,27 @@ video_decoder::open_container(memory_block block) const
     probe_data.filename = "";  // Set to an empty string since we don't have a filename
     
     // Determine the input format
-    fmt_ctx->iformat = av_probe_input_format(&probe_data, 1);
+    fmt_ctx_->iformat = av_probe_input_format(&probe_data, 1);
     */
-    ret = avformat_open_input(&fmt_ctx, nullptr, nullptr, nullptr);
+    ret = avformat_open_input(&fmt_ctx_, nullptr, nullptr, nullptr);
     if (ret < 0) {
         fprintf(stderr, "Could not open input\n");
-        avformat_close_input(&fmt_ctx);
-        av_freep(&avio_ctx->buffer);
-        avio_context_free(&avio_ctx);
+        clean();
         throw std::runtime_error("Failed to open input.");
     }
 
-    ret = avformat_find_stream_info(fmt_ctx, nullptr);
+    ret = avformat_find_stream_info(fmt_ctx_, nullptr);
     if (ret < 0) {
         fprintf(stderr, "Could not find stream information\n");
-        avformat_close_input(&fmt_ctx);
-        av_freep(&avio_ctx->buffer);
-        avio_context_free(&avio_ctx);
+        clean();
         throw std::runtime_error("Failed to find stream information.");
     }
 
-    av_dump_format(fmt_ctx, 0, nullptr, 0);
+    av_dump_format(fmt_ctx_, 0, nullptr, 0);
 
-    open_streams(fmt_ctx);
+    open_streams();
 
-    avformat_close_input(&fmt_ctx);
-    av_freep(&avio_ctx->buffer);
-    avio_context_free(&avio_ctx);
+    clean();
 
     return 0;
 
@@ -148,51 +140,56 @@ video_decoder::read_callback(void *opaque, uint8_t *buf, int buf_size) {
 }
 
 int
-video_decoder::open_streams(AVFormatContext* fmt_ctx) const
+video_decoder::open_streams()
 {
     /* 
     Prepares for the decoding process by opening and initializing the decoders for 
     each stream in the AVFormatContext
     */
-
-    for (unsigned int i = 0; i < fmt_ctx->nb_streams; i++) {
-        AVStream *stream = fmt_ctx->streams[i];
-        AVCodecParameters *codecpar = stream->codecpar;
-        AVCodec *codec = avcodec_find_decoder(codecpar->codec_id);
-        if (!codec) {
+    for (unsigned int i = 0; i < fmt_ctx_->nb_streams; i++) {
+        AVStream *stream = fmt_ctx_->streams[i];
+        codec_par_ = stream->codecpar;
+        codec_ = avcodec_find_decoder(codec_par_->codec_id);
+        if (!codec_) {
             fprintf(stderr, "Failed to find decoder for stream #%u\n", i);
             throw std::runtime_error("Failed to find decoder for stream.");
         }
-        AVCodecContext *codec_ctx = avcodec_alloc_context3(codec);
-        if (!codec_ctx) {
+        codec_ctx_ = avcodec_alloc_context3(codec_);
+        if (!codec_ctx_) {
             fprintf(stderr, "Failed to allocate the decoder context for stream #%u\n", i);
             throw std::runtime_error("Failed to allocate the decoder context for stream.");
         }
-        int ret = avcodec_parameters_to_context(codec_ctx, codecpar);
+        int ret = avcodec_parameters_to_context(codec_ctx_, codec_par_);
         if (ret < 0) {
             fprintf(stderr, "Failed to copy decoder parameters to input decoder context "
                     "for stream #%u\n", i);
             throw std::runtime_error("Failed to copy decoder parameters to input decoder context.");
         }
         // Reencode video & audio and remux subtitles etc. 
-        if (codecpar->codec_type == AVMEDIA_TYPE_VIDEO
-                || codecpar->codec_type == AVMEDIA_TYPE_AUDIO) {
-            if (codec_ctx->codec_type == AVMEDIA_TYPE_VIDEO
-                    || codec_ctx->codec_type == AVMEDIA_TYPE_AUDIO) {
+        if (codec_par_->codec_type == AVMEDIA_TYPE_VIDEO
+                || codec_par_->codec_type == AVMEDIA_TYPE_AUDIO) {
+            if (codec_ctx_->codec_type == AVMEDIA_TYPE_VIDEO
+                    || codec_ctx_->codec_type == AVMEDIA_TYPE_AUDIO) {
                 // Open decoder 
-                ret = avcodec_open2(codec_ctx, codec, nullptr);
+                ret = avcodec_open2(codec_ctx_, codec_, nullptr);
                 if (ret < 0) {
                     fprintf(stderr, "Failed to open decoder for stream #%u\n", i);
                     throw std::runtime_error("Failed to open decoder for stream.");
                 }
+                if (codec_ctx_->codec_type == AVMEDIA_TYPE_VIDEO) {
+                    width_ = codec_ctx_->coded_width;
+                    height_ = codec_ctx_->coded_height;
+                }
             }
         }
         // TODO: call decode_frames and pass i as stream_index
+        decode_frame(i);
     }
     return 0;
 }
 
-int video_decoder::decode_frame(AVFormatContext* fmt_ctx, AVCodecContext *codec_ctx, int stream_index) const 
+int 
+video_decoder::decode_frame(int stream_index)  
 {
     /*
     Decodes the frames in the media container and returns a tensor of the decoded frames
@@ -211,10 +208,10 @@ int video_decoder::decode_frame(AVFormatContext* fmt_ctx, AVCodecContext *codec_
     }
 
     try {
-        while (av_read_frame(fmt_ctx, pkt) >= 0) {
+        while (av_read_frame(fmt_ctx_, pkt) >= 0) {
             if (pkt->stream_index == stream_index) {  
                 // Send packet to the decoder
-                int ret = avcodec_send_packet(codec_ctx, pkt);
+                int ret = avcodec_send_packet(codec_ctx_, pkt);
                 if (ret < 0) {
                     fprintf(stderr, "Error sending packet to decoder: %s\n", av_err2str(ret));
                     throw std::runtime_error("Error sending packet to decoder.");
@@ -222,7 +219,7 @@ int video_decoder::decode_frame(AVFormatContext* fmt_ctx, AVCodecContext *codec_
 
                 // Receive decoded frames
                 while (ret >= 0) {
-                    ret = avcodec_receive_frame(codec_ctx, frame);
+                    ret = avcodec_receive_frame(codec_ctx_, frame);
                     if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
                         break;  // Need more input or decoding finished
                     } else if (ret < 0) {
@@ -248,9 +245,18 @@ int video_decoder::decode_frame(AVFormatContext* fmt_ctx, AVCodecContext *codec_
 }
 
 void
-video_decoder::clean() const
+video_decoder::clean() 
 {
-// TODO
+    if (fmt_ctx_)
+        avformat_close_input(&fmt_ctx_);
+    if (avio_ctx_) {
+        av_freep(&avio_ctx_->buffer);
+        avio_context_free(&avio_ctx_);
+    }
+    if(avio_ctx_buffer_)
+        av_freep(&avio_ctx_buffer_);
+    if (codec_ctx_)
+        avcodec_free_context(&codec_ctx_);
 }
 
  

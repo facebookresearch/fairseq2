@@ -16,6 +16,7 @@ extern "C" {
     #include <libavformat/avformat.h>
     #include <libavformat/avio.h>
     #include <libavutil/avutil.h>
+    #include <libswscale/swscale.h>
 }
 
 #include <ATen/Device.h>
@@ -85,16 +86,16 @@ public:
     video_decoder(video_decoder_options opts = {}, bool pin_memory = false);
 
     data
-    operator()(data &&d) const;
+    operator()(data &&d);
 
     int
-    open_container(memory_block block) const;
+    open_container(memory_block block);
 
     int 
-    open_streams(AVFormatContext* fmt_ctx) const;
+    open_streams();
 
     int
-    decode_frame(AVFormatContext* fmt_ctx, AVCodecContext *codec_ctx, int stream_index) const;
+    decode_frame(int stream_index);
 
     static int
     read_callback(void *opaque, uint8_t *buf, int buf_size);
@@ -104,10 +105,22 @@ public:
     seek_callback(void *opaque, int64_t offset, int whence);
 
     void
-    clean() const;
+    clean();
 
 private:
     video_decoder_options opts_;
+    AVFormatContext* fmt_ctx_{nullptr};
+    AVIOContext *avio_ctx_{nullptr};
+    AVCodecContext *codec_ctx_{nullptr};
+    AVCodec *codec_{nullptr};
+    AVCodecParameters *codec_par_{nullptr};
+    uint8_t *avio_ctx_buffer_{nullptr};
+    struct SwsContext *pImgConvertCtx;
+    int width_; // width of the video frame
+    int height_; // height of the video frame 
+    double fps_; // frames per second
+    double video_timebase_; // time base of the video stream
+    double audio_timebase_; // time base of the audio stream
     
 };
 
