@@ -85,7 +85,7 @@ class ModelConfigLoader(Generic[ModelConfigT]):
         config = self.archs.get_config(arch_name)
 
         try:
-            config_overrides = card.field("model_config").as_(MutableMapping[str, Any])
+            config_overrides = card.field("model_config").as_(dict)
         except AssetCardFieldNotFoundError:
             config_overrides = None
 
