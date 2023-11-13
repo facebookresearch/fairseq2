@@ -7,7 +7,7 @@
 import os
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Dict, Optional, final
+from typing import Any, Dict, List, Optional, final
 
 from fairseq2.assets.card import AssetCard, AssetCardError
 from fairseq2.assets.card_storage import (
@@ -63,7 +63,7 @@ class AssetStore(ABC):
 class DefaultAssetStore(AssetStore):
     """Provides access to asset cards stored in a centralized location."""
 
-    _storage: AssetCardStorage
+    _storages: List[AssetCardStorage]
     _cache: Dict[str, AssetCard]
 
     def __init__(self, storage: AssetCardStorage, *, ignore_env: bool = False) -> None:
@@ -78,9 +78,12 @@ class DefaultAssetStore(AssetStore):
         else:
             self.env = self._determine_environment()
 
-        self._storage = storage
+        self._storages = [storage]
 
         self._cache = {}
+
+    def add_storage(self, storage: AssetCardStorage) -> None:
+        self._storages.append(storage)
 
     @staticmethod
     def _determine_environment() -> Optional[str]:
@@ -98,11 +101,11 @@ class DefaultAssetStore(AssetStore):
             except KeyError:
                 pass
 
-        data = self._storage.load_card(name)
+        data = self._load_card(name, env=None)
 
         if self.env:
             try:
-                env_data = self._storage.load_card(name, env=self.env)
+                env_data = self._load_card(name, env=self.env)
 
                 # If we have an environment-specific asset card, merge it with
                 # the generic one.
@@ -133,6 +136,17 @@ class DefaultAssetStore(AssetStore):
 
         return card
 
+    def _load_card(self, name: str, env: Optional[str]) -> Dict[str, Any]:
+        for storage in self._storages:
+            try:
+                return storage.load_card(name, env=env)
+            except AssetCardNotFoundError:
+                continue
+
+        raise AssetCardNotFoundError(
+            f"An asset card with the name '{name}' cannot be found."
+        )
+
     @finaloverride
     def register_card(self, card: AssetCard, *, env: Optional[str] = None) -> None:
         raise NotImplementedError()
@@ -142,7 +156,7 @@ class DefaultAssetStore(AssetStore):
         self._cache.clear()
 
 
-def create_default_asset_store() -> AssetStore:
+def create_default_asset_store() -> DefaultAssetStore:
     pathname = Path(__file__).parent.joinpath("cards")
 
     card_storage = LocalAssetCardStorage(pathname)

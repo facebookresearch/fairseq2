@@ -7,9 +7,6 @@
 from fairseq2.data.text.converters import StrSplitter as StrSplitter
 from fairseq2.data.text.converters import StrToIntConverter as StrToIntConverter
 from fairseq2.data.text.converters import StrToTensorConverter as StrToTensorConverter
-from fairseq2.data.text.multilingual_text_tokenizer import (
-    MultilingualTextTokenizer as MultilingualTextTokenizer,
-)
 from fairseq2.data.text.sentencepiece import (
     SentencePieceDecoder as SentencePieceDecoder,
 )
