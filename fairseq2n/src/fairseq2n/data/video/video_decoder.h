@@ -11,6 +11,9 @@
 #include "fairseq2n/api.h"
 #include "fairseq2n/data/data.h"
 
+#include <ATen/Device.h>
+#include <ATen/ScalarType.h>
+
 extern "C" {
     #include <libavcodec/avcodec.h>
     #include <libavformat/avformat.h>
@@ -18,9 +21,6 @@ extern "C" {
     #include <libavutil/avutil.h>
     #include <libswscale/swscale.h>
 }
-
-#include <ATen/Device.h>
-#include <ATen/ScalarType.h>
 
 namespace fairseq2n {
 
@@ -86,16 +86,16 @@ public:
     video_decoder(video_decoder_options opts = {}, bool pin_memory = false);
 
     data
-    operator()(data &&d);
+    operator()(data &&d) const;
 
-    int
+    std::vector<std::vector<uint8_t*>>
     open_container(memory_block block);
 
-    int 
+    std::vector<std::vector<uint8_t*>> 
     open_streams();
 
-    int
-    decode_frame(int stream_index);
+    std::vector<uint8_t*>
+    decode_frames(int stream_index);
 
     static int
     read_callback(void *opaque, uint8_t *buf, int buf_size);

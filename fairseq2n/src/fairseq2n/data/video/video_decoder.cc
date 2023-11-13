@@ -4,7 +4,6 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
-#include "fairseq2n/data/video/video_decoder.h"
 #include "fairseq2n/data/video/detail/utils.h"
 
 #include <cstdint>
@@ -15,6 +14,7 @@
 #include <ATen/Functions.h>
 #include <ATen/Tensor.h>
 
+#include "fairseq2n/data/video/video_decoder.h"
 #include "fairseq2n/exception.h"
 #include "fairseq2n/float.h"
 #include "fairseq2n/fmt.h"
@@ -22,9 +22,7 @@
 #include "fairseq2n/data/detail/tensor_helpers.h"
 #include "fairseq2n/detail/exception.h"
 
-using namespace std;
-
-#include "fairseq2n/exception.h"
+using namespace fairseq2n::detail;
 
 namespace fairseq2n {
 
@@ -38,7 +36,7 @@ video_decoder::video_decoder(video_decoder_options opts, bool pin_memory)
 }
 
 data
-video_decoder::operator()(data &&d) 
+video_decoder::operator()(data &&d) const
 {
     if (!d.is_memory_block())
         throw std::invalid_argument(fmt::format(
@@ -48,22 +46,21 @@ video_decoder::operator()(data &&d)
     if (block.empty())
         throw std::invalid_argument("The input memory block has zero length and cannot be decoded.");
 
-    open_container(block);
+    std::vector<std::vector<uint8_t*>> decoded_video = open_container(block);
     
-    data output;
+    data_dict output;
+    output.emplace("video", std::move(decoded_video));
     return output;
 
 } 
 
-int
+std::vector<std::vector<uint8_t*>>
 video_decoder::open_container(memory_block block)
 {
     // Opens the media container and reads the metadata.
 
     auto data_ptr = reinterpret_cast<const uint8_t*>(block.data());
     //av_register_all();
-    //AVFormatContext* fmt_ctx = nullptr;
-    //AVIOContext *avio_ctx_ = nullptr;
     size_t data_size = block.size();
     int ret = 0;
     buffer_data bd = {0};   
@@ -117,11 +114,11 @@ video_decoder::open_container(memory_block block)
 
     av_dump_format(fmt_ctx_, 0, nullptr, 0);
 
-    open_streams();
+    std::vector<std::vector<uint8_t*>> decoded_video = open_streams();
 
     clean();
 
-    return 0;
+    return decoded_video;
 
 }
 
@@ -139,16 +136,18 @@ video_decoder::read_callback(void *opaque, uint8_t *buf, int buf_size) {
     return buf_size;
 }
 
-int
+std::vector<std::vector<uint8_t*>>
 video_decoder::open_streams()
 {
     /* 
     Prepares for the decoding process by opening and initializing the decoders for 
     each stream in the AVFormatContext
     */
+    std::vector<std::vector<uint8_t*>> allStreams;
+
     for (unsigned int i = 0; i < fmt_ctx_->nb_streams; i++) {
-        AVStream *stream = fmt_ctx_->streams[i];
-        codec_par_ = stream->codecpar;
+        //AVStream *stream = fmt_ctx_->streams[i];
+        codec_par_ = fmt_ctx_->streams[i]->codecpar;
         codec_ = avcodec_find_decoder(codec_par_->codec_id);
         if (!codec_) {
             fprintf(stderr, "Failed to find decoder for stream #%u\n", i);
@@ -175,21 +174,30 @@ video_decoder::open_streams()
                 if (ret < 0) {
                     fprintf(stderr, "Failed to open decoder for stream #%u\n", i);
                     throw std::runtime_error("Failed to open decoder for stream.");
+                } else {
+                    if (codec_ctx_->codec_type == AVMEDIA_TYPE_VIDEO) {
+                    /*
+                    pImgConvertCtx = sws_getContext(codec_ctx_->width, codec_ctx_->height,
+                            codec_ctx_->pix_fmt,
+                            codec_ctx_->width, codec_ctx_->height,
+                            AV_PIX_FMT_BGR24, // change later?
+                            SWS_BICUBIC, NULL, NULL, NULL);
+                    */
+                    width_ = codec_ctx_->width;
+                    height_ = codec_ctx_->height;
                 }
-                if (codec_ctx_->codec_type == AVMEDIA_TYPE_VIDEO) {
-                    width_ = codec_ctx_->coded_width;
-                    height_ = codec_ctx_->coded_height;
                 }
             }
         }
-        // TODO: call decode_frames and pass i as stream_index
-        decode_frame(i);
+     
+        std::vector<uint8_t*> stream = decode_frames(i);
+        allStreams.push_back(std::move(stream));
     }
-    return 0;
+    return allStreams;
 }
 
-int 
-video_decoder::decode_frame(int stream_index)  
+std::vector<uint8_t*> 
+video_decoder::decode_frames(int stream_index)  
 {
     /*
     Decodes the frames in the media container and returns a tensor of the decoded frames
@@ -207,25 +215,47 @@ video_decoder::decode_frame(int stream_index)
         throw std::runtime_error("Failed to allocate the frame.");
     }
 
+    std::vector<uint8_t*> frameData; 
+    uint8_t* outputArray = nullptr;
+
     try {
+        // Iterate over all frames in the stream
         while (av_read_frame(fmt_ctx_, pkt) >= 0) {
             if (pkt->stream_index == stream_index) {  
                 // Send packet to the decoder
                 int ret = avcodec_send_packet(codec_ctx_, pkt);
                 if (ret < 0) {
-                    fprintf(stderr, "Error sending packet to decoder: %s\n", av_err2str(ret));
+                    fprintf(stderr, "Error sending packet to decoder: %s\n");
                     throw std::runtime_error("Error sending packet to decoder.");
                 }
 
-                // Receive decoded frames
+                // Receive a decoded frame
                 while (ret >= 0) {
                     ret = avcodec_receive_frame(codec_ctx_, frame);
                     if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
                         break;  // Need more input or decoding finished
                     } else if (ret < 0) {
-                        fprintf(stderr, "Error receiving frame from decoder: %s\n", av_err2str(ret));
+                        fprintf(stderr, "Error receiving frame from decoder: %s\n");
                         throw std::runtime_error("Error receiving frame from decoder.");
                     }
+
+                    if (codec_par_->codec_type == AVMEDIA_TYPE_VIDEO) {
+                        int frameSize = av_get_bytes_per_sample(AV_SAMPLE_FMT_S16) * av_frame_get_channels(frame) * frame->nb_samples;
+                        outputArray = new uint8_t[frameSize];
+                        int dataSize = av_samples_get_buffer_size(nullptr, av_frame_get_channels(frame), frame->nb_samples, AV_SAMPLE_FMT_S16, 0);
+                        if (dataSize > 0) {
+                            memcpy(outputArray, frame->data[0], dataSize);
+                        }
+                    } else if (codec_par_->codec_type == AVMEDIA_TYPE_AUDIO) {
+                        uint8_t* audio_data = frame->data[0];
+                        int audio_data_size = av_get_bytes_per_sample(static_cast<AVSampleFormat>(frame->format)) * frame->nb_samples;
+                        outputArray = new uint8_t[audio_data_size];
+                        memcpy(outputArray, audio_data, audio_data_size);
+                    }
+                    if (outputArray) {
+                        frameData.push_back(outputArray);
+                    }
+
 
                     // TODO: process decoded frame
                 }
@@ -241,7 +271,7 @@ video_decoder::decode_frame(int stream_index)
     av_packet_free(&pkt);
     av_frame_free(&frame);
 
-    return 0; 
+    return frameData; 
 }
 
 void
