@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data &mdash; fairseq2 0.2.0.dev20231106 documentation</title>
+  <title>fairseq2.data &mdash; fairseq2 0.2.0.dev20231113 documentation</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -35,7 +35,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20231106
+                0.2.0.dev20231113
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
@@ -99,7 +99,6 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#fairseq2-data-text">fairseq2.data.text</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.TextTokenizer.html">TextTokenizer</a></li>
-<li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.MultilingualTextTokenizer.html">MultilingualTextTokenizer</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.TextTokenDecoder.html">TextTokenDecoder</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.TextTokenEncoder.html">TextTokenEncoder</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.StrSplitter.html">StrSplitter</a></li>
@@ -254,39 +253,36 @@ will multiply the values 4 and 6 by 10, but leave others unmodified.</p>
 <table class="autosummary longtable docutils align-default">
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.TextTokenizer.html#fairseq2.data.text.TextTokenizer" title="fairseq2.data.text.TextTokenizer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TextTokenizer</span></code></a>(vocab_info)</p></td>
-<td><p>Represents a tokenizer to encode and decode sentences.</p></td>
+<td><p>Represents a tokenizer to encode and decode texts.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.MultilingualTextTokenizer.html#fairseq2.data.text.MultilingualTextTokenizer" title="fairseq2.data.text.MultilingualTextTokenizer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">MultilingualTextTokenizer</span></code></a>(pathname, task, ...)</p></td>
-<td><p>Represents a generic bilingual/multilingual text tokenizer.</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.TextTokenDecoder.html#fairseq2.data.text.TextTokenDecoder" title="fairseq2.data.text.TextTokenDecoder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TextTokenDecoder</span></code></a>()</p></td>
+<td><p>Decodes texts from token indices.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.TextTokenDecoder.html#fairseq2.data.text.TextTokenDecoder" title="fairseq2.data.text.TextTokenDecoder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TextTokenDecoder</span></code></a>()</p></td>
-<td><p>Decodes sentences from token indices.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.TextTokenEncoder.html#fairseq2.data.text.TextTokenEncoder" title="fairseq2.data.text.TextTokenEncoder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TextTokenEncoder</span></code></a>()</p></td>
+<td><p>Encodes texts into token indices.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.TextTokenEncoder.html#fairseq2.data.text.TextTokenEncoder" title="fairseq2.data.text.TextTokenEncoder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TextTokenEncoder</span></code></a>()</p></td>
-<td><p>Encodes sentences into token indices.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.StrSplitter.html#fairseq2.data.text.StrSplitter" title="fairseq2.data.text.StrSplitter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">StrSplitter</span></code></a>([sep, names, indices, exclude])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.StrSplitter.html#fairseq2.data.text.StrSplitter" title="fairseq2.data.text.StrSplitter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">StrSplitter</span></code></a>([sep, names, indices, exclude])</p></td>
 <td><p>Split string on a given character.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.StrToIntConverter.html#fairseq2.data.text.StrToIntConverter" title="fairseq2.data.text.StrToIntConverter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">StrToIntConverter</span></code></a>([base])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.StrToIntConverter.html#fairseq2.data.text.StrToIntConverter" title="fairseq2.data.text.StrToIntConverter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">StrToIntConverter</span></code></a>([base])</p></td>
 <td><p>Parses integers in a given base</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.StrToTensorConverter.html#fairseq2.data.text.StrToTensorConverter" title="fairseq2.data.text.StrToTensorConverter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">StrToTensorConverter</span></code></a>([size, dtype])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.StrToTensorConverter.html#fairseq2.data.text.StrToTensorConverter" title="fairseq2.data.text.StrToTensorConverter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">StrToTensorConverter</span></code></a>([size, dtype])</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.SentencePieceModel.html#fairseq2.data.text.SentencePieceModel" title="fairseq2.data.text.SentencePieceModel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SentencePieceModel</span></code></a>(pathname[, control_symbols])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.SentencePieceModel.html#fairseq2.data.text.SentencePieceModel" title="fairseq2.data.text.SentencePieceModel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SentencePieceModel</span></code></a>(pathname[, control_symbols])</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.SentencePieceEncoder.html#fairseq2.data.text.SentencePieceEncoder" title="fairseq2.data.text.SentencePieceEncoder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SentencePieceEncoder</span></code></a>(model[, prefix_tokens, ...])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.SentencePieceEncoder.html#fairseq2.data.text.SentencePieceEncoder" title="fairseq2.data.text.SentencePieceEncoder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SentencePieceEncoder</span></code></a>(model[, prefix_tokens, ...])</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.SentencePieceDecoder.html#fairseq2.data.text.SentencePieceDecoder" title="fairseq2.data.text.SentencePieceDecoder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SentencePieceDecoder</span></code></a>(model[, reverse])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.SentencePieceDecoder.html#fairseq2.data.text.SentencePieceDecoder" title="fairseq2.data.text.SentencePieceDecoder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SentencePieceDecoder</span></code></a>(model[, reverse])</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.vocabulary_from_sentencepiece.html#fairseq2.data.text.vocabulary_from_sentencepiece" title="fairseq2.data.text.vocabulary_from_sentencepiece"><code class="xref py py-obj docutils literal notranslate"><span class="pre">vocabulary_from_sentencepiece</span></code></a>(model)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.vocabulary_from_sentencepiece.html#fairseq2.data.text.vocabulary_from_sentencepiece" title="fairseq2.data.text.vocabulary_from_sentencepiece"><code class="xref py py-obj docutils literal notranslate"><span class="pre">vocabulary_from_sentencepiece</span></code></a>(model)</p></td>
 <td><p>Return the vocabulary information of <code class="docutils literal notranslate"><span class="pre">model</span></code>.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.LineEnding.html#fairseq2.data.text.LineEnding" title="fairseq2.data.text.LineEnding"><code class="xref py py-obj docutils literal notranslate"><span class="pre">LineEnding</span></code></a>(value[, names, module, qualname, ...])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.LineEnding.html#fairseq2.data.text.LineEnding" title="fairseq2.data.text.LineEnding"><code class="xref py py-obj docutils literal notranslate"><span class="pre">LineEnding</span></code></a>(value[, names, module, qualname, ...])</p></td>
 <td><p></p></td>
 </tr>
 </tbody>

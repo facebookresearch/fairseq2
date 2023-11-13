@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TextTokenizer &mdash; fairseq2 0.2.0.dev20231106 documentation</title>
+  <title>TextTokenizer &mdash; fairseq2 0.2.0.dev20231113 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -19,7 +19,7 @@
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="MultilingualTextTokenizer" href="fairseq2.data.text.MultilingualTextTokenizer.html" />
+    <link rel="next" title="TextTokenDecoder" href="fairseq2.data.text.TextTokenDecoder.html" />
     <link rel="prev" title="is_string_like" href="../data/fairseq2.data.is_string_like.html" /> 
 </head>
 
@@ -35,7 +35,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20231106
+                0.2.0.dev20231113
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -99,7 +99,6 @@
 </li>
 <li class="toctree-l2 current"><a class="reference internal" href="../../data.html#fairseq2-data-text">fairseq2.data.text</a><ul class="current">
 <li class="toctree-l3 current"><a class="current reference internal" href="#">TextTokenizer</a></li>
-<li class="toctree-l3"><a class="reference internal" href="fairseq2.data.text.MultilingualTextTokenizer.html">MultilingualTextTokenizer</a></li>
 <li class="toctree-l3"><a class="reference internal" href="fairseq2.data.text.TextTokenDecoder.html">TextTokenDecoder</a></li>
 <li class="toctree-l3"><a class="reference internal" href="fairseq2.data.text.TextTokenEncoder.html">TextTokenEncoder</a></li>
 <li class="toctree-l3"><a class="reference internal" href="fairseq2.data.text.StrSplitter.html">StrSplitter</a></li>
@@ -152,7 +151,7 @@
 <dt class="sig sig-object py" id="fairseq2.data.text.TextTokenizer">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.data.text.</span></span><span class="sig-name descname"><span class="pre">TextTokenizer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">vocab_info</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/text/text_tokenizer.html#TextTokenizer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.text.TextTokenizer" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
-<p>Represents a tokenizer to encode and decode sentences.</p>
+<p>Represents a tokenizer to encode and decode texts.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><p><strong>vocab_info</strong> (<a class="reference internal" href="../data/fairseq2.data.VocabularyInfo.html#fairseq2.data.VocabularyInfo" title="fairseq2.data.vocabulary_info.VocabularyInfo"><em>VocabularyInfo</em></a>) – The vocabulary information associated with the tokenizer.</p>
@@ -224,7 +223,7 @@ tasks use <code class="docutils literal notranslate"><span class="pre">mode</spa
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="../data/fairseq2.data.is_string_like.html" class="btn btn-neutral float-left" title="is_string_like" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="fairseq2.data.text.MultilingualTextTokenizer.html" class="btn btn-neutral float-right" title="MultilingualTextTokenizer" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="fairseq2.data.text.TextTokenDecoder.html" class="btn btn-neutral float-right" title="TextTokenDecoder" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
