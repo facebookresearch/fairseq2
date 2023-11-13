@@ -7,16 +7,7 @@
 import logging
 from copy import deepcopy
 from functools import partial
-from typing import (
-    Any,
-    Generic,
-    Mapping,
-    MutableMapping,
-    Optional,
-    Protocol,
-    TypeVar,
-    Union,
-)
+from typing import Any, Generic, Mapping, Optional, Protocol, TypeVar, Union
 
 from torch.nn import Module
 
