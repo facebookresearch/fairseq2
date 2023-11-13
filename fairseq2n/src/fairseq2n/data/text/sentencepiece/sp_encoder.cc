@@ -32,7 +32,7 @@ class sp_encoder_op {
 public:
     explicit
     sp_encoder_op(
-        const sp_encoder *encoder, const sp_processor *processor, immutable_string &&sentence);
+        const sp_encoder *encoder, const sp_processor *processor, immutable_string &&text);
 
     at::Tensor &&
     run() &&;
@@ -44,7 +44,7 @@ private:
 private:
     const sp_encoder *encoder_;
     const sp_processor *processor_;
-    immutable_string sentence_;
+    immutable_string text_;
     ImmutableSentencePieceText spt_{};
     std::size_t extra_tokens_len_{};
     std::size_t seq_len_{};
@@ -64,8 +64,8 @@ get_token_idx(const ImmutableSentencePieceText &spt, std::size_t idx) noexcept
 }  // namespace
 
 sp_encoder_op::sp_encoder_op(
-    const sp_encoder *encoder, const sp_processor *processor, immutable_string &&sentence)
-  : encoder_{encoder}, processor_{processor}, sentence_{std::move(sentence)}
+    const sp_encoder *encoder, const sp_processor *processor, immutable_string &&text)
+  : encoder_{encoder}, processor_{processor}, text_{std::move(text)}
 {
     extra_tokens_len_ += encoder_->prefix_token_indices_.size();
     extra_tokens_len_ += encoder_->suffix_token_indices_.size();
@@ -120,9 +120,9 @@ sp_encoder_op::encode_string()
     auto &opts = encoder_->opts_;
 
     if (opts.enable_sampling())
-        spt_ = processor_->sample(sentence_, opts.nbest_size(), opts.alpha());
+        spt_ = processor_->sample(text_, opts.nbest_size(), opts.alpha());
     else
-        spt_ = processor_->encode(sentence_);
+        spt_ = processor_->encode(text_);
 
     seq_len_ = spt_.pieces_size() + extra_tokens_len_;
 }
@@ -179,9 +179,9 @@ sp_encoder::operator()(data &&d) const
 }
 
 at::Tensor
-sp_encoder::encode(immutable_string &&sentence) const
+sp_encoder::encode(immutable_string &&text) const
 {
-    return sp_encoder_op{this, model_->processor_.get(), std::move(sentence)}.run();
+    return sp_encoder_op{this, model_->processor_.get(), std::move(text)}.run();
 }
 
 }  // namespace fairseq2n

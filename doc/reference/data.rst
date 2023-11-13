@@ -91,7 +91,6 @@ Tools to tokenize text, converting it from bytes to tensors.
     :toctree: generated/data_text
 
     TextTokenizer
-    MultilingualTextTokenizer
     TextTokenDecoder
     TextTokenEncoder
 

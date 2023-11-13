@@ -68,7 +68,7 @@ if TYPE_CHECKING or _DOC_MODE:
             ...
 
         @finaloverride
-        def __call__(self, sentence: StringLike) -> Tensor:
+        def __call__(self, text: StringLike) -> Tensor:
             ...
 
         @property
