@@ -4,12 +4,12 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from dataclasses import fields, is_dataclass
+from dataclasses import is_dataclass
 from typing import Any, List, MutableMapping
 
 
 def update_dataclass(obj: Any, overrides: MutableMapping[str, Any]) -> None:
-    """Recursively update a dataclass with the data contained in ``overrides``.
+    """Update the specified data class with the data contained in ``overrides``.
 
     :param obj:
         A :type:`dataclasses.dataclass` object.
@@ -18,7 +18,7 @@ def update_dataclass(obj: Any, overrides: MutableMapping[str, Any]) -> None:
     """
     if not is_dataclass(obj):
         raise TypeError(
-            f"`obj` must be a dataclass, but is of type `{type(obj)}` instead."
+            f"`obj` must be a `dataclass`, but is of type `{type(obj)}` instead."
         )
 
     leftovers: List[str] = []
@@ -36,15 +36,14 @@ def update_dataclass(obj: Any, overrides: MutableMapping[str, Any]) -> None:
 def _do_update_dataclass(
     obj: Any, overrides: MutableMapping[str, Any], leftovers: List[str], path: List[str]
 ) -> None:
-    field_types = {field.name: field.type for field in fields(obj)}
-
     for name, value in obj.__dict__.items():
-        override = overrides.pop(name, None)
-        if override is None:
+        try:
+            override = overrides.pop(name)
+        except KeyError:
             continue
 
         # Recursively traverse child dataclasses.
-        if is_dataclass(value):
+        if override is not None and is_dataclass(value):
             if not isinstance(override, MutableMapping):
                 p = ".".join(path + [name])
 
@@ -58,13 +57,6 @@ def _do_update_dataclass(
 
             path.pop()
         else:
-            if not isinstance(override, field_types[name]):
-                p = ".".join(path + [name])
-
-                raise TypeError(
-                    f"The key '{p}' must be of type `{field_types[name]}`, but is of type `{type(override)}` instead."
-                )
-
             setattr(obj, name, override)
 
     if overrides:
