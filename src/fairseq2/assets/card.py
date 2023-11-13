@@ -137,7 +137,7 @@ class AssetCard:
 class AssetCardField:
     """Represents a field of an asset card."""
 
-    cast: AssetCard
+    card: AssetCard
     path: List[str]
 
     def __init__(self, card: AssetCard, path: List[str]) -> None:
