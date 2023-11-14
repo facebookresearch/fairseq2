@@ -104,7 +104,16 @@ def_sentencepiece(py::module_ &text_module)
             py::arg("alpha")           = 0.1,
             py::arg("device")          = std::nullopt,
             py::arg("pin_memory")      = false)
-        .def("__call__", &sp_encoder::operator(), py::call_guard<py::gil_scoped_release>{})
+        .def(
+            "__call__",
+            &sp_encoder::operator(),
+            py::arg("text"),
+            py::call_guard<py::gil_scoped_release>{})
+        .def(
+            "encode_as_tokens",
+            &sp_encoder::encode_as_tokens,
+            py::arg("text"),
+            py::call_guard<py::gil_scoped_release>{})
 
         .def_property_readonly("prefix_indices", &sp_encoder::prefix_indices)
         .def_property_readonly("suffix_indices", &sp_encoder::suffix_indices);
@@ -114,7 +123,16 @@ def_sentencepiece(py::module_ &text_module)
             py::init<std::shared_ptr<const sp_model>, bool>(),
             py::arg("model"),
             py::arg("reverse") = false)
-        .def("__call__", &sp_decoder::operator(), py::call_guard<py::gil_scoped_release>{});
+        .def(
+            "__call__",
+            &sp_decoder::operator(),
+            py::arg("token_indices"),
+            py::call_guard<py::gil_scoped_release>{})
+        .def(
+            "decode_from_tokens",
+            &sp_decoder::decode_from_tokens,
+            py::arg("tokens"),
+            py::call_guard<py::gil_scoped_release>{});
 
     map_functors().register_<sp_encoder>();
     map_functors().register_<sp_decoder>();

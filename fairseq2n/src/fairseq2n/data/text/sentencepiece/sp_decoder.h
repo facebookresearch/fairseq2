@@ -34,6 +34,9 @@ public:
     data
     operator()(data &&d) const;
 
+    data
+    decode_from_tokens(data &&d) const;
+
 private:
     immutable_string
     decode(at::Tensor &&tensor) const;

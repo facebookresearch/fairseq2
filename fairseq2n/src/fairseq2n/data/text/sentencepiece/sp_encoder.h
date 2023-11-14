@@ -179,6 +179,9 @@ public:
     data
     operator()(data &&d) const;
 
+    data
+    encode_as_tokens(data &&d) const;
+
     const std::optional<at::Tensor> &
     prefix_indices() const
     {

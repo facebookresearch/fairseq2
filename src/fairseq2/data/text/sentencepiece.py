@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import TYPE_CHECKING, Optional, Sequence, final
+from typing import TYPE_CHECKING, List, Optional, Sequence, final
 
 from torch import Tensor
 
@@ -71,6 +71,10 @@ if TYPE_CHECKING or _DOC_MODE:
         def __call__(self, text: StringLike) -> Tensor:
             ...
 
+        @finaloverride
+        def encode_as_tokens(self, text: StringLike) -> List[StringLike]:
+            ...
+
         @property
         @finaloverride
         def prefix_indices(self) -> Optional[Tensor]:
@@ -88,6 +92,10 @@ if TYPE_CHECKING or _DOC_MODE:
 
         @finaloverride
         def __call__(self, token_indices: Tensor) -> StringLike:
+            ...
+
+        @finaloverride
+        def decode_from_tokens(self, tokens: Sequence[StringLike]) -> StringLike:
             ...
 
 else:

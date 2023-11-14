@@ -97,7 +97,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
     self_attn_dropout: Optional[Dropout]
     self_attn_layer_norm: LayerNorm
     encoder_decoder_attn: Optional[MultiheadAttention]
-    encoder_decoder_dropout: Optional[Dropout]
+    encoder_decoder_attn_dropout: Optional[Dropout]
     encoder_decoder_attn_layer_norm: Optional[LayerNorm]
     ffn: FeedForwardNetwork
     ffn_dropout: Optional[Dropout]

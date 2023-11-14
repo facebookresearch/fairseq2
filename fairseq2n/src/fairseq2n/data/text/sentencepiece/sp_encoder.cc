@@ -184,4 +184,23 @@ sp_encoder::encode(immutable_string &&text) const
     return sp_encoder_op{this, model_->processor_.get(), std::move(text)}.run();
 }
 
+data
+sp_encoder::encode_as_tokens(data &&d) const
+{
+    if (!d.is_string())
+        throw_<std::invalid_argument>(
+            "The input data must be of type `string`, but is of type `{}` instead.", d.type());
+
+    ImmutableSentencePieceText spt = model_->processor_->encode(d.as_string());
+
+    std::vector<data> tokens{};
+
+    tokens.reserve(spt.pieces_size());
+
+    for (const auto &sp : spt.pieces())
+        tokens.emplace_back(sp.piece());
+
+    return tokens;
+}
+
 }  // namespace fairseq2n

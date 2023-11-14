@@ -143,4 +143,32 @@ sp_decoder::decode(at::Tensor &&tensor) const
     return sp_decoder_op{this, model_->processor_.get(), std::move(tensor)}.run();
 }
 
+data
+sp_decoder::decode_from_tokens(data &&d) const
+{
+    if (!d.is_list())
+        throw_<std::invalid_argument>(
+            "The input data must be of type `list`, but is of type `{}` instead.", d.type());
+
+    const std::vector<data> &tokens = d.as_list();
+
+    std::vector<std::string_view> pieces{};
+
+    pieces.reserve(tokens.size());
+
+    std::size_t idx = 0;
+
+    for (const data &token : tokens) {
+        if (!token.is_string())
+            throw_<std::invalid_argument>(
+                "The element at index {} in the input data must be of type `string`, but is of type `{}` instead.", idx, token.type());
+
+        pieces.emplace_back(token.as_string());
+
+        idx++;
+    }
+
+    return model_->processor_->decode(pieces);
+}
+
 }  // namespace fairseq2n
