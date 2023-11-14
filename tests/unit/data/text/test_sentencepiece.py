@@ -24,12 +24,12 @@ TEST_SPM_PATH: Final = Path(__file__).parent.joinpath("test.spm")
 
 
 class TestSentencePieceModel:
-    sentence: ClassVar[str]
+    text: ClassVar[str]
     token_indices: ClassVar[List[int]]
 
     @classmethod
     def setup_class(cls) -> None:
-        cls.sentence = "What's up? Hope you are doing well today."
+        cls.text = "What's up? Hope you are doing well today."
 
         # fmt: off
         cls.token_indices = [
@@ -75,17 +75,17 @@ class TestSentencePieceModel:
         encoder = SentencePieceEncoder(model, device=device)
         decoder = SentencePieceDecoder(model)
 
-        indices = encoder(self.sentence)
+        indices = encoder(self.text)
 
         # Assert encoder.
         assert_equal(indices, self.token_indices)
 
-        sentence = decoder(indices)
+        text = decoder(indices)
 
         # Assert decoder
-        assert isinstance(sentence, CString)
+        assert isinstance(text, CString)
 
-        assert sentence == self.sentence
+        assert text == self.text
 
     def test_encode_decode_work_when_reverse_is_true(self) -> None:
         model = self.build_model()
@@ -93,17 +93,17 @@ class TestSentencePieceModel:
         encoder = SentencePieceEncoder(model, device=device, reverse=True)
         decoder = SentencePieceDecoder(model, reverse=True)
 
-        indices = encoder(self.sentence)
+        indices = encoder(self.text)
 
         # Assert encoder.
         assert_equal(indices, self.token_indices[::-1])
 
-        sentence = decoder(indices)
+        text = decoder(indices)
 
         # Assert decoder.
-        assert isinstance(sentence, CString)
+        assert isinstance(text, CString)
 
-        assert sentence == self.sentence
+        assert text == self.text
 
     def test_decode_works_when_control_symbols_are_specified(self) -> None:
         model = self.build_model(control_symbols=["<foo>"])
@@ -111,7 +111,7 @@ class TestSentencePieceModel:
         encoder = SentencePieceEncoder(model, device=device)
         decoder = SentencePieceDecoder(model)
 
-        indices = encoder(self.sentence)
+        indices = encoder(self.text)
 
         # Assert encoder.
         assert_equal(indices, self.token_indices)
@@ -124,12 +124,12 @@ class TestSentencePieceModel:
         indices = torch.cat([indices[:2], foo, indices[2:]])
 
         # We expect the decoder to ignore the <foo> tokens.
-        sentence = decoder(indices)
+        text = decoder(indices)
 
         # Assert decoder.
-        assert isinstance(sentence, CString)
+        assert isinstance(text, CString)
 
-        assert sentence == self.sentence
+        assert text == self.text
 
     def test_encode_works_when_prefix_and_suffix_tokens_are_specified(self) -> None:
         model = self.build_model(control_symbols=["<foo1>", "<foo2>", "<foo3>"])
@@ -142,7 +142,7 @@ class TestSentencePieceModel:
         )
         decoder = SentencePieceDecoder(model)
 
-        indices = encoder(self.sentence)
+        indices = encoder(self.text)
 
         # Assert encoder.
         foo1_idx = model.token_to_index("<foo1>")
@@ -157,26 +157,110 @@ class TestSentencePieceModel:
         assert_equal(indices, e)
 
         # We expect the decoder to ignore the prefix and suffix tokens.
-        sentence = decoder(indices)
+        text = decoder(indices)
 
         # Assert decoder.
-        assert sentence == self.sentence
+        assert text == self.text
 
-    @pytest.mark.parametrize("dtype", [torch.float32, torch.int8])
-    def test_decode_raises_error_when_data_type_is_not_supported(
-        self, dtype: DataType
+    def test_encode_as_tokens_works(self) -> None:
+        model = self.build_model()
+
+        encoder = SentencePieceEncoder(
+            model, prefix_tokens=["<s>"], suffix_tokens=["</s>"]
+        )
+
+        tokens = encoder.encode_as_tokens("Hello world!")
+
+        t = [str(t) for t in tokens]
+
+        assert t == ["<s>", "▁He", "l", "lo", "▁w", "or", "ld", "!", "</s>"]
+
+    def test_encode_as_tokens_works_when_reverse_is_true(self) -> None:
+        model = self.build_model()
+
+        encoder = SentencePieceEncoder(
+            model, prefix_tokens=["<s>"], suffix_tokens=["</s>"], reverse=True
+        )
+
+        tokens = encoder.encode_as_tokens("Hello world!")
+
+        t = [str(t) for t in tokens]
+
+        assert t == ["</s>", "!", "ld", "or", "▁w", "lo", "l", "▁He", "<s>"]
+
+    def test_decode_from_tokens_works(self) -> None:
+        model = self.build_model()
+
+        encoder = SentencePieceDecoder(model)
+
+        text = encoder.decode_from_tokens(
+            ["▁He", "l", "lo", "▁w", "or", "ld", "!", "</s>"]
+        )
+
+        assert text == "Hello world!"
+
+    def test_decode_from_tokens_works_when_reverse_is_true(self) -> None:
+        model = self.build_model()
+
+        encoder = SentencePieceDecoder(model, reverse=True)
+
+        text = encoder.decode_from_tokens(
+            ["</s>", "!", "ld", "or", "▁w", "lo", "l", "▁He"]
+        )
+
+        assert text == "Hello world!"
+
+    def test_encode_raises_error_when_input_is_not_string(self) -> None:
+        model = self.build_model()
+
+        encoder = SentencePieceEncoder(model)
+
+        with pytest.raises(
+            ValueError,
+            match=r"^The input data must be of type `string`, but is of type `int` instead\.$",
+        ):
+            encoder(123)  # type: ignore[arg-type]
+
+    def test_encode_as_tokens_raises_error_when_input_is_not_string(self) -> None:
+        model = self.build_model()
+
+        encoder = SentencePieceEncoder(model)
+
+        with pytest.raises(
+            ValueError,
+            match=r"^The input data must be of type `string`, but is of type `int` instead\.$",
+        ):
+            encoder.encode_as_tokens(123)  # type: ignore[arg-type]
+
+    def test_decode_raises_error_when_input_is_not_tensor(self) -> None:
+        model = self.build_model()
+
+        decoder = SentencePieceDecoder(model)
+
+        with pytest.raises(
+            ValueError,
+            match=r"^The input data must be of type `torch.Tensor`, but is of type `int` instead\.$",
+        ):
+            decoder(123)  # type: ignore[arg-type]
+
+    def test_decode_from_tokens_raises_error_when_input_is_not_list_of_strings(
+        self,
     ) -> None:
         model = self.build_model()
 
         decoder = SentencePieceDecoder(model)
 
-        indices = torch.zeros((10,), device=device, dtype=dtype)
+        with pytest.raises(
+            ValueError,
+            match=r"^The input data must be of type `list`, but is of type `int` instead\.$",
+        ):
+            decoder.decode_from_tokens(123)  # type: ignore[arg-type]
 
         with pytest.raises(
             ValueError,
-            match=r"^`sp_decoder` supports only `torch.int16`, `torch.int32`, and `torch.int64` data types\.$",
+            match=r"^The element at index 1 in the input data must be of type `string`, but is of type `int` instead\.$",
         ):
-            decoder(indices)
+            decoder.decode_from_tokens(["a", 3])  # type: ignore[list-item]
 
     @pytest.mark.parametrize("shape", [(), (4, 4, 4)])
     def test_decode_raises_error_when_input_has_more_than_1_dimension(
@@ -191,6 +275,22 @@ class TestSentencePieceModel:
         with pytest.raises(
             ValueError,
             match=rf"^The input tensor must be one dimensional, but has {len(shape)} dimension\(s\) instead\.$",
+        ):
+            decoder(indices)
+
+    @pytest.mark.parametrize("dtype", [torch.float32, torch.int8])
+    def test_decode_raises_error_when_data_type_is_not_supported(
+        self, dtype: DataType
+    ) -> None:
+        model = self.build_model()
+
+        decoder = SentencePieceDecoder(model)
+
+        indices = torch.zeros((10,), device=device, dtype=dtype)
+
+        with pytest.raises(
+            ValueError,
+            match=r"^`sp_decoder` supports only `torch.int16`, `torch.int32`, and `torch.int64` data types\.$",
         ):
             decoder(indices)
 
