@@ -165,18 +165,48 @@ class TestSentencePieceModel:
     def test_encode_as_tokens_works(self) -> None:
         model = self.build_model()
 
-        encoder = SentencePieceEncoder(model)
+        encoder = SentencePieceEncoder(
+            model, prefix_tokens=["<s>"], suffix_tokens=["</s>"]
+        )
 
         tokens = encoder.encode_as_tokens("Hello world!")
 
-        assert [str(t) for t in tokens] == ["▁He", "l", "lo", "▁w", "or", "ld", "!"]
+        t = [str(t) for t in tokens]
+
+        assert t == ["<s>", "▁He", "l", "lo", "▁w", "or", "ld", "!", "</s>"]
+
+    def test_encode_as_tokens_works_when_reverse_is_true(self) -> None:
+        model = self.build_model()
+
+        encoder = SentencePieceEncoder(
+            model, prefix_tokens=["<s>"], suffix_tokens=["</s>"], reverse=True
+        )
+
+        tokens = encoder.encode_as_tokens("Hello world!")
+
+        t = [str(t) for t in tokens]
+
+        assert t == ["</s>", "!", "ld", "or", "▁w", "lo", "l", "▁He", "<s>"]
 
     def test_decode_from_tokens_works(self) -> None:
         model = self.build_model()
 
         encoder = SentencePieceDecoder(model)
 
-        text = encoder.decode_from_tokens(["▁He", "l", "lo", "▁w", "or", "ld", "!"])
+        text = encoder.decode_from_tokens(
+            ["▁He", "l", "lo", "▁w", "or", "ld", "!", "</s>"]
+        )
+
+        assert text == "Hello world!"
+
+    def test_decode_from_tokens_works_when_reverse_is_true(self) -> None:
+        model = self.build_model()
+
+        encoder = SentencePieceDecoder(model, reverse=True)
+
+        text = encoder.decode_from_tokens(
+            ["</s>", "!", "ld", "or", "▁w", "lo", "l", "▁He"]
+        )
 
         assert text == "Hello world!"
 
