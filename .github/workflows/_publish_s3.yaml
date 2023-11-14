@@ -26,14 +26,13 @@ on:
         type: string
         default: 'x86_64'
 
-defaults:
-  run:
-    shell: bash
-
 jobs:
   publish:
     name: Publish
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
     permissions:
       # Needed to check out the repository.
       contents: read
@@ -51,7 +50,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-region: us-east-1
-          role-to-assume: arn:aws:iam::465485888595:role/GitHubActionsS3Access
+          role-to-assume: arn:aws:iam::465485888595:role/fair-package-repo-fairseq2
       - name: Set S3 bucket and prefix
         env:
           TORCH: ${{ inputs.torch }}

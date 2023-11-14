@@ -7,6 +7,9 @@
 name: s2t_transformer_mustc_asr_es_s
 model_type: s2t_transformer
 model_arch: small
+model_config:
+  target_vocab_info:
+    size: 5000
 task: transcription
 tgt_langs: [en]
 tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_es_asr_vocab_unigram5000.zip"

@@ -13,6 +13,7 @@
 
 #include "fairseq2n/api.h"
 #include "fairseq2n/data/data.h"
+#include "fairseq2n/data/immutable_string.h"
 
 namespace fairseq2n {
 namespace detail {
@@ -34,7 +35,7 @@ public:
     operator()(data &&d) const;
 
 private:
-    data_list
+    immutable_string
     decode(at::Tensor &&tensor) const;
 
 private:

@@ -28,6 +28,7 @@ alphabetical order):
 
  * [LLaMA](src/fairseq2/models/llama)
  * [LLaMA 2](src/fairseq2/models/llama)
+ * [Mistral 7B](src/fairseq2/models/mistral)
  * [NLLB-200](src/fairseq2/models/nllb)
  * [S2T Transformer + Conformer](src/fairseq2/models/s2t_transformer)
  * [w2v-BERT](src/fairseq2/models/w2vbert)
@@ -82,39 +83,40 @@ matrix shows the supported combinations.
 
 | PyTorch          | Python            | Variant*               | Arch     |
 | ---------------- | ----------------- | ---------------------- | -------- |
-| `1.12.1`         | `>=3.8`, `<=3.10` | `cpu`, `cu116`         | `x86_64` |
-| `1.13.1`         | `>=3.8`, `<=3.10` | `cpu`, `cu116`         | `x86_64` |
+| `2.1.0`          | `>=3.8`, `<=3.11` | `cpu`, `cu118` `cu121` | `x86_64` |
 | `2.0.0`, `2.0.1` | `>=3.8`, `<=3.11` | `cpu`, `cu117` `cu118` | `x86_64` |
+| `1.13.1`         | `>=3.8`, `<=3.10` | `cpu`, `cu116`         | `x86_64` |
 
 *\* cuXYZ refers to CUDA XY.Z (e.g. cu118 means CUDA 11.8)*
 
 To install a specific combination, first follow the installation instructions on
 [pytorch.org](https://pytorch.org) for the desired PyTorch version, and then use
-the following command (shown for PyTorch `2.0.1` and variant `cu118`):
+the following command (shown for PyTorch `2.1.0` and variant `cu118`):
 
 ```sh
 pip install fairseq2\
-  --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.0.1/cu118
+  --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.1.0/cu118
 ```
 
 
 > [!WARNING]
 > fairseq2 relies on the C++ API of PyTorch which has no API/ABI compatibility
-> between releases. This means you have to ensure that you **use the exact same
-> PyTorch version and variant as your fairseq2 installation was built against**;
-> otherwise, you might experience issues like immediate process crashes or
-> spurious segfaults.
+> between releases. This means **you have to install the fairseq2 variant that
+> exactly matches your PyTorch version**. Otherwise, you might experience issues
+> like immediate process crashes or spurious segfaults. For the same reason, if
+> you upgrade your PyTorch version, you must also upgrade your fairseq2
+> installation.
 
 ### Nightlies
 For Linux, we also host nightly builds on FAIR's package repository. The
 supported variants are identical to the ones listed in *Variants* above. Once
 you have installed the desired PyTorch version, you can use the following
-command to install the corresponding nightly package  (shown for PyTorch `2.0.1`
+command to install the corresponding nightly package  (shown for PyTorch `2.1.0`
 and variant `cu118`):
 
 ```sh
 pip install fairseq2\
-  --pre --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.0.1/cu118
+  --pre --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.1.0/cu118
 ```
 
 

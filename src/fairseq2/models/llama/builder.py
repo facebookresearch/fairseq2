@@ -7,6 +7,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
+from fairseq2.data import VocabularyInfo
 from fairseq2.models.transformer import (
     TransformerDecoderModel,
     TransformerEmbeddingFrontend,
@@ -15,6 +16,7 @@ from fairseq2.models.transformer import (
 )
 from fairseq2.models.utils.arch_registry import ArchitectureRegistry
 from fairseq2.nn.embedding import StandardEmbedding
+from fairseq2.nn.lora import LoRAConfig
 from fairseq2.nn.normalization import LayerNorm, RMSNorm
 from fairseq2.nn.position_encoder import RotaryEncoder
 from fairseq2.nn.projection import Linear
@@ -43,8 +45,8 @@ class LLaMAConfig:
     max_seq_len: int
     """The expected maximum sequence length."""
 
-    vocabulary_size: int
-    """The size of the vocabulary."""
+    vocab_info: VocabularyInfo
+    """The vocabulary information."""
 
     num_layers: int
     """The number of Transformer decoder layers."""
@@ -66,9 +68,6 @@ class LLaMAConfig:
     dropout_p: float
     """The dropout probability in Transformer layers."""
 
-    norm_eps: float
-    """The epsilon used by Layer Normalization modules."""
-
 
 llama_archs = ArchitectureRegistry[LLaMAConfig]("llama")
 
@@ -81,14 +80,15 @@ def _7b() -> LLaMAConfig:
     return LLaMAConfig(
         model_dim=4096,
         max_seq_len=2048,
-        vocabulary_size=32000,
+        vocab_info=VocabularyInfo(
+            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
+        ),
         num_layers=32,
         num_attn_heads=32,
         num_key_value_heads=32,
         ffn_inner_dim=4096 * 4,
         ffn_inner_dim_to_multiple=256,
         dropout_p=0.1,
-        norm_eps=1e-5,
     )
 
 
@@ -97,14 +97,15 @@ def _13b() -> LLaMAConfig:
     return LLaMAConfig(
         model_dim=5120,
         max_seq_len=2048,
-        vocabulary_size=32000,
+        vocab_info=VocabularyInfo(
+            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
+        ),
         num_layers=40,
         num_attn_heads=40,
         num_key_value_heads=40,
         ffn_inner_dim=5120 * 4,
         ffn_inner_dim_to_multiple=256,
         dropout_p=0.1,
-        norm_eps=1e-5,
     )
 
 
@@ -113,14 +114,15 @@ def _33b() -> LLaMAConfig:
     return LLaMAConfig(
         model_dim=6656,
         max_seq_len=2048,
-        vocabulary_size=32000,
+        vocab_info=VocabularyInfo(
+            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
+        ),
         num_layers=60,
         num_attn_heads=52,
         num_key_value_heads=52,
         ffn_inner_dim=6656 * 4,
         ffn_inner_dim_to_multiple=256,
         dropout_p=0.1,
-        norm_eps=1e-5,
     )
 
 
@@ -129,14 +131,15 @@ def _65b() -> LLaMAConfig:
     return LLaMAConfig(
         model_dim=8192,
         max_seq_len=2048,
-        vocabulary_size=32000,
+        vocab_info=VocabularyInfo(
+            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
+        ),
         num_layers=80,
         num_attn_heads=64,
         num_key_value_heads=64,
         ffn_inner_dim=8192 * 4,
         ffn_inner_dim_to_multiple=256,
         dropout_p=0.1,
-        norm_eps=1e-5,
     )
 
 
@@ -145,14 +148,15 @@ def _llama2_7b() -> LLaMAConfig:
     return LLaMAConfig(
         model_dim=4096,
         max_seq_len=4096,
-        vocabulary_size=32000,
+        vocab_info=VocabularyInfo(
+            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
+        ),
         num_layers=32,
         num_attn_heads=32,
         num_key_value_heads=32,
         ffn_inner_dim=4096 * 4,
         ffn_inner_dim_to_multiple=256,
         dropout_p=0.1,
-        norm_eps=1e-6,
     )
 
 
@@ -161,14 +165,15 @@ def _llama2_13b() -> LLaMAConfig:
     return LLaMAConfig(
         model_dim=5120,
         max_seq_len=4096,
-        vocabulary_size=32000,
+        vocab_info=VocabularyInfo(
+            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
+        ),
         num_layers=40,
         num_attn_heads=40,
         num_key_value_heads=40,
         ffn_inner_dim=5120 * 4,
         ffn_inner_dim_to_multiple=256,
         dropout_p=0.1,
-        norm_eps=1e-5,
     )
 
 
@@ -177,14 +182,15 @@ def _llama2_70b() -> LLaMAConfig:
     return LLaMAConfig(
         model_dim=8192,
         max_seq_len=4096,
-        vocabulary_size=32000,
+        vocab_info=VocabularyInfo(
+            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
+        ),
         num_layers=80,
         num_attn_heads=64,
         num_key_value_heads=8,
         ffn_inner_dim=int(8192 * 4 * 1.3),  # See A.2.1 in LLaMA 2
         ffn_inner_dim_to_multiple=4096,
         dropout_p=0.1,
-        norm_eps=1e-5,
     )
 
 
@@ -231,7 +237,7 @@ class LLaMABuilder:
 
         final_proj = Linear(
             self.config.model_dim,
-            self.config.vocabulary_size,
+            self.config.vocab_info.size,
             bias=False,
             init_fn=init_final_projection,
             device=self.device,
@@ -239,13 +245,13 @@ class LLaMABuilder:
         )
 
         return TransformerDecoderModel(
-            frontend, decoder, final_proj, target_pad_idx=None
+            frontend, decoder, final_proj, self.config.vocab_info
         )
 
     def build_frontend(self) -> TransformerFrontend:
         """Build a Transformer decoder front-end."""
         embed = StandardEmbedding(
-            num_embeddings=self.config.vocabulary_size,
+            num_embeddings=self.config.vocab_info.size,
             embedding_dim=self.config.model_dim,
             device=self.device,
             dtype=self.dtype,
@@ -336,9 +342,7 @@ class LLaMABuilder:
         dtype: Optional[DataType] = None,
     ) -> LayerNorm:
         """Build a Layer Normalization module."""
-        return RMSNorm(
-            model_dim, bias=False, eps=self.config.norm_eps, device=device, dtype=dtype
-        )
+        return RMSNorm(model_dim, bias=False, device=device, dtype=dtype)
 
 
 def create_llama_model(
@@ -357,3 +361,12 @@ def create_llama_model(
         The data type of module parameters and buffers.
     """
     return LLaMABuilder(config, device=device, dtype=dtype).build_model()
+
+
+def get_llama_lora_config() -> LoRAConfig:
+    return LoRAConfig(
+        r=8,
+        alpha=16.0,
+        dropout_p=0.05,
+        keys=[".*decoder.layers.*.self_attn.*(q_proj|v_proj)$"],
+    )

@@ -136,7 +136,7 @@ setup(
         "install_cmake": install_cmake,
     },
     name="fairseq2n",
-    version="0.2.0+devel",
+    version="0.2.0.dev0",
     description="FAIR Sequence Modeling Toolkit (Native)",
     long_description="https://github.com/facebookresearch/fairseq2",
     long_description_content_type="text/plain",
@@ -164,7 +164,7 @@ setup(
     install_requires=[
         # We use the tbb package as a fallback in case the system does not
         # provide Intel oneTBB.
-        "tbb>=2021.8,<2021.10;platform_machine=='x86_64'",
+        "tbb>=2021.8;platform_machine=='x86_64'",
         # PyTorch has no ABI compatibility between releases; this means we have
         # to ensure that we depend on the exact same version that we used to
         # build our extension module.

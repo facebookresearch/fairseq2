@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
@@ -23,7 +25,6 @@ from fairseq2.nn.ops import repeat_interleave
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer import TransformerEncoder
-from fairseq2.nn.utils.module import check_model_dim
 from fairseq2.typing import DataType, Device
 
 
@@ -112,9 +113,7 @@ class Wav2Vec2Model(Module):
         self.logit_temp = logit_temp
         self.diversity_loss_weight = diversity_loss_weight
 
-        check_model_dim(self)
-
-    def forward(self, batch: SequenceBatch) -> "Wav2Vec2Output":
+    def forward(self, batch: SequenceBatch) -> Wav2Vec2Output:
         """
         :param batch:
             The batch of sequences to process.
@@ -302,10 +301,10 @@ class Wav2Vec2Output:
     """Holds the output of a wav2vec 2.0 model."""
 
     logits: Tensor
-    """The logits for contrastive prediction. *Shape:* :math:`(N,S_{msk},L)`,
-    where :math:`N` is the batch size, :math:`S_{msk}` is the masked sequence
-    length, and :math:`L` is the number of candidates (i.e. the number of
-    distractors plus 1 for the target)."""
+    """The logits for contrastive feature prediction. *Shape:*
+    :math:`(N,S_{msk},L)`, where :math:`N` is the batch size, :math:`S_{msk}`
+    is the masked sequence length, and :math:`L` is the number of candidates
+    (i.e. the number of distractors plus 1 for the target)."""
 
     quantized_targets: Tensor
     """The quantized context network targets that have been extracted from the
@@ -324,7 +323,7 @@ class Wav2Vec2Output:
     diversity_loss_weight: float
     """The weight of diversity in loss computation."""
 
-    def compute_loss(self) -> "Wav2Vec2Loss":
+    def compute_loss(self) -> Wav2Vec2Loss:
         """Compute the loss."""
         contrastive_loss = self.compute_contrastive_loss()
 

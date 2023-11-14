@@ -28,7 +28,7 @@ jobs:
   process_version:
     name: Process project version
     outputs:
-      version_overwrite: ${{ steps.stamp_version.outputs.version_overwrite }}
+      version_override: ${{ steps.stamp_version.outputs.version_override }}
     runs-on: ubuntu-latest
     steps:
       - name: Check-out the repository
@@ -40,8 +40,8 @@ jobs:
           version=$(cat VERSION)
 
           if [[ $RELEASE_TYPE != nightly ]]; then
-            if [[ $version == *+* ]]; then
-              echo "A PEP 440 version with a local label cannot be released as '$RELEASE_TYPE'." >&2
+            if [[ $version == *.dev* ]]; then
+              echo "A PEP 440 version with dev segment cannot be released as '$RELEASE_TYPE'." >&2
 
               exit 1
             fi
@@ -52,8 +52,8 @@ jobs:
         run: |
           version=$(cat VERSION)
 
-          # Remove local version label and append date-stamped dev segment.
-          echo version_overwrite=${version%+*}.dev$(date +%Y%m%d) >> "$GITHUB_OUTPUT"
+          # Append date-stamped dev segment.
+          echo version_override=${version%.dev*}.dev$(date +%Y%m%d) >> "$GITHUB_OUTPUT"
 
   lint:
     name: Lint
@@ -65,14 +65,14 @@ jobs:
     uses: ./.github/workflows/_build_wheels.yaml
     with:
       release_type: ${{ inputs.release_type }}
-      version_overwrite: ${{ needs.process_version.outputs.version_overwrite }}
+      version_override: ${{ needs.process_version.outputs.version_override }}
 
   build_doc:
     name: Build documentation
     needs: [process_version]
     uses: ./.github/workflows/_build_doc.yaml
     with:
-      version_overwrite: ${{ needs.process_version.outputs.version_overwrite }}
+      version_override: ${{ needs.process_version.outputs.version_override }}
 
   publish:
     name: Publish

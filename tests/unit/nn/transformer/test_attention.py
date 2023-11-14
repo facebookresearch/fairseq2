@@ -13,7 +13,7 @@ from torch import Tensor
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer import CustomAttentionMask, NaiveSDPA, TorchSDPA
 from fairseq2.utils.version import is_pt2_or_greater
-from tests.common import assert_close, device, tmp_rng_seed
+from tests.common import assert_close, device
 
 
 class TestScaledDotProductAttention:
@@ -21,26 +21,22 @@ class TestScaledDotProductAttention:
         not is_pt2_or_greater(), reason="requires PyTorch 2.0.0 or greater"
     )
     # fmt: off
-    @pytest.mark.parametrize("use_key_padding_mask,use_attn_mask,attn_dropout_p,training",
+    @pytest.mark.parametrize("use_key_padding_mask,use_attn_mask,training",
         [
-            (False, False, 0.0, True),
-            (True,  True,  0.0, True),
-            (False, True,  0.5, True),
-            (True,  False, 0.5, True),
-            (False, False, 0.5, False),
-            (False, True,  0.9, False),
+            (False, False, True),
+            (True,  True,  True),
+            (False, True,  True),
+            (True,  False, True),
+            (False, False, False),
+            (False, True,  False),
         ],
     )
     # fmt: on
     def test_torch_sdpa(
-        self,
-        use_key_padding_mask: bool,
-        use_attn_mask: bool,
-        attn_dropout_p: float,
-        training: bool,
+        self, use_key_padding_mask: bool, use_attn_mask: bool, training: bool
     ) -> None:
-        torch_sdpa = TorchSDPA(attn_dropout_p=attn_dropout_p)
-        naive_sdpa = NaiveSDPA(attn_dropout_p=attn_dropout_p)
+        torch_sdpa = TorchSDPA()
+        naive_sdpa = NaiveSDPA()
 
         if training:
             torch_sdpa.eval()
@@ -48,11 +44,8 @@ class TestScaledDotProductAttention:
 
         kwargs = self._get_sdpa_args(use_key_padding_mask, use_attn_mask)
 
-        with tmp_rng_seed(device):
-            attn1, _ = torch_sdpa(**kwargs)
-
-        with tmp_rng_seed(device):
-            attn2, _ = naive_sdpa(**kwargs)
+        attn1, _ = torch_sdpa(**kwargs)
+        attn2, _ = naive_sdpa(**kwargs)
 
         assert_close(attn1, attn2)
 
@@ -92,7 +85,7 @@ class TestScaledDotProductAttention:
             attn_mask = None
 
         return {
-            "queries": q,
+            "seqs": q,
             "keys": k,
             "key_padding_mask": key_padding_mask,
             "values": v,

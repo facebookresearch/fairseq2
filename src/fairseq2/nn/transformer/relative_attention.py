@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import math
 from typing import Optional, Tuple, final
 
@@ -27,7 +29,7 @@ class RelativePositionSDPA(SDPA):
 
     model_dim: int
     num_heads: int
-    pos_encoding: "RelativePositionalEncoding"
+    pos_encoding: RelativePositionalEncoding
     u_bias: Parameter
     v_bias: Parameter
     r_proj: Linear
@@ -36,7 +38,7 @@ class RelativePositionSDPA(SDPA):
         self,
         model_dim: int,
         num_heads: int,
-        pos_encoding: "RelativePositionalEncoding",
+        pos_encoding: RelativePositionalEncoding,
         *,
         attn_dropout_p: float = 0.0,
         device: Optional[Device] = None,
@@ -92,7 +94,7 @@ class RelativePositionSDPA(SDPA):
     @finaloverride
     def forward(
         self,
-        queries: Tensor,
+        seqs: Tensor,
         keys: Tensor,
         key_padding_mask: Optional[PaddingMask],
         values: Tensor,
@@ -100,7 +102,7 @@ class RelativePositionSDPA(SDPA):
         attn_mask: Optional[AttentionMask] = None,
         needs_weights: bool = False,
     ) -> Tuple[Tensor, Optional[Tensor]]:
-        q = queries
+        q = seqs
         k = keys
 
         # (H, K_h) -> (H, 1, K_h)
@@ -144,7 +146,7 @@ class RelativePositionSDPA(SDPA):
 
         attn_weights = softmax(attn_weights, dim=-1, dtype=torch.float32)
 
-        attn_weights = attn_weights.type_as(queries)
+        attn_weights = attn_weights.type_as(seqs)
 
         if self.training and self.attn_dropout_p > 0.0:
             attn_weights = dropout(attn_weights, self.attn_dropout_p)

@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Optional
@@ -13,6 +15,7 @@ from torch import Tensor
 from torch.nn import Module
 from torch.nn.functional import log_softmax
 
+from fairseq2.data import VocabularyInfo
 from fairseq2.nn.functional import nll_loss
 from fairseq2.nn.padding import PaddingMask
 
@@ -20,8 +23,19 @@ from fairseq2.nn.padding import PaddingMask
 class SequenceModel(Module, ABC):
     """Represents a sequence model."""
 
+    vocab_info: VocabularyInfo
+
+    def __init__(self, vocab_info: VocabularyInfo) -> None:
+        """
+        :param vocab_info:
+            The vocabulary information of sequences produced by the model.
+        """
+        super().__init__()
+
+        self.vocab_info = vocab_info
+
     @abstractmethod
-    def forward(self, batch: "SequenceBatch") -> "SequenceModelOutput":
+    def forward(self, batch: SequenceBatch) -> SequenceModelOutput:
         """
         :param batch:
             The batch of sequences to process.
@@ -64,10 +78,10 @@ class SequenceModelOutput:
     logits: Tensor
     """The logits for next-step prediction. *Shape:* :math:`(N,S,T)`, where
     :math:`N` is the batch size, :math:`S` is the sequence length, and :math:`T`
-    is the size of the target vocabulary."""
+    is the size of the vocabulary."""
 
-    pad_idx: Optional[int] = None
-    """The index of the pad symbol in the target vocabulary."""
+    vocab_info: VocabularyInfo
+    """The vocabulary information."""
 
     def compute_loss(
         self,
@@ -82,7 +96,7 @@ class SequenceModelOutput:
             The target indices. *Shape:* :math:`(N,S)`, where :math:`N` is the
             batch size and :math:`S` is the sequence length.
         :param ignore_prefix_size:
-            The number of logits from the beginning of the sequence that should
+            The number of steps from the beginning of the sequence that should
             be ignored in the loss computation.
         :param label_smoothing:
             The amount of label smoothing to apply while computing the loss.
@@ -98,4 +112,6 @@ class SequenceModelOutput:
         # For numerical stability run in single precision.
         lprobs = log_softmax(logits, dim=-1, dtype=torch.float32)
 
-        return nll_loss(lprobs, targets, self.pad_idx, label_smoothing=label_smoothing)
+        return nll_loss(
+            lprobs, targets, self.vocab_info.pad_idx, label_smoothing=label_smoothing
+        )

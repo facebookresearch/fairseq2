@@ -36,10 +36,6 @@ class LLaMATokenizer(TextTokenizer):
 
         vocabulary_info = vocabulary_from_sentencepiece(self.model)
 
-        # LLaMA tokenizer has no PAD symbol defined in its SentencePiece model
-        # and uses EOS instead.
-        vocabulary_info.pad_idx = vocabulary_info.eos_idx
-
         super().__init__(vocabulary_info)
 
     @finaloverride
@@ -90,6 +86,12 @@ class LLaMATokenizer(TextTokenizer):
             device=device,
             pin_memory=pin_memory,
         )
+
+    @finaloverride
+    def create_raw_encoder(
+        self, *, device: Optional[Device] = None, pin_memory: bool = False
+    ) -> TextTokenEncoder:
+        return SentencePieceEncoder(self.model, device=device, pin_memory=pin_memory)
 
     @finaloverride
     def create_decoder(self) -> TextTokenDecoder:

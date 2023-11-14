@@ -4,8 +4,10 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Optional
 
 from torch import Tensor
 
@@ -15,7 +17,7 @@ from fairseq2.typing import Device
 
 
 class TextTokenizer(ABC):
-    """Represents a tokenizer to encode and decode sentences."""
+    """Represents a tokenizer to encode and decode texts."""
 
     vocab_info: VocabularyInfo
 
@@ -35,7 +37,7 @@ class TextTokenizer(ABC):
         mode: Optional[str] = None,
         device: Optional[Device] = None,
         pin_memory: bool = False,
-    ) -> "TextTokenEncoder":
+    ) -> TextTokenEncoder:
         """Create a token encoder.
 
         The valid arguments for the ``task``, ``lang``, and ``mode`` parameters
@@ -61,18 +63,30 @@ class TextTokenizer(ABC):
         """
 
     @abstractmethod
-    def create_decoder(self) -> "TextTokenDecoder":
+    def create_raw_encoder(
+        self, *, device: Optional[Device] = None, pin_memory: bool = False
+    ) -> TextTokenEncoder:
+        """Create a raw token encoder with no control symbols.
+
+        :param device:
+            The device on which to construct tensors.
+        :param pin_memory:
+            If ``True``, uses pinned memory while constructing tensors.
+        """
+
+    @abstractmethod
+    def create_decoder(self) -> TextTokenDecoder:
         """Create a token decoder."""
 
 
 class TextTokenEncoder(ABC):
-    """Encodes sentences into token indices."""
+    """Encodes texts into token indices."""
 
     @abstractmethod
-    def __call__(self, sentence: StringLike) -> Tensor:
+    def __call__(self, text: StringLike) -> Tensor:
         """
-        :param sentence:
-            The sentence to encode.
+        :param text:
+            The text to encode.
         """
 
     @property
@@ -89,10 +103,10 @@ class TextTokenEncoder(ABC):
 
 
 class TextTokenDecoder(ABC):
-    """Decodes sentences from token indices."""
+    """Decodes texts from token indices."""
 
     @abstractmethod
-    def __call__(self, token_indices: Tensor) -> List[StringLike]:
+    def __call__(self, token_indices: Tensor) -> StringLike:
         """
         :param token_indices:
             The token indices to decode from.

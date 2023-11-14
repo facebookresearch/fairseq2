@@ -7,21 +7,13 @@
 import logging
 from copy import deepcopy
 from functools import partial
-from typing import (
-    Any,
-    Generic,
-    Mapping,
-    MutableMapping,
-    Optional,
-    Protocol,
-    TypeVar,
-    Union,
-)
+from typing import Any, Generic, Mapping, Optional, Protocol, TypeVar, Union
 
 from torch.nn import Module
 
 from fairseq2.assets import (
     AssetCard,
+    AssetCardError,
     AssetCardFieldNotFoundError,
     AssetDownloadManager,
     AssetError,
@@ -84,8 +76,18 @@ class ModelConfigLoader(Generic[ModelConfigT]):
         # Load the model configuration.
         config = self.archs.get_config(arch_name)
 
+        # If the card holds a configuration object, it takes precedence.
         try:
-            config_overrides = card.field("model_config").as_(MutableMapping[str, Any])
+            config = card.field("model_config").as_(type(config))
+
+            return deepcopy(config)
+        except AssetCardError:
+            pass
+
+        # Otherwise, check if we should override anything in the default model
+        # configuration.
+        try:
+            config_overrides = card.field("model_config").as_(dict)
         except AssetCardFieldNotFoundError:
             config_overrides = None
 

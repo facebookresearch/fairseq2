@@ -35,7 +35,7 @@ public:
     explicit
     sp_decoder_op(const sp_decoder *decoder, const sp_processor *processor, at::Tensor &&tensor);
 
-    data_list &&
+    immutable_string &&
     run() &&;
 
 private:
@@ -50,26 +50,22 @@ private:
     const sp_decoder *decoder_;
     const sp_processor *processor_;
     at::Tensor tensor_;
-    data_list sentences_{};
+    immutable_string sentence_{};
 };
 
 sp_decoder_op::sp_decoder_op(
     const sp_decoder *decoder, const sp_processor *processor, at::Tensor &&tensor)
   : decoder_{decoder}, processor_{processor}, tensor_{std::move(tensor)}
-{
-    auto batch_size = static_cast<std::size_t>(tensor_.size(0));
+{}
 
-    sentences_.reserve(batch_size);
-}
-
-data_list &&
+immutable_string &&
 sp_decoder_op::run() &&
 {
     tensor_ = tensor_.to(at::kCPU);
 
     decode();
 
-    return std::move(sentences_);
+    return std::move(sentence_);
 }
 
 void
@@ -98,31 +94,25 @@ template <typename T>
 void
 sp_decoder_op::decode()
 {
-    std::int64_t seq_len = tensor_.size(1);
+    std::int64_t seq_len = tensor_.size(0);
 
     std::vector<std::string_view> tokens{};
 
     tokens.reserve(static_cast<std::size_t>(seq_len));
 
-    auto tensor_data = tensor_.accessor<T, 2>();
+    auto tensor_data = tensor_.accessor<T, 1>();
 
-    for (std::int64_t i = 0; i < tensor_.size(0); ++i) {
-        tokens.clear();
+    for (std::int64_t j = 0; j < seq_len; j++) {
+        T token_idx = tensor_data[decoder_->reverse_ ? seq_len - 1 - j : j];
 
-        for (std::int64_t j = 0; j < seq_len; j++) {
-            T token_idx = tensor_data[i][decoder_->reverse_ ? seq_len - 1 - j : j];
+        auto token_idx_32bit = conditional_cast<std::int32_t>(token_idx);
 
-            auto token_idx_32bit = conditional_cast<std::int32_t>(token_idx);
+        std::string_view token = processor_->index_to_token(token_idx_32bit);
 
-            std::string_view token = processor_->index_to_token(token_idx_32bit);
-
-            tokens.push_back(token);
-        }
-
-        std::string sentence = processor_->decode(tokens);
-
-        sentences_.emplace_back(std::move(sentence));
+        tokens.push_back(token);
     }
+
+    sentence_ = processor_->decode(tokens);
 }
 
 }  // namespace detail
@@ -140,17 +130,14 @@ sp_decoder::operator()(data &&d) const
 
     at::Tensor tensor = d.as_tensor();
 
-    if (tensor.dim() == 0 || tensor.dim() > 2)
+    if (tensor.dim() != 1)
         throw_<std::invalid_argument>(
-            "The input tensor must be one or two dimensional, but has {} dimensions instead.", tensor.dim());
-
-    if (tensor.dim() == 1)
-        tensor = tensor.unsqueeze(0);
+            "The input tensor must be one dimensional, but has {} dimension(s) instead.", tensor.dim());
 
     return decode(std::move(tensor));
 }
 
-data_list
+immutable_string
 sp_decoder::decode(at::Tensor &&tensor) const
 {
     return sp_decoder_op{this, model_->processor_.get(), std::move(tensor)}.run();

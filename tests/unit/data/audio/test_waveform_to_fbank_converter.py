@@ -185,7 +185,7 @@ class TestWaveformToFbankConverter:
 
         with pytest.raises(
             ValueError,
-            match=rf"^The input waveform must be two dimensional, but has {len(shape)} dimensions instead\.$",
+            match=rf"^The input waveform must be two dimensional, but has {len(shape)} dimension\(s\) instead\.$",
         ):
             converter({"waveform": waveform, "sample_rate": 16000.0})
 

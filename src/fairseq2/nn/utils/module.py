@@ -4,9 +4,9 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Callable, Optional, Protocol, Set, cast, runtime_checkable
+from typing import Callable, Optional, Protocol, Set, runtime_checkable
 
-from torch.nn import Module, ModuleList, Sequential
+from torch.nn import Module
 
 from fairseq2.typing import Device
 
@@ -93,28 +93,3 @@ def infer_device(module: Module) -> Device:
         return Device("cpu")
 
     return param.device
-
-
-def check_model_dim(module: Module) -> None:
-    """Check whether ``module`` and its immediate children (including modules in
-    its immediate :class:`ModuleList` and :class:`Sequential` children) have all
-    the same ``model_dim``."""
-    model_dim = cast(int, getattr(module, "model_dim"))
-
-    def get_model_dim(m: Module) -> int:
-        dim = cast(int, getattr(m, "model_dim", None))
-
-        return model_dim if dim is None else dim
-
-    for name, child in module.named_children():
-        if isinstance(child, ModuleList) or isinstance(child, Sequential):
-            for subname, descendant in child.named_children():
-                if (descendant_model_dim := get_model_dim(descendant)) != model_dim:
-                    raise ValueError(
-                        f"`model_dim` of `{name}.{subname}` must be equal to `model_dim` ({model_dim}), but is {descendant_model_dim} is instead."
-                    )
-        else:
-            if (child_model_dim := get_model_dim(child)) != model_dim:
-                raise ValueError(
-                    f"`model_dim` of `{name}` must be equal to `model_dim` ({model_dim}), but is {child_model_dim} is instead."
-                )
