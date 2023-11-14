@@ -68,6 +68,8 @@ target_sources(fairseq2n
         data/text/sentencepiece/sp_model.cc
         data/text/sentencepiece/sp_processor.cc
         data/video/video_decoder.cc
+        data/video/detail/avcodec_resources.cc
+        data/video/detail/avformat_resources.cc
 )
 
 if(FAIRSEQ2N_USE_CUDA)

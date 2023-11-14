@@ -6,6 +6,9 @@
 
 #pragma once
 
+#include "fairseq2n/data/video/detail/avformat_resources.h"
+#include "fairseq2n/data/video/detail/avcodec_resources.h"
+
 #include <optional>
 
 #include "fairseq2n/api.h"
@@ -89,13 +92,13 @@ public:
     operator()(data &&d) const;
 
     std::vector<std::vector<uint8_t*>>
-    open_container(memory_block block);
+    open_container(memory_block block) const;
 
     std::vector<std::vector<uint8_t*>> 
-    open_streams();
+    open_streams(avformat_resources format_resources) const;
 
     std::vector<uint8_t*>
-    decode_frames(int stream_index);
+    decode_frames(int stream_index, avformat_resources format_resources, avcodec_resources codec_resources) const;
 
     static int
     read_callback(void *opaque, uint8_t *buf, int buf_size);
@@ -104,18 +107,8 @@ public:
     static int
     seek_callback(void *opaque, int64_t offset, int whence);
 
-    void
-    clean();
-
 private:
     video_decoder_options opts_;
-    AVFormatContext* fmt_ctx_{nullptr};
-    AVIOContext *avio_ctx_{nullptr};
-    AVCodecContext *codec_ctx_{nullptr};
-    AVCodec *codec_{nullptr};
-    AVCodecParameters *codec_par_{nullptr};
-    uint8_t *avio_ctx_buffer_{nullptr};
-    struct SwsContext *pImgConvertCtx;
     int width_; // width of the video frame
     int height_; // height of the video frame 
     double fps_; // frames per second

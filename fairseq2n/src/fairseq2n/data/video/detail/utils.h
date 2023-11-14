@@ -11,9 +11,7 @@ extern "C" {
     #include <libavutil/avutil.h>
 }
 
-using namespace std;
-
-namespace fairseq2n {
+namespace fairseq2n::detail {
 
 struct buffer_data {
     const uint8_t *ptr; // Pointer to the start of the memory_block buffer
