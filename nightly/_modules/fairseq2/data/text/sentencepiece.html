@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.text.sentencepiece &mdash; fairseq2 0.2.0.dev20231113 documentation</title>
+  <title>fairseq2.data.text.sentencepiece &mdash; fairseq2 0.2.0.dev20231114 documentation</title>
       <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.0.dev20231113
+                0.2.0.dev20231114
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
@@ -148,7 +148,7 @@
 <span class="c1"># This source code is licensed under the BSD-style license found in the</span>
 <span class="c1"># LICENSE file in the root directory of this source tree.</span>
 
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">final</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">final</span>
 
 <span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
 
@@ -215,6 +215,10 @@
         <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="n">StringLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
             <span class="o">...</span></div>
 
+<div class="viewcode-block" id="SentencePieceEncoder.encode_as_tokens"><a class="viewcode-back" href="../../../../reference/generated/data_text/fairseq2.data.text.SentencePieceEncoder.html#fairseq2.data.text.SentencePieceEncoder.encode_as_tokens">[docs]</a>        <span class="nd">@finaloverride</span>
+        <span class="k">def</span> <span class="nf">encode_as_tokens</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="n">StringLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">StringLike</span><span class="p">]:</span>
+            <span class="o">...</span></div>
+
         <span class="nd">@property</span>
         <span class="nd">@finaloverride</span>
         <span class="k">def</span> <span class="nf">prefix_indices</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tensor</span><span class="p">]:</span>
@@ -232,6 +236,10 @@
 
 <div class="viewcode-block" id="SentencePieceDecoder.__call__"><a class="viewcode-back" href="../../../../reference/generated/data_text/fairseq2.data.text.SentencePieceDecoder.html#fairseq2.data.text.SentencePieceDecoder.__call__">[docs]</a>        <span class="nd">@finaloverride</span>
         <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token_indices</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StringLike</span><span class="p">:</span>
+            <span class="o">...</span></div>
+
+<div class="viewcode-block" id="SentencePieceDecoder.decode_from_tokens"><a class="viewcode-back" href="../../../../reference/generated/data_text/fairseq2.data.text.SentencePieceDecoder.html#fairseq2.data.text.SentencePieceDecoder.decode_from_tokens">[docs]</a>        <span class="nd">@finaloverride</span>
+        <span class="k">def</span> <span class="nf">decode_from_tokens</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tokens</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">StringLike</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">StringLike</span><span class="p">:</span>
             <span class="o">...</span></div></div>
 
 <span class="k">else</span><span class="p">:</span>
