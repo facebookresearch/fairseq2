@@ -412,7 +412,13 @@ class StandardMultiheadAttention(MultiheadAttention):
 
                     state_bag.set_state(self, state)
                 else:
-                    state.append(k, v)
+                    if (
+                        isinstance(state, FullAttentionState)
+                        and state_bag.step + k.size(2) == state.seq_len
+                    ):
+                        state.overwrite(k, v, state_bag.step, state.seq_len)
+                    else:
+                        state.append(k, v)
 
                     # k: (N, H_kv, S_kv, K_h)
                     # v: (N, H_kv, S_kv, V_h)
@@ -632,6 +638,13 @@ class FullAttentionState(AttentionState):
         self.v[:, :, pos : pos + 1] = v
 
         self.seq_len += 1
+
+    @finaloverride
+    def overwrite(self, k: Tensor, v: Tensor, start_idx: int, end_idx: int) -> None:
+        assert k.size(2) == v.size(2) == end_idx - start_idx
+
+        self.k[:, :, start_idx:end_idx] = k
+        self.v[:, :, start_idx:end_idx] = v
 
     @finaloverride
     def get(self) -> Tuple[Tensor, Tensor]:
