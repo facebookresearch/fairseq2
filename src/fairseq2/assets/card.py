@@ -15,6 +15,7 @@ from typing import (
     Mapping,
     MutableMapping,
     Optional,
+    Set,
     Type,
     TypeVar,
     cast,
@@ -196,6 +197,79 @@ class AssetCardField:
 
         return value
 
+    def as_list(self, kls: Type[T], allow_empty: bool = False) -> List[T]:
+        """Return the value of this field as a :class:`list` of type ``kls``.
+
+        :param kls:
+            The type of the field elements.
+        :param allow_empty:
+            If ``True``, allows the list to be empty.
+        """
+        value = self.as_(list, allow_empty)
+
+        for element in value:
+            if not isinstance(element, kls):
+                pathname = ".".join(self.path)
+
+                raise AssetCardError(
+                    f"The elements of the field '{pathname}' of the asset card '{self.card.name}' must be of type `{kls}`, but at least one element is of type `{type(element)}` instead."
+                )
+
+        return value
+
+    def as_dict(self, kls: Type[T], allow_empty: bool = False) -> Dict[str, T]:
+        """Return the value of this field as a :class:`dict` of type ``kls``.
+
+        :param kls:
+            The type of the field elements.
+        :param allow_empty:
+            If ``True``, allows the dictionary to be empty.
+        """
+        value = self.as_(dict, allow_empty)
+
+        for element in value.values():
+            if not isinstance(element, kls):
+                pathname = ".".join(self.path)
+
+                raise AssetCardError(
+                    f"The elements of the field '{pathname}' of the asset card '{self.card.name}' must be of type `{kls}`, but at least one element is of type `{type(element)}` instead."
+                )
+
+        return value
+
+    def as_set(self, kls: Type[T], allow_empty: bool = False) -> Set[T]:
+        """Return the value of this field as a :class:`set` of type ``kls``.
+
+        :param kls:
+            The type of the field elements.
+        :param allow_empty:
+            If ``True``, allows the list to be empty.
+        """
+        value = self.as_list(kls, allow_empty)
+
+        return set(value)
+
+    def as_one_of(self, valid_values: AbstractSet[T]) -> T:
+        """Return the value of this field as one of the values in ``valid_values``
+
+        :param values:
+            The values to check against.
+        """
+        value = self.as_(object)
+
+        if value in valid_values:
+            return cast(T, value)
+
+        pathname = ".".join(self.path)
+
+        values = list(valid_values)
+
+        values.sort()
+
+        raise AssetCardError(
+            f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be one of {values}, but is {repr(value)} instead."
+        )
+
     def as_uri(self) -> str:
         """Return the value of this field as a URI."""
         value = self.as_(str)
@@ -226,47 +300,6 @@ class AssetCardField:
             )
 
         return value
-
-    def as_list(self, kls: Type[T], allow_empty: bool = False) -> List[T]:
-        """Return the value of this field as a :class:`list` of type ``kls``.
-
-        :param kls:
-            The type of the field elements.
-        :param allow_empty:
-            If ``True``, allows the list to be empty.
-        """
-        value = self.as_(list, allow_empty)
-
-        for element in value:
-            if not isinstance(element, kls):
-                pathname = ".".join(self.path)
-
-                raise AssetCardError(
-                    f"The elements of the field '{pathname}' of the asset card '{self.card.name}' must be of type `{kls}`, but at least one element is of type `{type(element)}` instead."
-                )
-
-        return value
-
-    def as_one_of(self, valid_values: AbstractSet[T]) -> T:
-        """Return the value of this field as one of the values in ``valid_values``
-
-        :param values:
-            The values to check against.
-        """
-        value = self.as_(object)
-
-        if value in valid_values:
-            return cast(T, value)
-
-        pathname = ".".join(self.path)
-
-        values = list(valid_values)
-
-        values.sort()
-
-        raise AssetCardError(
-            f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be one of {values}, but is {repr(value)} instead."
-        )
 
     def set(self, value: Any) -> None:
         """Set the value of this field."""

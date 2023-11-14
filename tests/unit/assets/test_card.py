@@ -33,7 +33,7 @@ class TestAssetCard:
             "field4": "",
             "field5": [],
             "field6": "invalid/filename",
-            "field7": [1, 2, 3],
+            "field7": [1, 2, 3, 2],
             "field9": "http://foo.com",
         }
 
@@ -113,7 +113,7 @@ class TestAssetCard:
         ):
             self.card.field("field5").as_list(str)
 
-    def test_as_works_when_allow_empty_is_specified(self) -> None:
+    def test_as_works_when_allow_empty_is_true(self) -> None:
         value1 = self.card.field("field4").as_(str, allow_empty=True)
 
         assert value1 == ""
@@ -121,6 +121,54 @@ class TestAssetCard:
         value2 = self.card.field("field5").as_list(str, allow_empty=True)
 
         assert value2 == []
+
+    def test_as_dict_works(self) -> None:
+        value = self.card.field("field2").as_dict(str)
+
+        assert value == {"sub-field2": "sub-foo2"}
+
+    def test_as_dict_raises_error_when_field_is_not_a_valid_dict(self) -> None:
+        with pytest.raises(
+            AssetCardError,
+            match=r"The elements of the field 'field2' of the asset card 'test-card' must be of type `<class 'int'>`, but at least one element is of type `<class 'str'>` instead\.$",
+        ):
+            self.card.field("field2").as_dict(int)
+
+    def test_as_list_works(self) -> None:
+        value = self.card.field("field7").as_list(int)
+
+        assert value == [1, 2, 3, 2]
+
+    def test_as_list_raises_error_when_field_is_not_a_valid_list(self) -> None:
+        with pytest.raises(
+            AssetCardError,
+            match=r"The elements of the field 'field7' of the asset card 'test-card' must be of type `<class 'str'>`, but at least one element is of type `<class 'int'>` instead\.$",
+        ):
+            self.card.field("field7").as_list(str)
+
+    def test_as_set_works(self) -> None:
+        value = self.card.field("field7").as_set(int)
+
+        assert value == {1, 2, 3}
+
+    def test_as_set_raises_error_when_field_is_not_a_valid_set(self) -> None:
+        with pytest.raises(
+            AssetCardError,
+            match=r"The elements of the field 'field7' of the asset card 'test-card' must be of type `<class 'str'>`, but at least one element is of type `<class 'int'>` instead\.$",
+        ):
+            self.card.field("field7").as_set(str)
+
+    def test_as_one_of_works(self) -> None:
+        value = self.card.field("field1").as_one_of({"foo2", "foo1"})
+
+        assert value == "foo1"
+
+    def test_as_one_of_raises_error_when_field_is_not_one_of_valid_values(self) -> None:
+        with pytest.raises(
+            AssetCardError,
+            match=r"The value of the field 'field1' of the asset card 'test-card' must be one of \['foo2', 'foo3'\], but is 'foo1' instead\.$",
+        ):
+            self.card.field("field1").as_one_of({"foo3", "foo2"})
 
     def test_as_uri_works(self) -> None:
         value = self.card.field("field9").as_uri()
@@ -145,30 +193,6 @@ class TestAssetCard:
             match=r"^The value of the field 'field6' of the asset card 'test-card' must be a filename, but is 'invalid/filename' instead\.$",
         ):
             self.card.field("field6").as_filename()
-
-    def test_as_list_works(self) -> None:
-        value = self.card.field("field7").as_list(int)
-
-        assert value == [1, 2, 3]
-
-    def test_as_list_raises_error_when_field_is_not_valid_list(self) -> None:
-        with pytest.raises(
-            AssetCardError,
-            match=r"The elements of the field 'field8' of the asset card 'test-card' must be of type `<class 'int'>`, but at least one element is of type `<class 'str'>` instead\.$",
-        ):
-            self.card.field("field8").as_list(int)
-
-    def test_as_one_of_works(self) -> None:
-        value = self.card.field("field1").as_one_of({"foo2", "foo1"})
-
-        assert value == "foo1"
-
-    def test_as_one_of_raises_error_when_field_is_not_one_of_valid_values(self) -> None:
-        with pytest.raises(
-            AssetCardError,
-            match=r"The value of the field 'field1' of the asset card 'test-card' must be one of \['foo2', 'foo3'\], but is 'foo1' instead\.$",
-        ):
-            self.card.field("field1").as_one_of({"foo3", "foo2"})
 
     def test_set_works(self) -> None:
         self.card.field("field1").set("xyz")
