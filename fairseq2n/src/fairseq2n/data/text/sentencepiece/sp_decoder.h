@@ -16,17 +16,10 @@
 #include "fairseq2n/data/immutable_string.h"
 
 namespace fairseq2n {
-namespace detail {
-
-class sp_decoder_op;
-
-}
 
 class sp_model;
 
 class FAIRSEQ2_API sp_decoder final {
-    friend class detail::sp_decoder_op;
-
 public:
     explicit
     sp_decoder(std::shared_ptr<const sp_model> model, bool reverse = false) noexcept;
@@ -34,9 +27,13 @@ public:
     data
     operator()(data &&d) const;
 
+    data
+    decode_from_tokens(data &&d) const;
+
 private:
+    template <typename T>
     immutable_string
-    decode(at::Tensor &&tensor) const;
+    decode(const at::Tensor &tensor) const;
 
 private:
     std::shared_ptr<const sp_model> model_;

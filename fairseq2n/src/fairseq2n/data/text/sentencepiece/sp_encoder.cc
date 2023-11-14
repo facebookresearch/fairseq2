@@ -6,6 +6,7 @@
 
 #include "fairseq2n/data/text/sentencepiece/sp_encoder.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <stdexcept>
 
@@ -27,30 +28,6 @@ using namespace fairseq2n::detail;
 
 namespace fairseq2n {
 namespace detail {
-
-class sp_encoder_op {
-public:
-    explicit
-    sp_encoder_op(
-        const sp_encoder *encoder, const sp_processor *processor, immutable_string &&text);
-
-    at::Tensor &&
-    run() &&;
-
-private:
-    void
-    encode_string();
-
-private:
-    const sp_encoder *encoder_;
-    const sp_processor *processor_;
-    immutable_string text_;
-    ImmutableSentencePieceText spt_{};
-    std::size_t extra_tokens_len_{};
-    std::size_t seq_len_{};
-    at::Tensor tensor_{};
-};
-
 namespace {
 
 std::int64_t
@@ -62,71 +39,6 @@ get_token_idx(const ImmutableSentencePieceText &spt, std::size_t idx) noexcept
 }
 
 }  // namespace
-
-sp_encoder_op::sp_encoder_op(
-    const sp_encoder *encoder, const sp_processor *processor, immutable_string &&text)
-  : encoder_{encoder}, processor_{processor}, text_{std::move(text)}
-{
-    extra_tokens_len_ += encoder_->prefix_token_indices_.size();
-    extra_tokens_len_ += encoder_->suffix_token_indices_.size();
-}
-
-at::Tensor &&
-sp_encoder_op::run() &&
-{
-    encode_string();
-
-    tensor_ = at::zeros({static_cast<std::int64_t>(seq_len_)},
-        at::dtype(at::kLong).device(at::kCPU).pinned_memory(encoder_->opts_.pin_memory()));
-
-    writable_memory_span tensor_bits = get_raw_mutable_storage(tensor_);
-
-    span tensor_data = cast<std::int64_t>(tensor_bits);
-
-    if (encoder_->opts_.reverse()) {
-        std::size_t i = seq_len_ - 1;
-
-        for (std::int64_t prefix_idx : encoder_->prefix_token_indices_)
-            tensor_data[i--] = prefix_idx;
-
-        for (std::size_t j = 0; j < spt_.pieces_size(); ++j)
-            tensor_data[i--] = get_token_idx(spt_, j);
-
-        for (std::int64_t suffix_idx : encoder_->suffix_token_indices_)
-            tensor_data[i--] = suffix_idx;
-    } else {
-        std::size_t i = 0;
-
-        for (std::int64_t prefix_idx : encoder_->prefix_token_indices_)
-            tensor_data[i++] = prefix_idx;
-
-        for (std::size_t j = 0; j < spt_.pieces_size(); ++j)
-            tensor_data[i++] = get_token_idx(spt_, j);
-
-        for (std::int64_t suffix_idx : encoder_->suffix_token_indices_)
-            tensor_data[i++] = suffix_idx;
-    }
-
-    at::Device device = encoder_->opts_.maybe_device().value_or(at::kCPU);
-    if (device != at::kCPU)
-        tensor_ = tensor_.to(device);
-
-    return std::move(tensor_);
-}
-
-void
-sp_encoder_op::encode_string()
-{
-    auto &opts = encoder_->opts_;
-
-    if (opts.enable_sampling())
-        spt_ = processor_->sample(text_, opts.nbest_size(), opts.alpha());
-    else
-        spt_ = processor_->encode(text_);
-
-    seq_len_ = spt_.pieces_size() + extra_tokens_len_;
-}
-
 }  // namespace detail
 
 sp_encoder::sp_encoder(std::shared_ptr<const sp_model> model, sp_encoder_options opts)
@@ -175,13 +87,90 @@ sp_encoder::operator()(data &&d) const
         throw_<std::invalid_argument>(
             "The input data must be of type `string`, but is of type `{}` instead.", d.type());
 
-    return encode(std::move(d).as_string());
+    ImmutableSentencePieceText spt{};
+
+    if (opts_.enable_sampling())
+        spt = model_->processor_->sample(d.as_string(), opts_.nbest_size(), opts_.alpha());
+    else
+        spt = model_->processor_->encode(d.as_string());
+
+    const std::vector<std::string> &prefix_tokens = opts_.prefix_tokens();
+    const std::vector<std::string> &suffix_tokens = opts_.suffix_tokens();
+
+    std::size_t seq_len = spt.pieces_size() + prefix_tokens.size() + suffix_tokens.size();
+
+    at::Tensor tensor = at::zeros({static_cast<std::int64_t>(seq_len)},
+        at::dtype(at::kLong).device(at::kCPU).pinned_memory(opts_.pin_memory()));
+
+    writable_memory_span tensor_bits = get_raw_mutable_storage(tensor);
+
+    span tensor_data = cast<std::int64_t>(tensor_bits);
+
+    if (opts_.reverse()) {
+        std::size_t i = seq_len - 1;
+
+        for (std::int64_t prefix_idx : prefix_token_indices_)
+            tensor_data[i--] = prefix_idx;
+
+        for (std::size_t j = 0; j < spt.pieces_size(); ++j)
+            tensor_data[i--] = get_token_idx(spt, j);
+
+        for (std::int64_t suffix_idx : suffix_token_indices_)
+            tensor_data[i--] = suffix_idx;
+    } else {
+        std::size_t i = 0;
+
+        for (std::int64_t prefix_idx : prefix_token_indices_)
+            tensor_data[i++] = prefix_idx;
+
+        for (std::size_t j = 0; j < spt.pieces_size(); ++j)
+            tensor_data[i++] = get_token_idx(spt, j);
+
+        for (std::int64_t suffix_idx : suffix_token_indices_)
+            tensor_data[i++] = suffix_idx;
+    }
+
+    at::Device device = opts_.maybe_device().value_or(at::kCPU);
+    if (device != at::kCPU)
+        tensor = tensor.to(device);
+
+    return tensor;
 }
 
-at::Tensor
-sp_encoder::encode(immutable_string &&text) const
+data
+sp_encoder::encode_as_tokens(data &&d) const
 {
-    return sp_encoder_op{this, model_->processor_.get(), std::move(text)}.run();
+    if (!d.is_string())
+        throw_<std::invalid_argument>(
+            "The input data must be of type `string`, but is of type `{}` instead.", d.type());
+
+    ImmutableSentencePieceText spt{};
+
+    if (opts_.enable_sampling())
+        spt = model_->processor_->sample(d.as_string(), opts_.nbest_size(), opts_.alpha());
+    else
+        spt = model_->processor_->encode(d.as_string());
+
+    std::vector<data> tokens{};
+
+    const std::vector<std::string> &prefix_tokens = opts_.prefix_tokens();
+    const std::vector<std::string> &suffix_tokens = opts_.suffix_tokens();
+
+    tokens.reserve(spt.pieces_size() + prefix_tokens.size() + suffix_tokens.size());
+
+    for (const std::string &token : prefix_tokens)
+        tokens.emplace_back(token);
+
+    for (const auto &sp : spt.pieces())
+        tokens.emplace_back(sp.piece());
+
+    for (const std::string &token : suffix_tokens)
+        tokens.emplace_back(token);
+
+    if (opts_.reverse())
+        std::reverse(tokens.begin(), tokens.end());
+
+    return tokens;
 }
 
 }  // namespace fairseq2n
