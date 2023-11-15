@@ -25,6 +25,8 @@ extern "C" {
     #include <libswscale/swscale.h>
 }
 
+using namespace fairseq2n::detail;
+
 namespace fairseq2n {
 
 class video_decoder_options {
@@ -91,14 +93,8 @@ public:
     data
     operator()(data &&d) const;
 
-    std::vector<std::vector<uint8_t*>>
+    std::vector<std::vector<at::Tensor>>
     open_container(memory_block block) const;
-
-    std::vector<std::vector<uint8_t*>> 
-    open_streams(avformat_resources format_resources) const;
-
-    std::vector<uint8_t*>
-    decode_frames(int stream_index, avformat_resources format_resources, avcodec_resources codec_resources) const;
 
     static int
     read_callback(void *opaque, uint8_t *buf, int buf_size);
@@ -113,8 +109,7 @@ private:
     int height_; // height of the video frame 
     double fps_; // frames per second
     double video_timebase_; // time base of the video stream
-    double audio_timebase_; // time base of the audio stream
-    
+    double audio_timebase_; // time base of the audio stream    
 };
 
 }  // namespace fairseq2n
