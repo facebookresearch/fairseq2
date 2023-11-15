@@ -17,6 +17,9 @@ from fairseq2.generation.sequence_generator import (
 from fairseq2.generation.step_processor import (
     BannedSequenceProcessor as BannedSequenceProcessor,
 )
+from fairseq2.generation.step_processor import (
+    NGramRepeatBlockProcessor as NGramRepeatBlockProcessor,
+)
 from fairseq2.generation.step_processor import StepProcessor as StepProcessor
 from fairseq2.generation.text import SequenceToTextGenerator as SequenceToTextGenerator
 from fairseq2.generation.text import SequenceToTextOutput as SequenceToTextOutput
