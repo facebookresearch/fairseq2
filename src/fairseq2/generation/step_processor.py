@@ -121,10 +121,12 @@ class BannedSequenceProcessor(StepProcessor):
             seqs.masked_fill_(self._banned_mask[:, :-1], 0)
 
         # (N, B, S_pre) -> (N, B)
-        banned_prefix_matches = seqs.sum(dim=-1)
+        banned_prefix_matches = seqs.any(dim=-1)
+
+        banned_prefix_matches.logical_not_()
 
         # (N, B) -> (N), (B)
-        batch_indices, banned_indices = torch.where(banned_prefix_matches == 0)
+        batch_indices, banned_indices = torch.where(banned_prefix_matches)
 
         if len(batch_indices) > 0:
             probs[batch_indices, self._banned_seqs[:, -1][banned_indices]] = ban_value
