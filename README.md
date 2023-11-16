@@ -83,7 +83,7 @@ matrix shows the supported combinations.
 
 | PyTorch          | Python            | Variant*               | Arch     |
 | ---------------- | ----------------- | ---------------------- | -------- |
-| `2.1.0`          | `>=3.8`, `<=3.11` | `cpu`, `cu118` `cu121` | `x86_64` |
+| `2.1.0`, `2.1.1` | `>=3.8`, `<=3.11` | `cpu`, `cu118` `cu121` | `x86_64` |
 | `2.0.0`, `2.0.1` | `>=3.8`, `<=3.11` | `cpu`, `cu117` `cu118` | `x86_64` |
 | `1.13.1`         | `>=3.8`, `<=3.10` | `cpu`, `cu116`         | `x86_64` |
 
@@ -91,11 +91,11 @@ matrix shows the supported combinations.
 
 To install a specific combination, first follow the installation instructions on
 [pytorch.org](https://pytorch.org) for the desired PyTorch version, and then use
-the following command (shown for PyTorch `2.1.0` and variant `cu118`):
+the following command (shown for PyTorch `2.1.1` and variant `cu118`):
 
 ```sh
 pip install fairseq2\
-  --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.1.0/cu118
+  --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.1.1/cu118
 ```
 
 
@@ -111,12 +111,12 @@ pip install fairseq2\
 For Linux, we also host nightly builds on FAIR's package repository. The
 supported variants are identical to the ones listed in *Variants* above. Once
 you have installed the desired PyTorch version, you can use the following
-command to install the corresponding nightly package  (shown for PyTorch `2.1.0`
+command to install the corresponding nightly package  (shown for PyTorch `2.1.1`
 and variant `cu118`):
 
 ```sh
 pip install fairseq2\
-  --pre --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.1.0/cu118
+  --pre --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.1.1/cu118
 ```
 
 
