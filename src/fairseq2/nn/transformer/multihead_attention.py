@@ -226,8 +226,8 @@ class StandardMultiheadAttention(MultiheadAttention):
         :param pos_encoder:
             The position encoder to apply to sequences and keys after projection.
         :param sdpa:
-            The scaled dot-product attention module to compute head attentions.
-            If ``None``, a default implementation will be used.
+            The :class:`SDPA` module to compute head attentions. If ``None``, a
+            default implementation will be used.
         :param scale_heads:
             If ``True``, applies head scaling as described in
             :cite:t:`https://doi.org/10.48550/arxiv.2110.09456`

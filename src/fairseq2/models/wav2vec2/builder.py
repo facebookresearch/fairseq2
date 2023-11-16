@@ -347,6 +347,8 @@ class Wav2Vec2EncoderBuilder:
         )
 
     def build_sdpa(self) -> SDPA:
+        sdpa = create_default_sdpa(attn_dropout_p=self.config.attn_dropout_p)
+
         if self.config.pos_encoder_type == "relative":
             if self.rel_pos_encoding is None:
                 self.rel_pos_encoding = RelativePositionalEncoding(
@@ -356,16 +358,16 @@ class Wav2Vec2EncoderBuilder:
                     dtype=self.dtype,
                 )
 
-            return RelativePositionSDPA(
+            sdpa = RelativePositionSDPA(
                 self.config.model_dim,
                 self.config.num_encoder_attn_heads,
                 self.rel_pos_encoding,
-                attn_dropout_p=self.config.attn_dropout_p,
+                inner_sdpa=sdpa,
                 device=self.device,
                 dtype=self.dtype,
             )
 
-        return create_default_sdpa(attn_dropout_p=self.config.attn_dropout_p)
+        return sdpa
 
     def build_conformer_conv(self) -> ConformerConvolution:
         return ConformerConvolution(

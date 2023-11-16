@@ -24,7 +24,6 @@ from fairseq2.nn.embedding import StandardEmbedding, init_scaled_embedding
 from fairseq2.nn.position_encoder import PositionEncoder, SinusoidalPositionEncoder
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer import (
-    SDPA,
     FeedForwardNetwork,
     MultiheadAttention,
     RelativePositionalEncoding,
@@ -418,7 +417,7 @@ class S2TTransformerBuilder:
 
     def build_encoder_attention(self) -> MultiheadAttention:
         """Build a Transformer encoder multi-head attention layer."""
-        sdpa: SDPA
+        sdpa = create_default_sdpa(attn_dropout_p=self.config.dropout_p)
 
         if self.config.use_relative_pos:
             if self.rel_pos_encoding is None:
@@ -433,12 +432,10 @@ class S2TTransformerBuilder:
                 self.config.model_dim,
                 self.config.num_encoder_attn_heads,
                 self.rel_pos_encoding,
-                attn_dropout_p=self.config.dropout_p,
+                inner_sdpa=sdpa,
                 device=self.device,
                 dtype=self.dtype,
             )
-        else:
-            sdpa = create_default_sdpa(attn_dropout_p=self.config.dropout_p)
 
         return StandardMultiheadAttention(
             self.config.model_dim,
