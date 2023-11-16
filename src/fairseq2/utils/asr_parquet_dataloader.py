@@ -17,9 +17,9 @@ from fairseq2.data.text import SentencePieceEncoder
 from fairseq2.models.nllb.tokenizer import NllbTokenizer
 from fairseq2.typing import Device
 from fairseq2.utils.parquet_dataloader import (
-    ParquetBasicDataloaderConfig,
     NestedDictTensor,
     ParquetBasicDataLoader,
+    ParquetBasicDataloaderConfig,
     ParquetBatchFormat,
     pyarrow_cpu,
 )

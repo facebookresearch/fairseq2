@@ -424,13 +424,13 @@ class ParquetBasicDataLoader:
             if self.config.shuffle:
                 length_col = random_state.randint(0, 2**23, len(table))
             else:
-                length_col = np.ones(len(table), dtype=np.int32)
+                length_col = np.zeros(len(table), dtype=np.int32)
 
         table = table.select(self.columns)
 
         if batch_size is not None:
             order_tt = pa.Table.from_arrays(
-                [pa.array(np.argsort(length_col))], ["order"]
+                [pa.array(np.argsort(length_col, kind="merge"))], ["order"]
             )
             batches = [ind["order"] for ind in order_tt.to_batches(batch_size)]
         elif max_tokens is not None:
@@ -493,15 +493,18 @@ class ParquetBasicDataLoader:
 
     def __iter__(self):
         def _to_real_object(x):
-            if isinstance(x,  _TableWrapper):
+            if isinstance(x, _TableWrapper):
                 return x.table
             else:
                 return x
 
         with pyarrow_cpu(self.config.num_parallel_calls):
-            yield from map(_to_real_object, iter(
-                self.build_epoch_iterator_pipeline(self.config.seed, self._epoch)
-                .prefetch(self.config.num_parallel_calls)
-                .and_return(max_num_warnings=4)
-            ))
+            yield from map(
+                _to_real_object,
+                iter(
+                    self.build_epoch_iterator_pipeline(self.config.seed, self._epoch)
+                    .prefetch(self.config.num_parallel_calls)
+                    .and_return(max_num_warnings=4)
+                ),
+            )
         self._epoch += 1

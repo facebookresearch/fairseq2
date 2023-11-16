@@ -253,3 +253,19 @@ class TestParquetDataloader(unittest.TestCase):
                 "list_float_fixed_size_col",
             ],
         )
+
+    def test_dataload_without_shuffle(self):
+        config = ParquetBasicDataloaderConfig(
+            parquet_path=self._tmp_parquet_ds_path,
+            nb_producers=4,
+            nb_prefetch=2,
+            num_parallel_calls=3,
+            shuffle=False,
+            batch_size=17,
+            columns=["float_col"],
+        )
+        pbdl = ParquetBasicDataLoader(config)
+        res = pa.concat_tables(list(iter(pbdl)))
+        res_relaod = pq.read_table(self._tmp_parquet_ds_path, columns=["float_col"])
+
+        self.assertTrue(res.equals(res_relaod))
