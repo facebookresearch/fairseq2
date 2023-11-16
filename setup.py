@@ -46,6 +46,8 @@ setup(
         "fairseq2n" + fairseq2n_version_spec,
         "jiwer~=3.0",
         "numpy~=1.23",
+        "pyarrow>=13.0.0",
+        "pandas>=2.0.0",
         "overrides~=7.3",
         "packaging~=23.1",
         "pyyaml~=6.0",
