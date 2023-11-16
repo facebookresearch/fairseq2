@@ -13,12 +13,12 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.nn import Module, Parameter
-from torch.nn.functional import dropout, pad, softmax
+from torch.nn.functional import pad
 
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.projection import Linear
-from fairseq2.nn.transformer.attention import SDPA
-from fairseq2.nn.transformer.attention_mask import AttentionMask
+from fairseq2.nn.transformer.attention import SDPA, create_default_sdpa
+from fairseq2.nn.transformer.attention_mask import AttentionMask, CustomAttentionMask
 from fairseq2.typing import DataType, Device, finaloverride
 
 
@@ -33,6 +33,7 @@ class RelativePositionSDPA(SDPA):
     u_bias: Parameter
     v_bias: Parameter
     r_proj: Linear
+    inner_sdpa: SDPA
 
     def __init__(
         self,
@@ -40,7 +41,7 @@ class RelativePositionSDPA(SDPA):
         num_heads: int,
         pos_encoding: RelativePositionalEncoding,
         *,
-        attn_dropout_p: float = 0.0,
+        inner_sdpa: Optional[SDPA] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -51,10 +52,10 @@ class RelativePositionSDPA(SDPA):
             The number of attention heads.
         :param: pos_encoding:
             The relative positional encoding table.
-        :param attn_dropout_p:
-            The dropout probability on attention weights.
+        :param inner_sdpa:
+            The actual :class:`SDPA` module to compute head attentions.
         """
-        super().__init__(attn_dropout_p=attn_dropout_p)
+        super().__init__()
 
         if model_dim % num_heads != 0:
             raise ValueError(
@@ -83,6 +84,11 @@ class RelativePositionSDPA(SDPA):
         self.r_proj = Linear(
             model_dim, model_dim, bias=False, device=device, dtype=dtype
         )
+
+        if inner_sdpa is not None:
+            self.inner_sdpa = inner_sdpa
+        else:
+            self.inner_sdpa = create_default_sdpa()
 
         self.reset_parameters()
 
@@ -116,45 +122,31 @@ class RelativePositionSDPA(SDPA):
         # (N, H, 2 x S - 1, K_h)
         r = self._compute_r(k, batch_size=q.size(0))
 
-        # (N, H, S, K_h) @ (N, H, K_h, S) = (N, H, S, S)
-        ac = torch.matmul(q_with_u_bias, k.transpose(-1, -2))
-
         # (N, H, S, K_h) @ (N, H, K_h, 2 x S - 1) = (N, H, S, 2 x S - 1)
         bd = torch.matmul(q_with_v_bias, r.transpose(-1, -2))
 
         # (N, H, S, 2 x S - 1) -> (N, H, S, S)
         bd = self._shift_bd(bd)
 
-        # (N, H, S, S)
-        attn_weights = (ac + bd) * (q.size(-1) ** -0.5)
+        # We treat `bd` as an attention mask to take advantage of efficient SDPA
+        # implementations.
+        bd = bd * (q.size(-1) ** -0.5)
 
-        if attn_mask is not None:
-            # (S, S_kv)
-            m = attn_mask.materialize()
+        if attn_mask is None:
+            mask = bd
+        else:
+            mask = bd + attn_mask.materialize()
 
-            # (N, H, S, S_kv) + (S, S_kv) -> (N, H, S, S_kv)
-            attn_weights = attn_weights + m
+        attn_mask = CustomAttentionMask(mask)
 
-        if key_padding_mask is not None:
-            # (N, S_kv)
-            m = key_padding_mask.materialize()
-
-            m = m[:, None, None, :]
-
-            # (N, H, S, S_kv)
-            attn_weights = torch.where(m, attn_weights, -torch.inf)
-
-        attn_weights = softmax(attn_weights, dim=-1, dtype=torch.float32)
-
-        attn_weights = attn_weights.type_as(seqs)
-
-        if self.training and self.attn_dropout_p > 0.0:
-            attn_weights = dropout(attn_weights, self.attn_dropout_p)
-
-        # (N, H, S, S) @ (N, H, S, V_h) = (N, H, S, V_h)
-        attn = torch.matmul(attn_weights, values)
-
-        return attn, attn_weights if needs_weights else None
+        return self.inner_sdpa(  # type: ignore[no-any-return]
+            q_with_u_bias,
+            k,
+            key_padding_mask,
+            values,
+            attn_mask=attn_mask,
+            needs_weights=needs_weights,
+        )
 
     def _compute_r(self, k: Tensor, batch_size: int) -> Tensor:
         # (2 x S - 1, K)
@@ -194,9 +186,7 @@ class RelativePositionSDPA(SDPA):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = super().extra_repr()
-
-        return f"{s}, model_dim={self.model_dim}, num_heads={self.num_heads}"
+        return f"model_dim={self.model_dim}, num_heads={self.num_heads}"
 
 
 class RelativePositionalEncoding(Module):
