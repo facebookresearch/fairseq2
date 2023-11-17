@@ -11,7 +11,6 @@ model_config:
   target_vocab_info:
     size: 5000
 task: transcription
-tgt_langs: [en]
-tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_de_asr_vocab_unigram5000.zip"
-tokenizer_file: "spm_unigram_5000.model"
+target_langs: [en]
 checkpoint: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_de_asr_transformer_s.pt"
+tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_de_asr_vocab_unigram5000.zip;member=spm_unigram_5000.model"

@@ -6,6 +6,4 @@
 
 name: llama_7b
 base: llama
-model_arch: llama_7b
-# fill in the link or file path to checkpoint below
-checkpoint: ""
+model_arch: 7b

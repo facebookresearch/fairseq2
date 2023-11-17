@@ -6,7 +6,6 @@
 
 from pathlib import Path
 from typing import Any, Mapping, final
-from zipfile import ZipFile
 
 from fairseq2.assets import AssetCard, asset_store, download_manager
 from fairseq2.models.s2t_transformer.builder import (
@@ -78,27 +77,12 @@ class S2TTransformerTokenizerLoader(TokenizerLoaderBase[S2TTransformerTokenizer]
 
     @finaloverride
     def _load(self, path: Path, card: AssetCard) -> S2TTransformerTokenizer:
-        # The tokenizer is stored in a zip file, so we have to extract it first.
-        filename = card.field("tokenizer_file").as_filename()
-
-        pathname = path.with_name(filename)
-
-        if not pathname.exists():
-            try:
-                with ZipFile(path) as fp:
-                    fp.extract(filename, path=path.parent)
-            except (KeyError, IOError) as ex:
-                raise RuntimeError(
-                    f"The tokenizer of {card.name} cannot be loaded. Please file a bug report."
-                ) from ex
-
-        # The only valid task names are transcription and translation.
         task = card.field("task").as_one_of({"transcription", "translation"})
 
-        target_langs = card.field("tgt_langs").as_list(str)
+        target_langs = card.field("target_langs").as_list(str)
 
         return S2TTransformerTokenizer(
-            pathname, task, set(target_langs), default_target_lang=target_langs[0]
+            path, task, set(target_langs), default_target_lang=target_langs[0]
         )
 
 

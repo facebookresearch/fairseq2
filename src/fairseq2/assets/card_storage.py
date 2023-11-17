@@ -89,7 +89,7 @@ class LocalAssetCardStorage(AssetCardStorage):
 
             if not isinstance(data, dict):
                 raise AssetCardError(
-                    f"The data of the asset card '{name}' must be of type {dict}, but is of type {type(data)} instead."
+                    f"The data of the asset card '{name}' must be of type {dict}, but is of type `{type(data)}` instead."
                 )
 
             return data

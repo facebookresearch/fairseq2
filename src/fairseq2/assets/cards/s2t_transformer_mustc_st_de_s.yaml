@@ -11,7 +11,6 @@ model_config:
   target_vocab_info:
     size: 8000
 task: translation
-tgt_langs: [de]
-tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_de_st_vocab_unigram8000.zip"
-tokenizer_file: "spm_unigram_8000.model"
+target_langs: [de]
 checkpoint: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_de_st_transformer_s.pt"
+tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_de_st_vocab_unigram8000.zip;member=spm_unigram_8000.model"
