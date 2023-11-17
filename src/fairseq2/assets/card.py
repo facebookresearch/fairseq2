@@ -160,7 +160,7 @@ class AssetCardField:
         return AssetCardField(self.card, self.path + [name])
 
     def is_none(self) -> bool:
-        """Return ``True`` if the field is ``None``."""
+        """Return ``True`` if the value of the field is ``None``."""
         value = self.card._get_field_value(self.card.name, self.path)
 
         return value is None
@@ -279,7 +279,7 @@ class AssetCardField:
         except ValueError:
             uri = None
 
-        if uri and uri.scheme and uri.netloc:
+        if uri and uri.scheme and (uri.netloc or uri.path):
             return value
 
         pathname = ".".join(self.path)

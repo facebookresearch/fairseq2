@@ -6,8 +6,6 @@
 
 from typing import Optional, final
 
-from overrides import final as finaloverride
-
 from fairseq2.data.text import (
     SentencePieceDecoder,
     SentencePieceEncoder,
@@ -18,7 +16,7 @@ from fairseq2.data.text import (
     vocabulary_from_sentencepiece,
 )
 from fairseq2.data.typing import PathLike
-from fairseq2.typing import Device
+from fairseq2.typing import Device, finaloverride
 
 
 @final

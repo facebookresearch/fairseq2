@@ -69,7 +69,7 @@ class DefaultAssetStore(AssetStore):
     def __init__(self, storage: AssetCardStorage, *, ignore_env: bool = False) -> None:
         """
         :param storage:
-            The asset card storage to use.
+            The asset card storage.
         :param ignore_env:
             If ``True``, ignores environment-specific asset cards.
         """

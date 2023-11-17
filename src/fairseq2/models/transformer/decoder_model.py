@@ -44,9 +44,7 @@ class TransformerDecoderModel(DecoderModel):
         :param vocab_info:
             The vocabulary information of sequences produced by the model.
         """
-        model_dim = decoder.model_dim
-
-        super().__init__(model_dim, vocab_info)
+        super().__init__(decoder.model_dim, vocab_info)
 
         self.decoder_frontend = decoder_frontend
         self.decoder = decoder

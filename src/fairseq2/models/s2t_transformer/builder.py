@@ -19,7 +19,7 @@ from fairseq2.models.transformer import (
     TransformerModel,
     init_final_projection,
 )
-from fairseq2.models.utils.arch_registry import ArchitectureRegistry
+from fairseq2.models.utils import ArchitectureRegistry
 from fairseq2.nn.embedding import StandardEmbedding, init_scaled_embedding
 from fairseq2.nn.position_encoder import PositionEncoder, SinusoidalPositionEncoder
 from fairseq2.nn.projection import Linear
@@ -90,8 +90,7 @@ class S2TTransformerConfig:
 
 s2t_transformer_archs = ArchitectureRegistry[S2TTransformerConfig]("s2t_transformer")
 
-
-s2t_transformer_arch = s2t_transformer_archs.marker
+s2t_transformer_arch = s2t_transformer_archs.decorator
 
 
 @s2t_transformer_arch("tiny")
@@ -221,7 +220,7 @@ class S2TTransformerBuilder:
     ) -> None:
         """
         :param config:
-            The configuration to use.
+            The configuration.
         :param device:
             The device on which to initialize modules.
         :param dtype:
@@ -479,7 +478,7 @@ def create_s2t_transformer_model(
     """Create an S2T Transformer model.
 
     :param config:
-        The configuration to use.
+        The configuration.
     :param device:
         The device on which to initialize modules.
     :param dtype:

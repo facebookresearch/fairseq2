@@ -173,9 +173,9 @@ class StandardTransformerDecoder(TransformerDecoder):
             If greater than zero, applies LayerDrop to the decoder layers as
             described in :cite:t:`https://doi.org/10.48550/arxiv.1909.11556`.
         :param norm_order:
-            The Layer Normalization order to use.
+            The Layer Normalization order.
         :param layer_norm_factory:
-            The factory to use to construct the Layer Normalization module.
+            The factory to construct the Layer Normalization module.
         """
         layer_list = ModuleList(layers, drop_p=layer_drop_p)
         if not layer_list:
