@@ -11,6 +11,7 @@ from enum import Enum
 from functools import partial
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -18,7 +19,7 @@ import torch
 from pyarrow.dataset import get_partition_keys  # requires pyarrow >= 13
 
 from fairseq2.data import CString
-from fairseq2.data.data_pipeline import DataPipelineBuilder, read_sequence
+from fairseq2.data.data_pipeline import DataPipeline, DataPipelineBuilder, read_sequence
 
 
 class ParquetBatchFormat(Enum):
@@ -30,8 +31,25 @@ class ParquetBatchFormat(Enum):
 @dataclass  # TODO: (kw_only=True) with python3.10
 class ParquetBasicDataloaderConfig:
     parquet_path: str
-    """Path to parquet dataset file
-    TODO: show s3 reading example.
+    """
+    Path to parquet dataset file
+    """
+
+    batch_size: tp.Optional[int] = None
+    """
+    Fixed output batch size
+    """
+
+    order_by: tp.Optional[str] = None
+    """Column in dataset whose value length `L` will be used for batches ordering.
+       This results in batches with relatively homogeneous values of `L`,
+       typically to support optimal padding.
+    """
+
+    max_tokens: tp.Optional[int] = None
+    """
+    Used with `order_by` option to control the total number of padded tokens in a each batch.
+    Typically, this option is preferred to `batch_size` for reducing the memory footprint. 
     """
 
     columns: tp.Optional[tp.List[str]] = None
@@ -53,8 +71,14 @@ class ParquetBasicDataloaderConfig:
     Note that all fields used here should be among existing columns in the dataset schema
     """
 
+    output_format: ParquetBatchFormat = ParquetBatchFormat.pyarrow
+    """
+    Format to use for output batches
+    """
+
     split_to_row_groups: bool = True
-    """Use parquet row groups instead of simple partitions which are generally smaller.
+    """
+    Use parquet row groups instead of simple partitions which are generally smaller.
     Highly recommended for non-partitioned parquet file.
     """
 
@@ -66,28 +90,6 @@ class ParquetBasicDataloaderConfig:
 
     drop_null: bool = True
     """Dropping rows containing any null value"""
-
-    output_format: ParquetBatchFormat = ParquetBatchFormat.pyarrow
-    """
-    Format to use for output batches
-    """
-
-    batch_size: tp.Optional[int] = None
-    """
-    Fixed output batch size
-    """
-
-    order_by: tp.Optional[str] = None
-    """Column in dataset whose value length `L` will be used for batches ordering.
-       This results in batches with relatively homogeneous values of `L`,
-       typically to support optimal padding.
-    """
-
-    max_tokens: tp.Optional[int] = None
-    """
-    Used with `order_by` option to control the total number of padded tokens in a each batch.
-    Typically, this option is preferred to `batch_size` for reducing the memory footprint. 
-    """
 
     seed: tp.Optional[int] = None
     """
@@ -119,11 +121,11 @@ class ParquetBasicDataloaderConfig:
 
     use_threads: bool = False
     """
-    Whether pyarrow should use its internal // threads to read the parquet part.
-    Since we rely on the external //, this param is tuned off.
+    Whether pyarrow should use its internal parallelism threads to read the parquet part.
+    Since we rely on the external parallelism, this param is tuned off.
     """
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         assert self.parquet_path, "requires path"
         assert self.num_parallel_calls >= 1
         assert self.world_size >= 1
@@ -147,7 +149,7 @@ class ParquetBasicDataloaderConfig:
 
 
 @contextmanager
-def pyarrow_cpu(nb_cpu: int):
+def pyarrow_cpu(nb_cpu: int) -> tp.Generator[None, None, None]:
     nb_cpu_old = pa.cpu_count()
     nb_io_cpu_old = pa.io_thread_count()
     pa.set_cpu_count(nb_cpu)
@@ -163,6 +165,7 @@ NestedDictTensor = tp.Dict[str, "NestedDictTensorValue"]
 NestedDictTensorValue = tp.Union[
     torch.Tensor, tp.List[CString], pd.Series, NestedDictTensor
 ]
+BatchOutputType = tp.Union[pa.Table, pd.DataFrame, NestedDictTensor]
 
 
 def from_pyarrow_to_torch_tensor(
@@ -344,8 +347,8 @@ class ParquetBasicDataLoader:
 
     @staticmethod
     def compute_length_splits(
-        length_col: np.ndarray, max_tokens: int
-    ) -> tp.List[np.ndarray]:
+        length_col: npt.NDArray[np.int32], max_tokens: int
+    ) -> tp.List[npt.NDArray[np.int32]]:
         """split sequence of length_col in the chunks such that total length is ~ max_tokens
            countint the padding to max length of elements in a chunk
 
@@ -373,7 +376,7 @@ class ParquetBasicDataLoader:
         return splits
 
     @staticmethod
-    def compute_length(pa_array: pa.Array) -> np.ndarray:
+    def compute_length(pa_array: pa.Array) -> npt.NDArray[np.int32]:
         type_ = pa_array.type
         if pa.types.is_list(type_) or pa.types.is_large_list(type_):
             length_col = pa.compute.list_value_length(pa_array).to_numpy()
@@ -384,7 +387,7 @@ class ParquetBasicDataLoader:
 
         length_col = length_col.copy()
         length_col[np.isnan(length_col)] = 0
-        return length_col.astype(np.int32)
+        return np.asarray(length_col, dtype=np.int32)
 
     @staticmethod
     def concat_table(
@@ -407,7 +410,7 @@ class ParquetBasicDataLoader:
 
     def build_iterator_over_concat_table(
         self, wrap_table: _TableWrapper, random_state: np.random.RandomState
-    ) -> DataPipelineBuilder:
+    ) -> DataPipeline:
         order_by = self.config.order_by
         batch_size = self.config.batch_size
         max_tokens = self.config.max_tokens
@@ -417,9 +420,12 @@ class ParquetBasicDataLoader:
             length_col = self.compute_length(table[order_by])
             # add small perturbation to avoid same sample appear together during different epochs
             if self.config.shuffle:
-                length_col += random_state.randint(
-                    0, max(np.quantile(length_col, 0.001), 2), len(length_col)
+                perturbation = random_state.randint(
+                    0,
+                    np.quantile(length_col, 0.001).astype(np.int32) + 2,
+                    len(length_col),
                 )
+                length_col += np.asarray(perturbation, dtype=np.int32)
         else:
             if self.config.shuffle:
                 length_col = random_state.randint(0, 2**23, len(table))
@@ -430,7 +436,7 @@ class ParquetBasicDataLoader:
 
         if batch_size is not None:
             order_tt = pa.Table.from_arrays(
-                [pa.array(np.argsort(length_col, kind="merge"))], ["order"]
+                [pa.array(np.argsort(length_col, kind="stable"))], ["order"]
             )
             batches = [ind["order"] for ind in order_tt.to_batches(batch_size)]
         elif max_tokens is not None:
@@ -458,7 +464,7 @@ class ParquetBasicDataLoader:
             hash((seed, epoch)) % 2**32
         )  # TODO: use stable hashing instead python
         if self.config.shuffle:
-            all_shuffled_fragments = np_rs.permutation(self._all_fragments)
+            all_shuffled_fragments = list(np_rs.permutation(self._all_fragments))
         else:
             all_shuffled_fragments = self._all_fragments
 
@@ -491,8 +497,10 @@ class ParquetBasicDataLoader:
             )
         return pipeline_builder
 
-    def __iter__(self):
-        def _to_real_object(x):
+    def __iter__(self) -> tp.Generator[BatchOutputType, None, None]:
+        def _to_real_object(
+            x: tp.Union[_TableWrapper, NestedDictTensor]
+        ) -> BatchOutputType:
             if isinstance(x, _TableWrapper):
                 return x.table
             else:

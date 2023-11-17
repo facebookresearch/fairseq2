@@ -66,6 +66,7 @@ def generated_partitioned_parquet_file(
         path,
         partition_cols=["part_key"] if n_partitions > 0 else None,
         existing_data_behavior="delete_matching",
+        **{"row_group_size": 110},
     )
 
 
@@ -269,3 +270,16 @@ class TestParquetDataloader(unittest.TestCase):
         res_relaod = pq.read_table(self._tmp_parquet_ds_path, columns=["float_col"])
 
         self.assertTrue(res.equals(res_relaod))
+
+    def test_dataload_max_row_groups(self):
+        config = ParquetBasicDataloaderConfig(
+            parquet_path=self._tmp_parquet_single_path,
+            nb_producers=1,
+            nb_prefetch=2,
+            num_parallel_calls=3,
+            batch_size=250,
+        )
+        pbdl = ParquetBasicDataLoader(config)
+        res = list(iter(pbdl))
+
+        self.assertEqual(Counter(list(map(len, res))), Counter({110: 9, 10: 1}))
