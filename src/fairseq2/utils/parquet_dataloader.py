@@ -49,7 +49,7 @@ class ParquetBasicDataloaderConfig:
     max_tokens: tp.Optional[int] = None
     """
     Used with `order_by` option to control the total number of padded tokens in a each batch.
-    Typically, this option is preferred to `batch_size` for reducing the memory footprint. 
+    Typically, this option is preferred to `batch_size` for reducing the memory footprint.
     """
 
     columns: tp.Optional[tp.List[str]] = None
