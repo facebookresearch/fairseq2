@@ -13,14 +13,16 @@ import typing as tp
 import unittest
 from collections import Counter
 
+import numpy as np
+import numpy.typing as npt
+import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
+
 from fairseq2.utils.parquet_dataloader import (
     ParquetBasicDataLoader,
     ParquetBasicDataloaderConfig,
     ParquetBatchFormat,
-    np,
-    pa,
-    pd,
-    pq,
 )
 
 
@@ -32,7 +34,7 @@ def gen_random_string(length: int) -> str:
 
 def generate_random_pandas_df(size: int, seed: int = 123) -> pd.DataFrame:
     np_rs = np.random.RandomState(seed)
-    df: tp.Dict[str, tp.Union[np.ndarray, list]] = {}
+    df: tp.Dict[str, tp.Union[npt.NDArray[tp.Any], tp.List[tp.Any]]] = {}
     df["int_col"] = np_rs.randint(0, 200, size)
     df["float_col"] = np_rs.randn(size)
 
@@ -92,7 +94,7 @@ class TestParquetDataloader(unittest.TestCase):
         if cls._tmpdir is not None:
             shutil.rmtree(cls._tmpdir)  # type: ignore
 
-    def test_simple_dataload(self):
+    def test_simple_dataload(self) -> None:
         config = ParquetBasicDataloaderConfig(
             parquet_path=self._tmp_parquet_ds_path,
             batch_size=11,
@@ -100,7 +102,7 @@ class TestParquetDataloader(unittest.TestCase):
             seed=333,
         )
         pbdl = ParquetBasicDataLoader(config)
-        res = list(iter(pbdl))
+        res: tp.List[pd.DataFrame] = list(iter(pbdl))
 
         for x in res:
             self.assertIsInstance(x, pa.Table)
@@ -155,7 +157,7 @@ class TestParquetDataloader(unittest.TestCase):
             any((x["float_col"] != y["float_col"]).any() for x, y in zip(res, res_ter))
         )
 
-    def test_filtered_with_columns_dataload(self):
+    def test_filtered_with_columns_dataload(self) -> None:
         config = ParquetBasicDataloaderConfig(
             parquet_path=self._tmp_parquet_ds_path,
             batch_size=3,
@@ -166,14 +168,14 @@ class TestParquetDataloader(unittest.TestCase):
             output_format=ParquetBatchFormat.pandas,
         )
         pbdl = ParquetBasicDataLoader(config)
-        res = list(iter(pbdl))
+        res: tp.List[pd.DataFrame] = list(iter(pbdl))
 
         self.assertEqual(
             list(res[0].columns), ["string_col2", "list_int_col", "float_col"]
         )
         self.assertEqual(Counter(map(len, res)), Counter({3: 340, 2: 1}))
 
-    def test_filtered_with_columns_dataload_min_batch_size(self):
+    def test_filtered_with_columns_dataload_min_batch_size(self) -> None:
         config = ParquetBasicDataloaderConfig(
             parquet_path=self._tmp_parquet_ds_path,
             batch_size=3,
@@ -188,7 +190,7 @@ class TestParquetDataloader(unittest.TestCase):
         res = list(iter(pbdl))
         self.assertEqual(Counter(map(len, res)), Counter({3: 340}))
 
-    def test_ordered_dataload(self):
+    def test_ordered_dataload(self) -> None:
         config = ParquetBasicDataloaderConfig(
             parquet_path=self._tmp_parquet_ds_path,
             batch_size=20,
@@ -198,8 +200,8 @@ class TestParquetDataloader(unittest.TestCase):
             output_format=ParquetBatchFormat.pandas,
         )
         pbdl = ParquetBasicDataLoader(config)
-
-        length_by_batches = [tt["list_int_col"].apply(len) for tt in iter(pbdl)]
+        res: tp.List[pd.DataFrame] = list(iter(pbdl))
+        length_by_batches = [tt["list_int_col"].apply(len) for tt in res]
         length_by_batches_diff = max(tt.max() - tt.min() for tt in length_by_batches)
         total_length = sum(map(len, length_by_batches))
 
@@ -207,7 +209,7 @@ class TestParquetDataloader(unittest.TestCase):
         self.assertEqual(total_length, 2000)
         self.assertTrue(all(len(tt) == 20 for tt in length_by_batches))
 
-    def test_ordered_max_token_dataload(self):
+    def test_ordered_max_token_dataload(self) -> None:
         config = ParquetBasicDataloaderConfig(
             parquet_path=self._tmp_parquet_ds_path,
             nb_producers=20,
@@ -217,8 +219,8 @@ class TestParquetDataloader(unittest.TestCase):
             output_format=ParquetBatchFormat.pandas,
         )
         pbdl = ParquetBasicDataLoader(config)
-
-        length_by_batches = [tt["list_int_col"].apply(len) for tt in iter(pbdl)]
+        res: tp.List[pd.DataFrame] = list(iter(pbdl))
+        length_by_batches = [tt["list_int_col"].apply(len) for tt in res]
         length_by_batches_diff = max(tt.max() - tt.min() for tt in length_by_batches)
         max_padded_total_length = max(tt.max() * len(tt) for tt in length_by_batches)
         mean_padded_total_length = np.mean(
@@ -231,7 +233,7 @@ class TestParquetDataloader(unittest.TestCase):
         self.assertLessEqual(max_padded_total_length, 3000)
         self.assertGreater(mean_padded_total_length, 2900)
 
-    def test_ordered_max_token_single_file_dataload(self):
+    def test_ordered_max_token_single_file_dataload(self) -> None:
         config = ParquetBasicDataloaderConfig(
             parquet_path=self._tmp_parquet_single_path,
             nb_producers=2,
@@ -239,7 +241,7 @@ class TestParquetDataloader(unittest.TestCase):
             seed=333,
         )
         pbdl = ParquetBasicDataLoader(config)
-        res = list(iter(pbdl))
+        res: tp.List[pa.Table] = list(iter(pbdl))
 
         self.assertEqual(Counter(map(len, res)), Counter({10: 100}))
         self.assertEqual(
@@ -255,7 +257,7 @@ class TestParquetDataloader(unittest.TestCase):
             ],
         )
 
-    def test_dataload_without_shuffle(self):
+    def test_dataload_without_shuffle(self) -> None:
         config = ParquetBasicDataloaderConfig(
             parquet_path=self._tmp_parquet_ds_path,
             nb_producers=4,
@@ -271,7 +273,7 @@ class TestParquetDataloader(unittest.TestCase):
 
         self.assertTrue(res.equals(res_relaod))
 
-    def test_dataload_max_row_groups(self):
+    def test_dataload_max_row_groups(self) -> None:
         config = ParquetBasicDataloaderConfig(
             parquet_path=self._tmp_parquet_single_path,
             nb_producers=1,
@@ -283,3 +285,15 @@ class TestParquetDataloader(unittest.TestCase):
         res = list(iter(pbdl))
 
         self.assertEqual(Counter(list(map(len, res))), Counter({110: 9, 10: 1}))
+
+        config = ParquetBasicDataloaderConfig(
+            parquet_path=self._tmp_parquet_single_path,
+            nb_producers=2,  # increasing this
+            nb_prefetch=2,
+            num_parallel_calls=3,
+            batch_size=250,
+        )
+        pbdl = ParquetBasicDataLoader(config)
+        res = list(iter(pbdl))
+
+        self.assertEqual(Counter(list(map(len, res))), Counter({220: 4, 120: 1}))
