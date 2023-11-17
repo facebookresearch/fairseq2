@@ -224,8 +224,8 @@ class ASRBatchIterator:
         # text tokens
         lang_tensor: Tensor = torch.as_tensor(batch[self.vec_lang_column])
         text_tensor: Tensor = torch.as_tensor(
-            batch[self.vec_text_column]["seqs"]
-        )  # type:ignore
+            batch[self.vec_text_column]["seqs"]  # type:ignore
+        )
         target_letter_output_tokens = torch.cat(
             (lang_tensor[:, 0, :], text_tensor),
             dim=1,
@@ -249,9 +249,9 @@ class ASRBatchIterator:
         device = self.config.device
         seqs_batch = SeqsBatch(
             src_tokens=batch[self.vec_audio_column]["seqs"].to(device),  # type:ignore
-            src_lengths=batch[self.vec_audio_column]["seq_lens"].to(
+            src_lengths=batch[self.vec_audio_column]["seq_lens"].to(  # type:ignore
                 device
-            ),  # type:ignore
+            ),
             target_tokens=target_letter_target.to(device),
             prev_output_tokens=target_letter_prev_output_tokens.to(device),
             target_lengths=target_letter_target_lengths.to(device),
@@ -284,8 +284,8 @@ class ASRBatchIterator:
             return torch.LongTensor(
                 [
                     self.config.text_tokenizer.create_encoder(
-                        lang=lang_tok.bytes().decode("utf8"),
-                        mode="target",  # type:ignore
+                        lang=lang_tok.bytes().decode("utf8"),  # type:ignore
+                        mode="target",
                     ).prefix_indices.tolist(),
                 ]
             )
