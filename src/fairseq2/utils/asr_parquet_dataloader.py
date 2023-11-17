@@ -12,17 +12,21 @@ import torch
 from torch import Tensor
 
 from fairseq2.data.audio import WaveformToFbankConverter
+from fairseq2.data.cstring import CString
 from fairseq2.data.data_pipeline import DataPipelineBuilder
 from fairseq2.data.text import SentencePieceEncoder
 from fairseq2.models.nllb.tokenizer import NllbTokenizer
 from fairseq2.typing import Device
 from fairseq2.utils.parquet_dataloader import (
-    NestedDictTensor,
+    NestedDict,
     ParquetBasicDataLoader,
     ParquetBasicDataloaderConfig,
     ParquetBatchFormat,
     pyarrow_cpu,
 )
+
+NestedDictTensor = tp.Dict[str, "NestedDictTensorValue"]
+NestedDictTensorValue = tp.Union[torch.Tensor, NestedDictTensor]
 
 
 @dataclass
@@ -52,7 +56,9 @@ class SeqsBatch:
                 del tensor
 
 
-def batch_collater(inp: tp.List[Tensor], padding: int) -> tp.Dict[str, Tensor]:
+def batch_collater(
+    inp: tp.List[Tensor], padding: tp.Optional[int]
+) -> tp.Dict[str, tp.Union[bool, Tensor]]:
     # TODO: replace it with fairseq2 Collater
     seq_lens = torch.IntTensor([x.shape[0] for x in inp])
     return {
@@ -62,7 +68,7 @@ def batch_collater(inp: tp.List[Tensor], padding: int) -> tp.Dict[str, Tensor]:
         "seq_lens": seq_lens,
         "is_ragged": False
         if len(seq_lens) == 0
-        else (seq_lens != seq_lens[0]).any().item(),
+        else bool((seq_lens != seq_lens[0]).any().item()),
     }
 
 
@@ -91,7 +97,7 @@ class ASRDataLoadingConfig(ParquetBasicDataloaderConfig):
 
     dtype: torch.dtype = torch.float16
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         super().__post_init__()
 
         self.output_format = ParquetBatchFormat.torch
@@ -119,7 +125,7 @@ class ASRDataLoadingConfig(ParquetBasicDataloaderConfig):
 
 
 class ASRBatchIterator:
-    """Convenience wrapper for data loading"""
+    """ASR task specific parquet dataloader"""
 
     config: ASRDataLoadingConfig
     raw_parquet_dataloader: ParquetBasicDataLoader
@@ -134,7 +140,7 @@ class ASRBatchIterator:
             self.config.lang_column,
         )
         self.vec_audio_column, self.vec_text_column, self.vec_lang_column = (
-            f"fbank_{aself.udio_column}",
+            f"fbank_{self.audio_column}",
             f"tokenized_{self.text_column}",
             f"prefixed_{self.lang_column}",
         )
@@ -154,19 +160,21 @@ class ASRBatchIterator:
         )
         prefix_fn = self.get_prefix_lambda()
 
-        def vectorize_batch(batch):
+        def vectorize_batch(batch: NestedDict) -> NestedDict:
             batch[self.vec_audio_column] = list(
-                map(converter_to_fbank, batch.pop(self.audio_column))
+                map(
+                    converter_to_fbank, torch.as_tensor(batch.pop(self.audio_column))
+                )  # as_tensor for mypy
             )
             batch[self.vec_text_column] = list(
-                map(tokenizer, batch.pop(self.text_column))
+                map(tokenizer, torch.as_tensor(batch.pop(self.text_column)))
             )
             batch[self.vec_lang_column] = list(
-                map(prefix_fn, batch.pop(self.lang_column))
+                map(prefix_fn, torch.as_tensor(batch.pop(self.lang_column)))
             )
             return batch
 
-        def manual_collater(batch):
+        def manual_collater(batch: tp.Dict[str, tp.Any]) -> tp.Dict[str, tp.Any]:
             batch[self.vec_audio_column] = batch_collater(
                 batch[self.vec_audio_column], padding=self.config.fbank_feats_pad_idx
             )
@@ -198,9 +206,11 @@ class ASRBatchIterator:
 
         return builder
 
-    def filter_audio_fbank_nulls(self, batch: NestedDictTensor) -> NestedDictTensor:
+    def filter_audio_fbank_nulls(
+        self, batch: tp.Dict[str, tp.Any]
+    ) -> tp.Dict[str, tp.Any]:
         null_count_per_row = torch.sum(
-            torch.isnan(batch[self.vec_audio_column]), dim=[-2, -1]
+            torch.isnan(batch[self.vec_audio_column]["seqs"]), dim=[-2, -1]
         )
         if torch.any(null_count_per_row > 0):
             rows_to_keep = null_count_per_row == 0
@@ -212,11 +222,12 @@ class ASRBatchIterator:
         """Convert batch tree into a convenient representation"""
 
         # text tokens
+        lang_tensor: Tensor = torch.as_tensor(batch[self.vec_lang_column])
+        text_tensor: Tensor = torch.as_tensor(
+            batch[self.vec_text_column]["seqs"]
+        )  # type:ignore
         target_letter_output_tokens = torch.cat(
-            (
-                batch[self.vec_lang_column][:, 0, :],
-                batch[self.vec_text_column]["seqs"],
-            ),
+            (lang_tensor[:, 0, :], text_tensor),
             dim=1,
         )
         target_letter_target = target_letter_output_tokens[:, 1:]
@@ -231,23 +242,24 @@ class ASRBatchIterator:
             :, 0
         ] = self.config.text_tokenizer.vocab_info.eos_idx  # type:ignore
 
-        target_letter_target_lengths = (
-            batch[self.vec_text_column]["seq_lens"] + 1
+        target_letter_target_lengths: Tensor = (
+            torch.as_tensor(batch[self.vec_text_column]["seq_lens"]) + 1  # type:ignore
         )  # count EOS
-        target_letter_prefix_tokens = batch[self.vec_lang_column][:, 0, 1:]
 
         device = self.config.device
         seqs_batch = SeqsBatch(
-            src_tokens=batch[self.vec_audio_column]["seqs"].to(device),
-            src_lengths=batch[self.vec_audio_column]["seq_lens"].to(device),
+            src_tokens=batch[self.vec_audio_column]["seqs"].to(device),  # type:ignore
+            src_lengths=batch[self.vec_audio_column]["seq_lens"].to(
+                device
+            ),  # type:ignore
             target_tokens=target_letter_target.to(device),
             prev_output_tokens=target_letter_prev_output_tokens.to(device),
             target_lengths=target_letter_target_lengths.to(device),
-            prefix_tokens=target_letter_prefix_tokens.to(device),
+            prefix_tokens=lang_tensor[:, 0, 1:].to(device),
         )
         return seqs_batch
 
-    def get_to_fbank_converter(self):
+    def get_to_fbank_converter(self) -> tp.Callable[[Tensor], Tensor]:
         _convert_to_fbank = WaveformToFbankConverter(
             num_mel_bins=80,
             waveform_scale=2**15,
@@ -267,13 +279,14 @@ class ASRBatchIterator:
 
         return convert_to_fbank
 
-    def get_prefix_lambda(self):
-        def prefix_fn(lang_tok):
+    def get_prefix_lambda(self) -> tp.Callable[[CString], Tensor]:
+        def prefix_fn(lang_tok: CString) -> Tensor:
             return torch.LongTensor(
                 [
                     self.config.text_tokenizer.create_encoder(
-                        lang=lang_tok.bytes().decode("utf8"), mode="target"
-                    ).prefix_indices.tolist(),  # type:ignore
+                        lang=lang_tok.bytes().decode("utf8"),
+                        mode="target",  # type:ignore
+                    ).prefix_indices.tolist(),
                 ]
             )
 

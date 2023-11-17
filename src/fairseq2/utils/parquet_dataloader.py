@@ -161,16 +161,15 @@ def pyarrow_cpu(nb_cpu: int) -> tp.Generator[None, None, None]:
         pa.set_io_thread_count(nb_io_cpu_old)
 
 
-NestedDictTensor = tp.Dict[str, "NestedDictTensorValue"]
-NestedDictTensorValue = tp.Union[
-    torch.Tensor, tp.List[CString], pd.Series, NestedDictTensor
-]
-BatchOutputType = tp.Union[pa.Table, pd.DataFrame, NestedDictTensor]
+NestedDict = tp.Dict[str, "NestedDictValue"]
+NestedDictValue = tp.Union[torch.Tensor, tp.List[CString], pd.Series, NestedDict]
+
+BatchOutputType = tp.Union[pa.Table, pd.DataFrame, NestedDict]
 
 
 def from_pyarrow_to_torch_tensor(
     arr: tp.Union[pa.Array, pa.ChunkedArray], strict: bool = True
-) -> NestedDictTensorValue:
+) -> NestedDictValue:
     """
     struct_array = pa.Array.from_pandas([{"x": 4, "y": "RR"}] * 10)
     nest_array = pa.Array.from_pandas([[{'a': 1}, {'a': 2}]])
@@ -226,7 +225,7 @@ def from_pyarrow_to_torch_tensor(
         return arr.to_pandas()
 
 
-def pyarrow_table_to_torch_dict(tt: pa.Table, strict: bool = True) -> NestedDictTensor:
+def pyarrow_table_to_torch_dict(tt: pa.Table, strict: bool = True) -> NestedDict:
     return {
         col: from_pyarrow_to_torch_tensor(tt[col], strict) for col in tt.column_names
     }
@@ -498,9 +497,7 @@ class ParquetBasicDataLoader:
         return pipeline_builder
 
     def __iter__(self) -> tp.Generator[BatchOutputType, None, None]:
-        def _to_real_object(
-            x: tp.Union[_TableWrapper, NestedDictTensor]
-        ) -> BatchOutputType:
+        def _to_real_object(x: tp.Union[_TableWrapper, NestedDict]) -> BatchOutputType:
             if isinstance(x, _TableWrapper):
                 return x.table
             else:
