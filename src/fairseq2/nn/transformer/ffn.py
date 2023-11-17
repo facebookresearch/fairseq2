@@ -89,9 +89,9 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
         :param inner_dropout_p:
             The dropout probability on outputs of the inner projection layer.
         :param norm_order:
-            The Layer Normalization order to use.
+            The Layer Normalization order.
         :param layer_norm_factory:
-            The factory to use to construct the Layer Normalization module.
+            The factory to construct the Layer Normalization module.
         """
         super().__init__(model_dim)
 

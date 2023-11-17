@@ -7,7 +7,7 @@
 from dataclasses import dataclass
 from typing import Optional
 
-from fairseq2.models.utils.arch_registry import ArchitectureRegistry
+from fairseq2.models.utils import ArchitectureRegistry
 from fairseq2.models.w2vbert.model import W2VBertModel
 from fairseq2.models.wav2vec2 import Wav2Vec2Config, Wav2Vec2EncoderConfig
 from fairseq2.models.wav2vec2.builder import Wav2Vec2Builder, Wav2Vec2EncoderBuilder
@@ -26,7 +26,7 @@ def _encoder_600m() -> Wav2Vec2EncoderConfig:
         feature_extractor_layer_descs=[],
         feature_extractor_bias=False,
         feature_extractor_layer_norm_convs=False,
-        feature_grad_scale=0,
+        feature_grad_scale=0.0,
         num_fbank_channels=80,
         fbank_stride=2,
         sample_fbank_every_k=1,
@@ -57,7 +57,7 @@ def _encoder_300m() -> Wav2Vec2EncoderConfig:
         feature_extractor_layer_descs=[],
         feature_extractor_bias=False,
         feature_extractor_layer_norm_convs=False,
-        feature_grad_scale=0,
+        feature_grad_scale=0.0,
         num_fbank_channels=80,
         fbank_stride=2,
         sample_fbank_every_k=1,
@@ -102,8 +102,7 @@ class W2VBertConfig:
 
 w2vbert_archs = ArchitectureRegistry[W2VBertConfig]("w2v-bert")
 
-
-w2vbert_arch = w2vbert_archs.marker
+w2vbert_arch = w2vbert_archs.decorator
 
 
 @w2vbert_arch("600m")
@@ -191,7 +190,7 @@ class W2VBertBuilder:
     ) -> None:
         """
         :param config:
-            The configuration to use.
+            The configuration.
         :param w2v2_builder:
             The wav2vec 2.0 builder.
         :param device:
@@ -245,7 +244,7 @@ def create_w2vbert_model(
     """Create a w2v-BERT model.
 
     :param config:
-        The configuration to use.
+        The configuration.
     :param device:
         The device on which to initialize modules.
     :param dtype:

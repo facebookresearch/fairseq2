@@ -238,8 +238,8 @@ class StandardMultiheadAttention(MultiheadAttention):
             If ``True``, query, key, value, and output projections learn an
             additive bias. Ignored for explicitly specified projections.
         :param state_factory:
-            The factory to use to construct :class:`AttentionState` instances
-            for incremental decoding.
+            The factory to construct :class:`AttentionState` instances for
+            incremental decoding.
         """
         super().__init__(model_dim, num_heads)
 

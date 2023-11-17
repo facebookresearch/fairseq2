@@ -66,7 +66,7 @@ class ConformerBlock(TransformerEncoderLayer):
             The dropout probability on outputs of the self attention layer, the
             feed-forward networks, and the Conformer convolution module.
         :param layer_norm_factory:
-            The factory to use to construct the Layer Normalization modules.
+            The factory to construct the Layer Normalization modules.
         """
         model_dim = self_attn.model_dim
 

@@ -39,8 +39,7 @@ class ArchitectureRegistry(Generic[ModelConfigT]):
         :param arch_name:
             The name of the architecture.
         :param config_factory:
-            The callable responsible for constructing the model configuration of
-            the architecture.
+            The factory to construct model configurations.
         """
         if arch_name in self.configs:
             raise ValueError(
@@ -66,11 +65,11 @@ class ArchitectureRegistry(Generic[ModelConfigT]):
         """Return the names of all supported architectures."""
         return self.configs.keys()
 
-    def marker(
+    def decorator(
         self, arch_name: str
     ) -> Callable[[ModelConfigFactory[ModelConfigT]], ModelConfigFactory[ModelConfigT]]:
-        """Return a decorator that registers the specified architecture with the
-        decorated callable as its model configuration factory.
+        """Register the specified architecture with the decorated model
+        configuration factory.
 
         :param arch_name:
             The name of the architecture.

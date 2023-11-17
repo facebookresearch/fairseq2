@@ -11,7 +11,7 @@ from torch.nn import GELU, SiLU
 
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
-from fairseq2.models.utils.arch_registry import ArchitectureRegistry
+from fairseq2.models.utils import ArchitectureRegistry
 from fairseq2.models.wav2vec2.feature_extractor import (
     Wav2Vec2FbankFeatureExtractor,
     Wav2Vec2FeatureExtractor,
@@ -195,7 +195,7 @@ class Wav2Vec2EncoderBuilder:
     ) -> None:
         """
         :param config:
-            The configuration to use.
+            The configuration.
         :param device:
             The device on which to initialize modules.
         :param dtype:
@@ -446,8 +446,7 @@ class Wav2Vec2Config:
 
 wav2vec2_archs = ArchitectureRegistry[Wav2Vec2Config]("wav2vec2")
 
-
-wav2vec2_arch = wav2vec2_archs.marker
+wav2vec2_arch = wav2vec2_archs.decorator
 
 
 @wav2vec2_arch("base")
@@ -495,7 +494,7 @@ class Wav2Vec2Builder:
     ) -> None:
         """
         :param config:
-            The configuration to use.
+            The configuration.
         :param encoder_builder_cls:
             The wav2vec 2.0 encoder builder.
         :param device:
@@ -567,7 +566,7 @@ def create_wav2vec2_model(
     """Create a wav2vec 2.0 model.
 
     :param config:
-        The configuration to use.
+        The configuration.
     :param device:
         The device on which to initialize modules.
     :param dtype:
