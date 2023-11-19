@@ -68,8 +68,6 @@ target_sources(fairseq2n
         data/text/sentencepiece/sp_model.cc
         data/text/sentencepiece/sp_processor.cc
         data/video/video_decoder.cc
-        data/video/detail/avcodec_resources.cc
-        data/video/detail/avformat_resources.cc
 )
 
 if(FAIRSEQ2N_USE_CUDA)
@@ -111,12 +109,15 @@ find_path(AVFORMAT_INCLUDE_DIR libavformat/avformat.h)
 find_library(AVFORMAT_LIBRARY avformat)
 find_path(AVUTIL_INCLUDE_DIR libavutil/avutil.h)
 find_library(AVUTIL_LIBRARY avutil)
+find_path(SWSCALE_INCLUDE_DIR libswscale/swscale.h)
+find_library(SWSCALE_LIBRARY swscale)
 
 target_include_directories(fairseq2n 
     PRIVATE 
         ${AVCODEC_INCLUDE_DIR} 
         ${AVFORMAT_INCLUDE_DIR} 
         ${AVUTIL_INCLUDE_DIR} 
+        ${SWSCALE_INCLUDE_DIR}        
 )
 
 target_link_libraries(fairseq2n
@@ -125,6 +126,7 @@ target_link_libraries(fairseq2n
         ${AVCODEC_LIBRARY}
         ${AVFORMAT_LIBRARY}
         ${AVUTIL_LIBRARY}
+        ${SWSCALE_LIBRARY}
     PRIVATE
         fmt::fmt
         Iconv::Iconv

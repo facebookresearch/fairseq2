@@ -6,9 +6,6 @@
 
 #pragma once
 
-#include "fairseq2n/data/video/detail/avformat_resources.h"
-#include "fairseq2n/data/video/detail/avcodec_resources.h"
-
 #include <optional>
 
 #include "fairseq2n/api.h"
@@ -22,6 +19,7 @@ extern "C" {
     #include <libavformat/avformat.h>
     #include <libavformat/avio.h>
     #include <libavutil/avutil.h>
+    #include <libavutil/imgutils.h>
     #include <libswscale/swscale.h>
 }
 
