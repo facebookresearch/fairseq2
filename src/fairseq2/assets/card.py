@@ -33,26 +33,33 @@ class AssetCard:
     """Holds information about an asset."""
 
     name: str
-    data: MutableMapping[str, Any]
+    metadata: MutableMapping[str, Any]
     base: Optional[AssetCard]
 
     def __init__(
         self,
-        name: str,
-        data: MutableMapping[str, Any],
+        metadata: MutableMapping[str, Any],
         base: Optional[AssetCard] = None,
     ) -> None:
         """
-        :param name:
-            The name of the asset.
-        :param data:
-            The data to be held in the card. Each key-value entry (i.e. field)
-            should contain a specific piece of information about the asset.
+        :param metadata:
+            The metadata to be held in the card. Each key-value entry should
+            contain a specific piece of information about the asset.
         :param base:
             The card that this card derives from.
         """
+        try:
+            name = metadata["name"]
+        except KeyError:
+            raise AssetCardError("`metadata` must contain a key named 'name'.")
+
+        if not isinstance(name, str):
+            raise AssetCardError(
+                f"The value of 'name' in `metadata` must be of type `{str}`, but is of type `{type(name)}` instead."
+            )
+
         self.name = name
-        self.data = data
+        self.metadata = metadata
         self.base = base
 
     def field(self, name: str) -> AssetCardField:
@@ -69,17 +76,17 @@ class AssetCard:
     def _get_field_value(self, name: str, path: List[str]) -> Any:
         assert len(path) > 0
 
-        data = self.data
+        metadata = self.metadata
 
         contains = True
 
         for field in path:
-            if data is None:
+            if metadata is None:
                 contains = False
 
                 break
 
-            if not isinstance(data, Mapping):
+            if not isinstance(metadata, Mapping):
                 pathname = ".".join(path)
 
                 raise AssetCardFieldNotFoundError(
@@ -87,7 +94,7 @@ class AssetCard:
                 )
 
             try:
-                data = data[field]
+                metadata = metadata[field]
             except KeyError:
                 contains = False
 
@@ -103,24 +110,24 @@ class AssetCard:
                 f"The asset card '{name}' must have a field named '{pathname}'."
             )
 
-        return data
+        return metadata
 
     def _set_field_value(self, path: List[str], value: Any) -> None:
         assert len(path) > 0
 
-        data = self.data
+        metadata = self.metadata
 
         for depth, field in enumerate(path[:-1]):
             try:
-                data = data[field]
+                metadata = metadata[field]
             except KeyError:
                 tmp: Dict[str, Any] = {}
 
-                data[field] = tmp
+                metadata[field] = tmp
 
-                data = tmp
+                metadata = tmp
 
-            if not isinstance(data, Mapping):
+            if not isinstance(metadata, Mapping):
                 conflict_pathname = ".".join(path[: depth + 1])
 
                 pathname = ".".join(path)
@@ -129,10 +136,10 @@ class AssetCard:
                     f"The asset card '{self.name}' cannot have a field named '{pathname}' due to path conflict at '{conflict_pathname}'."
                 )
 
-        data[path[-1]] = value
+        metadata[path[-1]] = value
 
     def __str__(self) -> str:
-        return str(self.data)
+        return str(self.metadata)
 
 
 class AssetCardField:
@@ -267,7 +274,7 @@ class AssetCardField:
         values.sort()
 
         raise AssetCardError(
-            f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be one of {values}, but is {repr(value)} instead."
+            f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be one of {repr(values)}, but is {repr(value)} instead."
         )
 
     def as_uri(self) -> str:
@@ -311,14 +318,14 @@ class AssetCardField:
             pathname = ".".join(self.path)
 
             raise AssetCardError(
-                f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be '{value}', but is {repr(v)} instead."
+                f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be {repr(value)}, but is {repr(v)} instead."
             )
 
         return self
 
 
 class AssetCardError(AssetError):
-    """Raised when an asset card cannot be processed."""
+    """Raised when an asset card operation fails."""
 
 
 class AssetCardFieldNotFoundError(AssetCardError):

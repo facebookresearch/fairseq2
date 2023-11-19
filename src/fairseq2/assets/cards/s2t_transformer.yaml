@@ -1,0 +1,62 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+name: s2t_transformer_mustc_asr_de_s
+model_type: s2t_transformer
+model_arch: small
+model_config:
+  target_vocab_info:
+    size: 5000
+task: transcription
+target_langs: [en]
+checkpoint: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_de_asr_transformer_s.pt"
+tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_de_asr_vocab_unigram5000.zip;path=spm_unigram_5000.model"
+
+---
+
+name: s2t_transformer_mustc_asr_es_s
+model_type: s2t_transformer
+model_arch: small
+model_config:
+  target_vocab_info:
+    size: 5000
+task: transcription
+target_langs: [en]
+checkpoint: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_es_asr_transformer_s.pt"
+tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_es_asr_vocab_unigram5000.zip;path=spm_unigram_5000.model"
+
+---
+
+name: s2t_transformer_mustc_asr_jt_m
+model_type: s2t_transformer
+model_arch: medium
+task: transcription
+target_langs: [en]
+checkpoint: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_joint_asr_transformer_m.pt"
+tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_joint_asr_vocab_unigram10000.zip;path=spm_unigram_10000.model"
+
+---
+
+name: s2t_transformer_mustc_st_de_s
+model_type: s2t_transformer
+model_arch: small
+model_config:
+  target_vocab_info:
+    size: 8000
+task: translation
+target_langs: [de]
+checkpoint: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_de_st_transformer_s.pt"
+tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_de_st_vocab_unigram8000.zip;path=spm_unigram_8000.model"
+
+---
+
+name: s2t_transformer_mustc_st_jt_m
+model_type: s2t_transformer
+model_arch: medium
+task: translation
+target_langs: [de, es, fr, it, nl, pt, ro, ru]
+checkpoint: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_multilingual_st_transformer_m.pt"
+tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/mustc_multilingual_st_vocab_unigram10000.zip;path=spm_unigram_10000.model"

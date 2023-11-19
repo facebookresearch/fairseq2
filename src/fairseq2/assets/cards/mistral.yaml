@@ -1,0 +1,19 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+name: mistral_7b
+model_type: mistral
+model_arch: 7b
+checkpoint: "https://files.mistral-7b-v0-1.mistral.ai/mistral-7B-v0.1.tar;path=mistral-7B-v0.1%2Fconsolidated.00.pth"
+tokenizer: "https://files.mistral-7b-v0-1.mistral.ai/mistral-7B-v0.1.tar;path=mistral-7B-v0.1%2Ftokenizer.model"
+
+---
+
+name: mistral_7b_instruct
+model_type: mistral
+model_arch: 7b
+checkpoint: "https://files.mistral-7b-v0-1.mistral.ai/mistral-7B-instruct-v0.1b.tar;path=Mistral-7B-instruct-v0.1%2Fconsolidated.00.pth"
+tokenizer: "https://files.mistral-7b-v0-1.mistral.ai/mistral-7B-instruct-v0.1b.tar;path=Mistral-7B-instruct-v0.1%2Ftokenizer.model"

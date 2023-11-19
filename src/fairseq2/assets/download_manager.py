@@ -17,7 +17,7 @@ from typing import Dict, Optional, final
 from urllib.error import HTTPError
 from urllib.parse import unquote, urlparse
 from urllib.request import Request, urlopen
-from zipfile import ZipFile
+from zipfile import BadZipFile, ZipFile
 
 import torch
 from tqdm import tqdm  # type: ignore[import]
@@ -27,7 +27,7 @@ from fairseq2.typing import finaloverride
 
 
 class AssetDownloadManager(ABC):
-    """Downloads and caches assets."""
+    """Downloads assets."""
 
     @abstractmethod
     def download_checkpoint(
@@ -109,8 +109,8 @@ class AssetDownloadManager(ABC):
 
 
 @final
-class DefaultAssetDownloadManager(AssetDownloadManager):
-    """Downloads and caches assets to the file system."""
+class InProcAssetDownloadManager(AssetDownloadManager):
+    """Downloads assets in the running process."""
 
     @finaloverride
     def download_checkpoint(
@@ -169,8 +169,8 @@ class DefaultAssetDownloadManager(AssetDownloadManager):
 class _AssetDownloadOp:
     uri: str
     params: Dict[str, str]
-    download_path: Path
-    download_filename: str
+    download_path: Optional[Path]
+    download_filename: Optional[str]
     display_name: str
     force: bool
     progress: bool
@@ -186,8 +186,8 @@ class _AssetDownloadOp:
     ) -> None:
         self.uri = uri
         self.params = {}
-        self.download_path = Path()
-        self.download_filename = ""
+        self.download_path = None
+        self.download_filename = None
         self.display_name = display_name
         self.force = force
         self.progress = progress
@@ -244,7 +244,7 @@ class _AssetDownloadOp:
 
         if parsed_uri.scheme == "file" and parsed_uri.netloc:
             raise ValueError(
-                f"`uri` has the file scheme and must have an absolute pathname, but is '{uri}' instead."
+                f"`uri` has the 'file' scheme and must have an absolute pathname, but is '{uri}' instead."
             )
 
         path = PurePath(parsed_uri.path)
@@ -281,6 +281,8 @@ class _AssetDownloadOp:
         return None
 
     def _init_download_path(self) -> None:
+        assert self.download_filename is not None
+
         cache_root_pathname = os.getenv("FAIRSEQ2_CACHE_DIR")
         if cache_root_pathname:
             try:
@@ -301,6 +303,8 @@ class _AssetDownloadOp:
         )
 
     def _download_asset(self) -> None:
+        assert self.download_path is not None
+
         dir_path = self.download_path.parent
 
         if dir_path.exists():
@@ -355,6 +359,8 @@ class _AssetDownloadOp:
 
             request = Request(
                 self.uri,
+                # Most hosting providers return 403 if the user-agent is not
+                # known. Act like we are Firefox.
                 headers={
                     "User-Agent": "Mozilla/5.0 (X11; Linux i686; rv:109.0) Gecko/20100101 Firefox/119.0"
                 },
@@ -425,8 +431,11 @@ class _AssetDownloadOp:
             succeeded = True
 
     def _ensure_asset_extracted(self) -> None:
+        assert self.download_path is not None
+
         download_path = self.download_path
 
+        # Check if we have already extracted the asset.
         if not download_path.exists():
             return
 
@@ -437,9 +446,9 @@ class _AssetDownloadOp:
             try:
                 with ZipFile(download_path) as fp:
                     fp.extractall(path=download_path.parent)
-            except (KeyError, IOError) as ex:
+            except (KeyError, IOError, BadZipFile) as ex:
                 raise AssetError(
-                    f"The zip file of the {self.display_name} cannot be extracted. See nested exception for details."
+                    f"The zip file of the {self.display_name} ({download_path}) cannot be extracted. See nested exception for details."
                 ) from ex
 
             try:
@@ -455,7 +464,7 @@ class _AssetDownloadOp:
                     fp.extractall(path=download_path.parent)
             except (KeyError, IOError) as ex:
                 raise AssetError(
-                    f"The tar file of the {self.display_name} cannot be extracted. See nested exception for details."
+                    f"The tar file of the {self.display_name} ({download_path}) cannot be extracted. See nested exception for details."
                 ) from ex
 
             try:
@@ -464,25 +473,29 @@ class _AssetDownloadOp:
                 pass
 
     def _get_final_asset_path(self) -> Path:
+        assert self.download_path is not None
+
+        # If the asset is a standalone file (i.e. no zip or tar), ignore the
+        # 'path' parameter and return the download path.
         if self.download_path.exists():
             return self.download_path
 
         dir_path = self.download_path.parent
 
-        rel_member_pathname = self.params.get("member", "")
-        if len(rel_member_pathname) == 0:
+        rel_pathname = self.params.get("path", "")
+        if len(rel_pathname) == 0:
             return dir_path
 
-        member_path = dir_path.joinpath(rel_member_pathname).resolve()
+        rel_path = dir_path.joinpath(rel_pathname).resolve()
 
         try:
-            member_path.relative_to(dir_path)
+            rel_path.relative_to(dir_path)
         except ValueError:
             raise AssetError(
-                f"The 'member' parameter of '{self.uri}' points to a path ({rel_member_pathname}) outside of the asset cache directory."
+                f"The 'path' URI parameter of the {self.display_name} ({rel_pathname}) points to a path outside of the asset cache directory."
             )
 
-        return member_path
+        return rel_path
 
     @staticmethod
     def _print_progress(s: str) -> None:
@@ -490,7 +503,7 @@ class _AssetDownloadOp:
 
 
 class AssetDownloadError(AssetError):
-    """Raised when a download operation fails."""
+    """Raised when an asset download operation fails."""
 
 
-download_manager = DefaultAssetDownloadManager()
+download_manager = InProcAssetDownloadManager()

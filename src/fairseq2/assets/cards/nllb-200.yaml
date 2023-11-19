@@ -4,6 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+name: nllb-200
 model_type: nllb
 tokenizer: "https://tinyurl.com/flores200sacrebleuspm"
 default_lang: eng_Latn
@@ -210,3 +211,31 @@ langs:
   - zho_Hans
   - zho_Hant
   - zul_Latn
+
+---
+
+name: nllb-200_dense_1b
+base: nllb-200
+model_arch: dense_1b
+checkpoint: "https://tinyurl.com/nllb200dense1bcheckpoint"
+
+---
+
+name: nllb-200_dense_3b
+base: nllb-200
+model_arch: dense_3b
+checkpoint: "https://tinyurl.com/nllb200dense3bcheckpoint"
+
+---
+
+name: nllb-200_dense_distill_1b
+base: nllb-200
+model_arch: dense_1b
+checkpoint: "https://tinyurl.com/nllb200densedst1bcheckpoint"
+
+---
+
+name: nllb-200_dense_distill_600m
+base: nllb-200
+model_arch: dense_600m
+checkpoint: "https://tinyurl.com/nllb200densedst600mcheckpoint"
