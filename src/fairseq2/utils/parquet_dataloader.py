@@ -124,6 +124,12 @@ class ParquetBasicDataloaderConfig:
     Whether pyarrow should use its internal parallelism threads to read the parquet part.
     Since we rely on the external parallelism, this param is tuned off.
     """
+    filesystem: tp.Optional[pa.fs.FileSystem] = None
+    """
+    Filesystem to read parquet files from. S3 example :
+    >>> import s3fs
+    >>> filesystem = s3fs.core.S3FileSystem(...)
+    """
 
     def __post_init__(self) -> None:
         assert self.parquet_path, "requires path"
@@ -269,7 +275,10 @@ class ParquetBasicDataLoader:
 
         # split_row_groups=True is not supported yet
         self.source_ds = pq.ParquetDataset(
-            self.config.parquet_path, validate_schema=True, filters=self.config.filters
+            self.config.parquet_path,
+            validate_schema=True,
+            filters=self.config.filters,
+            filesystem=self.config.filesystem,
         )
 
         self.columns = self.config.columns or self.source_ds.schema.names
@@ -278,6 +287,16 @@ class ParquetBasicDataLoader:
         if self.config.order_by is not None:
             assert self.config.order_by in self.source_ds.schema.names
 
+        self._all_fragments = self.get_dataset_fragments()
+        self._columns_to_read = self.get_column_to_read()
+
+    # def __repr__(self) -> str:
+    #     """ count rows and other simple stats """"
+
+    # def head(self, nb:int=5) -> pa.Table:
+    #     return self.source_ds.head(nb=5)
+
+    def get_column_to_read(self) -> tp.List[str]:
         partitioning_keys = (
             [
                 name
@@ -295,14 +314,17 @@ class ParquetBasicDataLoader:
         ]
 
         if self.config.order_by is not None:
-            self._columns_to_read = sorted(
-                set(columns_wo_partition_keys) | set([self.config.order_by])
-            )
+            return sorted(set(columns_wo_partition_keys) | set([self.config.order_by]))
         else:
-            self._columns_to_read = columns_wo_partition_keys
+            return sorted(columns_wo_partition_keys)
 
+    def get_dataset_fragments(self) -> tp.List[pa.dataset.Fragment]:
+        """
+        This could be simplified once `split_row_groups=True` is implemented at `pq.ParquetDataset`.
+        We could also return a generator instead of list (when getting full infos from S3 may be slow)
+        """
         if self.config.split_to_row_groups:
-            self._all_fragments = [
+            return [
                 piece
                 for fragment in self.source_ds._dataset.get_fragments(
                     self.config.filters
@@ -310,17 +332,10 @@ class ParquetBasicDataLoader:
                 for piece in fragment.split_by_row_group()
             ]
         else:
-            self._all_fragments = list(
-                self.source_ds._dataset.get_fragments(self.config.filters)
-            )
+            return list(self.source_ds._dataset.get_fragments(self.config.filters))
 
-    # def __repr__(self) -> str:
-    #     """ count rows and other simple stats """"
-
-    # def head(self, nb:int=5) -> pa.Table:
-    #     return self.source_ds.head(nb=5)
-
-    def schema(self) -> pa.Schema:
+    @property
+    def full_schema(self) -> pa.Schema:
         """
         Returns the full schema of the parquet datasource
         """
@@ -459,8 +474,9 @@ class ParquetBasicDataLoader:
         self, seed: tp.Optional[int] = None, epoch: int = 0
     ) -> DataPipelineBuilder:
         seed = seed if seed is not None else self.config.seed
+        current_seed = hash((seed, epoch)) % 2**32 if seed is not None else None
         np_rs = np.random.RandomState(
-            hash((seed, epoch)) % 2**32
+            current_seed
         )  # TODO: use stable hashing instead python
         if self.config.shuffle:
             all_shuffled_fragments = list(np_rs.permutation(self._all_fragments))
