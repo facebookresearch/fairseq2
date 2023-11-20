@@ -323,16 +323,12 @@ class ParquetBasicDataLoader:
         This could be simplified once `split_row_groups=True` is implemented at `pq.ParquetDataset`.
         We could also return a generator instead of list (when getting full infos from S3 may be slow)
         """
-        if self.config.split_to_row_groups:
-            return [
-                piece
-                for fragment in self.source_ds._dataset.get_fragments(
-                    self.config.filters
-                )
-                for piece in fragment.split_by_row_group()
-            ]
-        else:
-            return list(self.source_ds._dataset.get_fragments(self.config.filters))
+        return list(self.source_ds._dataset.get_fragments(self.config.filters))
+
+    def split_fragment_in_row_groups(
+        self, fragment: pa.dataset.Fragment
+    ) -> tp.List[pa.dataset.Fragment]:
+        return list(fragment.split_by_row_group())
 
     @property
     def full_schema(self) -> pa.Schema:
@@ -360,7 +356,7 @@ class ParquetBasicDataLoader:
         return table
 
     @staticmethod
-    def compute_length_splits(
+    def _compute_length_splits(
         length_col: npt.NDArray[np.int32], max_tokens: int
     ) -> tp.List[npt.NDArray[np.int32]]:
         """split sequence of length_col in the chunks such that total length is ~ max_tokens
@@ -390,7 +386,7 @@ class ParquetBasicDataLoader:
         return splits
 
     @staticmethod
-    def compute_length(pa_array: pa.Array) -> npt.NDArray[np.int32]:
+    def _compute_length(pa_array: pa.Array) -> npt.NDArray[np.int32]:
         type_ = pa_array.type
         if pa.types.is_list(type_) or pa.types.is_large_list(type_):
             length_col = pa.compute.list_value_length(pa_array).to_numpy()
@@ -404,7 +400,7 @@ class ParquetBasicDataLoader:
         return np.asarray(length_col, dtype=np.int32)
 
     @staticmethod
-    def concat_table(
+    def _concat_table(
         list_table: tp.List[_TableWrapper], drop_null: bool
     ) -> _TableWrapper:
         return _TableWrapper(
@@ -431,7 +427,7 @@ class ParquetBasicDataLoader:
 
         table: pa.Table = wrap_table.table
         if order_by is not None:
-            length_col = self.compute_length(table[order_by])
+            length_col = self._compute_length(table[order_by])
             # add small perturbation to avoid same sample appear together during different epochs
             if self.config.shuffle:
                 perturbation = random_state.randint(
@@ -454,7 +450,7 @@ class ParquetBasicDataLoader:
             )
             batches = [ind["order"] for ind in order_tt.to_batches(batch_size)]
         elif max_tokens is not None:
-            batches = self.compute_length_splits(length_col, max_tokens)
+            batches = self._compute_length_splits(length_col, max_tokens)
         else:
             raise ValueError("unknown batching method")
 
@@ -478,14 +474,32 @@ class ParquetBasicDataLoader:
         np_rs = np.random.RandomState(
             current_seed
         )  # TODO: use stable hashing instead python
+        if current_seed:
+            torch.manual_seed(current_seed)  # used by `DataPipeline.shuffle`
+
+        pipeline_builder = read_sequence(self.get_dataset_fragments())
+
         if self.config.shuffle:
-            all_shuffled_fragments = list(np_rs.permutation(self._all_fragments))
-        else:
-            all_shuffled_fragments = self._all_fragments
+            # shuffle them in full memory since they are already loaded
+            pipeline_builder = pipeline_builder.shuffle(shuffle_window=0)
+
+        if self.config.split_to_row_groups:
+            pipeline_builder = pipeline_builder.yield_from(
+                lambda fragment: read_sequence(
+                    self.split_fragment_in_row_groups(fragment)
+                ).and_return()
+            )
+            if self.config.shuffle:
+                pipeline_builder = pipeline_builder.shuffle(
+                    shuffle_window=10
+                    * self.config.nb_prefetch
+                    * self.config.nb_producers
+                )
 
         pipeline_builder = (
-            read_sequence(all_shuffled_fragments)
-            .shard(shard_idx=self.config.rank, num_shards=self.config.world_size)
+            pipeline_builder.shard(
+                shard_idx=self.config.rank, num_shards=self.config.world_size
+            )
             .map(
                 self._load_one_fragement,
                 num_parallel_calls=self.config.num_parallel_calls,
@@ -493,7 +507,7 @@ class ParquetBasicDataLoader:
             .bucket(self.config.nb_producers)
             .prefetch(self.config.nb_prefetch)
             .map(
-                partial(self.concat_table, drop_null=self.config.drop_null),
+                partial(self._concat_table, drop_null=self.config.drop_null),
                 num_parallel_calls=self.config.nb_prefetch,
             )
             .yield_from(

@@ -173,7 +173,7 @@ class TestParquetDataloader(unittest.TestCase):
         self.assertEqual(
             list(res[0].columns), ["string_col2", "list_int_col", "float_col"]
         )
-        self.assertEqual(Counter(map(len, res)), Counter({3: 340, 2: 1}))
+        self.assertEqual(Counter(map(len, res)), Counter({3: 340, 1: 2}))
 
     def test_filtered_with_columns_dataload_min_batch_size(self) -> None:
         config = ParquetBasicDataloaderConfig(
