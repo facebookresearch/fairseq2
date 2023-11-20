@@ -145,7 +145,7 @@ class ASRBatchIterator:
             f"prefixed_{self.lang_column}",
         )
 
-    def __iter__(self) -> tp.Iterable[SeqsBatch]:
+    def __iter__(self) -> tp.Generator[SeqsBatch, None, None]:
         with pyarrow_cpu(self.config.num_parallel_calls):
             yield from iter(
                 self.build_asr_datapipeline()
@@ -163,14 +163,14 @@ class ASRBatchIterator:
         def vectorize_batch(batch: NestedDict) -> NestedDict:
             batch[self.vec_audio_column] = list(
                 map(
-                    converter_to_fbank, torch.as_tensor(batch.pop(self.audio_column))
+                    converter_to_fbank, batch.pop(self.audio_column)  # type:ignore
                 )  # as_tensor for mypy
             )
             batch[self.vec_text_column] = list(
-                map(tokenizer, torch.as_tensor(batch.pop(self.text_column)))
+                map(tokenizer, batch.pop(self.text_column))  # type:ignore
             )
             batch[self.vec_lang_column] = list(
-                map(prefix_fn, torch.as_tensor(batch.pop(self.lang_column)))
+                map(prefix_fn, batch.pop(self.lang_column))  # type:ignore
             )
             return batch
 
