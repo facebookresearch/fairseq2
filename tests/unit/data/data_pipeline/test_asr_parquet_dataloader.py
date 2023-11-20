@@ -19,12 +19,12 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 
+from fairseq2.models.nllb import load_nllb_tokenizer
 from fairseq2.utils.asr_parquet_dataloader import (
-    ASRDataLoadingConfig,
     ASRBatchIterator,
+    ASRDataLoadingConfig,
     SeqsBatch,
 )
-from fairseq2.models.nllb import load_nllb_tokenizer
 
 
 def gen_random_string(length: int) -> str:
