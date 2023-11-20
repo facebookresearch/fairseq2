@@ -153,14 +153,14 @@ isort . && black .
 ```
 
 ### C++
-For C++ and CUDA , we do not enforce our coding conventions via a tool (e.g.
+For C++ and CUDA, we do not enforce our coding conventions via a tool (e.g.
 clang-format), but we expect you to follow them. You can check out any C++ file
 in our code base to study our conventions. Since C++ syntax can become pretty
 complex at times, refrain from being too pedantic and prioritize readability
 over convention.
 
 
-## Check List For Pull Requests
+## Check List for Pull Requests
 1. Fork the repository and create your branch from `main`.
 2. If you've added code that should be tested, add tests, and ensure the entire
    test suite passes.
@@ -171,7 +171,7 @@ over convention.
 
 ## Contributor License Agreement ("CLA")
 In order to accept your pull request, we need you to submit a CLA. You only need
-to do this once to work on any of Facebook's open source projects.
+to do this once to work on any of Facebook's open-source projects.
 
 Complete your CLA here: <https://code.facebook.com/cla>
 
