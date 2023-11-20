@@ -112,9 +112,9 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
             The dropout probability on outputs of the self attention layer and
             the feed-forward network.
         :param norm_order:
-            The Layer Normalization order to use.
+            The Layer Normalization order.
         :param layer_norm_factory:
-            The factory to use to construct the Layer Normalization modules.
+            The factory to construct the Layer Normalization modules.
         """
         model_dim = self_attn.model_dim
 

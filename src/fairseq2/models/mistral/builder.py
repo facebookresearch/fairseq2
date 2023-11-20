@@ -14,7 +14,7 @@ from fairseq2.models.transformer import (
     TransformerFrontend,
     init_final_projection,
 )
-from fairseq2.models.utils.arch_registry import ArchitectureRegistry
+from fairseq2.models.utils import ArchitectureRegistry
 from fairseq2.nn.embedding import StandardEmbedding
 from fairseq2.nn.normalization import LayerNorm, RMSNorm
 from fairseq2.nn.position_encoder import RotaryEncoder
@@ -71,8 +71,7 @@ class MistralConfig:
 
 mistral_archs = ArchitectureRegistry[MistralConfig]("mistral")
 
-
-mistral_arch = mistral_archs.marker
+mistral_arch = mistral_archs.decorator
 
 
 @mistral_arch("7b")
@@ -114,7 +113,7 @@ class MistralBuilder:
     ) -> None:
         """
         :param config:
-            The configuration to use.
+            The configuration.
         :param device:
             The device on which to initialize modules.
         :param dtype:
@@ -259,7 +258,7 @@ def create_mistral_model(
     """Create a Mistral model.
 
     :param config:
-        The configuration to use.
+        The configuration.
     :param device:
         The device on which to initialize modules.
     :param dtype:

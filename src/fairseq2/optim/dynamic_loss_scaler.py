@@ -61,7 +61,7 @@ class DynamicLossScaler:
         :param min_scale:
             The minimum allowed scale.
         :param logger:
-            The logger to use to output diagnostic messages.
+            The logger to output diagnostic messages.
         :param enabled:
             If ``False``, disables loss scaling.
         """

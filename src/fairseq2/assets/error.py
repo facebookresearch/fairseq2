@@ -6,4 +6,4 @@
 
 
 class AssetError(RuntimeError):
-    """Raised when an asset cannot be processed."""
+    """Raised when an asset operation fails."""

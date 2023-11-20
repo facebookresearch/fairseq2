@@ -11,21 +11,24 @@ from fairseq2.assets import AssetCard, AssetCardError, AssetCardFieldNotFoundErr
 
 class TestAssetCard:
     def setup_method(self) -> None:
-        root_data = {
+        root_metadata = {
+            "name": "root-card",
             "field3": 3,
         }
 
-        root_card = AssetCard("root-card", root_data)
+        root_card = AssetCard(root_metadata)
 
-        base_data = {
+        base_metadata = {
+            "name": "base-card",
             "field1": "base-foo1",
             "field2": {"sub-field1": "sub-foo1"},
             "field8": [1, "b", 3],
         }
 
-        base_card = AssetCard("base-card", base_data, root_card)
+        base_card = AssetCard(base_metadata, root_card)
 
-        data = {
+        metadata = {
+            "name": "test-card",
             "field1": "foo1",
             "field2": {
                 "sub-field2": "sub-foo2",
@@ -37,7 +40,7 @@ class TestAssetCard:
             "field9": "http://foo.com",
         }
 
-        self.card = AssetCard("test-card", data, base_card)
+        self.card = AssetCard(metadata, base_card)
 
     def test_field_works(self) -> None:
         value = self.card.field("field1").as_(str)

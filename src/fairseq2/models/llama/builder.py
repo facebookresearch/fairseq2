@@ -14,7 +14,7 @@ from fairseq2.models.transformer import (
     TransformerFrontend,
     init_final_projection,
 )
-from fairseq2.models.utils.arch_registry import ArchitectureRegistry
+from fairseq2.models.utils import ArchitectureRegistry
 from fairseq2.nn.embedding import StandardEmbedding
 from fairseq2.nn.lora import LoRAConfig
 from fairseq2.nn.normalization import LayerNorm, RMSNorm
@@ -71,8 +71,7 @@ class LLaMAConfig:
 
 llama_archs = ArchitectureRegistry[LLaMAConfig]("llama")
 
-
-llama_arch = llama_archs.marker
+llama_arch = llama_archs.decorator
 
 
 @llama_arch("7b")
@@ -217,7 +216,7 @@ class LLaMABuilder:
     ) -> None:
         """
         :param config:
-            The configuration to use.
+            The configuration.
         :param device:
             The device on which to initialize modules.
         :param dtype:
@@ -354,7 +353,7 @@ def create_llama_model(
     """Create a LLaMA model.
 
     :param config:
-        The configuration to use.
+        The configuration.
     :param device:
         The device on which to initialize modules.
     :param dtype:
