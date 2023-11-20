@@ -287,7 +287,6 @@ class ParquetBasicDataLoader:
         if self.config.order_by is not None:
             assert self.config.order_by in self.source_ds.schema.names
 
-        self._all_fragments = self.get_dataset_fragments()
         self._columns_to_read = self.get_column_to_read()
 
     # def __repr__(self) -> str:
