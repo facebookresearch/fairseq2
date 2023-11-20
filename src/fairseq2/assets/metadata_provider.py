@@ -8,7 +8,7 @@ import os
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict, Optional, final
+from typing import Any, Dict, Optional, Sequence, final
 
 import yaml
 from typing_extensions import NoReturn
@@ -130,6 +130,47 @@ class FileAssetMetadataProvider(AssetMetadataProvider):
     @finaloverride
     def clear_cache(self) -> None:
         self._cache = None
+
+
+@final
+class InProcAssetMetadataProvider(AssetMetadataProvider):
+    """Provides asset metadata stored in-memory."""
+
+    _metadata: Dict[str, Dict[str, Any]]
+
+    def __init__(self, metadata: Sequence[Dict[str, Any]]) -> None:
+        self._metadata = {}
+
+        for idx, m in enumerate(metadata):
+            try:
+                name = m["name"]
+            except KeyError:
+                raise AssetMetadataError(
+                    f"The asset metadata at index {idx} in `metadata` does not have a name."
+                )
+
+            if not isinstance(name, str):
+                raise AssetMetadataError(
+                    f"The asset metadata at index {idx} in `metadata` has an invalid name."
+                )
+
+            if name in self._metadata:
+                raise AssetMetadataError(f"Two assets have the same name '{name}'.")
+
+            self._metadata[name] = m
+
+    @finaloverride
+    def get_metadata(self, name: str) -> Dict[str, Any]:
+        try:
+            return deepcopy(self._metadata[name])
+        except KeyError:
+            raise AssetNotFoundError(
+                f"An asset with the name '{name}' cannot be found."
+            )
+
+    @finaloverride
+    def clear_cache(self) -> None:
+        pass
 
 
 class AssetNotFoundError(AssetError):

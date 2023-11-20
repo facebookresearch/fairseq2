@@ -26,6 +26,9 @@ from fairseq2.assets.metadata_provider import AssetNotFoundError as AssetNotFoun
 from fairseq2.assets.metadata_provider import (
     FileAssetMetadataProvider as FileAssetMetadataProvider,
 )
+from fairseq2.assets.metadata_provider import (
+    InProcAssetMetadataProvider as InProcAssetMetadataProvider,
+)
 from fairseq2.assets.store import AssetStore as AssetStore
 from fairseq2.assets.store import ProviderBackedAssetStore as ProviderBackedAssetStore
 from fairseq2.assets.store import asset_store as asset_store
