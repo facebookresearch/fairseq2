@@ -138,8 +138,8 @@ class AssetCard:
 
         metadata[path[-1]] = value
 
-    def __str__(self) -> str:
-        return str(self.metadata)
+    def __repr__(self) -> str:
+        return repr(self.metadata)
 
 
 class AssetCardField:

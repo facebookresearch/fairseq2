@@ -134,7 +134,7 @@ class FileAssetMetadataProvider(AssetMetadataProvider):
 
 @final
 class InProcAssetMetadataProvider(AssetMetadataProvider):
-    """Provides asset metadata stored in-memory."""
+    """Provides asset metadata stored in memory."""
 
     _metadata: Dict[str, Dict[str, Any]]
 
