@@ -56,6 +56,31 @@ class SeqsBatch:
                 del tensor
 
 
+def map_structure(func, nested_object):  # type: ignore
+    """Map a function over torch.Tensor in a (possibly nested) collection.
+    Similar `to tf.nest.map_structure`.
+    See also https://texar-pytorch.readthedocs.io/en/latest/_modules/texar/torch/utils/utils.html#map_structure
+    """
+    if isinstance(nested_object, list):
+        return [map_structure(func, x) for x in nested_object]
+    if isinstance(nested_object, tuple):
+        if isinstance(nested_object, torch.Size):
+            return func(nested_object)
+        if hasattr(nested_object, "_fields"):  # namedtuple
+            return type(nested_object)(*[map_structure(func, x) for x in nested_object])
+        else:
+            return tuple(map_structure(func, x) for x in nested_object)
+
+    if isinstance(nested_object, dict):
+        return {k: map_structure(func, v) for k, v in nested_object.items()}
+    if isinstance(nested_object, set):
+        return {map_structure(func, x) for x in nested_object}
+    if isinstance(nested_object, torch.Tensor):
+        return func(nested_object)
+    else:
+        return nested_object
+
+
 def batch_collater(
     inp: tp.List[Tensor], padding: tp.Optional[int]
 ) -> tp.Dict[str, tp.Union[bool, Tensor]]:
@@ -66,9 +91,9 @@ def batch_collater(
             torch.nested.as_nested_tensor(inp), padding=padding
         ),
         "seq_lens": seq_lens,
-        "is_ragged": False
-        if len(seq_lens) == 0
-        else bool((seq_lens != seq_lens[0]).any().item()),
+        # "is_ragged": False
+        # if len(seq_lens) == 0
+        # else bool((seq_lens != seq_lens[0]).any().item()),
     }
 
 
@@ -185,17 +210,22 @@ class ASRBatchIterator:
             )
             return batch
 
+        # We want to allocate more cpu to raw_parquet_dataloader
+        # since it requires more resources.
+        # Furthermore, fbank is already internally multi-threaded
+        # so we may want to avoid threads oversubscription
+        num_parallel_calls = max(self.config.num_parallel_calls // 4, 1)
         builder = (
             self.raw_parquet_dataloader.build_epoch_iterator_pipeline()
-            .map(vectorize_batch, num_parallel_calls=self.config.num_parallel_calls)
-            .map(manual_collater, num_parallel_calls=self.config.num_parallel_calls)
+            .map(vectorize_batch, num_parallel_calls=num_parallel_calls)
+            .map(manual_collater, num_parallel_calls=num_parallel_calls)
             .map(
                 self.filter_audio_fbank_nulls,
-                num_parallel_calls=self.config.num_parallel_calls,
+                num_parallel_calls=num_parallel_calls,
             )
             .map(
                 self.map_to_seqs_batch,
-                num_parallel_calls=self.config.num_parallel_calls,
+                num_parallel_calls=num_parallel_calls,
             )
             .filter(
                 lambda batch: bool(
@@ -214,7 +244,7 @@ class ASRBatchIterator:
         )
         if torch.any(null_count_per_row > 0):
             rows_to_keep = null_count_per_row == 0
-            batch = {k: v[rows_to_keep] for k, v in batch.items()}
+            batch = map_structure(lambda t: t[rows_to_keep], batch)
 
         return batch
 
