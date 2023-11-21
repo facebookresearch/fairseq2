@@ -1,4 +1,4 @@
-# Install From Source
+# Install from Source
 The instructions in this document are for users who want to use fairseq2 on a
 system for which no pre-built fairseq2 package is available, or for users who
 want to work on the C++/CUDA code of fairseq2.
