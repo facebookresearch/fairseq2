@@ -14,7 +14,7 @@ from pathlib import Path, PurePath
 from tarfile import TarFile, is_tarfile
 from tempfile import NamedTemporaryFile
 from typing import Dict, Optional, final
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.parse import unquote, urlparse
 from urllib.request import Request, urlopen
 from zipfile import BadZipFile, ZipFile
@@ -368,6 +368,10 @@ class _AssetDownloadOp:
 
             try:
                 response = cleanup_stack.enter_context(urlopen(request))
+            except URLError as ex:
+                raise AssetDownloadError(
+                    f"The download of the {self.display_name} has failed. See nested exception for details."
+                ) from ex
             except HTTPError as ex:
                 raise AssetDownloadError(
                     f"The download of the {self.display_name} has failed with the HTTP error code {ex.code}."
