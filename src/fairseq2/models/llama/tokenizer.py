@@ -13,7 +13,7 @@ from fairseq2.data.text import (
     TextTokenDecoder,
     TextTokenEncoder,
     TextTokenizer,
-    vocabulary_from_sentencepiece,
+    vocab_info_from_sentencepiece,
 )
 from fairseq2.data.typing import PathLike
 from fairseq2.typing import Device, finaloverride
@@ -32,9 +32,9 @@ class LLaMATokenizer(TextTokenizer):
         """
         self.model = SentencePieceModel(pathname)
 
-        vocabulary_info = vocabulary_from_sentencepiece(self.model)
+        vocab_info = vocab_info_from_sentencepiece(self.model)
 
-        super().__init__(vocabulary_info)
+        super().__init__(vocab_info)
 
     @finaloverride
     def create_encoder(

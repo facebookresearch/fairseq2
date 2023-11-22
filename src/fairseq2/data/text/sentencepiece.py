@@ -121,7 +121,7 @@ else:
     _set_module_name()
 
 
-def vocabulary_from_sentencepiece(model: SentencePieceModel) -> VocabularyInfo:
+def vocab_info_from_sentencepiece(model: SentencePieceModel) -> VocabularyInfo:
     """Return the vocabulary information of ``model``."""
     return VocabularyInfo(
         model.vocabulary_size,

@@ -246,7 +246,7 @@ class Seq2SeqGenerator:
                 state_bag=state_bag,
             )
 
-            state_bag.increment_step()
+            state_bag.increment_step_nr()
 
             model_output = self.decoder.project(decoder_output, decoder_padding_mask)
 
@@ -531,7 +531,7 @@ class Seq2SeqGenerator:
             state_bag=state_bag,
         )
 
-        state_bag.increment_step(self.prefix_seq_len - 1)
+        state_bag.increment_step_nr(self.prefix_seq_len - 1)
 
         model_output = self.decoder.project(decoder_output, decoder_padding_mask)
 

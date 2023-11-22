@@ -84,7 +84,7 @@ def test_incremental_decoding_works() -> None:
 
         assert pos_padding_mask is None
 
-        state_bag.increment_step()
+        state_bag.increment_step_nr()
 
         incremental_output = torch.cat([incremental_output, pos_output], dim=1)
 

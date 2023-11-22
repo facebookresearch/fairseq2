@@ -128,7 +128,7 @@ class TestALiBiAttentionMaskGenerator:
 
         state_bag = IncrementalStateBag(max_num_steps=100)
 
-        state_bag.increment_step(3)
+        state_bag.increment_step_nr(3)
 
         mask = factory(seqs=q, keys=k, training=False, state_bag=state_bag)
 
