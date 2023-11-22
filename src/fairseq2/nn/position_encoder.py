@@ -66,7 +66,7 @@ class PositionEncoder(Module, ABC):
             if self.training or state_bag is None:
                 start_step = 0
             else:
-                start_step = state_bag.step
+                start_step = state_bag.step_nr
 
             if (seq_len := start_step + seqs.size(-2)) > self.max_seq_len:
                 raise ValueError(
@@ -232,7 +232,7 @@ class SinusoidalPositionEncoder(PositionEncoder):
         if self.training or state_bag is None:
             start_step = 0
         else:
-            start_step = state_bag.step
+            start_step = state_bag.step_nr
 
         fp32_seqs = seqs.float() + self.freqs[start_step : start_step + seq_len]
 
@@ -294,7 +294,7 @@ class LearnedPositionEncoder(PositionEncoder):
         if self.training or state_bag is None:
             start_step = 0
         else:
-            start_step = state_bag.step
+            start_step = state_bag.step_nr
 
         steps = torch.arange(
             start_step, start_step + seq_len, device=seqs.device, dtype=torch.int64
@@ -376,7 +376,7 @@ class RotaryEncoder(PositionEncoder):
         if self.training or state_bag is None:
             start_step = 0
         else:
-            start_step = state_bag.step
+            start_step = state_bag.step_nr
 
         # (*, S, E) -> (*, S, E / 2, 2)
         seqs = seqs.unflatten(-1, (-1, 2))

@@ -125,12 +125,12 @@ class TestSinusoidalPositionEncoder:
 
         assert_close(y - x, m.freqs[:9].expand_as(y))
 
-    @pytest.mark.parametrize("step", [0, 1, 2])
-    def test_forward_works_in_incremental_decode(self, step: int) -> None:
+    @pytest.mark.parametrize("step_nr", [0, 1, 2])
+    def test_forward_works_in_incremental_decode(self, step_nr: int) -> None:
         m = SinusoidalPositionEncoder(encoding_dim=32, max_seq_len=4, device=device)
 
         state_bag = IncrementalStateBag(max_num_steps=3)
-        state_bag.increment_step(delta=step)
+        state_bag.increment_step_nr(step_nr)
 
         seq_len = 2
 
@@ -142,7 +142,7 @@ class TestSinusoidalPositionEncoder:
 
         assert y.shape == (5, seq_len, 32)
 
-        assert_close(y - x, m.freqs[step : step + seq_len].expand_as(y))
+        assert_close(y - x, m.freqs[step_nr : step_nr + seq_len].expand_as(y))
 
     def test_forward_raises_error_when_seq_len_is_out_of_range(self) -> None:
         m = SinusoidalPositionEncoder(encoding_dim=32, max_seq_len=3, device=device)
@@ -161,7 +161,7 @@ class TestSinusoidalPositionEncoder:
         x = torch.randn((5, 2, 32), device=device)
 
         state_bag = IncrementalStateBag(max_num_steps=30)
-        state_bag.increment_step(delta=20)  # out of range
+        state_bag.increment_step_nr(20)  # out of range
 
         y = m(x, padding_mask=None, state_bag=state_bag)
 
@@ -200,12 +200,12 @@ class TestLearnedPositionEncoder:
 
         assert_close(y - x, m.weight[:9].expand_as(y))
 
-    @pytest.mark.parametrize("step", [0, 1, 2])
-    def test_forward_works_in_incremental_decode(self, step: int) -> None:
+    @pytest.mark.parametrize("step_nr", [0, 1, 2])
+    def test_forward_works_in_incremental_decode(self, step_nr: int) -> None:
         m = LearnedPositionEncoder(encoding_dim=32, max_seq_len=4, device=device)
 
         state_bag = IncrementalStateBag(max_num_steps=3)
-        state_bag.increment_step(delta=step)
+        state_bag.increment_step_nr(step_nr)
 
         seq_len = 2
 
@@ -217,7 +217,7 @@ class TestLearnedPositionEncoder:
 
         assert y.shape == (5, seq_len, 32)
 
-        assert_close(y - x, m.weight[step : step + seq_len].expand_as(y))
+        assert_close(y - x, m.weight[step_nr : step_nr + seq_len].expand_as(y))
 
     def test_forward_raises_error_when_seq_len_is_out_of_range(self) -> None:
         m = LearnedPositionEncoder(encoding_dim=32, max_seq_len=3, device=device)
@@ -236,7 +236,7 @@ class TestLearnedPositionEncoder:
         x = torch.randn((5, 2, 32), device=device)
 
         state_bag = IncrementalStateBag(max_num_steps=30)
-        state_bag.increment_step(delta=20)  # out of range
+        state_bag.increment_step_nr(value=20)  # out of range
 
         y = m(x, padding_mask=None, state_bag=state_bag)
 
@@ -283,12 +283,12 @@ class TestRotaryEncoder:
 
         assert_close(dot1, dot2)
 
-    @pytest.mark.parametrize("step", [0, 1, 2])
-    def test_forward_works_in_incremental_decode(self, step: int) -> None:
+    @pytest.mark.parametrize("step_nr", [0, 1, 2])
+    def test_forward_works_in_incremental_decode(self, step_nr: int) -> None:
         m = RotaryEncoder(encoding_dim=32, max_seq_len=4, device=device)
 
         state_bag = IncrementalStateBag(max_num_steps=3)
-        state_bag.increment_step(delta=step)
+        state_bag.increment_step_nr(step_nr)
 
         seq_len = 2
 
@@ -300,11 +300,11 @@ class TestRotaryEncoder:
 
         assert y1.shape == (5, seq_len, 32)
 
-        x2 = torch.ones((5, seq_len + step, 32), device=device)
+        x2 = torch.ones((5, seq_len + step_nr, 32), device=device)
 
         y2 = m(x2, padding_mask=None)
 
-        assert_close(y1, y2[:, step:])
+        assert_close(y1, y2[:, step_nr:])
 
     def test_forward_raises_error_when_seq_len_is_out_of_range(self) -> None:
         m = RotaryEncoder(encoding_dim=32, max_seq_len=3, device=device)
@@ -323,7 +323,7 @@ class TestRotaryEncoder:
         x = torch.randn((5, 2, 32), device=device)
 
         state_bag = IncrementalStateBag(max_num_steps=30)
-        state_bag.increment_step(delta=20)  # out of range
+        state_bag.increment_step_nr(value=20)  # out of range
 
         y = m(x, padding_mask=None, state_bag=state_bag)
 
