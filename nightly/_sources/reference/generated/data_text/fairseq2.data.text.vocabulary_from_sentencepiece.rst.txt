@@ -1,6 +1,0 @@
-﻿.. currentmodule:: fairseq2.data.text
-
-vocabulary\_from\_sentencepiece
-===============================
-
-.. autofunction:: vocabulary_from_sentencepiece
