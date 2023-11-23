@@ -289,12 +289,6 @@ class ParquetBasicDataLoader:
 
         self._columns_to_read = self.get_column_to_read()
 
-    # def __repr__(self) -> str:
-    #     """ count rows and other simple stats """"
-
-    # def head(self, nb:int=5) -> pa.Table:
-    #     return self.source_ds.head(nb=5)
-
     def get_column_to_read(self) -> tp.List[str]:
         partitioning_keys = (
             [
@@ -324,8 +318,9 @@ class ParquetBasicDataLoader:
         """
         return list(self.source_ds._dataset.get_fragments(self.config.filters))
 
+    @staticmethod
     def split_fragment_in_row_groups(
-        self, fragment: pa.dataset.Fragment
+        fragment: pa.dataset.Fragment,
     ) -> tp.List[pa.dataset.Fragment]:
         return list(fragment.split_by_row_group())
 
@@ -404,7 +399,8 @@ class ParquetBasicDataLoader:
     ) -> _TableWrapper:
         return _TableWrapper(
             pa.concat_tables(
-                [tt.table.drop_null() if drop_null else tt.table for tt in list_table]
+                [tt.table.drop_null() if drop_null else tt.table for tt in list_table],
+                promote_options="permissive",
             ).combine_chunks()
         )
 
