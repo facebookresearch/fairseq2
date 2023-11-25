@@ -25,6 +25,7 @@ from urllib.parse import urlparse
 from typing_extensions import Self
 
 from fairseq2.assets.error import AssetError
+from fairseq2.data.typing import is_string_like
 
 T = TypeVar("T")
 
@@ -264,36 +265,44 @@ class AssetCardField:
         """
         value = self.as_(object)
 
-        if value in valid_values:
-            return cast(T, value)
+        if value not in valid_values:
+            pathname = ".".join(self.path)
 
-        pathname = ".".join(self.path)
+            values = list(valid_values)
+            values.sort()
 
-        values = list(valid_values)
+            raise AssetCardError(
+                f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be one of {repr(values)}, but is {repr(value)} instead."
+            )
 
-        values.sort()
-
-        raise AssetCardError(
-            f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be one of {repr(values)}, but is {repr(value)} instead."
-        )
+        return cast(T, value)
 
     def as_uri(self) -> str:
         """Return the value of this field as a URI."""
-        value = self.as_(str)
+        value = self.as_(object)
+
+        if not is_string_like(value) and not isinstance(value, os.PathLike):
+            pathname = ".".join(self.path)
+
+            raise AssetCardError(
+                f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be of type `{str}` or `{os.PathLike}`, but is of type `{type(value)}` instead."
+            )
+
+        str_value = str(value)
 
         try:
-            uri = urlparse(value)
+            uri = urlparse(str_value)
         except ValueError:
             uri = None
 
-        if uri and uri.scheme and (uri.netloc or uri.path):
-            return value
+        if uri is None or not (uri.netloc or uri.path):
+            pathname = ".".join(self.path)
 
-        pathname = ".".join(self.path)
+            raise AssetCardError(
+                f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be a URI, but is '{str_value}' instead."
+            )
 
-        raise AssetCardError(
-            f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be a URI, but is '{value}' instead."
-        )
+        return str_value
 
     def as_filename(self) -> str:
         """Return the value of this field as a filename."""
