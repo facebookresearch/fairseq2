@@ -302,7 +302,10 @@ class AssetCardField:
                 f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be a URI, but is '{str_value}' instead."
             )
 
-        return str_value
+        if not uri.scheme:
+            uri = uri._replace(scheme="file")
+
+        return uri.geturl()
 
     def as_filename(self) -> str:
         """Return the value of this field as a filename."""

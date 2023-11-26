@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import os
+from pathlib import Path
 
 import pytest
 
@@ -176,9 +177,19 @@ class TestAssetCard:
             self.card.field("field1").as_one_of({"foo3", "foo2"})
 
     def test_as_uri_works(self) -> None:
+        value = self.card.field("field1").as_uri()
+
+        assert value == "file:///foo1"
+
         value = self.card.field("field9").as_uri()
 
         assert value == "http://foo.com"
+
+        self.card.field("field1").set(Path("/foo1/foo2/"))
+
+        value = self.card.field("field1").as_uri()
+
+        assert value == "file:///foo1/foo2"
 
     def test_as_uri_raises_error_when_field_type_is_incorrect(self) -> None:
         with pytest.raises(

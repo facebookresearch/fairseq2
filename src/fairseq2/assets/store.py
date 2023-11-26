@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -38,6 +39,7 @@ class ProviderBackedAssetStore(AssetStore):
 
     env_resolvers: List[EnvironmentResolver]
     metadata_providers: List[AssetMetadataProvider]
+    user_metadata_providers: List[AssetMetadataProvider]
 
     def __init__(self, metadata_provider: AssetMetadataProvider) -> None:
         """
@@ -54,6 +56,7 @@ class ProviderBackedAssetStore(AssetStore):
 
         self.env_resolvers = [faircluster]
         self.metadata_providers = [metadata_provider]
+        self.user_metadata_providers = []
 
     @finaloverride
     def retrieve_card(self, name: str) -> AssetCard:
@@ -106,6 +109,12 @@ class ProviderBackedAssetStore(AssetStore):
         return AssetCard(metadata, base_card)
 
     def _get_metadata(self, name: str) -> Dict[str, Any]:
+        for provider in reversed(self.user_metadata_providers):
+            try:
+                return provider.get_metadata(name)
+            except AssetNotFoundError:
+                continue
+
         for provider in reversed(self.metadata_providers):
             try:
                 return provider.get_metadata(name)
@@ -117,6 +126,9 @@ class ProviderBackedAssetStore(AssetStore):
     def clear_cache(self) -> None:
         """Clear the cache of the underlying metadata providers."""
         for provider in self.metadata_providers:
+            provider.clear_cache()
+
+        for provider in self.user_metadata_providers:
             provider.clear_cache()
 
 
@@ -140,3 +152,53 @@ def _create_asset_store() -> ProviderBackedAssetStore:
 
 
 asset_store = _create_asset_store()
+
+
+def _get_asset_dir_from_env(var_name: str) -> Optional[Path]:
+    pathname = os.getenv(var_name)
+    if not pathname:
+        return None
+
+    try:
+        asset_dir = Path(pathname)
+    except ValueError as ex:
+        raise RuntimeError(
+            f"`{var_name}` environment variable must contain a valid pathname, but contains '{pathname}' instead."
+        ) from ex
+
+    if not asset_dir.exists():
+        logger = logging.getLogger("fairseq2.assets")
+
+        logger.warning(
+            f"The path '{asset_dir}' pointed to by the `{var_name}` environment variable does not exist."
+        )
+
+        return None
+
+    return asset_dir
+
+
+def _load_asset_directory() -> None:
+    asset_dir = _get_asset_dir_from_env("FAIRSEQ2_ASSET_DIR")
+    if asset_dir is None:
+        asset_dir = Path("/etc/fairseq2/assets")
+        if not asset_dir.exists():
+            return
+
+    asset_store.metadata_providers.append(FileAssetMetadataProvider(asset_dir))
+
+
+_load_asset_directory()
+
+
+def _load_user_asset_directory() -> None:
+    asset_dir = _get_asset_dir_from_env("FAIRSEQ2_USER_ASSET_DIR")
+    if asset_dir is None:
+        asset_dir = Path("~/.config/fairseq2/assets").expanduser()
+        if not asset_dir.exists():
+            return
+
+    asset_store.user_metadata_providers.append(FileAssetMetadataProvider(asset_dir))
+
+
+_load_user_asset_directory()
