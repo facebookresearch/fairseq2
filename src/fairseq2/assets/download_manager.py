@@ -283,13 +283,12 @@ class _AssetDownloadOp:
     def _init_download_path(self) -> None:
         assert self.download_filename is not None
 
-        cache_root_pathname = os.getenv("FAIRSEQ2_CACHE_DIR")
-        if cache_root_pathname:
+        if pathname := os.getenv("FAIRSEQ2_CACHE_DIR"):
             try:
-                cache_root_path = Path(cache_root_pathname)
+                cache_root_path = Path(pathname)
             except ValueError as ex:
                 raise RuntimeError(
-                    f"`FAIRSEQ2_CACHE_DIR` environment variable must contain a valid pathname, but contains '{cache_root_pathname}' instead."
+                    f"`FAIRSEQ2_CACHE_DIR` environment variable must contain a valid pathname, but contains '{pathname}' instead."
                 ) from ex
         else:
             cache_root_path = Path(torch.hub.get_dir()).joinpath("fairseq2")
