@@ -17,7 +17,7 @@ from fairseq2.typing import Device
 
 
 class TextTokenizer(ABC):
-    """Represents a tokenizer to encode and decode texts."""
+    """Represents a tokenizer to encode and decode text."""
 
     vocab_info: VocabularyInfo
 
@@ -80,7 +80,7 @@ class TextTokenizer(ABC):
 
 
 class TextTokenEncoder(ABC):
-    """Encodes texts into tokens or token indices."""
+    """Encodes text into tokens or token indices."""
 
     @abstractmethod
     def __call__(self, text: StringLike) -> Tensor:
@@ -110,7 +110,7 @@ class TextTokenEncoder(ABC):
 
 
 class TextTokenDecoder(ABC):
-    """Decodes texts from tokens or token indices."""
+    """Decodes text from tokens or token indices."""
 
     @abstractmethod
     def __call__(self, token_indices: Tensor) -> StringLike:
