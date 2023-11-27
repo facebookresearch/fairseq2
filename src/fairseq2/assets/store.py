@@ -63,22 +63,29 @@ class ProviderBackedAssetStore(AssetStore):
         if "@" in name:
             raise ValueError("`name` must not contain the reserved '@' character.")
 
-        env = self._resolve_env()
+        envs = self._resolve_envs()
 
-        return self._do_retrieve_card(name, env)
+        return self._do_retrieve_card(name, envs)
 
-    def _resolve_env(self) -> Optional[str]:
+    def _resolve_envs(self) -> List[str]:
+        envs = []
+
         for resolver in self.env_resolvers:
             if env := resolver():
-                return env
+                envs.append(env)
 
-        return None
+        # This is a special, always available environment for users to override
+        # asset metadata. For instance, a user can set the checkpoint path of a
+        # gated model locally by having a same named asset with @user suffix.
+        envs.append("user")
 
-    def _do_retrieve_card(self, name: str, env: Optional[str]) -> AssetCard:
+        return envs
+
+    def _do_retrieve_card(self, name: str, envs: List[str]) -> AssetCard:
         metadata = self._get_metadata(name)
 
         # If we have environment-specific metadata, merge it with `metadata`.
-        if env:
+        for env in envs:
             try:
                 env_metadata = self._get_metadata(f"{name}@{env}")
 
@@ -104,7 +111,7 @@ class ProviderBackedAssetStore(AssetStore):
                     f"The value of the field 'base' of the asset card '{name}' must be of type `{str}`, but is of type `{type(base_name)}` instead."
                 )
 
-            base_card = self._do_retrieve_card(base_name, env)
+            base_card = self._do_retrieve_card(base_name, envs)
 
         return AssetCard(metadata, base_card)
 
