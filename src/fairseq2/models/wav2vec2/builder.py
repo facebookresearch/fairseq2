@@ -330,7 +330,6 @@ class Wav2Vec2EncoderBuilder:
                 self.config.model_dim // self.config.num_encoder_attn_heads,
                 self.config.max_seq_len,
                 device=self.device,
-                dtype=self.dtype,
             )
         else:
             pos_encoder = None
