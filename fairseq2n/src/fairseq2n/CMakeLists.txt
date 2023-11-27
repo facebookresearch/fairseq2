@@ -111,13 +111,17 @@ find_path(AVUTIL_INCLUDE_DIR libavutil/avutil.h)
 find_library(AVUTIL_LIBRARY avutil)
 find_path(SWSCALE_INCLUDE_DIR libswscale/swscale.h)
 find_library(SWSCALE_LIBRARY swscale)
+find_path(SWRESAMPLE_INCLUDE_DIR libswresample/swresample.h)
+find_library(SWRESAMPLE_LIBRARY swresample)
+
 
 target_include_directories(fairseq2n 
     PRIVATE 
         ${AVCODEC_INCLUDE_DIR} 
         ${AVFORMAT_INCLUDE_DIR} 
         ${AVUTIL_INCLUDE_DIR} 
-        ${SWSCALE_INCLUDE_DIR}        
+        ${SWSCALE_INCLUDE_DIR}
+        ${SWRESAMPLE_INCLUDE_DIR}        
 )
 
 target_link_libraries(fairseq2n
@@ -127,6 +131,7 @@ target_link_libraries(fairseq2n
         ${AVFORMAT_LIBRARY}
         ${AVUTIL_LIBRARY}
         ${SWSCALE_LIBRARY}
+        ${SWRESAMPLE_LIBRARY} 
     PRIVATE
         fmt::fmt
         Iconv::Iconv

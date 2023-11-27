@@ -21,6 +21,7 @@ extern "C" {
     #include <libavutil/avutil.h>
     #include <libavutil/imgutils.h>
     #include <libswscale/swscale.h>
+    #include <libswresample/swresample.h>
 }
 
 using namespace fairseq2n::detail;
@@ -91,7 +92,7 @@ public:
     data
     operator()(data &&d) const;
 
-    std::vector<std::vector<at::Tensor>>
+    at::List<at::List<at::Tensor>>
     open_container(memory_block block) const;
 
     static int
@@ -103,11 +104,7 @@ public:
 
 private:
     video_decoder_options opts_;
-    int width_; // width of the video frame
-    int height_; // height of the video frame 
-    double fps_; // frames per second
-    double video_timebase_; // time base of the video stream
-    double audio_timebase_; // time base of the audio stream    
+        
 };
 
 }  // namespace fairseq2n
