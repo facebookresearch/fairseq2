@@ -323,7 +323,7 @@ class TestRotaryEncoder:
         x = torch.randn((5, 2, 32), device=device)
 
         state_bag = IncrementalStateBag(max_num_steps=30)
-        state_bag.increment_step_nr(value=20)  # out of range
+        state_bag.increment_step_nr(20)  # out of range
 
         y = m(x, padding_mask=None, state_bag=state_bag)
 

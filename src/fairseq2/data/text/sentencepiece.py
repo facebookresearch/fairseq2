@@ -9,7 +9,11 @@ from typing import TYPE_CHECKING, List, Optional, Sequence, final
 from torch import Tensor
 
 from fairseq2 import _DOC_MODE
-from fairseq2.data.text.text_tokenizer import TextTokenDecoder, TextTokenEncoder
+from fairseq2.data.text.text_tokenizer import (
+    TextTokenDecoder,
+    TextTokenEncoder,
+    TextTokenizer,
+)
 from fairseq2.data.typing import PathLike, StringLike
 from fairseq2.data.vocabulary_info import VocabularyInfo
 from fairseq2.typing import Device, finaloverride
@@ -119,6 +123,97 @@ else:
             t.__module__ = __name__
 
     _set_module_name()
+
+
+class SentencePieceTokenizerBase(TextTokenizer):
+    """Represents an abstract base class for SentencePiece tokenizers."""
+
+    model: SentencePieceModel
+
+    def __init__(
+        self, pathname: PathLike, control_symbols: Optional[Sequence[StringLike]] = None
+    ) -> None:
+        """
+        :param pathname:
+            The pathname of the SentencePiece model file.
+        :param control_symbols:
+            The list of control symbols to add to the SentencePiece model.
+        """
+        self.model = SentencePieceModel(pathname, control_symbols)
+
+        vocab_info = vocab_info_from_sentencepiece(self.model)
+
+        super().__init__(vocab_info)
+
+    @finaloverride
+    def create_raw_encoder(
+        self, *, device: Optional[Device] = None, pin_memory: bool = False
+    ) -> SentencePieceEncoder:
+        return SentencePieceEncoder(self.model, device=device, pin_memory=pin_memory)
+
+    @finaloverride
+    def create_decoder(self) -> SentencePieceDecoder:
+        return SentencePieceDecoder(self.model)
+
+
+class BasicSentencePieceTokenizer(SentencePieceTokenizerBase):
+    """Represents a SentencePiece tokenizer that encodes text with BOS and EOS."""
+
+    def __init__(self, pathname: PathLike) -> None:
+        """
+        :param pathname:
+            The pathname of the SentencePiece model file.
+        """
+        super().__init__(pathname)
+
+    @finaloverride
+    def create_encoder(
+        self,
+        *,
+        task: Optional[str] = None,
+        lang: Optional[str] = None,
+        mode: Optional[str] = None,
+        device: Optional[Device] = None,
+        pin_memory: bool = False,
+    ) -> SentencePieceEncoder:
+        """Create a token encoder.
+
+        :param task:
+            Not used.
+        :param lang:
+            Not used.
+        :param mode:
+            Must be 'default' or 'prompt'. If ``None``, defaults to 'default'.
+        :param device:
+            The device on which to construct tensors.
+        :param pin_memory:
+            If ``True``, uses pinned memory while constructing tensors.
+        """
+        if task is not None:
+            raise ValueError(f"`task` must be `None`, but is '{task}' instead.")
+
+        if lang is not None:
+            raise ValueError(f"`lang` must be `None`, but is '{lang}' instead.")
+
+        if mode is None or mode == "default":
+            prefix_tokens = ["<s>"]
+            suffix_tokens = ["</s>"]
+        elif mode == "prompt":
+            prefix_tokens = ["<s>"]
+            # In prompt mode, we expect the generator to finish the sequence.
+            suffix_tokens = None
+        else:
+            raise ValueError(
+                f"`mode` must be 'default' or 'prompt', but is '{mode}' instead."
+            )
+
+        return SentencePieceEncoder(
+            self.model,
+            prefix_tokens=prefix_tokens,
+            suffix_tokens=suffix_tokens,
+            device=device,
+            pin_memory=pin_memory,
+        )
 
 
 def vocab_info_from_sentencepiece(model: SentencePieceModel) -> VocabularyInfo:

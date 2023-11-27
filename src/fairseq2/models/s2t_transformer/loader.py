@@ -77,7 +77,7 @@ class S2TTransformerTokenizerLoader(TokenizerLoaderBase[S2TTransformerTokenizer]
 
     @finaloverride
     def _load(self, path: Path, card: AssetCard) -> S2TTransformerTokenizer:
-        task = card.field("task").as_one_of({"transcription", "translation"})
+        task = card.field("task").as_one_of({"translation", "transcription"})
 
         target_langs = card.field("target_langs").as_list(str)
 
