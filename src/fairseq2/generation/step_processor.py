@@ -134,7 +134,7 @@ class BannedSequenceProcessor(StepProcessor):
 
 @final
 class NGramRepeatBlockProcessor(StepProcessor):
-    """Blocks the repeated generation of n-grams of a specified size."""
+    """Blocks repeated generation of n-grams of a specified size."""
 
     def __init__(self, ngram_size: int) -> None:
         """

@@ -191,7 +191,7 @@ class NllbBuilder:
         pos_encoder = SinusoidalPositionEncoder(
             self.config.model_dim,
             self.config.max_seq_len,
-            _legacy_pad_idx=self.config.vocab_info.pad_idx,
+            _legacy_pad_idx=1,
             device=self.device,
         )
 
