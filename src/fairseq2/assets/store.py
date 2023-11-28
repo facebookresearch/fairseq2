@@ -46,15 +46,7 @@ class ProviderBackedAssetStore(AssetStore):
         :param storage:
             The default asset metadata provider.
         """
-
-        # TODO: Move to fairseq2-ext.
-        def faircluster() -> Optional[str]:
-            if "FAIR_ENV_CLUSTER" in os.environ:
-                return "faircluster"
-
-            return None
-
-        self.env_resolvers = [faircluster]
+        self.env_resolvers = []
         self.metadata_providers = [metadata_provider]
         self.user_metadata_providers = []
 
@@ -217,3 +209,19 @@ def _load_user_asset_directory() -> None:
 
 
 _load_user_asset_directory()
+
+
+# TODO: Move to fairseq2-ext.
+def _load_faircluster() -> None:
+    if "FAIR_ENV_CLUSTER" not in os.environ:
+        return
+
+    asset_store.env_resolvers.append(lambda: "faircluster")
+
+    # This directory is meant to store cluster-wide asset cards.
+    asset_dir = Path("/checkpoint/fairseq2/assets")
+    if asset_dir.exists():
+        asset_store.metadata_providers.append(FileAssetMetadataProvider(asset_dir))
+
+
+_load_faircluster()
