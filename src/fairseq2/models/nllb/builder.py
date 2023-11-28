@@ -13,7 +13,7 @@ from fairseq2.models.transformer import (
     TransformerFrontend,
     TransformerModel,
 )
-from fairseq2.models.utils.arch_registry import ArchitectureRegistry
+from fairseq2.models.utils import ArchitectureRegistry
 from fairseq2.nn.embedding import Embedding, StandardEmbedding, init_scaled_embedding
 from fairseq2.nn.position_encoder import SinusoidalPositionEncoder
 from fairseq2.nn.projection import TiedProjection
@@ -70,8 +70,7 @@ class NllbConfig:
 
 nllb_archs = ArchitectureRegistry[NllbConfig]("nllb")
 
-
-nllb_arch = nllb_archs.marker
+nllb_arch = nllb_archs.decorator
 
 
 @nllb_arch("dense_1b")
@@ -146,7 +145,7 @@ class NllbBuilder:
     ) -> None:
         """
         :param config:
-            The configuration to use.
+            The configuration.
         :param device:
             The device on which to initialize modules.
         :param dtype:
@@ -296,7 +295,7 @@ def create_nllb_model(
     """Create an NLLB model.
 
     :param config:
-        The configuration to use.
+        The configuration.
     :param device:
         The device on which to initialize modules.
     :param dtype:

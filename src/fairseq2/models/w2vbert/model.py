@@ -47,7 +47,7 @@ class W2VBertModel(Module):
     ) -> None:
         """
         :param w2v2_model:
-            The wav2vec 2.0 model to use.
+            The wav2vec 2.0 model.
         :param num_bert_encoder_layers:
             The number of Transformer encoder layers to use for masked
             prediction.

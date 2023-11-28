@@ -9,7 +9,7 @@ on:
     inputs:
       torch:
         type: string
-        default: '2.1.0'
+        default: '2.1.1'
       py:
         type: string
         default: '3.11'
@@ -99,4 +99,6 @@ jobs:
 
           trap remove_matcher EXIT
 
-          mypy .
+          mypy
+          mypy setup.py
+          mypy fairseq2n/python/setup.py

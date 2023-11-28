@@ -97,7 +97,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
     self_attn_dropout: Optional[Dropout]
     self_attn_layer_norm: LayerNorm
     encoder_decoder_attn: Optional[MultiheadAttention]
-    encoder_decoder_dropout: Optional[Dropout]
+    encoder_decoder_attn_dropout: Optional[Dropout]
     encoder_decoder_attn_layer_norm: Optional[LayerNorm]
     ffn: FeedForwardNetwork
     ffn_dropout: Optional[Dropout]
@@ -133,9 +133,9 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
             The dropout probability on outputs of the attention layers and the
             feed-forward network.
         :param norm_order:
-            The Layer Normalization order to use.
+            The Layer Normalization order.
         :param layer_norm_factory:
-            The factory to use to construct the Layer Normalization modules.
+            The factory to construct the Layer Normalization modules.
         """
         model_dim = self_attn.model_dim
 

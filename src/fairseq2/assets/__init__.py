@@ -9,20 +9,26 @@ from fairseq2.assets.card import AssetCardError as AssetCardError
 from fairseq2.assets.card import (
     AssetCardFieldNotFoundError as AssetCardFieldNotFoundError,
 )
-from fairseq2.assets.card_storage import (
-    AssetCardNotFoundError as AssetCardNotFoundError,
-)
-from fairseq2.assets.card_storage import AssetCardStorage as AssetCardStorage
-from fairseq2.assets.card_storage import LocalAssetCardStorage as LocalAssetCardStorage
 from fairseq2.assets.download_manager import AssetDownloadError as AssetDownloadError
 from fairseq2.assets.download_manager import (
     AssetDownloadManager as AssetDownloadManager,
 )
 from fairseq2.assets.download_manager import (
-    DefaultAssetDownloadManager as DefaultAssetDownloadManager,
+    InProcAssetDownloadManager as InProcAssetDownloadManager,
 )
 from fairseq2.assets.download_manager import download_manager as download_manager
 from fairseq2.assets.error import AssetError as AssetError
+from fairseq2.assets.metadata_provider import AssetMetadataError as AssetMetadataError
+from fairseq2.assets.metadata_provider import (
+    AssetMetadataProvider as AssetMetadataProvider,
+)
+from fairseq2.assets.metadata_provider import AssetNotFoundError as AssetNotFoundError
+from fairseq2.assets.metadata_provider import (
+    FileAssetMetadataProvider as FileAssetMetadataProvider,
+)
+from fairseq2.assets.metadata_provider import (
+    InProcAssetMetadataProvider as InProcAssetMetadataProvider,
+)
 from fairseq2.assets.store import AssetStore as AssetStore
-from fairseq2.assets.store import DefaultAssetStore as DefaultAssetStore
+from fairseq2.assets.store import ProviderBackedAssetStore as ProviderBackedAssetStore
 from fairseq2.assets.store import asset_store as asset_store

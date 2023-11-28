@@ -108,7 +108,7 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
         :param dropout_p:
             The dropout probability on embeddings.
         :param layer_norm_factory:
-            The factory to use to construct the Layer Normalization module.
+            The factory to construct the Layer Normalization module.
         """
         model_dim = embed.embedding_dim
 

@@ -6,24 +6,15 @@
 
 from typing import Optional, Set, final
 
-from fairseq2.data.text import (
-    SentencePieceDecoder,
-    SentencePieceEncoder,
-    SentencePieceModel,
-    TextTokenDecoder,
-    TextTokenEncoder,
-    TextTokenizer,
-)
-from fairseq2.data.text.sentencepiece import vocabulary_from_sentencepiece
+from fairseq2.data.text import SentencePieceEncoder, SentencePieceTokenizerBase
 from fairseq2.data.typing import PathLike
 from fairseq2.typing import Device, finaloverride
 
 
 @final
-class S2TTransformerTokenizer(TextTokenizer):
+class S2TTransformerTokenizer(SentencePieceTokenizerBase):
     """Represents the tokenizer used by S2T Transformer models."""
 
-    model: SentencePieceModel
     task: str
     target_langs: Set[str]
     default_target_lang: str
@@ -46,20 +37,16 @@ class S2TTransformerTokenizer(TextTokenizer):
         :param default_target_lang:
             The fall-back language if no target language is specified.
         """
+        super().__init__(pathname)
+
         if task != "transcription" and task != "translation":
             raise ValueError(
                 f"`task` must be 'transcripton' or 'translation', but is '{task}' instead."
             )
 
-        self.model = SentencePieceModel(pathname)
-
         self.task = task
         self.target_langs = target_langs
         self.default_target_lang = default_target_lang
-
-        vocab_info = vocabulary_from_sentencepiece(self.model)
-
-        super().__init__(vocab_info)
 
     @finaloverride
     def create_encoder(
@@ -70,7 +57,7 @@ class S2TTransformerTokenizer(TextTokenizer):
         mode: Optional[str] = None,
         device: Optional[Device] = None,
         pin_memory: bool = False,
-    ) -> TextTokenEncoder:
+    ) -> SentencePieceEncoder:
         """Create a token encoder.
 
         :param task:
@@ -111,13 +98,3 @@ class S2TTransformerTokenizer(TextTokenizer):
             device=device,
             pin_memory=pin_memory,
         )
-
-    @finaloverride
-    def create_raw_encoder(
-        self, *, device: Optional[Device] = None, pin_memory: bool = False
-    ) -> TextTokenEncoder:
-        return SentencePieceEncoder(self.model, device=device, pin_memory=pin_memory)
-
-    @finaloverride
-    def create_decoder(self) -> TextTokenDecoder:
-        return SentencePieceDecoder(self.model)

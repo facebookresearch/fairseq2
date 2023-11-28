@@ -226,8 +226,8 @@ class StandardMultiheadAttention(MultiheadAttention):
         :param pos_encoder:
             The position encoder to apply to sequences and keys after projection.
         :param sdpa:
-            The scaled dot-product attention module to compute head attentions.
-            If ``None``, a default implementation will be used.
+            The :class:`SDPA` module to compute head attentions. If ``None``, a
+            default implementation will be used.
         :param scale_heads:
             If ``True``, applies head scaling as described in
             :cite:t:`https://doi.org/10.48550/arxiv.2110.09456`
@@ -238,8 +238,8 @@ class StandardMultiheadAttention(MultiheadAttention):
             If ``True``, query, key, value, and output projections learn an
             additive bias. Ignored for explicitly specified projections.
         :param state_factory:
-            The factory to use to construct :class:`AttentionState` instances
-            for incremental decoding.
+            The factory to construct :class:`AttentionState` instances for
+            incremental decoding.
         """
         super().__init__(model_dim, num_heads)
 
