@@ -27,4 +27,19 @@ struct media_metadata {
   double fps{0}; // Frames per second for video streams
   // media_format format; // TODO
 };
+
+int 
+read_callback(void *opaque, uint8_t *buf, int buf_size) {
+    // Read up to buf_size bytes from the resource accessed by the AVIOContext object
+    // Used by ffmpeg to read from memory buffer
+    fairseq2n::detail::buffer_data *bd = static_cast<fairseq2n::detail::buffer_data *>(opaque);
+    buf_size = std::min(buf_size, static_cast<int>(bd->size));
+    if (buf_size <= 0)
+        return AVERROR_EOF;
+    memcpy(buf, bd->ptr, buf_size);
+    bd->ptr += buf_size;
+    bd->size -= buf_size;
+    return buf_size;
+}
+
 }

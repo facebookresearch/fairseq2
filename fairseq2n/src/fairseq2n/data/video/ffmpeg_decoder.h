@@ -7,7 +7,9 @@
 #pragma once
 
 #include <optional>
-#include "fairseq2n/data/video/ffmpeg_decoder.h"
+#include "fairseq2n/data/video/detail/avcodec_resources.h"
+#include "fairseq2n/data/video/detail/utils.h"
+#include "fairseq2n/data/video/detail/avformat_resources.h"
 
 #include "fairseq2n/api.h"
 #include "fairseq2n/data/data.h"
@@ -17,7 +19,7 @@
 
 extern "C" {
     #include <libavcodec/avcodec.h>
-    #include <libavformat/avformat.h>
+    //#include <libavformat/avformat.h>
     #include <libavformat/avio.h>
     #include <libavutil/avutil.h>
     #include <libavutil/imgutils.h>
@@ -29,7 +31,7 @@ using namespace fairseq2n::detail;
 
 namespace fairseq2n {
 
-class video_decoder_options {
+    class video_decoder_options {
 public:
     video_decoder_options
     maybe_dtype(std::optional<at::ScalarType> value) noexcept
@@ -85,26 +87,23 @@ private:
     bool pin_memory_ = false;
 };
 
-class FAIRSEQ2_API video_decoder {
+
+class FAIRSEQ2_API ffmpeg_decoder {
 public:
     explicit
-    video_decoder(video_decoder_options opts = {}, bool pin_memory = false);
+    ffmpeg_decoder(video_decoder_options opts = {}, bool pin_memory = false);
 
-    data
-    operator()(data &&d) const;
-/*
     at::List<at::List<at::Tensor>>
-    open_container(memory_block block) const;
+    open_container(memory_block block);
 
-    // TODO
-    static int
-    seek_callback(void *opaque, int64_t offset, int whence);
-*/
+    at::List<at::Tensor>
+    open_stream(int stream_index);
 
 private:
-    video_decoder_options opts_;
-    ffmpeg_decoder decoder_;
-        
+    video_decoder_options opts_; 
+    std::unique_ptr<avformat_resources> fmt_resources_;     
+    std::unique_ptr<avcodec_resources> codec_resources_; 
 };
 
-}  // namespace fairseq2n
+
+} // namespace fairseq2n

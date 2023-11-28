@@ -15,7 +15,7 @@
 #include <ATen/Tensor.h>
 
 #include "fairseq2n/data/video/video_decoder.h"
-#include "fairseq2n/data/video/decoder.h"
+#include "fairseq2n/data/video/ffmpeg_decoder.h"
 #include "fairseq2n/exception.h"
 #include "fairseq2n/float.h"
 #include "fairseq2n/fmt.h"
@@ -48,16 +48,15 @@ video_decoder::operator()(data &&d) const
     if (block.empty())
         throw std::invalid_argument("The input memory block has zero length and cannot be decoded.");
 
-    decoder dec;
+    ffmpeg_decoder decoder;
 
-    at::Tensor all_streams = dec.open_container(block);
+    at::List<at::List<at::Tensor>> decoded_video = decoder.open_container(block);
     
     data_dict output;
-    output.emplace("video", std::move(all_streams));
+    output.emplace("video", std::move(decoded_video));
     return output;
-
 } 
-
+/*
 at::List<at::List<at::Tensor>>
 video_decoder::open_container(memory_block block) const
 {
@@ -105,7 +104,7 @@ video_decoder::open_container(memory_block block) const
     fmt_ctx->flags |= AVFMT_FLAG_CUSTOM_IO; 
     fmt_ctx->flags |= AVFMT_FLAG_NONBLOCK;
     // TODO: Determine the input format, currently causes seg fauit
-    /*
+    
     AVProbeData probe_data = {0};
     probe_data.buf = avio_ctx_buffer;
     probe_data.buf_size = data_size;
@@ -113,7 +112,7 @@ video_decoder::open_container(memory_block block) const
     
     // Determine the input format
     fmt_ctx->iformat = av_probe_input_format(&probe_data, 1);
-    */
+    
     // Open media file and read the header
     ret = avformat_open_input(&fmt_ctx, nullptr, nullptr, nullptr);
     if (ret < 0) {
@@ -134,9 +133,12 @@ video_decoder::open_container(memory_block block) const
         throw std::runtime_error("Failed to find stream information.");
     }
     
+    int video_stream_index = 0;
+    int audio_stream_index = 0;
     at::List<at::List<at::Tensor>> all_video_streams;
     // Iterate over all streams
     int processed_frames = 0;
+    int audio_frames = 0;
     for (unsigned int i = 0; i < fmt_ctx->nb_streams; i++) {
         // Allocate memory for stream packets
         AVStream *stream = fmt_ctx->streams[i];
@@ -195,7 +197,11 @@ video_decoder::open_container(memory_block block) const
             fprintf(stderr, "Failed to allocate the RGB frame\n");
             throw std::runtime_error("Failed to allocate the RGB frame.");
         }
-
+        if (codec_par->codec_type == AVMEDIA_TYPE_VIDEO) {
+            std::cout << "video index " << pkt->stream_index << " " << i << " " << video_stream_index << std::endl;
+        } else if (codec_par->codec_type == AVMEDIA_TYPE_AUDIO) {
+            std::cout << "audio index " << pkt->stream_index << " " << i << " " << audio_stream_index << std::endl;
+        }
         // Decode the frames in the media container
         at::Tensor all_video_frames = at::empty({num_frames, codec_par->height, codec_par->width, 3}, 
         at::dtype(at::kByte).device(at::kCPU).pinned_memory(opts_.pin_memory()));
@@ -207,7 +213,58 @@ video_decoder::open_container(memory_block block) const
         at::dtype(at::kFloat).device(at::kCPU).pinned_memory(opts_.pin_memory()));
         at::Tensor video_duration = at::tensor({duration_microseconds}, 
         at::dtype(at::kLong).device(at::kCPU).pinned_memory(opts_.pin_memory()));
-                
+        
+        if (codec_par->codec_type == AVMEDIA_TYPE_AUDIO) { 
+            SwrContext* swr_ctx = swr_alloc_set_opts(nullptr,
+                stream->codecpar->channel_layout, AV_SAMPLE_FMT_S16, stream->codecpar->sample_rate,
+                stream->codecpar->channel_layout, codec_ctx->sample_fmt, stream->codecpar->sample_rate,
+                0, nullptr);
+                std::cout << "Audio detected" << std::endl;
+                while(av_read_frame(fmt_ctx, pkt) >= 0) {
+                    if (pkt->stream_index == i) {
+                        ret = avcodec_send_packet(codec_ctx, pkt);
+                        if (ret < 0) {
+                            fprintf(stderr, "Error sending packet to decoder: %s\n");
+                            throw std::runtime_error("Error sending packet to decoder.");
+                        }
+                        // Receive raw data frame (uncompressed frame) from the decoder through the codec context
+                        while (ret >= 0) {
+                            ret = avcodec_receive_frame(codec_ctx, frame);
+                            if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+                                break;  // Need more input or decoding finished
+                            } else if (ret < 0) {
+                                fprintf(stderr, "Error receiving frame from decoder: %s\n");
+                                throw std::runtime_error("Error receiving frame from decoder.");
+                            }                                                                    
+                            // Save the frame in a tensor
+                                     
+                            audio_frames++;                  
+                            int channels = av_get_channel_layout_nb_channels(frame->channel_layout);
+                            //int channels = frame->channels;
+                            //int frameSize = av_get_bytes_per_sample(static_cast<AVSampleFormat>(frame->format)) * channels * frame->nb_samples;
+                            at::Tensor one_frame = at::empty({channels, frame->nb_samples},
+                            at::dtype(at::kByte).device(at::kCPU).pinned_memory(opts_.pin_memory()));
+                            writable_memory_span frame_bits = get_raw_mutable_storage(one_frame);
+                            auto frame_data = reinterpret_cast<uint8_t*>(frame_bits.data());
+                            int row_size = frame->linesize[0];
+                            
+                            for (int c = 0; c < channels; ++c) {
+                                memcpy(frame_data + c * row_size, frame->data[c], row_size);
+                            } 
+                            std::cout << "Audio frame " << std::endl;
+                            audio_frames++;
+                                
+                                                      
+                            av_frame_unref(frame); // Unref old data so the frame can be reused
+                        }
+                    }
+                    av_packet_unref(pkt);   
+                }
+        }
+        
+
+
+        
         // Iterate over all frames in the stream
         while (av_read_frame(fmt_ctx, pkt) >= 0) {                
             if (pkt->stream_index == i) {  
@@ -281,6 +338,16 @@ video_decoder::open_container(memory_block block) const
         result.push_back(video_duration);
         all_video_streams.push_back(result);
 
+
+
+
+        std::cout << "video frames " << processed_frames << std::endl;
+        std::cout << "audio frames " << audio_frames << std::endl;
+        if (codec_par->codec_type == AVMEDIA_TYPE_VIDEO) {
+            video_stream_index++;
+        } else if (codec_par->codec_type == AVMEDIA_TYPE_AUDIO) {
+            audio_stream_index++;
+        }
         avcodec_free_context(&codec_ctx);
         av_packet_free(&pkt);
         av_frame_free(&frame);
@@ -295,7 +362,7 @@ video_decoder::open_container(memory_block block) const
         if (fmt_ctx) {
             avformat_free_context(fmt_ctx);
         }
-    return all_video_streams;
+    return all_streams;
     }    
 
 int 
@@ -311,5 +378,6 @@ video_decoder::read_callback(void *opaque, uint8_t *buf, int buf_size) {
     bd->size -= buf_size;
     return buf_size;
 }
- 
+ */
+
 } // namespace fairseq2n
