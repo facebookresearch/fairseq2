@@ -12,7 +12,7 @@ import torch
 from fairseq2.data.text import TextTokenizer
 from fairseq2.generation import (
     BannedSequenceProcessor,
-    SequenceGeneratorOptions,
+    BeamSearchSeq2SeqGenerator,
     TextTranslator,
 )
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
@@ -84,16 +84,17 @@ class TestBannedSequenceProcessor:
 
         banned_seqs = [text_encoder(b) for b in banned_words]
 
-        opts = SequenceGeneratorOptions(
-            step_processor=BannedSequenceProcessor(banned_seqs)
+        generator = BeamSearchSeq2SeqGenerator(
+            self.model, step_processors=[BannedSequenceProcessor(banned_seqs)]
         )
 
         translator = TextTranslator(
-            self.model,
+            generator,
             self.tokenizer,
             source_lang="eng_Latn",
             target_lang="spa_Latn",
-            opts=opts,
         )
 
-        assert translator(BANNED_ENG_SENTENCES) == expected_translations
+        texts, _ = translator.batch_translate(BANNED_ENG_SENTENCES)
+
+        assert texts == expected_translations

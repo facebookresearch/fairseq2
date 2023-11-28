@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from typing import Optional, Tuple
 
 from torch import Tensor
@@ -16,8 +16,29 @@ from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import override
 
 
-class SequenceDecoder(ABC):
-    """Represents a sequence decoder such as a :class:`DecoderModel`."""
+class DecoderModel(SequenceModel):
+    """Represents a decoder model."""
+
+    model_dim: int
+
+    def __init__(self, model_dim: int, vocab_info: VocabularyInfo) -> None:
+        """
+        :param model_dim:
+            The dimensionality of the model.
+        :param vocab_info:
+            The vocabulary information of sequences produced by the model.
+        """
+        super().__init__(vocab_info)
+
+        self.model_dim = model_dim
+
+    @override
+    def forward(self, batch: SequenceBatch) -> SequenceModelOutput:
+        decoder_output, decoder_padding_mask = self.decode(
+            batch.seqs, batch.padding_mask
+        )
+
+        return self.project(decoder_output, decoder_padding_mask)
 
     @abstractmethod
     def decode(
@@ -63,31 +84,6 @@ class SequenceDecoder(ABC):
             where :math:`N` is the batch size and :math:`S` is the sequence
             length.
         """
-
-
-class DecoderModel(SequenceModel, SequenceDecoder):
-    """Represents a decoder model."""
-
-    model_dim: int
-
-    def __init__(self, model_dim: int, vocab_info: VocabularyInfo) -> None:
-        """
-        :param model_dim:
-            The dimensionality of the model.
-        :param vocab_info:
-            The vocabulary information of sequences produced by the model.
-        """
-        super().__init__(vocab_info)
-
-        self.model_dim = model_dim
-
-    @override
-    def forward(self, batch: SequenceBatch) -> SequenceModelOutput:
-        decoder_output, decoder_padding_mask = self.decode(
-            batch.seqs, batch.padding_mask
-        )
-
-        return self.project(decoder_output, decoder_padding_mask)
 
     def extra_repr(self) -> str:
         """:meta private:"""
