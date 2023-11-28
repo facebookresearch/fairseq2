@@ -19,7 +19,6 @@ from urllib.parse import unquote, urlparse
 from urllib.request import Request, urlopen
 from zipfile import BadZipFile, ZipFile
 
-import torch
 from tqdm import tqdm  # type: ignore[import]
 
 from fairseq2.assets.error import AssetError
@@ -283,23 +282,34 @@ class _AssetDownloadOp:
     def _init_download_path(self) -> None:
         assert self.download_filename is not None
 
-        if pathname := os.getenv("FAIRSEQ2_CACHE_DIR"):
-            try:
-                cache_root_path = Path(pathname)
-            except ValueError as ex:
-                raise RuntimeError(
-                    f"`FAIRSEQ2_CACHE_DIR` environment variable must contain a valid pathname, but contains '{pathname}' instead."
-                ) from ex
-        else:
-            cache_root_path = Path(torch.hub.get_dir()).joinpath("fairseq2")
+        cache_dir = self._get_path_from_env("FAIRSEQ2_CACHE_DIR")
+        if cache_dir is None:
+            cache_dir = self._get_path_from_env("XDG_CACHE_HOME")
+            if cache_dir is None:
+                cache_dir = Path("~/.cache")
+
+            cache_dir = cache_dir.joinpath("fairseq2")
 
         hash_ = sha1(self.uri.encode()).hexdigest()
 
         hash_ = hash_[:24]
 
-        self.download_path = cache_root_path.expanduser().joinpath(
+        self.download_path = cache_dir.expanduser().joinpath(
             "assets", hash_, self.download_filename
         )
+
+    @staticmethod
+    def _get_path_from_env(var_name: str) -> Optional[Path]:
+        pathname = os.getenv(var_name)
+        if not pathname:
+            return None
+
+        try:
+            return Path(pathname)
+        except ValueError as ex:
+            raise RuntimeError(
+                f"`{var_name}` environment variable must contain a valid pathname, but contains '{pathname}' instead."
+            ) from ex
 
     def _download_asset(self) -> None:
         assert self.download_path is not None
