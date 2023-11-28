@@ -23,9 +23,8 @@ on:
           - 'nightly'
           - 'rc'
           - 'stable'
-      build_id:
+      nightly_build_id:
         type: string
-        description: 'Appends the specified value to the package version. Only used in nightly builds.'
 
 jobs:
   process_version:
@@ -53,7 +52,7 @@ jobs:
         id: stamp_version
         if: inputs.release_type == 'nightly'
         env:
-          BUILD_ID: ${{ inputs.build_id }}
+          BUILD_ID: ${{ inputs.nightly_build_id }}
         run: |
           version=$(cat VERSION)
 
