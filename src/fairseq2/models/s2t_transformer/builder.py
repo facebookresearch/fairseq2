@@ -316,7 +316,7 @@ class S2TTransformerBuilder:
         return SinusoidalPositionEncoder(
             self.config.model_dim,
             self.config.max_seq_len,
-            _legacy_pad_idx=self.config.target_vocab_info.pad_idx,
+            _legacy_pad_idx=1,
             device=self.device,
         )
 
