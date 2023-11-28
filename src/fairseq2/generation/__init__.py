@@ -24,6 +24,15 @@ from fairseq2.generation.generator import (
     SequenceGeneratorOutput as SequenceGeneratorOutput,
 )
 from fairseq2.generation.generator import StepHook as StepHook
+from fairseq2.generation.sampling import Sampler as Sampler
+from fairseq2.generation.sampling import (
+    SamplingSeq2SeqGenerator as SamplingSeq2SeqGenerator,
+)
+from fairseq2.generation.sampling import (
+    SamplingSequenceGenerator as SamplingSequenceGenerator,
+)
+from fairseq2.generation.sampling import TopKSampler as TopKSampler
+from fairseq2.generation.sampling import TopPSampler as TopPSampler
 from fairseq2.generation.step_processor import (
     BannedSequenceProcessor as BannedSequenceProcessor,
 )
@@ -35,4 +44,5 @@ from fairseq2.generation.text import SequenceToTextConverter as SequenceToTextCo
 from fairseq2.generation.text import (
     SequenceToTextConverterBase as SequenceToTextConverterBase,
 )
+from fairseq2.generation.text import TextCompleter as TextCompleter
 from fairseq2.generation.text import TextTranslator as TextTranslator
