@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import re
+import warnings
 from typing import Any, Callable, Dict, Mapping, Optional, Protocol, Union
 
 import torch
@@ -55,9 +56,13 @@ def load_checkpoint(
     :returns:
         The loaded checkpoint.
     """
-    checkpoint: Mapping[str, Any] = torch.load(
-        str(pathname), map_location, weights_only=restrict
-    )
+    with warnings.catch_warnings():
+        # Suppress the noisy deprecated `TypedStorage` warning.
+        warnings.simplefilter("ignore")
+
+        checkpoint: Mapping[str, Any] = torch.load(
+            str(pathname), map_location, weights_only=restrict
+        )
 
     if converter is not None:
         checkpoint = converter(checkpoint)
