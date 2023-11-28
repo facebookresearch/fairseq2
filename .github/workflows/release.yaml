@@ -23,8 +23,6 @@ on:
           - 'nightly'
           - 'rc'
           - 'stable'
-      nightly_build_id:
-        type: string
 
 jobs:
   process_version:
@@ -51,13 +49,11 @@ jobs:
       - name: Stamp version with current date if nightly
         id: stamp_version
         if: inputs.release_type == 'nightly'
-        env:
-          BUILD_ID: ${{ inputs.nightly_build_id }}
         run: |
           version=$(cat VERSION)
 
-          # Append date-stamped dev segment.
-          echo version_override=${version%.dev*}.dev$(date +%Y%m%d)${BUILD_ID:+.$BUILD_ID} >> "$GITHUB_OUTPUT"
+          # Append datetime-stamped dev segment.
+          echo version_override=${version%.dev*}.dev$(date +%Y%m%d%H%M) >> "$GITHUB_OUTPUT"
 
   lint:
     name: Lint
