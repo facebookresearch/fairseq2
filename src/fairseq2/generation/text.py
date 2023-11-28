@@ -11,7 +11,12 @@ from torch import Tensor
 
 from fairseq2.data import StringLike
 from fairseq2.data.text import TextTokenDecoder, TextTokenEncoder, TextTokenizer
-from fairseq2.generation.generator import Seq2SeqGenerator, Seq2SeqGeneratorOutput
+from fairseq2.generation.generator import (
+    Seq2SeqGenerator,
+    Seq2SeqGeneratorOutput,
+    SequenceGenerator,
+    SequenceGeneratorOutput,
+)
 from fairseq2.nn.padding import PaddingMask, pad_seqs
 from fairseq2.nn.utils.module import infer_device
 
@@ -227,3 +232,83 @@ class TextTranslator(SequenceToTextConverterBase):
         source_seqs, source_padding_mask = pad_seqs(source_seq_list, self.pad_idx)
 
         return self._do_convert(source_seqs, source_padding_mask)
+
+
+class TextCompleter:
+    """Completes text prompts."""
+
+    generator: SequenceGenerator
+    text_encoder: TextTokenEncoder
+    text_decoder: TextTokenDecoder
+
+    def __init__(self, generator: SequenceGenerator, tokenizer: TextTokenizer) -> None:
+        """
+        :param generator:
+            The sequence generator.
+        :param tokenizer:
+            The text tokenizer.
+        """
+        self.generator = generator
+
+        device = infer_device(generator.model)
+
+        self.text_encoder = tokenizer.create_encoder(mode="prompt", device=device)
+        self.text_decoder = tokenizer.create_decoder()
+
+    def __call__(
+        self, prompt: StringLike
+    ) -> Tuple[StringLike, SequenceGeneratorOutput]:
+        """
+        :param prompt:
+            The text prompt.
+
+        :returns:
+            - The completed text.
+            - The output of the underlying sequence generator.
+        """
+        prompt_seq = self.text_encoder(prompt)
+
+        texts, generator_output = self._do_complete(
+            prompt_seq.unsqueeze(0), prompt_padding_mask=None
+        )
+
+        return texts[0], generator_output
+
+    def batch_complete(
+        self, prompts: Sequence[StringLike]
+    ) -> Tuple[List[StringLike], SequenceGeneratorOutput]:
+        """
+        :param prompts:
+            The text prompts.
+
+        :returns:
+            - The completed texts.
+            - The output of the underlying sequence generator.
+        """
+        if len(prompts) == 0:
+            raise ValueError(
+                "`prompts` must contain at least one element, but is empty instead."
+            )
+
+        prompt_seq_list = [self.text_encoder(p) for p in prompts]
+
+        prompt_seqs, prompt_padding_mask = pad_seqs(prompt_seq_list)
+
+        return self._do_complete(prompt_seqs, prompt_padding_mask)
+
+    def _do_complete(
+        self, prompt_seqs: Tensor, prompt_padding_mask: Optional[PaddingMask]
+    ) -> Tuple[List[StringLike], SequenceGeneratorOutput]:
+        generator_output = self.generator(prompt_seqs, prompt_padding_mask)
+
+        texts: List[StringLike] = []
+
+        for idx, hypotheses in enumerate(generator_output.hypotheses):
+            if len(hypotheses) == 0:
+                raise RuntimeError(
+                    f"The sequence generator returned no hypothesis at index {idx}. Please file a bug report."
+                )
+
+            texts.append(self.text_decoder(hypotheses[0].seq))
+
+        return texts, generator_output
