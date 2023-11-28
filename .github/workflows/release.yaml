@@ -23,9 +23,9 @@ on:
           - 'nightly'
           - 'rc'
           - 'stable'
-        build_id:
-          type: string
-          description: 'Appends the specified value to the package version. Only used in nightly builds.'
+      build_id:
+        type: string
+        description: 'Appends the specified value to the package version. Only used in nightly builds.'
 
 jobs:
   process_version:
