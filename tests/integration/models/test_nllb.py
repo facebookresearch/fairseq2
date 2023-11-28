@@ -8,7 +8,7 @@ from typing import Final
 
 import torch
 
-from fairseq2.generation import TextTranslator
+from fairseq2.generation import BeamSearchSeq2SeqGenerator, TextTranslator
 from fairseq2.models.nllb import load_nllb_model, load_nllb_tokenizer
 from tests.common import device
 
@@ -25,8 +25,12 @@ def test_load_dense_distill_600m() -> None:
 
     tokenizer = load_nllb_tokenizer(model_name, progress=False)
 
+    generator = BeamSearchSeq2SeqGenerator(model, echo_prompt=True)
+
     translator = TextTranslator(
-        model, tokenizer, source_lang="eng_Latn", target_lang="deu_Latn"
+        generator, tokenizer, source_lang="eng_Latn", target_lang="deu_Latn"
     )
 
-    assert translator([ENG_SENTENCE]) == [DEU_SENTENCE]
+    text, _ = translator(ENG_SENTENCE)
+
+    assert text == DEU_SENTENCE
