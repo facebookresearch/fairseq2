@@ -15,7 +15,7 @@
 #include <ATen/Tensor.h>
 
 #include "fairseq2n/data/video/video_decoder.h"
-#include "fairseq2n/data/video/ffmpeg_decoder.h"
+#include "fairseq2n/data/video/ffmpeg.h"
 #include "fairseq2n/exception.h"
 #include "fairseq2n/float.h"
 #include "fairseq2n/fmt.h"

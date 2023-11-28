@@ -7,7 +7,7 @@
 #pragma once
 
 #include <optional>
-#include "fairseq2n/data/video/ffmpeg_decoder.h"
+#include "fairseq2n/data/video/ffmpeg.h"
 
 #include "fairseq2n/api.h"
 #include "fairseq2n/data/data.h"
