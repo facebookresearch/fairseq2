@@ -7,7 +7,7 @@
 #pragma once
 
 #include <optional>
-//#include "fairseq2n/data/video/detail/avcodec_resources.h"
+#include "fairseq2n/data/video/detail/avcodec_resources.h"
 #include "fairseq2n/data/video/detail/avformat_resources.h"
 #include "fairseq2n/data/video/detail/utils.h"
 
@@ -101,7 +101,7 @@ public:
 private:
     video_decoder_options opts_; 
     std::unique_ptr<avformat_resources> fmt_resources_;     
-    //std::unique_ptr<avcodec_resources> codec_resources_; 
+    std::unique_ptr<avcodec_resources> codec_resources_; 
 };
 
 
