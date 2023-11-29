@@ -1,0 +1,6 @@
+﻿fairseq2.data.RecordError
+=========================
+
+.. currentmodule:: fairseq2.data
+
+.. autoexception:: RecordError

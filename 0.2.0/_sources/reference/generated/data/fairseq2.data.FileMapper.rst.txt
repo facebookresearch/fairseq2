@@ -1,0 +1,12 @@
+﻿.. currentmodule:: fairseq2.data
+
+FileMapper
+==========
+
+.. autoclass:: FileMapper
+    :members:
+    :member-order: groupwise
+    :class-doc-from: both
+    :special-members: __call__, __iter__
+    :inherited-members: Module
+    :show-inheritance:

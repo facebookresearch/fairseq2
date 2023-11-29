@@ -1,0 +1,6 @@
+﻿.. currentmodule:: fairseq2.data
+
+list\_files
+===========
+
+.. autofunction:: list_files
