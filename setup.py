@@ -6,7 +6,7 @@
 
 from setuptools import find_packages, setup
 
-version = "0.2.0.dev0"
+version = "0.2.0"
 
 # If this is a local development install, allow nightly fairseq2n builds to
 # take precedence.
