@@ -22,7 +22,7 @@ class IncrementalState(ABC):
 
     @abstractmethod
     def reorder(self, new_order: Tensor) -> None:
-        """Rearrange the incremental state according to a new batch order.
+        """Rearrange the state according to a new batch order.
 
         This will be called when the order of the batch has changed. A typical
         use case is beam search, where the batch order changes between steps
@@ -41,7 +41,7 @@ T = TypeVar("T", bound=IncrementalState)
 class IncrementalStateBag:
     """Holds the module states during incremental decoding."""
 
-    step: int
+    step_nr: int
     max_num_steps: int
 
     _module_states: Dict[Module, IncrementalState]
@@ -51,42 +51,40 @@ class IncrementalStateBag:
         :param max_num_steps:
             The expected maximum number of steps to take.
         """
-        self.step = 0
+        self.step_nr = 0
         self.max_num_steps = max_num_steps
 
         self._module_states = {}
 
-    def increment_step(self, delta: int = 1) -> None:
-        """Increment the step.
+    def increment_step_nr(self, value: int = 1) -> None:
+        """Increment the step number.
 
         This method should be called after every decoding step. It is used by
         modules to keep track of the position in the sequence.
 
-        :param delta:
-            The value by which to increment the step.
+        :param value:
+            The value by which to increment the step number.
         """
-        step = self.step + delta
+        step_nr = self.step_nr + value
 
-        if step >= self.max_num_steps:
+        if step_nr >= self.max_num_steps:
             raise ValueError(
-                f"The `delta` increment ({delta}) to the current step ({self.step}) exceeds the maximum number of steps ({self.max_num_steps})."
+                f"The current step number ({self.step_nr}) with `value` increment must be less than or equal to the maximum number of steps ({self.max_num_steps}), but is {self.step_nr + value} instead."
             )
 
-        self.step = step
+        self.step_nr = step_nr
 
     def get_state(self, m: Module, kls: Type[T]) -> Optional[T]:
-        """Get the incremental state of ``m``, or ``None`` if ``m`` is not
-        present in the bag.
+        """Get the state of ``m`` if present in the bag.
 
         :param m:
             The module.
         :param kls:
-            The expected ``type`` of the incremental state. If the type of the
-            incremental state in the bag does not match ``kls``, ``None`` will
-            be returned.
+            The expected ``type`` of the state. If the type of the state in the
+            bag does not match ``kls``, ``None`` will be returned.
 
         :returns:
-            The incremental state of the module.
+            The state of the module.
         """
         state = self._module_states.get(m, None)
         if isinstance(state, kls):
@@ -95,17 +93,17 @@ class IncrementalStateBag:
             return None
 
     def set_state(self, m: Module, state: IncrementalState) -> None:
-        """Set the incremental state of ``m``.
+        """Set the state of ``m``.
 
         :param m:
             The module.
         :param state:
-            The incremental state to store.
+            The state to store.
         """
         self._module_states[m] = state
 
     def reorder(self, new_order: Tensor) -> None:
-        """Reorder all incremental states in the bag.
+        """Reorder all module states in the bag.
 
         See :meth:`IncrementalState.reorder` for more information.
         """

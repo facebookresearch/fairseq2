@@ -117,7 +117,7 @@ If you have made changes to the Python code, run the following command and
 address any issues reported:
 
 ```sh
-mypy . && flake8 .
+mypy && flake8 .
 ```
 
 ### C++

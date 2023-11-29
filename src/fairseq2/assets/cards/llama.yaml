@@ -17,12 +17,17 @@ model_arch: 7b
 
 ---
 
-name: llama2_7b
+name: llama2
 base: llama
+
+---
+
+name: llama2_7b
+base: llama2
 model_arch: llama2_7b
 
 ---
 
 name: llama2_7b_chat
-base: llama
+base: llama2
 model_arch: llama2_7b

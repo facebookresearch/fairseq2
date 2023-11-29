@@ -14,12 +14,11 @@ from pathlib import Path, PurePath
 from tarfile import TarFile, is_tarfile
 from tempfile import NamedTemporaryFile
 from typing import Dict, Optional, final
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.parse import unquote, urlparse
 from urllib.request import Request, urlopen
 from zipfile import BadZipFile, ZipFile
 
-import torch
 from tqdm import tqdm  # type: ignore[import]
 
 from fairseq2.assets.error import AssetError
@@ -283,24 +282,34 @@ class _AssetDownloadOp:
     def _init_download_path(self) -> None:
         assert self.download_filename is not None
 
-        cache_root_pathname = os.getenv("FAIRSEQ2_CACHE_DIR")
-        if cache_root_pathname:
-            try:
-                cache_root_path = Path(cache_root_pathname)
-            except ValueError as ex:
-                raise RuntimeError(
-                    f"`FAIRSEQ2_CACHE_DIR` environment variable must contain a valid pathname, but contains '{cache_root_pathname}' instead."
-                ) from ex
-        else:
-            cache_root_path = Path(torch.hub.get_dir()).joinpath("fairseq2")
+        cache_dir = self._get_path_from_env("FAIRSEQ2_CACHE_DIR")
+        if cache_dir is None:
+            cache_dir = self._get_path_from_env("XDG_CACHE_HOME")
+            if cache_dir is None:
+                cache_dir = Path("~/.cache")
+
+            cache_dir = cache_dir.joinpath("fairseq2")
 
         hash_ = sha1(self.uri.encode()).hexdigest()
 
         hash_ = hash_[:24]
 
-        self.download_path = cache_root_path.expanduser().joinpath(
-            "assets", hash_, self.download_filename
-        )
+        cache_dir = cache_dir.expanduser().resolve()
+
+        self.download_path = cache_dir.joinpath("assets", hash_, self.download_filename)
+
+    @staticmethod
+    def _get_path_from_env(var_name: str) -> Optional[Path]:
+        pathname = os.getenv(var_name)
+        if not pathname:
+            return None
+
+        try:
+            return Path(pathname)
+        except ValueError as ex:
+            raise RuntimeError(
+                f"`{var_name}` environment variable must contain a valid pathname, but contains '{pathname}' instead."
+            ) from ex
 
     def _download_asset(self) -> None:
         assert self.download_path is not None
@@ -368,6 +377,10 @@ class _AssetDownloadOp:
 
             try:
                 response = cleanup_stack.enter_context(urlopen(request))
+            except URLError as ex:
+                raise AssetDownloadError(
+                    f"The download of the {self.display_name} has failed. See nested exception for details."
+                ) from ex
             except HTTPError as ex:
                 raise AssetDownloadError(
                     f"The download of the {self.display_name} has failed with the HTTP error code {ex.code}."

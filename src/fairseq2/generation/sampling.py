@@ -7,12 +7,11 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence, Tuple, Union, final
 
 import torch
 from torch import Tensor
-from torch.nn.functional import log_softmax
+from torch.nn.functional import softmax
 
 from fairseq2.data import VocabularyInfo
 from fairseq2.generation.generator import (
@@ -28,20 +27,22 @@ from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.nn.incremental_state import IncrementalStateBag
+from fairseq2.nn.ops import repeat_interleave
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import finaloverride, override
 
 
 @final
-class BeamSearchSequenceGenerator(SequenceGenerator):
-    """Represents a sequence generator based on beam search."""
+class SamplingSequenceGenerator(SequenceGenerator):
+    """Represents a sequence generator based on sampling."""
 
-    algorithm: BeamSearchAlgorithm
-    beam_size: int
+    sampler: Sampler
+    num_gens: int
     min_gen_len: int
     max_gen_len: int
     max_seq_len: int
     echo_prompt: bool
+    compute_scores: bool
     normalize_scores: bool
     temperature: float
     unk_penalty: float
@@ -51,15 +52,16 @@ class BeamSearchSequenceGenerator(SequenceGenerator):
     def __init__(
         self,
         model: DecoderModel,
+        sampler: Sampler,
         *,
-        algorithm: Optional[BeamSearchAlgorithm] = None,
-        beam_size: int = 5,
+        num_gens: int = 1,
         min_gen_len: int = 1,
         max_gen_len: int = 128,
         max_seq_len: int = 1024,
         echo_prompt: bool = False,
+        compute_scores: bool = False,
         normalize_scores: bool = True,
-        temperature: float = 1.0,
+        temperature: float = 0.6,
         unk_penalty: float = 0.0,
         len_penalty: float = 1.0,
         step_processors: Optional[Sequence[StepProcessor]] = None,
@@ -67,10 +69,10 @@ class BeamSearchSequenceGenerator(SequenceGenerator):
         """
         :param model:
             The decoder model to use for generation.
-        :param algorithm:
-            The beam search algorithm.
-        :param beam_size:
-            The beam size.
+        :param sampler:
+            The sampling algorithm.
+        :param num_gens:
+            The number of sequences to generate per prompt.
         :param min_gen_len:
             The minimum allowed generation length.
         :param max_gen_len:
@@ -79,6 +81,8 @@ class BeamSearchSequenceGenerator(SequenceGenerator):
             The maximum allowed sequence length including prompt.
         :param echo_prompt:
             If ``True``, returns generated sequences with prompts appended.
+        :param compute_scores:
+            If ``True``, computes scores of generated sequences.
         :param normalize_scores:
             If ``True``, normalizes scores by lengths of generated sequences.
         :param temperature:
@@ -110,12 +114,13 @@ class BeamSearchSequenceGenerator(SequenceGenerator):
                 f"`min_gen_len` must be less than or equal to `max_gen_len` ({max_gen_len}), but is {min_gen_len} instead."
             )
 
-        self.algorithm = algorithm or StandardBeamSearchAlgorithm()
-        self.beam_size = beam_size
+        self.sampler = sampler
+        self.num_gens = num_gens
         self.min_gen_len = min_gen_len
         self.max_gen_len = max_gen_len
         self.max_seq_len = max_seq_len
         self.echo_prompt = echo_prompt
+        self.compute_scores = compute_scores
         self.normalize_scores = normalize_scores
         self.temperature = temperature
         self.unk_penalty = unk_penalty
@@ -131,16 +136,17 @@ class BeamSearchSequenceGenerator(SequenceGenerator):
     def __call__(
         self, prompt_seqs: Tensor, prompt_padding_mask: Optional[PaddingMask]
     ) -> SequenceGeneratorOutput:
-        op = _BeamSearchSequenceGeneratorOp(
+        op = _SamplingSequenceGeneratorOp(
             self.model,
             prompt_seqs,
             prompt_padding_mask,
-            self.algorithm,
-            self.beam_size,
+            self.sampler,
+            self.num_gens,
             self.min_gen_len,
             self.max_gen_len,
             self.max_seq_len,
             self.echo_prompt,
+            self.compute_scores,
             self.normalize_scores,
             self.temperature,
             self.unk_penalty,
@@ -155,15 +161,16 @@ class BeamSearchSequenceGenerator(SequenceGenerator):
 
 
 @final
-class BeamSearchSeq2SeqGenerator(Seq2SeqGenerator):
-    """Represents a sequence-to-sequence generator based on beam search."""
+class SamplingSeq2SeqGenerator(Seq2SeqGenerator):
+    """Represents a sequence-to-sequence generator based on sampling."""
 
-    algorithm: BeamSearchAlgorithm
-    beam_size: int
+    sampler: Sampler
+    num_gens: int
     min_gen_len: int
     max_gen_len: Tuple[int, int]
     max_seq_len: int
     echo_prompt: bool
+    compute_scores: bool
     normalize_scores: bool
     temperature: float
     unk_penalty: float
@@ -173,15 +180,16 @@ class BeamSearchSeq2SeqGenerator(Seq2SeqGenerator):
     def __init__(
         self,
         model: EncoderDecoderModel,
+        sampler: Sampler,
         *,
-        algorithm: Optional[BeamSearchAlgorithm] = None,
-        beam_size: int = 5,
+        num_gens: int = 1,
         min_gen_len: int = 1,
         max_gen_len: Tuple[int, int] = (1, 128),
         max_seq_len: int = 1024,
         echo_prompt: bool = False,
+        compute_scores: bool = False,
         normalize_scores: bool = True,
-        temperature: float = 1.0,
+        temperature: float = 0.6,
         unk_penalty: float = 0.0,
         len_penalty: float = 1.0,
         step_processors: Optional[Sequence[StepProcessor]] = None,
@@ -189,10 +197,10 @@ class BeamSearchSeq2SeqGenerator(Seq2SeqGenerator):
         """
         :param model:
             The encoder-decoder model to use for generation.
-        :param algorithm:
-            The beam search algorithm.
-        :param beam_size:
-            The beam size.
+        :param sampler:
+            The sampling algorithm.
+        :param num_gens:
+            The number of sequences to generate per prompt.
         :param min_gen_len:
             The minimum allowed generation length.
         :param max_gen_len:
@@ -202,6 +210,8 @@ class BeamSearchSeq2SeqGenerator(Seq2SeqGenerator):
             The maximum allowed sequence length including prompt.
         :param echo_prompt:
             If ``True``, returns generated sequences with prompts appended.
+        :param compute_scores:
+            If ``True``, computes scores of generated sequences.
         :param normalize_scores:
             If ``True``, normalizes scores by lengths of generated sequences.
         :param temperature:
@@ -223,12 +233,13 @@ class BeamSearchSeq2SeqGenerator(Seq2SeqGenerator):
                 f"`min_gen_len` must be greater than or equal to 1, but is {min_gen_len} instead."
             )
 
-        self.algorithm = algorithm or StandardBeamSearchAlgorithm()
-        self.beam_size = beam_size
+        self.sampler = sampler
+        self.num_gens = num_gens
         self.min_gen_len = min_gen_len
         self.max_gen_len = max_gen_len
         self.max_seq_len = max_seq_len
         self.echo_prompt = echo_prompt
+        self.compute_scores = compute_scores
         self.normalize_scores = normalize_scores
         self.temperature = temperature
         self.unk_penalty = unk_penalty
@@ -274,18 +285,19 @@ class BeamSearchSeq2SeqGenerator(Seq2SeqGenerator):
                 f"`min_gen_len` must be less than or equal to `max_gen_len` ({max_gen_len}), but is {self.min_gen_len} instead. Adjust your `max_gen_len` argument."
             )
 
-        op = _BeamSearchSeq2SeqGeneratorOp(
+        op = _SamplingSeq2SeqGeneratorOp(
             self.model,
             encoder_output,
             encoder_padding_mask,
             prompt_seqs,
             prompt_padding_mask,
-            self.algorithm,
-            self.beam_size,
+            self.sampler,
+            self.num_gens,
             self.min_gen_len,
             max_gen_len,
             self.max_seq_len,
             self.echo_prompt,
+            self.compute_scores,
             self.normalize_scores,
             self.temperature,
             self.unk_penalty,
@@ -299,108 +311,112 @@ class BeamSearchSeq2SeqGenerator(Seq2SeqGenerator):
         return Seq2SeqGeneratorOutput(hypotheses, encoder_output, encoder_padding_mask)
 
 
-class BeamSearchAlgorithm(ABC):
-    """Represents a beam search algorithm."""
+class Sampler(ABC):
+    """Represents a sampling algorithm."""
 
     @abstractmethod
-    def __call__(self, beam_size: int, lprobs: Tensor, step_scores: Tensor) -> BeamStep:
-        """Take a single step.
-
-        A subclass implementation is expected to return the best 2 x `beam_size`
-        candidates. The sequence generator will choose the first `beam_size` of
-        these which don't predict EOS to continue with.
-
-        :param beam_size:
-            The beam size.
-        :param lprobs:
-            The next-step log probability of each vocabulary entry. *Shape:*
+    def __call__(self, probs: Tensor) -> Tensor:
+        """
+        :param probs:
+            The next-step probability of each vocabulary entry. *Shape:*
             :math:`(N,V)`, where :math:`N` is the batch size and :math:`V` is
             the size of the vocabulary.
-        :param step_scores:
-            The cumulative score of each step in the beam. *Shape:* :math:`(N,S)`,
-            where :math:`N` is the batch size and :math:`S` is the length of the
-            beam.
         """
 
 
-@dataclass
-class BeamStep:
-    """Represents the output of a beam search algorithm."""
+@final
+class TopPSampler(Sampler):
+    """Selects the next step randomly from the smallest set of candidates for
+    which the cumulative probability exceeds a specified value p.
 
-    seq_indices: Tensor
-    """The beam sequence indices. *Shape:* :math:`(B)`, where :math:`B` is the
-    beam size."""
+    Also known as Nucleus Sampling as described in
+    :cite:t:`https://doi.org/10.48550/arxiv.1904.09751`.
+    """
 
-    vocab_indices: Tensor
-    """The vocabulary indices. *Shape:* Same as ``seq_indices``."""
+    p: float
 
-    scores: Tensor
-    """The scores. *Shape:* Same as ``seq_indices``."""
+    def __init__(self, p: float = 0.9) -> None:
+        """
+        :param p:
+            The cumulative probability threshold.
+        """
+        self.p = p
 
-    def masked_select(self, mask: Tensor) -> BeamStep:
-        """Reduce the beam to the sequences included in ``mask``."""
-        seq_indices = self.seq_indices.masked_select(mask)
+    @finaloverride
+    def __call__(self, probs: Tensor) -> Tensor:
+        # Previous operations in the generation like step processors might have
+        # modified the probabilities. Normalize the distribution.
+        probs = probs / probs.sum(dim=-1, keepdim=True)
 
-        vocab_indices = self.vocab_indices.masked_select(mask)
+        sorted_probs, sorted_indices = torch.sort(probs, dim=-1, descending=True)
 
-        scores = self.scores.masked_select(mask)
+        # (N, V)
+        cumsum_probs = torch.cumsum(sorted_probs, dim=-1)
 
-        return BeamStep(seq_indices, vocab_indices, scores)
+        mask = (cumsum_probs - sorted_probs) > self.p
 
-    def first(self, count: int) -> BeamStep:
-        """Slice the beam to the first ``count`` sequences."""
-        seq_indices = self.seq_indices[:count]
+        sorted_probs[mask] = 0.0
 
-        vocab_indices = self.vocab_indices[:count]
+        # Normalize.
+        sorted_probs /= sorted_probs.sum(dim=-1, keepdim=True)
 
-        scores = self.scores[:count]
+        # (N, 1)
+        indices = sorted_indices.gather(
+            dim=-1, index=torch.multinomial(sorted_probs, num_samples=1)
+        )
 
-        return BeamStep(seq_indices, vocab_indices, scores)
-
-    @staticmethod
-    def merge(steps: Sequence[BeamStep]) -> BeamStep:
-        """Merge ``steps`` into a single beam."""
-        seq_indices = torch.cat([s.seq_indices for s in steps])
-
-        vocab_indices = torch.cat([s.vocab_indices for s in steps])
-
-        scores = torch.cat([s.scores for s in steps])
-
-        return BeamStep(seq_indices, vocab_indices, scores)
+        # (N, 1) -> (N)
+        return indices.squeeze(-1)  # type: ignore[no-any-return]
 
 
 @final
-class StandardBeamSearchAlgorithm(BeamSearchAlgorithm):
-    """Represents a standard beam search algoritm."""
+class TopKSampler(Sampler):
+    """Selects the next step randomly from the k mosty likely candidates."""
+
+    k: int
+
+    def __init__(self, k: int) -> None:
+        """
+        :param k:
+            The number of candidates to select from.
+        """
+        self.k = k
 
     @finaloverride
-    def __call__(self, beam_size: int, lprobs: Tensor, step_scores: Tensor) -> BeamStep:
-        vocab_size = lprobs.size(1)
+    def __call__(self, probs: Tensor) -> Tensor:
+        k = min(self.k, probs.size(1))
 
-        # Make the probabilities contain cumulative scores for each hypothesis.
-        # (N, V) + (N, 1) = (N, V)
-        lprobs = lprobs + step_scores[:, -1].unsqueeze(-1)
+        if k == 1:
+            # (N, 1)
+            indices = torch.argmax(probs, dim=-1, keepdim=True)
+        else:
+            # (N, V) -> (N, K)
+            topk_probs, topk_indices = torch.topk(probs, k=k, dim=-1, sorted=False)
 
-        # (N, V) -> (N x V)
-        lprobs = lprobs.view(-1)
+            # Normalize.
+            topk_probs /= topk_probs.sum(dim=-1, keepdim=True)
 
-        # (2 x B)
-        top_scores, top_indices = torch.topk(lprobs, k=min(2 * beam_size, vocab_size))
+            # (N, 1)
+            indices = topk_indices.gather(
+                dim=-1, index=torch.multinomial(topk_probs, num_samples=1)
+            )
 
-        return BeamStep(top_indices // vocab_size, top_indices % vocab_size, top_scores)
+        # (N, 1) -> (N)
+        return indices.squeeze(-1)
 
 
-class _BeamSearchSequenceGeneratorOpBase(ABC):
-    algorithm: BeamSearchAlgorithm
+class _SamplingSequenceGeneratorOpBase(ABC):
+    sampler: Sampler
     eos_idx: int
     pad_idx: Optional[int]
     unk_idx: Optional[int]
-    beam_size: int
+    num_gens: int
     min_prompt_len: int
     max_prompt_len: int
     min_seq_len: int
     max_seq_len: int
     echo_prompt: bool
+    compute_scores: bool
     normalize_scores: bool
     temperature: float
     unk_penalty: float
@@ -410,10 +426,9 @@ class _BeamSearchSequenceGeneratorOpBase(ABC):
     state_bag: IncrementalStateBag
     prompt_lens: Optional[Tensor]
     prompt_mask: Optional[Tensor]
-    beam_sizes: List[int]
     prompt_indices: Tensor
     seqs: Tensor
-    step_scores: Tensor
+    step_scores: Optional[Tensor]
     output: List[List[Hypothesis]]
     step_hooks: Dict[int, StepHook]
 
@@ -421,13 +436,14 @@ class _BeamSearchSequenceGeneratorOpBase(ABC):
         self,
         prompt_seqs: Tensor,
         prompt_padding_mask: Optional[PaddingMask],
-        algorithm: BeamSearchAlgorithm,
+        sampler: Sampler,
         vocab_info: VocabularyInfo,
-        beam_size: int,
+        num_gens: int,
         min_gen_len: int,
         max_gen_len: int,
         max_seq_len: int,
         echo_prompt: bool,
+        compute_scores: bool,
         normalize_scores: bool,
         temperature: float,
         unk_penalty: float,
@@ -435,7 +451,7 @@ class _BeamSearchSequenceGeneratorOpBase(ABC):
         step_processors: Sequence[StepProcessor],
         step_hooks: Dict[int, StepHook],
     ) -> None:
-        self.algorithm = algorithm
+        self.sampler = sampler
 
         assert vocab_info.eos_idx is not None
 
@@ -443,7 +459,7 @@ class _BeamSearchSequenceGeneratorOpBase(ABC):
         self.pad_idx = vocab_info.pad_idx
         self.unk_idx = vocab_info.unk_idx
 
-        self.beam_size = beam_size
+        self.num_gens = num_gens
 
         min_prompt_idx: Union[int, Tensor]
         max_prompt_idx: Union[int, Tensor]
@@ -475,6 +491,7 @@ class _BeamSearchSequenceGeneratorOpBase(ABC):
         self.max_seq_len = min(max_seq_len, self.max_prompt_len + max_gen_len)
 
         self.echo_prompt = echo_prompt
+        self.compute_scores = compute_scores
         self.normalize_scores = normalize_scores
         self.temperature = temperature
         self.unk_penalty = unk_penalty
@@ -500,9 +517,6 @@ class _BeamSearchSequenceGeneratorOpBase(ABC):
 
         num_prompts = prompt_seqs.size(0)
 
-        # Holds the sizes of the beams.
-        self.beam_sizes = [1 for _ in range(num_prompts)]
-
         # Holds the prompt indices of the generated sequences.
         # (P)
         self.prompt_indices = torch.arange(num_prompts, device=device)
@@ -513,11 +527,14 @@ class _BeamSearchSequenceGeneratorOpBase(ABC):
             (num_prompts, self.max_seq_len), device=device, dtype=torch.int64
         )
 
-        # Holds the step scores of the generated sequences.
-        # (P, S)
-        self.step_scores = torch.zeros(
-            (num_prompts, self.max_seq_len), device=device, dtype=torch.float32
-        )
+        if self.compute_scores:
+            # Holds the step scores of the generated sequences.
+            # (P, S)
+            self.step_scores = torch.zeros(
+                (num_prompts, self.max_seq_len), device=device, dtype=torch.float32
+            )
+        else:
+            self.step_scores = None
 
         # Bootstrap the sequences.
         self.seqs[:, : self.max_prompt_len] = prompt_seqs[:, : self.max_prompt_len]
@@ -532,9 +549,10 @@ class _BeamSearchSequenceGeneratorOpBase(ABC):
             if not self._step():
                 break
 
-        # Sort the hypotheses by their scores before returning.
-        for hypotheses in self.output:
-            hypotheses.sort(key=lambda h: h.score, reverse=True)  # type: ignore[arg-type, return-value]
+        if self.compute_scores:
+            # Sort the hypotheses by their scores before returning.
+            for hypotheses in self.output:
+                hypotheses.sort(key=lambda h: h.score, reverse=True)  # type: ignore[arg-type, return-value]
 
         return self.output
 
@@ -543,6 +561,18 @@ class _BeamSearchSequenceGeneratorOpBase(ABC):
         if self.min_prompt_len > 1:
             self._prefill()
 
+        # Fan out the state to `num_prompts` x `num_gens`.
+        if self.num_gens > 1:
+            num_prompts = self.seqs.size(0)
+
+            # (P)
+            fan_out = torch.arange(num_prompts, device=self.seqs.device)
+
+            # (P) -> (P x G)
+            fan_out = repeat_interleave(fan_out, dim=0, repeat=self.num_gens)
+
+            self._reorder_state(fan_out)
+
     def _prefill(self) -> None:
         prefill_len = self.min_prompt_len
 
@@ -550,31 +580,32 @@ class _BeamSearchSequenceGeneratorOpBase(ABC):
 
         self.state_bag.increment_step_nr(prefill_len - 1)
 
-        logits = model_output.logits
+        if self.step_scores is not None:
+            logits = model_output.logits
 
-        if self.temperature != 1.0:
-            logits /= self.temperature
+            if self.temperature != 1.0:
+                logits /= self.temperature
 
-        # (P, S_prm - 1, V)
-        lprobs = log_softmax(logits, dim=-1, dtype=torch.float32)
+            # (P, S_prm - 1, V)
+            probs = softmax(logits, dim=-1, dtype=torch.float32)
 
-        # Fetch the scores of the next prompt step.
-        # (P, S_prm - 1, 1)
-        prompt_scores = torch.gather(
-            lprobs, dim=-1, index=self.seqs[:, 1:prefill_len].unsqueeze(-1)
-        )
+            # Fetch the scores of the next prompt step.
+            # (P, S_prm - 1, 1)
+            prompt_scores = torch.gather(
+                probs, dim=-1, index=self.seqs[:, 1:prefill_len].unsqueeze(-1)
+            )
 
-        # (P, S_prm - 1, 1) -> (P, S_prm - 1)
-        prompt_scores.squeeze_(-1).cumsum_(dim=-1)
-
-        # Bootstrap the step scores.
-        # (P x B, S_prm - 1)
-        self.step_scores[:, 1:prefill_len] = prompt_scores
+            # Bootstrap the step scores.
+            # (P, S_prm - 1)
+            self.step_scores[:, 1:prefill_len] = prompt_scores.squeeze(-1)
 
         if self.step_hooks:
             seqs = self.seqs[:, :prefill_len]
 
-            step_scores = self.step_scores[:, :prefill_len]
+            if self.step_scores is None:
+                step_scores = None
+            else:
+                step_scores = self.step_scores[:, :prefill_len]
 
             for hook in self.step_hooks.values():
                 hook(self.prompt_indices, seqs, step_scores, prefill=True)
@@ -591,167 +622,110 @@ class _BeamSearchSequenceGeneratorOpBase(ABC):
             logits /= self.temperature
 
         # (N, 1, V)
-        lprobs = log_softmax(logits, dim=-1, dtype=torch.float32)
+        probs = softmax(logits, dim=-1, dtype=torch.float32)
 
         # (N, 1, V) -> (N, V)
-        lprobs.squeeze_(1)
+        probs.squeeze_(1)
 
         # If we are generating the last possible step, force it to be EOS
         # regardless of its score.
         if self.step_nr == self.max_seq_len - 1:
-            # fmt: off
-            lprobs[:, : self.eos_idx]       = -torch.inf
-            lprobs[:,   self.eos_idx + 1 :] = -torch.inf
-            # fmt: on
+            batch_size = self.seqs.size(0)
+
+            # (N)
+            vocab_indices = self.seqs.new_full((batch_size,), self.eos_idx)
         else:
-            # Process `lprobs` in-place if requested.
+            # Process `probs` in-place if requested.
             for processor in self.step_processors:
-                processor(self.seqs[:, : self.step_nr], lprobs, lprob=True)
+                processor(self.seqs[:, : self.step_nr], probs)
 
             # Apply UNK penalty.
             if self.unk_idx is not None:
-                lprobs[:, self.unk_idx] -= self.unk_penalty
+                probs[:, self.unk_idx] -= self.unk_penalty
 
             # Never allow PAD.
             if self.pad_idx is not None:
-                lprobs[:, self.pad_idx] = -torch.inf
+                probs[:, self.pad_idx] = 0
 
             # Do not allow EOS till we reach the minimum sequence length.
             if self.step_nr < self.min_seq_len - 1:
-                lprobs[:, self.eos_idx] = -torch.inf
+                probs[:, self.eos_idx] = 0
 
-        batch_offset = 0
+            # (N)
+            vocab_indices = self.sampler(probs)
 
-        new_beam_sizes: List[int] = []
+        # EOS mask of the current step.
+        # (N)
+        eos_mask = vocab_indices == self.eos_idx
 
-        beam_next_step_list: List[BeamStep] = []
-
-        # We split the batch by `beam_sizes` and treat each beam separately.
-        for beam_idx, (beam_lprobs, beam_step_scores) in enumerate(
-            zip(lprobs.split(self.beam_sizes), self.step_scores.split(self.beam_sizes))
-        ):
-            beam_next_step = self._search_beam(
-                beam_idx, batch_offset, beam_lprobs, beam_step_scores
-            )
-
-            # Bump the beam batch offset to the next beam.
-            batch_offset += self.beam_sizes[beam_idx]
-
-            # Check if the beam is terminated.
-            if beam_next_step is None:
-                continue
-
-            beam_size = len(beam_next_step.seq_indices)
-
-            # We should have terminated the beam if there are no sequences.
-            assert beam_size > 0
-
-            new_beam_sizes.append(beam_size)
-
-            beam_next_step_list.append(beam_next_step)
-
-        # No beam left, we can return.
-        if len(new_beam_sizes) == 0:
-            return False
-
-        self.beam_sizes = new_beam_sizes
-
-        # (N_new)
-        next_step = BeamStep.merge(beam_next_step_list)
-
-        self._reorder_state(next_step.seq_indices)
-
-        # Record the current step.
-        self.seqs[:, self.step_nr] = next_step.vocab_indices
-
-        # Record the scores of the current step.
-        self.step_scores[:, self.step_nr] = next_step.scores
-
-        if self.step_hooks:
-            seqs = self.seqs[:, : self.step_nr + 1]
-
-            step_scores = self.step_scores[:, : self.step_nr + 1]
-
-            for hook in self.step_hooks.values():
-                hook(self.prompt_indices, seqs, step_scores, prefill=False)
-
-        return True
-
-    def _search_beam(
-        self, beam_idx: int, batch_offset: int, lprobs: Tensor, step_scores: Tensor
-    ) -> Optional[BeamStep]:
         # Ignore the generated indices for the prompt sequences.
         if self.step_nr < self.max_prompt_len:
             assert self.prompt_mask is not None
 
-            # Check if the current beam is in a prompt sequence.
-            if self.prompt_mask[batch_offset, self.step_nr]:
-                # The size of a beam in a prompt sequence must be always 1.
-                assert len(lprobs) == 1
+            # (N)
+            mask = self.prompt_mask[:, self.step_nr]
 
-                seq_index = torch.tensor([batch_offset], device=lprobs.device)
+            # Override the generated indices.
+            vocab_indices[mask] = self.seqs[mask, self.step_nr]
 
-                # We just extract the prompt step along with its score and treat
-                # it as the next beam step. So we keep a beam of size 1 until we
-                # reach the end of the prompt.
-                vocab_index = self.seqs[batch_offset, self.step_nr : self.step_nr + 1]
-
-                score = step_scores[0, self.step_nr - 1] + lprobs[0, vocab_index]
-
-                return BeamStep(seq_index, vocab_index, score)
+            # Ignore EOS in the prompt sequences.
+            eos_mask[mask] = False
         else:
             self.prompt_mask = None  # Not needed anymore, release.
 
-        # We use the same beam search method as in fairseq, where we take the
-        # best 2 x `beam_size` candidates and choose the first `beam_size` of
-        # these which don't predict EOS to continue with.
-        # (2 x B)
-        next_step = self.algorithm(
-            self.beam_size, lprobs, step_scores[:, : self.step_nr]
-        )
+        # Record the current step.
+        self.seqs[:, self.step_nr] = vocab_indices
 
-        # Translate the sequence indices from beam to batch.
-        next_step.seq_indices += batch_offset
+        if self.step_scores is not None:
+            # (N, 1)
+            scores = torch.gather(probs, dim=-1, index=vocab_indices[:, None])
 
-        # (2 x B)
-        eos_mask = next_step.vocab_indices == self.eos_idx
+            # Record the scores of the current step.
+            self.step_scores[:, self.step_nr] = scores.squeeze(1)
 
-        # Consider EOS only when it's among the top `beam_size` indices.
-        # (F)
-        eos_seq_indices = next_step.seq_indices[: self.beam_size].masked_select(
-            eos_mask[: self.beam_size]
-        )
+        if self.step_hooks:
+            seqs = self.seqs[:, : self.step_nr + 1]
 
-        # If one or more sequences have reached EOS, move them to the output.
+            if self.step_scores is None:
+                step_scores = None
+            else:
+                step_scores = self.step_scores[:, : self.step_nr + 1]
+
+            for hook in self.step_hooks.values():
+                hook(self.prompt_indices, seqs, step_scores, prefill=False)
+
+        # Retrieve the indices of the sequences that have reached EOS.
+        # (F, 1)
+        eos_seq_indices = eos_mask.nonzero()
+
+        # If one or more sequences have reached EOS, move them to the output and
+        # continue generating the remaining sequences.
         if len(eos_seq_indices) > 0:
-            # (F)
-            eos_scores = next_step.scores[: self.beam_size].masked_select(
-                eos_mask[: self.beam_size]
-            )
+            # Move the sequences that have reached EOS to the output.
+            for seq_idx in eos_seq_indices:
+                self._finish_sequence(int(seq_idx))
 
-            for seq_idx, score in zip(eos_seq_indices, eos_scores):
-                # If `True`, it means we have found `beam_size` hypotheses for
-                # this beam.
-                if self._finish_sequence(int(seq_idx), score):
-                    return None
+            # (N)
+            active_seq_mask = ~eos_mask
 
-            # Filter out the sequences that have reached EOS.
-            seq_mask = ~eos_mask
+            # (N - F, 1) -> (N - F)
+            active_seq_indices = active_seq_mask.nonzero().squeeze(-1)
 
-            next_step = next_step.masked_select(seq_mask)
+            # No sequence left, we can return.
+            if len(active_seq_indices) == 0:
+                return False
 
-        # We can have at most `beam_size` sequences in the beam.
-        return next_step.first(self.beam_size)
+            # Otherwise, remove the sequences that have reached EOS from the
+            # state and continue generating the remaining ones.
+            self._reorder_state(active_seq_indices)
+
+        return True
 
     @abstractmethod
     def _decode(self, seqs: Tensor) -> SequenceModelOutput:
         ...
 
-    def _finish_sequence(self, seq_idx: int, score: Tensor) -> bool:
-        self.seqs[seq_idx, self.step_nr] = self.eos_idx
-
-        self.step_scores[seq_idx, self.step_nr] = score
-
+    def _finish_sequence(self, seq_idx: int) -> None:
         if self.echo_prompt:
             start_step = 0
         else:
@@ -768,29 +742,30 @@ class _BeamSearchSequenceGeneratorOpBase(ABC):
         # Do not keep `seqs` in memory.
         seq = seq.clone()
 
-        # (S_out)
-        step_scores = self.step_scores[seq_idx, start_step:seq_len]
+        if self.step_scores is not None:
+            # (S)
+            step_scores = self.step_scores[seq_idx, :seq_len]
 
-        # Similar to `seqs`, do not keep `step_scores` in memory.
-        step_scores = step_scores.clone()
+            score = step_scores.sum()
 
-        # Convert from cumulative to per-step scores.
-        step_scores[1:] = step_scores[1:] - step_scores[:-1]
+            if self.normalize_scores:
+                # Since the first step's score is always 0, do not include it in
+                # the normalization.
+                score /= (seq_len - 1) ** self.len_penalty
 
-        if self.normalize_scores:
-            # Since the first step's score is always 0, do not include it in
-            # the normalization.
-            score /= (seq_len - 1) ** self.len_penalty
+            # (S_out)
+            step_scores = step_scores[start_step:]
+
+            # Similar to `seqs`, do not keep `step_scores` in memory.
+            step_scores = step_scores.clone()
+        else:
+            score = None
+
+            step_scores = None
 
         prompt_idx = int(self.prompt_indices[seq_idx])
 
-        hypotheses = self.output[prompt_idx]
-
-        hypotheses.append(Hypothesis(seq, score, step_scores))
-
-        # If we have `beam_size` hypotheses for the prompt, we can remove the
-        # beam.
-        return len(hypotheses) == self.beam_size
+        self.output[prompt_idx].append(Hypothesis(seq, score, step_scores))
 
     def _reorder_state(self, new_order: Tensor) -> None:
         self.state_bag.reorder(new_order)
@@ -810,10 +785,11 @@ class _BeamSearchSequenceGeneratorOpBase(ABC):
         self.seqs = self.seqs.index_select(dim=0, index=new_order)
 
         # (N, S) -> (N - F, S)
-        self.step_scores = self.step_scores.index_select(dim=0, index=new_order)
+        if self.step_scores is not None:
+            self.step_scores = self.step_scores.index_select(dim=0, index=new_order)
 
 
-class _BeamSearchSequenceGeneratorOp(_BeamSearchSequenceGeneratorOpBase):
+class _SamplingSequenceGeneratorOp(_SamplingSequenceGeneratorOpBase):
     model: DecoderModel
 
     def __init__(
@@ -821,12 +797,13 @@ class _BeamSearchSequenceGeneratorOp(_BeamSearchSequenceGeneratorOpBase):
         model: DecoderModel,
         prompt_seqs: Tensor,
         prompt_padding_mask: Optional[PaddingMask],
-        algorithm: BeamSearchAlgorithm,
-        beam_size: int,
+        sampler: Sampler,
+        num_gens: int,
         min_gen_len: int,
         max_gen_len: int,
         max_seq_len: int,
         echo_prompt: bool,
+        compute_scores: bool,
         normalize_scores: bool,
         temperature: float,
         unk_penalty: float,
@@ -837,13 +814,14 @@ class _BeamSearchSequenceGeneratorOp(_BeamSearchSequenceGeneratorOpBase):
         super().__init__(
             prompt_seqs,
             prompt_padding_mask,
-            algorithm,
+            sampler,
             model.vocab_info,
-            beam_size,
+            num_gens,
             min_gen_len,
             max_gen_len,
             max_seq_len,
             echo_prompt,
+            compute_scores,
             normalize_scores,
             temperature,
             unk_penalty,
@@ -865,7 +843,7 @@ class _BeamSearchSequenceGeneratorOp(_BeamSearchSequenceGeneratorOpBase):
         return self.model.project(decoder_output, decoder_padding_mask)
 
 
-class _BeamSearchSeq2SeqGeneratorOp(_BeamSearchSequenceGeneratorOpBase):
+class _SamplingSeq2SeqGeneratorOp(_SamplingSequenceGeneratorOpBase):
     model: EncoderDecoderModel
     encoder_output: Tensor
     encoder_padding_mask: Optional[PaddingMask]
@@ -877,12 +855,13 @@ class _BeamSearchSeq2SeqGeneratorOp(_BeamSearchSequenceGeneratorOpBase):
         encoder_padding_mask: Optional[PaddingMask],
         prompt_seqs: Tensor,
         prompt_padding_mask: Optional[PaddingMask],
-        algorithm: BeamSearchAlgorithm,
-        beam_size: int,
+        sampler: Sampler,
+        num_gens: int,
         min_gen_len: int,
         max_gen_len: int,
         max_seq_len: int,
         echo_prompt: bool,
+        compute_scores: bool,
         normalize_scores: bool,
         temperature: float,
         unk_penalty: float,
@@ -893,13 +872,14 @@ class _BeamSearchSeq2SeqGeneratorOp(_BeamSearchSequenceGeneratorOpBase):
         super().__init__(
             prompt_seqs,
             prompt_padding_mask,
-            algorithm,
+            sampler,
             model.target_vocab_info,
-            beam_size,
+            num_gens,
             min_gen_len,
             max_gen_len,
             max_seq_len,
             echo_prompt,
+            compute_scores,
             normalize_scores,
             temperature,
             unk_penalty,

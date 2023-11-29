@@ -4,6 +4,9 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import os
+from pathlib import Path
+
 import pytest
 
 from fairseq2.assets import AssetCard, AssetCardError, AssetCardFieldNotFoundError
@@ -80,13 +83,13 @@ class TestAssetCard:
     def test_as_raises_error_when_field_type_is_incorrect(self) -> None:
         with pytest.raises(
             AssetCardError,
-            match=r"^The value of the field 'field1' of the asset card 'test-card' must be of type `<class 'int'>`, but is of type `<class 'str'>` instead\.$",
+            match=rf"^The value of the field 'field1' of the asset card 'test-card' must be of type `{int}`, but is of type `{str}` instead\.$",
         ):
             self.card.field("field1").as_(int)
 
         with pytest.raises(
             AssetCardError,
-            match=r"^The value of the field 'field2\.sub-field1' of the asset card 'test-card' must be of type `<class 'int'>`, but is of type `<class 'str'>` instead\.$",
+            match=rf"^The value of the field 'field2\.sub-field1' of the asset card 'test-card' must be of type `{int}`, but is of type `{str}` instead\.$",
         ):
             self.card.field("field2").field("sub-field1").as_(int)
 
@@ -133,7 +136,7 @@ class TestAssetCard:
     def test_as_dict_raises_error_when_field_is_not_a_valid_dict(self) -> None:
         with pytest.raises(
             AssetCardError,
-            match=r"The elements of the field 'field2' of the asset card 'test-card' must be of type `<class 'int'>`, but at least one element is of type `<class 'str'>` instead\.$",
+            match=rf"The elements of the field 'field2' of the asset card 'test-card' must be of type `{int}`, but at least one element is of type `{str}` instead\.$",
         ):
             self.card.field("field2").as_dict(int)
 
@@ -145,7 +148,7 @@ class TestAssetCard:
     def test_as_list_raises_error_when_field_is_not_a_valid_list(self) -> None:
         with pytest.raises(
             AssetCardError,
-            match=r"The elements of the field 'field7' of the asset card 'test-card' must be of type `<class 'str'>`, but at least one element is of type `<class 'int'>` instead\.$",
+            match=rf"The elements of the field 'field7' of the asset card 'test-card' must be of type `{str}`, but at least one element is of type `{int}` instead\.$",
         ):
             self.card.field("field7").as_list(str)
 
@@ -157,7 +160,7 @@ class TestAssetCard:
     def test_as_set_raises_error_when_field_is_not_a_valid_set(self) -> None:
         with pytest.raises(
             AssetCardError,
-            match=r"The elements of the field 'field7' of the asset card 'test-card' must be of type `<class 'str'>`, but at least one element is of type `<class 'int'>` instead\.$",
+            match=rf"The elements of the field 'field7' of the asset card 'test-card' must be of type `{str}`, but at least one element is of type `{int}` instead\.$",
         ):
             self.card.field("field7").as_set(str)
 
@@ -169,21 +172,31 @@ class TestAssetCard:
     def test_as_one_of_raises_error_when_field_is_not_one_of_valid_values(self) -> None:
         with pytest.raises(
             AssetCardError,
-            match=r"The value of the field 'field1' of the asset card 'test-card' must be one of \['foo2', 'foo3'\], but is 'foo1' instead\.$",
+            match=rf"The value of the field 'field1' of the asset card 'test-card' must be one of \{['foo2', 'foo3']}, but is 'foo1' instead\.$",
         ):
             self.card.field("field1").as_one_of({"foo3", "foo2"})
 
     def test_as_uri_works(self) -> None:
+        value = self.card.field("field1").as_uri()
+
+        assert value == "file:///foo1"
+
         value = self.card.field("field9").as_uri()
 
         assert value == "http://foo.com"
 
-    def test_as_uri_raises_error_when_field_is_not_uri(self) -> None:
+        self.card.field("field1").set(Path("/foo1/foo2/"))
+
+        value = self.card.field("field1").as_uri()
+
+        assert value == "file:///foo1/foo2"
+
+    def test_as_uri_raises_error_when_field_type_is_incorrect(self) -> None:
         with pytest.raises(
             AssetCardError,
-            match=r"The value of the field 'field1' of the asset card 'test-card' must be a URI, but is 'foo1' instead\.$",
+            match=rf"The value of the field 'field3' of the asset card 'test-card' must be of type `{str}` or `{os.PathLike}`, but is of type `{int}` instead\.$",
         ):
-            self.card.field("field1").as_uri()
+            self.card.field("field3").as_uri()
 
     def test_as_filename_works(self) -> None:
         value = self.card.field("field1").as_filename()

@@ -99,4 +99,8 @@ jobs:
 
           trap remove_matcher EXIT
 
-          mypy .
+          mypy
+          mypy setup.py
+          mypy fairseq2n/python/setup.py
+          mypy examples/llama
+          mypy examples/mistral
