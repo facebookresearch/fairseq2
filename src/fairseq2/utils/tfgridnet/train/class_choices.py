@@ -2,6 +2,7 @@ from typing import Mapping, Optional, Tuple
 
 from typeguard import check_argument_types, check_return_type
 
+
 class ClassChoices:
     """Helper class to manage the options for variable objects and its configuration.
 
@@ -58,6 +59,7 @@ class ClassChoices:
 
     def get_class(self, name: Optional[str]) -> Optional[type]:
         assert check_argument_types()
+        print(f"--{self.name} must be one of {self.choices()}: ")
         if name is None or (self.optional and name.lower() == ("none", "null", "nil")):
             retval = None
         elif name.lower() in self.classes:

@@ -4,8 +4,11 @@ from typing import Tuple
 import torch
 from torch_complex.tensor import ComplexTensor
 
-#from packaging.version import parse as V
-#is_torch_1_9_plus = V(torch.__version__) >= V("1.9.0")
+from packaging.version import parse as V
+
+is_torch_1_9_plus = V(torch.__version__) >= V("1.9.0")
+
+from fairseq2.utils.tfgridnet.layers.stft import Stft
 
 
 class AbsEncoder(torch.nn.Module, ABC):
@@ -39,6 +42,7 @@ class AbsEncoder(torch.nn.Module, ABC):
             chunked: List [(B, frame_size),]
         """
         NotImplementedError
+
 
 class ConvEncoder(AbsEncoder):
     """Convolutional encoder for speech enhancement and separation"""
@@ -113,6 +117,7 @@ class ConvEncoder(AbsEncoder):
         ]
 
         return audio
+
 
 class STFTEncoder(AbsEncoder):
     """STFT encoder for speech enhancement and separation"""
@@ -272,3 +277,23 @@ class STFTEncoder(AbsEncoder):
         strides = strides + [self.hop_length]
 
         return audio.as_strided(shape, strides, storage_offset=0).unbind(dim=-1)
+
+
+class NullEncoder(AbsEncoder):
+    """Null encoder."""
+
+    def __init__(self):
+        super().__init__()
+
+    @property
+    def output_dim(self) -> int:
+        return 1
+
+    def forward(self, input: torch.Tensor, ilens: torch.Tensor):
+        """Forward.
+
+        Args:
+            input (torch.Tensor): mixed speech [Batch, sample]
+            ilens (torch.Tensor): input lengths [Batch]
+        """
+        return input, ilens

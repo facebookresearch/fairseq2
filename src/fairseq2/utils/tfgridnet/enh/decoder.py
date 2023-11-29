@@ -4,6 +4,9 @@ import torch
 
 import torch_complex
 from torch_complex.tensor import ComplexTensor
+from fairseq2.utils.tfgridnet.enh.layers_complex_utils import is_torch_complex_tensor
+from fairseq2.utils.tfgridnet.layers.stft import Stft
+
 
 class AbsDecoder(torch.nn.Module, ABC):
     @abstractmethod
@@ -32,6 +35,7 @@ class AbsDecoder(torch.nn.Module, ABC):
         """
 
         raise NotImplementedError
+
 
 class ConvDecoder(AbsDecoder):
     """Transposed Convolutional decoder for speech enhancement and separation"""
@@ -99,6 +103,7 @@ class ConvDecoder(AbsDecoder):
             output[:, i * hop_size : i * hop_size + frame_size] += chunk
 
         return output
+
 
 class STFTDecoder(AbsDecoder):
     """STFT decoder for speech enhancement and separation"""
@@ -264,3 +269,19 @@ class STFTDecoder(AbsDecoder):
         end = -(frame_size // 2) if ilens.max() is None else start + ilens.max()
 
         return output[..., start:end]
+
+
+class NullDecoder(AbsDecoder):
+    """Null decoder, return the same args."""
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, input: torch.Tensor, ilens: torch.Tensor):
+        """Forward. The input should be the waveform already.
+
+        Args:
+            input (torch.Tensor): wav [Batch, sample]
+            ilens (torch.Tensor): input lengths [Batch]
+        """
+        return input, ilens

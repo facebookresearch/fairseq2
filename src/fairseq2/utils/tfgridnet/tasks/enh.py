@@ -8,12 +8,27 @@ import torch
 from typeguard import check_argument_types, check_return_type
 
 from fairseq2.utils.tfgridnet.mask import AbsMask, MultiMask
-from fairseq2.utils.tfgridnet.enh.decoder import AbsDecoder, ConvDecoder, STFTDecoder
-from fairseq2.utils.tfgridnet.enh.encoder import AbsEncoder, ConvEncoder, STFTEncoder
+from fairseq2.utils.tfgridnet.enh.decoder import (
+    AbsDecoder,
+    ConvDecoder,
+    STFTDecoder,
+    NullDecoder,
+)
+from fairseq2.utils.tfgridnet.enh.encoder import (
+    AbsEncoder,
+    ConvEncoder,
+    STFTEncoder,
+    NullEncoder,
+)
 from fairseq2.utils.tfgridnet.train.espnet_model import ESPnetEnhancementModel
 from fairseq2.utils.tfgridnet.enh.loss_criterion import AbsEnhLoss, SISNRLoss
-from fairseq2.utils.tfgridnet.enh.wrappers import AbsLossWrapper, PITSolver
-from fairseq2.utils.tfgridnet.enh.separator import AbsSeparator, RNNSeparator, TCNSeparator
+from fairseq2.utils.tfgridnet.enh.wrappers import AbsLossWrapper, PITSolver, FixedOrderSolver
+from fairseq2.utils.tfgridnet.enh.separator import (
+    AbsSeparator,
+    RNNSeparator,
+    TCNSeparator,
+    TFGridNetMasking,
+)
 
 from fairseq2.utils.tfgridnet.tasks.abs_task import AbsTask
 from fairseq2.utils.tfgridnet.torch_utils.initialize import initialize
@@ -26,7 +41,7 @@ from fairseq2.utils.tfgridnet.train.preprocessor import (
 
 encoder_choices = ClassChoices(
     name="encoder",
-    classes=dict(stft=STFTEncoder, conv=ConvEncoder),
+    classes=dict(stft=STFTEncoder, conv=ConvEncoder, same=NullEncoder),
     type_check=AbsEncoder,
     default="stft",
 )
@@ -34,9 +49,8 @@ encoder_choices = ClassChoices(
 separator_choices = ClassChoices(
     name="separator",
     classes=dict(
-        rnn=RNNSeparator,
-        tcn=TCNSeparator
-        ),
+        rnn=RNNSeparator, tcn=TCNSeparator, tfgridnet_masking=TFGridNetMasking
+    ),
     type_check=AbsSeparator,
     default="rnn",
 )
@@ -50,7 +64,7 @@ mask_module_choices = ClassChoices(
 
 decoder_choices = ClassChoices(
     name="decoder",
-    classes=dict(stft=STFTDecoder,conv=ConvDecoder),
+    classes=dict(stft=STFTDecoder, conv=ConvDecoder, same=NullDecoder),
     type_check=AbsDecoder,
     default="stft",
 )
@@ -59,6 +73,7 @@ loss_wrapper_choices = ClassChoices(
     name="loss_wrappers",
     classes=dict(
         pit=PITSolver,
+        fixed_order=FixedOrderSolver,
     ),
     type_check=AbsLossWrapper,
     default="pit",
@@ -85,6 +100,7 @@ preprocessor_choices = ClassChoices(
 
 MAX_REFERENCE_NUM = 100
 
+
 class EnhancementTask(AbsTask):
     # If you need more than one optimizers, change this value
     num_optimizers: int = 1
@@ -103,7 +119,7 @@ class EnhancementTask(AbsTask):
     ]
 
     # If you need to modify train() or eval() procedures, change Trainer class here
-    #trainer = Trainer
+    # trainer = Trainer
 
     @classmethod
     def add_task_arguments(cls, parser: argparse.ArgumentParser):

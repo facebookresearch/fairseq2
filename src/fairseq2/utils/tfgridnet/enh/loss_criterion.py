@@ -1,3 +1,5 @@
+import logging
+import math
 from abc import ABC, abstractmethod
 
 import torch
@@ -27,6 +29,7 @@ class AbsEnhLoss(torch.nn.Module, ABC):
     ) -> torch.Tensor:
         # the return tensor should be shape of (batch)
         raise NotImplementedError
+
 
 class TimeDomainLoss(AbsEnhLoss, ABC):
     """Base class for all time-domain Enhancement loss modules."""
