@@ -102,5 +102,5 @@ jobs:
           mypy
           mypy setup.py
           mypy fairseq2n/python/setup.py
-          mypy examples/llama
-          mypy examples/mistral
+          mypy recipes/llama
+          mypy recipes/mistral
