@@ -184,7 +184,7 @@ def _load_asset_directory() -> None:
         if not asset_dir.exists():
             return
 
-    asset_dir = asset_dir.expanduser()
+    asset_dir = asset_dir.expanduser().resolve()
 
     asset_store.metadata_providers.append(FileAssetMetadataProvider(asset_dir))
 
@@ -199,11 +199,11 @@ def _load_user_asset_directory() -> None:
         if asset_dir is None:
             asset_dir = Path("~/.config")
 
-        asset_dir = asset_dir.expanduser().joinpath("fairseq2/assets")
+        asset_dir = asset_dir.expanduser().resolve().joinpath("fairseq2/assets")
         if not asset_dir.exists():
             return
     else:
-        asset_dir = asset_dir.expanduser()
+        asset_dir = asset_dir.expanduser().resolve()
 
     asset_store.user_metadata_providers.append(FileAssetMetadataProvider(asset_dir))
 
