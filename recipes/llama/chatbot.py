@@ -21,12 +21,12 @@ from fairseq2.generation.utils import StdOutPrintHook
 from fairseq2.models.llama import LLaMAChatbot, load_llama_model, load_llama_tokenizer
 
 
-def run_llama_chatbot(checkpoint_path: Optional[Path] = None) -> None:
+def run_llama_chatbot(checkpoint_dir: Optional[Path] = None) -> None:
     model_card = asset_store.retrieve_card("llama2_7b_chat")
 
-    if checkpoint_path is not None:
-        model_card.field("checkpoint").set(checkpoint_path / "consolidated.pth")
-        model_card.field("tokenizer").set(checkpoint_path / "tokenizer.model")
+    if checkpoint_dir is not None:
+        model_card.field("checkpoint").set(checkpoint_dir / "consolidated.pth")
+        model_card.field("tokenizer").set(checkpoint_dir / "tokenizer.model")
 
     model = load_llama_model(
         model_card, dtype=torch.float16, device=torch.device("cuda")
@@ -79,13 +79,13 @@ def main() -> None:
 
     # checkpoint
     param = parser.add_argument(
-        "-c", "--checkpoint", metavar="CHECKPOINT", dest="checkpoint_path", type=Path
+        "-c", "--checkpoint-dir", metavar="DIR", dest="checkpoint_dir", type=Path
     )
     param.help = "path to the LLaMA checkpoint directory"
 
     args = parser.parse_args()
 
-    run_llama_chatbot(args.checkpoint_path)
+    run_llama_chatbot(args.checkpoint_dir)
 
 
 if __name__ == "__main__":
