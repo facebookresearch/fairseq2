@@ -7,14 +7,14 @@
 #pragma once
 
 #include <optional>
-#include "fairseq2n/data/video/ffmpeg.h"
+#include "fairseq2n/data/video/detail/ffmpeg.h"
 
 #include "fairseq2n/api.h"
 #include "fairseq2n/data/data.h"
 
 #include <ATen/Device.h>
 #include <ATen/ScalarType.h>
-
+/*
 extern "C" {
     #include <libavcodec/avcodec.h>
     #include <libavformat/avformat.h>
@@ -24,11 +24,11 @@ extern "C" {
     #include <libswscale/swscale.h>
     #include <libswresample/swresample.h>
 }
-
+*/
 using namespace fairseq2n::detail;
 
 namespace fairseq2n {
-
+/*
 class video_decoder_options {
 public:
     video_decoder_options
@@ -84,6 +84,7 @@ private:
     std::optional<at::Device> maybe_device_{};
     bool pin_memory_ = false;
 };
+*/
 
 class FAIRSEQ2_API video_decoder {
 public:

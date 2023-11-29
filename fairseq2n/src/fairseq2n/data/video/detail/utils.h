@@ -7,11 +7,12 @@
 #pragma once
 
 extern "C" {
-    #include <libavcodec/avcodec.h>
-    #include <libavformat/avformat.h>
-    #include <libavformat/avio.h>
-    #include <libavutil/avutil.h>
+   #include <libavcodec/avcodec.h>
+   #include <libavformat/avformat.h>
+   #include <libavformat/avio.h>
+   #include <libavutil/avutil.h>
 }
+
 
 namespace fairseq2n::detail {
 
@@ -28,8 +29,8 @@ struct media_metadata {
   // media_format format; // TODO
 };
 
-int 
-read_callback(void *opaque, uint8_t *buf, int buf_size) {
+static int 
+ffmpeg_read_callback(void *opaque, uint8_t *buf, int buf_size) {
     // Read up to buf_size bytes from the resource accessed by the AVIOContext object
     // Used by ffmpeg to read from memory buffer
     fairseq2n::detail::buffer_data *bd = static_cast<fairseq2n::detail::buffer_data *>(opaque);
@@ -40,6 +41,6 @@ read_callback(void *opaque, uint8_t *buf, int buf_size) {
     bd->ptr += buf_size;
     bd->size -= buf_size;
     return buf_size;
-}
+};
 
 }

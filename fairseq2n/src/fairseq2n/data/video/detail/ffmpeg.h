@@ -7,9 +7,10 @@
 #pragma once
 
 #include <optional>
-#include "fairseq2n/data/video/detail/avcodec_resources.h"
-#include "fairseq2n/data/video/detail/utils.h"
+//#include "fairseq2n/data/video/detail/avcodec_resources.h"
 #include "fairseq2n/data/video/detail/avformat_resources.h"
+#include "fairseq2n/data/video/detail/utils.h"
+
 
 #include "fairseq2n/api.h"
 #include "fairseq2n/data/data.h"
@@ -18,18 +19,16 @@
 #include <ATen/ScalarType.h>
 
 extern "C" {
-    #include <libavcodec/avcodec.h>
+    //#include <libavcodec/avcodec.h>
     //#include <libavformat/avformat.h>
-    #include <libavformat/avio.h>
+    //#include <libavformat/avio.h>
     #include <libavutil/avutil.h>
     #include <libavutil/imgutils.h>
     #include <libswscale/swscale.h>
     #include <libswresample/swresample.h>
 }
 
-using namespace fairseq2n::detail;
-
-namespace fairseq2n {
+namespace fairseq2n::detail {
 
     class video_decoder_options {
 public:
@@ -102,7 +101,7 @@ public:
 private:
     video_decoder_options opts_; 
     std::unique_ptr<avformat_resources> fmt_resources_;     
-    std::unique_ptr<avcodec_resources> codec_resources_; 
+    //std::unique_ptr<avcodec_resources> codec_resources_; 
 };
 
 

@@ -17,6 +17,7 @@ extern "C" {
 namespace fairseq2n::detail {
 
 class avformat_resources {
+friend class ffmpeg_decoder;
 
 public:
     avformat_resources(size_t data_size, fairseq2n::detail::buffer_data bd);
@@ -26,13 +27,11 @@ public:
     avformat_resources(const avformat_resources&) = delete;
     avformat_resources& operator=(const avformat_resources&) = delete;
 
-protected: 
+private: 
     AVFormatContext* fmt_ctx_ = nullptr;
     AVIOContext* avio_ctx_ = nullptr;
-    friend class fairseq2n::ffmpeg_decoder;
-
-private:
     uint8_t* avio_ctx_buffer_ = nullptr;
+    //friend class fairseq2n::ffmpeg_decoder;
 };
 
 } // namespace fairseq2n::detail

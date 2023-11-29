@@ -4,7 +4,7 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
-#include "fairseq2n/data/video/detail/utils.h"
+#include "fairseq2n/data/video/video_decoder.h"
 
 #include <cstdint>
 #include <exception>
@@ -14,8 +14,10 @@
 #include <ATen/Functions.h>
 #include <ATen/Tensor.h>
 
-#include "fairseq2n/data/video/video_decoder.h"
-#include "fairseq2n/data/video/ffmpeg.h"
+//#include "fairseq2n/data/video/detail/avcodec_resources.h"
+//#include "fairseq2n/data/video/detail/utils.h"
+//#include "fairseq2n/data/video/detail/avformat_resources.h"
+//#include "fairseq2n/data/video/detail/ffmpeg.h"
 #include "fairseq2n/exception.h"
 #include "fairseq2n/float.h"
 #include "fairseq2n/fmt.h"
@@ -24,6 +26,7 @@
 #include "fairseq2n/detail/exception.h"
 
 using namespace std;
+using namespace fairseq2n::detail;
 
 namespace fairseq2n {
 
@@ -53,9 +56,12 @@ video_decoder::operator()(data &&d) const
     at::List<at::List<at::Tensor>> decoded_video = decoder.open_container(block);
     
     data_dict output;
-    output.emplace("video", std::move(decoded_video));
+    //output.emplace("video", std::move(decoded_video));
     return output;
 } 
+
+} // namespace fairseq2n
+
 /*
 at::List<at::List<at::Tensor>>
 video_decoder::open_container(memory_block block) const
@@ -380,4 +386,4 @@ video_decoder::read_callback(void *opaque, uint8_t *buf, int buf_size) {
 }
  */
 
-} // namespace fairseq2n
+

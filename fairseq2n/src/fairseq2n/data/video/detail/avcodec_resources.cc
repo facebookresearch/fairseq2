@@ -22,8 +22,9 @@ avcodec_resources::avcodec_resources(AVCodec* codec)
 
 avcodec_resources::~avcodec_resources()
 {
-    if (codec_ctx_)
+    if (codec_ctx_){
         avcodec_free_context(&codec_ctx_);
+    }
 }
 
 AVCodecContext* avcodec_resources::get_codec_ctx() const

@@ -14,6 +14,8 @@ extern "C" {
 namespace fairseq2n::detail {
 
 class avcodec_resources {
+friend class ffmpeg_decoder;
+
 public:
     avcodec_resources(AVCodec *codec);
     ~avcodec_resources();
@@ -23,7 +25,7 @@ public:
 
 private:
     AVCodecContext* codec_ctx_{nullptr};
-    friend class fairseq2n::ffmpeg_decoder;
+    //friend class ffmpeg_decoder;
 };
 
 } // namespace fairseq2n::detail

@@ -4,7 +4,7 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
-#include "fairseq2n/data/video/ffmpeg_decoder.h"
+#include "fairseq2n/data/video/detail/ffmpeg.h"
 
 #include <cstdint>
 #include <exception>
@@ -23,7 +23,7 @@
 
 using namespace std;
 
-namespace fairseq2n {
+namespace fairseq2n::detail {
 
 ffmpeg_decoder::ffmpeg_decoder(video_decoder_options opts, bool pin_memory)
     : opts_{opts}

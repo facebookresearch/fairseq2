@@ -5,7 +5,8 @@
 // LICENSE file in the root directory of this source tree.
 
 #include "fairseq2n/data/video/detail/avformat_resources.h"
-#include "fairseq2n/data/video/video_decoder.h"
+//#include "fairseq2n/data/video/detail/utils.h"
+//#include "fairseq2n/data/video/video_decoder.h"
 
 #include "fairseq2n/exception.h"
 #include "fairseq2n/detail/exception.h"
@@ -26,7 +27,7 @@ avformat_resources::avformat_resources(size_t data_size, fairseq2n::detail::buff
     }
 
     auto read_callback_lambda = [](void* opaque, uint8_t* buf, int buf_size) -> int {
-        return read_callback(opaque, buf, buf_size);  
+        return ffmpeg_read_callback(opaque, buf, buf_size);  
     };
 
     avio_ctx_ = avio_alloc_context(avio_ctx_buffer_, data_size, 0, &bd, read_callback_lambda, nullptr, nullptr);
