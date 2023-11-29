@@ -8,7 +8,7 @@
 # We import fairseq2n to report any initialization error eagerly.
 import fairseq2n
 
-__version__ = "0.2.0.dev0"
+__version__ = "0.2.0"
 
 
 # If ``True``, indicates that we are run under Sphinx.
