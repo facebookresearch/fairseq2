@@ -7,10 +7,8 @@
 #pragma once
 
 #include <optional>
-#include "fairseq2n/data/video/detail/avcodec_resources.h"
-#include "fairseq2n/data/video/detail/avformat_resources.h"
 #include "fairseq2n/data/video/detail/utils.h"
-
+#include "fairseq2n/data/video/detail/stream.h"
 
 #include "fairseq2n/api.h"
 #include "fairseq2n/data/data.h"
@@ -19,9 +17,7 @@
 #include <ATen/ScalarType.h>
 
 extern "C" {
-    //#include <libavcodec/avcodec.h>
-    //#include <libavformat/avformat.h>
-    //#include <libavformat/avio.h>
+    #include <libavformat/avformat.h>
     #include <libavutil/avutil.h>
     #include <libavutil/imgutils.h>
     #include <libswscale/swscale.h>
@@ -30,7 +26,7 @@ extern "C" {
 
 namespace fairseq2n::detail {
 
-    class video_decoder_options {
+class video_decoder_options {
 public:
     video_decoder_options
     maybe_dtype(std::optional<at::ScalarType> value) noexcept
@@ -92,16 +88,23 @@ public:
     explicit
     ffmpeg_decoder(video_decoder_options opts = {}, bool pin_memory = false);
 
-    at::List<at::List<at::Tensor>>
+    ~ffmpeg_decoder();
+
+    data_dict
     open_container(memory_block block);
 
-    at::List<at::Tensor>
+    data
     open_stream(int stream_index);
+
+    static int 
+    read_callback(void *opaque, uint8_t *buf, int buf_size);
 
 private:
     video_decoder_options opts_; 
-    std::unique_ptr<avformat_resources> fmt_resources_;     
-    std::unique_ptr<avcodec_resources> codec_resources_; 
+    AVFormatContext* fmt_ctx_ = nullptr;
+    AVIOContext* avio_ctx_ = nullptr;
+    uint8_t* avio_ctx_buffer_ = nullptr;
+    std::unique_ptr<stream> av_stream_; 
 };
 
 

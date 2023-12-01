@@ -22,13 +22,18 @@ struct buffer_data {
 };
 
 struct media_metadata {
-  long num{0}; // Time base numerator
-  long den{1}; // Time base denominator
-  long duration{-1}; // Duration of the stream, in miscroseconds
+  int64_t num_frames{-1}; // Number of frames in the stream
+  int numerator{0}; // Time base numerator
+  int denominator{0}; // Time base denominator
+  int64_t duration_microseconds{-1}; // Duration of the stream
+  int height{0}; // Height of a frame in pixels
+  int width{0}; // Width of a frame in pixels
+  double time_base{0}; // Time base of the stream
   double fps{0}; // Frames per second for video streams
   // media_format format; // TODO
 };
 
+/*
 static int 
 ffmpeg_read_callback(void *opaque, uint8_t *buf, int buf_size) {
     // Read up to buf_size bytes from the resource accessed by the AVIOContext object
@@ -42,5 +47,6 @@ ffmpeg_read_callback(void *opaque, uint8_t *buf, int buf_size) {
     bd->size -= buf_size;
     return buf_size;
 };
+*/
 
 }
