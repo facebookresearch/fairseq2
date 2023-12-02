@@ -25,12 +25,12 @@ from fairseq2.models.mistral import (
 )
 
 
-def run_mistral_chatbot(checkpoint_path: Optional[Path] = None) -> None:
+def run_mistral_chatbot(checkpoint_dir: Optional[Path] = None) -> None:
     model_card = asset_store.retrieve_card("mistral_7b_instruct")
 
-    if checkpoint_path is not None:
-        model_card.field("checkpoint").set(checkpoint_path / "consolidated.00.pth")
-        model_card.field("tokenizer").set(checkpoint_path / "tokenizer.model")
+    if checkpoint_dir is not None:
+        model_card.field("checkpoint").set(checkpoint_dir / "consolidated.00.pth")
+        model_card.field("tokenizer").set(checkpoint_dir / "tokenizer.model")
 
     model = load_mistral_model(
         model_card, dtype=torch.float16, device=torch.device("cuda:0")
@@ -78,13 +78,13 @@ def main() -> None:
 
     # checkpoint
     param = parser.add_argument(
-        "-c", "--checkpoint", metavar="CHECKPOINT", dest="checkpoint_path", type=Path
+        "-c", "--checkpoint-dir", metavar="DIR", dest="checkpoint_dir", type=Path
     )
     param.help = "path to the Mistral checkpoint directory"
 
     args = parser.parse_args()
 
-    run_mistral_chatbot(args.checkpoint_path)
+    run_mistral_chatbot(args.checkpoint_dir)
 
 
 if __name__ == "__main__":
