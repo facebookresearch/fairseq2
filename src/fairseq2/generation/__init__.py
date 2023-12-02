@@ -14,6 +14,9 @@ from fairseq2.generation.beam_search import (
 from fairseq2.generation.beam_search import (
     StandardBeamSearchAlgorithm as StandardBeamSearchAlgorithm,
 )
+from fairseq2.generation.chat import Chatbot as Chatbot
+from fairseq2.generation.chat import ChatDialog as ChatDialog
+from fairseq2.generation.chat import ChatMessage as ChatMessage
 from fairseq2.generation.generator import Hypothesis as Hypothesis
 from fairseq2.generation.generator import Seq2SeqGenerator as Seq2SeqGenerator
 from fairseq2.generation.generator import (

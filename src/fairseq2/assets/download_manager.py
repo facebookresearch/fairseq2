@@ -294,9 +294,9 @@ class _AssetDownloadOp:
 
         hash_ = hash_[:24]
 
-        self.download_path = cache_dir.expanduser().joinpath(
-            "assets", hash_, self.download_filename
-        )
+        cache_dir = cache_dir.expanduser().resolve()
+
+        self.download_path = cache_dir.joinpath("assets", hash_, self.download_filename)
 
     @staticmethod
     def _get_path_from_env(var_name: str) -> Optional[Path]:
