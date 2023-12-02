@@ -65,10 +65,10 @@ stream::find_codec() {
 }
 
 void
-stream::init_tensor_storage(bool pin_memory) {
+stream::init_tensor_storage(bool pin_memory, at::ScalarType dtype) {
     // Initialize tensors for storing raw frames and metadata
     storage_.all_video_frames = at::empty({metadata_.num_frames, metadata_.height, metadata_.width, 3},
-    at::dtype(at::kByte).device(at::kCPU).pinned_memory(pin_memory));
+    at::dtype(dtype).device(at::kCPU).pinned_memory(pin_memory));
     storage_.frame_pts = at::empty({metadata_.num_frames},
     at::dtype(at::kLong).device(at::kCPU).pinned_memory(pin_memory));
     storage_.timebase = at::tensor({metadata_.numerator, metadata_.denominator},

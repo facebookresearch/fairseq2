@@ -28,10 +28,15 @@ namespace fairseq2n {
 video_decoder::video_decoder(video_decoder_options opts, bool pin_memory)
     : opts_{opts}
 {
-    at::ScalarType dtype = opts_.maybe_dtype().value_or(at::kFloat);
-    if (dtype != at::kFloat && dtype != at::kInt && dtype != at::kShort)
+    /*
+    dtype is used to determine the type of the output tensor for raw frame data only,
+    which is usually stored as unsigned 8-bit or 10-bit integers corresponding to Kbyte
+    and kShort in Pytorch. 
+    */
+    at::ScalarType dtype = opts_.maybe_dtype().value_or(at::kByte);
+    if (dtype != at::kByte && dtype != at::kShort)
         throw not_supported_error(
-            "`video_decoder` supports only `torch.float32`, `torch.int32`, and `torch.int16` data types.");
+            "`video_decoder` supports only `torch.int16` and `torch.uint8` data types.");
     opts_.pin_memory(pin_memory);
 }
 

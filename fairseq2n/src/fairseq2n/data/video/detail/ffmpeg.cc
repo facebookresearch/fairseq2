@@ -36,11 +36,8 @@ ffmpeg_decoder::open_container(memory_block block)
     auto data_ptr = reinterpret_cast<const uint8_t*>(block.data());
     //av_register_all();
     size_t data_size = block.size();
-    fairseq2n::detail::buffer_data bd = {0};   
-    bd.ptr = data_ptr;
-    bd.size = data_size;
+    fairseq2n::detail::buffer_data bd = {data_ptr, data_size};   
     int ret = 0;
-    at::ScalarType dtype = opts_.maybe_dtype().value_or(at::kByte);
     
     fmt_ctx_ = avformat_alloc_context();
     if (!(fmt_ctx_)) {
@@ -94,7 +91,7 @@ ffmpeg_decoder::open_container(memory_block block)
 
     // Iterate over all streams
     flat_hash_map<std::string, data> all_streams;
-    for (unsigned int i = 0; i < fmt_ctx_->nb_streams; i++) {
+    for (int i = 0; i < static_cast<int>(fmt_ctx_->nb_streams); i++) {
         all_streams[std::to_string(i)] = open_stream(i);
     }
     
@@ -128,15 +125,15 @@ ffmpeg_decoder::open_stream(int stream_index)
         }
     
         // Create tensor storage for the stream
-        av_stream_->init_tensor_storage(opts_.pin_memory());
+        av_stream_->init_tensor_storage(opts_.pin_memory(), opts_.maybe_dtype().value_or(at::kByte));
 
         // Iterate over all frames in the stream and decode them
         while (av_read_frame(fmt_ctx_, av_stream_->pkt_) >= 0) {       
             if (av_stream_->pkt_->stream_index == stream_index) {  
                 // Send raw data packet (compressed frame) to the decoder through the codec context
-                int ret = avcodec_send_packet(av_stream_->codec_ctx_, av_stream_->pkt_);
+                ret = avcodec_send_packet(av_stream_->codec_ctx_, av_stream_->pkt_);
                 if (ret < 0) {
-                    fprintf(stderr, "Error sending packet to decoder: %s\n");
+                    fprintf(stderr, "Error sending packet to decoder: \n");
                     throw std::runtime_error("Error sending packet to decoder.");
                 }
                 // Receive raw data frame (uncompressed frame) from the decoder through the codec context
@@ -147,10 +144,9 @@ ffmpeg_decoder::open_stream(int stream_index)
                         // EAGAIN is not an error, it means we need more input
                         // AVERROR_EOF means decoding finished
                     } else if (ret < 0) {
-                        fprintf(stderr, "Error receiving frame from decoder: %s\n");
+                        fprintf(stderr, "Error receiving frame from decoder: \n");
                         throw std::runtime_error("Error receiving frame from decoder.");
                     }                                                                                          
-                    int channels = 3; // AV_PIX_FMT_RGB24 guarantees 3 color channels
                     // Tranform frame to RGB
                     SwsContext *sws_ctx = sws_getContext(av_stream_->frame_->width, av_stream_->frame_->height, static_cast<AVPixelFormat>(av_stream_->frame_->format),
                                                         av_stream_->frame_->width, av_stream_->frame_->height, AV_PIX_FMT_RGB24,
@@ -159,6 +155,7 @@ ffmpeg_decoder::open_stream(int stream_index)
                         fprintf(stderr, "Failed to create the conversion context\n");
                         throw std::runtime_error("Failed to create the conversion context.");
                     }
+                    // AV_PIX_FMT_RGB24 guarantees 3 color channels
                     av_stream_->sw_frame_->format = AV_PIX_FMT_RGB24;
                     av_stream_->sw_frame_->width = av_stream_->frame_->width;
                     av_stream_->sw_frame_->height = av_stream_->frame_->height;
@@ -174,7 +171,7 @@ ffmpeg_decoder::open_stream(int stream_index)
                         throw std::runtime_error("Failed to convert the frame to RGB.");
                     }
                     // Store PTS in microseconds
-                    av_stream_->storage_.frame_pts[processed_frames] = (int64_t)(av_stream_->frame_->pts * av_stream_->metadata_.time_base * 1000000);
+                    av_stream_->storage_.frame_pts[processed_frames] = av_stream_->frame_->pts * av_stream_->metadata_.time_base * 1000000;
                     // Store raw frame data for one frame
                     at::Tensor one_frame = av_stream_->storage_.all_video_frames[processed_frames];                        
                     writable_memory_span frame_bits = get_raw_mutable_storage(one_frame);
@@ -216,12 +213,12 @@ ffmpeg_decoder::read_callback(void *opaque, uint8_t *buf, int buf_size)
     // Read up to buf_size bytes from the resource accessed by the AVIOContext object
     // Used by ffmpeg to read from memory buffer
     fairseq2n::detail::buffer_data *bd = static_cast<fairseq2n::detail::buffer_data *>(opaque);
-    buf_size = std::min(buf_size, static_cast<int>(bd->size));
+    buf_size = std::min(static_cast<size_t>(buf_size), bd->size);
     if (buf_size <= 0)
         return AVERROR_EOF;
     memcpy(buf, bd->ptr, buf_size);
     bd->ptr += buf_size;
-    bd->size -= buf_size;
+    bd->size -= static_cast<size_t>(buf_size);
     return buf_size;
 }
 
