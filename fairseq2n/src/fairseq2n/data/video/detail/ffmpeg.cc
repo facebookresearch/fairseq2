@@ -41,24 +41,26 @@ ffmpeg_decoder::open_container(memory_block block)
     bd.size = data_size;
     int ret = 0;
     at::ScalarType dtype = opts_.maybe_dtype().value_or(at::kByte);
-     
+    
     fmt_ctx_ = avformat_alloc_context();
     if (!(fmt_ctx_)) {
         throw std::runtime_error("Failed to allocate AVFormatContext.");
     }
-
+    // Allocate buffer input/output operations via AVIOContext
     avio_ctx_buffer_ = (uint8_t*)av_malloc(data_size + AV_INPUT_BUFFER_PADDING_SIZE);
     if (!avio_ctx_buffer_) {
         throw std::runtime_error("Failed to allocate AVIOContext buffer.");
     }
-
+    // Create an AVIOContext for using custom IO
     avio_ctx_ = avio_alloc_context(
         avio_ctx_buffer_, 
         data_size, 
-        0, 
-        &bd, 
-        &read_callback, 
-        nullptr, nullptr);
+        0, // Write flag
+        &bd, // Pointer to user data
+        &read_callback, // Pointer to function used to read data
+        nullptr, // Write packet function, not used
+        nullptr // Seek function, not used
+        );
     if (!avio_ctx_) {
         throw std::runtime_error("Failed to allocate AVIOContext.");
     }
@@ -82,7 +84,6 @@ ffmpeg_decoder::open_container(memory_block block)
         fprintf(stderr, "Could not open input\n");
         throw std::runtime_error("Failed to open input.");
     }
-    std::cout << "opened input" << std::endl;
 
     // Read data from the media file
     ret = avformat_find_stream_info(fmt_ctx_, nullptr);
@@ -232,9 +233,8 @@ ffmpeg_decoder::~ffmpeg_decoder()
         av_freep(&avio_ctx_);
     }
     if (fmt_ctx_) {
-        avformat_close_input(&fmt_ctx_);
+        avformat_free_context(fmt_ctx_);
     }
-    // avio_ctx_bufffer_ is freed by ffmpeg
 }
 
 } // namespace fairseq2n
