@@ -149,8 +149,7 @@ ffmpeg_decoder::open_stream(int stream_index)
                     } else if (ret < 0) {
                         fprintf(stderr, "Error receiving frame from decoder: %s\n");
                         throw std::runtime_error("Error receiving frame from decoder.");
-                    }                                                                    
-                    // Save the frame in a tensor                       
+                    }                                                                                          
                     int channels = 3; // AV_PIX_FMT_RGB24 guarantees 3 color channels
                     // Tranform frame to RGB
                     SwsContext *sws_ctx = sws_getContext(av_stream_->frame_->width, av_stream_->frame_->height, static_cast<AVPixelFormat>(av_stream_->frame_->format),
