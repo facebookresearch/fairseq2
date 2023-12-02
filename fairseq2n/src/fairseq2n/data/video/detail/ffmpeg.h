@@ -26,67 +26,10 @@ extern "C" {
 
 namespace fairseq2n::detail {
 
-class video_decoder_options {
-public:
-    video_decoder_options
-    maybe_dtype(std::optional<at::ScalarType> value) noexcept
-    {
-        auto tmp = *this;
-
-        tmp.maybe_dtype_ = value;
-
-        return tmp;
-    }
-
-    std::optional<at::ScalarType>
-    maybe_dtype() const noexcept
-    {
-        return maybe_dtype_;
-    }
-
-    video_decoder_options
-    maybe_device(std::optional<at::Device> value) noexcept
-    {
-        auto tmp = *this;
-
-        tmp.maybe_device_ = value;
-
-        return tmp;
-    }
-
-    std::optional<at::Device>
-    maybe_device() const noexcept
-    {
-        return maybe_device_;
-    }
-
-    video_decoder_options
-    pin_memory(bool value) noexcept
-    {
-        auto tmp = *this;
-
-        tmp.pin_memory_ = value;
-
-        return tmp;
-    }
-
-    bool
-    pin_memory() const noexcept
-    {
-        return pin_memory_;
-    }
-
-private:
-    std::optional<at::ScalarType> maybe_dtype_{};
-    std::optional<at::Device> maybe_device_{};
-    bool pin_memory_ = false;
-};
-
-
 class FAIRSEQ2_API ffmpeg_decoder {
 public:
     explicit
-    ffmpeg_decoder(video_decoder_options opts = {}, bool pin_memory = false);
+    ffmpeg_decoder(video_decoder_options opts = {});
 
     ~ffmpeg_decoder();
 
@@ -95,7 +38,7 @@ public:
 
     data
     open_stream(int stream_index);
-
+    
     static int 
     read_callback(void *opaque, uint8_t *buf, int buf_size);
 
@@ -106,6 +49,5 @@ private:
     uint8_t* avio_ctx_buffer_ = nullptr;
     std::unique_ptr<stream> av_stream_; 
 };
-
 
 } // namespace fairseq2n

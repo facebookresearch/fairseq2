@@ -9,7 +9,6 @@
 #include <cstdint>
 #include <exception>
 #include <stdexcept>
-#include <iostream>
 
 #include <ATen/Functions.h>
 #include <ATen/Tensor.h>
@@ -25,20 +24,15 @@ using namespace std;
 
 namespace fairseq2n::detail {
 
-ffmpeg_decoder::ffmpeg_decoder(video_decoder_options opts, bool pin_memory)
+ffmpeg_decoder::ffmpeg_decoder(video_decoder_options opts)
     : opts_{opts}
-{
-    at::ScalarType dtype = opts_.maybe_dtype().value_or(at::kFloat);
-    if (dtype != at::kFloat && dtype != at::kInt && dtype != at::kShort)
-        throw not_supported_error(
-            "`video_decoder` supports only `torch.float32`, `torch.int32`, and `torch.int16` data types.");
-    
-}
+{}
 
 data_dict
 ffmpeg_decoder::open_container(memory_block block)
 {
-    // Opens the media container and read the metadata.
+    // Opens the media container and iterates over streams.
+
     auto data_ptr = reinterpret_cast<const uint8_t*>(block.data());
     //av_register_all();
     size_t data_size = block.size();
@@ -58,7 +52,13 @@ ffmpeg_decoder::open_container(memory_block block)
         throw std::runtime_error("Failed to allocate AVIOContext buffer.");
     }
 
-    avio_ctx_ = avio_alloc_context(avio_ctx_buffer_, data_size, 0, &bd, &ffmpeg_decoder::read_callback, nullptr, nullptr);
+    avio_ctx_ = avio_alloc_context(
+        avio_ctx_buffer_, 
+        data_size, 
+        0, 
+        &bd, 
+        &read_callback, 
+        nullptr, nullptr);
     if (!avio_ctx_) {
         throw std::runtime_error("Failed to allocate AVIOContext.");
     }
@@ -98,68 +98,60 @@ ffmpeg_decoder::open_container(memory_block block)
     }
     
     return all_streams;
-    }   
+}   
 
 data
 ffmpeg_decoder::open_stream(int stream_index) 
 {
-    // Opens the media stream and decodes the frames
+    // Opens a stream and decodes the video frames. Skips audio streams for now.
 
     av_stream_ = std::make_unique<stream>(stream_index, fmt_ctx_);
     int processed_frames = 0;
     av_stream_->find_codec();
-    av_stream_->alloc_resources();
- 
-    // Fill codec context with codec parameters
-    int ret = avcodec_parameters_to_context(av_stream_->codec_ctx_, av_stream_->codec_params_);
-    if (ret < 0) {
-        fprintf(stderr, "Failed to copy decoder parameters to input decoder context "
-                "for stream #%u\n", stream_index);
-        throw std::runtime_error("Failed to copy decoder parameters to input decoder context.");
-    }
-    if (av_stream_->codec_params_->codec_type == AVMEDIA_TYPE_VIDEO) {
-    // Open the codec
-    ret = avcodec_open2(av_stream_->codec_ctx_, av_stream_->codec_, nullptr);
-    if (ret < 0) {
-        fprintf(stderr, "Failed to open decoder for stream #%u\n", stream_index);
-        throw std::runtime_error("Failed to open decoder for stream.");    
-    }
-   
-    // Decode the frames in the stream
-    at::Tensor all_video_frames = at::empty({av_stream_->metadata_.num_frames, av_stream_->codec_params_->height, av_stream_->codec_params_->width, 3}, 
-    at::dtype(at::kByte).device(at::kCPU).pinned_memory(opts_.pin_memory()));
-    at::Tensor frame_pts = at::empty({av_stream_->metadata_.num_frames}, 
-    at::dtype(at::kLong).device(at::kCPU).pinned_memory(opts_.pin_memory()));
-    at::Tensor video_timebase = at::tensor({av_stream_->metadata_.numerator, av_stream_->metadata_.denominator},
-    at::dtype(at::kInt).device(at::kCPU).pinned_memory(opts_.pin_memory()));
-    at::Tensor video_fps = at::tensor({av_stream_->metadata_.fps}, 
-    at::dtype(at::kFloat).device(at::kCPU).pinned_memory(opts_.pin_memory()));
-    at::Tensor video_duration = at::tensor({av_stream_->metadata_.duration_microseconds}, 
-    at::dtype(at::kLong).device(at::kCPU).pinned_memory(opts_.pin_memory()));
-        
-    // Iterate over all frames in the stream
-    //av_stream_->process_packet(stream_index, fmt_ctx_);
-    while (av_read_frame(fmt_ctx_, av_stream_->pkt_) >= 0) {       
-        if (av_stream_->pkt_->stream_index == stream_index) {  
-            // Send raw data packet (compressed frame) to the decoder through the codec context
-            int ret = avcodec_send_packet(av_stream_->codec_ctx_, av_stream_->pkt_);
-            if (ret < 0) {
-                fprintf(stderr, "Error sending packet to decoder: %s\n");
-                throw std::runtime_error("Error sending packet to decoder.");
-            }
-            // Receive raw data frame (uncompressed frame) from the decoder through the codec context
-            while (ret >= 0) {
-                ret = avcodec_receive_frame(av_stream_->codec_ctx_, av_stream_->frame_);
-                if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
-                    break;  // EAGAIN is not an error, it means we need more input
-                    // AVERROR_EOF means decoding finished
-                } else if (ret < 0) {
-                    fprintf(stderr, "Error receiving frame from decoder: %s\n");
-                    throw std::runtime_error("Error receiving frame from decoder.");
-                }                                                                    
-                // Save the frame in a tensor
-                if (av_stream_->codec_ctx_->codec_type == AVMEDIA_TYPE_VIDEO) {                            
-                    // AV_PIX_FMT_RGB24 guarantees 3 color channels
+    if (av_stream_->type_ == AVMEDIA_TYPE_VIDEO) {
+        av_stream_->alloc_resources();
+    
+        // Fill codec context with codec parameters
+        int ret = avcodec_parameters_to_context(av_stream_->codec_ctx_, av_stream_->codec_params_);
+        if (ret < 0) {
+            fprintf(stderr, "Failed to copy decoder parameters to input decoder context "
+                    "for stream #%u\n", stream_index);
+            throw std::runtime_error("Failed to copy decoder parameters to input decoder context.");
+        }
+
+        // Open the codec
+        ret = avcodec_open2(av_stream_->codec_ctx_, av_stream_->codec_, nullptr);
+        if (ret < 0) {
+            fprintf(stderr, "Failed to open decoder for stream #%u\n", stream_index);
+            throw std::runtime_error("Failed to open decoder for stream.");    
+        }
+    
+        // Create tensor storage for the stream
+        av_stream_->init_tensor_storage(opts_.pin_memory());
+
+        // Iterate over all frames in the stream and decode them
+        while (av_read_frame(fmt_ctx_, av_stream_->pkt_) >= 0) {       
+            if (av_stream_->pkt_->stream_index == stream_index) {  
+                // Send raw data packet (compressed frame) to the decoder through the codec context
+                int ret = avcodec_send_packet(av_stream_->codec_ctx_, av_stream_->pkt_);
+                if (ret < 0) {
+                    fprintf(stderr, "Error sending packet to decoder: %s\n");
+                    throw std::runtime_error("Error sending packet to decoder.");
+                }
+                // Receive raw data frame (uncompressed frame) from the decoder through the codec context
+                while (ret >= 0) {
+                    ret = avcodec_receive_frame(av_stream_->codec_ctx_, av_stream_->frame_);
+                    if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+                        break;  
+                        // EAGAIN is not an error, it means we need more input
+                        // AVERROR_EOF means decoding finished
+                    } else if (ret < 0) {
+                        fprintf(stderr, "Error receiving frame from decoder: %s\n");
+                        throw std::runtime_error("Error receiving frame from decoder.");
+                    }                                                                    
+                    // Save the frame in a tensor                       
+                    int channels = 3; // AV_PIX_FMT_RGB24 guarantees 3 color channels
+                    // Tranform frame to RGB
                     SwsContext *sws_ctx = sws_getContext(av_stream_->frame_->width, av_stream_->frame_->height, static_cast<AVPixelFormat>(av_stream_->frame_->format),
                                                         av_stream_->frame_->width, av_stream_->frame_->height, AV_PIX_FMT_RGB24,
                                                         SWS_BILINEAR, nullptr, nullptr, nullptr);
@@ -173,7 +165,6 @@ ffmpeg_decoder::open_stream(int stream_index)
                     ret = av_frame_get_buffer(av_stream_->sw_frame_, 0);
                     if (ret < 0) {
                         fprintf(stderr, "Failed to allocate buffer for the RGB frame\n");
-                        //av_frame_free(&rgb_frame);
                         throw std::runtime_error("Failed to allocate buffer for the RGB frame.");
                     }  
                     ret = sws_scale(sws_ctx, av_stream_->frame_->data, av_stream_->frame_->linesize, 0, av_stream_->frame_->height,
@@ -182,10 +173,10 @@ ffmpeg_decoder::open_stream(int stream_index)
                         fprintf(stderr, "Failed to convert the frame to RGB\n");
                         throw std::runtime_error("Failed to convert the frame to RGB.");
                     }
-                    int channels = 3;
                     // Store PTS in microseconds
-                    frame_pts[processed_frames] = (int64_t)(av_stream_->frame_->pts * av_stream_->metadata_.time_base * 1000000);
-                    at::Tensor one_frame = all_video_frames[processed_frames];                           
+                    av_stream_->storage_.frame_pts[processed_frames] = (int64_t)(av_stream_->frame_->pts * av_stream_->metadata_.time_base * 1000000);
+                    // Store raw frame data for one frame
+                    at::Tensor one_frame = av_stream_->storage_.all_video_frames[processed_frames];                        
                     writable_memory_span frame_bits = get_raw_mutable_storage(one_frame);
                     auto frame_data = reinterpret_cast<uint8_t*>(frame_bits.data());
                     // Calculate the total size of the frame in bytes
@@ -196,26 +187,28 @@ ffmpeg_decoder::open_stream(int stream_index)
             
                     sws_freeContext(sws_ctx);
                     processed_frames++; 
-                }                                            
-                av_frame_unref(av_stream_->frame_); // Unref old data so the frame can be reused
-                av_frame_unref(av_stream_->sw_frame_);
+                                                               
+                    av_frame_unref(av_stream_->frame_); // Unref old data so the frame can be reused
+                    av_frame_unref(av_stream_->sw_frame_);
+                }
             }
+            av_packet_unref(av_stream_->pkt_);   
         }
-        av_packet_unref(av_stream_->pkt_);   
-    }
-    flat_hash_map<std::string, data> result;
-    result["all_video_frames"] = data(all_video_frames);
-    result["frame_pts"] = data(frame_pts);
-    result["video_timebase"] = data(video_timebase);
-    result["video_fps"] = data(video_fps);
-    result["video_duration"] = data(video_duration);
+        flat_hash_map<std::string, data> result;
+        result["all_video_frames"] = data(av_stream_->storage_.all_video_frames);
+        result["frame_pts"] = data(av_stream_->storage_.frame_pts);
+        result["timebase"] = data(av_stream_->storage_.timebase);
+        result["fps"] = data(av_stream_->storage_.fps);
+        result["duration"] = data(av_stream_->storage_.duration);
 
-    data stream_data(std::move(result));
-    
-    return stream_data;
+        data stream_data(std::move(result));
+        return stream_data;
+    } else {
+        // Skip streams if not video for now
+        // Return an empty data object if the stream is not video
+        return data();
+    }
 }
-}
-   
 
 int 
 ffmpeg_decoder::read_callback(void *opaque, uint8_t *buf, int buf_size) 

@@ -11,13 +11,10 @@
 
 #include <ATen/Functions.h>
 #include <ATen/Tensor.h>
-#include <iostream>
 
 extern "C" {
     #include <libavcodec/avcodec.h>
-   // #include <libswscale/swscale.h>
-    //#include <libswresample/swresample.h>
-    //#include <libavutil/imgutils.h>
+    #include <libavformat/avformat.h>
 }
 #include <functional>
 #include "fairseq2n/memory.h"
@@ -27,13 +24,12 @@ namespace fairseq2n::detail {
 
 class FAIRSEQ2_API stream {
 friend class ffmpeg_decoder;
-
 public:
     stream(int, AVFormatContext*);
     void alloc_resources();
-    //stream(AVCodec *codec);
     ~stream();
-    int process_packet(int stream_index, AVFormatContext* fmt_ctx);
+    void init_tensor_storage(bool pin_memory);
+    //int process_packet(int stream_index, AVFormatContext* fmt_ctx);
     void find_codec();
     AVCodecContext* get_codec_ctx() const;
     stream(const stream&) = delete;
@@ -48,12 +44,9 @@ private:
     media_metadata metadata_;
     AVCodecParameters* codec_params_{nullptr};
     AVMediaType type_{AVMEDIA_TYPE_UNKNOWN};
-    //at::Tensor all_frames_; 
-    //at::Tensor pts_;
     AVCodec* codec_;
     int stream_index_;
-
+    tensor_storage storage_;
 };
-
 
 } // namespace fairseq2n::detail

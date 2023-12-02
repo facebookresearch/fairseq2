@@ -6,13 +6,9 @@
 
 #pragma once
 
-extern "C" {
-   #include <libavcodec/avcodec.h>
-   #include <libavformat/avformat.h>
-   #include <libavformat/avio.h>
-   #include <libavutil/avutil.h>
-}
-
+#include <optional>
+#include <ATen/Functions.h>
+#include <ATen/Tensor.h>
 
 namespace fairseq2n::detail {
 
@@ -22,10 +18,10 @@ struct buffer_data {
 };
 
 struct media_metadata {
-  int64_t num_frames{-1}; // Number of frames in the stream
+  int64_t num_frames{0}; // Number of frames in the stream
   int numerator{0}; // Time base numerator
   int denominator{0}; // Time base denominator
-  int64_t duration_microseconds{-1}; // Duration of the stream
+  int64_t duration_microseconds{0}; // Duration of the stream
   int height{0}; // Height of a frame in pixels
   int width{0}; // Width of a frame in pixels
   double time_base{0}; // Time base of the stream
@@ -33,20 +29,68 @@ struct media_metadata {
   // media_format format; // TODO
 };
 
-/*
-static int 
-ffmpeg_read_callback(void *opaque, uint8_t *buf, int buf_size) {
-    // Read up to buf_size bytes from the resource accessed by the AVIOContext object
-    // Used by ffmpeg to read from memory buffer
-    fairseq2n::detail::buffer_data *bd = static_cast<fairseq2n::detail::buffer_data *>(opaque);
-    buf_size = std::min(buf_size, static_cast<int>(bd->size));
-    if (buf_size <= 0)
-        return AVERROR_EOF;
-    memcpy(buf, bd->ptr, buf_size);
-    bd->ptr += buf_size;
-    bd->size -= buf_size;
-    return buf_size;
+struct tensor_storage {
+    at::Tensor all_video_frames;
+    at::Tensor frame_pts;
+    at::Tensor timebase;
+    at::Tensor fps;
+    at::Tensor duration;
 };
-*/
 
-}
+class video_decoder_options {
+public:
+    video_decoder_options
+    maybe_dtype(std::optional<at::ScalarType> value) noexcept
+    {
+        auto tmp = *this;
+
+        tmp.maybe_dtype_ = value;
+
+        return tmp;
+    }
+
+    std::optional<at::ScalarType>
+    maybe_dtype() const noexcept
+    {
+        return maybe_dtype_;
+    }
+
+    video_decoder_options
+    maybe_device(std::optional<at::Device> value) noexcept
+    {
+        auto tmp = *this;
+
+        tmp.maybe_device_ = value;
+
+        return tmp;
+    }
+
+    std::optional<at::Device>
+    maybe_device() const noexcept
+    {
+        return maybe_device_;
+    }
+
+    video_decoder_options
+    pin_memory(bool value) noexcept
+    {
+        auto tmp = *this;
+
+        tmp.pin_memory_ = value;
+
+        return tmp;
+    }
+
+    bool
+    pin_memory() const noexcept
+    {
+        return pin_memory_;
+    }
+
+private:
+    std::optional<at::ScalarType> maybe_dtype_{};
+    std::optional<at::Device> maybe_device_{};
+    bool pin_memory_ = false;
+};
+
+} // namespace fairseq2n::detail

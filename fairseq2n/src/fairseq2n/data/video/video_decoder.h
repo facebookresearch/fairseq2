@@ -29,8 +29,7 @@ public:
 
 private:
     video_decoder_options opts_;
-    ffmpeg_decoder decoder_;
-        
+    ffmpeg_decoder decoder_;       
 };
 
 }  // namespace fairseq2n

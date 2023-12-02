@@ -9,15 +9,10 @@
 #include <cstdint>
 #include <exception>
 #include <stdexcept>
-#include <iostream>
 
 #include <ATen/Functions.h>
 #include <ATen/Tensor.h>
 
-//#include "fairseq2n/data/video/detail/avcodec_resources.h"
-//#include "fairseq2n/data/video/detail/utils.h"
-//#include "fairseq2n/data/video/detail/avformat_resources.h"
-//#include "fairseq2n/data/video/detail/ffmpeg.h"
 #include "fairseq2n/exception.h"
 #include "fairseq2n/float.h"
 #include "fairseq2n/fmt.h"
@@ -37,7 +32,7 @@ video_decoder::video_decoder(video_decoder_options opts, bool pin_memory)
     if (dtype != at::kFloat && dtype != at::kInt && dtype != at::kShort)
         throw not_supported_error(
             "`video_decoder` supports only `torch.float32`, `torch.int32`, and `torch.int16` data types.");
-    
+    opts_.pin_memory(pin_memory);
 }
 
 data
@@ -51,7 +46,7 @@ video_decoder::operator()(data &&d) const
     if (block.empty())
         throw std::invalid_argument("The input memory block has zero length and cannot be decoded.");
 
-    ffmpeg_decoder decoder;
+    ffmpeg_decoder decoder(opts_);
 
     data_dict decoded_video = decoder.open_container(block);
 
