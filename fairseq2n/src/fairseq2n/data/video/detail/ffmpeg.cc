@@ -29,7 +29,7 @@ ffmpeg_decoder::ffmpeg_decoder(video_decoder_options opts)
 {}
 
 data_dict
-ffmpeg_decoder::open_container(memory_block block)
+ffmpeg_decoder::open_container(const memory_block &block)
 {
     // Opens the media container and iterates over streams.
 
@@ -40,13 +40,13 @@ ffmpeg_decoder::open_container(memory_block block)
     int ret = 0;
     
     fmt_ctx_ = avformat_alloc_context();
-    if (!(fmt_ctx_)) {
-        throw std::runtime_error("Failed to allocate AVFormatContext.");
+    if (fmt_ctx_ == nullptr) {
+        throw_<runtime_error>("Failed to allocate AVFormatContext.");
     }
     // Allocate buffer input/output operations via AVIOContext
-    avio_ctx_buffer_ = (uint8_t*)av_malloc(data_size + AV_INPUT_BUFFER_PADDING_SIZE);
-    if (!avio_ctx_buffer_) {
-        throw std::runtime_error("Failed to allocate AVIOContext buffer.");
+    avio_ctx_buffer_ = static_cast<uint8_t*>(av_malloc(data_size + AV_INPUT_BUFFER_PADDING_SIZE));
+    if (avio_ctx_buffer_ == nullptr) {
+        throw_<runtime_error>("Failed to allocate AVIOContext buffer.");
     }
     // Create an AVIOContext for using custom IO
     avio_ctx_ = avio_alloc_context(
@@ -58,8 +58,8 @@ ffmpeg_decoder::open_container(memory_block block)
         nullptr, // Write packet function, not used
         nullptr // Seek function, not used
         );
-    if (!avio_ctx_) {
-        throw std::runtime_error("Failed to allocate AVIOContext.");
+    if (avio_ctx_ == nullptr) {
+        throw_<runtime_error>("Failed to allocate AVIOContext.");
     }
     
     fmt_ctx_->pb = avio_ctx_; 
@@ -78,15 +78,13 @@ ffmpeg_decoder::open_container(memory_block block)
     // Open media file and read the header
     ret = avformat_open_input(&fmt_ctx_, nullptr, nullptr, nullptr);
     if (ret < 0) {
-        fprintf(stderr, "Could not open input\n");
-        throw std::runtime_error("Failed to open input.");
+        throw_<runtime_error>("Failed to open input.");
     }
 
     // Read data from the media file
     ret = avformat_find_stream_info(fmt_ctx_, nullptr);
     if (ret < 0) {
-        fprintf(stderr, "Could not find stream information\n");
-        throw std::runtime_error("Failed to find stream information.");
+        throw_<runtime_error>("Failed to find stream information.");
     }
 
     // Iterate over all streams
@@ -105,23 +103,20 @@ ffmpeg_decoder::open_stream(int stream_index)
 
     av_stream_ = std::make_unique<stream>(stream_index, fmt_ctx_);
     int processed_frames = 0;
-    av_stream_->find_codec();
     if (av_stream_->type_ == AVMEDIA_TYPE_VIDEO) {
         av_stream_->alloc_resources();
     
         // Fill codec context with codec parameters
         int ret = avcodec_parameters_to_context(av_stream_->codec_ctx_, av_stream_->codec_params_);
         if (ret < 0) {
-            fprintf(stderr, "Failed to copy decoder parameters to input decoder context "
-                    "for stream #%u\n", stream_index);
-            throw std::runtime_error("Failed to copy decoder parameters to input decoder context.");
+            throw_<runtime_error>("Failed to copy decoder parameters to input decoder context for stream #%u\n", 
+            stream_index);
         }
 
         // Open the codec
         ret = avcodec_open2(av_stream_->codec_ctx_, av_stream_->codec_, nullptr);
         if (ret < 0) {
-            fprintf(stderr, "Failed to open decoder for stream #%u\n", stream_index);
-            throw std::runtime_error("Failed to open decoder for stream.");    
+            throw_<runtime_error>("Failed to open decoder for stream #%u\n", stream_index);  
         }
     
         // Create tensor storage for the stream
@@ -133,8 +128,8 @@ ffmpeg_decoder::open_stream(int stream_index)
                 // Send raw data packet (compressed frame) to the decoder through the codec context
                 ret = avcodec_send_packet(av_stream_->codec_ctx_, av_stream_->pkt_);
                 if (ret < 0) {
-                    fprintf(stderr, "Error sending packet to decoder: \n");
-                    throw std::runtime_error("Error sending packet to decoder.");
+                    throw_<runtime_error>("Error sending packet to decoder for stream #%u\n", 
+                    stream_index);
                 }
                 // Receive raw data frame (uncompressed frame) from the decoder through the codec context
                 while (ret >= 0) {
@@ -144,36 +139,27 @@ ffmpeg_decoder::open_stream(int stream_index)
                         // EAGAIN is not an error, it means we need more input
                         // AVERROR_EOF means decoding finished
                     } else if (ret < 0) {
-                        fprintf(stderr, "Error receiving frame from decoder: \n");
-                        throw std::runtime_error("Error receiving frame from decoder.");
+                        throw_<runtime_error>("Error receiving frame from decoder for stream #%u\n", 
+                        stream_index);
                     }                                                                                          
                     // Tranform frame to RGB
                     sws_ = std::make_unique<swscale_resources>(av_stream_->frame_->width, av_stream_->frame_->height, 
                                                                 static_cast<AVPixelFormat>(av_stream_->frame_->format));
 
-                    /*
-                    SwsContext *sws_ctx = sws_getContext(av_stream_->frame_->width, av_stream_->frame_->height, static_cast<AVPixelFormat>(av_stream_->frame_->format),
-                                                        av_stream_->frame_->width, av_stream_->frame_->height, AV_PIX_FMT_RGB24,
-                                                        SWS_BILINEAR, nullptr, nullptr, nullptr);
-                    if (!sws_ctx) {
-                        fprintf(stderr, "Failed to create the conversion context\n");
-                        throw std::runtime_error("Failed to create the conversion context.");
-                    }
-                    */
                     // AV_PIX_FMT_RGB24 guarantees 3 color channels
                     av_stream_->sw_frame_->format = AV_PIX_FMT_RGB24;
                     av_stream_->sw_frame_->width = av_stream_->frame_->width;
                     av_stream_->sw_frame_->height = av_stream_->frame_->height;
                     ret = av_frame_get_buffer(av_stream_->sw_frame_, 0);
                     if (ret < 0) {
-                        fprintf(stderr, "Failed to allocate buffer for the RGB frame\n");
-                        throw std::runtime_error("Failed to allocate buffer for the RGB frame.");
+                        throw_<runtime_error>("Failed to allocate buffer for the RGB frame for stream #%u\n", 
+                        stream_index);
                     }  
                     ret = sws_scale(sws_->sws_ctx_, av_stream_->frame_->data, av_stream_->frame_->linesize, 0, av_stream_->frame_->height,
                                     av_stream_->sw_frame_->data, av_stream_->sw_frame_->linesize);
                     if (ret < 0) {
-                        fprintf(stderr, "Failed to convert the frame to RGB\n");
-                        throw std::runtime_error("Failed to convert the frame to RGB.");
+                        throw_<runtime_error>("Failed to convert the frame to RGB for stream #%u\n", 
+                        stream_index);
                     }
                     // Store PTS in microseconds
                     av_stream_->storage_.frame_pts[processed_frames] = av_stream_->frame_->pts * av_stream_->metadata_.time_base * 1000000;
@@ -207,7 +193,7 @@ ffmpeg_decoder::open_stream(int stream_index)
     } else {
         // Skip streams if not video for now
         // Return an empty data object if the stream is not video
-        return data();
+        return data{};
     }
 }
 
@@ -216,7 +202,7 @@ ffmpeg_decoder::read_callback(void *opaque, uint8_t *buf, int buf_size)
 {
     // Read up to buf_size bytes from the resource accessed by the AVIOContext object
     // Used by ffmpeg to read from memory buffer
-    fairseq2n::detail::buffer_data *bd = static_cast<fairseq2n::detail::buffer_data *>(opaque);
+    auto *bd = static_cast<fairseq2n::detail::buffer_data *>(opaque);
     buf_size = std::min(static_cast<size_t>(buf_size), bd->size);
     if (buf_size <= 0)
         return AVERROR_EOF;
@@ -228,11 +214,11 @@ ffmpeg_decoder::read_callback(void *opaque, uint8_t *buf, int buf_size)
 
 ffmpeg_decoder::~ffmpeg_decoder()
 {   
-    if (avio_ctx_) {
+    if (avio_ctx_ != nullptr) {
         av_freep(&avio_ctx_->buffer);
         av_freep(&avio_ctx_);
     }
-    if (fmt_ctx_) {
+    if (fmt_ctx_ != nullptr) {
         avformat_free_context(fmt_ctx_);
     }
 }

@@ -21,8 +21,11 @@ friend class ffmpeg_decoder;
 
 public:
     swscale_resources(int, int, AVPixelFormat);
+
     ~swscale_resources();
+
     swscale_resources(const swscale_resources&) = delete;
+    
     swscale_resources& operator=(const swscale_resources&) = delete;
 
 private:

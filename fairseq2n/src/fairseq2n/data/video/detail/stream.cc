@@ -13,7 +13,7 @@
 namespace fairseq2n::detail {
 
 stream::stream(int stream_index, AVFormatContext* fmt_ctx) {
-    // Initialize the AVStream, AVCodecParameters, and get metadata 
+    // Initialize the AVStream, AVCodecParameters, AVCodec, and get metadata 
     stream_index_ = stream_index;
     av_stream_ = fmt_ctx->streams[stream_index];
     metadata_.numerator = av_stream_->time_base.num;
@@ -26,41 +26,37 @@ stream::stream(int stream_index, AVFormatContext* fmt_ctx) {
     metadata_.height = codec_params_->height;
     metadata_.width = codec_params_->width;
     type_ = codec_params_->codec_type;
+    codec_ = avcodec_find_decoder(codec_params_->codec_id);
+    if (codec_ == nullptr) {
+        throw_<std::runtime_error>("Failed to find decoder for  stream #%u\n", 
+        stream_index_);
+    }
 }
 
 void
 stream::alloc_resources() {
     // Allocate memory to hold the context for decoding process
     codec_ctx_ = avcodec_alloc_context3(codec_);
-    if (!codec_ctx_) {
-       throw std::runtime_error("Failed to allocate the decoder context for stream.");
+    if (codec_ctx_ == nullptr) {
+       throw_<std::runtime_error>("Failed to allocate the decoder context for stream #%u\n", 
+       stream_index_);
     }
     // Allocate memory to hold the packet
     pkt_ = av_packet_alloc();
-    if (!pkt_) {
-        fprintf(stderr, "Failed to allocate the packet\n");
-        throw std::runtime_error("Failed to allocate the packet.");
+    if (pkt_ == nullptr) {
+        throw_<std::runtime_error>("Failed to allocate the packet for stream #%u\n", 
+        stream_index_);
     }
     // Allocate memory to hold the frames
     frame_ = av_frame_alloc();
-    if (!frame_) {
-        fprintf(stderr, "Failed to allocate the frame\n");
-        throw std::runtime_error("Failed to allocate the frame.");
+    if (frame_ == nullptr) {
+        throw_<std::runtime_error>("Failed to allocate the frame for stream #%u\n", 
+        stream_index_);
     }
     sw_frame_ = av_frame_alloc();
-    if (!sw_frame_) {
-        fprintf(stderr, "Failed to allocate the software frame\n");
-        throw std::runtime_error("Failed to allocate the software frame.");
-    }
-}
-
-void
-stream::find_codec() {
-    // Find the decoder for the stream
-    codec_ = avcodec_find_decoder(codec_params_->codec_id);
-    if (!codec_) {
-        fprintf(stderr, "Failed to find decoder for stream #%u\n", stream_index_);
-        throw std::runtime_error("Failed to find decoder for stream.");
+    if (sw_frame_ == nullptr) {
+        throw_<std::runtime_error>("Failed to allocate the software frame for stream #%u\n", 
+        stream_index_);
     }
 }
 
@@ -80,16 +76,16 @@ stream::init_tensor_storage(bool pin_memory, at::ScalarType dtype) {
 }
 
 stream::~stream() {
-    if (codec_ctx_) {
+    if (codec_ctx_ != nullptr) {
         avcodec_free_context(&codec_ctx_);
     }
-    if (frame_) {
+    if (frame_ != nullptr) {
         av_frame_free(&frame_);
     }
-    if (sw_frame_) {
+    if (sw_frame_ != nullptr) {
         av_frame_free(&sw_frame_);
     }
-    if (pkt_) {
+    if (pkt_ != nullptr) {
         av_packet_free(&pkt_);
     }
 }

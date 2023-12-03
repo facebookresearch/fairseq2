@@ -18,15 +18,14 @@ swscale_resources::swscale_resources(int width, int height, AVPixelFormat fmt)
 {
     sws_ctx_ = sws_getContext(width, height, fmt, width, height, AV_PIX_FMT_RGB24,
                                 SWS_BILINEAR, nullptr, nullptr, nullptr);
-    if (!sws_ctx_) {
-        fprintf(stderr, "Failed to create the conversion context\n");
-        throw std::runtime_error("Failed to create the conversion context.");
+    if (sws_ctx_ == nullptr) {
+        throw_<std::runtime_error>("Failed to create the conversion context\n");
     }
 }
 
 swscale_resources::~swscale_resources()
 {
-    if (sws_ctx_)
+    if (sws_ctx_ != nullptr)
         sws_freeContext(sws_ctx_);
 }
 

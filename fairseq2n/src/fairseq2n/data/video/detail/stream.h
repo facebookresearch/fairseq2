@@ -26,13 +26,19 @@ class FAIRSEQ2_API stream {
 friend class ffmpeg_decoder;
 public:
     stream(int, AVFormatContext*);
-    void alloc_resources();
+
+    void 
+    alloc_resources();
+
     ~stream();
-    void init_tensor_storage(bool pin_memory, at::ScalarType dtype);
-    //int process_packet(int stream_index, AVFormatContext* fmt_ctx);
-    void find_codec();
+
+    void 
+    init_tensor_storage(bool pin_memory, at::ScalarType dtype);
+
     AVCodecContext* get_codec_ctx() const;
+
     stream(const stream&) = delete;
+
     stream& operator=(const stream&) = delete;
 
 private:

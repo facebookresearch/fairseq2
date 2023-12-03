@@ -35,7 +35,7 @@ video_decoder::video_decoder(video_decoder_options opts, bool pin_memory)
     */
     at::ScalarType dtype = opts_.maybe_dtype().value_or(at::kByte);
     if (dtype != at::kByte && dtype != at::kShort)
-        throw not_supported_error(
+        throw_<not_supported_error>(
             "`video_decoder` supports only `torch.int16` and `torch.uint8` data types.");
     opts_.pin_memory(pin_memory);
 }

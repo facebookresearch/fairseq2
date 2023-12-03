@@ -33,13 +33,17 @@ public:
     ~ffmpeg_decoder();
 
     data_dict
-    open_container(memory_block block);
+    open_container(const memory_block &block);
 
     data
     open_stream(int stream_index);
     
     static int 
     read_callback(void *opaque, uint8_t *buf, int buf_size);
+
+    ffmpeg_decoder(const ffmpeg_decoder&) = delete;
+
+    ffmpeg_decoder& operator=(const ffmpeg_decoder&) = delete;
 
 private:
     video_decoder_options opts_; 
