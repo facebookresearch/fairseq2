@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <exception>
 #include <stdexcept>
+#include <iostream>
 
 #include <ATen/Functions.h>
 #include <ATen/Tensor.h>
@@ -65,18 +66,16 @@ ffmpeg_decoder::open_container(const memory_block &block)
     fmt_ctx_->pb = avio_ctx_; 
     fmt_ctx_->flags |= AVFMT_FLAG_CUSTOM_IO; 
     fmt_ctx_->flags |= AVFMT_FLAG_NONBLOCK;
-    // TODO: Determine the input format, currently causes seg fauit
-    /*
-    AVProbeData probe_data = {0};
-    probe_data.buf = avio_ctx_buffer;
-    probe_data.buf_size = data_size;
-    probe_data.filename = "";  // Set to an empty string since we don't have a filename
     
     // Determine the input format
-    fmt_ctx->iformat = av_probe_input_format(&probe_data, 1);
-    */
+    AVProbeData probe_data = {0};
+    probe_data.buf = avio_ctx_buffer_;
+    probe_data.buf_size = data_size;
+    probe_data.filename = "";  // Set to an empty string since we don't have a filename
+    fmt_ctx_->iformat = av_probe_input_format(&probe_data, 1);
+    
     // Open media file and read the header
-    ret = avformat_open_input(&fmt_ctx_, nullptr, nullptr, nullptr);
+    ret = avformat_open_input(&fmt_ctx_, nullptr, fmt_ctx_->iformat, nullptr);
     if (ret < 0) {
         throw_with_nested<invalid_argument>("Failed to open input.");
     }
