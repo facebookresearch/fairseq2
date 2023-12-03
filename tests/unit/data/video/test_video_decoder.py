@@ -15,7 +15,8 @@ from fairseq2.memory import MemoryBlock
 from fairseq2.typing import DataType
 from tests.common import assert_close, device
 
-TEST_OGG_PATH: Final = Path(__file__).parent.joinpath("test.mp4")
+TEST_MP4_PATH: Final = Path(__file__).parent.joinpath("test.mp4")
+TEST_UNSUPPORTED_CODEC_PATH: Final = Path(__file__).parent.joinpath("test2.MP4")
 
 
 class TestVideoDecoder:
@@ -32,7 +33,7 @@ class TestVideoDecoder:
     def test_call_works(self) -> None:
         decoder = VideoDecoder(device=device)
 
-        with TEST_OGG_PATH.open("rb") as fb:
+        with TEST_MP4_PATH.open("rb") as fb:
             block = MemoryBlock(fb.read())
 
         output = decoder(block)
@@ -56,6 +57,18 @@ class TestVideoDecoder:
         assert_close(output["video"]["0"]["fps"][0], torch.tensor(23.9760))
 
         assert_close(output["video"]["0"]["duration"][0], torch.tensor(1024000))
+
+    def test_call_raises_error_when_codec_is_not_supported(self) -> None:
+        decoder = VideoDecoder()
+
+        with TEST_UNSUPPORTED_CODEC_PATH.open("rb") as fb:
+            block = MemoryBlock(fb.read())
+
+        with pytest.raises(
+            RuntimeError,
+            match=r"^Failed to find decoder for stream 2",
+        ):
+            decoder(block)
 
     @pytest.mark.parametrize(
         "value,type_name", [(None, "pyobj"), (123, "int"), ("s", "string")]

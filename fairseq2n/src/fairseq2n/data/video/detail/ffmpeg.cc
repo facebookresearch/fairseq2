@@ -109,14 +109,14 @@ ffmpeg_decoder::open_stream(int stream_index)
         // Fill codec context with codec parameters
         int ret = avcodec_parameters_to_context(av_stream_->codec_ctx_, av_stream_->codec_params_);
         if (ret < 0) {
-            throw_<runtime_error>("Failed to copy decoder parameters to input decoder context for stream #%u\n", 
+            throw_<runtime_error>("Failed to copy decoder parameters to input decoder context for stream {}\n", 
             stream_index);
         }
 
         // Open the codec
         ret = avcodec_open2(av_stream_->codec_ctx_, av_stream_->codec_, nullptr);
         if (ret < 0) {
-            throw_<runtime_error>("Failed to open decoder for stream #%u\n", stream_index);  
+            throw_<runtime_error>("Failed to open decoder for stream {}\n", stream_index);  
         }
     
         // Create tensor storage for the stream
@@ -128,7 +128,7 @@ ffmpeg_decoder::open_stream(int stream_index)
                 // Send raw data packet (compressed frame) to the decoder through the codec context
                 ret = avcodec_send_packet(av_stream_->codec_ctx_, av_stream_->pkt_);
                 if (ret < 0) {
-                    throw_<runtime_error>("Error sending packet to decoder for stream #%u\n", 
+                    throw_<runtime_error>("Error sending packet to decoder for stream {}\n", 
                     stream_index);
                 }
                 // Receive raw data frame (uncompressed frame) from the decoder through the codec context
@@ -139,7 +139,7 @@ ffmpeg_decoder::open_stream(int stream_index)
                         // EAGAIN is not an error, it means we need more input
                         // AVERROR_EOF means decoding finished
                     } else if (ret < 0) {
-                        throw_<runtime_error>("Error receiving frame from decoder for stream #%u\n", 
+                        throw_<runtime_error>("Error receiving frame from decoder for stream {}\n", 
                         stream_index);
                     }                                                                                          
                     // Tranform frame to RGB
@@ -152,13 +152,13 @@ ffmpeg_decoder::open_stream(int stream_index)
                     av_stream_->sw_frame_->height = av_stream_->frame_->height;
                     ret = av_frame_get_buffer(av_stream_->sw_frame_, 0);
                     if (ret < 0) {
-                        throw_<runtime_error>("Failed to allocate buffer for the RGB frame for stream #%u\n", 
+                        throw_<runtime_error>("Failed to allocate buffer for the RGB frame for stream {}\n", 
                         stream_index);
                     }  
                     ret = sws_scale(sws_->sws_ctx_, av_stream_->frame_->data, av_stream_->frame_->linesize, 0, av_stream_->frame_->height,
                                     av_stream_->sw_frame_->data, av_stream_->sw_frame_->linesize);
                     if (ret < 0) {
-                        throw_<runtime_error>("Failed to convert the frame to RGB for stream #%u\n", 
+                        throw_<runtime_error>("Failed to convert the frame to RGB for stream {}\n", 
                         stream_index);
                     }
                     // Store PTS in microseconds
