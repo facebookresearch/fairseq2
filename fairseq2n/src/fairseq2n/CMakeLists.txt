@@ -70,6 +70,7 @@ target_sources(fairseq2n
         data/video/video_decoder.cc
         data/video/detail/ffmpeg.cc
         data/video/detail/stream.cc
+        data/video/detail/swscale_resources.cc
 )
 
 if(FAIRSEQ2N_USE_CUDA)

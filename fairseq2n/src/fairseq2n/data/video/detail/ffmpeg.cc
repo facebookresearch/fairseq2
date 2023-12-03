@@ -148,6 +148,10 @@ ffmpeg_decoder::open_stream(int stream_index)
                         throw std::runtime_error("Error receiving frame from decoder.");
                     }                                                                                          
                     // Tranform frame to RGB
+                    sws_ = std::make_unique<swscale_resources>(av_stream_->frame_->width, av_stream_->frame_->height, 
+                                                                static_cast<AVPixelFormat>(av_stream_->frame_->format));
+
+                    /*
                     SwsContext *sws_ctx = sws_getContext(av_stream_->frame_->width, av_stream_->frame_->height, static_cast<AVPixelFormat>(av_stream_->frame_->format),
                                                         av_stream_->frame_->width, av_stream_->frame_->height, AV_PIX_FMT_RGB24,
                                                         SWS_BILINEAR, nullptr, nullptr, nullptr);
@@ -155,6 +159,7 @@ ffmpeg_decoder::open_stream(int stream_index)
                         fprintf(stderr, "Failed to create the conversion context\n");
                         throw std::runtime_error("Failed to create the conversion context.");
                     }
+                    */
                     // AV_PIX_FMT_RGB24 guarantees 3 color channels
                     av_stream_->sw_frame_->format = AV_PIX_FMT_RGB24;
                     av_stream_->sw_frame_->width = av_stream_->frame_->width;
@@ -164,7 +169,7 @@ ffmpeg_decoder::open_stream(int stream_index)
                         fprintf(stderr, "Failed to allocate buffer for the RGB frame\n");
                         throw std::runtime_error("Failed to allocate buffer for the RGB frame.");
                     }  
-                    ret = sws_scale(sws_ctx, av_stream_->frame_->data, av_stream_->frame_->linesize, 0, av_stream_->frame_->height,
+                    ret = sws_scale(sws_->sws_ctx_, av_stream_->frame_->data, av_stream_->frame_->linesize, 0, av_stream_->frame_->height,
                                     av_stream_->sw_frame_->data, av_stream_->sw_frame_->linesize);
                     if (ret < 0) {
                         fprintf(stderr, "Failed to convert the frame to RGB\n");
@@ -182,7 +187,6 @@ ffmpeg_decoder::open_stream(int stream_index)
                     // Copy the entire frame at once                
                     memcpy(frame_data, av_stream_->sw_frame_->data[0], frame_size);
             
-                    sws_freeContext(sws_ctx);
                     processed_frames++; 
                                                                
                     av_frame_unref(av_stream_->frame_); // Unref old data so the frame can be reused

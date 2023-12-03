@@ -9,6 +9,7 @@
 #include <optional>
 #include "fairseq2n/data/video/detail/utils.h"
 #include "fairseq2n/data/video/detail/stream.h"
+#include "fairseq2n/data/video/detail/swscale_resources.h"
 
 #include "fairseq2n/api.h"
 #include "fairseq2n/data/data.h"
@@ -20,7 +21,6 @@ extern "C" {
     #include <libavformat/avformat.h>
     #include <libavutil/avutil.h>
     #include <libavutil/imgutils.h>
-    #include <libswscale/swscale.h>
 }
 
 namespace fairseq2n::detail {
@@ -47,6 +47,7 @@ private:
     AVIOContext* avio_ctx_ = nullptr;
     uint8_t* avio_ctx_buffer_ = nullptr;
     std::unique_ptr<stream> av_stream_; 
+    std::unique_ptr<swscale_resources> sws_;
 };
 
 } // namespace fairseq2n
