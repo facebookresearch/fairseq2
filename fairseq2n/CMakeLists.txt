@@ -101,6 +101,13 @@ option(FAIRSEQ2N_USE_CUDA
         OFF
 )
 
+option(FAIRSEQ2N_USE_HIP
+    #DESCRIPTION
+        "Builds the HIP kernels."
+    #VALUE
+        OFF
+)
+
 if(CMAKE_SYSTEM_PROCESSOR STREQUAL "x86_64")
     set(default_thread_lib tbb)
 else()
@@ -208,6 +215,27 @@ endif()
 # By default, we build our CUDA kernels only for the Volta architecture.
 if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
     set(CMAKE_CUDA_ARCHITECTURES 70-real 70-virtual)
+endif()
+
+if(FAIRSEQ2N_USE_HIP)
+    if(NOT TORCH_HIP_VERSION)
+        message(FATAL_ERROR
+            "fairseq2n requires a HIP version of PyTorch when `FAIRSEQ2N_USE_HIP` is set!"
+        )
+    endif()
+    enable_language(HIP)
+    find_package(HIP REQUIRED)
+
+    if(NOT HIP_VERSION_MAJOR EQUAL TORCH_HIP_VERSION_MAJOR)
+        message(FATAL_ERROR
+            "fairseq2n requires the version of the HIP (${HIP_VERSION}) to match the version of HIP that was used to build PyTorch (${TORCH_HIP_VERSION})!"
+        )
+    endif()
+    if(not HIP_VERSION_MINOR EQUAL TORCH_HIP_VERSION_MINOR)
+        message(WARNING
+            "fairseq2n will use HIP ${HIP_VERSION} which has a minor version mismatch with HIP ${TORCH_HIP_VERSION} that was used to build PyTorch. Most likely this should not be a problem."
+        )
+    endif()
 endif()
 
 if(FAIRSEQ2N_USE_CUDA)

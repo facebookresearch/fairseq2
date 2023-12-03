@@ -124,6 +124,11 @@ def get_cmake_prefix_path() -> Path:
     """Return the directory that contains fairseq2n CMake package."""
     return Path(__file__).parent.joinpath("lib", "cmake")
 
+def supports_hip() -> bool:
+    """Return ``True`` if fairseq2n supports HIP."""
+    from fairseq2n.bindings import _supports_hip  # type: ignore[attr-defined]
+
+    return _supports_hip()  # type: ignore[no-any-return]
 
 def supports_cuda() -> bool:
     """Return ``True`` if fairseq2n supports CUDA."""
@@ -131,6 +136,15 @@ def supports_cuda() -> bool:
 
     return _supports_cuda()  # type: ignore[no-any-return]
 
+def hip_version() -> Optional[Tuple[int, int]]:
+    """Return the version of HIP that fairseq2n supports.
+
+    :returns:
+        The major and minor version segments.
+    """
+    from fairseq2n.bindings import _hip_version  # type: ignore[attr-defined]
+
+    return _hip_version()  # type: ignore[no-any-return]
 
 def cuda_version() -> Optional[Tuple[int, int]]:
     """Return the version of CUDA that fairseq2n supports.

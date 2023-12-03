@@ -18,6 +18,10 @@ constexpr std::int32_t version_patch = @PROJECT_VERSION_PATCH@;
 constexpr std::optional<std::int32_t> cuda_version_major = @CUDA_VERSION_MAJOR@;
 constexpr std::optional<std::int32_t> cuda_version_minor = @CUDA_VERSION_MINOR@;
 
+constexpr std::optional<std::int32_t> hip_version_major = @HIP_VERSION_MAJOR@;
+constexpr std::optional<std::int32_t> hip_version_minor = @HIP_VERSION_MINOR@;
+
 constexpr bool supports_cuda = cuda_version_major.has_value();
+constexpr bool supports_hip = hip_version_major.has_value();
 
 }  // namespace fairseq2n

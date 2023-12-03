@@ -16,7 +16,13 @@ PYBIND11_MODULE(bindings, m)
 {
     py::options opts{};
     opts.disable_function_signatures();
-
+    m.def(
+        "_supports_hip",
+        []
+        {
+          return supports_hip;
+        });
+        
     m.def(
         "_supports_cuda",
         []
@@ -27,7 +33,15 @@ PYBIND11_MODULE(bindings, m)
 // See https://github.com/llvm/llvm-project/issues/57123.
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunreachable-code-return"
-
+    m.def(
+        "_hip_version",
+        []
+        {
+          if constexpr (hip_version_major)
+              return py::make_tuple(*hip_version_major, *hip_version_minor);
+          else
+              return py::none();
+        });
     m.def(
         "_cuda_version",
         []

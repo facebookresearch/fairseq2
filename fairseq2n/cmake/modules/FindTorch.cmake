@@ -28,6 +28,32 @@ macro(__torch_determine_version)
     unset(result)
 endmacro()
 
+# NOTE: This is how it gets the cuda version pytorch is using
+# pytorch has the equivalent of this for hip
+macro(__torch_determine_hip_version)
+    execute_process(
+        COMMAND
+            ${Python3_EXECUTABLE} -c "import torch; print(torch.version.hip or '')"
+        OUTPUT_VARIABLE
+            TORCH_HIP_VERSION
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        RESULT_VARIABLE
+            result
+    )
+
+    if(result GREATER 0)
+        message(FATAL_ERROR "fairseq2 cannot determine HIP version of PyTorch!")
+    endif()
+
+    # We ignore the patch since it is not relevant for compatibility checks.
+    if(TORCH_HIP_VERSION MATCHES "^([0-9]+)\.([0-9]+)")
+        set(TORCH_HIP_VERSION_MAJOR ${CMAKE_MATCH_1})
+        set(TORCH_HIP_VERSION_MINOR ${CMAKE_MATCH_2})
+    endif()
+
+    unset(result)
+endmacro()
+
 macro(__torch_determine_cuda_version)
     execute_process(
         COMMAND
@@ -88,9 +114,11 @@ endif()
 find_library(TORCH_LIBRARY torch HINTS ${torch_lib_dir} NO_DEFAULT_PATH)
 find_library(TORCH_CPU_LIBRARY torch_cpu HINTS ${torch_lib_dir} NO_DEFAULT_PATH)
 find_library(TORCH_CUDA_LIBRARY torch_cuda HINTS ${torch_lib_dir} NO_DEFAULT_PATH)
+find_library(TORCH_HIP_LIBRARY torch_hip HINTS ${torch_lib_dir} NO_DEFAULT_PATH)
 
 find_library(C10_LIBRARY c10 HINTS ${torch_lib_dir} NO_DEFAULT_PATH)
 find_library(C10_CUDA_LIBRARY c10_cuda HINTS ${torch_lib_dir} NO_DEFAULT_PATH)
+find_library(C10_HIP_LIBRARY c10_hip HINTS ${torch_lib_dir} NO_DEFAULT_PATH)
 
 find_library(TORCH_PYTHON_LIBRARY torch_python HINTS ${torch_lib_dir} NO_DEFAULT_PATH)
 
@@ -105,7 +133,7 @@ set(torch_required_vars
     TORCH_API_INCLUDE_DIR
 )
 
-mark_as_advanced(${torch_required_vars} TORCH_CUDA_LIBRARY C10_CUDA_LIBRARY TORCH_PYTHON_LIBRARY)
+mark_as_advanced(${torch_required_vars} TORCH_CUDA_LIBRARY C10_CUDA_LIBRARY TORCH_HIP_LIBRARY C10_HIP_LIBRARY TORCH_PYTHON_LIBRARY)
 
 if(TORCH_LIBRARY)
     __torch_determine_version()
@@ -129,6 +157,10 @@ endif()
 
 if(TORCH_CUDA_LIBRARY)
     __torch_determine_cuda_version()
+endif()
+
+if(TORCH_HIP_LIBRARY)
+    __torch_determine_hip_version()
 endif()
 
 if(NOT TARGET torch_cxx11_abi)
@@ -167,6 +199,9 @@ if(NOT TARGET torch)
 
     if(TORCH_CUDA_LIBRARY AND C10_CUDA_LIBRARY)
         target_link_libraries(torch INTERFACE ${TORCH_CUDA_LIBRARY} ${C10_CUDA_LIBRARY})
+    endif()
+    if(TORCH_HIP_LIBRARY AND C10_HIP_LIBRARY)
+        target_link_libraries(torch INTERFACE ${TORCH_HIP_LIBRARY} ${C10_HIP_LIBRARY})
     endif()
 endif()
 
