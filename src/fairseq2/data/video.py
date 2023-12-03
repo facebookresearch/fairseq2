@@ -10,13 +10,14 @@ from torch import Tensor
 
 from fairseq2 import _DOC_MODE
 from fairseq2.memory import MemoryBlock
-from fairseq2.typing import Device
+from fairseq2.typing import DataType, Device
 
 if TYPE_CHECKING or _DOC_MODE:
 
     class VideoDecoder:
         def __init__(
             self,
+            dtype: Optional[DataType] = None,
             device: Optional[Device] = None,
             pin_memory: bool = False,
         ) -> None:
