@@ -78,7 +78,7 @@ ffmpeg_decoder::open_container(const memory_block &block)
     // Open media file and read the header
     ret = avformat_open_input(&fmt_ctx_, nullptr, nullptr, nullptr);
     if (ret < 0) {
-        throw_<runtime_error>("Failed to open input.");
+        throw_with_nested<invalid_argument>("Failed to open input.");
     }
 
     // Read data from the media file

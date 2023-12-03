@@ -44,12 +44,12 @@ data
 video_decoder::operator()(data &&d) const
 {
     if (!d.is_memory_block())
-        throw std::invalid_argument(fmt::format(
+        throw_<std::invalid_argument>(fmt::format(
             "The input data must be of type `memory_block`, but is of type `{}` instead.", d.type()));
 
     const memory_block &block = d.as_memory_block();
     if (block.empty())
-        throw std::invalid_argument("The input memory block has zero length and cannot be decoded.");
+        throw_<std::invalid_argument>("The input memory block has zero length and cannot be decoded.");
 
     ffmpeg_decoder decoder(opts_);
 
