@@ -126,6 +126,23 @@ standard installation; however, if you are familiar with CMake, you can check
 out the advanced build options in
 [`fairseq2n/CMakeLists.txt`](fairseq2n/CMakeLists.txt).
 
+### HIP Builds
+
+If you would like to build fairseq2’s HIP kernels, set the `FAIRSEQ2N_USE_HIP`
+option `ON`. When turned on, the version of the HIP Toolkit installed on your
+machine and the version of HIP that was used to build PyTorch must match:
+
+```sh
+cmake -GNinja -DFAIRSEQ2N_USE_HIP=ON -B build
+```
+
+Similar to CPU-only build, follow this command with:
+
+```sh
+cmake --build build
+```
+
+
 ### CUDA Builds
 
 > [!NOTE]
