@@ -12,13 +12,13 @@
 
 namespace fairseq2n::detail {
 
-stream::stream(int stream_index, AVFormatContext* fmt_ctx) {
+stream::stream(int stream_index, const AVFormatContext& fmt_ctx) {
     // Initialize the AVStream, AVCodecParameters, AVCodec, and get metadata 
     stream_index_ = stream_index;
-    av_stream_ = fmt_ctx->streams[stream_index];
+    av_stream_ = fmt_ctx.streams[stream_index];
     metadata_.numerator = av_stream_->time_base.num;
     metadata_.denominator = av_stream_->time_base.den;
-    metadata_.duration_microseconds = fmt_ctx->duration;
+    metadata_.duration_microseconds = fmt_ctx.duration;
     metadata_.fps = av_q2d(av_stream_->avg_frame_rate);
     metadata_.num_frames = av_stream_->nb_frames;
     metadata_.time_base = av_q2d(av_stream_->time_base);

@@ -25,7 +25,7 @@ namespace fairseq2n::detail {
 class FAIRSEQ2_API stream {
 friend class ffmpeg_decoder;
 public:
-    stream(int, AVFormatContext*);
+    stream(int stream_index, const AVFormatContext& fmt_ctx);
 
     void 
     alloc_resources();

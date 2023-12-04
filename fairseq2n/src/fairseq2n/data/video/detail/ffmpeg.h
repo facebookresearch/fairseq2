@@ -9,7 +9,7 @@
 #include <optional>
 #include "fairseq2n/data/video/detail/utils.h"
 #include "fairseq2n/data/video/detail/stream.h"
-#include "fairseq2n/data/video/detail/swscale_resources.h"
+#include "fairseq2n/data/video/detail/transform.h"
 
 #include "fairseq2n/api.h"
 #include "fairseq2n/data/data.h"
@@ -35,15 +35,16 @@ public:
     data_dict
     open_container(const memory_block &block);
 
+    ffmpeg_decoder(const ffmpeg_decoder&) = delete;
+
+    ffmpeg_decoder& operator=(const ffmpeg_decoder&) = delete;
+
+private:
     data
     open_stream(int stream_index);
     
     static int 
     read_callback(void *opaque, uint8_t *buf, int buf_size);
-
-    ffmpeg_decoder(const ffmpeg_decoder&) = delete;
-
-    ffmpeg_decoder& operator=(const ffmpeg_decoder&) = delete;
 
 private:
     video_decoder_options opts_; 
@@ -51,7 +52,7 @@ private:
     AVIOContext* avio_ctx_ = nullptr;
     uint8_t* avio_ctx_buffer_ = nullptr;
     std::unique_ptr<stream> av_stream_; 
-    std::unique_ptr<swscale_resources> sws_;
+    std::unique_ptr<transform> sws_;
 };
 
 } // namespace fairseq2n

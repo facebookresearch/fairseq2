@@ -44,7 +44,7 @@ ffmpeg_decoder::open_container(const memory_block &block)
     if (fmt_ctx_ == nullptr) {
         throw_<runtime_error>("Failed to allocate AVFormatContext.");
     }
-    // Allocate buffer input/output operations via AVIOContext
+    // Allocate buffer for input/output operations via AVIOContext
     avio_ctx_buffer_ = static_cast<uint8_t*>(av_malloc(data_size + AV_INPUT_BUFFER_PADDING_SIZE));
     if (avio_ctx_buffer_ == nullptr) {
         throw_<runtime_error>("Failed to allocate AVIOContext buffer.");
@@ -55,8 +55,8 @@ ffmpeg_decoder::open_container(const memory_block &block)
         data_size, 
         0, // Write flag
         &bd, // Pointer to user data
-        &read_callback, // Pointer to function used to read data
-        nullptr, // Write packet function, not used
+        &read_callback, // Read function
+        nullptr, // Write function, not used
         nullptr // Seek function, not used
         );
     if (avio_ctx_ == nullptr) {
@@ -100,7 +100,7 @@ ffmpeg_decoder::open_stream(int stream_index)
 {
     // Opens a stream and decodes the video frames. Skips audio streams for now.
 
-    av_stream_ = std::make_unique<stream>(stream_index, fmt_ctx_);
+    av_stream_ = std::make_unique<stream>(stream_index, *fmt_ctx_);
     int processed_frames = 0;
     if (av_stream_->type_ == AVMEDIA_TYPE_VIDEO) {
         av_stream_->alloc_resources();
@@ -141,25 +141,10 @@ ffmpeg_decoder::open_stream(int stream_index)
                         throw_<runtime_error>("Error receiving frame from decoder for stream {}\n", 
                         stream_index);
                     }                                                                                          
-                    // Tranform frame to RGB
-                    sws_ = std::make_unique<swscale_resources>(av_stream_->frame_->width, av_stream_->frame_->height, 
-                                                                static_cast<AVPixelFormat>(av_stream_->frame_->format));
-
-                    // AV_PIX_FMT_RGB24 guarantees 3 color channels
-                    av_stream_->sw_frame_->format = AV_PIX_FMT_RGB24;
-                    av_stream_->sw_frame_->width = av_stream_->frame_->width;
-                    av_stream_->sw_frame_->height = av_stream_->frame_->height;
-                    ret = av_frame_get_buffer(av_stream_->sw_frame_, 0);
-                    if (ret < 0) {
-                        throw_<runtime_error>("Failed to allocate buffer for the RGB frame for stream {}\n", 
-                        stream_index);
-                    }  
-                    ret = sws_scale(sws_->sws_ctx_, av_stream_->frame_->data, av_stream_->frame_->linesize, 0, av_stream_->frame_->height,
-                                    av_stream_->sw_frame_->data, av_stream_->sw_frame_->linesize);
-                    if (ret < 0) {
-                        throw_<runtime_error>("Failed to convert the frame to RGB for stream {}\n", 
-                        stream_index);
-                    }
+                    // Tranform frame to RGB to guarantee 3 color channels
+                    sws_ = std::make_unique<transform>(av_stream_->frame_->width, av_stream_->frame_->height, 
+                                                            static_cast<AVPixelFormat>(av_stream_->frame_->format));
+                    sws_->transform_to_rgb(*av_stream_->sw_frame_, *av_stream_->frame_, stream_index);
                     // Store PTS in microseconds
                     av_stream_->storage_.frame_pts[processed_frames] = av_stream_->frame_->pts * av_stream_->metadata_.time_base * 1000000;
                     // Store raw frame data for one frame

@@ -16,17 +16,20 @@ extern "C" {
 
 namespace fairseq2n::detail {
 
-class FAIRSEQ2_API swscale_resources {
+class FAIRSEQ2_API transform {
 friend class ffmpeg_decoder;
 
 public:
-    swscale_resources(int, int, AVPixelFormat);
+    transform(int width, int height, AVPixelFormat fmt);
 
-    ~swscale_resources();
+    ~transform();
 
-    swscale_resources(const swscale_resources&) = delete;
+    void
+    transform_to_rgb(AVFrame& sw_frame, const AVFrame &frame, int stream_index);
+
+    transform(const transform&) = delete;
     
-    swscale_resources& operator=(const swscale_resources&) = delete;
+    transform& operator=(const transform&) = delete;
 
 private:
     SwsContext *sws_ctx_{nullptr};
