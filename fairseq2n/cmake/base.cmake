@@ -65,9 +65,9 @@ function(fairseq2n_set_compile_options target)
                 -Wsign-conversion
                 -Wswitch
                 -Wunused
-                $<$<COMPILE_LANGUAGE:CXX,CUDA>:-Wnon-virtual-dtor>
-                $<$<COMPILE_LANGUAGE:CXX,CUDA>:-Woverloaded-virtual>
-                $<$<COMPILE_LANGUAGE:CXX,CUDA>:-Wuseless-cast>
+                $<$<COMPILE_LANGUAGE:CXX,CUDA,HIP>:-Wnon-virtual-dtor>
+                $<$<COMPILE_LANGUAGE:CXX,CUDA,HIP>:-Woverloaded-virtual>
+                $<$<COMPILE_LANGUAGE:CXX,CUDA,HIP>:-Wuseless-cast>
         )
 
         target_compile_definitions(${target} PRIVATE $<$<CONFIG:Debug>:_GLIBCXX_ASSERTIONS>)
@@ -103,7 +103,7 @@ function(fairseq2n_set_compile_options target)
     if(FAIRSEQ2N_TREAT_WARNINGS_AS_ERRORS)
         target_compile_options(${target}
             PRIVATE
-                $<IF:$<COMPILE_LANGUAGE:CUDA>,SHELL:--compiler-options -Werror,-Werror>
+                $<IF:$<COMPILE_LANGUAGE:CUDA,HIP>,SHELL:--compiler-options -Werror,-Werror>
         )
     endif()
 
