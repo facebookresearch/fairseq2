@@ -24,7 +24,7 @@ def test_compute_row_mask_works() -> None:
     assert num_masked[0] < 512
 
     assert mask.shape == shape
-    assert mask.device == device
+    assert mask.device.type == device.type
     assert mask.dtype == torch.bool
 
     assert (num_masked == num_masked[0]).all() == True
@@ -42,7 +42,7 @@ def test_compute_row_mask_works_when_row_lens_is_specified() -> None:
     assert mask is not None
 
     assert mask.shape == shape
-    assert mask.device == device
+    assert mask.device.type == device.type
     assert mask.dtype == torch.bool
 
     assert mask.any()

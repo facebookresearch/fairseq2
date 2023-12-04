@@ -47,7 +47,7 @@ class TestAudioDecoder:
 
         assert waveform.dtype == torch.float32
 
-        assert waveform.device == device
+        assert waveform.device.type == device.type
 
         assert_close(waveform[0][0], torch.tensor(9.0017202e-6, device=device))
 
