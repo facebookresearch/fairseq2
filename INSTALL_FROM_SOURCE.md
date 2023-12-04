@@ -142,6 +142,13 @@ Similar to CPU-only build, follow this command with:
 cmake --build build
 ```
 
+### HIP Architectures
+By default, fairseq2 builds its HIP kernels only for gfx1030 architecture.
+You can override this setting using the `CMAKE_HIP_ARCHITECTURES` option.
+
+```sh
+cmake -GNinja -DCMAKE_HIP_ARCHITECTURES="gfx1030" -DFAIRSEQ2N_USE_HIP=ON -B build
+```
 
 ### CUDA Builds
 
