@@ -30,16 +30,24 @@ def_video(py::module_ &data_module)
             py::init([](
                 std::optional<at::ScalarType> maybe_dtype,
                 std::optional<at::Device> maybe_device,
-                bool pin_memory)
+                bool pin_memory,
+                bool get_pts_only,
+                bool get_frames_only)
             {
                 auto opts = video_decoder_options()
-                    .maybe_dtype(maybe_dtype).maybe_device(maybe_device).pin_memory(pin_memory);
-
+                    .maybe_dtype(maybe_dtype)
+                    .maybe_device(maybe_device)
+                    .pin_memory(pin_memory)
+                    .get_pts_only(get_pts_only)
+                    .get_frames_only(get_frames_only);
+                
                 return std::make_shared<video_decoder>(opts);
             }),
             py::arg("dtype") = std::nullopt,
             py::arg("device") = std::nullopt,
-            py::arg("pin_memory") = false)
+            py::arg("pin_memory") = false,
+            py::arg("get_pts_only") = false,
+            py::arg("get_frames_only") = false)
         .def("__call__", &video_decoder::operator(), py::call_guard<py::gil_scoped_release>{});
 
     map_functors().register_<video_decoder>();

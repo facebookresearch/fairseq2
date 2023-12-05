@@ -9,7 +9,6 @@
 #include <cstdint>
 #include <exception>
 #include <stdexcept>
-#include <iostream>
 
 #include <ATen/Functions.h>
 #include <ATen/Tensor.h>
@@ -91,7 +90,7 @@ ffmpeg_decoder::open_container(const memory_block &block)
     for (int i = 0; i < static_cast<int>(fmt_ctx_->nb_streams); i++) {
         all_streams[std::to_string(i)] = open_stream(i);
     }
-    
+
     return all_streams;
 }   
 
@@ -119,8 +118,7 @@ ffmpeg_decoder::open_stream(int stream_index)
         }
     
         // Create tensor storage for the stream
-        av_stream_->init_tensor_storage(opts_.pin_memory(), opts_.maybe_dtype().value_or(at::kByte));
-
+        av_stream_->init_tensor_storage(opts_);
         // Iterate over all frames in the stream and decode them
         while (av_read_frame(fmt_ctx_, av_stream_->pkt_) >= 0) {       
             if (av_stream_->pkt_->stream_index == stream_index) {  
@@ -143,20 +141,22 @@ ffmpeg_decoder::open_stream(int stream_index)
                     }                                                                                          
                     // Tranform frame to RGB to guarantee 3 color channels
                     sws_ = std::make_unique<transform>(av_stream_->frame_->width, av_stream_->frame_->height, 
-                                                            static_cast<AVPixelFormat>(av_stream_->frame_->format));
+                                                        static_cast<AVPixelFormat>(av_stream_->frame_->format));
                     sws_->transform_to_rgb(*av_stream_->sw_frame_, *av_stream_->frame_, stream_index);
                     // Store PTS in microseconds
-                    av_stream_->storage_.frame_pts[processed_frames] = av_stream_->frame_->pts * av_stream_->metadata_.time_base * 1000000;
+                    if (!opts_.get_frames_only()) {
+                        av_stream_->storage_.frame_pts[processed_frames] = av_stream_->frame_->pts * av_stream_->metadata_.time_base * 1000000;
+                    }
                     // Store raw frame data for one frame
-                    at::Tensor one_frame = av_stream_->storage_.all_video_frames[processed_frames];                        
-                    writable_memory_span frame_bits = get_raw_mutable_storage(one_frame);
-                    auto frame_data = reinterpret_cast<uint8_t*>(frame_bits.data());
-                    // Calculate the total size of the frame in bytes
-                    int frame_size = av_image_get_buffer_size(AV_PIX_FMT_RGB24, av_stream_->sw_frame_->width, av_stream_->sw_frame_->height, 1);
-            
-                    // Copy the entire frame at once                
-                    memcpy(frame_data, av_stream_->sw_frame_->data[0], frame_size);
-            
+                    if (!opts_.get_pts_only()) {
+                        at::Tensor one_frame = av_stream_->storage_.all_video_frames[processed_frames];                        
+                        writable_memory_span frame_bits = get_raw_mutable_storage(one_frame);
+                        auto frame_data = reinterpret_cast<uint8_t*>(frame_bits.data());
+                        // Calculate the total size of the frame in bytes
+                        int frame_size = av_image_get_buffer_size(AV_PIX_FMT_RGB24, av_stream_->sw_frame_->width, av_stream_->sw_frame_->height, 1);
+                        // Copy the entire frame at once                
+                        memcpy(frame_data, av_stream_->sw_frame_->data[0], frame_size);
+                    }
                     processed_frames++; 
                                                                
                     av_frame_unref(av_stream_->frame_); // Unref old data so the frame can be reused
@@ -166,11 +166,17 @@ ffmpeg_decoder::open_stream(int stream_index)
             av_packet_unref(av_stream_->pkt_);   
         }
         flat_hash_map<std::string, data> result;
-        result["all_video_frames"] = data(av_stream_->storage_.all_video_frames);
-        result["frame_pts"] = data(av_stream_->storage_.frame_pts);
-        result["timebase"] = data(av_stream_->storage_.timebase);
-        result["fps"] = data(av_stream_->storage_.fps);
-        result["duration"] = data(av_stream_->storage_.duration);
+        if (!opts_.get_pts_only()) {
+            result["all_video_frames"] = data(av_stream_->storage_.all_video_frames);
+        }
+        if (!opts_.get_frames_only()) {
+            result["frame_pts"] = data(av_stream_->storage_.frame_pts);
+        }
+        if (!opts_.get_pts_only() && !opts_.get_frames_only()) {
+            result["timebase"] = data(av_stream_->storage_.timebase);
+            result["fps"] = data(av_stream_->storage_.fps);
+            result["duration"] = data(av_stream_->storage_.duration);
+        }
 
         data stream_data(std::move(result));
         return stream_data;

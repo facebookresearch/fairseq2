@@ -10,6 +10,8 @@
 #include <ATen/Functions.h>
 #include <ATen/Tensor.h>
 
+#include "fairseq2n/detail/exception.h"
+
 namespace fairseq2n::detail {
 
 struct buffer_data {
@@ -72,6 +74,46 @@ public:
     }
 
     video_decoder_options
+    get_pts_only(bool value) noexcept
+    {
+        auto tmp = *this;
+
+        if (value && tmp.get_frames_only_) {
+            throw_<std::invalid_argument>("get_pts_only and get_frames_only cannot both be true");
+        }
+
+        tmp.get_pts_only_ = value;
+
+        return tmp;
+    }
+
+    bool
+    get_pts_only() const noexcept
+    {
+        return get_pts_only_;
+    }
+
+    video_decoder_options
+    get_frames_only(bool value) noexcept
+    {
+        auto tmp = *this;
+
+        if (value && tmp.get_pts_only_) {
+            throw_<std::invalid_argument>("get_pts_only and get_frames_only cannot both be true");
+        }
+
+        tmp.get_frames_only_ = value;
+
+        return tmp;
+    }
+
+    bool
+    get_frames_only() const noexcept
+    {
+        return get_frames_only_;
+    }
+
+    video_decoder_options
     pin_memory(bool value) noexcept
     {
         auto tmp = *this;
@@ -91,6 +133,8 @@ private:
     std::optional<at::ScalarType> maybe_dtype_{};
     std::optional<at::Device> maybe_device_{};
     bool pin_memory_ = false;
+    bool get_pts_only_ = false;
+    bool get_frames_only_ = false;
 };
 
 } // namespace fairseq2n::detail

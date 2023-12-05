@@ -11,6 +11,7 @@
 
 #include <ATen/Functions.h>
 #include <ATen/Tensor.h>
+#include <optional>
 
 extern "C" {
     #include <libavcodec/avcodec.h>
@@ -33,7 +34,7 @@ public:
     ~stream();
 
     void 
-    init_tensor_storage(bool pin_memory, at::ScalarType dtype);
+    init_tensor_storage(video_decoder_options opts);
 
     AVCodecContext* get_codec_ctx() const;
 

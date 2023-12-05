@@ -61,18 +61,27 @@ stream::alloc_resources() {
 }
 
 void
-stream::init_tensor_storage(bool pin_memory, at::ScalarType dtype) {
+stream::init_tensor_storage(video_decoder_options opts) {
     // Initialize tensors for storing raw frames and metadata
-    storage_.all_video_frames = at::empty({metadata_.num_frames, metadata_.height, metadata_.width, 3},
-    at::dtype(dtype).device(at::kCPU).pinned_memory(pin_memory));
-    storage_.frame_pts = at::empty({metadata_.num_frames},
-    at::dtype(at::kLong).device(at::kCPU).pinned_memory(pin_memory));
-    storage_.timebase = at::tensor({metadata_.numerator, metadata_.denominator},
-    at::dtype(at::kInt).device(at::kCPU).pinned_memory(pin_memory));
-    storage_.fps = at::tensor({metadata_.fps},
-    at::dtype(at::kFloat).device(at::kCPU).pinned_memory(pin_memory));
-    storage_.duration = at::tensor({metadata_.duration_microseconds},
-    at::dtype(at::kLong).device(at::kCPU).pinned_memory(pin_memory));
+
+    if (!opts.get_pts_only()) {
+        storage_.all_video_frames = at::empty({metadata_.num_frames, metadata_.height, metadata_.width, 3},
+        at::dtype(opts.maybe_dtype().value_or(at::kByte)).device(at::kCPU).pinned_memory(opts.pin_memory()));
+    }
+
+    if (!opts.get_frames_only()) {
+        storage_.frame_pts = at::empty({metadata_.num_frames},
+        at::dtype(at::kLong).device(at::kCPU).pinned_memory(opts.pin_memory()));
+    }
+
+    if (!opts.get_pts_only() && !opts.get_frames_only()) {
+        storage_.timebase = at::tensor({metadata_.numerator, metadata_.denominator},
+        at::dtype(at::kInt).device(at::kCPU).pinned_memory(opts.pin_memory()));
+        storage_.fps = at::tensor({metadata_.fps},
+        at::dtype(at::kFloat).device(at::kCPU).pinned_memory(opts.pin_memory()));
+        storage_.duration = at::tensor({metadata_.duration_microseconds},
+        at::dtype(at::kLong).device(at::kCPU).pinned_memory(opts.pin_memory()));
+    }
 }
 
 stream::~stream() {
