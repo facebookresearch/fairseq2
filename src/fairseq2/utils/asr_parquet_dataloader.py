@@ -273,7 +273,7 @@ class ASRBatchIterator:
             return torch.LongTensor(
                 [
                     self.config.text_tokenizer.create_encoder(
-                        lang=lang_tok.bytes().decode("utf8"),  # type:ignore
+                        lang=str(lang_tok),
                         mode="target",
                     ).prefix_indices.tolist(),
                 ]
