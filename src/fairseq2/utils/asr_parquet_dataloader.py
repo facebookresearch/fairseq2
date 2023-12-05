@@ -17,12 +17,16 @@ from fairseq2.data.data_pipeline import DataPipelineBuilder
 from fairseq2.data.text import SentencePieceEncoder
 from fairseq2.models.nllb.tokenizer import NllbTokenizer
 from fairseq2.typing import Device
-from fairseq2.utils.parquet_tools import *
 from fairseq2.utils.parquet_dataloader import (
-    NestedDict,
-    ParquetBasicDataLoader,
     ParquetBasicDataloaderConfig,
     ParquetBatchFormat,
+    build_parquet_iterator_pipeline,
+)
+from fairseq2.utils.parquet_tools import (
+    NestedDict,
+    batch_collater,
+    map_structure,
+    pyarrow_cpu,
 )
 
 NestedDictTensor = tp.Dict[str, "NestedDictTensorValue"]
@@ -113,11 +117,10 @@ class ASRBatchIterator:
     """ASR task specific parquet dataloader"""
 
     config: ASRDataLoadingConfig
-    raw_parquet_dataloader: ParquetBasicDataLoader
 
     def __init__(self, config: ASRDataLoadingConfig):
         self.config = config
-        self.raw_parquet_dataloader = ParquetBasicDataLoader(self.config)
+        self.raw_parquet_dataloader = build_parquet_iterator_pipeline(self.config)
 
         self.audio_column, self.text_column, self.lang_column = (
             self.config.audio_column,
@@ -176,8 +179,9 @@ class ASRBatchIterator:
         # so we may want to avoid threads oversubscription
         num_parallel_calls = max(self.config.num_parallel_calls // 4, 1)
         builder = (
-            self.raw_parquet_dataloader.build_epoch_iterator_pipeline()
-            .map(vectorize_batch, num_parallel_calls=num_parallel_calls)
+            self.raw_parquet_dataloader.map(
+                vectorize_batch, num_parallel_calls=num_parallel_calls
+            )
             .map(manual_collater, num_parallel_calls=num_parallel_calls)
             .map(
                 self.filter_audio_fbank_nulls,
