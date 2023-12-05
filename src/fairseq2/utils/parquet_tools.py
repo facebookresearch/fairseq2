@@ -1,9 +1,15 @@
 import typing as tp
-import torch
-import pyarrow as pa
-from torch import Tensor
-import pandas as pd
 from contextlib import contextmanager
+
+import numpy as np
+import numpy.typing as npt
+import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
+import torch
+from pyarrow.dataset import get_partition_keys  # requires pyarrow >= 13
+from torch import Tensor
+
 from fairseq2.data import CString
 
 
@@ -129,3 +135,115 @@ def map_structure(func, nested_object):  # type: ignore
         return func(nested_object)
     else:
         return nested_object
+
+
+def init_parquet_dataset(
+    parquet_path: str,
+    filters: tp.Optional[pa.dataset.Expression] = None,
+    filesystem: tp.Optional[pa.fs.FileSystem] = None,
+) -> pq.ParquetDataset:
+    source_ds = pq.ParquetDataset(
+        parquet_path,
+        validate_schema=True,
+        filters=filters,
+        filesystem=filesystem,
+    )
+    return source_ds
+
+
+def get_dataset_fragments(
+    dataset: pq.ParquetDataset, filters: pa.dataset.Expression
+) -> tp.List[pa.dataset.Fragment]:
+    """
+    This could be simplified once `split_row_groups=True` is implemented at `pq.ParquetDataset`.
+    We could also return a generator instead of list (when getting full infos from S3 may be slow)
+    """
+    return list(dataset._dataset.get_fragments(filters))
+
+
+def split_fragment_in_row_groups(
+    fragment: pa.dataset.Fragment,
+) -> tp.List[pa.dataset.Fragment]:
+    return list(fragment.split_by_row_group())
+
+
+def add_partitioning_values(table: pa.Table, fragment: pa.dataset.Fragment) -> pa.Table:
+    """
+    When loading a single fragment, pyarrow does not add the partitioning columns,
+    so we need to do it manually.
+    """
+    for key, val in get_partition_keys(fragment.partition_expression).items():
+        values = pa.DictionaryArray.from_arrays(
+            np.zeros(len(table), dtype=np.int32), [val]
+        )
+        table = table.append_column(key, values)
+    return table
+
+
+def load_one_fragment(
+    fragment: pa.dataset.Fragment, columns: tp.Optional[tp.List[str]] = None
+) -> pa.Table:
+    if columns is not None:
+        known_columns = fragment.physical_schema.names
+        columns = [col for col in columns if col in known_columns]
+    fragment_table = fragment.to_table(columns=columns, use_threads=False)
+    fragment_table = add_partitioning_values(fragment_table, fragment)
+    return fragment_table
+
+
+def apply_filter(table: pa.Table, filters: tp.Optional[pa.dataset.Expression]=None, drop_null: bool = True) -> pa.Table:
+    if drop_null:
+        table = table.drop_null()
+    if filters is not None:
+        table = table.filter(filters)
+    return table
+
+
+def concat_table(tables: tp.List[pa.Table]) -> pa.Table:
+    return pa.concat_tables(tables,
+        promote_options="permissive",  # needed to get deal with empty segments
+    ).combine_chunks()
+
+
+def compute_length_splits(
+    length_col: npt.NDArray[np.int32], max_tokens: int
+) -> tp.List[npt.NDArray[np.int32]]:
+    """split sequence of length_col in the chunks such that total length is ~ max_tokens
+        countint the padding to max length of elements in a chunk
+
+    Args:
+        length_col (np.ndarray):
+        max_tokens (int):
+
+    Returns:
+        tp.List[np.ndarray]: splits that contain indices over the original length_col
+    """
+    argsort_ind = np.argsort(length_col)
+    # TODO: remove 0 lengths
+    sorted_length_col = length_col[argsort_ind]
+
+    splits = []
+    ptr = 0
+    for i, length in enumerate(sorted_length_col):
+        if length * (i - ptr) > max_tokens:
+            splits.append(argsort_ind[ptr : (i - 1)])
+            ptr = i - 1
+    if (
+        length <= max_tokens
+    ):  # we drop the last iteration if it results in a batch greater than max_tokens
+        splits.append(argsort_ind[ptr:])
+    return splits
+
+
+def compute_rows_length(pa_array: pa.Array) -> npt.NDArray[np.int32]:
+    type_ = pa_array.type
+    if pa.types.is_list(type_) or pa.types.is_large_list(type_):
+        length_col = pa.compute.list_value_length(pa_array).to_numpy()
+    elif pa.types.is_string(type_):
+        length_col = pa.compute.utf8_length(pa_array).to_numpy()
+    else:
+        length_col = np.asarray(pa_array.to_pandas().apply(len))
+
+    length_col = length_col.copy()
+    length_col[np.isnan(length_col)] = 0
+    return np.asarray(length_col, dtype=np.int32)

@@ -10,14 +10,106 @@ from enum import Enum
 from functools import partial
 
 import numpy as np
-import numpy.typing as npt
-import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 import torch
-from pyarrow.dataset import get_partition_keys  # requires pyarrow >= 13
+
 from fairseq2.data.data_pipeline import DataPipeline, DataPipelineBuilder, read_sequence
-from fairseq2.utils.parquet_tools import *
+from fairseq2.utils.parquet_tools import (
+    BatchOutputType,
+    NestedDict,
+    apply_filter,
+    compute_length_splits,
+    compute_rows_length,
+    concat_table,
+    get_dataset_fragments,
+    init_parquet_dataset,
+    load_one_fragment,
+    pyarrow_cpu,
+    pyarrow_table_to_torch_dict,
+    split_fragment_in_row_groups,
+)
+
+
+class _TableWrapper:
+    """
+    class to avoid fairseq2 casting pa.Table to iterable objects
+    which currently fails
+    """
+
+    def __init__(self, table: pa.Table) -> None:
+        self.table: pa.Table = table
+
+
+def _to_real_object(x: tp.Union[_TableWrapper, NestedDict]) -> BatchOutputType:
+    if isinstance(x, _TableWrapper):
+        return x.table
+    elif isinstance(x, list):
+        return [_to_real_object(e) for e in x]
+    elif isinstance(x, tuple):
+        return tuple(_to_real_object(e) for e in x)
+    else:
+        return x
+
+
+def table_func_wrap(func):  # type: ignore
+    def inner(*args):  # type: ignore
+        fixed_args = [_to_real_object(x) for x in args]
+        result = func(*fixed_args)
+        if isinstance(result, pa.Table):
+            result = _TableWrapper(result)
+        return result
+
+    return inner
+
+
+def build_iterator_over_one_table(
+    table: pa.Table,
+    order_by: tp.Optional[str] = None,
+    batch_size: tp.Optional[int] = None,
+    max_tokens: tp.Optional[int] = None,
+    shuffle: bool = True,
+    seed: tp.Optional[int] = None,
+    num_parallel_calls: int = 8,
+) -> DataPipeline:
+    random_state = np.random.RandomState(seed)
+    if order_by is not None:
+        length_col = compute_rows_length(table[order_by])
+        # add small perturbation to avoid same sample appear together during different epochs
+        if shuffle:
+            perturbation = random_state.randint(
+                0,
+                np.quantile(length_col, 0.001).astype(np.int32) + 2,
+                len(length_col),
+            )
+            length_col += np.asarray(perturbation, dtype=np.int32)
+    else:
+        if shuffle:
+            length_col = random_state.randint(0, 2**23, len(table))
+        else:
+            length_col = np.zeros(len(table), dtype=np.int32)
+
+    if batch_size is not None:
+        order_tt = pa.Table.from_arrays(
+            [pa.array(np.argsort(length_col, kind="stable"))], ["order"]
+        )
+        batches = [ind["order"] for ind in order_tt.to_batches(batch_size)]
+    elif max_tokens is not None:
+        batches = compute_length_splits(length_col, max_tokens)
+    else:
+        raise ValueError("unknown batching method")
+
+    if shuffle:
+        batches = [batches[i] for i in random_state.permutation(len(batches))]
+
+    return (
+        read_sequence(batches)
+        .map(
+            table_func_wrap(lambda ind: table.take(ind).combine_chunks()),
+            num_parallel_calls=num_parallel_calls,
+        )
+        .and_return(max_num_warnings=4)
+    )
 
 
 class ParquetBatchFormat(Enum):
@@ -98,7 +190,7 @@ class ParquetBasicDataloaderConfig:
     """Drops batches whose length < `min_batch_size`"""
 
     nb_producers: int = 5
-    """Number of parquet partitions read allowed to be read symonymously.
+    """Number of parquet partitions read allowed to be read synonymously.
        Higher values will result in higher speed, better randomization and higher memory footprint.
        If partitions size is rather small compared to batch size, we recommend to increase nb_producers.
     """
@@ -151,304 +243,105 @@ class ParquetBasicDataloaderConfig:
         ):
             self.filters = pq.filters_to_expression(self.filters)
 
-class _TableWrapper:
-    """
-    class to avoid fairseq2 casting pa.Table to iterable objects
-    which currently fails
-    """
 
-    def __init__(self, table: pa.Table) -> None:
-        self.table: pa.Table = table
+def build_parquet_iterator_pipeline(
+    config: ParquetBasicDataloaderConfig,
+) -> DataPipelineBuilder:
+    seed = config.seed
+    if seed:
+        torch.manual_seed(seed + 123)  # used by `DataPipeline.shuffle`
+
+    dataset = init_parquet_dataset(
+        config.parquet_path, filters=config.filters, filesystem=config.filesystem
+    )
+    columns = config.columns or dataset.schema.names
+    assert set(columns).issubset(set(dataset.schema.names))
+
+    def inner_iterator(wrap_table: _TableWrapper) -> DataPipeline:
+        return build_iterator_over_one_table(
+            table=wrap_table.table,
+            order_by=config.order_by,
+            batch_size=config.batch_size,
+            max_tokens=config.max_tokens,
+            shuffle=config.shuffle,
+            seed=seed,
+            num_parallel_calls=max(config.num_parallel_calls // 2, 1),
+        )
+
+    pipeline_builder = read_sequence(get_dataset_fragments(dataset, config.filters))
+
+    if config.shuffle:
+        # shuffle them in full memory since fragments are already known
+        pipeline_builder = pipeline_builder.shuffle(shuffle_window=0)
+
+    if config.split_to_row_groups:
+        pipeline_builder = pipeline_builder.yield_from(
+            lambda fragment: read_sequence(
+                split_fragment_in_row_groups(fragment)
+            ).and_return()
+        )
+    if config.shuffle:
+        pipeline_builder = pipeline_builder.shuffle(
+            shuffle_window=2 * config.nb_prefetch * config.nb_producers
+        )
+
+    pipeline_builder = (
+        pipeline_builder.shard(shard_idx=config.rank, num_shards=config.world_size)
+        .map(
+            table_func_wrap(partial(load_one_fragment, columns=columns)),
+            num_parallel_calls=config.num_parallel_calls,
+        )
+        .map(
+            table_func_wrap(
+                partial(
+                    apply_filter, filters=config.filters, drop_null=config.drop_null
+                )
+            )
+        )
+        .bucket(config.nb_producers)
+        .prefetch(config.nb_prefetch)
+        .map(
+            table_func_wrap(concat_table),
+            num_parallel_calls=config.nb_prefetch,
+        )
+        .yield_from(inner_iterator)
+        .filter(
+            table_func_wrap(lambda table: bool(len(table) >= config.min_batch_size))
+        )
+    )
+
+    if config.output_format == ParquetBatchFormat.pandas:
+        pipeline_builder = pipeline_builder.map(
+            table_func_wrap(lambda table: table.to_pandas())
+        )
+    elif config.output_format == ParquetBatchFormat.torch:
+        pipeline_builder = pipeline_builder.map(
+            table_func_wrap(pyarrow_table_to_torch_dict)
+        )
+    return pipeline_builder
 
 
-class ParquetBasicDataLoader:
+def parquet_iterator(
+    config: ParquetBasicDataloaderConfig,
+) -> tp.Generator[BatchOutputType, None, None]:
     """
     Example of usage :
 
-       >>> from fairseq2.utils.parquet_dataloader import ParquetBasicDataLoader
+       >>> from fairseq2.utils.parquet_dataloader import ParquetBasicDataloaderConfig, parquet_iterator
        >>> from tqdm.auto import tqdm
-       >>> bpd_config = BasicParquetDataloaderConfig(parquet_path="...", batch_size=20,
+       >>> bpd_config = ParquetBasicDataloaderConfig(parquet_path="...", batch_size=20,
        ...                                           columns=["src_text", "src_lang", "audio_wav"],
        ...                                           output_format=ParquetBatchFormat.torch)
-       >>> pq_dl = ParquetBasicDataLoader(bpd_config)
-       >>> ei_batch = iter(pq_dl)
+       >>> ei_batch = parquet_iterator(bpd_config)
        >>> res = []
        >>> for i, batch in tqdm(enumerate(ei_batch)): res.append(len(batch))
-
     """
-
-    config: ParquetBasicDataloaderConfig
-    source_ds: pq.ParquetDataset
-    _epoch: int = 0
-
-    def __init__(
-        self,
-        config: ParquetBasicDataloaderConfig,
-    ) -> None:
-        self.config = config
-
-        # split_row_groups=True is not supported yet
-        self.source_ds = pq.ParquetDataset(
-            self.config.parquet_path,
-            validate_schema=True,
-            filters=self.config.filters,
-            filesystem=self.config.filesystem,
+    with pyarrow_cpu(config.num_parallel_calls):
+        yield from map(
+            _to_real_object,
+            iter(
+                build_parquet_iterator_pipeline(config)
+                .prefetch(config.num_parallel_calls)
+                .and_return(max_num_warnings=4)
+            ),
         )
-
-        self.columns = self.config.columns or self.source_ds.schema.names
-        assert set(self.columns).issubset(set(self.source_ds.schema.names))
-
-        if self.config.order_by is not None:
-            assert self.config.order_by in self.source_ds.schema.names
-
-        self._columns_to_read = self.get_column_to_read()
-
-    def get_column_to_read(self) -> tp.List[str]:
-        partitioning_keys = (
-            [
-                name
-                for (name, dd) in zip(
-                    self.source_ds.partitioning.schema.names,
-                    self.source_ds.partitioning.dictionaries,
-                )
-                if dd is not None
-            ]
-            if self.source_ds.partitioning
-            else []
-        )
-        columns_wo_partition_keys = [
-            col for col in self.columns if col not in partitioning_keys
-        ]
-
-        if self.config.order_by is not None:
-            return sorted(set(columns_wo_partition_keys) | set([self.config.order_by]))
-        else:
-            return sorted(columns_wo_partition_keys)
-
-    def get_dataset_fragments(self) -> tp.List[pa.dataset.Fragment]:
-        """
-        This could be simplified once `split_row_groups=True` is implemented at `pq.ParquetDataset`.
-        We could also return a generator instead of list (when getting full infos from S3 may be slow)
-        """
-        return list(self.source_ds._dataset.get_fragments(self.config.filters))
-
-    @staticmethod
-    def split_fragment_in_row_groups(
-        fragment: pa.dataset.Fragment,
-    ) -> tp.List[pa.dataset.Fragment]:
-        return list(fragment.split_by_row_group())
-
-    @property
-    def full_schema(self) -> pa.Schema:
-        """
-        Returns the full schema of the parquet datasource
-        """
-        return self.source_ds.schema
-
-    @staticmethod
-    def _add_partitioning_values(
-        table: pa.Table, fragment: pa.dataset.Fragment
-    ) -> pa.Table:
-        for key, val in get_partition_keys(fragment.partition_expression).items():
-            values = pd.Series([val] * len(table), dtype="category")
-            table = table.append_column(key, pa.Array.from_pandas(values))
-        return table
-
-    @staticmethod
-    def _sanitize_dict(table: pa.Table) -> pa.Table:
-        for i, (name, type) in enumerate(zip(table.schema.names, table.schema.types)):
-            if pa.types.is_dictionary(type):
-                ca = table[name].cast(type.value_type)
-                table = table.remove_column(i)
-                table = table.append_column(name, ca)
-        return table
-
-    @staticmethod
-    def _compute_length_splits(
-        length_col: npt.NDArray[np.int32], max_tokens: int
-    ) -> tp.List[npt.NDArray[np.int32]]:
-        """split sequence of length_col in the chunks such that total length is ~ max_tokens
-           countint the padding to max length of elements in a chunk
-
-        Args:
-            length_col (np.ndarray):
-            max_tokens (int):
-
-        Returns:
-            tp.List[np.ndarray]: splits that contain indices over the original length_col
-        """
-        argsort_ind = np.argsort(length_col)
-        # TODO: remove 0 lengths
-        sorted_length_col = length_col[argsort_ind]
-
-        splits = []
-        ptr = 0
-        for i, length in enumerate(sorted_length_col):
-            if length * (i - ptr) > max_tokens:
-                splits.append(argsort_ind[ptr : (i - 1)])
-                ptr = i - 1
-        if (
-            length <= max_tokens
-        ):  # we drop the last iteration if it results in a batch greater than max_tokens
-            splits.append(argsort_ind[ptr:])
-        return splits
-
-    @staticmethod
-    def _compute_length(pa_array: pa.Array) -> npt.NDArray[np.int32]:
-        type_ = pa_array.type
-        if pa.types.is_list(type_) or pa.types.is_large_list(type_):
-            length_col = pa.compute.list_value_length(pa_array).to_numpy()
-        elif pa.types.is_string(type_):
-            length_col = pa.compute.utf8_length(pa_array).to_numpy()
-        else:
-            length_col = np.asarray(pa_array.to_pandas().apply(len))
-
-        length_col = length_col.copy()
-        length_col[np.isnan(length_col)] = 0
-        return np.asarray(length_col, dtype=np.int32)
-
-    @staticmethod
-    def _concat_table(
-        list_table: tp.List[_TableWrapper], drop_null: bool
-    ) -> _TableWrapper:
-        return _TableWrapper(
-            pa.concat_tables(
-                [tt.table.drop_null() if drop_null else tt.table for tt in list_table],
-                promote_options="permissive",
-            ).combine_chunks()
-        )
-
-    def _load_one_fragement(self, fragment: pa.dataset.Fragment) -> _TableWrapper:
-        fragment_table = fragment.to_table(
-            columns=self._columns_to_read, use_threads=self.config.use_threads
-        )
-        fragment_table = self._add_partitioning_values(fragment_table, fragment)
-        if self.config.filters is not None:
-            fragment_table = fragment_table.filter(self.config.filters)
-        return _TableWrapper(fragment_table)
-
-    def build_iterator_over_concat_table(
-        self, wrap_table: _TableWrapper, random_state: np.random.RandomState
-    ) -> DataPipeline:
-        order_by = self.config.order_by
-        batch_size = self.config.batch_size
-        max_tokens = self.config.max_tokens
-
-        table: pa.Table = wrap_table.table
-        if order_by is not None:
-            length_col = self._compute_length(table[order_by])
-            # add small perturbation to avoid same sample appear together during different epochs
-            if self.config.shuffle:
-                perturbation = random_state.randint(
-                    0,
-                    np.quantile(length_col, 0.001).astype(np.int32) + 2,
-                    len(length_col),
-                )
-                length_col += np.asarray(perturbation, dtype=np.int32)
-        else:
-            if self.config.shuffle:
-                length_col = random_state.randint(0, 2**23, len(table))
-            else:
-                length_col = np.zeros(len(table), dtype=np.int32)
-
-        table = table.select(self.columns)
-
-        if batch_size is not None:
-            order_tt = pa.Table.from_arrays(
-                [pa.array(np.argsort(length_col, kind="stable"))], ["order"]
-            )
-            batches = [ind["order"] for ind in order_tt.to_batches(batch_size)]
-        elif max_tokens is not None:
-            batches = self._compute_length_splits(length_col, max_tokens)
-        else:
-            raise ValueError("unknown batching method")
-
-        if self.config.shuffle:
-            batches = [batches[i] for i in random_state.permutation(len(batches))]
-
-        return (
-            read_sequence(batches)
-            .map(
-                lambda ind: _TableWrapper(table.take(ind).combine_chunks()),
-                num_parallel_calls=max(self.config.num_parallel_calls // 2, 1),
-            )
-            .and_return(max_num_warnings=4)
-        )
-
-    def build_epoch_iterator_pipeline(
-        self, seed: tp.Optional[int] = None, epoch: int = 0
-    ) -> DataPipelineBuilder:
-        seed = seed if seed is not None else self.config.seed
-        current_seed = hash((seed, epoch)) % 2**32 if seed is not None else None
-        np_rs = np.random.RandomState(
-            current_seed
-        )  # TODO: use stable hashing instead python
-        if current_seed:
-            torch.manual_seed(current_seed)  # used by `DataPipeline.shuffle`
-
-        pipeline_builder = read_sequence(self.get_dataset_fragments())
-
-        if self.config.shuffle:
-            # shuffle them in full memory since they are already loaded
-            pipeline_builder = pipeline_builder.shuffle(shuffle_window=0)
-
-        if self.config.split_to_row_groups:
-            pipeline_builder = pipeline_builder.yield_from(
-                lambda fragment: read_sequence(
-                    self.split_fragment_in_row_groups(fragment)
-                ).and_return()
-            )
-            if self.config.shuffle:
-                pipeline_builder = pipeline_builder.shuffle(
-                    shuffle_window=10
-                    * self.config.nb_prefetch
-                    * self.config.nb_producers
-                )
-
-        pipeline_builder = (
-            pipeline_builder.shard(
-                shard_idx=self.config.rank, num_shards=self.config.world_size
-            )
-            .map(
-                self._load_one_fragement,
-                num_parallel_calls=self.config.num_parallel_calls,
-            )
-            .bucket(self.config.nb_producers)
-            .prefetch(self.config.nb_prefetch)
-            .map(
-                partial(self._concat_table, drop_null=self.config.drop_null),
-                num_parallel_calls=self.config.nb_prefetch,
-            )
-            .yield_from(
-                partial(self.build_iterator_over_concat_table, random_state=np_rs)
-            )
-            .filter(lambda wt: bool(len(wt.table) >= self.config.min_batch_size))
-        )
-
-        if self.config.output_format == ParquetBatchFormat.pandas:
-            pipeline_builder = pipeline_builder.map(
-                lambda wt: _TableWrapper(wt.table.to_pandas())
-            )
-        elif self.config.output_format == ParquetBatchFormat.torch:
-            pipeline_builder = pipeline_builder.map(
-                lambda wt: pyarrow_table_to_torch_dict(wt.table)
-            )
-        return pipeline_builder
-
-    def __iter__(self) -> tp.Generator[BatchOutputType, None, None]:
-        def _to_real_object(x: tp.Union[_TableWrapper, NestedDict]) -> BatchOutputType:
-            if isinstance(x, _TableWrapper):
-                return x.table
-            else:
-                return x
-
-        with pyarrow_cpu(self.config.num_parallel_calls):
-            yield from map(
-                _to_real_object,
-                iter(
-                    self.build_epoch_iterator_pipeline(self.config.seed, self._epoch)
-                    .prefetch(self.config.num_parallel_calls)
-                    .and_return(max_num_warnings=4)
-                ),
-            )
-        self._epoch += 1
