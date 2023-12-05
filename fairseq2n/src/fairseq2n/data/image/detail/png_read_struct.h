@@ -20,8 +20,8 @@ public:
     png_read& operator=(const png_read&) = delete; 
 
 private:
-    png_structp png_ptr;
-    png_infop info_ptr;
+    png_structp png_ptr{nullptr};
+    png_infop info_ptr{nullptr}; 
 };
 
 } // namespace fairseq2n::detail
