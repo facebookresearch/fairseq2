@@ -15,6 +15,22 @@ to train custom models for translation, summarization, language modeling, and
 other content generation tasks. It is also the successor of
 [fairseq](https://github.com/facebookresearch/fairseq).
 
+## What is new in v0.2?
+* An implementation of Mistral 7B and Mistral 7B instruct ([arXiv](https://arxiv.org/abs/2310.06825))
+  models with Grouped-Query Attention and Sliding Window Attention. [Check out](./recipes/mistral)
+  the terminal-based interactive demo chat application under recipes.
+* An interactive terminal-based [demo chat application](./recipes/llama) for
+  LLaMA 7B Chat with system prompt support.
+* A new, unified, and efficient [sequence generation API](./src/fairseq2/generation)
+  for both decoder and encoder-decoder models with Beam Search, TopK Sampling,
+  and TopP (a.k.a. Nucleus) Sampling along with toxicity prevention features.
+* Support for PyTorch SDPA/Flash Attention in Relative Position SDPA and Shaw
+  Relative Position SDPA.
+* Lazy [padding mask](./src/fairseq2/nn/padding.py#L18) and [attention mask](./src/fairseq2/nn/transformer/attention_mask.py#L17)
+  initialization for more efficient integration with fused SDPA implementations.
+* A new [sampling operator](./src/fairseq2/data/data_pipeline.py#L115) in our
+  C++-based data pipeline API.
+
 
 ## Getting Started
 You can find our full documentation including tutorials and API reference
@@ -24,12 +40,11 @@ For recent changes, you can check out our [changelog](CHANGELOG.md).
 
 
 ## Models
-As of today, the following pre-trained models are available in fairseq2 (in
-alphabetical order):
+As of today, the following models are available in fairseq2:
 
- * [LLaMA](src/fairseq2/models/llama)
- * [LLaMA 2](src/fairseq2/models/llama)
- * [Mistral 7B](src/fairseq2/models/mistral)
+ * [LLaMA](recipes/llama)
+ * [LLaMA 2](recipes/llama)
+ * [Mistral 7B](recipes/mistral)
  * [NLLB-200](src/fairseq2/models/nllb)
  * [S2T Transformer + Conformer](src/fairseq2/models/s2t_transformer)
  * [w2v-BERT](src/fairseq2/models/w2vbert)
@@ -37,7 +52,7 @@ alphabetical order):
 
 fairseq2 is also used by various external projects such as:
 
- * [SeamlessM4T](https://github.com/facebookresearch/seamless_communication)
+ * [Seamless Communication](https://github.com/facebookresearch/seamless_communication)
  * [SONAR](https://github.com/facebookresearch/SONAR)
 
 
