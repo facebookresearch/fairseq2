@@ -17,12 +17,12 @@ from fairseq2.data.data_pipeline import DataPipelineBuilder
 from fairseq2.data.text import SentencePieceEncoder
 from fairseq2.models.nllb.tokenizer import NllbTokenizer
 from fairseq2.typing import Device
+from fairseq2.utils.parquet_tools import *
 from fairseq2.utils.parquet_dataloader import (
     NestedDict,
     ParquetBasicDataLoader,
     ParquetBasicDataloaderConfig,
     ParquetBatchFormat,
-    pyarrow_cpu,
 )
 
 NestedDictTensor = tp.Dict[str, "NestedDictTensorValue"]
@@ -54,47 +54,6 @@ class SeqsBatch:
             if tensor is not None:
                 tensor = tensor.cpu()
                 del tensor
-
-
-def map_structure(func, nested_object):  # type: ignore
-    """Map a function over torch.Tensor in a (possibly nested) collection.
-    Similar `to tf.nest.map_structure`.
-    See also https://texar-pytorch.readthedocs.io/en/latest/_modules/texar/torch/utils/utils.html#map_structure
-    """
-    if isinstance(nested_object, list):
-        return [map_structure(func, x) for x in nested_object]
-    if isinstance(nested_object, tuple):
-        if isinstance(nested_object, torch.Size):
-            return func(nested_object)
-        if hasattr(nested_object, "_fields"):  # namedtuple
-            return type(nested_object)(*[map_structure(func, x) for x in nested_object])
-        else:
-            return tuple(map_structure(func, x) for x in nested_object)
-
-    if isinstance(nested_object, dict):
-        return {k: map_structure(func, v) for k, v in nested_object.items()}
-    if isinstance(nested_object, set):
-        return {map_structure(func, x) for x in nested_object}
-    if isinstance(nested_object, torch.Tensor):
-        return func(nested_object)
-    else:
-        return nested_object
-
-
-def batch_collater(
-    inp: tp.List[Tensor], padding: tp.Optional[int]
-) -> tp.Dict[str, tp.Union[bool, Tensor]]:
-    # TODO: replace it with fairseq2 Collater
-    seq_lens = torch.IntTensor([x.shape[0] for x in inp])
-    return {
-        "seqs": torch.nested.to_padded_tensor(
-            torch.nested.as_nested_tensor(inp), padding=padding
-        ),
-        "seq_lens": seq_lens,
-        # "is_ragged": False
-        # if len(seq_lens) == 0
-        # else bool((seq_lens != seq_lens[0]).any().item()),
-    }
 
 
 _not_init = object()  # deal with class inheritance
@@ -145,7 +104,7 @@ class ASRDataLoadingConfig(ParquetBasicDataloaderConfig):
         )
         if self.filters is None:
             self.filters = max_frame_filter
-        else:  # extend the exsiting filters
+        else:  # extend the existing filters
             self.filters = pa.compute.and_(self.filters, max_frame_filter)
 
 

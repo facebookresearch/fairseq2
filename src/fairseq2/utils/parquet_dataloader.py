@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 import typing as tp
-from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial
@@ -17,9 +16,8 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import torch
 from pyarrow.dataset import get_partition_keys  # requires pyarrow >= 13
-
-from fairseq2.data import CString
 from fairseq2.data.data_pipeline import DataPipeline, DataPipelineBuilder, read_sequence
+from fairseq2.utils.parquet_tools import *
 
 
 class ParquetBatchFormat(Enum):
@@ -152,90 +150,6 @@ class ParquetBasicDataloaderConfig:
             self.filters, pa.dataset.Expression
         ):
             self.filters = pq.filters_to_expression(self.filters)
-
-
-@contextmanager
-def pyarrow_cpu(nb_cpu: int) -> tp.Generator[None, None, None]:
-    nb_cpu_old = pa.cpu_count()
-    nb_io_cpu_old = pa.io_thread_count()
-    pa.set_cpu_count(nb_cpu)
-    pa.set_io_thread_count(nb_cpu)
-    try:
-        yield
-    finally:
-        pa.set_cpu_count(nb_cpu_old)
-        pa.set_io_thread_count(nb_io_cpu_old)
-
-
-NestedDict = tp.Dict[str, "NestedDictValue"]
-NestedDictValue = tp.Union[torch.Tensor, tp.List[CString], pd.Series, NestedDict]
-
-BatchOutputType = tp.Union[pa.Table, pd.DataFrame, NestedDict]
-
-
-def from_pyarrow_to_torch_tensor(
-    arr: tp.Union[pa.Array, pa.ChunkedArray], strict: bool = True
-) -> NestedDictValue:
-    """
-    struct_array = pa.Array.from_pandas([{"x": 4, "y": "RR"}] * 10)
-    nest_array = pa.Array.from_pandas([[{'a': 1}, {'a': 2}]])
-    """
-    # for future ideas https://arrow.apache.org/docs/python/generated/pyarrow.Tensor.html
-    # for sparse matrix support https://github.com/apache/arrow/blob/main/python/pyarrow/tests/test_sparse_tensor.py
-
-    assert arr.null_count == 0, "does not support null values yet"
-
-    if isinstance(arr, pa.ChunkedArray):
-        arr = arr.chunks[0] if arr.num_chunks == 1 else arr.combine_chunks()
-
-    arr_type = arr.type
-    if pa.types.is_primitive(arr_type):
-        return torch.from_numpy(arr.to_numpy(zero_copy_only=True))
-
-    try:
-        return torch.from_numpy(arr.to_numpy(zero_copy_only=True))
-    except pa.ArrowInvalid:
-        pass
-
-    if pa.types.is_dictionary(arr_type):
-        return from_pyarrow_to_torch_tensor(arr.dictionary_decode())
-
-    if pa.types.is_string(arr_type):
-        return list(map(CString, arr.to_pandas()))
-
-    if (
-        pa.types.is_list(arr_type) or pa.types.is_large_list(arr_type)
-    ) and pa.types.is_primitive(arr_type.value_type):
-        return torch.nested.as_nested_tensor(
-            list(map(torch.from_numpy, arr.to_pandas()))
-        )
-
-    if pa.types.is_fixed_size_list(arr_type) and pa.types.is_primitive(
-        arr_type.value_type
-    ):
-        return torch.from_numpy(np.reshape(arr.values, (-1, arr_type.list_size)))
-
-    if pa.types.is_struct(arr_type):
-        return {
-            arr_type.field(i).name: from_pyarrow_to_torch_tensor(arr.field(i))
-            for i in range(arr_type.num_fields)
-        }
-
-    if pa.types.is_nested(arr_type):
-        # TODO: deal with arr = [[{'a': 1}, {'a': 2}]]
-        pass
-
-    if strict:
-        raise NotImplementedError(f"{arr_type} cannot be converted to torch.Tensor")
-    else:
-        return arr.to_pandas()
-
-
-def pyarrow_table_to_torch_dict(tt: pa.Table, strict: bool = True) -> NestedDict:
-    return {
-        col: from_pyarrow_to_torch_tensor(tt[col], strict) for col in tt.column_names
-    }
-
 
 class _TableWrapper:
     """
