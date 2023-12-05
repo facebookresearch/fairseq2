@@ -105,7 +105,8 @@ class ASRDataLoadingConfig(ParquetBasicDataloaderConfig):
         if self.filters is None:
             self.filters = max_frame_filter
         else:  # extend the existing filters
-            self.filters = pa.compute.and_(self.filters, max_frame_filter)
+            # XXX: pa.compute.add_ does not seem to be linked to the kernel
+            self.filters = pa.compute.if_else(self.filters, max_frame_filter, False)
 
 
 class ASRBatchIterator:

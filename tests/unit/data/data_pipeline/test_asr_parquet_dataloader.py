@@ -79,6 +79,7 @@ class TestASRParquetDataloader(unittest.TestCase):
         asr_config = ASRDataLoadingConfig(
             parquet_path=self._tmp_parquet_ds_path,
             batch_size=5,
+            filters=[("src_lang", "in", ["eng_Latn", "deu_Latn", "fra_Latn"])],
             order_by="audio_wav",
             text_tokenizer=self._tokenizer,  # type: ignore
             nb_producers=4,
