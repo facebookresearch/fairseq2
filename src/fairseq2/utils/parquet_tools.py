@@ -167,31 +167,40 @@ def split_fragment_in_row_groups(
     return list(fragment.split_by_row_group())
 
 
-def add_partitioning_values(table: pa.Table, fragment: pa.dataset.Fragment) -> pa.Table:
+def add_partitioning_values(
+    table: pa.Table, fragment: pa.dataset.Fragment, columns: tp.Optional[tp.List[str]]
+) -> pa.Table:
     """
     When loading a single fragment, pyarrow does not add the partitioning columns,
     so we need to do it manually.
     """
     for key, val in get_partition_keys(fragment.partition_expression).items():
-        values = pa.DictionaryArray.from_arrays(
-            np.zeros(len(table), dtype=np.int32), [val]
-        )
-        table = table.append_column(key, values)
+        if columns is None or key in columns:
+            values = pa.DictionaryArray.from_arrays(
+                np.zeros(len(table), dtype=np.int32), [val]
+            )
+            table = table.append_column(key, values)
     return table
 
 
 def load_one_fragment(
     fragment: pa.dataset.Fragment, columns: tp.Optional[tp.List[str]] = None
 ) -> pa.Table:
-    if columns is not None:
-        known_columns = fragment.physical_schema.names
-        columns = [col for col in columns if col in known_columns]
-    fragment_table = fragment.to_table(columns=columns, use_threads=False)
-    fragment_table = add_partitioning_values(fragment_table, fragment)
+    fragment_columns = columns
+    if fragment_columns is not None:
+        fragment_columns = [
+            col for col in fragment_columns if col in fragment.physical_schema.names
+        ]
+    fragment_table = fragment.to_table(columns=fragment_columns, use_threads=False)
+    fragment_table = add_partitioning_values(fragment_table, fragment, columns)
     return fragment_table
 
 
-def apply_filter(table: pa.Table, filters: tp.Optional[pa.dataset.Expression]=None, drop_null: bool = True) -> pa.Table:
+def apply_filter(
+    table: pa.Table,
+    filters: tp.Optional[pa.dataset.Expression] = None,
+    drop_null: bool = True,
+) -> pa.Table:
     if drop_null:
         table = table.drop_null()
     if filters is not None:
@@ -200,7 +209,8 @@ def apply_filter(table: pa.Table, filters: tp.Optional[pa.dataset.Expression]=No
 
 
 def concat_table(tables: tp.List[pa.Table]) -> pa.Table:
-    return pa.concat_tables(tables,
+    return pa.concat_tables(
+        tables,
         promote_options="permissive",  # needed to get deal with empty segments
     ).combine_chunks()
 

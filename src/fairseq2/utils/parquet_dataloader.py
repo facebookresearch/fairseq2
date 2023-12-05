@@ -11,6 +11,7 @@ from functools import partial
 
 import numpy as np
 import pyarrow as pa
+import pandas as pd
 import pyarrow.parquet as pq
 import torch
 
@@ -56,7 +57,7 @@ def table_func_wrap(func):  # type: ignore
     def inner(*args):  # type: ignore
         fixed_args = [_to_real_object(x) for x in args]
         result = func(*fixed_args)
-        if isinstance(result, pa.Table):
+        if isinstance(result, (pa.Table, pd.DataFrame)):
             result = _TableWrapper(result)
         return result
 
