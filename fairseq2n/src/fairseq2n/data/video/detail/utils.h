@@ -11,6 +11,7 @@
 #include <ATen/Tensor.h>
 
 #include "fairseq2n/detail/exception.h"
+#include "fairseq2n/data/data.h"
 
 namespace fairseq2n::detail {
 
@@ -129,12 +130,46 @@ public:
         return pin_memory_;
     }
 
+    video_decoder_options
+    width(int value) noexcept
+    {
+        auto tmp = *this;
+
+        tmp.width_ = value;
+
+        return tmp;
+    }
+
+    int
+    width() const noexcept
+    {
+        return width_;
+    }
+
+    video_decoder_options
+    height(int value) noexcept
+    {
+        auto tmp = *this;
+
+        tmp.height_ = value;
+
+        return tmp;
+    }
+
+    int
+    height() const noexcept
+    {
+        return height_;
+    }
+
 private:
     std::optional<at::ScalarType> maybe_dtype_{};
     std::optional<at::Device> maybe_device_{};
     bool pin_memory_ = false;
     bool get_pts_only_ = false;
     bool get_frames_only_ = false;
+    int width_ = 0;
+    int height_ = 0;
 };
 
 } // namespace fairseq2n::detail

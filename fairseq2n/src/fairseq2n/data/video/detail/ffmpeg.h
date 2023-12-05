@@ -40,7 +40,7 @@ public:
     ffmpeg_decoder& operator=(const ffmpeg_decoder&) = delete;
 
 private:
-    data
+    data_dict
     open_stream(int stream_index);
     
     static int 

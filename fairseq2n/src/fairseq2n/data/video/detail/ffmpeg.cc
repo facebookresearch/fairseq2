@@ -94,7 +94,7 @@ ffmpeg_decoder::open_container(const memory_block &block)
     return all_streams;
 }   
 
-data
+data_dict
 ffmpeg_decoder::open_stream(int stream_index) 
 {
     // Opens a stream and decodes the video frames. Skips audio streams for now.
@@ -141,23 +141,24 @@ ffmpeg_decoder::open_stream(int stream_index)
                     }                                                                                          
                     // Tranform frame to RGB to guarantee 3 color channels
                     sws_ = std::make_unique<transform>(av_stream_->frame_->width, av_stream_->frame_->height, 
-                                                        static_cast<AVPixelFormat>(av_stream_->frame_->format));
-                    sws_->transform_to_rgb(*av_stream_->sw_frame_, *av_stream_->frame_, stream_index);
+                                                static_cast<AVPixelFormat>(av_stream_->frame_->format), opts_);
+                    sws_->transform_to_rgb(*av_stream_->sw_frame_, *av_stream_->frame_, stream_index, opts_);
                     // Store PTS in microseconds
                     if (!opts_.get_frames_only()) {
-                        av_stream_->storage_.frame_pts[processed_frames] = av_stream_->frame_->pts * av_stream_->metadata_.time_base * 1000000;
+                        av_stream_->tensor_storage_.frame_pts[processed_frames] = av_stream_->frame_->pts * av_stream_->metadata_.time_base * 1000000;
                     }
                     // Store raw frame data for one frame
                     if (!opts_.get_pts_only()) {
-                        at::Tensor one_frame = av_stream_->storage_.all_video_frames[processed_frames];                        
+                        at::Tensor one_frame = av_stream_->tensor_storage_.all_video_frames[processed_frames];                        
                         writable_memory_span frame_bits = get_raw_mutable_storage(one_frame);
                         auto frame_data = reinterpret_cast<uint8_t*>(frame_bits.data());
                         // Calculate the total size of the frame in bytes
-                        int frame_size = av_image_get_buffer_size(AV_PIX_FMT_RGB24, av_stream_->sw_frame_->width, av_stream_->sw_frame_->height, 1);
+                        int frame_size = av_image_get_buffer_size(AV_PIX_FMT_RGB24, av_stream_->sw_frame_->width, 
+                                                                                av_stream_->sw_frame_->height, 1);
                         // Copy the entire frame at once                
                         memcpy(frame_data, av_stream_->sw_frame_->data[0], frame_size);
                     }
-                    processed_frames++; 
+                    processed_frames++;
                                                                
                     av_frame_unref(av_stream_->frame_); // Unref old data so the frame can be reused
                     av_frame_unref(av_stream_->sw_frame_);
@@ -165,25 +166,13 @@ ffmpeg_decoder::open_stream(int stream_index)
             }
             av_packet_unref(av_stream_->pkt_);   
         }
-        flat_hash_map<std::string, data> result;
-        if (!opts_.get_pts_only()) {
-            result["all_video_frames"] = data(av_stream_->storage_.all_video_frames);
-        }
-        if (!opts_.get_frames_only()) {
-            result["frame_pts"] = data(av_stream_->storage_.frame_pts);
-        }
-        if (!opts_.get_pts_only() && !opts_.get_frames_only()) {
-            result["timebase"] = data(av_stream_->storage_.timebase);
-            result["fps"] = data(av_stream_->storage_.fps);
-            result["duration"] = data(av_stream_->storage_.duration);
-        }
+        av_stream_->init_data_storage(opts_);
 
-        data stream_data(std::move(result));
-        return stream_data;
+        return av_stream_->stream_data_;
     } else {
         // Skip streams if not video for now
         // Return an empty data object if the stream is not video
-        return data{};
+        return data_dict{};
     }
 }
 

@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <optional>
+
 #include "fairseq2n/api.h"
 #include "fairseq2n/data/video/detail/stream.h"
 
@@ -20,12 +22,13 @@ class FAIRSEQ2_API transform {
 friend class ffmpeg_decoder;
 
 public:
-    transform(int width, int height, AVPixelFormat fmt);
+    transform(int width, int height, AVPixelFormat fmt, video_decoder_options opts);
 
     ~transform();
 
     void
-    transform_to_rgb(AVFrame& sw_frame, const AVFrame &frame, int stream_index);
+    transform_to_rgb(AVFrame& sw_frame, const AVFrame &frame, int stream_index, 
+    video_decoder_options opts);
 
     transform(const transform&) = delete;
     

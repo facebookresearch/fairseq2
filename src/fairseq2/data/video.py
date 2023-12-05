@@ -20,8 +20,10 @@ if TYPE_CHECKING or _DOC_MODE:
             dtype: Optional[DataType] = None,
             device: Optional[Device] = None,
             pin_memory: bool = False,
-            get_pts_only: bool = False,
-            get_frames_only: bool = False,
+            get_pts_only: Optional[bool] = False,
+            get_frames_only: Optional[bool] = False,
+            width: Optional[int] = None,
+            height: Optional[int] = None,
         ) -> None:
             ...
 

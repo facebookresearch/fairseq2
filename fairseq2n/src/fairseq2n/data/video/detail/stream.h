@@ -11,7 +11,6 @@
 
 #include <ATen/Functions.h>
 #include <ATen/Tensor.h>
-#include <optional>
 
 extern "C" {
     #include <libavcodec/avcodec.h>
@@ -36,6 +35,9 @@ public:
     void 
     init_tensor_storage(video_decoder_options opts);
 
+    void
+    init_data_storage(video_decoder_options opts);
+
     AVCodecContext* get_codec_ctx() const;
 
     stream(const stream&) = delete;
@@ -53,7 +55,8 @@ private:
     AVMediaType type_{AVMEDIA_TYPE_UNKNOWN};
     AVCodec* codec_;
     int stream_index_;
-    tensor_storage storage_;
+    tensor_storage tensor_storage_;
+    data_dict stream_data_;
 };
 
 } // namespace fairseq2n::detail
