@@ -20,9 +20,9 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from fairseq2.utils.parquet_dataloader import (
-    parquet_iterator,
     ParquetBasicDataloaderConfig,
     ParquetBatchFormat,
+    parquet_iterator,
 )
 
 
@@ -170,7 +170,7 @@ class TestParquetDataloader(unittest.TestCase):
         self.assertEqual(
             list(res[0].columns), ["string_col2", "list_int_col", "float_col"]
         )
-        self.assertEqual(Counter(map(len, res)), Counter({3: 339, 2: 2, 1: 1}))
+        self.assertEqual(Counter(map(len, res)), Counter({3: 339, 1: 3, 2: 1}))
 
     def test_filtered_with_columns_dataload_min_batch_size(self) -> None:
         config = ParquetBasicDataloaderConfig(
@@ -191,7 +191,7 @@ class TestParquetDataloader(unittest.TestCase):
             parquet_path=self._tmp_parquet_ds_path,
             batch_size=20,
             nb_producers=20,
-            order_by="list_int_col",
+            order_by_length="list_int_col",
             seed=123,
             output_format=ParquetBatchFormat.pandas,
         )
@@ -208,7 +208,7 @@ class TestParquetDataloader(unittest.TestCase):
         config = ParquetBasicDataloaderConfig(
             parquet_path=self._tmp_parquet_ds_path,
             nb_producers=20,
-            order_by="list_int_col",
+            order_by_length="list_int_col",
             max_tokens=3000,
             seed=123,
             output_format=ParquetBatchFormat.pandas,

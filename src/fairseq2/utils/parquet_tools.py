@@ -11,6 +11,7 @@ from pyarrow.dataset import get_partition_keys  # requires pyarrow >= 13
 from torch import Tensor
 
 from fairseq2.data import CString
+from fairseq2.data.data_pipeline import DataPipeline, DataPipelineBuilder, read_sequence
 
 
 @contextmanager
@@ -257,3 +258,117 @@ def compute_rows_length(pa_array: pa.Array) -> npt.NDArray[np.int32]:
     length_col = length_col.copy()
     length_col[np.isnan(length_col)] = 0
     return np.asarray(length_col, dtype=np.int32)
+
+
+class _TableWrapper:
+    """
+    class to avoid fairseq2 casting pa.Table to iterable objects
+    which currently fails
+    """
+
+    def __init__(self, table: pa.Table) -> None:
+        self.table: pa.Table = table
+
+
+def _to_real_object(x: tp.Union[_TableWrapper, NestedDict]) -> BatchOutputType:
+    if isinstance(x, _TableWrapper):
+        return x.table
+    elif isinstance(x, list):
+        return [_to_real_object(e) for e in x]
+    elif isinstance(x, tuple):
+        return tuple(_to_real_object(e) for e in x)
+    else:
+        return x
+
+
+def table_func_wrap(func):  # type: ignore
+    def inner(*args):  # type: ignore
+        fixed_args = [_to_real_object(x) for x in args]
+        result = func(*fixed_args)
+        if isinstance(result, (pa.Table, pd.DataFrame)):
+            result = _TableWrapper(result)
+        return result
+
+    return inner
+
+
+def list_parquet_fragments(
+    parquet_path: str,
+    filters: tp.Optional[pa.dataset.Expression] = None,
+    columns: tp.Optional[tp.List[str]] = None,
+    split_to_row_groups: bool = True,
+    filesystem: tp.Optional[pa.fs.FileSystem] = None,
+    shuffle_window: tp.Optional[bool] = None,
+    seed: tp.Optional[int] = None,
+) -> DataPipelineBuilder:
+    dataset = init_parquet_dataset(parquet_path, filters=filters, filesystem=filesystem)
+    columns = columns or dataset.schema.names
+    assert set(columns).issubset(set(dataset.schema.names))
+
+    pipeline_builder = read_sequence(get_dataset_fragments(dataset, filters))
+
+    if shuffle_window is not None:
+        if seed is not None:
+            torch.manual_seed(seed)  # used by `DataPipeline.shuffle`
+        # shuffle them in full memory since fragments are already known
+        pipeline_builder = pipeline_builder.shuffle(shuffle_window=0)
+
+    if split_to_row_groups:
+        pipeline_builder = pipeline_builder.yield_from(
+            lambda fragment: read_sequence(
+                split_fragment_in_row_groups(fragment)
+            ).and_return()
+        )
+        if shuffle_window is not None:
+            pipeline_builder = pipeline_builder.shuffle(shuffle_window=shuffle_window)
+
+    return pipeline_builder
+
+
+def build_iterator_over_one_table(
+    table: pa.Table,
+    order_by_length: tp.Optional[str] = None,
+    batch_size: tp.Optional[int] = None,
+    max_tokens: tp.Optional[int] = None,
+    shuffle: bool = True,
+    seed: tp.Optional[int] = None,
+    num_parallel_calls: int = 8,
+) -> DataPipeline:
+    random_state = np.random.RandomState(seed)
+    if order_by_length is not None:
+        length_col = compute_rows_length(table[order_by_length])
+        # add small perturbation to avoid same sample appear together during different epochs
+        if shuffle:
+            perturbation = random_state.randint(
+                0,
+                np.quantile(length_col, 0.001).astype(np.int32) + 2,
+                len(length_col),
+            )
+            length_col += np.asarray(perturbation, dtype=np.int32)
+    else:
+        if shuffle:
+            length_col = random_state.randint(0, 2**23, len(table))
+        else:
+            length_col = np.zeros(len(table), dtype=np.int32)
+
+    if batch_size is not None:
+        order_tt = pa.Table.from_arrays(
+            [pa.array(np.argsort(length_col, kind="stable"))], ["order"]
+        )
+        batches = [ind["order"] for ind in order_tt.to_batches(batch_size)]
+    elif max_tokens is not None:
+        batches = compute_length_splits(length_col, max_tokens)
+    else:
+        raise ValueError("unknown batching method")
+
+    if shuffle:
+        batches = [batches[i] for i in random_state.permutation(len(batches))]
+
+    return (
+        read_sequence(batches)
+        .map(
+            table_func_wrap(lambda ind: table.take(ind).combine_chunks()),
+            num_parallel_calls=num_parallel_calls,
+        )
+        .and_return(max_num_warnings=4)
+    )
