@@ -2,9 +2,10 @@
 
 The recipe module [parquet_dataloader](./parquet_dataloader.py) shows one way to build an efficient 
 dataloader over a parquet dataset (partitioned or not) using `fairseq2.data` primitives.
-It uses a [pyarrow.parquet](https://arrow.apache.org/docs/python/generated/pyarrow.parquet.ParquetDataset.html) API to interface with parquet files.
-The present dataloader is of general purpose and can be combined with various downstream workflows.
+It uses a [pyarrow.parquet](https://arrow.apache.org/docs/python/generated/pyarrow.parquet.ParquetDataset.html) API to interface with parquet files, so it requires an extra packages installation with 
+`pip install fairseq2[arrow]`
 
+The present dataloader is of general purpose and can be combined with various downstream workflows.
 Some important technical notes to keep in mind :
 * Dataloader will simultaneously load several parquet dataset fragments  (`nb_parallel_fragments`) and shuffle their elements together before returning
 * Thus, increasing `nb_parallel_fragments` will result in better randomization but also increase the memory footprint

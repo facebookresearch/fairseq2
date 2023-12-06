@@ -4,16 +4,16 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import typing as tp
 from dataclasses import dataclass
 from enum import Enum
 from functools import partial
+from typing import Any, Generator, List, Optional, Union
 
 import pyarrow as pa
 import pyarrow.parquet as pq
 
 from fairseq2.data.data_pipeline import DataPipeline, DataPipelineBuilder
-from fairseq2.utils.parquet_tools import (
+from fairseq2.data.parquet_tools import (
     BatchOutputType,
     _TableWrapper,
     _to_real_object,
@@ -41,27 +41,27 @@ class ParquetBasicDataloaderConfig:
     Path to parquet dataset file
     """
 
-    batch_size: tp.Optional[int] = None
+    batch_size: Optional[int] = None
     """
     Fixed output batch size
     """
 
-    order_by_length: tp.Optional[str] = None
+    order_by_length: Optional[str] = None
     """Column in dataset whose value length `L` will be used for batches ordering.
        This results in batches with relatively homogeneous values of `L`,
        typically to support optimal padding.
     """
 
-    max_tokens: tp.Optional[int] = None
+    max_tokens: Optional[int] = None
     """
     Used with `order_by_length` option to control the total number of padded tokens in a each batch.
     Typically, this option is preferred to `batch_size` for reducing the memory footprint.
     """
 
-    columns: tp.Optional[tp.List[str]] = None
+    columns: Optional[List[str]] = None
     """List of columns to load"""
 
-    filters: tp.Optional[tp.Union[tp.List[tp.Any], pa.dataset.Expression]] = None
+    filters: Optional[Union[List[Any], pa.dataset.Expression]] = None
     """
     See https://arrow.apache.org/docs/python/generated/pyarrow.dataset.Expression.html#pyarrow.dataset.Expression
     Some examples :
@@ -97,7 +97,7 @@ class ParquetBasicDataloaderConfig:
     drop_null: bool = True
     """Dropping rows containing any null value"""
 
-    seed: tp.Optional[int] = None
+    seed: Optional[int] = None
     """
     seed making iteration deterministic
     """
@@ -129,7 +129,7 @@ class ParquetBasicDataloaderConfig:
     Whether pyarrow should use its internal parallelism threads to read the parquet part.
     Since we rely on the external parallelism, this param is tuned off.
     """
-    filesystem: tp.Optional[pa.fs.FileSystem] = None
+    filesystem: Optional[pa.fs.FileSystem] = None
     """
     Filesystem to read parquet files from. S3 example :
     >>> import s3fs
@@ -224,7 +224,7 @@ def build_parquet_iterator_pipeline(
 
 def parquet_iterator(
     config: ParquetBasicDataloaderConfig,
-) -> tp.Generator[BatchOutputType, None, None]:
+) -> Generator[BatchOutputType, None, None]:
     """
     Example of usage :
 

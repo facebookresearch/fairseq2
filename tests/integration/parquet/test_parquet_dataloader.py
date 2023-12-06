@@ -9,15 +9,15 @@ import random
 import shutil
 import string
 import tempfile
-import typing as tp
 import unittest
 from collections import Counter
+from typing import Any, Dict, List, Union
 
 import numpy as np
-import numpy.typing as npt
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
+from numpy.typing import NDArray
 
 from recipes.parquet.parquet_dataloader import (
     ParquetBasicDataloaderConfig,
@@ -34,7 +34,7 @@ def gen_random_string(length: int) -> str:
 
 def generate_random_pandas_df(size: int, seed: int = 123) -> pd.DataFrame:
     np_rs = np.random.RandomState(seed)
-    df: tp.Dict[str, tp.Union[npt.NDArray[tp.Any], tp.List[tp.Any]]] = {}
+    df: Dict[str, Union[NDArray[Any], List[Any]]] = {}
     df["int_col"] = np_rs.randint(0, 200, size)
     df["float_col"] = np_rs.randn(size)
 
@@ -101,7 +101,7 @@ class TestParquetDataloader(unittest.TestCase):
             nb_parallel_fragments=2,
             seed=333,
         )
-        res: tp.List[pd.DataFrame] = list(parquet_iterator(config))
+        res: List[pd.DataFrame] = list(parquet_iterator(config))
 
         for x in res:
             self.assertIsInstance(x, pa.Table)
@@ -165,7 +165,7 @@ class TestParquetDataloader(unittest.TestCase):
             output_format=ParquetBatchFormat.pandas,
         )
 
-        res: tp.List[pd.DataFrame] = list(parquet_iterator(config))
+        res: List[pd.DataFrame] = list(parquet_iterator(config))
 
         self.assertEqual(
             list(res[0].columns), ["string_col2", "list_int_col", "float_col"]
@@ -195,7 +195,7 @@ class TestParquetDataloader(unittest.TestCase):
             seed=123,
             output_format=ParquetBatchFormat.pandas,
         )
-        res: tp.List[pd.DataFrame] = list(parquet_iterator(config))
+        res: List[pd.DataFrame] = list(parquet_iterator(config))
         length_by_batches = [tt["list_int_col"].apply(len) for tt in res]
         length_by_batches_diff = max(tt.max() - tt.min() for tt in length_by_batches)
         total_length = sum(map(len, length_by_batches))
@@ -213,7 +213,7 @@ class TestParquetDataloader(unittest.TestCase):
             seed=123,
             output_format=ParquetBatchFormat.pandas,
         )
-        res: tp.List[pd.DataFrame] = list(parquet_iterator(config))
+        res: List[pd.DataFrame] = list(parquet_iterator(config))
         length_by_batches = [tt["list_int_col"].apply(len) for tt in res]
         length_by_batches_diff = max(tt.max() - tt.min() for tt in length_by_batches)
         max_padded_total_length = max(tt.max() * len(tt) for tt in length_by_batches)
@@ -234,7 +234,7 @@ class TestParquetDataloader(unittest.TestCase):
             batch_size=10,
             seed=333,
         )
-        res: tp.List[pa.Table] = list(parquet_iterator(config))
+        res: List[pa.Table] = list(parquet_iterator(config))
 
         self.assertEqual(Counter(map(len, res)), Counter({10: 100}))
         self.assertEqual(

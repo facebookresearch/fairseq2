@@ -1,21 +1,26 @@
-import typing as tp
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
 from contextlib import contextmanager
+from typing import Dict, Generator, List, Optional, Union
 
 import numpy as np
-import numpy.typing as npt
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 import torch
+from numpy.typing import NDArray
 from pyarrow.dataset import get_partition_keys  # requires pyarrow >= 13
-from torch import Tensor
 
 from fairseq2.data import CString
 from fairseq2.data.data_pipeline import DataPipeline, DataPipelineBuilder, read_sequence
 
 
 @contextmanager
-def pyarrow_cpu(nb_cpu: int) -> tp.Generator[None, None, None]:
+def pyarrow_cpu(nb_cpu: int) -> Generator[None, None, None]:
     nb_cpu_old = pa.cpu_count()
     nb_io_cpu_old = pa.io_thread_count()
     pa.set_cpu_count(nb_cpu)
@@ -27,14 +32,20 @@ def pyarrow_cpu(nb_cpu: int) -> tp.Generator[None, None, None]:
         pa.set_io_thread_count(nb_io_cpu_old)
 
 
-NestedDict = tp.Dict[str, "NestedDictValue"]
-NestedDictValue = tp.Union[torch.Tensor, tp.List[CString], pd.Series, NestedDict]
+@contextmanager
+def torch_random_seed(seed: int = None) -> Generator[None, None, None]:
+    if seed is not None:
+        torch.manual_seed(seed)
+    yield
 
-BatchOutputType = tp.Union[pa.Table, pd.DataFrame, NestedDict]
+
+NestedDict = Dict[str, "NestedDictValue"]
+NestedDictValue = Union[torch.Tensor, List[CString], pd.Series, NestedDict]
+BatchOutputType = Union[pa.Table, pd.DataFrame, NestedDict]
 
 
 def from_pyarrow_to_torch_tensor(
-    arr: tp.Union[pa.Array, pa.ChunkedArray], strict: bool = True
+    arr: Union[pa.Array, pa.ChunkedArray], strict: bool = True
 ) -> NestedDictValue:
     """
     struct_array = pa.Array.from_pandas([{"x": 4, "y": "RR"}] * 10)
@@ -97,51 +108,10 @@ def pyarrow_table_to_torch_dict(tt: pa.Table, strict: bool = True) -> NestedDict
     }
 
 
-def batch_collater(
-    inp: tp.List[Tensor], padding: tp.Optional[int]
-) -> tp.Dict[str, tp.Union[bool, Tensor]]:
-    # TODO: replace it with fairseq2 Collater
-    seq_lens = torch.IntTensor([x.shape[0] for x in inp])
-    return {
-        "seqs": torch.nested.to_padded_tensor(
-            torch.nested.as_nested_tensor(inp), padding=padding
-        ),
-        "seq_lens": seq_lens,
-        # "is_ragged": False
-        # if len(seq_lens) == 0
-        # else bool((seq_lens != seq_lens[0]).any().item()),
-    }
-
-
-def map_structure(func, nested_object):  # type: ignore
-    """Map a function over torch.Tensor in a (possibly nested) collection.
-    Similar `to tf.nest.map_structure`.
-    See also https://texar-pytorch.readthedocs.io/en/latest/_modules/texar/torch/utils/utils.html#map_structure
-    """
-    if isinstance(nested_object, list):
-        return [map_structure(func, x) for x in nested_object]
-    if isinstance(nested_object, tuple):
-        if isinstance(nested_object, torch.Size):
-            return func(nested_object)
-        if hasattr(nested_object, "_fields"):  # namedtuple
-            return type(nested_object)(*[map_structure(func, x) for x in nested_object])
-        else:
-            return tuple(map_structure(func, x) for x in nested_object)
-
-    if isinstance(nested_object, dict):
-        return {k: map_structure(func, v) for k, v in nested_object.items()}
-    if isinstance(nested_object, set):
-        return {map_structure(func, x) for x in nested_object}
-    if isinstance(nested_object, torch.Tensor):
-        return func(nested_object)
-    else:
-        return nested_object
-
-
 def init_parquet_dataset(
     parquet_path: str,
-    filters: tp.Optional[pa.dataset.Expression] = None,
-    filesystem: tp.Optional[pa.fs.FileSystem] = None,
+    filters: Optional[pa.dataset.Expression] = None,
+    filesystem: Optional[pa.fs.FileSystem] = None,
 ) -> pq.ParquetDataset:
     source_ds = pq.ParquetDataset(
         parquet_path,
@@ -154,7 +124,7 @@ def init_parquet_dataset(
 
 def get_dataset_fragments(
     dataset: pq.ParquetDataset, filters: pa.dataset.Expression
-) -> tp.List[pa.dataset.Fragment]:
+) -> List[pa.dataset.Fragment]:
     """
     This could be simplified once `split_row_groups=True` is implemented at `pq.ParquetDataset`.
     We could also return a generator instead of list (when getting full infos from S3 may be slow)
@@ -164,12 +134,12 @@ def get_dataset_fragments(
 
 def split_fragment_in_row_groups(
     fragment: pa.dataset.Fragment,
-) -> tp.List[pa.dataset.Fragment]:
+) -> List[pa.dataset.Fragment]:
     return list(fragment.split_by_row_group())
 
 
 def add_partitioning_values(
-    table: pa.Table, fragment: pa.dataset.Fragment, columns: tp.Optional[tp.List[str]]
+    table: pa.Table, fragment: pa.dataset.Fragment, columns: Optional[List[str]]
 ) -> pa.Table:
     """
     When loading a single fragment, pyarrow does not add the partitioning columns,
@@ -185,7 +155,7 @@ def add_partitioning_values(
 
 
 def load_one_fragment(
-    fragment: pa.dataset.Fragment, columns: tp.Optional[tp.List[str]] = None
+    fragment: pa.dataset.Fragment, columns: Optional[List[str]] = None
 ) -> pa.Table:
     fragment_columns = columns
     if fragment_columns is not None:
@@ -199,7 +169,7 @@ def load_one_fragment(
 
 def apply_filter(
     table: pa.Table,
-    filters: tp.Optional[pa.dataset.Expression] = None,
+    filters: Optional[pa.dataset.Expression] = None,
     drop_null: bool = True,
 ) -> pa.Table:
     if drop_null:
@@ -209,16 +179,19 @@ def apply_filter(
     return table
 
 
-def concat_table(tables: tp.List[pa.Table]) -> pa.Table:
-    return pa.concat_tables(
+def concat_table(tables: List[pa.Table], combine: bool = True) -> pa.Table:
+    result = pa.concat_tables(
         tables,
         promote_options="permissive",  # needed to get deal with empty segments
-    ).combine_chunks()
+    )
+    if combine:
+        result = result.combine_chunks()
+    return result
 
 
 def compute_length_splits(
-    length_col: npt.NDArray[np.int32], max_tokens: int
-) -> tp.List[npt.NDArray[np.int32]]:
+    length_col: NDArray[np.int32], max_tokens: int
+) -> List[NDArray[np.int32]]:
     """split sequence of length_col in the chunks such that total length is ~ max_tokens
         countint the padding to max length of elements in a chunk
 
@@ -227,7 +200,7 @@ def compute_length_splits(
         max_tokens (int):
 
     Returns:
-        tp.List[np.ndarray]: splits that contain indices over the original length_col
+        List[np.ndarray]: splits that contain indices over the original length_col
     """
     argsort_ind = np.argsort(length_col)
     # TODO: remove 0 lengths
@@ -246,7 +219,7 @@ def compute_length_splits(
     return splits
 
 
-def compute_rows_length(pa_array: pa.Array) -> npt.NDArray[np.int32]:
+def compute_rows_length(pa_array: pa.Array) -> NDArray[np.int32]:
     type_ = pa_array.type
     if pa.types.is_list(type_) or pa.types.is_large_list(type_):
         length_col = pa.compute.list_value_length(pa_array).to_numpy()
@@ -270,7 +243,7 @@ class _TableWrapper:
         self.table: pa.Table = table
 
 
-def _to_real_object(x: tp.Union[_TableWrapper, NestedDict]) -> BatchOutputType:
+def _to_real_object(x: Union[_TableWrapper, NestedDict]) -> BatchOutputType:
     if isinstance(x, _TableWrapper):
         return x.table
     elif isinstance(x, list):
@@ -294,12 +267,12 @@ def table_func_wrap(func):  # type: ignore
 
 def list_parquet_fragments(
     parquet_path: str,
-    filters: tp.Optional[pa.dataset.Expression] = None,
-    columns: tp.Optional[tp.List[str]] = None,
+    filters: Optional[pa.dataset.Expression] = None,
+    columns: Optional[List[str]] = None,
     split_to_row_groups: bool = True,
-    filesystem: tp.Optional[pa.fs.FileSystem] = None,
-    shuffle_window: tp.Optional[int] = None,
-    seed: tp.Optional[int] = None,
+    filesystem: Optional[pa.fs.FileSystem] = None,
+    shuffle_window: Optional[int] = None,
+    seed: Optional[int] = None,
 ) -> DataPipelineBuilder:
     dataset = init_parquet_dataset(parquet_path, filters=filters, filesystem=filesystem)
     columns = columns or dataset.schema.names
@@ -307,31 +280,32 @@ def list_parquet_fragments(
 
     pipeline_builder = read_sequence(get_dataset_fragments(dataset, filters))
 
-    if shuffle_window is not None:
-        if seed is not None:
-            torch.manual_seed(seed)  # used by `DataPipeline.shuffle`
-        # shuffle them in full memory since fragments are already known
-        pipeline_builder = pipeline_builder.shuffle(shuffle_window=0)
-
-    if split_to_row_groups:
-        pipeline_builder = pipeline_builder.yield_from(
-            lambda fragment: read_sequence(
-                split_fragment_in_row_groups(fragment)
-            ).and_return()
-        )
+    with torch_random_seed(seed):
         if shuffle_window is not None:
-            pipeline_builder = pipeline_builder.shuffle(shuffle_window=shuffle_window)
+            # shuffle them in full memory since fragments are already known
+            pipeline_builder = pipeline_builder.shuffle(shuffle_window=0)
+
+        if split_to_row_groups:
+            pipeline_builder = pipeline_builder.yield_from(
+                lambda fragment: read_sequence(
+                    split_fragment_in_row_groups(fragment)
+                ).and_return()
+            )
+            if shuffle_window is not None:
+                pipeline_builder = pipeline_builder.shuffle(
+                    shuffle_window=shuffle_window
+                )
 
     return pipeline_builder
 
 
 def build_iterator_over_one_table(
     table: pa.Table,
-    order_by_length: tp.Optional[str] = None,
-    batch_size: tp.Optional[int] = None,
-    max_tokens: tp.Optional[int] = None,
+    order_by_length: Optional[str] = None,
+    batch_size: Optional[int] = None,
+    max_tokens: Optional[int] = None,
     shuffle: bool = True,
-    seed: tp.Optional[int] = None,
+    seed: Optional[int] = None,
     num_parallel_calls: int = 8,
 ) -> DataPipeline:
     random_state = np.random.RandomState(seed)
