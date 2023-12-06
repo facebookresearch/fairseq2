@@ -19,7 +19,7 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-from fairseq2.utils.parquet_dataloader import (
+from recipes.parquet.parquet_dataloader import (
     ParquetBasicDataloaderConfig,
     ParquetBatchFormat,
     parquet_iterator,
@@ -98,7 +98,7 @@ class TestParquetDataloader(unittest.TestCase):
         config = ParquetBasicDataloaderConfig(
             parquet_path=self._tmp_parquet_ds_path,
             batch_size=11,
-            nb_producers=2,
+            nb_parallel_fragments=2,
             seed=333,
         )
         res: tp.List[pd.DataFrame] = list(parquet_iterator(config))
@@ -126,7 +126,7 @@ class TestParquetDataloader(unittest.TestCase):
         config_new = ParquetBasicDataloaderConfig(
             parquet_path=self._tmp_parquet_ds_path,
             batch_size=11,
-            nb_producers=2,
+            nb_parallel_fragments=2,
             seed=333,
             output_format=ParquetBatchFormat.pandas,
         )
@@ -145,7 +145,7 @@ class TestParquetDataloader(unittest.TestCase):
         config_another_seed = ParquetBasicDataloaderConfig(
             parquet_path=self._tmp_parquet_ds_path,
             batch_size=11,
-            nb_producers=2,
+            nb_parallel_fragments=2,
             seed=111,
             output_format=ParquetBatchFormat.pandas,
         )
@@ -158,7 +158,7 @@ class TestParquetDataloader(unittest.TestCase):
         config = ParquetBasicDataloaderConfig(
             parquet_path=self._tmp_parquet_ds_path,
             batch_size=3,
-            nb_producers=5,
+            nb_parallel_fragments=5,
             seed=111,
             columns=["string_col2", "list_int_col", "float_col"],
             filters=[("float_col", ">", 0)],
@@ -176,7 +176,7 @@ class TestParquetDataloader(unittest.TestCase):
         config = ParquetBasicDataloaderConfig(
             parquet_path=self._tmp_parquet_ds_path,
             batch_size=3,
-            nb_producers=5,
+            nb_parallel_fragments=5,
             seed=111,
             min_batch_size=3,
             columns=["string_col2", "list_int_col", "float_col"],
@@ -190,7 +190,7 @@ class TestParquetDataloader(unittest.TestCase):
         config = ParquetBasicDataloaderConfig(
             parquet_path=self._tmp_parquet_ds_path,
             batch_size=20,
-            nb_producers=20,
+            nb_parallel_fragments=20,
             order_by_length="list_int_col",
             seed=123,
             output_format=ParquetBatchFormat.pandas,
@@ -207,7 +207,7 @@ class TestParquetDataloader(unittest.TestCase):
     def test_ordered_max_token_dataload(self) -> None:
         config = ParquetBasicDataloaderConfig(
             parquet_path=self._tmp_parquet_ds_path,
-            nb_producers=20,
+            nb_parallel_fragments=20,
             order_by_length="list_int_col",
             max_tokens=3000,
             seed=123,
@@ -230,7 +230,7 @@ class TestParquetDataloader(unittest.TestCase):
     def test_ordered_max_token_single_file_dataload(self) -> None:
         config = ParquetBasicDataloaderConfig(
             parquet_path=self._tmp_parquet_single_path,
-            nb_producers=2,
+            nb_parallel_fragments=2,
             batch_size=10,
             seed=333,
         )
@@ -253,7 +253,7 @@ class TestParquetDataloader(unittest.TestCase):
     def test_dataload_without_shuffle(self) -> None:
         config = ParquetBasicDataloaderConfig(
             parquet_path=self._tmp_parquet_ds_path,
-            nb_producers=4,
+            nb_parallel_fragments=4,
             nb_prefetch=2,
             num_parallel_calls=3,
             shuffle=False,
@@ -268,7 +268,7 @@ class TestParquetDataloader(unittest.TestCase):
     def test_dataload_max_row_groups(self) -> None:
         config = ParquetBasicDataloaderConfig(
             parquet_path=self._tmp_parquet_single_path,
-            nb_producers=1,
+            nb_parallel_fragments=1,
             nb_prefetch=2,
             num_parallel_calls=3,
             batch_size=250,
@@ -279,7 +279,7 @@ class TestParquetDataloader(unittest.TestCase):
 
         config = ParquetBasicDataloaderConfig(
             parquet_path=self._tmp_parquet_single_path,
-            nb_producers=2,  # increasing this
+            nb_parallel_fragments=2,  # increasing this
             nb_prefetch=2,
             num_parallel_calls=3,
             batch_size=250,

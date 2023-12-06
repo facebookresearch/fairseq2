@@ -17,16 +17,16 @@ from fairseq2.data.data_pipeline import DataPipelineBuilder
 from fairseq2.data.text import SentencePieceEncoder
 from fairseq2.models.nllb.tokenizer import NllbTokenizer
 from fairseq2.typing import Device
-from fairseq2.utils.parquet_dataloader import (
-    ParquetBasicDataloaderConfig,
-    ParquetBatchFormat,
-    build_parquet_iterator_pipeline,
-)
 from fairseq2.utils.parquet_tools import (
     NestedDict,
     batch_collater,
     map_structure,
     pyarrow_cpu,
+)
+from recipes.parquet.parquet_dataloader import (
+    ParquetBasicDataloaderConfig,
+    ParquetBatchFormat,
+    build_parquet_iterator_pipeline,
 )
 
 NestedDictTensor = tp.Dict[str, "NestedDictTensorValue"]

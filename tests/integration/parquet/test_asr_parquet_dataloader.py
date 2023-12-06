@@ -20,7 +20,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 
 from fairseq2.models.nllb import load_nllb_tokenizer
-from fairseq2.utils.asr_parquet_dataloader import (
+from recipes.parquet.asr_parquet_dataloader import (
     ASRBatchIterator,
     ASRDataLoadingConfig,
     SeqsBatch,
@@ -82,7 +82,7 @@ class TestASRParquetDataloader(unittest.TestCase):
             filters=[("src_lang", "in", ["eng_Latn", "deu_Latn", "fra_Latn"])],
             order_by_length="audio_wav",
             text_tokenizer=self._tokenizer,  # type: ignore
-            nb_producers=4,
+            nb_parallel_fragments=4,
             num_parallel_calls=2,
         )
 

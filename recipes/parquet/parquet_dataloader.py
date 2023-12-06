@@ -105,22 +105,21 @@ class ParquetBasicDataloaderConfig:
     min_batch_size: int = 1
     """Drops batches whose length < `min_batch_size`"""
 
-    nb_producers: int = 5
-    """Number of parquet partitions read allowed to be read synonymously.
+    nb_parallel_fragments: int = 5
+    """Number of parquet fragments read allowed to be read synonymously.
        Higher values will result in higher speed, better randomization and higher memory footprint.
-       If partitions size is rather small compared to batch size, we recommend to increase nb_producers.
+       If partitions size is rather small compared to batch size, we recommend to increase nb_parallel_fragments.
     """
 
     nb_prefetch: int = 2
     """
-    Nb of producers groups (of size `nb_producers`) to prefetch
+    Nb of producers groups (of size `nb_parallel_fragments`) to prefetch
     """
+    world_size: int = 1
+    """The world size of the process group."""
 
     rank: int = 0
     """The rank of this worker in the process group."""
-
-    world_size: int = 1
-    """The world size of the process group."""
 
     num_parallel_calls: int = 8
     """The number of parallel calls in map operations."""
@@ -143,7 +142,7 @@ class ParquetBasicDataloaderConfig:
         assert self.world_size >= 1
         assert self.world_size - 1 >= self.rank >= 0
         assert self.nb_prefetch >= 1
-        assert self.nb_producers >= 1
+        assert self.nb_parallel_fragments >= 1
 
         assert self.min_batch_size >= 0
         assert self.batch_size is None or self.batch_size > 0
@@ -183,7 +182,7 @@ def build_parquet_iterator_pipeline(
             columns=config.columns,
             split_to_row_groups=config.split_to_row_groups,
             filesystem=config.filesystem,
-            shuffle_window=2 * config.nb_prefetch * config.nb_producers
+            shuffle_window=2 * config.nb_prefetch * config.nb_parallel_fragments
             if config.shuffle
             else None,
             seed=config.seed,
@@ -200,7 +199,7 @@ def build_parquet_iterator_pipeline(
                 )
             )
         )
-        .bucket(config.nb_producers)
+        .bucket(config.nb_parallel_fragments)
         .prefetch(config.nb_prefetch)
         .map(
             table_func_wrap(concat_table),
@@ -229,7 +228,8 @@ def parquet_iterator(
     """
     Example of usage :
 
-       >>> from fairseq2.utils.parquet_dataloader import ParquetBasicDataloaderConfig, parquet_iterator
+       >>> from recipes.parquet.parquet_dataloader import (
+       ...    ParquetBasicDataloaderConfig, ParquetBatchFormat, build_parquet_iterator_pipeline)
        >>> from tqdm.auto import tqdm
        >>> bpd_config = ParquetBasicDataloaderConfig(parquet_path="...", batch_size=20,
        ...                                           columns=["src_text", "src_lang", "audio_wav"],
