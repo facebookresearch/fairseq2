@@ -33,7 +33,7 @@ def pyarrow_cpu(nb_cpu: int) -> Generator[None, None, None]:
 
 
 @contextmanager
-def torch_random_seed(seed: int = None) -> Generator[None, None, None]:
+def torch_random_seed(seed: Optional[int] = None) -> Generator[None, None, None]:
     if seed is not None:
         torch.manual_seed(seed)
     yield
