@@ -137,16 +137,8 @@ class ParquetBasicDataloaderConfig:
     """
 
     def __post_init__(self) -> None:
-        assert self.parquet_path, "requires path"
-        assert self.num_parallel_calls >= 1
-        assert self.world_size >= 1
-        assert self.world_size - 1 >= self.rank >= 0
-        assert self.nb_prefetch >= 1
-        assert self.nb_parallel_fragments >= 1
-
-        assert self.min_batch_size >= 0
-        assert self.batch_size is None or self.batch_size > 0
-        assert self.max_tokens is None or self.max_tokens > 0
+        if not self.parquet_path:
+            raise ValueError(f"requires non-empty path got {self.parquet_path}")
 
         if not ((self.batch_size is None) ^ (self.max_tokens is None)):
             raise ValueError("need to provide either `batch_size` either `max_tokens`")

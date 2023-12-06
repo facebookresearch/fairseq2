@@ -54,7 +54,8 @@ def from_pyarrow_to_torch_tensor(
     # for future ideas https://arrow.apache.org/docs/python/generated/pyarrow.Tensor.html
     # for sparse matrix support https://github.com/apache/arrow/blob/main/python/pyarrow/tests/test_sparse_tensor.py
 
-    assert arr.null_count == 0, "does not support null values yet"
+    if arr.null_count != 0:
+        raise ValueError("to torch conversion does not support null values")
 
     if isinstance(arr, pa.ChunkedArray):
         arr = arr.chunks[0] if arr.num_chunks == 1 else arr.combine_chunks()
@@ -276,7 +277,10 @@ def list_parquet_fragments(
 ) -> DataPipelineBuilder:
     dataset = init_parquet_dataset(parquet_path, filters=filters, filesystem=filesystem)
     columns = columns or dataset.schema.names
-    assert set(columns).issubset(set(dataset.schema.names))
+    if not set(columns).issubset(set(dataset.schema.names)):
+        raise ValueError(
+            f"columns {sorted(set(columns) - set(dataset.schema.names))} are not found in the dataset schema"
+        )
 
     pipeline_builder = read_sequence(get_dataset_fragments(dataset, filters))
 
