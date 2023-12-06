@@ -9,14 +9,14 @@ import random
 import shutil
 import string
 import tempfile
-import unittest
 from collections import Counter
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, Generator, List, Union
 
 import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
+import pytest
 from numpy.typing import NDArray
 
 from recipes.parquet.parquet_dataloader import (
@@ -72,59 +72,55 @@ def generated_partitioned_parquet_file(
     )
 
 
-class TestParquetDataloader(unittest.TestCase):
-    _tmpdir: str
-    _tmp_parquet_ds_path: str
-    _tmp_parquet_single_path: str
+@pytest.fixture()
+def single_file() -> Generator[str, None, None]:
+    tmpdir = tempfile.mkdtemp()
+    tmp_parquet_ds_path = os.path.join(tmpdir, "test")
+    generated_partitioned_parquet_file(
+        tmp_parquet_ds_path, size=10**3, n_partitions=0
+    )
+    yield tmp_parquet_ds_path
+    shutil.rmtree(tmpdir)
 
-    @classmethod
-    def setUpClass(cls) -> None:
-        cls._tmpdir = tempfile.mkdtemp()
-        cls._tmp_parquet_ds_path = os.path.join(cls._tmpdir, "test")
-        generated_partitioned_parquet_file(cls._tmp_parquet_ds_path, size=2 * 10**3)
 
-        cls._tmp_parquet_single_path = os.path.join(cls._tmpdir, "single_test.parquet")
-        generated_partitioned_parquet_file(
-            cls._tmp_parquet_single_path, size=10**3, n_partitions=0
-        )
+@pytest.fixture()
+def multi_partition_file() -> Generator[str, None, None]:
+    tmpdir = tempfile.mkdtemp()
+    tmp_parquet_ds_path = os.path.join(tmpdir, "test")
+    generated_partitioned_parquet_file(tmp_parquet_ds_path, size=2 * 10**3)
+    yield tmp_parquet_ds_path
+    shutil.rmtree(tmpdir)
 
-    @classmethod
-    def tearDownClass(cls) -> None:
-        # Cleanup temp working dir.
-        if cls._tmpdir is not None:
-            shutil.rmtree(cls._tmpdir)  # type: ignore
 
-    def test_simple_dataload(self) -> None:
+class TestParquetDataloader:
+    def test_simple_dataload(self, multi_partition_file: str) -> None:
         config = ParquetBasicDataloaderConfig(
-            parquet_path=self._tmp_parquet_ds_path,
+            parquet_path=multi_partition_file,
             batch_size=11,
             nb_parallel_fragments=2,
             seed=333,
         )
         res: List[pd.DataFrame] = list(parquet_iterator(config))
 
-        for x in res:
-            self.assertIsInstance(x, pa.Table)
+        assert all(isinstance(x, pa.Table) for x in res)
 
-        self.assertEqual(
-            list(res[0].to_pandas().columns),
-            [
-                "int_col",
-                "float_col",
-                "string_col1",
-                "string_col2",
-                "list_int_col",
-                "list_float_col",
-                "list_float_fixed_size_col",
-                "part_key",
-            ],
-        )
-        self.assertEqual(Counter(map(len, res)), Counter({11: 180, 2: 10}))  # 180 * 11
-        self.assertEqual(sum(map(len, res)), 2000)
+        assert list(res[0].to_pandas().columns) == [
+            "int_col",
+            "float_col",
+            "string_col1",
+            "string_col2",
+            "list_int_col",
+            "list_float_col",
+            "list_float_fixed_size_col",
+            "part_key",
+        ]
+
+        assert Counter(map(len, res)) == Counter({11: 180, 2: 10})  # 180 * 11
+        assert sum(map(len, res)) == 2000
 
         # determinism check
         config_new = ParquetBasicDataloaderConfig(
-            parquet_path=self._tmp_parquet_ds_path,
+            parquet_path=multi_partition_file,
             batch_size=11,
             nb_parallel_fragments=2,
             seed=333,
@@ -132,31 +128,28 @@ class TestParquetDataloader(unittest.TestCase):
         )
         res_bis = list(parquet_iterator(config_new))
 
-        for x in res_bis:
-            self.assertIsInstance(x, pd.DataFrame)
+        assert all(isinstance(x, pd.DataFrame) for x in res_bis)
 
-        self.assertTrue(
-            all(
-                (x["float_col"].to_pandas() == y["float_col"]).all()
-                for x, y in zip(res, res_bis)
-            )
+        assert all(
+            (x["float_col"].to_pandas() == y["float_col"]).all()
+            for x, y in zip(res, res_bis)
         )
 
         config_another_seed = ParquetBasicDataloaderConfig(
-            parquet_path=self._tmp_parquet_ds_path,
+            parquet_path=multi_partition_file,
             batch_size=11,
             nb_parallel_fragments=2,
             seed=111,
             output_format=ParquetBatchFormat.pandas,
         )
         res_ter = list(parquet_iterator(config_another_seed))
-        self.assertTrue(
-            any((x["float_col"] != y["float_col"]).any() for x, y in zip(res, res_ter))
+        assert any(
+            (x["float_col"] != y["float_col"]).any() for x, y in zip(res, res_ter)
         )
 
-    def test_filtered_with_columns_dataload(self) -> None:
+    def test_filtered_with_columns_dataload(self, multi_partition_file: str) -> None:
         config = ParquetBasicDataloaderConfig(
-            parquet_path=self._tmp_parquet_ds_path,
+            parquet_path=multi_partition_file,
             batch_size=3,
             nb_parallel_fragments=5,
             seed=111,
@@ -167,14 +160,15 @@ class TestParquetDataloader(unittest.TestCase):
 
         res: List[pd.DataFrame] = list(parquet_iterator(config))
 
-        self.assertEqual(
-            list(res[0].columns), ["string_col2", "list_int_col", "float_col"]
-        )
-        self.assertEqual(Counter(map(len, res)), Counter({3: 339, 1: 3, 2: 1}))
+        assert list(res[0].columns) == ["string_col2", "list_int_col", "float_col"]
 
-    def test_filtered_with_columns_dataload_min_batch_size(self) -> None:
+        assert Counter(map(len, res)) == Counter({3: 339, 1: 3, 2: 1})
+
+    def test_filtered_with_columns_dataload_min_batch_size(
+        self, multi_partition_file: str
+    ) -> None:
         config = ParquetBasicDataloaderConfig(
-            parquet_path=self._tmp_parquet_ds_path,
+            parquet_path=multi_partition_file,
             batch_size=3,
             nb_parallel_fragments=5,
             seed=111,
@@ -184,11 +178,11 @@ class TestParquetDataloader(unittest.TestCase):
             output_format=ParquetBatchFormat.pandas,
         )
         res = list(parquet_iterator(config))
-        self.assertEqual(Counter(map(len, res)), Counter({3: 339}))
+        assert Counter(map(len, res)) == Counter({3: 339})
 
-    def test_ordered_dataload(self) -> None:
+    def test_ordered_dataload(self, multi_partition_file: str) -> None:
         config = ParquetBasicDataloaderConfig(
-            parquet_path=self._tmp_parquet_ds_path,
+            parquet_path=multi_partition_file,
             batch_size=20,
             nb_parallel_fragments=20,
             order_by_length="list_int_col",
@@ -200,13 +194,13 @@ class TestParquetDataloader(unittest.TestCase):
         length_by_batches_diff = max(tt.max() - tt.min() for tt in length_by_batches)
         total_length = sum(map(len, length_by_batches))
 
-        self.assertLess(length_by_batches_diff, 4)
-        self.assertEqual(total_length, 2000)
-        self.assertTrue(all(len(tt) == 20 for tt in length_by_batches))
+        assert length_by_batches_diff < 4
+        assert total_length == 2000
+        assert all(len(tt) == 20 for tt in length_by_batches)
 
-    def test_ordered_max_token_dataload(self) -> None:
+    def test_ordered_max_token_dataload(self, multi_partition_file: str) -> None:
         config = ParquetBasicDataloaderConfig(
-            parquet_path=self._tmp_parquet_ds_path,
+            parquet_path=multi_partition_file,
             nb_parallel_fragments=20,
             order_by_length="list_int_col",
             max_tokens=3000,
@@ -222,37 +216,35 @@ class TestParquetDataloader(unittest.TestCase):
         )
         total_length = sum(map(len, length_by_batches))
 
-        self.assertLessEqual(length_by_batches_diff, 12)
-        self.assertEqual(total_length, 2000)
-        self.assertLessEqual(max_padded_total_length, 3000)
-        self.assertGreater(mean_padded_total_length, 2900)
+        assert length_by_batches_diff <= 12
+        assert total_length == 2000
+        assert max_padded_total_length <= 3000
+        assert mean_padded_total_length >= 2900
 
-    def test_ordered_max_token_single_file_dataload(self) -> None:
+    def test_ordered_max_token_single_file_dataload(self, single_file: str) -> None:
         config = ParquetBasicDataloaderConfig(
-            parquet_path=self._tmp_parquet_single_path,
+            parquet_path=single_file,
             nb_parallel_fragments=2,
             batch_size=10,
             seed=333,
         )
         res: List[pa.Table] = list(parquet_iterator(config))
 
-        self.assertEqual(Counter(map(len, res)), Counter({10: 100}))
-        self.assertEqual(
-            res[0].column_names,
-            [
-                "int_col",
-                "float_col",
-                "string_col1",
-                "string_col2",
-                "list_int_col",
-                "list_float_col",
-                "list_float_fixed_size_col",
-            ],
-        )
+        assert Counter(map(len, res)) == Counter({10: 100})
 
-    def test_dataload_without_shuffle(self) -> None:
+        assert res[0].column_names == [
+            "int_col",
+            "float_col",
+            "string_col1",
+            "string_col2",
+            "list_int_col",
+            "list_float_col",
+            "list_float_fixed_size_col",
+        ]
+
+    def test_dataload_without_shuffle(self, multi_partition_file: str) -> None:
         config = ParquetBasicDataloaderConfig(
-            parquet_path=self._tmp_parquet_ds_path,
+            parquet_path=multi_partition_file,
             nb_parallel_fragments=4,
             nb_prefetch=2,
             num_parallel_calls=3,
@@ -261,13 +253,13 @@ class TestParquetDataloader(unittest.TestCase):
             columns=["float_col"],
         )
         res = pa.concat_tables(list(parquet_iterator(config)))
-        res_relaod = pq.read_table(self._tmp_parquet_ds_path, columns=["float_col"])
+        res_relaod = pq.read_table(multi_partition_file, columns=["float_col"])
 
-        self.assertTrue(res.equals(res_relaod))
+        assert res.equals(res_relaod)
 
-    def test_dataload_max_row_groups(self) -> None:
+    def test_dataload_max_row_groups(self, single_file: str) -> None:
         config = ParquetBasicDataloaderConfig(
-            parquet_path=self._tmp_parquet_single_path,
+            parquet_path=single_file,
             nb_parallel_fragments=1,
             nb_prefetch=2,
             num_parallel_calls=3,
@@ -275,10 +267,10 @@ class TestParquetDataloader(unittest.TestCase):
         )
         res = list(list(parquet_iterator(config)))
 
-        self.assertEqual(Counter(list(map(len, res))), Counter({110: 9, 10: 1}))
+        assert Counter(list(map(len, res))) == Counter({110: 9, 10: 1})
 
         config = ParquetBasicDataloaderConfig(
-            parquet_path=self._tmp_parquet_single_path,
+            parquet_path=single_file,
             nb_parallel_fragments=2,  # increasing this
             nb_prefetch=2,
             num_parallel_calls=3,
@@ -286,4 +278,4 @@ class TestParquetDataloader(unittest.TestCase):
         )
         res = list(list(parquet_iterator(config)))
 
-        self.assertEqual(Counter(list(map(len, res))), Counter({220: 4, 120: 1}))
+        assert Counter(list(map(len, res))) == Counter({220: 4, 120: 1})
