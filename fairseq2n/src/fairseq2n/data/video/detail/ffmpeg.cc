@@ -34,7 +34,7 @@ ffmpeg_decoder::open_container(const memory_block &block)
     // Opens the media container and iterates over streams.
 
     auto data_ptr = reinterpret_cast<const uint8_t*>(block.data());
-    //av_register_all();
+    av_register_all();
     size_t data_size = block.size();
     fairseq2n::detail::buffer_data bd = {data_ptr, data_size};   
     int ret = 0;
