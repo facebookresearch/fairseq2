@@ -13,8 +13,6 @@
 
 #include <ATen/Device.h>
 #include <ATen/ScalarType.h>
-#include <png.h>
-#include <jpeglib.h>
 
 namespace fairseq2n {
 
@@ -68,7 +66,7 @@ public:
 private:
     image_decoder_options opts_;
 
-    static bool 
+    static bool
     is_little_endian();
 
     data
@@ -77,4 +75,5 @@ private:
     data
     decode_jpeg(const memory_block &block) const;
 };
+
 }  // namespace fairseq2n

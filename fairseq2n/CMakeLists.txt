@@ -87,6 +87,13 @@ option(FAIRSEQ2N_TREAT_WARNINGS_AS_ERRORS
         OFF
 )
 
+option(FAIRSEQ2N_SUPPORT_IMAGE
+    #DESCRIPTION
+        "Supports JPEG/PNG decoding."
+    #VALUE
+        ON
+)
+
 option(FAIRSEQ2N_USE_LIBTORCH
     #DESCRIPTION
         "Uses libtorch instead of PyTorch."
@@ -159,6 +166,12 @@ find_package(Iconv REQUIRED)
 find_package(SndFile 1.0.25 REQUIRED)
 
 find_package(Threads REQUIRED)
+
+if(FAIRSEQ2N_SUPPORT_IMAGE)
+    find_package(JPEG REQUIRED)
+
+    find_package(PNG REQUIRED)
+endif()
 
 if(FAIRSEQ2N_THREAD_LIB STREQUAL "tbb")
     find_package(TBB 2021.8 REQUIRED)
