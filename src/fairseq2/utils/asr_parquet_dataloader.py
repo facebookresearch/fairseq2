@@ -277,7 +277,7 @@ class ASRBatchIterator:
         def prefix_fn(lang_tok: CString) -> Tensor:
             return torch.LongTensor(
                 [
-                    self.config.text_tokenizer.create_encoder(
+                    self.config.text_tokenizer.create_encoder(  # type: ignore
                         lang=str(lang_tok),
                         mode="target",
                     ).prefix_indices.tolist(),

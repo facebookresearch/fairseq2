@@ -298,7 +298,7 @@ def list_parquet_fragments(
     columns: tp.Optional[tp.List[str]] = None,
     split_to_row_groups: bool = True,
     filesystem: tp.Optional[pa.fs.FileSystem] = None,
-    shuffle_window: tp.Optional[bool] = None,
+    shuffle_window: tp.Optional[int] = None,
     seed: tp.Optional[int] = None,
 ) -> DataPipelineBuilder:
     dataset = init_parquet_dataset(parquet_path, filters=filters, filesystem=filesystem)
