@@ -5,7 +5,8 @@
 # LICENSE file in the root directory of this source tree.
 
 import re
-from typing import Any, Callable, Dict, Mapping, NoReturn, Optional, Protocol, Union
+import warnings
+from typing import Any, Callable, Dict, Mapping, Optional, Protocol, Union
 
 import torch
 from torch import Tensor
@@ -20,7 +21,7 @@ MapLocation: TypeAlias = Optional[
 
 
 class CheckpointConverter(Protocol):
-    """Converts a checkpoint to make it compatible with fairseq2."""
+    """Converts checkpoints to fairseq2."""
 
     def __call__(self, checkpoint: Mapping[str, Any]) -> Mapping[str, Any]:
         """
@@ -34,9 +35,7 @@ class CheckpointConverter(Protocol):
 
 def load_checkpoint(
     pathname: PathLike,
-    model_name: str,
     *,
-    checkpoint_name: Optional[str] = None,
     map_location: MapLocation = None,
     restrict: bool = False,
     converter: Optional[CheckpointConverter] = None,
@@ -45,45 +44,28 @@ def load_checkpoint(
 
     :param pathname:
         The pathname of the checkpoint.
-    :param model_name:
-        The name of the associated model.
-    :param checkpoint_name:
-        The name of the checkpoint.
     :param map_location:
         Same as the ``map_location`` parameter of :meth:`torch.load`.
     :param restrict:
         If ``True``, restricts the Python unpickler to load only tensors,
         primitive types, and dictionaries.
     :param converter:
-        The callable to which the loaded checkpoint will be passed for further
-        processing. Typically used to upgrade legacy checkpoints.
+        The converter to which the loaded checkpoint will be passed for further
+        processing.
 
     :returns:
         The loaded checkpoint.
     """
+    with warnings.catch_warnings():
+        # Suppress the noisy deprecated `TypedStorage` warning.
+        warnings.simplefilter("ignore")
 
-    def raise_error(cause: Exception) -> NoReturn:
-        if not checkpoint_name:
-            display_name = f"checkpoint of the model '{model_name}'"
-        else:
-            display_name = f"'{checkpoint_name}' checkpoint of the model '{model_name}'"
-
-        raise RuntimeError(
-            f"The load of the {display_name} has failed. See nested exception for details."
-        ) from cause
-
-    try:
         checkpoint: Mapping[str, Any] = torch.load(
             str(pathname), map_location, weights_only=restrict
         )
-    except IOError as ex:
-        raise_error(ex)
 
     if converter is not None:
-        try:
-            checkpoint = converter(checkpoint)
-        except (KeyError, ValueError) as ex:
-            raise_error(ex)
+        checkpoint = converter(checkpoint)
 
     return checkpoint
 
@@ -91,15 +73,15 @@ def load_checkpoint(
 def convert_model_state_dict(
     state_dict: Mapping[str, Any], key_map: Mapping[str, str]
 ) -> Dict[str, Any]:
-    """Make an external model state dictionary fairseq2 compatible.
+    """Convert a model state dictionary to fairseq2.
 
     :param state_dict:
-        The original state dictionary.
+        The original model state dictionary.
     :param key_map:
         A map of regex patterns to fairseq2 model keys.
 
     :returns:
-        A converted state dictionary that is compatible with fairseq2.
+        A converted model state dictionary that is compatible with fairseq2.
     """
     new_state_dict = {}
 
@@ -119,10 +101,10 @@ def convert_model_state_dict(
     return new_state_dict
 
 
-def upgrade_fairseq_checkpoint(
+def convert_fairseq_checkpoint(
     checkpoint: Mapping[str, Any], key_map: Mapping[str, str]
 ) -> Dict[str, Any]:
-    """Upgrade a fairseq checkpoint.
+    """Convert a fairseq checkpoint to fairseq2.
 
     :param checkpoint:
         The original fairseq checkpoint.

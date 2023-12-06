@@ -11,7 +11,7 @@ from torch.nn import GELU, SiLU
 
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
-from fairseq2.models.utils.arch_registry import ArchitectureRegistry
+from fairseq2.models.utils import ArchitectureRegistry
 from fairseq2.models.wav2vec2.feature_extractor import (
     Wav2Vec2FbankFeatureExtractor,
     Wav2Vec2FeatureExtractor,
@@ -195,7 +195,7 @@ class Wav2Vec2EncoderBuilder:
     ) -> None:
         """
         :param config:
-            The configuration to use.
+            The configuration.
         :param device:
             The device on which to initialize modules.
         :param dtype:
@@ -330,7 +330,6 @@ class Wav2Vec2EncoderBuilder:
                 self.config.model_dim // self.config.num_encoder_attn_heads,
                 self.config.max_seq_len,
                 device=self.device,
-                dtype=self.dtype,
             )
         else:
             pos_encoder = None
@@ -347,6 +346,8 @@ class Wav2Vec2EncoderBuilder:
         )
 
     def build_sdpa(self) -> SDPA:
+        sdpa = create_default_sdpa(attn_dropout_p=self.config.attn_dropout_p)
+
         if self.config.pos_encoder_type == "relative":
             if self.rel_pos_encoding is None:
                 self.rel_pos_encoding = RelativePositionalEncoding(
@@ -356,16 +357,16 @@ class Wav2Vec2EncoderBuilder:
                     dtype=self.dtype,
                 )
 
-            return RelativePositionSDPA(
+            sdpa = RelativePositionSDPA(
                 self.config.model_dim,
                 self.config.num_encoder_attn_heads,
                 self.rel_pos_encoding,
-                attn_dropout_p=self.config.attn_dropout_p,
+                inner_sdpa=sdpa,
                 device=self.device,
                 dtype=self.dtype,
             )
 
-        return create_default_sdpa(attn_dropout_p=self.config.attn_dropout_p)
+        return sdpa
 
     def build_conformer_conv(self) -> ConformerConvolution:
         return ConformerConvolution(
@@ -444,8 +445,7 @@ class Wav2Vec2Config:
 
 wav2vec2_archs = ArchitectureRegistry[Wav2Vec2Config]("wav2vec2")
 
-
-wav2vec2_arch = wav2vec2_archs.marker
+wav2vec2_arch = wav2vec2_archs.decorator
 
 
 @wav2vec2_arch("base")
@@ -493,7 +493,7 @@ class Wav2Vec2Builder:
     ) -> None:
         """
         :param config:
-            The configuration to use.
+            The configuration.
         :param encoder_builder_cls:
             The wav2vec 2.0 encoder builder.
         :param device:
@@ -565,7 +565,7 @@ def create_wav2vec2_model(
     """Create a wav2vec 2.0 model.
 
     :param config:
-        The configuration to use.
+        The configuration.
     :param device:
         The device on which to initialize modules.
     :param dtype:

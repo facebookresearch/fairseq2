@@ -4,215 +4,311 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from __future__ import annotations
+from abc import ABC
+from typing import List, Optional, Sequence, Tuple, final
 
-from dataclasses import dataclass
-from typing import List, Optional, Sequence
-
-import torch
 from torch import Tensor
 
 from fairseq2.data import StringLike
 from fairseq2.data.text import TextTokenDecoder, TextTokenEncoder, TextTokenizer
-from fairseq2.generation.sequence_generator import (
+from fairseq2.generation.generator import (
     Seq2SeqGenerator,
-    SequenceGeneratorOptions,
+    Seq2SeqGeneratorOutput,
+    SequenceGenerator,
     SequenceGeneratorOutput,
 )
-from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.nn.padding import PaddingMask, pad_seqs
 from fairseq2.nn.utils.module import infer_device
 
 
-class SequenceToTextGeneratorBase:
-    """Represents an abstract base class for sequence-to-text generators."""
+class SequenceToTextConverterBase(ABC):
+    """Represents an abstract base class for sequence-to-text converters."""
 
-    model: EncoderDecoderModel
-    token_decoder: TextTokenDecoder
     generator: Seq2SeqGenerator
+    target_prefix_seq: Tensor
+    text_decoder: TextTokenDecoder
 
     def __init__(
         self,
-        model: EncoderDecoderModel,
+        generator: Seq2SeqGenerator,
         tokenizer: TextTokenizer,
+        task: str,
         target_lang: Optional[str] = None,
-        opts: Optional[SequenceGeneratorOptions] = None,
     ) -> None:
         """
-        :param model:
-            The encoder-decoder model to use for generation.
+        :param generator:
+            The sequence-to-sequence generator.
         :param tokenizer:
-            The text tokenizer to use.
+            The text tokenizer.
+        :param task:
+            The conversion task (e.g. translation, transcription).
         :param target_lang:
-            The target language.
-        :param opts:
-            The options to pass to the underlying :class:`Seq2SeqGenerator`.
+            The target language for conversion.
         """
-        model.eval()
+        self.generator = generator
 
-        self.model = model
+        device = infer_device(generator.model)
 
-        self.token_decoder = tokenizer.create_decoder()
-
-        device = infer_device(model)
-
-        target_encoder = tokenizer.create_encoder(
-            task="translation", lang=target_lang, mode="target", device=device
+        target_text_encoder = tokenizer.create_encoder(
+            task=task, lang=target_lang, mode="target", device=device
         )
 
-        # Most tokenizers typically use one or more control symbols to indicate
-        # the beginning of a sentence.
-        self.generator = Seq2SeqGenerator(
-            self.model, tokenizer.vocab_info, target_encoder.prefix_indices, opts
-        )
+        # (S)
+        target_prefix_seq = target_text_encoder.prefix_indices
+        if target_prefix_seq is None:
+            raise ValueError(
+                "`tokenizer` must specify a prefix sequence for the target language."
+            )
 
-    @torch.inference_mode()
-    def _do_generate(
-        self, source_seqs: Tensor, source_padding_mask: Optional[PaddingMask]
-    ) -> SequenceToTextOutput:
-        """A subclass should call this function for the actual text generation."""
-        encoder_output, encoder_padding_mask = self.model.encode(
-            source_seqs, source_padding_mask
-        )
+        self.target_prefix_seq = target_prefix_seq
 
-        gen_output = self.generator(
-            encoder_output, encoder_padding_mask, source_seq_len=source_seqs.size(1)
-        )
+        self.text_decoder = tokenizer.create_decoder()
 
-        sentences = [self.token_decoder(b[0].seq) for b in gen_output.results]
+    def _do_convert(
+        self,
+        source_seqs: Tensor,
+        source_padding_mask: Optional[PaddingMask],
+    ) -> Tuple[List[StringLike], Seq2SeqGeneratorOutput]:
+        """A subclass should call this method for actual text conversion.
 
-        return SequenceToTextOutput(
-            sentences, gen_output, encoder_output, encoder_padding_mask
-        )
-
-
-@dataclass
-class SequenceToTextOutput:
-    """Holds the output of a sequence-to-text generation."""
-
-    sentences: List[StringLike]
-    """The generated sentences."""
-
-    generator_output: SequenceGeneratorOutput
-    """The output of the underlying :class:`Seq2SeqGenerator`."""
-
-    encoder_output: Tensor
-    """The encoder output of the underlying encoder-decoder model used to
-    generate the sentences. *Shape:* :math:`(N,S_{enc},M)`, where :math:`N` is
-    the batch size, :math:`S_{enc}` is the encoder output sequence length, and
-    :math:`M` is the dimensionality of the model."""
-
-    encoder_padding_mask: Optional[PaddingMask]
-    """The padding mask of :attr:`encoder_output`. *Shape:* :math:`(N,S_{enc})`,
-    where :math:`N` is the batch size and :math:`S_{enc}` is the encoder output
-    sequence length."""
-
-
-class SequenceToTextGenerator(SequenceToTextGeneratorBase):
-    """Generates text output from input sequences.
-
-    The interpretation of input sequences depends on the underlying encoder-
-    decoder model.
-    """
-
-    def __call__(
-        self, source_seqs: Tensor, source_padding_mask: Optional[PaddingMask]
-    ) -> List[StringLike]:
-        """
         :param source_seqs:
-            The source sequences to use for generation. *Shape:* :math:`(N,S,*)`,
-            where :math:`N` is the batch size, :math:`S` is the sequence length,
-            and :math:`*` is any number of sequence-specific dimensions
-            including none.
+            The source sequences. *Shape:* :math:`(N,S,*)`, where :math:`N` is
+            the batch size, :math:`S` is the sequence length, and :math:`*` is
+            any number of sequence-specific dimensions including none.
         :param source_padding_mask:
             The padding mask of ``source_seqs``. *Shape:* :math:`(N,S)`, where
             :math:`N` is the batch size and :math:`S` is the sequence length.
 
         :returns:
-            The generated text sentences.
+            - The converted texts.
+            - The output of the underlying sequence-to-sequence generator.
         """
-        output = self.generate_ex(source_seqs, source_padding_mask)
+        batch_size = source_seqs.size(0)
 
-        return output.sentences
+        # (S) -> (N, S)
+        target_prefix_seqs = self.target_prefix_seq.expand(batch_size, -1)
 
-    def generate_ex(
-        self, source_seqs: Tensor, source_padding_mask: Optional[PaddingMask]
-    ) -> SequenceToTextOutput:
+        generator_output = self.generator(
+            source_seqs, source_padding_mask, target_prefix_seqs, None
+        )
+
+        texts: List[StringLike] = []
+
+        for idx, hypotheses in enumerate(generator_output.hypotheses):
+            if len(hypotheses) == 0:
+                raise RuntimeError(
+                    f"The sequence generator returned no hypothesis at index {idx}. Please file a bug report."
+                )
+
+            texts.append(self.text_decoder(hypotheses[0].seq))
+
+        return texts, generator_output
+
+
+@final
+class SequenceToTextConverter(SequenceToTextConverterBase):
+    """Converts source sequences to text."""
+
+    def __call__(self, source_seq: Tensor) -> Tuple[StringLike, Seq2SeqGeneratorOutput]:
+        """
+        :param source_seq:
+            The source sequence. *Shape:* :math:`(S,*)`, where :math:`S` is the
+            sequence length and :math:`*` is any number of sequence-specific
+            dimensions including none.
+
+        :returns:
+            - The converted text.
+            - The output of the underlying sequence-to-sequence generator.
+        """
+        texts, generator_output = self._do_convert(
+            source_seq.unsqueeze(0), source_padding_mask=None
+        )
+
+        return texts[0], generator_output
+
+    def batch_convert(
+        self,
+        source_seqs: Tensor,
+        source_padding_mask: Optional[PaddingMask],
+    ) -> Tuple[List[StringLike], Seq2SeqGeneratorOutput]:
         """
         :param source_seqs:
-            The source sequences to use for generation. *Shape:* :math:`(N,S,*)`,
-            where :math:`N` is the batch size, :math:`S` is the sequence length,
-            and :math:`*` is any number of sequence-specific dimensions
-            including none.
+            The source sequences. *Shape:* :math:`(N,S,*)`, where :math:`N` is
+            the batch size, :math:`S` is the sequence length, and :math:`*` is
+            any number of sequence-specific dimensions including none.
         :param source_padding_mask:
             The padding mask of ``source_seqs``. *Shape:* :math:`(N,S)`, where
             :math:`N` is the batch size and :math:`S` is the sequence length.
+
+        :returns:
+            - The converted texts.
+            - The output of the underlying sequence-to-sequence generator.
         """
-        return self._do_generate(source_seqs, source_padding_mask)
+        if len(source_seqs) == 0:
+            raise ValueError(
+                "`source_seqs` must contain at least one element, but is empty instead."
+            )
+
+        return self._do_convert(source_seqs, source_padding_mask)
 
 
-class TextTranslator(SequenceToTextGeneratorBase):
+@final
+class TextTranslator(SequenceToTextConverterBase):
     """Translates text from one language to another."""
 
-    source_encoder: TextTokenEncoder
     pad_idx: int
+    source_text_encoder: TextTokenEncoder
 
     def __init__(
         self,
-        model: EncoderDecoderModel,
+        generator: Seq2SeqGenerator,
         tokenizer: TextTokenizer,
         source_lang: Optional[str] = None,
         target_lang: Optional[str] = None,
-        opts: Optional[SequenceGeneratorOptions] = None,
     ) -> None:
         """
-        :param model:
-            The encoder-decoder model to use for translation.
+        :param generator:
+            The sequence-to-sequence generator.
         :param tokenizer:
-            The text tokenizer to use.
+            The text tokenizer.
         :param source_lang:
             The source language.
         :param target_lang:
             The target language.
-        :param opts:
-            The options to pass to the underlying :class:`Seq2SeqGenerator`.
         """
-        super().__init__(model, tokenizer, target_lang, opts)
+        super().__init__(generator, tokenizer, "translation", target_lang)
 
-        device = infer_device(model)
+        pad_idx = tokenizer.vocab_info.pad_idx
+        if pad_idx is None:
+            raise ValueError(
+                "``vocab_info` of `tokenizer` must have a PAD symbol defined."
+            )
 
-        self.source_encoder = tokenizer.create_encoder(
+        self.pad_idx = pad_idx
+
+        device = infer_device(generator.model)
+
+        self.source_text_encoder = tokenizer.create_encoder(
             task="translation", lang=source_lang, mode="source", device=device
         )
 
-        if tokenizer.vocab_info.pad_idx is None:
-            raise ValueError(
-                "`tokenizer.vocab_info` must have `pad_idx` set for sequence generation."
-            )
-
-        self.pad_idx = tokenizer.vocab_info.pad_idx
-
-    def __call__(self, source_sentences: Sequence[StringLike]) -> List[StringLike]:
+    def __call__(
+        self, source_text: StringLike
+    ) -> Tuple[StringLike, Seq2SeqGeneratorOutput]:
         """
-        :param source_sentences:
-            The sentences in the source language.
+        :param source_text:
+            The text in the source language.
 
         :returns:
-            The translated sentences in target language.
+            - The translated text.
+            - The output of the underlying sequence-to-sequence generator.
         """
-        output = self.translate_ex(source_sentences)
+        source_seq = self.source_text_encoder(source_text)
 
-        return output.sentences
-
-    def translate_ex(
-        self, source_sentences: Sequence[StringLike]
-    ) -> SequenceToTextOutput:
-        """
-        :param source_sentences:
-            The sentences in the source language.
-        """
-        seqs, padding_mask = pad_seqs(
-            [self.source_encoder(s) for s in source_sentences], self.pad_idx
+        translations, generator_output = self._do_convert(
+            source_seq.unsqueeze(0), source_padding_mask=None
         )
 
-        return self._do_generate(seqs, padding_mask)
+        return translations[0], generator_output
+
+    def batch_translate(
+        self, source_texts: Sequence[StringLike]
+    ) -> Tuple[List[StringLike], Seq2SeqGeneratorOutput]:
+        """
+        :param source_texts:
+            The texts in the source language.
+
+        :returns:
+            - The translated texts.
+            - The output of the underlying sequence-to-sequence generator.
+        """
+        if len(source_texts) == 0:
+            raise ValueError(
+                "`source_texts` must contain at least one element, but is empty instead."
+            )
+
+        source_seq_list = [self.source_text_encoder(t) for t in source_texts]
+
+        source_seqs, source_padding_mask = pad_seqs(source_seq_list, self.pad_idx)
+
+        return self._do_convert(source_seqs, source_padding_mask)
+
+
+class TextCompleter:
+    """Completes text prompts."""
+
+    generator: SequenceGenerator
+    text_encoder: TextTokenEncoder
+    text_decoder: TextTokenDecoder
+
+    def __init__(self, generator: SequenceGenerator, tokenizer: TextTokenizer) -> None:
+        """
+        :param generator:
+            The sequence generator.
+        :param tokenizer:
+            The text tokenizer.
+        """
+        self.generator = generator
+
+        device = infer_device(generator.model)
+
+        self.text_encoder = tokenizer.create_encoder(mode="prompt", device=device)
+        self.text_decoder = tokenizer.create_decoder()
+
+    def __call__(
+        self, prompt: StringLike
+    ) -> Tuple[StringLike, SequenceGeneratorOutput]:
+        """
+        :param prompt:
+            The text prompt.
+
+        :returns:
+            - The completed text.
+            - The output of the underlying sequence generator.
+        """
+        prompt_seq = self.text_encoder(prompt)
+
+        texts, generator_output = self._do_complete(
+            prompt_seq.unsqueeze(0), prompt_padding_mask=None
+        )
+
+        return texts[0], generator_output
+
+    def batch_complete(
+        self, prompts: Sequence[StringLike]
+    ) -> Tuple[List[StringLike], SequenceGeneratorOutput]:
+        """
+        :param prompts:
+            The text prompts.
+
+        :returns:
+            - The completed texts.
+            - The output of the underlying sequence generator.
+        """
+        if len(prompts) == 0:
+            raise ValueError(
+                "`prompts` must contain at least one element, but is empty instead."
+            )
+
+        prompt_seq_list = [self.text_encoder(p) for p in prompts]
+
+        prompt_seqs, prompt_padding_mask = pad_seqs(prompt_seq_list)
+
+        return self._do_complete(prompt_seqs, prompt_padding_mask)
+
+    def _do_complete(
+        self, prompt_seqs: Tensor, prompt_padding_mask: Optional[PaddingMask]
+    ) -> Tuple[List[StringLike], SequenceGeneratorOutput]:
+        generator_output = self.generator(prompt_seqs, prompt_padding_mask)
+
+        texts: List[StringLike] = []
+
+        for idx, hypotheses in enumerate(generator_output.hypotheses):
+            if len(hypotheses) == 0:
+                raise RuntimeError(
+                    f"The sequence generator returned no hypothesis at index {idx}. Please file a bug report."
+                )
+
+            texts.append(self.text_decoder(hypotheses[0].seq))
+
+        return texts, generator_output

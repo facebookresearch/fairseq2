@@ -6,13 +6,30 @@
 
 [![Nightly](https://github.com/facebookresearch/fairseq2/actions/workflows/nightly.yaml/badge.svg)](https://github.com/facebookresearch/fairseq2/actions/workflows/nightly.yaml)
 [![PyPI version](https://img.shields.io/pypi/v/fairseq2)](https://pypi.org/project/fairseq2/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Documentation: [Stable](https://facebookresearch.github.io/fairseq2/stable), [Nightly](https://facebookresearch.github.io/fairseq2/nightly)** | **Install: [Linux](#installing-on-linux), [macOS](#installing-on-macos), [Windows](#installing-on-windows), [From Source](#installing-from-source)**
+**Documentation: [Stable](https://facebookresearch.github.io/fairseq2/stable), [Nightly](https://facebookresearch.github.io/fairseq2/nightly)** | **Install: [Linux](#installing-on-linux), [macOS](#installing-on-macos), [Windows](#installing-on-windows), [From Source](INSTALL_FROM_SOURCE.md)** | **Contribute: [Guidelines](CONTRIBUTING.md)**
 
 fairseq2 is a sequence modeling toolkit that allows researchers and developers
 to train custom models for translation, summarization, language modeling, and
 other content generation tasks. It is also the successor of
 [fairseq](https://github.com/facebookresearch/fairseq).
+
+## What is new in v0.2?
+* An implementation of Mistral 7B and Mistral 7B instruct ([arXiv](https://arxiv.org/abs/2310.06825))
+  models with Grouped-Query Attention and Sliding Window Attention. [Check out](./recipes/mistral)
+  the terminal-based interactive demo chat application under recipes.
+* An interactive terminal-based [demo chat application](./recipes/llama) for
+  LLaMA 7B Chat with system prompt support.
+* A new, unified, and efficient [sequence generation API](./src/fairseq2/generation)
+  for both decoder and encoder-decoder models with Beam Search, TopK Sampling,
+  and TopP (a.k.a. Nucleus) Sampling along with toxicity prevention features.
+* Support for PyTorch SDPA/Flash Attention in Relative Position SDPA and Shaw
+  Relative Position SDPA.
+* Lazy [padding mask](./src/fairseq2/nn/padding.py#L18) and [attention mask](./src/fairseq2/nn/transformer/attention_mask.py#L17)
+  initialization for more efficient integration with fused SDPA implementations.
+* A new [sampling operator](./src/fairseq2/data/data_pipeline.py#L115) in our
+  C++-based data pipeline API.
 
 
 ## Getting Started
@@ -23,12 +40,11 @@ For recent changes, you can check out our [changelog](CHANGELOG.md).
 
 
 ## Models
-As of today, the following pre-trained models are available in fairseq2 (in
-alphabetical order):
+As of today, the following models are available in fairseq2:
 
- * [LLaMA](src/fairseq2/models/llama)
- * [LLaMA 2](src/fairseq2/models/llama)
- * [Mistral 7B](src/fairseq2/models/mistral)
+ * [LLaMA](recipes/llama)
+ * [LLaMA 2](recipes/llama)
+ * [Mistral 7B](recipes/mistral)
  * [NLLB-200](src/fairseq2/models/nllb)
  * [S2T Transformer + Conformer](src/fairseq2/models/s2t_transformer)
  * [w2v-BERT](src/fairseq2/models/w2vbert)
@@ -36,7 +52,7 @@ alphabetical order):
 
 fairseq2 is also used by various external projects such as:
 
- * [SeamlessM4T](https://github.com/facebookresearch/seamless_communication)
+ * [Seamless Communication](https://github.com/facebookresearch/seamless_communication)
  * [SONAR](https://github.com/facebookresearch/SONAR)
 
 
@@ -83,7 +99,7 @@ matrix shows the supported combinations.
 
 | PyTorch          | Python            | Variant*               | Arch     |
 | ---------------- | ----------------- | ---------------------- | -------- |
-| `2.1.0`          | `>=3.8`, `<=3.11` | `cpu`, `cu118` `cu121` | `x86_64` |
+| `2.1.0`, `2.1.1` | `>=3.8`, `<=3.11` | `cpu`, `cu118` `cu121` | `x86_64` |
 | `2.0.0`, `2.0.1` | `>=3.8`, `<=3.11` | `cpu`, `cu117` `cu118` | `x86_64` |
 | `1.13.1`         | `>=3.8`, `<=3.10` | `cpu`, `cu116`         | `x86_64` |
 
@@ -91,11 +107,11 @@ matrix shows the supported combinations.
 
 To install a specific combination, first follow the installation instructions on
 [pytorch.org](https://pytorch.org) for the desired PyTorch version, and then use
-the following command (shown for PyTorch `2.1.0` and variant `cu118`):
+the following command (shown for PyTorch `2.1.1` and variant `cu118`):
 
 ```sh
 pip install fairseq2\
-  --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.1.0/cu118
+  --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.1.1/cu118
 ```
 
 
@@ -111,12 +127,12 @@ pip install fairseq2\
 For Linux, we also host nightly builds on FAIR's package repository. The
 supported variants are identical to the ones listed in *Variants* above. Once
 you have installed the desired PyTorch version, you can use the following
-command to install the corresponding nightly package  (shown for PyTorch `2.1.0`
+command to install the corresponding nightly package  (shown for PyTorch `2.1.1`
 and variant `cu118`):
 
 ```sh
 pip install fairseq2\
-  --pre --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.1.0/cu118
+  --pre --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.1.1/cu118
 ```
 
 
@@ -155,7 +171,7 @@ instructions in the [Installing on Linux](#installing-on-linux) section for a
 WSL-based installation.
 
 
-## Installing From Source
+## Installing from Source
 See [here](INSTALL_FROM_SOURCE.md).
 
 

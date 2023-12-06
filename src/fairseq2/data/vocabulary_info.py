@@ -16,13 +16,13 @@ class VocabularyInfo:
     """The size of the vocabulary."""
 
     unk_idx: Optional[int]
-    """The index of the symbol that represents an unknown element."""
+    """The index of the symbol that represents an unknown element (UNK)."""
 
     bos_idx: Optional[int]
-    """The index of the symbol that represents the beginning of a sequence."""
+    """The index of the symbol that represents the beginning of a sequence (BOS)."""
 
     eos_idx: Optional[int]
-    """The index of the symbol that represents the end of a sequence."""
+    """The index of the symbol that represents the end of a sequence (EOS)."""
 
     pad_idx: Optional[int]
-    """The index of the symbol that is used to pad a sequence."""
+    """The index of the symbol that is used to pad a sequence (PAD)."""

@@ -9,12 +9,11 @@ from typing import Optional, Tuple, final
 import torch
 import torch.nn as nn
 from torch import Tensor
-from torch.nn.functional import dropout, softmax
 
 from fairseq2.nn.embedding import StandardEmbedding
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.nn.transformer.attention import SDPA
-from fairseq2.nn.transformer.attention_mask import AttentionMask
+from fairseq2.nn.transformer.attention import SDPA, create_default_sdpa
+from fairseq2.nn.transformer.attention_mask import AttentionMask, CustomAttentionMask
 from fairseq2.typing import DataType, Device, finaloverride
 
 
@@ -29,6 +28,7 @@ class ShawRelativePositionSDPA(SDPA):
     max_right_rel_pos: int
     rel_k_embed: StandardEmbedding
     rel_v_embed: Optional[StandardEmbedding]
+    inner_sdpa: SDPA
 
     def __init__(
         self,
@@ -38,7 +38,7 @@ class ShawRelativePositionSDPA(SDPA):
         *,
         max_right_rel_pos: Optional[int] = None,
         use_rel_pos_values: bool = False,
-        attn_dropout_p: float = 0.0,
+        inner_sdpa: Optional[SDPA] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -53,10 +53,10 @@ class ShawRelativePositionSDPA(SDPA):
             The right clipping value for relative positions.
         :param: use_rel_pos_values:
             If ``True``, uses relative position values to compute attention.
-        :param attn_dropout_p:
-            The dropout probability on attention weights.
+        :param inner_sdpa:
+            The actual :class:`SDPA` module to compute head attentions.
         """
-        super().__init__(attn_dropout_p=attn_dropout_p)
+        super().__init__()
 
         if model_dim % num_heads != 0:
             raise ValueError(
@@ -91,6 +91,11 @@ class ShawRelativePositionSDPA(SDPA):
         else:
             self.register_module("rel_v_embed", None)
 
+        if inner_sdpa is not None:
+            self.inner_sdpa = inner_sdpa
+        else:
+            self.inner_sdpa = create_default_sdpa()
+
     @finaloverride
     def forward(
         self,
@@ -119,37 +124,29 @@ class ShawRelativePositionSDPA(SDPA):
         # (N, H, S, K_h) @ (S, S_kv, K_h) = (N, H, S, S_kv)
         rel_attn_weights = torch.einsum("nhsk,stk->nhst", seqs, rel_keys)
 
-        attn_weights = attn_weights + rel_attn_weights
+        # We treat `rel_attn_weights` as an attention mask to take advantage of
+        # efficient SDPA implementations.
+        rel_attn_weights = rel_attn_weights * (seqs.size(-1) ** -0.5)
 
-        attn_weights = attn_weights * (seqs.size(-1) ** -0.5)
+        if attn_mask is None:
+            mask = rel_attn_weights
+        else:
+            mask = rel_attn_weights + attn_mask.materialize()
 
-        if attn_mask is not None:
-            # (S, S_kv)
-            m = attn_mask.materialize()
+        attn_mask = CustomAttentionMask(mask)
 
-            # (N, H, S, S_kv) + (S, S_kv) -> (N, H, S, S_kv)
-            attn_weights = attn_weights + m
-
-        if key_padding_mask is not None:
-            # (N, S_kv)
-            m = key_padding_mask.materialize()
-
-            m = m[:, None, None, :]
-
-            # (N, H, S, S_kv)
-            attn_weights = torch.where(m, attn_weights, -torch.inf)
-
-        attn_weights = softmax(attn_weights, dim=-1, dtype=torch.float32)
-
-        attn_weights = attn_weights.type_as(seqs)
-
-        if self.training and self.attn_dropout_p > 0.0:
-            attn_weights = dropout(attn_weights, self.attn_dropout_p)
-
-        # (N, H, S, S_kv) @ (N, H, S_kv, V_h) = (N, H, S, V_h)
-        attn = torch.matmul(attn_weights, values)
+        attn, attn_weights = self.inner_sdpa(  # type: ignore[no-any-return]
+            seqs,
+            keys,
+            key_padding_mask,
+            values,
+            attn_mask=attn_mask,
+            needs_weights=needs_weights or self.rel_v_embed is not None,
+        )
 
         if self.rel_v_embed is not None:
+            assert attn_weights is not None
+
             # (S_kv, S_kv, V_h)
             rel_pos_values = self.rel_v_embed(rel_indices)
 
@@ -178,10 +175,7 @@ class ShawRelativePositionSDPA(SDPA):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = super().extra_repr()
-
         return (
-            f"{s}, "
             f"model_dim={self.model_dim}, "
             f"num_heads={self.num_heads}, "
             f"max_left_rel_pos={self.max_left_rel_pos}, "

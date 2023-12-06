@@ -8,6 +8,9 @@ from fairseq2.data.text.converters import StrSplitter as StrSplitter
 from fairseq2.data.text.converters import StrToIntConverter as StrToIntConverter
 from fairseq2.data.text.converters import StrToTensorConverter as StrToTensorConverter
 from fairseq2.data.text.sentencepiece import (
+    BasicSentencePieceTokenizer as BasicSentencePieceTokenizer,
+)
+from fairseq2.data.text.sentencepiece import (
     SentencePieceDecoder as SentencePieceDecoder,
 )
 from fairseq2.data.text.sentencepiece import (
@@ -15,7 +18,10 @@ from fairseq2.data.text.sentencepiece import (
 )
 from fairseq2.data.text.sentencepiece import SentencePieceModel as SentencePieceModel
 from fairseq2.data.text.sentencepiece import (
-    vocabulary_from_sentencepiece as vocabulary_from_sentencepiece,
+    SentencePieceTokenizerBase as SentencePieceTokenizerBase,
+)
+from fairseq2.data.text.sentencepiece import (
+    vocab_info_from_sentencepiece as vocab_info_from_sentencepiece,
 )
 from fairseq2.data.text.text_reader import LineEnding as LineEnding
 from fairseq2.data.text.text_reader import read_text as read_text

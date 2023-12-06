@@ -1,0 +1,25 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+name: s2t_conformer_covost_st_en_de
+model_type: s2t_transformer
+model_arch: conformer_medium
+task: translation
+target_langs: [de]
+checkpoint: "https://dl.fbaipublicfiles.com/fairseq/conformer/covost2/en_de/abs_asr_pt_avg_last_10_checkpoint.pt"
+tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/covost2_en_de_st_vocab_char.zip;path=spm_char.model"
+
+---
+
+name: s2t_conformer_covost_st_en_de_rel_pos
+model_type: s2t_transformer
+model_arch: conformer_medium
+model_config:
+  use_relative_pos: true
+task: translation
+target_langs: [de]
+checkpoint: "https://dl.fbaipublicfiles.com/fairseq/conformer/covost2/en_de/rel_pos_asr_pt_avg_last_10_checkpoint.pt"
+tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/covost2_en_de_st_vocab_char.zip;path=spm_char.model"

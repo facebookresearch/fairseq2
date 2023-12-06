@@ -4,164 +4,224 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
+import logging
 import os
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Optional, final
+from typing import Any, Dict, List, Optional, Protocol, final
 
 from fairseq2.assets.card import AssetCard, AssetCardError
-from fairseq2.assets.card_storage import (
-    AssetCardNotFoundError,
-    AssetCardStorage,
-    LocalAssetCardStorage,
+from fairseq2.assets.metadata_provider import (
+    AssetMetadataProvider,
+    AssetNotFoundError,
+    FileAssetMetadataProvider,
 )
 from fairseq2.typing import finaloverride
 
 
 class AssetStore(ABC):
-    """Provides access to asset cards stored in a centralized location."""
-
-    env: Optional[str]
-    """
-    An environment is a mechanism to conditionally override fields of an asset
-    card. It is typically used to replace asset information that differs in a
-    specific environment due to regulatory or technical reasons (e.g. checkpoint
-    locations in a cluster with no internet access).
-
-    If not ``None``, :class:`AssetStore` will check if there is an environment-
-    specific asset card for ``env`` and, if one is found, will merge its content
-    with the generic asset card.
-    """
+    """Represents a store of assets."""
 
     @abstractmethod
-    def retrieve_card(self, name: str, *, ignore_cache: bool = False) -> AssetCard:
+    def retrieve_card(self, name: str) -> AssetCard:
         """Retrieve the card of the specified asset.
 
         :param name:
             The name of the asset.
-        :param ignore_cache:
-            If ``True``, retrieves the asset card from the storage even if it is
-            already in cache.
         """
-
-    @abstractmethod
-    def register_card(self, card: AssetCard, *, env: Optional[str] = None) -> None:
-        """Register the specified asset card.
-
-        :param card:
-            The asset card.
-        :param env:
-            If not ``None``, registers as an environment-specific asset card.
-        """
-
-    @abstractmethod
-    def clear_cache(self) -> None:
-        """Clear the in-memory :class:`AssetCard` cache."""
 
 
 @final
-class DefaultAssetStore(AssetStore):
-    """Provides access to asset cards stored in a centralized location."""
+class ProviderBackedAssetStore(AssetStore):
+    """Represents a store of assets backed by metadata providers."""
 
-    _storages: List[AssetCardStorage]
-    _cache: Dict[str, AssetCard]
+    env_resolvers: List[EnvironmentResolver]
+    metadata_providers: List[AssetMetadataProvider]
+    user_metadata_providers: List[AssetMetadataProvider]
 
-    def __init__(self, storage: AssetCardStorage, *, ignore_env: bool = False) -> None:
+    def __init__(self, metadata_provider: AssetMetadataProvider) -> None:
         """
         :param storage:
-            The asset card storage to use.
-        :param ignore_env:
-            If ``True``, ignores environment-specific asset cards.
+            The default asset metadata provider.
         """
-        if ignore_env:
-            self.env = None
-        else:
-            self.env = self._determine_environment()
-
-        self._storages = [storage]
-
-        self._cache = {}
-
-    def add_storage(self, storage: AssetCardStorage) -> None:
-        self._storages.append(storage)
-
-    @staticmethod
-    def _determine_environment() -> Optional[str]:
-        # TODO: Make extensible instead of hard-coded conditions.
-        if "FAIR_ENV_CLUSTER" in os.environ:
-            return "faircluster"
-
-        return None
+        self.env_resolvers = []
+        self.metadata_providers = [metadata_provider]
+        self.user_metadata_providers = []
 
     @finaloverride
-    def retrieve_card(self, name: str, *, ignore_cache: bool = False) -> AssetCard:
-        if not ignore_cache:
+    def retrieve_card(self, name: str) -> AssetCard:
+        if "@" in name:
+            raise ValueError("`name` must not contain the reserved '@' character.")
+
+        envs = self._resolve_envs()
+
+        return self._do_retrieve_card(name, envs)
+
+    def _resolve_envs(self) -> List[str]:
+        envs = []
+
+        for resolver in self.env_resolvers:
+            if env := resolver():
+                envs.append(env)
+
+        # This is a special, always available environment for users to override
+        # asset metadata. For instance, a user can set the checkpoint path of a
+        # gated model locally by having a same named asset with @user suffix.
+        envs.append("user")
+
+        return envs
+
+    def _do_retrieve_card(self, name: str, envs: List[str]) -> AssetCard:
+        metadata = self._get_metadata(name)
+
+        # If we have environment-specific metadata, merge it with `metadata`.
+        for env in envs:
             try:
-                return self._cache[name]
-            except KeyError:
-                pass
+                env_metadata = self._get_metadata(f"{name}@{env}")
 
-        data = self._load_card(name, env=None)
+                # Do not allow overriding 'name'.
+                del env_metadata["name"]
 
-        if self.env:
-            try:
-                env_data = self._load_card(name, env=self.env)
-
-                # If we have an environment-specific asset card, merge it with
-                # the generic one.
-                data.update(env_data)
-            except AssetCardNotFoundError:
+                metadata.update(env_metadata)
+            except AssetNotFoundError:
                 pass
 
         try:
-            base_name = data["base"]
+            base_name = metadata["base"]
         except KeyError:
             base_name = None
 
-        base: Optional[AssetCard] = None
+        base_card: Optional[AssetCard] = None
 
-        # If the asset card has a base specified, we have to recursively load
-        # the entire chain up to the root card.
+        # If the metadata has a base specified, we have to recursively load the
+        # entire chain up to the root.
         if base_name:
             if not isinstance(base_name, str):
                 raise AssetCardError(
-                    f"The type of the field 'base' of the asset card '{name}' must be `{str}`, but is `{type(base_name)}` instead."
+                    f"The value of the field 'base' of the asset card '{name}' must be of type `{str}`, but is of type `{type(base_name)}` instead."
                 )
 
-            base = self.retrieve_card(base_name, ignore_cache=ignore_cache)
+            base_card = self._do_retrieve_card(base_name, envs)
 
-        card = AssetCard(name, data, base)
+        return AssetCard(metadata, base_card)
 
-        self._cache[name] = card
-
-        return card
-
-    def _load_card(self, name: str, env: Optional[str]) -> Dict[str, Any]:
-        for storage in self._storages:
+    def _get_metadata(self, name: str) -> Dict[str, Any]:
+        for provider in reversed(self.user_metadata_providers):
             try:
-                return storage.load_card(name, env=env)
-            except AssetCardNotFoundError:
+                return provider.get_metadata(name)
+            except AssetNotFoundError:
                 continue
 
-        raise AssetCardNotFoundError(
-            f"An asset card with the name '{name}' cannot be found."
+        for provider in reversed(self.metadata_providers):
+            try:
+                return provider.get_metadata(name)
+            except AssetNotFoundError:
+                continue
+
+        raise AssetNotFoundError(f"An asset with the name '{name}' cannot be found.")
+
+    def clear_cache(self) -> None:
+        """Clear the cache of the underlying metadata providers."""
+        for provider in self.metadata_providers:
+            provider.clear_cache()
+
+        for provider in self.user_metadata_providers:
+            provider.clear_cache()
+
+
+class EnvironmentResolver(Protocol):
+    """Resolves the environment within which assets should be loaded.
+
+    Assets can have varying metadata depending on the environment that they are
+    loaded in due to regulatory or technical requirements.
+    """
+
+    def __call__(self) -> Optional[str]:
+        ...
+
+
+def _create_asset_store() -> ProviderBackedAssetStore:
+    cards_dir = Path(__file__).parent.joinpath("cards")
+
+    metadata_provider = FileAssetMetadataProvider(cards_dir)
+
+    return ProviderBackedAssetStore(metadata_provider)
+
+
+asset_store = _create_asset_store()
+
+
+def _get_path_from_env(var_name: str) -> Optional[Path]:
+    pathname = os.getenv(var_name)
+    if not pathname:
+        return None
+
+    try:
+        path = Path(pathname)
+    except ValueError as ex:
+        raise RuntimeError(
+            f"`{var_name}` environment variable must contain a valid pathname, but contains '{pathname}' instead."
+        ) from ex
+
+    if not path.exists():
+        logger = logging.getLogger("fairseq2.assets")
+
+        logger.warning(
+            f"The path '{path}' pointed to by the `{var_name}` environment variable does not exist."
         )
 
-    @finaloverride
-    def register_card(self, card: AssetCard, *, env: Optional[str] = None) -> None:
-        raise NotImplementedError()
+        return None
 
-    @finaloverride
-    def clear_cache(self) -> None:
-        self._cache.clear()
+    return path
 
 
-def create_default_asset_store() -> DefaultAssetStore:
-    pathname = Path(__file__).parent.joinpath("cards")
+def _load_asset_directory() -> None:
+    asset_dir = _get_path_from_env("FAIRSEQ2_ASSET_DIR")
+    if asset_dir is None:
+        asset_dir = Path("/etc/fairseq2/assets")
+        if not asset_dir.exists():
+            return
 
-    card_storage = LocalAssetCardStorage(pathname)
+    asset_dir = asset_dir.expanduser().resolve()
 
-    return DefaultAssetStore(card_storage)
+    asset_store.metadata_providers.append(FileAssetMetadataProvider(asset_dir))
 
 
-asset_store = create_default_asset_store()
+_load_asset_directory()
+
+
+def _load_user_asset_directory() -> None:
+    asset_dir = _get_path_from_env("FAIRSEQ2_USER_ASSET_DIR")
+    if asset_dir is None:
+        asset_dir = _get_path_from_env("XDG_CONFIG_HOME")
+        if asset_dir is None:
+            asset_dir = Path("~/.config")
+
+        asset_dir = asset_dir.expanduser().resolve().joinpath("fairseq2/assets")
+        if not asset_dir.exists():
+            return
+    else:
+        asset_dir = asset_dir.expanduser().resolve()
+
+    asset_store.user_metadata_providers.append(FileAssetMetadataProvider(asset_dir))
+
+
+_load_user_asset_directory()
+
+
+# TODO: Move to fairseq2-ext.
+def _load_faircluster() -> None:
+    if "FAIR_ENV_CLUSTER" not in os.environ:
+        return
+
+    asset_store.env_resolvers.append(lambda: "faircluster")
+
+    # This directory is meant to store cluster-wide asset cards.
+    asset_dir = Path("/checkpoint/balioglu/fairseq2-ext/cards")
+    if asset_dir.exists():
+        asset_store.metadata_providers.append(FileAssetMetadataProvider(asset_dir))
+
+
+_load_faircluster()

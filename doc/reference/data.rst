@@ -101,5 +101,5 @@ Tools to tokenize text, converting it from bytes to tensors.
     SentencePieceModel
     SentencePieceEncoder
     SentencePieceDecoder
-    vocabulary_from_sentencepiece
+    vocab_info_from_sentencepiece
     LineEnding

@@ -6,5 +6,28 @@
 
 name: llama
 model_type: llama
-# fill in the link or file path to the LLaMA tokenizer
-tokenizer: ""
+checkpoint: "https://ai.meta.com/llama/;gated=true"
+tokenizer: "https://ai.meta.com/llama/;gated=true"
+
+---
+
+name: llama_7b
+base: llama
+model_arch: 7b
+
+---
+
+name: llama2
+base: llama
+
+---
+
+name: llama2_7b
+base: llama2
+model_arch: llama2_7b
+
+---
+
+name: llama2_7b_chat
+base: llama2
+model_arch: llama2_7b

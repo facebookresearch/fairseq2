@@ -52,8 +52,8 @@ jobs:
         run: |
           version=$(cat VERSION)
 
-          # Append date-stamped dev segment.
-          echo version_override=${version%.dev*}.dev$(date +%Y%m%d) >> "$GITHUB_OUTPUT"
+          # Append datetime-stamped dev segment.
+          echo version_override=${version%.dev*}.dev$(date --utc +%Y%m%d%H%M) >> "$GITHUB_OUTPUT"
 
   lint:
     name: Lint

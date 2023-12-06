@@ -159,25 +159,20 @@ private:
     bool pin_memory_ = false;
 };
 
-namespace detail {
-
-class sp_encoder_op;
-
-}
-
 class immutable_string;
 
 class sp_model;
 
 class FAIRSEQ2_API sp_encoder final {
-    friend class detail::sp_encoder_op;
-
 public:
     explicit
     sp_encoder(std::shared_ptr<const sp_model> model, sp_encoder_options opts = {});
 
     data
     operator()(data &&d) const;
+
+    data
+    encode_as_tokens(data &&d) const;
 
     const std::optional<at::Tensor> &
     prefix_indices() const

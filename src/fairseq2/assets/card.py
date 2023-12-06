@@ -15,6 +15,7 @@ from typing import (
     Mapping,
     MutableMapping,
     Optional,
+    Set,
     Type,
     TypeVar,
     cast,
@@ -24,6 +25,7 @@ from urllib.parse import urlparse
 from typing_extensions import Self
 
 from fairseq2.assets.error import AssetError
+from fairseq2.data.typing import is_string_like
 
 T = TypeVar("T")
 
@@ -32,26 +34,33 @@ class AssetCard:
     """Holds information about an asset."""
 
     name: str
-    data: MutableMapping[str, Any]
+    metadata: MutableMapping[str, Any]
     base: Optional[AssetCard]
 
     def __init__(
         self,
-        name: str,
-        data: MutableMapping[str, Any],
+        metadata: MutableMapping[str, Any],
         base: Optional[AssetCard] = None,
     ) -> None:
         """
-        :param name:
-            The name of the asset.
-        :param data:
-            The data to be held in the card. Each key-value entry (i.e. field)
-            should contain a specific piece of information about the asset.
+        :param metadata:
+            The metadata to be held in the card. Each key-value entry should
+            contain a specific piece of information about the asset.
         :param base:
             The card that this card derives from.
         """
+        try:
+            name = metadata["name"]
+        except KeyError:
+            raise AssetCardError("`metadata` must contain a key named 'name'.")
+
+        if not isinstance(name, str):
+            raise AssetCardError(
+                f"The value of 'name' in `metadata` must be of type `{str}`, but is of type `{type(name)}` instead."
+            )
+
         self.name = name
-        self.data = data
+        self.metadata = metadata
         self.base = base
 
     def field(self, name: str) -> AssetCardField:
@@ -68,17 +77,17 @@ class AssetCard:
     def _get_field_value(self, name: str, path: List[str]) -> Any:
         assert len(path) > 0
 
-        data = self.data
+        metadata = self.metadata
 
         contains = True
 
         for field in path:
-            if data is None:
+            if metadata is None:
                 contains = False
 
                 break
 
-            if not isinstance(data, Mapping):
+            if not isinstance(metadata, Mapping):
                 pathname = ".".join(path)
 
                 raise AssetCardFieldNotFoundError(
@@ -86,7 +95,7 @@ class AssetCard:
                 )
 
             try:
-                data = data[field]
+                metadata = metadata[field]
             except KeyError:
                 contains = False
 
@@ -102,24 +111,24 @@ class AssetCard:
                 f"The asset card '{name}' must have a field named '{pathname}'."
             )
 
-        return data
+        return metadata
 
     def _set_field_value(self, path: List[str], value: Any) -> None:
         assert len(path) > 0
 
-        data = self.data
+        metadata = self.metadata
 
         for depth, field in enumerate(path[:-1]):
             try:
-                data = data[field]
+                metadata = metadata[field]
             except KeyError:
                 tmp: Dict[str, Any] = {}
 
-                data[field] = tmp
+                metadata[field] = tmp
 
-                data = tmp
+                metadata = tmp
 
-            if not isinstance(data, Mapping):
+            if not isinstance(metadata, Mapping):
                 conflict_pathname = ".".join(path[: depth + 1])
 
                 pathname = ".".join(path)
@@ -128,10 +137,10 @@ class AssetCard:
                     f"The asset card '{self.name}' cannot have a field named '{pathname}' due to path conflict at '{conflict_pathname}'."
                 )
 
-        data[path[-1]] = value
+        metadata[path[-1]] = value
 
-    def __str__(self) -> str:
-        return str(self.data)
+    def __repr__(self) -> str:
+        return repr(self.metadata)
 
 
 class AssetCardField:
@@ -159,7 +168,7 @@ class AssetCardField:
         return AssetCardField(self.card, self.path + [name])
 
     def is_none(self) -> bool:
-        """Return ``True`` if the field is ``None``."""
+        """Return ``True`` if the value of the field is ``None``."""
         value = self.card._get_field_value(self.card.name, self.path)
 
         return value is None
@@ -196,37 +205,6 @@ class AssetCardField:
 
         return value
 
-    def as_uri(self) -> str:
-        """Return the value of this field as a URI."""
-        value = self.as_(str)
-
-        try:
-            uri = urlparse(value)
-        except ValueError:
-            uri = None
-
-        if uri and uri.scheme and uri.netloc:
-            return value
-
-        pathname = ".".join(self.path)
-
-        raise AssetCardError(
-            f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be a URI, but is '{value}' instead."
-        )
-
-    def as_filename(self) -> str:
-        """Return the value of this field as a filename."""
-        value = self.as_(str)
-
-        if os.sep in value or (os.altsep and os.altsep in value):
-            pathname = ".".join(self.path)
-
-            raise AssetCardError(
-                f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be a filename, but is '{value}' instead."
-            )
-
-        return value
-
     def as_list(self, kls: Type[T], allow_empty: bool = False) -> List[T]:
         """Return the value of this field as a :class:`list` of type ``kls``.
 
@@ -247,6 +225,38 @@ class AssetCardField:
 
         return value
 
+    def as_dict(self, kls: Type[T], allow_empty: bool = False) -> Dict[str, T]:
+        """Return the value of this field as a :class:`dict` of type ``kls``.
+
+        :param kls:
+            The type of the field elements.
+        :param allow_empty:
+            If ``True``, allows the dictionary to be empty.
+        """
+        value = self.as_(dict, allow_empty)
+
+        for element in value.values():
+            if not isinstance(element, kls):
+                pathname = ".".join(self.path)
+
+                raise AssetCardError(
+                    f"The elements of the field '{pathname}' of the asset card '{self.card.name}' must be of type `{kls}`, but at least one element is of type `{type(element)}` instead."
+                )
+
+        return value
+
+    def as_set(self, kls: Type[T], allow_empty: bool = False) -> Set[T]:
+        """Return the value of this field as a :class:`set` of type ``kls``.
+
+        :param kls:
+            The type of the field elements.
+        :param allow_empty:
+            If ``True``, allows the list to be empty.
+        """
+        value = self.as_list(kls, allow_empty)
+
+        return set(value)
+
     def as_one_of(self, valid_values: AbstractSet[T]) -> T:
         """Return the value of this field as one of the values in ``valid_values``
 
@@ -255,18 +265,60 @@ class AssetCardField:
         """
         value = self.as_(object)
 
-        if value in valid_values:
-            return cast(T, value)
+        if value not in valid_values:
+            pathname = ".".join(self.path)
 
-        pathname = ".".join(self.path)
+            values = list(valid_values)
+            values.sort()
 
-        values = list(valid_values)
+            raise AssetCardError(
+                f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be one of {repr(values)}, but is {repr(value)} instead."
+            )
 
-        values.sort()
+        return cast(T, value)
 
-        raise AssetCardError(
-            f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be one of {values}, but is {repr(value)} instead."
-        )
+    def as_uri(self) -> str:
+        """Return the value of this field as a URI."""
+        value = self.as_(object)
+
+        if not is_string_like(value) and not isinstance(value, os.PathLike):
+            pathname = ".".join(self.path)
+
+            raise AssetCardError(
+                f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be of type `{str}` or `{os.PathLike}`, but is of type `{type(value)}` instead."
+            )
+
+        str_value = str(value)
+
+        try:
+            uri = urlparse(str_value)
+        except ValueError:
+            uri = None
+
+        if uri is None or not (uri.netloc or uri.path):
+            pathname = ".".join(self.path)
+
+            raise AssetCardError(
+                f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be a URI, but is '{str_value}' instead."
+            )
+
+        if not uri.scheme:
+            uri = uri._replace(scheme="file")
+
+        return uri.geturl()
+
+    def as_filename(self) -> str:
+        """Return the value of this field as a filename."""
+        value = self.as_(str)
+
+        if os.sep in value or (os.altsep and os.altsep in value):
+            pathname = ".".join(self.path)
+
+            raise AssetCardError(
+                f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be a filename, but is '{value}' instead."
+            )
+
+        return value
 
     def set(self, value: Any) -> None:
         """Set the value of this field."""
@@ -278,14 +330,14 @@ class AssetCardField:
             pathname = ".".join(self.path)
 
             raise AssetCardError(
-                f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be '{value}', but is {repr(v)} instead."
+                f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be {repr(value)}, but is {repr(v)} instead."
             )
 
         return self
 
 
 class AssetCardError(AssetError):
-    """Raised when an asset card cannot be processed."""
+    """Raised when an asset card operation fails."""
 
 
 class AssetCardFieldNotFoundError(AssetCardError):

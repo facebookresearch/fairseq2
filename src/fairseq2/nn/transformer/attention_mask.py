@@ -18,8 +18,6 @@ class AttentionMask(ABC):
     """Represents an attention mask."""
 
     materialized: Optional[Tensor]
-    """The attention mask tensor. Will be ``None`` till the first call to
-    :method:`materialize`."""
 
     def __init__(self) -> None:
         self.materialized = None
@@ -295,7 +293,7 @@ class ALiBiMaskFactory:
         if training or state_bag is None:
             start_step = 0
         else:
-            start_step = state_bag.step
+            start_step = state_bag.step_nr
 
         seq_len = start_step + seqs.size(1)
         if seq_len == 0:

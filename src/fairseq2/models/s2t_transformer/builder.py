@@ -19,12 +19,11 @@ from fairseq2.models.transformer import (
     TransformerModel,
     init_final_projection,
 )
-from fairseq2.models.utils.arch_registry import ArchitectureRegistry
+from fairseq2.models.utils import ArchitectureRegistry
 from fairseq2.nn.embedding import StandardEmbedding, init_scaled_embedding
 from fairseq2.nn.position_encoder import PositionEncoder, SinusoidalPositionEncoder
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer import (
-    SDPA,
     FeedForwardNetwork,
     MultiheadAttention,
     RelativePositionalEncoding,
@@ -91,8 +90,7 @@ class S2TTransformerConfig:
 
 s2t_transformer_archs = ArchitectureRegistry[S2TTransformerConfig]("s2t_transformer")
 
-
-s2t_transformer_arch = s2t_transformer_archs.marker
+s2t_transformer_arch = s2t_transformer_archs.decorator
 
 
 @s2t_transformer_arch("tiny")
@@ -222,7 +220,7 @@ class S2TTransformerBuilder:
     ) -> None:
         """
         :param config:
-            The configuration to use.
+            The configuration.
         :param device:
             The device on which to initialize modules.
         :param dtype:
@@ -318,7 +316,7 @@ class S2TTransformerBuilder:
         return SinusoidalPositionEncoder(
             self.config.model_dim,
             self.config.max_seq_len,
-            _legacy_pad_idx=self.config.target_vocab_info.pad_idx,
+            _legacy_pad_idx=1,
             device=self.device,
         )
 
@@ -418,7 +416,7 @@ class S2TTransformerBuilder:
 
     def build_encoder_attention(self) -> MultiheadAttention:
         """Build a Transformer encoder multi-head attention layer."""
-        sdpa: SDPA
+        sdpa = create_default_sdpa(attn_dropout_p=self.config.dropout_p)
 
         if self.config.use_relative_pos:
             if self.rel_pos_encoding is None:
@@ -433,12 +431,10 @@ class S2TTransformerBuilder:
                 self.config.model_dim,
                 self.config.num_encoder_attn_heads,
                 self.rel_pos_encoding,
-                attn_dropout_p=self.config.dropout_p,
+                inner_sdpa=sdpa,
                 device=self.device,
                 dtype=self.dtype,
             )
-        else:
-            sdpa = create_default_sdpa(attn_dropout_p=self.config.dropout_p)
 
         return StandardMultiheadAttention(
             self.config.model_dim,
@@ -482,7 +478,7 @@ def create_s2t_transformer_model(
     """Create an S2T Transformer model.
 
     :param config:
-        The configuration to use.
+        The configuration.
     :param device:
         The device on which to initialize modules.
     :param dtype:

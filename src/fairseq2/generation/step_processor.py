@@ -121,10 +121,59 @@ class BannedSequenceProcessor(StepProcessor):
             seqs.masked_fill_(self._banned_mask[:, :-1], 0)
 
         # (N, B, S_pre) -> (N, B)
-        banned_prefix_matches = seqs.sum(dim=-1)
+        banned_prefix_matches = seqs.any(dim=-1)
+
+        banned_prefix_matches.logical_not_()
 
         # (N, B) -> (N), (B)
-        batch_indices, banned_indices = torch.where(banned_prefix_matches == 0)
+        batch_indices, banned_indices = torch.where(banned_prefix_matches)
 
         if len(batch_indices) > 0:
             probs[batch_indices, self._banned_seqs[:, -1][banned_indices]] = ban_value
+
+
+@final
+class NGramRepeatBlockProcessor(StepProcessor):
+    """Blocks repeated generation of n-grams of a specified size."""
+
+    def __init__(self, ngram_size: int) -> None:
+        """
+        :param ngram_size:
+            The size of repeated n-grams to block.
+        """
+        if ngram_size == 0:
+            raise ValueError("`ngram_size` must be greater than 0.")
+
+        self.ngram_size = ngram_size
+
+    @finaloverride
+    def __call__(self, seqs: Tensor, probs: Tensor, lprob: bool = False) -> None:
+        ngram_size = self.ngram_size
+
+        seq_len = seqs.size(1) + 1
+
+        if ngram_size >= seq_len:
+            return
+
+        # This is an edge case where we do not allow any of the previous values.
+        if ngram_size == 1:
+            # (N, 1)
+            mask = torch.arange(seqs.size(0), device=probs.device).unsqueeze(1)
+
+            probs[mask, seqs] = -torch.inf if lprob else 0
+
+            return
+
+        # (N, G - 1)
+        ngram_prefixes = seqs[:, -ngram_size + 1 :]
+
+        for i in range(seq_len - ngram_size):
+            # (N, G - 1)
+            mask = seqs[:, i : i + ngram_size - 1] - ngram_prefixes
+
+            # (N)
+            mask = mask.any(dim=-1)
+
+            mask.logical_not_()
+
+            probs[mask, seqs[mask, i + ngram_size - 1]] = -torch.inf if lprob else 0
