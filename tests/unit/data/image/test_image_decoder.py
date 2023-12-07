@@ -43,19 +43,19 @@ class TestImageDecoder:
 
         assert output["channels"] == 4.0
 
-        assert output["height"] == 1126.0
+        assert output["height"] == 70.0
 
-        assert output["width"] == 1132.0
+        assert output["width"] == 70.0
 
         image = output["image"]
 
-        assert image.shape == torch.Size([1126, 1132, 4])
+        assert image.shape == torch.Size([70, 70, 4])
 
         assert image.dtype == torch.uint8
 
         assert image.device == device
 
-        assert_close(image.sum(), torch.tensor(1227963170, device=device))
+        assert_close(image.sum(), torch.tensor(4656924, device=device))
 
     def test_call_works_on_jpg(self) -> None:
         decoder = ImageDecoder(device=device)
@@ -69,19 +69,19 @@ class TestImageDecoder:
 
         assert output["channels"] == 3.0
 
-        assert output["height"] == 1126.0
+        assert output["height"] == 50.0
 
-        assert output["width"] == 1132.0
+        assert output["width"] == 50.0
 
         image = output["image"]
 
-        assert image.shape == torch.Size([1126, 1132, 3])
+        assert image.shape == torch.Size([50, 50, 3])
 
         assert image.dtype == torch.uint8
 
         assert image.device == device
 
-        assert_close(image.sum(), torch.tensor(902747049, device=device))
+        assert_close(image.sum(), torch.tensor(1747686, device=device))
 
     def test_call_raises_error_when_input_is_corrupted_png(self) -> None:
         decoder = ImageDecoder(device=device)
