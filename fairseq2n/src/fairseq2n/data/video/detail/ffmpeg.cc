@@ -31,10 +31,9 @@ ffmpeg_decoder::ffmpeg_decoder(video_decoder_options opts)
 data_dict
 ffmpeg_decoder::open_container(const memory_block &block)
 {
-    // Opens the media container and iterates over streams.
+    // Opens the media container and iterates over the streams.
 
     auto data_ptr = reinterpret_cast<const uint8_t*>(block.data());
-    av_register_all();
     size_t data_size = block.size();
     fairseq2n::detail::buffer_data bd = {data_ptr, data_size};   
     int ret = 0;
@@ -97,7 +96,7 @@ ffmpeg_decoder::open_container(const memory_block &block)
 data_dict
 ffmpeg_decoder::open_stream(int stream_index) 
 {
-    // Opens a stream and decodes the video frames. Skips audio streams for now.
+    // Opens a stream and decodes the video frames. Skips all other streams for now.
 
     av_stream_ = std::make_unique<stream>(stream_index, *fmt_ctx_);
     int processed_frames = 0;
@@ -171,7 +170,6 @@ ffmpeg_decoder::open_stream(int stream_index)
         return av_stream_->stream_data_;
     } else {
         // Skip streams if not video for now
-        // Return an empty data object if the stream is not video
         return data_dict{};
     }
 }
