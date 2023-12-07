@@ -37,33 +37,28 @@ class ParquetBatchFormat(Enum):
 @dataclass  # TODO: (kw_only=True) with python3.10
 class ParquetBasicDataloaderConfig:
     parquet_path: str
-    """
-    Path to parquet dataset file
-    """
+    """The path to parquet dataset file."""
 
     batch_size: Optional[int] = None
-    """
-    Fixed output batch size
-    """
+    """The output batch size."""
 
     order_by_length: Optional[str] = None
-    """Column in dataset whose value length `L` will be used for batches ordering.
-       This results in batches with relatively homogeneous values of `L`,
-       typically to support optimal padding.
-    """
+    """The column in the dataset whose length will be used for batch ordering.
+    This results in batches with relatively homogeneous values, typically to
+    support optimal padding."""
 
     max_tokens: Optional[int] = None
-    """
-    Used with `order_by_length` option to control the total number of padded tokens in a each batch.
-    Typically, this option is preferred to `batch_size` for reducing the memory footprint.
+    """Used with the ``order_by_length`` option to control the total number of
+    padded tokens in each batch. Typically, this option is preferred over
+    ``batch_size`` to reduce the memory footprint.
     """
 
     columns: Optional[List[str]] = None
-    """List of columns to load"""
+    """The list of columns to load."""
 
     filters: Optional[Union[List[Any], pa.dataset.Expression]] = None
-    """
-    See https://arrow.apache.org/docs/python/generated/pyarrow.dataset.Expression.html#pyarrow.dataset.Expression
+    """See https://arrow.apache.org/docs/python/generated/pyarrow.dataset.Expression.html#pyarrow.dataset.Expression
+
     Some examples :
 
     >>> import pyarrow.compute as pc
@@ -74,47 +69,40 @@ class ParquetBasicDataloaderConfig:
     >>> filters = pa.compute.greater(pa.compute.utf8_length(ds.field("lang1_text")), 4)
     >>> filters = pa.compute.less_equal(pa.compute.list_value_length(pa.dataset.field("audio_wav")), 16_000 * 30)
 
-    Note that all fields used here should be among existing columns in the dataset schema
+    Note that all fields used here should be among existing columns in the dataset schema.
     """
 
     output_format: ParquetBatchFormat = ParquetBatchFormat.pyarrow
-    """
-    Format to use for output batches
-    """
+    """The format to use for output batches."""
 
     split_to_row_groups: bool = True
-    """
-    Use parquet row groups instead of simple partitions which are generally smaller.
-    Highly recommended for non-partitioned parquet file.
-    """
+    """If ``True``, uses Parquet row groups instead of simple partitions which
+    are generally smaller. Highly recommended for non-partitioned parquet files."""
 
     shuffle: bool = True
-    """
-    Whether to shuffle dataset samples during the iteration.
-    If False and `order_by_length` is None, the batch samples will be produced in natural parquet dataset reading order.
-    """
+    """If ``True``, shuffles the dataset samples during the iteration. If ``False``
+    and ``order_by_length`` is ``None``, the batch samples will be produced in
+    natural Parquet dataset reading order."""
 
     drop_null: bool = True
-    """Dropping rows containing any null value"""
+    """If ``True``, drops rows containing any null value."""
 
     seed: Optional[int] = None
-    """
-    seed making iteration deterministic
-    """
+    """The RNG seed value for deterministic behavior."""
 
     min_batch_size: int = 1
-    """Drops batches whose length < `min_batch_size`"""
+    """Drops batches whose length is less than ``min_batch_size``"""
 
     nb_parallel_fragments: int = 5
-    """Number of parquet fragments read allowed to be read synonymously.
-       Higher values will result in higher speed, better randomization and higher memory footprint.
-       If partitions size is rather small compared to batch size, we recommend to increase nb_parallel_fragments.
-    """
+    """The number of Parquet fragments allowed to be read in parallel. Higher
+    values will result in higher speeds, better randomization, and higher memory
+    footprint. If partition size is rather small compared to the batch size, we
+    recommend to increase ``nb_parallel_fragments``."""
 
     nb_prefetch: int = 2
-    """
-    Nb of producers groups (of size `nb_parallel_fragments`) to prefetch
-    """
+    """The number of producer groups (of size `nb_parallel_fragments`) to
+    prefetch."""
+
     world_size: int = 1
     """The world size of the process group."""
 
@@ -125,13 +113,12 @@ class ParquetBasicDataloaderConfig:
     """The number of parallel calls in map operations."""
 
     use_threads: bool = False
-    """
-    Whether pyarrow should use its internal parallelism threads to read the parquet part.
-    Since we rely on the external parallelism, this param is tuned off.
-    """
+    """Whether pyarrow should use its internal threads to read the Parquet file.
+    Since we rely on the external parallelism, this param is tuned off by
+    default."""
+
     filesystem: Optional[pa.fs.FileSystem] = None
-    """
-    Filesystem to read parquet files from. S3 example :
+    """The filesystem to read the Parquet files from. S3 example:
     >>> import s3fs
     >>> filesystem = s3fs.core.S3FileSystem(...)
     """
@@ -218,7 +205,7 @@ def parquet_iterator(
     config: ParquetBasicDataloaderConfig,
 ) -> Generator[BatchOutputType, None, None]:
     """
-    Example of usage :
+    Example of usage:
 
        >>> from recipes.parquet.parquet_dataloader import (
        ...    ParquetBasicDataloaderConfig, ParquetBatchFormat, build_parquet_iterator_pipeline)

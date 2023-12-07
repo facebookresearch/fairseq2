@@ -56,6 +56,6 @@ setup(
         "typing_extensions~=4.3;python_version<'3.10'",
     ],
     extras_require={
-        "arrow": ["pyarrow>=13.0.0", "pandas>=2.0.0"],
+        "arrow": ["pyarrow>=13.0.0", "pandas~=2.0.0"],
     },
 )

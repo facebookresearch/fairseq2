@@ -1,4 +1,4 @@
-# Copyright (c) Meta Platforms, Inc. and affiliates.
+NllbTokenizer Copyright (c) Meta Platforms, Inc. and affiliates.
 # All rights reserved.
 #
 # This source code is licensed under the BSD-style license found in the
@@ -188,7 +188,10 @@ jobs:
           pip install --no-cache-dir ~/artifacts/fairseq2n/python/build/wheelhouse/*.whl
       - name: Install fairseq2
         run: |
-          pip install --no-cache-dir ~/artifacts/build/wheelhouse/*.whl
+          for whl in ~/artifacts/build/wheelhouse/*.whl; do
+            pip install --no-cache-dir $whl
+            pip install --no-cache-dir "fairseq['arrow']@$whl"
+          done
       - name: Set the sanitizer variables
         if: inputs.sanitizers != 'nosan'
         env:

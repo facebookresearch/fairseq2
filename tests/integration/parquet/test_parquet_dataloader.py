@@ -12,18 +12,25 @@ import tempfile
 from collections import Counter
 from typing import Any, Dict, Generator, List, Union
 
-import numpy as np
-import pandas as pd
-import pyarrow as pa
-import pyarrow.parquet as pq
 import pytest
-from numpy.typing import NDArray
 
-from recipes.parquet.parquet_dataloader import (
-    ParquetBasicDataloaderConfig,
-    ParquetBatchFormat,
-    parquet_iterator,
-)
+try:
+    import numpy as np
+    import pandas as pd
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+
+    arrow_found = True
+
+    from numpy.typing import NDArray
+
+    from recipes.parquet.parquet_dataloader import (
+        ParquetBasicDataloaderConfig,
+        ParquetBatchFormat,
+        parquet_iterator,
+    )
+except ImportError:
+    arrow_found = False
 
 
 def gen_random_string(length: int) -> str:
@@ -92,6 +99,7 @@ def multi_partition_file() -> Generator[str, None, None]:
     shutil.rmtree(tmpdir)
 
 
+@pytest.mark.skipif(not arrow_found, reason="arrow not found")
 class TestParquetDataloader:
     def test_simple_dataload(self, multi_partition_file: str) -> None:
         config = ParquetBasicDataloaderConfig(
