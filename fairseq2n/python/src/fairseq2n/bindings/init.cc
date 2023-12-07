@@ -24,6 +24,13 @@ PYBIND11_MODULE(bindings, m)
           return supports_cuda;
         });
 
+    m.def(
+        "_supports_image",
+        []
+        {
+          return supports_image;
+        });
+
 // See https://github.com/llvm/llvm-project/issues/57123.
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunreachable-code-return"

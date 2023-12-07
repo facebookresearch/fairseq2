@@ -40,6 +40,8 @@ def_data(py::module_ &base)
 
     def_audio(m);
 
+    def_image(m);
+
     def_data_pipeline(m);
 
     def_string(m);

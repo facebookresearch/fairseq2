@@ -23,6 +23,9 @@ void
 def_audio(pybind11::module_ &data_module);
 
 void
+def_image(pybind11::module_ &data_module);
+
+void
 def_data(pybind11::module_ &base_module);
 
 void

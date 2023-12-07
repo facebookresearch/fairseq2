@@ -132,6 +132,13 @@ def supports_cuda() -> bool:
     return _supports_cuda()  # type: ignore[no-any-return]
 
 
+def supports_image() -> bool:
+    """Return ``True`` if fairseq2n supports JPEG/PNG decoding."""
+    from fairseq2n.bindings import _supports_image  # type: ignore[attr-defined]
+
+    return _supports_image()  # type: ignore[no-any-return]
+
+
 def cuda_version() -> Optional[Tuple[int, int]]:
     """Return the version of CUDA that fairseq2n supports.
 
