@@ -11,7 +11,7 @@
 
 namespace fairseq2n::detail {
 
-png_read::png_read() : png_ptr(nullptr), info_ptr(nullptr) {
+png_read::png_read() {
     png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
     if (png_ptr == nullptr) {
         throw internal_error("Failed to create PNG read struct.");

@@ -12,6 +12,7 @@ import torch
 
 from fairseq2.data.image import ImageDecoder
 from fairseq2.memory import MemoryBlock
+from fairseq2n import supports_image
 from tests.common import assert_close, device
 
 TEST_PNG_PATH: Final = Path(__file__).parent.joinpath("test.png")
@@ -20,6 +21,9 @@ TEST_CORRUPT_JPG_PATH: Final = Path(__file__).parent.joinpath("test_corrupt.jpg"
 TEST_CORRUPT_PNG_PATH: Final = Path(__file__).parent.joinpath("test_corrupt.png")
 
 
+@pytest.mark.skipif(
+    not supports_image(), reason="fairseq2n is not built with JPEG/PNG decoding support"
+)
 class TestImageDecoder:
     def test_init(self) -> None:
         decoder = ImageDecoder()

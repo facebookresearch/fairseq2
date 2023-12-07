@@ -20,6 +20,7 @@ target_sources(py_bindings
         data/image.cc
         data/data_pipeline.cc
         data/init.cc
+        data/image.cc
         data/string.cc
         data/text/converters.cc
         data/text/init.cc
