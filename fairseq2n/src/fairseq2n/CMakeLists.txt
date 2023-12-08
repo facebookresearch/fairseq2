@@ -55,6 +55,7 @@ target_sources(fairseq2n
         data/audio/detail/sndfile.cc
         data/detail/file.cc
         data/detail/file_system.cc
+        data/image/image_decoder.cc
         data/text/string_splitter.cc
         data/text/string_to_int_converter.cc
         data/text/string_to_tensor_converter.cc
@@ -67,11 +68,15 @@ target_sources(fairseq2n
         data/text/sentencepiece/sp_encoder.cc
         data/text/sentencepiece/sp_model.cc
         data/text/sentencepiece/sp_processor.cc
-        data/video/video_decoder.cc
-        data/video/detail/ffmpeg.cc
-        data/video/detail/stream.cc
-        data/video/detail/transform.cc
 )
+
+if(FAIRSEQ2N_SUPPORT_IMAGE)
+    target_sources(fairseq2n
+        PRIVATE
+            data/image/detail/jpeg_decompress_struct.cc
+            data/image/detail/png_read_struct.cc
+    )
+endif()
 
 if(FAIRSEQ2N_USE_CUDA)
     target_sources(fairseq2n
@@ -84,14 +89,18 @@ fairseq2n_set_compile_options(fairseq2n)
 
 target_compile_features(fairseq2n PUBLIC cxx_std_17)
 
-if(FAIRSEQ2N_THREAD_LIB STREQUAL "tbb")
-    target_compile_definitions(fairseq2n PRIVATE FAIRSEQ2N_USE_TBB)
+if(FAIRSEQ2N_SUPPORT_IMAGE)
+    target_compile_definitions(fairseq2n PRIVATE FAIRSEQ2N_SUPPORT_IMAGE)
 endif()
 
 if(FAIRSEQ2N_USE_CUDA)
     target_compile_features(fairseq2n PRIVATE cuda_std_17)
 
     target_compile_definitions(fairseq2n PRIVATE FAIRSEQ2N_USE_CUDA)
+endif()
+
+if(FAIRSEQ2N_THREAD_LIB STREQUAL "tbb")
+    target_compile_definitions(fairseq2n PRIVATE FAIRSEQ2N_USE_TBB)
 endif()
 
 if(PROJECT_IS_TOP_LEVEL)
@@ -123,6 +132,9 @@ target_include_directories(fairseq2n
         ${SWSCALE_INCLUDE_DIR}     
 )
 
+find_package(PNG REQUIRED)
+find_package(JPEG REQUIRED)
+
 target_link_libraries(fairseq2n
     PRIVATE
         ${CMAKE_DL_LIBS}
@@ -139,18 +151,23 @@ target_link_libraries(fairseq2n
         Threads::Threads
         sentencepiece-static
         SndFile::sndfile
+        PNG::PNG
+        JPEG::JPEG
     PUBLIC
         torch
 )
 
-if(FAIRSEQ2N_THREAD_LIB STREQUAL "tbb")
-    target_link_libraries(fairseq2n PRIVATE TBB::tbb)
+if(FAIRSEQ2N_SUPPORT_IMAGE)
+    target_link_libraries(fairseq2n PRIVATE JPEG::JPEG PNG::PNG)
 endif()
 
 if(FAIRSEQ2N_USE_CUDA)
     target_link_libraries(fairseq2n PRIVATE CUDA::cudart)
 endif()
 
+if(FAIRSEQ2N_THREAD_LIB STREQUAL "tbb")
+    target_link_libraries(fairseq2n PRIVATE TBB::tbb)
+endif()
 
 fairseq2n_set_link_options(fairseq2n)
 
@@ -199,10 +216,20 @@ install(
 # Library Configuration
 # ------------------------------------------------------------
 
+if(FAIRSEQ2N_SUPPORT_IMAGE)
+    set(SUPPORTS_IMAGE "true")
+else()
+    set(SUPPORTS_IMAGE "false")
+endif()
+
 if(FAIRSEQ2N_USE_CUDA)
+    set(USES_CUDA "true")
+
     set(CUDA_VERSION_MAJOR "${CUDAToolkit_VERSION_MAJOR}")
     set(CUDA_VERSION_MINOR "${CUDAToolkit_VERSION_MINOR}")
 else()
+    set(USES_CUDA "false")
+
     set(CUDA_VERSION_MAJOR "std::nullopt")
     set(CUDA_VERSION_MINOR "std::nullopt")
 endif()

@@ -53,21 +53,22 @@ reusing an existing one to avoid dependency conflicts.
 ## 3. Install Dependencies
 
 ### 3.1 System Dependencies
-fairseq2 has a dependency on
-[libsndfile](https://github.com/libsndfile/libsndfile) that can be installed via
-the system package manager on most Linux distributions, or via Homebrew on
+fairseq2 depends on [libjpeg](https://libjpeg.sourceforge.net),
+[libpng](http://www.libpng.org/pub/png/libpng.html), and
+[libsndfile](https://github.com/libsndfile/libsndfile), which can be installed
+via the system package manager on most Linux distributions, or via Homebrew on
 macOS.
 
 For Ubuntu-based systems, run:
 
 ```sh
-sudo apt install libsndfile-dev
+sudo apt install libjpeg8-dev libpng-dev libsndfile-dev
 ```
 
 Similarly, on Fedora, run:
 
 ```sh
-sudo dnf install libsndfile-devel
+sudo dnf install libjpeg-devel libpng-devel libsndfile-devel
 ```
 
 For other Linux distributions, please consult its documentation on how to
@@ -76,7 +77,7 @@ install packages.
 For macOS, you can use Homebrew:
 
 ```sh
-brew install libsndfile
+brew install libjpeb libpng libsndfile
 ```
 
 ### 3.2 PyTorch
