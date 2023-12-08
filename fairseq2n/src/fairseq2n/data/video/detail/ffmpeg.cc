@@ -35,7 +35,7 @@ ffmpeg_decoder::open_container(const memory_block &block)
 
     auto data_ptr = reinterpret_cast<const uint8_t*>(block.data());
     size_t data_size = block.size();
-    fairseq2n::detail::buffer_data bd = {data_ptr, data_size};   
+    fairseq2n::detail::buffer_data bd = {data_ptr, data_size, this};   
     int ret = 0;
     
     fmt_ctx_ = avformat_alloc_context();
@@ -60,25 +60,28 @@ ffmpeg_decoder::open_container(const memory_block &block)
     if (avio_ctx_ == nullptr) {
         throw_<runtime_error>("Failed to allocate AVIOContext.");
     }
+    if (!read_callback_error_message().empty()) {
+        throw_<runtime_error>("Size is too large to fit in an int");
+    }
     
     fmt_ctx_->pb = avio_ctx_; 
     fmt_ctx_->flags |= AVFMT_FLAG_CUSTOM_IO; 
     fmt_ctx_->flags |= AVFMT_FLAG_NONBLOCK;
     
     // Determine the input format
-    AVProbeData probe_data = {0};
-    probe_data.buf = avio_ctx_buffer_;
-    probe_data.buf_size = data_size;
-    probe_data.filename = "";  // Set to an empty string since we don't have a filename
-    fmt_ctx_->iformat = av_probe_input_format(&probe_data, 1);
+    fmt_ctx_->iformat = nullptr;
+    if (data_size <= std::numeric_limits<int>::max()) {
+        AVProbeData probe_data = {nullptr, avio_ctx_buffer_, static_cast<int>(data_size), nullptr};
+        fmt_ctx_->iformat = av_probe_input_format(&probe_data, 1);
+    }
     
-    // Open media file and read the header
+    // Open media and read the header
     ret = avformat_open_input(&fmt_ctx_, nullptr, fmt_ctx_->iformat, nullptr);
     if (ret < 0) {
         throw_with_nested<invalid_argument>("Failed to open input.");
     }
 
-    // Read data from the media file
+    // Read data from the media
     ret = avformat_find_stream_info(fmt_ctx_, nullptr);
     if (ret < 0) {
         throw_<runtime_error>("Failed to find stream information.");
@@ -96,7 +99,7 @@ ffmpeg_decoder::open_container(const memory_block &block)
 data_dict
 ffmpeg_decoder::open_stream(int stream_index) 
 {
-    // Opens a stream and decodes the video frames. Skips all other streams for now.
+    // Opens a stream and decodes the video frames. Skips all streams that are not video for now.
 
     av_stream_ = std::make_unique<stream>(stream_index, *fmt_ctx_);
     int processed_frames = 0;
@@ -151,7 +154,7 @@ ffmpeg_decoder::open_stream(int stream_index)
                         at::Tensor one_frame = av_stream_->tensor_storage_.all_video_frames[processed_frames];                        
                         writable_memory_span frame_bits = get_raw_mutable_storage(one_frame);
                         auto frame_data = reinterpret_cast<uint8_t*>(frame_bits.data());
-                        // Calculate the total size of the frame in bytes
+                        // Get total size of the frame in bytes
                         int frame_size = av_image_get_buffer_size(AV_PIX_FMT_RGB24, av_stream_->sw_frame_->width, 
                                                                                 av_stream_->sw_frame_->height, 1);
                         // Copy the entire frame at once                
@@ -177,13 +180,18 @@ ffmpeg_decoder::open_stream(int stream_index)
 int 
 ffmpeg_decoder::read_callback(void *opaque, uint8_t *buf, int buf_size) 
 {
+    // C style function used by ffmpeg to read from memory buffer
     // Read up to buf_size bytes from the resource accessed by the AVIOContext object
-    // Used by ffmpeg to read from memory buffer
     auto *bd = static_cast<fairseq2n::detail::buffer_data *>(opaque);
-    buf_size = std::min(static_cast<size_t>(buf_size), bd->size);
+    size_t temp_size = std::min(static_cast<size_t>(buf_size), bd->size);
+    if (temp_size > std::numeric_limits<int>::max()) {
+        bd->decoder->error_message_ = "Size is too large to fit in an int";
+        return AVERROR(EINVAL);
+    }
+    buf_size = static_cast<int>(temp_size);
     if (buf_size <= 0)
         return AVERROR_EOF;
-    memcpy(buf, bd->ptr, buf_size);
+    memcpy(buf, bd->ptr, static_cast<size_t>(buf_size));
     bd->ptr += buf_size;
     bd->size -= static_cast<size_t>(buf_size);
     return buf_size;

@@ -16,8 +16,8 @@ namespace fairseq2n::detail {
 
 transform::transform(int width, int height, AVPixelFormat fmt, video_decoder_options opts)
 {
-    int dstWidth = opts.width() ? opts.width() : width;
-    int dstHeight = opts.height() ? opts.height() : height;
+    int dstWidth = (opts.width() != 0) ? opts.width() : width;
+    int dstHeight = (opts.height() != 0) ? opts.height() : height;
     sws_ctx_ = sws_getContext(width, height, fmt, dstWidth, dstHeight, AV_PIX_FMT_RGB24,
                                 SWS_BILINEAR, nullptr, nullptr, nullptr);
     if (sws_ctx_ == nullptr) {
@@ -31,8 +31,8 @@ video_decoder_options opts)
     // AV_PIX_FMT_RGB24 guarantees 3 color channels
     av_frame_unref(&sw_frame); // Safety check
     sw_frame.format = AV_PIX_FMT_RGB24;
-    sw_frame.width = opts.width() ? opts.width() : frame.width;
-    sw_frame.height = opts.height() ? opts.height() : frame.height;
+    sw_frame.width = (opts.width() != 0) ? opts.width() : frame.width;
+    sw_frame.height = (opts.height() != 0) ? opts.height() : frame.height;
     int ret = av_frame_get_buffer(&sw_frame, 0);
     if (ret < 0) {
         throw_<std::runtime_error>("Failed to allocate buffer for the RGB frame for stream {}\n", 

@@ -46,6 +46,8 @@ private:
     static int 
     read_callback(void *opaque, uint8_t *buf, int buf_size);
 
+    const std::string& read_callback_error_message() const { return error_message_; }
+
 private:
     video_decoder_options opts_; 
     AVFormatContext* fmt_ctx_ = nullptr;
@@ -53,6 +55,7 @@ private:
     uint8_t* avio_ctx_buffer_ = nullptr;
     std::unique_ptr<stream> av_stream_; 
     std::unique_ptr<transform> sws_;
+    std::string error_message_; 
 };
 
 } // namespace fairseq2n

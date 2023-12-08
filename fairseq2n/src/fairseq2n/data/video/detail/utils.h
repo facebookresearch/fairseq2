@@ -15,9 +15,12 @@
 
 namespace fairseq2n::detail {
 
+class ffmpeg_decoder;
+
 struct buffer_data {
     const uint8_t *ptr; // Pointer to the start of the memory_block buffer
-    size_t size;        
+    size_t size;
+    ffmpeg_decoder *decoder; // Used to access decoder in static functions
 };
 
 struct media_metadata {
@@ -29,7 +32,6 @@ struct media_metadata {
   int width{0}; // Width of a frame in pixels
   double time_base{0}; // Time base of the stream
   double fps{0}; // Frames per second for video streams
-  // media_format format; // TODO
 };
 
 struct tensor_storage {
@@ -75,7 +77,7 @@ public:
     }
 
     video_decoder_options
-    get_pts_only(bool value) noexcept
+    get_pts_only(bool value)
     {
         auto tmp = *this;
 
@@ -95,7 +97,7 @@ public:
     }
 
     video_decoder_options
-    get_frames_only(bool value) noexcept
+    get_frames_only(bool value)
     {
         auto tmp = *this;
 
