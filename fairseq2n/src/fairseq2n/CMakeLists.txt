@@ -68,6 +68,10 @@ target_sources(fairseq2n
         data/text/sentencepiece/sp_encoder.cc
         data/text/sentencepiece/sp_model.cc
         data/text/sentencepiece/sp_processor.cc
+        data/video/video_decoder.cc
+        data/video/detail/ffmpeg.cc
+        data/video/detail/stream.cc
+        data/video/detail/transform.cc
 )
 
 if(FAIRSEQ2N_SUPPORT_IMAGE)
