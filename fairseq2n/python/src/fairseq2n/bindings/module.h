@@ -49,4 +49,7 @@ def_text_converters(pybind11::module_ &text_module);
 void
 def_text_reader(pybind11::module_ &text_module);
 
+void
+def_video(pybind11::module_ &data_module);
+
 }  // namespace fairseq2n
