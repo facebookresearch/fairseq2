@@ -216,6 +216,10 @@ def _load_faircluster() -> None:
     if "FAIR_ENV_CLUSTER" not in os.environ:
         return
 
+    # Disable the central Fair model store i.e. for debugging
+    if os.getenv("NO_FAIR_CARD", None):
+        return
+
     asset_store.env_resolvers.append(lambda: "faircluster")
 
     # This directory is meant to store cluster-wide asset cards.

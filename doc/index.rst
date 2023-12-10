@@ -13,6 +13,7 @@ other content generation tasks.
    :maxdepth: 1
 
    reference/data
+   reference/asset
    reference/all
 
 .. toctree::
