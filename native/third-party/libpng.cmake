@@ -29,8 +29,8 @@ macro(fairseq2n_add_libpng)
 
         target_include_directories(png_static SYSTEM
             PUBLIC
-                ${PROJECT_SOURCE_DIR}/third-party/libpng
                 ${PROJECT_BINARY_DIR}/third-party/libpng
+                ${PROJECT_SOURCE_DIR}/third-party/libpng
         )
 
         unset(SKIP_INSTALL_ALL)

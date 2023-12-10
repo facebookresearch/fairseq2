@@ -29,7 +29,6 @@ jobs:
         uses: actions/checkout@v3
         with:
           submodules: recursive
-          fetch-depth: 2
       - name: Create the Python virtual environment
         run: |
           python${{ inputs.py }} -m venv ~/venv
@@ -41,19 +40,23 @@ jobs:
             torch==${{ inputs.torch }}\
       - name: Install requirements
         run: |
-          pip install --requirement fairseq2n/python/requirements-build.txt
+          pip install --requirement native/python/requirements-build.txt
       - name: Build the compilation database
         id: setup
-        working-directory: fairseq2n
+        working-directory: native
         run: |
           # Since we are only building the compilation database, we can ignore
           # CUDA compatibility.
           export CUDAFLAGS="--allow-unsupported-compiler"
 
-          CC=clang CXX=clang++ cmake -GNinja -DCMAKE_BUILD_TYPE=Release -B build
+          # TODO: set FAIRSEQ2N_USE_CUDA once lint issues are fixed.
+          CC=clang CXX=clang++ cmake\
+             -GNinja -DFAIRSEQ2N_PYTHON_DEVEL=OFF -B build
+
+          cmake --build build
       - name: Run clang-tidy
         if: success() || (failure() && steps.setup.outcome == 'success')
-        working-directory: fairseq2n
+        working-directory: native
         run: |
           echo "::add-matcher::./ci/problem-matchers/gcc.json"
 

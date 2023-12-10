@@ -13,9 +13,12 @@ from os import environ
 from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional, Tuple
 
-from fairseq2n.config import _SUPPORTS_CUDA, _SUPPORTS_IMAGE, DOC_MODE
+from fairseq2n.config import _CUDA_VERSION, _SUPPORTS_CUDA, _SUPPORTS_IMAGE
 
 __version__ = "0.2.1.dev0"
+
+# Indicates whether we are run under Sphinx.
+DOC_MODE = False
 
 
 # Keeps the shared libraries that we load using our own extended lookup logic
@@ -116,10 +119,16 @@ def _check_cuda_runtime() -> None:
     if not _SUPPORTS_CUDA:
         return
 
+    assert _CUDA_VERSION is not None
+
+    major_cuda_ver, minor_cuda_ver = _CUDA_VERSION
+
     libcudart = _load_shared_library("libcudart.so")
     if libcudart is None:
+        cuda = f"CUDA {major_cuda_ver}.{minor_cuda_ver}"
+
         raise OSError(
-            "fairseq2 is built with CUDA, but the CUDA runtime cannot be found. Either install the CUDA Toolkit or a CPU-only version of fairseq2 (see https://github.com/facebookresearch/fairseq2#variants)."
+            f"fairseq2 is built with {cuda}, but {cuda} runtime cannot be found on your system. Either install {cuda} Toolkit or a CPU-only version of fairseq2 (see https://github.com/facebookresearch/fairseq2#variants)."
         )
 
 
@@ -138,7 +147,7 @@ def get_include() -> Path:
 
 def get_cmake_prefix_path() -> Path:
     """Return the directory that contains fairseq2n CMake package."""
-    return Path(__file__).parent.joinpath("lib", "cmake")
+    return Path(__file__).parent.joinpath("lib/cmake")
 
 
 def supports_image() -> bool:
@@ -151,14 +160,10 @@ def supports_cuda() -> bool:
     return _SUPPORTS_CUDA
 
 
-if TYPE_CHECKING or DOC_MODE:
+def cuda_version() -> Optional[Tuple[int, int]]:
+    """Return the version of CUDA that fairseq2n supports.
 
-    def cuda_version() -> Optional[Tuple[int, int]]:
-        """Return the version of CUDA that fairseq2n supports.
-
-        :returns:
-            The major and minor version segments.
-        """
-
-else:
-    from fairseq2n.bindings import cuda_version as cuda_version
+    :returns:
+        The major and minor version segments.
+    """
+    return _CUDA_VERSION

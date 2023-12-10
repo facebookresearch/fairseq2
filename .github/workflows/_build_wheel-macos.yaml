@@ -48,13 +48,13 @@ jobs:
           pip install torch==${{ inputs.torch }}
       - name: Install requirements
         run: |
-          pip install --requirement fairseq2n/python/requirements-build.txt
+          pip install --requirement native/python/requirements-build.txt
       - name: Override project version
         if: inputs.version_override
         run: |
           tools/set-project-version.sh ${{ inputs.version_override }}
       - name: Build fairseq2n
-        working-directory: fairseq2n
+        working-directory: native
         run: |
           cmake\
             -GNinja\
@@ -69,7 +69,7 @@ jobs:
 
           cmake --build build
       - name: Package fairseq2n
-        working-directory: fairseq2n/python
+        working-directory: native/python
         run: |
           pip wheel\
             --use-pep517\
@@ -86,8 +86,8 @@ jobs:
           name: ${{ inputs.artifacts_name }}-pt${{ inputs.torch }}-py${{ inputs.py }}-macos_${{ inputs.arch }}-cpu
           path: |
             build/wheelhouse/*.whl
-            fairseq2n/build/tests/run-tests
-            fairseq2n/python/build/wheelhouse/*.whl
+            native/build/tests/run-tests
+            native/python/build/wheelhouse/*.whl
           retention-days: 1
 
   test:
@@ -121,16 +121,16 @@ jobs:
           pip install --requirement requirements-devel.txt
       - name: Install fairseq2n
         run: |
-          pip install --no-cache-dir ~/artifacts/fairseq2n/python/build/wheelhouse/*.whl
+          pip install --no-cache-dir ~/artifacts/native/python/build/wheelhouse/*.whl
       - name: Install fairseq2
         run: |
           pip install --no-cache-dir ~/artifacts/build/wheelhouse/*.whl
       - name: Run native tests
         run: |
-          chmod 755 ~/artifacts/fairseq2n/build/tests/run-tests
+          chmod 755 ~/artifacts/native/build/tests/run-tests
 
           DYLD_LIBRARY_PATH=~/venv/lib:~/venv/lib/python${{ inputs.py }}/site-packages/torch/lib:~/venv/lib/python${{ inputs.py }}/site-packages/fairseq2n/lib\
-            ~/artifacts/fairseq2n/build/tests/run-tests
+            ~/artifacts/native/build/tests/run-tests
       - name: Run Python tests
         run: |
           pytest -rP --verbose

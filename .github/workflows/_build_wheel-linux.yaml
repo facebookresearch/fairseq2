@@ -64,7 +64,7 @@ jobs:
             torch==${{ inputs.torch }}
       - name: Install requirements
         run: |
-          pip install --requirement fairseq2n/python/requirements-build.txt
+          pip install --requirement native/python/requirements-build.txt
       - name: Override project version
         if: inputs.version_override
         run: |
@@ -83,7 +83,7 @@ jobs:
               tools/set-project-version.sh $version+$VARIANT
           fi
       - name: Build fairseq2n
-        working-directory: fairseq2n
+        working-directory: native
         env:
           VARIANT: ${{ inputs.variant }}
           SANITIZERS: ${{ inputs.sanitizers }}
@@ -122,7 +122,7 @@ jobs:
 
           cmake --build build
       - name: Package fairseq2n
-        working-directory: fairseq2n/python
+        working-directory: native/python
         run: |
           pip wheel\
             --use-pep517\
@@ -141,8 +141,8 @@ jobs:
           name: ${{ inputs.artifacts_name }}-pt${{ inputs.torch }}-py${{ inputs.py }}-linux_${{ inputs.arch }}-${{ inputs.variant }}-${{ inputs.sanitizers }}
           path: |
             build/wheelhouse/*.whl
-            fairseq2n/build/tests/run-tests
-            fairseq2n/python/build/wheelhouse/*.whl
+            native/build/tests/run-tests
+            native/python/build/wheelhouse/*.whl
           retention-days: 1
 
   test:
@@ -185,9 +185,7 @@ jobs:
           fi
       - name: Install fairseq2n
         run: |
-          whl=$(ls ~/artifacts/fairseq2n/python/build/wheelhouse/*.whl)
-
-          pip install --no-cache-dir "fairseq2n@file://$whl"
+          pip install --no-cache-dir ~/artifacts/native/python/build/wheelhouse/*.whl
       - name: Install fairseq2
         run: |
           whl=$(ls ~/artifacts/build/wheelhouse/*.whl)
@@ -204,7 +202,7 @@ jobs:
             # in non-instrumented dependencies.
             echo ASAN_OPTIONS=detect_container_overflow=0
 
-            echo LSAN_OPTIONS=suppressions=fairseq2n/LSan.supp,exitcode=0,log_path=$HOME/lsan.out
+            echo LSAN_OPTIONS=suppressions=native/LSan.supp,exitcode=0,log_path=$HOME/lsan.out
 
             for sanitizer in ${SANITIZERS//_/ }; do
               # LIBASAN and LIBTSAN environment variables are defined in the
@@ -225,12 +223,12 @@ jobs:
           } >> "$GITHUB_ENV"
       - name: Run native tests
         run: |
-          chmod 755 ~/artifacts/fairseq2n/build/tests/run-tests
+          chmod 755 ~/artifacts/native/build/tests/run-tests
 
           site_packages=~/venv/lib/python${{ inputs.py }}/site-packages
 
           LD_LIBRARY_PATH=~/venv/lib:$site_packages/torch/lib:$site_packages/fairseq2n/lib:$LD_LIBRARY_PATH\
-            ~/artifacts/fairseq2n/build/tests/run-tests
+            ~/artifacts/native/build/tests/run-tests
       - name: Run Python tests
         env:
           RUN_INTEGRATION_TESTS: ${{ inputs.run_integration_tests }}

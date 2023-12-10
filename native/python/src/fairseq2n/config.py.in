@@ -6,8 +6,8 @@
 
 from typing import Final
 
-DOC_MODE: Final = False
-
 _SUPPORTS_IMAGE: Final = @SUPPORTS_IMAGE@
 
 _SUPPORTS_CUDA: Final = @USES_CUDA@
+
+_CUDA_VERSION: Final = @CUDA_VERSION@

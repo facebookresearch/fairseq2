@@ -18,8 +18,12 @@ endif()
 
 if(FAIRSEQ2N_USE_CUDA)
     set(USES_CUDA "True")
+
+    set(CUDA_VERSION "(${CUDAToolkit_VERSION_MAJOR}, ${CUDAToolkit_VERSION_MINOR})")
 else()
     set(USES_CUDA "False")
+
+    set(CUDA_VERSION "None")
 endif()
 
 configure_file(config.py.in ${CMAKE_CURRENT_SOURCE_DIR}/config.py @ONLY)

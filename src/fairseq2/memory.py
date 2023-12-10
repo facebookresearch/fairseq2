@@ -7,7 +7,7 @@
 from array import array
 from typing import TYPE_CHECKING, Optional, Union, overload
 
-from fairseq2n.config import DOC_MODE
+from fairseq2n import DOC_MODE
 from typing_extensions import TypeAlias
 
 Buffer: TypeAlias = Union[bytes, bytearray, memoryview, array]

@@ -4,9 +4,9 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import fairseq2n.config
+import fairseq2n
 
-fairseq2n.config.DOC_MODE = True
+fairseq2n.DOC_MODE = True
 
 import fairseq2
 

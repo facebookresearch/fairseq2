@@ -68,7 +68,7 @@ jobs:
           echo S3_PREFIX=$s3_prefix >> "$GITHUB_ENV"
       - name: Upload wheel
         run: |
-          for pkg in ~/artifacts/fairseq2n/python/build/wheelhouse/*.whl; do
+          for pkg in ~/artifacts/native/python/build/wheelhouse/*.whl; do
             aws s3 cp "$pkg" s3://$S3_BUCKET/$S3_PREFIX/fairseq2n/
           done
 

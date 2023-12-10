@@ -6,7 +6,7 @@
 
 from typing import TYPE_CHECKING, Optional, TypedDict
 
-from fairseq2n.config import DOC_MODE
+from fairseq2n import DOC_MODE
 from torch import Tensor
 
 from fairseq2.memory import MemoryBlock

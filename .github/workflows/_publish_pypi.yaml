@@ -42,7 +42,7 @@ jobs:
       - name: Publish fairseq2n
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-            packages-dir: artifacts/fairseq2n/python/build/wheelhouse
+            packages-dir: artifacts/native/python/build/wheelhouse
       - name: Publish fairseq2
         uses: pypa/gh-action-pypi-publish@release/v1
         with:

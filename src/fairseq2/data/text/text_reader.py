@@ -7,7 +7,7 @@
 from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
-from fairseq2n.config import DOC_MODE
+from fairseq2n import DOC_MODE
 
 from fairseq2.data.data_pipeline import DataPipelineBuilder
 from fairseq2.data.typing import PathLike, StringLike
