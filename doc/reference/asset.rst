@@ -1,5 +1,5 @@
 fairseq2.asset
-=============
+==============
 .. body
 
 .. currentmodule:: fairseq2.asset
