@@ -8,7 +8,7 @@ FROM quay.io/pypa/manylinux2014_x86_64
 
 # Install system dependencies.
 RUN yum --assumeyes install\
-        devtoolset-10-lib{asan,lsan,ubsan,tsan}-devel lib{sndfile,png,jpeg}-devel &&\
+        devtoolset-10-lib{asan,lsan,ubsan,tsan}-devel libsndfile-devel &&\
     yum clean all
 
 # Install Ninja.

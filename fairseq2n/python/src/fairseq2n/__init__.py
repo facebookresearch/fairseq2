@@ -11,7 +11,9 @@ from ctypes import CDLL, RTLD_GLOBAL
 from ctypes.util import find_library
 from os import environ
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple
+
+from fairseq2n.config import _SUPPORTS_CUDA, _SUPPORTS_IMAGE, DOC_MODE
 
 __version__ = "0.2.1.dev0"
 
@@ -110,6 +112,20 @@ def _load_shared_library(lib_name: str) -> Optional[CDLL]:
 _load_shared_libraries()
 
 
+def _check_cuda_runtime() -> None:
+    if not _SUPPORTS_CUDA:
+        return
+
+    libcudart = _load_shared_library("libcudart.so")
+    if libcudart is None:
+        raise OSError(
+            "fairseq2 is built with CUDA, but the CUDA runtime cannot be found. Either install the CUDA Toolkit or a CPU-only version of fairseq2 (see https://github.com/facebookresearch/fairseq2#variants)."
+        )
+
+
+_check_cuda_runtime()
+
+
 def get_lib() -> Path:
     """Return the directory that contains fairseq2n shared library."""
     return Path(__file__).parent.joinpath("lib")
@@ -125,26 +141,24 @@ def get_cmake_prefix_path() -> Path:
     return Path(__file__).parent.joinpath("lib", "cmake")
 
 
-def supports_cuda() -> bool:
-    """Return ``True`` if fairseq2n supports CUDA."""
-    from fairseq2n.bindings import _supports_cuda  # type: ignore[attr-defined]
-
-    return _supports_cuda()  # type: ignore[no-any-return]
-
-
 def supports_image() -> bool:
     """Return ``True`` if fairseq2n supports JPEG/PNG decoding."""
-    from fairseq2n.bindings import _supports_image  # type: ignore[attr-defined]
-
-    return _supports_image()  # type: ignore[no-any-return]
+    return _SUPPORTS_IMAGE
 
 
-def cuda_version() -> Optional[Tuple[int, int]]:
-    """Return the version of CUDA that fairseq2n supports.
+def supports_cuda() -> bool:
+    """Return ``True`` if fairseq2n supports CUDA."""
+    return _SUPPORTS_CUDA
 
-    :returns:
-        The major and minor version segments.
-    """
-    from fairseq2n.bindings import _cuda_version  # type: ignore[attr-defined]
 
-    return _cuda_version()  # type: ignore[no-any-return]
+if TYPE_CHECKING or DOC_MODE:
+
+    def cuda_version() -> Optional[Tuple[int, int]]:
+        """Return the version of CUDA that fairseq2n supports.
+
+        :returns:
+            The major and minor version segments.
+        """
+
+else:
+    from fairseq2n.bindings import cuda_version as cuda_version

@@ -16,7 +16,7 @@ endif()
 # The tbb PyPI package installs oneTBB under the lib directory of the Python
 # environment. Check if we can find it there.
 find_package(Python3 QUIET COMPONENTS Interpreter)
-if(Python3_Interpreter_FOUND)
+if(Python3_Interpreter_FOUND AND NOT TBB_LIBRARY)
     message(STATUS "Checking for oneTBB under the Python environment...")
 
     set(tbb_base_dir ${Python3_EXECUTABLE})

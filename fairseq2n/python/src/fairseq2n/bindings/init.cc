@@ -17,26 +17,12 @@ PYBIND11_MODULE(bindings, m)
     py::options opts{};
     opts.disable_function_signatures();
 
-    m.def(
-        "_supports_cuda",
-        []
-        {
-          return supports_cuda;
-        });
-
-    m.def(
-        "_supports_image",
-        []
-        {
-          return supports_image;
-        });
-
 // See https://github.com/llvm/llvm-project/issues/57123.
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunreachable-code-return"
 
     m.def(
-        "_cuda_version",
+        "cuda_version",
         []
         {
           if constexpr (cuda_version_major)

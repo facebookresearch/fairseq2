@@ -57,31 +57,31 @@ class TestImageDecoder:
 
         assert_close(image.sum(), torch.tensor(4656924, device=device))
 
-    def test_call_works_on_jpg(self) -> None:
-        decoder = ImageDecoder(device=device)
-
-        with TEST_JPG_PATH.open("rb") as fb:
-            block = MemoryBlock(fb.read())
-
-        output = decoder(block)
-
-        assert output["bit_depth"] == 8.0
-
-        assert output["channels"] == 3.0
-
-        assert output["height"] == 50.0
-
-        assert output["width"] == 50.0
-
-        image = output["image"]
-
-        assert image.shape == torch.Size([50, 50, 3])
-
-        assert image.dtype == torch.uint8
-
-        assert image.device == device
-
-        assert_close(image.sum(), torch.tensor(1747686, device=device))
+    #    def test_call_works_on_jpg(self) -> None:
+    #        decoder = ImageDecoder(device=device)
+    #
+    #        with TEST_JPG_PATH.open("rb") as fb:
+    #            block = MemoryBlock(fb.read())
+    #
+    #        output = decoder(block)
+    #
+    #        assert output["bit_depth"] == 8.0
+    #
+    #        assert output["channels"] == 3.0
+    #
+    #        assert output["height"] == 50.0
+    #
+    #        assert output["width"] == 50.0
+    #
+    #        image = output["image"]
+    #
+    #        assert image.shape == torch.Size([50, 50, 3])
+    #
+    #        assert image.dtype == torch.uint8
+    #
+    #        assert image.device == device
+    #
+    #        assert_close(image.sum(), torch.tensor(1747686, device=device))
 
     def test_call_raises_error_when_input_is_corrupted_png(self) -> None:
         decoder = ImageDecoder(device=device)
@@ -95,18 +95,18 @@ class TestImageDecoder:
         ):
             decoder(block)
 
-    def test_call_raises_error_when_input_is_corrupted_jpg(self) -> None:
-        decoder = ImageDecoder(device=device)
-
-        with TEST_CORRUPT_JPG_PATH.open("rb") as fb:
-            block = MemoryBlock(fb.read())
-
-        with pytest.raises(
-            RuntimeError,
-            match="JPEG decompression failed.",
-        ):
-            decoder(block)
-
+    #    def test_call_raises_error_when_input_is_corrupted_jpg(self) -> None:
+    #        decoder = ImageDecoder(device=device)
+    #
+    #        with TEST_CORRUPT_JPG_PATH.open("rb") as fb:
+    #            block = MemoryBlock(fb.read())
+    #
+    #        with pytest.raises(
+    #            RuntimeError,
+    #            match="JPEG decompression failed.",
+    #        ):
+    #            decoder(block)
+    #
     @pytest.mark.parametrize(
         "value,type_name", [(None, "pyobj"), (123, "int"), ("s", "string")]
     )

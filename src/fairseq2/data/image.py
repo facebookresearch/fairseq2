@@ -6,13 +6,13 @@
 
 from typing import TYPE_CHECKING, Optional, TypedDict
 
+from fairseq2n.config import DOC_MODE
 from torch import Tensor
 
-from fairseq2 import _DOC_MODE
 from fairseq2.memory import MemoryBlock
 from fairseq2.typing import Device
 
-if TYPE_CHECKING or _DOC_MODE:
+if TYPE_CHECKING or DOC_MODE:
 
     class ImageDecoder:
         def __init__(

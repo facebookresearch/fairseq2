@@ -45,7 +45,7 @@ jobs:
       - name: Install Sphinx
         run: |
           pip install --requirement doc/requirements.txt
-      - name: Overwrite project version
+      - name: Override project version
         if: inputs.version_override
         run: |
           tools/set-project-version.sh ${{ inputs.version_override }}

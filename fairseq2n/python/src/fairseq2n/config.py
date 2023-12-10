@@ -4,8 +4,10 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from typing import Final
 
-# We import fairseq2n to report any initialization error eagerly.
-import fairseq2n
+DOC_MODE: Final = False
 
-__version__ = "0.2.1.dev0"
+_SUPPORTS_IMAGE: Final = False
+
+_SUPPORTS_CUDA: Final = False
