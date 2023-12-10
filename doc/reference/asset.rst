@@ -7,7 +7,7 @@ fairseq2.asset
 ``fairseq2.asset`` provides API to load the different model using the "model cards" from different "stores".
 
 A model card is a .YAML file that contains information about a model and instructs a 
-:pc:class:`fairseq2.models.utils.generic_loaders.ModelLoader` on how to load the model into the memory.
+:py:class:`fairseq2.models.utils.generic_loaders.ModelLoader` on how to load the model into the memory.
 A store is a place where all the model cards are stored. By default, fairseq2 will look up the following stores:
 
 * System asset store: Cards that are shared by all users. By default, the system store is `/etc/fairseq2/assets`,
