@@ -128,18 +128,6 @@ class TestAssetCard:
 
         assert value2 == []
 
-    def test_as_dict_works(self) -> None:
-        value = self.card.field("field2").as_dict(str)
-
-        assert value == {"sub-field2": "sub-foo2"}
-
-    def test_as_dict_raises_error_when_field_is_not_a_valid_dict(self) -> None:
-        with pytest.raises(
-            AssetCardError,
-            match=rf"The elements of the field 'field2' of the asset card 'test-card' must be of type `{int}`, but at least one element is of type `{str}` instead\.$",
-        ):
-            self.card.field("field2").as_dict(int)
-
     def test_as_list_works(self) -> None:
         value = self.card.field("field7").as_list(int)
 
@@ -148,9 +136,21 @@ class TestAssetCard:
     def test_as_list_raises_error_when_field_is_not_a_valid_list(self) -> None:
         with pytest.raises(
             AssetCardError,
-            match=rf"The elements of the field 'field7' of the asset card 'test-card' must be of type `{str}`, but at least one element is of type `{int}` instead\.$",
+            match=rf"The elements of the field 'field7' of the asset card 'test-card' must be of type `{str}`, but the element at index 0 is of type `{int}` instead\.$",
         ):
             self.card.field("field7").as_list(str)
+
+    def test_as_dict_works(self) -> None:
+        value = self.card.field("field2").as_dict(str)
+
+        assert value == {"sub-field2": "sub-foo2"}
+
+    def test_as_dict_raises_error_when_field_is_not_a_valid_dict(self) -> None:
+        with pytest.raises(
+            AssetCardError,
+            match=rf"The elements of the field 'field2' of the asset card 'test-card' must be of type `{int}`, but the element 'sub-field2' is of type `{str}` instead\.$",
+        ):
+            self.card.field("field2").as_dict(int)
 
     def test_as_set_works(self) -> None:
         value = self.card.field("field7").as_set(int)
@@ -160,7 +160,7 @@ class TestAssetCard:
     def test_as_set_raises_error_when_field_is_not_a_valid_set(self) -> None:
         with pytest.raises(
             AssetCardError,
-            match=rf"The elements of the field 'field7' of the asset card 'test-card' must be of type `{str}`, but at least one element is of type `{int}` instead\.$",
+            match=rf"The elements of the field 'field7' of the asset card 'test-card' must be of type `{str}`, but the element at index 0 is of type `{int}` instead\.$",
         ):
             self.card.field("field7").as_set(str)
 

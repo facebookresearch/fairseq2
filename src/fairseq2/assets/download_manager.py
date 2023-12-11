@@ -308,7 +308,7 @@ class _AssetDownloadOp:
             return Path(pathname)
         except ValueError as ex:
             raise RuntimeError(
-                f"`{var_name}` environment variable must contain a valid pathname, but contains '{pathname}' instead."
+                f"The value of the `{var_name}` environment variable must be a valid pathname, but is '{pathname}' instead."
             ) from ex
 
     def _download_asset(self) -> None:

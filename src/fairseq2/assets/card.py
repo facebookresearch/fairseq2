@@ -215,12 +215,12 @@ class AssetCardField:
         """
         value = self.as_(list, allow_empty)
 
-        for element in value:
+        for idx, element in enumerate(value):
             if not isinstance(element, kls):
                 pathname = ".".join(self.path)
 
                 raise AssetCardError(
-                    f"The elements of the field '{pathname}' of the asset card '{self.card.name}' must be of type `{kls}`, but at least one element is of type `{type(element)}` instead."
+                    f"The elements of the field '{pathname}' of the asset card '{self.card.name}' must be of type `{kls}`, but the element at index {idx} is of type `{type(element)}` instead."
                 )
 
         return value
@@ -235,12 +235,12 @@ class AssetCardField:
         """
         value = self.as_(dict, allow_empty)
 
-        for element in value.values():
+        for key, element in value.items():
             if not isinstance(element, kls):
                 pathname = ".".join(self.path)
 
                 raise AssetCardError(
-                    f"The elements of the field '{pathname}' of the asset card '{self.card.name}' must be of type `{kls}`, but at least one element is of type `{type(element)}` instead."
+                    f"The elements of the field '{pathname}' of the asset card '{self.card.name}' must be of type `{kls}`, but the element '{key}' is of type `{type(element)}` instead."
                 )
 
         return value
@@ -292,14 +292,16 @@ class AssetCardField:
 
         try:
             uri = urlparse(str_value)
-        except ValueError:
-            uri = None
+        except ValueError as ex:
+            raise AssetCardError(
+                f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be a URI, but is '{str_value}' instead."
+            ) from ex
 
-        if uri is None or not (uri.netloc or uri.path):
+        if not uri.netloc and not uri.path:
             pathname = ".".join(self.path)
 
             raise AssetCardError(
-                f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be a URI, but is '{str_value}' instead."
+                f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be a URI with a network location and/or path, but is '{str_value}' instead."
             )
 
         if not uri.scheme:
