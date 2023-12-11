@@ -59,20 +59,18 @@ fairseq2 is also used by various external projects such as:
 ## Installing on Linux
 
 ### System Dependencies
-fairseq2 depends on [libjpeg](https://libjpeg.sourceforge.net),
-[libpng](http://www.libpng.org/pub/png/libpng.html), and
-[libsndfile](https://github.com/libsndfile/libsndfile), which can be installed
-via the system package manager on most Linux distributions. For Ubuntu-based
-systems, run:
+fairseq2 depends on [libsndfile](https://github.com/libsndfile/libsndfile),
+which can be installed via the system package manager on most Linux
+distributions. For Ubuntu-based systems, run:
 
 ```sh
-sudo apt install libjpeg8 libpng16-16 libsndfile1
+sudo apt install libsndfile1
 ```
 
 Similarly, on Fedora, run:
 
 ```sh
-sudo dnf install libjpeg libpng libsndfile
+sudo dnf install libsndfile
 ```
 
 For other Linux distributions, please consult its documentation on how to
@@ -140,13 +138,11 @@ pip install fairseq2\
 ## Installing on macOS
 
 ### System Dependencies
-fairseq2 depends on [libjpeg](https://libjpeg.sourceforge.net),
-[libpng](http://www.libpng.org/pub/png/libpng.html), and
-[libsndfile](https://github.com/libsndfile/libsndfile), which can be installed
-via Homebrew:
+fairseq2 depends on [libsndfile](https://github.com/libsndfile/libsndfile),
+which can be installed via Homebrew:
 
 ```sh
-brew install libjpeg libpng libsndfile
+brew install libsndfile
 ```
 
 ### pip

@@ -1,18 +1,28 @@
 [submodule "third-party/pybind11"]
-	path = fairseq2n/third-party/pybind11
+	path = native/third-party/pybind11
 	url = https://github.com/pybind/pybind11.git
+	ignore = dirty
 [submodule "third-party/fmt"]
-	path = fairseq2n/third-party/fmt
+	path = native/third-party/fmt
 	url = https://github.com/fmtlib/fmt.git
+	ignore = dirty
 [submodule "third-party/gtest"]
-	path = fairseq2n/third-party/gtest
+	path = native/third-party/gtest
 	url = https://github.com/google/googletest.git
+	ignore = dirty
 [submodule "third-party/sentencepiece"]
-	path = fairseq2n/third-party/sentencepiece
+	path = native/third-party/sentencepiece
 	url = https://github.com/google/sentencepiece.git
+	ignore = dirty
 [submodule "third-party/zip"]
-	path = fairseq2n/third-party/zip
+	path = native/third-party/zip
 	url = https://github.com/kuba--/zip.git
+	ignore = dirty
 [submodule "third-party/kaldi-native-fbank"]
-	path = fairseq2n/third-party/kaldi-native-fbank
-	url = https://github.com/cbalioglu/kaldi-native-fbank.git
+	path = native/third-party/kaldi-native-fbank
+	url = https://github.com/csukuangfj/kaldi-native-fbank.git
+	ignore = dirty
+[submodule "fairseq2n/third-party/libpng"]
+	path = native/third-party/libpng
+	url = https://github.com/glennrp/libpng.git
+	ignore = dirty

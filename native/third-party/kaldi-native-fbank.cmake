@@ -5,6 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 macro(fairseq2n_add_kaldi_native_fbank)
+    find_package(Git REQUIRED)
+
+    execute_process(
+        COMMAND
+            ${GIT_EXECUTABLE} apply ${PROJECT_SOURCE_DIR}/third-party/kaldi-native-fbank.patch
+        WORKING_DIRECTORY
+            ${PROJECT_SOURCE_DIR}/third-party/kaldi-native-fbank
+        ERROR_QUIET
+    )
+
     set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
 
     set(KALDI_NATIVE_FBANK_BUILD_TESTS  OFF)

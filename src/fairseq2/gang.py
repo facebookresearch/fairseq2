@@ -49,6 +49,10 @@ class Gang(ABC):
         self.device = device
 
     @abstractmethod
+    def close(self) -> None:
+        """Closes and destroys the gang."""
+
+    @abstractmethod
     def as_process_group(self) -> ProcessGroup:
         """Return this gang as a process group."""
 
@@ -83,6 +87,10 @@ class FakeGang(Gang):
 
     def __init__(self, device: Device) -> None:
         super().__init__(rank=0, size=1, device=device)
+
+    @finaloverride
+    def close(self) -> None:
+        pass
 
     @finaloverride
     def as_process_group(self) -> ProcessGroup:
@@ -156,6 +164,10 @@ class ProcessGroupGang(Gang):
         super().__init__(dist.get_rank(pg), dist.get_world_size(pg), device)
 
         self.pg = pg
+
+    @finaloverride
+    def close(self) -> None:
+        dist.destroy_process_group(self.pg)
 
     @finaloverride
     def as_process_group(self) -> ProcessGroup:

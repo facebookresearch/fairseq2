@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from typing import Optional
 
 from torch.profiler import (
@@ -80,11 +82,11 @@ class Profiler:
             self._profile.stop()
 
     def step(self) -> None:
-        """Signal the profiler that the next profiling step has started."""
+        """Move to the next profiling step."""
         if self._profile is not None:
             self._profile.step()
 
-    def __enter__(self) -> "Profiler":
+    def __enter__(self) -> Profiler:
         self.start()
 
         return self

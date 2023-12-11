@@ -8,7 +8,6 @@ from os import path
 from typing import Final, List, Optional
 
 import torch
-from packaging import version
 from setuptools import Command, find_packages, setup
 from setuptools.command.install import install as install_base
 from setuptools.dist import Distribution as DistributionBase
@@ -136,7 +135,7 @@ setup(
         "install_cmake": install_cmake,
     },
     name="fairseq2n",
-    version="0.2.1.dev0",
+    version="0.3.0.dev0",
     description="FAIR Sequence Modeling Toolkit (Native)",
     long_description="https://github.com/facebookresearch/fairseq2",
     long_description_content_type="text/plain",
@@ -167,7 +166,7 @@ setup(
         "tbb>=2021.8;platform_machine=='x86_64'",
         # PyTorch has no ABI compatibility between releases; this means we have
         # to ensure that we depend on the exact same version that we used to
-        # build our extension module.
-        "torch==" + version.parse(torch.__version__).public,
+        # build fairseq2n.
+        "torch==" + torch.__version__,
     ],
 )

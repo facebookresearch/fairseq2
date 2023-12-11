@@ -30,6 +30,8 @@ jobs:
     steps:
       - name: Check-out the repository
         uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - name: Create the Python virtual environment
         run: |
           python${{ inputs.py }} -m venv ~/venv
@@ -41,17 +43,21 @@ jobs:
             torch==${{ inputs.torch }}
       - name: Install requirements
         run: |
-          pip install --requirement fairseq2n/python/requirements-build.txt
+          pip install --requirement native/python/requirements-build.txt
       - name: Install Sphinx
         run: |
           pip install --requirement doc/requirements.txt
-      - name: Overwrite project version
+      - name: Override project version
         if: inputs.version_override
         run: |
           tools/set-project-version.sh ${{ inputs.version_override }}
+      - name: Configure fairseq2n
+        working-directory: native
+        run: |
+          cmake -GNinja -B build
       - name: Install fairseq2n
         run: |
-          pip install --editable fairseq2n/python
+          pip install --editable native/python
       - name: Install fairseq2
         run: |
           pip install --editable .

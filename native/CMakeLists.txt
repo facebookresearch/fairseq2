@@ -6,7 +6,7 @@
 
 cmake_minimum_required(VERSION 3.21.0)
 
-project(fairseq2n VERSION 0.2.1 LANGUAGES C CXX)
+project(fairseq2n VERSION 0.3.0 LANGUAGES C CXX)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY VALUE RelWithDebInfo)
@@ -167,12 +167,6 @@ find_package(SndFile 1.0.25 REQUIRED)
 
 find_package(Threads REQUIRED)
 
-if(FAIRSEQ2N_SUPPORT_IMAGE)
-    find_package(JPEG REQUIRED)
-
-    find_package(PNG REQUIRED)
-endif()
-
 if(FAIRSEQ2N_THREAD_LIB STREQUAL "tbb")
     find_package(TBB 2021.8 REQUIRED)
 endif()
@@ -205,6 +199,12 @@ fairseq2n_add_natsort()
 fairseq2n_add_sentencepiece()
 
 fairseq2n_add_zip()
+
+if(FAIRSEQ2N_SUPPORT_IMAGE)
+    fairseq2n_add_libjpeg_turbo()
+
+    fairseq2n_add_libpng()
+endif()
 
 if(FAIRSEQ2N_BUILD_PYTHON_BINDINGS)
     fairseq2n_add_pybind11()
@@ -319,7 +319,7 @@ export(
 add_subdirectory(src/fairseq2n)
 
 if(FAIRSEQ2N_BUILD_PYTHON_BINDINGS)
-    add_subdirectory(python/src/fairseq2n/bindings)
+    add_subdirectory(python/src/fairseq2n)
 endif()
 
 if(PROJECT_IS_TOP_LEVEL AND BUILD_TESTING)

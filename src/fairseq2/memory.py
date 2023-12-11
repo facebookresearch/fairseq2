@@ -7,13 +7,12 @@
 from array import array
 from typing import TYPE_CHECKING, Optional, Union, overload
 
+from fairseq2n import DOC_MODE
 from typing_extensions import TypeAlias
-
-from fairseq2 import _DOC_MODE
 
 Buffer: TypeAlias = Union[bytes, bytearray, memoryview, array]
 
-if TYPE_CHECKING or _DOC_MODE:
+if TYPE_CHECKING or DOC_MODE:
 
     class MemoryBlock:
         """Represents a contiguous block of read-only memory."""

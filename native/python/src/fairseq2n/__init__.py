@@ -11,9 +11,19 @@ from ctypes import CDLL, RTLD_GLOBAL
 from ctypes.util import find_library
 from os import environ
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
-__version__ = "0.2.1.dev0"
+from fairseq2n.config import (
+    _CUDA_VERSION,
+    _SUPPORTS_CUDA,
+    _SUPPORTS_IMAGE,
+    _TORCH_VERSION,
+)
+
+__version__ = "0.3.0.dev0"
+
+# Indicates whether we are run under Sphinx.
+DOC_MODE = False
 
 
 # Keeps the shared libraries that we load using our own extended lookup logic
@@ -110,6 +120,18 @@ def _load_shared_library(lib_name: str) -> Optional[CDLL]:
 _load_shared_libraries()
 
 
+def _check_torch_version() -> None:
+    import torch
+
+    if torch.__version__ != _TORCH_VERSION:
+        raise RuntimeError(
+            f"fairseq2 requires PyTorch {_TORCH_VERSION}, but the installed version is {torch.__version__}. Either follow the instructions at https://pytorch.org to update PyTorch, or the instructions at https://github.com/facebookresearch/fairseq2 to update fairseq2."
+        )
+
+
+_check_torch_version()
+
+
 def get_lib() -> Path:
     """Return the directory that contains fairseq2n shared library."""
     return Path(__file__).parent.joinpath("lib")
@@ -122,21 +144,22 @@ def get_include() -> Path:
 
 def get_cmake_prefix_path() -> Path:
     """Return the directory that contains fairseq2n CMake package."""
-    return Path(__file__).parent.joinpath("lib", "cmake")
+    return Path(__file__).parent.joinpath("lib/cmake")
 
 
-def supports_cuda() -> bool:
-    """Return ``True`` if fairseq2n supports CUDA."""
-    from fairseq2n.bindings import _supports_cuda  # type: ignore[attr-defined]
-
-    return _supports_cuda()  # type: ignore[no-any-return]
+def torch_version() -> str:
+    """Return the version of PyTorch that was used to build fairseq2n."""
+    return _TORCH_VERSION
 
 
 def supports_image() -> bool:
     """Return ``True`` if fairseq2n supports JPEG/PNG decoding."""
-    from fairseq2n.bindings import _supports_image  # type: ignore[attr-defined]
+    return _SUPPORTS_IMAGE
 
-    return _supports_image()  # type: ignore[no-any-return]
+
+def supports_cuda() -> bool:
+    """Return ``True`` if fairseq2n supports CUDA."""
+    return _SUPPORTS_CUDA
 
 
 def cuda_version() -> Optional[Tuple[int, int]]:
@@ -145,6 +168,4 @@ def cuda_version() -> Optional[Tuple[int, int]]:
     :returns:
         The major and minor version segments.
     """
-    from fairseq2n.bindings import _cuda_version  # type: ignore[attr-defined]
-
-    return _cuda_version()  # type: ignore[no-any-return]
+    return _CUDA_VERSION
