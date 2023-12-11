@@ -36,7 +36,7 @@ To register a new store, implement a :py:class:`fairseq2.assets.AssetMetadataPro
     asset_store.metadata_providers.append(FileAssetMetadataProvider(my_dir))
 
 
-Model store
+Model card
 ~~~~~~~~~~~
 
 A model card is a .YAML file that contains information about a model and instructs a 
