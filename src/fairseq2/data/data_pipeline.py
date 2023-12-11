@@ -13,6 +13,7 @@ from typing import (
     Dict,
     Iterable,
     Iterator,
+    List,
     Mapping,
     Optional,
     Sequence,
@@ -476,3 +477,37 @@ class SequenceData(TypedDict):
 class FileMapperOutput(TypedDict):
     path: PathLike
     data: MemoryBlock
+
+
+def create_bucket_sizes(
+    max_num_elements: int, max_seq_len: int, min_seq_len: int = 1
+) -> List[Tuple[int, int]]:
+    """Create optimal bucket sizes for ``max_num_elements`` with ``max_seq_len``.
+
+    This is a convenience function that can be used with the
+    :meth:`DataPipeline.bucket_by_length` operator.
+    """
+    if max_num_elements < max_seq_len:
+        raise ValueError(
+            f"`max_seq_len` must be less than or equal to `max_num_elements` ({max_num_elements}), but is {max_seq_len} instead."
+        )
+
+    if min_seq_len > max_seq_len:
+        raise ValueError(
+            f"`min_seq_len` must be less than or equal to `max_seq_len` ({max_seq_len}), but is {min_seq_len} instead."
+        )
+
+    bucket_sizes = []
+
+    seq_len = min_seq_len
+
+    batch_size = max_num_elements // seq_len
+
+    while seq_len <= max_seq_len:
+        bucket_sizes.append((batch_size, seq_len))
+
+        batch_size = max_num_elements // (seq_len + 1)
+
+        seq_len = max_num_elements // batch_size
+
+    return bucket_sizes
