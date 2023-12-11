@@ -12,6 +12,7 @@ fairseq2.assets
 
     AssetStore
     AssetCard
+    AssetMetadataProvider
 
 Model store
 ~~~~~~~~~~~
@@ -46,4 +47,4 @@ fairseq2 provides example cards for differen LLMs in
 `fairseq2.assets.cards`. 
 
 In fairseq2, a model card is accessed via :py:class:`fairseq2.assets.AssetCard`. Alternatively, one can call 
-:py:method:`fairseq2.assets.AssetMetadataProvider.get_metadata(name: str)` to get the meta data of a given model card name.
+`fairseq2.assets.AssetMetadataProvider.get_metadata(name: str)` to get the meta data of a given model card name.
