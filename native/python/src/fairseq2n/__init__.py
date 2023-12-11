@@ -13,7 +13,12 @@ from os import environ
 from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional, Tuple
 
-from fairseq2n.config import _CUDA_VERSION, _SUPPORTS_CUDA, _SUPPORTS_IMAGE
+from fairseq2n.config import (
+    _CUDA_VERSION,
+    _SUPPORTS_CUDA,
+    _SUPPORTS_IMAGE,
+    _TORCH_VERSION,
+)
 
 __version__ = "0.2.1.dev0"
 
@@ -115,24 +120,16 @@ def _load_shared_library(lib_name: str) -> Optional[CDLL]:
 _load_shared_libraries()
 
 
-def _check_cuda_runtime() -> None:
-    if not _SUPPORTS_CUDA:
-        return
+def _check_torch_version() -> None:
+    import torch
 
-    assert _CUDA_VERSION is not None
-
-    major_cuda_ver, minor_cuda_ver = _CUDA_VERSION
-
-    libcudart = _load_shared_library("libcudart.so")
-    if libcudart is None:
-        cuda = f"CUDA {major_cuda_ver}.{minor_cuda_ver}"
-
-        raise OSError(
-            f"fairseq2 is built with {cuda}, but {cuda} runtime cannot be found on your system. Either install {cuda} Toolkit or a CPU-only version of fairseq2 (see https://github.com/facebookresearch/fairseq2#variants)."
+    if torch.__version__ != _TORCH_VERSION:
+        raise RuntimeError(
+            f"fairseq2 requires PyTorch {_TORCH_VERSION}, but the installed version is {torch.__version__}. Either follow the instructions at https://pytorch.org to update PyTorch, or the instructions at https://github.com/facebookresearch/fairseq2 to update fairseq2."
         )
 
 
-_check_cuda_runtime()
+_check_torch_version()
 
 
 def get_lib() -> Path:
@@ -148,6 +145,11 @@ def get_include() -> Path:
 def get_cmake_prefix_path() -> Path:
     """Return the directory that contains fairseq2n CMake package."""
     return Path(__file__).parent.joinpath("lib/cmake")
+
+
+def torch_version() -> str:
+    """Return the version of PyTorch that was used to build fairseq2n."""
+    return _TORCH_VERSION
 
 
 def supports_image() -> bool:

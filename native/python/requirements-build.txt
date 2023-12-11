@@ -1,6 +1,5 @@
 cmake~=3.26
 ninja~=1.11
-packaging~=23.1
 pip~=23.2
 setuptools~=67.8
 tbb-devel==2021.8;platform_machine=='x86_64'

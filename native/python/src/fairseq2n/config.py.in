@@ -6,6 +6,8 @@
 
 from typing import Final
 
+_TORCH_VERSION: Final = "@TORCH_PEP440_VERSION@"
+
 _SUPPORTS_IMAGE: Final = @SUPPORTS_IMAGE@
 
 _SUPPORTS_CUDA: Final = @USES_CUDA@

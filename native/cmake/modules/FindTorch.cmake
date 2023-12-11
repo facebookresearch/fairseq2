@@ -18,7 +18,7 @@ macro(__torch_determine_version)
     )
 
     if(result GREATER 0)
-        message(FATAL_ERROR "fairseq2 cannot determine PEP 440 version of PyTorch!")
+        message(FATAL_ERROR "fairseq2n cannot determine PEP 440 version of PyTorch!")
     endif()
 
     if(TORCH_PEP440_VERSION MATCHES "^[0-9]+\.[0-9]+(\.[0-9]+)?")
@@ -40,7 +40,7 @@ macro(__torch_determine_cuda_version)
     )
 
     if(result GREATER 0)
-        message(FATAL_ERROR "fairseq2 cannot determine CUDA version of PyTorch!")
+        message(FATAL_ERROR "fairseq2n cannot determine CUDA version of PyTorch!")
     endif()
 
     # We ignore the patch since it is not relevant for compatibility checks.
