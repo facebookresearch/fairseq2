@@ -21,14 +21,14 @@ from typing import (
     Union,
 )
 
+from fairseq2n import DOC_MODE
 from torch import Tensor
 from typing_extensions import Self
 
-from fairseq2 import _DOC_MODE
 from fairseq2.data.typing import PathLike, StringLike
 from fairseq2.memory import MemoryBlock
 
-if TYPE_CHECKING or _DOC_MODE:
+if TYPE_CHECKING or DOC_MODE:
 
     class DataPipeline(Iterable[Any]):
         """fairseq2 native data pipeline.

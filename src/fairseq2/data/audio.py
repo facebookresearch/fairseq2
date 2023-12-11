@@ -8,14 +8,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional, TypedDict, Union
 
+from fairseq2n import DOC_MODE
 from torch import Tensor
 from typing_extensions import NotRequired
 
-from fairseq2 import _DOC_MODE
 from fairseq2.memory import MemoryBlock
 from fairseq2.typing import DataType, Device
 
-if TYPE_CHECKING or _DOC_MODE:
+if TYPE_CHECKING or DOC_MODE:
 
     class AudioDecoder:
         def __init__(

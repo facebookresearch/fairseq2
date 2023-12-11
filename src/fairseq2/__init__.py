@@ -9,7 +9,3 @@
 import fairseq2n
 
 __version__ = "0.2.1.dev0"
-
-
-# If ``True``, indicates that we are run under Sphinx.
-_DOC_MODE = False

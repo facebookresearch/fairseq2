@@ -6,13 +6,13 @@
 
 from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Union
 
+from fairseq2n import DOC_MODE
 from torch import Tensor
 
-from fairseq2 import _DOC_MODE
 from fairseq2.data.typing import StringLike
 from fairseq2.typing import DataType
 
-if TYPE_CHECKING or _DOC_MODE:
+if TYPE_CHECKING or DOC_MODE:
 
     class StrSplitter:
         """Split string on a given character.

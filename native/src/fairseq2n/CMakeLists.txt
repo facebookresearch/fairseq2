@@ -115,9 +115,6 @@ target_include_directories(fairseq2n ${system}
         $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/src>
 )
 
-find_package(PNG REQUIRED)
-find_package(JPEG REQUIRED)
-
 target_link_libraries(fairseq2n
     PRIVATE
         ${CMAKE_DL_LIBS}
@@ -130,14 +127,12 @@ target_link_libraries(fairseq2n
         Threads::Threads
         sentencepiece-static
         SndFile::sndfile
-        PNG::PNG
-        JPEG::JPEG
     PUBLIC
         torch
 )
 
 if(FAIRSEQ2N_SUPPORT_IMAGE)
-    target_link_libraries(fairseq2n PRIVATE JPEG::JPEG PNG::PNG)
+    target_link_libraries(fairseq2n PRIVATE jpeg_turbo_static png_static)
 endif()
 
 if(FAIRSEQ2N_USE_CUDA)

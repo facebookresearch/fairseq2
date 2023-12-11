@@ -68,17 +68,17 @@ replace_match\
 
 # Update fairseq2n CMake project.
 replace_match\
-    "$base/fairseq2n/CMakeLists.txt"\
+    "$base/native/CMakeLists.txt"\
     "s/VERSION .* LANGUAGES/VERSION $mmm_ver LANGUAGES/"
 
 # Update fairseq2n Python distribution.
 replace_match\
-    "$base/fairseq2n/python/setup.py"\
+    "$base/native/python/setup.py"\
     "s/    version=\".*\",$/    version=\"$pep_ver\",/"
 
 # Update fairseq2n Python package.
 replace_match\
-    "$base/fairseq2n/python/src/fairseq2n/__init__.py"\
+    "$base/native/python/src/fairseq2n/__init__.py"\
     "s/^__version__ = \".*\"$/__version__ = \"$pep_ver\"/"
 
 # Update VERSION file.
