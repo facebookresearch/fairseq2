@@ -1,8 +1,8 @@
-fairseq2.asset
-==============
+fairseq2.assets
+===============
 .. body
 
-.. currentmodule:: fairseq2.asset
+.. currentmodule:: fairseq2.assets
 
 ``fairseq2.asset`` provides API to load the different model using the "model cards" from different "stores".
 
