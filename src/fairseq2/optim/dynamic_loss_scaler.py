@@ -4,12 +4,15 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 import logging
 import math
 from dataclasses import dataclass
 from logging import Logger
 from typing import Any, Callable, Dict, Mapping, Optional, Tuple, cast
 
+import torch
 from torch import Tensor
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
@@ -65,6 +68,14 @@ class DynamicLossScaler:
         :param enabled:
             If ``False``, disables loss scaling.
         """
+        if enabled:
+            for group in optimizer.param_groups:
+                for param in group["params"]:
+                    if param.dtype != torch.float16:
+                        raise ValueError(
+                            f"The parameters held by `optimizer` must be of type `torch.float16`, but at least one parameter is of type `{param.dtype}`."
+                        )
+
         if gang.size == 1:
             self._grad_scaler = GradScaler(
                 init_scale, scale_factor, 1 / scale_factor, scale_window, enabled
@@ -90,7 +101,12 @@ class DynamicLossScaler:
         return {"grad_scaler": self._grad_scaler.state_dict()}
 
     def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
-        self._grad_scaler.load_state_dict(state_dict["grad_scaler"])
+        try:
+            self._grad_scaler.load_state_dict(state_dict["grad_scaler"])
+        except KeyError as ex:
+            raise ValueError(
+                "`state_dict` must contain the state of the internal `GradScaler`."
+            ) from ex
 
     def run_optimizer_step(
         self, closure: Optional[Callable[[], float]] = None
@@ -122,7 +138,7 @@ class DynamicLossScaler:
 
         return loss, self._update_scale()
 
-    def _update_scale(self) -> "LossScaleResult":
+    def _update_scale(self) -> LossScaleResult:
         old_scale = self._grad_scaler.get_scale()
 
         self._grad_scaler.update()
@@ -198,4 +214,4 @@ class LossScaleResult:
     """Indicates whether the loss has overflowed."""
 
     min_: bool = False
-    """Indicates whether the scale has been decreased to its minimum value."""
+    """If ``True``, the scale has been decreased to its minimum value."""
