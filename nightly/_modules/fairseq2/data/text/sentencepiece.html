@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.text.sentencepiece &mdash; fairseq2 0.2.1.dev202312071557 documentation</title>
+  <title>fairseq2.data.text.sentencepiece &mdash; fairseq2 0.2.1.dev202312110349 documentation</title>
       <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.1.dev202312071557
+                0.2.1.dev202312110349
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
@@ -150,9 +150,9 @@
 
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">TYPE_CHECKING</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Sequence</span><span class="p">,</span> <span class="n">final</span>
 
+<span class="kn">from</span> <span class="nn">fairseq2n</span> <span class="kn">import</span> <span class="n">DOC_MODE</span>
 <span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
 
-<span class="kn">from</span> <span class="nn">fairseq2</span> <span class="kn">import</span> <span class="n">_DOC_MODE</span>
 <span class="kn">from</span> <span class="nn">fairseq2.data.text.text_tokenizer</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">TextTokenDecoder</span><span class="p">,</span>
     <span class="n">TextTokenEncoder</span><span class="p">,</span>
@@ -162,7 +162,7 @@
 <span class="kn">from</span> <span class="nn">fairseq2.data.vocabulary_info</span> <span class="kn">import</span> <span class="n">VocabularyInfo</span>
 <span class="kn">from</span> <span class="nn">fairseq2.typing</span> <span class="kn">import</span> <span class="n">Device</span><span class="p">,</span> <span class="n">finaloverride</span>
 
-<span class="k">if</span> <span class="n">TYPE_CHECKING</span> <span class="ow">or</span> <span class="n">_DOC_MODE</span><span class="p">:</span>
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span> <span class="ow">or</span> <span class="n">DOC_MODE</span><span class="p">:</span>
 
 <div class="viewcode-block" id="SentencePieceModel"><a class="viewcode-back" href="../../../../reference/generated/data_text/fairseq2.data.text.SentencePieceModel.html#fairseq2.data.text.SentencePieceModel">[docs]</a>    <span class="nd">@final</span>
     <span class="k">class</span> <span class="nc">SentencePieceModel</span><span class="p">:</span>
