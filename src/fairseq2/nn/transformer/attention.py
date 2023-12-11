@@ -307,7 +307,7 @@ def set_default_sdpa_factory(factory: Optional[SDPAFactory]) -> None:
 
 
 def create_default_sdpa(*, attn_dropout_p: float = 0.0) -> SDPA:
-    """Constructs an instance of the default :class:`SDPA`.
+    """Create an instance of the default :class:`SDPA`.
 
     :param attn_dropout_p:
         The dropout probability on attention weights.
