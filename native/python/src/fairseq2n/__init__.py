@@ -20,7 +20,7 @@ from fairseq2n.config import (
     _TORCH_VERSION,
 )
 
-__version__ = "0.2.1.dev0"
+__version__ = "0.3.0.dev0"
 
 # Indicates whether we are run under Sphinx.
 DOC_MODE = False
