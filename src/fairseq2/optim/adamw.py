@@ -4,10 +4,23 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, Iterable, List, Literal, Tuple, Union, cast, final
+from contextlib import ExitStack
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+    final,
+)
 
 import torch
 from torch import Tensor
+from torch.optim import Optimizer
 from torch.optim.adamw import adamw  # type: ignore[attr-defined]
 
 from fairseq2.optim.optimizer_base import OptimizerBase
@@ -19,11 +32,12 @@ from fairseq2.utils.version import is_pt2_or_greater
 class AdamW(OptimizerBase):
     """Implements AdamW algorithm.
 
-    This class internally uses the same functional implementation as
-    :class:`torch.optim.AdamW`. The main difference is that it casts parameters
-    and gradients to single precision (i.e. ``torch.float32``) during an
-    optimization step to have better numerical stability. The updated parameters
-    are then cast back to their original data type at the end of the step.
+    This class uses the same functional AdamW implementation as
+    :class:`torch.optim.AdamW`. The main difference is that it keeps its state
+    in single precision (i.e. ``torch.float32``), and temporarily casts half
+    precision parameters and gradients (i.e. ``torch.float16`` and
+    ``torch.bfloat16``) to single precision during an optimization step for
+    better numerical stability.
     """
 
     def __init__(
@@ -104,16 +118,40 @@ class AdamW(OptimizerBase):
             self._step_supports_amp_scaling = True
 
     def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
-        super().load_state_dict(state_dict)
+        original_fn = Optimizer._process_value_according_to_param_policy
 
-        # The base optimizer casts all state tensors to the data type of their
-        # parameter.
-        for state in self.state.values():
-            for name in ["exp_avg", "exp_avg_sq", "max_exp_avg_sq"]:
-                try:
-                    state[name] = state[name].float()
-                except KeyError:
-                    pass
+        state_keys = {"step", "exp_avg", "exp_avg_sq", "max_exp_avg_sq"}
+
+        # This is a ugly hack where we monkey patch `Optimizer`'s internal value
+        # handling to ensure that our state stays in single precision. If we let
+        # `Optimizer` cast our state to half precision and then we later cast it
+        # to full precision, we lose accuracy during downcasting which can cause
+        # gradient underflow.
+        def fn(
+            param: Tensor,
+            value: Tensor,
+            param_id: int,
+            param_groups: List[Dict[Any, Any]],
+            key: Optional[str],
+        ) -> torch.Tensor:
+            if key in state_keys:
+                return value.to(device=param.device, dtype=torch.float32)
+
+            # The base `Optimizer` always casts state tensors to the data type
+            # of their correspondig parameter.
+            return original_fn(param, value, param_id, param_groups, key)
+
+        def rollback() -> None:
+            setattr(Optimizer, "_process_value_according_to_param_policy", original_fn)
+
+        with ExitStack() as exit_stack:
+            # Make sure that we revert our monkey patch in all circumstances.
+            exit_stack.callback(rollback)
+
+            # Ugh, ugly.
+            setattr(Optimizer, "_process_value_according_to_param_policy", fn)
+
+            super().load_state_dict(state_dict)
 
     @finaloverride
     def _do_step(self) -> None:
@@ -227,12 +265,12 @@ class AdamW(OptimizerBase):
 
         if len(state) == 0:
             if param_group["capturable"] or param_group["impl"] == "fused":
-                device = param.device
+                step_device = param.device
             else:
-                device = None
+                step_device = None
 
             # Step counter.
-            state["step"] = torch.zeros((), device=device, dtype=torch.float32)
+            state["step"] = torch.zeros((), device=step_device, dtype=torch.float32)
 
             # Exponential moving average of gradient values.
             state["exp_avg"] = torch.zeros_like(fp32_param)
