@@ -4,23 +4,11 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from contextlib import ExitStack
-from typing import (
-    Any,
-    Dict,
-    Iterable,
-    List,
-    Literal,
-    Optional,
-    Tuple,
-    Union,
-    cast,
-    final,
-)
+from itertools import chain
+from typing import Any, Dict, Iterable, List, Literal, Tuple, Union, cast, final
 
 import torch
 from torch import Tensor
-from torch.optim import Optimizer
 from torch.optim.adamw import adamw  # type: ignore[attr-defined]
 
 from fairseq2.optim.optimizer_base import OptimizerBase
@@ -118,40 +106,36 @@ class AdamW(OptimizerBase):
             self._step_supports_amp_scaling = True
 
     def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
-        original_fn = Optimizer._process_value_according_to_param_policy
+        super().load_state_dict(state_dict)
 
-        state_keys = {"step", "exp_avg", "exp_avg_sq", "max_exp_avg_sq"}
+        state_keys = ["step", "exp_avg", "exp_avg_sq", "max_exp_avg_sq"]
 
-        # This is a ugly hack where we monkey patch `Optimizer`'s internal value
-        # handling to ensure that our state stays in single precision. If we let
-        # `Optimizer` cast our state to half precision and then we later cast it
-        # to full precision, we lose accuracy during downcasting which can cause
-        # gradient underflow.
-        def fn(
-            param: Tensor,
-            value: Tensor,
-            param_id: int,
-            param_groups: List[Dict[Any, Any]],
-            key: Optional[str],
-        ) -> torch.Tensor:
-            if key in state_keys:
-                return value.to(device=param.device, dtype=torch.float32)
+        param_groups = chain.from_iterable((g["params"] for g in self.param_groups))
+
+        saved_param_groups = chain.from_iterable(
+            (g["params"] for g in state_dict["param_groups"])
+        )
+
+        param_map = {old_p: p for old_p, p in zip(saved_param_groups, param_groups)}
+
+        # This is a workaround where we override `Optimizer`'s state restore
+        # handling to ensure that our state stays in single precision.
+        #
+        # Note that we use the state tensors in `state_dict` instead of the ones
+        # already set in the optimizer since we want to avoid the loss of
+        # accuracy caused by the downcasting in `Optimizer`.
+        for old_param, value in state_dict["state"].items():
+            param = param_map[old_param]
+
+            state = self.state[param]
 
             # The base `Optimizer` always casts state tensors to the data type
             # of their correspondig parameter.
-            return original_fn(param, value, param_id, param_groups, key)
-
-        def rollback() -> None:
-            setattr(Optimizer, "_process_value_according_to_param_policy", original_fn)
-
-        with ExitStack() as exit_stack:
-            # Make sure that we revert our monkey patch in all circumstances.
-            exit_stack.callback(rollback)
-
-            # Ugh, ugly.
-            setattr(Optimizer, "_process_value_according_to_param_policy", fn)
-
-            super().load_state_dict(state_dict)
+            for key in state_keys:
+                try:
+                    state[key] = value[key].to(device=param.device, dtype=torch.float32)
+                except KeyError:
+                    pass
 
     @finaloverride
     def _do_step(self) -> None:
