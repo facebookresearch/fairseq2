@@ -211,32 +211,43 @@ def _determine_default_device() -> Device:
 
 
 def _determine_default_cuda_device() -> Device:
-    num_devices = torch.cuda.device_count()
-
-    # We use the `LOCAL_RANK` environment variable to determine which GPU to
-    # pick in case the process has more than one GPU available.
-    local_rank_env = os.getenv("LOCAL_RANK")
-    if local_rank_env is None:
-        if num_devices > 1:
+    visible_devices = os.getenv("CUDA_VISIBLE_DEVICES")
+    if visible_devices is not None:
+        try:
+            int(visible_devices)
+        except ValueError:
             raise RuntimeError(
-                f"The default device cannot be determined. There are {num_devices} GPUs available, but the `LOCAL_RANK` environment variable is not set."
+                f"The value of the `CUDA_VISIBLE_DEVICES` environment variable must specify a single CUDA device, but is '{visible_devices}' instead."
             )
 
-        return Device("cuda", index=0)
+        device = Device("cuda", index=0)
+    else:
+        num_devices = torch.cuda.device_count()
 
-    try:
-        local_rank = int(local_rank_env)
-    except ValueError:
-        raise RuntimeError(
-            f"The value of the `LOCAL_RANK` environment variable must be an integer, but is '{local_rank_env}' instead."
-        )
+        # We use the `LOCAL_RANK` environment variable to determine which GPU to
+        # pick in case the process has more than one GPU available.
+        local_rank_env = os.getenv("LOCAL_RANK")
+        if local_rank_env is None:
+            if num_devices > 1:
+                raise RuntimeError(
+                    f"The default device cannot be determined. There are {num_devices} GPUs available, but the `LOCAL_RANK` environment variable is not set."
+                )
 
-    if local_rank >= num_devices:
-        raise RuntimeError(
-            f"The value of the `LOCAL_RANK` environment variable must be less than the number of available GPUs ({num_devices}), but is {local_rank} instead."
-        )
+            return Device("cuda", index=0)
 
-    device = Device("cuda", index=local_rank)
+        try:
+            local_rank = int(local_rank_env)
+        except ValueError:
+            raise RuntimeError(
+                f"The value of the `LOCAL_RANK` environment variable must be an integer, but is '{local_rank_env}' instead."
+            )
+
+        if local_rank >= num_devices:
+            raise RuntimeError(
+                f"The value of the `LOCAL_RANK` environment variable must be less than the number of available GPUs ({num_devices}), but is {local_rank} instead."
+            )
+
+        device = Device("cuda", index=local_rank)
 
     # As of PyTorch 2.0, FSDP fails to work if the default device is not set.
     torch.cuda.set_device(device)
