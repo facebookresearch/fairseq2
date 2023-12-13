@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.data_pipeline &mdash; fairseq2 0.3.0.dev202312111507 documentation</title>
+  <title>fairseq2.data.data_pipeline &mdash; fairseq2 0.3.0.dev202312131642 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202312111507
+                0.3.0.dev202312131642
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -110,6 +110,23 @@
 </li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/asset.html">fairseq2.assets</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../reference/generated/data/fairseq2.assets.AssetStore.html">AssetStore</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.assets.AssetStore.html#fairseq2.assets.AssetStore"><code class="docutils literal notranslate"><span class="pre">AssetStore</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../reference/generated/data/fairseq2.assets.AssetCard.html">AssetCard</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.assets.AssetCard.html#fairseq2.assets.AssetCard"><code class="docutils literal notranslate"><span class="pre">AssetCard</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../reference/generated/data/fairseq2.assets.AssetMetadataProvider.html">AssetMetadataProvider</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.assets.AssetMetadataProvider.html#fairseq2.assets.AssetMetadataProvider"><code class="docutils literal notranslate"><span class="pre">AssetMetadataProvider</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../reference/asset.html#model-store">Model store</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../reference/asset.html#model-card">Model card</a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/all.html">All</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Misc</span></p>
@@ -157,6 +174,7 @@
     <span class="n">Dict</span><span class="p">,</span>
     <span class="n">Iterable</span><span class="p">,</span>
     <span class="n">Iterator</span><span class="p">,</span>
+    <span class="n">List</span><span class="p">,</span>
     <span class="n">Mapping</span><span class="p">,</span>
     <span class="n">Optional</span><span class="p">,</span>
     <span class="n">Sequence</span><span class="p">,</span>
@@ -620,6 +638,40 @@
 <span class="k">class</span> <span class="nc">FileMapperOutput</span><span class="p">(</span><span class="n">TypedDict</span><span class="p">):</span>
     <span class="n">path</span><span class="p">:</span> <span class="n">PathLike</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">MemoryBlock</span>
+
+
+<span class="k">def</span> <span class="nf">create_bucket_sizes</span><span class="p">(</span>
+    <span class="n">max_num_elements</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">max_seq_len</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">min_seq_len</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create optimal bucket sizes for ``max_num_elements`` with ``max_seq_len``.</span>
+
+<span class="sd">    This is a convenience function that can be used with the</span>
+<span class="sd">    :meth:`DataPipeline.bucket_by_length` operator.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">max_num_elements</span> <span class="o">&lt;</span> <span class="n">max_seq_len</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;`max_seq_len` must be less than or equal to `max_num_elements` (</span><span class="si">{</span><span class="n">max_num_elements</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">max_seq_len</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">min_seq_len</span> <span class="o">&gt;</span> <span class="n">max_seq_len</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;`min_seq_len` must be less than or equal to `max_seq_len` (</span><span class="si">{</span><span class="n">max_seq_len</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">min_seq_len</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="n">bucket_sizes</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="n">seq_len</span> <span class="o">=</span> <span class="n">min_seq_len</span>
+
+    <span class="n">batch_size</span> <span class="o">=</span> <span class="n">max_num_elements</span> <span class="o">//</span> <span class="n">seq_len</span>
+
+    <span class="k">while</span> <span class="n">seq_len</span> <span class="o">&lt;=</span> <span class="n">max_seq_len</span><span class="p">:</span>
+        <span class="n">bucket_sizes</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">seq_len</span><span class="p">))</span>
+
+        <span class="n">batch_size</span> <span class="o">=</span> <span class="n">max_num_elements</span> <span class="o">//</span> <span class="p">(</span><span class="n">seq_len</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">seq_len</span> <span class="o">=</span> <span class="n">max_num_elements</span> <span class="o">//</span> <span class="n">batch_size</span>
+
+    <span class="k">return</span> <span class="n">bucket_sizes</span>
 </pre></div>
 
            </div>

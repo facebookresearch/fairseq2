@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.DataPipelineError &mdash; fairseq2 0.3.0.dev202312131642 documentation</title>
+  <title>AssetMetadataProvider &mdash; fairseq2 0.3.0.dev202312131642 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -19,8 +19,8 @@
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="fairseq2.data.RecordError" href="fairseq2.data.RecordError.html" />
-    <link rel="prev" title="fairseq2.data.ByteStreamError" href="fairseq2.data.ByteStreamError.html" /> 
+    <link rel="next" title="All" href="../../all.html" />
+    <link rel="prev" title="AssetCard" href="fairseq2.assets.AssetCard.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -47,7 +47,7 @@
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">fairseq2 Reference</span></p>
 <ul class="current">
-<li class="toctree-l1 current"><a class="reference internal" href="../../data.html">fairseq2.data</a><ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../../data.html">fairseq2.data</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="fairseq2.data.DataPipeline.html">DataPipeline</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline"><code class="docutils literal notranslate"><span class="pre">DataPipeline</span></code></a></li>
 </ul>
@@ -85,12 +85,12 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../data.html#column-syntax">Column syntax</a></li>
-<li class="toctree-l2 current"><a class="reference internal" href="../../data.html#public-classes-used-in-fairseq2-api">Public classes used in fairseq2 API:</a><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="../../data.html#public-classes-used-in-fairseq2-api">Public classes used in fairseq2 API:</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="fairseq2.data.CString.html">CString</a></li>
 <li class="toctree-l3"><a class="reference internal" href="fairseq2.data.PathLike.html">PathLike</a></li>
 <li class="toctree-l3"><a class="reference internal" href="fairseq2.data.StringLike.html">StringLike</a></li>
 <li class="toctree-l3"><a class="reference internal" href="fairseq2.data.ByteStreamError.html">fairseq2.data.ByteStreamError</a></li>
-<li class="toctree-l3 current"><a class="current reference internal" href="#">fairseq2.data.DataPipelineError</a></li>
+<li class="toctree-l3"><a class="reference internal" href="fairseq2.data.DataPipelineError.html">fairseq2.data.DataPipelineError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="fairseq2.data.RecordError.html">fairseq2.data.RecordError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="fairseq2.data.VocabularyInfo.html">VocabularyInfo</a></li>
 <li class="toctree-l3"><a class="reference internal" href="fairseq2.data.get_last_failed_example.html">get_last_failed_example</a></li>
@@ -113,7 +113,7 @@
 </li>
 </ul>
 </li>
-<li class="toctree-l1"><a class="reference internal" href="../../asset.html">fairseq2.assets</a><ul>
+<li class="toctree-l1 current"><a class="reference internal" href="../../asset.html">fairseq2.assets</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="fairseq2.assets.AssetStore.html">AssetStore</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="fairseq2.assets.AssetStore.html#fairseq2.assets.AssetStore"><code class="docutils literal notranslate"><span class="pre">AssetStore</span></code></a></li>
 </ul>
@@ -122,8 +122,8 @@
 <li class="toctree-l3"><a class="reference internal" href="fairseq2.assets.AssetCard.html#fairseq2.assets.AssetCard"><code class="docutils literal notranslate"><span class="pre">AssetCard</span></code></a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="fairseq2.assets.AssetMetadataProvider.html">AssetMetadataProvider</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="fairseq2.assets.AssetMetadataProvider.html#fairseq2.assets.AssetMetadataProvider"><code class="docutils literal notranslate"><span class="pre">AssetMetadataProvider</span></code></a></li>
+<li class="toctree-l2 current"><a class="current reference internal" href="#">AssetMetadataProvider</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="#fairseq2.assets.AssetMetadataProvider"><code class="docutils literal notranslate"><span class="pre">AssetMetadataProvider</span></code></a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../asset.html#model-store">Model store</a></li>
@@ -151,10 +151,10 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
-          <li class="breadcrumb-item"><a href="../../data.html">fairseq2.data</a></li>
-      <li class="breadcrumb-item active">fairseq2.data.DataPipelineError</li>
+          <li class="breadcrumb-item"><a href="../../asset.html">fairseq2.assets</a></li>
+      <li class="breadcrumb-item active">AssetMetadataProvider</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../../../_sources/reference/generated/data/fairseq2.data.DataPipelineError.rst.txt" rel="nofollow"> View page source</a>
+            <a href="../../../_sources/reference/generated/data/fairseq2.assets.AssetMetadataProvider.rst.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -162,12 +162,35 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="fairseq2-data-datapipelineerror">
-<h1>fairseq2.data.DataPipelineError<a class="headerlink" href="#fairseq2-data-datapipelineerror" title="Permalink to this heading"></a></h1>
-<dl class="py exception">
-<dt class="sig sig-object py" id="fairseq2.data.DataPipelineError">
-<em class="property"><span class="pre">exception</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.data.</span></span><span class="sig-name descname"><span class="pre">DataPipelineError</span></span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipelineError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.DataPipelineError" title="Permalink to this definition"></a></dt>
-<dd><p>Raised when an error occurs while reading from a data pipeline.</p>
+  <section id="assetmetadataprovider">
+<h1>AssetMetadataProvider<a class="headerlink" href="#assetmetadataprovider" title="Permalink to this heading"></a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="fairseq2.assets.AssetMetadataProvider">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.assets.</span></span><span class="sig-name descname"><span class="pre">AssetMetadataProvider</span></span><a class="reference internal" href="../../../_modules/fairseq2/assets/metadata_provider.html#AssetMetadataProvider"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetMetadataProvider" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a></p>
+<p>Provides asset metadata.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.assets.AssetMetadataProvider.clear_cache">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">clear_cache</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/assets/metadata_provider.html#AssetMetadataProvider.clear_cache"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetMetadataProvider.clear_cache" title="Permalink to this definition"></a></dt>
+<dd><p>Clear any cached asset metadata.</p>
+<dl class="field-list simple">
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.assets.AssetMetadataProvider.get_metadata">
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">get_metadata</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/assets/metadata_provider.html#AssetMetadataProvider.get_metadata"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetMetadataProvider.get_metadata" title="Permalink to this definition"></a></dt>
+<dd><p>Return the metadata of the specified asset.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a>) – The name of the asset.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.12)"><em>Dict</em></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)">str</a>, <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.12)"><em>Any</em></a>]</p>
+</dd>
+</dl>
+</dd></dl>
+
 </dd></dl>
 
 </section>
@@ -176,8 +199,8 @@
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="fairseq2.data.ByteStreamError.html" class="btn btn-neutral float-left" title="fairseq2.data.ByteStreamError" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="fairseq2.data.RecordError.html" class="btn btn-neutral float-right" title="fairseq2.data.RecordError" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="fairseq2.assets.AssetCard.html" class="btn btn-neutral float-left" title="AssetCard" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="../../all.html" class="btn btn-neutral float-right" title="All" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>
