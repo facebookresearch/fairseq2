@@ -81,7 +81,7 @@ If you have changes in C++ or CUDA, in addition to `pytest`, also run the native
 tests:
 
 ```sh
-fairseq2n/build/tests/run-tests
+native/build/tests/run-tests
 ```
 
 
@@ -125,7 +125,7 @@ If you have touched C++ or CUDA files, lint your code with an up-to-date version
 of the clang toolkit and address any issues reported:
 
 ```sh
-cd fairseq2n
+cd native
 
 CC=clang CXX=clang++ cmake -GNinja -DFAIRSEQ2N_RUN_CLANG_TIDY=ON -B build
 
@@ -135,7 +135,7 @@ cmake --build build
 Alternatively:
 
 ```sh
-cd fairseq2n
+cd native
 
 CC=clang CXX=clang++ cmake -GNinja -B build
 

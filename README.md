@@ -105,8 +105,9 @@ matrix shows the supported combinations.
 *\* cuXYZ refers to CUDA XY.Z (e.g. cu118 means CUDA 11.8)*
 
 To install a specific combination, first follow the installation instructions on
-[pytorch.org](https://pytorch.org) for the desired PyTorch version, and then use
-the following command (shown for PyTorch `2.1.1` and variant `cu118`):
+[pytorch.org](https://pytorch.org/get-started/locally) for the desired PyTorch
+version, and then use the following command (shown for PyTorch `2.1.1` and
+variant `cu118`):
 
 ```sh
 pip install fairseq2\
