@@ -105,18 +105,6 @@ class TorchSDPA(SDPA):
         attn_mask: Optional[AttentionMask] = None,
         needs_weights: bool = False,
     ) -> Tuple[Tensor, Optional[Tensor]]:
-        if not seqs.is_cuda:
-            return _naive_scaled_dot_product_attention(
-                seqs,
-                keys,
-                key_padding_mask,
-                values,
-                attn_mask,
-                self.attn_dropout_p,
-                needs_weights,
-                self.training,
-            )
-
         if needs_weights:
             if not self._has_warned:
                 logger.warning(
