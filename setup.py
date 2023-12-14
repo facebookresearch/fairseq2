@@ -44,13 +44,10 @@ setup(
     python_requires=">=3.8",
     install_requires=[
         "fairseq2n" + fairseq2n_version_spec,
-        "jiwer~=3.0",
         "numpy~=1.23",
         "overrides~=7.3",
         "packaging~=23.1",
         "pyyaml~=6.0",
-        "sacrebleu~=2.3",
-        "torch>=1.12.1",
         "torcheval~=0.0.6",
         "tqdm~=4.62",
         "typing_extensions~=4.3;python_version<'3.10'",

@@ -12,10 +12,12 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY VALUE RelWithDebInfo)
 endif()
 
-if(DEFINED ENV{CONDA_PREFIX} AND NOT DEFINED ENV{CONDA_BUILD_SYSROOT})
-    message(FATAL_ERROR
-        "It looks like you are in a Conda environment, but the compiler packages are not installed. Please run `conda install -c conda-forge compilers` first."
-    )
+if(DEFINED ENV{CONDA_PREFIX})
+    if(NOT DEFINED ENV{CONDA_BUILD_SYSROOT})
+        message(FATAL_ERROR
+            "It looks like you are in a Conda environment, but the `compilers` package is not installed. Please run `conda install -c conda-forge compilers=1.2.0` first."
+        )
+    endif()
 endif()
 
 include(CMakeDependentOption)

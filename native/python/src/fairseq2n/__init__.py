@@ -11,7 +11,7 @@ from ctypes import CDLL, RTLD_GLOBAL
 from ctypes.util import find_library
 from os import environ
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import TYPE_CHECKING, List, NoReturn, Optional, Tuple
 
 from fairseq2n.config import (
     _CUDA_VERSION,
@@ -183,10 +183,16 @@ def _check_torch_version() -> None:
     else:
         target_variant = "CPU-only"
 
-    if source_version != target_version or source_variant != target_variant:
+    def raise_error() -> NoReturn:
         raise RuntimeError(
             f"fairseq2 requires a {target_variant} build of PyTorch {target_version}, but the installed version is a {source_variant} build of PyTorch {source_version}. Either follow the instructions at https://pytorch.org/get-started/locally to update PyTorch, or the instructions at https://github.com/facebookresearch/fairseq2#variants to update fairseq2."
         )
+
+    if source_version != target_version:
+        raise_error()
+
+    if source_variant != target_variant and target_variant != "CPU-only":
+        raise_error()
 
 
 _check_torch_version()
