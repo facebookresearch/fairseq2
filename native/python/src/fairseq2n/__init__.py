@@ -6,12 +6,10 @@
 
 import platform
 import site
-import sys
 from ctypes import CDLL, RTLD_GLOBAL
-from ctypes.util import find_library
 from os import environ
 from pathlib import Path
-from typing import TYPE_CHECKING, List, NoReturn, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from fairseq2n.config import (
     _CUDA_VERSION,
