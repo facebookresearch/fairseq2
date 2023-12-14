@@ -79,9 +79,9 @@ brew install libsndfile
 ```
 
 ### 3.2 PyTorch
-Follow the instructions on [pytorch.org](https://pytorch.org) to install the
-desired PyTorch version. Make sure that the version you install is
-[supported](.#variants) by fairseq2.
+Follow the instructions on [pytorch.org](https://pytorch.org/get-started/locally/)
+to install the desired PyTorch version. Make sure that the version you install
+is [supported](.#variants) by fairseq2.
 
 ### 3.3 CUDA
 If you plan to build fairseq2 in a CUDA environment, you first have to install
@@ -97,7 +97,7 @@ instructions for different toolkit versions can be found on NVIDIA’s website.
 Finally, to install fairseq2’s C++ build dependencies (e.g. cmake, ninja), use:
 
 ```sh
-pip install -r fairseq2n/python/requirements-build.txt
+pip install -r native/python/requirements-build.txt
 ```
 
 
@@ -109,7 +109,7 @@ library. Run the following command at the root directory of your repository to
 configure the build:
 
 ```sh
-cd fairseq2n
+cd native
 
 cmake -GNinja -B build
 ```
@@ -123,7 +123,7 @@ cmake --build build
 fairseq2 uses reasonable defaults, so the command above is sufficient for a
 standard installation; however, if you are familiar with CMake, you can check
 out the advanced build options in
-[`fairseq2n/CMakeLists.txt`](fairseq2n/CMakeLists.txt).
+[`native/CMakeLists.txt`](native/CMakeLists.txt).
 
 ### CUDA Builds
 
@@ -162,7 +162,7 @@ Once you have built fairseq2n, the actual Python package installation is
 straightforward. First install fairseq2n:
 
 ```sh
-cd fairseq2n/python
+cd native/python
 
 pip install .
 
@@ -180,7 +180,7 @@ In case you want to modify and test fairseq2, installing it in editable mode
 will be more convenient:
 
 ```sh
-cd fairseq2n/python
+cd native/python
 
 pip install -e .
 

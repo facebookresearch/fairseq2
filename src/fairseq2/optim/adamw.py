@@ -4,6 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from itertools import chain
 from typing import Any, Dict, Iterable, List, Literal, Tuple, Union, cast, final
 
 import torch
@@ -19,11 +20,12 @@ from fairseq2.utils.version import is_pt2_or_greater
 class AdamW(OptimizerBase):
     """Implements AdamW algorithm.
 
-    This class internally uses the same functional implementation as
-    :class:`torch.optim.AdamW`. The main difference is that it casts parameters
-    and gradients to single precision (i.e. ``torch.float32``) during an
-    optimization step to have better numerical stability. The updated parameters
-    are then cast back to their original data type at the end of the step.
+    This class uses the same functional AdamW implementation as
+    :class:`torch.optim.AdamW`. The main difference is that it keeps its state
+    in single precision (i.e. ``torch.float32``), and temporarily casts half
+    precision parameters and gradients (i.e. ``torch.float16`` and
+    ``torch.bfloat16``) to single precision during an optimization step for
+    better numerical stability.
     """
 
     def __init__(
@@ -106,12 +108,32 @@ class AdamW(OptimizerBase):
     def load_state_dict(self, state_dict: Dict[str, Any]) -> None:
         super().load_state_dict(state_dict)
 
-        # The base optimizer casts all state tensors to the data type of their
-        # parameter.
-        for state in self.state.values():
-            for name in ["exp_avg", "exp_avg_sq", "max_exp_avg_sq"]:
+        state_keys = ["step", "exp_avg", "exp_avg_sq", "max_exp_avg_sq"]
+
+        param_groups = chain.from_iterable((g["params"] for g in self.param_groups))
+
+        saved_param_groups = chain.from_iterable(
+            (g["params"] for g in state_dict["param_groups"])
+        )
+
+        param_map = {old_p: p for old_p, p in zip(saved_param_groups, param_groups)}
+
+        # This is a workaround where we override `Optimizer`'s state restore
+        # handling to ensure that our state stays in single precision.
+        #
+        # Note that we use the state tensors in `state_dict` instead of the ones
+        # already set in the optimizer since we want to avoid the loss of
+        # accuracy caused by the downcasting in `Optimizer`.
+        for old_param, value in state_dict["state"].items():
+            param = param_map[old_param]
+
+            state = self.state[param]
+
+            # The base `Optimizer` always casts state tensors to the data type
+            # of their correspondig parameter.
+            for key in state_keys:
                 try:
-                    state[name] = state[name].float()
+                    state[key] = value[key].to(device=param.device, dtype=torch.float32)
                 except KeyError:
                     pass
 
@@ -227,12 +249,12 @@ class AdamW(OptimizerBase):
 
         if len(state) == 0:
             if param_group["capturable"] or param_group["impl"] == "fused":
-                device = param.device
+                step_device = param.device
             else:
-                device = None
+                step_device = None
 
             # Step counter.
-            state["step"] = torch.zeros((), device=device, dtype=torch.float32)
+            state["step"] = torch.zeros((), device=step_device, dtype=torch.float32)
 
             # Exponential moving average of gradient values.
             state["exp_avg"] = torch.zeros_like(fp32_param)

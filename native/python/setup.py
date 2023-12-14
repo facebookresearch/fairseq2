@@ -8,6 +8,7 @@ from os import path
 from typing import Final, List, Optional
 
 import torch
+from packaging import version
 from setuptools import Command, find_packages, setup
 from setuptools.command.install import install as install_base
 from setuptools.dist import Distribution as DistributionBase
@@ -167,6 +168,6 @@ setup(
         # PyTorch has no ABI compatibility between releases; this means we have
         # to ensure that we depend on the exact same version that we used to
         # build fairseq2n.
-        "torch==" + torch.__version__,
+        "torch==" + version.parse(torch.__version__).public,
     ],
 )
