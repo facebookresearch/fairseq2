@@ -32,6 +32,8 @@ def convert_nllb_checkpoint(
         # fmt: off
         r"^encoder\.embed_tokens\.":                              r"encoder_frontend.embed.",
         r"^decoder\.embed_tokens\.":                              r"decoder_frontend.embed.",
+        r"^encoder\.layernorm_embedding\.":                       r"encoder.layer_norm.",
+        r"^swcoder\.layernorm_embedding\.":                       r"decoder.layer_norm.",
         r"^decoder\.layers\.([0-9]+)\.self_attn\.out_proj\.":     r"decoder.layers.\1.self_attn.output_proj.",
         r"^encoder\.layers\.([0-9]+)\.self_attn\.out_proj\.":     r"encoder.layers.\1.self_attn.output_proj.",
         r"^decoder\.layers\.([0-9]+)\.encoder_attn\.out_proj\.":  r"decoder.layers.\1.encoder_decoder_attn.output_proj.",
