@@ -105,7 +105,6 @@ class TorchSDPA(SDPA):
         attn_mask: Optional[AttentionMask] = None,
         needs_weights: bool = False,
     ) -> Tuple[Tensor, Optional[Tensor]]:
-
         if needs_weights:
             if not self._has_warned:
                 logger.warning(
