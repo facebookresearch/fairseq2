@@ -25,8 +25,12 @@ from fairseq2.data import PathLike
 from fairseq2.data.text import TextTokenizer
 from fairseq2.models.utils.arch_registry import ArchitectureRegistry
 from fairseq2.models.utils.checkpoint import load_checkpoint
-from fairseq2.nn.utils.module import infer_device, reset_non_persistent_buffers
-from fairseq2.typing import DataType, Device, finaloverride
+from fairseq2.nn.utils.module import (
+    infer_device,
+    reset_non_persistent_buffers,
+    to_empty,
+)
+from fairseq2.typing import CPU, DataType, Device, finaloverride
 from fairseq2.utils.dataclass import update_dataclass
 
 logger = logging.getLogger("fairseq2.models")
@@ -271,7 +275,7 @@ class ModelLoader(Generic[ModelT, ConfigT]):
         if is_meta:
             # Move the model to the actual device without initializing. Its
             # state will be overwritten by the checkpoint anyways.
-            model = model.to_empty(device=device or "cpu")
+            to_empty(model, device=device or CPU)
 
         # Load the model.
         try:
