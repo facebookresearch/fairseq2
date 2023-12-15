@@ -6,17 +6,16 @@
 
 import platform
 import site
-import sys
 from ctypes import CDLL, RTLD_GLOBAL
-from ctypes.util import find_library
 from os import environ
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from fairseq2n.config import (
     _CUDA_VERSION,
     _SUPPORTS_CUDA,
     _SUPPORTS_IMAGE,
+    _TORCH_VARIANT,
     _TORCH_VERSION,
 )
 
@@ -40,7 +39,12 @@ def get_cmake_prefix_path() -> Path:
 
 def torch_version() -> str:
     """Return the version of PyTorch that was used to build fairseq2n."""
-    return _TORCH_VERSION.split("+", 1)[0]
+    return _TORCH_VERSION
+
+
+def torch_variant() -> str:
+    """Return the variant of PyTorch that was used to build fairseq2n."""
+    return _TORCH_VARIANT
 
 
 def supports_image() -> bool:
@@ -170,22 +174,15 @@ def _check_torch_version() -> None:
     # Trim the local version label.
     source_version = torch.__version__.split("+", 1)[0]
 
-    target_version = torch_version()
-
     if source_var := torch.version.cuda:
         # Use only the major and minor version segments.
         source_variant = "CUDA " + ".".join(source_var.split(".", 2)[:2])
     else:
         source_variant = "CPU-only"
 
-    if target_var := cuda_version():
-        target_variant = "CUDA " + f"{target_var[0]}.{target_var[1]}"
-    else:
-        target_variant = "CPU-only"
-
-    if source_version != target_version or source_variant != target_variant:
+    if source_version != _TORCH_VERSION or source_variant != _TORCH_VARIANT:
         raise RuntimeError(
-            f"fairseq2 requires a {target_variant} build of PyTorch {target_version}, but the installed version is a {source_variant} build of PyTorch {source_version}. Either follow the instructions at https://pytorch.org/get-started/locally to update PyTorch, or the instructions at https://github.com/facebookresearch/fairseq2#variants to update fairseq2."
+            f"fairseq2 requires a {_TORCH_VARIANT} build of PyTorch {_TORCH_VERSION}, but the installed version is a {source_variant} build of PyTorch {source_version}. Either follow the instructions at https://pytorch.org/get-started/locally to update PyTorch, or the instructions at https://github.com/facebookresearch/fairseq2#variants to update fairseq2."
         )
 
 

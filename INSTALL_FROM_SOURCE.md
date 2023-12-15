@@ -47,7 +47,14 @@ to learn more about other environment options.
 
 > [!IMPORTANT]
 > We strongly recommend creating a new environment from scratch instead of
-reusing an existing one to avoid dependency conflicts.
+> reusing an existing one to avoid dependency conflicts.
+
+
+> [!IMPORTANT]
+> Manually building fairseq2 or any other C++ project in a Conda environment can
+> become tricky and fail due to environment-specific conflicts with the host
+> system libraries. Unless necessary, we recommend using a Python virtual
+> environment to build fairseq2.
 
 
 ## 3. Install Dependencies
