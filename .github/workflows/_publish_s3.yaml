@@ -40,7 +40,7 @@ jobs:
       id-token: write
     steps:
       - name: Download wheels from staging
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: wheels-pt${{ inputs.torch }}-py${{ inputs.py }}-${{ inputs.os }}_${{ inputs.arch }}-${{ inputs.variant }}-nosan
           path: ~/artifacts/

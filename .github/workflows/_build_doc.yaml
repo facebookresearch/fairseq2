@@ -69,7 +69,7 @@ jobs:
         run: |
           cp VERSION doc/build/html
       - name: Upload documentation to staging
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: doc
           path: doc/build/html/
