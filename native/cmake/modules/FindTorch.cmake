@@ -172,10 +172,6 @@ if(NOT TARGET torch)
 
     target_link_libraries(torch INTERFACE ${TORCH_CPU_LIBRARY} ${C10_LIBRARY} torch_cxx11_abi)
 
-    if(TORCH_EXTRAS_LIBRARY_DIR)
-        target_link_directories(torch INTERFACE ${TORCH_EXTRAS_LIBRARY_DIR})
-    endif()
-
     if(TORCH_CUDA_LIBRARY AND C10_CUDA_LIBRARY)
         target_link_libraries(torch INTERFACE ${TORCH_CUDA_LIBRARY} ${C10_CUDA_LIBRARY})
     endif()
