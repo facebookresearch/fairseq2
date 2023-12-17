@@ -136,7 +136,7 @@ jobs:
         run: |
           pip wheel --no-deps --wheel-dir build/wheelhouse .
       - name: Upload wheels and native tests to staging
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: ${{ inputs.artifacts_name }}-pt${{ inputs.torch }}-py${{ inputs.py }}-linux_${{ inputs.arch }}-${{ inputs.variant }}-${{ inputs.sanitizers }}
           path: |
@@ -157,7 +157,7 @@ jobs:
         shell: bash
     steps:
       - name: Download wheels and native tests from staging
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v3
         with:
           name: ${{ inputs.artifacts_name }}-pt${{ inputs.torch }}-py${{ inputs.py }}-linux_${{ inputs.arch }}-${{ inputs.variant }}-${{ inputs.sanitizers }}
           path: ~/artifacts/
