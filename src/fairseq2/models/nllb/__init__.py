@@ -7,6 +7,7 @@
 from fairseq2.models.nllb.builder import NllbBuilder as NllbBuilder
 from fairseq2.models.nllb.builder import NllbConfig as NllbConfig
 from fairseq2.models.nllb.builder import create_nllb_model as create_nllb_model
+from fairseq2.models.nllb.builder import get_nllb_wrap_policy as get_nllb_wrap_policy
 from fairseq2.models.nllb.builder import nllb_arch as nllb_arch
 from fairseq2.models.nllb.builder import nllb_archs as nllb_archs
 from fairseq2.models.nllb.loader import load_nllb_config as load_nllb_config

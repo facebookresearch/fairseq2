@@ -14,7 +14,7 @@ import torch.distributed as dist
 from torch import Tensor
 from torch.distributed import ProcessGroup, ReduceOp  # type: ignore[attr-defined]
 
-from fairseq2.typing import Device, finaloverride
+from fairseq2.typing import CPU, Device, finaloverride
 
 
 class ReduceOperation(Enum):
@@ -141,7 +141,7 @@ class ProcessGroupGang(Gang):
             backend = dist.get_backend()
 
             if backend == "gloo":
-                device = Device("cpu")
+                device = CPU
             elif backend == "nccl":
                 device = _determine_default_cuda_device()
             else:
@@ -207,7 +207,7 @@ def _determine_default_device() -> Device:
     if torch.cuda.is_available() and torch.cuda.device_count() > 0:
         return _determine_default_cuda_device()
 
-    return Device("cpu")
+    return CPU
 
 
 def _determine_default_cuda_device() -> Device:
