@@ -70,6 +70,8 @@ if(Python3_Interpreter_FOUND)
         ERROR_QUIET
     )
 
+    cmake_path(CONVERT ${torch_init_file} TO_CMAKE_PATH_LIST torch_init_file NORMALIZE)
+
     cmake_path(REPLACE_FILENAME torch_init_file lib OUTPUT_VARIABLE torch_lib_dir)
     cmake_path(REPLACE_FILENAME torch_init_file include OUTPUT_VARIABLE torch_include_dir)
 
@@ -169,6 +171,10 @@ if(NOT TARGET torch)
     target_include_directories(torch INTERFACE ${TORCH_INCLUDE_DIR} ${TORCH_API_INCLUDE_DIR})
 
     target_link_libraries(torch INTERFACE ${TORCH_CPU_LIBRARY} ${C10_LIBRARY} torch_cxx11_abi)
+
+    if(TORCH_EXTRAS_LIBRARY_DIR)
+        target_link_directories(torch INTERFACE ${TORCH_EXTRAS_LIBRARY_DIR})
+    endif()
 
     if(TORCH_CUDA_LIBRARY AND C10_CUDA_LIBRARY)
         target_link_libraries(torch INTERFACE ${TORCH_CUDA_LIBRARY} ${C10_CUDA_LIBRARY})

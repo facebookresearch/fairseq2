@@ -94,6 +94,7 @@ function(fairseq2n_set_compile_options target)
                 -Wno-reserved-id-macro
                 -Wno-shadow-uncaptured-local
                 -Wno-switch-enum
+		-Wno-unsafe-buffer-usage
                 -Wno-unused-member-function
                 -Wno-used-but-marked-unused
                 -Wno-zero-as-null-pointer-constant
@@ -142,7 +143,7 @@ function(fairseq2n_set_link_options target)
         )
 
         if(NOT arg_ALLOW_UNDEFINED_SYMBOLS)
-            target_link_options(${target} PRIVATE LINKER:-z,defs)
+    	    target_link_options(${target} PRIVATE LINKER:-z,defs)
         endif()
 
         if(FAIRSEQ2N_TREAT_WARNINGS_AS_ERRORS)

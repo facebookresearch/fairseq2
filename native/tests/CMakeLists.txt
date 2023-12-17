@@ -29,6 +29,12 @@ target_link_libraries(tests PRIVATE GTest::gtest_main fairseq2n)
 
 fairseq2n_set_link_options(tests)
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    # The torch wheel for aarch64 comes with an extra 'torch.libs' directory
+    # where the rpath of libopenblas is not correctly set.
+    target_link_options(tests PRIVATE LINKER:--allow-shlib-undefined)
+endif()
+
 # By default, GTest discovery runs as a post-build step and fails if the targets
 # are built with sanitizers enabled.
 gtest_discover_tests(tests DISCOVERY_MODE PRE_TEST)
