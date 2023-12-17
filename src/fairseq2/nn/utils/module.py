@@ -4,7 +4,18 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Callable, Dict, Optional, Protocol, Set, runtime_checkable
+import re
+from typing import (
+    Callable,
+    Dict,
+    Iterable,
+    Optional,
+    Protocol,
+    Sequence,
+    Set,
+    Tuple,
+    runtime_checkable,
+)
 
 import torch
 from torch import Tensor
@@ -63,6 +74,28 @@ def reset_non_persistent_buffers(module: Module, *, recurse: bool = True) -> Non
         maybe_reset(module)
 
 
+def select_parameters(
+    module: Module, names: Sequence[str], *, exclude: bool = False
+) -> Iterable[Tuple[str, Parameter]]:
+    """Select the parameters of ``module`` matching ``names``.
+
+    :param module:
+        The module to select from.
+    :param names:
+        The parameter names, can contain regular expressions.
+    :param exclude:
+        If ``True``, return the parameters that do not match ``names``.
+
+    :returns:
+        An iterable of name-parameter tuples.
+    """
+    for name, param in module.named_parameters():
+        matched = any(name == pattern or re.match(pattern, name) for pattern in names)
+
+        if (matched and not exclude) or (not matched and exclude):
+            yield name, param
+
+
 def to_empty(
     module: Module,
     device: Device,
@@ -97,20 +130,20 @@ def to_empty(
         return tgt
 
     def to_empty_(m: Module) -> None:
-        for name, prm in m.named_parameters(recurse=False):
-            if prm is None:
+        for name, param in m.named_parameters(recurse=False):
+            if param is None:
                 continue
 
             with torch.no_grad():
-                new_prm = Parameter(empty_like(prm), prm.requires_grad)
+                new_param = Parameter(empty_like(param), param.requires_grad)
 
-            setattr(m, name, new_prm)
+            setattr(m, name, new_param)
 
-            if (grad := prm.grad) is not None:
+            if (grad := param.grad) is not None:
                 with torch.no_grad():
                     new_grad = empty_like(grad).requires_grad_(grad.requires_grad)
 
-                new_prm.grad = new_grad
+                new_param.grad = new_grad
 
         for name, buf in m.named_buffers(recurse=False):
             if buf is None:
@@ -127,14 +160,15 @@ def to_empty(
 def apply_depth_first(
     module: Module, fn: Callable[[Module], None], memo: Optional[Set[Module]] = None
 ) -> None:
-    """Apply ``fn`` to ``module`` and it submodules in a depth-first order.
+    """Apply ``fn`` to ``module`` and it submodules in depth-first order.
 
     :param module:
         The module to process.
     :param fn:
         The function to apply to ``module``.
     :param memo:
-        The module container to use for memoization.
+        The memoization set to use to detect visited modules. If ``None``,
+        constructs an internal one.
     """
     if memo is None:
         memo = set()
@@ -152,51 +186,14 @@ def apply_depth_first(
     fn(module)
 
 
-class FSDPParameterInitializer:
-    """Initializes the parameters and buffers of an FSDP module.
-
-    This is a convenience callable to pass to the ``param_init_fn`` parameter of
-    the FSDP constructor. It moves the parameters and buffers residing on a meta
-    device to ``device`` and initializes them.
-
-    Usage:
-
-    >>> model = MyModel(..., device=Device("meta"))
-    >>>
-    >>> fsdp_model = FullyShardedDataParallel(
-    ...     ..., param_init_fn=FSDPParameterInitializer(Device("cuda:0"))
-    ... )
-    """
-
-    memo: Dict[Tensor, Tensor]
-    device: Device
-
-    def __init__(self, device: Device) -> None:
-        """
-        :param device:
-            The device on which to initialize the parameters and buffers.
-        """
-        self.memo = {}
-        self.device = device
-
-    def __call__(self, module: Module) -> None:
-        """
-        :param module:
-            An FSDP module or submodule.
-        """
-        to_empty(module, self.device, recurse=False, memo=self.memo)
-
-        reset_parameters(module, recurse=False)
-
-
 def freeze(module: Module, value: bool) -> None:
-    """Change if ``module`` and its submodules should freeze (i.e. stop learning)."""
+    """Set if ``module`` and its submodules should stop learning (i.e. freeze)."""
     for param in module.parameters():
         param.requires_grad_(not value)
 
 
 def infer_device(module: Module) -> Device:
-    """Infer the device on which ``module``'s parameter(s) reside."""
+    """Infer the device on which ``module``'s parameters reside."""
     try:
         param = next(iter(module.parameters()))
     except StopIteration:

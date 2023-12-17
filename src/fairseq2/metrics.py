@@ -13,7 +13,7 @@ from fairseq2.gang import Gang
 
 
 class MetricBag:
-    """Holds a collection of training or evaluation metrics."""
+    """Holds a collection of training or validation metrics."""
 
     gang: Gang
     training: bool
@@ -23,7 +23,7 @@ class MetricBag:
     def __init__(self, gang: Gang) -> None:
         """
         :param gang:
-            The gang used to sync metrics among ranks.
+            The gang to use to sync metrics across ranks.
         """
         super().__setattr__("metrics", {})
         super().__setattr__("persistent_metrics", {})
@@ -80,24 +80,24 @@ class MetricBag:
             self.persistent_metrics[name] = metric
 
     def reset_metrics(self) -> None:
-        """Reset all metrics to their initial state."""
+        """Reset the metrics to their initial state."""
         for metric in self.metrics.values():
             metric.reset()
 
     def sync_and_compute_metrics(self) -> Optional[Dict[str, Any]]:
-        """Sync the metrics in the bag on all ranks and and compute their value."""
+        """Sync the metrics across all ranks and and compute their value."""
         return sync_and_compute_metrics(self)
 
     def train(self, mode: bool = True) -> None:
-        """Set the bag to training or evaluation mode.
+        """Set the bag to training or validation mode.
 
         :param model:
-            If ``True``, sets to training mode; otherwise, to evaluation mode.
+            If ``True``, sets to training mode; otherwise, to validation mode.
         """
         self.training = True
 
-    def eval(self) -> None:
-        """Set the bag to evaluation model."""
+    def valid(self) -> None:
+        """Set the bag to validation mode."""
         self.train(False)
 
     def state_dict(self) -> Dict[str, Any]:
@@ -135,7 +135,7 @@ def reset_metrics(*bags: MetricBag) -> None:
 
 
 def sync_and_compute_metrics(*bags: MetricBag) -> Optional[Dict[str, Any]]:
-    """Sync the metrics in ``bags`` on all ranks and and compute their value."""
+    """Sync the metrics in ``bags`` across all ranks and and compute their value."""
     if not bags:
         return None
 
