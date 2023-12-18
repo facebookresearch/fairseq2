@@ -32,7 +32,7 @@ class MetricBag:
         self.training = True
 
     def __getattr__(self, name: str) -> Any:
-        if name in self.metrics:
+        if "metrics" in self.__dict__ and name in self.metrics:
             return self.metrics[name]
 
         raise AttributeError(
@@ -41,6 +41,9 @@ class MetricBag:
 
     def __setattr__(self, name: str, value: Any) -> None:
         if isinstance(value, Metric):
+            if "metrics" not in self.__dict__:
+                raise AttributeError("`__init__()` must be called first.")
+
             self.register_metric(name, value, persistent=True)
         else:
             if name in self.metrics:
@@ -52,7 +55,7 @@ class MetricBag:
             super().__setattr__(name, value)
 
     def __delattr__(self, name: str) -> None:
-        if name in self.metrics:
+        if "metrics" in self.__dict__ and name in self.metrics:
             del self.metrics[name]
 
             if name in self.persistent_metrics:
