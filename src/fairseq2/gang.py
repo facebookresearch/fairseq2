@@ -12,7 +12,7 @@ from typing import final
 import torch
 import torch.distributed as dist
 from torch import Tensor
-from torch.distributed import ProcessGroup, ReduceOp  # type: ignore[attr-defined]
+from torch.distributed import ProcessGroup, ReduceOp
 
 from fairseq2.typing import CPU, Device, finaloverride
 
