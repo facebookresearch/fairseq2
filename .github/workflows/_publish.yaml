@@ -48,7 +48,7 @@ jobs:
     name: Publish to S3 (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }})
     strategy:
       matrix:
-        torch: ['2.1.0', '2.1.1']
+        torch: ['2.1.0', '2.1.2']
         py: ['3.8', '3.9', '3.10', '3.11']
         variant: ['cpu', 'cu118', 'cu121']
       max-parallel: 1
@@ -70,7 +70,7 @@ jobs:
     uses: ./.github/workflows/_publish_pypi.yaml
     strategy:
       matrix:
-        torch: ['2.1.1']
+        torch: ['2.1.2']
         py: ['3.8', '3.9', '3.10', '3.11']
         variant: ['cu121']
       max-parallel: 1
