@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.gang &mdash; fairseq2 0.3.0.dev202312131642 documentation</title>
+  <title>fairseq2.gang &mdash; fairseq2 0.3.0.dev202312180154 documentation</title>
       <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202312131642
+                0.3.0.dev202312180154
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -175,7 +175,7 @@
 <span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
 <span class="kn">from</span> <span class="nn">torch.distributed</span> <span class="kn">import</span> <span class="n">ProcessGroup</span><span class="p">,</span> <span class="n">ReduceOp</span>  <span class="c1"># type: ignore[attr-defined]</span>
 
-<span class="kn">from</span> <span class="nn">fairseq2.typing</span> <span class="kn">import</span> <span class="n">Device</span><span class="p">,</span> <span class="n">finaloverride</span>
+<span class="kn">from</span> <span class="nn">fairseq2.typing</span> <span class="kn">import</span> <span class="n">CPU</span><span class="p">,</span> <span class="n">Device</span><span class="p">,</span> <span class="n">finaloverride</span>
 
 
 <span class="k">class</span> <span class="nc">ReduceOperation</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
@@ -302,7 +302,7 @@
             <span class="n">backend</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_backend</span><span class="p">()</span>
 
             <span class="k">if</span> <span class="n">backend</span> <span class="o">==</span> <span class="s2">&quot;gloo&quot;</span><span class="p">:</span>
-                <span class="n">device</span> <span class="o">=</span> <span class="n">Device</span><span class="p">(</span><span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+                <span class="n">device</span> <span class="o">=</span> <span class="n">CPU</span>
             <span class="k">elif</span> <span class="n">backend</span> <span class="o">==</span> <span class="s2">&quot;nccl&quot;</span><span class="p">:</span>
                 <span class="n">device</span> <span class="o">=</span> <span class="n">_determine_default_cuda_device</span><span class="p">()</span>
             <span class="k">else</span><span class="p">:</span>
@@ -368,7 +368,7 @@
     <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="ow">and</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">device_count</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">_determine_default_cuda_device</span><span class="p">()</span>
 
-    <span class="k">return</span> <span class="n">Device</span><span class="p">(</span><span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">CPU</span>
 
 
 <span class="k">def</span> <span class="nf">_determine_default_cuda_device</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Device</span><span class="p">:</span>
