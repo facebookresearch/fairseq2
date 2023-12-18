@@ -100,7 +100,7 @@ function(fairseq2n_set_compile_options target)
         )
 
         if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 15)
-            target_compiler_options(${target} PRIVATE -Wno-unsafe-buffer-usage)
+            target_compile_options(${target} PRIVATE -Wno-unsafe-buffer-usage)
         endif()
     endif()
 
