@@ -10,9 +10,10 @@ from dataclasses import dataclass
 from typing import Dict, Final, Iterable, Optional, Protocol, Sequence
 
 from torch import Tensor
-from torch.distributed.fsdp import BackwardPrefetch, CPUOffload
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
-from torch.distributed.fsdp import (
+from torch.distributed.fsdp.api import (
+    BackwardPrefetch,
+    CPUOffload,
     ShardedOptimStateDictConfig,
     ShardedStateDictConfig,
     ShardingStrategy,
