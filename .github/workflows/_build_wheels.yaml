@@ -15,23 +15,6 @@ on:
         required: true
 
 jobs:
-  build_pt131_wheel-linux:
-    name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
-    uses: ./.github/workflows/_build_wheel-linux.yaml
-    strategy:
-      fail-fast: false
-      matrix:
-        torch: ['1.13.1']
-        py: ['3.8', '3.9', '3.10']
-        variant: ['cpu', 'cu116']
-        sanitizers: ['nosan']
-    with:
-      torch: ${{ matrix.torch }}
-      py: ${{ matrix.py }}
-      variant: ${{ matrix.variant }}
-      sanitizers: ${{ matrix.sanitizers }}
-      version_override: ${{ inputs.version_override }}
-
   build_pt20_wheel-linux:
     name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
     uses: ./.github/workflows/_build_wheel-linux.yaml
@@ -55,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        torch: ['2.1.0', '2.1.2']
+        torch: ['2.1.2']
         py: ['3.8', '3.9', '3.10', '3.11']
         variant: ['cpu', 'cu118', 'cu121']
         sanitizers: ['nosan']
