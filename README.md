@@ -96,11 +96,49 @@ Besides PyPI, fairseq2 also has pre-built packages available for different
 PyTorch and CUDA versions hosted on FAIR's package repository. The following
 matrix shows the supported combinations.
 
-| PyTorch          | Python            | Variant*               | Arch     |
-| ---------------- | ----------------- | ---------------------- | -------- |
-| `2.1.0`, `2.1.2` | `>=3.8`, `<=3.11` | `cpu`, `cu118` `cu121` | `x86_64` |
-| `2.0.0`, `2.0.1` | `>=3.8`, `<=3.11` | `cpu`, `cu117` `cu118` | `x86_64` |
-| `1.13.1`         | `>=3.8`, `<=3.10` | `cpu`, `cu116`         | `x86_64` |
+<table>
+  <thead>
+    <th>fairseq2</th>
+    <th>PyTorch</th>
+    <th>Python</th>
+    <th>Variant*</th>
+    <th>Arch</th>
+  </thead>
+  <tbody>
+    <tr>
+      <td rowspan=2><code>HEAD</code></td>
+      <td><code>2.1.2</code></td>
+      <td><code>&gt;=3.8</code>, <code>&lt;=3.11</code></td>
+      <td><code>cpu</code>, <code>cu118</code>, <code>cu121</code></td>
+      <td><code>x86_64</code></td>
+    </tr>
+    <tr>
+      <td><code>2.0.1</code></td>
+      <td><code>&gt;=3.8</code>, <code>&lt;=3.11</code></td>
+      <td><code>cpu</code>, <code>cu117</code>, <code>cu118</code></td>
+      <td><code>x86_64</code></td>
+    </tr>
+    <tr>
+      <td rowspan=3><code>0.2.0</code></td>
+      <td><code>2.1.1</code></td>
+      <td><code>&gt;=3.8</code>, <code>&lt;=3.11</code></td>
+      <td><code>cpu</code>, <code>cu118</code>, <code>cu121</code></td>
+      <td><code>x86_64</code></td>
+    </tr>
+    <tr>
+      <td><code>2.0.1</code></td>
+      <td><code>&gt;=3.8</code>, <code>&lt;=3.11</code></td>
+      <td><code>cpu</code>, <code>cu117</code>, <code>cu118</code></td>
+      <td><code>x86_64</code></td>
+    </tr>
+    <tr>
+      <td><code>1.13.1</code></td>
+      <td><code>&gt;=3.8</code>, <code>&lt;=3.10</code></td>
+      <td><code>cpu</code>, <code>cu116</code></td>
+      <td><code>x86_64</code></td>
+    </tr>
+  </tbody>
+</table>
 
 *\* cuXYZ refers to CUDA XY.Z (e.g. cu118 means CUDA 11.8)*
 
