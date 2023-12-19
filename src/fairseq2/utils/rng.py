@@ -4,28 +4,14 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import random
+from __future__ import annotations
 
-import numpy as np
+from typing import Any, Dict, List, Mapping
+
 import torch
+from torch import Generator, Tensor
 
-
-def seed(value: int) -> None:
-    """Set RNG seed for ``random``, ``np.random``, and ``torch``.
-
-    :param value:
-        The new seed.
-    """
-    if value >= 1 << 32:
-        raise ValueError(
-            f"`value` must be greater than or equal to 0 and less than 2^32, but is {value} instead."
-        )
-
-    random.seed(value)
-
-    np.random.seed(value)
-
-    torch.manual_seed(value)
+from fairseq2.typing import Device
 
 
 def use_deterministic(value: bool, warn_only: bool = False) -> None:
@@ -40,3 +26,90 @@ def use_deterministic(value: bool, warn_only: bool = False) -> None:
     torch.backends.cudnn.benchmark = not value
 
     torch.use_deterministic_algorithms(value, warn_only=warn_only)
+
+
+class GeneratorBag:
+    """Holds a collection of random number generators."""
+
+    generators: List[Generator]
+
+    def __init__(self, *generators: Generator) -> None:
+        """
+        :param generators:
+            The generators to hold.
+        """
+        self.generators = list(generators)
+
+    @staticmethod
+    def from_device_defaults(*devices: Device) -> GeneratorBag:
+        """Create a :class:`GeneratorBag` instance holding the default random
+        number generators of ``devices``."""
+        generators = []
+
+        for device in set(devices):
+            if device.type == "cpu":
+                generators.append(torch.default_generator)
+            elif device.type == "cuda":
+                # Ensure that the default CUDA generators are initialized.
+                torch.cuda.init()
+
+                idx = device.index
+                if idx is None:
+                    idx = torch.cuda.current_device()
+
+                generators.append(torch.cuda.default_generators[idx])
+            else:
+                raise ValueError(
+                    f"`GeneratorBag` supports only CPU and CUDA devices, but a {device.type.upper()} is specified."
+                )
+
+        return GeneratorBag(*generators)
+
+    def seed(self) -> None:
+        """Set the seed of the random number generators to a random number."""
+        if not self.generators:
+            return
+
+        self.generators[0].seed()
+
+        random_seed = self.generators[0].initial_seed()
+
+        for g in self.generators[1:]:
+            g.manual_seed(random_seed)
+
+    def manual_seed(self, seed: int) -> None:
+        """Set the seed of the random number generators."""
+        if seed >= 1 << 32:
+            raise ValueError(
+                f"`seed` must be greater than or equal to 0 and less than 2^32, but is {seed} instead."
+            )
+
+        for g in self.generators:
+            g.manual_seed(seed)
+
+    def state_dict(self) -> Dict[str, Any]:
+        return {"generators": [g.get_state() for g in self.generators]}
+
+    def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
+        try:
+            states = state_dict["generators"]
+        except KeyError:
+            raise ValueError("`state_dict` must contain an element named `generators`.")
+
+        if not isinstance(states, list):
+            raise ValueError(
+                f"The `generators` element of `state_dict` must be of type `{list}`, but is of type `{type(states)}` instead."
+            )
+
+        if len(states) != len(self.generators):
+            raise ValueError(
+                f"The number of generators in `state_dict` must match the number of generators in the bag ({len(self.generators)}), but is {len(states)} instead."
+            )
+
+        for idx, state in enumerate(states):
+            if not isinstance(state, Tensor):
+                raise ValueError(
+                    f"The generator states in `state_dict` must be of type `{Tensor}`, but the element at index {idx} is of type `{type(state)}` instead."
+                )
+
+            self.generators[idx].set_state(state.clone())

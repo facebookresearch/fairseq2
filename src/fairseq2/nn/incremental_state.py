@@ -103,7 +103,7 @@ class IncrementalStateBag:
         self._module_states[m] = state
 
     def reorder(self, new_order: Tensor) -> None:
-        """Reorder all module states in the bag.
+        """Reorder the module states.
 
         See :meth:`IncrementalState.reorder` for more information.
         """
