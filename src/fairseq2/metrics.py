@@ -41,9 +41,6 @@ class MetricBag:
 
     def __setattr__(self, name: str, value: Any) -> None:
         if isinstance(value, Metric):
-            if "metrics" not in self.__dict__:
-                raise AttributeError("`__init__()` must be called first.")
-
             self.register_metric(name, value, persistent=True)
         else:
             if name in self.metrics:
@@ -55,7 +52,7 @@ class MetricBag:
             super().__setattr__(name, value)
 
     def __delattr__(self, name: str) -> None:
-        if "metrics" in self.__dict__ and name in self.metrics:
+        if name in self.metrics:
             del self.metrics[name]
 
             if name in self.persistent_metrics:
@@ -66,12 +63,12 @@ class MetricBag:
     def register_metric(
         self, name: str, metric: Metric[Any], persistent: bool = True
     ) -> None:
-        """Register a metric with the bag.
+        """Register a metric.
 
         :param name:
-            The name of the metric.
+            The name under which to register the metric.
         :param metric:
-            The :class:`torcheval.metrics.Metric` instance.
+            The metric to register.
         :param persistent:
             If ``True``, the metric state will be preserved in ``state_dict``.
         """
