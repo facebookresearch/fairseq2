@@ -18,3 +18,5 @@ Device: TypeAlias = device
 DataType: TypeAlias = dtype
 
 CPU: Final = Device("cpu")
+
+META: Final = Device("meta")

@@ -17,7 +17,7 @@ from torch.nn.parameter import Parameter
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.typing import DataType, Device, finaloverride
+from fairseq2.typing import META, DataType, Device, finaloverride
 
 
 class PositionEncoder(Module, ABC):
@@ -344,7 +344,7 @@ class RotaryEncoder(PositionEncoder):
 
         # As of PyTorch 2.0, `torch.polar` does not support meta device, but we
         # do not want to lose benefit of lazy initialization.
-        if device.type == "meta":
+        if device == META:
             return
 
         # (S)
