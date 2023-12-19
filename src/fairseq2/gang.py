@@ -131,8 +131,8 @@ class ProcessGroupGang(Gang):
         """Wrap the default process group as a gang.
 
         The default process group will be initialized as part of this function
-        if it is not already initialized. If CUDA is available, NCCL; otherwise,
-        Gloo backend will be used.
+        if it has not already been initialized. If CUDA is available, NCCL;
+        otherwise, Gloo backend will be used.
         """
         if not dist.is_available():
             raise RuntimeError("`torch.distributed` is not available.")
