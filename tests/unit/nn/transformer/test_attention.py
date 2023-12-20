@@ -12,14 +12,10 @@ from torch import Tensor
 
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer import CustomAttentionMask, NaiveSDPA, TorchSDPA
-from fairseq2.utils.version import is_pt2_or_greater
 from tests.common import assert_close, device
 
 
 class TestScaledDotProductAttention:
-    @pytest.mark.skipif(
-        not is_pt2_or_greater(), reason="requires PyTorch 2.0.0 or greater"
-    )
     # fmt: off
     @pytest.mark.parametrize("use_key_padding_mask,use_attn_mask,training",
         [

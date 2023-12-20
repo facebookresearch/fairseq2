@@ -18,9 +18,8 @@ def _get_torch_version() -> Version:
         return Version("0.0.0")
 
 
-TORCH_VERSION: Final[Version] = _get_torch_version()
+TORCH_VERSION: Final = _get_torch_version()
 
 
-def is_pt2_or_greater() -> bool:
-    """Return ``True`` if the version of PyTorch is 2.0 or greater."""
-    return TORCH_VERSION.major >= 2
+def _is_pt21_or_greater() -> bool:
+    return TORCH_VERSION.major >= 2 and TORCH_VERSION.major >= 1
