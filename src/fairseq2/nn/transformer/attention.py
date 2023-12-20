@@ -18,7 +18,6 @@ from torch.nn.functional import dropout, softmax
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer.attention_mask import AttentionMask, CausalAttentionMask
 from fairseq2.typing import finaloverride
-from fairseq2.utils.version import is_pt2_or_greater
 
 logger = logging.getLogger(__name__)
 
@@ -86,9 +85,6 @@ class TorchSDPA(SDPA):
             The dropout probability on attention weights.
         """
         super().__init__()
-
-        if not is_pt2_or_greater():
-            raise ValueError("`TorchSDPA` requires PyTorch 2.0.0 or greater.")
 
         self._has_warned = False
 
@@ -275,10 +271,7 @@ class SDPAFactory(Protocol):
 
 
 def _get_fallback_sdpa_factory() -> SDPAFactory:
-    if is_pt2_or_greater():
-        return TorchSDPA
-    else:
-        return NaiveSDPA
+    return TorchSDPA
 
 
 _sdpa_factory: SDPAFactory = _get_fallback_sdpa_factory()

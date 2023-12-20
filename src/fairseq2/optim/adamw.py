@@ -13,7 +13,6 @@ from torch.optim.adamw import adamw  # type: ignore[attr-defined]
 
 from fairseq2.optim.optimizer_base import OptimizerBase
 from fairseq2.typing import finaloverride
-from fairseq2.utils.version import is_pt2_or_greater
 
 
 @final
@@ -82,15 +81,7 @@ class AdamW(OptimizerBase):
 
         super().__init__(params, defaults)
 
-        if differentiable and not is_pt2_or_greater():
-            raise RuntimeError("`differentiable` requires PyTorch 2.0 or greater.")
-
         if impl == "fused":
-            if not is_pt2_or_greater():
-                raise RuntimeError(
-                    "`fused` implementation requires PyTorch 2.0 or greater."
-                )
-
             if differentiable:
                 raise RuntimeError(
                     "`fused` implementation does not support `differentiable`."

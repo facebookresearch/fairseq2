@@ -14,6 +14,7 @@ from typing_extensions import TypeAlias
 
 from fairseq2.data.typing import PathLike
 from fairseq2.typing import Device
+from fairseq2.utils.version import _is_pt21_or_greater
 
 MapLocation: TypeAlias = Optional[
     Union[Callable[[Tensor, str], Tensor], Device, str, Dict[str, str]]
@@ -60,8 +61,13 @@ def load_checkpoint(
         # Suppress the noisy deprecated `TypedStorage` warning.
         warnings.simplefilter("ignore")
 
+        kwargs = {}
+
+        if _is_pt21_or_greater():
+            kwargs["mmap"] = True
+
         checkpoint: Mapping[str, Any] = torch.load(
-            str(pathname), map_location, weights_only=restrict
+            str(pathname), map_location, weights_only=restrict, **kwargs
         )
 
     if converter is not None:
