@@ -126,7 +126,7 @@ class FileCheckpointManager(CheckpointManager):
                 step_dir.mkdir(parents=True, exist_ok=True)
             except IOError as ex:
                 raise RuntimeError(
-                    f"The checkpoint directory for step {step_nr} cannot be created. See inner exception for details."
+                    f"The checkpoint directory for step {step_nr} cannot be created. See nested exception for details."
                 ) from ex
 
         self.gang.barrier()
@@ -137,7 +137,7 @@ class FileCheckpointManager(CheckpointManager):
             torch.save(checkpoint, checkpoint_file)
         except (IOError, PickleError) as ex:
             raise RuntimeError(
-                f"The checkpoint of step {step_nr} cannot be saved. See inner exception for details."
+                f"The checkpoint of step {step_nr} cannot be saved. See nested exception for details."
             ) from ex
 
         self.gang.barrier()
@@ -154,7 +154,7 @@ class FileCheckpointManager(CheckpointManager):
                 temp_symlink.replace(last_symlink)
             except IOError as ex:
                 raise RuntimeError(
-                    f"The checkpoint of step {step_nr} cannot be marked as last. See inner exception for details."
+                    f"The checkpoint of step {step_nr} cannot be marked as last. See nested exception for details."
                 ) from ex
 
         self.gang.barrier()
@@ -171,7 +171,7 @@ class FileCheckpointManager(CheckpointManager):
             checkpoint = load_checkpoint(checkpoint_file, map_location=CPU)
         except (IOError, PickleError) as ex:
             raise RuntimeError(
-                f"The checkpoint of step {step_nr} cannot be loaded. See inner exception for details."
+                f"The checkpoint of step {step_nr} cannot be loaded. See nested exception for details."
             ) from ex
 
         try:
@@ -251,7 +251,7 @@ class FileCheckpointManager(CheckpointManager):
                 step_dir.mkdir(parents=True, exist_ok=True)
             except IOError as ex:
                 raise RuntimeError(
-                    f"The checkpoint directory of step {step_nr} cannot be created. See inner exception for details."
+                    f"The checkpoint directory of step {step_nr} cannot be created. See nested exception for details."
                 ) from ex
 
             checkpoint_file = step_dir.joinpath("model.pt")
@@ -260,7 +260,7 @@ class FileCheckpointManager(CheckpointManager):
                 torch.save(checkpoint, checkpoint_file)
             except (IOError, PickleError) as ex:
                 raise RuntimeError(
-                    f"The consolidated model checkpoint of step {step_nr} cannot be saved. See inner exception for details."
+                    f"The consolidated model checkpoint of step {step_nr} cannot be saved. See nested exception for details."
                 ) from ex
 
         self.gang.barrier()
@@ -280,7 +280,7 @@ class FileCheckpointManager(CheckpointManager):
                 checkpoint = load_checkpoint(model_file, map_location=CPU)
             except (IOError, PickleError) as ex:
                 raise RuntimeError(
-                    f"The consolidated model checkpoint of step {step_nr} cannot be loaded. See inner exception for details."
+                    f"The consolidated model checkpoint of step {step_nr} cannot be loaded. See nested exception for details."
                 ) from ex
 
             model_device = infer_device(model)
