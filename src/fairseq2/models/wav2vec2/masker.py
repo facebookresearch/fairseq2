@@ -149,8 +149,10 @@ def extract_masked_elements(seqs: Tensor, temporal_mask: Tensor) -> Tensor:
         The temporal mask. *Shape:* :math:`(N,S)`, where :math:`N` is the batch
         size and :math`S` is the sequence length.
     """
+    batch_size = seqs.size(0)
+
     # (N, S, M) -> (N x T, M)
     seqs = seqs[temporal_mask]
 
     # (N x T, M) -> (N, T, M)
-    return seqs.unflatten(0, (seqs.size(0), -1))  # type: ignore[no-any-return]
+    return seqs.unflatten(0, (batch_size, -1))  # type: ignore[no-any-return]
