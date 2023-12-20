@@ -39,6 +39,7 @@ def to_fsdp(
     *,
     ignored_param_names: Optional[Sequence[str]] = None,
     skip_init: bool = False,
+    broadcast_state: bool = False,
     sharding_strategy: ShardingStrategy = ShardingStrategy.FULL_SHARD,
     memory_policy: Optional[FSDPMemoryPolicy] = None,
     static_graph: bool = False,
@@ -56,6 +57,9 @@ def to_fsdp(
     :param skip_init:
         If ``True``, skips initializing the parameters and buffers moved from
         the meta device onto the device of ``gang``.
+    :param broadcast_state:
+        If ``True``, each FSDP module will broadcast its parameters and buffers
+        from rank 0 to ensure that they are replicated across gang.
     :param sharding_strategy:
         The sharding strategy to trade off memory saving and communication
         overhead.
@@ -69,6 +73,8 @@ def to_fsdp(
         memory_policy = FSDP_STANDARD_MEMORY_POLICY
 
     if infer_device(module) == META:
+        broadcast_state = False
+
         param_init_fn = FSDPParameterInitializer(gang.device, skip_init)
     else:
         param_init_fn = None
@@ -82,6 +88,7 @@ def to_fsdp(
         backward_prefetch=memory_policy.backward_prefetch,
         param_init_fn=param_init_fn,
         device_id=gang.device,
+        sync_module_states=broadcast_state,
         forward_prefetch=static_graph and memory_policy.forward_prefetch,
         limit_all_gathers=memory_policy.limit_all_gathers,
         use_orig_params=True,
