@@ -44,7 +44,7 @@ class AssetCard:
     ) -> None:
         """
         :param metadata:
-            The metadata to be held in the card. Each key-value entry should
+            The metadata to be held in the card. Each key-value item should
             contain a specific piece of information about the asset.
         :param base:
             The card that this card derives from.
@@ -229,18 +229,18 @@ class AssetCardField:
         """Return the value of this field as a :class:`dict` of type ``kls``.
 
         :param kls:
-            The type of the field elements.
+            The type of the field values.
         :param allow_empty:
             If ``True``, allows the dictionary to be empty.
         """
         value = self.as_(dict, allow_empty)
 
-        for key, element in value.items():
-            if not isinstance(element, kls):
+        for key, val in value.items():
+            if not isinstance(val, kls):
                 pathname = ".".join(self.path)
 
                 raise AssetCardError(
-                    f"The elements of the field '{pathname}' of the asset card '{self.card.name}' must be of type `{kls}`, but the element '{key}' is of type `{type(element)}` instead."
+                    f"The items of the field '{pathname}' of the asset card '{self.card.name}' must be of type `{kls}`, but the item '{key}' is of type `{type(val)}` instead."
                 )
 
         return value

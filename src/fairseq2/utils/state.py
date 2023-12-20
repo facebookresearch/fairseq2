@@ -104,7 +104,7 @@ class StatefulObjectBag:
     def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
         if self.stateful_objects.keys() != state_dict.keys():
             raise ValueError(
-                f"`state_dict` must contain elements {list(self.stateful_objects.keys())}, but contains {list(state_dict.keys())} instead."
+                f"`state_dict` must contain items {list(self.stateful_objects.keys())}, but contains {list(state_dict.keys())} instead."
             )
 
         for name, (stateful, state_handler) in self.stateful_objects.items():

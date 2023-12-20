@@ -10,6 +10,8 @@ import torch
 from torch.nn import Module
 from torch.nn import ModuleList as ModuleListBase
 
+from fairseq2.typing import CPU
+
 
 @final
 class ModuleList(ModuleListBase):
@@ -57,7 +59,7 @@ class ModuleList(ModuleListBase):
     def drop_iter(self) -> Iterator[Module]:
         """Return an iterator that drops a random set of submodules."""
         if self.drop_p > 0.0 and self.training:
-            prob_dist = torch.rand(len(self), device="cpu", dtype=torch.float32)
+            prob_dist = torch.rand(len(self), device=CPU, dtype=torch.float32)
         else:
             prob_dist = None
 
