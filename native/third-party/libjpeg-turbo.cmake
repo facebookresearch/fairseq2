@@ -24,7 +24,7 @@ macro(fairseq2n_add_libjpeg_turbo)
 
         ExternalProject_Add(
             #NAME
-                jpeg_turbo_proj
+                jpeg_turbo
             PREFIX
                 ${prefix}
             GIT_REPOSITORY
@@ -50,7 +50,7 @@ macro(fairseq2n_add_libjpeg_turbo)
 
         add_library(jpeg_turbo_static STATIC IMPORTED)
 
-        add_dependencies(jpeg_turbo_static jpeg_turbo_proj)
+        add_dependencies(jpeg_turbo_static jpeg_turbo)
 
         set_property(TARGET jpeg_turbo_static PROPERTY IMPORTED_LOCATION ${JPEG_TURBO_LIBRARY})
 

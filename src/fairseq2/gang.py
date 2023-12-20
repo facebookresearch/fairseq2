@@ -4,17 +4,21 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import logging
 import os
 from abc import ABC, abstractmethod
+from datetime import timedelta
 from enum import Enum
-from typing import final
+from typing import Optional, final
 
 import torch
 import torch.distributed as dist
 from torch import Tensor
-from torch.distributed import ProcessGroup, ReduceOp  # type: ignore[attr-defined]
+from torch.distributed import ProcessGroup, ReduceOp
 
-from fairseq2.typing import Device, finaloverride
+from fairseq2.typing import CPU, Device, finaloverride
+
+logger = logging.getLogger(__name__)
 
 
 class ReduceOperation(Enum):
@@ -127,12 +131,21 @@ class ProcessGroupGang(Gang):
         return ProcessGroupGang(pg, device)
 
     @staticmethod
-    def from_default_process_group() -> Gang:
+    def from_default_process_group(
+        timeout: Optional[timedelta] = None, warn_only: bool = False
+    ) -> Gang:
         """Wrap the default process group as a gang.
 
         The default process group will be initialized as part of this function
-        if it is not already initialized. If CUDA is available, NCCL; otherwise,
-        Gloo backend will be used.
+        if it has not already been initialized. If CUDA is available, NCCL;
+        otherwise, Gloo backend will be used.
+
+        :param timeout:
+            The timeout for operations executed against the process group. Only
+            set if the process group is initialized as part of this function.
+        :param warn_only:
+            If ``True``, logs a warning instead of raising an error if the
+            process group is not set up reliably.
         """
         if not dist.is_available():
             raise RuntimeError("`torch.distributed` is not available.")
@@ -141,7 +154,7 @@ class ProcessGroupGang(Gang):
             backend = dist.get_backend()
 
             if backend == "gloo":
-                device = Device("cpu")
+                device = CPU
             elif backend == "nccl":
                 device = _determine_default_cuda_device()
             else:
@@ -151,12 +164,27 @@ class ProcessGroupGang(Gang):
         else:
             device = _determine_default_device()
 
-            dist.init_process_group("nccl" if device.type == "cuda" else "gloo")
+            if timeout is None:
+                timeout = timedelta(minutes=15)
+
+            dist.init_process_group(
+                "nccl" if device.type == "cuda" else "gloo", timeout=timeout
+            )
 
         if dist.group.WORLD is None:
             raise RuntimeError(
                 "The default process group is not available. Please file a bug report."
             )
+
+        if device.type == "cuda" and "NCCL_ASYNC_ERROR_HANDLING" not in os.environ:
+            if warn_only:
+                logger.warning(
+                    "The default process group uses the NCCL backend, but the `NCCL_ASYNC_ERROR_HANDLING` environment variable is not set. Your collective communication calls can hang indefinitely."
+                )
+            else:
+                raise RuntimeError(
+                    "The default process group uses the NCCL backend, but the `NCCL_ASYNC_ERROR_HANDLING` environment variable is not set."
+                )
 
         return ProcessGroupGang(dist.group.WORLD, device)
 
@@ -207,7 +235,7 @@ def _determine_default_device() -> Device:
     if torch.cuda.is_available() and torch.cuda.device_count() > 0:
         return _determine_default_cuda_device()
 
-    return Device("cpu")
+    return CPU
 
 
 def _determine_default_cuda_device() -> Device:

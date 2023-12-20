@@ -96,22 +96,60 @@ Besides PyPI, fairseq2 also has pre-built packages available for different
 PyTorch and CUDA versions hosted on FAIR's package repository. The following
 matrix shows the supported combinations.
 
-| PyTorch          | Python            | Variant*               | Arch     |
-| ---------------- | ----------------- | ---------------------- | -------- |
-| `2.1.0`, `2.1.1` | `>=3.8`, `<=3.11` | `cpu`, `cu118` `cu121` | `x86_64` |
-| `2.0.0`, `2.0.1` | `>=3.8`, `<=3.11` | `cpu`, `cu117` `cu118` | `x86_64` |
-| `1.13.1`         | `>=3.8`, `<=3.10` | `cpu`, `cu116`         | `x86_64` |
+<table>
+  <thead>
+    <th>fairseq2</th>
+    <th>PyTorch</th>
+    <th>Python</th>
+    <th>Variant*</th>
+    <th>Arch</th>
+  </thead>
+  <tbody>
+    <tr>
+      <td rowspan=2><code>HEAD</code></td>
+      <td><code>2.1.2</code></td>
+      <td><code>&gt;=3.8</code>, <code>&lt;=3.11</code></td>
+      <td><code>cpu</code>, <code>cu118</code>, <code>cu121</code></td>
+      <td><code>x86_64</code></td>
+    </tr>
+    <tr>
+      <td><code>2.0.1</code></td>
+      <td><code>&gt;=3.8</code>, <code>&lt;=3.11</code></td>
+      <td><code>cpu</code>, <code>cu117</code>, <code>cu118</code></td>
+      <td><code>x86_64</code></td>
+    </tr>
+    <tr>
+      <td rowspan=3><code>0.2.0</code></td>
+      <td><code>2.1.1</code></td>
+      <td><code>&gt;=3.8</code>, <code>&lt;=3.11</code></td>
+      <td><code>cpu</code>, <code>cu118</code>, <code>cu121</code></td>
+      <td><code>x86_64</code></td>
+    </tr>
+    <tr>
+      <td><code>2.0.1</code></td>
+      <td><code>&gt;=3.8</code>, <code>&lt;=3.11</code></td>
+      <td><code>cpu</code>, <code>cu117</code>, <code>cu118</code></td>
+      <td><code>x86_64</code></td>
+    </tr>
+    <tr>
+      <td><code>1.13.1</code></td>
+      <td><code>&gt;=3.8</code>, <code>&lt;=3.10</code></td>
+      <td><code>cpu</code>, <code>cu116</code></td>
+      <td><code>x86_64</code></td>
+    </tr>
+  </tbody>
+</table>
 
 *\* cuXYZ refers to CUDA XY.Z (e.g. cu118 means CUDA 11.8)*
 
 To install a specific combination, first follow the installation instructions on
 [pytorch.org](https://pytorch.org/get-started/locally) for the desired PyTorch
-version, and then use the following command (shown for PyTorch `2.1.1` and
+version, and then use the following command (shown for PyTorch `2.1.2` and
 variant `cu118`):
 
 ```sh
 pip install fairseq2\
-  --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.1.1/cu118
+  --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.1.2/cu118
 ```
 
 
@@ -127,12 +165,12 @@ pip install fairseq2\
 For Linux, we also host nightly builds on FAIR's package repository. The
 supported variants are identical to the ones listed in *Variants* above. Once
 you have installed the desired PyTorch version, you can use the following
-command to install the corresponding nightly package  (shown for PyTorch `2.1.1`
+command to install the corresponding nightly package  (shown for PyTorch `2.1.2`
 and variant `cu118`):
 
 ```sh
 pip install fairseq2\
-  --pre --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.1.1/cu118
+  --pre --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.1.2/cu118
 ```
 
 

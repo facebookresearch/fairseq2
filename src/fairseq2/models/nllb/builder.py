@@ -5,9 +5,13 @@
 # LICENSE file in the root directory of this source tree.
 
 from dataclasses import dataclass
-from typing import Optional
+from functools import partial
+from typing import List, Optional, Tuple
+
+from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
 
 from fairseq2.data import VocabularyInfo
+from fairseq2.gang import Gang
 from fairseq2.models.transformer import (
     TransformerEmbeddingFrontend,
     TransformerFrontend,
@@ -15,6 +19,7 @@ from fairseq2.models.transformer import (
 )
 from fairseq2.models.utils import ArchitectureRegistry
 from fairseq2.nn.embedding import Embedding, StandardEmbedding, init_scaled_embedding
+from fairseq2.nn.fsdp import FSDPWrapPolicy
 from fairseq2.nn.position_encoder import SinusoidalPositionEncoder
 from fairseq2.nn.projection import TiedProjection
 from fairseq2.nn.transformer import (
@@ -302,3 +307,24 @@ def create_nllb_model(
         The data type of module parameters and buffers.
     """
     return NllbBuilder(config, device=device, dtype=dtype).build_model()
+
+
+def get_nllb_wrap_policy(
+    arch_name: str, gang: Gang
+) -> Tuple[FSDPWrapPolicy, Optional[List[str]]]:
+    """Return the FSDP wrap policy and ignored parameter names for ``arch_name``.
+
+    :param arch_name:
+        The name of the architecture.
+    :param gang:
+        The gang that will be used to shard the model.
+
+    :returns:
+        - The FSDP wrap policy.
+        - The ignored parameter names, can contain regular expressions.
+    """
+    kls = (TransformerEncoder, TransformerDecoder)
+
+    wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls=kls)
+
+    return wrap_policy, None

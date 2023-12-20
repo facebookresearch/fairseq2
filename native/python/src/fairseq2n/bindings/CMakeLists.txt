@@ -76,7 +76,8 @@ if(FAIRSEQ2N_INSTALL_STANDALONE)
                 fairseq2n
             APPEND PROPERTY
                 INSTALL_RPATH
-                    ${rpath_origin}/../nvidia/cuda_runtime/lib)
+                    ${rpath_origin}/../../nvidia/cuda_runtime/lib
+	)
     endif()
 endif()
 

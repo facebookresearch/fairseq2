@@ -18,7 +18,6 @@ from torch.nn.functional import dropout, softmax
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer.attention_mask import AttentionMask, CausalAttentionMask
 from fairseq2.typing import finaloverride
-from fairseq2.utils.version import is_pt2_or_greater
 
 logger = logging.getLogger(__name__)
 
@@ -87,9 +86,6 @@ class TorchSDPA(SDPA):
         """
         super().__init__()
 
-        if not is_pt2_or_greater():
-            raise ValueError("`TorchSDPA` requires PyTorch 2.0.0 or greater.")
-
         self._has_warned = False
 
         self.attn_dropout_p = attn_dropout_p
@@ -105,18 +101,6 @@ class TorchSDPA(SDPA):
         attn_mask: Optional[AttentionMask] = None,
         needs_weights: bool = False,
     ) -> Tuple[Tensor, Optional[Tensor]]:
-        if not seqs.is_cuda:
-            return _naive_scaled_dot_product_attention(
-                seqs,
-                keys,
-                key_padding_mask,
-                values,
-                attn_mask,
-                self.attn_dropout_p,
-                needs_weights,
-                self.training,
-            )
-
         if needs_weights:
             if not self._has_warned:
                 logger.warning(
@@ -287,10 +271,7 @@ class SDPAFactory(Protocol):
 
 
 def _get_fallback_sdpa_factory() -> SDPAFactory:
-    if is_pt2_or_greater():
-        return TorchSDPA
-    else:
-        return NaiveSDPA
+    return TorchSDPA
 
 
 _sdpa_factory: SDPAFactory = _get_fallback_sdpa_factory()

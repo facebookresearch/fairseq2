@@ -11,17 +11,17 @@
 
 namespace fairseq2n {
 
-constexpr std::int32_t version_major = @PROJECT_VERSION_MAJOR@;
-constexpr std::int32_t version_minor = @PROJECT_VERSION_MINOR@;
-constexpr std::int32_t version_patch = @PROJECT_VERSION_PATCH@;
+inline constexpr std::int32_t version_major = @PROJECT_VERSION_MAJOR@;
+inline constexpr std::int32_t version_minor = @PROJECT_VERSION_MINOR@;
+inline constexpr std::int32_t version_patch = @PROJECT_VERSION_PATCH@;
 
-constexpr char torch_version[] = "@TORCH_PEP440_VERSION@";
+inline constexpr char torch_version[] = "@TORCH_VERSION@";
+inline constexpr char torch_variant[] = "@TORCH_VARIANT@"
 
-constexpr bool supports_image = @SUPPORTS_IMAGE@;
+inline constexpr bool supports_image = @SUPPORTS_IMAGE@;
 
-constexpr bool supports_cuda = @USES_CUDA@;
-
-constexpr std::optional<std::int32_t> cuda_version_major = @CUDA_VERSION_MAJOR@;
-constexpr std::optional<std::int32_t> cuda_version_minor = @CUDA_VERSION_MINOR@;
+inline constexpr bool supports_cuda = @USES_CUDA@;
+inline constexpr std::optional<std::int32_t> cuda_version_major = @CUDA_VERSION_MAJOR@;
+inline constexpr std::optional<std::int32_t> cuda_version_minor = @CUDA_VERSION_MINOR@;
 
 }  // namespace fairseq2n

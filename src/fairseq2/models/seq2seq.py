@@ -74,7 +74,7 @@ class Seq2SeqBatch:
     """The data example from which this batch was constructed."""
 
     def as_input_and_target(self) -> Tuple[Seq2SeqBatch, Tensor]:
-        """Use this batch for model training or evaluation.
+        """Use this batch for model training or validation.
 
         :returns:
           - A new batch with the target sequences trimmed one step from the end
@@ -135,7 +135,7 @@ class Seq2SeqModelMetricBag(MetricBag):
     def __init__(self, gang: Gang) -> None:
         """
         :param gang:
-            The gang used to sync metrics among ranks.
+            The gang to use to sync metrics across ranks.
         """
         super().__init__(gang)
 
@@ -204,7 +204,7 @@ class Seq2SeqModelMetricBag(MetricBag):
             self.num_target_elements.update(num_target_elements)
 
     def reset_performance_metrics(self) -> None:
-        """Reset performance related metrics to their initial state."""
+        """Reset the performance related metrics to their initial state."""
         self.loss.reset()
         self.entropy_loss.reset()
         self.batch_size.reset()

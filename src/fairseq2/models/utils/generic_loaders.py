@@ -25,8 +25,12 @@ from fairseq2.data import PathLike
 from fairseq2.data.text import TextTokenizer
 from fairseq2.models.utils.arch_registry import ArchitectureRegistry
 from fairseq2.models.utils.checkpoint import load_checkpoint
-from fairseq2.nn.utils.module import infer_device, reset_non_persistent_buffers
-from fairseq2.typing import DataType, Device, finaloverride
+from fairseq2.nn.utils.module import (
+    infer_device,
+    reset_non_persistent_buffers,
+    to_empty,
+)
+from fairseq2.typing import CPU, META, DataType, Device, finaloverride
 from fairseq2.utils.dataclass import update_dataclass
 
 logger = logging.getLogger("fairseq2.models")
@@ -249,29 +253,25 @@ class ModelLoader(Generic[ModelT, ConfigT]):
 
         if out is not None:
             model = out
-
-            is_meta = infer_device(model).type == "meta"
         else:
             try:
                 # Try to construct the model on the meta device.
-                model = self.model_factory(config, device=Device("meta"), dtype=dtype)
-
-                is_meta = True
+                model = self.model_factory(config, device=META, dtype=dtype)
             except NotImplementedError:
-                is_meta = False
-
                 logger.warning(
-                    f"One or more operators in {card.name} constructor do not support meta device. Skipping lazy initialization."
+                    f"One or more operators in {card.name} constructor do not support the meta device. Skipping lazy initialization."
                 )
 
                 # If we are here, it means the model has at least one operator that
                 # does not support meta device. Do regular model initialization.
                 model = self.model_factory(config, device=device, dtype=dtype)
 
-        if is_meta:
+        model_device = infer_device(model)
+
+        if model_device == META:
             # Move the model to the actual device without initializing. Its
             # state will be overwritten by the checkpoint anyways.
-            model = model.to_empty(device=device or "cpu")
+            to_empty(model, device=device or CPU)
 
         # Load the model.
         try:
@@ -288,7 +288,7 @@ class ModelLoader(Generic[ModelT, ConfigT]):
                 f"The checkpoint of {card.name} cannot be loaded. See nested exception for details."
             ) from ex
 
-        if is_meta:
+        if model_device == META:
             # Non-persistent buffers are not included in the checkpoint, so we
             # have to explicitly initialize them.
             reset_non_persistent_buffers(model)

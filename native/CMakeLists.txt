@@ -14,7 +14,7 @@ endif()
 
 if(DEFINED ENV{CONDA_PREFIX} AND NOT DEFINED ENV{CONDA_BUILD_SYSROOT})
     message(FATAL_ERROR
-        "It looks like you are in a Conda environment, but the compiler packages are not installed. Please run `conda install -c conda-forge compilers` first."
+        "It looks like you are in a Conda environment, but the `compilers` package is not installed. Please run `conda install -c conda-forge compilers=1.2.0` first."
     )
 endif()
 

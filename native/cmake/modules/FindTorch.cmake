@@ -70,6 +70,8 @@ if(Python3_Interpreter_FOUND)
         ERROR_QUIET
     )
 
+    cmake_path(CONVERT ${torch_init_file} TO_CMAKE_PATH_LIST torch_init_file NORMALIZE)
+
     cmake_path(REPLACE_FILENAME torch_init_file lib OUTPUT_VARIABLE torch_lib_dir)
     cmake_path(REPLACE_FILENAME torch_init_file include OUTPUT_VARIABLE torch_include_dir)
 
@@ -129,6 +131,10 @@ endif()
 
 if(TORCH_CUDA_LIBRARY)
     __torch_determine_cuda_version()
+
+    set(TORCH_VARIANT "CUDA ${TORCH_CUDA_VERSION_MAJOR}.${TORCH_CUDA_VERSION_MINOR}")
+else()
+    set(TORCH_VARIANT "CPU-only")
 endif()
 
 if(NOT TARGET torch_cxx11_abi)
@@ -147,8 +153,9 @@ if(NOT TARGET torch_cxx11_abi)
         )
 
         if(result EQUAL 0)
-            target_compile_definitions(torch_cxx11_abi INTERFACE
-                _GLIBCXX_USE_CXX11_ABI=$<BOOL:${TORCH_CXX11_ABI}>
+            target_compile_definitions(torch_cxx11_abi
+                INTERFACE
+                    _GLIBCXX_USE_CXX11_ABI=$<BOOL:${TORCH_CXX11_ABI}>
             )
         endif()
 

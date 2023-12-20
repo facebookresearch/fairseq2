@@ -98,6 +98,10 @@ function(fairseq2n_set_compile_options target)
                 -Wno-used-but-marked-unused
                 -Wno-zero-as-null-pointer-constant
         )
+
+        if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 15)
+            target_compile_options(${target} PRIVATE -Wno-unsafe-buffer-usage)
+        endif()
     endif()
 
     if(FAIRSEQ2N_TREAT_WARNINGS_AS_ERRORS)
