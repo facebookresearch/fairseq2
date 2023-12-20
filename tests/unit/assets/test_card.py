@@ -148,7 +148,7 @@ class TestAssetCard:
     def test_as_dict_raises_error_when_field_is_not_a_valid_dict(self) -> None:
         with pytest.raises(
             AssetCardError,
-            match=rf"The elements of the field 'field2' of the asset card 'test-card' must be of type `{int}`, but the element 'sub-field2' is of type `{str}` instead\.$",
+            match=rf"The items of the field 'field2' of the asset card 'test-card' must be of type `{int}`, but the item 'sub-field2' is of type `{str}` instead\.$",
         ):
             self.card.field("field2").as_dict(int)
 

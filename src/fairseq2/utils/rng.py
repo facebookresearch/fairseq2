@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Mapping
 import torch
 from torch import Generator, Tensor
 
-from fairseq2.typing import Device
+from fairseq2.typing import CPU, Device
 
 
 def use_deterministic(value: bool, warn_only: bool = False) -> None:
@@ -47,7 +47,7 @@ class GeneratorBag:
         generators = []
 
         for device in set(devices):
-            if device.type == "cpu":
+            if device == CPU:
                 generators.append(torch.default_generator)
             elif device.type == "cuda":
                 # Ensure that the default CUDA generators are initialized.
@@ -94,11 +94,11 @@ class GeneratorBag:
         try:
             states = state_dict["generators"]
         except KeyError:
-            raise ValueError("`state_dict` must contain an element named `generators`.")
+            raise ValueError("`state_dict` must contain an item named `generators`.")
 
         if not isinstance(states, list):
             raise ValueError(
-                f"The `generators` element of `state_dict` must be of type `{list}`, but is of type `{type(states)}` instead."
+                f"The `generators` item of `state_dict` must be of type `{list}`, but is of type `{type(states)}` instead."
             )
 
         if len(states) != len(self.generators):

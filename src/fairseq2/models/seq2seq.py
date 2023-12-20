@@ -106,14 +106,14 @@ class Seq2SeqBatch:
         return self.target_seqs.size(0)
 
     def num_source_elements(self) -> int:
-        """Return the number of elements in source sequences."""
+        """Return the number of elements in the source sequences."""
         if self.source_padding_mask is None:
             return self.source_seqs.numel()
 
         return int(self.source_padding_mask.seq_lens.sum())
 
     def num_target_elements(self) -> int:
-        """Return the number of elements in target sequences."""
+        """Return the number of elements in the target sequences."""
         if self.target_padding_mask is None:
             return self.target_seqs.numel()
 

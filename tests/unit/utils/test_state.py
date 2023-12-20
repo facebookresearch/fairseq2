@@ -46,7 +46,7 @@ class TestStatefulObjectBag:
 
         del bag.foo3
 
-        with pytest.raises(ValueError, match="^`state_dict` must contain elements"):
+        with pytest.raises(ValueError, match="^`state_dict` must contain items"):
             bag.load_state_dict(state_dict)
 
         bag.foo3 = Foo()

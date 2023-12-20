@@ -242,7 +242,7 @@ class ModelLoader(Generic[ModelT, ConfigT]):
         try:
             checkpoint = load_checkpoint(
                 path,
-                map_location="cpu",
+                map_location=CPU,
                 restrict=self.restrict_checkpoints,
                 converter=checkpoint_converter,
             )
