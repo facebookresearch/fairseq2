@@ -155,4 +155,4 @@ def extract_masked_elements(seqs: Tensor, temporal_mask: Tensor) -> Tensor:
     seqs = seqs[temporal_mask]
 
     # (N x T, M) -> (N, T, M)
-    return seqs.unflatten(0, (N, -1))  # type: ignore[no-any-return]
+    return seqs.unflatten(0, (batch_size, -1))  # type: ignore[no-any-return]
