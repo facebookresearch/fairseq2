@@ -16,7 +16,6 @@ class MetricBag:
     """Holds a collection of training or validation metrics."""
 
     gang: Gang
-    training: bool
     metrics: Dict[str, Metric[Any]]
     persistent_metrics: Dict[str, Metric[Any]]
 
@@ -29,7 +28,6 @@ class MetricBag:
         super().__setattr__("persistent_metrics", {})
 
         self.gang = gang
-        self.training = True
 
     def __getattr__(self, name: str) -> Any:
         if "metrics" in self.__dict__ and name in self.metrics:
@@ -63,15 +61,20 @@ class MetricBag:
     def register_metric(
         self, name: str, metric: Metric[Any], persistent: bool = True
     ) -> None:
-        """Register a metric.
+        """Add ``metric`` to the bag.
 
         :param name:
-            The name under which to register the metric.
+            The attribute name to refer to ``metric``.
         :param metric:
-            The metric to register.
+            The metric to add.
         :param persistent:
-            If ``True``, the metric state will be preserved in ``state_dict``.
+            If ``True``, the state of ``metric`` will be preserved in ``state_dict``.
         """
+        if hasattr(self, name):
+            raise AttributeError(
+                f"'{type(self).__name__}' object already has an attribute '{name}'."
+            )
+
         metric.to(self.gang.device)
 
         self.metrics[name] = metric
@@ -87,18 +90,6 @@ class MetricBag:
     def sync_and_compute_metrics(self) -> Optional[Dict[str, Any]]:
         """Sync the metrics across all ranks and and compute their value."""
         return sync_and_compute_metrics(self)
-
-    def train(self, mode: bool = True) -> None:
-        """Set the bag to training or validation mode.
-
-        :param model:
-            If ``True``, sets to training mode; otherwise, to validation mode.
-        """
-        self.training = True
-
-    def valid(self) -> None:
-        """Set the bag to validation mode."""
-        self.train(False)
 
     def state_dict(self) -> Dict[str, Any]:
         state_dict = {}

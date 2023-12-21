@@ -199,9 +199,8 @@ class Seq2SeqModelMetricBag(MetricBag):
 
         self.elements_per_second.update(int(num_target_elements), elapsed_time)
 
-        if self.training:
-            self.num_source_elements.update(num_source_elements)
-            self.num_target_elements.update(num_target_elements)
+        self.num_source_elements.update(num_source_elements)
+        self.num_target_elements.update(num_target_elements)
 
     def reset_performance_metrics(self) -> None:
         """Reset the performance related metrics to their initial state."""
