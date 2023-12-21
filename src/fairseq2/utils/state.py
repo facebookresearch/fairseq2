@@ -57,7 +57,7 @@ class StatefulObjectBag:
             _, state_handler = self.stateful_objects[name]
 
             self.stateful_objects[name] = (value, state_handler)
-        elif isinstance(value, Stateful):
+        elif name not in self.__dict__ and isinstance(value, Stateful):
             self.register_stateful(name, value)
         else:
             super().__setattr__(name, value)
@@ -69,20 +69,40 @@ class StatefulObjectBag:
             super().__delattr__(name)
 
     def register_stateful(
-        self, name: str, stateful: Any, state_handler: Optional[StateHandler] = None
+        self, name: str, obj: Any, state_handler: Optional[StateHandler] = None
     ) -> None:
-        """Register a stateful object.
+        """Add ``obj`` to the bag and preserve its state in ``state_dict``.
 
         :param name:
-            The name under which to register the object.
-        :param stateful:
-            The object to register.
+            The attribute name to refer to ``obj``.
+        :param obj:
+            The object to add.
         :param state_handler:
-            The handler to load and extract the state of the object. If ``None``
-            and the object is of type :class:`Stateful`, then its ``state_dict``
-            will be used; otherwise, the object will be treated as its state.
+            The handler to load and extract the state of ``obj``. If ``None``
+            and ``obj`` is of type :class:`Stateful`, then its ``state_dict``
+            will be used; otherwise, ``obj`` will be preserved as is.
         """
-        self.stateful_objects[name] = (stateful, state_handler)
+        if hasattr(self, name):
+            raise AttributeError(
+                f"'{type(self).__name__}' object already has an attribute '{name}'."
+            )
+
+        self.stateful_objects[name] = (obj, state_handler)
+
+    def register_non_stateful(self, name: str, obj: Any) -> None:
+        """Add ``obj`` to the bag, but do not preserve its state in ``state_dict``.
+
+        :param name:
+            The attribute name to refer to ``obj``.
+        :param obj:
+            The object to add.
+        """
+        if hasattr(self, name):
+            raise AttributeError(
+                f"'{type(self).__name__}' object already has an attribute '{name}'."
+            )
+
+        super().__setattr__(name, obj)
 
     def state_dict(self) -> Dict[str, Any]:
         state_dict = {}

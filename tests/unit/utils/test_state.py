@@ -36,6 +36,8 @@ class TestStatefulObjectBag:
 
         bag.foo3 = Foo()
 
+        bag.register_non_stateful("foo4", Foo())
+
         state_dict = bag.state_dict()
 
         assert state_dict == {
