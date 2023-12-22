@@ -20,6 +20,7 @@ from fairseq2.generation import (
 from fairseq2.generation.utils import StdOutPrintHook
 from fairseq2.models.mistral import (
     MistralChatbot,
+    load_mistral_config,
     load_mistral_model,
     load_mistral_tokenizer,
 )
@@ -32,6 +33,8 @@ def run_mistral_chatbot(checkpoint_dir: Optional[Path] = None) -> None:
         model_card.field("checkpoint").set(checkpoint_dir / "consolidated.00.pth")
         model_card.field("tokenizer").set(checkpoint_dir / "tokenizer.model")
 
+    config = load_mistral_config(model_card)
+
     model = load_mistral_model(
         model_card, dtype=torch.float16, device=torch.device("cuda:0")
     )
@@ -41,7 +44,11 @@ def run_mistral_chatbot(checkpoint_dir: Optional[Path] = None) -> None:
     sampler = TopPSampler(p=0.8)
 
     generator = SamplingSequenceGenerator(
-        model, sampler, temperature=0.6, max_gen_len=1024
+        model,
+        sampler,
+        temperature=0.6,
+        max_gen_len=1024,
+        max_seq_len=config.max_seq_len,
     )
 
     chatbot = MistralChatbot(generator, tokenizer)
