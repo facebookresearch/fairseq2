@@ -580,15 +580,20 @@ class _SamplingSequenceGeneratorOpBase(ABC):
 
         self.state_bag.increment_step_nr(prefill_len - 1)
 
+        logits = model_output.logits
+
+        if self.temperature != 1.0:
+            logits /= self.temperature
+
+        # (P, S_prm - 1, V)
+        probs = softmax(logits, dim=-1, dtype=torch.float32)
+
+        if probs.isnan().any():
+            raise RuntimeError(
+                "The model has produced one or more NaN probabilities during prefill. The sequence generator cannot continue."
+            )
+
         if self.step_scores is not None:
-            logits = model_output.logits
-
-            if self.temperature != 1.0:
-                logits /= self.temperature
-
-            # (P, S_prm - 1, V)
-            probs = softmax(logits, dim=-1, dtype=torch.float32)
-
             # Fetch the scores of the next prompt step.
             # (P, S_prm - 1, 1)
             prompt_scores = torch.gather(
@@ -626,6 +631,11 @@ class _SamplingSequenceGeneratorOpBase(ABC):
 
         # (N, 1, V) -> (N, V)
         probs.squeeze_(1)
+
+        if probs.isnan().any():
+            raise RuntimeError(
+                f"The model has produced one or more NaN probabilities at step {self.step_nr}. The sequence generator cannot continue."
+            )
 
         # If we are generating the last possible step, force it to be EOS
         # regardless of its score.
