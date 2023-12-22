@@ -28,7 +28,7 @@ def use_deterministic(value: bool, warn_only: bool = False) -> None:
     torch.use_deterministic_algorithms(value, warn_only=warn_only)
 
 
-class GeneratorBag:
+class RNGBag:
     """Holds a collection of random number generators."""
 
     generators: List[Generator]
@@ -41,12 +41,19 @@ class GeneratorBag:
         self.generators = list(generators)
 
     @staticmethod
-    def from_device_defaults(*devices: Device) -> GeneratorBag:
-        """Create a :class:`GeneratorBag` instance holding the default random
-        number generators of ``devices``."""
+    def from_device_defaults(*devices: Device) -> RNGBag:
+        """Create an :class:`RNGBag` instance holding the default random number
+        generators of ``devices``."""
+        unique_devices = set()
+
         generators = []
 
-        for device in set(devices):
+        for device in devices:
+            if device in unique_devices:
+                raise ValueError(f"`devices` already contains the device '{device}'.")
+
+            unique_devices.add(device)
+
             if device == CPU:
                 generators.append(torch.default_generator)
             elif device.type == "cuda":
@@ -60,10 +67,10 @@ class GeneratorBag:
                 generators.append(torch.cuda.default_generators[idx])
             else:
                 raise ValueError(
-                    f"`GeneratorBag` supports only CPU and CUDA devices, but a {device.type.upper()} is specified."
+                    f"`RNGBag` supports only CPU and CUDA devices, but a {device.type.upper()} device is specified."
                 )
 
-        return GeneratorBag(*generators)
+        return RNGBag(*generators)
 
     def seed(self) -> None:
         """Set the seed of the random number generators to a random number."""
@@ -79,7 +86,7 @@ class GeneratorBag:
 
     def manual_seed(self, seed: int) -> None:
         """Set the seed of the random number generators."""
-        if seed >= 1 << 32:
+        if seed < 0 or seed >= 1 << 32:
             raise ValueError(
                 f"`seed` must be greater than or equal to 0 and less than 2^32, but is {seed} instead."
             )
