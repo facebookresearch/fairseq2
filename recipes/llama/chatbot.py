@@ -18,7 +18,12 @@ from fairseq2.generation import (
     TopPSampler,
 )
 from fairseq2.generation.utils import StdOutPrintHook
-from fairseq2.models.llama import LLaMAChatbot, load_llama_model, load_llama_tokenizer
+from fairseq2.models.llama import (
+    LLaMAChatbot,
+    load_llama_config,
+    load_llama_model,
+    load_llama_tokenizer,
+)
 
 
 def run_llama_chatbot(checkpoint_dir: Optional[Path] = None) -> None:
@@ -27,6 +32,8 @@ def run_llama_chatbot(checkpoint_dir: Optional[Path] = None) -> None:
     if checkpoint_dir is not None:
         model_card.field("checkpoint").set(checkpoint_dir / "consolidated.pth")
         model_card.field("tokenizer").set(checkpoint_dir / "tokenizer.model")
+
+    config = load_llama_config(model_card)
 
     model = load_llama_model(
         model_card, dtype=torch.float16, device=torch.device("cuda")
@@ -37,7 +44,11 @@ def run_llama_chatbot(checkpoint_dir: Optional[Path] = None) -> None:
     sampler = TopPSampler(p=0.8)
 
     generator = SamplingSequenceGenerator(
-        model, sampler, temperature=0.6, max_gen_len=1024
+        model,
+        sampler,
+        temperature=0.6,
+        max_gen_len=1024,
+        max_seq_len=config.max_seq_len,
     )
 
     chatbot = LLaMAChatbot(generator, tokenizer)
