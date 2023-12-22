@@ -558,6 +558,11 @@ class _BeamSearchSequenceGeneratorOpBase(ABC):
         # (P, S_prm - 1, V)
         lprobs = log_softmax(logits, dim=-1, dtype=torch.float32)
 
+        if lprobs.isnan().any():
+            raise RuntimeError(
+                "The model has produced one or more NaN probabilities during prefill. The sequence generator cannot continue."
+            )
+
         # Fetch the scores of the next prompt step.
         # (P, S_prm - 1, 1)
         prompt_scores = torch.gather(
@@ -595,6 +600,11 @@ class _BeamSearchSequenceGeneratorOpBase(ABC):
 
         # (N, 1, V) -> (N, V)
         lprobs.squeeze_(1)
+
+        if lprobs.isnan().any():
+            raise RuntimeError(
+                f"The model has produced one or more NaN probabilities at step {self.step_nr}. The sequence generator cannot continue."
+            )
 
         # If we are generating the last possible step, force it to be EOS
         # regardless of its score.
