@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import os
+from os import PathLike
 from pathlib import Path
 
 import pytest
@@ -177,9 +177,11 @@ class TestAssetCard:
             self.card.field("field1").as_one_of({"foo3", "foo2"})
 
     def test_as_uri_works(self) -> None:
+        self.card.field("field1").set("/foo1/foo2/")
+
         value = self.card.field("field1").as_uri()
 
-        assert value == "file:///foo1"
+        assert value == "file:///foo1/foo2"
 
         value = self.card.field("field9").as_uri()
 
@@ -194,9 +196,16 @@ class TestAssetCard:
     def test_as_uri_raises_error_when_field_type_is_incorrect(self) -> None:
         with pytest.raises(
             AssetCardError,
-            match=rf"The value of the field 'field3' of the asset card 'test-card' must be of type `{str}` or `{os.PathLike}`, but is of type `{int}` instead\.$",
+            match=rf"The value of the field 'field3' of the asset card 'test-card' must be of type `{str}` or `{PathLike}`, but is of type `{int}` instead\.$",
         ):
             self.card.field("field3").as_uri()
+
+    def test_as_uri_raises_error_when_field_is_not_uri_or_absolute_path(self) -> None:
+        with pytest.raises(
+            AssetCardError,
+            match=r"The value of the field 'field1' of the asset card 'test-card' must be a URI or an absolute pathname, but is 'foo1' instead\.$",
+        ):
+            self.card.field("field1").as_uri()
 
     def test_as_filename_works(self) -> None:
         value = self.card.field("field1").as_filename()
