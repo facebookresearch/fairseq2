@@ -7,6 +7,8 @@
 from __future__ import annotations
 
 import os
+from os import PathLike
+from pathlib import Path
 from typing import (
     AbstractSet,
     Any,
@@ -25,7 +27,7 @@ from urllib.parse import urlparse
 from typing_extensions import Self
 
 from fairseq2.assets.error import AssetError
-from fairseq2.data.typing import is_string_like
+from fairseq2.assets.utils import _starts_with_scheme
 
 T = TypeVar("T")
 
@@ -269,6 +271,7 @@ class AssetCardField:
             pathname = ".".join(self.path)
 
             values = list(valid_values)
+
             values.sort()
 
             raise AssetCardError(
@@ -281,33 +284,24 @@ class AssetCardField:
         """Return the value of this field as a URI."""
         value = self.as_(object)
 
-        if not is_string_like(value) and not isinstance(value, os.PathLike):
+        if not isinstance(value, (str, PathLike)):
             pathname = ".".join(self.path)
 
             raise AssetCardError(
-                f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be of type `{str}` or `{os.PathLike}`, but is of type `{type(value)}` instead."
+                f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be of type `{str}` or `{PathLike}`, but is of type `{type(value)}` instead."
             )
-
-        str_value = str(value)
 
         try:
-            uri = urlparse(str_value)
+            if isinstance(value, PathLike) or not _starts_with_scheme(value):
+                return Path(value).as_uri()
+            else:
+                return urlparse(value).geturl()
         except ValueError as ex:
-            raise AssetCardError(
-                f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be a URI, but is '{str_value}' instead."
-            ) from ex
-
-        if not uri.netloc and not uri.path:
             pathname = ".".join(self.path)
 
             raise AssetCardError(
-                f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be a URI with a network location and/or path, but is '{str_value}' instead."
-            )
-
-        if not uri.scheme:
-            uri = uri._replace(scheme="file")
-
-        return uri.geturl()
+                f"The value of the field '{pathname}' of the asset card '{self.card.name}' must be a URI or an absolute pathname, but is '{value}' instead."
+            ) from ex
 
     def as_filename(self) -> str:
         """Return the value of this field as a filename."""

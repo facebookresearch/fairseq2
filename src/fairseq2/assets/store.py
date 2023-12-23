@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import logging
 import os
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -18,6 +17,7 @@ from fairseq2.assets.metadata_provider import (
     AssetNotFoundError,
     FileAssetMetadataProvider,
 )
+from fairseq2.assets.utils import _get_path_from_env
 from fairseq2.typing import finaloverride
 
 
@@ -151,30 +151,6 @@ def _create_asset_store() -> ProviderBackedAssetStore:
 
 
 asset_store = _create_asset_store()
-
-
-def _get_path_from_env(var_name: str) -> Optional[Path]:
-    pathname = os.getenv(var_name)
-    if not pathname:
-        return None
-
-    try:
-        path = Path(pathname)
-    except ValueError as ex:
-        raise RuntimeError(
-            f"The value of the `{var_name}` environment variable must be a valid pathname, but is '{pathname}' instead."
-        ) from ex
-
-    if not path.exists():
-        logger = logging.getLogger("fairseq2.assets")
-
-        logger.warning(
-            f"The path '{path}' pointed to by the `{var_name}` environment variable does not exist."
-        )
-
-        return None
-
-    return path
 
 
 def _load_asset_directory() -> None:
