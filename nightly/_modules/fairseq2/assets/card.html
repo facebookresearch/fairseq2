@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.assets.card &mdash; fairseq2 0.3.0.dev202312180154 documentation</title>
+  <title>fairseq2.assets.card &mdash; fairseq2 0.3.0.dev202312250136 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202312180154
+                0.3.0.dev202312250136
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -168,6 +168,8 @@
 <span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">from</span> <span class="nn">os</span> <span class="kn">import</span> <span class="n">PathLike</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">AbstractSet</span><span class="p">,</span>
     <span class="n">Any</span><span class="p">,</span>
@@ -186,7 +188,7 @@
 <span class="kn">from</span> <span class="nn">typing_extensions</span> <span class="kn">import</span> <span class="n">Self</span>
 
 <span class="kn">from</span> <span class="nn">fairseq2.assets.error</span> <span class="kn">import</span> <span class="n">AssetError</span>
-<span class="kn">from</span> <span class="nn">fairseq2.data.typing</span> <span class="kn">import</span> <span class="n">is_string_like</span>
+<span class="kn">from</span> <span class="nn">fairseq2.assets.utils</span> <span class="kn">import</span> <span class="n">_starts_with_scheme</span>
 
 <span class="n">T</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;T&quot;</span><span class="p">)</span>
 
@@ -205,7 +207,7 @@
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :param metadata:</span>
-<span class="sd">            The metadata to be held in the card. Each key-value entry should</span>
+<span class="sd">            The metadata to be held in the card. Each key-value item should</span>
 <span class="sd">            contain a specific piece of information about the asset.</span>
 <span class="sd">        :param base:</span>
 <span class="sd">            The card that this card derives from.</span>
@@ -390,18 +392,18 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the value of this field as a :class:`dict` of type ``kls``.</span>
 
 <span class="sd">        :param kls:</span>
-<span class="sd">            The type of the field elements.</span>
+<span class="sd">            The type of the field values.</span>
 <span class="sd">        :param allow_empty:</span>
 <span class="sd">            If ``True``, allows the dictionary to be empty.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">as_</span><span class="p">(</span><span class="nb">dict</span><span class="p">,</span> <span class="n">allow_empty</span><span class="p">)</span>
 
-        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">element</span> <span class="ow">in</span> <span class="n">value</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="n">kls</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">value</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">kls</span><span class="p">):</span>
                 <span class="n">pathname</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
 
                 <span class="k">raise</span> <span class="n">AssetCardError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;The elements of the field &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; of the asset card &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; must be of type `</span><span class="si">{</span><span class="n">kls</span><span class="si">}</span><span class="s2">`, but the element &#39;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&#39; is of type `</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">element</span><span class="p">)</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
+                    <span class="sa">f</span><span class="s2">&quot;The items of the field &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; of the asset card &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; must be of type `</span><span class="si">{</span><span class="n">kls</span><span class="si">}</span><span class="s2">`, but the item &#39;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&#39; is of type `</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">val</span><span class="p">)</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
                 <span class="p">)</span>
 
         <span class="k">return</span> <span class="n">value</span>
@@ -430,6 +432,7 @@
             <span class="n">pathname</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
 
             <span class="n">values</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">valid_values</span><span class="p">)</span>
+
             <span class="n">values</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
 
             <span class="k">raise</span> <span class="n">AssetCardError</span><span class="p">(</span>
@@ -442,33 +445,24 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the value of this field as a URI.&quot;&quot;&quot;</span>
         <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">as_</span><span class="p">(</span><span class="nb">object</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_string_like</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">PathLike</span><span class="p">)):</span>
             <span class="n">pathname</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
 
             <span class="k">raise</span> <span class="n">AssetCardError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The value of the field &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; of the asset card &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; must be of type `</span><span class="si">{</span><span class="nb">str</span><span class="si">}</span><span class="s2">` or `</span><span class="si">{</span><span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="si">}</span><span class="s2">`, but is of type `</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
+                <span class="sa">f</span><span class="s2">&quot;The value of the field &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; of the asset card &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; must be of type `</span><span class="si">{</span><span class="nb">str</span><span class="si">}</span><span class="s2">` or `</span><span class="si">{</span><span class="n">PathLike</span><span class="si">}</span><span class="s2">`, but is of type `</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
             <span class="p">)</span>
-
-        <span class="n">str_value</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">uri</span> <span class="o">=</span> <span class="n">urlparse</span><span class="p">(</span><span class="n">str_value</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">PathLike</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">_starts_with_scheme</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">Path</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="o">.</span><span class="n">as_uri</span><span class="p">()</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">urlparse</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="o">.</span><span class="n">geturl</span><span class="p">()</span>
         <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="n">AssetCardError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The value of the field &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; of the asset card &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; must be a URI, but is &#39;</span><span class="si">{</span><span class="n">str_value</span><span class="si">}</span><span class="s2">&#39; instead.&quot;</span>
-            <span class="p">)</span> <span class="kn">from</span> <span class="nn">ex</span>
-
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">uri</span><span class="o">.</span><span class="n">netloc</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">uri</span><span class="o">.</span><span class="n">path</span><span class="p">:</span>
             <span class="n">pathname</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
 
             <span class="k">raise</span> <span class="n">AssetCardError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The value of the field &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; of the asset card &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; must be a URI with a network location and/or path, but is &#39;</span><span class="si">{</span><span class="n">str_value</span><span class="si">}</span><span class="s2">&#39; instead.&quot;</span>
-            <span class="p">)</span>
-
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">uri</span><span class="o">.</span><span class="n">scheme</span><span class="p">:</span>
-            <span class="n">uri</span> <span class="o">=</span> <span class="n">uri</span><span class="o">.</span><span class="n">_replace</span><span class="p">(</span><span class="n">scheme</span><span class="o">=</span><span class="s2">&quot;file&quot;</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">uri</span><span class="o">.</span><span class="n">geturl</span><span class="p">()</span>
+                <span class="sa">f</span><span class="s2">&quot;The value of the field &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; of the asset card &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; must be a URI or an absolute pathname, but is &#39;</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39; instead.&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span> <span class="nn">ex</span>
 
     <span class="k">def</span> <span class="nf">as_filename</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the value of this field as a filename.&quot;&quot;&quot;</span>
