@@ -22,4 +22,4 @@ TORCH_VERSION: Final = _get_torch_version()
 
 
 def _is_pt21_or_greater() -> bool:
-    return TORCH_VERSION.major >= 2 and TORCH_VERSION.major >= 1
+    return TORCH_VERSION.major >= 2 and TORCH_VERSION.minor >= 1
