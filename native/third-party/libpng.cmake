@@ -6,6 +6,8 @@
 
 macro(fairseq2n_add_libpng)
     if(NOT TARGET png_static)
+        set(CMAKE_POLICY_DEFAULT_CMP0126 NEW)
+
         set(PNG_SHARED OFF)
         set(PNG_STATIC ON)
         set(PNG_TESTS  OFF)
