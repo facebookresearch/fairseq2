@@ -129,17 +129,20 @@ class ProcessGroupGang(Gang):
         *,
         device: Optional[Device] = None,
         timeout: Optional[timedelta] = None,
+        num_threads: Optional[int] = None,
         warn_only: bool = False,
         ok_initialized: bool = False,
     ) -> Gang:
         """Initialize the default process group and wrap it as a gang.
 
         :param device:
-            If ``None``; if CUDA is available, a CUDA device will be picked
-            automatically, and will be used to initialize the process group;
-            otherwise, the CPU will be used.
+            If ``None``; if CUDA is available, the process group will be
+            initialized on an automatically selected CUDA device; otherwise,
+            it will be initialized on CPU.
         :param timeout:
             The timeout for operations executed against the process group.
+        :param num_threads:
+            The number of threads used for interaop parallelism.
         :param warn_only:
             If ``True``, logs a warning instead of raising an error if the
             process group is not set up reliably.
@@ -158,12 +161,18 @@ class ProcessGroupGang(Gang):
 
         num_workers = _get_num_workers()
 
-        if num_workers > 1 and "OMP_NUM_THREADS" not in os.environ:
-            # To prevent thread oversubscription, we distribute cores evenly
-            # across workers.
-            num_threads = max(_get_num_cores() // num_workers, 1)
+        if num_threads is None:
+            if num_workers > 1 and "OMP_NUM_THREADS" not in os.environ:
+                # To prevent thread oversubscription, we distribute cores evenly
+                # across workers.
+                num_threads = _get_num_cpus(num_workers)
 
+        if num_threads is not None:
             torch.set_num_threads(num_threads)
+
+            logger.info(
+                "Setting the number of threads used for intraop parallelism to %d.", num_threads  # fmt: skip
+            )
 
         if device is None:
             device = _determine_default_device()
@@ -182,11 +191,11 @@ class ProcessGroupGang(Gang):
         if device.type == "cuda" and "NCCL_ASYNC_ERROR_HANDLING" not in os.environ:
             if warn_only:
                 logger.warning(
-                    "The default process group will use the NCCL backend, but the `NCCL_ASYNC_ERROR_HANDLING` environment variable is not set. Your collective communication calls can hang indefinitely."
+                    "The default process group will use the NCCL backend, but the `NCCL_ASYNC_ERROR_HANDLING` environment variable is not set. Your collective communication calls can hang indefinitely. Learn more at https://github.com/pytorch/pytorch/issues/46874."
                 )
             else:
                 raise RuntimeError(
-                    "The default process group will use the NCCL backend, but the `NCCL_ASYNC_ERROR_HANDLING` environment variable is not set."
+                    "The default process group will use the NCCL backend, but the `NCCL_ASYNC_ERROR_HANDLING` environment variable is not set. Learn more at https://github.com/pytorch/pytorch/issues/46874."
                 )
 
         if timeout is None:
@@ -277,13 +286,17 @@ class ProcessGroupGang(Gang):
         )
 
 
-def _get_num_cores() -> int:
-    try:
-        return len(os.sched_getaffinity(0))
-    except RuntimeError:
+def _get_num_cpus(num_workers: int) -> int:
+    num_cpus = os.cpu_count()
+    if num_cpus is None:
         logger.warning("The number of CPU cores cannot be determined.")
 
         return 1
+
+    max_num_cpus = max(num_cpus // num_workers, 1)
+
+    # We should not exceed the number of cores available in the affinity mask.
+    return min(max_num_cpus, len(os.sched_getaffinity(0)))
 
 
 def _determine_default_device() -> Device:
