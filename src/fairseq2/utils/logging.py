@@ -8,54 +8,45 @@ import logging
 import time
 from logging import DEBUG, INFO, FileHandler, Formatter, Handler, StreamHandler
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
-from fairseq2.gang import Gang
+from fairseq2.gang import is_coordinator_process
 
 
 def setup_logging(
-    log_dir: Path, gang: Gang, debug: bool = False, utc: bool = False
+    *,
+    log_file: Optional[Path] = None,
+    debug: bool = False,
+    utc_time: bool = False,
 ) -> None:
     """Set up logging for a training or eval job.
 
-    :param log_dir:
-        The log output directory.
-    :param gang:
-        The gang of the job.
+    :param log_file:
+        The file to which logs will be written.
     :param debug:
         If ``True``, sets the log level to `DEBUG`; otherwise, to `INFO`.
-    :param utc:
+    :param utc_time:
         If ``True``, logs dates and times in UTC.
     """
-    if gang.rank == 0:
+    handlers: List[Handler] = [StreamHandler()]  # Log to stderr.
+
+    if log_file is not None and is_coordinator_process():
         try:
-            log_dir.mkdir(parents=True, exist_ok=True)
-        except IOError as ex:
+            log_file.parent.mkdir(parents=True, exist_ok=True)
+        except OSError as ex:
             raise RuntimeError(
-                "The log output directory cannot be created. See nested exception for details."
+                f"The log directory ({log_file.parent}) cannot be created. See nested exception for details."
             ) from ex
 
-    gang.barrier()
+        handlers.append(FileHandler(log_file))  # Log to file on coordinator.
 
-    log_file = log_dir.joinpath(f"rank_{gang.rank}.log")
+    fmt = "%(asctime)s %(levelname)s %(name)s - %(message)s"
 
-    # Each rank logs to its own file.
-    handlers: List[Handler] = [FileHandler(log_file)]
-
-    # On rank 0, we also print to stdout.
-    if gang.rank == 0:
-        handlers.append(StreamHandler())
-
-    line_format = "%(asctime)s %(levelname)s %(name)s - %(message)s"
-
-    datetime_format = "%Y-%m-%d %H:%M:%S"
+    datefmt = "%Y-%m-%d %H:%M:%S"
 
     logging.basicConfig(
-        level=DEBUG if debug else INFO,
-        handlers=handlers,
-        format=line_format,
-        datefmt=datetime_format,
+        level=DEBUG if debug else INFO, handlers=handlers, format=fmt, datefmt=datefmt
     )
 
-    if utc:
+    if utc_time:
         Formatter.converter = time.gmtime

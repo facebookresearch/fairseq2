@@ -382,3 +382,10 @@ def _get_int_from_env(var_name: str) -> Optional[int]:
         raise RuntimeError(
             f"The value of the `{var_name}` environment variable must be an integer, but is '{value}' instead."
         )
+
+
+def is_coordinator_process() -> int:
+    """Return ``True`` if this process is the coordinator of the running job."""
+    rank = _get_int_from_env("RANK")
+
+    return rank is None or rank == 0
