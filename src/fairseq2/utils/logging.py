@@ -10,7 +10,7 @@ from logging import DEBUG, INFO, FileHandler, Formatter, Handler, StreamHandler
 from pathlib import Path
 from typing import List, Optional
 
-from fairseq2.gang import is_coordinator_process
+from fairseq2.gang import get_global_rank
 
 
 def setup_logging(
@@ -22,15 +22,25 @@ def setup_logging(
     """Set up logging for a training or eval job.
 
     :param log_file:
-        The file to which logs will be written.
+        The file to which logs will be written. Must have a 'rank' replacement
+        field; for example '/path/to/train_{rank}.log'.
     :param debug:
         If ``True``, sets the log level to `DEBUG`; otherwise, to `INFO`.
     :param utc_time:
         If ``True``, logs dates and times in UTC.
     """
+    rank = get_global_rank()
+
     handlers: List[Handler] = [StreamHandler()]  # Log to stderr.
 
-    if log_file is not None and is_coordinator_process():
+    if log_file is not None:
+        filename = log_file.name.format(rank=rank)
+
+        if filename == log_file.name:
+            raise ValueError(
+                f"`log_file` must contain a 'rank' replacement field (i.e. {{rank}}) in its filename, but is '{log_file}' instead."
+            )
+
         try:
             log_file.parent.mkdir(parents=True, exist_ok=True)
         except OSError as ex:
@@ -38,9 +48,11 @@ def setup_logging(
                 f"The log directory ({log_file.parent}) cannot be created. See nested exception for details."
             ) from ex
 
-        handlers.append(FileHandler(log_file))  # Log to file on coordinator.
+        handler = FileHandler(log_file.with_name(filename))
 
-    fmt = "%(asctime)s %(levelname)s %(name)s - %(message)s"
+        handlers.append(handler)  # Log to file.
+
+    fmt = f"[rank {rank}] %(asctime)s %(levelname)s %(name)s - %(message)s"
 
     datefmt = "%Y-%m-%d %H:%M:%S"
 
