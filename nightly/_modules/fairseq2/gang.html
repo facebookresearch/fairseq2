@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.gang &mdash; fairseq2 0.3.0.dev202312250136 documentation</title>
+  <title>fairseq2.gang &mdash; fairseq2 0.3.0.dev202401010141 documentation</title>
       <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202312250136
+                0.3.0.dev202401010141
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -259,7 +259,7 @@
 
     <span class="nd">@finaloverride</span>
     <span class="k">def</span> <span class="nf">as_process_group</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ProcessGroup</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;`FakeGang` does not support conversion to process group.&quot;</span><span class="p">)</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;`FakeGang` does not support conversion to a process group.&quot;</span><span class="p">)</span>
 
     <span class="nd">@finaloverride</span>
     <span class="k">def</span> <span class="nf">barrier</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -280,6 +280,97 @@
 
     <span class="n">pg</span><span class="p">:</span> <span class="n">ProcessGroup</span>
 
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pg</span><span class="p">:</span> <span class="n">ProcessGroup</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">dist</span><span class="o">.</span><span class="n">get_rank</span><span class="p">(</span><span class="n">pg</span><span class="p">),</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_world_size</span><span class="p">(</span><span class="n">pg</span><span class="p">),</span> <span class="n">device</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">pg</span> <span class="o">=</span> <span class="n">pg</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">init_default_process_group</span><span class="p">(</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">timeout</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">timedelta</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">num_threads</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="n">warn_only</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">ok_initialized</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Gang</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the default process group and wrap it as a gang.</span>
+
+<span class="sd">        :param device:</span>
+<span class="sd">            If ``None``; if CUDA is available, the process group will be</span>
+<span class="sd">            initialized on an automatically selected CUDA device; otherwise,</span>
+<span class="sd">            it will be initialized on CPU.</span>
+<span class="sd">        :param timeout:</span>
+<span class="sd">            The timeout for operations executed against the process group.</span>
+<span class="sd">        :param num_threads:</span>
+<span class="sd">            The number of threads used for interaop parallelism.</span>
+<span class="sd">        :param warn_only:</span>
+<span class="sd">            If ``True``, logs a warning instead of raising an error if the</span>
+<span class="sd">            process group is not set up reliably.</span>
+<span class="sd">        :param ok_initialized:</span>
+<span class="sd">            If ``True``, does not raise an error if the process group is already</span>
+<span class="sd">            initialized.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;`torch.distributed` is not available.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">ok_initialized</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">ProcessGroupGang</span><span class="o">.</span><span class="n">from_default_process_group</span><span class="p">()</span>
+
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;The default process group is already initialized.&quot;</span><span class="p">)</span>
+
+        <span class="n">num_workers</span> <span class="o">=</span> <span class="n">_get_num_workers</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">num_threads</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">num_workers</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="s2">&quot;OMP_NUM_THREADS&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">:</span>
+                <span class="c1"># To prevent thread oversubscription, we distribute cores evenly</span>
+                <span class="c1"># across workers.</span>
+                <span class="n">num_threads</span> <span class="o">=</span> <span class="n">_get_num_cpus</span><span class="p">(</span><span class="n">num_workers</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">num_threads</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">torch</span><span class="o">.</span><span class="n">set_num_threads</span><span class="p">(</span><span class="n">num_threads</span><span class="p">)</span>
+
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+                <span class="s2">&quot;Setting the number of threads used for intraop parallelism to </span><span class="si">%d</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">num_threads</span>  <span class="c1"># fmt: skip</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">device</span> <span class="o">=</span> <span class="n">_determine_default_device</span><span class="p">()</span>
+
+            <span class="k">assert</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cpu&quot;</span> <span class="ow">or</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span>
+
+        <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cpu&quot;</span><span class="p">:</span>
+            <span class="n">backend</span> <span class="o">=</span> <span class="s2">&quot;gloo&quot;</span>
+        <span class="k">elif</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span><span class="p">:</span>
+            <span class="n">backend</span> <span class="o">=</span> <span class="s2">&quot;nccl&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Only CPU and CUDA devices are supported, but `device` is a </span><span class="si">{</span><span class="n">device</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span><span class="si">}</span><span class="s2"> device.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span> <span class="ow">and</span> <span class="s2">&quot;NCCL_ASYNC_ERROR_HANDLING&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">warn_only</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+                    <span class="s2">&quot;The default process group will use the NCCL backend, but the `NCCL_ASYNC_ERROR_HANDLING` environment variable is not set. Your collective communication calls can hang indefinitely. Learn more at https://github.com/pytorch/pytorch/issues/46874.&quot;</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="s2">&quot;The default process group will use the NCCL backend, but the `NCCL_ASYNC_ERROR_HANDLING` environment variable is not set. Learn more at https://github.com/pytorch/pytorch/issues/46874.&quot;</span>
+                <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">timeout</span> <span class="o">=</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">15</span><span class="p">)</span>
+
+        <span class="n">dist</span><span class="o">.</span><span class="n">init_process_group</span><span class="p">(</span><span class="n">backend</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">dist</span><span class="o">.</span><span class="n">group</span><span class="o">.</span><span class="n">WORLD</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="s2">&quot;The default process group is not available. Please file a bug report.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">ProcessGroupGang</span><span class="p">(</span><span class="n">dist</span><span class="o">.</span><span class="n">group</span><span class="o">.</span><span class="n">WORLD</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
+
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">from_process_group</span><span class="p">(</span><span class="n">pg</span><span class="p">:</span> <span class="n">ProcessGroup</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Gang</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Wrap ``pg`` as a gang.</span>
@@ -292,44 +383,23 @@
         <span class="k">return</span> <span class="n">ProcessGroupGang</span><span class="p">(</span><span class="n">pg</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
-    <span class="k">def</span> <span class="nf">from_default_process_group</span><span class="p">(</span>
-        <span class="n">timeout</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">timedelta</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">warn_only</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Gang</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Wrap the default process group as a gang.</span>
-
-<span class="sd">        The default process group will be initialized as part of this function</span>
-<span class="sd">        if it has not already been initialized. If CUDA is available, NCCL;</span>
-<span class="sd">        otherwise, Gloo backend will be used.</span>
-
-<span class="sd">        :param timeout:</span>
-<span class="sd">            The timeout for operations executed against the process group. Only</span>
-<span class="sd">            set if the process group is initialized as part of this function.</span>
-<span class="sd">        :param warn_only:</span>
-<span class="sd">            If ``True``, logs a warning instead of raising an error if the</span>
-<span class="sd">            process group is not set up reliably.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">from_default_process_group</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Gang</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Wrap the default process group as a gang.&quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_available</span><span class="p">():</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;`torch.distributed` is not available.&quot;</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
-            <span class="n">backend</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_backend</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;The default process group is not initialized.&quot;</span><span class="p">)</span>
 
-            <span class="k">if</span> <span class="n">backend</span> <span class="o">==</span> <span class="s2">&quot;gloo&quot;</span><span class="p">:</span>
-                <span class="n">device</span> <span class="o">=</span> <span class="n">CPU</span>
-            <span class="k">elif</span> <span class="n">backend</span> <span class="o">==</span> <span class="s2">&quot;nccl&quot;</span><span class="p">:</span>
-                <span class="n">device</span> <span class="o">=</span> <span class="n">_determine_default_cuda_device</span><span class="p">()</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;Only `nccl` and `gloo` backends are supported for device selection, but the process group uses the `</span><span class="si">{</span><span class="n">backend</span><span class="si">}</span><span class="s2">` backend.&quot;</span>
-                <span class="p">)</span>
+        <span class="n">backend</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_backend</span><span class="p">()</span>
+
+        <span class="k">if</span> <span class="n">backend</span> <span class="o">==</span> <span class="s2">&quot;gloo&quot;</span><span class="p">:</span>
+            <span class="n">device</span> <span class="o">=</span> <span class="n">CPU</span>
+        <span class="k">elif</span> <span class="n">backend</span> <span class="o">==</span> <span class="s2">&quot;nccl&quot;</span><span class="p">:</span>
+            <span class="n">device</span> <span class="o">=</span> <span class="n">_determine_default_cuda_device</span><span class="p">()</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">device</span> <span class="o">=</span> <span class="n">_determine_default_device</span><span class="p">()</span>
-
-            <span class="k">if</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">timeout</span> <span class="o">=</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">15</span><span class="p">)</span>
-
-            <span class="n">dist</span><span class="o">.</span><span class="n">init_process_group</span><span class="p">(</span>
-                <span class="s2">&quot;nccl&quot;</span> <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span> <span class="k">else</span> <span class="s2">&quot;gloo&quot;</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Only `nccl` and `gloo` backends are supported, but the process group uses the `</span><span class="si">{</span><span class="n">backend</span><span class="si">}</span><span class="s2">` backend.&quot;</span>
             <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">dist</span><span class="o">.</span><span class="n">group</span><span class="o">.</span><span class="n">WORLD</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
@@ -337,22 +407,7 @@
                 <span class="s2">&quot;The default process group is not available. Please file a bug report.&quot;</span>
             <span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span> <span class="ow">and</span> <span class="s2">&quot;NCCL_ASYNC_ERROR_HANDLING&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">warn_only</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                    <span class="s2">&quot;The default process group uses the NCCL backend, but the `NCCL_ASYNC_ERROR_HANDLING` environment variable is not set. Your collective communication calls can hang indefinitely.&quot;</span>
-                <span class="p">)</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                    <span class="s2">&quot;The default process group uses the NCCL backend, but the `NCCL_ASYNC_ERROR_HANDLING` environment variable is not set.&quot;</span>
-                <span class="p">)</span>
-
         <span class="k">return</span> <span class="n">ProcessGroupGang</span><span class="p">(</span><span class="n">dist</span><span class="o">.</span><span class="n">group</span><span class="o">.</span><span class="n">WORLD</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pg</span><span class="p">:</span> <span class="n">ProcessGroup</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">dist</span><span class="o">.</span><span class="n">get_rank</span><span class="p">(</span><span class="n">pg</span><span class="p">),</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_world_size</span><span class="p">(</span><span class="n">pg</span><span class="p">),</span> <span class="n">device</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">pg</span> <span class="o">=</span> <span class="n">pg</span>
 
     <span class="nd">@finaloverride</span>
     <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -392,6 +447,19 @@
         <span class="p">)</span>
 
 
+<span class="k">def</span> <span class="nf">_get_num_cpus</span><span class="p">(</span><span class="n">num_workers</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="n">num_cpus</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">()</span>
+    <span class="k">if</span> <span class="n">num_cpus</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;The number of CPU cores cannot be determined.&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="mi">1</span>
+
+    <span class="n">max_num_cpus</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">num_cpus</span> <span class="o">//</span> <span class="n">num_workers</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+
+    <span class="c1"># We should not exceed the number of cores available in the affinity mask.</span>
+    <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">max_num_cpus</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">sched_getaffinity</span><span class="p">(</span><span class="mi">0</span><span class="p">)))</span>
+
+
 <span class="k">def</span> <span class="nf">_determine_default_device</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Device</span><span class="p">:</span>
     <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="ow">and</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">device_count</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">_determine_default_cuda_device</span><span class="p">()</span>
@@ -405,43 +473,83 @@
         <span class="k">try</span><span class="p">:</span>
             <span class="nb">int</span><span class="p">(</span><span class="n">visible_devices</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The value of the `CUDA_VISIBLE_DEVICES` environment variable must specify a single CUDA device, but is &#39;</span><span class="si">{</span><span class="n">visible_devices</span><span class="si">}</span><span class="s2">&#39; instead.&quot;</span>
-            <span class="p">)</span>
+            <span class="c1"># If we are here, it means CUDA_VISIBLE_DEVICES is a list instead of</span>
+            <span class="c1"># a single device index.</span>
+            <span class="n">device</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">device</span> <span class="o">=</span> <span class="n">Device</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
 
-        <span class="n">device</span> <span class="o">=</span> <span class="n">Device</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">num_devices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">device_count</span><span class="p">()</span>
 
-        <span class="c1"># We use the `LOCAL_RANK` environment variable to determine which GPU to</span>
-        <span class="c1"># pick in case the process has more than one GPU available.</span>
-        <span class="n">local_rank_env</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="s2">&quot;LOCAL_RANK&quot;</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">local_rank_env</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">num_devices</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;The default device cannot be determined. There are </span><span class="si">{</span><span class="n">num_devices</span><span class="si">}</span><span class="s2"> GPUs available, but the `LOCAL_RANK` environment variable is not set.&quot;</span>
-                <span class="p">)</span>
+        <span class="n">idx</span> <span class="o">=</span> <span class="n">_get_device_index</span><span class="p">(</span><span class="n">num_devices</span><span class="p">,</span> <span class="n">device_name</span><span class="o">=</span><span class="s2">&quot;CUDA&quot;</span><span class="p">)</span>
 
-            <span class="k">return</span> <span class="n">Device</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">local_rank</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">local_rank_env</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The value of the `LOCAL_RANK` environment variable must be an integer, but is &#39;</span><span class="si">{</span><span class="n">local_rank_env</span><span class="si">}</span><span class="s2">&#39; instead.&quot;</span>
-            <span class="p">)</span>
-
-        <span class="k">if</span> <span class="n">local_rank</span> <span class="o">&gt;=</span> <span class="n">num_devices</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The value of the `LOCAL_RANK` environment variable must be less than the number of available GPUs (</span><span class="si">{</span><span class="n">num_devices</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">local_rank</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
-            <span class="p">)</span>
-
-        <span class="n">device</span> <span class="o">=</span> <span class="n">Device</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">local_rank</span><span class="p">)</span>
+        <span class="n">device</span> <span class="o">=</span> <span class="n">Device</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">idx</span><span class="p">)</span>
 
     <span class="c1"># As of PyTorch 2.0, FSDP fails to work if the default device is not set.</span>
     <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">set_device</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">device</span>
+
+
+<span class="k">def</span> <span class="nf">_get_device_index</span><span class="p">(</span><span class="n">num_devices</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">device_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="k">assert</span> <span class="n">num_devices</span> <span class="o">&gt;</span> <span class="mi">0</span>
+
+    <span class="c1"># We use the `LOCAL_RANK` environment variable to determine which GPU to</span>
+    <span class="c1"># pick in case the process has more than one GPU available.</span>
+    <span class="n">device_idx</span> <span class="o">=</span> <span class="n">_get_int_from_env</span><span class="p">(</span><span class="s2">&quot;LOCAL_RANK&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">device_idx</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">num_devices</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;The default </span><span class="si">{</span><span class="n">device_name</span><span class="si">}</span><span class="s2"> device cannot be determined. There are </span><span class="si">{</span><span class="n">num_devices</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">device_name</span><span class="si">}</span><span class="s2"> devices available, but the `LOCAL_RANK` environment variable is not set.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">return</span> <span class="mi">0</span>
+
+    <span class="k">if</span> <span class="n">device_idx</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;The value of the `LOCAL_RANK` environment variable must be greater than or equal to 0, but is </span><span class="si">{</span><span class="n">device_idx</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">device_idx</span> <span class="o">&gt;=</span> <span class="n">num_devices</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;The value of the `LOCAL_RANK` environment variable must be less than the number of available </span><span class="si">{</span><span class="n">device_name</span><span class="si">}</span><span class="s2"> devices (</span><span class="si">{</span><span class="n">num_devices</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">device_idx</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">device_idx</span>
+
+
+<span class="k">def</span> <span class="nf">_get_num_workers</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="n">num_workers</span> <span class="o">=</span> <span class="n">_get_int_from_env</span><span class="p">(</span><span class="s2">&quot;LOCAL_WORLD_SIZE&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">num_workers</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="mi">1</span>
+
+    <span class="k">if</span> <span class="n">num_workers</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;The value of the `LOCAL_WORLD_SIZE` environment variable must be greater than 0, but is </span><span class="si">{</span><span class="n">num_workers</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">num_workers</span>
+
+
+<span class="k">def</span> <span class="nf">_get_int_from_env</span><span class="p">(</span><span class="n">var_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">getenv</span><span class="p">(</span><span class="n">var_name</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;The value of the `</span><span class="si">{</span><span class="n">var_name</span><span class="si">}</span><span class="s2">` environment variable must be an integer, but is &#39;</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39; instead.&quot;</span>
+        <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">is_coordinator_process</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return ``True`` if this process is the coordinator of the running job.&quot;&quot;&quot;</span>
+    <span class="n">rank</span> <span class="o">=</span> <span class="n">_get_int_from_env</span><span class="p">(</span><span class="s2">&quot;RANK&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">rank</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span>
 </pre></div>
 
            </div>
