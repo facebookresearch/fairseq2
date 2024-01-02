@@ -384,8 +384,6 @@ def _get_int_from_env(var_name: str) -> Optional[int]:
         )
 
 
-def is_coordinator_process() -> int:
-    """Return ``True`` if this process is the coordinator of the running job."""
-    rank = _get_int_from_env("RANK")
-
-    return rank is None or rank == 0
+def get_global_rank() -> int:
+    """Return the global rank of this process in the running job."""
+    return _get_int_from_env("RANK") or 0
