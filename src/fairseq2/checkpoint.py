@@ -5,9 +5,10 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
+from os import scandir
 from pathlib import Path
 from pickle import PickleError
-from typing import Any, Dict, Optional, Tuple, cast, final
+from typing import Any, Dict, Iterator, List, Optional, Tuple, cast, final
 
 import torch
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
@@ -28,13 +29,13 @@ class CheckpointManager(ABC):
     """Saves and loads training checkpoints."""
 
     @abstractmethod
-    def save_checkpoint(self, step_nr: int, state: Dict[str, Any]) -> None:
-        """Save a checkpoint.
+    def save_checkpoint(self, step_nr: int, checkpoint: Dict[str, Any]) -> None:
+        """Save the checkpoint of the specified training step.
 
         :param step_nr:
-            The training step number of the checkpoint.
-        :param state:
-            The checkpoint state.
+            The number of the training step.
+        :param checkpoint:
+            The checkpoint to save.
         """
 
     @abstractmethod
@@ -42,61 +43,81 @@ class CheckpointManager(ABC):
         """Load the checkpoint of the specified training step.
 
         :param step_nr:
-            The training step number.
+            The number of the training step.
         """
 
     @abstractmethod
     def load_last_checkpoint(self) -> Tuple[int, Dict[str, Any]]:
-        """Load the last checkpoint.
+        """Load the last checkpoint in the training.
 
         :returns:
-            - The training step number of the checkpoint.
-            - The checkpoint state.
+            - The number of the associated training step.
+            - The checkpoint.
         """
 
     @abstractmethod
-    def get_last_step_nr(self) -> Optional[int]:
-        """Return the training step number of the last checkpoint."""
-
-    @abstractmethod
-    def has_last_checkpoint(self) -> bool:
-        """Return ``True`` if there is a checkpoint marked as last."""
-
-    @abstractmethod
     def save_consolidated_fsdp_model(self, step_nr: int, model: Module) -> None:
-        """Save ``model`` with a consolidated ``state_dict``.
+        """Save ``model`` with a ``state_dict`` consolidated from all ranks.
 
-        This method consolidates the state of the model from all ranks so that
-        it can be loaded on a single device without FSDP.
+        :param step_nr:
+            The number of the training step.
+        :param model:
+            The model to save.
         """
 
     @abstractmethod
     def load_consolidated_model(
         self, step_nr: int, model: Module, device: Optional[Device] = None
     ) -> None:
-        """Load the consolidated model of the specified training step.
+        """Load the consolidated model at the specified training step.
 
         :param step_nr:
-            The training step number.
+            The number of the training step.
         :param model:
             The model to load.
         :param device:
-            The device on which to load the model if it is on a meta device.
+            The device on which to load the model if it is on the meta device.
         """
 
     @abstractmethod
     def load_last_consolidated_model(
         self, model: Module, device: Optional[Device] = None
     ) -> int:
-        """Load the last consolidated model.
+        """Load the last consolidated model in the training.
 
         :param model:
             The model to load.
         :param device:
-            The device on which to load the model if it is on a meta device.
+            The device on which to load the model if it is on the meta device.
 
         :returns:
-            The training step number of the consolidated model.
+            The number of the training step associated with the consolidated
+            model.
+        """
+
+    @abstractmethod
+    def has_checkpoint(self, *, with_model: bool = False) -> bool:
+        """Return ``True`` if the manager holds a checkpoint.
+
+        :param with_model:
+            If ``True``, only considers checkpoints with a consolidated model.
+        """
+
+    @abstractmethod
+    def get_step_numbers(self, *, with_model: bool = False) -> List[int]:
+        """Return the numbers of the training steps that have a checkpoint.
+
+        :param with_model:
+            If ``True``, only considers checkpoints with a consolidated model.
+        """
+
+    @abstractmethod
+    def get_last_step_number(self, *, with_model: bool = False) -> Optional[int]:
+        """Return the number of the training step associated with the last
+        checkpoint.
+
+        :param with_model:
+            If ``True``, only considers checkpoints with a consolidated model.
         """
 
 
@@ -106,27 +127,42 @@ class FileCheckpointManager(CheckpointManager):
 
     checkpoint_dir: Path
     gang: Gang
+    distributed_fs: bool
 
-    def __init__(self, checkpoint_dir: Path, gang: Gang) -> None:
+    def __init__(
+        self, checkpoint_dir: Path, gang: Gang, distributed_fs: bool = True
+    ) -> None:
         """
         :param checkpoint_dir:
             The root directory under which to store the checkpoints.
+        :param gang:
+            The gang to coordinate the checkpoint operations.
+        :param distributed_fs:
+            If ``True``, the underlying file system of ``checkpoint_dir`` is
+            considered distributed (e.g. NFS).
         """
         self.checkpoint_dir = checkpoint_dir
         self.gang = gang
+        self.distributed_fs = distributed_fs
 
     @finaloverride
-    def save_checkpoint(self, step_nr: int, state: Dict[str, Any]) -> None:
-        checkpoint = {"step_nr": step_nr, "data": state}
-
+    def save_checkpoint(self, step_nr: int, checkpoint: Dict[str, Any]) -> None:
         step_dir = self.checkpoint_dir.joinpath(f"step_{step_nr}")
 
-        if self.gang.rank == 0:
+        if self.gang.rank == 0 or not self.distributed_fs:
             try:
                 step_dir.mkdir(parents=True, exist_ok=True)
-            except IOError as ex:
+            except OSError as ex:
                 raise RuntimeError(
-                    f"The checkpoint directory for step {step_nr} cannot be created. See nested exception for details."
+                    f"The checkpoint directory for training step {step_nr} cannot be created. See nested exception for details."
+                ) from ex
+
+            # Mark the checkpoint in-progress by `touch <step_dir>/SAVE`.
+            try:
+                step_dir.joinpath("SAVE").open(mode="a").close()
+            except OSError as ex:
+                raise RuntimeError(
+                    f"The checkpoint of training step {step_nr} cannot be saved. See nested exception for details."
                 ) from ex
 
         self.gang.barrier()
@@ -135,103 +171,53 @@ class FileCheckpointManager(CheckpointManager):
 
         try:
             torch.save(checkpoint, checkpoint_file)
-        except (IOError, PickleError) as ex:
+        except (RuntimeError, OSError, PickleError) as ex:
             raise RuntimeError(
-                f"The checkpoint of step {step_nr} cannot be saved. See nested exception for details."
+                f"The checkpoint of training step {step_nr} cannot be saved. See nested exception for details."
             ) from ex
 
         self.gang.barrier()
 
-        if self.gang.rank == 0:
-            last_symlink = self.checkpoint_dir.joinpath("last")
-            temp_symlink = self.checkpoint_dir.joinpath("last.temp")
-
+        if self.gang.rank == 0 or not self.distributed_fs:
+            # More than one rank can be on a single host (e.g. multi-GPU), so
+            # it is okay if the marker file is already deleted by one of them.
             try:
-                temp_symlink.unlink(missing_ok=True)
-
-                temp_symlink.symlink_to(step_dir.name, target_is_directory=True)
-
-                temp_symlink.replace(last_symlink)
-            except IOError as ex:
+                step_dir.joinpath("SAVE").unlink(missing_ok=True)
+            except OSError as ex:
                 raise RuntimeError(
-                    f"The checkpoint of step {step_nr} cannot be marked as last. See nested exception for details."
+                    f"The save of the checkpoint of training step {step_nr} cannot be marked complete. See nested exception for details."
                 ) from ex
 
         self.gang.barrier()
 
     @finaloverride
     def load_checkpoint(self, step_nr: int) -> Dict[str, Any]:
-        step_dir = self.checkpoint_dir.joinpath(f"step_{step_nr}")
-        if not step_dir.exists():
-            raise CheckpointNotFoundError(f"Step {step_nr} has no checkpoint.")
-
-        checkpoint_file = step_dir.joinpath(f"rank_{self.gang.rank}.pt")
+        checkpoint_file = self.checkpoint_dir.joinpath(
+            f"step_{step_nr}/rank_{self.gang.rank}.pt"
+        )
 
         try:
             checkpoint = load_checkpoint(checkpoint_file, map_location=CPU)
-        except (IOError, PickleError) as ex:
+        except FileNotFoundError:
+            raise CheckpointNotFoundError(f"Training step {step_nr} has no checkpoint.")
+        except (RuntimeError, OSError, PickleError) as ex:
             raise RuntimeError(
-                f"The checkpoint of step {step_nr} cannot be loaded. See nested exception for details."
+                f"The checkpoint of training step {step_nr} cannot be loaded. See nested exception for details."
             ) from ex
-
-        try:
-            saved_step_nr = checkpoint["step_nr"]
-        except KeyError:
-            raise RuntimeError(
-                f"The checkpoint of step {step_nr} does not contain a step number."
-            )
-
-        if not isinstance(saved_step_nr, int):
-            raise RuntimeError(
-                f"The checkpoint of step {step_nr} does not contain a valid step number."
-            )
-
-        if saved_step_nr != step_nr:
-            raise RuntimeError(
-                f"The saved step number ({saved_step_nr}) in the checkpoint does not match the step number ({step_nr}) in the directory name."
-            )
-
-        try:
-            state = cast(Dict[str, Any], checkpoint["data"])
-        except KeyError:
-            raise RuntimeError(
-                f"The checkpoint of step {step_nr} does not contain any data."
-            )
 
         self.gang.barrier()
 
-        return state
+        return cast(Dict[str, Any], checkpoint)
 
     @finaloverride
     def load_last_checkpoint(self) -> Tuple[int, Dict[str, Any]]:
-        last_step_nr = self.get_last_step_nr()
+        last_step_nr = self.get_last_step_number()
         if last_step_nr is None:
-            raise CheckpointNotFoundError("There is no checkpoint marked as last.")
+            raise CheckpointNotFoundError("No checkpoint can be found.")
 
         checkpoint = self.load_checkpoint(last_step_nr)
 
         return last_step_nr, checkpoint
-
-    @finaloverride
-    def get_last_step_nr(self) -> Optional[int]:
-        step_dir = self.checkpoint_dir.joinpath("last").resolve()
-        if not step_dir.exists():
-            return None
-
-        dirname_parts = step_dir.name.split("_", 1)
-        if len(dirname_parts) == 2:
-            try:
-                return int(dirname_parts[1])
-            except ValueError:
-                pass
-
-        raise RuntimeError(
-            f"The name of the checkpoint directories must be in format 'step_<nr>', but the last checkpoint directory is named {step_dir.name}."
-        )
-
-    @finaloverride
-    def has_last_checkpoint(self) -> bool:
-        return self.checkpoint_dir.joinpath("last").exists()
 
     @finaloverride
     def save_consolidated_fsdp_model(self, step_nr: int, model: Module) -> None:
@@ -240,27 +226,34 @@ class FileCheckpointManager(CheckpointManager):
             StateDictType.FULL_STATE_DICT,
             state_dict_config=FullStateDictConfig(offload_to_cpu=True, rank0_only=True),
         ):
-            state = model.state_dict()
+            state_dict = model.state_dict()
 
-        checkpoint = {"step_nr": step_nr, "model": state}
+        checkpoint = {"model": state_dict}
 
         if self.gang.rank == 0:
             step_dir = self.checkpoint_dir.joinpath(f"step_{step_nr}")
 
             try:
                 step_dir.mkdir(parents=True, exist_ok=True)
-            except IOError as ex:
+            except OSError as ex:
                 raise RuntimeError(
-                    f"The checkpoint directory of step {step_nr} cannot be created. See nested exception for details."
+                    f"The checkpoint directory of training step {step_nr} cannot be created. See nested exception for details."
                 ) from ex
 
-            checkpoint_file = step_dir.joinpath("model.pt")
+            tmp_model_file = step_dir.joinpath("model.tmp")
 
             try:
-                torch.save(checkpoint, checkpoint_file)
-            except (IOError, PickleError) as ex:
+                torch.save(checkpoint, tmp_model_file)
+            except (RuntimeError, OSError, PickleError) as ex:
                 raise RuntimeError(
-                    f"The consolidated model checkpoint of step {step_nr} cannot be saved. See nested exception for details."
+                    f"The consolidated model of training step {step_nr} cannot be saved. See nested exception for details."
+                ) from ex
+
+            try:
+                tmp_model_file.replace(step_dir.joinpath("model.pt"))
+            except OSError as ex:
+                raise RuntimeError(
+                    f"The save of the consolidated model of training step {step_nr} cannot be marked complete. See nested exception for details."
                 ) from ex
 
         self.gang.barrier()
@@ -271,16 +264,16 @@ class FileCheckpointManager(CheckpointManager):
     ) -> None:
         if self.gang.rank == 0:
             model_file = self.checkpoint_dir.joinpath(f"step_{step_nr}/model.pt")
-            if not model_file.exists():
-                raise CheckpointNotFoundError(
-                    f"Step {step_nr} has no consolidated model checkpoint."
-                )
 
             try:
                 checkpoint = load_checkpoint(model_file, map_location=CPU)
-            except (IOError, PickleError) as ex:
+            except FileNotFoundError:
+                raise CheckpointNotFoundError(
+                    f"Training step {step_nr} has no consolidated model."
+                )
+            except (RuntimeError, OSError, PickleError) as ex:
                 raise RuntimeError(
-                    f"The consolidated model checkpoint of step {step_nr} cannot be loaded. See nested exception for details."
+                    f"The consolidated model checkpoint of training step {step_nr} cannot be loaded. See nested exception for details."
                 ) from ex
 
             model_device = infer_device(model)
@@ -295,14 +288,14 @@ class FileCheckpointManager(CheckpointManager):
                 state_dict = checkpoint["model"]
             except KeyError:
                 raise RuntimeError(
-                    f"The consolidated model checkpoint of step {step_nr} does not contain a 'model' entry."
+                    f"The consolidated model checkpoint of training step {step_nr} does not contain a 'model' entry."
                 )
 
             try:
                 model.load_state_dict(state_dict)
             except (KeyError, ValueError) as ex:
                 raise RuntimeError(
-                    f"The consolidated model checkpoint of step {step_nr} cannot be loaded. See nested exception for details."
+                    f"The consolidated model of training step {step_nr} cannot be loaded. See nested exception for details."
                 ) from ex
 
             if model_device == META:
@@ -316,13 +309,74 @@ class FileCheckpointManager(CheckpointManager):
     def load_last_consolidated_model(
         self, model: Module, device: Optional[Device] = None
     ) -> int:
-        last_step_nr = self.get_last_step_nr()
+        last_step_nr = self.get_last_step_number(with_model=True)
         if last_step_nr is None:
-            raise CheckpointNotFoundError("There is no checkpoint marked as last.")
+            raise CheckpointNotFoundError("No checkpoint can be found.")
 
         self.load_consolidated_model(last_step_nr, model, device)
 
         return last_step_nr
+
+    @finaloverride
+    def has_checkpoint(self, *, with_model: bool = False) -> bool:
+        try:
+            next(self._iter_step_numbers(with_model))
+
+            return True
+        except StopIteration:
+            return False
+
+    @finaloverride
+    def get_step_numbers(self, *, with_model: bool = False) -> List[int]:
+        step_numbers = list(self._iter_step_numbers(with_model))
+
+        step_numbers.sort()
+
+        return step_numbers
+
+    @finaloverride
+    def get_last_step_number(self, *, with_model: bool = False) -> Optional[int]:
+        if step_numbers := self.get_step_numbers(with_model=with_model):
+            return step_numbers[-1]
+
+        return None
+
+    def _iter_step_numbers(self, with_model: bool) -> Iterator[int]:
+        for step_dir in self.checkpoint_dir.glob("step_*"):
+            if not step_dir.is_dir():
+                continue
+
+            if self.distributed_fs:
+                # On NFS, `exists()` might return a stale answer for cached
+                # LOOKUP results.
+                self._clear_nfs_lookup_cache(step_dir)
+
+            if step_dir.joinpath("SAVE").exists():
+                continue
+
+            if with_model and not step_dir.joinpath("model.pt").exists():
+                continue
+
+            try:
+                yield int(step_dir.name[5:])
+            except ValueError:
+                pass
+
+    @staticmethod
+    def _clear_nfs_lookup_cache(path: Path) -> None:
+        # Use the `opendir`/`readdir`/`closedir` trick to drop all cached NFS
+        # LOOKUP results for `path`.
+        try:
+            it = scandir(path)
+        except FileNotFoundError:
+            return
+
+        try:
+            next(it)
+        except StopIteration:
+            pass
+        finally:
+            it.close()
 
 
 class CheckpointNotFoundError(RuntimeError):
