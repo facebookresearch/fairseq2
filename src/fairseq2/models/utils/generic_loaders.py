@@ -9,6 +9,7 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from functools import partial
 from pathlib import Path
+from pickle import PickleError
 from typing import Any, Generic, Mapping, Optional, Protocol, TypeVar, Union, final
 
 from torch.nn import Module
@@ -246,7 +247,7 @@ class ModelLoader(Generic[ModelT, ConfigT]):
                 restrict=self.restrict_checkpoints,
                 converter=checkpoint_converter,
             )
-        except (IOError, KeyError, ValueError) as ex:
+        except (RuntimeError, OSError, KeyError, ValueError, PickleError) as ex:
             raise AssetError(
                 f"The checkpoint of {card.name} cannot be loaded. See nested exception for details."
             ) from ex
@@ -285,7 +286,7 @@ class ModelLoader(Generic[ModelT, ConfigT]):
             model.load_state_dict(state_dict)
         except (KeyError, ValueError) as ex:
             raise AssetError(
-                f"The checkpoint of {card.name} cannot be loaded. See nested exception for details."
+                f"{card.name} cannot be loaded. See nested exception for details."
             ) from ex
 
         if model_device == META:
