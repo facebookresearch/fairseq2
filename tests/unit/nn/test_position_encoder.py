@@ -130,6 +130,7 @@ class TestSinusoidalPositionEncoder:
         m = SinusoidalPositionEncoder(encoding_dim=32, max_seq_len=4, device=device)
 
         state_bag = IncrementalStateBag(max_num_steps=3)
+
         state_bag.increment_step_nr(step_nr)
 
         seq_len = 2
@@ -161,6 +162,7 @@ class TestSinusoidalPositionEncoder:
         x = torch.randn((5, 2, 32), device=device)
 
         state_bag = IncrementalStateBag(max_num_steps=30)
+
         state_bag.increment_step_nr(20)  # out of range
 
         y = m(x, padding_mask=None, state_bag=state_bag)
@@ -205,6 +207,7 @@ class TestLearnedPositionEncoder:
         m = LearnedPositionEncoder(encoding_dim=32, max_seq_len=4, device=device)
 
         state_bag = IncrementalStateBag(max_num_steps=3)
+
         state_bag.increment_step_nr(step_nr)
 
         seq_len = 2
@@ -236,6 +239,7 @@ class TestLearnedPositionEncoder:
         x = torch.randn((5, 2, 32), device=device)
 
         state_bag = IncrementalStateBag(max_num_steps=30)
+
         state_bag.increment_step_nr(value=20)  # out of range
 
         y = m(x, padding_mask=None, state_bag=state_bag)
@@ -288,6 +292,7 @@ class TestRotaryEncoder:
         m = RotaryEncoder(encoding_dim=32, max_seq_len=4, device=device)
 
         state_bag = IncrementalStateBag(max_num_steps=3)
+
         state_bag.increment_step_nr(step_nr)
 
         seq_len = 2
@@ -323,6 +328,7 @@ class TestRotaryEncoder:
         x = torch.randn((5, 2, 32), device=device)
 
         state_bag = IncrementalStateBag(max_num_steps=30)
+
         state_bag.increment_step_nr(20)  # out of range
 
         y = m(x, padding_mask=None, state_bag=state_bag)

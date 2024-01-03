@@ -47,6 +47,7 @@ class SamplingSequenceGenerator(SequenceGenerator):
     temperature: float
     unk_penalty: float
     len_penalty: float
+    capacity_increment: int
     step_processors: List[StepProcessor]
 
     def __init__(
@@ -64,6 +65,7 @@ class SamplingSequenceGenerator(SequenceGenerator):
         temperature: float = 0.6,
         unk_penalty: float = 0.0,
         len_penalty: float = 1.0,
+        capacity_increment: int = 16,
         step_processors: Optional[Sequence[StepProcessor]] = None,
     ) -> None:
         """
@@ -94,6 +96,9 @@ class SamplingSequenceGenerator(SequenceGenerator):
         :param len_penalty:
             The length penalty, where values less than 1.0 favor shorter
             sequences; values greater than 1.0 favor longer sequences.
+        :param capacity_increment:
+            The sequence length capacity of state tensors will be incremented by
+            multiples of this value.
         :param step_processors:
             The processors to call at each generation step.
         """
@@ -125,6 +130,7 @@ class SamplingSequenceGenerator(SequenceGenerator):
         self.temperature = temperature
         self.unk_penalty = unk_penalty
         self.len_penalty = len_penalty
+        self.capacity_increment = capacity_increment
 
         if step_processors:
             self.step_processors = list(step_processors)
@@ -151,6 +157,7 @@ class SamplingSequenceGenerator(SequenceGenerator):
             self.temperature,
             self.unk_penalty,
             self.len_penalty,
+            self.capacity_increment,
             self.step_processors,
             self._step_hooks,
         )
@@ -175,6 +182,7 @@ class SamplingSeq2SeqGenerator(Seq2SeqGenerator):
     temperature: float
     unk_penalty: float
     len_penalty: float
+    capacity_increment: int
     step_processors: List[StepProcessor]
 
     def __init__(
@@ -192,6 +200,7 @@ class SamplingSeq2SeqGenerator(Seq2SeqGenerator):
         temperature: float = 0.6,
         unk_penalty: float = 0.0,
         len_penalty: float = 1.0,
+        capacity_increment: int = 16,
         step_processors: Optional[Sequence[StepProcessor]] = None,
     ) -> None:
         """
@@ -223,6 +232,9 @@ class SamplingSeq2SeqGenerator(Seq2SeqGenerator):
         :param len_penalty:
             The length penalty, where values less than 1.0 favor shorter
             sequences; values greater than 1.0 favor longer sequences.
+        :param capacity_increment:
+            The sequence length capacity of state tensors will be incremented by
+            multiples of this value.
         :param step_processors:
             The processors to call at each generation step.
         """
@@ -244,6 +256,7 @@ class SamplingSeq2SeqGenerator(Seq2SeqGenerator):
         self.temperature = temperature
         self.unk_penalty = unk_penalty
         self.len_penalty = len_penalty
+        self.capacity_increment = capacity_increment
 
         if step_processors:
             self.step_processors = list(step_processors)
@@ -302,6 +315,7 @@ class SamplingSeq2SeqGenerator(Seq2SeqGenerator):
             self.temperature,
             self.unk_penalty,
             self.len_penalty,
+            self.capacity_increment,
             self.step_processors,
             self._step_hooks,
         )
@@ -448,6 +462,7 @@ class _SamplingSequenceGeneratorOpBase(ABC):
         temperature: float,
         unk_penalty: float,
         len_penalty: float,
+        capacity_increment: int,
         step_processors: Sequence[StepProcessor],
         step_hooks: Dict[int, StepHook],
     ) -> None:
@@ -501,7 +516,9 @@ class _SamplingSequenceGeneratorOpBase(ABC):
 
         self.step_nr = 0
 
-        self.state_bag = IncrementalStateBag(self.max_seq_len)
+        self.state_bag = IncrementalStateBag(
+            self.max_seq_len, capacity_increment=capacity_increment
+        )
 
         if prompt_padding_mask is None:
             self.prompt_lens = None
@@ -818,6 +835,7 @@ class _SamplingSequenceGeneratorOp(_SamplingSequenceGeneratorOpBase):
         temperature: float,
         unk_penalty: float,
         len_penalty: float,
+        capacity_increment: int,
         step_processors: Sequence[StepProcessor],
         step_hooks: Dict[int, StepHook],
     ) -> None:
@@ -836,6 +854,7 @@ class _SamplingSequenceGeneratorOp(_SamplingSequenceGeneratorOpBase):
             temperature,
             unk_penalty,
             len_penalty,
+            capacity_increment,
             step_processors,
             step_hooks,
         )
@@ -876,6 +895,7 @@ class _SamplingSeq2SeqGeneratorOp(_SamplingSequenceGeneratorOpBase):
         temperature: float,
         unk_penalty: float,
         len_penalty: float,
+        capacity_increment: int,
         step_processors: Sequence[StepProcessor],
         step_hooks: Dict[int, StepHook],
     ) -> None:
@@ -894,6 +914,7 @@ class _SamplingSeq2SeqGeneratorOp(_SamplingSequenceGeneratorOpBase):
             temperature,
             unk_penalty,
             len_penalty,
+            capacity_increment,
             step_processors,
             step_hooks,
         )

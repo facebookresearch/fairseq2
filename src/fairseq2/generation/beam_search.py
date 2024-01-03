@@ -46,6 +46,7 @@ class BeamSearchSequenceGenerator(SequenceGenerator):
     temperature: float
     unk_penalty: float
     len_penalty: float
+    capacity_increment: int
     step_processors: List[StepProcessor]
 
     def __init__(
@@ -62,6 +63,7 @@ class BeamSearchSequenceGenerator(SequenceGenerator):
         temperature: float = 1.0,
         unk_penalty: float = 0.0,
         len_penalty: float = 1.0,
+        capacity_increment: int = 16,
         step_processors: Optional[Sequence[StepProcessor]] = None,
     ) -> None:
         """
@@ -90,6 +92,9 @@ class BeamSearchSequenceGenerator(SequenceGenerator):
         :param len_penalty:
             The length penalty, where values less than 1.0 favor shorter
             sequences; values greater than 1.0 favor longer sequences.
+        :param capacity_increment:
+            The sequence length capacity of state tensors will be incremented by
+            multiples of this value.
         :param step_processors:
             The processors to call at each generation step.
         """
@@ -120,6 +125,7 @@ class BeamSearchSequenceGenerator(SequenceGenerator):
         self.temperature = temperature
         self.unk_penalty = unk_penalty
         self.len_penalty = len_penalty
+        self.capacity_increment = capacity_increment
 
         if step_processors:
             self.step_processors = list(step_processors)
@@ -145,6 +151,7 @@ class BeamSearchSequenceGenerator(SequenceGenerator):
             self.temperature,
             self.unk_penalty,
             self.len_penalty,
+            self.capacity_increment,
             self.step_processors,
             self._step_hooks,
         )
@@ -168,6 +175,7 @@ class BeamSearchSeq2SeqGenerator(Seq2SeqGenerator):
     temperature: float
     unk_penalty: float
     len_penalty: float
+    capacity_increment: int
     step_processors: List[StepProcessor]
 
     def __init__(
@@ -184,6 +192,7 @@ class BeamSearchSeq2SeqGenerator(Seq2SeqGenerator):
         temperature: float = 1.0,
         unk_penalty: float = 0.0,
         len_penalty: float = 1.0,
+        capacity_increment: int = 16,
         step_processors: Optional[Sequence[StepProcessor]] = None,
     ) -> None:
         """
@@ -213,6 +222,9 @@ class BeamSearchSeq2SeqGenerator(Seq2SeqGenerator):
         :param len_penalty:
             The length penalty, where values less than 1.0 favor shorter
             sequences; values greater than 1.0 favor longer sequences.
+        :param capacity_increment:
+            The sequence length capacity of state tensors will be incremented by
+            multiples of this value.
         :param step_processors:
             The processors to call at each generation step.
         """
@@ -233,6 +245,7 @@ class BeamSearchSeq2SeqGenerator(Seq2SeqGenerator):
         self.temperature = temperature
         self.unk_penalty = unk_penalty
         self.len_penalty = len_penalty
+        self.capacity_increment = capacity_increment
 
         if step_processors:
             self.step_processors = list(step_processors)
@@ -290,6 +303,7 @@ class BeamSearchSeq2SeqGenerator(Seq2SeqGenerator):
             self.temperature,
             self.unk_penalty,
             self.len_penalty,
+            self.capacity_increment,
             self.step_processors,
             self._step_hooks,
         )
@@ -432,6 +446,7 @@ class _BeamSearchSequenceGeneratorOpBase(ABC):
         temperature: float,
         unk_penalty: float,
         len_penalty: float,
+        capacity_increment: int,
         step_processors: Sequence[StepProcessor],
         step_hooks: Dict[int, StepHook],
     ) -> None:
@@ -484,7 +499,9 @@ class _BeamSearchSequenceGeneratorOpBase(ABC):
 
         self.step_nr = 0
 
-        self.state_bag = IncrementalStateBag(self.max_seq_len)
+        self.state_bag = IncrementalStateBag(
+            self.max_seq_len, capacity_increment=capacity_increment
+        )
 
         if prompt_padding_mask is None:
             self.prompt_lens = None
@@ -841,6 +858,7 @@ class _BeamSearchSequenceGeneratorOp(_BeamSearchSequenceGeneratorOpBase):
         temperature: float,
         unk_penalty: float,
         len_penalty: float,
+        capacity_increment: int,
         step_processors: Sequence[StepProcessor],
         step_hooks: Dict[int, StepHook],
     ) -> None:
@@ -858,6 +876,7 @@ class _BeamSearchSequenceGeneratorOp(_BeamSearchSequenceGeneratorOpBase):
             temperature,
             unk_penalty,
             len_penalty,
+            capacity_increment,
             step_processors,
             step_hooks,
         )
@@ -897,6 +916,7 @@ class _BeamSearchSeq2SeqGeneratorOp(_BeamSearchSequenceGeneratorOpBase):
         temperature: float,
         unk_penalty: float,
         len_penalty: float,
+        capacity_increment: int,
         step_processors: Sequence[StepProcessor],
         step_hooks: Dict[int, StepHook],
     ) -> None:
@@ -914,6 +934,7 @@ class _BeamSearchSeq2SeqGeneratorOp(_BeamSearchSequenceGeneratorOpBase):
             temperature,
             unk_penalty,
             len_penalty,
+            capacity_increment,
             step_processors,
             step_hooks,
         )

@@ -49,7 +49,7 @@ class StatefulObjectBag:
             return self.stateful_objects[name][0]
 
         raise AttributeError(
-            f"'{type(self).__name__}' object has no attribute '{name}'."
+            f"`{type(self).__name__}` object has no attribute '{name}'."
         )
 
     def __setattr__(self, name: str, value: Any) -> None:
@@ -84,7 +84,7 @@ class StatefulObjectBag:
         """
         if hasattr(self, name):
             raise AttributeError(
-                f"'{type(self).__name__}' object already has an attribute '{name}'."
+                f"`{type(self).__name__}` object already has an attribute '{name}'."
             )
 
         self.stateful_objects[name] = (obj, state_handler)
@@ -99,7 +99,7 @@ class StatefulObjectBag:
         """
         if hasattr(self, name):
             raise AttributeError(
-                f"'{type(self).__name__}' object already has an attribute '{name}'."
+                f"`{type(self).__name__}` object already has an attribute '{name}'."
             )
 
         super().__setattr__(name, obj)
