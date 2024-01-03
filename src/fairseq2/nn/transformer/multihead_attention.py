@@ -429,7 +429,7 @@ class StandardMultiheadAttention(MultiheadAttention):
                     state_factory = self.state_factory or StaticAttentionState
 
                     state = state_factory(
-                        k, v, max_seq_len=k.size(2), capacity_increment=1
+                        k, v, max_seq_len=k.size(2), capacity_increment=0
                     )
 
                     state_bag.set_state(self, state)
@@ -631,8 +631,10 @@ class FullAttentionState(AttentionState):
     ) -> None:
         batch_size, num_heads, seq_len, head_dim = k.shape
 
-        self.k = k.new_empty((batch_size, num_heads, 0, head_dim))
-        self.v = v.new_empty((batch_size, num_heads, 0, head_dim))
+        init_capacity = 0 if capacity_increment else max_seq_len
+
+        self.k = k.new_empty((batch_size, num_heads, init_capacity, head_dim))
+        self.v = v.new_empty((batch_size, num_heads, init_capacity, head_dim))
 
         self.seq_len = 0
 
@@ -673,8 +675,9 @@ class FullAttentionState(AttentionState):
         k = self.k.new_empty((batch_size, num_heads, capacity, head_dim))
         v = self.v.new_empty((batch_size, num_heads, capacity, head_dim))
 
-        k[:, :, : self.seq_len] = self.k[:, :, : self.seq_len]
-        v[:, :, : self.seq_len] = self.v[:, :, : self.seq_len]
+        if self.seq_len > 0:
+            k[:, :, : self.seq_len] = self.k[:, :, : self.seq_len]
+            v[:, :, : self.seq_len] = self.v[:, :, : self.seq_len]
 
         self.k = k
         self.v = v
@@ -733,14 +736,16 @@ class LocalAttentionState(AttentionState):
         attn_window_len: int,
         capacity_increment: int,
     ) -> None:
+        self.attn_window_len = min(max_seq_len, attn_window_len)
+
         batch_size, num_heads, seq_len, head_dim = k.shape
 
-        self.k = k.new_empty((batch_size, num_heads, 0, head_dim))
-        self.v = v.new_empty((batch_size, num_heads, 0, head_dim))
+        init_capacity = 0 if capacity_increment else self.attn_window_len
+
+        self.k = k.new_empty((batch_size, num_heads, init_capacity, head_dim))
+        self.v = v.new_empty((batch_size, num_heads, init_capacity, head_dim))
 
         self.seq_len = 0
-
-        self.attn_window_len = min(max_seq_len, attn_window_len)
 
         self.capacity_increment = capacity_increment
 
@@ -794,8 +799,9 @@ class LocalAttentionState(AttentionState):
         k = self.k.new_empty((batch_size, num_heads, capacity, head_dim))
         v = self.v.new_empty((batch_size, num_heads, capacity, head_dim))
 
-        k[:, :, : self.seq_len] = self.k[:, :, : self.seq_len]
-        v[:, :, : self.seq_len] = self.v[:, :, : self.seq_len]
+        if self.seq_len > 0:
+            k[:, :, : self.seq_len] = self.k[:, :, : self.seq_len]
+            v[:, :, : self.seq_len] = self.v[:, :, : self.seq_len]
 
         self.k = k
         self.v = v
