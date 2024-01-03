@@ -43,16 +43,21 @@ class IncrementalStateBag:
 
     step_nr: int
     max_num_steps: int
+    capacity_increment: int
 
     _module_states: Dict[Module, IncrementalState]
 
-    def __init__(self, max_num_steps: int) -> None:
+    def __init__(self, max_num_steps: int, *, capacity_increment: int = 16) -> None:
         """
         :param max_num_steps:
             The expected maximum number of steps to take.
+        :param capacity_increment:
+            The sequence length capacity of state tensors will be incremented by
+            multiples of this value.
         """
         self.step_nr = 0
         self.max_num_steps = max_num_steps
+        self.capacity_increment = capacity_increment
 
         self._module_states = {}
 
@@ -69,7 +74,7 @@ class IncrementalStateBag:
 
         if step_nr >= self.max_num_steps:
             raise ValueError(
-                f"The current step number ({self.step_nr}) with `value` increment must be less than or equal to the maximum number of steps ({self.max_num_steps}), but is {self.step_nr + value} instead."
+                f"The current step number ({self.step_nr}) with `value` increment ({value}) must be less than or equal to the maximum number of steps ({self.max_num_steps}), but is {self.step_nr + value} instead."
             )
 
         self.step_nr = step_nr

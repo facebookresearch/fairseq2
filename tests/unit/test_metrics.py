@@ -36,7 +36,7 @@ class TestMetricBag:
         bag = MetricBag(gang=FakeGang(device=device))
 
         with pytest.raises(
-            AttributeError, match=r"^'MetricBag' object has no attribute 'foo'\."
+            AttributeError, match=r"^`MetricBag` object has no attribute 'foo'\."
         ):
             bag.foo
 

@@ -63,7 +63,7 @@ class LLaMAConfig:
 
     ffn_inner_dim_to_multiple: int
     """The dimensionality of inner projection layers in Transformer feed-forward
-    networks is rounded up to the nearest multiple of the specified value."""
+    networks is rounded up to the nearest multiple of this value."""
 
     dropout_p: float
     """The dropout probability in Transformer layers."""
