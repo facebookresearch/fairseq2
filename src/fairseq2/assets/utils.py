@@ -17,7 +17,7 @@ def _starts_with_scheme(s: str) -> bool:
     return re.match(_SCHEME_REGEX, s) is not None
 
 
-def _get_path_from_env(var_name: str) -> Optional[Path]:
+def _get_path_from_env(var_name: str, not_exists_ok: bool = False) -> Optional[Path]:
     pathname = os.getenv(var_name)
     if not pathname:
         return None
@@ -29,7 +29,12 @@ def _get_path_from_env(var_name: str) -> Optional[Path]:
             f"The value of the `{var_name}` environment variable must be a pathname, but is '{pathname}' instead."
         ) from ex
 
-    if not path.exists():
+    resolved_path = path.expanduser().resolve()
+
+    if not resolved_path.exists():
+        if not_exists_ok:
+            return resolved_path
+
         logger = logging.getLogger("fairseq2.assets")
 
         logger.warning(
@@ -38,4 +43,4 @@ def _get_path_from_env(var_name: str) -> Optional[Path]:
 
         return None
 
-    return path
+    return resolved_path
