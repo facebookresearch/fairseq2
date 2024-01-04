@@ -135,7 +135,7 @@ class Seq2SeqModelMetricBag(MetricBag):
     def __init__(self, gang: Gang) -> None:
         """
         :param gang:
-            The gang to use to sync metrics across ranks.
+            The gang to sync metrics across all processes.
         """
         super().__init__(gang)
 

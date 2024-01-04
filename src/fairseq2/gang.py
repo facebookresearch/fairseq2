@@ -62,11 +62,11 @@ class Gang(ABC):
 
     @abstractmethod
     def barrier(self) -> None:
-        """Synchronize all ranks."""
+        """Synchronize all processes."""
 
     @abstractmethod
     def all_reduce(self, tensor: Tensor, op: ReduceOperation) -> None:
-        """Reduce the tensor across all ranks.
+        """Reduce the tensor across all processes.
 
         :param tensor:
             The input and output tensor of the operation.
@@ -76,12 +76,12 @@ class Gang(ABC):
 
     @abstractmethod
     def all_gather(self, output_tensor: Tensor, input_tensor: Tensor) -> None:
-        """Gather tensors from all ranks and put them in a single tensor.
+        """Gather tensors from all processes and put them in a single tensor.
 
         :param output_tensor:
-            The output tensor to accomodate tensor elements from all ranks.
+            The output tensor to accomodate tensors from all processes.
         :param input_tensor:
-            The tensor to be gathered from the current rank.
+            The tensor to be gathered from this process.
         """
 
 
@@ -159,13 +159,13 @@ class ProcessGroupGang(Gang):
 
             raise RuntimeError("The default process group is already initialized.")
 
-        num_workers = _get_num_workers()
+        num_procs = _get_num_processes()
 
         if num_threads is None:
-            if num_workers > 1 and "OMP_NUM_THREADS" not in os.environ:
+            if num_procs > 1 and "OMP_NUM_THREADS" not in os.environ:
                 # To prevent thread oversubscription, we distribute cores evenly
                 # across workers.
-                num_threads = _get_num_cpus(num_workers)
+                num_threads = _get_num_cpus(num_procs)
 
         if num_threads is not None:
             torch.set_num_threads(num_threads)
@@ -286,14 +286,14 @@ class ProcessGroupGang(Gang):
         )
 
 
-def _get_num_cpus(num_workers: int) -> int:
+def _get_num_cpus(num_procs: int) -> int:
     num_cpus = os.cpu_count()
     if num_cpus is None:
         logger.warning("The number of CPU cores cannot be determined.")
 
         return 1
 
-    max_num_cpus = max(num_cpus // num_workers, 1)
+    max_num_cpus = max(num_cpus // num_procs, 1)
 
     # We should not exceed the number of cores available in the affinity mask.
     return min(max_num_cpus, len(os.sched_getaffinity(0)))
@@ -358,17 +358,17 @@ def _get_device_index(num_devices: int, device_name: str) -> int:
     return device_idx
 
 
-def _get_num_workers() -> int:
-    num_workers = _get_int_from_env("LOCAL_WORLD_SIZE")
-    if num_workers is None:
+def _get_num_processes() -> int:
+    num_procs = _get_int_from_env("LOCAL_WORLD_SIZE")
+    if num_procs is None:
         return 1
 
-    if num_workers <= 0:
+    if num_procs <= 0:
         raise RuntimeError(
-            f"The value of the `LOCAL_WORLD_SIZE` environment variable must be greater than 0, but is {num_workers} instead."
+            f"The value of the `LOCAL_WORLD_SIZE` environment variable must be greater than 0, but is {num_procs} instead."
         )
 
-    return num_workers
+    return num_procs
 
 
 def _get_int_from_env(var_name: str) -> Optional[int]:

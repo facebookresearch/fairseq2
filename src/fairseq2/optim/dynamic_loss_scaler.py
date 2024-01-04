@@ -126,7 +126,7 @@ class DynamicLossScaler:
             # calling `unscale_()` for optimizers that natively support gradient
             # scaling. Although this is the expected behavior for `GradScaler`,
             # in distributed settings this causes the scale to get out-of-sync
-            # between ranks. Here we force ranks to sync their inf/NaNs by
+            # between processes. Here we force ranks to sync their inf/NaNs by
             # manually calling `unscale_()`.
             try:
                 self._grad_scaler.unscale_(self.optimizer)  # type: ignore[arg-type]

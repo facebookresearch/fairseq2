@@ -22,7 +22,7 @@ class MetricBag:
     def __init__(self, gang: Gang) -> None:
         """
         :param gang:
-            The gang to use to sync metrics across ranks.
+            The gang to sync metrics across all processes.
         """
         super().__setattr__("metrics", {})
         super().__setattr__("persistent_metrics", {})
@@ -88,7 +88,7 @@ class MetricBag:
             metric.reset()
 
     def sync_and_compute_metrics(self) -> Optional[Dict[str, Any]]:
-        """Sync the metrics across all ranks and and compute their value."""
+        """Sync the metrics across all processes and and compute their value."""
         return sync_and_compute_metrics(self)
 
     def state_dict(self) -> Dict[str, Any]:
@@ -126,7 +126,7 @@ def reset_metrics(*bags: MetricBag) -> None:
 
 
 def sync_and_compute_metrics(*bags: MetricBag) -> Optional[Dict[str, Any]]:
-    """Sync the metrics in ``bags`` across all ranks and and compute their value."""
+    """Sync the metrics in ``bags`` across all processes and and compute their value."""
     if not bags:
         return None
 
