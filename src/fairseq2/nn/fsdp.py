@@ -59,7 +59,7 @@ def to_fsdp(
         the meta device onto the device of ``gang``.
     :param broadcast_state:
         If ``True``, each FSDP module will broadcast its parameters and buffers
-        from rank 0 to ensure that they are replicated across gang.
+        from rank 0 to ensure that they are replicated across all processes.
     :param sharding_strategy:
         The sharding strategy to trade off memory saving and communication
         overhead.

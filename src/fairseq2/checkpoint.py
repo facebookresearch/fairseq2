@@ -57,7 +57,7 @@ class CheckpointManager(ABC):
 
     @abstractmethod
     def save_consolidated_fsdp_model(self, step_nr: int, model: Module) -> None:
-        """Save ``model`` with a ``state_dict`` consolidated from all ranks.
+        """Save ``model`` with a ``state_dict`` consolidated from all processes.
 
         :param step_nr:
             The number of the training step.
@@ -179,7 +179,7 @@ class FileCheckpointManager(CheckpointManager):
         self.gang.barrier()
 
         if self.gang.rank == 0 or not self.distributed_fs:
-            # More than one rank can be on a single host (e.g. multi-GPU), so
+            # More than one process can be on a single host (e.g. multi-GPU), so
             # it is okay if the marker file is already deleted by one of them.
             try:
                 step_dir.joinpath("SAVE").unlink(missing_ok=True)
@@ -214,6 +214,22 @@ class FileCheckpointManager(CheckpointManager):
         last_step_nr = self.get_last_step_number()
         if last_step_nr is None:
             raise CheckpointNotFoundError("No checkpoint can be found.")
+
+        # If we don't have a distributed file system, we have to ensure that we
+        # have a consistent view of checkpoints across all processes.
+        if not self.distributed_fs:
+            step_numbers = torch.empty(
+                (self.gang.size,), device=self.gang.device, dtype=torch.int64
+            )
+
+            self.gang.all_gather(
+                step_numbers, torch.tensor(last_step_nr, device=self.gang.device)
+            )
+
+            if not (step_numbers == last_step_nr).all():
+                raise RuntimeError(
+                    f"The processes have no consensus on the last training step. The last step numbers sorted by rank: {step_numbers.tolist()}"
+                )
 
         checkpoint = self.load_checkpoint(last_step_nr)
 
