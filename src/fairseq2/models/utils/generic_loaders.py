@@ -197,6 +197,7 @@ class ModelLoader(Generic[ModelT, ConfigT]):
         dtype: Optional[DataType] = None,
         out: Optional[ModelT] = None,
         force: bool = False,
+        cache_only: bool = False,
         progress: bool = True,
     ) -> ModelT:
         """
@@ -209,7 +210,10 @@ class ModelLoader(Generic[ModelT, ConfigT]):
         :param out:
             The output model to load.
         :param force:
-            If ``True``, downloads the checkpoint even if it is already in cache.
+            If ``True``, downloads the model checkpoint even if it is already in
+            cache.
+        :param cache_only:
+            If ``True``, skips the download and uses the cached model checkpoint.
         :param progress:
             If ``True``, displays a progress bar to stderr.
 
@@ -228,7 +232,7 @@ class ModelLoader(Generic[ModelT, ConfigT]):
 
         try:
             path = self.download_manager.download_checkpoint(
-                uri, card.name, force=force, progress=progress
+                uri, card.name, force=force, cache_only=cache_only, progress=progress
             )
         except ValueError as ex:
             raise AssetCardError(
@@ -324,6 +328,7 @@ class TokenizerLoaderBase(ABC, Generic[TokenizerT]):
         model_name_or_card: Union[str, AssetCard],
         *,
         force: bool = False,
+        cache_only: bool = False,
         progress: bool = True,
     ) -> TokenizerT:
         """
@@ -331,6 +336,8 @@ class TokenizerLoaderBase(ABC, Generic[TokenizerT]):
             The name or asset card of the model whose tokenizer to load.
         :param force:
             If ``True``, downloads the tokenizer even if it is already in cache.
+        :param cache_only:
+            If ``True``, skips the download and uses the cached tokenizer.
         :param progress:
             If ``True``, displays a progress bar to stderr.
         """
@@ -343,7 +350,7 @@ class TokenizerLoaderBase(ABC, Generic[TokenizerT]):
 
         try:
             path = self.download_manager.download_tokenizer(
-                uri, card.name, force=force, progress=progress
+                uri, card.name, force=force, cache_only=cache_only, progress=progress
             )
         except ValueError as ex:
             raise AssetCardError(
