@@ -619,7 +619,7 @@ class _AssetDownloadOp:
 
             if not asset_path.exists():
                 raise AssetError(
-                    f"The {self.display_name} cannot be found. Please set `force` to `True`, `cache_only` to `False`, and, if the problem persists, file a bug report. Path: {asset_path}"
+                    f"The {self.display_name} cannot be found. Please set `force` to `True` and, if the problem persists, file a bug report. Path: {asset_path}"
                 )
 
             return asset_path
@@ -641,7 +641,7 @@ class _AssetDownloadOp:
 
         if asset_path is None:
             raise AssetError(
-                f"The asset cache directory of the {self.display_name} is empty. Please set `force` to `True`, `cache_only` to `False`, and, if the problem persists, file a bug report. Path: {asset_dir}"
+                f"The asset cache directory of the {self.display_name} is empty. Please set `force` to `True` and, if the problem persists, file a bug report. Path: {asset_dir}"
             )
 
         return asset_path
