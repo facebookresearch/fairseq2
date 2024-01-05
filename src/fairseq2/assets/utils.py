@@ -17,7 +17,7 @@ def _starts_with_scheme(s: str) -> bool:
     return re.match(_SCHEME_REGEX, s) is not None
 
 
-def _get_path_from_env(var_name: str, not_exists_ok: bool = False) -> Optional[Path]:
+def _get_path_from_env(var_name: str, missing_ok: bool = False) -> Optional[Path]:
     pathname = os.getenv(var_name)
     if not pathname:
         return None
@@ -32,7 +32,7 @@ def _get_path_from_env(var_name: str, not_exists_ok: bool = False) -> Optional[P
     resolved_path = path.expanduser().resolve()
 
     if not resolved_path.exists():
-        if not_exists_ok:
+        if missing_ok:
             return resolved_path
 
         logger = logging.getLogger("fairseq2.assets")
