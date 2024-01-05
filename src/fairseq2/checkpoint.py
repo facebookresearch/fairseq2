@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from os import scandir
 from pathlib import Path
 from pickle import PickleError
+from shutil import rmtree
 from typing import Any, Dict, Iterator, List, Optional, Tuple, cast, final
 
 import torch
@@ -56,6 +57,20 @@ class CheckpointManager(ABC):
         """
 
     @abstractmethod
+    def delete_checkpoint(self, step_nr: int, *, missing_ok: bool = False) -> None:
+        """Delete the checkpoint of the specified training step.
+
+        :param step_nr:
+            The number of the training step.
+        :param missing_ok:
+            If ``True``, does not raise error if the checkpoint does not exists.
+        """
+
+    @abstractmethod
+    def keep_last_n_checkpoints(self, n: int) -> None:
+        """Delete all but the last ``n`` number of checkpoints."""
+
+    @abstractmethod
     def save_consolidated_fsdp_model(self, step_nr: int, model: Module) -> None:
         """Save ``model`` with a ``state_dict`` consolidated from all processes.
 
@@ -96,9 +111,15 @@ class CheckpointManager(ABC):
         """
 
     @abstractmethod
-    def has_checkpoint(self, *, with_model: bool = False) -> bool:
+    def has_checkpoint(
+        self, step_nr: Optional[int] = None, *, with_model: bool = False
+    ) -> bool:
         """Return ``True`` if the manager holds a checkpoint.
 
+        :param step_nr:
+            If ``None``, returns ``True`` if the manager holds at least one
+            checkpoint; otherwise, returns ``True`` if the manager holds the
+            checkpoint of the specified training step.
         :param with_model:
             If ``True``, only considers checkpoints with a consolidated model.
         """
@@ -141,33 +162,31 @@ class FileCheckpointManager(CheckpointManager):
             If ``True``, the underlying file system of ``checkpoint_dir`` is
             considered distributed (e.g. NFS).
         """
-        self.checkpoint_dir = checkpoint_dir
         self.gang = gang
         self.distributed_fs = distributed_fs
 
+        if distributed_fs:
+            self.checkpoint_dir = checkpoint_dir
+        else:
+            self.checkpoint_dir = checkpoint_dir.joinpath(f"rank_{self.gang.rank}")
+
     @finaloverride
     def save_checkpoint(self, step_nr: int, checkpoint: Dict[str, Any]) -> None:
-        step_dir = self.checkpoint_dir.joinpath(f"step_{step_nr}")
+        self.delete_checkpoint(step_nr, missing_ok=True)
+
+        tmp_step_dir = self.checkpoint_dir.joinpath(f"step_{step_nr}.tmp")
 
         if self.gang.rank == 0 or not self.distributed_fs:
             try:
-                step_dir.mkdir(parents=True, exist_ok=True)
+                tmp_step_dir.mkdir(parents=True)
             except OSError as ex:
                 raise RuntimeError(
                     f"The checkpoint directory for training step {step_nr} cannot be created. See nested exception for details."
                 ) from ex
 
-            # Mark the checkpoint in-progress by `touch <step_dir>/SAVE`.
-            try:
-                step_dir.joinpath("SAVE").open(mode="a").close()
-            except OSError as ex:
-                raise RuntimeError(
-                    f"The checkpoint of training step {step_nr} cannot be saved. See nested exception for details."
-                ) from ex
-
         self.gang.barrier()
 
-        checkpoint_file = step_dir.joinpath(f"rank_{self.gang.rank}.pt")
+        checkpoint_file = tmp_step_dir.joinpath(f"rank_{self.gang.rank}.pt")
 
         try:
             torch.save(checkpoint, checkpoint_file)
@@ -179,13 +198,11 @@ class FileCheckpointManager(CheckpointManager):
         self.gang.barrier()
 
         if self.gang.rank == 0 or not self.distributed_fs:
-            # More than one process can be on a single host (e.g. multi-GPU), so
-            # it is okay if the marker file is already deleted by one of them.
             try:
-                step_dir.joinpath("SAVE").unlink(missing_ok=True)
+                tmp_step_dir.replace(tmp_step_dir.with_suffix(""))
             except OSError as ex:
                 raise RuntimeError(
-                    f"The save of the checkpoint of training step {step_nr} cannot be marked complete. See nested exception for details."
+                    f"The checkpoint directory for training step {step_nr} cannot be renamed. See nested exception for details."
                 ) from ex
 
         self.gang.barrier()
@@ -228,12 +245,42 @@ class FileCheckpointManager(CheckpointManager):
 
             if not (step_numbers == last_step_nr).all():
                 raise RuntimeError(
-                    f"The processes have no consensus on the last training step. The last step numbers sorted by rank: {step_numbers.tolist()}"
+                    f"The processes in the gang have no consensus on the last training step. The last step numbers sorted by rank: {step_numbers.tolist()}"
                 )
 
         checkpoint = self.load_checkpoint(last_step_nr)
 
         return last_step_nr, checkpoint
+
+    @finaloverride
+    def delete_checkpoint(self, step_nr: int, *, missing_ok: bool = False) -> None:
+        if self.gang.rank == 0 or not self.distributed_fs:
+            step_dir = self.checkpoint_dir.joinpath(f"step_{step_nr}")
+
+            try:
+                rmtree(step_dir)
+            except OSError as ex:
+                if not missing_ok or not isinstance(ex, FileNotFoundError):
+                    raise RuntimeError(
+                        f"The checkpoint of training step {step_nr} cannot be deleted. See nested exception for details."
+                    ) from ex
+
+            try:
+                rmtree(step_dir.with_suffix(".tmp"))
+            except OSError as ex:
+                if not isinstance(ex, FileNotFoundError):
+                    raise RuntimeError(
+                        f"The checkpoint of training step {step_nr} cannot be deleted. See nested exception for details."
+                    ) from ex
+
+        self.gang.barrier()
+
+    @finaloverride
+    def keep_last_n_checkpoints(self, n: int) -> None:
+        step_numbers = self.get_step_numbers()
+
+        for step_number in step_numbers[:-n]:
+            self.delete_checkpoint(step_number)
 
     @finaloverride
     def save_consolidated_fsdp_model(self, step_nr: int, model: Module) -> None:
@@ -256,7 +303,7 @@ class FileCheckpointManager(CheckpointManager):
                     f"The checkpoint directory of training step {step_nr} cannot be created. See nested exception for details."
                 ) from ex
 
-            tmp_model_file = step_dir.joinpath("model.tmp")
+            tmp_model_file = step_dir.joinpath("model.pt.tmp")
 
             try:
                 torch.save(checkpoint, tmp_model_file)
@@ -269,7 +316,7 @@ class FileCheckpointManager(CheckpointManager):
                 tmp_model_file.replace(step_dir.joinpath("model.pt"))
             except OSError as ex:
                 raise RuntimeError(
-                    f"The save of the consolidated model of training step {step_nr} cannot be marked complete. See nested exception for details."
+                    f"The consolidated model file of training step {step_nr} cannot be renamed. See nested exception for details."
                 ) from ex
 
         self.gang.barrier()
@@ -325,22 +372,27 @@ class FileCheckpointManager(CheckpointManager):
     def load_last_consolidated_model(
         self, model: Module, device: Optional[Device] = None
     ) -> int:
-        last_step_nr = self.get_last_step_number(with_model=True)
-        if last_step_nr is None:
-            raise CheckpointNotFoundError("No checkpoint can be found.")
+        if self.gang.rank == 0:
+            last_step_nr = self.get_last_step_number(with_model=True)
+            if last_step_nr is None:
+                raise CheckpointNotFoundError("No checkpoint can be found.")
+        else:
+            last_step_nr = 0
 
         self.load_consolidated_model(last_step_nr, model, device)
 
         return last_step_nr
 
     @finaloverride
-    def has_checkpoint(self, *, with_model: bool = False) -> bool:
-        try:
-            next(self._iter_step_numbers(with_model))
+    def has_checkpoint(
+        self, step_nr: Optional[int] = None, *, with_model: bool = False
+    ) -> bool:
+        it = self._iter_step_numbers(with_model)
 
-            return True
-        except StopIteration:
-            return False
+        if step_nr is None:
+            return next(it, None) is not None
+
+        return step_nr in it
 
     @finaloverride
     def get_step_numbers(self, *, with_model: bool = False) -> List[int]:
@@ -358,25 +410,30 @@ class FileCheckpointManager(CheckpointManager):
         return None
 
     def _iter_step_numbers(self, with_model: bool) -> Iterator[int]:
-        for step_dir in self.checkpoint_dir.glob("step_*"):
-            if not step_dir.is_dir():
-                continue
+        try:
+            for step_dir in self.checkpoint_dir.glob("step_*"):
+                if not step_dir.is_dir():
+                    continue
 
-            if self.distributed_fs:
-                # On NFS, `exists()` might return a stale answer for cached
-                # LOOKUP results.
-                self._clear_nfs_lookup_cache(step_dir)
+                try:
+                    step_nr = int(step_dir.name[5:])
+                except ValueError:
+                    continue
 
-            if step_dir.joinpath("SAVE").exists():
-                continue
+                if with_model:
+                    if self.distributed_fs:
+                        # On NFS, `exists()` might return a stale answer for cached
+                        # LOOKUP results.
+                        self._clear_nfs_lookup_cache(step_dir)
 
-            if with_model and not step_dir.joinpath("model.pt").exists():
-                continue
+                    if not step_dir.joinpath("model.pt").exists():
+                        continue
 
-            try:
-                yield int(step_dir.name[5:])
-            except ValueError:
-                pass
+                yield step_nr
+        except OSError as ex:
+            raise RuntimeError(
+                "The root checkpoint directory cannot be traversed. See nested exception for details."
+            ) from ex
 
     @staticmethod
     def _clear_nfs_lookup_cache(path: Path) -> None:
