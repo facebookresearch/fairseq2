@@ -429,7 +429,7 @@ class StandardMultiheadAttention(MultiheadAttention):
                     state_factory = self.state_factory or StaticAttentionState
 
                     state = state_factory(
-                        k, v, max_seq_len=k.size(2), capacity_increment=0
+                        k, v, max_seq_len=k.size(2), capacity_increment=None
                     )
 
                     state_bag.set_state(self, state)
@@ -587,7 +587,7 @@ class AttentionStateFactory(Protocol):
     """Constructs instances of :class:`AttentionState`."""
 
     def __call__(
-        self, k: Tensor, v: Tensor, max_seq_len: int, capacity_increment: int
+        self, k: Tensor, v: Tensor, max_seq_len: int, capacity_increment: Optional[int]
     ) -> AttentionState:
         """
         :param k:
@@ -598,7 +598,8 @@ class AttentionStateFactory(Protocol):
             The expected maximum sequence length.
         :param capacity_increment:
             The sequence length capacity of state tensors will be incremented by
-            multiples of this value.
+            multiples of this value. If ``None``, state tensors will be
+            preallocated with a capacity of ``max_seq_len``.
         """
 
 
@@ -622,13 +623,18 @@ class FullAttentionState(AttentionState):
     is the number of heads, :math:`S_{rsv}` is the reserved sequence length
     capacity, and :math:`V_{proj}` is the projected value size."""
 
-    capacity_increment: int
+    capacity_increment: Optional[int]
     """The sequence length capacity of :attr:`k` and :attr:`v` is incremented by
     multiples of this value."""
 
     def __init__(
-        self, k: Tensor, v: Tensor, max_seq_len: int, capacity_increment: int
+        self, k: Tensor, v: Tensor, max_seq_len: int, capacity_increment: Optional[int]
     ) -> None:
+        if capacity_increment is not None and capacity_increment < 1:
+            raise ValueError(
+                f"`capacity_increment` must be greater than or equal to 1, but is {capacity_increment} instead."
+            )
+
         batch_size, num_heads, seq_len, head_dim = k.shape
 
         init_capacity = 0 if capacity_increment else max_seq_len
@@ -661,6 +667,9 @@ class FullAttentionState(AttentionState):
         self.seq_len += input_seq_len
 
     def _expand_kv(self, input_seq_len: int) -> None:
+        if self.capacity_increment is None:
+            return
+
         batch_size, num_heads, capacity, head_dim = self.k.shape
 
         new_seq_len = self.seq_len + input_seq_len
@@ -724,7 +733,7 @@ class LocalAttentionState(AttentionState):
     reserved sequence length capacity, and :math:`V_{proj}` is the projected
     value size."""
 
-    capacity_increment: int
+    capacity_increment: Optional[int]
     """The sequence length capacity of :attr:`k` and :attr:`v` is incremented by
     multiples of this value."""
 
@@ -734,8 +743,13 @@ class LocalAttentionState(AttentionState):
         v: Tensor,
         max_seq_len: int,
         attn_window_len: int,
-        capacity_increment: int,
+        capacity_increment: Optional[int],
     ) -> None:
+        if capacity_increment is not None and capacity_increment < 1:
+            raise ValueError(
+                f"`capacity_increment` must be greater than or equal to 1, but is {capacity_increment} instead."
+            )
+
         self.attn_window_len = min(max_seq_len, attn_window_len)
 
         batch_size, num_heads, seq_len, head_dim = k.shape
@@ -785,6 +799,9 @@ class LocalAttentionState(AttentionState):
         self.seq_len += input_seq_len
 
     def _expand_kv(self, input_seq_len: int) -> None:
+        if self.capacity_increment is None:
+            return
+
         batch_size, num_heads, capacity, head_dim = self.k.shape
 
         new_seq_len = self.seq_len + input_seq_len
@@ -834,7 +851,7 @@ class LocalAttentionStateFactory:
         k: Tensor,
         v: Tensor,
         max_seq_len: int,
-        capacity_increment: int,
+        capacity_increment: Optional[int],
     ) -> LocalAttentionState:
         return LocalAttentionState(
             k, v, max_seq_len, self.attn_window_len, capacity_increment
@@ -853,7 +870,7 @@ class StaticAttentionState(AttentionState):
     v: Tensor
 
     def __init__(
-        self, k: Tensor, v: Tensor, max_seq_len: int, capacity_increment: int
+        self, k: Tensor, v: Tensor, max_seq_len: int, capacity_increment: Optional[int]
     ) -> None:
         self.k = k
         self.v = v

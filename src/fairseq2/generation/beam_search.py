@@ -46,7 +46,8 @@ class BeamSearchSequenceGenerator(SequenceGenerator):
     temperature: float
     unk_penalty: float
     len_penalty: float
-    capacity_increment: int
+    prefill_chunk_size: Optional[int]
+    decode_capacity_increment: Optional[int]
     step_processors: List[StepProcessor]
 
     def __init__(
@@ -63,7 +64,8 @@ class BeamSearchSequenceGenerator(SequenceGenerator):
         temperature: float = 1.0,
         unk_penalty: float = 0.0,
         len_penalty: float = 1.0,
-        capacity_increment: int = 16,
+        prefill_chunk_size: Optional[int] = 512,
+        decode_capacity_increment: Optional[int] = 16,
         step_processors: Optional[Sequence[StepProcessor]] = None,
     ) -> None:
         """
@@ -92,9 +94,13 @@ class BeamSearchSequenceGenerator(SequenceGenerator):
         :param len_penalty:
             The length penalty, where values less than 1.0 favor shorter
             sequences; values greater than 1.0 favor longer sequences.
-        :param capacity_increment:
+        :param prefill_chunk_size:
+            The prefill will be performed incrementally by chunks of this size.
+            If ``None``, the entire prefill will be performed at once.
+        :param decode_capacity_increment:
             The sequence length capacity of state tensors will be incremented by
-            multiples of this value.
+            multiples of this value. If ``None``, state tensors will be
+            preallocated with a capacity of ``max_seq_len``.
         :param step_processors:
             The processors to call at each generation step.
         """
@@ -115,6 +121,16 @@ class BeamSearchSequenceGenerator(SequenceGenerator):
                 f"`min_gen_len` must be less than or equal to `max_gen_len` ({max_gen_len}), but is {min_gen_len} instead."
             )
 
+        if prefill_chunk_size is not None and prefill_chunk_size < 1:
+            raise ValueError(
+                f"`prefill_chunk_size` must be greater than or equal to 1, but is {prefill_chunk_size} instead."
+            )
+
+        if decode_capacity_increment is not None and decode_capacity_increment < 1:
+            raise ValueError(
+                f"`decode_capacity_increment` must be greater than or equal to 1, but is {decode_capacity_increment} instead."
+            )
+
         self.algorithm = algorithm or StandardBeamSearchAlgorithm()
         self.beam_size = beam_size
         self.min_gen_len = min_gen_len
@@ -125,7 +141,8 @@ class BeamSearchSequenceGenerator(SequenceGenerator):
         self.temperature = temperature
         self.unk_penalty = unk_penalty
         self.len_penalty = len_penalty
-        self.capacity_increment = capacity_increment
+        self.prefill_chunk_size = prefill_chunk_size
+        self.decode_capacity_increment = decode_capacity_increment
 
         if step_processors:
             self.step_processors = list(step_processors)
@@ -151,7 +168,8 @@ class BeamSearchSequenceGenerator(SequenceGenerator):
             self.temperature,
             self.unk_penalty,
             self.len_penalty,
-            self.capacity_increment,
+            self.prefill_chunk_size,
+            self.decode_capacity_increment,
             self.step_processors,
             self._step_hooks,
         )
@@ -175,7 +193,8 @@ class BeamSearchSeq2SeqGenerator(Seq2SeqGenerator):
     temperature: float
     unk_penalty: float
     len_penalty: float
-    capacity_increment: int
+    prefill_chunk_size: Optional[int]
+    decode_capacity_increment: Optional[int]
     step_processors: List[StepProcessor]
 
     def __init__(
@@ -192,7 +211,8 @@ class BeamSearchSeq2SeqGenerator(Seq2SeqGenerator):
         temperature: float = 1.0,
         unk_penalty: float = 0.0,
         len_penalty: float = 1.0,
-        capacity_increment: int = 16,
+        prefill_chunk_size: Optional[int] = 512,
+        decode_capacity_increment: Optional[int] = 16,
         step_processors: Optional[Sequence[StepProcessor]] = None,
     ) -> None:
         """
@@ -222,9 +242,13 @@ class BeamSearchSeq2SeqGenerator(Seq2SeqGenerator):
         :param len_penalty:
             The length penalty, where values less than 1.0 favor shorter
             sequences; values greater than 1.0 favor longer sequences.
-        :param capacity_increment:
+        :param prefill_chunk_size:
+            The prefill will be performed incrementally by chunks of this size.
+            If ``None``, the entire prefill will be performed at once.
+        :param decode_capacity_increment:
             The sequence length capacity of state tensors will be incremented by
-            multiples of this value.
+            multiples of this value. If ``None``, state tensors will be
+            preallocated with a capacity of ``max_seq_len``.
         :param step_processors:
             The processors to call at each generation step.
         """
@@ -233,6 +257,16 @@ class BeamSearchSeq2SeqGenerator(Seq2SeqGenerator):
         if min_gen_len < 1:
             raise ValueError(
                 f"`min_gen_len` must be greater than or equal to 1, but is {min_gen_len} instead."
+            )
+
+        if prefill_chunk_size is not None and prefill_chunk_size < 1:
+            raise ValueError(
+                f"`prefill_chunk_size` must be greater than or equal to 1, but is {prefill_chunk_size} instead."
+            )
+
+        if decode_capacity_increment is not None and decode_capacity_increment < 1:
+            raise ValueError(
+                f"`decode_capacity_increment` must be greater than or equal to 1, but is {decode_capacity_increment} instead."
             )
 
         self.algorithm = algorithm or StandardBeamSearchAlgorithm()
@@ -245,7 +279,8 @@ class BeamSearchSeq2SeqGenerator(Seq2SeqGenerator):
         self.temperature = temperature
         self.unk_penalty = unk_penalty
         self.len_penalty = len_penalty
-        self.capacity_increment = capacity_increment
+        self.prefill_chunk_size = prefill_chunk_size
+        self.decode_capacity_increment = decode_capacity_increment
 
         if step_processors:
             self.step_processors = list(step_processors)
@@ -303,7 +338,8 @@ class BeamSearchSeq2SeqGenerator(Seq2SeqGenerator):
             self.temperature,
             self.unk_penalty,
             self.len_penalty,
-            self.capacity_increment,
+            self.prefill_chunk_size,
+            self.decode_capacity_increment,
             self.step_processors,
             self._step_hooks,
         )
@@ -419,7 +455,8 @@ class _BeamSearchSequenceGeneratorOpBase(ABC):
     temperature: float
     unk_penalty: float
     len_penalty: float
-    step_processors: Sequence[StepProcessor]
+    prefill_chunk_size: Optional[int]
+    step_processors: List[StepProcessor]
     step_nr: int
     state_bag: IncrementalStateBag
     prompt_lens: Optional[Tensor]
@@ -446,8 +483,9 @@ class _BeamSearchSequenceGeneratorOpBase(ABC):
         temperature: float,
         unk_penalty: float,
         len_penalty: float,
-        capacity_increment: int,
-        step_processors: Sequence[StepProcessor],
+        prefill_chunk_size: Optional[int],
+        decode_capacity_increment: Optional[int],
+        step_processors: List[StepProcessor],
         step_hooks: Dict[int, StepHook],
     ) -> None:
         self.algorithm = algorithm
@@ -494,13 +532,14 @@ class _BeamSearchSequenceGeneratorOpBase(ABC):
         self.temperature = temperature
         self.unk_penalty = unk_penalty
         self.len_penalty = len_penalty
+        self.prefill_chunk_size = prefill_chunk_size
         self.step_processors = step_processors
         self.step_hooks = step_hooks
 
         self.step_nr = 0
 
         self.state_bag = IncrementalStateBag(
-            self.max_seq_len, capacity_increment=capacity_increment
+            self.max_seq_len, capacity_increment=decode_capacity_increment
         )
 
         if prompt_padding_mask is None:
@@ -561,37 +600,54 @@ class _BeamSearchSequenceGeneratorOpBase(ABC):
             self._prefill()
 
     def _prefill(self) -> None:
+        chunk_begin = 0
+
         prefill_len = self.min_prompt_len
 
-        model_output = self._decode(self.seqs[:, : prefill_len - 1])
+        while chunk_begin < prefill_len - 1:
+            chunk_size = prefill_len - chunk_begin - 1
 
-        self.state_bag.increment_step_nr(prefill_len - 1)
+            # Decode by chunks of `prefill_chunk_size`.
+            if self.prefill_chunk_size and chunk_size > self.prefill_chunk_size:
+                chunk_size = self.prefill_chunk_size
 
-        logits = model_output.logits
+            chunk_end = chunk_begin + chunk_size
 
-        if self.temperature != 1.0:
-            logits /= self.temperature
+            model_output = self._decode(self.seqs[:, chunk_begin:chunk_end])
 
-        # (P, S_prm - 1, V)
-        lprobs = log_softmax(logits, dim=-1, dtype=torch.float32)
+            self.state_bag.increment_step_nr(chunk_size)
 
-        if lprobs.isnan().any():
-            raise RuntimeError(
-                "The model has produced one or more NaN probabilities during prefill. The sequence generator cannot continue."
+            logits = model_output.logits
+
+            if self.temperature != 1.0:
+                logits /= self.temperature
+
+            # (P, S_prm - 1, V)
+            lprobs = log_softmax(logits, dim=-1, dtype=torch.float32)
+
+            if lprobs.isnan().any():
+                raise RuntimeError(
+                    "The model has produced one or more NaN probabilities during prefill. The sequence generator cannot continue."
+                )
+
+            s = slice(chunk_begin + 1, chunk_end + 1)
+
+            # Fetch the scores of the next prompt step.
+            # (P, S_prm - 1, 1)
+            prompt_scores = torch.gather(
+                lprobs, dim=-1, index=self.seqs[:, s].unsqueeze(-1)
             )
 
-        # Fetch the scores of the next prompt step.
-        # (P, S_prm - 1, 1)
-        prompt_scores = torch.gather(
-            lprobs, dim=-1, index=self.seqs[:, 1:prefill_len].unsqueeze(-1)
-        )
+            # (P, S_prm - 1, 1) -> (P, S_prm - 1)
+            prompt_scores.squeeze_(-1).cumsum_(dim=-1)
 
-        # (P, S_prm - 1, 1) -> (P, S_prm - 1)
-        prompt_scores.squeeze_(-1).cumsum_(dim=-1)
+            prompt_scores += self.step_scores[:, chunk_begin].unsqueeze(-1)
 
-        # Bootstrap the step scores.
-        # (P x B, S_prm - 1)
-        self.step_scores[:, 1:prefill_len] = prompt_scores
+            # Bootstrap the step scores.
+            # (P x B, S_prm - 1)
+            self.step_scores[:, s] = prompt_scores
+
+            chunk_begin += chunk_size
 
         if self.step_hooks:
             seqs = self.seqs[:, :prefill_len]
@@ -626,10 +682,8 @@ class _BeamSearchSequenceGeneratorOpBase(ABC):
         # If we are generating the last possible step, force it to be EOS
         # regardless of its score.
         if self.step_nr == self.max_seq_len - 1:
-            # fmt: off
-            lprobs[:, : self.eos_idx]       = -torch.inf
-            lprobs[:,   self.eos_idx + 1 :] = -torch.inf
-            # fmt: on
+            lprobs[:, : self.eos_idx]       = -torch.inf  # fmt: skip
+            lprobs[:,   self.eos_idx + 1 :] = -torch.inf  # fmt: skip
         else:
             # Process `lprobs` in-place if requested.
             for processor in self.step_processors:
@@ -858,8 +912,9 @@ class _BeamSearchSequenceGeneratorOp(_BeamSearchSequenceGeneratorOpBase):
         temperature: float,
         unk_penalty: float,
         len_penalty: float,
-        capacity_increment: int,
-        step_processors: Sequence[StepProcessor],
+        prefill_chunk_size: Optional[int],
+        decode_capacity_increment: Optional[int],
+        step_processors: List[StepProcessor],
         step_hooks: Dict[int, StepHook],
     ) -> None:
         super().__init__(
@@ -876,7 +931,8 @@ class _BeamSearchSequenceGeneratorOp(_BeamSearchSequenceGeneratorOpBase):
             temperature,
             unk_penalty,
             len_penalty,
-            capacity_increment,
+            prefill_chunk_size,
+            decode_capacity_increment,
             step_processors,
             step_hooks,
         )
@@ -916,8 +972,9 @@ class _BeamSearchSeq2SeqGeneratorOp(_BeamSearchSequenceGeneratorOpBase):
         temperature: float,
         unk_penalty: float,
         len_penalty: float,
-        capacity_increment: int,
-        step_processors: Sequence[StepProcessor],
+        prefill_chunk_size: Optional[int],
+        decode_capacity_increment: Optional[int],
+        step_processors: List[StepProcessor],
         step_hooks: Dict[int, StepHook],
     ) -> None:
         super().__init__(
@@ -934,7 +991,8 @@ class _BeamSearchSeq2SeqGeneratorOp(_BeamSearchSequenceGeneratorOpBase):
             temperature,
             unk_penalty,
             len_penalty,
-            capacity_increment,
+            prefill_chunk_size,
+            decode_capacity_increment,
             step_processors,
             step_hooks,
         )
