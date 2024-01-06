@@ -170,9 +170,7 @@ class ProcessGroupGang(Gang):
         if num_threads is not None:
             torch.set_num_threads(num_threads)
 
-            logger.info(
-                "Setting the number of threads used for intraop parallelism to %d.", num_threads  # fmt: skip
-            )
+            logger.info("Setting the number of threads used for intraop parallelism to %d.", num_threads)  # fmt: skip
 
         if device is None:
             device = _determine_default_device()
@@ -190,9 +188,7 @@ class ProcessGroupGang(Gang):
 
         if device.type == "cuda" and "NCCL_ASYNC_ERROR_HANDLING" not in os.environ:
             if warn_only:
-                logger.warning(
-                    "The default process group will use the NCCL backend, but the `NCCL_ASYNC_ERROR_HANDLING` environment variable is not set. Your collective communication calls can hang indefinitely. Learn more at https://github.com/pytorch/pytorch/issues/46874."
-                )
+                logger.warning("The default process group will use the NCCL backend, but the `NCCL_ASYNC_ERROR_HANDLING` environment variable is not set. Your collective communication calls can hang indefinitely. Learn more at https://github.com/pytorch/pytorch/issues/46874.")  # fmt: skip
             else:
                 raise RuntimeError(
                     "The default process group will use the NCCL backend, but the `NCCL_ASYNC_ERROR_HANDLING` environment variable is not set. Learn more at https://github.com/pytorch/pytorch/issues/46874."

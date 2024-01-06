@@ -263,9 +263,7 @@ class ModelLoader(Generic[ModelT, ConfigT]):
                 # Try to construct the model on the meta device.
                 model = self.model_factory(config, device=META, dtype=dtype)
             except NotImplementedError:
-                logger.warning(
-                    f"One or more operators in {card.name} constructor do not support the meta device. Skipping lazy initialization."
-                )
+                logger.warning("One or more operators in %s constructor do not support the meta device. Skipping lazy initialization.", card.name)  # fmt: skip
 
                 # If we are here, it means the model has at least one operator that
                 # does not support meta device. Do regular model initialization.
