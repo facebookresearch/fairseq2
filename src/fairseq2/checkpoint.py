@@ -68,7 +68,7 @@ class CheckpointManager(ABC):
 
     @abstractmethod
     def keep_last_n_checkpoints(self, n: int) -> None:
-        """Delete all but the last ``n`` number of checkpoints."""
+        """Delete all but the last ``n`` checkpoints."""
 
     @abstractmethod
     def save_consolidated_fsdp_model(self, step_nr: int, model: Module) -> None:

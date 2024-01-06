@@ -37,9 +37,7 @@ def _get_path_from_env(var_name: str, missing_ok: bool = False) -> Optional[Path
 
         logger = logging.getLogger("fairseq2.assets")
 
-        logger.warning(
-            f"The path '{path}' pointed to by the `{var_name}` environment variable does not exist."
-        )
+        logger.warning(f"The path '{path}' pointed to by the `{var_name}` environment variable does not exist.")  # fmt: skip
 
         return None
 
