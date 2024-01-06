@@ -158,12 +158,10 @@ class DynamicLossScaler:
 
             if self._are_close(old_scale, self.min_scale):
                 self._log_warning("Overflow detected, ignoring gradient, loss scale is already at minimum (%s). Your loss is probably exploding. Try lowering the learning rate, using gradient clipping, or increasing the batch size.", self.min_scale)  # fmt: skip
-
-                return LossScaleResult(old_scale, new_scale, overflow=True, min_=True)
             else:
                 self._log_warning("Overflow detected, ignoring gradient, decreasing loss scale from %s to %s (minimum). Your loss is probably exploding. Try lowering the learning rate, using gradient clipping, or increasing the batch size.", old_scale, self.min_scale)  # fmt: skip
 
-                return LossScaleResult(old_scale, new_scale, overflow=True, min_=True)
+            return LossScaleResult(old_scale, new_scale, overflow=True, min_=True)
         else:
             self._log_info("Overflow detected, ignoring gradient, decreasing loss scale from %s to %s.", old_scale, new_scale)  # fmt: skip
 
