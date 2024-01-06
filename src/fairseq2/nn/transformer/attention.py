@@ -103,9 +103,7 @@ class TorchSDPA(SDPA):
     ) -> Tuple[Tensor, Optional[Tensor]]:
         if needs_weights:
             if not self._has_warned:
-                logger.warning(
-                    "`TorchSDPA` has to fall back to the naive SDPA implementation because of `needs_weights` set to `True`."
-                )
+                logger.warning("`TorchSDPA` has to fall back to the naive SDPA implementation because of `needs_weights` set to `True`.")  # fmt: skip
 
                 self._has_warned = True
 
@@ -144,7 +142,7 @@ class TorchSDPA(SDPA):
                 mask = torch.where(mask, m, -torch.inf)
         elif isinstance(attn_mask, CausalAttentionMask):
             # PyTorch SDPA supports only full causal attention.
-            if attn_mask.attn_window_len is None:
+            if attn_mask.attn_len is None and attn_mask.attn_window_len is None:
                 mask = None
 
                 is_causal = True

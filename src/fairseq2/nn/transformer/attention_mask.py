@@ -115,6 +115,7 @@ class CausalAttentionMask(AttentionMask):
         seq_len: int,
         key_len: int,
         *,
+        attn_len: Optional[int] = None,
         attn_window_len: Optional[int] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
@@ -124,6 +125,9 @@ class CausalAttentionMask(AttentionMask):
             The sequence length.
         :param key_len:
             The key/value sequence length.
+        :param attn_len:
+            The sequence length, starting from the end of the sequence, for
+            which to compute the mask.
         :param attn_window_len:
             The attention window length as described in Section 3.1 of
             :cite:t:`https://doi.org/10.48550/arxiv.2004.05150`. If ``None``,
@@ -133,6 +137,7 @@ class CausalAttentionMask(AttentionMask):
 
         self.seq_len = seq_len
         self.key_len = key_len
+        self.attn_len = attn_len
         self.attn_window_len = attn_window_len
 
         self.device, self.dtype = device, dtype
@@ -140,7 +145,12 @@ class CausalAttentionMask(AttentionMask):
     @finaloverride
     def _do_materialize(self) -> Tensor:
         return _create_causal_attention_mask(
-            self.seq_len, self.key_len, self.attn_window_len, self.device, self.dtype
+            self.seq_len,
+            self.key_len,
+            self.attn_len,
+            self.attn_window_len,
+            self.device,
+            self.dtype,
         )
 
 
@@ -164,21 +174,39 @@ class CausalAttentionMaskFactory:
         training: bool = True,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Optional[CausalAttentionMask]:
-        seq_len, key_len = seqs.size(1), keys.size(1)
+        attn_len: Optional[int]
+
+        attn_len = seqs.size(1)
+
+        if training or state_bag is None:
+            seq_len = attn_len
+        else:
+            seq_len = state_bag.step_nr + attn_len
+
+        if seqs is keys:  # Self attention
+            key_len = seq_len
+        else:
+            key_len = keys.size(1)
 
         if seq_len > key_len:
             raise ValueError(
                 f"The sequence length of `seqs` must be less than or equal to the sequence length of `keys` ({key_len}), but is {seq_len} instead."
             )
 
-        if seq_len <= 1:
+        if attn_len <= 1:
             # Return `None` if the sequence has a length of 1 during training;
             # or if we attend to past steps during incremental decoding.
             return None
 
+        # PyTorch SDPA does not support `attn_len`; set it to `None` if it is
+        # redundant.
+        if attn_len == seq_len:
+            attn_len = None
+
         return CausalAttentionMask(
             seq_len,
             key_len,
+            attn_len=attn_len,
             attn_window_len=self.attn_window_len,
             device=seqs.device,
             dtype=seqs.dtype,
@@ -207,7 +235,7 @@ class ALiBiMask(AttentionMask):
         key_len: int,
         num_attn_heads: int,
         *,
-        incremental: bool = False,
+        attn_len: Optional[int] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -218,8 +246,9 @@ class ALiBiMask(AttentionMask):
             The key/value sequence length.
         :param num_attn_heads:
             The number of attention heads.
-        :param incremental:
-            If ``True``, returns a mask only for the last step of the sequence.
+        :param attn_len:
+            The sequence length, starting from the end of the sequence, for
+            which to compute the mask.
         """
         super().__init__()
 
@@ -231,13 +260,13 @@ class ALiBiMask(AttentionMask):
         self.seq_len = seq_len
         self.key_len = key_len
         self.num_attn_heads = num_attn_heads
-        self.incremental = incremental
+        self.attn_len = attn_len
 
         self.device, self.dtype = device, dtype
 
     @finaloverride
     def _do_materialize(self) -> Tensor:
-        seq_len = 1 if self.incremental else self.seq_len
+        attn_len = self.seq_len if self.attn_len is None else self.attn_len
 
         # (H)
         powers = torch.arange(1, 1 + self.num_attn_heads, device=self.device)
@@ -249,21 +278,22 @@ class ALiBiMask(AttentionMask):
         steps = torch.arange(self.key_len, device=self.device)
 
         # (S_kv) -> (H, S, S_kv)
-        steps = steps[None, None, :].expand(self.num_attn_heads, seq_len, -1)
+        steps = steps[None, None, :].expand(self.num_attn_heads, attn_len, -1)
 
         # (H, S, S_kv) * (H, 1, 1) -> (H, S, S_kv)
         mask = steps * slopes[:, None, None]
 
         mask = mask.to(self.dtype)
 
-        if self.incremental:
-            # Ensure that we do not attend to keys beyond sequence length.
+        # If the attention length is 1, avoid constructing the causal mask.
+        if attn_len == 1:
+            # Ensure that we do not attend to keys beyond the sequence length.
             if (causal := self.key_len - self.seq_len) > 0:
                 mask[:, :, -causal:] = -torch.inf
         else:
             # (S, S_kv)
             causal_mask = _create_causal_attention_mask(
-                seq_len, self.key_len, None, self.device, self.dtype
+                self.seq_len, self.key_len, attn_len, None, self.device, self.dtype
             )
 
             # (H, S, S_kv) + (S, S_kv) -> (H, S, S_kv)
@@ -290,14 +320,14 @@ class ALiBiMaskFactory:
         training: bool = True,
         state_bag: Optional[IncrementalStateBag] = None,
     ) -> Optional[ALiBiMask]:
-        if training or state_bag is None:
-            start_step = 0
-        else:
-            start_step = state_bag.step_nr
+        attn_len: Optional[int]
 
-        seq_len = start_step + seqs.size(1)
-        if seq_len == 0:
-            return None
+        attn_len = seqs.size(1)
+
+        if training or state_bag is None:
+            seq_len = attn_len
+        else:
+            seq_len = state_bag.step_nr + attn_len
 
         if seqs is keys:  # Self attention
             key_len = seq_len
@@ -309,11 +339,14 @@ class ALiBiMaskFactory:
                 f"The sequence length of `seqs` must be less than or equal to the sequence length of `keys` ({key_len}), but is {seq_len} instead."
             )
 
+        if attn_len == seq_len:
+            attn_len = None
+
         return ALiBiMask(
             seq_len,
             key_len,
             self.num_attn_heads,
-            incremental=start_step > 0,
+            attn_len=attn_len,
             device=seqs.device,
             dtype=seqs.dtype,
         )
@@ -325,6 +358,7 @@ class ALiBiMaskFactory:
 def _create_causal_attention_mask(
     seq_len: int,
     key_len: int,
+    attn_len: Optional[int],
     attn_window_len: Optional[int],
     device: Optional[Device],
     dtype: Optional[DataType],
@@ -335,12 +369,16 @@ def _create_causal_attention_mask(
     # As of PyTorch 2.0, `triu` does not support bf16.
     dt = torch.float32 if dtype == torch.bfloat16 else dtype
 
+    # (S, S_kv)
     mask = torch.ones((seq_len, key_len), device=device, dtype=dt)
 
     mask.tril_(diagonal=0)
 
     if attn_window_len is not None:
         mask.triu_(diagonal=1 - attn_window_len)
+
+    if attn_len is not None and attn_len != seq_len:
+        mask = mask[-attn_len:]
 
     mask.log_()
 
