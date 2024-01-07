@@ -10,7 +10,7 @@ from copy import deepcopy
 from functools import partial
 from pathlib import Path
 from pickle import PickleError
-from typing import Any, Generic, Mapping, Optional, Protocol, TypeVar, Union, final
+from typing import Any, Dict, Generic, Optional, Protocol, TypeVar, Union, final
 
 from torch.nn import Module
 
@@ -134,8 +134,8 @@ class CheckpointConverter(Protocol[ConfigT_contra]):
     """Converts checkpoints to fairseq2."""
 
     def __call__(
-        self, checkpoint: Mapping[str, Any], config: ConfigT_contra
-    ) -> Mapping[str, Any]:
+        self, checkpoint: Dict[str, Any], config: ConfigT_contra
+    ) -> Dict[str, Any]:
         """
         :param checkpoint:
             The checkpoint to convert.

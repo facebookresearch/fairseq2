@@ -9,7 +9,7 @@ from os import scandir
 from pathlib import Path
 from pickle import PickleError
 from shutil import rmtree
-from typing import Any, Dict, Iterator, List, Optional, Tuple, cast, final
+from typing import Any, Dict, Iterator, List, Optional, Tuple, final
 
 import torch
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
@@ -30,30 +30,46 @@ class CheckpointManager(ABC):
     """Saves and loads training checkpoints."""
 
     @abstractmethod
-    def save_checkpoint(self, step_nr: int, checkpoint: Dict[str, Any]) -> None:
+    def save_checkpoint(
+        self,
+        step_nr: int,
+        checkpoint: Dict[str, Any],
+        metadata: Optional[Dict[str, Any]],
+    ) -> None:
         """Save the checkpoint of the specified training step.
 
         :param step_nr:
             The number of the training step.
         :param checkpoint:
             The checkpoint to save.
+        :param metadata:
+            The metadata (e.g. training config) associated with the checkpoint.
         """
 
     @abstractmethod
-    def load_checkpoint(self, step_nr: int) -> Dict[str, Any]:
+    def load_checkpoint(
+        self, step_nr: int
+    ) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
         """Load the checkpoint of the specified training step.
 
         :param step_nr:
             The number of the training step.
+
+        :returns:
+            - The checkpoint
+            - The metadata associated with the checkpoint.
         """
 
     @abstractmethod
-    def load_last_checkpoint(self) -> Tuple[int, Dict[str, Any]]:
+    def load_last_checkpoint(
+        self,
+    ) -> Tuple[int, Dict[str, Any], Optional[Dict[str, Any]]]:
         """Load the last checkpoint in the training.
 
         :returns:
-            - The number of the associated training step.
+            - The number of the training step.
             - The checkpoint.
+            - The metadata associated with the checkpoint.
         """
 
     @abstractmethod
@@ -82,28 +98,28 @@ class CheckpointManager(ABC):
 
     @abstractmethod
     def load_consolidated_model(
-        self, step_nr: int, model: Module, device: Optional[Device] = None
+        self, step_nr: int, out: Module, device: Optional[Device] = None
     ) -> None:
         """Load the consolidated model at the specified training step.
 
         :param step_nr:
             The number of the training step.
-        :param model:
-            The model to load.
+        :param out:
+            The output model to load.
         :param device:
-            The device on which to load the model if it is on the meta device.
+            The device on which to load ``out`` if it is on the meta device.
         """
 
     @abstractmethod
     def load_last_consolidated_model(
-        self, model: Module, device: Optional[Device] = None
+        self, out: Module, device: Optional[Device] = None
     ) -> int:
         """Load the last consolidated model in the training.
 
-        :param model:
-            The model to load.
+        :param out:
+            The output model to load.
         :param device:
-            The device on which to load the model if it is on the meta device.
+            The device on which to load ``out`` if it is on the meta device.
 
         :returns:
             The number of the training step associated with the consolidated
@@ -117,9 +133,9 @@ class CheckpointManager(ABC):
         """Return ``True`` if the manager holds a checkpoint.
 
         :param step_nr:
-            If ``None``, returns ``True`` if the manager holds at least one
-            checkpoint; otherwise, returns ``True`` if the manager holds the
-            checkpoint of the specified training step.
+            If not ``None``, returns ``True`` if the manager holds the
+            checkpoint of the specified training step; otherwise, returns
+            ``True`` if the manager holds at least one checkpoint.
         :param with_model:
             If ``True``, only considers checkpoints with a consolidated model.
         """
@@ -171,7 +187,17 @@ class FileCheckpointManager(CheckpointManager):
             self.checkpoint_dir = checkpoint_dir.joinpath(f"rank_{self.gang.rank}")
 
     @finaloverride
-    def save_checkpoint(self, step_nr: int, checkpoint: Dict[str, Any]) -> None:
+    def save_checkpoint(
+        self,
+        step_nr: int,
+        checkpoint: Dict[str, Any],
+        metadata: Optional[Dict[str, Any]],
+    ) -> None:
+        if "metadata" in checkpoint:
+            raise ValueError(
+                "`checkpoint` must not include the reserved 'metadata' key."
+            )
+
         self.delete_checkpoint(step_nr, missing_ok=True)
 
         tmp_step_dir = self.checkpoint_dir.joinpath(f"step_{step_nr}.tmp")
@@ -185,6 +211,9 @@ class FileCheckpointManager(CheckpointManager):
                 ) from ex
 
         self.gang.barrier()
+
+        if metadata is not None:
+            checkpoint["metadata"] = metadata
 
         checkpoint_file = tmp_step_dir.joinpath(f"rank_{self.gang.rank}.pt")
 
@@ -208,7 +237,9 @@ class FileCheckpointManager(CheckpointManager):
         self.gang.barrier()
 
     @finaloverride
-    def load_checkpoint(self, step_nr: int) -> Dict[str, Any]:
+    def load_checkpoint(
+        self, step_nr: int
+    ) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
         checkpoint_file = self.checkpoint_dir.joinpath(
             f"step_{step_nr}/rank_{self.gang.rank}.pt"
         )
@@ -224,10 +255,14 @@ class FileCheckpointManager(CheckpointManager):
 
         self.gang.barrier()
 
-        return cast(Dict[str, Any], checkpoint)
+        metadata = checkpoint.pop("metadata", None)
+
+        return checkpoint, metadata
 
     @finaloverride
-    def load_last_checkpoint(self) -> Tuple[int, Dict[str, Any]]:
+    def load_last_checkpoint(
+        self,
+    ) -> Tuple[int, Dict[str, Any], Optional[Dict[str, Any]]]:
         last_step_nr = self.get_last_step_number()
         if last_step_nr is None:
             raise CheckpointNotFoundError("No checkpoint can be found.")
@@ -248,9 +283,9 @@ class FileCheckpointManager(CheckpointManager):
                     f"The processes in the gang have no consensus on the last training step. The last step numbers sorted by rank: {step_numbers.tolist()}"
                 )
 
-        checkpoint = self.load_checkpoint(last_step_nr)
+        checkpoint, metadata = self.load_checkpoint(last_step_nr)
 
-        return last_step_nr, checkpoint
+        return last_step_nr, checkpoint, metadata
 
     @finaloverride
     def delete_checkpoint(self, step_nr: int, *, missing_ok: bool = False) -> None:
@@ -323,13 +358,15 @@ class FileCheckpointManager(CheckpointManager):
 
     @finaloverride
     def load_consolidated_model(
-        self, step_nr: int, model: Module, device: Optional[Device] = None
+        self, step_nr: int, out: Module, device: Optional[Device] = None
     ) -> None:
         if self.gang.rank == 0:
             model_file = self.checkpoint_dir.joinpath(f"step_{step_nr}/model.pt")
 
             try:
-                checkpoint = load_checkpoint(model_file, map_location=CPU)
+                checkpoint = load_checkpoint(
+                    model_file, map_location=CPU, restrict=True
+                )
             except FileNotFoundError:
                 raise CheckpointNotFoundError(
                     f"Training step {step_nr} has no consolidated model."
@@ -339,12 +376,12 @@ class FileCheckpointManager(CheckpointManager):
                     f"The consolidated model checkpoint of training step {step_nr} cannot be loaded. See nested exception for details."
                 ) from ex
 
-            model_device = infer_device(model)
+            model_device = infer_device(out)
 
             if model_device == META:
                 # Move the model to the actual device without initializing. Its
                 # state will be overwritten by the checkpoint anyways.
-                to_empty(model, device=device or CPU)
+                to_empty(out, device=device or CPU)
 
             # Load the model.
             try:
@@ -355,7 +392,7 @@ class FileCheckpointManager(CheckpointManager):
                 )
 
             try:
-                model.load_state_dict(state_dict)
+                out.load_state_dict(state_dict)
             except (KeyError, ValueError) as ex:
                 raise RuntimeError(
                     f"The consolidated model of training step {step_nr} cannot be loaded. See nested exception for details."
@@ -364,13 +401,13 @@ class FileCheckpointManager(CheckpointManager):
             if model_device == META:
                 # Non-persistent buffers are not included in the checkpoint, so
                 # we have to explicitly initialize them.
-                reset_non_persistent_buffers(model)
+                reset_non_persistent_buffers(out)
 
         self.gang.barrier()
 
     @finaloverride
     def load_last_consolidated_model(
-        self, model: Module, device: Optional[Device] = None
+        self, out: Module, device: Optional[Device] = None
     ) -> int:
         if self.gang.rank == 0:
             last_step_nr = self.get_last_step_number(with_model=True)
@@ -379,7 +416,7 @@ class FileCheckpointManager(CheckpointManager):
         else:
             last_step_nr = 0
 
-        self.load_consolidated_model(last_step_nr, model, device)
+        self.load_consolidated_model(last_step_nr, out, device)
 
         return last_step_nr
 

@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from pathlib import Path
-from typing import Any, Mapping, final
+from typing import Any, Dict, final
 
 import torch
 
@@ -19,8 +19,8 @@ from fairseq2.typing import finaloverride
 
 
 def convert_nllb_checkpoint(
-    checkpoint: Mapping[str, Any], config: NllbConfig
-) -> Mapping[str, Any]:
+    checkpoint: Dict[str, Any], config: NllbConfig
+) -> Dict[str, Any]:
     """Convert a fairseq NLLB checkpoint to fairseq2."""
     state_dict = checkpoint["model"]
 

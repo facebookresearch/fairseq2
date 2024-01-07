@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from pathlib import Path
-from typing import Any, Mapping, final
+from typing import Any, Dict, final
 
 from fairseq2.assets import AssetCard, asset_store, download_manager
 from fairseq2.models.s2t_transformer.builder import (
@@ -21,8 +21,8 @@ from fairseq2.typing import finaloverride
 
 
 def convert_s2t_transformer_checkpoint(
-    checkpoint: Mapping[str, Any], config: S2TTransformerConfig
-) -> Mapping[str, Any]:
+    checkpoint: Dict[str, Any], config: S2TTransformerConfig
+) -> Dict[str, Any]:
     """Convert a fairseq S2T Transformer checkpoint to fairseq2."""
     key_map = {
         # fmt: off

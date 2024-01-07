@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from time import perf_counter
-from typing import Optional
+from typing import Any, Optional
 
 import torch
 from torch.profiler import (
@@ -16,7 +16,7 @@ from torch.profiler import (
     schedule,
     tensorboard_trace_handler,
 )
-from typing_extensions import Any, Self
+from typing_extensions import Self
 
 from fairseq2.data.typing import PathLike
 from fairseq2.gang import Gang
