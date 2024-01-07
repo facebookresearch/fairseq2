@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Mapping
+from typing import Any, Dict
 
 import torch
 
@@ -21,8 +21,8 @@ from fairseq2.nn.transformer import TransformerNormOrder
 
 
 def convert_wav2vec2_checkpoint(
-    checkpoint: Mapping[str, Any], config: Wav2Vec2Config
-) -> Mapping[str, Any]:
+    checkpoint: Dict[str, Any], config: Wav2Vec2Config
+) -> Dict[str, Any]:
     """Convert a fairseq wav2vec 2.0 checkpoint to fairseq2."""
     state_dict = checkpoint["model"]
 

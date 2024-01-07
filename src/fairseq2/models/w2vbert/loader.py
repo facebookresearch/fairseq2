@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Mapping
+from typing import Any, Dict
 
 import torch
 
@@ -20,8 +20,8 @@ from fairseq2.models.w2vbert.model import W2VBertModel
 
 
 def convert_w2vbert_checkpoint(
-    checkpoint: Mapping[str, Any], config: W2VBertConfig
-) -> Mapping[str, Any]:
+    checkpoint: Dict[str, Any], config: W2VBertConfig
+) -> Dict[str, Any]:
     """Convert a fairseq w2v-BERT checkpoint to fairseq2."""
     state_dict = checkpoint["model"]
 

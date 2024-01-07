@@ -24,7 +24,7 @@ MapLocation: TypeAlias = Optional[
 class CheckpointConverter(Protocol):
     """Converts checkpoints to fairseq2."""
 
-    def __call__(self, checkpoint: Mapping[str, Any]) -> Mapping[str, Any]:
+    def __call__(self, checkpoint: Dict[str, Any]) -> Dict[str, Any]:
         """
         :param checkpoint:
             The checkpoint to convert.
@@ -40,7 +40,7 @@ def load_checkpoint(
     map_location: MapLocation = None,
     restrict: bool = False,
     converter: Optional[CheckpointConverter] = None,
-) -> Mapping[str, Any]:
+) -> Dict[str, Any]:
     """Load the checkpoint stored in ``pathname``.
 
     :param pathname:
@@ -66,7 +66,7 @@ def load_checkpoint(
         if _is_pt21_or_greater():
             kwargs["mmap"] = True
 
-        checkpoint: Mapping[str, Any] = torch.load(
+        checkpoint: Dict[str, Any] = torch.load(
             str(pathname), map_location, weights_only=restrict, **kwargs
         )
 
@@ -77,7 +77,7 @@ def load_checkpoint(
 
 
 def convert_model_state_dict(
-    state_dict: Mapping[str, Any], key_map: Mapping[str, str]
+    state_dict: Dict[str, Any], key_map: Mapping[str, str]
 ) -> Dict[str, Any]:
     """Convert a model state dictionary to fairseq2.
 
@@ -108,7 +108,7 @@ def convert_model_state_dict(
 
 
 def convert_fairseq_checkpoint(
-    checkpoint: Mapping[str, Any], key_map: Mapping[str, str]
+    checkpoint: Dict[str, Any], key_map: Mapping[str, str]
 ) -> Dict[str, Any]:
     """Convert a fairseq checkpoint to fairseq2.
 

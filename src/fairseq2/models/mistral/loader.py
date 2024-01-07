@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Mapping
+from typing import Any, Dict
 
 from fairseq2.assets import asset_store, download_manager
 from fairseq2.models.mistral.builder import (
@@ -19,8 +19,8 @@ from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
 
 def convert_mistral_checkpoint(
-    checkpoint: Mapping[str, Any], config: MistralConfig
-) -> Mapping[str, Any]:
+    checkpoint: Dict[str, Any], config: MistralConfig
+) -> Dict[str, Any]:
     """Convert a reference Mistral checkpoint to fairseq2."""
     key_map = {
         # fmt: off
