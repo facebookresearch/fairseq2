@@ -125,7 +125,7 @@ class TestRoundRobinOp:
 
         it = iter(pipeline)
 
-        # Move the the fifth example.
+        # Move to the fifth example.
         for _ in range(5):
             d = next(it)
 

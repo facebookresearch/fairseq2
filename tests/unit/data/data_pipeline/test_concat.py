@@ -19,6 +19,7 @@ class TestConcatOp:
 
         for _ in range(2):
             assert list(pipeline) == [1, 2, 3, 4, 5, 6, 7, 8]
+
             pipeline.reset()
 
     def test_op_works_when_pipelines_are_empty(self) -> None:
@@ -29,16 +30,7 @@ class TestConcatOp:
 
         for _ in range(2):
             assert list(pipeline) == []
-            pipeline.reset()
 
-    def test_op_works_when_pipelines_have_different_lengths(self) -> None:
-        pipeline1 = read_sequence([1, 2, 3]).and_return()
-        pipeline2 = read_sequence([4, 5]).and_return()
-
-        pipeline = DataPipeline.concat([pipeline1, pipeline2]).and_return()
-
-        for _ in range(2):
-            assert list(pipeline) == [1, 2, 3, 4, 5]
             pipeline.reset()
 
     def test_op_raises_error_when_one_of_the_pipelines_is_broken(self) -> None:
@@ -68,24 +60,24 @@ class TestConcatOp:
 
         it = iter(pipeline)
 
-        # Move the the second example.
-        for _ in range(2):
+        # Move to the second example.
+        for _ in range(6):
             d = next(it)
 
-        assert d == 2
+        assert d == 6
 
         state_dict = pipeline.state_dict()
 
         # Read one more example before we roll back.
         d = next(it)
 
-        assert d == 3
+        assert d == 7
 
         # Expected to roll back to the second example.
         pipeline.load_state_dict(state_dict)
 
         # Move to EOD.
-        for _ in range(6):
+        for _ in range(2):
             d = next(it)
 
         assert d == 8

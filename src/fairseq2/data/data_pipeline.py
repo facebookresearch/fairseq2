@@ -79,23 +79,20 @@ if TYPE_CHECKING or DOC_MODE:
             """
 
         @staticmethod
-        def zip(
-            pipelines: Sequence[DataPipeline],
-            names: Optional[Sequence[str]] = None,
-            zip_to_shortest: bool = False,
-            flatten: bool = False,
-            disable_parallelism: bool = False,
-        ) -> DataPipelineBuilder:
-            """Zip together examples read from ``pipelines``.
+        def concat(pipelines: Sequence[DataPipeline]) -> DataPipelineBuilder:
+            """Concatenate examples from ``pipelines``.
 
             :param pipelines:
-                The data pipelines to zip.
-            :param names:
-                The names to assign to the data pipelines.
-            :param flatten:
-            :param disable_parallelism:
-                If ``True``, calls each data pipeline sequentially.
+                The data pipelines to concatenate.
             """
+
+        @staticmethod
+        def constant(example: Any, key: Optional[str] = None) -> DataPipelineBuilder:
+            ...
+
+        @staticmethod
+        def count(start: int = 0, key: Optional[str] = None) -> DataPipelineBuilder:
+            ...
 
         @staticmethod
         def round_robin(
@@ -131,21 +128,23 @@ if TYPE_CHECKING or DOC_MODE:
             """
 
         @staticmethod
-        def constant(example: Any, key: Optional[str] = None) -> DataPipelineBuilder:
-            ...
-
-        @staticmethod
-        def count(start: int = 0, key: Optional[str] = None) -> DataPipelineBuilder:
-            ...
-
-        @staticmethod
-        def concat(pipelines: Sequence[DataPipeline]) -> DataPipelineBuilder:
-            """Concatenate examples from ``pipelines``.
+        def zip(
+            pipelines: Sequence[DataPipeline],
+            names: Optional[Sequence[str]] = None,
+            zip_to_shortest: bool = False,
+            flatten: bool = False,
+            disable_parallelism: bool = False,
+        ) -> DataPipelineBuilder:
+            """Zip together examples read from ``pipelines``.
 
             :param pipelines:
-                The data pipelines to concatenate.
+                The data pipelines to zip.
+            :param names:
+                The names to assign to the data pipelines.
+            :param flatten:
+            :param disable_parallelism:
+                If ``True``, calls each data pipeline sequentially.
             """
-            ...
 
     class DataPipelineBuilder:
         """API to create DataPipeline"""

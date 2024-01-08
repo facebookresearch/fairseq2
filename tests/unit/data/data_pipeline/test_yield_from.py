@@ -41,7 +41,7 @@ class TestYieldFromOp:
 
         it = iter(pipeline)
 
-        # Move the the second example.
+        # Move to the second example.
         for _ in range(2):
             d = next(it)
 

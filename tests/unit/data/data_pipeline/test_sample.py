@@ -201,7 +201,7 @@
 #        it = iter(rdp)
 #
 #        with tmp_rng_seed(cpu_device, seed=1234):
-#            # Move the the fifth example.
+#            # Move to the fifth example.
 #            for _ in range(5):
 #                d = next(it)
 #

@@ -269,13 +269,8 @@ def_data_pipeline(py::module_ &data_module)
 
         // Factories
         .def_static(
-            "zip",
-            [](
-                std::vector<std::reference_wrapper<data_pipeline>> &refs,
-                std::optional<std::vector<std::string>> maybe_names,
-                bool zip_to_shortest,
-                bool flatten,
-                bool disable_parallelism)
+            "concat",
+            [](std::vector<std::reference_wrapper<data_pipeline>> &refs)
             {
                 std::vector<data_pipeline> pipelines{};
 
@@ -286,22 +281,25 @@ def_data_pipeline(py::module_ &data_module)
                         return std::move(r.get());
                     });
 
-                std::vector<std::string> names{};
-                if (maybe_names)
-                    names = *std::move(maybe_names);
-
-                return data_pipeline::zip(
-                    std::move(pipelines),
-                    std::move(names),
-                    zip_to_shortest,
-                    flatten,
-                    disable_parallelism);
+                return data_pipeline::concat(std::move(pipelines));
             },
-            py::arg("pipelines"),
-            py::arg("names") = std::nullopt,
-            py::arg("zip_to_shortest") = false,
-            py::arg("flatten") = false,
-            py::arg("disable_parallelism") = false)
+            py::arg("pipelines"))
+        .def_static(
+            "constant",
+            [](data example, std::optional<std::string> key)
+            {
+                return data_pipeline::constant(std::move(example), std::move(key));
+            },
+            py::arg("example"),
+            py::arg("key") = std::nullopt)
+        .def_static(
+            "count",
+            [](std::int64_t start, std::optional<std::string> key)
+            {
+                return data_pipeline::count(start, std::move(key));
+            },
+            py::arg("start") = 0,
+            py::arg("key") = std::nullopt)
         .def_static(
             "round_robin",
             [](
@@ -344,24 +342,13 @@ def_data_pipeline(py::module_ &data_module)
             py::arg("weights") = std::nullopt,
             py::arg("stop_at_shortest") = false)
         .def_static(
-            "constant",
-            [](data example, std::optional<std::string> key)
-            {
-                return data_pipeline::constant(std::move(example), std::move(key));
-            },
-            py::arg("example"),
-            py::arg("key") = std::nullopt)
-        .def_static(
-            "count",
-            [](std::int64_t start, std::optional<std::string> key)
-            {
-                return data_pipeline::count(start, std::move(key));
-            },
-            py::arg("start") = 0,
-            py::arg("key") = std::nullopt)
-        .def_static(
-            "concat",
-            [](std::vector<std::reference_wrapper<data_pipeline>> &refs)
+            "zip",
+            [](
+                std::vector<std::reference_wrapper<data_pipeline>> &refs,
+                std::optional<std::vector<std::string>> maybe_names,
+                bool zip_to_shortest,
+                bool flatten,
+                bool disable_parallelism)
             {
                 std::vector<data_pipeline> pipelines{};
 
@@ -372,10 +359,23 @@ def_data_pipeline(py::module_ &data_module)
                         return std::move(r.get());
                     });
 
-                return data_pipeline::concat(std::move(pipelines));
+                std::vector<std::string> names{};
+                if (maybe_names)
+                    names = *std::move(maybe_names);
+
+                return data_pipeline::zip(
+                    std::move(pipelines),
+                    std::move(names),
+                    zip_to_shortest,
+                    flatten,
+                    disable_parallelism);
             },
-            py::arg("pipelines"));
-        
+            py::arg("pipelines"),
+            py::arg("names") = std::nullopt,
+            py::arg("zip_to_shortest") = false,
+            py::arg("flatten") = false,
+            py::arg("disable_parallelism") = false);
+
     // DataPipelineIterator
     py::class_<data_pipeline_iterator>(m, "_DataPipelineIterator")
         .def(

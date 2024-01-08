@@ -167,6 +167,105 @@ data_pipeline::check_if_broken() const
 }
 
 data_pipeline_builder
+data_pipeline::concat(std::vector<data_pipeline> pipelines)
+{
+    bool is_broken = std::any_of(
+        pipelines.begin(), pipelines.end(), [](const data_pipeline &pipeline)
+        {
+            return pipeline.is_broken();
+        });
+
+    if (is_broken)
+        throw_<std::invalid_argument>(
+            "At least one of the specified data pipelines is broken and cannot be concatenated.");
+
+    auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
+
+    auto factory = [tmp]() mutable
+    {
+        return std::make_unique<concat_data_source>(std::move(*tmp));
+    };
+
+    return data_pipeline_builder{std::move(factory)};
+}
+
+data_pipeline_builder
+data_pipeline::constant(data example, std::optional<std::string> key)
+{
+    auto factory = [example = std::move(example), key = std::move(key)]() mutable
+    {
+        return std::make_unique<constant_data_source>(std::move(example), std::move(key));
+    };
+
+    return data_pipeline_builder{std::move(factory)};
+}
+
+data_pipeline_builder
+data_pipeline::count(std::int64_t start, std::optional<std::string> key)
+{
+    auto factory = [start, key = std::move(key)]() mutable
+    {
+        return std::make_unique<count_data_source>(start, std::move(key));
+    };
+
+    return data_pipeline_builder{std::move(factory)};
+}
+
+data_pipeline_builder
+data_pipeline::round_robin(std::vector<data_pipeline> pipelines, bool stop_at_shortest)
+{
+    bool is_broken = std::any_of(
+        pipelines.begin(), pipelines.end(), [](const data_pipeline &pipeline)
+        {
+            return pipeline.is_broken();
+        });
+
+    if (is_broken)
+        throw_<std::invalid_argument>(
+            "At least one of the specified data pipelines is broken and cannot be used in round robin.");
+
+    auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
+
+    auto factory = [tmp, stop_at_shortest]() mutable
+    {
+        return std::make_unique<round_robin_data_source>(std::move(*tmp), stop_at_shortest);
+    };
+
+    return data_pipeline_builder{std::move(factory)};
+}
+
+data_pipeline_builder
+data_pipeline::sample(
+    std::vector<data_pipeline> pipelines,
+    std::optional<std::vector<float32>> weights,
+    bool stop_at_shortest)
+{
+    bool is_broken = std::any_of(
+        pipelines.begin(), pipelines.end(), [](const data_pipeline &pipeline)
+        {
+            return pipeline.is_broken();
+        });
+
+    if (is_broken)
+        throw_<std::invalid_argument>(
+            "At least one of the specified data pipelines is broken and cannot be sampled.");
+
+    if (!weights)
+        weights = std::vector<float32>(pipelines.size(), 1.0F / static_cast<float32>(pipelines.size()));
+    else if (weights->size() != pipelines.size())
+        throw_<std::invalid_argument>(
+            "The number of `pipelines` and the number of `weights` must be equal, but are {} and {} instead.", pipelines.size(), weights->size());
+
+    auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
+
+    auto factory = [tmp, weights=std::move(weights.value()), stop_at_shortest]() mutable {
+        return std::make_unique<sample_data_source>(std::move(*tmp), std::move(weights), stop_at_shortest);
+    };
+
+    return data_pipeline_builder{std::move(factory)};
+}
+
+data_pipeline_builder
 data_pipeline::zip(
     std::vector<data_pipeline> pipelines,
     std::vector<std::string> names,
@@ -201,115 +300,6 @@ data_pipeline::zip(
             std::move(*tmp), std::move(names), zip_to_shortest, flatten, disable_parallelism);
     };
 
-    return data_pipeline_builder{std::move(factory)};
-}
-
-data_pipeline_builder
-data_pipeline::round_robin(
-    std::vector<data_pipeline> pipelines,
-    bool stop_at_shortest)
-{
-    bool is_broken = std::any_of(
-        pipelines.begin(), pipelines.end(), [](const data_pipeline &pipeline)
-        {
-            return pipeline.is_broken();
-        });
-
-    if (is_broken)
-        throw_<std::invalid_argument>(
-            "At least one of the specified data pipelines is broken and cannot be used in round robin.");
-
-    auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
-
-    auto factory = [tmp, stop_at_shortest]() mutable
-    {
-        return std::make_unique<round_robin_data_source>(std::move(*tmp), stop_at_shortest);
-    };
-
-    return data_pipeline_builder{std::move(factory)};
-}
-
-data_pipeline_builder
-data_pipeline::sample(
-    std::vector<data_pipeline> pipelines,
-    std::optional<std::vector<float32>> weights,
-    bool stop_at_shortest)
-{
-    if (pipelines.empty())
-        throw_<std::invalid_argument>(
-            "`pipelines` does not contain any elements. Can not sample from empty set.");
-
-    bool is_broken = std::any_of(
-        pipelines.begin(), pipelines.end(), [](const data_pipeline &pipeline)
-        {
-            return pipeline.is_broken();
-        });
-    if (is_broken)
-        throw_<std::invalid_argument>(
-            "At least one of the specified data pipelines is broken and cannot be sampled.");
-
-    if (!weights)
-        weights = std::vector<float32>(pipelines.size(), 1.0F / static_cast<float32>(pipelines.size()));
-    else if (weights.value().size() != pipelines.size())
-        throw_<std::invalid_argument>(
-            "The number of `pipelines` and the number of `weights` must be equal, but are {} and {} instead.", pipelines.size(), weights.value().size());
-
-    auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
-
-    auto factory = [tmp, weights=std::move(weights.value()), stop_at_shortest]() mutable {
-        return std::make_unique<sample_data_source>(std::move(*tmp), std::move(weights), stop_at_shortest);
-    };
-
-    return data_pipeline_builder{std::move(factory)};
-}
-
-data_pipeline_builder
-data_pipeline::constant(data example, std::optional<std::string> key)
-{
-    auto factory = [example = std::move(example), key = std::move(key)]() mutable
-    {
-        return std::make_unique<constant_data_source>(std::move(example), std::move(key));
-    };
-
-    return data_pipeline_builder{std::move(factory)};
-}
-
-data_pipeline_builder
-data_pipeline::count(std::int64_t start, std::optional<std::string> key)
-{
-    auto factory = [start, key = std::move(key)]() mutable
-    {
-        return std::make_unique<count_data_source>(start, std::move(key));
-    };
-
-    return data_pipeline_builder{std::move(factory)};
-}
-
-data_pipeline_builder
-data_pipeline::concat(
-    std::vector<data_pipeline> pipelines)
-{
-    if (pipelines.empty())
-        throw_<std::invalid_argument>(
-            "`pipelines` does not contain any elements. Can not concatenate from empty set.");
-
-    bool is_broken = std::any_of(
-        pipelines.begin(), pipelines.end(), [](const data_pipeline &pipeline)
-        {
-            return pipeline.is_broken();
-        });
-
-    if (is_broken)
-        throw_<std::invalid_argument>(
-            "At least one of the specified data pipelines is broken and cannot be concatenated.");
-
-    auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
-
-    auto factory = [tmp]() mutable
-    {
-        return std::make_unique<concat_data_source>(std::move(*tmp));
-    };
-    
     return data_pipeline_builder{std::move(factory)};
 }
 
