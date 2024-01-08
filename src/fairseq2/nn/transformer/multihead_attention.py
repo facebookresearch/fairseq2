@@ -885,5 +885,6 @@ class StaticAttentionState(AttentionState):
 
     @finaloverride
     def reorder(self, new_order: Tensor) -> None:
-        self.k = self.k.index_select(0, new_order)
-        self.v = self.v.index_select(0, new_order)
+        if new_order.size(0) != self.k.size(0):
+            self.k = self.k.index_select(0, new_order)
+            self.v = self.v.index_select(0, new_order)
