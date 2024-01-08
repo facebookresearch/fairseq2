@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.gang &mdash; fairseq2 0.3.0.dev202401010141 documentation</title>
+  <title>fairseq2.gang &mdash; fairseq2 0.3.0.dev202401080137 documentation</title>
       <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202401010141
+                0.3.0.dev202401080137
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -223,11 +223,11 @@
 
 <div class="viewcode-block" id="Gang.barrier"><a class="viewcode-back" href="../../reference/generated/abc/fairseq2.gang.Gang.html#fairseq2.gang.Gang.barrier">[docs]</a>    <span class="nd">@abstractmethod</span>
     <span class="k">def</span> <span class="nf">barrier</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Synchronize all ranks.&quot;&quot;&quot;</span></div>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Synchronize all processes.&quot;&quot;&quot;</span></div>
 
 <div class="viewcode-block" id="Gang.all_reduce"><a class="viewcode-back" href="../../reference/generated/abc/fairseq2.gang.Gang.html#fairseq2.gang.Gang.all_reduce">[docs]</a>    <span class="nd">@abstractmethod</span>
     <span class="k">def</span> <span class="nf">all_reduce</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tensor</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">op</span><span class="p">:</span> <span class="n">ReduceOperation</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reduce the tensor across all ranks.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Reduce the tensor across all processes.</span>
 
 <span class="sd">        :param tensor:</span>
 <span class="sd">            The input and output tensor of the operation.</span>
@@ -237,12 +237,12 @@
 
 <div class="viewcode-block" id="Gang.all_gather"><a class="viewcode-back" href="../../reference/generated/abc/fairseq2.gang.Gang.html#fairseq2.gang.Gang.all_gather">[docs]</a>    <span class="nd">@abstractmethod</span>
     <span class="k">def</span> <span class="nf">all_gather</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_tensor</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">input_tensor</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Gather tensors from all ranks and put them in a single tensor.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Gather tensors from all processes and put them in a single tensor.</span>
 
 <span class="sd">        :param output_tensor:</span>
-<span class="sd">            The output tensor to accomodate tensor elements from all ranks.</span>
+<span class="sd">            The output tensor to accomodate tensors from all processes.</span>
 <span class="sd">        :param input_tensor:</span>
-<span class="sd">            The tensor to be gathered from the current rank.</span>
+<span class="sd">            The tensor to be gathered from this process.</span>
 <span class="sd">        &quot;&quot;&quot;</span></div></div>
 
 
@@ -320,20 +320,18 @@
 
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;The default process group is already initialized.&quot;</span><span class="p">)</span>
 
-        <span class="n">num_workers</span> <span class="o">=</span> <span class="n">_get_num_workers</span><span class="p">()</span>
+        <span class="n">num_procs</span> <span class="o">=</span> <span class="n">_get_num_processes</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="n">num_threads</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="k">if</span> <span class="n">num_workers</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="s2">&quot;OMP_NUM_THREADS&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">num_procs</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="s2">&quot;OMP_NUM_THREADS&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">:</span>
                 <span class="c1"># To prevent thread oversubscription, we distribute cores evenly</span>
                 <span class="c1"># across workers.</span>
-                <span class="n">num_threads</span> <span class="o">=</span> <span class="n">_get_num_cpus</span><span class="p">(</span><span class="n">num_workers</span><span class="p">)</span>
+                <span class="n">num_threads</span> <span class="o">=</span> <span class="n">_get_num_cpus</span><span class="p">(</span><span class="n">num_procs</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">num_threads</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">torch</span><span class="o">.</span><span class="n">set_num_threads</span><span class="p">(</span><span class="n">num_threads</span><span class="p">)</span>
 
-            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-                <span class="s2">&quot;Setting the number of threads used for intraop parallelism to </span><span class="si">%d</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">num_threads</span>  <span class="c1"># fmt: skip</span>
-            <span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Setting the number of threads used for intraop parallelism to </span><span class="si">%d</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">num_threads</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
 
         <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">device</span> <span class="o">=</span> <span class="n">_determine_default_device</span><span class="p">()</span>
@@ -351,9 +349,7 @@
 
         <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span> <span class="ow">and</span> <span class="s2">&quot;NCCL_ASYNC_ERROR_HANDLING&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">warn_only</span><span class="p">:</span>
-                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-                    <span class="s2">&quot;The default process group will use the NCCL backend, but the `NCCL_ASYNC_ERROR_HANDLING` environment variable is not set. Your collective communication calls can hang indefinitely. Learn more at https://github.com/pytorch/pytorch/issues/46874.&quot;</span>
-                <span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;The default process group will use the NCCL backend, but the `NCCL_ASYNC_ERROR_HANDLING` environment variable is not set. Your collective communication calls can hang indefinitely. Learn more at https://github.com/pytorch/pytorch/issues/46874.&quot;</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
                     <span class="s2">&quot;The default process group will use the NCCL backend, but the `NCCL_ASYNC_ERROR_HANDLING` environment variable is not set. Learn more at https://github.com/pytorch/pytorch/issues/46874.&quot;</span>
@@ -447,14 +443,14 @@
         <span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">_get_num_cpus</span><span class="p">(</span><span class="n">num_workers</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="k">def</span> <span class="nf">_get_num_cpus</span><span class="p">(</span><span class="n">num_procs</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
     <span class="n">num_cpus</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">cpu_count</span><span class="p">()</span>
     <span class="k">if</span> <span class="n">num_cpus</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;The number of CPU cores cannot be determined.&quot;</span><span class="p">)</span>
 
         <span class="k">return</span> <span class="mi">1</span>
 
-    <span class="n">max_num_cpus</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">num_cpus</span> <span class="o">//</span> <span class="n">num_workers</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">max_num_cpus</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">num_cpus</span> <span class="o">//</span> <span class="n">num_procs</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
 
     <span class="c1"># We should not exceed the number of cores available in the affinity mask.</span>
     <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="n">max_num_cpus</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">sched_getaffinity</span><span class="p">(</span><span class="mi">0</span><span class="p">)))</span>
@@ -519,17 +515,17 @@
     <span class="k">return</span> <span class="n">device_idx</span>
 
 
-<span class="k">def</span> <span class="nf">_get_num_workers</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-    <span class="n">num_workers</span> <span class="o">=</span> <span class="n">_get_int_from_env</span><span class="p">(</span><span class="s2">&quot;LOCAL_WORLD_SIZE&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">num_workers</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<span class="k">def</span> <span class="nf">_get_num_processes</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+    <span class="n">num_procs</span> <span class="o">=</span> <span class="n">_get_int_from_env</span><span class="p">(</span><span class="s2">&quot;LOCAL_WORLD_SIZE&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">num_procs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">return</span> <span class="mi">1</span>
 
-    <span class="k">if</span> <span class="n">num_workers</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">num_procs</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;The value of the `LOCAL_WORLD_SIZE` environment variable must be greater than 0, but is </span><span class="si">{</span><span class="n">num_workers</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;The value of the `LOCAL_WORLD_SIZE` environment variable must be greater than 0, but is </span><span class="si">{</span><span class="n">num_procs</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
         <span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">num_workers</span>
+    <span class="k">return</span> <span class="n">num_procs</span>
 
 
 <span class="k">def</span> <span class="nf">_get_int_from_env</span><span class="p">(</span><span class="n">var_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
@@ -545,11 +541,9 @@
         <span class="p">)</span>
 
 
-<span class="k">def</span> <span class="nf">is_coordinator_process</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return ``True`` if this process is the coordinator of the running job.&quot;&quot;&quot;</span>
-    <span class="n">rank</span> <span class="o">=</span> <span class="n">_get_int_from_env</span><span class="p">(</span><span class="s2">&quot;RANK&quot;</span><span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">rank</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">rank</span> <span class="o">==</span> <span class="mi">0</span>
+<span class="k">def</span> <span class="nf">get_global_rank</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the global rank of this process in the running job.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_get_int_from_env</span><span class="p">(</span><span class="s2">&quot;RANK&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">0</span>
 </pre></div>
 
            </div>
