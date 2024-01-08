@@ -236,9 +236,7 @@ data_pipeline::round_robin(std::vector<data_pipeline> pipelines, bool stop_at_sh
 
 data_pipeline_builder
 data_pipeline::sample(
-    std::vector<data_pipeline> pipelines,
-    std::optional<std::vector<float32>> weights,
-    bool stop_at_shortest)
+    std::vector<data_pipeline> pipelines, std::optional<std::vector<float32>> maybe_weights)
 {
     bool is_broken = std::any_of(
         pipelines.begin(), pipelines.end(), [](const data_pipeline &pipeline)
@@ -250,16 +248,28 @@ data_pipeline::sample(
         throw_<std::invalid_argument>(
             "At least one of the specified data pipelines is broken and cannot be sampled.");
 
-    if (!weights)
-        weights = std::vector<float32>(pipelines.size(), 1.0F / static_cast<float32>(pipelines.size()));
-    else if (weights->size() != pipelines.size())
+    std::vector<float32> weights{};
+
+    if (maybe_weights)
+        weights = *maybe_weights;
+    else if (!pipelines.empty())
+        weights = std::vector<float32>(
+            pipelines.size(), 1.0F / static_cast<float32>(pipelines.size()));
+
+    if (weights.size() != pipelines.size())
         throw_<std::invalid_argument>(
-            "The number of `pipelines` and the number of `weights` must be equal, but are {} and {} instead.", pipelines.size(), weights->size());
+            "The number of `pipelines` and the number of `weights` must be equal, but are {} and {} instead.", pipelines.size(), weights.size());
+
+    for (std::size_t i = 0; i < weights.size(); i++) {
+        if (float32 weight = weights[i]; weight < 0.0F || are_close(weight, 0.0F))
+            throw_<std::invalid_argument>(
+                "The `weights` must be greater than 0.0, but the weight at index {} is {} instead.", i, weight);
+    }
 
     auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));
 
-    auto factory = [tmp, weights=std::move(weights.value()), stop_at_shortest]() mutable {
-        return std::make_unique<sample_data_source>(std::move(*tmp), std::move(weights), stop_at_shortest);
+    auto factory = [tmp, weights=std::move(weights)]() mutable {
+        return std::make_unique<sample_data_source>(std::move(*tmp), std::move(weights));
     };
 
     return data_pipeline_builder{std::move(factory)};

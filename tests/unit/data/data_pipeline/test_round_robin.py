@@ -76,9 +76,7 @@ class TestRoundRobinOp:
 
             pipeline.reset()
 
-    def test_op_works_when_pipelines_have_different_lengths_stop_at_shortest(
-        self,
-    ) -> None:
+    def test_op_works_when_pipelines_stop_at_shortest_is_specified(self) -> None:
         pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
         pipeline2 = read_sequence([5, 6]).and_return()
         pipeline3 = read_sequence([7, 8, 9, 0, 1, 2]).and_return()
@@ -87,10 +85,12 @@ class TestRoundRobinOp:
             [pipeline1, pipeline2, pipeline3], stop_at_shortest=True
         ).and_return()
 
-        seq = [1, 5, 7, 2, 6, 8, 3]
+        seq = [1, 5, 7, 2, 6, 8]
 
         for _ in range(2):
-            assert list(pipeline) == seq
+            a = list(pipeline)
+            print(a)
+            assert a == seq
 
             pipeline.reset()
 

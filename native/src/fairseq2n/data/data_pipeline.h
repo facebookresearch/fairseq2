@@ -85,10 +85,7 @@ public:
     round_robin(std::vector<data_pipeline> pipelines, bool stop_at_shortest = false);
 
     static data_pipeline_builder
-    sample(
-        std::vector<data_pipeline> pipelines,
-        std::optional<std::vector<float>> weights = {},
-        bool stop_at_shortest = false);
+    sample(std::vector<data_pipeline> pipelines, std::optional<std::vector<float>> weights = {});
 
     static data_pipeline_builder
     zip(

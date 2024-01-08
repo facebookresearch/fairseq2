@@ -14,15 +14,13 @@
 
 #include "fairseq2n/data/data_pipeline.h"
 #include "fairseq2n/data/data_source.h"
-#include "fairseq2n/data/composite_data_source.h"
 
 namespace fairseq2n::detail {
 
-/// @brief sample from a list of datasources
 class sample_data_source final : public data_source {
 public:
     explicit
-    sample_data_source(std::vector<data_pipeline> &&pipelines, std::vector<float32> &&weights, bool stop_at_shortest);
+    sample_data_source(std::vector<data_pipeline> &&pipelines, std::vector<float32> &&weights);
 
     std::optional<data>
     next() override;
@@ -38,13 +36,21 @@ public:
 
 private:
     std::size_t
-    next_index();
+    random_pipeline_index();
+
+    data
+    next_in_pipeline(std::size_t pipeline_idx);
+
+    bool
+    are_all_done() noexcept;
 
 private:
-    std::unique_ptr<composite_data_source> inner_;
-
+    std::vector<data_pipeline> pipelines_;
     at::Generator generator_;
     at::Tensor weights_;
+    std::vector<data> buffer_{};
+    std::vector<bool> is_epoch_done_;
+    bool is_eod_ = false;
 };
 
 }  // namespace fairseq2::detail

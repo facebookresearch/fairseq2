@@ -11,8 +11,8 @@ namespace fairseq2n::detail {
 std::optional<data>
 concat_data_source::next()
 {
-    for (data_pipeline &p : pipelines_) {
-        if (std::optional<data> maybe_example = p.next())
+    for (data_pipeline &pipeline : pipelines_) {
+        if (std::optional<data> maybe_example = pipeline.next())
             return maybe_example;
     }
 
@@ -27,14 +27,14 @@ void concat_data_source::reset()
 
 void concat_data_source::record_position(tape &t) const
 {
-    for (const data_pipeline &p : pipelines_)
-        p.record_position(t);
+    for (const data_pipeline &pipeline : pipelines_)
+        pipeline.record_position(t);
 }
 
 void concat_data_source::reload_position(tape &t)
 {
-    for (data_pipeline &p : pipelines_)
-        p.reload_position(t);
+    for (data_pipeline &pipeline : pipelines_)
+        pipeline.reload_position(t);
 }
 
 } // namespace fairseq2n::detail

@@ -303,8 +303,7 @@ def_data_pipeline(py::module_ &data_module)
         .def_static(
             "round_robin",
             [](
-                std::vector<std::reference_wrapper<data_pipeline>> &refs,
-                bool stop_at_shortest)
+                std::vector<std::reference_wrapper<data_pipeline>> &refs, bool stop_at_shortest)
             {
                 std::vector<data_pipeline> pipelines{};
 
@@ -323,8 +322,7 @@ def_data_pipeline(py::module_ &data_module)
             "sample",
             [](
                 std::vector<std::reference_wrapper<data_pipeline>> &refs,
-                std::optional<std::vector<float>> weights,
-                bool stop_at_shortest)
+                std::optional<std::vector<float>> weights)
             {
                 std::vector<data_pipeline> pipelines{};
 
@@ -335,12 +333,10 @@ def_data_pipeline(py::module_ &data_module)
                         return std::move(r.get());
                     });
 
-                return data_pipeline::sample(
-                    std::move(pipelines), std::move(weights), stop_at_shortest);
+                return data_pipeline::sample(std::move(pipelines), std::move(weights));
             },
             py::arg("pipelines"),
-            py::arg("weights") = std::nullopt,
-            py::arg("stop_at_shortest") = false)
+            py::arg("weights") = std::nullopt)
         .def_static(
             "zip",
             [](
