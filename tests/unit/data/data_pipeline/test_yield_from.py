@@ -8,7 +8,7 @@ from typing import Tuple
 
 import pytest
 
-from fairseq2.data import DataPipeline, read_sequence
+from fairseq2.data import DataPipeline, DataPipelineError, read_sequence
 
 
 class TestYieldFromOp:
@@ -26,6 +26,18 @@ class TestYieldFromOp:
             assert list(pipeline) == [1, 2, 3, 4, 9, 10, 11, 12, 13]
 
             pipeline.reset()
+
+    def test_op_raises_error_when_yield_from_is_infinite(self) -> None:
+        def fn(d: int) -> DataPipeline:
+            return DataPipeline.constant(0).and_return()
+
+        pipeline = read_sequence([1]).yield_from(fn).and_return()
+
+        with pytest.raises(
+            DataPipelineError,
+            match=r"^The data pipeline to yield from cannot be infinite\.$",
+        ):
+            next(iter(pipeline))
 
     def test_op_saves_and_restores_its_state(self) -> None:
         def fn(d: Tuple[int, int]) -> DataPipeline:

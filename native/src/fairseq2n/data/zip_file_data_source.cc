@@ -77,6 +77,12 @@ zip_file_data_source::reload_position(tape &t)
         next();
 }
 
+bool
+zip_file_data_source::is_infinite() const noexcept
+{
+    return false;
+}
+
 void
 zip_file_data_source::handle_error()
 {

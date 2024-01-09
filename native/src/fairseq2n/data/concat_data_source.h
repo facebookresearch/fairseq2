@@ -17,9 +17,7 @@ namespace fairseq2n::detail {
 class concat_data_source final : public data_source {
 public:
     explicit
-    concat_data_source(std::vector<data_pipeline> &&pipelines) noexcept
-      : pipelines_(std::move(pipelines))
-    {}
+    concat_data_source(std::vector<data_pipeline> &&pipelines) noexcept;
 
     std::optional<data>
     next() override;
@@ -33,8 +31,12 @@ public:
     void
     reload_position(tape &t) override;
 
+    bool
+    is_infinite() const noexcept override;
+
 private:
     std::vector<data_pipeline> pipelines_;
+    bool is_infinite_;
 };
 
 }  // namespace fairseq2n::detail

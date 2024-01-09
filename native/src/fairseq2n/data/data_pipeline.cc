@@ -136,6 +136,19 @@ data_pipeline::reload_position(tape &t)
         reset();
 }
 
+bool
+data_pipeline::is_infinite() const
+{
+    check_if_broken();
+
+    ensure_initialized();
+
+    if (!source_)
+        return false;
+
+    return source_->is_infinite();
+}
+
 inline bool
 data_pipeline::is_initialized() const noexcept
 {
@@ -143,7 +156,7 @@ data_pipeline::is_initialized() const noexcept
 }
 
 void
-data_pipeline::ensure_initialized()
+data_pipeline::ensure_initialized() const
 {
     if (factory_ == nullptr)
         return;

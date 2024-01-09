@@ -32,6 +32,9 @@ public:
     void
     reload_position(tape &t) override;
 
+    bool
+    is_infinite() const noexcept override;
+
 private:
     data_list list_;
     data_list::iterator iter_;

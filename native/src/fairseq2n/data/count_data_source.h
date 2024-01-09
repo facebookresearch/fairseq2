@@ -31,6 +31,9 @@ public:
     void
     reload_position(tape &t) override;
 
+    bool
+    is_infinite() const noexcept override;
+
 private:
     std::int64_t start_;
     std::int64_t counter_;

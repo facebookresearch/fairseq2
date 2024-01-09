@@ -217,6 +217,8 @@ def_data_pipeline(py::module_ &data_module)
 
         .def("reset", &data_pipeline::reset, py::call_guard<py::gil_scoped_release>{})
 
+        .def("is_infinite", &data_pipeline::is_infinite)
+
         .def_property_readonly("is_broken", &data_pipeline::is_broken)
 
         // state_dict

@@ -6,6 +6,8 @@
 
 #include "fairseq2n/data/round_robin_data_source.h"
 
+#include <algorithm>
+
 namespace fairseq2n::detail {
 
 round_robin_data_source::round_robin_data_source(
@@ -15,6 +17,12 @@ round_robin_data_source::round_robin_data_source(
     stop_at_shortest_{stop_at_shortest}
 {
     buffer_.reserve(pipelines_.size());
+
+    is_infinite_ = std::all_of(
+        pipelines_.begin(), pipelines_.end(), [](const data_pipeline &p)
+        {
+            return p.is_infinite();
+        });
 }
 
 std::optional<data>
@@ -97,6 +105,12 @@ round_robin_data_source::reload_position(tape &t)
         pipeline.reload_position(t);
 }
 
+bool
+round_robin_data_source::is_infinite() const noexcept
+{
+    return is_infinite_;
+}
+
 std::optional<data>
 round_robin_data_source::next_in_pipeline(std::size_t pipeline_idx)
 {
@@ -110,7 +124,8 @@ round_robin_data_source::next_in_pipeline(std::size_t pipeline_idx)
 
         // Circle back to the first example.
         maybe_example = pipeline.next();
-    }
+    } else if (pipeline.is_infinite())
+        is_epoch_done_[pipeline_idx] = true;
 
     return maybe_example;
 }

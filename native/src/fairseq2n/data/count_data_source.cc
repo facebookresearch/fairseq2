@@ -37,4 +37,10 @@ count_data_source::reload_position(tape &t)
     counter_ = t.read<std::int64_t>();
 }
 
+bool
+count_data_source::is_infinite() const noexcept
+{
+    return true;
+}
+
 }
