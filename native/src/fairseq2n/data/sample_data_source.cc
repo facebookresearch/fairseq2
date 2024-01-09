@@ -43,9 +43,7 @@ sample_data_source::next()
 
     std::size_t pipeline_idx = random_pipeline_index();
 
-    data example = std::exchange(buffer_[pipeline_idx], next_in_pipeline(pipeline_idx));
-
-    return std::move(example);
+    return std::exchange(buffer_[pipeline_idx], next_in_pipeline(pipeline_idx));
 }
 
 void
