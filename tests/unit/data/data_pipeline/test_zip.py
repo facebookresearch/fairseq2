@@ -91,9 +91,7 @@ class TestZipOp:
 
     def test_op_works_when_flatten_is_true_and_inputs_are_dicts(self) -> None:
         pipeline1 = read_sequence([{"foo1": 1}, {"foo1": 2}, {"foo1": 3}]).and_return()
-        pipeline2 = read_sequence(
-            [{"foo2": 4, "foo3": 5}, {"foo2": 6, "foo3": 7}, {"foo2": 8, "foo3": 9}]
-        ).and_return()
+        pipeline2 = read_sequence([{"foo2": 4, "foo3": 5}, {"foo2": 6, "foo3": 7}, {"foo2": 8, "foo3": 9}]).and_return()  # fmt: skip
         pipeline3 = read_sequence([{"foo4": 2}, {"foo4": 3}, {"foo4": 4}]).and_return()
 
         pipeline = DataPipeline.zip(

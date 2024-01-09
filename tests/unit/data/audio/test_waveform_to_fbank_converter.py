@@ -132,10 +132,10 @@ class TestWaveformToFbankConverter:
 
         with pytest.raises(
             ValueError,
-            match=r"^The input sample rate must be representable in single precision \(32-bit\), but is 3\.5E\+38 instead\.$",
+            match=r"^The input sample rate must be representable in single precision \(32-bit\), but is 3\.41E\+38 instead\.$",
         ):
             converter(
-                {"waveform": torch.zeros((), device=device), "sample_rate": 3.5e38}
+                {"waveform": torch.zeros((), device=device), "sample_rate": 3.41e38}
             )
 
     def test_call_raises_error_when_sample_rate_is_less_than_100(self) -> None:

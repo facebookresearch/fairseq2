@@ -37,6 +37,12 @@ template <typename T, typename = std::enable_if_t<std::is_floating_point_v<T>>>
 inline constexpr bool
 are_close(T lhs, T rhs, T rel = detail::rel<T>::value) noexcept
 {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wfloat-equal"
+    if (lhs == rhs)
+        return true;
+#pragma GCC diagnostic pop
+
     return std::abs(rhs - lhs) < rel * std::max(std::abs(lhs), std::abs(rhs));
 }
 

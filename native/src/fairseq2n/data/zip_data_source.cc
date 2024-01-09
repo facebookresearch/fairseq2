@@ -155,21 +155,21 @@ zip_data_source::flatten_to_list(data_list &zip)
 void
 zip_data_source::reset()
 {
-    for (auto &pipeline : pipelines_)
+    for (data_pipeline &pipeline : pipelines_)
         pipeline.reset();
 }
 
 void
 zip_data_source::record_position(tape &t) const
 {
-    for (auto &pipeline : pipelines_)
+    for (const data_pipeline &pipeline : pipelines_)
         pipeline.record_position(t);
 }
 
 void
 zip_data_source::reload_position(tape &t)
 {
-    for (auto &pipeline : pipelines_)
+    for (data_pipeline &pipeline : pipelines_)
         pipeline.reload_position(t);
 }
 
