@@ -44,7 +44,7 @@ waveform_to_fbank_converter::operator()(data &&d) const
             throw_<std::invalid_argument>(
                 "The input sample rate must be greater than or equal to 100, but is {:G} instead.", sample_rate);
 
-        std::lock_guard<std::mutex> init_lock{init_mutex_};
+        std::lock_guard<std::mutex> init_guard{init_mutex_};
 
         if (computer_ == nullptr)
             init_computer(sample_rate);

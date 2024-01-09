@@ -6,12 +6,11 @@
 
 #pragma once
 
-#include <memory>
 #include <vector>
 
 #include <ATen/Generator.h>
-#include <ATen/Tensor.h>
 
+#include "fairseq2n/float.h"
 #include "fairseq2n/data/data_pipeline.h"
 #include "fairseq2n/data/data_source.h"
 
@@ -47,7 +46,7 @@ private:
 private:
     std::vector<data_pipeline> pipelines_;
     at::Generator generator_;
-    at::Tensor weights_;
+    std::vector<float32> weight_cumsums_;
     std::vector<data> buffer_{};
     std::vector<bool> is_epoch_done_;
     bool is_eod_ = false;
