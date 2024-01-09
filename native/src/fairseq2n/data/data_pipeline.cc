@@ -7,6 +7,7 @@
 #include "fairseq2n/data/data_pipeline.h"
 
 #include <algorithm>
+#include <cmath>
 #include <exception>
 #include <system_error>
 #include <utility>
@@ -261,9 +262,15 @@ data_pipeline::sample(
             "The number of `pipelines` and the number of `weights` must be equal, but are {} and {} instead.", pipelines.size(), weights.size());
 
     for (std::size_t i = 0; i < weights.size(); i++) {
-        if (float32 weight = weights[i]; weight < 0.0F || are_close(weight, 0.0F))
+        float32 weight = weights[i];
+
+        if (weight < 0.0F || are_close(weight, 0.0F))
             throw_<std::invalid_argument>(
                 "The `weights` must be greater than 0.0, but the weight at index {} is {} instead.", i, weight);
+
+        if (!std::isfinite(weight))
+            throw_<std::invalid_argument>(
+                "The `weights` must be finite, but the weight at index {} is infinite or NaN instead.", i);
     }
 
     auto tmp = std::make_shared<std::vector<data_pipeline>>(std::move(pipelines));

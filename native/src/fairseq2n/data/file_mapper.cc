@@ -125,7 +125,7 @@ file_mapper::operator()(data &&d) const
 memory_block
 file_mapper::get_memory_map(const immutable_string &pathname) const
 {
-    std::lock_guard<std::mutex> cache_lock{cache_mutex_};
+    std::lock_guard<std::mutex> cache_guard{cache_mutex_};
 
     // Check the LRU cache first.
     memory_block *maybe_cached_block = cache_.maybe_get(pathname);

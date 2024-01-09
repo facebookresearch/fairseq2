@@ -118,11 +118,11 @@ shuffle_data_source::reload_position(tape &t)
 std::size_t
 shuffle_data_source::random_index()
 {
-    std::lock_guard<std::mutex> g_lock{generator_.mutex()};
+    std::lock_guard<std::mutex> guard{generator_.mutex()};
 
-    auto *cpu_generator = at::check_generator<at::CPUGeneratorImpl>(generator_);
+    auto *gen = at::check_generator<at::CPUGeneratorImpl>(generator_);
 
-    std::uint64_t nr = cpu_generator->random64();
+    std::uint64_t nr = gen->random64();
 
     return conditional_cast<std::size_t>(nr) % buffer_.size();
 }

@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import math
+
 import pytest
 import torch
 
@@ -18,11 +20,11 @@ class TestSampleOp:
         pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
         pipeline2 = read_sequence([5, 6, 7]).and_return()
 
-        pipeline = DataPipeline.sample([pipeline1, pipeline2], [0.6, 0.4]).and_return()
+        pipeline = DataPipeline.sample([pipeline1, pipeline2], [1.2, 0.8]).and_return()
 
         for _ in range(2):
             with tmp_rng_seed(CPU, seed=1234):
-                assert list(pipeline) == [1, 2, 5, 3, 4, 1, 2, 3, 6, 7]
+                assert list(pipeline) == [1, 2, 3, 4, 1, 5, 2, 3, 6, 4, 7]
 
             pipeline.reset()
 
@@ -35,7 +37,7 @@ class TestSampleOp:
 
         for _ in range(2):
             with tmp_rng_seed(CPU, seed=1234):
-                assert list(pipeline) == [4, 1, 5, 7, 2, 8, 9, 7, 8, 6, 3]
+                assert list(pipeline) == [1, 4, 2, 5, 3, 7, 1, 6, 8, 2, 9]
 
             pipeline.reset()
 
@@ -72,7 +74,7 @@ class TestSampleOp:
         ):
             next(iter(pipeline))
 
-    def test_op_raises_error_when_weight_is_negative_or_zero(self) -> None:
+    def test_op_raises_error_when_weight_is_not_valid(self) -> None:
         pipeline1 = read_sequence([1, 2]).and_return()
         pipeline2 = read_sequence([3, 4]).and_return()
         pipeline3 = read_sequence([5, 6]).and_return()
@@ -91,6 +93,14 @@ class TestSampleOp:
         ):
             DataPipeline.sample(
                 [pipeline1, pipeline2, pipeline3], [0.5, 0.0, 0.2]
+            ).and_return()
+
+        with pytest.raises(
+            ValueError,
+            match=r"^The `weights` must be finite, but the weight at index 0 is infinite or NaN instead\.$",
+        ):
+            DataPipeline.sample(
+                [pipeline1, pipeline2, pipeline3], [math.inf, 0.3, 0.2]
             ).and_return()
 
     def test_op_raises_error_when_the_number_of_pipelines_and_weights_do_not_match(
@@ -128,7 +138,7 @@ class TestSampleOp:
         pipeline3 = read_sequence([0, 2, 4, 6]).and_return()
 
         pipeline = DataPipeline.sample([pipeline1, pipeline2, pipeline3]).and_return()
-        # [5, 1, 6, 0, 2, 2, 4, 6, 0, 7, 3, 2, 8, 4]
+        # [1, 5, 2, 6, 3, 0, 4, 7, 2, 1, 4, 8, 6]
 
         d = None
 
@@ -139,7 +149,7 @@ class TestSampleOp:
             for _ in range(5):
                 d = next(it)
 
-            assert d == 2
+            assert d == 3
 
             rng = torch.get_rng_state()
 
@@ -149,7 +159,7 @@ class TestSampleOp:
             for _ in range(3):
                 d = next(it)
 
-            assert d == 6
+            assert d == 7
 
             torch.set_rng_state(rng)
 
@@ -157,10 +167,10 @@ class TestSampleOp:
             pipeline.load_state_dict(state_dict)
 
             # Move to EOD.
-            for _ in range(9):
+            for _ in range(8):
                 d = next(it)
 
-            assert d == 4
+            assert d == 6
 
             rng = torch.get_rng_state()
 
