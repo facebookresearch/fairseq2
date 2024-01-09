@@ -61,6 +61,18 @@ class TestSampleOp:
 
             pipeline.reset()
 
+    def test_op_works_when_infinite_pipeline_is_specified(self) -> None:
+        pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
+        pipeline2 = DataPipeline.count(5).and_return()
+
+        pipeline = DataPipeline.sample([pipeline1, pipeline2], [0.4, 0.6]).and_return()
+
+        for _ in range(2):
+            with tmp_rng_seed(CPU, seed=1234):
+                assert list(pipeline) == [1, 5, 2, 3, 4]
+
+            pipeline.reset()
+
     def test_op_raises_error_when_pipeline_is_empty(self) -> None:
         pipeline1 = read_sequence([1, 2]).and_return()
         pipeline2 = read_sequence([]).and_return()

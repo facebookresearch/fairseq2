@@ -106,6 +106,12 @@ prefetch_data_source::reload_position(tape &t)
     inner_->reload_position(t);
 }
 
+bool
+prefetch_data_source::is_infinite() const noexcept
+{
+    return inner_->is_infinite();
+}
+
 void
 prefetch_data_source::ensure_prefetch_thread_running()
 {

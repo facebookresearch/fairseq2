@@ -37,4 +37,10 @@ list_data_source::reload_position(tape &t)
     iter_ = list_.begin() + t.read<std::ptrdiff_t>();
 }
 
+bool
+list_data_source::is_infinite() const noexcept
+{
+    return false;
+}
+
 }

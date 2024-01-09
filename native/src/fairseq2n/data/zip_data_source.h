@@ -37,6 +37,9 @@ public:
     void
     reload_position(tape &t) override;
 
+    bool
+    is_infinite() const noexcept override;
+
 private:
     static std::optional<data>
     flatten_to_dict(data_list &zip);

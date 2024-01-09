@@ -51,6 +51,9 @@ if TYPE_CHECKING or DOC_MODE:
         def reset(self) -> None:
             """Move back to the first example in the data pipeline."""
 
+        def is_infinite(self) -> bool:
+            ...
+
         @property
         def is_broken(self) -> bool:
             """Return ``True`` if the data pipeline is broken.

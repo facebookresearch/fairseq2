@@ -57,4 +57,10 @@ bucket_data_source::reload_position(tape &t)
     inner_->reload_position(t);
 }
 
+bool
+bucket_data_source::is_infinite() const noexcept
+{
+    return inner_->is_infinite();
+}
+
 }  // namespace fairseq2n::detail

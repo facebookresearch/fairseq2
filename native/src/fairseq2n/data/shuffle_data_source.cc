@@ -115,6 +115,12 @@ shuffle_data_source::reload_position(tape &t)
     inner_->reload_position(t);
 }
 
+bool
+shuffle_data_source::is_infinite() const noexcept
+{
+    return inner_->is_infinite();
+}
+
 std::size_t
 shuffle_data_source::random_index()
 {

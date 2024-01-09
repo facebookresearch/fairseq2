@@ -32,6 +32,9 @@ public:
     void
     reload_position(tape &t) override;
 
+    bool
+    is_infinite() const noexcept override;
+
 private:
     std::optional<data>
     next_in_pipeline(std::size_t pipeline_idx);
@@ -46,6 +49,7 @@ private:
     std::vector<bool> is_epoch_done_;
     bool is_eod_ = false;
     bool stop_at_shortest_;
+    bool is_infinite_;
 };
 
 }  // namespace fairseq2n::detail

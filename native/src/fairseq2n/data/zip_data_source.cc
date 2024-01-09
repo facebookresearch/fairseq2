@@ -47,9 +47,12 @@ zip_data_source::next()
     {
         for (auto i = begin; i < end; ++i) {
             std::optional<data> maybe_example = pipelines_[i].next();
-            if (maybe_example)
+            if (maybe_example) {
                 zip[i] = *std::move(maybe_example);
-            else
+
+                if (pipelines_[i].is_infinite())
+                    is_eod[i] = 2;
+            } else
                 is_eod[i] = 1;
         }
     };
@@ -63,7 +66,7 @@ zip_data_source::next()
     bool are_in_sync = std::all_of(
         is_eod.begin() + 1, is_eod.end(), [&is_eod](std::int8_t b)
         {
-            return b == is_eod[0];
+            return b == 2 || b == is_eod[0];
         });
 
     if (!are_in_sync) {
@@ -171,6 +174,12 @@ zip_data_source::reload_position(tape &t)
 {
     for (data_pipeline &pipeline : pipelines_)
         pipeline.reload_position(t);
+}
+
+bool
+zip_data_source::is_infinite() const noexcept
+{
+    return false;
 }
 
 }  // namespace fairseq2n::detail

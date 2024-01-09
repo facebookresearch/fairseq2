@@ -86,6 +86,12 @@ text_data_source::reload_position(tape &t)
         read_next_line();
 }
 
+bool
+text_data_source::is_infinite() const noexcept
+{
+    return false;
+}
+
 std::unique_ptr<text_line_reader>
 text_data_source::make_text_line_reader()
 {

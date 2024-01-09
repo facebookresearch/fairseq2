@@ -6,6 +6,7 @@
 
 #include "fairseq2n/data/sample_data_source.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <mutex>
 #include <stdexcept>
@@ -43,6 +44,12 @@ sample_data_source::sample_data_source(
     }
 
     buffer_.reserve(pipelines_.size());
+
+    is_infinite_ = std::all_of(
+        pipelines_.begin(), pipelines_.end(), [](const data_pipeline &p)
+        {
+            return p.is_infinite();
+        });
 }
 
 std::optional<data>
@@ -99,6 +106,12 @@ sample_data_source::reload_position(tape &t)
         pipeline.reload_position(t);
 }
 
+bool
+sample_data_source::is_infinite() const noexcept
+{
+    return is_infinite_;
+}
+
 std::size_t
 sample_data_source::random_pipeline_index()
 {
@@ -139,7 +152,8 @@ sample_data_source::next_in_pipeline(std::size_t pipeline_idx)
         if (!maybe_example)
             throw_data_pipeline_error(/*maybe_example=*/std::nullopt, /*recoverable=*/false,
                 "The data pipeline at index {} is empty and cannot be sampled.", pipeline_idx);
-    }
+    } else if (pipeline.is_infinite())
+        is_epoch_done_[pipeline_idx] = true;
 
     return std::move(*maybe_example);
 }

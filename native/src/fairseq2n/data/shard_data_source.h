@@ -36,6 +36,9 @@ public:
     void
     reload_position(tape &t) override;
 
+    bool
+    is_infinite() const noexcept override;
+
 private:
     std::unique_ptr<data_source> inner_;
     std::size_t shard_idx_;

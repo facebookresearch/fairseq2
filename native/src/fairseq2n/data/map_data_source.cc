@@ -79,6 +79,12 @@ map_data_source::reload_position(tape &t)
 }
 
 bool
+map_data_source::is_infinite() const noexcept
+{
+    return inner_->is_infinite();
+}
+
+bool
 map_data_source::fill_buffer()
 {
     buffer_.clear();
