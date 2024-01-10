@@ -129,7 +129,7 @@ class TestZipOp:
 
         with pytest.raises(
             DataPipelineError,
-            match=r"^The zipped data pipelines must all have the same length, but the data pipelines at the following indices have more examples than the others\. Indices: 1, 2$",
+            match=r"^The zipped data pipelines must all have the same number of examples, but the data pipelines at the indices \[1, 2\] have more examples than the others\.$",
         ):
             for d in pipeline:
                 pass
