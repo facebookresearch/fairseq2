@@ -102,9 +102,7 @@ class TestRoundRobinOp:
         seq = [1, 5, 7, 2, 6, 8]
 
         for _ in range(2):
-            a = list(pipeline)
-            print(a)
-            assert a == seq
+            assert list(pipeline) == seq
 
             pipeline.reset()
 
