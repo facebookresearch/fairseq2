@@ -64,13 +64,13 @@ zip_data_source::next()
 
     // Check whether all data pipelines are in sync.
     bool are_eod = std::all_of(
-        is_eod.begin(), is_eod.end(), [&is_eod](std::int8_t b)
+        is_eod.begin(), is_eod.end(), [](std::int8_t b)
         {
             return b == 2 || b == 1;
         });
 
     bool are_not_eod = std::all_of(
-        is_eod.begin(), is_eod.end(), [&is_eod](std::int8_t b)
+        is_eod.begin(), is_eod.end(), [](std::int8_t b)
         {
             return b == 2 || b == 0;
         });
