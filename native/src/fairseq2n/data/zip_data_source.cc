@@ -63,11 +63,19 @@ zip_data_source::next()
         parallel_for<std::size_t>(fetch_next, pipelines_.size());
 
     // Check whether all data pipelines are in sync.
-    bool are_in_sync = std::all_of(
-        is_eod.begin() + 1, is_eod.end(), [&is_eod](std::int8_t b)
+    bool are_eod = std::all_of(
+        is_eod.begin(), is_eod.end(), [&is_eod](std::int8_t b)
         {
-            return b == 2 || b == is_eod[0];
+            return b == 2 || b == 1;
         });
+
+    bool are_not_eod = std::all_of(
+        is_eod.begin(), is_eod.end(), [&is_eod](std::int8_t b)
+        {
+            return b == 2 || b == 0;
+        });
+
+    bool are_in_sync = are_eod || are_not_eod;
 
     if (!are_in_sync) {
         if (zip_to_shortest_)
@@ -80,7 +88,7 @@ zip_data_source::next()
                 not_eod.push_back(i);
 
         throw_<data_pipeline_error>(
-            "The zipped data pipelines must all have the same length, but the data pipelines at the following indices have more examples than the others. Indices: {}", fmt::join(not_eod, ", "));
+            "The zipped data pipelines must all have the same number of examples, but the data pipelines at the indices [{}] have more examples than the others.", fmt::join(not_eod, ", "));
     }
 
     if (is_eod[0] == 1)
