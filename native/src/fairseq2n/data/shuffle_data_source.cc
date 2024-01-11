@@ -49,30 +49,40 @@ shuffle_data_source::next()
             buffer_.push_back(*std::move(maybe_example));
         }
 
+        buffer_pos_ = buffer_.begin();
+        buffer_end_ = buffer_.end();
+
         fill_buffer_ = false;
     }
 
-    if (buffer_.empty())
+    if (buffer_pos_ == buffer_end_)
         return std::nullopt;
 
-    // Pick an index from a uniform distribution.
-    std::size_t idx = random_index();
+    // Instead of sampling per call, we shuffle per buffer which gives much
+    // better hardware cache utilization and can have significant impact on
+    // the runtime performance.
+    if (buffer_pos_ == buffer_.begin())
+        shuffle();
 
-    data &picked_element = buffer_[idx];
+    data &buffered_example = *buffer_pos_;
 
-    data output = std::move(picked_element);
+    data output = std::move(buffered_example);
 
-    // Fill the position of the moved element with a new example.
-    std::optional<data> maybe_example = inner_->next();
-    if (maybe_example) {
-        picked_element = *std::move(maybe_example);
-    } else {
-        // If we can't fill the position with a new example, it means we reached
-        // the end of data; start shrinking the size of the buffer.
-        picked_element = std::move(buffer_.back());
-
-        buffer_.pop_back();
+    // If we have not reached the end of `inner_`, fill the position of the
+    // moved example with a new example.
+    if (buffer_end_ == buffer_.end()) {
+        std::optional<data> maybe_example = inner_->next();
+        if (maybe_example) {
+            buffered_example = *std::move(maybe_example);
+        } else {
+            // Mark this position, so that once we cycle back to it, we can
+            // stop.
+            buffer_end_ = buffer_pos_;
+        }
     }
+
+    if (++buffer_pos_ == buffer_.end())
+        buffer_pos_ = buffer_.begin();
 
     return output;
 }
@@ -81,6 +91,9 @@ void
 shuffle_data_source::reset()
 {
     buffer_.clear();
+
+    buffer_pos_ = buffer_.begin();
+    buffer_end_ = buffer_.end();
 
     fill_buffer_ = true;
 
@@ -92,6 +105,9 @@ shuffle_data_source::record_position(tape &t) const
 {
     if (strict_) {
         t.record(buffer_);
+
+        t.record(buffer_pos_ - buffer_.begin());
+        t.record(buffer_end_ - buffer_.begin());
 
         t.record(fill_buffer_);
     }
@@ -105,9 +121,15 @@ shuffle_data_source::reload_position(tape &t)
     if (strict_) {
         buffer_ = t.read<data_list>();
 
+        buffer_pos_ = buffer_.begin() + t.read<std::ptrdiff_t>();
+        buffer_end_ = buffer_.begin() + t.read<std::ptrdiff_t>();
+
         fill_buffer_ = t.read<bool>();
     } else {
         buffer_.clear();
+
+        buffer_pos_ = buffer_.begin();
+        buffer_end_ = buffer_.end();
 
         fill_buffer_ = true;
     }
@@ -121,16 +143,25 @@ shuffle_data_source::is_infinite() const noexcept
     return inner_->is_infinite();
 }
 
-std::size_t
-shuffle_data_source::random_index()
+void
+shuffle_data_source::shuffle()
 {
+    using std::swap;
+
     std::lock_guard<std::mutex> guard{generator_.mutex()};
 
     auto *gen = at::check_generator<at::CPUGeneratorImpl>(generator_);
 
-    std::uint64_t nr = gen->random64();
+    std::size_t s = static_cast<std::size_t>(buffer_end_ - buffer_.begin());
 
-    return conditional_cast<std::size_t>(nr) % buffer_.size();
+    // Vanilla Fisher and Yates'.
+    for (; s > 1; s--) {
+        std::uint64_t r = gen->random64();
+
+        std::size_t idx = conditional_cast<std::size_t>(r) % s;
+        if (idx != s - 1)
+            swap(buffer_[s - 1], buffer_[idx]);
+    }
 }
 
 }  // namespace fairseq2n::detail

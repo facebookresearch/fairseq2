@@ -20,12 +20,12 @@ text_line_reader::maybe_find_record_end(memory_span chunk, bool)
         if (!infer_line_ending(chars))
             return std::nullopt;
 
-    auto iter = chars.begin();
+    auto pos = chars.begin();
 
     switch (line_ending_) {
     case line_ending::lf: {
-        for (; iter < chars.end(); ++iter)
-            if (*iter == '\n')
+        for (; pos < chars.end(); ++pos)
+            if (*pos == '\n')
                 break;
 
         break;
@@ -33,12 +33,12 @@ text_line_reader::maybe_find_record_end(memory_span chunk, bool)
     case line_ending::crlf: {
         bool has_cr = false;
 
-        for (; iter < chars.end(); ++iter) {
-            if (*iter == '\n') {
+        for (; pos < chars.end(); ++pos) {
+            if (*pos == '\n') {
                 if (has_cr)
                     break;
             } else
-                has_cr = *iter == '\r';
+                has_cr = *pos == '\r';
         }
 
         break;
@@ -48,10 +48,10 @@ text_line_reader::maybe_find_record_end(memory_span chunk, bool)
             "`text_line_reader` has not set the line ending. Please file a bug report.");
     }
 
-    if (iter == chars.end())
+    if (pos == chars.end())
         return std::nullopt;
 
-    return static_cast<std::size_t>(iter - chars.begin() + 1);
+    return static_cast<std::size_t>(pos - chars.begin() + 1);
 }
 
 bool

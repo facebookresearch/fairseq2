@@ -40,12 +40,14 @@ public:
     is_infinite() const noexcept override;
 
 private:
-    std::size_t
-    random_index();
+    void
+    shuffle();
 
 private:
     std::unique_ptr<data_source> inner_;
     data_list buffer_{};
+    data_list::iterator buffer_pos_ = buffer_.begin();
+    data_list::iterator buffer_end_ = buffer_.end();
     std::size_t shuffle_window_;
     at::Generator generator_;
     bool strict_;

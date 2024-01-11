@@ -100,14 +100,14 @@ record_reader::copy_split_record()
 {
     writable_memory_block record = allocate_memory(record_len_);
 
-    auto iter = record.begin();
+    auto pos = record.begin();
 
     std::for_each(
-        previous_chunks_.begin(), previous_chunks_.end(), [&iter](const memory_block &block) {
-            iter = std::copy(block.begin(), block.end(), iter);
+        previous_chunks_.begin(), previous_chunks_.end(), [&pos](const memory_block &block) {
+            pos = std::copy(block.begin(), block.end(), pos);
         });
 
-    std::copy(current_chunk_.begin(), current_chunk_.begin() + record_end_offset_, iter);
+    std::copy(current_chunk_.begin(), current_chunk_.begin() + record_end_offset_, pos);
 
     return record;
 }

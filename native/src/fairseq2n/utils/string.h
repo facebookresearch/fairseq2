@@ -21,12 +21,12 @@ template <typename StringViewLike, typename It>
 auto
 find_first_non_space(It first, It last) noexcept
 {
-    auto iter = std::find_if_not(first, last, [](int chr)
+    auto pos = std::find_if_not(first, last, [](int chr)
     {
         return std::isspace(chr);
     });
 
-    return static_cast<typename StringViewLike::size_type>(iter - first);
+    return static_cast<typename StringViewLike::size_type>(pos - first);
 }
 
 }  // namespace detail

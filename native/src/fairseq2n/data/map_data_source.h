@@ -50,7 +50,7 @@ private:
     map_fn map_fn_;
     std::size_t num_parallel_calls_;
     std::vector<std::optional<data>> buffer_{};
-    std::vector<std::optional<data>>::iterator buffer_iter_{};
+    std::vector<std::optional<data>>::iterator buffer_pos_{};
 };
 
 }  // namespace fairseq2n::detail
