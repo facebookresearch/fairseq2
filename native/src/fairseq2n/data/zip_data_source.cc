@@ -91,7 +91,7 @@ zip_data_source::next()
             "The zipped data pipelines must all have the same number of examples, but the data pipelines at the indices [{}] have more examples than the others.", fmt::join(not_eod, ", "));
     }
 
-    if (is_eod[0] == 1)
+    if (are_eod)
         return std::nullopt;
 
     if (flatten_) {
