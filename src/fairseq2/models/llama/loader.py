@@ -14,7 +14,7 @@ from fairseq2.models.utils import ConfigLoader, ModelLoader, TokenizerLoader
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
 
-def get_llama_map(from_llama=True) -> Dict:
+def get_llama_map(from_llama: bool = True) -> Dict[str, str]:
     """ Get map between Fairseq2 checkpoints and llama checkpoints.
     :param from_llama: map from llama to fairseq2 if True (default). map from fairseq2 to llama checkpoint if false"""
     key_map = {
