@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Mapping, Dict, Optional
+from typing import Any, Dict, Optional
 
 from fairseq2.assets import asset_store, download_manager
 from fairseq2.models.llama.builder import LLaMAConfig, create_llama_model, llama_archs
@@ -14,9 +14,10 @@ from fairseq2.models.utils import ConfigLoader, ModelLoader, TokenizerLoader
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
 
-def get_llama_map(from_llama=True) -> Dict:
-    """ Get map between Fairseq2 checkpoints and llama checkpoints.
-    :param from_llama: map from llama to fairseq2 if True (default). map from fairseq2 to llama checkpoint if false"""
+def convert_llama_checkpoint(
+    checkpoint: Dict[str, Any], config: Optional[LLaMAConfig] = None
+) -> Dict[str, Any]:
+    """Convert a reference LLaMA checkpoint to fairseq2."""
     key_map = {
         # fmt: off
         r"^layers\.([0-9]+)\.attention\.wq\.":    r"decoder.layers.\1.self_attn.q_proj.",
@@ -34,18 +35,6 @@ def get_llama_map(from_llama=True) -> Dict:
         # fmt: on
     }
 
-    if from_llama:
-        return key_map
-
-    return {v.replace(r"\1", r"([0-9]+)") : k.replace(r"[0-9]+)", r"\1") for k, v in key_map.items()}
-
-
-def convert_llama_checkpoint(
-    checkpoint: Mapping[str, Any], config: Optional[LLaMAConfig]=None
-) -> Mapping[str, Any]:
-    """Convert a reference LLaMA checkpoint to fairseq2."""
-
-    key_map = get_llama_map(from_llama=True)
     # We do not need the pre-computed 'rope.freqs' buffers.
     checkpoint = {k: v for (k, v) in checkpoint.items() if "rope.freqs" not in k}
 
@@ -54,18 +43,28 @@ def convert_llama_checkpoint(
     return {"model": checkpoint}
 
 
-def create_llama_checkpoint(
-    checkpoint: Mapping[str, Any], config: Optional[LLaMAConfig]=None
-) -> Mapping[str, Any]:
-    """Convert a reference LLaMA checkpoint to fairseq2."""
+def convert_to_llama_checkpoint(checkpoint: Dict[str, Any]) -> Dict[str, Any]:
+    """Convert a fairseq2 LLaMA checkpoint to the reference format."""
+    state_dict = checkpoint["model"]
 
-    key_map = get_llama_map(from_llama=False)
-    # We do not need the pre-computed 'rope.freqs' buffers.
-    checkpoint = {k: v for (k, v) in checkpoint.items() if "rope.freqs" not in k}
+    key_map = {
+        # fmt: off
+        r"^decoder\.layers\.([0-9]+)\.self_attn\.q_proj\.":      r"layers.\1.attention.wq.",
+        r"^decoder\.layers\.([0-9]+)\.self_attn\.k_proj\.":      r"layers.\1.attention.wk.",
+        r"^decoder\.layers\.([0-9]+)\.self_attn\.v_proj\.":      r"layers.\1.attention.wv.",
+        r"^decoder\.layers\.([0-9]+)\.self_attn\.output_proj\.": r"layers.\1.attention.wo.",
+        r"^decoder\.layers\.([0-9]+)\.self_attn_layer_norm\.":   r"layers.\1.attention_norm.",
+        r"^decoder\.layers\.([0-9]+)\.ffn\.gate_proj\.":         r"layers.\1.feed_forward.w1.",
+        r"^decoder\.layers\.([0-9]+)\.ffn\.output_proj\.":       r"layers.\1.feed_forward.w2.",
+        r"^decoder\.layers\.([0-9]+)\.ffn\.inner_proj\.":        r"layers.\1.feed_forward.w3.",
+        r"^decoder\.layers\.([0-9]+)\.ffn_layer_norm\.":         r"layers.\1.ffn_norm.",
+        r"^decoder\.layer_norm\.":                               r"norm.",
+        r"^decoder_frontend\.embed\.":                           r"tok_embeddings.",
+        r"^final_proj\.":                                        r"output.",
+        # fmt: on
+    }
 
-    checkpoint = convert_model_state_dict(checkpoint, key_map)
-
-    return {"model": checkpoint}
+    return convert_model_state_dict(state_dict, key_map)
 
 
 load_llama_config = ConfigLoader[LLaMAConfig](asset_store, llama_archs)
