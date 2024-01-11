@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict
+from typing import Any, Mapping, Dict, Optional
 
 from fairseq2.assets import asset_store, download_manager
 from fairseq2.models.llama.builder import LLaMAConfig, create_llama_model, llama_archs
@@ -14,10 +14,9 @@ from fairseq2.models.utils import ConfigLoader, ModelLoader, TokenizerLoader
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
 
-def convert_llama_checkpoint(
-    checkpoint: Dict[str, Any], config: LLaMAConfig
-) -> Dict[str, Any]:
-    """Convert a reference LLaMA checkpoint to fairseq2."""
+def get_llama_map(from_llama=True) -> Dict:
+    """ Get map between Fairseq2 checkpoints and llama checkpoints.
+    :param from_llama: map from llama to fairseq2 if True (default). map from fairseq2 to llama checkpoint if false"""
     key_map = {
         # fmt: off
         r"^layers\.([0-9]+)\.attention\.wq\.":    r"decoder.layers.\1.self_attn.q_proj.",
@@ -35,6 +34,32 @@ def convert_llama_checkpoint(
         # fmt: on
     }
 
+    if from_llama:
+        return key_map
+
+    return {v.replace(r"\1", r"([0-9]+)") : k.replace(r"[0-9]+)", r"\1") for k, v in key_map.items()}
+
+
+def convert_llama_checkpoint(
+    checkpoint: Mapping[str, Any], config: Optional[LLaMAConfig]=None
+) -> Mapping[str, Any]:
+    """Convert a reference LLaMA checkpoint to fairseq2."""
+
+    key_map = get_llama_map(from_llama=True)
+    # We do not need the pre-computed 'rope.freqs' buffers.
+    checkpoint = {k: v for (k, v) in checkpoint.items() if "rope.freqs" not in k}
+
+    checkpoint = convert_model_state_dict(checkpoint, key_map)
+
+    return {"model": checkpoint}
+
+
+def create_llama_checkpoint(
+    checkpoint: Mapping[str, Any], config: Optional[LLaMAConfig]=None
+) -> Mapping[str, Any]:
+    """Convert a reference LLaMA checkpoint to fairseq2."""
+
+    key_map = get_llama_map(from_llama=False)
     # We do not need the pre-computed 'rope.freqs' buffers.
     checkpoint = {k: v for (k, v) in checkpoint.items() if "rope.freqs" not in k}
 
