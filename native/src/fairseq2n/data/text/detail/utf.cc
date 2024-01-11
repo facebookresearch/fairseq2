@@ -18,10 +18,10 @@ compute_code_point_length(std::string_view s)
 {
     std::size_t len = 0;
 
-    for (auto iter = s.begin(); iter < s.end();) {
+    for (auto pos = s.begin(); pos < s.end();) {
         std::size_t size = 0;
 
-        auto lead = static_cast<std::uint8_t>(*iter);
+        auto lead = static_cast<std::uint8_t>(*pos);
              if ((lead & 0x80) == 0x00)
             size = 1;
         else if ((lead & 0xe0) == 0xc0)
@@ -31,10 +31,10 @@ compute_code_point_length(std::string_view s)
         else if ((lead & 0xf8) == 0xf0)
             size = 4;
 
-        if (size == 0 || static_cast<std::size_t>(s.end() - iter) < size)
+        if (size == 0 || static_cast<std::size_t>(s.end() - pos) < size)
             throw_<std::invalid_argument>("`s` has an invalid UTF-8 code point.");
 
-        iter += size;
+        pos += size;
 
         len++;
     }

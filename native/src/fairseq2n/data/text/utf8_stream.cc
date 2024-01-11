@@ -132,9 +132,9 @@ utf8_stream::move_leftover_bits()
 
     writable_memory_block block = allocate_memory(leftover_bits_.size() + encoded_chunk_.size());
 
-    auto iter = std::copy(leftover_bits_.begin(), leftover_bits_.end(), block.begin());
+    auto pos = std::copy(leftover_bits_.begin(), leftover_bits_.end(), block.begin());
 
-    std::copy(encoded_chunk_.begin(), encoded_chunk_.end(), iter);
+    std::copy(encoded_chunk_.begin(), encoded_chunk_.end(), pos);
 
     encoded_chunk_ = block;
 

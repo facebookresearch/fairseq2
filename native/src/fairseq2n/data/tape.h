@@ -48,7 +48,7 @@ public:
     void
     rewind() noexcept
     {
-        iter_ = storage_.begin();
+        pos_ = storage_.begin();
     }
 
     const data_list &
@@ -63,7 +63,7 @@ private:
 
 private:
     data_list storage_;
-    data_list::iterator iter_ = storage_.begin();
+    data_list::iterator pos_ = storage_.begin();
 };
 
 class FAIRSEQ2_API corrupt_tape_error : public std::domain_error {
