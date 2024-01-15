@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.data_pipeline &mdash; fairseq2 0.3.0.dev202401080137 documentation</title>
+  <title>fairseq2.data.data_pipeline &mdash; fairseq2 0.3.0.dev202401150139 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202401080137
+                0.3.0.dev202401150139
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -212,6 +212,9 @@
 <div class="viewcode-block" id="DataPipeline.reset"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.reset">[docs]</a>        <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">            </span><span class="sd">&quot;&quot;&quot;Move back to the first example in the data pipeline.&quot;&quot;&quot;</span></div>
 
+        <span class="k">def</span> <span class="nf">is_infinite</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+            <span class="o">...</span>
+
         <span class="nd">@property</span>
         <span class="k">def</span> <span class="nf">is_broken</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">            </span><span class="sd">&quot;&quot;&quot;Return ``True`` if the data pipeline is broken.</span>
@@ -239,6 +242,48 @@
 <span class="sd">                keys returned by :meth:`state_dict`.</span>
 <span class="sd">            &quot;&quot;&quot;</span></div>
 
+<div class="viewcode-block" id="DataPipeline.concat"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.concat">[docs]</a>        <span class="nd">@staticmethod</span>
+        <span class="k">def</span> <span class="nf">concat</span><span class="p">(</span><span class="n">pipelines</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DataPipeline</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Concatenate examples from ``pipelines``.</span>
+
+<span class="sd">            :param pipelines:</span>
+<span class="sd">                The data pipelines to concatenate.</span>
+<span class="sd">            &quot;&quot;&quot;</span></div>
+
+        <span class="nd">@staticmethod</span>
+        <span class="k">def</span> <span class="nf">constant</span><span class="p">(</span><span class="n">example</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
+            <span class="o">...</span>
+
+        <span class="nd">@staticmethod</span>
+        <span class="k">def</span> <span class="nf">count</span><span class="p">(</span><span class="n">start</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
+            <span class="o">...</span>
+
+<div class="viewcode-block" id="DataPipeline.round_robin"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.round_robin">[docs]</a>        <span class="nd">@staticmethod</span>
+        <span class="k">def</span> <span class="nf">round_robin</span><span class="p">(</span>
+            <span class="n">pipelines</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DataPipeline</span><span class="p">],</span> <span class="n">stop_at_shortest</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Extract examples from ``pipelines`` in round robin.</span>
+
+<span class="sd">            :param pipelines:</span>
+<span class="sd">                The data pipelines to round robin.</span>
+<span class="sd">            :param stop_at_shortest:</span>
+<span class="sd">                If ``True``, stop round_robin when first pipeline reaches its end.</span>
+<span class="sd">                If ``False``, circle around finished pipelines until all pipelines</span>
+<span class="sd">                reach their end.</span>
+<span class="sd">            &quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="DataPipeline.sample"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.sample">[docs]</a>        <span class="nd">@staticmethod</span>
+        <span class="k">def</span> <span class="nf">sample</span><span class="p">(</span>
+            <span class="n">pipelines</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DataPipeline</span><span class="p">],</span> <span class="n">weights</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Extract examples from ``pipelines`` by sampling based on ``weights``.</span>
+
+<span class="sd">            :param data_pipelines:</span>
+<span class="sd">                The data pipelines to sample from.</span>
+<span class="sd">            :param weights:</span>
+<span class="sd">                Desired distribution of pipelines. If None, use uniform distribution.</span>
+<span class="sd">            &quot;&quot;&quot;</span></div>
+
 <div class="viewcode-block" id="DataPipeline.zip"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.zip">[docs]</a>        <span class="nd">@staticmethod</span>
         <span class="k">def</span> <span class="nf">zip</span><span class="p">(</span>
             <span class="n">pipelines</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DataPipeline</span><span class="p">],</span>
@@ -256,57 +301,7 @@
 <span class="sd">            :param flatten:</span>
 <span class="sd">            :param disable_parallelism:</span>
 <span class="sd">                If ``True``, calls each data pipeline sequentially.</span>
-<span class="sd">            &quot;&quot;&quot;</span></div>
-
-<div class="viewcode-block" id="DataPipeline.round_robin"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.round_robin">[docs]</a>        <span class="nd">@staticmethod</span>
-        <span class="k">def</span> <span class="nf">round_robin</span><span class="p">(</span>
-            <span class="n">pipelines</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DataPipeline</span><span class="p">],</span>
-            <span class="n">stop_at_shortest</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Extract examples from ``pipelines`` in round robin.</span>
-
-<span class="sd">            :param pipelines:</span>
-<span class="sd">                The data pipelines to round robin.</span>
-<span class="sd">            :param stop_at_shortest:</span>
-<span class="sd">                If ``True``, stop round_robin when first pipeline reaches its end.</span>
-<span class="sd">                If ``False``, circle around finished pipelines until all pipelines</span>
-<span class="sd">                reach their end.</span>
-<span class="sd">            &quot;&quot;&quot;</span></div>
-
-<div class="viewcode-block" id="DataPipeline.sample"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.sample">[docs]</a>        <span class="nd">@staticmethod</span>
-        <span class="k">def</span> <span class="nf">sample</span><span class="p">(</span>
-            <span class="n">pipelines</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DataPipeline</span><span class="p">],</span>
-            <span class="n">weights</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-            <span class="n">stop_at_shortest</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Extract examples from ``pipelines`` by sampling based on ``weights``.</span>
-
-<span class="sd">            :param data_pipelines:</span>
-<span class="sd">                The data pipelines to sample from.</span>
-<span class="sd">            :param weights:</span>
-<span class="sd">                Desired distribution of pipelines. If None, use uniform distribution.</span>
-<span class="sd">            :param stop_at_shortest:</span>
-<span class="sd">                If ``True``, stop sampling when first pipeline reaches its end.</span>
-<span class="sd">                If ``False``, circle around finished pipelines until all pipelines</span>
-<span class="sd">                reach their end.</span>
-<span class="sd">            &quot;&quot;&quot;</span></div>
-
-        <span class="nd">@staticmethod</span>
-        <span class="k">def</span> <span class="nf">constant</span><span class="p">(</span><span class="n">example</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
-            <span class="o">...</span>
-
-        <span class="nd">@staticmethod</span>
-        <span class="k">def</span> <span class="nf">count</span><span class="p">(</span><span class="n">start</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
-            <span class="o">...</span>
-
-<div class="viewcode-block" id="DataPipeline.concat"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.concat">[docs]</a>        <span class="nd">@staticmethod</span>
-        <span class="k">def</span> <span class="nf">concat</span><span class="p">(</span><span class="n">pipelines</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DataPipeline</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Concatenate examples from ``pipelines``.</span>
-
-<span class="sd">            :param pipelines:</span>
-<span class="sd">                The data pipelines to concatenate.</span>
-<span class="sd">            &quot;&quot;&quot;</span>
-            <span class="o">...</span></div></div>
+<span class="sd">            &quot;&quot;&quot;</span></div></div>
 
 <div class="viewcode-block" id="DataPipelineBuilder"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder">[docs]</a>    <span class="k">class</span> <span class="nc">DataPipelineBuilder</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;API to create DataPipeline&quot;&quot;&quot;</span>
