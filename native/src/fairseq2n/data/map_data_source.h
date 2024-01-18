@@ -35,6 +35,9 @@ public:
     void
     reload_position(tape &t) override;
 
+    bool
+    is_infinite() const noexcept override;
+
 private:
     bool
     fill_buffer();
@@ -47,7 +50,7 @@ private:
     map_fn map_fn_;
     std::size_t num_parallel_calls_;
     std::vector<std::optional<data>> buffer_{};
-    std::vector<std::optional<data>>::iterator buffer_iter_{};
+    std::vector<std::optional<data>>::iterator buffer_pos_{};
 };
 
 }  // namespace fairseq2n::detail

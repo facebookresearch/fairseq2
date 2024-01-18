@@ -33,6 +33,9 @@ public :
     void
     reload_position(tape &t) override;
 
+    bool
+    is_infinite() const noexcept override;
+
 private:
     bool
     invoke_function(data &example);

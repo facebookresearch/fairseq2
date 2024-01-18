@@ -99,7 +99,7 @@ function(fairseq2n_set_compile_options target)
                 -Wno-zero-as-null-pointer-constant
         )
 
-        if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 15)
+        if(CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 16)
             target_compile_options(${target} PRIVATE -Wno-unsafe-buffer-usage)
         endif()
     endif()

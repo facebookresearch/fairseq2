@@ -51,6 +51,9 @@ if TYPE_CHECKING or DOC_MODE:
         def reset(self) -> None:
             """Move back to the first example in the data pipeline."""
 
+        def is_infinite(self) -> bool:
+            ...
+
         @property
         def is_broken(self) -> bool:
             """Return ``True`` if the data pipeline is broken.
@@ -79,6 +82,48 @@ if TYPE_CHECKING or DOC_MODE:
             """
 
         @staticmethod
+        def concat(pipelines: Sequence[DataPipeline]) -> DataPipelineBuilder:
+            """Concatenate examples from ``pipelines``.
+
+            :param pipelines:
+                The data pipelines to concatenate.
+            """
+
+        @staticmethod
+        def constant(example: Any, key: Optional[str] = None) -> DataPipelineBuilder:
+            ...
+
+        @staticmethod
+        def count(start: int = 0, key: Optional[str] = None) -> DataPipelineBuilder:
+            ...
+
+        @staticmethod
+        def round_robin(
+            pipelines: Sequence[DataPipeline], stop_at_shortest: bool = False
+        ) -> DataPipelineBuilder:
+            """Extract examples from ``pipelines`` in round robin.
+
+            :param pipelines:
+                The data pipelines to round robin.
+            :param stop_at_shortest:
+                If ``True``, stop round_robin when first pipeline reaches its end.
+                If ``False``, circle around finished pipelines until all pipelines
+                reach their end.
+            """
+
+        @staticmethod
+        def sample(
+            pipelines: Sequence[DataPipeline], weights: Optional[Sequence[float]] = None
+        ) -> DataPipelineBuilder:
+            """Extract examples from ``pipelines`` by sampling based on ``weights``.
+
+            :param data_pipelines:
+                The data pipelines to sample from.
+            :param weights:
+                Desired distribution of pipelines. If None, use uniform distribution.
+            """
+
+        @staticmethod
         def zip(
             pipelines: Sequence[DataPipeline],
             names: Optional[Sequence[str]] = None,
@@ -96,56 +141,6 @@ if TYPE_CHECKING or DOC_MODE:
             :param disable_parallelism:
                 If ``True``, calls each data pipeline sequentially.
             """
-
-        @staticmethod
-        def round_robin(
-            pipelines: Sequence[DataPipeline],
-            stop_at_shortest: bool = False,
-        ) -> DataPipelineBuilder:
-            """Extract examples from ``pipelines`` in round robin.
-
-            :param pipelines:
-                The data pipelines to round robin.
-            :param stop_at_shortest:
-                If ``True``, stop round_robin when first pipeline reaches its end.
-                If ``False``, circle around finished pipelines until all pipelines
-                reach their end.
-            """
-
-        @staticmethod
-        def sample(
-            pipelines: Sequence[DataPipeline],
-            weights: Optional[Sequence[float]] = None,
-            stop_at_shortest: bool = False,
-        ) -> DataPipelineBuilder:
-            """Extract examples from ``pipelines`` by sampling based on ``weights``.
-
-            :param data_pipelines:
-                The data pipelines to sample from.
-            :param weights:
-                Desired distribution of pipelines. If None, use uniform distribution.
-            :param stop_at_shortest:
-                If ``True``, stop sampling when first pipeline reaches its end.
-                If ``False``, circle around finished pipelines until all pipelines
-                reach their end.
-            """
-
-        @staticmethod
-        def constant(example: Any, key: Optional[str] = None) -> DataPipelineBuilder:
-            ...
-
-        @staticmethod
-        def count(start: int = 0, key: Optional[str] = None) -> DataPipelineBuilder:
-            ...
-
-        @staticmethod
-        def concat(pipelines: Sequence[DataPipeline]) -> DataPipelineBuilder:
-            """Concatenate examples from ``pipelines``.
-
-            :param pipelines:
-                The data pipelines to concatenate.
-            """
-            ...
 
     class DataPipelineBuilder:
         """API to create DataPipeline"""

@@ -41,6 +41,12 @@ filter_data_source::reload_position(tape &t)
 }
 
 bool
+filter_data_source::is_infinite() const noexcept
+{
+    return inner_->is_infinite();
+}
+
+bool
 filter_data_source::invoke_function(data &example)
 {
     try {

@@ -48,6 +48,9 @@ public:
     void
     reload_position(tape &t) override;
 
+    bool
+    is_infinite() const noexcept override;
+
 private:
     void
     ensure_prefetch_thread_running();

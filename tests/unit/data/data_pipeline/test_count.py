@@ -14,7 +14,7 @@ class TestCountOp:
         pipeline = DataPipeline.count(start=4).take(10).and_return()
 
         for _ in range(2):
-            list(pipeline) == list(range(4, 15))
+            assert list(pipeline) == list(range(4, 14))
 
             pipeline.reset()
 
@@ -25,7 +25,7 @@ class TestCountOp:
 
         it = iter(pipeline)
 
-        # Move the the fifth example.
+        # Move to the fifth example.
         for _ in range(5):
             d = next(it)
 

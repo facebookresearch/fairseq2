@@ -13,28 +13,34 @@ namespace fairseq2n::detail {
 std::optional<data>
 list_data_source::next()
 {
-    if (iter_ == list_.end())
+    if (pos_ == list_.end())
         return std::nullopt;
 
-    return *iter_++;
+    return *pos_++;
 }
 
 void
 list_data_source::reset()
 {
-    iter_ = list_.begin();
+    pos_ = list_.begin();
 }
 
 void
 list_data_source::record_position(tape &t) const
 {
-    t.record(iter_ - list_.begin());
+    t.record(pos_ - list_.begin());
 }
 
 void
 list_data_source::reload_position(tape &t)
 {
-    iter_ = list_.begin() + t.read<std::ptrdiff_t>();
+    pos_ = list_.begin() + t.read<std::ptrdiff_t>();
+}
+
+bool
+list_data_source::is_infinite() const noexcept
+{
+    return false;
 }
 
 }

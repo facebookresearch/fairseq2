@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <optional>
 #include <utility>
 
 #include "fairseq2n/data/data.h"
@@ -31,6 +32,9 @@ public:
 
     void
     reload_position(tape &t) override;
+
+    bool
+    is_infinite() const noexcept override;
 
 private:
     data example_;

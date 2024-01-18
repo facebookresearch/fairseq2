@@ -39,6 +39,9 @@ public:
 
     virtual void
     reload_position(tape &t) = 0;
+
+    virtual bool
+    is_infinite() const noexcept = 0;
 };
 
 }  // namespace fairseq2n

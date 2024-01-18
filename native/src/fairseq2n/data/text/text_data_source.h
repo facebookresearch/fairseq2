@@ -36,6 +36,9 @@ public:
     void
     reload_position(tape &t) override;
 
+    bool
+    is_infinite() const noexcept override;
+
 private:
     std::unique_ptr<text_line_reader>
     make_text_line_reader();

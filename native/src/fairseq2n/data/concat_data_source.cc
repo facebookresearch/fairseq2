@@ -5,43 +5,54 @@
 // LICENSE file in the root directory of this source tree.
 
 #include "fairseq2n/data/concat_data_source.h"
-#include <vector>
+
+#include <algorithm>
 
 namespace fairseq2n::detail {
 
-concat_data_source::concat_data_source(std::vector<data_pipeline> &&pipelines)
-    : pipelines_(std::move(pipelines))
-{}
+concat_data_source::concat_data_source(std::vector<data_pipeline> &&pipelines) noexcept
+  : pipelines_(std::move(pipelines))
+{
+    is_infinite_ = std::any_of(
+        pipelines_.begin(), pipelines_.end(), [](const data_pipeline &p)
+        {
+            return p.is_infinite();
+        });
+}
 
 std::optional<data>
 concat_data_source::next()
 {
-    std::optional<data> d;
-    for (auto &p : pipelines_) {
-        d = p.next();
-        if (d)
-          return d;
+    for (data_pipeline &pipeline : pipelines_) {
+        if (std::optional<data> maybe_example = pipeline.next())
+            return maybe_example;
     }
-    return {};
+
+    return std::nullopt;
 }
 
 void concat_data_source::reset()
 {
-    for (auto &pipeline : pipelines_)
+    for (data_pipeline &pipeline : pipelines_)
         pipeline.reset();
-}  
+}
 
 void concat_data_source::record_position(tape &t) const
 {
-    for (auto &pipeline : pipelines_)
+    for (const data_pipeline &pipeline : pipelines_)
         pipeline.record_position(t);
 }
 
 void concat_data_source::reload_position(tape &t)
 {
-    for (auto &pipeline : pipelines_)
+    for (data_pipeline &pipeline : pipelines_)
         pipeline.reload_position(t);
 }
 
-} // namespace fairseq2n::detail
+bool
+concat_data_source::is_infinite() const noexcept
+{
+    return is_infinite_;
+}
 
+} // namespace fairseq2n::detail

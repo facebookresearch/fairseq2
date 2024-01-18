@@ -43,25 +43,25 @@ string_splitter::operator()(data &&d) const
 
     data_list fields{};
 
-    auto idx_iter = indices_.begin();
+    auto idx_pos = indices_.begin();
 
     std::size_t idx = 0;
 
-    d.as_string().split(separator_, [this, &fields, &idx_iter, &idx](immutable_string &&s) {
-        if (idx_iter == indices_.end()) {
+    d.as_string().split(separator_, [this, &fields, &idx_pos, &idx](immutable_string &&s) {
+        if (idx_pos == indices_.end()) {
             fields.emplace_back(std::move(s));
         } else {
             if (exclude_) {
-                if (idx != *idx_iter)
+                if (idx != *idx_pos)
                     fields.emplace_back(std::move(s));
                 else
-                    ++idx_iter;
+                    ++idx_pos;
             } else {
-                if (idx == *idx_iter) {
+                if (idx == *idx_pos) {
                     fields.emplace_back(std::move(s));
 
                     // We got all fields we need, no need to process the rest.
-                    if (++idx_iter == indices_.end())
+                    if (++idx_pos == indices_.end())
                         return false;
                 }
             }
@@ -72,7 +72,7 @@ string_splitter::operator()(data &&d) const
         return true;
     });
 
-    if (idx_iter != indices_.end())
+    if (idx_pos != indices_.end())
         throw_<std::invalid_argument>(
             "The input string must have at least {} field(s), but has {} instead.", indices_.back(), idx);
 

@@ -15,23 +15,23 @@ namespace fairseq2n {
 void
 tape::record_data(const data &d)
 {
-    if (iter_ != storage_.end())
+    if (pos_ != storage_.end())
         throw_<std::domain_error>("New data can only be recorded to the end of the tape.");
 
     storage_.push_back(d);
 
     // The iterator is invalid because of the `push_back()` call; we should not
     // increment it.
-    iter_ = storage_.end();
+    pos_ = storage_.end();
 }
 
 data
 tape::read_data()
 {
-    if (iter_ == storage_.end())
+    if (pos_ == storage_.end())
         throw_corrupt();
 
-    return *iter_++;
+    return *pos_++;
 }
 
 corrupt_tape_error::~corrupt_tape_error() = default;

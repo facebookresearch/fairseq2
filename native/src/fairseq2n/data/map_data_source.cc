@@ -20,7 +20,7 @@ map_data_source::map_data_source(
 {
     buffer_.reserve(num_parallel_calls);
 
-    buffer_iter_ = buffer_.begin();
+    buffer_pos_ = buffer_.begin();
 }
 
 std::optional<data>
@@ -38,9 +38,9 @@ map_data_source::next()
 
     do {
         // Yield a buffered example.
-        for (; buffer_iter_ < buffer_.end(); ++buffer_iter_) {
-            if (*buffer_iter_)
-                return std::move(*buffer_iter_++);
+        for (; buffer_pos_ < buffer_.end(); ++buffer_pos_) {
+            if (*buffer_pos_)
+                return std::move(*buffer_pos_++);
         }
     // If we have exhausted all buffered examples, try to refill the buffer.
     } while (fill_buffer());
@@ -53,7 +53,7 @@ map_data_source::reset()
 {
     buffer_.clear();
 
-    buffer_iter_ = buffer_.begin();
+    buffer_pos_ = buffer_.begin();
 
     inner_->reset();
 }
@@ -63,7 +63,7 @@ map_data_source::record_position(tape &t) const
 {
     t.record(buffer_);
 
-    t.record(buffer_iter_ - buffer_.begin());
+    t.record(buffer_pos_ - buffer_.begin());
 
     inner_->record_position(t);
 }
@@ -73,9 +73,15 @@ map_data_source::reload_position(tape &t)
 {
     buffer_ = t.read<std::vector<std::optional<data>>>();
 
-    buffer_iter_ = buffer_.begin() + t.read<std::ptrdiff_t>();
+    buffer_pos_ = buffer_.begin() + t.read<std::ptrdiff_t>();
 
     inner_->reload_position(t);
+}
+
+bool
+map_data_source::is_infinite() const noexcept
+{
+    return inner_->is_infinite();
 }
 
 bool
@@ -107,7 +113,7 @@ map_data_source::fill_buffer()
     else
         parallel_for<std::size_t>(apply_function, buffer_.size());
 
-    buffer_iter_ = buffer_.begin();
+    buffer_pos_ = buffer_.begin();
 
     return true;
 }

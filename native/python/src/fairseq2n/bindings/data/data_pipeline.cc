@@ -217,6 +217,8 @@ def_data_pipeline(py::module_ &data_module)
 
         .def("reset", &data_pipeline::reset, py::call_guard<py::gil_scoped_release>{})
 
+        .def("is_infinite", &data_pipeline::is_infinite)
+
         .def_property_readonly("is_broken", &data_pipeline::is_broken)
 
         // state_dict
@@ -269,6 +271,75 @@ def_data_pipeline(py::module_ &data_module)
 
         // Factories
         .def_static(
+            "concat",
+            [](std::vector<std::reference_wrapper<data_pipeline>> &refs)
+            {
+                std::vector<data_pipeline> pipelines{};
+
+                pipelines.reserve(refs.size());
+
+                std::transform(
+                    refs.begin(), refs.end(), std::back_inserter(pipelines), [](auto &r) {
+                        return std::move(r.get());
+                    });
+
+                return data_pipeline::concat(std::move(pipelines));
+            },
+            py::arg("pipelines"))
+        .def_static(
+            "constant",
+            [](data example, std::optional<std::string> key)
+            {
+                return data_pipeline::constant(std::move(example), std::move(key));
+            },
+            py::arg("example"),
+            py::arg("key") = std::nullopt)
+        .def_static(
+            "count",
+            [](std::int64_t start, std::optional<std::string> key)
+            {
+                return data_pipeline::count(start, std::move(key));
+            },
+            py::arg("start") = 0,
+            py::arg("key") = std::nullopt)
+        .def_static(
+            "round_robin",
+            [](
+                std::vector<std::reference_wrapper<data_pipeline>> &refs, bool stop_at_shortest)
+            {
+                std::vector<data_pipeline> pipelines{};
+
+                pipelines.reserve(refs.size());
+
+                std::transform(
+                    refs.begin(), refs.end(), std::back_inserter(pipelines), [](auto &r) {
+                        return std::move(r.get());
+                    });
+
+                return data_pipeline::round_robin(std::move(pipelines), stop_at_shortest);
+            },
+            py::arg("pipelines"),
+            py::arg("stop_at_shortest") = false)
+        .def_static(
+            "sample",
+            [](
+                std::vector<std::reference_wrapper<data_pipeline>> &refs,
+                std::optional<std::vector<float>> weights)
+            {
+                std::vector<data_pipeline> pipelines{};
+
+                pipelines.reserve(refs.size());
+
+                std::transform(
+                    refs.begin(), refs.end(), std::back_inserter(pipelines), [](auto &r) {
+                        return std::move(r.get());
+                    });
+
+                return data_pipeline::sample(std::move(pipelines), std::move(weights));
+            },
+            py::arg("pipelines"),
+            py::arg("weights") = std::nullopt)
+        .def_static(
             "zip",
             [](
                 std::vector<std::reference_wrapper<data_pipeline>> &refs,
@@ -301,81 +372,8 @@ def_data_pipeline(py::module_ &data_module)
             py::arg("names") = std::nullopt,
             py::arg("zip_to_shortest") = false,
             py::arg("flatten") = false,
-            py::arg("disable_parallelism") = false)
-        .def_static(
-            "round_robin",
-            [](
-                std::vector<std::reference_wrapper<data_pipeline>> &refs,
-                bool stop_at_shortest)
-            {
-                std::vector<data_pipeline> pipelines{};
+            py::arg("disable_parallelism") = false);
 
-                pipelines.reserve(refs.size());
-
-                std::transform(
-                    refs.begin(), refs.end(), std::back_inserter(pipelines), [](auto &r) {
-                        return std::move(r.get());
-                    });
-
-                return data_pipeline::round_robin(std::move(pipelines), stop_at_shortest);
-            },
-            py::arg("pipelines"),
-            py::arg("stop_at_shortest") = false)
-        .def_static(
-            "sample",
-            [](
-                std::vector<std::reference_wrapper<data_pipeline>> &refs,
-                std::optional<std::vector<float>> weights,
-                bool stop_at_shortest)
-            {
-                std::vector<data_pipeline> pipelines{};
-
-                pipelines.reserve(refs.size());
-
-                std::transform(
-                    refs.begin(), refs.end(), std::back_inserter(pipelines), [](auto &r) {
-                        return std::move(r.get());
-                    });
-
-                return data_pipeline::sample(
-                    std::move(pipelines), std::move(weights), stop_at_shortest);
-            },
-            py::arg("pipelines"),
-            py::arg("weights") = std::nullopt,
-            py::arg("stop_at_shortest") = false)
-        .def_static(
-            "constant",
-            [](data example, std::optional<std::string> key)
-            {
-                return data_pipeline::constant(std::move(example), std::move(key));
-            },
-            py::arg("example"),
-            py::arg("key") = std::nullopt)
-        .def_static(
-            "count",
-            [](std::int64_t start, std::optional<std::string> key)
-            {
-                return data_pipeline::count(start, std::move(key));
-            },
-            py::arg("start") = 0,
-            py::arg("key") = std::nullopt)
-        .def_static(
-            "concat",
-            [](std::vector<std::reference_wrapper<data_pipeline>> &refs)
-            {
-                std::vector<data_pipeline> pipelines{};
-
-                pipelines.reserve(refs.size());
-
-                std::transform(
-                    refs.begin(), refs.end(), std::back_inserter(pipelines), [](auto &r) {
-                        return std::move(r.get());
-                    });
-
-                return data_pipeline::concat(std::move(pipelines));
-            },
-            py::arg("pipelines"));
-        
     // DataPipelineIterator
     py::class_<data_pipeline_iterator>(m, "_DataPipelineIterator")
         .def(

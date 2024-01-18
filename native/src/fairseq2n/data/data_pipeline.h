@@ -53,6 +53,9 @@ public:
     reload_position(tape &t);
 
     bool
+    is_infinite() const;
+
+    bool
     is_broken() const noexcept
     {
         return is_broken_;
@@ -63,33 +66,14 @@ private:
     is_initialized() const noexcept;
 
     void
-    ensure_initialized();
+    ensure_initialized() const;
 
     void
     check_if_broken() const;
 
-    [[noreturn]] static void
-    throw_broken();
-
 public:
     static data_pipeline_builder
-    zip(
-        std::vector<data_pipeline> pipelines,
-        std::vector<std::string> names = {},
-        bool zip_to_shortest = false,
-        bool flatten = false,
-        bool disable_parallelism = false);
-
-    static data_pipeline_builder
-    round_robin(
-        std::vector<data_pipeline> pipelines,
-        bool stop_at_shortest = false);
-
-    static data_pipeline_builder
-    sample(
-        std::vector<data_pipeline> pipelines,
-        std::optional<std::vector<float>> weights = {},
-        bool stop_at_shortest = false);
+    concat(std::vector<data_pipeline> pipelines);
 
     static data_pipeline_builder
     constant(data example, std::optional<std::string> key = {});
@@ -98,11 +82,22 @@ public:
     count(std::int64_t start = 0, std::optional<std::string> key = {});
 
     static data_pipeline_builder
-    concat(std::vector<data_pipeline> pipelines);
+    round_robin(std::vector<data_pipeline> pipelines, bool stop_at_shortest = false);
+
+    static data_pipeline_builder
+    sample(std::vector<data_pipeline> pipelines, std::optional<std::vector<float>> weights = {});
+
+    static data_pipeline_builder
+    zip(
+        std::vector<data_pipeline> pipelines,
+        std::vector<std::string> names = {},
+        bool zip_to_shortest = false,
+        bool flatten = false,
+        bool disable_parallelism = false);
 
 private:
-    data_source_factory factory_{};
-    std::unique_ptr<data_source> source_{};
+    mutable data_source_factory factory_{};
+    mutable std::unique_ptr<data_source> source_{};
     std::size_t max_num_warnings_{};
     std::size_t warning_count_{};
     mutable bool is_broken_ = false;
