@@ -126,7 +126,10 @@ class TorchSDPA(SDPA):
         is_causal = False
 
         if key_padding_mask is not None:
-            mask = key_padding_mask.materialize()
+            if isinstance(key_padding_mask, PaddingMask):
+                mask = key_padding_mask.materialize()
+            else:
+                mask = key_padding_mask
 
             # (N, S_kv) -> (N, 1, 1, S_kv)
             mask = mask[:, None, None, :]
@@ -151,10 +154,13 @@ class TorchSDPA(SDPA):
                 mask = attn_mask.materialize()
         elif attn_mask is not None:
             # ([H], S, S_kv)
-            mask = attn_mask.materialize()
+            if isinstance(attn_mask, AttentionMask):
+                mask = attn_mask.materialize()
+            else:
+                mask = attn_mask
         else:
             mask = None
-
+        
         attn = F.scaled_dot_product_attention(  # type: ignore[attr-defined]
             seqs,
             keys,
