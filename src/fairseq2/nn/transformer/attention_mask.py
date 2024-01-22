@@ -55,7 +55,7 @@ class AttentionMaskFactory(Protocol):
             batch size, :math:`S_{kv}` is the key/value sequence length, and
             :math:`K` is the key size.
         :param training:
-            If ``True``, indicates that the calling module is in training mode.
+            If ``True``, the calling module is in training mode.
         :param state_bag:
             The state bag to use for incremental decoding.
 

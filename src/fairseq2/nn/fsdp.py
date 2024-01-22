@@ -66,8 +66,8 @@ def to_fsdp(
     :param memory_policy:
         The policy to instruct FSDP when and how to allocate memory.
     :param static_graph:
-        If ``True``, indicates that ``module`` has a static computation graph.
-        Must be ``True`` for forward prefetching to be in effect.
+        If ``True``, ``module`` has a static computation graph. Must be ``True``
+        for forward prefetching to be in effect.
     """
     if memory_policy is None:
         memory_policy = FSDP_STANDARD_MEMORY_POLICY
