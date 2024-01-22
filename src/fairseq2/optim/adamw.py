@@ -59,8 +59,7 @@ class AdamW(OptimizerBase):
             If ``True``, maximizes the parameters based on the objective,
             instead of minimizing.
         :param capturable:
-            If ``True``, indicates that it is safe to capture this instance in a
-            CUDA graph.
+            If ``True``, it is safe to capture this instance in a CUDA graph.
         :param differentiable:
             If ``True``, runs the optimizer step under autograd.
         :param impl:
