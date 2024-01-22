@@ -13,6 +13,7 @@
 #include <iterator>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <unordered_set>
 #include <utility>
 #include <variant>
@@ -238,14 +239,20 @@ def_data_pipeline(py::module_ &data_module)
             })
         .def(
             "load_state_dict",
-            [](data_pipeline &self, const py::dict &state_dict, bool strict)
+            [](data_pipeline &self, const py::dict &state_dict)
             {
+                auto throw_invalid_arg = []()
+                {
+                    throw_<std::invalid_argument>(
+                        "`state_dict` must contain a valid data pipeline state, but cannot be parsed as such.");
+                };
+
                 py::object value;
                 try {
                     value = state_dict["position"];
                 } catch (const py::error_already_set &ex) {
-                    if (ex.matches(PyExc_KeyError) && !strict)
-                        return;
+                    if (ex.matches(PyExc_KeyError))
+                        throw_invalid_arg();
 
                     throw;
                 }
@@ -254,20 +261,23 @@ def_data_pipeline(py::module_ &data_module)
                 try {
                     storage = value.cast<data_list>();
                 } catch (const py::cast_error &) {
-                    throw_<std::invalid_argument>(
-                        "`state_dict` must contain a valid data pipeline state, but cannot be parsed as such.");
+                    throw_invalid_arg();
                 }
 
                 tape t{std::move(storage)};
 
-                {
+                try {
                     py::gil_scoped_release no_gil{};
 
                     self.reload_position(t);
+                } catch (const std::invalid_argument &) {
+                    throw_invalid_arg();
                 }
+
+                if (!t.is_eod())
+                    throw_invalid_arg();
             },
-            py::arg("state_dict"),
-            py::arg("strict") = true)
+            py::arg("state_dict"))
 
         // Factories
         .def_static(

@@ -69,16 +69,11 @@ if TYPE_CHECKING or DOC_MODE:
             the returned state dictionary to :meth:`load_state_dict`.
             """
 
-        def load_state_dict(
-            self, state_dict: Mapping[str, Any], strict: bool = True
-        ) -> None:
+        def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
             """Restore the state of the data pipeline from ``state_dict``.
 
             :param state_dict:
                 A state dictionary previously returned by :meth:`state_dict`.
-            :param strict:
-                If ``True``, enforces that the keys in ``state_dict`` match the
-                keys returned by :meth:`state_dict`.
             """
 
         @staticmethod
