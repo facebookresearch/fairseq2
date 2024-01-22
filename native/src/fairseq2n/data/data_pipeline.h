@@ -133,6 +133,7 @@ public:
     bucket_by_length(
         std::vector<std::pair<std::size_t, std::size_t>> bucket_sizes,
         data_length_fn fn,
+        bool skip_long_examples = false,
         bool drop_remainder = false) &&;
 
     data_pipeline_builder

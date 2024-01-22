@@ -14,11 +14,13 @@ bucket_by_length_data_source::bucket_by_length_data_source(
     std::unique_ptr<data_source> &&inner,
     std::vector<std::pair<std::size_t, std::size_t>> &&bucket_sizes,
     data_length_fn &&fn,
+    bool skip_long_examples,
     bool drop_remainder)
   : inner_{std::move(inner)},
     bucket_sizes_(std::move(bucket_sizes)),
     max_data_len_{bucket_sizes_.back().second},
     data_length_fn_{std::move(fn)},
+    skip_long_examples_{skip_long_examples},
     drop_remainder_{drop_remainder}
 {
     buckets_.reserve(bucket_sizes_.size());
@@ -41,9 +43,15 @@ bucket_by_length_data_source::next()
                 "The length of the input data cannot be determined.");
         }
 
-        if (data_len > max_data_len_)
-            throw_data_pipeline_error(std::move(maybe_example), /*recoverable=*/true,
-                "The length of the input data must be less than or equal to the maximum bucket data length ({}), but is {} instead.", max_data_len_, data_len);
+        if (data_len > max_data_len_) {
+            if (!skip_long_examples_)
+                throw_data_pipeline_error(std::move(maybe_example), /*recoverable=*/true,
+                    "The length of the input data must be less than or equal to the maximum bucket data length ({}), but is {} instead.", max_data_len_, data_len);
+
+            // TODO(balioglu): log info
+
+            continue;
+        }
 
         // Find the smallest bucket that would fit `example`, and return that bucket
         // if it is full.
