@@ -114,13 +114,7 @@ def init_parquet_dataset(
     filters: Optional[pa.dataset.Expression] = None,
     filesystem: Optional[pa.fs.FileSystem] = None,
 ) -> pq.ParquetDataset:
-    source_ds = pq.ParquetDataset(
-        parquet_path,
-        validate_schema=True,
-        filters=filters,
-        filesystem=filesystem,
-    )
-    return source_ds
+    return pq.ParquetDataset(parquet_path, filters=filters, filesystem=filesystem)
 
 
 def get_dataset_fragments(
