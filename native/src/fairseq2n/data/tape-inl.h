@@ -7,9 +7,9 @@
 #pragma once
 
 #include <cstdint>
-#include <vector>
 #include <optional>
 #include <type_traits>
+#include <vector>
 
 #include "fairseq2n/float.h"
 #include "fairseq2n/utils/cast.h"

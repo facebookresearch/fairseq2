@@ -34,6 +34,4 @@ tape::read_data()
     return *pos_++;
 }
 
-corrupt_tape_error::~corrupt_tape_error() = default;
-
 }  // namespace fairseq2n

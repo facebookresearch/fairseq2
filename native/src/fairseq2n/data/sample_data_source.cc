@@ -122,7 +122,7 @@ sample_data_source::random_pipeline_index()
     float32 sample = at::transformation::uniform_real(gen->random(), 0.0F, 1.0F);
 
     std::size_t lptr = 0;
-    std::size_t rptr = weight_cumsums_.size();
+    std::size_t rptr = weight_cumsums_.size() - 1;
 
     while (rptr - lptr > 0) {
         std::size_t mptr = lptr + (rptr - lptr) / 2;

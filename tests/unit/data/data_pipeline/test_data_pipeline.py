@@ -108,3 +108,22 @@ class TestDataPipeline:
                 pass
 
         assert run_count == max_num_warnings + 1
+
+    def test_load_state_dict_raises_error_when_tape_is_corrupt(self) -> None:
+        seq = [1, 2, 3, 4, 5]
+
+        pipeline = read_sequence(seq).and_return()
+
+        next(iter(pipeline))
+
+        state_dict = pipeline.state_dict()
+
+        # Deliberately corrupt the underlying tape.
+        state_dict["position"].append("foo")
+
+        for s in [{}, {"position": "foo"}, state_dict]:
+            with pytest.raises(
+                ValueError,
+                match=r"^`state_dict` must contain a valid data pipeline state, but cannot be parsed as such\.$",
+            ):
+                pipeline.load_state_dict(s)  # type: ignore[arg-type]

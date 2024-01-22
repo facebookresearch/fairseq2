@@ -8,6 +8,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <stdexcept>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -99,7 +100,7 @@ TEST(test_tape, read_throws_exception_when_record_is_not_called)
 {
     tape t{};
 
-    EXPECT_THROW(t.read_data(), corrupt_tape_error);
+    EXPECT_THROW(t.read_data(), std::invalid_argument);
 }
 
 TEST(test_tape, read_throws_exception_when_record_is_of_different_type)
@@ -110,7 +111,7 @@ TEST(test_tape, read_throws_exception_when_record_is_of_different_type)
 
     t.rewind();
 
-    EXPECT_THROW(t.read<std::int32_t>(), corrupt_tape_error);
+    EXPECT_THROW(t.read<std::int32_t>(), std::invalid_argument);
 }
 
 TEST(test_tape, read_throws_exception_when_end_of_tape_is_reached)
@@ -120,5 +121,5 @@ TEST(test_tape, read_throws_exception_when_end_of_tape_is_reached)
     t.record(4);
 
     // No rewind.
-    EXPECT_THROW(t.read<std::int32_t>(), corrupt_tape_error);
+    EXPECT_THROW(t.read<std::int32_t>(), std::invalid_argument);
 }

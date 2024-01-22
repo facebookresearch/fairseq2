@@ -76,6 +76,7 @@ class TestShuffleOp:
             assert list(islice(pipeline2, 1000)) == expected_output2
 
         pipeline2.reset()
+
         pipeline2.load_state_dict(state_dict)
 
         with tmp_rng_seed(CPU, seed=5678):

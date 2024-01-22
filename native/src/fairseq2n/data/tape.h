@@ -51,6 +51,12 @@ public:
         pos_ = storage_.begin();
     }
 
+    bool
+    is_eod() const noexcept
+    {
+        return pos_ == storage_.end();
+    }
+
     const data_list &
     storage() const noexcept
     {
@@ -66,22 +72,11 @@ private:
     data_list::iterator pos_ = storage_.begin();
 };
 
-class FAIRSEQ2_API corrupt_tape_error : public std::domain_error {
-public:
-    using std::domain_error::domain_error;
-
-public:
-    corrupt_tape_error(const corrupt_tape_error &) = default;
-    corrupt_tape_error &operator=(const corrupt_tape_error &) = default;
-
-   ~corrupt_tape_error() override;
-};
-
 inline void
 tape::throw_corrupt()
 {
-    throw corrupt_tape_error{
-        "The tape is corrupt. The state of the data pipeline cannot be restored."};
+    throw std::invalid_argument(
+        "The tape is corrupt. The state of the data pipeline cannot be restored.");
 }
 
 }  // namespace fairseq2n
