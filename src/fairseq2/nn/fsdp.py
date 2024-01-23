@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Final, Iterable, Optional, Protocol, Sequence
+from typing import Any, Dict, Final, Iterable, Optional, Protocol, Sequence
 
 from torch import Tensor
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
@@ -30,12 +30,13 @@ from fairseq2.nn.utils.module import (
     to_empty,
 )
 from fairseq2.typing import META, Device
+from fairseq2.utils.version import _is_pt21_or_greater
 
 
 def to_fsdp(
     module: Module,
     gang: Gang,
-    wrap_policy: FSDPWrapPolicy,
+    wrap_policy: Optional[FSDPWrapPolicy],
     *,
     ignored_param_names: Optional[Sequence[str]] = None,
     skip_init: bool = False,
@@ -51,9 +52,10 @@ def to_fsdp(
     :param gang:
         The gang over which the module will be sharded.
     :param wrap_policy:
-        The policy to apply FSDP to submodules of ``module``.
+        The policy to apply FSDP to ``module``.  If ``None``, ``module`` is
+        wrapped with only a top-level FSDP instance.
     :param ignored_param_names:
-        The ignored parameter names, can contain regular expressions.
+        The ignored parameter names. Can contain regular expressions.
     :param skip_init:
         If ``True``, skips initializing the parameters and buffers moved from
         the meta device onto the device of ``gang``.
@@ -73,11 +75,28 @@ def to_fsdp(
         memory_policy = FSDP_STANDARD_MEMORY_POLICY
 
     if infer_device(module) == META:
+        if not _is_pt21_or_greater():
+            raise RuntimeError(
+                "FSDP meta initialization is only supported by PyTorch 2.1.0 or greater."
+            )
+
         broadcast_state = False
 
         param_init_fn = FSDPParameterInitializer(gang.device, skip_init)
     else:
         param_init_fn = None
+
+    if sharding_strategy == ShardingStrategy.NO_SHARD and wrap_policy is not None:
+        raise ValueError(
+            "`wrap_policy` must be `None` when `sharding_strategy` is `NO_SHARD`."
+        )
+
+    kwargs: Dict[str, Any] = {}
+
+    # As of PyTorch 2.0, FSDP initialization fails in certain settings when an
+    # empty `ignored_states` is specified (e.g. `sync_module_states` is set).
+    if ignored_param_names:
+        kwargs["ignored_states"] = get_ignored_parameters(module, ignored_param_names)
 
     fsdp = FSDP(
         module,
@@ -92,7 +111,7 @@ def to_fsdp(
         forward_prefetch=static_graph and memory_policy.forward_prefetch,
         limit_all_gathers=memory_policy.limit_all_gathers,
         use_orig_params=True,
-        ignored_states=get_ignored_parameters(module, ignored_param_names),
+        **kwargs,
     )
 
     FSDP.set_state_dict_type(
@@ -185,7 +204,7 @@ def get_ignored_parameters(
     :param module:
         The module to be wrapped with FSDP.
     :param names:
-        The ignored parameter names, can contain regular expressions.
+        The ignored parameter names. Can contain regular expressions.
     """
     if names is None:
         return None

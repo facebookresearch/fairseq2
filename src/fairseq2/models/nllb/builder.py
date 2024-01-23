@@ -321,7 +321,7 @@ def get_nllb_wrap_policy(
 
     :returns:
         - The FSDP wrap policy.
-        - The ignored parameter names, can contain regular expressions.
+        - The ignored parameter names. Can contain regular expressions.
     """
     kls = (TransformerEncoder, TransformerDecoder)
 
