@@ -82,7 +82,7 @@ def select_parameters(
     :param module:
         The module to select from.
     :param names:
-        The parameter names, can contain regular expressions.
+        The parameter names. Can contain regular expressions.
     :param exclude:
         If ``True``, return the parameters that do not match ``names``.
 
