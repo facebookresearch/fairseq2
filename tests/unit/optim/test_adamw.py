@@ -67,6 +67,7 @@ class TestAdamW:
                 {"params": net1.conv2.parameters(), "lr": 0.002},
             ],
             lr=0.001,
+            use_fp32=True,
         )
         opt2 = BaseAdamW(
             params=[  # type: ignore[arg-type]
