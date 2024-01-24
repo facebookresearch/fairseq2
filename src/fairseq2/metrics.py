@@ -88,8 +88,20 @@ class MetricBag:
             metric.reset()
 
     def sync_and_compute_metrics(self) -> Optional[Dict[str, Any]]:
-        """Sync the metrics across all processes and and compute their value."""
+        """Sync the metrics across all processes and and compute their values."""
         return sync_and_compute_metrics(self)
+
+    def process_metric_values(self, values: Dict[str, Any]) -> None:
+        """Process metric ``values``."""
+        pass
+
+    def format_metric_values(self, values: Dict[str, Any]) -> str:
+        """Format metric ``values`` to print to stdout or stderr."""
+        return format_metric_values(values, self)
+
+    def format_metric_value(self, name: str, value: Any) -> Optional[str]:
+        """Format the value of metric ``name`` to print to stdout or stderr."""
+        return None
 
     def state_dict(self) -> Dict[str, Any]:
         state_dict = {}
@@ -109,14 +121,6 @@ class MetricBag:
             metric.load_state_dict(state_dict[name])
 
             metric.to(self.gang.device)
-
-    def format_metric_values(self, values: Dict[str, Any]) -> str:
-        """Format metric ``values`` to print to stdout or stderr."""
-        return format_metric_values(values, self)
-
-    def format_metric_value(self, name: str, value: Any) -> Optional[str]:
-        """Format the value of metric ``name`` to print to stdout or stderr."""
-        return None
 
 
 def reset_metrics(*bags: MetricBag) -> None:
@@ -143,7 +147,15 @@ def sync_and_compute_metrics(*bags: MetricBag) -> Optional[Dict[str, Any]]:
 
             all_metrics.update(bag.metrics)
 
-    return sync_and_compute_collection(all_metrics, gang.as_process_group())
+    values = sync_and_compute_collection(all_metrics, gang.as_process_group())
+
+    if gang.rank == 0:
+        assert values is not None
+
+        for bag in bags:
+            bag.process_metric_values(values)
+
+    return values
 
 
 def format_metric_values(values: Dict[str, Any], *bags: MetricBag) -> str:
@@ -151,13 +163,18 @@ def format_metric_values(values: Dict[str, Any], *bags: MetricBag) -> str:
     fmt_values = []
 
     for name, value in values.items():
-        for bag in bags:
-            fmt_value = bag.format_metric_value(name, value)
-            if fmt_value is not None:
-                break
+        fmt_value: Optional[str]
 
-        if fmt_value is None:
-            fmt_value = str(value)
+        if name == "wall_time":
+            fmt_value = f"{int(value)}s"
+        else:
+            for bag in bags:
+                fmt_value = bag.format_metric_value(name, value)
+                if fmt_value is not None:
+                    break
+
+            if fmt_value is None:
+                fmt_value = str(value)
 
         fmt_values.append(f"{name}: {fmt_value}")
 

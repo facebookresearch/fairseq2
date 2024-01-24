@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Optional, Sequence, Tuple, final
+from typing import Any, Dict, Optional, Sequence, Tuple, final
 
 import torch
 from torch import Tensor
@@ -178,8 +178,8 @@ class Seq2SeqModelMetricBag(MetricBag):
         num_source_elements = torch.zeros((), dtype=torch.float64)
         num_target_elements = torch.zeros((), dtype=torch.float64)
 
-        for batch, loss in zip(batches, losses):
-            loss += loss
+        for batch, batch_loss in zip(batches, losses):
+            loss += int(batch_loss)
 
             batch_size += batch.batch_size
 
@@ -211,9 +211,16 @@ class Seq2SeqModelMetricBag(MetricBag):
         self.elements_per_second.reset()
 
     @finaloverride
+    def process_metric_values(self, values: Dict[str, Any]) -> None:
+        values["elapsed_time"] = self.elements_per_second.elapsed_time_sec
+
+    @finaloverride
     def format_metric_value(self, name: str, value: Any) -> Optional[str]:
         if name == "loss" or name == "entropy_loss":
             return f"{float(value):,.3f}"
+
+        if name == "elapsed_time":
+            return f"{int(value)}s"
 
         # All other metrics in the bag are integers.
         if name in self.metrics.keys():
