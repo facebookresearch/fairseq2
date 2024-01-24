@@ -25,7 +25,7 @@ class LRSchedulerBase(ABC, LRScheduler):
     def get_lr(self) -> List[float]:  # type: ignore[override]
         if not self._get_lr_called_within_step:  # type: ignore[attr-defined]
             warnings.warn(
-                "To get the last learning rate computed by the scheduler, please use `get_last_lr()`."
+                "To get the last learning rate computed by the scheduler, use `get_last_lr()`."
             )
 
         return self._compute_lrs()
@@ -33,6 +33,11 @@ class LRSchedulerBase(ABC, LRScheduler):
     @abstractmethod
     def _compute_lrs(self) -> List[float]:
         """Compute the learning rate of each parameter group."""
+
+
+def get_effective_lr(scheduler: LRScheduler) -> float:
+    """Return the effective learning rate computed by ``scheduler``."""
+    return scheduler.get_last_lr()[0]
 
 
 @final

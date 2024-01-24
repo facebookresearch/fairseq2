@@ -108,19 +108,22 @@ class Stopwatch:
     """Measures elapsed execution time."""
 
     start_time: Optional[float]
-    elapsed_time: float
     device: Optional[Device]
 
-    def __init__(self, device: Optional[Device] = None) -> None:
+    def __init__(self, *, start: bool = False, device: Optional[Device] = None) -> None:
         """
+        :param start:
+            If ``True``, starts the stopwatch immediately.
         :param device:
             If specified, waits for all operations on ``device`` to complete
             before measuring the elapsed time. Note that this can have a
             negative impact on the runtime performance if not used carefully.
         """
         self.start_time = None
-        self.elapsed_time = 0.0
         self.device = device
+
+        if start:
+            self.start()
 
     def start(self) -> None:
         """Start the stopwatch."""
@@ -132,23 +135,22 @@ class Stopwatch:
 
         self.start_time = perf_counter()
 
-        self.elapsed_time = 0.0
-
     def stop(self) -> None:
         """Stop the stopwatch."""
+        self.start_time = None
+
+    def get_elapsed_time(self) -> float:
         if self.start_time is None:
-            raise RuntimeError("The stopwatch is not running.")
+            return 0.0
 
         if self.device is not None and self.device.type == "cuda":
             torch.cuda.synchronize(self.device)
 
-        self.elapsed_time = perf_counter() - self.start_time
-
-        # Reset.
-        self.start_time = None
+        return perf_counter() - self.start_time
 
     def __enter__(self) -> Self:
-        self.start()
+        if self.start_time is None:
+            self.start()
 
         return self
 
