@@ -43,7 +43,6 @@ def to_fsdp(
     broadcast_state: bool = False,
     sharding_strategy: ShardingStrategy = ShardingStrategy.FULL_SHARD,
     memory_policy: Optional[FSDPMemoryPolicy] = None,
-    static_graph: bool = False,
 ) -> FSDP:
     """Wrap ``module`` with FSDP.
 
@@ -67,9 +66,6 @@ def to_fsdp(
         overhead.
     :param memory_policy:
         The policy to instruct FSDP when and how to allocate memory.
-    :param static_graph:
-        If ``True``, ``module`` has a static computation graph. Must be ``True``
-        for forward prefetching to be in effect.
     """
     if memory_policy is None:
         memory_policy = FSDP_STANDARD_MEMORY_POLICY
@@ -108,7 +104,7 @@ def to_fsdp(
         param_init_fn=param_init_fn,
         device_id=gang.device,
         sync_module_states=broadcast_state,
-        forward_prefetch=static_graph and memory_policy.forward_prefetch,
+        forward_prefetch=False,
         limit_all_gathers=memory_policy.limit_all_gathers,
         use_orig_params=True,
         **kwargs,
@@ -147,11 +143,6 @@ class FSDPWrapPolicy(Protocol):
 class FSDPMemoryPolicy:
     """Specifies the device memory usage policy of an FSDP module."""
 
-    forward_prefetch: bool
-    """If ``True``, FSDP explicitly prefetches the next forward-pass all-gather
-    before the current forward computation. For more information, check out the
-    same named parameter of :class:`FSDP`."""
-
     backward_prefetch: Optional[BackwardPrefetch]
     """The backward prefetching mode of all-gathers. For more information, check
     out the same named parameter of :class:`FSDP`."""
@@ -167,33 +158,37 @@ class FSDPMemoryPolicy:
 
 
 FSDP_STANDARD_MEMORY_POLICY: Final = FSDPMemoryPolicy(
-    forward_prefetch=True,
     backward_prefetch=BackwardPrefetch.BACKWARD_PRE,
     limit_all_gathers=False,
     cpu_offload=False,
 )
-"""Enables both forward and backward prefetching, puts no limit on communication
-and computation overlap."""
+"""
+    - Enables backward prefetching.
+    - Puts no limit on communication and computation overlap.
+"""
 
 
 FSDP_LOW_MEMORY_POLICY: Final = FSDPMemoryPolicy(
-    forward_prefetch=False,
     backward_prefetch=BackwardPrefetch.BACKWARD_POST,
     limit_all_gathers=True,
     cpu_offload=False,
 )
-"""Disables forward prefetching, enables backward prefetching with low-memory
-pressure, rate-limits communication and computation overlap."""
+"""
+    - Enables backward prefetching with low-memory pressure.
+    - Rate-limits communication and computation overlap.
+"""
 
 
 FSDP_VERY_LOW_MEMORY_POLICY: Final = FSDPMemoryPolicy(
-    forward_prefetch=False,
     backward_prefetch=None,
     limit_all_gathers=True,
     cpu_offload=True,
 )
-"""Disables both forward and backward prefetching, disables communication and
-computation overlap, offloads parameters to CPU."""
+"""
+    - Disables backward prefetching.
+    - Disables communication and computation overlap.
+    - Offloads parameters to CPU.
+"""
 
 
 def get_ignored_parameters(
