@@ -82,9 +82,9 @@ class Seq2SeqBatch:
           - The target sequences trimmed one step from the beginning to use in
             loss computation.
         """
-        if (target_seq_len := self.target_seqs.size(1)) < 2:
+        if (seq_len := self.target_seqs.size(1)) < 2:
             raise ValueError(
-                f"The sequence length of `target_seqs` must be at least 2 for training, but is {target_seq_len} instead."
+                f"The sequence length of `target_seqs` must be at least 2 for training, but is {seq_len} instead."
             )
 
         target_seqs = self.target_seqs[:, :-1]
@@ -149,9 +149,7 @@ class Seq2SeqModelMetricBag(MetricBag):
 
         self.register_metric("elements_per_batch", Mean(device=d), persistent=False)
 
-        self.register_metric(
-            "elements_per_second", Throughput(device=d), persistent=False
-        )
+        self.register_metric("elements_per_second", Throughput(device=d), persistent=False)  # fmt: skip
 
         self.num_source_elements = Sum(device=d)
         self.num_target_elements = Sum(device=d)
@@ -183,7 +181,7 @@ class Seq2SeqModelMetricBag(MetricBag):
 
             batch_size += batch.batch_size
 
-            num_source_elements += batch.num_source_elements() - batch.batch_size
+            num_source_elements += batch.num_source_elements()
             num_target_elements += batch.num_target_elements() - batch.batch_size
 
         loss /= num_target_elements
@@ -202,8 +200,8 @@ class Seq2SeqModelMetricBag(MetricBag):
         self.num_source_elements.update(num_source_elements)
         self.num_target_elements.update(num_target_elements)
 
-    def reset_performance_metrics(self) -> None:
-        """Reset the performance related metrics to their initial state."""
+    def reset_batch_metrics(self) -> None:
+        """Reset the batch metrics to their initial state."""
         self.loss.reset()
         self.entropy_loss.reset()
         self.batch_size.reset()
@@ -213,17 +211,3 @@ class Seq2SeqModelMetricBag(MetricBag):
     @finaloverride
     def process_metric_values(self, values: Dict[str, Any]) -> None:
         values["elapsed_time"] = self.elements_per_second.elapsed_time_sec
-
-    @finaloverride
-    def format_metric_value(self, name: str, value: Any) -> Optional[str]:
-        if name == "loss" or name == "entropy_loss":
-            return f"{float(value):,.3f}"
-
-        if name == "elapsed_time":
-            return f"{int(value)}s"
-
-        # All other metrics in the bag are integers.
-        if name in self.metrics.keys():
-            return f"{int(value):,}"
-
-        return None
