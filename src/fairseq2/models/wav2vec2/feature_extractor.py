@@ -69,7 +69,6 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
 
         self.layers = Sequential()
 
-        # We expect the input waveforms to be one dimensional.
         self.num_channels = num_channels
 
         for i, layer_desc in enumerate(layer_descs):
