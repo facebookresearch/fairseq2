@@ -70,6 +70,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
         self.layers = Sequential()
 
         self.num_channels = num_channels
+        input_dim = self.num_channels
 
         for i, layer_desc in enumerate(layer_descs):
             output_dim, kernel_size, stride = layer_desc
@@ -131,7 +132,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
             batch size and :math:`(S)` is the sequence length.
         """
         # (N, S) -> (N, C, S)
-        if self.num_channels == 1 or len(seqs.shape == 2):
+        if self.num_channels == 1:
             seqs = seqs.unsqueeze(1)
 
         # (N, C, S) -> (N, E, S)
