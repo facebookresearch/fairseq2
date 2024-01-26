@@ -56,4 +56,4 @@ private:
     bool is_infinite_;
 };
 
-}  // namespace fairseq2::detail
+}  // namespace fairseq2n::detail

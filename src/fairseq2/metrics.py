@@ -4,12 +4,20 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict, Mapping, Optional
+from __future__ import annotations
+
+import logging
+from abc import ABC, abstractmethod
+from functools import partial
+from logging import Logger
+from pathlib import Path
+from typing import Any, Callable, Dict, Mapping, Optional, Tuple, final
 
 from torcheval.metrics import Metric
 from torcheval.metrics.toolkit import sync_and_compute_collection
 
 from fairseq2.gang import Gang
+from fairseq2.typing import finaloverride
 
 
 class MetricBag:
@@ -95,14 +103,6 @@ class MetricBag:
         """Process metric ``values``."""
         pass
 
-    def format_metric_values(self, values: Dict[str, Any]) -> str:
-        """Format metric ``values`` to print to stdout or stderr."""
-        return format_metric_values(values, self)
-
-    def format_metric_value(self, name: str, value: Any) -> Optional[str]:
-        """Format the value of metric ``name`` to print to stdout or stderr."""
-        return None
-
     def state_dict(self) -> Dict[str, Any]:
         state_dict = {}
 
@@ -158,24 +158,218 @@ def sync_and_compute_metrics(*bags: MetricBag) -> Optional[Dict[str, Any]]:
     return values
 
 
-def format_metric_values(values: Dict[str, Any], *bags: MetricBag) -> str:
-    """Format metric ``values`` to print to stdout or stderr."""
-    fmt_values = []
+def format_as_int(value: Any, *, postfix: Optional[str] = None) -> str:
+    """Format metric ``value`` as integer."""
+    i = int(value)
 
-    for name, value in values.items():
-        fmt_value: Optional[str]
+    s = "<1" if i == 0 and isinstance(value, float) else f"{i:,}"
 
-        if name == "wall_time":
-            fmt_value = f"{int(value)}s"
-        else:
-            for bag in bags:
-                fmt_value = bag.format_metric_value(name, value)
-                if fmt_value is not None:
-                    break
+    if postfix:
+        s += postfix
 
-            if fmt_value is None:
-                fmt_value = str(value)
+    return s
 
-        fmt_values.append(f"{name}: {fmt_value}")
 
-    return " | ".join(fmt_values)
+format_as_seconds = partial(format_as_int, postfix="s")
+"""Format metric ``value`` as duration in seconds."""
+
+
+def format_as_float(
+    value: Any, *, decimal: Optional[int] = None, postfix: Optional[str] = None
+) -> str:
+    """Format metric ``value`` as float."""
+    if decimal:
+        s = f"{float(value):,.{decimal}f}"
+    else:
+        s = f"{float(value):,}"
+
+    if postfix:
+        s += postfix
+
+    return s
+
+
+format_as_loss = partial(format_as_float, decimal=3)
+"""Format metric ``value`` as training loss."""
+
+
+_metric_formatters: Dict[str, Tuple[str, Callable[[Any], str]]] = {
+    # fmt: off
+    "batch_size":          ("Batch Size",                format_as_int),
+    "elapsed_time":        ("Elapsed Time",              format_as_seconds),
+    "elements_per_batch":  ("Elements per Batch",        format_as_int),
+    "elements_per_second": ("Elements per Second",       format_as_int),
+    "entropy_loss":        ("Entropy Loss",              format_as_loss),
+    "grad_scale":          ("Grad Scale",                format_as_float),
+    "loss":                ("Loss",                      format_as_loss),
+    "lr":                  ("Learning Rate",             format_as_float),
+    "num_source_elements": ("Number of Source Elements", format_as_int),
+    "num_target_elements": ("Number of Target Elements", format_as_int),
+    "wall_time":           ("Wall Time",                 format_as_seconds),
+    # fmt: on
+}
+
+
+def register_metric_formatter(
+    name: str, display_name: str, formatter: Callable[[Any], str]
+) -> None:
+    """Register a string formatter for the specified metric.
+
+    :param name:
+        The name of the metric.
+    :param display_name:
+        The display name of the metric.
+    :param formatter:
+        The formatter to convert a metric value to its string representation.
+    """
+    if name in _metric_formatters:
+        raise ValueError(
+            f"`name` must be a unique metric name, but '{name}' is already registered."
+        )
+
+    _metric_formatters[name] = (display_name, formatter)
+
+
+class MetricRecorder(ABC):
+    """Records metric values."""
+
+    @abstractmethod
+    def record_metrics(
+        self,
+        run: str,
+        values: Dict[str, Any],
+        step_nr: int,
+        *,
+        flush: Optional[bool] = False,
+    ) -> None:
+        """Record ``values``.
+
+        :param run:
+            The name of the run (e.g. 'train', 'eval').
+        :param values:
+            The metric values.
+        :param step_nr:
+            The number of the run step.
+        :param flush:
+            If ``True``, flushes any intermediate buffer after recording.
+        """
+
+    def close(self) -> None:
+        """Close the recorder."""
+
+
+@final
+class LogMetricRecorder(MetricRecorder):
+    """Logs metric values to a :class:`Logger`."""
+
+    logger: Logger
+
+    def __init__(self, logger: Logger) -> None:
+        """
+        :param logger:
+            The logger to use.
+        """
+        self.logger = logger
+
+    @finaloverride
+    def record_metrics(
+        self,
+        run: str,
+        values: Dict[str, Any],
+        step_nr: int,
+        *,
+        flush: Optional[bool] = False,
+    ) -> None:
+        if not self.logger.isEnabledFor(logging.INFO):
+            return
+
+        formatted_values = []
+
+        for name, value in values.items():
+            pair = _metric_formatters.get(name)
+            if pair is None:
+                formatted_values.append(f"{name}: {value}")
+            else:
+                display_name, formatter = pair
+
+                formatted_values.append(f"{display_name}: {formatter(value)}")
+
+        s = " | ".join(formatted_values)
+
+        self.logger.info(f"{run} Metrics (step {step_nr}) - {s}")
+
+
+try:
+    from torch.utils.tensorboard import SummaryWriter  # type: ignore[attr-defined]
+except ImportError:
+    has_tensorboard = False
+else:
+    has_tensorboard = True
+
+
+@final
+class TensorBoardRecorder(MetricRecorder):
+    """Records metric values to TensorBoard."""
+
+    log_dir: Path
+
+    _writers: Dict[str, SummaryWriter]
+
+    def __init__(self, log_dir: Path) -> None:
+        """
+        :param log_dir:
+            The base directory under which to store the TensorBoard files.
+        """
+        if not has_tensorboard:
+            logger = logging.getLogger(__name__)
+
+            logger.warning("tensorboard not found. Please install it with `pip install tensorboard`.")  # fmt: skip
+
+        self.log_dir = log_dir
+
+        self._writers = {}
+
+    @finaloverride
+    def record_metrics(
+        self,
+        run: str,
+        values: Dict[str, Any],
+        step_nr: int,
+        *,
+        flush: Optional[bool] = False,
+    ) -> None:
+        writer = self._get_writer(run)
+        if writer is None:
+            return
+
+        for name, value in values.items():
+            pair = _metric_formatters.get(name)
+            if pair is None:
+                display_name = name
+            else:
+                display_name = pair[0]
+
+            writer.add_scalar(display_name, value, step_nr)
+
+        if flush:
+            writer.flush()
+
+    def _get_writer(self, run: str) -> Optional[SummaryWriter]:
+        if not has_tensorboard:
+            return None
+
+        try:
+            writer = self._writers[run]
+        except KeyError:
+            writer = SummaryWriter(self.log_dir.joinpath(run))
+
+            self._writers[run] = writer
+
+        return writer
+
+    @finaloverride
+    def close(self) -> None:
+        for writer in self._writers.values():
+            writer.close()
+
+        self._writers.clear()

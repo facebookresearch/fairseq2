@@ -170,4 +170,4 @@ sample_data_source::are_all_done() noexcept
     return is_eod_;
 }
 
-}  // namespace fairseq2::detail
+}  // namespace fairseq2n::detail

@@ -18,6 +18,11 @@ from fairseq2.typing import finaloverride
 LRScheduler: TypeAlias = _LRScheduler
 
 
+def get_effective_lr(scheduler: LRScheduler) -> float:
+    """Return the effective learning rate computed by ``scheduler``."""
+    return scheduler.get_last_lr()[0]
+
+
 class LRSchedulerBase(ABC, LRScheduler):
     """Represents the abstract base class for learning rate schedulers."""
 
@@ -33,11 +38,6 @@ class LRSchedulerBase(ABC, LRScheduler):
     @abstractmethod
     def _compute_lrs(self) -> List[float]:
         """Compute the learning rate of each parameter group."""
-
-
-def get_effective_lr(scheduler: LRScheduler) -> float:
-    """Return the effective learning rate computed by ``scheduler``."""
-    return scheduler.get_last_lr()[0]
 
 
 @final

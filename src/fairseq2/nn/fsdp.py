@@ -139,7 +139,7 @@ class FSDPWrapPolicy(Protocol):
         """
 
 
-@dataclass
+@dataclass(frozen=True)
 class FSDPMemoryPolicy:
     """Specifies the device memory usage policy of an FSDP module."""
 
