@@ -4,12 +4,12 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import final, List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple, final
 
 import torch
 import torch.nn as nn
 from torch import Tensor
-from torch.nn import Conv1d, Dropout, GELU, GroupNorm, Module, Sequential
+from torch.nn import GELU, Conv1d, Dropout, GroupNorm, Module, Sequential
 from torch.nn.functional import group_norm, layer_norm
 
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
