@@ -4,12 +4,12 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import List, Optional, Sequence, Tuple, final
+from typing import final, List, Optional, Sequence, Tuple
 
 import torch
 import torch.nn as nn
 from torch import Tensor
-from torch.nn import GELU, Conv1d, Dropout, GroupNorm, Module, Sequential
+from torch.nn import Conv1d, Dropout, GELU, GroupNorm, Module, Sequential
 from torch.nn.functional import group_norm, layer_norm
 
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
@@ -47,8 +47,8 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
             feature extraction layer.
         :param bias:
             If ``True``, convolutions learn an additive bias.
-        :param num_channels: 
-            How many channels the data has. 
+        :param num_channels:
+            How many channels the data has.
         :param dropout_p:
             The dropout probability on outputs of convolutions.
         :param layer_norm:
@@ -131,7 +131,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
             batch size and :math:`(S)` is the sequence length.
         """
         # (N, S) -> (N, C, S)
-        if self.num_channels == 1 or len(seqs.shape() == 2):
+        if self.num_channels == 1 or len(seqs.shape == 2):
             seqs = seqs.unsqueeze(1)
 
         # (N, C, S) -> (N, E, S)
