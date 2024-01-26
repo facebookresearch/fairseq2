@@ -113,7 +113,9 @@ class Wav2Vec2Model(Module):
         self.logit_temp = logit_temp
         self.diversity_loss_weight = diversity_loss_weight
 
-    def forward(self, batch: SequenceBatch) -> Wav2Vec2Output:
+    def forward(
+        self, batch: SequenceBatch, return_features: bool = False
+    ) -> Wav2Vec2Output | Tuple[Wav2Vec2Output, torch.Tensor]:
         """
         :param batch:
             The batch of sequences to process.
@@ -125,7 +127,13 @@ class Wav2Vec2Model(Module):
         # TODO: Should pad for fp16?
         encoder_output, _ = self.encoder(seqs, padding_mask)
 
-        return self.quantize_and_contrast(encoder_output, targets, temporal_mask)
+        if return_features:
+            return (
+                self.quantize_and_contrast(encoder_output, targets, temporal_mask),
+                encoder_output,
+            )
+        else:
+            return self.quantize_and_contrast(encoder_output, targets, temporal_mask)
 
     def run_frontend(
         self, seqs: Tensor, padding_mask: Optional[PaddingMask]
