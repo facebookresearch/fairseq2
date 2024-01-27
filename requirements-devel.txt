@@ -6,5 +6,6 @@ isort~=5.13
 mypy~=1.5.1
 pytest~=7.3
 shellcheck-py~=0.9
+types-psutil~=5.9
 types-PyYAML~=6.0
 types-setuptools~=67.8

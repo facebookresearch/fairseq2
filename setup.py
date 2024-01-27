@@ -47,6 +47,7 @@ setup(
         "numpy~=1.23",
         "overrides~=7.3",
         "packaging~=23.1",
+        "psutil~=5.9",
         "pyyaml~=6.0",
         "torcheval~=0.0.6",
         "tqdm~=4.62",
