@@ -52,7 +52,7 @@ def setup_logging(
 
         handlers.append(handler)  # Log to file.
 
-    fmt = f"[rank {rank}] %(asctime)s %(levelname)s %(name)s - %(message)s"
+    fmt = f"[Rank {rank}] %(asctime)s %(levelname)s %(name)s - %(message)s"
 
     datefmt = "%Y-%m-%d %H:%M:%S"
 
