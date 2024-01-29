@@ -310,12 +310,12 @@ def create_nllb_model(
 
 
 def get_nllb_wrap_policy(
-    arch_name: str, gang: Gang
-) -> Tuple[FSDPWrapPolicy, Optional[List[str]]]:
+    model_config: NllbConfig, gang: Gang
+) -> Tuple[Optional[FSDPWrapPolicy], Optional[List[str]]]:
     """Return the FSDP wrap policy and ignored parameter names for ``arch_name``.
 
-    :param arch_name:
-        The name of the architecture.
+    :param model_config:
+        The model configuration.
     :param gang:
         The gang that will be used to shard the model.
 
