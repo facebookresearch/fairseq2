@@ -27,6 +27,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
 
     layers: Sequential
     layer_descs: List[Tuple[int, int, int]]
+    num_channels: int
     grad_scale: float
 
     def __init__(
@@ -48,7 +49,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
         :param bias:
             If ``True``, convolutions learn an additive bias.
         :param num_channels:
-            How many channels the data has.
+            The number of input channels.
         :param dropout_p:
             The dropout probability on outputs of convolutions.
         :param layer_norm:
@@ -70,7 +71,8 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
         self.layers = Sequential()
 
         self.num_channels = num_channels
-        input_dim = self.num_channels
+
+        input_dim = num_channels
 
         for i, layer_desc in enumerate(layer_descs):
             output_dim, kernel_size, stride = layer_desc
