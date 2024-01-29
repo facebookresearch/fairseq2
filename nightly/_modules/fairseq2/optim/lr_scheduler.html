@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.optim.lr_scheduler &mdash; fairseq2 0.3.0.dev202401230127 documentation</title>
+  <title>fairseq2.optim.lr_scheduler &mdash; fairseq2 0.3.0.dev202401290133 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202401230127
+                0.3.0.dev202401290133
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -179,6 +179,11 @@
 <span class="n">LRScheduler</span><span class="p">:</span> <span class="n">TypeAlias</span> <span class="o">=</span> <span class="n">_LRScheduler</span>
 
 
+<span class="k">def</span> <span class="nf">get_effective_lr</span><span class="p">(</span><span class="n">scheduler</span><span class="p">:</span> <span class="n">LRScheduler</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the effective learning rate computed by ``scheduler``.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">scheduler</span><span class="o">.</span><span class="n">get_last_lr</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+
+
 <div class="viewcode-block" id="LRSchedulerBase"><a class="viewcode-back" href="../../../reference/generated/classes/fairseq2.optim.lr_scheduler.LRSchedulerBase.html#fairseq2.optim.lr_scheduler.LRSchedulerBase">[docs]</a><span class="k">class</span> <span class="nc">LRSchedulerBase</span><span class="p">(</span><span class="n">ABC</span><span class="p">,</span> <span class="n">LRScheduler</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents the abstract base class for learning rate schedulers.&quot;&quot;&quot;</span>
 
@@ -186,7 +191,7 @@
     <span class="k">def</span> <span class="nf">get_lr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>  <span class="c1"># type: ignore[override]</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_lr_called_within_step</span><span class="p">:</span>  <span class="c1"># type: ignore[attr-defined]</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
-                <span class="s2">&quot;To get the last learning rate computed by the scheduler, please use `get_last_lr()`.&quot;</span>
+                <span class="s2">&quot;To get the last learning rate computed by the scheduler, use `get_last_lr()`.&quot;</span>
             <span class="p">)</span>
 
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_compute_lrs</span><span class="p">()</span>
