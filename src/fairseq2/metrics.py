@@ -11,7 +11,7 @@ from abc import ABC, abstractmethod
 from functools import partial
 from logging import Logger
 from pathlib import Path
-from typing import Any, Callable, Dict, Mapping, Optional, Tuple, final
+from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple, final
 
 from torcheval.metrics import Metric
 from torcheval.metrics.toolkit import sync_and_compute_collection
@@ -240,7 +240,7 @@ class MetricRecorder(ABC):
         values: Dict[str, Any],
         step_nr: int,
         *,
-        flush: Optional[bool] = False,
+        flush: bool = False,
     ) -> None:
         """Record ``values``.
 
@@ -251,11 +251,37 @@ class MetricRecorder(ABC):
         :param step_nr:
             The number of the run step.
         :param flush:
-            If ``True``, flushes any intermediate buffer after recording.
+            If ``True``, flushes any buffers after recording.
         """
 
     def close(self) -> None:
         """Close the recorder."""
+        pass
+
+
+def record_metrics(
+    recorders: Sequence[MetricRecorder],
+    run: str,
+    values: Dict[str, Any],
+    step_nr: int,
+    *,
+    flush: bool = False,
+) -> None:
+    """Record ``values`` to ``recorders``.
+
+    :param recorders:
+        The recorders to record to.
+    :param run:
+        The name of the run (e.g. 'train', 'eval').
+    :param values:
+        The metric values.
+    :param step_nr:
+        The number of the run step.
+    :param flush:
+        If ``True``, flushes any buffers after recording.
+    """
+    for recorder in recorders:
+        recorder.record_metrics(run, values, step_nr, flush=flush)
 
 
 @final
@@ -278,7 +304,7 @@ class LogMetricRecorder(MetricRecorder):
         values: Dict[str, Any],
         step_nr: int,
         *,
-        flush: Optional[bool] = False,
+        flush: bool = False,
     ) -> None:
         if not self.logger.isEnabledFor(logging.INFO):
             return
@@ -336,7 +362,7 @@ class TensorBoardRecorder(MetricRecorder):
         values: Dict[str, Any],
         step_nr: int,
         *,
-        flush: Optional[bool] = False,
+        flush: bool = False,
     ) -> None:
         writer = self._get_writer(run)
         if writer is None:
