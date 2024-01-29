@@ -314,7 +314,7 @@ class TokenizerLoaderBase(ABC, Generic[TokenizerT]):
     ) -> None:
         """
         :param asset_store:
-            The asset store to retrieve the model information.
+            The asset store where to check for available tokenizers.
         :param download_manager:
             The download manager.
         """
@@ -323,15 +323,15 @@ class TokenizerLoaderBase(ABC, Generic[TokenizerT]):
 
     def __call__(
         self,
-        model_name_or_card: Union[str, AssetCard],
+        tokenizer_name_or_card: Union[str, AssetCard],
         *,
         force: bool = False,
         cache_only: bool = False,
         progress: bool = True,
     ) -> TokenizerT:
         """
-        :param model_name_or_card:
-            The name or asset card of the model whose tokenizer to load.
+        :param tokenizer_name_or_card:
+            The name or asset card of the tokenizer to load.
         :param force:
             If ``True``, downloads the tokenizer even if it is already in cache.
         :param cache_only:
@@ -339,10 +339,10 @@ class TokenizerLoaderBase(ABC, Generic[TokenizerT]):
         :param progress:
             If ``True``, displays a progress bar to stderr.
         """
-        if isinstance(model_name_or_card, AssetCard):
-            card: AssetCard = model_name_or_card
+        if isinstance(tokenizer_name_or_card, AssetCard):
+            card = tokenizer_name_or_card
         else:
-            card = self.asset_store.retrieve_card(model_name_or_card)
+            card = self.asset_store.retrieve_card(tokenizer_name_or_card)
 
         uri = card.field("tokenizer").as_uri()
 
@@ -359,7 +359,7 @@ class TokenizerLoaderBase(ABC, Generic[TokenizerT]):
             return self._load(path, card)
         except ValueError as ex:
             raise AssetError(
-                f"The tokenizer of {card.name} cannot be loaded. See nested exception for details."
+                f"The {card.name} tokenizer cannot be loaded. See nested exception for details."
             ) from ex
 
     @abstractmethod
@@ -396,7 +396,7 @@ class TokenizerLoader(TokenizerLoaderBase[TokenizerT]):
     ) -> None:
         """
         :param asset_store:
-            The asset store to retrieve the model information.
+            The asset store where to check for available tokenizers.
         :param download_manager:
             The download manager.
         :param tokenizer_factory:
