@@ -87,7 +87,7 @@ class CheckpointManager(ABC):
         """Delete all but the last ``n`` checkpoints."""
 
     @abstractmethod
-    def save_consolidated_fsdp_model(self, step_nr: int, model: Module) -> None:
+    def save_consolidated_model(self, step_nr: int, model: Module) -> None:
         """Save ``model`` with a ``state_dict`` consolidated from all processes.
 
         :param step_nr:
@@ -318,7 +318,7 @@ class FileCheckpointManager(CheckpointManager):
             self.delete_checkpoint(step_number)
 
     @finaloverride
-    def save_consolidated_fsdp_model(self, step_nr: int, model: Module) -> None:
+    def save_consolidated_model(self, step_nr: int, model: Module) -> None:
         with FSDP.state_dict_type(
             model,
             StateDictType.FULL_STATE_DICT,
