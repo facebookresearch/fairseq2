@@ -177,7 +177,7 @@ class Seq2SeqModelMetricBag(MetricBag):
         num_target_elements = torch.zeros((), dtype=torch.float64)
 
         for batch, batch_loss in zip(batches, losses):
-            loss += int(batch_loss)
+            loss += float(batch_loss)
 
             batch_size += batch.batch_size
 
