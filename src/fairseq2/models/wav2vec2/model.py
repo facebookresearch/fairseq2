@@ -134,21 +134,12 @@ class Wav2Vec2Model(Module):
         """
         feats = self.extract_features(batch)
 
-        if return_features:
-            return (
-                self.quantize_and_contrast(
-                    feats.encoder_output, feats.targets, feats.temporal_mask
-                ),
-                feats.encoder_output,
-                return_features,
-            )
-        else:
-            return self.quantize_and_contrast(
-                feats.encoder_output,
-                feats.targets,
-                feats.temporal_mask,
-                return_features,
-            )
+        return self.quantize_and_contrast(
+            feats.encoder_output,
+            feats.targets,
+            feats.temporal_mask,
+            return_features,
+        )
 
     def run_frontend(
         self, seqs: Tensor, padding_mask: Optional[PaddingMask]
@@ -242,7 +233,7 @@ class Wav2Vec2Model(Module):
             self.diversity_loss_weight,
         )
         if return_features:
-            out.features = encoder_output
+            out.encoder_output = encoder_output
 
         return out
 
