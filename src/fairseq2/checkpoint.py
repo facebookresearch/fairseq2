@@ -165,6 +165,7 @@ class FileCheckpointManager(CheckpointManager):
     checkpoint_dir: Path
     gang: Gang
     distributed_fs: bool
+    replicated_keys: Optional[List[str]]
 
     def __init__(
         self, checkpoint_dir: Path, gang: Gang, distributed_fs: bool = True
@@ -185,6 +186,8 @@ class FileCheckpointManager(CheckpointManager):
             self.checkpoint_dir = checkpoint_dir
         else:
             self.checkpoint_dir = checkpoint_dir.joinpath(f"rank_{self.gang.rank}")
+
+        self.replicated_keys = None
 
     @finaloverride
     def save_checkpoint(
@@ -212,19 +215,65 @@ class FileCheckpointManager(CheckpointManager):
 
         self.gang.barrier()
 
+        rank_checkpoint = checkpoint.copy()
+
         if metadata is not None:
-            checkpoint["metadata"] = metadata
+            rank_checkpoint["metadata"] = metadata
 
-        checkpoint_file = tmp_step_dir.joinpath(f"rank_{self.gang.rank}.pt")
+        # For non-distributed file systems, we disregard the replicated keys and
+        # force each process in the gang to save the full checkpoint.
+        if (keys := self.replicated_keys) and self.distributed_fs:
+            full_replica = len(keys) == 1 and keys[0] == "*"
 
-        try:
-            torch.save(checkpoint, checkpoint_file)
-        except (RuntimeError, OSError, PickleError) as ex:
-            raise RuntimeError(
-                f"The checkpoint of training step {step_nr} cannot be saved. See nested exception for details."
-            ) from ex
+            if self.gang.rank == 0:
+                replicated_checkpoint = {}
 
-        self.gang.barrier()
+                if full_replica:
+                    replicated_checkpoint, rank_checkpoint = rank_checkpoint, replicated_checkpoint  # fmt: skip
+                else:
+                    for key in keys:
+                        try:
+                            replicated_checkpoint[key] = rank_checkpoint.pop(key)
+                        except KeyError:
+                            pass
+
+                if replicated_checkpoint:
+                    checkpoint_file = tmp_step_dir.joinpath("replicated.pt")
+
+                    try:
+                        torch.save(replicated_checkpoint, checkpoint_file)
+                    except (RuntimeError, OSError, PickleError) as ex:
+                        raise RuntimeError(
+                            f"The checkpoint of training step {step_nr} cannot be saved. See nested exception for details."
+                        ) from ex
+            else:
+                if full_replica:
+                    rank_checkpoint.clear()
+                else:
+                    for key in keys:
+                        try:
+                            del rank_checkpoint[key]
+                        except KeyError:
+                            pass
+
+            self.gang.barrier()
+
+            # Check if anything is left to save in the rank checkpoint.
+            skip_rank = not rank_checkpoint
+        else:
+            skip_rank = False
+
+        if not skip_rank:
+            checkpoint_file = tmp_step_dir.joinpath(f"rank_{self.gang.rank}.pt")
+
+            try:
+                torch.save(rank_checkpoint, checkpoint_file)
+            except (RuntimeError, OSError, PickleError) as ex:
+                raise RuntimeError(
+                    f"The checkpoint of training step {step_nr} cannot be saved. See nested exception for details."
+                ) from ex
+
+            self.gang.barrier()
 
         if self.gang.rank == 0 or not self.distributed_fs:
             try:
@@ -240,20 +289,46 @@ class FileCheckpointManager(CheckpointManager):
     def load_checkpoint(
         self, step_nr: int
     ) -> Tuple[Dict[str, Any], Optional[Dict[str, Any]]]:
-        checkpoint_file = self.checkpoint_dir.joinpath(
-            f"step_{step_nr}/rank_{self.gang.rank}.pt"
-        )
+        checkpoint_file = self.checkpoint_dir.joinpath(f"step_{step_nr}/replicated.pt")
 
         try:
-            checkpoint = load_checkpoint(checkpoint_file, map_location=CPU)
+            replicated_checkpoint = load_checkpoint(checkpoint_file, map_location=CPU)
         except FileNotFoundError:
-            raise CheckpointNotFoundError(f"Training step {step_nr} has no checkpoint.")
+            replicated_checkpoint = None
         except (RuntimeError, OSError, PickleError) as ex:
             raise RuntimeError(
                 f"The checkpoint of training step {step_nr} cannot be loaded. See nested exception for details."
             ) from ex
 
         self.gang.barrier()
+
+        checkpoint_file = self.checkpoint_dir.joinpath(
+            f"step_{step_nr}/rank_{self.gang.rank}.pt"
+        )
+
+        try:
+            rank_checkpoint = load_checkpoint(checkpoint_file, map_location=CPU)
+        except FileNotFoundError:
+            rank_checkpoint = None
+        except (RuntimeError, OSError, PickleError) as ex:
+            raise RuntimeError(
+                f"The checkpoint of training step {step_nr} cannot be loaded. See nested exception for details."
+            ) from ex
+
+        self.gang.barrier()
+
+        if replicated_checkpoint is None:
+            if rank_checkpoint is None:
+                raise CheckpointNotFoundError(
+                    f"Training step {step_nr} has no checkpoint."
+                )
+
+            checkpoint = rank_checkpoint
+        else:
+            if rank_checkpoint is not None:
+                replicated_checkpoint.update(rank_checkpoint)
+
+            checkpoint = replicated_checkpoint
 
         metadata = checkpoint.pop("metadata", None)
 
