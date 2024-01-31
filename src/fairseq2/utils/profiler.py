@@ -6,9 +6,13 @@
 
 from __future__ import annotations
 
+import logging
+import os
+from logging import Logger
 from time import perf_counter
 from typing import Any, Optional
 
+import psutil
 import torch
 from torch.profiler import (
     ProfilerActivity,
@@ -161,3 +165,59 @@ class Stopwatch:
     def is_running(self) -> bool:
         """Return ``True`` if the stopwatch is running."""
         return self.start_time is not None
+
+
+def log_environment_info(logger: Logger, device: Optional[Device] = None) -> None:
+    """Log information about the software and hardware environments."""
+    log_software_info(logger, device)
+    log_hardware_info(logger, device)
+
+
+def log_software_info(logger: Logger, device: Optional[Device] = None) -> None:
+    """Log information about the software environment."""
+    if not logger.isEnabledFor(logging.INFO):
+        return
+
+    info = []
+
+    info.append(f"PyTorch: {torch.__version__}")
+
+    if device is not None and device.type == "cuda":
+        info.append(f"CUDA: {torch.version.cuda}")
+
+    info.append(f"Intraop Thread Count: {torch.get_num_threads()}")
+
+    s = " | ".join(info)
+
+    logger.info(f"Software Info - {s}")
+
+
+def log_hardware_info(logger: Logger, device: Optional[Device] = None) -> None:
+    """Log information about the host and device hardware environments."""
+    if not logger.isEnabledFor(logging.INFO):
+        return
+
+    affinity_mask = os.sched_getaffinity(0)
+
+    memory = psutil.virtual_memory()
+
+    info = []
+
+    info.append(f"Number of CPUs: {len(affinity_mask)}/{os.cpu_count() or '-'}")
+
+    info.append(f"Memory: {memory.total // (1024 * 1024 * 1024):,}GiB")
+
+    if device is not None and device.type == "cuda":
+        props = torch.cuda.get_device_properties(device)
+
+        info.append(f"Device Name: {props.name}")
+
+        info.append(f"Device Memory: {props.total_memory // (1024 * 1024):,}MiB")
+
+        info.append(f"Number of SMs: {props.multi_processor_count}")
+
+        info.append(f"Compute Capability: {props.major}.{props.minor}")
+
+    s = " | ".join(info)
+
+    logger.info(f"Hardware Info - {s}")

@@ -27,6 +27,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
 
     layers: Sequential
     layer_descs: List[Tuple[int, int, int]]
+    num_channels: int
     grad_scale: float
 
     def __init__(
@@ -34,6 +35,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
         layer_descs: Sequence[Tuple[int, int, int]],
         bias: bool,
         *,
+        num_channels: int = 1,
         dropout_p: float = 0.0,
         layer_norm: bool = False,
         grad_scale: float = 1.0,
@@ -46,6 +48,8 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
             feature extraction layer.
         :param bias:
             If ``True``, convolutions learn an additive bias.
+        :param num_channels:
+            The number of input channels.
         :param dropout_p:
             The dropout probability on outputs of convolutions.
         :param layer_norm:
@@ -66,8 +70,9 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
 
         self.layers = Sequential()
 
-        # We expect the input waveforms to be one dimensional.
-        input_dim = 1
+        self.num_channels = num_channels
+
+        input_dim = num_channels
 
         for i, layer_desc in enumerate(layer_descs):
             output_dim, kernel_size, stride = layer_desc
@@ -129,7 +134,8 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
             batch size and :math:`(S)` is the sequence length.
         """
         # (N, S) -> (N, C, S)
-        seqs = seqs.unsqueeze(1)
+        if self.num_channels == 1:
+            seqs = seqs.unsqueeze(1)
 
         # (N, C, S) -> (N, E, S)
         features = self.layers(seqs)

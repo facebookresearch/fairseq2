@@ -41,7 +41,7 @@ def to_fsdp(
     ignored_param_names: Optional[Sequence[str]] = None,
     skip_init: bool = False,
     broadcast_state: bool = False,
-    sharding_strategy: ShardingStrategy = ShardingStrategy.FULL_SHARD,
+    sharding_strategy: Optional[ShardingStrategy] = None,
     memory_policy: Optional[FSDPMemoryPolicy] = None,
 ) -> FSDP:
     """Wrap ``module`` with FSDP.
@@ -51,7 +51,7 @@ def to_fsdp(
     :param gang:
         The gang over which the module will be sharded.
     :param wrap_policy:
-        The policy to apply FSDP to ``module``.  If ``None``, ``module`` is
+        The policy to apply FSDP to ``module``.  If ``None``, ``module`` will be
         wrapped with only a top-level FSDP instance.
     :param ignored_param_names:
         The ignored parameter names. Can contain regular expressions.
@@ -63,10 +63,22 @@ def to_fsdp(
         from rank 0 to ensure that they are replicated across all processes.
     :param sharding_strategy:
         The sharding strategy to trade off memory saving and communication
-        overhead.
+        overhead. If ``None``; if ``wrap_policy`` is specified, ``module`` will
+        be fully sharded (``FULL_SHARDED``); otherwise, it will not be sharded
+        at all (``NO_SHARD``).
     :param memory_policy:
         The policy to instruct FSDP when and how to allocate memory.
     """
+    if sharding_strategy is None:
+        if wrap_policy is None:
+            sharding_strategy = ShardingStrategy.NO_SHARD
+        else:
+            sharding_strategy = ShardingStrategy.FULL_SHARD
+    elif sharding_strategy == ShardingStrategy.NO_SHARD and wrap_policy is not None:
+        raise ValueError(
+            "`wrap_policy` must be `None` when `sharding_strategy` is `NO_SHARD`."
+        )
+
     if memory_policy is None:
         memory_policy = FSDP_STANDARD_MEMORY_POLICY
 
@@ -76,16 +88,9 @@ def to_fsdp(
                 "FSDP meta initialization is only supported by PyTorch 2.1.0 or greater."
             )
 
-        broadcast_state = False
-
         param_init_fn = FSDPParameterInitializer(gang.device, skip_init)
     else:
         param_init_fn = None
-
-    if sharding_strategy == ShardingStrategy.NO_SHARD and wrap_policy is not None:
-        raise ValueError(
-            "`wrap_policy` must be `None` when `sharding_strategy` is `NO_SHARD`."
-        )
 
     kwargs: Dict[str, Any] = {}
 
