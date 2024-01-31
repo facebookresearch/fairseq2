@@ -113,7 +113,7 @@ class Wav2Vec2Model(Module):
         self.logit_temp = logit_temp
         self.diversity_loss_weight = diversity_loss_weight
 
-    def extract_features(self, batch: SequenceBatch):
+    def extract_features(self, batch: SequenceBatch) -> Wav2Vec2Features:
         seqs, padding_mask, targets, temporal_mask = self.run_frontend(
             batch.seqs, batch.padding_mask
         )
