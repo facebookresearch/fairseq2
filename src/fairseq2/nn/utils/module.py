@@ -4,7 +4,10 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import logging
 import re
+from dataclasses import dataclass
+from logging import Logger
 from typing import (
     Callable,
     Dict,
@@ -200,3 +203,87 @@ def infer_device(module: Module) -> Device:
         return CPU
 
     return param.device
+
+
+@dataclass
+class ModuleSizeInfo:
+    """Holds the size information of a module."""
+
+    param_size: int = 0
+    """The total size of all parameters."""
+
+    param_size_bytes: int = 0
+    """The total size of all parameters, in bytes."""
+
+    trainable_param_size: int = 0
+    """The total size of all trainable parameters."""
+
+    trainable_param_size_bytes: int = 0
+    """The total size of all trainable parameters, in bytes."""
+
+    buffer_size: int = 0
+    """The total size of all buffers."""
+
+    buffer_size_bytes: int = 0
+    """The total size of all buffers, in bytes."""
+
+    total_size: int = 0
+    """The total size of the module."""
+
+    total_size_bytes: int = 0
+    """The total size of the module, in bytes."""
+
+
+def get_module_size(module: Module) -> ModuleSizeInfo:
+    """Return size information of ``module``."""
+    info = ModuleSizeInfo()
+
+    for param in module.parameters():
+        if param is not None:
+            size = param.numel()
+            size_bytes = size * param.element_size()
+
+            info.param_size += size
+            info.param_size_bytes += size_bytes
+
+            if param.requires_grad:
+                info.trainable_param_size += size
+                info.trainable_param_size_bytes += size_bytes
+
+            info.total_size += size
+            info.total_size_bytes += size_bytes
+
+    for buf in module.buffers():
+        size = buf.numel()
+        size_bytes = size * param.element_size()
+
+        info.buffer_size += size
+        info.buffer_size_bytes += size * size_bytes
+
+        info.total_size += size
+        info.total_size_bytes += size_bytes
+
+    return info
+
+
+def log_module(module: Module, logger: Logger) -> None:
+    """Log information about ``module``."""
+    if not logger.isEnabledFor(logging.INFO):
+        return
+
+    info = []
+
+    size_info = get_module_size(module)
+
+    info.append(f"Parameter Size: {size_info.param_size:,}")
+    info.append(f"Parameter Size (bytes): {size_info.param_size_bytes:,}")
+    info.append(f"Trainable Parameter Size: {size_info.trainable_param_size:,}")
+    info.append(f"Trainable Parameter Size (bytes): {size_info.trainable_param_size_bytes:,}")  # fmt: skip
+    info.append(f"Buffer Size: {size_info.buffer_size:,}")
+    info.append(f"Buffer Size (bytes): {size_info.buffer_size_bytes:,}")
+    info.append(f"Total Size: {size_info.total_size:,}")
+    info.append(f"Total Size (bytes): {size_info.total_size_bytes:,}")
+
+    s = " | ".join(info)
+
+    logger.info(f"Module - {s}\n{module}")
