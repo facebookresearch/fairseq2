@@ -89,7 +89,9 @@ if TYPE_CHECKING or DOC_MODE:
             ...
 
         @staticmethod
-        def count(start: int = 0, key: Optional[str] = None) -> DataPipelineBuilder:
+        def count(
+            start: int = 0, step: int = 1, key: Optional[str] = None
+        ) -> DataPipelineBuilder:
             ...
 
         @staticmethod

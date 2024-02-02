@@ -306,11 +306,12 @@ def_data_pipeline(py::module_ &data_module)
             py::arg("key") = std::nullopt)
         .def_static(
             "count",
-            [](std::int64_t start, std::optional<std::string> key)
+            [](std::int64_t start, std::int64_t step, std::optional<std::string> key)
             {
-                return data_pipeline::count(start, std::move(key));
+                return data_pipeline::count(start, step, std::move(key));
             },
             py::arg("start") = 0,
+            py::arg("step") = 1,
             py::arg("key") = std::nullopt)
         .def_static(
             "round_robin",

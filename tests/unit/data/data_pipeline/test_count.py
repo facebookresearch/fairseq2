@@ -18,6 +18,14 @@ class TestCountOp:
 
             pipeline.reset()
 
+    def test_op_works_when_step_is_greater_than_1(self) -> None:
+        pipeline = DataPipeline.count(start=4, step=3).take(10).and_return()
+
+        for _ in range(2):
+            assert list(pipeline) == list(range(4, 34, 3))
+
+            pipeline.reset()
+
     def test_op_saves_and_restores_its_state(self) -> None:
         pipeline = DataPipeline.count(start=4).take(10).and_return()
 
