@@ -29,3 +29,13 @@ def _is_pt21_or_greater() -> bool:
         return False
 
     return True
+
+
+def _is_pt22_or_greater() -> bool:
+    if TORCH_VERSION.major <= 1:
+        return False
+
+    if TORCH_VERSION.major == 2 and TORCH_VERSION.minor <= 1:
+        return False
+
+    return True
