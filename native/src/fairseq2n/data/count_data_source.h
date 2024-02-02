@@ -15,8 +15,8 @@ namespace fairseq2n::detail {
 class count_data_source final : public data_source {
 public:
     explicit
-    count_data_source(std::int64_t start, std::optional<std::string> key) noexcept
-      : start_{start}, counter_{start}, key_{std::move(key)}
+    count_data_source(std::int64_t start, std::int64_t step, std::optional<std::string> key) noexcept
+      : start_{start}, step_{step}, counter_{start}, key_{std::move(key)}
     {}
 
     std::optional<data>
@@ -36,6 +36,7 @@ public:
 
 private:
     std::int64_t start_;
+    std::int64_t step_;
     std::int64_t counter_;
     std::optional<std::string> key_;
 };

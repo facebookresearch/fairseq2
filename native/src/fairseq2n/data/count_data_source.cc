@@ -13,10 +13,14 @@ namespace fairseq2n::detail {
 std::optional<data>
 count_data_source::next()
 {
-    if (key_)
-        return data_dict{{*key_, counter_++}};
+    std::int64_t output = counter_;
 
-    return counter_++;
+    counter_ += step_;
+
+    if (key_)
+        return data_dict{{*key_, output}};
+
+    return output;
 }
 
 void

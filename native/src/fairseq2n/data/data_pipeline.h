@@ -79,7 +79,7 @@ public:
     constant(data example, std::optional<std::string> key = {});
 
     static data_pipeline_builder
-    count(std::int64_t start = 0, std::optional<std::string> key = {});
+    count(std::int64_t start = 0, std::int64_t step = 1, std::optional<std::string> key = {});
 
     static data_pipeline_builder
     round_robin(std::vector<data_pipeline> pipelines, bool stop_at_shortest = false);
