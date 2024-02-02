@@ -17,6 +17,7 @@ from torch import Tensor
 from torch.distributed import ProcessGroup, ReduceOp
 
 from fairseq2.typing import CPU, Device, finaloverride
+from fairseq2.utils.version import _is_pt22_or_greater
 
 logger = logging.getLogger(__name__)
 
@@ -186,13 +187,26 @@ class ProcessGroupGang(Gang):
                 f"Only CPU and CUDA devices are supported, but `device` is a {device.type.upper()} device."
             )
 
-        if device.type == "cuda" and "NCCL_ASYNC_ERROR_HANDLING" not in os.environ:
-            if warn_only:
-                logger.warning("The default process group will use the NCCL backend, but the `NCCL_ASYNC_ERROR_HANDLING` environment variable is not set. Your collective communication calls can hang indefinitely. Learn more at https://github.com/pytorch/pytorch/issues/46874.")  # fmt: skip
-            else:
-                raise RuntimeError(
-                    "The default process group will use the NCCL backend, but the `NCCL_ASYNC_ERROR_HANDLING` environment variable is not set. Learn more at https://github.com/pytorch/pytorch/issues/46874."
-                )
+        if device.type == "cuda":
+
+            def check_async_handling() -> None:
+                env_name = "NCCL_ASYNC_ERROR_HANDLING"
+                if env_name in os.environ:
+                    return
+
+                if _is_pt22_or_greater():
+                    env_name = "TORCH_NCCL_ASYNC_ERROR_HANDLING"
+                    if env_name in os.environ:
+                        return
+
+                if warn_only:
+                    logger.warning("The default process group uses the NCCL backend, but the `%s` environment variable is not set. Your collective communication calls can hang indefinitely. Learn more at https://github.com/pytorch/pytorch/issues/46874.", env_name)  # fmt: skip
+                else:
+                    raise RuntimeError(
+                        f"The default process group uses the NCCL backend, but the `{env_name}` environment variable is not set. Learn more at https://github.com/pytorch/pytorch/issues/46874."
+                    )
+
+            check_async_handling()
 
         if timeout is None:
             timeout = timedelta(minutes=15)

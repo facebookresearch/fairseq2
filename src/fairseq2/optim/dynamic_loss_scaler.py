@@ -184,7 +184,7 @@ class DynamicLossScaler:
 
     def get_scale(self) -> float:
         """Return the current scale, or 1.0 if loss scaling is disabled."""
-        return cast(float, self._grad_scaler.get_scale())
+        return cast(float, self._grad_scaler.get_scale())  # type: ignore[redundant-cast]
 
 
 @dataclass
