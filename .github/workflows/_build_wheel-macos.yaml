@@ -40,7 +40,7 @@ jobs:
           brew install libsndfile python@${{ inputs.py }} || true
       - name: Create the Python virtual environment
         run: |
-          /usr/local/bin/python${{ inputs.py }} -m venv ~/venv
+          $(brew --prefix python@${{ inputs.py }})/bin/python${{ inputs.py }} -m venv ~/venv
 
           echo ~/venv/bin >> "$GITHUB_PATH"
       - name: Install PyTorch
