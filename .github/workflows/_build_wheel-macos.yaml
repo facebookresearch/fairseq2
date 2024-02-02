@@ -93,7 +93,7 @@ jobs:
   test:
     name: Test
     needs: build
-    runs-on: macos-12
+    runs-on: macos-14
     steps:
       - name: Install system dependencies
         env:
@@ -110,7 +110,7 @@ jobs:
         uses: actions/checkout@v3
       - name: Create the Python virtual environment
         run: |
-          /usr/local/bin/python${{ inputs.py }} -m venv ~/venv
+          $(brew --prefix python@${{ inputs.py }})/bin/python${{ inputs.py }} -m venv ~/venv
 
           echo ~/venv/bin >> "$GITHUB_PATH"
       - name: Install PyTorch
