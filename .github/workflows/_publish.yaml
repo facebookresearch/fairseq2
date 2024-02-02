@@ -99,8 +99,9 @@ jobs:
 
   publish_doc:
     name: Publish documentation
-    needs: [publish_pypi-linux]
-    needs: [publish_pypi-macos]
+    needs:
+      - publish_pypi-linux
+      - publish_pypi-macos
     # We can't use `success()` here, see
     # https://github.com/orgs/community/discussions/45058.
     if: ${{ !failure() && !cancelled() }}
