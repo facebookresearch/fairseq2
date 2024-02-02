@@ -113,7 +113,6 @@ matrix shows the supported combinations.
       <td><code>x86_64</code></td>
     </tr>
     <tr>
-      <td><code>HEAD</code></td>
       <td><code>2.1.2</code></td>
       <td><code>&gt;=3.8</code>, <code>&lt;=3.11</code></td>
       <td><code>cpu</code>, <code>cu118</code>, <code>cu121</code></td>
