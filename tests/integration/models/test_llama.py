@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 import os
-from typing import cast
 
 import pytest
 
@@ -28,15 +27,11 @@ def test_convert_to_reference_checkpoint() -> None:
 
     model = model_factory.create_model()
 
-    state_dict = model.state_dict()
-
-    checkpoint: dict[str, object] = {"model": state_dict}
+    checkpoint = model.state_dict()
 
     checkpoint = convert_to_reference_llama_checkpoint(checkpoint)
 
     checkpoint = convert_llama_checkpoint(checkpoint, model_config)
 
-    state_dict = cast(dict[str, object], checkpoint["model"])
-
     # This should work.
-    model.load_state_dict(state_dict)
+    model.load_state_dict(checkpoint)

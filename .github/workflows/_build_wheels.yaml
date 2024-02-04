@@ -32,7 +32,7 @@ jobs:
       sanitizers: ${{ matrix.sanitizers }}
       version_override: ${{ inputs.version_override }}
 
-  build_pt26_wheel-linux:
+  build_pt27_wheel-linux:
     name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }}, ${{ matrix.sanitizers }})
     uses: ./.github/workflows/_build_wheel-linux.yaml
     strategy:
