@@ -15,3 +15,5 @@ from fairseq2.datasets.multilingual_text_dataset import (
 from fairseq2.datasets.multilingual_text_dataset import (
     load_multilingual_text_dataset as load_multilingual_text_dataset,
 )
+from fairseq2.datasets.nllb import NllbDataset as NllbDataset
+from fairseq2.datasets.nllb import load_nllb_dataset as load_nllb_dataset
