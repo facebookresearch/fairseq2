@@ -44,6 +44,7 @@ setup(
     python_requires=">=3.8",
     install_requires=[
         "fairseq2n" + fairseq2n_version_spec,
+        "importlib_metadata~=7.0",
         "numpy~=1.23",
         "overrides~=7.3",
         "packaging~=23.1",
