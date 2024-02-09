@@ -159,6 +159,7 @@ class SentencePieceTokenizerBase(TextTokenizer):
 class BasicSentencePieceTokenizer(SentencePieceTokenizerBase):
     """Represents a SentencePiece tokenizer that encodes text with BOS and EOS."""
 
+    # protected
     def __init__(self, pathname: PathLike) -> None:
         """
         :param pathname:

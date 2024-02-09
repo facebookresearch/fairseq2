@@ -7,10 +7,11 @@
 from typing import Any, Dict
 
 from fairseq2.assets import asset_store, download_manager
+from fairseq2.data.text import BasicTextTokenizerLoader, load_text_tokenizer
 from fairseq2.models.llama.builder import LLaMAConfig, create_llama_model, llama_archs
 from fairseq2.models.llama.tokenizer import LLaMATokenizer
 from fairseq2.models.transformer import TransformerDecoderModel
-from fairseq2.models.utils import ConfigLoader, ModelLoader, TokenizerLoader
+from fairseq2.models.utils import ConfigLoader, ModelLoader
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
 
@@ -53,6 +54,8 @@ load_llama_model = ModelLoader[TransformerDecoderModel, LLaMAConfig](
     convert_llama_checkpoint,
 )
 
-load_llama_tokenizer = TokenizerLoader[LLaMATokenizer](
+load_llama_tokenizer = BasicTextTokenizerLoader[LLaMATokenizer](
     asset_store, download_manager, LLaMATokenizer
 )
+
+load_text_tokenizer.register_loader("llama", load_llama_tokenizer)
