@@ -4,9 +4,11 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from typing import List
+
 import pytest
 
-from fairseq2.data import read_sequence
+from fairseq2.data import DataPipeline, read_sequence
 
 
 class TestBucketOp:
@@ -15,7 +17,9 @@ class TestBucketOp:
 
         bucket_size = 4
 
-        pipeline = read_sequence(seq).bucket(bucket_size).and_return()
+        pipeline: DataPipeline[List[int]] = (
+            read_sequence(seq).bucket(bucket_size).and_return()
+        )
 
         for _ in range(2):
             it = iter(pipeline)
@@ -35,7 +39,7 @@ class TestBucketOp:
     def test_op_works_when_bucket_size_is_1(self) -> None:
         seq = list(range(100))
 
-        pipeline = read_sequence(seq).bucket(1).and_return()
+        pipeline: DataPipeline[List[int]] = read_sequence(seq).bucket(1).and_return()
 
         for _ in range(2):
             it = iter(pipeline)
@@ -56,7 +60,9 @@ class TestBucketOp:
 
         seq = list(range(100))
 
-        pipeline = read_sequence(seq).bucket(bucket_size, drop).and_return()
+        pipeline: DataPipeline[List[int]] = (
+            read_sequence(seq).bucket(bucket_size, drop).and_return()
+        )
 
         for _ in range(2):
             it = iter(pipeline)
@@ -87,7 +93,7 @@ class TestBucketOp:
     def test_op_saves_and_restores_its_state(self) -> None:
         seq = list(range(1, 10))
 
-        pipeline = read_sequence(seq).bucket(2).and_return()
+        pipeline: DataPipeline[List[int]] = read_sequence(seq).bucket(2).and_return()
 
         d = None
 

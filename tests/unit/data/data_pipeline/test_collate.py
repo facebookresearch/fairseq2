@@ -4,10 +4,12 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from typing import Any
+
 import pytest
 import torch
 
-from fairseq2.data import Collater, read_sequence
+from fairseq2.data import Collater, DataPipeline, read_sequence
 from tests.common import assert_equal, device
 
 
@@ -30,7 +32,9 @@ class TestCollateOp:
 
         seq = [bucket1, bucket2]
 
-        pipeline = read_sequence(seq).collate(pad_value, pad_to_multiple).and_return()
+        pipeline: DataPipeline[Any] = (
+            read_sequence(seq).collate(pad_value, pad_to_multiple).and_return()
+        )
 
         output1, output2 = list(pipeline)
 

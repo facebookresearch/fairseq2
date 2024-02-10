@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from typing import Tuple
 
 import pytest
@@ -13,14 +15,16 @@ from fairseq2.data import DataPipeline, DataPipelineError, read_sequence
 
 class TestYieldFromOp:
     def test_op_works(self) -> None:
-        def fn(d: Tuple[int, int]) -> DataPipeline:
+        def fn(d: Tuple[int, int]) -> DataPipeline[int]:
             a, b = d
 
             seq = list(range(a, b))
 
             return read_sequence(seq).and_return()
 
-        pipeline = read_sequence([[1, 5], [9, 14]]).yield_from(fn).and_return()
+        pipeline: DataPipeline[int] = (
+            read_sequence([[1, 5], [9, 14]]).yield_from(fn).and_return()
+        )
 
         for _ in range(2):
             assert list(pipeline) == [1, 2, 3, 4, 9, 10, 11, 12, 13]
@@ -28,10 +32,10 @@ class TestYieldFromOp:
             pipeline.reset()
 
     def test_op_raises_error_when_yield_from_is_infinite(self) -> None:
-        def fn(d: int) -> DataPipeline:
+        def fn(d: int) -> DataPipeline[int]:
             return DataPipeline.constant(0).and_return()
 
-        pipeline = read_sequence([1]).yield_from(fn).and_return()
+        pipeline: DataPipeline[int] = read_sequence([1]).yield_from(fn).and_return()
 
         with pytest.raises(
             DataPipelineError,
@@ -40,14 +44,16 @@ class TestYieldFromOp:
             next(iter(pipeline))
 
     def test_op_saves_and_restores_its_state(self) -> None:
-        def fn(d: Tuple[int, int]) -> DataPipeline:
+        def fn(d: Tuple[int, int]) -> DataPipeline[int]:
             a, b = d
 
             seq = list(range(a, b))
 
             return read_sequence(seq).and_return()
 
-        pipeline = read_sequence([[1, 5], [9, 14]]).yield_from(fn).and_return()
+        pipeline: DataPipeline[int] = (
+            read_sequence([[1, 5], [9, 14]]).yield_from(fn).and_return()
+        )
 
         d = None
 

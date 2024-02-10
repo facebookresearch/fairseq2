@@ -6,7 +6,12 @@
 
 import pytest
 
-from fairseq2.data import DataPipelineError, get_last_failed_example, read_sequence
+from fairseq2.data import (
+    DataPipeline,
+    DataPipelineError,
+    get_last_failed_example,
+    read_sequence,
+)
 
 
 class TestDataPipeline:
@@ -17,7 +22,7 @@ class TestDataPipeline:
 
             return True
 
-        pipeline = read_sequence([3, 4]).filter(fn).and_return()
+        pipeline: DataPipeline[int] = read_sequence([3, 4]).filter(fn).and_return()
 
         it = iter(pipeline)
 
@@ -50,7 +55,7 @@ class TestDataPipeline:
 
         seq = [1, 2, 3, 4, 5]
 
-        pipeline = read_sequence(seq).filter(fn).and_return()
+        pipeline: DataPipeline[int] = read_sequence(seq).filter(fn).and_return()
 
         output = []
 
@@ -77,7 +82,9 @@ class TestDataPipeline:
 
         seq = list(range(1, 9))
 
-        pipeline = read_sequence(seq).filter(fn).and_return(max_num_warnings=3)
+        pipeline: DataPipeline[int] = (
+            read_sequence(seq).filter(fn).and_return(max_num_warnings=3)
+        )
 
         assert list(pipeline) == [1, 2, 4, 6, 7, 8]
 
@@ -101,7 +108,9 @@ class TestDataPipeline:
 
         seq = [1, 2, 3, 4, 5]
 
-        pipeline = read_sequence(seq).filter(fn).and_return(max_num_warnings)
+        pipeline: DataPipeline[int] = (
+            read_sequence(seq).filter(fn).and_return(max_num_warnings)
+        )
 
         with pytest.raises(DataPipelineError):
             for _ in pipeline:
@@ -112,7 +121,7 @@ class TestDataPipeline:
     def test_load_state_dict_raises_error_when_tape_is_corrupt(self) -> None:
         seq = [1, 2, 3, 4, 5]
 
-        pipeline = read_sequence(seq).and_return()
+        pipeline: DataPipeline[int] = read_sequence(seq).and_return()
 
         next(iter(pipeline))
 
