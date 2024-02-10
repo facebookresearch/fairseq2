@@ -310,7 +310,7 @@ class _AssetDownloadOp:
 
     def _try_uri_as_path(self) -> Optional[Path]:
         if self.uri.startswith("file://"):
-            return Path(self.uri[7:])
+            return Path(unquote(self.uri[7:]))
 
         return None
 
@@ -485,6 +485,8 @@ class _AssetDownloadOp:
 
             try:
                 filename = Path(urlparse(response.geturl()).path).name
+
+                filename = unquote(filename)
             except ValueError:
                 filename = "asset"
 

@@ -52,6 +52,7 @@ load_llama_model = ModelLoader[TransformerDecoderModel, LLaMAConfig](
     load_llama_config,
     create_llama_model,
     convert_llama_checkpoint,
+    mmap=True,
 )
 
 load_llama_tokenizer = BasicTextTokenizerLoader[LLaMATokenizer](

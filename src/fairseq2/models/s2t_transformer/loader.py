@@ -99,6 +99,7 @@ load_s2t_transformer_model = ModelLoader[TransformerModel, S2TTransformerConfig]
     load_s2t_transformer_config,
     create_s2t_transformer_model,
     convert_s2t_transformer_checkpoint,
+    mmap=True,
     restrict_checkpoints=False,
 )
 

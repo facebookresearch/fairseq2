@@ -74,4 +74,5 @@ load_w2vbert_model = ModelLoader[W2VBertModel, W2VBertConfig](
     load_w2vbert_config,
     create_w2vbert_model,
     convert_w2vbert_checkpoint,
+    mmap=True,
 )
