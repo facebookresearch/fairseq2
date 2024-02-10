@@ -11,13 +11,13 @@ import torch
 from torch import Tensor
 from torch.optim.adamw import adamw  # type: ignore[attr-defined]
 
-from fairseq2.optim.optimizer_base import OptimizerBase
+from fairseq2.optim.optimizer import Fairseq2Optimizer
 from fairseq2.typing import finaloverride
 
 
 @final
-class AdamW(OptimizerBase):
-    """Implements AdamW algorithm.
+class AdamW(Fairseq2Optimizer):
+    """Represents an AdamW optimizer.
 
     This class uses the same functional AdamW implementation as
     :class:`torch.optim.AdamW`. The main difference is that it also supports

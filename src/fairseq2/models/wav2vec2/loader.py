@@ -8,7 +8,7 @@ from typing import Any, Dict
 
 import torch
 
-from fairseq2.assets import asset_store, download_manager
+from fairseq2.assets import default_asset_store, default_download_manager
 from fairseq2.models.utils import ConfigLoader, ModelLoader
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
 from fairseq2.models.wav2vec2.builder import (
@@ -65,11 +65,11 @@ def convert_wav2vec2_checkpoint(
     return convert_fairseq_checkpoint(checkpoint, key_map)
 
 
-load_wav2vec2_config = ConfigLoader[Wav2Vec2Config](asset_store, wav2vec2_archs)
+load_wav2vec2_config = ConfigLoader[Wav2Vec2Config](default_asset_store, wav2vec2_archs)
 
 load_wav2vec2_model = ModelLoader[Wav2Vec2Model, Wav2Vec2Config](
-    asset_store,
-    download_manager,
+    default_asset_store,
+    default_download_manager,
     load_wav2vec2_config,
     create_wav2vec2_model,
     convert_wav2vec2_checkpoint,

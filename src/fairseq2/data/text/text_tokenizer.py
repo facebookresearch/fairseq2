@@ -29,8 +29,8 @@ from fairseq2.assets import (
     AssetDownloadManager,
     AssetError,
     AssetStore,
+    default_asset_store,
 )
-from fairseq2.assets import asset_store as default_asset_store
 from fairseq2.data.typing import PathLike, StringLike
 from fairseq2.data.vocabulary_info import VocabularyInfo
 from fairseq2.typing import Device, finaloverride
@@ -176,7 +176,7 @@ TextTokenizerT_co = TypeVar("TextTokenizerT_co", bound=TextTokenizer, covariant=
 
 
 class GenericTextTokenizerLoader(TextTokenizerLoader, Generic[TextTokenizerT]):
-    """Represents an abstract base class for text tokenizer loaders."""
+    """Loads text tokenizers of type ``TokenizerT``."""
 
     asset_store: AssetStore
     download_manager: AssetDownloadManager
@@ -246,7 +246,7 @@ class BasicTextTokenizerFactory(Protocol[TextTokenizerT_co]):
 
 @final
 class BasicTextTokenizerLoader(GenericTextTokenizerLoader[TextTokenizerT]):
-    """Loads text tokenizers of type ``TokenizerT``."""
+    """Loads text tokenizers of type ``TokenizerT`` via provided path."""
 
     tokenizer_factory: BasicTextTokenizerFactory[TextTokenizerT]
 

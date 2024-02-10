@@ -23,8 +23,8 @@ def get_effective_lr(scheduler: LRScheduler) -> float:
     return scheduler.get_last_lr()[0]
 
 
-class LRSchedulerBase(ABC, LRScheduler):
-    """Represents the abstract base class for learning rate schedulers."""
+class Fairseq2LRScheduler(ABC, LRScheduler):
+    """Represents a learning rate scheduler."""
 
     @finaloverride
     def get_lr(self) -> List[float]:  # type: ignore[override]
@@ -41,7 +41,7 @@ class LRSchedulerBase(ABC, LRScheduler):
 
 
 @final
-class NoamLR(LRSchedulerBase):
+class NoamLR(Fairseq2LRScheduler):
     """Represents the learning rate schedule described in Section 5.3 of
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.
 
@@ -101,7 +101,7 @@ class NoamLR(LRSchedulerBase):
 
 
 @final
-class MyleLR(LRSchedulerBase):
+class MyleLR(Fairseq2LRScheduler):
     """Represents a scaled version of :class:`NoamLR` that preserves the base
     learning rate of the associated optimizer.
 
@@ -167,7 +167,7 @@ class MyleLR(LRSchedulerBase):
 
 
 @final
-class PolynomialDecayLR(LRSchedulerBase):
+class PolynomialDecayLR(Fairseq2LRScheduler):
     """Represents the polynomial decay learning rate schedule.
 
     **During warmup:**
@@ -261,7 +261,7 @@ class PolynomialDecayLR(LRSchedulerBase):
 
 
 @final
-class CosineAnnealingLR(LRSchedulerBase):
+class CosineAnnealingLR(Fairseq2LRScheduler):
     """Represents the learning rate schedule described in
     :cite:t:`https://doi.org/10.48550/arxiv.1608.03983`.
 

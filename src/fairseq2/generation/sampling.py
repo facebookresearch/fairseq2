@@ -455,7 +455,7 @@ class TopKSampler(Sampler):
         return indices.squeeze(-1)
 
 
-class _SamplingSequenceGeneratorOpBase(ABC):
+class _SamplingGeneratorOp(ABC):
     sampler: Sampler
     eos_idx: int
     pad_idx: Optional[int]
@@ -870,7 +870,7 @@ class _SamplingSequenceGeneratorOpBase(ABC):
             self.step_scores = self.step_scores.index_select(dim=0, index=new_order)
 
 
-class _SamplingSequenceGeneratorOp(_SamplingSequenceGeneratorOpBase):
+class _SamplingSequenceGeneratorOp(_SamplingGeneratorOp):
     model: DecoderModel
 
     def __init__(
@@ -928,7 +928,7 @@ class _SamplingSequenceGeneratorOp(_SamplingSequenceGeneratorOpBase):
         return self.model.project(decoder_output, decoder_padding_mask)
 
 
-class _SamplingSeq2SeqGeneratorOp(_SamplingSequenceGeneratorOpBase):
+class _SamplingSeq2SeqGeneratorOp(_SamplingGeneratorOp):
     model: EncoderDecoderModel
     encoder_output: Tensor
     encoder_padding_mask: Optional[PaddingMask]

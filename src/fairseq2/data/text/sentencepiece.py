@@ -125,8 +125,8 @@ else:
     _set_module_name()
 
 
-class SentencePieceTokenizerBase(TextTokenizer):
-    """Represents an abstract base class for SentencePiece tokenizers."""
+class SentencePieceTokenizer(TextTokenizer):
+    """Represents a SentencePiece tokenizer."""
 
     model: SentencePieceModel
 
@@ -156,7 +156,7 @@ class SentencePieceTokenizerBase(TextTokenizer):
         return SentencePieceDecoder(self.model)
 
 
-class BasicSentencePieceTokenizer(SentencePieceTokenizerBase):
+class BasicSentencePieceTokenizer(SentencePieceTokenizer):
     """Represents a SentencePiece tokenizer that encodes text with BOS and EOS."""
 
     # protected
