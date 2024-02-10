@@ -99,6 +99,7 @@ load_nllb_model = ModelLoader[TransformerModel, NllbConfig](
     load_nllb_config,
     create_nllb_model,
     convert_nllb_checkpoint,
+    mmap=True,
     restrict_checkpoints=False,
 )
 

@@ -292,7 +292,9 @@ class FileCheckpointManager(CheckpointManager):
         checkpoint_file = self.checkpoint_dir.joinpath(f"step_{step_nr}/replicated.pt")
 
         try:
-            replicated_checkpoint = load_checkpoint(checkpoint_file, map_location=CPU)
+            replicated_checkpoint = load_checkpoint(
+                checkpoint_file, map_location=CPU, mmap=True
+            )
         except FileNotFoundError:
             replicated_checkpoint = None
         except (RuntimeError, OSError, PickleError) as ex:
@@ -307,7 +309,9 @@ class FileCheckpointManager(CheckpointManager):
         )
 
         try:
-            rank_checkpoint = load_checkpoint(checkpoint_file, map_location=CPU)
+            rank_checkpoint = load_checkpoint(
+                checkpoint_file, map_location=CPU, mmap=True
+            )
         except FileNotFoundError:
             rank_checkpoint = None
         except (RuntimeError, OSError, PickleError) as ex:

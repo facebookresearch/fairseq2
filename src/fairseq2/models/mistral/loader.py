@@ -53,6 +53,7 @@ load_mistral_model = ModelLoader[TransformerDecoderModel, MistralConfig](
     load_mistral_config,
     create_mistral_model,
     convert_mistral_checkpoint,
+    mmap=True,
 )
 
 load_mistral_tokenizer = BasicTextTokenizerLoader[MistralTokenizer](

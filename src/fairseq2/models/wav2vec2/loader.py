@@ -73,4 +73,5 @@ load_wav2vec2_model = ModelLoader[Wav2Vec2Model, Wav2Vec2Config](
     load_wav2vec2_config,
     create_wav2vec2_model,
     convert_wav2vec2_checkpoint,
+    mmap=True,
 )

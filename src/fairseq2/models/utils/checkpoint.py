@@ -38,6 +38,7 @@ def load_checkpoint(
     pathname: PathLike,
     *,
     map_location: MapLocation = None,
+    mmap: bool = False,
     restrict: bool = False,
     converter: Optional[CheckpointConverter] = None,
 ) -> Dict[str, Any]:
@@ -47,6 +48,8 @@ def load_checkpoint(
         The pathname of the checkpoint.
     :param map_location:
         Same as the ``map_location`` parameter of :meth:`torch.load`.
+    :param mmap:
+        If ``True``, indicates whether the checkpoint should be memory mapped.
     :param restrict:
         If ``True``, restricts the Python unpickler to load only tensors,
         primitive types, and dictionaries.
@@ -63,7 +66,7 @@ def load_checkpoint(
 
         kwargs = {}
 
-        if _is_pt21_or_greater():
+        if mmap and _is_pt21_or_greater():
             kwargs["mmap"] = True
 
         checkpoint: Dict[str, Any] = torch.load(
