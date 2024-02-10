@@ -16,7 +16,9 @@ from fairseq2.assets.download_manager import (
 from fairseq2.assets.download_manager import (
     InProcAssetDownloadManager as InProcAssetDownloadManager,
 )
-from fairseq2.assets.download_manager import download_manager as download_manager
+from fairseq2.assets.download_manager import (
+    default_download_manager as default_download_manager,
+)
 from fairseq2.assets.error import AssetError as AssetError
 from fairseq2.assets.metadata_provider import AssetMetadataError as AssetMetadataError
 from fairseq2.assets.metadata_provider import (
@@ -31,4 +33,8 @@ from fairseq2.assets.metadata_provider import (
 )
 from fairseq2.assets.store import AssetStore as AssetStore
 from fairseq2.assets.store import ProviderBackedAssetStore as ProviderBackedAssetStore
-from fairseq2.assets.store import asset_store as asset_store
+from fairseq2.assets.store import default_asset_store as default_asset_store
+
+# For backwards-compatibility with v0.2
+asset_store = default_asset_store
+download_manager = default_download_manager

@@ -6,14 +6,14 @@
 
 from typing import Optional, Set, final
 
-from fairseq2.data.text import SentencePieceEncoder, SentencePieceTokenizerBase
+from fairseq2.data.text import SentencePieceEncoder, SentencePieceTokenizer
 from fairseq2.data.typing import PathLike
 from fairseq2.typing import Device, finaloverride
 
 
 @final
-class S2TTransformerTokenizer(SentencePieceTokenizerBase):
-    """Represents the tokenizer used by S2T Transformer models."""
+class S2TTransformerTokenizer(SentencePieceTokenizer):
+    """Represents a tokenizer used by S2T Transformer models."""
 
     task: str
     target_langs: Set[str]

@@ -142,7 +142,7 @@ class EnvironmentResolver(Protocol):
         ...
 
 
-def _create_asset_store() -> ProviderBackedAssetStore:
+def _create_default_asset_store() -> ProviderBackedAssetStore:
     cards_dir = Path(__file__).parent.joinpath("cards")
 
     metadata_provider = FileAssetMetadataProvider(cards_dir)
@@ -150,7 +150,7 @@ def _create_asset_store() -> ProviderBackedAssetStore:
     return ProviderBackedAssetStore(metadata_provider)
 
 
-asset_store = _create_asset_store()
+default_asset_store = _create_default_asset_store()
 
 
 def _load_asset_directory() -> None:
@@ -160,7 +160,7 @@ def _load_asset_directory() -> None:
         if not asset_dir.exists():
             return
 
-    asset_store.metadata_providers.append(FileAssetMetadataProvider(asset_dir))
+    default_asset_store.metadata_providers.append(FileAssetMetadataProvider(asset_dir))
 
 
 _load_asset_directory()
@@ -177,7 +177,9 @@ def _load_user_asset_directory() -> None:
         if not asset_dir.exists():
             return
 
-    asset_store.user_metadata_providers.append(FileAssetMetadataProvider(asset_dir))
+    default_asset_store.user_metadata_providers.append(
+        FileAssetMetadataProvider(asset_dir)
+    )
 
 
 _load_user_asset_directory()
@@ -188,12 +190,14 @@ def _load_faircluster() -> None:
     if "FAIR_ENV_CLUSTER" not in os.environ:
         return
 
-    asset_store.env_resolvers.append(lambda: "faircluster")
+    default_asset_store.env_resolvers.append(lambda: "faircluster")
 
     # This directory is meant to store cluster-wide asset cards.
     asset_dir = Path("/checkpoint/balioglu/fairseq2-ext/cards")
     if asset_dir.exists():
-        asset_store.metadata_providers.append(FileAssetMetadataProvider(asset_dir))
+        default_asset_store.metadata_providers.append(
+            FileAssetMetadataProvider(asset_dir)
+        )
 
 
 _load_faircluster()

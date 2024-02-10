@@ -9,7 +9,7 @@ from typing import Any, Dict, final
 
 import torch
 
-from fairseq2.assets import AssetCard, asset_store, download_manager
+from fairseq2.assets import AssetCard, default_asset_store, default_download_manager
 from fairseq2.data.text import GenericTextTokenizerLoader, load_text_tokenizer
 from fairseq2.models.nllb.builder import NllbConfig, create_nllb_model, nllb_archs
 from fairseq2.models.nllb.tokenizer import NllbTokenizer
@@ -91,11 +91,11 @@ class NllbTokenizerLoader(GenericTextTokenizerLoader[NllbTokenizer]):
         return NllbTokenizer(pathname, langs, default_lang)
 
 
-load_nllb_config = ConfigLoader[NllbConfig](asset_store, nllb_archs)
+load_nllb_config = ConfigLoader[NllbConfig](default_asset_store, nllb_archs)
 
 load_nllb_model = ModelLoader[TransformerModel, NllbConfig](
-    asset_store,
-    download_manager,
+    default_asset_store,
+    default_download_manager,
     load_nllb_config,
     create_nllb_model,
     convert_nllb_checkpoint,
@@ -103,6 +103,6 @@ load_nllb_model = ModelLoader[TransformerModel, NllbConfig](
     restrict_checkpoints=False,
 )
 
-load_nllb_tokenizer = NllbTokenizerLoader(asset_store, download_manager)
+load_nllb_tokenizer = NllbTokenizerLoader(default_asset_store, default_download_manager)
 
 load_text_tokenizer.register_loader("nllb", load_nllb_tokenizer)

@@ -6,14 +6,14 @@
 
 from typing import Optional, Sequence, Set, final
 
-from fairseq2.data.text import SentencePieceEncoder, SentencePieceTokenizerBase
+from fairseq2.data.text import SentencePieceEncoder, SentencePieceTokenizer
 from fairseq2.data.typing import PathLike
 from fairseq2.typing import Device, finaloverride
 
 
 @final
-class NllbTokenizer(SentencePieceTokenizerBase):
-    """Represents the tokenizer used by NLLB models."""
+class NllbTokenizer(SentencePieceTokenizer):
+    """Represents a tokenizer used by NLLB models."""
 
     langs: Set[str]
     default_lang: str

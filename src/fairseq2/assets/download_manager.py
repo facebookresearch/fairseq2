@@ -657,4 +657,4 @@ class AssetDownloadError(AssetError):
     """Raised when an asset download operation fails."""
 
 
-download_manager = InProcAssetDownloadManager()
+default_download_manager = InProcAssetDownloadManager()
