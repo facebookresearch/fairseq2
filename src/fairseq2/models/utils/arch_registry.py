@@ -43,7 +43,7 @@ class ArchitectureRegistry(Generic[ModelConfigT]):
         """
         if arch_name in self.configs:
             raise ValueError(
-                f"The architecture name '{arch_name}' is already registered for '{self.model_type}'."
+                f"`arch_name` must be a unique architecture name, but '{arch_name}' is already registered for '{self.model_type}'."
             )
 
         self.configs[arch_name] = config_factory

@@ -12,6 +12,13 @@ from importlib_metadata import entry_points
 import_module("fairseq2n")
 
 
+# Ensure that model loaders are initialized.
+import_module("fairseq2.models.llama")
+import_module("fairseq2.models.mistral")
+import_module("fairseq2.models.nllb")
+import_module("fairseq2.models.s2t_transformer")
+
+
 __version__ = "0.3.0.dev0"
 
 
