@@ -6,12 +6,14 @@
 
 import pytest
 
-from fairseq2.data import read_sequence
+from fairseq2.data import DataPipeline, read_sequence
 
 
 class TestTakeOp:
     def test_op_works(self) -> None:
-        pipeline = read_sequence([1, 2, 3, 4, 5, 6, 7, 8, 9]).take(5).and_return()
+        pipeline: DataPipeline[int] = (
+            read_sequence([1, 2, 3, 4, 5, 6, 7, 8, 9]).take(5).and_return()
+        )
 
         for _ in range(2):
             assert list(pipeline) == [1, 2, 3, 4, 5]
@@ -19,7 +21,7 @@ class TestTakeOp:
             pipeline.reset()
 
     def test_op_works_when_count_is_greater_than_the_number_of_elements(self) -> None:
-        pipeline = read_sequence([1, 2, 3]).take(5).and_return()
+        pipeline: DataPipeline[int] = read_sequence([1, 2, 3]).take(5).and_return()
 
         for _ in range(2):
             assert list(pipeline) == [1, 2, 3]
@@ -27,7 +29,7 @@ class TestTakeOp:
             pipeline.reset()
 
     def test_op_works_when_count_is_zero(self) -> None:
-        pipeline = read_sequence([1, 2, 3]).take(0).and_return()
+        pipeline: DataPipeline[int] = read_sequence([1, 2, 3]).take(0).and_return()
 
         for _ in range(2):
             assert list(pipeline) == []
@@ -35,7 +37,9 @@ class TestTakeOp:
             pipeline.reset()
 
     def test_op_saves_and_restores_its_state(self) -> None:
-        pipeline = read_sequence([1, 2, 3, 4, 5, 6, 7, 8, 9]).take(5).and_return()
+        pipeline: DataPipeline[int] = (
+            read_sequence([1, 2, 3, 4, 5, 6, 7, 8, 9]).take(5).and_return()
+        )
 
         d = None
 

@@ -8,7 +8,7 @@ from itertools import islice
 
 import pytest
 
-from fairseq2.data import DataPipelineError, read_sequence
+from fairseq2.data import DataPipeline, DataPipelineError, read_sequence
 
 
 class TestPrefetchOp:
@@ -16,7 +16,9 @@ class TestPrefetchOp:
     def test_op_works(self, num_examples: int) -> None:
         seq = list(range(1, 100))
 
-        pipeline = read_sequence(seq).prefetch(num_examples).and_return()
+        pipeline: DataPipeline[int] = (
+            read_sequence(seq).prefetch(num_examples).and_return()
+        )
 
         for _ in range(2):
             assert list(pipeline) == seq
@@ -27,7 +29,9 @@ class TestPrefetchOp:
     def test_op_works_after_reset(self, num_examples: int) -> None:
         seq = list(range(1, 100))
 
-        pipeline = read_sequence(seq).prefetch(num_examples).and_return()
+        pipeline: DataPipeline[int] = (
+            read_sequence(seq).prefetch(num_examples).and_return()
+        )
 
         for _ in range(2):
             assert list(islice(pipeline, 50)) == seq[:50]
@@ -36,7 +40,9 @@ class TestPrefetchOp:
 
     @pytest.mark.parametrize("num_examples", [0, 1, 4, 20])
     def test_op_works_when_no_data_is_specified(self, num_examples: int) -> None:
-        pipeline = read_sequence([]).prefetch(num_examples).and_return()
+        pipeline: DataPipeline[int] = (
+            read_sequence([]).prefetch(num_examples).and_return()
+        )
 
         for _ in range(2):
             assert list(pipeline) == []
@@ -53,7 +59,9 @@ class TestPrefetchOp:
 
         seq = list(range(1, 100))
 
-        pipeline = read_sequence(seq).map(fn).prefetch(num_examples).and_return()
+        pipeline: DataPipeline[int] = (
+            read_sequence(seq).map(fn).prefetch(num_examples).and_return()
+        )
 
         with pytest.raises(DataPipelineError) as exc_info:
             for d in pipeline:
@@ -69,7 +77,9 @@ class TestPrefetchOp:
     def test_op_saves_and_restores_its_state(self, num_examples: int) -> None:
         seq = list(range(1, 100))
 
-        pipeline = read_sequence(seq).prefetch(num_examples).and_return()
+        pipeline: DataPipeline[int] = (
+            read_sequence(seq).prefetch(num_examples).and_return()
+        )
 
         d = None
 

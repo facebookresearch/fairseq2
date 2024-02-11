@@ -8,7 +8,7 @@ from itertools import islice
 
 import pytest
 
-from fairseq2.data import read_sequence
+from fairseq2.data import DataPipeline, read_sequence
 from fairseq2.typing import CPU
 from tests.common import tmp_rng_seed
 
@@ -17,7 +17,7 @@ class TestShuffleOp:
     def test_op_works(self) -> None:
         seq = list(range(1, 10))
 
-        pipeline = read_sequence(seq).shuffle(100).and_return()
+        pipeline: DataPipeline[int] = read_sequence(seq).shuffle(100).and_return()
 
         for _ in range(2):
             with tmp_rng_seed(CPU, seed=1234):
@@ -53,8 +53,8 @@ class TestShuffleOp:
     def test_op_saves_and_restores_its_state(self, window: int) -> None:
         seq = list(range(5000))
 
-        pipeline1 = read_sequence(seq).shuffle(window).and_return()
-        pipeline2 = read_sequence(seq).shuffle(window).and_return()
+        pipeline1: DataPipeline[int] = read_sequence(seq).shuffle(window).and_return()
+        pipeline2: DataPipeline[int] = read_sequence(seq).shuffle(window).and_return()
 
         with tmp_rng_seed(CPU, seed=1234):
             expected_output1 = list(islice(pipeline1, 4000))
@@ -97,7 +97,9 @@ class TestShuffleOp:
     def test_record_reload_position_works_as_expected_with_no_strict(self) -> None:
         seq = list(range(100))
 
-        pipeline = read_sequence(seq).shuffle(80, strict=False).and_return()
+        pipeline: DataPipeline[int] = (
+            read_sequence(seq).shuffle(80, strict=False).and_return()
+        )
 
         # Do one dummy iteration to force to fill the buffer.
         next(iter(pipeline))

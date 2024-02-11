@@ -17,43 +17,47 @@ from tests.common import tmp_rng_seed
 
 class TestSampleOp:
     def test_op_works(self) -> None:
-        pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
-        pipeline2 = read_sequence([5, 6, 7]).and_return()
+        pipeline1: DataPipeline[int] = read_sequence([1, 2, 3, 4]).and_return()
+        pipeline2: DataPipeline[int] = read_sequence([5, 6, 7]).and_return()
 
-        pipeline = DataPipeline.sample([pipeline1, pipeline2], [1.2, 0.8]).and_return()
+        pipeline3: DataPipeline[int] = DataPipeline.sample(
+            [pipeline1, pipeline2], [1.2, 0.8]
+        ).and_return()
 
         for _ in range(2):
             with tmp_rng_seed(CPU, seed=1234):
-                assert list(pipeline) == [1, 2, 3, 4, 1, 5, 2, 3, 6, 4, 7]
+                assert list(pipeline3) == [1, 2, 3, 4, 1, 5, 2, 3, 6, 4, 7]
 
-            pipeline.reset()
+            pipeline3.reset()
 
     def test_op_works_when_no_weight_is_specified(self) -> None:
-        pipeline1 = read_sequence([1, 2, 3]).and_return()
-        pipeline2 = read_sequence([4, 5, 6]).and_return()
-        pipeline3 = read_sequence([7, 8, 9]).and_return()
+        pipeline1: DataPipeline[int] = read_sequence([1, 2, 3]).and_return()
+        pipeline2: DataPipeline[int] = read_sequence([4, 5, 6]).and_return()
+        pipeline3: DataPipeline[int] = read_sequence([7, 8, 9]).and_return()
 
-        pipeline = DataPipeline.sample([pipeline1, pipeline2, pipeline3]).and_return()
+        pipeline4: DataPipeline[int] = DataPipeline.sample(
+            [pipeline1, pipeline2, pipeline3]
+        ).and_return()
 
         for _ in range(2):
             with tmp_rng_seed(CPU, seed=1234):
-                assert list(pipeline) == [1, 4, 2, 5, 3, 7, 1, 6, 8, 2, 9]
+                assert list(pipeline4) == [1, 4, 2, 5, 3, 7, 1, 6, 8, 2, 9]
 
-            pipeline.reset()
+            pipeline4.reset()
 
     def test_op_works_when_a_single_pipeline_is_specified(self) -> None:
-        pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
+        pipeline1: DataPipeline[int] = read_sequence([1, 2, 3, 4]).and_return()
 
-        pipeline = DataPipeline.sample([pipeline1]).and_return()
+        pipeline2: DataPipeline[int] = DataPipeline.sample([pipeline1]).and_return()
 
         for _ in range(2):
             with tmp_rng_seed(CPU, seed=1234):
-                assert list(pipeline) == [1, 2, 3, 4]
+                assert list(pipeline2) == [1, 2, 3, 4]
 
-            pipeline.reset()
+            pipeline2.reset()
 
     def test_op_works_when_no_pipeline_is_specified(self) -> None:
-        pipeline = DataPipeline.sample([]).and_return()
+        pipeline: DataPipeline[int] = DataPipeline.sample([]).and_return()
 
         for _ in range(2):
             with pytest.raises(StopIteration):
@@ -62,34 +66,38 @@ class TestSampleOp:
             pipeline.reset()
 
     def test_op_works_when_infinite_pipeline_is_specified(self) -> None:
-        pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
-        pipeline2 = DataPipeline.count(5).and_return()
+        pipeline1: DataPipeline[int] = read_sequence([1, 2, 3, 4]).and_return()
+        pipeline2: DataPipeline[int] = DataPipeline.count(5).and_return()
 
-        pipeline = DataPipeline.sample([pipeline1, pipeline2], [0.4, 0.6]).and_return()
+        pipeline3: DataPipeline[int] = DataPipeline.sample(
+            [pipeline1, pipeline2], [0.4, 0.6]
+        ).and_return()
 
         for _ in range(2):
             with tmp_rng_seed(CPU, seed=1234):
-                assert list(pipeline) == [1, 5, 2, 3, 4]
+                assert list(pipeline3) == [1, 5, 2, 3, 4]
 
-            pipeline.reset()
+            pipeline3.reset()
 
     def test_op_raises_error_when_pipeline_is_empty(self) -> None:
-        pipeline1 = read_sequence([1, 2]).and_return()
-        pipeline2 = read_sequence([]).and_return()
-        pipeline3 = read_sequence([3, 4]).and_return()
+        pipeline1: DataPipeline[int] = read_sequence([1, 2]).and_return()
+        pipeline2: DataPipeline[int] = read_sequence([]).and_return()
+        pipeline3: DataPipeline[int] = read_sequence([3, 4]).and_return()
 
-        pipeline = DataPipeline.sample([pipeline1, pipeline2, pipeline3]).and_return()
+        pipeline4: DataPipeline[int] = DataPipeline.sample(
+            [pipeline1, pipeline2, pipeline3]
+        ).and_return()
 
         with pytest.raises(
             DataPipelineError,
             match=r"^The data pipeline at index 1 is empty and cannot be sampled\.$",
         ):
-            next(iter(pipeline))
+            next(iter(pipeline4))
 
     def test_op_raises_error_when_weight_is_not_valid(self) -> None:
-        pipeline1 = read_sequence([1, 2]).and_return()
-        pipeline2 = read_sequence([3, 4]).and_return()
-        pipeline3 = read_sequence([5, 6]).and_return()
+        pipeline1: DataPipeline[int] = read_sequence([1, 2]).and_return()
+        pipeline2: DataPipeline[int] = read_sequence([3, 4]).and_return()
+        pipeline3: DataPipeline[int] = read_sequence([5, 6]).and_return()
 
         with pytest.raises(
             ValueError,
@@ -118,8 +126,8 @@ class TestSampleOp:
     def test_op_raises_error_when_the_number_of_pipelines_and_weights_do_not_match(
         self,
     ) -> None:
-        pipeline1 = read_sequence([1, 2, 3]).and_return()
-        pipeline2 = read_sequence([4, 5, 6]).and_return()
+        pipeline1: DataPipeline[int] = read_sequence([1, 2, 3]).and_return()
+        pipeline2: DataPipeline[int] = read_sequence([4, 5, 6]).and_return()
 
         with pytest.raises(
             ValueError,
@@ -129,8 +137,8 @@ class TestSampleOp:
 
     def test_op_raises_error_when_one_of_the_pipelines_is_broken(self) -> None:
         # Force a non-recoverable error.
-        pipeline1 = read_text(pathname=" &^#").and_return()
-        pipeline2 = read_text(pathname=" &^#").and_return()
+        pipeline1: DataPipeline[str] = read_text(pathname=" &^#").and_return()
+        pipeline2: DataPipeline[str] = read_text(pathname=" &^#").and_return()
 
         # Break the first pipeline.
         try:
@@ -145,16 +153,18 @@ class TestSampleOp:
             DataPipeline.sample([pipeline1, pipeline2]).and_return()
 
     def test_op_saves_and_restores_its_state(self) -> None:
-        pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
-        pipeline2 = read_sequence([5, 6, 7, 8]).and_return()
-        pipeline3 = read_sequence([0, 2, 4, 6]).and_return()
+        pipeline1: DataPipeline[int] = read_sequence([1, 2, 3, 4]).and_return()
+        pipeline2: DataPipeline[int] = read_sequence([5, 6, 7, 8]).and_return()
+        pipeline3: DataPipeline[int] = read_sequence([0, 2, 4, 6]).and_return()
 
-        pipeline = DataPipeline.sample([pipeline1, pipeline2, pipeline3]).and_return()
         # [1, 5, 2, 6, 3, 0, 4, 7, 2, 1, 4, 8, 6]
+        pipeline4: DataPipeline[int] = DataPipeline.sample(
+            [pipeline1, pipeline2, pipeline3]
+        ).and_return()
 
         d = None
 
-        it = iter(pipeline)
+        it = iter(pipeline4)
 
         with tmp_rng_seed(CPU, seed=1234):
             # Move to the fifth example.
@@ -165,7 +175,7 @@ class TestSampleOp:
 
             rng = torch.get_rng_state()
 
-            state_dict = pipeline.state_dict()
+            state_dict = pipeline4.state_dict()
 
             # Read a few examples before we roll back.
             for _ in range(3):
@@ -176,7 +186,7 @@ class TestSampleOp:
             torch.set_rng_state(rng)
 
             # Expected to roll back to the fifth example.
-            pipeline.load_state_dict(state_dict)
+            pipeline4.load_state_dict(state_dict)
 
             # Move to EOD.
             for _ in range(8):
@@ -186,14 +196,14 @@ class TestSampleOp:
 
             rng = torch.get_rng_state()
 
-            state_dict = pipeline.state_dict()
+            state_dict = pipeline4.state_dict()
 
-            pipeline.reset()
+            pipeline4.reset()
 
             torch.set_rng_state(rng)
 
             # Expected to be EOD.
-            pipeline.load_state_dict(state_dict)
+            pipeline4.load_state_dict(state_dict)
 
             with pytest.raises(StopIteration):
-                next(iter(pipeline))
+                next(iter(pipeline4))
