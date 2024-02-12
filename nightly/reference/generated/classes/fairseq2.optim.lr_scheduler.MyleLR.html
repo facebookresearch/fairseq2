@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MyleLR &mdash; fairseq2 0.3.0.dev202402050135 documentation</title>
+  <title>MyleLR &mdash; fairseq2 0.3.0.dev202402120133 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -21,7 +21,7 @@
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
     <link rel="next" title="NoamLR" href="fairseq2.optim.lr_scheduler.NoamLR.html" />
-    <link rel="prev" title="LRSchedulerBase" href="fairseq2.optim.lr_scheduler.LRSchedulerBase.html" /> 
+    <link rel="prev" title="CosineAnnealingLR" href="fairseq2.optim.lr_scheduler.CosineAnnealingLR.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -36,7 +36,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202402050135
+                0.3.0.dev202402120133
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -168,7 +168,7 @@
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.optim.lr_scheduler.MyleLR">
 <em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.optim.lr_scheduler.</span></span><span class="sig-name descname"><span class="pre">MyleLR</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">optimizer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_warmup_steps</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_lr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">last_epoch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/optim/lr_scheduler.html#MyleLR"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.optim.lr_scheduler.MyleLR" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference internal" href="fairseq2.optim.lr_scheduler.LRSchedulerBase.html#fairseq2.optim.lr_scheduler.LRSchedulerBase" title="fairseq2.optim.lr_scheduler.LRSchedulerBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">LRSchedulerBase</span></code></a></p>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Fairseq2LRScheduler</span></code></p>
 <p>Represents a scaled version of <a class="reference internal" href="fairseq2.optim.lr_scheduler.NoamLR.html#fairseq2.optim.lr_scheduler.NoamLR" title="fairseq2.optim.lr_scheduler.NoamLR"><code class="xref py py-class docutils literal notranslate"><span class="pre">NoamLR</span></code></a> that preserves the base
 learning rate of the associated optimizer.</p>
 <div class="math notranslate nohighlight">
@@ -235,7 +235,7 @@ is not the optimizer.</p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="fairseq2.optim.lr_scheduler.LRSchedulerBase.html" class="btn btn-neutral float-left" title="LRSchedulerBase" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="fairseq2.optim.lr_scheduler.CosineAnnealingLR.html" class="btn btn-neutral float-left" title="CosineAnnealingLR" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="fairseq2.optim.lr_scheduler.NoamLR.html" class="btn btn-neutral float-right" title="NoamLR" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

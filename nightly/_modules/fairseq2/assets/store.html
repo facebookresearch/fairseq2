@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.assets.store &mdash; fairseq2 0.3.0.dev202402050135 documentation</title>
+  <title>fairseq2.assets.store &mdash; fairseq2 0.3.0.dev202402120133 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202402050135
+                0.3.0.dev202402120133
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -303,7 +303,7 @@
         <span class="o">...</span>
 
 
-<span class="k">def</span> <span class="nf">_create_asset_store</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">ProviderBackedAssetStore</span><span class="p">:</span>
+<span class="k">def</span> <span class="nf">_create_default_asset_store</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">ProviderBackedAssetStore</span><span class="p">:</span>
     <span class="n">cards_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s2">&quot;cards&quot;</span><span class="p">)</span>
 
     <span class="n">metadata_provider</span> <span class="o">=</span> <span class="n">FileAssetMetadataProvider</span><span class="p">(</span><span class="n">cards_dir</span><span class="p">)</span>
@@ -311,7 +311,7 @@
     <span class="k">return</span> <span class="n">ProviderBackedAssetStore</span><span class="p">(</span><span class="n">metadata_provider</span><span class="p">)</span>
 
 
-<span class="n">asset_store</span> <span class="o">=</span> <span class="n">_create_asset_store</span><span class="p">()</span>
+<span class="n">default_asset_store</span> <span class="o">=</span> <span class="n">_create_default_asset_store</span><span class="p">()</span>
 
 
 <span class="k">def</span> <span class="nf">_load_asset_directory</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -321,7 +321,7 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">asset_dir</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
             <span class="k">return</span>
 
-    <span class="n">asset_store</span><span class="o">.</span><span class="n">metadata_providers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">FileAssetMetadataProvider</span><span class="p">(</span><span class="n">asset_dir</span><span class="p">))</span>
+    <span class="n">default_asset_store</span><span class="o">.</span><span class="n">metadata_providers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">FileAssetMetadataProvider</span><span class="p">(</span><span class="n">asset_dir</span><span class="p">))</span>
 
 
 <span class="n">_load_asset_directory</span><span class="p">()</span>
@@ -338,7 +338,9 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">asset_dir</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
             <span class="k">return</span>
 
-    <span class="n">asset_store</span><span class="o">.</span><span class="n">user_metadata_providers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">FileAssetMetadataProvider</span><span class="p">(</span><span class="n">asset_dir</span><span class="p">))</span>
+    <span class="n">default_asset_store</span><span class="o">.</span><span class="n">user_metadata_providers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+        <span class="n">FileAssetMetadataProvider</span><span class="p">(</span><span class="n">asset_dir</span><span class="p">)</span>
+    <span class="p">)</span>
 
 
 <span class="n">_load_user_asset_directory</span><span class="p">()</span>
@@ -349,12 +351,14 @@
     <span class="k">if</span> <span class="s2">&quot;FAIR_ENV_CLUSTER&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">:</span>
         <span class="k">return</span>
 
-    <span class="n">asset_store</span><span class="o">.</span><span class="n">env_resolvers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="s2">&quot;faircluster&quot;</span><span class="p">)</span>
+    <span class="n">default_asset_store</span><span class="o">.</span><span class="n">env_resolvers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="s2">&quot;faircluster&quot;</span><span class="p">)</span>
 
     <span class="c1"># This directory is meant to store cluster-wide asset cards.</span>
     <span class="n">asset_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;/checkpoint/balioglu/fairseq2-ext/cards&quot;</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">asset_dir</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-        <span class="n">asset_store</span><span class="o">.</span><span class="n">metadata_providers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">FileAssetMetadataProvider</span><span class="p">(</span><span class="n">asset_dir</span><span class="p">))</span>
+        <span class="n">default_asset_store</span><span class="o">.</span><span class="n">metadata_providers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+            <span class="n">FileAssetMetadataProvider</span><span class="p">(</span><span class="n">asset_dir</span><span class="p">)</span>
+        <span class="p">)</span>
 
 
 <span class="n">_load_faircluster</span><span class="p">()</span>

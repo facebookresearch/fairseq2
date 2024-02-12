@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.text.sentencepiece &mdash; fairseq2 0.3.0.dev202402050135 documentation</title>
+  <title>fairseq2.data.text.sentencepiece &mdash; fairseq2 0.3.0.dev202402120133 documentation</title>
       <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202402050135
+                0.3.0.dev202402120133
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
@@ -286,8 +286,8 @@
     <span class="n">_set_module_name</span><span class="p">()</span>
 
 
-<span class="k">class</span> <span class="nc">SentencePieceTokenizerBase</span><span class="p">(</span><span class="n">TextTokenizer</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents an abstract base class for SentencePiece tokenizers.&quot;&quot;&quot;</span>
+<span class="k">class</span> <span class="nc">SentencePieceTokenizer</span><span class="p">(</span><span class="n">TextTokenizer</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a SentencePiece tokenizer.&quot;&quot;&quot;</span>
 
     <span class="n">model</span><span class="p">:</span> <span class="n">SentencePieceModel</span>
 
@@ -317,9 +317,10 @@
         <span class="k">return</span> <span class="n">SentencePieceDecoder</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">model</span><span class="p">)</span>
 
 
-<span class="k">class</span> <span class="nc">BasicSentencePieceTokenizer</span><span class="p">(</span><span class="n">SentencePieceTokenizerBase</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">BasicSentencePieceTokenizer</span><span class="p">(</span><span class="n">SentencePieceTokenizer</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a SentencePiece tokenizer that encodes text with BOS and EOS.&quot;&quot;&quot;</span>
 
+    <span class="c1"># protected</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pathname</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :param pathname:</span>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.optim.lr_scheduler &mdash; fairseq2 0.3.0.dev202402050135 documentation</title>
+  <title>fairseq2.optim.lr_scheduler &mdash; fairseq2 0.3.0.dev202402120133 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202402050135
+                0.3.0.dev202402120133
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -184,8 +184,8 @@
     <span class="k">return</span> <span class="n">scheduler</span><span class="o">.</span><span class="n">get_last_lr</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
 
 
-<div class="viewcode-block" id="LRSchedulerBase"><a class="viewcode-back" href="../../../reference/generated/classes/fairseq2.optim.lr_scheduler.LRSchedulerBase.html#fairseq2.optim.lr_scheduler.LRSchedulerBase">[docs]</a><span class="k">class</span> <span class="nc">LRSchedulerBase</span><span class="p">(</span><span class="n">ABC</span><span class="p">,</span> <span class="n">LRScheduler</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents the abstract base class for learning rate schedulers.&quot;&quot;&quot;</span>
+<span class="k">class</span> <span class="nc">Fairseq2LRScheduler</span><span class="p">(</span><span class="n">ABC</span><span class="p">,</span> <span class="n">LRScheduler</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a learning rate scheduler.&quot;&quot;&quot;</span>
 
     <span class="nd">@finaloverride</span>
     <span class="k">def</span> <span class="nf">get_lr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>  <span class="c1"># type: ignore[override]</span>
@@ -198,11 +198,11 @@
 
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span> <span class="nf">_compute_lrs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the learning rate of each parameter group.&quot;&quot;&quot;</span></div>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the learning rate of each parameter group.&quot;&quot;&quot;</span>
 
 
 <div class="viewcode-block" id="NoamLR"><a class="viewcode-back" href="../../../reference/generated/classes/fairseq2.optim.lr_scheduler.NoamLR.html#fairseq2.optim.lr_scheduler.NoamLR">[docs]</a><span class="nd">@final</span>
-<span class="k">class</span> <span class="nc">NoamLR</span><span class="p">(</span><span class="n">LRSchedulerBase</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">NoamLR</span><span class="p">(</span><span class="n">Fairseq2LRScheduler</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents the learning rate schedule described in Section 5.3 of</span>
 <span class="sd">    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.</span>
 
@@ -262,7 +262,7 @@
 
 
 <div class="viewcode-block" id="MyleLR"><a class="viewcode-back" href="../../../reference/generated/classes/fairseq2.optim.lr_scheduler.MyleLR.html#fairseq2.optim.lr_scheduler.MyleLR">[docs]</a><span class="nd">@final</span>
-<span class="k">class</span> <span class="nc">MyleLR</span><span class="p">(</span><span class="n">LRSchedulerBase</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">MyleLR</span><span class="p">(</span><span class="n">Fairseq2LRScheduler</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a scaled version of :class:`NoamLR` that preserves the base</span>
 <span class="sd">    learning rate of the associated optimizer.</span>
 
@@ -328,7 +328,7 @@
 
 
 <div class="viewcode-block" id="PolynomialDecayLR"><a class="viewcode-back" href="../../../reference/generated/classes/fairseq2.optim.lr_scheduler.PolynomialDecayLR.html#fairseq2.optim.lr_scheduler.PolynomialDecayLR">[docs]</a><span class="nd">@final</span>
-<span class="k">class</span> <span class="nc">PolynomialDecayLR</span><span class="p">(</span><span class="n">LRSchedulerBase</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">PolynomialDecayLR</span><span class="p">(</span><span class="n">Fairseq2LRScheduler</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents the polynomial decay learning rate schedule.</span>
 
 <span class="sd">    **During warmup:**</span>
@@ -422,7 +422,7 @@
 
 
 <div class="viewcode-block" id="CosineAnnealingLR"><a class="viewcode-back" href="../../../reference/generated/classes/fairseq2.optim.lr_scheduler.CosineAnnealingLR.html#fairseq2.optim.lr_scheduler.CosineAnnealingLR">[docs]</a><span class="nd">@final</span>
-<span class="k">class</span> <span class="nc">CosineAnnealingLR</span><span class="p">(</span><span class="n">LRSchedulerBase</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">CosineAnnealingLR</span><span class="p">(</span><span class="n">Fairseq2LRScheduler</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents the learning rate schedule described in</span>
 <span class="sd">    :cite:t:`https://doi.org/10.48550/arxiv.1608.03983`.</span>
 
