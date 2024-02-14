@@ -9,9 +9,12 @@ import re
 from dataclasses import dataclass
 from logging import Logger
 from typing import (
+    Any,
     Callable,
     Dict,
     Iterable,
+    Iterator,
+    Mapping,
     Optional,
     Protocol,
     Sequence,
@@ -34,7 +37,7 @@ class ModuleWithParameter(Protocol):
 
 
 def reset_parameters(module: Module, *, recurse: bool = True) -> None:
-    """Reset the parameters and buffers of ``module`` and its submodules.
+    """Reset the parameters and buffers of ``module``.
 
     :param module:
         The module to reset.
@@ -59,7 +62,7 @@ class ModuleWithNonPersistentBuffer(Protocol):
 
 
 def reset_non_persistent_buffers(module: Module, *, recurse: bool = True) -> None:
-    """Reset the non-persistent buffers of ``module`` and its submodules.
+    """Reset the non-persistent buffers of ``module``.
 
     :param module:
         The module to reset.
@@ -77,13 +80,72 @@ def reset_non_persistent_buffers(module: Module, *, recurse: bool = True) -> Non
         maybe_reset(module)
 
 
+def load_state_dict(module: Module, state_dict: Mapping[str, Any]) -> None:
+    """Copy parameters and buffers from ``state_dict`` into ``module`` and its
+    descendants.
+
+    This implementation internally calls :meth:`Module.load_state_dict()` with
+    ``strict`` set to ``True``, and also enforces that ``state_dict`` does not
+    contain any keys corresponding to descendants that are set to ``None`` via
+    :meth:`Module.register_module()`.
+    """
+    module.load_state_dict(state_dict, strict=True)
+
+    unexpected_keys = []
+
+    for name, descendant in _named_modules(module):
+        if descendant is not None:
+            continue
+
+        prefix = name + "."
+
+        for key in state_dict.keys():
+            if key.startswith(prefix):
+                unexpected_keys.append(key)
+
+    if unexpected_keys:
+        raise RuntimeError(
+            f"Unexpected key(s) in `state_dict`: {', '.join(unexpected_keys)}"
+        )
+
+
+def _named_modules(
+    module: Optional[Module], memo: Optional[Set[Module]] = None, prefix: str = ""
+) -> Iterator[Tuple[str, Optional[Module]]]:
+    if module is None:
+        yield prefix, None
+
+        return
+
+    if memo is None:
+        memo = set()
+    elif module in memo:
+        return
+
+    memo.add(module)
+
+    yield prefix, module
+
+    # This loop is the main reason why this function is internal. There is no
+    # formal way to retrieve the list of all descendants via PyTorch APIs. The
+    # only workaround is to use the internal `_modules` attribute.
+    for name, descendant in module._modules.items():
+        if not prefix:
+            descendant_prefix = name
+        else:
+            descendant_prefix = prefix + "." + name
+
+        yield from _named_modules(descendant, memo, descendant_prefix)
+
+
 def select_parameters(
     module: Module, names: Sequence[str], *, exclude: bool = False
 ) -> Iterable[Tuple[str, Parameter]]:
-    """Select the parameters of ``module`` matching ``names``.
+    """Select the parameters of ``module`` and its descendants whose name
+    matches ``names``.
 
     :param module:
-        The module to select from.
+        The module to check.
     :param names:
         The parameter names. Can contain regular expressions.
     :param exclude:
@@ -163,7 +225,7 @@ def to_empty(
 def apply_depth_first(
     module: Module, fn: Callable[[Module], None], memo: Optional[Set[Module]] = None
 ) -> None:
-    """Apply ``fn`` to ``module`` and it submodules in depth-first order.
+    """Apply ``fn`` to ``module`` and it descendants in depth-first order.
 
     :param module:
         The module to process.
@@ -182,15 +244,15 @@ def apply_depth_first(
     memo.add(module)
 
     # Depth first so that the children are handled first.
-    for submodule in module.children():
-        if submodule is not None:
-            apply_depth_first(submodule, fn, memo)
+    for child in module.children():
+        if child is not None:
+            apply_depth_first(child, fn, memo)
 
     fn(module)
 
 
 def freeze(module: Module, value: bool) -> None:
-    """Set if ``module`` and its submodules should stop learning (i.e. freeze)."""
+    """Set if ``module`` and its descendants should stop learning (i.e. freeze)."""
     for param in module.parameters():
         param.requires_grad_(not value)
 
@@ -251,7 +313,7 @@ class ModuleSizeInfo:
 
 
 def get_module_size(module: Module) -> ModuleSizeInfo:
-    """Return the size information of ``module``."""
+    """Return the size information of ``module`` and its descendants."""
     info = ModuleSizeInfo()
 
     for param in module.parameters():
@@ -283,7 +345,7 @@ def get_module_size(module: Module) -> ModuleSizeInfo:
 
 
 def log_module(module: Module, logger: Logger) -> None:
-    """Log information about ``module``."""
+    """Log information about ``module`` and its descendants."""
     if not logger.isEnabledFor(logging.INFO):
         return
 

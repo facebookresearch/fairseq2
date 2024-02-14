@@ -24,6 +24,7 @@ from fairseq2.models.utils.arch_registry import ArchitectureRegistry
 from fairseq2.models.utils.checkpoint import load_checkpoint
 from fairseq2.nn.utils.module import (
     infer_device,
+    load_state_dict,
     reset_non_persistent_buffers,
     to_empty,
 )
@@ -307,7 +308,7 @@ class ModelLoader(Generic[ModelT, ConfigT]):
             )
 
         try:
-            model.load_state_dict(state_dict)
+            load_state_dict(model, state_dict)
         except (KeyError, ValueError) as ex:
             raise AssetError(
                 f"{card.name} cannot be loaded. See nested exception for details."
