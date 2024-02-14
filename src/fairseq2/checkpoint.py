@@ -468,7 +468,7 @@ class FileCheckpointManager(CheckpointManager):
                 f"The consolidated model checkpoint of training step {step_nr} cannot be loaded. See nested exception for details."
             ) from ex
 
-        model_device = infer_device(out)
+        model_device = infer_device(out, param_name="out")
 
         if model_device == META:
             # Move the model to the actual device without initializing. Its

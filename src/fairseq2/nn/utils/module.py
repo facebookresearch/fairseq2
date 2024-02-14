@@ -195,14 +195,30 @@ def freeze(module: Module, value: bool) -> None:
         param.requires_grad_(not value)
 
 
-def infer_device(module: Module) -> Device:
-    """Infer the device on which ``module``'s parameters reside."""
-    try:
-        param = next(iter(module.parameters()))
-    except StopIteration:
+def infer_device(module: Module, param_name: Optional[str] = None) -> Device:
+    """Infer the device on which ``module``'s parameters and buffers reside."""
+    devices = set()
+
+    for param in module.parameters():
+        devices.add(param.device)
+
+    for buf in module.buffers():
+        devices.add(buf.device)
+
+    if len(devices) == 0:
         return CPU
 
-    return param.device
+    if len(devices) == 1:
+        return devices.pop()
+
+    if param_name is None:
+        param_name = "module"
+
+    s = ", ".join(sorted(f"'{d.type}'" for d in devices))
+
+    raise ValueError(
+        f"All parameters and buffers of `{param_name}` must be on the same device, but they are on {s}."
+    )
 
 
 @dataclass
@@ -235,7 +251,7 @@ class ModuleSizeInfo:
 
 
 def get_module_size(module: Module) -> ModuleSizeInfo:
-    """Return size information of ``module``."""
+    """Return the size information of ``module``."""
     info = ModuleSizeInfo()
 
     for param in module.parameters():
