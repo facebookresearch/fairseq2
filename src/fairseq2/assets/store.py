@@ -130,6 +130,10 @@ class ProviderBackedAssetStore(AssetStore):
         for provider in self.user_metadata_providers:
             provider.clear_cache()
 
+    def add_file_metadata_provider(self, path: Path) -> None:
+        """Add a new :class:`FileAssetMetadataProvider` pointing to ``path``."""
+        self.metadata_providers.append(FileAssetMetadataProvider(path))
+
 
 class EnvironmentResolver(Protocol):
     """Resolves the environment within which assets should be loaded.
