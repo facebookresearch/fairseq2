@@ -18,6 +18,8 @@ import_module("fairseq2.models.mistral")
 import_module("fairseq2.models.nllb")
 import_module("fairseq2.models.s2t_transformer")
 
+import_module("fairseq2.datasets.nllb")
+
 
 __version__ = "0.3.0.dev0"
 
