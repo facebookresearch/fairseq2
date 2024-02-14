@@ -42,8 +42,9 @@ class DynamicLossScaler:
         *,
         init_scale: float = 2.0**15,
         scale_factor: float = 2.0,
-        scale_window: int = 2000,
+        scale_window: Optional[int] = None,
         min_scale: float = 0.0,
+        gradient_accumulation: int = 1,
         enabled: bool = True,
     ) -> None:
         """
@@ -59,8 +60,13 @@ class DynamicLossScaler:
         :param scale_window:
             The number of consecutive optimizer steps without inf/NaN gradients
             that must occur for the scale to be multiplied by ``scale_factor``.
+            If ``None``, the window size will be determined by a heuristic
+            method.
         :param min_scale:
             The minimum allowed scale.
+        :param gradient_accumulation:
+            The number of steps to accumulate gradients before an optimizer
+            update. Used only when ``scale_window`` is ``None``.
         :param enabled:
             If ``False``, disables loss scaling.
         """
@@ -76,6 +82,12 @@ class DynamicLossScaler:
                         raise ValueError(
                             f"The parameters held by `optimizer` must be on a 'cuda' device, but at least one parameter is on a '{param.device.type}' device."
                         )
+
+        if scale_window is None:
+            # This is the formula that we use in fairseq.
+            scale_window = max(int(2**14 / gang.size / gradient_accumulation), 1)
+
+            logger.info("The scale window is set to %d.", scale_window)
 
         if gang.size == 1:
             self._grad_scaler = GradScaler(
