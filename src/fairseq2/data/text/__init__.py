@@ -32,7 +32,7 @@ from fairseq2.data.text.text_tokenizer import (
     CompositeTextTokenizerLoader as CompositeTextTokenizerLoader,
 )
 from fairseq2.data.text.text_tokenizer import (
-    GenericTextTokenizerLoader as GenericTextTokenizerLoader,
+    StandardTextTokenizerLoader as StandardTextTokenizerLoader,
 )
 from fairseq2.data.text.text_tokenizer import TextTokenDecoder as TextTokenDecoder
 from fairseq2.data.text.text_tokenizer import TextTokenEncoder as TextTokenEncoder

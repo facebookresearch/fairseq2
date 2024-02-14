@@ -172,11 +172,10 @@ class TextTokenizerLoader(ABC):
 
 
 TextTokenizerT = TypeVar("TextTokenizerT", bound=TextTokenizer)
-TextTokenizerT_co = TypeVar("TextTokenizerT_co", bound=TextTokenizer, covariant=True)
 
 
-class GenericTextTokenizerLoader(TextTokenizerLoader, Generic[TextTokenizerT]):
-    """Loads text tokenizers of type ``TokenizerT``."""
+class StandardTextTokenizerLoader(TextTokenizerLoader, Generic[TextTokenizerT]):
+    """Loads text tokenizers of type ``TokenizerT`` using an asset store."""
 
     asset_store: AssetStore
     download_manager: AssetDownloadManager
@@ -193,6 +192,7 @@ class GenericTextTokenizerLoader(TextTokenizerLoader, Generic[TextTokenizerT]):
         self.asset_store = asset_store
         self.download_manager = download_manager
 
+    @finaloverride
     def __call__(
         self,
         tokenizer_name_or_card: Union[str, AssetCard],
@@ -230,8 +230,11 @@ class GenericTextTokenizerLoader(TextTokenizerLoader, Generic[TextTokenizerT]):
         :param path:
             The path to the tokenizer.
         :param card:
-            The asset card of the associated model.
+            The asset card of the associated tokenizer.
         """
+
+
+TextTokenizerT_co = TypeVar("TextTokenizerT_co", bound=TextTokenizer, covariant=True)
 
 
 class BasicTextTokenizerFactory(Protocol[TextTokenizerT_co]):
@@ -245,8 +248,8 @@ class BasicTextTokenizerFactory(Protocol[TextTokenizerT_co]):
 
 
 @final
-class BasicTextTokenizerLoader(GenericTextTokenizerLoader[TextTokenizerT]):
-    """Loads text tokenizers of type ``TokenizerT`` via provided path."""
+class BasicTextTokenizerLoader(StandardTextTokenizerLoader[TextTokenizerT]):
+    """Loads text tokenizers of type ``TokenizerT`` via a provided path."""
 
     tokenizer_factory: BasicTextTokenizerFactory[TextTokenizerT]
 
@@ -332,7 +335,7 @@ class CompositeTextTokenizerLoader(TextTokenizerLoader):
         :param tokenizer_type:
             The tokenizer type. If the 'tokenizer_type', 'model_type', or
             'dataset_type' field of an asset card matches this value, the
-            specified `loader` will be used.
+            specified ``loader`` will be used.
         :param loader:
             The tokenizer loader.
         """

@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, final
 
 from fairseq2.assets import AssetCard, default_asset_store, default_download_manager
-from fairseq2.data.text import GenericTextTokenizerLoader, load_text_tokenizer
+from fairseq2.data.text import StandardTextTokenizerLoader, load_text_tokenizer
 from fairseq2.models.s2t_transformer.builder import (
     S2TTransformerConfig,
     create_s2t_transformer_model,
@@ -74,7 +74,7 @@ def convert_s2t_transformer_checkpoint(
 
 @final
 class S2TTransformerTokenizerLoader(
-    GenericTextTokenizerLoader[S2TTransformerTokenizer]
+    StandardTextTokenizerLoader[S2TTransformerTokenizer]
 ):
     """Loads tokenizers used by S2T Transformer models."""
 
