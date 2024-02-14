@@ -327,6 +327,8 @@ def _determine_default_cuda_device() -> Device:
             device = None
         else:
             device = Device("cuda", index=0)
+    else:
+        device = None
 
     if device is None:
         num_devices = torch.cuda.device_count()
