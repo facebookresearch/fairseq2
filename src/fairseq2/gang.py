@@ -90,8 +90,8 @@ class Gang(ABC):
 class FakeGang(Gang):
     """Represents a non-distributed gang for local use."""
 
-    def __init__(self, device: Device) -> None:
-        super().__init__(rank=0, size=1, device=device)
+    def __init__(self, device: Optional[Device] = None) -> None:
+        super().__init__(rank=0, size=1, device=device or CPU)
 
     @finaloverride
     def close(self) -> None:
