@@ -151,7 +151,9 @@ class ModelLoader(Generic[ModelT, ConfigT]):
     config_loader: ConfigLoader[ConfigT]
     model_factory: ModelFactory[ConfigT, ModelT]
     checkpoint_converter: Optional[CheckpointConverter[ConfigT]]
+    mmap: bool
     restrict_checkpoints: bool
+    skip_meta_init: bool
 
     def __init__(
         self,
@@ -160,8 +162,10 @@ class ModelLoader(Generic[ModelT, ConfigT]):
         config_loader: ConfigLoader[ConfigT],
         model_factory: ModelFactory[ConfigT, ModelT],
         checkpoint_converter: Optional[CheckpointConverter[ConfigT]] = None,
+        *,
         mmap: bool = False,
         restrict_checkpoints: bool = True,
+        skip_meta_init: bool = False,
     ) -> None:
         """
         :param asset_store:
@@ -181,6 +185,10 @@ class ModelLoader(Generic[ModelT, ConfigT]):
         :param restrict_checkpoints:
             If ``True``, restricts the Python unpickler to load only tensors,
             primitive types, and dictionaries.
+        :param skip_meta_init:
+            If ``True``, skips meta device initialization and constructs the
+            model directly on the requested device. Meant to be used with models
+            that do not support PyTorch's ``reset_parameters()`` convention.
         """
         self.asset_store = asset_store
         self.download_manager = download_manager
@@ -189,6 +197,7 @@ class ModelLoader(Generic[ModelT, ConfigT]):
         self.checkpoint_converter = checkpoint_converter
         self.mmap = mmap
         self.restrict_checkpoints = restrict_checkpoints
+        self.skip_meta_init = skip_meta_init
 
     def __call__(
         self,
@@ -260,18 +269,29 @@ class ModelLoader(Generic[ModelT, ConfigT]):
 
         if out is not None:
             model = out
+
+            model_device = infer_device(model, param_name="out")
         else:
-            try:
-                # Try to construct the model on the meta device.
-                model = self.model_factory(config, device=META, dtype=dtype)
-            except NotImplementedError:
-                logger.warning("One or more operators in %s constructor do not support the meta device. Skipping lazy initialization.", card.name)  # fmt: skip
-
-                # If we are here, it means the model has at least one operator that
-                # does not support meta device. Do regular model initialization.
+            if self.skip_meta_init:
                 model = self.model_factory(config, device=device, dtype=dtype)
+            else:
+                try:
+                    # Try to construct the model on the meta device.
+                    model = self.model_factory(config, device=META, dtype=dtype)
+                except NotImplementedError:
+                    logger.warning("One or more operators in %s constructor do not support the meta device. Skipping meta device initialization.", card.name)  # fmt: skip
 
-        model_device = infer_device(model)
+                    # If we are here, it means the model constructor has at
+                    # least one operation that does not support the meta device.
+                    # Fall back to regular model initialization.
+                    model = self.model_factory(config, device=device, dtype=dtype)
+
+                try:
+                    model_device = infer_device(model, param_name="model")
+                except ValueError as ex:
+                    raise RuntimeError(
+                        "`model_factory` returned a model that is not constructed correctly. See nested exception for details."
+                    ) from ex
 
         if model_device == META:
             # Move the model to the actual device without initializing. Its

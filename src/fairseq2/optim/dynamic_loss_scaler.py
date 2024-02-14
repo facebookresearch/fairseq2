@@ -74,7 +74,7 @@ class DynamicLossScaler:
 
                     if param.device.type != "cuda":
                         raise ValueError(
-                            f"The parameters held by `optimizer` must be on a CUDA device, but at least one parameter is on a {param.device.type.upper()} device."
+                            f"The parameters held by `optimizer` must be on a 'cuda' device, but at least one parameter is on a '{param.device.type}' device."
                         )
 
         if gang.size == 1:

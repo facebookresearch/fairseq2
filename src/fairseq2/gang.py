@@ -183,8 +183,8 @@ class ProcessGroupGang(Gang):
         elif device.type == "cuda":
             backend = "nccl"
         else:
-            raise RuntimeError(
-                f"Only CPU and CUDA devices are supported, but `device` is a {device.type.upper()} device."
+            raise ValueError(
+                f"`device` must be of type 'cpu' and 'cuda', but is of type '{device.type}' instead."
             )
 
         if device.type == "cuda":

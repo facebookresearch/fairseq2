@@ -473,6 +473,7 @@ class _SamplingGeneratorOp(ABC):
     len_penalty: float
     prefill_chunk_size: Optional[int]
     step_processors: List[StepProcessor]
+    step_hooks: Dict[int, StepHook]
     step_nr: int
     state_bag: IncrementalStateBag
     prompt_lens: Optional[Tensor]
@@ -481,7 +482,6 @@ class _SamplingGeneratorOp(ABC):
     seqs: Tensor
     step_scores: Optional[Tensor]
     output: List[List[Hypothesis]]
-    step_hooks: Dict[int, StepHook]
 
     def __init__(
         self,

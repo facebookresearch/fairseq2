@@ -38,7 +38,7 @@ class MistralChatbot(Chatbot):
         assert tokenizer.vocab_info.bos_idx is not None
         assert tokenizer.vocab_info.eos_idx is not None
 
-        device = infer_device(generator.model)
+        device = infer_device(generator.model, param_name="generator.model")
 
         self.bos_idx = torch.tensor([tokenizer.vocab_info.bos_idx], device=device)
         self.eos_idx = torch.tensor([tokenizer.vocab_info.eos_idx], device=device)
