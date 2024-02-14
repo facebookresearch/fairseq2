@@ -10,7 +10,7 @@ from typing import Any, Dict, final
 import torch
 
 from fairseq2.assets import AssetCard, default_asset_store, default_download_manager
-from fairseq2.data.text import GenericTextTokenizerLoader, load_text_tokenizer
+from fairseq2.data.text import StandardTextTokenizerLoader, load_text_tokenizer
 from fairseq2.models.nllb.builder import NllbConfig, create_nllb_model, nllb_archs
 from fairseq2.models.nllb.tokenizer import NllbTokenizer
 from fairseq2.models.transformer import TransformerModel
@@ -79,7 +79,7 @@ def convert_nllb_checkpoint(
 
 
 @final
-class NllbTokenizerLoader(GenericTextTokenizerLoader[NllbTokenizer]):
+class NllbTokenizerLoader(StandardTextTokenizerLoader[NllbTokenizer]):
     """Loads tokenizers used by NLLB models."""
 
     @finaloverride
