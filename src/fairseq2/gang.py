@@ -93,8 +93,8 @@ class FakeGang(Gang):
     def __init__(self, device: Optional[Device] = None) -> None:
         """
         :param device:
-            If ``None``; if CUDA is available, the gang will use the first CUDA
-            device; otherwise, it will use CPU.
+            If ``None``; if CUDA is available, the process will use the first
+            CUDA device; otherwise, it will use the CPU.
         """
         if device is None:
             if torch.cuda.is_available() and torch.cuda.device_count() > 0:
@@ -150,7 +150,7 @@ class ProcessGroupGang(Gang):
         :param device:
             If ``None``; if CUDA is available, the process group will be
             initialized on an automatically selected CUDA device; otherwise,
-            it will be initialized on CPU.
+            it will be initialized on the CPU.
         :param timeout:
             The timeout for operations executed against the process group.
         :param num_threads:
