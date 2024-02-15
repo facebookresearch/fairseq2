@@ -147,7 +147,10 @@ def sync_and_compute_metrics(*bags: MetricBag) -> Optional[Dict[str, Any]]:
 
             all_metrics.update(bag.metrics)
 
-    values = sync_and_compute_collection(all_metrics, gang.as_process_group())
+    if gang.size == 1:
+        values = {name: m.compute() for name, m in all_metrics.items()}
+    else:
+        values = sync_and_compute_collection(all_metrics, gang.as_process_group())
 
     if gang.rank == 0:
         assert values is not None
