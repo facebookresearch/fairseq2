@@ -27,7 +27,7 @@ import torch
 from torch import Tensor
 from torch.nn import Module, Parameter
 
-from fairseq2.typing import CPU, Device
+from fairseq2.typing import CPU, META, Device
 
 
 @runtime_checkable
@@ -220,6 +220,26 @@ def to_empty(
         apply_depth_first(module, to_empty_)
     else:
         to_empty_(module)
+
+
+def to_device(module: Module, device: Device) -> None:
+    """Move the parameters and buffers of ``module`` to ``device``.
+
+    :param module:
+        The module to move.
+    :param device:
+        The target device of the parameters and buffers.
+    """
+    module_device = infer_device(module)
+    if module_device == device:
+        return
+
+    if module_device != META:
+        module.to(device=device)
+    else:
+        to_empty(module, device=device)
+
+        reset_parameters(module)
 
 
 def apply_depth_first(
