@@ -91,7 +91,18 @@ class FakeGang(Gang):
     """Represents a non-distributed gang for local use."""
 
     def __init__(self, device: Optional[Device] = None) -> None:
-        super().__init__(rank=0, size=1, device=device or CPU)
+        """
+        :param device:
+            If ``None``; if CUDA is available, the gang will use the first CUDA
+            device; otherwise, it will use CPU.
+        """
+        if device is None:
+            if torch.cuda.is_available() and torch.cuda.device_count() > 0:
+                device = Device("cuda", index=0)
+            else:
+                device = CPU
+
+        super().__init__(rank=0, size=1, device=device)
 
     @finaloverride
     def close(self) -> None:
