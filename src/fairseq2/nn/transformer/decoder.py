@@ -213,6 +213,8 @@ class StandardTransformerDecoder(TransformerDecoder):
         encoder_padding_mask: Optional[PaddingMask] = None,
         *,
         state_bag: Optional[IncrementalStateBag] = None,
+        cuda_graph_mask: Optional[Tensor] = None,
+        valid_seq_pos: Optional[Tensor] = None,
     ) -> Tuple[Tensor, Optional[PaddingMask]]:
         if self._layer_output_hooks and self.layers.drop_p > 0.0:
             raise RuntimeError(
@@ -221,23 +223,58 @@ class StandardTransformerDecoder(TransformerDecoder):
 
         num_layers = len(self.layers)
 
-        if self.self_attn_mask_factory is None:
-            self_attn_mask = None
-        else:
-            self_attn_mask = self.self_attn_mask_factory(
-                seqs, keys=seqs, training=self.training, state_bag=state_bag
-            )
-
         for layer_idx, layer in enumerate(self.layers.drop_iter()):
             seqs, padding_mask = layer(
                 seqs,
                 padding_mask,
-                self_attn_mask,
+                cuda_graph_mask,
                 encoder_output,
                 encoder_padding_mask,
                 state_bag=state_bag,
+                valid_seq_pos=valid_seq_pos,
+            )
+            for hook in self._layer_output_hooks.values():
+                if not hook(layer_idx, seqs, padding_mask, num_layers):
+                    break
+
+        if self.layer_norm is not None:
+            seqs = self.layer_norm(seqs)
+
+        return seqs, padding_mask
+
+
+    @finaloverride
+    def forward2(
+        self,
+        seqs: Tensor,
+        padding_mask: Optional[PaddingMask],
+        encoder_output: Optional[Tensor] = None,
+        encoder_padding_mask: Optional[PaddingMask] = None,
+        *,
+        state_bag: Optional[IncrementalStateBag] = None,
+        cuda_graph_mask: Optional[Tensor] = None,
+        valid_seq_pos: Optional[Tensor] = None,
+    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+        if self._layer_output_hooks and self.layers.drop_p > 0.0:
+            raise RuntimeError(
+                "The layer output hooks cannot be run when LayerDrop is enabled."
             )
 
+        num_layers = len(self.layers)
+
+
+        for layer_idx, layer in enumerate(self.layers.drop_iter()):
+            seqs, padding_mask = layer.forward2(
+                seqs,
+                padding_mask,
+                # self_attn_mask,
+                cuda_graph_mask,
+                encoder_output,
+                encoder_padding_mask,
+                state_bag=state_bag,
+                valid_seq_pos=valid_seq_pos,
+            )
+            
             for hook in self._layer_output_hooks.values():
                 if not hook(layer_idx, seqs, padding_mask, num_layers):
                     break
@@ -259,3 +296,4 @@ class StandardTransformerDecoder(TransformerDecoder):
             s = f"{s}, self_attn_mask_factory={self_attn_mask_factory}"
 
         return f"{s}, norm_order={self.norm_order}"
+    

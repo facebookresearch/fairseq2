@@ -155,7 +155,6 @@ class BeamSearchSequenceGenerator(SequenceGenerator):
         self, prompt_seqs: Tensor, prompt_padding_mask: Optional[PaddingMask]
     ) -> SequenceGeneratorOutput:
         op = _BeamSearchSequenceGeneratorOp(
-            self.model,
             prompt_seqs,
             prompt_padding_mask,
             self.algorithm,
@@ -295,9 +294,11 @@ class BeamSearchSeq2SeqGenerator(Seq2SeqGenerator):
         source_padding_mask: Optional[PaddingMask],
         prompt_seqs: Tensor,
         prompt_padding_mask: Optional[PaddingMask],
+        compiled_text_decoder: Optional[list] = None,
+        model = None
     ) -> Seq2SeqGeneratorOutput:
         # (P, S)
-        encoder_output, encoder_padding_mask = self.model.encode(
+        encoder_output, encoder_padding_mask = model.encode(
             source_seqs, source_padding_mask
         )
 
@@ -323,7 +324,7 @@ class BeamSearchSeq2SeqGenerator(Seq2SeqGenerator):
             )
 
         op = _BeamSearchSeq2SeqGeneratorOp(
-            self.model,
+            model,
             encoder_output,
             encoder_padding_mask,
             prompt_seqs,
@@ -344,7 +345,19 @@ class BeamSearchSeq2SeqGenerator(Seq2SeqGenerator):
             self._step_hooks,
         )
 
-        hypotheses = op()
+        for layer in model.decoder.layers.drop_iter():
+            if compiled_text_decoder[0] is None:
+                # 1024 is hard-coded as the maximum sequence length for self-attention layers for the optimal performance. The number could be changed accordingly.
+                layer.self_attn.cache_k = torch.zeros((5, layer.self_attn.num_heads, 1024, layer.self_attn.head_dim), dtype=torch.half).cuda()
+                layer.self_attn.cache_v = torch.zeros((5, layer.self_attn.num_heads, 1024, layer.self_attn.head_dim), dtype=torch.half).cuda()
+                # 256 is hard-coded as the maximum sequence length for cross-attention layers for the optimal performance. The number could be changed accordingly.
+                layer.encoder_decoder_attn.cache_k = torch.zeros((5, layer.encoder_decoder_attn.num_heads, 256, layer.encoder_decoder_attn.head_dim), dtype=torch.half).cuda()
+                layer.encoder_decoder_attn.cache_v = torch.zeros((5, layer.encoder_decoder_attn.num_heads, 256, layer.encoder_decoder_attn.head_dim), dtype=torch.half).cuda()
+            layer.self_attn.kv_cache = False
+            layer.encoder_decoder_attn.kv_cache = False
+            
+        hypotheses = op(compiled_text_decoder, model)
+
 
         return Seq2SeqGeneratorOutput(hypotheses, encoder_output, encoder_padding_mask)
 
@@ -580,12 +593,34 @@ class _BeamSearchGeneratorOp(ABC):
 
         # Holds the sequences that have reached EOS.
         self.output = [[] for _ in range(num_prompts)]
+        
+    def params_for_incremental_gen(self, prev_pos : int, cur_pos : int, device : torch.device):
+        valid_seq_pos = torch.arange(prev_pos, cur_pos, device=device)
 
-    def __call__(self) -> List[List[Hypothesis]]:
-        self._prepare_state()
+        # 1024 is hard-coded as the maximum sequence length for the optimal performance. The number could be changed accordingly.
+        mask = torch.full(
+            (1, 1, 1, 1024), False, device=device
+        )
+        mask[:, :, :, :valid_seq_pos.item() + 1] = True
+        return mask, valid_seq_pos
+    
+    def __call__(self, compiled_text_decoder = None, model = None) -> List[List[Hypothesis]]:
+        if compiled_text_decoder[0] is None:
+            compiled_text_decoder[0] = torch.compile(model.decoder.forward, mode='max-autotune')
 
+        self._prepare_state(model, compiled_text_decoder[0])
+
+        prev_pos = self.min_prompt_len-1
         for self.step_nr in range(self.min_prompt_len, self.max_seq_len):
-            if not self._step():
+            cuda_graph_mask, valid_seq_pos = self.params_for_incremental_gen(
+                prev_pos, self.step_nr, self.seqs.device)
+
+            if compiled_text_decoder[1] is None and self.step_nr > self.min_prompt_len:
+                compiled_text_decoder[1] = torch.compile(model.decoder.forward2, mode='max-autotune')
+
+            output = self._step(cuda_graph_mask, valid_seq_pos, compiled_text_decoder[0] if self.step_nr==self.min_prompt_len else compiled_text_decoder[1], model)
+            prev_pos = self.step_nr
+            if not output:
                 break
 
         # Sort the hypotheses by their scores before returning.
@@ -594,12 +629,12 @@ class _BeamSearchGeneratorOp(ABC):
 
         return self.output
 
-    def _prepare_state(self) -> None:
+    def _prepare_state(self, model, cuda_graph = None) -> None:
         # Fast-forward to the first step that needs to be generated.
         if self.min_prompt_len > 1:
-            self._prefill()
+            self._prefill(model, cuda_graph=cuda_graph)
 
-    def _prefill(self) -> None:
+    def _prefill(self, model, cuda_graph=None) -> None:
         chunk_begin = 0
 
         prefill_len = self.min_prompt_len
@@ -613,7 +648,15 @@ class _BeamSearchGeneratorOp(ABC):
 
             chunk_end = chunk_begin + chunk_size
 
-            model_output = self._decode(self.seqs[:, chunk_begin:chunk_end])
+            # 1024 is hard-coded as the maximum sequence length for the optimal performance. The number could be changed accordingly.
+            mask = torch.full(
+                (1, 1, 1, 1024), False, device=self.seqs.device
+            )
+            mask[:, :, :, chunk_begin:chunk_end] = True
+
+            valid_seq_pos = torch.arange(chunk_begin, chunk_end, device=self.seqs.device)
+
+            model_output = self._decode(self.seqs[:, chunk_begin:chunk_end], mask, valid_seq_pos, cuda_graph, model)
 
             self.state_bag.increment_step_nr(chunk_size)
 
@@ -657,9 +700,9 @@ class _BeamSearchGeneratorOp(ABC):
             for hook in self.step_hooks.values():
                 hook(self.prompt_indices, seqs, step_scores, prefill=True)
 
-    def _step(self) -> bool:
+    def _step(self, cuda_graph_mask, valid_seq_pos, cuda_graph, model) -> bool:
         # Generate the next step output.
-        model_output = self._decode(self.seqs[:, self.step_nr - 1 : self.step_nr])
+        model_output = self._decode(self.seqs[:, self.step_nr - 1 : self.step_nr], cuda_graph_mask, valid_seq_pos, cuda_graph, model)
 
         self.state_bag.increment_step_nr()
 
@@ -740,7 +783,7 @@ class _BeamSearchGeneratorOp(ABC):
         # (N_new)
         next_step = BeamStep.merge(beam_next_step_list)
 
-        self._reorder_state(next_step.seq_indices)
+        self._reorder_state(next_step.seq_indices, model)
 
         # Record the current step.
         self.seqs[:, self.step_nr] = next_step.vocab_indices
@@ -825,7 +868,7 @@ class _BeamSearchGeneratorOp(ABC):
         return next_step.first(self.beam_size)
 
     @abstractmethod
-    def _decode(self, seqs: Tensor) -> SequenceModelOutput:
+    def _decode(self, seqs: Tensor, cuda_graph_mask: Tensor, valid_seq_pos: Tensor, cuda_graph, model) -> SequenceModelOutput:
         ...
 
     def _finish_sequence(self, seq_idx: int, score: Tensor) -> bool:
@@ -873,8 +916,22 @@ class _BeamSearchGeneratorOp(ABC):
         # beam.
         return len(hypotheses) == self.beam_size
 
-    def _reorder_state(self, new_order: Tensor) -> None:
-        self.state_bag.reorder(new_order)
+    def _reorder_state(self, new_order: Tensor, model=None) -> None:
+        cache_ks = []
+        cache_vs = []
+        for layer in model.decoder.layers.drop_iter():
+            cache_ks.append(layer.self_attn.cache_k)
+            cache_vs.append(layer.self_attn.cache_v)
+            cache_ks.append(layer.encoder_decoder_attn.cache_k)
+            cache_vs.append(layer.encoder_decoder_attn.cache_v)
+
+        @torch.compile(mode='max-autotune-no-cudagraphs')
+        def reorder(k, new_order):
+            for i in range(len(k)):
+                k[i].copy_(k[i].index_select(0, new_order))
+
+        reorder(cache_ks, new_order)
+        reorder(cache_vs, new_order)
 
         # (N) -> (N - F)
         if self.prompt_lens is not None:
@@ -937,17 +994,15 @@ class _BeamSearchSequenceGeneratorOp(_BeamSearchGeneratorOp):
             step_hooks,
         )
 
-        self.model = model
-
     @override
-    def _decode(self, seqs: Tensor) -> SequenceModelOutput:
-        decoder_output, decoder_padding_mask = self.model.decode(
+    def _decode(self, seqs: Tensor, cuda_graph_mask: Tensor, valid_seq_pos: Tensor, cuda_graph, model) -> SequenceModelOutput:
+        decoder_output, decoder_padding_mask = model.decode(
             seqs,
             None,  # We never use PAD in incremental decoding.
             state_bag=self.state_bag,
         )
 
-        return self.model.project(decoder_output, decoder_padding_mask)
+        return model.project(decoder_output, decoder_padding_mask)
 
 
 class _BeamSearchSeq2SeqGeneratorOp(_BeamSearchGeneratorOp):
@@ -996,26 +1051,28 @@ class _BeamSearchSeq2SeqGeneratorOp(_BeamSearchGeneratorOp):
             step_processors,
             step_hooks,
         )
-
-        self.model = model
-        self.encoder_output = encoder_output
-        self.encoder_padding_mask = encoder_padding_mask
+        
+        # 256 is hard-coded as the maximum sequence length for cross-attention layers for the optimal performance. The number could be changed accordingly.
+        self.encoder_output = torch.cat((encoder_output, torch.zeros((encoder_output.shape[0], 256-encoder_output.shape[1], encoder_output.shape[2]), device=encoder_output.device, dtype=encoder_output.dtype)), 1)
+        self.encoder_padding_mask = PaddingMask(torch.tensor([encoder_output.shape[1]], device=encoder_output.device), batch_seq_len=256)
 
     @override
-    def _decode(self, seqs: Tensor) -> SequenceModelOutput:
-        decoder_output, decoder_padding_mask = self.model.decode(
+    def _decode(self, seqs: Tensor, cuda_graph_mask: Tensor, valid_seq_pos: Tensor, cuda_graph = None, model = None) -> SequenceModelOutput:
+        decoder_output, decoder_padding_mask = model.decode(
             seqs,
             None,  # We never use PAD in incremental decoding.
             self.encoder_output,
-            self.encoder_padding_mask,
+            self.encoder_padding_mask.materialize(),
             state_bag=self.state_bag,
+            cuda_graph_mask=cuda_graph_mask,
+            valid_seq_pos=valid_seq_pos,
+            compiled_decoder=cuda_graph,
         )
-
-        return self.model.project(decoder_output, decoder_padding_mask)
+        return model.project(decoder_output, decoder_padding_mask)
 
     @override
-    def _reorder_state(self, new_order: Tensor) -> None:
-        super()._reorder_state(new_order)
+    def _reorder_state(self, new_order: Tensor, model=None) -> None:
+        super()._reorder_state(new_order, model=model)
 
         self.encoder_output = self.encoder_output.index_select(dim=0, index=new_order)
 

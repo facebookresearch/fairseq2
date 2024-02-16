@@ -228,8 +228,9 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         encoder_padding_mask: Optional[PaddingMask] = None,
         *,
         state_bag: Optional[IncrementalStateBag] = None,
+        valid_seq_pos: Optional[Tensor] = None,
     ) -> Tuple[Tensor, Optional[PaddingMask]]:
-        seqs = self._forward_self_attn(seqs, padding_mask, self_attn_mask, state_bag)
+        seqs = self._forward_self_attn(seqs, padding_mask, self_attn_mask, state_bag, valid_seq_pos)
 
         seqs = self._forward_encoder_decoder_attn(
             seqs, padding_mask, encoder_output, encoder_padding_mask, state_bag
@@ -245,6 +246,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         padding_mask: Optional[PaddingMask],
         self_attn_mask: Optional[AttentionMask],
         state_bag: Optional[IncrementalStateBag],
+        valid_seq_pos: Optional[Tensor] = None,
     ) -> Tensor:
         residual = seqs
 
@@ -259,6 +261,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
             values=seqs,
             attn_mask=self_attn_mask,
             state_bag=state_bag,
+            valid_seq_pos=valid_seq_pos,
         )
 
         if self.self_attn_norm is not None:
@@ -339,6 +342,131 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
             seqs = self.ffn_layer_norm(seqs)
 
         return seqs
+
+    @finaloverride
+    def forward2(
+        self,
+        seqs: Tensor,
+        padding_mask: Optional[PaddingMask],
+        self_attn_mask: Optional[AttentionMask] = None,
+        encoder_output: Optional[Tensor] = None,
+        encoder_padding_mask: Optional[PaddingMask] = None,
+        *,
+        state_bag: Optional[IncrementalStateBag] = None,
+        valid_seq_pos: Optional[Tensor] = None,
+    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+        seqs = self._forward_self_attn2(seqs, padding_mask, self_attn_mask, state_bag, valid_seq_pos)
+
+        seqs = self._forward_encoder_decoder_attn2(
+            seqs, padding_mask, encoder_output, encoder_padding_mask, state_bag
+        )
+
+        seqs = self._forward_ffn2(seqs)
+
+        return seqs, padding_mask
+
+    def _forward_self_attn2(
+        self,
+        seqs: Tensor,
+        padding_mask: Optional[PaddingMask],
+        self_attn_mask: Optional[AttentionMask],
+        state_bag: Optional[IncrementalStateBag],
+        valid_seq_pos: Optional[Tensor] = None,
+    ) -> Tensor:
+        residual = seqs
+        if self.norm_order != TransformerNormOrder.POST:
+            seqs = self.self_attn_layer_norm(seqs)
+        
+        seqs = self.self_attn.forward2(
+            seqs,
+            padding_mask,
+            keys=seqs,
+            key_padding_mask=padding_mask,
+            values=seqs,
+            attn_mask=self_attn_mask,
+            state_bag=state_bag,
+            valid_seq_pos=valid_seq_pos,
+        )
+        
+        if self.self_attn_norm is not None:
+            seqs = self.self_attn_norm(seqs)
+
+        if self.self_attn_dropout is not None:
+            seqs = self.self_attn_dropout(seqs)
+
+        seqs = seqs + residual
+
+        if self.norm_order == TransformerNormOrder.POST:
+            seqs = self.self_attn_layer_norm(seqs)
+
+        return seqs
+
+    def _forward_encoder_decoder_attn2(
+        self,
+        seqs: Tensor,
+        padding_mask: Optional[PaddingMask],
+        encoder_output: Optional[Tensor],
+        encoder_padding_mask: Optional[PaddingMask],
+        state_bag: Optional[IncrementalStateBag],
+    ) -> Tensor:
+        if self.encoder_decoder_attn is None:
+            if encoder_output is not None:
+                raise ValueError(
+                    "`encoder_output` must be `None` for decoder-only attention."
+                )
+
+            return seqs
+
+        if encoder_output is None:
+            raise ValueError(
+                "`encoder_output` must not be `None` for encoder-decoder attention."
+            )
+
+        residual = seqs
+
+        if self.norm_order != TransformerNormOrder.POST:
+            seqs = cast(LayerNorm, self.encoder_decoder_attn_layer_norm)(seqs)
+
+        seqs = self.encoder_decoder_attn.forward2(
+            seqs,
+            padding_mask,
+            keys=encoder_output,
+            key_padding_mask=encoder_padding_mask,
+            values=encoder_output,
+            state_bag=state_bag,
+        )
+
+        if self.encoder_decoder_attn_dropout is not None:
+            seqs = self.encoder_decoder_attn_dropout(seqs)
+
+        seqs = seqs + residual
+
+        if self.norm_order == TransformerNormOrder.POST:
+            seqs = cast(LayerNorm, self.encoder_decoder_attn_layer_norm)(seqs)
+
+        return seqs
+
+    def _forward_ffn2(self, seqs: Tensor) -> Tensor:
+        residual = seqs
+
+        if self.norm_order != TransformerNormOrder.POST:
+            seqs = self.ffn_layer_norm(seqs)
+
+        seqs = self.ffn(seqs)
+
+        if self.ffn_dropout is not None:
+            seqs = self.ffn_dropout(seqs)
+
+        if self.residual_scale is not None:
+            residual = self.residual_scale * residual
+
+        seqs = seqs + residual
+
+        if self.norm_order == TransformerNormOrder.POST:
+            seqs = self.ffn_layer_norm(seqs)
+
+        return seqs
+
 
     def extra_repr(self) -> str:
         """:meta private:"""

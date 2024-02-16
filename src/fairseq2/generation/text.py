@@ -68,6 +68,8 @@ class SequenceToTextConverterBase(ABC):
         self,
         source_seqs: Tensor,
         source_padding_mask: Optional[PaddingMask],
+        compiled_text_decoder: Optional[list] = None,
+        s2t_model_list: Optional[list] = None
     ) -> Tuple[List[StringLike], Seq2SeqGeneratorOutput]:
         """A subclass should call this method for actual text conversion.
 
@@ -89,7 +91,7 @@ class SequenceToTextConverterBase(ABC):
         target_prefix_seqs = self.target_prefix_seq.expand(batch_size, -1)
 
         generator_output = self.generator(
-            source_seqs, source_padding_mask, target_prefix_seqs, None
+            source_seqs, source_padding_mask, target_prefix_seqs, None, compiled_text_decoder=compiled_text_decoder, model=s2t_model_list[0]
         )
 
         texts: List[StringLike] = []
@@ -130,6 +132,8 @@ class SequenceToTextConverter(SequenceToTextConverterBase):
         self,
         source_seqs: Tensor,
         source_padding_mask: Optional[PaddingMask],
+        compiled_text_decoder = None,
+        s2t_model_list: Optional[list] = None
     ) -> Tuple[List[StringLike], Seq2SeqGeneratorOutput]:
         """
         :param source_seqs:
@@ -149,7 +153,7 @@ class SequenceToTextConverter(SequenceToTextConverterBase):
                 "`source_seqs` must contain at least one element, but is empty instead."
             )
 
-        return self._do_convert(source_seqs, source_padding_mask)
+        return self._do_convert(source_seqs, source_padding_mask, compiled_text_decoder=compiled_text_decoder, s2t_model_list=s2t_model_list)
 
 
 @final
