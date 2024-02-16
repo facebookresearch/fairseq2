@@ -419,8 +419,7 @@ class Wav2Vec2Config:
     overlap, the effective probability might be smaller."""
     
     min_num_spans: int
-    """The minimum number of mask sampled per sequences. Note that it is suggested
-    to have this value == 2"""
+    """The minimum number of mask sampled per sequences."""
 
     # Quantization
     quantized_dim: int
