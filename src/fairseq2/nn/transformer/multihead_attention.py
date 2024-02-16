@@ -187,6 +187,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         model_dim: int,
         num_heads: int,
         *,
+        input_dim: Optional[int] = None,
         num_key_value_heads: Optional[int] = None,
         q_proj: Optional[Projection] = None,
         k_proj: Optional[Projection] = None,
@@ -206,6 +207,8 @@ class StandardMultiheadAttention(MultiheadAttention):
             The dimensionality of the model.
         :param num_heads:
             The number of attention heads.
+        :param input_dim:
+            The dimensionality of the input. If ``None``, model_dim will be used.
         :param num_key_value_heads:
             The number of key/value heads for Grouped Query Attention as
             described in :cite:t:`https://doi.org/10.48550/arXiv.2305.13245`.
@@ -258,6 +261,7 @@ class StandardMultiheadAttention(MultiheadAttention):
 
             self.num_key_value_heads = num_key_value_heads
 
+        input_dim = input_dim or model_dim
         head_dim = model_dim // num_heads
 
         num_query_groups = num_heads // self.num_key_value_heads
@@ -272,7 +276,7 @@ class StandardMultiheadAttention(MultiheadAttention):
                 dtype=dtype,
             )
             k_proj = Linear(
-                model_dim,
+                input_dim,
                 head_dim * self.num_key_value_heads,
                 bias,
                 init_fn=init_qkv_projection,
@@ -280,7 +284,7 @@ class StandardMultiheadAttention(MultiheadAttention):
                 dtype=dtype,
             )
             v_proj = Linear(
-                model_dim,
+                input_dim,
                 head_dim * self.num_key_value_heads,
                 bias,
                 init_fn=init_qkv_projection,
@@ -293,9 +297,9 @@ class StandardMultiheadAttention(MultiheadAttention):
                     "`q_proj`, `k_proj`, and `v_proj` must be all specified."
                 )
 
-            if q_proj.input_dim != model_dim:
+            if q_proj.input_dim != input_dim:
                 raise ValueError(
-                    f"`input_dim` of `q_proj` must be equal to `model_dim` ({model_dim}), but is {q_proj.input_dim} instead."
+                    f"`input_dim` of `q_proj` must be equal to `model_dim` ({input_dim}), but is {q_proj.input_dim} instead."
                 )
 
             if (k_dim := k_proj.output_dim * num_query_groups) != q_proj.output_dim:
