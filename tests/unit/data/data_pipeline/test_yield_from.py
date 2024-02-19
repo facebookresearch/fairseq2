@@ -15,16 +15,14 @@ from fairseq2.data import DataPipeline, DataPipelineError, read_sequence
 
 class TestYieldFromOp:
     def test_op_works(self) -> None:
-        def fn(d: Tuple[int, int]) -> DataPipeline[int]:
+        def fn(d: Tuple[int, int]) -> DataPipeline:
             a, b = d
 
             seq = list(range(a, b))
 
             return read_sequence(seq).and_return()
 
-        pipeline: DataPipeline[int] = (
-            read_sequence([[1, 5], [9, 14]]).yield_from(fn).and_return()
-        )
+        pipeline = read_sequence([[1, 5], [9, 14]]).yield_from(fn).and_return()
 
         for _ in range(2):
             assert list(pipeline) == [1, 2, 3, 4, 9, 10, 11, 12, 13]
@@ -32,10 +30,10 @@ class TestYieldFromOp:
             pipeline.reset()
 
     def test_op_raises_error_when_yield_from_is_infinite(self) -> None:
-        def fn(d: int) -> DataPipeline[int]:
+        def fn(d: int) -> DataPipeline:
             return DataPipeline.constant(0).and_return()
 
-        pipeline: DataPipeline[int] = read_sequence([1]).yield_from(fn).and_return()
+        pipeline = read_sequence([1]).yield_from(fn).and_return()
 
         with pytest.raises(
             DataPipelineError,
@@ -44,16 +42,14 @@ class TestYieldFromOp:
             next(iter(pipeline))
 
     def test_op_saves_and_restores_its_state(self) -> None:
-        def fn(d: Tuple[int, int]) -> DataPipeline[int]:
+        def fn(d: Tuple[int, int]) -> DataPipeline:
             a, b = d
 
             seq = list(range(a, b))
 
             return read_sequence(seq).and_return()
 
-        pipeline: DataPipeline[int] = (
-            read_sequence([[1, 5], [9, 14]]).yield_from(fn).and_return()
-        )
+        pipeline = read_sequence([[1, 5], [9, 14]]).yield_from(fn).and_return()
 
         d = None
 

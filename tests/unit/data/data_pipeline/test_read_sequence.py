@@ -6,14 +6,14 @@
 
 import pytest
 
-from fairseq2.data import DataPipeline, read_sequence
+from fairseq2.data import read_sequence
 
 
 class TestReadSequenceOp:
     def test_op_works(self) -> None:
         seq = list(range(1, 10))
 
-        pipeline: DataPipeline[int] = read_sequence(seq).and_return()
+        pipeline = read_sequence(seq).and_return()
 
         for _ in range(2):
             assert list(pipeline) == seq
@@ -21,7 +21,7 @@ class TestReadSequenceOp:
             pipeline.reset()
 
     def test_op_works_when_input_sequence_is_empty(self) -> None:
-        pipeline: DataPipeline[int] = read_sequence([]).and_return()
+        pipeline = read_sequence([]).and_return()
 
         for _ in range(2):
             assert list(pipeline) == []
@@ -31,7 +31,7 @@ class TestReadSequenceOp:
     def test_op_saves_and_restores_its_state(self) -> None:
         seq = list(range(1, 10))
 
-        pipeline: DataPipeline[int] = read_sequence(seq).and_return()
+        pipeline = read_sequence(seq).and_return()
 
         d = None
 

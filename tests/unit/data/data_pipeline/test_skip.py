@@ -6,14 +6,12 @@
 
 import pytest
 
-from fairseq2.data import DataPipeline, read_sequence
+from fairseq2.data import read_sequence
 
 
 class TestSkipOp:
     def test_op_works(self) -> None:
-        pipeline: DataPipeline[int] = (
-            read_sequence([1, 2, 3, 4, 5, 6, 7, 8, 9]).skip(3).and_return()
-        )
+        pipeline = read_sequence([1, 2, 3, 4, 5, 6, 7, 8, 9]).skip(3).and_return()
 
         for _ in range(2):
             assert list(pipeline) == [4, 5, 6, 7, 8, 9]
@@ -21,7 +19,7 @@ class TestSkipOp:
             pipeline.reset()
 
     def test_op_works_when_count_is_greater_than_the_number_of_elements(self) -> None:
-        pipeline: DataPipeline[int] = read_sequence([1, 2, 3]).skip(5).and_return()
+        pipeline = read_sequence([1, 2, 3]).skip(5).and_return()
 
         for _ in range(2):
             assert list(pipeline) == []
@@ -29,7 +27,7 @@ class TestSkipOp:
             pipeline.reset()
 
     def test_op_works_when_count_is_zero(self) -> None:
-        pipeline: DataPipeline[int] = read_sequence([1, 2, 3]).skip(0).and_return()
+        pipeline = read_sequence([1, 2, 3]).skip(0).and_return()
 
         for _ in range(2):
             assert list(pipeline) == [1, 2, 3]
@@ -37,9 +35,7 @@ class TestSkipOp:
             pipeline.reset()
 
     def test_op_saves_and_restores_its_state(self) -> None:
-        pipeline: DataPipeline[int] = (
-            read_sequence([1, 2, 3, 4, 5, 6, 7, 8, 9]).skip(3).and_return()
-        )
+        pipeline = read_sequence([1, 2, 3, 4, 5, 6, 7, 8, 9]).skip(3).and_return()
 
         d = None
 
