@@ -206,6 +206,7 @@ _metric_formatters: Dict[str, Tuple[str, Callable[[Any], str]]] = {
     "grad_scale":          ("Grad Scale",                format_as_float),
     "loss":                ("Loss",                      format_as_loss),
     "lr":                  ("Learning Rate",             format_as_float),
+    "num_examples":        ("Number of Examples",        format_as_int),
     "num_source_elements": ("Number of Source Elements", format_as_int),
     "num_target_elements": ("Number of Target Elements", format_as_int),
     "wall_time":           ("Wall Time",                 format_as_seconds),
