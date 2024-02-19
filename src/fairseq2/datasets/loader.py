@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Dict, Generic, TypeVar, Union, final
+from typing import Dict, Generic, Protocol, TypeVar, Union, final
 
 from fairseq2.assets import (
     AssetCard,
@@ -46,23 +46,41 @@ class DatasetLoader(ABC, Generic[DatasetT]):
         """
 
 
+class DatasetFactory(Protocol[DatasetT]):
+    """Constructs datasets of type ``DatasetT``."""
+
+    def __call__(self, path: Path, card: AssetCard) -> DatasetT:
+        """
+        :param path:
+            The path to the dataset.
+        :param card:
+            The asset card of the dataset.
+        """
+
+
 class StandardDatasetLoader(DatasetLoader[DatasetT]):
-    """Loads datasets of type ``DatasetT`` using an asset store."""
+    """Loads datasets of type ``DatasetT``."""
 
     asset_store: AssetStore
     download_manager: AssetDownloadManager
 
     def __init__(
-        self, asset_store: AssetStore, download_manager: AssetDownloadManager
+        self,
+        asset_store: AssetStore,
+        download_manager: AssetDownloadManager,
+        factory: DatasetFactory[DatasetT],
     ) -> None:
         """
         :param asset_store:
             The asset store where to check for available datasets.
         :param download_manager:
             The download manager.
+        :param factory:
+            The factory to construct datasets.
         """
         self.asset_store = asset_store
         self.download_manager = download_manager
+        self.factory = factory
 
     @finaloverride
     def __call__(
@@ -90,24 +108,15 @@ class StandardDatasetLoader(DatasetLoader[DatasetT]):
             ) from ex
 
         try:
-            return self._load(path, card)
+            return self.factory(path, card)
         except ValueError as ex:
             raise AssetError(
                 f"The {card.name} dataset cannot be loaded. See nested exception for details."
             ) from ex
 
-    @abstractmethod
-    def _load(self, path: Path, card: AssetCard) -> DatasetT:
-        """
-        :param path:
-            The path to the dataset.
-        :param card:
-            The asset card of the associated dataset.
-        """
-
 
 @final
-class CompositeDatasetLoader(DatasetLoader[DatasetT]):
+class DelegatingDatasetLoader(DatasetLoader[DatasetT]):
     """Loads datasets of type ``DatasetT`` using registered loaders."""
 
     asset_store: AssetStore
@@ -155,7 +164,7 @@ class CompositeDatasetLoader(DatasetLoader[DatasetT]):
 
         :param dataset_type:
             The dataset type. If the 'dataset_type' field of an asset card
-            matches this value, the specified `loader` will be used.
+            matches this value, the specified ``loader`` will be used.
         :param loader:
             The dataset loader.
         """
