@@ -56,7 +56,7 @@ class AssetDownloadManager(ABC):
             If ``True``, displays a progress bar to stderr.
 
         :returns:
-            The pathname of the downloaded checkpoint.
+            The path to the downloaded checkpoint.
         """
 
     @abstractmethod
@@ -86,7 +86,7 @@ class AssetDownloadManager(ABC):
             If ``True``, displays a progress bar to stderr.
 
         :returns:
-            The pathname of the downloaded tokenizer.
+            The path to the downloaded tokenizer.
         """
 
     @abstractmethod
@@ -113,7 +113,7 @@ class AssetDownloadManager(ABC):
             If ``True``, displays a progress bar to stderr.
 
         :returns:
-            The pathname of the downloaded dataset.
+            The path to the downloaded dataset.
         """
 
 

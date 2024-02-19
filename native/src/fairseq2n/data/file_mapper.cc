@@ -7,7 +7,6 @@
 #include "fairseq2n/data/file_mapper.h"
 
 #include <array>
-#include <filesystem>
 #include <stdexcept>
 
 #include <fmt/format.h>
@@ -23,7 +22,7 @@ using namespace fairseq2n::detail;
 namespace fairseq2n {
 
 file_mapper::file_mapper(
-    std::optional<std::string> maybe_root_dir,
+    std::optional<std::filesystem::path> maybe_root_dir,
     std::optional<std::size_t> maybe_cached_fd_count) noexcept
   : cache_{/*capacity=*/maybe_cached_fd_count.value_or(default_cached_fd_count)}
 {

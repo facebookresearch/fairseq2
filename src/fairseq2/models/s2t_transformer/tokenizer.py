@@ -4,10 +4,10 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from pathlib import Path
 from typing import Optional, Set, final
 
 from fairseq2.data.text import SentencePieceEncoder, SentencePieceTokenizer
-from fairseq2.data.typing import PathLike
 from fairseq2.typing import Device, finaloverride
 
 
@@ -21,14 +21,14 @@ class S2TTransformerTokenizer(SentencePieceTokenizer):
 
     def __init__(
         self,
-        pathname: PathLike,
+        path: Path,
         task: str,
         target_langs: Set[str],
         default_target_lang: str,
     ) -> None:
         """
-        :param pathname:
-            The pathname of the SentencePiece model file.
+        :param path:
+            The path to the SentencePiece model file.
         :param task:
             The task for which to generate token indices. The valid values are
             'transcription' and 'translation'.
@@ -37,7 +37,7 @@ class S2TTransformerTokenizer(SentencePieceTokenizer):
         :param default_target_lang:
             The fall-back language if no target language is specified.
         """
-        super().__init__(pathname)
+        super().__init__(path)
 
         if task != "transcription" and task != "translation":
             raise ValueError(

@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from pathlib import Path
+
 import pytest
 
 from fairseq2.data import DataPipeline, DataPipelineError, read_sequence
@@ -148,8 +150,8 @@ class TestZipOp:
 
     def test_op_raises_error_when_one_of_the_pipelines_is_broken(self) -> None:
         # Force a non-recoverable error.
-        pipeline1 = read_text(pathname=" &^#").and_return()
-        pipeline2 = read_text(pathname=" &^#").and_return()
+        pipeline1 = read_text(path=Path(" &^#")).and_return()
+        pipeline2 = read_text(path=Path(" &^#")).and_return()
 
         # Break the first pipeline.
         try:

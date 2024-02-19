@@ -41,6 +41,10 @@ public:
       : immutable_string{std::string_view{s}}
     {}
 
+    immutable_string(const char *s, std::size_t len)
+      : immutable_string{std::string_view{s, len}}
+    {}
+
     immutable_string(const std::string &s)
       : immutable_string{static_cast<std::string_view>(s)}
     {}

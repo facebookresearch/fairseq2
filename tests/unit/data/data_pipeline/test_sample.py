@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import math
+from pathlib import Path
 
 import pytest
 import torch
@@ -129,8 +130,8 @@ class TestSampleOp:
 
     def test_op_raises_error_when_one_of_the_pipelines_is_broken(self) -> None:
         # Force a non-recoverable error.
-        pipeline1 = read_text(pathname=" &^#").and_return()
-        pipeline2 = read_text(pathname=" &^#").and_return()
+        pipeline1 = read_text(path=Path(" &^#")).and_return()
+        pipeline2 = read_text(path=Path(" &^#")).and_return()
 
         # Break the first pipeline.
         try:

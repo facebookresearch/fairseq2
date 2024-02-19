@@ -7,6 +7,7 @@
 #include "fairseq2n/bindings/module.h"
 
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <optional>
 #include <string>
@@ -28,7 +29,7 @@ def_sentencepiece(py::module_ &text_module)
     py::class_<sp_model, std::shared_ptr<sp_model>>(m, "SentencePieceModel")
         .def(
             py::init([](
-                std::string_view pathname,
+                std::filesystem::path path,
                 std::optional<std::vector<std::string>> maybe_control_symbols)
             {
                 sp_model_options opts{};
@@ -36,9 +37,9 @@ def_sentencepiece(py::module_ &text_module)
                 if (maybe_control_symbols)
                     opts.control_symbols() = *std::move(maybe_control_symbols);
 
-                return std::make_shared<sp_model>(pathname, std::move(opts));
+                return std::make_shared<sp_model>(std::move(path), std::move(opts));
             }),
-            py::arg("pathname"),
+            py::arg("path"),
             py::arg("control_symbols") = std::nullopt)
 
         .def(
@@ -106,7 +107,7 @@ def_sentencepiece(py::module_ &text_module)
             py::arg("pin_memory")      = false)
         .def(
             "__call__",
-            &sp_encoder::operator(),
+            &sp_encoder::encode,
             py::arg("text"),
             py::call_guard<py::gil_scoped_release>{})
         .def(
@@ -125,7 +126,7 @@ def_sentencepiece(py::module_ &text_module)
             py::arg("reverse") = false)
         .def(
             "__call__",
-            &sp_decoder::operator(),
+            &sp_decoder::decode,
             py::arg("token_indices"),
             py::call_guard<py::gil_scoped_release>{})
         .def(

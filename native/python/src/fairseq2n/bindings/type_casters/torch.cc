@@ -9,8 +9,6 @@
 #include <fairseq2n/exception.h>
 #include <fairseq2n/detail/exception.h>
 
-#include "fairseq2n/bindings/type_casters/string.h"
-
 using namespace fairseq2n;
 using namespace fairseq2n::detail;
 

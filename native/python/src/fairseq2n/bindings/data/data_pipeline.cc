@@ -591,11 +591,11 @@ def_data_pipeline(py::module_ &data_module)
 
 
     // DataPipeline Factories
-    m.def("list_files", &list_files, py::arg("pathname"), py::arg("pattern") = std::nullopt);
+    m.def("list_files", &list_files, py::arg("path"), py::arg("pattern") = std::nullopt);
 
     m.def("read_sequence", &read_list, py::arg("seq"));
 
-    m.def("read_zipped_records", &read_zipped_records, py::arg("pathname"));
+    m.def("read_zipped_records", &read_zipped_records, py::arg("path"));
 
     // Collater
     py::class_<collate_options_override>(m, "CollateOptionsOverride")
@@ -658,7 +658,7 @@ def_data_pipeline(py::module_ &data_module)
     // FileMapper
     py::class_<file_mapper, std::shared_ptr<file_mapper>>(m, "FileMapper")
         .def(
-            py::init<std::optional<std::string>, std::optional<std::size_t>>(),
+            py::init<std::optional<std::filesystem::path>, std::optional<std::size_t>>(),
             py::arg("root_dir") = std::nullopt,
             py::arg("cached_fd_count") = std::nullopt)
         .def("__call__", &file_mapper::operator(), py::call_guard<py::gil_scoped_release>{});

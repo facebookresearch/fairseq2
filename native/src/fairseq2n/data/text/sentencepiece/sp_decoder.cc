@@ -40,23 +40,27 @@ sp_decoder::operator()(data &&d) const
         throw_<std::invalid_argument>(
             "The input data must be of type `torch.Tensor`, but is of type `{}` instead.", d.type());
 
-    at::Tensor tensor = d.as_tensor();
+    return decode(d.as_tensor());
+}
 
+std::string
+sp_decoder::decode(const at::Tensor &tensor) const
+{
     if (tensor.dim() != 1)
         throw_<std::invalid_argument>(
             "The input tensor must be one dimensional, but has {} dimension(s) instead.", tensor.dim());
 
-    tensor = tensor.to(at::kCPU);
+    at::Tensor cpu_tensor = tensor.to(at::kCPU);
 
     switch (tensor.scalar_type()) {
     case at::ScalarType::Short:
-        return decode<std::int16_t>(tensor);
+        return do_decode<std::int16_t>(cpu_tensor);
 
     case at::ScalarType::Int:
-        return decode<std::int32_t>(tensor);
+        return do_decode<std::int32_t>(cpu_tensor);
 
     case at::ScalarType::Long:
-        return decode<std::int64_t>(tensor);
+        return do_decode<std::int64_t>(cpu_tensor);
 
     default:
         throw_<not_supported_error>(
@@ -64,9 +68,22 @@ sp_decoder::operator()(data &&d) const
     }
 }
 
+std::string
+sp_decoder::decode_from_tokens(const std::vector<std::string_view> &tokens) const
+{
+    if (reverse_) {
+        auto tokens_reversed = tokens;
+
+        std::reverse(tokens_reversed.begin(), tokens_reversed.end());
+
+        return model_->processor_->decode(tokens_reversed);
+    } else
+        return model_->processor_->decode(tokens);
+}
+
 template <typename T>
-immutable_string
-sp_decoder::decode(const at::Tensor &tensor) const
+std::string
+sp_decoder::do_decode(const at::Tensor &tensor) const
 {
     std::int64_t seq_len = tensor.size(0);
 
@@ -87,37 +104,6 @@ sp_decoder::decode(const at::Tensor &tensor) const
     }
 
     return model_->processor_->decode(tokens);
-}
-
-data
-sp_decoder::decode_from_tokens(data &&d) const
-{
-    if (!d.is_list())
-        throw_<std::invalid_argument>(
-            "The input data must be of type `list`, but is of type `{}` instead.", d.type());
-
-    std::vector<data> &tokens = d.as_list();
-
-    std::vector<std::string_view> pieces{};
-
-    pieces.reserve(tokens.size());
-
-    std::size_t idx = 0;
-
-    for (const data &token : tokens) {
-        if (!token.is_string())
-            throw_<std::invalid_argument>(
-                "The element at index {} in the input data must be of type `string`, but is of type `{}` instead.", idx, token.type());
-
-        pieces.emplace_back(token.as_string());
-
-        idx++;
-    }
-
-    if (reverse_)
-        std::reverse(pieces.begin(), pieces.end());
-
-    return model_->processor_->decode(pieces);
 }
 
 }  // namespace fairseq2n

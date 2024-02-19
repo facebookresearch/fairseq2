@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <filesystem>
 #include <string_view>
 #include <utility>
 
@@ -84,6 +85,6 @@ operator!=(const file_desc &lhs, const file_desc &rhs) noexcept
 }
 
 memory_block
-memory_map_file(const file_desc &fd, std::string_view pathname);
+memory_map_file(const file_desc &fd, const std::filesystem::path &path);
 
 }
