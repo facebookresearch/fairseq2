@@ -129,6 +129,7 @@ class Seq2SeqModelMetricBag(MetricBag):
     batch_size: Mean
     elements_per_batch: Mean
     elements_per_second: Throughput
+    num_examples: Sum
     num_source_elements: Sum
     num_target_elements: Sum
 
@@ -150,6 +151,8 @@ class Seq2SeqModelMetricBag(MetricBag):
         self.register_metric("elements_per_batch", Mean(device=d), persistent=False)
 
         self.register_metric("elements_per_second", Throughput(device=d), persistent=False)  # fmt: skip
+
+        self.num_examples = Sum(device=d)
 
         self.num_source_elements = Sum(device=d)
         self.num_target_elements = Sum(device=d)
@@ -196,6 +199,8 @@ class Seq2SeqModelMetricBag(MetricBag):
         self.elements_per_batch.update(num_target_elements * self.gang.size)
 
         self.elements_per_second.update(int(num_target_elements), elapsed_time)
+
+        self.num_examples.update(batch_size)
 
         self.num_source_elements.update(num_source_elements)
         self.num_target_elements.update(num_target_elements)
