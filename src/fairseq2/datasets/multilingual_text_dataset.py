@@ -14,7 +14,6 @@ from fairseq2.data import DataPipeline
 from fairseq2.data.text import TextTokenizer
 from fairseq2.datasets.loader import CompositeDatasetLoader
 from fairseq2.gang import Gang
-from fairseq2.models.seq2seq import Seq2SeqBatch
 
 
 class LangPair(NamedTuple):
@@ -46,7 +45,7 @@ class MultilingualTextDataset(ABC):
         eval_batch_size: int = 32,
         num_prefetch: int = 10,
         lang_pairs: Optional[Sequence[LangPair]] = None,
-    ) -> DataPipeline[Seq2SeqBatch]:
+    ) -> DataPipeline:
         """Read the dataset.
 
         :param split:

@@ -11,7 +11,7 @@ from fairseq2.data import DataPipeline
 
 class TestCountOp:
     def test_op_works(self) -> None:
-        pipeline: DataPipeline[int] = DataPipeline.count(start=4).take(10).and_return()
+        pipeline = DataPipeline.count(start=4).take(10).and_return()
 
         for _ in range(2):
             assert list(pipeline) == list(range(4, 14))
@@ -19,9 +19,7 @@ class TestCountOp:
             pipeline.reset()
 
     def test_op_works_when_step_is_greater_than_1(self) -> None:
-        pipeline: DataPipeline[int] = (
-            DataPipeline.count(start=4, step=3).take(10).and_return()
-        )
+        pipeline = DataPipeline.count(start=4, step=3).take(10).and_return()
 
         for _ in range(2):
             assert list(pipeline) == list(range(4, 34, 3))
@@ -29,7 +27,7 @@ class TestCountOp:
             pipeline.reset()
 
     def test_op_saves_and_restores_its_state(self) -> None:
-        pipeline: DataPipeline[int] = DataPipeline.count(start=4).take(10).and_return()
+        pipeline = DataPipeline.count(start=4).take(10).and_return()
 
         d = None
 

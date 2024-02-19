@@ -7,11 +7,10 @@
 import copy
 import re
 from dataclasses import dataclass
-from typing import Any, List
 
 import pytest
 
-from fairseq2.data import DataPipeline, DataPipelineError, read_sequence
+from fairseq2.data import DataPipelineError, read_sequence
 from fairseq2.data.text.converters import StrToIntConverter
 
 
@@ -23,9 +22,7 @@ class TestMapOp:
 
         seq = list(range(1, 10))
 
-        pipeline: DataPipeline[int] = (
-            read_sequence(seq).map(fn, num_parallel_calls=num_parallel_calls).and_return()  # fmt: skip
-        )
+        pipeline = read_sequence(seq).map(fn, num_parallel_calls=num_parallel_calls).and_return()  # fmt: skip
 
         for _ in range(2):
             assert list(pipeline) == [i**2 for i in seq]
@@ -35,9 +32,7 @@ class TestMapOp:
     def test_op_works_when_callable_is_native(self) -> None:
         fn = StrToIntConverter()
 
-        pipeline: DataPipeline[int] = (
-            read_sequence(["1", "2", "3", "4"]).map(fn).and_return()
-        )
+        pipeline = read_sequence(["1", "2", "3", "4"]).map(fn).and_return()
 
         for _ in range(2):
             assert list(pipeline) == [1, 2, 3, 4]
@@ -50,9 +45,7 @@ class TestMapOp:
         def fn2(d: int) -> int:
             return d**2
 
-        pipeline: DataPipeline[int] = (
-            read_sequence(["1", "2", "3", "4"]).map([fn1, fn2]).and_return()
-        )
+        pipeline = read_sequence(["1", "2", "3", "4"]).map([fn1, fn2]).and_return()
 
         for _ in range(2):
             assert list(pipeline) == [1, 4, 9, 16]
@@ -69,9 +62,7 @@ class TestMapOp:
 
             return d
 
-        pipeline: DataPipeline[Foo] = (
-            read_sequence([Foo(1), Foo(2)]).map(fn).and_return()
-        )
+        pipeline = read_sequence([Foo(1), Foo(2)]).map(fn).and_return()
 
         it = iter(pipeline)
 
@@ -90,9 +81,7 @@ class TestMapOp:
 
         seq = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
 
-        pipeline: DataPipeline[List[int]] = (
-            read_sequence(seq).map([fn1, fn2], selector="[1]").and_return()
-        )
+        pipeline = read_sequence(seq).map([fn1, fn2], selector="[1]").and_return()
 
         for _ in range(2):
             it = iter(pipeline)
@@ -124,9 +113,7 @@ class TestMapOp:
         e1["foo2"][2]["foo4"] = 14  # type: ignore[index]
         e2["foo2"][2]["foo4"] = 19  # type: ignore[index]
 
-        pipeline: DataPipeline[Any] = (
-            read_sequence([d1, d2]).map(fn, selector="foo2[2].foo4").and_return()
-        )
+        pipeline = read_sequence([d1, d2]).map(fn, selector="foo2[2].foo4").and_return()
 
         for _ in range(2):
             it = iter(pipeline)
@@ -167,9 +154,7 @@ class TestMapOp:
 
         selector = "foo2[2].foo4,foo3[0], foo1,foo5.foo6.foo7"
 
-        pipeline: DataPipeline[Any] = (
-            read_sequence([d1, d2]).map(fn, selector=selector).and_return()
-        )
+        pipeline = read_sequence([d1, d2]).map(fn, selector=selector).and_return()
 
         for _ in range(2):
             it = iter(pipeline)
@@ -235,9 +220,7 @@ class TestMapOp:
             "foo3": [5],
         }
 
-        pipeline: DataPipeline[Any] = (
-            read_sequence([d]).map(lambda x: x, selector=s).and_return()
-        )
+        pipeline = read_sequence([d]).map(lambda x: x, selector=s).and_return()
 
         with pytest.raises(DataPipelineError) as exc_info:
             next(iter(pipeline))
@@ -258,11 +241,7 @@ class TestMapOp:
 
             return d
 
-        pipeline: DataPipeline[int] = (
-            read_sequence([1, 2, 3, 4])
-            .map(fn, num_parallel_calls=num_parallel_calls)
-            .and_return()
-        )
+        pipeline = read_sequence([1, 2, 3, 4]).map(fn, num_parallel_calls=num_parallel_calls).and_return()  # fmt: skip
 
         with pytest.raises(DataPipelineError) as exc_info:
             for d in pipeline:
@@ -281,11 +260,7 @@ class TestMapOp:
 
         seq = list(range(1, 10))
 
-        pipeline: DataPipeline[int] = (
-            read_sequence(seq)
-            .map(fn, num_parallel_calls=num_parallel_calls)
-            .and_return()
-        )
+        pipeline = read_sequence(seq).map(fn, num_parallel_calls=num_parallel_calls).and_return()  # fmt: skip
 
         d = None
 

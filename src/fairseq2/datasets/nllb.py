@@ -82,7 +82,7 @@ class NllbDataset(MultilingualTextDataset):
         eval_batch_size: int = 32,
         num_prefetch: int = 10,
         lang_pairs: Optional[Sequence[LangPair]] = None,
-    ) -> DataPipeline[Seq2SeqBatch]:
+    ) -> DataPipeline:
         split_names = []
 
         for split_name in self.splits.keys():
@@ -197,8 +197,8 @@ class _NllbDataPipelineFactory:
         self.eval_batch_size = eval_batch_size
         self.num_prefetch = num_prefetch
 
-    def __call__(self) -> DataPipeline[Seq2SeqBatch]:
-        lang_pair_pipelines: List[DataPipeline[_LangPairExample]] = []
+    def __call__(self) -> DataPipeline:
+        lang_pair_pipelines: List[DataPipeline] = []
 
         # The number of examples to be read per language pair.
         lang_pair_sizes: List[int] = []
@@ -233,7 +233,7 @@ class _NllbDataPipelineFactory:
 
     def _create_lang_pair_pipeline(
         self, split_name: str, lang_pair: LangPair
-    ) -> DataPipeline[_LangPairExample]:
+    ) -> DataPipeline:
         source_lang, target_lang = lang_pair
 
         source_file, target_file = self._get_lang_pair_files(
@@ -268,18 +268,16 @@ class _NllbDataPipelineFactory:
             target_encoder, num_parallel_calls=num_parallel_calls
         )
 
-        source_pipeline: DataPipeline[Tensor] = source_pipeline_builder.and_return()
-        target_pipeline: DataPipeline[Tensor] = target_pipeline_builder.and_return()
+        source_pipeline = source_pipeline_builder.and_return()
+        target_pipeline = target_pipeline_builder.and_return()
 
         # Include the language pair name and the line number with each example
         # for troubleshooting.
-        split: DataPipeline[CString] = DataPipeline.constant(split_name).and_return()
+        split = DataPipeline.constant(split_name).and_return()
 
-        lang_pair_: DataPipeline[CString] = DataPipeline.constant(
-            str(lang_pair)
-        ).and_return()
+        lang_pair_ = DataPipeline.constant(str(lang_pair)).and_return()
 
-        line_number: DataPipeline[int] = DataPipeline.count(
+        line_number = DataPipeline.count(
             start=self.gang.rank, step=self.gang.size
         ).and_return()
 
@@ -315,9 +313,7 @@ class _NllbDataPipelineFactory:
 
         return source_file, target_file
 
-    def _build_pipeline(
-        self, pipeline_builder: DataPipelineBuilder
-    ) -> DataPipeline[Seq2SeqBatch]:
+    def _build_pipeline(self, pipeline_builder: DataPipelineBuilder) -> DataPipeline:
         if self.train:
             # Shuffle examples.
             if self.shuffle_window_size > 0:
