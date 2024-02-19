@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.text.text_tokenizer &mdash; fairseq2 0.3.0.dev202402120133 documentation</title>
+  <title>fairseq2.data.text.text_tokenizer &mdash; fairseq2 0.3.0.dev202402190133 documentation</title>
       <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202402120133
+                0.3.0.dev202402190133
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
@@ -333,11 +333,10 @@
 
 
 <span class="n">TextTokenizerT</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;TextTokenizerT&quot;</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="n">TextTokenizer</span><span class="p">)</span>
-<span class="n">TextTokenizerT_co</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;TextTokenizerT_co&quot;</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="n">TextTokenizer</span><span class="p">,</span> <span class="n">covariant</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
 
-<span class="k">class</span> <span class="nc">GenericTextTokenizerLoader</span><span class="p">(</span><span class="n">TextTokenizerLoader</span><span class="p">,</span> <span class="n">Generic</span><span class="p">[</span><span class="n">TextTokenizerT</span><span class="p">]):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Loads text tokenizers of type ``TokenizerT``.&quot;&quot;&quot;</span>
+<span class="k">class</span> <span class="nc">StandardTextTokenizerLoader</span><span class="p">(</span><span class="n">TextTokenizerLoader</span><span class="p">,</span> <span class="n">Generic</span><span class="p">[</span><span class="n">TextTokenizerT</span><span class="p">]):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Loads text tokenizers of type ``TokenizerT`` using an asset store.&quot;&quot;&quot;</span>
 
     <span class="n">asset_store</span><span class="p">:</span> <span class="n">AssetStore</span>
     <span class="n">download_manager</span><span class="p">:</span> <span class="n">AssetDownloadManager</span>
@@ -354,6 +353,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">asset_store</span> <span class="o">=</span> <span class="n">asset_store</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">download_manager</span> <span class="o">=</span> <span class="n">download_manager</span>
 
+    <span class="nd">@finaloverride</span>
     <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">tokenizer_name_or_card</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">AssetCard</span><span class="p">],</span>
@@ -391,8 +391,11 @@
 <span class="sd">        :param path:</span>
 <span class="sd">            The path to the tokenizer.</span>
 <span class="sd">        :param card:</span>
-<span class="sd">            The asset card of the associated model.</span>
+<span class="sd">            The asset card of the associated tokenizer.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+
+
+<span class="n">TextTokenizerT_co</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;TextTokenizerT_co&quot;</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="n">TextTokenizer</span><span class="p">,</span> <span class="n">covariant</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
 
 <span class="k">class</span> <span class="nc">BasicTextTokenizerFactory</span><span class="p">(</span><span class="n">Protocol</span><span class="p">[</span><span class="n">TextTokenizerT_co</span><span class="p">]):</span>
@@ -406,8 +409,8 @@
 
 
 <span class="nd">@final</span>
-<span class="k">class</span> <span class="nc">BasicTextTokenizerLoader</span><span class="p">(</span><span class="n">GenericTextTokenizerLoader</span><span class="p">[</span><span class="n">TextTokenizerT</span><span class="p">]):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Loads text tokenizers of type ``TokenizerT`` via provided path.&quot;&quot;&quot;</span>
+<span class="k">class</span> <span class="nc">BasicTextTokenizerLoader</span><span class="p">(</span><span class="n">StandardTextTokenizerLoader</span><span class="p">[</span><span class="n">TextTokenizerT</span><span class="p">]):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Loads text tokenizers of type ``TokenizerT`` via a provided path.&quot;&quot;&quot;</span>
 
     <span class="n">tokenizer_factory</span><span class="p">:</span> <span class="n">BasicTextTokenizerFactory</span><span class="p">[</span><span class="n">TextTokenizerT</span><span class="p">]</span>
 
@@ -493,7 +496,7 @@
 <span class="sd">        :param tokenizer_type:</span>
 <span class="sd">            The tokenizer type. If the &#39;tokenizer_type&#39;, &#39;model_type&#39;, or</span>
 <span class="sd">            &#39;dataset_type&#39; field of an asset card matches this value, the</span>
-<span class="sd">            specified `loader` will be used.</span>
+<span class="sd">            specified ``loader`` will be used.</span>
 <span class="sd">        :param loader:</span>
 <span class="sd">            The tokenizer loader.</span>
 <span class="sd">        &quot;&quot;&quot;</span>

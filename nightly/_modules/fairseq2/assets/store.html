@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.assets.store &mdash; fairseq2 0.3.0.dev202402120133 documentation</title>
+  <title>fairseq2.assets.store &mdash; fairseq2 0.3.0.dev202402190133 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202402120133
+                0.3.0.dev202402190133
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -290,6 +290,10 @@
 
         <span class="k">for</span> <span class="n">provider</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_metadata_providers</span><span class="p">:</span>
             <span class="n">provider</span><span class="o">.</span><span class="n">clear_cache</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">add_file_metadata_provider</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add a new :class:`FileAssetMetadataProvider` pointing to ``path``.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metadata_providers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">FileAssetMetadataProvider</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
 
 
 <span class="k">class</span> <span class="nc">EnvironmentResolver</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
