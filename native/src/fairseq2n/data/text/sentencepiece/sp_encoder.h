@@ -9,6 +9,8 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -171,8 +173,11 @@ public:
     data
     operator()(data &&d) const;
 
-    data
-    encode_as_tokens(data &&d) const;
+    at::Tensor
+    encode(std::string_view text) const;
+
+    std::vector<std::string>
+    encode_as_tokens(std::string_view text) const;
 
     const std::optional<at::Tensor> &
     prefix_indices() const
@@ -185,10 +190,6 @@ public:
     {
         return suffix_index_tensor_;
     }
-
-private:
-    at::Tensor
-    encode(immutable_string &&text) const;
 
 private:
     std::shared_ptr<const sp_model> model_;

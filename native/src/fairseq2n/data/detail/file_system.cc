@@ -39,9 +39,9 @@ natural_sort(const ::FTSENT **a, const ::FTSENT **b)
 }
 
 auto
-make_fts(const std::string &pathname)
+make_fts(const std::filesystem::path &path)
 {
-    std::array<const char *, 2> arr{pathname.c_str(), nullptr};
+    std::array<const char *, 2> arr{path.c_str(), nullptr};
 
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
     auto *ptr = const_cast<char * const *>(arr.data());
@@ -49,7 +49,7 @@ make_fts(const std::string &pathname)
     ::FTS *fts = ::fts_open(ptr, FTS_LOGICAL | FTS_NOCHDIR, natural_sort);
     if (fts == nullptr)
         throw_system_error(last_error(),
-            "'{}' cannot be traversed", pathname);
+            "'{}' cannot be traversed", path.string());
 
     return std::unique_ptr<::FTS, fts_deleter>(fts);
 }
@@ -57,9 +57,9 @@ make_fts(const std::string &pathname)
 }  // namespace
 
 data_list
-list_files(const std::string &pathname, const std::optional<std::string> &maybe_pattern)
+list_files(const std::filesystem::path &path, const std::optional<std::string> &maybe_pattern)
 {
-    auto fts = make_fts(pathname);
+    auto fts = make_fts(path);
 
     data_list output{};
 
@@ -91,7 +91,7 @@ list_files(const std::string &pathname, const std::optional<std::string> &maybe_
     std::error_code err = last_error();
     if (err)
         throw_system_error(err,
-            "'{}' cannot be traversed", pathname);
+            "'{}' cannot be traversed", path.string());
 
     return output;
 }

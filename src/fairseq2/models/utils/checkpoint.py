@@ -6,13 +6,13 @@
 
 import re
 import warnings
+from pathlib import Path
 from typing import Any, Callable, Dict, Mapping, Optional, Protocol, Union
 
 import torch
 from torch import Tensor
 from typing_extensions import TypeAlias
 
-from fairseq2.data.typing import PathLike
 from fairseq2.typing import Device
 from fairseq2.utils.version import _is_pt21_or_greater
 
@@ -35,17 +35,17 @@ class CheckpointConverter(Protocol):
 
 
 def load_checkpoint(
-    pathname: PathLike,
+    path: Path,
     *,
     map_location: MapLocation = None,
     mmap: bool = False,
     restrict: bool = False,
     converter: Optional[CheckpointConverter] = None,
 ) -> Dict[str, Any]:
-    """Load the checkpoint stored in ``pathname``.
+    """Load the checkpoint stored in ``path``.
 
-    :param pathname:
-        The pathname of the checkpoint.
+    :param path:
+        The path to the checkpoint.
     :param map_location:
         Same as the ``map_location`` parameter of :meth:`torch.load`.
     :param mmap:
@@ -70,7 +70,7 @@ def load_checkpoint(
             kwargs["mmap"] = True
 
         checkpoint: Dict[str, Any] = torch.load(
-            str(pathname), map_location, weights_only=restrict, **kwargs
+            str(path), map_location, weights_only=restrict, **kwargs
         )
 
     if converter is not None:

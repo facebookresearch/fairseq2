@@ -7,6 +7,7 @@
 #pragma once
 
 #include <cstddef>
+#include <filesystem>
 #include <memory>
 #include <optional>
 #include <string>
@@ -96,9 +97,9 @@ text_file_options(std::optional<std::string> maybe_text_encoding = {}) noexcept
 }
 
 FAIRSEQ2_API std::unique_ptr<byte_stream>
-open_file(const std::string &pathname, const file_options &opts = {});
+open_file(const std::filesystem::path &path, const file_options &opts = {});
 
 FAIRSEQ2_API memory_block
-memory_map_file(const std::string &pathname, bool hint_sequential = false);
+memory_map_file(const std::filesystem::path &path, bool hint_sequential = false);
 
 }  // namespace fairseq2n

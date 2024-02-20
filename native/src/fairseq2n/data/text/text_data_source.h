@@ -7,6 +7,7 @@
 #pragma once
 
 #include <cstddef>
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <utility>
@@ -22,7 +23,7 @@ namespace fairseq2n::detail {
 class text_data_source final : public data_source {
 public:
     explicit
-    text_data_source(std::string &&pathname, text_options &&opts);
+    text_data_source(std::filesystem::path &&path, text_options &&opts);
 
     std::optional<data>
     next() override;
@@ -56,7 +57,7 @@ private:
     throw_read_failure();
 
 private:
-    std::string pathname_;
+    std::filesystem::path path_;
     text_options opts_;
     std::unique_ptr<text_line_reader> line_reader_;
     std::size_t num_lines_read_ = 0;

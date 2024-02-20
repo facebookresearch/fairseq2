@@ -11,7 +11,6 @@ from typing import List, Literal, Optional, Sequence, Tuple
 from torch import Tensor
 from typing_extensions import TypeAlias
 
-from fairseq2.data import StringLike
 from fairseq2.data.text import TextTokenDecoder, TextTokenizer
 from fairseq2.generation.generator import SequenceGenerator, SequenceGeneratorOutput
 from fairseq2.nn.padding import PaddingMask, pad_seqs
@@ -24,7 +23,7 @@ class ChatMessage:
     role: Literal["system", "user", "bot"]
     """The party that sent this message in the chat."""
 
-    content: StringLike
+    content: str
     """The message content."""
 
 

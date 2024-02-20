@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import os
 from logging import Logger
+from pathlib import Path
 from time import perf_counter
 from typing import Any, Optional
 
@@ -22,7 +23,6 @@ from torch.profiler import (
 )
 from typing_extensions import Self
 
-from fairseq2.data.typing import PathLike
 from fairseq2.gang import Gang
 from fairseq2.typing import Device
 
@@ -36,7 +36,7 @@ class Profiler:
         self,
         skip_first: int,
         active: int,
-        log_dir: PathLike,
+        log_dir: Path,
         gang: Gang,
         enabled: bool = False,
     ) -> None:

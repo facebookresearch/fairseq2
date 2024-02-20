@@ -5,12 +5,12 @@
 # LICENSE file in the root directory of this source tree.
 
 from enum import Enum
+from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
 from fairseq2n import DOC_MODE
 
 from fairseq2.data.data_pipeline import DataPipelineBuilder
-from fairseq2.data.typing import PathLike, StringLike
 
 if TYPE_CHECKING or DOC_MODE:
 
@@ -20,8 +20,8 @@ if TYPE_CHECKING or DOC_MODE:
         CRLF = 2
 
     def read_text(
-        pathname: PathLike,
-        encoding: Optional[StringLike] = None,
+        path: Path,
+        encoding: Optional[str] = None,
         line_ending: LineEnding = LineEnding.INFER,
         ltrim: bool = False,
         rtrim: bool = False,

@@ -21,14 +21,12 @@ target_sources(py_bindings
         data/data_pipeline.cc
         data/init.cc
         data/image.cc
-        data/string.cc
         data/text/converters.cc
         data/text/init.cc
         data/text/sentencepiece.cc
         data/text/text_reader.cc
         type_casters/data.cc
         type_casters/map_fn.cc
-        type_casters/string.cc
         type_casters/torch.cc
 )
 

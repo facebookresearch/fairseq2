@@ -18,10 +18,12 @@ class TestFileMapper:
     def test_call_works(self) -> None:
         mapper = FileMapper()
 
-        for _ in range(2):
-            output = mapper(TEST_BIN_PATH)
+        pathname = str(TEST_BIN_PATH)
 
-            assert output["path"] == TEST_BIN_PATH
+        for _ in range(2):
+            output = mapper(pathname)
+
+            assert output["path"] == str(pathname)
 
             self.assert_file(output, TEST_BIN_PATH)
 
@@ -54,11 +56,11 @@ class TestFileMapper:
 
         mapper = FileMapper(root_dir)
 
-        pathname = TEST_BIN_PATH.relative_to(root_dir)
+        pathname = str(TEST_BIN_PATH.relative_to(root_dir))
 
         output = mapper(pathname)
 
-        assert output["path"] == pathname
+        assert output["path"] == str(pathname)
 
         self.assert_file(output, TEST_BIN_PATH)
 

@@ -31,7 +31,6 @@ from fairseq2.assets import (
     AssetStore,
     default_asset_store,
 )
-from fairseq2.data.typing import PathLike, StringLike
 from fairseq2.data.vocabulary_info import VocabularyInfo
 from fairseq2.typing import Device, finaloverride
 
@@ -103,14 +102,14 @@ class TextTokenEncoder(ABC):
     """Encodes text into tokens or token indices."""
 
     @abstractmethod
-    def __call__(self, text: StringLike) -> Tensor:
+    def __call__(self, text: str) -> Tensor:
         """
         :param text:
             The text to encode.
         """
 
     @abstractmethod
-    def encode_as_tokens(self, text: StringLike) -> List[StringLike]:
+    def encode_as_tokens(self, text: str) -> List[str]:
         """
         :param text:
             The text to encode.
@@ -133,14 +132,14 @@ class TextTokenDecoder(ABC):
     """Decodes text from tokens or token indices."""
 
     @abstractmethod
-    def __call__(self, token_indices: Tensor) -> StringLike:
+    def __call__(self, token_indices: Tensor) -> str:
         """
         :param token_indices:
             The token indices to decode from.
         """
 
     @abstractmethod
-    def decode_from_tokens(self, tokens: Sequence[StringLike]) -> StringLike:
+    def decode_from_tokens(self, tokens: Sequence[str]) -> str:
         """
         :param tokens:
             The tokens to decode from.
@@ -240,10 +239,10 @@ TextTokenizerT_co = TypeVar("TextTokenizerT_co", bound=TextTokenizer, covariant=
 class BasicTextTokenizerFactory(Protocol[TextTokenizerT_co]):
     """Constructs text tokenizers of type ``TextTokenizerT``."""
 
-    def __call__(self, pathname: PathLike) -> TextTokenizerT_co:
+    def __call__(self, path: Path) -> TextTokenizerT_co:
         """
-        :param pathname:
-            The pathname of the tokenizer.
+        :param path:
+            The path to the tokenizer.
         """
 
 

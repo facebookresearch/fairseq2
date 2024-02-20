@@ -17,8 +17,8 @@
 
 namespace fairseq2n::detail {
 
-file_stream::file_stream(file_desc &&fd, std::string pathname, std::size_t chunk_size) noexcept
-  : fd_{std::move(fd)}, pathname_{std::move(pathname)}, chunk_size_{chunk_size}
+file_stream::file_stream(file_desc &&fd, std::filesystem::path path, std::size_t chunk_size) noexcept
+  : fd_{std::move(fd)}, path_{std::move(path)}, chunk_size_{chunk_size}
 {
     hint_sequential_file();
 }
@@ -69,10 +69,10 @@ file_stream::reset()
         std::error_code err = last_error();
 
         if (err == std::errc::invalid_seek)
-            throw_<byte_stream_error>("'{}' is not seekable and cannot be reset.", pathname_);
+            throw_<byte_stream_error>("'{}' is not seekable and cannot be reset.", path_.string());
 
         throw_system_error(err,
-            "'{}' cannot be reset", pathname_);
+            "'{}' cannot be reset", path_.string());
     }
 
     is_eod_ = false;
@@ -84,7 +84,7 @@ file_stream::fill_chunk(writable_memory_span chunk)
     ssize_t num_bytes_read = ::read(fd_.get(), chunk.data(), chunk.size());
     if (num_bytes_read == -1)
         throw_system_error(last_error(),
-            "'{}' cannot be read", pathname_);
+            "'{}' cannot be read", path_.string());
 
     return static_cast<std::size_t>(num_bytes_read);
 }

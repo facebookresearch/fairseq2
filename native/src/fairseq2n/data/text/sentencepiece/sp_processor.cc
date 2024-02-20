@@ -25,8 +25,8 @@ namespace fairseq2n::detail {
 class sp_model_proto_loader {
 public:
     explicit
-    sp_model_proto_loader(std::string_view pathname, sp_model_options &&opts) noexcept
-      : pathname_{pathname}, opts_{std::move(opts)}
+    sp_model_proto_loader(std::filesystem::path path, sp_model_options &&opts) noexcept
+      : path_{std::move(path)}, opts_{std::move(opts)}
     {}
 
     std::unique_ptr<ModelProto> &&
@@ -43,7 +43,7 @@ private:
     add_piece(std::string &&piece);
 
 private:
-    std::string_view pathname_;
+    std::filesystem::path path_;
     sp_model_options opts_;
     std::unique_ptr<ModelProto> proto_{};
     std::unique_ptr<SentencePieceProcessor> processor_{};
@@ -62,22 +62,24 @@ sp_model_proto_loader::load() &&
 void
 sp_model_proto_loader::load_proto()
 {
+    auto pathname = path_.string();
+
     proto_ = std::make_unique<ModelProto>();
 
-    auto st = sentencepiece::io::LoadModelProto(pathname_, proto_.get());
+    auto st = sentencepiece::io::LoadModelProto(pathname, proto_.get());
     if (st.ok())
         return;
 
     if (st.code() == sentencepiece::util::StatusCode::kNotFound)
         throw_system_error(std::make_error_code(std::errc::no_such_file_or_directory),
-            "The SentencePiece model '{}' cannot be opened", pathname_);
+            "The SentencePiece model '{}' cannot be opened", pathname);
 
     if (st.code() == sentencepiece::util::StatusCode::kPermissionDenied)
         throw_system_error(std::make_error_code(std::errc::permission_denied),
-            "The SentencePiece model '{}' cannot be opened", pathname_);
+            "The SentencePiece model '{}' cannot be opened", pathname);
 
     throw_<std::runtime_error>(
-        "The SentecePiece model '{}' cannot be opened. {}", pathname_, st.message());
+        "The SentecePiece model '{}' cannot be opened. {}", pathname, st.message());
 }
 
 void
@@ -149,8 +151,8 @@ sp_processor::sp_processor(std::unique_ptr<ModelProto> &&proto)
     vocabulary_size = conditional_cast<std::size_t>(native_->GetPieceSize());
 }
 
-sp_processor::sp_processor(std::string_view model_pathname, sp_model_options &&opts)
-  : sp_processor{sp_model_proto_loader{model_pathname, std::move(opts)}.load()}
+sp_processor::sp_processor(std::filesystem::path model_path, sp_model_options &&opts)
+  : sp_processor{sp_model_proto_loader{std::move(model_path), std::move(opts)}.load()}
 {}
 
 ImmutableSentencePieceText

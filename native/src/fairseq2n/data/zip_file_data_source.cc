@@ -24,11 +24,11 @@
 
 namespace fairseq2n::detail {
 
-zip_file_data_source::zip_file_data_source(std::string &&pathname)
-    : pathname_{std::move(pathname)}
+zip_file_data_source::zip_file_data_source(std::filesystem::path &&path)
+    : path_{std::move(path)}
 {
     try {
-        zip_reader_ = zip_open(pathname_.c_str(), ZIP_DEFAULT_COMPRESSION_LEVEL, 'r');
+        zip_reader_ = zip_open(path_.c_str(), ZIP_DEFAULT_COMPRESSION_LEVEL, 'r');
         num_entries_ = (std::size_t)zip_entries_total(zip_reader_);
     } catch (const std::exception &) {
         handle_error();
@@ -38,7 +38,8 @@ zip_file_data_source::zip_file_data_source(std::string &&pathname)
 std::optional<data>
 zip_file_data_source::next()
 {
-    if (num_files_read_ >= num_entries_) return std::nullopt;
+    if (num_files_read_ >= num_entries_)
+        return std::nullopt;
 
     fairseq2n::writable_memory_block zip_entry;
     zip_entry_openbyindex(zip_reader_, num_files_read_);
@@ -99,7 +100,7 @@ inline void
 zip_file_data_source::throw_read_failure()
 {
     throw_with_nested<data_pipeline_error>(
-        "The data pipeline cannot read from '{}'. See nested exception for details.", pathname_);
+        "The data pipeline cannot read from '{}'. See nested exception for details.", path_.string());
 }
 
 }  // namespace fairseq2n::detail

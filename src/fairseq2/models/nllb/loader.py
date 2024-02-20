@@ -83,12 +83,12 @@ class NllbTokenizerLoader(StandardTextTokenizerLoader[NllbTokenizer]):
     """Loads tokenizers used by NLLB models."""
 
     @finaloverride
-    def _load(self, pathname: Path, card: AssetCard) -> NllbTokenizer:
+    def _load(self, path: Path, card: AssetCard) -> NllbTokenizer:
         langs = card.field("langs").as_list(str)
 
         default_lang = card.field("default_lang").as_(str)
 
-        return NllbTokenizer(pathname, langs, default_lang)
+        return NllbTokenizer(path, langs, default_lang)
 
 
 load_nllb_config = ConfigLoader[NllbConfig](default_asset_store, nllb_archs)
