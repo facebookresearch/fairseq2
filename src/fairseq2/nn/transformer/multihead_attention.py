@@ -301,7 +301,7 @@ class StandardMultiheadAttention(MultiheadAttention):
 
             if q_proj.input_dim != self.kv_dim:
                 raise ValueError(
-                    f"`input_dim` of `q_proj` must be equal to `model_dim` ({self.kv_dim}), but is {q_proj.input_dim} instead."
+                    f"`input_dim` of `q_proj` must be equal to `kv_dim` ({self.kv_dim}), but is {q_proj.input_dim} instead."
                 )
 
             if (k_dim := k_proj.output_dim * num_query_groups) != q_proj.output_dim:
