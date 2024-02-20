@@ -407,6 +407,11 @@ def _get_int_from_env(var_name: str) -> Optional[int]:
         )
 
 
+def get_world_size() -> int:
+    """Return the world size of the running job."""
+    return _get_int_from_env("WORLD_SIZE") or 1
+
+
 def get_global_rank() -> int:
     """Return the global rank of this process in the running job."""
     return _get_int_from_env("RANK") or 0
