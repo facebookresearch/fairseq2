@@ -9,7 +9,7 @@ from fairseq2.data import DataPipeline
 
 class TestConstantOp:
     def test_op_works(self) -> None:
-        pipeline: DataPipeline[str] = DataPipeline.constant("foo").take(10).and_return()
+        pipeline = DataPipeline.constant("foo").take(10).and_return()
 
         for _ in range(2):
             list(pipeline) == ["foo"] * 10

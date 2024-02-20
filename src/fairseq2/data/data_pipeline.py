@@ -11,7 +11,6 @@ from typing import (
     Any,
     Callable,
     Dict,
-    Iterable,
     Iterator,
     List,
     Mapping,
@@ -19,7 +18,6 @@ from typing import (
     Sequence,
     Tuple,
     TypedDict,
-    TypeVar,
     Union,
 )
 
@@ -31,9 +29,8 @@ from fairseq2.data.typing import PathLike, StringLike
 from fairseq2.memory import MemoryBlock
 
 if TYPE_CHECKING or DOC_MODE:
-    DataT = TypeVar("DataT")
 
-    class DataPipeline(Iterable[DataT]):
+    class DataPipeline:
         """fairseq2 native data pipeline.
 
         The pipeline state can be persisted to the disk, allowing it to be resumed later.
@@ -43,7 +40,7 @@ if TYPE_CHECKING or DOC_MODE:
         and sharing the same state, so it will behave inconcistently.
         """
 
-        def __iter__(self) -> Iterator[DataT]:
+        def __iter__(self) -> Iterator[Any]:
             """Return an iterator over the examples in the data pipeline.
 
             The iterator will modify the internal state of the this DataPipeline,
@@ -79,7 +76,7 @@ if TYPE_CHECKING or DOC_MODE:
             """
 
         @staticmethod
-        def concat(pipelines: Sequence[DataPipeline[Any]]) -> DataPipelineBuilder:
+        def concat(pipelines: Sequence[DataPipeline]) -> DataPipelineBuilder:
             """Concatenate examples from ``pipelines``.
 
             :param pipelines:
@@ -98,7 +95,7 @@ if TYPE_CHECKING or DOC_MODE:
 
         @staticmethod
         def round_robin(
-            pipelines: Sequence[DataPipeline[Any]], stop_at_shortest: bool = False
+            pipelines: Sequence[DataPipeline], stop_at_shortest: bool = False
         ) -> DataPipelineBuilder:
             """Extract examples from ``pipelines`` in round robin.
 
@@ -112,7 +109,7 @@ if TYPE_CHECKING or DOC_MODE:
 
         @staticmethod
         def sample(
-            pipelines: Sequence[DataPipeline[Any]],
+            pipelines: Sequence[DataPipeline],
             weights: Optional[Sequence[float]] = None,
         ) -> DataPipelineBuilder:
             """Extract examples from ``pipelines`` by sampling based on ``weights``.
@@ -125,7 +122,7 @@ if TYPE_CHECKING or DOC_MODE:
 
         @staticmethod
         def zip(
-            pipelines: Sequence[DataPipeline[Any]],
+            pipelines: Sequence[DataPipeline],
             names: Optional[Sequence[str]] = None,
             zip_to_shortest: bool = False,
             flatten: bool = False,
@@ -260,7 +257,7 @@ if TYPE_CHECKING or DOC_MODE:
         def take(self, num_examples: int) -> Self:
             """Return at most ``num_examples`` examples."""
 
-        def yield_from(self, fn: Callable[[Any], DataPipeline[Any]]) -> Self:
+        def yield_from(self, fn: Callable[[Any], DataPipeline]) -> Self:
             """
             Map every example to a data pipeline and yield the examples returned
             from the mapped data pipelines.
@@ -269,7 +266,7 @@ if TYPE_CHECKING or DOC_MODE:
                 The function to map examples to data pipelines.
             """
 
-        def and_return(self, max_num_warnings: int = 0) -> DataPipeline[DataT]:
+        def and_return(self, max_num_warnings: int = 0) -> DataPipeline:
             """Return a new :class:`DataPipeline` instance."""
 
     class DataPipelineError(RuntimeError):

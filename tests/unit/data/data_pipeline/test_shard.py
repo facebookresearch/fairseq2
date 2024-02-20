@@ -6,14 +6,14 @@
 
 import pytest
 
-from fairseq2.data import DataPipeline, read_sequence
+from fairseq2.data import read_sequence
 
 
 class TestShardOp:
     def test_op_works(self) -> None:
         seq = list(range(1, 23))
 
-        pipeline: DataPipeline[int] = read_sequence(seq).shard(1, 5).and_return()
+        pipeline = read_sequence(seq).shard(1, 5).and_return()
 
         for _ in range(2):
             assert list(pipeline) == [2, 7, 12, 17]
@@ -47,7 +47,7 @@ class TestShardOp:
     def test_op_saves_and_restores_its_state(self) -> None:
         seq = list(range(1, 23))
 
-        pipeline: DataPipeline[int] = read_sequence(seq).shard(2, 5).and_return()
+        pipeline = read_sequence(seq).shard(2, 5).and_return()
 
         d = None
 
