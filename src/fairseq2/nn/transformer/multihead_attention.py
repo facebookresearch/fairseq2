@@ -461,7 +461,12 @@ class StandardMultiheadAttention(MultiheadAttention):
         # attn:         (N, H, S, V_h)
         # attn_weights: (N, H, S, S_kv)
         attn, attn_weights = self.sdpa(
-            q, k, key_padding_mask, v, attn_mask=attn_mask, needs_weights=needs_weights,
+            q,
+            k,
+            key_padding_mask,
+            v,
+            attn_mask=attn_mask,
+            needs_weights=needs_weights,
         )
 
         if attn_weights is not None:
@@ -540,7 +545,7 @@ def init_qkv_projection(proj: Linear) -> None:
     """Initialize ``proj`` as a multi-head attention input projection."""
     # Empirically observed the convergence to be much better with the scaled
     # initialization.
-    nn.init.xavier_uniform_(proj.weight, gain=2 ** -0.5)
+    nn.init.xavier_uniform_(proj.weight, gain=2**-0.5)
 
     if proj.bias is not None:
         nn.init.zeros_(proj.bias)
@@ -848,7 +853,11 @@ class LocalAttentionStateFactory:
         self.attn_window_len = attn_window_len
 
     def __call__(
-        self, k: Tensor, v: Tensor, max_seq_len: int, capacity_increment: Optional[int],
+        self,
+        k: Tensor,
+        v: Tensor,
+        max_seq_len: int,
+        capacity_increment: Optional[int],
     ) -> LocalAttentionState:
         return LocalAttentionState(
             k, v, max_seq_len, self.attn_window_len, capacity_increment
