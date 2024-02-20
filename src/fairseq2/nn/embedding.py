@@ -16,7 +16,7 @@ from torch.nn import Module
 from torch.nn.functional import embedding
 from torch.nn.parameter import Parameter
 
-from fairseq2.typing import DataType, Device, finaloverride
+from fairseq2.typing import DataType, Device, override
 
 
 class Embedding(Module, ABC):
@@ -123,7 +123,7 @@ class StandardEmbedding(Embedding):
             with torch.no_grad():
                 self.weight[self.pad_idx].fill_(0.0)
 
-    @finaloverride
+    @override
     def forward(self, x: Tensor) -> Tensor:
         return embedding(x, self.weight, self.pad_idx)
 

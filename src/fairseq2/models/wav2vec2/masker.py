@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, final
 
 import torch
 import torch.nn as nn
@@ -16,6 +16,7 @@ from fairseq2.nn.utils.mask import compute_row_mask
 from fairseq2.typing import DataType, Device
 
 
+@final
 class Wav2Vec2Masker(Module):
     """Masks extracted features as described in Section 3.1 of
     :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`."""

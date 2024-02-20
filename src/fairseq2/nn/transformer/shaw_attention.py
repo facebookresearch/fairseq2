@@ -14,7 +14,7 @@ from fairseq2.nn.embedding import StandardEmbedding
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer.attention import SDPA, create_default_sdpa
 from fairseq2.nn.transformer.attention_mask import AttentionMask, CustomAttentionMask
-from fairseq2.typing import DataType, Device, finaloverride
+from fairseq2.typing import DataType, Device, override
 
 
 @final
@@ -96,7 +96,7 @@ class ShawRelativePositionSDPA(SDPA):
         else:
             self.inner_sdpa = create_default_sdpa()
 
-    @finaloverride
+    @override
     def forward(
         self,
         seqs: Tensor,

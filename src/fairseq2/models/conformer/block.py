@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Optional, Tuple
+from typing import Optional, Tuple, final
 
 from torch import Tensor
 from torch.nn import Dropout
@@ -20,9 +20,10 @@ from fairseq2.nn.transformer import (
     TransformerEncoderLayer,
     create_standard_layer_norm,
 )
-from fairseq2.typing import DataType, Device, finaloverride
+from fairseq2.typing import DataType, Device, override
 
 
+@final
 class ConformerBlock(TransformerEncoderLayer):
     """Represents a Conformer block as described in
     :cite:t:`https://doi.org/10.48550/arxiv.2005.08100`."""
@@ -115,7 +116,7 @@ class ConformerBlock(TransformerEncoderLayer):
 
         self.layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
 
-    @finaloverride
+    @override
     def forward(
         self,
         seqs: Tensor,

@@ -20,6 +20,7 @@ from typing import (
     Tuple,
     TypedDict,
     Union,
+    final,
 )
 
 from fairseq2n import DOC_MODE
@@ -30,6 +31,7 @@ from fairseq2.memory import MemoryBlock
 
 if TYPE_CHECKING or DOC_MODE:
 
+    @final
     class DataPipeline:
         """fairseq2 native data pipeline.
 
@@ -139,6 +141,7 @@ if TYPE_CHECKING or DOC_MODE:
                 If ``True``, calls each data pipeline sequentially.
             """
 
+    @final
     class DataPipelineBuilder:
         """API to create DataPipeline"""
 
@@ -326,6 +329,7 @@ if TYPE_CHECKING or DOC_MODE:
         def pad_to_multiple(self) -> int:
             ...
 
+    @final
     class Collater:
         """Concatenate a list of inputs into a single inputs.
 
@@ -371,6 +375,7 @@ if TYPE_CHECKING or DOC_MODE:
             """Concatenate the input tensors"""
             ...
 
+    @final
     class FileMapper:
         """For a given file name, returns the file content as bytes.
 

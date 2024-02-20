@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Mapping
+from typing import Any, Dict, List, Mapping, final
 
 import torch
 from torch import Generator, Tensor
@@ -28,17 +28,18 @@ def use_deterministic(value: bool, warn_only: bool = False) -> None:
     torch.use_deterministic_algorithms(value, warn_only=warn_only)
 
 
+@final
 class RNGBag:
     """Holds a collection of random number generators."""
 
-    generators: List[Generator]
+    _generators: List[Generator]
 
     def __init__(self, *generators: Generator) -> None:
         """
         :param generators:
             The generators to hold.
         """
-        self.generators = list(generators)
+        self._generators = list(generators)
 
     @staticmethod
     def from_device_defaults(*devices: Device) -> RNGBag:
@@ -74,14 +75,14 @@ class RNGBag:
 
     def seed(self) -> None:
         """Set the seed of the random number generators to a random number."""
-        if not self.generators:
+        if not self._generators:
             return
 
-        self.generators[0].seed()
+        self._generators[0].seed()
 
-        random_seed = self.generators[0].initial_seed()
+        random_seed = self._generators[0].initial_seed()
 
-        for g in self.generators[1:]:
+        for g in self._generators[1:]:
             g.manual_seed(random_seed)
 
     def manual_seed(self, seed: int) -> None:
@@ -91,11 +92,11 @@ class RNGBag:
                 f"`seed` must be greater than or equal to 0 and less than 2^32, but is {seed} instead."
             )
 
-        for g in self.generators:
+        for g in self._generators:
             g.manual_seed(seed)
 
     def state_dict(self) -> Dict[str, Any]:
-        return {"generators": [g.get_state() for g in self.generators]}
+        return {"generators": [g.get_state() for g in self._generators]}
 
     def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
         try:
@@ -108,9 +109,9 @@ class RNGBag:
                 f"The `generators` item of `state_dict` must be of type `{list}`, but is of type `{type(states)}` instead."
             )
 
-        if len(states) != len(self.generators):
+        if len(states) != len(self._generators):
             raise ValueError(
-                f"The number of generators in `state_dict` must match the number of generators in the bag ({len(self.generators)}), but is {len(states)} instead."
+                f"The number of generators in `state_dict` must match the number of generators in the bag ({len(self._generators)}), but is {len(states)} instead."
             )
 
         for idx, state in enumerate(states):
@@ -119,4 +120,4 @@ class RNGBag:
                     f"The generator states in `state_dict` must be of type `{Tensor}`, but the element at index {idx} is of type `{type(state)}` instead."
                 )
 
-            self.generators[idx].set_state(state.clone())
+            self._generators[idx].set_state(state.clone())

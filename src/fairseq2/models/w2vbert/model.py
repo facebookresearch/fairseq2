@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, final
 
 from torch import Tensor
 from torch.nn import Module
@@ -21,6 +21,7 @@ from fairseq2.nn.projection import Linear
 from fairseq2.typing import DataType, Device
 
 
+@final
 class W2VBertModel(Module):
     """Represents a w2v-BERT model as described in
     :cite:t`https://doi.org/10.48550/arxiv.2108.06209`."""
@@ -149,6 +150,7 @@ class W2VBertModel(Module):
         )
 
 
+@final
 @dataclass
 class W2VBertOutput:
     """Holds the output of a w2v-BERT model."""
@@ -199,6 +201,7 @@ class W2VBertOutput:
         )
 
 
+@final
 @dataclass
 class W2VBertLoss:
     """Holds the loss of a w2v-BERT model."""

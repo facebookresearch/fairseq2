@@ -17,7 +17,7 @@ from torch.nn.parameter import Parameter
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.typing import META, DataType, Device, finaloverride
+from fairseq2.typing import META, DataType, Device, override
 
 
 class PositionEncoder(Module, ABC):
@@ -219,7 +219,7 @@ class SinusoidalPositionEncoder(PositionEncoder):
         l_half.sin_()
         r_half.cos_()
 
-    @finaloverride
+    @override
     def _do_forward(
         self,
         seqs: Tensor,
@@ -281,7 +281,7 @@ class LearnedPositionEncoder(PositionEncoder):
         """Reset the parameters and buffers of the module."""
         nn.init.normal_(self.weight)
 
-    @finaloverride
+    @override
     def _do_forward(
         self,
         seqs: Tensor,
@@ -363,7 +363,7 @@ class RotaryEncoder(PositionEncoder):
         # (S, E / 2)
         torch.polar(torch.ones_like(freqs), freqs, out=self.freqs)
 
-    @finaloverride
+    @override
     def _do_forward(
         self,
         seqs: Tensor,

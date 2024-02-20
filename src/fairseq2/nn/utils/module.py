@@ -20,6 +20,7 @@ from typing import (
     Sequence,
     Set,
     Tuple,
+    final,
     runtime_checkable,
 )
 
@@ -303,6 +304,7 @@ def infer_device(module: Module, param_name: Optional[str] = None) -> Device:
     )
 
 
+@final
 @dataclass
 class ModuleSizeInfo:
     """Holds the size information of a module."""

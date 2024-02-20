@@ -14,7 +14,7 @@ from torch.nn import Module, Parameter
 from torch.nn.functional import gumbel_softmax
 
 from fairseq2.nn.projection import Linear
-from fairseq2.typing import DataType, Device, finaloverride
+from fairseq2.typing import DataType, Device, override
 
 
 class VectorQuantizer(Module, ABC):
@@ -139,7 +139,7 @@ class GumbelVectorQuantizer(VectorQuantizer):
 
         self.num_updates.zero_()
 
-    @finaloverride
+    @override
     def forward(self, x: Tensor) -> "GumbelVectorQuantizerOutput":
         current_temp = self._compute_current_temp()
 
@@ -227,13 +227,13 @@ class GumbelVectorQuantizerOutput(VectorQuantizerOutput):
     prob_perplexity: Tensor
     temperature: float
 
-    @finaloverride
+    @override
     def compute_loss(self) -> Tensor:
         num_entries = self.num_codebooks * self.num_codebook_entries
 
         return (num_entries - self.prob_perplexity) / num_entries  # type: ignore[no-any-return]
 
-    @finaloverride
+    @override
     def get_target_indices(self, num_codebooks: int) -> Tensor:
         batch_size, seq_len = self.quantized_vectors.shape[:2]
 

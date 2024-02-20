@@ -32,7 +32,7 @@ from fairseq2.assets.metadata_provider import (
     InProcAssetMetadataProvider as InProcAssetMetadataProvider,
 )
 from fairseq2.assets.store import AssetStore as AssetStore
-from fairseq2.assets.store import ProviderBackedAssetStore as ProviderBackedAssetStore
+from fairseq2.assets.store import StandardAssetStore as StandardAssetStore
 from fairseq2.assets.store import default_asset_store as default_asset_store
 
 # For backwards-compatibility with v0.2

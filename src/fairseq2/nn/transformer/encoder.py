@@ -24,7 +24,7 @@ from fairseq2.nn.transformer.layer_norm import (
     create_standard_layer_norm,
 )
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
-from fairseq2.typing import DataType, Device, finaloverride
+from fairseq2.typing import DataType, Device, override
 
 
 class TransformerEncoder(Module, ABC):
@@ -174,7 +174,7 @@ class StandardTransformerEncoder(TransformerEncoder):
 
         self.norm_order = norm_order
 
-    @finaloverride
+    @override
     def forward(
         self, seqs: Tensor, padding_mask: Optional[PaddingMask]
     ) -> Tuple[Tensor, Optional[PaddingMask]]:
