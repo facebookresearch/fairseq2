@@ -92,7 +92,7 @@ class TestScaledDotProductAttention:
 
 class TestStandardMultiheadAttention:
     @pytest.mark.parametrize(
-        "model_dim, input_dim",
+        "model_dim, kv_dim",
         [
             (128, 192),  # encoder larger than decoder
             (256, 192),  # encoder smaller than decoder
@@ -101,7 +101,7 @@ class TestStandardMultiheadAttention:
         ],
     )
     def test_variable_sized_attention(
-        self, model_dim: int, input_dim: Optional[int]
+        self, model_dim: int, kv_dim: Optional[int]
     ) -> None:
         """
         Testing that attention can work when the keys and values have a different size than queries.
@@ -109,15 +109,15 @@ class TestStandardMultiheadAttention:
         """
         num_heads = 8
         attn_module = StandardMultiheadAttention(
-            model_dim=model_dim, num_heads=num_heads, input_dim=input_dim
+            model_dim=model_dim, num_heads=num_heads, kv_dim=kv_dim
         )
 
         batch_size = 3
         input_len = 11
         prefix_len = 5
-        if input_dim is None:
-            input_dim = model_dim
-        inputs = torch.randn([batch_size, input_len, input_dim])
+        if kv_dim is None:
+            kv_dim = model_dim
+        inputs = torch.randn([batch_size, input_len, kv_dim])
         prefix = torch.randn([batch_size, prefix_len, model_dim])
 
         result = attn_module(
