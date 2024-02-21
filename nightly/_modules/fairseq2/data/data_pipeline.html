@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.data_pipeline &mdash; fairseq2 0.3.0.dev202402200336 documentation</title>
+  <title>fairseq2.data.data_pipeline &mdash; fairseq2 0.3.0.dev202402202355 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202402200336
+                0.3.0.dev202402202355
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -91,7 +91,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.RecordError.html">fairseq2.data.RecordError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.VocabularyInfo.html">VocabularyInfo</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.get_last_failed_example.html">get_last_failed_example</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.is_string_like.html">is_string_like</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../reference/data.html#fairseq2-data-text">fairseq2.data.text</a><ul>
@@ -167,6 +166,7 @@
 
 <span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
 
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">TYPE_CHECKING</span><span class="p">,</span>
     <span class="n">Any</span><span class="p">,</span>
@@ -186,7 +186,6 @@
 <span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
 <span class="kn">from</span> <span class="nn">typing_extensions</span> <span class="kn">import</span> <span class="n">Self</span>
 
-<span class="kn">from</span> <span class="nn">fairseq2.data.typing</span> <span class="kn">import</span> <span class="n">PathLike</span><span class="p">,</span> <span class="n">StringLike</span>
 <span class="kn">from</span> <span class="nn">fairseq2.memory</span> <span class="kn">import</span> <span class="n">MemoryBlock</span>
 
 <span class="k">if</span> <span class="n">TYPE_CHECKING</span> <span class="ow">or</span> <span class="n">DOC_MODE</span><span class="p">:</span>
@@ -436,12 +435,10 @@
 <div class="viewcode-block" id="get_last_failed_example"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.get_last_failed_example.html#fairseq2.data.get_last_failed_example">[docs]</a>    <span class="k">def</span> <span class="nf">get_last_failed_example</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
         <span class="o">...</span></div>
 
-<div class="viewcode-block" id="list_files"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.list_files.html#fairseq2.data.list_files">[docs]</a>    <span class="k">def</span> <span class="nf">list_files</span><span class="p">(</span>
-        <span class="n">pathname</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">,</span> <span class="n">pattern</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">StringLike</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;List recursively all files under ``pathname`` that matches ``pattern``.</span>
+<div class="viewcode-block" id="list_files"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.list_files.html#fairseq2.data.list_files">[docs]</a>    <span class="k">def</span> <span class="nf">list_files</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">pattern</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;List recursively all files under ``path`` that matches ``pattern``.</span>
 
-<span class="sd">        :param pathname:</span>
+<span class="sd">        :param path:</span>
 <span class="sd">            The path to traverse.</span>
 <span class="sd">        :param pattern:</span>
 <span class="sd">            If non-empty, a pattern that follows the syntax of :mod:`fnmatch`.</span>
@@ -454,7 +451,7 @@
 <span class="sd">            The sequence to read.</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
-<div class="viewcode-block" id="read_zipped_records"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.read_zipped_records.html#fairseq2.data.read_zipped_records">[docs]</a>    <span class="k">def</span> <span class="nf">read_zipped_records</span><span class="p">(</span><span class="n">pathname</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
+<div class="viewcode-block" id="read_zipped_records"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.read_zipped_records.html#fairseq2.data.read_zipped_records">[docs]</a>    <span class="k">def</span> <span class="nf">read_zipped_records</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Read each file in a zip archive&quot;&quot;&quot;</span>
         <span class="o">...</span></div>
 
@@ -552,13 +549,13 @@
 
         <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span>
-            <span class="n">root_dir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">PathLike</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">root_dir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">cached_fd_count</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
             <span class="o">...</span>
 
-<div class="viewcode-block" id="FileMapper.__call__"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.FileMapper.html#fairseq2.data.FileMapper.__call__">[docs]</a>        <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FileMapperOutput</span><span class="p">:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Parses the file name and returns the file bytes.</span>
+<div class="viewcode-block" id="FileMapper.__call__"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.FileMapper.html#fairseq2.data.FileMapper.__call__">[docs]</a>        <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pathname</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FileMapperOutput</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Parses the pathname and returns the file bytes.</span>
 
 <span class="sd">            :returns:</span>
 <span class="sd">                A dict with the following keys::</span>
@@ -629,7 +626,7 @@
 
 
 <span class="k">class</span> <span class="nc">FileMapperOutput</span><span class="p">(</span><span class="n">TypedDict</span><span class="p">):</span>
-    <span class="n">path</span><span class="p">:</span> <span class="n">PathLike</span>
+    <span class="n">path</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">MemoryBlock</span>
 
 

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.text.text_tokenizer &mdash; fairseq2 0.3.0.dev202402200336 documentation</title>
+  <title>fairseq2.data.text.text_tokenizer &mdash; fairseq2 0.3.0.dev202402202355 documentation</title>
       <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202402200336
+                0.3.0.dev202402202355
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
@@ -91,7 +91,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.RecordError.html">fairseq2.data.RecordError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.VocabularyInfo.html">VocabularyInfo</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.get_last_failed_example.html">get_last_failed_example</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.is_string_like.html">is_string_like</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../reference/data.html#fairseq2-data-text">fairseq2.data.text</a><ul>
@@ -192,7 +191,6 @@
     <span class="n">AssetStore</span><span class="p">,</span>
     <span class="n">default_asset_store</span><span class="p">,</span>
 <span class="p">)</span>
-<span class="kn">from</span> <span class="nn">fairseq2.data.typing</span> <span class="kn">import</span> <span class="n">PathLike</span><span class="p">,</span> <span class="n">StringLike</span>
 <span class="kn">from</span> <span class="nn">fairseq2.data.vocabulary_info</span> <span class="kn">import</span> <span class="n">VocabularyInfo</span>
 <span class="kn">from</span> <span class="nn">fairseq2.typing</span> <span class="kn">import</span> <span class="n">Device</span><span class="p">,</span> <span class="n">finaloverride</span>
 
@@ -264,14 +262,14 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Encodes text into tokens or token indices.&quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="TextTokenEncoder.__call__"><a class="viewcode-back" href="../../../../reference/generated/data_text/fairseq2.data.text.TextTokenEncoder.html#fairseq2.data.text.TextTokenEncoder.__call__">[docs]</a>    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="n">StringLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :param text:</span>
 <span class="sd">            The text to encode.</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
 <div class="viewcode-block" id="TextTokenEncoder.encode_as_tokens"><a class="viewcode-back" href="../../../../reference/generated/data_text/fairseq2.data.text.TextTokenEncoder.html#fairseq2.data.text.TextTokenEncoder.encode_as_tokens">[docs]</a>    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span> <span class="nf">encode_as_tokens</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="n">StringLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">StringLike</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">encode_as_tokens</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :param text:</span>
 <span class="sd">            The text to encode.</span>
@@ -294,14 +292,14 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Decodes text from tokens or token indices.&quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="TextTokenDecoder.__call__"><a class="viewcode-back" href="../../../../reference/generated/data_text/fairseq2.data.text.TextTokenDecoder.html#fairseq2.data.text.TextTokenDecoder.__call__">[docs]</a>    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token_indices</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">StringLike</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">token_indices</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :param token_indices:</span>
 <span class="sd">            The token indices to decode from.</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
 <div class="viewcode-block" id="TextTokenDecoder.decode_from_tokens"><a class="viewcode-back" href="../../../../reference/generated/data_text/fairseq2.data.text.TextTokenDecoder.html#fairseq2.data.text.TextTokenDecoder.decode_from_tokens">[docs]</a>    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span> <span class="nf">decode_from_tokens</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tokens</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">StringLike</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">StringLike</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">decode_from_tokens</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tokens</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :param tokens:</span>
 <span class="sd">            The tokens to decode from.</span>
@@ -401,10 +399,10 @@
 <span class="k">class</span> <span class="nc">BasicTextTokenizerFactory</span><span class="p">(</span><span class="n">Protocol</span><span class="p">[</span><span class="n">TextTokenizerT_co</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Constructs text tokenizers of type ``TextTokenizerT``.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pathname</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TextTokenizerT_co</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TextTokenizerT_co</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        :param pathname:</span>
-<span class="sd">            The pathname of the tokenizer.</span>
+<span class="sd">        :param path:</span>
+<span class="sd">            The path to the tokenizer.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
 
 

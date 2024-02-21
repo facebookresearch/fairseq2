@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.gang &mdash; fairseq2 0.3.0.dev202402200336 documentation</title>
+  <title>fairseq2.gang &mdash; fairseq2 0.3.0.dev202402202355 documentation</title>
       <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202402200336
+                0.3.0.dev202402202355
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -91,7 +91,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/data/fairseq2.data.RecordError.html">fairseq2.data.RecordError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/data/fairseq2.data.VocabularyInfo.html">VocabularyInfo</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/data/fairseq2.data.get_last_failed_example.html">get_last_failed_example</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/data/fairseq2.data.is_string_like.html">is_string_like</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../reference/data.html#fairseq2-data-text">fairseq2.data.text</a><ul>
@@ -566,6 +565,11 @@
         <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;The value of the `</span><span class="si">{</span><span class="n">var_name</span><span class="si">}</span><span class="s2">` environment variable must be an integer, but is &#39;</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39; instead.&quot;</span>
         <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">get_world_size</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the world size of the running job.&quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">_get_int_from_env</span><span class="p">(</span><span class="s2">&quot;WORLD_SIZE&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="mi">1</span>
 
 
 <span class="k">def</span> <span class="nf">get_global_rank</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
