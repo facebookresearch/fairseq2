@@ -18,6 +18,7 @@ def setup_logging(
     log_file: Optional[Path] = None,
     debug: bool = False,
     utc_time: bool = False,
+    force: bool = False,
 ) -> None:
     """Set up logging for a training or eval job.
 
@@ -28,6 +29,8 @@ def setup_logging(
         If ``True``, sets the log level to `DEBUG`; otherwise, to `INFO`.
     :param utc_time:
         If ``True``, logs dates and times in UTC.
+    :param force:
+        If ``True``, overwrite existing logging `basicConfig`
     """
     rank = get_global_rank()
 
@@ -57,7 +60,7 @@ def setup_logging(
     datefmt = "%Y-%m-%d %H:%M:%S"
 
     logging.basicConfig(
-        level=DEBUG if debug else INFO, handlers=handlers, format=fmt, datefmt=datefmt
+        level=DEBUG if debug else INFO, handlers=handlers, format=fmt, datefmt=datefmt, force=force
     )
 
     if utc_time:
