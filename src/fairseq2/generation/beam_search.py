@@ -440,7 +440,7 @@ class StandardBeamSearchAlgorithm(BeamSearchAlgorithm):
         return BeamStep(top_indices // vocab_size, top_indices % vocab_size, top_scores)
 
 
-class _BeamSearchSequenceGeneratorOpBase(ABC):
+class _BeamSearchGeneratorOp(ABC):
     algorithm: BeamSearchAlgorithm
     eos_idx: int
     pad_idx: Optional[int]
@@ -457,6 +457,7 @@ class _BeamSearchSequenceGeneratorOpBase(ABC):
     len_penalty: float
     prefill_chunk_size: Optional[int]
     step_processors: List[StepProcessor]
+    step_hooks: Dict[int, StepHook]
     step_nr: int
     state_bag: IncrementalStateBag
     prompt_lens: Optional[Tensor]
@@ -466,7 +467,6 @@ class _BeamSearchSequenceGeneratorOpBase(ABC):
     seqs: Tensor
     step_scores: Tensor
     output: List[List[Hypothesis]]
-    step_hooks: Dict[int, StepHook]
 
     def __init__(
         self,
@@ -894,7 +894,7 @@ class _BeamSearchSequenceGeneratorOpBase(ABC):
         self.step_scores = self.step_scores.index_select(dim=0, index=new_order)
 
 
-class _BeamSearchSequenceGeneratorOp(_BeamSearchSequenceGeneratorOpBase):
+class _BeamSearchSequenceGeneratorOp(_BeamSearchGeneratorOp):
     model: DecoderModel
 
     def __init__(
@@ -950,7 +950,7 @@ class _BeamSearchSequenceGeneratorOp(_BeamSearchSequenceGeneratorOpBase):
         return self.model.project(decoder_output, decoder_padding_mask)
 
 
-class _BeamSearchSeq2SeqGeneratorOp(_BeamSearchSequenceGeneratorOpBase):
+class _BeamSearchSeq2SeqGeneratorOp(_BeamSearchGeneratorOp):
     model: EncoderDecoderModel
     encoder_output: Tensor
     encoder_padding_mask: Optional[PaddingMask]

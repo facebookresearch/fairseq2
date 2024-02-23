@@ -41,7 +41,7 @@ class TestArchitectureRegistry:
 
         with pytest.raises(
             ValueError,
-            match=r"^The architecture name 'arch' is already registered for 'model'\.$",
+            match=r"^`arch_name` must be a unique architecture name, but 'arch' is already registered for 'model'\.$",
         ):
             registry.register("arch", lambda: "config")
 

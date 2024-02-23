@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Union
 from fairseq2n import DOC_MODE
 from torch import Tensor
 
-from fairseq2.data.typing import StringLike
 from fairseq2.typing import DataType
 
 if TYPE_CHECKING or DOC_MODE:
@@ -47,9 +46,7 @@ if TYPE_CHECKING or DOC_MODE:
         ) -> None:
             ...
 
-        def __call__(
-            self, s: StringLike
-        ) -> Union[List[StringLike], Dict[str, StringLike]]:
+        def __call__(self, s: str) -> Union[List[str], Dict[str, str]]:
             ...
 
     class StrToIntConverter:
@@ -58,7 +55,7 @@ if TYPE_CHECKING or DOC_MODE:
         def __init__(self, base: int = 10) -> None:
             ...
 
-        def __call__(self, s: StringLike) -> int:
+        def __call__(self, s: str) -> int:
             ...
 
     class StrToTensorConverter:
@@ -69,7 +66,7 @@ if TYPE_CHECKING or DOC_MODE:
         ) -> None:
             ...
 
-        def __call__(self, s: StringLike) -> Tensor:
+        def __call__(self, s: str) -> Tensor:
             ...
 
 else:

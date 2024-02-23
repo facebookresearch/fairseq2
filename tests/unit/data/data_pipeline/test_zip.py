@@ -4,6 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from pathlib import Path
+
 import pytest
 
 from fairseq2.data import DataPipeline, DataPipelineError, read_sequence
@@ -90,7 +92,7 @@ class TestZipOp:
 
     def test_op_works_when_flatten_is_true_and_inputs_are_lists(self) -> None:
         pipeline1 = read_sequence([1, 2, 3]).and_return()
-        pipeline2 = read_sequence([[1, 2], [3, 4], [5, 6]]).and_return()
+        pipeline2 = read_sequence([[1, 2], [3, 4], [5, 6]]).and_return()  # fmt: skip
         pipeline3 = read_sequence([[4], [5], [6]]).and_return()
 
         pipeline = DataPipeline.zip(
@@ -148,8 +150,8 @@ class TestZipOp:
 
     def test_op_raises_error_when_one_of_the_pipelines_is_broken(self) -> None:
         # Force a non-recoverable error.
-        pipeline1 = read_text(pathname=" &^#").and_return()
-        pipeline2 = read_text(pathname=" &^#").and_return()
+        pipeline1 = read_text(path=Path(" &^#")).and_return()
+        pipeline2 = read_text(path=Path(" &^#")).and_return()
 
         # Break the first pipeline.
         try:
@@ -177,7 +179,7 @@ class TestZipOp:
         self,
     ) -> None:
         pipeline1 = read_sequence([1]).and_return()
-        pipeline2 = read_sequence([{"foo1": 1}]).and_return()
+        pipeline2 = read_sequence([{"foo1": 1}]).and_return()  # fmt: skip
 
         pipeline = DataPipeline.zip([pipeline1, pipeline2], flatten=True).and_return()
 
@@ -187,10 +189,10 @@ class TestZipOp:
         ):
             next(iter(pipeline))
 
-        pipeline1 = read_sequence([{"foo1": 1}]).and_return()
-        pipeline2 = read_sequence([1]).and_return()
+        pipeline4 = read_sequence([{"foo1": 1}]).and_return()
+        pipeline5 = read_sequence([1]).and_return()
 
-        pipeline = DataPipeline.zip([pipeline1, pipeline2], flatten=True).and_return()
+        pipeline = DataPipeline.zip([pipeline4, pipeline5], flatten=True).and_return()
 
         with pytest.raises(
             DataPipelineError,
@@ -201,9 +203,9 @@ class TestZipOp:
     def test_op_raises_error_when_flatten_is_true_and_dict_keys_are_not_unique(
         self,
     ) -> None:
-        pipeline1 = read_sequence([{"foo1": 1}]).and_return()
-        pipeline2 = read_sequence([{"foo2": 1}]).and_return()
-        pipeline3 = read_sequence([{"foo1": 1}]).and_return()
+        pipeline1 = read_sequence([{"foo1": 1}]).and_return()  # fmt: skip
+        pipeline2 = read_sequence([{"foo2": 1}]).and_return()  # fmt: skip
+        pipeline3 = read_sequence([{"foo1": 1}]).and_return()  # fmt: skip
 
         pipeline = DataPipeline.zip(
             [pipeline1, pipeline2, pipeline3], flatten=True

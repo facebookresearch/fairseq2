@@ -215,11 +215,11 @@ data_pipeline::constant(data example, std::optional<std::string> key)
 }
 
 data_pipeline_builder
-data_pipeline::count(std::int64_t start, std::optional<std::string> key)
+data_pipeline::count(std::int64_t start, std::int64_t step, std::optional<std::string> key)
 {
-    auto factory = [start, key = std::move(key)]() mutable
+    auto factory = [start, step, key = std::move(key)]() mutable
     {
-        return std::make_unique<count_data_source>(start, std::move(key));
+        return std::make_unique<count_data_source>(start, step, std::move(key));
     };
 
     return data_pipeline_builder{std::move(factory)};

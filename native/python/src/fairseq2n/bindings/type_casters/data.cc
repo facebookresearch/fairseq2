@@ -22,8 +22,8 @@
 #include <fairseq2n/data/immutable_string.h>
 #include <fairseq2n/detail/exception.h>
 
+#include "fairseq2n/bindings/type_casters/immutable_string.h"
 #include "fairseq2n/bindings/type_casters/py.h"
-#include "fairseq2n/bindings/type_casters/string.h"
 #include "fairseq2n/bindings/type_casters/torch.h"
 
 using namespace fairseq2n;
@@ -33,7 +33,7 @@ namespace pybind11::detail {
 
 template <typename Key, typename Value, typename Hash, typename Equal, typename Alloc>
 struct type_caster<flat_hash_map<Key, Value, Hash, Equal, Alloc>>
-    : map_caster<flat_hash_map<Key, Value, Hash, Equal, Alloc>, Key, Value>
+  : map_caster<flat_hash_map<Key, Value, Hash, Equal, Alloc>, Key, Value>
 {};
 
 data
@@ -49,9 +49,6 @@ type_caster<data>::cast_from_py(handle src)
         return src.cast<float64>();
 
     if (isinstance<str>(src))
-        return src.cast<std::string_view>();
-
-    if (isinstance<immutable_string>(src))
         return src.cast<immutable_string>();
 
     if (isinstance<at::Tensor>(src))
@@ -60,18 +57,11 @@ type_caster<data>::cast_from_py(handle src)
     if (isinstance<memory_block>(src))
         return src.cast<memory_block>();
 
-    if (isinstance<bytes>(src))
-        return src.cast<py_object>();
-
     if (isinstance<dict>(src))
         return src.cast<data_dict>();
 
-    if (isinstance<sequence>(src))
+    if (isinstance<list>(src))
         return src.cast<data_list>();
-
-    // path-like.
-    if (hasattr(src, "__fspath__"))
-        return src.cast<std::string_view>();
 
     return src.cast<py_object>();
 }

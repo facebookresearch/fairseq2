@@ -18,13 +18,24 @@ from fairseq2.data.text.sentencepiece import (
 )
 from fairseq2.data.text.sentencepiece import SentencePieceModel as SentencePieceModel
 from fairseq2.data.text.sentencepiece import (
-    SentencePieceTokenizerBase as SentencePieceTokenizerBase,
+    SentencePieceTokenizer as SentencePieceTokenizer,
 )
 from fairseq2.data.text.sentencepiece import (
     vocab_info_from_sentencepiece as vocab_info_from_sentencepiece,
 )
 from fairseq2.data.text.text_reader import LineEnding as LineEnding
 from fairseq2.data.text.text_reader import read_text as read_text
+from fairseq2.data.text.text_tokenizer import (
+    BasicTextTokenizerLoader as BasicTextTokenizerLoader,
+)
+from fairseq2.data.text.text_tokenizer import (
+    CompositeTextTokenizerLoader as CompositeTextTokenizerLoader,
+)
+from fairseq2.data.text.text_tokenizer import (
+    StandardTextTokenizerLoader as StandardTextTokenizerLoader,
+)
 from fairseq2.data.text.text_tokenizer import TextTokenDecoder as TextTokenDecoder
 from fairseq2.data.text.text_tokenizer import TextTokenEncoder as TextTokenEncoder
 from fairseq2.data.text.text_tokenizer import TextTokenizer as TextTokenizer
+from fairseq2.data.text.text_tokenizer import TextTokenizerLoader as TextTokenizerLoader
+from fairseq2.data.text.text_tokenizer import load_text_tokenizer as load_text_tokenizer

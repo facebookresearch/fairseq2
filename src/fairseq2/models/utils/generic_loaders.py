@@ -5,12 +5,10 @@
 # LICENSE file in the root directory of this source tree.
 
 import logging
-from abc import ABC, abstractmethod
 from copy import deepcopy
 from functools import partial
-from pathlib import Path
 from pickle import PickleError
-from typing import Any, Dict, Generic, Optional, Protocol, TypeVar, Union, final
+from typing import Any, Dict, Generic, Optional, Protocol, TypeVar, Union
 
 from torch.nn import Module
 
@@ -22,16 +20,15 @@ from fairseq2.assets import (
     AssetError,
     AssetStore,
 )
-from fairseq2.data import PathLike
-from fairseq2.data.text import TextTokenizer
 from fairseq2.models.utils.arch_registry import ArchitectureRegistry
 from fairseq2.models.utils.checkpoint import load_checkpoint
 from fairseq2.nn.utils.module import (
     infer_device,
+    load_state_dict,
     reset_non_persistent_buffers,
     to_empty,
 )
-from fairseq2.typing import CPU, META, DataType, Device, finaloverride
+from fairseq2.typing import CPU, META, DataType, Device
 from fairseq2.utils.dataclass import update_dataclass
 
 logger = logging.getLogger("fairseq2.models")
@@ -155,7 +152,9 @@ class ModelLoader(Generic[ModelT, ConfigT]):
     config_loader: ConfigLoader[ConfigT]
     model_factory: ModelFactory[ConfigT, ModelT]
     checkpoint_converter: Optional[CheckpointConverter[ConfigT]]
+    mmap: bool
     restrict_checkpoints: bool
+    skip_meta_init: bool
 
     def __init__(
         self,
@@ -164,7 +163,10 @@ class ModelLoader(Generic[ModelT, ConfigT]):
         config_loader: ConfigLoader[ConfigT],
         model_factory: ModelFactory[ConfigT, ModelT],
         checkpoint_converter: Optional[CheckpointConverter[ConfigT]] = None,
+        *,
+        mmap: bool = False,
         restrict_checkpoints: bool = True,
+        skip_meta_init: bool = False,
     ) -> None:
         """
         :param asset_store:
@@ -178,16 +180,25 @@ class ModelLoader(Generic[ModelT, ConfigT]):
         :param checkpoint_converter:
             The converter to which loaded checkpoints will be passed for further
             processing.
+        :param mmap:
+            If ``True``, indicates whether the checkpoint should be memory
+            mapped.
         :param restrict_checkpoints:
             If ``True``, restricts the Python unpickler to load only tensors,
             primitive types, and dictionaries.
+        :param skip_meta_init:
+            If ``True``, skips meta device initialization and constructs the
+            model directly on the requested device. Meant to be used with models
+            that do not support PyTorch's ``reset_parameters()`` convention.
         """
         self.asset_store = asset_store
         self.download_manager = download_manager
         self.config_loader = config_loader
         self.model_factory = model_factory
         self.checkpoint_converter = checkpoint_converter
+        self.mmap = mmap
         self.restrict_checkpoints = restrict_checkpoints
+        self.skip_meta_init = skip_meta_init
 
     def __call__(
         self,
@@ -248,6 +259,7 @@ class ModelLoader(Generic[ModelT, ConfigT]):
             checkpoint = load_checkpoint(
                 path,
                 map_location=CPU,
+                mmap=self.mmap,
                 restrict=self.restrict_checkpoints,
                 converter=checkpoint_converter,
             )
@@ -258,18 +270,29 @@ class ModelLoader(Generic[ModelT, ConfigT]):
 
         if out is not None:
             model = out
+
+            model_device = infer_device(model, param_name="out")
         else:
-            try:
-                # Try to construct the model on the meta device.
-                model = self.model_factory(config, device=META, dtype=dtype)
-            except NotImplementedError:
-                logger.warning("One or more operators in %s constructor do not support the meta device. Skipping lazy initialization.", card.name)  # fmt: skip
-
-                # If we are here, it means the model has at least one operator that
-                # does not support meta device. Do regular model initialization.
+            if self.skip_meta_init:
                 model = self.model_factory(config, device=device, dtype=dtype)
+            else:
+                try:
+                    # Try to construct the model on the meta device.
+                    model = self.model_factory(config, device=META, dtype=dtype)
+                except NotImplementedError:
+                    logger.warning("One or more operators in %s constructor do not support the meta device. Skipping meta device initialization.", card.name)  # fmt: skip
 
-        model_device = infer_device(model)
+                    # If we are here, it means the model constructor has at
+                    # least one operation that does not support the meta device.
+                    # Fall back to regular model initialization.
+                    model = self.model_factory(config, device=device, dtype=dtype)
+
+                try:
+                    model_device = infer_device(model, param_name="model")
+                except ValueError as ex:
+                    raise RuntimeError(
+                        "`model_factory` returned a model that is not constructed correctly. See nested exception for details."
+                    ) from ex
 
         if model_device == META:
             # Move the model to the actual device without initializing. Its
@@ -285,7 +308,7 @@ class ModelLoader(Generic[ModelT, ConfigT]):
             )
 
         try:
-            model.load_state_dict(state_dict)
+            load_state_dict(model, state_dict)
         except (KeyError, ValueError) as ex:
             raise AssetError(
                 f"{card.name} cannot be loaded. See nested exception for details."
@@ -297,115 +320,3 @@ class ModelLoader(Generic[ModelT, ConfigT]):
             reset_non_persistent_buffers(model)
 
         return model
-
-
-TokenizerT = TypeVar("TokenizerT", bound=TextTokenizer)
-TokenizerT_co = TypeVar("TokenizerT_co", bound=TextTokenizer, covariant=True)
-
-
-class TokenizerLoaderBase(ABC, Generic[TokenizerT]):
-    """Represents an abstract base class for tokenizer loaders."""
-
-    asset_store: AssetStore
-    download_manager: AssetDownloadManager
-
-    def __init__(
-        self, asset_store: AssetStore, download_manager: AssetDownloadManager
-    ) -> None:
-        """
-        :param asset_store:
-            The asset store where to check for available tokenizers.
-        :param download_manager:
-            The download manager.
-        """
-        self.asset_store = asset_store
-        self.download_manager = download_manager
-
-    def __call__(
-        self,
-        tokenizer_name_or_card: Union[str, AssetCard],
-        *,
-        force: bool = False,
-        cache_only: bool = False,
-        progress: bool = True,
-    ) -> TokenizerT:
-        """
-        :param tokenizer_name_or_card:
-            The name or asset card of the tokenizer to load.
-        :param force:
-            If ``True``, downloads the tokenizer even if it is already in cache.
-        :param cache_only:
-            If ``True``, skips the download and uses the cached tokenizer.
-        :param progress:
-            If ``True``, displays a progress bar to stderr.
-        """
-        if isinstance(tokenizer_name_or_card, AssetCard):
-            card = tokenizer_name_or_card
-        else:
-            card = self.asset_store.retrieve_card(tokenizer_name_or_card)
-
-        uri = card.field("tokenizer").as_uri()
-
-        try:
-            path = self.download_manager.download_tokenizer(
-                uri, card.name, force=force, cache_only=cache_only, progress=progress
-            )
-        except ValueError as ex:
-            raise AssetCardError(
-                f"The value of the field 'tokenizer' of the asset card '{card.name}' is not valid. See nested exception for details."
-            ) from ex
-
-        try:
-            return self._load(path, card)
-        except ValueError as ex:
-            raise AssetError(
-                f"The {card.name} tokenizer cannot be loaded. See nested exception for details."
-            ) from ex
-
-    @abstractmethod
-    def _load(self, path: Path, card: AssetCard) -> TokenizerT:
-        """
-        :param path:
-            The path to the tokenizer.
-        :param card:
-            The asset card of the associated model.
-        """
-
-
-class TokenizerFactory(Protocol[TokenizerT_co]):
-    """Constructs tokenizers of type ``TokenizerT``."""
-
-    def __call__(self, pathname: PathLike) -> TokenizerT_co:
-        """
-        :param pathname:
-            The pathname of the tokenizer.
-        """
-
-
-@final
-class TokenizerLoader(TokenizerLoaderBase[TokenizerT]):
-    """Loads tokenizers of type ``TokenizerT``."""
-
-    tokenizer_factory: TokenizerFactory[TokenizerT]
-
-    def __init__(
-        self,
-        asset_store: AssetStore,
-        download_manager: AssetDownloadManager,
-        tokenizer_factory: TokenizerFactory[TokenizerT],
-    ) -> None:
-        """
-        :param asset_store:
-            The asset store where to check for available tokenizers.
-        :param download_manager:
-            The download manager.
-        :param tokenizer_factory:
-            The factory to construct tokenizers.
-        """
-        super().__init__(asset_store, download_manager)
-
-        self.tokenizer_factory = tokenizer_factory
-
-    @finaloverride
-    def _load(self, path: Path, card: AssetCard) -> TokenizerT:
-        return self.tokenizer_factory(path)

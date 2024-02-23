@@ -22,8 +22,8 @@
 
 namespace fairseq2n::detail {
 
-text_data_source::text_data_source(std::string &&pathname, text_options &&opts)
-  : pathname_{std::move(pathname)}, opts_{std::move(opts)}
+text_data_source::text_data_source(std::filesystem::path &&path, text_options &&opts)
+  : path_{std::move(path)}, opts_{std::move(opts)}
 {
     try {
         line_reader_ = make_text_line_reader();
@@ -102,7 +102,7 @@ text_data_source::make_text_line_reader()
     auto opts = text_file_options(opts_.maybe_encoding())
         .memory_map(opts_.memory_map()).maybe_block_size(std::max(chunk_size, min_chunk_size));
 
-    std::unique_ptr<byte_stream> stream = open_file(pathname_, opts);
+    std::unique_ptr<byte_stream> stream = open_file(path_, opts);
 
     return std::make_unique<text_line_reader>(std::move(stream), opts_.line_ending());
 }
@@ -155,7 +155,7 @@ inline void
 text_data_source::throw_read_failure()
 {
     throw_with_nested<data_pipeline_error>(
-        "The data pipeline cannot read from '{}'. See nested exception for details.", pathname_);
+        "The data pipeline cannot read from '{}'. See nested exception for details.", path_.string());
 }
 
 }  // namespace fairseq2n::detail

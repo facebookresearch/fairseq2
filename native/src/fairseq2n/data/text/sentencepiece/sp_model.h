@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <optional>
 #include <string>
@@ -65,7 +66,7 @@ private:
 
 public:
     explicit
-    sp_model(std::string_view pathname, sp_model_options opts = {});
+    sp_model(std::filesystem::path path, sp_model_options opts = {});
 
     sp_model(const sp_model &) = delete;
     sp_model &operator=(const sp_model &) = delete;

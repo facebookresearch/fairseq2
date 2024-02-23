@@ -7,6 +7,7 @@
 #include "fairseq2n/bindings/module.h"
 
 #include <cstddef>
+#include <filesystem>
 #include <optional>
 #include <string>
 
@@ -30,7 +31,7 @@ def_text_reader(py::module_ &text_module)
     m.def(
         "read_text",
         [](
-            std::string pathname,
+            std::filesystem::path path,
             std::optional<std::string> maybe_encoding,
             line_ending le,
             bool ltrim,
@@ -48,9 +49,9 @@ def_text_reader(py::module_ &text_module)
                 .memory_map(memory_map)
                 .maybe_block_size(maybe_block_size);
 
-            return read_text(std::move(pathname), std::move(opts));
+            return read_text(std::move(path), std::move(opts));
         },
-        py::arg("pathname"),
+        py::arg("path"),
         py::arg("encoding")    = std::nullopt,
         py::arg("line_ending") = line_ending::infer,
         py::arg("ltrim")       = false,

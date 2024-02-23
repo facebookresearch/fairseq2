@@ -455,7 +455,7 @@ class TopKSampler(Sampler):
         return indices.squeeze(-1)
 
 
-class _SamplingSequenceGeneratorOpBase(ABC):
+class _SamplingGeneratorOp(ABC):
     sampler: Sampler
     eos_idx: int
     pad_idx: Optional[int]
@@ -473,6 +473,7 @@ class _SamplingSequenceGeneratorOpBase(ABC):
     len_penalty: float
     prefill_chunk_size: Optional[int]
     step_processors: List[StepProcessor]
+    step_hooks: Dict[int, StepHook]
     step_nr: int
     state_bag: IncrementalStateBag
     prompt_lens: Optional[Tensor]
@@ -481,7 +482,6 @@ class _SamplingSequenceGeneratorOpBase(ABC):
     seqs: Tensor
     step_scores: Optional[Tensor]
     output: List[List[Hypothesis]]
-    step_hooks: Dict[int, StepHook]
 
     def __init__(
         self,
@@ -870,7 +870,7 @@ class _SamplingSequenceGeneratorOpBase(ABC):
             self.step_scores = self.step_scores.index_select(dim=0, index=new_order)
 
 
-class _SamplingSequenceGeneratorOp(_SamplingSequenceGeneratorOpBase):
+class _SamplingSequenceGeneratorOp(_SamplingGeneratorOp):
     model: DecoderModel
 
     def __init__(
@@ -928,7 +928,7 @@ class _SamplingSequenceGeneratorOp(_SamplingSequenceGeneratorOpBase):
         return self.model.project(decoder_output, decoder_padding_mask)
 
 
-class _SamplingSeq2SeqGeneratorOp(_SamplingSequenceGeneratorOpBase):
+class _SamplingSeq2SeqGeneratorOp(_SamplingGeneratorOp):
     model: EncoderDecoderModel
     encoder_output: Tensor
     encoder_padding_mask: Optional[PaddingMask]

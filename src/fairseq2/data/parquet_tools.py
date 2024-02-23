@@ -15,7 +15,6 @@ import torch
 from numpy.typing import NDArray
 from pyarrow.dataset import get_partition_keys  # requires pyarrow >= 13
 
-from fairseq2.data import CString
 from fairseq2.data.data_pipeline import DataPipeline, DataPipelineBuilder, read_sequence
 
 
@@ -40,7 +39,7 @@ def torch_random_seed(seed: Optional[int] = None) -> Generator[None, None, None]
 
 
 NestedDict = Dict[str, "NestedDictValue"]
-NestedDictValue = Union[torch.Tensor, List[CString], pd.Series, NestedDict]
+NestedDictValue = Union[torch.Tensor, List[str], pd.Series, NestedDict]
 BatchOutputType = Union[pa.Table, pd.DataFrame, NestedDict]
 
 
@@ -73,7 +72,7 @@ def from_pyarrow_to_torch_tensor(
         return from_pyarrow_to_torch_tensor(arr.dictionary_decode())
 
     if pa.types.is_string(arr_type):
-        return list(map(CString, arr.to_pandas()))
+        return list(map(str, arr.to_pandas()))
 
     if (
         pa.types.is_list(arr_type) or pa.types.is_large_list(arr_type)

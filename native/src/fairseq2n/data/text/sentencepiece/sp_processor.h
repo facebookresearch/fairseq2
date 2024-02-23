@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -29,7 +30,7 @@ private:
 
 public:
     explicit
-    sp_processor(std::string_view model_pathname, sp_model_options &&opts);
+    sp_processor(std::filesystem::path model_path, sp_model_options &&opts);
 
     sentencepiece::ImmutableSentencePieceText
     encode(std::string_view text) const;

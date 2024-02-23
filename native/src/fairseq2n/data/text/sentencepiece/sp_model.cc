@@ -24,9 +24,9 @@ sp_model::sp_model(std::unique_ptr<sp_processor> &&processor) noexcept
   : processor_{std::move(processor)}
 {}
 
-sp_model::sp_model(std::string_view pathname, sp_model_options opts)
+sp_model::sp_model(std::filesystem::path path, sp_model_options opts)
 {
-    processor_ = std::make_unique<sp_processor>(pathname, std::move(opts));
+    processor_ = std::make_unique<sp_processor>(std::move(path), std::move(opts));
 }
 
 sp_model::sp_model(sp_model &&) noexcept = default;

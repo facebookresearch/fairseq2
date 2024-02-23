@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <filesystem>
 #include <optional>
 #include <string>
 #include <vector>
@@ -15,6 +16,6 @@
 namespace fairseq2n::detail {
 
 data_list
-list_files(const std::string &pathname, const std::optional<std::string> &maybe_pattern);
+list_files(const std::filesystem::path &path, const std::optional<std::string> &maybe_pattern);
 
 }

@@ -7,6 +7,8 @@
 #pragma once
 
 #include <memory>
+#include <string>
+#include <string_view>
 #include <vector>
 
 #include <ATen/Tensor.h>
@@ -27,13 +29,16 @@ public:
     data
     operator()(data &&d) const;
 
-    data
-    decode_from_tokens(data &&d) const;
+    std::string
+    decode(const at::Tensor &tensor) const;
+
+    std::string
+    decode_from_tokens(const std::vector<std::string_view> &tokens) const;
 
 private:
     template <typename T>
-    immutable_string
-    decode(const at::Tensor &tensor) const;
+    std::string
+    do_decode(const at::Tensor &tensor) const;
 
 private:
     std::shared_ptr<const sp_model> model_;

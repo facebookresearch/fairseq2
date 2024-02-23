@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import pytest
 import torch
@@ -12,6 +12,7 @@ from torch import Tensor
 
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer import CustomAttentionMask, NaiveSDPA, TorchSDPA
+from fairseq2.nn.transformer.multihead_attention import StandardMultiheadAttention
 from tests.common import assert_close, device
 
 
@@ -87,3 +88,43 @@ class TestScaledDotProductAttention:
             "values": v,
             "attn_mask": attn_mask,
         }
+
+
+class TestStandardMultiheadAttention:
+    @pytest.mark.parametrize(
+        "model_dim, kv_dim",
+        [
+            (128, 192),  # encoder larger than decoder
+            (256, 192),  # encoder smaller than decoder
+            (256, 256),  # same size
+            (256, None),  # same size, by default
+        ],
+    )
+    def test_variable_sized_attention(
+        self, model_dim: int, kv_dim: Optional[int]
+    ) -> None:
+        """
+        Testing that attention can work when the keys and values have a different size than queries.
+        This may happen in encoder-decoder attention, if the encoder and decoder have different dimensions.
+        """
+        num_heads = 8
+        attn_module = StandardMultiheadAttention(
+            model_dim=model_dim, num_heads=num_heads, kv_dim=kv_dim
+        )
+
+        batch_size = 3
+        input_len = 11
+        prefix_len = 5
+        if kv_dim is None:
+            kv_dim = model_dim
+        inputs = torch.randn([batch_size, input_len, kv_dim])
+        prefix = torch.randn([batch_size, prefix_len, model_dim])
+
+        result = attn_module(
+            seqs=prefix,
+            keys=inputs,
+            values=inputs,
+            padding_mask=None,
+            key_padding_mask=None,
+        )
+        assert result.shape == prefix.shape

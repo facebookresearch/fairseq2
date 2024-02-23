@@ -11,8 +11,8 @@ import torch
 from torch.optim import Optimizer
 
 
-class OptimizerBase(ABC, Optimizer):
-    """Represents the base class for all optimizers."""
+class Fairseq2Optimizer(ABC, Optimizer):
+    """Represents an optimizer."""
 
     def step(  # type: ignore[override]
         self, closure: Optional[Callable[[], float]] = None

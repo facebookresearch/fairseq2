@@ -7,6 +7,7 @@
 #pragma once
 
 #include <cstddef>
+#include <filesystem>
 #include <string>
 
 #include "fairseq2n/memory.h"
@@ -18,7 +19,7 @@ namespace fairseq2n::detail {
 class file_stream final : public byte_stream {
 public:
     explicit
-    file_stream(file_desc &&fd, std::string pathname, std::size_t chunk_size) noexcept;
+    file_stream(file_desc &&fd, std::filesystem::path path, std::size_t chunk_size) noexcept;
 
 private:
     void
@@ -37,7 +38,7 @@ private:
 
 private:
     file_desc fd_;
-    std::string pathname_;
+    std::filesystem::path path_;
     std::size_t chunk_size_;
     bool is_eod_ = false;
 };

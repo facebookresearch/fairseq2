@@ -22,11 +22,7 @@ class TestMapOp:
 
         seq = list(range(1, 10))
 
-        pipeline = (
-            read_sequence(seq)
-            .map(fn, num_parallel_calls=num_parallel_calls)
-            .and_return()
-        )
+        pipeline = read_sequence(seq).map(fn, num_parallel_calls=num_parallel_calls).and_return()  # fmt: skip
 
         for _ in range(2):
             assert list(pipeline) == [i**2 for i in seq]
@@ -245,11 +241,7 @@ class TestMapOp:
 
             return d
 
-        pipeline = (
-            read_sequence([1, 2, 3, 4])
-            .map(fn, num_parallel_calls=num_parallel_calls)
-            .and_return()
-        )
+        pipeline = read_sequence([1, 2, 3, 4]).map(fn, num_parallel_calls=num_parallel_calls).and_return()  # fmt: skip
 
         with pytest.raises(DataPipelineError) as exc_info:
             for d in pipeline:
@@ -268,11 +260,7 @@ class TestMapOp:
 
         seq = list(range(1, 10))
 
-        pipeline = (
-            read_sequence(seq)
-            .map(fn, num_parallel_calls=num_parallel_calls)
-            .and_return()
-        )
+        pipeline = read_sequence(seq).map(fn, num_parallel_calls=num_parallel_calls).and_return()  # fmt: skip
 
         d = None
 

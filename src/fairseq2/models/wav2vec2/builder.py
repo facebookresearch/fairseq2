@@ -411,12 +411,18 @@ class Wav2Vec2Config:
     """The maximum probability of masking a time step. Note that, due to mask
     span overlap, the effective probability might be smaller."""
 
+    min_num_temporal_mask_spans: int
+    """The minimum number of temporal mask sampled per sequence."""
+
     spatial_mask_span_len: int
     """The length of each spatial mask span that is applied over features."""
 
     max_spatial_mask_prob: float
     """The maximum probability of masking a feature. Note that, due to mask span
     overlap, the effective probability might be smaller."""
+
+    min_num_spatial_mask_spans: int
+    """The minimum number of spatial mask sampled per sequence."""
 
     # Quantization
     quantized_dim: int
@@ -458,8 +464,10 @@ def _base() -> Wav2Vec2Config:
         final_proj_bias=True,
         temporal_mask_span_len=10,
         max_temporal_mask_prob=0.65,
+        min_num_temporal_mask_spans=2,
         spatial_mask_span_len=10,
         max_spatial_mask_prob=0.0,
+        min_num_spatial_mask_spans=2,
         quantized_dim=256,
         num_codebooks=2,
         num_codebook_entries=320,
@@ -537,8 +545,10 @@ class Wav2Vec2Builder:
             self.config.encoder_config.model_dim,
             self.config.temporal_mask_span_len,
             self.config.max_temporal_mask_prob,
+            self.config.min_num_temporal_mask_spans,
             self.config.spatial_mask_span_len,
             self.config.max_spatial_mask_prob,
+            self.config.min_num_spatial_mask_spans,
             device=self.device,
             dtype=self.dtype,
         )

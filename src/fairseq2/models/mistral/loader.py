@@ -6,7 +6,8 @@
 
 from typing import Any, Dict
 
-from fairseq2.assets import asset_store, download_manager
+from fairseq2.assets import default_asset_store, default_download_manager
+from fairseq2.data.text import BasicTextTokenizerLoader, load_text_tokenizer
 from fairseq2.models.mistral.builder import (
     MistralConfig,
     create_mistral_model,
@@ -14,7 +15,7 @@ from fairseq2.models.mistral.builder import (
 )
 from fairseq2.models.mistral.tokenizer import MistralTokenizer
 from fairseq2.models.transformer import TransformerDecoderModel
-from fairseq2.models.utils import ConfigLoader, ModelLoader, TokenizerLoader
+from fairseq2.models.utils import ConfigLoader, ModelLoader
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
 
@@ -44,16 +45,19 @@ def convert_mistral_checkpoint(
     return {"model": checkpoint}
 
 
-load_mistral_config = ConfigLoader[MistralConfig](asset_store, mistral_archs)
+load_mistral_config = ConfigLoader[MistralConfig](default_asset_store, mistral_archs)
 
 load_mistral_model = ModelLoader[TransformerDecoderModel, MistralConfig](
-    asset_store,
-    download_manager,
+    default_asset_store,
+    default_download_manager,
     load_mistral_config,
     create_mistral_model,
     convert_mistral_checkpoint,
+    mmap=True,
 )
 
-load_mistral_tokenizer = TokenizerLoader[MistralTokenizer](
-    asset_store, download_manager, MistralTokenizer
+load_mistral_tokenizer = BasicTextTokenizerLoader[MistralTokenizer](
+    default_asset_store, default_download_manager, MistralTokenizer
 )
+
+load_text_tokenizer.register_loader("mistral", load_mistral_tokenizer)

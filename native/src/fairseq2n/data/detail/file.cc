@@ -29,12 +29,12 @@ mmap_deallocate(const void *addr, std::size_t size, void *) noexcept
 }  // namespace
 
 memory_block
-memory_map_file(const file_desc &fd, std::string_view pathname)
+memory_map_file(const file_desc &fd, const std::filesystem::path &path)
 {
     struct ::stat buf{};
     if (::fstat(fd.get(), &buf) == -1)
         throw_system_error(last_error(),
-            "The file size of '{}' cannot be determined", pathname);
+            "The file size of '{}' cannot be determined", path.string());
 
     auto size = static_cast<std::size_t>(buf.st_size);
     if (size == 0)
@@ -43,7 +43,7 @@ memory_map_file(const file_desc &fd, std::string_view pathname)
     void *addr = ::mmap(nullptr, size, PROT_READ, MAP_PRIVATE, fd.get(), 0);
     if (addr == MAP_FAILED)
         throw_system_error(last_error(),
-            "'{}' cannot be memory mapped", pathname);
+            "'{}' cannot be memory mapped", path.string());
 
     return memory_block{static_cast<std::byte *>(addr), size, nullptr, mmap_deallocate};
 }

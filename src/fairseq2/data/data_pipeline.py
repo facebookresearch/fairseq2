@@ -6,12 +6,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
     Dict,
-    Iterable,
     Iterator,
     List,
     Mapping,
@@ -26,12 +26,11 @@ from fairseq2n import DOC_MODE
 from torch import Tensor
 from typing_extensions import Self
 
-from fairseq2.data.typing import PathLike, StringLike
 from fairseq2.memory import MemoryBlock
 
 if TYPE_CHECKING or DOC_MODE:
 
-    class DataPipeline(Iterable[Any]):
+    class DataPipeline:
         """fairseq2 native data pipeline.
 
         The pipeline state can be persisted to the disk, allowing it to be resumed later.
@@ -89,7 +88,9 @@ if TYPE_CHECKING or DOC_MODE:
             ...
 
         @staticmethod
-        def count(start: int = 0, key: Optional[str] = None) -> DataPipelineBuilder:
+        def count(
+            start: int = 0, step: int = 1, key: Optional[str] = None
+        ) -> DataPipelineBuilder:
             ...
 
         @staticmethod
@@ -108,7 +109,8 @@ if TYPE_CHECKING or DOC_MODE:
 
         @staticmethod
         def sample(
-            pipelines: Sequence[DataPipeline], weights: Optional[Sequence[float]] = None
+            pipelines: Sequence[DataPipeline],
+            weights: Optional[Sequence[float]] = None,
         ) -> DataPipelineBuilder:
             """Extract examples from ``pipelines`` by sampling based on ``weights``.
 
@@ -273,25 +275,23 @@ if TYPE_CHECKING or DOC_MODE:
     def get_last_failed_example() -> Any:
         ...
 
-    def list_files(
-        pathname: PathLike, pattern: Optional[StringLike] = None
-    ) -> DataPipelineBuilder:
-        """List recursively all files under ``pathname`` that matches ``pattern``.
+    def list_files(path: Path, pattern: Optional[str] = None) -> DataPipelineBuilder:
+        """List recursively all files under ``path`` that matches ``pattern``.
 
-        :param pathname:
+        :param path:
             The path to traverse.
         :param pattern:
             If non-empty, a pattern that follows the syntax of :mod:`fnmatch`.
         """
 
-    def read_sequence(seq: Sequence[Any]) -> "DataPipelineBuilder":
+    def read_sequence(seq: Sequence[Any]) -> DataPipelineBuilder:
         """Read every element in ``seq``.
 
         :param seq:
             The sequence to read.
         """
 
-    def read_zipped_records(pathname: PathLike) -> DataPipelineBuilder:
+    def read_zipped_records(path: Path) -> DataPipelineBuilder:
         """Read each file in a zip archive"""
         ...
 
@@ -389,13 +389,13 @@ if TYPE_CHECKING or DOC_MODE:
 
         def __init__(
             self,
-            root_dir: Optional[PathLike] = None,
+            root_dir: Optional[Path] = None,
             cached_fd_count: Optional[int] = None,
         ) -> None:
             ...
 
-        def __call__(self, filename: PathLike) -> FileMapperOutput:
-            """Parses the file name and returns the file bytes.
+        def __call__(self, pathname: str) -> FileMapperOutput:
+            """Parses the pathname and returns the file bytes.
 
             :returns:
                 A dict with the following keys::
@@ -466,7 +466,7 @@ class SequenceData(TypedDict):
 
 
 class FileMapperOutput(TypedDict):
-    path: PathLike
+    path: str
     data: MemoryBlock
 
 

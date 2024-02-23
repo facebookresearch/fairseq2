@@ -10,11 +10,12 @@
 #include <pybind11/operators.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/stl/filesystem.h>
 
 #include "fairseq2n/bindings/type_casters/data.h"
+#include "fairseq2n/bindings/type_casters/immutable_string.h"
 #include "fairseq2n/bindings/type_casters/map_fn.h"
 #include "fairseq2n/bindings/type_casters/py.h"
-#include "fairseq2n/bindings/type_casters/string.h"
 #include "fairseq2n/bindings/type_casters/torch.h"
 
 namespace fairseq2n {
@@ -36,9 +37,6 @@ def_memory(pybind11::module_ &base_module);
 
 void
 def_sentencepiece(pybind11::module_ &text_module);
-
-void
-def_string(pybind11::module_ &data_module);
 
 void
 def_text(pybind11::module_ &data_module);

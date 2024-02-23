@@ -31,8 +31,10 @@ class Wav2Vec2Masker(Module):
         model_dim: int,
         temporal_span_len: int = 10,
         max_temporal_mask_prob: float = 0.65,
+        min_num_temporal_mask_spans: int = 2,
         spatial_span_len: int = 10,
         max_spatial_mask_prob: float = 0.0,
+        min_num_spatial_mask_spans: int = 2,
         *,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
@@ -59,6 +61,7 @@ class Wav2Vec2Masker(Module):
 
         self.temporal_span_len = temporal_span_len
         self.max_temporal_mask_prob = max_temporal_mask_prob
+        self.min_num_temporal_mask_spans = min_num_temporal_mask_spans
 
         self.temporal_mask_embed = Parameter(
             torch.empty((model_dim,), device=device, dtype=dtype)
@@ -66,6 +69,7 @@ class Wav2Vec2Masker(Module):
 
         self.spatial_span_len = spatial_span_len
         self.max_spatial_mask_prob = max_spatial_mask_prob
+        self.min_num_spatial_mask_spans = min_num_spatial_mask_spans
 
         self.reset_parameters()
 
@@ -100,7 +104,7 @@ class Wav2Vec2Masker(Module):
             span_len=self.temporal_span_len,
             max_mask_prob=self.max_temporal_mask_prob,
             row_lens=padding_mask.seq_lens if padding_mask is not None else None,
-            min_num_spans=2,
+            min_num_spans=self.min_num_temporal_mask_spans,
             device=seqs.device,
         )
 
@@ -115,7 +119,7 @@ class Wav2Vec2Masker(Module):
                 shape=(batch_size, model_dim),
                 span_len=self.spatial_span_len,
                 max_mask_prob=self.max_spatial_mask_prob,
-                min_num_spans=2,
+                min_num_spans=self.min_num_spatial_mask_spans,
                 device=seqs.device,
             )
 

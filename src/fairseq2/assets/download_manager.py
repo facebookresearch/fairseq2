@@ -56,7 +56,7 @@ class AssetDownloadManager(ABC):
             If ``True``, displays a progress bar to stderr.
 
         :returns:
-            The pathname of the downloaded checkpoint.
+            The path to the downloaded checkpoint.
         """
 
     @abstractmethod
@@ -86,7 +86,7 @@ class AssetDownloadManager(ABC):
             If ``True``, displays a progress bar to stderr.
 
         :returns:
-            The pathname of the downloaded tokenizer.
+            The path to the downloaded tokenizer.
         """
 
     @abstractmethod
@@ -113,7 +113,7 @@ class AssetDownloadManager(ABC):
             If ``True``, displays a progress bar to stderr.
 
         :returns:
-            The pathname of the downloaded dataset.
+            The path to the downloaded dataset.
         """
 
 
@@ -310,7 +310,7 @@ class _AssetDownloadOp:
 
     def _try_uri_as_path(self) -> Optional[Path]:
         if self.uri.startswith("file://"):
-            return Path(self.uri[7:])
+            return Path(unquote(self.uri[7:]))
 
         return None
 
@@ -485,6 +485,8 @@ class _AssetDownloadOp:
 
             try:
                 filename = Path(urlparse(response.geturl()).path).name
+
+                filename = unquote(filename)
             except ValueError:
                 filename = "asset"
 
@@ -655,4 +657,4 @@ class AssetDownloadError(AssetError):
     """Raised when an asset download operation fails."""
 
 
-download_manager = InProcAssetDownloadManager()
+default_download_manager = InProcAssetDownloadManager()

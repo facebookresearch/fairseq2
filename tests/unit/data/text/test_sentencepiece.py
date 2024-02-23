@@ -11,7 +11,6 @@ from typing import ClassVar, Final, List, Optional, Sequence
 import pytest
 import torch
 
-from fairseq2.data import CString
 from fairseq2.data.text import (
     SentencePieceDecoder,
     SentencePieceEncoder,
@@ -58,7 +57,7 @@ class TestSentencePieceModel:
 
     def test_init_raises_error_when_model_file_is_not_found(self) -> None:
         with pytest.raises(RuntimeError, match="No such file or"):
-            SentencePieceModel("<non-existent-file>")
+            SentencePieceModel(Path("<non-existent-file>"))
 
     def test_index_to_token_raises_error_when_input_is_out_of_range(self) -> None:
         model = self.build_model()
@@ -83,7 +82,7 @@ class TestSentencePieceModel:
         text = decoder(indices)
 
         # Assert decoder
-        assert isinstance(text, CString)
+        assert isinstance(text, str)
 
         assert text == self.text
 
@@ -101,7 +100,7 @@ class TestSentencePieceModel:
         text = decoder(indices)
 
         # Assert decoder.
-        assert isinstance(text, CString)
+        assert isinstance(text, str)
 
         assert text == self.text
 
@@ -127,7 +126,7 @@ class TestSentencePieceModel:
         text = decoder(indices)
 
         # Assert decoder.
-        assert isinstance(text, CString)
+        assert isinstance(text, str)
 
         assert text == self.text
 
@@ -171,9 +170,7 @@ class TestSentencePieceModel:
 
         tokens = encoder.encode_as_tokens("Hello world!")
 
-        t = [str(t) for t in tokens]
-
-        assert t == ["<s>", "▁He", "l", "lo", "▁w", "or", "ld", "!", "</s>"]
+        assert tokens == ["<s>", "▁He", "l", "lo", "▁w", "or", "ld", "!", "</s>"]
 
     def test_encode_as_tokens_works_when_reverse_is_true(self) -> None:
         model = self.build_model()
@@ -184,9 +181,7 @@ class TestSentencePieceModel:
 
         tokens = encoder.encode_as_tokens("Hello world!")
 
-        t = [str(t) for t in tokens]
-
-        assert t == ["</s>", "!", "ld", "or", "▁w", "lo", "l", "▁He", "<s>"]
+        assert tokens == ["</s>", "!", "ld", "or", "▁w", "lo", "l", "▁He", "<s>"]
 
     def test_decode_from_tokens_works(self) -> None:
         model = self.build_model()
@@ -209,58 +204,6 @@ class TestSentencePieceModel:
         )
 
         assert text == "Hello world!"
-
-    def test_encode_raises_error_when_input_is_not_string(self) -> None:
-        model = self.build_model()
-
-        encoder = SentencePieceEncoder(model)
-
-        with pytest.raises(
-            ValueError,
-            match=r"^The input data must be of type `string`, but is of type `int` instead\.$",
-        ):
-            encoder(123)  # type: ignore[arg-type]
-
-    def test_encode_as_tokens_raises_error_when_input_is_not_string(self) -> None:
-        model = self.build_model()
-
-        encoder = SentencePieceEncoder(model)
-
-        with pytest.raises(
-            ValueError,
-            match=r"^The input data must be of type `string`, but is of type `int` instead\.$",
-        ):
-            encoder.encode_as_tokens(123)  # type: ignore[arg-type]
-
-    def test_decode_raises_error_when_input_is_not_tensor(self) -> None:
-        model = self.build_model()
-
-        decoder = SentencePieceDecoder(model)
-
-        with pytest.raises(
-            ValueError,
-            match=r"^The input data must be of type `torch.Tensor`, but is of type `int` instead\.$",
-        ):
-            decoder(123)  # type: ignore[arg-type]
-
-    def test_decode_from_tokens_raises_error_when_input_is_not_list_of_strings(
-        self,
-    ) -> None:
-        model = self.build_model()
-
-        decoder = SentencePieceDecoder(model)
-
-        with pytest.raises(
-            ValueError,
-            match=r"^The input data must be of type `list`, but is of type `int` instead\.$",
-        ):
-            decoder.decode_from_tokens(123)  # type: ignore[arg-type]
-
-        with pytest.raises(
-            ValueError,
-            match=r"^The element at index 1 in the input data must be of type `string`, but is of type `int` instead\.$",
-        ):
-            decoder.decode_from_tokens(["a", 3])  # type: ignore[list-item]
 
     @pytest.mark.parametrize("shape", [(), (4, 4, 4)])
     def test_decode_raises_error_when_input_has_more_than_1_dimension(

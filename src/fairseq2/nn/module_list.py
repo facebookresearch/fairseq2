@@ -8,13 +8,13 @@ from typing import Iterable, Iterator, Optional, final
 
 import torch
 from torch.nn import Module
-from torch.nn import ModuleList as ModuleListBase
+from torch.nn import ModuleList as TorchModuleList
 
 from fairseq2.typing import CPU
 
 
 @final
-class ModuleList(ModuleListBase):
+class ModuleList(TorchModuleList):
     """Holds submodules in a list.
 
     This class extends :class:`torch.nn.ModuleList` with an extra feature that

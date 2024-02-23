@@ -11,7 +11,6 @@
 #include <fairseq2n/data/text/string_to_tensor_converter.h>
 
 #include "fairseq2n/bindings/type_casters/data.h"
-#include "fairseq2n/bindings/type_casters/string.h"
 
 namespace py = pybind11;
 

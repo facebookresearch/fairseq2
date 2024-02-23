@@ -7,4 +7,4 @@
 from fairseq2.optim.adamw import AdamW as AdamW
 from fairseq2.optim.dynamic_loss_scaler import DynamicLossScaler as DynamicLossScaler
 from fairseq2.optim.dynamic_loss_scaler import LossScaleResult as LossScaleResult
-from fairseq2.optim.optimizer_base import OptimizerBase as OptimizerBase
+from fairseq2.optim.optimizer import Fairseq2Optimizer as Fairseq2Optimizer

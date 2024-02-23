@@ -17,6 +17,7 @@ from torch import Tensor
 from torch.distributed import ProcessGroup, ReduceOp
 
 from fairseq2.typing import CPU, Device, finaloverride
+from fairseq2.utils.version import _is_pt22_or_greater
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +90,18 @@ class Gang(ABC):
 class FakeGang(Gang):
     """Represents a non-distributed gang for local use."""
 
-    def __init__(self, device: Device) -> None:
+    def __init__(self, device: Optional[Device] = None) -> None:
+        """
+        :param device:
+            If ``None``; if CUDA is available, the process will use the first
+            CUDA device; otherwise, it will use the CPU.
+        """
+        if device is None:
+            if torch.cuda.is_available() and torch.cuda.device_count() > 0:
+                device = Device("cuda", index=0)
+            else:
+                device = CPU
+
         super().__init__(rank=0, size=1, device=device)
 
     @finaloverride
@@ -138,7 +150,7 @@ class ProcessGroupGang(Gang):
         :param device:
             If ``None``; if CUDA is available, the process group will be
             initialized on an automatically selected CUDA device; otherwise,
-            it will be initialized on CPU.
+            it will be initialized on the CPU.
         :param timeout:
             The timeout for operations executed against the process group.
         :param num_threads:
@@ -182,17 +194,30 @@ class ProcessGroupGang(Gang):
         elif device.type == "cuda":
             backend = "nccl"
         else:
-            raise RuntimeError(
-                f"Only CPU and CUDA devices are supported, but `device` is a {device.type.upper()} device."
+            raise ValueError(
+                f"`device` must be of type 'cpu' and 'cuda', but is of type '{device.type}' instead."
             )
 
-        if device.type == "cuda" and "NCCL_ASYNC_ERROR_HANDLING" not in os.environ:
-            if warn_only:
-                logger.warning("The default process group will use the NCCL backend, but the `NCCL_ASYNC_ERROR_HANDLING` environment variable is not set. Your collective communication calls can hang indefinitely. Learn more at https://github.com/pytorch/pytorch/issues/46874.")  # fmt: skip
-            else:
-                raise RuntimeError(
-                    "The default process group will use the NCCL backend, but the `NCCL_ASYNC_ERROR_HANDLING` environment variable is not set. Learn more at https://github.com/pytorch/pytorch/issues/46874."
-                )
+        if device.type == "cuda":
+
+            def check_async_handling() -> None:
+                env_name = "NCCL_ASYNC_ERROR_HANDLING"
+                if env_name in os.environ:
+                    return
+
+                if _is_pt22_or_greater():
+                    env_name = "TORCH_NCCL_ASYNC_ERROR_HANDLING"
+                    if env_name in os.environ:
+                        return
+
+                if warn_only:
+                    logger.warning("The default process group uses the NCCL backend, but the `%s` environment variable is not set. Your collective communication calls can hang indefinitely. Learn more at https://github.com/pytorch/pytorch/issues/46874.", env_name)  # fmt: skip
+                else:
+                    raise RuntimeError(
+                        f"The default process group uses the NCCL backend, but the `{env_name}` environment variable is not set. Learn more at https://github.com/pytorch/pytorch/issues/46874."
+                    )
+
+            check_async_handling()
 
         if timeout is None:
             timeout = timedelta(minutes=15)
@@ -313,6 +338,8 @@ def _determine_default_cuda_device() -> Device:
             device = None
         else:
             device = Device("cuda", index=0)
+    else:
+        device = None
 
     if device is None:
         num_devices = torch.cuda.device_count()
@@ -378,6 +405,11 @@ def _get_int_from_env(var_name: str) -> Optional[int]:
         raise RuntimeError(
             f"The value of the `{var_name}` environment variable must be an integer, but is '{value}' instead."
         )
+
+
+def get_world_size() -> int:
+    """Return the world size of the running job."""
+    return _get_int_from_env("WORLD_SIZE") or 1
 
 
 def get_global_rank() -> int:

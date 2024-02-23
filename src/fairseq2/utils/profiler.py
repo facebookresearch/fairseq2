@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 import os
 from logging import Logger
+from pathlib import Path
 from time import perf_counter
 from typing import Any, Optional
 
@@ -22,7 +23,6 @@ from torch.profiler import (
 )
 from typing_extensions import Self
 
-from fairseq2.data.typing import PathLike
 from fairseq2.gang import Gang
 from fairseq2.typing import Device
 
@@ -36,7 +36,7 @@ class Profiler:
         self,
         skip_first: int,
         active: int,
-        log_dir: PathLike,
+        log_dir: Path,
         gang: Gang,
         enabled: bool = False,
     ) -> None:
@@ -204,18 +204,14 @@ def log_hardware_info(logger: Logger, device: Optional[Device] = None) -> None:
     info = []
 
     info.append(f"Number of CPUs: {len(affinity_mask)}/{os.cpu_count() or '-'}")
-
     info.append(f"Memory: {memory.total // (1024 * 1024 * 1024):,}GiB")
 
     if device is not None and device.type == "cuda":
         props = torch.cuda.get_device_properties(device)
 
         info.append(f"Device Name: {props.name}")
-
         info.append(f"Device Memory: {props.total_memory // (1024 * 1024):,}MiB")
-
         info.append(f"Number of SMs: {props.multi_processor_count}")
-
         info.append(f"Compute Capability: {props.major}.{props.minor}")
 
     s = " | ".join(info)

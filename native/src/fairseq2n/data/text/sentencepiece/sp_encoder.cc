@@ -87,12 +87,18 @@ sp_encoder::operator()(data &&d) const
         throw_<std::invalid_argument>(
             "The input data must be of type `string`, but is of type `{}` instead.", d.type());
 
+    return encode(d.as_string());
+}
+
+at::Tensor
+sp_encoder::encode(std::string_view text) const
+{
     ImmutableSentencePieceText spt{};
 
     if (opts_.enable_sampling())
-        spt = model_->processor_->sample(d.as_string(), opts_.nbest_size(), opts_.alpha());
+        spt = model_->processor_->sample(text, opts_.nbest_size(), opts_.alpha());
     else
-        spt = model_->processor_->encode(d.as_string());
+        spt = model_->processor_->encode(text);
 
     const std::vector<std::string> &prefix_tokens = opts_.prefix_tokens();
     const std::vector<std::string> &suffix_tokens = opts_.suffix_tokens();
@@ -137,21 +143,17 @@ sp_encoder::operator()(data &&d) const
     return tensor;
 }
 
-data
-sp_encoder::encode_as_tokens(data &&d) const
+std::vector<std::string>
+sp_encoder::encode_as_tokens(std::string_view text) const
 {
-    if (!d.is_string())
-        throw_<std::invalid_argument>(
-            "The input data must be of type `string`, but is of type `{}` instead.", d.type());
-
     ImmutableSentencePieceText spt{};
 
     if (opts_.enable_sampling())
-        spt = model_->processor_->sample(d.as_string(), opts_.nbest_size(), opts_.alpha());
+        spt = model_->processor_->sample(text, opts_.nbest_size(), opts_.alpha());
     else
-        spt = model_->processor_->encode(d.as_string());
+        spt = model_->processor_->encode(text);
 
-    std::vector<data> tokens{};
+    std::vector<std::string> tokens{};
 
     const std::vector<std::string> &prefix_tokens = opts_.prefix_tokens();
     const std::vector<std::string> &suffix_tokens = opts_.suffix_tokens();
