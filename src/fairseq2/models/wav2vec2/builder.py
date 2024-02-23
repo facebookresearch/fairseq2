@@ -410,7 +410,7 @@ class Wav2Vec2Config:
     max_temporal_mask_prob: float
     """The maximum probability of masking a time step. Note that, due to mask
     span overlap, the effective probability might be smaller."""
-    
+
     min_num_temporal_mask_spans: int
     """The minimum number of mask sampled per sequence."""
 
