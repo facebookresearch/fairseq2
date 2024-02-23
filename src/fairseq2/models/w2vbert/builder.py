@@ -152,7 +152,6 @@ def _300m() -> W2VBertConfig:
         spatial_mask_span_len=10,
         max_spatial_mask_prob=0.0,
         min_num_spatial_mask_spans=2,
-        min_num_spans=2,
         quantized_dim=1024,
         num_codebooks=1,
         num_codebook_entries=1024,

@@ -62,7 +62,6 @@ class Wav2Vec2Masker(Module):
         self.temporal_span_len = temporal_span_len
         self.max_temporal_mask_prob = max_temporal_mask_prob
         self.min_num_temporal_mask_spans = min_num_temporal_mask_spans
-        self.min_num_spatial_mask_spans = min_num_spatial_mask_spans
 
         self.temporal_mask_embed = Parameter(
             torch.empty((model_dim,), device=device, dtype=dtype)
@@ -70,6 +69,7 @@ class Wav2Vec2Masker(Module):
 
         self.spatial_span_len = spatial_span_len
         self.max_spatial_mask_prob = max_spatial_mask_prob
+        self.min_num_spatial_mask_spans = min_num_spatial_mask_spans
 
         self.reset_parameters()
 

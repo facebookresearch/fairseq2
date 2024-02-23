@@ -412,7 +412,7 @@ class Wav2Vec2Config:
     span overlap, the effective probability might be smaller."""
 
     min_num_temporal_mask_spans: int
-    """The minimum number of mask sampled per sequence."""
+    """The minimum number of temporal mask sampled per sequence."""
 
     spatial_mask_span_len: int
     """The length of each spatial mask span that is applied over features."""
@@ -422,7 +422,7 @@ class Wav2Vec2Config:
     overlap, the effective probability might be smaller."""
 
     min_num_spatial_mask_spans: int
-    """The minimum number of mask sampled per sequence."""
+    """The minimum number of spatial mask sampled per sequence."""
 
     # Quantization
     quantized_dim: int
