@@ -60,7 +60,11 @@ def setup_logging(
     datefmt = "%Y-%m-%d %H:%M:%S"
 
     logging.basicConfig(
-        level=DEBUG if debug else INFO, handlers=handlers, format=fmt, datefmt=datefmt, force=force
+        level=DEBUG if debug else INFO,
+        handlers=handlers,
+        format=fmt,
+        datefmt=datefmt,
+        force=force,
     )
 
     if utc_time:
