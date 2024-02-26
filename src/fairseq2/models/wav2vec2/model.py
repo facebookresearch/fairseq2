@@ -368,7 +368,7 @@ class Wav2Vec2Output:
     quantizer_output: VectorQuantizerOutput
     """The output of the vector quantizer."""
 
-    encoder_output: Tensor | None = None
+    encoder_output: Tensor
     """The encoder output. *Shape:* :math:`(N,S_{enc},M)`, where :math:`N`
     is the batch size, :math:`S_{enc}` is the encoder output sequence
     length, and :math:`M` is the dimensionality of the model."""
