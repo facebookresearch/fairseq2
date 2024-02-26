@@ -114,6 +114,11 @@ class Wav2Vec2Model(Module):
         self.diversity_loss_weight = diversity_loss_weight
 
     def extract_features(self, batch: SequenceBatch) -> Wav2Vec2Features:
+        """
+        :param batch:
+            The batch of sequences to process.
+        Extract features from the input sequences.
+        """
         seqs, padding_mask, targets, temporal_mask = self.run_frontend(
             batch.seqs, batch.padding_mask
         )
@@ -125,9 +130,7 @@ class Wav2Vec2Model(Module):
             encoder_output=encoder_output, targets=targets, temporal_mask=temporal_mask
         )
 
-    def forward(
-        self, batch: SequenceBatch, return_features: bool = False
-    ) -> Wav2Vec2Output:
+    def forward(self, batch: SequenceBatch) -> Wav2Vec2Output:
         """
         :param batch:
             The batch of sequences to process.
@@ -138,7 +141,7 @@ class Wav2Vec2Model(Module):
             feats.encoder_output,
             feats.targets,
             feats.temporal_mask,
-            return_features,
+
         )
 
     def run_frontend(
@@ -196,7 +199,6 @@ class Wav2Vec2Model(Module):
         encoder_output: Tensor,
         targets: Tensor,
         temporal_mask: Tensor,
-        return_features: bool = False,
     ) -> "Wav2Vec2Output":
         """Quantize targets and produce logits for contrastive prediction.
 
@@ -232,8 +234,8 @@ class Wav2Vec2Model(Module):
             quantizer_output,
             self.diversity_loss_weight,
         )
-        if return_features:
-            out.encoder_output = encoder_output
+
+        out.encoder_output = encoder_output
 
         return out
 
@@ -323,19 +325,19 @@ class Wav2Vec2Features:
 
     encoder_output: Tensor
     """The encoder output. *Shape:* :math:`(N,S_{enc},M)`, where :math:`N`
-            is the batch size, :math:`S_{enc}` is the encoder output sequence
-            length, and :math:`M` is the dimensionality of the model."""
+    is the batch size, :math:`S_{enc}` is the encoder output sequence
+    length, and :math:`M` is the dimensionality of the model."""
 
     targets: Tensor
     """The non-quantized context network targets that have been extracted
-            from the input sequences. *Shape:* :math:`(N,S_{msk},M)`, where
-            :math:`N` is the batch size, :math:`S_{msk}` is the masked sequence
-            length, and :math:`M` is the dimensionality of the model."""
+    from the input sequences. *Shape:* :math:`(N,S_{msk},M)`, where
+    :math:`N` is the batch size, :math:`S_{msk}` is the masked sequence
+    length, and :math:`M` is the dimensionality of the model."""
 
     temporal_mask: Tensor
     """The temporal mask that has been used to extract the context network
-            targets. *Shape:* :math:`(N,S_{enc})`, where :math:`N` is the batch
-            size and :math`S_{enc}` is the encoder output sequence length."""
+    targets. *Shape:* :math:`(N,S_{enc})`, where :math:`N` is the batch
+    size and :math`S_{enc}` is the encoder output sequence length."""
 
 
 @dataclass
@@ -362,13 +364,13 @@ class Wav2Vec2Output:
     quantizer_output: VectorQuantizerOutput
     """The output of the vector quantizer."""
 
-    diversity_loss_weight: float
-    """The weight of diversity in loss computation."""
-
     encoder_output: Tensor | None = None
     """The encoder output. *Shape:* :math:`(N,S_{enc},M)`, where :math:`N`
-        is the batch size, :math:`S_{enc}` is the encoder output sequence
-        length, and :math:`M` is the dimensionality of the model."""
+    is the batch size, :math:`S_{enc}` is the encoder output sequence
+    length, and :math:`M` is the dimensionality of the model."""
+
+    diversity_loss_weight: float
+    """The weight of diversity in loss computation."""
 
     def compute_loss(self) -> Wav2Vec2Loss:
         """Compute the loss."""
