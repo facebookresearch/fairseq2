@@ -236,10 +236,9 @@ class Wav2Vec2Model(Module):
             targets,
             temporal_mask,
             quantizer_output,
+            encoder_output,
             self.diversity_loss_weight,
         )
-
-        out.encoder_output = encoder_output
 
         return out
 
