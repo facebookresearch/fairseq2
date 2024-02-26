@@ -114,10 +114,14 @@ class Wav2Vec2Model(Module):
         self.diversity_loss_weight = diversity_loss_weight
 
     def extract_features(self, batch: SequenceBatch) -> Wav2Vec2Features:
-        """
+        """Extract features from the input sequences.
         :param batch:
             The batch of sequences to process.
-        Extract features from the input sequences.
+
+        :returns:
+            - A `Wav2Vec2Features` object, consisting of the encoder output, targets
+            for the contrastive loss, and the temporal mask which was applied. See
+            documentation of `Wav2Vec2Features` for more information.
         """
         seqs, padding_mask, targets, temporal_mask = self.run_frontend(
             batch.seqs, batch.padding_mask
