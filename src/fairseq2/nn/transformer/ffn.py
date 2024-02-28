@@ -17,7 +17,7 @@ from fairseq2.nn.transformer.layer_norm import (
     create_standard_layer_norm,
 )
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
-from fairseq2.typing import DataType, Device, finaloverride
+from fairseq2.typing import DataType, Device, override
 
 
 class FeedForwardNetwork(Module, ABC):
@@ -121,7 +121,7 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
             inner_dim, model_dim, bias, device=device, dtype=dtype
         )
 
-    @finaloverride
+    @override
     def forward(self, seqs: Tensor) -> Tensor:
         seqs = self.inner_proj(seqs)
 
@@ -215,7 +215,7 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
             inner_dim, model_dim, bias, device=device, dtype=dtype
         )
 
-    @finaloverride
+    @override
     def forward(self, seqs: Tensor) -> Tensor:
         gate = self.gate_proj(seqs)
 

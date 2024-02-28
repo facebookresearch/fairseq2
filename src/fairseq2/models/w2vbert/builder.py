@@ -179,10 +179,10 @@ class W2VBertBuilder:
     corresponding methods.
     """
 
-    config: W2VBertConfig
-    w2v2_builder: Wav2Vec2Builder
-    device: Optional[Device]
-    dtype: Optional[DataType]
+    _config: W2VBertConfig
+    _w2v2_builder: Wav2Vec2Builder
+    _device: Optional[Device]
+    _dtype: Optional[DataType]
 
     def __init__(
         self,
@@ -202,40 +202,40 @@ class W2VBertBuilder:
         :param dtype:
             The data type of module parameters and buffers.
         """
-        encoder_builder = w2v2_builder.encoder_builder
+        encoder_config = config.w2v2_config.encoder_config
 
-        if encoder_builder.config.layer_drop_p != 0.0:
+        if encoder_config.layer_drop_p != 0.0:
             raise ValueError("w2v-BERT does not support LayerDrop.")
 
-        if config.num_bert_encoder_layers >= encoder_builder.config.num_encoder_layers:
+        if config.num_bert_encoder_layers >= encoder_config.num_encoder_layers:
             raise ValueError(
-                f"`config.num_bert_encoder_layers` must be less than the number of Transformer encoder layers ({encoder_builder.config.num_encoder_layers}), but is {config.num_bert_encoder_layers} instead."
+                f"`config.num_bert_encoder_layers` must be less than `config.w2v2_config.encoder_config.num_encoder_layers` ({encoder_config.num_encoder_layers}), but is {config.num_bert_encoder_layers} instead."
             )
 
-        if config.num_target_codebooks > w2v2_builder.config.num_codebooks:
+        if config.num_target_codebooks > config.w2v2_config.num_codebooks:
             raise ValueError(
-                f"`config.num_target_codebooks` must be less than the number of codebooks ({w2v2_builder.config.num_codebooks}), but is {config.num_target_codebooks} instead."
+                f"`config.num_target_codebooks` must be less than the number of codebooks ({config.w2v2_config.num_codebooks}), but is {config.num_target_codebooks} instead."
             )
 
-        self.config = config
+        self._config = config
 
-        self.w2v2_builder = w2v2_builder
+        self._w2v2_builder = w2v2_builder
 
-        self.device, self.dtype = device, dtype
+        self._device, self._dtype = device, dtype
 
     def build_model(self) -> W2VBertModel:
         """Build a model."""
-        w2v2_model = self.w2v2_builder.build_model()
+        w2v2_model = self._w2v2_builder.build_model()
 
         return W2VBertModel(
             w2v2_model,
-            self.config.num_bert_encoder_layers,
-            num_target_codebooks=self.config.num_target_codebooks,
-            w2v2_loss_weight=self.config.w2v2_loss_weight,
-            bert_loss_weight=self.config.bert_loss_weight,
-            bert_label_smoothing=self.config.bert_label_smoothing,
-            device=self.device,
-            dtype=self.dtype,
+            self._config.num_bert_encoder_layers,
+            num_target_codebooks=self._config.num_target_codebooks,
+            w2v2_loss_weight=self._config.w2v2_loss_weight,
+            bert_loss_weight=self._config.bert_loss_weight,
+            bert_label_smoothing=self._config.bert_label_smoothing,
+            device=self._device,
+            dtype=self._dtype,
         )
 
 

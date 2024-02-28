@@ -23,7 +23,7 @@ from fairseq2.nn.transformer.layer_norm import (
 )
 from fairseq2.nn.transformer.multihead_attention import MultiheadAttention
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
-from fairseq2.typing import DataType, Device, finaloverride
+from fairseq2.typing import DataType, Device, override
 
 
 class TransformerEncoderLayer(Module, ABC):
@@ -176,7 +176,7 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
         if self.residual_scale is not None:
             nn.init.ones_(self.residual_scale)
 
-    @finaloverride
+    @override
     def forward(
         self,
         seqs: Tensor,

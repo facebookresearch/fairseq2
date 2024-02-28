@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Optional, final
 
 import torch
 from torch import Tensor
@@ -42,7 +42,8 @@ class SequenceModel(Module, ABC):
         """
 
 
-@dataclass
+@final
+@dataclass(frozen=True)
 class SequenceBatch:
     """Represents a sequence batch."""
 
@@ -71,6 +72,7 @@ class SequenceBatch:
         return self.padding_mask.seq_lens.sum()
 
 
+@final
 @dataclass
 class SequenceModelOutput:
     """Holds the output of a sequence model."""

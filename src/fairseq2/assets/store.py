@@ -18,7 +18,7 @@ from fairseq2.assets.metadata_provider import (
     FileAssetMetadataProvider,
 )
 from fairseq2.assets.utils import _get_path_from_env
-from fairseq2.typing import finaloverride
+from fairseq2.typing import override
 
 
 class AssetStore(ABC):
@@ -34,8 +34,8 @@ class AssetStore(ABC):
 
 
 @final
-class ProviderBackedAssetStore(AssetStore):
-    """Represents a store of assets backed by metadata providers."""
+class StandardAssetStore(AssetStore):
+    """Represents a store of assets."""
 
     env_resolvers: List[EnvironmentResolver]
     metadata_providers: List[AssetMetadataProvider]
@@ -50,7 +50,7 @@ class ProviderBackedAssetStore(AssetStore):
         self.metadata_providers = [metadata_provider]
         self.user_metadata_providers = []
 
-    @finaloverride
+    @override
     def retrieve_card(self, name: str) -> AssetCard:
         if "@" in name:
             raise ValueError("`name` must not contain the reserved '@' character.")
@@ -146,12 +146,12 @@ class EnvironmentResolver(Protocol):
         ...
 
 
-def _create_default_asset_store() -> ProviderBackedAssetStore:
+def _create_default_asset_store() -> StandardAssetStore:
     cards_dir = Path(__file__).parent.joinpath("cards")
 
     metadata_provider = FileAssetMetadataProvider(cards_dir)
 
-    return ProviderBackedAssetStore(metadata_provider)
+    return StandardAssetStore(metadata_provider)
 
 
 default_asset_store = _create_default_asset_store()

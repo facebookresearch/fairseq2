@@ -202,10 +202,10 @@ class LLaMABuilder:
     corresponding methods.
     """
 
-    config: LLaMAConfig
-    pos_encoder: Optional[RotaryEncoder]
-    device: Optional[Device]
-    dtype: Optional[DataType]
+    _config: LLaMAConfig
+    _device: Optional[Device]
+    _dtype: Optional[DataType]
+    _pos_encoder: Optional[RotaryEncoder]
 
     def __init__(
         self,
@@ -222,11 +222,11 @@ class LLaMABuilder:
         :param dtype:
             The data type of module parameters and buffers.
         """
-        self.config = config
+        self._config = config
 
-        self.pos_encoder = None
+        self._device, self._dtype = device, dtype
 
-        self.device, self.dtype = device, dtype
+        self._pos_encoder = None
 
     def build_model(self) -> TransformerDecoderModel:
         """Build a model."""
@@ -235,39 +235,39 @@ class LLaMABuilder:
         decoder = self.build_decoder()
 
         final_proj = Linear(
-            self.config.model_dim,
-            self.config.vocab_info.size,
+            self._config.model_dim,
+            self._config.vocab_info.size,
             bias=False,
             init_fn=init_final_projection,
-            device=self.device,
-            dtype=self.dtype,
+            device=self._device,
+            dtype=self._dtype,
         )
 
         return TransformerDecoderModel(
-            frontend, decoder, final_proj, self.config.vocab_info
+            frontend, decoder, final_proj, self._config.vocab_info
         )
 
     def build_frontend(self) -> TransformerFrontend:
         """Build a Transformer decoder front-end."""
         embed = StandardEmbedding(
-            num_embeddings=self.config.vocab_info.size,
-            embedding_dim=self.config.model_dim,
-            device=self.device,
-            dtype=self.dtype,
+            num_embeddings=self._config.vocab_info.size,
+            embedding_dim=self._config.model_dim,
+            device=self._device,
+            dtype=self._dtype,
         )
 
         return TransformerEmbeddingFrontend(
             embed,
             pos_encoder=None,
             no_scale=True,  # LLaMA does not use embedding scaling.
-            dropout_p=self.config.dropout_p,
-            device=self.device,
-            dtype=self.dtype,
+            dropout_p=self._config.dropout_p,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_decoder(self) -> TransformerDecoder:
         """Build a Transformer decoder."""
-        num_layers = self.config.num_layers
+        num_layers = self._config.num_layers
 
         layers = [self.build_decoder_layer() for _ in range(num_layers)]
 
@@ -275,14 +275,14 @@ class LLaMABuilder:
             layers,
             norm_order=TransformerNormOrder.PRE,
             layer_norm_factory=self.build_layer_norm,
-            device=self.device,
-            dtype=self.dtype,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_decoder_layer(self) -> TransformerDecoderLayer:
         """Build a Transformer decoder layer."""
         self_attn = self.build_attention(
-            self.config.num_attn_heads, self.config.num_key_value_heads
+            self._config.num_attn_heads, self._config.num_key_value_heads
         )
 
         ffn = self.build_ffn()
@@ -291,46 +291,46 @@ class LLaMABuilder:
             self_attn,
             encoder_decoder_attn=None,
             ffn=ffn,
-            dropout_p=self.config.dropout_p,
+            dropout_p=self._config.dropout_p,
             norm_order=TransformerNormOrder.PRE,
             layer_norm_factory=self.build_layer_norm,
-            device=self.device,
-            dtype=self.dtype,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_attention(
         self, num_heads: int, num_key_value_heads: int
     ) -> MultiheadAttention:
         """Build a Transformer multi-head attention layer."""
-        sdpa = create_default_sdpa(attn_dropout_p=self.config.dropout_p)
+        sdpa = create_default_sdpa(attn_dropout_p=self._config.dropout_p)
 
-        if self.pos_encoder is None:
-            self.pos_encoder = RotaryEncoder(
-                self.config.model_dim // num_heads,
-                self.config.max_seq_len,
-                device=self.device,
+        if self._pos_encoder is None:
+            self._pos_encoder = RotaryEncoder(
+                self._config.model_dim // num_heads,
+                self._config.max_seq_len,
+                device=self._device,
             )
 
         return StandardMultiheadAttention(
-            self.config.model_dim,
+            self._config.model_dim,
             num_heads,
             num_key_value_heads=num_key_value_heads,
             sdpa=sdpa,
-            pos_encoder=self.pos_encoder,
+            pos_encoder=self._pos_encoder,
             bias=False,
-            device=self.device,
-            dtype=self.dtype,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_ffn(self) -> FeedForwardNetwork:
         """Build a Transformer feed-forward network."""
         return GLUFeedForwardNetwork(
-            self.config.model_dim,
-            self.config.ffn_inner_dim,
+            self._config.model_dim,
+            self._config.ffn_inner_dim,
             bias=False,
-            inner_dim_to_multiple=self.config.ffn_inner_dim_to_multiple,
-            device=self.device,
-            dtype=self.dtype,
+            inner_dim_to_multiple=self._config.ffn_inner_dim_to_multiple,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_layer_norm(

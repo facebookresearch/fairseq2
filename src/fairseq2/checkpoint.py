@@ -24,7 +24,7 @@ from fairseq2.nn.utils.module import (
     reset_non_persistent_buffers,
     to_empty,
 )
-from fairseq2.typing import CPU, META, Device, finaloverride
+from fairseq2.typing import CPU, META, Device, override
 
 
 class CheckpointManager(ABC):
@@ -159,9 +159,10 @@ class CheckpointManager(ABC):
 class FileCheckpointManager(CheckpointManager):
     """Saves and loads training checkpoints on a file system."""
 
-    checkpoint_dir: Path
-    gang: Gang
-    distributed_fs: bool
+    _checkpoint_dir: Path
+    _gang: Gang
+    _distributed_fs: bool
+
     replicated_keys: Set[str]
 
     def __init__(
@@ -176,13 +177,13 @@ class FileCheckpointManager(CheckpointManager):
             If ``True``, the underlying file system of ``checkpoint_dir`` is
             considered distributed (e.g. NFS).
         """
-        self.gang = gang
-        self.distributed_fs = distributed_fs
+        self._gang = gang
+        self._distributed_fs = distributed_fs
 
         if distributed_fs:
-            self.checkpoint_dir = checkpoint_dir
+            self._checkpoint_dir = checkpoint_dir
         else:
-            self.checkpoint_dir = checkpoint_dir.joinpath(f"rank_{self.gang.rank}")
+            self._checkpoint_dir = checkpoint_dir.joinpath(f"rank_{self._gang.rank}")
 
         self.replicated_keys = set()
 
@@ -195,7 +196,7 @@ class FileCheckpointManager(CheckpointManager):
     def _save_full_replica(self) -> bool:
         return len(self.replicated_keys) == 1 and "*" in self.replicated_keys
 
-    @finaloverride
+    @override
     def save_checkpoint(
         self,
         step_nr: int,
@@ -205,9 +206,9 @@ class FileCheckpointManager(CheckpointManager):
     ) -> None:
         self.delete_checkpoint(step_nr, missing_ok=True)
 
-        tmp_step_dir = self.checkpoint_dir.joinpath(f"step_{step_nr}.tmp")
+        tmp_step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}.tmp")
 
-        if self.gang.rank == 0 or not self.distributed_fs:
+        if self._gang.rank == 0 or not self._distributed_fs:
             try:
                 tmp_step_dir.mkdir(parents=True)
             except OSError as ex:
@@ -215,12 +216,12 @@ class FileCheckpointManager(CheckpointManager):
                     f"The checkpoint of training step {step_nr} cannot be saved. See nested exception for details."
                 ) from ex
 
-        self.gang.barrier()
+        self._gang.barrier()
 
         # If the model is replicated, we always save it into its own file.
         if self._is_replicated_key("model"):
             if (state_dict := checkpoint.pop("model", None)) is not None:
-                if self.gang.rank == 0 or not self.distributed_fs:
+                if self._gang.rank == 0 or not self._distributed_fs:
                     model_file = tmp_step_dir.joinpath("model.pt")
 
                     try:
@@ -230,14 +231,14 @@ class FileCheckpointManager(CheckpointManager):
                             f"The checkpoint of training step {step_nr} cannot be saved. See nested exception for details."
                         ) from ex
 
-                self.gang.barrier()
+                self._gang.barrier()
 
         rank_part = checkpoint.copy()
 
         # For non-distributed file systems, we disregard the replicated keys and
         # force each process in the gang to save the full checkpoint.
-        if self.replicated_keys and self.distributed_fs:
-            if self.gang.rank == 0:
+        if self.replicated_keys and self._distributed_fs:
+            if self._gang.rank == 0:
                 replicated_part = {}
 
                 if self._save_full_replica():
@@ -268,7 +269,7 @@ class FileCheckpointManager(CheckpointManager):
                         except KeyError:
                             pass
 
-            self.gang.barrier()
+            self._gang.barrier()
 
             # Check if anything is left to save for the rank.
             skip_rank = not rank_part
@@ -276,7 +277,7 @@ class FileCheckpointManager(CheckpointManager):
             skip_rank = False
 
         if not skip_rank:
-            rank_file = tmp_step_dir.joinpath(f"rank_{self.gang.rank}.pt")
+            rank_file = tmp_step_dir.joinpath(f"rank_{self._gang.rank}.pt")
 
             try:
                 torch.save(rank_part, rank_file)
@@ -285,10 +286,10 @@ class FileCheckpointManager(CheckpointManager):
                     f"The checkpoint of training step {step_nr} cannot be saved. See nested exception for details."
                 ) from ex
 
-            self.gang.barrier()
+            self._gang.barrier()
 
         if metadata is not None:
-            if self.gang.rank == 0 or not self.distributed_fs:
+            if self._gang.rank == 0 or not self._distributed_fs:
                 metadata_file = tmp_step_dir.joinpath("metadata.pt")
 
                 try:
@@ -298,9 +299,9 @@ class FileCheckpointManager(CheckpointManager):
                         f"The checkpoint of training step {step_nr} cannot be saved. See nested exception for details."
                     ) from ex
 
-            self.gang.barrier()
+            self._gang.barrier()
 
-        if self.gang.rank == 0 or not self.distributed_fs:
+        if self._gang.rank == 0 or not self._distributed_fs:
             try:
                 tmp_step_dir.replace(tmp_step_dir.with_suffix(""))
             except OSError as ex:
@@ -308,18 +309,18 @@ class FileCheckpointManager(CheckpointManager):
                     f"The checkpoint of training step {step_nr} cannot be saved. See nested exception for details."
                 ) from ex
 
-        self.gang.barrier()
+        self._gang.barrier()
 
-    @finaloverride
+    @override
     def load_checkpoint(self, step_nr: int) -> Dict[str, Any]:
         parts = []
 
-        filenames = ["replicated.pt", f"rank_{self.gang.rank}.pt"]
+        filenames = ["replicated.pt", f"rank_{self._gang.rank}.pt"]
 
         if self._is_replicated_key("model"):
             filenames.append("model.pt")
 
-        step_dir = self.checkpoint_dir.joinpath(f"step_{step_nr}")
+        step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}")
 
         for filename in filenames:
             try:
@@ -336,7 +337,7 @@ class FileCheckpointManager(CheckpointManager):
             if part is not None:
                 parts.append(part)
 
-            self.gang.barrier()
+            self._gang.barrier()
 
         if not parts:
             raise CheckpointNotFoundError(f"Training step {step_nr} has no checkpoint.")
@@ -348,7 +349,7 @@ class FileCheckpointManager(CheckpointManager):
 
         return checkpoint
 
-    @finaloverride
+    @override
     def load_last_checkpoint(self) -> Tuple[int, Dict[str, Any]]:
         last_step_nr = self.get_last_step_number()
         if last_step_nr is None:
@@ -356,13 +357,13 @@ class FileCheckpointManager(CheckpointManager):
 
         # If we don't have a distributed file system, we have to ensure that we
         # have a consistent view of checkpoints across all processes.
-        if not self.distributed_fs:
+        if not self._distributed_fs:
             step_numbers = torch.empty(
-                (self.gang.size,), device=self.gang.device, dtype=torch.int64
+                (self._gang.size,), device=self._gang.device, dtype=torch.int64
             )
 
-            self.gang.all_gather(
-                step_numbers, torch.tensor(last_step_nr, device=self.gang.device)
+            self._gang.all_gather(
+                step_numbers, torch.tensor(last_step_nr, device=self._gang.device)
             )
 
             if not (step_numbers == last_step_nr).all():
@@ -376,9 +377,9 @@ class FileCheckpointManager(CheckpointManager):
 
         return last_step_nr, checkpoint
 
-    @finaloverride
+    @override
     def load_metadata(self, step_nr: int) -> Optional[Dict[str, Any]]:
-        metadata_file = self.checkpoint_dir.joinpath(f"step_{step_nr}/metadata.pt")
+        metadata_file = self._checkpoint_dir.joinpath(f"step_{step_nr}/metadata.pt")
 
         try:
             metadata = load_checkpoint(metadata_file, map_location=CPU, mmap=True)
@@ -389,14 +390,14 @@ class FileCheckpointManager(CheckpointManager):
                 f"The checkpoint metadata of training step {step_nr} cannot be loaded. See nested exception for details."
             ) from ex
 
-        self.gang.barrier()
+        self._gang.barrier()
 
         return metadata
 
-    @finaloverride
+    @override
     def delete_checkpoint(self, step_nr: int, *, missing_ok: bool = False) -> None:
-        if self.gang.rank == 0 or not self.distributed_fs:
-            step_dir = self.checkpoint_dir.joinpath(f"step_{step_nr}")
+        if self._gang.rank == 0 or not self._distributed_fs:
+            step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}")
 
             try:
                 rmtree(step_dir)
@@ -414,16 +415,16 @@ class FileCheckpointManager(CheckpointManager):
                         f"The checkpoint of training step {step_nr} cannot be deleted. See nested exception for details."
                     ) from ex
 
-        self.gang.barrier()
+        self._gang.barrier()
 
-    @finaloverride
+    @override
     def keep_last_n_checkpoints(self, n: int) -> None:
         step_numbers = self.get_step_numbers()
 
         for step_number in step_numbers[:-n]:
             self.delete_checkpoint(step_number)
 
-    @finaloverride
+    @override
     def save_consolidated_model(self, step_nr: int, model: Module) -> None:
         with FSDP.state_dict_type(
             model,
@@ -432,8 +433,8 @@ class FileCheckpointManager(CheckpointManager):
         ):
             state_dict = model.state_dict()
 
-        if self.gang.rank == 0:
-            tmp_model_file = self.checkpoint_dir.joinpath(f"step_{step_nr}/model.tmp")
+        if self._gang.rank == 0:
+            tmp_model_file = self._checkpoint_dir.joinpath(f"step_{step_nr}/model.tmp")
 
             try:
                 torch.save({"model": state_dict}, tmp_model_file)
@@ -449,13 +450,13 @@ class FileCheckpointManager(CheckpointManager):
                     f"The model of training step {step_nr} cannot be saved. See nested exception for details."
                 ) from ex
 
-        self.gang.barrier()
+        self._gang.barrier()
 
-    @finaloverride
+    @override
     def load_model(
         self, step_nr: int, out: Module, *, device: Optional[Device] = None
     ) -> None:
-        model_file = self.checkpoint_dir.joinpath(f"step_{step_nr}/model.pt")
+        model_file = self._checkpoint_dir.joinpath(f"step_{step_nr}/model.pt")
 
         try:
             checkpoint = load_checkpoint(model_file, map_location=CPU, restrict=True)
@@ -495,9 +496,9 @@ class FileCheckpointManager(CheckpointManager):
             # have to explicitly initialize them.
             reset_non_persistent_buffers(out)
 
-        self.gang.barrier()
+        self._gang.barrier()
 
-    @finaloverride
+    @override
     def load_last_model(self, out: Module, *, device: Optional[Device] = None) -> int:
         last_step_nr = self.get_last_step_number(with_model=True)
         if last_step_nr is None:
@@ -507,7 +508,7 @@ class FileCheckpointManager(CheckpointManager):
 
         return last_step_nr
 
-    @finaloverride
+    @override
     def has_checkpoint(
         self, step_nr: Optional[int] = None, *, with_model: bool = False
     ) -> bool:
@@ -518,7 +519,7 @@ class FileCheckpointManager(CheckpointManager):
 
         return step_nr in it
 
-    @finaloverride
+    @override
     def get_step_numbers(self, *, with_model: bool = False) -> List[int]:
         step_numbers = list(self._iter_step_numbers(with_model))
 
@@ -526,7 +527,7 @@ class FileCheckpointManager(CheckpointManager):
 
         return step_numbers
 
-    @finaloverride
+    @override
     def get_last_step_number(self, *, with_model: bool = False) -> Optional[int]:
         if step_numbers := self.get_step_numbers(with_model=with_model):
             return step_numbers[-1]
@@ -535,7 +536,7 @@ class FileCheckpointManager(CheckpointManager):
 
     def _iter_step_numbers(self, with_model: bool) -> Iterator[int]:
         try:
-            for step_dir in self.checkpoint_dir.glob("step_*"):
+            for step_dir in self._checkpoint_dir.glob("step_*"):
                 if not step_dir.is_dir():
                     continue
 
@@ -545,7 +546,7 @@ class FileCheckpointManager(CheckpointManager):
                     continue
 
                 if with_model:
-                    if self.distributed_fs:
+                    if self._distributed_fs:
                         # On NFS, `exists()` might return a stale answer for
                         # cached LOOKUP results.
                         self._clear_nfs_lookup_cache(step_dir)

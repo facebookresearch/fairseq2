@@ -22,11 +22,3 @@ from fairseq2.data.data_pipeline import list_files as list_files
 from fairseq2.data.data_pipeline import read_sequence as read_sequence
 from fairseq2.data.data_pipeline import read_zipped_records as read_zipped_records
 from fairseq2.data.vocabulary_info import VocabularyInfo as VocabularyInfo
-
-# For backwards-compatibility with v0.2
-# isort: off
-from fairseq2.data.cstring import CString as CString
-from fairseq2.data.typing import PathLike as PathLike
-from fairseq2.data.typing import StringLike as StringLike
-
-# isort: on

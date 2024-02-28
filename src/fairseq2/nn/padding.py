@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional, Sequence, Tuple, cast
+from typing import Any, Optional, Sequence, Tuple, cast, final
 
 import torch
 from torch import Tensor
@@ -15,13 +15,13 @@ from fairseq2.data import Collater, SequenceData
 from fairseq2.typing import Device
 
 
+@final
 class PaddingMask:
     """Represents a sequence padding mask."""
 
-    seq_lens: Tensor
-    batch_seq_len: int
-
-    materialized: Optional[Tensor]
+    _seq_lens: Tensor
+    _batch_seq_len: int
+    _materialized: Optional[Tensor]
 
     def __init__(self, seq_lens: Tensor, batch_seq_len: int) -> None:
         """
@@ -31,17 +31,17 @@ class PaddingMask:
         :param batch_seq_len:
             The sequence length of the mask.
         """
-        self.seq_lens = seq_lens
-        self.batch_seq_len = batch_seq_len
+        self._seq_lens = seq_lens
+        self._batch_seq_len = batch_seq_len
 
-        self.materialized = None
+        self._materialized = None
 
     def materialize(self) -> Tensor:
         """Materialize the boolean padding mask tensor."""
-        if self.materialized is None:
-            self.materialized = to_padding_mask(self.seq_lens, self.batch_seq_len)
+        if self._materialized is None:
+            self._materialized = to_padding_mask(self._seq_lens, self._batch_seq_len)
 
-        return self.materialized
+        return self._materialized
 
     def trim(self, size: int) -> "PaddingMask":
         """Return a new trimmed padding mask.
@@ -49,7 +49,7 @@ class PaddingMask:
         :param size:
             The amount by which to trim the sequences.
         """
-        return PaddingMask(self.seq_lens - size, self.batch_seq_len - size)
+        return PaddingMask(self._seq_lens - size, self._batch_seq_len - size)
 
     def to(self, device: Device) -> PaddingMask:
         """Perform device conversion.
@@ -57,10 +57,16 @@ class PaddingMask:
         :param device:
             The target device.
         """
-        if self.seq_lens.device == device:
+        if self._seq_lens.device == device:
             return self
 
-        return PaddingMask(self.seq_lens.to(device), self.batch_seq_len)
+        return PaddingMask(self._seq_lens.to(device), self._batch_seq_len)
+
+    @property
+    def seq_lens(self) -> Tensor:
+        """An array where each element represents the length of a sequence.
+        *Shape:* :math:`(N)`, where :math:`N` is the batch size."""
+        return self._seq_lens
 
 
 def to_padding_mask(seq_lens: Tensor, batch_seq_len: int) -> Tensor:

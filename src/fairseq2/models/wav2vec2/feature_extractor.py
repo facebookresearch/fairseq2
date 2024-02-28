@@ -16,7 +16,7 @@ from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.nn.normalization import LayerNorm
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.utils.grad import scale_grad
-from fairseq2.typing import DataType, Device, finaloverride, override
+from fairseq2.typing import DataType, Device, override
 
 
 @final
@@ -123,7 +123,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
 
         self.grad_scale = grad_scale
 
-    @finaloverride
+    @override
     def forward(
         self, seqs: Tensor, padding_mask: Optional[PaddingMask]
     ) -> Tuple[Tensor, Optional[PaddingMask]]:
@@ -172,6 +172,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
         return f"{s}, grad_scale={self.grad_scale}"
 
 
+@final
 class Wav2Vec2FeatureExtractionLayer(Module):
     """Represents a feature extraction layer used in
     :class:`Wav2Vec2FeatureExtractor`."""
@@ -247,6 +248,7 @@ class Wav2Vec2FeatureExtractionLayer(Module):
         return seqs
 
 
+@final
 class Wav2Vec2FeatureConv1d(Conv1d):
     """Represents the convolution used in
     :class:`Wav2Vec2FeatureExtractionLayer`."""
@@ -261,6 +263,7 @@ class Wav2Vec2FeatureConv1d(Conv1d):
 
 
 # TODO: Move this to data pre-processing! It isn't a real feature extractor.
+@final
 class Wav2Vec2FbankFeatureExtractor(SequenceFeatureExtractor):
     num_fbank_channels: int
     stride: int
@@ -275,7 +278,7 @@ class Wav2Vec2FbankFeatureExtractor(SequenceFeatureExtractor):
         self.stride = stride
         self.sample_every_k = sample_every_k
 
-    @finaloverride
+    @override
     def forward(
         self, seqs: Tensor, padding_mask: Optional[PaddingMask]
     ) -> Tuple[Tensor, Optional[PaddingMask]]:
@@ -338,6 +341,7 @@ class Wav2Vec2FbankFeatureExtractor(SequenceFeatureExtractor):
         )
 
 
+@final
 class Float32LayerNorm(LayerNorm):
     """Applies Layer Normalization in single-precision."""
 
@@ -354,6 +358,7 @@ class Float32LayerNorm(LayerNorm):
         return y.type_as(x)
 
 
+@final
 class Float32GroupNorm(GroupNorm):
     """Applies Group Normalization in single-precision."""
 

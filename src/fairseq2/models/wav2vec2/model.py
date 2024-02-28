@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Optional, Tuple, final
 
 import torch
 from torch import Tensor
@@ -28,6 +28,7 @@ from fairseq2.nn.transformer import TransformerEncoder
 from fairseq2.typing import DataType, Device
 
 
+@final
 class Wav2Vec2Model(Module):
     """Represents a wav2vec 2.0 model as described in
     :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`."""
@@ -296,6 +297,7 @@ class Wav2Vec2Model(Module):
         )
 
 
+@final
 @dataclass
 class Wav2Vec2Output:
     """Holds the output of a wav2vec 2.0 model."""
@@ -352,6 +354,7 @@ class Wav2Vec2Output:
         return self.quantizer_output.compute_loss() * batch_size * seq_len
 
 
+@final
 @dataclass
 class Wav2Vec2Loss:
     """Holds the loss of a wav2vec 2.0 model."""

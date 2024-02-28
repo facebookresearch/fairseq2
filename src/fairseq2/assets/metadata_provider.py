@@ -15,7 +15,7 @@ from typing_extensions import NoReturn
 from yaml import YAMLError
 
 from fairseq2.assets.error import AssetError
-from fairseq2.typing import finaloverride
+from fairseq2.typing import override
 
 
 class AssetMetadataProvider(ABC):
@@ -38,8 +38,7 @@ class AssetMetadataProvider(ABC):
 class FileAssetMetadataProvider(AssetMetadataProvider):
     """Provides asset metadata stored on a file system."""
 
-    base_dir: Path
-
+    _base_dir: Path
     _cache: Optional[Dict[str, Dict[str, Any]]]
 
     def __init__(self, base_dir: Path) -> None:
@@ -47,11 +46,11 @@ class FileAssetMetadataProvider(AssetMetadataProvider):
         :param base_dir:
             The base directory under which asset metadata is stored.
         """
-        self.base_dir = base_dir
+        self._base_dir = base_dir
 
         self._cache = None
 
-    @finaloverride
+    @override
     def get_metadata(self, name: str) -> Dict[str, Any]:
         self._ensure_cache_loaded()
 
@@ -70,12 +69,12 @@ class FileAssetMetadataProvider(AssetMetadataProvider):
 
         self._cache = {}
 
-        def on_walk_error(ex: OSError) -> NoReturn:
+        def on_error(ex: OSError) -> NoReturn:
             raise AssetMetadataError(
-                f"The base asset metadata directory '{self.base_dir}' cannot be traversed. See nested exception for details."
+                f"The base asset metadata directory '{self._base_dir}' cannot be traversed. See nested exception for details."
             ) from ex
 
-        for dir_pathname, _, filenames in os.walk(self.base_dir, onerror=on_walk_error):
+        for dir_pathname, _, filenames in os.walk(self._base_dir, onerror=on_error):
             metadata_dir = Path(dir_pathname)
 
             for filename in filenames:
@@ -127,7 +126,7 @@ class FileAssetMetadataProvider(AssetMetadataProvider):
 
                 self._cache[name] = metadata
 
-    @finaloverride
+    @override
     def clear_cache(self) -> None:
         self._cache = None
 
@@ -159,7 +158,7 @@ class InProcAssetMetadataProvider(AssetMetadataProvider):
 
             self._metadata[name] = m
 
-    @finaloverride
+    @override
     def get_metadata(self, name: str) -> Dict[str, Any]:
         try:
             return deepcopy(self._metadata[name])
@@ -168,7 +167,7 @@ class InProcAssetMetadataProvider(AssetMetadataProvider):
                 f"An asset with the name '{name}' cannot be found."
             )
 
-    @finaloverride
+    @override
     def clear_cache(self) -> None:
         pass
 

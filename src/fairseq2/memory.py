@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from array import array
-from typing import TYPE_CHECKING, Optional, Union, overload
+from typing import TYPE_CHECKING, Optional, Union, final, overload
 
 from fairseq2n import DOC_MODE
 from typing_extensions import TypeAlias
@@ -14,6 +14,7 @@ Buffer: TypeAlias = Union[bytes, bytearray, memoryview, array]
 
 if TYPE_CHECKING or DOC_MODE:
 
+    @final
     class MemoryBlock:
         """Represents a contiguous block of read-only memory."""
 

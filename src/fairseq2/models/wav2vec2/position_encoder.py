@@ -15,7 +15,7 @@ from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.normalization import LayerNorm, StandardLayerNorm
 from fairseq2.nn.padding import PaddingMask, apply_padding_mask
 from fairseq2.nn.position_encoder import PositionEncoder
-from fairseq2.typing import DataType, Device, finaloverride, override
+from fairseq2.typing import DataType, Device, override
 
 
 @final
@@ -60,7 +60,7 @@ class Wav2Vec2PositionEncoder(PositionEncoder):
 
         self.activation = GELU()
 
-    @finaloverride
+    @override
     def _do_forward(
         self,
         seqs: Tensor,
@@ -94,6 +94,7 @@ class Wav2Vec2PositionEncoder(PositionEncoder):
         return seqs + encodings
 
 
+@final
 class Wav2Vec2PositionalConv1d(Conv1d):
     """Represents the convolution used in :class:`Wav2Vec2PositionEncoder`."""
 
@@ -168,7 +169,7 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
 
             self.layers.append(layer)
 
-    @finaloverride
+    @override
     def _do_forward(
         self,
         seqs: Tensor,
@@ -197,6 +198,7 @@ class Wav2Vec2StackedPositionEncoder(PositionEncoder):
         return seqs + encodings
 
 
+@final
 class Wav2Vec2PositionEncoderLayer(Module):
     """Represents a layer used in :class:`Wav2Vec2StackedPositionEncoder`."""
 

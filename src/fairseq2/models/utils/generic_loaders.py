@@ -8,7 +8,7 @@ import logging
 from copy import deepcopy
 from functools import partial
 from pickle import PickleError
-from typing import Any, Dict, Generic, Optional, Protocol, TypeVar, Union
+from typing import Any, Dict, Generic, Optional, Protocol, TypeVar, Union, final
 
 from torch.nn import Module
 
@@ -38,11 +38,12 @@ ConfigT = TypeVar("ConfigT")
 ConfigT_contra = TypeVar("ConfigT_contra", contravariant=True)
 
 
+@final
 class ConfigLoader(Generic[ConfigT]):
     """Loads model configurations of type ``ConfigT``."""
 
-    asset_store: AssetStore
-    archs: ArchitectureRegistry[ConfigT]
+    _asset_store: AssetStore
+    _archs: ArchitectureRegistry[ConfigT]
 
     def __init__(
         self, asset_store: AssetStore, archs: ArchitectureRegistry[ConfigT]
@@ -53,8 +54,8 @@ class ConfigLoader(Generic[ConfigT]):
         :param archs:
             The registry containing all supported model architectures.
         """
-        self.asset_store = asset_store
-        self.archs = archs
+        self._asset_store = asset_store
+        self._archs = archs
 
     def __call__(self, model_name_or_card: Union[str, AssetCard]) -> ConfigT:
         """
@@ -67,15 +68,15 @@ class ConfigLoader(Generic[ConfigT]):
         if isinstance(model_name_or_card, AssetCard):
             card = model_name_or_card
         else:
-            card = self.asset_store.retrieve_card(model_name_or_card)
+            card = self._asset_store.retrieve_card(model_name_or_card)
 
-        card.field("model_type").check_equals(self.archs.model_type)
+        card.field("model_type").check_equals(self._archs.model_type)
 
         # Ensure that the card has a valid model architecture.
-        arch_name = card.field("model_arch").as_one_of(self.archs.names())
+        arch_name = card.field("model_arch").as_one_of(self._archs.names())
 
         # Load the model configuration.
-        config = self.archs.get_config(arch_name)
+        config = self._archs.get_config(arch_name)
 
         # If the card holds a configuration object, it takes precedence.
         try:
@@ -144,6 +145,7 @@ class CheckpointConverter(Protocol[ConfigT_contra]):
         """
 
 
+@final
 class ModelLoader(Generic[ModelT, ConfigT]):
     """Loads models of type ``ModelT``."""
 

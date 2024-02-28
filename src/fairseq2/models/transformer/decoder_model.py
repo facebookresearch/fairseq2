@@ -16,7 +16,7 @@ from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.projection import Projection
 from fairseq2.nn.transformer import TransformerDecoder
-from fairseq2.typing import finaloverride
+from fairseq2.typing import override
 
 
 @final
@@ -51,7 +51,7 @@ class TransformerDecoderModel(DecoderModel):
 
         self.final_proj = final_proj
 
-    @finaloverride
+    @override
     def decode(
         self,
         seqs: Tensor,
@@ -69,7 +69,7 @@ class TransformerDecoderModel(DecoderModel):
 
         return decoder_output, decoder_padding_mask
 
-    @finaloverride
+    @override
     def project(
         self, decoder_output: Tensor, decoder_padding_mask: Optional[PaddingMask]
     ) -> SequenceModelOutput:

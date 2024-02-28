@@ -20,7 +20,7 @@ from fairseq2.nn.transformer.layer_norm import (
     LayerNormFactory,
     create_standard_layer_norm,
 )
-from fairseq2.typing import DataType, Device, finaloverride
+from fairseq2.typing import DataType, Device, override
 
 
 class TransformerFrontend(Module, ABC):
@@ -141,7 +141,7 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
         else:
             self.register_module("dropout", None)
 
-    @finaloverride
+    @override
     def forward(
         self,
         seqs: Tensor,
