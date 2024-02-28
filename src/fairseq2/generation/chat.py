@@ -7,7 +7,18 @@
 from abc import ABC, abstractmethod
 from contextlib import nullcontext
 from dataclasses import dataclass
-from typing import Any, ContextManager, List, Literal, Optional, Sequence, Tuple, final
+from typing import (
+    Any,
+    ContextManager,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Protocol,
+    Sequence,
+    Tuple,
+    final,
+)
 
 from torch import Tensor
 from typing_extensions import TypeAlias
@@ -166,3 +177,77 @@ class AbstractChatbot(Chatbot):
         :param param_name:
             The parameter name to use in case of an argument error.
         """
+
+
+class ChatbotFactory(Protocol):
+    """Constructs instances of :class:`Chatbot`."""
+
+    def __call__(
+        self,
+        generator: SequenceGenerator,
+        tokenizer: TextTokenizer,
+        *,
+        stdout: bool = False,
+    ) -> Chatbot:
+        """
+        :param generator:
+            The sequence generator.
+        :param tokenizer:
+            The text tokenizer.
+        :param stdout:
+            If ``True``, prints generated messages to stdout in real-time.
+        """
+
+
+class DelegatingChatbotFactory:
+    """Constructs instance of :class:`Chatbot` using registered factories."""
+
+    _factories: Dict[str, ChatbotFactory]
+
+    def __init__(self) -> None:
+        self._factories = {}
+
+    def __call__(
+        self,
+        model_type: str,
+        generator: SequenceGenerator,
+        tokenizer: TextTokenizer,
+        *,
+        stdout: bool = False,
+    ) -> Chatbot:
+        """
+        :param model_type:
+            The type of the model for which to construct a chatbot.
+        :param generator:
+            The sequence generator.
+        :param tokenizer:
+            The text tokenizer.
+        :param stdout:
+            If ``True``, prints generated messages to stdout in real-time.
+        """
+        try:
+            factory = self._factories[model_type]
+        except KeyError:
+            raise ValueError(
+                f"The model type '{model_type}' has no registered chatbot."
+            )
+
+        return factory(generator, tokenizer, stdout=stdout)
+
+    def register(self, model_type: str, factory: ChatbotFactory) -> None:
+        """Register a chatbot factory to use with this factory.
+
+        :param model_type:
+            The type of the model supported by ``factory``.
+        :param factory:
+            The chatbot factory.
+        """
+        if model_type in self._factories:
+            raise ValueError(
+                f"`model_type` must be a unique model type, but '{model_type}' is already registered."
+            )
+
+        self._factories[model_type] = factory
+
+
+create_chatbot = DelegatingChatbotFactory()
