@@ -49,7 +49,7 @@ class NllbConfig:
     """The dimensionality of the model."""
 
     max_seq_len: int
-    """The expected maximum sequence length."""
+    """The maximum allowed sequence length."""
 
     vocab_info: VocabularyInfo
     """The vocabulary information."""
@@ -177,6 +177,7 @@ class NllbBuilder:
             frontend,
             decoder,
             final_proj,
+            self._config.max_seq_len,
             self._config.vocab_info,
         )
 

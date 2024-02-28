@@ -54,7 +54,7 @@ class Wav2Vec2EncoderConfig:
     """The dimensionality of the model."""
 
     max_seq_len: int
-    """The expected maximum sequence length after feature extraction."""
+    """The maximum allowed sequence length after feature extraction."""
 
     # Features
     feature_dim: int

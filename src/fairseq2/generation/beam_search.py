@@ -58,7 +58,7 @@ class BeamSearchSequenceGenerator(AbstractSequenceGenerator):
         beam_size: int = 5,
         min_gen_len: int = 1,
         max_gen_len: int = 128,
-        max_seq_len: int = 1024,
+        max_seq_len: Optional[int] = None,
         echo_prompt: bool = False,
         normalize_scores: bool = True,
         temperature: float = 1.0,
@@ -131,11 +131,16 @@ class BeamSearchSequenceGenerator(AbstractSequenceGenerator):
                 f"`decode_capacity_increment` must be greater than or equal to 1, but is {decode_capacity_increment} instead."
             )
 
+        if max_seq_len is None:
+            effective_max_seq_len = model.max_seq_len
+        else:
+            effective_max_seq_len = min(max_seq_len, model.max_seq_len)
+
         self._algorithm = algorithm or StandardBeamSearchAlgorithm()
         self._beam_size = beam_size
         self._min_gen_len = min_gen_len
         self._max_gen_len = max_gen_len
-        self._max_seq_len = max_seq_len
+        self._max_seq_len = effective_max_seq_len
         self._echo_prompt = echo_prompt
         self._normalize_scores = normalize_scores
         self._temperature = temperature
@@ -205,7 +210,7 @@ class BeamSearchSeq2SeqGenerator(AbstractSeq2SeqGenerator):
         beam_size: int = 5,
         min_gen_len: int = 1,
         max_gen_len: Tuple[int, int] = (1, 128),
-        max_seq_len: int = 1024,
+        max_seq_len: Optional[int] = None,
         echo_prompt: bool = False,
         normalize_scores: bool = True,
         temperature: float = 1.0,
@@ -269,11 +274,16 @@ class BeamSearchSeq2SeqGenerator(AbstractSeq2SeqGenerator):
                 f"`decode_capacity_increment` must be greater than or equal to 1, but is {decode_capacity_increment} instead."
             )
 
+        if max_seq_len is None:
+            effective_max_seq_len = model.max_target_seq_len
+        else:
+            effective_max_seq_len = min(max_seq_len, model.max_target_seq_len)
+
         self._algorithm = algorithm or StandardBeamSearchAlgorithm()
         self._beam_size = beam_size
         self._min_gen_len = min_gen_len
         self._max_gen_len = max_gen_len
-        self._max_seq_len = max_seq_len
+        self._max_seq_len = effective_max_seq_len
         self._echo_prompt = echo_prompt
         self._normalize_scores = normalize_scores
         self._temperature = temperature

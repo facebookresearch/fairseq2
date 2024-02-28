@@ -31,7 +31,7 @@ class PositionEncoder(Module, ABC):
         :param encoding_dim:
             The dimensionality of positional encodings.
         :param max_seq_len:
-            The expected maximum sequence length.
+            The maximum allowed sequence length.
         """
         super().__init__()
 
