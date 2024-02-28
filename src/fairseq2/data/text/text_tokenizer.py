@@ -97,6 +97,7 @@ class TextTokenizer(ABC):
     def create_decoder(self) -> TextTokenDecoder:
         """Create a token decoder."""
 
+    @final
     @property
     def vocab_info(self) -> VocabularyInfo:
         """The vocabulary information associated with the tokenizer."""
