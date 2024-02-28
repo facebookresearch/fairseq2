@@ -11,23 +11,32 @@ import torch
 from torch import Tensor
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
-from fairseq2.typing import DataType, Device, finaloverride
+from fairseq2.typing import DataType, Device, override
 
 
 class AttentionMask(ABC):
     """Represents an attention mask."""
 
-    materialized: Optional[Tensor]
-
-    def __init__(self) -> None:
-        self.materialized = None
-
+    @abstractmethod
     def materialize(self) -> Tensor:
         """Materialize the attention mask tensor."""
-        if self.materialized is None:
-            self.materialized = self._do_materialize()
 
-        return self.materialized
+
+class AbstractAttentionMask(AttentionMask):
+    """Provides a skeletal implementation of :class:`AttentionMask`."""
+
+    _materialized: Optional[Tensor]
+
+    def __init__(self) -> None:
+        self._materialized = None
+
+    @final
+    @override
+    def materialize(self) -> Tensor:
+        if self._materialized is None:
+            self._materialized = self._do_materialize()
+
+        return self._materialized
 
     @abstractmethod
     def _do_materialize(self) -> Tensor:
@@ -68,22 +77,22 @@ class AttentionMaskFactory(Protocol):
 class CustomAttentionMask(AttentionMask):
     """Represents a custom attention mask provided by the user."""
 
+    _mask: Tensor
+
     def __init__(self, mask: Tensor) -> None:
         """
         :param mask:
             The custom attention mask tensor.
         """
-        super().__init__()
+        self._mask = mask
 
-        self.mask = mask
-
-    @finaloverride
-    def _do_materialize(self) -> Tensor:
-        return self.mask
+    @override
+    def materialize(self) -> Tensor:
+        return self._mask
 
 
 @final
-class CausalAttentionMask(AttentionMask):
+class CausalAttentionMask(AbstractAttentionMask):
     """Represents a causal attention mask.
 
     *Shape:* :math:`(S,S_{kv})`, where :math:`S` is the sequence length and
@@ -110,6 +119,13 @@ class CausalAttentionMask(AttentionMask):
             [-inf, -inf,   0.,   0.]])
     """
 
+    _seq_len: int
+    _key_len: int
+    _attn_len: Optional[int]
+    _attn_window_len: Optional[int]
+    _device: Optional[Device]
+    _dtype: Optional[DataType]
+
     def __init__(
         self,
         seq_len: int,
@@ -135,27 +151,34 @@ class CausalAttentionMask(AttentionMask):
         """
         super().__init__()
 
-        self.seq_len = seq_len
-        self.key_len = key_len
-        self.attn_len = attn_len
-        self.attn_window_len = attn_window_len
+        self._seq_len = seq_len
+        self._key_len = key_len
+        self._attn_len = attn_len
+        self._attn_window_len = attn_window_len
 
-        self.device, self.dtype = device, dtype
+        self._device, self._dtype = device, dtype
 
-    @finaloverride
+    @override
     def _do_materialize(self) -> Tensor:
         return _create_causal_attention_mask(
-            self.seq_len,
-            self.key_len,
-            self.attn_len,
-            self.attn_window_len,
-            self.device,
-            self.dtype,
+            self._seq_len,
+            self._key_len,
+            self._attn_len,
+            self._attn_window_len,
+            self._device,
+            self._dtype,
         )
 
+    def full_attention(self) -> bool:
+        """Return ``True`` if this is a full causal attention mask."""
+        return self._attn_len is None and self._attn_window_len is None
 
-class CausalAttentionMaskFactory:
+
+@final
+class CausalAttentionMaskFactory(AttentionMaskFactory):
     """Constructs instances of :class:`CausalAttentionMask`."""
+
+    _attn_window_len: Optional[int]
 
     def __init__(self, *, attn_window_len: Optional[int] = None) -> None:
         """
@@ -164,7 +187,7 @@ class CausalAttentionMaskFactory:
             :cite:t:`https://doi.org/10.48550/arxiv.2004.05150`. If ``None``,
             constructs a full causal attention mask.
         """
-        self.attn_window_len = attn_window_len
+        self._attn_window_len = attn_window_len
 
     def __call__(
         self,
@@ -207,20 +230,20 @@ class CausalAttentionMaskFactory:
             seq_len,
             key_len,
             attn_len=attn_len,
-            attn_window_len=self.attn_window_len,
+            attn_window_len=self._attn_window_len,
             device=seqs.device,
             dtype=seqs.dtype,
         )
 
     def __repr__(self) -> str:
-        if self.attn_window_len is None:
+        if self._attn_window_len is None:
             return "CausalAttentionMaskFactory()"
 
-        return f"CausalAttentionMaskFactory(attn_window_len={self.attn_window_len})"
+        return f"CausalAttentionMaskFactory(attn_window_len={self._attn_window_len})"
 
 
 @final
-class ALiBiMask(AttentionMask):
+class ALiBiMask(AbstractAttentionMask):
     """Represents an ALiBi attention mask as described in
     :cite:t:`https://doi.org/10.48550/arxiv.2108.12409`.
 
@@ -228,6 +251,13 @@ class ALiBiMask(AttentionMask):
     heads, :math:`S` is the sequence length, and :math:`S_{kv}` is the key/value
     sequence length.
     """
+
+    _seq_len: int
+    _key_len: int
+    _num_attn_heads: int
+    _attn_len: Optional[int] = None
+    _device: Optional[Device] = None
+    _dtype: Optional[DataType] = None
 
     def __init__(
         self,
@@ -257,43 +287,43 @@ class ALiBiMask(AttentionMask):
                 f"`num_attn_heads` must be even, but is {num_attn_heads} instead."
             )
 
-        self.seq_len = seq_len
-        self.key_len = key_len
-        self.num_attn_heads = num_attn_heads
-        self.attn_len = attn_len
+        self._seq_len = seq_len
+        self._key_len = key_len
+        self._num_attn_heads = num_attn_heads
+        self._attn_len = attn_len
 
-        self.device, self.dtype = device, dtype
+        self._device, self._dtype = device, dtype
 
-    @finaloverride
+    @override
     def _do_materialize(self) -> Tensor:
-        attn_len = self.seq_len if self.attn_len is None else self.attn_len
+        attn_len = self._seq_len if self._attn_len is None else self._attn_len
 
         # (H)
-        powers = torch.arange(1, 1 + self.num_attn_heads, device=self.device)
+        powers = torch.arange(1, 1 + self._num_attn_heads, device=self._device)
 
         # (H)
-        slopes = torch.pow(2 ** (-8 / self.num_attn_heads), powers)
+        slopes = torch.pow(2 ** (-8 / self._num_attn_heads), powers)
 
         # (S_kv)
-        steps = torch.arange(self.key_len, device=self.device)
+        steps = torch.arange(self._key_len, device=self._device)
 
         # (S_kv) -> (H, S, S_kv)
-        steps = steps[None, None, :].expand(self.num_attn_heads, attn_len, -1)
+        steps = steps[None, None, :].expand(self._num_attn_heads, attn_len, -1)
 
         # (H, S, S_kv) * (H, 1, 1) -> (H, S, S_kv)
         mask = steps * slopes[:, None, None]
 
-        mask = mask.to(self.dtype)
+        mask = mask.to(self._dtype)
 
         # If the attention length is 1, avoid constructing the causal mask.
         if attn_len == 1:
             # Ensure that we do not attend to keys beyond the sequence length.
-            if (causal := self.key_len - self.seq_len) > 0:
+            if (causal := self._key_len - self._seq_len) > 0:
                 mask[:, :, -causal:] = -torch.inf
         else:
             # (S, S_kv)
             causal_mask = _create_causal_attention_mask(
-                self.seq_len, self.key_len, attn_len, None, self.device, self.dtype
+                self._seq_len, self._key_len, attn_len, None, self._device, self._dtype
             )
 
             # (H, S, S_kv) + (S, S_kv) -> (H, S, S_kv)
@@ -302,15 +332,18 @@ class ALiBiMask(AttentionMask):
         return mask
 
 
-class ALiBiMaskFactory:
+@final
+class ALiBiMaskFactory(AttentionMaskFactory):
     """Constructs instances of :class:`ALiBiMask`."""
+
+    _num_attn_heads: int
 
     def __init__(self, num_attn_heads: int) -> None:
         """
         :param num_attn_heads:
             The number of attention heads.
         """
-        self.num_attn_heads = num_attn_heads
+        self._num_attn_heads = num_attn_heads
 
     def __call__(
         self,
@@ -345,14 +378,14 @@ class ALiBiMaskFactory:
         return ALiBiMask(
             seq_len,
             key_len,
-            self.num_attn_heads,
+            self._num_attn_heads,
             attn_len=attn_len,
             device=seqs.device,
             dtype=seqs.dtype,
         )
 
     def __repr__(self) -> str:
-        return f"ALiBiMaskFactory(num_attn_heads={self.num_attn_heads})"
+        return f"ALiBiMaskFactory(num_attn_heads={self._num_attn_heads})"
 
 
 def _create_causal_attention_mask(

@@ -17,7 +17,7 @@ from torch.nn.functional import dropout, softmax
 
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer.attention_mask import AttentionMask, CausalAttentionMask
-from fairseq2.typing import finaloverride
+from fairseq2.typing import override
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +90,7 @@ class TorchSDPA(SDPA):
 
         self.attn_dropout_p = attn_dropout_p
 
-    @finaloverride
+    @override
     def forward(
         self,
         seqs: Tensor,
@@ -142,7 +142,7 @@ class TorchSDPA(SDPA):
                 mask = torch.where(mask, m, -torch.inf)
         elif isinstance(attn_mask, CausalAttentionMask):
             # PyTorch SDPA supports only full causal attention.
-            if attn_mask.attn_len is None and attn_mask.attn_window_len is None:
+            if attn_mask.full_attention():
                 mask = None
 
                 is_causal = True
@@ -186,7 +186,7 @@ class NaiveSDPA(SDPA):
 
         self.attn_dropout_p = attn_dropout_p
 
-    @finaloverride
+    @override
     def forward(
         self,
         seqs: Tensor,
