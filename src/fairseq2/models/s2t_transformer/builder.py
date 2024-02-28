@@ -51,11 +51,14 @@ class S2TTransformerConfig:
     model_dim: int
     """The dimensionality of the model."""
 
-    max_seq_len: int
-    """The expected maximum source sequence length after feature extraction."""
+    max_source_seq_len: int
+    """The maximum allowed source sequence length after feature extraction."""
 
     num_fbank_channels: int
     """The number of source log-mel filterbank channels."""
+
+    max_target_seq_len: int
+    """The maximum allowed target sequence length."""
 
     target_vocab_info: VocabularyInfo
     """The target vocabulary information."""
@@ -97,8 +100,9 @@ s2t_transformer_arch = s2t_transformer_archs.decorator
 def _tiny() -> S2TTransformerConfig:
     return S2TTransformerConfig(
         model_dim=256,
-        max_seq_len=1024,
+        max_source_seq_len=1024,
         num_fbank_channels=80,
+        max_target_seq_len=1024,
         target_vocab_info=VocabularyInfo(
             size=10000, unk_idx=0, bos_idx=0, eos_idx=0, pad_idx=1
         ),
@@ -118,8 +122,9 @@ def _tiny() -> S2TTransformerConfig:
 def _small() -> S2TTransformerConfig:
     return S2TTransformerConfig(
         model_dim=256,
-        max_seq_len=1024,
+        max_source_seq_len=1024,
         num_fbank_channels=80,
+        max_target_seq_len=1024,
         target_vocab_info=VocabularyInfo(
             size=10000, unk_idx=3, bos_idx=0, eos_idx=2, pad_idx=1
         ),
@@ -139,8 +144,9 @@ def _small() -> S2TTransformerConfig:
 def _medium() -> S2TTransformerConfig:
     return S2TTransformerConfig(
         model_dim=512,
-        max_seq_len=1024,
+        max_source_seq_len=1024,
         num_fbank_channels=80,
+        max_target_seq_len=1024,
         target_vocab_info=VocabularyInfo(
             size=10000, unk_idx=3, bos_idx=0, eos_idx=2, pad_idx=1
         ),
@@ -160,8 +166,9 @@ def _medium() -> S2TTransformerConfig:
 def _large() -> S2TTransformerConfig:
     return S2TTransformerConfig(
         model_dim=1024,
-        max_seq_len=1024,
+        max_source_seq_len=1024,
         num_fbank_channels=80,
+        max_target_seq_len=1024,
         target_vocab_info=VocabularyInfo(
             size=10000, unk_idx=0, bos_idx=0, eos_idx=0, pad_idx=1
         ),
@@ -181,8 +188,9 @@ def _large() -> S2TTransformerConfig:
 def _conformer_medium() -> S2TTransformerConfig:
     return S2TTransformerConfig(
         model_dim=256,
-        max_seq_len=6000,
+        max_source_seq_len=6000,
         num_fbank_channels=80,
+        max_target_seq_len=1024,
         target_vocab_info=VocabularyInfo(
             size=181, unk_idx=3, bos_idx=0, eos_idx=2, pad_idx=1
         ),
@@ -255,6 +263,7 @@ class S2TTransformerBuilder:
             decoder_frontend,
             decoder,
             final_proj,
+            self._config.max_target_seq_len,
             self._config.target_vocab_info,
         )
 
@@ -308,14 +317,14 @@ class S2TTransformerBuilder:
             return None
 
         return SinusoidalPositionEncoder(
-            self._config.model_dim, self._config.max_seq_len, device=self._device
+            self._config.model_dim, self._config.max_source_seq_len, device=self._device
         )
 
     def build_target_position_encoder(self) -> PositionEncoder:
         """Build a position encoder for target sequences."""
         return SinusoidalPositionEncoder(
             self._config.model_dim,
-            self._config.max_seq_len,
+            self._config.max_target_seq_len,
             _legacy_pad_idx=1,
             device=self._device,
         )
@@ -425,7 +434,7 @@ class S2TTransformerBuilder:
             if self._rel_pos_encoding is None:
                 self._rel_pos_encoding = RelativePositionalEncoding(
                     self._config.model_dim,
-                    self._config.max_seq_len,
+                    self._config.max_source_seq_len,
                     device=self._device,
                     dtype=self._dtype,
                 )

@@ -43,7 +43,7 @@ class LLaMAConfig:
     """The dimensionality of the model."""
 
     max_seq_len: int
-    """The expected maximum sequence length."""
+    """The maximum allowed sequence length."""
 
     vocab_info: VocabularyInfo
     """The vocabulary information."""
@@ -230,7 +230,7 @@ class LLaMABuilder:
 
     def build_model(self) -> TransformerDecoderModel:
         """Build a model."""
-        frontend = self.build_frontend()
+        decoder_frontend = self.build_decoder_frontend()
 
         decoder = self.build_decoder()
 
@@ -244,10 +244,14 @@ class LLaMABuilder:
         )
 
         return TransformerDecoderModel(
-            frontend, decoder, final_proj, self._config.vocab_info
+            decoder_frontend,
+            decoder,
+            final_proj,
+            self._config.max_seq_len,
+            self._config.vocab_info,
         )
 
-    def build_frontend(self) -> TransformerFrontend:
+    def build_decoder_frontend(self) -> TransformerFrontend:
         """Build a Transformer decoder front-end."""
         embed = StandardEmbedding(
             num_embeddings=self._config.vocab_info.size,

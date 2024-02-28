@@ -32,6 +32,7 @@ class TransformerDecoderModel(DecoderModel):
         decoder_frontend: TransformerFrontend,
         decoder: TransformerDecoder,
         final_proj: Projection,
+        max_seq_len: int,
         vocab_info: VocabularyInfo,
     ) -> None:
         """
@@ -41,10 +42,12 @@ class TransformerDecoderModel(DecoderModel):
             The decoder.
         :param final_proj:
             The projection to apply to decoder outputs.
+        :param max_seq_len:
+            The maximum length of sequences produced by the model.
         :param vocab_info:
             The vocabulary information of sequences produced by the model.
         """
-        super().__init__(decoder.model_dim, vocab_info)
+        super().__init__(decoder.model_dim, max_seq_len, vocab_info)
 
         self.decoder_frontend = decoder_frontend
         self.decoder = decoder

@@ -23,15 +23,19 @@ from fairseq2.nn.padding import PaddingMask
 class SequenceModel(Module, ABC):
     """Represents a sequence model."""
 
+    max_seq_len: int
     vocab_info: VocabularyInfo
 
-    def __init__(self, vocab_info: VocabularyInfo) -> None:
+    def __init__(self, max_seq_len: int, vocab_info: VocabularyInfo) -> None:
         """
+        :param max_seq_len:
+            The maximum length of sequences produced by the model.
         :param vocab_info:
             The vocabulary information of sequences produced by the model.
         """
         super().__init__()
 
+        self.max_seq_len = max_seq_len
         self.vocab_info = vocab_info
 
     @abstractmethod

@@ -38,6 +38,7 @@ class TransformerModel(EncoderDecoderModel):
         decoder_frontend: TransformerFrontend,
         decoder: TransformerDecoder,
         final_proj: Projection,
+        max_target_seq_len: int,
         target_vocab_info: VocabularyInfo,
     ) -> None:
         """
@@ -51,10 +52,12 @@ class TransformerModel(EncoderDecoderModel):
             The decoder.
         :param final_proj:
             The projection to apply to decoder outputs.
+        :param max_target_seq_len:
+            The maximum length of sequences produced by the model.
         :param target_vocab_info:
             The vocabulary information of sequences produced by the model.
         """
-        super().__init__(encoder.model_dim, target_vocab_info)
+        super().__init__(encoder.model_dim, max_target_seq_len, target_vocab_info)
 
         self.encoder_frontend = encoder_frontend
         self.encoder = encoder
