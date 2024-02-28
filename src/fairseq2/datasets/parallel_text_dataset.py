@@ -8,7 +8,17 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterator, List, NamedTuple, Optional, Sequence, cast
+from typing import (
+    Any,
+    Dict,
+    Iterator,
+    List,
+    NamedTuple,
+    Optional,
+    Sequence,
+    cast,
+    final,
+)
 
 from fairseq2.assets import default_asset_store
 from fairseq2.data import DataPipeline, SequenceData
@@ -18,7 +28,7 @@ from fairseq2.datasets.utils import all_eod
 from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
-from fairseq2.typing import Device, finaloverride
+from fairseq2.typing import Device, override
 
 logger = logging.getLogger(__name__)
 
@@ -92,11 +102,22 @@ class ParallelTextDataset(ABC):
     def lang_pairs(self, split: str) -> List[LangPair]:
         """Return the list of language pairs of ``split``."""
 
+    @property
+    @abstractmethod
+    def dataset_name(self) -> str:
+        """The name of the dataset."""
+
 
 class AbstractParallelTextDataset(ParallelTextDataset):
     """Provides a skeletal implementation of :class:`ParallelTextDataset`."""
 
-    @finaloverride
+    _dataset_name: str
+
+    def __init__(self, dataset_name: str) -> None:
+        self._dataset_name = dataset_name
+
+    @final
+    @override
     def read(
         self,
         split: str,
@@ -186,6 +207,12 @@ class AbstractParallelTextDataset(ParallelTextDataset):
         return Seq2SeqBatch(
             source_seqs, source_padding_mask, target_seqs, target_padding_mask, example
         )
+
+    @final
+    @property
+    @override
+    def dataset_name(self) -> str:
+        return self._dataset_name
 
 
 load_parallel_text_dataset = DelegatingDatasetLoader[ParallelTextDataset](
