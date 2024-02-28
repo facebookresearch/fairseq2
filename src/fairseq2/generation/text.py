@@ -4,7 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from abc import ABC
 from typing import List, Optional, Sequence, Tuple, final
 
 from torch import Tensor
@@ -20,12 +19,13 @@ from fairseq2.nn.padding import PaddingMask, pad_seqs
 from fairseq2.nn.utils.module import infer_device
 
 
-class SequenceToTextConverterBase(ABC):
-    """Represents an abstract base class for sequence-to-text converters."""
+@final
+class SequenceToTextConverter:
+    """Converts source sequences to text."""
 
-    generator: Seq2SeqGenerator
-    target_prefix_seq: Tensor
-    text_decoder: TextTokenDecoder
+    _generator: Seq2SeqGenerator
+    _target_prefix_seq: Tensor
+    _text_decoder: TextTokenDecoder
 
     def __init__(
         self,
@@ -44,7 +44,7 @@ class SequenceToTextConverterBase(ABC):
         :param target_lang:
             The target language for conversion.
         """
-        self.generator = generator
+        self._generator = generator
 
         device = infer_device(generator.model, param_name="generator.model")
 
@@ -59,54 +59,9 @@ class SequenceToTextConverterBase(ABC):
                 "`tokenizer` must specify a prefix sequence for the target language."
             )
 
-        self.target_prefix_seq = target_prefix_seq
+        self._target_prefix_seq = target_prefix_seq
 
-        self.text_decoder = tokenizer.create_decoder()
-
-    def _do_convert(
-        self,
-        source_seqs: Tensor,
-        source_padding_mask: Optional[PaddingMask],
-    ) -> Tuple[List[str], Seq2SeqGeneratorOutput]:
-        """A subclass should call this method for actual text conversion.
-
-        :param source_seqs:
-            The source sequences. *Shape:* :math:`(N,S,*)`, where :math:`N` is
-            the batch size, :math:`S` is the sequence length, and :math:`*` is
-            any number of sequence-specific dimensions including none.
-        :param source_padding_mask:
-            The padding mask of ``source_seqs``. *Shape:* :math:`(N,S)`, where
-            :math:`N` is the batch size and :math:`S` is the sequence length.
-
-        :returns:
-            - The converted texts.
-            - The output of the underlying sequence-to-sequence generator.
-        """
-        batch_size = source_seqs.size(0)
-
-        # (S) -> (N, S)
-        target_prefix_seqs = self.target_prefix_seq.expand(batch_size, -1)
-
-        generator_output = self.generator(
-            source_seqs, source_padding_mask, target_prefix_seqs, None
-        )
-
-        texts: List[str] = []
-
-        for idx, hypotheses in enumerate(generator_output.hypotheses):
-            if len(hypotheses) == 0:
-                raise RuntimeError(
-                    f"The sequence generator returned no hypothesis at index {idx}. Please file a bug report."
-                )
-
-            texts.append(self.text_decoder(hypotheses[0].seq))
-
-        return texts, generator_output
-
-
-@final
-class SequenceToTextConverter(SequenceToTextConverterBase):
-    """Converts source sequences to text."""
+        self._text_decoder = tokenizer.create_decoder()
 
     def __call__(self, source_seq: Tensor) -> Tuple[str, Seq2SeqGeneratorOutput]:
         """
@@ -150,13 +105,54 @@ class SequenceToTextConverter(SequenceToTextConverterBase):
 
         return self._do_convert(source_seqs, source_padding_mask)
 
+    def _do_convert(
+        self,
+        source_seqs: Tensor,
+        source_padding_mask: Optional[PaddingMask],
+    ) -> Tuple[List[str], Seq2SeqGeneratorOutput]:
+        """A subclass should call this method for actual text conversion.
+
+        :param source_seqs:
+            The source sequences. *Shape:* :math:`(N,S,*)`, where :math:`N` is
+            the batch size, :math:`S` is the sequence length, and :math:`*` is
+            any number of sequence-specific dimensions including none.
+        :param source_padding_mask:
+            The padding mask of ``source_seqs``. *Shape:* :math:`(N,S)`, where
+            :math:`N` is the batch size and :math:`S` is the sequence length.
+
+        :returns:
+            - The converted texts.
+            - The output of the underlying sequence-to-sequence generator.
+        """
+        batch_size = source_seqs.size(0)
+
+        # (S) -> (N, S)
+        target_prefix_seqs = self._target_prefix_seq.expand(batch_size, -1)
+
+        generator_output = self._generator(
+            source_seqs, source_padding_mask, target_prefix_seqs, None
+        )
+
+        texts: List[str] = []
+
+        for idx, hypotheses in enumerate(generator_output.hypotheses):
+            if len(hypotheses) == 0:
+                raise RuntimeError(
+                    f"The sequence generator returned no hypothesis at index {idx}. Please file a bug report."
+                )
+
+            texts.append(self._text_decoder(hypotheses[0].seq))
+
+        return texts, generator_output
+
 
 @final
-class TextTranslator(SequenceToTextConverterBase):
+class TextTranslator:
     """Translates text from one language to another."""
 
-    pad_idx: int
-    source_text_encoder: TextTokenEncoder
+    _converter: SequenceToTextConverter
+    _pad_idx: int
+    _source_text_encoder: TextTokenEncoder
 
     def __init__(
         self,
@@ -175,7 +171,9 @@ class TextTranslator(SequenceToTextConverterBase):
         :param target_lang:
             The target language.
         """
-        super().__init__(generator, tokenizer, "translation", target_lang)
+        self._converter = SequenceToTextConverter(
+            generator, tokenizer, "translation", target_lang
+        )
 
         pad_idx = tokenizer.vocab_info.pad_idx
         if pad_idx is None:
@@ -183,11 +181,11 @@ class TextTranslator(SequenceToTextConverterBase):
                 "``vocab_info` of `tokenizer` must have a PAD symbol defined."
             )
 
-        self.pad_idx = pad_idx
+        self._pad_idx = pad_idx
 
         device = infer_device(generator.model, param_name="generator.model")
 
-        self.source_text_encoder = tokenizer.create_encoder(
+        self._source_text_encoder = tokenizer.create_encoder(
             task="translation", lang=source_lang, mode="source", device=device
         )
 
@@ -200,13 +198,9 @@ class TextTranslator(SequenceToTextConverterBase):
             - The translated text.
             - The output of the underlying sequence-to-sequence generator.
         """
-        source_seq = self.source_text_encoder(source_text)
+        source_seq = self._source_text_encoder(source_text)
 
-        translations, generator_output = self._do_convert(
-            source_seq.unsqueeze(0), source_padding_mask=None
-        )
-
-        return translations[0], generator_output
+        return self._converter(source_seq)
 
     def batch_translate(
         self, source_texts: Sequence[str]
@@ -224,19 +218,20 @@ class TextTranslator(SequenceToTextConverterBase):
                 "`source_texts` must contain at least one element, but is empty instead."
             )
 
-        source_seq_list = [self.source_text_encoder(t) for t in source_texts]
+        source_seq_list = [self._source_text_encoder(t) for t in source_texts]
 
-        source_seqs, source_padding_mask = pad_seqs(source_seq_list, self.pad_idx)
+        source_seqs, source_padding_mask = pad_seqs(source_seq_list, self._pad_idx)
 
-        return self._do_convert(source_seqs, source_padding_mask)
+        return self._converter.batch_convert(source_seqs, source_padding_mask)
 
 
+@final
 class TextCompleter:
     """Completes text prompts."""
 
-    generator: SequenceGenerator
-    text_encoder: TextTokenEncoder
-    text_decoder: TextTokenDecoder
+    _generator: SequenceGenerator
+    _text_encoder: TextTokenEncoder
+    _text_decoder: TextTokenDecoder
 
     def __init__(self, generator: SequenceGenerator, tokenizer: TextTokenizer) -> None:
         """
@@ -245,12 +240,12 @@ class TextCompleter:
         :param tokenizer:
             The text tokenizer.
         """
-        self.generator = generator
+        self._generator = generator
 
         device = infer_device(generator.model, param_name="generator.model")
 
-        self.text_encoder = tokenizer.create_encoder(mode="prompt", device=device)
-        self.text_decoder = tokenizer.create_decoder()
+        self._text_encoder = tokenizer.create_encoder(mode="prompt", device=device)
+        self._text_decoder = tokenizer.create_decoder()
 
     def __call__(self, prompt: str) -> Tuple[str, SequenceGeneratorOutput]:
         """
@@ -261,7 +256,7 @@ class TextCompleter:
             - The completed text.
             - The output of the underlying sequence generator.
         """
-        prompt_seq = self.text_encoder(prompt)
+        prompt_seq = self._text_encoder(prompt)
 
         texts, generator_output = self._do_complete(
             prompt_seq.unsqueeze(0), prompt_padding_mask=None
@@ -285,7 +280,7 @@ class TextCompleter:
                 "`prompts` must contain at least one element, but is empty instead."
             )
 
-        prompt_seq_list = [self.text_encoder(p) for p in prompts]
+        prompt_seq_list = [self._text_encoder(p) for p in prompts]
 
         prompt_seqs, prompt_padding_mask = pad_seqs(prompt_seq_list)
 
@@ -294,7 +289,7 @@ class TextCompleter:
     def _do_complete(
         self, prompt_seqs: Tensor, prompt_padding_mask: Optional[PaddingMask]
     ) -> Tuple[List[str], SequenceGeneratorOutput]:
-        generator_output = self.generator(prompt_seqs, prompt_padding_mask)
+        generator_output = self._generator(prompt_seqs, prompt_padding_mask)
 
         texts: List[str] = []
 
@@ -304,6 +299,6 @@ class TextCompleter:
                     f"The sequence generator returned no hypothesis at index {idx}. Please file a bug report."
                 )
 
-            texts.append(self.text_decoder(hypotheses[0].seq))
+            texts.append(self._text_decoder(hypotheses[0].seq))
 
         return texts, generator_output

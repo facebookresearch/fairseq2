@@ -5,20 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 import sys
-from abc import ABC, abstractmethod
-from typing import List, Optional, Sequence, final
+from typing import List, Optional, Protocol, Sequence, final
 
 import torch
 from torch import Tensor
 from torch.nn.functional import pad
 
-from fairseq2.typing import finaloverride
 
-
-class StepProcessor(ABC):
+class StepProcessor(Protocol):
     """Processes next-step probabilities during sequence generation."""
 
-    @abstractmethod
     def __call__(self, seqs: Tensor, probs: Tensor, lprob: bool = False) -> None:
         """
         :param seqs:
@@ -91,7 +87,6 @@ class BannedSequenceProcessor(StepProcessor):
                 self._banned_seqs[row, -seq_lens[row] :] = seq
                 self._banned_mask[row, -seq_lens[row] :] = False
 
-    @finaloverride
     def __call__(self, seqs: Tensor, probs: Tensor, lprob: bool = False) -> None:
         if self._banned_seqs is None:
             return
@@ -136,6 +131,8 @@ class BannedSequenceProcessor(StepProcessor):
 class NGramRepeatBlockProcessor(StepProcessor):
     """Blocks repeated generation of n-grams of a specified size."""
 
+    _ngram_size: int
+
     def __init__(self, ngram_size: int) -> None:
         """
         :param ngram_size:
@@ -144,11 +141,10 @@ class NGramRepeatBlockProcessor(StepProcessor):
         if ngram_size == 0:
             raise ValueError("`ngram_size` must be greater than 0.")
 
-        self.ngram_size = ngram_size
+        self._ngram_size = ngram_size
 
-    @finaloverride
     def __call__(self, seqs: Tensor, probs: Tensor, lprob: bool = False) -> None:
-        ngram_size = self.ngram_size
+        ngram_size = self._ngram_size
 
         seq_len = seqs.size(1) + 1
 

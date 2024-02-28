@@ -10,27 +10,40 @@ import torch
 from torch import Tensor
 
 from fairseq2.data.text import TextTokenEncoder, TextTokenizer
-from fairseq2.generation import Chatbot, ChatDialog, ChatMessage, SequenceGenerator
+from fairseq2.generation import (
+    AbstractChatbot,
+    ChatDialog,
+    ChatMessage,
+    SequenceGenerator,
+)
 from fairseq2.nn.utils.module import infer_device
 from fairseq2.typing import override
 
 
 @final
-class LLaMAChatbot(Chatbot):
+class LLaMAChatbot(AbstractChatbot):
     """Represents a LLaMA chatbot."""
 
     _bos_idx: Tensor
     _eos_idx: Tensor
     _text_encoder: TextTokenEncoder
 
-    def __init__(self, generator: SequenceGenerator, tokenizer: TextTokenizer) -> None:
+    def __init__(
+        self,
+        generator: SequenceGenerator,
+        tokenizer: TextTokenizer,
+        *,
+        stdout: bool = False,
+    ) -> None:
         """
         :param generator:
             The sequence generator.
         :param tokenizer:
             The text tokenizer.
+        :param stdout:
+            If ``True``, prints generated messages to stdout in real-time.
         """
-        super().__init__(generator, tokenizer)
+        super().__init__(generator, tokenizer, stdout=stdout)
 
         assert tokenizer.vocab_info.bos_idx is not None
         assert tokenizer.vocab_info.eos_idx is not None
