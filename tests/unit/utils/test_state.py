@@ -20,14 +20,14 @@ class TestStatefulObjectBag:
             def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
                 assert state_dict == {"foo4": "value4"}
 
-        class FooStateHandler(StateHandler):
-            def load_state(self, stateful: Any, state: Any) -> None:
-                assert stateful == "value2" and state == "handler-value2"
-
-            def extract_state(self, stateful: Any) -> Any:
+        class FooStateHandler(StateHandler[str]):
+            def get_state(self, stateful: Any) -> Any:
                 assert stateful == "value2"
 
                 return "handler-value2"
+
+            def set_state(self, stateful: Any, state: Any) -> None:
+                assert stateful == "value2" and state == "handler-value2"
 
         bag = StatefulObjectBag()
 
