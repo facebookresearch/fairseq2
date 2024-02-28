@@ -151,6 +151,18 @@ class AssetCard:
         """The name of the asset."""
         return self._name
 
+    def asset_type(self) -> str:
+        """Return the type of the asset represented by this card."""
+        for field in ["model_type", "dataset_type", "tokenizer_type"]:
+            try:
+                return self.field("model_type").as_(str)
+            except AssetCardFieldNotFoundError:
+                continue
+
+        raise AssetCardFieldNotFoundError(
+            f"The asset card '{self.name}' must have a field named 'model_type', 'dataset_type', or 'tokenizer_type'."
+        )
+
 
 @final
 class AssetCardField:

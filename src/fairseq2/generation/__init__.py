@@ -16,8 +16,13 @@ from fairseq2.generation.beam_search import (
 )
 from fairseq2.generation.chat import AbstractChatbot as AbstractChatbot
 from fairseq2.generation.chat import Chatbot as Chatbot
+from fairseq2.generation.chat import ChatbotFactory as ChatbotFactory
 from fairseq2.generation.chat import ChatDialog as ChatDialog
 from fairseq2.generation.chat import ChatMessage as ChatMessage
+from fairseq2.generation.chat import (
+    DelegatingChatbotFactory as DelegatingChatbotFactory,
+)
+from fairseq2.generation.chat import create_chatbot as create_chatbot
 from fairseq2.generation.generator import (
     AbstractSeq2SeqGenerator as AbstractSeq2SeqGenerator,
 )

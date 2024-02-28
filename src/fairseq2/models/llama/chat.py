@@ -15,6 +15,7 @@ from fairseq2.generation import (
     ChatDialog,
     ChatMessage,
     SequenceGenerator,
+    create_chatbot,
 )
 from fairseq2.nn.utils.module import infer_device
 from fairseq2.typing import override
@@ -94,3 +95,6 @@ class LLaMAChatbot(AbstractChatbot):
         dialog_contents += [self._bos_idx, user_seq]
 
         return torch.cat(dialog_contents, dim=0)
+
+
+create_chatbot.register("llama", LLaMAChatbot)
