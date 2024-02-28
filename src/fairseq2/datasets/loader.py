@@ -6,9 +6,8 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Dict, Generic, Protocol, TypeVar, Union, final
+from typing import Dict, Protocol, TypeVar, Union, final
 
 from fairseq2.assets import (
     AssetCard,
@@ -17,15 +16,13 @@ from fairseq2.assets import (
     AssetError,
     AssetStore,
 )
-from fairseq2.typing import finaloverride
 
 DatasetT = TypeVar("DatasetT", covariant=True)
 
 
-class DatasetLoader(ABC, Generic[DatasetT]):
+class DatasetLoader(Protocol[DatasetT]):
     """Loads datasets of type ``DatasetT```."""
 
-    @abstractmethod
     def __call__(
         self,
         dataset_name_or_card: Union[str, AssetCard],
@@ -58,11 +55,13 @@ class DatasetFactory(Protocol[DatasetT]):
         """
 
 
+@final
 class StandardDatasetLoader(DatasetLoader[DatasetT]):
     """Loads datasets of type ``DatasetT``."""
 
-    asset_store: AssetStore
-    download_manager: AssetDownloadManager
+    _asset_store: AssetStore
+    _download_manager: AssetDownloadManager
+    _factory: DatasetFactory[DatasetT]
 
     def __init__(
         self,
@@ -78,11 +77,10 @@ class StandardDatasetLoader(DatasetLoader[DatasetT]):
         :param factory:
             The factory to construct datasets.
         """
-        self.asset_store = asset_store
-        self.download_manager = download_manager
-        self.factory = factory
+        self._asset_store = asset_store
+        self._download_manager = download_manager
+        self._factory = factory
 
-    @finaloverride
     def __call__(
         self,
         dataset_name_or_card: Union[str, AssetCard],
@@ -94,12 +92,12 @@ class StandardDatasetLoader(DatasetLoader[DatasetT]):
         if isinstance(dataset_name_or_card, AssetCard):
             card = dataset_name_or_card
         else:
-            card = self.asset_store.retrieve_card(dataset_name_or_card)
+            card = self._asset_store.retrieve_card(dataset_name_or_card)
 
         uri = card.field("uri").as_uri()
 
         try:
-            path = self.download_manager.download_dataset(
+            path = self._download_manager.download_dataset(
                 uri, card.name, force=force, cache_only=cache_only, progress=progress
             )
         except ValueError as ex:
@@ -108,7 +106,7 @@ class StandardDatasetLoader(DatasetLoader[DatasetT]):
             ) from ex
 
         try:
-            return self.factory(path, card)
+            return self._factory(path, card)
         except ValueError as ex:
             raise AssetError(
                 f"The {card.name} dataset cannot be loaded. See nested exception for details."
@@ -119,8 +117,7 @@ class StandardDatasetLoader(DatasetLoader[DatasetT]):
 class DelegatingDatasetLoader(DatasetLoader[DatasetT]):
     """Loads datasets of type ``DatasetT`` using registered loaders."""
 
-    asset_store: AssetStore
-
+    _asset_store: AssetStore
     _loaders: Dict[str, DatasetLoader[DatasetT]]
 
     def __init__(self, asset_store: AssetStore) -> None:
@@ -128,11 +125,10 @@ class DelegatingDatasetLoader(DatasetLoader[DatasetT]):
         :param asset_store:
             The asset store where to check for available datasets.
         """
-        self.asset_store = asset_store
+        self._asset_store = asset_store
 
         self._loaders = {}
 
-    @finaloverride
     def __call__(
         self,
         dataset_name_or_card: Union[str, AssetCard],
@@ -144,7 +140,7 @@ class DelegatingDatasetLoader(DatasetLoader[DatasetT]):
         if isinstance(dataset_name_or_card, AssetCard):
             card = dataset_name_or_card
         else:
-            card = self.asset_store.retrieve_card(dataset_name_or_card)
+            card = self._asset_store.retrieve_card(dataset_name_or_card)
 
         dataset_type = card.field("dataset_type").as_(str)
 
