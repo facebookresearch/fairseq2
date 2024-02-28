@@ -16,7 +16,7 @@ import torch.distributed as dist
 from torch import Tensor
 from torch.distributed import ProcessGroup, ReduceOp
 
-from fairseq2.typing import CPU, Device, finaloverride
+from fairseq2.typing import CPU, Device, override
 from fairseq2.utils.version import _is_pt22_or_greater
 
 logger = logging.getLogger(__name__)
@@ -34,24 +34,6 @@ class ReduceOperation(Enum):
 
 class Gang(ABC):
     """Represents a set of processes that work collectively."""
-
-    rank: int
-    size: int
-    device: Device
-
-    def __init__(self, rank: int, size: int, device: Device) -> None:
-        """
-        :param rank:
-            The rank of this process in the gang.
-        :param size:
-            The number of processes that are part of the gang.
-        :param device:
-            The associated device.
-        """
-        self.rank = rank
-        self.size = size
-
-        self.device = device
 
     @abstractmethod
     def close(self) -> None:
@@ -85,9 +67,64 @@ class Gang(ABC):
             The tensor to be gathered from this process.
         """
 
+    @property
+    @abstractmethod
+    def rank(self) -> int:
+        """The rank of this process in the gang."""
+
+    @property
+    @abstractmethod
+    def size(self) -> int:
+        """The number of processes that are part of the gang."""
+
+    @property
+    @abstractmethod
+    def device(self) -> Device:
+        """The associated device."""
+
+
+class AbstractGang(Gang):
+    """Provides a skeletal implementation of :class:`Gang`."""
+
+    _rank: int
+    _size: int
+    _device: Device
+
+    def __init__(self, rank: int, size: int, device: Device) -> None:
+        """
+        :param rank:
+            The rank of this process in the gang.
+        :param size:
+            The number of processes that are part of the gang.
+        :param device:
+            The associated device.
+        """
+        self._rank = rank
+        self._size = size
+
+        self._device = device
+
+    @final
+    @property
+    @override
+    def rank(self) -> int:
+        return self._rank
+
+    @final
+    @property
+    @override
+    def size(self) -> int:
+        return self._size
+
+    @final
+    @property
+    @override
+    def device(self) -> Device:
+        return self._device
+
 
 @final
-class FakeGang(Gang):
+class FakeGang(AbstractGang):
     """Represents a non-distributed gang for local use."""
 
     def __init__(self, device: Optional[Device] = None) -> None:
@@ -104,37 +141,37 @@ class FakeGang(Gang):
 
         super().__init__(rank=0, size=1, device=device)
 
-    @finaloverride
+    @override
     def close(self) -> None:
         pass
 
-    @finaloverride
+    @override
     def as_process_group(self) -> ProcessGroup:
         raise RuntimeError("`FakeGang` does not support conversion to a process group.")
 
-    @finaloverride
+    @override
     def barrier(self) -> None:
         pass
 
-    @finaloverride
+    @override
     def all_reduce(self, tensor: Tensor, op: ReduceOperation) -> None:
         pass
 
-    @finaloverride
+    @override
     def all_gather(self, output_tensor: Tensor, input_tensor: Tensor) -> None:
         output_tensor.copy_(input_tensor)
 
 
 @final
-class ProcessGroupGang(Gang):
+class ProcessGroupGang(AbstractGang):
     """Represents a gang that wraps a process group."""
 
-    pg: ProcessGroup
+    _pg: ProcessGroup
 
     def __init__(self, pg: ProcessGroup, device: Device) -> None:
         super().__init__(dist.get_rank(pg), dist.get_world_size(pg), device)
 
-        self.pg = pg
+        self._pg = pg
 
     @staticmethod
     def init_default_process_group(
@@ -269,25 +306,25 @@ class ProcessGroupGang(Gang):
 
         return ProcessGroupGang(dist.group.WORLD, device)
 
-    @finaloverride
+    @override
     def close(self) -> None:
-        dist.destroy_process_group(self.pg)
+        dist.destroy_process_group(self._pg)
 
-    @finaloverride
+    @override
     def as_process_group(self) -> ProcessGroup:
-        return self.pg
+        return self._pg
 
-    @finaloverride
+    @override
     def barrier(self) -> None:
-        dist.barrier(group=self.pg)
+        dist.barrier(group=self._pg)
 
-    @finaloverride
+    @override
     def all_reduce(self, tensor: Tensor, op: ReduceOperation) -> None:
-        dist.all_reduce(tensor, self._get_reduce_op(op), group=self.pg)
+        dist.all_reduce(tensor, self._get_reduce_op(op), group=self._pg)
 
-    @finaloverride
+    @override
     def all_gather(self, output_tensor: Tensor, input_tensor: Tensor) -> None:
-        dist.all_gather_into_tensor(output_tensor, input_tensor, group=self.pg)
+        dist.all_gather_into_tensor(output_tensor, input_tensor, group=self._pg)
 
     @staticmethod
     def _get_reduce_op(op: ReduceOperation):  # type: ignore[no-untyped-def]
