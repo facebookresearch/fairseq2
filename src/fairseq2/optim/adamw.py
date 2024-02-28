@@ -11,12 +11,12 @@ import torch
 from torch import Tensor
 from torch.optim.adamw import adamw  # type: ignore[attr-defined]
 
-from fairseq2.optim.optimizer import Fairseq2Optimizer
-from fairseq2.typing import finaloverride
+from fairseq2.optim.optimizer import AbstractOptimizer
+from fairseq2.typing import override
 
 
 @final
-class AdamW(Fairseq2Optimizer):
+class AdamW(AbstractOptimizer):
     """Represents an AdamW optimizer.
 
     This class uses the same functional AdamW implementation as
@@ -141,7 +141,7 @@ class AdamW(Fairseq2Optimizer):
                 except KeyError:
                     pass
 
-    @finaloverride
+    @override
     def _do_step(self) -> None:
         self._cuda_graph_capture_health_check()  # type: ignore[attr-defined]
 
