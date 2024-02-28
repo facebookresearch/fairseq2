@@ -17,7 +17,6 @@ from fairseq2.generation import (
     SamplingSequenceGenerator,
     TopPSampler,
 )
-from fairseq2.generation.utils import StdOutPrintHook
 from fairseq2.models.mistral import (
     MistralChatbot,
     load_mistral_config,
@@ -51,7 +50,7 @@ def run_mistral_chatbot(checkpoint_dir: Optional[Path] = None) -> None:
         max_seq_len=config.max_seq_len,
     )
 
-    chatbot = MistralChatbot(generator, tokenizer)
+    chatbot = MistralChatbot(generator, tokenizer, stdout=True)
 
     run_chatbot(chatbot)
 
@@ -68,10 +67,7 @@ def run_chatbot(chatbot: Chatbot) -> None:
 
         print("\nMistral> ", end="")
 
-        hook = StdOutPrintHook(chatbot.text_decoder)
-
-        with chatbot.generator.register_step_hook(hook):
-            response, _ = chatbot(dialog)
+        response, _ = chatbot(dialog)
 
         print("\n")
 

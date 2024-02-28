@@ -5,10 +5,11 @@
 # LICENSE file in the root directory of this source tree.
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, final
 
 
-@dataclass
+@final
+@dataclass(frozen=True)
 class VocabularyInfo:
     """Describes the vocabulary used by a tokenizer"""
 
