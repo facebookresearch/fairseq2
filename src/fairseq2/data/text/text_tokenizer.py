@@ -32,20 +32,20 @@ from fairseq2.assets import (
     default_asset_store,
 )
 from fairseq2.data.vocabulary_info import VocabularyInfo
-from fairseq2.typing import Device, finaloverride
+from fairseq2.typing import Device
 
 
 class TextTokenizer(ABC):
     """Represents a tokenizer to encode and decode text."""
 
-    vocab_info: VocabularyInfo
+    _vocab_info: VocabularyInfo
 
     def __init__(self, vocab_info: VocabularyInfo) -> None:
         """
         :param vocab_info:
             The vocabulary information associated with the tokenizer.
         """
-        self.vocab_info = vocab_info
+        self._vocab_info = vocab_info
 
     @abstractmethod
     def create_encoder(
@@ -97,6 +97,11 @@ class TextTokenizer(ABC):
     def create_decoder(self) -> TextTokenDecoder:
         """Create a token decoder."""
 
+    @property
+    def vocab_info(self) -> VocabularyInfo:
+        """The vocabulary information associated with the tokenizer."""
+        return self._vocab_info
+
 
 class TextTokenEncoder(ABC):
     """Encodes text into tokens or token indices."""
@@ -146,10 +151,9 @@ class TextTokenDecoder(ABC):
         """
 
 
-class TextTokenizerLoader(ABC):
+class TextTokenizerLoader(Protocol):
     """Loads text tokenizers."""
 
-    @abstractmethod
     def __call__(
         self,
         tokenizer_name_or_card: Union[str, AssetCard],
@@ -170,28 +174,47 @@ class TextTokenizerLoader(ABC):
         """
 
 
-TextTokenizerT = TypeVar("TextTokenizerT", bound=TextTokenizer)
+TextTokenizerT = TypeVar("TextTokenizerT", bound=TextTokenizer, covariant=True)
 
 
+class TextTokenizerFactory(Protocol[TextTokenizerT]):
+    """Constructs text tokenizers of type ``TextTokenizerT``."""
+
+    def __call__(self, path: Path, card: AssetCard) -> TextTokenizerT:
+        """
+        :param path:
+            The path to the tokenizer.
+        :param card:
+            The asset card of the tokenizer.
+        """
+
+
+@final
 class StandardTextTokenizerLoader(TextTokenizerLoader, Generic[TextTokenizerT]):
-    """Loads text tokenizers of type ``TokenizerT`` using an asset store."""
+    """Loads text tokenizers of type ``TokenizerT``."""
 
-    asset_store: AssetStore
-    download_manager: AssetDownloadManager
+    _asset_store: AssetStore
+    _download_manager: AssetDownloadManager
+    _factory: TextTokenizerFactory[TextTokenizerT]
 
     def __init__(
-        self, asset_store: AssetStore, download_manager: AssetDownloadManager
+        self,
+        asset_store: AssetStore,
+        download_manager: AssetDownloadManager,
+        factory: TextTokenizerFactory[TextTokenizerT],
     ) -> None:
         """
         :param asset_store:
             The asset store where to check for available tokenizers.
         :param download_manager:
             The download manager.
+        :param factory:
+            The factory to construct tokenizers.
         """
-        self.asset_store = asset_store
-        self.download_manager = download_manager
+        self._asset_store = asset_store
+        self._download_manager = download_manager
+        self._factory = factory
 
-    @finaloverride
     def __call__(
         self,
         tokenizer_name_or_card: Union[str, AssetCard],
@@ -203,12 +226,12 @@ class StandardTextTokenizerLoader(TextTokenizerLoader, Generic[TextTokenizerT]):
         if isinstance(tokenizer_name_or_card, AssetCard):
             card = tokenizer_name_or_card
         else:
-            card = self.asset_store.retrieve_card(tokenizer_name_or_card)
+            card = self._asset_store.retrieve_card(tokenizer_name_or_card)
 
         uri = card.field("tokenizer").as_uri()
 
         try:
-            path = self.download_manager.download_tokenizer(
+            path = self._download_manager.download_tokenizer(
                 uri, card.name, force=force, cache_only=cache_only, progress=progress
             )
         except ValueError as ex:
@@ -217,70 +240,18 @@ class StandardTextTokenizerLoader(TextTokenizerLoader, Generic[TextTokenizerT]):
             ) from ex
 
         try:
-            return self._load(path, card)
+            return self._factory(path, card)
         except ValueError as ex:
             raise AssetError(
                 f"The {card.name} tokenizer cannot be loaded. See nested exception for details."
             ) from ex
 
-    @abstractmethod
-    def _load(self, path: Path, card: AssetCard) -> TextTokenizerT:
-        """
-        :param path:
-            The path to the tokenizer.
-        :param card:
-            The asset card of the associated tokenizer.
-        """
-
-
-TextTokenizerT_co = TypeVar("TextTokenizerT_co", bound=TextTokenizer, covariant=True)
-
-
-class BasicTextTokenizerFactory(Protocol[TextTokenizerT_co]):
-    """Constructs text tokenizers of type ``TextTokenizerT``."""
-
-    def __call__(self, path: Path) -> TextTokenizerT_co:
-        """
-        :param path:
-            The path to the tokenizer.
-        """
-
 
 @final
-class BasicTextTokenizerLoader(StandardTextTokenizerLoader[TextTokenizerT]):
-    """Loads text tokenizers of type ``TokenizerT`` via a provided path."""
-
-    tokenizer_factory: BasicTextTokenizerFactory[TextTokenizerT]
-
-    def __init__(
-        self,
-        asset_store: AssetStore,
-        download_manager: AssetDownloadManager,
-        tokenizer_factory: BasicTextTokenizerFactory[TextTokenizerT],
-    ) -> None:
-        """
-        :param asset_store:
-            The asset store where to check for available tokenizers.
-        :param download_manager:
-            The download manager.
-        :param tokenizer_factory:
-            The factory to construct tokenizers.
-        """
-        super().__init__(asset_store, download_manager)
-
-        self.tokenizer_factory = tokenizer_factory
-
-    @finaloverride
-    def _load(self, path: Path, card: AssetCard) -> TextTokenizerT:
-        return self.tokenizer_factory(path)
-
-
-@final
-class CompositeTextTokenizerLoader(TextTokenizerLoader):
+class DelegatingTextTokenizerLoader(TextTokenizerLoader):
     """Loads text tokenizers using registered loaders."""
 
-    asset_store: AssetStore
-
+    _asset_store: AssetStore
     _loaders: Dict[str, TextTokenizerLoader]
 
     def __init__(self, asset_store: AssetStore) -> None:
@@ -288,11 +259,10 @@ class CompositeTextTokenizerLoader(TextTokenizerLoader):
         :param asset_store:
             The asset store where to check for available tokenizers.
         """
-        self.asset_store = asset_store
+        self._asset_store = asset_store
 
         self._loaders = {}
 
-    @finaloverride
     def __call__(
         self,
         tokenizer_name_or_card: Union[str, AssetCard],
@@ -304,7 +274,7 @@ class CompositeTextTokenizerLoader(TextTokenizerLoader):
         if isinstance(tokenizer_name_or_card, AssetCard):
             card = tokenizer_name_or_card
         else:
-            card = self.asset_store.retrieve_card(tokenizer_name_or_card)
+            card = self._asset_store.retrieve_card(tokenizer_name_or_card)
 
         tokenizer_type = None
 
@@ -346,4 +316,4 @@ class CompositeTextTokenizerLoader(TextTokenizerLoader):
         self._loaders[tokenizer_type] = loader
 
 
-load_text_tokenizer = CompositeTextTokenizerLoader(default_asset_store)
+load_text_tokenizer = DelegatingTextTokenizerLoader(default_asset_store)
