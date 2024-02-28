@@ -21,15 +21,15 @@ from fairseq2.data.text.sentencepiece import (
     SentencePieceTokenizer as SentencePieceTokenizer,
 )
 from fairseq2.data.text.sentencepiece import (
+    load_basic_sentencepiece_tokenizer as load_basic_sentencepiece_tokenizer,
+)
+from fairseq2.data.text.sentencepiece import (
     vocab_info_from_sentencepiece as vocab_info_from_sentencepiece,
 )
 from fairseq2.data.text.text_reader import LineEnding as LineEnding
 from fairseq2.data.text.text_reader import read_text as read_text
 from fairseq2.data.text.text_tokenizer import (
-    BasicTextTokenizerLoader as BasicTextTokenizerLoader,
-)
-from fairseq2.data.text.text_tokenizer import (
-    CompositeTextTokenizerLoader as CompositeTextTokenizerLoader,
+    DelegatingTextTokenizerLoader as DelegatingTextTokenizerLoader,
 )
 from fairseq2.data.text.text_tokenizer import (
     StandardTextTokenizerLoader as StandardTextTokenizerLoader,

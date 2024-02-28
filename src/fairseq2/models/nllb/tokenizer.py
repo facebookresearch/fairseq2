@@ -8,15 +8,15 @@ from pathlib import Path
 from typing import Optional, Sequence, Set, final
 
 from fairseq2.data.text import SentencePieceEncoder, SentencePieceTokenizer
-from fairseq2.typing import Device, finaloverride
+from fairseq2.typing import Device, override
 
 
 @final
 class NllbTokenizer(SentencePieceTokenizer):
     """Represents a tokenizer used by NLLB models."""
 
-    langs: Set[str]
-    default_lang: str
+    _langs: Set[str]
+    _default_lang: str
 
     def __init__(self, path: Path, langs: Sequence[str], default_lang: str) -> None:
         """
@@ -40,11 +40,11 @@ class NllbTokenizer(SentencePieceTokenizer):
 
         super().__init__(path, control_symbols)
 
-        self.langs = set(langs)
+        self._langs = set(langs)
 
-        self.default_lang = default_lang
+        self._default_lang = default_lang
 
-    @finaloverride
+    @override
     def create_encoder(
         self,
         *,
@@ -74,9 +74,9 @@ class NllbTokenizer(SentencePieceTokenizer):
             raise ValueError(f"`task` must be 'translation', but is '{task}' instead.")
 
         if lang is None:
-            lang = self.default_lang
+            lang = self._default_lang
 
-        if lang not in self.langs:
+        if lang not in self._langs:
             raise ValueError(
                 f"`lang` must be a supported language, but is '{lang}' instead."
             )
@@ -106,7 +106,7 @@ class NllbTokenizer(SentencePieceTokenizer):
             )
 
         return SentencePieceEncoder(
-            self.model,
+            self._model,
             prefix_tokens=prefix_tokens,
             suffix_tokens=suffix_tokens,
             device=device,

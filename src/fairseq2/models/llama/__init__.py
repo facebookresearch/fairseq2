@@ -13,4 +13,3 @@ from fairseq2.models.llama.chat import LLaMAChatbot as LLaMAChatbot
 from fairseq2.models.llama.loader import load_llama_config as load_llama_config
 from fairseq2.models.llama.loader import load_llama_model as load_llama_model
 from fairseq2.models.llama.loader import load_llama_tokenizer as load_llama_tokenizer
-from fairseq2.models.llama.tokenizer import LLaMATokenizer as LLaMATokenizer

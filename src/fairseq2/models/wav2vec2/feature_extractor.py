@@ -357,7 +357,7 @@ class Float32LayerNorm(LayerNorm):
 class Float32GroupNorm(GroupNorm):
     """Applies Group Normalization in single-precision."""
 
-    @override(check_signature=False)
+    @override
     def forward(self, x: Tensor) -> Tensor:
         w, b = self.weight, self.bias
 

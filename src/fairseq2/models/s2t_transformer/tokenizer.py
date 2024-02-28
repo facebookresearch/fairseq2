@@ -8,16 +8,16 @@ from pathlib import Path
 from typing import Optional, Set, final
 
 from fairseq2.data.text import SentencePieceEncoder, SentencePieceTokenizer
-from fairseq2.typing import Device, finaloverride
+from fairseq2.typing import Device, override
 
 
 @final
 class S2TTransformerTokenizer(SentencePieceTokenizer):
     """Represents a tokenizer used by S2T Transformer models."""
 
-    task: str
-    target_langs: Set[str]
-    default_target_lang: str
+    _task: str
+    _target_langs: Set[str]
+    _default_target_lang: str
 
     def __init__(
         self,
@@ -44,11 +44,11 @@ class S2TTransformerTokenizer(SentencePieceTokenizer):
                 f"`task` must be 'transcripton' or 'translation', but is '{task}' instead."
             )
 
-        self.task = task
-        self.target_langs = target_langs
-        self.default_target_lang = default_target_lang
+        self._task = task
+        self._target_langs = target_langs
+        self._default_target_lang = default_target_lang
 
-    @finaloverride
+    @override
     def create_encoder(
         self,
         *,
@@ -72,28 +72,28 @@ class S2TTransformerTokenizer(SentencePieceTokenizer):
         :param pin_memory:
             If ``True``, uses pinned memory while constructing tensors.
         """
-        if task is not None and task != self.task:
-            raise ValueError(f"`task` must be '{self.task}', but is '{task}' instead.")
+        if task is not None and task != self._task:
+            raise ValueError(f"`task` must be '{self._task}', but is '{task}' instead.")
 
         if mode is not None and mode != "target":
             raise ValueError(f"`mode` must be 'target', but is '{mode}' instead.")
 
         if lang is None:
-            lang = self.default_target_lang
+            lang = self._default_target_lang
 
-        if lang not in self.target_langs:
+        if lang not in self._target_langs:
             raise ValueError(
                 f"`lang` must be a supported language, but is '{lang}' instead."
             )
 
         # For multilingual speech translation we prepend the language token.
-        if self.task == "translation" and len(self.target_langs) > 1:
+        if self._task == "translation" and len(self._target_langs) > 1:
             prefix_tokens = ["</s>", f"<lang:{lang}>"]
         else:
             prefix_tokens = ["</s>"]
 
         return SentencePieceEncoder(
-            self.model,
+            self._model,
             prefix_tokens=prefix_tokens,
             device=device,
             pin_memory=pin_memory,

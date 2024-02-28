@@ -14,4 +14,3 @@ from fairseq2.models.mistral.loader import load_mistral_model as load_mistral_mo
 from fairseq2.models.mistral.loader import (
     load_mistral_tokenizer as load_mistral_tokenizer,
 )
-from fairseq2.models.mistral.tokenizer import MistralTokenizer as MistralTokenizer
