@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.gang &mdash; fairseq2 0.3.0.dev202402260133 documentation</title>
+  <title>fairseq2.gang &mdash; fairseq2 0.3.0.dev202402282330 documentation</title>
       <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202402260133
+                0.3.0.dev202402282330
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -83,9 +83,6 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../reference/data.html#column-syntax">Column syntax</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../reference/data.html#public-classes-used-in-fairseq2-api">Public classes used in fairseq2 API:</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/data/fairseq2.data.CString.html">CString</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/data/fairseq2.data.PathLike.html">PathLike</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../reference/generated/data/fairseq2.data.StringLike.html">StringLike</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/data/fairseq2.data.ByteStreamError.html">fairseq2.data.ByteStreamError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/data/fairseq2.data.DataPipelineError.html">fairseq2.data.DataPipelineError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../reference/generated/data/fairseq2.data.RecordError.html">fairseq2.data.RecordError</a></li>
@@ -176,7 +173,7 @@
 <span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
 <span class="kn">from</span> <span class="nn">torch.distributed</span> <span class="kn">import</span> <span class="n">ProcessGroup</span><span class="p">,</span> <span class="n">ReduceOp</span>
 
-<span class="kn">from</span> <span class="nn">fairseq2.typing</span> <span class="kn">import</span> <span class="n">CPU</span><span class="p">,</span> <span class="n">Device</span><span class="p">,</span> <span class="n">finaloverride</span>
+<span class="kn">from</span> <span class="nn">fairseq2.typing</span> <span class="kn">import</span> <span class="n">CPU</span><span class="p">,</span> <span class="n">Device</span><span class="p">,</span> <span class="n">override</span>
 <span class="kn">from</span> <span class="nn">fairseq2.utils.version</span> <span class="kn">import</span> <span class="n">_is_pt22_or_greater</span>
 
 <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
@@ -194,24 +191,6 @@
 
 <div class="viewcode-block" id="Gang"><a class="viewcode-back" href="../../reference/generated/abc/fairseq2.gang.Gang.html#fairseq2.gang.Gang">[docs]</a><span class="k">class</span> <span class="nc">Gang</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a set of processes that work collectively.&quot;&quot;&quot;</span>
-
-    <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">size</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">device</span><span class="p">:</span> <span class="n">Device</span>
-
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        :param rank:</span>
-<span class="sd">            The rank of this process in the gang.</span>
-<span class="sd">        :param size:</span>
-<span class="sd">            The number of processes that are part of the gang.</span>
-<span class="sd">        :param device:</span>
-<span class="sd">            The associated device.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">rank</span> <span class="o">=</span> <span class="n">rank</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">size</span> <span class="o">=</span> <span class="n">size</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="n">device</span>
 
 <div class="viewcode-block" id="Gang.close"><a class="viewcode-back" href="../../reference/generated/abc/fairseq2.gang.Gang.html#fairseq2.gang.Gang.close">[docs]</a>    <span class="nd">@abstractmethod</span>
     <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -243,11 +222,66 @@
 <span class="sd">            The output tensor to accomodate tensors from all processes.</span>
 <span class="sd">        :param input_tensor:</span>
 <span class="sd">            The tensor to be gathered from this process.</span>
-<span class="sd">        &quot;&quot;&quot;</span></div></div>
+<span class="sd">        &quot;&quot;&quot;</span></div>
+
+    <span class="nd">@property</span>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">rank</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The rank of this process in the gang.&quot;&quot;&quot;</span>
+
+    <span class="nd">@property</span>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The number of processes that are part of the gang.&quot;&quot;&quot;</span>
+
+    <span class="nd">@property</span>
+    <span class="nd">@abstractmethod</span>
+    <span class="k">def</span> <span class="nf">device</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Device</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The associated device.&quot;&quot;&quot;</span></div>
+
+
+<span class="k">class</span> <span class="nc">AbstractGang</span><span class="p">(</span><span class="n">Gang</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Provides a skeletal implementation of :class:`Gang`.&quot;&quot;&quot;</span>
+
+    <span class="n">_rank</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">_size</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">_device</span><span class="p">:</span> <span class="n">Device</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param rank:</span>
+<span class="sd">            The rank of this process in the gang.</span>
+<span class="sd">        :param size:</span>
+<span class="sd">            The number of processes that are part of the gang.</span>
+<span class="sd">        :param device:</span>
+<span class="sd">            The associated device.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_rank</span> <span class="o">=</span> <span class="n">rank</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_size</span> <span class="o">=</span> <span class="n">size</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">_device</span> <span class="o">=</span> <span class="n">device</span>
+
+    <span class="nd">@final</span>
+    <span class="nd">@property</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span> <span class="nf">rank</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rank</span>
+
+    <span class="nd">@final</span>
+    <span class="nd">@property</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span> <span class="nf">size</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_size</span>
+
+    <span class="nd">@final</span>
+    <span class="nd">@property</span>
+    <span class="nd">@override</span>
+    <span class="k">def</span> <span class="nf">device</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Device</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_device</span>
 
 
 <span class="nd">@final</span>
-<span class="k">class</span> <span class="nc">FakeGang</span><span class="p">(</span><span class="n">Gang</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">FakeGang</span><span class="p">(</span><span class="n">AbstractGang</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a non-distributed gang for local use.&quot;&quot;&quot;</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -264,37 +298,37 @@
 
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">rank</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
 
-    <span class="nd">@finaloverride</span>
+    <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">pass</span>
 
-    <span class="nd">@finaloverride</span>
+    <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">as_process_group</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ProcessGroup</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;`FakeGang` does not support conversion to a process group.&quot;</span><span class="p">)</span>
 
-    <span class="nd">@finaloverride</span>
+    <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">barrier</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">pass</span>
 
-    <span class="nd">@finaloverride</span>
+    <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">all_reduce</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tensor</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">op</span><span class="p">:</span> <span class="n">ReduceOperation</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">pass</span>
 
-    <span class="nd">@finaloverride</span>
+    <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">all_gather</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_tensor</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">input_tensor</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">output_tensor</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">input_tensor</span><span class="p">)</span>
 
 
 <span class="nd">@final</span>
-<span class="k">class</span> <span class="nc">ProcessGroupGang</span><span class="p">(</span><span class="n">Gang</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">ProcessGroupGang</span><span class="p">(</span><span class="n">AbstractGang</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a gang that wraps a process group.&quot;&quot;&quot;</span>
 
-    <span class="n">pg</span><span class="p">:</span> <span class="n">ProcessGroup</span>
+    <span class="n">_pg</span><span class="p">:</span> <span class="n">ProcessGroup</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pg</span><span class="p">:</span> <span class="n">ProcessGroup</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">dist</span><span class="o">.</span><span class="n">get_rank</span><span class="p">(</span><span class="n">pg</span><span class="p">),</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_world_size</span><span class="p">(</span><span class="n">pg</span><span class="p">),</span> <span class="n">device</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">pg</span> <span class="o">=</span> <span class="n">pg</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_pg</span> <span class="o">=</span> <span class="n">pg</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">init_default_process_group</span><span class="p">(</span>
@@ -429,25 +463,25 @@
 
         <span class="k">return</span> <span class="n">ProcessGroupGang</span><span class="p">(</span><span class="n">dist</span><span class="o">.</span><span class="n">group</span><span class="o">.</span><span class="n">WORLD</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
 
-    <span class="nd">@finaloverride</span>
+    <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">dist</span><span class="o">.</span><span class="n">destroy_process_group</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pg</span><span class="p">)</span>
+        <span class="n">dist</span><span class="o">.</span><span class="n">destroy_process_group</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pg</span><span class="p">)</span>
 
-    <span class="nd">@finaloverride</span>
+    <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">as_process_group</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ProcessGroup</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">pg</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pg</span>
 
-    <span class="nd">@finaloverride</span>
+    <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">barrier</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">dist</span><span class="o">.</span><span class="n">barrier</span><span class="p">(</span><span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">pg</span><span class="p">)</span>
+        <span class="n">dist</span><span class="o">.</span><span class="n">barrier</span><span class="p">(</span><span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_pg</span><span class="p">)</span>
 
-    <span class="nd">@finaloverride</span>
+    <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">all_reduce</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tensor</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">op</span><span class="p">:</span> <span class="n">ReduceOperation</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">dist</span><span class="o">.</span><span class="n">all_reduce</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_reduce_op</span><span class="p">(</span><span class="n">op</span><span class="p">),</span> <span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">pg</span><span class="p">)</span>
+        <span class="n">dist</span><span class="o">.</span><span class="n">all_reduce</span><span class="p">(</span><span class="n">tensor</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_reduce_op</span><span class="p">(</span><span class="n">op</span><span class="p">),</span> <span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_pg</span><span class="p">)</span>
 
-    <span class="nd">@finaloverride</span>
+    <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">all_gather</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_tensor</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">input_tensor</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">dist</span><span class="o">.</span><span class="n">all_gather_into_tensor</span><span class="p">(</span><span class="n">output_tensor</span><span class="p">,</span> <span class="n">input_tensor</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">pg</span><span class="p">)</span>
+        <span class="n">dist</span><span class="o">.</span><span class="n">all_gather_into_tensor</span><span class="p">(</span><span class="n">output_tensor</span><span class="p">,</span> <span class="n">input_tensor</span><span class="p">,</span> <span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_pg</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_get_reduce_op</span><span class="p">(</span><span class="n">op</span><span class="p">:</span> <span class="n">ReduceOperation</span><span class="p">):</span>  <span class="c1"># type: ignore[no-untyped-def]</span>

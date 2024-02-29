@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.assets.store &mdash; fairseq2 0.3.0.dev202402260133 documentation</title>
+  <title>fairseq2.assets.store &mdash; fairseq2 0.3.0.dev202402282330 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202402260133
+                0.3.0.dev202402282330
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -83,9 +83,6 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../reference/data.html#column-syntax">Column syntax</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../reference/data.html#public-classes-used-in-fairseq2-api">Public classes used in fairseq2 API:</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.CString.html">CString</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.PathLike.html">PathLike</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.StringLike.html">StringLike</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.ByteStreamError.html">fairseq2.data.ByteStreamError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.DataPipelineError.html">fairseq2.data.DataPipelineError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.RecordError.html">fairseq2.data.RecordError</a></li>
@@ -178,7 +175,7 @@
     <span class="n">FileAssetMetadataProvider</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">fairseq2.assets.utils</span> <span class="kn">import</span> <span class="n">_get_path_from_env</span>
-<span class="kn">from</span> <span class="nn">fairseq2.typing</span> <span class="kn">import</span> <span class="n">finaloverride</span>
+<span class="kn">from</span> <span class="nn">fairseq2.typing</span> <span class="kn">import</span> <span class="n">override</span>
 
 
 <div class="viewcode-block" id="AssetStore"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.assets.AssetStore.html#fairseq2.assets.AssetStore">[docs]</a><span class="k">class</span> <span class="nc">AssetStore</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
@@ -194,8 +191,8 @@
 
 
 <span class="nd">@final</span>
-<span class="k">class</span> <span class="nc">ProviderBackedAssetStore</span><span class="p">(</span><span class="n">AssetStore</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a store of assets backed by metadata providers.&quot;&quot;&quot;</span>
+<span class="k">class</span> <span class="nc">StandardAssetStore</span><span class="p">(</span><span class="n">AssetStore</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a store of assets.&quot;&quot;&quot;</span>
 
     <span class="n">env_resolvers</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">EnvironmentResolver</span><span class="p">]</span>
     <span class="n">metadata_providers</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">AssetMetadataProvider</span><span class="p">]</span>
@@ -210,7 +207,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">metadata_providers</span> <span class="o">=</span> <span class="p">[</span><span class="n">metadata_provider</span><span class="p">]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">user_metadata_providers</span> <span class="o">=</span> <span class="p">[]</span>
 
-    <span class="nd">@finaloverride</span>
+    <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">retrieve_card</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AssetCard</span><span class="p">:</span>
         <span class="k">if</span> <span class="s2">&quot;@&quot;</span> <span class="ow">in</span> <span class="n">name</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`name` must not contain the reserved &#39;@&#39; character.&quot;</span><span class="p">)</span>
@@ -306,12 +303,12 @@
         <span class="o">...</span>
 
 
-<span class="k">def</span> <span class="nf">_create_default_asset_store</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">ProviderBackedAssetStore</span><span class="p">:</span>
+<span class="k">def</span> <span class="nf">_create_default_asset_store</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">StandardAssetStore</span><span class="p">:</span>
     <span class="n">cards_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s2">&quot;cards&quot;</span><span class="p">)</span>
 
     <span class="n">metadata_provider</span> <span class="o">=</span> <span class="n">FileAssetMetadataProvider</span><span class="p">(</span><span class="n">cards_dir</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">ProviderBackedAssetStore</span><span class="p">(</span><span class="n">metadata_provider</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">StandardAssetStore</span><span class="p">(</span><span class="n">metadata_provider</span><span class="p">)</span>
 
 
 <span class="n">default_asset_store</span> <span class="o">=</span> <span class="n">_create_default_asset_store</span><span class="p">()</span>

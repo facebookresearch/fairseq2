@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Collater &mdash; fairseq2 0.3.0.dev202402260133 documentation</title>
+  <title>Collater &mdash; fairseq2 0.3.0.dev202402282330 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -35,7 +35,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202402260133
+                0.3.0.dev202402282330
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -86,9 +86,6 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../data.html#column-syntax">Column syntax</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../data.html#public-classes-used-in-fairseq2-api">Public classes used in fairseq2 API:</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="fairseq2.data.CString.html">CString</a></li>
-<li class="toctree-l3"><a class="reference internal" href="fairseq2.data.PathLike.html">PathLike</a></li>
-<li class="toctree-l3"><a class="reference internal" href="fairseq2.data.StringLike.html">StringLike</a></li>
 <li class="toctree-l3"><a class="reference internal" href="fairseq2.data.ByteStreamError.html">fairseq2.data.ByteStreamError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="fairseq2.data.DataPipelineError.html">fairseq2.data.DataPipelineError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="fairseq2.data.RecordError.html">fairseq2.data.RecordError</a></li>
@@ -165,7 +162,7 @@
 <h1>Collater<a class="headerlink" href="#collater" title="Permalink to this heading"></a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.data.Collater">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.data.</span></span><span class="sig-name descname"><span class="pre">Collater</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pad_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pad_to_multiple</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overrides</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#Collater"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.Collater" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.data.</span></span><span class="sig-name descname"><span class="pre">Collater</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pad_value</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pad_to_multiple</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overrides</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#Collater"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.Collater" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Concatenate a list of inputs into a single inputs.</p>
 <p>Used to create batches.

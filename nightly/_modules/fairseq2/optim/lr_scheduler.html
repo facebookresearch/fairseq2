@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.optim.lr_scheduler &mdash; fairseq2 0.3.0.dev202402260133 documentation</title>
+  <title>fairseq2.optim.lr_scheduler &mdash; fairseq2 0.3.0.dev202402282330 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202402260133
+                0.3.0.dev202402282330
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -83,9 +83,6 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../reference/data.html#column-syntax">Column syntax</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../reference/data.html#public-classes-used-in-fairseq2-api">Public classes used in fairseq2 API:</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.CString.html">CString</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.PathLike.html">PathLike</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.StringLike.html">StringLike</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.ByteStreamError.html">fairseq2.data.ByteStreamError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.DataPipelineError.html">fairseq2.data.DataPipelineError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.RecordError.html">fairseq2.data.RecordError</a></li>
@@ -173,7 +170,7 @@
 <span class="kn">from</span> <span class="nn">torch.optim.lr_scheduler</span> <span class="kn">import</span> <span class="n">_LRScheduler</span>
 <span class="kn">from</span> <span class="nn">typing_extensions</span> <span class="kn">import</span> <span class="n">TypeAlias</span>
 
-<span class="kn">from</span> <span class="nn">fairseq2.typing</span> <span class="kn">import</span> <span class="n">finaloverride</span>
+<span class="kn">from</span> <span class="nn">fairseq2.typing</span> <span class="kn">import</span> <span class="n">override</span>
 
 <span class="n">LRScheduler</span><span class="p">:</span> <span class="n">TypeAlias</span> <span class="o">=</span> <span class="n">_LRScheduler</span>
 
@@ -183,10 +180,11 @@
     <span class="k">return</span> <span class="n">scheduler</span><span class="o">.</span><span class="n">get_last_lr</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
 
 
-<span class="k">class</span> <span class="nc">Fairseq2LRScheduler</span><span class="p">(</span><span class="n">ABC</span><span class="p">,</span> <span class="n">LRScheduler</span><span class="p">):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a learning rate scheduler.&quot;&quot;&quot;</span>
+<span class="k">class</span> <span class="nc">AbstractLRScheduler</span><span class="p">(</span><span class="n">ABC</span><span class="p">,</span> <span class="n">LRScheduler</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Provides a skeletal implementation of :class:`LRScheduler`.&quot;&quot;&quot;</span>
 
-    <span class="nd">@finaloverride</span>
+    <span class="nd">@final</span>
+    <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">get_lr</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>  <span class="c1"># type: ignore[override]</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_lr_called_within_step</span><span class="p">:</span>  <span class="c1"># type: ignore[attr-defined]</span>
             <span class="n">warnings</span><span class="o">.</span><span class="n">warn</span><span class="p">(</span>
@@ -201,7 +199,7 @@
 
 
 <div class="viewcode-block" id="NoamLR"><a class="viewcode-back" href="../../../reference/generated/classes/fairseq2.optim.lr_scheduler.NoamLR.html#fairseq2.optim.lr_scheduler.NoamLR">[docs]</a><span class="nd">@final</span>
-<span class="k">class</span> <span class="nc">NoamLR</span><span class="p">(</span><span class="n">Fairseq2LRScheduler</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">NoamLR</span><span class="p">(</span><span class="n">AbstractLRScheduler</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents the learning rate schedule described in Section 5.3 of</span>
 <span class="sd">    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.</span>
 
@@ -221,7 +219,7 @@
 <span class="sd">        This scheduler is not chainable.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">num_warmup_steps</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">_num_warmup_steps</span><span class="p">:</span> <span class="nb">int</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -238,15 +236,15 @@
 <span class="sd">        :param last_epoch:</span>
 <span class="sd">            The index of the last epoch.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">num_warmup_steps</span> <span class="o">=</span> <span class="n">num_warmup_steps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_num_warmup_steps</span> <span class="o">=</span> <span class="n">num_warmup_steps</span>
 
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">last_epoch</span><span class="p">)</span>
 
-    <span class="nd">@finaloverride</span>
+    <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">_compute_lrs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
         <span class="c1"># Linearly increase the learning rate during warmup.</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_warmup_steps</span><span class="p">:</span>
-            <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_warmup_steps</span><span class="o">**-</span><span class="mf">1.5</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_warmup_steps</span><span class="p">:</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_warmup_steps</span><span class="o">**-</span><span class="mf">1.5</span>
 
         <span class="c1"># No warmup requested, decay from the base learning rate.</span>
         <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
@@ -261,7 +259,7 @@
 
 
 <div class="viewcode-block" id="MyleLR"><a class="viewcode-back" href="../../../reference/generated/classes/fairseq2.optim.lr_scheduler.MyleLR.html#fairseq2.optim.lr_scheduler.MyleLR">[docs]</a><span class="nd">@final</span>
-<span class="k">class</span> <span class="nc">MyleLR</span><span class="p">(</span><span class="n">Fairseq2LRScheduler</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">MyleLR</span><span class="p">(</span><span class="n">AbstractLRScheduler</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a scaled version of :class:`NoamLR` that preserves the base</span>
 <span class="sd">    learning rate of the associated optimizer.</span>
 
@@ -280,8 +278,8 @@
 <span class="sd">        This scheduler is not chainable.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">num_warmup_steps</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">start_lrs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span>
+    <span class="n">_num_warmup_steps</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">_start_lrs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -305,29 +303,29 @@
         <span class="k">if</span> <span class="n">num_warmup_steps</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`num_warmup_steps` must be greater than 0.&quot;</span><span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">num_warmup_steps</span> <span class="o">=</span> <span class="n">num_warmup_steps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_num_warmup_steps</span> <span class="o">=</span> <span class="n">num_warmup_steps</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">start_lrs</span> <span class="o">=</span> <span class="n">_get_per_param_group</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;start_lr&quot;</span><span class="p">,</span> <span class="n">start_lr</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_start_lrs</span> <span class="o">=</span> <span class="n">_get_per_param_group</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;start_lr&quot;</span><span class="p">,</span> <span class="n">start_lr</span><span class="p">)</span>
 
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">last_epoch</span><span class="p">)</span>
 
-    <span class="nd">@finaloverride</span>
+    <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">_compute_lrs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
         <span class="c1"># Linearly increase the learning rate to its base value during warmup.</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_warmup_steps</span><span class="p">:</span>
-            <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_warmup_steps</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_warmup_steps</span><span class="p">:</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_warmup_steps</span>
 
-            <span class="k">return</span> <span class="p">[</span><span class="n">s</span> <span class="o">+</span> <span class="p">(</span><span class="n">b</span> <span class="o">-</span> <span class="n">s</span><span class="p">)</span> <span class="o">*</span> <span class="n">c</span> <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base_lrs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_lrs</span><span class="p">)]</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">s</span> <span class="o">+</span> <span class="p">(</span><span class="n">b</span> <span class="o">-</span> <span class="n">s</span><span class="p">)</span> <span class="o">*</span> <span class="n">c</span> <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base_lrs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start_lrs</span><span class="p">)]</span>
 
         <span class="c1"># After the warmup, decay the learning rate proportional to the inverse</span>
         <span class="c1"># square root of the step number.</span>
-        <span class="n">c</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num_warmup_steps</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.5</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_num_warmup_steps</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span><span class="p">)</span> <span class="o">**</span> <span class="mf">0.5</span>
 
         <span class="k">return</span> <span class="p">[</span><span class="n">b</span> <span class="o">*</span> <span class="n">c</span> <span class="k">for</span> <span class="n">b</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_lrs</span><span class="p">]</span></div>
 
 
 <div class="viewcode-block" id="PolynomialDecayLR"><a class="viewcode-back" href="../../../reference/generated/classes/fairseq2.optim.lr_scheduler.PolynomialDecayLR.html#fairseq2.optim.lr_scheduler.PolynomialDecayLR">[docs]</a><span class="nd">@final</span>
-<span class="k">class</span> <span class="nc">PolynomialDecayLR</span><span class="p">(</span><span class="n">Fairseq2LRScheduler</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">PolynomialDecayLR</span><span class="p">(</span><span class="n">AbstractLRScheduler</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents the polynomial decay learning rate schedule.</span>
 
 <span class="sd">    **During warmup:**</span>
@@ -349,11 +347,11 @@
 <span class="sd">        This scheduler is not chainable.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">num_steps</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">num_warmup_steps</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">power</span><span class="p">:</span> <span class="nb">float</span>
-    <span class="n">start_lrs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span>
-    <span class="n">final_lrs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span>
+    <span class="n">_num_steps</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">_num_warmup_steps</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">_power</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">_start_lrs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span>
+    <span class="n">_final_lrs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -390,38 +388,38 @@
                 <span class="sa">f</span><span class="s2">&quot;`num_warmup_steps` must be less than `num_steps` (</span><span class="si">{</span><span class="n">num_steps</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">num_warmup_steps</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
             <span class="p">)</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">num_steps</span> <span class="o">=</span> <span class="n">num_steps</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">num_warmup_steps</span> <span class="o">=</span> <span class="n">num_warmup_steps</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">power</span> <span class="o">=</span> <span class="n">power</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_num_steps</span> <span class="o">=</span> <span class="n">num_steps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_num_warmup_steps</span> <span class="o">=</span> <span class="n">num_warmup_steps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_power</span> <span class="o">=</span> <span class="n">power</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">start_lrs</span> <span class="o">=</span> <span class="n">_get_per_param_group</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;start_lr&quot;</span><span class="p">,</span> <span class="n">start_lr</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">final_lrs</span> <span class="o">=</span> <span class="n">_get_per_param_group</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;final_lr&quot;</span><span class="p">,</span> <span class="n">final_lr</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_start_lrs</span> <span class="o">=</span> <span class="n">_get_per_param_group</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;start_lr&quot;</span><span class="p">,</span> <span class="n">start_lr</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_final_lrs</span> <span class="o">=</span> <span class="n">_get_per_param_group</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;final_lr&quot;</span><span class="p">,</span> <span class="n">final_lr</span><span class="p">)</span>
 
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">last_epoch</span><span class="p">)</span>
 
-    <span class="nd">@finaloverride</span>
+    <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">_compute_lrs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
         <span class="c1"># The decay is already complete, return the final learning rate.</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_steps</span><span class="p">:</span>
-            <span class="k">return</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">final_lrs</span><span class="p">]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_steps</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_final_lrs</span><span class="p">]</span>
 
         <span class="c1"># Linearly increase the learning rate to its base value during warmup.</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_warmup_steps</span><span class="p">:</span>
-            <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_warmup_steps</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_warmup_steps</span><span class="p">:</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_warmup_steps</span>
 
-            <span class="k">return</span> <span class="p">[</span><span class="n">s</span> <span class="o">+</span> <span class="p">(</span><span class="n">b</span> <span class="o">-</span> <span class="n">s</span><span class="p">)</span> <span class="o">*</span> <span class="n">c</span> <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base_lrs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_lrs</span><span class="p">)]</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">s</span> <span class="o">+</span> <span class="p">(</span><span class="n">b</span> <span class="o">-</span> <span class="n">s</span><span class="p">)</span> <span class="o">*</span> <span class="n">c</span> <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">s</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base_lrs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start_lrs</span><span class="p">)]</span>
 
         <span class="c1"># After the warmup, decay the learning rate to its final value.</span>
-        <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_steps</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span>
-        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_steps</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_warmup_steps</span>
+        <span class="n">r</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_steps</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span>
+        <span class="n">t</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_steps</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_warmup_steps</span>
 
-        <span class="n">c</span> <span class="o">=</span> <span class="p">(</span><span class="n">r</span> <span class="o">/</span> <span class="n">t</span><span class="p">)</span> <span class="o">**</span> <span class="bp">self</span><span class="o">.</span><span class="n">power</span>
+        <span class="n">c</span> <span class="o">=</span> <span class="p">(</span><span class="n">r</span> <span class="o">/</span> <span class="n">t</span><span class="p">)</span> <span class="o">**</span> <span class="bp">self</span><span class="o">.</span><span class="n">_power</span>
 
-        <span class="k">return</span> <span class="p">[</span><span class="n">f</span> <span class="o">+</span> <span class="p">(</span><span class="n">b</span> <span class="o">-</span> <span class="n">f</span><span class="p">)</span> <span class="o">*</span> <span class="n">c</span> <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base_lrs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">final_lrs</span><span class="p">)]</span></div>
+        <span class="k">return</span> <span class="p">[</span><span class="n">f</span> <span class="o">+</span> <span class="p">(</span><span class="n">b</span> <span class="o">-</span> <span class="n">f</span><span class="p">)</span> <span class="o">*</span> <span class="n">c</span> <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">f</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base_lrs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_final_lrs</span><span class="p">)]</span></div>
 
 
 <div class="viewcode-block" id="CosineAnnealingLR"><a class="viewcode-back" href="../../../reference/generated/classes/fairseq2.optim.lr_scheduler.CosineAnnealingLR.html#fairseq2.optim.lr_scheduler.CosineAnnealingLR">[docs]</a><span class="nd">@final</span>
-<span class="k">class</span> <span class="nc">CosineAnnealingLR</span><span class="p">(</span><span class="n">Fairseq2LRScheduler</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">CosineAnnealingLR</span><span class="p">(</span><span class="n">AbstractLRScheduler</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents the learning rate schedule described in</span>
 <span class="sd">    :cite:t:`https://doi.org/10.48550/arxiv.1608.03983`.</span>
 
@@ -454,12 +452,12 @@
 <span class="sd">        This scheduler is not chainable.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">cycle_len</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">cycle_mul</span><span class="p">:</span> <span class="nb">float</span>
-    <span class="n">num_warmup_steps</span><span class="p">:</span> <span class="nb">int</span>
-    <span class="n">lr_mul</span><span class="p">:</span> <span class="nb">float</span>
-    <span class="n">start_lrs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span>
-    <span class="n">final_lrs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span>
+    <span class="n">_cycle_len</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">_cycle_mul</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">_num_warmup_steps</span><span class="p">:</span> <span class="nb">int</span>
+    <span class="n">_lr_mul</span><span class="p">:</span> <span class="nb">float</span>
+    <span class="n">_start_lrs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span>
+    <span class="n">_final_lrs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
@@ -494,31 +492,31 @@
 <span class="sd">        :param last_epoch:</span>
 <span class="sd">            The index of the last epoch.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">cycle_len</span> <span class="o">=</span> <span class="n">cycle_len</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">cycle_mul</span> <span class="o">=</span> <span class="n">cycle_mul</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">num_warmup_steps</span> <span class="o">=</span> <span class="n">num_warmup_steps</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">lr_mul</span> <span class="o">=</span> <span class="n">lr_mul</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cycle_len</span> <span class="o">=</span> <span class="n">cycle_len</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_cycle_mul</span> <span class="o">=</span> <span class="n">cycle_mul</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_num_warmup_steps</span> <span class="o">=</span> <span class="n">num_warmup_steps</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_lr_mul</span> <span class="o">=</span> <span class="n">lr_mul</span>
 
-        <span class="bp">self</span><span class="o">.</span><span class="n">start_lrs</span> <span class="o">=</span> <span class="n">_get_per_param_group</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;start_lr&quot;</span><span class="p">,</span> <span class="n">start_lr</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">final_lrs</span> <span class="o">=</span> <span class="n">_get_per_param_group</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;final_lr&quot;</span><span class="p">,</span> <span class="n">final_lr</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_start_lrs</span> <span class="o">=</span> <span class="n">_get_per_param_group</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;start_lr&quot;</span><span class="p">,</span> <span class="n">start_lr</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_final_lrs</span> <span class="o">=</span> <span class="n">_get_per_param_group</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;final_lr&quot;</span><span class="p">,</span> <span class="n">final_lr</span><span class="p">)</span>
 
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">last_epoch</span><span class="p">)</span>
 
-    <span class="nd">@finaloverride</span>
+    <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">_compute_lrs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
         <span class="c1"># Linearly increase the learning rate to its base value during warmup.</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_warmup_steps</span><span class="p">:</span>
-            <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_warmup_steps</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span> <span class="o">&lt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_warmup_steps</span><span class="p">:</span>
+            <span class="n">c</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_warmup_steps</span>
 
-            <span class="k">return</span> <span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="p">(</span><span class="n">b</span> <span class="o">-</span> <span class="n">i</span><span class="p">)</span> <span class="o">*</span> <span class="n">c</span> <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base_lrs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">start_lrs</span><span class="p">)]</span>
+            <span class="k">return</span> <span class="p">[</span><span class="n">i</span> <span class="o">+</span> <span class="p">(</span><span class="n">b</span> <span class="o">-</span> <span class="n">i</span><span class="p">)</span> <span class="o">*</span> <span class="n">c</span> <span class="k">for</span> <span class="n">b</span><span class="p">,</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">base_lrs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start_lrs</span><span class="p">)]</span>
 
-        <span class="n">curr_step</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">num_warmup_steps</span>
+        <span class="n">curr_step</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_epoch</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">_num_warmup_steps</span>
 
         <span class="c1"># When each cycle has equal length, the computation is straightforward.</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cycle_mul</span> <span class="o">==</span> <span class="mf">1.0</span><span class="p">:</span>
-            <span class="n">cycle_num</span> <span class="o">=</span> <span class="n">curr_step</span> <span class="o">//</span> <span class="bp">self</span><span class="o">.</span><span class="n">cycle_len</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cycle_mul</span> <span class="o">==</span> <span class="mf">1.0</span><span class="p">:</span>
+            <span class="n">cycle_num</span> <span class="o">=</span> <span class="n">curr_step</span> <span class="o">//</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cycle_len</span>
 
-            <span class="n">cycle_len</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cycle_len</span>
+            <span class="n">cycle_len</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cycle_len</span>
 
             <span class="c1"># The position of the step within the cycle.</span>
             <span class="n">cycle_pos</span> <span class="o">=</span> <span class="n">curr_step</span> <span class="o">-</span> <span class="p">(</span><span class="n">cycle_num</span> <span class="o">*</span> <span class="n">cycle_len</span><span class="p">)</span>
@@ -527,26 +525,26 @@
         <span class="c1"># a geometric series to find out the number, length, and offset of the</span>
         <span class="c1"># current cycle.</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">mul</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">cycle_mul</span>
+            <span class="n">mul</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cycle_mul</span>
 
             <span class="c1"># Solve the equation \sum_{i=0}^{n} len(cycle_i) + x = step for n.</span>
-            <span class="n">cycle_num</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">curr_step</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">cycle_len</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">mul</span><span class="p">),</span> <span class="n">mul</span><span class="p">))</span>
+            <span class="n">cycle_num</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">curr_step</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cycle_len</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">mul</span><span class="p">),</span> <span class="n">mul</span><span class="p">))</span>
 
-            <span class="n">cycle_len</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">mul</span><span class="o">**</span><span class="n">cycle_num</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">cycle_len</span><span class="p">)</span>
+            <span class="n">cycle_len</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">mul</span><span class="o">**</span><span class="n">cycle_num</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cycle_len</span><span class="p">)</span>
 
             <span class="c1"># Compute the sum of the lengths of the first `cycle_num` cycles</span>
             <span class="c1"># (i.e. geometric series) which corresponds to the beginning offset</span>
             <span class="c1"># of the current cycle.</span>
-            <span class="n">cycle_offset</span> <span class="o">=</span> <span class="nb">int</span><span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">mul</span><span class="o">**</span><span class="n">cycle_num</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">mul</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">cycle_len</span><span class="p">)</span>
+            <span class="n">cycle_offset</span> <span class="o">=</span> <span class="nb">int</span><span class="p">((</span><span class="mi">1</span> <span class="o">-</span> <span class="n">mul</span><span class="o">**</span><span class="n">cycle_num</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">mul</span><span class="p">)</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">_cycle_len</span><span class="p">)</span>
 
             <span class="c1"># The position of the step within the cycle.</span>
             <span class="n">cycle_pos</span> <span class="o">=</span> <span class="n">curr_step</span> <span class="o">-</span> <span class="n">cycle_offset</span>
 
-        <span class="n">lr_mul</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">lr_mul</span><span class="o">**</span><span class="n">cycle_num</span>
+        <span class="n">lr_mul</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lr_mul</span><span class="o">**</span><span class="n">cycle_num</span>
 
         <span class="n">c</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">pi</span> <span class="o">*</span> <span class="n">cycle_pos</span> <span class="o">/</span> <span class="n">cycle_len</span><span class="p">)</span>
 
-        <span class="n">min_lrs</span><span class="p">,</span> <span class="n">max_lrs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">final_lrs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_lrs</span>
+        <span class="n">min_lrs</span><span class="p">,</span> <span class="n">max_lrs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_final_lrs</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_lrs</span>
 
         <span class="k">return</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_cycle_lr</span><span class="p">(</span><span class="n">mn</span><span class="p">,</span> <span class="n">mx</span><span class="p">,</span> <span class="n">lr_mul</span><span class="p">,</span> <span class="n">c</span><span class="p">)</span> <span class="k">for</span> <span class="n">mn</span><span class="p">,</span> <span class="n">mx</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">min_lrs</span><span class="p">,</span> <span class="n">max_lrs</span><span class="p">)]</span>
 

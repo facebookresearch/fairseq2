@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.text.text_tokenizer &mdash; fairseq2 0.3.0.dev202402260133 documentation</title>
+  <title>fairseq2.data.text.text_tokenizer &mdash; fairseq2 0.3.0.dev202402282330 documentation</title>
       <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202402260133
+                0.3.0.dev202402282330
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
@@ -83,9 +83,6 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../reference/data.html#column-syntax">Column syntax</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../reference/data.html#public-classes-used-in-fairseq2-api">Public classes used in fairseq2 API:</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.CString.html">CString</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.PathLike.html">PathLike</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.StringLike.html">StringLike</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.ByteStreamError.html">fairseq2.data.ByteStreamError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.DataPipelineError.html">fairseq2.data.DataPipelineError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.RecordError.html">fairseq2.data.RecordError</a></li>
@@ -192,20 +189,20 @@
     <span class="n">default_asset_store</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">fairseq2.data.vocabulary_info</span> <span class="kn">import</span> <span class="n">VocabularyInfo</span>
-<span class="kn">from</span> <span class="nn">fairseq2.typing</span> <span class="kn">import</span> <span class="n">Device</span><span class="p">,</span> <span class="n">finaloverride</span>
+<span class="kn">from</span> <span class="nn">fairseq2.typing</span> <span class="kn">import</span> <span class="n">Device</span>
 
 
 <div class="viewcode-block" id="TextTokenizer"><a class="viewcode-back" href="../../../../reference/generated/data_text/fairseq2.data.text.TextTokenizer.html#fairseq2.data.text.TextTokenizer">[docs]</a><span class="k">class</span> <span class="nc">TextTokenizer</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a tokenizer to encode and decode text.&quot;&quot;&quot;</span>
 
-    <span class="n">vocab_info</span><span class="p">:</span> <span class="n">VocabularyInfo</span>
+    <span class="n">_vocab_info</span><span class="p">:</span> <span class="n">VocabularyInfo</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">vocab_info</span><span class="p">:</span> <span class="n">VocabularyInfo</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :param vocab_info:</span>
 <span class="sd">            The vocabulary information associated with the tokenizer.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">vocab_info</span> <span class="o">=</span> <span class="n">vocab_info</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_vocab_info</span> <span class="o">=</span> <span class="n">vocab_info</span>
 
 <div class="viewcode-block" id="TextTokenizer.create_encoder"><a class="viewcode-back" href="../../../../reference/generated/data_text/fairseq2.data.text.TextTokenizer.html#fairseq2.data.text.TextTokenizer.create_encoder">[docs]</a>    <span class="nd">@abstractmethod</span>
     <span class="k">def</span> <span class="nf">create_encoder</span><span class="p">(</span>
@@ -255,7 +252,13 @@
 
 <div class="viewcode-block" id="TextTokenizer.create_decoder"><a class="viewcode-back" href="../../../../reference/generated/data_text/fairseq2.data.text.TextTokenizer.html#fairseq2.data.text.TextTokenizer.create_decoder">[docs]</a>    <span class="nd">@abstractmethod</span>
     <span class="k">def</span> <span class="nf">create_decoder</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TextTokenDecoder</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a token decoder.&quot;&quot;&quot;</span></div></div>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a token decoder.&quot;&quot;&quot;</span></div>
+
+    <span class="nd">@final</span>
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">vocab_info</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VocabularyInfo</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The vocabulary information associated with the tokenizer.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_vocab_info</span></div>
 
 
 <div class="viewcode-block" id="TextTokenEncoder"><a class="viewcode-back" href="../../../../reference/generated/data_text/fairseq2.data.text.TextTokenEncoder.html#fairseq2.data.text.TextTokenEncoder">[docs]</a><span class="k">class</span> <span class="nc">TextTokenEncoder</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
@@ -306,10 +309,9 @@
 <span class="sd">        &quot;&quot;&quot;</span></div></div>
 
 
-<span class="k">class</span> <span class="nc">TextTokenizerLoader</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">TextTokenizerLoader</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Loads text tokenizers.&quot;&quot;&quot;</span>
 
-    <span class="nd">@abstractmethod</span>
     <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">tokenizer_name_or_card</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">AssetCard</span><span class="p">],</span>
@@ -330,28 +332,47 @@
 <span class="sd">        &quot;&quot;&quot;</span>
 
 
-<span class="n">TextTokenizerT</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;TextTokenizerT&quot;</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="n">TextTokenizer</span><span class="p">)</span>
+<span class="n">TextTokenizerT</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;TextTokenizerT&quot;</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="n">TextTokenizer</span><span class="p">,</span> <span class="n">covariant</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
 
+<span class="k">class</span> <span class="nc">TextTokenizerFactory</span><span class="p">(</span><span class="n">Protocol</span><span class="p">[</span><span class="n">TextTokenizerT</span><span class="p">]):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Constructs text tokenizers of type ``TextTokenizerT``.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">card</span><span class="p">:</span> <span class="n">AssetCard</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TextTokenizerT</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param path:</span>
+<span class="sd">            The path to the tokenizer.</span>
+<span class="sd">        :param card:</span>
+<span class="sd">            The asset card of the tokenizer.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+
+
+<span class="nd">@final</span>
 <span class="k">class</span> <span class="nc">StandardTextTokenizerLoader</span><span class="p">(</span><span class="n">TextTokenizerLoader</span><span class="p">,</span> <span class="n">Generic</span><span class="p">[</span><span class="n">TextTokenizerT</span><span class="p">]):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Loads text tokenizers of type ``TokenizerT`` using an asset store.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Loads text tokenizers of type ``TokenizerT``.&quot;&quot;&quot;</span>
 
-    <span class="n">asset_store</span><span class="p">:</span> <span class="n">AssetStore</span>
-    <span class="n">download_manager</span><span class="p">:</span> <span class="n">AssetDownloadManager</span>
+    <span class="n">_asset_store</span><span class="p">:</span> <span class="n">AssetStore</span>
+    <span class="n">_download_manager</span><span class="p">:</span> <span class="n">AssetDownloadManager</span>
+    <span class="n">_factory</span><span class="p">:</span> <span class="n">TextTokenizerFactory</span><span class="p">[</span><span class="n">TextTokenizerT</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">asset_store</span><span class="p">:</span> <span class="n">AssetStore</span><span class="p">,</span> <span class="n">download_manager</span><span class="p">:</span> <span class="n">AssetDownloadManager</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">asset_store</span><span class="p">:</span> <span class="n">AssetStore</span><span class="p">,</span>
+        <span class="n">download_manager</span><span class="p">:</span> <span class="n">AssetDownloadManager</span><span class="p">,</span>
+        <span class="n">factory</span><span class="p">:</span> <span class="n">TextTokenizerFactory</span><span class="p">[</span><span class="n">TextTokenizerT</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :param asset_store:</span>
 <span class="sd">            The asset store where to check for available tokenizers.</span>
 <span class="sd">        :param download_manager:</span>
 <span class="sd">            The download manager.</span>
+<span class="sd">        :param factory:</span>
+<span class="sd">            The factory to construct tokenizers.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">asset_store</span> <span class="o">=</span> <span class="n">asset_store</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">download_manager</span> <span class="o">=</span> <span class="n">download_manager</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_asset_store</span> <span class="o">=</span> <span class="n">asset_store</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_download_manager</span> <span class="o">=</span> <span class="n">download_manager</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_factory</span> <span class="o">=</span> <span class="n">factory</span>
 
-    <span class="nd">@finaloverride</span>
     <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">tokenizer_name_or_card</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">AssetCard</span><span class="p">],</span>
@@ -363,12 +384,12 @@
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tokenizer_name_or_card</span><span class="p">,</span> <span class="n">AssetCard</span><span class="p">):</span>
             <span class="n">card</span> <span class="o">=</span> <span class="n">tokenizer_name_or_card</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">card</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_store</span><span class="o">.</span><span class="n">retrieve_card</span><span class="p">(</span><span class="n">tokenizer_name_or_card</span><span class="p">)</span>
+            <span class="n">card</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_asset_store</span><span class="o">.</span><span class="n">retrieve_card</span><span class="p">(</span><span class="n">tokenizer_name_or_card</span><span class="p">)</span>
 
         <span class="n">uri</span> <span class="o">=</span> <span class="n">card</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;tokenizer&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">as_uri</span><span class="p">()</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">download_manager</span><span class="o">.</span><span class="n">download_tokenizer</span><span class="p">(</span>
+            <span class="n">path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_download_manager</span><span class="o">.</span><span class="n">download_tokenizer</span><span class="p">(</span>
                 <span class="n">uri</span><span class="p">,</span> <span class="n">card</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="n">force</span><span class="p">,</span> <span class="n">cache_only</span><span class="o">=</span><span class="n">cache_only</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="n">progress</span>
             <span class="p">)</span>
         <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
@@ -377,70 +398,18 @@
             <span class="p">)</span> <span class="kn">from</span> <span class="nn">ex</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">card</span><span class="p">)</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_factory</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">card</span><span class="p">)</span>
         <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
             <span class="k">raise</span> <span class="n">AssetError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;The </span><span class="si">{</span><span class="n">card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> tokenizer cannot be loaded. See nested exception for details.&quot;</span>
             <span class="p">)</span> <span class="kn">from</span> <span class="nn">ex</span>
 
-    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span> <span class="nf">_load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">card</span><span class="p">:</span> <span class="n">AssetCard</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TextTokenizerT</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        :param path:</span>
-<span class="sd">            The path to the tokenizer.</span>
-<span class="sd">        :param card:</span>
-<span class="sd">            The asset card of the associated tokenizer.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-
-
-<span class="n">TextTokenizerT_co</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;TextTokenizerT_co&quot;</span><span class="p">,</span> <span class="n">bound</span><span class="o">=</span><span class="n">TextTokenizer</span><span class="p">,</span> <span class="n">covariant</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-
-
-<span class="k">class</span> <span class="nc">BasicTextTokenizerFactory</span><span class="p">(</span><span class="n">Protocol</span><span class="p">[</span><span class="n">TextTokenizerT_co</span><span class="p">]):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Constructs text tokenizers of type ``TextTokenizerT``.&quot;&quot;&quot;</span>
-
-    <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TextTokenizerT_co</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        :param path:</span>
-<span class="sd">            The path to the tokenizer.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-
 
 <span class="nd">@final</span>
-<span class="k">class</span> <span class="nc">BasicTextTokenizerLoader</span><span class="p">(</span><span class="n">StandardTextTokenizerLoader</span><span class="p">[</span><span class="n">TextTokenizerT</span><span class="p">]):</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Loads text tokenizers of type ``TokenizerT`` via a provided path.&quot;&quot;&quot;</span>
-
-    <span class="n">tokenizer_factory</span><span class="p">:</span> <span class="n">BasicTextTokenizerFactory</span><span class="p">[</span><span class="n">TextTokenizerT</span><span class="p">]</span>
-
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span>
-        <span class="n">asset_store</span><span class="p">:</span> <span class="n">AssetStore</span><span class="p">,</span>
-        <span class="n">download_manager</span><span class="p">:</span> <span class="n">AssetDownloadManager</span><span class="p">,</span>
-        <span class="n">tokenizer_factory</span><span class="p">:</span> <span class="n">BasicTextTokenizerFactory</span><span class="p">[</span><span class="n">TextTokenizerT</span><span class="p">],</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        :param asset_store:</span>
-<span class="sd">            The asset store where to check for available tokenizers.</span>
-<span class="sd">        :param download_manager:</span>
-<span class="sd">            The download manager.</span>
-<span class="sd">        :param tokenizer_factory:</span>
-<span class="sd">            The factory to construct tokenizers.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">asset_store</span><span class="p">,</span> <span class="n">download_manager</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">tokenizer_factory</span> <span class="o">=</span> <span class="n">tokenizer_factory</span>
-
-    <span class="nd">@finaloverride</span>
-    <span class="k">def</span> <span class="nf">_load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">card</span><span class="p">:</span> <span class="n">AssetCard</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TextTokenizerT</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">tokenizer_factory</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-
-
-<span class="nd">@final</span>
-<span class="k">class</span> <span class="nc">CompositeTextTokenizerLoader</span><span class="p">(</span><span class="n">TextTokenizerLoader</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">DelegatingTextTokenizerLoader</span><span class="p">(</span><span class="n">TextTokenizerLoader</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Loads text tokenizers using registered loaders.&quot;&quot;&quot;</span>
 
-    <span class="n">asset_store</span><span class="p">:</span> <span class="n">AssetStore</span>
-
+    <span class="n">_asset_store</span><span class="p">:</span> <span class="n">AssetStore</span>
     <span class="n">_loaders</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">TextTokenizerLoader</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">asset_store</span><span class="p">:</span> <span class="n">AssetStore</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -448,11 +417,10 @@
 <span class="sd">        :param asset_store:</span>
 <span class="sd">            The asset store where to check for available tokenizers.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">asset_store</span> <span class="o">=</span> <span class="n">asset_store</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_asset_store</span> <span class="o">=</span> <span class="n">asset_store</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_loaders</span> <span class="o">=</span> <span class="p">{}</span>
 
-    <span class="nd">@finaloverride</span>
     <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">tokenizer_name_or_card</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">AssetCard</span><span class="p">],</span>
@@ -464,7 +432,7 @@
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">tokenizer_name_or_card</span><span class="p">,</span> <span class="n">AssetCard</span><span class="p">):</span>
             <span class="n">card</span> <span class="o">=</span> <span class="n">tokenizer_name_or_card</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">card</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">asset_store</span><span class="o">.</span><span class="n">retrieve_card</span><span class="p">(</span><span class="n">tokenizer_name_or_card</span><span class="p">)</span>
+            <span class="n">card</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_asset_store</span><span class="o">.</span><span class="n">retrieve_card</span><span class="p">(</span><span class="n">tokenizer_name_or_card</span><span class="p">)</span>
 
         <span class="n">tokenizer_type</span> <span class="o">=</span> <span class="kc">None</span>
 
@@ -506,7 +474,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_loaders</span><span class="p">[</span><span class="n">tokenizer_type</span><span class="p">]</span> <span class="o">=</span> <span class="n">loader</span>
 
 
-<span class="n">load_text_tokenizer</span> <span class="o">=</span> <span class="n">CompositeTextTokenizerLoader</span><span class="p">(</span><span class="n">default_asset_store</span><span class="p">)</span>
+<span class="n">load_text_tokenizer</span> <span class="o">=</span> <span class="n">DelegatingTextTokenizerLoader</span><span class="p">(</span><span class="n">default_asset_store</span><span class="p">)</span>
 </pre></div>
 
            </div>

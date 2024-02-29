@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data &mdash; fairseq2 0.3.0.dev202402260133 documentation</title>
+  <title>fairseq2.data &mdash; fairseq2 0.3.0.dev202402282330 documentation</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -35,7 +35,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202402260133
+                0.3.0.dev202402282330
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
@@ -86,9 +86,6 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#column-syntax">Column syntax</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#public-classes-used-in-fairseq2-api">Public classes used in fairseq2 API:</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.CString.html">CString</a></li>
-<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.PathLike.html">PathLike</a></li>
-<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.StringLike.html">StringLike</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.ByteStreamError.html">fairseq2.data.ByteStreamError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.DataPipelineError.html">fairseq2.data.DataPipelineError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.RecordError.html">fairseq2.data.RecordError</a></li>
@@ -228,25 +225,16 @@ will multiply the values 4 and 6 by 10, but leave others unmodified.</p>
 <h2>Public classes used in fairseq2 API:<a class="headerlink" href="#public-classes-used-in-fairseq2-api" title="Permalink to this heading"></a></h2>
 <table class="autosummary longtable docutils align-default">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.data.CString.html#fairseq2.data.CString" title="fairseq2.data.CString"><code class="xref py py-obj docutils literal notranslate"><span class="pre">CString</span></code></a></p></td>
-<td><p>alias of <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/fairseq2.data.PathLike.html#fairseq2.data.PathLike" title="fairseq2.data.PathLike"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PathLike</span></code></a>()</p></td>
-<td><p>Abstract base class for implementing the file system path protocol.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.data.StringLike.html#fairseq2.data.StringLike" title="fairseq2.data.StringLike"><code class="xref py py-obj docutils literal notranslate"><span class="pre">StringLike</span></code></a></p></td>
-<td><p>alias of <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a></p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/fairseq2.data.ByteStreamError.html#fairseq2.data.ByteStreamError" title="fairseq2.data.ByteStreamError"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ByteStreamError</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.data.ByteStreamError.html#fairseq2.data.ByteStreamError" title="fairseq2.data.ByteStreamError"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ByteStreamError</span></code></a></p></td>
 <td><p>Raised when a dataset file can't be read.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.data.DataPipelineError.html#fairseq2.data.DataPipelineError" title="fairseq2.data.DataPipelineError"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DataPipelineError</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/fairseq2.data.DataPipelineError.html#fairseq2.data.DataPipelineError" title="fairseq2.data.DataPipelineError"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DataPipelineError</span></code></a></p></td>
 <td><p>Raised when an error occurs while reading from a data pipeline.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/fairseq2.data.RecordError.html#fairseq2.data.RecordError" title="fairseq2.data.RecordError"><code class="xref py py-obj docutils literal notranslate"><span class="pre">RecordError</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.data.RecordError.html#fairseq2.data.RecordError" title="fairseq2.data.RecordError"><code class="xref py py-obj docutils literal notranslate"><span class="pre">RecordError</span></code></a></p></td>
 <td><p>Raised when a corrupt record is encountered while reading a dataset.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.data.VocabularyInfo.html#fairseq2.data.VocabularyInfo" title="fairseq2.data.VocabularyInfo"><code class="xref py py-obj docutils literal notranslate"><span class="pre">VocabularyInfo</span></code></a>(size, unk_idx, bos_idx, ...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/fairseq2.data.VocabularyInfo.html#fairseq2.data.VocabularyInfo" title="fairseq2.data.VocabularyInfo"><code class="xref py py-obj docutils literal notranslate"><span class="pre">VocabularyInfo</span></code></a>(size, unk_idx, bos_idx, ...)</p></td>
 <td><p>Describes the vocabulary used by a tokenizer</p></td>
 </tr>
 </tbody>
