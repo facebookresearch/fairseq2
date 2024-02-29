@@ -142,7 +142,7 @@ def sync_and_compute_metrics(*bags: MetricBag) -> Optional[Dict[str, Any]]:
     gang = bags[0]._gang
 
     if len(bags) == 1:
-        all_metrics = bags[0].metrics
+        all_metrics = bags[0]._metrics
     else:
         all_metrics = {}
 
@@ -150,7 +150,7 @@ def sync_and_compute_metrics(*bags: MetricBag) -> Optional[Dict[str, Any]]:
             if bag._gang is not gang:
                 raise ValueError("All metric bags in `bags` must use the same gang.")
 
-            all_metrics.update(bag.metrics)
+            all_metrics.update(bag._metrics)
 
     if gang.size == 1:
         values = {name: m.compute() for name, m in all_metrics.items()}
