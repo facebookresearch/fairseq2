@@ -16,7 +16,7 @@ from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.position_encoder import PositionEncoder
 from fairseq2.nn.projection import Linear, Projection
-from fairseq2.typing import DataType, Device, finaloverride
+from fairseq2.typing import DataType, Device, override
 
 
 @final
@@ -92,7 +92,7 @@ class S2TTransformerFrontend(TransformerFrontend):
         else:
             self.register_module("dropout", None)
 
-    @finaloverride
+    @override
     def forward(
         self,
         seqs: Tensor,

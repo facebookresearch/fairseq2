@@ -17,7 +17,7 @@ from torch.nn import Module
 from torch.nn.functional import linear
 from torch.nn.parameter import Parameter
 
-from fairseq2.typing import DataType, Device, finaloverride
+from fairseq2.typing import DataType, Device, override
 
 
 class Projection(Module, ABC):
@@ -125,7 +125,7 @@ class Linear(Projection):
 
             nn.init.uniform_(self.bias, -bound, bound)
 
-    @finaloverride
+    @override
     def forward(self, x: Tensor) -> Tensor:
         return linear(x, self.weight, self.bias)
 
@@ -163,6 +163,6 @@ class TiedProjection(Projection):
         self.weight = weight
         self.bias = bias
 
-    @finaloverride
+    @override
     def forward(self, x: Tensor) -> Tensor:
         return linear(x, self.weight, self.bias)

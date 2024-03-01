@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Union, final
 
 from fairseq2n import DOC_MODE
 from torch import Tensor
@@ -13,6 +13,7 @@ from fairseq2.typing import DataType
 
 if TYPE_CHECKING or DOC_MODE:
 
+    @final
     class StrSplitter:
         """Split string on a given character.
 
@@ -49,6 +50,7 @@ if TYPE_CHECKING or DOC_MODE:
         def __call__(self, s: str) -> Union[List[str], Dict[str, str]]:
             ...
 
+    @final
     class StrToIntConverter:
         """Parses integers in a given base"""
 
@@ -58,6 +60,7 @@ if TYPE_CHECKING or DOC_MODE:
         def __call__(self, s: str) -> int:
             ...
 
+    @final
     class StrToTensorConverter:
         def __init__(
             self,

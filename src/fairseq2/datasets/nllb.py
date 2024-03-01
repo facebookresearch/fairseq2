@@ -29,7 +29,7 @@ from fairseq2.datasets.parallel_text_dataset import (
     load_parallel_text_dataset,
 )
 from fairseq2.gang import Gang
-from fairseq2.typing import finaloverride
+from fairseq2.typing import override
 
 logger = logging.getLogger(__name__)
 
@@ -41,9 +41,8 @@ num_parallel_calls = 10
 class NllbDataset(AbstractParallelTextDataset):
     """Represents an NLLB dataset."""
 
-    dataset_name: str
-    data_dir: Path
-    split_lang_pairs: Dict[str, Dict[LangPair, int]]
+    _data_dir: Path
+    _split_lang_pairs: Dict[str, Dict[LangPair, int]]
 
     def __init__(
         self,
@@ -59,11 +58,12 @@ class NllbDataset(AbstractParallelTextDataset):
         :param split_lang_pairs:
             The available language pairs per split.
         """
-        self.dataset_name = dataset_name
-        self.data_dir = data_dir
-        self.split_lang_pairs = split_lang_pairs
+        super().__init__(dataset_name)
 
-    @finaloverride
+        self._data_dir = data_dir
+        self._split_lang_pairs = split_lang_pairs
+
+    @override
     def _build_pipeline(
         self,
         split: str,
@@ -79,13 +79,13 @@ class NllbDataset(AbstractParallelTextDataset):
     ) -> DataPipeline:
         splits = []
 
-        for available_split in self.split_lang_pairs.keys():
+        for available_split in self._split_lang_pairs.keys():
             if available_split == split or available_split.startswith(split + "_"):
                 splits.append(available_split)
 
         if not splits:
             raise ValueError(
-                f"`split` must be a valid split name, but the {self.dataset_name} dataset has no split named '{split}'."
+                f"`split` must be a valid split name, but the {self._dataset_name} dataset has no split named '{split}'."
             )
 
         lang_pairs_to_read: Dict[LangPair, List[Tuple[str, int]]] = defaultdict(list)
@@ -93,7 +93,7 @@ class NllbDataset(AbstractParallelTextDataset):
         # Extract the language pairs along with their corpus sizes from the
         # requested split or splits.
         for split in splits:
-            split_lang_pairs = self.split_lang_pairs[split]
+            split_lang_pairs = self._split_lang_pairs[split]
 
             if lang_pairs is None:
                 for lang_pair, size in split_lang_pairs.items():
@@ -116,8 +116,8 @@ class NllbDataset(AbstractParallelTextDataset):
                     )
 
         factory = _NllbDataPipelineFactory(
-            self.dataset_name,
-            self.data_dir,
+            self._dataset_name,
+            self._data_dir,
             tokenizer,
             gang,
             lang_pairs_to_read,
@@ -131,17 +131,17 @@ class NllbDataset(AbstractParallelTextDataset):
 
         return factory()
 
-    @finaloverride
+    @override
     def splits(self) -> List[str]:
-        return list(self.split_lang_pairs.keys())
+        return list(self._split_lang_pairs.keys())
 
-    @finaloverride
+    @override
     def lang_pairs(self, split: str) -> List[LangPair]:
         try:
-            return list(self.split_lang_pairs[split].keys())
+            return list(self._split_lang_pairs[split].keys())
         except KeyError:
             raise ValueError(
-                f"`split` must be a valid split name, but the {self.dataset_name} dataset has no split named '{split}'."
+                f"`split` must be a valid split name, but the {self._dataset_name} dataset has no split named '{split}'."
             )
 
 

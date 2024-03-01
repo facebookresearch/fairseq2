@@ -44,7 +44,7 @@ class MistralConfig:
     """The dimensionality of the model."""
 
     max_seq_len: int
-    """The expected maximum sequence length."""
+    """The maximum allowed sequence length."""
 
     vocab_info: VocabularyInfo
     """The vocabulary information."""
@@ -99,10 +99,10 @@ class MistralBuilder:
     corresponding methods.
     """
 
-    config: MistralConfig
-    pos_encoder: Optional[RotaryEncoder]
-    device: Optional[Device]
-    dtype: Optional[DataType]
+    _config: MistralConfig
+    _device: Optional[Device]
+    _dtype: Optional[DataType]
+    _pos_encoder: Optional[RotaryEncoder]
 
     def __init__(
         self,
@@ -119,57 +119,61 @@ class MistralBuilder:
         :param dtype:
             The data type of module parameters and buffers.
         """
-        self.config = config
+        self._config = config
 
-        self.pos_encoder = None
+        self._device, self._dtype = device, dtype
 
-        self.device, self.dtype = device, dtype
+        self._pos_encoder = None
 
     def build_model(self) -> TransformerDecoderModel:
         """Build a model."""
-        frontend = self.build_frontend()
+        decoder_frontend = self.build_decoder_frontend()
 
         decoder = self.build_decoder()
 
         final_proj = Linear(
-            self.config.model_dim,
-            self.config.vocab_info.size,
+            self._config.model_dim,
+            self._config.vocab_info.size,
             bias=False,
             init_fn=init_final_projection,
-            device=self.device,
-            dtype=self.dtype,
+            device=self._device,
+            dtype=self._dtype,
         )
 
         return TransformerDecoderModel(
-            frontend, decoder, final_proj, self.config.vocab_info
+            decoder_frontend,
+            decoder,
+            final_proj,
+            self._config.max_seq_len,
+            self._config.vocab_info,
         )
 
-    def build_frontend(self) -> TransformerFrontend:
+    def build_decoder_frontend(self) -> TransformerFrontend:
         """Build a Transformer decoder front-end."""
         embed = StandardEmbedding(
-            num_embeddings=self.config.vocab_info.size,
-            embedding_dim=self.config.model_dim,
-            device=self.device,
-            dtype=self.dtype,
+            num_embeddings=self._config.vocab_info.size,
+            embedding_dim=self._config.model_dim,
+            device=self._device,
+            dtype=self._dtype,
         )
 
         return TransformerEmbeddingFrontend(
             embed,
             pos_encoder=None,
             no_scale=True,  # Mistral does not use embedding scaling.
-            dropout_p=self.config.dropout_p,
-            device=self.device,
-            dtype=self.dtype,
+            dropout_p=self._config.dropout_p,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_decoder(self) -> TransformerDecoder:
         """Build a Transformer decoder."""
-        num_layers = self.config.num_layers
+        num_layers = self._config.num_layers
 
         layers = [self.build_decoder_layer() for _ in range(num_layers)]
 
         self_attn_mask_factory = CausalAttentionMaskFactory(
-            attn_window_len=self.config.attn_window_len
+            attn_window_len=self._config.attn_window_len
         )
 
         return StandardTransformerDecoder(
@@ -177,14 +181,14 @@ class MistralBuilder:
             self_attn_mask_factory=self_attn_mask_factory,
             norm_order=TransformerNormOrder.PRE,
             layer_norm_factory=self.build_layer_norm,
-            device=self.device,
-            dtype=self.dtype,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_decoder_layer(self) -> TransformerDecoderLayer:
         """Build a Transformer decoder layer."""
         self_attn = self.build_attention(
-            self.config.num_attn_heads, self.config.num_key_value_heads
+            self._config.num_attn_heads, self._config.num_key_value_heads
         )
 
         ffn = self.build_ffn()
@@ -193,49 +197,49 @@ class MistralBuilder:
             self_attn,
             encoder_decoder_attn=None,
             ffn=ffn,
-            dropout_p=self.config.dropout_p,
+            dropout_p=self._config.dropout_p,
             norm_order=TransformerNormOrder.PRE,
             layer_norm_factory=self.build_layer_norm,
-            device=self.device,
-            dtype=self.dtype,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_attention(
         self, num_heads: int, num_key_value_heads: int
     ) -> MultiheadAttention:
         """Build a Transformer multi-head attention layer."""
-        sdpa = create_default_sdpa(attn_dropout_p=self.config.dropout_p)
+        sdpa = create_default_sdpa(attn_dropout_p=self._config.dropout_p)
 
-        if self.pos_encoder is None:
-            self.pos_encoder = RotaryEncoder(
-                self.config.model_dim // num_heads,
-                self.config.max_seq_len,
-                device=self.device,
+        if self._pos_encoder is None:
+            self._pos_encoder = RotaryEncoder(
+                self._config.model_dim // num_heads,
+                self._config.max_seq_len,
+                device=self._device,
             )
 
-        state_factory = LocalAttentionStateFactory(self.config.attn_window_len)
+        state_factory = LocalAttentionStateFactory(self._config.attn_window_len)
 
         return StandardMultiheadAttention(
-            self.config.model_dim,
+            self._config.model_dim,
             num_heads,
             num_key_value_heads=num_key_value_heads,
             sdpa=sdpa,
-            pos_encoder=self.pos_encoder,
+            pos_encoder=self._pos_encoder,
             bias=False,
             state_factory=state_factory,
-            device=self.device,
-            dtype=self.dtype,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_ffn(self) -> FeedForwardNetwork:
         """Build a Transformer feed-forward network."""
         return GLUFeedForwardNetwork(
-            self.config.model_dim,
-            self.config.ffn_inner_dim,
+            self._config.model_dim,
+            self._config.ffn_inner_dim,
             bias=False,
             inner_dim_scale=1.0,
-            device=self.device,
-            dtype=self.dtype,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_layer_norm(

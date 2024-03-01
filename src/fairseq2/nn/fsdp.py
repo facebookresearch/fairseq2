@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Final, Iterable, Optional, Protocol, Sequence
+from typing import Any, Dict, Final, Iterable, Optional, Protocol, Sequence, final
 
 from torch import Tensor
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
@@ -134,6 +134,7 @@ class FSDPWrapPolicy(Protocol):
         """
 
 
+@final
 @dataclass(frozen=True)
 class FSDPMemoryPolicy:
     """Specifies the device memory usage policy of an FSDP module."""
@@ -202,6 +203,7 @@ def get_ignored_parameters(
     return (p for _, p in select_parameters(module, names))
 
 
+@final
 class FSDPParameterInitializer:
     """Initializes the parameters and buffers of an FSDP module.
 
@@ -218,9 +220,9 @@ class FSDPParameterInitializer:
     ... )
     """
 
-    memo: Dict[Tensor, Tensor]
-    device: Device
-    skip_init: bool
+    _memo: Dict[Tensor, Tensor]
+    _device: Device
+    _skip_init: bool
 
     def __init__(self, device: Device, skip_init: bool = False) -> None:
         """
@@ -231,18 +233,18 @@ class FSDPParameterInitializer:
             moving them onto ``device``. The non-persistent buffers are always
             initialized regardless of ``skip_init``.
         """
-        self.memo = {}
-        self.device = device
-        self.skip_init = skip_init
+        self._memo = {}
+        self._device = device
+        self._skip_init = skip_init
 
     def __call__(self, module: Module) -> None:
         """
         :param module:
             An FSDP module or submodule.
         """
-        to_empty(module, self.device, recurse=False, memo=self.memo)
+        to_empty(module, self._device, recurse=False, memo=self._memo)
 
-        if not self.skip_init:
+        if not self._skip_init:
             reset_parameters(module, recurse=False)
         else:
             reset_non_persistent_buffers(module, recurse=False)

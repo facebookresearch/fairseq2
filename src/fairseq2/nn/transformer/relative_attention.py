@@ -19,7 +19,7 @@ from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer.attention import SDPA, create_default_sdpa
 from fairseq2.nn.transformer.attention_mask import AttentionMask, CustomAttentionMask
-from fairseq2.typing import DataType, Device, finaloverride
+from fairseq2.typing import DataType, Device, override
 
 
 @final
@@ -97,7 +97,7 @@ class RelativePositionSDPA(SDPA):
         nn.init.xavier_normal_(self.u_bias)
         nn.init.xavier_normal_(self.v_bias)
 
-    @finaloverride
+    @override
     def forward(
         self,
         seqs: Tensor,
@@ -189,6 +189,7 @@ class RelativePositionSDPA(SDPA):
         return f"model_dim={self.model_dim}, num_heads={self.num_heads}"
 
 
+@final
 class RelativePositionalEncoding(Module):
     """Produces relative positional encodings as described in Appendix B of
     :cite:t:`dai2019transformerxl`."""
@@ -209,7 +210,7 @@ class RelativePositionalEncoding(Module):
         :param encoding_dim:
             The dimensionality of positional encodings.
         :param max_seq_len:
-            The expected maximum sequence length.
+            The maximum allowed sequence length.
         """
         super().__init__()
 

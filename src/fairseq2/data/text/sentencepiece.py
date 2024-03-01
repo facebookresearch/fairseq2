@@ -10,13 +10,15 @@ from typing import TYPE_CHECKING, List, Optional, Sequence, final
 from fairseq2n import DOC_MODE
 from torch import Tensor
 
+from fairseq2.assets import default_asset_store, default_download_manager
 from fairseq2.data.text.text_tokenizer import (
+    StandardTextTokenizerLoader,
     TextTokenDecoder,
     TextTokenEncoder,
     TextTokenizer,
 )
 from fairseq2.data.vocabulary_info import VocabularyInfo
-from fairseq2.typing import Device, finaloverride
+from fairseq2.typing import Device, override
 
 if TYPE_CHECKING or DOC_MODE:
 
@@ -69,21 +71,21 @@ if TYPE_CHECKING or DOC_MODE:
         ) -> None:
             ...
 
-        @finaloverride
+        @override
         def __call__(self, text: str) -> Tensor:
             ...
 
-        @finaloverride
+        @override
         def encode_as_tokens(self, text: str) -> List[str]:
             ...
 
         @property
-        @finaloverride
+        @override
         def prefix_indices(self) -> Optional[Tensor]:
             ...
 
         @property
-        @finaloverride
+        @override
         def suffix_indices(self) -> Optional[Tensor]:
             ...
 
@@ -92,11 +94,11 @@ if TYPE_CHECKING or DOC_MODE:
         def __init__(self, model: SentencePieceModel, reverse: bool = False) -> None:
             ...
 
-        @finaloverride
+        @override
         def __call__(self, token_indices: Tensor) -> str:
             ...
 
-        @finaloverride
+        @override
         def decode_from_tokens(self, tokens: Sequence[str]) -> str:
             ...
 
@@ -126,7 +128,7 @@ else:
 class SentencePieceTokenizer(TextTokenizer):
     """Represents a SentencePiece tokenizer."""
 
-    model: SentencePieceModel
+    _model: SentencePieceModel
 
     def __init__(
         self, path: Path, control_symbols: Optional[Sequence[str]] = None
@@ -137,27 +139,32 @@ class SentencePieceTokenizer(TextTokenizer):
         :param control_symbols:
             The list of control symbols to add to the SentencePiece model.
         """
-        self.model = SentencePieceModel(path, control_symbols)
+        self._model = SentencePieceModel(path, control_symbols)
 
-        vocab_info = vocab_info_from_sentencepiece(self.model)
+        vocab_info = vocab_info_from_sentencepiece(self._model)
 
         super().__init__(vocab_info)
 
-    @finaloverride
+    @override
     def create_raw_encoder(
         self, *, device: Optional[Device] = None, pin_memory: bool = False
     ) -> SentencePieceEncoder:
-        return SentencePieceEncoder(self.model, device=device, pin_memory=pin_memory)
+        return SentencePieceEncoder(self._model, device=device, pin_memory=pin_memory)
 
-    @finaloverride
+    @override
     def create_decoder(self) -> SentencePieceDecoder:
-        return SentencePieceDecoder(self.model)
+        return SentencePieceDecoder(self._model)
+
+    @final
+    @property
+    def model(self) -> SentencePieceModel:
+        return self._model
 
 
+@final
 class BasicSentencePieceTokenizer(SentencePieceTokenizer):
     """Represents a SentencePiece tokenizer that encodes text with BOS and EOS."""
 
-    # protected
     def __init__(self, path: Path) -> None:
         """
         :param path:
@@ -165,7 +172,7 @@ class BasicSentencePieceTokenizer(SentencePieceTokenizer):
         """
         super().__init__(path)
 
-    @finaloverride
+    @override
     def create_encoder(
         self,
         *,
@@ -207,12 +214,19 @@ class BasicSentencePieceTokenizer(SentencePieceTokenizer):
             )
 
         return SentencePieceEncoder(
-            self.model,
+            self._model,
             prefix_tokens=prefix_tokens,
             suffix_tokens=suffix_tokens,
             device=device,
             pin_memory=pin_memory,
         )
+
+
+load_basic_sentencepiece_tokenizer = StandardTextTokenizerLoader(
+    default_asset_store,
+    default_download_manager,
+    lambda path, _: BasicSentencePieceTokenizer(path),
+)
 
 
 def vocab_info_from_sentencepiece(model: SentencePieceModel) -> VocabularyInfo:

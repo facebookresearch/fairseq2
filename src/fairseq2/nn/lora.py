@@ -21,6 +21,7 @@ from fairseq2.nn import Embedding, Projection
 from fairseq2.typing import DataType, Device
 
 
+@final
 @dataclass
 class LoRAConfig:
     r: int

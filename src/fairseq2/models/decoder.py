@@ -21,14 +21,18 @@ class DecoderModel(SequenceModel):
 
     model_dim: int
 
-    def __init__(self, model_dim: int, vocab_info: VocabularyInfo) -> None:
+    def __init__(
+        self, model_dim: int, max_seq_len: int, vocab_info: VocabularyInfo
+    ) -> None:
         """
         :param model_dim:
             The dimensionality of the model.
+        :param max_seq_len:
+            The maximum length of sequences produced by the model.
         :param vocab_info:
             The vocabulary information of sequences produced by the model.
         """
-        super().__init__(vocab_info)
+        super().__init__(max_seq_len, vocab_info)
 
         self.model_dim = model_dim
 

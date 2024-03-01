@@ -21,21 +21,27 @@ from fairseq2.gang import Gang
 from fairseq2.metrics import MetricBag
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.typing import finaloverride
+from fairseq2.typing import override
 
 
 class Seq2SeqModel(Module, ABC):
     """Represents a sequence-to-sequence model."""
 
+    max_target_seq_len: int
     target_vocab_info: VocabularyInfo
 
-    def __init__(self, target_vocab_info: VocabularyInfo) -> None:
+    def __init__(
+        self, max_target_seq_len: int, target_vocab_info: VocabularyInfo
+    ) -> None:
         """
+        :param max_target_seq_len:
+            The maximum length of sequences produced by the model.
         :param target_vocab_info:
             The vocabulary information of sequences produced by the model.
         """
         super().__init__()
 
+        self.max_target_seq_len = max_target_seq_len
         self.target_vocab_info = target_vocab_info
 
     @abstractmethod
@@ -46,7 +52,8 @@ class Seq2SeqModel(Module, ABC):
         """
 
 
-@dataclass
+@final
+@dataclass(frozen=True)
 class Seq2SeqBatch:
     """Represents a sequence-to-sequence batch."""
 
@@ -213,6 +220,6 @@ class Seq2SeqModelMetricBag(MetricBag):
         self.elements_per_batch.reset()
         self.elements_per_second.reset()
 
-    @finaloverride
+    @override
     def process_metric_values(self, values: Dict[str, Any]) -> None:
         values["elapsed_time"] = self.elements_per_second.elapsed_time_sec

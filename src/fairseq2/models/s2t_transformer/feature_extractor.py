@@ -11,7 +11,7 @@ from torch.nn import GLU, Conv1d, Sequential
 
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.typing import DataType, Device, finaloverride
+from fairseq2.typing import DataType, Device, override
 
 
 @final
@@ -83,7 +83,7 @@ class Conv1dFbankSubsampler(SequenceFeatureExtractor):
 
             self.layers.append(layer)
 
-    @finaloverride
+    @override
     def forward(
         self, seqs: Tensor, padding_mask: Optional[PaddingMask]
     ) -> Tuple[Tensor, Optional[PaddingMask]]:

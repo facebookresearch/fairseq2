@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Optional, final
 
 import torch
 from torch import Tensor
@@ -23,15 +23,19 @@ from fairseq2.nn.padding import PaddingMask
 class SequenceModel(Module, ABC):
     """Represents a sequence model."""
 
+    max_seq_len: int
     vocab_info: VocabularyInfo
 
-    def __init__(self, vocab_info: VocabularyInfo) -> None:
+    def __init__(self, max_seq_len: int, vocab_info: VocabularyInfo) -> None:
         """
+        :param max_seq_len:
+            The maximum length of sequences produced by the model.
         :param vocab_info:
             The vocabulary information of sequences produced by the model.
         """
         super().__init__()
 
+        self.max_seq_len = max_seq_len
         self.vocab_info = vocab_info
 
     @abstractmethod
@@ -42,7 +46,8 @@ class SequenceModel(Module, ABC):
         """
 
 
-@dataclass
+@final
+@dataclass(frozen=True)
 class SequenceBatch:
     """Represents a sequence batch."""
 
@@ -71,6 +76,7 @@ class SequenceBatch:
         return self.padding_mask.seq_lens.sum()
 
 
+@final
 @dataclass
 class SequenceModelOutput:
     """Holds the output of a sequence model."""

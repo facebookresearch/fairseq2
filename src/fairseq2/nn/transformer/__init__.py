@@ -15,6 +15,9 @@ from fairseq2.nn.transformer.attention import (
 from fairseq2.nn.transformer.attention import (
     set_default_sdpa_factory as set_default_sdpa_factory,
 )
+from fairseq2.nn.transformer.attention_mask import (
+    AbstractAttentionMask as AbstractAttentionMask,
+)
 from fairseq2.nn.transformer.attention_mask import ALiBiMask as ALiBiMask
 from fairseq2.nn.transformer.attention_mask import ALiBiMaskFactory as ALiBiMaskFactory
 from fairseq2.nn.transformer.attention_mask import AttentionMask as AttentionMask

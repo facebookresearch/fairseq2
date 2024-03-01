@@ -11,7 +11,7 @@ import os
 from logging import Logger
 from pathlib import Path
 from time import perf_counter
-from typing import Any, Optional
+from typing import Any, Optional, final
 
 import psutil
 import torch
@@ -27,6 +27,7 @@ from fairseq2.gang import Gang
 from fairseq2.typing import Device
 
 
+@final
 class Profiler:
     """Represents a convenience wrapper for :class:`profile`."""
 
@@ -108,11 +109,12 @@ class Profiler:
         return self._profile
 
 
+@final
 class Stopwatch:
     """Measures elapsed execution time."""
 
-    start_time: Optional[float]
-    device: Optional[Device]
+    _start_time: Optional[float]
+    _device: Optional[Device]
 
     def __init__(self, *, start: bool = False, device: Optional[Device] = None) -> None:
         """
@@ -123,37 +125,37 @@ class Stopwatch:
             before measuring the elapsed time. Note that this can have a
             negative impact on the runtime performance if not used carefully.
         """
-        self.start_time = None
-        self.device = device
+        self._start_time = None
+        self._device = device
 
         if start:
             self.start()
 
     def start(self) -> None:
         """Start the stopwatch."""
-        if self.start_time is not None:
+        if self._start_time is not None:
             raise RuntimeError("The stopwatch is already running.")
 
-        if self.device is not None and self.device.type == "cuda":
-            torch.cuda.synchronize(self.device)
+        if self._device is not None and self._device.type == "cuda":
+            torch.cuda.synchronize(self._device)
 
-        self.start_time = perf_counter()
+        self._start_time = perf_counter()
 
     def stop(self) -> None:
         """Stop the stopwatch."""
-        self.start_time = None
+        self._start_time = None
 
     def get_elapsed_time(self) -> float:
-        if self.start_time is None:
+        if self._start_time is None:
             return 0.0
 
-        if self.device is not None and self.device.type == "cuda":
-            torch.cuda.synchronize(self.device)
+        if self._device is not None and self._device.type == "cuda":
+            torch.cuda.synchronize(self._device)
 
-        return perf_counter() - self.start_time
+        return perf_counter() - self._start_time
 
     def __enter__(self) -> Self:
-        if self.start_time is None:
+        if self._start_time is None:
             self.start()
 
         return self
@@ -164,7 +166,7 @@ class Stopwatch:
     @property
     def is_running(self) -> bool:
         """Return ``True`` if the stopwatch is running."""
-        return self.start_time is not None
+        return self._start_time is not None
 
 
 def log_environment_info(logger: Logger, device: Optional[Device] = None) -> None:

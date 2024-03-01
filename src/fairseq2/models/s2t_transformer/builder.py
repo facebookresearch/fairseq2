@@ -51,11 +51,14 @@ class S2TTransformerConfig:
     model_dim: int
     """The dimensionality of the model."""
 
-    max_seq_len: int
-    """The expected maximum source sequence length after feature extraction."""
+    max_source_seq_len: int
+    """The maximum allowed source sequence length after feature extraction."""
 
     num_fbank_channels: int
     """The number of source log-mel filterbank channels."""
+
+    max_target_seq_len: int
+    """The maximum allowed target sequence length."""
 
     target_vocab_info: VocabularyInfo
     """The target vocabulary information."""
@@ -97,8 +100,9 @@ s2t_transformer_arch = s2t_transformer_archs.decorator
 def _tiny() -> S2TTransformerConfig:
     return S2TTransformerConfig(
         model_dim=256,
-        max_seq_len=1024,
+        max_source_seq_len=1024,
         num_fbank_channels=80,
+        max_target_seq_len=1024,
         target_vocab_info=VocabularyInfo(
             size=10000, unk_idx=0, bos_idx=0, eos_idx=0, pad_idx=1
         ),
@@ -118,8 +122,9 @@ def _tiny() -> S2TTransformerConfig:
 def _small() -> S2TTransformerConfig:
     return S2TTransformerConfig(
         model_dim=256,
-        max_seq_len=1024,
+        max_source_seq_len=1024,
         num_fbank_channels=80,
+        max_target_seq_len=1024,
         target_vocab_info=VocabularyInfo(
             size=10000, unk_idx=3, bos_idx=0, eos_idx=2, pad_idx=1
         ),
@@ -139,8 +144,9 @@ def _small() -> S2TTransformerConfig:
 def _medium() -> S2TTransformerConfig:
     return S2TTransformerConfig(
         model_dim=512,
-        max_seq_len=1024,
+        max_source_seq_len=1024,
         num_fbank_channels=80,
+        max_target_seq_len=1024,
         target_vocab_info=VocabularyInfo(
             size=10000, unk_idx=3, bos_idx=0, eos_idx=2, pad_idx=1
         ),
@@ -160,8 +166,9 @@ def _medium() -> S2TTransformerConfig:
 def _large() -> S2TTransformerConfig:
     return S2TTransformerConfig(
         model_dim=1024,
-        max_seq_len=1024,
+        max_source_seq_len=1024,
         num_fbank_channels=80,
+        max_target_seq_len=1024,
         target_vocab_info=VocabularyInfo(
             size=10000, unk_idx=0, bos_idx=0, eos_idx=0, pad_idx=1
         ),
@@ -181,8 +188,9 @@ def _large() -> S2TTransformerConfig:
 def _conformer_medium() -> S2TTransformerConfig:
     return S2TTransformerConfig(
         model_dim=256,
-        max_seq_len=6000,
+        max_source_seq_len=6000,
         num_fbank_channels=80,
+        max_target_seq_len=1024,
         target_vocab_info=VocabularyInfo(
             size=181, unk_idx=3, bos_idx=0, eos_idx=2, pad_idx=1
         ),
@@ -206,10 +214,10 @@ class S2TTransformerBuilder:
     corresponding methods.
     """
 
-    config: S2TTransformerConfig
-    rel_pos_encoding: Optional[RelativePositionalEncoding]
-    device: Optional[Device]
-    dtype: Optional[DataType]
+    _config: S2TTransformerConfig
+    _device: Optional[Device]
+    _dtype: Optional[DataType]
+    _rel_pos_encoding: Optional[RelativePositionalEncoding]
 
     def __init__(
         self,
@@ -226,11 +234,11 @@ class S2TTransformerBuilder:
         :param dtype:
             The data type of module parameters and buffers.
         """
-        self.config = config
+        self._config = config
 
-        self.rel_pos_encoding = None
+        self._device, self._dtype = device, dtype
 
-        self.device, self.dtype = device, dtype
+        self._rel_pos_encoding = None
 
     def build_model(self) -> TransformerModel:
         """Build a model."""
@@ -241,12 +249,12 @@ class S2TTransformerBuilder:
         decoder = self.build_decoder()
 
         final_proj = Linear(
-            self.config.model_dim,
-            self.config.target_vocab_info.size,
+            self._config.model_dim,
+            self._config.target_vocab_info.size,
             bias=False,
             init_fn=init_final_projection,
-            device=self.device,
-            dtype=self.dtype,
+            device=self._device,
+            dtype=self._dtype,
         )
 
         return TransformerModel(
@@ -255,41 +263,42 @@ class S2TTransformerBuilder:
             decoder_frontend,
             decoder,
             final_proj,
-            self.config.target_vocab_info,
+            self._config.max_target_seq_len,
+            self._config.target_vocab_info,
         )
 
     def build_encoder_frontend(self) -> TransformerFrontend:
         """Build a Transformer encoder front-end."""
         feat_extractor = Conv1dFbankSubsampler(
-            num_channels=self.config.num_fbank_channels,
+            num_channels=self._config.num_fbank_channels,
             inner_dim=1024,
-            feature_dim=self.config.model_dim,
+            feature_dim=self._config.model_dim,
             kernel_sizes=[5, 5],
-            device=self.device,
-            dtype=self.dtype,
+            device=self._device,
+            dtype=self._dtype,
         )
 
         pos_encoder = self.build_source_position_encoder()
 
         return S2TTransformerFrontend(
-            self.config.model_dim,
+            self._config.model_dim,
             feat_extractor,
             pos_encoder,
-            proj=self.config.use_conformer,
-            dropout_p=self.config.dropout_p,
-            device=self.device,
-            dtype=self.dtype,
+            proj=self._config.use_conformer,
+            dropout_p=self._config.dropout_p,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_decoder_frontend(self) -> TransformerFrontend:
         """Build a Transformer decoder front-end."""
         embed = StandardEmbedding(
-            num_embeddings=self.config.target_vocab_info.size,
-            embedding_dim=self.config.model_dim,
-            pad_idx=self.config.target_vocab_info.pad_idx,
+            num_embeddings=self._config.target_vocab_info.size,
+            embedding_dim=self._config.model_dim,
+            pad_idx=self._config.target_vocab_info.pad_idx,
             init_fn=init_scaled_embedding,
-            device=self.device,
-            dtype=self.dtype,
+            device=self._device,
+            dtype=self._dtype,
         )
 
         pos_encoder = self.build_target_position_encoder()
@@ -297,67 +306,70 @@ class S2TTransformerBuilder:
         return TransformerEmbeddingFrontend(
             embed,
             pos_encoder,
-            dropout_p=self.config.dropout_p,
-            device=self.device,
-            dtype=self.dtype,
+            dropout_p=self._config.dropout_p,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_source_position_encoder(self) -> Optional[PositionEncoder]:
         """Build a position encoder for source sequences."""
-        if self.config.use_relative_pos:
+        if self._config.use_relative_pos:
             return None
 
         return SinusoidalPositionEncoder(
-            self.config.model_dim, self.config.max_seq_len, device=self.device
+            self._config.model_dim, self._config.max_source_seq_len, device=self._device
         )
 
     def build_target_position_encoder(self) -> PositionEncoder:
         """Build a position encoder for target sequences."""
         return SinusoidalPositionEncoder(
-            self.config.model_dim,
-            self.config.max_seq_len,
+            self._config.model_dim,
+            self._config.max_target_seq_len,
             _legacy_pad_idx=1,
-            device=self.device,
+            device=self._device,
         )
 
     def build_encoder(self) -> TransformerEncoder:
         """Build a Transformer encoder."""
-        num_layers = self.config.num_encoder_layers
+        num_layers = self._config.num_encoder_layers
 
         layers = [self.build_encoder_layer() for _ in range(num_layers)]
 
-        if self.config.use_conformer:
+        if self._config.use_conformer:
             encoder_norm_order = TransformerNormOrder.POST
         else:
             encoder_norm_order = TransformerNormOrder.PRE
 
         return StandardTransformerEncoder(
-            layers, norm_order=encoder_norm_order, device=self.device, dtype=self.dtype
+            layers,
+            norm_order=encoder_norm_order,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_decoder(self) -> TransformerDecoder:
         """Build a Transformer decoder."""
-        num_layers = self.config.num_decoder_layers
+        num_layers = self._config.num_decoder_layers
 
         layers = [self.build_decoder_layer() for _ in range(num_layers)]
 
         return StandardTransformerDecoder(
             layers,
             norm_order=TransformerNormOrder.PRE,
-            device=self.device,
-            dtype=self.dtype,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_encoder_layer(self) -> TransformerEncoderLayer:
         """Build a Transformer encoder layer."""
-        if self.config.use_conformer:
+        if self._config.use_conformer:
             return self.build_conformer_block()
 
         self_attn = self.build_encoder_attention()
 
         ffn = self.build_ffn()
 
-        if self.config.use_conformer:
+        if self._config.use_conformer:
             encoder_norm_order = TransformerNormOrder.POST
         else:
             encoder_norm_order = TransformerNormOrder.PRE
@@ -365,10 +377,10 @@ class S2TTransformerBuilder:
         return StandardTransformerEncoderLayer(
             self_attn,
             ffn,
-            dropout_p=self.config.dropout_p,
+            dropout_p=self._config.dropout_p,
             norm_order=encoder_norm_order,
-            device=self.device,
-            dtype=self.dtype,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_conformer_block(self) -> TransformerEncoderLayer:
@@ -378,10 +390,10 @@ class S2TTransformerBuilder:
         self_attn = self.build_encoder_attention()
 
         conv = ConformerConvolution(
-            self.config.model_dim,
-            self.config.depthwise_conv_kernel_size,
-            device=self.device,
-            dtype=self.dtype,
+            self._config.model_dim,
+            self._config.depthwise_conv_kernel_size,
+            device=self._device,
+            dtype=self._dtype,
         )
 
         ffn2 = self.build_ffn(use_swish=True)
@@ -391,9 +403,9 @@ class S2TTransformerBuilder:
             self_attn,
             conv,
             ffn2,
-            dropout_p=self.config.dropout_p,
-            device=self.device,
-            dtype=self.dtype,
+            dropout_p=self._config.dropout_p,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_decoder_layer(self) -> TransformerDecoderLayer:
@@ -408,64 +420,64 @@ class S2TTransformerBuilder:
             self_attn,
             encoder_decoder_attn,
             ffn,
-            dropout_p=self.config.dropout_p,
+            dropout_p=self._config.dropout_p,
             norm_order=TransformerNormOrder.PRE,
-            device=self.device,
-            dtype=self.dtype,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_encoder_attention(self) -> MultiheadAttention:
         """Build a Transformer encoder multi-head attention layer."""
-        sdpa = create_default_sdpa(attn_dropout_p=self.config.dropout_p)
+        sdpa = create_default_sdpa(attn_dropout_p=self._config.dropout_p)
 
-        if self.config.use_relative_pos:
-            if self.rel_pos_encoding is None:
-                self.rel_pos_encoding = RelativePositionalEncoding(
-                    self.config.model_dim,
-                    self.config.max_seq_len,
-                    device=self.device,
-                    dtype=self.dtype,
+        if self._config.use_relative_pos:
+            if self._rel_pos_encoding is None:
+                self._rel_pos_encoding = RelativePositionalEncoding(
+                    self._config.model_dim,
+                    self._config.max_source_seq_len,
+                    device=self._device,
+                    dtype=self._dtype,
                 )
 
             sdpa = RelativePositionSDPA(
-                self.config.model_dim,
-                self.config.num_encoder_attn_heads,
-                self.rel_pos_encoding,
+                self._config.model_dim,
+                self._config.num_encoder_attn_heads,
+                self._rel_pos_encoding,
                 inner_sdpa=sdpa,
-                device=self.device,
-                dtype=self.dtype,
+                device=self._device,
+                dtype=self._dtype,
             )
 
         return StandardMultiheadAttention(
-            self.config.model_dim,
-            self.config.num_encoder_attn_heads,
+            self._config.model_dim,
+            self._config.num_encoder_attn_heads,
             sdpa=sdpa,
-            device=self.device,
-            dtype=self.dtype,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_decoder_attention(self) -> MultiheadAttention:
         """Build a Transformer decoder multi-head attention layer."""
-        sdpa = create_default_sdpa(attn_dropout_p=self.config.dropout_p)
+        sdpa = create_default_sdpa(attn_dropout_p=self._config.dropout_p)
 
         return StandardMultiheadAttention(
-            self.config.model_dim,
-            self.config.num_decoder_attn_heads,
+            self._config.model_dim,
+            self._config.num_decoder_attn_heads,
             sdpa=sdpa,
-            device=self.device,
-            dtype=self.dtype,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_ffn(self, use_swish: bool = False) -> FeedForwardNetwork:
         """Build a Transformer feed-forward network."""
         return StandardFeedForwardNetwork(
-            self.config.model_dim,
-            self.config.ffn_inner_dim,
+            self._config.model_dim,
+            self._config.ffn_inner_dim,
             bias=True,
             inner_activation=SiLU() if use_swish else None,
-            inner_dropout_p=self.config.dropout_p,
-            device=self.device,
-            dtype=self.dtype,
+            inner_dropout_p=self._config.dropout_p,
+            device=self._device,
+            dtype=self._dtype,
         )
 
 

@@ -7,13 +7,12 @@
 from typing import Any, Dict
 
 from fairseq2.assets import default_asset_store, default_download_manager
-from fairseq2.data.text import BasicTextTokenizerLoader, load_text_tokenizer
+from fairseq2.data.text import load_basic_sentencepiece_tokenizer, load_text_tokenizer
 from fairseq2.models.mistral.builder import (
     MistralConfig,
     create_mistral_model,
     mistral_archs,
 )
-from fairseq2.models.mistral.tokenizer import MistralTokenizer
 from fairseq2.models.transformer import TransformerDecoderModel
 from fairseq2.models.utils import ConfigLoader, ModelLoader
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
@@ -56,8 +55,6 @@ load_mistral_model = ModelLoader[TransformerDecoderModel, MistralConfig](
     mmap=True,
 )
 
-load_mistral_tokenizer = BasicTextTokenizerLoader[MistralTokenizer](
-    default_asset_store, default_download_manager, MistralTokenizer
-)
+load_mistral_tokenizer = load_basic_sentencepiece_tokenizer
 
 load_text_tokenizer.register_loader("mistral", load_mistral_tokenizer)

@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Mapping, Optional, Tuple, cast
+from typing import Any, Callable, Dict, Mapping, Optional, Tuple, cast, final
 
 import torch
 from torch import Tensor
@@ -22,18 +22,16 @@ from fairseq2.gang import Gang
 logger = logging.getLogger(__name__)
 
 
+@final
 class DynamicLossScaler:
     """Performs loss scaling during backward pass to prevent underflow of half
     precision gradients."""
 
-    optimizer: Optimizer
-    init_scale: float
-    scale_factor: float
-    scale_window: int
-    min_scale: float
-    enabled: bool
-
+    _optimizer: Optimizer
+    _scale_window: int
+    _min_scale: float
     _grad_scaler: GradScaler
+    _enabled: bool
 
     def __init__(
         self,
@@ -101,12 +99,10 @@ class DynamicLossScaler:
                 init_scale, 1 / scale_factor, scale_factor, scale_window, enabled, pg
             )
 
-        self.optimizer = optimizer
-        self.init_scale = init_scale
-        self.scale_factor = scale_factor
-        self.scale_window = scale_window
-        self.min_scale = min_scale
-        self.enabled = enabled
+        self._optimizer = optimizer
+        self._scale_window = scale_window
+        self._min_scale = min_scale
+        self._enabled = enabled
 
     def state_dict(self) -> Dict[str, Any]:
         return {"grad_scaler": self._grad_scaler.state_dict()}
@@ -142,12 +138,12 @@ class DynamicLossScaler:
             # between processes. Here we force ranks to sync their inf/NaNs by
             # manually calling `unscale_()`.
             try:
-                self._grad_scaler.unscale_(self.optimizer)  # type: ignore[arg-type]
+                self._grad_scaler.unscale_(self._optimizer)  # type: ignore[arg-type]
             except RuntimeError as ex:
                 if not str(ex).startswith("unscale_() has already been called"):
                     raise
 
-        loss = self._grad_scaler.step(self.optimizer, closure)
+        loss = self._grad_scaler.step(self._optimizer, closure)
 
         return loss, self._update_scale(step_nr)
 
@@ -162,17 +158,17 @@ class DynamicLossScaler:
             return LossScaleResult(old_scale, new_scale)
 
         if new_scale > old_scale:
-            logger.info("No gradient overflow detected in the last %s step(s) after step %d, increasing loss scale from %s to %s.", self.scale_window, step_nr, old_scale, new_scale)  # fmt: skip
+            logger.info("No gradient overflow detected in the last %s step(s) after step %d, increasing loss scale from %s to %s.", self._scale_window, step_nr, old_scale, new_scale)  # fmt: skip
 
             return LossScaleResult(old_scale, new_scale)
 
-        if self.min_scale > new_scale:
-            self._grad_scaler.update(self.min_scale)
+        if self._min_scale > new_scale:
+            self._grad_scaler.update(self._min_scale)
 
-            if self._are_close(old_scale, self.min_scale):
-                logger.warning("Overflow detected at step %d, ignoring gradient, loss scale is already at minimum (%s). Your loss is probably exploding. Try lowering the learning rate, using gradient clipping, or increasing the batch size.", step_nr, self.min_scale)  # fmt: skip
+            if self._are_close(old_scale, self._min_scale):
+                logger.warning("Overflow detected at step %d, ignoring gradient, loss scale is already at minimum (%s). Your loss is probably exploding. Try lowering the learning rate, using gradient clipping, or increasing the batch size.", step_nr, self._min_scale)  # fmt: skip
             else:
-                logger.warning("Overflow detected at step %d, ignoring gradient, decreasing loss scale from %s to %s (minimum). Your loss is probably exploding. Try lowering the learning rate, using gradient clipping, or increasing the batch size.", step_nr, old_scale, self.min_scale)  # fmt: skip
+                logger.warning("Overflow detected at step %d, ignoring gradient, decreasing loss scale from %s to %s (minimum). Your loss is probably exploding. Try lowering the learning rate, using gradient clipping, or increasing the batch size.", step_nr, old_scale, self._min_scale)  # fmt: skip
 
             return LossScaleResult(
                 old_scale, new_scale, overflow=True, min_reached=True
@@ -188,7 +184,7 @@ class DynamicLossScaler:
 
     def unscale_optimizer_grads_(self) -> None:
         """Unscale the associated optimizer's gradients by the current scale."""
-        self._grad_scaler.unscale_(self.optimizer)
+        self._grad_scaler.unscale_(self._optimizer)
 
     def backward(self, loss: Tensor) -> None:
         """Compute the gradient of ``loss`` after scaling it to avoid underflow."""
@@ -198,8 +194,14 @@ class DynamicLossScaler:
         """Return the current scale, or 1.0 if loss scaling is disabled."""
         return cast(float, self._grad_scaler.get_scale())  # type: ignore[redundant-cast]
 
+    @property
+    def enabled(self) -> bool:
+        """``True`` if the loss scaling is enabled."""
+        return self._enabled
 
-@dataclass
+
+@final
+@dataclass(frozen=True)
 class LossScaleResult:
     """Holds the result of a loss scale operation."""
 

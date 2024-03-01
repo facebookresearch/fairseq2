@@ -22,14 +22,18 @@ class EncoderDecoderModel(Seq2SeqModel):
 
     model_dim: int
 
-    def __init__(self, model_dim: int, target_vocab_info: VocabularyInfo) -> None:
+    def __init__(
+        self, model_dim: int, max_target_seq_len: int, target_vocab_info: VocabularyInfo
+    ) -> None:
         """
         :param model_dim:
             The dimensionality of the model.
+        :param max_target_seq_len:
+            The maximum length of sequences produced by the model.
         :param target_vocab_info:
             The vocabulary information of sequences produced by the model.
         """
-        super().__init__(target_vocab_info)
+        super().__init__(max_target_seq_len, target_vocab_info)
 
         self.model_dim = model_dim
 

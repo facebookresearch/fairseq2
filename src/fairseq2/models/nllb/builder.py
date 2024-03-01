@@ -49,7 +49,7 @@ class NllbConfig:
     """The dimensionality of the model."""
 
     max_seq_len: int
-    """The expected maximum sequence length."""
+    """The maximum allowed sequence length."""
 
     vocab_info: VocabularyInfo
     """The vocabulary information."""
@@ -137,9 +137,9 @@ class NllbBuilder:
     corresponding methods.
     """
 
-    config: NllbConfig
-    device: Optional[Device]
-    dtype: Optional[DataType]
+    _config: NllbConfig
+    _device: Optional[Device]
+    _dtype: Optional[DataType]
 
     def __init__(
         self,
@@ -156,9 +156,9 @@ class NllbBuilder:
         :param dtype:
             The data type of module parameters and buffers.
         """
-        self.config = config
+        self._config = config
 
-        self.device, self.dtype = device, dtype
+        self._device, self._dtype = device, dtype
 
     def build_model(self) -> TransformerModel:
         """Build a model."""
@@ -177,83 +177,84 @@ class NllbBuilder:
             frontend,
             decoder,
             final_proj,
-            self.config.vocab_info,
+            self._config.max_seq_len,
+            self._config.vocab_info,
         )
 
     def build_embedding(self) -> StandardEmbedding:
         """Build an embedding table."""
         return StandardEmbedding(
-            num_embeddings=self.config.vocab_info.size,
-            embedding_dim=self.config.model_dim,
-            pad_idx=self.config.vocab_info.pad_idx,
+            num_embeddings=self._config.vocab_info.size,
+            embedding_dim=self._config.model_dim,
+            pad_idx=self._config.vocab_info.pad_idx,
             init_fn=init_scaled_embedding,
-            device=self.device,
-            dtype=self.dtype,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_frontend(self, embed: Embedding) -> TransformerFrontend:
         """Build a Transformer encoder/decoder front-end."""
         pos_encoder = SinusoidalPositionEncoder(
-            self.config.model_dim,
-            self.config.max_seq_len,
+            self._config.model_dim,
+            self._config.max_seq_len,
             _legacy_pad_idx=1,
-            device=self.device,
+            device=self._device,
         )
 
         return TransformerEmbeddingFrontend(
             embed,
             pos_encoder,
-            dropout_p=self.config.dropout_p,
-            device=self.device,
-            dtype=self.dtype,
+            dropout_p=self._config.dropout_p,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_encoder(self) -> TransformerEncoder:
         """Build a Transformer encoder."""
-        num_layers = self.config.num_encoder_layers
+        num_layers = self._config.num_encoder_layers
 
         layers = [self.build_encoder_layer() for _ in range(num_layers)]
 
         return StandardTransformerEncoder(
             layers,
             norm_order=TransformerNormOrder.PRE,
-            device=self.device,
-            dtype=self.dtype,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_decoder(self) -> TransformerDecoder:
         """Build a Transformer decoder."""
-        num_layers = self.config.num_decoder_layers
+        num_layers = self._config.num_decoder_layers
 
         layers = [self.build_decoder_layer() for _ in range(num_layers)]
 
         return StandardTransformerDecoder(
             layers,
             norm_order=TransformerNormOrder.PRE,
-            device=self.device,
-            dtype=self.dtype,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_encoder_layer(self) -> TransformerEncoderLayer:
         """Build a Transformer encoder layer."""
-        self_attn = self.build_attention(self.config.num_encoder_attn_heads)
+        self_attn = self.build_attention(self._config.num_encoder_attn_heads)
 
         ffn = self.build_ffn()
 
         return StandardTransformerEncoderLayer(
             self_attn,
             ffn,
-            dropout_p=self.config.dropout_p,
+            dropout_p=self._config.dropout_p,
             norm_order=TransformerNormOrder.PRE,
-            device=self.device,
-            dtype=self.dtype,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_decoder_layer(self) -> TransformerDecoderLayer:
         """Build a Transformer decoder layer."""
-        self_attn = self.build_attention(self.config.num_decoder_attn_heads)
+        self_attn = self.build_attention(self._config.num_decoder_attn_heads)
 
-        encoder_decoder_attn = self.build_attention(self.config.num_decoder_attn_heads)
+        encoder_decoder_attn = self.build_attention(self._config.num_decoder_attn_heads)
 
         ffn = self.build_ffn()
 
@@ -261,33 +262,33 @@ class NllbBuilder:
             self_attn,
             encoder_decoder_attn,
             ffn,
-            dropout_p=self.config.dropout_p,
+            dropout_p=self._config.dropout_p,
             norm_order=TransformerNormOrder.PRE,
-            device=self.device,
-            dtype=self.dtype,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_attention(self, num_heads: int) -> MultiheadAttention:
         """Build a Transformer multi-head attention layer."""
-        sdpa = create_default_sdpa(attn_dropout_p=self.config.dropout_p)
+        sdpa = create_default_sdpa(attn_dropout_p=self._config.dropout_p)
 
         return StandardMultiheadAttention(
-            self.config.model_dim,
+            self._config.model_dim,
             num_heads,
             sdpa=sdpa,
-            device=self.device,
-            dtype=self.dtype,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_ffn(self) -> FeedForwardNetwork:
         """Build a Transformer feed-forward network."""
         return StandardFeedForwardNetwork(
-            self.config.model_dim,
-            self.config.ffn_inner_dim,
+            self._config.model_dim,
+            self._config.ffn_inner_dim,
             bias=True,
             norm_order=TransformerNormOrder.PRE,
-            device=self.device,
-            dtype=self.dtype,
+            device=self._device,
+            dtype=self._dtype,
         )
 
 

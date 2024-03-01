@@ -14,9 +14,21 @@ from fairseq2.generation.beam_search import (
 from fairseq2.generation.beam_search import (
     StandardBeamSearchAlgorithm as StandardBeamSearchAlgorithm,
 )
+from fairseq2.generation.chat import AbstractChatbot as AbstractChatbot
 from fairseq2.generation.chat import Chatbot as Chatbot
+from fairseq2.generation.chat import ChatbotFactory as ChatbotFactory
 from fairseq2.generation.chat import ChatDialog as ChatDialog
 from fairseq2.generation.chat import ChatMessage as ChatMessage
+from fairseq2.generation.chat import (
+    DelegatingChatbotFactory as DelegatingChatbotFactory,
+)
+from fairseq2.generation.chat import create_chatbot as create_chatbot
+from fairseq2.generation.generator import (
+    AbstractSeq2SeqGenerator as AbstractSeq2SeqGenerator,
+)
+from fairseq2.generation.generator import (
+    AbstractSequenceGenerator as AbstractSequenceGenerator,
+)
 from fairseq2.generation.generator import Hypothesis as Hypothesis
 from fairseq2.generation.generator import Seq2SeqGenerator as Seq2SeqGenerator
 from fairseq2.generation.generator import (
@@ -44,8 +56,5 @@ from fairseq2.generation.step_processor import (
 )
 from fairseq2.generation.step_processor import StepProcessor as StepProcessor
 from fairseq2.generation.text import SequenceToTextConverter as SequenceToTextConverter
-from fairseq2.generation.text import (
-    SequenceToTextConverterBase as SequenceToTextConverterBase,
-)
 from fairseq2.generation.text import TextCompleter as TextCompleter
 from fairseq2.generation.text import TextTranslator as TextTranslator

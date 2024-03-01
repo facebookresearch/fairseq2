@@ -5,17 +5,32 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
+from contextlib import nullcontext
 from dataclasses import dataclass
-from typing import List, Literal, Optional, Sequence, Tuple
+from typing import (
+    Any,
+    ContextManager,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Protocol,
+    Sequence,
+    Tuple,
+    final,
+)
 
 from torch import Tensor
 from typing_extensions import TypeAlias
 
 from fairseq2.data.text import TextTokenDecoder, TextTokenizer
 from fairseq2.generation.generator import SequenceGenerator, SequenceGeneratorOutput
+from fairseq2.generation.utils import _StdOutPrintHook
 from fairseq2.nn.padding import PaddingMask, pad_seqs
+from fairseq2.typing import override
 
 
+@final
 @dataclass
 class ChatMessage:
     """Represents a chat message exchanged between a user and a bot."""
@@ -33,20 +48,7 @@ ChatDialog: TypeAlias = Sequence[ChatMessage]
 class Chatbot(ABC):
     """Represents a chatbot."""
 
-    generator: SequenceGenerator
-    text_decoder: TextTokenDecoder
-
-    def __init__(self, generator: SequenceGenerator, tokenizer: TextTokenizer) -> None:
-        """
-        :param generator:
-            The sequence generator.
-        :param tokenizer:
-            The text tokenizer.
-        """
-        self.generator = generator
-
-        self.text_decoder = tokenizer.create_decoder()
-
+    @abstractmethod
     def __call__(
         self, dialog: ChatDialog
     ) -> Tuple[ChatMessage, SequenceGeneratorOutput]:
@@ -58,14 +60,74 @@ class Chatbot(ABC):
             - The response message of the bot.
             - The output of the underlying sequence generator.
         """
+
+    @abstractmethod
+    def batch_response(
+        self, dialogs: Sequence[ChatDialog]
+    ) -> Tuple[List[ChatMessage], SequenceGeneratorOutput]:
+        """
+        :param dialogs:
+            The chat dialogs that the bot should respond to.
+
+        :returns:
+            - The response messages of the bot.
+            - The output of the underlying sequence generator.
+        """
+
+
+class AbstractChatbot(Chatbot):
+    """Provides a skeletal implementation of :class:`Chatbot`."""
+
+    _generator: SequenceGenerator
+    _text_decoder: TextTokenDecoder
+    _stdout: bool
+
+    def __init__(
+        self,
+        generator: SequenceGenerator,
+        tokenizer: TextTokenizer,
+        *,
+        stdout: bool = False,
+    ) -> None:
+        """
+        :param generator:
+            The sequence generator.
+        :param tokenizer:
+            The text tokenizer.
+        :param stdout:
+            If ``True``, prints generated messages to stdout in real-time.
+        """
+        self._generator = generator
+
+        self._text_decoder = tokenizer.create_decoder()
+
+        self._stdout = stdout
+
+    @final
+    @override
+    def __call__(
+        self, dialog: ChatDialog, interactive: bool = False
+    ) -> Tuple[ChatMessage, SequenceGeneratorOutput]:
         dialog_seq = self._encode_dialog(dialog, "dialog")
 
-        responses, generator_output = self._do_response(
-            dialog_seq.unsqueeze(0), dialog_padding_mask=None
-        )
+        cm: ContextManager[Any]
+
+        if self._stdout:
+            hook = _StdOutPrintHook(self._text_decoder)
+
+            cm = self._generator.register_step_hook(hook)
+        else:
+            cm = nullcontext()
+
+        with cm:
+            responses, generator_output = self.__do_response(
+                dialog_seq.unsqueeze(0), dialog_padding_mask=None
+            )
 
         return responses[0], generator_output
 
+    @final
+    @override
     def batch_response(
         self, dialogs: Sequence[ChatDialog]
     ) -> Tuple[List[ChatMessage], SequenceGeneratorOutput]:
@@ -83,12 +145,12 @@ class Chatbot(ABC):
 
         dialog_seqs, dialog_padding_mask = pad_seqs(dialog_seq_list)
 
-        return self._do_response(dialog_seqs, dialog_padding_mask)
+        return self.__do_response(dialog_seqs, dialog_padding_mask)
 
-    def _do_response(
+    def __do_response(
         self, dialog_seqs: Tensor, dialog_padding_mask: Optional[PaddingMask]
     ) -> Tuple[List[ChatMessage], SequenceGeneratorOutput]:
-        generator_output = self.generator(dialog_seqs, dialog_padding_mask)
+        generator_output = self._generator(dialog_seqs, dialog_padding_mask)
 
         responses: List[ChatMessage] = []
 
@@ -99,7 +161,7 @@ class Chatbot(ABC):
                 )
 
             response = ChatMessage(
-                role="bot", content=self.text_decoder(hypotheses[0].seq)
+                role="bot", content=self._text_decoder(hypotheses[0].seq)
             )
 
             responses.append(response)
@@ -115,3 +177,77 @@ class Chatbot(ABC):
         :param param_name:
             The parameter name to use in case of an argument error.
         """
+
+
+class ChatbotFactory(Protocol):
+    """Constructs instances of :class:`Chatbot`."""
+
+    def __call__(
+        self,
+        generator: SequenceGenerator,
+        tokenizer: TextTokenizer,
+        *,
+        stdout: bool = False,
+    ) -> Chatbot:
+        """
+        :param generator:
+            The sequence generator.
+        :param tokenizer:
+            The text tokenizer.
+        :param stdout:
+            If ``True``, prints generated messages to stdout in real-time.
+        """
+
+
+class DelegatingChatbotFactory:
+    """Constructs instance of :class:`Chatbot` using registered factories."""
+
+    _factories: Dict[str, ChatbotFactory]
+
+    def __init__(self) -> None:
+        self._factories = {}
+
+    def __call__(
+        self,
+        model_type: str,
+        generator: SequenceGenerator,
+        tokenizer: TextTokenizer,
+        *,
+        stdout: bool = False,
+    ) -> Chatbot:
+        """
+        :param model_type:
+            The type of the model for which to construct a chatbot.
+        :param generator:
+            The sequence generator.
+        :param tokenizer:
+            The text tokenizer.
+        :param stdout:
+            If ``True``, prints generated messages to stdout in real-time.
+        """
+        try:
+            factory = self._factories[model_type]
+        except KeyError:
+            raise ValueError(
+                f"The model type '{model_type}' has no registered chatbot."
+            )
+
+        return factory(generator, tokenizer, stdout=stdout)
+
+    def register(self, model_type: str, factory: ChatbotFactory) -> None:
+        """Register a chatbot factory to use with this factory.
+
+        :param model_type:
+            The type of the model supported by ``factory``.
+        :param factory:
+            The chatbot factory.
+        """
+        if model_type in self._factories:
+            raise ValueError(
+                f"`model_type` must be a unique model type, but '{model_type}' is already registered."
+            )
+
+        self._factories[model_type] = factory
+
+
+create_chatbot = DelegatingChatbotFactory()

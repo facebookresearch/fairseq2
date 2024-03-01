@@ -17,7 +17,7 @@ from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.projection import Linear, Projection
 from fairseq2.nn.transformer import TransformerDecoder, TransformerEncoder
-from fairseq2.typing import finaloverride
+from fairseq2.typing import override
 
 
 @final
@@ -38,6 +38,7 @@ class TransformerModel(EncoderDecoderModel):
         decoder_frontend: TransformerFrontend,
         decoder: TransformerDecoder,
         final_proj: Projection,
+        max_target_seq_len: int,
         target_vocab_info: VocabularyInfo,
     ) -> None:
         """
@@ -51,10 +52,12 @@ class TransformerModel(EncoderDecoderModel):
             The decoder.
         :param final_proj:
             The projection to apply to decoder outputs.
+        :param max_target_seq_len:
+            The maximum length of sequences produced by the model.
         :param target_vocab_info:
             The vocabulary information of sequences produced by the model.
         """
-        super().__init__(encoder.model_dim, target_vocab_info)
+        super().__init__(encoder.model_dim, max_target_seq_len, target_vocab_info)
 
         self.encoder_frontend = encoder_frontend
         self.encoder = encoder
@@ -64,7 +67,7 @@ class TransformerModel(EncoderDecoderModel):
 
         self.final_proj = final_proj
 
-    @finaloverride
+    @override
     def encode(
         self, seqs: Tensor, padding_mask: Optional[PaddingMask]
     ) -> Tuple[Tensor, Optional[PaddingMask]]:
@@ -72,7 +75,7 @@ class TransformerModel(EncoderDecoderModel):
 
         return self.encoder(seqs, padding_mask)  # type: ignore[no-any-return]
 
-    @finaloverride
+    @override
     def decode(
         self,
         seqs: Tensor,
@@ -94,7 +97,7 @@ class TransformerModel(EncoderDecoderModel):
             state_bag=state_bag,
         )
 
-    @finaloverride
+    @override
     def project(
         self, decoder_output: Tensor, decoder_padding_mask: Optional[PaddingMask]
     ) -> SequenceModelOutput:

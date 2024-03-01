@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, TypedDict, Union
+from typing import TYPE_CHECKING, Optional, TypedDict, Union, final
 
 from fairseq2n import DOC_MODE
 from torch import Tensor
@@ -17,6 +17,7 @@ from fairseq2.typing import DataType, Device
 
 if TYPE_CHECKING or DOC_MODE:
 
+    @final
     class AudioDecoder:
         def __init__(
             self,
@@ -29,6 +30,7 @@ if TYPE_CHECKING or DOC_MODE:
         def __call__(self, memory_block: MemoryBlock) -> AudioDecoderOutput:
             ...
 
+    @final
     class WaveformToFbankConverter:
         def __init__(
             self,

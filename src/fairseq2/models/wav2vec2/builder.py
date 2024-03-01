@@ -54,7 +54,7 @@ class Wav2Vec2EncoderConfig:
     """The dimensionality of the model."""
 
     max_seq_len: int
-    """The expected maximum sequence length after feature extraction."""
+    """The maximum allowed sequence length after feature extraction."""
 
     # Features
     feature_dim: int
@@ -181,10 +181,10 @@ class Wav2Vec2EncoderBuilder:
     corresponding methods.
     """
 
-    config: Wav2Vec2EncoderConfig
-    rel_pos_encoding: Optional[RelativePositionalEncoding]
-    device: Optional[Device]
-    dtype: Optional[DataType]
+    _config: Wav2Vec2EncoderConfig
+    _device: Optional[Device]
+    _dtype: Optional[DataType]
+    _rel_pos_encoding: Optional[RelativePositionalEncoding]
 
     def __init__(
         self,
@@ -206,11 +206,11 @@ class Wav2Vec2EncoderBuilder:
                 f"`config.norm_order` must be `POST` when `config.use_conformer` is `True`, but is `{config.norm_order}` instead."
             )
 
-        self.config = config
+        self._config = config
 
-        self.rel_pos_encoding = None
+        self._device, self._dtype = device, dtype
 
-        self.device, self.dtype = device, dtype
+        self._rel_pos_encoding = None
 
     def build_frontend(self) -> Wav2Vec2Frontend:
         """Build a wav2vec 2.0 Transformer encoder front-end."""
@@ -219,75 +219,75 @@ class Wav2Vec2EncoderBuilder:
         pos_encoder = self.build_position_encoder()
 
         return Wav2Vec2Frontend(
-            self.config.model_dim,
-            self.config.feature_dim,
+            self._config.model_dim,
+            self._config.feature_dim,
             feature_extractor,
             pos_encoder,
-            first_pass_dropout_p=self.config.first_pass_dropout_p,
-            layer_norm=self.config.layer_norm_features,
-            dropout_p=self.config.dropout_p,
-            device=self.device,
-            dtype=self.dtype,
+            first_pass_dropout_p=self._config.first_pass_dropout_p,
+            layer_norm=self._config.layer_norm_features,
+            dropout_p=self._config.dropout_p,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_feature_extractor(self) -> Optional[SequenceFeatureExtractor]:
         """Build a feature extractor."""
-        if self.config.use_fbank:
+        if self._config.use_fbank:
             return Wav2Vec2FbankFeatureExtractor(
-                self.config.num_fbank_channels,
-                self.config.fbank_stride,
-                sample_every_k=self.config.sample_fbank_every_k,
+                self._config.num_fbank_channels,
+                self._config.fbank_stride,
+                sample_every_k=self._config.sample_fbank_every_k,
             )
 
         return Wav2Vec2FeatureExtractor(
-            self.config.feature_extractor_layer_descs,
-            self.config.feature_extractor_bias,
-            layer_norm=self.config.feature_extractor_layer_norm_convs,
-            grad_scale=self.config.feature_grad_scale,
-            device=self.device,
-            dtype=self.dtype,
+            self._config.feature_extractor_layer_descs,
+            self._config.feature_extractor_bias,
+            layer_norm=self._config.feature_extractor_layer_norm_convs,
+            grad_scale=self._config.feature_grad_scale,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_position_encoder(self) -> Optional[PositionEncoder]:
         """Build a position encoder."""
-        if self.config.pos_encoder_type != "conv":
+        if self._config.pos_encoder_type != "conv":
             return None
 
-        if self.config.pos_encoder_depth == 1:
+        if self._config.pos_encoder_depth == 1:
             return Wav2Vec2PositionEncoder(
-                self.config.model_dim,
-                self.config.pos_conv_kernel_size,
-                self.config.num_pos_conv_groups,
-                device=self.device,
-                dtype=self.dtype,
+                self._config.model_dim,
+                self._config.pos_conv_kernel_size,
+                self._config.num_pos_conv_groups,
+                device=self._device,
+                dtype=self._dtype,
             )
         else:
             return Wav2Vec2StackedPositionEncoder(
-                self.config.model_dim,
-                self.config.pos_conv_kernel_size,
-                self.config.num_pos_conv_groups,
-                self.config.pos_encoder_depth,
-                device=self.device,
-                dtype=self.dtype,
+                self._config.model_dim,
+                self._config.pos_conv_kernel_size,
+                self._config.num_pos_conv_groups,
+                self._config.pos_encoder_depth,
+                device=self._device,
+                dtype=self._dtype,
             )
 
     def build_encoder(self) -> TransformerEncoder:
         """Build a Transformer encoder."""
-        num_layers = self.config.num_encoder_layers
+        num_layers = self._config.num_encoder_layers
 
         layers = [self.build_encoder_layer() for _ in range(num_layers)]
 
         return StandardTransformerEncoder(
             layers,
-            layer_drop_p=self.config.layer_drop_p,
-            norm_order=self.config.norm_order,
-            device=self.device,
-            dtype=self.dtype,
+            layer_drop_p=self._config.layer_drop_p,
+            norm_order=self._config.norm_order,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_encoder_layer(self) -> TransformerEncoderLayer:
         """Build a Transformer encoder layer."""
-        if self.config.use_conformer:
+        if self._config.use_conformer:
             return self.build_conformer_block()
 
         self_attn = self.build_attention()
@@ -297,10 +297,10 @@ class Wav2Vec2EncoderBuilder:
         return StandardTransformerEncoderLayer(
             self_attn,
             ffn,
-            dropout_p=self.config.dropout_p,
-            norm_order=self.config.norm_order,
-            device=self.device,
-            dtype=self.dtype,
+            dropout_p=self._config.dropout_p,
+            norm_order=self._config.norm_order,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_conformer_block(self) -> TransformerEncoderLayer:
@@ -318,18 +318,18 @@ class Wav2Vec2EncoderBuilder:
             self_attn,
             conv,
             ffn2,
-            dropout_p=self.config.dropout_p,
-            device=self.device,
-            dtype=self.dtype,
+            dropout_p=self._config.dropout_p,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_attention(self) -> MultiheadAttention:
         """Build a Transformer multi-head attention layer."""
-        if self.config.pos_encoder_type == "rotary":
+        if self._config.pos_encoder_type == "rotary":
             pos_encoder = RotaryEncoder(
-                self.config.model_dim // self.config.num_encoder_attn_heads,
-                self.config.max_seq_len,
-                device=self.device,
+                self._config.model_dim // self._config.num_encoder_attn_heads,
+                self._config.max_seq_len,
+                device=self._device,
             )
         else:
             pos_encoder = None
@@ -337,55 +337,55 @@ class Wav2Vec2EncoderBuilder:
         sdpa = self.build_sdpa()
 
         return StandardMultiheadAttention(
-            self.config.model_dim,
-            self.config.num_encoder_attn_heads,
+            self._config.model_dim,
+            self._config.num_encoder_attn_heads,
             pos_encoder=pos_encoder,
             sdpa=sdpa,
-            device=self.device,
-            dtype=self.dtype,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_sdpa(self) -> SDPA:
-        sdpa = create_default_sdpa(attn_dropout_p=self.config.attn_dropout_p)
+        sdpa = create_default_sdpa(attn_dropout_p=self._config.attn_dropout_p)
 
-        if self.config.pos_encoder_type == "relative":
-            if self.rel_pos_encoding is None:
-                self.rel_pos_encoding = RelativePositionalEncoding(
-                    self.config.model_dim,
-                    self.config.max_seq_len,
-                    device=self.device,
-                    dtype=self.dtype,
+        if self._config.pos_encoder_type == "relative":
+            if self._rel_pos_encoding is None:
+                self._rel_pos_encoding = RelativePositionalEncoding(
+                    self._config.model_dim,
+                    self._config.max_seq_len,
+                    device=self._device,
+                    dtype=self._dtype,
                 )
 
             sdpa = RelativePositionSDPA(
-                self.config.model_dim,
-                self.config.num_encoder_attn_heads,
-                self.rel_pos_encoding,
+                self._config.model_dim,
+                self._config.num_encoder_attn_heads,
+                self._rel_pos_encoding,
                 inner_sdpa=sdpa,
-                device=self.device,
-                dtype=self.dtype,
+                device=self._device,
+                dtype=self._dtype,
             )
 
         return sdpa
 
     def build_conformer_conv(self) -> ConformerConvolution:
         return ConformerConvolution(
-            self.config.model_dim,
-            self.config.depthwise_conv_kernel_size,
-            device=self.device,
-            dtype=self.dtype,
+            self._config.model_dim,
+            self._config.depthwise_conv_kernel_size,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_ffn(self, use_swish: bool = False) -> FeedForwardNetwork:
         """Build a Transformer feed-forward network."""
         return StandardFeedForwardNetwork(
-            self.config.model_dim,
-            self.config.ffn_inner_dim,
+            self._config.model_dim,
+            self._config.ffn_inner_dim,
             bias=True,
             inner_activation=SiLU() if use_swish else GELU(),
-            norm_order=self.config.norm_order,
-            device=self.device,
-            dtype=self.dtype,
+            norm_order=self._config.norm_order,
+            device=self._device,
+            dtype=self._dtype,
         )
 
 
@@ -486,10 +486,10 @@ class Wav2Vec2Builder:
     corresponding methods.
     """
 
-    config: Wav2Vec2Config
-    encoder_builder: Wav2Vec2EncoderBuilder
-    device: Optional[Device]
-    dtype: Optional[DataType]
+    _config: Wav2Vec2Config
+    _encoder_builder: Wav2Vec2EncoderBuilder
+    _device: Optional[Device]
+    _dtype: Optional[DataType]
 
     def __init__(
         self,
@@ -509,17 +509,17 @@ class Wav2Vec2Builder:
         :param dtype:
             The data type of module parameters and buffers.
         """
-        self.config = config
+        self._config = config
 
-        self.encoder_builder = encoder_builder
+        self._encoder_builder = encoder_builder
 
-        self.device, self.dtype = device, dtype
+        self._device, self._dtype = device, dtype
 
     def build_model(self) -> Wav2Vec2Model:
         """Build a model."""
-        encoder_frontend = self.encoder_builder.build_frontend()
+        encoder_frontend = self._encoder_builder.build_frontend()
 
-        encoder = self.encoder_builder.build_encoder()
+        encoder = self._encoder_builder.build_encoder()
 
         masker = self.build_masker()
 
@@ -530,39 +530,39 @@ class Wav2Vec2Builder:
             encoder,
             masker,
             quantizer,
-            self.config.final_dim,
-            final_proj_bias=self.config.final_proj_bias,
-            num_distractors=self.config.num_distractors,
-            logit_temp=self.config.logit_temp,
-            diversity_loss_weight=self.config.diversity_loss_weight,
-            device=self.device,
-            dtype=self.dtype,
+            self._config.final_dim,
+            final_proj_bias=self._config.final_proj_bias,
+            num_distractors=self._config.num_distractors,
+            logit_temp=self._config.logit_temp,
+            diversity_loss_weight=self._config.diversity_loss_weight,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_masker(self) -> Wav2Vec2Masker:
         """Build a temporal/spatial feature masker."""
         return Wav2Vec2Masker(
-            self.config.encoder_config.model_dim,
-            self.config.temporal_mask_span_len,
-            self.config.max_temporal_mask_prob,
-            self.config.min_num_temporal_mask_spans,
-            self.config.spatial_mask_span_len,
-            self.config.max_spatial_mask_prob,
-            self.config.min_num_spatial_mask_spans,
-            device=self.device,
-            dtype=self.dtype,
+            self._config.encoder_config.model_dim,
+            self._config.temporal_mask_span_len,
+            self._config.max_temporal_mask_prob,
+            self._config.min_num_temporal_mask_spans,
+            self._config.spatial_mask_span_len,
+            self._config.max_spatial_mask_prob,
+            self._config.min_num_spatial_mask_spans,
+            device=self._device,
+            dtype=self._dtype,
         )
 
     def build_quantizer(self) -> VectorQuantizer:
         """Build a vector quantizer."""
         return GumbelVectorQuantizer(
-            self.config.encoder_config.feature_dim,
-            self.config.quantized_dim,
-            self.config.num_codebooks,
-            self.config.num_codebook_entries,
-            codebook_sampling_temperature=self.config.codebook_sampling_temperature,
-            device=self.device,
-            dtype=self.dtype,
+            self._config.encoder_config.feature_dim,
+            self._config.quantized_dim,
+            self._config.num_codebooks,
+            self._config.num_codebook_entries,
+            codebook_sampling_temperature=self._config.codebook_sampling_temperature,
+            device=self._device,
+            dtype=self._dtype,
         )
 
 

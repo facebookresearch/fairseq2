@@ -16,7 +16,7 @@ from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.projection import Projection
 from fairseq2.nn.transformer import TransformerDecoder
-from fairseq2.typing import finaloverride
+from fairseq2.typing import override
 
 
 @final
@@ -32,6 +32,7 @@ class TransformerDecoderModel(DecoderModel):
         decoder_frontend: TransformerFrontend,
         decoder: TransformerDecoder,
         final_proj: Projection,
+        max_seq_len: int,
         vocab_info: VocabularyInfo,
     ) -> None:
         """
@@ -41,17 +42,19 @@ class TransformerDecoderModel(DecoderModel):
             The decoder.
         :param final_proj:
             The projection to apply to decoder outputs.
+        :param max_seq_len:
+            The maximum length of sequences produced by the model.
         :param vocab_info:
             The vocabulary information of sequences produced by the model.
         """
-        super().__init__(decoder.model_dim, vocab_info)
+        super().__init__(decoder.model_dim, max_seq_len, vocab_info)
 
         self.decoder_frontend = decoder_frontend
         self.decoder = decoder
 
         self.final_proj = final_proj
 
-    @finaloverride
+    @override
     def decode(
         self,
         seqs: Tensor,
@@ -69,7 +72,7 @@ class TransformerDecoderModel(DecoderModel):
 
         return decoder_output, decoder_padding_mask
 
-    @finaloverride
+    @override
     def project(
         self, decoder_output: Tensor, decoder_padding_mask: Optional[PaddingMask]
     ) -> SequenceModelOutput:

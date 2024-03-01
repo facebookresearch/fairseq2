@@ -9,43 +9,53 @@ from typing import List, final
 import torch
 from torch import Tensor
 
-from fairseq2.data.text import TextTokenEncoder
-from fairseq2.generation import Chatbot, ChatDialog, SequenceGenerator
-from fairseq2.models.mistral.tokenizer import MistralTokenizer
+from fairseq2.data.text import TextTokenEncoder, TextTokenizer
+from fairseq2.generation import (
+    AbstractChatbot,
+    ChatDialog,
+    SequenceGenerator,
+    create_chatbot,
+)
 from fairseq2.nn.utils.module import infer_device
-from fairseq2.typing import finaloverride
+from fairseq2.typing import override
 
 
 @final
-class MistralChatbot(Chatbot):
+class MistralChatbot(AbstractChatbot):
     """Represents a Mistral chatbot."""
 
-    bos_idx: Tensor
-    eos_idx: Tensor
-    text_encoder: TextTokenEncoder
+    _bos_idx: Tensor
+    _eos_idx: Tensor
+    _text_encoder: TextTokenEncoder
 
     def __init__(
-        self, generator: SequenceGenerator, tokenizer: MistralTokenizer
+        self,
+        generator: SequenceGenerator,
+        tokenizer: TextTokenizer,
+        *,
+        stdout: bool = False,
     ) -> None:
         """
         :param generator:
             The sequence generator.
         :param tokenizer:
             The text tokenizer.
+        :param stdout:
+            If ``True``, prints generated messages to stdout in real-time.
         """
-        super().__init__(generator, tokenizer)
+        super().__init__(generator, tokenizer, stdout=stdout)
 
         assert tokenizer.vocab_info.bos_idx is not None
         assert tokenizer.vocab_info.eos_idx is not None
 
         device = infer_device(generator.model, param_name="generator.model")
 
-        self.bos_idx = torch.tensor([tokenizer.vocab_info.bos_idx], device=device)
-        self.eos_idx = torch.tensor([tokenizer.vocab_info.eos_idx], device=device)
+        self._bos_idx = torch.tensor([tokenizer.vocab_info.bos_idx], device=device)
+        self._eos_idx = torch.tensor([tokenizer.vocab_info.eos_idx], device=device)
 
-        self.text_encoder = tokenizer.create_raw_encoder(device=device)
+        self._text_encoder = tokenizer.create_raw_encoder(device=device)
 
-    @finaloverride
+    @override
     def _encode_dialog(self, dialog: ChatDialog, param_name: str) -> Tensor:
         if len(dialog) == 0:
             raise ValueError(
@@ -57,7 +67,7 @@ class MistralChatbot(Chatbot):
                 f"The last message of `{param_name}` must have the role 'user'."
             )
 
-        dialog_contents: List[Tensor] = [self.bos_idx]
+        dialog_contents: List[Tensor] = [self._bos_idx]
 
         for user, bot in zip(dialog[::2], dialog[1::2]):
             if user.role != "user" or bot.role != "bot":
@@ -65,14 +75,17 @@ class MistralChatbot(Chatbot):
                     f"The messages of `{param_name}` must alternate between the roles 'user' and 'bot'."
                 )
 
-            user_bot_seq = self.text_encoder(
+            user_bot_seq = self._text_encoder(
                 f"[INST] {user.content.strip()} [/INST] {bot.content.strip()}"
             )
 
-            dialog_contents += [user_bot_seq, self.eos_idx]
+            dialog_contents += [user_bot_seq, self._eos_idx]
 
-        user_seq = self.text_encoder(f"[INST] {dialog[-1].content.strip()} [/INST]")
+        user_seq = self._text_encoder(f"[INST] {dialog[-1].content.strip()} [/INST]")
 
         dialog_contents.append(user_seq)
 
         return torch.cat(dialog_contents, dim=0)
+
+
+create_chatbot.register("mistral", MistralChatbot)

@@ -5,15 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import Callable, Optional
+from typing import Callable, Optional, final
 
 import torch
 from torch.optim import Optimizer
 
 
-class Fairseq2Optimizer(ABC, Optimizer):
-    """Represents an optimizer."""
+class AbstractOptimizer(ABC, Optimizer):
+    """Provides a skeletal implementation of :class:`Optimizer`."""
 
+    @final
     def step(  # type: ignore[override]
         self, closure: Optional[Callable[[], float]] = None
     ) -> Optional[float]:

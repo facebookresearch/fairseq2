@@ -17,29 +17,29 @@ from torcheval.metrics import Metric
 from torcheval.metrics.toolkit import sync_and_compute_collection
 
 from fairseq2.gang import Gang
-from fairseq2.typing import finaloverride
+from fairseq2.typing import override
 
 
 class MetricBag:
     """Holds a collection of training or validation metrics."""
 
-    gang: Gang
-    metrics: Dict[str, Metric[Any]]
-    persistent_metrics: Dict[str, Metric[Any]]
+    _gang: Gang
+    _metrics: Dict[str, Metric[Any]]
+    _persistent_metrics: Dict[str, Metric[Any]]
 
     def __init__(self, gang: Gang) -> None:
         """
         :param gang:
             The gang to sync metrics across all processes.
         """
-        super().__setattr__("metrics", {})
-        super().__setattr__("persistent_metrics", {})
+        super().__setattr__("_metrics", {})
+        super().__setattr__("_persistent_metrics", {})
 
-        self.gang = gang
+        self._gang = gang
 
     def __getattr__(self, name: str) -> Any:
-        if "metrics" in self.__dict__ and name in self.metrics:
-            return self.metrics[name]
+        if "_metrics" in self.__dict__ and name in self._metrics:
+            return self._metrics[name]
 
         raise AttributeError(
             f"`{type(self).__name__}` object has no attribute '{name}'."
@@ -49,23 +49,24 @@ class MetricBag:
         if isinstance(value, Metric):
             self.register_metric(name, value, persistent=True)
         else:
-            if name in self.metrics:
-                del self.metrics[name]
+            if name in self._metrics:
+                del self._metrics[name]
 
-                if name in self.persistent_metrics:
-                    del self.persistent_metrics[name]
+                if name in self._persistent_metrics:
+                    del self._persistent_metrics[name]
 
             super().__setattr__(name, value)
 
     def __delattr__(self, name: str) -> None:
-        if name in self.metrics:
-            del self.metrics[name]
+        if name in self._metrics:
+            del self._metrics[name]
 
-            if name in self.persistent_metrics:
-                del self.persistent_metrics[name]
+            if name in self._persistent_metrics:
+                del self._persistent_metrics[name]
         else:
             super().__delattr__(name)
 
+    @final
     def register_metric(
         self, name: str, metric: Metric[Any], persistent: bool = True
     ) -> None:
@@ -83,18 +84,20 @@ class MetricBag:
                 f"`{type(self).__name__}` object already has an attribute '{name}'."
             )
 
-        metric.to(self.gang.device)
+        metric.to(self._gang.device)
 
-        self.metrics[name] = metric
+        self._metrics[name] = metric
 
         if persistent:
-            self.persistent_metrics[name] = metric
+            self._persistent_metrics[name] = metric
 
+    @final
     def reset_metrics(self) -> None:
         """Reset the metrics to their initial state."""
-        for metric in self.metrics.values():
+        for metric in self._metrics.values():
             metric.reset()
 
+    @final
     def sync_and_compute_metrics(self) -> Optional[Dict[str, Any]]:
         """Sync the metrics across all processes and and compute their values."""
         return sync_and_compute_metrics(self)
@@ -103,24 +106,26 @@ class MetricBag:
         """Process metric ``values``."""
         pass
 
+    @final
     def state_dict(self) -> Dict[str, Any]:
         state_dict = {}
 
-        for name, metric in self.persistent_metrics.items():
+        for name, metric in self._persistent_metrics.items():
             state_dict[name] = metric.state_dict()
 
         return state_dict
 
+    @final
     def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
-        if self.persistent_metrics.keys() != state_dict.keys():
+        if self._persistent_metrics.keys() != state_dict.keys():
             raise ValueError(
-                f"`state_dict` must contain metrics {list(self.persistent_metrics.keys())}, but contains {list(state_dict.keys())} instead."
+                f"`state_dict` must contain metrics {list(self._persistent_metrics.keys())}, but contains {list(state_dict.keys())} instead."
             )
 
-        for name, metric in self.persistent_metrics.items():
+        for name, metric in self._persistent_metrics.items():
             metric.load_state_dict(state_dict[name])
 
-            metric.to(self.gang.device)
+            metric.to(self._gang.device)
 
 
 def reset_metrics(*bags: MetricBag) -> None:
@@ -134,18 +139,18 @@ def sync_and_compute_metrics(*bags: MetricBag) -> Optional[Dict[str, Any]]:
     if not bags:
         return None
 
-    gang = bags[0].gang
+    gang = bags[0]._gang
 
     if len(bags) == 1:
-        all_metrics = bags[0].metrics
+        all_metrics = bags[0]._metrics
     else:
         all_metrics = {}
 
         for bag in bags:
-            if bag.gang is not gang:
+            if bag._gang is not gang:
                 raise ValueError("All metric bags in `bags` must use the same gang.")
 
-            all_metrics.update(bag.metrics)
+            all_metrics.update(bag._metrics)
 
     if gang.size == 1:
         values = {name: m.compute() for name, m in all_metrics.items()}
@@ -258,9 +263,9 @@ class MetricRecorder(ABC):
             If ``True``, flushes any buffers after recording.
         """
 
+    @abstractmethod
     def close(self) -> None:
         """Close the recorder."""
-        pass
 
 
 def record_metrics(
@@ -292,16 +297,16 @@ def record_metrics(
 class LogMetricRecorder(MetricRecorder):
     """Logs metric values to a :class:`Logger`."""
 
-    logger: Logger
+    _logger: Logger
 
     def __init__(self, logger: Logger) -> None:
         """
         :param logger:
             The logger to use.
         """
-        self.logger = logger
+        self._logger = logger
 
-    @finaloverride
+    @override
     def record_metrics(
         self,
         run: str,
@@ -310,7 +315,7 @@ class LogMetricRecorder(MetricRecorder):
         *,
         flush: bool = False,
     ) -> None:
-        if not self.logger.isEnabledFor(logging.INFO):
+        if not self._logger.isEnabledFor(logging.INFO):
             return
 
         formatted_values = []
@@ -326,7 +331,11 @@ class LogMetricRecorder(MetricRecorder):
 
         s = " | ".join(formatted_values)
 
-        self.logger.info(f"{run} Metrics (step {step_nr}) - {s}")
+        self._logger.info(f"{run} Metrics (step {step_nr}) - {s}")
+
+    @override
+    def close(self) -> None:
+        pass
 
 
 try:
@@ -341,8 +350,7 @@ else:
 class TensorBoardRecorder(MetricRecorder):
     """Records metric values to TensorBoard."""
 
-    log_dir: Path
-
+    _log_dir: Path
     _writers: Dict[str, SummaryWriter]
 
     def __init__(self, log_dir: Path) -> None:
@@ -355,11 +363,11 @@ class TensorBoardRecorder(MetricRecorder):
 
             logger.warning("tensorboard not found. Please install it with `pip install tensorboard`.")  # fmt: skip
 
-        self.log_dir = log_dir
+        self._log_dir = log_dir
 
         self._writers = {}
 
-    @finaloverride
+    @override
     def record_metrics(
         self,
         run: str,
@@ -391,13 +399,13 @@ class TensorBoardRecorder(MetricRecorder):
         try:
             writer = self._writers[run]
         except KeyError:
-            writer = SummaryWriter(self.log_dir.joinpath(run))
+            writer = SummaryWriter(self._log_dir.joinpath(run))
 
             self._writers[run] = writer
 
         return writer
 
-    @finaloverride
+    @override
     def close(self) -> None:
         for writer in self._writers.values():
             writer.close()

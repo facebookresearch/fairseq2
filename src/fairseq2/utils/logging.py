@@ -26,11 +26,11 @@ def setup_logging(
         The file to which logs will be written. Must have a 'rank' replacement
         field; for example '/path/to/train_{rank}.log'.
     :param debug:
-        If ``True``, sets the log level to `DEBUG`; otherwise, to `INFO`.
+        If ``True``, sets the log level to ``DEBUG``; otherwise, to ``INFO``.
     :param utc_time:
         If ``True``, logs dates and times in UTC.
     :param force:
-        If ``True``, overwrite existing logging `basicConfig`
+        If ``True``, overwrites existing log configuration.
     """
     rank = get_global_rank()
 

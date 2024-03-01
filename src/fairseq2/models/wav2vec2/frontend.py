@@ -17,7 +17,7 @@ from fairseq2.nn.normalization import LayerNorm, StandardLayerNorm
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.position_encoder import PositionEncoder
 from fairseq2.nn.projection import Linear
-from fairseq2.typing import DataType, Device, finaloverride
+from fairseq2.typing import DataType, Device, override
 
 
 @final
@@ -118,7 +118,7 @@ class Wav2Vec2Frontend(TransformerFrontend):
         else:
             self.register_module("dropout", None)
 
-    @finaloverride
+    @override
     def forward(
         self,
         seqs: Tensor,

@@ -13,7 +13,7 @@ from torch import Tensor
 from torch.nn import Module, Parameter
 from torch.nn.functional import layer_norm
 
-from fairseq2.typing import DataType, Device, finaloverride
+from fairseq2.typing import DataType, Device, override
 
 
 class LayerNorm(Module, ABC):
@@ -107,7 +107,7 @@ class StandardLayerNorm(LayerNorm):
     """Applies Layer Normalization to incoming data as described in
     :cite:t:`https://doi.org/10.48550/arxiv.1607.06450`."""
 
-    @finaloverride
+    @override
     def forward(self, x: Tensor) -> Tensor:
         return layer_norm(x, self.normalized_shape, self.weight, self.bias, self.eps)
 
@@ -117,7 +117,7 @@ class RMSNorm(LayerNorm):
     """Applies Root Mean Square Layer Normalization to incoming data as
     described in :cite:t:`https://doi.org/10.48550/arxiv.1910.07467`."""
 
-    @finaloverride
+    @override
     def forward(self, x: Tensor) -> Tensor:
         # For numerical stability normalize in single precision.
         x = self._norm(x.float()).type_as(x)
