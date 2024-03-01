@@ -115,11 +115,12 @@ class Wav2Vec2Model(Module):
 
     def extract_features(self, batch: SequenceBatch) -> Wav2Vec2Features:
         """Extract features from the input sequences.
+
         :param batch:
             The batch of sequences to process.
 
         :returns:
-            - A `Wav2Vec2Features` object, consisting of the encoder output, targets
+            A `Wav2Vec2Features` object, consisting of the encoder output, targets
             for the contrastive loss, and the temporal mask which was applied. See
             documentation of `Wav2Vec2Features` for more information.
         """
@@ -136,17 +137,13 @@ class Wav2Vec2Model(Module):
 
     def forward(self, batch: SequenceBatch) -> Wav2Vec2Output:
         """
+
         :param batch:
             The batch of sequences to process.
         """
         feats = self.extract_features(batch)
 
-        return self.quantize_and_contrast(
-            feats.encoder_output,
-            feats.targets,
-            feats.temporal_mask,
-
-        )
+        return self.quantize_and_contrast(feats)
 
     def run_frontend(
         self, seqs: Tensor, padding_mask: Optional[PaddingMask]
@@ -200,26 +197,19 @@ class Wav2Vec2Model(Module):
 
     def quantize_and_contrast(
         self,
-        encoder_output: Tensor,
-        targets: Tensor,
-        temporal_mask: Tensor,
+        feats: Wav2Vec2Features,
     ) -> "Wav2Vec2Output":
         """Quantize targets and produce logits for contrastive prediction.
 
-        :param encoder_output:
-            The encoder output. *Shape:* :math:`(N,S_{enc},M)`, where :math:`N`
-            is the batch size, :math:`S_{enc}` is the encoder output sequence
-            length, and :math:`M` is the dimensionality of the model.
-        :param targets:
-            The non-quantized context network targets that have been extracted
-            from the input sequences. *Shape:* :math:`(N,S_{msk},M)`, where
-            :math:`N` is the batch size, :math:`S_{msk}` is the masked sequence
-            length, and :math:`M` is the dimensionality of the model.
-        :param temporal_mask:
-            The temporal mask that has been used to extract the context network
-            targets. *Shape:* :math:`(N,S_{enc})`, where :math:`N` is the batch
-            size and :math`S_{enc}` is the encoder output sequence length.
+        :param feats:
+            The extracted features from the w2v2 encoder. See documentation
+            of Wav2Vec2Features for more information.
         """
+        encoder_output, targets, temporal_mask = (
+            feats.encoder_output,
+            feats.targets,
+            feats.temporal_mask,
+        )
         seqs = extract_masked_elements(encoder_output, temporal_mask)
 
         seqs = self.final_proj(seqs)
