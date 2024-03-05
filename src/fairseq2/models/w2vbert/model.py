@@ -119,7 +119,9 @@ class W2VBertModel(Module):
         assert w2v2_layer_output is not None
 
         w2v2_features = Wav2Vec2Features(
-            encoder_output=w2v2_layer_output, targets=targets, temporal_mask=temporal_mask
+            encoder_output=w2v2_layer_output,
+            targets=targets,
+            temporal_mask=temporal_mask,
         )
         w2v2_output = self.w2v2_model.quantize_and_contrast(w2v2_features)
 
