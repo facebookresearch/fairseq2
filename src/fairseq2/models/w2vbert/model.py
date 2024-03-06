@@ -14,7 +14,12 @@ from torch.nn import Module
 from torch.nn.functional import cross_entropy
 
 from fairseq2.models.sequence import SequenceBatch
-from fairseq2.models.wav2vec2 import Wav2Vec2Loss, Wav2Vec2Model, Wav2Vec2Output
+from fairseq2.models.wav2vec2 import (
+    Wav2Vec2Features,
+    Wav2Vec2Loss,
+    Wav2Vec2Model,
+    Wav2Vec2Output,
+)
 from fairseq2.models.wav2vec2.masker import extract_masked_elements
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.projection import Linear
@@ -113,9 +118,12 @@ class W2VBertModel(Module):
 
         assert w2v2_layer_output is not None
 
-        w2v2_output = self.w2v2_model.quantize_and_contrast(
-            w2v2_layer_output, targets, temporal_mask
+        w2v2_features = Wav2Vec2Features(
+            encoder_output=w2v2_layer_output,
+            targets=targets,
+            temporal_mask=temporal_mask,
         )
+        w2v2_output = self.w2v2_model.quantize_and_contrast(w2v2_features)
 
         seqs = extract_masked_elements(encoder_output, temporal_mask)
 
