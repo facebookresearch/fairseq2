@@ -55,7 +55,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        torch: ['2.2.0']
+        torch: ['2.2.0', '2.2.1']
         py: ['3.8', '3.9', '3.10', '3.11']
         variant: ['cpu', 'cu118', 'cu121']
         sanitizers: ['nosan']
@@ -63,14 +63,14 @@ jobs:
           - run_integration_tests: false
 
           # Integration Tests
-          - torch: '2.2.0'
+          - torch: '2.2.1'
             py: '3.11'
             variant: 'cpu'
             sanitizers: 'nosan'
             run_integration_tests: true
 
           # ASAN/UBSAN
-          - torch: '2.2.0'
+          - torch: '2.2.1'
             py: '3.11'
             variant: 'cpu'
             sanitizers: 'asan_ubsan'
@@ -90,7 +90,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        torch: ['2.2.0']
+        torch: ['2.2.1']
         py: ['3.8', '3.9', '3.10', '3.11']
         variant: ['cu121']
     with:
@@ -108,7 +108,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        torch: ['2.2.0']
+        torch: ['2.2.1']
         py: ['3.8', '3.9', '3.10', '3.11']
     with:
       torch: ${{ matrix.torch }}
