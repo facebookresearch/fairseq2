@@ -154,16 +154,6 @@ class CheckpointManager(ABC):
             If ``True``, only considers checkpoints with a model.
         """
 
-    @abstractmethod
-    def get_model_checkpoint_path(
-        self, step_nr: Optional[int] = None
-    ) -> Optional[Path]:
-        """
-        Return the path for the model checkpoint (by default, the last one).
-        :param step_nr: 
-            The step for which to load the model. If ``None``, then the last checkpoint is loaded.
-        """
-
 
 @final
 class FileCheckpointManager(CheckpointManager):
@@ -468,8 +458,9 @@ class FileCheckpointManager(CheckpointManager):
     ) -> None:
         model_file = self.get_model_checkpoint_path(step_nr=step_nr)
         if model_file is None:
-            # This should never happen, because if the step_nr is provided, model_file is always non-empty.
-            raise CheckpointNotFoundError(f"Training step {step_nr} not found.")
+            raise CheckpointNotFoundError(
+                f"Training step {step_nr} has no saved model."
+            )
 
         try:
             checkpoint = load_checkpoint(model_file, map_location=CPU, restrict=True)
@@ -547,12 +538,16 @@ class FileCheckpointManager(CheckpointManager):
 
         return None
 
-    @override
     def get_model_checkpoint_path(
         self, step_nr: Optional[int] = None
     ) -> Optional[Path]:
+        """
+        Return the path for the model checkpoint (by default, the last one).
+        :param step_nr:
+            The step for which to load the model. If ``None``, then the last checkpoint is loaded.
+        """
         if step_nr is None:
-            step_nr = self.get_last_step_number()
+            step_nr = self.get_last_step_number(with_model=True)
         if step_nr is None:
             return None
         return self._checkpoint_dir.joinpath(f"step_{step_nr}/model.pt")
