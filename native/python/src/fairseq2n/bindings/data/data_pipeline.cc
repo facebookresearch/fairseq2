@@ -121,9 +121,10 @@ data_pipeline_tracker::delete_alive_pipelines()
     for (auto &weakref : alive_pipelines_) {
         py::object pipeline_obj = weakref();
 
+        // If the pipeline has a cyclic reference during interpreter shutdown,
+        // GC skips calling its weakref callback; so this check can be true.
         if (pipeline_obj.is_none())
-            throw_<internal_error>(
-                "One of the tracked data pipelines has already been deleted. Please file a bug report.");
+            continue;
 
         auto &pipeline = pipeline_obj.cast<data_pipeline &>();
 
