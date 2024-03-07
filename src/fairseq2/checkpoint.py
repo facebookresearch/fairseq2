@@ -154,6 +154,13 @@ class CheckpointManager(ABC):
             If ``True``, only considers checkpoints with a model.
         """
 
+    @abstractmethod
+    def get_model_checkpoint_path(self, step_nr: Optional[int] = None) -> Optional[Path]:
+        """
+        Return the path for the model checkpoint (by default, the last one).
+        :param step_nr: 
+            The step for which to load the model. If ``None``, then the last checkpoint is loaded.
+        """
 
 @final
 class FileCheckpointManager(CheckpointManager):
@@ -456,7 +463,12 @@ class FileCheckpointManager(CheckpointManager):
     def load_model(
         self, step_nr: int, out: Module, *, device: Optional[Device] = None
     ) -> None:
-        model_file = self._checkpoint_dir.joinpath(f"step_{step_nr}/model.pt")
+        model_file = self.get_model_checkpoint_path(step_nr=step_nr)
+        if model_file is None:
+            # This should never happen, because if the step_nr is provided, model_file is always non-empty.
+            raise CheckpointNotFoundError(
+                f"Training step {step_nr} not found."
+            )
 
         try:
             checkpoint = load_checkpoint(model_file, map_location=CPU, restrict=True)
@@ -533,6 +545,14 @@ class FileCheckpointManager(CheckpointManager):
             return step_numbers[-1]
 
         return None
+
+    @override
+    def get_model_checkpoint_path(self, step_nr: Optional[int] = None) -> Optional[Path]:
+        if step_nr is None:
+            step_nr = self.get_last_step_number()
+        if step_nr is None:
+            return
+        return self._checkpoint_dir.joinpath(f"step_{step_nr}/model.pt")
 
     def _iter_step_numbers(self, with_model: bool) -> Iterator[int]:
         try:
