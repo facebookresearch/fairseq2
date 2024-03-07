@@ -554,7 +554,7 @@ class FileCheckpointManager(CheckpointManager):
         if step_nr is None:
             step_nr = self.get_last_step_number()
         if step_nr is None:
-            return
+            return None
         return self._checkpoint_dir.joinpath(f"step_{step_nr}/model.pt")
 
     def _iter_step_numbers(self, with_model: bool) -> Iterator[int]:
