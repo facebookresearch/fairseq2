@@ -155,7 +155,7 @@ class AssetCard:
         """Return the type of the asset represented by this card."""
         for field in ["model_type", "dataset_type", "tokenizer_type"]:
             try:
-                return self.field("model_type").as_(str)
+                return self.field(field).as_(str)
             except AssetCardFieldNotFoundError:
                 continue
 
