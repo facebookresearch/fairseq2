@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.assets.card &mdash; fairseq2 0.3.0.dev202403061720 documentation</title>
+  <title>fairseq2.assets.card &mdash; fairseq2 0.3.0.dev202403110133 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202403061720
+                0.3.0.dev202403110133
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -312,7 +312,7 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the type of the asset represented by this card.&quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;model_type&quot;</span><span class="p">,</span> <span class="s2">&quot;dataset_type&quot;</span><span class="p">,</span> <span class="s2">&quot;tokenizer_type&quot;</span><span class="p">]:</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="s2">&quot;model_type&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">as_</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">field</span><span class="p">)</span><span class="o">.</span><span class="n">as_</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
             <span class="k">except</span> <span class="n">AssetCardFieldNotFoundError</span><span class="p">:</span>
                 <span class="k">continue</span>
 
