@@ -12,10 +12,12 @@ from torch import Tensor
 
 from fairseq2.assets import default_asset_store, default_download_manager
 from fairseq2.data.text.text_tokenizer import (
+    AbstractTextTokenizer,
     StandardTextTokenizerLoader,
     TextTokenDecoder,
     TextTokenEncoder,
-    TextTokenizer,
+    TextTokenizerLoader,
+    load_text_tokenizer,
 )
 from fairseq2.data.vocabulary_info import VocabularyInfo
 from fairseq2.typing import Device, override
@@ -125,7 +127,7 @@ else:
     _set_module_name()
 
 
-class SentencePieceTokenizer(TextTokenizer):
+class SentencePieceTokenizer(AbstractTextTokenizer):
     """Represents a SentencePiece tokenizer."""
 
     _model: SentencePieceModel
@@ -227,6 +229,15 @@ load_basic_sentencepiece_tokenizer = StandardTextTokenizerLoader(
     default_download_manager,
     lambda path, _: BasicSentencePieceTokenizer(path),
 )
+
+
+def setup_basic_sentencepiece_tokenizer(
+    family: str,
+) -> TextTokenizerLoader[BasicSentencePieceTokenizer]:
+    """Create a text tokenizer loader for ``family``."""
+    load_text_tokenizer.register_loader(family, load_basic_sentencepiece_tokenizer)
+
+    return load_basic_sentencepiece_tokenizer
 
 
 def vocab_info_from_sentencepiece(model: SentencePieceModel) -> VocabularyInfo:
