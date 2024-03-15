@@ -12,7 +12,7 @@ from typing import List, NamedTuple, Optional, Sequence, TypeVar
 from fairseq2.assets import default_asset_store, default_download_manager
 from fairseq2.data.text import TextTokenizer
 from fairseq2.datasets.data_reader import DataReader
-from fairseq2.datasets.dataset_loader import (
+from fairseq2.datasets.loader import (
     DatasetFactory,
     DatasetLoader,
     DelegatingDatasetLoader,

@@ -8,17 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import (
-    Dict,
-    Generic,
-    List,
-    Optional,
-    Protocol,
-    Sequence,
-    TypeVar,
-    Union,
-    final,
-)
+from typing import Dict, List, Optional, Protocol, Sequence, TypeVar, Union, final
 
 from torch import Tensor
 
@@ -30,22 +20,14 @@ from fairseq2.assets import (
     AssetError,
     AssetStore,
     default_asset_store,
+    default_download_manager,
 )
 from fairseq2.data.vocabulary_info import VocabularyInfo
-from fairseq2.typing import Device
+from fairseq2.typing import Device, override
 
 
 class TextTokenizer(ABC):
     """Represents a tokenizer to encode and decode text."""
-
-    _vocab_info: VocabularyInfo
-
-    def __init__(self, vocab_info: VocabularyInfo) -> None:
-        """
-        :param vocab_info:
-            The vocabulary information associated with the tokenizer.
-        """
-        self._vocab_info = vocab_info
 
     @abstractmethod
     def create_encoder(
@@ -97,8 +79,27 @@ class TextTokenizer(ABC):
     def create_decoder(self) -> TextTokenDecoder:
         """Create a token decoder."""
 
+    @property
+    @abstractmethod
+    def vocab_info(self) -> VocabularyInfo:
+        """The vocabulary information associated with the tokenizer."""
+
+
+class AbstractTextTokenizer(TextTokenizer):
+    """Provides a skeletal implementation of :class:`TextTokenizer`."""
+
+    _vocab_info: VocabularyInfo
+
+    def __init__(self, vocab_info: VocabularyInfo) -> None:
+        """
+        :param vocab_info:
+            The vocabulary information associated with the tokenizer.
+        """
+        self._vocab_info = vocab_info
+
     @final
     @property
+    @override
     def vocab_info(self) -> VocabularyInfo:
         """The vocabulary information associated with the tokenizer."""
         return self._vocab_info
@@ -152,8 +153,13 @@ class TextTokenDecoder(ABC):
         """
 
 
-class TextTokenizerLoader(Protocol):
-    """Loads text tokenizers."""
+TextTokenizerT = TypeVar("TextTokenizerT", bound=TextTokenizer)
+
+TextTokenizerT_co = TypeVar("TextTokenizerT_co", bound=TextTokenizer, covariant=True)
+
+
+class TextTokenizerLoader(Protocol[TextTokenizerT_co]):
+    """Loads text tokenizers of type ``TextTokenizerT``."""
 
     def __call__(
         self,
@@ -162,7 +168,7 @@ class TextTokenizerLoader(Protocol):
         force: bool = False,
         cache_only: bool = False,
         progress: bool = True,
-    ) -> TextTokenizer:
+    ) -> TextTokenizerT_co:
         """
         :param tokenizer_name_or_card:
             The name or asset card of the tokenizer to load.
@@ -175,13 +181,10 @@ class TextTokenizerLoader(Protocol):
         """
 
 
-TextTokenizerT = TypeVar("TextTokenizerT", bound=TextTokenizer, covariant=True)
-
-
-class TextTokenizerFactory(Protocol[TextTokenizerT]):
+class TextTokenizerFactory(Protocol[TextTokenizerT_co]):
     """Constructs text tokenizers of type ``TextTokenizerT``."""
 
-    def __call__(self, path: Path, card: AssetCard) -> TextTokenizerT:
+    def __call__(self, path: Path, card: AssetCard) -> TextTokenizerT_co:
         """
         :param path:
             The path to the tokenizer.
@@ -191,7 +194,7 @@ class TextTokenizerFactory(Protocol[TextTokenizerT]):
 
 
 @final
-class StandardTextTokenizerLoader(TextTokenizerLoader, Generic[TextTokenizerT]):
+class StandardTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
     """Loads text tokenizers of type ``TokenizerT``."""
 
     _asset_store: AssetStore
@@ -249,11 +252,11 @@ class StandardTextTokenizerLoader(TextTokenizerLoader, Generic[TextTokenizerT]):
 
 
 @final
-class DelegatingTextTokenizerLoader(TextTokenizerLoader):
-    """Loads text tokenizers using registered loaders."""
+class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
+    """Loads text tokenizers of type ``TextTokenizerT`` using registered loaders."""
 
     _asset_store: AssetStore
-    _loaders: Dict[str, TextTokenizerLoader]
+    _loaders: Dict[str, TextTokenizerLoader[TextTokenizerT]]
 
     def __init__(self, asset_store: AssetStore) -> None:
         """
@@ -271,50 +274,71 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader):
         force: bool = False,
         cache_only: bool = False,
         progress: bool = True,
-    ) -> TextTokenizer:
+    ) -> TextTokenizerT:
         if isinstance(tokenizer_name_or_card, AssetCard):
             card = tokenizer_name_or_card
         else:
             card = self._asset_store.retrieve_card(tokenizer_name_or_card)
 
-        tokenizer_type = None
+        family = None
 
-        for field in ["tokenizer_type", "model_type", "dataset_type"]:
+        for field_name in ["tokenizer_family", "model_family", "dataset_family"]:
             try:
-                tokenizer_type = card.field(field).as_(str)
+                family = card.field(field_name).as_(str)
             except AssetCardFieldNotFoundError:
                 continue
 
-        if tokenizer_type is None:
+        if family is None:
             raise AssetCardFieldNotFoundError(
-                f"The asset card '{card.name}' must have a field named 'tokenizer_type', 'model_type', or 'dataset_type'."
+                f"The asset card '{card.name}' must have a field named 'tokenizer_family', 'model_family', or 'dataset_family'."
             )
 
         try:
-            loader = self._loaders[tokenizer_type]
+            loader = self._loaders[family]
         except KeyError:
-            raise RuntimeError(
-                f"The text tokenizer type '{tokenizer_type}' has no registered loader."
+            raise AssetError(
+                f"The value of the field '{field_name}' of the asset card '{card.name}' must be a supported tokenizer family, but '{family}' has no registered loader."
             )
 
         return loader(card, force=force, cache_only=cache_only, progress=progress)
 
-    def register_loader(self, tokenizer_type: str, loader: TextTokenizerLoader) -> None:
+    def register_loader(
+        self, family: str, loader: TextTokenizerLoader[TextTokenizerT]
+    ) -> None:
         """Register a tokenizer loader to use with this loader.
 
-        :param tokenizer_type:
-            The tokenizer type. If the 'tokenizer_type', 'model_type', or
-            'dataset_type' field of an asset card matches this value, the
+        :param family:
+            The tokenizer family. If the 'tokenizer_family', 'model_family', or
+            'dataset_family' field of an asset card matches this value, the
             specified ``loader`` will be used.
         :param loader:
             The tokenizer loader.
         """
-        if tokenizer_type in self._loaders:
+        if family in self._loaders:
             raise ValueError(
-                f"`tokenizer_type` must be a unique text tokenizer type, but '{tokenizer_type}' is already registered."
+                f"`family` must be a unique text tokenizer family, but '{family}' has already a registered loader."
             )
 
-        self._loaders[tokenizer_type] = loader
+        self._loaders[family] = loader
 
 
-load_text_tokenizer = DelegatingTextTokenizerLoader(default_asset_store)
+load_text_tokenizer = DelegatingTextTokenizerLoader[TextTokenizer](default_asset_store)
+
+
+def setup_text_tokenizer(
+    family: str, factory: TextTokenizerFactory[TextTokenizerT]
+) -> TextTokenizerLoader[TextTokenizerT]:
+    """Set up a text tokenizer.
+
+    :param family:
+        The name of the tokenizer family.
+    :param factory:
+        The factory to construct tokenizers.
+    """
+    loader = StandardTextTokenizerLoader(
+        default_asset_store, default_download_manager, factory
+    )
+
+    load_text_tokenizer.register_loader(family, loader)
+
+    return loader

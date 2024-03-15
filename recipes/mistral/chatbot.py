@@ -41,7 +41,7 @@ def run_mistral_chatbot(checkpoint_dir: Optional[Path] = None) -> None:
         model, sampler, temperature=0.6, max_gen_len=1024
     )
 
-    chatbot = create_chatbot(model_card.asset_type(), generator, tokenizer, stdout=True)
+    chatbot = create_chatbot(model_card.asset_type(), generator, tokenizer, stdout=True)  # type: ignore[arg-type]
 
     run_chatbot(chatbot)
 
