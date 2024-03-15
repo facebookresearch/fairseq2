@@ -17,10 +17,12 @@ from fairseq2.assets import (
     AssetStore,
 )
 
-DatasetT = TypeVar("DatasetT", covariant=True)
+DatasetT = TypeVar("DatasetT")
+
+DatasetT_co = TypeVar("DatasetT_co", covariant=True)
 
 
-class DatasetLoader(Protocol[DatasetT]):
+class DatasetLoader(Protocol[DatasetT_co]):
     """Loads datasets of type ``DatasetT```."""
 
     def __call__(
@@ -30,7 +32,7 @@ class DatasetLoader(Protocol[DatasetT]):
         force: bool = False,
         cache_only: bool = False,
         progress: bool = True,
-    ) -> DatasetT:
+    ) -> DatasetT_co:
         """
         :param dataset_name_or_card:
             The name or asset card of the dataset to load.
@@ -43,10 +45,10 @@ class DatasetLoader(Protocol[DatasetT]):
         """
 
 
-class DatasetFactory(Protocol[DatasetT]):
+class DatasetFactory(Protocol[DatasetT_co]):
     """Constructs datasets of type ``DatasetT``."""
 
-    def __call__(self, path: Path, card: AssetCard) -> DatasetT:
+    def __call__(self, path: Path, card: AssetCard) -> DatasetT_co:
         """
         :param path:
             The path to the dataset.
@@ -94,7 +96,7 @@ class StandardDatasetLoader(DatasetLoader[DatasetT]):
         else:
             card = self._asset_store.retrieve_card(dataset_name_or_card)
 
-        uri = card.field("uri").as_uri()
+        uri = card.field("data").as_uri()
 
         try:
             path = self._download_manager.download_dataset(
@@ -102,7 +104,7 @@ class StandardDatasetLoader(DatasetLoader[DatasetT]):
             )
         except ValueError as ex:
             raise AssetCardError(
-                f"The value of the field 'uri' of the asset card '{card.name}' is not valid. See nested exception for details."
+                f"The value of the field 'data' of the asset card '{card.name}' is not valid. See nested exception for details."
             ) from ex
 
         try:
@@ -142,31 +144,29 @@ class DelegatingDatasetLoader(DatasetLoader[DatasetT]):
         else:
             card = self._asset_store.retrieve_card(dataset_name_or_card)
 
-        dataset_type = card.field("dataset_type").as_(str)
+        family = card.field("dataset_family").as_(str)
 
         try:
-            loader = self._loaders[dataset_type]
+            loader = self._loaders[family]
         except KeyError:
-            raise RuntimeError(
-                f"The dataset type '{dataset_type}' has no registered loader."
+            raise AssetError(
+                f"The value of the field 'dataset_family' of the asset card '{card.name}' must be a supported dataset type, but '{family}' has no registered loader."
             )
 
         return loader(card, force=force, cache_only=cache_only, progress=progress)
 
-    def register_loader(
-        self, dataset_type: str, loader: DatasetLoader[DatasetT]
-    ) -> None:
+    def register_loader(self, family: str, loader: DatasetLoader[DatasetT]) -> None:
         """Register a dataset loader to use with this loader.
 
-        :param dataset_type:
-            The dataset type. If the 'dataset_type' field of an asset card
+        :param family:
+            The dataset type. If the 'dataset_family' field of an asset card
             matches this value, the specified ``loader`` will be used.
         :param loader:
             The dataset loader.
         """
-        if dataset_type in self._loaders:
+        if family in self._loaders:
             raise ValueError(
-                f"`dataset_type` must be a unique dataset type, but '{dataset_type}' is already registered."
+                f"`family` must be a unique dataset type, but '{family}' has already a registered loader."
             )
 
-        self._loaders[dataset_type] = loader
+        self._loaders[family] = loader
