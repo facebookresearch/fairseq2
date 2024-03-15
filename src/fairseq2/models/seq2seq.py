@@ -141,7 +141,7 @@ class Seq2SeqModelMetricBag(MetricBag):
     num_source_elements: Sum
     num_target_elements: Sum
 
-    def __init__(self, gang: Gang, wall_time: Optional[Stopwatch] = None) -> None:
+    def __init__(self, gang: Gang, *, wall_time: Optional[Stopwatch] = None) -> None:
         """
         :param gang:
             The gang to sync metrics across all processes.
@@ -167,13 +167,14 @@ class Seq2SeqModelMetricBag(MetricBag):
         self.num_source_elements = Sum(device=d)
         self.num_target_elements = Sum(device=d)
 
-    def update_metrics(
+    @torch.inference_mode()
+    def update_step_metrics(
         self,
         batches: Sequence[Seq2SeqBatch],
         nll_losses: Sequence[Tensor],
         time: Stopwatch,
     ) -> None:
-        """Update the metrics.
+        """Update the step metrics.
 
         :param batches:
             The batches processed by the model.
@@ -214,8 +215,8 @@ class Seq2SeqModelMetricBag(MetricBag):
             int(num_target_elements), time.get_elapsed_time()
         )
 
-    def reset_batch_metrics(self) -> None:
-        """Reset the batch metrics to their initial state."""
+    def reset_step_metrics(self) -> None:
+        """Reset the step metrics to their initial state."""
         self.nll_loss.reset()
         self.batch_size.reset()
         self.elements_per_batch.reset()
