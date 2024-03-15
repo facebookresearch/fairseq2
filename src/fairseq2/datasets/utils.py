@@ -12,7 +12,7 @@ import torch
 from fairseq2.gang import Gang
 
 
-def all_eod(eod: bool, gang: Gang, logger: Logger) -> bool:
+def _all_eod(eod: bool, gang: Gang, logger: Logger) -> bool:
     """Return ``True`` if all processes in ``gang`` have reached end of data."""
     if gang.size == 1:
         return eod
