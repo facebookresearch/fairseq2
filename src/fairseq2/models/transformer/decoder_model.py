@@ -78,4 +78,4 @@ class TransformerDecoderModel(DecoderModel):
     ) -> SequenceModelOutput:
         logits = self.final_proj(decoder_output)
 
-        return SequenceModelOutput(logits, self.vocab_info)
+        return SequenceModelOutput(logits, self.vocab_info.pad_idx)

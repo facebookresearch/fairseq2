@@ -11,9 +11,9 @@ from typing import Optional, Tuple, final
 
 import torch
 from torch import Tensor
-from torch.nn import Module
 from torch.nn.functional import cross_entropy
 
+from fairseq2.models.model import Model
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2.frontend import Wav2Vec2Frontend
 from fairseq2.models.wav2vec2.masker import Wav2Vec2Masker, extract_masked_elements
@@ -29,7 +29,7 @@ from fairseq2.typing import DataType, Device
 
 
 @final
-class Wav2Vec2Model(Module):
+class Wav2Vec2Model(Model):
     """Represents a wav2vec 2.0 model as described in
     :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`."""
 
@@ -121,9 +121,8 @@ class Wav2Vec2Model(Module):
             The batch of sequences to process.
 
         :returns:
-            A `Wav2Vec2Features` object, consisting of the encoder output, targets
-            for the contrastive loss, and the temporal mask which was applied. See
-            documentation of `Wav2Vec2Features` for more information.
+            A :class:`Wav2Vec2Features` object. See its documentation for more
+            information.
         """
         seqs, padding_mask, targets, temporal_mask = self.run_frontend(
             batch.seqs, batch.padding_mask
@@ -132,19 +131,16 @@ class Wav2Vec2Model(Module):
         # TODO: Should pad for fp16?
         encoder_output, _ = self.encoder(seqs, padding_mask)
 
-        return Wav2Vec2Features(
-            encoder_output=encoder_output, targets=targets, temporal_mask=temporal_mask
-        )
+        return Wav2Vec2Features(encoder_output, targets, temporal_mask)
 
     def forward(self, batch: SequenceBatch) -> Wav2Vec2Output:
         """
-
         :param batch:
             The batch of sequences to process.
         """
-        feats = self.extract_features(batch)
+        features = self.extract_features(batch)
 
-        return self.quantize_and_contrast(feats)
+        return self.quantize_and_contrast(features)
 
     def run_frontend(
         self, seqs: Tensor, padding_mask: Optional[PaddingMask]
@@ -196,21 +192,19 @@ class Wav2Vec2Model(Module):
 
         return seqs, padding_mask, targets, temporal_mask
 
-    def quantize_and_contrast(
-        self,
-        feats: Wav2Vec2Features,
-    ) -> "Wav2Vec2Output":
+    def quantize_and_contrast(self, feats: Wav2Vec2Features) -> Wav2Vec2Output:
         """Quantize targets and produce logits for contrastive prediction.
 
         :param feats:
-            The extracted features from the w2v2 encoder. See documentation
-            of Wav2Vec2Features for more information.
+            The extracted features from the encoder. See the documentation of
+            :class:`Wav2Vec2Features` for more information.
         """
         encoder_output, targets, temporal_mask = (
             feats.encoder_output,
             feats.targets,
             feats.temporal_mask,
         )
+
         seqs = extract_masked_elements(encoder_output, temporal_mask)
 
         seqs = self.final_proj(seqs)
@@ -222,7 +216,8 @@ class Wav2Vec2Model(Module):
         distractors = self._sample_distractors(targets)
 
         logits = self._compute_logits(seqs, targets, distractors)
-        out = Wav2Vec2Output(
+
+        return Wav2Vec2Output(
             logits,
             targets,
             temporal_mask,
@@ -230,8 +225,6 @@ class Wav2Vec2Model(Module):
             encoder_output,
             self.diversity_loss_weight,
         )
-
-        return out
 
     def _sample_distractors(self, targets: Tensor) -> Tensor:
         batch_size, seq_len, model_dim = targets.shape
@@ -316,23 +309,23 @@ class Wav2Vec2Model(Module):
 @final
 @dataclass
 class Wav2Vec2Features:
-    """Holds extracted features from a wav2vec 2.0 model."""
+    """Holds the extracted features of a wav2vec 2.0 model."""
 
     encoder_output: Tensor
-    """The encoder output. *Shape:* :math:`(N,S_{enc},M)`, where :math:`N`
-    is the batch size, :math:`S_{enc}` is the encoder output sequence
-    length, and :math:`M` is the dimensionality of the model."""
+    """The encoder output. *Shape:* :math:`(N,S_{enc},M)`, where :math:`N` is
+    the batch size, :math:`S_{enc}` is the encoder output sequence length, and
+    :math:`M` is the dimensionality of the model."""
 
     targets: Tensor
-    """The non-quantized context network targets that have been extracted
-    from the input sequences. *Shape:* :math:`(N,S_{msk},M)`, where
-    :math:`N` is the batch size, :math:`S_{msk}` is the masked sequence
-    length, and :math:`M` is the dimensionality of the model."""
+    """The non-quantized context network targets that have been extracted from
+    the input sequences. *Shape:* :math:`(N,S_{msk},M)`, where :math:`N` is the
+    batch size, :math:`S_{msk}` is the masked sequence length, and :math:`M` is
+    the dimensionality of the model."""
 
     temporal_mask: Tensor
     """The temporal mask that has been used to extract the context network
-    targets. *Shape:* :math:`(N,S_{enc})`, where :math:`N` is the batch
-    size and :math`S_{enc}` is the encoder output sequence length."""
+    targets. *Shape:* :math:`(N,S_{enc})`, where :math:`N` is the batch size and
+    :math`S_{enc}` is the encoder output sequence length."""
 
 
 @dataclass

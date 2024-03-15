@@ -8,22 +8,21 @@ from typing import Any, Dict
 
 import torch
 
-from fairseq2.assets import default_asset_store, default_download_manager
-from fairseq2.models.utils import ConfigLoader, ModelLoader
+from fairseq2.models.setup import setup_model
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
-from fairseq2.models.wav2vec2.builder import (
+from fairseq2.models.wav2vec2.factory import (
+    WAV2VEC2_FAMILY,
     Wav2Vec2Config,
     create_wav2vec2_model,
     wav2vec2_archs,
 )
-from fairseq2.models.wav2vec2.model import Wav2Vec2Model
 from fairseq2.nn.transformer import TransformerNormOrder
 
 
 def convert_wav2vec2_checkpoint(
     checkpoint: Dict[str, Any], config: Wav2Vec2Config
 ) -> Dict[str, Any]:
-    """Convert a fairseq wav2vec 2.0 checkpoint to fairseq2."""
+    """Convert a fairseq wav2vec 2.0 checkpoint to fairseq2 format."""
     state_dict = checkpoint["model"]
 
     # Check if we have a fairseq2 checkpoint.
@@ -65,13 +64,12 @@ def convert_wav2vec2_checkpoint(
     return convert_fairseq_checkpoint(checkpoint, key_map)
 
 
-load_wav2vec2_config = ConfigLoader[Wav2Vec2Config](default_asset_store, wav2vec2_archs)
-
-load_wav2vec2_model = ModelLoader[Wav2Vec2Model, Wav2Vec2Config](
-    default_asset_store,
-    default_download_manager,
-    load_wav2vec2_config,
+load_wav2vec2_model, load_wav2vec2_config = setup_model(
+    WAV2VEC2_FAMILY,
+    Wav2Vec2Config,
     create_wav2vec2_model,
+    wav2vec2_archs,
     convert_wav2vec2_checkpoint,
-    mmap=True,
+    mmap=False,
+    restrict_checkpoints=False,
 )

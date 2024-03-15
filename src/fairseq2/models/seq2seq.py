@@ -13,25 +13,27 @@ from typing import Any, Dict, Optional, Sequence, Tuple, final
 
 import torch
 from torch import Tensor
-from torch.nn import Module
 from torcheval.metrics import Mean, Sum, Throughput
 
 from fairseq2.data import VocabularyInfo
 from fairseq2.gang import Gang
 from fairseq2.metrics import MetricBag
+from fairseq2.models.model import Model
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import override
 
 
-class Seq2SeqModel(Module, ABC):
+class Seq2SeqModel(Model, ABC):
     """Represents a sequence-to-sequence model."""
 
     max_target_seq_len: int
     target_vocab_info: VocabularyInfo
 
     def __init__(
-        self, max_target_seq_len: int, target_vocab_info: VocabularyInfo
+        self,
+        max_target_seq_len: int,
+        target_vocab_info: VocabularyInfo,
     ) -> None:
         """
         :param max_target_seq_len:
@@ -132,7 +134,6 @@ class Seq2SeqModelMetricBag(MetricBag):
     """Holds the common metrics of a sequence-to-sequence model."""
 
     loss: Mean
-    entropy_loss: Mean
     batch_size: Mean
     elements_per_batch: Mean
     elements_per_second: Throughput
@@ -151,12 +152,9 @@ class Seq2SeqModelMetricBag(MetricBag):
 
         self.register_metric("loss", Mean(device=d), persistent=False)
 
-        self.register_metric("entropy_loss", Mean(device=d), persistent=False)
-
         self.register_metric("batch_size", Mean(device=d), persistent=False)
 
         self.register_metric("elements_per_batch", Mean(device=d), persistent=False)
-
         self.register_metric("elements_per_second", Throughput(device=d), persistent=False)  # fmt: skip
 
         self.num_examples = Sum(device=d)
@@ -198,12 +196,9 @@ class Seq2SeqModelMetricBag(MetricBag):
 
         self.loss.update(loss, weight=num_target_elements)
 
-        # Mainly exists for compatibility with fairseq's `nll_loss`.
-        self.entropy_loss.update(loss / math.log(2), weight=num_target_elements)
+        self.batch_size.update(batch_size * self._gang.size)
 
-        self.batch_size.update(batch_size * self.gang.size)
-
-        self.elements_per_batch.update(num_target_elements * self.gang.size)
+        self.elements_per_batch.update(num_target_elements * self._gang.size)
 
         self.elements_per_second.update(int(num_target_elements), elapsed_time)
 
@@ -215,11 +210,13 @@ class Seq2SeqModelMetricBag(MetricBag):
     def reset_batch_metrics(self) -> None:
         """Reset the batch metrics to their initial state."""
         self.loss.reset()
-        self.entropy_loss.reset()
         self.batch_size.reset()
         self.elements_per_batch.reset()
         self.elements_per_second.reset()
 
     @override
     def process_metric_values(self, values: Dict[str, Any]) -> None:
-        values["elapsed_time"] = self.elements_per_second.elapsed_time_sec
+        super().process_metric_values(values)
+
+        # Exists for compatibility with fairseq's `nll_loss` metric.
+        values["entropy_loss"] = values["loss"] / math.log(2)

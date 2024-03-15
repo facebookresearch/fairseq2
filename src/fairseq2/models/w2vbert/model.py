@@ -10,9 +10,9 @@ from dataclasses import dataclass
 from typing import Optional, final
 
 from torch import Tensor
-from torch.nn import Module
 from torch.nn.functional import cross_entropy
 
+from fairseq2.models.model import Model
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import (
     Wav2Vec2Features,
@@ -27,7 +27,7 @@ from fairseq2.typing import DataType, Device
 
 
 @final
-class W2VBertModel(Module):
+class W2VBertModel(Model):
     """Represents a w2v-BERT model as described in
     :cite:t`https://doi.org/10.48550/arxiv.2108.06209`."""
 
@@ -118,12 +118,9 @@ class W2VBertModel(Module):
 
         assert w2v2_layer_output is not None
 
-        w2v2_features = Wav2Vec2Features(
-            encoder_output=w2v2_layer_output,
-            targets=targets,
-            temporal_mask=temporal_mask,
+        w2v2_output = self.w2v2_model.quantize_and_contrast(
+            Wav2Vec2Features(w2v2_layer_output, targets, temporal_mask)
         )
-        w2v2_output = self.w2v2_model.quantize_and_contrast(w2v2_features)
 
         seqs = extract_masked_elements(encoder_output, temporal_mask)
 

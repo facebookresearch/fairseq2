@@ -22,15 +22,12 @@ MapLocation: TypeAlias = Optional[
 
 
 class CheckpointConverter(Protocol):
-    """Converts checkpoints to fairseq2."""
+    """Converts checkpoints to fairseq2 format."""
 
     def __call__(self, checkpoint: Dict[str, Any]) -> Dict[str, Any]:
         """
         :param checkpoint:
             The checkpoint to convert.
-
-        :returns:
-            A converted checkpoint that is compatible with fairseq2.
         """
 
 

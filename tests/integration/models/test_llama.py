@@ -11,7 +11,7 @@ import pytest
 from fairseq2.assets import asset_store, download_manager
 from fairseq2.models.llama import create_llama_model, llama_archs
 from fairseq2.models.llama.integ import convert_to_reference_checkpoint
-from fairseq2.models.llama.loader import convert_llama_checkpoint
+from fairseq2.models.llama.setup import convert_llama_checkpoint
 from fairseq2.models.utils.checkpoint import load_checkpoint
 from fairseq2.typing import CPU
 from tests.common import device

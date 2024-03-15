@@ -5,7 +5,8 @@
 # LICENSE file in the root directory of this source tree.
 
 name: llama
-model_type: llama
+model_type: llama  # compat
+model_family: llama
 checkpoint: "https://ai.meta.com/llama/;gated=true"
 tokenizer: "https://ai.meta.com/llama/;gated=true"
 

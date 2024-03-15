@@ -6,12 +6,12 @@
 
 import pytest
 
-from fairseq2.models.utils.arch_registry import ArchitectureRegistry
+from fairseq2.models.architecture_registry import ModelArchitectureRegistry
 
 
-class TestArchitectureRegistry:
+class TestModelArchitectureRegistry:
     def test_register_works(self) -> None:
-        registry = ArchitectureRegistry[str]("model")
+        registry = ModelArchitectureRegistry[str]()
 
         registry.register("arch1", lambda: "config1")
         registry.register("arch2", lambda: "config2")
@@ -23,33 +23,33 @@ class TestArchitectureRegistry:
         assert config2 == "config2"
 
     def test_names_works(self) -> None:
-        registry = ArchitectureRegistry[str]("model")
+        registry = ModelArchitectureRegistry[str]()
 
-        arch_names = {"arch1", "arch2", "arch3"}
+        archs = {"arch1", "arch2", "arch3"}
 
-        for arch_name in arch_names:
-            registry.register(arch_name, lambda: "config")
+        for arch in archs:
+            registry.register(arch, lambda: "config")
 
-        assert registry.names() == arch_names
+        assert registry.names() == archs
 
     def test_register_raises_error_when_architecture_is_already_registered(
         self,
     ) -> None:
-        registry = ArchitectureRegistry[str]("model")
+        registry = ModelArchitectureRegistry[str]()
 
         registry.register("arch", lambda: "config")
 
         with pytest.raises(
             ValueError,
-            match=r"^`arch_name` must be a unique architecture name, but 'arch' is already registered for 'model'\.$",
+            match=r"^`arch` must be a unique model architecture, but 'arch' is already registered\.$",
         ):
             registry.register("arch", lambda: "config")
 
     def test_get_config_raises_error_when_architecture_is_not_registered(self) -> None:
-        registry = ArchitectureRegistry[str]("model")
+        registry = ModelArchitectureRegistry[str]()
 
         with pytest.raises(
             ValueError,
-            match=r"^The registry of 'model' does not contain an architecture named 'foo'\.$",
+            match=r"^`arch` must be a registered model architecture, but is 'foo' instead\.$",
         ):
             registry.get_config("foo")

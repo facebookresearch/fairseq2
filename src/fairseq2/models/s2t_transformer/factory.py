@@ -5,11 +5,12 @@
 # LICENSE file in the root directory of this source tree.
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Final, Optional
 
 from torch.nn import SiLU
 
 from fairseq2.data import VocabularyInfo
+from fairseq2.models.architecture_registry import ModelArchitectureRegistry
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
 from fairseq2.models.s2t_transformer.feature_extractor import Conv1dFbankSubsampler
 from fairseq2.models.s2t_transformer.frontend import S2TTransformerFrontend
@@ -19,7 +20,6 @@ from fairseq2.models.transformer import (
     TransformerModel,
     init_final_projection,
 )
-from fairseq2.models.utils import ArchitectureRegistry
 from fairseq2.nn.embedding import StandardEmbedding, init_scaled_embedding
 from fairseq2.nn.position_encoder import PositionEncoder, SinusoidalPositionEncoder
 from fairseq2.nn.projection import Linear
@@ -43,145 +43,111 @@ from fairseq2.nn.transformer import (
 )
 from fairseq2.typing import DataType, Device
 
+S2T_TRANSFORMER_FAMILY: Final = "s2t_transformer"
+
 
 @dataclass
 class S2TTransformerConfig:
-    """Holds the configuration of an S2T Transformer model."""
+    """Holds the configuration of an S2T Transformer model.
 
-    model_dim: int
+    The default values correspond to the medium architecture as described in
+    :cite:t:`https://doi.org/10.48550/arxiv.1911.08460`.
+    """
+
+    model_dim: int = 512
     """The dimensionality of the model."""
 
-    max_source_seq_len: int
+    max_source_seq_len: int = 1024
     """The maximum allowed source sequence length after feature extraction."""
 
-    num_fbank_channels: int
+    num_fbank_channels: int = 80
     """The number of source log-mel filterbank channels."""
 
-    max_target_seq_len: int
+    max_target_seq_len: int = 1024
     """The maximum allowed target sequence length."""
 
-    target_vocab_info: VocabularyInfo
+    target_vocab_info: VocabularyInfo = VocabularyInfo(
+        size=10000, unk_idx=3, bos_idx=0, eos_idx=2, pad_idx=1
+    )
     """The target vocabulary information."""
 
-    use_relative_pos: bool
+    use_relative_pos: bool = False
     """If ``True``, uses relative positional encodings for source sequences."""
 
-    use_conformer: bool
+    use_conformer: bool = False
     """If ``True``, uses Conformer blocks instead of Transformer encoder layers."""
 
-    num_encoder_layers: int
+    num_encoder_layers: int = 12
     """The number of Transformer encoder layers."""
 
-    num_decoder_layers: int
+    num_decoder_layers: int = 6
     """The number of Transformer decoder layers."""
 
-    num_encoder_attn_heads: int
+    num_encoder_attn_heads: int = 8
     """The number of attention heads in Transformer encoder layers."""
 
-    num_decoder_attn_heads: int
+    num_decoder_attn_heads: int = 8
     """The number of attention heads in Transformer decoder layers."""
 
-    ffn_inner_dim: int
+    ffn_inner_dim: int = 512 * 4
     """The inner dimensionality of Transformer feed-forward networks."""
 
-    dropout_p: float
+    dropout_p: float = 0.15
     """The dropout probability in Transformer layers."""
 
-    depthwise_conv_kernel_size: int
+    depthwise_conv_kernel_size: int = 0
     """The kernel size of depthwise convolutions in Conformer blocks."""
 
 
-s2t_transformer_archs = ArchitectureRegistry[S2TTransformerConfig]("s2t_transformer")
+s2t_transformer_archs = ModelArchitectureRegistry[S2TTransformerConfig]()
 
 s2t_transformer_arch = s2t_transformer_archs.decorator
 
 
 @s2t_transformer_arch("tiny")
 def _tiny() -> S2TTransformerConfig:
-    return S2TTransformerConfig(
-        model_dim=256,
-        max_source_seq_len=1024,
-        num_fbank_channels=80,
-        max_target_seq_len=1024,
-        target_vocab_info=VocabularyInfo(
-            size=10000, unk_idx=0, bos_idx=0, eos_idx=0, pad_idx=1
-        ),
-        use_relative_pos=False,
-        use_conformer=False,
-        num_encoder_layers=6,
-        num_decoder_layers=3,
-        num_encoder_attn_heads=4,
-        num_decoder_attn_heads=4,
-        ffn_inner_dim=256 * 4,
-        dropout_p=0.3,
-        depthwise_conv_kernel_size=0,
-    )
+    config = _medium()
+
+    config.model_dim = 256
+    config.num_encoder_layers = 6
+    config.num_decoder_layers = 3
+    config.num_encoder_attn_heads = 4
+    config.num_decoder_attn_heads = 4
+    config.ffn_inner_dim = 256 * 4
+    config.dropout_p = 0.3
+
+    return config
 
 
 @s2t_transformer_arch("small")
 def _small() -> S2TTransformerConfig:
-    return S2TTransformerConfig(
-        model_dim=256,
-        max_source_seq_len=1024,
-        num_fbank_channels=80,
-        max_target_seq_len=1024,
-        target_vocab_info=VocabularyInfo(
-            size=10000, unk_idx=3, bos_idx=0, eos_idx=2, pad_idx=1
-        ),
-        use_relative_pos=False,
-        use_conformer=False,
-        num_encoder_layers=12,
-        num_decoder_layers=6,
-        num_encoder_attn_heads=4,
-        num_decoder_attn_heads=4,
-        ffn_inner_dim=256 * 8,
-        dropout_p=0.1,
-        depthwise_conv_kernel_size=0,
-    )
+    config = _medium()
+
+    config.model_dim = 256
+    config.num_encoder_attn_heads = 4
+    config.num_decoder_attn_heads = 4
+    config.ffn_inner_dim = 256 * 8
+    config.dropout_p = 0.1
+
+    return config
 
 
 @s2t_transformer_arch("medium")
 def _medium() -> S2TTransformerConfig:
-    return S2TTransformerConfig(
-        model_dim=512,
-        max_source_seq_len=1024,
-        num_fbank_channels=80,
-        max_target_seq_len=1024,
-        target_vocab_info=VocabularyInfo(
-            size=10000, unk_idx=3, bos_idx=0, eos_idx=2, pad_idx=1
-        ),
-        use_relative_pos=False,
-        use_conformer=False,
-        num_encoder_layers=12,
-        num_decoder_layers=6,
-        num_encoder_attn_heads=8,
-        num_decoder_attn_heads=8,
-        ffn_inner_dim=512 * 4,
-        dropout_p=0.15,
-        depthwise_conv_kernel_size=0,
-    )
+    return S2TTransformerConfig()
 
 
 @s2t_transformer_arch("large")
 def _large() -> S2TTransformerConfig:
-    return S2TTransformerConfig(
-        model_dim=1024,
-        max_source_seq_len=1024,
-        num_fbank_channels=80,
-        max_target_seq_len=1024,
-        target_vocab_info=VocabularyInfo(
-            size=10000, unk_idx=0, bos_idx=0, eos_idx=0, pad_idx=1
-        ),
-        use_relative_pos=False,
-        use_conformer=False,
-        num_encoder_layers=12,
-        num_decoder_layers=6,
-        num_encoder_attn_heads=16,
-        num_decoder_attn_heads=16,
-        ffn_inner_dim=1024 * 4,
-        dropout_p=0.2,
-        depthwise_conv_kernel_size=0,
-    )
+    config = _medium()
+
+    config.model_dim = 1024
+    config.num_encoder_attn_heads = 16
+    config.num_decoder_attn_heads = 16
+    config.ffn_inner_dim = 1024 * 4
+    config.dropout_p = 0.2
+
+    return config
 
 
 @s2t_transformer_arch("conformer_medium")
@@ -496,4 +462,6 @@ def create_s2t_transformer_model(
     :param dtype:
         The data type of module parameters and buffers.
     """
-    return S2TTransformerBuilder(config, device=device, dtype=dtype).build_model()
+    model = S2TTransformerBuilder(config, device=device, dtype=dtype).build_model()
+
+    return model.set_family(S2T_TRANSFORMER_FAMILY)
