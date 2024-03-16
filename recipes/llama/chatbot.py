@@ -17,20 +17,25 @@ from fairseq2.generation import (
     ChatMessage,
     SamplingSequenceGenerator,
     TopPSampler,
-    create_chatbot,
 )
-from fairseq2.models.llama import load_llama_model
+from fairseq2.models import create_chatbot, load_model
+from fairseq2.models.decoder import DecoderModel
 from fairseq2.typing import Device
 
 
-def run_llama_chatbot(checkpoint_dir: Optional[Path] = None) -> None:
-    model_card = default_asset_store.retrieve_card("llama2_7b_chat")
+def run_chatbot(checkpoint_dir: Optional[Path] = None) -> None:
+    model_name = "llama2_7b_chat"
+
+    model_card = default_asset_store.retrieve_card(model_name)
 
     if checkpoint_dir is not None:
         model_card.field("checkpoint").set(checkpoint_dir / "consolidated.pth")
         model_card.field("tokenizer").set(checkpoint_dir / "tokenizer.model")
 
-    model = load_llama_model(model_card, dtype=torch.float16, device=Device("cuda:0"))
+    model = load_model(model_card, dtype=torch.float16, device=Device("cuda:0"))
+
+    if not isinstance(model, DecoderModel):
+        raise ValueError("The model must be a decoder model.")
 
     tokenizer = load_text_tokenizer(model_card)
 
@@ -40,35 +45,39 @@ def run_llama_chatbot(checkpoint_dir: Optional[Path] = None) -> None:
         model, sampler, temperature=0.6, max_gen_len=1024
     )
 
-    chatbot = create_chatbot(model_card.asset_type(), generator, tokenizer, stdout=True)  # type: ignore[arg-type]
+    # compat
+    chatbot = create_chatbot(generator, tokenizer)  # type: ignore[arg-type]
 
-    run_chatbot(chatbot)
+    do_run_chatbot(model_name, chatbot)
 
 
-def run_chatbot(chatbot: Chatbot) -> None:
+def do_run_chatbot(name: str, chatbot: Chatbot) -> None:
     dialog = []
 
-    system_prompt = input("System Prompt (press enter to skip): ")
+    if chatbot.supports_system_prompt:
+        system_prompt = input("System Prompt (press enter to skip): ")
 
-    if system_prompt:
-        dialog.append(ChatMessage(role="system", content=system_prompt))
+        if system_prompt:
+            dialog.append(ChatMessage(role="system", content=system_prompt))
 
-    print("\nYou can end the chat by typing 'bye'.\n")
+        print()
+
+    print("You can end the chat by typing 'bye'.\n")
 
     while (prompt := input("You> ")) != "bye":
         message = ChatMessage(role="user", content=prompt)
 
         dialog.append(message)
 
-        print("\nLLaMA> ", end="")
+        print(f"\n{name}> ", end="")
 
-        response, _ = chatbot(dialog)
+        response, _ = chatbot(dialog, stdout=True)
 
         print("\n")
 
         dialog.append(response)
 
-    print("\nLLaMA> Bye!")
+    print(f"\n{name}> Bye!")
 
 
 def main() -> None:
@@ -78,11 +87,11 @@ def main() -> None:
     param = parser.add_argument(
         "-c", "--checkpoint-dir", metavar="DIR", dest="checkpoint_dir", type=Path
     )
-    param.help = "path to the LLaMA checkpoint directory"
+    param.help = "path to the model checkpoint directory"
 
     args = parser.parse_args()
 
-    run_llama_chatbot(args.checkpoint_dir)
+    run_chatbot(args.checkpoint_dir)
 
 
 if __name__ == "__main__":

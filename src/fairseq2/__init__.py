@@ -17,6 +17,8 @@ import_module("fairseq2.models.llama")
 import_module("fairseq2.models.mistral")
 import_module("fairseq2.models.nllb")
 import_module("fairseq2.models.s2t_transformer")
+import_module("fairseq2.models.w2vbert")
+import_module("fairseq2.models.wav2vec2")
 
 import_module("fairseq2.datasets.nllb")
 

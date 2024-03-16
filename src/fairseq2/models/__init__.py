@@ -10,6 +10,10 @@ from fairseq2.models.architecture_registry import (
 from fairseq2.models.architecture_registry import (
     ModelConfigFactory as ModelConfigFactory,
 )
+from fairseq2.models.chatbot import ChatbotFactory as ChatbotFactory
+from fairseq2.models.chatbot import DelegatingChatbotFactory as DelegatingChatbotFactory
+from fairseq2.models.chatbot import create_chatbot as create_chatbot
+from fairseq2.models.chatbot import register_chatbot as register_chatbot
 from fairseq2.models.config_loader import ModelConfigLoader as ModelConfigLoader
 from fairseq2.models.config_loader import (
     StandardModelConfigLoader as StandardModelConfigLoader,

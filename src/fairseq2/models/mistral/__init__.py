@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from fairseq2.models.mistral.chat import MistralChatbot as MistralChatbot
+from fairseq2.models.mistral.chatbot import MistralChatbot as MistralChatbot
 from fairseq2.models.mistral.factory import MistralBuilder as MistralBuilder
 from fairseq2.models.mistral.factory import MistralConfig as MistralConfig
 from fairseq2.models.mistral.factory import create_mistral_model as create_mistral_model
