@@ -18,6 +18,7 @@ from torcheval.metrics.toolkit import sync_and_compute_collection
 
 from fairseq2.gang import Gang
 from fairseq2.typing import override
+from fairseq2.utils.profiler import Stopwatch
 
 
 class MetricBag:
@@ -26,16 +27,20 @@ class MetricBag:
     _gang: Gang
     _metrics: Dict[str, Metric[Any]]
     _persistent_metrics: Dict[str, Metric[Any]]
+    _wall_time: Optional[Stopwatch]
 
-    def __init__(self, gang: Gang) -> None:
+    def __init__(self, gang: Gang, wall_time: Optional[Stopwatch] = None) -> None:
         """
         :param gang:
             The gang to sync metrics across all processes.
+        :param wall_time:
+            The :class:`Stopwatch` to keep track of process wall time.
         """
         super().__setattr__("_metrics", {})
         super().__setattr__("_persistent_metrics", {})
 
         self._gang = gang
+        self._wall_time = wall_time
 
     def __getattr__(self, name: str) -> Any:
         if "_metrics" in self.__dict__ and name in self._metrics:
@@ -104,7 +109,8 @@ class MetricBag:
 
     def process_metric_values(self, values: Dict[str, Any]) -> None:
         """Process metric ``values``."""
-        pass
+        if self._wall_time is not None:
+            values["wall_time"] = self._wall_time.get_elapsed_time()
 
     @final
     def state_dict(self) -> Dict[str, Any]:
@@ -204,13 +210,13 @@ format_as_loss = partial(format_as_float, decimal=3)
 _metric_formatters: Dict[str, Tuple[str, Callable[[Any], str]]] = {
     # fmt: off
     "batch_size":          ("Batch Size",                format_as_int),
+    "ctc_loss":            ("CTC Loss",                  format_as_loss),
     "elapsed_time":        ("Elapsed Time",              format_as_seconds),
     "elements_per_batch":  ("Elements per Batch",        format_as_int),
     "elements_per_second": ("Elements per Second",       format_as_int),
-    "entropy_loss":        ("Entropy Loss",              format_as_loss),
     "grad_scale":          ("Grad Scale",                format_as_float),
-    "loss":                ("Loss",                      format_as_loss),
     "lr":                  ("Learning Rate",             format_as_float),
+    "nll_loss":            ("NLL Loss",                  format_as_loss),
     "num_examples":        ("Number of Examples",        format_as_int),
     "num_source_elements": ("Number of Source Elements", format_as_int),
     "num_target_elements": ("Number of Target Elements", format_as_int),
@@ -360,7 +366,6 @@ class TensorBoardRecorder(MetricRecorder):
         """
         if not has_tensorboard:
             logger = logging.getLogger(__name__)
-
             logger.warning("tensorboard not found. Please install it with `pip install tensorboard`.")  # fmt: skip
 
         self._log_dir = log_dir
