@@ -13,7 +13,7 @@ from fairseq2.typing import Device, override
 
 @final
 class NllbTokenizer(SentencePieceTokenizer):
-    """Represents a tokenizer used by NLLB models."""
+    """Represents an NLLB tokenizer."""
 
     _langs: Set[str]
     _default_lang: str

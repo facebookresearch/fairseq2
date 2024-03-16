@@ -8,21 +8,20 @@ from typing import Any, Dict
 
 import torch
 
-from fairseq2.assets import default_asset_store, default_download_manager
-from fairseq2.models.utils import ConfigLoader, ModelLoader
+from fairseq2.models.setup import setup_model
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
-from fairseq2.models.w2vbert.builder import (
+from fairseq2.models.w2vbert.factory import (
+    W2VBERT_FAMILY,
     W2VBertConfig,
     create_w2vbert_model,
     w2vbert_archs,
 )
-from fairseq2.models.w2vbert.model import W2VBertModel
 
 
 def convert_w2vbert_checkpoint(
     checkpoint: Dict[str, Any], config: W2VBertConfig
 ) -> Dict[str, Any]:
-    """Convert a fairseq w2v-BERT checkpoint to fairseq2."""
+    """Convert a fairseq w2v-BERT checkpoint to fairseq2 format."""
     state_dict = checkpoint["model"]
 
     # Check if we have a fairseq2 checkpoint.
@@ -66,13 +65,11 @@ def convert_w2vbert_checkpoint(
     return convert_fairseq_checkpoint(checkpoint, key_map)
 
 
-load_w2vbert_config = ConfigLoader[W2VBertConfig](default_asset_store, w2vbert_archs)
-
-load_w2vbert_model = ModelLoader[W2VBertModel, W2VBertConfig](
-    default_asset_store,
-    default_download_manager,
-    load_w2vbert_config,
+load_w2vbert_model, load_w2vbert_config = setup_model(
+    W2VBERT_FAMILY,
+    W2VBertConfig,
     create_w2vbert_model,
+    w2vbert_archs,
     convert_w2vbert_checkpoint,
     mmap=True,
 )

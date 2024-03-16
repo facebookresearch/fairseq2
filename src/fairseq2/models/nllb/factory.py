@@ -5,21 +5,16 @@
 # LICENSE file in the root directory of this source tree.
 
 from dataclasses import dataclass
-from functools import partial
-from typing import List, Optional, Tuple
-
-from torch.distributed.fsdp.wrap import transformer_auto_wrap_policy
+from typing import Final, Optional
 
 from fairseq2.data import VocabularyInfo
-from fairseq2.gang import Gang
+from fairseq2.models.architecture_registry import ModelArchitectureRegistry
 from fairseq2.models.transformer import (
     TransformerEmbeddingFrontend,
     TransformerFrontend,
     TransformerModel,
 )
-from fairseq2.models.utils import ArchitectureRegistry
 from fairseq2.nn.embedding import Embedding, StandardEmbedding, init_scaled_embedding
-from fairseq2.nn.fsdp import FSDPWrapPolicy
 from fairseq2.nn.position_encoder import SinusoidalPositionEncoder
 from fairseq2.nn.projection import TiedProjection
 from fairseq2.nn.transformer import (
@@ -40,93 +35,75 @@ from fairseq2.nn.transformer import (
 )
 from fairseq2.typing import DataType, Device
 
+NLLB_FAMILY: Final = "nllb"
+
 
 @dataclass
 class NllbConfig:
-    """Holds the configuration of an NLLB model."""
+    """Holds the configuration of an NLLB model.
 
-    model_dim: int
+    The default values correspond to the dense 1B architecture as described in
+    :cite:t:`https://doi.org/10.48550/arxiv.2207.04672`.
+    """
+
+    model_dim: int = 1024
     """The dimensionality of the model."""
 
-    max_seq_len: int
+    max_seq_len: int = 1024
     """The maximum allowed sequence length."""
 
-    vocab_info: VocabularyInfo
+    vocab_info: VocabularyInfo = VocabularyInfo(
+        size=256206, unk_idx=1, bos_idx=2, eos_idx=3, pad_idx=0
+    )
     """The vocabulary information."""
 
-    num_encoder_layers: int
+    num_encoder_layers: int = 24
     """The number of Transformer encoder layers."""
 
-    num_decoder_layers: int
+    num_decoder_layers: int = 24
     """The number of Transformer decoder layers."""
 
-    num_encoder_attn_heads: int
+    num_encoder_attn_heads: int = 16
     """The number of attention heads in Transformer encoder layers."""
 
-    num_decoder_attn_heads: int
+    num_decoder_attn_heads: int = 16
     """The number of attention heads in Transformer decoder layers."""
 
-    ffn_inner_dim: int
+    ffn_inner_dim: int = 1024 * 8
     """The inner dimensionality of Transformer feed-forward networks."""
 
-    dropout_p: float
+    dropout_p: float = 0.1
     """The dropout probability in Transformer layers."""
 
 
-nllb_archs = ArchitectureRegistry[NllbConfig]("nllb")
+nllb_archs = ModelArchitectureRegistry[NllbConfig]()
 
 nllb_arch = nllb_archs.decorator
 
 
+@nllb_arch("dense_600m")
+def _dense_600m() -> NllbConfig:
+    config = _dense_1b()
+
+    config.num_encoder_layers = 12
+    config.num_decoder_layers = 12
+    config.ffn_inner_dim = 1024 * 4
+
+    return config
+
+
 @nllb_arch("dense_1b")
 def _dense_1b() -> NllbConfig:
-    return NllbConfig(
-        model_dim=1024,
-        max_seq_len=1024,
-        vocab_info=VocabularyInfo(
-            size=256206, unk_idx=1, bos_idx=2, eos_idx=3, pad_idx=0
-        ),
-        num_encoder_layers=24,
-        num_decoder_layers=24,
-        num_encoder_attn_heads=16,
-        num_decoder_attn_heads=16,
-        ffn_inner_dim=1024 * 8,
-        dropout_p=0.1,
-    )
+    return NllbConfig()
 
 
 @nllb_arch("dense_3b")
 def _dense_3b() -> NllbConfig:
-    return NllbConfig(
-        model_dim=2048,
-        max_seq_len=1024,
-        vocab_info=VocabularyInfo(
-            size=256206, unk_idx=1, bos_idx=2, eos_idx=3, pad_idx=0
-        ),
-        num_encoder_layers=24,
-        num_decoder_layers=24,
-        num_encoder_attn_heads=16,
-        num_decoder_attn_heads=16,
-        ffn_inner_dim=1024 * 8,
-        dropout_p=0.1,
-    )
+    config = _dense_1b()
 
+    config.model_dim = 2048
 
-@nllb_arch("dense_600m")
-def _dense_600m() -> NllbConfig:
-    return NllbConfig(
-        model_dim=1024,
-        max_seq_len=1024,
-        vocab_info=VocabularyInfo(
-            size=256206, unk_idx=1, bos_idx=2, eos_idx=3, pad_idx=0
-        ),
-        num_encoder_layers=12,
-        num_decoder_layers=12,
-        num_encoder_attn_heads=16,
-        num_decoder_attn_heads=16,
-        ffn_inner_dim=1024 * 4,
-        dropout_p=0.1,
-    )
+    return config
 
 
 class NllbBuilder:
@@ -307,25 +284,6 @@ def create_nllb_model(
     :param dtype:
         The data type of module parameters and buffers.
     """
-    return NllbBuilder(config, device=device, dtype=dtype).build_model()
+    model = NllbBuilder(config, device=device, dtype=dtype).build_model()
 
-
-def get_nllb_wrap_policy(
-    model_config: NllbConfig, gang: Gang
-) -> Tuple[Optional[FSDPWrapPolicy], Optional[List[str]]]:
-    """Return the FSDP wrap policy and ignored parameter names for ``arch_name``.
-
-    :param model_config:
-        The model configuration.
-    :param gang:
-        The gang that will be used to shard the model.
-
-    :returns:
-        - The FSDP wrap policy.
-        - The ignored parameter names. Can contain regular expressions.
-    """
-    kls = (TransformerEncoder, TransformerDecoder)
-
-    wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls=kls)
-
-    return wrap_policy, None
+    return model.set_family(NLLB_FAMILY)

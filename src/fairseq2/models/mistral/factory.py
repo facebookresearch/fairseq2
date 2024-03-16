@@ -5,24 +5,25 @@
 # LICENSE file in the root directory of this source tree.
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Final, Optional
 
 from fairseq2.data import VocabularyInfo
+from fairseq2.models.architecture_registry import ModelArchitectureRegistry
 from fairseq2.models.transformer import (
     TransformerDecoderModel,
     TransformerEmbeddingFrontend,
     TransformerFrontend,
     init_final_projection,
 )
-from fairseq2.models.utils import ArchitectureRegistry
 from fairseq2.nn.embedding import StandardEmbedding
-from fairseq2.nn.lora import LoRAConfig
 from fairseq2.nn.normalization import LayerNorm, RMSNorm
 from fairseq2.nn.position_encoder import RotaryEncoder
 from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer import (
+    CausalAttentionMaskFactory,
     FeedForwardNetwork,
     GLUFeedForwardNetwork,
+    LocalAttentionStateFactory,
     MultiheadAttention,
     StandardMultiheadAttention,
     StandardTransformerDecoder,
@@ -34,182 +35,74 @@ from fairseq2.nn.transformer import (
 )
 from fairseq2.typing import DataType, Device
 
+MISTRAL_FAMILY: Final = "mistral"
+
 
 @dataclass
-class LLaMAConfig:
-    """Holds the configuration of a LLaMA model."""
+class MistralConfig:
+    """Holds the configuration of a Mistral model.
 
-    model_dim: int
+    The default values correspond to the base architecture as described in
+    :cite:t:`https://doi.org/10.48550/arXiv.2310.06825`.
+    """
+
+    model_dim: int = 4096
     """The dimensionality of the model."""
 
-    max_seq_len: int
+    max_seq_len: int = 8192
     """The maximum allowed sequence length."""
 
-    vocab_info: VocabularyInfo
+    vocab_info: VocabularyInfo = VocabularyInfo(
+        size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
+    )
     """The vocabulary information."""
 
-    num_layers: int
+    attn_window_len: int = 4096
+    """The local attention window length."""
+
+    num_layers: int = 32
     """The number of Transformer decoder layers."""
 
-    num_attn_heads: int
+    num_attn_heads: int = 32
     """The number of attention heads in Transformer decoder layers."""
 
-    num_key_value_heads: int
+    num_key_value_heads: int = 8
     """The number of key/value heads for Grouped Query Attention."""
 
-    ffn_inner_dim: int
+    ffn_inner_dim: int = 14336
     """The dimensionality of inner projection layers in Transformer feed-forward
     networks."""
 
-    ffn_inner_dim_to_multiple: int
-    """The dimensionality of inner projection layers in Transformer feed-forward
-    networks is rounded up to the nearest multiple of this value."""
-
-    dropout_p: float
+    dropout_p: float = 0.1
     """The dropout probability in Transformer layers."""
 
 
-llama_archs = ArchitectureRegistry[LLaMAConfig]("llama")
+mistral_archs = ModelArchitectureRegistry[MistralConfig]()
 
-llama_arch = llama_archs.decorator
-
-
-@llama_arch("7b")
-def _7b() -> LLaMAConfig:
-    return LLaMAConfig(
-        model_dim=4096,
-        max_seq_len=2048,
-        vocab_info=VocabularyInfo(
-            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
-        ),
-        num_layers=32,
-        num_attn_heads=32,
-        num_key_value_heads=32,
-        ffn_inner_dim=4096 * 4,
-        ffn_inner_dim_to_multiple=256,
-        dropout_p=0.1,
-    )
+mistral_arch = mistral_archs.decorator
 
 
-@llama_arch("13b")
-def _13b() -> LLaMAConfig:
-    return LLaMAConfig(
-        model_dim=5120,
-        max_seq_len=2048,
-        vocab_info=VocabularyInfo(
-            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
-        ),
-        num_layers=40,
-        num_attn_heads=40,
-        num_key_value_heads=40,
-        ffn_inner_dim=5120 * 4,
-        ffn_inner_dim_to_multiple=256,
-        dropout_p=0.1,
-    )
+@mistral_arch("7b")
+def _7b() -> MistralConfig:
+    return MistralConfig()
 
 
-@llama_arch("33b")
-def _33b() -> LLaMAConfig:
-    return LLaMAConfig(
-        model_dim=6656,
-        max_seq_len=2048,
-        vocab_info=VocabularyInfo(
-            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
-        ),
-        num_layers=60,
-        num_attn_heads=52,
-        num_key_value_heads=52,
-        ffn_inner_dim=6656 * 4,
-        ffn_inner_dim_to_multiple=256,
-        dropout_p=0.1,
-    )
-
-
-@llama_arch("65b")
-def _65b() -> LLaMAConfig:
-    return LLaMAConfig(
-        model_dim=8192,
-        max_seq_len=2048,
-        vocab_info=VocabularyInfo(
-            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
-        ),
-        num_layers=80,
-        num_attn_heads=64,
-        num_key_value_heads=64,
-        ffn_inner_dim=8192 * 4,
-        ffn_inner_dim_to_multiple=256,
-        dropout_p=0.1,
-    )
-
-
-@llama_arch("llama2_7b")
-def _llama2_7b() -> LLaMAConfig:
-    return LLaMAConfig(
-        model_dim=4096,
-        max_seq_len=4096,
-        vocab_info=VocabularyInfo(
-            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
-        ),
-        num_layers=32,
-        num_attn_heads=32,
-        num_key_value_heads=32,
-        ffn_inner_dim=4096 * 4,
-        ffn_inner_dim_to_multiple=256,
-        dropout_p=0.1,
-    )
-
-
-@llama_arch("llama2_13b")
-def _llama2_13b() -> LLaMAConfig:
-    return LLaMAConfig(
-        model_dim=5120,
-        max_seq_len=4096,
-        vocab_info=VocabularyInfo(
-            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
-        ),
-        num_layers=40,
-        num_attn_heads=40,
-        num_key_value_heads=40,
-        ffn_inner_dim=5120 * 4,
-        ffn_inner_dim_to_multiple=256,
-        dropout_p=0.1,
-    )
-
-
-@llama_arch("llama2_70b")
-def _llama2_70b() -> LLaMAConfig:
-    return LLaMAConfig(
-        model_dim=8192,
-        max_seq_len=4096,
-        vocab_info=VocabularyInfo(
-            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
-        ),
-        num_layers=80,
-        num_attn_heads=64,
-        num_key_value_heads=8,
-        ffn_inner_dim=int(8192 * 4 * 1.3),  # See A.2.1 in LLaMA 2
-        ffn_inner_dim_to_multiple=4096,
-        dropout_p=0.1,
-    )
-
-
-class LLaMABuilder:
-    """Builds modules of a LLaMA model as described in
-    :cite:t:`https://doi.org/10.48550/arxiv.2302.13971` and
-    :cite:t:`https://doi.org/10.48550/arXiv.2307.09288`.
+class MistralBuilder:
+    """Builds modules of a Mistral model as described in
+    :cite:t:`https://doi.org/10.48550/arXiv.2310.06825`.
 
     To tweak the architecture, you can derive from this class and override the
     corresponding methods.
     """
 
-    _config: LLaMAConfig
+    _config: MistralConfig
     _device: Optional[Device]
     _dtype: Optional[DataType]
     _pos_encoder: Optional[RotaryEncoder]
 
     def __init__(
         self,
-        config: LLaMAConfig,
+        config: MistralConfig,
         *,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
@@ -263,7 +156,7 @@ class LLaMABuilder:
         return TransformerEmbeddingFrontend(
             embed,
             pos_encoder=None,
-            no_scale=True,  # LLaMA does not use embedding scaling.
+            no_scale=True,  # Mistral does not use embedding scaling.
             dropout_p=self._config.dropout_p,
             device=self._device,
             dtype=self._dtype,
@@ -275,8 +168,13 @@ class LLaMABuilder:
 
         layers = [self.build_decoder_layer() for _ in range(num_layers)]
 
+        self_attn_mask_factory = CausalAttentionMaskFactory(
+            attn_window_len=self._config.attn_window_len
+        )
+
         return StandardTransformerDecoder(
             layers,
+            self_attn_mask_factory=self_attn_mask_factory,
             norm_order=TransformerNormOrder.PRE,
             layer_norm_factory=self.build_layer_norm,
             device=self._device,
@@ -315,6 +213,8 @@ class LLaMABuilder:
                 device=self._device,
             )
 
+        state_factory = LocalAttentionStateFactory(self._config.attn_window_len)
+
         return StandardMultiheadAttention(
             self._config.model_dim,
             num_heads,
@@ -322,6 +222,7 @@ class LLaMABuilder:
             sdpa=sdpa,
             pos_encoder=self._pos_encoder,
             bias=False,
+            state_factory=state_factory,
             device=self._device,
             dtype=self._dtype,
         )
@@ -332,7 +233,7 @@ class LLaMABuilder:
             self._config.model_dim,
             self._config.ffn_inner_dim,
             bias=False,
-            inner_dim_to_multiple=self._config.ffn_inner_dim_to_multiple,
+            inner_dim_scale=1.0,
             device=self._device,
             dtype=self._dtype,
         )
@@ -348,13 +249,13 @@ class LLaMABuilder:
         return RMSNorm(model_dim, bias=False, device=device, dtype=dtype)
 
 
-def create_llama_model(
-    config: LLaMAConfig,
+def create_mistral_model(
+    config: MistralConfig,
     *,
     device: Optional[Device] = None,
     dtype: Optional[DataType] = None,
 ) -> TransformerDecoderModel:
-    """Create a LLaMA model.
+    """Create a Mistral model.
 
     :param config:
         The configuration.
@@ -363,13 +264,6 @@ def create_llama_model(
     :param dtype:
         The data type of module parameters and buffers.
     """
-    return LLaMABuilder(config, device=device, dtype=dtype).build_model()
+    model = MistralBuilder(config, device=device, dtype=dtype).build_model()
 
-
-def get_llama_lora_config() -> LoRAConfig:
-    return LoRAConfig(
-        r=8,
-        alpha=16.0,
-        dropout_p=0.05,
-        keys=[".*decoder.layers.*.self_attn.*(q_proj|v_proj)$"],
-    )
+    return model.set_family(MISTRAL_FAMILY)

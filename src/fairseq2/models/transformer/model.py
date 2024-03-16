@@ -103,7 +103,7 @@ class TransformerModel(EncoderDecoderModel):
     ) -> SequenceModelOutput:
         logits = self.final_proj(decoder_output)
 
-        return SequenceModelOutput(logits, self.target_vocab_info)
+        return SequenceModelOutput(logits, self.target_vocab_info.pad_idx)
 
 
 def init_final_projection(proj: Linear) -> None:
