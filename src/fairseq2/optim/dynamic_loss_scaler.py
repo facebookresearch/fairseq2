@@ -31,7 +31,7 @@ class DynamicLossScaler:
     _scale_window: int
     _min_scale: float
     _grad_scaler: GradScaler
-    _enabled: bool
+    _is_enabled: bool
 
     def __init__(
         self,
@@ -102,7 +102,7 @@ class DynamicLossScaler:
         self._optimizer = optimizer
         self._scale_window = scale_window
         self._min_scale = min_scale
-        self._enabled = enabled
+        self._is_enabled = enabled
 
     def state_dict(self) -> Dict[str, Any]:
         return {"grad_scaler": self._grad_scaler.state_dict()}
@@ -195,9 +195,15 @@ class DynamicLossScaler:
         return cast(float, self._grad_scaler.get_scale())  # type: ignore[redundant-cast]
 
     @property
+    def is_enabled(self) -> bool:
+        """``True`` if the loss scaling is enabled."""
+        return self._is_enabled
+
+    # compat
+    @property
     def enabled(self) -> bool:
         """``True`` if the loss scaling is enabled."""
-        return self._enabled
+        return self._is_enabled
 
 
 @final
