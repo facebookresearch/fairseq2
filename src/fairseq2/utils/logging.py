@@ -14,8 +14,8 @@ from fairseq2.gang import get_global_rank
 
 
 def setup_logging(
-    *,
     log_file: Optional[Path] = None,
+    *,
     debug: bool = False,
     utc_time: bool = False,
     force: bool = False,

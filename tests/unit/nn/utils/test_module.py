@@ -8,13 +8,13 @@ from torch.nn import Parameter
 
 from fairseq2.models.nllb import create_nllb_model, nllb_archs
 from fairseq2.nn.utils.module import select_parameters
-from fairseq2.typing import Device
+from fairseq2.typing import META
 
 
 def test_select_parameters() -> None:
-    config = nllb_archs.get_config("dense_1b")
+    model_config = nllb_archs.get_config("dense_1b")
 
-    model = create_nllb_model(config, device=Device("meta"))
+    model = create_nllb_model(model_config, device=META)
 
     output = select_parameters(model, [r".*\.encoder_decoder_attn_layer_norm\.bias$"])
 
@@ -23,13 +23,13 @@ def test_select_parameters() -> None:
 
         assert isinstance(param, Parameter)
 
-    assert idx == config.num_decoder_layers - 1
+    assert idx == model_config.num_decoder_layers - 1
 
 
 def test_select_parameters_when_exclude_is_true() -> None:
-    config = nllb_archs.get_config("dense_1b")
+    model_config = nllb_archs.get_config("dense_1b")
 
-    model = create_nllb_model(config, device=Device("meta"))
+    model = create_nllb_model(model_config, device=META)
 
     names = [r".*\.encoder_decoder_attn_layer_norm\.bias$", "decoder.layer_norm.weight"]
 
@@ -42,6 +42,6 @@ def test_select_parameters_when_exclude_is_true() -> None:
 
         assert isinstance(param, Parameter)
 
-    num_params = len(list(model.parameters())) - config.num_decoder_layers - 1
+    num_params = len(list(model.parameters())) - model_config.num_decoder_layers - 1
 
     assert idx == num_params - 1
