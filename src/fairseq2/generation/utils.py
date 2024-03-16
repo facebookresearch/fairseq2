@@ -31,10 +31,7 @@ class _StdOutPrintHook:
         step_scores: Optional[Tensor],
         prefill: bool,
     ) -> None:
-        if len(prompt_indices) > 1:
-            raise RuntimeError(
-                "`StdOutPrintHook` can only be used with a single prompt."
-            )
+        assert len(prompt_indices) == 1
 
         # Do not print anything during prompt prefill.
         if prefill:
@@ -59,8 +56,6 @@ class _StdOutPrintHook:
         # No need to print if we decoded a control symbol (e.g. EOS).
         if text_len == prev_text_len:
             return
-
-        text = str(text)
 
         text = text[prev_text_len - text_len :]
 

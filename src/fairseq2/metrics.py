@@ -366,6 +366,7 @@ class TensorBoardRecorder(MetricRecorder):
         """
         if not has_tensorboard:
             logger = logging.getLogger(__name__)
+
             logger.warning("tensorboard not found. Please install it with `pip install tensorboard`.")  # fmt: skip
 
         self._log_dir = log_dir
