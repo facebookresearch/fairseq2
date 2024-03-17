@@ -265,15 +265,16 @@ collate_op::get_current_element(std::size_t bucket_item_idx)
 
     data *element = nullptr;
 
-    // Leverage `element_selector` to retrieve the element.
-    element_selector::visit(bucket_item, path_, [&element](data &d, element_path_ref)
-    {
-        element = &d;
-    });
-
-    if (element == nullptr)
+    try {
+        // Leverage `element_selector` to retrieve the element.
+        element_selector::visit(bucket_item, path_, [&element](data &d, element_path_ref)
+        {
+            element = &d;
+        });
+    } catch (const std::invalid_argument &) {
         throw_<std::invalid_argument>(
             "The bucket item {} does not have an element at path '{}'.", bucket_item_idx, path_);
+    }
 
     return *element;
 }

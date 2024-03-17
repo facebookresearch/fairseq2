@@ -51,10 +51,10 @@ public:
     void
     visit(const data &d, const const_visitor_fn &visitor) const;
 
-    static bool
+    static void
     visit(data &d, element_path_ref path, const visitor_fn &visitor);
 
-    static bool
+    static void
     visit(const data &d, element_path_ref path, const const_visitor_fn &visitor);
 
     const std::string &
@@ -66,7 +66,12 @@ public:
 private:
     template <typename T>
     static bool
-    visit(T &d, element_path_ref path, const std::function<void(T &, element_path_ref)> &visitor);
+    visit(
+        T &d,
+        element_path_ref abs_path,
+        element_path_ref path,
+        element_path &resolved_path,
+        const std::function<void(T &, element_path_ref)> &visitor);
 
 private:
     std::string str_;
