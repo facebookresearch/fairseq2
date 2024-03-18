@@ -228,7 +228,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
             model = self._factory(config, device=device, dtype=dtype)
 
         try:
-            model_device = infer_device(model, param_name="model")
+            model_device = infer_device(model, name="model")
         except ValueError as ex:
             raise RuntimeError(
                 "`factory` returned a model that is not constructed correctly. See nested exception for details."

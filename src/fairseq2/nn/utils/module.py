@@ -14,6 +14,7 @@ from typing import (
     Dict,
     Iterable,
     Iterator,
+    List,
     Mapping,
     Optional,
     Protocol,
@@ -43,17 +44,14 @@ def reset_parameters(module: Module, *, recurse: bool = True) -> None:
     :param module:
         The module to reset.
     :param recurse:
-        If ``True``, resets the parameters of all descendant modules.
+        If ``True``, resets the parameters and buffers of descendant modules.
     """
 
-    def maybe_reset(m: Module) -> None:
+    def reset(name: str, m: Module) -> None:
         if isinstance(m, ModuleWithParameter):
             m.reset_parameters()
 
-    if recurse:
-        apply_depth_first(module, maybe_reset)
-    else:
-        maybe_reset(module)
+    visit_module(module, reset, recurse=recurse)
 
 
 @runtime_checkable
@@ -68,75 +66,199 @@ def reset_non_persistent_buffers(module: Module, *, recurse: bool = True) -> Non
     :param module:
         The module to reset.
     :param recurse:
-        If ``True``, resets the non-persistent buffers of all descendant modules.
+        If ``True``, resets the non-persistent buffers of descendant modules.
     """
 
-    def maybe_reset(m: Module) -> None:
+    def reset(name: str, m: Module) -> None:
         if isinstance(m, ModuleWithNonPersistentBuffer):
             m.reset_non_persistent_buffers()
 
-    if recurse:
-        apply_depth_first(module, maybe_reset)
-    else:
-        maybe_reset(module)
+    visit_module(module, reset, recurse=recurse)
 
 
-def load_state_dict(module: Module, state_dict: Mapping[str, Any]) -> None:
-    """Copy parameters and buffers from ``state_dict`` into ``module`` and its
-    descendants.
+def visit_module(
+    module: Module,
+    visitor: Callable[[str, Module], None],
+    *,
+    recurse: bool = True,
+    post_order: bool = True,
+    memo: Optional[Set[Module]] = None,
+) -> None:
+    """Run ``visitor`` on ``module``.
 
-    This implementation internally calls :meth:`Module.load_state_dict()` with
-    ``strict`` set to ``True``, and also enforces that ``state_dict`` does not
-    contain any keys corresponding to descendants that are set to ``None`` via
-    :meth:`Module.register_module()`.
+    :param module:
+        The module to visit.
+    :param visitor:
+        The visitor to run on ``module``.
+    :param recurse:
+        If ``True``, visits descendant modules.
+    :param post_order:
+        If ``True``, visits descendant modules first.
+    :param memo:
+        The memoization set to detect visited modules. If ``None``, constructs
+        an internal one.
     """
-    module.load_state_dict(state_dict, strict=True)
+    for name, m in _get_named_modules(
+        module, recurse=recurse, post_order=post_order, memo=memo
+    ):
+        if m is not None:
+            visitor(name, m)
 
-    unexpected_keys = []
 
-    for name, descendant in _named_modules(module):
-        if descendant is not None:
+def to_device(module: Module, device: Device) -> None:
+    """Move the parameters and buffers of ``module`` to ``device``.
+
+    :param module:
+        The module to move.
+    :param device:
+        The target device of the parameters and buffers.
+    """
+    modules: List[Tuple[Module, Device]] = []
+
+    for name, m in _get_named_modules(module, prefix="module", post_order=True):
+        if m is None:
             continue
 
-        prefix = name + "."
+        m_device = infer_device(m, name, recurse=False)
+        if m_device == device:
+            continue
 
-        for key in state_dict.keys():
-            if key.startswith(prefix):
-                unexpected_keys.append(key)
+        modules.append((m, m_device))
 
-    if unexpected_keys:
-        raise RuntimeError(
-            f"Unexpected key(s) in `state_dict`: {', '.join(unexpected_keys)}"
-        )
-
-
-def _named_modules(
-    module: Optional[Module], memo: Optional[Set[Module]] = None, prefix: str = ""
-) -> Iterator[Tuple[str, Optional[Module]]]:
-    if module is None:
-        yield prefix, None
-
+    if not modules:
         return
 
-    if memo is None:
-        memo = set()
-    elif module in memo:
-        return
+    memo: Dict[Tensor, Tensor] = {}
 
-    memo.add(module)
-
-    yield prefix, module
-
-    # This loop is the main reason why this function is internal. There is no
-    # formal way to retrieve the list of all descendants via PyTorch APIs. The
-    # only workaround is to use the internal `_modules` attribute.
-    for name, descendant in module._modules.items():
-        if not prefix:
-            descendant_prefix = name
+    for m, m_device in modules:
+        if m_device != META:
+            apply_to_module(m, lambda t: t.to(device), recurse=False, memo=memo)
         else:
-            descendant_prefix = prefix + "." + name
+            to_empty(m, device, recurse=False, memo=memo)
 
-        yield from _named_modules(descendant, memo, descendant_prefix)
+            reset_parameters(m, recurse=False)
+
+
+def to_empty(
+    module: Module,
+    device: Device,
+    *,
+    recurse: bool = True,
+    memo: Optional[Dict[Tensor, Tensor]] = None,
+) -> None:
+    """Move the parameters and buffers of ``module`` to ``device`` without
+    copying storage.
+
+    :param module:
+        The module to move.
+    :param device:
+        The target device of the parameters and buffers.
+    :param recurse:
+        If ``True``, moves the parameters and buffers of descendant modules.
+    :param memo:
+        The memoization dictionary to detect shared parameters and buffers. If
+        ``None``, constructs an internal one.
+    """
+
+    def convert(source: Tensor) -> Tensor:
+        return torch.empty_like(source, device=device)
+
+    apply_to_module(module, convert, recurse=recurse, memo=memo)
+
+
+def apply_to_module(
+    module: Module,
+    fn: Callable[[Tensor], Tensor],
+    *,
+    recurse: bool = True,
+    memo: Optional[Dict[Tensor, Tensor]] = None,
+) -> None:
+    """Apply ``fn`` to all parameters and buffers of ``module``.
+
+    :param module:
+        The module to process.
+    :param fn:
+        The function to apply to the parameters and buffers of ``module``.
+    :param recurse:
+        If ``True``, applies ``fn`` to the parameters and buffers of descendant
+        modules.
+    :param memo:
+        The memoization dictionary to detect shared parameters and buffers. If
+        ``None``, constructs an internal one.
+    """
+    if memo is None and recurse:
+        memo = {}
+
+    if recurse:
+        for child in module.children():
+            if child is not None:
+                apply_to_module(child, fn, recurse=recurse, memo=memo)
+
+    def call_fn(source: Tensor) -> Tensor:
+        if memo is not None and source in memo:
+            return memo[source]
+
+        target = fn(source)
+
+        if memo is not None:
+            memo[source] = target
+
+        return target
+
+    for param_name, param in module.named_parameters(recurse=False):
+        if param is None:
+            continue
+
+        with torch.no_grad():
+            new_param = Parameter(call_fn(param), param.requires_grad)
+
+        setattr(module, param_name, new_param)
+
+        if (grad := param.grad) is not None:
+            with torch.no_grad():
+                new_grad = call_fn(grad).requires_grad_(grad.requires_grad)
+
+            new_param.grad = new_grad
+
+    for buffer_name, buffer in module.named_buffers(recurse=False):
+        if buffer is None:
+            continue
+
+        setattr(module, buffer_name, call_fn(buffer))
+
+
+def infer_device(
+    module: Module, name: str = "module", *, recurse: bool = True
+) -> Device:
+    """Infer the device on which ``module``'s parameters and buffers reside.
+
+    :param module:
+        The module to check.
+    :param name:
+        The name of the module for error reporting purposes.
+    :param recurse:
+        If ``True``, infers the device by checking the parameters and buffers of
+        descendant modules as well.
+    """
+    devices = set()
+
+    for param in module.parameters(recurse):
+        devices.add(param.device)
+
+    for buffer in module.buffers(recurse):
+        devices.add(buffer.device)
+
+    if len(devices) == 0:
+        return CPU
+
+    if len(devices) == 1:
+        return devices.pop()
+
+    s = ", ".join(sorted(f"'{d.type}'" for d in devices))
+
+    raise ValueError(
+        f"All parameters and buffers of `{name}` must be on the same device, but they are on {s}."
+    )
 
 
 def select_parameters(
@@ -162,146 +284,86 @@ def select_parameters(
             yield name, param
 
 
-def to_empty(
-    module: Module,
-    device: Device,
-    *,
-    recurse: bool = True,
-    memo: Optional[Dict[Tensor, Tensor]] = None,
-) -> None:
-    """Move the parameters and buffers of ``module`` to ``device`` without
-    copying storage.
+def load_state_dict(module: Module, state_dict: Mapping[str, Any]) -> None:
+    """Copy parameters and buffers from ``state_dict`` into ``module`` and its
+    descendants.
 
-    :param module:
-        The module to move.
-    :param device:
-        The target device of the parameters and buffers.
-    :param recurse:
-        If ``True``, moves the parameters and buffers of all descendant modules.
-    :param memo:
-        The memoization dictionary to use to detect shared parameters and
-        buffers. If ``None``, constructs an internal one.
+    This implementation internally calls :meth:`Module.load_state_dict()` with
+    ``strict`` set to ``True``, and also enforces that ``state_dict`` does not
+    contain any keys corresponding to descendants that are set to ``None`` via
+    :meth:`Module.register_module()`.
     """
-    if memo is None:
-        memo = {}
+    module.load_state_dict(state_dict, strict=True)
 
-    def empty_like(src: Tensor) -> Tensor:
-        if src in memo:
-            return memo[src]
+    unexpected_keys = []
 
-        tgt = torch.empty_like(src, device=device)
+    for name, m in _get_named_modules(module):
+        if m is not None:
+            continue
 
-        memo[src] = tgt
+        prefix = name + "."
 
-        return tgt
+        for key in state_dict.keys():
+            if key.startswith(prefix):
+                unexpected_keys.append(key)
 
-    def to_empty_(m: Module) -> None:
-        for name, param in m.named_parameters(recurse=False):
-            if param is None:
-                continue
+    if unexpected_keys:
+        raise RuntimeError(
+            f"Unexpected key(s) in `state_dict`: {', '.join(unexpected_keys)}"
+        )
 
-            with torch.no_grad():
-                new_param = Parameter(empty_like(param), param.requires_grad)
 
-            setattr(m, name, new_param)
+def _get_named_modules(
+    module: Optional[Module],
+    *,
+    prefix: str = "",
+    recurse: bool = True,
+    post_order: bool = False,
+    memo: Optional[Set[Module]] = None,
+) -> Iterator[Tuple[str, Optional[Module]]]:
+    if module is None:
+        yield prefix, None
 
-            if (grad := param.grad) is not None:
-                with torch.no_grad():
-                    new_grad = empty_like(grad).requires_grad_(grad.requires_grad)
+        return
 
-                new_param.grad = new_grad
+    if memo is None and recurse:
+        memo = set()
 
-        for name, buf in m.named_buffers(recurse=False):
-            if buf is None:
-                continue
+    if memo is not None:
+        if module in memo:
+            return
 
-            setattr(m, name, empty_like(buf))
+        memo.add(module)
+
+    if not post_order:
+        yield prefix, module
 
     if recurse:
-        apply_depth_first(module, to_empty_)
-    else:
-        to_empty_(module)
+        # This loop is the reason why this function is internal. There is no
+        # PyTorch API to retrieve the list of all descendant modules. We use
+        # the internal `_modules` attribute as a workaround.
+        for descendant_name, descendant in module._modules.items():
+            if not prefix:
+                descendant_prefix = descendant_name
+            else:
+                descendant_prefix = prefix + "." + descendant_name
+
+            yield from _get_named_modules(
+                descendant,
+                prefix=descendant_prefix,
+                recurse=recurse,
+                post_order=post_order,
+                memo=memo,
+            )
+
+    if post_order:
+        yield prefix, module
 
 
-def to_device(module: Module, device: Device) -> None:
-    """Move the parameters and buffers of ``module`` to ``device``.
-
-    :param module:
-        The module to move.
-    :param device:
-        The target device of the parameters and buffers.
-    """
-    module_device = infer_device(module)
-    if module_device == device:
-        return
-
-    if module_device != META:
-        module.to(device=device)
-    else:
-        to_empty(module, device=device)
-
-        reset_parameters(module)
-
-
-def apply_depth_first(
-    module: Module, fn: Callable[[Module], None], memo: Optional[Set[Module]] = None
-) -> None:
-    """Apply ``fn`` to ``module`` and it descendants in depth-first order.
-
-    :param module:
-        The module to process.
-    :param fn:
-        The function to apply to ``module``.
-    :param memo:
-        The memoization set to use to detect visited modules. If ``None``,
-        constructs an internal one.
-    """
-    if memo is None:
-        memo = set()
-    elif module in memo:
-        return
-
-    # Do not apply more than once.
-    memo.add(module)
-
-    # Depth first so that the children are handled first.
-    for child in module.children():
-        if child is not None:
-            apply_depth_first(child, fn, memo)
-
-    fn(module)
-
-
-def freeze(module: Module, value: bool) -> None:
-    """Set if ``module`` and its descendants should stop learning (i.e. freeze)."""
+def freeze_module(module: Module, value: bool = True) -> None:
+    """Set if ``module`` and its descendants should stop learning."""
     for param in module.parameters():
         param.requires_grad_(not value)
-
-
-def infer_device(module: Module, param_name: Optional[str] = None) -> Device:
-    """Infer the device on which ``module``'s parameters and buffers reside."""
-    devices = set()
-
-    for param in module.parameters():
-        devices.add(param.device)
-
-    for buf in module.buffers():
-        devices.add(buf.device)
-
-    if len(devices) == 0:
-        return CPU
-
-    if len(devices) == 1:
-        return devices.pop()
-
-    if param_name is None:
-        param_name = "module"
-
-    s = ", ".join(sorted(f"'{d.type}'" for d in devices))
-
-    raise ValueError(
-        f"All parameters and buffers of `{param_name}` must be on the same device, but they are on {s}."
-    )
 
 
 @final
@@ -353,8 +415,8 @@ def get_module_size(module: Module) -> ModuleSizeInfo:
             info.total_size += size
             info.total_size_bytes += size_bytes
 
-    for buf in module.buffers():
-        size = buf.numel()
+    for buffer in module.buffers():
+        size = buffer.numel()
         size_bytes = size * param.element_size()
 
         info.buffer_size += size
