@@ -19,6 +19,7 @@ from fairseq2.optim.lr_scheduler import (
     MyleLR,
     NoamLR,
     PolynomialDecayLR,
+    TriStageLR,
 )
 
 
@@ -51,225 +52,6 @@ class TestLRSchedulers:
         self.opt.step()
 
         s.step()
-
-    def test_noam(self) -> None:
-        num_warmup_steps = 100
-
-        scheduler = NoamLR(self.opt, num_warmup_steps)
-
-        assert scheduler.get_last_lr() == [0.0, 0.0]
-
-        # In the first 100 steps, we expect the learning rate to linearly warmup
-        # to its original value multiplied by the inverse square root of the
-        # number of warmup steps.
-        for _ in range(num_warmup_steps // 2):
-            self.step(scheduler)
-
-        lr1, lr2 = scheduler.get_last_lr()
-
-        # We are halfway through the warmup.
-        factor = 0.5 * num_warmup_steps**-0.5
-
-        assert lr1 == pytest.approx(factor * self.base_lr1)
-        assert lr2 == pytest.approx(factor * self.base_lr2)
-
-        for _ in range(num_warmup_steps // 2):
-            self.step(scheduler)
-
-        lr1, lr2 = scheduler.get_last_lr()
-
-        # Warmup should be complete.
-        factor = num_warmup_steps**-0.5
-
-        assert lr1 == pytest.approx(factor * self.base_lr1)
-        assert lr2 == pytest.approx(factor * self.base_lr2)
-
-        # We now expect the learning rate to decay by the inverse square root of
-        # the step number.
-        self.step(scheduler)
-
-        lr1, lr2 = scheduler.get_last_lr()
-
-        factor = (num_warmup_steps + 1) ** -0.5
-
-        assert lr1 == pytest.approx(factor * self.base_lr1)
-        assert lr2 == pytest.approx(factor * self.base_lr2)
-
-        for _ in range(5):
-            self.step(scheduler)
-
-        lr1, lr2 = scheduler.get_last_lr()
-
-        factor = (num_warmup_steps + 6) ** -0.5
-
-        assert lr1 == pytest.approx(factor * self.base_lr1)
-        assert lr2 == pytest.approx(factor * self.base_lr2)
-
-    def test_noam_with_zero_warmup(self) -> None:
-        scheduler = NoamLR(self.opt, num_warmup_steps=0)
-
-        # The decay should start from the base learning rate.
-        assert scheduler.get_last_lr() == [self.base_lr1, self.base_lr2]
-
-        for _ in range(5):
-            self.step(scheduler)
-
-        lr1, lr2 = scheduler.get_last_lr()
-
-        assert lr1 == pytest.approx(self.base_lr1 * 5**-0.5)
-        assert lr2 == pytest.approx(self.base_lr2 * 5**-0.5)
-
-    @pytest.mark.parametrize("start_lr", [0.0, (0.0, 0.0), [0.02, 0.2]])
-    def test_myle(self, start_lr: Union[float, Sequence[float]]) -> None:
-        if isinstance(start_lr, float):
-            start_lr1 = start_lr
-            start_lr2 = start_lr
-        else:
-            start_lr1 = start_lr[0]
-            start_lr2 = start_lr[1]
-
-        num_warmup_steps = 100
-
-        scheduler = MyleLR(self.opt, num_warmup_steps, start_lr=start_lr)
-
-        assert scheduler.get_last_lr() == [start_lr1, start_lr2]
-
-        # In the first 100 steps, we expect the learning rate to linearly warmup
-        # to its original value.
-        for _ in range(num_warmup_steps // 2):
-            self.step(scheduler)
-
-        lr1, lr2 = scheduler.get_last_lr()
-
-        # We are halfway through the warmup.
-        assert lr1 == pytest.approx(start_lr1 + (self.base_lr1 - start_lr1) / 2)
-        assert lr2 == pytest.approx(start_lr2 + (self.base_lr2 - start_lr2) / 2)
-
-        for _ in range(num_warmup_steps // 2):
-            self.step(scheduler)
-
-        lr1, lr2 = scheduler.get_last_lr()
-
-        # Warmup should be complete.
-        assert lr1 == pytest.approx(self.base_lr1)
-        assert lr2 == pytest.approx(self.base_lr2)
-
-        # We now expect the learning rate to decay by the square root of the
-        # number of warmup steps (a constant factor) multiplied by the inverse
-        # square root of the step number.
-        self.step(scheduler)
-
-        lr1, lr2 = scheduler.get_last_lr()
-
-        factor = num_warmup_steps**0.5 * (num_warmup_steps + 1) ** -0.5
-
-        assert lr1 == pytest.approx(factor * self.base_lr1)
-        assert lr2 == pytest.approx(factor * self.base_lr2)
-
-        for _ in range(5):
-            self.step(scheduler)
-
-        lr1, lr2 = scheduler.get_last_lr()
-
-        factor = num_warmup_steps**0.5 * (num_warmup_steps + 6) ** -0.5
-
-        assert lr1 == pytest.approx(factor * self.base_lr1)
-        assert lr2 == pytest.approx(factor * self.base_lr2)
-
-    def test_myle_raises_error_if_number_of_start_lrs_is_wrong(self) -> None:
-        with pytest.raises(
-            ValueError,
-            match=r"^The length of `start_lr` must be equal to the number of parameter groups \(2\), but is 1 instead\.$",
-        ):
-            MyleLR(self.opt, num_warmup_steps=10, start_lr=[0])
-
-        with pytest.raises(
-            ValueError,
-            match=r"^The length of `start_lr` must be equal to the number of parameter groups \(2\), but is 3 instead\.$",
-        ):
-            MyleLR(self.opt, num_warmup_steps=10, start_lr=(0, 2, 3))
-
-    def test_polynomial_decay(self) -> None:
-        num_steps = 200
-
-        num_warmup_steps = 100
-
-        steps = num_steps - num_warmup_steps
-
-        power = 1.5
-
-        start_lr1 = 0.01
-        start_lr2 = 0.1
-
-        final_lr1 = 0.02
-        final_lr2 = 0.2
-
-        dist1 = self.base_lr1 - final_lr1
-        dist2 = self.base_lr2 - final_lr2
-
-        scheduler = PolynomialDecayLR(
-            self.opt,
-            num_steps,
-            num_warmup_steps,
-            power=power,
-            start_lr=[start_lr1, start_lr2],
-            final_lr=[final_lr1, final_lr2],
-        )
-
-        assert scheduler.get_last_lr() == [start_lr1, start_lr2]
-
-        # In the first 100 steps, we expect the learning rate to linearly warmup
-        # to its original value.
-        for _ in range(num_warmup_steps // 2):
-            self.step(scheduler)
-
-        lr1, lr2 = scheduler.get_last_lr()
-
-        # We are halfway through the warmup.
-        assert lr1 == pytest.approx(start_lr1 + (self.base_lr1 - start_lr1) / 2)
-        assert lr2 == pytest.approx(start_lr2 + (self.base_lr2 - start_lr2) / 2)
-
-        for _ in range(num_warmup_steps // 2):
-            self.step(scheduler)
-
-        lr1, lr2 = scheduler.get_last_lr()
-
-        # Warmup should be complete.
-        assert lr1 == pytest.approx(self.base_lr1)
-        assert lr2 == pytest.approx(self.base_lr2)
-
-        # We now expect the learning rate to decay.
-        self.step(scheduler)
-
-        lr1, lr2 = scheduler.get_last_lr()
-
-        assert lr1 == pytest.approx(final_lr1 + dist1 * ((steps - 1) / steps) ** power)
-        assert lr2 == pytest.approx(final_lr2 + dist2 * ((steps - 1) / steps) ** power)
-
-        for _ in range(5):
-            self.step(scheduler)
-
-        lr1, lr2 = scheduler.get_last_lr()
-
-        assert lr1 == pytest.approx(final_lr1 + dist1 * ((steps - 6) / steps) ** power)
-        assert lr2 == pytest.approx(final_lr2 + dist2 * ((steps - 6) / steps) ** power)
-
-        for _ in range(steps - 6):
-            self.step(scheduler)
-
-        lr1, lr2 = scheduler.get_last_lr()
-
-        # After num_steps, we expect the decay to stop.
-        assert lr1 == pytest.approx(final_lr1)
-        assert lr2 == pytest.approx(final_lr2)
-
-        for _ in range(10):
-            self.step(scheduler)
-
-        lr1, lr2 = scheduler.get_last_lr()
-
-        assert lr1 == pytest.approx(final_lr1)
-        assert lr2 == pytest.approx(final_lr2)
 
     def test_cosine(self) -> None:
         cycle_len = 80
@@ -353,7 +135,7 @@ class TestLRSchedulers:
 
         lr1, lr2 = scheduler.get_last_lr()
 
-        # We expect the base values to be scaled by lr_mul.
+        # We expect the base values to be scaled by `lr_mul`.
         assert lr1 == pytest.approx(self.base_lr1 * lr_mul)
         assert lr2 == pytest.approx(self.base_lr2 * lr_mul)
 
@@ -363,7 +145,7 @@ class TestLRSchedulers:
         lr1, lr2 = scheduler.get_last_lr()
 
         # At the last step in the cycle the learning rate should be equal to its
-        # final value scaled by lr_mul.
+        # final value scaled by `lr_mul`.
         assert lr1 == pytest.approx(final_lr1 * lr_mul, rel=8e-4)
         assert lr2 == pytest.approx(final_lr2 * lr_mul, rel=8e-4)
 
@@ -372,7 +154,7 @@ class TestLRSchedulers:
 
         lr1, lr2 = scheduler.get_last_lr()
 
-        # We expect the base values to be scaled by lr_mul.
+        # We expect the base values to be scaled by `lr_mul`.
         assert lr1 == pytest.approx(self.base_lr1 * lr_mul * lr_mul)
         assert lr2 == pytest.approx(self.base_lr2 * lr_mul * lr_mul)
 
@@ -432,3 +214,331 @@ class TestLRSchedulers:
 
             # Start the next cycle.
             self.step(scheduler)
+
+    @pytest.mark.parametrize("start_lr", [0.0, (0.0, 0.0), [0.02, 0.2]])
+    def test_myle(self, start_lr: Union[float, Sequence[float]]) -> None:
+        if isinstance(start_lr, float):
+            start_lr1 = start_lr
+            start_lr2 = start_lr
+        else:
+            start_lr1 = start_lr[0]
+            start_lr2 = start_lr[1]
+
+        num_warmup_steps = 100
+
+        scheduler = MyleLR(self.opt, num_warmup_steps, start_lr=start_lr)
+
+        assert scheduler.get_last_lr() == [start_lr1, start_lr2]
+
+        # In the first 100 steps, we expect the learning rate to linearly warmup
+        # to its original value.
+        for _ in range(num_warmup_steps // 2):
+            self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        # We are halfway through the warmup.
+        assert lr1 == pytest.approx(start_lr1 + (self.base_lr1 - start_lr1) / 2)
+        assert lr2 == pytest.approx(start_lr2 + (self.base_lr2 - start_lr2) / 2)
+
+        for _ in range(num_warmup_steps // 2):
+            self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        # Warmup should be complete.
+        assert lr1 == pytest.approx(self.base_lr1)
+        assert lr2 == pytest.approx(self.base_lr2)
+
+        # We now expect the learning rate to decay by the square root of the
+        # number of warmup steps (a constant factor) multiplied by the inverse
+        # square root of the step number.
+        self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        factor = num_warmup_steps**0.5 * (num_warmup_steps + 1) ** -0.5
+
+        assert lr1 == pytest.approx(factor * self.base_lr1)
+        assert lr2 == pytest.approx(factor * self.base_lr2)
+
+        for _ in range(5):
+            self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        factor = num_warmup_steps**0.5 * (num_warmup_steps + 6) ** -0.5
+
+        assert lr1 == pytest.approx(factor * self.base_lr1)
+        assert lr2 == pytest.approx(factor * self.base_lr2)
+
+    def test_myle_raises_error_if_number_of_start_lrs_is_wrong(self) -> None:
+        with pytest.raises(
+            ValueError,
+            match=r"^The length of `start_lr` must be equal to the number of parameter groups \(2\), but is 1 instead\.$",
+        ):
+            MyleLR(self.opt, num_warmup_steps=10, start_lr=[0])
+
+        with pytest.raises(
+            ValueError,
+            match=r"^The length of `start_lr` must be equal to the number of parameter groups \(2\), but is 3 instead\.$",
+        ):
+            MyleLR(self.opt, num_warmup_steps=10, start_lr=(0, 2, 3))
+
+    def test_noam(self) -> None:
+        num_warmup_steps = 100
+
+        scheduler = NoamLR(self.opt, num_warmup_steps)
+
+        assert scheduler.get_last_lr() == [0.0, 0.0]
+
+        # In the first 100 steps, we expect the learning rate to linearly warmup
+        # to its original value multiplied by the inverse square root of the
+        # number of warmup steps.
+        for _ in range(num_warmup_steps // 2):
+            self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        # We are halfway through the warmup.
+        factor = 0.5 * num_warmup_steps**-0.5
+
+        assert lr1 == pytest.approx(factor * self.base_lr1)
+        assert lr2 == pytest.approx(factor * self.base_lr2)
+
+        for _ in range(num_warmup_steps // 2):
+            self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        # Warmup should be complete.
+        factor = num_warmup_steps**-0.5
+
+        assert lr1 == pytest.approx(factor * self.base_lr1)
+        assert lr2 == pytest.approx(factor * self.base_lr2)
+
+        # We now expect the learning rate to decay by the inverse square root of
+        # the step number.
+        self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        factor = (num_warmup_steps + 1) ** -0.5
+
+        assert lr1 == pytest.approx(factor * self.base_lr1)
+        assert lr2 == pytest.approx(factor * self.base_lr2)
+
+        for _ in range(5):
+            self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        factor = (num_warmup_steps + 6) ** -0.5
+
+        assert lr1 == pytest.approx(factor * self.base_lr1)
+        assert lr2 == pytest.approx(factor * self.base_lr2)
+
+    def test_noam_with_zero_warmup(self) -> None:
+        scheduler = NoamLR(self.opt, num_warmup_steps=0)
+
+        # The decay should start from the base learning rate.
+        assert scheduler.get_last_lr() == [self.base_lr1, self.base_lr2]
+
+        for _ in range(5):
+            self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        assert lr1 == pytest.approx(self.base_lr1 * 5**-0.5)
+        assert lr2 == pytest.approx(self.base_lr2 * 5**-0.5)
+
+    def test_polynomial_decay(self) -> None:
+        num_steps = 200
+
+        num_warmup_steps = 100
+
+        steps = num_steps - num_warmup_steps
+
+        power = 1.5
+
+        start_lr1 = 0.01
+        start_lr2 = 0.1
+
+        final_lr1 = 0.02
+        final_lr2 = 0.2
+
+        dist1 = self.base_lr1 - final_lr1
+        dist2 = self.base_lr2 - final_lr2
+
+        scheduler = PolynomialDecayLR(
+            self.opt,
+            num_steps,
+            num_warmup_steps,
+            power=power,
+            start_lr=[start_lr1, start_lr2],
+            final_lr=[final_lr1, final_lr2],
+        )
+
+        assert scheduler.get_last_lr() == [start_lr1, start_lr2]
+
+        # In the first 100 steps, we expect the learning rate to linearly warmup
+        # to its original value.
+        for _ in range(num_warmup_steps // 2):
+            self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        # We are halfway through the warmup.
+        assert lr1 == pytest.approx(start_lr1 + (self.base_lr1 - start_lr1) / 2)
+        assert lr2 == pytest.approx(start_lr2 + (self.base_lr2 - start_lr2) / 2)
+
+        for _ in range(num_warmup_steps // 2):
+            self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        # Warmup should be complete.
+        assert lr1 == pytest.approx(self.base_lr1)
+        assert lr2 == pytest.approx(self.base_lr2)
+
+        # We now expect the learning rate to decay.
+        self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        assert lr1 == pytest.approx(final_lr1 + dist1 * ((steps - 1) / steps) ** power)
+        assert lr2 == pytest.approx(final_lr2 + dist2 * ((steps - 1) / steps) ** power)
+
+        for _ in range(5):
+            self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        assert lr1 == pytest.approx(final_lr1 + dist1 * ((steps - 6) / steps) ** power)
+        assert lr2 == pytest.approx(final_lr2 + dist2 * ((steps - 6) / steps) ** power)
+
+        for _ in range(steps - 6):
+            self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        # After `num_steps`, we expect the decay to stop.
+        assert lr1 == pytest.approx(final_lr1)
+        assert lr2 == pytest.approx(final_lr2)
+
+        for _ in range(10):
+            self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        assert lr1 == pytest.approx(final_lr1)
+        assert lr2 == pytest.approx(final_lr2)
+
+    def test_tristage(self) -> None:
+        num_steps = 200
+
+        stage_ratio = (0.1, 0.4, 0.5)
+
+        num_stage1_steps = int(num_steps * stage_ratio[0])
+        num_stage2_steps = int(num_steps * stage_ratio[1])
+        num_stage3_steps = int(num_steps * stage_ratio[2])
+
+        start_lr_scale1 = 0.05
+        start_lr_scale2 = 0.01
+
+        final_lr_scale1 = 0.1
+        final_lr_scale2 = 0.2
+
+        start_lr1 = self.base_lr1 * start_lr_scale1
+        start_lr2 = self.base_lr2 * start_lr_scale2
+
+        final_lr1 = self.base_lr1 * final_lr_scale1
+        final_lr2 = self.base_lr2 * final_lr_scale2
+
+        decay_factor1 = -math.log(final_lr_scale1) / num_stage3_steps
+        decay_factor2 = -math.log(final_lr_scale2) / num_stage3_steps
+
+        scheduler = TriStageLR(
+            self.opt,
+            num_steps=num_steps,
+            stage_ratio=stage_ratio,
+            start_lr_scale=[start_lr_scale1, start_lr_scale2],
+            final_lr_scale=[final_lr_scale1, final_lr_scale2],
+        )
+
+        assert scheduler.get_last_lr() == [start_lr1, start_lr2]
+
+        # In the first 20 steps, we expect the learning rate to linearly warmup
+        # to its original value.
+        for _ in range(num_stage1_steps // 2):
+            self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        # We are halfway through the warmup.
+        assert lr1 == pytest.approx(start_lr1 + (self.base_lr1 - start_lr1) / 2)
+        assert lr2 == pytest.approx(start_lr2 + (self.base_lr2 - start_lr2) / 2)
+
+        for _ in range(num_stage1_steps // 2):
+            self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        # Warmup should be complete.
+        assert lr1 == pytest.approx(self.base_lr1)
+        assert lr2 == pytest.approx(self.base_lr2)
+
+        # Start the second stage.
+        self.step(scheduler)
+
+        # In the second stage, we expect the learning rate to stay constant.
+        assert lr1 == pytest.approx(self.base_lr1)
+        assert lr2 == pytest.approx(self.base_lr2)
+
+        for _ in range(num_stage2_steps - 1):
+            self.step(scheduler)
+
+        assert lr1 == pytest.approx(self.base_lr1)
+        assert lr2 == pytest.approx(self.base_lr2)
+
+        # Start the third stage.
+        self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        # In the third stage, we expect the learning rate to decay to its final
+        # value.
+        assert lr1 == pytest.approx(self.base_lr1 * math.exp(-decay_factor1))
+        assert lr2 == pytest.approx(self.base_lr2 * math.exp(-decay_factor2))
+
+        for _ in range((num_stage3_steps // 2) - 1):
+            self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        assert lr1 == pytest.approx(self.base_lr1 * math.exp(-decay_factor1 * (num_stage3_steps // 2)))  # fmt: skip
+        assert lr2 == pytest.approx(self.base_lr2 * math.exp(-decay_factor2 * (num_stage3_steps // 2)))  # fmt: skip
+
+        for _ in range(num_stage3_steps // 2):
+            self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        assert lr1 == pytest.approx(final_lr1)
+        assert lr2 == pytest.approx(final_lr2)
+
+        # Move beyond the third stage.
+        self.step(scheduler)
+
+        lr1, lr2 = scheduler.get_last_lr()
+
+        # We expect the learning rate to stay constant at its final value after
+        # the third stage.
+        assert lr1 == pytest.approx(final_lr1)
+        assert lr2 == pytest.approx(final_lr2)
+
+        for _ in range(100):
+            self.step(scheduler)
+
+        assert lr1 == pytest.approx(final_lr1)
+        assert lr2 == pytest.approx(final_lr2)
