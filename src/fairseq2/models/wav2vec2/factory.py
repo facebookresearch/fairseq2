@@ -208,9 +208,6 @@ class Wav2Vec2Config:
     logit_temp: float = 0.1
     """The temperature to divide logits by."""
 
-    diversity_loss_weight: float = 0.1
-    """The weight of diversity in loss computation."""
-
 
 wav2vec2_archs = ModelArchitectureRegistry[Wav2Vec2Config]()
 
@@ -494,7 +491,6 @@ class Wav2Vec2Builder:
             final_proj_bias=self._config.final_proj_bias,
             num_distractors=self._config.num_distractors,
             logit_temp=self._config.logit_temp,
-            diversity_loss_weight=self._config.diversity_loss_weight,
             device=self._device,
             dtype=self._dtype,
         )

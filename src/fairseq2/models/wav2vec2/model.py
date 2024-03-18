@@ -42,7 +42,6 @@ class Wav2Vec2Model(Model):
     final_target_proj: Linear
     num_distractors: int
     logit_temp: float
-    diversity_loss_weight: float
 
     def __init__(
         self,
@@ -55,7 +54,6 @@ class Wav2Vec2Model(Model):
         final_proj_bias: bool = True,
         num_distractors: int = 100,
         logit_temp: float = 0.1,
-        diversity_loss_weight: float = 0.1,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -77,8 +75,6 @@ class Wav2Vec2Model(Model):
             The number of distractors to use in contrastive prediction.
         :param logit_temp:
             The temperature to divide logits by.
-        :param diversity_loss_weight:
-            The weight of diversity in loss computation.
         """
         super().__init__()
 
@@ -112,7 +108,6 @@ class Wav2Vec2Model(Model):
 
         self.num_distractors = num_distractors
         self.logit_temp = logit_temp
-        self.diversity_loss_weight = diversity_loss_weight
 
     def extract_features(self, batch: SequenceBatch) -> Wav2Vec2Features:
         """Extract features from the input sequences.
@@ -218,12 +213,7 @@ class Wav2Vec2Model(Model):
         logits = self._compute_logits(seqs, targets, distractors)
 
         return Wav2Vec2Output(
-            logits,
-            targets,
-            temporal_mask,
-            quantizer_output,
-            encoder_output,
-            self.diversity_loss_weight,
+            logits, targets, temporal_mask, quantizer_output, encoder_output
         )
 
     def _sample_distractors(self, targets: Tensor) -> Tensor:
@@ -302,7 +292,6 @@ class Wav2Vec2Model(Model):
             f"model_dim={self.model_dim}, "
             f"num_distractors={self.num_distractors}, "
             f"logit_temp={self.logit_temp}, "
-            f"diversity_loss_weight={self.diversity_loss_weight}"
         )
 
 
@@ -357,16 +346,17 @@ class Wav2Vec2Output:
     is the batch size, :math:`S_{enc}` is the encoder output sequence
     length, and :math:`M` is the dimensionality of the model."""
 
-    diversity_loss_weight: float
-    """The weight of diversity in loss computation."""
+    def compute_loss(self, diversity_loss_weight: float = 0.1) -> Wav2Vec2Loss:
+        """Compute the loss.
 
-    def compute_loss(self) -> Wav2Vec2Loss:
-        """Compute the loss."""
+        :param diversity_loss_weight:
+            The weight of diversity in loss computation.
+        """
         contrastive_loss = self.compute_contrastive_loss()
 
         diversity_loss = self.compute_diversity_loss()
 
-        loss = contrastive_loss + self.diversity_loss_weight * diversity_loss
+        loss = contrastive_loss + diversity_loss_weight * diversity_loss
 
         return Wav2Vec2Loss(loss, contrastive_loss, diversity_loss)
 

@@ -73,7 +73,6 @@ class W2VBertConfig:
             codebook_sampling_temperature=(2.0, 0.1, 0.999995),
             num_distractors=100,
             logit_temp=0.1,
-            diversity_loss_weight=0.2,
         )
     )
     """The configuration of the wav2vec 2.0 model."""
@@ -83,15 +82,6 @@ class W2VBertConfig:
 
     num_target_codebooks: int = 1
     """The number of consecutive codebooks to use as masked prediction targets."""
-
-    w2v2_loss_weight: float = 1.0
-    """The weight of wav2vec 2.0 loss in loss computation."""
-
-    bert_loss_weight: float = 1.0
-    """The weight of masked prediction loss in loss computation."""
-
-    bert_label_smoothing: float = 0.0
-    """The amount of label smoothing when computing masked prediction loss."""
 
 
 w2vbert_archs = ModelArchitectureRegistry[W2VBertConfig]()
@@ -175,9 +165,6 @@ class W2VBertBuilder:
             w2v2_model,
             self._config.num_bert_encoder_layers,
             num_target_codebooks=self._config.num_target_codebooks,
-            w2v2_loss_weight=self._config.w2v2_loss_weight,
-            bert_loss_weight=self._config.bert_loss_weight,
-            bert_label_smoothing=self._config.bert_label_smoothing,
             device=self._device,
             dtype=self._dtype,
         )
