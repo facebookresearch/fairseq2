@@ -35,9 +35,6 @@ class W2VBertModel(Model):
     w2v2_model: Wav2Vec2Model
     num_bert_encoder_layers: int
     num_target_codebooks: int
-    w2v2_loss_weight: float
-    bert_loss_weight: float
-    bert_label_smoothing: float
 
     def __init__(
         self,
@@ -45,9 +42,6 @@ class W2VBertModel(Model):
         num_bert_encoder_layers: int,
         *,
         num_target_codebooks: int = 1,
-        w2v2_loss_weight: float = 1.0,
-        bert_loss_weight: float = 1.0,
-        bert_label_smoothing: float = 0.0,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -60,12 +54,6 @@ class W2VBertModel(Model):
         :param num_target_codebooks:
             The number of consecutive groups of latent variables to use as
             masked prediction targets.
-        :param w2v2_loss_config:
-            The weight of wav2vec 2.0 loss in loss computation.
-        :param bert_loss_config:
-            The weight of masked prediction loss in loss computation.
-        :param bert_label_smoothing:
-            The amount of label smoothing when computing masked prediction loss.
         """
         super().__init__()
 
@@ -84,10 +72,6 @@ class W2VBertModel(Model):
         )
 
         self.num_target_codebooks = num_target_codebooks
-
-        self.w2v2_loss_weight = w2v2_loss_weight
-        self.bert_loss_weight = bert_loss_weight
-        self.bert_label_smoothing = bert_label_smoothing
 
     def forward(self, batch: SequenceBatch) -> W2VBertOutput:
         """
@@ -137,14 +121,7 @@ class W2VBertModel(Model):
             self.num_target_codebooks
         )
 
-        return W2VBertOutput(
-            w2v2_output,
-            bert_logits,
-            bert_targets,
-            self.w2v2_loss_weight,
-            self.bert_loss_weight,
-            self.bert_label_smoothing,
-        )
+        return W2VBertOutput(w2v2_output, bert_logits, bert_targets)
 
     def extra_repr(self) -> str:
         """:meta private:"""
@@ -176,33 +153,41 @@ class W2VBertOutput:
     :math:`S_{msk}` is the masked sequence length, and :math:`G_{tgt}` is the
     number of target codebooks."""
 
-    w2v2_loss_weight: float = 1.0
-    """The weight of wav2vec 2.0 loss in loss computation."""
+    def compute_loss(
+        self,
+        w2v2_loss_weight: float = 1.0,
+        bert_loss_weight: float = 1.0,
+        bert_label_smoothing: float = 0.0,
+    ) -> W2VBertLoss:
+        """Compute the loss.
 
-    bert_loss_weight: float = 1.0
-    """The weight of masked prediction loss in loss computation."""
-
-    bert_label_smoothing: float = 0.0
-    """The amount of label smoothing when computing masked prediction loss."""
-
-    def compute_loss(self) -> W2VBertLoss:
-        """Compute the loss."""
-        bert_loss = self.compute_bert_loss()
+        :param w2v2_loss_weight:
+            The weight of wav2vec 2.0 loss in loss computation.
+        :param bert_loss_weight:
+            The weight of masked prediction loss in loss computation.
+        :param bert_label_smoothing:
+            The amount of label smoothing when computing masked prediction loss.
+        """
+        bert_loss = self.compute_bert_loss(bert_label_smoothing)
 
         w2v2_loss = self.w2v2_output.compute_loss()
 
-        l1 = self.bert_loss_weight * bert_loss
-        l2 = self.w2v2_loss_weight * w2v2_loss.total
+        l1 = bert_loss_weight * bert_loss
+        l2 = w2v2_loss_weight * w2v2_loss.total
 
         return W2VBertLoss(l1 + l2, bert_loss, w2v2_loss)
 
-    def compute_bert_loss(self) -> Tensor:
-        """Compute the masked prediction loss."""
+    def compute_bert_loss(self, label_smoothing: float = 0.0) -> Tensor:
+        """Compute the masked prediction loss.
+
+        :param label_smoothing:
+            The amount of label smoothing when computing masked prediction loss.
+        """
         return cross_entropy(
             self.bert_logits,
             self.bert_targets,
             reduction="sum",
-            label_smoothing=self.bert_label_smoothing,
+            label_smoothing=label_smoothing,
         )
 
 
