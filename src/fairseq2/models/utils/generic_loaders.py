@@ -273,7 +273,7 @@ class ModelLoader(Generic[ModelT, ConfigT]):
         if out is not None:
             model = out
 
-            model_device = infer_device(model, param_name="out")
+            model_device = infer_device(model, name="out")
         else:
             if self.skip_meta_init:
                 model = self.model_factory(config, device=device, dtype=dtype)
@@ -290,7 +290,7 @@ class ModelLoader(Generic[ModelT, ConfigT]):
                     model = self.model_factory(config, device=device, dtype=dtype)
 
                 try:
-                    model_device = infer_device(model, param_name="model")
+                    model_device = infer_device(model, name="model")
                 except ValueError as ex:
                     raise RuntimeError(
                         "`model_factory` returned a model that is not constructed correctly. See nested exception for details."

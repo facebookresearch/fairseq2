@@ -513,7 +513,7 @@ class FileCheckpointManager(CheckpointManager):
         except (RuntimeError, OSError, PickleError) as ex:
             raise_error(ex)
 
-        model_device = infer_device(out, param_name="out")
+        model_device = infer_device(out, name="out")
 
         if model_device == META:
             # Move the model to the actual device without initializing. Its
