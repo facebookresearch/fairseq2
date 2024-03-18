@@ -30,7 +30,7 @@ class TestAudioDecoder:
             AudioDecoder(dtype=dtype)
 
     def test_call_works(self) -> None:
-        decoder = AudioDecoder(device=device)
+        decoder = AudioDecoder(keepdim=True, device=device)
 
         with TEST_OGG_PATH.open("rb") as fb:
             block = MemoryBlock(fb.read())

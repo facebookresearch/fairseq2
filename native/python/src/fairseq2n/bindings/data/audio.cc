@@ -29,15 +29,20 @@ def_audio(py::module_ &data_module)
     py::class_<audio_decoder, std::shared_ptr<audio_decoder>>(m, "AudioDecoder")
         .def(
             py::init([](
+                bool keepdim,
                 std::optional<at::ScalarType> maybe_dtype,
                 std::optional<at::Device> maybe_device,
                 bool pin_memory)
             {
                 auto opts = audio_decoder_options()
-                    .maybe_dtype(maybe_dtype).maybe_device(maybe_device).pin_memory(pin_memory);
+                    .keepdim(keepdim)
+                    .maybe_dtype(maybe_dtype)
+                    .maybe_device(maybe_device)
+                    .pin_memory(pin_memory);
 
                 return std::make_shared<audio_decoder>(opts);
             }),
+            py::arg("keepdim") = false,
             py::arg("dtype") = std::nullopt,
             py::arg("device") = std::nullopt,
             py::arg("pin_memory") = false)

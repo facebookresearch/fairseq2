@@ -184,7 +184,7 @@ public:
     operator()(data &&d) const;
 
 private:
-    static at::Tensor &
+    static at::Tensor
     find_waveform(data_dict &dict);
 
     static float32

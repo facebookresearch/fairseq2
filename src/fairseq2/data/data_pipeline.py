@@ -159,7 +159,7 @@ if TYPE_CHECKING or DOC_MODE:
             self,
             bucket_sizes: Sequence[Tuple[int, int]],
             selector: Optional[str] = None,
-            skip_long_examples: bool = False,
+            bucket_long_examples: bool = False,
             drop_remainder: bool = False,
         ) -> Self:
             """Combine examples of similar shape into batches."""

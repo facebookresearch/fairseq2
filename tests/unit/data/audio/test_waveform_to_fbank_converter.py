@@ -40,7 +40,7 @@ class TestWaveformToFbankConverter:
     def test_call_works_when_input_waveform_is_strided(self) -> None:
         audio = self.get_audio()
 
-        audio["waveform"] = audio["waveform"].transpose(0, 1)
+        audio["waveform"] = audio["waveform"].unsqueeze(-1).transpose(0, 1)
 
         converter = WaveformToFbankConverter()
 
@@ -175,7 +175,7 @@ class TestWaveformToFbankConverter:
         ):
             converter({"waveform": "foo", "sample_rate": 16000.0})  # type: ignore[typeddict-item]
 
-    @pytest.mark.parametrize("shape", [(), (4,), (4, 4, 4)])
+    @pytest.mark.parametrize("shape", [(), (4, 4, 4)])
     def test_call_raises_error_when_waveform_is_not_two_dimensional(
         self, shape: Sequence[int]
     ) -> None:
