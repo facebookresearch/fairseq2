@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.assets.card &mdash; fairseq2 0.3.0.dev202403110133 documentation</title>
+  <title>fairseq2.assets.card &mdash; fairseq2 0.3.0.dev202403180057 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202403110133
+                0.3.0.dev202403180057
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -303,11 +303,7 @@
     <span class="k">def</span> <span class="fm">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
         <span class="k">return</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span><span class="p">)</span>
 
-    <span class="nd">@property</span>
-    <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;The name of the asset.&quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span>
-
+    <span class="c1"># compat</span>
 <div class="viewcode-block" id="AssetCard.asset_type"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.assets.AssetCard.html#fairseq2.assets.AssetCard.asset_type">[docs]</a>    <span class="k">def</span> <span class="nf">asset_type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the type of the asset represented by this card.&quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;model_type&quot;</span><span class="p">,</span> <span class="s2">&quot;dataset_type&quot;</span><span class="p">,</span> <span class="s2">&quot;tokenizer_type&quot;</span><span class="p">]:</span>
@@ -318,7 +314,34 @@
 
         <span class="k">raise</span> <span class="n">AssetCardFieldNotFoundError</span><span class="p">(</span>
             <span class="sa">f</span><span class="s2">&quot;The asset card &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; must have a field named &#39;model_type&#39;, &#39;dataset_type&#39;, or &#39;tokenizer_type&#39;.&quot;</span>
-        <span class="p">)</span></div></div>
+        <span class="p">)</span></div>
+
+<div class="viewcode-block" id="AssetCard.asset_family"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.assets.AssetCard.html#fairseq2.assets.AssetCard.asset_family">[docs]</a>    <span class="k">def</span> <span class="nf">asset_family</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the family of the asset represented by this card.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;model_family&quot;</span><span class="p">,</span> <span class="s2">&quot;dataset_family&quot;</span><span class="p">,</span> <span class="s2">&quot;tokenizer_family&quot;</span><span class="p">]:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">field</span><span class="p">)</span><span class="o">.</span><span class="n">as_</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">AssetCardFieldNotFoundError</span><span class="p">:</span>
+                <span class="k">continue</span>
+
+        <span class="k">raise</span> <span class="n">AssetCardFieldNotFoundError</span><span class="p">(</span>
+            <span class="sa">f</span><span class="s2">&quot;The asset card &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; must have a field named &#39;model_family&#39;, &#39;dataset_family&#39;, or &#39;tokenizer_family&#39;.&quot;</span>
+        <span class="p">)</span></div>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">name</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The name of the asset.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_name</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The metadata of the asset.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">base</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">AssetCard</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;The card that this card derives from.&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_base</span></div>
 
 
 <span class="nd">@final</span>

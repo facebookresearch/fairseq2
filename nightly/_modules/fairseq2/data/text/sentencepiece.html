@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.text.sentencepiece &mdash; fairseq2 0.3.0.dev202403110133 documentation</title>
+  <title>fairseq2.data.text.sentencepiece &mdash; fairseq2 0.3.0.dev202403180057 documentation</title>
       <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202403110133
+                0.3.0.dev202403180057
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
@@ -169,10 +169,12 @@
 
 <span class="kn">from</span> <span class="nn">fairseq2.assets</span> <span class="kn">import</span> <span class="n">default_asset_store</span><span class="p">,</span> <span class="n">default_download_manager</span>
 <span class="kn">from</span> <span class="nn">fairseq2.data.text.text_tokenizer</span> <span class="kn">import</span> <span class="p">(</span>
+    <span class="n">AbstractTextTokenizer</span><span class="p">,</span>
     <span class="n">StandardTextTokenizerLoader</span><span class="p">,</span>
     <span class="n">TextTokenDecoder</span><span class="p">,</span>
     <span class="n">TextTokenEncoder</span><span class="p">,</span>
-    <span class="n">TextTokenizer</span><span class="p">,</span>
+    <span class="n">TextTokenizerLoader</span><span class="p">,</span>
+    <span class="n">load_text_tokenizer</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">fairseq2.data.vocabulary_info</span> <span class="kn">import</span> <span class="n">VocabularyInfo</span>
 <span class="kn">from</span> <span class="nn">fairseq2.typing</span> <span class="kn">import</span> <span class="n">Device</span><span class="p">,</span> <span class="n">override</span>
@@ -282,7 +284,7 @@
     <span class="n">_set_module_name</span><span class="p">()</span>
 
 
-<span class="k">class</span> <span class="nc">SentencePieceTokenizer</span><span class="p">(</span><span class="n">TextTokenizer</span><span class="p">):</span>
+<span class="k">class</span> <span class="nc">SentencePieceTokenizer</span><span class="p">(</span><span class="n">AbstractTextTokenizer</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a SentencePiece tokenizer.&quot;&quot;&quot;</span>
 
     <span class="n">_model</span><span class="p">:</span> <span class="n">SentencePieceModel</span>
@@ -384,6 +386,15 @@
     <span class="n">default_download_manager</span><span class="p">,</span>
     <span class="k">lambda</span> <span class="n">path</span><span class="p">,</span> <span class="n">_</span><span class="p">:</span> <span class="n">BasicSentencePieceTokenizer</span><span class="p">(</span><span class="n">path</span><span class="p">),</span>
 <span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">setup_basic_sentencepiece_tokenizer</span><span class="p">(</span>
+    <span class="n">family</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">TextTokenizerLoader</span><span class="p">[</span><span class="n">BasicSentencePieceTokenizer</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create a text tokenizer loader for ``family``.&quot;&quot;&quot;</span>
+    <span class="n">load_text_tokenizer</span><span class="o">.</span><span class="n">register_loader</span><span class="p">(</span><span class="n">family</span><span class="p">,</span> <span class="n">load_basic_sentencepiece_tokenizer</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">load_basic_sentencepiece_tokenizer</span>
 
 
 <div class="viewcode-block" id="vocab_info_from_sentencepiece"><a class="viewcode-back" href="../../../../reference/generated/data_text/fairseq2.data.text.vocab_info_from_sentencepiece.html#fairseq2.data.text.vocab_info_from_sentencepiece">[docs]</a><span class="k">def</span> <span class="nf">vocab_info_from_sentencepiece</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">SentencePieceModel</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VocabularyInfo</span><span class="p">:</span>
