@@ -9,7 +9,18 @@ from os import scandir
 from pathlib import Path
 from pickle import PickleError
 from shutil import rmtree
-from typing import Any, Dict, Iterator, List, NoReturn, Optional, Set, Tuple, final
+from typing import (
+    Any,
+    Dict,
+    Iterator,
+    List,
+    NoReturn,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    final,
+)
 
 import torch
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
@@ -29,15 +40,6 @@ from fairseq2.typing import CPU, META, Device, override
 
 class CheckpointManager(ABC):
     """Saves and loads training checkpoints."""
-
-    @abstractmethod
-    def set_model_key(self, key: str) -> None:
-        """Specify the key of the model in provided checkpoints."""
-
-    @abstractmethod
-    def set_replicated_keys(self, *keys: str) -> None:
-        """Specify the keys in provided checkpoints whose values are replicated
-        across all processes in the gang."""
 
     @abstractmethod
     def save_checkpoint(
@@ -179,7 +181,13 @@ class FileCheckpointManager(CheckpointManager):
     _replicated_keys: Set[str]
 
     def __init__(
-        self, checkpoint_dir: Path, gang: Gang, *, distributed_fs: bool = True
+        self,
+        checkpoint_dir: Path,
+        gang: Gang,
+        *,
+        distributed_fs: bool = True,
+        model_key: str = "model",
+        replicated_keys: Optional[Sequence[str]] = None,
     ) -> None:
         """
         :param checkpoint_dir:
@@ -189,6 +197,11 @@ class FileCheckpointManager(CheckpointManager):
         :param distributed_fs:
             If ``True``, the underlying file system of ``checkpoint_dir`` is
             considered distributed (e.g. NFS).
+        :param model_key:
+            The key of the model in provided checkpoints.
+        :param replicated_keys:
+            The keys in provided checkpoints whose values are replicated across
+            all processes in the gang.
         """
         self._gang = gang
         self._distributed_fs = distributed_fs
@@ -198,20 +211,22 @@ class FileCheckpointManager(CheckpointManager):
         else:
             self._checkpoint_dir = checkpoint_dir.joinpath(f"rank_{gang.rank}")
 
-        self._model_key = "model"
+        self._model_key = model_key
 
-        self._replicated_keys = set()
+        if replicated_keys is None:
+            self._replicated_keys = set()
+        else:
+            self._replicated_keys = set(replicated_keys)
 
-        # compat
-        self.replicated_keys = self._replicated_keys
+    # compat
+    @property
+    def replicated_keys(self) -> Set[str]:
+        return self._replicated_keys
 
-    @override
-    def set_model_key(self, key: str) -> None:
-        self._model_key = key
-
-    @override
-    def set_replicated_keys(self, *keys: str) -> None:
-        self._replicated_keys = set(keys)
+    # compat
+    @replicated_keys.setter
+    def replicated_keys(self, value: Set[str]) -> None:
+        self._replicated_keys = value
 
     @override
     def save_checkpoint(
