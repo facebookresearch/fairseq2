@@ -21,6 +21,7 @@ if TYPE_CHECKING or DOC_MODE:
     class AudioDecoder:
         def __init__(
             self,
+            keepdim: bool = False,
             dtype: Optional[DataType] = None,
             device: Optional[Device] = None,
             pin_memory: bool = False,

@@ -94,7 +94,7 @@ waveform_to_fbank_converter::operator()(data &&d) const
     return std::move(d);
 }
 
-at::Tensor &
+at::Tensor
 waveform_to_fbank_converter::find_waveform(data_dict &dict)
 {
     auto pos = dict.find("waveform");
@@ -108,6 +108,9 @@ waveform_to_fbank_converter::find_waveform(data_dict &dict)
             "The input waveform must be of type `torch.Tensor`, but is of type `{}` instead.", element.type());
 
     at::Tensor &waveform = element.as_tensor();
+
+    if (waveform.dim() == 1)
+        return waveform.unsqueeze(-1);
 
     if (waveform.dim() != 2)
         throw_<std::invalid_argument>(

@@ -92,6 +92,9 @@ audio_decoder::operator()(data &&d) const
             "`audio_decoder` uses an unsupported data type. Please file a bug report.");
     };
 
+    if (file.num_channels() == 1 && !opts_.keepdim())
+        waveform = waveform.squeeze(-1);
+
     at::Device device = opts_.maybe_device().value_or(at::kCPU);
     if (device != at::kCPU)
         waveform = waveform.to(device);
