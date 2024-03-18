@@ -106,6 +106,11 @@ class CheckpointManager(ABC):
             The model to save.
         """
 
+    # compat
+    @abstractmethod
+    def save_consolidated_model(self, step_nr: int, model: Module) -> None:
+        ...
+
     @abstractmethod
     def load_model(
         self, step_nr: int, out: Module, *, device: Optional[Device] = None
@@ -467,6 +472,11 @@ class FileCheckpointManager(CheckpointManager):
                 ) from ex
 
         self._gang.barrier()
+
+    # compat
+    @override
+    def save_consolidated_model(self, step_nr: int, model: Module) -> None:
+        self.save_consolidated_fsdp_model(step_nr, model)
 
     @override
     def load_model(
