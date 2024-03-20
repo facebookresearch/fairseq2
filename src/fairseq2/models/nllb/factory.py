@@ -58,22 +58,22 @@ class NllbConfig:
     """The vocabulary information."""
 
     num_encoder_layers: int = 24
-    """The number of Transformer encoder layers."""
+    """The number of encoder layers."""
 
     num_decoder_layers: int = 24
-    """The number of Transformer decoder layers."""
+    """The number of decoder layers."""
 
     num_encoder_attn_heads: int = 16
-    """The number of attention heads in Transformer encoder layers."""
+    """The number of attention heads in encoder layers."""
 
     num_decoder_attn_heads: int = 16
-    """The number of attention heads in Transformer decoder layers."""
+    """The number of attention heads in decoder layers."""
 
     ffn_inner_dim: int = 1024 * 8
-    """The inner dimensionality of Transformer feed-forward networks."""
+    """The dimensionality of inner projection layers in feed-forward networks."""
 
     dropout_p: float = 0.1
-    """The dropout probability in Transformer layers."""
+    """The dropout probability on outputs of Transformer layers."""
 
 
 nllb_archs = ModelArchitectureRegistry[NllbConfig]()

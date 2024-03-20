@@ -57,24 +57,23 @@ class LLaMAConfig:
     """The vocabulary information."""
 
     num_layers: int = 32
-    """The number of Transformer decoder layers."""
+    """The number of decoder layers."""
 
     num_attn_heads: int = 32
-    """The number of attention heads in Transformer decoder layers."""
+    """The number of attention heads in decoder layers."""
 
     num_key_value_heads: int = 32
     """The number of key/value heads for Grouped Query Attention."""
 
     ffn_inner_dim: int = 4096 * 4
-    """The dimensionality of inner projection layers in Transformer feed-forward
-    networks."""
+    """The dimensionality of inner projection layers in feed-forward networks."""
 
     ffn_inner_dim_to_multiple: int = 256
-    """The dimensionality of inner projection layers in Transformer feed-forward
-    networks is rounded up to the nearest multiple of this value."""
+    """The dimensionality of inner projection layers in feed-forward networks is
+    rounded up to the nearest multiple of this value."""
 
     dropout_p: float = 0.1
-    """The dropout probability in Transformer layers."""
+    """The dropout probability on outputs of Transformer layers."""
 
 
 llama_archs = ModelArchitectureRegistry[LLaMAConfig]()

@@ -61,20 +61,19 @@ class MistralConfig:
     """The local attention window length."""
 
     num_layers: int = 32
-    """The number of Transformer decoder layers."""
+    """The number of decoder layers."""
 
     num_attn_heads: int = 32
-    """The number of attention heads in Transformer decoder layers."""
+    """The number of attention heads in decoder layers."""
 
     num_key_value_heads: int = 8
     """The number of key/value heads for Grouped Query Attention."""
 
     ffn_inner_dim: int = 14336
-    """The dimensionality of inner projection layers in Transformer feed-forward
-    networks."""
+    """The dimensionality of inner projection layers in feed-forward networks."""
 
     dropout_p: float = 0.1
-    """The dropout probability in Transformer layers."""
+    """The dropout probability on outputs of Transformer layers."""
 
 
 mistral_archs = ModelArchitectureRegistry[MistralConfig]()

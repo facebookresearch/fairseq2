@@ -214,7 +214,7 @@ _metric_formatters: Dict[str, Tuple[str, Callable[[Any], str]]] = {
     "elapsed_time":        ("Elapsed Time",              format_as_seconds),
     "elements_per_batch":  ("Elements per Batch",        format_as_int),
     "elements_per_second": ("Elements per Second",       format_as_int),
-    "grad_scale":          ("Grad Scale",                format_as_float),
+    "loss_scale":          ("Loss Scale",                format_as_float),
     "lr":                  ("Learning Rate",             format_as_float),
     "nll_loss":            ("NLL Loss",                  format_as_loss),
     "num_examples":        ("Number of Examples",        format_as_int),

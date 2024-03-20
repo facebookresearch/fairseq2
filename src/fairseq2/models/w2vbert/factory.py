@@ -78,7 +78,7 @@ class W2VBertConfig:
     """The configuration of the wav2vec 2.0 model."""
 
     num_bert_encoder_layers: int = 16
-    """The number of Transformer encoder layers to use for masked prediction."""
+    """The number of encoder layers to use for masked prediction."""
 
     num_target_codebooks: int = 1
     """The number of consecutive codebooks to use as masked prediction targets."""
