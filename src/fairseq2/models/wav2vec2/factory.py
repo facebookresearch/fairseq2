@@ -175,7 +175,7 @@ class Wav2Vec2Config:
 
     max_temporal_mask_prob: float = 0.65
     """The maximum probability of masking a time step. Note that, due to mask
-    span overlap, the effective probability might be smaller."""
+    span overlap, the effective probability will be smaller."""
 
     min_num_temporal_mask_spans: int = 2
     """The minimum number of temporal masks sampled per sequence."""
@@ -185,7 +185,7 @@ class Wav2Vec2Config:
 
     max_spatial_mask_prob: float = 0.0
     """The maximum probability of masking a feature. Note that, due to mask span
-    overlap, the effective probability might be smaller."""
+    overlap, the effective probability will be smaller."""
 
     min_num_spatial_mask_spans: int = 2
     """The minimum number of spatial masks sampled per sequence."""
@@ -463,8 +463,8 @@ class Wav2Vec2Builder:
         """
         :param config:
             The configuration.
-        :param encoder_builder_cls:
-            The wav2vec 2.0 encoder builder.
+        :param encoder_builder:
+            The encoder builder.
         :param device:
             The device on which to initialize modules.
         :param dtype:
@@ -500,7 +500,7 @@ class Wav2Vec2Builder:
         )
 
     def build_masker(self) -> Wav2Vec2Masker:
-        """Build a temporal/spatial feature masker."""
+        """Build a feature masker."""
         return Wav2Vec2Masker(
             self._config.encoder_config.model_dim,
             self._config.temporal_mask_span_len,
