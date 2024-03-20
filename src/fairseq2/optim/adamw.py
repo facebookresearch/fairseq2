@@ -182,8 +182,8 @@ class AdamW(AbstractOptimizer):
                 if (value := getattr(self, attr, None)) is not None:
                     kwargs[attr] = value
 
-            # Mitigates a shape issue that is specific to PyTorch 2.0.1.
-            if (found_inf := kwargs.get("found_inf")) is not None:
+            # Mitigates a shape issue specific to PyTorch 2.0.1.
+            if isinstance(found_inf := kwargs.get("found_inf"), Tensor):
                 kwargs["found_inf"] = found_inf.squeeze()
 
             adamw(
