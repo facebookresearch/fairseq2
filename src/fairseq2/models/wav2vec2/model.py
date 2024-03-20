@@ -63,7 +63,7 @@ class Wav2Vec2Model(Model):
         :param encoder:
             The encoder (i.e. context network).
         :param masker:
-            The temporal/spatial feature masker.
+            The feature masker.
         :param quantizer:
             The quantizer to discretize context network targets.
         :param final_dim:

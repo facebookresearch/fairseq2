@@ -113,7 +113,7 @@ class SequenceModelOutput:
         ignore_prefix_size: int = 0,
         label_smoothing: float = 0.0,
     ) -> Tensor:
-        """Compute the negative log-likelihood loss.
+        """Compute the NLL (negative log-likelihood) loss.
 
         :param targets:
             The target indices. *Shape:* :math:`(N,S)`, where :math:`N` is the
@@ -123,6 +123,9 @@ class SequenceModelOutput:
             be ignored in the loss computation.
         :param label_smoothing:
             The amount of label smoothing to apply while computing the loss.
+
+        :returns:
+            A scalar tensor representing the summed NLL loss.
         """
         if ignore_prefix_size > 0:
             logits = self.logits[:, ignore_prefix_size:, :]
