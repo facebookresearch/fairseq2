@@ -12,7 +12,7 @@ checkpoint: "https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec2_fs2_small.p
 
 ---
 
-name: wav2vec2_asr_base_10h
+name: wav2vec2_asr_base_10m
 model_type: wav2vec2_asr  # compat
 model_family: wav2vec2_asr
 model_arch: base
