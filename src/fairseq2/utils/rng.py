@@ -29,7 +29,7 @@ def use_deterministic(value: bool, warn_only: bool = False) -> None:
 
 
 @final
-class RNGBag:
+class RngBag:
     """Holds a collection of random number generators."""
 
     _generators: List[Generator]
@@ -42,8 +42,8 @@ class RNGBag:
         self._generators = list(generators)
 
     @staticmethod
-    def from_device_defaults(*devices: Device) -> RNGBag:
-        """Create an :class:`RNGBag` instance holding the default random number
+    def from_device_defaults(*devices: Device) -> RngBag:
+        """Create an :class:`RngBag` instance holding the default random number
         generators of ``devices``."""
         unique_devices = set()
 
@@ -71,7 +71,7 @@ class RNGBag:
                     f"`devices` must be of type 'cpu' or 'cuda', but at least one device is of type '{device.type}' instead."
                 )
 
-        return RNGBag(*generators)
+        return RngBag(*generators)
 
     def seed(self) -> None:
         """Set the seed of the random number generators to a random number."""
@@ -121,3 +121,7 @@ class RNGBag:
                 )
 
             self._generators[idx].set_state(state.clone())
+
+
+# compat
+RNGBag = RngBag
