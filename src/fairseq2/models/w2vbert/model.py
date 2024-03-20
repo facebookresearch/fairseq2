@@ -155,6 +155,7 @@ class W2VBertOutput:
 
     def compute_loss(
         self,
+        *,
         w2v2_loss_weight: float = 1.0,
         bert_loss_weight: float = 1.0,
         bert_label_smoothing: float = 0.0,
@@ -168,7 +169,7 @@ class W2VBertOutput:
         :param bert_label_smoothing:
             The amount of label smoothing when computing masked prediction loss.
         """
-        bert_loss = self.compute_bert_loss(bert_label_smoothing)
+        bert_loss = self.compute_bert_loss(label_smoothing=bert_label_smoothing)
 
         w2v2_loss = self.w2v2_output.compute_loss()
 
@@ -177,7 +178,7 @@ class W2VBertOutput:
 
         return W2VBertLoss(l1 + l2, bert_loss, w2v2_loss)
 
-    def compute_bert_loss(self, label_smoothing: float = 0.0) -> Tensor:
+    def compute_bert_loss(self, *, label_smoothing: float = 0.0) -> Tensor:
         """Compute the masked prediction loss.
 
         :param label_smoothing:

@@ -346,7 +346,7 @@ class Wav2Vec2Output:
     is the batch size, :math:`S_{enc}` is the encoder output sequence
     length, and :math:`M` is the dimensionality of the model."""
 
-    def compute_loss(self, diversity_loss_weight: float = 0.1) -> Wav2Vec2Loss:
+    def compute_loss(self, *, diversity_loss_weight: float = 0.1) -> Wav2Vec2Loss:
         """Compute the loss.
 
         :param diversity_loss_weight:

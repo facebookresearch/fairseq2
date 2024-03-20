@@ -73,8 +73,8 @@ class Wav2Vec2PositionEncoder(PositionEncoder):
                 "`Wav2Vec2PositionEncoder` does not support incremental decoding."
             )
 
-        # We have to ensure that the padded elements are correctly set to
-        # zero; otherwise, noise will leak into the feature maps.
+        # We have to ensure that the padded elements are correctly set to zero;
+        # otherwise, noise will leak into the feature maps.
         seqs = apply_padding_mask(seqs, padding_mask)
 
         # (N, S, E) -> (N, E, S)

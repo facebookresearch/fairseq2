@@ -123,23 +123,26 @@ class Wav2Vec2EncoderConfig:
     """If ``True``, uses Conformer blocks instead of Transformer encoder layers."""
 
     num_encoder_layers: int = 12
-    """The number of Transformer encoder layers."""
+    """The number of encoder layers."""
 
     num_encoder_attn_heads: int = 12
-    """The number of attention heads in Transformer encoder layers."""
+    """The number of attention heads in encoder layers."""
 
     ffn_inner_dim: int = 3072
-    """The inner dimensionality of Transformer feed-forward networks."""
+    """The inner dimensionality of feed-forward networks."""
+
+    ffn_inner_dropout_p: float = 0.0
+    """The dropout probability on inner activations of feed-forward networks."""
 
     dropout_p: float = 0.1
-    """The dropout probability in Transformer layers."""
+    """The dropout probability on outputs of Transformer layers."""
 
     attn_dropout_p: float = 0.1
-    """The dropout probability on Transformer attention weights."""
+    """The dropout probability on attention weights."""
 
     layer_drop_p: float = 0.05
-    """If greater than zero, applies LayerDrop to Transformer encoder layers
-    as described in :cite:t:`https://doi.org/10.48550/arxiv.1909.11556`."""
+    """If greater than zero, applies LayerDrop to encoder layers as described in
+    :cite:t:`https://doi.org/10.48550/arxiv.1909.11556`."""
 
     norm_order: TransformerNormOrder = TransformerNormOrder.POST
     """The Layer Normalization order."""
@@ -429,6 +432,7 @@ class Wav2Vec2EncoderBuilder:
             self._config.ffn_inner_dim,
             bias=True,
             inner_activation=SiLU() if use_swish else GELU(),
+            inner_dropout_p=self._config.ffn_inner_dropout_p,
             norm_order=self._config.norm_order,
             device=self._device,
             dtype=self._dtype,

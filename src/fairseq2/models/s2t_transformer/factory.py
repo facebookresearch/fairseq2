@@ -75,25 +75,25 @@ class S2TTransformerConfig:
     """If ``True``, uses relative positional encodings for source sequences."""
 
     use_conformer: bool = False
-    """If ``True``, uses Conformer blocks instead of Transformer encoder layers."""
+    """If ``True``, uses Conformer blocks instead of encoder layers."""
 
     num_encoder_layers: int = 12
-    """The number of Transformer encoder layers."""
+    """The number of encoder layers."""
 
     num_decoder_layers: int = 6
-    """The number of Transformer decoder layers."""
+    """The number of decoder layers."""
 
     num_encoder_attn_heads: int = 8
-    """The number of attention heads in Transformer encoder layers."""
+    """The number of attention heads in encoder layers."""
 
     num_decoder_attn_heads: int = 8
-    """The number of attention heads in Transformer decoder layers."""
+    """The number of attention heads in decoder layers."""
 
     ffn_inner_dim: int = 512 * 4
-    """The inner dimensionality of Transformer feed-forward networks."""
+    """The dimensionality of inner projection layers in feed-forward networks."""
 
     dropout_p: float = 0.15
-    """The dropout probability in Transformer layers."""
+    """The dropout probability on outputs of Transformer layers."""
 
     depthwise_conv_kernel_size: int = 0
     """The kernel size of depthwise convolutions in Conformer blocks."""

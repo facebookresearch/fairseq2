@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Optional, Sequence, Tuple, final
+from typing import Any, Dict, Optional, Sequence, Tuple, final
 
 import torch
 from torch import Tensor
@@ -20,6 +20,7 @@ from fairseq2.metrics import MetricBag
 from fairseq2.models.model import Model
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.nn.padding import PaddingMask
+from fairseq2.typing import override
 from fairseq2.utils.profiler import Stopwatch
 
 
@@ -217,3 +218,9 @@ class Seq2SeqModelMetricBag(MetricBag):
         self.batch_size.reset()
         self.elements_per_batch.reset()
         self.elements_per_second.reset()
+
+    @override
+    def process_metric_values(self, values: Dict[str, Any]) -> None:
+        super().process_metric_values(values)
+
+        values["elapsed_time"] = self.elements_per_second.elapsed_time_sec
