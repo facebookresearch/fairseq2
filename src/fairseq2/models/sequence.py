@@ -144,7 +144,6 @@ class SequenceModelOutput:
         return nll_loss(lprobs, targets, self.pad_idx, label_smoothing=label_smoothing)
 
 
-@final
 class SequenceModelMetricBag(MetricBag):
     """Holds the common metrics of a sequence model."""
 

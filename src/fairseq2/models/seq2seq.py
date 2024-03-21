@@ -129,7 +129,6 @@ class Seq2SeqBatch:
         return int(self.target_padding_mask.seq_lens.sum())
 
 
-@final
 class Seq2SeqModelMetricBag(MetricBag):
     """Holds the common metrics of a sequence-to-sequence model."""
 
