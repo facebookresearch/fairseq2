@@ -157,7 +157,9 @@ class TestCollater:
 
         collater = Collater(
             pad_value=1,
-            overrides=[CollateOptionsOverride("foo1[*]", pad_value=3, pad_to_multiple=3)],
+            overrides=[
+                CollateOptionsOverride("foo1[*]", pad_value=3, pad_to_multiple=3)
+            ],
         )
 
         output = collater(bucket)
