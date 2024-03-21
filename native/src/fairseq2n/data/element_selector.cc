@@ -164,9 +164,22 @@ element_selector::matches(element_path_ref path) const
         if (p.size() != path.size())
             return false;
 
-        for (std::size_t i = 0; i < p.size(); ++i)
-            if (p[i] != path[i])
+        for (std::size_t i = 0; i < p.size(); i++) {
+            const element_path_segment &segment1 = p[i];
+            const element_path_segment &segment2 = path[i];
+
+            if (segment1 != segment2) {
+                bool holds_index1 = std::holds_alternative<std::size_t>(segment1);
+                bool holds_index2 = std::holds_alternative<std::size_t>(segment2);
+
+                if (holds_index1 && holds_index2) {
+                    if (std::get<std::size_t>(segment1) == wildcard_index)
+                        continue;
+                }
+
                 return false;
+            }
+        }
 
         return true;
     };
