@@ -50,6 +50,7 @@ class ParallelTextDataset(ABC):
         bucket_by_length: bool = False,
         sample: bool = False,
         shuffle_window_size: int = 0,
+        repeat: Optional[int] = 1,
         num_prefetch: int = 0,
         num_accumulate: int = 1,
         lang_pairs: Optional[Sequence[LangPair]] = None,
@@ -74,6 +75,9 @@ class ParallelTextDataset(ABC):
             their size.
         :param shuffle_window_size:
             The size of the streaming shuffle window.
+        :param repeat:
+            The dataset will be repeatedly read this many times. If ``None``, it
+            will be read infinitely.
         :param num_prefetch:
             The number of batches to prefetch in background.
         :param num_accumulate:

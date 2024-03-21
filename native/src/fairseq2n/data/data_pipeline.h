@@ -146,6 +146,9 @@ public:
     prefetch(std::size_t num_examples) &&;
 
     data_pipeline_builder
+    repeat(std::optional<std::size_t> num_repeats = std::nullopt) &&;
+
+    data_pipeline_builder
     shard(std::size_t shard_idx, std::size_t num_shards) &&;
 
     data_pipeline_builder

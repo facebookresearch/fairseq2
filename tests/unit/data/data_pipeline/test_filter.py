@@ -14,7 +14,9 @@ class TestFilterOp:
         def fn(d: int) -> bool:
             return d % 2 == 1
 
-        pipeline = read_sequence([1, 2, 3, 4, 5, 6, 7, 8, 9]).filter(fn).and_return()
+        seq = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+        pipeline = read_sequence(seq).filter(fn).and_return()
 
         for _ in range(2):
             assert list(pipeline) == [1, 3, 5, 7, 9]
