@@ -23,6 +23,7 @@
 #include "fairseq2n/data/list_data_source.h"
 #include "fairseq2n/data/map_data_source.h"
 #include "fairseq2n/data/prefetch_data_source.h"
+#include "fairseq2n/data/repeat_data_source.h"
 #include "fairseq2n/data/round_robin_data_source.h"
 #include "fairseq2n/data/sample_data_source.h"
 #include "fairseq2n/data/shard_data_source.h"
@@ -405,6 +406,18 @@ data_pipeline_builder::prefetch(std::size_t num_examples) &&
         factory_ = [=, inner = std::move(factory_)]
         {
             return std::make_unique<prefetch_data_source>(inner(), num_examples);
+        };
+
+    return std::move(*this);
+}
+
+data_pipeline_builder
+data_pipeline_builder::repeat(std::optional<std::size_t> num_repeats) &&
+{
+    if (!num_repeats || *num_repeats > 1)
+        factory_ = [=, inner = std::move(factory_)]
+        {
+            return std::make_unique<repeat_data_source>(inner(), num_repeats);
         };
 
     return std::move(*this);

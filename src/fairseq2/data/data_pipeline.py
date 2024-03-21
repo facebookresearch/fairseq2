@@ -225,6 +225,9 @@ if TYPE_CHECKING or DOC_MODE:
                 The number of examples to prefetch.
             """
 
+        def repeat(self, num_repeats: Optional[int] = None) -> Self:
+            ...
+
         def shard(self, shard_idx: int, num_shards: int) -> Self:
             """Read only 1/``num_shards`` of the examples in the data pipeline.
 

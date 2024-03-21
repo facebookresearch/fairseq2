@@ -509,6 +509,17 @@ def_data_pipeline(py::module_ &data_module)
             },
             py::arg("num_examples"))
         .def(
+            "repeat",
+            [](
+                data_pipeline_builder &self,
+                std::optional<std::size_t> num_repeats) -> data_pipeline_builder &
+            {
+                self = std::move(self).repeat(num_repeats);
+
+                return self;
+            },
+            py::arg("num_repeats") = std::nullopt)
+        .def(
             "shard",
             [](
                 data_pipeline_builder &self,

@@ -34,9 +34,10 @@ class AsrDataset(ABC):
         max_num_elements: int,
         *,
         dtype: Optional[DataType] = None,
-        min_audio_len: int = 0,
+        min_audio_len: int = 1,
         bucket_by_length: bool = False,
         shuffle_window_size: int = 0,
+        repeat: Optional[int] = 1,
         num_prefetch: int = 0,
         num_accumulate: int = 1,
     ) -> DataReader[Seq2SeqBatch]:
@@ -62,6 +63,9 @@ class AsrDataset(ABC):
             If ``True``, examples will be bucketed by their length.
         :param shuffle_window_size:
             The size of the streaming shuffle window.
+        :param repeat:
+            The dataset will be repeatedly read this many times. If ``None``, it
+            will be read infinitely.
         :param num_prefetch:
             The number of batches to prefetch in background.
         :param num_accumulate:

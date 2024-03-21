@@ -73,6 +73,7 @@ class NllbDataset(ParallelTextDataset):
         bucket_by_length: bool = False,
         sample: bool = False,
         shuffle_window_size: int = 0,
+        repeat: Optional[int] = 1,
         num_prefetch: int = 0,
         num_accumulate: int = 1,
         lang_pairs: Optional[Sequence[LangPair]] = None,
@@ -126,6 +127,7 @@ class NllbDataset(ParallelTextDataset):
             bucket_by_length,
             sample,
             shuffle_window_size,
+            repeat,
             num_prefetch,
         )
 
@@ -167,6 +169,7 @@ class _NllbDataPipelineBuilder:
     _bucket_by_length: bool
     _sample: bool
     _shuffle_window_size: int
+    _repeat: Optional[int]
     _num_prefetch: int
 
     def __init__(
@@ -181,6 +184,7 @@ class _NllbDataPipelineBuilder:
         bucket_by_length: bool,
         sample: bool,
         shuffle_window_size: int,
+        repeat: Optional[int],
         num_prefetch: int,
     ) -> None:
         self._dataset_name = dataset_name
@@ -193,6 +197,7 @@ class _NllbDataPipelineBuilder:
         self._bucket_by_length = bucket_by_length
         self._sample = sample
         self._shuffle_window_size = shuffle_window_size
+        self._repeat = repeat
         self._num_prefetch = num_prefetch
 
     def build(self) -> DataPipeline:
@@ -313,6 +318,9 @@ class _NllbDataPipelineBuilder:
         return source_file, target_file
 
     def _build_pipeline(self, builder: DataPipelineBuilder) -> DataPipeline:
+        if self._repeat != 1:
+            builder.repeat(num_repeats=self._repeat)
+
         # Shuffle examples.
         if self._shuffle_window_size > 0:
             builder.shuffle(self._shuffle_window_size)
