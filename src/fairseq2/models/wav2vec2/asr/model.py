@@ -122,6 +122,14 @@ def init_final_projection(proj: Linear) -> None:
 
 
 @dataclass
+class Wav2Vec2AsrLoss:
+    """Holds the loss and lprobs of a wav2vec 2.0 ASR model."""
+    loss: Tensor
+
+    lprobs: Tensor
+
+
+@dataclass
 class Wav2Vec2AsrOutput:
     logits: Tensor
     """The logits for next-step prediction. *Shape:* :math:`(N,S,T)`, where
@@ -140,7 +148,7 @@ class Wav2Vec2AsrOutput:
 
     def compute_loss(
         self, targets: Tensor, target_padding_mask: Optional[PaddingMask]
-    ) -> Tensor:
+    ) -> Wav2Vec2AsrLoss:
         """Compute the CTC (Connectionist Temporal Classification) loss.
 
         :param targets:
@@ -166,7 +174,7 @@ class Wav2Vec2AsrOutput:
         feature_seq_lens = get_seq_lens(self.encoder_output, self.encoder_padding_mask)
 
         # ()
-        return ctc_loss(
+        loss = ctc_loss(
             lprobs,
             targets,
             feature_seq_lens,
@@ -174,6 +182,11 @@ class Wav2Vec2AsrOutput:
             reduction="sum",
             zero_infinity=True,
         )
+
+        # (S, N, T) -> (N, S, T)
+        lprobs = lprobs.transpose(0, 1)
+
+        return Wav2Vec2AsrLoss(loss, lprobs)
 
 
 class Wav2Vec2AsrMetricBag(MetricBag):
