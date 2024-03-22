@@ -124,6 +124,7 @@ def init_final_projection(proj: Linear) -> None:
 @dataclass
 class Wav2Vec2AsrLoss:
     """Holds the loss and lprobs of a wav2vec 2.0 ASR model."""
+
     loss: Tensor
 
     lprobs: Tensor
