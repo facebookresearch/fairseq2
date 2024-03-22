@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Optional, Sequence, final
 
 import torch
+import torch.nn as nn
 from torch import Tensor
 from torch.nn import Dropout
 from torch.nn.functional import ctc_loss, log_softmax
@@ -79,7 +80,12 @@ class Wav2Vec2AsrModel(Model):
             self.register_module("final_dropout", None)
 
         self.final_proj = Linear(
-            self.model_dim, final_dim, bias=True, device=device, dtype=dtype
+            self.model_dim,
+            final_dim,
+            bias=True,
+            init_fn=init_final_projection,
+            device=device,
+            dtype=dtype,
         )
 
     def forward(self, batch: Seq2SeqBatch) -> Wav2Vec2AsrOutput:
@@ -105,6 +111,14 @@ class Wav2Vec2AsrModel(Model):
         logits = self.final_proj(seqs)
 
         return Wav2Vec2AsrOutput(logits, encoder_output, padding_mask)
+
+
+def init_final_projection(proj: Linear) -> None:
+    """Initialize ``proj`` as the final projection of a wav2vec 2.0 ASR model."""
+    nn.init.xavier_uniform_(proj.weight)
+
+    if proj.bias is not None:
+        nn.init.zeros_(proj.bias)
 
 
 @dataclass
@@ -146,10 +160,10 @@ class Wav2Vec2AsrOutput:
         lprobs = lprobs.transpose(0, 1)
 
         # (N)
-        feature_seq_lens = get_seq_lens(self.encoder_output, self.encoder_padding_mask)
+        target_seq_lens = get_seq_lens(targets, target_padding_mask)
 
         # (N)
-        target_seq_lens = get_seq_lens(targets, target_padding_mask)
+        feature_seq_lens = get_seq_lens(self.encoder_output, self.encoder_padding_mask)
 
         # ()
         return ctc_loss(
@@ -162,7 +176,6 @@ class Wav2Vec2AsrOutput:
         )
 
 
-@final
 class Wav2Vec2AsrMetricBag(MetricBag):
     """Holds the common metrics of a wav2vec 2.0 ASR model."""
 
