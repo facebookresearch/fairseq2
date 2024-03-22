@@ -215,7 +215,7 @@ def share_parameters(source_module: Module, target_module: Module) -> None:
 
     # Do not memoize. No need anyways, and would also break the sync between the
     # traversed tensors and the iterator.
-    apply_to_parameters(target_module, lambda _: next(it), recurse=True, use_memo=False)
+    apply_to_parameters(target_module, lambda _: next(it), recurse=True, no_memo=True)
 
 
 def apply_to_parameters(
@@ -223,8 +223,8 @@ def apply_to_parameters(
     fn: Callable[[Tensor], Tensor],
     *,
     recurse: bool = True,
-    use_memo: bool = True,
     memo: Optional[Dict[Tensor, Tensor]] = None,
+    no_memo: bool = False,
 ) -> None:
     """Apply ``fn`` to the parameters and buffers of ``module``.
 
@@ -237,9 +237,11 @@ def apply_to_parameters(
         modules.
     :param memo:
         The memoization dictionary to detect shared parameters and buffers. If
-        ``None``, constructs an internal one.
+        ``None`` and ``no_memo`` is ``False``, constructs an internal one.
+    :param no_memo:
+        If ``True``, skips memoization.
     """
-    if not use_memo:
+    if no_memo:
         memo = None
     elif memo is None and recurse:
         memo = {}
@@ -248,7 +250,7 @@ def apply_to_parameters(
         for child in module.children():
             if child is not None:
                 apply_to_parameters(
-                    child, fn, recurse=recurse, use_memo=use_memo, memo=memo
+                    child, fn, recurse=recurse, memo=memo, no_memo=no_memo
                 )
 
     def call_fn(source: Tensor) -> Tensor:
