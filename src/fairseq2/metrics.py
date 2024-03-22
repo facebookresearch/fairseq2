@@ -202,6 +202,8 @@ _metric_formatters: Dict[str, Tuple[str, int, Callable[[Any], str]]] = {
     # fmt: off
     "ctc_loss":            ("CTC Loss",                  100, format_as_float),
     "nll_loss":            ("NLL Loss",                  100, format_as_float),
+    "cer":                 ("Character Error Rate",      200, format_as_float),
+    "wer":                 ("Word Error Rate",           200, format_as_float),
     "elapsed_time":        ("Elapsed Time",              500, format_as_seconds),
     "wall_time":           ("Wall Time",                 510, format_as_seconds),
     "lr":                  ("Learning Rate",             800, format_as_float),
