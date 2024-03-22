@@ -188,14 +188,9 @@ format_as_seconds = partial(format_as_int, postfix="s")
 """Format metric ``value`` as duration in seconds."""
 
 
-def format_as_float(
-    value: Any, *, decimal: Optional[int] = None, postfix: Optional[str] = None
-) -> str:
+def format_as_float(value: Any, *, postfix: Optional[str] = None) -> str:
     """Format metric ``value`` as float."""
-    if decimal:
-        s = f"{float(value):,.{decimal}f}"
-    else:
-        s = f"{float(value):,}"
+    s = f"{float(value):g}"
 
     if postfix:
         s += postfix
@@ -203,30 +198,26 @@ def format_as_float(
     return s
 
 
-format_as_loss = partial(format_as_float, decimal=3)
-"""Format metric ``value`` as training loss."""
-
-
-_metric_formatters: Dict[str, Tuple[str, Callable[[Any], str]]] = {
+_metric_formatters: Dict[str, Tuple[str, int, Callable[[Any], str]]] = {
     # fmt: off
-    "batch_size":          ("Batch Size",                format_as_int),
-    "ctc_loss":            ("CTC Loss",                  format_as_loss),
-    "elapsed_time":        ("Elapsed Time",              format_as_seconds),
-    "elements_per_batch":  ("Elements per Batch",        format_as_int),
-    "elements_per_second": ("Elements per Second",       format_as_int),
-    "loss_scale":          ("Loss Scale",                format_as_float),
-    "lr":                  ("Learning Rate",             format_as_float),
-    "nll_loss":            ("NLL Loss",                  format_as_loss),
-    "num_examples":        ("Number of Examples",        format_as_int),
-    "num_source_elements": ("Number of Source Elements", format_as_int),
-    "num_target_elements": ("Number of Target Elements", format_as_int),
-    "wall_time":           ("Wall Time",                 format_as_seconds),
+    "ctc_loss":            ("CTC Loss",                  100, format_as_float),
+    "nll_loss":            ("NLL Loss",                  100, format_as_float),
+    "elapsed_time":        ("Elapsed Time",              500, format_as_seconds),
+    "wall_time":           ("Wall Time",                 510, format_as_seconds),
+    "lr":                  ("Learning Rate",             800, format_as_float),
+    "loss_scale":          ("Loss Scale",                810, format_as_float),
+    "batch_size":          ("Batch Size",                900, format_as_int),
+    "elements_per_batch":  ("Elements per Batch",        900, format_as_int),
+    "elements_per_second": ("Elements per Second",       900, format_as_int),
+    "num_examples":        ("Number of Examples",        900, format_as_int),
+    "num_source_elements": ("Number of Source Elements", 900, format_as_int),
+    "num_target_elements": ("Number of Target Elements", 900, format_as_int),
     # fmt: on
 }
 
 
 def register_metric_formatter(
-    name: str, display_name: str, formatter: Callable[[Any], str]
+    name: str, display_name: str, priority: int, format_fn: Callable[[Any], str]
 ) -> None:
     """Register a string formatter for the specified metric.
 
@@ -234,15 +225,17 @@ def register_metric_formatter(
         The name of the metric.
     :param display_name:
         The display name of the metric.
-    :param formatter:
-        The formatter to convert a metric value to its string representation.
+    :param priority:
+        The display priority of the metric.
+    :param format_fn:
+        The callable to convert a metric value to its string representation.
     """
     if name in _metric_formatters:
         raise ValueError(
             f"`name` must be a unique metric name, but '{name}' is already registered."
         )
 
-    _metric_formatters[name] = (display_name, formatter)
+    _metric_formatters[name] = (display_name, priority, format_fn)
 
 
 class MetricRecorder(ABC):
@@ -324,16 +317,22 @@ class LogMetricRecorder(MetricRecorder):
         if not self._logger.isEnabledFor(logging.INFO):
             return
 
-        formatted_values = []
+        values_and_formatters = []
 
         for name, value in values.items():
-            pair = _metric_formatters.get(name)
-            if pair is None:
-                formatted_values.append(f"{name}: {value}")
-            else:
-                display_name, formatter = pair
+            formatter = _metric_formatters.get(name)
+            if formatter is None:
+                formatter = (name, 999, str)
 
-                formatted_values.append(f"{display_name}: {formatter(value)}")
+            values_and_formatters.append((value, formatter))
+
+        # Sort by priority and display name.
+        values_and_formatters.sort(key=lambda e: (e[1][1], e[1][0]))
+
+        formatted_values = []
+
+        for value, (display_name, _, fn) in values_and_formatters:
+            formatted_values.append(f"{display_name}: {fn(value)}")
 
         s = " | ".join(formatted_values)
 
