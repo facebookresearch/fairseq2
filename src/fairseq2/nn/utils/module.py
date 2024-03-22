@@ -7,6 +7,7 @@
 import logging
 import re
 from dataclasses import dataclass
+from itertools import chain
 from logging import Logger
 from typing import (
     Any,
@@ -119,20 +120,20 @@ def to_device(module: Module, device: Device) -> None:
         if m is None:
             continue
 
-        m_device = infer_device(m, name, recurse=False)
-        if m_device == device:
+        module_device = infer_device(m, name, recurse=False)
+        if module_device == device:
             continue
 
-        modules.append((m, m_device))
+        modules.append((m, module_device))
 
     if not modules:
         return
 
     memo: Dict[Tensor, Tensor] = {}
 
-    for m, m_device in modules:
-        if m_device != META:
-            apply_to_module(m, lambda t: t.to(device), recurse=False, memo=memo)
+    for m, module_device in modules:
+        if module_device != META:
+            apply_to_parameters(m, lambda t: t.to(device), recurse=False, memo=memo)
         else:
             to_empty(m, device, recurse=False, memo=memo)
 
@@ -152,7 +153,7 @@ def to_empty(
     :param module:
         The module to move.
     :param device:
-        The target device of the parameters and buffers.
+        The target device.
     :param recurse:
         If ``True``, moves the parameters and buffers of descendant modules.
     :param memo:
@@ -163,36 +164,94 @@ def to_empty(
     def convert(source: Tensor) -> Tensor:
         return torch.empty_like(source, device=device)
 
-    apply_to_module(module, convert, recurse=recurse, memo=memo)
+    apply_to_parameters(module, convert, recurse=recurse, memo=memo)
 
 
-def apply_to_module(
+def share_parameters(source_module: Module, target_module: Module) -> None:
+    """Share the parameters and buffers of ``source_module`` with ``target_module``.
+
+    :param source_module:
+        The module whose parameters and buffers will be shared.
+    :param target_module:
+        The module whose parameters and buffers will be overwritten.
+    """
+    sources = chain(source_module.named_parameters(), source_module.named_buffers())
+    targets = chain(target_module.named_parameters(), target_module.named_buffers())
+
+    for (src_name, src_tensor), (tgt_name, tgt_tensor) in zip(sources, targets):
+        if src_name != tgt_name:
+            raise ValueError(
+                f"`source_module` and `target_module` must have matching parameters and buffers, but `target_module` has no '{src_name}'."
+            )
+
+        if src_tensor.grad is not None:
+            raise ValueError(
+                f"The parameters must not have their `grad` set, but '{src_name}' of `source_module` has it set."
+            )
+
+        if tgt_tensor.grad is not None:
+            raise ValueError(
+                f"The parameters must not have their `grad` set, but '{tgt_name}' of `target_module` has it set."
+            )
+
+    tensors = []
+
+    # The order of the collected tensors here must match `apply_to_parameters()`.
+    def collect_tensors(m: Module) -> None:
+        for child in m.children():
+            if child is not None:
+                collect_tensors(child)
+
+        for tensor in chain(m.parameters(recurse=False), m.buffers(recurse=False)):
+            if tensor is not None:
+                tensors.append(tensor)
+
+    collect_tensors(source_module)
+
+    if not tensors:
+        return
+
+    it = iter(tensors)
+
+    # Do not memoize. No need anyways, and would also break the sync between the
+    # traversed tensors and the iterator.
+    apply_to_parameters(target_module, lambda _: next(it), recurse=True, no_memo=True)
+
+
+def apply_to_parameters(
     module: Module,
     fn: Callable[[Tensor], Tensor],
     *,
     recurse: bool = True,
     memo: Optional[Dict[Tensor, Tensor]] = None,
+    no_memo: bool = False,
 ) -> None:
-    """Apply ``fn`` to all parameters and buffers of ``module``.
+    """Apply ``fn`` to the parameters and buffers of ``module``.
 
     :param module:
         The module to process.
     :param fn:
-        The function to apply to the parameters and buffers of ``module``.
+        The function to apply.
     :param recurse:
         If ``True``, applies ``fn`` to the parameters and buffers of descendant
         modules.
     :param memo:
         The memoization dictionary to detect shared parameters and buffers. If
-        ``None``, constructs an internal one.
+        ``None`` and ``no_memo`` is ``False``, constructs an internal one.
+    :param no_memo:
+        If ``True``, skips memoization.
     """
-    if memo is None and recurse:
+    if no_memo:
+        memo = None
+    elif memo is None and recurse:
         memo = {}
 
     if recurse:
         for child in module.children():
             if child is not None:
-                apply_to_module(child, fn, recurse=recurse, memo=memo)
+                apply_to_parameters(
+                    child, fn, recurse=recurse, memo=memo, no_memo=no_memo
+                )
 
     def call_fn(source: Tensor) -> Tensor:
         if memo is not None and source in memo:
@@ -227,6 +286,35 @@ def apply_to_module(
         setattr(module, buffer_name, call_fn(buffer))
 
 
+def freeze_parameters(module: Module, value: bool = True) -> None:
+    """Set if ``module`` and its descendant modules should stop learning."""
+    for param in module.parameters():
+        param.requires_grad_(not value)
+
+
+def select_parameters(
+    module: Module, names: Sequence[str], *, exclude: bool = False
+) -> Iterable[Tuple[str, Parameter]]:
+    """Select the parameters of ``module`` and of its descendant modules whose
+    name matches ``names``.
+
+    :param module:
+        The module to check.
+    :param names:
+        The parameter names. Can contain regular expressions.
+    :param exclude:
+        If ``True``, return the parameters that do not match ``names``.
+
+    :returns:
+        An iterable of name-parameter tuples.
+    """
+    for name, param in module.named_parameters():
+        matched = any(name == pattern or re.match(pattern, name) for pattern in names)
+
+        if (matched and not exclude) or (not matched and exclude):
+            yield name, param
+
+
 def infer_device(
     module: Module, name: str = "module", *, recurse: bool = True
 ) -> Device:
@@ -238,7 +326,7 @@ def infer_device(
         The name of the module for error reporting purposes.
     :param recurse:
         If ``True``, infers the device by checking the parameters and buffers of
-        descendant modules as well.
+        the descendant modules as well.
     """
     devices = set()
 
@@ -257,31 +345,8 @@ def infer_device(
     s = ", ".join(sorted(f"'{d.type}'" for d in devices))
 
     raise ValueError(
-        f"All parameters and buffers of `{name}` must be on the same device, but they are on {s}."
+        f"All parameters and buffers of `{name}` must be on the same device, but they are on '{s}'."
     )
-
-
-def select_parameters(
-    module: Module, names: Sequence[str], *, exclude: bool = False
-) -> Iterable[Tuple[str, Parameter]]:
-    """Select the parameters of ``module`` and its descendants whose name
-    matches ``names``.
-
-    :param module:
-        The module to check.
-    :param names:
-        The parameter names. Can contain regular expressions.
-    :param exclude:
-        If ``True``, return the parameters that do not match ``names``.
-
-    :returns:
-        An iterable of name-parameter tuples.
-    """
-    for name, param in module.named_parameters():
-        matched = any(name == pattern or re.match(pattern, name) for pattern in names)
-
-        if (matched and not exclude) or (not matched and exclude):
-            yield name, param
 
 
 def load_state_dict(module: Module, state_dict: Mapping[str, Any]) -> None:
@@ -358,12 +423,6 @@ def _get_named_modules(
 
     if post_order:
         yield prefix, module
-
-
-def freeze_module(module: Module, value: bool = True) -> None:
-    """Set if ``module`` and its descendants should stop learning."""
-    for param in module.parameters():
-        param.requires_grad_(not value)
 
 
 @final
