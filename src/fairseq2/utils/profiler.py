@@ -208,10 +208,13 @@ def log_hardware_info(logger: Logger, device: Optional[Device] = None) -> None:
     info.append(f"Number of CPUs: {len(affinity_mask)}/{os.cpu_count() or '-'}")
     info.append(f"Memory: {memory.total // (1024 * 1024 * 1024):,}GiB")
 
+    if device is not None:
+        info.append(f"Device Name: {device}")
+
     if device is not None and device.type == "cuda":
         props = torch.cuda.get_device_properties(device)
 
-        info.append(f"Device Name: {props.name}")
+        info.append(f"Device Display Name: {props.name}")
         info.append(f"Device Memory: {props.total_memory // (1024 * 1024):,}MiB")
         info.append(f"Number of SMs: {props.multi_processor_count}")
         info.append(f"Compute Capability: {props.major}.{props.minor}")

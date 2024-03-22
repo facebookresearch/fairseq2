@@ -68,7 +68,7 @@ class RngBag:
                 generators.append(torch.cuda.default_generators[idx])
             else:
                 raise ValueError(
-                    f"`devices` must be of type 'cpu' or 'cuda', but at least one device is of type '{device.type}' instead."
+                    f"`devices` must be of type `cpu` or `cuda`, but at least one device is of type `{device.type}` instead."
                 )
 
         return RngBag(*generators)
