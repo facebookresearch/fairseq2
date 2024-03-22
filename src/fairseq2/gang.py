@@ -133,11 +133,7 @@ class FakeGang(AbstractGang):
             If ``None``; if CUDA is available, the process will use the first
             CUDA device; otherwise, it will use the CPU.
         """
-        if device is None:
-            if torch.cuda.is_available() and torch.cuda.device_count() > 0:
-                device = Device("cuda", index=0)
-            else:
-                device = CPU
+        device = _determine_default_device()
 
         super().__init__(rank=0, size=1, device=device)
 
@@ -208,12 +204,12 @@ class ProcessGroupGang(AbstractGang):
 
             raise RuntimeError("The default process group is already initialized.")
 
-        num_procs = _get_num_processes()
+        num_procs = get_local_world_size()
 
         if num_threads is None:
             if num_procs > 1 and "OMP_NUM_THREADS" not in os.environ:
                 # To prevent thread oversubscription, we distribute cores evenly
-                # across workers.
+                # across the workers.
                 num_threads = _get_num_cpus(num_procs)
 
         if num_threads is not None:
@@ -232,7 +228,7 @@ class ProcessGroupGang(AbstractGang):
             backend = "nccl"
         else:
             raise ValueError(
-                f"`device` must be of type 'cpu' and 'cuda', but is of type '{device.type}' instead."
+                f"`device` must be of type `cpu` and `cuda`, but is of type `{device.type}` instead."
             )
 
         if device.type == "cuda":
@@ -248,10 +244,10 @@ class ProcessGroupGang(AbstractGang):
                         return
 
                 if warn_only:
-                    logger.warning("The default process group uses the NCCL backend, but the `%s` environment variable is not set. Your collective communication calls can hang indefinitely. Learn more at https://github.com/pytorch/pytorch/issues/46874.", env_name)  # fmt: skip
+                    logger.warning("The default process group uses the `nccl` backend, but the `%s` environment variable is not set. Your collective communication calls can hang indefinitely. Learn more at https://github.com/pytorch/pytorch/issues/46874.", env_name)  # fmt: skip
                 else:
                     raise RuntimeError(
-                        f"The default process group uses the NCCL backend, but the `{env_name}` environment variable is not set. Learn more at https://github.com/pytorch/pytorch/issues/46874."
+                        f"The default process group uses the `nccl` backend, but the `{env_name}` environment variable is not set. Learn more at https://github.com/pytorch/pytorch/issues/46874."
                     )
 
             check_async_handling()
@@ -358,10 +354,27 @@ def _get_num_cpus(num_procs: int) -> int:
 
 
 def _determine_default_device() -> Device:
-    if torch.cuda.is_available() and torch.cuda.device_count() > 0:
-        return _determine_default_cuda_device()
+    device = None
 
-    return CPU
+    device_str = os.getenv("FAIRSEQ2_DEVICE")
+    if device_str is not None:
+        try:
+            device = Device(device_str)
+        except RuntimeError as ex:
+            raise RuntimeError(
+                f"The value of the `FAIRSEQ2_DEVICE` environment variable must specify a valid PyTorch device, but is '{device_str}' instead."
+            ) from ex
+
+    if device is None:
+        if torch.cuda.is_available() and torch.cuda.device_count() > 0:
+            device = _determine_default_cuda_device()
+
+    if device is None:
+        device = CPU
+
+    logger.info("'%s' set as the default device of the process.", device)
+
+    return device
 
 
 def _determine_default_cuda_device() -> Device:
@@ -381,7 +394,7 @@ def _determine_default_cuda_device() -> Device:
     if device is None:
         num_devices = torch.cuda.device_count()
 
-        idx = _get_device_index(num_devices, device_name="CUDA")
+        idx = _get_device_index(num_devices, device_type="cuda")
 
         device = Device("cuda", index=idx)
 
@@ -391,16 +404,17 @@ def _determine_default_cuda_device() -> Device:
     return device
 
 
-def _get_device_index(num_devices: int, device_name: str) -> int:
+def _get_device_index(num_devices: int, device_type: str) -> int:
     assert num_devices > 0
 
-    # We use the `LOCAL_RANK` environment variable to determine which GPU to
-    # pick in case the process has more than one GPU available.
-    device_idx = _get_int_from_env("LOCAL_RANK")
+    # We use the `LOCAL_RANK` environment variable to determine which device to
+    # pick in case the process has more than one available.
+    device_idx = _get_int_from_env("LOCAL_RANK", allow_zero=True)
     if device_idx is None:
-        if num_devices > 1:
+        num_procs = get_local_world_size()
+        if num_procs > 1 and num_devices > 1:
             raise RuntimeError(
-                f"The default {device_name} device cannot be determined. There are {num_devices} {device_name} devices available, but the `LOCAL_RANK` environment variable is not set."
+                f"The default `{device_type}` device cannot be determined. There are {num_devices} devices available, but the `LOCAL_RANK` environment variable is not set."
             )
 
         return 0
@@ -412,43 +426,61 @@ def _get_device_index(num_devices: int, device_name: str) -> int:
 
     if device_idx >= num_devices:
         raise RuntimeError(
-            f"The value of the `LOCAL_RANK` environment variable must be less than the number of available {device_name} devices ({num_devices}), but is {device_idx} instead."
+            f"The value of the `LOCAL_RANK` environment variable must be less than the number of available `{device_type}` devices ({num_devices}), but is {device_idx} instead."
         )
 
     return device_idx
 
 
-def _get_num_processes() -> int:
-    num_procs = _get_int_from_env("LOCAL_WORLD_SIZE")
-    if num_procs is None:
-        return 1
+def get_world_size() -> int:
+    """Return the world size of the running job."""
+    value = _get_int_from_env("WORLD_SIZE")
 
-    if num_procs <= 0:
-        raise RuntimeError(
-            f"The value of the `LOCAL_WORLD_SIZE` environment variable must be greater than 0, but is {num_procs} instead."
-        )
-
-    return num_procs
+    return 1 if value is None else value
 
 
-def _get_int_from_env(var_name: str) -> Optional[int]:
-    value = os.getenv(var_name)
-    if value is None:
+def get_rank() -> int:
+    """Return the rank of this process in the running job."""
+    value = _get_int_from_env("RANK", allow_zero=True)
+
+    return 0 if value is None else value
+
+
+def get_local_world_size() -> int:
+    """Return the local world size of the running job."""
+    value = _get_int_from_env("LOCAL_WORLD_SIZE")
+
+    return 1 if value is None else value
+
+
+def get_local_rank() -> int:
+    """Return the local rank of this process in the running job."""
+    value = _get_int_from_env("LOCAL_RANK", allow_zero=True)
+
+    return 0 if value is None else value
+
+
+def _get_int_from_env(var_name: str, allow_zero: bool = False) -> Optional[int]:
+    s = os.getenv(var_name)
+    if s is None:
         return None
 
     try:
-        return int(value)
+        value = int(s)
     except ValueError:
         raise RuntimeError(
             f"The value of the `{var_name}` environment variable must be an integer, but is '{value}' instead."
         )
 
+    if not allow_zero:
+        if not value >= 1:
+            raise RuntimeError(
+                f"The value of the `{var_name}` environment variable must be greater than 0, but is {value} instead."
+            )
+    else:
+        if not value >= 0:
+            raise RuntimeError(
+                f"The value of the `{var_name}` environment variable must be greater than or equal to 0, but is {value} instead."
+            )
 
-def get_world_size() -> int:
-    """Return the world size of the running job."""
-    return _get_int_from_env("WORLD_SIZE") or 1
-
-
-def get_global_rank() -> int:
-    """Return the global rank of this process in the running job."""
-    return _get_int_from_env("RANK") or 0
+    return value

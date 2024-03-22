@@ -10,7 +10,7 @@ from logging import DEBUG, INFO, FileHandler, Formatter, Handler, StreamHandler
 from pathlib import Path
 from typing import List, Optional
 
-from fairseq2.gang import get_global_rank
+from fairseq2.gang import get_rank
 
 
 def setup_logging(
@@ -32,7 +32,7 @@ def setup_logging(
     :param force:
         If ``True``, overwrites existing log configuration.
     """
-    rank = get_global_rank()
+    rank = get_rank()
 
     handlers: List[Handler] = [StreamHandler()]  # Log to stderr.
 
