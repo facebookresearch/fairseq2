@@ -18,6 +18,7 @@ from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
 from torch.optim import Optimizer
 
 from fairseq2.gang import Gang
+from fairseq2.typing import Device, override
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +93,7 @@ class DynamicLossScaler:
             logger.info("The scale window is set to %d.", scale_window)
 
         if gang.size == 1 or not sharded:
-            self._grad_scaler = GradScaler(
+            self._grad_scaler = _InternalGradScaler(
                 init_scale, scale_factor, 1 / scale_factor, scale_window, enabled
             )
         else:
@@ -226,3 +227,19 @@ class LossScaleResult:
 
     min_reached: bool = False
     """If ``True``, the scale has been decreased to its minimum value."""
+
+
+# An ugly hack.
+class _InternalGradScaler(GradScaler):
+    @override
+    def _unscale_grads_(
+        self,
+        optimizer: Optimizer,
+        inv_scale: Tensor,
+        found_inf: Tensor,
+        allow_fp16: bool,
+    ) -> Dict[Device, Tensor]:
+        # PyTorch `GradScaler` artificially limits fp16 gradients only to
+        # optimizers that natively support AMP. Here we hijack and always
+        # pass `allow_fp16=True` to the real `_unscale_grads_()`.
+        return super()._unscale_grads_(optimizer, inv_scale, found_inf, allow_fp16=True)
