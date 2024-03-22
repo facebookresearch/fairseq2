@@ -138,8 +138,10 @@ class Wav2Vec2Masker(Module):
         return (
             f"temporal_span_len={self.temporal_span_len}, "
             f"max_temporal_mask_prob={self.max_temporal_mask_prob}, "
+            f"min_num_temporal_mask_spans={self.min_num_temporal_mask_spans}, "
             f"spatial_span_len={self.spatial_span_len}, "
-            f"max_spatial_mask_prob={self.max_spatial_mask_prob}"
+            f"max_spatial_mask_prob={self.max_spatial_mask_prob}, "
+            f"min_num_spatial_mask_spans={self.min_num_spatial_mask_spans}"
         )
 
 
