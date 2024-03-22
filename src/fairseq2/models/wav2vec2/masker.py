@@ -48,12 +48,12 @@ class Wav2Vec2Masker(Module):
             steps.
         :param max_temporal_mask_prob:
             The maximum probability of masking a time step. Note that, due to
-            mask span overlap, the effective probability might be smaller.
+            mask span overlap, the effective probability will be lower.
         :param spatial_span_len:
             The length of each spatial mask span that is applied over features.
         :param max_spatial_mask_prob:
             The maximum probability of masking a feature. Note that, due to mask
-            span overlap, the effective probability might be smaller.
+            span overlap, the effective probability will be lower.
         """
         super().__init__()
 

@@ -175,7 +175,7 @@ class Wav2Vec2Config:
 
     max_temporal_mask_prob: float = 0.65
     """The maximum probability of masking a time step. Note that, due to mask
-    span overlap, the effective probability will be smaller."""
+    span overlap, the effective probability will be lower."""
 
     min_num_temporal_mask_spans: int = 2
     """The minimum number of temporal masks sampled per sequence."""
@@ -185,7 +185,7 @@ class Wav2Vec2Config:
 
     max_spatial_mask_prob: float = 0.0
     """The maximum probability of masking a feature. Note that, due to mask span
-    overlap, the effective probability will be smaller."""
+    overlap, the effective probability will be lower."""
 
     min_num_spatial_mask_spans: int = 2
     """The minimum number of spatial masks sampled per sequence."""

@@ -140,7 +140,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
         # (N, C, S) -> (N, E, S)
         features = self.layers(seqs)
 
-        if self.grad_scale != 1.0:
+        if self.training and self.grad_scale != 1.0:
             features = scale_grad(features, self.grad_scale)
 
         # (N, E, S) -> (N, S, E)
