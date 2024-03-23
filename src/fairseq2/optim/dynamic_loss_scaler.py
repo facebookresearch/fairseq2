@@ -39,7 +39,6 @@ class DynamicLossScaler:
         optimizer: Optimizer,
         gang: Gang,
         *,
-        sharded: bool = True,
         init_scale: float = 2.0**15,
         scale_factor: float = 2.0,
         scale_window: Optional[int] = None,
@@ -52,9 +51,6 @@ class DynamicLossScaler:
             The optimizer that holds the gradients that will be unscaled.
         :param gang:
             The associated gang.
-        :param sharded:
-            If ``True``, indicates that the corresponding optimizer state is
-            sharded (e.g. FSDP).
         :param init_scale:
             The initial scale.
         :param scale_factor:
@@ -92,7 +88,7 @@ class DynamicLossScaler:
 
             logger.info("The scale window is set to %d.", scale_window)
 
-        if gang.size == 1 or not sharded:
+        if gang.size == 1:
             self._grad_scaler = _InternalGradScaler(
                 init_scale, scale_factor, 1 / scale_factor, scale_window, enabled
             )
