@@ -372,7 +372,7 @@ def _determine_default_device() -> Device:
     if device is None:
         device = CPU
 
-    logger.info("'%s' set as the default device of the process.", device)
+    logger.info("Setting '%s' as the default device of the process.", device)
 
     return device
 

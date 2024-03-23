@@ -36,7 +36,7 @@ class AdamW(AbstractOptimizer):
         maximize: bool = False,
         capturable: bool = False,
         differentiable: bool = False,
-        impl: Literal["auto", "foreach", "fused"] = "auto",
+        impl: Literal["auto", "foreach", "fused", "naive"] = "auto",
         use_fp32: bool = False,
     ) -> None:
         """
@@ -176,7 +176,10 @@ class AdamW(AbstractOptimizer):
                 kwargs["differentiable"] = True
 
             if (impl := pg["impl"]) != "auto":
-                kwargs[impl] = True
+                if impl == "naive":
+                    kwargs["foreach"] = False  # Disables both foreach and fused.
+                else:
+                    kwargs[impl] = True
 
             for attr in ["grad_scale", "found_inf"]:
                 if (value := getattr(self, attr, None)) is not None:
