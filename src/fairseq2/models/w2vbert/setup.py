@@ -28,6 +28,10 @@ def convert_w2vbert_checkpoint(
     if "w2v2_model.final_target_proj.weight" in state_dict:
         return checkpoint
 
+    # Check if we have a DDP wrapped fairseq2 checkpoint.
+    if "module.w2v2_model.final_target_proj.weight" in state_dict:
+        return checkpoint
+
     state_dict["w2v2_model.quantizer.num_updates"] = torch.zeros((), device="cpu")
 
     key_map = {

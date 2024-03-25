@@ -21,6 +21,10 @@ def convert_llama_checkpoint(
     checkpoint: Dict[str, Any], config: LLaMAConfig
 ) -> Dict[str, Any]:
     """Convert a reference LLaMA checkpoint to fairseq2 format."""
+    # Check if we have a fairseq2 checkpoint.
+    if "model" in checkpoint:
+        return checkpoint
+
     key_map = {
         # fmt: off
         r"^layers\.([0-9]+)\.attention\.wq\.":    r"decoder.layers.\1.self_attn.q_proj.",

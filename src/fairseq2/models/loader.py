@@ -10,6 +10,7 @@ from pickle import PickleError
 from typing import Any, Dict, Generic, Optional, Protocol, TypeVar, Union, final
 
 from torch.nn import Module
+from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
 
 from fairseq2.assets import (
     AssetCard,
@@ -246,6 +247,9 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
             raise AssetError(
                 f"The checkpoint of {card.name} does not contain a 'model' entry."
             )
+
+        # Remove DDP 'module' prefix.
+        consume_prefix_in_state_dict_if_present(state_dict, prefix="module.")
 
         try:
             load_state_dict(model, state_dict)
