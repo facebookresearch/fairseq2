@@ -133,7 +133,8 @@ class FakeGang(AbstractGang):
             If ``None``; if CUDA is available, the process will use the first
             CUDA device; otherwise, it will use the CPU.
         """
-        device = _determine_default_device()
+        if device is None:
+            device = _determine_default_device()
 
         super().__init__(rank=0, size=1, device=device)
 
