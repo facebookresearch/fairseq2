@@ -26,6 +26,7 @@ import torch
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.api import FullStateDictConfig, StateDictType
 from torch.nn import Module
+from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
 
 from fairseq2.gang import Gang
 from fairseq2.models.utils.checkpoint import load_checkpoint
@@ -525,6 +526,9 @@ class FileCheckpointManager(CheckpointManager):
             state_dict = checkpoint["model"]
         except KeyError as ex:
             raise_error(ex)
+
+        # Remove DP/DDP 'module' prefix.
+        consume_prefix_in_state_dict_if_present(state_dict, prefix="module.")
 
         try:
             load_state_dict(out, state_dict)

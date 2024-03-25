@@ -29,6 +29,10 @@ def convert_wav2vec2_checkpoint(
     if "final_target_proj.weight" in state_dict:
         return checkpoint
 
+    # Check if we have a DDP wrapped fairseq2 checkpoint.
+    if "module.final_target_proj.weight" in state_dict:
+        return checkpoint
+
     if config.encoder_config.norm_order == TransformerNormOrder.POST:
         # fmt: off
         state_dict["encoder_frontend.layer_norm.weight"] = state_dict["encoder.layer_norm.weight"]

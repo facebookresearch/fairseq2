@@ -24,6 +24,16 @@ def convert_s2t_transformer_checkpoint(
     checkpoint: Dict[str, Any], config: S2TTransformerConfig
 ) -> Dict[str, Any]:
     """Convert a fairseq S2T Transformer checkpoint to fairseq2 format."""
+    state_dict = checkpoint["model"]
+
+    # Check if we have a fairseq2 checkpoint.
+    if "decoder_frontend.embed.weight" in state_dict:
+        return checkpoint
+
+    # Check if we have a DDP wrapped fairseq2 checkpoint.
+    if "module.decoder_frontend.embed.weight" in state_dict:
+        return checkpoint
+
     key_map = {
         # fmt: off
         r"^encoder\.subsample\.conv_layers\.([0-9]+)\.":                   r"encoder_frontend.feature_extractor.layers.\1.conv.",

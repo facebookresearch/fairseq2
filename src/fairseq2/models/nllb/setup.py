@@ -29,7 +29,11 @@ def convert_nllb_checkpoint(
     state_dict = checkpoint["model"]
 
     # Check if we have a fairseq2 checkpoint.
-    if "decoder_frontend.embed_weight" in state_dict:
+    if "decoder_frontend.embed.weight" in state_dict:
+        return checkpoint
+
+    # Check if we have a DDP wrapped fairseq2 checkpoint.
+    if "module.decoder_frontend.embed.weight" in state_dict:
         return checkpoint
 
     key_map = {
