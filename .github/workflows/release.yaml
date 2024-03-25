@@ -46,14 +46,16 @@ jobs:
               exit 1
             fi
           fi
-      - name: Stamp version with current date if nightly
+      - name: Stamp version with current date and commit hash if nightly
         id: stamp_version
         if: inputs.release_type == 'nightly'
         run: |
           version=$(cat VERSION)
 
+          commit_hash=$(git rev-parse --short HEAD)
+
           # Append datetime-stamped dev segment.
-          echo version_override=${version%.dev*}.dev$(date --utc +%Y%m%d%H%M) >> "$GITHUB_OUTPUT"
+          echo version_override=${version%.dev*}.dev$(date --utc +%Y%m%d%H%M)+g$commit_hash >> "$GITHUB_OUTPUT"
 
   lint:
     name: Lint
