@@ -49,6 +49,23 @@ class TestShuffleOp:
 
                 pipeline.reset()
 
+    def test_op_saves_its_state_after_internal_buffer_is_emptied(self) -> None:
+        class Foo:
+            pass
+
+        # Deliberately use an opaque Python object to ensure that it cannot be
+        # saved in case the buffer is not emptied correctly.
+        seq = [Foo()] * 10
+
+        pipeline = read_sequence(seq).shuffle(40).and_return()
+
+        # Exhaust the whole pipeline so that the internal shuffle buffer is
+        # emptied.
+        _ = list(pipeline)
+
+        # Must not fail.
+        pipeline.state_dict()
+
     @pytest.mark.parametrize("window", [10, 100, 1000])
     def test_op_saves_and_restores_its_state(self, window: int) -> None:
         seq = list(range(5000))

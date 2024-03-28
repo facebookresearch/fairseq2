@@ -57,8 +57,19 @@ public:
     data(const data &) = default;
     data &operator=(const data &) = default;
 
-    data(data &&other) noexcept = default;
-    data &operator=(data &&other) noexcept = default;
+    data(data &&other) noexcept
+      : payload_{std::move(other.payload_)}
+    {
+        other.payload_ = {};
+    }
+
+    data &
+    operator=(data &&other) noexcept
+    {
+        payload_ = std::exchange(other.payload_, {});
+
+        return *this;
+    }
 
    ~data() = default;
 
