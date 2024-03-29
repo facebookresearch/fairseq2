@@ -11,7 +11,7 @@ from typing import Any, Dict, Iterator, List, Mapping, TypeVar, final
 from typing_extensions import Self
 
 from fairseq2.data import DataPipeline
-from fairseq2.datasets.utils import _all_eod
+from fairseq2.datasets.utils import _all_eod, _total_batch_size
 from fairseq2.gang import Gang
 from fairseq2.models import Batch
 from fairseq2.typing import override
@@ -87,6 +87,7 @@ class DataPipelineReader(DataReader[BatchT]):
         self._num_accumulate = num_accumulate
         self._sync_batches = sync_batches
         self._eod = False
+        self._total_batch_size = 0
 
     @override
     def __iter__(self) -> Self:
@@ -106,6 +107,8 @@ class DataPipelineReader(DataReader[BatchT]):
                 break
 
             batches.append(batch)
+
+        self._total_batch_size = _total_batch_size(batches, self._gang)
 
         self._eod = len(batches) != self._num_accumulate
 
@@ -133,3 +136,7 @@ class DataPipelineReader(DataReader[BatchT]):
         self._eod = False
 
         self._pipeline.load_state_dict(state_dict)
+
+    @property
+    def total_batch_size(self):
+        return self._total_batch_size
