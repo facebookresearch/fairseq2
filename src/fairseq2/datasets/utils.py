@@ -11,7 +11,7 @@ from typing import List, TypeVar
 import torch
 
 from fairseq2.gang import Gang
-
+from fairseq2.models.seq2seq import Seq2SeqBatch
 
 BatchT = TypeVar("BatchT")
 
@@ -36,7 +36,7 @@ def _all_eod(eod: bool, gang: Gang, logger: Logger) -> bool:
     return False
 
 
-def _total_batch_size(batches: List[BatchT], gang: Gang) -> int:
+def _total_batch_size(batches: List[Seq2SeqBatch], gang: Gang) -> int:
     """Return the sum of the batch sizes of all elements from all ranks."""
 
     total_bsz = 0
@@ -50,6 +50,6 @@ def _total_batch_size(batches: List[BatchT], gang: Gang) -> int:
         gang.all_gather(
             batch_sizes, torch.tensor(b.source_seqs.size(0), device=gang.device)
         )
-        total_bsz += batch_sizes.sum().item()
+        total_bsz += int(batch_sizes.sum().item())
 
     return total_bsz
