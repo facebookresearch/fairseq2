@@ -43,10 +43,10 @@ def compute_row_mask(
     :param span_len:
         The length of each mask span.
     :param max_mask_prob:
-        The maximum probability of masking an element among all elements in a
-        row. Note that, due to mask span overlap, the effective probability
-        might be smaller. The implementation also guarantees that there is
-        always at least one unmasked element in each row.
+        The maximum probability of masking an element in a row. Note that, due
+        to mask span overlap, the effective probability will be lower. The
+        implementation also guarantees that there will be always at least one
+        unmasked element in each row.
     :param row_lens:
         The length of each row. *Shape:* :math:`(R)`, where :math:`R` is the
         number of rows.
@@ -67,10 +67,12 @@ def compute_row_mask(
                 f"The size of the second dimension of `shape` must be greater than `span_len` ({span_len}), but is {max_row_len} instead."
             )
 
+        # (N)
         row_lens = torch.full(
             (num_rows,), max_row_len, device=device, dtype=torch.int64
         )
     else:
+        # (N)
         row_lens = row_lens.view(num_rows)
 
         # We only mask rows that are longer than the mask span length.
@@ -79,6 +81,7 @@ def compute_row_mask(
                 f"All lengths in `row_lens` must be greater than `span_len` ({span_len}), but at least one length is smaller. row_lens: {row_lens}"
             )
 
+    # (N, M x L)
     indices = _compute_mask_spans(row_lens, span_len, max_mask_prob, min_num_spans)
     if indices is None:
         return row_lens.new_empty((0, 0))
@@ -97,8 +100,8 @@ def _compute_mask_spans(
         return None
 
     # Compute the number of mask spans per row. We should always have at least
-    # one unmasked element; this is why we substract 1 from `row_lens`.
-    num_spans_per_row = (max_mask_prob / span_len) * (row_lens - 1)
+    # one unmasked element; this is why we subtract 1 from `row_lens`.
+    num_spans_per_row = max_mask_prob / span_len * (row_lens - 1)
 
     # Require the same number of mask spans for all rows.
     num_spans = int(num_spans_per_row.to(dtype).min())
@@ -112,14 +115,15 @@ def _compute_mask_spans(
         return None
 
     # The range of possible start indices for mask spans in form [0, max + 1).
+    # (N)
     span_start_range = row_lens - span_len + 1
 
-    # (R) -> (R x N)
+    # (N) -> (N x M)
     span_start_range = repeat_interleave(span_start_range, dim=0, repeat=num_spans)
 
     # Unlike the fairseq implementation, we do sample with replacement, which is
     # more consistent with the overlap strategy.
-    # (R x N)
+    # (N x M)
     rand_scales = torch.rand(num_rows * num_spans, device=device)
 
     # By random scaling we effectively pick a random start index for each mask
@@ -128,16 +132,16 @@ def _compute_mask_spans(
 
     # The following ops convert the mask span offsets (i.e. start indices) to
     # mask spans (i.e. index ranges).
-    # (R x N) -> (R, N)
+    # (N x M) -> (N, M)
     span_offsets = span_offsets.to(dtype).view(num_rows, -1)
 
-    # (R, N) -> (R, N x L)
+    # (N, M) -> (N, M x L)
     span_offsets = repeat_interleave(span_offsets, dim=-1, repeat=span_len)
 
     # (L)
     indices = torch.arange(span_len, device=device, dtype=dtype)
 
-    # (L) -> (R, N x L)
+    # (L) -> (N, M x L)
     indices = indices.repeat(num_spans).unsqueeze(0).expand(num_rows, -1)
 
     return span_offsets + indices
@@ -145,6 +149,7 @@ def _compute_mask_spans(
 
 def _generate_mask(indices: Tensor, max_row_len: int) -> Tensor:
     """Generate a boolean mask by setting ``indices`` to ``True``."""
+    # (N, S)
     float_mask = torch.zeros((indices.size(0), max_row_len), device=indices.device)
 
     # Set elements corresponding to masked indices to 1.
@@ -155,10 +160,12 @@ def _generate_mask(indices: Tensor, max_row_len: int) -> Tensor:
     # ensure that all rows have the same amount of masking.
     min_num_masked = int(torch.count_nonzero(float_mask, dim=-1).min())
 
+    # (N, min(M x L))
     # We randomly pick `min_num_masked` masked elements from each row, which
     # effectively unmasks the remaining elements.
     indices = torch.multinomial(float_mask, num_samples=min_num_masked)
 
+    # (N, S)
     # Now we construct the actual boolean mask which has the same number of
     # masked elements in each row.
     bool_mask = torch.full_like(float_mask, False, dtype=torch.bool)

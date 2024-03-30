@@ -184,17 +184,17 @@ class Wav2Vec2Frontend(TransformerFrontend):
             is the batch size and :math:`S` is the sequence length.
         :param masker:
             If not ``None``, the features will be masked and the applied
-            temporal mask will be returned as the third tuple element.
+            temporal mask will be returned as the third element of the tuple.
 
         :returns:
-            - The processed sequences to pass to a Transformer encoder. *Shape:*
+            - The processed features to pass to the context network. *Shape:*
               :math:`(N,S,M)`, where :math:`N` is the batch size, :math:`S` is
               the sequence length, and :math:`M` is the dimensionality of the
               model.
-            - The padding mask of the processed sequences. *Shape:* :math:`(N,S)`,
+            - The padding mask of the processed features. *Shape:* :math:`(N,S)`,
               where :math:`N` is the batch size and :math:`S` is the output
               sequence length.
-            - The temporal mask that has been applied to the processed sequences.
+            - The temporal mask that has been applied to the processed features.
               *Shape:* :math:`(N,S)`, where :math:`N` is the batch size and
               :math`S` is the sequence length.
         """

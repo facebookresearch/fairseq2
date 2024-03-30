@@ -43,7 +43,7 @@ class PaddingMask:
 
         return self._materialized
 
-    def trim(self, size: int) -> "PaddingMask":
+    def trim(self, size: int) -> PaddingMask:
         """Return a new trimmed padding mask.
 
         :param size:

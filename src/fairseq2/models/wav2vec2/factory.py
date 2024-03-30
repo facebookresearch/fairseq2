@@ -131,14 +131,14 @@ class Wav2Vec2EncoderConfig:
     ffn_inner_dim: int = 3072
     """The inner dimensionality of feed-forward networks."""
 
-    ffn_inner_dropout_p: float = 0.0
-    """The dropout probability on inner activations of feed-forward networks."""
-
     dropout_p: float = 0.1
     """The dropout probability on outputs of Transformer layers."""
 
     attn_dropout_p: float = 0.1
     """The dropout probability on attention weights."""
+
+    ffn_inner_dropout_p: float = 0.0
+    """The dropout probability on inner activations of feed-forward networks."""
 
     layer_drop_p: float = 0.05
     """If greater than zero, applies LayerDrop to encoder layers as described in

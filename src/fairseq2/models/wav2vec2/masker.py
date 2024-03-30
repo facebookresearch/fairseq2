@@ -111,7 +111,7 @@ class Wav2Vec2Masker(Module):
 
         assert temporal_mask is not None
 
-        seqs[temporal_mask] = self.temporal_mask_embed
+        seqs[temporal_mask] = self.temporal_mask_embed.type_as(seqs)
 
         if self.max_spatial_mask_prob > 0.0:
             # Spatial mask over features.
