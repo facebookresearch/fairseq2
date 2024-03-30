@@ -24,4 +24,6 @@ from fairseq2.models.loader import ModelFactory as ModelFactory
 from fairseq2.models.loader import ModelLoader as ModelLoader
 from fairseq2.models.loader import StandardModelLoader as StandardModelLoader
 from fairseq2.models.loader import load_model as load_model
+from fairseq2.models.model import Batch as Batch
+from fairseq2.models.model import Model as Model
 from fairseq2.models.setup import setup_model as setup_model

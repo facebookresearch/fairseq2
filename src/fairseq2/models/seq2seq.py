@@ -17,7 +17,7 @@ from torcheval.metrics import Mean, Sum, Throughput
 from fairseq2.data import VocabularyInfo
 from fairseq2.gang import Gang
 from fairseq2.metrics import MetricBag
-from fairseq2.models.model import Model
+from fairseq2.models.model import Batch, Model
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import override
@@ -56,7 +56,7 @@ class Seq2SeqModel(Model, ABC):
 
 @final
 @dataclass(frozen=True)
-class Seq2SeqBatch:
+class Seq2SeqBatch(Batch):
     """Represents a sequence-to-sequence batch."""
 
     source_seqs: Tensor
@@ -110,6 +110,7 @@ class Seq2SeqBatch:
         return batch, self.target_seqs[:, 1:]
 
     @property
+    @override
     def batch_size(self) -> int:
         """The size of the batch dimension."""
         return self.target_seqs.size(0)
