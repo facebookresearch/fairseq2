@@ -6,12 +6,12 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterator, List, Mapping, TypeVar, final
+from typing import Any, Dict, Iterator, List, Mapping, Tuple, TypeVar, final
 
 from typing_extensions import Self
 
 from fairseq2.data import DataPipeline
-from fairseq2.datasets.utils import _all_eod, _total_batch_size
+from fairseq2.datasets.utils import _all_batch_sizes
 from fairseq2.gang import Gang
 from fairseq2.models import Batch
 from fairseq2.typing import override
@@ -24,7 +24,7 @@ BatchT = TypeVar("BatchT", bound=Batch)
 BatchT_co = TypeVar("BatchT_co", bound=Batch, covariant=True)
 
 
-class DataReader(ABC, Iterator[List[BatchT_co]]):
+class DataReader(ABC, Iterator[Tuple[int, List[BatchT_co]]]):
     """Reads batches of examples from a dataset."""
 
     @abstractmethod
@@ -32,7 +32,7 @@ class DataReader(ABC, Iterator[List[BatchT_co]]):
         ...
 
     @abstractmethod
-    def __next__(self) -> List[BatchT_co]:
+    def __next__(self) -> Tuple[int, List[BatchT_co]]:
         ...
 
     @abstractmethod
@@ -87,14 +87,13 @@ class DataPipelineReader(DataReader[BatchT]):
         self._num_accumulate = num_accumulate
         self._sync_batches = sync_batches
         self._eod = False
-        self._total_batch_size = 0
 
     @override
     def __iter__(self) -> Self:
         return self
 
     @override
-    def __next__(self) -> List[BatchT]:
+    def __next__(self) -> Tuple[int, List[BatchT]]:
         if self._eod:
             raise StopIteration()
 
@@ -108,18 +107,17 @@ class DataPipelineReader(DataReader[BatchT]):
 
             batches.append(batch)
 
-        self._total_batch_size = _total_batch_size(batches, self._gang)
-
-        self._eod = len(batches) != self._num_accumulate
-
         # If requested, sync batches across all processes in the gang.
         if self._sync_batches:
-            self._eod = _all_eod(self._eod, self._gang, logger)
+            total_batch_size, self._eod = _all_batch_sizes(batches, self._gang, logger)
+        else:
+            total_batch_size = self._gang.size * self._num_accumulate * batch.batch_size
+            self._eod = len(batches) != self._num_accumulate
 
         if self._eod:
             raise StopIteration()
 
-        return batches
+        return total_batch_size, batches
 
     @override
     def reset(self) -> None:
@@ -136,7 +134,3 @@ class DataPipelineReader(DataReader[BatchT]):
         self._eod = False
 
         self._pipeline.load_state_dict(state_dict)
-
-    @property
-    def total_batch_size(self):
-        return self._total_batch_size
