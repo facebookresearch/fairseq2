@@ -13,15 +13,18 @@ from typing_extensions import Self
 from fairseq2.data import DataPipeline
 from fairseq2.datasets.utils import _all_eod
 from fairseq2.gang import Gang
+from fairseq2.models import Batch
 from fairseq2.typing import override
 
 logger = logging.getLogger(__name__)
 
 
-BatchT = TypeVar("BatchT")
+BatchT = TypeVar("BatchT", bound=Batch)
+
+BatchT_co = TypeVar("BatchT_co", bound=Batch, covariant=True)
 
 
-class DataReader(ABC, Iterator[List[BatchT]]):
+class DataReader(ABC, Iterator[List[BatchT_co]]):
     """Reads batches of examples from a dataset."""
 
     @abstractmethod
@@ -29,7 +32,7 @@ class DataReader(ABC, Iterator[List[BatchT]]):
         ...
 
     @abstractmethod
-    def __next__(self) -> List[BatchT]:
+    def __next__(self) -> List[BatchT_co]:
         ...
 
     @abstractmethod
@@ -53,7 +56,7 @@ class DataPipelineReader(DataReader[BatchT]):
     _pipeline_iter: Iterator[BatchT]
     _gang: Gang
     _num_accumulate: int
-    _sync_eod: bool
+    _sync_batches: bool
     _eod: bool
 
     def __init__(
@@ -62,7 +65,7 @@ class DataPipelineReader(DataReader[BatchT]):
         gang: Gang,
         *,
         num_accumulate: int = 1,
-        sync_eod: bool = False,
+        sync_batches: bool = False,
     ) -> None:
         """
         :param pipeline:
@@ -72,17 +75,17 @@ class DataPipelineReader(DataReader[BatchT]):
         :param num_accumulate:
             The number of batches to accumulate in each iteration. Typically
             used with gradient accumulation during training.
-        :param sync_eod:
-            If ``True``, syncs all processes in the gang about the end of data
-            at the end of each ``next()`` call. Typically used when shards can
-            have varying amount of data and it is critical for each process to
-            iterate over the same number of batches (e.g. during training).
+        :param sync_batches:
+            If ``True``, at the end of each ``next()`` call, syncs batches read
+            across all processes in the gang. Typically used when the amount of
+            data to be read can vary per process (e.g. due to bucketing) and it
+            is critical for each process to iterate over same number of batches.
         """
         self._pipeline = pipeline
         self._pipeline_iter = iter(pipeline)
         self._gang = gang
         self._num_accumulate = num_accumulate
-        self._sync_eod = sync_eod
+        self._sync_batches = sync_batches
         self._eod = False
 
     @override
@@ -106,8 +109,8 @@ class DataPipelineReader(DataReader[BatchT]):
 
         self._eod = len(batches) != self._num_accumulate
 
-        # If requested, check the end of data across all processes in the gang.
-        if self._sync_eod:
+        # If requested, sync batches across all processes in the gang.
+        if self._sync_batches:
             self._eod = _all_eod(self._eod, self._gang, logger)
 
         if self._eod:

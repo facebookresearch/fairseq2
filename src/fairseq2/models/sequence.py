@@ -18,7 +18,7 @@ from torcheval.metrics import Mean, Sum, Throughput
 from fairseq2.data import VocabularyInfo
 from fairseq2.gang import Gang
 from fairseq2.metrics import MetricBag
-from fairseq2.models.model import Model
+from fairseq2.models.model import Batch, Model
 from fairseq2.nn.functional import nll_loss
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import override
@@ -53,7 +53,7 @@ class SequenceModel(Model, ABC):
 
 @final
 @dataclass(frozen=True)
-class SequenceBatch:
+class SequenceBatch(Batch):
     """Represents a sequence batch."""
 
     seqs: Tensor
@@ -69,6 +69,7 @@ class SequenceBatch:
     """The data example from which this batch was constructed."""
 
     @property
+    @override
     def batch_size(self) -> int:
         """The size of the batch."""
         return self.seqs.size(0)
@@ -93,7 +94,7 @@ class SequenceModelOutput:
     """Holds the output of a sequence model."""
 
     logits: Tensor
-    """The logits for next-step prediction. *Shape:* :math:`(N,S,T)`, where
+    """The logits for the next-step predictions. *Shape:* :math:`(N,S,T)`, where
     :math:`N` is the batch size, :math:`S` is the sequence length, and :math:`T`
     is the size of the vocabulary."""
 

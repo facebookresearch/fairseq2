@@ -138,10 +138,10 @@ class NllbDataset(ParallelTextDataset):
         # each process. So, it is important to ensure that all processes
         # are in sync about the end of the data. If this is not the case,
         # the training can hang.
-        sync_eod = repeat is not None and (sample or bucket_by_length)
+        sync_batches = repeat is not None and (sample or bucket_by_length)
 
         return DataPipelineReader[Seq2SeqBatch](
-            pipeline, gang, num_accumulate=num_accumulate, sync_eod=sync_eod
+            pipeline, gang, num_accumulate=num_accumulate, sync_batches=sync_batches
         )
 
     @override

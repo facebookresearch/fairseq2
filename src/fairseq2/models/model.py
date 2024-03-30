@@ -4,6 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from abc import ABC, abstractmethod
 from typing import Optional
 
 from torch.nn import Module
@@ -35,3 +36,12 @@ class Model(Module):
     def family(self) -> Optional[str]:
         """The family of the model."""
         return self._family
+
+
+class Batch(ABC):
+    """Represents a batch of inputs to be processed by a machine learning model."""
+
+    @property
+    @abstractmethod
+    def batch_size(self) -> int:
+        """The number of inputs in the batch (i.e. number of rows)."""
