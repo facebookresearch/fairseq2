@@ -354,28 +354,34 @@ def _get_num_cpus(num_procs: int) -> int:
     return min(max_num_cpus, len(os.sched_getaffinity(0)))
 
 
+_default_device: Optional[Device] = None
+
+
 def _determine_default_device() -> Device:
-    device = None
+    global _default_device
+
+    if _default_device is not None:
+        return _default_device
 
     device_str = os.getenv("FAIRSEQ2_DEVICE")
     if device_str is not None:
         try:
-            device = Device(device_str)
+            _default_device = Device(device_str)
         except RuntimeError as ex:
             raise RuntimeError(
                 f"The value of the `FAIRSEQ2_DEVICE` environment variable must specify a valid PyTorch device, but is '{device_str}' instead."
             ) from ex
 
-    if device is None:
+    if _default_device is None:
         if torch.cuda.is_available() and torch.cuda.device_count() > 0:
-            device = _determine_default_cuda_device()
+            _default_device = _determine_default_cuda_device()
 
-    if device is None:
-        device = CPU
+    if _default_device is None:
+        _default_device = CPU
 
-    logger.info("Setting '%s' as the default device of the process.", device)
+    logger.info("Setting '%s' as the default device of the process.", _default_device)
 
-    return device
+    return _default_device
 
 
 def _determine_default_cuda_device() -> Device:
