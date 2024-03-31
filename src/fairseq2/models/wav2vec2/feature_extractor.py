@@ -234,6 +234,9 @@ class Wav2Vec2FeatureExtractionLayer(Module):
             seqs = self.dropout(seqs)
 
         if self.group_norm is not None:
+            # The padding ratio of `seqs` must be as low as possible since the
+            # Group Normalization implementation in PyTorch has no support for
+            # padding and a large ratio can skew normalization.
             seqs = self.group_norm(seqs)
 
         if self.layer_norm is not None:

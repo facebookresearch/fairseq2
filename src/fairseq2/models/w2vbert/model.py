@@ -83,6 +83,7 @@ class W2VBertModel(Model):
         )
 
         w2v2_layer_output = None
+        w2v2_layer_padding_mask = None
 
         def hook(
             layer_idx: int,
@@ -91,9 +92,11 @@ class W2VBertModel(Model):
             num_layers: int,
         ) -> bool:
             nonlocal w2v2_layer_output
+            nonlocal w2v2_layer_padding_mask
 
             if layer_idx == num_layers - self.num_bert_encoder_layers - 1:
                 w2v2_layer_output = layer_output
+                w2v2_layer_padding_mask = layer_padding_mask
 
             return True
 
@@ -102,9 +105,11 @@ class W2VBertModel(Model):
 
         assert w2v2_layer_output is not None
 
-        w2v2_output = self.w2v2_model.quantize_and_contrast(
-            Wav2Vec2Features(w2v2_layer_output, targets, temporal_mask)
+        features = Wav2Vec2Features(
+            w2v2_layer_output, w2v2_layer_padding_mask, targets, temporal_mask
         )
+
+        w2v2_output = self.w2v2_model.quantize_and_contrast(features)
 
         seqs = extract_masked_elements(encoder_output, temporal_mask)
 
@@ -198,14 +203,14 @@ class W2VBertLoss:
     """Holds the loss of a w2v-BERT model."""
 
     total: Tensor
-    """The weighted total loss."""
+    """The total loss. *Shape:* :math:`()`."""
 
     bert: Tensor
-    """The masked prediction loss."""
+    """The masked prediction loss. *Shape:* :math:`()`."""
 
-    w2v2_loss: Wav2Vec2Loss
+    w2v2: Wav2Vec2Loss
     """The loss of the wav2vec 2.0 model."""
 
-    def backward(self) -> None:
-        """Compute the gradient of the loss."""
-        self.total.backward()
+    def detach(self) -> W2VBertLoss:
+        """Return a copy detached from the autograd graph."""
+        return W2VBertLoss(self.total.detach(), self.bert.detach(), self.w2v2.detach())

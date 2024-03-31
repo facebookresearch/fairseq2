@@ -64,16 +64,17 @@ class EncoderDecoderModel(Seq2SeqModel):
             sequence length, and :math:`*` is any number of sequence-specific
             dimensions including none.
         :param padding_mask:
-            The padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where :math:`N`
-            is the batch size and :math:`S` is the sequence length.
+            The padding mask of ``seqs``. *Shape:* :math:`(N,S_{src})`, where
+            :math:`N` is the batch size and :math:`S_{src}` is the source
+            sequence length.
 
         :returns:
-            - The encoder output. *Shape:* :math:`(N,S_{out},M)`, where
-              :math:`N` is the batch size, :math:`S_{out}` is the output
+            - The encoder output. *Shape:* :math:`(N,S_{enc},M)`, where
+              :math:`N` is the batch size, :math:`S_{enc}` is the encoder output
               sequence length, and :math:`M` is the dimensionality of the model.
             - The padding mask of the encoder output. *Shape:*
-              :math:`(N,S_{out})`, where :math:`N` is the batch size and
-              :math:`S_{out}` is the output sequence length.
+              :math:`(N,S_{enc})`, where :math:`N` is the batch size and
+              :math:`S_{enc}` is the encoder output sequence length.
         """
 
     @abstractmethod
@@ -94,8 +95,9 @@ class EncoderDecoderModel(Seq2SeqModel):
             sequence length, and :math:`*` is any number of sequence-specific
             dimensions including none.
         :param padding_mask:
-            The padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where :math:`N`
-            is the batch size and :math:`S` is the sequence length.
+            The padding mask of ``seqs``. *Shape:* :math:`(N,S_{tgt})`, where
+            :math:`N` is the batch size and :math:`S_{tgt}` is the target
+            sequence length.
         :param encoder_output:
             The encoder output to use in encoder-decoder attention. *Shape:*
             :math:`(N,S_{enc},M)`, where :math:`N` is the batch size,

@@ -133,9 +133,9 @@ class Wav2Vec2AsrLoss:
 @dataclass
 class Wav2Vec2AsrOutput:
     logits: Tensor
-    """The logits for next-step prediction. *Shape:* :math:`(N,S,T)`, where
-    :math:`N` is the batch size, :math:`S` is the source sequence length, and
-    :math:`T` is the size of the vocabulary."""
+    """The logits for next-step prediction. *Shape:* :math:`(N,S_{enc},T)`,
+    where :math:`N` is the batch size, :math:`S_{enc}` is the encoder output
+    sequence length, and :math:`T` is the size of the vocabulary."""
 
     encoder_output: Tensor
     """The encoder output. *Shape:* :math:`(N,S_{enc},M)`, where :math:`N` is
@@ -153,8 +153,8 @@ class Wav2Vec2AsrOutput:
         """Compute the CTC (Connectionist Temporal Classification) loss.
 
         :param targets:
-            The target indices. *Shape:* :math:`(N,S)`, where :math:`N` is the
-            batch size and :math:`S` is the target sequence length.
+            The target indices. *Shape:* :math:`(N,S_{tgt})`, where :math:`N` is
+            the batch size and :math:`S_{tgt}` is the target sequence length.
         :param target_padding_mask:
             The padding mask of the targets. *Shape:* Same as ``targets``.
 

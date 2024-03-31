@@ -94,7 +94,7 @@ class SequenceModelOutput:
     """Holds the output of a sequence model."""
 
     logits: Tensor
-    """The logits for the next-step predictions. *Shape:* :math:`(N,S,T)`, where
+    """The logits for next-step prediction. *Shape:* :math:`(N,S,T)`, where
     :math:`N` is the batch size, :math:`S` is the sequence length, and :math:`T`
     is the size of the vocabulary."""
 
