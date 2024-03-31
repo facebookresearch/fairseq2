@@ -19,9 +19,9 @@ from fairseq2.typing import override
 class AdamW(AbstractOptimizer):
     """Represents an AdamW optimizer.
 
-    This class uses the same functional AdamW implementation as
+    This class internally calls the same functional AdamW implementation as
     :class:`torch.optim.AdamW`. The main difference is that it also supports
-    mixed precision training when ``use_fp32`` parameter is set.
+    memory efficient mixed precision training via its ``use_fp32`` parameter.
     """
 
     def __init__(
@@ -64,9 +64,10 @@ class AdamW(AbstractOptimizer):
             The implementation variant. See :class:`torch.optim.AdamW` for
             details.
         :param use_fp32:
-            If ``True``, stores the optimizer state in single precision (i.e.
-            ``torch.float32``) for better numerical stability at the cost of
-            higher memory consumption.
+            If ``True``, stores the optimizer state (e.g. momentum) in single
+            precision (i.e. ``torch.float32``) and, during a ``step()`` call,
+            converts gradients on-the-fly to single precision for better
+            numerical stability for low-precision training.
         """
         defaults = {
             "lr": lr,
@@ -103,17 +104,15 @@ class AdamW(AbstractOptimizer):
 
         state_keys = ["step", "exp_avg", "exp_avg_sq", "max_exp_avg_sq"]
 
-        fp32_params = chain.from_iterable(
+        params = chain.from_iterable(
             (pg["params"] for pg in self.param_groups if pg["use_fp32"])
         )
 
-        saved_fp32_params = chain.from_iterable(
+        saved_params = chain.from_iterable(
             (pg["params"] for pg in state_dict["param_groups"] if pg["use_fp32"])
         )
 
-        param_map = {saved_p: p for saved_p, p in zip(saved_fp32_params, fp32_params)}
-
-        # If we don't have any parameter group with `use_fp32`, skip the rest.
+        param_map = {saved_p: p for saved_p, p in zip(saved_params, params)}
         if not param_map:
             return
 
@@ -132,7 +131,7 @@ class AdamW(AbstractOptimizer):
             state = self.state[param]
 
             # The base `Optimizer` always casts state tensors to the data type
-            # of their correspondig parameter.
+            # of their corresponding parameter.
             for key in state_keys:
                 try:
                     state[key] = saved_state[key].to(
@@ -146,7 +145,7 @@ class AdamW(AbstractOptimizer):
         self._cuda_graph_capture_health_check()  # type: ignore[attr-defined]
 
         for pg in self.param_groups:
-            use_fp32 = pg["use_fp32"]
+            use_fp32: bool = pg["use_fp32"]
             params_with_grad: List[Tensor] = []
             grads: List[Tensor] = []
             steps: List[Tensor] = []
@@ -177,10 +176,13 @@ class AdamW(AbstractOptimizer):
 
             if (impl := pg["impl"]) != "auto":
                 if impl == "naive":
-                    kwargs["foreach"] = False  # Disables both foreach and fused.
+                    # Disables both 'foreach' and 'fused'.
+                    kwargs["foreach"] = False
                 else:
                     kwargs[impl] = True
 
+            # These two attributes are set by `GradScaler` only for the 'fused'
+            # implementaiton which natively supports AMP gradient scaling.
             for attr in ["grad_scale", "found_inf"]:
                 if (value := getattr(self, attr, None)) is not None:
                     kwargs[attr] = value
@@ -269,7 +271,6 @@ class AdamW(AbstractOptimizer):
         steps.append(state["step"])
 
         exp_avgs.append(state["exp_avg"])
-
         exp_avg_sqs.append(state["exp_avg_sq"])
 
         if amsgrad:
