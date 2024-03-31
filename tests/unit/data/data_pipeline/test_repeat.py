@@ -30,6 +30,16 @@ class TestRepeatOp:
 
             pipeline.reset()
 
+    def test_op_works_when_num_repeats_is_zero(self) -> None:
+        seq = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+        pipeline = read_sequence(seq).repeat(0).and_return()
+
+        for _ in range(2):
+            assert list(pipeline) == []
+
+            pipeline.reset()
+
     def test_op_saves_and_restores_its_state(self) -> None:
         seq = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
