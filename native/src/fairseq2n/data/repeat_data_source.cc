@@ -13,6 +13,9 @@ namespace fairseq2n::detail {
 std::optional<data>
 repeat_data_source::next()
 {
+    if (num_repeats_ && *num_repeats_ == 0)
+        return std::nullopt;
+
     while (true) {
         std::optional<data> maybe_example = inner_->next();
         if (maybe_example) {

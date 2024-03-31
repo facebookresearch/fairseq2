@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import List, Optional, TypeVar
+from typing import List, Literal, Optional, TypeVar, Union
 
 from fairseq2.assets import default_asset_store, default_download_manager
 from fairseq2.data.text import TextTokenizer
@@ -37,7 +37,7 @@ class AsrDataset(ABC):
         min_audio_len: int = 1,
         bucket_by_length: bool = False,
         shuffle_window_size: int = 0,
-        repeat: Optional[int] = 1,
+        repeat: Union[int, Literal["forever"]] = 1,
         num_prefetch: int = 0,
         num_accumulate: int = 1,
     ) -> DataReader[Seq2SeqBatch]:
@@ -64,8 +64,8 @@ class AsrDataset(ABC):
         :param shuffle_window_size:
             The size of the streaming shuffle window.
         :param repeat:
-            The dataset will be repeatedly read this many times. If ``None``, it
-            will be read infinitely.
+            The dataset will be repeatedly read this many times. If ``forever``,
+            it will be read indefinitely.
         :param num_prefetch:
             The number of batches to prefetch in background.
         :param num_accumulate:

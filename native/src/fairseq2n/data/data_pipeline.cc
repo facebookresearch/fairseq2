@@ -414,7 +414,7 @@ data_pipeline_builder::prefetch(std::size_t num_examples) &&
 data_pipeline_builder
 data_pipeline_builder::repeat(std::optional<std::size_t> num_repeats) &&
 {
-    if (!num_repeats || *num_repeats > 1)
+    if (!num_repeats || *num_repeats != 1)
         factory_ = [=, inner = std::move(factory_)]
         {
             return std::make_unique<repeat_data_source>(inner(), num_repeats);
