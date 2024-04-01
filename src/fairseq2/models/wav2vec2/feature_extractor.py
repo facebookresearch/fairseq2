@@ -70,6 +70,11 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
 
         self.layers = Sequential()
 
+        if num_channels < 1:
+            raise ValueError(
+                f"`num_channels` must be greater than or equal to 1, but is {num_channels} instead."
+            )
+
         self.num_channels = num_channels
 
         input_dim = num_channels
@@ -130,11 +135,21 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
         """See the base :meth:`SequenceFeatureExtractor.forward`.
 
         :param seqs:
-            The input waveforms. *Shape:* :math:`(N,S)`, where :math:`N` is the
-            batch size and :math:`(S)` is the sequence length.
+            The input waveforms. *Shape:* :math:`(N,S,C)`, where :math:`N` is
+            the batch size, :math:`(S)` is the sequence length, and :math:`C`
+            is the number of channels.
         """
-        # (N, S) -> (N, C, S)
-        if self.num_channels == 1:
+        if self.num_channels > 1:
+            # (N, S, C) -> (N, C, S)
+            seqs = seqs.transpose(1, 2)
+        else:
+            if seqs.ndim == 3:
+                # (N, S, 1) -> (N, S)
+                seqs = seqs.squeeze(2)
+
+            # Transpose can cause a copy within the first convolution op. This
+            # is much faster if the number of channels is 1.
+            # (N, S) -> (N, 1, S)
             seqs = seqs.unsqueeze(1)
 
         # (N, C, S) -> (N, E, S)
