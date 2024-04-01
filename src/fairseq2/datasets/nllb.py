@@ -8,18 +8,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from pathlib import Path
-from typing import (
-    Any,
-    Dict,
-    List,
-    Literal,
-    Optional,
-    Sequence,
-    Tuple,
-    Union,
-    cast,
-    final,
-)
+from typing import Any, Dict, List, Optional, Sequence, Tuple, cast, final
 
 from fairseq2.assets import AssetCard, AssetCardError
 from fairseq2.data import (
@@ -81,10 +70,9 @@ class NllbDataset(ParallelTextDataset):
         max_seq_len: int,
         max_num_tokens: int,
         *,
-        bucket_by_length: bool = False,
         sample: bool = False,
         shuffle_window_size: int = 0,
-        repeat: Union[int, Literal["forever"]] = 1,
+        num_repeats: Optional[int] = 1,
         num_prefetch: int = 0,
         num_accumulate: int = 1,
         lang_pairs: Optional[Sequence[LangPair]] = None,
@@ -135,24 +123,16 @@ class NllbDataset(ParallelTextDataset):
             lang_pairs_to_read,
             max_seq_len,
             max_num_tokens,
-            bucket_by_length,
             sample,
             shuffle_window_size,
-            None if repeat == "forever" else repeat,
+            num_repeats,
             num_prefetch,
         )
 
         pipeline = builder.build()
 
-        # When the pipeline is sharded, sampling and bucketing by length
-        # can lead to unpredictability in the number of examples read in
-        # each process. So, it is important to ensure that all processes
-        # are in sync about the end of the data. If this is not the case,
-        # the training can hang.
-        sync_batches = repeat is not None and (sample or bucket_by_length)
-
         return DataPipelineReader[Seq2SeqBatch](
-            pipeline, gang, num_accumulate=num_accumulate, sync_batches=sync_batches
+            pipeline, gang, num_accumulate=num_accumulate, sync_batches=True
         )
 
     @override
@@ -177,7 +157,6 @@ class _NllbDataPipelineBuilder:
     _lang_pairs: Dict[LangPair, List[Tuple[str, int]]]
     _max_seq_len: int
     _max_num_tokens: int
-    _bucket_by_length: bool
     _sample: bool
     _shuffle_window_size: int
     _num_repeats: Optional[int]
@@ -192,7 +171,6 @@ class _NllbDataPipelineBuilder:
         lang_pairs: Dict[LangPair, List[Tuple[str, int]]],
         max_seq_len: int,
         max_num_tokens: int,
-        bucket_by_length: bool,
         sample: bool,
         shuffle_window_size: int,
         num_repeats: Optional[int],
@@ -205,7 +183,6 @@ class _NllbDataPipelineBuilder:
         self._lang_pairs = lang_pairs
         self._max_seq_len = max_seq_len
         self._max_num_tokens = max_num_tokens
-        self._bucket_by_length = bucket_by_length
         self._sample = sample
         self._shuffle_window_size = shuffle_window_size
         self._num_repeats = num_repeats
@@ -329,27 +306,26 @@ class _NllbDataPipelineBuilder:
         return source_file, target_file
 
     def _build_pipeline(self, builder: DataPipelineBuilder) -> DataPipeline:
-        builder.repeat(num_repeats=self._num_repeats)
+        if self._num_repeats != 1:
+            builder.repeat(self._num_repeats)
 
         # Shuffle examples.
         if self._shuffle_window_size > 0:
             builder.shuffle(self._shuffle_window_size)
 
-        # TODO: Drop long examples!
+        # Bucket by the length of the source or target sequence. The longer one
+        # will be considered the length of the example.
+        bucket_sizes = create_bucket_sizes(
+            max_num_elements=self._max_num_tokens,
+            max_seq_len=self._max_seq_len,
+            min_seq_len=4,
+        )
 
-        if self._bucket_by_length:
-            # Bucket by the length of the source or target sequence. The longer
-            # one will be considered the length of the example.
-            bucket_sizes = create_bucket_sizes(
-                self._max_num_tokens, self._max_seq_len, min_seq_len=4
-            )
-
-            builder.bucket_by_length(
-                bucket_sizes, selector="source_indices,target_indices"
-            )
-        else:
-            # TODO(balioglu): FIX!
-            builder.bucket(32)
+        builder.bucket_by_length(
+            bucket_sizes,
+            selector="source_indices,target_indices",
+            skip_above_max_examples=True,
+        )
 
         # Collate bucketed examples into a batch.
         collater = Collater(pad_value=self._tokenizer.vocab_info.pad_idx)
