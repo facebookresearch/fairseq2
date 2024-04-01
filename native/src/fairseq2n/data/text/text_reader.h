@@ -135,6 +135,6 @@ private:
 class data_pipeline_builder;
 
 FAIRSEQ2_API data_pipeline_builder
-read_text(std::filesystem::path path, text_options opts = {});
+read_text(std::filesystem::path path, std::optional<std::string> key = {}, text_options opts = {});
 
 }  // namespace fairseq2n

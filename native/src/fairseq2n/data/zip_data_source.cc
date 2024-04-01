@@ -135,7 +135,7 @@ zip_data_source::flatten_to_dict(data_list &zip)
             }
         else
             throw_data_pipeline_error(std::nullopt, /*recoverable=*/true,
-                "The zipped data pipelines must all return only dicts, or only non-dicts when `flatten` is set.");
+                "The zipped data pipelines must all return only dicts or only non-dicts when `flatten` is set.");
     }
 
     return output;
@@ -151,7 +151,7 @@ zip_data_source::flatten_to_list(data_list &zip)
         // expect all other pipelines to return non-dicts as well.
         if (example.is_dict())
             throw_data_pipeline_error(std::nullopt, /*recoverable=*/true,
-                "The zipped data pipelines must all return only dicts, or only non-dicts when `flatten` is set.");
+                "The zipped data pipelines must all return only dicts or only non-dicts when `flatten` is set.");
 
         if (example.is_list())
             for (data &element : example.as_list())
