@@ -21,6 +21,7 @@ if TYPE_CHECKING or DOC_MODE:
 
     def read_text(
         path: Path,
+        key: Optional[str] = None,
         encoding: Optional[str] = None,
         line_ending: LineEnding = LineEnding.INFER,
         ltrim: bool = False,

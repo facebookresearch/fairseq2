@@ -16,11 +16,11 @@ using namespace fairseq2n::detail;
 namespace fairseq2n {
 
 data_pipeline_builder
-read_text(std::filesystem::path path, text_options opts)
+read_text(std::filesystem::path path, std::optional<std::string> key, text_options opts)
 {
-    auto factory = [path = std::move(path), opts = std::move(opts)]() mutable
+    auto factory = [path = std::move(path), key = std::move(key), opts = std::move(opts)]() mutable
     {
-        return std::make_unique<text_data_source>(std::move(path), std::move(opts));
+        return std::make_unique<text_data_source>(std::move(path), std::move(key), std::move(opts));
     };
 
     return data_pipeline_builder{std::move(factory)};

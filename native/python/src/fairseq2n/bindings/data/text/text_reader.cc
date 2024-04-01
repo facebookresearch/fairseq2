@@ -32,6 +32,7 @@ def_text_reader(py::module_ &text_module)
         "read_text",
         [](
             std::filesystem::path path,
+            std::optional<std::string> key,
             std::optional<std::string> maybe_encoding,
             line_ending le,
             bool ltrim,
@@ -49,9 +50,10 @@ def_text_reader(py::module_ &text_module)
                 .memory_map(memory_map)
                 .maybe_block_size(maybe_block_size);
 
-            return read_text(std::move(path), std::move(opts));
+            return read_text(std::move(path), std::move(key), std::move(opts));
         },
         py::arg("path"),
+        py::arg("key")         = std::nullopt,
         py::arg("encoding")    = std::nullopt,
         py::arg("line_ending") = line_ending::infer,
         py::arg("ltrim")       = false,

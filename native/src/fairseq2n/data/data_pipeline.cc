@@ -397,11 +397,17 @@ data_pipeline_builder::filter(predicate_fn fn) &&
 }
 
 data_pipeline_builder
-data_pipeline_builder::map(map_fn fn, std::size_t num_parallel_calls) &&
+data_pipeline_builder::map(const map_fn &fn, std::size_t num_parallel_calls) &&
 {
-    factory_ = [=, fn = std::move(fn), inner = std::move(factory_)]() mutable
+    if (num_parallel_calls == 0)
+        throw_<std::invalid_argument>(
+            "`num_parallel_calls` must be greater than zero.");
+
+    std::vector<map_fn> fns(num_parallel_calls, fn);
+
+    factory_ = [=, fns = std::move(fns), inner = std::move(factory_)]() mutable
     {
-        return std::make_unique<map_data_source>(inner(), std::move(fn), num_parallel_calls);
+        return std::make_unique<map_data_source>(inner(), std::move(fns), num_parallel_calls);
     };
 
     return std::move(*this);

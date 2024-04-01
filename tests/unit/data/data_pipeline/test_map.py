@@ -15,7 +15,7 @@ from fairseq2.data.text.converters import StrToIntConverter
 
 
 class TestMapOp:
-    @pytest.mark.parametrize("num_parallel_calls", [0, 1, 4, 10, 20])
+    @pytest.mark.parametrize("num_parallel_calls", [1, 4, 10, 20])
     def test_op_works(self, num_parallel_calls: int) -> None:
         def fn(d: int) -> int:
             return d**2
@@ -282,7 +282,7 @@ class TestMapOp:
 
         assert str(cause) == "The input data does not have an element at path '[1].foo1'."  # fmt: skip
 
-    @pytest.mark.parametrize("num_parallel_calls", [0, 1, 4, 20])
+    @pytest.mark.parametrize("num_parallel_calls", [1, 4, 20])
     def test_op_raises_nested_error_when_callable_fails(
         self, num_parallel_calls: int
     ) -> None:
@@ -304,7 +304,7 @@ class TestMapOp:
 
         assert str(cause) == "map error"
 
-    @pytest.mark.parametrize("num_parallel_calls", [0, 1, 4, 20])
+    @pytest.mark.parametrize("num_parallel_calls", [1, 4, 20])
     def test_op_saves_and_restores_its_state(self, num_parallel_calls: int) -> None:
         def fn(d: int) -> int:
             return d

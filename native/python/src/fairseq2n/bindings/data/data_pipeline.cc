@@ -456,7 +456,7 @@ def_data_pipeline(py::module_ &data_module)
 
                 map_fn f = collater(opts, std::move(opt_overrides));
 
-                self = std::move(self).map(std::move(f), num_parallel_calls);
+                self = std::move(self).map(f, num_parallel_calls);
 
                 return self;
             },
@@ -498,7 +498,7 @@ def_data_pipeline(py::module_ &data_module)
 
                 element_mapper mapper{std::move(f), std::move(maybe_selector)};
 
-                self = std::move(self).map(std::move(mapper), num_parallel_calls);
+                self = std::move(self).map(mapper, num_parallel_calls);
 
                 return self;
             },
