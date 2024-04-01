@@ -24,7 +24,9 @@ public:
         std::unique_ptr<data_source> &&inner,
         std::vector<std::pair<std::size_t, std::size_t>> &&bucket_sizes,
         data_length_fn &&fn,
-        bool bucket_long_examples,
+        std::size_t min_data_len,
+        bool skip_below_min_examples,
+        bool skip_above_max_examples,
         bool drop_remainder);
 
     std::optional<data>
@@ -45,9 +47,11 @@ public:
 private:
     std::unique_ptr<data_source> inner_;
     std::vector<std::pair<std::size_t, std::size_t>> bucket_sizes_;
-    std::size_t max_data_len_;
     data_length_fn data_length_fn_;
-    bool bucket_long_examples_;
+    std::size_t min_data_len_;
+    std::size_t max_data_len_;
+    bool skip_below_min_examples_;
+    bool skip_above_max_examples_;
     bool drop_remainder_;
     std::vector<data_list> buckets_{};
 };

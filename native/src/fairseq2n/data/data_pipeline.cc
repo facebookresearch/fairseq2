@@ -352,7 +352,9 @@ data_pipeline_builder
 data_pipeline_builder::bucket_by_length(
     std::vector<std::pair<std::size_t, std::size_t>> bucket_sizes,
     data_length_fn fn,
-    bool bucket_long_examples,
+    std::size_t min_data_len,
+    bool skip_below_min_examples,
+    bool skip_above_max_examples,
     bool drop_remainder) &&
 {
     if (bucket_sizes.empty())
@@ -371,7 +373,13 @@ data_pipeline_builder::bucket_by_length(
         inner = std::move(factory_)]() mutable
     {
         return std::make_unique<bucket_by_length_data_source>(
-            inner(), std::move(bucket_sizes), std::move(fn), bucket_long_examples, drop_remainder);
+            inner(),
+            std::move(bucket_sizes),
+            std::move(fn),
+            min_data_len,
+            skip_below_min_examples,
+            skip_above_max_examples,
+            drop_remainder);
     };
 
     return std::move(*this);

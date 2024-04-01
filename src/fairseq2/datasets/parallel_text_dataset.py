@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import List, Literal, NamedTuple, Optional, Sequence, TypeVar, Union
+from typing import List, NamedTuple, Optional, Sequence, TypeVar
 
 from fairseq2.assets import default_asset_store, default_download_manager
 from fairseq2.data.text import TextTokenizer
@@ -47,10 +47,9 @@ class ParallelTextDataset(ABC):
         max_seq_len: int,
         max_num_tokens: int,
         *,
-        bucket_by_length: bool = False,
         sample: bool = False,
         shuffle_window_size: int = 0,
-        repeat: Union[int, Literal["forever"]] = 1,
+        num_repeats: Optional[int] = 1,
         num_prefetch: int = 0,
         num_accumulate: int = 1,
         lang_pairs: Optional[Sequence[LangPair]] = None,
@@ -68,16 +67,14 @@ class ParallelTextDataset(ABC):
             this value will be dropped.
         :param max_num_tokens:
             The maximum number of tokens in each batch.
-        :param bucket_by_length:
-            If ``True``, examples will be bucketed by their length.
         :param sample:
             If ``True``, language pair corpora will be sampled in proportion to
             their size.
         :param shuffle_window_size:
             The size of the streaming shuffle window.
-        :param repeat:
-            The dataset will be repeatedly read this many times. If ``forever``,
-            it will be read indefinitely.
+        :param num_repeats:
+            The dataset will be repeatedly read this many times. If ``None``, it
+            will be read indefinitely.
         :param num_prefetch:
             The number of batches to prefetch in background.
         :param num_accumulate:

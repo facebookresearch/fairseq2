@@ -13,3 +13,11 @@ def test_create_bucket_sizes() -> None:
     )
 
     assert bucket_sizes == [(8, 2), (5, 3), (4, 4), (3, 5), (2, 8)]
+
+
+def test_create_bucket_sizes_with_num_seqs_multiple_of() -> None:
+    bucket_sizes = create_bucket_sizes(
+        max_num_elements=16, max_seq_len=8, min_seq_len=2, num_seqs_multiple_of=2
+    )
+
+    assert bucket_sizes == [(8, 2), (4, 3), (4, 4), (2, 5), (2, 8)]

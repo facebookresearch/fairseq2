@@ -417,20 +417,26 @@ def_data_pipeline(py::module_ &data_module)
                 data_pipeline_builder &self,
                 std::vector<std::pair<std::size_t, std::size_t>> bucket_sizes,
                 std::optional<std::string> maybe_selector,
-                bool bucket_long_examples,
+                std::size_t min_data_len,
+                bool skip_below_min_examples,
+                bool skip_above_max_examples,
                 bool drop_remainder) -> data_pipeline_builder &
             {
                 self = std::move(self).bucket_by_length(
                     std::move(bucket_sizes),
                     data_length_extractor{std::move(maybe_selector)},
-                    bucket_long_examples,
+                    min_data_len,
+                    skip_below_min_examples,
+                    skip_above_max_examples,
                     drop_remainder);
 
                 return self;
             },
             py::arg("bucket_sizes"),
             py::arg("selector") = std::nullopt,
-            py::arg("bucket_long_examples") = false,
+            py::arg("min_data_len") = 1,
+            py::arg("skip_below_min_examples") = false,
+            py::arg("skip_above_max_examples") = false,
             py::arg("drop_remainder") = false)
         .def(
             "collate",
