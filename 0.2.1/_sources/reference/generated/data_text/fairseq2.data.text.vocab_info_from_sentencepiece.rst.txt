@@ -1,0 +1,6 @@
+﻿.. currentmodule:: fairseq2.data.text
+
+vocab\_info\_from\_sentencepiece
+================================
+
+.. autofunction:: vocab_info_from_sentencepiece
