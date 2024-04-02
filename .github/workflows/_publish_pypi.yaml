@@ -43,6 +43,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
             packages-dir: artifacts/fairseq2n/python/build/wheelhouse
+            skip-existing: true
       - name: Publish fairseq2
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
