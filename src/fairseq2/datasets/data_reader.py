@@ -11,7 +11,7 @@ from typing import Any, Dict, Iterator, List, Mapping, Tuple, TypeVar, final
 from typing_extensions import Self
 
 from fairseq2.data import DataPipeline
-from fairseq2.datasets.utils import _total_batch_size_and_eod
+from fairseq2.datasets.utils import _reduce_batch_size
 from fairseq2.gang import Gang
 from fairseq2.models import Batch
 from fairseq2.typing import override
@@ -33,7 +33,11 @@ class DataReader(ABC, Iterator[Tuple[int, List[BatchT_co]]]):
 
     @abstractmethod
     def __next__(self) -> Tuple[int, List[BatchT_co]]:
-        ...
+        """
+        :returns:
+            - The total size of batches read across all processes in the gang.
+            - The batches read in this process.
+        """
 
     @abstractmethod
     def reset(self) -> None:
@@ -107,22 +111,26 @@ class DataPipelineReader(DataReader[BatchT]):
 
             batches.append(batch)
 
-        self._eod = len(batches) != self._num_accumulate
-
-        # If requested, sync batches across all processes in the gang.
-        if self._sync_batches and self._gang.size > 1:
-            total_batch_size, self._eod = _total_batch_size_and_eod(
-                batches, self._eod, self._gang, logger
-            )
+        # If we read less than `num_accumulate` batches, it means we reached end
+        # of data.
+        if len(batches) != self._num_accumulate:
+            batch_size = 0
         else:
-            total_batch_size = self._gang.size * sum(
-                batch.batch_size for batch in batches
-            )
+            batch_size = sum(b.batch_size for b in batches)
+
+        if self._sync_batches:
+            batch_size = _reduce_batch_size(batch_size, self._gang, logger)
+        else:
+            # If we don't sync, we assume all processes read equal amount of
+            # data at each iteration.
+            batch_size = batch_size * self._gang.size
+
+        self._eod = batch_size == 0
 
         if self._eod:
             raise StopIteration()
 
-        return total_batch_size, batches
+        return batch_size, batches
 
     @override
     def reset(self) -> None:
