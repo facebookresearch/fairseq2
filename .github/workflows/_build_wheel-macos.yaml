@@ -83,7 +83,7 @@ jobs:
       - name: Upload wheels and native tests to staging
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ inputs.artifacts_name }}-pt${{ inputs.torch }}-py${{ inputs.py }}-macos_${{ inputs.arch }}-cpu
+          name: ${{ inputs.artifacts_name }}-pt${{ inputs.torch }}-py${{ inputs.py }}-macos_${{ inputs.arch }}-cpu-nosan
           path: |
             build/wheelhouse/*.whl
             fairseq2n/build/tests/run-tests
@@ -104,7 +104,7 @@ jobs:
       - name: Download wheels and native tests from staging
         uses: actions/download-artifact@v3
         with:
-          name: ${{ inputs.artifacts_name }}-pt${{ inputs.torch }}-py${{ inputs.py }}-macos_${{ inputs.arch }}-cpu
+          name: ${{ inputs.artifacts_name }}-pt${{ inputs.torch }}-py${{ inputs.py }}-macos_${{ inputs.arch }}-cpu-nosan
           path: ~/artifacts/
       - name: Check-out the repository
         uses: actions/checkout@v3
