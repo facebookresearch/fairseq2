@@ -65,8 +65,8 @@ class Seq2SeqBatch(Batch):
     is any number of sequence-specific dimensions including none."""
 
     source_padding_mask: Optional[PaddingMask]
-    """The padding mask of ``source_seqs``. *Shape:* :math:`(N,S_{src})`, where
-    :math:`N` is the batch size and :math:`S_{src}` is the source sequence
+    """The padding mask of :attr:`source_seqs`. *Shape:* :math:`(N,S_{src})`,
+    where :math:`N` is the batch size and :math:`S_{src}` is the source sequence
     length."""
 
     target_seqs: Tensor
@@ -75,8 +75,8 @@ class Seq2SeqBatch(Batch):
     is any number of sequence-specific dimensions including none."""
 
     target_padding_mask: Optional[PaddingMask]
-    """The padding mask of ``target_seqs``. *Shape:* :math:`(N,S_{tgt})`, where
-    :math:`N` is the batch size and :math:`S_{tgt}` is the target sequence
+    """The padding mask of :attr:`target_seqs`. *Shape:* :math:`(N,S_{tgt})`,
+    where :math:`N` is the batch size and :math:`S_{tgt}` is the target sequence
     length."""
 
     example: Any = None

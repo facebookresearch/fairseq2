@@ -30,9 +30,9 @@ class Wav2Vec2AsrConfig:
     encoder_config: Wav2Vec2EncoderConfig = field(
         default_factory=lambda: Wav2Vec2EncoderConfig(
             feature_grad_scale=1.0,
-            ffn_inner_dropout_p=0.1,
             dropout_p=0.0,
             attn_dropout_p=0.0,
+            ffn_inner_dropout_p=0.1,
         )
     )
     """The configuration of the encoder."""
@@ -50,7 +50,7 @@ class Wav2Vec2AsrConfig:
     temporal_mask_span_len: int = 10
     """The length of each temporal mask span that is applied over time steps."""
 
-    max_temporal_mask_prob: float = 0.65
+    max_temporal_mask_prob: float = 0.70
     """The maximum probability of masking a time step. Note that, due to mask
     span overlap, the effective probability will be lower."""
 
@@ -60,7 +60,7 @@ class Wav2Vec2AsrConfig:
     spatial_mask_span_len: int = 64
     """The length of each spatial mask span that is applied over features."""
 
-    max_spatial_mask_prob: float = 0.5
+    max_spatial_mask_prob: float = 0.55
     """The maximum probability of masking a feature. Note that, due to mask span
     overlap, the effective probability will be lower."""
 

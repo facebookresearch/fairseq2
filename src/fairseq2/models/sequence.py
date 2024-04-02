@@ -62,8 +62,8 @@ class SequenceBatch(Batch):
     sequence-specific dimensions including none."""
 
     padding_mask: Optional[PaddingMask]
-    """The padding mask of ``seqs``. *Shape:* :math:`(N,S)`, where :math:`N` is
-    the batch size and :math:`S` is the sequence length."""
+    """The padding mask of :attr:`seqs`. *Shape:* :math:`(N,S)`, where :math:`N`
+    is the batch size and :math:`S` is the sequence length."""
 
     example: Any = None
     """The data example from which this batch was constructed."""
