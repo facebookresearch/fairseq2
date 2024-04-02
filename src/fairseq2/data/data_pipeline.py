@@ -519,16 +519,16 @@ def create_bucket_sizes(
             f"`num_seqs_multiple_of` must be greater than or equal to 1, but is {num_seqs_multiple_of} instead."
         )
 
-    if max_num_elements % (max_seq_len * num_seqs_multiple_of) != 0:
+    if max_num_elements % max_seq_len != 0:
         raise ValueError(
-            f"`max_num_elements` must be equal to a multiple of `max_seq_len` ({max_seq_len}) times `num_seqs_multiple_of` ({num_seqs_multiple_of}), but is {max_num_elements} instead."
+            f"`max_num_elements` must be equal to a multiple of `max_seq_len`, but is {max_num_elements} instead."
         )
 
     bucket_sizes = []
 
     seq_len = 1
 
-    bucket_size = max_num_elements // seq_len
+    bucket_size = max_num_elements
 
     while seq_len <= max_seq_len:
         if seq_len >= min_seq_len:
@@ -544,8 +544,9 @@ def create_bucket_sizes(
     cropped_bucket_sizes = []
 
     for bucket_size, seq_len in bucket_sizes:
-        cropped_bucket_sizes.append(
-            (bucket_size - (bucket_size % num_seqs_multiple_of), seq_len)
-        )
+        if bucket_size > num_seqs_multiple_of:
+            bucket_size -= bucket_size % num_seqs_multiple_of
+
+        cropped_bucket_sizes.append((bucket_size, seq_len))
 
     return cropped_bucket_sizes
