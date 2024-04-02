@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.data_pipeline &mdash; fairseq2 0.3.0.dev202404012025+ga9501ad documentation</title>
+  <title>fairseq2.data.data_pipeline &mdash; fairseq2 0.2.1.dev202404021533 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202404012025+ga9501ad
+                0.2.1.dev202404021533
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -83,11 +83,15 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../reference/data.html#column-syntax">Column syntax</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../reference/data.html#public-classes-used-in-fairseq2-api">Public classes used in fairseq2 API:</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.CString.html">CString</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.PathLike.html">PathLike</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.StringLike.html">StringLike</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.ByteStreamError.html">fairseq2.data.ByteStreamError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.DataPipelineError.html">fairseq2.data.DataPipelineError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.RecordError.html">fairseq2.data.RecordError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.VocabularyInfo.html">VocabularyInfo</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.get_last_failed_example.html">get_last_failed_example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.is_string_like.html">is_string_like</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../reference/data.html#fairseq2-data-text">fairseq2.data.text</a><ul>
@@ -104,23 +108,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data_text/fairseq2.data.text.LineEnding.html">LineEnding</a></li>
 </ul>
 </li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="../../../reference/asset.html">fairseq2.assets</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../../../reference/generated/data/fairseq2.assets.AssetStore.html">AssetStore</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.assets.AssetStore.html#fairseq2.assets.AssetStore"><code class="docutils literal notranslate"><span class="pre">AssetStore</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../../../reference/generated/data/fairseq2.assets.AssetCard.html">AssetCard</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.assets.AssetCard.html#fairseq2.assets.AssetCard"><code class="docutils literal notranslate"><span class="pre">AssetCard</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../../../reference/generated/data/fairseq2.assets.AssetMetadataProvider.html">AssetMetadataProvider</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.assets.AssetMetadataProvider.html#fairseq2.assets.AssetMetadataProvider"><code class="docutils literal notranslate"><span class="pre">AssetMetadataProvider</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../../../reference/asset.html#model-store">Model store</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../../reference/asset.html#model-card">Model card</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/all.html">All</a></li>
@@ -163,33 +150,31 @@
 
 <span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
 
-<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">TYPE_CHECKING</span><span class="p">,</span>
     <span class="n">Any</span><span class="p">,</span>
     <span class="n">Callable</span><span class="p">,</span>
     <span class="n">Dict</span><span class="p">,</span>
+    <span class="n">Iterable</span><span class="p">,</span>
     <span class="n">Iterator</span><span class="p">,</span>
-    <span class="n">List</span><span class="p">,</span>
     <span class="n">Mapping</span><span class="p">,</span>
     <span class="n">Optional</span><span class="p">,</span>
     <span class="n">Sequence</span><span class="p">,</span>
     <span class="n">Tuple</span><span class="p">,</span>
     <span class="n">TypedDict</span><span class="p">,</span>
     <span class="n">Union</span><span class="p">,</span>
-    <span class="n">final</span><span class="p">,</span>
 <span class="p">)</span>
 
-<span class="kn">from</span> <span class="nn">fairseq2n</span> <span class="kn">import</span> <span class="n">DOC_MODE</span>
 <span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
 <span class="kn">from</span> <span class="nn">typing_extensions</span> <span class="kn">import</span> <span class="n">Self</span>
 
+<span class="kn">from</span> <span class="nn">fairseq2</span> <span class="kn">import</span> <span class="n">_DOC_MODE</span>
+<span class="kn">from</span> <span class="nn">fairseq2.data.typing</span> <span class="kn">import</span> <span class="n">PathLike</span><span class="p">,</span> <span class="n">StringLike</span>
 <span class="kn">from</span> <span class="nn">fairseq2.memory</span> <span class="kn">import</span> <span class="n">MemoryBlock</span>
 
-<span class="k">if</span> <span class="n">TYPE_CHECKING</span> <span class="ow">or</span> <span class="n">DOC_MODE</span><span class="p">:</span>
+<span class="k">if</span> <span class="n">TYPE_CHECKING</span> <span class="ow">or</span> <span class="n">_DOC_MODE</span><span class="p">:</span>
 
-<div class="viewcode-block" id="DataPipeline"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline">[docs]</a>    <span class="nd">@final</span>
-    <span class="k">class</span> <span class="nc">DataPipeline</span><span class="p">:</span>
+<div class="viewcode-block" id="DataPipeline"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline">[docs]</a>    <span class="k">class</span> <span class="nc">DataPipeline</span><span class="p">(</span><span class="n">Iterable</span><span class="p">[</span><span class="n">Any</span><span class="p">]):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;fairseq2 native data pipeline.</span>
 
 <span class="sd">        The pipeline state can be persisted to the disk, allowing it to be resumed later.</span>
@@ -209,9 +194,6 @@
 <div class="viewcode-block" id="DataPipeline.reset"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.reset">[docs]</a>        <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">            </span><span class="sd">&quot;&quot;&quot;Move back to the first example in the data pipeline.&quot;&quot;&quot;</span></div>
 
-        <span class="k">def</span> <span class="nf">is_infinite</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-            <span class="o">...</span>
-
         <span class="nd">@property</span>
         <span class="k">def</span> <span class="nf">is_broken</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
 <span class="w">            </span><span class="sd">&quot;&quot;&quot;Return ``True`` if the data pipeline is broken.</span>
@@ -227,56 +209,16 @@
 <span class="sd">            the returned state dictionary to :meth:`load_state_dict`.</span>
 <span class="sd">            &quot;&quot;&quot;</span></div>
 
-<div class="viewcode-block" id="DataPipeline.load_state_dict"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.load_state_dict">[docs]</a>        <span class="k">def</span> <span class="nf">load_state_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<div class="viewcode-block" id="DataPipeline.load_state_dict"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.load_state_dict">[docs]</a>        <span class="k">def</span> <span class="nf">load_state_dict</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">strict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">            </span><span class="sd">&quot;&quot;&quot;Restore the state of the data pipeline from ``state_dict``.</span>
 
 <span class="sd">            :param state_dict:</span>
 <span class="sd">                A state dictionary previously returned by :meth:`state_dict`.</span>
-<span class="sd">            &quot;&quot;&quot;</span></div>
-
-<div class="viewcode-block" id="DataPipeline.concat"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.concat">[docs]</a>        <span class="nd">@staticmethod</span>
-        <span class="k">def</span> <span class="nf">concat</span><span class="p">(</span><span class="n">pipelines</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DataPipeline</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Concatenate examples from ``pipelines``.</span>
-
-<span class="sd">            :param pipelines:</span>
-<span class="sd">                The data pipelines to concatenate.</span>
-<span class="sd">            &quot;&quot;&quot;</span></div>
-
-        <span class="nd">@staticmethod</span>
-        <span class="k">def</span> <span class="nf">constant</span><span class="p">(</span><span class="n">example</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
-            <span class="o">...</span>
-
-        <span class="nd">@staticmethod</span>
-        <span class="k">def</span> <span class="nf">count</span><span class="p">(</span>
-            <span class="n">start</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">step</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
-            <span class="o">...</span>
-
-<div class="viewcode-block" id="DataPipeline.round_robin"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.round_robin">[docs]</a>        <span class="nd">@staticmethod</span>
-        <span class="k">def</span> <span class="nf">round_robin</span><span class="p">(</span>
-            <span class="n">pipelines</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DataPipeline</span><span class="p">],</span> <span class="n">stop_at_shortest</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Extract examples from ``pipelines`` in round robin.</span>
-
-<span class="sd">            :param pipelines:</span>
-<span class="sd">                The data pipelines to round robin.</span>
-<span class="sd">            :param stop_at_shortest:</span>
-<span class="sd">                If ``True``, stop round_robin when first pipeline reaches its end.</span>
-<span class="sd">                If ``False``, circle around finished pipelines until all pipelines</span>
-<span class="sd">                reach their end.</span>
-<span class="sd">            &quot;&quot;&quot;</span></div>
-
-<div class="viewcode-block" id="DataPipeline.sample"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.sample">[docs]</a>        <span class="nd">@staticmethod</span>
-        <span class="k">def</span> <span class="nf">sample</span><span class="p">(</span>
-            <span class="n">pipelines</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DataPipeline</span><span class="p">],</span>
-            <span class="n">weights</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Extract examples from ``pipelines`` by sampling based on ``weights``.</span>
-
-<span class="sd">            :param data_pipelines:</span>
-<span class="sd">                The data pipelines to sample from.</span>
-<span class="sd">            :param weights:</span>
-<span class="sd">                Desired distribution of pipelines. If None, use uniform distribution.</span>
+<span class="sd">            :param strict:</span>
+<span class="sd">                If ``True``, enforces that the keys in ``state_dict`` match the</span>
+<span class="sd">                keys returned by :meth:`state_dict`.</span>
 <span class="sd">            &quot;&quot;&quot;</span></div>
 
 <div class="viewcode-block" id="DataPipeline.zip"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.zip">[docs]</a>        <span class="nd">@staticmethod</span>
@@ -296,10 +238,59 @@
 <span class="sd">            :param flatten:</span>
 <span class="sd">            :param disable_parallelism:</span>
 <span class="sd">                If ``True``, calls each data pipeline sequentially.</span>
-<span class="sd">            &quot;&quot;&quot;</span></div></div>
+<span class="sd">            &quot;&quot;&quot;</span></div>
 
-<div class="viewcode-block" id="DataPipelineBuilder"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder">[docs]</a>    <span class="nd">@final</span>
-    <span class="k">class</span> <span class="nc">DataPipelineBuilder</span><span class="p">:</span>
+<div class="viewcode-block" id="DataPipeline.round_robin"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.round_robin">[docs]</a>        <span class="nd">@staticmethod</span>
+        <span class="k">def</span> <span class="nf">round_robin</span><span class="p">(</span>
+            <span class="n">pipelines</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DataPipeline</span><span class="p">],</span>
+            <span class="n">stop_at_shortest</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Extract examples from ``pipelines`` in round robin.</span>
+
+<span class="sd">            :param pipelines:</span>
+<span class="sd">                The data pipelines to round robin.</span>
+<span class="sd">            :param stop_at_shortest:</span>
+<span class="sd">                If ``True``, stop round_robin when first pipeline reaches its end.</span>
+<span class="sd">                If ``False``, circle around finished pipelines until all pipelines</span>
+<span class="sd">                reach their end.</span>
+<span class="sd">            &quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="DataPipeline.sample"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.sample">[docs]</a>        <span class="nd">@staticmethod</span>
+        <span class="k">def</span> <span class="nf">sample</span><span class="p">(</span>
+            <span class="n">pipelines</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DataPipeline</span><span class="p">],</span>
+            <span class="n">weights</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">stop_at_shortest</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Extract examples from ``pipelines`` by sampling based on ``weights``.</span>
+
+<span class="sd">            :param data_pipelines:</span>
+<span class="sd">                The data pipelines to sample from.</span>
+<span class="sd">            :param weights:</span>
+<span class="sd">                Desired distribution of pipelines. If None, use uniform distribution.</span>
+<span class="sd">            :param stop_at_shortest:</span>
+<span class="sd">                If ``True``, stop sampling when first pipeline reaches its end.</span>
+<span class="sd">                If ``False``, circle around finished pipelines until all pipelines</span>
+<span class="sd">                reach their end.</span>
+<span class="sd">            &quot;&quot;&quot;</span></div>
+
+        <span class="nd">@staticmethod</span>
+        <span class="k">def</span> <span class="nf">constant</span><span class="p">(</span><span class="n">example</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
+            <span class="o">...</span>
+
+        <span class="nd">@staticmethod</span>
+        <span class="k">def</span> <span class="nf">count</span><span class="p">(</span><span class="n">start</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
+            <span class="o">...</span>
+
+<div class="viewcode-block" id="DataPipeline.concat"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.concat">[docs]</a>        <span class="nd">@staticmethod</span>
+        <span class="k">def</span> <span class="nf">concat</span><span class="p">(</span><span class="n">pipelines</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">DataPipeline</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Concatenate examples from ``pipelines``.</span>
+
+<span class="sd">            :param pipelines:</span>
+<span class="sd">                The data pipelines to concatenate.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="o">...</span></div></div>
+
+<div class="viewcode-block" id="DataPipelineBuilder"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder">[docs]</a>    <span class="k">class</span> <span class="nc">DataPipelineBuilder</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;API to create DataPipeline&quot;&quot;&quot;</span>
 
 <div class="viewcode-block" id="DataPipelineBuilder.bucket"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder.bucket">[docs]</a>        <span class="k">def</span> <span class="nf">bucket</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">bucket_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">drop_remainder</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
@@ -316,9 +307,6 @@
             <span class="bp">self</span><span class="p">,</span>
             <span class="n">bucket_sizes</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]],</span>
             <span class="n">selector</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-            <span class="n">min_data_len</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-            <span class="n">skip_below_min_examples</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-            <span class="n">skip_above_max_examples</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
             <span class="n">drop_remainder</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
 <span class="w">            </span><span class="sd">&quot;&quot;&quot;Combine examples of similar shape into batches.&quot;&quot;&quot;</span></div>
@@ -384,9 +372,6 @@
 <span class="sd">                The number of examples to prefetch.</span>
 <span class="sd">            &quot;&quot;&quot;</span></div>
 
-        <span class="k">def</span> <span class="nf">repeat</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">num_repeats</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
-            <span class="o">...</span>
-
 <div class="viewcode-block" id="DataPipelineBuilder.shard"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder.shard">[docs]</a>        <span class="k">def</span> <span class="nf">shard</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">shard_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">num_shards</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
 <span class="w">            </span><span class="sd">&quot;&quot;&quot;Read only 1/``num_shards`` of the examples in the data pipeline.</span>
 
@@ -440,23 +425,25 @@
 <div class="viewcode-block" id="get_last_failed_example"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.get_last_failed_example.html#fairseq2.data.get_last_failed_example">[docs]</a>    <span class="k">def</span> <span class="nf">get_last_failed_example</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
         <span class="o">...</span></div>
 
-<div class="viewcode-block" id="list_files"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.list_files.html#fairseq2.data.list_files">[docs]</a>    <span class="k">def</span> <span class="nf">list_files</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">pattern</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;List recursively all files under ``path`` that matches ``pattern``.</span>
+<div class="viewcode-block" id="list_files"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.list_files.html#fairseq2.data.list_files">[docs]</a>    <span class="k">def</span> <span class="nf">list_files</span><span class="p">(</span>
+        <span class="n">pathname</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">,</span> <span class="n">pattern</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">StringLike</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;List recursively all files under ``pathname`` that matches ``pattern``.</span>
 
-<span class="sd">        :param path:</span>
+<span class="sd">        :param pathname:</span>
 <span class="sd">            The path to traverse.</span>
 <span class="sd">        :param pattern:</span>
 <span class="sd">            If non-empty, a pattern that follows the syntax of :mod:`fnmatch`.</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
-<div class="viewcode-block" id="read_sequence"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.read_sequence.html#fairseq2.data.read_sequence">[docs]</a>    <span class="k">def</span> <span class="nf">read_sequence</span><span class="p">(</span><span class="n">seq</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
+<div class="viewcode-block" id="read_sequence"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.read_sequence.html#fairseq2.data.read_sequence">[docs]</a>    <span class="k">def</span> <span class="nf">read_sequence</span><span class="p">(</span><span class="n">seq</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s2">&quot;DataPipelineBuilder&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Read every element in ``seq``.</span>
 
 <span class="sd">        :param seq:</span>
 <span class="sd">            The sequence to read.</span>
 <span class="sd">        &quot;&quot;&quot;</span></div>
 
-<div class="viewcode-block" id="read_zipped_records"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.read_zipped_records.html#fairseq2.data.read_zipped_records">[docs]</a>    <span class="k">def</span> <span class="nf">read_zipped_records</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
+<div class="viewcode-block" id="read_zipped_records"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.read_zipped_records.html#fairseq2.data.read_zipped_records">[docs]</a>    <span class="k">def</span> <span class="nf">read_zipped_records</span><span class="p">(</span><span class="n">pathname</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Read each file in a zip archive&quot;&quot;&quot;</span>
         <span class="o">...</span></div>
 
@@ -491,8 +478,7 @@
         <span class="k">def</span> <span class="nf">pad_to_multiple</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
             <span class="o">...</span></div>
 
-<div class="viewcode-block" id="Collater"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.Collater.html#fairseq2.data.Collater">[docs]</a>    <span class="nd">@final</span>
-    <span class="k">class</span> <span class="nc">Collater</span><span class="p">:</span>
+<div class="viewcode-block" id="Collater"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.Collater.html#fairseq2.data.Collater">[docs]</a>    <span class="k">class</span> <span class="nc">Collater</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Concatenate a list of inputs into a single inputs.</span>
 
 <span class="sd">        Used to create batches.</span>
@@ -537,8 +523,7 @@
 <span class="w">            </span><span class="sd">&quot;&quot;&quot;Concatenate the input tensors&quot;&quot;&quot;</span>
             <span class="o">...</span></div></div>
 
-<div class="viewcode-block" id="FileMapper"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.FileMapper.html#fairseq2.data.FileMapper">[docs]</a>    <span class="nd">@final</span>
-    <span class="k">class</span> <span class="nc">FileMapper</span><span class="p">:</span>
+<div class="viewcode-block" id="FileMapper"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.FileMapper.html#fairseq2.data.FileMapper">[docs]</a>    <span class="k">class</span> <span class="nc">FileMapper</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;For a given file name, returns the file content as bytes.</span>
 
 <span class="sd">        The file name can also specify a slice of the file in bytes:</span>
@@ -556,13 +541,13 @@
 
         <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span>
-            <span class="n">root_dir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">root_dir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">PathLike</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">cached_fd_count</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
             <span class="o">...</span>
 
-<div class="viewcode-block" id="FileMapper.__call__"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.FileMapper.html#fairseq2.data.FileMapper.__call__">[docs]</a>        <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pathname</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FileMapperOutput</span><span class="p">:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Parses the pathname and returns the file bytes.</span>
+<div class="viewcode-block" id="FileMapper.__call__"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.FileMapper.html#fairseq2.data.FileMapper.__call__">[docs]</a>        <span class="k">def</span> <span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">filename</span><span class="p">:</span> <span class="n">PathLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FileMapperOutput</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Parses the file name and returns the file bytes.</span>
 
 <span class="sd">            :returns:</span>
 <span class="sd">                A dict with the following keys::</span>
@@ -633,79 +618,8 @@
 
 
 <span class="k">class</span> <span class="nc">FileMapperOutput</span><span class="p">(</span><span class="n">TypedDict</span><span class="p">):</span>
-    <span class="n">path</span><span class="p">:</span> <span class="nb">str</span>
+    <span class="n">path</span><span class="p">:</span> <span class="n">PathLike</span>
     <span class="n">data</span><span class="p">:</span> <span class="n">MemoryBlock</span>
-
-
-<span class="k">def</span> <span class="nf">create_bucket_sizes</span><span class="p">(</span>
-    <span class="o">*</span><span class="p">,</span>
-    <span class="n">max_num_elements</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-    <span class="n">max_seq_len</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
-    <span class="n">min_seq_len</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-    <span class="n">num_seqs_multiple_of</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Create optimal bucket sizes for :meth:`DataPipeline.bucket_by_length`.</span>
-
-<span class="sd">    :param max_num_elements:</span>
-<span class="sd">        The maximum number of elements that each bucket can contain.</span>
-<span class="sd">    :param max_seq_len:</span>
-<span class="sd">        The maximum allowed sequence length.</span>
-<span class="sd">    :param min_seq_len:</span>
-<span class="sd">        The minimum allowed sequence length.</span>
-<span class="sd">    :param num_seqs_multiple_of:</span>
-<span class="sd">        The number of sequences contained in each bucket must be a multiple of</span>
-<span class="sd">        this value.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">if</span> <span class="n">max_seq_len</span> <span class="o">&gt;</span> <span class="n">max_num_elements</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;`max_seq_len` must be less than or equal to `max_num_elements` (</span><span class="si">{</span><span class="n">max_num_elements</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">max_seq_len</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
-        <span class="p">)</span>
-
-    <span class="k">if</span> <span class="n">min_seq_len</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;`min_seq_len` must be greater than zero, but is </span><span class="si">{</span><span class="n">min_seq_len</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
-        <span class="p">)</span>
-
-    <span class="k">if</span> <span class="n">min_seq_len</span> <span class="o">&gt;</span> <span class="n">max_seq_len</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;`min_seq_len` must be less than or equal to `max_seq_len` (</span><span class="si">{</span><span class="n">max_seq_len</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">min_seq_len</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
-        <span class="p">)</span>
-
-    <span class="k">if</span> <span class="n">num_seqs_multiple_of</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;`num_seqs_multiple_of` must be greater than or equal to 1, but is </span><span class="si">{</span><span class="n">num_seqs_multiple_of</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
-        <span class="p">)</span>
-
-    <span class="k">if</span> <span class="n">max_num_elements</span> <span class="o">%</span> <span class="p">(</span><span class="n">max_seq_len</span> <span class="o">*</span> <span class="n">num_seqs_multiple_of</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;`max_num_elements` must be equal to a multiple of `max_seq_len` (</span><span class="si">{</span><span class="n">max_seq_len</span><span class="si">}</span><span class="s2">) times `num_seqs_multiple_of` (</span><span class="si">{</span><span class="n">num_seqs_multiple_of</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">max_num_elements</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
-        <span class="p">)</span>
-
-    <span class="n">bucket_sizes</span> <span class="o">=</span> <span class="p">[]</span>
-
-    <span class="n">seq_len</span> <span class="o">=</span> <span class="mi">1</span>
-
-    <span class="n">bucket_size</span> <span class="o">=</span> <span class="n">max_num_elements</span> <span class="o">//</span> <span class="n">seq_len</span>
-
-    <span class="k">while</span> <span class="n">seq_len</span> <span class="o">&lt;=</span> <span class="n">max_seq_len</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">seq_len</span> <span class="o">&gt;=</span> <span class="n">min_seq_len</span><span class="p">:</span>
-            <span class="n">bucket_sizes</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">bucket_size</span><span class="p">,</span> <span class="n">seq_len</span><span class="p">))</span>
-
-        <span class="n">bucket_size</span> <span class="o">=</span> <span class="n">max_num_elements</span> <span class="o">//</span> <span class="p">(</span><span class="n">seq_len</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
-
-        <span class="n">seq_len</span> <span class="o">=</span> <span class="n">max_num_elements</span> <span class="o">//</span> <span class="n">bucket_size</span>
-
-    <span class="k">if</span> <span class="n">num_seqs_multiple_of</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">bucket_sizes</span>
-
-    <span class="n">cropped_bucket_sizes</span> <span class="o">=</span> <span class="p">[]</span>
-
-    <span class="k">for</span> <span class="n">bucket_size</span><span class="p">,</span> <span class="n">seq_len</span> <span class="ow">in</span> <span class="n">bucket_sizes</span><span class="p">:</span>
-        <span class="n">cropped_bucket_sizes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-            <span class="p">(</span><span class="n">bucket_size</span> <span class="o">-</span> <span class="p">(</span><span class="n">bucket_size</span> <span class="o">%</span> <span class="n">num_seqs_multiple_of</span><span class="p">),</span> <span class="n">seq_len</span><span class="p">)</span>
-        <span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">cropped_bucket_sizes</span>
 </pre></div>
 
            </div>

@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SentencePieceDecoder &mdash; fairseq2 0.3.0.dev202404012025+ga9501ad documentation</title>
+  <title>SentencePieceDecoder &mdash; fairseq2 0.2.1.dev202404021533 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -35,7 +35,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202404012025+ga9501ad
+                0.2.1.dev202404021533
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -86,11 +86,15 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../data.html#column-syntax">Column syntax</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../data.html#public-classes-used-in-fairseq2-api">Public classes used in fairseq2 API:</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.CString.html">CString</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.PathLike.html">PathLike</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.StringLike.html">StringLike</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.ByteStreamError.html">fairseq2.data.ByteStreamError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.DataPipelineError.html">fairseq2.data.DataPipelineError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.RecordError.html">fairseq2.data.RecordError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.VocabularyInfo.html">VocabularyInfo</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.get_last_failed_example.html">get_last_failed_example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.is_string_like.html">is_string_like</a></li>
 </ul>
 </li>
 <li class="toctree-l2 current"><a class="reference internal" href="../../data.html#fairseq2-data-text">fairseq2.data.text</a><ul class="current">
@@ -107,23 +111,6 @@
 <li class="toctree-l3"><a class="reference internal" href="fairseq2.data.text.LineEnding.html">LineEnding</a></li>
 </ul>
 </li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="../../asset.html">fairseq2.assets</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="../data/fairseq2.assets.AssetStore.html">AssetStore</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.assets.AssetStore.html#fairseq2.assets.AssetStore"><code class="docutils literal notranslate"><span class="pre">AssetStore</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../data/fairseq2.assets.AssetCard.html">AssetCard</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.assets.AssetCard.html#fairseq2.assets.AssetCard"><code class="docutils literal notranslate"><span class="pre">AssetCard</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../data/fairseq2.assets.AssetMetadataProvider.html">AssetMetadataProvider</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.assets.AssetMetadataProvider.html#fairseq2.assets.AssetMetadataProvider"><code class="docutils literal notranslate"><span class="pre">AssetMetadataProvider</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../../asset.html#model-store">Model store</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../asset.html#model-card">Model card</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../all.html">All</a></li>
@@ -174,7 +161,7 @@
 <dd class="field-odd"><p><strong>token_indices</strong> (<a class="reference external" href="https://pytorch.org/docs/stable/tensors.html#torch.Tensor" title="(in PyTorch v2.2)"><em>Tensor</em></a>) – The token indices to decode from.</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)">str</a></p>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)">str</a> | <a class="reference internal" href="../data/fairseq2.data.CString.html#fairseq2.data.CString" title="fairseq2.data.cstring.CString"><em>CString</em></a></p>
 </dd>
 </dl>
 </dd></dl>
@@ -184,10 +171,10 @@
 <span class="sig-name descname"><span class="pre">decode_from_tokens</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">tokens</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/text/sentencepiece.html#SentencePieceDecoder.decode_from_tokens"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.text.SentencePieceDecoder.decode_from_tokens" title="Permalink to this definition"></a></dt>
 <dd><dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>tokens</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.12)"><em>Sequence</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a><em>]</em>) – The tokens to decode from.</p>
+<dd class="field-odd"><p><strong>tokens</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.12)"><em>Sequence</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a><em> | </em><a class="reference internal" href="../data/fairseq2.data.CString.html#fairseq2.data.CString" title="fairseq2.data.cstring.CString"><em>CString</em></a><em>]</em>) – The tokens to decode from.</p>
 </dd>
 <dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)">str</a></p>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)">str</a> | <a class="reference internal" href="../data/fairseq2.data.CString.html#fairseq2.data.CString" title="fairseq2.data.cstring.CString"><em>CString</em></a></p>
 </dd>
 </dl>
 </dd></dl>

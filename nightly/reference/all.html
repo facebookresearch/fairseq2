@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>All &mdash; fairseq2 0.3.0.dev202404012025+ga9501ad documentation</title>
+  <title>All &mdash; fairseq2 0.2.1.dev202404021533 documentation</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -20,7 +20,7 @@
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
     <link rel="next" title="Gang" href="generated/abc/fairseq2.gang.Gang.html" />
-    <link rel="prev" title="AssetMetadataProvider" href="generated/data/fairseq2.assets.AssetMetadataProvider.html" /> 
+    <link rel="prev" title="LineEnding" href="generated/data_text/fairseq2.data.text.LineEnding.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -35,7 +35,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202404012025+ga9501ad
+                0.2.1.dev202404021533
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
@@ -86,11 +86,15 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="data.html#column-syntax">Column syntax</a></li>
 <li class="toctree-l2"><a class="reference internal" href="data.html#public-classes-used-in-fairseq2-api">Public classes used in fairseq2 API:</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.CString.html">CString</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.PathLike.html">PathLike</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.StringLike.html">StringLike</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.ByteStreamError.html">fairseq2.data.ByteStreamError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.DataPipelineError.html">fairseq2.data.DataPipelineError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.RecordError.html">fairseq2.data.RecordError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.VocabularyInfo.html">VocabularyInfo</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.get_last_failed_example.html">get_last_failed_example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.is_string_like.html">is_string_like</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="data.html#fairseq2-data-text">fairseq2.data.text</a><ul>
@@ -107,23 +111,6 @@
 <li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.LineEnding.html">LineEnding</a></li>
 </ul>
 </li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="asset.html">fairseq2.assets</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.assets.AssetStore.html">AssetStore</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.assets.AssetStore.html#fairseq2.assets.AssetStore"><code class="docutils literal notranslate"><span class="pre">AssetStore</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.assets.AssetCard.html">AssetCard</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.assets.AssetCard.html#fairseq2.assets.AssetCard"><code class="docutils literal notranslate"><span class="pre">AssetCard</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.assets.AssetMetadataProvider.html">AssetMetadataProvider</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.assets.AssetMetadataProvider.html#fairseq2.assets.AssetMetadataProvider"><code class="docutils literal notranslate"><span class="pre">AssetMetadataProvider</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="asset.html#model-store">Model store</a></li>
-<li class="toctree-l2"><a class="reference internal" href="asset.html#model-card">Model card</a></li>
 </ul>
 </li>
 <li class="toctree-l1 current"><a class="current reference internal" href="#">All</a></li>
@@ -176,13 +163,16 @@
 <tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.CosineAnnealingLR.html#fairseq2.optim.lr_scheduler.CosineAnnealingLR" title="fairseq2.optim.lr_scheduler.CosineAnnealingLR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">optim.lr_scheduler.CosineAnnealingLR</span></code></a></p></td>
 <td><p>Represents the learning rate schedule described in <span id="id1">Loshchilov and Hutter [<a class="reference internal" href="../bibliography.html#id2" title="Ilya Loshchilov and Frank Hutter. Sgdr: stochastic gradient descent with warm restarts. 2017. arXiv:1608.03983.">LH17</a>]</span>.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.MyleLR.html#fairseq2.optim.lr_scheduler.MyleLR" title="fairseq2.optim.lr_scheduler.MyleLR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">optim.lr_scheduler.MyleLR</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.LRSchedulerBase.html#fairseq2.optim.lr_scheduler.LRSchedulerBase" title="fairseq2.optim.lr_scheduler.LRSchedulerBase"><code class="xref py py-obj docutils literal notranslate"><span class="pre">optim.lr_scheduler.LRSchedulerBase</span></code></a></p></td>
+<td><p>Represents the abstract base class for learning rate schedulers.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.MyleLR.html#fairseq2.optim.lr_scheduler.MyleLR" title="fairseq2.optim.lr_scheduler.MyleLR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">optim.lr_scheduler.MyleLR</span></code></a></p></td>
 <td><p>Represents a scaled version of <code class="xref py py-class docutils literal notranslate"><span class="pre">NoamLR</span></code> that preserves the base learning rate of the associated optimizer.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.NoamLR.html#fairseq2.optim.lr_scheduler.NoamLR" title="fairseq2.optim.lr_scheduler.NoamLR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">optim.lr_scheduler.NoamLR</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.NoamLR.html#fairseq2.optim.lr_scheduler.NoamLR" title="fairseq2.optim.lr_scheduler.NoamLR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">optim.lr_scheduler.NoamLR</span></code></a></p></td>
 <td><p>Represents the learning rate schedule described in Section 5.3 of <span id="id2">Vaswani <em>et al.</em> [<a class="reference internal" href="../bibliography.html#id5" title="Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser, and Illia Polosukhin. Attention is all you need. 2017. URL: https://arxiv.org/abs/1706.03762, doi:10.48550/ARXIV.1706.03762.">VSP+17</a>]</span>.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.PolynomialDecayLR.html#fairseq2.optim.lr_scheduler.PolynomialDecayLR" title="fairseq2.optim.lr_scheduler.PolynomialDecayLR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">optim.lr_scheduler.PolynomialDecayLR</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/classes/fairseq2.optim.lr_scheduler.PolynomialDecayLR.html#fairseq2.optim.lr_scheduler.PolynomialDecayLR" title="fairseq2.optim.lr_scheduler.PolynomialDecayLR"><code class="xref py py-obj docutils literal notranslate"><span class="pre">optim.lr_scheduler.PolynomialDecayLR</span></code></a></p></td>
 <td><p>Represents the polynomial decay learning rate schedule.</p></td>
 </tr>
 </tbody>
@@ -214,7 +204,7 @@
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="generated/data/fairseq2.assets.AssetMetadataProvider.html" class="btn btn-neutral float-left" title="AssetMetadataProvider" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="generated/data_text/fairseq2.data.text.LineEnding.html" class="btn btn-neutral float-left" title="LineEnding" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="generated/abc/fairseq2.gang.Gang.html" class="btn btn-neutral float-right" title="Gang" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

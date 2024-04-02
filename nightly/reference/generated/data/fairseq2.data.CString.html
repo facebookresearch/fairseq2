@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AssetCard &mdash; fairseq2 0.3.0.dev202404012025+ga9501ad documentation</title>
+  <title>CString &mdash; fairseq2 0.2.1.dev202404021533 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -19,8 +19,8 @@
     <script src="../../../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
-    <link rel="next" title="AssetMetadataProvider" href="fairseq2.assets.AssetMetadataProvider.html" />
-    <link rel="prev" title="AssetStore" href="fairseq2.assets.AssetStore.html" /> 
+    <link rel="next" title="PathLike" href="fairseq2.data.PathLike.html" />
+    <link rel="prev" title="CollateOptionsOverride" href="fairseq2.data.CollateOptionsOverride.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -35,7 +35,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202404012025+ga9501ad
+                0.2.1.dev202404021533
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -47,7 +47,7 @@
         </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
               <p class="caption" role="heading"><span class="caption-text">fairseq2 Reference</span></p>
 <ul class="current">
-<li class="toctree-l1"><a class="reference internal" href="../../data.html">fairseq2.data</a><ul>
+<li class="toctree-l1 current"><a class="reference internal" href="../../data.html">fairseq2.data</a><ul class="current">
 <li class="toctree-l2"><a class="reference internal" href="fairseq2.data.DataPipeline.html">DataPipeline</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline"><code class="docutils literal notranslate"><span class="pre">DataPipeline</span></code></a></li>
 </ul>
@@ -85,12 +85,16 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../data.html#column-syntax">Column syntax</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../data.html#public-classes-used-in-fairseq2-api">Public classes used in fairseq2 API:</a><ul>
+<li class="toctree-l2 current"><a class="reference internal" href="../../data.html#public-classes-used-in-fairseq2-api">Public classes used in fairseq2 API:</a><ul class="current">
+<li class="toctree-l3 current"><a class="current reference internal" href="#">CString</a></li>
+<li class="toctree-l3"><a class="reference internal" href="fairseq2.data.PathLike.html">PathLike</a></li>
+<li class="toctree-l3"><a class="reference internal" href="fairseq2.data.StringLike.html">StringLike</a></li>
 <li class="toctree-l3"><a class="reference internal" href="fairseq2.data.ByteStreamError.html">fairseq2.data.ByteStreamError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="fairseq2.data.DataPipelineError.html">fairseq2.data.DataPipelineError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="fairseq2.data.RecordError.html">fairseq2.data.RecordError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="fairseq2.data.VocabularyInfo.html">VocabularyInfo</a></li>
 <li class="toctree-l3"><a class="reference internal" href="fairseq2.data.get_last_failed_example.html">get_last_failed_example</a></li>
+<li class="toctree-l3"><a class="reference internal" href="fairseq2.data.is_string_like.html">is_string_like</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../data.html#fairseq2-data-text">fairseq2.data.text</a><ul>
@@ -107,23 +111,6 @@
 <li class="toctree-l3"><a class="reference internal" href="../data_text/fairseq2.data.text.LineEnding.html">LineEnding</a></li>
 </ul>
 </li>
-</ul>
-</li>
-<li class="toctree-l1 current"><a class="reference internal" href="../../asset.html">fairseq2.assets</a><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="fairseq2.assets.AssetStore.html">AssetStore</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="fairseq2.assets.AssetStore.html#fairseq2.assets.AssetStore"><code class="docutils literal notranslate"><span class="pre">AssetStore</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l2 current"><a class="current reference internal" href="#">AssetCard</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="#fairseq2.assets.AssetCard"><code class="docutils literal notranslate"><span class="pre">AssetCard</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="fairseq2.assets.AssetMetadataProvider.html">AssetMetadataProvider</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="fairseq2.assets.AssetMetadataProvider.html#fairseq2.assets.AssetMetadataProvider"><code class="docutils literal notranslate"><span class="pre">AssetMetadataProvider</span></code></a></li>
-</ul>
-</li>
-<li class="toctree-l2"><a class="reference internal" href="../../asset.html#model-store">Model store</a></li>
-<li class="toctree-l2"><a class="reference internal" href="../../asset.html#model-card">Model card</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../all.html">All</a></li>
@@ -147,10 +134,10 @@
           <div role="navigation" aria-label="Page navigation">
   <ul class="wy-breadcrumbs">
       <li><a href="../../../index.html" class="icon icon-home" aria-label="Home"></a></li>
-          <li class="breadcrumb-item"><a href="../../asset.html">fairseq2.assets</a></li>
-      <li class="breadcrumb-item active">AssetCard</li>
+          <li class="breadcrumb-item"><a href="../../data.html">fairseq2.data</a></li>
+      <li class="breadcrumb-item active">CString</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../../../_sources/reference/generated/data/fairseq2.assets.AssetCard.rst.txt" rel="nofollow"> View page source</a>
+            <a href="../../../_sources/reference/generated/data/fairseq2.data.CString.rst.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -158,76 +145,63 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="assetcard">
-<h1>AssetCard<a class="headerlink" href="#assetcard" title="Permalink to this heading"></a></h1>
+  <section id="cstring">
+<h1>CString<a class="headerlink" href="#cstring" title="Permalink to this heading"></a></h1>
 <dl class="py class">
-<dt class="sig sig-object py" id="fairseq2.assets.AssetCard">
-<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.assets.</span></span><span class="sig-name descname"><span class="pre">AssetCard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metadata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/assets/card.html#AssetCard"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetCard" title="Permalink to this definition"></a></dt>
+<dt class="sig sig-object py" id="fairseq2.data.CString">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.data.</span></span><span class="sig-name descname"><span class="pre">CString</span></span><a class="reference internal" href="../../../_modules/fairseq2/data/cstring.html#CString"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.CString" title="Permalink to this definition"></a></dt>
+<dt class="sig sig-object py">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.data.</span></span><span class="sig-name descname"><span class="pre">CString</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">s</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><span class="pre">str</span></a></span></em><span class="sig-paren">)</span></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
-<p>Holds information about an asset.</p>
+<p>Represents an immutable UTF-8 string that supports zero-copy marshalling
+between Python and native code.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>metadata</strong> (<em>MutableMapping</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a><em>, </em><em>Any</em><em>]</em>) – The metadata to be held in the card. Each key-value item should
-contain a specific piece of information about the asset.</p></li>
-<li><p><strong>base</strong> (<em>Optional</em><em>[</em><a class="reference internal" href="#fairseq2.assets.AssetCard" title="fairseq2.assets.AssetCard"><em>AssetCard</em></a><em>]</em>) – The card that this card derives from.</p></li>
-</ul>
+<dd class="field-odd"><p><strong>s</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a><em> | </em><em>None</em>) – The Python string to copy.</p>
 </dd>
 </dl>
 <dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.assets.AssetCard.asset_family">
-<span class="sig-name descname"><span class="pre">asset_family</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/assets/card.html#AssetCard.asset_family"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetCard.asset_family" title="Permalink to this definition"></a></dt>
-<dd><p>Return the family of the asset represented by this card.</p>
+<dt class="sig sig-object py" id="fairseq2.data.CString.lstrip">
+<span class="sig-name descname"><span class="pre">lstrip</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/cstring.html#CString.lstrip"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.CString.lstrip" title="Permalink to this definition"></a></dt>
+<dd><p>Return a copy of this string with no whitespace at the beginning.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)">str</a></p>
+<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.data.CString" title="fairseq2.data.cstring.CString"><em>CString</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.assets.AssetCard.asset_type">
-<span class="sig-name descname"><span class="pre">asset_type</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/assets/card.html#AssetCard.asset_type"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetCard.asset_type" title="Permalink to this definition"></a></dt>
-<dd><p>Return the type of the asset represented by this card.</p>
+<dt class="sig sig-object py" id="fairseq2.data.CString.rstrip">
+<span class="sig-name descname"><span class="pre">rstrip</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/cstring.html#CString.rstrip"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.CString.rstrip" title="Permalink to this definition"></a></dt>
+<dd><p>Return a copy of this string with no whitespace at the end.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)">str</a></p>
+<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.data.CString" title="fairseq2.data.cstring.CString"><em>CString</em></a></p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
-<dt class="sig sig-object py" id="fairseq2.assets.AssetCard.field">
-<span class="sig-name descname"><span class="pre">field</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/assets/card.html#AssetCard.field"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetCard.field" title="Permalink to this definition"></a></dt>
-<dd><p>Return a field of this card.</p>
-<p>If the card does not contain the specified field, its base card will be
-checked recursively.</p>
+<dt class="sig sig-object py" id="fairseq2.data.CString.split">
+<span class="sig-name descname"><span class="pre">split</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sep</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/cstring.html#CString.split"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.CString.split" title="Permalink to this definition"></a></dt>
+<dd><p>Return a list of the words in string using sep as the delimiter string.</p>
 <dl class="field-list simple">
-<dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>name</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a>) – The name of the field.</p>
-</dd>
-<dt class="field-even">Return type<span class="colon">:</span></dt>
-<dd class="field-even"><p><em>AssetCardField</em></p>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.12)"><em>List</em></a>[<a class="reference internal" href="#fairseq2.data.CString" title="fairseq2.data.cstring.CString"><em>CString</em></a>]</p>
 </dd>
 </dl>
 </dd></dl>
 
-<dl class="py property">
-<dt class="sig sig-object py" id="fairseq2.assets.AssetCard.base">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">base</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference internal" href="#fairseq2.assets.AssetCard" title="fairseq2.assets.card.AssetCard"><span class="pre">AssetCard</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.12)"><span class="pre">None</span></a></em><a class="headerlink" href="#fairseq2.assets.AssetCard.base" title="Permalink to this definition"></a></dt>
-<dd><p>The card that this card derives from.</p>
-</dd></dl>
-
-<dl class="py property">
-<dt class="sig sig-object py" id="fairseq2.assets.AssetCard.metadata">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">metadata</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Mapping" title="(in Python v3.12)"><span class="pre">Mapping</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.12)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></em><a class="headerlink" href="#fairseq2.assets.AssetCard.metadata" title="Permalink to this definition"></a></dt>
-<dd><p>The metadata of the asset.</p>
-</dd></dl>
-
-<dl class="py property">
-<dt class="sig sig-object py" id="fairseq2.assets.AssetCard.name">
-<em class="property"><span class="pre">property</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">name</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><span class="pre">str</span></a></em><a class="headerlink" href="#fairseq2.assets.AssetCard.name" title="Permalink to this definition"></a></dt>
-<dd><p>The name of the asset.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.CString.strip">
+<span class="sig-name descname"><span class="pre">strip</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/cstring.html#CString.strip"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.CString.strip" title="Permalink to this definition"></a></dt>
+<dd><p>Return a copy of this string with no whitespace at the beginning and end.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#fairseq2.data.CString" title="fairseq2.data.cstring.CString"><em>CString</em></a></p>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
@@ -238,8 +212,8 @@ checked recursively.</p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="fairseq2.assets.AssetStore.html" class="btn btn-neutral float-left" title="AssetStore" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="fairseq2.assets.AssetMetadataProvider.html" class="btn btn-neutral float-right" title="AssetMetadataProvider" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="fairseq2.data.CollateOptionsOverride.html" class="btn btn-neutral float-left" title="CollateOptionsOverride" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="fairseq2.data.PathLike.html" class="btn btn-neutral float-right" title="PathLike" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

@@ -1,9 +1,9 @@
-﻿.. currentmodule:: fairseq2.assets
+﻿.. currentmodule:: fairseq2.data
 
-AssetStore
-==========
+CString
+=======
 
-.. autoclass:: AssetStore
+.. autoclass:: CString
     :members:
     :member-order: groupwise
     :class-doc-from: both
