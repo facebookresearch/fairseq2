@@ -21,7 +21,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        torch: ['2.0.1']
+        torch: ['2.0.0', '2.0.1']
         py: ['3.8', '3.9', '3.10', '3.11']
         variant: ['cpu', 'cu117', 'cu118']
         sanitizers: ['nosan']
@@ -38,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        torch: ['2.1.2']
+        torch: ['2.1.0', '2.1.1', '2.1.2']
         py: ['3.8', '3.9', '3.10', '3.11']
         variant: ['cpu', 'cu118', 'cu121']
         sanitizers: ['nosan']
@@ -55,7 +55,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        torch: ['2.2.0', '2.2.1']
+        torch: ['2.2.0', '2.2.1', '2.2.2']
         py: ['3.8', '3.9', '3.10', '3.11']
         variant: ['cpu', 'cu118', 'cu121']
         sanitizers: ['nosan']
@@ -63,14 +63,14 @@ jobs:
           - run_integration_tests: false
 
           # Integration Tests
-          - torch: '2.2.1'
+          - torch: '2.2.2'
             py: '3.11'
             variant: 'cpu'
             sanitizers: 'nosan'
             run_integration_tests: true
 
           # ASAN/UBSAN
-          - torch: '2.2.1'
+          - torch: '2.2.2'
             py: '3.11'
             variant: 'cpu'
             sanitizers: 'asan_ubsan'
@@ -83,6 +83,19 @@ jobs:
       version_override: ${{ inputs.version_override }}
       run_integration_tests: ${{ matrix.run_integration_tests }}
 
+  build_pt22_wheel-macos:
+    name: Build wheels (pt${{ matrix.torch }}, py${{ matrix.py }}, macos-arm64)
+    uses: ./.github/workflows/_build_wheel-macos.yaml
+    strategy:
+      fail-fast: false
+      matrix:
+        torch: ['2.2.0', '2.2.1', '2.2.2']
+        py: ['3.8', '3.9', '3.10', '3.11']
+    with:
+      torch: ${{ matrix.torch }}
+      py: ${{ matrix.py }}
+      version_override: ${{ inputs.version_override }}
+
   build_pypi_wheel-linux:
     name: Build wheels for PyPI (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }})
     uses: ./.github/workflows/_build_wheel-linux.yaml
@@ -90,7 +103,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        torch: ['2.2.1']
+        torch: ['2.2.2']
         py: ['3.8', '3.9', '3.10', '3.11']
         variant: ['cu121']
     with:
@@ -108,7 +121,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        torch: ['2.2.1']
+        torch: ['2.2.2']
         py: ['3.8', '3.9', '3.10', '3.11']
     with:
       torch: ${{ matrix.torch }}
