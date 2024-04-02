@@ -158,7 +158,6 @@ pip install fairseq2\
   --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.2.2/cu118
 ```
 
-
 > [!WARNING]
 > fairseq2 relies on the C++ API of PyTorch which has no API/ABI compatibility
 > between releases. This means **you have to install the fairseq2 variant that
@@ -203,6 +202,56 @@ hosted on PyPI.
 At this time, we do not offer a pre-built package for Intel-based Mac computers.
 Please refer to [Install From Source](INSTALL_FROM_SOURCE.md) to learn how to
 build and install fairseq2 on Intel machines.
+
+### Variants
+Besides PyPI, fairseq2 also has pre-built packages available for different
+PyTorch versions hosted on FAIR's package repository. The following matrix shows
+the supported combinations.
+
+<table>
+  <thead>
+    <th>fairseq2</th>
+    <th>PyTorch</th>
+    <th>Python</th>
+    <th>Arch</th>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>HEAD</code></td>
+      <td><code>2.2.0</code>, <code>2.2.1</code>, <code>2.2.2</code></td>
+      <td><code>&gt;=3.8</code>, <code>&lt;=3.11</code></td>
+      <td><code>arm64</code></td>
+    </tr>
+  </tbody>
+</table>
+
+To install a specific combination, first follow the installation instructions on
+[pytorch.org](https://pytorch.org/get-started/locally) for the desired PyTorch
+version, and then use the following command (shown for PyTorch `2.2.2`):
+
+```sh
+pip install fairseq2\
+  --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/pt2.2.2/cpu
+```
+
+> [!WARNING]
+> fairseq2 relies on the C++ API of PyTorch which has no API/ABI compatibility
+> between releases. This means **you have to install the fairseq2 variant that
+> exactly matches your PyTorch version**. Otherwise, you might experience issues
+> like immediate process crashes or spurious segfaults. For the same reason, if
+> you upgrade your PyTorch version, you must also upgrade your fairseq2
+> installation.
+
+### Nightlies
+For macOS, we also host nightly builds on FAIR's package repository. The
+supported variants are identical to the ones listed in *Variants* above. Once
+you have installed the desired PyTorch version, you can use the following
+command to install the corresponding nightly package  (shown for PyTorch `2.2.2`):
+
+```sh
+pip install fairseq2\
+  --pre --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.2.2/cpu
+```
 
 
 ## Installing on Windows
