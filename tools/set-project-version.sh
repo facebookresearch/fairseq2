@@ -29,7 +29,11 @@ function exit_with_error
 
 function replace_match
 {
-    sed --in-place --expression "$2" "$1"
+    if [[ $(uname -s) == "Darwin" ]]; then
+        sed -i "" "$2" "$1"
+    else
+        sed --in-place "$2" "$1"
+    fi
 }
 
 function extract_pep_version
