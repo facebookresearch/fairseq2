@@ -308,10 +308,9 @@ class Wav2Vec2Features:
     length, and :math:`M` is the dimensionality of the model."""
 
     encoder_padding_mask: Optional[PaddingMask]
-    """The padding mask of the context network output. *Shape:*
-    :math:`(N,S_{enc},M)`, where :math:`N` is the batch size, :math:`S_{enc}` is
-    the encoder output sequence length, and :math:`M` is the dimensionality of
-    the model."""
+    """The padding mask of :attr:`encoder_output`. *Shape:* :math:`(N,S_{enc})`,
+    where :math:`N` is the batch size and :math:`S_{enc}` is the encoder output
+    sequence length."""
 
     targets: Tensor
     """The non-quantized context network targets that have been extracted from
@@ -356,10 +355,9 @@ class Wav2Vec2Output:
     length, and :math:`M` is the dimensionality of the model."""
 
     encoder_padding_mask: Optional[PaddingMask]
-    """The padding mask of the context network output. *Shape:*
-    :math:`(N,S_{enc},M)`, where :math:`N` is the batch size, :math:`S_{enc}` is
-    the encoder output sequence length, and :math:`M` is the dimensionality of
-    the model."""
+    """The padding mask of :attr:`encoder_output`. *Shape:* :math:`(N,S_{enc})`,
+    where :math:`N` is the batch size and :math:`S_{enc}` is the encoder output
+    sequence length."""
 
     def compute_loss(self, *, diversity_loss_weight: float = 0.1) -> Wav2Vec2Loss:
         """Compute the loss.
