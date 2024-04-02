@@ -72,6 +72,7 @@ jobs:
       os: 'macos'
       torch: ${{ matrix.torch }}
       py: ${{ matrix.py }}
+      variant: 'cpu'
       release_type: ${{ inputs.release_type }}
       arch: 'arm64'
 
