@@ -151,7 +151,7 @@ class DynamicLossScaler:
             return LossScaleResult(old_scale, new_scale)
 
         if new_scale > old_scale:
-            log.info("No gradient overflow detected in the last {:,} step(s) after step {:,}, increasing loss scale from {:g} to {:g}.", self._scale_window, step_nr, old_scale, new_scale)  # fmt: skip
+            log.info("No gradient overflow detected in the last {} step(s) after step {}, increasing loss scale from {:g} to {:g}.", self._scale_window, step_nr, old_scale, new_scale)  # fmt: skip
 
             return LossScaleResult(old_scale, new_scale)
 
@@ -159,15 +159,15 @@ class DynamicLossScaler:
             self._grad_scaler.update(self._min_scale)
 
             if self._are_close(old_scale, self._min_scale):
-                log.warning("Overflow detected at step {:,}, ignoring gradient, loss scale is already at minimum ({:g}). Your loss is probably exploding. Try lowering the learning rate, using gradient clipping, or increasing the batch size.", step_nr, self._min_scale)  # fmt: skip
+                log.warning("Overflow detected at step {}, ignoring gradient, loss scale is already at minimum ({:g}). Your loss is probably exploding. Try lowering the learning rate, using gradient clipping, or increasing the batch size.", step_nr, self._min_scale)  # fmt: skip
             else:
-                log.warning("Overflow detected at step {:,}, ignoring gradient, decreasing loss scale from {:g} to {:g} (minimum). Your loss is probably exploding. Try lowering the learning rate, using gradient clipping, or increasing the batch size.", step_nr, old_scale, self._min_scale)  # fmt: skip
+                log.warning("Overflow detected at step {}, ignoring gradient, decreasing loss scale from {:g} to {:g} (minimum). Your loss is probably exploding. Try lowering the learning rate, using gradient clipping, or increasing the batch size.", step_nr, old_scale, self._min_scale)  # fmt: skip
 
             return LossScaleResult(
                 old_scale, new_scale, overflow=True, min_reached=True
             )
         else:
-            log.info("Overflow detected at step {:,}, ignoring gradient, decreasing loss scale from {:g} to {:g}.", step_nr, old_scale, new_scale)  # fmt: skip
+            log.info("Overflow detected at step {}, ignoring gradient, decreasing loss scale from {:g} to {:g}.", step_nr, old_scale, new_scale)  # fmt: skip
 
             return LossScaleResult(old_scale, new_scale, overflow=True)
 
