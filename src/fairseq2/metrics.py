@@ -11,6 +11,7 @@ from abc import ABC, abstractmethod
 from functools import partial
 from logging import Logger
 from pathlib import Path
+from string import capwords
 from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple, Union, final
 
 from torcheval.metrics import Metric
@@ -342,7 +343,7 @@ class LogMetricRecorder(MetricRecorder):
 
         s = " | ".join(formatted_values)
 
-        self._log.info("{} Metrics (step {}) - {}", run, step_nr, s)
+        self._log.info("{} Metrics (step {}) - {}", capwords(run), step_nr, s)
 
     @override
     def close(self) -> None:
