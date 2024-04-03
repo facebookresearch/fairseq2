@@ -106,7 +106,7 @@ round_robin_data_source::reload_position(tape &t, bool strict)
 
         buffer_idx_ = 0;
 
-        is_epoch_done_.clear();
+        is_epoch_done_.assign(pipelines_.size(), false);
     }
 
     is_eod_ = false;

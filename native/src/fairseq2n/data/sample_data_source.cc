@@ -105,7 +105,7 @@ sample_data_source::reload_position(tape &t, bool strict)
     } else {
         buffer_.clear();
 
-        is_epoch_done_.clear();
+        is_epoch_done_.assign(pipelines_.size(), false);
     }
 
     is_eod_ = false;
