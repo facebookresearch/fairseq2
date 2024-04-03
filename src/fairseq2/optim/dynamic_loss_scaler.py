@@ -151,7 +151,7 @@ class DynamicLossScaler:
             return LossScaleResult(old_scale, new_scale)
 
         if new_scale > old_scale:
-            log.info("No gradient overflow detected in the last {:,} step(s) after step {:.}, increasing loss scale from {:g} to {:g}.", self._scale_window, step_nr, old_scale, new_scale)  # fmt: skip
+            log.info("No gradient overflow detected in the last {:,} step(s) after step {:,}, increasing loss scale from {:g} to {:g}.", self._scale_window, step_nr, old_scale, new_scale)  # fmt: skip
 
             return LossScaleResult(old_scale, new_scale)
 
