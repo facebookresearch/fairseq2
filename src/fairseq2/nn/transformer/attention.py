@@ -9,15 +9,15 @@ from contextlib import contextmanager
 from typing import Generator, Optional, Protocol, Tuple, final
 
 import torch
-import torch.nn.functional as F
 from torch import Tensor
 from torch.nn import Module
-from torch.nn.functional import dropout, softmax
+from torch.nn.functional import dropout, scaled_dot_product_attention, softmax
 
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer.attention_mask import AttentionMask, CausalAttentionMask
 from fairseq2.typing import override
 from fairseq2.utils.logging import get_log_writer
+from fairseq2.utils.version import _is_pt22_or_greater
 
 log = get_log_writer(__name__)
 
@@ -79,12 +79,23 @@ class TorchSDPA(SDPA):
 
     attn_dropout_p: float
 
-    def __init__(self, *, attn_dropout_p: float = 0.0) -> None:
+    def __init__(
+        self, *, attn_dropout_p: float = 0.0, disable_compile: bool = False
+    ) -> None:
         """
         :param attn_dropout_p:
             The dropout probability on attention weights.
+        :param disable_compile:
+            If ``True``, disables ``torch.compile()`` on the SDPA function.
         """
         super().__init__()
+
+        if not _is_pt22_or_greater():
+            self._compiled_sdpa = None
+        else:
+            self._compiled_sdpa = torch.compile(
+                scaled_dot_product_attention, dynamic=True, disable=disable_compile
+            )
 
         self._has_warned = False
 
@@ -155,13 +166,14 @@ class TorchSDPA(SDPA):
         else:
             mask = None
 
-        attn = F.scaled_dot_product_attention(  # type: ignore[attr-defined]
-            seqs,
-            keys,
-            values,
-            attn_mask=mask,
-            dropout_p=dropout_p,
-            is_causal=is_causal,
+        # torch.compile's CPU support is pretty finicky. Use it only for CUDA.
+        if self._compiled_sdpa is not None and seqs.device.type == "cuda":
+            sdpa = self._compiled_sdpa
+        else:
+            sdpa = scaled_dot_product_attention
+
+        attn = sdpa(
+            seqs, keys, values, attn_mask=mask, dropout_p=dropout_p, is_causal=is_causal
         )
 
         return attn, None
