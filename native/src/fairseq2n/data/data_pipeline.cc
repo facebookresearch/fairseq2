@@ -94,7 +94,7 @@ data_pipeline::reset()
 }
 
 void
-data_pipeline::record_position(tape &t) const
+data_pipeline::record_position(tape &t, bool strict) const
 {
     check_if_broken();
 
@@ -104,8 +104,10 @@ data_pipeline::record_position(tape &t) const
         if (!source_)
             return;
 
+        t.record(strict);
+
         try {
-            source_->record_position(t);
+            source_->record_position(t, strict);
         } catch (const std::exception &) {
             is_broken_ = true;
 
@@ -126,8 +128,10 @@ data_pipeline::reload_position(tape &t)
         if (!source_)
             return;
 
+        bool strict = t.read<bool>();
+
         try {
-            source_->reload_position(t);
+            source_->reload_position(t, strict);
         } catch (const std::exception &) {
             is_broken_ = true;
 
@@ -454,12 +458,12 @@ data_pipeline_builder::shard(std::size_t shard_idx, std::size_t num_shards) &&
 }
 
 data_pipeline_builder
-data_pipeline_builder::shuffle(std::size_t shuffle_window, bool strict, bool enabled) &&
+data_pipeline_builder::shuffle(std::size_t shuffle_window, bool enabled) &&
 {
     if (enabled)
         factory_ = [=, inner = std::move(factory_)]
         {
-            return std::make_unique<shuffle_data_source>(inner(), shuffle_window, strict);
+            return std::make_unique<shuffle_data_source>(inner(), shuffle_window);
         };
 
     return std::move(*this);

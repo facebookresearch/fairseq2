@@ -171,14 +171,14 @@ zip_data_source::reset()
 }
 
 void
-zip_data_source::record_position(tape &t) const
+zip_data_source::record_position(tape &t, bool strict) const
 {
     for (const data_pipeline &pipeline : pipelines_)
-        pipeline.record_position(t);
+        pipeline.record_position(t, strict);
 }
 
 void
-zip_data_source::reload_position(tape &t)
+zip_data_source::reload_position(tape &t, bool)
 {
     for (data_pipeline &pipeline : pipelines_)
         pipeline.reload_position(t);

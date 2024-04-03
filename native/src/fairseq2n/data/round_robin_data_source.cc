@@ -78,26 +78,36 @@ round_robin_data_source::reset()
 }
 
 void
-round_robin_data_source::record_position(tape &t) const
+round_robin_data_source::record_position(tape &t, bool strict) const
 {
-    t.record(buffer_);
+    if (strict) {
+        t.record(buffer_);
 
-    t.record(buffer_idx_);
+        t.record(buffer_idx_);
 
-    t.record(is_epoch_done_);
+        t.record(is_epoch_done_);
+    }
 
     for (const data_pipeline &pipeline : pipelines_)
-        pipeline.record_position(t);
+        pipeline.record_position(t, strict);
 }
 
 void
-round_robin_data_source::reload_position(tape &t)
+round_robin_data_source::reload_position(tape &t, bool strict)
 {
-    buffer_ = t.read<std::vector<std::optional<data>>>();
+    if (strict) {
+        buffer_ = t.read<std::vector<std::optional<data>>>();
 
-    buffer_idx_ = t.read<std::size_t>();
+        buffer_idx_ = t.read<std::size_t>();
 
-    is_epoch_done_ = t.read<std::vector<bool>>();
+        is_epoch_done_ = t.read<std::vector<bool>>();
+    } else {
+        buffer_.clear();
+
+        buffer_idx_ = 0;
+
+        is_epoch_done_.clear();
+    }
 
     is_eod_ = false;
 

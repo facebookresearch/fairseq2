@@ -83,22 +83,30 @@ sample_data_source::reset()
 }
 
 void
-sample_data_source::record_position(tape &t) const
+sample_data_source::record_position(tape &t, bool strict) const
 {
-    t.record(buffer_);
+    if (strict) {
+        t.record(buffer_);
 
-    t.record(is_epoch_done_);
+        t.record(is_epoch_done_);
+    }
 
     for (const data_pipeline &pipeline : pipelines_)
-        pipeline.record_position(t);
+        pipeline.record_position(t, strict);
 }
 
 void
-sample_data_source::reload_position(tape &t)
+sample_data_source::reload_position(tape &t, bool strict)
 {
-    buffer_ = t.read<std::vector<data>>();
+    if (strict) {
+        buffer_ = t.read<std::vector<data>>();
 
-    is_epoch_done_ = t.read<std::vector<bool>>();
+        is_epoch_done_ = t.read<std::vector<bool>>();
+    } else {
+        buffer_.clear();
+
+        is_epoch_done_.clear();
+    }
 
     is_eod_ = false;
 

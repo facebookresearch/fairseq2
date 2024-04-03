@@ -71,24 +71,26 @@ prefetch_data_source::reset()
 }
 
 void
-prefetch_data_source::record_position(tape &t) const
+prefetch_data_source::record_position(tape &t, bool strict) const
 {
     stop_prefetch_thread();
 
     if (state_ == prefetch_state::faulted)
         std::rethrow_exception(exception_ptr_);
 
-    data_list fill_buffer{fill_queue_.begin(), fill_queue_.end()};
-    data_list next_buffer{next_queue_.begin(), next_queue_.end()};
+    if (strict) {
+        data_list fill_buffer{fill_queue_.begin(), fill_queue_.end()};
+        data_list next_buffer{next_queue_.begin(), next_queue_.end()};
 
-    t.record(fill_buffer);
-    t.record(next_buffer);
+        t.record(fill_buffer);
+        t.record(next_buffer);
+    }
 
-    inner_->record_position(t);
+    inner_->record_position(t, strict);
 }
 
 void
-prefetch_data_source::reload_position(tape &t)
+prefetch_data_source::reload_position(tape &t, bool strict)
 {
     stop_prefetch_thread();
 
@@ -97,13 +99,18 @@ prefetch_data_source::reload_position(tape &t)
 
     state_ = prefetch_state::not_running;
 
-    auto fill_buffer = t.read<data_list>();
-    auto next_buffer = t.read<data_list>();
+    if (strict) {
+        auto fill_buffer = t.read<data_list>();
+        auto next_buffer = t.read<data_list>();
 
-    fill_queue_.assign(fill_buffer.begin(), fill_buffer.end());
-    next_queue_.assign(next_buffer.begin(), next_buffer.end());
+        fill_queue_.assign(fill_buffer.begin(), fill_buffer.end());
+        next_queue_.assign(next_buffer.begin(), next_buffer.end());
+    } else {
+        fill_queue_.clear();
+        next_queue_.clear();
+    }
 
-    inner_->reload_position(t);
+    inner_->reload_position(t, strict);
 }
 
 bool

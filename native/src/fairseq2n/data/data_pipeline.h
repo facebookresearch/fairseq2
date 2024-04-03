@@ -47,7 +47,7 @@ public:
     reset();
 
     void
-    record_position(tape &t) const;
+    record_position(tape &t, bool strict) const;
 
     void
     reload_position(tape &t);
@@ -154,7 +154,7 @@ public:
     shard(std::size_t shard_idx, std::size_t num_shards) &&;
 
     data_pipeline_builder
-    shuffle(std::size_t shuffle_window, bool strict, bool enabled = true) &&;
+    shuffle(std::size_t shuffle_window, bool enabled = true) &&;
 
     data_pipeline_builder
     skip(std::size_t num_examples) &&;

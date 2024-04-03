@@ -61,23 +61,31 @@ map_data_source::reset()
 }
 
 void
-map_data_source::record_position(tape &t) const
+map_data_source::record_position(tape &t, bool strict) const
 {
-    t.record(buffer_);
+    if (strict) {
+        t.record(buffer_);
 
-    t.record(buffer_pos_ - buffer_.begin());
+        t.record(buffer_pos_ - buffer_.begin());
+    }
 
-    inner_->record_position(t);
+    inner_->record_position(t, strict);
 }
 
 void
-map_data_source::reload_position(tape &t)
+map_data_source::reload_position(tape &t, bool strict)
 {
-    buffer_ = t.read<std::vector<std::optional<data>>>();
+    if (strict) {
+        buffer_ = t.read<std::vector<std::optional<data>>>();
 
-    buffer_pos_ = buffer_.begin() + t.read<std::ptrdiff_t>();
+        buffer_pos_ = buffer_.begin() + t.read<std::ptrdiff_t>();
+    } else {
+        buffer_.clear();
 
-    inner_->reload_position(t);
+        buffer_pos_ = buffer_.begin();
+    }
+
+    inner_->reload_position(t, strict);
 }
 
 bool

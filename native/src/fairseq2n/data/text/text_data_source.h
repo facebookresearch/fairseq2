@@ -34,10 +34,10 @@ public:
     reset() override;
 
     void
-    record_position(tape &t) const override;
+    record_position(tape &t, bool strict) const override;
 
     void
-    reload_position(tape &t) override;
+    reload_position(tape &t, bool strict) override;
 
     bool
     is_infinite() const noexcept override;

@@ -24,11 +24,11 @@ constant_data_source::reset()
 {}
 
 void
-constant_data_source::record_position(tape &) const
+constant_data_source::record_position(tape &, bool) const
 {}
 
 void
-constant_data_source::reload_position(tape &)
+constant_data_source::reload_position(tape &, bool)
 {}
 
 bool
