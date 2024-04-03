@@ -379,6 +379,9 @@ def _determine_default_device() -> Device:
     if _default_device is None:
         _default_device = CPU
 
+    if _default_device.type == "cuda":
+        torch.cuda.set_device(_default_device)
+
     log.info("Setting '{}' as the default device of the process.", _default_device)
 
     return _default_device
@@ -404,9 +407,6 @@ def _determine_default_cuda_device() -> Device:
         idx = _get_device_index(num_devices, device_type="cuda")
 
         device = Device("cuda", index=idx)
-
-    # As of PyTorch 2.0, FSDP fails to work if the default device is not set.
-    torch.cuda.set_device(device)
 
     return device
 

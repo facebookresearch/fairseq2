@@ -519,4 +519,4 @@ def log_module(module: Module, log: Union[LogWriter, Logger]) -> None:
 
     s = " | ".join(info)
 
-    log.info("Module - {}\n{}", s, module)
+    log.info("Module Info - {} | Layout:\n{}", s, module)
