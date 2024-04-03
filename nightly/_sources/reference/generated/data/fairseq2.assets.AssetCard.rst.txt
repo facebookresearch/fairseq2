@@ -1,9 +1,9 @@
-﻿.. currentmodule:: fairseq2.optim.lr_scheduler
+﻿.. currentmodule:: fairseq2.assets
 
-LRSchedulerBase
-===============
+AssetCard
+=========
 
-.. autoclass:: LRSchedulerBase
+.. autoclass:: AssetCard
     :members:
     :member-order: groupwise
     :class-doc-from: both

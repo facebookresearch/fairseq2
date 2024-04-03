@@ -64,9 +64,6 @@ Public classes used in fairseq2 API:
 .. autosummary::
     :toctree: generated/data
 
-    CString
-    PathLike
-    StringLike
     ByteStreamError
     DataPipelineError
     RecordError
@@ -78,7 +75,6 @@ Helper methods:
     :toctree: generated/data
 
     get_last_failed_example
-    is_string_like
 
 fairseq2.data.text
 ~~~~~~~~~~~~~~~~~~

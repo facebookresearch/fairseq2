@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Index &mdash; fairseq2 0.2.1.dev202404021533 documentation</title>
+  <title>Index &mdash; fairseq2 0.3.0.dev202404022304+g5f4e08f documentation</title>
       <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.1.dev202404021533
+                0.3.0.dev202404022304+g5f4e08f
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
@@ -83,15 +83,11 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="reference/data.html#column-syntax">Column syntax</a></li>
 <li class="toctree-l2"><a class="reference internal" href="reference/data.html#public-classes-used-in-fairseq2-api">Public classes used in fairseq2 API:</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="reference/generated/data/fairseq2.data.CString.html">CString</a></li>
-<li class="toctree-l3"><a class="reference internal" href="reference/generated/data/fairseq2.data.PathLike.html">PathLike</a></li>
-<li class="toctree-l3"><a class="reference internal" href="reference/generated/data/fairseq2.data.StringLike.html">StringLike</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/data/fairseq2.data.ByteStreamError.html">fairseq2.data.ByteStreamError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/data/fairseq2.data.DataPipelineError.html">fairseq2.data.DataPipelineError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/data/fairseq2.data.RecordError.html">fairseq2.data.RecordError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/data/fairseq2.data.VocabularyInfo.html">VocabularyInfo</a></li>
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/data/fairseq2.data.get_last_failed_example.html">get_last_failed_example</a></li>
-<li class="toctree-l3"><a class="reference internal" href="reference/generated/data/fairseq2.data.is_string_like.html">is_string_like</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="reference/data.html#fairseq2-data-text">fairseq2.data.text</a><ul>
@@ -108,6 +104,23 @@
 <li class="toctree-l3"><a class="reference internal" href="reference/generated/data_text/fairseq2.data.text.LineEnding.html">LineEnding</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="reference/asset.html">fairseq2.assets</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="reference/generated/data/fairseq2.assets.AssetStore.html">AssetStore</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="reference/generated/data/fairseq2.assets.AssetStore.html#fairseq2.assets.AssetStore"><code class="docutils literal notranslate"><span class="pre">AssetStore</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="reference/generated/data/fairseq2.assets.AssetCard.html">AssetCard</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="reference/generated/data/fairseq2.assets.AssetCard.html#fairseq2.assets.AssetCard"><code class="docutils literal notranslate"><span class="pre">AssetCard</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="reference/generated/data/fairseq2.assets.AssetMetadataProvider.html">AssetMetadataProvider</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="reference/generated/data/fairseq2.assets.AssetMetadataProvider.html#fairseq2.assets.AssetMetadataProvider"><code class="docutils literal notranslate"><span class="pre">AssetMetadataProvider</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="reference/asset.html#model-store">Model store</a></li>
+<li class="toctree-l2"><a class="reference internal" href="reference/asset.html#model-card">Model card</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="reference/all.html">All</a></li>
@@ -209,11 +222,21 @@
 </li>
       <li><a href="reference/generated/abc/fairseq2.gang.Gang.html#fairseq2.gang.Gang.all_reduce">all_reduce() (fairseq2.gang.Gang method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="reference/generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder.and_return">and_return() (fairseq2.data.DataPipelineBuilder method)</a>
 </li>
       <li><a href="reference/generated/abc/fairseq2.gang.Gang.html#fairseq2.gang.Gang.as_process_group">as_process_group() (fairseq2.gang.Gang method)</a>
+</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="reference/generated/data/fairseq2.assets.AssetCard.html#fairseq2.assets.AssetCard.asset_family">asset_family() (fairseq2.assets.AssetCard method)</a>
+</li>
+      <li><a href="reference/generated/data/fairseq2.assets.AssetCard.html#fairseq2.assets.AssetCard.asset_type">asset_type() (fairseq2.assets.AssetCard method)</a>
+</li>
+      <li><a href="reference/generated/data/fairseq2.assets.AssetCard.html#fairseq2.assets.AssetCard">AssetCard (class in fairseq2.assets)</a>
+</li>
+      <li><a href="reference/generated/data/fairseq2.assets.AssetMetadataProvider.html#fairseq2.assets.AssetMetadataProvider">AssetMetadataProvider (class in fairseq2.assets)</a>
+</li>
+      <li><a href="reference/generated/data/fairseq2.assets.AssetStore.html#fairseq2.assets.AssetStore">AssetStore (class in fairseq2.assets)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -222,6 +245,8 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="reference/generated/abc/fairseq2.gang.Gang.html#fairseq2.gang.Gang.barrier">barrier() (fairseq2.gang.Gang method)</a>
+</li>
+      <li><a href="reference/generated/data/fairseq2.assets.AssetCard.html#fairseq2.assets.AssetCard.base">base (fairseq2.assets.AssetCard property)</a>
 </li>
       <li><a href="reference/generated/data/fairseq2.data.VocabularyInfo.html#fairseq2.data.VocabularyInfo.bos_idx">bos_idx (fairseq2.data.VocabularyInfo attribute)</a>
 </li>
@@ -239,25 +264,21 @@
 <h2 id="C">C</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="reference/generated/data/fairseq2.assets.AssetMetadataProvider.html#fairseq2.assets.AssetMetadataProvider.clear_cache">clear_cache() (fairseq2.assets.AssetMetadataProvider method)</a>
+</li>
+      <li><a href="reference/generated/abc/fairseq2.gang.Gang.html#fairseq2.gang.Gang.close">close() (fairseq2.gang.Gang method)</a>
+</li>
       <li><a href="reference/generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder.collate">collate() (fairseq2.data.DataPipelineBuilder method)</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="reference/generated/data/fairseq2.data.CollateOptionsOverride.html#fairseq2.data.CollateOptionsOverride">CollateOptionsOverride (class in fairseq2.data)</a>
 </li>
       <li><a href="reference/generated/data/fairseq2.data.Collater.html#fairseq2.data.Collater">Collater (class in fairseq2.data)</a>
 </li>
       <li><a href="reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.concat">concat() (fairseq2.data.DataPipeline static method)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="reference/generated/classes/fairseq2.optim.lr_scheduler.CosineAnnealingLR.html#fairseq2.optim.lr_scheduler.CosineAnnealingLR">CosineAnnealingLR (class in fairseq2.optim.lr_scheduler)</a>
-</li>
-      <li><a href="reference/generated/data_text/fairseq2.data.text.TextTokenizer.html#fairseq2.data.text.TextTokenizer.create_decoder">create_decoder() (fairseq2.data.text.TextTokenizer method)</a>
-</li>
-      <li><a href="reference/generated/data_text/fairseq2.data.text.TextTokenizer.html#fairseq2.data.text.TextTokenizer.create_encoder">create_encoder() (fairseq2.data.text.TextTokenizer method)</a>
-</li>
-      <li><a href="reference/generated/data_text/fairseq2.data.text.TextTokenizer.html#fairseq2.data.text.TextTokenizer.create_raw_encoder">create_raw_encoder() (fairseq2.data.text.TextTokenizer method)</a>
-</li>
-      <li><a href="reference/generated/data/fairseq2.data.CString.html#fairseq2.data.CString">CString (class in fairseq2.data)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -269,16 +290,18 @@
 </li>
       <li><a href="reference/generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder">DataPipelineBuilder (class in fairseq2.data)</a>
 </li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="reference/generated/data/fairseq2.data.DataPipelineError.html#fairseq2.data.DataPipelineError">DataPipelineError</a>
 </li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="reference/generated/data_text/fairseq2.data.text.SentencePieceDecoder.html#fairseq2.data.text.SentencePieceDecoder.decode_from_tokens">decode_from_tokens() (fairseq2.data.text.SentencePieceDecoder method)</a>
 
       <ul>
         <li><a href="reference/generated/data_text/fairseq2.data.text.TextTokenDecoder.html#fairseq2.data.text.TextTokenDecoder.decode_from_tokens">(fairseq2.data.text.TextTokenDecoder method)</a>
 </li>
       </ul></li>
+      <li><a href="reference/generated/abc/fairseq2.gang.Gang.html#fairseq2.gang.Gang.device">device (fairseq2.gang.Gang property)</a>
+</li>
   </ul></td>
 </tr></table>
 
@@ -301,10 +324,12 @@
 <h2 id="F">F</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="reference/generated/data/fairseq2.data.FileMapper.html#fairseq2.data.FileMapper">FileMapper (class in fairseq2.data)</a>
+      <li><a href="reference/generated/data/fairseq2.assets.AssetCard.html#fairseq2.assets.AssetCard.field">field() (fairseq2.assets.AssetCard method)</a>
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="reference/generated/data/fairseq2.data.FileMapper.html#fairseq2.data.FileMapper">FileMapper (class in fairseq2.data)</a>
+</li>
       <li><a href="reference/generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder.filter">filter() (fairseq2.data.DataPipelineBuilder method)</a>
 </li>
   </ul></td>
@@ -320,8 +345,6 @@
       <li><a href="reference/generated/classes/fairseq2.optim.lr_scheduler.CosineAnnealingLR.html#fairseq2.optim.lr_scheduler.CosineAnnealingLR.get_last_lr">get_last_lr() (fairseq2.optim.lr_scheduler.CosineAnnealingLR method)</a>
 
       <ul>
-        <li><a href="reference/generated/classes/fairseq2.optim.lr_scheduler.LRSchedulerBase.html#fairseq2.optim.lr_scheduler.LRSchedulerBase.get_last_lr">(fairseq2.optim.lr_scheduler.LRSchedulerBase method)</a>
-</li>
         <li><a href="reference/generated/classes/fairseq2.optim.lr_scheduler.MyleLR.html#fairseq2.optim.lr_scheduler.MyleLR.get_last_lr">(fairseq2.optim.lr_scheduler.MyleLR method)</a>
 </li>
         <li><a href="reference/generated/classes/fairseq2.optim.lr_scheduler.NoamLR.html#fairseq2.optim.lr_scheduler.NoamLR.get_last_lr">(fairseq2.optim.lr_scheduler.NoamLR method)</a>
@@ -330,16 +353,16 @@
 </li>
       </ul></li>
   </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="reference/generated/data/fairseq2.assets.AssetMetadataProvider.html#fairseq2.assets.AssetMetadataProvider.get_metadata">get_metadata() (fairseq2.assets.AssetMetadataProvider method)</a>
+</li>
+  </ul></td>
 </tr></table>
 
 <h2 id="I">I</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.is_broken">is_broken (fairseq2.data.DataPipeline property)</a>
-</li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="reference/generated/data/fairseq2.data.is_string_like.html#fairseq2.data.is_string_like">is_string_like() (in module fairseq2.data)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -356,8 +379,6 @@
       <ul>
         <li><a href="reference/generated/classes/fairseq2.optim.lr_scheduler.CosineAnnealingLR.html#fairseq2.optim.lr_scheduler.CosineAnnealingLR.load_state_dict">(fairseq2.optim.lr_scheduler.CosineAnnealingLR method)</a>
 </li>
-        <li><a href="reference/generated/classes/fairseq2.optim.lr_scheduler.LRSchedulerBase.html#fairseq2.optim.lr_scheduler.LRSchedulerBase.load_state_dict">(fairseq2.optim.lr_scheduler.LRSchedulerBase method)</a>
-</li>
         <li><a href="reference/generated/classes/fairseq2.optim.lr_scheduler.MyleLR.html#fairseq2.optim.lr_scheduler.MyleLR.load_state_dict">(fairseq2.optim.lr_scheduler.MyleLR method)</a>
 </li>
         <li><a href="reference/generated/classes/fairseq2.optim.lr_scheduler.NoamLR.html#fairseq2.optim.lr_scheduler.NoamLR.load_state_dict">(fairseq2.optim.lr_scheduler.NoamLR method)</a>
@@ -365,12 +386,6 @@
         <li><a href="reference/generated/classes/fairseq2.optim.lr_scheduler.PolynomialDecayLR.html#fairseq2.optim.lr_scheduler.PolynomialDecayLR.load_state_dict">(fairseq2.optim.lr_scheduler.PolynomialDecayLR method)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="reference/generated/classes/fairseq2.optim.lr_scheduler.LRSchedulerBase.html#fairseq2.optim.lr_scheduler.LRSchedulerBase">LRSchedulerBase (class in fairseq2.optim.lr_scheduler)</a>
-</li>
-      <li><a href="reference/generated/data/fairseq2.data.CString.html#fairseq2.data.CString.lstrip">lstrip() (fairseq2.data.CString method)</a>
-</li>
   </ul></td>
 </tr></table>
 
@@ -381,6 +396,8 @@
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="reference/generated/data/fairseq2.assets.AssetCard.html#fairseq2.assets.AssetCard.metadata">metadata (fairseq2.assets.AssetCard property)</a>
+</li>
       <li><a href="reference/generated/classes/fairseq2.optim.lr_scheduler.MyleLR.html#fairseq2.optim.lr_scheduler.MyleLR">MyleLR (class in fairseq2.optim.lr_scheduler)</a>
 </li>
   </ul></td>
@@ -388,6 +405,10 @@
 
 <h2 id="N">N</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
+  <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="reference/generated/data/fairseq2.assets.AssetCard.html#fairseq2.assets.AssetCard.name">name (fairseq2.assets.AssetCard property)</a>
+</li>
+  </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="reference/generated/classes/fairseq2.optim.lr_scheduler.NoamLR.html#fairseq2.optim.lr_scheduler.NoamLR">NoamLR (class in fairseq2.optim.lr_scheduler)</a>
 </li>
@@ -398,8 +419,6 @@
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="reference/generated/data/fairseq2.data.VocabularyInfo.html#fairseq2.data.VocabularyInfo.pad_idx">pad_idx (fairseq2.data.VocabularyInfo attribute)</a>
-</li>
-      <li><a href="reference/generated/data/fairseq2.data.PathLike.html#fairseq2.data.PathLike">PathLike (in module fairseq2.data)</a>
 </li>
       <li><a href="reference/generated/classes/fairseq2.optim.lr_scheduler.PolynomialDecayLR.html#fairseq2.optim.lr_scheduler.PolynomialDecayLR">PolynomialDecayLR (class in fairseq2.optim.lr_scheduler)</a>
 </li>
@@ -422,8 +441,6 @@
       <li><a href="reference/generated/classes/fairseq2.optim.lr_scheduler.CosineAnnealingLR.html#fairseq2.optim.lr_scheduler.CosineAnnealingLR.print_lr">print_lr() (fairseq2.optim.lr_scheduler.CosineAnnealingLR method)</a>
 
       <ul>
-        <li><a href="reference/generated/classes/fairseq2.optim.lr_scheduler.LRSchedulerBase.html#fairseq2.optim.lr_scheduler.LRSchedulerBase.print_lr">(fairseq2.optim.lr_scheduler.LRSchedulerBase method)</a>
-</li>
         <li><a href="reference/generated/classes/fairseq2.optim.lr_scheduler.MyleLR.html#fairseq2.optim.lr_scheduler.MyleLR.print_lr">(fairseq2.optim.lr_scheduler.MyleLR method)</a>
 </li>
         <li><a href="reference/generated/classes/fairseq2.optim.lr_scheduler.NoamLR.html#fairseq2.optim.lr_scheduler.NoamLR.print_lr">(fairseq2.optim.lr_scheduler.NoamLR method)</a>
@@ -437,6 +454,8 @@
 <h2 id="R">R</h2>
 <table style="width: 100%" class="indextable genindextable"><tr>
   <td style="width: 33%; vertical-align: top;"><ul>
+      <li><a href="reference/generated/abc/fairseq2.gang.Gang.html#fairseq2.gang.Gang.rank">rank (fairseq2.gang.Gang property)</a>
+</li>
       <li><a href="reference/generated/data/fairseq2.data.read_sequence.html#fairseq2.data.read_sequence">read_sequence() (in module fairseq2.data)</a>
 </li>
       <li><a href="reference/generated/data/fairseq2.data.text.read_text.html#fairseq2.data.text.read_text">read_text() (in module fairseq2.data.text)</a>
@@ -449,9 +468,9 @@
 </li>
       <li><a href="reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.reset">reset() (fairseq2.data.DataPipeline method)</a>
 </li>
-      <li><a href="reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.round_robin">round_robin() (fairseq2.data.DataPipeline static method)</a>
+      <li><a href="reference/generated/data/fairseq2.assets.AssetStore.html#fairseq2.assets.AssetStore.retrieve_card">retrieve_card() (fairseq2.assets.AssetStore method)</a>
 </li>
-      <li><a href="reference/generated/data/fairseq2.data.CString.html#fairseq2.data.CString.rstrip">rstrip() (fairseq2.data.CString method)</a>
+      <li><a href="reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.round_robin">round_robin() (fairseq2.data.DataPipeline static method)</a>
 </li>
   </ul></td>
 </tr></table>
@@ -472,17 +491,19 @@
       <li><a href="reference/generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder.shuffle">shuffle() (fairseq2.data.DataPipelineBuilder method)</a>
 </li>
       <li><a href="reference/generated/data/fairseq2.data.VocabularyInfo.html#fairseq2.data.VocabularyInfo.size">size (fairseq2.data.VocabularyInfo attribute)</a>
+
+      <ul>
+        <li><a href="reference/generated/abc/fairseq2.gang.Gang.html#fairseq2.gang.Gang.size">(fairseq2.gang.Gang property)</a>
 </li>
+      </ul></li>
       <li><a href="reference/generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder.skip">skip() (fairseq2.data.DataPipelineBuilder method)</a>
 </li>
-      <li><a href="reference/generated/data/fairseq2.data.CString.html#fairseq2.data.CString.split">split() (fairseq2.data.CString method)</a>
-</li>
+  </ul></td>
+  <td style="width: 33%; vertical-align: top;"><ul>
       <li><a href="reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.state_dict">state_dict() (fairseq2.data.DataPipeline method)</a>
 
       <ul>
         <li><a href="reference/generated/classes/fairseq2.optim.lr_scheduler.CosineAnnealingLR.html#fairseq2.optim.lr_scheduler.CosineAnnealingLR.state_dict">(fairseq2.optim.lr_scheduler.CosineAnnealingLR method)</a>
-</li>
-        <li><a href="reference/generated/classes/fairseq2.optim.lr_scheduler.LRSchedulerBase.html#fairseq2.optim.lr_scheduler.LRSchedulerBase.state_dict">(fairseq2.optim.lr_scheduler.LRSchedulerBase method)</a>
 </li>
         <li><a href="reference/generated/classes/fairseq2.optim.lr_scheduler.MyleLR.html#fairseq2.optim.lr_scheduler.MyleLR.state_dict">(fairseq2.optim.lr_scheduler.MyleLR method)</a>
 </li>
@@ -491,12 +512,6 @@
         <li><a href="reference/generated/classes/fairseq2.optim.lr_scheduler.PolynomialDecayLR.html#fairseq2.optim.lr_scheduler.PolynomialDecayLR.state_dict">(fairseq2.optim.lr_scheduler.PolynomialDecayLR method)</a>
 </li>
       </ul></li>
-  </ul></td>
-  <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="reference/generated/data/fairseq2.data.StringLike.html#fairseq2.data.StringLike">StringLike (in module fairseq2.data)</a>
-</li>
-      <li><a href="reference/generated/data/fairseq2.data.CString.html#fairseq2.data.CString.strip">strip() (fairseq2.data.CString method)</a>
-</li>
       <li><a href="reference/generated/data_text/fairseq2.data.text.StrSplitter.html#fairseq2.data.text.StrSplitter">StrSplitter (class in fairseq2.data.text)</a>
 </li>
       <li><a href="reference/generated/data_text/fairseq2.data.text.StrToIntConverter.html#fairseq2.data.text.StrToIntConverter">StrToIntConverter (class in fairseq2.data.text)</a>
@@ -523,7 +538,7 @@
 </li>
   </ul></td>
   <td style="width: 33%; vertical-align: top;"><ul>
-      <li><a href="reference/generated/data_text/fairseq2.data.text.TextTokenizer.html#fairseq2.data.text.TextTokenizer">TextTokenizer (class in fairseq2.data.text)</a>
+      <li><a href="reference/generated/data_text/fairseq2.data.text.TextTokenizer.html#fairseq2.data.text.TextTokenizer">TextTokenizer (in module fairseq2.data.text)</a>
 </li>
       <li><a href="reference/generated/functions/fairseq2.nn.utils.mask.to_float_mask.html#fairseq2.nn.utils.mask.to_float_mask">to_float_mask() (in module fairseq2.nn.utils.mask)</a>
 </li>

@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data &mdash; fairseq2 0.2.1.dev202404021533 documentation</title>
+  <title>fairseq2.data &mdash; fairseq2 0.3.0.dev202404022304+g5f4e08f documentation</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -35,7 +35,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.1.dev202404021533
+                0.3.0.dev202404022304+g5f4e08f
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
@@ -86,15 +86,11 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#column-syntax">Column syntax</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#public-classes-used-in-fairseq2-api">Public classes used in fairseq2 API:</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.CString.html">CString</a></li>
-<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.PathLike.html">PathLike</a></li>
-<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.StringLike.html">StringLike</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.ByteStreamError.html">fairseq2.data.ByteStreamError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.DataPipelineError.html">fairseq2.data.DataPipelineError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.RecordError.html">fairseq2.data.RecordError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.VocabularyInfo.html">VocabularyInfo</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.get_last_failed_example.html">get_last_failed_example</a></li>
-<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.is_string_like.html">is_string_like</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#fairseq2-data-text">fairseq2.data.text</a><ul>
@@ -111,6 +107,23 @@
 <li class="toctree-l3"><a class="reference internal" href="generated/data_text/fairseq2.data.text.LineEnding.html">LineEnding</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="asset.html">fairseq2.assets</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.assets.AssetStore.html">AssetStore</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.assets.AssetStore.html#fairseq2.assets.AssetStore"><code class="docutils literal notranslate"><span class="pre">AssetStore</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.assets.AssetCard.html">AssetCard</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.assets.AssetCard.html#fairseq2.assets.AssetCard"><code class="docutils literal notranslate"><span class="pre">AssetCard</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="generated/data/fairseq2.assets.AssetMetadataProvider.html">AssetMetadataProvider</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.assets.AssetMetadataProvider.html#fairseq2.assets.AssetMetadataProvider"><code class="docutils literal notranslate"><span class="pre">AssetMetadataProvider</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="asset.html#model-store">Model store</a></li>
+<li class="toctree-l2"><a class="reference internal" href="asset.html#model-card">Model card</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="all.html">All</a></li>
@@ -168,16 +181,16 @@ than a pure Python dataloader.</p>
 <tr class="row-even"><td><p><a class="reference internal" href="generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder" title="fairseq2.data.DataPipelineBuilder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DataPipelineBuilder</span></code></a>()</p></td>
 <td><p>API to create DataPipeline</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.data.list_files.html#fairseq2.data.list_files" title="fairseq2.data.list_files"><code class="xref py py-obj docutils literal notranslate"><span class="pre">list_files</span></code></a>(pathname[, pattern])</p></td>
-<td><p>List recursively all files under <code class="docutils literal notranslate"><span class="pre">pathname</span></code> that matches <code class="docutils literal notranslate"><span class="pre">pattern</span></code>.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.data.list_files.html#fairseq2.data.list_files" title="fairseq2.data.list_files"><code class="xref py py-obj docutils literal notranslate"><span class="pre">list_files</span></code></a>(path[, pattern])</p></td>
+<td><p>List recursively all files under <code class="docutils literal notranslate"><span class="pre">path</span></code> that matches <code class="docutils literal notranslate"><span class="pre">pattern</span></code>.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="generated/data/fairseq2.data.read_sequence.html#fairseq2.data.read_sequence" title="fairseq2.data.read_sequence"><code class="xref py py-obj docutils literal notranslate"><span class="pre">read_sequence</span></code></a>(seq)</p></td>
 <td><p>Read every element in <code class="docutils literal notranslate"><span class="pre">seq</span></code>.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.data.read_zipped_records.html#fairseq2.data.read_zipped_records" title="fairseq2.data.read_zipped_records"><code class="xref py py-obj docutils literal notranslate"><span class="pre">read_zipped_records</span></code></a>(pathname)</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.data.read_zipped_records.html#fairseq2.data.read_zipped_records" title="fairseq2.data.read_zipped_records"><code class="xref py py-obj docutils literal notranslate"><span class="pre">read_zipped_records</span></code></a>(path)</p></td>
 <td><p>Read each file in a zip archive</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/fairseq2.data.text.read_text.html#fairseq2.data.text.read_text" title="fairseq2.data.text.read_text"><code class="xref py py-obj docutils literal notranslate"><span class="pre">text.read_text</span></code></a>(pathname[, encoding, ...])</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/fairseq2.data.text.read_text.html#fairseq2.data.text.read_text" title="fairseq2.data.text.read_text"><code class="xref py py-obj docutils literal notranslate"><span class="pre">text.read_text</span></code></a>(path[, key, encoding, ...])</p></td>
 <td><p>Open a text file and return a data pipeline reading lines one by one.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.data.FileMapper.html#fairseq2.data.FileMapper" title="fairseq2.data.FileMapper"><code class="xref py py-obj docutils literal notranslate"><span class="pre">FileMapper</span></code></a>([root_dir, cached_fd_count])</p></td>
@@ -212,25 +225,16 @@ will multiply the values 4 and 6 by 10, but leave others unmodified.</p>
 <h2>Public classes used in fairseq2 API:<a class="headerlink" href="#public-classes-used-in-fairseq2-api" title="Permalink to this heading"></a></h2>
 <table class="autosummary longtable docutils align-default">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.data.CString.html#fairseq2.data.CString" title="fairseq2.data.CString"><code class="xref py py-obj docutils literal notranslate"><span class="pre">CString</span></code></a>()</p></td>
-<td><p>Represents an immutable UTF-8 string that supports zero-copy marshalling between Python and native code.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/fairseq2.data.PathLike.html#fairseq2.data.PathLike" title="fairseq2.data.PathLike"><code class="xref py py-obj docutils literal notranslate"><span class="pre">PathLike</span></code></a></p></td>
-<td><p>alias of <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.12)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference internal" href="generated/data/fairseq2.data.CString.html#fairseq2.data.CString" title="fairseq2.data.cstring.CString"><code class="xref py py-class docutils literal notranslate"><span class="pre">CString</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">os.PathLike[str]</span></code>]</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.data.StringLike.html#fairseq2.data.StringLike" title="fairseq2.data.StringLike"><code class="xref py py-obj docutils literal notranslate"><span class="pre">StringLike</span></code></a></p></td>
-<td><p>alias of <a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Union" title="(in Python v3.12)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Union</span></code></a>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference internal" href="generated/data/fairseq2.data.CString.html#fairseq2.data.CString" title="fairseq2.data.cstring.CString"><code class="xref py py-class docutils literal notranslate"><span class="pre">CString</span></code></a>]</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/fairseq2.data.ByteStreamError.html#fairseq2.data.ByteStreamError" title="fairseq2.data.ByteStreamError"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ByteStreamError</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.data.ByteStreamError.html#fairseq2.data.ByteStreamError" title="fairseq2.data.ByteStreamError"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ByteStreamError</span></code></a></p></td>
 <td><p>Raised when a dataset file can't be read.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.data.DataPipelineError.html#fairseq2.data.DataPipelineError" title="fairseq2.data.DataPipelineError"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DataPipelineError</span></code></a></p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/fairseq2.data.DataPipelineError.html#fairseq2.data.DataPipelineError" title="fairseq2.data.DataPipelineError"><code class="xref py py-obj docutils literal notranslate"><span class="pre">DataPipelineError</span></code></a></p></td>
 <td><p>Raised when an error occurs while reading from a data pipeline.</p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/fairseq2.data.RecordError.html#fairseq2.data.RecordError" title="fairseq2.data.RecordError"><code class="xref py py-obj docutils literal notranslate"><span class="pre">RecordError</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.data.RecordError.html#fairseq2.data.RecordError" title="fairseq2.data.RecordError"><code class="xref py py-obj docutils literal notranslate"><span class="pre">RecordError</span></code></a></p></td>
 <td><p>Raised when a corrupt record is encountered while reading a dataset.</p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.data.VocabularyInfo.html#fairseq2.data.VocabularyInfo" title="fairseq2.data.VocabularyInfo"><code class="xref py py-obj docutils literal notranslate"><span class="pre">VocabularyInfo</span></code></a>(size, unk_idx, bos_idx, ...)</p></td>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/data/fairseq2.data.VocabularyInfo.html#fairseq2.data.VocabularyInfo" title="fairseq2.data.VocabularyInfo"><code class="xref py py-obj docutils literal notranslate"><span class="pre">VocabularyInfo</span></code></a>(size, unk_idx, bos_idx, ...)</p></td>
 <td><p>Describes the vocabulary used by a tokenizer</p></td>
 </tr>
 </tbody>
@@ -241,9 +245,6 @@ will multiply the values 4 and 6 by 10, but leave others unmodified.</p>
 <tr class="row-odd"><td><p><a class="reference internal" href="generated/data/fairseq2.data.get_last_failed_example.html#fairseq2.data.get_last_failed_example" title="fairseq2.data.get_last_failed_example"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_last_failed_example</span></code></a>()</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/data/fairseq2.data.is_string_like.html#fairseq2.data.is_string_like" title="fairseq2.data.is_string_like"><code class="xref py py-obj docutils literal notranslate"><span class="pre">is_string_like</span></code></a>(s)</p></td>
-<td><p>Return <code class="docutils literal notranslate"><span class="pre">True</span></code> if <code class="docutils literal notranslate"><span class="pre">s</span></code> is of type <code class="docutils literal notranslate"><span class="pre">str</span></code> or <a class="reference internal" href="generated/data/fairseq2.data.CString.html#fairseq2.data.CString" title="fairseq2.data.CString"><code class="xref py py-class docutils literal notranslate"><span class="pre">CString</span></code></a>.</p></td>
-</tr>
 </tbody>
 </table>
 </section>
@@ -252,8 +253,8 @@ will multiply the values 4 and 6 by 10, but leave others unmodified.</p>
 <p>Tools to tokenize text, converting it from bytes to tensors.</p>
 <table class="autosummary longtable docutils align-default">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.TextTokenizer.html#fairseq2.data.text.TextTokenizer" title="fairseq2.data.text.TextTokenizer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TextTokenizer</span></code></a>(vocab_info)</p></td>
-<td><p>Represents a tokenizer to encode and decode text.</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.TextTokenizer.html#fairseq2.data.text.TextTokenizer" title="fairseq2.data.text.TextTokenizer"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TextTokenizer</span></code></a></p></td>
+<td><p>alias of <code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractTextTokenizer</span></code></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.TextTokenDecoder.html#fairseq2.data.text.TextTokenDecoder" title="fairseq2.data.text.TextTokenDecoder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TextTokenDecoder</span></code></a>()</p></td>
 <td><p>Decodes text from tokens or token indices.</p></td>
@@ -270,7 +271,7 @@ will multiply the values 4 and 6 by 10, but leave others unmodified.</p>
 <tr class="row-even"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.StrToTensorConverter.html#fairseq2.data.text.StrToTensorConverter" title="fairseq2.data.text.StrToTensorConverter"><code class="xref py py-obj docutils literal notranslate"><span class="pre">StrToTensorConverter</span></code></a>([size, dtype])</p></td>
 <td><p></p></td>
 </tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.SentencePieceModel.html#fairseq2.data.text.SentencePieceModel" title="fairseq2.data.text.SentencePieceModel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SentencePieceModel</span></code></a>(pathname[, control_symbols])</p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.SentencePieceModel.html#fairseq2.data.text.SentencePieceModel" title="fairseq2.data.text.SentencePieceModel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SentencePieceModel</span></code></a>(path[, control_symbols])</p></td>
 <td><p></p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="generated/data_text/fairseq2.data.text.SentencePieceEncoder.html#fairseq2.data.text.SentencePieceEncoder" title="fairseq2.data.text.SentencePieceEncoder"><code class="xref py py-obj docutils literal notranslate"><span class="pre">SentencePieceEncoder</span></code></a>(model[, prefix_tokens, ...])</p></td>

@@ -1,6 +1,0 @@
-﻿.. currentmodule:: fairseq2.data
-
-PathLike
-========
-
-.. autodata:: PathLike

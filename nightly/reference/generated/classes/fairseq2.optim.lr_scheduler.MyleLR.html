@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MyleLR &mdash; fairseq2 0.2.1.dev202404021533 documentation</title>
+  <title>MyleLR &mdash; fairseq2 0.3.0.dev202404022304+g5f4e08f documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -21,7 +21,7 @@
     <link rel="index" title="Index" href="../../../genindex.html" />
     <link rel="search" title="Search" href="../../../search.html" />
     <link rel="next" title="NoamLR" href="fairseq2.optim.lr_scheduler.NoamLR.html" />
-    <link rel="prev" title="LRSchedulerBase" href="fairseq2.optim.lr_scheduler.LRSchedulerBase.html" /> 
+    <link rel="prev" title="CosineAnnealingLR" href="fairseq2.optim.lr_scheduler.CosineAnnealingLR.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -36,7 +36,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.1.dev202404021533
+                0.3.0.dev202404022304+g5f4e08f
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -87,15 +87,11 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../data.html#column-syntax">Column syntax</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../data.html#public-classes-used-in-fairseq2-api">Public classes used in fairseq2 API:</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.CString.html">CString</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.PathLike.html">PathLike</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.StringLike.html">StringLike</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.ByteStreamError.html">fairseq2.data.ByteStreamError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.DataPipelineError.html">fairseq2.data.DataPipelineError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.RecordError.html">fairseq2.data.RecordError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.VocabularyInfo.html">VocabularyInfo</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.get_last_failed_example.html">get_last_failed_example</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.is_string_like.html">is_string_like</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../data.html#fairseq2-data-text">fairseq2.data.text</a><ul>
@@ -112,6 +108,23 @@
 <li class="toctree-l3"><a class="reference internal" href="../data_text/fairseq2.data.text.LineEnding.html">LineEnding</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../asset.html">fairseq2.assets</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../data/fairseq2.assets.AssetStore.html">AssetStore</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.assets.AssetStore.html#fairseq2.assets.AssetStore"><code class="docutils literal notranslate"><span class="pre">AssetStore</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../data/fairseq2.assets.AssetCard.html">AssetCard</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.assets.AssetCard.html#fairseq2.assets.AssetCard"><code class="docutils literal notranslate"><span class="pre">AssetCard</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../data/fairseq2.assets.AssetMetadataProvider.html">AssetMetadataProvider</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.assets.AssetMetadataProvider.html#fairseq2.assets.AssetMetadataProvider"><code class="docutils literal notranslate"><span class="pre">AssetMetadataProvider</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../asset.html#model-store">Model store</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../asset.html#model-card">Model card</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../all.html">All</a></li>
@@ -150,8 +163,8 @@
 <h1>MyleLR<a class="headerlink" href="#mylelr" title="Permalink to this heading"></a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.optim.lr_scheduler.MyleLR">
-<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.optim.lr_scheduler.</span></span><span class="sig-name descname"><span class="pre">MyleLR</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">optimizer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_warmup_steps</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_lr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">last_epoch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/optim/lr_scheduler.html#MyleLR"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.optim.lr_scheduler.MyleLR" title="Permalink to this definition"></a></dt>
-<dd><p>Bases: <a class="reference internal" href="fairseq2.optim.lr_scheduler.LRSchedulerBase.html#fairseq2.optim.lr_scheduler.LRSchedulerBase" title="fairseq2.optim.lr_scheduler.LRSchedulerBase"><code class="xref py py-class docutils literal notranslate"><span class="pre">LRSchedulerBase</span></code></a></p>
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.optim.lr_scheduler.</span></span><span class="sig-name descname"><span class="pre">MyleLR</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">optimizer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_warmup_steps</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_lr</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">last_epoch</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/optim/lr_scheduler.html#MyleLR"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.optim.lr_scheduler.MyleLR" title="Permalink to this definition"></a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">AbstractLRScheduler</span></code></p>
 <p>Represents a scaled version of <a class="reference internal" href="fairseq2.optim.lr_scheduler.NoamLR.html#fairseq2.optim.lr_scheduler.NoamLR" title="fairseq2.optim.lr_scheduler.NoamLR"><code class="xref py py-class docutils literal notranslate"><span class="pre">NoamLR</span></code></a> that preserves the base
 learning rate of the associated optimizer.</p>
 <div class="math notranslate nohighlight">
@@ -174,7 +187,6 @@ it thereafter proportionally to the inverse square root of the step number.</p>
 <li><p><strong>start_lr</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.12)"><em>float</em></a><em> | </em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Sequence" title="(in Python v3.12)"><em>Sequence</em></a><em>[</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.12)"><em>float</em></a><em>]</em>) – The initial warmup learning rate of all parameter groups, or of each
 parameter group respectively.</p></li>
 <li><p><strong>last_epoch</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><em>int</em></a>) – The index of the last epoch.</p></li>
-<li><p><strong>verbose</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.12)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, prints a message to stdout for each update.</p></li>
 </ul>
 </dd>
 </dl>
@@ -219,7 +231,7 @@ is not the optimizer.</p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="fairseq2.optim.lr_scheduler.LRSchedulerBase.html" class="btn btn-neutral float-left" title="LRSchedulerBase" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="fairseq2.optim.lr_scheduler.CosineAnnealingLR.html" class="btn btn-neutral float-left" title="CosineAnnealingLR" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
         <a href="fairseq2.optim.lr_scheduler.NoamLR.html" class="btn btn-neutral float-right" title="NoamLR" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 

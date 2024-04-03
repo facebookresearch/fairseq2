@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.vocabulary_info &mdash; fairseq2 0.2.1.dev202404021533 documentation</title>
+  <title>fairseq2.data.vocabulary_info &mdash; fairseq2 0.3.0.dev202404022304+g5f4e08f documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.1.dev202404021533
+                0.3.0.dev202404022304+g5f4e08f
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -83,15 +83,11 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../reference/data.html#column-syntax">Column syntax</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../reference/data.html#public-classes-used-in-fairseq2-api">Public classes used in fairseq2 API:</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.CString.html">CString</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.PathLike.html">PathLike</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.StringLike.html">StringLike</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.ByteStreamError.html">fairseq2.data.ByteStreamError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.DataPipelineError.html">fairseq2.data.DataPipelineError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.RecordError.html">fairseq2.data.RecordError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.VocabularyInfo.html">VocabularyInfo</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.get_last_failed_example.html">get_last_failed_example</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.is_string_like.html">is_string_like</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../reference/data.html#fairseq2-data-text">fairseq2.data.text</a><ul>
@@ -108,6 +104,23 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data_text/fairseq2.data.text.LineEnding.html">LineEnding</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../reference/asset.html">fairseq2.assets</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../reference/generated/data/fairseq2.assets.AssetStore.html">AssetStore</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.assets.AssetStore.html#fairseq2.assets.AssetStore"><code class="docutils literal notranslate"><span class="pre">AssetStore</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../reference/generated/data/fairseq2.assets.AssetCard.html">AssetCard</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.assets.AssetCard.html#fairseq2.assets.AssetCard"><code class="docutils literal notranslate"><span class="pre">AssetCard</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../reference/generated/data/fairseq2.assets.AssetMetadataProvider.html">AssetMetadataProvider</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.assets.AssetMetadataProvider.html#fairseq2.assets.AssetMetadataProvider"><code class="docutils literal notranslate"><span class="pre">AssetMetadataProvider</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../reference/asset.html#model-store">Model store</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../reference/asset.html#model-card">Model card</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../../reference/all.html">All</a></li>
@@ -149,10 +162,11 @@
 <span class="c1"># LICENSE file in the root directory of this source tree.</span>
 
 <span class="kn">from</span> <span class="nn">dataclasses</span> <span class="kn">import</span> <span class="n">dataclass</span>
-<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span>
+<span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">final</span>
 
 
-<div class="viewcode-block" id="VocabularyInfo"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.VocabularyInfo.html#fairseq2.data.VocabularyInfo">[docs]</a><span class="nd">@dataclass</span>
+<div class="viewcode-block" id="VocabularyInfo"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.VocabularyInfo.html#fairseq2.data.VocabularyInfo">[docs]</a><span class="nd">@final</span>
+<span class="nd">@dataclass</span><span class="p">(</span><span class="n">frozen</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <span class="k">class</span> <span class="nc">VocabularyInfo</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Describes the vocabulary used by a tokenizer&quot;&quot;&quot;</span>
 

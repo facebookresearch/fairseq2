@@ -1,6 +1,0 @@
-﻿.. currentmodule:: fairseq2.data
-
-is\_string\_like
-================
-
-.. autofunction:: is_string_like

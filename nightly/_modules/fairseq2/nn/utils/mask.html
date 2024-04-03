@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.nn.utils.mask &mdash; fairseq2 0.2.1.dev202404021533 documentation</title>
+  <title>fairseq2.nn.utils.mask &mdash; fairseq2 0.3.0.dev202404022304+g5f4e08f documentation</title>
       <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.1.dev202404021533
+                0.3.0.dev202404022304+g5f4e08f
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
@@ -83,15 +83,11 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../reference/data.html#column-syntax">Column syntax</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../reference/data.html#public-classes-used-in-fairseq2-api">Public classes used in fairseq2 API:</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.CString.html">CString</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.PathLike.html">PathLike</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.StringLike.html">StringLike</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.ByteStreamError.html">fairseq2.data.ByteStreamError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.DataPipelineError.html">fairseq2.data.DataPipelineError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.RecordError.html">fairseq2.data.RecordError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.VocabularyInfo.html">VocabularyInfo</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.get_last_failed_example.html">get_last_failed_example</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.data.is_string_like.html">is_string_like</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../reference/data.html#fairseq2-data-text">fairseq2.data.text</a><ul>
@@ -108,6 +104,23 @@
 <li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data_text/fairseq2.data.text.LineEnding.html">LineEnding</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../reference/asset.html">fairseq2.assets</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.assets.AssetStore.html">AssetStore</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.assets.AssetStore.html#fairseq2.assets.AssetStore"><code class="docutils literal notranslate"><span class="pre">AssetStore</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.assets.AssetCard.html">AssetCard</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.assets.AssetCard.html#fairseq2.assets.AssetCard"><code class="docutils literal notranslate"><span class="pre">AssetCard</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.assets.AssetMetadataProvider.html">AssetMetadataProvider</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../../../../reference/generated/data/fairseq2.assets.AssetMetadataProvider.html#fairseq2.assets.AssetMetadataProvider"><code class="docutils literal notranslate"><span class="pre">AssetMetadataProvider</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../reference/asset.html#model-store">Model store</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../reference/asset.html#model-card">Model card</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../../../reference/all.html">All</a></li>
@@ -187,10 +200,10 @@
 <span class="sd">    :param span_len:</span>
 <span class="sd">        The length of each mask span.</span>
 <span class="sd">    :param max_mask_prob:</span>
-<span class="sd">        The maximum probability of masking an element among all elements in a</span>
-<span class="sd">        row. Note that, due to mask span overlap, the effective probability</span>
-<span class="sd">        might be smaller. The implementation also guarantees that there is</span>
-<span class="sd">        always at least one unmasked element in each row.</span>
+<span class="sd">        The maximum probability of masking an element in a row. Note that, due</span>
+<span class="sd">        to mask span overlap, the effective probability will be lower. The</span>
+<span class="sd">        implementation also guarantees that there will be always at least one</span>
+<span class="sd">        unmasked element in each row.</span>
 <span class="sd">    :param row_lens:</span>
 <span class="sd">        The length of each row. *Shape:* :math:`(R)`, where :math:`R` is the</span>
 <span class="sd">        number of rows.</span>
@@ -211,10 +224,12 @@
                 <span class="sa">f</span><span class="s2">&quot;The size of the second dimension of `shape` must be greater than `span_len` (</span><span class="si">{</span><span class="n">span_len</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">max_row_len</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
             <span class="p">)</span>
 
+        <span class="c1"># (N)</span>
         <span class="n">row_lens</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full</span><span class="p">(</span>
             <span class="p">(</span><span class="n">num_rows</span><span class="p">,),</span> <span class="n">max_row_len</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">int64</span>
         <span class="p">)</span>
     <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># (N)</span>
         <span class="n">row_lens</span> <span class="o">=</span> <span class="n">row_lens</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">num_rows</span><span class="p">)</span>
 
         <span class="c1"># We only mask rows that are longer than the mask span length.</span>
@@ -223,6 +238,7 @@
                 <span class="sa">f</span><span class="s2">&quot;All lengths in `row_lens` must be greater than `span_len` (</span><span class="si">{</span><span class="n">span_len</span><span class="si">}</span><span class="s2">), but at least one length is smaller. row_lens: </span><span class="si">{</span><span class="n">row_lens</span><span class="si">}</span><span class="s2">&quot;</span>
             <span class="p">)</span>
 
+    <span class="c1"># (N, M x L)</span>
     <span class="n">indices</span> <span class="o">=</span> <span class="n">_compute_mask_spans</span><span class="p">(</span><span class="n">row_lens</span><span class="p">,</span> <span class="n">span_len</span><span class="p">,</span> <span class="n">max_mask_prob</span><span class="p">,</span> <span class="n">min_num_spans</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">indices</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">row_lens</span><span class="o">.</span><span class="n">new_empty</span><span class="p">((</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
@@ -241,8 +257,8 @@
         <span class="k">return</span> <span class="kc">None</span>
 
     <span class="c1"># Compute the number of mask spans per row. We should always have at least</span>
-    <span class="c1"># one unmasked element; this is why we substract 1 from `row_lens`.</span>
-    <span class="n">num_spans_per_row</span> <span class="o">=</span> <span class="p">(</span><span class="n">max_mask_prob</span> <span class="o">/</span> <span class="n">span_len</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="n">row_lens</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="c1"># one unmasked element; this is why we subtract 1 from `row_lens`.</span>
+    <span class="n">num_spans_per_row</span> <span class="o">=</span> <span class="n">max_mask_prob</span> <span class="o">/</span> <span class="n">span_len</span> <span class="o">*</span> <span class="p">(</span><span class="n">row_lens</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
 
     <span class="c1"># Require the same number of mask spans for all rows.</span>
     <span class="n">num_spans</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">num_spans_per_row</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">min</span><span class="p">())</span>
@@ -256,14 +272,15 @@
         <span class="k">return</span> <span class="kc">None</span>
 
     <span class="c1"># The range of possible start indices for mask spans in form [0, max + 1).</span>
+    <span class="c1"># (N)</span>
     <span class="n">span_start_range</span> <span class="o">=</span> <span class="n">row_lens</span> <span class="o">-</span> <span class="n">span_len</span> <span class="o">+</span> <span class="mi">1</span>
 
-    <span class="c1"># (R) -&gt; (R x N)</span>
+    <span class="c1"># (N) -&gt; (N x M)</span>
     <span class="n">span_start_range</span> <span class="o">=</span> <span class="n">repeat_interleave</span><span class="p">(</span><span class="n">span_start_range</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">repeat</span><span class="o">=</span><span class="n">num_spans</span><span class="p">)</span>
 
     <span class="c1"># Unlike the fairseq implementation, we do sample with replacement, which is</span>
     <span class="c1"># more consistent with the overlap strategy.</span>
-    <span class="c1"># (R x N)</span>
+    <span class="c1"># (N x M)</span>
     <span class="n">rand_scales</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">rand</span><span class="p">(</span><span class="n">num_rows</span> <span class="o">*</span> <span class="n">num_spans</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
 
     <span class="c1"># By random scaling we effectively pick a random start index for each mask</span>
@@ -272,16 +289,16 @@
 
     <span class="c1"># The following ops convert the mask span offsets (i.e. start indices) to</span>
     <span class="c1"># mask spans (i.e. index ranges).</span>
-    <span class="c1"># (R x N) -&gt; (R, N)</span>
+    <span class="c1"># (N x M) -&gt; (N, M)</span>
     <span class="n">span_offsets</span> <span class="o">=</span> <span class="n">span_offsets</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">dtype</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">num_rows</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
 
-    <span class="c1"># (R, N) -&gt; (R, N x L)</span>
+    <span class="c1"># (N, M) -&gt; (N, M x L)</span>
     <span class="n">span_offsets</span> <span class="o">=</span> <span class="n">repeat_interleave</span><span class="p">(</span><span class="n">span_offsets</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">repeat</span><span class="o">=</span><span class="n">span_len</span><span class="p">)</span>
 
     <span class="c1"># (L)</span>
     <span class="n">indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">span_len</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
 
-    <span class="c1"># (L) -&gt; (R, N x L)</span>
+    <span class="c1"># (L) -&gt; (N, M x L)</span>
     <span class="n">indices</span> <span class="o">=</span> <span class="n">indices</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">num_spans</span><span class="p">)</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">expand</span><span class="p">(</span><span class="n">num_rows</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">span_offsets</span> <span class="o">+</span> <span class="n">indices</span>
@@ -289,6 +306,7 @@
 
 <span class="k">def</span> <span class="nf">_generate_mask</span><span class="p">(</span><span class="n">indices</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">max_row_len</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tensor</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Generate a boolean mask by setting ``indices`` to ``True``.&quot;&quot;&quot;</span>
+    <span class="c1"># (N, S)</span>
     <span class="n">float_mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">indices</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="n">max_row_len</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="n">indices</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
 
     <span class="c1"># Set elements corresponding to masked indices to 1.</span>
@@ -299,10 +317,12 @@
     <span class="c1"># ensure that all rows have the same amount of masking.</span>
     <span class="n">min_num_masked</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">count_nonzero</span><span class="p">(</span><span class="n">float_mask</span><span class="p">,</span> <span class="n">dim</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">min</span><span class="p">())</span>
 
+    <span class="c1"># (N, min(M x L))</span>
     <span class="c1"># We randomly pick `min_num_masked` masked elements from each row, which</span>
     <span class="c1"># effectively unmasks the remaining elements.</span>
     <span class="n">indices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">multinomial</span><span class="p">(</span><span class="n">float_mask</span><span class="p">,</span> <span class="n">num_samples</span><span class="o">=</span><span class="n">min_num_masked</span><span class="p">)</span>
 
+    <span class="c1"># (N, S)</span>
     <span class="c1"># Now we construct the actual boolean mask which has the same number of</span>
     <span class="c1"># masked elements in each row.</span>
     <span class="n">bool_mask</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">full_like</span><span class="p">(</span><span class="n">float_mask</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">bool</span><span class="p">)</span>

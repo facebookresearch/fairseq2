@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TransformerNormOrder &mdash; fairseq2 0.2.1.dev202404021533 documentation</title>
+  <title>TransformerNormOrder &mdash; fairseq2 0.3.0.dev202404022304+g5f4e08f documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -35,7 +35,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.2.1.dev202404021533
+                0.3.0.dev202404022304+g5f4e08f
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -86,15 +86,11 @@
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../data.html#column-syntax">Column syntax</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../data.html#public-classes-used-in-fairseq2-api">Public classes used in fairseq2 API:</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.CString.html">CString</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.PathLike.html">PathLike</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.StringLike.html">StringLike</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.ByteStreamError.html">fairseq2.data.ByteStreamError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.DataPipelineError.html">fairseq2.data.DataPipelineError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.RecordError.html">fairseq2.data.RecordError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.VocabularyInfo.html">VocabularyInfo</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.get_last_failed_example.html">get_last_failed_example</a></li>
-<li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.is_string_like.html">is_string_like</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../data.html#fairseq2-data-text">fairseq2.data.text</a><ul>
@@ -111,6 +107,23 @@
 <li class="toctree-l3"><a class="reference internal" href="../data_text/fairseq2.data.text.LineEnding.html">LineEnding</a></li>
 </ul>
 </li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../asset.html">fairseq2.assets</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../data/fairseq2.assets.AssetStore.html">AssetStore</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.assets.AssetStore.html#fairseq2.assets.AssetStore"><code class="docutils literal notranslate"><span class="pre">AssetStore</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../data/fairseq2.assets.AssetCard.html">AssetCard</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.assets.AssetCard.html#fairseq2.assets.AssetCard"><code class="docutils literal notranslate"><span class="pre">AssetCard</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../data/fairseq2.assets.AssetMetadataProvider.html">AssetMetadataProvider</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.assets.AssetMetadataProvider.html#fairseq2.assets.AssetMetadataProvider"><code class="docutils literal notranslate"><span class="pre">AssetMetadataProvider</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="../../asset.html#model-store">Model store</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../asset.html#model-card">Model card</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="../../all.html">All</a></li>
@@ -169,14 +182,14 @@ described in <span id="id1">Vaswani <em>et al.</em> [<a class="reference interna
 <dt class="sig sig-object py" id="fairseq2.nn.transformer.TransformerNormOrder.PRE">
 <span class="sig-name descname"><span class="pre">PRE</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">1</span></em><a class="headerlink" href="#fairseq2.nn.transformer.TransformerNormOrder.PRE" title="Permalink to this definition"></a></dt>
 <dd><p>Apply Layer Normalization at the beginning of each layer as described in
-<span id="id2">Xiong <em>et al.</em> [<a class="reference internal" href="../../../bibliography.html#id12" title="Ruibin Xiong, Yunchang Yang, Di He, Kai Zheng, Shuxin Zheng, Chen Xing, Huishuai Zhang, Yanyan Lan, Liwei Wang, and Tie-Yan Liu. On layer normalization in the transformer architecture. 2020. URL: https://arxiv.org/abs/2002.04745, doi:10.48550/ARXIV.2002.04745.">XYH+20</a>]</span>.</p>
+<span id="id2">Xiong <em>et al.</em> [<a class="reference internal" href="../../../bibliography.html#id13" title="Ruibin Xiong, Yunchang Yang, Di He, Kai Zheng, Shuxin Zheng, Chen Xing, Huishuai Zhang, Yanyan Lan, Liwei Wang, and Tie-Yan Liu. On layer normalization in the transformer architecture. 2020. URL: https://arxiv.org/abs/2002.04745, doi:10.48550/ARXIV.2002.04745.">XYH+20</a>]</span>.</p>
 </dd></dl>
 
 <dl class="py attribute">
 <dt class="sig sig-object py" id="fairseq2.nn.transformer.TransformerNormOrder.PRE_WITH_NORMFORMER">
 <span class="sig-name descname"><span class="pre">PRE_WITH_NORMFORMER</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">2</span></em><a class="headerlink" href="#fairseq2.nn.transformer.TransformerNormOrder.PRE_WITH_NORMFORMER" title="Permalink to this definition"></a></dt>
 <dd><p>Apply Layer Normalization as described in
-<span id="id3">Shleifer <em>et al.</em> [<a class="reference internal" href="../../../bibliography.html#id22" title="Sam Shleifer, Jason Weston, and Myle Ott. Normformer: improved transformer pretraining with extra normalization. 2021. URL: https://arxiv.org/abs/2110.09456, doi:10.48550/ARXIV.2110.09456.">SWO21</a>]</span>.</p>
+<span id="id3">Shleifer <em>et al.</em> [<a class="reference internal" href="../../../bibliography.html#id23" title="Sam Shleifer, Jason Weston, and Myle Ott. Normformer: improved transformer pretraining with extra normalization. 2021. URL: https://arxiv.org/abs/2110.09456, doi:10.48550/ARXIV.2110.09456.">SWO21</a>]</span>.</p>
 </dd></dl>
 
 </dd></dl>
