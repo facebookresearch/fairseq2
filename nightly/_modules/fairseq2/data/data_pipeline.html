@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.data_pipeline &mdash; fairseq2 0.3.0.dev202404022304+g5f4e08f documentation</title>
+  <title>fairseq2.data.data_pipeline &mdash; fairseq2 0.3.0.dev202404030118+gd494d6b documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202404022304+g5f4e08f
+                0.3.0.dev202404030118+gd494d6b
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -220,11 +220,17 @@
 <span class="sd">            :class:`DataPipelineError`.</span>
 <span class="sd">            &quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="DataPipeline.state_dict"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.state_dict">[docs]</a>        <span class="k">def</span> <span class="nf">state_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<div class="viewcode-block" id="DataPipeline.state_dict"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.state_dict">[docs]</a>        <span class="k">def</span> <span class="nf">state_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">strict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
 <span class="w">            </span><span class="sd">&quot;&quot;&quot;Return a dictionary containing the state of the data pipeline.</span>
 
 <span class="sd">            The current position of the data pipeline can be restored by passing</span>
 <span class="sd">            the returned state dictionary to :meth:`load_state_dict`.</span>
+
+<span class="sd">            :param strict:</span>
+<span class="sd">                If ``True``, the internal buffers will be saved as part of</span>
+<span class="sd">                ``state_dict``. This ensures that on preemption no example will</span>
+<span class="sd">                be lost, but for large buffers this can significantly increase</span>
+<span class="sd">                the state size and the time to restore the data pipeline.</span>
 <span class="sd">            &quot;&quot;&quot;</span></div>
 
 <div class="viewcode-block" id="DataPipeline.load_state_dict"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.load_state_dict">[docs]</a>        <span class="k">def</span> <span class="nf">load_state_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">:</span> <span class="n">Mapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -396,9 +402,7 @@
 <span class="sd">                The number of shards.</span>
 <span class="sd">            &quot;&quot;&quot;</span></div>
 
-<div class="viewcode-block" id="DataPipelineBuilder.shuffle"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder.shuffle">[docs]</a>        <span class="k">def</span> <span class="nf">shuffle</span><span class="p">(</span>
-            <span class="bp">self</span><span class="p">,</span> <span class="n">shuffle_window</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">strict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span>
-        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<div class="viewcode-block" id="DataPipelineBuilder.shuffle"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder.shuffle">[docs]</a>        <span class="k">def</span> <span class="nf">shuffle</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">shuffle_window</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">enabled</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
 <span class="w">            </span><span class="sd">&quot;&quot;&quot;Shuffle examples using a fixed sized buffer.</span>
 
 <span class="sd">            :param shuffle_window:</span>
@@ -406,12 +410,6 @@
 <span class="sd">                will be randomly sampled from this buffer, and selected examples</span>
 <span class="sd">                will be replaced with new examples. If ``0``, all examples will</span>
 <span class="sd">                be loaded into memory for full shuffling.</span>
-<span class="sd">            :param strict:</span>
-<span class="sd">                If ``True``, the intermediate shuffle buffer will be saved as</span>
-<span class="sd">                part of ``state_dict``. This ensures that on preemption no</span>
-<span class="sd">                example will be lost, but for large buffers this can</span>
-<span class="sd">                significantly increase the state size and the time to restore</span>
-<span class="sd">                the data pipeline.</span>
 <span class="sd">            :param enabled:</span>
 <span class="sd">                If ``False``, disables shuffling.</span>
 <span class="sd">            &quot;&quot;&quot;</span></div>
@@ -676,16 +674,16 @@
             <span class="sa">f</span><span class="s2">&quot;`num_seqs_multiple_of` must be greater than or equal to 1, but is </span><span class="si">{</span><span class="n">num_seqs_multiple_of</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
         <span class="p">)</span>
 
-    <span class="k">if</span> <span class="n">max_num_elements</span> <span class="o">%</span> <span class="p">(</span><span class="n">max_seq_len</span> <span class="o">*</span> <span class="n">num_seqs_multiple_of</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
+    <span class="k">if</span> <span class="n">max_num_elements</span> <span class="o">%</span> <span class="n">max_seq_len</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;`max_num_elements` must be equal to a multiple of `max_seq_len` (</span><span class="si">{</span><span class="n">max_seq_len</span><span class="si">}</span><span class="s2">) times `num_seqs_multiple_of` (</span><span class="si">{</span><span class="n">num_seqs_multiple_of</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">max_num_elements</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;`max_num_elements` must be equal to a multiple of `max_seq_len`, but is </span><span class="si">{</span><span class="n">max_num_elements</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
         <span class="p">)</span>
 
     <span class="n">bucket_sizes</span> <span class="o">=</span> <span class="p">[]</span>
 
     <span class="n">seq_len</span> <span class="o">=</span> <span class="mi">1</span>
 
-    <span class="n">bucket_size</span> <span class="o">=</span> <span class="n">max_num_elements</span> <span class="o">//</span> <span class="n">seq_len</span>
+    <span class="n">bucket_size</span> <span class="o">=</span> <span class="n">max_num_elements</span>
 
     <span class="k">while</span> <span class="n">seq_len</span> <span class="o">&lt;=</span> <span class="n">max_seq_len</span><span class="p">:</span>
         <span class="k">if</span> <span class="n">seq_len</span> <span class="o">&gt;=</span> <span class="n">min_seq_len</span><span class="p">:</span>
@@ -701,9 +699,10 @@
     <span class="n">cropped_bucket_sizes</span> <span class="o">=</span> <span class="p">[]</span>
 
     <span class="k">for</span> <span class="n">bucket_size</span><span class="p">,</span> <span class="n">seq_len</span> <span class="ow">in</span> <span class="n">bucket_sizes</span><span class="p">:</span>
-        <span class="n">cropped_bucket_sizes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-            <span class="p">(</span><span class="n">bucket_size</span> <span class="o">-</span> <span class="p">(</span><span class="n">bucket_size</span> <span class="o">%</span> <span class="n">num_seqs_multiple_of</span><span class="p">),</span> <span class="n">seq_len</span><span class="p">)</span>
-        <span class="p">)</span>
+        <span class="k">if</span> <span class="n">bucket_size</span> <span class="o">&gt;</span> <span class="n">num_seqs_multiple_of</span><span class="p">:</span>
+            <span class="n">bucket_size</span> <span class="o">-=</span> <span class="n">bucket_size</span> <span class="o">%</span> <span class="n">num_seqs_multiple_of</span>
+
+        <span class="n">cropped_bucket_sizes</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">bucket_size</span><span class="p">,</span> <span class="n">seq_len</span><span class="p">))</span>
 
     <span class="k">return</span> <span class="n">cropped_bucket_sizes</span>
 </pre></div>

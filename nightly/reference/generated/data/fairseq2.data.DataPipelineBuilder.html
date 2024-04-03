@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DataPipelineBuilder &mdash; fairseq2 0.3.0.dev202404022304+g5f4e08f documentation</title>
+  <title>DataPipelineBuilder &mdash; fairseq2 0.3.0.dev202404030118+gd494d6b documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -35,7 +35,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202404022304+g5f4e08f
+                0.3.0.dev202404030118+gd494d6b
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -301,7 +301,7 @@ being processed.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="fairseq2.data.DataPipelineBuilder.shuffle">
-<span class="sig-name descname"><span class="pre">shuffle</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">shuffle_window</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">strict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enabled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipelineBuilder.shuffle"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.DataPipelineBuilder.shuffle" title="Permalink to this definition"></a></dt>
+<span class="sig-name descname"><span class="pre">shuffle</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">shuffle_window</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">enabled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipelineBuilder.shuffle"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.DataPipelineBuilder.shuffle" title="Permalink to this definition"></a></dt>
 <dd><p>Shuffle examples using a fixed sized buffer.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -310,11 +310,6 @@ being processed.</p>
 will be randomly sampled from this buffer, and selected examples
 will be replaced with new examples. If <code class="docutils literal notranslate"><span class="pre">0</span></code>, all examples will
 be loaded into memory for full shuffling.</p></li>
-<li><p><strong>strict</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.12)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, the intermediate shuffle buffer will be saved as
-part of <code class="docutils literal notranslate"><span class="pre">state_dict</span></code>. This ensures that on preemption no
-example will be lost, but for large buffers this can
-significantly increase the state size and the time to restore
-the data pipeline.</p></li>
 <li><p><strong>enabled</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.12)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">False</span></code>, disables shuffling.</p></li>
 </ul>
 </dd>
