@@ -4,7 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import logging
 from functools import partial
 from pickle import PickleError
 from typing import Any, Dict, Generic, Optional, Protocol, TypeVar, Union, final
@@ -29,8 +28,9 @@ from fairseq2.nn.utils.module import (
     to_empty,
 )
 from fairseq2.typing import CPU, META, DataType, Device
+from fairseq2.utils.logging import get_log_writer
 
-logger = logging.getLogger("fairseq2.models")
+log = get_log_writer("fairseq2.models")
 
 
 ModelT = TypeVar("ModelT", bound=Module)
@@ -223,7 +223,7 @@ class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
                 # Try to construct the model on the meta device.
                 model = self._factory(config, device=META, dtype=dtype)
             except NotImplementedError:
-                logger.warning("One or more operators in %s constructor do not support the meta device. Skipping meta device initialization.", card.name)  # fmt: skip
+                log.warning("One or more operators in {} constructor do not support the meta device. Skipping meta device initialization.", card.name)  # fmt: skip
 
         if model is None:
             model = self._factory(config, device=device, dtype=dtype)

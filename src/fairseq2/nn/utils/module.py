@@ -22,6 +22,7 @@ from typing import (
     Sequence,
     Set,
     Tuple,
+    Union,
     final,
     runtime_checkable,
 )
@@ -31,6 +32,7 @@ from torch import Tensor
 from torch.nn import Module, Parameter
 
 from fairseq2.typing import CPU, META, Device
+from fairseq2.utils.logging import LogWriter
 
 
 @runtime_checkable
@@ -494,9 +496,12 @@ def get_module_size(module: Module) -> ModuleSizeInfo:
     return info
 
 
-def log_module(module: Module, logger: Logger) -> None:
+def log_module(module: Module, log: Union[LogWriter, Logger]) -> None:
     """Log information about ``module`` and its descendants."""
-    if not logger.isEnabledFor(logging.INFO):
+    if isinstance(log, Logger):
+        log = LogWriter(log)
+
+    if not log.is_enabled_for(logging.INFO):
         return
 
     info = []
@@ -514,4 +519,4 @@ def log_module(module: Module, logger: Logger) -> None:
 
     s = " | ".join(info)
 
-    logger.info(f"Module - {s}\n{module}")
+    log.info("Module - {}\n{}", s, module)

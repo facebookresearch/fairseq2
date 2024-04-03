@@ -11,13 +11,14 @@ from abc import ABC, abstractmethod
 from functools import partial
 from logging import Logger
 from pathlib import Path
-from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple, final
+from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple, Union, final
 
 from torcheval.metrics import Metric
 from torcheval.metrics.toolkit import sync_and_compute_collection
 
 from fairseq2.gang import Gang
 from fairseq2.typing import override
+from fairseq2.utils.logging import LogWriter, get_log_writer
 from fairseq2.utils.profiler import Stopwatch
 
 
@@ -202,8 +203,8 @@ _metric_formatters: Dict[str, Tuple[str, int, Callable[[Any], str]]] = {
     # fmt: off
     "ctc_loss":            ("CTC Loss",                  100, format_as_float),
     "nll_loss":            ("NLL Loss",                  100, format_as_float),
-    "cer":                 ("Character Error Rate",      200, format_as_float),
-    "wer":                 ("Word Error Rate",           200, format_as_float),
+    "uer":                 ("Unit Error Rate (UER)",     200, format_as_float),
+    "wer":                 ("Word Error Rate (WER)",     200, format_as_float),
     "elapsed_time":        ("Elapsed Time",              500, format_as_seconds),
     "wall_time":           ("Wall Time",                 510, format_as_seconds),
     "lr":                  ("Learning Rate",             800, format_as_float),
@@ -298,14 +299,17 @@ def record_metrics(
 class LogMetricRecorder(MetricRecorder):
     """Logs metric values to a :class:`Logger`."""
 
-    _logger: Logger
+    _log: LogWriter
 
-    def __init__(self, logger: Logger) -> None:
+    def __init__(self, log: Union[LogWriter, Logger]) -> None:
         """
-        :param logger:
-            The logger to use.
+        :param log:
+            The log writer or logger to use.
         """
-        self._logger = logger
+        if isinstance(log, LogWriter):
+            self._log = log
+        else:
+            self._log = LogWriter(log)
 
     @override
     def record_metrics(
@@ -316,7 +320,7 @@ class LogMetricRecorder(MetricRecorder):
         *,
         flush: bool = False,
     ) -> None:
-        if not self._logger.isEnabledFor(logging.INFO):
+        if not self._log.is_enabled_for(logging.INFO):
             return
 
         values_and_formatters = []
@@ -338,7 +342,7 @@ class LogMetricRecorder(MetricRecorder):
 
         s = " | ".join(formatted_values)
 
-        self._logger.info(f"{run} Metrics (step {step_nr}) - {s}")
+        self._log.info("{} Metrics (step {}) - {}", run, step_nr, s)
 
     @override
     def close(self) -> None:
@@ -366,9 +370,9 @@ class TensorBoardRecorder(MetricRecorder):
             The base directory under which to store the TensorBoard files.
         """
         if not has_tensorboard:
-            logger = logging.getLogger(__name__)
+            log = get_log_writer(__name__)
 
-            logger.warning("tensorboard not found. Please install it with `pip install tensorboard`.")  # fmt: skip
+            log.warning("tensorboard not found. Please install it with `pip install tensorboard`.")  # fmt: skip
 
         self._log_dir = log_dir
 

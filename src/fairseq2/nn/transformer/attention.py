@@ -4,7 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import logging
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from typing import Generator, Optional, Protocol, Tuple, final
@@ -18,8 +17,9 @@ from torch.nn.functional import dropout, softmax
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer.attention_mask import AttentionMask, CausalAttentionMask
 from fairseq2.typing import override
+from fairseq2.utils.logging import get_log_writer
 
-logger = logging.getLogger(__name__)
+log = get_log_writer(__name__)
 
 
 class SDPA(Module, ABC):
@@ -103,7 +103,7 @@ class TorchSDPA(SDPA):
     ) -> Tuple[Tensor, Optional[Tensor]]:
         if needs_weights:
             if not self._has_warned:
-                logger.warning("`TorchSDPA` has to fall back to the naive SDPA implementation because of `needs_weights` set to `True`.")  # fmt: skip
+                log.warning("`TorchSDPA` has to fall back to the naive SDPA implementation because of `needs_weights` set to `True`.")  # fmt: skip
 
                 self._has_warned = True
 

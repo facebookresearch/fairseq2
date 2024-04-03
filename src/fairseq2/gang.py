@@ -4,7 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import logging
 import os
 from abc import ABC, abstractmethod
 from datetime import timedelta
@@ -17,9 +16,10 @@ from torch import Tensor
 from torch.distributed import ProcessGroup, ReduceOp
 
 from fairseq2.typing import CPU, Device, override
+from fairseq2.utils.logging import get_log_writer
 from fairseq2.utils.version import _is_pt22_or_greater
 
-logger = logging.getLogger(__name__)
+log = get_log_writer(__name__)
 
 
 class ReduceOperation(Enum):
@@ -216,7 +216,7 @@ class ProcessGroupGang(AbstractGang):
         if num_threads is not None:
             torch.set_num_threads(num_threads)
 
-            logger.info("Setting the number of threads used for intraop parallelism to %d.", num_threads)  # fmt: skip
+            log.info("Setting the number of threads used for intraop parallelism to {}.", num_threads)  # fmt: skip
 
         if device is None:
             device = _determine_default_device()
@@ -245,7 +245,7 @@ class ProcessGroupGang(AbstractGang):
                         return
 
                 if warn_only:
-                    logger.warning("The default process group uses the `nccl` backend, but the `%s` environment variable is not set. Your collective communication calls can hang indefinitely. Learn more at https://github.com/pytorch/pytorch/issues/46874.", env_name)  # fmt: skip
+                    log.warning("The default process group uses the `nccl` backend, but the `{}` environment variable is not set. Your collective communication calls can hang indefinitely. Learn more at https://github.com/pytorch/pytorch/issues/46874.", env_name)  # fmt: skip
                 else:
                     raise RuntimeError(
                         f"The default process group uses the `nccl` backend, but the `{env_name}` environment variable is not set. Learn more at https://github.com/pytorch/pytorch/issues/46874."
@@ -344,7 +344,7 @@ class ProcessGroupGang(AbstractGang):
 def _get_num_cpus(num_procs: int) -> int:
     num_cpus = os.cpu_count()
     if num_cpus is None:
-        logger.warning("The number of CPU cores cannot be determined.")
+        log.warning("The number of CPU cores cannot be determined.")
 
         return 1
 
@@ -379,7 +379,7 @@ def _determine_default_device() -> Device:
     if _default_device is None:
         _default_device = CPU
 
-    logger.info("Setting '%s' as the default device of the process.", _default_device)
+    log.info("Setting '{}' as the default device of the process.", _default_device)
 
     return _default_device
 

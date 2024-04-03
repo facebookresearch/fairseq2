@@ -5,14 +5,14 @@
 # LICENSE file in the root directory of this source tree.
 
 import logging
-from logging import Logger
 
 import torch
 
 from fairseq2.gang import Gang
+from fairseq2.utils.logging import LogWriter
 
 
-def _reduce_batch_size(batch_size: int, gang: Gang, logger: Logger) -> int:
+def _reduce_batch_size(batch_size: int, gang: Gang, log: LogWriter) -> int:
     if gang.size == 1:
         return batch_size
 
@@ -23,10 +23,10 @@ def _reduce_batch_size(batch_size: int, gang: Gang, logger: Logger) -> int:
     # Check if any process has reached end of data. If so, return 0 to indicate
     # that we should stop the iterator.
     if (eods := batch_sizes == 0).any():
-        if logger.isEnabledFor(logging.DEBUG) and not eods.all():
+        if log.is_enabled_for(logging.DEBUG) and not eods.all():
             ranks = ", ".join(str(r) for r in eods.nonzero().squeeze(1).tolist())
 
-            logger.debug(f"End of data reached at rank(s) {ranks}.")
+            log.debug("End of data reached at rank(s) {}.", ranks)
 
         return 0
 
