@@ -4,7 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Iterator, List, Mapping, Tuple, TypeVar, final
 
@@ -15,8 +14,9 @@ from fairseq2.datasets.utils import _reduce_batch_size
 from fairseq2.gang import Gang
 from fairseq2.models import Batch
 from fairseq2.typing import override
+from fairseq2.utils.logging import get_log_writer
 
-logger = logging.getLogger(__name__)
+log = get_log_writer(__name__)
 
 
 BatchT = TypeVar("BatchT", bound=Batch)
@@ -119,7 +119,7 @@ class DataPipelineReader(DataReader[BatchT]):
             batch_size = sum(b.batch_size for b in batches)
 
         if self._sync_batches:
-            batch_size = _reduce_batch_size(batch_size, self._gang, logger)
+            batch_size = _reduce_batch_size(batch_size, self._gang, log)
         else:
             # If we don't sync, we assume all processes read equal amount of
             # data at each iteration.

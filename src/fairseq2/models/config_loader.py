@@ -4,7 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import logging
 from copy import deepcopy
 from typing import Optional, Protocol, Type, TypeVar, Union, final
 
@@ -17,9 +16,6 @@ from fairseq2.assets import (
 )
 from fairseq2.models.architecture_registry import ModelArchitectureRegistry
 from fairseq2.utils.dataclass import update_dataclass
-
-logger = logging.getLogger("fairseq2.models")
-
 
 ModelConfigT = TypeVar("ModelConfigT")
 
