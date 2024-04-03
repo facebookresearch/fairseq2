@@ -30,13 +30,13 @@ count_data_source::reset()
 }
 
 void
-count_data_source::record_position(tape &t) const
+count_data_source::record_position(tape &t, bool) const
 {
     t.record(counter_);
 }
 
 void
-count_data_source::reload_position(tape &t)
+count_data_source::reload_position(tape &t, bool)
 {
     counter_ = t.read<std::int64_t>();
 }

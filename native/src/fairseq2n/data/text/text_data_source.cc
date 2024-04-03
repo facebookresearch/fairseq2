@@ -74,13 +74,13 @@ text_data_source::reset()
 }
 
 void
-text_data_source::record_position(tape &t) const
+text_data_source::record_position(tape &t, bool) const
 {
     t.record(num_lines_read_);
 }
 
 void
-text_data_source::reload_position(tape &t)
+text_data_source::reload_position(tape &t, bool)
 {
     auto num_lines_read = t.read<std::size_t>();
 

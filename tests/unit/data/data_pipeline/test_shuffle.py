@@ -114,12 +114,12 @@ class TestShuffleOp:
     def test_record_reload_position_works_as_expected_with_no_strict(self) -> None:
         seq = list(range(100))
 
-        pipeline = read_sequence(seq).shuffle(80, strict=False).and_return()
+        pipeline = read_sequence(seq).shuffle(80).and_return()
 
         # Do one dummy iteration to force to fill the buffer.
         next(iter(pipeline))
 
-        state_dict = pipeline.state_dict()
+        state_dict = pipeline.state_dict(strict=False)
 
         pipeline.load_state_dict(state_dict)
 

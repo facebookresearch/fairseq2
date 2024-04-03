@@ -226,18 +226,19 @@ def_data_pipeline(py::module_ &data_module)
         // state_dict
         .def(
             "state_dict",
-            [](const data_pipeline &self)
+            [](const data_pipeline &self, bool strict)
             {
                 tape t{};
 
                 {
                     py::gil_scoped_release no_gil{};
 
-                    self.record_position(t);
+                    self.record_position(t, strict);
                 }
 
                 return py::dict{py::arg("position") = py::cast(t.storage())};
-            })
+            },
+            py::arg("strict") = true)
         .def(
             "load_state_dict",
             [](data_pipeline &self, const py::dict &state_dict)
@@ -543,15 +544,13 @@ def_data_pipeline(py::module_ &data_module)
             [](
                 data_pipeline_builder &self,
                 std::size_t shuffle_window,
-                bool strict,
                 bool enabled) -> data_pipeline_builder &
             {
-                self = std::move(self).shuffle(shuffle_window, strict, enabled);
+                self = std::move(self).shuffle(shuffle_window, enabled);
 
                 return self;
             },
             py::arg("shuffle_window"),
-            py::arg("strict") = true,
             py::arg("enabled") = true)
         .def(
             "skip",

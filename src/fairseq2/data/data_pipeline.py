@@ -63,11 +63,17 @@ if TYPE_CHECKING or DOC_MODE:
             :class:`DataPipelineError`.
             """
 
-        def state_dict(self) -> Dict[str, Any]:
+        def state_dict(self, strict: bool = True) -> Dict[str, Any]:
             """Return a dictionary containing the state of the data pipeline.
 
             The current position of the data pipeline can be restored by passing
             the returned state dictionary to :meth:`load_state_dict`.
+
+            :param strict:
+                If ``True``, the internal buffers will be saved as part of
+                ``state_dict``. This ensures that on preemption no example will
+                be lost, but for large buffers this can significantly increase
+                the state size and the time to restore the data pipeline.
             """
 
         def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
@@ -239,9 +245,7 @@ if TYPE_CHECKING or DOC_MODE:
                 The number of shards.
             """
 
-        def shuffle(
-            self, shuffle_window: int, strict: bool = True, enabled: bool = True
-        ) -> Self:
+        def shuffle(self, shuffle_window: int, enabled: bool = True) -> Self:
             """Shuffle examples using a fixed sized buffer.
 
             :param shuffle_window:
@@ -249,12 +253,6 @@ if TYPE_CHECKING or DOC_MODE:
                 will be randomly sampled from this buffer, and selected examples
                 will be replaced with new examples. If ``0``, all examples will
                 be loaded into memory for full shuffling.
-            :param strict:
-                If ``True``, the intermediate shuffle buffer will be saved as
-                part of ``state_dict``. This ensures that on preemption no
-                example will be lost, but for large buffers this can
-                significantly increase the state size and the time to restore
-                the data pipeline.
             :param enabled:
                 If ``False``, disables shuffling.
             """

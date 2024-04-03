@@ -61,13 +61,13 @@ zip_file_data_source::reset()
 }
 
 void
-zip_file_data_source::record_position(tape &t) const
+zip_file_data_source::record_position(tape &t, bool) const
 {
     t.record(num_files_read_);
 }
 
 void
-zip_file_data_source::reload_position(tape &t)
+zip_file_data_source::reload_position(tape &t, bool)
 {
     auto num_files_read = t.read<std::size_t>();
 

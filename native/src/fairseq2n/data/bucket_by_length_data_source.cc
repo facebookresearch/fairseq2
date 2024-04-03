@@ -143,19 +143,19 @@ bucket_by_length_data_source::reset()
 }
 
 void
-bucket_by_length_data_source::record_position(tape &t) const
+bucket_by_length_data_source::record_position(tape &t, bool strict) const
 {
     t.record(buckets_);
 
-    inner_->record_position(t);
+    inner_->record_position(t, strict);
 }
 
 void
-bucket_by_length_data_source::reload_position(tape &t)
+bucket_by_length_data_source::reload_position(tape &t, bool strict)
 {
     buckets_ = t.read<std::vector<data_list>>();
 
-    inner_->reload_position(t);
+    inner_->reload_position(t, strict);
 }
 
 bool

@@ -29,15 +29,15 @@ filter_data_source::reset()
 }
 
 void
-filter_data_source::record_position(tape &t) const
+filter_data_source::record_position(tape &t, bool strict) const
 {
-    inner_->record_position(t);
+    inner_->record_position(t, strict);
 }
 
 void
-filter_data_source::reload_position(tape &t)
+filter_data_source::reload_position(tape &t, bool strict)
 {
-    inner_->reload_position(t);
+    inner_->reload_position(t, strict);
 }
 
 bool

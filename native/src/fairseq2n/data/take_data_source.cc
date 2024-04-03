@@ -30,19 +30,19 @@ take_data_source::reset()
 }
 
 void
-take_data_source::record_position(tape &t) const
+take_data_source::record_position(tape &t, bool strict) const
 {
     t.record(num_examples_read_);
 
-    inner_->record_position(t);
+    inner_->record_position(t, strict);
 }
 
 void
-take_data_source::reload_position(tape &t)
+take_data_source::reload_position(tape &t, bool strict)
 {
     num_examples_read_ = t.read<std::size_t>();
 
-    inner_->reload_position(t);
+    inner_->reload_position(t, strict);
 }
 
 bool
