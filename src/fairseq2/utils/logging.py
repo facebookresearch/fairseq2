@@ -6,6 +6,7 @@
 
 import logging
 import time
+from contextlib import contextmanager
 from logging import (
     DEBUG,
     INFO,
@@ -17,7 +18,10 @@ from logging import (
     getLogger,
 )
 from pathlib import Path
-from typing import Any, List, Optional, final
+from typing import Any, Generator, List, Optional, final
+
+import torch
+from torch.cuda import OutOfMemoryError
 
 
 def setup_logging(
@@ -133,3 +137,20 @@ class LogWriter:
 def get_log_writer(name: Optional[str] = None) -> LogWriter:
     """Return a :class:`LogWriter` for the logger with the specified name."""
     return LogWriter(getLogger(name))
+
+
+@contextmanager
+def exception_logger(log: LogWriter) -> Generator[None, None, None]:
+    """Log exceptions and CUDA OOM errors raised within the context."""
+    try:
+        yield
+    except OutOfMemoryError:
+        s = torch.cuda.memory_summary()
+
+        log.exception("CUDA run out of memory. See the memory stats and the exception details below.\n{}", s)  # fmt: skip
+
+        raise
+    except Exception:
+        log.exception("Job has failed. See the exception details below.")
+
+        raise
