@@ -20,6 +20,9 @@ from fairseq2.models.wav2vec2.asr.model import (
 )
 from fairseq2.models.wav2vec2.asr.model import Wav2Vec2AsrModel as Wav2Vec2AsrModel
 from fairseq2.models.wav2vec2.asr.model import Wav2Vec2AsrOutput as Wav2Vec2AsrOutput
+from fairseq2.models.wav2vec2.asr.model import (
+    Wav2Vec2AsrValidMetricBag as Wav2Vec2AsrValidMetricBag,
+)
 from fairseq2.models.wav2vec2.asr.setup import (
     load_wav2vec2_asr_config as load_wav2vec2_asr_config,
 )

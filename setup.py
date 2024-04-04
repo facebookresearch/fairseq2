@@ -43,6 +43,7 @@ setup(
     zip_safe=False,
     python_requires=">=3.8",
     install_requires=[
+        "editdistance~=0.8.1",
         "fairseq2n" + fairseq2n_version_spec,
         "importlib_metadata~=7.0",
         "numpy~=1.23",
