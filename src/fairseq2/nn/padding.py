@@ -22,6 +22,7 @@ class PaddingMask:
     _seq_lens: Tensor
     _batch_seq_len: int
     _materialized: Optional[Tensor]
+    _materialized_float: Optional[Tensor]
 
     def __init__(self, seq_lens: Tensor, batch_seq_len: int) -> None:
         """
@@ -35,13 +36,28 @@ class PaddingMask:
         self._batch_seq_len = batch_seq_len
 
         self._materialized = None
+        self._materialized_float = None
 
     def materialize(self) -> Tensor:
-        """Materialize the boolean padding mask tensor."""
+        """Materialize the padding mask as a boolean tensor."""
         if self._materialized is None:
             self._materialized = to_padding_mask(self._seq_lens, self._batch_seq_len)
 
         return self._materialized
+
+    def materialize_as(self, seqs: Tensor) -> Tensor:
+        """Materialize the padding mask as a float tensor."""
+        if self._materialized_float is None:
+            bool_mask = self.materialize()
+
+            # (N, S)
+            mask = torch.zeros_like(bool_mask, dtype=seqs.dtype)
+
+            mask = torch.where(bool_mask, mask, -torch.inf)
+
+            self._materialized_float = mask
+
+        return self._materialized_float
 
     def trim(self, size: int) -> PaddingMask:
         """Return a new trimmed padding mask.
