@@ -17,7 +17,6 @@ from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer.attention_mask import AttentionMask, CausalAttentionMask
 from fairseq2.typing import override
 from fairseq2.utils.logging import get_log_writer
-from fairseq2.utils.version import _is_pt22_or_greater
 
 log = get_log_writer(__name__)
 
@@ -79,23 +78,12 @@ class TorchSDPA(SDPA):
 
     attn_dropout_p: float
 
-    def __init__(
-        self, *, attn_dropout_p: float = 0.0, disable_compile: bool = False
-    ) -> None:
+    def __init__(self, *, attn_dropout_p: float = 0.0) -> None:
         """
         :param attn_dropout_p:
             The dropout probability on attention weights.
-        :param disable_compile:
-            If ``True``, disables ``torch.compile()`` on the SDPA function.
         """
         super().__init__()
-
-        if not _is_pt22_or_greater():
-            self._compiled_sdpa = None
-        else:
-            self._compiled_sdpa = torch.compile(
-                scaled_dot_product_attention, dynamic=True, disable=disable_compile
-            )
 
         self._has_warned = False
 
@@ -137,20 +125,17 @@ class TorchSDPA(SDPA):
         is_causal = False
 
         if key_padding_mask is not None:
-            mask = key_padding_mask.materialize()
+            mask = key_padding_mask.materialize_as(seqs)
 
             # (N, S_kv) -> (N, 1, 1, S_kv)
             mask = mask[:, None, None, :]
 
-            # (N, 1, 1, S_kv) -> (N, H, S, S_kv)
-            mask = mask.expand(-1, seqs.size(1), seqs.size(2), -1)
+            # (N, 1, 1, S_kv) -> (N, H, 1, S_kv)
+            mask = mask.expand(-1, seqs.size(1), -1, -1)
 
             if attn_mask is not None:
-                # ([H], S, S_kv)
-                m = attn_mask.materialize()
-
-                # (N, H, S, S_kv)
-                mask = torch.where(mask, m, -torch.inf)
+                # (N, H, 1, S_kv) + ([H], S, S_kv) -> (N, H, S, S_kv)
+                mask = mask + attn_mask.materialize()
         elif isinstance(attn_mask, CausalAttentionMask):
             # PyTorch SDPA supports only full causal attention.
             if attn_mask.full_attention():
@@ -166,13 +151,7 @@ class TorchSDPA(SDPA):
         else:
             mask = None
 
-        # torch.compile's CPU support is pretty finicky. Use it only for CUDA.
-        if self._compiled_sdpa is not None and seqs.device.type == "cuda":
-            sdpa = self._compiled_sdpa
-        else:
-            sdpa = scaled_dot_product_attention
-
-        attn = sdpa(
+        attn = scaled_dot_product_attention(
             seqs, keys, values, attn_mask=mask, dropout_p=dropout_p, is_causal=is_causal
         )
 
