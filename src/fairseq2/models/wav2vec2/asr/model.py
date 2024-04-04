@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Sequence, final
+from typing import Any, Dict, Optional, Sequence, Tuple, final
 
 import torch
 import torch.nn as nn
@@ -170,6 +170,40 @@ class Wav2Vec2AsrOutput:
             zero_infinity=True,
         )
 
+    def generate_hypotheses(
+        self, pad_idx: int, blank_label: int = 0
+    ) -> Tuple[Tensor, Optional[PaddingMask]]:
+        """Generate hypotheses using greedy search.
+
+        :param pad_idx:
+            The index of the PAD symbol in the target vocabulary.
+        :param blank_label:
+            The blank label in logits.
+
+        :returns:
+            - The generated token (i.e. unit) sequences. *Shape:* :math:`(N,S)`,
+              where :math:`N` is the batch size and :math:`S` is the sequence
+              length.
+            - The padding mask of the generated sequences. *Shape:* Same as the
+              generated sequences.
+        """
+        seq_lens = get_seq_lens(self.logits, self.padding_mask)
+
+        hyp_seq_list = []
+
+        # Get the greedy token (i.e. unit) output of the model.
+        for logits, seq_len in zip(self.logits, seq_lens):
+            # (S)
+            hyp_seq = logits[:seq_len].argmax(-1).unique_consecutive()
+
+            # (S - blank)
+            hyp_seq = hyp_seq[hyp_seq != blank_label]
+
+            hyp_seq_list.append(hyp_seq)
+
+        # (N, S), (N, S)
+        return pad_seqs(hyp_seq_list, pad_value=pad_idx)
+
 
 class Wav2Vec2AsrMetricBag(MetricBag):
     """Holds the common metrics of a wav2vec 2.0 ASR model."""
@@ -274,14 +308,14 @@ class Wav2Vec2AsrValidMetricBag(Wav2Vec2AsrMetricBag):
     wer: WerMetric
 
     _pad_idx: int
-    _blank_idx: int
+    _blank_label: int
 
     def __init__(
         self,
         gang: Gang,
         tokenizer: TextTokenizer,
         *,
-        blank_idx: int = 0,
+        blank_label: int = 0,
         wall_time: Optional[Stopwatch] = None,
     ) -> None:
         """
@@ -289,8 +323,8 @@ class Wav2Vec2AsrValidMetricBag(Wav2Vec2AsrMetricBag):
             The gang to sync metrics across all processes.
         :param tokenizer:
             The text tokenizer to compute the WER (Word Error Rate).
-        :param blank_idx:
-            The index of the blank symbol.
+        :param blank_label:
+            The blank label in logits.
         :param wall_time:
             The :class:`Stopwatch` to keep track of process wall time.
         """
@@ -308,7 +342,7 @@ class Wav2Vec2AsrValidMetricBag(Wav2Vec2AsrMetricBag):
 
         self._pad_idx = pad_idx
 
-        self._blank_idx = blank_idx
+        self._blank_label = blank_label
 
     @torch.inference_mode()
     def update_wer_metric(
@@ -321,22 +355,10 @@ class Wav2Vec2AsrValidMetricBag(Wav2Vec2AsrMetricBag):
         :param model_output:
             The output of the model for ``batch``.
         """
-        seq_lens = get_seq_lens(model_output.logits, model_output.padding_mask)
-
-        hyp_seq_list = []
-
-        # Get the greedy token (i.e. unit) output of the model.
-        for logits, seq_len in zip(model_output.logits, seq_lens):
-            # (S)
-            hyp_seq = logits[:seq_len].argmax(-1).unique_consecutive()
-
-            # (S - blank)
-            hyp_seq = hyp_seq[hyp_seq != self._blank_idx]
-
-            hyp_seq_list.append(hyp_seq)
-
         # (N, S), (N, S)
-        hyp_seqs, hyp_padding_mask = pad_seqs(hyp_seq_list, pad_value=self._pad_idx)
+        hyp_seqs, hyp_padding_mask = model_output.generate_hypotheses(
+            self._pad_idx, self._blank_label
+        )
 
         self.wer.update(
             batch.target_seqs,
