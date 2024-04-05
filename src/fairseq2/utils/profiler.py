@@ -6,14 +6,10 @@
 
 from __future__ import annotations
 
-import logging
-import os
-from logging import Logger
 from pathlib import Path
 from time import perf_counter
-from typing import Any, Optional, Union, final
+from typing import Any, Optional, final
 
-import psutil
 import torch
 from torch.profiler import (
     ProfilerActivity,
@@ -25,7 +21,11 @@ from typing_extensions import Self
 
 from fairseq2.gang import Gang
 from fairseq2.typing import Device
-from fairseq2.utils.logging import LogWriter
+
+# compat
+from fairseq2.utils.log import (  # noqa: F401
+    log_environment_info as log_environment_info,
+)
 
 
 @final
@@ -180,70 +180,3 @@ class Stopwatch:
     def is_running(self) -> bool:
         """Return ``True`` if the stopwatch is running."""
         return self._start_time is not None
-
-
-def log_environment_info(
-    log: Union[LogWriter, Logger], device: Optional[Device] = None
-) -> None:
-    """Log information about the software and hardware environments."""
-    log_software_info(log, device)
-    log_hardware_info(log, device)
-
-
-def log_software_info(
-    log: Union[LogWriter, Logger], device: Optional[Device] = None
-) -> None:
-    """Log information about the software environment."""
-    if isinstance(log, Logger):
-        log = LogWriter(log)
-
-    if not log.is_enabled_for(logging.INFO):
-        return
-
-    info = []
-
-    info.append(f"PyTorch: {torch.__version__}")
-
-    if device is not None and device.type == "cuda":
-        info.append(f"CUDA: {torch.version.cuda}")
-
-    info.append(f"Intraop Thread Count: {torch.get_num_threads()}")
-
-    s = " | ".join(info)
-
-    log.info("Software Info - {}", s)
-
-
-def log_hardware_info(
-    log: Union[LogWriter, Logger], device: Optional[Device] = None
-) -> None:
-    """Log information about the host and device hardware environments."""
-    if isinstance(log, Logger):
-        log = LogWriter(log)
-
-    if not log.is_enabled_for(logging.INFO):
-        return
-
-    affinity_mask = os.sched_getaffinity(0)
-
-    memory = psutil.virtual_memory()
-
-    info = []
-
-    info.append(f"Number of CPUs: {len(affinity_mask)}/{os.cpu_count() or '-'}")
-    info.append(f"Memory: {memory.total // (1024 * 1024 * 1024):,}GiB")
-
-    if device is not None:
-        info.append(f"Device Name: {device}")
-
-    if device is not None and device.type == "cuda":
-        props = torch.cuda.get_device_properties(device)
-
-        info.append(f"Device Display Name: {props.name}")
-        info.append(f"Device Memory: {props.total_memory // (1024 * 1024):,}MiB")
-        info.append(f"Number of SMs: {props.multi_processor_count}")
-        info.append(f"Compute Capability: {props.major}.{props.minor}")
-
-    s = " | ".join(info)
-
-    log.info("Hardware Info - {}", s)
