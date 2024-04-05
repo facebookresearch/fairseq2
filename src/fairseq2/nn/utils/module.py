@@ -4,11 +4,9 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import logging
 import re
 from dataclasses import dataclass
 from itertools import chain
-from logging import Logger
 from typing import (
     Any,
     Callable,
@@ -22,8 +20,6 @@ from typing import (
     Sequence,
     Set,
     Tuple,
-    Union,
-    final,
     runtime_checkable,
 )
 
@@ -32,7 +28,9 @@ from torch import Tensor
 from torch.nn import Module, Parameter
 
 from fairseq2.typing import CPU, META, Device
-from fairseq2.utils.logging import LogWriter
+
+# compat
+from fairseq2.utils.log import log_module as log_module  # noqa: F401
 
 
 @runtime_checkable
@@ -434,7 +432,6 @@ def _get_named_modules(
         yield prefix, module
 
 
-@final
 @dataclass
 class ModuleSizeInfo:
     """Holds the size information of a module."""
@@ -494,29 +491,3 @@ def get_module_size(module: Module) -> ModuleSizeInfo:
         info.total_size_bytes += size_bytes
 
     return info
-
-
-def log_module(module: Module, log: Union[LogWriter, Logger]) -> None:
-    """Log information about ``module`` and its descendants."""
-    if isinstance(log, Logger):
-        log = LogWriter(log)
-
-    if not log.is_enabled_for(logging.INFO):
-        return
-
-    info = []
-
-    size_info = get_module_size(module)
-
-    info.append(f"Parameter Size: {size_info.param_size:,}")
-    info.append(f"Parameter Size (bytes): {size_info.param_size_bytes:,}")
-    info.append(f"Trainable Parameter Size: {size_info.trainable_param_size:,}")
-    info.append(f"Trainable Parameter Size (bytes): {size_info.trainable_param_size_bytes:,}")  # fmt: skip
-    info.append(f"Buffer Size: {size_info.buffer_size:,}")
-    info.append(f"Buffer Size (bytes): {size_info.buffer_size_bytes:,}")
-    info.append(f"Total Size: {size_info.total_size:,}")
-    info.append(f"Total Size (bytes): {size_info.total_size_bytes:,}")
-
-    s = " | ".join(info)
-
-    log.info("Module Info - {} | Layout:\n{}", s, module)
