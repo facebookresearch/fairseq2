@@ -113,7 +113,7 @@ class FileAssetMetadataProvider(AssetMetadataProvider):
                     name = metadata["name"]
                 except KeyError:
                     raise AssetMetadataError(
-                        f"The asset metadata at index {idx} in the file '{file}' does not have a name."
+                        f"The asset metadata at index {idx} in the file '{file}' does not have a name entry."
                     )
 
                 if not isinstance(name, str):
@@ -122,7 +122,9 @@ class FileAssetMetadataProvider(AssetMetadataProvider):
                     )
 
                 if name in self._cache:
-                    raise AssetMetadataError(f"Two assets have the same name '{name}'.")
+                    raise AssetMetadataError(
+                        f"Two assets under the directory {self._base_dir} have the same name '{name}'."
+                    )
 
                 self._cache[name] = metadata
 
@@ -145,7 +147,7 @@ class InProcAssetMetadataProvider(AssetMetadataProvider):
                 name = m["name"]
             except KeyError:
                 raise AssetMetadataError(
-                    f"The asset metadata at index {idx} in `metadata` does not have a name."
+                    f"The asset metadata at index {idx} in `metadata` does not have a name entry."
                 )
 
             if not isinstance(name, str):
@@ -154,7 +156,9 @@ class InProcAssetMetadataProvider(AssetMetadataProvider):
                 )
 
             if name in self._metadata:
-                raise AssetMetadataError(f"Two assets have the same name '{name}'.")
+                raise AssetMetadataError(
+                    f"Two assets in `metadata` have the same name '{name}'."
+                )
 
             self._metadata[name] = m
 

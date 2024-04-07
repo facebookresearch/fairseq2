@@ -8,7 +8,8 @@ import logging
 import os
 from contextlib import contextmanager
 from logging import Logger
-from typing import Generator, Optional, Union
+from pathlib import Path
+from typing import Any, Generator, Optional, Union
 
 import psutil
 import torch
@@ -16,6 +17,7 @@ from torch.cuda import OutOfMemoryError
 from torch.nn import Module
 
 from fairseq2.typing import Device
+from fairseq2.utils.dataclass import _dump_dataclass
 from fairseq2.utils.logging import LogWriter
 
 
@@ -34,6 +36,22 @@ def exception_logger(log: LogWriter) -> Generator[None, None, None]:
         log.exception("Job has failed. See the exception details below.")
 
         raise
+
+
+def log_config(config: Any, log: LogWriter, file: Optional[Path] = None) -> None:
+    """Log ``config``.
+
+    :param config:
+        The config to log. Must be a :class:`~dataclasses.dataclass`.
+    :param log:
+        The log to write to.
+    :param file:
+        The output file to write ``config`` in YAML format.
+    """
+    if file is not None:
+        _dump_dataclass(config, file)
+
+    log.info("Config:\n{}", config)
 
 
 def log_environment_info(
