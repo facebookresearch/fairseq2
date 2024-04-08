@@ -6,6 +6,8 @@
 
 from enum import Enum
 
+from fairseq2.utils.yaml import register_yaml_representer, represent_as_str
+
 
 class TransformerNormOrder(Enum):
     """Specifies the Layer Normalization order."""
@@ -21,3 +23,6 @@ class TransformerNormOrder(Enum):
     PRE_WITH_NORMFORMER = 2
     """Apply Layer Normalization as described in
     :cite:t:`https://doi.org/10.48550/arxiv.2110.09456`."""
+
+
+register_yaml_representer(TransformerNormOrder, represent_as_str)
