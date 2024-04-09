@@ -14,9 +14,13 @@ from fairseq2.models.transformer import (
     TransformerFrontend,
     TransformerModel,
 )
-from fairseq2.nn.embedding import Embedding, StandardEmbedding, init_scaled_embedding
-from fairseq2.nn.position_encoder import SinusoidalPositionEncoder
-from fairseq2.nn.projection import TiedProjection
+from fairseq2.nn import (
+    Embedding,
+    SinusoidalPositionEncoder,
+    StandardEmbedding,
+    TiedProjection,
+    init_scaled_embedding,
+)
 from fairseq2.nn.transformer import (
     FeedForwardNetwork,
     MultiheadAttention,

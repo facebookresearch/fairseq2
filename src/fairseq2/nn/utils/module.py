@@ -26,6 +26,7 @@ from typing import (
 import torch
 from torch import Tensor
 from torch.nn import Module, Parameter
+from torch.nn.utils import remove_weight_norm
 
 from fairseq2.typing import CPU, META, Device
 
@@ -286,8 +287,11 @@ def apply_to_parameters(
         setattr(module, buffer_name, call_fn(buffer))
 
 
-def freeze_parameters(module: Module, value: bool = True) -> None:
+def freeze_parameters(module: Optional[Module], value: bool = True) -> None:
     """Set if ``module`` and its descendant modules should stop learning."""
+    if module is None:
+        return
+
     for param in module.parameters():
         param.requires_grad_(not value)
 
@@ -313,6 +317,24 @@ def select_parameters(
 
         if (matched and not exclude) or (not matched and exclude):
             yield name, param
+
+
+def remove_parametrizations(module: Module, *, recurse: bool = True) -> None:
+    """Remove parametrizations on ``module`` (e.g. :func:`~torch.nn.utils.weight_norm`).
+
+    :param module:
+        The module to process.
+    :param recurse:
+        If ``True``, removes parametrizations on descendant modules.
+    """
+
+    def remove(name: str, m: Module) -> None:
+        try:
+            remove_weight_norm(m)
+        except ValueError:
+            pass
+
+    visit_module(module, remove, recurse=recurse)
 
 
 def multiply_gradients(module: Module, m: float) -> None:

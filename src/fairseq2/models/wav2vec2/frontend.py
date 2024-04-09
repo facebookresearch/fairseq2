@@ -12,11 +12,9 @@ from torch.nn import Dropout
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.models.transformer import TransformerFrontend
 from fairseq2.models.wav2vec2.masker import Wav2Vec2Masker
+from fairseq2.nn import LayerNorm, Linear, PositionEncoder, StandardLayerNorm
 from fairseq2.nn.incremental_state import IncrementalStateBag
-from fairseq2.nn.normalization import LayerNorm, StandardLayerNorm
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.nn.position_encoder import PositionEncoder
-from fairseq2.nn.projection import Linear
 from fairseq2.typing import DataType, Device, override
 
 

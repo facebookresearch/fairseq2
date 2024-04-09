@@ -463,6 +463,9 @@ class FileCheckpointManager(CheckpointManager):
 
     @override
     def save_consolidated_fsdp_model(self, step_nr: int, model: Module) -> None:
+        if self._model_key in self._replicated_keys or "*" in self._replicated_keys:
+            return
+
         with FSDP.state_dict_type(
             model,
             StateDictType.FULL_STATE_DICT,

@@ -10,7 +10,7 @@ from torch import Tensor
 from torch.nn import Dropout
 
 from fairseq2.models.conformer.convolution import ConformerConvolution
-from fairseq2.nn.normalization import LayerNorm
+from fairseq2.nn import LayerNorm
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer import (
     AttentionMask,

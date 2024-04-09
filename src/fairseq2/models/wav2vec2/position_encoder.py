@@ -4,18 +4,22 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
+import warnings
 from typing import Optional, final
 
+import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.nn import GELU, Conv1d, Module, Sequential
-from torch.nn.utils.weight_norm import remove_weight_norm, weight_norm
+from torch.nn.utils import remove_weight_norm, weight_norm
 
+from fairseq2.nn import LayerNorm, PositionEncoder, StandardLayerNorm
 from fairseq2.nn.incremental_state import IncrementalStateBag
-from fairseq2.nn.normalization import LayerNorm, StandardLayerNorm
 from fairseq2.nn.padding import PaddingMask, apply_padding_mask
-from fairseq2.nn.position_encoder import PositionEncoder
 from fairseq2.typing import DataType, Device, override
+from fairseq2.utils.version import _is_pt22_or_greater
 
 
 @final
@@ -23,7 +27,7 @@ class Wav2Vec2PositionEncoder(PositionEncoder):
     """Encodes sequences with relative positional information as described in
     Section 2 of :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`."""
 
-    conv: Conv1d
+    conv: Wav2Vec2PositionalConv1d
     remove_pad: bool
     activation: GELU
 
@@ -103,17 +107,31 @@ class Wav2Vec2PositionalConv1d(Conv1d):
         model_dim, kernel_size = self.in_channels, self.kernel_size[0]
 
         try:
+            weight = self.weight_g
+
             remove_weight_norm(self)
-        except ValueError:
-            # Raised during the `__init__` call since we don't have the weight
-            # norm hook registered yet. Safe to ignore.
-            pass
+        # Raised during the `__init__` call since we don't have the weight norm
+        # hook registered yet. Safe to ignore.
+        except AttributeError:
+            weight = self.weight
+
+            if weight.dtype == torch.bfloat16 and not _is_pt22_or_greater():
+                raise RuntimeError(
+                    "`torch.nn.utils.weight_norm()` supports `torch.bfloat16` only in PyTorch 2.2 and later versions."
+                )
 
         nn.init.normal_(
             self.weight, mean=0.0, std=(4.0 / (kernel_size * model_dim)) ** 0.5
         )
 
-        weight_norm(self, dim=2)
+        with warnings.catch_warnings():
+            # Suppress the noisy deprecated `weight_norm` warning.
+            warnings.simplefilter("ignore")
+
+            weight_norm(self, dim=2)
+
+        self.weight_v.requires_grad_(weight.requires_grad)
+        self.weight_g.requires_grad_(weight.requires_grad)
 
         if self.bias is not None:
             nn.init.constant_(self.bias, 0.0)

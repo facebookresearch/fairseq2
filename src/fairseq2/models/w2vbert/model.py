@@ -21,8 +21,8 @@ from fairseq2.models.wav2vec2 import (
     Wav2Vec2Output,
 )
 from fairseq2.models.wav2vec2.masker import extract_masked_elements
+from fairseq2.nn import Linear
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.nn.projection import Linear
 from fairseq2.typing import DataType, Device
 
 

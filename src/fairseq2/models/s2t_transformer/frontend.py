@@ -12,10 +12,9 @@ from torch.nn import Dropout
 
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.models.transformer import TransformerFrontend
+from fairseq2.nn import Linear, PositionEncoder, Projection
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.nn.position_encoder import PositionEncoder
-from fairseq2.nn.projection import Linear, Projection
 from fairseq2.typing import DataType, Device, override
 
 
