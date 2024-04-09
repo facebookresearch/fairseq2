@@ -19,7 +19,8 @@ from torcheval.metrics import Mean, Sum, Throughput
 
 from fairseq2.data.text import TextTokenizer
 from fairseq2.gang import Gang
-from fairseq2.metrics import MetricBag, WerMetric
+from fairseq2.metrics import MetricBag
+from fairseq2.metrics.wer_metric import WerMetric
 from fairseq2.models.model import Model
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.wav2vec2.frontend import Wav2Vec2Frontend
