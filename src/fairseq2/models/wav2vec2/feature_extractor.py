@@ -13,7 +13,7 @@ from torch.nn import GELU, Conv1d, Dropout, GroupNorm, Module, Sequential
 from torch.nn.functional import group_norm, layer_norm
 
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
-from fairseq2.nn.normalization import LayerNorm
+from fairseq2.nn import LayerNorm
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.utils.grad import scale_grad
 from fairseq2.typing import DataType, Device, override

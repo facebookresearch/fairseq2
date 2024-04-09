@@ -12,9 +12,9 @@ from fairseq2.data import VocabularyInfo
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.models.transformer.frontend import TransformerFrontend
+from fairseq2.nn import Projection
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.nn.projection import Projection
 from fairseq2.nn.transformer import TransformerDecoder
 from fairseq2.typing import override
 

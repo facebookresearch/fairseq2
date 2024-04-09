@@ -15,10 +15,7 @@ from fairseq2.models.transformer import (
     TransformerFrontend,
     init_final_projection,
 )
-from fairseq2.nn.embedding import StandardEmbedding
-from fairseq2.nn.normalization import LayerNorm, RMSNorm
-from fairseq2.nn.position_encoder import RotaryEncoder
-from fairseq2.nn.projection import Linear
+from fairseq2.nn import LayerNorm, Linear, RMSNorm, RotaryEncoder, StandardEmbedding
 from fairseq2.nn.transformer import (
     CausalAttentionMaskFactory,
     FeedForwardNetwork,

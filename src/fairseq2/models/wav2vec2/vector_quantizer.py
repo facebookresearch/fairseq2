@@ -13,7 +13,7 @@ from torch import Tensor
 from torch.nn import Module, Parameter
 from torch.nn.functional import gumbel_softmax
 
-from fairseq2.nn.projection import Linear
+from fairseq2.nn import Linear
 from fairseq2.typing import DataType, Device, override
 
 

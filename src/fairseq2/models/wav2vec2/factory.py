@@ -27,7 +27,7 @@ from fairseq2.models.wav2vec2.vector_quantizer import (
     GumbelVectorQuantizer,
     VectorQuantizer,
 )
-from fairseq2.nn.position_encoder import PositionEncoder, RotaryEncoder
+from fairseq2.nn import PositionEncoder, RotaryEncoder
 from fairseq2.nn.transformer import (
     SDPA,
     FeedForwardNetwork,
