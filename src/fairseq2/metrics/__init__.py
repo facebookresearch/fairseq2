@@ -19,4 +19,3 @@ from fairseq2.metrics.metric_recorder import record_metrics as record_metrics
 from fairseq2.metrics.metric_recorder import (
     register_metric_formatter as register_metric_formatter,
 )
-from fairseq2.metrics.wer_metric import WerMetric as WerMetric
