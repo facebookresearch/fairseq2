@@ -135,6 +135,7 @@ class Seq2SeqModelMetricBag(MetricBag):
 
     nll_loss: Mean
     batch_size: Mean
+    gradient_norm: Mean
     elements_per_batch: Mean
     elements_per_second: Throughput
     num_examples: Sum
@@ -144,7 +145,7 @@ class Seq2SeqModelMetricBag(MetricBag):
     def __init__(self, gang: Gang, *, wall_time: Optional[Stopwatch] = None) -> None:
         """
         :param gang:
-            The gang to sync metrics across all processes.
+            The gang over which to sync metrics.
         :param wall_time:
             The :class:`Stopwatch` to keep track of process wall time.
         """
@@ -155,6 +156,8 @@ class Seq2SeqModelMetricBag(MetricBag):
         self.register_metric("nll_loss", Mean(device=d), persistent=False)
 
         self.register_metric("batch_size", Mean(device=d), persistent=False)
+
+        self.register_metric("gradient_norm", Mean(device=d), persistent=False)
 
         self.register_metric("elements_per_batch", Mean(device=d), persistent=False)
 
@@ -173,6 +176,7 @@ class Seq2SeqModelMetricBag(MetricBag):
         batches: Sequence[Seq2SeqBatch],
         nll_losses: Sequence[Tensor],
         time: Stopwatch,
+        gradient_norms: Optional[Sequence[Tensor]] = None,
     ) -> None:
         """Update the step metrics.
 
@@ -182,6 +186,8 @@ class Seq2SeqModelMetricBag(MetricBag):
             The NLL losses output by the model for ``batches``.
         :param time:
             The :class:`Stopwatch` to keep track of elapsed time.
+        :param gradient_norms:
+            The model gradient norms after backpropagating ``batches``.
         """
         nll_loss = torch.zeros((), dtype=torch.float64)
 
@@ -197,6 +203,10 @@ class Seq2SeqModelMetricBag(MetricBag):
 
             num_source_elements += batch.num_source_elements()
             num_target_elements += batch.num_target_elements() - batch.batch_size
+
+        if gradient_norms:
+            for norm in gradient_norms:
+                self.gradient_norm.update(norm)
 
         nll_loss /= num_target_elements
 
@@ -219,11 +229,15 @@ class Seq2SeqModelMetricBag(MetricBag):
         """Reset the step metrics to their initial state."""
         self.nll_loss.reset()
         self.batch_size.reset()
+        self.gradient_norm.reset()
         self.elements_per_batch.reset()
         self.elements_per_second.reset()
 
     @override
     def process_metric_values(self, values: Dict[str, Any]) -> None:
         super().process_metric_values(values)
+
+        if values["gradient_norm"] == 0.0:
+            del values["gradient_norm"]
 
         values["elapsed_time"] = self.elements_per_second.elapsed_time_sec

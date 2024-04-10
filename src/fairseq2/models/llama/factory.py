@@ -46,7 +46,7 @@ class LLaMAConfig:
     """The dimensionality of the model."""
 
     max_seq_len: int = 2048
-    """The maximum allowed sequence length."""
+    """The maximum sequence length."""
 
     vocab_info: VocabularyInfo = VocabularyInfo(
         size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None

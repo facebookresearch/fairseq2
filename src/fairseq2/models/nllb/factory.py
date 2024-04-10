@@ -54,7 +54,7 @@ class NllbConfig:
     """The dimensionality of the model."""
 
     max_seq_len: int = 1024
-    """The maximum allowed sequence length."""
+    """The maximum sequence length."""
 
     vocab_info: VocabularyInfo = VocabularyInfo(
         size=256206, unk_idx=1, bos_idx=2, eos_idx=3, pad_idx=0

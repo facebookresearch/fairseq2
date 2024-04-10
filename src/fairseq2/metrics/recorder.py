@@ -50,6 +50,7 @@ _metric_formatters: Dict[str, Tuple[str, int, Callable[[Any], str]]] = {
     "nll_loss":            ("NLL Loss",                  100, format_as_float),
     "uer":                 ("Unit Error Rate (UER)",     200, format_as_float),
     "wer":                 ("Word Error Rate (WER)",     200, format_as_float),
+    "gradient_norm":       ("Gradient Norm",             300, format_as_float),
     "elapsed_time":        ("Elapsed Time",              500, format_as_seconds),
     "wall_time":           ("Wall Time",                 510, format_as_seconds),
     "lr":                  ("Learning Rate",             800, format_as_float),

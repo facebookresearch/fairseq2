@@ -603,7 +603,7 @@ class AttentionStateFactory(Protocol):
         :param v:
             The initial projected values.
         :param max_seq_len:
-            The maximum allowed sequence length.
+            The maximum sequence length.
         :param capacity_increment:
             The sequence length capacity of state tensors will be incremented by
             multiples of this value. If ``None``, state tensors will be

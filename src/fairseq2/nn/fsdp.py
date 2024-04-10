@@ -48,7 +48,7 @@ def to_fsdp(
     :param module:
         The module to be wrapped with FSDP.
     :param gang:
-        The gang over which the module will be sharded.
+        The gang over which to shard the module.
     :param wrap_policy:
         The policy to apply FSDP to ``module``.  If ``None``, ``module`` will be
         wrapped with only a top-level FSDP instance and no sharding will applied

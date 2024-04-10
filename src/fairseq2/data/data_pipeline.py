@@ -490,9 +490,9 @@ def create_bucket_sizes(
     :param max_num_elements:
         The maximum number of elements that each bucket can contain.
     :param max_seq_len:
-        The maximum allowed sequence length.
+        The maximum sequence length.
     :param min_seq_len:
-        The minimum allowed sequence length.
+        The minimum sequence length.
     :param num_seqs_multiple_of:
         The number of sequences contained in each bucket must be a multiple of
         this value.

@@ -78,11 +78,11 @@ class SamplingSequenceGenerator(AbstractSequenceGenerator):
         :param num_gens:
             The number of sequences to generate per prompt.
         :param min_gen_len:
-            The minimum allowed generation length.
+            The minimum generation length.
         :param max_gen_len:
-            The maximum allowed generation length.
+            The maximum generation length.
         :param max_seq_len:
-            The maximum allowed sequence length including prompt.
+            The maximum sequence length including prompt.
         :param echo_prompt:
             If ``True``, returns generated sequences with prompts appended.
         :param compute_scores:
@@ -236,12 +236,12 @@ class SamplingSeq2SeqGenerator(AbstractSeq2SeqGenerator):
         :param num_gens:
             The number of sequences to generate per prompt.
         :param min_gen_len:
-            The minimum allowed generation length.
+            The minimum generation length.
         :param max_gen_len:
-            The maximum allowed generation length as ``ax + b``, where ``x`` is
-            the source sequence length.
+            The maximum generation length as ``ax + b``, where ``x`` is the
+            source sequence length.
         :param max_seq_len:
-            The maximum allowed sequence length including prompt.
+            The maximum sequence length including prompt.
         :param echo_prompt:
             If ``True``, returns generated sequences with prompts appended.
         :param compute_scores:

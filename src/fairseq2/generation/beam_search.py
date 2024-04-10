@@ -76,11 +76,11 @@ class BeamSearchSequenceGenerator(AbstractSequenceGenerator):
         :param beam_size:
             The beam size.
         :param min_gen_len:
-            The minimum allowed generation length.
+            The minimum generation length.
         :param max_gen_len:
-            The maximum allowed generation length.
+            The maximum generation length.
         :param max_seq_len:
-            The maximum allowed sequence length including prompt.
+            The maximum sequence length including prompt.
         :param echo_prompt:
             If ``True``, returns generated sequences with prompts appended.
         :param normalize_scores:
@@ -228,12 +228,12 @@ class BeamSearchSeq2SeqGenerator(AbstractSeq2SeqGenerator):
         :param beam_size:
             The beam size.
         :param min_gen_len:
-            The minimum allowed generation length.
+            The minimum generation length.
         :param max_gen_len:
-            The maximum allowed generation length as ``ax + b``, where ``x`` is
-            the source sequence length.
+            The maximum generation length as ``ax + b``, where ``x`` is the
+            source sequence length.
         :param max_seq_len:
-            The maximum allowed sequence length including prompt.
+            The maximum sequence length including prompt.
         :param echo_prompt:
             If ``True``, returns generated sequences with prompts appended.
         :param normalize_scores:

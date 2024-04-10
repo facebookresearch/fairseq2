@@ -60,7 +60,7 @@ class Wav2Vec2EncoderConfig:
     """The dimensionality of the model."""
 
     max_seq_len: int = 4096
-    """The maximum allowed sequence length after feature extraction."""
+    """The maximum sequence length after feature extraction."""
 
     # Features
     feature_dim: int = 512
@@ -91,7 +91,7 @@ class Wav2Vec2EncoderConfig:
     """If ``True``, applies Layer Normalization to outputs of convolutions in
     feature extraction layers."""
 
-    feature_grad_scale: float = 0.1
+    feature_gradient_scale: float = 0.1
     """The scale factor for gradients of extracted features. Setting to a value
     less than 1.0 allows the feature extractor to learn at a lower rate than the
     rest of the model."""
@@ -292,7 +292,7 @@ class Wav2Vec2EncoderBuilder:
             self._config.feature_extractor_layer_descs,
             self._config.feature_extractor_bias,
             layer_norm=self._config.feature_extractor_layer_norm_convs,
-            grad_scale=self._config.feature_grad_scale,
+            gradient_scale=self._config.feature_gradient_scale,
             device=self._device,
             dtype=self._dtype,
         )

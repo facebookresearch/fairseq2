@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, Mapping, Optional, final
 
 from torcheval.metrics import Metric
@@ -26,7 +27,7 @@ class MetricBag:
     def __init__(self, gang: Gang, wall_time: Optional[Stopwatch] = None) -> None:
         """
         :param gang:
-            The gang to sync metrics across all processes.
+            The gang over which to sync metrics.
         :param wall_time:
             The :class:`Stopwatch` to keep track of process wall time.
         """
@@ -98,7 +99,7 @@ class MetricBag:
 
     @final
     def sync_and_compute_metrics(self) -> Optional[Dict[str, Any]]:
-        """Sync the metrics across all processes and and compute their values."""
+        """Sync the metrics across all processes and compute their values."""
         return sync_and_compute_metrics(self)
 
     def process_metric_values(self, values: Dict[str, Any]) -> None:
@@ -135,7 +136,7 @@ def reset_metrics(*bags: MetricBag) -> None:
 
 
 def sync_and_compute_metrics(*bags: MetricBag) -> Optional[Dict[str, Any]]:
-    """Sync the metrics in ``bags`` across all processes and and compute their value."""
+    """Sync the metrics across all processes and and compute their values."""
     if not bags:
         return None
 
@@ -152,10 +153,15 @@ def sync_and_compute_metrics(*bags: MetricBag) -> Optional[Dict[str, Any]]:
 
             all_metrics.update(bag._metrics)
 
-    if gang.size == 1:
-        values = {name: m.compute() for name, m in all_metrics.items()}
-    else:
-        values = sync_and_compute_collection(all_metrics, gang.as_process_group())
+    logging.disable(logging.WARNING)  # Suppress "No calls to update()".
+
+    try:
+        if gang.size == 1:
+            values = {name: m.compute() for name, m in all_metrics.items()}
+        else:
+            values = sync_and_compute_collection(all_metrics, gang.as_process_group())
+    finally:
+        logging.disable(logging.NOTSET)
 
     if gang.rank == 0:
         assert values is not None

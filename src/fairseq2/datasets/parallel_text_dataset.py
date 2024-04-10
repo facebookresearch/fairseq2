@@ -61,7 +61,7 @@ class ParallelTextDataset(ABC):
         :param tokenizer:
             The tokenizer to encode text.
         :param gang:
-            The gang to shard the dataset.
+            The gang over which to shard the dataset.
         :param max_seq_len:
             The maximum sequence length of each example. Examples longer than
             this value will be dropped.
