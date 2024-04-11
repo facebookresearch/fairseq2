@@ -442,7 +442,7 @@ data_pipeline_builder::repeat(std::optional<std::size_t> num_repeats, bool reset
 }
 
 data_pipeline_builder
-data_pipeline_builder::shard(std::size_t shard_idx, std::size_t num_shards) &&
+data_pipeline_builder::shard(std::size_t shard_idx, std::size_t num_shards, bool allow_uneven) &&
 {
     if (num_shards == 0)
         throw_<std::invalid_argument>(
@@ -454,7 +454,7 @@ data_pipeline_builder::shard(std::size_t shard_idx, std::size_t num_shards) &&
 
     factory_ = [=, inner = std::move(factory_)]
     {
-        return std::make_unique<shard_data_source>(inner(), shard_idx, num_shards);
+        return std::make_unique<shard_data_source>(inner(), shard_idx, num_shards, allow_uneven);
     };
 
     return std::move(*this);

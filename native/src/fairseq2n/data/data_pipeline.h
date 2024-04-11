@@ -154,7 +154,7 @@ public:
     repeat(std::optional<std::size_t> num_repeats = std::nullopt, bool reset_rng = false) &&;
 
     data_pipeline_builder
-    shard(std::size_t shard_idx, std::size_t num_shards) &&;
+    shard(std::size_t shard_idx, std::size_t num_shards, bool allow_uneven = false) &&;
 
     data_pipeline_builder
     shuffle(std::size_t shuffle_window, std::optional<std::uint64_t> maybe_seed = {}) &&;

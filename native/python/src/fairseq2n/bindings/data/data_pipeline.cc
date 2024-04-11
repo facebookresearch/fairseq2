@@ -540,14 +540,16 @@ def_data_pipeline(py::module_ &data_module)
             [](
                 data_pipeline_builder &self,
                 std::size_t shard_idx,
-                std::size_t num_shards) -> data_pipeline_builder &
+                std::size_t num_shards,
+                bool allow_uneven) -> data_pipeline_builder &
             {
-                self = std::move(self).shard(shard_idx, num_shards);
+                self = std::move(self).shard(shard_idx, num_shards, allow_uneven);
 
                 return self;
             },
             py::arg("shard_idx"),
-            py::arg("num_shards"))
+            py::arg("num_shards"),
+            py::arg("allow_uneven") = false)
         .def(
             "shuffle",
             [](
