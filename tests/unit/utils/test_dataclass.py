@@ -72,7 +72,7 @@ class TestUpdateClassFunction:
 
         with pytest.raises(
             ValueError,
-            match=r"^The following keys contained in `overrides` do not exist in `obj`: \['c\.z', 'e'\]$",
+            match=r"^`obj` must contain the following keys that are present in `overrides`: \['c\.z', 'e'\]$",
         ):
             update_dataclass(obj, overrides)
 

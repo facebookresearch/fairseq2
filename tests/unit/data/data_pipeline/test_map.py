@@ -15,7 +15,7 @@ from fairseq2.data.text.converters import StrToIntConverter
 
 
 class TestMapOp:
-    @pytest.mark.parametrize("num_parallel_calls", [0, 1, 4, 10, 20])
+    @pytest.mark.parametrize("num_parallel_calls", [1, 4, 10, 20])
     def test_op_works(self, num_parallel_calls: int) -> None:
         def fn(d: int) -> int:
             return d**2
@@ -164,6 +164,33 @@ class TestMapOp:
 
             pipeline.reset()
 
+    def test_op_works_when_selector_has_wildcard(self) -> None:
+        def fn(d: int) -> int:
+            return d + 10
+
+        d = [
+            {"foo1": [{"foo2": 2, "foo3": [1, 2]}]},
+            {"foo1": [{"foo2": 2, "foo3": [3, 4]}]},
+            {"foo1": [{"foo2": 2, "foo3": [5, 6]}]},
+        ]
+
+        e = copy.deepcopy(d)
+
+        e[0]["foo1"][0]["foo3"] = [11, 12]
+        e[1]["foo1"][0]["foo3"] = [13, 14]
+        e[2]["foo1"][0]["foo3"] = [15, 16]
+
+        selector = "[*].foo1[*].foo3[*]"
+
+        pipeline = read_sequence([d]).map(fn, selector=selector).and_return()
+
+        for _ in range(2):
+            it = iter(pipeline)
+
+            assert next(it) == e
+
+            pipeline.reset()
+
     @pytest.mark.parametrize(
         "s",
         [
@@ -174,10 +201,13 @@ class TestMapOp:
             "foo1.foo2",
             "foo[0]",
             "foo[0][1]",
+            "foo[*]",
+            "foo[*][2]",
+            "foo[1][*]",
             "foo1.foo2[0]",
             "foo1,foo2",
             "foo1[0],foo2[0]",
-            " foo1[0]  , foo2[1],foo3",
+            " foo1[0]  , foo2[1],foo3,  foo[*][3]",
         ],
     )
     def test_op_inits_when_selectors_are_well_formatted(self, s: str) -> None:
@@ -195,6 +225,7 @@ class TestMapOp:
             "foo[]",
             "foo[0",
             "foo.[0]",
+            "foo[*",
             ".foo",
             ",",
             " , ",
@@ -231,7 +262,27 @@ class TestMapOp:
 
         assert str(cause) == f"The input data does not have an element at path '{s}'."
 
-    @pytest.mark.parametrize("num_parallel_calls", [0, 1, 4, 20])
+    def test_op_raises_error_when_selector_with_wildcard_is_not_valid(self) -> None:
+        d = [
+            {"foo1": 0},
+            {"foo2": 1},
+            {"foo1": 2},
+        ]
+
+        s = "[*].foo1"
+
+        pipeline = read_sequence([d]).map(lambda x: x, selector=s).and_return()
+
+        with pytest.raises(DataPipelineError) as exc_info:
+            next(iter(pipeline))
+
+        cause = exc_info.value.__cause__
+
+        assert isinstance(cause, ValueError)
+
+        assert str(cause) == "The input data does not have an element at path '[1].foo1'."  # fmt: skip
+
+    @pytest.mark.parametrize("num_parallel_calls", [1, 4, 20])
     def test_op_raises_nested_error_when_callable_fails(
         self, num_parallel_calls: int
     ) -> None:
@@ -253,7 +304,7 @@ class TestMapOp:
 
         assert str(cause) == "map error"
 
-    @pytest.mark.parametrize("num_parallel_calls", [0, 1, 4, 20])
+    @pytest.mark.parametrize("num_parallel_calls", [1, 4, 20])
     def test_op_saves_and_restores_its_state(self, num_parallel_calls: int) -> None:
         def fn(d: int) -> int:
             return d

@@ -15,7 +15,8 @@ namespace fairseq2n::detail {
 class count_data_source final : public data_source {
 public:
     explicit
-    count_data_source(std::int64_t start, std::int64_t step, std::optional<std::string> key) noexcept
+    count_data_source(
+        std::int64_t start, std::int64_t step, std::optional<std::string> &&key) noexcept
       : start_{start}, step_{step}, counter_{start}, key_{std::move(key)}
     {}
 
@@ -26,10 +27,10 @@ public:
     reset() override;
 
     void
-    record_position(tape &t) const override;
+    record_position(tape &t, bool strict) const override;
 
     void
-    reload_position(tape &t) override;
+    reload_position(tape &t, bool strict) override;
 
     bool
     is_infinite() const noexcept override;

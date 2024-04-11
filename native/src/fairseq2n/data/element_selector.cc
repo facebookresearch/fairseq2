@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <limits>
 #include <stdexcept>
 
 #include <fmt/format.h>
@@ -19,6 +20,8 @@
 using namespace fairseq2n::detail;
 
 namespace fairseq2n {
+
+constexpr std::size_t wildcard_index = std::numeric_limits<std::size_t>::max();
 
 element_selector::element_selector(std::string selector)
   : str_{std::move(selector)}
@@ -121,6 +124,8 @@ element_selector::maybe_parse_path(std::string_view path)
                     return std::nullopt;
 
                 idx = tmp;
+            } else if (chr == '*') {
+                idx = wildcard_index;
             } else
                 return std::nullopt;
         } else if (state == path_parser_state::parsed_index) {
@@ -159,9 +164,22 @@ element_selector::matches(element_path_ref path) const
         if (p.size() != path.size())
             return false;
 
-        for (std::size_t i = 0; i < p.size(); ++i)
-            if (p[i] != path[i])
+        for (std::size_t i = 0; i < p.size(); i++) {
+            const element_path_segment &segment1 = p[i];
+            const element_path_segment &segment2 = path[i];
+
+            if (segment1 != segment2) {
+                bool holds_index1 = std::holds_alternative<std::size_t>(segment1);
+                bool holds_index2 = std::holds_alternative<std::size_t>(segment2);
+
+                if (holds_index1 && holds_index2) {
+                    if (std::get<std::size_t>(segment1) == wildcard_index)
+                        continue;
+                }
+
                 return false;
+            }
+        }
 
         return true;
     };
@@ -173,39 +191,63 @@ void
 element_selector::visit(data &d, const visitor_fn &visitor) const
 {
     for (const element_path &path : paths_)
-        if (!visit(d, path, visitor))
-            throw_<std::invalid_argument>(
-                "The input data does not have an element at path '{}'.", path);
+        visit(d, path, visitor);
 }
 
 void
 element_selector::visit(const data &d, const const_visitor_fn &visitor) const {
     for (const element_path &path : paths_)
-        if (!visit(d, path, visitor))
-            throw_<std::invalid_argument>(
-                "The input data does not have an element at path '{}'.", path);
+        visit(d, path, visitor);
 }
 
-bool
+void
 element_selector::visit(data &d, element_path_ref path, const visitor_fn &visitor)
 {
-    return visit<data>(d, path, visitor);
+    element_path resolved_path{};
+
+    resolved_path.reserve(path.size());
+
+    if (!visit<data>(d, path, path, resolved_path, visitor)) {
+        for (std::size_t i = resolved_path.size(); i < path.size(); i++)
+            resolved_path.push_back(path[i]);
+
+        throw_<std::invalid_argument>(
+            "The input data does not have an element at path '{}'.", resolved_path);
+    }
 }
 
-bool
+void
 element_selector::visit(const data &d, element_path_ref path, const const_visitor_fn &visitor)
 {
-    return visit<const data>(d, path, visitor);
+    element_path resolved_path{};
+
+    resolved_path.reserve(path.size());
+
+    if (!visit<const data>(d, path, path, resolved_path, visitor)) {
+        for (std::size_t i = resolved_path.size(); i < path.size(); i++)
+            resolved_path.push_back(path[i]);
+
+        throw_<std::invalid_argument>(
+            "The input data does not have an element at path '{}'.", resolved_path);
+    }
 }
 
 template <typename T>
 bool
 element_selector::visit(
-    T &d, element_path_ref path, const std::function<void(T &, element_path_ref)> &visitor)
+    T &d,
+    element_path_ref abs_path,
+    element_path_ref path,
+    element_path &resolved_path,
+    const std::function<void(T &, element_path_ref)> &visitor)
 {
     T *element = &d;
 
-    for (const element_path_segment &segment : path) {
+    for (std::size_t i = 0; i < path.size(); i++) {
+        const element_path_segment &segment = path[i];
+
+        resolved_path.push_back(segment);
+
         if (std::holds_alternative<std::string>(segment)) {
             if (!element->is_dict())
                 return false;
@@ -224,14 +266,31 @@ element_selector::visit(
             auto &list = element->as_list();
 
             auto idx = std::get<std::size_t>(segment);
-            if (idx >= list.size())
-                return false;
+            if (idx == wildcard_index) {
+                for (std::size_t j = 0; j < list.size(); j++) {
+                    resolved_path.back() = j;
 
-            element = &list[idx];
+                    if (!visit(list[j], abs_path, path.subspan(i + 1), resolved_path, visitor))
+                        return false;
+                }
+
+                for (std::size_t j = 0; j < i; j++)
+                    resolved_path.pop_back();
+
+                return true;
+            } else {
+                if (idx >= list.size())
+                    return false;
+
+                element = &list[idx];
+            }
         }
     }
 
-    visitor(*element, path);
+    visitor(*element, resolved_path);
+
+    for (std::size_t i = 0; i < path.size(); i++)
+        resolved_path.pop_back();
 
     return true;
 }
@@ -247,8 +306,13 @@ repr<element_path_ref>::operator()(element_path_ref path) const
                 output += ".";
 
             output += std::get<std::string>(segment);
-        } else
-            output += "[" + fmt::to_string(std::get<std::size_t>(segment)) + "]";
+        } else {
+            std::size_t idx = std::get<std::size_t>(segment);
+            if (idx == wildcard_index)
+                output += "[*]";
+            else
+                output += "[" + fmt::to_string(std::get<std::size_t>(segment)) + "]";
+        }
     }
 
     return output;

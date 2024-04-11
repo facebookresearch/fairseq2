@@ -5,7 +5,8 @@
 # LICENSE file in the root directory of this source tree.
 
 name: nllb-200
-model_type: nllb
+model_type: nllb  # compat
+model_family: nllb
 tokenizer: "https://tinyurl.com/flores200sacrebleuspm"
 default_lang: eng_Latn
 langs:

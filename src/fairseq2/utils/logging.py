@@ -6,16 +6,23 @@
 
 import logging
 import time
-from logging import DEBUG, INFO, FileHandler, Formatter, Handler, StreamHandler
+from logging import (
+    DEBUG,
+    INFO,
+    FileHandler,
+    Formatter,
+    Handler,
+    Logger,
+    StreamHandler,
+    getLogger,
+)
 from pathlib import Path
-from typing import List, Optional
-
-from fairseq2.gang import get_global_rank
+from typing import Any, List, Optional, final
 
 
 def setup_logging(
-    *,
     log_file: Optional[Path] = None,
+    *,
     debug: bool = False,
     utc_time: bool = False,
     force: bool = False,
@@ -32,7 +39,9 @@ def setup_logging(
     :param force:
         If ``True``, overwrites existing log configuration.
     """
-    rank = get_global_rank()
+    from fairseq2.gang import get_rank  # Avoid circular import.
+
+    rank = get_rank()
 
     handlers: List[Handler] = [StreamHandler()]  # Log to stderr.
 
@@ -69,3 +78,58 @@ def setup_logging(
 
     if utc_time:
         Formatter.converter = time.gmtime
+
+
+@final
+class LogWriter:
+    """Writes log messages using ``format()`` strings."""
+
+    _logger: Logger
+
+    def __init__(self, logger: Logger) -> None:
+        """
+        :param logger:
+            The logger to write to.
+        """
+        self._logger = logger
+
+    def debug(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+        """Log a message with level ``DEBUG``."""
+        self._write(logging.DEBUG, msg, args, kwargs)
+
+    def info(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+        """Log a message with level ``INFO``."""
+        self._write(logging.INFO, msg, args, kwargs)
+
+    def warning(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+        """Log a message with level ``WARNING``."""
+        self._write(logging.WARNING, msg, args, kwargs)
+
+    def error(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+        """Log a message with level ``ERROR``."""
+        self._write(logging.ERROR, msg, args, kwargs)
+
+    def exception(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+        """Log a message with level ``ERROR``."""
+        self._write(logging.ERROR, msg, args, kwargs, exc_info=True)
+
+    def _write(
+        self, level: int, msg: Any, args: Any, kwargs: Any, exc_info: bool = False
+    ) -> None:
+        if args or kwargs:
+            if not self._logger.isEnabledFor(level):
+                return
+
+            msg = str(msg).format(*args, **kwargs)
+
+        self._logger.log(level, msg, exc_info=exc_info)
+
+    def is_enabled_for(self, level: int) -> bool:
+        """Return ``True`` if a message of severity ``level`` would be processed
+        by this writer."""
+        return self._logger.isEnabledFor(level)
+
+
+def get_log_writer(name: Optional[str] = None) -> LogWriter:
+    """Return a :class:`LogWriter` for the logger with the specified name."""
+    return LogWriter(getLogger(name))

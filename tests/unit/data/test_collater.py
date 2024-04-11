@@ -140,15 +140,26 @@ class TestCollater:
     def test_call_works_when_options_are_overriden(self) -> None:
         # fmt: off
         bucket = [
-            {"foo1": torch.full((4,2), 0, device=device, dtype=torch.int32), "foo2": torch.full((4,2), 0, device=device, dtype=torch.int64)},
-            {"foo1": torch.full((2,2), 1, device=device, dtype=torch.int32), "foo2": torch.full((2,2), 1, device=device, dtype=torch.int64)},
-            {"foo1": torch.full((3,2), 2, device=device, dtype=torch.int32), "foo2": torch.full((3,2), 2, device=device, dtype=torch.int64)},
+            {
+                "foo1": [torch.full((4,2), 0, device=device, dtype=torch.int32)],
+                "foo2": [torch.full((4,2), 0, device=device, dtype=torch.int64)],
+            },
+            {
+                "foo1": [torch.full((2,2), 1, device=device, dtype=torch.int32)],
+                "foo2": [torch.full((2,2), 1, device=device, dtype=torch.int64)],
+            },
+            {
+                "foo1": [torch.full((3,2), 2, device=device, dtype=torch.int32)],
+                "foo2": [torch.full((3,2), 2, device=device, dtype=torch.int64)],
+            },
         ]
         # fmt: on
 
         collater = Collater(
             pad_value=1,
-            overrides=[CollateOptionsOverride("foo1", pad_value=3, pad_to_multiple=3)],
+            overrides=[
+                CollateOptionsOverride("foo1[*]", pad_value=3, pad_to_multiple=3)
+            ],
         )
 
         output = collater(bucket)
@@ -175,14 +186,14 @@ class TestCollater:
 
         expected_seq_lens = torch.tensor([4, 2, 3], device=device, dtype=torch.int64)
 
-        assert_close(output["foo1"]["seqs"], expected_seqs1)
-        assert_close(output["foo2"]["seqs"], expected_seqs2)
+        assert_close(output["foo1"][0]["seqs"], expected_seqs1)
+        assert_close(output["foo2"][0]["seqs"], expected_seqs2)
 
-        assert_equal(output["foo1"]["seq_lens"], expected_seq_lens)
-        assert_equal(output["foo2"]["seq_lens"], expected_seq_lens)
+        assert_equal(output["foo1"][0]["seq_lens"], expected_seq_lens)
+        assert_equal(output["foo2"][0]["seq_lens"], expected_seq_lens)
 
-        assert output["foo1"]["is_ragged"] == True
-        assert output["foo2"]["is_ragged"] == True
+        assert output["foo1"][0]["is_ragged"] == True
+        assert output["foo2"][0]["is_ragged"] == True
 
     def test_call_works_when_input_has_composite_elements(self) -> None:
         # fmt: off

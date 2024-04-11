@@ -6,41 +6,40 @@
 
 from __future__ import annotations
 
-import logging
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence, Tuple, final
+from typing import Any, Dict, List, Optional, Sequence, Tuple, cast, final
 
 from fairseq2.assets import AssetCard, AssetCardError
-from fairseq2.assets import asset_store as default_asset_store
-from fairseq2.assets import download_manager as default_download_manager
 from fairseq2.data import (
     Collater,
     DataPipeline,
     DataPipelineBuilder,
+    SequenceData,
     create_bucket_sizes,
 )
 from fairseq2.data.text import TextTokenizer, read_text
+from fairseq2.datasets.data_reader import DataPipelineReader
 from fairseq2.datasets.error import DatasetError
-from fairseq2.datasets.loader import StandardDatasetLoader
 from fairseq2.datasets.parallel_text_dataset import (
-    AbstractParallelTextDataset,
     LangPair,
-    load_parallel_text_dataset,
+    ParallelTextDataset,
+    setup_parallel_text_dataset,
 )
 from fairseq2.gang import Gang
-from fairseq2.typing import override
-
-logger = logging.getLogger(__name__)
+from fairseq2.models.seq2seq import Seq2SeqBatch
+from fairseq2.nn.padding import get_seqs_and_padding_mask
+from fairseq2.typing import Device, override
 
 # TODO: FIX, INFER
 num_parallel_calls = 10
 
 
 @final
-class NllbDataset(AbstractParallelTextDataset):
+class NllbDataset(ParallelTextDataset):
     """Represents an NLLB dataset."""
 
+    _dataset_name: str
     _data_dir: Path
     _split_lang_pairs: Dict[str, Dict[LangPair, int]]
 
@@ -58,25 +57,26 @@ class NllbDataset(AbstractParallelTextDataset):
         :param split_lang_pairs:
             The available language pairs per split.
         """
-        super().__init__(dataset_name)
-
+        self._dataset_name = dataset_name
         self._data_dir = data_dir
         self._split_lang_pairs = split_lang_pairs
 
     @override
-    def _build_pipeline(
+    def create_reader(
         self,
         split: str,
         tokenizer: TextTokenizer,
         gang: Gang,
         max_seq_len: int,
         max_num_tokens: int,
-        bucket_by_length: bool,
-        sample: bool,
-        shuffle_window_size: int,
-        num_prefetch: int,
-        lang_pairs: Optional[Sequence[LangPair]],
-    ) -> DataPipeline:
+        *,
+        sample: bool = False,
+        shuffle_window_size: int = 0,
+        num_repeats: Optional[int] = 1,
+        num_prefetch: int = 0,
+        num_accumulate: int = 1,
+        lang_pairs: Optional[Sequence[LangPair]] = None,
+    ) -> DataPipelineReader[Seq2SeqBatch]:
         splits = []
 
         for available_split in self._split_lang_pairs.keys():
@@ -112,10 +112,10 @@ class NllbDataset(AbstractParallelTextDataset):
             for lang_pair in lang_pairs:
                 if lang_pair not in lang_pairs_to_read:
                     raise ValueError(
-                        f"All language pairs in `lang_pairs` must be available in the dataset, but '{lang_pair}' is not found in the '{split}' split of the {self.dataset_name} dataset."
+                        f"All language pairs in `lang_pairs` must be available in the dataset, but '{lang_pair}' is not found in the '{split}' split of the {self._dataset_name} dataset."
                     )
 
-        factory = _NllbDataPipelineFactory(
+        builder = _NllbDataPipelineBuilder(
             self._dataset_name,
             self._data_dir,
             tokenizer,
@@ -123,13 +123,17 @@ class NllbDataset(AbstractParallelTextDataset):
             lang_pairs_to_read,
             max_seq_len,
             max_num_tokens,
-            bucket_by_length,
             sample,
             shuffle_window_size,
+            num_repeats,
             num_prefetch,
         )
 
-        return factory()
+        pipeline = builder.build()
+
+        return DataPipelineReader[Seq2SeqBatch](
+            pipeline, gang, num_accumulate=num_accumulate, sync_batches=True
+        )
 
     @override
     def splits(self) -> List[str]:
@@ -145,18 +149,18 @@ class NllbDataset(AbstractParallelTextDataset):
             )
 
 
-class _NllbDataPipelineFactory:
-    dataset_name: str
-    data_dir: Path
-    tokenizer: TextTokenizer
-    gang: Gang
-    lang_pairs: Dict[LangPair, List[Tuple[str, int]]]
-    max_seq_len: int
-    max_num_tokens: int
-    bucket_by_length: bool
-    sample: bool
-    shuffle_window_size: int
-    num_prefetch: int
+class _NllbDataPipelineBuilder:
+    _dataset_name: str
+    _data_dir: Path
+    _tokenizer: TextTokenizer
+    _gang: Gang
+    _lang_pairs: Dict[LangPair, List[Tuple[str, int]]]
+    _max_seq_len: int
+    _max_num_tokens: int
+    _sample: bool
+    _shuffle_window_size: int
+    _num_repeats: Optional[int]
+    _num_prefetch: int
 
     def __init__(
         self,
@@ -167,24 +171,24 @@ class _NllbDataPipelineFactory:
         lang_pairs: Dict[LangPair, List[Tuple[str, int]]],
         max_seq_len: int,
         max_num_tokens: int,
-        bucket_by_length: bool,
         sample: bool,
         shuffle_window_size: int,
+        num_repeats: Optional[int],
         num_prefetch: int,
     ) -> None:
-        self.dataset_name = dataset_name
-        self.data_dir = data_dir
-        self.tokenizer = tokenizer
-        self.gang = gang
-        self.lang_pairs = lang_pairs
-        self.max_seq_len = max_seq_len
-        self.max_num_tokens = max_num_tokens
-        self.bucket_by_length = bucket_by_length
-        self.sample = sample
-        self.shuffle_window_size = shuffle_window_size
-        self.num_prefetch = num_prefetch
+        self._dataset_name = dataset_name
+        self._data_dir = data_dir
+        self._tokenizer = tokenizer
+        self._gang = gang
+        self._lang_pairs = lang_pairs
+        self._max_seq_len = max_seq_len
+        self._max_num_tokens = max_num_tokens
+        self._sample = sample
+        self._shuffle_window_size = shuffle_window_size
+        self._num_repeats = num_repeats
+        self._num_prefetch = num_prefetch
 
-    def __call__(self) -> DataPipeline:
+    def build(self) -> DataPipeline:
         lang_pair_pipelines: List[DataPipeline] = []
 
         # The number of examples to be read per language pair.
@@ -193,16 +197,16 @@ class _NllbDataPipelineFactory:
         # The total number of examples to be read.
         total_size = 0
 
-        for lang_pair, splits in self.lang_pairs.items():
+        for lang_pair, splits in self._lang_pairs.items():
             for split, size in splits:
                 # Sharding always returns a multiple of `gang.size` examples
                 # from the dataset and drops any remainder if the dataset is
                 # not evenly distributed among processes. Account for it.
-                size -= size % self.gang.size
+                size -= size % self._gang.size
 
                 if size == 0:
                     raise DatasetError(
-                        f"The '{split}' split of the {self.dataset_name} dataset has no examples for the language pair '{lang_pair}'."
+                        f"The '{split}' split of the {self._dataset_name} dataset has no examples for the language pair '{lang_pair}'."
                     )
 
                 pipeline = self._create_lang_pair_pipeline(split, lang_pair)
@@ -213,15 +217,15 @@ class _NllbDataPipelineFactory:
 
                 total_size += size
 
-        if self.sample:
+        if self._sample:
             # Sample the language pairs in proportion to their corpus size.
-            pipeline_bld = DataPipeline.sample(
+            builder = DataPipeline.sample(
                 lang_pair_pipelines, weights=[s / total_size for s in lang_pair_sizes]
             )
         else:
-            pipeline_bld = DataPipeline.concat(lang_pair_pipelines)
+            builder = DataPipeline.concat(lang_pair_pipelines)
 
-        return self._build_pipeline(pipeline_bld)
+        return self._build_pipeline(builder)
 
     def _create_lang_pair_pipeline(
         self, split: str, lang_pair: LangPair
@@ -232,12 +236,12 @@ class _NllbDataPipelineFactory:
             split, source_lang, target_lang
         )
 
-        source_pipeline_bld = read_text(source_file, rtrim=True, memory_map=True)
-        target_pipeline_bld = read_text(target_file, rtrim=True, memory_map=True)
+        source_builder = read_text(source_file, rtrim=True, memory_map=True)
+        target_builder = read_text(target_file, rtrim=True, memory_map=True)
 
-        if self.gang.size > 1:
-            source_pipeline_bld.shard(self.gang.rank, self.gang.size)
-            target_pipeline_bld.shard(self.gang.rank, self.gang.size)
+        if self._gang.size > 1:
+            source_builder.shard(self._gang.rank, self._gang.size)
+            target_builder.shard(self._gang.rank, self._gang.size)
 
         # Initialize the token encoders for the source and target languages.
         source_encoder_mode = "source"
@@ -246,19 +250,19 @@ class _NllbDataPipelineFactory:
         if split.startswith("train_"):
             source_encoder_mode = f"{source_encoder_mode}_{split[6:]}"
 
-        source_encoder = self.tokenizer.create_encoder(
+        source_encoder = self._tokenizer.create_encoder(
             task="translation", lang=source_lang, mode=source_encoder_mode
         )
 
-        target_encoder = self.tokenizer.create_encoder(
+        target_encoder = self._tokenizer.create_encoder(
             task="translation", lang=target_lang, mode="target"
         )
 
-        source_pipeline_bld.map(source_encoder, num_parallel_calls=num_parallel_calls)
-        target_pipeline_bld.map(target_encoder, num_parallel_calls=num_parallel_calls)
+        source_builder.map(source_encoder, num_parallel_calls=num_parallel_calls)
+        target_builder.map(target_encoder, num_parallel_calls=num_parallel_calls)
 
-        source_pipeline = source_pipeline_bld.and_return()
-        target_pipeline = target_pipeline_bld.and_return()
+        source_pipeline = source_builder.and_return()
+        target_pipeline = target_builder.and_return()
 
         # Include the language pair name and the line number with each example
         # for troubleshooting.
@@ -267,18 +271,18 @@ class _NllbDataPipelineFactory:
         lang_pair_ = DataPipeline.constant(lang_pair).and_return()
 
         line_nr = DataPipeline.count(
-            start=self.gang.rank, step=self.gang.size
+            start=self._gang.rank, step=self._gang.size
         ).and_return()
 
         # Zip the source and target pipelines along with the pseudo pipelines
         # into one.
         names = ["split", "lang_pair", "line_nr", "source_indices", "target_indices"]
 
-        pipeline_bld = DataPipeline.zip(
+        builder = DataPipeline.zip(
             [split_, lang_pair_, line_nr, source_pipeline, target_pipeline], names
         )
 
-        return pipeline_bld.and_return()
+        return builder.and_return()
 
     def _get_lang_pair_files(
         self, split: str, source_lang: str, target_lang: str
@@ -286,55 +290,75 @@ class _NllbDataPipelineFactory:
         source_filename = f"{split}.{source_lang}-{target_lang}.{source_lang}"
         target_filename = f"{split}.{source_lang}-{target_lang}.{target_lang}"
 
-        source_file = self.data_dir.joinpath(source_filename)
-        target_file = self.data_dir.joinpath(target_filename)
+        source_file = self._data_dir.joinpath(source_filename)
+        target_file = self._data_dir.joinpath(target_filename)
 
         if not source_file.exists():
             raise DatasetError(
-                f"The source language file '{source_file}' is not found in the {self.dataset_name} dataset."
+                f"The source language file '{source_file}' is not found in the {self._dataset_name} dataset."
             )
 
         if not target_file.exists():
             raise DatasetError(
-                f"The target language file '{target_file}' is not found in the {self.dataset_name} dataset."
+                f"The target language file '{target_file}' is not found in the {self._dataset_name} dataset."
             )
 
         return source_file, target_file
 
-    def _build_pipeline(self, pipeline_bld: DataPipelineBuilder) -> DataPipeline:
+    def _build_pipeline(self, builder: DataPipelineBuilder) -> DataPipeline:
+        if self._num_repeats != 1:
+            builder.repeat(self._num_repeats)
+
         # Shuffle examples.
-        if self.shuffle_window_size > 0:
-            pipeline_bld.shuffle(self.shuffle_window_size)
+        if self._shuffle_window_size > 0:
+            builder.shuffle(self._shuffle_window_size)
 
-        if self.bucket_by_length:
-            # Bucket by the length of the source or target sequence. The longer
-            # one will be considered the length of the example.
-            bucket_sizes = create_bucket_sizes(
-                self.max_num_tokens, self.max_seq_len, min_seq_len=4
-            )
+        # Bucket by the length of the source or target sequence. The longer one
+        # will be considered the length of the example.
+        bucket_sizes = create_bucket_sizes(
+            max_num_elements=self._max_num_tokens,
+            max_seq_len=self._max_seq_len,
+            min_seq_len=4,
+        )
 
-            pipeline_bld.bucket_by_length(
-                bucket_sizes,
-                selector="source_indices,target_indices",
-                skip_long_examples=True,
-            )
-        else:
-            # TODO(balioglu): FIX!
-            pipeline_bld.bucket(32)
+        builder.bucket_by_length(
+            bucket_sizes,
+            selector="source_indices,target_indices",
+            skip_above_max_examples=True,
+        )
 
         # Collate bucketed examples into a batch.
-        collater = Collater(pad_value=self.tokenizer.vocab_info.pad_idx)
+        collater = Collater(pad_value=self._tokenizer.vocab_info.pad_idx)
 
-        pipeline_bld.map(collater, num_parallel_calls=num_parallel_calls)
+        builder.map(collater, num_parallel_calls=num_parallel_calls)
 
         # Prefetch examples in a background thread.
-        if self.num_prefetch > 0:
-            pipeline_bld.prefetch(self.num_prefetch)
+        if self._num_prefetch > 0:
+            builder.prefetch(self._num_prefetch)
 
-        return pipeline_bld.and_return()
+        # Convert to `Seq2SeqBatch`.
+        builder.map(lambda b: self._example_to_batch(b, self._gang.device))
+
+        return builder.and_return()
+
+    @staticmethod
+    def _example_to_batch(example: Dict[str, Any], device: Device) -> Seq2SeqBatch:
+        source_data = cast(SequenceData, example["source_indices"])
+        target_data = cast(SequenceData, example["target_indices"])
+
+        source_seqs, source_padding_mask = get_seqs_and_padding_mask(
+            source_data, device
+        )
+        target_seqs, target_padding_mask = get_seqs_and_padding_mask(
+            target_data, device
+        )
+
+        return Seq2SeqBatch(
+            source_seqs, source_padding_mask, target_seqs, target_padding_mask, example
+        )
 
 
-def _create_nllb_dataset(path: Path, card: AssetCard) -> NllbDataset:
+def create_nllb_dataset(path: Path, card: AssetCard) -> NllbDataset:
     split_lang_pairs: Dict[str, Dict[LangPair, int]] = {}
 
     splits_field = card.field("splits")
@@ -359,8 +383,4 @@ def _create_nllb_dataset(path: Path, card: AssetCard) -> NllbDataset:
     return NllbDataset(card.name, path, split_lang_pairs)
 
 
-load_nllb_dataset = StandardDatasetLoader[NllbDataset](
-    default_asset_store, default_download_manager, _create_nllb_dataset
-)
-
-load_parallel_text_dataset.register_loader("nllb", load_nllb_dataset)
+load_nllb_dataset = setup_parallel_text_dataset("nllb", create_nllb_dataset)

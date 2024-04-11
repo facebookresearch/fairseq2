@@ -6,14 +6,10 @@
 
 from __future__ import annotations
 
-import logging
-import os
-from logging import Logger
 from pathlib import Path
 from time import perf_counter
 from typing import Any, Optional, final
 
-import psutil
 import torch
 from torch.profiler import (
     ProfilerActivity,
@@ -25,6 +21,11 @@ from typing_extensions import Self
 
 from fairseq2.gang import Gang
 from fairseq2.typing import Device
+
+# compat
+from fairseq2.utils.log import (  # noqa: F401
+    log_environment_info as log_environment_info,
+)
 
 
 @final
@@ -121,7 +122,7 @@ class Stopwatch:
         :param start:
             If ``True``, starts the stopwatch immediately.
         :param device:
-            If specified, waits for all operations on ``device`` to complete
+            If not ``None``, waits for all operations on ``device`` to complete
             before measuring the elapsed time. Note that this can have a
             negative impact on the runtime performance if not used carefully.
         """
@@ -136,8 +137,7 @@ class Stopwatch:
         if self._start_time is not None:
             raise RuntimeError("The stopwatch is already running.")
 
-        if self._device is not None and self._device.type == "cuda":
-            torch.cuda.synchronize(self._device)
+        self._sync_device()
 
         self._start_time = perf_counter()
 
@@ -145,14 +145,27 @@ class Stopwatch:
         """Stop the stopwatch."""
         self._start_time = None
 
+    def reset(self) -> None:
+        """Reset the stopwatch."""
+        if self._start_time is None:
+            raise RuntimeError("The stopwatch is not running.")
+
+        self._sync_device()
+
+        self._start_time = perf_counter()
+
     def get_elapsed_time(self) -> float:
+        """Return the elapsed time since the last :meth:`start` or :meth:`reset`."""
         if self._start_time is None:
             return 0.0
 
-        if self._device is not None and self._device.type == "cuda":
-            torch.cuda.synchronize(self._device)
+        self._sync_device()
 
         return perf_counter() - self._start_time
+
+    def _sync_device(self) -> None:
+        if self._device is not None and self._device.type == "cuda":
+            torch.cuda.synchronize(self._device)
 
     def __enter__(self) -> Self:
         if self._start_time is None:
@@ -167,55 +180,3 @@ class Stopwatch:
     def is_running(self) -> bool:
         """Return ``True`` if the stopwatch is running."""
         return self._start_time is not None
-
-
-def log_environment_info(logger: Logger, device: Optional[Device] = None) -> None:
-    """Log information about the software and hardware environments."""
-    log_software_info(logger, device)
-    log_hardware_info(logger, device)
-
-
-def log_software_info(logger: Logger, device: Optional[Device] = None) -> None:
-    """Log information about the software environment."""
-    if not logger.isEnabledFor(logging.INFO):
-        return
-
-    info = []
-
-    info.append(f"PyTorch: {torch.__version__}")
-
-    if device is not None and device.type == "cuda":
-        info.append(f"CUDA: {torch.version.cuda}")
-
-    info.append(f"Intraop Thread Count: {torch.get_num_threads()}")
-
-    s = " | ".join(info)
-
-    logger.info(f"Software Info - {s}")
-
-
-def log_hardware_info(logger: Logger, device: Optional[Device] = None) -> None:
-    """Log information about the host and device hardware environments."""
-    if not logger.isEnabledFor(logging.INFO):
-        return
-
-    affinity_mask = os.sched_getaffinity(0)
-
-    memory = psutil.virtual_memory()
-
-    info = []
-
-    info.append(f"Number of CPUs: {len(affinity_mask)}/{os.cpu_count() or '-'}")
-    info.append(f"Memory: {memory.total // (1024 * 1024 * 1024):,}GiB")
-
-    if device is not None and device.type == "cuda":
-        props = torch.cuda.get_device_properties(device)
-
-        info.append(f"Device Name: {props.name}")
-        info.append(f"Device Memory: {props.total_memory // (1024 * 1024):,}MiB")
-        info.append(f"Number of SMs: {props.multi_processor_count}")
-        info.append(f"Compute Capability: {props.major}.{props.minor}")
-
-    s = " | ".join(info)
-
-    logger.info(f"Hardware Info - {s}")

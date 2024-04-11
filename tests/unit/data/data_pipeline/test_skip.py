@@ -11,7 +11,9 @@ from fairseq2.data import read_sequence
 
 class TestSkipOp:
     def test_op_works(self) -> None:
-        pipeline = read_sequence([1, 2, 3, 4, 5, 6, 7, 8, 9]).skip(3).and_return()
+        seq = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+        pipeline = read_sequence(seq).skip(3).and_return()
 
         for _ in range(2):
             assert list(pipeline) == [4, 5, 6, 7, 8, 9]
@@ -35,7 +37,9 @@ class TestSkipOp:
             pipeline.reset()
 
     def test_op_saves_and_restores_its_state(self) -> None:
-        pipeline = read_sequence([1, 2, 3, 4, 5, 6, 7, 8, 9]).skip(3).and_return()
+        seq = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+        pipeline = read_sequence(seq).skip(3).and_return()
 
         d = None
 

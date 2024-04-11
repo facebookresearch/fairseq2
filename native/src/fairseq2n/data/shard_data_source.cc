@@ -33,15 +33,15 @@ shard_data_source::reset()
 }
 
 void
-shard_data_source::record_position(tape &t) const
+shard_data_source::record_position(tape &t, bool strict) const
 {
-    inner_->record_position(t);
+    inner_->record_position(t, strict);
 }
 
 void
-shard_data_source::reload_position(tape &t)
+shard_data_source::reload_position(tape &t, bool strict)
 {
-    inner_->reload_position(t);
+    inner_->reload_position(t, strict);
 }
 
 bool

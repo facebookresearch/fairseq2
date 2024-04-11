@@ -46,15 +46,15 @@ bucket_data_source::reset()
 }
 
 void
-bucket_data_source::record_position(tape &t) const
+bucket_data_source::record_position(tape &t, bool strict) const
 {
-    inner_->record_position(t);
+    inner_->record_position(t, strict);
 }
 
 void
-bucket_data_source::reload_position(tape &t)
+bucket_data_source::reload_position(tape &t, bool strict)
 {
-    inner_->reload_position(t);
+    inner_->reload_position(t, strict);
 }
 
 bool

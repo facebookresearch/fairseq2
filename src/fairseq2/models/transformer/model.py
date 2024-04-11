@@ -13,9 +13,9 @@ from fairseq2.data import VocabularyInfo
 from fairseq2.models.encoder_decoder import EncoderDecoderModel
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.models.transformer.frontend import TransformerFrontend
+from fairseq2.nn import Linear, Projection
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.nn.projection import Linear, Projection
 from fairseq2.nn.transformer import TransformerDecoder, TransformerEncoder
 from fairseq2.typing import override
 
@@ -103,7 +103,7 @@ class TransformerModel(EncoderDecoderModel):
     ) -> SequenceModelOutput:
         logits = self.final_proj(decoder_output)
 
-        return SequenceModelOutput(logits, self.target_vocab_info)
+        return SequenceModelOutput(logits, self.target_vocab_info.pad_idx)
 
 
 def init_final_projection(proj: Linear) -> None:

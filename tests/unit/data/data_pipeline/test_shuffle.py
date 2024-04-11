@@ -49,6 +49,23 @@ class TestShuffleOp:
 
                 pipeline.reset()
 
+    def test_op_saves_its_state_after_internal_buffer_is_emptied(self) -> None:
+        class Foo:
+            pass
+
+        # Deliberately use an opaque Python object to ensure that it cannot be
+        # saved in case the buffer is not emptied correctly.
+        seq = [Foo()] * 10
+
+        pipeline = read_sequence(seq).shuffle(40).and_return()
+
+        # Exhaust the whole pipeline so that the internal shuffle buffer is
+        # emptied.
+        _ = list(pipeline)
+
+        # Must not fail.
+        pipeline.state_dict()
+
     @pytest.mark.parametrize("window", [10, 100, 1000])
     def test_op_saves_and_restores_its_state(self, window: int) -> None:
         seq = list(range(5000))
@@ -97,12 +114,12 @@ class TestShuffleOp:
     def test_record_reload_position_works_as_expected_with_no_strict(self) -> None:
         seq = list(range(100))
 
-        pipeline = read_sequence(seq).shuffle(80, strict=False).and_return()
+        pipeline = read_sequence(seq).shuffle(80).and_return()
 
         # Do one dummy iteration to force to fill the buffer.
         next(iter(pipeline))
 
-        state_dict = pipeline.state_dict()
+        state_dict = pipeline.state_dict(strict=False)
 
         pipeline.load_state_dict(state_dict)
 

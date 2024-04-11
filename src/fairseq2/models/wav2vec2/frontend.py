@@ -12,11 +12,9 @@ from torch.nn import Dropout
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.models.transformer import TransformerFrontend
 from fairseq2.models.wav2vec2.masker import Wav2Vec2Masker
+from fairseq2.nn import LayerNorm, Linear, PositionEncoder, StandardLayerNorm
 from fairseq2.nn.incremental_state import IncrementalStateBag
-from fairseq2.nn.normalization import LayerNorm, StandardLayerNorm
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.nn.position_encoder import PositionEncoder
-from fairseq2.nn.projection import Linear
 from fairseq2.typing import DataType, Device, override
 
 
@@ -184,17 +182,17 @@ class Wav2Vec2Frontend(TransformerFrontend):
             is the batch size and :math:`S` is the sequence length.
         :param masker:
             If not ``None``, the features will be masked and the applied
-            temporal mask will be returned as the third tuple element.
+            temporal mask will be returned as the third element of the tuple.
 
         :returns:
-            - The processed sequences to pass to a Transformer encoder. *Shape:*
+            - The processed features to pass to the context network. *Shape:*
               :math:`(N,S,M)`, where :math:`N` is the batch size, :math:`S` is
               the sequence length, and :math:`M` is the dimensionality of the
               model.
-            - The padding mask of the processed sequences. *Shape:* :math:`(N,S)`,
+            - The padding mask of the processed features. *Shape:* :math:`(N,S)`,
               where :math:`N` is the batch size and :math:`S` is the output
               sequence length.
-            - The temporal mask that has been applied to the processed sequences.
+            - The temporal mask that has been applied to the processed features.
               *Shape:* :math:`(N,S)`, where :math:`N` is the batch size and
               :math`S` is the sequence length.
         """

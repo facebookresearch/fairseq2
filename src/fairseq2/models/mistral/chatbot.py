@@ -10,46 +10,34 @@ import torch
 from torch import Tensor
 
 from fairseq2.data.text import TextTokenEncoder, TextTokenizer
-from fairseq2.generation import (
-    AbstractChatbot,
-    ChatDialog,
-    ChatMessage,
-    SequenceGenerator,
-    create_chatbot,
-)
+from fairseq2.generation import AbstractChatbot, ChatDialog, SequenceGenerator
+from fairseq2.models.chatbot import register_chatbot
+from fairseq2.models.mistral.factory import MISTRAL_FAMILY
 from fairseq2.nn.utils.module import infer_device
 from fairseq2.typing import override
 
 
 @final
-class LLaMAChatbot(AbstractChatbot):
-    """Represents a LLaMA chatbot."""
+class MistralChatbot(AbstractChatbot):
+    """Represents a Mistral chatbot."""
 
     _bos_idx: Tensor
     _eos_idx: Tensor
     _text_encoder: TextTokenEncoder
 
-    def __init__(
-        self,
-        generator: SequenceGenerator,
-        tokenizer: TextTokenizer,
-        *,
-        stdout: bool = False,
-    ) -> None:
+    def __init__(self, generator: SequenceGenerator, tokenizer: TextTokenizer) -> None:
         """
         :param generator:
             The sequence generator.
         :param tokenizer:
             The text tokenizer.
-        :param stdout:
-            If ``True``, prints generated messages to stdout in real-time.
         """
-        super().__init__(generator, tokenizer, stdout=stdout)
+        super().__init__(generator, tokenizer)
 
         assert tokenizer.vocab_info.bos_idx is not None
         assert tokenizer.vocab_info.eos_idx is not None
 
-        device = infer_device(generator.model, param_name="generator.model")
+        device = infer_device(generator.model, name="generator.model")
 
         self._bos_idx = torch.tensor([tokenizer.vocab_info.bos_idx], device=device)
         self._eos_idx = torch.tensor([tokenizer.vocab_info.eos_idx], device=device)
@@ -68,33 +56,30 @@ class LLaMAChatbot(AbstractChatbot):
                 f"The last message of `{param_name}` must have the role 'user'."
             )
 
-        # Merge the system message, if any, with the first user message.
-        if dialog[0].role == "system":
-            content = f"<<SYS>>\n{dialog[0].content}\n<</SYS>>\n\n{dialog[1].content}"
-
-            first_message = ChatMessage(dialog[1].role, content)
-
-            dialog = [first_message] + list(dialog[2:])
-
-        dialog_contents: List[Tensor] = []
+        dialog_contents: List[Tensor] = [self._bos_idx]
 
         for user, bot in zip(dialog[::2], dialog[1::2]):
             if user.role != "user" or bot.role != "bot":
                 raise ValueError(
-                    f"The messages of `{param_name}` might optionally start with the role 'system', and then must alternate between the roles 'user' and 'bot'."
+                    f"The messages of `{param_name}` must alternate between the roles 'user' and 'bot'."
                 )
 
             user_bot_seq = self._text_encoder(
                 f"[INST] {user.content.strip()} [/INST] {bot.content.strip()}"
             )
 
-            dialog_contents += [self._bos_idx, user_bot_seq, self._eos_idx]
+            dialog_contents += [user_bot_seq, self._eos_idx]
 
         user_seq = self._text_encoder(f"[INST] {dialog[-1].content.strip()} [/INST]")
 
-        dialog_contents += [self._bos_idx, user_seq]
+        dialog_contents.append(user_seq)
 
         return torch.cat(dialog_contents, dim=0)
 
+    @property
+    @override
+    def supports_system_prompt(self) -> bool:
+        return False
 
-create_chatbot.register("llama", LLaMAChatbot)
+
+register_chatbot(MISTRAL_FAMILY, MistralChatbot)

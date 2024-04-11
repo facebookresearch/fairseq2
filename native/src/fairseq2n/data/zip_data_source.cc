@@ -135,7 +135,7 @@ zip_data_source::flatten_to_dict(data_list &zip)
             }
         else
             throw_data_pipeline_error(std::nullopt, /*recoverable=*/true,
-                "The zipped data pipelines must all return only dicts, or only non-dicts when `flatten` is set.");
+                "The zipped data pipelines must all return only dicts or only non-dicts when `flatten` is set.");
     }
 
     return output;
@@ -151,7 +151,7 @@ zip_data_source::flatten_to_list(data_list &zip)
         // expect all other pipelines to return non-dicts as well.
         if (example.is_dict())
             throw_data_pipeline_error(std::nullopt, /*recoverable=*/true,
-                "The zipped data pipelines must all return only dicts, or only non-dicts when `flatten` is set.");
+                "The zipped data pipelines must all return only dicts or only non-dicts when `flatten` is set.");
 
         if (example.is_list())
             for (data &element : example.as_list())
@@ -171,14 +171,14 @@ zip_data_source::reset()
 }
 
 void
-zip_data_source::record_position(tape &t) const
+zip_data_source::record_position(tape &t, bool strict) const
 {
     for (const data_pipeline &pipeline : pipelines_)
-        pipeline.record_position(t);
+        pipeline.record_position(t, strict);
 }
 
 void
-zip_data_source::reload_position(tape &t)
+zip_data_source::reload_position(tape &t, bool)
 {
     for (data_pipeline &pipeline : pipelines_)
         pipeline.reload_position(t);

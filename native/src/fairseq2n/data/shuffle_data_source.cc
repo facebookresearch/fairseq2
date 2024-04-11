@@ -19,8 +19,8 @@
 namespace fairseq2n::detail {
 
 shuffle_data_source::shuffle_data_source(
-    std::unique_ptr<data_source> &&inner, std::size_t shuffle_window, bool strict) noexcept
-  : inner_{std::move(inner)}, strict_{strict}
+    std::unique_ptr<data_source> &&inner, std::size_t shuffle_window) noexcept
+  : inner_{std::move(inner)}
 {
     if (shuffle_window == 0)
         shuffle_window_ = std::numeric_limits<std::size_t>::max();
@@ -101,9 +101,9 @@ shuffle_data_source::reset()
 }
 
 void
-shuffle_data_source::record_position(tape &t) const
+shuffle_data_source::record_position(tape &t, bool strict) const
 {
-    if (strict_) {
+    if (strict) {
         t.record(buffer_);
 
         t.record(buffer_pos_ - buffer_.begin());
@@ -112,13 +112,13 @@ shuffle_data_source::record_position(tape &t) const
         t.record(fill_buffer_);
     }
 
-    inner_->record_position(t);
+    inner_->record_position(t, strict);
 }
 
 void
-shuffle_data_source::reload_position(tape &t)
+shuffle_data_source::reload_position(tape &t, bool strict)
 {
-    if (strict_) {
+    if (strict) {
         buffer_ = t.read<data_list>();
 
         buffer_pos_ = buffer_.begin() + t.read<std::ptrdiff_t>();
@@ -134,7 +134,7 @@ shuffle_data_source::reload_position(tape &t)
         fill_buffer_ = true;
     }
 
-    inner_->reload_position(t);
+    inner_->reload_position(t, strict);
 }
 
 bool

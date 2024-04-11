@@ -21,8 +21,7 @@ class shuffle_data_source final : public data_source {
 
 public:
     explicit
-    shuffle_data_source(
-        std::unique_ptr<data_source> &&inner, std::size_t shuffle_window, bool strict) noexcept;
+    shuffle_data_source(std::unique_ptr<data_source> &&inner, std::size_t shuffle_window) noexcept;
 
     std::optional<data>
     next() override;
@@ -31,10 +30,10 @@ public:
     reset() override;
 
     void
-    record_position(tape &t) const override;
+    record_position(tape &t, bool strict) const override;
 
     void
-    reload_position(tape &t) override;
+    reload_position(tape &t, bool strict) override;
 
     bool
     is_infinite() const noexcept override;
@@ -50,7 +49,6 @@ private:
     data_list::iterator buffer_end_ = buffer_.end();
     std::size_t shuffle_window_;
     at::Generator generator_;
-    bool strict_;
     bool fill_buffer_ = true;
 };
 

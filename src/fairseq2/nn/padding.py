@@ -22,6 +22,7 @@ class PaddingMask:
     _seq_lens: Tensor
     _batch_seq_len: int
     _materialized: Optional[Tensor]
+    _materialized_float: Optional[Tensor]
 
     def __init__(self, seq_lens: Tensor, batch_seq_len: int) -> None:
         """
@@ -35,15 +36,30 @@ class PaddingMask:
         self._batch_seq_len = batch_seq_len
 
         self._materialized = None
+        self._materialized_float = None
 
     def materialize(self) -> Tensor:
-        """Materialize the boolean padding mask tensor."""
+        """Materialize the padding mask as a boolean tensor."""
         if self._materialized is None:
             self._materialized = to_padding_mask(self._seq_lens, self._batch_seq_len)
 
         return self._materialized
 
-    def trim(self, size: int) -> "PaddingMask":
+    def materialize_as(self, seqs: Tensor) -> Tensor:
+        """Materialize the padding mask as a float tensor."""
+        if self._materialized_float is None:
+            bool_mask = self.materialize()
+
+            # (N, S)
+            mask = torch.zeros_like(bool_mask, dtype=seqs.dtype)
+
+            mask = torch.where(bool_mask, mask, -torch.inf)
+
+            self._materialized_float = mask
+
+        return self._materialized_float
+
+    def trim(self, size: int) -> PaddingMask:
         """Return a new trimmed padding mask.
 
         :param size:
@@ -93,6 +109,28 @@ def to_padding_mask(seq_lens: Tensor, batch_seq_len: int) -> Tensor:
     return indices < lengths
 
 
+def get_seq_lens(seqs: Tensor, padding_mask: Optional[PaddingMask]) -> Tensor:
+    """Retrieve the sequence lengths of ``seqs``.
+
+    :param seqs:
+        The sequences. *Shape:* :math:`(N,S,*)`, where :math:`N` is the batch
+        size, :math:`S` is the sequence length, and :math:`*` is any number of
+        sequence-specific dimensions including none.
+    :param padding_mask:
+        The padding mask. *Shape:* :math:`(N,S)`, where :math:`N` is the batch
+        size and :math:`S` is the sequence length.
+
+    :returns:
+        An array where each element represents the length of the corresponding
+        sequence in ``seqs``. *Shape:* :math:`(N)`, where :math:`N` is the batch
+        size.
+    """
+    if padding_mask is not None:
+        return padding_mask.seq_lens
+
+    return torch.full((seqs.size(0),), seqs.size(1), device=seqs.device)
+
+
 def apply_padding_mask(
     seqs: Tensor, padding_mask: Optional[PaddingMask], pad_value: Any = 0
 ) -> Tensor:
@@ -100,7 +138,7 @@ def apply_padding_mask(
 
     :param seqs:
         The sequences to mask. *Shape:* :math:`(N,S,*)`, where :math:`N` is the
-        the batch size, :math:`S` is the sequence length, and :math:`*` is any
+        batch size, :math:`S` is the sequence length, and :math:`*` is any
         number of sequence-specific dimensions including none.
     :param padding_mask:
         The padding mask to apply. *Shape:* :math:`(N,S)`, where :math:`N` is

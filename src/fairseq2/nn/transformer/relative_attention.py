@@ -210,7 +210,7 @@ class RelativePositionalEncoding(Module):
         :param encoding_dim:
             The dimensionality of positional encodings.
         :param max_seq_len:
-            The maximum allowed sequence length.
+            The maximum sequence length.
         """
         super().__init__()
 

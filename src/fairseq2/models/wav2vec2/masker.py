@@ -48,12 +48,12 @@ class Wav2Vec2Masker(Module):
             steps.
         :param max_temporal_mask_prob:
             The maximum probability of masking a time step. Note that, due to
-            mask span overlap, the effective probability might be smaller.
+            mask span overlap, the effective probability will be lower.
         :param spatial_span_len:
             The length of each spatial mask span that is applied over features.
         :param max_spatial_mask_prob:
             The maximum probability of masking a feature. Note that, due to mask
-            span overlap, the effective probability might be smaller.
+            span overlap, the effective probability will be lower.
         """
         super().__init__()
 
@@ -111,7 +111,7 @@ class Wav2Vec2Masker(Module):
 
         assert temporal_mask is not None
 
-        seqs[temporal_mask] = self.temporal_mask_embed.to(dtype=seqs.dtype)
+        seqs[temporal_mask] = self.temporal_mask_embed.type_as(seqs)
 
         if self.max_spatial_mask_prob > 0.0:
             # Spatial mask over features.
@@ -138,8 +138,10 @@ class Wav2Vec2Masker(Module):
         return (
             f"temporal_span_len={self.temporal_span_len}, "
             f"max_temporal_mask_prob={self.max_temporal_mask_prob}, "
+            f"min_num_temporal_mask_spans={self.min_num_temporal_mask_spans}, "
             f"spatial_span_len={self.spatial_span_len}, "
-            f"max_spatial_mask_prob={self.max_spatial_mask_prob}"
+            f"max_spatial_mask_prob={self.max_spatial_mask_prob}, "
+            f"min_num_spatial_mask_spans={self.min_num_spatial_mask_spans}"
         )
 
 

@@ -35,10 +35,10 @@ public:
     reset() = 0;
 
     virtual void
-    record_position(tape &t) const = 0;
+    record_position(tape &t, bool strict) const = 0;
 
     virtual void
-    reload_position(tape &t) = 0;
+    reload_position(tape &t, bool strict) = 0;
 
     virtual bool
     is_infinite() const noexcept = 0;

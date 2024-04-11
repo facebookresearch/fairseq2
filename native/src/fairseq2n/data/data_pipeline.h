@@ -47,7 +47,7 @@ public:
     reset();
 
     void
-    record_position(tape &t) const;
+    record_position(tape &t, bool strict) const;
 
     void
     reload_position(tape &t);
@@ -133,23 +133,28 @@ public:
     bucket_by_length(
         std::vector<std::pair<std::size_t, std::size_t>> bucket_sizes,
         data_length_fn fn,
-        bool skip_long_examples = false,
+        std::size_t min_data_len = 1,
+        bool skip_below_min_examples = false,
+        bool skip_above_max_examples = false,
         bool drop_remainder = false) &&;
 
     data_pipeline_builder
     filter(predicate_fn fn) &&;
 
     data_pipeline_builder
-    map(map_fn fn, std::size_t num_parallel_calls = 1) &&;
+    map(const map_fn &fn, std::size_t num_parallel_calls = 1) &&;
 
     data_pipeline_builder
     prefetch(std::size_t num_examples) &&;
 
     data_pipeline_builder
+    repeat(std::optional<std::size_t> num_repeats = std::nullopt) &&;
+
+    data_pipeline_builder
     shard(std::size_t shard_idx, std::size_t num_shards) &&;
 
     data_pipeline_builder
-    shuffle(std::size_t shuffle_window, bool strict, bool enabled = true) &&;
+    shuffle(std::size_t shuffle_window, bool enabled = true) &&;
 
     data_pipeline_builder
     skip(std::size_t num_examples) &&;

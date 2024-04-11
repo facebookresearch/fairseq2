@@ -46,7 +46,7 @@ class SequenceToTextConverter:
         """
         self._generator = generator
 
-        device = infer_device(generator.model, param_name="generator.model")
+        device = infer_device(generator.model, name="generator.model")
 
         target_text_encoder = tokenizer.create_encoder(
             task=task, lang=target_lang, mode="target", device=device
@@ -183,7 +183,7 @@ class TextTranslator:
 
         self._pad_idx = pad_idx
 
-        device = infer_device(generator.model, param_name="generator.model")
+        device = infer_device(generator.model, name="generator.model")
 
         self._source_text_encoder = tokenizer.create_encoder(
             task="translation", lang=source_lang, mode="source", device=device
@@ -242,7 +242,7 @@ class TextCompleter:
         """
         self._generator = generator
 
-        device = infer_device(generator.model, param_name="generator.model")
+        device = infer_device(generator.model, name="generator.model")
 
         self._text_encoder = tokenizer.create_encoder(mode="prompt", device=device)
         self._text_decoder = tokenizer.create_decoder()

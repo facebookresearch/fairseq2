@@ -4,11 +4,12 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import logging
 import os
 import re
 from pathlib import Path
 from typing import Final, Optional
+
+from fairseq2.utils.logging import get_log_writer
 
 _SCHEME_REGEX: Final = re.compile("^[a-zA-Z0-9]+://")
 
@@ -35,9 +36,9 @@ def _get_path_from_env(var_name: str, missing_ok: bool = False) -> Optional[Path
         if missing_ok:
             return resolved_path
 
-        logger = logging.getLogger("fairseq2.assets")
+        log = get_log_writer("fairseq2.assets")
 
-        logger.warning(f"The path '{path}' pointed to by the `{var_name}` environment variable does not exist.")  # fmt: skip
+        log.warning("The path '{}' pointed to by the `{}` environment variable does not exist.", path, var_name)  # fmt: skip
 
         return None
 

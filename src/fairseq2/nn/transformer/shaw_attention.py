@@ -109,9 +109,6 @@ class ShawRelativePositionSDPA(SDPA):
     ) -> Tuple[Tensor, Optional[Tensor]]:
         q_len = seqs.size(2)
 
-        # (N, H, S, K_h) @ (N, H, K_h, S_kv) = (N, H, S, S_kv)
-        attn_weights = torch.matmul(seqs, keys.transpose(-1, -2))
-
         # (S_kv, S_kv)
         rel_indices = self._get_relative_indices(keys)
 

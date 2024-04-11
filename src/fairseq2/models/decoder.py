@@ -66,11 +66,11 @@ class DecoderModel(SequenceModel):
 
         :returns:
             - The decoder output. *Shape:* :math:`(N,S,M)`, where :math:`N` is
-              the batch size, :math:`S` is the target sequence length, and
-              :math:`M` is the dimensionality of the model.
+              the batch size, :math:`S` is the sequence length, and :math:`M` is
+              the dimensionality of the model.
             - The padding mask of the decoder output. *Shape:* :math:`(N,S)`,
-              where :math:`N` is the batch size and :math:`S` is the target
-              sequence length.
+              where :math:`N` is the batch size and :math:`S` is the sequence
+              length.
         """
 
     @abstractmethod

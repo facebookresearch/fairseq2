@@ -8,7 +8,9 @@
 
 #include <optional>
 #include <string>
+#include <tuple>
 #include <utility>
+#include <vector>
 
 #include "fairseq2n/api.h"
 #include "fairseq2n/data/data_pipeline.h"
@@ -27,6 +29,7 @@ public:
 private:
     map_fn map_fn_;
     std::optional<element_selector> maybe_selector_{};
+    std::vector<std::tuple<element_path, data *>> buffer_{};
 };
 
 }  // namespace fairseq2n

@@ -5,28 +5,29 @@
 # LICENSE file in the root directory of this source tree.
 
 import logging
-from logging import Logger
 
 import torch
 
 from fairseq2.gang import Gang
+from fairseq2.utils.logging import LogWriter
 
 
-def all_eod(eod: bool, gang: Gang, logger: Logger) -> bool:
-    """Return ``True`` if all processes in ``gang`` have reached end of data."""
+def _reduce_batch_size(batch_size: int, gang: Gang, log: LogWriter) -> int:
     if gang.size == 1:
-        return eod
+        return batch_size
 
-    eods = torch.empty((gang.size,), device=gang.device, dtype=torch.bool)
+    batch_sizes = torch.zeros((gang.size,), device=gang.device, dtype=torch.int64)
 
-    gang.all_gather(eods, torch.tensor(eod, device=gang.device))
+    gang.all_gather(batch_sizes, torch.tensor(batch_size, device=gang.device))
 
-    if eods.any():
-        if logger.isEnabledFor(logging.DEBUG) and not eods.all():
+    # Check if any process has reached end of data. If so, return 0 to indicate
+    # that we should stop the iterator.
+    if (eods := batch_sizes == 0).any():
+        if log.is_enabled_for(logging.DEBUG) and not eods.all():
             ranks = ", ".join(str(r) for r in eods.nonzero().squeeze(1).tolist())
 
-            logger.debug(f"End of data reached at rank(s) {ranks}.")
+            log.debug("End of data reached at rank(s) {}.", ranks)
 
-        return True
+        return 0
 
-    return False
+    return int(batch_sizes.sum())

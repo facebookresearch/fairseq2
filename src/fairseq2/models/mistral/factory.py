@@ -5,20 +5,17 @@
 # LICENSE file in the root directory of this source tree.
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Final, Optional
 
 from fairseq2.data import VocabularyInfo
+from fairseq2.models.architecture_registry import ModelArchitectureRegistry
 from fairseq2.models.transformer import (
     TransformerDecoderModel,
     TransformerEmbeddingFrontend,
     TransformerFrontend,
     init_final_projection,
 )
-from fairseq2.models.utils import ArchitectureRegistry
-from fairseq2.nn.embedding import StandardEmbedding
-from fairseq2.nn.normalization import LayerNorm, RMSNorm
-from fairseq2.nn.position_encoder import RotaryEncoder
-from fairseq2.nn.projection import Linear
+from fairseq2.nn import LayerNorm, Linear, RMSNorm, RotaryEncoder, StandardEmbedding
 from fairseq2.nn.transformer import (
     CausalAttentionMaskFactory,
     FeedForwardNetwork,
@@ -35,60 +32,55 @@ from fairseq2.nn.transformer import (
 )
 from fairseq2.typing import DataType, Device
 
+MISTRAL_FAMILY: Final = "mistral"
+
 
 @dataclass
 class MistralConfig:
-    """Holds the configuration of a Mistral model."""
+    """Holds the configuration of a Mistral model.
 
-    model_dim: int
+    The default values correspond to the base architecture as described in
+    :cite:t:`https://doi.org/10.48550/arXiv.2310.06825`.
+    """
+
+    model_dim: int = 4096
     """The dimensionality of the model."""
 
-    max_seq_len: int
-    """The maximum allowed sequence length."""
+    max_seq_len: int = 8192
+    """The maximum sequence length."""
 
-    vocab_info: VocabularyInfo
+    vocab_info: VocabularyInfo = VocabularyInfo(
+        size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
+    )
     """The vocabulary information."""
 
-    attn_window_len: int
+    attn_window_len: int = 4096
     """The local attention window length."""
 
-    num_layers: int
-    """The number of Transformer decoder layers."""
+    num_layers: int = 32
+    """The number of decoder layers."""
 
-    num_attn_heads: int
-    """The number of attention heads in Transformer decoder layers."""
+    num_attn_heads: int = 32
+    """The number of attention heads in decoder layers."""
 
-    num_key_value_heads: int
+    num_key_value_heads: int = 8
     """The number of key/value heads for Grouped Query Attention."""
 
-    ffn_inner_dim: int
-    """The dimensionality of inner projection layers in Transformer feed-forward
-    networks."""
+    ffn_inner_dim: int = 14336
+    """The dimensionality of inner projection layers in feed-forward networks."""
 
-    dropout_p: float
-    """The dropout probability in Transformer layers."""
+    dropout_p: float = 0.1
+    """The dropout probability on outputs of Transformer layers."""
 
 
-mistral_archs = ArchitectureRegistry[MistralConfig]("mistral")
+mistral_archs = ModelArchitectureRegistry[MistralConfig]()
 
 mistral_arch = mistral_archs.decorator
 
 
 @mistral_arch("7b")
 def _7b() -> MistralConfig:
-    return MistralConfig(
-        model_dim=4096,
-        max_seq_len=8192,
-        vocab_info=VocabularyInfo(
-            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
-        ),
-        attn_window_len=4096,
-        num_layers=32,
-        num_attn_heads=32,
-        num_key_value_heads=8,
-        ffn_inner_dim=14336,
-        dropout_p=0.1,
-    )
+    return MistralConfig()
 
 
 class MistralBuilder:
@@ -268,4 +260,6 @@ def create_mistral_model(
     :param dtype:
         The data type of module parameters and buffers.
     """
-    return MistralBuilder(config, device=device, dtype=dtype).build_model()
+    model = MistralBuilder(config, device=device, dtype=dtype).build_model()
+
+    return model.set_family(MISTRAL_FAMILY)

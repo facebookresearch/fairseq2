@@ -7,23 +7,33 @@
 from pathlib import Path
 from typing import Any, Dict
 
-from fairseq2.assets import AssetCard, default_asset_store, default_download_manager
-from fairseq2.data.text import StandardTextTokenizerLoader, load_text_tokenizer
-from fairseq2.models.s2t_transformer.builder import (
+from fairseq2.assets import AssetCard
+from fairseq2.data.text import setup_text_tokenizer
+from fairseq2.models.s2t_transformer.factory import (
+    S2T_TRANSFORMER_FAMILY,
     S2TTransformerConfig,
     create_s2t_transformer_model,
     s2t_transformer_archs,
 )
 from fairseq2.models.s2t_transformer.tokenizer import S2TTransformerTokenizer
-from fairseq2.models.transformer import TransformerModel
-from fairseq2.models.utils import ConfigLoader, ModelLoader
+from fairseq2.models.setup import setup_model
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
 
 
 def convert_s2t_transformer_checkpoint(
     checkpoint: Dict[str, Any], config: S2TTransformerConfig
 ) -> Dict[str, Any]:
-    """Convert a fairseq S2T Transformer checkpoint to fairseq2."""
+    """Convert a fairseq S2T Transformer checkpoint to fairseq2 format."""
+    state_dict = checkpoint["model"]
+
+    # Check if we have a fairseq2 checkpoint.
+    if "decoder_frontend.embed.weight" in state_dict:
+        return checkpoint
+
+    # Check if we have a DDP wrapped fairseq2 checkpoint.
+    if "module.decoder_frontend.embed.weight" in state_dict:
+        return checkpoint
+
     key_map = {
         # fmt: off
         r"^encoder\.subsample\.conv_layers\.([0-9]+)\.":                   r"encoder_frontend.feature_extractor.layers.\1.conv.",
@@ -71,7 +81,18 @@ def convert_s2t_transformer_checkpoint(
     return convert_fairseq_checkpoint(checkpoint, key_map)
 
 
-def _create_s2t_transformer_tokenizer(
+load_s2t_transformer_model, load_s2t_transformer_config = setup_model(
+    S2T_TRANSFORMER_FAMILY,
+    S2TTransformerConfig,
+    create_s2t_transformer_model,
+    s2t_transformer_archs,
+    convert_s2t_transformer_checkpoint,
+    mmap=True,
+    restrict_checkpoints=False,
+)
+
+
+def create_s2t_transformer_tokenizer(
     path: Path, card: AssetCard
 ) -> S2TTransformerTokenizer:
     task = card.field("task").as_one_of({"translation", "transcription"})
@@ -83,22 +104,6 @@ def _create_s2t_transformer_tokenizer(
     )
 
 
-load_s2t_transformer_config = ConfigLoader[S2TTransformerConfig](
-    default_asset_store, s2t_transformer_archs
+load_s2t_transformer_tokenizer = setup_text_tokenizer(
+    S2T_TRANSFORMER_FAMILY, create_s2t_transformer_tokenizer
 )
-
-load_s2t_transformer_model = ModelLoader[TransformerModel, S2TTransformerConfig](
-    default_asset_store,
-    default_download_manager,
-    load_s2t_transformer_config,
-    create_s2t_transformer_model,
-    convert_s2t_transformer_checkpoint,
-    mmap=True,
-    restrict_checkpoints=False,
-)
-
-load_s2t_transformer_tokenizer = StandardTextTokenizerLoader[S2TTransformerTokenizer](
-    default_asset_store, default_download_manager, _create_s2t_transformer_tokenizer
-)
-
-load_text_tokenizer.register_loader("s2t_transformer", load_s2t_transformer_tokenizer)

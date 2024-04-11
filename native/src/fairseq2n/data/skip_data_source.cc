@@ -31,19 +31,19 @@ skip_data_source::reset()
 }
 
 void
-skip_data_source::record_position(tape &t) const
+skip_data_source::record_position(tape &t, bool strict) const
 {
     t.record(skip_);
 
-    inner_->record_position(t);
+    inner_->record_position(t, strict);
 }
 
 void
-skip_data_source::reload_position(tape &t)
+skip_data_source::reload_position(tape &t, bool strict)
 {
     skip_ = t.read<bool>();
 
-    inner_->reload_position(t);
+    inner_->reload_position(t, strict);
 }
 
 bool

@@ -4,17 +4,21 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from dataclasses import is_dataclass
+from dataclasses import asdict, is_dataclass
+from pathlib import Path
 from typing import Any, List, MutableMapping
+
+import yaml
+from yaml.representer import RepresenterError
 
 
 def update_dataclass(obj: Any, overrides: MutableMapping[str, Any]) -> None:
-    """Update the specified data class with the data contained in ``overrides``.
+    """Update ``obj`` with the data contained in ``overrides``.
 
     :param obj:
-        A :type:`dataclasses.dataclass` object.
+        The object to update. Must be a :class:`~dataclasses.dataclass`.
     :param overrides:
-        A dictionary containing the data to set in ``obj``.
+        The dictionary containing the data to set in ``obj``.
     """
     if not is_dataclass(obj):
         raise TypeError(
@@ -29,7 +33,7 @@ def update_dataclass(obj: Any, overrides: MutableMapping[str, Any]) -> None:
         leftovers.sort()
 
         raise ValueError(
-            f"The following keys contained in `overrides` do not exist in `obj`: {leftovers}"
+            f"`obj` must contain the following keys that are present in `overrides`: {leftovers}"
         )
 
 
@@ -61,3 +65,21 @@ def _do_update_dataclass(
 
     if overrides:
         leftovers += [".".join(path + [name]) for name in overrides]
+
+
+def _dump_dataclass(obj: Any, file: Path) -> None:
+    if not is_dataclass(obj):
+        raise ValueError(
+            f"`obj` must be a ` dataclass`, but is of type `{type(obj)}` instead."
+        )
+
+    fp = file.open("w")
+
+    try:
+        yaml.safe_dump(asdict(obj), fp)
+    except RepresenterError as ex:
+        raise ValueError(
+            "`obj` must contain values of only primitive stdlib types, other dataclasses, and types registered with `yaml.representer.SafeRepresenter`. See nested exception for details."
+        ) from ex
+    finally:
+        fp.close()

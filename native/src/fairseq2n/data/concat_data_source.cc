@@ -37,13 +37,13 @@ void concat_data_source::reset()
         pipeline.reset();
 }
 
-void concat_data_source::record_position(tape &t) const
+void concat_data_source::record_position(tape &t, bool strict) const
 {
     for (const data_pipeline &pipeline : pipelines_)
-        pipeline.record_position(t);
+        pipeline.record_position(t, strict);
 }
 
-void concat_data_source::reload_position(tape &t)
+void concat_data_source::reload_position(tape &t, bool)
 {
     for (data_pipeline &pipeline : pipelines_)
         pipeline.reload_position(t);

@@ -26,13 +26,13 @@ list_data_source::reset()
 }
 
 void
-list_data_source::record_position(tape &t) const
+list_data_source::record_position(tape &t, bool) const
 {
     t.record(pos_ - list_.begin());
 }
 
 void
-list_data_source::reload_position(tape &t)
+list_data_source::reload_position(tape &t, bool)
 {
     pos_ = list_.begin() + t.read<std::ptrdiff_t>();
 }

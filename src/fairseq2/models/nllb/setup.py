@@ -9,23 +9,31 @@ from typing import Any, Dict
 
 import torch
 
-from fairseq2.assets import AssetCard, default_asset_store, default_download_manager
-from fairseq2.data.text import StandardTextTokenizerLoader, load_text_tokenizer
-from fairseq2.models.nllb.builder import NllbConfig, create_nllb_model, nllb_archs
+from fairseq2.assets import AssetCard
+from fairseq2.data.text import setup_text_tokenizer
+from fairseq2.models.nllb.factory import (
+    NLLB_FAMILY,
+    NllbConfig,
+    create_nllb_model,
+    nllb_archs,
+)
 from fairseq2.models.nllb.tokenizer import NllbTokenizer
-from fairseq2.models.transformer import TransformerModel
-from fairseq2.models.utils import ConfigLoader, ModelLoader
+from fairseq2.models.setup import setup_model
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
 
 
 def convert_nllb_checkpoint(
     checkpoint: Dict[str, Any], config: NllbConfig
 ) -> Dict[str, Any]:
-    """Convert a fairseq NLLB checkpoint to fairseq2."""
+    """Convert a fairseq NLLB checkpoint to fairseq2 format."""
     state_dict = checkpoint["model"]
 
     # Check if we have a fairseq2 checkpoint.
-    if "decoder_frontend.embed_weight" in state_dict:
+    if "decoder_frontend.embed.weight" in state_dict:
+        return checkpoint
+
+    # Check if we have a DDP wrapped fairseq2 checkpoint.
+    if "module.decoder_frontend.embed.weight" in state_dict:
         return checkpoint
 
     key_map = {
@@ -77,7 +85,18 @@ def convert_nllb_checkpoint(
     return checkpoint
 
 
-def _create_nllb_tokenizer(path: Path, card: AssetCard) -> NllbTokenizer:
+load_nllb_model, load_nllb_config = setup_model(
+    NLLB_FAMILY,
+    NllbConfig,
+    create_nllb_model,
+    nllb_archs,
+    convert_nllb_checkpoint,
+    mmap=True,
+    restrict_checkpoints=False,
+)
+
+
+def create_nllb_tokenizer(path: Path, card: AssetCard) -> NllbTokenizer:
     langs = card.field("langs").as_list(str)
 
     default_lang = card.field("default_lang").as_(str)
@@ -85,20 +104,4 @@ def _create_nllb_tokenizer(path: Path, card: AssetCard) -> NllbTokenizer:
     return NllbTokenizer(path, langs, default_lang)
 
 
-load_nllb_config = ConfigLoader[NllbConfig](default_asset_store, nllb_archs)
-
-load_nllb_model = ModelLoader[TransformerModel, NllbConfig](
-    default_asset_store,
-    default_download_manager,
-    load_nllb_config,
-    create_nllb_model,
-    convert_nllb_checkpoint,
-    mmap=True,
-    restrict_checkpoints=False,
-)
-
-load_nllb_tokenizer = StandardTextTokenizerLoader[NllbTokenizer](
-    default_asset_store, default_download_manager, _create_nllb_tokenizer
-)
-
-load_text_tokenizer.register_loader("nllb", load_nllb_tokenizer)
+load_nllb_tokenizer = setup_text_tokenizer(NLLB_FAMILY, create_nllb_tokenizer)

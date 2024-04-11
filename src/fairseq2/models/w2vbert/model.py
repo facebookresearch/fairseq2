@@ -10,9 +10,9 @@ from dataclasses import dataclass
 from typing import Optional, final
 
 from torch import Tensor
-from torch.nn import Module
 from torch.nn.functional import cross_entropy
 
+from fairseq2.models.model import Model
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2 import (
     Wav2Vec2Features,
@@ -21,13 +21,13 @@ from fairseq2.models.wav2vec2 import (
     Wav2Vec2Output,
 )
 from fairseq2.models.wav2vec2.masker import extract_masked_elements
+from fairseq2.nn import Linear
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.nn.projection import Linear
 from fairseq2.typing import DataType, Device
 
 
 @final
-class W2VBertModel(Module):
+class W2VBertModel(Model):
     """Represents a w2v-BERT model as described in
     :cite:t`https://doi.org/10.48550/arxiv.2108.06209`."""
 
@@ -35,9 +35,6 @@ class W2VBertModel(Module):
     w2v2_model: Wav2Vec2Model
     num_bert_encoder_layers: int
     num_target_codebooks: int
-    w2v2_loss_weight: float
-    bert_loss_weight: float
-    bert_label_smoothing: float
 
     def __init__(
         self,
@@ -45,9 +42,6 @@ class W2VBertModel(Module):
         num_bert_encoder_layers: int,
         *,
         num_target_codebooks: int = 1,
-        w2v2_loss_weight: float = 1.0,
-        bert_loss_weight: float = 1.0,
-        bert_label_smoothing: float = 0.0,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -60,12 +54,6 @@ class W2VBertModel(Module):
         :param num_target_codebooks:
             The number of consecutive groups of latent variables to use as
             masked prediction targets.
-        :param w2v2_loss_config:
-            The weight of wav2vec 2.0 loss in loss computation.
-        :param bert_loss_config:
-            The weight of masked prediction loss in loss computation.
-        :param bert_label_smoothing:
-            The amount of label smoothing when computing masked prediction loss.
         """
         super().__init__()
 
@@ -85,10 +73,6 @@ class W2VBertModel(Module):
 
         self.num_target_codebooks = num_target_codebooks
 
-        self.w2v2_loss_weight = w2v2_loss_weight
-        self.bert_loss_weight = bert_loss_weight
-        self.bert_label_smoothing = bert_label_smoothing
-
     def forward(self, batch: SequenceBatch) -> W2VBertOutput:
         """
         :param batch:
@@ -99,6 +83,7 @@ class W2VBertModel(Module):
         )
 
         w2v2_layer_output = None
+        w2v2_layer_padding_mask = None
 
         def hook(
             layer_idx: int,
@@ -107,9 +92,11 @@ class W2VBertModel(Module):
             num_layers: int,
         ) -> bool:
             nonlocal w2v2_layer_output
+            nonlocal w2v2_layer_padding_mask
 
             if layer_idx == num_layers - self.num_bert_encoder_layers - 1:
                 w2v2_layer_output = layer_output
+                w2v2_layer_padding_mask = layer_padding_mask
 
             return True
 
@@ -118,12 +105,11 @@ class W2VBertModel(Module):
 
         assert w2v2_layer_output is not None
 
-        w2v2_features = Wav2Vec2Features(
-            encoder_output=w2v2_layer_output,
-            targets=targets,
-            temporal_mask=temporal_mask,
+        features = Wav2Vec2Features(
+            w2v2_layer_output, w2v2_layer_padding_mask, targets, temporal_mask
         )
-        w2v2_output = self.w2v2_model.quantize_and_contrast(w2v2_features)
+
+        w2v2_output = self.w2v2_model.quantize_and_contrast(features)
 
         seqs = extract_masked_elements(encoder_output, temporal_mask)
 
@@ -140,14 +126,7 @@ class W2VBertModel(Module):
             self.num_target_codebooks
         )
 
-        return W2VBertOutput(
-            w2v2_output,
-            bert_logits,
-            bert_targets,
-            self.w2v2_loss_weight,
-            self.bert_loss_weight,
-            self.bert_label_smoothing,
-        )
+        return W2VBertOutput(w2v2_output, bert_logits, bert_targets)
 
     def extra_repr(self) -> str:
         """:meta private:"""
@@ -179,33 +158,42 @@ class W2VBertOutput:
     :math:`S_{msk}` is the masked sequence length, and :math:`G_{tgt}` is the
     number of target codebooks."""
 
-    w2v2_loss_weight: float = 1.0
-    """The weight of wav2vec 2.0 loss in loss computation."""
+    def compute_loss(
+        self,
+        *,
+        w2v2_loss_weight: float = 1.0,
+        bert_loss_weight: float = 1.0,
+        bert_label_smoothing: float = 0.0,
+    ) -> W2VBertLoss:
+        """Compute the loss.
 
-    bert_loss_weight: float = 1.0
-    """The weight of masked prediction loss in loss computation."""
-
-    bert_label_smoothing: float = 0.0
-    """The amount of label smoothing when computing masked prediction loss."""
-
-    def compute_loss(self) -> W2VBertLoss:
-        """Compute the loss."""
-        bert_loss = self.compute_bert_loss()
+        :param w2v2_loss_weight:
+            The weight of wav2vec 2.0 loss in loss computation.
+        :param bert_loss_weight:
+            The weight of masked prediction loss in loss computation.
+        :param bert_label_smoothing:
+            The amount of label smoothing when computing masked prediction loss.
+        """
+        bert_loss = self.compute_bert_loss(label_smoothing=bert_label_smoothing)
 
         w2v2_loss = self.w2v2_output.compute_loss()
 
-        l1 = self.bert_loss_weight * bert_loss
-        l2 = self.w2v2_loss_weight * w2v2_loss.total
+        l1 = bert_loss_weight * bert_loss
+        l2 = w2v2_loss_weight * w2v2_loss.total
 
         return W2VBertLoss(l1 + l2, bert_loss, w2v2_loss)
 
-    def compute_bert_loss(self) -> Tensor:
-        """Compute the masked prediction loss."""
+    def compute_bert_loss(self, *, label_smoothing: float = 0.0) -> Tensor:
+        """Compute the masked prediction loss.
+
+        :param label_smoothing:
+            The amount of label smoothing when computing masked prediction loss.
+        """
         return cross_entropy(
             self.bert_logits,
             self.bert_targets,
             reduction="sum",
-            label_smoothing=self.bert_label_smoothing,
+            label_smoothing=label_smoothing,
         )
 
 
@@ -215,14 +203,14 @@ class W2VBertLoss:
     """Holds the loss of a w2v-BERT model."""
 
     total: Tensor
-    """The weighted total loss."""
+    """The total loss. *Shape:* :math:`()`."""
 
     bert: Tensor
-    """The masked prediction loss."""
+    """The masked prediction loss. *Shape:* :math:`()`."""
 
-    w2v2_loss: Wav2Vec2Loss
+    w2v2: Wav2Vec2Loss
     """The loss of the wav2vec 2.0 model."""
 
-    def backward(self) -> None:
-        """Compute the gradient of the loss."""
-        self.total.backward()
+    def detach(self) -> W2VBertLoss:
+        """Return a copy detached from the autograd graph."""
+        return W2VBertLoss(self.total.detach(), self.bert.detach(), self.w2v2.detach())

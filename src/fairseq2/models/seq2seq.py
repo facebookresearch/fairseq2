@@ -6,32 +6,34 @@
 
 from __future__ import annotations
 
-import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Sequence, Tuple, final
 
 import torch
 from torch import Tensor
-from torch.nn import Module
 from torcheval.metrics import Mean, Sum, Throughput
 
 from fairseq2.data import VocabularyInfo
 from fairseq2.gang import Gang
 from fairseq2.metrics import MetricBag
+from fairseq2.models.model import Batch, Model
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import override
+from fairseq2.utils.profiler import Stopwatch
 
 
-class Seq2SeqModel(Module, ABC):
+class Seq2SeqModel(Model, ABC):
     """Represents a sequence-to-sequence model."""
 
     max_target_seq_len: int
     target_vocab_info: VocabularyInfo
 
     def __init__(
-        self, max_target_seq_len: int, target_vocab_info: VocabularyInfo
+        self,
+        max_target_seq_len: int,
+        target_vocab_info: VocabularyInfo,
     ) -> None:
         """
         :param max_target_seq_len:
@@ -54,7 +56,7 @@ class Seq2SeqModel(Module, ABC):
 
 @final
 @dataclass(frozen=True)
-class Seq2SeqBatch:
+class Seq2SeqBatch(Batch):
     """Represents a sequence-to-sequence batch."""
 
     source_seqs: Tensor
@@ -63,8 +65,8 @@ class Seq2SeqBatch:
     is any number of sequence-specific dimensions including none."""
 
     source_padding_mask: Optional[PaddingMask]
-    """The padding mask of ``source_seqs``. *Shape:* :math:`(N,S_{src})`, where
-    :math:`N` is the batch size and :math:`S_{src}` is the source sequence
+    """The padding mask of :attr:`source_seqs`. *Shape:* :math:`(N,S_{src})`,
+    where :math:`N` is the batch size and :math:`S_{src}` is the source sequence
     length."""
 
     target_seqs: Tensor
@@ -73,8 +75,8 @@ class Seq2SeqBatch:
     is any number of sequence-specific dimensions including none."""
 
     target_padding_mask: Optional[PaddingMask]
-    """The padding mask of ``target_seqs``. *Shape:* :math:`(N,S_{tgt})`, where
-    :math:`N` is the batch size and :math:`S_{tgt}` is the target sequence
+    """The padding mask of :attr:`target_seqs`. *Shape:* :math:`(N,S_{tgt})`,
+    where :math:`N` is the batch size and :math:`S_{tgt}` is the target sequence
     length."""
 
     example: Any = None
@@ -108,6 +110,7 @@ class Seq2SeqBatch:
         return batch, self.target_seqs[:, 1:]
 
     @property
+    @override
     def batch_size(self) -> int:
         """The size of the batch dimension."""
         return self.target_seqs.size(0)
@@ -127,99 +130,113 @@ class Seq2SeqBatch:
         return int(self.target_padding_mask.seq_lens.sum())
 
 
-@final
 class Seq2SeqModelMetricBag(MetricBag):
     """Holds the common metrics of a sequence-to-sequence model."""
 
-    loss: Mean
-    entropy_loss: Mean
+    nll_loss: Mean
     batch_size: Mean
+    gradient_norm: Mean
     elements_per_batch: Mean
     elements_per_second: Throughput
     num_examples: Sum
     num_source_elements: Sum
     num_target_elements: Sum
 
-    def __init__(self, gang: Gang) -> None:
+    def __init__(self, gang: Gang, *, wall_time: Optional[Stopwatch] = None) -> None:
         """
         :param gang:
-            The gang to sync metrics across all processes.
+            The gang over which to sync metrics.
+        :param wall_time:
+            The :class:`Stopwatch` to keep track of process wall time.
         """
-        super().__init__(gang)
+        super().__init__(gang, wall_time)
 
         d = gang.device
 
-        self.register_metric("loss", Mean(device=d), persistent=False)
-
-        self.register_metric("entropy_loss", Mean(device=d), persistent=False)
+        self.register_metric("nll_loss", Mean(device=d), persistent=False)
 
         self.register_metric("batch_size", Mean(device=d), persistent=False)
 
+        self.register_metric("gradient_norm", Mean(device=d), persistent=False)
+
         self.register_metric("elements_per_batch", Mean(device=d), persistent=False)
 
-        self.register_metric("elements_per_second", Throughput(device=d), persistent=False)  # fmt: skip
+        self.register_metric(
+            "elements_per_second", Throughput(device=d), persistent=False
+        )
 
         self.num_examples = Sum(device=d)
 
         self.num_source_elements = Sum(device=d)
         self.num_target_elements = Sum(device=d)
 
-    def update_metrics(
+    @torch.inference_mode()
+    def update_step_metrics(
         self,
         batches: Sequence[Seq2SeqBatch],
-        losses: Sequence[Tensor],
-        elapsed_time: float,
+        nll_losses: Sequence[Tensor],
+        time: Stopwatch,
+        gradient_norm: Optional[Tensor] = None,
     ) -> None:
-        """Update the metrics.
+        """Update the step metrics.
 
         :param batches:
-            The batches processed by the model in the last training step.
-        :param output:
-            The losses generated by the model for each batch in ``batches``.
-        :param elapsed_time:
-            The total elapsed time to read and process ``batches``.
+            The batches processed by the model.
+        :param nll_losses:
+            The NLL losses output by the model for ``batches``.
+        :param time:
+            The :class:`Stopwatch` to keep track of elapsed time.
+        :param gradient_norm:
+            The total model gradient norm after backpropagating ``batches``.
         """
-        loss = torch.zeros((), dtype=torch.float64)
+        nll_loss = torch.zeros((), dtype=torch.float64)
 
         batch_size = torch.zeros((), dtype=torch.float64)
 
         num_source_elements = torch.zeros((), dtype=torch.float64)
         num_target_elements = torch.zeros((), dtype=torch.float64)
 
-        for batch, batch_loss in zip(batches, losses):
-            loss += float(batch_loss)
+        for batch, batch_nll_loss in zip(batches, nll_losses):
+            nll_loss += float(batch_nll_loss)
 
             batch_size += batch.batch_size
 
             num_source_elements += batch.num_source_elements()
             num_target_elements += batch.num_target_elements() - batch.batch_size
 
-        loss /= num_target_elements
+        if gradient_norm:
+            self.gradient_norm.update(gradient_norm)
 
-        self.loss.update(loss, weight=num_target_elements)
+        nll_loss /= num_target_elements
 
-        # Mainly exists for compatibility with fairseq's `nll_loss`.
-        self.entropy_loss.update(loss / math.log(2), weight=num_target_elements)
+        self.nll_loss.update(nll_loss, weight=num_target_elements)
 
-        self.batch_size.update(batch_size * self.gang.size)
-
-        self.elements_per_batch.update(num_target_elements * self.gang.size)
-
-        self.elements_per_second.update(int(num_target_elements), elapsed_time)
+        self.batch_size.update(batch_size * self._gang.size)
 
         self.num_examples.update(batch_size)
 
         self.num_source_elements.update(num_source_elements)
         self.num_target_elements.update(num_target_elements)
 
-    def reset_batch_metrics(self) -> None:
-        """Reset the batch metrics to their initial state."""
-        self.loss.reset()
-        self.entropy_loss.reset()
+        self.elements_per_batch.update(num_target_elements * self._gang.size)
+
+        self.elements_per_second.update(
+            int(num_target_elements), time.get_elapsed_time()
+        )
+
+    def reset_step_metrics(self) -> None:
+        """Reset the step metrics to their initial state."""
+        self.nll_loss.reset()
         self.batch_size.reset()
+        self.gradient_norm.reset()
         self.elements_per_batch.reset()
         self.elements_per_second.reset()
 
     @override
     def process_metric_values(self, values: Dict[str, Any]) -> None:
+        super().process_metric_values(values)
+
+        if values["gradient_norm"] == 0.0:
+            del values["gradient_norm"]
+
         values["elapsed_time"] = self.elements_per_second.elapsed_time_sec

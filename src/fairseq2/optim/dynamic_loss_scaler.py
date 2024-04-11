@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import logging
 import math
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Mapping, Optional, Tuple, cast, final
@@ -18,8 +17,10 @@ from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
 from torch.optim import Optimizer
 
 from fairseq2.gang import Gang
+from fairseq2.typing import Device, override
+from fairseq2.utils.logging import get_log_writer
 
-logger = logging.getLogger(__name__)
+log = get_log_writer(__name__)
 
 
 @final
@@ -31,7 +32,7 @@ class DynamicLossScaler:
     _scale_window: int
     _min_scale: float
     _grad_scaler: GradScaler
-    _enabled: bool
+    _is_enabled: bool
 
     def __init__(
         self,
@@ -61,7 +62,7 @@ class DynamicLossScaler:
             If ``None``, the window size will be determined by a heuristic
             method.
         :param min_scale:
-            The minimum allowed scale.
+            The minimum scale.
         :param gradient_accumulation:
             The number of steps to accumulate gradients before an optimizer
             update. Used only when ``scale_window`` is ``None``.
@@ -71,27 +72,32 @@ class DynamicLossScaler:
         if enabled:
             for group in optimizer.param_groups:
                 for param in group["params"]:
-                    if param.dtype != torch.float16:
+                    if param.dtype != torch.float32 and param.dtype != torch.float16:
                         raise ValueError(
-                            f"The parameters held by `optimizer` must be of type `torch.float16`, but at least one parameter is of type `{param.dtype}`."
+                            f"The parameters held by `optimizer` must be of type `torch.float32` or `torch.float16`, but at least one parameter is of type `{param.dtype}` instead."
                         )
 
                     if param.device.type != "cuda":
                         raise ValueError(
-                            f"The parameters held by `optimizer` must be on a 'cuda' device, but at least one parameter is on a '{param.device.type}' device."
+                            f"The parameters held by `optimizer` must be on a `cuda` device, but at least one parameter is on a `{param.device.type}` device instead."
                         )
 
         if scale_window is None:
-            # This is the formula that we use in fairseq.
+            # The same formula that we use in fairseq.
             scale_window = max(int(2**14 / gang.size / gradient_accumulation), 1)
 
-            logger.info("The scale window is set to %d.", scale_window)
+            log.info("The scale window is set to {}.", scale_window)
 
-        if gang.size == 1:
-            self._grad_scaler = GradScaler(
+        if not enabled or gang.size == 1:
+            self._grad_scaler = _InternalGradScaler(
                 init_scale, scale_factor, 1 / scale_factor, scale_window, enabled
             )
         else:
+            if not supports_manual_gradient_scaling(optimizer):
+                raise ValueError(
+                    "`optimizer` must support manual gradient scaling via `torch.cuda.amp.GradScaler`, but supports only implicit scaling in its step function (i.e. `_step_supports_amp_scaling == True`) which is not supported in a distributed setting."
+                )
+
             pg = gang.as_process_group()
 
             # Yes, `growth_factor` and `backoff_factor` parameters are swapped.
@@ -102,7 +108,7 @@ class DynamicLossScaler:
         self._optimizer = optimizer
         self._scale_window = scale_window
         self._min_scale = min_scale
-        self._enabled = enabled
+        self._is_enabled = enabled
 
     def state_dict(self) -> Dict[str, Any]:
         return {"grad_scaler": self._grad_scaler.state_dict()}
@@ -117,7 +123,7 @@ class DynamicLossScaler:
 
     def run_optimizer_step(
         self, step_nr: int, closure: Optional[Callable[[], float]] = None
-    ) -> Tuple[Optional[float], "LossScaleResult"]:
+    ) -> Tuple[Optional[float], LossScaleResult]:
         """Perform a single optimization step.
 
         :param step_nr:
@@ -130,19 +136,6 @@ class DynamicLossScaler:
             - The return value of ``closure``.
             - The result of the loss scale operation.
         """
-        if isinstance(self._grad_scaler, ShardedGradScaler):
-            # As of PyTorch 2.0.1, `ShardedGradScaler` has a bug where it skips
-            # calling `unscale_()` for optimizers that natively support gradient
-            # scaling. Although this is the expected behavior for `GradScaler`,
-            # in distributed settings this causes the scale to get out-of-sync
-            # between processes. Here we force ranks to sync their inf/NaNs by
-            # manually calling `unscale_()`.
-            try:
-                self._grad_scaler.unscale_(self._optimizer)  # type: ignore[arg-type]
-            except RuntimeError as ex:
-                if not str(ex).startswith("unscale_() has already been called"):
-                    raise
-
         loss = self._grad_scaler.step(self._optimizer, closure)
 
         return loss, self._update_scale(step_nr)
@@ -158,7 +151,7 @@ class DynamicLossScaler:
             return LossScaleResult(old_scale, new_scale)
 
         if new_scale > old_scale:
-            logger.info("No gradient overflow detected in the last %s step(s) after step %d, increasing loss scale from %s to %s.", self._scale_window, step_nr, old_scale, new_scale)  # fmt: skip
+            log.info("No gradient overflow detected in the last {} step(s) after step {}, increasing loss scale from {:g} to {:g}.", self._scale_window, step_nr, old_scale, new_scale)  # fmt: skip
 
             return LossScaleResult(old_scale, new_scale)
 
@@ -166,15 +159,15 @@ class DynamicLossScaler:
             self._grad_scaler.update(self._min_scale)
 
             if self._are_close(old_scale, self._min_scale):
-                logger.warning("Overflow detected at step %d, ignoring gradient, loss scale is already at minimum (%s). Your loss is probably exploding. Try lowering the learning rate, using gradient clipping, or increasing the batch size.", step_nr, self._min_scale)  # fmt: skip
+                log.error("Overflow detected at step {}, ignoring gradient, loss scale is already at minimum ({:g}). Your loss is probably exploding. Try lowering the learning rate, using gradient clipping, or increasing the batch size.", step_nr, self._min_scale)  # fmt: skip
             else:
-                logger.warning("Overflow detected at step %d, ignoring gradient, decreasing loss scale from %s to %s (minimum). Your loss is probably exploding. Try lowering the learning rate, using gradient clipping, or increasing the batch size.", step_nr, old_scale, self._min_scale)  # fmt: skip
+                log.error("Overflow detected at step {}, ignoring gradient, decreasing loss scale from {:g} to {:g} (minimum). Your loss is probably exploding. Try lowering the learning rate, using gradient clipping, or increasing the batch size.", step_nr, old_scale, self._min_scale)  # fmt: skip
 
             return LossScaleResult(
                 old_scale, new_scale, overflow=True, min_reached=True
             )
         else:
-            logger.info("Overflow detected at step %d, ignoring gradient, decreasing loss scale from %s to %s.", step_nr, old_scale, new_scale)  # fmt: skip
+            log.info("Overflow detected at step {}, ignoring gradient, decreasing loss scale from {:g} to {:g}.", step_nr, old_scale, new_scale)  # fmt: skip
 
             return LossScaleResult(old_scale, new_scale, overflow=True)
 
@@ -182,9 +175,17 @@ class DynamicLossScaler:
     def _are_close(a: float, b: float) -> bool:
         return math.isclose(a, b, rel_tol=1.3e-6, abs_tol=1e-5)
 
-    def unscale_optimizer_grads_(self) -> None:
+    def unscale_gradients_(self) -> None:
         """Unscale the associated optimizer's gradients by the current scale."""
+        if not supports_manual_gradient_scaling(self._optimizer):
+            raise RuntimeError(
+                "`optimizer` must support manual gradient scaling via `torch.cuda.amp.GradScaler`, but supports only implicit scaling in its step function (i.e. `_step_supports_amp_scaling == True`)."
+            )
+
         self._grad_scaler.unscale_(self._optimizer)
+
+    # compat
+    unscale_optimizer_grads_ = unscale_gradients_
 
     def backward(self, loss: Tensor) -> None:
         """Compute the gradient of ``loss`` after scaling it to avoid underflow."""
@@ -195,9 +196,15 @@ class DynamicLossScaler:
         return cast(float, self._grad_scaler.get_scale())  # type: ignore[redundant-cast]
 
     @property
+    def is_enabled(self) -> bool:
+        """``True`` if the loss scaling is enabled."""
+        return self._is_enabled
+
+    # compat
+    @property
     def enabled(self) -> bool:
         """``True`` if the loss scaling is enabled."""
-        return self._enabled
+        return self._is_enabled
 
 
 @final
@@ -216,3 +223,21 @@ class LossScaleResult:
 
     min_reached: bool = False
     """If ``True``, the scale has been decreased to its minimum value."""
+
+
+def supports_manual_gradient_scaling(optimizer: Optimizer) -> bool:
+    """Return ``True`` if ``optimizer`` supports manual gradient scaling via
+    ``torch.cuda.amp.GradScaler``."""
+    return not getattr(optimizer, "_step_supports_amp_scaling", False)
+
+
+# An ugly hack.
+class _InternalGradScaler(GradScaler):
+    @override
+    def _unscale_grads_(
+        self, optimizer: Optimizer, inv_scale: Tensor, found_inf: Tensor, _: bool
+    ) -> Dict[Device, Tensor]:
+        # `GradScaler` artificially limits fp16 gradients only to optimizers
+        # that natively support AMP. Here, we hijack `_unscale_grads_()` and
+        # always pass `allow_fp16=True` to the real function.
+        return super()._unscale_grads_(optimizer, inv_scale, found_inf, allow_fp16=True)

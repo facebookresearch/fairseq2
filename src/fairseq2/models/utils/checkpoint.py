@@ -8,6 +8,7 @@ import re
 import warnings
 from pathlib import Path
 from typing import Any, Callable, Dict, Mapping, Optional, Protocol, Union
+from warnings import catch_warnings
 
 import torch
 from torch import Tensor
@@ -22,15 +23,12 @@ MapLocation: TypeAlias = Optional[
 
 
 class CheckpointConverter(Protocol):
-    """Converts checkpoints to fairseq2."""
+    """Converts checkpoints to fairseq2 format."""
 
     def __call__(self, checkpoint: Dict[str, Any]) -> Dict[str, Any]:
         """
         :param checkpoint:
             The checkpoint to convert.
-
-        :returns:
-            A converted checkpoint that is compatible with fairseq2.
         """
 
 
@@ -60,9 +58,8 @@ def load_checkpoint(
     :returns:
         The loaded checkpoint.
     """
-    with warnings.catch_warnings():
-        # Suppress the noisy deprecated `TypedStorage` warning.
-        warnings.simplefilter("ignore")
+    with catch_warnings():
+        warnings.simplefilter("ignore")  # Suppress the deprecation warning.
 
         kwargs = {}
 

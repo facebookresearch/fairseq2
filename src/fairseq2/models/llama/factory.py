@@ -5,21 +5,18 @@
 # LICENSE file in the root directory of this source tree.
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Final, Optional
 
 from fairseq2.data import VocabularyInfo
+from fairseq2.models.architecture_registry import ModelArchitectureRegistry
 from fairseq2.models.transformer import (
     TransformerDecoderModel,
     TransformerEmbeddingFrontend,
     TransformerFrontend,
     init_final_projection,
 )
-from fairseq2.models.utils import ArchitectureRegistry
-from fairseq2.nn.embedding import StandardEmbedding
+from fairseq2.nn import LayerNorm, Linear, RMSNorm, RotaryEncoder, StandardEmbedding
 from fairseq2.nn.lora import LoRAConfig
-from fairseq2.nn.normalization import LayerNorm, RMSNorm
-from fairseq2.nn.position_encoder import RotaryEncoder
-from fairseq2.nn.projection import Linear
 from fairseq2.nn.transformer import (
     FeedForwardNetwork,
     GLUFeedForwardNetwork,
@@ -34,163 +31,124 @@ from fairseq2.nn.transformer import (
 )
 from fairseq2.typing import DataType, Device
 
+LLAMA_FAMILY: Final = "llama"
+
 
 @dataclass
 class LLaMAConfig:
-    """Holds the configuration of a LLaMA model."""
+    """Holds the configuration of a LLaMA model.
 
-    model_dim: int
+    The default values correspond to the base architecture as described in
+    :cite:t:`https://doi.org/10.48550/arxiv.2302.13971`.
+    """
+
+    model_dim: int = 4096
     """The dimensionality of the model."""
 
-    max_seq_len: int
-    """The maximum allowed sequence length."""
+    max_seq_len: int = 2048
+    """The maximum sequence length."""
 
-    vocab_info: VocabularyInfo
+    vocab_info: VocabularyInfo = VocabularyInfo(
+        size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
+    )
     """The vocabulary information."""
 
-    num_layers: int
-    """The number of Transformer decoder layers."""
+    num_layers: int = 32
+    """The number of decoder layers."""
 
-    num_attn_heads: int
-    """The number of attention heads in Transformer decoder layers."""
+    num_attn_heads: int = 32
+    """The number of attention heads in decoder layers."""
 
-    num_key_value_heads: int
+    num_key_value_heads: int = 32
     """The number of key/value heads for Grouped Query Attention."""
 
-    ffn_inner_dim: int
-    """The dimensionality of inner projection layers in Transformer feed-forward
-    networks."""
+    ffn_inner_dim: int = 4096 * 4
+    """The dimensionality of inner projection layers in feed-forward networks."""
 
-    ffn_inner_dim_to_multiple: int
-    """The dimensionality of inner projection layers in Transformer feed-forward
-    networks is rounded up to the nearest multiple of this value."""
+    ffn_inner_dim_to_multiple: int = 256
+    """The dimensionality of inner projection layers in feed-forward networks is
+    rounded up to the nearest multiple of this value."""
 
-    dropout_p: float
-    """The dropout probability in Transformer layers."""
+    dropout_p: float = 0.1
+    """The dropout probability on outputs of Transformer layers."""
 
 
-llama_archs = ArchitectureRegistry[LLaMAConfig]("llama")
+llama_archs = ModelArchitectureRegistry[LLaMAConfig]()
 
 llama_arch = llama_archs.decorator
 
 
 @llama_arch("7b")
 def _7b() -> LLaMAConfig:
-    return LLaMAConfig(
-        model_dim=4096,
-        max_seq_len=2048,
-        vocab_info=VocabularyInfo(
-            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
-        ),
-        num_layers=32,
-        num_attn_heads=32,
-        num_key_value_heads=32,
-        ffn_inner_dim=4096 * 4,
-        ffn_inner_dim_to_multiple=256,
-        dropout_p=0.1,
-    )
+    return LLaMAConfig()
 
 
 @llama_arch("13b")
 def _13b() -> LLaMAConfig:
-    return LLaMAConfig(
-        model_dim=5120,
-        max_seq_len=2048,
-        vocab_info=VocabularyInfo(
-            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
-        ),
-        num_layers=40,
-        num_attn_heads=40,
-        num_key_value_heads=40,
-        ffn_inner_dim=5120 * 4,
-        ffn_inner_dim_to_multiple=256,
-        dropout_p=0.1,
-    )
+    config = _7b()
+
+    config.model_dim = 5120
+    config.num_attn_heads = 40
+    config.num_key_value_heads = 40
+    config.ffn_inner_dim = 5120 * 4
+
+    return config
 
 
 @llama_arch("33b")
 def _33b() -> LLaMAConfig:
-    return LLaMAConfig(
-        model_dim=6656,
-        max_seq_len=2048,
-        vocab_info=VocabularyInfo(
-            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
-        ),
-        num_layers=60,
-        num_attn_heads=52,
-        num_key_value_heads=52,
-        ffn_inner_dim=6656 * 4,
-        ffn_inner_dim_to_multiple=256,
-        dropout_p=0.1,
-    )
+    config = _7b()
+
+    config.model_dim = 6656
+    config.num_layers = 60
+    config.num_attn_heads = 52
+    config.num_key_value_heads = 52
+    config.ffn_inner_dim = 6656 * 4
+
+    return config
 
 
 @llama_arch("65b")
 def _65b() -> LLaMAConfig:
-    return LLaMAConfig(
-        model_dim=8192,
-        max_seq_len=2048,
-        vocab_info=VocabularyInfo(
-            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
-        ),
-        num_layers=80,
-        num_attn_heads=64,
-        num_key_value_heads=64,
-        ffn_inner_dim=8192 * 4,
-        ffn_inner_dim_to_multiple=256,
-        dropout_p=0.1,
-    )
+    config = _7b()
+
+    config.model_dim = 8192
+    config.num_layers = 80
+    config.num_attn_heads = 64
+    config.num_key_value_heads = 64
+    config.ffn_inner_dim = 8192 * 4
+
+    return config
 
 
 @llama_arch("llama2_7b")
 def _llama2_7b() -> LLaMAConfig:
-    return LLaMAConfig(
-        model_dim=4096,
-        max_seq_len=4096,
-        vocab_info=VocabularyInfo(
-            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
-        ),
-        num_layers=32,
-        num_attn_heads=32,
-        num_key_value_heads=32,
-        ffn_inner_dim=4096 * 4,
-        ffn_inner_dim_to_multiple=256,
-        dropout_p=0.1,
-    )
+    config = _7b()
+
+    config.max_seq_len = 4096
+
+    return config
 
 
 @llama_arch("llama2_13b")
 def _llama2_13b() -> LLaMAConfig:
-    return LLaMAConfig(
-        model_dim=5120,
-        max_seq_len=4096,
-        vocab_info=VocabularyInfo(
-            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
-        ),
-        num_layers=40,
-        num_attn_heads=40,
-        num_key_value_heads=40,
-        ffn_inner_dim=5120 * 4,
-        ffn_inner_dim_to_multiple=256,
-        dropout_p=0.1,
-    )
+    config = _13b()
+
+    config.max_seq_len = 4096
+
+    return config
 
 
 @llama_arch("llama2_70b")
 def _llama2_70b() -> LLaMAConfig:
-    return LLaMAConfig(
-        model_dim=8192,
-        max_seq_len=4096,
-        vocab_info=VocabularyInfo(
-            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
-        ),
-        num_layers=80,
-        num_attn_heads=64,
-        num_key_value_heads=8,
-        ffn_inner_dim=int(8192 * 4 * 1.3),  # See A.2.1 in LLaMA 2
-        ffn_inner_dim_to_multiple=4096,
-        dropout_p=0.1,
-    )
+    config = _65b()
+
+    config.max_seq_len = 4096
+    config.num_key_value_heads = 8
+    config.ffn_inner_dim = int(8192 * 4 * 1.3)  # See A.2.1 in LLaMA 2
+    config.ffn_inner_dim_to_multiple = 4096
+
+    return config
 
 
 class LLaMABuilder:
@@ -363,7 +321,9 @@ def create_llama_model(
     :param dtype:
         The data type of module parameters and buffers.
     """
-    return LLaMABuilder(config, device=device, dtype=dtype).build_model()
+    model = LLaMABuilder(config, device=device, dtype=dtype).build_model()
+
+    return model.set_family(LLAMA_FAMILY)
 
 
 def get_llama_lora_config() -> LoRAConfig:

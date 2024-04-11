@@ -22,8 +22,9 @@
 
 namespace fairseq2n::detail {
 
-text_data_source::text_data_source(std::filesystem::path &&path, text_options &&opts)
-  : path_{std::move(path)}, opts_{std::move(opts)}
+text_data_source::text_data_source(
+    std::filesystem::path &&path, std::optional<std::string> &&key, text_options &&opts)
+  : path_{std::move(path)}, key_{std::move(key)}, opts_{std::move(opts)}
 {
     try {
         line_reader_ = make_text_line_reader();
@@ -54,6 +55,9 @@ text_data_source::next()
     if (opts_.rtrim())
         output = rtrim(output);
 
+    if (key_)
+        return data_dict{{*key_, std::move(output)}};
+
     return output;
 }
 
@@ -70,13 +74,13 @@ text_data_source::reset()
 }
 
 void
-text_data_source::record_position(tape &t) const
+text_data_source::record_position(tape &t, bool) const
 {
     t.record(num_lines_read_);
 }
 
 void
-text_data_source::reload_position(tape &t)
+text_data_source::reload_position(tape &t, bool)
 {
     auto num_lines_read = t.read<std::size_t>();
 

@@ -4,22 +4,21 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import logging
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from typing import Generator, Optional, Protocol, Tuple, final
 
 import torch
-import torch.nn.functional as F
 from torch import Tensor
 from torch.nn import Module
-from torch.nn.functional import dropout, softmax
+from torch.nn.functional import dropout, scaled_dot_product_attention, softmax
 
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer.attention_mask import AttentionMask, CausalAttentionMask
 from fairseq2.typing import override
+from fairseq2.utils.logging import get_log_writer
 
-logger = logging.getLogger(__name__)
+log = get_log_writer(__name__)
 
 
 class SDPA(Module, ABC):
@@ -103,7 +102,7 @@ class TorchSDPA(SDPA):
     ) -> Tuple[Tensor, Optional[Tensor]]:
         if needs_weights:
             if not self._has_warned:
-                logger.warning("`TorchSDPA` has to fall back to the naive SDPA implementation because of `needs_weights` set to `True`.")  # fmt: skip
+                log.warning("`TorchSDPA` has to fall back to the naive SDPA implementation because of `needs_weights` set to `True`.")  # fmt: skip
 
                 self._has_warned = True
 
@@ -126,20 +125,17 @@ class TorchSDPA(SDPA):
         is_causal = False
 
         if key_padding_mask is not None:
-            mask = key_padding_mask.materialize()
+            mask = key_padding_mask.materialize_as(seqs)
 
             # (N, S_kv) -> (N, 1, 1, S_kv)
             mask = mask[:, None, None, :]
 
-            # (N, 1, 1, S_kv) -> (N, H, S, S_kv)
-            mask = mask.expand(-1, seqs.size(1), seqs.size(2), -1)
+            # (N, 1, 1, S_kv) -> (N, H, 1, S_kv)
+            mask = mask.expand(-1, seqs.size(1), -1, -1)
 
             if attn_mask is not None:
-                # ([H], S, S_kv)
-                m = attn_mask.materialize()
-
-                # (N, H, S, S_kv)
-                mask = torch.where(mask, m, -torch.inf)
+                # (N, H, 1, S_kv) + ([H], S, S_kv) -> (N, H, S, S_kv)
+                mask = mask + attn_mask.materialize()
         elif isinstance(attn_mask, CausalAttentionMask):
             # PyTorch SDPA supports only full causal attention.
             if attn_mask.full_attention():
@@ -155,13 +151,8 @@ class TorchSDPA(SDPA):
         else:
             mask = None
 
-        attn = F.scaled_dot_product_attention(  # type: ignore[attr-defined]
-            seqs,
-            keys,
-            values,
-            attn_mask=mask,
-            dropout_p=dropout_p,
-            is_causal=is_causal,
+        attn = scaled_dot_product_attention(
+            seqs, keys, values, attn_mask=mask, dropout_p=dropout_p, is_causal=is_causal
         )
 
         return attn, None

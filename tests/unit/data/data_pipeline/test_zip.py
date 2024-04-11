@@ -185,7 +185,7 @@ class TestZipOp:
 
         with pytest.raises(
             DataPipelineError,
-            match=r"^The zipped data pipelines must all return only dicts, or only non-dicts when `flatten` is set\.$",
+            match=r"^The zipped data pipelines must all return only dicts or only non-dicts when `flatten` is set\.$",
         ):
             next(iter(pipeline))
 
@@ -196,7 +196,7 @@ class TestZipOp:
 
         with pytest.raises(
             DataPipelineError,
-            match=r"^The zipped data pipelines must all return only dicts, or only non-dicts when `flatten` is set\.$",
+            match=r"^The zipped data pipelines must all return only dicts or only non-dicts when `flatten` is set\.$",
         ):
             next(iter(pipeline))
 

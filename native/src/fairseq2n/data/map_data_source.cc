@@ -15,8 +15,10 @@
 namespace fairseq2n::detail {
 
 map_data_source::map_data_source(
-    std::unique_ptr<data_source> &&inner, map_fn &&fn, std::size_t num_parallel_calls)
-  : inner_{std::move(inner)}, map_fn_{std::move(fn)}, num_parallel_calls_{num_parallel_calls}
+    std::unique_ptr<data_source> &&inner, std::vector<map_fn> &&fns, std::size_t num_parallel_calls)
+  : inner_{std::move(inner)},
+    map_fns_{std::move(fns)},
+    num_parallel_calls_{num_parallel_calls}
 {
     buffer_.reserve(num_parallel_calls);
 
@@ -28,7 +30,7 @@ map_data_source::next()
 {
     if (num_parallel_calls_ <= 1) {
         while (std::optional<data> maybe_example = inner_->next()) {
-            maybe_example = invoke_function(*std::move(maybe_example));
+            maybe_example = invoke_function(*std::move(maybe_example), 0);
             if (maybe_example)
                 return maybe_example;
         }
@@ -59,23 +61,31 @@ map_data_source::reset()
 }
 
 void
-map_data_source::record_position(tape &t) const
+map_data_source::record_position(tape &t, bool strict) const
 {
-    t.record(buffer_);
+    if (strict) {
+        t.record(buffer_);
 
-    t.record(buffer_pos_ - buffer_.begin());
+        t.record(buffer_pos_ - buffer_.begin());
+    }
 
-    inner_->record_position(t);
+    inner_->record_position(t, strict);
 }
 
 void
-map_data_source::reload_position(tape &t)
+map_data_source::reload_position(tape &t, bool strict)
 {
-    buffer_ = t.read<std::vector<std::optional<data>>>();
+    if (strict) {
+        buffer_ = t.read<std::vector<std::optional<data>>>();
 
-    buffer_pos_ = buffer_.begin() + t.read<std::ptrdiff_t>();
+        buffer_pos_ = buffer_.begin() + t.read<std::ptrdiff_t>();
+    } else {
+        buffer_.clear();
 
-    inner_->reload_position(t);
+        buffer_pos_ = buffer_.begin();
+    }
+
+    inner_->reload_position(t, strict);
 }
 
 bool
@@ -104,7 +114,7 @@ map_data_source::fill_buffer()
     auto apply_function = [this](std::size_t begin, std::size_t end)
     {
         for (auto i = begin; i < end; ++i)
-            buffer_[i] = invoke_function(*std::move(buffer_[i]));
+            buffer_[i] = invoke_function(*std::move(buffer_[i]), i);
     };
 
     // Avoid threading overhead if we have just one example.
@@ -119,10 +129,10 @@ map_data_source::fill_buffer()
 }
 
 std::optional<data>
-map_data_source::invoke_function(data &&example)
+map_data_source::invoke_function(data &&example, std::size_t fn_idx)
 {
     try {
-        return map_fn_(std::move(example));
+        return map_fns_[fn_idx](std::move(example));
     } catch (const data_pipeline_error &) {
         throw;
     } catch (const std::exception &) {

@@ -23,6 +23,7 @@
 #include "fairseq2n/data/list_data_source.h"
 #include "fairseq2n/data/map_data_source.h"
 #include "fairseq2n/data/prefetch_data_source.h"
+#include "fairseq2n/data/repeat_data_source.h"
 #include "fairseq2n/data/round_robin_data_source.h"
 #include "fairseq2n/data/sample_data_source.h"
 #include "fairseq2n/data/shard_data_source.h"
@@ -93,7 +94,7 @@ data_pipeline::reset()
 }
 
 void
-data_pipeline::record_position(tape &t) const
+data_pipeline::record_position(tape &t, bool strict) const
 {
     check_if_broken();
 
@@ -103,8 +104,10 @@ data_pipeline::record_position(tape &t) const
         if (!source_)
             return;
 
+        t.record(strict);
+
         try {
-            source_->record_position(t);
+            source_->record_position(t, strict);
         } catch (const std::exception &) {
             is_broken_ = true;
 
@@ -125,8 +128,10 @@ data_pipeline::reload_position(tape &t)
         if (!source_)
             return;
 
+        bool strict = t.read<bool>();
+
         try {
-            source_->reload_position(t);
+            source_->reload_position(t, strict);
         } catch (const std::exception &) {
             is_broken_ = true;
 
@@ -351,7 +356,9 @@ data_pipeline_builder
 data_pipeline_builder::bucket_by_length(
     std::vector<std::pair<std::size_t, std::size_t>> bucket_sizes,
     data_length_fn fn,
-    bool skip_long_examples,
+    std::size_t min_data_len,
+    bool skip_below_min_examples,
+    bool skip_above_max_examples,
     bool drop_remainder) &&
 {
     if (bucket_sizes.empty())
@@ -370,7 +377,13 @@ data_pipeline_builder::bucket_by_length(
         inner = std::move(factory_)]() mutable
     {
         return std::make_unique<bucket_by_length_data_source>(
-            inner(), std::move(bucket_sizes), std::move(fn), skip_long_examples, drop_remainder);
+            inner(),
+            std::move(bucket_sizes),
+            std::move(fn),
+            min_data_len,
+            skip_below_min_examples,
+            skip_above_max_examples,
+            drop_remainder);
     };
 
     return std::move(*this);
@@ -388,11 +401,17 @@ data_pipeline_builder::filter(predicate_fn fn) &&
 }
 
 data_pipeline_builder
-data_pipeline_builder::map(map_fn fn, std::size_t num_parallel_calls) &&
+data_pipeline_builder::map(const map_fn &fn, std::size_t num_parallel_calls) &&
 {
-    factory_ = [=, fn = std::move(fn), inner = std::move(factory_)]() mutable
+    if (num_parallel_calls == 0)
+        throw_<std::invalid_argument>(
+            "`num_parallel_calls` must be greater than zero.");
+
+    std::vector<map_fn> fns(num_parallel_calls, fn);
+
+    factory_ = [=, fns = std::move(fns), inner = std::move(factory_)]() mutable
     {
-        return std::make_unique<map_data_source>(inner(), std::move(fn), num_parallel_calls);
+        return std::make_unique<map_data_source>(inner(), std::move(fns), num_parallel_calls);
     };
 
     return std::move(*this);
@@ -405,6 +424,18 @@ data_pipeline_builder::prefetch(std::size_t num_examples) &&
         factory_ = [=, inner = std::move(factory_)]
         {
             return std::make_unique<prefetch_data_source>(inner(), num_examples);
+        };
+
+    return std::move(*this);
+}
+
+data_pipeline_builder
+data_pipeline_builder::repeat(std::optional<std::size_t> num_repeats) &&
+{
+    if (!num_repeats || *num_repeats != 1)
+        factory_ = [=, inner = std::move(factory_)]
+        {
+            return std::make_unique<repeat_data_source>(inner(), num_repeats);
         };
 
     return std::move(*this);
@@ -427,12 +458,12 @@ data_pipeline_builder::shard(std::size_t shard_idx, std::size_t num_shards) &&
 }
 
 data_pipeline_builder
-data_pipeline_builder::shuffle(std::size_t shuffle_window, bool strict, bool enabled) &&
+data_pipeline_builder::shuffle(std::size_t shuffle_window, bool enabled) &&
 {
     if (enabled)
         factory_ = [=, inner = std::move(factory_)]
         {
-            return std::make_unique<shuffle_data_source>(inner(), shuffle_window, strict);
+            return std::make_unique<shuffle_data_source>(inner(), shuffle_window);
         };
 
     return std::move(*this);

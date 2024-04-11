@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -23,7 +24,8 @@ namespace fairseq2n::detail {
 class text_data_source final : public data_source {
 public:
     explicit
-    text_data_source(std::filesystem::path &&path, text_options &&opts);
+    text_data_source(
+        std::filesystem::path &&path, std::optional<std::string> &&key, text_options &&opts);
 
     std::optional<data>
     next() override;
@@ -32,10 +34,10 @@ public:
     reset() override;
 
     void
-    record_position(tape &t) const override;
+    record_position(tape &t, bool strict) const override;
 
     void
-    reload_position(tape &t) override;
+    reload_position(tape &t, bool strict) override;
 
     bool
     is_infinite() const noexcept override;
@@ -58,6 +60,7 @@ private:
 
 private:
     std::filesystem::path path_;
+    std::optional<std::string> key_;
     text_options opts_;
     std::unique_ptr<text_line_reader> line_reader_;
     std::size_t num_lines_read_ = 0;

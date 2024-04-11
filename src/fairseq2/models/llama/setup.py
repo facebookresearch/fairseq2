@@ -6,22 +6,25 @@
 
 from typing import Any, Dict
 
-from fairseq2.assets import default_asset_store, default_download_manager
-from fairseq2.data.text import load_basic_sentencepiece_tokenizer, load_text_tokenizer
-from fairseq2.models.mistral.builder import (
-    MistralConfig,
-    create_mistral_model,
-    mistral_archs,
+from fairseq2.data.text import setup_basic_sentencepiece_tokenizer
+from fairseq2.models.llama.factory import (
+    LLAMA_FAMILY,
+    LLaMAConfig,
+    create_llama_model,
+    llama_archs,
 )
-from fairseq2.models.transformer import TransformerDecoderModel
-from fairseq2.models.utils import ConfigLoader, ModelLoader
+from fairseq2.models.setup import setup_model
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
 
-def convert_mistral_checkpoint(
-    checkpoint: Dict[str, Any], config: MistralConfig
+def convert_llama_checkpoint(
+    checkpoint: Dict[str, Any], config: LLaMAConfig
 ) -> Dict[str, Any]:
-    """Convert a reference Mistral checkpoint to fairseq2."""
+    """Convert a reference LLaMA checkpoint to fairseq2 format."""
+    # Check if we have a fairseq2 checkpoint.
+    if "model" in checkpoint:
+        return checkpoint
+
     key_map = {
         # fmt: off
         r"^layers\.([0-9]+)\.attention\.wq\.":    r"decoder.layers.\1.self_attn.q_proj.",
@@ -39,22 +42,21 @@ def convert_mistral_checkpoint(
         # fmt: on
     }
 
+    # We do not need the pre-computed 'rope.freqs' buffers.
+    checkpoint = {k: v for (k, v) in checkpoint.items() if "rope.freqs" not in k}
+
     checkpoint = convert_model_state_dict(checkpoint, key_map)
 
     return {"model": checkpoint}
 
 
-load_mistral_config = ConfigLoader[MistralConfig](default_asset_store, mistral_archs)
-
-load_mistral_model = ModelLoader[TransformerDecoderModel, MistralConfig](
-    default_asset_store,
-    default_download_manager,
-    load_mistral_config,
-    create_mistral_model,
-    convert_mistral_checkpoint,
+load_llama_model, load_llama_config = setup_model(
+    LLAMA_FAMILY,
+    LLaMAConfig,
+    create_llama_model,
+    llama_archs,
+    convert_llama_checkpoint,
     mmap=True,
 )
 
-load_mistral_tokenizer = load_basic_sentencepiece_tokenizer
-
-load_text_tokenizer.register_loader("mistral", load_mistral_tokenizer)
+load_llama_tokenizer = setup_basic_sentencepiece_tokenizer(LLAMA_FAMILY)

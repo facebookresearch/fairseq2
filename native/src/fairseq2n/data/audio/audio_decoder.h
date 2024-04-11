@@ -19,6 +19,22 @@ namespace fairseq2n {
 class audio_decoder_options {
 public:
     audio_decoder_options
+    keepdim(bool value) noexcept
+    {
+        auto tmp = *this;
+
+        tmp.keepdim_ = value;
+
+        return tmp;
+    }
+
+    bool
+    keepdim() const noexcept
+    {
+        return keepdim_;
+    }
+
+    audio_decoder_options
     maybe_dtype(std::optional<at::ScalarType> value) noexcept
     {
         auto tmp = *this;
@@ -67,6 +83,7 @@ public:
     }
 
 private:
+    bool keepdim_{};
     std::optional<at::ScalarType> maybe_dtype_{};
     std::optional<at::Device> maybe_device_{};
     bool pin_memory_ = false;

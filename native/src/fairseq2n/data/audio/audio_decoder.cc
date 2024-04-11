@@ -11,6 +11,7 @@
 #include <stdexcept>
 
 #include <ATen/Functions.h>
+#include <ATen/ScalarType.h>
 #include <ATen/Tensor.h>
 
 #include "fairseq2n/exception.h"
@@ -30,9 +31,10 @@ audio_decoder::audio_decoder(audio_decoder_options opts)
   : opts_{opts}
 {
     at::ScalarType dtype = opts_.maybe_dtype().value_or(at::kFloat);
-    if (dtype != at::kFloat && dtype != at::kInt && dtype != at::kShort)
+
+    if (!at::isFloatingType(dtype) && !at::isIntegralType(dtype, /*includeBool=*/false))
         throw_<not_supported_error>(
-            "`audio_decoder` supports only `torch.float32`, `torch.int32`, and `torch.int16` data types.");
+            "`audio_decoder` supports only integral and floating-point types.");
 }
 
 data
@@ -60,12 +62,24 @@ audio_decoder::operator()(data &&d) const
 
     at::ScalarType dtype = opts_.maybe_dtype().value_or(at::kFloat);
 
+    at::ScalarType decode_dtype{};
+
+    if (at::isFloatingType(dtype))
+        decode_dtype = at::kFloat;
+    else if (dtype == at::kShort)
+        decode_dtype = at::kShort;
+    else if (at::isIntegralType(dtype, /*includeBool=*/false))
+        decode_dtype = at::kInt;
+    else
+        throw_<internal_error>(
+            "`audio_decoder` uses an unsupported data type. Please file a bug report.");
+
     at::Tensor waveform = at::empty({file.num_frames(), file.num_channels()},
-        at::dtype(dtype).device(at::kCPU).pinned_memory(opts_.pin_memory()));
+        at::dtype(decode_dtype).device(at::kCPU).pinned_memory(opts_.pin_memory()));
 
     writable_memory_span waveform_bits = get_raw_mutable_storage(waveform);
 
-    switch (dtype) {
+    switch (decode_dtype) {
     case at::kFloat: {
         span waveform_data = cast<float32>(waveform_bits);
 
@@ -92,10 +106,14 @@ audio_decoder::operator()(data &&d) const
             "`audio_decoder` uses an unsupported data type. Please file a bug report.");
     };
 
+    if (file.num_channels() == 1 && !opts_.keepdim())
+        waveform = waveform.squeeze(-1);
+
+    waveform = waveform.to(dtype);
+
     at::Device device = opts_.maybe_device().value_or(at::kCPU);
     if (device != at::kCPU)
         waveform = waveform.to(device);
-
 
     // Pack audio (i.e. waveform), sample_rate, and format as output.
     data_dict output{

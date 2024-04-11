@@ -13,7 +13,7 @@ from fairseq2.typing import Device, override
 
 @final
 class S2TTransformerTokenizer(SentencePieceTokenizer):
-    """Represents a tokenizer used by S2T Transformer models."""
+    """Represents an S2T Transformer tokenizer."""
 
     _task: str
     _target_langs: Set[str]

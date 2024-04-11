@@ -63,11 +63,17 @@ if TYPE_CHECKING or DOC_MODE:
             :class:`DataPipelineError`.
             """
 
-        def state_dict(self) -> Dict[str, Any]:
+        def state_dict(self, strict: bool = True) -> Dict[str, Any]:
             """Return a dictionary containing the state of the data pipeline.
 
             The current position of the data pipeline can be restored by passing
             the returned state dictionary to :meth:`load_state_dict`.
+
+            :param strict:
+                If ``True``, the internal buffers will be saved as part of
+                ``state_dict``. This ensures that on preemption no example will
+                be lost, but for large buffers this can significantly increase
+                the state size and the time to restore the data pipeline.
             """
 
         def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
@@ -159,7 +165,9 @@ if TYPE_CHECKING or DOC_MODE:
             self,
             bucket_sizes: Sequence[Tuple[int, int]],
             selector: Optional[str] = None,
-            skip_long_examples: bool = False,
+            min_data_len: int = 1,
+            skip_below_min_examples: bool = False,
+            skip_above_max_examples: bool = False,
             drop_remainder: bool = False,
         ) -> Self:
             """Combine examples of similar shape into batches."""
@@ -225,6 +233,9 @@ if TYPE_CHECKING or DOC_MODE:
                 The number of examples to prefetch.
             """
 
+        def repeat(self, num_repeats: Optional[int] = None) -> Self:
+            ...
+
         def shard(self, shard_idx: int, num_shards: int) -> Self:
             """Read only 1/``num_shards`` of the examples in the data pipeline.
 
@@ -234,9 +245,7 @@ if TYPE_CHECKING or DOC_MODE:
                 The number of shards.
             """
 
-        def shuffle(
-            self, shuffle_window: int, strict: bool = True, enabled: bool = True
-        ) -> Self:
+        def shuffle(self, shuffle_window: int, enabled: bool = True) -> Self:
             """Shuffle examples using a fixed sized buffer.
 
             :param shuffle_window:
@@ -244,12 +253,6 @@ if TYPE_CHECKING or DOC_MODE:
                 will be randomly sampled from this buffer, and selected examples
                 will be replaced with new examples. If ``0``, all examples will
                 be loaded into memory for full shuffling.
-            :param strict:
-                If ``True``, the intermediate shuffle buffer will be saved as
-                part of ``state_dict``. This ensures that on preemption no
-                example will be lost, but for large buffers this can
-                significantly increase the state size and the time to restore
-                the data pipeline.
             :param enabled:
                 If ``False``, disables shuffling.
             """
@@ -476,16 +479,32 @@ class FileMapperOutput(TypedDict):
 
 
 def create_bucket_sizes(
-    max_num_elements: int, max_seq_len: int, min_seq_len: int = 1
+    *,
+    max_num_elements: int,
+    max_seq_len: int,
+    min_seq_len: int = 1,
+    num_seqs_multiple_of: int = 1,
 ) -> List[Tuple[int, int]]:
-    """Create optimal bucket sizes for ``max_num_elements`` with ``max_seq_len``.
+    """Create optimal bucket sizes for :meth:`DataPipeline.bucket_by_length`.
 
-    This is a convenience function that can be used with the
-    :meth:`DataPipeline.bucket_by_length` operator.
+    :param max_num_elements:
+        The maximum number of elements that each bucket can contain.
+    :param max_seq_len:
+        The maximum sequence length.
+    :param min_seq_len:
+        The minimum sequence length.
+    :param num_seqs_multiple_of:
+        The number of sequences contained in each bucket must be a multiple of
+        this value.
     """
-    if max_num_elements < max_seq_len:
+    if max_seq_len > max_num_elements:
         raise ValueError(
             f"`max_seq_len` must be less than or equal to `max_num_elements` ({max_num_elements}), but is {max_seq_len} instead."
+        )
+
+    if min_seq_len < 1:
+        raise ValueError(
+            f"`min_seq_len` must be greater than zero, but is {min_seq_len} instead."
         )
 
     if min_seq_len > max_seq_len:
@@ -493,17 +512,39 @@ def create_bucket_sizes(
             f"`min_seq_len` must be less than or equal to `max_seq_len` ({max_seq_len}), but is {min_seq_len} instead."
         )
 
+    if num_seqs_multiple_of < 1:
+        raise ValueError(
+            f"`num_seqs_multiple_of` must be greater than or equal to 1, but is {num_seqs_multiple_of} instead."
+        )
+
+    if max_num_elements % max_seq_len != 0:
+        raise ValueError(
+            f"`max_num_elements` must be equal to a multiple of `max_seq_len`, but is {max_num_elements} instead."
+        )
+
     bucket_sizes = []
 
-    seq_len = min_seq_len
+    seq_len = 1
 
-    batch_size = max_num_elements // seq_len
+    bucket_size = max_num_elements
 
     while seq_len <= max_seq_len:
-        bucket_sizes.append((batch_size, seq_len))
+        if seq_len >= min_seq_len:
+            bucket_sizes.append((bucket_size, seq_len))
 
-        batch_size = max_num_elements // (seq_len + 1)
+        bucket_size = max_num_elements // (seq_len + 1)
 
-        seq_len = max_num_elements // batch_size
+        seq_len = max_num_elements // bucket_size
 
-    return bucket_sizes
+    if num_seqs_multiple_of == 1:
+        return bucket_sizes
+
+    cropped_bucket_sizes = []
+
+    for bucket_size, seq_len in bucket_sizes:
+        if bucket_size > num_seqs_multiple_of:
+            bucket_size -= bucket_size % num_seqs_multiple_of
+
+        cropped_bucket_sizes.append((bucket_size, seq_len))
+
+    return cropped_bucket_sizes

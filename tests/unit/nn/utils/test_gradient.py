@@ -7,14 +7,14 @@
 import pytest
 import torch
 
-from fairseq2.nn.utils.grad import scale_grad
+from fairseq2.nn.utils.gradient import scale_gradient
 from tests.common import assert_close, device
 
 
-def test_scale_grad_scales_gradient_correctly() -> None:
+def test_scale_gradient_scales_gradient_correctly() -> None:
     a = torch.full((10, 10), 2.0, device=device, requires_grad=True)
 
-    b = scale_grad(a, 0.1)
+    b = scale_gradient(a, 0.1)
 
     c = b**3.0
 
@@ -25,11 +25,11 @@ def test_scale_grad_scales_gradient_correctly() -> None:
     assert_close(g[0], expected_grad)
 
 
-def test_scale_grad_raises_error_if_tensor_is_non_float() -> None:
+def test_scale_gradient_raises_error_if_tensor_is_non_float() -> None:
     a = torch.ones((2, 2), dtype=torch.int32)
 
     with pytest.raises(
         TypeError,
         match=r"^`x` must be a float tensor, but is of type `torch\.int32` instead\.$",
     ):
-        scale_grad(a, 1.0)
+        scale_gradient(a, 1.0)

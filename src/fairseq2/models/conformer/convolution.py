@@ -10,7 +10,7 @@ from torch import Tensor
 from torch.nn import GLU, BatchNorm1d, Conv1d, Module, SiLU
 from torch.nn.functional import pad
 
-from fairseq2.nn.normalization import LayerNorm, StandardLayerNorm
+from fairseq2.nn import LayerNorm, StandardLayerNorm
 from fairseq2.nn.padding import PaddingMask, apply_padding_mask
 from fairseq2.typing import DataType, Device
 
