@@ -188,7 +188,7 @@ class SequenceModelMetricBag(MetricBag):
         batches: Sequence[SequenceBatch],
         nll_losses: Sequence[Tensor],
         time: Stopwatch,
-        gradient_norms: Optional[Sequence[Tensor]] = None,
+        gradient_norm: Optional[Tensor] = None,
     ) -> None:
         """Update the step metrics.
 
@@ -198,8 +198,8 @@ class SequenceModelMetricBag(MetricBag):
             The NLL losses output by the model for ``batches``.
         :param time:
             The :class:`Stopwatch` to keep track of elapsed time.
-        :param gradient_norms:
-            The model gradient norms after backpropagating ``batches``.
+        :param gradient_norm:
+            The total model gradient norm after backpropagating ``batches``.
         """
         nll_loss = torch.zeros((), dtype=torch.float64)
 
@@ -214,9 +214,8 @@ class SequenceModelMetricBag(MetricBag):
 
             num_elements += batch.num_elements()
 
-        if gradient_norms:
-            for norm in gradient_norms:
-                self.gradient_norm.update(norm)
+        if gradient_norm:
+            self.gradient_norm.update(gradient_norm)
 
         nll_loss /= num_elements
 
