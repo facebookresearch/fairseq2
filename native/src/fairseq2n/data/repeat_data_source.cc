@@ -32,18 +32,18 @@ repeat_data_source::next()
 
         repeat_nr_++;
 
-        inner_->reset();
+        inner_->reset(reset_rng_);
     }
 }
 
 void
-repeat_data_source::reset()
+repeat_data_source::reset(bool reset_rng)
 {
     has_data_ = false;
 
     repeat_nr_ = 0;
 
-    inner_->reset();
+    inner_->reset(reset_rng);
 }
 
 void

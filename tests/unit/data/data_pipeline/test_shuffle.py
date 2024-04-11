@@ -9,45 +9,50 @@ from itertools import islice
 import pytest
 
 from fairseq2.data import read_sequence
-from fairseq2.typing import CPU
-from tests.common import tmp_rng_seed
 
 
 class TestShuffleOp:
     def test_op_works(self) -> None:
         seq = list(range(1, 10))
 
-        pipeline = read_sequence(seq).shuffle(100).and_return()
+        # Shuffle 100.
+        pipeline = read_sequence(seq).shuffle(100, seed=1234).and_return()
 
         for _ in range(2):
-            with tmp_rng_seed(CPU, seed=1234):
-                assert list(pipeline) == [8, 9, 3, 7, 5, 4, 2, 6, 1]
+            assert list(pipeline) == [8, 9, 3, 7, 5, 4, 2, 6, 1]
 
-                pipeline.reset()
+            pipeline.reset(reset_rng=True)
 
-        pipeline = read_sequence(seq).shuffle(0).and_return()
+        list(pipeline)
 
-        for _ in range(2):
-            with tmp_rng_seed(CPU, seed=1234):
-                assert list(pipeline) == [8, 9, 3, 7, 5, 4, 2, 6, 1]
+        pipeline.reset(reset_rng=False)
 
-                pipeline.reset()
+        # We haven't reset the seed. The list should be different this time.
+        assert list(pipeline) != [8, 9, 3, 7, 5, 4, 2, 6, 1]
 
-        pipeline = read_sequence(seq).shuffle(4).and_return()
-
-        for _ in range(2):
-            with tmp_rng_seed(CPU, seed=1234):
-                assert list(pipeline) == [2, 1, 3, 4, 5, 7, 8, 6, 9]
-
-                pipeline.reset()
-
-        pipeline = read_sequence(seq).shuffle(1).and_return()
+        # Shuffle the whole list.
+        pipeline = read_sequence(seq).shuffle(0, seed=1234).and_return()
 
         for _ in range(2):
-            with tmp_rng_seed(CPU, seed=1234):
-                assert list(pipeline) == [1, 2, 3, 4, 5, 6, 7, 8, 9]
+            assert list(pipeline) == [8, 9, 3, 7, 5, 4, 2, 6, 1]
 
-                pipeline.reset()
+            pipeline.reset(reset_rng=True)
+
+        # Shuffle 2.
+        pipeline = read_sequence(seq).shuffle(4, seed=1234).and_return()
+
+        for _ in range(2):
+            assert list(pipeline) == [2, 1, 3, 4, 5, 7, 8, 6, 9]
+
+            pipeline.reset(reset_rng=True)
+
+        # Shuffle 1.
+        pipeline = read_sequence(seq).shuffle(1, seed=1234).and_return()
+
+        for _ in range(2):
+            assert list(pipeline) == [1, 2, 3, 4, 5, 6, 7, 8, 9]
+
+            pipeline.reset(reset_rng=True)
 
     def test_op_saves_its_state_after_internal_buffer_is_emptied(self) -> None:
         class Foo:
@@ -68,48 +73,27 @@ class TestShuffleOp:
 
     @pytest.mark.parametrize("window", [10, 100, 1000])
     def test_op_saves_and_restores_its_state(self, window: int) -> None:
-        seq = list(range(5000))
+        seq = list(range(2000))
 
-        pipeline1 = read_sequence(seq).shuffle(window).and_return()
-        pipeline2 = read_sequence(seq).shuffle(window).and_return()
+        pipeline = read_sequence(seq).shuffle(window, seed=1234).and_return()
 
-        with tmp_rng_seed(CPU, seed=1234):
-            expected_output1 = list(islice(pipeline1, 4000))
+        it = iter(pipeline)
 
-        with tmp_rng_seed(CPU, seed=5678):
-            expected_output2 = list(islice(pipeline1, 1000))
+        for _ in range(1000):
+            next(it)
 
-        with tmp_rng_seed(CPU, seed=1234):
-            assert list(islice(pipeline2, 4000)) == expected_output1
+        state_dict = pipeline.state_dict()
 
-        state_dict = pipeline2.state_dict()
+        expected_output = list(islice(pipeline, 1000))
 
-        with tmp_rng_seed(CPU, seed=5678):
-            assert list(islice(pipeline2, 1000)) == expected_output2
+        pipeline.reset()
 
-        pipeline2.load_state_dict(state_dict)
+        pipeline.load_state_dict(state_dict)
 
-        with tmp_rng_seed(CPU, seed=5678):
-            assert list(islice(pipeline2, 1000)) == expected_output2
-
-        pipeline2.reset()
-
-        pipeline2.load_state_dict(state_dict)
-
-        with tmp_rng_seed(CPU, seed=5678):
-            assert list(islice(pipeline2, 1000)) == expected_output2
-
-        state_dict = pipeline2.state_dict()
+        assert list(islice(pipeline, 1000)) == expected_output
 
         with pytest.raises(StopIteration):
-            next(iter(pipeline2))
-
-        pipeline2.reset()
-
-        pipeline2.load_state_dict(state_dict)
-
-        with pytest.raises(StopIteration):
-            next(iter(pipeline2))
+            next(iter(pipeline))
 
     def test_record_reload_position_works_as_expected_with_no_strict(self) -> None:
         seq = list(range(100))
@@ -120,6 +104,8 @@ class TestShuffleOp:
         next(iter(pipeline))
 
         state_dict = pipeline.state_dict(strict=False)
+
+        pipeline.reset()
 
         pipeline.load_state_dict(state_dict)
 

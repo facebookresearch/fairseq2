@@ -33,7 +33,7 @@ public:
     next() override;
 
     void
-    reset() override;
+    reset(bool reset_rng) override;
 
     void
     record_position(tape &t, bool strict) const override;

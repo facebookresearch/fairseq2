@@ -164,10 +164,10 @@ zip_data_source::flatten_to_list(data_list &zip)
 }
 
 void
-zip_data_source::reset()
+zip_data_source::reset(bool reset_rng)
 {
     for (data_pipeline &pipeline : pipelines_)
-        pipeline.reset();
+        pipeline.reset(reset_rng);
 }
 
 void

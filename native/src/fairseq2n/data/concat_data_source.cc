@@ -31,10 +31,10 @@ concat_data_source::next()
     return std::nullopt;
 }
 
-void concat_data_source::reset()
+void concat_data_source::reset(bool reset_rng)
 {
     for (data_pipeline &pipeline : pipelines_)
-        pipeline.reset();
+        pipeline.reset(reset_rng);
 }
 
 void concat_data_source::record_position(tape &t, bool strict) const

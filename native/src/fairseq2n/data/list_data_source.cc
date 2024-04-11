@@ -20,7 +20,7 @@ list_data_source::next()
 }
 
 void
-list_data_source::reset()
+list_data_source::reset(bool)
 {
     pos_ = list_.begin();
 }

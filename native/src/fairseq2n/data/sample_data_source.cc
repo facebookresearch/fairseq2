@@ -7,8 +7,6 @@
 #include "fairseq2n/data/sample_data_source.h"
 
 #include <algorithm>
-#include <cstddef>
-#include <mutex>
 #include <stdexcept>
 #include <utility>
 
@@ -17,15 +15,20 @@
 #include <ATen/core/TransformationHelper.h>
 
 #include "fairseq2n/data/detail/exception.h"
+#include "fairseq2n/data/detail/rng.h"
 #include "fairseq2n/detail/exception.h"
 
 namespace fairseq2n::detail {
 
 sample_data_source::sample_data_source(
-    std::vector<data_pipeline> &&pipelines, std::vector<float32> &&weights)
+    std::vector<data_pipeline> &&pipelines,
+    std::vector<float32> &&weights,
+    std::optional<std::uint64_t> maybe_seed)
   : pipelines_(std::move(pipelines)), is_epoch_done_(pipelines_.size())
 {
-    generator_ = at::globalContext().defaultGenerator(at::kCPU);
+    seed_ = maybe_seed ? *maybe_seed : pseudo_random();
+
+    generator_ = at::make_generator<at::CPUGeneratorImpl>(seed_);
 
     weight_cumsums_.reserve(weights.size());
 
@@ -70,7 +73,7 @@ sample_data_source::next()
 }
 
 void
-sample_data_source::reset()
+sample_data_source::reset(bool reset_rng)
 {
     buffer_.clear();
 
@@ -78,8 +81,11 @@ sample_data_source::reset()
 
     is_eod_ = false;
 
+    if (reset_rng)
+        generator_.set_current_seed(seed_);
+
     for (data_pipeline &pipeline : pipelines_)
-        pipeline.reset();
+        pipeline.reset(reset_rng);
 }
 
 void
@@ -90,6 +96,10 @@ sample_data_source::record_position(tape &t, bool strict) const
 
         t.record(is_epoch_done_);
     }
+
+    t.record(seed_);
+
+    t.record(generator_.get_state());
 
     for (const data_pipeline &pipeline : pipelines_)
         pipeline.record_position(t, strict);
@@ -110,6 +120,10 @@ sample_data_source::reload_position(tape &t, bool strict)
 
     is_eod_ = false;
 
+    seed_ = t.read<std::uint64_t>();
+
+    generator_.set_state(t.read<at::Tensor>());
+
     for (data_pipeline &pipeline : pipelines_)
         pipeline.reload_position(t);
 }
@@ -123,9 +137,7 @@ sample_data_source::is_infinite() const noexcept
 std::size_t
 sample_data_source::random_pipeline_index()
 {
-    std::lock_guard<std::mutex> guard{generator_.mutex()};
-
-    auto *gen = at::check_generator<at::CPUGeneratorImpl>(generator_);
+    auto *gen = generator_.get<at::CPUGeneratorImpl>();
 
     float32 sample = at::transformation::uniform_real(gen->random(), 0.0F, 1.0F);
 

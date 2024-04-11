@@ -11,6 +11,9 @@ namespace fairseq2n::detail {
 std::optional<data>
 shard_data_source::next()
 {
+    if (num_shards_ == 1)
+        return inner_->next();
+
     for (std::size_t i = 0; i < shard_idx_; i++)
         if (!inner_->next())
             return std::nullopt;
@@ -27,9 +30,9 @@ shard_data_source::next()
 }
 
 void
-shard_data_source::reset()
+shard_data_source::reset(bool reset_rng)
 {
-    inner_->reset();
+    inner_->reset(reset_rng);
 }
 
 void

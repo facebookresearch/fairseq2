@@ -40,9 +40,9 @@ bucket_data_source::next()
 }
 
 void
-bucket_data_source::reset()
+bucket_data_source::reset(bool reset_rng)
 {
-    inner_->reset();
+    inner_->reset(reset_rng);
 }
 
 void

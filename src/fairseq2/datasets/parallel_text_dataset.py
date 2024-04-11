@@ -48,11 +48,12 @@ class ParallelTextDataset(ABC):
         max_num_tokens: int,
         *,
         sample: bool = False,
-        shuffle_window_size: int = 0,
+        shuffle_window_size: int = 1,
         num_repeats: Optional[int] = 1,
         num_prefetch: int = 0,
         num_accumulate: int = 1,
         lang_pairs: Optional[Sequence[LangPair]] = None,
+        seed: int = 2,
     ) -> DataReader[Seq2SeqBatch]:
         """Create a dataset reader.
 
@@ -71,7 +72,8 @@ class ParallelTextDataset(ABC):
             If ``True``, language pair corpora will be sampled in proportion to
             their size.
         :param shuffle_window_size:
-            The size of the streaming shuffle window.
+            The size of the shuffle window. If ``1``, no shuffling is performed;
+            if ``0``, performs true shuffling by loading the entire dataset.
         :param num_repeats:
             The dataset will be repeatedly read this many times. If ``None``, it
             will be read indefinitely.
@@ -82,6 +84,8 @@ class ParallelTextDataset(ABC):
             used with gradient accumulation during training.
         :param lang_pairs:
             The language pairs to read. If ``None``, all pairs will be read.
+        :param seed:
+            The seed to initialize the random number generators.
         """
 
     @abstractmethod

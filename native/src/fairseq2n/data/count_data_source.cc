@@ -17,14 +17,14 @@ count_data_source::next()
 
     counter_ += step_;
 
-    if (key_)
-        return data_dict{{*key_, output}};
+    if (maybe_key_)
+        return data_dict{{*maybe_key_, output}};
 
     return output;
 }
 
 void
-count_data_source::reset()
+count_data_source::reset(bool)
 {
     counter_ = start_;
 }

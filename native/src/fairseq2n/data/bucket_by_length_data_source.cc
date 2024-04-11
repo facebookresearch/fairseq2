@@ -134,12 +134,12 @@ bucket_by_length_data_source::next()
 }
 
 void
-bucket_by_length_data_source::reset()
+bucket_by_length_data_source::reset(bool reset_rng)
 {
     for (data_list &bucket : buckets_)
         bucket.clear();
 
-    inner_->reset();
+    inner_->reset(reset_rng);
 }
 
 void

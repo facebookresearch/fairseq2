@@ -35,10 +35,11 @@ class AsrDataset(ABC):
         *,
         dtype: Optional[DataType] = None,
         min_audio_len: int = 1,
-        shuffle_window_size: int = 0,
+        shuffle_window_size: int = 1,
         num_repeats: Optional[int] = 1,
         num_prefetch: int = 0,
         num_accumulate: int = 1,
+        seed: int = 2,
     ) -> DataReader[Seq2SeqBatch]:
         """Create a dataset reader.
 
@@ -59,7 +60,8 @@ class AsrDataset(ABC):
             The minimum audio length of each example. Examples shorter than
             this value will be dropped.
         :param shuffle_window_size:
-            The size of the streaming shuffle window.
+            The size of the shuffle window. If ``1``, no shuffling is performed;
+            if ``0``, performs true shuffling by loading the entire dataset.
         :param num_repeats:
             The dataset will be repeatedly read this many times. If ``None``, it
             will be read indefinitely.
@@ -68,6 +70,8 @@ class AsrDataset(ABC):
         :param num_accumulate:
             The number of batches to accumulate in each iteration. Typically
             used with gradient accumulation during training.
+        :param seed:
+            The seed to initialize the random number generators.
         """
 
     @abstractmethod

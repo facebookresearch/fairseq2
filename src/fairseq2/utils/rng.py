@@ -73,6 +73,10 @@ class RngBag:
 
         return RngBag(*generators)
 
+    def add_generator(self, generator: Generator) -> None:
+        """Add ``generator`` to the bag."""
+        self._generators.append(generator)
+
     def seed(self) -> None:
         """Set the seed of the random number generators to a random number."""
         if not self._generators:

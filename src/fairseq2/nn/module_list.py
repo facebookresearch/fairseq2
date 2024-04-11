@@ -7,10 +7,14 @@
 from typing import Iterable, Iterator, Optional, final
 
 import torch
+from torch import Generator
 from torch.nn import Module
 from torch.nn import ModuleList as TorchModuleList
 
 from fairseq2.typing import CPU
+from fairseq2.utils.logging import get_log_writer
+
+log = get_log_writer(__name__)
 
 
 @final
@@ -42,24 +46,34 @@ class ModuleList(TorchModuleList):
     """
 
     drop_p: float
+    generator: Optional[Generator]
 
     def __init__(
-        self, modules: Optional[Iterable[Module]] = None, *, drop_p: float = 0.0
+        self,
+        modules: Optional[Iterable[Module]] = None,
+        *,
+        drop_p: float = 0.0,
+        generator: Optional[Generator] = None,
     ) -> None:
         """
         :param modules:
             An iterable of modules to add.
         :param drop_p:
             The probability of dropping a submodule during training.
+        :param generator:
+            The random number generator.
         """
         super().__init__(modules)
 
         self.drop_p = drop_p
+        self.generator = generator
 
     def drop_iter(self) -> Iterator[Module]:
         """Return an iterator that drops a random set of submodules."""
         if self.drop_p > 0.0 and self.training:
-            prob_dist = torch.rand(len(self), device=CPU, dtype=torch.float32)
+            prob_dist = torch.rand(
+                len(self), generator=self.generator, device=CPU, dtype=torch.float32
+            )
         else:
             prob_dist = None
 

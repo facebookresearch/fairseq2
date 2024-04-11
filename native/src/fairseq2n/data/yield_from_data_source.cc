@@ -25,13 +25,13 @@ yield_from_data_source::next()
 }
 
 void
-yield_from_data_source::reset()
+yield_from_data_source::reset(bool reset_rng)
 {
     maybe_current_example_ = {};
 
     data_pipeline_ = {};
 
-    inner_->reset();
+    inner_->reset(reset_rng);
 }
 
 void
