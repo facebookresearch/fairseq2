@@ -29,11 +29,11 @@ def exception_logger(log: LogWriter) -> Generator[None, None, None]:
     except OutOfMemoryError:
         s = torch.cuda.memory_summary()
 
-        log.exception("CUDA run out of memory. See the memory stats and the exception details below.\n{}", s)  # fmt: skip
+        log.exception("CUDA run out of memory. See memory stats and exception details below.\n{}", s)  # fmt: skip
 
         raise
     except Exception:
-        log.exception("Job has failed. See the exception details below.")
+        log.exception("Job has failed. See exception details below.")
 
         raise
 

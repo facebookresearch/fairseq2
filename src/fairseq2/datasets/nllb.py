@@ -71,11 +71,12 @@ class NllbDataset(ParallelTextDataset):
         max_num_tokens: int,
         *,
         sample: bool = False,
-        shuffle_window_size: int = 0,
+        shuffle_window_size: int = 1,
         num_repeats: Optional[int] = 1,
         num_prefetch: int = 0,
         num_accumulate: int = 1,
         lang_pairs: Optional[Sequence[LangPair]] = None,
+        seed: int = 2,
     ) -> DataPipelineReader[Seq2SeqBatch]:
         splits = []
 
@@ -127,6 +128,7 @@ class NllbDataset(ParallelTextDataset):
             shuffle_window_size,
             num_repeats,
             num_prefetch,
+            seed,
         )
 
         pipeline = builder.build()
@@ -161,6 +163,7 @@ class _NllbDataPipelineBuilder:
     _shuffle_window_size: int
     _num_repeats: Optional[int]
     _num_prefetch: int
+    _seed: int
 
     def __init__(
         self,
@@ -175,6 +178,7 @@ class _NllbDataPipelineBuilder:
         shuffle_window_size: int,
         num_repeats: Optional[int],
         num_prefetch: int,
+        seed: int,
     ) -> None:
         self._dataset_name = dataset_name
         self._data_dir = data_dir
@@ -187,6 +191,7 @@ class _NllbDataPipelineBuilder:
         self._shuffle_window_size = shuffle_window_size
         self._num_repeats = num_repeats
         self._num_prefetch = num_prefetch
+        self._seed = seed
 
     def build(self) -> DataPipeline:
         lang_pair_pipelines: List[DataPipeline] = []
@@ -218,9 +223,11 @@ class _NllbDataPipelineBuilder:
                 total_size += size
 
         if self._sample:
+            weights = [s / total_size for s in lang_pair_sizes]
+
             # Sample the language pairs in proportion to their corpus size.
             builder = DataPipeline.sample(
-                lang_pair_pipelines, weights=[s / total_size for s in lang_pair_sizes]
+                lang_pair_pipelines, weights=weights, seed=self._seed
             )
         else:
             builder = DataPipeline.concat(lang_pair_pipelines)
@@ -239,9 +246,8 @@ class _NllbDataPipelineBuilder:
         source_builder = read_text(source_file, rtrim=True, memory_map=True)
         target_builder = read_text(target_file, rtrim=True, memory_map=True)
 
-        if self._gang.size > 1:
-            source_builder.shard(self._gang.rank, self._gang.size)
-            target_builder.shard(self._gang.rank, self._gang.size)
+        source_builder.shard(self._gang.rank, self._gang.size)
+        target_builder.shard(self._gang.rank, self._gang.size)
 
         # Initialize the token encoders for the source and target languages.
         source_encoder_mode = "source"
@@ -276,10 +282,10 @@ class _NllbDataPipelineBuilder:
 
         # Zip the source and target pipelines along with the pseudo pipelines
         # into one.
-        names = ["split", "lang_pair", "line_nr", "source_indices", "target_indices"]
+        keys = ["split", "lang_pair", "line_nr", "source_indices", "target_indices"]
 
         builder = DataPipeline.zip(
-            [split_, lang_pair_, line_nr, source_pipeline, target_pipeline], names
+            [split_, lang_pair_, line_nr, source_pipeline, target_pipeline], keys
         )
 
         return builder.and_return()
@@ -306,12 +312,10 @@ class _NllbDataPipelineBuilder:
         return source_file, target_file
 
     def _build_pipeline(self, builder: DataPipelineBuilder) -> DataPipeline:
-        if self._num_repeats != 1:
-            builder.repeat(self._num_repeats)
+        builder.repeat(self._num_repeats)
 
         # Shuffle examples.
-        if self._shuffle_window_size > 0:
-            builder.shuffle(self._shuffle_window_size)
+        builder.shuffle(self._shuffle_window_size, self._seed + 1)
 
         # Bucket by the length of the source or target sequence. The longer one
         # will be considered the length of the example.
@@ -333,8 +337,7 @@ class _NllbDataPipelineBuilder:
         builder.map(collater, num_parallel_calls=num_parallel_calls)
 
         # Prefetch examples in a background thread.
-        if self._num_prefetch > 0:
-            builder.prefetch(self._num_prefetch)
+        builder.prefetch(self._num_prefetch)
 
         # Convert to `Seq2SeqBatch`.
         builder.map(lambda b: self._example_to_batch(b, self._gang.device))

@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <utility>
 
 #include <ATen/Generator.h>
@@ -21,13 +22,16 @@ class shuffle_data_source final : public data_source {
 
 public:
     explicit
-    shuffle_data_source(std::unique_ptr<data_source> &&inner, std::size_t shuffle_window) noexcept;
+    shuffle_data_source(
+        std::unique_ptr<data_source> &&inner,
+        std::size_t shuffle_window,
+        std::optional<std::uint64_t> maybe_seed);
 
     std::optional<data>
     next() override;
 
     void
-    reset() override;
+    reset(bool reset_rng) override;
 
     void
     record_position(tape &t, bool strict) const override;
@@ -48,8 +52,9 @@ private:
     data_list::iterator buffer_pos_ = buffer_.begin();
     data_list::iterator buffer_end_ = buffer_.end();
     std::size_t shuffle_window_;
-    at::Generator generator_;
     bool fill_buffer_ = true;
+    std::uint64_t seed_;
+    at::Generator generator_;
 };
 
 }  // namespace fairseq2n::detail

@@ -44,10 +44,10 @@ public:
     next();
 
     void
-    reset();
+    reset(bool reset_rng = false);
 
     void
-    record_position(tape &t, bool strict) const;
+    record_position(tape &t, bool strict = true) const;
 
     void
     reload_position(tape &t);
@@ -85,7 +85,10 @@ public:
     round_robin(std::vector<data_pipeline> pipelines, bool stop_at_shortest = false);
 
     static data_pipeline_builder
-    sample(std::vector<data_pipeline> pipelines, std::optional<std::vector<float>> weights = {});
+    sample(
+        std::vector<data_pipeline> pipelines,
+        std::optional<std::vector<float>> maybe_weights = {},
+        std::optional<std::uint64_t> maybe_seed = {});
 
     static data_pipeline_builder
     zip(
@@ -148,13 +151,13 @@ public:
     prefetch(std::size_t num_examples) &&;
 
     data_pipeline_builder
-    repeat(std::optional<std::size_t> num_repeats = std::nullopt) &&;
+    repeat(std::optional<std::size_t> num_repeats = std::nullopt, bool reset_rng = false) &&;
 
     data_pipeline_builder
     shard(std::size_t shard_idx, std::size_t num_shards) &&;
 
     data_pipeline_builder
-    shuffle(std::size_t shuffle_window, bool enabled = true) &&;
+    shuffle(std::size_t shuffle_window, std::optional<std::uint64_t> maybe_seed = {}) &&;
 
     data_pipeline_builder
     skip(std::size_t num_examples) &&;

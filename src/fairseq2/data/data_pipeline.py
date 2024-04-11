@@ -49,7 +49,7 @@ if TYPE_CHECKING or DOC_MODE:
             so it's not safe to have several iterators over the same DataPipeline.
             """
 
-        def reset(self) -> None:
+        def reset(self, reset_rng: bool = False) -> None:
             """Move back to the first example in the data pipeline."""
 
         def is_infinite(self) -> bool:
@@ -119,6 +119,7 @@ if TYPE_CHECKING or DOC_MODE:
         def sample(
             pipelines: Sequence[DataPipeline],
             weights: Optional[Sequence[float]] = None,
+            seed: Optional[int] = None,
         ) -> DataPipelineBuilder:
             """Extract examples from ``pipelines`` by sampling based on ``weights``.
 
@@ -233,7 +234,9 @@ if TYPE_CHECKING or DOC_MODE:
                 The number of examples to prefetch.
             """
 
-        def repeat(self, num_repeats: Optional[int] = None) -> Self:
+        def repeat(
+            self, num_repeats: Optional[int] = None, reset_rng: bool = False
+        ) -> Self:
             ...
 
         def shard(self, shard_idx: int, num_shards: int) -> Self:
@@ -245,7 +248,7 @@ if TYPE_CHECKING or DOC_MODE:
                 The number of shards.
             """
 
-        def shuffle(self, shuffle_window: int, enabled: bool = True) -> Self:
+        def shuffle(self, shuffle_window: int, seed: Optional[int] = None) -> Self:
             """Shuffle examples using a fixed sized buffer.
 
             :param shuffle_window:
@@ -253,8 +256,6 @@ if TYPE_CHECKING or DOC_MODE:
                 will be randomly sampled from this buffer, and selected examples
                 will be replaced with new examples. If ``0``, all examples will
                 be loaded into memory for full shuffling.
-            :param enabled:
-                If ``False``, disables shuffling.
             """
 
         def skip(self, num_examples: int) -> Self:

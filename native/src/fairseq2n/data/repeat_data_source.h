@@ -19,15 +19,17 @@ class repeat_data_source final : public data_source {
 public:
     explicit
     repeat_data_source(
-        std::unique_ptr<data_source> &&inner, std::optional<std::size_t> num_repeats) noexcept
-      : inner_{std::move(inner)}, num_repeats_{num_repeats}
+        std::unique_ptr<data_source> &&inner,
+        std::optional<std::size_t> num_repeats,
+        bool reset_rng) noexcept
+      : inner_{std::move(inner)}, num_repeats_{num_repeats}, reset_rng_{reset_rng}
     {}
 
     std::optional<data>
     next() override;
 
     void
-    reset() override;
+    reset(bool reset_rng) override;
 
     void
     record_position(tape &t, bool strict) const override;
@@ -42,6 +44,7 @@ private:
     std::unique_ptr<data_source> inner_;
     bool has_data_ = false;
     std::optional<std::size_t> num_repeats_;
+    bool reset_rng_;
     std::size_t repeat_nr_ = 0;
 };
 

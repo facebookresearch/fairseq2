@@ -23,9 +23,9 @@ filter_data_source::next()
 }
 
 void
-filter_data_source::reset()
+filter_data_source::reset(bool reset_rng)
 {
-    inner_->reset();
+    inner_->reset(reset_rng);
 }
 
 void

@@ -51,13 +51,13 @@ map_data_source::next()
 }
 
 void
-map_data_source::reset()
+map_data_source::reset(bool reset_rng)
 {
     buffer_.clear();
 
     buffer_pos_ = buffer_.begin();
 
-    inner_->reset();
+    inner_->reset(reset_rng);
 }
 
 void

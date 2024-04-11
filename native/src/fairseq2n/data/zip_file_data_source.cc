@@ -55,7 +55,7 @@ zip_file_data_source::next()
 }
 
 void
-zip_file_data_source::reset()
+zip_file_data_source::reset(bool)
 {
     num_files_read_ = 0;
 }
@@ -71,7 +71,7 @@ zip_file_data_source::reload_position(tape &t, bool)
 {
     auto num_files_read = t.read<std::size_t>();
 
-    reset();
+    num_files_read_ = 0;
 
     // TODO: use random access
     for (std::size_t i = 0; i < num_files_read; i++)
