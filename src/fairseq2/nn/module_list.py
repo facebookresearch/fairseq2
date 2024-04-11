@@ -12,9 +12,6 @@ from torch.nn import Module
 from torch.nn import ModuleList as TorchModuleList
 
 from fairseq2.typing import CPU
-from fairseq2.utils.logging import get_log_writer
-
-log = get_log_writer(__name__)
 
 
 @final

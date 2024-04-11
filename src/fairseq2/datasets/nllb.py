@@ -246,8 +246,8 @@ class _NllbDataPipelineBuilder:
         source_builder = read_text(source_file, rtrim=True, memory_map=True)
         target_builder = read_text(target_file, rtrim=True, memory_map=True)
 
-        source_builder.shard(self._gang.rank, self._gang.size)
-        target_builder.shard(self._gang.rank, self._gang.size)
+        source_builder.shard(self._gang.rank, self._gang.size, allow_uneven=True)
+        target_builder.shard(self._gang.rank, self._gang.size, allow_uneven=True)
 
         # Initialize the token encoders for the source and target languages.
         source_encoder_mode = "source"
