@@ -52,7 +52,7 @@ class IncrementalStateBag:
     ) -> None:
         """
         :param max_num_steps:
-            The maximum allowed number of steps to take.
+            The maximum number of steps to take.
         :param capacity_increment:
             The sequence length capacity of state tensors will be incremented by
             multiples of this value. If ``None``, state tensors will be
@@ -130,7 +130,7 @@ class IncrementalStateBag:
 
     @property
     def max_num_steps(self) -> int:
-        """The maximum allowed number of steps."""
+        """The maximum number of steps."""
         return self._max_num_steps
 
     @property

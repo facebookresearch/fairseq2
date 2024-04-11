@@ -75,7 +75,7 @@ class DataPipelineReader(DataReader[BatchT]):
         :param pipeline:
             The data pipeline to iterate over.
         :param gang:
-            The gang across which the underlying dataset is sharded.
+            The gang over which the underlying dataset is sharded.
         :param num_accumulate:
             The number of batches to accumulate in each iteration. Typically
             used with gradient accumulation during training.

@@ -29,7 +29,7 @@ class Wav2Vec2AsrConfig:
 
     encoder_config: Wav2Vec2EncoderConfig = field(
         default_factory=lambda: Wav2Vec2EncoderConfig(
-            feature_grad_scale=1.0,
+            feature_gradient_scale=1.0,
             dropout_p=0.0,
             attn_dropout_p=0.0,
             ffn_inner_dropout_p=0.1,

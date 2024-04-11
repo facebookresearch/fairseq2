@@ -22,14 +22,14 @@ def to_ddp(
     *,
     find_unused_parameters: bool = False,
     static_graph: bool = False,
-    normalize_gradients: bool = False,
+    normalize_gradients: bool = True,
 ) -> DDP:
     """Wrap ``module`` with DDP.
 
     :param module:
         The module to be wrapped with DDP.
     :param gang:
-        The gang over which the module will be replicated.
+        The gang over which to replicate the module.
     :param find_unused_parameters:
         See the corresponding DDP documentation.
     :param static_graph:

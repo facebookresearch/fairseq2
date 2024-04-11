@@ -41,7 +41,7 @@ class W2VBertConfig:
                 feature_extractor_layer_descs=[],
                 feature_extractor_bias=False,
                 feature_extractor_layer_norm_convs=False,
-                feature_grad_scale=0.0,
+                feature_gradient_scale=0.0,
                 num_fbank_channels=80,
                 fbank_stride=2,
                 sample_fbank_every_k=1,

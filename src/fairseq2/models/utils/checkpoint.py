@@ -8,6 +8,7 @@ import re
 import warnings
 from pathlib import Path
 from typing import Any, Callable, Dict, Mapping, Optional, Protocol, Union
+from warnings import catch_warnings
 
 import torch
 from torch import Tensor
@@ -57,9 +58,8 @@ def load_checkpoint(
     :returns:
         The loaded checkpoint.
     """
-    with warnings.catch_warnings():
-        # Suppress the noisy deprecated `TypedStorage` warning.
-        warnings.simplefilter("ignore")
+    with catch_warnings():
+        warnings.simplefilter("ignore")  # Suppress the deprecation warning.
 
         kwargs = {}
 

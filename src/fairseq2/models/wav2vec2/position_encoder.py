@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import warnings
 from typing import Optional, final
+from warnings import catch_warnings
 
 import torch
 import torch.nn as nn
@@ -124,9 +125,8 @@ class Wav2Vec2PositionalConv1d(Conv1d):
             self.weight, mean=0.0, std=(4.0 / (kernel_size * model_dim)) ** 0.5
         )
 
-        with warnings.catch_warnings():
-            # Suppress the noisy deprecated `weight_norm` warning.
-            warnings.simplefilter("ignore")
+        with catch_warnings():
+            warnings.simplefilter("ignore")  # Suppress the deprecation warning.
 
             weight_norm(self, dim=2)
 

@@ -62,7 +62,7 @@ class DynamicLossScaler:
             If ``None``, the window size will be determined by a heuristic
             method.
         :param min_scale:
-            The minimum allowed scale.
+            The minimum scale.
         :param gradient_accumulation:
             The number of steps to accumulate gradients before an optimizer
             update. Used only when ``scale_window`` is ``None``.
@@ -93,7 +93,7 @@ class DynamicLossScaler:
                 init_scale, scale_factor, 1 / scale_factor, scale_window, enabled
             )
         else:
-            if not supports_manual_grad_scaling(optimizer):
+            if not supports_manual_gradient_scaling(optimizer):
                 raise ValueError(
                     "`optimizer` must support manual gradient scaling via `torch.cuda.amp.GradScaler`, but supports only implicit scaling in its step function (i.e. `_step_supports_amp_scaling == True`) which is not supported in a distributed setting."
                 )
@@ -159,9 +159,9 @@ class DynamicLossScaler:
             self._grad_scaler.update(self._min_scale)
 
             if self._are_close(old_scale, self._min_scale):
-                log.warning("Overflow detected at step {}, ignoring gradient, loss scale is already at minimum ({:g}). Your loss is probably exploding. Try lowering the learning rate, using gradient clipping, or increasing the batch size.", step_nr, self._min_scale)  # fmt: skip
+                log.error("Overflow detected at step {}, ignoring gradient, loss scale is already at minimum ({:g}). Your loss is probably exploding. Try lowering the learning rate, using gradient clipping, or increasing the batch size.", step_nr, self._min_scale)  # fmt: skip
             else:
-                log.warning("Overflow detected at step {}, ignoring gradient, decreasing loss scale from {:g} to {:g} (minimum). Your loss is probably exploding. Try lowering the learning rate, using gradient clipping, or increasing the batch size.", step_nr, old_scale, self._min_scale)  # fmt: skip
+                log.error("Overflow detected at step {}, ignoring gradient, decreasing loss scale from {:g} to {:g} (minimum). Your loss is probably exploding. Try lowering the learning rate, using gradient clipping, or increasing the batch size.", step_nr, old_scale, self._min_scale)  # fmt: skip
 
             return LossScaleResult(
                 old_scale, new_scale, overflow=True, min_reached=True
@@ -175,14 +175,17 @@ class DynamicLossScaler:
     def _are_close(a: float, b: float) -> bool:
         return math.isclose(a, b, rel_tol=1.3e-6, abs_tol=1e-5)
 
-    def unscale_optimizer_grads_(self) -> None:
+    def unscale_gradients_(self) -> None:
         """Unscale the associated optimizer's gradients by the current scale."""
-        if not supports_manual_grad_scaling(self._optimizer):
+        if not supports_manual_gradient_scaling(self._optimizer):
             raise RuntimeError(
                 "`optimizer` must support manual gradient scaling via `torch.cuda.amp.GradScaler`, but supports only implicit scaling in its step function (i.e. `_step_supports_amp_scaling == True`)."
             )
 
         self._grad_scaler.unscale_(self._optimizer)
+
+    # compat
+    unscale_optimizer_grads_ = unscale_gradients_
 
     def backward(self, loss: Tensor) -> None:
         """Compute the gradient of ``loss`` after scaling it to avoid underflow."""
@@ -222,7 +225,7 @@ class LossScaleResult:
     """If ``True``, the scale has been decreased to its minimum value."""
 
 
-def supports_manual_grad_scaling(optimizer: Optimizer) -> bool:
+def supports_manual_gradient_scaling(optimizer: Optimizer) -> bool:
     """Return ``True`` if ``optimizer`` supports manual gradient scaling via
     ``torch.cuda.amp.GradScaler``."""
     return not getattr(optimizer, "_step_supports_amp_scaling", False)

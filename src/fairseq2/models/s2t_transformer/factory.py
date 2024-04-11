@@ -62,13 +62,13 @@ class S2TTransformerConfig:
     """The dimensionality of the model."""
 
     max_source_seq_len: int = 1024
-    """The maximum allowed source sequence length after feature extraction."""
+    """The maximum source sequence length after feature extraction."""
 
     num_fbank_channels: int = 80
     """The number of source log-mel filterbank channels."""
 
     max_target_seq_len: int = 1024
-    """The maximum allowed target sequence length."""
+    """The maximum target sequence length."""
 
     target_vocab_info: VocabularyInfo = VocabularyInfo(
         size=10000, unk_idx=3, bos_idx=0, eos_idx=2, pad_idx=1

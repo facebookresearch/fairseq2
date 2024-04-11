@@ -337,13 +337,6 @@ def remove_parametrizations(module: Module, *, recurse: bool = True) -> None:
     visit_module(module, remove, recurse=recurse)
 
 
-def multiply_gradients(module: Module, m: float) -> None:
-    """Multiply gradients of ``module`` by ``m``."""
-    for param in module.parameters():
-        if param.grad is not None:
-            param.grad *= m
-
-
 def infer_device(
     module: Module, name: str = "module", *, recurse: bool = True
 ) -> Device:

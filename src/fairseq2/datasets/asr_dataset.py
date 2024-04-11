@@ -47,7 +47,7 @@ class AsrDataset(ABC):
         :param tokenizer:
             The tokenizer to encode target text.
         :param gang:
-            The gang to shard the dataset.
+            The gang over which to shard the dataset.
         :param max_audio_len:
             The maximum audio length of each example. Examples longer than
             this value will be cropped.

@@ -15,7 +15,7 @@ from torch.nn.functional import group_norm, layer_norm
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.nn import LayerNorm
 from fairseq2.nn.padding import PaddingMask
-from fairseq2.nn.utils.grad import scale_grad
+from fairseq2.nn.utils.gradient import scale_gradient
 from fairseq2.typing import DataType, Device, override
 
 
@@ -28,7 +28,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
     layers: Sequential
     layer_descs: List[Tuple[int, int, int]]
     num_channels: int
-    grad_scale: float
+    gradient_scale: float
 
     def __init__(
         self,
@@ -38,7 +38,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
         num_channels: int = 1,
         dropout_p: float = 0.0,
         layer_norm: bool = False,
-        grad_scale: float = 1.0,
+        gradient_scale: float = 1.0,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:
@@ -55,7 +55,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
         :param layer_norm:
             If ``True``, applies Layer Normalization to outputs of convolutions
             after dropout.
-        :param grad_scale:
+        :param gradient_scale:
             The scale factor for gradients of extracted features. Setting to a
             value less than 1.0 allows the feature extractor to learn at a lower
             rate than the rest of the model.
@@ -121,12 +121,12 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
 
         self.layer_descs = list(layer_descs)
 
-        if grad_scale <= 0.0 or grad_scale > 1.0:
+        if gradient_scale <= 0.0 or gradient_scale > 1.0:
             raise ValueError(
-                f"`grad_scale` must be greater than 0.0 and less than or equal to 1.0, but is {grad_scale} instead."
+                f"`gradient_scale` must be greater than 0.0 and less than or equal to 1.0, but is {gradient_scale} instead."
             )
 
-        self.grad_scale = grad_scale
+        self.gradient_scale = gradient_scale
 
     @override
     def forward(
@@ -155,8 +155,8 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
         # (N, C, S) -> (N, E, S)
         features = self.layers(seqs)
 
-        if self.training and self.grad_scale != 1.0:
-            features = scale_grad(features, self.grad_scale)
+        if self.training and self.gradient_scale != 1.0:
+            features = scale_gradient(features, self.gradient_scale)
 
         # (N, E, S) -> (N, S, E)
         features = features.transpose(1, 2)
@@ -184,7 +184,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
         """:meta private:"""
         s = super().extra_repr()
 
-        return f"{s}, grad_scale={self.grad_scale}"
+        return f"{s}, gradient_scale={self.gradient_scale}"
 
 
 @final
