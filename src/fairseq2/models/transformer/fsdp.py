@@ -17,8 +17,8 @@ from fairseq2.nn.transformer import TransformerDecoder, TransformerEncoder
 
 def get_transformer_wrap_policy(
     model: Module, gang: Gang
-) -> Tuple[Optional[FSDPWrapPolicy], Optional[List[str]]]:
-    """See :class:`~fairseq2.models.fsdp.FSDPWrapPolicyProvider`."""
+) -> Tuple[FSDPWrapPolicy, Optional[List[str]]]:
+    """See :func:`~fairseq2.models.fsdp.to_fsdp`."""
     kls = (TransformerEncoder, TransformerDecoder)
 
     wrap_policy = partial(transformer_auto_wrap_policy, transformer_layer_cls=kls)
