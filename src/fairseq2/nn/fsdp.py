@@ -36,7 +36,7 @@ from fairseq2.utils.version import _is_pt21_or_greater
 def to_fsdp(
     module: Module,
     gang: Gang,
-    wrap_policy: Optional[FSDPWrapPolicy],
+    wrap_policy: FSDPWrapPolicy,
     *,
     ignored_param_names: Optional[Sequence[str]] = None,
     skip_init: bool = False,
@@ -46,13 +46,11 @@ def to_fsdp(
     """Wrap ``module`` with FSDP.
 
     :param module:
-        The module to be wrapped with FSDP.
+        The module to wrap.
     :param gang:
-        The gang over which to shard the module.
+        The gang over which to shard ``module``.
     :param wrap_policy:
-        The policy to apply FSDP to ``module``.  If ``None``, ``module`` will be
-        wrapped with only a top-level FSDP instance and no sharding will applied
-        (i.e. ``NO_SHARD``).
+        The FSDP wrap policy to apply to ``module``.
     :param ignored_param_names:
         The ignored parameter names. Can contain regular expressions.
     :param skip_init:
@@ -64,11 +62,6 @@ def to_fsdp(
     :param memory_policy:
         The policy to instruct FSDP when and how to allocate memory.
     """
-    if wrap_policy is None:
-        sharding_strategy = ShardingStrategy.NO_SHARD
-    else:
-        sharding_strategy = ShardingStrategy.FULL_SHARD
-
     if memory_policy is None:
         memory_policy = FSDP_STANDARD_MEMORY_POLICY
 
@@ -92,7 +85,7 @@ def to_fsdp(
     fsdp = FSDP(
         module,
         process_group=gang.as_process_group(),
-        sharding_strategy=sharding_strategy,
+        sharding_strategy=ShardingStrategy.FULL_SHARD,
         cpu_offload=CPUOffload() if memory_policy.cpu_offload else None,
         auto_wrap_policy=wrap_policy,
         backward_prefetch=memory_policy.backward_prefetch,

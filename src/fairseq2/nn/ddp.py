@@ -20,6 +20,7 @@ def to_ddp(
     module: Module,
     gang: Gang,
     *,
+    broadcast_buffers: bool = False,
     find_unused_parameters: bool = False,
     static_graph: bool = False,
     normalize_gradients: bool = True,
@@ -30,6 +31,8 @@ def to_ddp(
         The module to be wrapped with DDP.
     :param gang:
         The gang over which to replicate the module.
+    :param broadcast_buffers:
+        See the corresponding DDP documentation.
     :param find_unused_parameters:
         See the corresponding DDP documentation.
     :param static_graph:
@@ -40,7 +43,7 @@ def to_ddp(
     """
     ddp = DDP(
         module,
-        device_ids=[gang.device],
+        broadcast_buffers=broadcast_buffers,
         process_group=gang.as_process_group(),
         find_unused_parameters=find_unused_parameters,
         static_graph=static_graph,
