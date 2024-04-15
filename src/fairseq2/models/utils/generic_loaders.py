@@ -5,11 +5,13 @@
 # LICENSE file in the root directory of this source tree.
 
 import logging
+from pathlib import Path
 from copy import deepcopy
 from functools import partial
 from pickle import PickleError
 from typing import Any, Dict, Generic, Optional, Protocol, TypeVar, Union, final
 
+import torch
 from torch.nn import Module
 
 from fairseq2.assets import (
@@ -233,6 +235,11 @@ class ModelLoader(Generic[ModelT, ConfigT]):
         :returns:
             A model loaded from the checkpoint of ``model_name_or_card``.
         """
+        # If the supplied model name is path to a file, load it as checkpoint
+        if Path(model_name_or_card).exists():
+            checkpoint = torch.load(model_name_or_card, map_location=device)
+            model_name_or_card = checkpoint["model_name"]
+        
         if isinstance(model_name_or_card, AssetCard):
             card = model_name_or_card
         else:
@@ -243,32 +250,34 @@ class ModelLoader(Generic[ModelT, ConfigT]):
         # Load the checkpoint.
         uri = card.field("checkpoint").as_uri()
 
-        try:
-            path = self.download_manager.download_checkpoint(
-                uri, card.name, force=force, cache_only=cache_only, progress=progress
-            )
-        except ValueError as ex:
-            raise AssetCardError(
-                f"The value of the field 'checkpoint' of the asset card '{card.name}' is not valid. See nested exception for details."
-            ) from ex
+        # If a "checkpoint" was already loaded, don't load again
+        if 'checkpoint' in locals():
+            try:
+                path = self.download_manager.download_checkpoint(
+                    uri, card.name, force=force, cache_only=cache_only, progress=progress
+                )
+            except ValueError as ex:
+                raise AssetCardError(
+                    f"The value of the field 'checkpoint' of the asset card '{card.name}' is not valid. See nested exception for details."
+                ) from ex
 
-        if self.checkpoint_converter is None:
-            checkpoint_converter = None
-        else:
-            checkpoint_converter = partial(self.checkpoint_converter, config=config)
-
-        try:
-            checkpoint = load_checkpoint(
-                path,
-                map_location=CPU,
-                mmap=self.mmap,
-                restrict=self.restrict_checkpoints,
-                converter=checkpoint_converter,
-            )
-        except (RuntimeError, OSError, KeyError, ValueError, PickleError) as ex:
-            raise AssetError(
-                f"The checkpoint of {card.name} cannot be loaded. See nested exception for details."
-            ) from ex
+            if self.checkpoint_converter is None:
+                checkpoint_converter = None
+            else:
+                checkpoint_converter = partial(self.checkpoint_converter, config=config)
+                
+            try:
+                checkpoint = load_checkpoint(
+                    path,
+                    map_location=CPU,
+                    mmap=self.mmap,
+                    restrict=self.restrict_checkpoints,
+                    converter=checkpoint_converter,
+                )
+            except (RuntimeError, OSError, KeyError, ValueError, PickleError) as ex:
+                raise AssetError(
+                    f"The checkpoint of {card.name} cannot be loaded. See nested exception for details."
+                ) from ex
 
         if out is not None:
             model = out
@@ -306,14 +315,14 @@ class ModelLoader(Generic[ModelT, ConfigT]):
             state_dict = checkpoint["model"]
         except KeyError:
             raise AssetError(
-                f"The checkpoint of {card.name} does not contain a 'model' entry."
+                f"The checkpoint does not contain a 'model' entry."
             )
 
         try:
             load_state_dict(model, state_dict)
         except (KeyError, ValueError) as ex:
             raise AssetError(
-                f"{card.name} cannot be loaded. See nested exception for details."
+                f"Checkpoint cannot be loaded. See nested exception for details."
             ) from ex
 
         if model_device == META:
