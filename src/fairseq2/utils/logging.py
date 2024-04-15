@@ -17,7 +17,7 @@ from logging import (
     getLogger,
 )
 from pathlib import Path
-from typing import Any, List, Optional, final
+from typing import Any, List, Optional, Set, final
 
 
 def setup_logging(
@@ -85,6 +85,7 @@ class LogWriter:
     """Writes log messages using ``format()`` strings."""
 
     _logger: Logger
+    _once_messages: Set[str]
 
     def __init__(self, logger: Logger) -> None:
         """
@@ -93,21 +94,59 @@ class LogWriter:
         """
         self._logger = logger
 
+        self._once_messages = set()
+
     def debug(self, msg: Any, *args: Any, **kwargs: Any) -> None:
         """Log a message with level ``DEBUG``."""
         self._write(logging.DEBUG, msg, args, kwargs)
+
+    def debug_once(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+        """Log a message only once with level ``DEBUG``."""
+        if msg in self._once_messages:
+            return
+
+        self._write(logging.DEBUG, msg, args, kwargs)
+
+        self._once_messages.add(msg)
 
     def info(self, msg: Any, *args: Any, **kwargs: Any) -> None:
         """Log a message with level ``INFO``."""
         self._write(logging.INFO, msg, args, kwargs)
 
+    def info_once(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+        """Log a message only once with level ``INFO``."""
+        if msg in self._once_messages:
+            return
+
+        self._write(logging.INFO, msg, args, kwargs)
+
+        self._once_messages.add(msg)
+
     def warning(self, msg: Any, *args: Any, **kwargs: Any) -> None:
         """Log a message with level ``WARNING``."""
         self._write(logging.WARNING, msg, args, kwargs)
 
+    def warning_once(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+        """Log a message only once with level ``WARNING``."""
+        if msg in self._once_messages:
+            return
+
+        self._write(logging.WARNING, msg, args, kwargs)
+
+        self._once_messages.add(msg)
+
     def error(self, msg: Any, *args: Any, **kwargs: Any) -> None:
         """Log a message with level ``ERROR``."""
         self._write(logging.ERROR, msg, args, kwargs)
+
+    def error_once(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+        """Log a message only once with level ``ERROR``."""
+        if msg in self._once_messages:
+            return
+
+        self._write(logging.ERROR, msg, args, kwargs)
+
+        self._once_messages.add(msg)
 
     def exception(self, msg: Any, *args: Any, **kwargs: Any) -> None:
         """Log a message with level ``ERROR``."""

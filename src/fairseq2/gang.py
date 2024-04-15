@@ -17,7 +17,7 @@ from torch.distributed import ProcessGroup, ReduceOp
 
 from fairseq2.typing import CPU, Device, override
 from fairseq2.utils.logging import get_log_writer
-from fairseq2.utils.version import _is_pt22_or_greater
+from fairseq2.utils.version import torch_greater_or_equal
 
 log = get_log_writer(__name__)
 
@@ -239,7 +239,7 @@ class ProcessGroupGang(AbstractGang):
                 if env_name in os.environ:
                     return
 
-                if _is_pt22_or_greater():
+                if torch_greater_or_equal(2, 2):
                     env_name = "TORCH_NCCL_ASYNC_ERROR_HANDLING"
                     if env_name in os.environ:
                         return

@@ -20,7 +20,7 @@ from fairseq2.nn import LayerNorm, PositionEncoder, StandardLayerNorm
 from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask, apply_padding_mask
 from fairseq2.typing import DataType, Device, override
-from fairseq2.utils.version import _is_pt22_or_greater
+from fairseq2.utils.version import torch_greater_or_equal
 
 
 @final
@@ -116,7 +116,7 @@ class Wav2Vec2PositionalConv1d(Conv1d):
         except AttributeError:
             weight = self.weight
 
-            if weight.dtype == torch.bfloat16 and not _is_pt22_or_greater():
+            if weight.dtype == torch.bfloat16 and not torch_greater_or_equal(2, 2):
                 raise RuntimeError(
                     "`torch.nn.utils.weight_norm()` supports `torch.bfloat16` only in PyTorch 2.2 and later versions."
                 )

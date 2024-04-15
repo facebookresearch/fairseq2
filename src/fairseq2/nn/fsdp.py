@@ -30,7 +30,7 @@ from fairseq2.nn.utils.module import (
     to_empty,
 )
 from fairseq2.typing import META, Device
-from fairseq2.utils.version import _is_pt21_or_greater
+from fairseq2.utils.version import torch_greater_or_equal
 
 
 def to_fsdp(
@@ -66,7 +66,7 @@ def to_fsdp(
         memory_policy = FSDP_STANDARD_MEMORY_POLICY
 
     if infer_device(module) == META:
-        if not _is_pt21_or_greater():
+        if not torch_greater_or_equal(2, 1):
             raise RuntimeError(
                 "FSDP meta initialization is only supported by PyTorch 2.1.0 or greater."
             )
