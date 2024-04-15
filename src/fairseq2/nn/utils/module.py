@@ -292,8 +292,7 @@ def freeze_parameters(module: Optional[Module], value: bool = True) -> None:
     if module is None:
         return
 
-    for param in module.parameters():
-        param.requires_grad_(not value)
+    module.requires_grad_(not value)
 
 
 def select_parameters(

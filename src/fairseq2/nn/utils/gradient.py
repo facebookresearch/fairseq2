@@ -24,7 +24,7 @@ def scale_gradients(module: Module, value: float) -> None:
     """Scale gradients of ``module`` by ``value``.
 
     :param module:
-        The module whose gradients to clip.
+        The module whose gradients to scale.
     :param value:
         The value to scale by.
     """
