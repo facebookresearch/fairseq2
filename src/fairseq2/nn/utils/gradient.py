@@ -44,10 +44,10 @@ def scale_gradient(x: Tensor, scale: float) -> Tensor:
     :param scale:
         The scale factor of the gradient.
     """
-    return _GradientScaler.apply(x, scale)  # type: ignore[no-any-return]
+    return _GradientScaleFunction.apply(x, scale)  # type: ignore[no-any-return]
 
 
-class _GradientScaler(Function):
+class _GradientScaleFunction(Function):
     @staticmethod
     def forward(ctx: Any, x: Tensor, scale: float) -> Tensor:  # type: ignore[override]
         if not x.dtype.is_floating_point:
@@ -60,8 +60,8 @@ class _GradientScaler(Function):
         return x.clone().detach().requires_grad_(True)
 
     @staticmethod
-    def backward(ctx: Any, output: Tensor) -> Tuple[Tensor, None]:  # type: ignore[override]
-        return output * ctx.scale, None
+    def backward(ctx: Any, grad_output: Tensor) -> Tuple[Tensor, None]:  # type: ignore[override]
+        return grad_output * ctx.scale, None
 
 
 def clip_gradient_norm(

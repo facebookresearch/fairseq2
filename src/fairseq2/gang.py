@@ -8,7 +8,7 @@ import os
 from abc import ABC, abstractmethod
 from datetime import timedelta
 from enum import Enum
-from typing import Optional, final
+from typing import List, Optional, final
 
 import torch
 import torch.distributed as dist
@@ -49,7 +49,7 @@ class Gang(ABC):
 
     @abstractmethod
     def all_reduce(self, tensor: Tensor, op: ReduceOperation) -> None:
-        """Reduce the tensor across all processes.
+        """Reduce ``tensor`` across all processes.
 
         :param tensor:
             The input and output tensor of the operation.
@@ -59,10 +59,22 @@ class Gang(ABC):
 
     @abstractmethod
     def all_gather(self, output_tensor: Tensor, input_tensor: Tensor) -> None:
-        """Gather tensors from all processes and put them in a single tensor.
+        """Gather tensors from all processes and put them in ``output_tensor``.
 
         :param output_tensor:
             The output tensor to accomodate tensors from all processes.
+        :param input_tensor:
+            The tensor to be gathered from this process.
+        """
+
+    @abstractmethod
+    def all_gather_to_list(
+        self, output_tensors: List[Tensor], input_tensor: Tensor
+    ) -> None:
+        """Gather tensors from all processes and put them in ``output_tensors``.
+
+        :param output_tensors:
+            The tensor list to accomodate tensors from all processes.
         :param input_tensor:
             The tensor to be gathered from this process.
         """
@@ -130,8 +142,8 @@ class FakeGang(AbstractGang):
     def __init__(self, device: Optional[Device] = None) -> None:
         """
         :param device:
-            If ``None``; if CUDA is available, the process will use the first
-            CUDA device; otherwise, it will use the CPU.
+            If ``None``; if CUDA is available, the gang will use the default
+            CUDA device of the process; otherwise, it will use the CPU.
         """
         if device is None:
             device = _determine_default_device()
@@ -158,6 +170,12 @@ class FakeGang(AbstractGang):
     def all_gather(self, output_tensor: Tensor, input_tensor: Tensor) -> None:
         output_tensor.copy_(input_tensor)
 
+    @override
+    def all_gather_to_list(
+        self, output_tensors: List[Tensor], input_tensor: Tensor
+    ) -> None:
+        output_tensors[0] = input_tensor.clone().detach()
+
 
 @final
 class ProcessGroupGang(AbstractGang):
@@ -182,16 +200,15 @@ class ProcessGroupGang(AbstractGang):
         """Initialize the default process group and wrap it as a gang.
 
         :param device:
-            If ``None``; if CUDA is available, the process group will be
-            initialized on an automatically selected CUDA device; otherwise,
-            it will be initialized on the CPU.
+            If ``None``; if CUDA is available, the gang will use the default
+            CUDA device of the process; otherwise, it will use the CPU.
         :param timeout:
             The timeout for operations executed against the process group.
         :param num_threads:
             The number of threads used for interaop parallelism.
         :param warn_only:
-            If ``True``, logs a warning instead of raising an error if the
-            process group is not set up reliably.
+            If ``True``, logs a warning instead of raising an error if the gang
+            is not set up reliably.
         :param ok_initialized:
             If ``True``, does not raise an error if the process group is already
             initialized.
@@ -322,6 +339,12 @@ class ProcessGroupGang(AbstractGang):
     @override
     def all_gather(self, output_tensor: Tensor, input_tensor: Tensor) -> None:
         dist.all_gather_into_tensor(output_tensor, input_tensor, group=self._pg)
+
+    @override
+    def all_gather_to_list(
+        self, output_tensors: List[Tensor], input_tensor: Tensor
+    ) -> None:
+        dist.all_gather(output_tensors, input_tensor, group=self._pg)
 
     @staticmethod
     def _get_reduce_op(op: ReduceOperation):  # type: ignore[no-untyped-def]
