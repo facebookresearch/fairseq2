@@ -36,31 +36,31 @@ class ModelConfigLoader(Protocol[ModelConfigT_co]):
 class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
     """Loads model configurations of type ``ModelConfigT``."""
 
+    _asset_store: AssetStore
     _family: str
     _config_kls: Type[ModelConfigT]
     _archs: Optional[ModelArchitectureRegistry[ModelConfigT]]
-    _asset_store: AssetStore
 
     def __init__(
         self,
+        asset_store: AssetStore,
         family: str,
         config_kls: Type[ModelConfigT],
         archs: Optional[ModelArchitectureRegistry[ModelConfigT]],
-        asset_store: AssetStore,
     ) -> None:
         """
+        :param asset_store:
+            The asset store where to check for available models.
         :param family:
             The model family.
         :param config_kls:
             The type of the model configuration.
-        :param asset_store:
-            The asset store where to check for available models.
         :param archs:
             The registry containing all supported model architectures.
         """
+        self._asset_store = asset_store
         self._family = family
         self._config_kls = config_kls
-        self._asset_store = asset_store
         self._archs = archs
 
     def __call__(self, model_name_or_card: Union[str, AssetCard]) -> ModelConfigT:

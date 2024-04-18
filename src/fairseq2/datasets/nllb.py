@@ -30,7 +30,7 @@ from fairseq2.datasets.loader import AbstractDatasetLoader
 from fairseq2.datasets.parallel_text_dataset import (
     LangPair,
     ParallelTextDataset,
-    setup_parallel_text_dataset,
+    load_parallel_text_dataset,
 )
 from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
@@ -397,6 +397,6 @@ class NllbDatasetLoader(AbstractDatasetLoader[NllbDataset]):
         return NllbDataset(card.name, path, split_lang_pairs)
 
 
-load_nllb_dataset = setup_parallel_text_dataset(
-    "nllb", NllbDatasetLoader(default_asset_store, default_download_manager)
-)
+load_nllb_dataset = NllbDatasetLoader(default_asset_store, default_download_manager)
+
+load_parallel_text_dataset.register("nllb", load_nllb_dataset)

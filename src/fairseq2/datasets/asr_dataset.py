@@ -5,12 +5,12 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import List, Optional, TypeVar
+from typing import List, Optional
 
 from fairseq2.assets import default_asset_store
 from fairseq2.data.text import TextTokenizer
 from fairseq2.datasets.data_reader import DataReader
-from fairseq2.datasets.loader import DatasetLoader, DelegatingDatasetLoader
+from fairseq2.datasets.loader import DelegatingDatasetLoader
 from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.typing import DataType
@@ -75,21 +75,3 @@ class AsrDataset(ABC):
 
 
 load_asr_dataset = DelegatingDatasetLoader[AsrDataset](default_asset_store)
-
-
-AsrDatasetT = TypeVar("AsrDatasetT", bound=AsrDataset)
-
-
-def setup_asr_dataset(
-    family: str, loader: DatasetLoader[AsrDatasetT]
-) -> DatasetLoader[AsrDatasetT]:
-    """Set up an automatic speech recognition dataset.
-
-    :param family:
-        The name of the dataset family.
-    :param loader:
-        The dataset loader.
-    """
-    load_asr_dataset.register_loader(family, loader)
-
-    return loader
