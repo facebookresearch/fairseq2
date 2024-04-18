@@ -161,6 +161,13 @@ class VocabShardedEmbedding(Embedding):
         :param gang:
             The gang over which to shard ``embed``.
         """
+        device = embed.weight.device
+
+        if device != gang.device and device != META:
+            raise ValueError(
+                "The device of `embed` must either match `gang.device` or must be of type `meta`."
+            )
+
         sharded = VocabShardedEmbedding(
             gang,
             embed.num_embeddings,
@@ -171,7 +178,8 @@ class VocabShardedEmbedding(Embedding):
             dtype=embed.weight.dtype,
         )
 
-        to_empty(sharded, gang.device)
+        if device != META:
+            to_empty(sharded, device)
 
         sharded._copy_table(embed)
 
@@ -338,6 +346,13 @@ class ShardedEmbedding(Embedding):
         :param gang:
             The gang over which to shard ``embed``.
         """
+        device = embed.weight.device
+
+        if device != gang.device and device != META:
+            raise ValueError(
+                "The device of `embed` must either match `gang.device` or must be of type `meta`."
+            )
+
         sharded = ShardedEmbedding(
             gang,
             embed.num_embeddings,
@@ -348,7 +363,8 @@ class ShardedEmbedding(Embedding):
             dtype=embed.weight.dtype,
         )
 
-        to_empty(sharded, gang.device)
+        if device != META:
+            to_empty(sharded, device)
 
         sharded._copy_table(embed)
 

@@ -4,13 +4,14 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Any, Dict
+from typing import Any, Dict, final
 
-from fairseq2.assets import default_asset_store, default_download_manager
+from fairseq2.assets import AssetCard, default_asset_store, default_download_manager
 from fairseq2.data.text import (
     default_basic_sentencepiece_tokenizer_loader,
     load_text_tokenizer,
 )
+from fairseq2.gang import Gang
 from fairseq2.models.config_loader import StandardModelConfigLoader
 from fairseq2.models.llama.factory import (
     LLAMA_FAMILY,
@@ -19,11 +20,31 @@ from fairseq2.models.llama.factory import (
     llama_archs,
 )
 from fairseq2.models.loader import DenseModelLoader, load_model
+from fairseq2.models.transformer import (
+    TransformerDecoderModel,
+    shard_transformer_decoder_model,
+)
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
+from fairseq2.typing import override
 
 load_llama_config = StandardModelConfigLoader(
     default_asset_store, LLAMA_FAMILY, LLaMAConfig, llama_archs
 )
+
+
+@final
+class LLaMAModelLoader(DenseModelLoader[TransformerDecoderModel, LLaMAConfig]):
+    """Loads LLaMA models."""
+
+    @override
+    def _shard(
+        self, model: TransformerDecoderModel, gangs: Dict[str, Gang], card: AssetCard
+    ) -> None:
+        gang = gangs["tp"]  # tensor parallel
+
+        shard_embed_dim = card.field("shard_embed_dim").get_as_(bool, True)
+
+        shard_transformer_decoder_model(model, gang, shard_embed_dim=shard_embed_dim)
 
 
 def convert_llama_checkpoint(
@@ -59,7 +80,7 @@ def convert_llama_checkpoint(
     return {"model": checkpoint}
 
 
-load_llama_model = DenseModelLoader(
+load_llama_model = LLaMAModelLoader(
     default_asset_store,
     default_download_manager,
     load_llama_config,

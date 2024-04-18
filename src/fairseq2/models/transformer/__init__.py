@@ -7,6 +7,9 @@
 from fairseq2.models.transformer.decoder_model import (
     TransformerDecoderModel as TransformerDecoderModel,
 )
+from fairseq2.models.transformer.decoder_model import (
+    shard_transformer_decoder_model as shard_transformer_decoder_model,
+)
 from fairseq2.models.transformer.frontend import (
     TransformerEmbeddingFrontend as TransformerEmbeddingFrontend,
 )
