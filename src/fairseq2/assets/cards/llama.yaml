@@ -32,3 +32,17 @@ model_arch: llama2_7b
 name: llama2_7b_chat
 base: llama2
 model_arch: llama2_7b
+
+---
+
+name: llama2_70b
+base: llama2
+model_arch: llama2_70b
+num_shards: 8
+
+---
+
+name: llama2_70b_chat
+base: llama2
+model_arch: llama2_70b
+num_shards: 8

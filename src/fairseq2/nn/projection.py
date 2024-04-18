@@ -155,6 +155,13 @@ class ColumnShardedLinear(Projection):
         :param gang:
             The gang over which to shard ``linear``.
         """
+        device = linear.weight.device
+
+        if device != gang.device and device != META:
+            raise ValueError(
+                "The device of `linear` must either match `gang.device` or must be of type `meta`."
+            )
+
         sharded = ColumnShardedLinear(
             gang,
             linear.input_dim,
@@ -165,7 +172,8 @@ class ColumnShardedLinear(Projection):
             dtype=linear.weight.dtype,
         )
 
-        to_empty(sharded, gang.device)
+        if device != META:
+            to_empty(sharded, device)
 
         sharded._copy_weight_and_bias(linear)
 
@@ -329,6 +337,13 @@ class RowShardedLinear(Projection):
         :param gang:
             The gang over which to shard ``linear``.
         """
+        device = linear.weight.device
+
+        if device != gang.device and device != META:
+            raise ValueError(
+                "The device of `linear` must either match `gang.device` or must be of type `meta`."
+            )
+
         sharded = RowShardedLinear(
             gang,
             linear.input_dim,
@@ -339,7 +354,8 @@ class RowShardedLinear(Projection):
             dtype=linear.weight.dtype,
         )
 
-        to_empty(sharded, gang.device)
+        if device != META:
+            to_empty(sharded, device)
 
         sharded._copy_weight_and_bias(linear)
 
