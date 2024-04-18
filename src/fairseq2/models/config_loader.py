@@ -108,12 +108,7 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
 
         # Check if we should override anything in the default model
         # configuration.
-        try:
-            config_overrides = card.field("model_config").as_(dict)
-        except AssetCardFieldNotFoundError:
-            config_overrides = None
-
-        if config_overrides:
+        if config_overrides := card.field("model_config").get_as_(dict):
             try:
                 update_dataclass(config, deepcopy(config_overrides))
             except (TypeError, ValueError) as ex:
