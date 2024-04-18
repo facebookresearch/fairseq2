@@ -285,7 +285,7 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
 
         return loader(card, force=force, progress=progress)
 
-    def register_loader(
+    def register(
         self, family: str, loader: TextTokenizerLoader[TextTokenizerT]
     ) -> None:
         """Register a tokenizer loader to use with this loader.
@@ -306,18 +306,3 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
 
 
 load_text_tokenizer = DelegatingTextTokenizerLoader[TextTokenizer](default_asset_store)
-
-
-def setup_text_tokenizer(
-    family: str, loader: TextTokenizerLoader[TextTokenizerT]
-) -> TextTokenizerLoader[TextTokenizerT]:
-    """Set up a text tokenizer.
-
-    :param family:
-        The name of the tokenizer family.
-    :param loader:
-        The tokenizer loader.
-    """
-    load_text_tokenizer.register_loader(family, loader)
-
-    return loader

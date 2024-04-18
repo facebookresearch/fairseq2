@@ -6,7 +6,6 @@
 
 from fairseq2.datasets.asr_dataset import AsrDataset as AsrDataset
 from fairseq2.datasets.asr_dataset import load_asr_dataset as load_asr_dataset
-from fairseq2.datasets.asr_dataset import setup_asr_dataset as setup_asr_dataset
 from fairseq2.datasets.data_reader import DataPipelineReader as DataPipelineReader
 from fairseq2.datasets.data_reader import DataReader as DataReader
 from fairseq2.datasets.error import DatasetError as DatasetError

@@ -46,8 +46,5 @@ from fairseq2.data.text.text_tokenizer import TextTokenDecoder as TextTokenDecod
 from fairseq2.data.text.text_tokenizer import TextTokenEncoder as TextTokenEncoder
 from fairseq2.data.text.text_tokenizer import TextTokenizerLoader as TextTokenizerLoader
 from fairseq2.data.text.text_tokenizer import load_text_tokenizer as load_text_tokenizer
-from fairseq2.data.text.text_tokenizer import (
-    setup_text_tokenizer as setup_text_tokenizer,
-)
 
 TextTokenizer = AbstractTextTokenizer  # compat

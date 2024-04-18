@@ -6,18 +6,24 @@
 
 from typing import Any, Dict
 
+from fairseq2.assets import default_asset_store, default_download_manager
 from fairseq2.data.text import (
     default_basic_sentencepiece_tokenizer_loader,
-    setup_text_tokenizer,
+    load_text_tokenizer,
 )
+from fairseq2.models.config_loader import StandardModelConfigLoader
+from fairseq2.models.loader import DenseModelLoader, load_model
 from fairseq2.models.mistral.factory import (
     MISTRAL_FAMILY,
     MistralConfig,
     create_mistral_model,
     mistral_archs,
 )
-from fairseq2.models.setup import setup_dense_model
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
+
+load_mistral_config = StandardModelConfigLoader(
+    default_asset_store, MISTRAL_FAMILY, MistralConfig, mistral_archs
+)
 
 
 def convert_mistral_checkpoint(
@@ -50,15 +56,17 @@ def convert_mistral_checkpoint(
     return {"model": checkpoint}
 
 
-load_mistral_model, load_mistral_config = setup_dense_model(
-    MISTRAL_FAMILY,
-    MistralConfig,
+load_mistral_model = DenseModelLoader(
+    default_asset_store,
+    default_download_manager,
+    load_mistral_config,
     create_mistral_model,
-    mistral_archs,
     convert_mistral_checkpoint,
     mmap=True,
 )
 
-load_mistral_tokenizer = setup_text_tokenizer(
-    MISTRAL_FAMILY, default_basic_sentencepiece_tokenizer_loader
-)
+load_model.register(MISTRAL_FAMILY, load_mistral_model)
+
+load_mistral_tokenizer = default_basic_sentencepiece_tokenizer_loader
+
+load_text_tokenizer.register(MISTRAL_FAMILY, load_mistral_tokenizer)

@@ -140,7 +140,7 @@ class DelegatingDatasetLoader(DatasetLoader[DatasetT]):
 
         return loader(card, force=force, progress=progress)
 
-    def register_loader(self, family: str, loader: DatasetLoader[DatasetT]) -> None:
+    def register(self, family: str, loader: DatasetLoader[DatasetT]) -> None:
         """Register a dataset loader to use with this loader.
 
         :param family:
