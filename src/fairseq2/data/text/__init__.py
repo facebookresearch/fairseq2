@@ -11,6 +11,9 @@ from fairseq2.data.text.sentencepiece import (
     BasicSentencePieceTokenizer as BasicSentencePieceTokenizer,
 )
 from fairseq2.data.text.sentencepiece import (
+    BasicSentencePieceTokenizerLoader as BasicSentencePieceTokenizerLoader,
+)
+from fairseq2.data.text.sentencepiece import (
     SentencePieceDecoder as SentencePieceDecoder,
 )
 from fairseq2.data.text.sentencepiece import (
@@ -21,10 +24,7 @@ from fairseq2.data.text.sentencepiece import (
     SentencePieceTokenizer as SentencePieceTokenizer,
 )
 from fairseq2.data.text.sentencepiece import (
-    load_basic_sentencepiece_tokenizer as load_basic_sentencepiece_tokenizer,
-)
-from fairseq2.data.text.sentencepiece import (
-    setup_basic_sentencepiece_tokenizer as setup_basic_sentencepiece_tokenizer,
+    default_basic_sentencepiece_tokenizer_loader as default_basic_sentencepiece_tokenizer_loader,
 )
 from fairseq2.data.text.sentencepiece import (
     vocab_info_from_sentencepiece as vocab_info_from_sentencepiece,
@@ -37,16 +37,13 @@ from fairseq2.data.text.text_tokenizer import (
     AbstractTextTokenizer as AbstractTextTokenizer,
 )
 from fairseq2.data.text.text_tokenizer import (
-    DelegatingTextTokenizerLoader as DelegatingTextTokenizerLoader,
+    AbstractTextTokenizerLoader as AbstractTextTokenizerLoader,
 )
 from fairseq2.data.text.text_tokenizer import (
-    StandardTextTokenizerLoader as StandardTextTokenizerLoader,
+    DelegatingTextTokenizerLoader as DelegatingTextTokenizerLoader,
 )
 from fairseq2.data.text.text_tokenizer import TextTokenDecoder as TextTokenDecoder
 from fairseq2.data.text.text_tokenizer import TextTokenEncoder as TextTokenEncoder
-from fairseq2.data.text.text_tokenizer import (
-    TextTokenizerFactory as TextTokenizerFactory,
-)
 from fairseq2.data.text.text_tokenizer import TextTokenizerLoader as TextTokenizerLoader
 from fairseq2.data.text.text_tokenizer import load_text_tokenizer as load_text_tokenizer
 from fairseq2.data.text.text_tokenizer import (

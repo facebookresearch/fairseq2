@@ -8,7 +8,7 @@ from typing import Any, Dict
 
 import torch
 
-from fairseq2.models.setup import setup_model
+from fairseq2.models.setup import setup_dense_model
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
 from fairseq2.models.wav2vec2.factory import (
     WAV2VEC2_FAMILY,
@@ -67,7 +67,7 @@ def convert_wav2vec2_checkpoint(
     return convert_fairseq_checkpoint(checkpoint, key_map)
 
 
-load_wav2vec2_model, load_wav2vec2_config = setup_model(
+load_wav2vec2_model, load_wav2vec2_config = setup_dense_model(
     WAV2VEC2_FAMILY,
     Wav2Vec2Config,
     create_wav2vec2_model,

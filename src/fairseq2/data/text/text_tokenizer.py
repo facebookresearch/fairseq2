@@ -20,7 +20,6 @@ from fairseq2.assets import (
     AssetError,
     AssetStore,
     default_asset_store,
-    default_download_manager,
 )
 from fairseq2.data.vocabulary_info import VocabularyInfo
 from fairseq2.typing import Device, override
@@ -166,7 +165,6 @@ class TextTokenizerLoader(Protocol[TextTokenizerT_co]):
         tokenizer_name_or_card: Union[str, AssetCard],
         *,
         force: bool = False,
-        cache_only: bool = False,
         progress: bool = True,
     ) -> TextTokenizerT_co:
         """
@@ -174,57 +172,34 @@ class TextTokenizerLoader(Protocol[TextTokenizerT_co]):
             The name or asset card of the tokenizer to load.
         :param force:
             If ``True``, downloads the tokenizer even if it is already in cache.
-        :param cache_only:
-            If ``True``, skips the download and uses the cached tokenizer.
         :param progress:
             If ``True``, displays a progress bar to stderr.
         """
 
 
-class TextTokenizerFactory(Protocol[TextTokenizerT_co]):
-    """Constructs text tokenizers of type ``TextTokenizerT``."""
-
-    def __call__(self, path: Path, card: AssetCard) -> TextTokenizerT_co:
-        """
-        :param path:
-            The path to the tokenizer.
-        :param card:
-            The asset card of the tokenizer.
-        """
-
-
-@final
-class StandardTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
-    """Loads text tokenizers of type ``TokenizerT``."""
+class AbstractTextTokenizerLoader(ABC, TextTokenizerLoader[TextTokenizerT]):
+    """Provides a skeletal implementation of :class:`TextTokenizerLoader`."""
 
     _asset_store: AssetStore
     _download_manager: AssetDownloadManager
-    _factory: TextTokenizerFactory[TextTokenizerT]
 
     def __init__(
-        self,
-        asset_store: AssetStore,
-        download_manager: AssetDownloadManager,
-        factory: TextTokenizerFactory[TextTokenizerT],
+        self, asset_store: AssetStore, download_manager: AssetDownloadManager
     ) -> None:
         """
         :param asset_store:
             The asset store where to check for available tokenizers.
         :param download_manager:
             The download manager.
-        :param factory:
-            The factory to construct tokenizers.
         """
         self._asset_store = asset_store
         self._download_manager = download_manager
-        self._factory = factory
 
     def __call__(
         self,
         tokenizer_name_or_card: Union[str, AssetCard],
         *,
         force: bool = False,
-        cache_only: bool = False,
         progress: bool = True,
     ) -> TextTokenizerT:
         if isinstance(tokenizer_name_or_card, AssetCard):
@@ -236,7 +211,7 @@ class StandardTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
 
         try:
             path = self._download_manager.download_tokenizer(
-                uri, card.name, force=force, cache_only=cache_only, progress=progress
+                uri, card.name, force=force, progress=progress
             )
         except ValueError as ex:
             raise AssetCardError(
@@ -244,11 +219,20 @@ class StandardTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
             ) from ex
 
         try:
-            return self._factory(path, card)
+            return self._load(path, card)
         except ValueError as ex:
             raise AssetError(
                 f"The {card.name} tokenizer cannot be loaded. See nested exception for details."
             ) from ex
+
+    @abstractmethod
+    def _load(self, path: Path, card: AssetCard) -> TextTokenizerT:
+        """
+        :param path:
+            The path to the tokenizer.
+        :param card:
+            The asset card of the tokenizer.
+        """
 
 
 @final
@@ -272,7 +256,6 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
         tokenizer_name_or_card: Union[str, AssetCard],
         *,
         force: bool = False,
-        cache_only: bool = False,
         progress: bool = True,
     ) -> TextTokenizerT:
         if isinstance(tokenizer_name_or_card, AssetCard):
@@ -300,7 +283,7 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
                 f"The value of the field '{field_name}' of the asset card '{card.name}' must be a supported tokenizer family, but '{family}' has no registered loader."
             )
 
-        return loader(card, force=force, cache_only=cache_only, progress=progress)
+        return loader(card, force=force, progress=progress)
 
     def register_loader(
         self, family: str, loader: TextTokenizerLoader[TextTokenizerT]
@@ -326,19 +309,15 @@ load_text_tokenizer = DelegatingTextTokenizerLoader[TextTokenizer](default_asset
 
 
 def setup_text_tokenizer(
-    family: str, factory: TextTokenizerFactory[TextTokenizerT]
+    family: str, loader: TextTokenizerLoader[TextTokenizerT]
 ) -> TextTokenizerLoader[TextTokenizerT]:
     """Set up a text tokenizer.
 
     :param family:
         The name of the tokenizer family.
-    :param factory:
-        The factory to construct tokenizers.
+    :param loader:
+        The tokenizer loader.
     """
-    loader = StandardTextTokenizerLoader(
-        default_asset_store, default_download_manager, factory
-    )
-
     load_text_tokenizer.register_loader(family, loader)
 
     return loader

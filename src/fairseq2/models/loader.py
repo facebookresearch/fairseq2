@@ -110,8 +110,8 @@ class CheckpointConverter(Protocol[ModelConfigT_contra]):
 
 
 @final
-class StandardModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
-    """Loads models of type ``ModelT``."""
+class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
+    """Loads dense models of type ``ModelT``."""
 
     _asset_store: AssetStore
     _download_manager: AssetDownloadManager

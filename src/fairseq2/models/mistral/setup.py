@@ -6,14 +6,17 @@
 
 from typing import Any, Dict
 
-from fairseq2.data.text import setup_basic_sentencepiece_tokenizer
+from fairseq2.data.text import (
+    default_basic_sentencepiece_tokenizer_loader,
+    setup_text_tokenizer,
+)
 from fairseq2.models.mistral.factory import (
     MISTRAL_FAMILY,
     MistralConfig,
     create_mistral_model,
     mistral_archs,
 )
-from fairseq2.models.setup import setup_model
+from fairseq2.models.setup import setup_dense_model
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
 
@@ -47,7 +50,7 @@ def convert_mistral_checkpoint(
     return {"model": checkpoint}
 
 
-load_mistral_model, load_mistral_config = setup_model(
+load_mistral_model, load_mistral_config = setup_dense_model(
     MISTRAL_FAMILY,
     MistralConfig,
     create_mistral_model,
@@ -56,4 +59,6 @@ load_mistral_model, load_mistral_config = setup_model(
     mmap=True,
 )
 
-load_mistral_tokenizer = setup_basic_sentencepiece_tokenizer(MISTRAL_FAMILY)
+load_mistral_tokenizer = setup_text_tokenizer(
+    MISTRAL_FAMILY, default_basic_sentencepiece_tokenizer_loader
+)

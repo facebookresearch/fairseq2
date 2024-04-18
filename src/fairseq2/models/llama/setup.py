@@ -6,14 +6,17 @@
 
 from typing import Any, Dict
 
-from fairseq2.data.text import setup_basic_sentencepiece_tokenizer
+from fairseq2.data.text import (
+    default_basic_sentencepiece_tokenizer_loader,
+    setup_text_tokenizer,
+)
 from fairseq2.models.llama.factory import (
     LLAMA_FAMILY,
     LLaMAConfig,
     create_llama_model,
     llama_archs,
 )
-from fairseq2.models.setup import setup_model
+from fairseq2.models.setup import setup_dense_model
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
 
@@ -50,7 +53,7 @@ def convert_llama_checkpoint(
     return {"model": checkpoint}
 
 
-load_llama_model, load_llama_config = setup_model(
+load_llama_model, load_llama_config = setup_dense_model(
     LLAMA_FAMILY,
     LLaMAConfig,
     create_llama_model,
@@ -59,4 +62,6 @@ load_llama_model, load_llama_config = setup_model(
     mmap=True,
 )
 
-load_llama_tokenizer = setup_basic_sentencepiece_tokenizer(LLAMA_FAMILY)
+load_llama_tokenizer = setup_text_tokenizer(
+    LLAMA_FAMILY, default_basic_sentencepiece_tokenizer_loader
+)
