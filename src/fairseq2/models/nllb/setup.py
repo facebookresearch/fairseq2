@@ -5,12 +5,12 @@
 # LICENSE file in the root directory of this source tree.
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, final
 
 import torch
 
-from fairseq2.assets import AssetCard
-from fairseq2.data.text import setup_text_tokenizer
+from fairseq2.assets import AssetCard, default_asset_store, default_download_manager
+from fairseq2.data.text import AbstractTextTokenizerLoader, setup_text_tokenizer
 from fairseq2.models.nllb.factory import (
     NLLB_FAMILY,
     NllbConfig,
@@ -18,8 +18,9 @@ from fairseq2.models.nllb.factory import (
     nllb_archs,
 )
 from fairseq2.models.nllb.tokenizer import NllbTokenizer
-from fairseq2.models.setup import setup_model
+from fairseq2.models.setup import setup_dense_model
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
+from fairseq2.typing import override
 
 
 def convert_nllb_checkpoint(
@@ -85,7 +86,7 @@ def convert_nllb_checkpoint(
     return checkpoint
 
 
-load_nllb_model, load_nllb_config = setup_model(
+load_nllb_model, load_nllb_config = setup_dense_model(
     NLLB_FAMILY,
     NllbConfig,
     create_nllb_model,
@@ -96,12 +97,19 @@ load_nllb_model, load_nllb_config = setup_model(
 )
 
 
-def create_nllb_tokenizer(path: Path, card: AssetCard) -> NllbTokenizer:
-    langs = card.field("langs").as_list(str)
+@final
+class NllbTokenizerLoader(AbstractTextTokenizerLoader[NllbTokenizer]):
+    """Loads NLLB tokenizers."""
 
-    default_lang = card.field("default_lang").as_(str)
+    @override
+    def _load(self, path: Path, card: AssetCard) -> NllbTokenizer:
+        langs = card.field("langs").as_list(str)
 
-    return NllbTokenizer(path, langs, default_lang)
+        default_lang = card.field("default_lang").as_(str)
+
+        return NllbTokenizer(path, langs, default_lang)
 
 
-load_nllb_tokenizer = setup_text_tokenizer(NLLB_FAMILY, create_nllb_tokenizer)
+load_nllb_tokenizer = setup_text_tokenizer(
+    NLLB_FAMILY, NllbTokenizerLoader(default_asset_store, default_download_manager)
+)

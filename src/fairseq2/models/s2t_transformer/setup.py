@@ -5,10 +5,10 @@
 # LICENSE file in the root directory of this source tree.
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Final, final
 
-from fairseq2.assets import AssetCard
-from fairseq2.data.text import setup_text_tokenizer
+from fairseq2.assets import AssetCard, default_asset_store, default_download_manager
+from fairseq2.data.text import AbstractTextTokenizerLoader, setup_text_tokenizer
 from fairseq2.models.s2t_transformer.factory import (
     S2T_TRANSFORMER_FAMILY,
     S2TTransformerConfig,
@@ -16,8 +16,9 @@ from fairseq2.models.s2t_transformer.factory import (
     s2t_transformer_archs,
 )
 from fairseq2.models.s2t_transformer.tokenizer import S2TTransformerTokenizer
-from fairseq2.models.setup import setup_model
+from fairseq2.models.setup import setup_dense_model
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
+from fairseq2.typing import override
 
 
 def convert_s2t_transformer_checkpoint(
@@ -81,7 +82,7 @@ def convert_s2t_transformer_checkpoint(
     return convert_fairseq_checkpoint(checkpoint, key_map)
 
 
-load_s2t_transformer_model, load_s2t_transformer_config = setup_model(
+load_s2t_transformer_model, load_s2t_transformer_config = setup_dense_model(
     S2T_TRANSFORMER_FAMILY,
     S2TTransformerConfig,
     create_s2t_transformer_model,
@@ -92,18 +93,26 @@ load_s2t_transformer_model, load_s2t_transformer_config = setup_model(
 )
 
 
-def create_s2t_transformer_tokenizer(
-    path: Path, card: AssetCard
-) -> S2TTransformerTokenizer:
-    task = card.field("task").as_one_of({"translation", "transcription"})
+@final
+class S2TTransformerTokenizerLoader(
+    AbstractTextTokenizerLoader[S2TTransformerTokenizer]
+):
+    """Loads S2T Transformer tokenizers."""
 
-    target_langs = card.field("target_langs").as_list(str)
+    _VALID_TASKS: Final = {"translation", "transcription"}
 
-    return S2TTransformerTokenizer(
-        path, task, set(target_langs), default_target_lang=target_langs[0]
-    )
+    @override
+    def _load(self, path: Path, card: AssetCard) -> S2TTransformerTokenizer:
+        task = card.field("task").as_one_of(self._VALID_TASKS)
+
+        target_langs = card.field("target_langs").as_list(str)
+
+        return S2TTransformerTokenizer(
+            path, task, set(target_langs), default_target_lang=target_langs[0]
+        )
 
 
 load_s2t_transformer_tokenizer = setup_text_tokenizer(
-    S2T_TRANSFORMER_FAMILY, create_s2t_transformer_tokenizer
+    S2T_TRANSFORMER_FAMILY,
+    S2TTransformerTokenizerLoader(default_asset_store, default_download_manager),
 )

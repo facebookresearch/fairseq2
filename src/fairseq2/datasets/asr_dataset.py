@@ -7,15 +7,10 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, TypeVar
 
-from fairseq2.assets import default_asset_store, default_download_manager
+from fairseq2.assets import default_asset_store
 from fairseq2.data.text import TextTokenizer
 from fairseq2.datasets.data_reader import DataReader
-from fairseq2.datasets.loader import (
-    DatasetFactory,
-    DatasetLoader,
-    DelegatingDatasetLoader,
-    StandardDatasetLoader,
-)
+from fairseq2.datasets.loader import DatasetLoader, DelegatingDatasetLoader
 from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.typing import DataType
@@ -86,19 +81,15 @@ AsrDatasetT = TypeVar("AsrDatasetT", bound=AsrDataset)
 
 
 def setup_asr_dataset(
-    family: str, factory: DatasetFactory[AsrDatasetT]
+    family: str, loader: DatasetLoader[AsrDatasetT]
 ) -> DatasetLoader[AsrDatasetT]:
     """Set up an automatic speech recognition dataset.
 
     :param family:
         The name of the dataset family.
-    :param factory:
-        The factory to construct datasets.
+    :param loader:
+        The dataset loader.
     """
-    loader = StandardDatasetLoader[AsrDatasetT](
-        default_asset_store, default_download_manager, factory
-    )
-
     load_asr_dataset.register_loader(family, loader)
 
     return loader

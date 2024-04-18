@@ -13,9 +13,9 @@ from fairseq2.models.architecture_registry import ModelArchitectureRegistry
 from fairseq2.models.config_loader import ModelConfigLoader, StandardModelConfigLoader
 from fairseq2.models.loader import (
     CheckpointConverter,
+    DenseModelLoader,
     ModelFactory,
     ModelLoader,
-    StandardModelLoader,
     load_model,
 )
 
@@ -24,7 +24,7 @@ ModelT = TypeVar("ModelT", bound=Module)
 ModelConfigT = TypeVar("ModelConfigT")
 
 
-def setup_model(
+def setup_dense_model(
     name: str,
     config_kls: Type[ModelConfigT],
     factory: ModelFactory[ModelConfigT, ModelT],
@@ -35,7 +35,7 @@ def setup_model(
     restrict_checkpoints: bool = True,
     skip_meta_init: bool = False,
 ) -> Tuple[ModelLoader[ModelT], ModelConfigLoader[ModelConfigT]]:
-    """Set up a model.
+    """Set up a dense model.
 
     :param name:
         The name of the model family.
@@ -66,7 +66,7 @@ def setup_model(
         name, config_kls, archs, default_asset_store
     )
 
-    loader = StandardModelLoader(
+    loader = DenseModelLoader(
         default_asset_store,
         default_download_manager,
         config_loader,

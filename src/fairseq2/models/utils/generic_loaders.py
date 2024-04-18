@@ -7,6 +7,7 @@
 import logging
 from copy import deepcopy
 from functools import partial
+from pathlib import Path
 from pickle import PickleError
 from typing import Any, Dict, Generic, Optional, Protocol, TypeVar, Union, final
 
@@ -20,6 +21,8 @@ from fairseq2.assets import (
     AssetError,
     AssetStore,
 )
+from fairseq2.data.text import AbstractTextTokenizerLoader
+from fairseq2.data.text.text_tokenizer import TextTokenizer
 from fairseq2.models.utils.arch_registry import ArchitectureRegistry
 from fairseq2.models.utils.checkpoint import load_checkpoint
 from fairseq2.nn.utils.module import (
@@ -28,14 +31,58 @@ from fairseq2.nn.utils.module import (
     reset_non_persistent_buffers,
     to_empty,
 )
-from fairseq2.typing import CPU, META, DataType, Device
+from fairseq2.typing import CPU, META, DataType, Device, override
 from fairseq2.utils.dataclass import update_dataclass
 
 logger = logging.getLogger("fairseq2.models")
 
 
 ConfigT = TypeVar("ConfigT")
+
 ConfigT_contra = TypeVar("ConfigT_contra", contravariant=True)
+
+TextTokenizerT = TypeVar("TextTokenizerT", bound=TextTokenizer)
+
+TextTokenizerT_co = TypeVar("TextTokenizerT_co", bound=TextTokenizer, covariant=True)
+
+
+class TextTokenizerFactory(Protocol[TextTokenizerT_co]):
+    """Constructs text tokenizers of type ``TextTokenizerT``."""
+
+    def __call__(self, path: Path, card: AssetCard) -> TextTokenizerT_co:
+        """
+        :param path:
+            The path to the tokenizer.
+        :param card:
+            The asset card of the tokenizer.
+        """
+
+
+@final
+class StandardTextTokenizerLoader(AbstractTextTokenizerLoader[TextTokenizerT]):
+    _factory: TextTokenizerFactory[TextTokenizerT]
+
+    def __init__(
+        self,
+        asset_store: AssetStore,
+        download_manager: AssetDownloadManager,
+        factory: TextTokenizerFactory[TextTokenizerT],
+    ) -> None:
+        """
+        :param asset_store:
+            The asset store where to check for available tokenizers.
+        :param download_manager:
+            The download manager.
+        :param factory:
+            The factory to construct tokenizers.
+        """
+        super().__init__(asset_store, download_manager)
+
+        self._factory = factory
+
+    @override
+    def _load(self, path: Path, card: AssetCard) -> TextTokenizerT:
+        return self._factory(path, card)
 
 
 @final
@@ -210,7 +257,6 @@ class ModelLoader(Generic[ModelT, ConfigT]):
         dtype: Optional[DataType] = None,
         out: Optional[ModelT] = None,
         force: bool = False,
-        cache_only: bool = False,
         progress: bool = True,
     ) -> ModelT:
         """
@@ -225,8 +271,6 @@ class ModelLoader(Generic[ModelT, ConfigT]):
         :param force:
             If ``True``, downloads the model checkpoint even if it is already in
             cache.
-        :param cache_only:
-            If ``True``, skips the download and uses the cached model checkpoint.
         :param progress:
             If ``True``, displays a progress bar to stderr.
 
@@ -245,7 +289,7 @@ class ModelLoader(Generic[ModelT, ConfigT]):
 
         try:
             path = self.download_manager.download_checkpoint(
-                uri, card.name, force=force, cache_only=cache_only, progress=progress
+                uri, card.name, force=force, progress=progress
             )
         except ValueError as ex:
             raise AssetCardError(

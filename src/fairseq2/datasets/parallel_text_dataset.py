@@ -9,15 +9,10 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import List, NamedTuple, Optional, Sequence, TypeVar
 
-from fairseq2.assets import default_asset_store, default_download_manager
+from fairseq2.assets import default_asset_store
 from fairseq2.data.text import TextTokenizer
 from fairseq2.datasets.data_reader import DataReader
-from fairseq2.datasets.loader import (
-    DatasetFactory,
-    DatasetLoader,
-    DelegatingDatasetLoader,
-    StandardDatasetLoader,
-)
+from fairseq2.datasets.loader import DatasetLoader, DelegatingDatasetLoader
 from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 
@@ -106,19 +101,15 @@ ParallelTextDatasetT = TypeVar("ParallelTextDatasetT", bound=ParallelTextDataset
 
 
 def setup_parallel_text_dataset(
-    family: str, factory: DatasetFactory[ParallelTextDatasetT]
+    family: str, loader: DatasetLoader[ParallelTextDatasetT]
 ) -> DatasetLoader[ParallelTextDatasetT]:
     """Set up a parallel text dataset.
 
     :param family:
         The name of the dataset family.
-    :param factory:
-        The factory to construct datasets.
+    :param loader:
+        The dataset loader.
     """
-    loader = StandardDatasetLoader[ParallelTextDatasetT](
-        default_asset_store, default_download_manager, factory
-    )
-
     load_parallel_text_dataset.register_loader(family, loader)
 
     return loader

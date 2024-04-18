@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Dict, Protocol, TypeVar, Union, final
 
@@ -30,7 +31,6 @@ class DatasetLoader(Protocol[DatasetT_co]):
         dataset_name_or_card: Union[str, AssetCard],
         *,
         force: bool = False,
-        cache_only: bool = False,
         progress: bool = True,
     ) -> DatasetT_co:
         """
@@ -38,57 +38,34 @@ class DatasetLoader(Protocol[DatasetT_co]):
             The name or asset card of the dataset to load.
         :param force:
             If ``True``, downloads the dataset even if it is already in cache.
-        :param cache_only:
-            If ``True``, skips the download and uses the cached dataset.
         :param progress:
             If ``True``, displays a progress bar to stderr.
         """
 
 
-class DatasetFactory(Protocol[DatasetT_co]):
-    """Constructs datasets of type ``DatasetT``."""
-
-    def __call__(self, path: Path, card: AssetCard) -> DatasetT_co:
-        """
-        :param path:
-            The path to the dataset.
-        :param card:
-            The asset card of the dataset.
-        """
-
-
-@final
-class StandardDatasetLoader(DatasetLoader[DatasetT]):
-    """Loads datasets of type ``DatasetT``."""
+class AbstractDatasetLoader(ABC, DatasetLoader[DatasetT]):
+    """Provides a skeletal implementation of :class:`DatasetLoader`."""
 
     _asset_store: AssetStore
     _download_manager: AssetDownloadManager
-    _factory: DatasetFactory[DatasetT]
 
     def __init__(
-        self,
-        asset_store: AssetStore,
-        download_manager: AssetDownloadManager,
-        factory: DatasetFactory[DatasetT],
+        self, asset_store: AssetStore, download_manager: AssetDownloadManager
     ) -> None:
         """
         :param asset_store:
             The asset store where to check for available datasets.
         :param download_manager:
             The download manager.
-        :param factory:
-            The factory to construct datasets.
         """
         self._asset_store = asset_store
         self._download_manager = download_manager
-        self._factory = factory
 
     def __call__(
         self,
         dataset_name_or_card: Union[str, AssetCard],
         *,
         force: bool = False,
-        cache_only: bool = False,
         progress: bool = True,
     ) -> DatasetT:
         if isinstance(dataset_name_or_card, AssetCard):
@@ -100,7 +77,7 @@ class StandardDatasetLoader(DatasetLoader[DatasetT]):
 
         try:
             path = self._download_manager.download_dataset(
-                uri, card.name, force=force, cache_only=cache_only, progress=progress
+                uri, card.name, force=force, progress=progress
             )
         except ValueError as ex:
             raise AssetCardError(
@@ -108,11 +85,20 @@ class StandardDatasetLoader(DatasetLoader[DatasetT]):
             ) from ex
 
         try:
-            return self._factory(path, card)
+            return self._load(path, card)
         except ValueError as ex:
             raise AssetError(
                 f"The {card.name} dataset cannot be loaded. See nested exception for details."
             ) from ex
+
+    @abstractmethod
+    def _load(self, path: Path, card: AssetCard) -> DatasetT:
+        """
+        :param path:
+            The path to the dataset.
+        :param card:
+            The asset card of the dataset.
+        """
 
 
 @final
@@ -136,7 +122,6 @@ class DelegatingDatasetLoader(DatasetLoader[DatasetT]):
         dataset_name_or_card: Union[str, AssetCard],
         *,
         force: bool = False,
-        cache_only: bool = False,
         progress: bool = True,
     ) -> DatasetT:
         if isinstance(dataset_name_or_card, AssetCard):
@@ -153,7 +138,7 @@ class DelegatingDatasetLoader(DatasetLoader[DatasetT]):
                 f"The value of the field 'dataset_family' of the asset card '{card.name}' must be a supported dataset type, but '{family}' has no registered loader."
             )
 
-        return loader(card, force=force, cache_only=cache_only, progress=progress)
+        return loader(card, force=force, progress=progress)
 
     def register_loader(self, family: str, loader: DatasetLoader[DatasetT]) -> None:
         """Register a dataset loader to use with this loader.

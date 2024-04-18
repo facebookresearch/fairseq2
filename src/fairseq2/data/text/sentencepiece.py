@@ -10,14 +10,12 @@ from typing import TYPE_CHECKING, List, Optional, Sequence, final
 from fairseq2n import DOC_MODE
 from torch import Tensor
 
-from fairseq2.assets import default_asset_store, default_download_manager
+from fairseq2.assets import AssetCard, default_asset_store, default_download_manager
 from fairseq2.data.text.text_tokenizer import (
     AbstractTextTokenizer,
-    StandardTextTokenizerLoader,
+    AbstractTextTokenizerLoader,
     TextTokenDecoder,
     TextTokenEncoder,
-    TextTokenizerLoader,
-    load_text_tokenizer,
 )
 from fairseq2.data.vocabulary_info import VocabularyInfo
 from fairseq2.typing import Device, override
@@ -224,20 +222,20 @@ class BasicSentencePieceTokenizer(SentencePieceTokenizer):
         )
 
 
-load_basic_sentencepiece_tokenizer = StandardTextTokenizerLoader(
-    default_asset_store,
-    default_download_manager,
-    lambda path, _: BasicSentencePieceTokenizer(path),
+@final
+class BasicSentencePieceTokenizerLoader(
+    AbstractTextTokenizerLoader[BasicSentencePieceTokenizer]
+):
+    """Loads tokenizers of type :class:`BasicSentencePieceTokenizer`."""
+
+    @override
+    def _load(self, path: Path, card: AssetCard) -> BasicSentencePieceTokenizer:
+        return BasicSentencePieceTokenizer(path)
+
+
+default_basic_sentencepiece_tokenizer_loader = BasicSentencePieceTokenizerLoader(
+    default_asset_store, default_download_manager
 )
-
-
-def setup_basic_sentencepiece_tokenizer(
-    family: str,
-) -> TextTokenizerLoader[BasicSentencePieceTokenizer]:
-    """Create a text tokenizer loader for ``family``."""
-    load_text_tokenizer.register_loader(family, load_basic_sentencepiece_tokenizer)
-
-    return load_basic_sentencepiece_tokenizer
 
 
 def vocab_info_from_sentencepiece(model: SentencePieceModel) -> VocabularyInfo:

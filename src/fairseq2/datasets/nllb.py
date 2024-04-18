@@ -10,7 +10,12 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, cast, final
 
-from fairseq2.assets import AssetCard, AssetCardError
+from fairseq2.assets import (
+    AssetCard,
+    AssetCardError,
+    default_asset_store,
+    default_download_manager,
+)
 from fairseq2.data import (
     Collater,
     DataPipeline,
@@ -21,6 +26,7 @@ from fairseq2.data import (
 from fairseq2.data.text import TextTokenizer, read_text
 from fairseq2.datasets.data_reader import DataPipelineReader
 from fairseq2.datasets.error import DatasetError
+from fairseq2.datasets.loader import AbstractDatasetLoader
 from fairseq2.datasets.parallel_text_dataset import (
     LangPair,
     ParallelTextDataset,
@@ -361,29 +367,36 @@ class _NllbDataPipelineBuilder:
         )
 
 
-def create_nllb_dataset(path: Path, card: AssetCard) -> NllbDataset:
-    split_lang_pairs: Dict[str, Dict[LangPair, int]] = {}
+@final
+class NllbDatasetLoader(AbstractDatasetLoader[NllbDataset]):
+    """Loads NLLB datasets."""
 
-    splits_field = card.field("splits")
+    @override
+    def _load(self, path: Path, card: AssetCard) -> NllbDataset:
+        split_lang_pairs: Dict[str, Dict[LangPair, int]] = {}
 
-    for split in splits_field.as_dict(dict).keys():
-        lang_pairs = {}
+        splits_field = card.field("splits")
 
-        for key, size in splits_field.field(split).as_dict(int).items():
-            try:
-                source_lang, target_lang = key.split("-")
-            except ValueError as ex:
-                raise AssetCardError(
-                    f"The items of the field 'splits.{split}' of the asset card '{card.name}' must represent language pairs, but '{key}' does not represent a language pair."
-                ) from ex
+        for split in splits_field.as_dict(dict).keys():
+            lang_pairs = {}
 
-            lang_pair = LangPair(source_lang, target_lang)
+            for key, size in splits_field.field(split).as_dict(int).items():
+                try:
+                    source_lang, target_lang = key.split("-")
+                except ValueError as ex:
+                    raise AssetCardError(
+                        f"The items of the field 'splits.{split}' of the asset card '{card.name}' must represent language pairs, but '{key}' does not represent a language pair."
+                    ) from ex
 
-            lang_pairs[lang_pair] = size
+                lang_pair = LangPair(source_lang, target_lang)
 
-        split_lang_pairs[split] = lang_pairs
+                lang_pairs[lang_pair] = size
 
-    return NllbDataset(card.name, path, split_lang_pairs)
+            split_lang_pairs[split] = lang_pairs
+
+        return NllbDataset(card.name, path, split_lang_pairs)
 
 
-load_nllb_dataset = setup_parallel_text_dataset("nllb", create_nllb_dataset)
+load_nllb_dataset = setup_parallel_text_dataset(
+    "nllb", NllbDatasetLoader(default_asset_store, default_download_manager)
+)

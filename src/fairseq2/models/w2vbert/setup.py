@@ -8,7 +8,7 @@ from typing import Any, Dict
 
 import torch
 
-from fairseq2.models.setup import setup_model
+from fairseq2.models.setup import setup_dense_model
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
 from fairseq2.models.w2vbert.factory import (
     W2VBERT_FAMILY,
@@ -69,7 +69,7 @@ def convert_w2vbert_checkpoint(
     return convert_fairseq_checkpoint(checkpoint, key_map)
 
 
-load_w2vbert_model, load_w2vbert_config = setup_model(
+load_w2vbert_model, load_w2vbert_config = setup_dense_model(
     W2VBERT_FAMILY,
     W2VBertConfig,
     create_w2vbert_model,
