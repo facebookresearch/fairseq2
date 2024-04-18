@@ -72,7 +72,6 @@ class ModelLoader(Protocol[ModelT_co]):
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
         force: bool = False,
-        cache_only: bool = False,
         progress: bool = True,
     ) -> ModelT_co:
         """
@@ -85,8 +84,6 @@ class ModelLoader(Protocol[ModelT_co]):
         :param force:
             If ``True``, downloads the model checkpoint even if it is already in
             cache.
-        :param cache_only:
-            If ``True``, skips the download and uses the cached model checkpoint.
         :param progress:
             If ``True``, displays a progress bar to stderr.
 
@@ -173,7 +170,6 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
         force: bool = False,
-        cache_only: bool = False,
         progress: bool = True,
     ) -> ModelT:
         if isinstance(model_name_or_card, AssetCard):
@@ -191,7 +187,7 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
 
         try:
             path = self._download_manager.download_checkpoint(
-                uri, card.name, force=force, cache_only=cache_only, progress=progress
+                uri, card.name, force=force, progress=progress
             )
         except ValueError as ex:
             raise AssetCardError(
@@ -289,7 +285,6 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
         force: bool = False,
-        cache_only: bool = False,
         progress: bool = True,
     ) -> ModelT:
         if isinstance(model_name_or_card, AssetCard):
@@ -311,7 +306,6 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
             device=device,
             dtype=dtype,
             force=force,
-            cache_only=cache_only,
             progress=progress,
         )
 

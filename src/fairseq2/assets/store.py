@@ -19,6 +19,9 @@ from fairseq2.assets.metadata_provider import (
 )
 from fairseq2.assets.utils import _get_path_from_env
 from fairseq2.typing import override
+from fairseq2.utils.logging import get_log_writer
+
+log = get_log_writer(__name__)
 
 
 class AssetStore(ABC):
@@ -158,7 +161,7 @@ default_asset_store = _create_default_asset_store()
 
 
 def _load_asset_directory() -> None:
-    asset_dir = _get_path_from_env("FAIRSEQ2_ASSET_DIR")
+    asset_dir = _get_path_from_env("FAIRSEQ2_ASSET_DIR", log)
     if asset_dir is None:
         asset_dir = Path("/etc/fairseq2/assets").resolve()
         if not asset_dir.exists():
@@ -171,9 +174,9 @@ _load_asset_directory()
 
 
 def _load_user_asset_directory() -> None:
-    asset_dir = _get_path_from_env("FAIRSEQ2_USER_ASSET_DIR")
+    asset_dir = _get_path_from_env("FAIRSEQ2_USER_ASSET_DIR", log)
     if asset_dir is None:
-        asset_dir = _get_path_from_env("XDG_CONFIG_HOME")
+        asset_dir = _get_path_from_env("XDG_CONFIG_HOME", log)
         if asset_dir is None:
             asset_dir = Path("~/.config").expanduser()
 
