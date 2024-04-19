@@ -5,12 +5,13 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterator, List, Mapping, Tuple, TypeVar, final
+from dataclasses import dataclass
+from typing import Any, Dict, Generic, Iterator, List, Mapping, TypeVar, final
 
 from typing_extensions import Self
 
 from fairseq2.data import DataPipeline
-from fairseq2.datasets.utils import _reduce_batch_size
+from fairseq2.datasets.utils import _reduce_batch_stats
 from fairseq2.gang import Gang
 from fairseq2.models import Batch
 from fairseq2.typing import override
@@ -24,7 +25,21 @@ BatchT = TypeVar("BatchT", bound=Batch)
 BatchT_co = TypeVar("BatchT_co", bound=Batch, covariant=True)
 
 
-class DataReader(ABC, Iterator[Tuple[int, List[BatchT_co]]]):
+@dataclass(frozen=True)
+class DataOutput(Generic[BatchT]):
+    """Represents the output of a :class:`DataReader`."""
+
+    batches: List[BatchT]
+    """The batches."""
+
+    total_batch_size: int
+    """The total size of batches read across all processes in the gang."""
+
+    total_num_target_elements: int
+    """The total number of target elements read across all processes in the gang."""
+
+
+class DataReader(ABC, Iterator[DataOutput[BatchT_co]]):
     """Reads batches of examples from a dataset."""
 
     @abstractmethod
@@ -32,12 +47,8 @@ class DataReader(ABC, Iterator[Tuple[int, List[BatchT_co]]]):
         ...
 
     @abstractmethod
-    def __next__(self) -> Tuple[int, List[BatchT_co]]:
-        """
-        :returns:
-            - The total size of batches read across all processes in the gang.
-            - The batches read in this process.
-        """
+    def __next__(self) -> DataOutput[BatchT_co]:
+        ...
 
     @abstractmethod
     def reset(self) -> None:
@@ -69,6 +80,7 @@ class DataPipelineReader(DataReader[BatchT]):
         gang: Gang,
         *,
         num_accumulate: int = 1,
+        drop_remainder: bool = True,
         sync_batches: bool = False,
     ) -> None:
         """
@@ -79,6 +91,9 @@ class DataPipelineReader(DataReader[BatchT]):
         :param num_accumulate:
             The number of batches to accumulate in each iteration. Typically
             used with gradient accumulation during training.
+        :param drop_remainder:
+            If ``True``, skips the last iteration if it returns less than
+            ``num_accumulate`` batches.
         :param sync_batches:
             If ``True``, at the end of each ``next()`` call, syncs batches read
             across all processes in the gang. Typically used when the amount of
@@ -89,6 +104,7 @@ class DataPipelineReader(DataReader[BatchT]):
         self._pipeline_iter = iter(pipeline)
         self._gang = gang
         self._num_accumulate = num_accumulate
+        self._drop_remainder = drop_remainder
         self._sync_batches = sync_batches
         self._eod = False
 
@@ -97,13 +113,15 @@ class DataPipelineReader(DataReader[BatchT]):
         return self
 
     @override
-    def __next__(self) -> Tuple[int, List[BatchT]]:
+    def __next__(self) -> DataOutput[BatchT]:
         if self._eod:
             raise StopIteration()
 
         batches = []
 
-        for _ in range(self._num_accumulate):
+        stats = [(0, 0) for _ in range(self._num_accumulate)]
+
+        for idx in range(self._num_accumulate):
             try:
                 batch = next(self._pipeline_iter)
             except StopIteration:
@@ -111,26 +129,33 @@ class DataPipelineReader(DataReader[BatchT]):
 
             batches.append(batch)
 
-        # If we read less than `num_accumulate` batches, it means we reached end
-        # of data.
-        if len(batches) != self._num_accumulate:
-            batch_size = 0
-        else:
-            batch_size = sum(b.batch_size for b in batches)
+            stats[idx] = (batch.batch_size, batch.num_target_elements())
 
-        if self._sync_batches:
-            batch_size = _reduce_batch_size(batch_size, self._gang, log)
+        # Gather batch stats.
+        if self._sync_batches and self._gang.size > 1:
+            num_batches, batch_size, num_target_elements = _reduce_batch_stats(
+                stats, self._gang, log
+            )
+
+            batches = batches[:num_batches]
         else:
             # If we don't sync, we assume all processes read equal amount of
             # data at each iteration.
-            batch_size = batch_size * self._gang.size
+            batch_size = sum(s[0] for s in stats) * self._gang.size
+
+            num_target_elements = sum(s[1] for s in stats) * self._gang.size
+
+        # If we read less than `num_accumulate` batches, it means we reached end
+        # of data.
+        if self._drop_remainder and len(batches) != self._num_accumulate:
+            batch_size = 0
 
         self._eod = batch_size == 0
 
         if self._eod:
             raise StopIteration()
 
-        return batch_size, batches
+        return DataOutput(batches, batch_size, num_target_elements)
 
     @override
     def reset(self) -> None:

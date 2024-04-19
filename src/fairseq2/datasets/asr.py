@@ -32,8 +32,8 @@ class AsrDataset(ABC):
         min_audio_len: int = 1,
         shuffle_window_size: int = 1,
         num_repeats: Optional[int] = 1,
-        num_prefetch: int = 0,
         num_accumulate: int = 1,
+        num_prefetch: int = 0,
         seed: int = 2,
     ) -> DataReader[Seq2SeqBatch]:
         """Create a dataset reader.
@@ -60,11 +60,11 @@ class AsrDataset(ABC):
         :param num_repeats:
             The dataset will be repeatedly read this many times. If ``None``, it
             will be read indefinitely.
-        :param num_prefetch:
-            The number of batches to prefetch in background.
         :param num_accumulate:
             The number of batches to accumulate in each iteration. Typically
             used with gradient accumulation during training.
+        :param num_prefetch:
+            The number of batches to prefetch in background.
         :param seed:
             The seed to initialize the random number generators.
         """
