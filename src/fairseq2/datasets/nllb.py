@@ -27,7 +27,7 @@ from fairseq2.data.text import TextTokenizer, read_text
 from fairseq2.datasets.data_reader import DataPipelineReader
 from fairseq2.datasets.error import DatasetError
 from fairseq2.datasets.loader import AbstractDatasetLoader
-from fairseq2.datasets.parallel_text_dataset import (
+from fairseq2.datasets.parallel_text import (
     LangPair,
     ParallelTextDataset,
     load_parallel_text_dataset,
@@ -140,7 +140,11 @@ class NllbDataset(ParallelTextDataset):
         pipeline = builder.build()
 
         return DataPipelineReader[Seq2SeqBatch](
-            pipeline, gang, num_accumulate=num_accumulate, sync_batches=True
+            pipeline,
+            gang,
+            num_accumulate=num_accumulate,
+            drop_remainder=False,
+            sync_batches=True,
         )
 
     @override

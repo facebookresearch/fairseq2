@@ -112,18 +112,18 @@ class Seq2SeqBatch(Batch):
     @property
     @override
     def batch_size(self) -> int:
-        """The size of the batch dimension."""
         return self.target_seqs.size(0)
 
     def num_source_elements(self) -> int:
-        """Return the number of elements in the source sequences."""
+        """Return the number of source elements in the batch."""
         if self.source_padding_mask is None:
             return self.source_seqs.numel()
 
         return int(self.source_padding_mask.seq_lens.sum())
 
+    @override
     def num_target_elements(self) -> int:
-        """Return the number of elements in the target sequences."""
+        """Return the number of target elements in the batch."""
         if self.target_padding_mask is None:
             return self.target_seqs.numel()
 

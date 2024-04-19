@@ -44,4 +44,8 @@ class Batch(ABC):
     @property
     @abstractmethod
     def batch_size(self) -> int:
-        """The number of inputs in the batch (i.e. number of rows)."""
+        """The size of the batch dimension."""
+
+    @abstractmethod
+    def num_target_elements(self) -> int:
+        """Return the number of target elements in the batch."""

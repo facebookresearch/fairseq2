@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Sequence, final
+from typing import Any, Dict, Optional, Sequence, Tuple, final
 
 import torch
 from torch import Tensor
@@ -68,11 +68,39 @@ class SequenceBatch(Batch):
     example: Any = None
     """The data example from which this batch was constructed."""
 
+    def as_input_and_target(self) -> Tuple[SequenceBatch, Tensor]:
+        """Use this batch for model training or validation.
+
+        :returns:
+          - A new batch with the sequences trimmed one step from the end to use
+            as model input.
+          - The sequences trimmed one step from the beginning to use in loss
+            computation.
+        """
+        if (seq_len := self.seqs.size(1)) < 2:
+            raise ValueError(
+                f"The sequence length of `seqs` must be at least 2 for training, but is {seq_len} instead."
+            )
+
+        seqs = self.seqs[:, :-1]
+
+        if self.padding_mask is None:
+            padding_mask = None
+        else:
+            padding_mask = self.padding_mask.trim(1)
+
+        batch = SequenceBatch(seqs, padding_mask)
+
+        return batch, self.seqs[:, 1:]
+
     @property
     @override
     def batch_size(self) -> int:
-        """The size of the batch."""
         return self.seqs.size(0)
+
+    @override
+    def num_target_elements(self) -> int:
+        return self.num_elements()
 
     def num_elements(self) -> int:
         """Returns the number of elements in the sequences."""
