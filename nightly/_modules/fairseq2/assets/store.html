@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.assets.store &mdash; fairseq2 0.3.0.dev202404111953+g81c5fa2 documentation</title>
+  <title>fairseq2.assets.store &mdash; fairseq2 0.3.0.dev202404201503+gc659ad6 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202404111953+g81c5fa2
+                0.3.0.dev202404201503+gc659ad6
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -176,6 +176,9 @@
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">fairseq2.assets.utils</span> <span class="kn">import</span> <span class="n">_get_path_from_env</span>
 <span class="kn">from</span> <span class="nn">fairseq2.typing</span> <span class="kn">import</span> <span class="n">override</span>
+<span class="kn">from</span> <span class="nn">fairseq2.utils.logging</span> <span class="kn">import</span> <span class="n">get_log_writer</span>
+
+<span class="n">log</span> <span class="o">=</span> <span class="n">get_log_writer</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="AssetStore"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.assets.AssetStore.html#fairseq2.assets.AssetStore">[docs]</a><span class="k">class</span> <span class="nc">AssetStore</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
@@ -315,7 +318,7 @@
 
 
 <span class="k">def</span> <span class="nf">_load_asset_directory</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="n">asset_dir</span> <span class="o">=</span> <span class="n">_get_path_from_env</span><span class="p">(</span><span class="s2">&quot;FAIRSEQ2_ASSET_DIR&quot;</span><span class="p">)</span>
+    <span class="n">asset_dir</span> <span class="o">=</span> <span class="n">_get_path_from_env</span><span class="p">(</span><span class="s2">&quot;FAIRSEQ2_ASSET_DIR&quot;</span><span class="p">,</span> <span class="n">log</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">asset_dir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">asset_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;/etc/fairseq2/assets&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">asset_dir</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
@@ -328,9 +331,9 @@
 
 
 <span class="k">def</span> <span class="nf">_load_user_asset_directory</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-    <span class="n">asset_dir</span> <span class="o">=</span> <span class="n">_get_path_from_env</span><span class="p">(</span><span class="s2">&quot;FAIRSEQ2_USER_ASSET_DIR&quot;</span><span class="p">)</span>
+    <span class="n">asset_dir</span> <span class="o">=</span> <span class="n">_get_path_from_env</span><span class="p">(</span><span class="s2">&quot;FAIRSEQ2_USER_ASSET_DIR&quot;</span><span class="p">,</span> <span class="n">log</span><span class="p">)</span>
     <span class="k">if</span> <span class="n">asset_dir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">asset_dir</span> <span class="o">=</span> <span class="n">_get_path_from_env</span><span class="p">(</span><span class="s2">&quot;XDG_CONFIG_HOME&quot;</span><span class="p">)</span>
+        <span class="n">asset_dir</span> <span class="o">=</span> <span class="n">_get_path_from_env</span><span class="p">(</span><span class="s2">&quot;XDG_CONFIG_HOME&quot;</span><span class="p">,</span> <span class="n">log</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">asset_dir</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">asset_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="s2">&quot;~/.config&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">expanduser</span><span class="p">()</span>
 
