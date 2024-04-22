@@ -72,6 +72,9 @@ class LLaMAConfig:
     dropout_p: float = 0.1
     """The dropout probability on outputs of Transformer layers."""
 
+    ffn_inner_dim_scale: float = 2 / 3
+    """The scale factor for the dimensionality of the FFN's inner projection"""
+
 
 llama_archs = ModelArchitectureRegistry[LLaMAConfig]()
 
@@ -290,6 +293,7 @@ class LLaMABuilder:
             self._config.model_dim,
             self._config.ffn_inner_dim,
             bias=False,
+            inner_dim_scale=self._config.ffn_inner_dim_scale,
             inner_dim_to_multiple=self._config.ffn_inner_dim_to_multiple,
             device=self._device,
             dtype=self._dtype,
