@@ -14,10 +14,28 @@ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn import Module
 from torch.nn.utils import clip_grad_norm_
 
-from fairseq2.gang import Gang
+from fairseq2.gang import Gang, ReduceOperation
 from fairseq2.utils.logging import get_log_writer
 
 log = get_log_writer(__name__)
+
+
+def normalize_gradients(module: Module, gang: Gang, num_targets: int) -> None:
+    """Normalize gradients of ``module`` by ``num_targets``.
+
+    :param module:
+        The module whose gradients to normalize.
+    :param gang:
+        The gang to reduce the total number of targets.
+    :param num_target:
+        The number of targets used in loss computation in this process.
+    """
+    total_num_targets = torch.tensor(num_targets, device=gang.device, dtype=torch.int64)
+
+    gang.all_reduce(total_num_targets, ReduceOperation.SUM)
+
+    # Both DDP and FSDP divide gradients by the world size which we also undo.
+    scale_gradients(module, gang.size / total_num_targets)
 
 
 def scale_gradients(module: Module, value: float) -> None:

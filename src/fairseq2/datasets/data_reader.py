@@ -5,41 +5,25 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Any, Dict, Generic, Iterator, List, Mapping, TypeVar, final
+from typing import Any, Dict, Iterator, List, Mapping, TypeVar, final
 
 from typing_extensions import Self
 
 from fairseq2.data import DataPipeline
-from fairseq2.datasets.utils import _reduce_batch_stats
+from fairseq2.datasets.utils import _reduce_num_batches
 from fairseq2.gang import Gang
-from fairseq2.models import Batch
 from fairseq2.typing import override
 from fairseq2.utils.logging import get_log_writer
 
 log = get_log_writer(__name__)
 
 
-BatchT = TypeVar("BatchT", bound=Batch)
+BatchT = TypeVar("BatchT")
 
-BatchT_co = TypeVar("BatchT_co", bound=Batch, covariant=True)
-
-
-@dataclass(frozen=True)
-class DataOutput(Generic[BatchT]):
-    """Represents the output of a :class:`DataReader`."""
-
-    batches: List[BatchT]
-    """The batches."""
-
-    total_batch_size: int
-    """The total size of batches read across all processes in the gang."""
-
-    total_num_target_elements: int
-    """The total number of target elements read across all processes in the gang."""
+BatchT_co = TypeVar("BatchT_co", covariant=True)
 
 
-class DataReader(ABC, Iterator[DataOutput[BatchT_co]]):
+class DataReader(ABC, Iterator[List[BatchT_co]]):
     """Reads batches of examples from a dataset."""
 
     @abstractmethod
@@ -47,7 +31,7 @@ class DataReader(ABC, Iterator[DataOutput[BatchT_co]]):
         ...
 
     @abstractmethod
-    def __next__(self) -> DataOutput[BatchT_co]:
+    def __next__(self) -> List[BatchT_co]:
         ...
 
     @abstractmethod
@@ -113,13 +97,11 @@ class DataPipelineReader(DataReader[BatchT]):
         return self
 
     @override
-    def __next__(self) -> DataOutput[BatchT]:
+    def __next__(self) -> List[BatchT]:
         if self._eod:
             raise StopIteration()
 
         batches = []
-
-        stats = [(0, 0) for _ in range(self._num_accumulate)]
 
         for idx in range(self._num_accumulate):
             try:
@@ -129,33 +111,22 @@ class DataPipelineReader(DataReader[BatchT]):
 
             batches.append(batch)
 
-            stats[idx] = (batch.batch_size, batch.num_target_elements())
-
-        # Gather batch stats.
         if self._sync_batches and self._gang.size > 1:
-            num_batches, batch_size, num_target_elements = _reduce_batch_stats(
-                stats, self._gang, log
-            )
+            num_batches = _reduce_num_batches(len(batches), self._gang, log)
 
             batches = batches[:num_batches]
-        else:
-            # If we don't sync, we assume all processes read equal amount of
-            # data at each iteration.
-            batch_size = sum(s[0] for s in stats) * self._gang.size
-
-            num_target_elements = sum(s[1] for s in stats) * self._gang.size
 
         # If we read less than `num_accumulate` batches, it means we reached end
         # of data.
         if self._drop_remainder and len(batches) != self._num_accumulate:
-            batch_size = 0
+            batches.clear()
 
-        self._eod = batch_size == 0
+        self._eod = len(batches) == 0
 
         if self._eod:
             raise StopIteration()
 
-        return DataOutput(batches, batch_size, num_target_elements)
+        return batches
 
     @override
     def reset(self) -> None:
