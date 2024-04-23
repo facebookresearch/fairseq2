@@ -65,15 +65,15 @@ class LLaMAConfig:
     ffn_inner_dim: int = 4096 * 4
     """The dimensionality of inner projection layers in feed-forward networks."""
 
+    ffn_inner_dim_scale: float = 2 / 3
+    """The scale factor for the dimensionality of the FFN's inner projection"""
+
     ffn_inner_dim_to_multiple: int = 256
     """The dimensionality of inner projection layers in feed-forward networks is
     rounded up to the nearest multiple of this value."""
 
     dropout_p: float = 0.1
     """The dropout probability on outputs of Transformer layers."""
-
-    ffn_inner_dim_scale: float = 2 / 3
-    """The scale factor for the dimensionality of the FFN's inner projection"""
 
 
 llama_archs = ModelArchitectureRegistry[LLaMAConfig]()
