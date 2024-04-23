@@ -293,7 +293,7 @@ class Wav2Vec2Model(Model):
         return (
             f"model_dim={self.model_dim}, "
             f"num_distractors={self.num_distractors}, "
-            f"logit_temp={self.logit_temp}, "
+            f"logit_temp={self.logit_temp:G}, "
         )
 
 

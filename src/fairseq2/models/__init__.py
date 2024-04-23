@@ -24,5 +24,4 @@ from fairseq2.models.loader import DenseModelFactory as DenseModelFactory
 from fairseq2.models.loader import DenseModelLoader as DenseModelLoader
 from fairseq2.models.loader import ModelLoader as ModelLoader
 from fairseq2.models.loader import load_model as load_model
-from fairseq2.models.model import Batch as Batch
 from fairseq2.models.model import Model as Model

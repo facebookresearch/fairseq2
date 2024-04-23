@@ -165,6 +165,6 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
         s = super().extra_repr()
 
         if self.scale != 1.0:
-            s = f"{s}, no_scale=False"
+            s = f"{s:G}, no_scale=False"
 
         return s
