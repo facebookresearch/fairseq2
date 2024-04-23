@@ -76,12 +76,12 @@ class NllbDataset(ParallelTextDataset):
         max_seq_len: int,
         max_num_tokens: int,
         *,
+        lang_pairs: Optional[Sequence[LangPair]] = None,
         sample: bool = False,
         shuffle_window_size: int = 1,
         num_repeats: Optional[int] = 1,
-        num_prefetch: int = 0,
         num_accumulate: int = 1,
-        lang_pairs: Optional[Sequence[LangPair]] = None,
+        num_prefetch: int = 0,
         seed: int = 2,
     ) -> DataPipelineReader[Seq2SeqBatch]:
         splits = []
@@ -144,7 +144,7 @@ class NllbDataset(ParallelTextDataset):
             gang,
             num_accumulate=num_accumulate,
             drop_remainder=False,
-            sync_batches=True,
+            sync_batches=num_repeats is not None,
         )
 
     @override

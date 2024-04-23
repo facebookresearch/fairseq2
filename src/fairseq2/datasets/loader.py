@@ -135,7 +135,7 @@ class DelegatingDatasetLoader(DatasetLoader[DatasetT]):
             loader = self._loaders[family]
         except KeyError:
             raise AssetError(
-                f"The value of the field 'dataset_family' of the asset card '{card.name}' must be a supported dataset type, but '{family}' has no registered loader."
+                f"The value of the field 'dataset_family' of the asset card '{card.name}' must be a supported dataset family, but '{family}' has no registered loader."
             )
 
         return loader(card, force=force, progress=progress)
