@@ -9,8 +9,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, Final, Iterable, Optional, Protocol, Sequence, final
 
+import torch
 from torch import Tensor
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp import MixedPrecision
 from torch.distributed.fsdp.api import (
     BackwardPrefetch,
     CPUOffload,
@@ -29,19 +31,22 @@ from fairseq2.nn.utils.module import (
     select_parameters,
     to_empty,
 )
-from fairseq2.typing import META, Device
+from fairseq2.typing import META, DataType, Device
 from fairseq2.utils.version import torch_greater_or_equal
 
 
 def to_fsdp(
     module: Module,
     gang: Gang,
-    wrap_policy: FSDPWrapPolicy,
+    wrap_policy: Optional[FSDPWrapPolicy],
     *,
     ignored_param_names: Optional[Sequence[str]] = None,
     skip_init: bool = False,
     broadcast_state: bool = False,
     memory_policy: Optional[FSDPMemoryPolicy] = None,
+    reshard_after_forward: bool = True,
+    mixed_precision_dtype: Optional[DataType] = None,
+    fp32_reduce_scatter: bool = False,
 ) -> FSDP:
     """Wrap ``module`` with FSDP.
 
@@ -50,7 +55,8 @@ def to_fsdp(
     :param gang:
         The gang over which to shard ``module``.
     :param wrap_policy:
-        The FSDP wrap policy to apply to ``module``.
+        The FSDP wrap policy to apply to ``module``. If ``None``, wraps only
+        ``module`` itself.
     :param ignored_param_names:
         The ignored parameter names. Can contain regular expressions.
     :param skip_init:
@@ -61,7 +67,22 @@ def to_fsdp(
         from rank 0 to ensure that they are replicated across all processes.
     :param memory_policy:
         The policy to instruct FSDP when and how to allocate memory.
+    :param reshard_after_forward:
+        If ``True``, unshards the parameters before the forward pass and only
+        reshards them after the backward pass.
+    :param mixed_precision_dtype:
+        If not ``None``, parameters, buffers, and gradients will use this data
+        type during forward and backward passes. Outside forward and backward
+        passes, the model will be kept in full precision.
+    :param fp32_reduce_scatter:
+        If ``True``, the gradients will be reduced in full precision. Only
+        relevant if ``mixed_precision_type`` is not ``None``.
     """
+    if reshard_after_forward:
+        sharding_strategy = ShardingStrategy.FULL_SHARD
+    else:
+        sharding_strategy = ShardingStrategy.SHARD_GRAD_OP
+
     if memory_policy is None:
         memory_policy = FSDP_STANDARD_MEMORY_POLICY
 
@@ -75,6 +96,17 @@ def to_fsdp(
     else:
         param_init_fn = None
 
+    if mixed_precision_dtype is None:
+        mp = None
+    else:
+        reduce_dtype = torch.float32 if fp32_reduce_scatter else mixed_precision_dtype
+
+        mp = MixedPrecision(
+            param_dtype=mixed_precision_dtype,
+            reduce_dtype=reduce_dtype,
+            buffer_dtype=mixed_precision_dtype,
+        )
+
     kwargs: Dict[str, Any] = {}
 
     # As of PyTorch 2.0, FSDP initialization fails in certain settings when an
@@ -85,10 +117,11 @@ def to_fsdp(
     fsdp = FSDP(
         module,
         process_group=gang.as_process_group(),
-        sharding_strategy=ShardingStrategy.FULL_SHARD,
+        sharding_strategy=sharding_strategy,
         cpu_offload=CPUOffload() if memory_policy.cpu_offload else None,
         auto_wrap_policy=wrap_policy,
         backward_prefetch=memory_policy.backward_prefetch,
+        mixed_precision=mp,
         param_init_fn=param_init_fn,
         device_id=gang.device,
         sync_module_states=broadcast_state,
