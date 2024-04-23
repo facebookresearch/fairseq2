@@ -781,18 +781,16 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
                 # The size of a beam in a prompt sequence must be always 1.
                 assert len(lprobs) == 1
 
-                seq_index = torch.tensor([batch_offset], device=lprobs.device)
+                seq_idx = torch.tensor([batch_offset], device=lprobs.device)
 
                 # We just extract the prompt step along with its score and treat
                 # it as the next beam step. So we keep a beam of size 1 until we
                 # reach the end of the prompt.
-                vocab_index = self._seqs[
-                    batch_offset, self._step_nr : self._step_nr + 1
-                ]
+                vocab_idx = self._seqs[batch_offset, self._step_nr : self._step_nr + 1]
 
-                score = step_scores[0, self._step_nr - 1] + lprobs[0, vocab_index]
+                score = step_scores[0, self._step_nr - 1] + lprobs[0, vocab_idx]
 
-                return BeamStep(seq_index, vocab_index, score)
+                return BeamStep(seq_idx, vocab_idx, score)
         else:
             self._prompt_mask = None  # Not needed anymore, release.
 

@@ -6,6 +6,7 @@
 
 import logging
 import os
+import socket
 from contextlib import contextmanager
 from logging import Logger
 from pathlib import Path
@@ -77,13 +78,19 @@ def log_software_info(
     s = f"PyTorch: {torch.__version__}"
 
     if device is not None and device.type == "cuda":
-        s = f"{s} | CUDA: {torch.version.cuda}"
+        s = (
+            f"{s} | "
+            f"CUDA: {torch.version.cuda} | "
+            f"NCCL: {'.'.join((str(v) for v in torch.cuda.nccl.version()))}"
+        )
 
     s = f"{s} | Intraop Thread Count: {torch.get_num_threads()}"
 
     log.info("Software Info - {}", s)
 
 
+# compat
+# TODO: Keep only LogWriter
 def log_hardware_info(
     log: Union[LogWriter, Logger], device: Optional[Device] = None
 ) -> None:
@@ -94,12 +101,53 @@ def log_hardware_info(
     if not log.is_enabled_for(logging.INFO):
         return
 
+    num_cpus = os.cpu_count()
+
     affinity_mask = os.sched_getaffinity(0)
+
+    if num_cpus is None or affinity_mask is None:
+        cpu_info = "-"
+    else:
+        cpu_info = f"{len(affinity_mask)}/{num_cpus}"
+
+        if len(affinity_mask) != num_cpus:
+            available_cpus = list(affinity_mask)
+
+            available_cpus.sort()
+
+            cpu_ranges = []
+
+            range_b = available_cpus[0]
+            range_e = available_cpus[0]
+
+            for cpu in available_cpus[1:]:
+                if cpu == range_e + 1:
+                    range_e = cpu
+
+                    continue
+
+                cpu_ranges.append((range_b, range_e))
+
+                range_b = cpu
+                range_e = cpu
+
+            cpu_ranges.append((range_b, range_e))
+
+            cpu_range_strs = []
+
+            for range_b, range_e in cpu_ranges:
+                if range_b == range_e:
+                    cpu_range_strs.append(f"{range_b}")
+                else:
+                    cpu_range_strs.append(f"{range_b}-{range_e}")
+
+            cpu_info = f"{cpu_info} ({','.join(cpu_range_strs)})"
 
     memory = psutil.virtual_memory()
 
     s = (
-        f"Number of CPUs: {len(affinity_mask)}/{os.cpu_count() or '-'} | "
+        f"Host: {socket.getfqdn()} | "
+        f"Number of CPUs: {cpu_info} | "
         f"Memory: {memory.total // (1024 * 1024 * 1024):,}GiB"
     )
 

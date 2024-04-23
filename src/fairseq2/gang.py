@@ -324,7 +324,7 @@ class ProcessGroupGang(AbstractGang):
             check_async_handling()
 
         if timeout is None:
-            timeout = timedelta(minutes=15)
+            timeout = timedelta(minutes=30)
 
         dist.init_process_group(backend, timeout=timeout)
 
@@ -434,15 +434,16 @@ class ProcessGroupGang(AbstractGang):
 
 def _get_num_cpus(num_procs: int) -> int:
     num_cpus = os.cpu_count()
-    if num_cpus is None:
+
+    affinity_mask = os.sched_getaffinity(0)
+
+    if num_cpus is None or affinity_mask is None:
         log.warning("The number of CPU cores cannot be determined.")
 
         return 1
 
-    max_num_cpus = max(num_cpus // num_procs, 1)
-
     # We should not exceed the number of cores available in the affinity mask.
-    return min(max_num_cpus, len(os.sched_getaffinity(0)))
+    return min(max(num_cpus // num_procs, 1), len(affinity_mask))
 
 
 _default_device: Optional[Device] = None
