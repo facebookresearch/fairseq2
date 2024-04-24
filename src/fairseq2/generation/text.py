@@ -153,6 +153,7 @@ class TextTranslator:
     _converter: SequenceToTextConverter
     _pad_idx: int
     _source_text_encoder: TextTokenEncoder
+    max_src_len: Optional[int]
 
     def __init__(
         self,
@@ -160,6 +161,7 @@ class TextTranslator:
         tokenizer: TextTokenizer,
         source_lang: Optional[str] = None,
         target_lang: Optional[str] = None,
+        max_src_len: Optional[int] = None,
     ) -> None:
         """
         :param generator:
@@ -170,6 +172,8 @@ class TextTranslator:
             The source language.
         :param target_lang:
             The target language.
+        :param max_src_len:
+            The number of tokens above which the source sequence gets truncated (None for no truncation)
         """
         self._converter = SequenceToTextConverter(
             generator, tokenizer, "translation", target_lang
@@ -188,6 +192,7 @@ class TextTranslator:
         self._source_text_encoder = tokenizer.create_encoder(
             task="translation", lang=source_lang, mode="source", device=device
         )
+        self.max_src_len = max_src_len
 
     def __call__(self, source_text: str) -> Tuple[str, Seq2SeqGeneratorOutput]:
         """
@@ -199,6 +204,9 @@ class TextTranslator:
             - The output of the underlying sequence-to-sequence generator.
         """
         source_seq = self._source_text_encoder(source_text)
+
+        if self.max_src_len and source_seq.shape[0] > self.max_src_len:
+            source_seq = source_seq[: self.max_src_len]
 
         return self._converter(source_seq)
 
@@ -219,6 +227,9 @@ class TextTranslator:
             )
 
         source_seq_list = [self._source_text_encoder(t) for t in source_texts]
+
+        if self.max_src_len:
+            source_seq_list = [seq[: self.max_src_len] for seq in source_seq_list]
 
         source_seqs, source_padding_mask = pad_seqs(source_seq_list, self._pad_idx)
 
