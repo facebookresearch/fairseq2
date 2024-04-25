@@ -31,6 +31,9 @@ from fairseq2.assets.metadata_provider import (
 from fairseq2.assets.metadata_provider import (
     InProcAssetMetadataProvider as InProcAssetMetadataProvider,
 )
+from fairseq2.assets.metadata_provider import (
+    PackageAssetMetadataProvider as PackageAssetMetadataProvider,
+)
 from fairseq2.assets.store import AssetStore as AssetStore
 from fairseq2.assets.store import EnvironmentResolver as EnvironmentResolver
 from fairseq2.assets.store import StandardAssetStore as StandardAssetStore
