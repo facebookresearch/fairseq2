@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.text.sentencepiece &mdash; fairseq2 0.3.0.dev202404201503+gc659ad6 documentation</title>
+  <title>fairseq2.data.text.sentencepiece &mdash; fairseq2 0.3.0.dev202404251844+g0c3bbb7 documentation</title>
       <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202404201503+gc659ad6
+                0.3.0.dev202404251844+g0c3bbb7
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
@@ -346,7 +346,8 @@
 <span class="sd">        :param lang:</span>
 <span class="sd">            Not used.</span>
 <span class="sd">        :param mode:</span>
-<span class="sd">            Must be &#39;default&#39; or &#39;prompt&#39;. If ``None``, defaults to &#39;default&#39;.</span>
+<span class="sd">            Must be &#39;default&#39;, &#39;prompt&#39;, or &#39;prompt_response&#39;. If ``None``,</span>
+<span class="sd">            defaults to &#39;default&#39;.</span>
 <span class="sd">        :param device:</span>
 <span class="sd">            The device on which to construct tensors.</span>
 <span class="sd">        :param pin_memory:</span>
@@ -365,6 +366,9 @@
             <span class="n">prefix_tokens</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;&lt;s&gt;&quot;</span><span class="p">]</span>
             <span class="c1"># In prompt mode, we expect the generator to finish the sequence.</span>
             <span class="n">suffix_tokens</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">elif</span> <span class="n">mode</span> <span class="o">==</span> <span class="s2">&quot;prompt_response&quot;</span><span class="p">:</span>
+            <span class="n">prefix_tokens</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">suffix_tokens</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;&lt;/s&gt;&quot;</span><span class="p">]</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;`mode` must be &#39;default&#39; or &#39;prompt&#39;, but is &#39;</span><span class="si">{</span><span class="n">mode</span><span class="si">}</span><span class="s2">&#39; instead.&quot;</span>

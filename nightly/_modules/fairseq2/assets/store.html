@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.assets.store &mdash; fairseq2 0.3.0.dev202404201503+gc659ad6 documentation</title>
+  <title>fairseq2.assets.store &mdash; fairseq2 0.3.0.dev202404251844+g0c3bbb7 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202404201503+gc659ad6
+                0.3.0.dev202404251844+g0c3bbb7
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -173,6 +173,7 @@
     <span class="n">AssetMetadataProvider</span><span class="p">,</span>
     <span class="n">AssetNotFoundError</span><span class="p">,</span>
     <span class="n">FileAssetMetadataProvider</span><span class="p">,</span>
+    <span class="n">PackageAssetMetadataProvider</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">fairseq2.assets.utils</span> <span class="kn">import</span> <span class="n">_get_path_from_env</span>
 <span class="kn">from</span> <span class="nn">fairseq2.typing</span> <span class="kn">import</span> <span class="n">override</span>
@@ -290,9 +291,25 @@
         <span class="k">for</span> <span class="n">provider</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_metadata_providers</span><span class="p">:</span>
             <span class="n">provider</span><span class="o">.</span><span class="n">clear_cache</span><span class="p">()</span>
 
-    <span class="k">def</span> <span class="nf">add_file_metadata_provider</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add a new :class:`FileAssetMetadataProvider` pointing to ``path``.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">metadata_providers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">FileAssetMetadataProvider</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+    <span class="k">def</span> <span class="nf">add_file_metadata_provider</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">user</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add a new :class:`FileAssetMetadataProvider` pointing to ``path``.</span>
+
+<span class="sd">        :param path:</span>
+<span class="sd">            The directory under which asset metadata is stored.</span>
+<span class="sd">        :param user:</span>
+<span class="sd">            If ``True``, adds the metadata provider to the user scope.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">providers</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">user_metadata_providers</span> <span class="k">if</span> <span class="n">user</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">metadata_providers</span>
+
+        <span class="n">providers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">FileAssetMetadataProvider</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">add_package_metadata_provider</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">package_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add a new :class:`PackageAssetMetadataProvider` for ``package_name``.</span>
+
+<span class="sd">        :param package_name:</span>
+<span class="sd">            The name of the package in which asset metadata is stored.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">metadata_providers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">PackageAssetMetadataProvider</span><span class="p">(</span><span class="n">package_name</span><span class="p">))</span>
 
 
 <span class="k">class</span> <span class="nc">EnvironmentResolver</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
@@ -307,9 +324,7 @@
 
 
 <span class="k">def</span> <span class="nf">_create_default_asset_store</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">StandardAssetStore</span><span class="p">:</span>
-    <span class="n">cards_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s2">&quot;cards&quot;</span><span class="p">)</span>
-
-    <span class="n">metadata_provider</span> <span class="o">=</span> <span class="n">FileAssetMetadataProvider</span><span class="p">(</span><span class="n">cards_dir</span><span class="p">)</span>
+    <span class="n">metadata_provider</span> <span class="o">=</span> <span class="n">PackageAssetMetadataProvider</span><span class="p">(</span><span class="s2">&quot;fairseq2.assets.cards&quot;</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">StandardAssetStore</span><span class="p">(</span><span class="n">metadata_provider</span><span class="p">)</span>
 
@@ -324,7 +339,7 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">asset_dir</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
             <span class="k">return</span>
 
-    <span class="n">default_asset_store</span><span class="o">.</span><span class="n">metadata_providers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">FileAssetMetadataProvider</span><span class="p">(</span><span class="n">asset_dir</span><span class="p">))</span>
+    <span class="n">default_asset_store</span><span class="o">.</span><span class="n">add_file_metadata_provider</span><span class="p">(</span><span class="n">asset_dir</span><span class="p">)</span>
 
 
 <span class="n">_load_asset_directory</span><span class="p">()</span>
@@ -341,9 +356,7 @@
         <span class="k">if</span> <span class="ow">not</span> <span class="n">asset_dir</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
             <span class="k">return</span>
 
-    <span class="n">default_asset_store</span><span class="o">.</span><span class="n">user_metadata_providers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-        <span class="n">FileAssetMetadataProvider</span><span class="p">(</span><span class="n">asset_dir</span><span class="p">)</span>
-    <span class="p">)</span>
+    <span class="n">default_asset_store</span><span class="o">.</span><span class="n">add_file_metadata_provider</span><span class="p">(</span><span class="n">asset_dir</span><span class="p">,</span> <span class="n">user</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
 
 <span class="n">_load_user_asset_directory</span><span class="p">()</span>
