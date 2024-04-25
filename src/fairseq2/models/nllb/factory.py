@@ -180,6 +180,7 @@ class NllbBuilder:
             self._config.max_seq_len,
             _legacy_pad_idx=1,
             device=self._device,
+            dtype=self._dtype,
         )
 
         return TransformerEmbeddingFrontend(
