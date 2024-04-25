@@ -59,10 +59,10 @@ _metric_formatters: Dict[str, Tuple[str, int, Callable[[Any], str]]] = {
     "elements_per_batch":  ("Elements per Batch",        900, format_as_int),
     "elements_per_second": ("Elements per Second",       900, format_as_int),
     "num_examples":        ("Number of Examples",        900, format_as_int),
-    "num_elements":        ("Number of Elements",        900, format_as_int),
-    "num_source_elements": ("Number of Source Elements", 900, format_as_int),
-    "num_target_elements": ("Number of Target Elements", 900, format_as_int),
-    "num_loss_targets":    ("Number of Loss Targets:",   900, format_as_int),
+    "num_elements":        ("Number of Elements",        910, format_as_int),
+    "num_source_elements": ("Number of Source Elements", 910, format_as_int),
+    "num_target_elements": ("Number of Target Elements", 910, format_as_int),
+    "num_loss_targets":    ("Number of Loss Targets:",   920, format_as_int),
     # fmt: on
 }
 
