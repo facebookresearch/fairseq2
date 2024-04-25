@@ -65,41 +65,18 @@ class SequenceBatch:
     """The padding mask of :attr:`seqs`. *Shape:* :math:`(N,S)`, where :math:`N`
     is the batch size and :math:`S` is the sequence length."""
 
+    target_mask: Optional[Tensor] = None
+    """The mask specifying the elements in ``seqs`` that should be treated as
+    targets during model training or validation. *Shape:* :math:`(N,S)`, where
+    :math:`N` is the batch size and :math:`S` is the sequence length."""
+
     example: Any = None
     """The data example from which this batch was constructed."""
 
-    def as_input_and_target(self) -> Tuple[SequenceBatch, Tensor]:
-        """Use this batch for model training or validation.
-
-        :returns:
-          - A new batch with the sequences trimmed one step from the end to use
-            as model input.
-          - The sequences trimmed one step from the beginning to use in loss
-            computation.
-        """
-        if (seq_len := self.seqs.size(1)) < 2:
-            raise ValueError(
-                f"The sequence length of `seqs` must be at least 2 for training, but is {seq_len} instead."
-            )
-
-        seqs = self.seqs[:, :-1]
-
-        if self.padding_mask is None:
-            padding_mask = None
-        else:
-            padding_mask = self.padding_mask.trim(1)
-
-        batch = SequenceBatch(seqs, padding_mask)
-
-        return batch, self.seqs[:, 1:]
-
     @property
     def batch_size(self) -> int:
+        """The size of the batch dimension."""
         return self.seqs.size(0)
-
-    @override
-    def num_target_elements(self) -> int:
-        return self.num_elements()
 
     def num_elements(self) -> int:
         """Return the number of elements in the batch."""
@@ -108,24 +85,46 @@ class SequenceBatch:
 
         return int(self.padding_mask.seq_lens.sum())
 
+    def num_target_elements(self) -> int:
+        """Return the number of target elements in the batch."""
+        if self.target_mask is not None:
+            return int(self.target_mask.sum())
 
-def as_auto_regressive_input(batch: SequenceBatch) -> Tuple[SequenceBatch, Tensor]:
-    """Use ``batch`` to train an auto-regressive model."""
+        return self.num_elements()
+
+
+def as_auto_regressive_input(
+    batch: SequenceBatch,
+) -> Tuple[SequenceBatch, SequenceBatch]:
+    """Use ``batch`` to train an auto-regressive model.
+
+    :returns:
+        The tuple of input and target batches.
+    """
     if (seq_len := batch.seqs.size(1)) < 2:
         raise ValueError(
             f"The sequence length of `batch.seqs` must be at least 2 for training, but is {seq_len} instead."
         )
 
-    seqs = batch.seqs[:, :-1]
+    seqs, targets = batch.seqs[:, :-1], batch.seqs[:, 1:]
 
     if batch.padding_mask is None:
         padding_mask = None
     else:
         padding_mask = batch.padding_mask.trim(1)
 
-    output_batch = SequenceBatch(seqs, padding_mask, batch.example)
+    if batch.target_mask is None:
+        seqs_target_mask, target_mask = None, None
+    else:
+        seqs_target_mask, target_mask = (
+            batch.target_mask[:, :-1], batch.target_mask[:, 1:]  # fmt: skip
+        )
 
-    return output_batch, batch.seqs[:, 1:]
+    batch = SequenceBatch(seqs, padding_mask, seqs_target_mask, batch.example)
+
+    target_batch = SequenceBatch(targets, padding_mask, target_mask)
+
+    return batch, target_batch
 
 
 # compat
@@ -221,6 +220,7 @@ class SequenceModelMetricBag(MetricBag):
     elements_per_second: Throughput
     num_examples: Sum
     num_elements: Sum
+    num_target_elements: Sum
 
     def __init__(self, gang: Gang, *, wall_time: Optional[Stopwatch] = None) -> None:
         """
@@ -248,6 +248,7 @@ class SequenceModelMetricBag(MetricBag):
         self.num_examples = Sum(device=d)
 
         self.num_elements = Sum(device=d)
+        self.num_target_elements = Sum(device=d)
 
     @torch.inference_mode()
     def update_step_metrics(
@@ -271,15 +272,17 @@ class SequenceModelMetricBag(MetricBag):
         batch_size = torch.zeros((), dtype=torch.float64)
 
         num_elements = torch.zeros((), dtype=torch.float64)
+        num_target_elements = torch.zeros((), dtype=torch.float64)
 
         for batch in batches:
             batch_size += batch.batch_size
 
             num_elements += batch.num_elements()
+            num_target_elements += batch.num_target_elements()
 
-        normalized_nll_loss = nll_loss.cpu() / num_elements
+        normalized_nll_loss = nll_loss.cpu() / num_target_elements
 
-        self.nll_loss.update(normalized_nll_loss, weight=num_elements)
+        self.nll_loss.update(normalized_nll_loss, weight=num_target_elements)
 
         self.batch_size.update(batch_size * self._gang.size)
 
@@ -293,6 +296,7 @@ class SequenceModelMetricBag(MetricBag):
         self.num_examples.update(batch_size)
 
         self.num_elements.update(num_elements)
+        self.num_target_elements.update(num_target_elements)
 
     def reset_step_metrics(self) -> None:
         """Reset the step metrics to their initial state."""

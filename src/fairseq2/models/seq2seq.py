@@ -18,7 +18,7 @@ from fairseq2.data import VocabularyInfo
 from fairseq2.gang import Gang
 from fairseq2.metrics import MetricBag
 from fairseq2.models.model import Model
-from fairseq2.models.sequence import SequenceModelOutput
+from fairseq2.models.sequence import SequenceBatch, SequenceModelOutput
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import override
 from fairseq2.utils.profiler import Stopwatch
@@ -84,6 +84,7 @@ class Seq2SeqBatch:
 
     @property
     def batch_size(self) -> int:
+        """The size of the batch dimension."""
         return self.target_seqs.size(0)
 
     def num_source_elements(self) -> int:
@@ -93,7 +94,6 @@ class Seq2SeqBatch:
 
         return int(self.source_padding_mask.seq_lens.sum())
 
-    @override
     def num_target_elements(self) -> int:
         """Return the number of target elements in the batch."""
         if self.target_padding_mask is None:
@@ -102,29 +102,35 @@ class Seq2SeqBatch:
         return int(self.target_padding_mask.seq_lens.sum())
 
 
-def as_auto_regressive_input(batch: Seq2SeqBatch) -> Tuple[Seq2SeqBatch, Tensor]:
-    """Use ``batch`` to train an auto-regressive model."""
+def as_auto_regressive_input(batch: Seq2SeqBatch) -> Tuple[Seq2SeqBatch, SequenceBatch]:
+    """Use ``batch`` to train an auto-regressive model.
+
+    :returns:
+        The tuple of input and target batches.
+    """
     if (seq_len := batch.target_seqs.size(1)) < 2:
         raise ValueError(
             f"The sequence length of `batch.target_seqs` must be at least 2 for training, but is {seq_len} instead."
         )
 
-    target_seqs = batch.target_seqs[:, :-1]
+    seqs, targets = batch.target_seqs[:, :-1], batch.target_seqs[:, 1:]
 
     if batch.target_padding_mask is None:
-        target_padding_mask = None
+        padding_mask = None
     else:
-        target_padding_mask = batch.target_padding_mask.trim(1)
+        padding_mask = batch.target_padding_mask.trim(1)
 
-    output_batch = Seq2SeqBatch(
+    batch = Seq2SeqBatch(
         batch.source_seqs,
         batch.source_padding_mask,
-        target_seqs,
-        target_padding_mask,
+        seqs,
+        padding_mask,
         batch.example,
     )
 
-    return output_batch, batch.target_seqs[:, 1:]
+    target_batch = SequenceBatch(targets, padding_mask)
+
+    return batch, target_batch
 
 
 class Seq2SeqModelMetricBag(MetricBag):
