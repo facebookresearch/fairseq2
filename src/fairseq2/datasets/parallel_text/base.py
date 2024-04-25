@@ -4,8 +4,10 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import List, NamedTuple, Optional, Sequence
 
 from fairseq2.assets import default_asset_store
 from fairseq2.data.text import TextTokenizer
@@ -13,11 +15,23 @@ from fairseq2.datasets.data_reader import DataReader
 from fairseq2.datasets.loader import DelegatingDatasetLoader
 from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
-from fairseq2.typing import DataType
 
 
-class AsrDataset(ABC):
-    """Represents an automatic speech recognition dataset."""
+class LangPair(NamedTuple):
+    """Represents the language pair of a parallel corpus."""
+
+    source_lang: str
+    """The source language code."""
+
+    target_lang: str
+    """The target language code."""
+
+    def __repr__(self) -> str:
+        return f"{self.source_lang}-{self.target_lang}"
+
+
+class ParallelTextDataset(ABC):
+    """Represents a parallel text dataset."""
 
     @abstractmethod
     def create_reader(
@@ -25,11 +39,11 @@ class AsrDataset(ABC):
         split: str,
         tokenizer: TextTokenizer,
         gang: Gang,
-        max_audio_len: int,
-        max_num_elements: int,
+        max_seq_len: int,
+        max_num_tokens: int,
         *,
-        dtype: Optional[DataType] = None,
-        min_audio_len: int = 1,
+        lang_pairs: Optional[Sequence[LangPair]] = None,
+        sample: bool = False,
         shuffle_window_size: int = 1,
         num_repeats: Optional[int] = 1,
         num_accumulate: int = 1,
@@ -41,19 +55,19 @@ class AsrDataset(ABC):
         :param split:
             The split to read.
         :param tokenizer:
-            The tokenizer to encode target text.
+            The tokenizer to encode text.
         :param gang:
             The gang over which to shard the dataset.
-        :param max_audio_len:
-            The maximum audio length of each example. Examples longer than
-            this value will be cropped.
-        :param max_num_elements:
-            The maximum number of elements in each batch.
-        :param dtype:
-            The data type of the decoded audio sequences.
-        :param min_audio_len:
-            The minimum audio length of each example. Examples shorter than
+        :param max_seq_len:
+            The maximum sequence length of each example. Examples longer than
             this value will be dropped.
+        :param max_num_tokens:
+            The maximum number of tokens in each batch.
+        :param lang_pairs:
+            The language pairs to read. If ``None``, all pairs will be read.
+        :param sample:
+            If ``True``, language pair corpora will be sampled in proportion to
+            their size.
         :param shuffle_window_size:
             The size of the shuffle window. If ``1``, no shuffling is performed;
             if ``0``, performs true shuffling by loading the entire dataset.
@@ -66,12 +80,18 @@ class AsrDataset(ABC):
         :param num_prefetch:
             The number of batches to prefetch in background.
         :param seed:
-            The seed to initialize the random number generators.
+            The seed to initialize the random number generators used internally.
         """
 
     @abstractmethod
     def splits(self) -> List[str]:
         """Return the list of splits."""
 
+    @abstractmethod
+    def lang_pairs(self, split: str) -> List[LangPair]:
+        """Return the list of language pairs of ``split``."""
 
-load_asr_dataset = DelegatingDatasetLoader[AsrDataset](default_asset_store)
+
+load_parallel_text_dataset = DelegatingDatasetLoader[ParallelTextDataset](
+    default_asset_store
+)

@@ -189,7 +189,8 @@ class BasicSentencePieceTokenizer(SentencePieceTokenizer):
         :param lang:
             Not used.
         :param mode:
-            Must be 'default' or 'prompt'. If ``None``, defaults to 'default'.
+            Must be 'default', 'prompt', or 'prompt_response'. If ``None``,
+            defaults to 'default'.
         :param device:
             The device on which to construct tensors.
         :param pin_memory:
@@ -208,6 +209,9 @@ class BasicSentencePieceTokenizer(SentencePieceTokenizer):
             prefix_tokens = ["<s>"]
             # In prompt mode, we expect the generator to finish the sequence.
             suffix_tokens = None
+        elif mode == "prompt_response":
+            prefix_tokens = []
+            suffix_tokens = ["</s>"]
         else:
             raise ValueError(
                 f"`mode` must be 'default' or 'prompt', but is '{mode}' instead."
