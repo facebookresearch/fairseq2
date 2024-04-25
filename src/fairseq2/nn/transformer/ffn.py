@@ -238,6 +238,6 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
 
         return (
             f"{s}, "
-            f"inner_dim_scale={self.inner_dim_scale}, "
+            f"inner_dim_scale={self.inner_dim_scale:G}, "
             f"inner_dim_to_multiple={self.inner_dim_to_multiple}"
         )

@@ -83,6 +83,6 @@ class ModuleList(TorchModuleList):
         s = super().extra_repr()
 
         if self.drop_p > 0.0:
-            s = f"{s}, drop_p={self.drop_p}"
+            s = f"{s}, drop_p={self.drop_p:G}"
 
         return s

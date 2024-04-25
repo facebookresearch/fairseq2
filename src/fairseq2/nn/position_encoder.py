@@ -160,6 +160,7 @@ class SinusoidalPositionEncoder(PositionEncoder):
         *,
         _legacy_pad_idx: Optional[int] = None,
         device: Optional[Device] = None,
+        dtype: Optional[DataType] = None,
     ) -> None:
         super().__init__(encoding_dim, max_seq_len)
 
@@ -175,9 +176,7 @@ class SinusoidalPositionEncoder(PositionEncoder):
         else:
             self._sin_offset = 1 + _legacy_pad_idx
 
-        freqs = torch.empty(
-            (max_seq_len, encoding_dim), device=device, dtype=torch.float32
-        )
+        freqs = torch.empty((max_seq_len, encoding_dim), device=device, dtype=dtype)
 
         self.register_buffer("freqs", freqs, persistent=False)
 
@@ -189,12 +188,14 @@ class SinusoidalPositionEncoder(PositionEncoder):
 
     def reset_non_persistent_buffers(self) -> None:
         """Reset the non-persistent buffers of the module."""
+        fp32_freqs = self.freqs.float()
+
         num_sin = self.encoding_dim // 2
 
-        device, dtype = self.freqs.device, self.freqs.dtype
+        device, dtype = fp32_freqs.device, fp32_freqs.dtype
 
-        l_half = self.freqs[:, :num_sin]
-        r_half = self.freqs[:, num_sin:]
+        l_half = fp32_freqs[:, :num_sin]
+        r_half = fp32_freqs[:, num_sin:]
 
         start_step = self._sin_offset
 
@@ -219,6 +220,8 @@ class SinusoidalPositionEncoder(PositionEncoder):
         l_half.sin_()
         r_half.cos_()
 
+        self.freqs.copy_(fp32_freqs)
+
     @override
     def _do_forward(
         self,
@@ -234,9 +237,7 @@ class SinusoidalPositionEncoder(PositionEncoder):
         else:
             start_step = state_bag.step_nr
 
-        fp32_seqs = seqs.float() + self.freqs[start_step : start_step + seq_len]
-
-        return fp32_seqs.type_as(seqs)
+        return seqs + self.freqs[start_step : start_step + seq_len]
 
 
 @final

@@ -159,7 +159,7 @@ class TorchSDPA(SDPA):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"attn_dropout_p={self.attn_dropout_p}"
+        return f"attn_dropout_p={self.attn_dropout_p:G}"
 
 
 @final
@@ -201,7 +201,7 @@ class NaiveSDPA(SDPA):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        return f"attn_dropout_p={self.attn_dropout_p}"
+        return f"attn_dropout_p={self.attn_dropout_p:G}"
 
 
 def _naive_scaled_dot_product_attention(

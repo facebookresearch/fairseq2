@@ -38,6 +38,7 @@ def nll_loss(
     :param reduction:
         The reduction to apply to the output.
     """
+    # (N, S) -> (N, S, 1)
     targets = targets.unsqueeze(-1)
 
     loss = -lprobs.gather(dim=-1, index=targets)
