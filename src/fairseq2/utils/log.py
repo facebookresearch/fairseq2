@@ -152,14 +152,14 @@ def log_hardware_info(
     )
 
     if device is not None:
-        s = f"{s} | Device Name: {device}"
+        s = f"{s} | Device: {device}"
 
     if device is not None and device.type == "cuda":
         pr = torch.cuda.get_device_properties(device)
 
         s = (
             f"{s} | "
-            f"Device Display Name: {pr.name} | "
+            f"Device Name: {pr.name} | "
             f"Device Memory: {pr.total_memory // (1024 * 1024):,}MiB | "
             f"Number of SMs: {pr.multi_processor_count} | "
             f"Compute Capability: {pr.major}.{pr.minor}"

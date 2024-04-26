@@ -27,7 +27,7 @@ from fairseq2.data.text import TextTokenizer, read_text
 from fairseq2.datasets.data_reader import DataPipelineReader
 from fairseq2.datasets.error import DatasetError
 from fairseq2.datasets.loader import AbstractDatasetLoader
-from fairseq2.datasets.parallel_text import (
+from fairseq2.datasets.parallel_text.base import (
     LangPair,
     ParallelTextDataset,
     load_parallel_text_dataset,

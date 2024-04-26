@@ -29,7 +29,9 @@ import fairseq2.models.wav2vec2.asr
 # isort: split
 
 # Register datasets.
-import fairseq2.datasets.nllb
+import fairseq2.datasets.asr
+import fairseq2.datasets.instruction
+import fairseq2.datasets.parallel_text
 
 
 def setup_extensions() -> None:

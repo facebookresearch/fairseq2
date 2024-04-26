@@ -11,13 +11,12 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     checkpoint_wrapper,
 )
 from torch.nn import Module
-from torch.utils.checkpoint import checkpoint
 
 from fairseq2.nn.transformer import TransformerDecoderLayer, TransformerEncoderLayer
 
 
 def use_layerwise_activation_checkpointing(
-    module: Module, preserve_rng_state: bool = False, debug: bool = False
+    module: Module, preserve_rng_state: bool = False
 ) -> None:
     """Use layer-wise activation checkpointing in ``module``.
 
@@ -27,17 +26,8 @@ def use_layerwise_activation_checkpointing(
         If ``True``, stashes the states of the default random number generators
         for the CPU and the device of ``module`` during the original forward
         pass and restores them during the recomputation.
-    :param debug:
-        If ``True``, error messages will include a trace of the operators ran
-        during the original forward pass.
     """
-    wrap = partial(
-        checkpoint_wrapper,
-        checkpoint_fn=checkpoint,
-        preserve_rng_state=preserve_rng_state,
-        use_reentrant=False,
-        debug=debug,
-    )
+    wrap = partial(checkpoint_wrapper, preserve_rng_state=preserve_rng_state)
 
     def check_module_type(m: Module) -> bool:
         return isinstance(m, (TransformerEncoderLayer, TransformerDecoderLayer))
