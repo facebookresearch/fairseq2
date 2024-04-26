@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import logging
+import os
 import time
 from logging import (
     DEBUG,
@@ -21,7 +22,7 @@ from typing import Any, List, Optional, Set, final
 
 
 def setup_logging(
-    log_file: Optional[Path] = None,
+    log_file: Path,
     *,
     debug: bool = False,
     utc_time: bool = False,
@@ -43,26 +44,23 @@ def setup_logging(
 
     rank = get_rank()
 
-    handlers: List[Handler] = [StreamHandler()]  # Log to stderr.
+    filename = log_file.name.format(rank=rank)
 
-    if log_file is not None:
-        filename = log_file.name.format(rank=rank)
+    if filename == log_file.name:
+        raise ValueError(
+            f"`log_file` must contain a 'rank' replacement field (i.e. {{rank}}) in its filename, but is '{log_file}' instead."
+        )
 
-        if filename == log_file.name:
-            raise ValueError(
-                f"`log_file` must contain a 'rank' replacement field (i.e. {{rank}}) in its filename, but is '{log_file}' instead."
-            )
+    log_file = log_file.with_name(filename)
 
-        try:
-            log_file.parent.mkdir(parents=True, exist_ok=True)
-        except OSError as ex:
-            raise RuntimeError(
-                f"The log directory ({log_file.parent}) cannot be created. See nested exception for details."
-            ) from ex
+    try:
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as ex:
+        raise RuntimeError(
+            f"The log directory ({log_file.parent}) cannot be created. See nested exception for details."
+        ) from ex
 
-        handler = FileHandler(log_file.with_name(filename))
-
-        handlers.append(handler)  # Log to file.
+    handlers: List[Handler] = [StreamHandler(), FileHandler(log_file)]
 
     fmt = f"[Rank {rank}] %(asctime)s %(levelname)s %(name)s - %(message)s"
 
@@ -78,6 +76,25 @@ def setup_logging(
 
     if utc_time:
         Formatter.converter = time.gmtime
+
+    _setup_nccl_logging(log_file, force)
+
+
+def _setup_nccl_logging(log_file: Path, force: bool) -> None:
+    if "NCCL_DEBUG" in os.environ and not force:
+        return
+
+    nccl_log_file = log_file.parent.joinpath("nccl", log_file.name)
+
+    try:
+        nccl_log_file.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as ex:
+        raise RuntimeError(
+            f"The NCCL log directory ({nccl_log_file.parent}) cannot be created. See nested exception for details."
+        ) from ex
+
+    os.environ["NCCL_DEBUG"] = "INFO"
+    os.environ["NCCL_DEBUG_FILE"] = str(nccl_log_file)
 
 
 @final
