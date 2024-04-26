@@ -21,8 +21,8 @@ from fairseq2.nn.transformer import (
 
 def get_fsdp_wrap_policy(
     model: Module, wrap_granularity: Literal["layer", "stack", "model"] = "layer"
-) -> Tuple[Optional[FSDPWrapPolicy], Optional[List[str]]]:
-    """Return the FSDP wrap policy for ``model``.
+) -> Tuple[Optional[FSDPWrapPolicy], Optional[List[Module]]]:
+    """Return the FSDP wrap policy for ``model`` along with ignored modules.
 
     :param model:
         The model to be wrapped.
