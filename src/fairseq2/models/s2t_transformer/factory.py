@@ -290,7 +290,6 @@ class S2TTransformerBuilder:
             self._config.model_dim,
             self._config.max_source_seq_len,
             device=self._device,
-            dtype=self._dtype,
         )
 
     def build_target_position_encoder(self) -> PositionEncoder:
@@ -300,7 +299,6 @@ class S2TTransformerBuilder:
             self._config.max_target_seq_len,
             _legacy_pad_idx=1,
             device=self._device,
-            dtype=self._dtype,
         )
 
     def build_encoder(self) -> TransformerEncoder:
@@ -410,7 +408,6 @@ class S2TTransformerBuilder:
                     self._config.model_dim,
                     self._config.max_source_seq_len,
                     device=self._device,
-                    dtype=self._dtype,
                 )
 
             sdpa = RelativePositionSDPA(

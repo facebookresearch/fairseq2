@@ -403,7 +403,6 @@ class Wav2Vec2EncoderBuilder:
                     self._config.model_dim,
                     self._config.max_seq_len,
                     device=self._device,
-                    dtype=self._dtype,
                 )
 
             sdpa = RelativePositionSDPA(
