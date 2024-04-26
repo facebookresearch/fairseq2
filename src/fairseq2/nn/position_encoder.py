@@ -160,7 +160,6 @@ class SinusoidalPositionEncoder(PositionEncoder):
         *,
         _legacy_pad_idx: Optional[int] = None,
         device: Optional[Device] = None,
-        dtype: Optional[DataType] = None,
     ) -> None:
         super().__init__(encoding_dim, max_seq_len)
 
@@ -176,7 +175,9 @@ class SinusoidalPositionEncoder(PositionEncoder):
         else:
             self._sin_offset = 1 + _legacy_pad_idx
 
-        freqs = torch.empty((max_seq_len, encoding_dim), device=device, dtype=dtype)
+        freqs = torch.empty(
+            (max_seq_len, encoding_dim), device=device, dtype=torch.float32
+        )
 
         self.register_buffer("freqs", freqs, persistent=False)
 
@@ -188,18 +189,16 @@ class SinusoidalPositionEncoder(PositionEncoder):
 
     def reset_non_persistent_buffers(self) -> None:
         """Reset the non-persistent buffers of the module."""
-        fp32_freqs = self.freqs.float()
+        assert self.max_seq_len is not None
+
+        device, dtype = self.freqs.device, self.freqs.dtype
 
         num_sin = self.encoding_dim // 2
 
-        device, dtype = fp32_freqs.device, fp32_freqs.dtype
-
-        l_half = fp32_freqs[:, :num_sin]
-        r_half = fp32_freqs[:, num_sin:]
+        l_half = self.freqs[:, :num_sin]
+        r_half = self.freqs[:, num_sin:]
 
         start_step = self._sin_offset
-
-        assert self.max_seq_len is not None
 
         # (S)
         steps = torch.arange(
@@ -220,8 +219,6 @@ class SinusoidalPositionEncoder(PositionEncoder):
         l_half.sin_()
         r_half.cos_()
 
-        self.freqs.copy_(fp32_freqs)
-
     @override
     def _do_forward(
         self,
@@ -237,7 +234,9 @@ class SinusoidalPositionEncoder(PositionEncoder):
         else:
             start_step = state_bag.step_nr
 
-        return seqs + self.freqs[start_step : start_step + seq_len]
+        fp32_seqs = seqs.float() + self.freqs[start_step : start_step + seq_len]
+
+        return fp32_seqs.type_as(seqs)
 
 
 @final
@@ -326,7 +325,7 @@ class RotaryEncoder(PositionEncoder):
             )
 
         freqs = torch.empty(
-            (max_seq_len, encoding_dim // 2), device=device, dtype=torch.complex64
+            (max_seq_len, encoding_dim // 2, 2), device=device, dtype=torch.float32
         )
 
         self.register_buffer("freqs", freqs, persistent=False)
@@ -339,14 +338,15 @@ class RotaryEncoder(PositionEncoder):
 
     def reset_non_persistent_buffers(self) -> None:
         """Reset the non-persistent buffers of the module."""
-        device = self.freqs.device
-
         assert self.max_seq_len is not None
 
-        # As of PyTorch 2.0, `torch.polar` does not support meta device, but we
-        # do not want to lose benefit of lazy initialization.
+        device = self.freqs.device
+
+        # As of PyTorch 2.0, `torch.polar` does not support meta device.
         if device == META:
             return
+
+        complex_freqs = torch.view_as_complex(self.freqs)
 
         # (S)
         steps = torch.arange(self.max_seq_len, device=device, dtype=torch.float32)
@@ -362,7 +362,7 @@ class RotaryEncoder(PositionEncoder):
         freqs = torch.outer(steps, freqs)
 
         # (S, E / 2)
-        torch.polar(torch.ones_like(freqs), freqs, out=self.freqs)
+        torch.polar(torch.ones_like(freqs), freqs, out=complex_freqs)
 
     @override
     def _do_forward(
@@ -379,12 +379,16 @@ class RotaryEncoder(PositionEncoder):
         else:
             start_step = state_bag.step_nr
 
+        complex_freqs = torch.view_as_complex(self.freqs)
+
+        complex_freqs = complex_freqs[start_step : start_step + seq_len]
+
         # (*, S, E) -> (*, S, E / 2, 2)
         seqs = seqs.unflatten(-1, (-1, 2))
 
         complex_seqs = torch.view_as_complex(seqs.float())
 
-        complex_seqs = complex_seqs * self.freqs[start_step : start_step + seq_len]
+        complex_seqs = complex_seqs * complex_freqs
 
         # (*, S, E / 2, 2) -> (*, S, E)
         fp32_seqs = torch.view_as_real(complex_seqs).flatten(-2)
