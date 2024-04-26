@@ -47,6 +47,6 @@ def test_load_dense_distill_600m() -> None:
         tokenizer,
         source_lang="eng_Latn",
         target_lang="deu_Latn",
-        max_src_len=1024,
+        max_source_len=1024,
     )
     text, _ = translator(ENG_SENTENCE * 20)
