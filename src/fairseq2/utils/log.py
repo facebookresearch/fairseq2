@@ -52,26 +52,25 @@ def log_config(config: Any, log: LogWriter, file: Optional[Path] = None) -> None
     if file is not None:
         _dump_dataclass(config, file)
 
-    log.info("Config:\n{}", config)
-
-
-def log_environment_info(
-    log: Union[LogWriter, Logger], device: Optional[Device] = None
-) -> None:
-    """Log information about the software and hardware environments."""
-    log_software_info(log, device)
-    log_hardware_info(log, device)
+    log.info("Job Config:\n{}", config)
 
 
 # compat
 # TODO: Keep only LogWriter
-def log_software_info(
+def log_environment_info(
     log: Union[LogWriter, Logger], device: Optional[Device] = None
 ) -> None:
-    """Log information about the software environment."""
+    """Log information about the installed software and the host system."""
     if isinstance(log, Logger):
         log = LogWriter(log)
 
+    log_software_info(log, device)
+
+    log_system_info(log, device)
+
+
+def log_software_info(log: LogWriter, device: Optional[Device] = None) -> None:
+    """Log information about the installed software."""
     if not log.is_enabled_for(logging.INFO):
         return
 
@@ -86,18 +85,11 @@ def log_software_info(
 
     s = f"{s} | Intraop Thread Count: {torch.get_num_threads()}"
 
-    log.info("Software Info - {}", s)
+    log.info("Software - {}", s)
 
 
-# compat
-# TODO: Keep only LogWriter
-def log_hardware_info(
-    log: Union[LogWriter, Logger], device: Optional[Device] = None
-) -> None:
-    """Log information about the host and device hardware environments."""
-    if isinstance(log, Logger):
-        log = LogWriter(log)
-
+def log_system_info(log: LogWriter, device: Optional[Device] = None) -> None:
+    """Log information about the host system."""
     if not log.is_enabled_for(logging.INFO):
         return
 
@@ -146,7 +138,8 @@ def log_hardware_info(
     memory = psutil.virtual_memory()
 
     s = (
-        f"Host: {socket.getfqdn()} | "
+        f"Name: {socket.getfqdn()} | "
+        f"PID: {os.getpid()} | "
         f"Number of CPUs: {cpu_info} | "
         f"Memory: {memory.total // (1024 * 1024 * 1024):,}GiB"
     )
@@ -165,22 +158,19 @@ def log_hardware_info(
             f"Compute Capability: {pr.major}.{pr.minor}"
         )
 
-    log.info("Hardware Info - {}", s)
+    log.info("Host System - {}", s)
 
 
-def log_module(module: Module, log: Union[LogWriter, Logger]) -> None:
-    """Log information about ``module`` and its descendants."""
+def log_model(model: Module, log: LogWriter) -> None:
+    """Log information about ``model``."""
     # compat
     # TODO: move to module scope.
     from fairseq2.nn.utils.module import get_module_size
 
-    if isinstance(log, Logger):
-        log = LogWriter(log)
-
     if not log.is_enabled_for(logging.INFO):
         return
 
-    si = get_module_size(module)
+    si = get_module_size(model)
 
     s = (
         f"Parameter Size: {si.param_size:,} | "
@@ -193,4 +183,4 @@ def log_module(module: Module, log: Union[LogWriter, Logger]) -> None:
         f"Total Size (bytes): {si.total_size_bytes:,}"
     )
 
-    log.info("Module Info - {} | Layout:\n{}", s, module)
+    log.info("Model - {} | Layout:\n{}", s, model)

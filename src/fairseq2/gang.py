@@ -247,7 +247,7 @@ class ProcessGroupGang(AbstractGang):
         device: Optional[Device] = None,
         timeout: Optional[timedelta] = None,
         num_threads: Optional[int] = None,
-        warn_only: bool = False,
+        debug: bool = False,
         ok_initialized: bool = False,
     ) -> ProcessGroupGang:
         """Initialize the default process group and wrap it as a gang.
@@ -259,9 +259,9 @@ class ProcessGroupGang(AbstractGang):
             The timeout for collective operations.
         :param num_threads:
             The number of threads to use for interaop parallelism.
-        :param warn_only:
-            If ``True``, logs a warning instead of raising an error if the gang
-            is not set up reliably.
+        :param debug:
+            If ``True``, turns on additional logging and synchronization checks
+            to help diagnose distributed training related issues.
         :param ok_initialized:
             If ``True``, does not raise an error if the default process group is
             already initialized.
@@ -274,6 +274,11 @@ class ProcessGroupGang(AbstractGang):
                 return ProcessGroupGang.from_default_process_group()
 
             raise RuntimeError("The default process group is already initialized.")
+
+        # Turn on `torch.distributed` debugging.
+        if debug:
+            for debug_flag in ["TORCH_CPP_LOG_LEVEL", "TORCH_DISTRBUTED_DEBUG"]:
+                os.environ[debug_flag] = "INFO"
 
         num_procs = get_local_world_size()
 
@@ -303,25 +308,17 @@ class ProcessGroupGang(AbstractGang):
             )
 
         if device.type == "cuda":
+            nccl_env_name = "NCCL_ASYNC_ERROR_HANDLING"
 
-            def check_async_handling() -> None:
-                env_name = "NCCL_ASYNC_ERROR_HANDLING"
-                if env_name in os.environ:
-                    return
+            if torch_greater_or_equal(2, 2):
+                try:
+                    del os.environ[nccl_env_name]  # Suppress the deprecation warning.
+                except KeyError:
+                    pass
 
-                if torch_greater_or_equal(2, 2):
-                    env_name = "TORCH_NCCL_ASYNC_ERROR_HANDLING"
-                    if env_name in os.environ:
-                        return
+                nccl_env_name = "TORCH_NCCL_ASYNC_ERROR_HANDLING"
 
-                if warn_only:
-                    log.warning("The default process group uses the `nccl` backend, but the `{}` environment variable is not set. Your collective communication calls can hang indefinitely. Learn more at https://github.com/pytorch/pytorch/issues/46874.", env_name)  # fmt: skip
-                else:
-                    raise RuntimeError(
-                        f"The default process group uses the `nccl` backend, but the `{env_name}` environment variable is not set. Learn more at https://github.com/pytorch/pytorch/issues/46874."
-                    )
-
-            check_async_handling()
+            os.environ[nccl_env_name] = "1"
 
         if timeout is None:
             timeout = timedelta(minutes=30)
@@ -586,7 +583,10 @@ def _get_int_from_env(var_name: str, allow_zero: bool = False) -> Optional[int]:
 
 
 def setup_default_gang(
-    *, device: Optional[Device] = None, timeout: Optional[timedelta] = None
+    *,
+    device: Optional[Device] = None,
+    timeout: Optional[timedelta] = None,
+    debug: bool = False,
 ) -> Gang:
     """Set up the default gang of this process.
 
@@ -595,11 +595,16 @@ def setup_default_gang(
         device of the process; otherwise, it will use the CPU.
     :param timeout:
         The timeout for collective operations.
+    :param debug:
+        If ``True``, turns on additional logging and synchronization checks
+        to help diagnose distributed training related issues.
     """
     if get_world_size() == 1:
         return FakeGang(device=device)
 
-    return ProcessGroupGang.init_default_process_group(device=device, timeout=timeout)
+    return ProcessGroupGang.init_default_process_group(
+        device=device, timeout=timeout, debug=debug
+    )
 
 
 def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Dict[str, Gang]:
