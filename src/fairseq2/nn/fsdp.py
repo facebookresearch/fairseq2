@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Final, Iterable, Optional, Protocol, Sequence, final
+from typing import Any, Dict, Final, Optional, Protocol, Sequence, final
 
 import torch
 from torch import Tensor
@@ -21,14 +21,13 @@ from torch.distributed.fsdp.api import (
     ShardingStrategy,
     StateDictType,
 )
-from torch.nn import Module, Parameter
+from torch.nn import Module
 
 from fairseq2.gang import Gang
 from fairseq2.nn.utils.module import (
     infer_device,
     reset_non_persistent_buffers,
     reset_parameters,
-    select_parameters,
     to_empty,
 )
 from fairseq2.typing import META, DataType, Device
@@ -40,7 +39,7 @@ def to_fsdp(
     gang: Gang,
     wrap_policy: Optional[FSDPWrapPolicy],
     *,
-    ignored_param_names: Optional[Sequence[str]] = None,
+    ignored_modules: Optional[Sequence[Module]] = None,
     skip_init: bool = False,
     broadcast_state: bool = False,
     memory_policy: Optional[FSDPMemoryPolicy] = None,
@@ -104,15 +103,15 @@ def to_fsdp(
         mp = MixedPrecision(
             param_dtype=mixed_precision_dtype,
             reduce_dtype=reduce_dtype,
-            buffer_dtype=mixed_precision_dtype,
+            buffer_dtype=None,
         )
 
     kwargs: Dict[str, Any] = {}
 
     # As of PyTorch 2.0, FSDP initialization fails in certain settings when an
     # empty `ignored_states` is specified (e.g. `sync_module_states` is set).
-    if ignored_param_names:
-        kwargs["ignored_states"] = get_ignored_parameters(module, ignored_param_names)
+    if ignored_modules:
+        kwargs["ignored_states"] = ignored_modules
 
     fsdp = FSDP(
         module,
@@ -213,22 +212,6 @@ FSDP_VERY_LOW_MEMORY_POLICY: Final = FSDPMemoryPolicy(
 """
 
 
-def get_ignored_parameters(
-    module: Module, names: Optional[Sequence[str]]
-) -> Optional[Iterable[Parameter]]:
-    """Get the list of parameters that should be ignored by FSDP.
-
-    :param module:
-        The module to be wrapped with FSDP.
-    :param names:
-        The ignored parameter names. Can contain regular expressions.
-    """
-    if names is None:
-        return None
-
-    return (p for _, p in select_parameters(module, names))
-
-
 @final
 class FSDPParameterInitializer:
     """Initializes the parameters and buffers of an FSDP module.
@@ -273,4 +256,6 @@ class FSDPParameterInitializer:
         if not self._skip_init:
             reset_parameters(module, recurse=False)
         else:
+            # Non-persistent buffers are never part of module's state, so we
+            # have to initialize them even with `skip_init`.
             reset_non_persistent_buffers(module, recurse=False)
