@@ -8,14 +8,14 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from typing import Dict, Iterable, Optional, Protocol, Tuple, final
+from typing import Dict, Iterable, Iterator, Optional, Protocol, Tuple, final
 
-from torch import Tensor
-from torch.nn import Module
+import torch
+from torch import Generator, Tensor
+from torch.nn import Module, ModuleList
 from torch.utils.hooks import RemovableHandle
 
 from fairseq2.nn.incremental_state import IncrementalStateBag
-from fairseq2.nn.module_list import ModuleList
 from fairseq2.nn.normalization import LayerNorm
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer.attention_mask import (
@@ -23,12 +23,13 @@ from fairseq2.nn.transformer.attention_mask import (
     CausalAttentionMaskFactory,
 )
 from fairseq2.nn.transformer.decoder_layer import TransformerDecoderLayer
+from fairseq2.nn.transformer.encoder import _record_drop_for_backward
 from fairseq2.nn.transformer.layer_norm import (
     LayerNormFactory,
     create_standard_layer_norm,
 )
 from fairseq2.nn.transformer.norm_order import TransformerNormOrder
-from fairseq2.typing import DataType, Device, override
+from fairseq2.typing import CPU, DataType, Device, override
 
 
 class TransformerDecoder(Module, ABC):
@@ -145,6 +146,8 @@ class StandardTransformerDecoder(TransformerDecoder):
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
     self_attn_mask_factory: Optional[AttentionMaskFactory]
+    layer_drop_p: float
+    generator: Optional[Generator]
     layer_norm: Optional[LayerNorm]
     norm_order: TransformerNormOrder
 
@@ -155,6 +158,7 @@ class StandardTransformerDecoder(TransformerDecoder):
         self_attn_mask_factory: Optional[AttentionMaskFactory] = None,
         use_causal_attn_mask: bool = True,
         layer_drop_p: float = 0.0,
+        generator: Optional[Generator] = None,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         layer_norm_factory: Optional[LayerNormFactory] = None,
         device: Optional[Device] = None,
@@ -172,12 +176,14 @@ class StandardTransformerDecoder(TransformerDecoder):
         :param layer_drop_p:
             If greater than zero, applies LayerDrop to the decoder layers as
             described in :cite:t:`https://doi.org/10.48550/arxiv.1909.11556`.
+        :param generator:
+            The random number generator for LayerDrop.
         :param norm_order:
             The Layer Normalization order.
         :param layer_norm_factory:
             The factory to construct the Layer Normalization module.
         """
-        layer_list = ModuleList(layers, drop_p=layer_drop_p)
+        layer_list = ModuleList(layers)
         if not layer_list:
             raise ValueError("`layers` must be non-empty.")
 
@@ -196,6 +202,10 @@ class StandardTransformerDecoder(TransformerDecoder):
             self.self_attn_mask_factory = None
 
         self.layers = layer_list
+
+        self.layer_drop_p = layer_drop_p
+
+        self.generator = generator
 
         if norm_order != TransformerNormOrder.POST:
             self.layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
@@ -228,8 +238,8 @@ class StandardTransformerDecoder(TransformerDecoder):
                 seqs, keys=seqs, training=self.training, state_bag=state_bag
             )
 
-        for layer_idx, layer in enumerate(self.layers.drop_iter()):
-            seqs, padding_mask = layer(
+        for layer_idx, (layer, drop) in enumerate(self._drop_iter()):
+            layer_output, layer_padding_mask = layer(
                 seqs,
                 padding_mask,
                 self_attn_mask,
@@ -237,6 +247,13 @@ class StandardTransformerDecoder(TransformerDecoder):
                 encoder_padding_mask,
                 state_bag=state_bag,
             )
+
+            if drop:
+                seqs = _record_drop_for_backward(seqs, layer_output)
+
+                continue
+
+            seqs, padding_mask = layer_output, layer_padding_mask
 
             for hook in self._layer_output_hooks.values():
                 if not hook(layer_idx, seqs, padding_mask, num_layers):
@@ -246,6 +263,19 @@ class StandardTransformerDecoder(TransformerDecoder):
             seqs = self.layer_norm(seqs)
 
         return seqs, padding_mask
+
+    def _drop_iter(self) -> Iterator[Tuple[Module, bool]]:
+        if self.training and self.layer_drop_p > 0.0:
+            prob_dist = torch.rand(
+                len(self.layers), generator=self.generator, device=CPU
+            )
+        else:
+            prob_dist = None
+
+        for idx, m in enumerate(self.layers):
+            drop = prob_dist is not None and float(prob_dist[idx]) <= self.layer_drop_p
+
+            yield m, drop
 
     def extra_repr(self) -> str:
         """:meta private:"""
@@ -257,5 +287,8 @@ class StandardTransformerDecoder(TransformerDecoder):
             )
 
             s = f"{s}, self_attn_mask_factory={self_attn_mask_factory}"
+
+        if self.layer_drop_p > 0.0:
+            s = f"{s}, layer_drop_p={self.layer_drop_p}"
 
         return f"{s}, norm_order={self.norm_order}"
