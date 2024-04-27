@@ -246,7 +246,7 @@ class StandardTransformerEncoder(TransformerEncoder):
             s = f"{s}, self_attn_mask_factory={self_attn_mask_factory}"
 
         if self.layer_drop_p > 0.0:
-            s = f"{s}, layer_drop_p={self.layer_drop_p}"
+            s = f"{s}, layer_drop_p={self.layer_drop_p:G}"
 
         return f"{s}, norm_order={self.norm_order}"
 
