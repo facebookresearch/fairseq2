@@ -36,7 +36,7 @@ target_include_directories(py_bindings PRIVATE ${PROJECT_SOURCE_DIR}/python/src)
 
 target_link_libraries(py_bindings
     PRIVATE
-        pybind11::module fmt::fmt kuba-zip fairseq2n torch_python
+        pybind11::module fmt::fmt kuba-zip fairseq2n torch torch_python
 )
 
 fairseq2n_set_link_options(py_bindings ALLOW_UNDEFINED_SYMBOLS)

@@ -18,7 +18,9 @@ from logging import (
     getLogger,
 )
 from pathlib import Path
-from typing import Any, List, Optional, Set, final
+from typing import TYPE_CHECKING, Any, List, Optional, Set, final
+
+from fairseq2n import DOC_MODE
 
 
 def setup_logging(
@@ -28,7 +30,7 @@ def setup_logging(
     utc_time: bool = False,
     force: bool = False,
 ) -> None:
-    """Set up logging for a training or eval job.
+    """Set up logging for a training or evaluation job.
 
     :param log_file:
         The file to which logs will be written. Must have a 'rank' replacement
@@ -77,7 +79,37 @@ def setup_logging(
     if utc_time:
         Formatter.converter = time.gmtime
 
+    _setup_aten_logging(log_file, force)
+
     _setup_nccl_logging(log_file, force)
+
+
+def _setup_aten_logging(log_file: Path, force: bool) -> None:
+    if "TORCH_CPP_LOG_LEVEL" in os.environ and not force:
+        return
+
+    aten_log_file = log_file.parent.joinpath("aten", log_file.name)
+
+    try:
+        aten_log_file.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as ex:
+        raise RuntimeError(
+            f"The ATen log directory ({aten_log_file.parent}) cannot be created. See nested exception for details."
+        ) from ex
+
+    _enable_aten_logging(aten_log_file)
+
+    # This variable has no effect at this point. We set it for completeness.
+    os.environ["TORCH_CPP_LOG_LEVEL"] = "INFO"
+
+
+if TYPE_CHECKING or DOC_MODE:
+
+    def _enable_aten_logging(log_file: Path) -> Path:
+        ...
+
+else:
+    from fairseq2n.bindings import _enable_aten_logging
 
 
 def _setup_nccl_logging(log_file: Path, force: bool) -> None:
