@@ -178,11 +178,7 @@ class StandardTransformerEncoder(TransformerEncoder):
     def forward(
         self, seqs: Tensor, padding_mask: Optional[PaddingMask]
     ) -> Tuple[Tensor, Optional[PaddingMask]]:
-        if (
-            self._layer_output_hooks
-            and self.layers.drop_p > 0.0
-            and self.training
-        ):
+        if self._layer_output_hooks and self.layers.drop_p > 0.0 and self.training:
             raise RuntimeError(
                 "The layer output hooks cannot be run when LayerDrop is enabled."
             )
