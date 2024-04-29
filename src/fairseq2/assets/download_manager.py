@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 import os
-import sys
 from abc import ABC, abstractmethod
 from contextlib import ExitStack
 from hashlib import sha1
@@ -24,6 +23,9 @@ from tqdm import tqdm  # type: ignore[import]
 from fairseq2.assets.error import AssetError
 from fairseq2.assets.utils import _get_path_from_env, _starts_with_scheme
 from fairseq2.typing import override
+from fairseq2.utils.logging import get_log_writer
+
+log = get_log_writer(__name__)
 
 
 class AssetDownloadManager(ABC):
@@ -37,7 +39,6 @@ class AssetDownloadManager(ABC):
         *,
         shard_idx: Optional[int] = None,
         force: bool = False,
-        cache_only: bool = False,
         progress: bool = True,
     ) -> Path:
         """Download the checkpoint at ``uri`` to the asset cache directory.
@@ -50,8 +51,6 @@ class AssetDownloadManager(ABC):
             The shard to download if the checkpoint is sharded.
         :param force:
             If ``True``, downloads the checkpoint even if it is already in cache.
-        :param cache_only:
-            If ``True``, skips the download and returns the cached checkpoint.
         :param progress:
             If ``True``, displays a progress bar to stderr.
 
@@ -67,7 +66,6 @@ class AssetDownloadManager(ABC):
         *,
         tokenizer_name: Optional[str] = None,
         force: bool = False,
-        cache_only: bool = False,
         progress: bool = True,
     ) -> Path:
         """Download the tokenizer at ``uri`` to the asset cache directory.
@@ -80,8 +78,6 @@ class AssetDownloadManager(ABC):
             The name of the tokenizer.
         :param force:
             If ``True``, downloads the tokenizer even if it is already in cache.
-        :param cache_only:
-            If ``True``, skips the download and returns the cached tokenizer.
         :param progress:
             If ``True``, displays a progress bar to stderr.
 
@@ -96,7 +92,6 @@ class AssetDownloadManager(ABC):
         dataset_name: str,
         *,
         force: bool = False,
-        cache_only: bool = False,
         progress: bool = True,
     ) -> Path:
         """Download the dataset at ``uri`` to the asset cache directory.
@@ -107,8 +102,6 @@ class AssetDownloadManager(ABC):
             The name of the dataset.
         :param force:
             If ``True``, downloads the dataset even if it is already in cache.
-        :param cache_only:
-            If ``True``, skips the download and returns the cached dataset.
         :param progress:
             If ``True``, displays a progress bar to stderr.
 
@@ -124,9 +117,9 @@ class InProcAssetDownloadManager(AssetDownloadManager):
     _cache_dir: Path
 
     def __init__(self) -> None:
-        cache_dir = _get_path_from_env("FAIRSEQ2_CACHE_DIR", missing_ok=True)
+        cache_dir = _get_path_from_env("FAIRSEQ2_CACHE_DIR", log, missing_ok=True)
         if cache_dir is None:
-            cache_dir = _get_path_from_env("XDG_CACHE_HOME")
+            cache_dir = _get_path_from_env("XDG_CACHE_HOME", log)
             if cache_dir is None:
                 cache_dir = Path("~/.cache").expanduser()
 
@@ -142,7 +135,6 @@ class InProcAssetDownloadManager(AssetDownloadManager):
         *,
         shard_idx: Optional[int] = None,
         force: bool = False,
-        cache_only: bool = False,
         progress: bool = True,
     ) -> Path:
         display_name = f"checkpoint of {model_name}"
@@ -151,7 +143,7 @@ class InProcAssetDownloadManager(AssetDownloadManager):
             display_name = f"{display_name} (shard {shard_idx})"
 
         op = _AssetDownloadOp(
-            self._cache_dir, uri, display_name, force, cache_only, progress, shard_idx
+            self._cache_dir, uri, display_name, force, progress, shard_idx
         )
 
         return op.run()
@@ -164,7 +156,6 @@ class InProcAssetDownloadManager(AssetDownloadManager):
         *,
         tokenizer_name: Optional[str] = None,
         force: bool = False,
-        cache_only: bool = False,
         progress: bool = True,
     ) -> Path:
         if not tokenizer_name:
@@ -172,9 +163,7 @@ class InProcAssetDownloadManager(AssetDownloadManager):
         else:
             display_name = f"{tokenizer_name} tokenizer of {model_name}"
 
-        op = _AssetDownloadOp(
-            self._cache_dir, uri, display_name, force, cache_only, progress
-        )
+        op = _AssetDownloadOp(self._cache_dir, uri, display_name, force, progress)
 
         return op.run()
 
@@ -185,14 +174,11 @@ class InProcAssetDownloadManager(AssetDownloadManager):
         dataset_name: str,
         *,
         force: bool = False,
-        cache_only: bool = False,
         progress: bool = True,
     ) -> Path:
         display_name = f"{dataset_name} dataset"
 
-        op = _AssetDownloadOp(
-            self._cache_dir, uri, display_name, force, cache_only, progress
-        )
+        op = _AssetDownloadOp(self._cache_dir, uri, display_name, force, progress)
 
         return op.run()
 
@@ -204,7 +190,6 @@ class _AssetDownloadOp:
     _asset_dir: Optional[Path]
     _display_name: str
     _force: bool
-    _cache_only: bool
     _progress: bool
     _shard_idx: Optional[int]
 
@@ -214,7 +199,6 @@ class _AssetDownloadOp:
         uri: str,
         display_name: str,
         force: bool,
-        cache_only: bool,
         progress: bool,
         shard_idx: Optional[int] = None,
     ) -> None:
@@ -224,12 +208,11 @@ class _AssetDownloadOp:
         self._asset_dir = None
         self._display_name = display_name
         self._force = force
-        self._cache_only = cache_only
         self._progress = progress
         self._shard_idx = shard_idx
 
     def run(self) -> Path:
-        self._process_input_uri()
+        self._process_uri()
 
         self._format_uri_with_shard_index()
 
@@ -253,13 +236,10 @@ class _AssetDownloadOp:
 
         return self._get_final_asset_path()
 
-    def _process_input_uri(self) -> None:
+    def _process_uri(self) -> None:
         uri = self._uri
 
         try:
-            if uri.startswith("file://"):
-                uri = uri[7:]
-
             if not _starts_with_scheme(uri):
                 uri = Path(uri).as_uri()  # Normalize.
 
@@ -293,14 +273,13 @@ class _AssetDownloadOp:
         if self._shard_idx is None:
             return
 
-        uri_with_shard = self._uri.format(self._shard_idx)
-
-        if uri_with_shard == self._uri:
+        sharded_uri = self._uri.replace("%7Bshard_idx%7D", str(self._shard_idx))
+        if sharded_uri == self._uri:
             raise AssetError(
                 f"`shard_idx` is specified, but the {self._display_name} is not sharded."
             )
 
-        self._uri = uri_with_shard
+        self._uri = sharded_uri
 
     def _check_if_gated_asset(self) -> None:
         if self._uri_params.get("gated", "false").strip().lower() == "true":
@@ -326,12 +305,9 @@ class _AssetDownloadOp:
 
         assert asset_dir is not None
 
-        if self._force and not self._cache_only:
+        if self._force:
             if asset_dir.exists():
-                if self._progress:
-                    self._print_progress(
-                        f"Ignoring the cached {self._display_name}. `force` is set to `True`."
-                    )
+                log.info("Ignoring the cached {}. `force` is set to `True`.", self._display_name)  # fmt: skip
 
                 try:
                     rmtree(asset_dir)
@@ -366,18 +342,9 @@ class _AssetDownloadOp:
                 except OSError:
                     pass
 
-                if self._progress:
-                    if self._cache_only:
-                        self._print_progress(f"Using the cached {self._display_name}.")
-                    else:
-                        self._print_progress(
-                            f"Using the cached {self._display_name}. Set `force` to `True` to download again."
-                        )
+                log.info("Using the cached {}. Set `force` to `True` to download again.", self._display_name)  # fmt: skip
 
     def _download_asset(self) -> None:
-        if self._cache_only:
-            return
-
         assert self._asset_dir is not None
 
         download_dir = self._asset_dir.with_suffix(".download")
@@ -407,8 +374,7 @@ class _AssetDownloadOp:
 
             cleanup_stack.callback(remove_tmp_dir)
 
-            if self._progress:
-                self._print_progress(f"Downloading the {self._display_name}...")
+            log.info("Downloading the {}...", self._display_name)
 
             request = Request(
                 self._uri,
@@ -508,10 +474,9 @@ class _AssetDownloadOp:
 
             succeeded = True
 
-    def _ensure_asset_extracted(self) -> None:
-        if self._cache_only:
-            return
+            log.info("Download complete.")
 
+    def _ensure_asset_extracted(self) -> None:
         asset_dir = self._asset_dir
 
         assert asset_dir is not None
@@ -543,8 +508,7 @@ class _AssetDownloadOp:
             # internally use the zip format. To be on the safe side we only
             # extract files that have the '.zip' suffix.
             if asset_path.suffix == ".zip":
-                if self._progress:
-                    self._print_progress(f"Extracting the {self._display_name}...")
+                log.info("Extracting the {}...", self._display_name)
 
                 try:
                     with ZipFile(asset_path) as zip_fp:
@@ -558,9 +522,10 @@ class _AssetDownloadOp:
                     asset_path.unlink()
                 except OSError:
                     pass
+
+                log.info("Extraction complete.")
             elif is_tarfile(asset_path):
-                if self._progress:
-                    self._print_progress(f"Extracting the {self._display_name}...")
+                log.info("Extracting the {}...", self._display_name)
 
                 try:
                     with TarFile(asset_path) as tar_fp:
@@ -574,6 +539,8 @@ class _AssetDownloadOp:
                     asset_path.unlink()
                 except OSError:
                     pass
+
+                log.info("Extraction complete.")
             else:
                 try:
                     asset_path.replace(asset_dir.joinpath(asset_path.name))
@@ -592,19 +559,7 @@ class _AssetDownloadOp:
     def _get_final_asset_path(self) -> Path:
         asset_dir = self._asset_dir
 
-        assert asset_dir is not None
-
-        if self._cache_only:
-            download_dir = asset_dir.with_suffix(".download")
-
-            # If the asset directory is not found, or if the download/extraction
-            # is not finished yet, raise an error.
-            if not asset_dir.exists() or download_dir.exists():
-                raise AssetError(
-                    f"The {self._display_name} cannot be found. Set `cache_only` to `False` to download it."
-                )
-        else:
-            assert asset_dir.exists()
+        assert asset_dir is not None and asset_dir.exists()
 
         asset_path = None
 
@@ -647,10 +602,6 @@ class _AssetDownloadOp:
             )
 
         return asset_path
-
-    @staticmethod
-    def _print_progress(s: str) -> None:
-        print(s, file=sys.stderr)
 
 
 class AssetDownloadError(AssetError):

@@ -166,7 +166,7 @@ class TestParquetDataloader:
 
         assert list(res[0].columns) == ["string_col2", "list_int_col", "float_col"]
 
-        assert Counter(map(len, res)) == Counter({3: 340, 1: 2})
+        assert Counter(map(len, res)) == Counter({3: 340, 2: 1})
 
     def test_filtered_with_columns_dataload_min_batch_size(
         self, multi_partition_file: str

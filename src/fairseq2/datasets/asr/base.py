@@ -5,17 +5,12 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import List, Optional, TypeVar
+from typing import List, Optional
 
-from fairseq2.assets import default_asset_store, default_download_manager
+from fairseq2.assets import default_asset_store
 from fairseq2.data.text import TextTokenizer
 from fairseq2.datasets.data_reader import DataReader
-from fairseq2.datasets.loader import (
-    DatasetFactory,
-    DatasetLoader,
-    DelegatingDatasetLoader,
-    StandardDatasetLoader,
-)
+from fairseq2.datasets.loader import DelegatingDatasetLoader
 from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.typing import DataType
@@ -35,10 +30,11 @@ class AsrDataset(ABC):
         *,
         dtype: Optional[DataType] = None,
         min_audio_len: int = 1,
-        shuffle_window_size: int = 0,
+        shuffle_window_size: int = 1,
         num_repeats: Optional[int] = 1,
-        num_prefetch: int = 0,
         num_accumulate: int = 1,
+        num_prefetch: int = 0,
+        seed: int = 2,
     ) -> DataReader[Seq2SeqBatch]:
         """Create a dataset reader.
 
@@ -59,15 +55,18 @@ class AsrDataset(ABC):
             The minimum audio length of each example. Examples shorter than
             this value will be dropped.
         :param shuffle_window_size:
-            The size of the streaming shuffle window.
+            The size of the shuffle window. If ``1``, no shuffling is performed;
+            if ``0``, performs true shuffling by loading the entire dataset.
         :param num_repeats:
             The dataset will be repeatedly read this many times. If ``None``, it
             will be read indefinitely.
-        :param num_prefetch:
-            The number of batches to prefetch in background.
         :param num_accumulate:
             The number of batches to accumulate in each iteration. Typically
             used with gradient accumulation during training.
+        :param num_prefetch:
+            The number of batches to prefetch in background.
+        :param seed:
+            The seed to initialize the random number generators used internally.
         """
 
     @abstractmethod
@@ -76,25 +75,3 @@ class AsrDataset(ABC):
 
 
 load_asr_dataset = DelegatingDatasetLoader[AsrDataset](default_asset_store)
-
-
-AsrDatasetT = TypeVar("AsrDatasetT", bound=AsrDataset)
-
-
-def setup_asr_dataset(
-    family: str, factory: DatasetFactory[AsrDatasetT]
-) -> DatasetLoader[AsrDatasetT]:
-    """Set up an automatic speech recognition dataset.
-
-    :param family:
-        The name of the dataset family.
-    :param factory:
-        The factory to construct datasets.
-    """
-    loader = StandardDatasetLoader[AsrDatasetT](
-        default_asset_store, default_download_manager, factory
-    )
-
-    load_asr_dataset.register_loader(family, loader)
-
-    return loader

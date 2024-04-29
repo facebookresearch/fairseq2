@@ -8,12 +8,9 @@ import math
 from pathlib import Path
 
 import pytest
-import torch
 
 from fairseq2.data import DataPipeline, DataPipelineError, read_sequence
 from fairseq2.data.text import read_text
-from fairseq2.typing import CPU
-from tests.common import tmp_rng_seed
 
 
 class TestSampleOp:
@@ -21,37 +18,38 @@ class TestSampleOp:
         pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
         pipeline2 = read_sequence([5, 6, 7]).and_return()
 
-        pipeline = DataPipeline.sample([pipeline1, pipeline2], [1.2, 0.8]).and_return()
+        pipeline = DataPipeline.sample(
+            [pipeline1, pipeline2], weights=[1.2, 0.8], seed=1234
+        ).and_return()
 
         for _ in range(2):
-            with tmp_rng_seed(CPU, seed=1234):
-                assert list(pipeline) == [1, 2, 3, 4, 1, 5, 2, 3, 6, 4, 7]
+            assert list(pipeline) == [1, 2, 3, 4, 1, 5, 2, 3, 6, 4, 7]
 
-            pipeline.reset()
+            pipeline.reset(reset_rng=True)
 
     def test_op_works_when_no_weight_is_specified(self) -> None:
         pipeline1 = read_sequence([1, 2, 3]).and_return()
         pipeline2 = read_sequence([4, 5, 6]).and_return()
         pipeline3 = read_sequence([7, 8, 9]).and_return()
 
-        pipeline = DataPipeline.sample([pipeline1, pipeline2, pipeline3]).and_return()
+        pipeline = DataPipeline.sample(
+            [pipeline1, pipeline2, pipeline3], seed=1234
+        ).and_return()
 
         for _ in range(2):
-            with tmp_rng_seed(CPU, seed=1234):
-                assert list(pipeline) == [1, 4, 2, 5, 3, 7, 1, 6, 8, 2, 9]
+            assert list(pipeline) == [1, 4, 2, 5, 3, 7, 1, 6, 8, 2, 9]
 
-            pipeline.reset()
+            pipeline.reset(reset_rng=True)
 
     def test_op_works_when_a_single_pipeline_is_specified(self) -> None:
         pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
 
-        pipeline = DataPipeline.sample([pipeline1]).and_return()
+        pipeline = DataPipeline.sample([pipeline1], seed=1234).and_return()
 
         for _ in range(2):
-            with tmp_rng_seed(CPU, seed=1234):
-                assert list(pipeline) == [1, 2, 3, 4]
+            assert list(pipeline) == [1, 2, 3, 4]
 
-            pipeline.reset()
+            pipeline.reset(reset_rng=True)
 
     def test_op_works_when_no_pipeline_is_specified(self) -> None:
         pipeline = DataPipeline.sample([]).and_return()
@@ -60,19 +58,20 @@ class TestSampleOp:
             with pytest.raises(StopIteration):
                 next(iter(pipeline))
 
-            pipeline.reset()
+            pipeline.reset(reset_rng=True)
 
     def test_op_works_when_infinite_pipeline_is_specified(self) -> None:
         pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
         pipeline2 = DataPipeline.count(5).and_return()
 
-        pipeline = DataPipeline.sample([pipeline1, pipeline2], [0.4, 0.6]).and_return()
+        pipeline = DataPipeline.sample(
+            [pipeline1, pipeline2], weights=[0.4, 0.6], seed=1234
+        ).and_return()
 
         for _ in range(2):
-            with tmp_rng_seed(CPU, seed=1234):
-                assert list(pipeline) == [1, 5, 2, 3, 4]
+            assert list(pipeline) == [1, 5, 2, 3, 4]
 
-            pipeline.reset()
+            pipeline.reset(reset_rng=True)
 
     def test_op_raises_error_when_pipeline_is_empty(self) -> None:
         pipeline1 = read_sequence([1, 2]).and_return()
@@ -151,50 +150,43 @@ class TestSampleOp:
         pipeline3 = read_sequence([0, 2, 4, 6]).and_return()
 
         # [1, 5, 2, 6, 3, 0, 4, 7, 2, 1, 4, 8, 6]
-        pipeline = DataPipeline.sample([pipeline1, pipeline2, pipeline3]).and_return()
+        pipeline = DataPipeline.sample(
+            [pipeline1, pipeline2, pipeline3], seed=1234
+        ).and_return()
 
         d = None
 
         it = iter(pipeline)
 
-        with tmp_rng_seed(CPU, seed=1234):
-            # Move to the fifth example.
-            for _ in range(5):
-                d = next(it)
+        # Move to the fifth example.
+        for _ in range(5):
+            d = next(it)
 
-            assert d == 3
+        assert d == 3
 
-            rng = torch.get_rng_state()
+        state_dict = pipeline.state_dict()
 
-            state_dict = pipeline.state_dict()
+        # Read a few examples before we roll back.
+        for _ in range(3):
+            d = next(it)
 
-            # Read a few examples before we roll back.
-            for _ in range(3):
-                d = next(it)
+        assert d == 7
 
-            assert d == 7
+        # Expected to roll back to the fifth example.
+        pipeline.load_state_dict(state_dict)
 
-            torch.set_rng_state(rng)
+        # Move to EOD.
+        for _ in range(8):
+            d = next(it)
 
-            # Expected to roll back to the fifth example.
-            pipeline.load_state_dict(state_dict)
+        assert d == 6
 
-            # Move to EOD.
-            for _ in range(8):
-                d = next(it)
+        state_dict = pipeline.state_dict()
 
-            assert d == 6
+        pipeline.reset()
 
-            rng = torch.get_rng_state()
+        # Expected to be EOD.
+        pipeline.load_state_dict(state_dict)
 
-            state_dict = pipeline.state_dict()
-
-            pipeline.reset()
-
-            torch.set_rng_state(rng)
-
-            # Expected to be EOD.
-            pipeline.load_state_dict(state_dict)
-
-            with pytest.raises(StopIteration):
-                next(iter(pipeline))
+        with pytest.raises(StopIteration):
+            next(iter(pipeline))

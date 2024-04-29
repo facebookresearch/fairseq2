@@ -5,26 +5,25 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Iterator, List, Mapping, Tuple, TypeVar, final
+from typing import Any, Dict, Iterator, List, Mapping, TypeVar, final
 
 from typing_extensions import Self
 
 from fairseq2.data import DataPipeline
-from fairseq2.datasets.utils import _reduce_batch_size
+from fairseq2.datasets.utils import _reduce_num_batches
 from fairseq2.gang import Gang
-from fairseq2.models import Batch
 from fairseq2.typing import override
 from fairseq2.utils.logging import get_log_writer
 
 log = get_log_writer(__name__)
 
 
-BatchT = TypeVar("BatchT", bound=Batch)
+BatchT = TypeVar("BatchT")
 
-BatchT_co = TypeVar("BatchT_co", bound=Batch, covariant=True)
+BatchT_co = TypeVar("BatchT_co", covariant=True)
 
 
-class DataReader(ABC, Iterator[Tuple[int, List[BatchT_co]]]):
+class DataReader(ABC, Iterator[List[BatchT_co]]):
     """Reads batches of examples from a dataset."""
 
     @abstractmethod
@@ -32,12 +31,8 @@ class DataReader(ABC, Iterator[Tuple[int, List[BatchT_co]]]):
         ...
 
     @abstractmethod
-    def __next__(self) -> Tuple[int, List[BatchT_co]]:
-        """
-        :returns:
-            - The total size of batches read across all processes in the gang.
-            - The batches read in this process.
-        """
+    def __next__(self) -> List[BatchT_co]:
+        ...
 
     @abstractmethod
     def reset(self) -> None:
@@ -69,6 +64,7 @@ class DataPipelineReader(DataReader[BatchT]):
         gang: Gang,
         *,
         num_accumulate: int = 1,
+        drop_remainder: bool = True,
         sync_batches: bool = False,
     ) -> None:
         """
@@ -79,6 +75,9 @@ class DataPipelineReader(DataReader[BatchT]):
         :param num_accumulate:
             The number of batches to accumulate in each iteration. Typically
             used with gradient accumulation during training.
+        :param drop_remainder:
+            If ``True``, skips the last iteration if it returns less than
+            ``num_accumulate`` batches.
         :param sync_batches:
             If ``True``, at the end of each ``next()`` call, syncs batches read
             across all processes in the gang. Typically used when the amount of
@@ -89,6 +88,7 @@ class DataPipelineReader(DataReader[BatchT]):
         self._pipeline_iter = iter(pipeline)
         self._gang = gang
         self._num_accumulate = num_accumulate
+        self._drop_remainder = drop_remainder
         self._sync_batches = sync_batches
         self._eod = False
 
@@ -97,13 +97,13 @@ class DataPipelineReader(DataReader[BatchT]):
         return self
 
     @override
-    def __next__(self) -> Tuple[int, List[BatchT]]:
+    def __next__(self) -> List[BatchT]:
         if self._eod:
             raise StopIteration()
 
         batches = []
 
-        for _ in range(self._num_accumulate):
+        for idx in range(self._num_accumulate):
             try:
                 batch = next(self._pipeline_iter)
             except StopIteration:
@@ -111,26 +111,22 @@ class DataPipelineReader(DataReader[BatchT]):
 
             batches.append(batch)
 
+        if self._sync_batches and self._gang.size > 1:
+            num_batches = _reduce_num_batches(len(batches), self._gang, log)
+
+            batches = batches[:num_batches]
+
         # If we read less than `num_accumulate` batches, it means we reached end
         # of data.
-        if len(batches) != self._num_accumulate:
-            batch_size = 0
-        else:
-            batch_size = sum(b.batch_size for b in batches)
+        if self._drop_remainder and len(batches) != self._num_accumulate:
+            batches.clear()
 
-        if self._sync_batches:
-            batch_size = _reduce_batch_size(batch_size, self._gang, log)
-        else:
-            # If we don't sync, we assume all processes read equal amount of
-            # data at each iteration.
-            batch_size = batch_size * self._gang.size
-
-        self._eod = batch_size == 0
+        self._eod = len(batches) == 0
 
         if self._eod:
             raise StopIteration()
 
-        return batch_size, batches
+        return batches
 
     @override
     def reset(self) -> None:

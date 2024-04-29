@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import logging
+import os
 import time
 from logging import (
     DEBUG,
@@ -17,17 +18,19 @@ from logging import (
     getLogger,
 )
 from pathlib import Path
-from typing import Any, List, Optional, final
+from typing import TYPE_CHECKING, Any, List, Optional, Set, final
+
+from fairseq2n import DOC_MODE
 
 
 def setup_logging(
-    log_file: Optional[Path] = None,
+    log_file: Path,
     *,
     debug: bool = False,
     utc_time: bool = False,
     force: bool = False,
 ) -> None:
-    """Set up logging for a training or eval job.
+    """Set up logging for a training or evaluation job.
 
     :param log_file:
         The file to which logs will be written. Must have a 'rank' replacement
@@ -43,26 +46,23 @@ def setup_logging(
 
     rank = get_rank()
 
-    handlers: List[Handler] = [StreamHandler()]  # Log to stderr.
+    filename = log_file.name.format(rank=rank)
 
-    if log_file is not None:
-        filename = log_file.name.format(rank=rank)
+    if filename == log_file.name:
+        raise ValueError(
+            f"`log_file` must contain a 'rank' replacement field (i.e. {{rank}}) in its filename, but is '{log_file}' instead."
+        )
 
-        if filename == log_file.name:
-            raise ValueError(
-                f"`log_file` must contain a 'rank' replacement field (i.e. {{rank}}) in its filename, but is '{log_file}' instead."
-            )
+    log_file = log_file.with_name(filename)
 
-        try:
-            log_file.parent.mkdir(parents=True, exist_ok=True)
-        except OSError as ex:
-            raise RuntimeError(
-                f"The log directory ({log_file.parent}) cannot be created. See nested exception for details."
-            ) from ex
+    try:
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as ex:
+        raise RuntimeError(
+            f"The log directory ({log_file.parent}) cannot be created. See nested exception for details."
+        ) from ex
 
-        handler = FileHandler(log_file.with_name(filename))
-
-        handlers.append(handler)  # Log to file.
+    handlers: List[Handler] = [StreamHandler(), FileHandler(log_file)]
 
     fmt = f"[Rank {rank}] %(asctime)s %(levelname)s %(name)s - %(message)s"
 
@@ -79,12 +79,62 @@ def setup_logging(
     if utc_time:
         Formatter.converter = time.gmtime
 
+    _setup_aten_logging(log_file, force)
+
+    _setup_nccl_logging(log_file, force)
+
+
+def _setup_aten_logging(log_file: Path, force: bool) -> None:
+    if "TORCH_CPP_LOG_LEVEL" in os.environ and not force:
+        return
+
+    aten_log_file = log_file.parent.joinpath("aten", log_file.name)
+
+    try:
+        aten_log_file.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as ex:
+        raise RuntimeError(
+            f"The ATen log directory ({aten_log_file.parent}) cannot be created. See nested exception for details."
+        ) from ex
+
+    _enable_aten_logging(aten_log_file)
+
+    # This variable has no effect at this point. We set it for completeness.
+    os.environ["TORCH_CPP_LOG_LEVEL"] = "INFO"
+
+
+if TYPE_CHECKING or DOC_MODE:
+
+    def _enable_aten_logging(log_file: Path) -> Path:
+        ...
+
+else:
+    from fairseq2n.bindings import _enable_aten_logging
+
+
+def _setup_nccl_logging(log_file: Path, force: bool) -> None:
+    if "NCCL_DEBUG" in os.environ and not force:
+        return
+
+    nccl_log_file = log_file.parent.joinpath("nccl", log_file.name)
+
+    try:
+        nccl_log_file.parent.mkdir(parents=True, exist_ok=True)
+    except OSError as ex:
+        raise RuntimeError(
+            f"The NCCL log directory ({nccl_log_file.parent}) cannot be created. See nested exception for details."
+        ) from ex
+
+    os.environ["NCCL_DEBUG"] = "INFO"
+    os.environ["NCCL_DEBUG_FILE"] = str(nccl_log_file)
+
 
 @final
 class LogWriter:
     """Writes log messages using ``format()`` strings."""
 
     _logger: Logger
+    _once_messages: Set[str]
 
     def __init__(self, logger: Logger) -> None:
         """
@@ -93,21 +143,59 @@ class LogWriter:
         """
         self._logger = logger
 
+        self._once_messages = set()
+
     def debug(self, msg: Any, *args: Any, **kwargs: Any) -> None:
         """Log a message with level ``DEBUG``."""
         self._write(logging.DEBUG, msg, args, kwargs)
+
+    def debug_once(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+        """Log a message only once with level ``DEBUG``."""
+        if msg in self._once_messages:
+            return
+
+        self._write(logging.DEBUG, msg, args, kwargs)
+
+        self._once_messages.add(msg)
 
     def info(self, msg: Any, *args: Any, **kwargs: Any) -> None:
         """Log a message with level ``INFO``."""
         self._write(logging.INFO, msg, args, kwargs)
 
+    def info_once(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+        """Log a message only once with level ``INFO``."""
+        if msg in self._once_messages:
+            return
+
+        self._write(logging.INFO, msg, args, kwargs)
+
+        self._once_messages.add(msg)
+
     def warning(self, msg: Any, *args: Any, **kwargs: Any) -> None:
         """Log a message with level ``WARNING``."""
         self._write(logging.WARNING, msg, args, kwargs)
 
+    def warning_once(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+        """Log a message only once with level ``WARNING``."""
+        if msg in self._once_messages:
+            return
+
+        self._write(logging.WARNING, msg, args, kwargs)
+
+        self._once_messages.add(msg)
+
     def error(self, msg: Any, *args: Any, **kwargs: Any) -> None:
         """Log a message with level ``ERROR``."""
         self._write(logging.ERROR, msg, args, kwargs)
+
+    def error_once(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+        """Log a message only once with level ``ERROR``."""
+        if msg in self._once_messages:
+            return
+
+        self._write(logging.ERROR, msg, args, kwargs)
+
+        self._once_messages.add(msg)
 
     def exception(self, msg: Any, *args: Any, **kwargs: Any) -> None:
         """Log a message with level ``ERROR``."""

@@ -5,12 +5,14 @@
 # LICENSE file in the root directory of this source tree.
 
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, final
 
 import torch
 
-from fairseq2.assets import AssetCard
-from fairseq2.data.text import setup_text_tokenizer
+from fairseq2.assets import AssetCard, default_asset_store, default_download_manager
+from fairseq2.data.text import AbstractTextTokenizerLoader, load_text_tokenizer
+from fairseq2.models.config_loader import StandardModelConfigLoader
+from fairseq2.models.loader import DenseModelLoader, load_model
 from fairseq2.models.nllb.factory import (
     NLLB_FAMILY,
     NllbConfig,
@@ -18,8 +20,12 @@ from fairseq2.models.nllb.factory import (
     nllb_archs,
 )
 from fairseq2.models.nllb.tokenizer import NllbTokenizer
-from fairseq2.models.setup import setup_model
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
+from fairseq2.typing import override
+
+load_nllb_config = StandardModelConfigLoader(
+    default_asset_store, NLLB_FAMILY, NllbConfig, nllb_archs
+)
 
 
 def convert_nllb_checkpoint(
@@ -85,23 +91,32 @@ def convert_nllb_checkpoint(
     return checkpoint
 
 
-load_nllb_model, load_nllb_config = setup_model(
-    NLLB_FAMILY,
-    NllbConfig,
+load_nllb_model = DenseModelLoader(
+    default_asset_store,
+    default_download_manager,
+    load_nllb_config,
     create_nllb_model,
-    nllb_archs,
     convert_nllb_checkpoint,
     mmap=True,
     restrict_checkpoints=False,
 )
 
-
-def create_nllb_tokenizer(path: Path, card: AssetCard) -> NllbTokenizer:
-    langs = card.field("langs").as_list(str)
-
-    default_lang = card.field("default_lang").as_(str)
-
-    return NllbTokenizer(path, langs, default_lang)
+load_model.register(NLLB_FAMILY, load_nllb_model)
 
 
-load_nllb_tokenizer = setup_text_tokenizer(NLLB_FAMILY, create_nllb_tokenizer)
+@final
+class NllbTokenizerLoader(AbstractTextTokenizerLoader[NllbTokenizer]):
+    """Loads NLLB tokenizers."""
+
+    @override
+    def _load(self, path: Path, card: AssetCard) -> NllbTokenizer:
+        langs = card.field("langs").as_list(str)
+
+        default_lang = card.field("default_lang").as_(str)
+
+        return NllbTokenizer(path, langs, default_lang)
+
+
+load_nllb_tokenizer = NllbTokenizerLoader(default_asset_store, default_download_manager)
+
+load_text_tokenizer.register(NLLB_FAMILY, load_nllb_tokenizer)

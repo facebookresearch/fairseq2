@@ -25,13 +25,13 @@ class text_data_source final : public data_source {
 public:
     explicit
     text_data_source(
-        std::filesystem::path &&path, std::optional<std::string> &&key, text_options &&opts);
+        std::filesystem::path &&path, std::optional<std::string> &&maybe_key, text_options &&opts);
 
     std::optional<data>
     next() override;
 
     void
-    reset() override;
+    reset(bool reset_rng) override;
 
     void
     record_position(tape &t, bool strict) const override;
@@ -60,7 +60,7 @@ private:
 
 private:
     std::filesystem::path path_;
-    std::optional<std::string> key_;
+    std::optional<std::string> maybe_key_;
     text_options opts_;
     std::unique_ptr<text_line_reader> line_reader_;
     std::size_t num_lines_read_ = 0;

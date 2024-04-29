@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 from typing import Final, Optional
 
-from fairseq2.utils.logging import get_log_writer
+from fairseq2.utils.logging import LogWriter
 
 _SCHEME_REGEX: Final = re.compile("^[a-zA-Z0-9]+://")
 
@@ -18,7 +18,9 @@ def _starts_with_scheme(s: str) -> bool:
     return re.match(_SCHEME_REGEX, s) is not None
 
 
-def _get_path_from_env(var_name: str, missing_ok: bool = False) -> Optional[Path]:
+def _get_path_from_env(
+    var_name: str, log: LogWriter, missing_ok: bool = False
+) -> Optional[Path]:
     pathname = os.getenv(var_name)
     if not pathname:
         return None
@@ -35,8 +37,6 @@ def _get_path_from_env(var_name: str, missing_ok: bool = False) -> Optional[Path
     if not resolved_path.exists():
         if missing_ok:
             return resolved_path
-
-        log = get_log_writer("fairseq2.assets")
 
         log.warning("The path '{}' pointed to by the `{}` environment variable does not exist.", path, var_name)  # fmt: skip
 

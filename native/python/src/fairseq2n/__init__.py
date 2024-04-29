@@ -171,8 +171,10 @@ _load_shared_libraries()
 def _check_torch_version() -> None:
     import torch
 
-    # Trim the local version label.
-    source_version = torch.__version__.split("+", 1)[0]
+    def mmp(version: str) -> str:
+        return version.split("+", 1)[0]  # Trim the local label.
+
+    source_version, target_version = mmp(torch.__version__), mmp(_TORCH_VERSION)
 
     if source_var := torch.version.cuda:
         # Use only the major and minor version segments.
@@ -180,9 +182,11 @@ def _check_torch_version() -> None:
     else:
         source_variant = "CPU-only"
 
-    if source_version != _TORCH_VERSION or source_variant != _TORCH_VARIANT:
+    target_variant = _TORCH_VARIANT
+
+    if source_version != target_version or source_variant != target_variant:
         raise RuntimeError(
-            f"fairseq2 requires a {_TORCH_VARIANT} build of PyTorch {_TORCH_VERSION}, but the installed version is a {source_variant} build of PyTorch {source_version}. Either follow the instructions at https://pytorch.org/get-started/locally to update PyTorch, or the instructions at https://github.com/facebookresearch/fairseq2#variants to update fairseq2."
+            f"fairseq2 requires a {target_variant} build of PyTorch {target_version}, but the installed version is a {source_variant} build of PyTorch {source_version}. Either follow the instructions at https://pytorch.org/get-started/locally to update PyTorch, or the instructions at https://github.com/facebookresearch/fairseq2#variants to update fairseq2."
         )
 
 

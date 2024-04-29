@@ -87,7 +87,7 @@ class ParquetBasicDataloaderConfig:
     drop_null: bool = True
     """If ``True``, drops rows containing any null value."""
 
-    seed: Optional[int] = None
+    seed: int = 2
     """The RNG seed value for deterministic behavior."""
 
     min_batch_size: int = 1

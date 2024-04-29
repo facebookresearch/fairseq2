@@ -7,10 +7,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Final, Iterable, Optional, Protocol, Sequence, final
+from typing import Any, Dict, Final, Optional, Protocol, Sequence, final
 
+import torch
 from torch import Tensor
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
+from torch.distributed.fsdp import MixedPrecision
 from torch.distributed.fsdp.api import (
     BackwardPrefetch,
     CPUOffload,
@@ -19,18 +21,17 @@ from torch.distributed.fsdp.api import (
     ShardingStrategy,
     StateDictType,
 )
-from torch.nn import Module, Parameter
+from torch.nn import Module
 
 from fairseq2.gang import Gang
 from fairseq2.nn.utils.module import (
     infer_device,
     reset_non_persistent_buffers,
     reset_parameters,
-    select_parameters,
     to_empty,
 )
-from fairseq2.typing import META, Device
-from fairseq2.utils.version import _is_pt21_or_greater
+from fairseq2.typing import META, DataType, Device
+from fairseq2.utils.version import torch_greater_or_equal
 
 
 def to_fsdp(
@@ -38,21 +39,23 @@ def to_fsdp(
     gang: Gang,
     wrap_policy: Optional[FSDPWrapPolicy],
     *,
-    ignored_param_names: Optional[Sequence[str]] = None,
+    ignored_modules: Optional[Sequence[Module]] = None,
     skip_init: bool = False,
     broadcast_state: bool = False,
     memory_policy: Optional[FSDPMemoryPolicy] = None,
+    reshard_after_forward: bool = True,
+    mixed_precision_dtype: Optional[DataType] = None,
+    fp32_reduce_scatter: bool = False,
 ) -> FSDP:
     """Wrap ``module`` with FSDP.
 
     :param module:
-        The module to be wrapped with FSDP.
+        The module to wrap.
     :param gang:
-        The gang over which to shard the module.
+        The gang over which to shard ``module``.
     :param wrap_policy:
-        The policy to apply FSDP to ``module``.  If ``None``, ``module`` will be
-        wrapped with only a top-level FSDP instance and no sharding will applied
-        (i.e. ``NO_SHARD``).
+        The FSDP wrap policy to apply to ``module``. If ``None``, wraps only
+        ``module`` itself.
     :param ignored_param_names:
         The ignored parameter names. Can contain regular expressions.
     :param skip_init:
@@ -63,17 +66,27 @@ def to_fsdp(
         from rank 0 to ensure that they are replicated across all processes.
     :param memory_policy:
         The policy to instruct FSDP when and how to allocate memory.
+    :param reshard_after_forward:
+        If ``True``, unshards the parameters before the forward pass and only
+        reshards them after the backward pass.
+    :param mixed_precision_dtype:
+        If not ``None``, parameters, buffers, and gradients will use this data
+        type during forward and backward passes. Outside forward and backward
+        passes, the model will be kept in full precision.
+    :param fp32_reduce_scatter:
+        If ``True``, the gradients will be reduced in full precision. Only
+        relevant if ``mixed_precision_type`` is not ``None``.
     """
-    if wrap_policy is None:
-        sharding_strategy = ShardingStrategy.NO_SHARD
-    else:
+    if reshard_after_forward:
         sharding_strategy = ShardingStrategy.FULL_SHARD
+    else:
+        sharding_strategy = ShardingStrategy.SHARD_GRAD_OP
 
     if memory_policy is None:
         memory_policy = FSDP_STANDARD_MEMORY_POLICY
 
     if infer_device(module) == META:
-        if not _is_pt21_or_greater():
+        if not torch_greater_or_equal(2, 1):
             raise RuntimeError(
                 "FSDP meta initialization is only supported by PyTorch 2.1.0 or greater."
             )
@@ -82,12 +95,23 @@ def to_fsdp(
     else:
         param_init_fn = None
 
+    if mixed_precision_dtype is None:
+        mp = None
+    else:
+        reduce_dtype = torch.float32 if fp32_reduce_scatter else mixed_precision_dtype
+
+        mp = MixedPrecision(
+            param_dtype=mixed_precision_dtype,
+            reduce_dtype=reduce_dtype,
+            buffer_dtype=None,
+        )
+
     kwargs: Dict[str, Any] = {}
 
     # As of PyTorch 2.0, FSDP initialization fails in certain settings when an
     # empty `ignored_states` is specified (e.g. `sync_module_states` is set).
-    if ignored_param_names:
-        kwargs["ignored_states"] = get_ignored_parameters(module, ignored_param_names)
+    if ignored_modules:
+        kwargs["ignored_states"] = ignored_modules
 
     fsdp = FSDP(
         module,
@@ -96,6 +120,7 @@ def to_fsdp(
         cpu_offload=CPUOffload() if memory_policy.cpu_offload else None,
         auto_wrap_policy=wrap_policy,
         backward_prefetch=memory_policy.backward_prefetch,
+        mixed_precision=mp,
         param_init_fn=param_init_fn,
         device_id=gang.device,
         sync_module_states=broadcast_state,
@@ -187,22 +212,6 @@ FSDP_VERY_LOW_MEMORY_POLICY: Final = FSDPMemoryPolicy(
 """
 
 
-def get_ignored_parameters(
-    module: Module, names: Optional[Sequence[str]]
-) -> Optional[Iterable[Parameter]]:
-    """Get the list of parameters that should be ignored by FSDP.
-
-    :param module:
-        The module to be wrapped with FSDP.
-    :param names:
-        The ignored parameter names. Can contain regular expressions.
-    """
-    if names is None:
-        return None
-
-    return (p for _, p in select_parameters(module, names))
-
-
 @final
 class FSDPParameterInitializer:
     """Initializes the parameters and buffers of an FSDP module.
@@ -247,4 +256,6 @@ class FSDPParameterInitializer:
         if not self._skip_init:
             reset_parameters(module, recurse=False)
         else:
+            # Non-persistent buffers are never part of module's state, so we
+            # have to initialize them even with `skip_init`.
             reset_non_persistent_buffers(module, recurse=False)

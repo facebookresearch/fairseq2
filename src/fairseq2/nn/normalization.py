@@ -5,13 +5,23 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import Optional, Sequence, Tuple, Union, final
+from typing import Any, Optional, Sequence, Tuple, Union, final
 
 import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.nn import Module, Parameter
 from torch.nn.functional import layer_norm
+
+try:
+    from apex.normalization.fused_layer_norm import (  # type: ignore[import]
+        fused_rms_norm,
+        fused_rms_norm_affine,
+    )
+
+    _has_apex = True
+except ImportError:
+    _has_apex = False
 
 from fairseq2.typing import DataType, Device, override
 
@@ -97,7 +107,7 @@ class LayerNorm(Module, ABC):
     def extra_repr(self) -> str:
         return (
             f"normalized_shape={self.normalized_shape}, "
-            f"eps={self.eps}, "
+            f"eps={self.eps:G}, "
             f"elementwise_affine={self.elementwise_affine}"
         )
 
@@ -117,10 +127,42 @@ class RMSNorm(LayerNorm):
     """Applies Root Mean Square Layer Normalization to incoming data as
     described in :cite:t:`https://doi.org/10.48550/arxiv.1910.07467`."""
 
+    _supports_apex: bool
+
+    def __init__(
+        self, *args: Any, use_apex: Optional[bool] = None, **kwargs: Any
+    ) -> None:
+        """
+        See :class:`LayerNorm` for ``args`` and ``kwargs``.
+
+        :param use_apex:
+            If ``True``, uses the APEX implementation. If ``None``, attempts to
+            use the APEX implementation only if it is available.
+        """
+        super().__init__(*args, **kwargs)
+
+        if use_apex is None:
+            use_apex = _has_apex and self.bias is None
+        elif use_apex:
+            if not _has_apex:
+                raise RuntimeError(
+                    "`use_apex` is `True`, but no APEX installation can be found."
+                )
+
+            if self.bias is not None:
+                raise RuntimeError(
+                    "`use_apex is `True`, but APEX does not support the `bias` parameter."
+                )
+
+        self._supports_apex = use_apex
+
     @override
     def forward(self, x: Tensor) -> Tensor:
+        if self._supports_apex and x.is_cuda:
+            return self._apex_forward(x)
+
         # For numerical stability normalize in single precision.
-        x = self._norm(x.float()).type_as(x)
+        x = self._normalize(x.float()).type_as(x)
 
         if self.weight is not None:
             x = x * self.weight
@@ -130,9 +172,29 @@ class RMSNorm(LayerNorm):
 
         return x
 
-    def _norm(self, x: Tensor) -> Tensor:
+    def _apex_forward(self, x: Tensor) -> Tensor:
+        if self.weight is None:
+            return fused_rms_norm(x, self.normalized_shape, self.eps)  # type: ignore[no-any-return]
+
+        return fused_rms_norm_affine(x, self.weight, self.normalized_shape, self.eps)  # type: ignore[no-any-return]
+
+    def _normalize(self, x: Tensor) -> Tensor:
         dims = [-i for i in range(len(self.normalized_shape), 0, -1)]
 
         # Unlike the reference implementation, we add the epsilon before square
-        # root similar to LLaMA.
+        # root similar to LLaMA. APEX does the same.
         return x * torch.rsqrt(x.pow(2).mean(dims, keepdim=True) + self.eps)
+
+    @property
+    def supports_apex(self) -> bool:
+        """``True`` if this instance supports APEX."""
+        return self._supports_apex
+
+    def extra_repr(self) -> str:
+        """:meta private:"""
+        s = super().extra_repr()
+
+        if self._supports_apex:
+            s = f"{s}, supports_apex=True"
+
+        return s

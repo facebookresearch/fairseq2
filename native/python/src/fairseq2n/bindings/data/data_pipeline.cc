@@ -217,7 +217,11 @@ def_data_pipeline(py::module_ &data_module)
             },
             py::keep_alive<0, 1>{})
 
-        .def("reset", &data_pipeline::reset, py::call_guard<py::gil_scoped_release>{})
+        .def(
+            "reset",
+            &data_pipeline::reset,
+            py::arg("reset_rng") = false,
+            py::call_guard<py::gil_scoped_release>{})
 
         .def("is_infinite", &data_pipeline::is_infinite)
 
@@ -300,17 +304,17 @@ def_data_pipeline(py::module_ &data_module)
             py::arg("pipelines"))
         .def_static(
             "constant",
-            [](data example, std::optional<std::string> key)
+            [](data example, std::optional<std::string> maybe_key)
             {
-                return data_pipeline::constant(std::move(example), std::move(key));
+                return data_pipeline::constant(std::move(example), std::move(maybe_key));
             },
             py::arg("example"),
             py::arg("key") = std::nullopt)
         .def_static(
             "count",
-            [](std::int64_t start, std::int64_t step, std::optional<std::string> key)
+            [](std::int64_t start, std::int64_t step, std::optional<std::string> maybe_key)
             {
-                return data_pipeline::count(start, step, std::move(key));
+                return data_pipeline::count(start, step, std::move(maybe_key));
             },
             py::arg("start") = 0,
             py::arg("step") = 1,
@@ -337,7 +341,8 @@ def_data_pipeline(py::module_ &data_module)
             "sample",
             [](
                 std::vector<std::reference_wrapper<data_pipeline>> &refs,
-                std::optional<std::vector<float>> weights)
+                std::optional<std::vector<float>> maybe_weights,
+                std::optional<std::uint64_t> maybe_seed)
             {
                 std::vector<data_pipeline> pipelines{};
 
@@ -348,10 +353,12 @@ def_data_pipeline(py::module_ &data_module)
                         return std::move(r.get());
                     });
 
-                return data_pipeline::sample(std::move(pipelines), std::move(weights));
+                return data_pipeline::sample(
+                    std::move(pipelines), std::move(maybe_weights), maybe_seed);
             },
             py::arg("pipelines"),
-            py::arg("weights") = std::nullopt)
+            py::arg("weights") = std::nullopt,
+            py::arg("seed") = std::nullopt)
         .def_static(
             "zip",
             [](
@@ -519,39 +526,43 @@ def_data_pipeline(py::module_ &data_module)
             "repeat",
             [](
                 data_pipeline_builder &self,
-                std::optional<std::size_t> num_repeats) -> data_pipeline_builder &
+                std::optional<std::size_t> num_repeats,
+                bool reset_rng) -> data_pipeline_builder &
             {
-                self = std::move(self).repeat(num_repeats);
+                self = std::move(self).repeat(num_repeats, reset_rng);
 
                 return self;
             },
-            py::arg("num_repeats") = std::nullopt)
+            py::arg("num_repeats") = std::nullopt,
+            py::arg("reset_rng") = false)
         .def(
             "shard",
             [](
                 data_pipeline_builder &self,
                 std::size_t shard_idx,
-                std::size_t num_shards) -> data_pipeline_builder &
+                std::size_t num_shards,
+                bool allow_uneven) -> data_pipeline_builder &
             {
-                self = std::move(self).shard(shard_idx, num_shards);
+                self = std::move(self).shard(shard_idx, num_shards, allow_uneven);
 
                 return self;
             },
             py::arg("shard_idx"),
-            py::arg("num_shards"))
+            py::arg("num_shards"),
+            py::arg("allow_uneven") = false)
         .def(
             "shuffle",
             [](
                 data_pipeline_builder &self,
                 std::size_t shuffle_window,
-                bool enabled) -> data_pipeline_builder &
+                std::optional<std::uint64_t> maybe_seed) -> data_pipeline_builder &
             {
-                self = std::move(self).shuffle(shuffle_window, enabled);
+                self = std::move(self).shuffle(shuffle_window, maybe_seed);
 
                 return self;
             },
             py::arg("shuffle_window"),
-            py::arg("enabled") = true)
+            py::arg("seed") = std::nullopt)
         .def(
             "skip",
             [](data_pipeline_builder &self, std::size_t num_examples) -> data_pipeline_builder &

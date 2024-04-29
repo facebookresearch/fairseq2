@@ -200,7 +200,7 @@ class Wav2Vec2Config:
     num_codebook_entries: int = 320
     """The number of entries per codebook."""
 
-    codebook_sampling_temperature: Tuple[float, float, float] = (2, 0.5, 0.999995)
+    codebook_sampling_temperature: Tuple[float, float, float] = (2.0, 0.5, 0.999995)
     """A tuple of start temperature, end temperature, and decay factor for
     codebook entry sampling."""
 
@@ -403,7 +403,6 @@ class Wav2Vec2EncoderBuilder:
                     self._config.model_dim,
                     self._config.max_seq_len,
                     device=self._device,
-                    dtype=self._dtype,
                 )
 
             sdpa = RelativePositionSDPA(

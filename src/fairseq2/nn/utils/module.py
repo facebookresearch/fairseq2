@@ -7,6 +7,7 @@
 import re
 from dataclasses import dataclass
 from itertools import chain
+from logging import Logger
 from typing import (
     Any,
     Callable,
@@ -20,6 +21,7 @@ from typing import (
     Sequence,
     Set,
     Tuple,
+    Union,
     runtime_checkable,
 )
 
@@ -29,9 +31,17 @@ from torch.nn import Module, Parameter
 from torch.nn.utils import remove_weight_norm
 
 from fairseq2.typing import CPU, META, Device
+from fairseq2.utils.logging import LogWriter
+
 
 # compat
-from fairseq2.utils.log import log_module as log_module  # noqa: F401
+def log_module(module: Module, log: Union[LogWriter, Logger]) -> None:
+    from fairseq2.utils.log import log_model
+
+    if isinstance(log, Logger):
+        log = LogWriter(log)
+
+    log_model(module, log)
 
 
 @runtime_checkable
@@ -292,15 +302,14 @@ def freeze_parameters(module: Optional[Module], value: bool = True) -> None:
     if module is None:
         return
 
-    for param in module.parameters():
-        param.requires_grad_(not value)
+    module.requires_grad_(not value)
 
 
 def select_parameters(
     module: Module, names: Sequence[str], *, exclude: bool = False
 ) -> Iterable[Tuple[str, Parameter]]:
-    """Select the parameters of ``module`` and of its descendant modules whose
-    name matches ``names``.
+    """Select the parameters of ``module`` and its descendant modules whose
+    names match ``names``.
 
     :param module:
         The module to check.
@@ -348,7 +357,7 @@ def infer_device(
         The name of the module for error reporting purposes.
     :param recurse:
         If ``True``, infers the device by checking the parameters and buffers of
-        the descendant modules as well.
+        descendant modules as well.
     """
     devices = set()
 
@@ -373,7 +382,7 @@ def infer_device(
 
 def load_state_dict(module: Module, state_dict: Mapping[str, Any]) -> None:
     """Copy parameters and buffers from ``state_dict`` into ``module`` and its
-    descendants.
+    descendant modules.
 
     This implementation internally calls :meth:`Module.load_state_dict()` with
     ``strict`` set to ``True``, and also enforces that ``state_dict`` does not
@@ -477,7 +486,7 @@ class ModuleSizeInfo:
 
 
 def get_module_size(module: Module) -> ModuleSizeInfo:
-    """Return the size information of ``module`` and its descendants."""
+    """Return the size information of ``module`` and its descendant modules."""
     info = ModuleSizeInfo()
 
     for param in module.parameters():

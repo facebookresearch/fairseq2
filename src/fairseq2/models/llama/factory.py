@@ -65,6 +65,10 @@ class LLaMAConfig:
     ffn_inner_dim: int = 4096 * 4
     """The dimensionality of inner projection layers in feed-forward networks."""
 
+    ffn_inner_dim_scale: float = 2 / 3
+    """The scale factor for the dimensionality of inner projection layers in
+    feed forward networks."""
+
     ffn_inner_dim_to_multiple: int = 256
     """The dimensionality of inner projection layers in feed-forward networks is
     rounded up to the nearest multiple of this value."""
@@ -290,6 +294,7 @@ class LLaMABuilder:
             self._config.model_dim,
             self._config.ffn_inner_dim,
             bias=False,
+            inner_dim_scale=self._config.ffn_inner_dim_scale,
             inner_dim_to_multiple=self._config.ffn_inner_dim_to_multiple,
             device=self._device,
             dtype=self._dtype,
