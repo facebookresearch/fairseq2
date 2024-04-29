@@ -16,7 +16,7 @@ from torch.nn import Dropout
 from torch.nn.functional import ctc_loss, log_softmax
 
 from fairseq2.models.model import Model
-from fairseq2.models.seq2seq import Seq2SeqBatch
+from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2.frontend import Wav2Vec2Frontend
 from fairseq2.models.wav2vec2.masker import Wav2Vec2Masker
 from fairseq2.nn import Linear
@@ -83,13 +83,13 @@ class Wav2Vec2AsrModel(Model):
             dtype=dtype,
         )
 
-    def forward(self, batch: Seq2SeqBatch) -> Wav2Vec2AsrOutput:
+    def forward(self, batch: SequenceBatch) -> Wav2Vec2AsrOutput:
         """
         :param batch:
             The batch of sequences to process.
         """
         seqs, padding_mask = self.encoder_frontend.extract_features(
-            batch.source_seqs, batch.source_padding_mask
+            batch.seqs, batch.padding_mask
         )
 
         seqs, padding_mask, _ = self.encoder_frontend.process_features(

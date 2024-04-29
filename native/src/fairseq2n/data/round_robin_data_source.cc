@@ -63,7 +63,7 @@ round_robin_data_source::next()
 }
 
 void
-round_robin_data_source::reset()
+round_robin_data_source::reset(bool reset_rng)
 {
     buffer_.clear();
 
@@ -74,7 +74,7 @@ round_robin_data_source::reset()
     is_eod_ = false;
 
     for (data_pipeline &pipeline : pipelines_)
-        pipeline.reset();
+        pipeline.reset(reset_rng);
 }
 
 void

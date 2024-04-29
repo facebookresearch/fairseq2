@@ -184,7 +184,7 @@ class Wav2Vec2FeatureExtractor(SequenceFeatureExtractor):
         """:meta private:"""
         s = super().extra_repr()
 
-        return f"{s}, gradient_scale={self.gradient_scale}"
+        return f"{s}, gradient_scale={self.gradient_scale:G}"
 
 
 @final

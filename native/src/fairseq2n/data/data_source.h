@@ -32,7 +32,7 @@ public:
     next() = 0;
 
     virtual void
-    reset() = 0;
+    reset(bool reset_rng) = 0;
 
     virtual void
     record_position(tape &t, bool strict) const = 0;

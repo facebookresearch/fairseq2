@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional, Sequence, final
+from typing import Any, Dict, Optional, Sequence, Tuple, final
 
 import torch
 from torch import Tensor
@@ -18,7 +18,7 @@ from torcheval.metrics import Mean, Sum, Throughput
 from fairseq2.data import VocabularyInfo
 from fairseq2.gang import Gang
 from fairseq2.metrics import MetricBag
-from fairseq2.models.model import Batch, Model
+from fairseq2.models.model import Model
 from fairseq2.nn.functional import nll_loss
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import override
@@ -52,8 +52,8 @@ class SequenceModel(Model, ABC):
 
 
 @final
-@dataclass(frozen=True)
-class SequenceBatch(Batch):
+@dataclass
+class SequenceBatch:
     """Represents a sequence batch."""
 
     seqs: Tensor
@@ -65,21 +65,66 @@ class SequenceBatch(Batch):
     """The padding mask of :attr:`seqs`. *Shape:* :math:`(N,S)`, where :math:`N`
     is the batch size and :math:`S` is the sequence length."""
 
+    target_mask: Optional[Tensor] = None
+    """The mask specifying the elements in ``seqs`` that should be treated as
+    targets during model training or validation. *Shape:* :math:`(N,S)`, where
+    :math:`N` is the batch size and :math:`S` is the sequence length."""
+
     example: Any = None
     """The data example from which this batch was constructed."""
 
     @property
-    @override
     def batch_size(self) -> int:
-        """The size of the batch."""
+        """The size of the batch dimension."""
         return self.seqs.size(0)
 
     def num_elements(self) -> int:
-        """Returns the number of elements in the sequences."""
+        """Return the number of elements in the batch."""
         if self.padding_mask is None:
             return self.seqs.numel()
 
         return int(self.padding_mask.seq_lens.sum())
+
+    def num_target_elements(self) -> int:
+        """Return the number of target elements in the batch."""
+        if self.target_mask is not None:
+            return int(self.target_mask.sum())
+
+        return self.num_elements()
+
+
+def as_auto_regressive_input(
+    batch: SequenceBatch,
+) -> Tuple[SequenceBatch, SequenceBatch]:
+    """Use ``batch`` to train an auto-regressive model.
+
+    :returns:
+        The tuple of input and target batches.
+    """
+    if (seq_len := batch.seqs.size(1)) < 2:
+        raise ValueError(
+            f"The sequence length of `batch.seqs` must be at least 2 for training, but is {seq_len} instead."
+        )
+
+    seqs, targets = batch.seqs[:, :-1], batch.seqs[:, 1:]
+
+    if batch.padding_mask is None:
+        padding_mask = None
+    else:
+        padding_mask = batch.padding_mask.trim(1)
+
+    if batch.target_mask is None:
+        seqs_target_mask, target_mask = None, None
+    else:
+        seqs_target_mask, target_mask = (
+            batch.target_mask[:, :-1], batch.target_mask[:, 1:]  # fmt: skip
+        )
+
+    batch = SequenceBatch(seqs, padding_mask, seqs_target_mask, batch.example)
+
+    target_batch = SequenceBatch(targets, padding_mask, target_mask)
+
+    return batch, target_batch
 
 
 # compat
@@ -112,6 +157,7 @@ class SequenceModelOutput:
         self,
         targets: Tensor,
         *,
+        loss_mask: Optional[Tensor] = None,
         ignore_prefix_size: int = 0,
         label_smoothing: float = 0.0,
     ) -> Tensor:
@@ -120,6 +166,10 @@ class SequenceModelOutput:
         :param targets:
             The target indices. *Shape:* :math:`(N,S)`, where :math:`N` is the
             batch size and :math:`S` is the sequence length.
+        :param loss_mask:
+            The loss mask that specifies the elements in ``targets`` that should
+            be used in the loss computation. All non-masked elements will be
+            ignored. *Shape:* Same as ``targets``.
         :param ignore_prefix_size:
             The number of steps from the beginning of the sequence that should
             be ignored in the loss computation.
@@ -141,12 +191,27 @@ class SequenceModelOutput:
         # (N, S, T)
         lprobs = log_softmax(logits, dim=-1, dtype=torch.float32)
 
+        # sum: (), none: (N, S)
+        loss = nll_loss(
+            lprobs,
+            targets,
+            self.pad_idx,
+            label_smoothing=label_smoothing,
+            reduction="sum" if loss_mask is None else "none",
+        )
+
+        if loss_mask is None:
+            return loss
+
+        if ignore_prefix_size > 0:
+            loss_mask = loss_mask[:, ignore_prefix_size:]
+
         # ()
-        return nll_loss(lprobs, targets, self.pad_idx, label_smoothing=label_smoothing)
+        return (loss * loss_mask).sum()
 
 
 class SequenceModelMetricBag(MetricBag):
-    """Holds the common metrics of a sequence model."""
+    """Holds the common metrics of a sequence model training."""
 
     nll_loss: Mean
     batch_size: Mean
@@ -155,6 +220,7 @@ class SequenceModelMetricBag(MetricBag):
     elements_per_second: Throughput
     num_examples: Sum
     num_elements: Sum
+    num_target_elements: Sum
 
     def __init__(self, gang: Gang, *, wall_time: Optional[Stopwatch] = None) -> None:
         """
@@ -180,13 +246,15 @@ class SequenceModelMetricBag(MetricBag):
         )
 
         self.num_examples = Sum(device=d)
+
         self.num_elements = Sum(device=d)
+        self.num_target_elements = Sum(device=d)
 
     @torch.inference_mode()
     def update_step_metrics(
         self,
         batches: Sequence[SequenceBatch],
-        nll_losses: Sequence[Tensor],
+        nll_loss: Tensor,
         time: Stopwatch,
         gradient_norm: Optional[Tensor] = None,
     ) -> None:
@@ -194,42 +262,41 @@ class SequenceModelMetricBag(MetricBag):
 
         :param batches:
             The batches processed by the model.
-        :param nll_losses:
-            The NLL losses output by the model for ``batches``.
+        :param nll_loss:
+            The total NLL loss generated by the model for ``batches``.
         :param time:
-            The :class:`Stopwatch` to keep track of elapsed time.
+            :class:`Stopwatch` to report elapsed time.
         :param gradient_norm:
             The total model gradient norm after backpropagating ``batches``.
         """
-        nll_loss = torch.zeros((), dtype=torch.float64)
-
         batch_size = torch.zeros((), dtype=torch.float64)
 
         num_elements = torch.zeros((), dtype=torch.float64)
+        num_target_elements = torch.zeros((), dtype=torch.float64)
 
-        for batch, batch_nll_loss in zip(batches, nll_losses):
-            nll_loss += float(batch_nll_loss)
-
+        for batch in batches:
             batch_size += batch.batch_size
 
             num_elements += batch.num_elements()
+            num_target_elements += batch.num_target_elements()
+
+        normalized_nll_loss = nll_loss.cpu() / num_target_elements
+
+        self.nll_loss.update(normalized_nll_loss, weight=num_target_elements)
+
+        self.batch_size.update(batch_size * self._gang.size)
 
         if gradient_norm:
             self.gradient_norm.update(gradient_norm)
 
-        nll_loss /= num_elements
+        self.elements_per_batch.update(num_elements * self._gang.size)
 
-        self.nll_loss.update(nll_loss, weight=num_elements)
-
-        self.batch_size.update(batch_size * self._gang.size)
+        self.elements_per_second.update(int(num_elements), time.get_elapsed_time())
 
         self.num_examples.update(batch_size)
 
         self.num_elements.update(num_elements)
-
-        self.elements_per_batch.update(num_elements * self._gang.size)
-
-        self.elements_per_second.update(int(num_elements), time.get_elapsed_time())
+        self.num_target_elements.update(num_target_elements)
 
     def reset_step_metrics(self) -> None:
         """Reset the step metrics to their initial state."""

@@ -16,9 +16,13 @@ from fairseq2.assets.metadata_provider import (
     AssetMetadataProvider,
     AssetNotFoundError,
     FileAssetMetadataProvider,
+    PackageAssetMetadataProvider,
 )
 from fairseq2.assets.utils import _get_path_from_env
 from fairseq2.typing import override
+from fairseq2.utils.logging import get_log_writer
+
+log = get_log_writer(__name__)
 
 
 class AssetStore(ABC):
@@ -130,9 +134,25 @@ class StandardAssetStore(AssetStore):
         for provider in self.user_metadata_providers:
             provider.clear_cache()
 
-    def add_file_metadata_provider(self, path: Path) -> None:
-        """Add a new :class:`FileAssetMetadataProvider` pointing to ``path``."""
-        self.metadata_providers.append(FileAssetMetadataProvider(path))
+    def add_file_metadata_provider(self, path: Path, user: bool = False) -> None:
+        """Add a new :class:`FileAssetMetadataProvider` pointing to ``path``.
+
+        :param path:
+            The directory under which asset metadata is stored.
+        :param user:
+            If ``True``, adds the metadata provider to the user scope.
+        """
+        providers = self.user_metadata_providers if user else self.metadata_providers
+
+        providers.append(FileAssetMetadataProvider(path))
+
+    def add_package_metadata_provider(self, package_name: str) -> None:
+        """Add a new :class:`PackageAssetMetadataProvider` for ``package_name``.
+
+        :param package_name:
+            The name of the package in which asset metadata is stored.
+        """
+        self.metadata_providers.append(PackageAssetMetadataProvider(package_name))
 
 
 class EnvironmentResolver(Protocol):
@@ -147,9 +167,7 @@ class EnvironmentResolver(Protocol):
 
 
 def _create_default_asset_store() -> StandardAssetStore:
-    cards_dir = Path(__file__).parent.joinpath("cards")
-
-    metadata_provider = FileAssetMetadataProvider(cards_dir)
+    metadata_provider = PackageAssetMetadataProvider("fairseq2.assets.cards")
 
     return StandardAssetStore(metadata_provider)
 
@@ -158,22 +176,22 @@ default_asset_store = _create_default_asset_store()
 
 
 def _load_asset_directory() -> None:
-    asset_dir = _get_path_from_env("FAIRSEQ2_ASSET_DIR")
+    asset_dir = _get_path_from_env("FAIRSEQ2_ASSET_DIR", log)
     if asset_dir is None:
         asset_dir = Path("/etc/fairseq2/assets").resolve()
         if not asset_dir.exists():
             return
 
-    default_asset_store.metadata_providers.append(FileAssetMetadataProvider(asset_dir))
+    default_asset_store.add_file_metadata_provider(asset_dir)
 
 
 _load_asset_directory()
 
 
 def _load_user_asset_directory() -> None:
-    asset_dir = _get_path_from_env("FAIRSEQ2_USER_ASSET_DIR")
+    asset_dir = _get_path_from_env("FAIRSEQ2_USER_ASSET_DIR", log)
     if asset_dir is None:
-        asset_dir = _get_path_from_env("XDG_CONFIG_HOME")
+        asset_dir = _get_path_from_env("XDG_CONFIG_HOME", log)
         if asset_dir is None:
             asset_dir = Path("~/.config").expanduser()
 
@@ -181,9 +199,7 @@ def _load_user_asset_directory() -> None:
         if not asset_dir.exists():
             return
 
-    default_asset_store.user_metadata_providers.append(
-        FileAssetMetadataProvider(asset_dir)
-    )
+    default_asset_store.add_file_metadata_provider(asset_dir, user=True)
 
 
 _load_user_asset_directory()

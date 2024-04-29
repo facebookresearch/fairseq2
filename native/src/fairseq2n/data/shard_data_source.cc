@@ -8,9 +8,23 @@
 
 namespace fairseq2n::detail {
 
+shard_data_source::shard_data_source(
+    std::unique_ptr<data_source> &&inner,
+    std::size_t shard_idx,
+    std::size_t num_shards,
+    bool allow_uneven) noexcept
+  : inner_{std::move(inner)},
+    shard_idx_{shard_idx},
+    num_shards_{num_shards},
+    allow_uneven_{allow_uneven}
+{}
+
 std::optional<data>
 shard_data_source::next()
 {
+    if (num_shards_ == 1)
+        return inner_->next();
+
     for (std::size_t i = 0; i < shard_idx_; i++)
         if (!inner_->next())
             return std::nullopt;
@@ -20,16 +34,20 @@ shard_data_source::next()
         return std::nullopt;
 
     for (std::size_t i = 0; i < num_shards_ - shard_idx_ - 1; i++)
-        if (!inner_->next())
+        if (!inner_->next()) {
+            if (allow_uneven_)
+                break;
+
             return std::nullopt;
+        }
 
     return maybe_example;
 }
 
 void
-shard_data_source::reset()
+shard_data_source::reset(bool reset_rng)
 {
-    inner_->reset();
+    inner_->reset(reset_rng);
 }
 
 void

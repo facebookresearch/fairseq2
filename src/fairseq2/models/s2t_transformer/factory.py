@@ -287,7 +287,9 @@ class S2TTransformerBuilder:
             return None
 
         return SinusoidalPositionEncoder(
-            self._config.model_dim, self._config.max_source_seq_len, device=self._device
+            self._config.model_dim,
+            self._config.max_source_seq_len,
+            device=self._device,
         )
 
     def build_target_position_encoder(self) -> PositionEncoder:
@@ -406,7 +408,6 @@ class S2TTransformerBuilder:
                     self._config.model_dim,
                     self._config.max_source_seq_len,
                     device=self._device,
-                    dtype=self._dtype,
                 )
 
             sdpa = RelativePositionSDPA(

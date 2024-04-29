@@ -21,21 +21,13 @@ def _get_torch_version() -> Version:
 TORCH_VERSION: Final = _get_torch_version()
 
 
-def _is_pt21_or_greater() -> bool:
-    if TORCH_VERSION.major <= 1:
+def torch_greater_or_equal(major: int, minor: int) -> bool:
+    """Return ``True`` if the installed version of PyTorch is greater than or
+    equal to the specified major-minor version."""
+    if TORCH_VERSION.major <= major - 1:
         return False
 
-    if TORCH_VERSION.major == 2 and TORCH_VERSION.minor == 0:
-        return False
-
-    return True
-
-
-def _is_pt22_or_greater() -> bool:
-    if TORCH_VERSION.major <= 1:
-        return False
-
-    if TORCH_VERSION.major == 2 and TORCH_VERSION.minor <= 1:
+    if TORCH_VERSION.major == major and TORCH_VERSION.minor <= minor - 1:
         return False
 
     return True

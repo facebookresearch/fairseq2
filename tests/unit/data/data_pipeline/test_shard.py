@@ -36,6 +36,32 @@ class TestShardOp:
 
             pipeline.reset()
 
+    def test_op_works_when_allow_uneven_is_true(self) -> None:
+        seq = list(range(1, 23))
+
+        pipeline = read_sequence(seq).shard(1, 5, allow_uneven=True).and_return()
+
+        for _ in range(2):
+            assert list(pipeline) == [2, 7, 12, 17, 22]
+
+            pipeline.reset()
+
+        pipeline = read_sequence(seq).shard(4, 5, allow_uneven=True).and_return()
+
+        for _ in range(2):
+            assert list(pipeline) == [5, 10, 15, 20]
+
+            pipeline.reset()
+
+        seq = list(range(1, 4))
+
+        pipeline = read_sequence(seq).shard(0, 5, allow_uneven=True).and_return()
+
+        for _ in range(2):
+            assert list(pipeline) == [1]
+
+            pipeline.reset()
+
     @pytest.mark.parametrize("idx", [4, 5])
     def test_op_raises_error_when_shard_idx_is_invalid(self, idx: int) -> None:
         with pytest.raises(

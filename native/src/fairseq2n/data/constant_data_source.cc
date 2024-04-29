@@ -13,14 +13,14 @@ namespace fairseq2n::detail {
 std::optional<data>
 constant_data_source::next()
 {
-    if (key_)
-        return data_dict{{*key_, example_}};
+    if (maybe_key_)
+        return data_dict{{*maybe_key_, example_}};
 
     return example_;
 }
 
 void
-constant_data_source::reset()
+constant_data_source::reset(bool)
 {}
 
 void

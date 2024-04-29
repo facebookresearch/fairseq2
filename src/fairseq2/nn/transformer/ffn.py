@@ -11,7 +11,7 @@ from torch import Tensor
 from torch.nn import Dropout, Module, ReLU, SiLU
 
 from fairseq2.nn.normalization import LayerNorm
-from fairseq2.nn.projection import Linear
+from fairseq2.nn.projection import Linear, Projection
 from fairseq2.nn.transformer.layer_norm import (
     LayerNormFactory,
     create_standard_layer_norm,
@@ -56,11 +56,11 @@ class StandardFeedForwardNetwork(FeedForwardNetwork):
     """Represents a Transformer feed-forward network as described in
     :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`."""
 
-    inner_proj: Linear
+    inner_proj: Projection
     inner_activation: Module
     inner_dropout: Optional[Dropout]
     inner_norm: Optional[LayerNorm]
-    output_proj: Linear
+    output_proj: Projection
 
     def __init__(
         self,
@@ -143,13 +143,13 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
     """Represents a GLU-based Transformer feed-forward network as described in
     :cite:t:`https://doi.org/10.48550/arxiv.2002.05202`"""
 
-    gate_proj: Linear
+    gate_proj: Projection
     gate_activation: Module
     inner_dim_scale: float
     inner_dim_to_multiple: int
-    inner_proj: Linear
+    inner_proj: Projection
     inner_dropout: Optional[Dropout]
-    output_proj: Linear
+    output_proj: Projection
 
     def __init__(
         self,
@@ -238,6 +238,6 @@ class GLUFeedForwardNetwork(FeedForwardNetwork):
 
         return (
             f"{s}, "
-            f"inner_dim_scale={self.inner_dim_scale}, "
+            f"inner_dim_scale={self.inner_dim_scale:G}, "
             f"inner_dim_to_multiple={self.inner_dim_to_multiple}"
         )

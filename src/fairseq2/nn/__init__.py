@@ -5,7 +5,9 @@
 # LICENSE file in the root directory of this source tree.
 
 from fairseq2.nn.embedding import Embedding as Embedding
+from fairseq2.nn.embedding import ShardedEmbedding as ShardedEmbedding
 from fairseq2.nn.embedding import StandardEmbedding as StandardEmbedding
+from fairseq2.nn.embedding import VocabShardedEmbedding as VocabShardedEmbedding
 from fairseq2.nn.embedding import init_scaled_embedding as init_scaled_embedding
 from fairseq2.nn.incremental_state import IncrementalState as IncrementalState
 from fairseq2.nn.incremental_state import IncrementalStateBag as IncrementalStateBag
@@ -21,6 +23,8 @@ from fairseq2.nn.position_encoder import RotaryEncoder as RotaryEncoder
 from fairseq2.nn.position_encoder import (
     SinusoidalPositionEncoder as SinusoidalPositionEncoder,
 )
+from fairseq2.nn.projection import ColumnShardedLinear as ColumnShardedLinear
 from fairseq2.nn.projection import Linear as Linear
 from fairseq2.nn.projection import Projection as Projection
+from fairseq2.nn.projection import RowShardedLinear as RowShardedLinear
 from fairseq2.nn.projection import TiedProjection as TiedProjection

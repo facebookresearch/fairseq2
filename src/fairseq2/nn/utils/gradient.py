@@ -14,17 +14,35 @@ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn import Module
 from torch.nn.utils import clip_grad_norm_
 
-from fairseq2.gang import Gang
+from fairseq2.gang import Gang, ReduceOperation
 from fairseq2.utils.logging import get_log_writer
 
 log = get_log_writer(__name__)
+
+
+def normalize_gradients(module: Module, gang: Gang, num_targets: int) -> None:
+    """Normalize gradients of ``module`` by ``num_targets``.
+
+    :param module:
+        The module whose gradients to normalize.
+    :param gang:
+        The gang to reduce the total number of targets.
+    :param num_target:
+        The number of targets used in loss computation in this process.
+    """
+    total_num_targets = torch.tensor(num_targets, device=gang.device, dtype=torch.int64)
+
+    gang.all_reduce(total_num_targets, ReduceOperation.SUM)
+
+    # Both DDP and FSDP divide gradients by the world size which we also undo.
+    scale_gradients(module, gang.size / total_num_targets)
 
 
 def scale_gradients(module: Module, value: float) -> None:
     """Scale gradients of ``module`` by ``value``.
 
     :param module:
-        The module whose gradients to clip.
+        The module whose gradients to scale.
     :param value:
         The value to scale by.
     """
@@ -44,10 +62,10 @@ def scale_gradient(x: Tensor, scale: float) -> Tensor:
     :param scale:
         The scale factor of the gradient.
     """
-    return _GradientScaler.apply(x, scale)  # type: ignore[no-any-return]
+    return _GradientScaleFunction.apply(x, scale)  # type: ignore[no-any-return]
 
 
-class _GradientScaler(Function):
+class _GradientScaleFunction(Function):
     @staticmethod
     def forward(ctx: Any, x: Tensor, scale: float) -> Tensor:  # type: ignore[override]
         if not x.dtype.is_floating_point:
@@ -60,8 +78,8 @@ class _GradientScaler(Function):
         return x.clone().detach().requires_grad_(True)
 
     @staticmethod
-    def backward(ctx: Any, output: Tensor) -> Tuple[Tensor, None]:  # type: ignore[override]
-        return output * ctx.scale, None
+    def backward(ctx: Any, grad_output: Tensor) -> Tuple[Tensor, None]:  # type: ignore[override]
+        return grad_output * ctx.scale, None
 
 
 def clip_gradient_norm(

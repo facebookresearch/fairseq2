@@ -15,7 +15,7 @@ from torch import Tensor
 from typing_extensions import TypeAlias
 
 from fairseq2.typing import Device
-from fairseq2.utils.version import _is_pt21_or_greater
+from fairseq2.utils.version import torch_greater_or_equal
 
 MapLocation: TypeAlias = Optional[
     Union[Callable[[Tensor, str], Tensor], Device, str, Dict[str, str]]
@@ -63,7 +63,7 @@ def load_checkpoint(
 
         kwargs = {}
 
-        if mmap and _is_pt21_or_greater():
+        if mmap and torch_greater_or_equal(2, 1):
             kwargs["mmap"] = True
 
         checkpoint: Dict[str, Any] = torch.load(

@@ -3,6 +3,7 @@ build/
 
 # Core Dumps
 core
+core.*
 
 # Byte-Compiled Modules
 __pycache__/

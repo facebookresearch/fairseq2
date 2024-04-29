@@ -17,15 +17,15 @@ namespace fairseq2n::detail {
 class constant_data_source final : public data_source {
 public:
     explicit
-    constant_data_source(data &&example, std::optional<std::string> &&key) noexcept
-      : example_{std::move(example)}, key_{std::move(key)}
+    constant_data_source(data &&example, std::optional<std::string> &&maybe_key) noexcept
+      : example_{std::move(example)}, maybe_key_{std::move(maybe_key)}
     {}
 
     std::optional<data>
     next() override;
 
     void
-    reset() override;
+    reset(bool reset_rng) override;
 
     void
     record_position(tape &t, bool strict) const override;
@@ -38,7 +38,7 @@ public:
 
 private:
     data example_;
-    std::optional<std::string> key_;
+    std::optional<std::string> maybe_key_;
 };
 
 }  // namespace fairseq2n::detail

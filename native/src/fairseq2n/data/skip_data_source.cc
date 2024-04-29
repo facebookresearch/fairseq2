@@ -11,6 +11,9 @@ namespace fairseq2n::detail {
 std::optional<data>
 skip_data_source::next()
 {
+    if (num_examples_ == 0)
+        return inner_->next();
+
     if (!skip_) {
         for (std::size_t i = 0; i < num_examples_; i++)
             if (!inner_->next())
@@ -23,11 +26,11 @@ skip_data_source::next()
 }
 
 void
-skip_data_source::reset()
+skip_data_source::reset(bool reset_rng)
 {
     skip_ = false;
 
-    inner_->reset();
+    inner_->reset(reset_rng);
 }
 
 void

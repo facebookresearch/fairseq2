@@ -266,7 +266,7 @@ def list_parquet_fragments(
     split_to_row_groups: bool = True,
     filesystem: Optional[pa.fs.FileSystem] = None,
     shuffle_window: Optional[int] = None,
-    seed: Optional[int] = None,
+    seed: int = 2,
 ) -> DataPipelineBuilder:
     dataset = init_parquet_dataset(parquet_path, filters=filters, filesystem=filesystem)
     columns = columns or dataset.schema.names
@@ -277,21 +277,20 @@ def list_parquet_fragments(
 
     pipeline_builder = read_sequence(get_dataset_fragments(dataset, filters))
 
-    with torch_random_seed(seed):
-        if shuffle_window is not None:
-            # shuffle them in full memory since fragments are already known
-            pipeline_builder = pipeline_builder.shuffle(shuffle_window=0)
+    if shuffle_window is not None:
+        # shuffle them in full memory since fragments are already known
+        pipeline_builder = pipeline_builder.shuffle(shuffle_window=0, seed=seed)
 
-        if split_to_row_groups:
-            pipeline_builder = pipeline_builder.yield_from(
-                lambda fragment: read_sequence(
-                    split_fragment_in_row_groups(fragment)
-                ).and_return()
+    if split_to_row_groups:
+        pipeline_builder = pipeline_builder.yield_from(
+            lambda fragment: read_sequence(
+                split_fragment_in_row_groups(fragment)
+            ).and_return()
+        )
+        if shuffle_window is not None:
+            pipeline_builder = pipeline_builder.shuffle(
+                shuffle_window=shuffle_window, seed=seed + 1
             )
-            if shuffle_window is not None:
-                pipeline_builder = pipeline_builder.shuffle(
-                    shuffle_window=shuffle_window
-                )
 
     return pipeline_builder
 

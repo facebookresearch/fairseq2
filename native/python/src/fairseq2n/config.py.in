@@ -6,7 +6,7 @@
 
 from typing import Final
 
-_TORCH_VERSION: Final = "@TORCH_VERSION@"
+_TORCH_VERSION: Final = "@TORCH_PEP440_VERSION@"
 _TORCH_VARIANT: Final = "@TORCH_VARIANT@"
 
 _SUPPORTS_IMAGE: Final = @SUPPORTS_IMAGE@

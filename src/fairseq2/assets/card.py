@@ -22,8 +22,9 @@ from typing import (
     TypeVar,
     cast,
     final,
+    overload,
 )
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 
 from typing_extensions import Self
 
@@ -218,7 +219,32 @@ class AssetCardField:
 
         return value is None
 
-    def as_(self, kls: Type[T], allow_empty: bool = False) -> T:
+    @overload
+    def get_as_(self, kls: Type[T], default: T, *, allow_empty: bool = False) -> T:
+        ...
+
+    @overload
+    def get_as_(
+        self, kls: Type[T], default: None = None, *, allow_empty: bool = False
+    ) -> Optional[T]:
+        ...
+
+    def get_as_(
+        self, kls: Type[T], default: Optional[T] = None, *, allow_empty: bool = False
+    ) -> Optional[T]:
+        """Return the value of this field if it exists; otherwise, return ``default``.
+
+        :param default:
+            The default value.
+        :param allow_empty:
+            If ``True``, allows the field to be empty.
+        """
+        try:
+            return self.as_(kls, allow_empty=True)
+        except AssetCardFieldNotFoundError:
+            return default
+
+    def as_(self, kls: Type[T], *, allow_empty: bool = False) -> T:
         """Return the value of this field.
 
         :param kls:
@@ -250,7 +276,7 @@ class AssetCardField:
 
         return value
 
-    def as_list(self, kls: Type[T], allow_empty: bool = False) -> List[T]:
+    def as_list(self, kls: Type[T], *, allow_empty: bool = False) -> List[T]:
         """Return the value of this field as a :class:`list` of type ``kls``.
 
         :param kls:
@@ -258,7 +284,7 @@ class AssetCardField:
         :param allow_empty:
             If ``True``, allows the list to be empty.
         """
-        value = self.as_(list, allow_empty)
+        value = self.as_(list, allow_empty=allow_empty)
 
         for idx, element in enumerate(value):
             if not isinstance(element, kls):
@@ -270,7 +296,7 @@ class AssetCardField:
 
         return value
 
-    def as_dict(self, kls: Type[T], allow_empty: bool = False) -> Dict[str, T]:
+    def as_dict(self, kls: Type[T], *, allow_empty: bool = False) -> Dict[str, T]:
         """Return the value of this field as a :class:`dict` of type ``kls``.
 
         :param kls:
@@ -278,7 +304,7 @@ class AssetCardField:
         :param allow_empty:
             If ``True``, allows the dictionary to be empty.
         """
-        value = self.as_(dict, allow_empty)
+        value = self.as_(dict, allow_empty=allow_empty)
 
         for key, val in value.items():
             if not isinstance(val, kls):
@@ -290,7 +316,7 @@ class AssetCardField:
 
         return value
 
-    def as_set(self, kls: Type[T], allow_empty: bool = False) -> Set[T]:
+    def as_set(self, kls: Type[T], *, allow_empty: bool = False) -> Set[T]:
         """Return the value of this field as a :class:`set` of type ``kls``.
 
         :param kls:
@@ -298,7 +324,7 @@ class AssetCardField:
         :param allow_empty:
             If ``True``, allows the list to be empty.
         """
-        value = self.as_list(kls, allow_empty)
+        value = self.as_list(kls, allow_empty=allow_empty)
 
         return set(value)
 
@@ -337,8 +363,8 @@ class AssetCardField:
         try:
             if isinstance(value, PathLike) or not _starts_with_scheme(value):
                 return Path(value).as_uri()
-            else:
-                return urlparse(value).geturl()
+
+            return urlunparse(urlparse(value))
         except ValueError as ex:
             pathname = ".".join(self._path)
 

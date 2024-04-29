@@ -22,11 +22,11 @@ take_data_source::next()
 }
 
 void
-take_data_source::reset()
+take_data_source::reset(bool reset_rng)
 {
     num_examples_read_ = 0;
 
-    inner_->reset();
+    inner_->reset(reset_rng);
 }
 
 void

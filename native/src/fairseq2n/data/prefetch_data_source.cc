@@ -20,6 +20,9 @@ prefetch_data_source::~prefetch_data_source()
 std::optional<data>
 prefetch_data_source::next()
 {
+    if (num_examples_ == 0)
+        return inner_->next();
+
     // We pop and return examples from the read queue until we drain it and
     // then swap it with the fill queue. In parallel, the background thread
     // continuously pushes examples read from inner data source to the fill
@@ -55,7 +58,7 @@ prefetch_data_source::next()
 }
 
 void
-prefetch_data_source::reset()
+prefetch_data_source::reset(bool reset_rng)
 {
     stop_prefetch_thread();
 
@@ -67,7 +70,7 @@ prefetch_data_source::reset()
     fill_queue_.clear();
     next_queue_.clear();
 
-    inner_->reset();
+    inner_->reset(reset_rng);
 }
 
 void
