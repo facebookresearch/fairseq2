@@ -6,7 +6,7 @@
 
 from enum import Enum
 
-from fairseq2.utils.yaml import register_yaml_representer, represent_as_str
+from fairseq2.utils.yaml import register_yaml_representer, represent_as_enum
 
 
 class TransformerNormOrder(Enum):
@@ -25,4 +25,4 @@ class TransformerNormOrder(Enum):
     :cite:t:`https://doi.org/10.48550/arxiv.2110.09456`."""
 
 
-register_yaml_representer(TransformerNormOrder, represent_as_str)
+register_yaml_representer(TransformerNormOrder, represent_as_enum)

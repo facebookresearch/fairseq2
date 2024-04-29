@@ -291,4 +291,4 @@ class StandardTransformerDecoder(TransformerDecoder):
         if self.layer_drop_p > 0.0:
             s = f"{s}, layer_drop_p={self.layer_drop_p:G}"
 
-        return f"{s}, norm_order={self.norm_order}"
+        return f"{s}, norm_order={self.norm_order.name}"

@@ -265,7 +265,7 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
 
         family = None
 
-        for field_name in ["tokenizer_family", "model_family", "dataset_family"]:
+        for field_name in ["model_family", "dataset_family", "tokenizer_family"]:
             try:
                 family = card.field(field_name).as_(str)
             except AssetCardFieldNotFoundError:
