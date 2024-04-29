@@ -6,17 +6,20 @@
 
 import logging
 import os
+import platform
 import socket
 from contextlib import contextmanager
 from logging import Logger
 from pathlib import Path
 from typing import Any, Generator, Optional, Union
 
+import fairseq2n
 import psutil
 import torch
 from torch.cuda import OutOfMemoryError
 from torch.nn import Module
 
+import fairseq2
 from fairseq2.typing import Device
 from fairseq2.utils.dataclass import _dump_dataclass
 from fairseq2.utils.logging import LogWriter
@@ -60,38 +63,48 @@ def log_config(config: Any, log: LogWriter, file: Optional[Path] = None) -> None
 def log_environment_info(
     log: Union[LogWriter, Logger], device: Optional[Device] = None
 ) -> None:
-    """Log information about the installed software and the host system."""
+    """Log information about the host system and the installed software."""
     if isinstance(log, Logger):
         log = LogWriter(log)
 
-    log_software_info(log, device)
-
     log_system_info(log, device)
 
-
-def log_software_info(log: LogWriter, device: Optional[Device] = None) -> None:
-    """Log information about the installed software."""
-    if not log.is_enabled_for(logging.INFO):
-        return
-
-    s = f"PyTorch: {torch.__version__}"
-
-    if device is not None and device.type == "cuda":
-        s = (
-            f"{s} | "
-            f"CUDA: {torch.version.cuda} | "
-            f"NCCL: {'.'.join((str(v) for v in torch.cuda.nccl.version()))}"
-        )
-
-    s = f"{s} | Intraop Thread Count: {torch.get_num_threads()}"
-
-    log.info("Software - {}", s)
+    log_software_info(log, device)
 
 
 def log_system_info(log: LogWriter, device: Optional[Device] = None) -> None:
     """Log information about the host system."""
     if not log.is_enabled_for(logging.INFO):
         return
+
+    def read_dist_name() -> Optional[str]:
+        try:
+            fp = open("/etc/os-release")
+        except OSError:
+            return None
+
+        try:
+            for line in fp:
+                if line.startswith("PRETTY_NAME"):
+                    splits = line.rstrip().split("=", maxsplit=1)
+                    if len(splits) != 2:
+                        break
+
+                    name = splits[1].strip()
+
+                    # Unquote
+                    if len(name) >= 2 and name[0] == '"' and name[-1] == '"':
+                        name = name[1:-1]
+
+                    return name
+        except OSError:
+            pass
+        finally:
+            fp.close()
+
+        return None
+
+    dist_name = read_dist_name()
 
     num_cpus = os.cpu_count()
 
@@ -137,28 +150,72 @@ def log_system_info(log: LogWriter, device: Optional[Device] = None) -> None:
 
     memory = psutil.virtual_memory()
 
+    s = f"Name: {socket.getfqdn()} | Platform: {platform.platform()}"
+
+    if dist_name:
+        s = f"{s} | Linux Distribution: {dist_name}"
+
     s = (
-        f"Name: {socket.getfqdn()} | "
-        f"PID: {os.getpid()} | "
+        f"{s} | "
         f"Number of CPUs: {cpu_info} | "
         f"Memory: {memory.total // (1024 * 1024 * 1024):,}GiB"
     )
 
-    if device is not None:
-        s = f"{s} | Device: {device}"
+    log.info("Host - {}", s)
 
-    if device is not None and device.type == "cuda":
+    if device is None:
+        return
+
+    if device.type == "cpu":
+        s = "CPU-only"
+    elif device.type == "cuda":
         pr = torch.cuda.get_device_properties(device)
 
         s = (
-            f"{s} | "
-            f"Device Name: {pr.name} | "
-            f"Device Memory: {pr.total_memory // (1024 * 1024):,}MiB | "
+            f"ID: {device} | "
+            f"Name: {pr.name} | "
+            f"Memory: {pr.total_memory // (1024 * 1024):,}MiB | "
             f"Number of SMs: {pr.multi_processor_count} | "
             f"Compute Capability: {pr.major}.{pr.minor}"
         )
+    else:
+        s = f"ID: {device}"
 
-    log.info("Host System - {}", s)
+    log.info("Device - {}", s)
+
+
+def log_software_info(log: LogWriter, device: Optional[Device] = None) -> None:
+    """Log information about the installed software."""
+    if not log.is_enabled_for(logging.INFO):
+        return
+
+    s = f"Python: {platform.python_version()} | PyTorch: {torch.__version__}"
+
+    if device is not None and device.type == "cuda":
+        s = (
+            f"{s} | "
+            f"CUDA: {torch.version.cuda} | "
+            f"NCCL: {'.'.join((str(v) for v in torch.cuda.nccl.version()))}"
+        )
+
+    s = (
+        f"{s} | "
+        f"fairseq2: {fairseq2.__version__} | "
+        f"fairseq2n: {fairseq2n.__version__}"
+    )
+
+    for venv_type, venv_env in [("Conda", "CONDA_PREFIX"), ("venv", "VIRTUAL_ENV")]:
+        if venv_path := os.getenv(venv_env):
+            s = f"{s} | Python Environment: {venv_type} ({venv_path})"
+
+    log.info("Software - {}", s)
+
+    s = (
+        f"Process ID: {os.getpid()} | "
+        f"PyTorch Intraop Thread Count: {torch.get_num_threads()}"
+    )
+
+    log.info("Runtime Environment - {}", s)
 
 
 def log_model(model: Module, log: LogWriter) -> None:
