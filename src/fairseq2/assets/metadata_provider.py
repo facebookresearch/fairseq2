@@ -204,6 +204,8 @@ def _load_metadata_file(file: Path) -> List[Tuple[str, Dict[str, Any]]]:
                     f"The asset metadata at index {idx} in the file '{file}' has an invalid name."
                 )
 
+            metadata["__base_path__"] = file.parent
+
             output.append((name, metadata))
 
     return output
