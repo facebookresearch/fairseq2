@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.gang &mdash; fairseq2 0.3.0.dev202404251844+g0c3bbb7 documentation</title>
+  <title>fairseq2.gang &mdash; fairseq2 0.3.0.dev202404290135+gf193bd8 documentation</title>
       <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202404251844+g0c3bbb7
+                0.3.0.dev202404290135+gf193bd8
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -404,7 +404,7 @@
         <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">timeout</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">timedelta</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">num_threads</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">warn_only</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">ok_initialized</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ProcessGroupGang</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the default process group and wrap it as a gang.</span>
@@ -416,9 +416,9 @@
 <span class="sd">            The timeout for collective operations.</span>
 <span class="sd">        :param num_threads:</span>
 <span class="sd">            The number of threads to use for interaop parallelism.</span>
-<span class="sd">        :param warn_only:</span>
-<span class="sd">            If ``True``, logs a warning instead of raising an error if the gang</span>
-<span class="sd">            is not set up reliably.</span>
+<span class="sd">        :param debug:</span>
+<span class="sd">            If ``True``, turns on additional logging and synchronization checks</span>
+<span class="sd">            to help diagnose distributed training related issues.</span>
 <span class="sd">        :param ok_initialized:</span>
 <span class="sd">            If ``True``, does not raise an error if the default process group is</span>
 <span class="sd">            already initialized.</span>
@@ -431,6 +431,11 @@
                 <span class="k">return</span> <span class="n">ProcessGroupGang</span><span class="o">.</span><span class="n">from_default_process_group</span><span class="p">()</span>
 
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;The default process group is already initialized.&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Turn on `torch.distributed` debugging.</span>
+        <span class="k">if</span> <span class="n">debug</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">debug_flag</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;TORCH_CPP_LOG_LEVEL&quot;</span><span class="p">,</span> <span class="s2">&quot;TORCH_DISTRBUTED_DEBUG&quot;</span><span class="p">]:</span>
+                <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="n">debug_flag</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;INFO&quot;</span>
 
         <span class="n">num_procs</span> <span class="o">=</span> <span class="n">get_local_world_size</span><span class="p">()</span>
 
@@ -460,25 +465,17 @@
             <span class="p">)</span>
 
         <span class="k">if</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span><span class="p">:</span>
+            <span class="n">nccl_env_name</span> <span class="o">=</span> <span class="s2">&quot;NCCL_ASYNC_ERROR_HANDLING&quot;</span>
 
-            <span class="k">def</span> <span class="nf">check_async_handling</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-                <span class="n">env_name</span> <span class="o">=</span> <span class="s2">&quot;NCCL_ASYNC_ERROR_HANDLING&quot;</span>
-                <span class="k">if</span> <span class="n">env_name</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">:</span>
-                    <span class="k">return</span>
+            <span class="k">if</span> <span class="n">torch_greater_or_equal</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="k">del</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="n">nccl_env_name</span><span class="p">]</span>  <span class="c1"># Suppress the deprecation warning.</span>
+                <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                    <span class="k">pass</span>
 
-                <span class="k">if</span> <span class="n">torch_greater_or_equal</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">):</span>
-                    <span class="n">env_name</span> <span class="o">=</span> <span class="s2">&quot;TORCH_NCCL_ASYNC_ERROR_HANDLING&quot;</span>
-                    <span class="k">if</span> <span class="n">env_name</span> <span class="ow">in</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">:</span>
-                        <span class="k">return</span>
+                <span class="n">nccl_env_name</span> <span class="o">=</span> <span class="s2">&quot;TORCH_NCCL_ASYNC_ERROR_HANDLING&quot;</span>
 
-                <span class="k">if</span> <span class="n">warn_only</span><span class="p">:</span>
-                    <span class="n">log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;The default process group uses the `nccl` backend, but the `</span><span class="si">{}</span><span class="s2">` environment variable is not set. Your collective communication calls can hang indefinitely. Learn more at https://github.com/pytorch/pytorch/issues/46874.&quot;</span><span class="p">,</span> <span class="n">env_name</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
-                <span class="k">else</span><span class="p">:</span>
-                    <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                        <span class="sa">f</span><span class="s2">&quot;The default process group uses the `nccl` backend, but the `</span><span class="si">{</span><span class="n">env_name</span><span class="si">}</span><span class="s2">` environment variable is not set. Learn more at https://github.com/pytorch/pytorch/issues/46874.&quot;</span>
-                    <span class="p">)</span>
-
-            <span class="n">check_async_handling</span><span class="p">()</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="n">nccl_env_name</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;1&quot;</span>
 
         <span class="k">if</span> <span class="n">timeout</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">timeout</span> <span class="o">=</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">minutes</span><span class="o">=</span><span class="mi">30</span><span class="p">)</span>
@@ -743,7 +740,10 @@
 
 
 <span class="k">def</span> <span class="nf">setup_default_gang</span><span class="p">(</span>
-    <span class="o">*</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">timeout</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">timedelta</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="o">*</span><span class="p">,</span>
+    <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">timeout</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">timedelta</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Gang</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Set up the default gang of this process.</span>
 
@@ -752,11 +752,16 @@
 <span class="sd">        device of the process; otherwise, it will use the CPU.</span>
 <span class="sd">    :param timeout:</span>
 <span class="sd">        The timeout for collective operations.</span>
+<span class="sd">    :param debug:</span>
+<span class="sd">        If ``True``, turns on additional logging and synchronization checks</span>
+<span class="sd">        to help diagnose distributed training related issues.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">get_world_size</span><span class="p">()</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">FakeGang</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">ProcessGroupGang</span><span class="o">.</span><span class="n">init_default_process_group</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">ProcessGroupGang</span><span class="o">.</span><span class="n">init_default_process_group</span><span class="p">(</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="n">debug</span>
+    <span class="p">)</span>
 
 
 <span class="k">def</span> <span class="nf">setup_parallel_gangs</span><span class="p">(</span><span class="n">root_gang</span><span class="p">:</span> <span class="n">Gang</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">tp_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Gang</span><span class="p">]:</span>
