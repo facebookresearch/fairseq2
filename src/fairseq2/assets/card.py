@@ -362,7 +362,13 @@ class AssetCardField:
 
         try:
             if isinstance(value, PathLike) or not _starts_with_scheme(value):
-                return Path(value).as_uri()
+                path = Path(value)
+                if not path.is_absolute():
+                    base_path = self._card.metadata.get("__base_path__")
+                    if base_path is not None:
+                        path = base_path.joinpath(path)
+
+                return path.as_uri()
 
             return urlunparse(urlparse(value))
         except ValueError as ex:
