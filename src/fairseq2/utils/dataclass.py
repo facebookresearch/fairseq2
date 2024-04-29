@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from dataclasses import asdict, is_dataclass
+from enum import Enum
 from pathlib import Path
 from typing import Any, List, MutableMapping
 
@@ -33,7 +34,7 @@ def update_dataclass(obj: Any, overrides: MutableMapping[str, Any]) -> None:
         leftovers.sort()
 
         raise ValueError(
-            f"`obj` must contain the following keys that are present in `overrides`: {leftovers}"
+            f"`overrides` contains the following keys that are not present in `obj`: {leftovers}"
         )
 
 
@@ -47,12 +48,12 @@ def _do_update_dataclass(
             continue
 
         # Recursively traverse child dataclasses.
-        if override is not None and is_dataclass(value):
+        if override is not None and is_dataclass(value) and not isinstance(value, type):
             if not isinstance(override, MutableMapping):
                 p = ".".join(path + [name])
 
                 raise TypeError(
-                    f"The key '{p}' must be of a mapping type (e.g. `dict`), but is of type `{type(override)}` instead."
+                    f"The value of the key '{p}' in `overrides` must be of a mapping type (e.g. `dict`), but is of type `{type(override)}` instead."
                 )
 
             path.append(name)
@@ -61,10 +62,23 @@ def _do_update_dataclass(
 
             path.pop()
         else:
+            if value is not None and not isinstance(override, kls := type(value)):
+                override = _maybe_convert(override, kls)
+
             setattr(obj, name, override)
 
     if overrides:
         leftovers += [".".join(path + [name]) for name in overrides]
+
+
+def _maybe_convert(value: Any, kls: type) -> Any:
+    if issubclass(kls, Enum) and isinstance(value, str):
+        try:
+            return kls[value]
+        except KeyError:
+            pass
+
+    return value
 
 
 def _dump_dataclass(obj: Any, file: Path) -> None:
@@ -79,7 +93,7 @@ def _dump_dataclass(obj: Any, file: Path) -> None:
         yaml.safe_dump(asdict(obj), fp)
     except RepresenterError as ex:
         raise ValueError(
-            "`obj` must contain values of only primitive stdlib types, other dataclasses, and types registered with `yaml.representer.SafeRepresenter`. See nested exception for details."
+            "`obj` must contain values of only primitive stdlib types and types registered with `yaml.representer.SafeRepresenter`. See nested exception for details."
         ) from ex
     finally:
         fp.close()

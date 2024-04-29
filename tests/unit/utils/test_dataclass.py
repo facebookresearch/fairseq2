@@ -61,7 +61,7 @@ class TestUpdateClassFunction:
 
         with pytest.raises(
             TypeError,
-            match=r"^The key 'c' must be of a mapping type \(e\.g\. `dict`\), but is of type `<class 'int'>` instead\.$",
+            match=r"^The value of the key 'c' in `overrides` must be of a mapping type \(e\.g\. `dict`\), but is of type `<class 'int'>` instead\.$",
         ):
             update_dataclass(obj, overrides)
 
@@ -72,7 +72,7 @@ class TestUpdateClassFunction:
 
         with pytest.raises(
             ValueError,
-            match=r"^`obj` must contain the following keys that are present in `overrides`: \['c\.z', 'e'\]$",
+            match=r"^`overrides` contains the following keys that are not present in `obj`: \['c\.z', 'e'\]$",
         ):
             update_dataclass(obj, overrides)
 

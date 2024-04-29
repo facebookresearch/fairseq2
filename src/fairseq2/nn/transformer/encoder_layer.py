@@ -247,4 +247,4 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
         """:meta private:"""
         s = super().extra_repr()
 
-        return f"{s}, norm_order={self.norm_order}"
+        return f"{s}, norm_order={self.norm_order.name}"
