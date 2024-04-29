@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional, Sequence, final
 import torch
 import torch.distributed as dist
 from torch import Tensor
-from torch.distributed import ProcessGroup, ReduceOp
+from torch.distributed import Backend, ProcessGroup, ReduceOp
 
 from fairseq2.typing import CPU, Device, override
 from fairseq2.utils.logging import get_log_writer
@@ -235,11 +235,15 @@ class ProcessGroupGang(AbstractGang):
     """Represents a gang that wraps a process group."""
 
     _pg: ProcessGroup
+    _debug_pg: Optional[ProcessGroup]
 
-    def __init__(self, pg: ProcessGroup, device: Device) -> None:
+    def __init__(
+        self, pg: ProcessGroup, device: Device, debug_pg: Optional[ProcessGroup] = None
+    ) -> None:
         super().__init__(dist.get_rank(pg), dist.get_world_size(pg), device)
 
         self._pg = pg
+        self._debug_pg = debug_pg
 
     @staticmethod
     def init_default_process_group(
@@ -266,6 +270,11 @@ class ProcessGroupGang(AbstractGang):
             If ``True``, does not raise an error if the default process group is
             already initialized.
         """
+        if debug:
+            os.environ["TORCH_DISTRIBUTED_DEBUG"] = "INFO"
+
+            dist.set_debug_level_from_env()
+
         if not dist.is_available():
             raise RuntimeError("`torch.distributed` is not available.")
 
@@ -274,11 +283,6 @@ class ProcessGroupGang(AbstractGang):
                 return ProcessGroupGang.from_default_process_group()
 
             raise RuntimeError("The default process group is already initialized.")
-
-        # Turn on `torch.distributed` debugging.
-        if debug:
-            for debug_flag in ["TORCH_CPP_LOG_LEVEL", "TORCH_DISTRBUTED_DEBUG"]:
-                os.environ[debug_flag] = "INFO"
 
         num_procs = get_local_world_size()
 
@@ -298,10 +302,12 @@ class ProcessGroupGang(AbstractGang):
 
             assert device.type == "cpu" or device.type == "cuda"
 
+        backend: Optional[str]
+
         if device.type == "cpu":
-            backend = "gloo"
+            backend = Backend.GLOO
         elif device.type == "cuda":
-            backend = "nccl"
+            backend = Backend.NCCL
         else:
             raise ValueError(
                 f"`device` must be of type `cpu` and `cuda`, but is of type `{device.type}` instead."
@@ -318,19 +324,30 @@ class ProcessGroupGang(AbstractGang):
 
                 nccl_env_name = "TORCH_NCCL_ASYNC_ERROR_HANDLING"
 
+            # See https://github.com/pytorch/pytorch/issues/46874.
             os.environ[nccl_env_name] = "1"
 
         if timeout is None:
-            timeout = timedelta(minutes=30)
+            timeout = timedelta(minutes=15)
 
         dist.init_process_group(backend, timeout=timeout)
 
-        if dist.group.WORLD is None:
+        pg = dist.group.WORLD
+        if pg is None:
             raise RuntimeError(
                 "The default process group is not available. Please file a bug report."
             )
 
-        return ProcessGroupGang(dist.group.WORLD, device)
+        if debug:
+            if backend == Backend.GLOO:
+                debug_pg = pg
+            else:
+                # Gloo is needed for monitored barrier support.
+                debug_pg = dist.new_group(backend=Backend.GLOO, timeout=timeout)
+        else:
+            debug_pg = None
+
+        return ProcessGroupGang(pg, device, debug_pg)
 
     @staticmethod
     def from_process_group(pg: ProcessGroup, device: Device) -> ProcessGroupGang:
@@ -354,9 +371,9 @@ class ProcessGroupGang(AbstractGang):
 
         backend = dist.get_backend()
 
-        if backend == "gloo":
+        if backend == Backend.GLOO:
             device = CPU
-        elif backend == "nccl":
+        elif backend == Backend.NCCL:
             device = _determine_default_cuda_device()
         else:
             raise RuntimeError(
@@ -381,9 +398,19 @@ class ProcessGroupGang(AbstractGang):
                 "`create_gang()` can only be called on the gang associated with the default (i.e. main) process group."
             )
 
-        pg = dist.new_group(ranks, backend=dist.get_backend())
+        backend = dist.get_backend()
 
-        return ProcessGroupGang(pg, self._device)
+        pg = dist.new_group(ranks, backend=backend)
+
+        if self._debug_pg is not None:
+            if backend == Backend.GLOO:
+                debug_pg = pg
+            else:
+                debug_pg = dist.new_group(ranks, backend=Backend.GLOO)
+        else:
+            debug_pg = None
+
+        return ProcessGroupGang(pg, self._device, debug_pg)
 
     @override
     def as_process_group(self) -> ProcessGroup:
@@ -391,25 +418,46 @@ class ProcessGroupGang(AbstractGang):
 
     @override
     def barrier(self) -> None:
-        dist.barrier(group=self._pg)
+        if self._debug_pg is None:
+            dist.barrier(group=self._pg, device_ids=[self._device.index])
+        else:
+            torch.cuda.synchronize()
+
+            dist.monitored_barrier(group=self._debug_pg, wait_all_ranks=True)
 
     @override
     def all_reduce(self, tensor: Tensor, op: ReduceOperation) -> None:
+        self._maybe_monitored_barrier()
+
         dist.all_reduce(tensor, self._get_reduce_op(op), group=self._pg)
 
     @override
     def all_gather(self, output_tensor: Tensor, input_tensor: Tensor) -> None:
+        self._maybe_monitored_barrier()
+
         dist.all_gather_into_tensor(output_tensor, input_tensor, group=self._pg)
 
     @override
     def all_gather_to_list(
         self, output_tensors: List[Tensor], input_tensor: Tensor
     ) -> None:
+        self._maybe_monitored_barrier()
+
         dist.all_gather(output_tensors, input_tensor, group=self._pg)
 
     @override
     def broadcast_objects(self, objects: List[Any], source_rank: int = 0) -> None:
+        self._maybe_monitored_barrier()
+
         dist.broadcast_object_list(objects, source_rank)
+
+    def _maybe_monitored_barrier(self) -> None:
+        if self._debug_pg is None:
+            return
+
+        torch.cuda.synchronize()
+
+        dist.monitored_barrier(group=self._debug_pg, wait_all_ranks=True)
 
     @staticmethod
     def _get_reduce_op(op: ReduceOperation):  # type: ignore[no-untyped-def]
@@ -435,7 +483,7 @@ def _get_num_cpus(num_procs: int) -> int:
     affinity_mask = os.sched_getaffinity(0)
 
     if num_cpus is None or affinity_mask is None:
-        log.warning("The number of CPU cores cannot be determined.")
+        log.warning("The number of CPUs cannot be determined.")
 
         return 1
 
