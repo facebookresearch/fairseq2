@@ -46,7 +46,7 @@ setup(
     zip_safe=False,
     python_requires=">=3.8",
     install_requires=[
-        "editdistance~=0.8.1",
+        "editdistance~=0.8",
         "fairseq2n" + fairseq2n_version_spec,
         "importlib_metadata~=7.0",
         "importlib_resources~=6.4",
@@ -54,6 +54,7 @@ setup(
         "packaging~=23.1",
         "psutil~=5.9",
         "pyyaml~=6.0",
+        "rich~=13.7",
         "torcheval~=0.0.6",
         "tqdm~=4.62",
         "typing_extensions~=4.3;python_version<'3.10'",

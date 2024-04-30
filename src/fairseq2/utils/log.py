@@ -16,6 +16,7 @@ from typing import Any, Generator, Optional, Union
 import fairseq2n
 import psutil
 import torch
+from rich.pretty import pretty_repr
 from torch.cuda import OutOfMemoryError
 from torch.nn import Module
 
@@ -55,7 +56,7 @@ def log_config(config: Any, log: LogWriter, file: Optional[Path] = None) -> None
     if file is not None:
         _dump_dataclass(config, file)
 
-    log.info("Job Config:\n{}", config)
+    log.info("Job Config:\n{}", pretty_repr(config, max_width=88))
 
 
 # compat
