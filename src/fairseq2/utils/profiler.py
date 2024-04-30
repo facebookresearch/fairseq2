@@ -70,7 +70,7 @@ class Profiler:
         )
 
         trace_handler = tensorboard_trace_handler(
-            str(log_dir), worker_name=f"rank_{gang.rank}"
+            str(log_dir), worker_name=f"rank_{gang.rank}", use_gzip=True
         )
 
         self._profile = profile(
