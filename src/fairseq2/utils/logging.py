@@ -7,20 +7,19 @@
 import logging
 import os
 import time
-from logging import (
-    DEBUG,
-    INFO,
-    FileHandler,
-    Formatter,
-    Handler,
-    Logger,
-    StreamHandler,
-    getLogger,
-)
+from logging import DEBUG, INFO, FileHandler, Formatter, Handler, Logger, getLogger
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, List, Optional, Set, final
+from typing import TYPE_CHECKING, Any, Final, List, Optional, Set, final
 
 from fairseq2n import DOC_MODE
+from rich.logging import RichHandler
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    TaskProgressColumn,
+    TimeRemainingColumn,
+)
 
 
 def setup_logging(
@@ -62,22 +61,33 @@ def setup_logging(
             f"The log directory ({log_file.parent}) cannot be created. See nested exception for details."
         ) from ex
 
-    handlers: List[Handler] = [StreamHandler(), FileHandler(log_file)]
+    if utc_time:
+        Formatter.converter = time.gmtime
 
-    fmt = f"[Rank {rank}] %(asctime)s %(levelname)s %(name)s - %(message)s"
+    file_handler = FileHandler(log_file)
+
+    formatter = Formatter(
+        f"[Rank {rank}] %(asctime)s %(levelname)s %(name)s - %(message)s"
+    )
+
+    file_handler.setFormatter(formatter)
+
+    handlers: List[Handler] = [file_handler]
+
+    if rank == 0:
+        rich_handler = RichHandler(show_path=False, keywords=[])
+
+        formatter = Formatter("%(name)s - %(message)s")
+
+        rich_handler.setFormatter(formatter)
+
+        handlers.append(rich_handler)
 
     datefmt = "%Y-%m-%d %H:%M:%S"
 
     logging.basicConfig(
-        level=DEBUG if debug else INFO,
-        handlers=handlers,
-        format=fmt,
-        datefmt=datefmt,
-        force=force,
+        level=DEBUG if debug else INFO, handlers=handlers, datefmt=datefmt, force=force
     )
-
-    if utc_time:
-        Formatter.converter = time.gmtime
 
     _setup_aten_logging(log_file, force)
 
@@ -133,6 +143,8 @@ def _setup_nccl_logging(log_file: Path, force: bool) -> None:
 class LogWriter:
     """Writes log messages using ``format()`` strings."""
 
+    _NO_HIGHLIGHT: Final = {"highlighter": None}
+
     _logger: Logger
     _once_messages: Set[str]
 
@@ -145,64 +157,88 @@ class LogWriter:
 
         self._once_messages = set()
 
-    def debug(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+    def debug(
+        self, msg: Any, *args: Any, highlight: bool = False, **kwargs: Any
+    ) -> None:
         """Log a message with level ``DEBUG``."""
-        self._write(logging.DEBUG, msg, args, kwargs)
+        self._write(logging.DEBUG, msg, args, kwargs, highlight)
 
-    def debug_once(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+    def debug_once(
+        self, msg: Any, *args: Any, highlight: bool = False, **kwargs: Any
+    ) -> None:
         """Log a message only once with level ``DEBUG``."""
         if msg in self._once_messages:
             return
 
-        self._write(logging.DEBUG, msg, args, kwargs)
+        self._write(logging.DEBUG, msg, args, kwargs, highlight)
 
         self._once_messages.add(msg)
 
-    def info(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+    def info(
+        self, msg: Any, *args: Any, highlight: bool = False, **kwargs: Any
+    ) -> None:
         """Log a message with level ``INFO``."""
-        self._write(logging.INFO, msg, args, kwargs)
+        self._write(logging.INFO, msg, args, kwargs, highlight)
 
-    def info_once(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+    def info_once(
+        self, msg: Any, *args: Any, highlight: bool = False, **kwargs: Any
+    ) -> None:
         """Log a message only once with level ``INFO``."""
         if msg in self._once_messages:
             return
 
-        self._write(logging.INFO, msg, args, kwargs)
+        self._write(logging.INFO, msg, args, kwargs, highlight)
 
         self._once_messages.add(msg)
 
-    def warning(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+    def warning(
+        self, msg: Any, *args: Any, highlight: bool = False, **kwargs: Any
+    ) -> None:
         """Log a message with level ``WARNING``."""
-        self._write(logging.WARNING, msg, args, kwargs)
+        self._write(logging.WARNING, msg, args, kwargs, highlight)
 
-    def warning_once(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+    def warning_once(
+        self, msg: Any, *args: Any, highlight: bool = False, **kwargs: Any
+    ) -> None:
         """Log a message only once with level ``WARNING``."""
         if msg in self._once_messages:
             return
 
-        self._write(logging.WARNING, msg, args, kwargs)
+        self._write(logging.WARNING, msg, args, kwargs, highlight)
 
         self._once_messages.add(msg)
 
-    def error(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+    def error(
+        self, msg: Any, *args: Any, highlight: bool = False, **kwargs: Any
+    ) -> None:
         """Log a message with level ``ERROR``."""
-        self._write(logging.ERROR, msg, args, kwargs)
+        self._write(logging.ERROR, msg, args, kwargs, highlight)
 
-    def error_once(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+    def error_once(
+        self, msg: Any, *args: Any, highlight: bool = False, **kwargs: Any
+    ) -> None:
         """Log a message only once with level ``ERROR``."""
         if msg in self._once_messages:
             return
 
-        self._write(logging.ERROR, msg, args, kwargs)
+        self._write(logging.ERROR, msg, args, kwargs, highlight)
 
         self._once_messages.add(msg)
 
-    def exception(self, msg: Any, *args: Any, **kwargs: Any) -> None:
+    def exception(
+        self, msg: Any, *args: Any, highlight: bool = False, **kwargs: Any
+    ) -> None:
         """Log a message with level ``ERROR``."""
-        self._write(logging.ERROR, msg, args, kwargs, exc_info=True)
+        self._write(logging.ERROR, msg, args, kwargs, highlight, exc_info=True)
 
     def _write(
-        self, level: int, msg: Any, args: Any, kwargs: Any, exc_info: bool = False
+        self,
+        level: int,
+        msg: Any,
+        args: Any,
+        kwargs: Any,
+        highlight: bool,
+        exc_info: bool = False,
     ) -> None:
         if args or kwargs:
             if not self._logger.isEnabledFor(level):
@@ -210,7 +246,9 @@ class LogWriter:
 
             msg = str(msg).format(*args, **kwargs)
 
-        self._logger.log(level, msg, exc_info=exc_info)
+        extra = None if highlight else self._NO_HIGHLIGHT
+
+        self._logger.log(level, msg, extra=extra, exc_info=exc_info)
 
     def is_enabled_for(self, level: int) -> bool:
         """Return ``True`` if a message of severity ``level`` would be processed
@@ -221,3 +259,10 @@ class LogWriter:
 def get_log_writer(name: Optional[str] = None) -> LogWriter:
     """Return a :class:`LogWriter` for the logger with the specified name."""
     return LogWriter(getLogger(name))
+
+
+def create_rich_progress() -> Progress:
+    """Create a :class:`Progress` instance to report training progress."""
+    return Progress(
+        BarColumn(), MofNCompleteColumn(), TaskProgressColumn(), TimeRemainingColumn()
+    )
