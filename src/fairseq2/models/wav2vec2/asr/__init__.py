@@ -5,6 +5,9 @@
 # LICENSE file in the root directory of this source tree.
 
 from fairseq2.models.wav2vec2.asr.factory import (
+    WAV2VEC2_ASR_FAMILY as WAV2VEC2_ASR_FAMILY,
+)
+from fairseq2.models.wav2vec2.asr.factory import (
     Wav2Vec2AsrBuilder as Wav2Vec2AsrBuilder,
 )
 from fairseq2.models.wav2vec2.asr.factory import Wav2Vec2AsrConfig as Wav2Vec2AsrConfig
@@ -23,3 +26,11 @@ from fairseq2.models.wav2vec2.asr.setup import (
 from fairseq2.models.wav2vec2.asr.setup import (
     load_wav2vec2_asr_model as load_wav2vec2_asr_model,
 )
+
+# isort: split
+
+from fairseq2.models.loader import load_model
+
+
+def _register_wav2vec2_asr() -> None:
+    load_model.register(WAV2VEC2_ASR_FAMILY, load_wav2vec2_asr_model)

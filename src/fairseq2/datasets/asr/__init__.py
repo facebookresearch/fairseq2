@@ -6,3 +6,7 @@
 
 from fairseq2.datasets.asr.base import AsrDataset as AsrDataset
 from fairseq2.datasets.asr.base import load_asr_dataset as load_asr_dataset
+
+
+def _register_asr_datasets() -> None:
+    pass

@@ -14,7 +14,7 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.nn import GELU, Conv1d, Module, Sequential
-from torch.nn.utils import remove_weight_norm, weight_norm
+from torch.nn.utils import remove_weight_norm, weight_norm  # type: ignore[attr-defined]
 
 from fairseq2.nn import LayerNorm, PositionEncoder, StandardLayerNorm
 from fairseq2.nn.incremental_state import IncrementalStateBag

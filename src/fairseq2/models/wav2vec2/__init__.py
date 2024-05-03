@@ -4,6 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from fairseq2.models.wav2vec2.factory import WAV2VEC2_FAMILY as WAV2VEC2_FAMILY
 from fairseq2.models.wav2vec2.factory import Wav2Vec2Builder as Wav2Vec2Builder
 from fairseq2.models.wav2vec2.factory import Wav2Vec2Config as Wav2Vec2Config
 from fairseq2.models.wav2vec2.factory import (
@@ -37,3 +38,11 @@ from fairseq2.models.wav2vec2.position_encoder import (
 )
 from fairseq2.models.wav2vec2.setup import load_wav2vec2_config as load_wav2vec2_config
 from fairseq2.models.wav2vec2.setup import load_wav2vec2_model as load_wav2vec2_model
+
+# isort: split
+
+from fairseq2.models.loader import load_model
+
+
+def _register_wav2vec2() -> None:
+    load_model.register(WAV2VEC2_FAMILY, load_wav2vec2_model)

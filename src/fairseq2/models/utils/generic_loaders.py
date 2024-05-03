@@ -31,15 +31,15 @@ from fairseq2.nn.utils.module import (
     reset_non_persistent_buffers,
     to_empty,
 )
-from fairseq2.typing import CPU, META, DataType, Device, override
+from fairseq2.typing import CPU, META, DataClass, DataType, Device, override
 from fairseq2.utils.dataclass import update_dataclass
 
 logger = logging.getLogger("fairseq2.models")
 
 
-ConfigT = TypeVar("ConfigT")
+ConfigT = TypeVar("ConfigT", bound=DataClass)
 
-ConfigT_contra = TypeVar("ConfigT_contra", contravariant=True)
+ConfigT_contra = TypeVar("ConfigT_contra", bound=DataClass, contravariant=True)
 
 TextTokenizerT = TypeVar("TextTokenizerT", bound=TextTokenizer)
 

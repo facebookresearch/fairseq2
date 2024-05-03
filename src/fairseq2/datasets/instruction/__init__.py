@@ -8,3 +8,7 @@ from fairseq2.datasets.instruction.base import InstructionDataset as Instruction
 from fairseq2.datasets.instruction.base import (
     load_instruction_dataset as load_instruction_dataset,
 )
+
+
+def _register_instruction_datasets() -> None:
+    pass

@@ -7,8 +7,8 @@
 from dataclasses import dataclass
 from typing import Final, Optional
 
+from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data import VocabularyInfo
-from fairseq2.models.architecture_registry import ModelArchitectureRegistry
 from fairseq2.models.transformer import (
     TransformerEmbeddingFrontend,
     TransformerFrontend,
@@ -80,7 +80,7 @@ class NllbConfig:
     """The dropout probability on outputs of Transformer layers."""
 
 
-nllb_archs = ModelArchitectureRegistry[NllbConfig]()
+nllb_archs = ConfigRegistry[NllbConfig]()
 
 nllb_arch = nllb_archs.decorator
 

@@ -7,7 +7,7 @@
 from dataclasses import dataclass, field
 from typing import Final, Optional
 
-from fairseq2.models.architecture_registry import ModelArchitectureRegistry
+from fairseq2.config_registry import ConfigRegistry
 from fairseq2.models.wav2vec2.asr.model import Wav2Vec2AsrModel
 from fairseq2.models.wav2vec2.factory import (
     Wav2Vec2EncoderBuilder,
@@ -68,12 +68,12 @@ class Wav2Vec2AsrConfig:
     """The minimum number of spatial masks sampled per sequence."""
 
 
-wav2vec2_asr_archs = ModelArchitectureRegistry[Wav2Vec2AsrConfig]()
+wav2vec2_asr_archs = ConfigRegistry[Wav2Vec2AsrConfig]()
 
 wav2vec2_asr_arch = wav2vec2_asr_archs.decorator
 
 
-@wav2vec2_asr_arch("base")
+@wav2vec2_asr_arch("arch")
 def _base() -> Wav2Vec2AsrConfig:
     return Wav2Vec2AsrConfig()
 

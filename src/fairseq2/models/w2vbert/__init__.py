@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 
+from fairseq2.models.w2vbert.factory import W2VBERT_FAMILY as W2VBERT_FAMILY
 from fairseq2.models.w2vbert.factory import W2VBertBuilder as W2VBertBuilder
 from fairseq2.models.w2vbert.factory import W2VBertConfig as W2VBertConfig
 from fairseq2.models.w2vbert.factory import create_w2vbert_model as create_w2vbert_model
@@ -15,3 +16,11 @@ from fairseq2.models.w2vbert.model import W2VBertModel as W2VBertModel
 from fairseq2.models.w2vbert.model import W2VBertOutput as W2VBertOutput
 from fairseq2.models.w2vbert.setup import load_w2vbert_config as load_w2vbert_config
 from fairseq2.models.w2vbert.setup import load_w2vbert_model as load_w2vbert_model
+
+# isort: split
+
+from fairseq2.models.loader import load_model
+
+
+def _register_w2vbert() -> None:
+    load_model.register(W2VBERT_FAMILY, load_w2vbert_model)

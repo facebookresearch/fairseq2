@@ -10,7 +10,7 @@ import torch
 
 from fairseq2.assets import default_asset_store, default_download_manager
 from fairseq2.models.config_loader import StandardModelConfigLoader
-from fairseq2.models.loader import DenseModelLoader, load_model
+from fairseq2.models.loader import DenseModelLoader
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
 from fairseq2.models.w2vbert.factory import (
     W2VBERT_FAMILY,
@@ -83,5 +83,3 @@ load_w2vbert_model = DenseModelLoader(
     convert_w2vbert_checkpoint,
     mmap=True,
 )
-
-load_model.register(W2VBERT_FAMILY, load_w2vbert_model)

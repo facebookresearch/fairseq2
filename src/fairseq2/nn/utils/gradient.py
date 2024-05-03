@@ -12,7 +12,7 @@ from torch import Tensor
 from torch.autograd import Function
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn import Module
-from torch.nn.utils import clip_grad_norm_
+from torch.nn.utils import clip_grad_norm_  # type: ignore[attr-defined]
 
 from fairseq2.gang import Gang, ReduceOperation
 from fairseq2.utils.logging import get_log_writer

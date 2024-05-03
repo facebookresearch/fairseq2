@@ -31,5 +31,6 @@ def register_yaml_representer(
         SafeRepresenter.add_representer(kls, representer)
 
 
-for kls in [DataType, PurePath, PosixPath]:
-    register_yaml_representer(kls, represent_as_str)
+def _register_yaml_representers() -> None:
+    for kls in [DataType, PurePath, PosixPath]:
+        register_yaml_representer(kls, represent_as_str)

@@ -27,7 +27,7 @@ from fairseq2n import DOC_MODE
 from torch import Tensor
 from typing_extensions import Self
 
-from fairseq2.memory import MemoryBlock
+from fairseq2.data.memory import MemoryBlock
 
 if TYPE_CHECKING or DOC_MODE:
 

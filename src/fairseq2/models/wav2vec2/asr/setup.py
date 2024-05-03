@@ -8,7 +8,7 @@ from typing import Any, Dict
 
 from fairseq2.assets import default_asset_store, default_download_manager
 from fairseq2.models.config_loader import StandardModelConfigLoader
-from fairseq2.models.loader import DenseModelLoader, load_model
+from fairseq2.models.loader import DenseModelLoader
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
 from fairseq2.models.wav2vec2.asr.factory import (
     WAV2VEC2_ASR_FAMILY,
@@ -80,5 +80,3 @@ load_wav2vec2_asr_model = DenseModelLoader(
     mmap=False,
     restrict_checkpoints=False,
 )
-
-load_model.register(WAV2VEC2_ASR_FAMILY, load_wav2vec2_asr_model)

@@ -9,8 +9,8 @@ from typing import Final, Optional
 
 from torch.nn import SiLU
 
+from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data import VocabularyInfo
-from fairseq2.models.architecture_registry import ModelArchitectureRegistry
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
 from fairseq2.models.s2t_transformer.feature_extractor import Conv1dFbankSubsampler
 from fairseq2.models.s2t_transformer.frontend import S2TTransformerFrontend
@@ -103,7 +103,7 @@ class S2TTransformerConfig:
     """The kernel size of depthwise convolutions in Conformer blocks."""
 
 
-s2t_transformer_archs = ModelArchitectureRegistry[S2TTransformerConfig]()
+s2t_transformer_archs = ConfigRegistry[S2TTransformerConfig]()
 
 s2t_transformer_arch = s2t_transformer_archs.decorator
 

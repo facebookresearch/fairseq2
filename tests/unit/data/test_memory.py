@@ -9,7 +9,7 @@ from array import array
 
 import pytest
 
-from fairseq2.memory import MemoryBlock
+from fairseq2.data.memory import MemoryBlock
 
 
 class TestMemoryBlock:
