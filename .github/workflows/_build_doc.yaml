@@ -9,7 +9,7 @@ on:
     inputs:
       torch:
         type: string
-        default: '2.2.2'
+        default: '2.3.0'
       py:
         type: string
         default: '3.11'

@@ -12,22 +12,6 @@ on:
         required: true
 
 jobs:
-  publish_pt20_s3-linux:
-    name: Publish to S3 (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }})
-    strategy:
-      matrix:
-        torch: ['2.0.0', '2.0.1']
-        py: ['3.8', '3.9', '3.10', '3.11']
-        variant: ['cpu', 'cu117', 'cu118']
-      max-parallel: 1
-    uses: ./.github/workflows/_publish_s3.yaml
-    with:
-      os: 'linux'
-      torch: ${{ matrix.torch }}
-      py: ${{ matrix.py }}
-      variant: ${{ matrix.variant }}
-      release_type: ${{ inputs.release_type }}
-
   publish_pt21_s3-linux:
     name: Publish to S3 (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }})
     strategy:
@@ -60,11 +44,27 @@ jobs:
       variant: ${{ matrix.variant }}
       release_type: ${{ inputs.release_type }}
 
-  publish_pt22_s3-macos:
+  publish_pt23_s3-linux:
+    name: Publish to S3 (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }})
+    strategy:
+      matrix:
+        torch: ['2.3.0']
+        py: ['3.8', '3.9', '3.10', '3.11']
+        variant: ['cpu', 'cu118', 'cu121']
+      max-parallel: 1
+    uses: ./.github/workflows/_publish_s3.yaml
+    with:
+      os: 'linux'
+      torch: ${{ matrix.torch }}
+      py: ${{ matrix.py }}
+      variant: ${{ matrix.variant }}
+      release_type: ${{ inputs.release_type }}
+
+  publish_pt23_s3-macos:
     name: Publish to S3 (pt${{ matrix.torch }}, py${{ matrix.py }}, macos-arm64)
     strategy:
       matrix:
-        torch: ['2.2.0', '2.2.1', '2.2.2']
+        torch: ['2.3.0']
         py: ['3.8', '3.9', '3.10', '3.11']
       max-parallel: 1
     uses: ./.github/workflows/_publish_s3.yaml
@@ -79,15 +79,15 @@ jobs:
   publish_pypi-linux:
     name: Publish to PyPI (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }})
     needs:
-      - publish_pt20_s3-linux
       - publish_pt21_s3-linux
       - publish_pt22_s3-linux
-      - publish_pt22_s3-macos
+      - publish_pt23_s3-linux
+      - publish_pt23_s3-macos
     if: inputs.release_type == 'stable'
     uses: ./.github/workflows/_publish_pypi.yaml
     strategy:
       matrix:
-        torch: ['2.2.2']
+        torch: ['2.3.0']
         py: ['3.8', '3.9', '3.10', '3.11']
         variant: ['cu121']
       max-parallel: 1
@@ -105,7 +105,7 @@ jobs:
     uses: ./.github/workflows/_publish_pypi.yaml
     strategy:
       matrix:
-        torch: ['2.2.2']
+        torch: ['2.3.0']
         py: ['3.8', '3.9', '3.10', '3.11']
       max-parallel: 1
     with:
