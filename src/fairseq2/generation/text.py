@@ -173,7 +173,8 @@ class TextTranslator:
         :param target_lang:
             The target language.
         :param max_source_len:
-            The number of tokens above which the source sequence gets truncated (None or 0 for no truncation)
+            The maximum number of tokens above which the source sequence gets
+            truncated.
         """
         self._converter = SequenceToTextConverter(
             generator, tokenizer, "translation", target_lang
@@ -192,6 +193,12 @@ class TextTranslator:
         self._source_text_encoder = tokenizer.create_encoder(
             task="translation", lang=source_lang, mode="source", device=device
         )
+
+        if max_source_len is not None and max_source_len <= 0:
+            raise ValueError(
+                f"`max_source_len` must be greater than or equal to 1, but is {max_source_len} instead."
+            )
+
         self._max_source_len = max_source_len
 
     def __call__(self, source_text: str) -> Tuple[str, Seq2SeqGeneratorOutput]:
@@ -205,7 +212,7 @@ class TextTranslator:
         """
         source_seq = self._source_text_encoder(source_text)
 
-        if self._max_source_len and source_seq.shape[0] > self._max_source_len:
+        if self._max_source_len:
             source_seq = source_seq[: self._max_source_len]
 
         return self._converter(source_seq)
