@@ -21,7 +21,7 @@ from tests.common import device
     "FAIR_ENV_CLUSTER" not in os.environ, reason="checkpoints only on faircluster"
 )
 def test_convert_to_reference_checkpoint() -> None:
-    model_config = llama_archs.get_config("llama2_7b")
+    model_config = llama_archs.get("llama2_7b")
 
     card = asset_store.retrieve_card("llama2_7b")
 

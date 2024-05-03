@@ -10,9 +10,9 @@ from typing import Any, Dict, final
 import torch
 
 from fairseq2.assets import AssetCard, default_asset_store, default_download_manager
-from fairseq2.data.text import AbstractTextTokenizerLoader, load_text_tokenizer
+from fairseq2.data.text import AbstractTextTokenizerLoader
 from fairseq2.models.config_loader import StandardModelConfigLoader
-from fairseq2.models.loader import DenseModelLoader, load_model
+from fairseq2.models.loader import DenseModelLoader
 from fairseq2.models.nllb.factory import (
     NLLB_FAMILY,
     NllbConfig,
@@ -101,8 +101,6 @@ load_nllb_model = DenseModelLoader(
     restrict_checkpoints=False,
 )
 
-load_model.register(NLLB_FAMILY, load_nllb_model)
-
 
 @final
 class NllbTokenizerLoader(AbstractTextTokenizerLoader[NllbTokenizer]):
@@ -118,5 +116,3 @@ class NllbTokenizerLoader(AbstractTextTokenizerLoader[NllbTokenizer]):
 
 
 load_nllb_tokenizer = NllbTokenizerLoader(default_asset_store, default_download_manager)
-
-load_text_tokenizer.register(NLLB_FAMILY, load_nllb_tokenizer)

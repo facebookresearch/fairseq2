@@ -7,7 +7,7 @@
 from dataclasses import dataclass, field
 from typing import Final, Optional
 
-from fairseq2.models.architecture_registry import ModelArchitectureRegistry
+from fairseq2.config_registry import ConfigRegistry
 from fairseq2.models.w2vbert.model import W2VBertModel
 from fairseq2.models.wav2vec2 import (
     Wav2Vec2Builder,
@@ -84,7 +84,7 @@ class W2VBertConfig:
     """The number of consecutive codebooks to use as masked prediction targets."""
 
 
-w2vbert_archs = ModelArchitectureRegistry[W2VBertConfig]()
+w2vbert_archs = ConfigRegistry[W2VBertConfig]()
 
 w2vbert_arch = w2vbert_archs.decorator
 

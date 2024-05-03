@@ -21,4 +21,5 @@ from fairseq2.data.data_pipeline import (
 from fairseq2.data.data_pipeline import list_files as list_files
 from fairseq2.data.data_pipeline import read_sequence as read_sequence
 from fairseq2.data.data_pipeline import read_zipped_records as read_zipped_records
+from fairseq2.data.memory import MemoryBlock as MemoryBlock
 from fairseq2.data.vocabulary_info import VocabularyInfo as VocabularyInfo

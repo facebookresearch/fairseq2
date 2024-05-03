@@ -14,12 +14,13 @@ from fairseq2.assets import (
     AssetError,
     AssetStore,
 )
-from fairseq2.models.architecture_registry import ModelArchitectureRegistry
+from fairseq2.config_registry import ConfigRegistry
+from fairseq2.typing import DataClass
 from fairseq2.utils.dataclass import update_dataclass
 
-ModelConfigT = TypeVar("ModelConfigT")
+ModelConfigT = TypeVar("ModelConfigT", bound=DataClass)
 
-ModelConfigT_co = TypeVar("ModelConfigT_co", covariant=True)
+ModelConfigT_co = TypeVar("ModelConfigT_co", bound=DataClass, covariant=True)
 
 
 class ModelConfigLoader(Protocol[ModelConfigT_co]):
@@ -39,14 +40,14 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
     _asset_store: AssetStore
     _family: str
     _config_kls: Type[ModelConfigT]
-    _archs: Optional[ModelArchitectureRegistry[ModelConfigT]]
+    _archs: Optional[ConfigRegistry[ModelConfigT]]
 
     def __init__(
         self,
         asset_store: AssetStore,
         family: str,
         config_kls: Type[ModelConfigT],
-        archs: Optional[ModelArchitectureRegistry[ModelConfigT]],
+        archs: Optional[ConfigRegistry[ModelConfigT]],
     ) -> None:
         """
         :param asset_store:
@@ -100,7 +101,7 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
             assert self._archs is not None
 
             try:
-                config = self._archs.get_config(arch)
+                config = self._archs.get(arch)
             except ValueError as ex:
                 raise AssetError(
                     f"The {self._family} model family has no architecture named '{arch}'."

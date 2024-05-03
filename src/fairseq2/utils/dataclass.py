@@ -10,22 +10,25 @@ from pathlib import Path
 from typing import Any, List, MutableMapping
 
 import yaml
+from typing_extensions import TypeGuard
 from yaml.representer import RepresenterError
 
+from fairseq2.typing import DataClass
 
-def update_dataclass(obj: Any, overrides: MutableMapping[str, Any]) -> None:
+
+def is_dataclass_instance(obj: Any) -> TypeGuard[DataClass]:
+    """Return ``True`` if ``obj`` is of type :class:`DataClass`."""
+    return is_dataclass(obj) and not isinstance(obj, type)
+
+
+def update_dataclass(obj: DataClass, overrides: MutableMapping[str, Any]) -> None:
     """Update ``obj`` with the data contained in ``overrides``.
 
     :param obj:
-        The object to update. Must be a :class:`~dataclasses.dataclass`.
+        The object to update.
     :param overrides:
         The dictionary containing the data to set in ``obj``.
     """
-    if not is_dataclass(obj):
-        raise TypeError(
-            f"`obj` must be a `dataclass`, but is of type `{type(obj)}` instead."
-        )
-
     leftovers: List[str] = []
 
     _do_update_dataclass(obj, overrides, leftovers, path=[])
@@ -39,7 +42,10 @@ def update_dataclass(obj: Any, overrides: MutableMapping[str, Any]) -> None:
 
 
 def _do_update_dataclass(
-    obj: Any, overrides: MutableMapping[str, Any], leftovers: List[str], path: List[str]
+    obj: DataClass,
+    overrides: MutableMapping[str, Any],
+    leftovers: List[str],
+    path: List[str],
 ) -> None:
     for name, value in obj.__dict__.items():
         try:
@@ -48,7 +54,7 @@ def _do_update_dataclass(
             continue
 
         # Recursively traverse child dataclasses.
-        if override is not None and is_dataclass(value) and not isinstance(value, type):
+        if override is not None and is_dataclass_instance(value):
             if not isinstance(override, MutableMapping):
                 p = ".".join(path + [name])
 
@@ -81,12 +87,7 @@ def _maybe_convert(value: Any, kls: type) -> Any:
     return value
 
 
-def _dump_dataclass(obj: Any, file: Path) -> None:
-    if not is_dataclass(obj):
-        raise ValueError(
-            f"`obj` must be a ` dataclass`, but is of type `{type(obj)}` instead."
-        )
-
+def _dump_dataclass(obj: DataClass, file: Path) -> None:
     fp = file.open("w")
 
     try:

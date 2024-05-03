@@ -403,4 +403,6 @@ class NllbDatasetLoader(AbstractDatasetLoader[NllbDataset]):
 
 load_nllb_dataset = NllbDatasetLoader(default_asset_store, default_download_manager)
 
-load_parallel_text_dataset.register("nllb", load_nllb_dataset)
+
+def _register_nllb() -> None:
+    load_parallel_text_dataset.register("nllb", load_nllb_dataset)

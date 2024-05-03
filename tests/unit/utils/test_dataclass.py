@@ -47,13 +47,6 @@ class TestUpdateClassFunction:
 
         assert obj == Foo1(a=1, b="b", c=Foo2(x=2, y="foo3"), d=Foo2(x=3, y="foo3"))
 
-    def test_call_raises_error_when_obj_is_not_dataclass(self) -> None:
-        with pytest.raises(
-            TypeError,
-            match=r"^`obj` must be a `dataclass`, but is of type `<class 'int'>` instead\.$",
-        ):
-            update_dataclass(4, {})
-
     def test_call_raises_error_when_override_has_invalid_type(self) -> None:
         obj = Foo1(a=1, b="b", c=Foo2(x=2, y=3), d=Foo2(x=3, y="foo3"))  # type: ignore[arg-type]
 

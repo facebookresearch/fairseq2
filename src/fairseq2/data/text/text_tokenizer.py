@@ -299,7 +299,7 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
         """
         if family in self._loaders:
             raise ValueError(
-                f"`family` must be a unique text tokenizer family, but '{family}' has already a registered loader."
+                f"`family` must be a unique text tokenizer family name, but '{family}' has already a registered loader."
             )
 
         self._loaders[family] = loader

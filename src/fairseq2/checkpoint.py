@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from dataclasses import asdict, is_dataclass
+from dataclasses import asdict
 from os import scandir
 from pathlib import Path
 from pickle import PickleError
@@ -32,7 +32,7 @@ from yaml.representer import RepresenterError
 
 from fairseq2.gang import Gang
 from fairseq2.models.utils.checkpoint import load_checkpoint
-from fairseq2.typing import CPU, override
+from fairseq2.typing import CPU, DataClass, override
 
 
 class CheckpointManager(ABC):
@@ -189,7 +189,7 @@ class FileCheckpointManager(CheckpointManager):
         self._shard_suffix = ""
 
         if dp_gang is not None and tp_gang is not None:
-            self._dp_rank = dp_gang
+            self._dp_gang = dp_gang
 
             self._num_shards = tp_gang.size
 
@@ -220,7 +220,7 @@ class FileCheckpointManager(CheckpointManager):
         *,
         family: Optional[str] = None,
         base: Optional[str] = None,
-        config: Any = None,
+        config: Optional[DataClass] = None,
     ) -> None:
         """Set the model metadata.
 
@@ -232,7 +232,7 @@ class FileCheckpointManager(CheckpointManager):
             The configuration of the model.
         """
         if self._root_gang.rank == 0:
-            metadata = {"name": "checkpoint"}
+            metadata: Dict[str, Any] = {"name": "checkpoint"}
 
             if base is not None:
                 metadata["base"] = base
@@ -241,10 +241,7 @@ class FileCheckpointManager(CheckpointManager):
                 metadata["model_family"] = family
 
             if config is not None:
-                if is_dataclass(config) and not isinstance(config, type):
-                    config = asdict(config)
-
-                metadata["model_config"] = config
+                metadata["model_config"] = asdict(config)
 
             if self._num_shards != 1:
                 metadata["num_shards"] = f"{self._num_shards}"

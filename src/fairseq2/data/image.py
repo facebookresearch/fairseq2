@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Optional, TypedDict, final
 from fairseq2n import DOC_MODE
 from torch import Tensor
 
-from fairseq2.memory import MemoryBlock
+from fairseq2.data.memory import MemoryBlock
 from fairseq2.typing import Device
 
 if TYPE_CHECKING or DOC_MODE:

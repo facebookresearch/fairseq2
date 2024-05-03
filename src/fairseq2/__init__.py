@@ -12,35 +12,26 @@ __version__ = "0.3.0.dev0"
 # Report any fairseq2n initialization error eagerly.
 import fairseq2n
 
-# Register YAML representers.
-import fairseq2.utils.yaml
-
 # isort: split
 
-# Register models.
-import fairseq2.models.llama
-import fairseq2.models.mistral
-import fairseq2.models.nllb
-import fairseq2.models.s2t_transformer
-import fairseq2.models.w2vbert
-import fairseq2.models.wav2vec2
-import fairseq2.models.wav2vec2.asr
+from fairseq2.datasets import _register_datasets
+from fairseq2.models import _register_models
+from fairseq2.utils.yaml import _register_yaml_representers
 
-# isort: split
+_register_datasets()
 
-# Register datasets.
-import fairseq2.datasets.asr
-import fairseq2.datasets.instruction
-import fairseq2.datasets.parallel_text
+_register_models()
+
+_register_yaml_representers()
 
 
 def setup_extensions() -> None:
     for entry_point in entry_points(group="fairseq2"):
-        setup_fn = entry_point.load()
+        setup_extension = entry_point.load()
 
         try:
-            setup_fn()
+            setup_extension()
         except TypeError:
             raise RuntimeError(
-                f"The entry point '{entry_point.value}' is not a valid fairseq2 setup function."
+                f"The entry point '{entry_point.value}' is not a valid fairseq2 extension setup function."
             )

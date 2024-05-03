@@ -58,7 +58,7 @@ class DelegatingChatbotFactory(ChatbotFactory):
         """
         if family in self._factories:
             raise ValueError(
-                f"`family` must be a unique model family, but '{family}' has already a registered chatbot."
+                f"`family` must be a unique model family name, but '{family}' has already a registered chatbot."
             )
 
         self._factories[family] = factory

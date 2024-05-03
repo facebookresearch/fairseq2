@@ -12,7 +12,7 @@ from fairseq2.typing import META
 
 
 def test_select_parameters() -> None:
-    model_config = nllb_archs.get_config("dense_1b")
+    model_config = nllb_archs.get("dense_1b")
 
     model = create_nllb_model(model_config, device=META)
 
@@ -27,7 +27,7 @@ def test_select_parameters() -> None:
 
 
 def test_select_parameters_when_exclude_is_true() -> None:
-    model_config = nllb_archs.get_config("dense_1b")
+    model_config = nllb_archs.get("dense_1b")
 
     model = create_nllb_model(model_config, device=META)
 

@@ -8,9 +8,9 @@ from pathlib import Path
 from typing import Any, Dict, Final, final
 
 from fairseq2.assets import AssetCard, default_asset_store, default_download_manager
-from fairseq2.data.text import AbstractTextTokenizerLoader, load_text_tokenizer
+from fairseq2.data.text import AbstractTextTokenizerLoader
 from fairseq2.models.config_loader import StandardModelConfigLoader
-from fairseq2.models.loader import DenseModelLoader, load_model
+from fairseq2.models.loader import DenseModelLoader
 from fairseq2.models.s2t_transformer.factory import (
     S2T_TRANSFORMER_FAMILY,
     S2TTransformerConfig,
@@ -100,8 +100,6 @@ load_s2t_transformer_model = DenseModelLoader(
     restrict_checkpoints=False,
 )
 
-load_model.register(S2T_TRANSFORMER_FAMILY, load_s2t_transformer_model)
-
 
 @final
 class S2TTransformerTokenizerLoader(
@@ -125,5 +123,3 @@ class S2TTransformerTokenizerLoader(
 load_s2t_transformer_tokenizer = S2TTransformerTokenizerLoader(
     default_asset_store, default_download_manager
 )
-
-load_text_tokenizer.register(S2T_TRANSFORMER_FAMILY, load_s2t_transformer_tokenizer)

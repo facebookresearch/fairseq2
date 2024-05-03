@@ -7,10 +7,7 @@
 from typing import Any, Dict, final
 
 from fairseq2.assets import AssetCard, default_asset_store, default_download_manager
-from fairseq2.data.text import (
-    default_basic_sentencepiece_tokenizer_loader,
-    load_text_tokenizer,
-)
+from fairseq2.data.text import default_basic_sentencepiece_tokenizer_loader
 from fairseq2.gang import Gang
 from fairseq2.models.config_loader import StandardModelConfigLoader
 from fairseq2.models.llama.factory import (
@@ -19,7 +16,7 @@ from fairseq2.models.llama.factory import (
     create_llama_model,
     llama_archs,
 )
-from fairseq2.models.loader import DenseModelLoader, load_model
+from fairseq2.models.loader import DenseModelLoader
 from fairseq2.models.transformer import (
     TransformerDecoderModel,
     shard_transformer_decoder_model,
@@ -89,8 +86,4 @@ load_llama_model = LLaMAModelLoader(
     mmap=True,
 )
 
-load_model.register(LLAMA_FAMILY, load_llama_model)
-
 load_llama_tokenizer = default_basic_sentencepiece_tokenizer_loader
-
-load_text_tokenizer.register(LLAMA_FAMILY, load_llama_tokenizer)

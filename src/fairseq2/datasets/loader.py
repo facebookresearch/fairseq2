@@ -151,7 +151,7 @@ class DelegatingDatasetLoader(DatasetLoader[DatasetT]):
         """
         if family in self._loaders:
             raise ValueError(
-                f"`family` must be a unique dataset type, but '{family}' has already a registered loader."
+                f"`family` must be a unique dataset family name, but '{family}' has already a registered loader."
             )
 
         self._loaders[family] = loader

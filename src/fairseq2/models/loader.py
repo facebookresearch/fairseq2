@@ -28,7 +28,7 @@ from fairseq2.nn.utils.module import (
     reset_non_persistent_buffers,
     to_empty,
 )
-from fairseq2.typing import CPU, META, DataType, Device
+from fairseq2.typing import CPU, META, DataClass, DataType, Device
 from fairseq2.utils.logging import get_log_writer
 
 log = get_log_writer(__name__)
@@ -38,9 +38,11 @@ ModelT = TypeVar("ModelT", bound=Module)
 
 ModelT_co = TypeVar("ModelT_co", bound=Module, covariant=True)
 
-ModelConfigT = TypeVar("ModelConfigT")
+ModelConfigT = TypeVar("ModelConfigT", bound=DataClass)
 
-ModelConfigT_contra = TypeVar("ModelConfigT_contra", contravariant=True)
+ModelConfigT_contra = TypeVar(
+    "ModelConfigT_contra", bound=DataClass, contravariant=True
+)
 
 
 class ModelLoader(Protocol[ModelT_co]):
@@ -376,7 +378,7 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
         """
         if family in self._loaders:
             raise ValueError(
-                f"`family` must be a unique model family, but '{family}' has already a registered loader."
+                f"`family` must be a unique model family name, but '{family}' has already a registered loader."
             )
 
         self._loaders[family] = loader

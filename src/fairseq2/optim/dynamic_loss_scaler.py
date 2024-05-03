@@ -243,4 +243,4 @@ class _InternalGradScaler(GradScaler):
         # `GradScaler` artificially limits fp16 gradients only to optimizers
         # that natively support AMP. Here, we hijack `_unscale_grads_()` and
         # always pass `allow_fp16=True` to the real function.
-        return super()._unscale_grads_(optimizer, inv_scale, found_inf, allow_fp16=True)
+        return super()._unscale_grads_(optimizer, inv_scale, found_inf, allow_fp16=True)  # type: ignore[no-any-return]

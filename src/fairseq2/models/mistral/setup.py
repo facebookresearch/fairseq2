@@ -7,12 +7,9 @@
 from typing import Any, Dict
 
 from fairseq2.assets import default_asset_store, default_download_manager
-from fairseq2.data.text import (
-    default_basic_sentencepiece_tokenizer_loader,
-    load_text_tokenizer,
-)
+from fairseq2.data.text import default_basic_sentencepiece_tokenizer_loader
 from fairseq2.models.config_loader import StandardModelConfigLoader
-from fairseq2.models.loader import DenseModelLoader, load_model
+from fairseq2.models.loader import DenseModelLoader
 from fairseq2.models.mistral.factory import (
     MISTRAL_FAMILY,
     MistralConfig,
@@ -65,8 +62,4 @@ load_mistral_model = DenseModelLoader(
     mmap=True,
 )
 
-load_model.register(MISTRAL_FAMILY, load_mistral_model)
-
 load_mistral_tokenizer = default_basic_sentencepiece_tokenizer_loader
-
-load_text_tokenizer.register(MISTRAL_FAMILY, load_mistral_tokenizer)

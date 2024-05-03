@@ -9,7 +9,7 @@ from typing import Final, List, Optional, Tuple
 
 from torch.nn import GELU, SiLU
 
-from fairseq2.models.architecture_registry import ModelArchitectureRegistry
+from fairseq2.config_registry import ConfigRegistry
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.models.wav2vec2.feature_extractor import (
@@ -212,7 +212,7 @@ class Wav2Vec2Config:
     """The temperature to divide logits by."""
 
 
-wav2vec2_archs = ModelArchitectureRegistry[Wav2Vec2Config]()
+wav2vec2_archs = ConfigRegistry[Wav2Vec2Config]()
 
 wav2vec2_arch = wav2vec2_archs.decorator
 
