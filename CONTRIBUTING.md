@@ -14,11 +14,11 @@ fairseq2n is not available as a pre-built package for your system, please follow
 the installation instructions [here](INSTALL_FROM_SOURCE.md).
 
 For an editable installation, first, install a nightly build of fairseq2n (shown
-for PyTorch `2.2.2` and variant `cu118`):
+for PyTorch `2.3.0` and variant `cu118`):
 
 ```sh
 pip install fairseq2n\
-  --pre --upgrade --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.2.2/cu118
+  --pre --upgrade --extra-index-url https://fair.pkg.atmeta.com/fairseq2/whl/nightly/pt2.3.0/cu118
 ```
 
 > [!WARNING]
