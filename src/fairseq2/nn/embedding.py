@@ -16,9 +16,9 @@ from torch.nn import Module
 from torch.nn.functional import embedding
 from torch.nn.parameter import Parameter
 
-from fairseq2.collective import gather, reduce, reduce_on_backward
 from fairseq2.gang import Gang
 from fairseq2.nn.utils.module import to_empty
+from fairseq2.tensor_parallel import gather, reduce, reduce_on_backward
 from fairseq2.typing import META, DataType, Device, override
 
 
