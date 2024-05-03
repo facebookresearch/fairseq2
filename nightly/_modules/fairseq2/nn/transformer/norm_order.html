@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.nn.transformer.norm_order &mdash; fairseq2 0.3.0.dev202404291805+g04f9cbc documentation</title>
+  <title>fairseq2.nn.transformer.norm_order &mdash; fairseq2 0.3.0.dev202405031855+g39e1c2a documentation</title>
       <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202404291805+g04f9cbc
+                0.3.0.dev202405031855+g39e1c2a
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
@@ -163,7 +163,7 @@
 
 <span class="kn">from</span> <span class="nn">enum</span> <span class="kn">import</span> <span class="n">Enum</span>
 
-<span class="kn">from</span> <span class="nn">fairseq2.utils.yaml</span> <span class="kn">import</span> <span class="n">register_yaml_representer</span><span class="p">,</span> <span class="n">represent_as_str</span>
+<span class="kn">from</span> <span class="nn">fairseq2.utils.yaml</span> <span class="kn">import</span> <span class="n">register_yaml_representer</span><span class="p">,</span> <span class="n">represent_as_enum</span>
 
 
 <div class="viewcode-block" id="TransformerNormOrder"><a class="viewcode-back" href="../../../../reference/generated/enums/fairseq2.nn.transformer.TransformerNormOrder.html#fairseq2.nn.transformer.TransformerNormOrder">[docs]</a><span class="k">class</span> <span class="nc">TransformerNormOrder</span><span class="p">(</span><span class="n">Enum</span><span class="p">):</span>
@@ -182,7 +182,7 @@
 <span class="sd">    :cite:t:`https://doi.org/10.48550/arxiv.2110.09456`.&quot;&quot;&quot;</span></div>
 
 
-<span class="n">register_yaml_representer</span><span class="p">(</span><span class="n">TransformerNormOrder</span><span class="p">,</span> <span class="n">represent_as_str</span><span class="p">)</span>
+<span class="n">register_yaml_representer</span><span class="p">(</span><span class="n">TransformerNormOrder</span><span class="p">,</span> <span class="n">represent_as_enum</span><span class="p">)</span>
 </pre></div>
 
            </div>

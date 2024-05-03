@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.assets.metadata_provider &mdash; fairseq2 0.3.0.dev202404291805+g04f9cbc documentation</title>
+  <title>fairseq2.assets.metadata_provider &mdash; fairseq2 0.3.0.dev202405031855+g39e1c2a documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202404291805+g04f9cbc
+                0.3.0.dev202405031855+g39e1c2a
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -360,6 +360,8 @@
                 <span class="k">raise</span> <span class="n">AssetMetadataError</span><span class="p">(</span>
                     <span class="sa">f</span><span class="s2">&quot;The asset metadata at index </span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2"> in the file &#39;</span><span class="si">{</span><span class="n">file</span><span class="si">}</span><span class="s2">&#39; has an invalid name.&quot;</span>
                 <span class="p">)</span>
+
+            <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;__base_path__&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="n">parent</span>
 
             <span class="n">output</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">metadata</span><span class="p">))</span>
 
