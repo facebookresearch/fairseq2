@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Mapping, Optional, Tuple, cast, final
+from typing import Any, Callable, Dict, Mapping, Optional, Tuple, Union, cast, final
 
 import torch
 from torch import Tensor
@@ -31,8 +31,10 @@ class DynamicLossScaler:
     _optimizer: Optimizer
     _scale_window: int
     _min_scale: float
-    _grad_scaler: GradScaler
     _is_enabled: bool
+
+    # TODO: consolidate into `GradScaler` once we cease support for PT2.2
+    _grad_scaler: Union[GradScaler, ShardedGradScaler]
 
     def __init__(
         self,
@@ -93,7 +95,11 @@ class DynamicLossScaler:
 
         if not enabled or not sharded or gang.size == 1:
             self._grad_scaler = _InternalGradScaler(
-                init_scale, scale_factor, 1 / scale_factor, scale_window, enabled
+                init_scale=init_scale,
+                growth_factor=scale_factor,
+                backoff_factor=1 / scale_factor,
+                growth_interval=scale_window,
+                enabled=enabled,
             )
         else:
             if not supports_manual_gradient_scaling(optimizer):
@@ -103,9 +109,13 @@ class DynamicLossScaler:
 
             pg = gang.as_process_group()
 
-            # Yes, `growth_factor` and `backoff_factor` parameters are swapped.
             self._grad_scaler = ShardedGradScaler(
-                init_scale, 1 / scale_factor, scale_factor, scale_window, enabled, pg
+                init_scale=init_scale,
+                growth_factor=scale_factor,
+                backoff_factor=1 / scale_factor,
+                growth_interval=scale_window,
+                enabled=enabled,
+                process_group=pg,
             )
 
         self._optimizer = optimizer
