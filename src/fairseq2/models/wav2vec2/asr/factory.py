@@ -39,6 +39,30 @@ def _base_100h_encoder() -> Wav2Vec2EncoderConfig:
     return config
 
 
+def _ls960_encoder() -> Wav2Vec2EncoderConfig:
+    config = wav2vec2_encoder_archs.get("large_ls960")
+
+    config.feature_gradient_scale = 1.0
+    config.dropout_p = 0.0
+    config.attn_dropout_p = 0.0
+    config.ffn_inner_dropout_p = 0.1
+    config.layer_drop_p = 0.1
+
+    return config
+
+
+def _lv60k_encoder() -> Wav2Vec2EncoderConfig:
+    config = wav2vec2_encoder_archs.get("large_lv60k")
+
+    config.feature_gradient_scale = 1.0
+    config.dropout_p = 0.0
+    config.attn_dropout_p = 0.0
+    config.ffn_inner_dropout_p = 0.1
+    config.layer_drop_p = 0.1
+
+    return config
+
+
 @dataclass
 class Wav2Vec2AsrConfig:
     """Holds the configuration of a wav2vec 2.0 ASR model.
@@ -96,8 +120,47 @@ def _base_100h() -> Wav2Vec2AsrConfig:
     config = _base_10h()
 
     config.encoder_config = _base_100h_encoder()
-
     return config
+
+
+@wav2vec2_asr_arch("large_ls960_10h")
+def _large_ls960_10h() -> Wav2Vec2AsrConfig:
+    """wav2vec2 large arch trained on the Librispeech 960h dataset."""
+    return Wav2Vec2AsrConfig(
+        encoder_config=_ls960_encoder(),
+        max_temporal_mask_prob=0.80,
+        max_spatial_mask_prob=0.30,
+    )
+
+
+@wav2vec2_asr_arch("large_ls960_100h")
+def _large_ls960_100h() -> Wav2Vec2AsrConfig:
+    """wav2vec2 large arch trained on the Librispeech 960h dataset."""
+    return Wav2Vec2AsrConfig(
+        encoder_config=_ls960_encoder(),
+        max_temporal_mask_prob=0.53,
+        max_spatial_mask_prob=0.55,
+    )
+
+
+@wav2vec2_asr_arch("large_lv60k_10h")
+def _large_lv60k_10h() -> Wav2Vec2AsrConfig:
+    """wav2vec2 large arch trained on the LibriVox 60k dataset."""
+    return Wav2Vec2AsrConfig(
+        encoder_config=_lv60k_encoder(),
+        max_temporal_mask_prob=0.80,
+        max_spatial_mask_prob=0.30,
+    )
+
+
+@wav2vec2_asr_arch("large_lv60k_100h")
+def _large_lv60k_100h() -> Wav2Vec2AsrConfig:
+    """wav2vec2 large arch trained on the LibriVox 60k dataset."""
+    return Wav2Vec2AsrConfig(
+        encoder_config=_lv60k_encoder(),
+        max_temporal_mask_prob=0.53,
+        max_spatial_mask_prob=0.55,
+    )
 
 
 class Wav2Vec2AsrBuilder:
