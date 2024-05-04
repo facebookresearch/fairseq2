@@ -227,6 +227,32 @@ def _pseudo_dinosr_base() -> Wav2Vec2Config:
     return Wav2Vec2Config()
 
 
+@wav2vec2_arch("large_ls960")
+def _large_ls960() -> Wav2Vec2Config:
+    return Wav2Vec2Config(
+        encoder_config=Wav2Vec2EncoderConfig(
+            model_dim=1024,
+            num_encoder_layers=24,
+            num_encoder_attn_heads=16,
+            ffn_inner_dim=4096,
+            dropout_p=0.0,
+            layer_drop_p=0.2,
+        ),
+        quantized_dim=768,
+        final_dim=768,
+    )
+
+
+@wav2vec2_arch("large_lv60k")
+def _large_lv60k() -> Wav2Vec2Config:
+    large_config = _large_ls960()
+    large_config.encoder_config.feature_extractor_layer_norm_convs = True
+    large_config.encoder_config.feature_extractor_bias = True
+    large_config.encoder_config.layer_drop_p = 0.0
+    large_config.codebook_sampling_temperature = (2.0, 0.1, 0.999995)
+    return large_config
+
+
 class Wav2Vec2EncoderBuilder:
     """Builds modules of a wav2vec 2.0 encoder as described in
     :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`.
