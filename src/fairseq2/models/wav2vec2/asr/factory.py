@@ -73,7 +73,7 @@ wav2vec2_asr_archs = ConfigRegistry[Wav2Vec2AsrConfig]()
 wav2vec2_asr_arch = wav2vec2_asr_archs.decorator
 
 
-@wav2vec2_asr_arch("arch")
+@wav2vec2_asr_arch("base")
 def _base() -> Wav2Vec2AsrConfig:
     return Wav2Vec2AsrConfig()
 
