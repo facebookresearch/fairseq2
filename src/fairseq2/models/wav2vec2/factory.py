@@ -229,6 +229,7 @@ def _pseudo_dinosr_base() -> Wav2Vec2Config:
 
 @wav2vec2_arch("large_ls960")
 def _large_ls960() -> Wav2Vec2Config:
+    """wav2vec2 large arch to train on the Librispeech 960h dataset."""
     return Wav2Vec2Config(
         encoder_config=Wav2Vec2EncoderConfig(
             model_dim=1024,
@@ -245,12 +246,13 @@ def _large_ls960() -> Wav2Vec2Config:
 
 @wav2vec2_arch("large_lv60k")
 def _large_lv60k() -> Wav2Vec2Config:
-    large_config = _large_ls960()
-    large_config.encoder_config.feature_extractor_layer_norm_convs = True
-    large_config.encoder_config.feature_extractor_bias = True
-    large_config.encoder_config.layer_drop_p = 0.0
-    large_config.codebook_sampling_temperature = (2.0, 0.1, 0.999995)
-    return large_config
+    """wav2vec2 large arch to train on the LibriVox 60k dataset."""
+    config = _large_ls960()
+    config.encoder_config.feature_extractor_layer_norm_convs = True
+    config.encoder_config.feature_extractor_bias = True
+    config.encoder_config.layer_drop_p = 0.0
+    config.codebook_sampling_temperature = (2.0, 0.1, 0.999995)
+    return config
 
 
 class Wav2Vec2EncoderBuilder:
