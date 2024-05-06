@@ -12,6 +12,7 @@ from fairseq2.models.wav2vec2.asr.model import Wav2Vec2AsrModel
 from fairseq2.models.wav2vec2.factory import (
     Wav2Vec2EncoderBuilder,
     Wav2Vec2EncoderConfig,
+    wav2vec2_archs,
 )
 from fairseq2.models.wav2vec2.masker import Wav2Vec2Masker
 from fairseq2.typing import DataType, Device
@@ -76,6 +77,32 @@ wav2vec2_asr_arch = wav2vec2_asr_archs.decorator
 @wav2vec2_asr_arch("base")
 def _base() -> Wav2Vec2AsrConfig:
     return Wav2Vec2AsrConfig()
+
+
+@wav2vec2_asr_arch("large_ls960")
+def _large_ls960() -> Wav2Vec2AsrConfig:
+    """wav2vec2 large arch trained on the Librispeech 960h dataset."""
+    encoder_config = wav2vec2_archs.get("large_ls960").encoder_config
+    encoder_config.layer_drop_p = 0.1
+    encoder_config.feature_gradient_scale = 1.0
+    encoder_config.dropout_p = 0.0
+    encoder_config.attn_dropout_p = 0.0
+    encoder_config.ffn_inner_dropout_p = 0.0
+    config = Wav2Vec2AsrConfig(encoder_config=encoder_config)
+    return config
+
+
+@wav2vec2_asr_arch("large_lv60k")
+def _large_lv60k() -> Wav2Vec2AsrConfig:
+    """wav2vec2 large arch trained on the LibriVox 60k dataset."""
+    encoder_config = wav2vec2_archs.get("large_lv60k").encoder_config
+    encoder_config.layer_drop_p = 0.1
+    encoder_config.feature_gradient_scale = 1.0
+    encoder_config.dropout_p = 0.0
+    encoder_config.attn_dropout_p = 0.0
+    encoder_config.ffn_inner_dropout_p = 0.0
+    config = Wav2Vec2AsrConfig(encoder_config=encoder_config)
+    return config
 
 
 class Wav2Vec2AsrBuilder:
