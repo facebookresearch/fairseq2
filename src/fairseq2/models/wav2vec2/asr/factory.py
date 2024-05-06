@@ -87,7 +87,7 @@ def _large_ls960() -> Wav2Vec2AsrConfig:
     encoder_config.feature_gradient_scale = 1.0
     encoder_config.dropout_p = 0.0
     encoder_config.attn_dropout_p = 0.0
-    encoder_config.ffn_inner_dropout_p = 0.0
+    encoder_config.ffn_inner_dropout_p = 0.1
     config = Wav2Vec2AsrConfig(encoder_config=encoder_config)
     return config
 
@@ -100,7 +100,7 @@ def _large_lv60k() -> Wav2Vec2AsrConfig:
     encoder_config.feature_gradient_scale = 1.0
     encoder_config.dropout_p = 0.0
     encoder_config.attn_dropout_p = 0.0
-    encoder_config.ffn_inner_dropout_p = 0.0
+    encoder_config.ffn_inner_dropout_p = 0.1
     config = Wav2Vec2AsrConfig(encoder_config=encoder_config)
     return config
 
