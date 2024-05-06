@@ -6,17 +6,22 @@
 
 from __future__ import annotations
 
-from dataclasses import Field
+from dataclasses import Field, is_dataclass
 from typing import Any, Callable, ClassVar, Dict, Final, Protocol, TypeVar
 
 from torch import device, dtype
-from typing_extensions import TypeAlias
+from typing_extensions import TypeAlias, TypeGuard
 
 
 class DataClass(Protocol):
     """Represents a data class object."""
 
     __dataclass_fields__: ClassVar[Dict[str, Field[Any]]]
+
+
+def is_dataclass_instance(obj: Any) -> TypeGuard[DataClass]:
+    """Return ``True`` if ``obj`` is of type :class:`DataClass`."""
+    return is_dataclass(obj) and not isinstance(obj, type)
 
 
 F = TypeVar("F", bound=Callable[..., Any])

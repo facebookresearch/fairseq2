@@ -8,10 +8,11 @@ import logging
 import os
 import platform
 import socket
+import sys
 from contextlib import contextmanager
 from logging import Logger
 from pathlib import Path
-from typing import Any, Generator, Optional, Union
+from typing import Generator, Optional, Union
 
 import fairseq2n
 import psutil
@@ -21,8 +22,8 @@ from torch.cuda import OutOfMemoryError
 from torch.nn import Module
 
 import fairseq2
-from fairseq2.typing import Device
-from fairseq2.utils.dataclass import _dump_dataclass
+from fairseq2.typing import DataClass, Device
+from fairseq2.utils.dataclass import dump_dataclass
 from fairseq2.utils.logging import LogWriter
 
 
@@ -36,25 +37,25 @@ def exception_logger(log: LogWriter) -> Generator[None, None, None]:
 
         log.exception("CUDA run out of memory. See memory stats and exception details below.\n{}", s)  # fmt: skip
 
-        raise
+        sys.exit(1)
     except Exception:
         log.exception("Job has failed. See exception details below.")
 
-        raise
+        sys.exit(1)
 
 
-def log_config(config: Any, log: LogWriter, file: Optional[Path] = None) -> None:
+def log_config(config: DataClass, log: LogWriter, file: Optional[Path] = None) -> None:
     """Log ``config``.
 
     :param config:
-        The config to log. Must be a :class:`~dataclasses.dataclass`.
+        The config to log.
     :param log:
         The log to write to.
     :param file:
         The output file to write ``config`` in YAML format.
     """
     if file is not None:
-        _dump_dataclass(config, file)
+        dump_dataclass(config, file)
 
     log.info("Job Config:\n{}", pretty_repr(config, max_width=88))
 
