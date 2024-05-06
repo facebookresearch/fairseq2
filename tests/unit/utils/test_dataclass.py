@@ -26,7 +26,7 @@ class Foo1:
     d: Optional[Foo2]
 
 
-class TestUpdateClassFunction:
+class TestUpdateDataclassFunction:
     def test_call_works(self) -> None:
         obj = Foo1(a=1, b="b", c=Foo2(x=2, y="foo3"), d=Foo2(x=3, y="foo3"))
 
@@ -65,7 +65,7 @@ class TestUpdateClassFunction:
 
         with pytest.raises(
             ValueError,
-            match=r"^`overrides` contains the following keys that are not present in `obj`: \['c\.z', 'e'\]$",
+            match=r"^`overrides` must contain only keys that are present in `obj`, but the following keys do not exist in `obj`: \['c\.z', 'e'\]$",
         ):
             update_dataclass(obj, overrides)
 

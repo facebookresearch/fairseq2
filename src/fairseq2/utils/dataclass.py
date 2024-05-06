@@ -4,28 +4,21 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from dataclasses import asdict, is_dataclass
+from dataclasses import asdict
 from enum import Enum
 from pathlib import Path
-from typing import Any, List, MutableMapping
+from typing import Any, Dict, List, MutableMapping, cast
 
 import yaml
-from typing_extensions import TypeGuard
-from yaml.representer import RepresenterError
 
-from fairseq2.typing import DataClass
-
-
-def is_dataclass_instance(obj: Any) -> TypeGuard[DataClass]:
-    """Return ``True`` if ``obj`` is of type :class:`DataClass`."""
-    return is_dataclass(obj) and not isinstance(obj, type)
+from fairseq2.typing import DataClass, DataType, Device, is_dataclass_instance
 
 
 def update_dataclass(obj: DataClass, overrides: MutableMapping[str, Any]) -> None:
     """Update ``obj`` with the data contained in ``overrides``.
 
     :param obj:
-        The object to update.
+        The data class instance to update.
     :param overrides:
         The dictionary containing the data to set in ``obj``.
     """
@@ -37,7 +30,7 @@ def update_dataclass(obj: DataClass, overrides: MutableMapping[str, Any]) -> Non
         leftovers.sort()
 
         raise ValueError(
-            f"`overrides` contains the following keys that are not present in `obj`: {leftovers}"
+            f"`overrides` must contain only keys that are present in `obj`, but the following keys do not exist in `obj`: {leftovers}"
         )
 
 
@@ -87,14 +80,44 @@ def _maybe_convert(value: Any, kls: type) -> Any:
     return value
 
 
-def _dump_dataclass(obj: DataClass, file: Path) -> None:
-    fp = file.open("w")
+def dump_dataclass(obj: DataClass, file: Path) -> None:
+    """Dump ``obj`` to ``file`` in YAML format."""
+    safe_data = to_safe_dict(obj)
 
-    try:
-        yaml.safe_dump(asdict(obj), fp)
-    except RepresenterError as ex:
+    with file.open("w") as fp:
+        yaml.safe_dump_all(safe_data, fp)
+
+
+def to_safe_dict(obj: DataClass) -> Dict[str, Any]:
+    """Convert ``obj`` to a :class:`dict` safe to serialize in YAML/JSON."""
+
+    def _convert(d: Any) -> Any:
+        if d is None:
+            return d
+
+        if isinstance(d, (bool, int, float, str)):
+            return d
+
+        if isinstance(d, (list, tuple)):
+            return [_convert(e) for e in d]
+
+        if isinstance(d, dict):
+            return {_convert(k): _convert(v) for k, v in d.items()}
+
+        if isinstance(d, Enum):
+            return d.name
+
+        if isinstance(d, Path):
+            return str(d)
+
+        if isinstance(d, DataType):
+            return str(d)[6:]  # Strip 'torch.'.
+
+        if isinstance(d, Device):
+            return str(d)
+
         raise ValueError(
-            "`obj` must contain values of only primitive stdlib types and types registered with `yaml.representer.SafeRepresenter`. See nested exception for details."
-        ) from ex
-    finally:
-        fp.close()
+            "`obj` must contain values of only primitive types, lists, and dictionaries."
+        )
+
+    return cast(Dict[str, Any], _convert(asdict(obj)))

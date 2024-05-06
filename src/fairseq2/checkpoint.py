@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from dataclasses import asdict
 from os import scandir
 from pathlib import Path
 from pickle import PickleError
@@ -28,11 +27,11 @@ import yaml
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.api import FullStateDictConfig, StateDictType
 from torch.nn import Module
-from yaml.representer import RepresenterError
 
 from fairseq2.gang import Gang
 from fairseq2.models.utils.checkpoint import load_checkpoint
 from fairseq2.typing import CPU, DataClass, override
+from fairseq2.utils.dataclass import to_safe_dict
 
 
 class CheckpointManager(ABC):
@@ -241,7 +240,7 @@ class FileCheckpointManager(CheckpointManager):
                 metadata["model_family"] = family
 
             if config is not None:
-                metadata["model_config"] = asdict(config)
+                metadata["model_config"] = to_safe_dict(config)
 
             if self._num_shards != 1:
                 metadata["num_shards"] = f"{self._num_shards}"
@@ -276,10 +275,6 @@ class FileCheckpointManager(CheckpointManager):
 
             try:
                 yaml.safe_dump_all([metadata, last_step_metadata], fp)
-            except RepresenterError as ex:
-                raise RuntimeError(
-                    "`config` must contain values of only primitive stdlib types and types registered with `yaml.representer.SafeRepresenter`. See nested exception for details."
-                ) from ex
             except OSError as ex:
                 raise_error(ex)
             finally:
