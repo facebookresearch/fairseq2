@@ -222,6 +222,11 @@ def _base() -> Wav2Vec2Config:
     return Wav2Vec2Config()
 
 
+@wav2vec2_arch("pseudo_dinosr_base")
+def _pseudo_dinosr_base() -> Wav2Vec2Config:
+    return Wav2Vec2Config()
+
+
 class Wav2Vec2EncoderBuilder:
     """Builds modules of a wav2vec 2.0 encoder as described in
     :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`.
