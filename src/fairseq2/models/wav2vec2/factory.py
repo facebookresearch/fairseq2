@@ -250,6 +250,8 @@ def _large_lv60k() -> Wav2Vec2Config:
     config = _large_ls960()
     config.encoder_config.feature_extractor_layer_norm_convs = True
     config.encoder_config.feature_extractor_bias = True
+    config.encoder_config.norm_order = TransformerNormOrder.PRE
+    config.encoder_config.layer_norm_features = False
     config.encoder_config.layer_drop_p = 0.0
     config.codebook_sampling_temperature = (2.0, 0.1, 0.999995)
     return config
