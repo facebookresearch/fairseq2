@@ -68,7 +68,11 @@ _metric_formatters: Dict[str, Tuple[str, int, Callable[[Any], str]]] = {
 
 
 def register_metric_formatter(
-    name: str, display_name: str, priority: int, format_fn: Callable[[Any], str]
+    name: str,
+    display_name: str,
+    priority: int,
+    format_fn: Callable[[Any], str],
+    overwrite: bool = False,
 ) -> None:
     """Register a string formatter for the specified metric.
 
@@ -80,8 +84,10 @@ def register_metric_formatter(
         The display priority of the metric.
     :param format_fn:
         The callable to convert a metric value to its string representation.
+    :param overwrite:
+        If ``True``, overwrites any existing metric formatter with the same name.
     """
-    if name in _metric_formatters:
+    if name in _metric_formatters and not overwrite:
         raise ValueError(
             f"`name` must be a unique metric name, but '{name}' is already registered."
         )
