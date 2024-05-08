@@ -72,7 +72,7 @@ def register_metric_formatter(
     display_name: str,
     priority: int,
     format_fn: Callable[[Any], str],
-    overwrite: Optional[bool] = False,
+    overwrite: bool = False,
 ) -> None:
     """Register a string formatter for the specified metric.
 
@@ -84,6 +84,8 @@ def register_metric_formatter(
         The display priority of the metric.
     :param format_fn:
         The callable to convert a metric value to its string representation.
+    :param overwrite:
+        If ``True``, overwrites any existing metric formatter with the same name.
     """
     if name in _metric_formatters and not overwrite:
         raise ValueError(
