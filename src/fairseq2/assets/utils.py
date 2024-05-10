@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 from typing import Final, Optional
 
-from fairseq2.utils.logging import LogWriter
+from fairseq2.logging import LogWriter
 
 _SCHEME_REGEX: Final = re.compile("^[a-zA-Z0-9]+://")
 

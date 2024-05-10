@@ -9,7 +9,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import List, NamedTuple, Optional, Sequence
 
-from fairseq2.assets import default_asset_store
 from fairseq2.data.text import TextTokenizer
 from fairseq2.datasets.data_reader import DataReader
 from fairseq2.datasets.loader import DelegatingDatasetLoader
@@ -92,6 +91,4 @@ class ParallelTextDataset(ABC):
         """Return the list of language pairs of ``split``."""
 
 
-load_parallel_text_dataset = DelegatingDatasetLoader[ParallelTextDataset](
-    default_asset_store
-)
+load_parallel_text_dataset = DelegatingDatasetLoader[ParallelTextDataset]()

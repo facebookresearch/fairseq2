@@ -9,7 +9,7 @@ from typing import Any, Dict, final
 
 import torch
 
-from fairseq2.assets import AssetCard, default_asset_store, default_download_manager
+from fairseq2.assets import AssetCard
 from fairseq2.data.text import AbstractTextTokenizerLoader
 from fairseq2.models.config_loader import StandardModelConfigLoader
 from fairseq2.models.loader import DenseModelLoader
@@ -24,7 +24,7 @@ from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
 from fairseq2.typing import override
 
 load_nllb_config = StandardModelConfigLoader(
-    default_asset_store, NLLB_FAMILY, NllbConfig, nllb_archs
+    family=NLLB_FAMILY, config_kls=NllbConfig, arch_configs=nllb_archs
 )
 
 
@@ -92,11 +92,9 @@ def convert_nllb_checkpoint(
 
 
 load_nllb_model = DenseModelLoader(
-    default_asset_store,
-    default_download_manager,
-    load_nllb_config,
-    create_nllb_model,
-    convert_nllb_checkpoint,
+    config_loader=load_nllb_config,
+    factory=create_nllb_model,
+    checkpoint_converter=convert_nllb_checkpoint,
     mmap=True,
     restrict_checkpoints=False,
 )
@@ -115,4 +113,4 @@ class NllbTokenizerLoader(AbstractTextTokenizerLoader[NllbTokenizer]):
         return NllbTokenizer(path, langs, default_lang)
 
 
-load_nllb_tokenizer = NllbTokenizerLoader(default_asset_store, default_download_manager)
+load_nllb_tokenizer = NllbTokenizerLoader()

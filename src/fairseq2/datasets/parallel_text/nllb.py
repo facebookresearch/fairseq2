@@ -10,12 +10,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple, cast, final
 
-from fairseq2.assets import (
-    AssetCard,
-    AssetCardError,
-    default_asset_store,
-    default_download_manager,
-)
+from fairseq2.assets import AssetCard, AssetCardError
 from fairseq2.data import (
     Collater,
     DataPipeline,
@@ -401,7 +396,7 @@ class NllbDatasetLoader(AbstractDatasetLoader[NllbDataset]):
         return NllbDataset(card.name, path, split_lang_pairs)
 
 
-load_nllb_dataset = NllbDatasetLoader(default_asset_store, default_download_manager)
+load_nllb_dataset = NllbDatasetLoader()
 
 
 def _register_nllb() -> None:

@@ -4,120 +4,151 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from dataclasses import asdict
-from enum import Enum
-from pathlib import Path
-from typing import Any, Dict, List, MutableMapping, cast
+from __future__ import annotations
+
+from dataclasses import asdict, fields
+from typing import Any, Dict, List, Mapping, Optional, TextIO, cast, get_type_hints
 
 import yaml
 
-from fairseq2.typing import DataClass, DataType, Device, is_dataclass_instance
+from fairseq2.typing import DataClass, is_dataclass_instance
+from fairseq2.utils.value_converter import ValueConverter, default_value_converter
 
 
-def update_dataclass(obj: DataClass, overrides: MutableMapping[str, Any]) -> None:
+def update_dataclass(
+    obj: DataClass,
+    overrides: Mapping[str, Any],
+    *,
+    value_converter: Optional[ValueConverter] = None,
+) -> List[str]:
     """Update ``obj`` with the data contained in ``overrides``.
 
     :param obj:
         The data class instance to update.
     :param overrides:
         The dictionary containing the data to set in ``obj``.
+    :param value_converter:
+        The :class:`ValueConverter` instance to use. If ``None``, the default
+        instance will be used.
     """
-    leftovers: List[str] = []
+    if value_converter is None:
+        value_converter = default_value_converter
 
-    _do_update_dataclass(obj, overrides, leftovers, path=[])
+    unknown_fields: List[str] = []
 
-    if leftovers:
-        leftovers.sort()
+    field_path: List[str] = []
 
+    def update(obj_: DataClass, overrides_: Mapping[str, Any]) -> None:
+        overrides_copy = {**overrides_}
+
+        type_hints = get_type_hints(type(obj_))
+
+        for field in fields(obj_):
+            value = getattr(obj_, field.name)
+
+            try:
+                override = overrides_copy.pop(field.name)
+            except KeyError:
+                continue
+
+            # Recursively traverse child dataclasses.
+            if override is not None and is_dataclass_instance(value):
+                if not isinstance(override, Mapping):
+                    p = ".".join(field_path + [field.name])
+
+                    raise FieldError(
+                        p, f"The field '{p}' is expected to be of type `{type(value)}`, but is of type `{type(override)}` instead."  # fmt: skip
+                    )
+
+                field_path.append(field.name)
+
+                update(value, override)
+
+                field_path.pop()
+            else:
+                type_hint = type_hints[field.name]
+
+                try:
+                    override = value_converter.structure(override, type_hint)
+                except TypeError as ex:
+                    p = ".".join(field_path + [field.name])
+
+                    raise FieldError(
+                        p, f"The value of the field '{p}' cannot be parsed. See nested exception for details"  # fmt: skip
+                    ) from ex
+
+                setattr(obj_, field.name, override)
+
+        if overrides_copy:
+            unknown_fields.extend(
+                ".".join(field_path + [name]) for name in overrides_copy
+            )
+
+    update(obj, overrides)
+
+    unknown_fields.sort()
+
+    return unknown_fields
+
+
+class FieldError(RuntimeError):
+    """Raised when a dataclass field cannot be parsed."""
+
+    _field_name: str
+
+    def __init__(self, field_name: str, message: str) -> None:
+        super().__init__(message)
+
+        self._field_name = field_name
+
+    @property
+    def field_name(self) -> str:
+        return self._field_name
+
+
+def dump_dataclass(obj: DataClass, fp: TextIO) -> None:
+    """Dump ``obj`` to ``fp`` in YAML format."""
+    yaml.safe_dump(to_safe_dict(obj), fp)
+
+
+def to_safe_dict(
+    obj: DataClass, value_converter: Optional[ValueConverter] = None
+) -> Dict[str, Any]:
+    """Convert ``obj`` to a :class:`dict` safe to serialize in YAML."""
+    if value_converter is None:
+        value_converter = default_value_converter
+
+    try:
+        data = value_converter.unstructure(asdict(obj))
+    except TypeError as ex:
         raise ValueError(
-            f"`overrides` must contain only keys that are present in `obj`, but the following keys do not exist in `obj`: {leftovers}"
+            "`obj` must contain only values that can be serialized to standard YAML. See nested exception for details."
+        ) from ex
+
+    def sanity_check(data_: Any) -> None:
+        if data_ is None:
+            return
+
+        if isinstance(data_, (bool, int, float, str)):
+            return
+
+        if isinstance(data_, list):
+            for e in data_:
+                sanity_check(e)
+
+            return
+
+        if isinstance(data_, dict):
+            for k, v in data_.items():
+                sanity_check(k)
+                sanity_check(v)
+
+            return
+
+        raise RuntimeError(
+            f"Unstructured output of `obj` must contain only primitive types, lists, and dicts, but it contains a value of type `{type(data_)}`."
         )
 
+    sanity_check(data)
 
-def _do_update_dataclass(
-    obj: DataClass,
-    overrides: MutableMapping[str, Any],
-    leftovers: List[str],
-    path: List[str],
-) -> None:
-    for name, value in obj.__dict__.items():
-        try:
-            override = overrides.pop(name)
-        except KeyError:
-            continue
-
-        # Recursively traverse child dataclasses.
-        if override is not None and is_dataclass_instance(value):
-            if not isinstance(override, MutableMapping):
-                p = ".".join(path + [name])
-
-                raise TypeError(
-                    f"The value of the key '{p}' in `overrides` must be of a mapping type (e.g. `dict`), but is of type `{type(override)}` instead."
-                )
-
-            path.append(name)
-
-            _do_update_dataclass(value, override, leftovers, path)
-
-            path.pop()
-        else:
-            if value is not None and not isinstance(override, kls := type(value)):
-                override = _maybe_convert(override, kls)
-
-            setattr(obj, name, override)
-
-    if overrides:
-        leftovers += [".".join(path + [name]) for name in overrides]
-
-
-def _maybe_convert(value: Any, kls: type) -> Any:
-    if issubclass(kls, Enum) and isinstance(value, str):
-        try:
-            return kls[value]
-        except KeyError:
-            pass
-
-    return value
-
-
-def dump_dataclass(obj: DataClass, file: Path) -> None:
-    """Dump ``obj`` to ``file`` in YAML format."""
-    safe_data = to_safe_dict(obj)
-
-    with file.open("w") as fp:
-        yaml.safe_dump_all(safe_data, fp)
-
-
-def to_safe_dict(obj: DataClass) -> Dict[str, Any]:
-    """Convert ``obj`` to a :class:`dict` safe to serialize in YAML/JSON."""
-
-    def _convert(d: Any) -> Any:
-        if d is None:
-            return d
-
-        if isinstance(d, (bool, int, float, str)):
-            return d
-
-        if isinstance(d, (list, tuple)):
-            return [_convert(e) for e in d]
-
-        if isinstance(d, dict):
-            return {_convert(k): _convert(v) for k, v in d.items()}
-
-        if isinstance(d, Enum):
-            return d.name
-
-        if isinstance(d, Path):
-            return str(d)
-
-        if isinstance(d, DataType):
-            return str(d)[6:]  # Strip 'torch.'.
-
-        if isinstance(d, Device):
-            return str(d)
-
-        raise ValueError(
-            "`obj` must contain values of only primitive types, lists, and dictionaries."
-        )
-
-    return cast(Dict[str, Any], _convert(asdict(obj)))
+    return cast(Dict[str, Any], data)

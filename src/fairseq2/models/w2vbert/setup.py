@@ -8,7 +8,6 @@ from typing import Any, Dict
 
 import torch
 
-from fairseq2.assets import default_asset_store, default_download_manager
 from fairseq2.models.config_loader import StandardModelConfigLoader
 from fairseq2.models.loader import DenseModelLoader
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
@@ -20,7 +19,7 @@ from fairseq2.models.w2vbert.factory import (
 )
 
 load_w2vbert_config = StandardModelConfigLoader(
-    default_asset_store, W2VBERT_FAMILY, W2VBertConfig, w2vbert_archs
+    family=W2VBERT_FAMILY, config_kls=W2VBertConfig, arch_configs=w2vbert_archs
 )
 
 
@@ -76,10 +75,8 @@ def convert_w2vbert_checkpoint(
 
 
 load_w2vbert_model = DenseModelLoader(
-    default_asset_store,
-    default_download_manager,
-    load_w2vbert_config,
-    create_w2vbert_model,
-    convert_w2vbert_checkpoint,
+    config_loader=load_w2vbert_config,
+    factory=create_w2vbert_model,
+    checkpoint_converter=convert_w2vbert_checkpoint,
     mmap=True,
 )

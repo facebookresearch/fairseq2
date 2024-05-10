@@ -19,8 +19,8 @@ from fairseq2.assets.metadata_provider import (
     PackageAssetMetadataProvider,
 )
 from fairseq2.assets.utils import _get_path_from_env
+from fairseq2.logging import get_log_writer
 from fairseq2.typing import override
-from fairseq2.utils.logging import get_log_writer
 
 log = get_log_writer(__name__)
 

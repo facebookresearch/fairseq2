@@ -6,7 +6,6 @@
 
 from typing import Any, Dict
 
-from fairseq2.assets import default_asset_store, default_download_manager
 from fairseq2.data.text import default_basic_sentencepiece_tokenizer_loader
 from fairseq2.models.config_loader import StandardModelConfigLoader
 from fairseq2.models.loader import DenseModelLoader
@@ -19,7 +18,7 @@ from fairseq2.models.mistral.factory import (
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
 load_mistral_config = StandardModelConfigLoader(
-    default_asset_store, MISTRAL_FAMILY, MistralConfig, mistral_archs
+    family=MISTRAL_FAMILY, config_kls=MistralConfig, arch_configs=mistral_archs
 )
 
 
@@ -54,11 +53,9 @@ def convert_mistral_checkpoint(
 
 
 load_mistral_model = DenseModelLoader(
-    default_asset_store,
-    default_download_manager,
-    load_mistral_config,
-    create_mistral_model,
-    convert_mistral_checkpoint,
+    config_loader=load_mistral_config,
+    factory=create_mistral_model,
+    checkpoint_converter=convert_mistral_checkpoint,
     mmap=True,
 )
 

@@ -7,7 +7,7 @@
 from pathlib import Path
 from typing import Any, Dict, Final, final
 
-from fairseq2.assets import AssetCard, default_asset_store, default_download_manager
+from fairseq2.assets import AssetCard
 from fairseq2.data.text import AbstractTextTokenizerLoader
 from fairseq2.models.config_loader import StandardModelConfigLoader
 from fairseq2.models.loader import DenseModelLoader
@@ -22,10 +22,9 @@ from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
 from fairseq2.typing import override
 
 load_s2t_transformer_config = StandardModelConfigLoader(
-    default_asset_store,
-    S2T_TRANSFORMER_FAMILY,
-    S2TTransformerConfig,
-    s2t_transformer_archs,
+    family=S2T_TRANSFORMER_FAMILY,
+    config_kls=S2TTransformerConfig,
+    arch_configs=s2t_transformer_archs,
 )
 
 
@@ -91,11 +90,9 @@ def convert_s2t_transformer_checkpoint(
 
 
 load_s2t_transformer_model = DenseModelLoader(
-    default_asset_store,
-    default_download_manager,
-    load_s2t_transformer_config,
-    create_s2t_transformer_model,
-    convert_s2t_transformer_checkpoint,
+    config_loader=load_s2t_transformer_config,
+    factory=create_s2t_transformer_model,
+    checkpoint_converter=convert_s2t_transformer_checkpoint,
     mmap=True,
     restrict_checkpoints=False,
 )
@@ -120,6 +117,4 @@ class S2TTransformerTokenizerLoader(
         )
 
 
-load_s2t_transformer_tokenizer = S2TTransformerTokenizerLoader(
-    default_asset_store, default_download_manager
-)
+load_s2t_transformer_tokenizer = S2TTransformerTokenizerLoader()

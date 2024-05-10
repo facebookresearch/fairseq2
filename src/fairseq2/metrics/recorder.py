@@ -12,10 +12,10 @@ from functools import partial
 from logging import Logger
 from pathlib import Path
 from string import capwords
-from typing import Any, Callable, Dict, Optional, Sequence, Tuple, Union, final
+from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple, Union, final
 
+from fairseq2.logging import LogWriter, get_log_writer
 from fairseq2.typing import override
-from fairseq2.utils.logging import LogWriter, get_log_writer
 
 
 def format_as_int(value: Any, *, postfix: Optional[str] = None) -> str:
@@ -102,7 +102,7 @@ class MetricRecorder(ABC):
     def record_metrics(
         self,
         run: str,
-        values: Dict[str, Any],
+        values: Mapping[str, Any],
         step_nr: int,
         *,
         flush: bool = False,
@@ -127,7 +127,7 @@ class MetricRecorder(ABC):
 def record_metrics(
     recorders: Sequence[MetricRecorder],
     run: str,
-    values: Dict[str, Any],
+    values: Mapping[str, Any],
     step_nr: int,
     *,
     flush: bool = False,
@@ -169,7 +169,7 @@ class LogMetricRecorder(MetricRecorder):
     def record_metrics(
         self,
         run: str,
-        values: Dict[str, Any],
+        values: Mapping[str, Any],
         step_nr: int,
         *,
         flush: bool = False,
@@ -236,7 +236,7 @@ class TensorBoardRecorder(MetricRecorder):
     def record_metrics(
         self,
         run: str,
-        values: Dict[str, Any],
+        values: Mapping[str, Any],
         step_nr: int,
         *,
         flush: bool = False,

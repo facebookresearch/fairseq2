@@ -7,7 +7,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional
 
-from fairseq2.assets import default_asset_store
 from fairseq2.data.text import TextTokenizer
 from fairseq2.datasets.data_reader import DataReader
 from fairseq2.datasets.loader import DelegatingDatasetLoader
@@ -74,4 +73,4 @@ class AsrDataset(ABC):
         """Return the list of splits."""
 
 
-load_asr_dataset = DelegatingDatasetLoader[AsrDataset](default_asset_store)
+load_asr_dataset = DelegatingDatasetLoader[AsrDataset]()

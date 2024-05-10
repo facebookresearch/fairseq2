@@ -8,7 +8,6 @@ from typing import Any, Dict
 
 import torch
 
-from fairseq2.assets import default_asset_store, default_download_manager
 from fairseq2.models.config_loader import StandardModelConfigLoader
 from fairseq2.models.loader import DenseModelLoader
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
@@ -21,7 +20,7 @@ from fairseq2.models.wav2vec2.factory import (
 from fairseq2.nn.transformer import TransformerNormOrder
 
 load_wav2vec2_config = StandardModelConfigLoader(
-    default_asset_store, WAV2VEC2_FAMILY, Wav2Vec2Config, wav2vec2_archs
+    family=WAV2VEC2_FAMILY, config_kls=Wav2Vec2Config, arch_configs=wav2vec2_archs
 )
 
 
@@ -74,11 +73,9 @@ def convert_wav2vec2_checkpoint(
 
 
 load_wav2vec2_model = DenseModelLoader(
-    default_asset_store,
-    default_download_manager,
-    load_wav2vec2_config,
-    create_wav2vec2_model,
-    convert_wav2vec2_checkpoint,
+    config_loader=load_wav2vec2_config,
+    factory=create_wav2vec2_model,
+    checkpoint_converter=convert_wav2vec2_checkpoint,
     mmap=False,
     restrict_checkpoints=False,
 )

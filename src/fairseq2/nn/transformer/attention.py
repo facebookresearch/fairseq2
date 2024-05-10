@@ -13,10 +13,10 @@ from torch import Tensor
 from torch.nn import Module
 from torch.nn.functional import dropout, scaled_dot_product_attention, softmax
 
+from fairseq2.logging import get_log_writer
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer.attention_mask import AttentionMask, CausalAttentionMask
 from fairseq2.typing import override
-from fairseq2.utils.logging import get_log_writer
 
 log = get_log_writer(__name__)
 

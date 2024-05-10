@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, List, Optional, Sequence, final
 from fairseq2n import DOC_MODE
 from torch import Tensor
 
-from fairseq2.assets import AssetCard, default_asset_store, default_download_manager
+from fairseq2.assets import AssetCard
 from fairseq2.data.text.text_tokenizer import (
     AbstractTextTokenizer,
     AbstractTextTokenizerLoader,
@@ -237,9 +237,7 @@ class BasicSentencePieceTokenizerLoader(
         return BasicSentencePieceTokenizer(path)
 
 
-default_basic_sentencepiece_tokenizer_loader = BasicSentencePieceTokenizerLoader(
-    default_asset_store, default_download_manager
-)
+default_basic_sentencepiece_tokenizer_loader = BasicSentencePieceTokenizerLoader()
 
 
 def vocab_info_from_sentencepiece(model: SentencePieceModel) -> VocabularyInfo:
