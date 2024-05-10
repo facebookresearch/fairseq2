@@ -22,9 +22,9 @@ from torch.cuda import OutOfMemoryError
 from torch.nn import Module
 
 import fairseq2
+from fairseq2.logging import LogWriter
 from fairseq2.typing import DataClass, Device
 from fairseq2.utils.dataclass import dump_dataclass
-from fairseq2.utils.logging import LogWriter
 
 
 @contextmanager
@@ -55,7 +55,8 @@ def log_config(config: DataClass, log: LogWriter, file: Optional[Path] = None) -
         The output file to write ``config`` in YAML format.
     """
     if file is not None:
-        dump_dataclass(config, file)
+        with file.open("w") as fp:
+            dump_dataclass(config, fp)
 
     log.info("Job Config:\n{}", pretty_repr(config, max_width=88))
 

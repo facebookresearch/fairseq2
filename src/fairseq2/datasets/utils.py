@@ -9,7 +9,7 @@ import logging
 import torch
 
 from fairseq2.gang import Gang
-from fairseq2.utils.logging import LogWriter
+from fairseq2.logging import LogWriter
 
 
 def _reduce_num_batches(num_batches: int, gang: Gang, log: LogWriter) -> int:

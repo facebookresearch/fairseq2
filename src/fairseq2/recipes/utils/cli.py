@@ -12,9 +12,16 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
+from fairseq2.gang import get_rank
+from fairseq2.recipes.logging import console
+
 
 def create_rich_progress() -> Progress:
-    """Create a :class:`Progress` instance to report training progress."""
-    return Progress(
-        BarColumn(), MofNCompleteColumn(), TaskProgressColumn(), TimeRemainingColumn()
-    )
+    """Create a :class:`Progress` instance to report job progress."""
+    columns = [
+        BarColumn(), MofNCompleteColumn(), TaskProgressColumn(), TimeRemainingColumn()  # fmt: skip
+    ]
+
+    rank = get_rank()
+
+    return Progress(*columns, console=console, disable=rank != 0)

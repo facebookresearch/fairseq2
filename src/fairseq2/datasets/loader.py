@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Dict, Protocol, TypeVar, Union, final
+from typing import Dict, Optional, Protocol, TypeVar, Union, final
 
 from fairseq2.assets import (
     AssetCard,
@@ -16,6 +16,8 @@ from fairseq2.assets import (
     AssetDownloadManager,
     AssetError,
     AssetStore,
+    default_asset_store,
+    default_download_manager,
 )
 
 DatasetT = TypeVar("DatasetT")
@@ -50,7 +52,10 @@ class AbstractDatasetLoader(ABC, DatasetLoader[DatasetT]):
     _download_manager: AssetDownloadManager
 
     def __init__(
-        self, asset_store: AssetStore, download_manager: AssetDownloadManager
+        self,
+        *,
+        asset_store: Optional[AssetStore] = None,
+        download_manager: Optional[AssetDownloadManager] = None,
     ) -> None:
         """
         :param asset_store:
@@ -58,8 +63,8 @@ class AbstractDatasetLoader(ABC, DatasetLoader[DatasetT]):
         :param download_manager:
             The download manager.
         """
-        self._asset_store = asset_store
-        self._download_manager = download_manager
+        self._asset_store = asset_store or default_asset_store
+        self._download_manager = download_manager or default_download_manager
 
     def __call__(
         self,
@@ -81,7 +86,7 @@ class AbstractDatasetLoader(ABC, DatasetLoader[DatasetT]):
             )
         except ValueError as ex:
             raise AssetCardError(
-                f"The value of the field 'data' of the asset card '{card.name}' is not valid. See nested exception for details."
+                f"The value of the field 'data' of the asset card '{card.name}' must be a URI. See nested exception for details."
             ) from ex
 
         try:
@@ -108,12 +113,12 @@ class DelegatingDatasetLoader(DatasetLoader[DatasetT]):
     _asset_store: AssetStore
     _loaders: Dict[str, DatasetLoader[DatasetT]]
 
-    def __init__(self, asset_store: AssetStore) -> None:
+    def __init__(self, *, asset_store: Optional[AssetStore] = None) -> None:
         """
         :param asset_store:
             The asset store where to check for available datasets.
         """
-        self._asset_store = asset_store
+        self._asset_store = asset_store or default_asset_store
 
         self._loaders = {}
 

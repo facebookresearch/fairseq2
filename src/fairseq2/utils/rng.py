@@ -109,7 +109,7 @@ class RngBag:
             raise ValueError("`state_dict` must contain an item named `generators`.")
 
         if not isinstance(states, list):
-            raise ValueError(
+            raise TypeError(
                 f"The `generators` item of `state_dict` must be of type `{list}`, but is of type `{type(states)}` instead."
             )
 
@@ -120,7 +120,7 @@ class RngBag:
 
         for idx, state in enumerate(states):
             if not isinstance(state, Tensor):
-                raise ValueError(
+                raise TypeError(
                     f"The generator states in `state_dict` must be of type `{Tensor}`, but the element at index {idx} is of type `{type(state)}` instead."
                 )
 

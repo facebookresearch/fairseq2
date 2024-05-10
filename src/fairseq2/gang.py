@@ -18,8 +18,8 @@ import torch.distributed as dist
 from torch import Tensor
 from torch.distributed import Backend, ProcessGroup, ReduceOp
 
+from fairseq2.logging import get_log_writer
 from fairseq2.typing import CPU, Device, override
-from fairseq2.utils.logging import get_log_writer
 from fairseq2.utils.version import torch_greater_or_equal
 
 log = get_log_writer(__name__)
@@ -235,15 +235,19 @@ class ProcessGroupGang(AbstractGang):
     """Represents a gang that wraps a process group."""
 
     _pg: ProcessGroup
-    _debug_pg: Optional[ProcessGroup]
+    _monitor_pg: Optional[ProcessGroup]
 
     def __init__(
-        self, pg: ProcessGroup, device: Device, debug_pg: Optional[ProcessGroup] = None
+        self,
+        pg: ProcessGroup,
+        device: Device,
+        *,
+        monitor_pg: Optional[ProcessGroup] = None,
     ) -> None:
         super().__init__(dist.get_rank(pg), dist.get_world_size(pg), device)
 
         self._pg = pg
-        self._debug_pg = debug_pg
+        self._monitor_pg = monitor_pg
 
     @staticmethod
     def init_default_process_group(
@@ -251,7 +255,7 @@ class ProcessGroupGang(AbstractGang):
         device: Optional[Device] = None,
         timeout: Optional[timedelta] = None,
         num_threads: Optional[int] = None,
-        debug: bool = False,
+        monitored: bool = False,
         ok_initialized: bool = False,
     ) -> ProcessGroupGang:
         """Initialize the default process group and wrap it as a gang.
@@ -263,14 +267,13 @@ class ProcessGroupGang(AbstractGang):
             The timeout for collective operations.
         :param num_threads:
             The number of threads to use for interaop parallelism.
-        :param debug:
-            If ``True``, turns on additional logging and synchronization checks
-            to help diagnose distributed training related issues.
+        :param monitored:
+            If ``True``,  puts a monitored barrier before every collective call.
         :param ok_initialized:
             If ``True``, does not raise an error if the default process group is
             already initialized.
         """
-        if debug:
+        if log.is_debug_enabled():
             os.environ["TORCH_DISTRIBUTED_DEBUG"] = "INFO"
 
             dist.set_debug_level_from_env()
@@ -338,16 +341,16 @@ class ProcessGroupGang(AbstractGang):
                 "The default process group is not available. Please file a bug report."
             )
 
-        if debug:
+        if monitored:
             if backend == Backend.GLOO:
-                debug_pg = pg
+                monitor_pg = pg
             else:
                 # Gloo is needed for monitored barrier support.
-                debug_pg = dist.new_group(backend=Backend.GLOO, timeout=timeout)
+                monitor_pg = dist.new_group(backend=Backend.GLOO, timeout=timeout)
         else:
-            debug_pg = None
+            monitor_pg = None
 
-        return ProcessGroupGang(pg, device, debug_pg)
+        return ProcessGroupGang(pg, device, monitor_pg=monitor_pg)
 
     @staticmethod
     def from_process_group(pg: ProcessGroup, device: Device) -> ProcessGroupGang:
@@ -402,15 +405,15 @@ class ProcessGroupGang(AbstractGang):
 
         pg = dist.new_group(ranks, backend=backend)
 
-        if self._debug_pg is not None:
+        if self._monitor_pg is not None:
             if backend == Backend.GLOO:
-                debug_pg = pg
+                monitor_pg = pg
             else:
-                debug_pg = dist.new_group(ranks, backend=Backend.GLOO)
+                monitor_pg = dist.new_group(ranks, backend=Backend.GLOO)
         else:
-            debug_pg = None
+            monitor_pg = None
 
-        return ProcessGroupGang(pg, self._device, debug_pg)
+        return ProcessGroupGang(pg, self._device, monitor_pg=monitor_pg)
 
     @override
     def as_process_group(self) -> ProcessGroup:
@@ -418,12 +421,12 @@ class ProcessGroupGang(AbstractGang):
 
     @override
     def barrier(self) -> None:
-        if self._debug_pg is None:
+        if self._monitor_pg is None:
             dist.barrier(group=self._pg, device_ids=[self._device.index])
         else:
             torch.cuda.synchronize()
 
-            dist.monitored_barrier(group=self._debug_pg, wait_all_ranks=True)
+            dist.monitored_barrier(group=self._monitor_pg, wait_all_ranks=True)
 
     @override
     def all_reduce(self, tensor: Tensor, op: ReduceOperation) -> None:
@@ -452,12 +455,12 @@ class ProcessGroupGang(AbstractGang):
         dist.broadcast_object_list(objects, source_rank)
 
     def _maybe_monitored_barrier(self) -> None:
-        if self._debug_pg is None:
+        if self._monitor_pg is None:
             return
 
         torch.cuda.synchronize()
 
-        dist.monitored_barrier(group=self._debug_pg, wait_all_ranks=True)
+        dist.monitored_barrier(group=self._monitor_pg, wait_all_ranks=True)
 
     @staticmethod
     def _get_reduce_op(op: ReduceOperation):  # type: ignore[no-untyped-def]
@@ -633,25 +636,24 @@ def _get_int_from_env(var_name: str, allow_zero: bool = False) -> Optional[int]:
 def setup_default_gang(
     *,
     device: Optional[Device] = None,
+    monitored: bool = False,
     timeout: Optional[timedelta] = None,
-    debug: bool = False,
 ) -> Gang:
     """Set up the default gang of this process.
 
     :param device:
         If ``None``; if CUDA is available, the gang will use the default CUDA
         device of the process; otherwise, it will use the CPU.
+    :param monitored:
+        If ``True``,  puts a monitored barrier before every collective call.
     :param timeout:
         The timeout for collective operations.
-    :param debug:
-        If ``True``, turns on additional logging and synchronization checks
-        to help diagnose distributed training related issues.
     """
     if get_world_size() == 1:
         return FakeGang(device=device)
 
     return ProcessGroupGang.init_default_process_group(
-        device=device, timeout=timeout, debug=debug
+        device=device, monitored=monitored, timeout=timeout
     )
 
 

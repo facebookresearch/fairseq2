@@ -181,7 +181,7 @@ def _load_metadata_file(file: Path) -> List[Tuple[str, Dict[str, Any]]]:
     with fp:
         try:
             all_metadata = yaml.safe_load_all(fp)
-        except YAMLError as ex:
+        except (OSError, YAMLError) as ex:
             raise AssetMetadataError(
                 f"The asset metadata file '{file}' cannot be loaded. See nested exception for details."
             ) from ex

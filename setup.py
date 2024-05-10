@@ -62,4 +62,5 @@ setup(
     extras_require={
         "arrow": ["pyarrow>=13.0.0", "pandas~=2.0.0"],
     },
+    entry_points={"console_scripts": ["fairseq2=fairseq2.recipes:main"]},
 )

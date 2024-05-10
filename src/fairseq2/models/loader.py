@@ -18,8 +18,10 @@ from fairseq2.assets import (
     AssetError,
     AssetStore,
     default_asset_store,
+    default_download_manager,
 )
 from fairseq2.gang import Gang
+from fairseq2.logging import get_log_writer
 from fairseq2.models.config_loader import ModelConfigLoader
 from fairseq2.models.utils.checkpoint import load_checkpoint
 from fairseq2.nn.utils.module import (
@@ -29,7 +31,6 @@ from fairseq2.nn.utils.module import (
     to_empty,
 )
 from fairseq2.typing import CPU, META, DataClass, DataType, Device
-from fairseq2.utils.logging import get_log_writer
 
 log = get_log_writer(__name__)
 
@@ -127,21 +128,17 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
 
     def __init__(
         self,
-        asset_store: AssetStore,
-        download_manager: AssetDownloadManager,
+        *,
         config_loader: ModelConfigLoader[ModelConfigT],
         factory: DenseModelFactory[ModelConfigT, ModelT],
         checkpoint_converter: Optional[CheckpointConverter[ModelConfigT]] = None,
-        *,
         mmap: bool = False,
         restrict_checkpoints: bool = True,
         skip_meta_init: bool = False,
+        asset_store: Optional[AssetStore] = None,
+        download_manager: Optional[AssetDownloadManager] = None,
     ) -> None:
         """
-        :param asset_store:
-            The asset store where to check for available models.
-        :param download_manager:
-            The download manager to download model checkpoints.
         :param config_loader:
             The configuration loader.
         :param factory:
@@ -157,11 +154,15 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
             primitive types, and dictionaries.
         :param skip_meta_init:
             If ``True``, skips meta device initialization and constructs the
-            model directly on the requested device. Meant to be used with models
+            model directly on the requested device. Should be used with models
             that do not support PyTorch's ``reset_parameters()`` convention.
+        :param asset_store:
+            The asset store where to check for available models.
+        :param download_manager:
+            The download manager to download model checkpoints.
         """
-        self._asset_store = asset_store
-        self._download_manager = download_manager
+        self._asset_store = asset_store or default_asset_store
+        self._download_manager = download_manager or default_download_manager
         self._config_loader = config_loader
         self._factory = factory
         self._checkpoint_converter = checkpoint_converter
@@ -241,7 +242,7 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
             )
         except ValueError as ex:
             raise AssetCardError(
-                f"The value of the field 'checkpoint' of the asset card '{card.name}' is not valid. See nested exception for details."
+                f"The value of the field 'checkpoint' of the asset card '{card.name}' must be URI. See nested exception for details."
             ) from ex
 
         if self._checkpoint_converter is None:
@@ -325,12 +326,12 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
     _asset_store: AssetStore
     _loaders: Dict[str, ModelLoader[ModelT]]
 
-    def __init__(self, asset_store: AssetStore) -> None:
+    def __init__(self, *, asset_store: Optional[AssetStore] = None) -> None:
         """
         :param asset_store:
             The asset store where to check for available models.
         """
-        self._asset_store = asset_store
+        self._asset_store = asset_store or default_asset_store
 
         self._loaders = {}
 
@@ -384,4 +385,4 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
         self._loaders[family] = loader
 
 
-load_model = DelegatingModelLoader[Module](default_asset_store)
+load_model = DelegatingModelLoader[Module]()

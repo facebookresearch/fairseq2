@@ -30,8 +30,8 @@ from torch import Tensor
 from torch.nn import Module, Parameter
 from torch.nn.utils import remove_weight_norm  # type: ignore[attr-defined]
 
+from fairseq2.logging import LogWriter
 from fairseq2.typing import CPU, META, Device
-from fairseq2.utils.logging import LogWriter
 
 
 # compat

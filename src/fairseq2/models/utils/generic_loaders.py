@@ -32,7 +32,7 @@ from fairseq2.nn.utils.module import (
     to_empty,
 )
 from fairseq2.typing import CPU, META, DataClass, DataType, Device, override
-from fairseq2.utils.dataclass import update_dataclass
+from fairseq2.utils.dataclass import FieldError, update_dataclass
 
 logger = logging.getLogger("fairseq2.models")
 
@@ -76,7 +76,7 @@ class StandardTextTokenizerLoader(AbstractTextTokenizerLoader[TextTokenizerT]):
         :param factory:
             The factory to construct tokenizers.
         """
-        super().__init__(asset_store, download_manager)
+        super().__init__(asset_store=asset_store, download_manager=download_manager)
 
         self._factory = factory
 
@@ -142,11 +142,16 @@ class ConfigLoader(Generic[ConfigT]):
 
         if config_overrides:
             try:
-                update_dataclass(config, deepcopy(config_overrides))
-            except (TypeError, ValueError) as ex:
-                raise AssetError(
-                    f"The model configuration of the asset card '{card.name}' contains one or more invalid keys. See nested exception for details."
+                unknown_fields = update_dataclass(config, config_overrides)
+            except FieldError as ex:
+                raise AssetCardError(
+                    f"The value of the field `model_config` of the asset card '{card.name}' must be a valid model configuration, but the value of the configuration field '{ex.field_name}' is invalid. See nested exception for details."
                 ) from ex
+
+            if unknown_fields:
+                raise AssetCardError(
+                    f"The value of the field `model_config` of the asset card '{card.name}' must be a valid model configuration, but the following configuration fields are unknown: {', '.join(unknown_fields)}"
+                )
 
         return config
 
@@ -293,7 +298,7 @@ class ModelLoader(Generic[ModelT, ConfigT]):
             )
         except ValueError as ex:
             raise AssetCardError(
-                f"The value of the field 'checkpoint' of the asset card '{card.name}' is not valid. See nested exception for details."
+                f"The value of the field 'checkpoint' of the asset card '{card.name}' must be a URI. See nested exception for details."
             ) from ex
 
         if self.checkpoint_converter is None:

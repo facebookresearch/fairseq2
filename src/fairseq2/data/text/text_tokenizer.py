@@ -20,6 +20,7 @@ from fairseq2.assets import (
     AssetError,
     AssetStore,
     default_asset_store,
+    default_download_manager,
 )
 from fairseq2.data.vocabulary_info import VocabularyInfo
 from fairseq2.typing import Device, override
@@ -184,7 +185,10 @@ class AbstractTextTokenizerLoader(ABC, TextTokenizerLoader[TextTokenizerT]):
     _download_manager: AssetDownloadManager
 
     def __init__(
-        self, asset_store: AssetStore, download_manager: AssetDownloadManager
+        self,
+        *,
+        asset_store: Optional[AssetStore] = None,
+        download_manager: Optional[AssetDownloadManager] = None,
     ) -> None:
         """
         :param asset_store:
@@ -192,8 +196,8 @@ class AbstractTextTokenizerLoader(ABC, TextTokenizerLoader[TextTokenizerT]):
         :param download_manager:
             The download manager.
         """
-        self._asset_store = asset_store
-        self._download_manager = download_manager
+        self._asset_store = asset_store or default_asset_store
+        self._download_manager = download_manager or default_download_manager
 
     def __call__(
         self,
@@ -215,7 +219,7 @@ class AbstractTextTokenizerLoader(ABC, TextTokenizerLoader[TextTokenizerT]):
             )
         except ValueError as ex:
             raise AssetCardError(
-                f"The value of the field 'tokenizer' of the asset card '{card.name}' is not valid. See nested exception for details."
+                f"The value of the field 'tokenizer' of the asset card '{card.name}' must be a URI. See nested exception for details."
             ) from ex
 
         try:
@@ -242,12 +246,12 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
     _asset_store: AssetStore
     _loaders: Dict[str, TextTokenizerLoader[TextTokenizerT]]
 
-    def __init__(self, asset_store: AssetStore) -> None:
+    def __init__(self, *, asset_store: Optional[AssetStore] = None) -> None:
         """
         :param asset_store:
             The asset store where to check for available tokenizers.
         """
-        self._asset_store = asset_store
+        self._asset_store = asset_store or default_asset_store
 
         self._loaders = {}
 
@@ -305,4 +309,4 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
         self._loaders[family] = loader
 
 
-load_text_tokenizer = DelegatingTextTokenizerLoader[TextTokenizer](default_asset_store)
+load_text_tokenizer = DelegatingTextTokenizerLoader[TextTokenizer]()

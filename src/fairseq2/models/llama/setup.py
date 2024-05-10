@@ -6,7 +6,7 @@
 
 from typing import Any, Dict, final
 
-from fairseq2.assets import AssetCard, default_asset_store, default_download_manager
+from fairseq2.assets import AssetCard
 from fairseq2.data.text import default_basic_sentencepiece_tokenizer_loader
 from fairseq2.gang import Gang
 from fairseq2.models.config_loader import StandardModelConfigLoader
@@ -25,7 +25,7 @@ from fairseq2.models.utils.checkpoint import convert_model_state_dict
 from fairseq2.typing import override
 
 load_llama_config = StandardModelConfigLoader(
-    default_asset_store, LLAMA_FAMILY, LLaMAConfig, llama_archs
+    family=LLAMA_FAMILY, config_kls=LLaMAConfig, arch_configs=llama_archs
 )
 
 
@@ -78,11 +78,9 @@ def convert_llama_checkpoint(
 
 
 load_llama_model = LLaMAModelLoader(
-    default_asset_store,
-    default_download_manager,
-    load_llama_config,
-    create_llama_model,
-    convert_llama_checkpoint,
+    config_loader=load_llama_config,
+    factory=create_llama_model,
+    checkpoint_converter=convert_llama_checkpoint,
     mmap=True,
 )
 

@@ -17,8 +17,8 @@ from torch.distributed.fsdp.sharded_grad_scaler import ShardedGradScaler
 from torch.optim import Optimizer
 
 from fairseq2.gang import Gang
+from fairseq2.logging import get_log_writer
 from fairseq2.typing import Device, override
-from fairseq2.utils.logging import get_log_writer
 
 log = get_log_writer(__name__)
 

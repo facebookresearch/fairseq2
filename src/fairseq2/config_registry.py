@@ -4,17 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import (
-    AbstractSet,
-    Callable,
-    Dict,
-    Generic,
-    Iterator,
-    Protocol,
-    Tuple,
-    TypeVar,
-    final,
-)
+from typing import AbstractSet, Callable, Dict, Generic, Protocol, TypeVar, final
 
 from fairseq2.typing import DataClass
 
@@ -58,7 +48,7 @@ class ConfigRegistry(Generic[ConfigT]):
         """
         if name in self._configs:
             raise ValueError(
-                f"`name` must be a unique configuration name, but '{name}' is already registered."
+                f"`name` must be a unique configuration name, but '{name}' has already a registered configuration factory."
             )
 
         self._configs[name] = config_factory
@@ -74,11 +64,6 @@ class ConfigRegistry(Generic[ConfigT]):
             return config_factory
 
         return register
-
-    def all(self) -> Iterator[Tuple[str, ConfigT]]:
-        """Return all configurations."""
-        for name, factory in self._configs.items():
-            yield name, factory()
 
     def names(self) -> AbstractSet[str]:
         """Return the names of all configurations."""

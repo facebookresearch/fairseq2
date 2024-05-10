@@ -15,7 +15,7 @@ from torch.nn import Module
 from torch.nn.utils import clip_grad_norm_  # type: ignore[attr-defined]
 
 from fairseq2.gang import Gang, ReduceOperation
-from fairseq2.utils.logging import get_log_writer
+from fairseq2.logging import get_log_writer
 
 log = get_log_writer(__name__)
 

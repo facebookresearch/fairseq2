@@ -12,8 +12,8 @@ from typing_extensions import Self
 from fairseq2.data import DataPipeline
 from fairseq2.datasets.utils import _reduce_num_batches
 from fairseq2.gang import Gang
+from fairseq2.logging import get_log_writer
 from fairseq2.typing import override
-from fairseq2.utils.logging import get_log_writer
 
 log = get_log_writer(__name__)
 
