@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.text.sentencepiece &mdash; fairseq2 0.3.0.dev202405060136+g39e1c2a documentation</title>
+  <title>fairseq2.data.text.sentencepiece &mdash; fairseq2 0.3.0.dev202405130137+gdfb520e documentation</title>
       <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202405060136+g39e1c2a
+                0.3.0.dev202405130137+gdfb520e
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../../search.html" method="get">
@@ -167,7 +167,7 @@
 <span class="kn">from</span> <span class="nn">fairseq2n</span> <span class="kn">import</span> <span class="n">DOC_MODE</span>
 <span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
 
-<span class="kn">from</span> <span class="nn">fairseq2.assets</span> <span class="kn">import</span> <span class="n">AssetCard</span><span class="p">,</span> <span class="n">default_asset_store</span><span class="p">,</span> <span class="n">default_download_manager</span>
+<span class="kn">from</span> <span class="nn">fairseq2.assets</span> <span class="kn">import</span> <span class="n">AssetCard</span>
 <span class="kn">from</span> <span class="nn">fairseq2.data.text.text_tokenizer</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">AbstractTextTokenizer</span><span class="p">,</span>
     <span class="n">AbstractTextTokenizerLoader</span><span class="p">,</span>
@@ -394,9 +394,7 @@
         <span class="k">return</span> <span class="n">BasicSentencePieceTokenizer</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
 
 
-<span class="n">default_basic_sentencepiece_tokenizer_loader</span> <span class="o">=</span> <span class="n">BasicSentencePieceTokenizerLoader</span><span class="p">(</span>
-    <span class="n">default_asset_store</span><span class="p">,</span> <span class="n">default_download_manager</span>
-<span class="p">)</span>
+<span class="n">default_basic_sentencepiece_tokenizer_loader</span> <span class="o">=</span> <span class="n">BasicSentencePieceTokenizerLoader</span><span class="p">()</span>
 
 
 <div class="viewcode-block" id="vocab_info_from_sentencepiece"><a class="viewcode-back" href="../../../../reference/generated/data_text/fairseq2.data.text.vocab_info_from_sentencepiece.html#fairseq2.data.text.vocab_info_from_sentencepiece">[docs]</a><span class="k">def</span> <span class="nf">vocab_info_from_sentencepiece</span><span class="p">(</span><span class="n">model</span><span class="p">:</span> <span class="n">SentencePieceModel</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">VocabularyInfo</span><span class="p">:</span>

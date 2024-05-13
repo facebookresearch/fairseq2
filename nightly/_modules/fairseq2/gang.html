@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.gang &mdash; fairseq2 0.3.0.dev202405060136+g39e1c2a documentation</title>
+  <title>fairseq2.gang &mdash; fairseq2 0.3.0.dev202405130137+gdfb520e documentation</title>
       <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202405060136+g39e1c2a
+                0.3.0.dev202405130137+gdfb520e
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -175,8 +175,8 @@
 <span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
 <span class="kn">from</span> <span class="nn">torch.distributed</span> <span class="kn">import</span> <span class="n">Backend</span><span class="p">,</span> <span class="n">ProcessGroup</span><span class="p">,</span> <span class="n">ReduceOp</span>
 
+<span class="kn">from</span> <span class="nn">fairseq2.logging</span> <span class="kn">import</span> <span class="n">get_log_writer</span>
 <span class="kn">from</span> <span class="nn">fairseq2.typing</span> <span class="kn">import</span> <span class="n">CPU</span><span class="p">,</span> <span class="n">Device</span><span class="p">,</span> <span class="n">override</span>
-<span class="kn">from</span> <span class="nn">fairseq2.utils.logging</span> <span class="kn">import</span> <span class="n">get_log_writer</span>
 <span class="kn">from</span> <span class="nn">fairseq2.utils.version</span> <span class="kn">import</span> <span class="n">torch_greater_or_equal</span>
 
 <span class="n">log</span> <span class="o">=</span> <span class="n">get_log_writer</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
@@ -392,15 +392,19 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a gang that wraps a process group.&quot;&quot;&quot;</span>
 
     <span class="n">_pg</span><span class="p">:</span> <span class="n">ProcessGroup</span>
-    <span class="n">_debug_pg</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ProcessGroup</span><span class="p">]</span>
+    <span class="n">_monitor_pg</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ProcessGroup</span><span class="p">]</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">pg</span><span class="p">:</span> <span class="n">ProcessGroup</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">,</span> <span class="n">debug_pg</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ProcessGroup</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">pg</span><span class="p">:</span> <span class="n">ProcessGroup</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">monitor_pg</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ProcessGroup</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">dist</span><span class="o">.</span><span class="n">get_rank</span><span class="p">(</span><span class="n">pg</span><span class="p">),</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_world_size</span><span class="p">(</span><span class="n">pg</span><span class="p">),</span> <span class="n">device</span><span class="p">)</span>
 
         <span class="bp">self</span><span class="o">.</span><span class="n">_pg</span> <span class="o">=</span> <span class="n">pg</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_debug_pg</span> <span class="o">=</span> <span class="n">debug_pg</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_monitor_pg</span> <span class="o">=</span> <span class="n">monitor_pg</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">init_default_process_group</span><span class="p">(</span>
@@ -408,7 +412,7 @@
         <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">timeout</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">timedelta</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">num_threads</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-        <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">monitored</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
         <span class="n">ok_initialized</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ProcessGroupGang</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the default process group and wrap it as a gang.</span>
@@ -420,14 +424,13 @@
 <span class="sd">            The timeout for collective operations.</span>
 <span class="sd">        :param num_threads:</span>
 <span class="sd">            The number of threads to use for interaop parallelism.</span>
-<span class="sd">        :param debug:</span>
-<span class="sd">            If ``True``, turns on additional logging and synchronization checks</span>
-<span class="sd">            to help diagnose distributed training related issues.</span>
+<span class="sd">        :param monitored:</span>
+<span class="sd">            If ``True``,  puts a monitored barrier before every collective call.</span>
 <span class="sd">        :param ok_initialized:</span>
 <span class="sd">            If ``True``, does not raise an error if the default process group is</span>
 <span class="sd">            already initialized.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">debug</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">log</span><span class="o">.</span><span class="n">is_debug_enabled</span><span class="p">():</span>
             <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;TORCH_DISTRIBUTED_DEBUG&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;INFO&quot;</span>
 
             <span class="n">dist</span><span class="o">.</span><span class="n">set_debug_level_from_env</span><span class="p">()</span>
@@ -495,16 +498,16 @@
                 <span class="s2">&quot;The default process group is not available. Please file a bug report.&quot;</span>
             <span class="p">)</span>
 
-        <span class="k">if</span> <span class="n">debug</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">monitored</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">backend</span> <span class="o">==</span> <span class="n">Backend</span><span class="o">.</span><span class="n">GLOO</span><span class="p">:</span>
-                <span class="n">debug_pg</span> <span class="o">=</span> <span class="n">pg</span>
+                <span class="n">monitor_pg</span> <span class="o">=</span> <span class="n">pg</span>
             <span class="k">else</span><span class="p">:</span>
                 <span class="c1"># Gloo is needed for monitored barrier support.</span>
-                <span class="n">debug_pg</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">new_group</span><span class="p">(</span><span class="n">backend</span><span class="o">=</span><span class="n">Backend</span><span class="o">.</span><span class="n">GLOO</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span>
+                <span class="n">monitor_pg</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">new_group</span><span class="p">(</span><span class="n">backend</span><span class="o">=</span><span class="n">Backend</span><span class="o">.</span><span class="n">GLOO</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">debug_pg</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">monitor_pg</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="k">return</span> <span class="n">ProcessGroupGang</span><span class="p">(</span><span class="n">pg</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">debug_pg</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ProcessGroupGang</span><span class="p">(</span><span class="n">pg</span><span class="p">,</span> <span class="n">device</span><span class="p">,</span> <span class="n">monitor_pg</span><span class="o">=</span><span class="n">monitor_pg</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">from_process_group</span><span class="p">(</span><span class="n">pg</span><span class="p">:</span> <span class="n">ProcessGroup</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Device</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ProcessGroupGang</span><span class="p">:</span>
@@ -559,15 +562,15 @@
 
         <span class="n">pg</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">new_group</span><span class="p">(</span><span class="n">ranks</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="n">backend</span><span class="p">)</span>
 
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_debug_pg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_monitor_pg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">backend</span> <span class="o">==</span> <span class="n">Backend</span><span class="o">.</span><span class="n">GLOO</span><span class="p">:</span>
-                <span class="n">debug_pg</span> <span class="o">=</span> <span class="n">pg</span>
+                <span class="n">monitor_pg</span> <span class="o">=</span> <span class="n">pg</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">debug_pg</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">new_group</span><span class="p">(</span><span class="n">ranks</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="n">Backend</span><span class="o">.</span><span class="n">GLOO</span><span class="p">)</span>
+                <span class="n">monitor_pg</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">new_group</span><span class="p">(</span><span class="n">ranks</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="n">Backend</span><span class="o">.</span><span class="n">GLOO</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="n">debug_pg</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="n">monitor_pg</span> <span class="o">=</span> <span class="kc">None</span>
 
-        <span class="k">return</span> <span class="n">ProcessGroupGang</span><span class="p">(</span><span class="n">pg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="p">,</span> <span class="n">debug_pg</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">ProcessGroupGang</span><span class="p">(</span><span class="n">pg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="p">,</span> <span class="n">monitor_pg</span><span class="o">=</span><span class="n">monitor_pg</span><span class="p">)</span>
 
     <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">as_process_group</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ProcessGroup</span><span class="p">:</span>
@@ -575,12 +578,12 @@
 
     <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">barrier</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_debug_pg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_monitor_pg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">dist</span><span class="o">.</span><span class="n">barrier</span><span class="p">(</span><span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_pg</span><span class="p">,</span> <span class="n">device_ids</span><span class="o">=</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="o">.</span><span class="n">index</span><span class="p">])</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">synchronize</span><span class="p">()</span>
 
-            <span class="n">dist</span><span class="o">.</span><span class="n">monitored_barrier</span><span class="p">(</span><span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_debug_pg</span><span class="p">,</span> <span class="n">wait_all_ranks</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">dist</span><span class="o">.</span><span class="n">monitored_barrier</span><span class="p">(</span><span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_monitor_pg</span><span class="p">,</span> <span class="n">wait_all_ranks</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">all_reduce</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tensor</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">op</span><span class="p">:</span> <span class="n">ReduceOperation</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -609,12 +612,12 @@
         <span class="n">dist</span><span class="o">.</span><span class="n">broadcast_object_list</span><span class="p">(</span><span class="n">objects</span><span class="p">,</span> <span class="n">source_rank</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_maybe_monitored_barrier</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_debug_pg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_monitor_pg</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">return</span>
 
         <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">synchronize</span><span class="p">()</span>
 
-        <span class="n">dist</span><span class="o">.</span><span class="n">monitored_barrier</span><span class="p">(</span><span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_debug_pg</span><span class="p">,</span> <span class="n">wait_all_ranks</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">dist</span><span class="o">.</span><span class="n">monitored_barrier</span><span class="p">(</span><span class="n">group</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_monitor_pg</span><span class="p">,</span> <span class="n">wait_all_ranks</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="nd">@staticmethod</span>
     <span class="k">def</span> <span class="nf">_get_reduce_op</span><span class="p">(</span><span class="n">op</span><span class="p">:</span> <span class="n">ReduceOperation</span><span class="p">):</span>  <span class="c1"># type: ignore[no-untyped-def]</span>
@@ -790,25 +793,24 @@
 <span class="k">def</span> <span class="nf">setup_default_gang</span><span class="p">(</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">monitored</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="n">timeout</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">timedelta</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Gang</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Set up the default gang of this process.</span>
 
 <span class="sd">    :param device:</span>
 <span class="sd">        If ``None``; if CUDA is available, the gang will use the default CUDA</span>
 <span class="sd">        device of the process; otherwise, it will use the CPU.</span>
+<span class="sd">    :param monitored:</span>
+<span class="sd">        If ``True``,  puts a monitored barrier before every collective call.</span>
 <span class="sd">    :param timeout:</span>
 <span class="sd">        The timeout for collective operations.</span>
-<span class="sd">    :param debug:</span>
-<span class="sd">        If ``True``, turns on additional logging and synchronization checks</span>
-<span class="sd">        to help diagnose distributed training related issues.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">get_world_size</span><span class="p">()</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">FakeGang</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">ProcessGroupGang</span><span class="o">.</span><span class="n">init_default_process_group</span><span class="p">(</span>
-        <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span> <span class="n">debug</span><span class="o">=</span><span class="n">debug</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">monitored</span><span class="o">=</span><span class="n">monitored</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span>
     <span class="p">)</span>
 
 
