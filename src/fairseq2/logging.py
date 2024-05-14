@@ -125,7 +125,7 @@ class LogWriter:
         by this writer."""
         return self._logger.isEnabledFor(level)
 
-    def is_debug_enabled(self) -> bool:
+    def is_enabled_for_debug(self) -> bool:
         """Return ``True`` if a message of severity ``DEBUG`` would be processed
         by this writer."""
         return self._logger.isEnabledFor(logging.DEBUG)
