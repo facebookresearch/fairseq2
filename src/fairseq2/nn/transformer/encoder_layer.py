@@ -93,7 +93,7 @@ class StandardTransformerEncoderLayer(TransformerEncoderLayer):
         ffn: FeedForwardNetwork,
         *,
         scale_residual: bool = False,
-        dropout_p: float = 0.1,
+        dropout_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         layer_norm_factory: Optional[LayerNormFactory] = None,
         device: Optional[Device] = None,

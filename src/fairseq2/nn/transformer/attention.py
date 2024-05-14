@@ -6,7 +6,7 @@
 
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
-from typing import Generator, Optional, Protocol, Tuple, final
+from typing import Iterator, Optional, Protocol, Tuple, final
 
 import torch
 from torch import Tensor
@@ -78,6 +78,9 @@ class TorchSDPA(SDPA):
 
     attn_dropout_p: float
 
+    _has_warned: bool
+    _enable_memory_efficient: bool
+
     def __init__(self, *, attn_dropout_p: float = 0.0) -> None:
         """
         :param attn_dropout_p:
@@ -85,9 +88,14 @@ class TorchSDPA(SDPA):
         """
         super().__init__()
 
-        self._has_warned = False
-
         self.attn_dropout_p = attn_dropout_p
+
+        self._has_warned = False
+        self._enable_memory_efficient = True
+
+    def enable_memory_efficient(self, value: bool = True) -> None:
+        """Enable or disable the memory efficient SDPA implementation."""
+        self._enable_memory_efficient = value
 
     @override
     def forward(
@@ -151,15 +159,49 @@ class TorchSDPA(SDPA):
         else:
             mask = None
 
-        attn = scaled_dot_product_attention(
-            seqs, keys, values, attn_mask=mask, dropout_p=dropout_p, is_causal=is_causal
-        )
+        with _with_memory_efficient_kernel(self._enable_memory_efficient):
+            attn = scaled_dot_product_attention(
+                seqs,
+                keys,
+                values,
+                attn_mask=mask,
+                dropout_p=dropout_p,
+                is_causal=is_causal,
+            )
 
         return attn, None
 
     def extra_repr(self) -> str:
         """:meta private:"""
         return f"attn_dropout_p={self.attn_dropout_p:G}"
+
+
+def enable_memory_efficient_torch_sdpa(module: Module, value: bool) -> None:
+    """Enable or disable the memory efficient PyTorch SDPA implementation."""
+    for m in module.modules():
+        if isinstance(m, TorchSDPA):
+            m.enable_memory_efficient(value)
+
+
+try:
+    from torch.backends.cuda import enable_mem_efficient_sdp, mem_efficient_sdp_enabled
+
+    @contextmanager
+    def _with_memory_efficient_kernel(value: bool) -> Iterator[None]:
+        original_value = mem_efficient_sdp_enabled()
+
+        enable_mem_efficient_sdp(value)
+
+        try:
+            yield
+        finally:
+            enable_mem_efficient_sdp(original_value)
+
+except ImportError:
+
+    @contextmanager
+    def _with_memory_efficient_kernel(value: bool) -> Iterator[None]:
+        yield
 
 
 @final
@@ -286,7 +328,7 @@ def create_default_sdpa(*, attn_dropout_p: float = 0.0) -> SDPA:
 
 
 @contextmanager
-def default_sdpa_factory(factory: Optional[SDPAFactory]) -> Generator[None, None, None]:
+def default_sdpa_factory(factory: Optional[SDPAFactory]) -> Iterator[None]:
     """Set a temporary default :class:`SDPA` factory."""
     original_factory = _sdpa_factory
 

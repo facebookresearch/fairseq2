@@ -41,7 +41,7 @@ class Wav2Vec2Frontend(TransformerFrontend):
         *,
         first_pass_dropout_p: float = 0.0,
         layer_norm: bool = False,
-        dropout_p: float = 0.1,
+        dropout_p: float = 0.0,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:

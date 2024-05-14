@@ -84,7 +84,7 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
         *,
         no_scale: bool = False,
         layer_norm: bool = False,
-        dropout_p: float = 0.1,
+        dropout_p: float = 0.0,
         layer_norm_factory: Optional[LayerNormFactory] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,

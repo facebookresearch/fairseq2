@@ -49,7 +49,7 @@ class ConformerBlock(TransformerEncoderLayer):
         conv: ConformerConvolution,
         ffn2: FeedForwardNetwork,
         *,
-        dropout_p: float = 0.1,
+        dropout_p: float = 0.0,
         layer_norm_factory: Optional[LayerNormFactory] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
