@@ -192,6 +192,9 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
                     "`device` must either match `gang['tp'].size` or must be of type `meta`."
                 )
 
+        if device is None:
+            device = CPU
+
         if isinstance(model_name_or_card, AssetCard):
             card = model_name_or_card
         else:
@@ -271,7 +274,9 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
                 log.warning("One or more operators in {} constructor do not support the meta device. Skipping meta device initialization.", card.name)  # fmt: skip
 
         if model is None:
-            model = self._factory(config, device=device, dtype=dtype)
+            # Load on CPU to avoid OOM errors. This is particularly relevant for
+            # models that require sharding after initialization.
+            model = self._factory(config, device=CPU, dtype=dtype)
 
         if gang is not None and gang.size > 1:
             self._shard(model, gangs, card)  # type: ignore[arg-type]
@@ -283,10 +288,10 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
                 "`factory` returned a model that is not constructed correctly. See nested exception for details."
             ) from ex
 
-        if model_device == META:
+        if model_device != device:
             # Move the model to the actual device without initializing. Its
             # state will be overwritten by the checkpoint anyways.
-            to_empty(model, device=device or CPU)
+            to_empty(model, device=device)
 
         # Load the model.
         try:
