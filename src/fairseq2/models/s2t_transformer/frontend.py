@@ -36,7 +36,7 @@ class S2TTransformerFrontend(TransformerFrontend):
         pos_encoder: Optional[PositionEncoder],
         *,
         proj: bool = False,
-        dropout_p: float = 0.1,
+        dropout_p: float = 0.0,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
     ) -> None:

@@ -13,6 +13,9 @@ from fairseq2.nn.transformer.attention import (
     default_sdpa_factory as default_sdpa_factory,
 )
 from fairseq2.nn.transformer.attention import (
+    enable_memory_efficient_torch_sdpa as enable_memory_efficient_torch_sdpa,
+)
+from fairseq2.nn.transformer.attention import (
     set_default_sdpa_factory as set_default_sdpa_factory,
 )
 from fairseq2.nn.transformer.attention_mask import (

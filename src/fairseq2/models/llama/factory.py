@@ -239,6 +239,7 @@ class LLaMABuilder:
 
         return StandardTransformerDecoder(
             layers,
+            dropout_p=self._config.dropout_p,
             norm_order=TransformerNormOrder.PRE,
             layer_norm_factory=self.build_layer_norm,
             device=self._device,
@@ -257,7 +258,6 @@ class LLaMABuilder:
             self_attn,
             encoder_decoder_attn=None,
             ffn=ffn,
-            dropout_p=self._config.dropout_p,
             norm_order=TransformerNormOrder.PRE,
             layer_norm_factory=self.build_layer_norm,
             device=self._device,
@@ -296,6 +296,7 @@ class LLaMABuilder:
             bias=False,
             inner_dim_scale=self._config.ffn_inner_dim_scale,
             inner_dim_to_multiple=self._config.ffn_inner_dim_to_multiple,
+            inner_dropout_p=self._config.dropout_p,
             device=self._device,
             dtype=self._dtype,
         )

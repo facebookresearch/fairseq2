@@ -13,7 +13,7 @@ from typing import Any, Dict, Iterable, Iterator, Optional, Protocol, Tuple, fin
 import torch
 from torch import Generator, Tensor
 from torch.autograd import Function
-from torch.nn import Module, ModuleList
+from torch.nn import Dropout, Module, ModuleList
 from torch.utils.hooks import RemovableHandle
 
 from fairseq2.nn.normalization import LayerNorm
@@ -129,6 +129,7 @@ class StandardTransformerEncoder(TransformerEncoder):
     layer_drop_p: float
     generator: Optional[Generator]
     layer_norm: Optional[LayerNorm]
+    dropout_p: float
     norm_order: TransformerNormOrder
 
     def __init__(
@@ -138,6 +139,7 @@ class StandardTransformerEncoder(TransformerEncoder):
         self_attn_mask_factory: Optional[AttentionMaskFactory] = None,
         layer_drop_p: float = 0.0,
         generator: Optional[Generator] = None,
+        dropout_p: float = 0.0,
         norm_order: TransformerNormOrder = TransformerNormOrder.POST,
         layer_norm_factory: Optional[LayerNormFactory] = None,
         device: Optional[Device] = None,
@@ -152,7 +154,9 @@ class StandardTransformerEncoder(TransformerEncoder):
             If greater than zero, applies LayerDrop to the encoder layers as
             described in :cite:t:`https://doi.org/10.48550/arxiv.1909.11556`.
         :param generator:
-            The random number generator for LayerDrop.
+            The random number generator for LayerDrop probabilities.
+        :param dropout_p:
+            The dropout probability on encoder outputs.
         :param norm_order:
             The Layer Normalization order.
         :param layer_norm_factory:
@@ -181,6 +185,11 @@ class StandardTransformerEncoder(TransformerEncoder):
             self.layer_norm = layer_norm_factory(model_dim, device=device, dtype=dtype)
         else:
             self.register_module("layer_norm", None)
+
+        if dropout_p > 0.0:
+            self.dropout = Dropout(dropout_p)
+        else:
+            self.register_module("dropout", None)
 
         self.norm_order = norm_order
 
@@ -218,6 +227,9 @@ class StandardTransformerEncoder(TransformerEncoder):
 
         if self.layer_norm is not None:
             seqs = self.layer_norm(seqs)
+
+        if self.dropout is not None:
+            seqs = self.dropout(seqs)
 
         return seqs, padding_mask
 
