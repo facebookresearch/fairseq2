@@ -24,6 +24,7 @@ from typing import (
 
 import torch
 import yaml
+from torch.distributed._shard import load_with_process_group
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp.api import FullStateDictConfig, StateDictType
 from torch.nn import Module
@@ -499,27 +500,29 @@ class FileCheckpointManager(CheckpointManager):
 
         step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}")
 
-        for filename in filenames:
-            try:
-                part = load_checkpoint(
-                    step_dir.joinpath(filename), map_location=CPU, mmap=True
-                )
-            except FileNotFoundError:
-                part = None
-            except (RuntimeError, OSError, PickleError) as ex:
-                raise_error(ex)
+        # Load PyTorch's `ShardedTensor`s with the right gang.
+        with load_with_process_group(self._dp_gang.as_process_group()):
+            for filename in filenames:
+                try:
+                    part = load_checkpoint(
+                        step_dir.joinpath(filename), map_location=CPU, mmap=True
+                    )
+                except FileNotFoundError:
+                    part = None
+                except (RuntimeError, OSError, PickleError) as ex:
+                    raise_error(ex)
 
-            if part is not None:
-                # Restore the actual model key.
-                if filename.startswith("model") and self._model_key != "model":
-                    try:
-                        part = {self._model_key: part["model"]}
-                    except KeyError as ex:
-                        raise_error(ex)
+                if part is not None:
+                    # Restore the actual model key.
+                    if filename.startswith("model") and self._model_key != "model":
+                        try:
+                            part = {self._model_key: part["model"]}
+                        except KeyError as ex:
+                            raise_error(ex)
 
-                parts.append(part)
+                    parts.append(part)
 
-            self._root_gang.barrier()
+                self._root_gang.barrier()
 
         if not parts:
             raise CheckpointNotFoundError(f"Training step {step_nr} has no checkpoint.")

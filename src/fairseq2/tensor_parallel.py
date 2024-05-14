@@ -31,13 +31,11 @@ class _ReduceFunction(Function):
 
         gang.all_reduce(x, ReduceOperation.SUM)
 
-        x.requires_grad_(True)
-
         return x
 
     @staticmethod
-    def backward(ctx: Any, grad_output: Tensor) -> Tuple[Tensor, None]:
-        return grad_output, None
+    def backward(ctx: Any, grad_output: Tensor) -> Tuple[Tensor, None, None]:
+        return grad_output, None, None
 
 
 def scatter(x: Tensor, gang: Gang, dim: int = -1) -> Tensor:
@@ -53,13 +51,15 @@ class _ScatterFunction(Function):
     @staticmethod
     def forward(ctx: Any, x: Tensor, gang: Gang, dim: int) -> Tensor:
         ctx.dim = dim
-        ctx.data = gang
+        ctx.gang = gang
 
         return _do_scatter(x, gang, dim)
 
     @staticmethod
     def backward(ctx: Any, grad_output: Tensor) -> Tuple[Tensor, None, None]:
-        return _do_gather(grad_output, ctx.gang, ctx.dim), None, None
+        x = _do_gather(grad_output, ctx.gang, ctx.dim)
+
+        return x, None, None
 
 
 def gather(x: Tensor, gang: Gang, dim: int = -1) -> Tensor:
@@ -81,7 +81,9 @@ class _GatherFunction(Function):
 
     @staticmethod
     def backward(ctx: Any, grad_output: Tensor) -> Tuple[Tensor, None, None]:
-        return _do_scatter(grad_output, ctx.gang, ctx.dim), None, None
+        x = _do_scatter(grad_output, ctx.gang, ctx.dim)
+
+        return x, None, None
 
 
 def reduce_on_backward(x: Tensor, gang: Gang) -> Tensor:
@@ -92,13 +94,15 @@ def reduce_on_backward(x: Tensor, gang: Gang) -> Tensor:
 class _ReduceOnBackwardFunction(Function):
     @staticmethod
     def forward(ctx: Any, x: Tensor, gang: Gang) -> Tensor:
-        ctx.gang = Gang
+        ctx.gang = gang
 
         return x
 
     @staticmethod
     def backward(ctx: Any, grad_output: Tensor) -> Tuple[Tensor, None]:
-        return ctx.gang.all_reduce(grad_output), None
+        ctx.gang.all_reduce(grad_output, ReduceOperation.SUM)
+
+        return grad_output, None
 
 
 def _do_scatter(x: Tensor, gang: Gang, dim: int) -> Tensor:
@@ -112,9 +116,9 @@ def _do_scatter(x: Tensor, gang: Gang, dim: int) -> Tensor:
             f"The size of the dimension {dim} of `x` must be divisible by `gang.size` ({gang.size}), but is {dim_size} instead."
         )
 
-    splits = x.split(dim_size // gang.size, dim=-1)
+    splits = x.split(dim_size // gang.size, dim=dim)
 
-    return splits[gang.rank]
+    return splits[gang.rank].contiguous()
 
 
 def _do_gather(x: Tensor, gang: Gang, dim: int) -> Tensor:
