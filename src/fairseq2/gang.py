@@ -273,7 +273,7 @@ class ProcessGroupGang(AbstractGang):
             If ``True``, does not raise an error if the default process group is
             already initialized.
         """
-        if log.is_debug_enabled():
+        if log.is_enabled_for_debug():
             os.environ["TORCH_DISTRIBUTED_DEBUG"] = "INFO"
 
             dist.set_debug_level_from_env()
@@ -283,6 +283,8 @@ class ProcessGroupGang(AbstractGang):
 
         if dist.is_initialized():
             if ok_initialized:
+                log.info("Default process group is already initialized. Skipping initialization.")  # fmt: skip
+
                 return ProcessGroupGang.from_default_process_group()
 
             raise RuntimeError("The default process group is already initialized.")
@@ -653,7 +655,7 @@ def setup_default_gang(
         return FakeGang(device=device)
 
     return ProcessGroupGang.init_default_process_group(
-        device=device, monitored=monitored, timeout=timeout
+        device=device, monitored=monitored, timeout=timeout, ok_initialized=True
     )
 
 
@@ -688,7 +690,7 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Dict[str, Gang
 
     if root_gang.size % tp_size != 0:
         raise ValueError(
-            f"`tp_size` must be divisible by `root_gang.size` ({root_gang.size}), but is {tp_size} instead."
+            f"`root_gang.size` ({root_gang.size}) must be divisible by `tp_size` ({tp_size})."
         )
 
     dp_size = root_gang.size // tp_size
