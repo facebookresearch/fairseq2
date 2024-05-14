@@ -88,10 +88,13 @@ class DynamicLossScaler:
                         )
 
         if scale_window is None:
-            # The same formula that we use in fairseq.
-            scale_window = max(int(2**14 / gang.size / gradient_accumulation), 1)
+            if enabled:
+                # The same formula as in fairseq.
+                scale_window = max(int(2**14 / gang.size / gradient_accumulation), 1)
 
-            log.info("The scale window is set to {}.", scale_window)
+                log.info("The scale window is set to {}.", scale_window)
+            else:
+                scale_window = 1
 
         if not enabled or not sharded or gang.size == 1:
             self._grad_scaler = _InternalGradScaler(

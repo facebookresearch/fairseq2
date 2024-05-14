@@ -7,6 +7,7 @@
 from functools import partial
 
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
+    CheckpointImpl,
     apply_activation_checkpointing,
     checkpoint_wrapper,
 )
@@ -16,7 +17,7 @@ from fairseq2.nn.transformer import TransformerDecoderLayer, TransformerEncoderL
 
 
 def use_layerwise_activation_checkpointing(
-    module: Module, preserve_rng_state: bool = False
+    module: Module, preserve_rng_state: bool = True
 ) -> None:
     """Use layer-wise activation checkpointing in ``module``.
 
@@ -27,7 +28,11 @@ def use_layerwise_activation_checkpointing(
         for the CPU and the device of ``module`` during the original forward
         pass and restores them during the recomputation.
     """
-    wrap = partial(checkpoint_wrapper, preserve_rng_state=preserve_rng_state)
+    wrap = partial(
+        checkpoint_wrapper,
+        checkpoint_impl=CheckpointImpl.NO_REENTRANT,
+        preserve_rng_state=preserve_rng_state,
+    )
 
     def check_module_type(m: Module) -> bool:
         return isinstance(m, (TransformerEncoderLayer, TransformerDecoderLayer))
