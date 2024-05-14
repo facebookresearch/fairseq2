@@ -144,16 +144,21 @@ class ColumnShardedLinear(Projection):
     sharded_output_dim: int
     weight: Parameter
     bias: Optional[Parameter]
+    gather_output: bool
     init_fn: Optional[Callable[[Linear], None]]
 
     @staticmethod
-    def from_linear(linear: Linear, gang: Gang) -> ColumnShardedLinear:
+    def from_linear(
+        linear: Linear, gang: Gang, gather_output: bool = True
+    ) -> ColumnShardedLinear:
         """Construct a :class:`ColumnShardedLinear` by sharding ``linear``.
 
         :param linear:
             The projection to shard.
         :param gang:
             The gang over which to shard ``linear``.
+        :param gather_output:
+            If ``True``, gather the sharded output into a single tensor.
         """
         device = linear.weight.device
 
@@ -167,6 +172,7 @@ class ColumnShardedLinear(Projection):
             linear.input_dim,
             linear.output_dim,
             bias=linear.bias is not None,
+            gather_output=gather_output,
             init_fn=linear.init_fn,
             device=META,
             dtype=linear.weight.dtype,
@@ -175,7 +181,7 @@ class ColumnShardedLinear(Projection):
         if device != META:
             to_empty(sharded, device)
 
-        sharded._copy_weight_and_bias(linear)
+        sharded._copy_weight(linear)
 
         return sharded
 
@@ -186,6 +192,7 @@ class ColumnShardedLinear(Projection):
         output_dim: int,
         bias: bool,
         *,
+        gather_output: bool = True,
         init_fn: Optional[Callable[[Linear], None]] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
@@ -199,6 +206,8 @@ class ColumnShardedLinear(Projection):
             The dimensionality of projected outputs.
         :param bias:
             If ``True``, learns an additive bias.
+        :param gather_output:
+            If ``True``, gather the sharded output into a single tensor.
         :param init_fn:
             The callable to use for parameter initialization.
         """
@@ -233,6 +242,8 @@ class ColumnShardedLinear(Projection):
         else:
             self.register_parameter("bias", None)
 
+        self.gather_output = gather_output
+
         self.init_fn = init_fn
 
         self.reset_parameters()
@@ -241,9 +252,9 @@ class ColumnShardedLinear(Projection):
         """Reset the parameters and buffers of the module."""
         linear = self._linear_like(self.gang.device)
 
-        self._copy_weight_and_bias(linear)
+        self._copy_weight(linear)
 
-    def _copy_weight_and_bias(self, linear: Linear) -> None:
+    def _copy_weight(self, linear: Linear) -> None:
         with torch.no_grad():
             weight_shards = linear.weight.split(self.sharded_output_dim)
 
@@ -263,7 +274,8 @@ class ColumnShardedLinear(Projection):
 
         x = linear(x, self.weight, self.bias)
 
-        x = gather(x, self.gang, dim=-1)
+        if self.gather_output:
+            x = gather(x, self.gang, dim=-1)
 
         return x
 
@@ -300,12 +312,17 @@ class ColumnShardedLinear(Projection):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = super().extra_repr()
+        s = f"input_dim={self.input_dim}"
+
+        if self.gather_output:
+            s = f"{s}, output_dim={self.output_dim}"
+        else:
+            s = f"{s}, output_dim={self.sharded_output_dim}"
 
         s = (
             f"{s}, "
             f"bias={self.bias is not None}, "
-            f"sharded_output_dim={self.sharded_output_dim}, "
+            f"gather_output={self.gather_output}, "
             f"rank={self.gang.rank}, "
             f"world_size={self.gang.size}"
         )
@@ -326,16 +343,22 @@ class RowShardedLinear(Projection):
     sharded_input_dim: int
     weight: Parameter
     bias: Optional[Parameter]
+    scatter_input: bool
     init_fn: Optional[Callable[[Linear], None]]
 
     @staticmethod
-    def from_linear(linear: Linear, gang: Gang) -> RowShardedLinear:
+    def from_linear(
+        linear: Linear, gang: Gang, scatter_input: bool = False
+    ) -> RowShardedLinear:
         """Construct a :class:`RowShardedLinear` by sharding ``linear``.
 
         :param linear:
             The projection to shard.
         :param gang:
             The gang over which to shard ``linear``.
+        :param scatter_input:
+            If ``True``, inputs are considered already sharded and won't be
+            scattered.
         """
         device = linear.weight.device
 
@@ -349,6 +372,7 @@ class RowShardedLinear(Projection):
             linear.input_dim,
             linear.output_dim,
             bias=linear.bias is not None,
+            scatter_input=scatter_input,
             init_fn=linear.init_fn,
             device=META,
             dtype=linear.weight.dtype,
@@ -357,7 +381,7 @@ class RowShardedLinear(Projection):
         if device != META:
             to_empty(sharded, device)
 
-        sharded._copy_weight_and_bias(linear)
+        sharded._copy_weight(linear)
 
         return sharded
 
@@ -368,6 +392,7 @@ class RowShardedLinear(Projection):
         output_dim: int,
         bias: bool,
         *,
+        scatter_input: bool = True,
         init_fn: Optional[Callable[[Linear], None]] = None,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
@@ -381,6 +406,9 @@ class RowShardedLinear(Projection):
             The dimensionality of projected outputs.
         :param bias:
             If ``True``, learns an additive bias.
+        :param scatter_input:
+            If ``True``, scatters the input tensor; otherwise, considers it
+            already sharded.
         :param init_fn:
             The callable to use for parameter initialization.
         """
@@ -415,6 +443,8 @@ class RowShardedLinear(Projection):
         else:
             self.register_parameter("bias", None)
 
+        self.scatter_input = scatter_input
+
         self.init_fn = init_fn
 
         self.reset_parameters()
@@ -423,9 +453,9 @@ class RowShardedLinear(Projection):
         """Reset the parameters and buffers of the module."""
         linear = self._linear_like(self.gang.device)
 
-        self._copy_weight_and_bias(linear)
+        self._copy_weight(linear)
 
-    def _copy_weight_and_bias(self, linear: Linear) -> None:
+    def _copy_weight(self, linear: Linear) -> None:
         with torch.no_grad():
             weight_shards = linear.weight.split(self.sharded_input_dim, dim=1)
 
@@ -439,7 +469,8 @@ class RowShardedLinear(Projection):
 
     @override
     def forward(self, x: Tensor) -> Tensor:
-        x = scatter(x, self.gang, dim=-1)
+        if self.scatter_input:
+            x = scatter(x, self.gang, dim=-1)
 
         x = linear(x, self.weight)
 
@@ -481,12 +512,16 @@ class RowShardedLinear(Projection):
 
     def extra_repr(self) -> str:
         """:meta private:"""
-        s = super().extra_repr()
+        if self.scatter_input:
+            s = f"input_dim={self.input_dim}"
+        else:
+            s = f"input_dim={self.sharded_input_dim}"
 
         s = (
             f"{s}, "
+            f"output_dim={self.output_dim}, "
             f"bias={self.bias is not None}, "
-            f"sharded_input_dim={self.sharded_input_dim}, "
+            f"scatter_input={self.scatter_input}, "
             f"rank={self.gang.rank}, "
             f"world_size={self.gang.size}"
         )

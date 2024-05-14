@@ -18,7 +18,6 @@ from fairseq2.models.transformer.frontend import (
 )
 from fairseq2.nn import (
     ColumnShardedLinear,
-    Embedding,
     Linear,
     Projection,
     RowShardedLinear,
@@ -30,6 +29,7 @@ from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.nn.transformer import (
     GLUFeedForwardNetwork,
+    StandardFeedForwardNetwork,
     StandardMultiheadAttention,
     TransformerDecoder,
 )
@@ -98,65 +98,106 @@ class TransformerDecoderModel(DecoderModel):
         return SequenceModelOutput(logits, self.vocab_info.pad_idx)
 
 
+# mypy: disable-error-code="arg-type"
+
+
 def shard_transformer_decoder_model(
     model: TransformerDecoderModel, gang: Gang, shard_embed_dim: bool = False
 ) -> None:
-    """Shard ``model`` over ``gang``.
+    """Shard ``model`` over ``gang`` for tensor parallelism.
 
     :param model:
         The model to shard.
     :param gang:
         The gang used for tensor parallelism.
     :param shard_embed_dim:
-        If ``True``, shards :class:`StandardEmbedding` instances across
-        embedding dimension instead of vocabulary dimension.
+        If ``True``, shards :class:`StandardEmbedding` instances over the
+        embedding dimension; otherwise, over the vocabulary dimension.
     """
     if gang.size == 1:
         return
 
-    def shard_embedding(embed: Embedding) -> Embedding:
-        if isinstance(embed, StandardEmbedding):
-            if shard_embed_dim:
-                return ShardedEmbedding.from_embedding(embed, gang)
+    def shard_embed_frontend(m: TransformerEmbeddingFrontend) -> None:
+        if not isinstance(m.embed, StandardEmbedding):
+            return
 
-            return VocabShardedEmbedding.from_embedding(embed, gang)
+        if shard_embed_dim:
+            m.embed = ShardedEmbedding.from_embedding(m.embed, gang)
+        else:
+            m.embed = VocabShardedEmbedding.from_embedding(m.embed, gang)
 
-        return embed
+    def shard_mha(m: StandardMultiheadAttention) -> None:
+        for proj in (m.q_proj, m.k_proj, m.v_proj, m.output_proj):
+            if not isinstance(proj, Linear):
+                return
 
-    def row_shard(proj: Projection) -> Projection:
-        if isinstance(proj, Linear):
-            return RowShardedLinear.from_linear(proj, gang)
+        # Scatter.
+        m.q_proj = ColumnShardedLinear.from_linear(m.q_proj, gang, gather_output=False)
+        m.k_proj = ColumnShardedLinear.from_linear(m.k_proj, gang, gather_output=False)
+        m.v_proj = ColumnShardedLinear.from_linear(m.v_proj, gang, gather_output=False)
 
-        return proj
+        # Gather.
+        m.output_proj = RowShardedLinear.from_linear(
+            m.output_proj, gang, scatter_input=False
+        )
 
-    def column_shard(proj: Projection) -> Projection:
-        if isinstance(proj, Linear):
-            return ColumnShardedLinear.from_linear(proj, gang)
+        m.num_heads = m.num_heads // gang.size
+        m.num_key_value_heads = m.num_key_value_heads // gang.size
 
-        return proj
+    def shard_ffn(m: StandardFeedForwardNetwork) -> None:
+        for proj in (m.inner_proj, m.outer_proj):
+            if not isinstance(proj, Linear):
+                return
+
+        # Scatter.
+        m.inner_proj = ColumnShardedLinear.from_linear(
+            m.inner_proj, gang, gather_output=False
+        )
+
+        # Gather.
+        m.output_proj = RowShardedLinear.from_linear(
+            m.output_proj, gang, scatter_input=False
+        )
+
+    def shard_glu_ffn(m: GLUFeedForwardNetwork) -> None:
+        for proj in (m.gate_proj, m.inner_proj, m.output_proj):
+            if not isinstance(proj, Linear):
+                return
+
+        # Scatter.
+        m.gate_proj = ColumnShardedLinear.from_linear(
+            m.gate_proj, gang, gather_output=False
+        )
+
+        m.inner_proj = ColumnShardedLinear.from_linear(
+            m.inner_proj, gang, gather_output=False
+        )
+
+        # Gather.
+        m.output_proj = RowShardedLinear.from_linear(
+            m.output_proj, gang, scatter_input=False
+        )
 
     for m in model.modules():
         if isinstance(m, TransformerEmbeddingFrontend):
-            m.embed = shard_embedding(m.embed)
+            shard_embed_frontend(m)
 
             continue
 
         if isinstance(m, StandardMultiheadAttention):
-            m.q_proj = column_shard(m.q_proj)
-            m.k_proj = column_shard(m.k_proj)
-            m.v_proj = column_shard(m.v_proj)
+            shard_mha(m)
 
-            m.output_proj = row_shard(m.output_proj)
+            continue
+
+        if isinstance(m, StandardFeedForwardNetwork):
+            shard_ffn(m)
 
             continue
 
         if isinstance(m, GLUFeedForwardNetwork):
-            m.gate_proj = column_shard(m.gate_proj)
-
-            m.inner_proj = column_shard(m.inner_proj)
-
-            m.output_proj = row_shard(m.output_proj)
+            shard_glu_ffn(m)
 
             continue
 
-    model.final_proj = column_shard(model.final_proj)
+    if isinstance(model.final_proj, Linear):
+        model.final_proj = ColumnShardedLinear.from_linear(model.final_proj, gang)

@@ -181,7 +181,7 @@ class VocabShardedEmbedding(Embedding):
         if device != META:
             to_empty(sharded, device)
 
-        sharded._copy_table(embed)
+        sharded._copy_weight(embed)
 
         return sharded
 
@@ -240,11 +240,11 @@ class VocabShardedEmbedding(Embedding):
 
     def reset_parameters(self) -> None:
         """Reset the parameters and buffers of the module."""
-        embed = self._embed_like(self.gang.device)
+        embed = self._embedding_like(self.gang.device)
 
-        self._copy_table(embed)
+        self._copy_weight(embed)
 
-    def _copy_table(self, embed: StandardEmbedding) -> None:
+    def _copy_weight(self, embed: StandardEmbedding) -> None:
         with torch.no_grad():
             weight_shards = embed.weight.split(self.sharded_num_embeddings, dim=0)
 
@@ -287,7 +287,7 @@ class VocabShardedEmbedding(Embedding):
 
     def to_embedding(self, device: Optional[Device] = None) -> StandardEmbedding:
         """Convert this instance to a :class:`StandardEmbedding`."""
-        embed = self._embed_like(META)
+        embed = self._embedding_like(META)
 
         to_empty(embed, device or self.gang.device)
 
@@ -298,7 +298,7 @@ class VocabShardedEmbedding(Embedding):
 
         return embed
 
-    def _embed_like(self, device: Device) -> StandardEmbedding:
+    def _embedding_like(self, device: Device) -> StandardEmbedding:
         return StandardEmbedding(
             self.num_embeddings,
             self.embedding_dim,
@@ -312,12 +312,7 @@ class VocabShardedEmbedding(Embedding):
         """:meta private:"""
         s = super().extra_repr()
 
-        s = (
-            f"{s}, "
-            f"sharded_num_embeddings={self.sharded_num_embeddings}, "
-            f"rank={self.gang.rank}, "
-            f"world_size={self.gang.size}"
-        )
+        s = f"{s}, rank={self.gang.rank}, world_size={self.gang.size}"
 
         if self.init_fn is not None:
             init_fn = getattr(self.init_fn, "__name__", self.init_fn)
@@ -366,7 +361,7 @@ class ShardedEmbedding(Embedding):
         if device != META:
             to_empty(sharded, device)
 
-        sharded._copy_table(embed)
+        sharded._copy_weight(embed)
 
         return sharded
 
@@ -425,11 +420,11 @@ class ShardedEmbedding(Embedding):
 
     def reset_parameters(self) -> None:
         """Reset the parameters and buffers of the module."""
-        embed = self._embed_like(self.gang.device)
+        embed = self._embedding_like(self.gang.device)
 
-        self._copy_table(embed)
+        self._copy_weight(embed)
 
-    def _copy_table(self, embed: StandardEmbedding) -> None:
+    def _copy_weight(self, embed: StandardEmbedding) -> None:
         with torch.no_grad():
             weight_shards = embed.weight.split(self.sharded_embedding_dim, dim=1)
 
@@ -447,7 +442,7 @@ class ShardedEmbedding(Embedding):
 
     def to_embedding(self, device: Optional[Device] = None) -> StandardEmbedding:
         """Convert this instance to a :class:`StandardEmbedding`."""
-        embed = self._embed_like(META)
+        embed = self._embedding_like(META)
 
         to_empty(embed, device or self.gang.device)
 
@@ -458,7 +453,7 @@ class ShardedEmbedding(Embedding):
 
         return embed
 
-    def _embed_like(self, device: Device) -> StandardEmbedding:
+    def _embedding_like(self, device: Device) -> StandardEmbedding:
         return StandardEmbedding(
             self.num_embeddings,
             self.embedding_dim,
@@ -472,12 +467,7 @@ class ShardedEmbedding(Embedding):
         """:meta private:"""
         s = super().extra_repr()
 
-        s = (
-            f"{s}, "
-            f"sharded_embedding_dim={self.sharded_embedding_dim}, "
-            f"rank={self.gang.rank}, "
-            f"world_size={self.gang.size}"
-        )
+        s = f"{s}, rank={self.gang.rank}, world_size={self.gang.size}"
 
         if self.init_fn is not None:
             init_fn = getattr(self.init_fn, "__name__", self.init_fn)
