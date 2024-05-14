@@ -108,10 +108,19 @@ class Wav2Vec2AsrModel(Model):
 
 def init_final_projection(proj: Linear) -> None:
     """Initialize ``proj`` as the final projection of a wav2vec 2.0 ASR model."""
-    nn.init.xavier_uniform_(proj.weight)
+    path = "/large_experiments/mms/users/krs/wa2vec2_lv60k_100h_final_proj.pt"
+    weight_tensor = torch.load(path)
 
-    if proj.bias is not None:
-        nn.init.zeros_(proj.bias)
+    proj_weight = weight_tensor["weight"]
+    proj_bias = weight_tensor["bias"]
+
+    proj_weight = proj_weight.to(device=proj.weight.device, dtype=proj.weight.dtype)
+    proj_bias = proj_bias.to(device=proj.bias.device, dtype=proj.bias.dtype)
+
+    with torch.no_grad():
+        proj.weight.copy_(proj_weight)
+        if proj.bias is not None:
+            proj.bias.copy_(proj_bias)
 
 
 @final

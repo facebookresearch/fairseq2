@@ -260,7 +260,7 @@ class SDPAFactory(Protocol):
 
 
 def _get_fallback_sdpa_factory() -> SDPAFactory:
-    return TorchSDPA
+    return NaiveSDPA
 
 
 _sdpa_factory: SDPAFactory = _get_fallback_sdpa_factory()
