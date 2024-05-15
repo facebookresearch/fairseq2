@@ -504,9 +504,11 @@ class FileCheckpointManager(CheckpointManager):
 
         def maybe_with_dp_process_group() -> ContextManager[None]:
             try:
-                return load_with_process_group(self._dp_gang.as_process_group())
+                pg = self._dp_gang.as_process_group()
             except RuntimeError:
                 return nullcontext()
+
+            return load_with_process_group(pg)
 
         # Load PyTorch's `ShardedTensor`s with the right gang.
         with maybe_with_dp_process_group():
