@@ -5,12 +5,14 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
+from contextlib import nullcontext
 from os import scandir
 from pathlib import Path
 from pickle import PickleError
 from shutil import rmtree
 from typing import (
     Any,
+    ContextManager,
     Dict,
     Iterator,
     List,
@@ -500,8 +502,16 @@ class FileCheckpointManager(CheckpointManager):
 
         step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}")
 
+        def maybe_with_dp_process_group() -> ContextManager[None]:
+            try:
+                pg = self._dp_gang.as_process_group()
+            except RuntimeError:
+                return nullcontext()
+
+            return load_with_process_group(pg)
+
         # Load PyTorch's `ShardedTensor`s with the right gang.
-        with load_with_process_group(self._dp_gang.as_process_group()):
+        with maybe_with_dp_process_group():
             for filename in filenames:
                 try:
                     part = load_checkpoint(
