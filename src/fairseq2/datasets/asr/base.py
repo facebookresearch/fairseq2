@@ -29,6 +29,7 @@ class AsrDataset(ABC):
         *,
         dtype: Optional[DataType] = None,
         min_audio_len: int = 1,
+        normalize_audio_features: bool = False,
         shuffle_window_size: int = 1,
         num_repeats: Optional[int] = 1,
         num_accumulate: int = 1,
@@ -53,6 +54,9 @@ class AsrDataset(ABC):
         :param min_audio_len:
             The minimum audio length of each example. Examples shorter than
             this value will be dropped.
+        :param normalize_audio_features:
+            If True, the audio tensors will be normalized to have zero mean
+            and unit variance.
         :param shuffle_window_size:
             The size of the shuffle window. If ``1``, no shuffling is performed;
             if ``0``, performs true shuffling by loading the entire dataset.
