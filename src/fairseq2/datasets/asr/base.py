@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from fairseq2.data.text import TextTokenizer
 from fairseq2.datasets.data_reader import DataReader
@@ -29,11 +29,13 @@ class AsrDataset(ABC):
         *,
         dtype: Optional[DataType] = None,
         min_audio_len: int = 1,
+        normalize_audio: bool = False,
         shuffle_window_size: int = 1,
         num_repeats: Optional[int] = 1,
         num_accumulate: int = 1,
         num_prefetch: int = 0,
         seed: int = 2,
+        **extras: Any,
     ) -> DataReader[Seq2SeqBatch]:
         """Create a dataset reader.
 
@@ -53,6 +55,8 @@ class AsrDataset(ABC):
         :param min_audio_len:
             The minimum audio length of each example. Examples shorter than
             this value will be dropped.
+        :param normalize_audio:
+            If ``True``, normalizes audio to have zero mean and unit variance.
         :param shuffle_window_size:
             The size of the shuffle window. If ``1``, no shuffling is performed;
             if ``0``, performs true shuffling by loading the entire dataset.
@@ -66,6 +70,8 @@ class AsrDataset(ABC):
             The number of batches to prefetch in background.
         :param seed:
             The seed to initialize the random number generators used internally.
+        :param extras:
+            The extra parameters specific to the dataset implementation.
         """
 
     @abstractmethod
