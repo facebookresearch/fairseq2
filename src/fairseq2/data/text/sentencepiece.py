@@ -185,9 +185,9 @@ class BasicSentencePieceTokenizer(SentencePieceTokenizer):
         """Create a token encoder.
 
         :param task:
-            Not used.
+            Must be ``None``.
         :param lang:
-            Not used.
+            Must be ``None``.
         :param mode:
             Must be 'default', 'prompt', or 'prompt_response'. If ``None``,
             defaults to 'default'.
@@ -238,6 +238,66 @@ class BasicSentencePieceTokenizerLoader(
 
 
 default_basic_sentencepiece_tokenizer_loader = BasicSentencePieceTokenizerLoader()
+
+
+@final
+class RawSentencePieceTokenizer(SentencePieceTokenizer):
+    """Represents a SentencePiece tokenizer that encodes text with no control symbols."""
+
+    def __init__(self, path: Path) -> None:
+        """
+        :param path:
+            The path to the SentencePiece model file.
+        """
+        super().__init__(path)
+
+    @override
+    def create_encoder(
+        self,
+        *,
+        task: Optional[str] = None,
+        lang: Optional[str] = None,
+        mode: Optional[str] = None,
+        device: Optional[Device] = None,
+        pin_memory: bool = False,
+    ) -> SentencePieceEncoder:
+        """Create a token encoder.
+
+        :param task:
+            Must be ``None``.
+        :param lang:
+            Must be ``None``.
+        :param mode:
+            Must be ``None``.
+        :param device:
+            The device on which to construct tensors.
+        :param pin_memory:
+            If ``True``, uses pinned memory while constructing tensors.
+        """
+        if task is not None:
+            raise ValueError(f"`task` must be `None`, but is '{task}' instead.")
+
+        if lang is not None:
+            raise ValueError(f"`lang` must be `None`, but is '{lang}' instead.")
+
+        if mode is not None:
+            raise ValueError(f"`mode` must be `None`, but is '{mode}' instead.")
+
+        return self.create_raw_encoder(device=device, pin_memory=pin_memory)
+
+
+@final
+class RawSentencePieceTokenizerLoader(
+    AbstractTextTokenizerLoader[RawSentencePieceTokenizer]
+):
+    """Loads tokenizers of type :class:`RawSentencePieceTokenizer`."""
+
+    @override
+    def _load(self, path: Path, card: AssetCard) -> RawSentencePieceTokenizer:
+        return RawSentencePieceTokenizer(path)
+
+
+default_raw_sentencepiece_tokenizer_loader = RawSentencePieceTokenizerLoader()
 
 
 def vocab_info_from_sentencepiece(model: SentencePieceModel) -> VocabularyInfo:
