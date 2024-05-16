@@ -264,11 +264,18 @@ def apply_to_parameters(
                     child, fn, recurse=recurse, memo=memo, no_memo=no_memo
                 )
 
-    def call_fn(source: Tensor) -> Tensor:
+    def call_fn(
+        source: Tensor, is_param: bool = False, requires_grad: bool = False
+    ) -> Tensor:
         if memo is not None and source in memo:
             return memo[source]
 
         target = fn(source)
+
+        if is_param:
+            target = Parameter(target, requires_grad)
+        elif requires_grad:
+            target.requires_grad_(requires_grad)
 
         if memo is not None:
             memo[source] = target
@@ -280,13 +287,13 @@ def apply_to_parameters(
             continue
 
         with torch.no_grad():
-            new_param = Parameter(call_fn(param), param.requires_grad)
+            new_param = call_fn(param, is_param=True, requires_grad=param.requires_grad)
 
         setattr(module, param_name, new_param)
 
         if (grad := param.grad) is not None:
             with torch.no_grad():
-                new_grad = call_fn(grad).requires_grad_(grad.requires_grad)
+                new_grad = call_fn(grad, requires_grad=grad.requires_grad)
 
             new_param.grad = new_grad
 
