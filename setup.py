@@ -41,7 +41,7 @@ setup(
     packages=find_namespace_packages(where="src"),
     package_data={
         "fairseq2": ["py.typed"],
-        "fairseq2.assets.cards": ["*.yaml"],
+        "fairseq2.assets.cards": ["**/*.yaml"],
     },
     zip_safe=False,
     python_requires=">=3.8",
