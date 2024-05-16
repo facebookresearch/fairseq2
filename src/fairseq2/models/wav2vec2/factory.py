@@ -151,6 +151,16 @@ class Wav2Vec2EncoderConfig:
     """The kernel size of depthwise convolutions in Conformer blocks."""
 
 
+wav2vec2_encoder_archs = ConfigRegistry[Wav2Vec2EncoderConfig]()
+
+wav2vec2_encoder_arch = wav2vec2_encoder_archs.decorator
+
+
+@wav2vec2_encoder_arch("base")
+def _base_encoder() -> Wav2Vec2EncoderConfig:
+    return Wav2Vec2EncoderConfig()
+
+
 @dataclass
 class Wav2Vec2Config:
     """Holds the configuration of a wav2vec 2.0 model.
@@ -159,7 +169,7 @@ class Wav2Vec2Config:
     :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`.
     """
 
-    encoder_config: Wav2Vec2EncoderConfig = field(default_factory=Wav2Vec2EncoderConfig)
+    encoder_config: Wav2Vec2EncoderConfig = field(default_factory=_base_encoder)
     """The configuration of the wav2vec 2.0 encoder."""
 
     final_dim: int = 256
