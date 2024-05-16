@@ -326,7 +326,7 @@ class ModelLoader(Generic[ModelT, ConfigT]):
         else:
             if self.skip_meta_init:
                 model = self.model_factory(config, device=device, dtype=dtype)
-                model_device = device
+                model_device = device or CPU
             else:
                 try:
                     # Try to construct the model on the meta device.
