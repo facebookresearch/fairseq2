@@ -18,6 +18,12 @@ from fairseq2.models.wav2vec2.factory import (
 )
 from fairseq2.models.wav2vec2.factory import wav2vec2_arch as wav2vec2_arch
 from fairseq2.models.wav2vec2.factory import wav2vec2_archs as wav2vec2_archs
+from fairseq2.models.wav2vec2.factory import (
+    wav2vec2_encoder_arch as wav2vec2_encoder_arch,
+)
+from fairseq2.models.wav2vec2.factory import (
+    wav2vec2_encoder_archs as wav2vec2_encoder_archs,
+)
 from fairseq2.models.wav2vec2.feature_extractor import (
     Wav2Vec2FbankFeatureExtractor as Wav2Vec2FbankFeatureExtractor,
 )
