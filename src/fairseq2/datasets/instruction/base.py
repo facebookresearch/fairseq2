@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from fairseq2.data.text import TextTokenizer
 from fairseq2.datasets.data_reader import DataPipelineReader
@@ -31,6 +31,7 @@ class InstructionDataset(ABC):
         num_accumulate: int = 1,
         num_prefetch: int = 0,
         seed: int = 2,
+        **extras: Any,
     ) -> DataPipelineReader[SequenceBatch]:
         """Create a dataset reader.
 
@@ -58,6 +59,8 @@ class InstructionDataset(ABC):
             The number of batches to prefetch in background.
         :param seed:
             The seed to initialize the random number generators used internally.
+        :param extras:
+            The extra parameters specific to the dataset implementation.
         """
 
     @abstractmethod

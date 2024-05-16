@@ -78,6 +78,7 @@ class NllbDataset(ParallelTextDataset):
         num_accumulate: int = 1,
         num_prefetch: int = 0,
         seed: int = 2,
+        **extras: Any,
     ) -> DataPipelineReader[Seq2SeqBatch]:
         splits = []
 

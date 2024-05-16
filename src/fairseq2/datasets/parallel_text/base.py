@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import List, NamedTuple, Optional, Sequence
+from typing import Any, List, NamedTuple, Optional, Sequence
 
 from fairseq2.data.text import TextTokenizer
 from fairseq2.datasets.data_reader import DataReader
@@ -48,6 +48,7 @@ class ParallelTextDataset(ABC):
         num_accumulate: int = 1,
         num_prefetch: int = 0,
         seed: int = 2,
+        **extras: Any,
     ) -> DataReader[Seq2SeqBatch]:
         """Create a dataset reader.
 
@@ -80,6 +81,8 @@ class ParallelTextDataset(ABC):
             The number of batches to prefetch in background.
         :param seed:
             The seed to initialize the random number generators used internally.
+        :param extras:
+            The extra parameters specific to the dataset implementation.
         """
 
     @abstractmethod
