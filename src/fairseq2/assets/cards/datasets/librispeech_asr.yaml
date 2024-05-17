@@ -5,5 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 name: librispeech_asr
-dataset_family: librispeech_asr
+dataset_family: generic_asr
+tokenizer_family: librispeech_asr
 tokenizer: "https://dl.fbaipublicfiles.com/fairseq/wav2vec/librispeech_asr.model"

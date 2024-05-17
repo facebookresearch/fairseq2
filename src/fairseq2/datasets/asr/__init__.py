@@ -9,8 +9,10 @@ from fairseq2.datasets.asr.base import load_asr_dataset as load_asr_dataset
 
 # isort: split
 
+from fairseq2.datasets.asr.generic import _register_generic
 from fairseq2.datasets.asr.librispeech import _register_librispeech_asr
 
 
 def _register_asr_datasets() -> None:
+    _register_generic()
     _register_librispeech_asr()

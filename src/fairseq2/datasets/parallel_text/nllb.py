@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple, cast, final
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple, cast, final
 
 from fairseq2.assets import AssetCard, AssetCardError
 from fairseq2.data import (
@@ -74,9 +74,8 @@ class NllbDataset(ParallelTextDataset):
         lang_pairs: Optional[Sequence[LangPair]] = None,
         sample: bool = False,
         shuffle_window_size: int = 1,
-        num_repeats: Optional[int] = 1,
         num_accumulate: int = 1,
-        num_prefetch: int = 0,
+        num_prefetch: int = 1,
         seed: int = 2,
         **extras: Any,
     ) -> DataPipelineReader[Seq2SeqBatch]:
@@ -128,7 +127,6 @@ class NllbDataset(ParallelTextDataset):
             max_num_tokens,
             sample,
             shuffle_window_size,
-            num_repeats,
             num_prefetch,
             seed,
         )
@@ -140,17 +138,17 @@ class NllbDataset(ParallelTextDataset):
             gang,
             num_accumulate=num_accumulate,
             drop_remainder=False,
-            sync_batches=num_repeats is not None,
+            sync_batches=True,
         )
 
     @override
-    def splits(self) -> List[str]:
-        return list(self._split_lang_pairs.keys())
+    def splits(self) -> Set[str]:
+        return set(self._split_lang_pairs.keys())
 
     @override
-    def lang_pairs(self, split: str) -> List[LangPair]:
+    def lang_pairs(self, split: str) -> Set[LangPair]:
         try:
-            return list(self._split_lang_pairs[split].keys())
+            return set(self._split_lang_pairs[split].keys())
         except KeyError:
             raise ValueError(
                 f"`split` must be a valid split name, but the {self._dataset_name} dataset has no split named '{split}'."
@@ -167,7 +165,6 @@ class _NllbDataPipelineBuilder:
     _max_num_tokens: int
     _sample: bool
     _shuffle_window_size: int
-    _num_repeats: Optional[int]
     _num_prefetch: int
     _seed: int
 
@@ -182,7 +179,6 @@ class _NllbDataPipelineBuilder:
         max_num_tokens: int,
         sample: bool,
         shuffle_window_size: int,
-        num_repeats: Optional[int],
         num_prefetch: int,
         seed: int,
     ) -> None:
@@ -195,7 +191,6 @@ class _NllbDataPipelineBuilder:
         self._max_num_tokens = max_num_tokens
         self._sample = sample
         self._shuffle_window_size = shuffle_window_size
-        self._num_repeats = num_repeats
         self._num_prefetch = num_prefetch
         self._seed = seed
 
@@ -318,8 +313,6 @@ class _NllbDataPipelineBuilder:
         return source_file, target_file
 
     def _build_pipeline(self, builder: DataPipelineBuilder) -> DataPipeline:
-        builder.repeat(self._num_repeats)
-
         # Shuffle examples.
         builder.shuffle(self._shuffle_window_size, self._seed + 1)
 
