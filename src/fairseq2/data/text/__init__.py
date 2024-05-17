@@ -11,7 +11,7 @@ from fairseq2.data.text.sentencepiece import (
     BasicSentencePieceTokenizer as BasicSentencePieceTokenizer,
 )
 from fairseq2.data.text.sentencepiece import (
-    BasicSentencePieceTokenizerLoader as BasicSentencePieceTokenizerLoader,
+    RawSentencePieceTokenizer as RawSentencePieceTokenizer,
 )
 from fairseq2.data.text.sentencepiece import (
     SentencePieceDecoder as SentencePieceDecoder,
@@ -25,6 +25,9 @@ from fairseq2.data.text.sentencepiece import (
 )
 from fairseq2.data.text.sentencepiece import (
     default_basic_sentencepiece_tokenizer_loader as default_basic_sentencepiece_tokenizer_loader,
+)
+from fairseq2.data.text.sentencepiece import (
+    default_raw_sentencepiece_tokenizer_loader as default_raw_sentencepiece_tokenizer_loader,
 )
 from fairseq2.data.text.sentencepiece import (
     vocab_info_from_sentencepiece as vocab_info_from_sentencepiece,

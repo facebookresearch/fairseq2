@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Iterable, Optional, Tuple, final
+from typing import Any, Iterable, Optional, Tuple, final
 
 import editdistance
 import torch
@@ -118,3 +118,13 @@ class WerMetric(Metric[Tuple[Tensor, Tensor]]):
             self.word_len += metric.word_len.to(self.device)
 
         return self
+
+    def __getstate__(self) -> Any:
+        data = dict(self.__dict__)
+
+        del data["_text_decoder"]
+
+        return data
+
+    def __setstate__(self, state: Any) -> None:
+        self.__dict__.update(state)
