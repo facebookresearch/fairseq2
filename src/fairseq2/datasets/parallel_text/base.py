@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, List, NamedTuple, Optional, Sequence
+from typing import Any, NamedTuple, Optional, Sequence, Set
 
 from fairseq2.data.text import TextTokenizer
 from fairseq2.datasets.data_reader import DataReader
@@ -44,9 +44,8 @@ class ParallelTextDataset(ABC):
         lang_pairs: Optional[Sequence[LangPair]] = None,
         sample: bool = False,
         shuffle_window_size: int = 1,
-        num_repeats: Optional[int] = 1,
         num_accumulate: int = 1,
-        num_prefetch: int = 0,
+        num_prefetch: int = 1,
         seed: int = 2,
         **extras: Any,
     ) -> DataReader[Seq2SeqBatch]:
@@ -71,9 +70,6 @@ class ParallelTextDataset(ABC):
         :param shuffle_window_size:
             The size of the shuffle window. If ``1``, no shuffling is performed;
             if ``0``, performs true shuffling by loading the entire dataset.
-        :param num_repeats:
-            The dataset will be repeatedly read this many times. If ``None``, it
-            will be read indefinitely.
         :param num_accumulate:
             The number of batches to accumulate in each iteration. Typically
             used with gradient accumulation during training.
@@ -86,12 +82,12 @@ class ParallelTextDataset(ABC):
         """
 
     @abstractmethod
-    def splits(self) -> List[str]:
-        """Return the list of splits."""
+    def splits(self) -> Set[str]:
+        """Return the set of splits."""
 
     @abstractmethod
-    def lang_pairs(self, split: str) -> List[LangPair]:
-        """Return the list of language pairs of ``split``."""
+    def lang_pairs(self, split: str) -> Set[LangPair]:
+        """Return the set of language pairs of ``split``."""
 
 
 load_parallel_text_dataset = DelegatingDatasetLoader[ParallelTextDataset]()
