@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import os
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Protocol, final
@@ -203,21 +202,3 @@ def _load_user_asset_directory() -> None:
 
 
 _load_user_asset_directory()
-
-
-# TODO: Move to fairseq2-ext.
-def _load_faircluster() -> None:
-    if "FAIR_ENV_CLUSTER" not in os.environ:
-        return
-
-    default_asset_store.env_resolvers.append(lambda: "faircluster")
-
-    # This directory is meant to store cluster-wide asset cards.
-    asset_dir = Path("/checkpoint/balioglu/fairseq2-ext/cards")
-    if asset_dir.exists():
-        default_asset_store.metadata_providers.append(
-            FileAssetMetadataProvider(asset_dir)
-        )
-
-
-_load_faircluster()

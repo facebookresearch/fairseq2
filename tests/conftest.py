@@ -11,30 +11,28 @@ from typing import cast
 from pytest import Config, Parser, Session
 
 import tests.common
+from fairseq2 import setup_extensions
 from fairseq2.typing import Device
 
 
-def parse_device_arg(value: str) -> Device:
-    try:
-        return Device(value)
-    except RuntimeError:
-        raise ArgumentTypeError(f"'{value}' is not a valid device name.")
-
-
 def pytest_addoption(parser: Parser) -> None:
-    # fmt: off
     parser.addoption(
-        "--device", default="cpu", type=parse_device_arg,
+        "--device",
+        default="cpu",
+        type=_parse_device,
         help="device on which to run tests (default: %(default)s)",
     )
     parser.addoption(
-        "--integration", default=False, action="store_true",
+        "--integration",
+        default=False,
+        action="store_true",
         help="whether to run the integration tests",
     )
-    # fmt: on
 
 
 def pytest_sessionstart(session: Session) -> None:
+    setup_extensions()
+
     tests.common.device = cast(Device, session.config.getoption("device"))
 
 
@@ -44,3 +42,10 @@ def pytest_ignore_collect(collection_path: Path, path: None, config: Config) -> 
         return not cast(bool, config.getoption("integration"))
 
     return False
+
+
+def _parse_device(value: str) -> Device:
+    try:
+        return Device(value)
+    except RuntimeError:
+        raise ArgumentTypeError(f"'{value}' is not a valid device name.")
