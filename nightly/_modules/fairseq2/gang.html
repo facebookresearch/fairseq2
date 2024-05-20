@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.gang &mdash; fairseq2 0.3.0.dev202405130137+gdfb520e documentation</title>
+  <title>fairseq2.gang &mdash; fairseq2 0.3.0.dev202405200137+ga754d6a documentation</title>
       <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202405130137+gdfb520e
+                0.3.0.dev202405200137+ga754d6a
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -430,7 +430,7 @@
 <span class="sd">            If ``True``, does not raise an error if the default process group is</span>
 <span class="sd">            already initialized.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">log</span><span class="o">.</span><span class="n">is_debug_enabled</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">log</span><span class="o">.</span><span class="n">is_enabled_for_debug</span><span class="p">():</span>
             <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">[</span><span class="s2">&quot;TORCH_DISTRIBUTED_DEBUG&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;INFO&quot;</span>
 
             <span class="n">dist</span><span class="o">.</span><span class="n">set_debug_level_from_env</span><span class="p">()</span>
@@ -440,6 +440,8 @@
 
         <span class="k">if</span> <span class="n">dist</span><span class="o">.</span><span class="n">is_initialized</span><span class="p">():</span>
             <span class="k">if</span> <span class="n">ok_initialized</span><span class="p">:</span>
+                <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Default process group is already initialized. Skipping initialization.&quot;</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
+
                 <span class="k">return</span> <span class="n">ProcessGroupGang</span><span class="o">.</span><span class="n">from_default_process_group</span><span class="p">()</span>
 
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;The default process group is already initialized.&quot;</span><span class="p">)</span>
@@ -810,7 +812,7 @@
         <span class="k">return</span> <span class="n">FakeGang</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">ProcessGroupGang</span><span class="o">.</span><span class="n">init_default_process_group</span><span class="p">(</span>
-        <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">monitored</span><span class="o">=</span><span class="n">monitored</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">monitored</span><span class="o">=</span><span class="n">monitored</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span> <span class="n">ok_initialized</span><span class="o">=</span><span class="kc">True</span>
     <span class="p">)</span>
 
 
@@ -845,7 +847,7 @@
 
     <span class="k">if</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">size</span> <span class="o">%</span> <span class="n">tp_size</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
         <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;`tp_size` must be divisible by `root_gang.size` (</span><span class="si">{</span><span class="n">root_gang</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">tp_size</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+            <span class="sa">f</span><span class="s2">&quot;`root_gang.size` (</span><span class="si">{</span><span class="n">root_gang</span><span class="o">.</span><span class="n">size</span><span class="si">}</span><span class="s2">) must be divisible by `tp_size` (</span><span class="si">{</span><span class="n">tp_size</span><span class="si">}</span><span class="s2">).&quot;</span>
         <span class="p">)</span>
 
     <span class="n">dp_size</span> <span class="o">=</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">size</span> <span class="o">//</span> <span class="n">tp_size</span>
