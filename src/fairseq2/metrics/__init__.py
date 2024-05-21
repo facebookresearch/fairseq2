@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from fairseq2.metrics.bag import MetricBag as MetricBag
+from fairseq2.metrics.bag import merge_metric_states as merge_metric_states
 from fairseq2.metrics.bag import reset_metrics as reset_metrics
 from fairseq2.metrics.bag import sync_and_compute_metrics as sync_and_compute_metrics
 from fairseq2.metrics.recorder import LogMetricRecorder as LogMetricRecorder
