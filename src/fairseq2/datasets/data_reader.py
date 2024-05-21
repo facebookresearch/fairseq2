@@ -46,6 +46,11 @@ class DataReader(ABC, Iterator[List[BatchT_co]]):
     def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
         ...
 
+    @property
+    @abstractmethod
+    def num_accumulate(self) -> int:
+        """The number of batches accumulated in each iteration."""
+
 
 @final
 class DataPipelineReader(DataReader[BatchT]):
@@ -143,3 +148,8 @@ class DataPipelineReader(DataReader[BatchT]):
         self._eod = False
 
         self._pipeline.load_state_dict(state_dict)
+
+    @property
+    @override
+    def num_accumulate(self) -> int:
+        return self._num_accumulate
