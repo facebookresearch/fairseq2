@@ -42,6 +42,18 @@ class AbstractLRScheduler(ABC, LRScheduler):
 
 
 @final
+class NoopLR(AbstractLRScheduler):
+    """Represents a no-op learning rate schedule."""
+
+    def __init__(self, optimizer: Optimizer, *, last_epoch: int = -1) -> None:
+        super().__init__(optimizer, last_epoch)
+
+    @override
+    def _compute_lrs(self) -> List[float]:
+        return self.base_lrs
+
+
+@final
 class CosineAnnealingLR(AbstractLRScheduler):
     """Represents the learning rate schedule described in
     :cite:t:`https://doi.org/10.48550/arxiv.1608.03983`.
