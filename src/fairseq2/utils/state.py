@@ -58,6 +58,11 @@ class StatefulObjectBag:
         )
 
     def __setattr__(self, name: str, value: Any) -> None:
+        # TODO: fix!
+        if name == "__orig_class__":
+            super().__setattr__(name, value)
+            return
+
         if name in self._stateful_objects:
             _, state_handler = self._stateful_objects[name]
 

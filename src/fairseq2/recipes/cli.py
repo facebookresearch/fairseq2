@@ -24,7 +24,7 @@ from fairseq2.recipes.utils.environment import (
     EnvironmentSetterRegistry,
     default_env_setters,
 )
-from fairseq2.recipes.utils.log import exception_logger
+from fairseq2.recipes.utils.log import exception_logger, log_config
 from fairseq2.recipes.utils.sweep import generate_sweep_tag
 from fairseq2.typing import DataClass, override
 from fairseq2.utils.dataclass import FieldError, dump_dataclass, update_dataclass
@@ -499,6 +499,8 @@ class RecipeCommand(CliCommand, Generic[RecipeConfigT]):
             log.exception("Recipe logging cannot be set up.")
 
             sys.exit(1)
+
+        log_config(config, log, output_dir.joinpath("config.yaml"))
 
         # Run the recipe.
         recipe = self._loader(config, output_dir)
