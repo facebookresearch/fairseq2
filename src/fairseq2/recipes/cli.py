@@ -25,7 +25,7 @@ from fairseq2.recipes.utils.environment import (
     default_env_setters,
 )
 from fairseq2.recipes.utils.log import exception_logger, log_config
-from fairseq2.recipes.utils.sweep import generate_sweep_tag
+from fairseq2.recipes.utils.sweep import SweepTagger, default_sweep_tagger
 from fairseq2.typing import DataClass, override
 from fairseq2.utils.dataclass import FieldError, dump_dataclass, update_dataclass
 from fairseq2.utils.value_converter import ValueConverter, default_value_converter
@@ -254,9 +254,10 @@ class RecipeCommand(CliCommand, Generic[RecipeConfigT]):
     _loader: RecipeLoader[RecipeConfigT]
     _preset_configs: ConfigRegistry[RecipeConfigT]
     _default_preset: str
-    _parser: Optional[ArgumentParser]
     _env_setters: EnvironmentSetterRegistry
     _value_converter: ValueConverter
+    _sweep_tagger: SweepTagger
+    _parser: Optional[ArgumentParser]
 
     def __init__(
         self,
@@ -268,12 +269,13 @@ class RecipeCommand(CliCommand, Generic[RecipeConfigT]):
         help: Optional[str] = None,
         env_setters: Optional[EnvironmentSetterRegistry] = None,
         value_converter: Optional[ValueConverter] = None,
+        sweep_tagger: Optional[SweepTagger] = None,
     ) -> None:
         """
         :param name:
             The name of the command.
         :param loader:
-            The recipe laoder.
+            The recipe loader.
         :param preset_configs:
             The registry containing the preset recipe configurations.
         :param default_preset:
@@ -286,6 +288,9 @@ class RecipeCommand(CliCommand, Generic[RecipeConfigT]):
         :param value_converter:
             The :class:`ValueConverter` instance to use. If ``None``, the
             default instance will be used.
+        :param sweep_tagger:
+            The :class:`SweepTagger` instance to use. If ``None``, the default
+            instance will be used.
         """
         self._name = name
         self._help = help
@@ -294,6 +299,7 @@ class RecipeCommand(CliCommand, Generic[RecipeConfigT]):
         self._default_preset = default_preset
         self._env_setters = env_setters or default_env_setters
         self._value_converter = value_converter or default_value_converter
+        self._sweep_tagger = sweep_tagger or default_sweep_tagger
         self._parser = None
 
     @override
@@ -464,14 +470,6 @@ class RecipeCommand(CliCommand, Generic[RecipeConfigT]):
 
         self._parser = None
 
-        # Determine the output directory.
-        if args.no_sweep_dir:
-            output_dir = args.output_dir
-        else:
-            tag = generate_sweep_tag(args.preset, preset_config, config)
-
-            output_dir = args.output_dir.joinpath(tag)
-
         # Set up cluster-specific environment variables.
         if args.cluster == "auto":
             env_setter = self._env_setters.get_for_inferred_cluster()
@@ -489,6 +487,14 @@ class RecipeCommand(CliCommand, Generic[RecipeConfigT]):
             log.exception("'{}' cluster environment cannot be set.", env_setter.cluster)  # fmt: skip
 
             sys.exit(1)
+
+        # Determine the output directory.
+        if args.no_sweep_dir:
+            output_dir = args.output_dir
+        else:
+            tag = self._sweep_tagger(args.preset, preset_config, config)
+
+            output_dir = args.output_dir.joinpath(tag)
 
         # Set up distributed logging.
         log_dir = output_dir.joinpath("logs/rank_{rank}.log")

@@ -4,109 +4,170 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+import os
 import re
 from dataclasses import fields
 from enum import Enum
-from typing import Any, Mapping, Optional, Sequence
+from typing import Any, Final, Mapping, Optional, Sequence, Set
 
 from fairseq2.typing import DataClass, DataType, is_dataclass_instance
 
 
-def generate_sweep_tag(preset: str, preset_config: DataClass, config: DataClass) -> str:
-    """Generate a sweep tag from the diff of ``preset_config`` and ``config``."""
-    if type(config) is not type(preset_config):
-        raise ValueError(
-            f"`config` must be of the same type as `preset_config` (`{type(preset_config)}`), but is of type `{type(config)}` instead."
-        )
+class SweepTagger:
+    """Generates a sweep tag from the diff of two recipe configurations."""
 
-    output = [_remove_non_word(preset)]
+    _DEFAULT_SKIP_SET: Final = {
+        "activation_checkpointing",
+        "anomaly_detection",
+        "checkpoint_after_n_steps",
+        "checkpoint_every_n_steps",
+        "keep_best_n_checkpoints",
+        "keep_last_n_checkpoints",
+        "monitored_gang",
+        "num_prefetch",
+        "profile",
+        "publish_metrics_after_n_steps",
+        "publish_metrics_every_n_steps",
+        "torch_compile",
+        "validate_after_n_steps",
+        "validate_every_n_steps",
+    }
 
-    def generate(config: DataClass) -> None:
-        for field in fields(config):
-            value = getattr(config, field.name)
+    def __init__(self, *, skip_set: Optional[Set[str]] = None) -> None:
+        """
+        :param skip_set:
+            The configuration field names to skip while generating the sweep tag.
+        """
+        if skip_set is None:
+            skip_set = self._DEFAULT_SKIP_SET.copy()
 
-            if is_dataclass_instance(value):
-                generate(config)
-            else:
-                if s := _to_tag_value(value):
-                    output.append(f"{field.name}_{s}")
+        self._skip_set = skip_set
 
-    def generate_from_diff(preset_config: DataClass, config: DataClass) -> None:
-        for field in fields(config):
-            value = getattr(config, field.name)
+    def extend_skip_set(self, extras: Set[str]) -> None:
+        """Extend the skipped configuration field names with ``extras``."""
+        self._skip_set.update(extras)
 
-            preset_value = getattr(preset_config, field.name)
+    def __call__(self, preset: str, preset_config: DataClass, config: DataClass) -> str:
+        """
+        :param preset:
+            The name of the preset recipe.
+        :param preset_config:
+            The preset (i.e. ground-truth) recipe configuration.
+        :param config:
+            The recipe configuration for which to generate a sweep tag.
+        """
+        if type(config) is not type(preset_config):
+            raise ValueError(
+                f"`config` must be of the same type as `preset_config` (`{type(preset_config)}`), but is of type `{type(config)}` instead."
+            )
 
-            if is_dataclass_instance(preset_value):
-                if type(value) is type(preset_value):
-                    generate_from_diff(preset_value, value)
-                else:
-                    generate(value)
-            else:
-                if preset_value == value:
-                    continue
+        output = [self._remove_non_word(preset)]
 
-                if s := _to_tag_value(value):
-                    output.append(f"{field.name}_{s}")
+        try:
+            world_size = os.environ["WORLD_SIZE"]
+        except KeyError:
+            world_size = "1"
 
-    generate_from_diff(preset_config, config)
+        output.append(f"ws_{world_size}")
 
-    s = ".".join(output)
+        def abbrv(s: str) -> str:
+            if s.endswith("_name"):
+                s = s[:-5]
 
-    return s[:256]  # Cap to maximum 256 characters.
+            if s.startswith("num_"):
+                s = f"n_{s[4:]}"
+
+            return s
+
+        def generate(config: DataClass) -> None:
+            for field in fields(config):
+                value = getattr(config, field.name)
+
+                if is_dataclass_instance(value):
+                    generate(config)
+                elif not field.name in self._skip_set:
+                    if s := self._to_tag_value(value):
+                        output.append(f"{abbrv(field.name)}_{s}")
+
+        def generate_from_diff(preset_config: DataClass, config: DataClass) -> None:
+            for field in fields(config):
+                value = getattr(config, field.name)
+
+                preset_value = getattr(preset_config, field.name)
+
+                if is_dataclass_instance(preset_value):
+                    if type(value) is type(preset_value):
+                        generate_from_diff(preset_value, value)
+                    else:
+                        generate(value)
+                elif not field.name in self._skip_set:
+                    if preset_value == value:
+                        continue
+
+                    if s := self._to_tag_value(value):
+                        output.append(f"{abbrv(field.name)}_{s}")
+
+        generate_from_diff(preset_config, config)
+
+        s = ".".join(output)
+
+        return s[:256]  # Cap to maximum 256 characters.
+
+    @classmethod
+    def _to_tag_value(cls, value: Any) -> Optional[str]:
+        if isinstance(value, str):
+            return cls._remove_non_word(value)
+
+        if isinstance(value, bool):
+            return "t" if value else "f"
+
+        if isinstance(value, (int, float)):
+            return f"{value}"
+
+        if isinstance(value, DataType):
+            return f"{value}"[6:]
+
+        if isinstance(value, Enum):
+            return value.name
+
+        if isinstance(value, Sequence):
+            output = []
+
+            for v in value:
+                if s := cls._to_tag_value(v):
+                    output.append(s)
+
+            if not output:
+                return None
+
+            s = "-".join(output)
+
+            return f"b{s}e"
+
+        if isinstance(value, Mapping):
+            output = []
+
+            for k, v in value.items():
+                ks = cls._to_tag_value(k)
+                vs = cls._to_tag_value(v)
+
+                if ks and vs:
+                    output.append(f"{ks}_{vs}")
+
+            if not output:
+                return None
+
+            output.sort()
+
+            s = "-".join(output)
+
+            return f"b{s}e"
+
+        return None
+
+    @staticmethod
+    def _remove_non_word(s: str) -> str:
+        return re.sub(r"[^-_\w]", "", s)
 
 
-def _to_tag_value(value: Any) -> Optional[str]:
-    if isinstance(value, str):
-        return _remove_non_word(value)
-
-    if isinstance(value, bool):
-        return "t" if value else "f"
-
-    if isinstance(value, (int, float)):
-        return f"{value}"
-
-    if isinstance(value, DataType):
-        return f"{value}"[6:]
-
-    if isinstance(value, Enum):
-        return value.name
-
-    if isinstance(value, Sequence):
-        output = []
-
-        for v in value:
-            if s := _to_tag_value(v):
-                output.append(s)
-
-        if not output:
-            return None
-
-        s = "-".join(output)
-
-        return f"b{s}e"
-
-    if isinstance(value, Mapping):
-        output = []
-
-        for k, v in value.items():
-            ks = _to_tag_value(k)
-            vs = _to_tag_value(v)
-
-            if ks and vs:
-                output.append(f"{ks}_{vs}")
-
-        if not output:
-            return None
-
-        output.sort()
-
-        s = "-".join(output)
-
-        return f"b{s}e"
-
-    return None
-
-
-def _remove_non_word(s: str) -> str:
-    return re.sub(r"[^\w]", "", s)
+default_sweep_tagger = SweepTagger()
