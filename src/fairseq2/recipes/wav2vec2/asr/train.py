@@ -51,11 +51,17 @@ class Wav2Vec2AsrTrainConfig:
     """
 
     # Data
-    dataset_name: str = "librispeech_asr_10h"
+    dataset_name: str = "librilight_asr_10h"
     """The dataset to train with."""
 
     tokenizer_name: str = "librispeech_asr"
     """The tokenizer to use."""
+
+    train_split: str = "train"
+    """The name of the dataset split to train width."""
+
+    valid_split: str = "dev_other"
+    """The name of the dataset split to validate with."""
 
     min_audio_len: int = 1
     """The minimum audio sequence length."""
@@ -209,7 +215,7 @@ def load_wav2vec2_asr_trainer(
     dataset = load_asr_dataset(config.dataset_name)
 
     train_data_reader = dataset.create_reader(
-        split="train",
+        split=config.train_split,
         tokenizer=tokenizer,
         gang=gang,
         dtype=config.dtype,
@@ -224,7 +230,7 @@ def load_wav2vec2_asr_trainer(
     )
 
     valid_data_reader = dataset.create_reader(
-        split="valid",
+        split=config.valid_split,
         tokenizer=tokenizer,
         gang=gang,
         dtype=config.dtype,

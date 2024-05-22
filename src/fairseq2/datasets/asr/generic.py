@@ -83,9 +83,6 @@ class GenericAsrDataset(AsrDataset):
             The maximum number of file descriptors to keep open while reading
             audio files.
         """
-        if split == "valid":  # pseudo-split
-            split = "dev_other"
-
         if split not in self._splits:
             raise ValueError(
                 f"`split` must be a valid split name, but the {self._dataset_name} dataset has no split named '{split}'."
