@@ -171,7 +171,7 @@ def _base_10h() -> Wav2Vec2AsrTrainConfig:
 def _base_100h() -> Wav2Vec2AsrTrainConfig:
     config = _base_10h()
 
-    config.dataset_name = "librispeech_100h"
+    config.dataset_name = "librispeech_asr_100h"
 
     config.model_config = wav2vec2_asr_archs.get("base_100h")
 
