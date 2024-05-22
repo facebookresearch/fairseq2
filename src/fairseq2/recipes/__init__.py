@@ -9,6 +9,7 @@ from importlib_metadata import entry_points
 from fairseq2.recipes.cli import Cli
 from fairseq2.recipes.llama import _setup_llama_cli
 from fairseq2.recipes.lm import _setup_lm_cli
+from fairseq2.recipes.wav2vec2.asr import _setup_wav2vec2_asr_cli
 
 
 def main() -> None:
@@ -27,6 +28,7 @@ def main() -> None:
 def _setup_cli(cli: Cli) -> None:
     _setup_lm_cli(cli)
     _setup_llama_cli(cli)
+    _setup_wav2vec2_asr_cli(cli)
 
     # Set up 3rd party CLI extensions.
     for entry_point in entry_points(group="fairseq2.cli"):
