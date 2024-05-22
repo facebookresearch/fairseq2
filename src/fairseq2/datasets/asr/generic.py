@@ -1,0 +1,257 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+from pathlib import Path
+from typing import Any, Dict, List, Set, cast, final
+
+import torch
+from torch import Tensor
+from torch.nn.functional import layer_norm
+
+from fairseq2.assets import AssetCard
+from fairseq2.data import (
+    CollateOptionsOverride,
+    Collater,
+    DataPipeline,
+    FileMapper,
+    SequenceData,
+    create_bucket_sizes,
+    read_sequence,
+)
+from fairseq2.data.audio import AudioDecoder
+from fairseq2.data.text import StrSplitter, TextTokenizer, read_text
+from fairseq2.datasets.asr.base import AsrDataset, load_asr_dataset
+from fairseq2.datasets.data_reader import DataPipelineReader
+from fairseq2.datasets.error import DatasetError
+from fairseq2.datasets.loader import AbstractDatasetLoader
+from fairseq2.gang import Gang
+from fairseq2.models.seq2seq import Seq2SeqBatch
+from fairseq2.nn.padding import get_seqs_and_padding_mask
+from fairseq2.typing import DataType, override
+
+# TODO: FIX, INFER
+npc = 10
+
+
+@final
+class GenericAsrDataset(AsrDataset):
+    """Represents a generic manifest-based ASR dataset."""
+
+    _dataset_name: str
+    _manifest_dir: Path
+    _splits: Set[str]
+
+    def __init__(self, dataset_name: str, manifest_dir: Path) -> None:
+        """
+        :param dataset_name:
+            The name of the dataset.
+        :param manifest_dir:
+            The directory under which the manifest files resides.
+        """
+        self._dataset_name = dataset_name
+        self._manifest_dir = manifest_dir
+
+        self._splits = set()
+
+        for tsv_file in manifest_dir.glob("*.tsv"):
+            self._splits.add(tsv_file.stem)
+
+    @override
+    def create_reader(
+        self,
+        split: str,
+        tokenizer: TextTokenizer,
+        gang: Gang,
+        max_audio_len: int,
+        max_num_elements: int,
+        *,
+        dtype: DataType = torch.float32,
+        min_audio_len: int = 1,
+        normalize_audio: bool = False,
+        shuffle_window_size: int = 1,
+        num_accumulate: int = 1,
+        num_prefetch: int = 1,
+        seed: int = 2,
+        cached_fd_count: int = 1000,
+        **extras: Any,
+    ) -> DataPipelineReader[Seq2SeqBatch]:
+        """
+        :param cached_fd_count:
+            The maximum number of file descriptors to keep open while reading
+            audio files.
+        """
+        if split not in self._splits:
+            raise ValueError(
+                f"`split` must be a valid split name, but the {self._dataset_name} dataset has no split named '{split}'."
+            )
+
+        root_data_dir = self._retrieve_data_directory(split)
+
+        manifest = self._load_manifest(split)
+
+        builder = read_sequence(manifest)
+
+        # Shuffle the entire manifest. Must be consistent across all processes.
+        builder.shuffle(shuffle_window=0, seed=seed)
+
+        # Shard.
+        builder.shard(gang.rank, gang.size, allow_uneven=True)
+
+        # Bucket by audio length.
+        bucket_sizes = create_bucket_sizes(
+            max_num_elements=max_num_elements,
+            max_seq_len=max_audio_len,
+            min_seq_len=min_audio_len,
+            num_seqs_multiple_of=8,
+        )
+
+        builder.bucket_by_length(
+            bucket_sizes,
+            selector="audio_size",
+            min_data_len=min_audio_len,
+            skip_below_min_examples=True,
+            skip_above_max_examples=True,
+        )
+
+        # Shuffle buckets.
+        builder.shuffle(shuffle_window_size, seed=seed + 1 + gang.rank)
+
+        # Memory map audio files.
+        file_mapper = FileMapper(root_data_dir, cached_fd_count=cached_fd_count)
+
+        builder.map(file_mapper, selector="[*].audio")
+
+        # Decode audio.
+        audio_decoder = AudioDecoder(dtype=torch.float32 if normalize_audio else dtype)
+
+        builder.map(audio_decoder, selector="[*].audio.data")
+
+        # TODO(balioglu): Check/adjust sample size
+
+        # Normalize audio if requested.
+        def normalize(waveform: Tensor) -> Tensor:
+            with torch.no_grad():
+                waveform = layer_norm(waveform, waveform.shape)
+
+            return waveform.to(dtype)
+
+        if normalize_audio:
+            builder.map(normalize, selector="[*].audio.data.waveform")
+
+        # Tokenize target text.
+        text_encoder = tokenizer.create_encoder()
+
+        builder.map(text_encoder, selector="[*].text", num_parallel_calls=npc)
+
+        # Collate bucketed examples into a batch.
+        text_collate_opts = CollateOptionsOverride(
+            "text", pad_value=tokenizer.vocab_info.pad_idx
+        )
+
+        collater = Collater(pad_value=0, overrides=[text_collate_opts])
+
+        builder.map(collater, num_parallel_calls=npc)
+
+        # Prefetch `num_prefetch` examples in background.
+        builder.prefetch(num_prefetch)
+
+        # Wrap examples with `Seq2SeqBatch`.
+        def _example_to_batch(example: Dict[str, Any]) -> Seq2SeqBatch:
+            source_data = cast(SequenceData, example["audio"]["data"]["waveform"])
+            target_data = cast(SequenceData, example["text"])
+
+            source_seqs, source_padding_mask = get_seqs_and_padding_mask(
+                source_data, gang.device
+            )
+            target_seqs, target_padding_mask = get_seqs_and_padding_mask(
+                target_data, gang.device
+            )
+
+            return Seq2SeqBatch(
+                source_seqs,
+                source_padding_mask,
+                target_seqs,
+                target_padding_mask,
+                example,
+            )
+
+        pipeline = builder.map(_example_to_batch).and_return()
+
+        return DataPipelineReader[Seq2SeqBatch](
+            pipeline,
+            gang,
+            num_accumulate=num_accumulate,
+            drop_remainder=False,
+            sync_batches=True,
+        )
+
+    def _retrieve_data_directory(self, split: str) -> Path:
+        tsv_file = self._manifest_dir.joinpath(f"{split}.tsv")
+
+        try:
+            with tsv_file.open() as fp:
+                line = fp.readline().rstrip()
+        except OSError as ex:
+            raise DatasetError(
+                f"The manifest file '{tsv_file}' of the {self._dataset_name} dataset cannot be read. See nested exception for details."
+            ) from ex
+
+        try:
+            return Path(line)
+        except ValueError:
+            raise DatasetError(
+                f"The first line of the manifest file '{tsv_file}' of the {self._dataset_name} dataset must point to a data directory."
+            )
+
+    def _load_manifest(self, split: str) -> List[Any]:
+        def build_tsv_pipeline() -> DataPipeline:
+            tsv_file = self._manifest_dir.joinpath(f"{split}.tsv")
+
+            builder = read_text(tsv_file, rtrim=True, memory_map=True)
+
+            builder.skip(1)
+
+            field_splitter = StrSplitter(names=["audio", "audio_size"])
+
+            builder.map(field_splitter, num_parallel_calls=npc)
+
+            return builder.and_return()
+
+        def build_wrd_pipeline() -> DataPipeline:
+            wrd_file = self._manifest_dir.joinpath(f"{split}.wrd")
+
+            builder = read_text(wrd_file, key="text", rtrim=True, memory_map=True)
+
+            return builder.and_return()
+
+        tsv_pipeline = build_tsv_pipeline()
+        wrd_pipeline = build_wrd_pipeline()
+
+        builder = DataPipeline.zip([tsv_pipeline, wrd_pipeline], flatten=True)
+
+        # Cast audio size to integer.
+        builder.map(int, selector="audio_size")
+
+        # TODO: Use `cache()` op.
+        return list(builder.and_return())
+
+    @override
+    def splits(self) -> Set[str]:
+        return self._splits
+
+
+@final
+class GenericAsrDatasetLoader(AbstractDatasetLoader[GenericAsrDataset]):
+    @override
+    def _load(self, path: Path, card: AssetCard) -> GenericAsrDataset:
+        return GenericAsrDataset(card.name, path)
+
+
+load_generic_asr_dataset = GenericAsrDatasetLoader()
+
+
+def _register_generic() -> None:
+    load_asr_dataset.register("generic_asr", load_generic_asr_dataset)

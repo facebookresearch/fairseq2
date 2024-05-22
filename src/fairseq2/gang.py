@@ -735,4 +735,4 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Dict[str, Gang
     assert dp_gang is not None
     assert tp_gang is not None
 
-    return {"dp": dp_gang, "tp": tp_gang}
+    return {"root": root_gang, "dp": dp_gang, "tp": tp_gang}

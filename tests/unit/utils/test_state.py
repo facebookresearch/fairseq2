@@ -10,6 +10,8 @@ import pytest
 
 from fairseq2.utils.state import StatefulObjectBag, StateHandler
 
+# mypy: disable-error-code="attr-defined"
+
 
 class TestStatefulObjectBag:
     def test_state_dict_works(self) -> None:
@@ -31,6 +33,8 @@ class TestStatefulObjectBag:
 
         bag = StatefulObjectBag()
 
+        bag.foo1 = None
+
         bag.register_stateful("foo1", "value1")
         bag.register_stateful("foo2", "value2", FooStateHandler())
 
@@ -48,7 +52,10 @@ class TestStatefulObjectBag:
 
         del bag.foo3
 
-        with pytest.raises(ValueError, match="^`state_dict` must contain items"):
+        with pytest.raises(
+            ValueError,
+            match="^`state_dict` must only contain the states of the attributes of this object, but it contains the following extra keys: foo3",
+        ):
             bag.load_state_dict(state_dict)
 
         bag.foo3 = Foo()

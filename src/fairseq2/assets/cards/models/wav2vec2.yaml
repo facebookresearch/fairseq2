@@ -41,5 +41,3 @@ model_type: wav2vec2  # compat
 model_family: wav2vec2
 model_arch: pseudo_dinosr_base
 checkpoint: "https://ai.meta.com/pseudo_dinosr_base/;gated=true"
-
----

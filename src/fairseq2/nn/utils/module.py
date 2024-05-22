@@ -383,7 +383,7 @@ def infer_device(
     s = ", ".join(sorted(f"'{d.type}'" for d in devices))
 
     raise ValueError(
-        f"All parameters and buffers of `{name}` must be on the same device, but they are on '{s}'."
+        f"All parameters and buffers of `{name}` must be on the same device, but they are on {s}."
     )
 
 

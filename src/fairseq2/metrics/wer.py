@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Iterable, Optional, Tuple, final
+from typing import Iterable, Optional, Tuple, final
 
 import editdistance
 import torch
@@ -14,7 +14,7 @@ from torch import Tensor
 from torcheval.metrics import Metric
 from typing_extensions import Self
 
-from fairseq2.data.text import TextTokenDecoder, TextTokenizer
+from fairseq2.data.text import TextTokenDecoder
 from fairseq2.nn.padding import PaddingMask, get_seq_lens
 from fairseq2.typing import Device, override
 
@@ -28,18 +28,7 @@ class WerMetric(Metric[Tuple[Tensor, Tensor]]):
     word_err: Tensor
     word_len: Tensor
 
-    _text_decoder: TextTokenDecoder
-
-    def __init__(
-        self,
-        *,
-        tokenizer: TextTokenizer,
-        device: Optional[Device] = None,
-    ) -> None:
-        """
-        :param tokenizer:
-            The tokenizer to use.
-        """
+    def __init__(self, *, device: Optional[Device] = None) -> None:
         super().__init__(device=device)
 
         self._add_state("unit_err", torch.zeros((), device=device, dtype=torch.float64))
@@ -48,18 +37,19 @@ class WerMetric(Metric[Tuple[Tensor, Tensor]]):
         self._add_state("word_err", torch.zeros((), device=device, dtype=torch.float64))
         self._add_state("word_len", torch.zeros((), device=device, dtype=torch.float64))
 
-        self._text_decoder = tokenizer.create_decoder()
-
     @override
     @torch.inference_mode()
     def update(
         self,
+        text_decoder: TextTokenDecoder,
         ref_seqs: Tensor,
         ref_padding_mask: Optional[PaddingMask],
         hyp_seqs: Tensor,
         hyp_padding_mask: Optional[PaddingMask],
     ) -> Self:
         """
+        :param text_decoder:
+            The text token decoder to use.
         :param ref_seqs:
             The reference sequences. *Shape:* :math:`(N,S_{ref})`, where
             :math:`N` is the batch size and :math:`S_{ref}` is the sequence
@@ -82,8 +72,8 @@ class WerMetric(Metric[Tuple[Tensor, Tensor]]):
             ref_units = ref_seq[:ref_seq_len]
             hyp_units = hyp_seq[:hyp_seq_len]
 
-            ref_text = self._text_decoder(ref_units)
-            hyp_text = self._text_decoder(hyp_units)
+            ref_text = text_decoder(ref_units)
+            hyp_text = text_decoder(hyp_units)
 
             ref_words = ref_text.split()
             hyp_words = hyp_text.split()
@@ -118,13 +108,3 @@ class WerMetric(Metric[Tuple[Tensor, Tensor]]):
             self.word_len += metric.word_len.to(self.device)
 
         return self
-
-    def __getstate__(self) -> Any:
-        data = dict(self.__dict__)
-
-        del data["_text_decoder"]
-
-        return data
-
-    def __setstate__(self, state: Any) -> None:
-        self.__dict__.update(state)

@@ -46,7 +46,7 @@ class CheckpointManager(ABC):
         step_nr: int,
         checkpoint: Dict[str, Any],
         *,
-        metadata: Optional[Dict[str, Any]],
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Save the checkpoint of the specified training step.
 
@@ -55,7 +55,7 @@ class CheckpointManager(ABC):
         :param checkpoint:
             The checkpoint to save.
         :param metadata:
-            The checkpoint metadata (e.g. training configuration) to save.
+            The checkpoint metadata to save. Must be pickeable.
         """
 
     @abstractmethod
@@ -291,7 +291,7 @@ class FileCheckpointManager(CheckpointManager):
         step_nr: int,
         checkpoint: Dict[str, Any],
         *,
-        metadata: Optional[Dict[str, Any]],
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.delete_checkpoint(step_nr, missing_ok=True)
 
@@ -461,6 +461,11 @@ class FileCheckpointManager(CheckpointManager):
             tmp_model_file = self._checkpoint_dir.joinpath(
                 f"step_{step_nr}/model{self._shard_suffix}.tmp"
             )
+
+            if not tmp_model_file.parent.exists():
+                raise RuntimeError(
+                    f"A consolidated FSDP model can only be saved for training steps that have a checkpoint, but training step {step_nr} has no checkpoint."
+                )
 
             try:
                 torch.save({"model": state_dict}, tmp_model_file)

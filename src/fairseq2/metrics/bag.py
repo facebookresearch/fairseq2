@@ -7,13 +7,13 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Mapping, Optional, final
+from copy import deepcopy
+from typing import Any, Dict, Mapping, Optional, Sequence, final
 
 from torcheval.metrics import Metric
 from torcheval.metrics.toolkit import sync_and_compute_collection
 
 from fairseq2.gang import Gang
-from fairseq2.utils.profiler import Stopwatch
 
 
 class MetricBag:
@@ -22,20 +22,18 @@ class MetricBag:
     _gang: Gang
     _metrics: Dict[str, Metric[Any]]
     _persistent_metrics: Dict[str, Metric[Any]]
-    _wall_time: Optional[Stopwatch]
+    _original_metrics: Optional[Dict[str, Metric[Any]]]
 
-    def __init__(self, gang: Gang, wall_time: Optional[Stopwatch] = None) -> None:
+    def __init__(self, gang: Gang) -> None:
         """
         :param gang:
             The gang over which to sync metrics.
-        :param wall_time:
-            The :class:`Stopwatch` to keep track of process wall time.
         """
         super().__setattr__("_metrics", {})
         super().__setattr__("_persistent_metrics", {})
+        super().__setattr__("_original_metrics", None)
 
         self._gang = gang
-        self._wall_time = wall_time
 
     def __getattr__(self, name: str) -> Any:
         if "_metrics" in self.__dict__ and name in self._metrics:
@@ -92,20 +90,58 @@ class MetricBag:
             self._persistent_metrics[name] = metric
 
     @final
+    def begin_updates(self) -> None:
+        """Begin a transactional update of multiple metrics.
+
+        A call to ``begin_updates()`` must be followed by a ``commit_updates()``
+        or ``rollback_updates()``.
+        """
+        if self._original_metrics is not None:
+            raise ValueError("`begin_updates()` has already been called.")
+
+        self._original_metrics = deepcopy(self._metrics)
+
+    @final
+    def commit_updates(self) -> None:
+        """Commit pending metric updates."""
+        if self._original_metrics is None:
+            raise ValueError("`begin_updates()` must be called first.")
+
+        self._original_metrics = None
+
+    @final
+    def rollback_updates(self) -> None:
+        """Discard pending metric updates and rollback to the original state."""
+        if self._original_metrics is None:
+            raise ValueError("`begin_updates()` must be called first.")
+
+        self._metrics, self._original_metrics = self._original_metrics, None
+
+    @final
     def reset_metrics(self) -> None:
         """Reset the metrics to their initial state."""
         for metric in self._metrics.values():
             metric.reset()
 
     @final
+    def reset_non_persistent_metrics(self) -> None:
+        """Reset the non-persistent metrics to their initial state."""
+        for name, metric in self._metrics.items():
+            if name not in self._persistent_metrics:
+                metric.reset()
+
+    @final
     def sync_and_compute_metrics(self) -> Optional[Dict[str, Any]]:
         """Sync the metrics across all processes and compute their values."""
-        return sync_and_compute_metrics(self)
+        return sync_and_compute_metrics([self])
 
     def process_metric_values(self, values: Dict[str, Any]) -> None:
         """Process metric ``values``."""
-        if self._wall_time is not None:
-            values["wall_time"] = self._wall_time.get_elapsed_time()
+
+    @property
+    def metrics(self) -> Mapping[str, Metric[Any]]:
+        """The metrics contained in this bag."""
+        return self._metrics
 
     @final
     def state_dict(self) -> Dict[str, Any]:
@@ -129,13 +165,19 @@ class MetricBag:
             metric.to(self._gang.device)
 
 
-def reset_metrics(*bags: MetricBag) -> None:
+def reset_metrics(bags: Sequence[MetricBag]) -> None:
     """Reset the metrics in ``bags``."""
     for bag in bags:
         bag.reset_metrics()
 
 
-def sync_and_compute_metrics(*bags: MetricBag) -> Optional[Dict[str, Any]]:
+def reset_non_persistent_metrics(bags: Sequence[MetricBag]) -> None:
+    """Reset the non-persistent metrics in ``bags``."""
+    for bag in bags:
+        bag.reset_non_persistent_metrics()
+
+
+def sync_and_compute_metrics(bags: Sequence[MetricBag]) -> Optional[Dict[str, Any]]:
     """Sync the metrics across all processes and and compute their values."""
     if not bags:
         return None
@@ -170,3 +212,17 @@ def sync_and_compute_metrics(*bags: MetricBag) -> Optional[Dict[str, Any]]:
             bag.process_metric_values(values)
 
     return values
+
+
+def merge_metric_states(
+    sources: Mapping[str, Metric[Any]], targets: Mapping[str, Metric[Any]]
+) -> None:
+    """Merge the states of the same-named metrics from ``sources`` to ``targets``."""
+    for name, target_metric in targets.items():
+        try:
+            source_metric = sources[name]
+        except KeyError:
+            pass
+
+        if type(target_metric) is type(source_metric):
+            target_metric.merge_state([source_metric])

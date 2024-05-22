@@ -14,6 +14,7 @@ from typing import (
     Mapping,
     Optional,
     Protocol,
+    Set,
     Tuple,
     TypeVar,
     final,
@@ -44,34 +45,26 @@ StatefulT = TypeVar("StatefulT")
 class StatefulObjectBag:
     """Holds a collection of stateful objects."""
 
-    _stateful_objects: Dict[str, Tuple[Any, Optional[StateHandler[Any]]]]
+    _non_stateful_attrs: Set[str]
+    _explicit_stateful_attrs: Dict[str, Optional[StateHandler[Any]]]
 
     def __init__(self) -> None:
-        super().__setattr__("_stateful_objects", {})
+        self._non_stateful_attrs = set()
 
-    def __getattr__(self, name: str) -> Any:
-        if "_stateful_objects" in self.__dict__ and name in self._stateful_objects:
-            return self._stateful_objects[name][0]
-
-        raise AttributeError(
-            f"`{type(self).__name__}` object has no attribute '{name}'."
-        )
-
-    def __setattr__(self, name: str, value: Any) -> None:
-        if name in self._stateful_objects:
-            _, state_handler = self._stateful_objects[name]
-
-            self._stateful_objects[name] = (value, state_handler)
-        elif name not in self.__dict__ and isinstance(value, Stateful):
-            self.register_stateful(name, value)
-        else:
-            super().__setattr__(name, value)
+        self._explicit_stateful_attrs = {}
 
     def __delattr__(self, name: str) -> None:
-        if name in self._stateful_objects:
-            del self._stateful_objects[name]
-        else:
-            super().__delattr__(name)
+        try:
+            self._non_stateful_attrs.remove(name)
+        except KeyError:
+            pass
+
+        try:
+            del self._explicit_stateful_attrs[name]
+        except KeyError:
+            pass
+
+        super().__delattr__(name)
 
     @final
     def register_stateful(
@@ -91,12 +84,14 @@ class StatefulObjectBag:
             ``obj`` is of type :class:`Stateful`, then its ``state_dict`` will
             be used; otherwise, ``obj`` will be preserved as is.
         """
-        if hasattr(self, name):
-            raise AttributeError(
-                f"`{type(self).__name__}` object already has an attribute '{name}'."
-            )
+        try:
+            self._non_stateful_attrs.remove(name)
+        except KeyError:
+            pass
 
-        self._stateful_objects[name] = (obj, state_handler)
+        self._explicit_stateful_attrs[name] = state_handler
+
+        setattr(self, name, obj)
 
     @final
     def register_non_stateful(self, name: str, obj: Any) -> None:
@@ -107,12 +102,14 @@ class StatefulObjectBag:
         :param obj:
             The object to add.
         """
-        if hasattr(self, name):
-            raise AttributeError(
-                f"`{type(self).__name__}` object already has an attribute '{name}'."
-            )
+        try:
+            del self._explicit_stateful_attrs[name]
+        except KeyError:
+            pass
 
-        super().__setattr__(name, obj)
+        self._non_stateful_attrs.add(name)
+
+        setattr(self, name, obj)
 
     @final
     def state_dict(self) -> Dict[str, Any]:
@@ -120,13 +117,24 @@ class StatefulObjectBag:
 
         state: Any
 
-        for name, (stateful, state_handler) in self._stateful_objects.items():
-            if state_handler is not None:
-                state = state_handler.get_state(stateful)
-            elif isinstance(stateful, Stateful):
-                state = stateful.state_dict()
+        for name, obj in self.__dict__.items():
+            if name in self._non_stateful_attrs:
+                continue
+
+            is_explicit, state_handler = self._is_explicit(name)
+
+            if is_explicit:
+                if state_handler is None:
+                    if isinstance(obj, Stateful):
+                        state = obj.state_dict()
+                    else:
+                        state = obj
+                else:
+                    state = state_handler.get_state(obj)
+            elif isinstance(obj, Stateful) and not self._is_dunder(name):
+                state = obj.state_dict()
             else:
-                state = stateful
+                continue
 
             state_dict[name] = state
 
@@ -134,20 +142,70 @@ class StatefulObjectBag:
 
     @final
     def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
-        if self._stateful_objects.keys() != state_dict.keys():
+        missing_stateful_attrs = []
+
+        state_dict_ = dict(state_dict)
+
+        for name, obj in self.__dict__.items():
+            if name in self._non_stateful_attrs:
+                continue
+
+            is_explicit, state_handler = self._is_explicit(name)
+
+            if is_explicit:
+                try:
+                    state = state_dict_.pop(name)
+                except KeyError:
+                    missing_stateful_attrs.append(name)
+
+                    continue
+
+                if state_handler is None:
+                    if isinstance(obj, Stateful):
+                        obj.load_state_dict(state)
+                    else:
+                        setattr(self, name, state)
+                else:
+                    state_handler.set_state(obj, state)
+            elif isinstance(obj, Stateful) and not self._is_dunder(name):
+                try:
+                    state = state_dict_.pop(name)
+                except KeyError:
+                    missing_stateful_attrs.append(name)
+
+                    continue
+
+                obj.load_state_dict(state)
+
+        if missing_stateful_attrs:
+            missing_stateful_attrs.sort()
+
             raise ValueError(
-                f"`state_dict` must contain items {list(self._stateful_objects.keys())}, but contains {list(state_dict.keys())} instead."
+                f"`state_dict` must contain the states of the following attributes: {', '.join(missing_stateful_attrs)}"
             )
 
-        for name, (stateful, state_handler) in self._stateful_objects.items():
-            state = state_dict[name]
+        if state_dict_:
+            extra_keys = list(state_dict_.keys())
 
-            if state_handler is not None:
-                state_handler.set_state(stateful, state)
-            elif isinstance(stateful, Stateful):
-                stateful.load_state_dict(state)
-            else:
-                self._stateful_objects[name] = (state, None)
+            extra_keys.sort()
+
+            raise ValueError(
+                f"`state_dict` must only contain the states of the attributes of this object, but it contains the following extra keys: {', '.join(extra_keys)}"
+            )
+
+    def _is_explicit(self, name: str) -> Tuple[bool, Optional[StateHandler[Any]]]:
+        try:
+            state_handler = self._explicit_stateful_attrs[name]
+
+            return True, state_handler
+        except KeyError:
+            pass
+
+        return False, None
+
+    @staticmethod
+    def _is_dunder(name: str) -> bool:
+        return len(name) > 4 and name.startswith("__") and name.endswith("__")
 
 
 class StateHandler(ABC, Generic[StatefulT]):

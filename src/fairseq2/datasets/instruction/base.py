@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional
+from typing import Any, Set
 
 from fairseq2.data.text import TextTokenizer
 from fairseq2.datasets.data_reader import DataPipelineReader
@@ -27,9 +27,8 @@ class InstructionDataset(ABC):
         max_num_tokens: int,
         *,
         shuffle_window_size: int = 1,
-        num_repeats: Optional[int] = 1,
         num_accumulate: int = 1,
-        num_prefetch: int = 0,
+        num_prefetch: int = 1,
         seed: int = 2,
         **extras: Any,
     ) -> DataPipelineReader[SequenceBatch]:
@@ -49,9 +48,6 @@ class InstructionDataset(ABC):
         :param shuffle_window_size:
             The size of the shuffle window. If ``1``, no shuffling is performed;
             if ``0``, performs true shuffling by loading the entire dataset.
-        :param num_repeats:
-            The dataset will be repeatedly read this many times. If ``None``, it
-            will be read indefinitely.
         :param num_accumulate:
             The number of batches to accumulate in each iteration. Typically
             used with gradient accumulation during training.
@@ -64,8 +60,8 @@ class InstructionDataset(ABC):
         """
 
     @abstractmethod
-    def splits(self) -> List[str]:
-        """Return the list of splits."""
+    def splits(self) -> Set[str]:
+        """Return the set of splits."""
 
 
 load_instruction_dataset = DelegatingDatasetLoader[InstructionDataset]()
