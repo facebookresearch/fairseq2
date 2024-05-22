@@ -161,6 +161,29 @@ def _base_encoder() -> Wav2Vec2EncoderConfig:
     return Wav2Vec2EncoderConfig()
 
 
+@wav2vec2_encoder_arch("large")
+def _large_encoder() -> Wav2Vec2EncoderConfig:
+    return Wav2Vec2EncoderConfig(
+        model_dim=1024,
+        num_encoder_layers=24,
+        num_encoder_attn_heads=16,
+        ffn_inner_dim=4096,
+        dropout_p=0.0,
+        layer_drop_p=0.2,
+    )
+
+
+@wav2vec2_encoder_arch("large_lv60k")
+def _large_lv60k_encoder() -> Wav2Vec2EncoderConfig:
+    config = _large_encoder()
+    config.feature_extractor_layer_norm_convs = True
+    config.feature_extractor_bias = True
+    config.norm_order = TransformerNormOrder.PRE
+    config.layer_norm_features = False
+    config.layer_drop_p = 0.0
+    return config
+
+
 @dataclass
 class Wav2Vec2Config:
     """Holds the configuration of a wav2vec 2.0 model.
@@ -230,6 +253,26 @@ wav2vec2_arch = wav2vec2_archs.decorator
 @wav2vec2_arch("base")
 def _base() -> Wav2Vec2Config:
     return Wav2Vec2Config()
+
+
+@wav2vec2_arch("large")
+def _large() -> Wav2Vec2Config:
+    return Wav2Vec2Config(
+        encoder_config=_large_encoder(),
+        quantized_dim=768,
+        final_dim=768,
+    )
+
+
+@wav2vec2_arch("large_lv60k")
+def _large_lv60k() -> Wav2Vec2Config:
+    """wav2vec2 large arch to train on the LibriVox 60k dataset."""
+    return Wav2Vec2Config(
+        encoder_config=_large_lv60k_encoder(),
+        quantized_dim=768,
+        final_dim=768,
+        codebook_sampling_temperature=(2.0, 0.1, 0.999995),
+    )
 
 
 @wav2vec2_arch("pseudo_dinosr_base")
