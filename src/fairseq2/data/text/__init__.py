@@ -34,8 +34,6 @@ from fairseq2.data.text.sentencepiece import (
 )
 from fairseq2.data.text.text_reader import LineEnding as LineEnding
 from fairseq2.data.text.text_reader import read_text as read_text
-
-# from fairseq2.data.text.text_tokenizer import TextTokenizer as TextTokenizer
 from fairseq2.data.text.text_tokenizer import (
     AbstractTextTokenizer as AbstractTextTokenizer,
 )
@@ -47,7 +45,6 @@ from fairseq2.data.text.text_tokenizer import (
 )
 from fairseq2.data.text.text_tokenizer import TextTokenDecoder as TextTokenDecoder
 from fairseq2.data.text.text_tokenizer import TextTokenEncoder as TextTokenEncoder
+from fairseq2.data.text.text_tokenizer import TextTokenizer as TextTokenizer
 from fairseq2.data.text.text_tokenizer import TextTokenizerLoader as TextTokenizerLoader
 from fairseq2.data.text.text_tokenizer import load_text_tokenizer as load_text_tokenizer
-
-TextTokenizer = AbstractTextTokenizer  # compat
