@@ -24,4 +24,6 @@ def create_rich_progress() -> Progress:
 
     rank = get_rank()
 
-    return Progress(*columns, console=console, disable=rank != 0)
+    return Progress(
+        *columns, auto_refresh=False, transient=True, console=console, disable=rank != 0
+    )
