@@ -132,6 +132,9 @@ class EnvironmentSetterRegistry:
 
     def get_for_inferred_cluster(self) -> EnvironmentSetter:
         """Return the :class:`EnvironmentSetter` of the inferred cluster."""
+        if "TORCHELASTIC_RUN_ID" in os.environ:  # means we are in `torchrun`.
+            return self.get("none")
+
         for cluster, kls in self._types.items():
             if cluster == "none":
                 continue
