@@ -199,6 +199,7 @@ def _llama2_70b_chat() -> InstructionFinetuneConfig:
 def load_instruction_finetuner(
     config: InstructionFinetuneConfig, output_dir: Path
 ) -> StandardTrainer[SequenceBatch]:
+    """Load a :class:`Trainer` for instruction finetuning."""
     wall_watch = Stopwatch(start=True)
 
     root_gang, gangs = setup_gangs(

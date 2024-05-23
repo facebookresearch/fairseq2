@@ -35,7 +35,7 @@ log = get_log_writer(__name__)
 
 @final
 class ChatbotCommand(CliCommandHandler):
-    """Run a chatbot."""
+    """Runs a chatbot."""
 
     @override
     def init_parser(self, parser: ArgumentParser) -> None:

@@ -197,7 +197,7 @@ def _base_100h() -> Wav2Vec2AsrTrainConfig:
 def load_wav2vec2_asr_trainer(
     config: Wav2Vec2AsrTrainConfig, output_dir: Path
 ) -> StandardTrainer[Seq2SeqBatch]:
-    """Load a wav2vec 2.0 ASR tainer."""
+    """Load a :class:`Trainer` for wav2vec 2.0 ASR training."""
     wall_watch = Stopwatch(start=True)
 
     gang = setup_root_gang(log, monitored=config.monitored_gang)

@@ -77,7 +77,7 @@ class AssetCard:
         :param name:
             The name of the field.
         """
-        return AssetCardField(self, [name])
+        return AssetCardField(self, path=[name])
 
     def _get_field_value(self, name: str, path: List[str]) -> Any:
         assert len(path) > 0
@@ -218,6 +218,14 @@ class AssetCardField:
         value = self._card._get_field_value(self._card.name, self._path)
 
         return value is None
+
+    def exists(self, *, allow_empty: bool = False) -> bool:
+        try:
+            self.as_(object, allow_empty=allow_empty)
+
+            return True
+        except AssetCardFieldNotFoundError:
+            return False
 
     @overload
     def get_as_(self, kls: Type[T], default: T, *, allow_empty: bool = False) -> T:
