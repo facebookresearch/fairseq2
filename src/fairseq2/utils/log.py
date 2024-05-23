@@ -201,11 +201,7 @@ def log_software_info(log: LogWriter, device: Optional[Device] = None) -> None:
             f"NCCL: {'.'.join((str(v) for v in torch.cuda.nccl.version()))}"
         )
 
-    s = (
-        f"{s} | "
-        f"fairseq2: {fairseq2.__version__} | "
-        f"fairseq2n: {fairseq2n.__version__}"
-    )
+    s = f"{s} | fairseq2: {fairseq2.__version__} | fairseq2n: {fairseq2n.__version__}"
 
     for venv_type, venv_env in [("Conda", "CONDA_PREFIX"), ("venv", "VIRTUAL_ENV")]:
         if venv_path := os.getenv(venv_env):

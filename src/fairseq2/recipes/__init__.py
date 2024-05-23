@@ -18,7 +18,12 @@ def main() -> None:
 
     setup_extensions()
 
-    cli = Cli("fairseq2", __version__, description="command line interface of fairseq2")
+    cli = Cli(
+        name="fairseq2",
+        origin_module="fairseq2",
+        version=__version__,
+        description="command line interface of fairseq2",
+    )
 
     _setup_cli(cli)
 
