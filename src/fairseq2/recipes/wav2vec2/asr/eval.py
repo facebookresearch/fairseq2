@@ -132,12 +132,12 @@ def load_wav2vec2_asr_evaluator(
     log.info("Initializing the model.")
 
     if gang.rank == 0:
-        device = gang.device
+        init_device = gang.device
     else:
-        device = META
+        init_device = META
 
     model = load_wav2vec2_asr_model(
-        config.model_name, device=device, dtype=config.dtype
+        config.model_name, device=init_device, dtype=config.dtype
     )
 
     # No need for weight normalization outside training.
@@ -149,7 +149,7 @@ def load_wav2vec2_asr_evaluator(
     if gang.size == 1:
         dp_model = model
     elif config.data_parallelism == "ddp":
-        to_device(model, device)
+        to_device(model, gang.device)
 
         dp_model = to_ddp(model, gang)
     elif config.data_parallelism == "fsdp":

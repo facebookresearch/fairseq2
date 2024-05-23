@@ -347,6 +347,8 @@ def remove_parametrizations(module: Module, *, recurse: bool = True) -> None:
     def remove(name: str, m: Module) -> None:
         try:
             remove_weight_norm(m)
+
+            setattr(m, "no_parametrization", True)
         except ValueError:
             pass
 
