@@ -7,7 +7,8 @@
 from __future__ import annotations
 
 import math
-from typing import Any, Dict
+from pathlib import Path
+from typing import Any, Dict, Optional, TextIO
 
 import torch
 from torch import Tensor
@@ -87,6 +88,7 @@ class Wav2Vec2AsrValidMetricBag(Wav2Vec2AsrMetricBag):
     _text_decoder: TextTokenDecoder
     _pad_idx: int
     _blank_label: int
+    _wer_fp: Optional[TextIO]
 
     def __init__(
         self,
@@ -94,6 +96,7 @@ class Wav2Vec2AsrValidMetricBag(Wav2Vec2AsrMetricBag):
         tokenizer: TextTokenizer,
         *,
         blank_label: int = 0,
+        wer_file: Optional[Path] = None,
     ) -> None:
         """
         :param gang:
@@ -102,6 +105,8 @@ class Wav2Vec2AsrValidMetricBag(Wav2Vec2AsrMetricBag):
             The text tokenizer to compute the WER (Word Error Rate).
         :param blank_label:
             The blank label in logits.
+        :param wer_file:
+            The output file to dump transcriptions, WER, and UER metrics.
         """
         super().__init__(gang)
 
@@ -118,6 +123,16 @@ class Wav2Vec2AsrValidMetricBag(Wav2Vec2AsrMetricBag):
         self._pad_idx = pad_idx
 
         self._blank_label = blank_label
+
+        if wer_file is None:
+            self._wer_fp = None
+        else:
+            self._wer_fp = wer_file.open("w")
+
+    def close(self) -> None:
+        """Close the output file."""
+        if self._wer_fp is not None:
+            self._wer_fp.close()
 
     @torch.inference_mode()
     def update_wer_metric(
@@ -141,7 +156,11 @@ class Wav2Vec2AsrValidMetricBag(Wav2Vec2AsrMetricBag):
             batch.target_padding_mask,
             hyp_seqs,
             hyp_padding_mask,
+            output_fp=self._wer_fp,
         )
+
+        if self._wer_fp is not None:
+            self._wer_fp.flush()
 
     @override
     def process_metric_values(self, values: Dict[str, Any]) -> None:

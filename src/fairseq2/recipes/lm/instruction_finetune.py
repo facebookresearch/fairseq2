@@ -50,7 +50,7 @@ log = get_log_writer(__name__)
 
 @dataclass
 class InstructionFinetuneConfig:
-    """Holds the configuration of an instruction-finetuning job."""
+    """Holds the configuration of an instruction-finetuning recipe."""
 
     # Data
     dataset_name: str = "foo"  # TODO: fix!
@@ -371,8 +371,7 @@ class InstructionFinetuneCriterion(AbstractCriterion[SequenceBatch]):
         super().__init__(model)
 
         self._train_metric_bag = SequenceModelMetricBag(gang)
-
-        self.register_non_stateful("_valid_metric_bag", MetricBag(gang))
+        self._valid_metric_bag = MetricBag(gang)
 
     @override
     def compute_loss(self, batch: SequenceBatch) -> Tuple[Tensor, int]:

@@ -44,7 +44,7 @@ log = get_log_writer(__name__)
 
 @dataclass
 class Wav2Vec2AsrTrainConfig:
-    """Holds the configuration of a wav2vec 2.0 ASR training job.
+    """Holds the configuration of a wav2vec 2.0 ASR training recipe.
 
     The default values correspond to the base 10h training as described in
     :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`.
@@ -58,7 +58,7 @@ class Wav2Vec2AsrTrainConfig:
     """The tokenizer to use."""
 
     train_split: str = "train"
-    """The name of the dataset split to train width."""
+    """The name of the dataset split to train with."""
 
     valid_split: str = "dev_other"
     """The name of the dataset split to validate with."""
@@ -96,7 +96,7 @@ class Wav2Vec2AsrTrainConfig:
     data_parallelism: Literal["ddp", "fsdp"] = "ddp"
     """The data parallelism API to use."""
 
-    fsdp_wrap_granularity: Literal["layer", "stack", "model"] = "layer"
+    fsdp_wrap_granularity: Literal["layer", "stack", "model"] = "stack"
     """The granularity at which to wrap the ASR model."""
 
     torch_compile: bool = False
@@ -147,7 +147,7 @@ class Wav2Vec2AsrTrainConfig:
     """The step interval at which to checkpoint."""
 
     publish_metrics_every_n_steps: int = 200
-    """The number of steps after which to start publishing training metrics."""
+    """The step interval at which to publish metrics."""
 
     # Misc
     seed: int = 2
@@ -191,6 +191,7 @@ def _base_100h() -> Wav2Vec2AsrTrainConfig:
 def load_wav2vec2_asr_trainer(
     config: Wav2Vec2AsrTrainConfig, output_dir: Path
 ) -> Trainer:
+    """Load a wav2vec 2.0 ASR tainer."""
     wall_watch = Stopwatch(start=True)
 
     # In case we train on Ampere or later, use TF32.

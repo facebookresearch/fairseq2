@@ -5,14 +5,13 @@
 # LICENSE file in the root directory of this source tree.
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Generic, Mapping, Optional, Tuple, TypeVar
+from typing import Generic, Optional, Tuple, TypeVar
 
 from torch import Tensor
 from torch.nn import Module
 
 from fairseq2.metrics import MetricBag
 from fairseq2.typing import override
-from fairseq2.utils.state import StatefulObjectBag
 
 BatchT = TypeVar("BatchT")
 
@@ -20,17 +19,17 @@ BatchT_contra = TypeVar("BatchT_contra", contravariant=True)
 
 
 class Criterion(ABC, Generic[BatchT_contra]):
-    """Computes loss in a training recipe."""
+    """Computes loss in a training or evaluation recipe."""
 
     @abstractmethod
     def set_step(self, step_nr: int) -> None:
-        """Set the training step.
+        """Set the step.
 
         Typically used to modify the model (e.g. freeze or unfreeze) or metrics
-        during training.
+        during training or evaluation.
 
         :param step_nr:
-            The number of the current training step.
+            The number of the current step.
         """
 
     @abstractmethod
@@ -40,14 +39,6 @@ class Criterion(ABC, Generic[BatchT_contra]):
         :returns:
             The loss and the number of targets used to compute the loss.
         """
-
-    @abstractmethod
-    def state_dict(self) -> Dict[str, Any]:
-        ...
-
-    @abstractmethod
-    def load_state_dict(self, state_dict: Mapping[str, Any]) -> None:
-        ...
 
     @property
     @abstractmethod
@@ -62,7 +53,7 @@ class Criterion(ABC, Generic[BatchT_contra]):
     @property
     @abstractmethod
     def valid_metric_bag(self) -> MetricBag:
-        """The metrics used for validation."""
+        """The metrics used for validation or evaluation."""
 
     @property
     @abstractmethod
@@ -75,7 +66,7 @@ class Criterion(ABC, Generic[BatchT_contra]):
         """The name of the metric to use for checkpoint score calculation."""
 
 
-class AbstractCriterion(StatefulObjectBag, Criterion[BatchT]):
+class AbstractCriterion(Criterion[BatchT]):
     """Provides a skeletal implementation of :class:`Criterion`."""
 
     def __init__(self, model: Module) -> None:

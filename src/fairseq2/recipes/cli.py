@@ -494,7 +494,7 @@ class RecipeCommand(CliCommand, Generic[RecipeConfigT]):
         else:
             tag = self._sweep_tagger(args.preset, preset_config, config)
 
-            output_dir = args.output_dir.joinpath(tag)
+            output_dir = args.output_dir.joinpath(self._name, tag)
 
         # Set up distributed logging.
         log_dir = output_dir.joinpath("logs/rank_{rank}.log")
