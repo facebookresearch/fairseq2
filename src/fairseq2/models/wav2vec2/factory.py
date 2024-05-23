@@ -163,24 +163,28 @@ def _base_encoder() -> Wav2Vec2EncoderConfig:
 
 @wav2vec2_encoder_arch("large")
 def _large_encoder() -> Wav2Vec2EncoderConfig:
-    return Wav2Vec2EncoderConfig(
-        model_dim=1024,
-        num_encoder_layers=24,
-        num_encoder_attn_heads=16,
-        ffn_inner_dim=4096,
-        dropout_p=0.0,
-        layer_drop_p=0.2,
-    )
+    config = _base_encoder()
+
+    config.model_dim = 1024
+    config.num_encoder_layers = 24
+    config.num_encoder_attn_heads = 16
+    config.ffn_inner_dim = 4096
+    config.dropout_p = 0.0
+    config.layer_drop_p = 0.2
+
+    return config
 
 
-@wav2vec2_encoder_arch("large_lv60k")
+@wav2vec2_encoder_arch("large_lv60k")  # LibriVox 60K
 def _large_lv60k_encoder() -> Wav2Vec2EncoderConfig:
     config = _large_encoder()
-    config.feature_extractor_layer_norm_convs = True
-    config.feature_extractor_bias = True
-    config.norm_order = TransformerNormOrder.PRE
+
     config.layer_norm_features = False
+    config.feature_extractor_bias = True
+    config.feature_extractor_layer_norm_convs = True
     config.layer_drop_p = 0.0
+    config.norm_order = TransformerNormOrder.PRE
+
     return config
 
 
@@ -257,22 +261,25 @@ def _base() -> Wav2Vec2Config:
 
 @wav2vec2_arch("large")
 def _large() -> Wav2Vec2Config:
-    return Wav2Vec2Config(
-        encoder_config=_large_encoder(),
-        quantized_dim=768,
-        final_dim=768,
-    )
+    config = _base()
+
+    config.encoder_config = _large_encoder()
+    config.quantized_dim = 768
+    config.final_dim = 768
+
+    return config
 
 
-@wav2vec2_arch("large_lv60k")
+@wav2vec2_arch("large_lv60k")  # LibriVox 60K
 def _large_lv60k() -> Wav2Vec2Config:
-    """wav2vec2 large arch to train on the LibriVox 60k dataset."""
-    return Wav2Vec2Config(
-        encoder_config=_large_lv60k_encoder(),
-        quantized_dim=768,
-        final_dim=768,
-        codebook_sampling_temperature=(2.0, 0.1, 0.999995),
-    )
+    config = _base()
+
+    config.encoder_config = _large_lv60k_encoder()
+    config.quantized_dim = 768
+    config.final_dim = 768
+    config.codebook_sampling_temperature = (2.0, 0.1, 0.999995)
+
+    return config
 
 
 @wav2vec2_arch("pseudo_dinosr_base")
