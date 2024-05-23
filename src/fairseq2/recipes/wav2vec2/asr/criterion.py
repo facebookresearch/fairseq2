@@ -4,7 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Tuple, cast, final
+from pathlib import Path
+from typing import Optional, Tuple, cast, final
 
 from torch import Tensor
 from torch.nn import Module
@@ -41,19 +42,35 @@ class Wav2Vec2AsrCriterion(AbstractCriterion[Seq2SeqBatch]):
         tokenizer: TextTokenizer,
         *,
         freeze_encoder_for_n_steps: int = 0,
+        wer_file: Optional[Path] = None,
     ) -> None:
+        """
+        :param model:
+            The wav2vec 2.0 ASR model. Can be DDP or FSDP wrapped.
+        :param gang:
+            The gang for distributed training or evaluation.
+        :param tokenizer:
+            The tokenizer to use.
+        :param freeze_encoder_for_n_steps:
+            The encoder will be frozen for this number of steps.
+        :param wer_file:
+            The output file to dump transcriptions, WER, and UER metrics.
+        """
         super().__init__(model)
 
         self._train_metric_bag = Wav2Vec2AsrMetricBag(gang)
 
-        self.register_non_stateful(
-            "_valid_metric_bag", Wav2Vec2AsrValidMetricBag(gang, tokenizer)
+        self._valid_metric_bag = Wav2Vec2AsrValidMetricBag(
+            gang, tokenizer, wer_file=wer_file
         )
 
         self._freeze_encoder_for_n_steps = freeze_encoder_for_n_steps
 
     @override
     def set_step(self, step_nr: int) -> None:
+        if not self._model.training:
+            return
+
         if isinstance(self._model, Wav2Vec2AsrModel):
             model = self._model
         else:

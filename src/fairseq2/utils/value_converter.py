@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from pathlib import Path
+from pathlib import Path, PosixPath
 from typing import (
     Any,
     Callable,
@@ -37,37 +37,39 @@ class ValueConverter:
 
         self._structure_fns = {
             # fmt: off
-            bool:     self._structure_identity,
-            DataType: self._structure_dtype,
-            Device:   self._structure_device,
-            dict:     self._structure_dict,
-            float:    self._structure_primitive,
-            Enum:     self._structure_enum,
-            int:      self._structure_primitive,
-            list:     self._structure_list,
-            Literal:  self._structure_literal,
-            NoneType: self._structure_identity,
-            Path:     self._structure_path,
-            str:      self._structure_identity,
-            tuple:    self._structure_tuple,
-            Union:    self._structure_union,
+            bool:      self._structure_identity,
+            DataType:  self._structure_dtype,
+            Device:    self._structure_device,
+            dict:      self._structure_dict,
+            float:     self._structure_primitive,
+            Enum:      self._structure_enum,
+            int:       self._structure_primitive,
+            list:      self._structure_list,
+            Literal:   self._structure_literal,
+            NoneType:  self._structure_identity,
+            Path:      self._structure_path,
+            PosixPath: self._structure_path,
+            str:       self._structure_identity,
+            tuple:     self._structure_tuple,
+            Union:     self._structure_union,
             # fmt: on
         }
 
         self._unstructure_fns = {
             # fmt: off
-            bool:     self._unstructure_identity,
-            DataType: self._unstructure_dtype,
-            Device:   self._unstructure_device,
-            dict:     self._unstructure_dict,
-            float:    self._unstructure_identity,
-            Enum:     self._unstructure_enum,
-            int:      self._unstructure_identity,
-            list:     self._unstructure_sequence,
-            NoneType: self._unstructure_identity,
-            Path:     self._unstructure_path,
-            str:      self._unstructure_identity,
-            tuple:    self._unstructure_sequence,
+            bool:      self._unstructure_identity,
+            DataType:  self._unstructure_dtype,
+            Device:    self._unstructure_device,
+            dict:      self._unstructure_dict,
+            float:     self._unstructure_identity,
+            Enum:      self._unstructure_enum,
+            int:       self._unstructure_identity,
+            list:      self._unstructure_sequence,
+            NoneType:  self._unstructure_identity,
+            Path:      self._unstructure_path,
+            PosixPath: self._unstructure_path,
+            str:       self._unstructure_identity,
+            tuple:     self._unstructure_sequence,
             # fmt: on
         }
 

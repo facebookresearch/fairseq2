@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Iterable, Optional, Tuple, final
+from typing import Iterable, Optional, TextIO, Tuple, final
 
 import editdistance
 import torch
@@ -46,6 +46,8 @@ class WerMetric(Metric[Tuple[Tensor, Tensor]]):
         ref_padding_mask: Optional[PaddingMask],
         hyp_seqs: Tensor,
         hyp_padding_mask: Optional[PaddingMask],
+        *,
+        output_fp: Optional[TextIO] = None,
     ) -> Self:
         """
         :param text_decoder:
@@ -62,6 +64,8 @@ class WerMetric(Metric[Tuple[Tensor, Tensor]]):
             sequence length of the hypotheses.
         :param hyp_seqs:
             The padding mask of ``hyp_seqs``. *Shape:* Same as ``hyp_seqs``.
+        :param output_fp:
+            The file descriptor to dump the transcriptions, WER, and UER metrics.
         """
         ref_seq_lens = get_seq_lens(ref_seqs, ref_padding_mask)
         hyp_seq_lens = get_seq_lens(hyp_seqs, hyp_padding_mask)
@@ -78,11 +82,23 @@ class WerMetric(Metric[Tuple[Tensor, Tensor]]):
             ref_words = ref_text.split()
             hyp_words = hyp_text.split()
 
-            self.unit_err += editdistance.eval(hyp_units, ref_units)
-            self.word_err += editdistance.eval(hyp_words, ref_words)
+            unit_err = editdistance.eval(hyp_units, ref_units)
+            word_err = editdistance.eval(hyp_words, ref_words)
+
+            self.unit_err += unit_err
+            self.word_err += word_err
 
             self.unit_len += len(ref_units)
             self.word_len += len(ref_words)
+
+            if output_fp is not None:
+                output_fp.write(f"REF: {ref_text}\n")
+                output_fp.write(f"HYP: {hyp_text}\n")
+
+                output_fp.write(f"UNIT ERROR: {unit_err}\n")
+                output_fp.write(f"WORD ERROR: {word_err}\n")
+
+                output_fp.write("\n")
 
         return self
 

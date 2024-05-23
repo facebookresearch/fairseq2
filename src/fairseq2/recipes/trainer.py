@@ -40,6 +40,7 @@ from fairseq2.gang import FakeGang, Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.metrics import (
     LogMetricRecorder,
+    MetricBag,
     MetricRecorder,
     TensorBoardRecorder,
     merge_metric_states,
@@ -105,6 +106,8 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
     _checkpoint_every_n_steps: Optional[int]
     _keep_last_n_checkpoints: Optional[int]
     _keep_best_n_checkpoints: Optional[int]
+    _train_metric_bag: MetricBag
+    _valid_metric_bag: MetricBag
     _metric_recorders: List[MetricRecorder]
     _publish_metrics_after_n_steps: int
     _publish_metrics_every_n_steps: int
@@ -187,8 +190,14 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
         :param keep_last_n_checkpoints:
             The number of checkpoints to keep. If ``None``, no checkpoint will
             be deleted.
-        :param keey_best_n_checkpoints:
+        :param keep_best_n_checkpoints:
             WIP
+        :param tb_dir:
+            The TensorBoard log directory to dump metrics.
+        :param publish_metrics_after_n_steps:
+            The number of steps after which to start publishing metrics.
+        :param publish_metrics_every_n_steps:
+            The step interval at which to publish metrics.
         :param profiler:
             The runtime profiler.
         :param anomaly_detection:
@@ -200,7 +209,7 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
 
         device = gang.device
 
-        self.register_non_stateful("_model", criterion.model)
+        self._model = criterion.model
 
         criterion.train_metric_bag.register_metric(
             "gradient_norm", Mean(device=device), persistent=False
@@ -285,6 +294,12 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
 
         self._keep_last_n_checkpoints = keep_last_n_checkpoints
         self._keep_best_n_checkpoints = keep_best_n_checkpoints
+
+        self._train_metric_bag = self._criterion.train_metric_bag
+
+        self.register_non_stateful(
+            "_valid_metric_bag", self._criterion.valid_metric_bag
+        )
 
         if self._tp_gang.rank == 0 and self._dp_gang.rank == 0:
             self._metric_recorders = [LogMetricRecorder(log)]
@@ -383,8 +398,6 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
         with record_function(f"step_{step_nr}_prologue"):
             self._criterion.set_step(step_nr)
 
-        metric_bag = self._criterion.train_metric_bag
-
         while not stepped:
             # Collect the batches.
             with record_function(f"step_{step_nr}_data_load"):
@@ -393,7 +406,7 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
             num_targets = 0
 
             if self._tp_gang.rank == 0:
-                metric_bag.begin_updates()
+                self._train_metric_bag.begin_updates()
 
             # Accumulate.
             for batch_nr, batch in enumerate(batches):
@@ -429,7 +442,7 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
                 _, scale_result = self._loss_scaler.run_optimizer_step(step_nr)
 
             if scale_result.overflow:
-                metric_bag.rollback_updates()
+                self._train_metric_bag.rollback_updates()
 
                 if scale_result.min_reached:
                     raise FloatingPointError(
@@ -446,9 +459,9 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
             self._optimizer.zero_grad(set_to_none=True)
 
         if self._tp_gang.rank == 0:
-            metric_bag.commit_updates()
+            self._train_metric_bag.commit_updates()
 
-            metric_bag.gradient_norm.update(grad_norm)
+            self._train_metric_bag.gradient_norm.update(grad_norm)
 
             if self._dp_gang.rank == 0:
                 self._train_step_time += step_watch.get_elapsed_time()
@@ -504,11 +517,9 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
         return self._should_do(self._publish_metrics_every_n_steps)
 
     def _publish_train_metrics(self) -> None:
-        metric_bag = self._criterion.train_metric_bag
+        values = self._train_metric_bag.sync_and_compute_metrics()
 
-        values = metric_bag.sync_and_compute_metrics()
-
-        metric_bag.reset_non_persistent_metrics()
+        self._train_metric_bag.reset_non_persistent_metrics()
 
         if self._dp_gang.rank != 0:
             return
@@ -546,9 +557,7 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
             for data_reader in self._valid_data_readers.values():
                 self._do_validate(data_reader)
         else:
-            metric_bag = self._criterion.valid_metric_bag
-
-            cumulative_metrics = deepcopy(metric_bag.metrics)
+            cumulative_metrics = deepcopy(self._valid_metric_bag.metrics)
 
             cumulative_step_time = 0.0
 
@@ -557,14 +566,14 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
 
                 self._do_validate(data_reader)
 
-                merge_metric_states(metric_bag.metrics, cumulative_metrics)
+                merge_metric_states(self._valid_metric_bag.metrics, cumulative_metrics)
 
                 cumulative_step_time += self._valid_step_time
 
                 if self._tp_gang.rank == 0:
                     self._publish_validation_metrics(split)
 
-            merge_metric_states(cumulative_metrics, metric_bag.metrics)
+            merge_metric_states(cumulative_metrics, self._valid_metric_bag.metrics)
 
             self._valid_step_time = cumulative_step_time
 
@@ -595,11 +604,9 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
         data_reader.reset()
 
     def _publish_validation_metrics(self, split: Optional[str] = None) -> None:
-        metric_bag = self._criterion.valid_metric_bag
+        values = self._valid_metric_bag.sync_and_compute_metrics()
 
-        values = metric_bag.sync_and_compute_metrics()
-
-        metric_bag.reset_metrics()
+        self._valid_metric_bag.reset_metrics()
 
         if self._dp_gang.rank != 0:
             return
