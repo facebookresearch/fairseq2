@@ -169,7 +169,7 @@ class Wav2Vec2Model(Model):
 
         # We use the extracted features as context network targets after masking
         # and quantization.
-        targets = seqs.clone().detach()
+        targets = seqs.detach().clone()
 
         if frontend.first_pass_dropout is not None:
             targets = frontend.first_pass_dropout(targets)

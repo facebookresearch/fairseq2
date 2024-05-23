@@ -27,7 +27,7 @@ def reduce(x: Tensor, gang: Gang) -> Tensor:
 class _ReduceFunction(Function):
     @staticmethod
     def forward(ctx: Any, x: Tensor, gang: Gang) -> Tensor:
-        x = x.clone().detach()
+        x = x.detach().clone()
 
         gang.all_reduce(x, ReduceOperation.SUM)
 

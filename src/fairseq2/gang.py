@@ -227,7 +227,7 @@ class FakeGang(AbstractGang):
     def all_gather_to_list(
         self, output_tensors: List[Tensor], input_tensor: Tensor
     ) -> None:
-        output_tensors[0] = input_tensor.clone().detach()
+        output_tensors[0] = input_tensor.detach().clone()
 
 
 @final
