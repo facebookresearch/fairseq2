@@ -208,7 +208,7 @@ def log_software_info(log: LogWriter, device: Optional[Device] = None) -> None:
     )
 
     for venv_type, venv_env in [("Conda", "CONDA_PREFIX"), ("venv", "VIRTUAL_ENV")]:
-        if venv_path := os.getenv(venv_env):
+        if venv_path := os.environ.get(venv_env):
             s = f"{s} | Python Environment: {venv_type} ({venv_path})"
 
     log.info("Software - {}", s)

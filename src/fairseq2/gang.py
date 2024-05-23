@@ -505,7 +505,7 @@ def _determine_default_device() -> Device:
     if _default_device is not None:
         return _default_device
 
-    device_str = os.getenv("FAIRSEQ2_DEVICE")
+    device_str = os.environ.get("FAIRSEQ2_DEVICE")
     if device_str is not None:
         try:
             _default_device = Device(device_str)
@@ -530,7 +530,7 @@ def _determine_default_device() -> Device:
 
 
 def _determine_default_cuda_device() -> Device:
-    visible_devices = os.getenv("CUDA_VISIBLE_DEVICES")
+    visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES")
     if visible_devices is not None:
         try:
             int(visible_devices)
@@ -610,7 +610,7 @@ def get_local_rank() -> int:
 
 
 def _get_int_from_env(var_name: str, allow_zero: bool = False) -> Optional[int]:
-    s = os.getenv(var_name)
+    s = os.environ.get(var_name)
     if s is None:
         return None
 

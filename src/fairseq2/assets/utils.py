@@ -21,7 +21,7 @@ def _starts_with_scheme(s: str) -> bool:
 def _get_path_from_env(
     var_name: str, log: LogWriter, missing_ok: bool = False
 ) -> Optional[Path]:
-    pathname = os.getenv(var_name)
+    pathname = os.environ.get(var_name)
     if not pathname:
         return None
 
