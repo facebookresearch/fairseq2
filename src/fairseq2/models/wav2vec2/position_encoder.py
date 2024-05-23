@@ -125,13 +125,14 @@ class Wav2Vec2PositionalConv1d(Conv1d):
             self.weight, mean=0.0, std=(4.0 / (kernel_size * model_dim)) ** 0.5
         )
 
-        with catch_warnings():
-            warnings.simplefilter("ignore")  # Suppress the deprecation warning.
+        if not getattr(self, "no_parametrization", False):
+            with catch_warnings():
+                warnings.simplefilter("ignore")  # Suppress the deprecation warning.
 
-            weight_norm(self, dim=2)
+                weight_norm(self, dim=2)
 
-        self.weight_v.requires_grad_(weight.requires_grad)
-        self.weight_g.requires_grad_(weight.requires_grad)
+            self.weight_v.requires_grad_(weight.requires_grad)
+            self.weight_g.requires_grad_(weight.requires_grad)
 
         if self.bias is not None:
             nn.init.constant_(self.bias, 0.0)
