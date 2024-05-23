@@ -28,11 +28,11 @@ checkpoint: "https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec2_fs2_large_l
 
 ---
 
-name: wav2vec2_asr_base_10m
+name: wav2vec2_asr_base_10h
 model_type: wav2vec2_asr  # compat
 model_family: wav2vec2_asr
-model_arch: base
-checkpoint: "https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec2_asr_fs2_small_10m.pt"
+model_arch: base_10h
+checkpoint: "https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec2_asr_fs2_base_10h.pt"
 
 ---
 

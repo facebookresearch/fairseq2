@@ -20,21 +20,13 @@ from fairseq2.typing import DataType, Device
 WAV2VEC2_ASR_FAMILY: Final = "wav2vec2_asr"
 
 
-def _base_10h_encoder() -> Wav2Vec2EncoderConfig:
+def _base_encoder() -> Wav2Vec2EncoderConfig:
     config = wav2vec2_encoder_archs.get("base")
 
     config.feature_gradient_scale = 1.0
     config.dropout_p = 0.0
     config.attn_dropout_p = 0.0
     config.ffn_inner_dropout_p = 0.1
-
-    return config
-
-
-def _base_100h_encoder() -> Wav2Vec2EncoderConfig:
-    config = _base_10h_encoder()
-
-    config.layer_drop_p = 0.1
 
     return config
 
@@ -51,7 +43,7 @@ def _large_encoder() -> Wav2Vec2EncoderConfig:
     return config
 
 
-def _large_lv60k_encoder() -> Wav2Vec2EncoderConfig:
+def _large_lv60k_encoder() -> Wav2Vec2EncoderConfig:  # LibriVox 60K
     config = wav2vec2_encoder_archs.get("large_lv60k")
 
     config.feature_gradient_scale = 1.0
@@ -71,7 +63,7 @@ class Wav2Vec2AsrConfig:
     :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`.
     """
 
-    encoder_config: Wav2Vec2EncoderConfig = field(default_factory=_base_10h_encoder)
+    encoder_config: Wav2Vec2EncoderConfig = field(default_factory=_base_encoder)
     """The configuration of the encoder."""
 
     final_dim: int = 32
@@ -119,7 +111,8 @@ def _base_10h() -> Wav2Vec2AsrConfig:
 def _base_100h() -> Wav2Vec2AsrConfig:
     config = _base_10h()
 
-    config.encoder_config = _base_100h_encoder()
+    config.encoder_config.layer_drop_p = 0.1
+
     return config
 
 
@@ -145,9 +138,8 @@ def _large_100h() -> Wav2Vec2AsrConfig:
     return config
 
 
-@wav2vec2_asr_arch("large_lv60k_10h")
+@wav2vec2_asr_arch("large_lv60k_10h")  # LibriVox 60K
 def _large_lv60k_10h() -> Wav2Vec2AsrConfig:
-    """wav2vec2 large arch trained on the LibriVox 60k dataset."""
     config = _base_10h()
 
     config.encoder_config = _large_lv60k_encoder()
@@ -157,9 +149,8 @@ def _large_lv60k_10h() -> Wav2Vec2AsrConfig:
     return config
 
 
-@wav2vec2_asr_arch("large_lv60k_100h")
+@wav2vec2_asr_arch("large_lv60k_100h")  # LibriVox 60K
 def _large_lv60k_100h() -> Wav2Vec2AsrConfig:
-    """wav2vec2 large arch trained on the LibriVox 60k dataset."""
     config = _base_10h()
 
     config.encoder_config = _large_lv60k_encoder()
