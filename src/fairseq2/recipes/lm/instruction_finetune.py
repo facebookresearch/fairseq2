@@ -181,14 +181,14 @@ def load_instruction_finetuner(
             f"The size of the root gang ({root_gang.size}) is not divisible by `config.tensor_parallel_size` ({config.tensor_parallel_size})."
         ) from ex
 
+    dp_gang = gangs["dp"]  # data
+    tp_gang = gangs["tp"]  # tensor
+
     log.info("Data and tensor parallel gangs initialized.")
 
     device = root_gang.device
 
     log_environment_info(log, device)
-
-    dp_gang = gangs["dp"]  # data
-    tp_gang = gangs["tp"]  # tensor
 
     log.info("Loading {} tokenizer.", config.tokenizer_name)
 
@@ -236,24 +236,30 @@ def load_instruction_finetuner(
     # Set the seed for model initialization.
     rng_bag.manual_seed(config.seed)
 
-    log.info("Loading {} model on data parallel rank 0 (per shard).", config.model_name)
+    init_device = META
 
     has_checkpoint = checkpoint_manager.has_checkpoint()
 
+    if has_checkpoint:
+        model = load_model(
+            config.model_name, gangs=gangs, device=init_device, dtype=torch.float32
+        )
+
     # If we don't have a checkpoint, load the pretrained model on rank 0 and
     # broadcast it to the gang.
-    if not has_checkpoint and dp_gang.rank == 0:
-        init_device = device
     else:
-        init_device = META
+        log.info("Loading {} model on data parallel rank 0 (per shard).", config.model_name)  # fmt: skip
 
-    model = load_model(
-        config.model_name, gangs=gangs, device=init_device, dtype=torch.float32
-    )
+        if dp_gang.rank == 0:
+            init_device = device
 
-    root_gang.barrier()
+        model = load_model(
+            config.model_name, gangs=gangs, device=init_device, dtype=torch.float32
+        )
 
-    log.info("Model loaded on data parallel rank 0.")
+        root_gang.barrier()
+
+        log.info("Model loaded on data parallel rank 0.")
 
     if not isinstance(model, DecoderModel):
         raise ValueError("`config.model_name` must specify a decoder model.")

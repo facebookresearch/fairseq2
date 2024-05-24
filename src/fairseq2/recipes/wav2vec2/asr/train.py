@@ -197,8 +197,11 @@ def load_wav2vec2_asr_trainer(
     # In case we train on Ampere or later, use TF32.
     torch.set_float32_matmul_precision("high")
 
-    # Set up the gang.
+    log.info("Initializing the gang.")
+
     gang = setup_default_gang(monitored=config.monitored_gang)
+
+    log.info("Gang initialized.")
 
     device = gang.device
 
@@ -212,8 +215,13 @@ def load_wav2vec2_asr_trainer(
             f"`config.model_config.final_dim` must match the size of the vocabulary of the tokenizer ({tokenizer.vocab_info.size}), but is {config.model_config.final_dim} instead."
         )
 
-    # Load the dataset.
+    log.info("Loading {} tokenizer.", config.tokenizer_name)
+
     dataset = load_asr_dataset(config.dataset_name)
+
+    log.info("Tokenizer loaded.")
+
+    log.info("Loading {} dataset.", config.dataset_name)
 
     train_data_reader = dataset.create_reader(
         split=config.train_split,
@@ -245,6 +253,8 @@ def load_wav2vec2_asr_trainer(
 
     data_readers = {"train": train_data_reader, "valid": valid_data_reader}
 
+    log.info("Dataset loaded.")
+
     # Set up the checkpoint manager.
     if gang.size > 1 and config.data_parallelism == "ddp":
         replicated_keys = ["_model", "_optimizer"]
@@ -263,9 +273,6 @@ def load_wav2vec2_asr_trainer(
     # Set the seed for model initialization.
     rng_bag.manual_seed(config.seed)
 
-    # Initialize the model.
-    log.info("Initializing the model.")
-
     model = create_wav2vec2_asr_model(
         config.model_config, device=META, dtype=torch.float32
     )
@@ -275,6 +282,8 @@ def load_wav2vec2_asr_trainer(
     # If we don't have a checkpoint, load the pretrained model on rank 0 and
     # broadcast it to the gang.
     if not has_checkpoint:
+        log.info("Loading pretrained {} model on rank 0.", config.pretrained_model_name)
+
         if gang.rank == 0:
             pt_model = load_wav2vec2_model(
                 config.pretrained_model_name, device=device, dtype=torch.float32
@@ -288,9 +297,18 @@ def load_wav2vec2_asr_trainer(
 
             del pt_model
 
+        gang.barrier()
+
+        log.info("Pretrained model loaded on rank 0 and parameters shared with the ASR model.")  # fmt: skip
+
+        log.info("Initialize the output linear layer on rank 0.")
+
+        if gang.rank == 0:
             to_device(model, device)
 
         gang.barrier()
+
+        log.info("Output linear layer initialized.")
 
     checkpoint_manager.set_model_metadata(
         family=model.family, config=config.model_config
@@ -306,46 +324,57 @@ def load_wav2vec2_asr_trainer(
         to_device(model, device)
 
         dp_model = model
-    elif config.data_parallelism == "ddp":
-        to_device(model, device)
+    else:
+        log.info("Wrapping the model with {} and broadcasting to all ranks from rank 0.", config.data_parallelism.upper())  # fmt: skip
 
-        find_unused_params = config.freeze_encoder_for_n_steps > 0
+        if config.data_parallelism == "ddp":
+            to_device(model, device)
 
-        dp_model = to_ddp(model, gang, find_unused_parameters=find_unused_params)
-    elif config.data_parallelism == "fsdp":
-        if config.freeze_encoder_for_n_steps != 0:
-            raise ValueError(
-                "`config.freeze_encoder_for_n_steps` must be 0 when using FSDP."
+            find_unused_params = config.freeze_encoder_for_n_steps > 0
+
+            dp_model = to_ddp(model, gang, find_unused_parameters=find_unused_params)
+        elif config.data_parallelism == "fsdp":
+            if config.freeze_encoder_for_n_steps != 0:
+                raise ValueError(
+                    "`config.freeze_encoder_for_n_steps` must be 0 when using FSDP."
+                )
+
+            wrap_policy, ignored_modules = get_fsdp_wrap_policy(
+                model, wrap_granularity=config.fsdp_wrap_granularity
             )
 
-        wrap_policy, ignored_modules = get_fsdp_wrap_policy(
-            model, wrap_granularity=config.fsdp_wrap_granularity
-        )
+            if config.dtype == torch.float32:
+                mixed_precision_dtype = None
+            else:
+                mixed_precision_dtype = config.dtype
 
-        if config.dtype == torch.float32:
-            mixed_precision_dtype = None
+            dp_model = to_fsdp(
+                model,
+                gang,
+                wrap_policy,
+                ignored_modules=ignored_modules,
+                skip_init=True,
+                broadcast_state=not has_checkpoint,
+                mixed_precision_dtype=mixed_precision_dtype,
+                fp32_reduce=True,
+            )
         else:
-            mixed_precision_dtype = config.dtype
+            raise ValueError(
+                f"`config.data_parallelism` must be 'ddp' or 'fsdp', but is '{config.data_parallelism}' instead."
+            )
 
-        dp_model = to_fsdp(
-            model,
-            gang,
-            wrap_policy,
-            ignored_modules=ignored_modules,
-            skip_init=True,
-            broadcast_state=not has_checkpoint,
-            mixed_precision_dtype=mixed_precision_dtype,
-            fp32_reduce=True,
-        )
-    else:
-        raise ValueError(
-            f"`config.data_parallelism` must be 'ddp' or 'fsdp', but is '{config.data_parallelism}' instead."
-        )
+        log.info("Model wrapped and broadcasted to all ranks.")
 
     if config.torch_compile:
+        log.info("Compiling the encoder.")
+
         model.encoder = torch.compile(  # type: ignore[assignment]
             model.encoder, dynamic=True, options={"shape_padding": True}
         )
+
+        gang.barrier()
+
+        log.info("Encoder compiled.")
 
     log_model(dp_model, log)
 

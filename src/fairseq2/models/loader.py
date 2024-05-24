@@ -227,7 +227,12 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         config = self._config_loader(card)
 
         if device == META:
-            model = self._factory(config, device=META, dtype=dtype)
+            try:
+                model = self._factory(config, device=META, dtype=dtype)
+            except NotImplementedError as ex:
+                raise RuntimeError(
+                    f"One or more operators in {card.name} constructor do not support the meta device. See nested exception for details."
+                ) from ex
 
             if gang is not None and gang.size > 1:
                 self._shard(model, gangs, card)  # type: ignore[arg-type]
