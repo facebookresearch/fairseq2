@@ -166,16 +166,22 @@ def load_instruction_finetuner(
     # In case we train on Ampere or later, use TF32.
     torch.set_float32_matmul_precision("high")
 
-    # Set up the root gang.
+    log.info("Initializing the root gang.")
+
     root_gang = setup_default_gang(monitored=config.monitored_gang)
 
-    # Set up the gangs for data and tensor parallelism.
+    log.info("Root gang initialized.")
+
+    log.info("Initializing the data and tensor parallel gangs.")
+
     try:
         gangs = setup_parallel_gangs(root_gang, tp_size=config.tensor_parallel_size)
     except ValueError as ex:
         raise RuntimeError(
             f"The size of the root gang ({root_gang.size}) is not divisible by `config.tensor_parallel_size` ({config.tensor_parallel_size})."
         ) from ex
+
+    log.info("Data and tensor parallel gangs initialized.")
 
     device = root_gang.device
 
@@ -184,10 +190,14 @@ def load_instruction_finetuner(
     dp_gang = gangs["dp"]  # data
     tp_gang = gangs["tp"]  # tensor
 
-    # Load the tokenizer.
+    log.info("Loading {} tokenizer.", config.tokenizer_name)
+
     tokenizer = load_text_tokenizer(config.tokenizer_name)
 
-    # Load the dataset.
+    log.info("Tokenizer loaded.")
+
+    log.info("Loading {} dataset.", config.dataset_name)
+
     dataset = load_instruction_dataset(config.dataset_name)
 
     data_reader = dataset.create_reader(
@@ -203,6 +213,8 @@ def load_instruction_finetuner(
     )
 
     data_readers = {"train": data_reader}
+
+    log.info("Dataset loaded.")
 
     # Set up the checkpoint manager.
     if dp_gang.size > 1 and config.data_parallelism == "ddp":
@@ -224,8 +236,7 @@ def load_instruction_finetuner(
     # Set the seed for model initialization.
     rng_bag.manual_seed(config.seed)
 
-    # Initialize the model.
-    log.info("Initializing the model.")
+    log.info("Loading {} model on data parallel rank 0 (per shard).", config.model_name)
 
     has_checkpoint = checkpoint_manager.has_checkpoint()
 
@@ -241,6 +252,8 @@ def load_instruction_finetuner(
     )
 
     root_gang.barrier()
+
+    log.info("Model loaded on data parallel rank 0.")
 
     if not isinstance(model, DecoderModel):
         raise ValueError("`config.model_name` must specify a decoder model.")
@@ -259,43 +272,56 @@ def load_instruction_finetuner(
         to_device(model, device)
 
         dp_model = model
-    elif config.data_parallelism == "ddp":
-        to_device(model, device)
-
-        dp_model = to_ddp(model, dp_gang)
-    elif config.data_parallelism == "fsdp":
-        wrap_policy, ignored_modules = get_fsdp_wrap_policy(
-            model, wrap_granularity=config.fsdp_wrap_granularity
-        )
-
-        if config.dtype == torch.float32:
-            mixed_precision_dtype = None
-        else:
-            mixed_precision_dtype = config.dtype
-
-        dp_model = to_fsdp(
-            model,
-            dp_gang,
-            wrap_policy,
-            ignored_modules=ignored_modules,
-            skip_init=True,
-            broadcast_state=not has_checkpoint,
-            reshard_after_forward=config.fsdp_reshard_after_forward,
-            mixed_precision_dtype=mixed_precision_dtype,
-            fp32_reduce=True,
-        )
     else:
-        raise ValueError(
-            f"`config.data_parallelism` must be 'ddp' or 'fsdp', but is '{config.data_parallelism}' instead."
-        )
+        log.info("Wrapping model with {} and broadcasting to all data parallel ranks from rank 0.", config.data_parallelism.upper())  # fmt: skip
+
+        if config.data_parallelism == "ddp":
+            to_device(model, device)
+
+            dp_model = to_ddp(model, dp_gang)
+        elif config.data_parallelism == "fsdp":
+            wrap_policy, ignored_modules = get_fsdp_wrap_policy(
+                model, wrap_granularity=config.fsdp_wrap_granularity
+            )
+
+            if config.dtype == torch.float32:
+                mixed_precision_dtype = None
+            else:
+                mixed_precision_dtype = config.dtype
+
+            dp_model = to_fsdp(
+                model,
+                dp_gang,
+                wrap_policy,
+                ignored_modules=ignored_modules,
+                skip_init=True,
+                broadcast_state=not has_checkpoint,
+                reshard_after_forward=config.fsdp_reshard_after_forward,
+                mixed_precision_dtype=mixed_precision_dtype,
+                fp32_reduce=True,
+            )
+        else:
+            raise ValueError(
+                f"`config.data_parallelism` must be 'ddp' or 'fsdp', but is '{config.data_parallelism}' instead."
+            )
+
+        root_gang.barrier()
+
+        log.info("Model wrapped and broadcasted to all ranks.")
 
     if config.activation_checkpointing:
         use_layerwise_activation_checkpointing(dp_model)
 
     if config.torch_compile:
+        log.info("Compiling the model.")
+
         model.decoder = torch.compile(  # type: ignore[assignment]
             model.decoder, dynamic=True, options={"shape_padding": True}
         )
+
+        root_gang.barrier()
+
+        log.info("Model compiled.")
 
     # TODO(balioglu): investigate!
     # The memory efficient SDPA implementation in PyTorch is not stable when
