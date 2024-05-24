@@ -32,13 +32,34 @@ from torch.distributed.fsdp.api import FullStateDictConfig, StateDictType
 from torch.nn import Module
 
 from fairseq2.gang import Gang
+from fairseq2.logging import get_log_writer
 from fairseq2.models.utils.checkpoint import load_checkpoint
 from fairseq2.typing import CPU, DataClass, override
 from fairseq2.utils.dataclass import to_safe_dict
 
+log = get_log_writer(__name__)
+
 
 class CheckpointManager(ABC):
     """Saves and loads training checkpoints."""
+
+    @abstractmethod
+    def set_model_metadata(
+        self,
+        *,
+        family: Optional[str] = None,
+        base: Optional[str] = None,
+        config: Optional[DataClass] = None,
+    ) -> None:
+        """Set the model metadata.
+
+        :param family:
+            The family of the model.
+        :param base:
+            The model that the model is based on.
+        :param config:
+            The configuration of the model.
+        """
 
     @abstractmethod
     def save_checkpoint(
@@ -217,6 +238,7 @@ class FileCheckpointManager(CheckpointManager):
     def replicated_keys(self, value: Set[str]) -> None:
         self._replicated_keys = value
 
+    @override
     def set_model_metadata(
         self,
         *,
@@ -224,15 +246,6 @@ class FileCheckpointManager(CheckpointManager):
         base: Optional[str] = None,
         config: Optional[DataClass] = None,
     ) -> None:
-        """Set the model metadata.
-
-        :param family:
-            The family of the model.
-        :param base:
-            The model that the model is based on.
-        :param config:
-            The configuration of the model.
-        """
         if self._root_gang.rank == 0:
             metadata: Dict[str, Any] = {"name": "checkpoint"}
 
@@ -448,6 +461,8 @@ class FileCheckpointManager(CheckpointManager):
 
     @override
     def save_consolidated_fsdp_model(self, step_nr: int, model: Module) -> None:
+        log.info("Extracting consolidated FSDP state dictionary of the model.")
+
         with FSDP.state_dict_type(
             model,
             StateDictType.FULL_STATE_DICT,
@@ -456,6 +471,8 @@ class FileCheckpointManager(CheckpointManager):
             state_dict = model.state_dict()
 
         self._root_gang.barrier()
+
+        log.info("Model state dictionary extracted. Saving to file on data parallel rank 0.")  # fmt: skip
 
         if self._dp_gang.rank == 0:
             tmp_model_file = self._checkpoint_dir.joinpath(

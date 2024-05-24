@@ -662,6 +662,8 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
 
         checkpoint = self.state_dict()
 
+        log.info("State dictionary of the trainer extracted.")
+
         self._checkpoint_manager.save_checkpoint(self._step_nr, checkpoint)
 
         log.info("Checkpoint saved.")
