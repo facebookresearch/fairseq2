@@ -127,6 +127,10 @@ class Cli:
 
     def __call__(self) -> None:
         """Run the program."""
+        with exception_logger(log):
+            self._run_command()
+
+    def _run_command(self) -> None:
         parser = ArgumentParser(self._name, description=self._description)
 
         self.init_parser(parser)
@@ -507,10 +511,6 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
 
     @override
     def __call__(self, args: Namespace) -> None:
-        with exception_logger(log):
-            self._run_recipe(args)
-
-    def _run_recipe(self, args: Namespace) -> None:
         setup_basic_logging(debug=args.debug)
 
         assert self._parser is not None
