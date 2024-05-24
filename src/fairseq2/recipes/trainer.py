@@ -517,6 +517,8 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
         return self._should_do(self._publish_metrics_every_n_steps)
 
     def _publish_train_metrics(self) -> None:
+        log.debug("Syncing train metrics.")
+
         values = self._train_metric_bag.sync_and_compute_metrics()
 
         self._train_metric_bag.reset_non_persistent_metrics()
@@ -604,6 +606,8 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
         data_reader.reset()
 
     def _publish_validation_metrics(self, split: Optional[str] = None) -> None:
+        log.debug("Syncing validation metrics.")
+
         values = self._valid_metric_bag.sync_and_compute_metrics()
 
         self._valid_metric_bag.reset_metrics()
