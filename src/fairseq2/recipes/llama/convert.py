@@ -90,15 +90,10 @@ class ConvertCheckpointCommand(CliCommandHandler):
         output_files = []
 
         # Determine output checkpoint filenames.
-        if len(input_files) == 1:
-            output_file = args.output_dir.joinpath("model.pt")
+        for shard_idx in range(len(input_files)):
+            output_file = args.output_dir.joinpath(f"consolidated.{shard_idx:02d}.pth")
 
             output_files.append(output_file)
-        else:
-            for shard_idx in range(len(input_files)):
-                output_file = args.output_dir.joinpath(f"model.{shard_idx:02G}.pt")
-
-                output_files.append(output_file)
 
         args.output_dir.mkdir(parents=True)
 
