@@ -109,7 +109,7 @@ class ConvertCheckpointCommand(CliCommandHandler):
                         checkpoint = torch.load(input_file, weights_only=True)
                 except RuntimeError:
                     log.exception(
-                        "Checkpoint file {} cannot be loaded", input_file.name
+                        "Checkpoint file {} cannot be loaded.", input_file.name
                     )
 
                     sys.exit(1)
@@ -119,7 +119,9 @@ class ConvertCheckpointCommand(CliCommandHandler):
 
                     sys.exit(1)
 
-                status.update(f"[bold green]Converting {input_file.name}...")
+                status.update(
+                    f"[bold green]Converting {input_file.name} to {output_file.name}..."
+                )
 
                 ref_state_dict = convert_to_reference_checkpoint(checkpoint)
 
@@ -127,7 +129,7 @@ class ConvertCheckpointCommand(CliCommandHandler):
                     torch.save(ref_state_dict, output_file)
                 except RuntimeError:
                     log.exception(
-                        "Checkpoint file {} cannot be saved", output_file.name
+                        "Checkpoint file {} cannot be saved.", output_file.name
                     )
 
                     sys.exit(1)
@@ -141,7 +143,6 @@ class ConvertCheckpointCommand(CliCommandHandler):
                     "dim": model_config.model_dim,
                     "n_layers": model_config.num_layers,
                     "n_heads": model_config.num_attn_heads,
-                    "ffn_dim_multiplier": model_config.ffn_inner_dim_scale,
                     "multiple_of": model_config.ffn_inner_dim_to_multiple,
                     "norm_eps": 1e-5,
                 },
@@ -149,6 +150,9 @@ class ConvertCheckpointCommand(CliCommandHandler):
 
             if model_config.num_attn_heads != model_config.num_key_value_heads:
                 params["model"]["n_kv_heads"] = model_config.num_key_value_heads
+
+            if args.arch == "llama2_70b":
+                params["model"]["ffn_dim_multiplier"] = 1.3
 
             try:
                 with args.output_dir.joinpath("params.json").open("w") as fp:
