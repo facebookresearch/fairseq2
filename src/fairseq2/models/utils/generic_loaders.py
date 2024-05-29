@@ -206,7 +206,6 @@ class ModelLoader(Generic[ModelT, ConfigT]):
     config_loader: ConfigLoader[ConfigT]
     model_factory: ModelFactory[ConfigT, ModelT]
     checkpoint_converter: Optional[CheckpointConverter[ConfigT]]
-    mmap: bool
     restrict_checkpoints: bool
     skip_meta_init: bool
 
@@ -218,7 +217,6 @@ class ModelLoader(Generic[ModelT, ConfigT]):
         model_factory: ModelFactory[ConfigT, ModelT],
         checkpoint_converter: Optional[CheckpointConverter[ConfigT]] = None,
         *,
-        mmap: bool = False,
         restrict_checkpoints: bool = True,
         skip_meta_init: bool = False,
     ) -> None:
@@ -234,9 +232,6 @@ class ModelLoader(Generic[ModelT, ConfigT]):
         :param checkpoint_converter:
             The converter to which loaded checkpoints will be passed for further
             processing.
-        :param mmap:
-            If ``True``, indicates whether the checkpoint should be memory
-            mapped.
         :param restrict_checkpoints:
             If ``True``, restricts the Python unpickler to load only tensors,
             primitive types, and dictionaries.
@@ -250,7 +245,6 @@ class ModelLoader(Generic[ModelT, ConfigT]):
         self.config_loader = config_loader
         self.model_factory = model_factory
         self.checkpoint_converter = checkpoint_converter
-        self.mmap = mmap
         self.restrict_checkpoints = restrict_checkpoints
         self.skip_meta_init = skip_meta_init
 
@@ -310,7 +304,6 @@ class ModelLoader(Generic[ModelT, ConfigT]):
             checkpoint = load_checkpoint(
                 path,
                 map_location=CPU,
-                mmap=self.mmap,
                 restrict=self.restrict_checkpoints,
                 converter=checkpoint_converter,
             )

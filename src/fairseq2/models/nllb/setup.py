@@ -95,7 +95,6 @@ load_nllb_model = DenseModelLoader(
     config_loader=load_nllb_config,
     factory=create_nllb_model,
     checkpoint_converter=convert_nllb_checkpoint,
-    mmap=True,
     restrict_checkpoints=False,
 )
 

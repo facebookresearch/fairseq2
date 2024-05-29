@@ -78,5 +78,4 @@ load_w2vbert_model = DenseModelLoader(
     config_loader=load_w2vbert_config,
     factory=create_w2vbert_model,
     checkpoint_converter=convert_w2vbert_checkpoint,
-    mmap=True,
 )

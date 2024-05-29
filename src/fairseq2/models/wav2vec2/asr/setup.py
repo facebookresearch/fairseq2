@@ -76,6 +76,5 @@ load_wav2vec2_asr_model = DenseModelLoader(
     config_loader=load_wav2vec2_asr_config,
     factory=create_wav2vec2_asr_model,
     checkpoint_converter=convert_wav2vec2_asr_checkpoint,
-    mmap=False,
     restrict_checkpoints=False,
 )
