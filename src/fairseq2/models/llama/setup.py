@@ -101,7 +101,7 @@ class LLaMATokenizerLoader(AbstractTextTokenizerLoader[TextTokenizer]):
 
             eot_idx = 128_009  # end-of-turn
 
-            return LLaMA3Tokenizer(path, chat=f.get_as_(int) == eot_idx)
+            return LLaMA3Tokenizer(path, instruct=f.get_as_(int) == eot_idx)
 
         return BasicSentencePieceTokenizer(path)
 

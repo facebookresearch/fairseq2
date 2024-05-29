@@ -17,11 +17,13 @@ class LLaMA3Tokenizer(TiktokenTokenizer):
 
     _SPLIT_REGEX: Final = r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+"  # fmt: skip
 
-    def __init__(self, path: Path, chat: bool = False) -> None:
+    _eos_token: str
+
+    def __init__(self, path: Path, instruct: bool = False) -> None:
         """
         :param path:
             The path to the tiktoken BPE file.
-        :param chat:
+        :param instruct:
             If ``True``, uses EOT (end-of-turn) token in-place of EOS token.
         """
         special_tokens = [
@@ -34,7 +36,7 @@ class LLaMA3Tokenizer(TiktokenTokenizer):
             "<|start_header_id|>",
             "<|end_header_id|>",
             "<|reserved_special_token_4|>",
-            "<|eot_id|>",  # end of turn
+            "<|eot_id|>",  # end-of-turn
         ]
 
         num_reserved_special_tokens = 256
@@ -42,12 +44,14 @@ class LLaMA3Tokenizer(TiktokenTokenizer):
         for i in range(5, num_reserved_special_tokens - 5):
             special_tokens.append(f"<|reserved_special_token_{i}|>")
 
+        self._eos_token = "<|eot_id|>" if instruct else "<|end_of_text|>"
+
         super().__init__(
             path,
             split_regex=self._SPLIT_REGEX,
             unk_token=None,
             bos_token="<|begin_of_text|>",
-            eos_token="<|eot_id|>" if chat else "<|end_of_text|>",
+            eos_token=self._eos_token,
             pad_token=None,
             special_tokens=special_tokens,
         )
@@ -70,14 +74,14 @@ class LLaMA3Tokenizer(TiktokenTokenizer):
 
         if mode is None or mode == "default":
             prefix_tokens = ["<|begin_of_text|>"]
-            suffix_tokens = ["<|end_of_text|>"]
+            suffix_tokens = [self._eos_token]
         elif mode == "prompt":
             prefix_tokens = ["<|begin_of_text|>"]
             # In prompt mode, we expect the generator to finish the sequence.
             suffix_tokens = None
         elif mode == "prompt_response":
             prefix_tokens = []
-            suffix_tokens = ["<|end_of_text|>"]
+            suffix_tokens = [self._eos_token]
         else:
             raise ValueError(
                 f"`mode` must be 'default' or 'prompt', but is '{mode}' instead."
