@@ -56,7 +56,6 @@ load_mistral_model = DenseModelLoader(
     config_loader=load_mistral_config,
     factory=create_mistral_model,
     checkpoint_converter=convert_mistral_checkpoint,
-    mmap=True,
 )
 
 load_mistral_tokenizer = default_basic_sentencepiece_tokenizer_loader

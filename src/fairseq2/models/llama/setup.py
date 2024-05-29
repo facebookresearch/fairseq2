@@ -87,7 +87,6 @@ load_llama_model = LLaMAModelLoader(
     config_loader=load_llama_config,
     factory=create_llama_model,
     checkpoint_converter=convert_llama_checkpoint,
-    mmap=True,
 )
 
 

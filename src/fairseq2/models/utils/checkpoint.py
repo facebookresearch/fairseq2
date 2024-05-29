@@ -15,7 +15,6 @@ from torch import Tensor
 from typing_extensions import TypeAlias
 
 from fairseq2.typing import Device
-from fairseq2.utils.version import torch_greater_or_equal
 
 MapLocation: TypeAlias = Optional[
     Union[Callable[[Tensor, str], Tensor], Device, str, Dict[str, str]]
@@ -36,7 +35,6 @@ def load_checkpoint(
     path: Path,
     *,
     map_location: MapLocation = None,
-    mmap: bool = False,
     restrict: bool = False,
     converter: Optional[CheckpointConverter] = None,
 ) -> Dict[str, Any]:
@@ -46,8 +44,6 @@ def load_checkpoint(
         The path to the checkpoint.
     :param map_location:
         Same as the ``map_location`` parameter of :meth:`torch.load`.
-    :param mmap:
-        If ``True``, indicates whether the checkpoint should be memory mapped.
     :param restrict:
         If ``True``, restricts the Python unpickler to load only tensors,
         primitive types, and dictionaries.
@@ -61,13 +57,8 @@ def load_checkpoint(
     with catch_warnings():
         warnings.simplefilter("ignore")  # Suppress the deprecation warning.
 
-        kwargs = {}
-
-        if mmap and torch_greater_or_equal(2, 1):
-            kwargs["mmap"] = True
-
         checkpoint: Dict[str, Any] = torch.load(
-            str(path), map_location, weights_only=restrict, **kwargs
+            str(path), map_location, weights_only=restrict
         )
 
     if converter is not None:

@@ -537,7 +537,7 @@ class FileCheckpointManager(CheckpointManager):
             for filename in filenames:
                 try:
                     part = load_checkpoint(
-                        step_dir.joinpath(filename), map_location=CPU, mmap=True
+                        step_dir.joinpath(filename), map_location=CPU
                     )
                 except FileNotFoundError:
                     part = None
@@ -590,7 +590,7 @@ class FileCheckpointManager(CheckpointManager):
         )
 
         try:
-            metadata = load_checkpoint(metadata_file, map_location=CPU, mmap=True)
+            metadata = load_checkpoint(metadata_file, map_location=CPU)
         except FileNotFoundError:
             metadata = None
         except (RuntimeError, OSError, PickleError) as ex:

@@ -122,7 +122,6 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
     _config_loader: ModelConfigLoader[ModelConfigT]
     _factory: DenseModelFactory[ModelConfigT, ModelT]
     _checkpoint_converter: Optional[CheckpointConverter[ModelConfigT]]
-    _mmap: bool
     _restrict_checkpoints: bool
     _skip_meta_init: bool
 
@@ -132,7 +131,6 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         config_loader: ModelConfigLoader[ModelConfigT],
         factory: DenseModelFactory[ModelConfigT, ModelT],
         checkpoint_converter: Optional[CheckpointConverter[ModelConfigT]] = None,
-        mmap: bool = False,
         restrict_checkpoints: bool = True,
         skip_meta_init: bool = False,
         asset_store: Optional[AssetStore] = None,
@@ -146,9 +144,6 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         :param checkpoint_converter:
             The converter to which loaded checkpoints will be passed for further
             processing.
-        :param mmap:
-            If ``True``, indicates whether the checkpoint should be memory
-            mapped.
         :param restrict_checkpoints:
             If ``True``, restricts the Python unpickler to load only tensors,
             primitive types, and dictionaries.
@@ -166,7 +161,6 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         self._config_loader = config_loader
         self._factory = factory
         self._checkpoint_converter = checkpoint_converter
-        self._mmap = mmap
         self._restrict_checkpoints = restrict_checkpoints
         self._skip_meta_init = skip_meta_init
 
@@ -262,7 +256,6 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
             checkpoint = load_checkpoint(
                 path,
                 map_location=CPU,
-                mmap=self._mmap,
                 restrict=self._restrict_checkpoints,
                 converter=checkpoint_converter,
             )

@@ -93,7 +93,6 @@ load_s2t_transformer_model = DenseModelLoader(
     config_loader=load_s2t_transformer_config,
     factory=create_s2t_transformer_model,
     checkpoint_converter=convert_s2t_transformer_checkpoint,
-    mmap=True,
     restrict_checkpoints=False,
 )
 
