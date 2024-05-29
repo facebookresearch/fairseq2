@@ -144,6 +144,7 @@ class ConvertCheckpointCommand(CliCommandHandler):
                     "n_layers": model_config.num_layers,
                     "n_heads": model_config.num_attn_heads,
                     "multiple_of": model_config.ffn_inner_dim_to_multiple,
+                    "rope_theta": model_config.rope_theta,
                     "norm_eps": 1e-5,
                 },
             }
