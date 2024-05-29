@@ -48,3 +48,6 @@ from fairseq2.data.text.text_tokenizer import TextTokenEncoder as TextTokenEncod
 from fairseq2.data.text.text_tokenizer import TextTokenizer as TextTokenizer
 from fairseq2.data.text.text_tokenizer import TextTokenizerLoader as TextTokenizerLoader
 from fairseq2.data.text.text_tokenizer import load_text_tokenizer as load_text_tokenizer
+from fairseq2.data.text.tiktoken import TiktokenDecoder as TiktokenDecoder
+from fairseq2.data.text.tiktoken import TiktokenEncoder as TiktokenEncoder
+from fairseq2.data.text.tiktoken import TiktokenTokenizer as TiktokenTokenizer

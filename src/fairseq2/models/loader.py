@@ -189,7 +189,7 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
                 device = gang.device
             elif device != gang.device and device != META:
                 raise ValueError(
-                    "`device` must either match `gang['tp'].size` or must be of type `meta`."
+                    "`device` must either match `gang['tp'].device` or must be of type `meta`."
                 )
 
         if device is None:

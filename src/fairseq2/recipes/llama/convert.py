@@ -151,7 +151,7 @@ class ConvertCheckpointCommand(CliCommandHandler):
             if model_config.num_attn_heads != model_config.num_key_value_heads:
                 params["model"]["n_kv_heads"] = model_config.num_key_value_heads
 
-            if args.arch == "llama2_70b":
+            if args.arch == "llama2_70b" or args.arch.startswith("llama3"):
                 params["model"]["ffn_dim_multiplier"] = 1.3
 
             try:

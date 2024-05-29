@@ -9,7 +9,7 @@ from typing import Optional, final
 
 
 @final
-@dataclass(frozen=True)
+@dataclass
 class VocabularyInfo:
     """Describes the vocabulary used by a tokenizer"""
 

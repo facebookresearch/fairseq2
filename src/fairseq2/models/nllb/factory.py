@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Final, Optional
 
 from fairseq2.config_registry import ConfigRegistry
@@ -56,8 +56,10 @@ class NllbConfig:
     max_seq_len: int = 1024
     """The maximum sequence length."""
 
-    vocab_info: VocabularyInfo = VocabularyInfo(
-        size=256206, unk_idx=1, bos_idx=2, eos_idx=3, pad_idx=0
+    vocab_info: VocabularyInfo = field(
+        default_factory=lambda: VocabularyInfo(
+            size=256206, unk_idx=1, bos_idx=2, eos_idx=3, pad_idx=0
+        )
     )
     """The vocabulary information."""
 

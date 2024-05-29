@@ -309,14 +309,21 @@ class RotaryEncoder(PositionEncoder):
     :cite:t:`https://doi.org/10.48550/arxiv.2104.09864`."""
 
     freqs: Tensor
+    theta: float
 
     def __init__(
         self,
         encoding_dim: int,
         max_seq_len: int,
         *,
+        theta: float = 10_000.0,
         device: Optional[Device] = None,
     ) -> None:
+        """
+        :param theta:
+            The coefficient of the long-term decay as described in section 3.3
+            of the reference paper.
+        """
         super().__init__(encoding_dim, max_seq_len)
 
         if encoding_dim % 2 != 0:
@@ -329,6 +336,8 @@ class RotaryEncoder(PositionEncoder):
         )
 
         self.register_buffer("freqs", freqs, persistent=False)
+
+        self.theta = theta
 
         self.reset_parameters()
 
@@ -356,7 +365,7 @@ class RotaryEncoder(PositionEncoder):
             0, self.encoding_dim, step=2, device=device, dtype=torch.float32
         )
 
-        freqs = 1.0 / (10000.0 ** (indices / self.encoding_dim))
+        freqs = 1.0 / (self.theta ** (indices / self.encoding_dim))
 
         # (S) x (E / 2) -> (S, E / 2)
         freqs = torch.outer(steps, freqs)

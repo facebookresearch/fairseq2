@@ -48,7 +48,7 @@ class DelegatingChatbotFactory(ChatbotFactory):
 
         return factory(generator, tokenizer)
 
-    def register_factory(self, family: str, factory: ChatbotFactory) -> None:
+    def register(self, family: str, factory: ChatbotFactory) -> None:
         """Register a chatbot factory to use with this factory.
 
         :param family:
@@ -65,5 +65,3 @@ class DelegatingChatbotFactory(ChatbotFactory):
 
 
 create_chatbot = DelegatingChatbotFactory()
-
-register_chatbot = create_chatbot.register_factory
