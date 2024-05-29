@@ -4,10 +4,15 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from pathlib import Path
 from typing import Any, Dict, final
 
 from fairseq2.assets import AssetCard
-from fairseq2.data.text import default_basic_sentencepiece_tokenizer_loader
+from fairseq2.data.text import (
+    AbstractTextTokenizerLoader,
+    BasicSentencePieceTokenizer,
+    TextTokenizer,
+)
 from fairseq2.gang import Gang
 from fairseq2.models.config_loader import StandardModelConfigLoader
 from fairseq2.models.llama.factory import (
@@ -16,6 +21,7 @@ from fairseq2.models.llama.factory import (
     create_llama_model,
     llama_archs,
 )
+from fairseq2.models.llama.tokenizer import LLaMA3Tokenizer
 from fairseq2.models.loader import DenseModelLoader
 from fairseq2.models.transformer import (
     TransformerDecoderModel,
@@ -84,4 +90,21 @@ load_llama_model = LLaMAModelLoader(
     mmap=True,
 )
 
-load_llama_tokenizer = default_basic_sentencepiece_tokenizer_loader
+
+@final
+class LLaMATokenizerLoader(AbstractTextTokenizerLoader[TextTokenizer]):
+    """Loads LLaMA tokenizers."""
+
+    @override
+    def _load(self, path: Path, card: AssetCard) -> TextTokenizer:
+        if card.field("use_v2_tokenizer").get_as_(bool, False):
+            f = card.field("model_config").field("vocab_info").field("eos_idx")
+
+            eot_idx = 128_009  # end-of-turn
+
+            return LLaMA3Tokenizer(path, chat=f.get_as_(int) == eot_idx)
+
+        return BasicSentencePieceTokenizer(path)
+
+
+load_llama_tokenizer = LLaMATokenizerLoader()

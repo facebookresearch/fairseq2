@@ -20,6 +20,7 @@ from fairseq2.models.mistral.setup import (
 # isort: split
 
 from fairseq2.data.text import load_text_tokenizer
+from fairseq2.models.chatbot import create_chatbot
 from fairseq2.models.loader import load_model
 
 
@@ -27,3 +28,5 @@ def _register_mistral() -> None:
     load_model.register(MISTRAL_FAMILY, load_mistral_model)
 
     load_text_tokenizer.register(MISTRAL_FAMILY, load_mistral_tokenizer)
+
+    create_chatbot.register(MISTRAL_FAMILY, MistralChatbot)

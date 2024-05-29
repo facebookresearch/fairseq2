@@ -73,6 +73,9 @@ class LLaMAConfig:
     """The dimensionality of inner projection layers in feed-forward networks is
     rounded up to the nearest multiple of this value."""
 
+    rope_theta: float = 10_000.0
+    """The coefficient of the long-term decay of the Rotary position encoder."""
+
     dropout_p: float = 0.1
     """The dropout probability on outputs of Transformer layers."""
 
@@ -151,6 +154,39 @@ def _llama2_70b() -> LLaMAConfig:
     config.num_key_value_heads = 8
     config.ffn_inner_dim = int(8192 * 4 * 1.3)  # See A.2.1 in LLaMA 2
     config.ffn_inner_dim_to_multiple = 4096
+
+    return config
+
+
+@llama_arch("llama3_8b")
+def _llama3_8b() -> LLaMAConfig:
+    config = _llama2_7b()
+
+    config.max_seq_len = 8192
+
+    config.vocab_info = VocabularyInfo(
+        size=128_256, unk_idx=None, bos_idx=128_000, eos_idx=128_001, pad_idx=None
+    )
+
+    config.num_key_value_heads = 8
+    config.ffn_inner_dim = int(4096 * 4 * 1.3)
+    config.ffn_inner_dim_to_multiple = 1024
+    config.rope_theta = 500_000.0
+
+    return config
+
+
+@llama_arch("llama3_70b")
+def _llama3_70b() -> LLaMAConfig:
+    config = _llama2_70b()
+
+    config.max_seq_len = 8192
+
+    config.vocab_info = VocabularyInfo(
+        size=128_256, unk_idx=None, bos_idx=128_000, eos_idx=128_001, pad_idx=None
+    )
+
+    config.rope_theta = 500_000.0
 
     return config
 
@@ -274,6 +310,7 @@ class LLaMABuilder:
             self._pos_encoder = RotaryEncoder(
                 self._config.model_dim // num_heads,
                 self._config.max_seq_len,
+                theta=self._config.rope_theta,
                 device=self._device,
             )
 

@@ -61,3 +61,46 @@ name: llama2_70b_chat
 base: llama2
 model_arch: llama2_70b
 num_shards: 8
+
+---
+
+name: llama3
+model_type: llama  # compat
+model_family: llama
+checkpoint: "https://ai.meta.com/llama/;gated=true"
+tokenizer: "https://ai.meta.com/llama/;gated=true"
+use_v2_tokenizer: true
+
+---
+
+name: llama3_8b
+base: llama3
+model_arch: llama3_8b
+
+---
+
+name: llama3_8b_chat
+base: llama3
+model_arch: llama3_8b
+model_config:
+  vocab_info:
+    eos_idx: 128009  # end-of-turn
+
+---
+
+name: llama3_70b
+base: llama3
+model_arch: llama3_70b
+num_shards: 8
+shard_embed_dim: false
+
+---
+
+name: llama3_70b_chat
+base: llama3
+model_arch: llama3_70b
+model_config:
+  vocab_info:
+    eos_idx: 128009  # end-of-turn
+num_shards: 8
+shard_embed_dim: false

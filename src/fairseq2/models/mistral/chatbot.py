@@ -11,8 +11,6 @@ from torch import Tensor
 
 from fairseq2.data.text import TextTokenEncoder, TextTokenizer
 from fairseq2.generation import AbstractChatbot, ChatDialog, SequenceGenerator
-from fairseq2.models.chatbot import register_chatbot
-from fairseq2.models.mistral.factory import MISTRAL_FAMILY
 from fairseq2.nn.utils.module import infer_device
 from fairseq2.typing import override
 
@@ -34,13 +32,18 @@ class MistralChatbot(AbstractChatbot):
         """
         super().__init__(generator, tokenizer)
 
-        assert tokenizer.vocab_info.bos_idx is not None
-        assert tokenizer.vocab_info.eos_idx is not None
+        bos_idx = tokenizer.vocab_info.bos_idx
+        eos_idx = tokenizer.vocab_info.eos_idx
+
+        if bos_idx is None or eos_idx is None:
+            raise RuntimeError(
+                "One or more required control symbols requierd for the chatbot are not found in the tokenizer. Please make sure that you are using the right tokenizer."
+            )
 
         device = infer_device(generator.model, name="generator.model")
 
-        self._bos_idx = torch.tensor([tokenizer.vocab_info.bos_idx], device=device)
-        self._eos_idx = torch.tensor([tokenizer.vocab_info.eos_idx], device=device)
+        self._bos_idx = torch.tensor([bos_idx], device=device)
+        self._eos_idx = torch.tensor([eos_idx], device=device)
 
         self._text_encoder = tokenizer.create_raw_encoder(device=device)
 
@@ -80,6 +83,3 @@ class MistralChatbot(AbstractChatbot):
     @override
     def supports_system_prompt(self) -> bool:
         return False
-
-
-register_chatbot(MISTRAL_FAMILY, MistralChatbot)
