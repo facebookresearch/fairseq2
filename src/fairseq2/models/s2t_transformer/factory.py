@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Final, Optional
 
 from torch.nn import SiLU
@@ -70,8 +70,10 @@ class S2TTransformerConfig:
     max_target_seq_len: int = 1024
     """The maximum target sequence length."""
 
-    target_vocab_info: VocabularyInfo = VocabularyInfo(
-        size=10000, unk_idx=3, bos_idx=0, eos_idx=2, pad_idx=1
+    target_vocab_info: VocabularyInfo = field(
+        default_factory=lambda: VocabularyInfo(
+            size=10000, unk_idx=3, bos_idx=0, eos_idx=2, pad_idx=1
+        )
     )
     """The target vocabulary information."""
 

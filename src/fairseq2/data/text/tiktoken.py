@@ -176,7 +176,7 @@ class TiktokenEncoder(TextTokenEncoder):
 
     @override
     def __call__(self, text: str) -> Tensor:
-        indices = self._encoding.encode(text)
+        indices = self._encoding.encode(text, allowed_special="all")
 
         if self._prefix_indices:
             indices = self._prefix_indices + indices

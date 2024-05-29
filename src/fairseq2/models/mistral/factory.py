@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Final, Optional
 
 from fairseq2.config_registry import ConfigRegistry
@@ -49,8 +49,10 @@ class MistralConfig:
     max_seq_len: int = 8192
     """The maximum sequence length."""
 
-    vocab_info: VocabularyInfo = VocabularyInfo(
-        size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
+    vocab_info: VocabularyInfo = field(
+        default_factory=lambda: VocabularyInfo(
+            size=32000, unk_idx=0, bos_idx=1, eos_idx=2, pad_idx=None
+        )
     )
     """The vocabulary information."""
 
