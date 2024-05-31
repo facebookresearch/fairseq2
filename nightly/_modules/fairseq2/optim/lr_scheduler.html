@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.optim.lr_scheduler &mdash; fairseq2 0.3.0.dev202405200137+ga754d6a documentation</title>
+  <title>fairseq2.optim.lr_scheduler &mdash; fairseq2 0.3.0.dev202405311635+g88bfba2 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202405200137+ga754d6a
+                0.3.0.dev202405311635+g88bfba2
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -196,6 +196,18 @@
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span> <span class="nf">_compute_lrs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Compute the learning rate of each parameter group.&quot;&quot;&quot;</span>
+
+
+<span class="nd">@final</span>
+<span class="k">class</span> <span class="nc">NoopLR</span><span class="p">(</span><span class="n">AbstractLRScheduler</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a no-op learning rate schedule.&quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">:</span> <span class="n">Optimizer</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">last_epoch</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">optimizer</span><span class="p">,</span> <span class="n">last_epoch</span><span class="p">)</span>
+
+    <span class="nd">@override</span>
+    <span class="k">def</span> <span class="nf">_compute_lrs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">base_lrs</span>
 
 
 <div class="viewcode-block" id="CosineAnnealingLR"><a class="viewcode-back" href="../../../reference/generated/classes/fairseq2.optim.lr_scheduler.CosineAnnealingLR.html#fairseq2.optim.lr_scheduler.CosineAnnealingLR">[docs]</a><span class="nd">@final</span>
