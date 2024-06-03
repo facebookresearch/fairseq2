@@ -118,7 +118,13 @@ def log_system_info(log: LogWriter, device: Optional[Device] = None) -> None:
 
     num_cpus = os.cpu_count()
 
-    affinity_mask = os.sched_getaffinity(0)
+    try:
+        affinity_mask = os.sched_getaffinity(0)
+    except AttributeError:  # Python on macOS does not have `sched_getaffinity`.
+        if num_cpus is None:
+            affinity_mask = None
+        else:
+            affinity_mask = set(range(num_cpus))
 
     if num_cpus is None or affinity_mask is None:
         cpu_info = "-"
@@ -160,7 +166,7 @@ def log_system_info(log: LogWriter, device: Optional[Device] = None) -> None:
 
     memory = psutil.virtual_memory()
 
-    s = f"Name: {socket.getfqdn()} | Platform: {platform.platform()}"
+    s = f"Name: {socket.gethostname()} | Platform: {platform.platform()}"
 
     if dist_name:
         s = f"{s} | Linux Distribution: {dist_name}"
