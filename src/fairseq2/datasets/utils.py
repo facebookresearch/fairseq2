@@ -15,7 +15,9 @@ from fairseq2.logging import LogWriter
 def _reduce_num_batches(num_batches: int, gang: Gang, log: LogWriter) -> int:
     all_num_batches = torch.zeros((gang.size,), device=gang.device, dtype=torch.int64)
 
-    gang.all_gather(all_num_batches, torch.tensor(num_batches, device=gang.device))
+    num_batches_ = torch.tensor(num_batches, device=gang.device)
+
+    gang.all_gather(all_num_batches, num_batches_)
 
     min_num_batches = int(all_num_batches.min())
     if min_num_batches != 0:
