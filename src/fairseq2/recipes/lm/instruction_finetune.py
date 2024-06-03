@@ -53,10 +53,10 @@ class InstructionFinetuneConfig:
     """Holds the configuration of an instruction-finetuning recipe."""
 
     # Data
-    dataset_name: str = "foo"  # TODO: fix!
+    dataset_name: str = "openeft"  # TODO: fix!
     """The dataset to train with."""
 
-    tokenizer_name: str = "llama2_7b_chat"
+    tokenizer_name: str = "llama3_8b_chat"
     """The tokenizer to use."""
 
     max_seq_len: int = 4096

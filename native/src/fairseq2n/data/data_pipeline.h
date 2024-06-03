@@ -8,6 +8,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -216,7 +217,7 @@ private:
 };
 
 FAIRSEQ2_API data_pipeline_builder
-list_files(std::string pathname, std::optional<std::string> maybe_pattern = {});
+list_files(const std::filesystem::path &path, std::optional<std::string> maybe_pattern = {});
 
 FAIRSEQ2_API data_pipeline_builder
 read_list(data_list list);

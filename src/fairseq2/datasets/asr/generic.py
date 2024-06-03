@@ -36,6 +36,7 @@ from fairseq2.typing import DataType, override
 npc = 10
 
 
+# TODO: Work in progress!
 @final
 class GenericAsrDataset(AsrDataset):
     """Represents a generic manifest-based ASR dataset."""
@@ -117,7 +118,7 @@ class GenericAsrDataset(AsrDataset):
         )
 
         # Shuffle buckets.
-        builder.shuffle(shuffle_window_size, seed=seed + 1 + gang.rank)
+        builder.shuffle(shuffle_window_size, seed=seed + gang.rank)
 
         # Memory map audio files.
         file_mapper = FileMapper(root_data_dir, cached_fd_count=cached_fd_count)
