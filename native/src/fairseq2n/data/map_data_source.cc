@@ -131,14 +131,7 @@ map_data_source::fill_buffer()
 std::optional<data>
 map_data_source::invoke_function(data &&example, std::size_t fn_idx)
 {
-    try {
-        return map_fns_[fn_idx](std::move(example));
-    } catch (const data_pipeline_error &) {
-        throw;
-    } catch (const std::exception &) {
-        throw_data_pipeline_error_with_nested(std::nullopt, /*recoverable=*/true,
-            "The map operation has failed. See nested exception for details.");
-    }
+    return map_fns_[fn_idx](std::move(example));
 }
 
 }  // namespace fairseq2n::detail

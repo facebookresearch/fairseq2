@@ -101,14 +101,7 @@ yield_from_data_source::load_next_data_pipeline()
 data_pipeline
 yield_from_data_source::invoke_function(data &example)
 {
-    try {
-        return yield_fn_(example);
-    } catch (const data_pipeline_error &) {
-        throw;
-    } catch (const std::exception &) {
-        throw_data_pipeline_error_with_nested(std::move(example), /*recoverable=*/true,
-            "The yield operation has failed. See nested exception for details.");
-    }
+    return yield_fn_(example);
 }
 
 }  // namespace fairseq2n::detail
