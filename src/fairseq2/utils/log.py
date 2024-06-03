@@ -12,6 +12,7 @@ import sys
 from contextlib import contextmanager
 from logging import Logger
 from pathlib import Path
+from signal import SIG_DFL, SIGINT, raise_signal, signal
 from typing import Generator, Optional, Union
 
 import fairseq2n
@@ -38,8 +39,14 @@ def exception_logger(log: LogWriter) -> Generator[None, None, None]:
         log.exception("CUDA run out of memory. See memory stats and exception details below.\n{}", s)  # fmt: skip
 
         sys.exit(1)
+    except KeyboardInterrupt:
+        log.info("Command canceled!")
+
+        signal(SIGINT, SIG_DFL)
+
+        raise_signal(SIGINT)
     except Exception:
-        log.exception("Job has failed. See exception details below.")
+        log.exception("Command has failed. See exception details below.")
 
         sys.exit(1)
 
@@ -58,7 +65,7 @@ def log_config(config: DataClass, log: LogWriter, file: Optional[Path] = None) -
         with file.open("w") as fp:
             dump_dataclass(config, fp)
 
-    log.info("Job Config:\n{}", pretty_repr(config, max_width=88))
+    log.info("Config:\n{}", pretty_repr(config, max_width=88))
 
 
 # compat

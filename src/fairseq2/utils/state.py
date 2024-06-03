@@ -49,6 +49,8 @@ class StatefulObjectBag:
     _explicit_stateful_attrs: Dict[str, Optional[StateHandler[Any]]]
 
     def __init__(self) -> None:
+        super().__init__()  # play nicely as a mixin.
+
         self._non_stateful_attrs = set()
 
         self._explicit_stateful_attrs = {}

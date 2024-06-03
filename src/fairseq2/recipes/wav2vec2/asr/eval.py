@@ -25,7 +25,7 @@ from fairseq2.models.wav2vec2.asr import load_wav2vec2_asr_model
 from fairseq2.nn.ddp import to_ddp
 from fairseq2.nn.fsdp import to_fsdp
 from fairseq2.nn.utils.module import remove_parametrizations, to_device
-from fairseq2.recipes.evaluator import Evaluator, StandardEvaluator
+from fairseq2.recipes.evaluator import StandardEvaluator
 from fairseq2.recipes.utils.log import log_environment_info, log_model
 from fairseq2.recipes.wav2vec2.asr.criterion import Wav2Vec2AsrCriterion
 from fairseq2.typing import META, DataType
@@ -95,22 +95,31 @@ def _base_10h() -> Wav2Vec2AsrEvalConfig:
 
 def load_wav2vec2_asr_evaluator(
     config: Wav2Vec2AsrEvalConfig, output_dir: Path
-) -> Evaluator:
+) -> StandardEvaluator[Seq2SeqBatch]:
     """Load a wav2vec 2.0 ASR evaluator."""
     wall_watch = Stopwatch(start=True)
 
     # In case we train on Ampere or later, use TF32.
     torch.set_float32_matmul_precision("high")
 
-    # Set up the gang.
+    log.info("Initializing the gang.")
+
     gang = setup_default_gang()
 
-    log_environment_info(log, gang.device)
+    log.info("Gang initialized.")
 
-    # Load the tokenizer.
+    device = gang.device
+
+    log_environment_info(log, device)
+
+    log.info("Loading {} tokenizer.", config.tokenizer_name)
+
     tokenizer = load_text_tokenizer(config.tokenizer_name)
 
-    # Load the dataset.
+    log.info("Tokenizer loaded.")
+
+    log.info("Loading {} dataset.", config.dataset_name)
+
     dataset = load_asr_dataset(config.dataset_name)
 
     data_reader = dataset.create_reader(
@@ -125,20 +134,25 @@ def load_wav2vec2_asr_evaluator(
         num_prefetch=config.num_prefetch,
     )
 
+    log.info("Dataset loaded.")
+
     if config.checkpoint_dir is not None:
         default_asset_store.add_file_metadata_provider(config.checkpoint_dir)
 
-    # Load the model.
-    log.info("Initializing the model.")
+    log.info("Loading {} model on rank 0.", config.model_name)
 
     if gang.rank == 0:
-        init_device = gang.device
+        init_device = device
     else:
         init_device = META
 
     model = load_wav2vec2_asr_model(
         config.model_name, device=init_device, dtype=config.dtype
     )
+
+    log.info("Model loaded on rank 0.")
+
+    gang.barrier()
 
     # No need for weight normalization outside training.
     remove_parametrizations(model)
@@ -148,27 +162,32 @@ def load_wav2vec2_asr_evaluator(
     # Set up data parallelism.
     if gang.size == 1:
         dp_model = model
-    elif config.data_parallelism == "ddp":
-        to_device(model, gang.device)
-
-        dp_model = to_ddp(model, gang)
-    elif config.data_parallelism == "fsdp":
-        wrap_policy, ignored_modules = get_fsdp_wrap_policy(
-            model, wrap_granularity=config.fsdp_wrap_granularity
-        )
-
-        dp_model = to_fsdp(
-            model,
-            gang,
-            wrap_policy,
-            ignored_modules=ignored_modules,
-            skip_init=True,
-            broadcast_state=True,
-        )
     else:
-        raise ValueError(
-            f"`config.data_parallelism` must be 'ddp' or 'fsdp', but is '{config.data_parallelism}' instead."
-        )
+        log.info("Wrapping the model with {} and broadcasting to all ranks from rank 0.", config.data_parallelism.upper())  # fmt: skip
+
+        if config.data_parallelism == "ddp":
+            to_device(model, device)
+
+            dp_model = to_ddp(model, gang)
+        elif config.data_parallelism == "fsdp":
+            wrap_policy, ignored_modules = get_fsdp_wrap_policy(
+                model, wrap_granularity=config.fsdp_wrap_granularity
+            )
+
+            dp_model = to_fsdp(
+                model,
+                gang,
+                wrap_policy,
+                ignored_modules=ignored_modules,
+                skip_init=True,
+                broadcast_state=True,
+            )
+        else:
+            raise ValueError(
+                f"`config.data_parallelism` must be 'ddp' or 'fsdp', but is '{config.data_parallelism}' instead."
+            )
+
+        log.info("Model wrapped and broadcasted to all ranks.")
 
     log_model(dp_model, log)
 
