@@ -12,12 +12,16 @@ from argparse import (
     Action,
     ArgumentError,
     ArgumentParser,
+    ArgumentTypeError,
     Namespace,
 )
 from typing import Any, Dict, List, Optional, final
 
+import torch
 import yaml
 from yaml.parser import ParserError
+
+from fairseq2.typing import DataType
 
 
 @final
@@ -127,3 +131,14 @@ class BooleanOptionalAction(Action):
 
     def format_usage(self) -> str:
         return " | ".join(self.option_strings)
+
+
+def parse_dtype(value: str) -> DataType:
+    """Parse ``value`` as a  ``torch.dtype``."""
+    if value.startswith("torch."):
+        value = value[6:]
+
+    if isinstance(dtype := getattr(torch, value, None), DataType):
+        return dtype
+
+    raise ArgumentTypeError("must be a `torch.dtype` identifier")

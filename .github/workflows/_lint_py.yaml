@@ -107,5 +107,3 @@ jobs:
 
           mypy
           mypy native/python
-          mypy recipes/llama
-          mypy recipes/mistral

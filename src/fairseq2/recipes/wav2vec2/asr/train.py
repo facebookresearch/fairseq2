@@ -194,7 +194,7 @@ def load_wav2vec2_asr_trainer(
     """Load a wav2vec 2.0 ASR tainer."""
     wall_watch = Stopwatch(start=True)
 
-    # In case we train on Ampere or later, use TF32.
+    # In case we run on Ampere or later, use TF32.
     torch.set_float32_matmul_precision("high")
 
     log.info("Initializing the gang.")

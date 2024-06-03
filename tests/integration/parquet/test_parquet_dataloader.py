@@ -21,7 +21,7 @@ try:
     import pyarrow.parquet as pq
     from numpy.typing import NDArray
 
-    from recipes.parquet.parquet_dataloader import (
+    from fairseq2.data.parquet.dataloader import (
         ParquetBasicDataloaderConfig,
         ParquetBatchFormat,
         parquet_iterator,
