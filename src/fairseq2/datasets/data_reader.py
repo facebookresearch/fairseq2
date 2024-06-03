@@ -36,7 +36,7 @@ class DataReader(ABC, Iterator[List[BatchT_co]]):
 
     @abstractmethod
     def reset(self) -> None:
-        """Reset state and move back to the first example."""
+        """Reset state and move back to the first batch."""
 
     @abstractmethod
     def state_dict(self) -> Dict[str, Any]:

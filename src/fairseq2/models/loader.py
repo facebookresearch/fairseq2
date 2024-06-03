@@ -4,7 +4,6 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from functools import partial
 from pickle import PickleError
 from typing import Any, Dict, Generic, Optional, Protocol, TypeVar, Union, final
 
@@ -23,7 +22,6 @@ from fairseq2.assets import (
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.models.config_loader import ModelConfigLoader
-from fairseq2.models.utils.checkpoint import load_checkpoint
 from fairseq2.nn.utils.module import (
     infer_device,
     load_state_dict,
@@ -31,6 +29,7 @@ from fairseq2.nn.utils.module import (
     to_empty,
 )
 from fairseq2.typing import CPU, META, DataClass, DataType, Device
+from fairseq2.utils.file import TensorLoader, load_tensors
 
 log = get_log_writer(__name__)
 
@@ -119,9 +118,10 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
 
     _asset_store: AssetStore
     _download_manager: AssetDownloadManager
+    _tensor_loader: TensorLoader
+    _checkpoint_converter: Optional[CheckpointConverter[ModelConfigT]]
     _config_loader: ModelConfigLoader[ModelConfigT]
     _factory: DenseModelFactory[ModelConfigT, ModelT]
-    _checkpoint_converter: Optional[CheckpointConverter[ModelConfigT]]
     _restrict_checkpoints: bool
     _skip_meta_init: bool
 
@@ -130,20 +130,18 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         *,
         config_loader: ModelConfigLoader[ModelConfigT],
         factory: DenseModelFactory[ModelConfigT, ModelT],
-        checkpoint_converter: Optional[CheckpointConverter[ModelConfigT]] = None,
         restrict_checkpoints: bool = True,
         skip_meta_init: bool = False,
         asset_store: Optional[AssetStore] = None,
         download_manager: Optional[AssetDownloadManager] = None,
+        tensor_loader: Optional[TensorLoader] = None,
+        checkpoint_converter: Optional[CheckpointConverter[ModelConfigT]] = None,
     ) -> None:
         """
         :param config_loader:
             The configuration loader.
         :param factory:
             The factory to construct models.
-        :param checkpoint_converter:
-            The converter to which loaded checkpoints will be passed for further
-            processing.
         :param restrict_checkpoints:
             If ``True``, restricts the Python unpickler to load only tensors,
             primitive types, and dictionaries.
@@ -154,13 +152,19 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         :param asset_store:
             The asset store where to check for available models.
         :param download_manager:
-            The download manager to download model checkpoints.
+            The download manager to download checkpoints.
+        :param tensor_loader:
+            The tensor loader to load checkpoints into memory.
+        :param checkpoint_converter:
+            The converter to which loaded checkpoints will be passed for further
+            processing.
         """
         self._asset_store = asset_store or default_asset_store
         self._download_manager = download_manager or default_download_manager
+        self._tensor_loader = tensor_loader or load_tensors
+        self._checkpoint_converter = checkpoint_converter
         self._config_loader = config_loader
         self._factory = factory
-        self._checkpoint_converter = checkpoint_converter
         self._restrict_checkpoints = restrict_checkpoints
         self._skip_meta_init = skip_meta_init
 
@@ -247,18 +251,13 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
                 f"The value of the field 'checkpoint' of the asset card '{card.name}' must be URI. See nested exception for details."
             ) from ex
 
-        if self._checkpoint_converter is None:
-            checkpoint_converter = None
-        else:
-            checkpoint_converter = partial(self._checkpoint_converter, config=config)
-
         try:
-            checkpoint = load_checkpoint(
-                path,
-                map_location=CPU,
-                restrict=self._restrict_checkpoints,
-                converter=checkpoint_converter,
+            checkpoint = self._tensor_loader(
+                path, map_location=CPU, restrict=self._restrict_checkpoints
             )
+
+            if self._checkpoint_converter is not None:
+                checkpoint = self._checkpoint_converter(checkpoint, config)
         except (RuntimeError, OSError, KeyError, ValueError, PickleError) as ex:
             raise AssetError(
                 f"The checkpoint of {card.name} cannot be loaded. See nested exception for details."
@@ -272,9 +271,10 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
                 log.warning("One or more operators in {} constructor do not support the meta device. Skipping meta device initialization.", card.name)  # fmt: skip
 
         if model is None:
-            # Load on CPU to avoid OOM errors. This is particularly relevant for
-            # models that require sharding after initialization.
-            model = self._factory(config, device=CPU, dtype=dtype)
+            # If the model is sharded, load on CPU to avoid OOM errors.
+            init_device = CPU if gang is not None and gang.size > 1 else device
+
+            model = self._factory(config, device=init_device, dtype=dtype)
 
         if gang is not None and gang.size > 1:
             self._shard(model, gangs, card)  # type: ignore[arg-type]

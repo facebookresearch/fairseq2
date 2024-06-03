@@ -6,7 +6,6 @@
 
 import logging
 from copy import deepcopy
-from functools import partial
 from pathlib import Path
 from pickle import PickleError
 from typing import Any, Dict, Generic, Optional, Protocol, TypeVar, Union, final
@@ -24,7 +23,6 @@ from fairseq2.assets import (
 from fairseq2.data.text import AbstractTextTokenizerLoader
 from fairseq2.data.text.text_tokenizer import TextTokenizer
 from fairseq2.models.utils.arch_registry import ArchitectureRegistry
-from fairseq2.models.utils.checkpoint import load_checkpoint
 from fairseq2.nn.utils.module import (
     infer_device,
     load_state_dict,
@@ -33,6 +31,7 @@ from fairseq2.nn.utils.module import (
 )
 from fairseq2.typing import CPU, META, DataClass, DataType, Device, override
 from fairseq2.utils.dataclass import FieldError, update_dataclass
+from fairseq2.utils.file import load_tensors
 
 logger = logging.getLogger("fairseq2.models")
 
@@ -295,18 +294,15 @@ class ModelLoader(Generic[ModelT, ConfigT]):
                 f"The value of the field 'checkpoint' of the asset card '{card.name}' must be a URI. See nested exception for details."
             ) from ex
 
-        if self.checkpoint_converter is None:
-            checkpoint_converter = None
-        else:
-            checkpoint_converter = partial(self.checkpoint_converter, config=config)
-
         try:
-            checkpoint = load_checkpoint(
+            checkpoint = load_tensors(
                 path,
                 map_location=CPU,
                 restrict=self.restrict_checkpoints,
-                converter=checkpoint_converter,
             )
+
+            if self.checkpoint_converter is not None:
+                checkpoint = self.checkpoint_converter(checkpoint, config)
         except (RuntimeError, OSError, KeyError, ValueError, PickleError) as ex:
             raise AssetError(
                 f"The checkpoint of {card.name} cannot be loaded. See nested exception for details."

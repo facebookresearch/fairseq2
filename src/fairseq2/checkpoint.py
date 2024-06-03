@@ -24,7 +24,6 @@ from typing import (
     final,
 )
 
-import torch
 import yaml
 from torch.distributed._shard import load_with_process_group
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
@@ -33,9 +32,9 @@ from torch.nn import Module
 
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
-from fairseq2.models.utils.checkpoint import load_checkpoint
 from fairseq2.typing import CPU, DataClass, override
 from fairseq2.utils.dataclass import to_safe_dict
+from fairseq2.utils.file import TensorDumper, TensorLoader, dump_tensors, load_tensors
 
 log = get_log_writer(__name__)
 
@@ -174,6 +173,8 @@ class FileCheckpointManager(CheckpointManager):
     _shard_suffix: str
     _model_key: str
     _replicated_keys: Set[str]
+    _tensor_loader: TensorLoader
+    _tensor_dumper: TensorDumper
 
     def __init__(
         self,
@@ -184,6 +185,8 @@ class FileCheckpointManager(CheckpointManager):
         tp_gang: Optional[Gang] = None,
         model_key: str = "model",
         replicated_keys: Optional[Sequence[str]] = None,
+        tensor_loader: Optional[TensorLoader] = None,
+        tensor_dumper: Optional[TensorDumper] = None,
     ) -> None:
         """
         :param checkpoint_dir:
@@ -200,6 +203,10 @@ class FileCheckpointManager(CheckpointManager):
         :param replicated_keys:
             The keys in provided checkpoints whose values are replicated across
             all processes in the gang.
+        :param tensor_loader:
+            The tensor loader to load checkpoints into memory.
+        :param tensor_dumper:
+            The tensor dumper to save checkpoints into file.
         """
         self._checkpoint_dir = checkpoint_dir
 
@@ -227,6 +234,9 @@ class FileCheckpointManager(CheckpointManager):
             self._replicated_keys = set()
         else:
             self._replicated_keys = set(replicated_keys)
+
+        self._tensor_loader = tensor_loader or load_tensors
+        self._tensor_dumper = tensor_dumper or dump_tensors
 
     # compat
     @property
@@ -334,8 +344,10 @@ class FileCheckpointManager(CheckpointManager):
                 if self._dp_gang.rank == 0:
                     model_file = tmp_step_dir.joinpath(f"model{self._shard_suffix}.pt")
 
+                    data = {"model": state_dict}
+
                     try:
-                        torch.save({"model": state_dict}, model_file)
+                        self._tensor_dumper(data, model_file)
                     except (RuntimeError, OSError, PickleError) as ex:
                         raise_error(ex)
 
@@ -361,7 +373,7 @@ class FileCheckpointManager(CheckpointManager):
                     )
 
                     try:
-                        torch.save(replicated_part, replicated_file)
+                        self._tensor_dumper(replicated_part, replicated_file)
                     except (RuntimeError, OSError, PickleError) as ex:
                         raise_error(ex)
             else:
@@ -388,7 +400,7 @@ class FileCheckpointManager(CheckpointManager):
             )
 
             try:
-                torch.save(rank_part, rank_file)
+                self._tensor_dumper(rank_part, rank_file)
             except (RuntimeError, OSError, PickleError) as ex:
                 raise_error(ex)
 
@@ -402,7 +414,7 @@ class FileCheckpointManager(CheckpointManager):
                 )
 
                 try:
-                    torch.save(metadata, metadata_file)
+                    self._tensor_dumper(metadata, metadata_file)
                 except (RuntimeError, OSError, PickleError) as ex:
                     raise_error(ex)
 
@@ -484,8 +496,10 @@ class FileCheckpointManager(CheckpointManager):
                     f"A consolidated FSDP model can only be saved for training steps that have a checkpoint, but training step {step_nr} has no checkpoint."
                 )
 
+            data = {"model": state_dict}
+
             try:
-                torch.save({"model": state_dict}, tmp_model_file)
+                self._tensor_dumper(data, tmp_model_file)
             except (RuntimeError, OSError, PickleError) as ex:
                 raise RuntimeError(
                     f"The model of training step {step_nr} cannot be saved. See nested exception for details."
@@ -536,7 +550,7 @@ class FileCheckpointManager(CheckpointManager):
         with maybe_with_dp_process_group():
             for filename in filenames:
                 try:
-                    part = load_checkpoint(
+                    part = self._tensor_loader(
                         step_dir.joinpath(filename), map_location=CPU
                     )
                 except FileNotFoundError:
@@ -590,7 +604,7 @@ class FileCheckpointManager(CheckpointManager):
         )
 
         try:
-            metadata = load_checkpoint(metadata_file, map_location=CPU)
+            metadata = self._tensor_loader(metadata_file, map_location=CPU)
         except FileNotFoundError:
             metadata = None
         except (RuntimeError, OSError, PickleError) as ex:
