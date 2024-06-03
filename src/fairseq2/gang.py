@@ -219,20 +219,22 @@ class FakeGang(AbstractGang):
         output_tensor.copy_(input_tensor)
 
     @override
-    def broadcast_objects(self, objects: List[Any], source_rank: int = 0) -> None:
-        if source_rank != 0:
-            raise ValueError(f"`source_rank` must be 0, but is {source_rank} instead.")
-
-    @override
     def all_gather_to_list(
         self, output_tensors: List[Tensor], input_tensor: Tensor
     ) -> None:
         output_tensors[0] = input_tensor.detach().clone()
 
+    @override
+    def broadcast_objects(self, objects: List[Any], source_rank: int = 0) -> None:
+        if source_rank != 0:
+            raise ValueError(f"`source_rank` must be 0, but is {source_rank} instead.")
+
 
 @final
 class ProcessGroupGang(AbstractGang):
     """Represents a gang that wraps a process group."""
+
+    _default: Optional[ProcessGroupGang] = None
 
     _pg: ProcessGroup
     _monitor_pg: Optional[ProcessGroup]
@@ -249,8 +251,9 @@ class ProcessGroupGang(AbstractGang):
         self._pg = pg
         self._monitor_pg = monitor_pg
 
-    @staticmethod
+    @classmethod
     def init_default_process_group(
+        cls,
         *,
         device: Optional[Device] = None,
         timeout: Optional[timedelta] = None,
@@ -352,7 +355,9 @@ class ProcessGroupGang(AbstractGang):
         else:
             monitor_pg = None
 
-        return ProcessGroupGang(pg, device, monitor_pg=monitor_pg)
+        cls._default = ProcessGroupGang(pg, device, monitor_pg=monitor_pg)
+
+        return cls._default
 
     @staticmethod
     def from_process_group(pg: ProcessGroup, device: Device) -> ProcessGroupGang:
@@ -365,14 +370,17 @@ class ProcessGroupGang(AbstractGang):
         """
         return ProcessGroupGang(pg, device)
 
-    @staticmethod
-    def from_default_process_group() -> ProcessGroupGang:
+    @classmethod
+    def from_default_process_group(cls) -> ProcessGroupGang:
         """Wrap the default process group as a gang."""
         if not dist.is_available():
             raise RuntimeError("`torch.distributed` is not available.")
 
         if not dist.is_initialized():
             raise RuntimeError("The default process group is not initialized.")
+
+        if cls._default is not None:
+            return cls._default
 
         backend = dist.get_backend()
 
@@ -390,7 +398,9 @@ class ProcessGroupGang(AbstractGang):
                 "The default process group is not available. Please file a bug report."
             )
 
-        return ProcessGroupGang(dist.group.WORLD, device)
+        cls._default = ProcessGroupGang(dist.group.WORLD, device)
+
+        return cls._default
 
     @override
     def close(self) -> None:
