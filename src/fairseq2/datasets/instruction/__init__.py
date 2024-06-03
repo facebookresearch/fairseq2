@@ -9,6 +9,10 @@ from fairseq2.datasets.instruction.base import (
     load_instruction_dataset as load_instruction_dataset,
 )
 
+# isort: split
+
+from fairseq2.datasets.instruction.generic import _register_generic
+
 
 def _register_instruction_datasets() -> None:
-    pass
+    _register_generic()

@@ -518,17 +518,17 @@ data_pipeline_builder::and_return(std::size_t max_num_warnings) &&
 data_pipeline_error::~data_pipeline_error() = default;
 
 data_pipeline_builder
-list_files(std::string pathname, std::optional<std::string> maybe_pattern)
+list_files(const std::filesystem::path &path, std::optional<std::string> maybe_pattern)
 {
-    auto factory = [pathname = std::move(pathname), maybe_pattern = std::move(maybe_pattern)]
+    auto factory = [=, maybe_pattern = std::move(maybe_pattern)]
     {
         data_list list{};
 
         try {
-            list = detail::list_files(pathname, maybe_pattern);
+            list = detail::list_files(path, maybe_pattern);
         } catch (const std::system_error &) {
             throw_with_nested<data_pipeline_error>(
-                "The list of files under '{}' cannot be retrieved.", pathname);
+                "The list of files under '{}' cannot be retrieved.", path.string());
         }
 
         return std::make_unique<list_data_source>(std::move(list));
