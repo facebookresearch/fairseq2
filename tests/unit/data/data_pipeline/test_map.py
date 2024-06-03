@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from fairseq2.data import DataPipelineError, read_sequence
+from fairseq2.data import read_sequence
 from fairseq2.data.text.converters import StrToIntConverter
 
 
@@ -253,14 +253,10 @@ class TestMapOp:
 
         pipeline = read_sequence([d]).map(lambda x: x, selector=s).and_return()
 
-        with pytest.raises(DataPipelineError) as exc_info:
+        with pytest.raises(ValueError) as exc_info:
             next(iter(pipeline))
 
-        cause = exc_info.value.__cause__
-
-        assert isinstance(cause, ValueError)
-
-        assert str(cause) == f"The input data does not have an element at path '{s}'."
+        assert str(exc_info.value) == f"The input data does not have an element at path '{s}'."  # fmt: skip
 
     def test_op_raises_error_when_selector_with_wildcard_is_not_valid(self) -> None:
         d = [
@@ -273,19 +269,13 @@ class TestMapOp:
 
         pipeline = read_sequence([d]).map(lambda x: x, selector=s).and_return()
 
-        with pytest.raises(DataPipelineError) as exc_info:
+        with pytest.raises(ValueError) as exc_info:
             next(iter(pipeline))
 
-        cause = exc_info.value.__cause__
-
-        assert isinstance(cause, ValueError)
-
-        assert str(cause) == "The input data does not have an element at path '[1].foo1'."  # fmt: skip
+        assert str(exc_info.value) == "The input data does not have an element at path '[1].foo1'."  # fmt: skip
 
     @pytest.mark.parametrize("num_parallel_calls", [1, 4, 20])
-    def test_op_raises_nested_error_when_callable_fails(
-        self, num_parallel_calls: int
-    ) -> None:
+    def test_op_raises_error_when_callable_fails(self, num_parallel_calls: int) -> None:
         def fn(d: int) -> int:
             if d == 3:
                 raise ValueError("map error")
@@ -294,15 +284,11 @@ class TestMapOp:
 
         pipeline = read_sequence([1, 2, 3, 4]).map(fn, num_parallel_calls=num_parallel_calls).and_return()  # fmt: skip
 
-        with pytest.raises(DataPipelineError) as exc_info:
+        with pytest.raises(ValueError) as exc_info:
             for d in pipeline:
                 pass
 
-        cause = exc_info.value.__cause__
-
-        assert isinstance(cause, ValueError)
-
-        assert str(cause) == "map error"
+        assert str(exc_info.value) == "map error"
 
     @pytest.mark.parametrize("num_parallel_calls", [1, 4, 20])
     def test_op_saves_and_restores_its_state(self, num_parallel_calls: int) -> None:

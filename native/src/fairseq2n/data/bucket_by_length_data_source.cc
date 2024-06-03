@@ -39,14 +39,7 @@ bucket_by_length_data_source::next()
     while (std::optional<data> maybe_example = inner_->next()) {
         data &example = *maybe_example;
 
-        std::size_t data_len{};
-        try {
-            data_len = data_length_fn_(example);
-        } catch (const std::invalid_argument &) {
-            throw_data_pipeline_error_with_nested(std::move(maybe_example), /*recoverable=*/true,
-                "The length of the input data cannot be determined.");
-        }
-
+        std::size_t data_len = data_length_fn_(example);
         if (data_len < min_data_len_) {
             if (!skip_below_min_examples_)
                 throw_data_pipeline_error(std::move(maybe_example), /*recoverable=*/true,

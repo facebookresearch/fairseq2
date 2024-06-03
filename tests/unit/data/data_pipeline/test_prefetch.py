@@ -8,7 +8,7 @@ from itertools import islice
 
 import pytest
 
-from fairseq2.data import DataPipelineError, read_sequence
+from fairseq2.data import read_sequence
 
 
 class TestPrefetchOp:
@@ -55,15 +55,11 @@ class TestPrefetchOp:
 
         pipeline = read_sequence(seq).map(fn).prefetch(num_examples).and_return()
 
-        with pytest.raises(DataPipelineError) as exc_info:
+        with pytest.raises(ValueError) as exc_info:
             for d in pipeline:
                 pass
 
-        cause = exc_info.value.__cause__
-
-        assert isinstance(cause, ValueError)
-
-        assert str(cause) == "map error"
+        assert str(exc_info.value) == "map error"
 
     @pytest.mark.parametrize("num_examples", [0, 1, 4, 20])
     def test_op_saves_and_restores_its_state(self, num_examples: int) -> None:
