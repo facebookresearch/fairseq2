@@ -34,7 +34,7 @@ class ParquetBatchFormat(Enum):
     torch = 2
 
 
-@dataclass  # TODO: (kw_only=True) with python3.10
+@dataclass
 class ParquetBasicDataloaderConfig:
     parquet_path: str
     """The path to parquet dataset file."""
@@ -157,7 +157,7 @@ def build_parquet_iterator_pipeline(
     pipeline_builder = (
         list_parquet_fragments(
             parquet_path=config.parquet_path,
-            filters=config.filters,
+            filters=config.filters,  # type: ignore[arg-type]
             columns=config.columns,
             split_to_row_groups=config.split_to_row_groups,
             filesystem=config.filesystem,
