@@ -39,7 +39,7 @@ from fairseq2.optim import AdamW
 from fairseq2.optim.lr_scheduler import CosineAnnealingLR
 from fairseq2.recipes.criterion import AbstractCriterion
 from fairseq2.recipes.metrics import SequenceModelMetricBag
-from fairseq2.recipes.trainer import StandardTrainer, Trainer
+from fairseq2.recipes.trainer import StandardTrainer
 from fairseq2.recipes.utils.log import log_environment_info, log_model
 from fairseq2.typing import CPU, META, DataType, override
 from fairseq2.utils.profiler import Profiler, Stopwatch
@@ -160,7 +160,7 @@ def _llama2_7b_chat() -> InstructionFinetuneConfig:
 
 def load_instruction_finetuner(
     config: InstructionFinetuneConfig, output_dir: Path
-) -> Trainer:
+) -> StandardTrainer[SequenceBatch]:
     wall_watch = Stopwatch(start=True)
 
     # In case we train on Ampere or later, use TF32.
@@ -244,7 +244,6 @@ def load_instruction_finetuner(
         model = load_model(
             config.model_name, gangs=gangs, device=init_device, dtype=torch.float32
         )
-
     # If we don't have a checkpoint, load the pretrained model on rank 0 and
     # broadcast it to the gang.
     else:
@@ -364,7 +363,7 @@ def load_instruction_finetuner(
     rng_bag.manual_seed(config.seed + dp_gang.rank)
 
     # Set up the finetuner.
-    trainer = StandardTrainer[SequenceBatch](
+    return StandardTrainer[SequenceBatch](
         criterion=criterion,
         gang=root_gang,
         dp_gang=dp_gang,
@@ -386,10 +385,6 @@ def load_instruction_finetuner(
         rng_bag=rng_bag,
         wall_watch=wall_watch,
     )
-
-    trainer.maybe_restore()
-
-    return trainer
 
 
 @final

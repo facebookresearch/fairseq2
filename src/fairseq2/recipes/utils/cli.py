@@ -6,20 +6,28 @@
 
 from rich.progress import (
     BarColumn,
-    MofNCompleteColumn,
     Progress,
+    ProgressColumn,
+    Task,
     TaskProgressColumn,
+    TextColumn,
     TimeRemainingColumn,
 )
+from rich.text import Text
 
 from fairseq2.gang import get_rank
 from fairseq2.recipes.logging import console
+from fairseq2.typing import override
 
 
 def create_rich_progress() -> Progress:
     """Create a :class:`Progress` instance to report job progress."""
     columns = [
-        BarColumn(), MofNCompleteColumn(), TaskProgressColumn(), TimeRemainingColumn()  # fmt: skip
+        TextColumn("{task.description}:"),
+        BarColumn(),
+        BasicMofNCompleteColumn(),
+        TaskProgressColumn(),
+        TimeRemainingColumn(),
     ]
 
     rank = get_rank()
@@ -27,3 +35,14 @@ def create_rich_progress() -> Progress:
     return Progress(
         *columns, auto_refresh=False, transient=True, console=console, disable=rank != 0
     )
+
+
+class BasicMofNCompleteColumn(ProgressColumn):
+    @override
+    def render(self, task: Task) -> Text:
+        if task.total is None:
+            s = f"{task.completed:5d}"
+        else:
+            s = f"{task.completed:5d}/{task.total}"
+
+        return Text(s, style="progress.download")

@@ -632,18 +632,20 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
             output_dir = args.output_dir.joinpath(tag)
 
         # Set up distributed logging.
-        log_dir = output_dir.joinpath("logs/rank_{rank}.log")
+        log_file = output_dir.expanduser().joinpath("logs/rank_{rank}.log").resolve()
 
         try:
-            setup_logging(log_dir, debug=args.debug)
+            setup_logging(log_file, debug=args.debug)
         except RuntimeError:
             log.exception("Recipe logging cannot be set up.")
 
             sys.exit(1)
 
+        log.info("Log files stored under {}.", log_file.parent)
+
         log_config(config, log, output_dir.joinpath("config.yaml"))
 
-        # Run the recipe.
+        # Load and run the recipe.
         recipe = self._loader(config, output_dir)
 
         recipe()

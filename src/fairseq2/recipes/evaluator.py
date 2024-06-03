@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from itertools import count
 from pathlib import Path
 from typing import Any, Dict, Generic, List, Optional, TypeVar, final
 
@@ -114,21 +115,41 @@ class StandardEvaluator(Evaluator, Generic[BatchT]):
 
     @override
     def __call__(self) -> None:
+        if self._step_nr != 0:
+            raise RuntimeError("The evaluator can only be run once.")
+
         log.info("Running evaluation on {} device(s).", self._root_gang.size)
 
+        try:
+            self._do_run()
+        except KeyboardInterrupt:
+            log.info("Evaluation terminated at step {}!", self._step_nr)
+
+            raise
+
+        elapsed_time = self._wall_watch.get_elapsed_time()
+
+        log.info("Evaluation complete in {:,} seconds after {} steps!", int(elapsed_time), self._step_nr)  # fmt: skip
+
+    def _do_run(self) -> None:
         with create_rich_progress() as progress:
             eval_task = progress.add_task("eval", total=None)
 
             watch = Stopwatch(start=True, device=self._root_gang.device)
 
-            for batches in self._data_reader:
-                self._step_nr += 1
+            for step_nr in count(start=1):
+                self._step_nr = step_nr
+
+                try:
+                    batches = next(self._data_reader)
+                except StopIteration:
+                    break
 
                 progress.update(eval_task, refresh=True, advance=1)
 
-                log.debug("Running evaluation step {}.", self._step_nr)
+                log.debug("Running step {}.", step_nr)
 
-                self._criterion.set_step(self._step_nr)
+                self._criterion.set_step(step_nr)
 
                 for batch in batches:
                     self._criterion.compute_loss(batch)
@@ -137,10 +158,6 @@ class StandardEvaluator(Evaluator, Generic[BatchT]):
 
         if self._tp_gang.rank == 0:
             self._publish_evaluation_metrics()
-
-        elapsed_time = self._wall_watch.get_elapsed_time()
-
-        log.info("Evaluation complete in {:,} seconds after {} steps!", int(elapsed_time), self._step_nr)  # fmt: skip
 
     def _publish_evaluation_metrics(self) -> None:
         metric_bag = self._criterion.valid_metric_bag

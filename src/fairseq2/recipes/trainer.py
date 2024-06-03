@@ -26,6 +26,7 @@ from typing import (
 
 import torch
 import torch.distributed
+from rich.progress import Progress
 from torch import Tensor
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn import Module
@@ -70,10 +71,6 @@ class Trainer(ABC):
     def __call__(self) -> None:
         """Run training."""
 
-    @abstractmethod
-    def maybe_restore(self) -> None:
-        """Restore the state from the last checkpoint."""
-
 
 BatchT = TypeVar("BatchT")
 
@@ -117,6 +114,7 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
     _wall_watch: Stopwatch
     _train_step_time: float
     _valid_step_time: float
+    _progress: Progress
 
     def __init__(
         self,
@@ -270,7 +268,7 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
 
         self._max_num_data_epochs = max_num_data_epochs
 
-        self.register_stateful("_eod", max_num_data_epochs == 0)
+        self._eod = max_num_data_epochs == 0
 
         if validate_every_n_steps == 0:
             raise ValueError("`validate_every_n_steps` must be greater than zero.")
@@ -336,46 +334,85 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
         self._train_step_time = 0.0
         self._valid_step_time = 0.0
 
+        self._progress = create_rich_progress()
+
     @override
     def __call__(self) -> None:
+        if self._step_nr != 0:
+            raise RuntimeError("The trainer can only be run once.")
+
+        try:
+            self._maybe_restore_state()
+        except KeyboardInterrupt:
+            log.info("Training terminated!")
+
+            raise
+
         log.info("Running training on {} device(s).", self._root_gang.size)
 
-        with create_rich_progress() as progress:
-            train_task = progress.add_task(
-                "train", total=self._max_num_steps, completed=self._step_nr
-            )
+        try:
+            self._do_run()
+        except KeyboardInterrupt:
+            log.info("Training terminated at step {}!", self._step_nr)
 
-            with self._profiler:
-                while self._should_step():
-                    self._step_nr += 1
-
-                    progress.update(train_task, refresh=True, advance=1)
-
-                    detect_anomaly = torch.autograd.set_detect_anomaly(  # type: ignore[attr-defined]
-                        self._anomaly_detection, check_nan=True
-                    )
-
-                    with detect_anomaly:
-                        with record_function(f"step_{self._step_nr}"):
-                            try:
-                                self._run_train_step()
-                            except StopIteration:
-                                self._eod = True
-
-                    if self._should_publish_train_metrics():
-                        self._publish_train_metrics()
-
-                    if self._should_checkpoint():
-                        self._checkpoint()
-
-                    if self._should_validate():
-                        self._validate()
-
-                    self._profiler.step()
+            raise
 
         elapsed_time = self._wall_watch.get_elapsed_time()
 
         log.info("Training complete in {:,} seconds after {} steps!", int(elapsed_time), self._step_nr)  # fmt: skip
+
+    def _maybe_restore_state(self) -> None:
+        log.info("Attempting to load the last checkpoint.")
+
+        try:
+            step_nr, checkpoint = self._checkpoint_manager.load_last_checkpoint()
+        except CheckpointNotFoundError:
+            log.info("No checkpoint found. Starting training.")
+
+            return
+
+        log.info("Checkpoint loaded, restoring training from step {}.", step_nr)
+
+        self.load_state_dict(checkpoint)
+
+        self._root_gang.barrier()
+
+        self._step_nr = step_nr
+
+        log.info("Training restored, resuming.")
+
+    def _do_run(self) -> None:
+        with self._progress, self._profiler:
+            train_task = self._progress.add_task(
+                "train", total=self._max_num_steps, completed=self._step_nr
+            )
+
+            while self._should_step():
+                self._step_nr += 1
+
+                self._progress.update(train_task, refresh=True, advance=1)
+
+                detect_anomaly = torch.autograd.set_detect_anomaly(  # type: ignore[attr-defined]
+                    self._anomaly_detection, check_nan=True
+                )
+
+                with detect_anomaly:
+                    with record_function(f"step_{self._step_nr}"):
+                        try:
+                            self._run_train_step()
+                        except StopIteration:
+                            self._eod = True
+
+                if self._should_publish_train_metrics():
+                    self._publish_train_metrics()
+
+                if self._should_checkpoint():
+                    self._checkpoint()
+
+                if self._should_validate():
+                    self._validate()
+
+                self._profiler.step()
 
     def _should_step(self) -> bool:
         if self._eod:
@@ -559,25 +596,25 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
             for data_reader in self._valid_data_readers.values():
                 self._do_validate(data_reader)
         else:
-            cumulative_metrics = deepcopy(self._valid_metric_bag.metrics)
+            step_time = 0.0
 
-            cumulative_step_time = 0.0
+            cumulative_metrics = deepcopy(self._valid_metric_bag.metrics)
 
             for split, data_reader in self._valid_data_readers.items():
                 log.info("Validating split '{}'.", split)
 
                 self._do_validate(data_reader)
 
-                merge_metric_states(self._valid_metric_bag.metrics, cumulative_metrics)
+                step_time += self._valid_step_time
 
-                cumulative_step_time += self._valid_step_time
+                merge_metric_states(self._valid_metric_bag.metrics, cumulative_metrics)
 
                 if self._tp_gang.rank == 0:
                     self._publish_validation_metrics(split)
 
-            merge_metric_states(cumulative_metrics, self._valid_metric_bag.metrics)
+            self._valid_step_time = step_time
 
-            self._valid_step_time = cumulative_step_time
+            merge_metric_states(cumulative_metrics, self._valid_metric_bag.metrics)
 
         if self._tp_gang.rank == 0:
             self._publish_validation_metrics()
@@ -587,7 +624,11 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
         self._model.train()
 
     def _do_validate(self, data_reader: DataReader[BatchT]) -> None:
+        valid_task = self._progress.add_task("valid", total=None, completed=0)
+
         for step_nr in count(start=1):
+            self._progress.update(valid_task, refresh=True, advance=1)
+
             log.debug("Running validation step {}.", step_nr)
 
             step_watch = Stopwatch(start=True, device=self._root_gang.device)
@@ -602,6 +643,8 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
 
             if self._tp_gang.rank == 0 and self._dp_gang.rank == 0:
                 self._valid_step_time += step_watch.get_elapsed_time()
+
+        self._progress.remove_task(valid_task)
 
         data_reader.reset()
 
@@ -688,24 +731,3 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
             return True
 
         return self._step_nr % n_step == 0
-
-    @override
-    def maybe_restore(self) -> None:
-        log.info("Attempting to load the last checkpoint.")
-
-        try:
-            step_nr, checkpoint = self._checkpoint_manager.load_last_checkpoint()
-        except CheckpointNotFoundError:
-            log.info("No checkpoint found. Starting training.")
-
-            return
-
-        log.info("Checkpoint loaded, restoring training from step {}.", step_nr)
-
-        self.load_state_dict(checkpoint)
-
-        self._root_gang.barrier()
-
-        self._step_nr = step_nr
-
-        log.info("Training restored, resuming.")

@@ -32,7 +32,7 @@ from fairseq2.nn.fsdp import to_fsdp
 from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_device
 from fairseq2.optim import AdamW
 from fairseq2.optim.lr_scheduler import TriStageLR
-from fairseq2.recipes.trainer import StandardTrainer, Trainer
+from fairseq2.recipes.trainer import StandardTrainer
 from fairseq2.recipes.utils.log import log_environment_info, log_model
 from fairseq2.recipes.wav2vec2.asr.criterion import Wav2Vec2AsrCriterion
 from fairseq2.typing import CPU, META, DataType
@@ -190,7 +190,7 @@ def _base_100h() -> Wav2Vec2AsrTrainConfig:
 
 def load_wav2vec2_asr_trainer(
     config: Wav2Vec2AsrTrainConfig, output_dir: Path
-) -> Trainer:
+) -> StandardTrainer[Seq2SeqBatch]:
     """Load a wav2vec 2.0 ASR tainer."""
     wall_watch = Stopwatch(start=True)
 
@@ -207,7 +207,8 @@ def load_wav2vec2_asr_trainer(
 
     log_environment_info(log, device)
 
-    # Load the tokenizer.
+    log.info("Loading {} tokenizer.", config.tokenizer_name)
+
     tokenizer = load_text_tokenizer(config.tokenizer_name)
 
     if config.model_config.final_dim != tokenizer.vocab_info.size:
@@ -215,13 +216,11 @@ def load_wav2vec2_asr_trainer(
             f"`config.model_config.final_dim` must match the size of the vocabulary of the tokenizer ({tokenizer.vocab_info.size}), but is {config.model_config.final_dim} instead."
         )
 
-    log.info("Loading {} tokenizer.", config.tokenizer_name)
-
-    dataset = load_asr_dataset(config.dataset_name)
-
     log.info("Tokenizer loaded.")
 
     log.info("Loading {} dataset.", config.dataset_name)
+
+    dataset = load_asr_dataset(config.dataset_name)
 
     train_data_reader = dataset.create_reader(
         split=config.train_split,
@@ -407,7 +406,7 @@ def load_wav2vec2_asr_trainer(
     rng_bag.manual_seed(config.seed + gang.rank)
 
     # Initialize the trainer.
-    trainer = StandardTrainer[Seq2SeqBatch](
+    return StandardTrainer[Seq2SeqBatch](
         criterion=criterion,
         gang=gang,
         dtype=config.dtype,
@@ -429,7 +428,3 @@ def load_wav2vec2_asr_trainer(
         rng_bag=rng_bag,
         wall_watch=wall_watch,
     )
-
-    trainer.maybe_restore()
-
-    return trainer
