@@ -531,13 +531,15 @@ def create_bucket_sizes(
 
     bucket_size = max_num_elements
 
-    while seq_len <= max_seq_len:
+    while seq_len < max_seq_len:
         if seq_len >= min_seq_len:
             bucket_sizes.append((bucket_size, seq_len))
 
         bucket_size = max_num_elements // (seq_len + 1)
 
         seq_len = max_num_elements // bucket_size
+
+    bucket_sizes.append((bucket_size, max_seq_len))
 
     if num_seqs_multiple_of == 1:
         return bucket_sizes
