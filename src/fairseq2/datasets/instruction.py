@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import json
+from abc import ABC, abstractmethod
 from functools import partial
 from pathlib import Path
 from typing import Any, Dict, Set, cast, final
@@ -23,12 +24,63 @@ from fairseq2.data import (
     read_sequence,
 )
 from fairseq2.data.text import TextTokenizer
-from fairseq2.datasets import AbstractDatasetLoader, DataPipelineReader
-from fairseq2.datasets.instruction import InstructionDataset, load_instruction_dataset
+from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
+from fairseq2.datasets.loader import AbstractDatasetLoader, DelegatingDatasetLoader
 from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.typing import override
+
+
+class InstructionDataset(ABC):
+    """Represents an instruction finetuning dataset."""
+
+    @abstractmethod
+    def create_reader(
+        self,
+        split: str,
+        tokenizer: TextTokenizer,
+        gang: Gang,
+        max_seq_len: int,
+        max_num_tokens: int,
+        *,
+        shuffle_window_size: int = 1,
+        num_accumulate: int = 1,
+        num_prefetch: int = 1,
+        seed: int = 2,
+        **extras: Any,
+    ) -> DataReader[SequenceBatch]:
+        """Create a dataset reader.
+
+        :param split:
+            The split to read.
+        :param tokenizer:
+            The tokenizer to encode text.
+        :param gang:
+            The gang over which to shard the dataset.
+        :param max_seq_len:
+            The maximum sequence length of each example. Examples longer than
+            this value will be dropped.
+        :param max_num_tokens:
+            The maximum number of tokens in each batch.
+        :param shuffle_window_size:
+            The size of the shuffle window. If ``1``, no shuffling is performed;
+            if ``0``, performs true shuffling by loading the entire dataset.
+        :param num_accumulate:
+            The number of batches to accumulate in each iteration. Typically
+            used with gradient accumulation during training.
+        :param num_prefetch:
+            The number of batches to prefetch in background.
+        :param seed:
+            The seed to initialize the random number generators used internally.
+        :param extras:
+            The extra parameters specific to the dataset implementation.
+        """
+
+    @abstractmethod
+    def splits(self) -> Set[str]:
+        """Return the set of splits."""
+
 
 # TODO: FIX, INFER
 npc = 10
@@ -163,6 +215,9 @@ class GenericInstructionDataset(InstructionDataset):
         return {"train"}
 
 
+load_instruction_dataset = DelegatingDatasetLoader[InstructionDataset]()
+
+
 @final
 class GenericInstructionDatasetLoader(AbstractDatasetLoader[GenericInstructionDataset]):
     @override
@@ -173,7 +228,7 @@ class GenericInstructionDatasetLoader(AbstractDatasetLoader[GenericInstructionDa
 load_generic_instruction_dataset = GenericInstructionDatasetLoader()
 
 
-def _register_generic() -> None:
+def _register_instruction() -> None:
     load_instruction_dataset.register(
         "generic_instruction", load_generic_instruction_dataset
     )

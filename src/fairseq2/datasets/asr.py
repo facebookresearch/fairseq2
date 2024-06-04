@@ -4,6 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, List, Set, cast, final
 
@@ -22,15 +23,81 @@ from fairseq2.data import (
     read_sequence,
 )
 from fairseq2.data.audio import AudioDecoder
-from fairseq2.data.text import StrSplitter, TextTokenizer, read_text
-from fairseq2.datasets.asr.base import AsrDataset, load_asr_dataset
-from fairseq2.datasets.data_reader import DataPipelineReader
+from fairseq2.data.text import (
+    StrSplitter,
+    TextTokenizer,
+    default_raw_sentencepiece_tokenizer_loader,
+    load_text_tokenizer,
+    read_text,
+)
+from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
 from fairseq2.datasets.error import DatasetError
-from fairseq2.datasets.loader import AbstractDatasetLoader
+from fairseq2.datasets.loader import AbstractDatasetLoader, DelegatingDatasetLoader
 from fairseq2.gang import Gang
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.typing import DataType, override
+
+
+class AsrDataset(ABC):
+    """Represents an automatic speech recognition dataset."""
+
+    @abstractmethod
+    def create_reader(
+        self,
+        split: str,
+        tokenizer: TextTokenizer,
+        gang: Gang,
+        max_audio_len: int,
+        max_num_elements: int,
+        *,
+        dtype: DataType = torch.float32,
+        min_audio_len: int = 1,
+        normalize_audio: bool = False,
+        shuffle_window_size: int = 1,
+        num_accumulate: int = 1,
+        num_prefetch: int = 1,
+        seed: int = 2,
+        **extras: Any,
+    ) -> DataReader[Seq2SeqBatch]:
+        """Create a dataset reader.
+
+        :param split:
+            The split to read.
+        :param tokenizer:
+            The tokenizer to encode target text.
+        :param gang:
+            The gang over which to shard the dataset.
+        :param max_audio_len:
+            The maximum audio length of each example. Examples longer than
+            this value will be cropped.
+        :param max_num_elements:
+            The maximum number of elements in each batch.
+        :param dtype:
+            The data type of the decoded audio sequences.
+        :param min_audio_len:
+            The minimum audio length of each example. Examples shorter than
+            this value will be dropped.
+        :param normalize_audio:
+            If ``True``, normalizes audio to have zero mean and unit variance.
+        :param shuffle_window_size:
+            The size of the shuffle window. If ``1``, no shuffling is performed;
+            if ``0``, performs true shuffling by loading the entire dataset.
+        :param num_accumulate:
+            The number of batches to accumulate in each iteration. Typically
+            used with gradient accumulation during training.
+        :param num_prefetch:
+            The number of batches to prefetch in background.
+        :param seed:
+            The seed to initialize the random number generators used internally.
+        :param extras:
+            The extra parameters specific to the dataset implementation.
+        """
+
+    @abstractmethod
+    def splits(self) -> Set[str]:
+        """Return the set of splits."""
+
 
 # TODO: FIX, INFER
 npc = 10
@@ -244,6 +311,9 @@ class GenericAsrDataset(AsrDataset):
         return self._splits
 
 
+load_asr_dataset = DelegatingDatasetLoader[AsrDataset]()
+
+
 @final
 class GenericAsrDatasetLoader(AbstractDatasetLoader[GenericAsrDataset]):
     @override
@@ -253,6 +323,10 @@ class GenericAsrDatasetLoader(AbstractDatasetLoader[GenericAsrDataset]):
 
 load_generic_asr_dataset = GenericAsrDatasetLoader()
 
+load_librispeech_asr_tokenizer = default_raw_sentencepiece_tokenizer_loader
 
-def _register_generic() -> None:
+
+def _register_asr() -> None:
     load_asr_dataset.register("generic_asr", load_generic_asr_dataset)
+
+    load_text_tokenizer.register("librispeech_asr", load_librispeech_asr_tokenizer)
