@@ -461,7 +461,7 @@ class ProcessGroupGang(AbstractGang):
 
         pg = dist.new_group(ranks, backend=backend)
 
-        if pg is None:
+        if self._rank not in ranks:
             return None
 
         if self._monitor_pg is not None:
