@@ -56,7 +56,7 @@ class InstructionFinetuneConfig:
     dataset_name: str = "openeft"  # TODO: fix!
     """The dataset to train with."""
 
-    tokenizer_name: str = "llama3_8b_chat"
+    tokenizer_name: str = "llama3_8b_instruct"
     """The tokenizer to use."""
 
     max_seq_len: int = 4096

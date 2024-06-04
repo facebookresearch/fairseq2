@@ -79,7 +79,7 @@ model_arch: llama3_8b
 
 ---
 
-name: llama3_8b_chat
+name: llama3_8b_instruct
 base: llama3
 model_arch: llama3_8b
 model_config:
@@ -96,7 +96,7 @@ shard_embed_dim: false
 
 ---
 
-name: llama3_70b_chat
+name: llama3_70b_instruct
 base: llama3
 model_arch: llama3_70b
 model_config:
