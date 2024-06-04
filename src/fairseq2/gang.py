@@ -43,7 +43,7 @@ class Gang(ABC):
         """Close and destroy the gang."""
 
     @abstractmethod
-    def create_gang(self, ranks: Sequence[int]) -> Gang:
+    def create_gang(self, ranks: Sequence[int]) -> Optional[Gang]:
         """Create a new gang.
 
         :param ranks:
@@ -133,6 +133,14 @@ class AbstractGang(Gang):
         :param device:
             The associated device.
         """
+        if size == 0:
+            raise ValueError("`size` must be greater than zero.")
+
+        if rank >= size:
+            raise ValueError(
+                f"`rank` must be less than `size` ({size}), but is {rank} instead."
+            )
+
         self._rank = rank
         self._size = size
 
@@ -140,7 +148,7 @@ class AbstractGang(Gang):
 
     @final
     @override
-    def create_gang(self, ranks: Sequence[int]) -> Gang:
+    def create_gang(self, ranks: Sequence[int]) -> Optional[Gang]:
         if len(set(ranks)) != len(ranks):
             raise ValueError("The ranks in ``ranks`` must be all unique.")
 
@@ -153,7 +161,7 @@ class AbstractGang(Gang):
         return self._do_create_gang(ranks)
 
     @abstractmethod
-    def _do_create_gang(self, ranks: Sequence[int]) -> Gang:
+    def _do_create_gang(self, ranks: Sequence[int]) -> Optional[Gang]:
         """Create a new gang.
 
         :param ranks:
@@ -183,8 +191,14 @@ class AbstractGang(Gang):
 class FakeGang(AbstractGang):
     """Represents a non-distributed gang for local use."""
 
-    def __init__(self, device: Optional[Device] = None) -> None:
+    def __init__(
+        self, *, rank: int = 0, size: int = 1, device: Optional[Device] = None
+    ) -> None:
         """
+        :param rank:
+            The emulated rank of this process in the gang.
+        :param size:
+            The emulated number of processes that are part of the gang.
         :param device:
             If ``None``; if CUDA is available, the gang will use the default
             CUDA device of the process; otherwise, it will use the CPU.
@@ -192,15 +206,20 @@ class FakeGang(AbstractGang):
         if device is None:
             device = _determine_default_device()
 
-        super().__init__(rank=0, size=1, device=device)
+        super().__init__(rank=rank, size=size, device=device)
 
     @override
     def close(self) -> None:
         pass
 
     @override
-    def _do_create_gang(self, ranks: Sequence[int]) -> FakeGang:
-        return self
+    def _do_create_gang(self, ranks: Sequence[int]) -> Optional[FakeGang]:
+        try:
+            idx = ranks.index(self._rank)
+        except ValueError:
+            return None
+
+        return FakeGang(rank=idx, size=len(ranks), device=self._device)
 
     @override
     def as_process_group(self) -> ProcessGroup:
@@ -212,22 +231,47 @@ class FakeGang(AbstractGang):
 
     @override
     def all_reduce(self, tensor: Tensor, op: ReduceOperation) -> None:
-        pass
+        if op == ReduceOperation.SUM:
+            tensor *= self._size
+        elif op == ReduceOperation.PRODUCT:
+            tensor.pow_(self._size)
 
     @override
     def all_gather(self, output_tensor: Tensor, input_tensor: Tensor) -> None:
-        output_tensor.copy_(input_tensor)
+        if not output_tensor.is_contiguous():
+            raise ValueError("`output_tensor` must be contiguous.")
+
+        if output_tensor.dim() != input_tensor.dim() + 1:
+            raise ValueError(
+                "`output_tensor` must have a shape that is compatible with all-gather."
+            )
+
+        if output_tensor.size(0) != self._size:
+            raise ValueError(
+                f"The size of the first dimension of `output_tensor` must match the size of the gang ({self._size}), but is {output_tensor.size(0)} instead."
+            )
+
+        for i in range(self._size):
+            output_tensor[i].copy_(input_tensor)
 
     @override
     def all_gather_to_list(
         self, output_tensors: List[Tensor], input_tensor: Tensor
     ) -> None:
-        output_tensors[0] = input_tensor.detach().clone()
+        if len(output_tensors) != self._size:
+            raise ValueError(
+                f"The length of `output_tensors` must match the size of the gang ({self._size}), but is {len(output_tensors)} instead."
+            )
+
+        for i in range(self._size):
+            output_tensors[i].copy_(input_tensor)
 
     @override
     def broadcast_objects(self, objects: List[Any], source_rank: int = 0) -> None:
-        if source_rank != 0:
-            raise ValueError(f"`source_rank` must be 0, but is {source_rank} instead.")
+        if source_rank != self._rank:
+            raise ValueError(
+                f"`source_rank` must be {self._rank}, but is {source_rank} instead."
+            )
 
 
 @final
@@ -407,7 +451,7 @@ class ProcessGroupGang(AbstractGang):
         dist.destroy_process_group(self._pg)
 
     @override
-    def _do_create_gang(self, ranks: Sequence[int]) -> ProcessGroupGang:
+    def _do_create_gang(self, ranks: Sequence[int]) -> Optional[ProcessGroupGang]:
         if self._pg is not dist.group.WORLD:
             raise RuntimeError(
                 "`create_gang()` can only be called on the gang associated with the default (i.e. main) process group."
@@ -416,6 +460,9 @@ class ProcessGroupGang(AbstractGang):
         backend = dist.get_backend()
 
         pg = dist.new_group(ranks, backend=backend)
+
+        if pg is None:
+            return None
 
         if self._monitor_pg is not None:
             if backend == Backend.GLOO:
@@ -722,7 +769,7 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Dict[str, Gang
 
     # Build the gangs for data parallelism.
     if dp_size == 1:
-        dp_gang = FakeGang(root_gang.device)
+        dp_gang = FakeGang(device=root_gang.device)
     elif dp_size == root_gang.size:
         dp_gang = root_gang
     else:
@@ -733,7 +780,7 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Dict[str, Gang
 
     # Build the gangs for tensor parallelism.
     if tp_size == 1:
-        tp_gang = FakeGang(root_gang.device)
+        tp_gang = FakeGang(device=root_gang.device)
     elif tp_size == root_gang.size:
         tp_gang = root_gang
     else:
