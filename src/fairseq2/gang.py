@@ -588,19 +588,6 @@ def determine_default_device() -> Device:
 
 
 def _determine_default_cuda_device() -> Device:
-    num_devices = torch.cuda.device_count()
-
-    # Sanity check.
-    num_procs = _get_int_from_env("LOCAL_WORLD_SIZE")
-    if num_procs is not None:
-        if num_procs > num_devices:
-            raise RuntimeError(
-                f"The value of the `LOCAL_WORLD_SIZE` environment variable must be less than or equal to the number of available `cuda` devices ({num_devices}), but is {num_procs} instead."
-            )
-
-        if num_procs < num_devices:
-            log.warning("The value of the `LOCAL_WORLD_SIZE` environment variable ({}) is less than the number of available `cuda` devices ({}).", num_procs, num_devices)  # fmt: skip
-
     visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES")
     if visible_devices is not None:
         try:
@@ -615,6 +602,8 @@ def _determine_default_cuda_device() -> Device:
         device = None
 
     if device is None:
+        num_devices = torch.cuda.device_count()
+
         idx = _get_device_index(num_devices, device_type="cuda")
 
         device = Device("cuda", index=idx)
