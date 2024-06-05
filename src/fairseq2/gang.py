@@ -755,9 +755,6 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Dict[str, Gang
 
     if log.is_enabled_for(logging.INFO):
         for name, size in [("data", dp_size), ("tensor", tp_size)]:
-            if size == 1:
-                continue
-
             log.info("Initializing {} parallelism with a gang of size {}.", name, size)
 
     mesh = torch.arange(root_gang.size).view(dp_size, tp_size)

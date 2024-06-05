@@ -194,7 +194,9 @@ def load_wav2vec2_asr_trainer(
     """Load a wav2vec 2.0 ASR tainer."""
     wall_watch = Stopwatch(start=True)
 
-    gang, _ = setup_gangs(log, monitored=config.monitored_gang)
+    gangs = setup_gangs(log, monitored=config.monitored_gang)
+
+    dp_gang = gangs["dp"]  # data
 
     log.info("Loading {} tokenizer.", config.tokenizer_name)
 
@@ -214,7 +216,7 @@ def load_wav2vec2_asr_trainer(
     train_data_reader = dataset.create_reader(
         split=config.train_split,
         tokenizer=tokenizer,
-        gang=gang,
+        gang=dp_gang,
         dtype=config.dtype,
         min_audio_len=config.min_audio_len,
         max_audio_len=config.max_audio_len,
@@ -229,7 +231,7 @@ def load_wav2vec2_asr_trainer(
     valid_data_reader = dataset.create_reader(
         split=config.valid_split,
         tokenizer=tokenizer,
-        gang=gang,
+        gang=dp_gang,
         dtype=config.dtype,
         min_audio_len=config.min_audio_len,
         max_audio_len=config.max_audio_len,
@@ -244,19 +246,19 @@ def load_wav2vec2_asr_trainer(
     log.info("Dataset loaded.")
 
     # Set up the checkpoint manager.
-    if gang.size > 1 and config.data_parallelism == "ddp":
+    if dp_gang.size > 1 and config.data_parallelism == "ddp":
         replicated_keys = ["_model", "_optimizer"]
     else:
         replicated_keys = []
 
     checkpoint_manager = FileCheckpointManager(
         output_dir.joinpath("checkpoints"),
-        gang,
+        dp_gang,
         model_key="_model",
         replicated_keys=replicated_keys,
     )
 
-    rng_bag = RngBag.from_device_defaults(CPU, gang.device)
+    rng_bag = RngBag.from_device_defaults(CPU, dp_gang.device)
 
     # Set the seed for model initialization.
     rng_bag.manual_seed(config.seed)
@@ -272,9 +274,9 @@ def load_wav2vec2_asr_trainer(
     if not has_checkpoint:
         log.info("Loading pretrained {} model on rank 0.", config.pretrained_model_name)
 
-        if gang.rank == 0:
+        if dp_gang.rank == 0:
             pt_model = load_wav2vec2_model(
-                config.pretrained_model_name, device=gang.device, dtype=torch.float32
+                config.pretrained_model_name, device=dp_gang.device, dtype=torch.float32
             )
 
             share_parameters(pt_model.encoder_frontend, model.encoder_frontend)
@@ -285,16 +287,16 @@ def load_wav2vec2_asr_trainer(
 
             del pt_model
 
-        gang.barrier()
+        dp_gang.barrier()
 
         log.info("Pretrained model loaded on rank 0 and parameters shared with the ASR model.")  # fmt: skip
 
         log.info("Initialize the output linear layer on rank 0.")
 
-        if gang.rank == 0:
-            to_device(model, gang.device)
+        if dp_gang.rank == 0:
+            to_device(model, dp_gang.device)
 
-        gang.barrier()
+        dp_gang.barrier()
 
         log.info("Output linear layer initialized.")
 
@@ -308,19 +310,17 @@ def load_wav2vec2_asr_trainer(
     dp_model: Module
 
     # Set up data parallelism.
-    if gang.size == 1:
-        to_device(model, gang.device)
+    if dp_gang.size == 1:
+        to_device(model, dp_gang.device)
 
         dp_model = model
     else:
         log.info("Wrapping the model with {} and broadcasting to all ranks from rank 0.", config.data_parallelism.upper())  # fmt: skip
 
         if config.data_parallelism == "ddp":
-            to_device(model, gang.device)
-
             find_unused_params = config.freeze_encoder_for_n_steps > 0
 
-            dp_model = to_ddp(model, gang, find_unused_parameters=find_unused_params)
+            dp_model = to_ddp(model, dp_gang, find_unused_parameters=find_unused_params)
         elif config.data_parallelism == "fsdp":
             if config.freeze_encoder_for_n_steps != 0:
                 raise ValueError(
@@ -338,7 +338,7 @@ def load_wav2vec2_asr_trainer(
 
             dp_model = to_fsdp(
                 model,
-                gang,
+                dp_gang,
                 wrap_policy,
                 ignored_modules=ignored_modules,
                 skip_init=True,
@@ -360,7 +360,7 @@ def load_wav2vec2_asr_trainer(
             model.encoder, dynamic=True, options={"shape_padding": True}
         )
 
-        gang.barrier()
+        dp_gang.barrier()
 
         log.info("Encoder compiled.")
 
@@ -369,7 +369,7 @@ def load_wav2vec2_asr_trainer(
     # Initialize the criterion and the optimizer.
     criterion = Wav2Vec2AsrCriterion(
         dp_model,
-        gang,
+        dp_gang,
         tokenizer,
         freeze_encoder_for_n_steps=config.freeze_encoder_for_n_steps,
     )
@@ -388,16 +388,16 @@ def load_wav2vec2_asr_trainer(
     tb_dir = output_dir.joinpath("tb")
 
     profiler = Profiler(
-        skip_first=15, active=3, log_dir=tb_dir, gang=gang, enabled=config.profile
+        skip_first=15, active=3, log_dir=tb_dir, gang=dp_gang, enabled=config.profile
     )
 
     # Set the seed for training.
-    rng_bag.manual_seed(config.seed + gang.rank)
+    rng_bag.manual_seed(config.seed + dp_gang.rank)
 
     # Initialize the trainer.
     return StandardTrainer[Seq2SeqBatch](
         criterion=criterion,
-        gang=gang,
+        gang=dp_gang,
         dtype=config.dtype,
         optimizer=optimizer,
         lr_scheduler=lr_scheduler,

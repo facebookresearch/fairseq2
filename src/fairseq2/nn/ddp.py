@@ -14,6 +14,7 @@ from torch.nn import Module
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from fairseq2.gang import Gang
+from fairseq2.nn.utils.module import to_device
 
 
 def to_ddp(
@@ -41,6 +42,8 @@ def to_ddp(
         If ``True``, normalizes gradients by the world size of the underlying
         process group.
     """
+    to_device(module, gang.device)
+
     ddp = DDP(
         module,
         broadcast_buffers=broadcast_buffers,
