@@ -41,7 +41,7 @@ class RunChatbotCommand(CliCommandHandler):
             "--model",
             dest="model_name",
             metavar="MODEL_NAME",
-            default="llama3_8b_chat",
+            default="llama3_8b_instruct",
             help="instruct model name (default: %(default)s)",
         )
 

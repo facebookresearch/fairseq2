@@ -4,7 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Dict, Tuple
+from typing import Dict
 
 import torch
 
@@ -20,7 +20,7 @@ from fairseq2.recipes.utils.log import log_environment_info
 
 def setup_gangs(
     log: LogWriter, *, tp_size: int = 1, monitored: bool = False
-) -> Tuple[Gang, Dict[str, Gang]]:
+) -> Dict[str, Gang]:
     """Set up the root, data, and tensor parallel gangs.
 
     :param tp_size:
@@ -38,21 +38,18 @@ def setup_gangs(
 
     log.info("Root gang initialized.")
 
-    if tp_size == 1:
-        gangs = {"root": root_gang, "dp": root_gang}
-    else:
-        log.info("Initializing the data and tensor parallel gangs.")
+    log.info("Initializing data and tensor parallel gangs.")
 
-        try:
-            gangs = setup_parallel_gangs(root_gang, tp_size=tp_size)
-        except ValueError as ex:
-            raise RuntimeError(
-                f"The size of the root gang ({root_gang.size}) is not divisible by `tp_size` ({tp_size})."
-            ) from ex
+    try:
+        gangs = setup_parallel_gangs(root_gang, tp_size=tp_size)
+    except ValueError as ex:
+        raise RuntimeError(
+            f"The size of the root gang ({root_gang.size}) is not divisible by `tp_size` ({tp_size})."
+        ) from ex
 
-        log.info("Data and tensor parallel gangs initialized.")
+    log.info("Data and tensor parallel gangs initialized.")
 
     # In case we run on Ampere or later, use TF32.
     torch.set_float32_matmul_precision("high")
 
-    return root_gang, gangs
+    return gangs

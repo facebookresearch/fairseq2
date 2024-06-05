@@ -73,7 +73,7 @@ class InstructionFinetuneConfig:
     """The number of batches to prefetch in background."""
 
     # Model
-    model_name: str = "llama2_7b_chat"
+    model_name: str = "llama3_8b_instruct"
     """The name of the model to finetune."""
 
     dtype: DataType = torch.bfloat16
@@ -164,9 +164,11 @@ def load_instruction_finetuner(
 ) -> StandardTrainer[SequenceBatch]:
     wall_watch = Stopwatch(start=True)
 
-    root_gang, gangs = setup_gangs(
+    gangs = setup_gangs(
         log, tp_size=config.tensor_parallel_size, monitored=config.monitored_gang
     )
+
+    root_gang = gangs["root"]
 
     dp_gang = gangs["dp"]  # data
     tp_gang = gangs["tp"]  # tensor
@@ -262,8 +264,6 @@ def load_instruction_finetuner(
         log.info("Wrapping model with {} and broadcasting to all data parallel ranks from rank 0.", config.data_parallelism.upper())  # fmt: skip
 
         if config.data_parallelism == "ddp":
-            to_device(model, root_gang.device)
-
             dp_model = to_ddp(model, dp_gang)
         elif config.data_parallelism == "fsdp":
             wrap_policy, ignored_modules = get_fsdp_wrap_policy(
