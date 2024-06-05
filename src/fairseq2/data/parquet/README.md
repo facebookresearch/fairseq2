@@ -1,6 +1,6 @@
 ## Parquet Data Loading with fairseq2
 
-The recipe module [parquet_dataloader](./parquet_dataloader.py) shows one way to
+The recipe module [parquet_dataloader](./dataloader.py) shows one way to
 build an efficient dataloader over a Apache Parquet dataset (partitioned or not)
 using `fairseq2.data` primitives. It uses the [pyarrow.parquet](https://arrow.apache.org/docs/python/generated/pyarrow.parquet.ParquetDataset.html)
 API to interface with Parquet files, so it requires an extra package
