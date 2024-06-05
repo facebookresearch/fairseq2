@@ -64,7 +64,7 @@ class SlurmEnvironmentSetter(EnvironmentSetter):
             os.environ["CUDA_VISIBLE_DEVICES"] = os.environ["SLURM_LOCALID"]
         except KeyError as ex:
             raise RuntimeError(
-                "Slurm job environment variables are not correctly set. If you are within an allocated job (i.e. `salloc`), make sure to run with `srun`."
+                "Slurm job environment variables are not correctly set. If you are within an allocated job (i.e. `salloc`), make sure to run with `srun`. If you want to run without Slurm, use `--cluster none`."
             ) from ex
 
     def _get_master_addr(self) -> str:

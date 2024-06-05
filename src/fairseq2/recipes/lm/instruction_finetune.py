@@ -19,7 +19,7 @@ from fairseq2.checkpoint import FileCheckpointManager
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
 from fairseq2.datasets.instruction import load_instruction_dataset
-from fairseq2.gang import Gang, setup_default_gang, setup_parallel_gangs
+from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.metrics import MetricBag
 from fairseq2.models import load_model
@@ -40,7 +40,8 @@ from fairseq2.optim.lr_scheduler import CosineAnnealingLR
 from fairseq2.recipes.criterion import AbstractCriterion
 from fairseq2.recipes.metrics import SequenceModelMetricBag
 from fairseq2.recipes.trainer import StandardTrainer
-from fairseq2.recipes.utils.log import log_environment_info, log_model
+from fairseq2.recipes.utils.log import log_model
+from fairseq2.recipes.utils.setup import setup_gangs
 from fairseq2.typing import CPU, META, DataType, override
 from fairseq2.utils.profiler import Profiler, Stopwatch
 from fairseq2.utils.rng import RngBag
@@ -163,32 +164,12 @@ def load_instruction_finetuner(
 ) -> StandardTrainer[SequenceBatch]:
     wall_watch = Stopwatch(start=True)
 
-    # In case we run on Ampere or later, use TF32.
-    torch.set_float32_matmul_precision("high")
-
-    log.info("Initializing the root gang.")
-
-    root_gang = setup_default_gang(monitored=config.monitored_gang)
-
-    log.info("Root gang initialized.")
-
-    log.info("Initializing the data and tensor parallel gangs.")
-
-    try:
-        gangs = setup_parallel_gangs(root_gang, tp_size=config.tensor_parallel_size)
-    except ValueError as ex:
-        raise RuntimeError(
-            f"The size of the root gang ({root_gang.size}) is not divisible by `config.tensor_parallel_size` ({config.tensor_parallel_size})."
-        ) from ex
+    root_gang, gangs = setup_gangs(
+        log, tp_size=config.tensor_parallel_size, monitored=config.monitored_gang
+    )
 
     dp_gang = gangs["dp"]  # data
     tp_gang = gangs["tp"]  # tensor
-
-    log.info("Data and tensor parallel gangs initialized.")
-
-    device = root_gang.device
-
-    log_environment_info(log, device)
 
     log.info("Loading {} tokenizer.", config.tokenizer_name)
 
@@ -231,7 +212,7 @@ def load_instruction_finetuner(
         replicated_keys=replicated_keys,
     )
 
-    rng_bag = RngBag.from_device_defaults(CPU, device)
+    rng_bag = RngBag.from_device_defaults(CPU, root_gang.device)
 
     # Set the seed for model initialization.
     rng_bag.manual_seed(config.seed)
@@ -250,7 +231,7 @@ def load_instruction_finetuner(
         log.info("Loading {} model on data parallel rank 0 (per shard).", config.model_name)  # fmt: skip
 
         if dp_gang.rank == 0:
-            init_device = device
+            init_device = root_gang.device
 
         model = load_model(
             config.model_name, gangs=gangs, device=init_device, dtype=torch.float32
@@ -274,14 +255,14 @@ def load_instruction_finetuner(
 
     # Set up data parallelism.
     if dp_gang.size == 1:
-        to_device(model, device)
+        to_device(model, root_gang.device)
 
         dp_model = model
     else:
         log.info("Wrapping model with {} and broadcasting to all data parallel ranks from rank 0.", config.data_parallelism.upper())  # fmt: skip
 
         if config.data_parallelism == "ddp":
-            to_device(model, device)
+            to_device(model, root_gang.device)
 
             dp_model = to_ddp(model, dp_gang)
         elif config.data_parallelism == "fsdp":
