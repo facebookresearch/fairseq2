@@ -17,7 +17,6 @@ from fairseq2.checkpoint import FileCheckpointManager
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
 from fairseq2.datasets.asr import load_asr_dataset
-from fairseq2.gang import setup_default_gang
 from fairseq2.logging import get_log_writer
 from fairseq2.models.fsdp import get_fsdp_wrap_policy
 from fairseq2.models.seq2seq import Seq2SeqBatch
@@ -33,7 +32,8 @@ from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_dev
 from fairseq2.optim import AdamW
 from fairseq2.optim.lr_scheduler import TriStageLR
 from fairseq2.recipes.trainer import StandardTrainer
-from fairseq2.recipes.utils.log import log_environment_info, log_model
+from fairseq2.recipes.utils.log import log_model
+from fairseq2.recipes.utils.setup import setup_gangs
 from fairseq2.recipes.wav2vec2.asr.criterion import Wav2Vec2AsrCriterion
 from fairseq2.typing import CPU, META, DataType
 from fairseq2.utils.profiler import Profiler, Stopwatch
@@ -194,18 +194,7 @@ def load_wav2vec2_asr_trainer(
     """Load a wav2vec 2.0 ASR tainer."""
     wall_watch = Stopwatch(start=True)
 
-    # In case we run on Ampere or later, use TF32.
-    torch.set_float32_matmul_precision("high")
-
-    log.info("Initializing the gang.")
-
-    gang = setup_default_gang(monitored=config.monitored_gang)
-
-    log.info("Gang initialized.")
-
-    device = gang.device
-
-    log_environment_info(log, device)
+    gang, _ = setup_gangs(log, monitored=config.monitored_gang)
 
     log.info("Loading {} tokenizer.", config.tokenizer_name)
 
@@ -267,7 +256,7 @@ def load_wav2vec2_asr_trainer(
         replicated_keys=replicated_keys,
     )
 
-    rng_bag = RngBag.from_device_defaults(CPU, device)
+    rng_bag = RngBag.from_device_defaults(CPU, gang.device)
 
     # Set the seed for model initialization.
     rng_bag.manual_seed(config.seed)
@@ -285,7 +274,7 @@ def load_wav2vec2_asr_trainer(
 
         if gang.rank == 0:
             pt_model = load_wav2vec2_model(
-                config.pretrained_model_name, device=device, dtype=torch.float32
+                config.pretrained_model_name, device=gang.device, dtype=torch.float32
             )
 
             share_parameters(pt_model.encoder_frontend, model.encoder_frontend)
@@ -303,7 +292,7 @@ def load_wav2vec2_asr_trainer(
         log.info("Initialize the output linear layer on rank 0.")
 
         if gang.rank == 0:
-            to_device(model, device)
+            to_device(model, gang.device)
 
         gang.barrier()
 
@@ -320,14 +309,14 @@ def load_wav2vec2_asr_trainer(
 
     # Set up data parallelism.
     if gang.size == 1:
-        to_device(model, device)
+        to_device(model, gang.device)
 
         dp_model = model
     else:
         log.info("Wrapping the model with {} and broadcasting to all ranks from rank 0.", config.data_parallelism.upper())  # fmt: skip
 
         if config.data_parallelism == "ddp":
-            to_device(model, device)
+            to_device(model, gang.device)
 
             find_unused_params = config.freeze_encoder_for_n_steps > 0
 

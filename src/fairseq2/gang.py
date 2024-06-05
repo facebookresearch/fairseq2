@@ -204,7 +204,7 @@ class FakeGang(AbstractGang):
             CUDA device of the process; otherwise, it will use the CPU.
         """
         if device is None:
-            device = _determine_default_device()
+            device = determine_default_device()
 
         super().__init__(rank=rank, size=size, device=device)
 
@@ -350,7 +350,7 @@ class ProcessGroupGang(AbstractGang):
             log.info("Setting the number of threads used for intraop parallelism to {}.", num_threads)  # fmt: skip
 
         if device is None:
-            device = _determine_default_device()
+            device = determine_default_device()
 
             assert device.type == "cpu" or device.type == "cuda"
 
@@ -556,7 +556,8 @@ def _get_num_cpus(num_procs: int) -> int:
 _default_device: Optional[Device] = None
 
 
-def _determine_default_device() -> Device:
+def determine_default_device() -> Device:
+    """Determine the default ``torch.device`` of the process."""
     global _default_device
 
     if _default_device is not None:
@@ -587,6 +588,19 @@ def _determine_default_device() -> Device:
 
 
 def _determine_default_cuda_device() -> Device:
+    num_devices = torch.cuda.device_count()
+
+    # Sanity check.
+    num_procs = _get_int_from_env("LOCAL_WORLD_SIZE")
+    if num_procs is not None:
+        if num_procs > num_devices:
+            raise RuntimeError(
+                f"The value of the `LOCAL_WORLD_SIZE` environment variable must be less than or equal to the number of available `cuda` devices ({num_devices}), but is {num_procs} instead."
+            )
+
+        if num_procs < num_devices:
+            log.warning("The value of the `LOCAL_WORLD_SIZE` environment variable ({}) is less than the number of available `cuda` devices ({}).", num_procs, num_devices)  # fmt: skip
+
     visible_devices = os.environ.get("CUDA_VISIBLE_DEVICES")
     if visible_devices is not None:
         try:
@@ -601,8 +615,6 @@ def _determine_default_cuda_device() -> Device:
         device = None
 
     if device is None:
-        num_devices = torch.cuda.device_count()
-
         idx = _get_device_index(num_devices, device_type="cuda")
 
         device = Device("cuda", index=idx)
@@ -735,7 +747,7 @@ def setup_parallel_gangs(root_gang: Gang, *, tp_size: int = 1) -> Dict[str, Gang
     :param root_gang:
         The gang whose topology will be used to create the new gangs.
     :param tp_size:
-        The size of gangs to be used for tensor parallelism.
+        The size of tensor parallel gangs.
 
     :returns:
         A ``dict`` of two gangs; (1) the data parallel gang that this process

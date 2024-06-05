@@ -17,7 +17,6 @@ from fairseq2.assets import default_asset_store
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
 from fairseq2.datasets.asr import load_asr_dataset
-from fairseq2.gang import setup_default_gang
 from fairseq2.logging import get_log_writer
 from fairseq2.models.fsdp import get_fsdp_wrap_policy
 from fairseq2.models.seq2seq import Seq2SeqBatch
@@ -26,7 +25,8 @@ from fairseq2.nn.ddp import to_ddp
 from fairseq2.nn.fsdp import to_fsdp
 from fairseq2.nn.utils.module import remove_parametrizations, to_device
 from fairseq2.recipes.evaluator import StandardEvaluator
-from fairseq2.recipes.utils.log import log_environment_info, log_model
+from fairseq2.recipes.utils.log import log_model
+from fairseq2.recipes.utils.setup import setup_gangs
 from fairseq2.recipes.wav2vec2.asr.criterion import Wav2Vec2AsrCriterion
 from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
@@ -99,18 +99,7 @@ def load_wav2vec2_asr_evaluator(
     """Load a wav2vec 2.0 ASR evaluator."""
     wall_watch = Stopwatch(start=True)
 
-    # In case we run on Ampere or later, use TF32.
-    torch.set_float32_matmul_precision("high")
-
-    log.info("Initializing the gang.")
-
-    gang = setup_default_gang()
-
-    log.info("Gang initialized.")
-
-    device = gang.device
-
-    log_environment_info(log, device)
+    gang, _ = setup_gangs(log)
 
     log.info("Loading {} tokenizer.", config.tokenizer_name)
 
@@ -142,7 +131,7 @@ def load_wav2vec2_asr_evaluator(
     log.info("Loading {} model on rank 0.", config.model_name)
 
     if gang.rank == 0:
-        init_device = device
+        init_device = gang.device
     else:
         init_device = META
 
@@ -166,7 +155,7 @@ def load_wav2vec2_asr_evaluator(
         log.info("Wrapping the model with {} and broadcasting to all ranks from rank 0.", config.data_parallelism.upper())  # fmt: skip
 
         if config.data_parallelism == "ddp":
-            to_device(model, device)
+            to_device(model, gang.device)
 
             dp_model = to_ddp(model, gang)
         elif config.data_parallelism == "fsdp":

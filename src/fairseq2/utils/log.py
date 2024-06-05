@@ -81,6 +81,8 @@ def log_environment_info(
 
     log_software_info(log, device)
 
+    log_environment_variables(log)
+
 
 def log_system_info(log: LogWriter, device: Optional[Device] = None) -> None:
     """Log information about the host system."""
@@ -228,6 +230,16 @@ def log_software_info(log: LogWriter, device: Optional[Device] = None) -> None:
     )
 
     log.info("Runtime Environment - {}", s)
+
+
+def log_environment_variables(log: LogWriter) -> None:
+    """Log the environment variables."""
+    if not log.is_enabled_for(logging.INFO):
+        return
+
+    s = ", ".join(f"{k}: {v}" for k, v in os.environ.items())
+
+    log.info("Environment Variables - {}", s)
 
 
 def log_model(model: Module, log: LogWriter) -> None:
