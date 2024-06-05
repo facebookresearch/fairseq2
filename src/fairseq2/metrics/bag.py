@@ -195,9 +195,9 @@ def sync_and_compute_metrics(bags: Sequence[MetricBag]) -> Optional[Dict[str, An
 
             all_metrics.update(bag._metrics)
 
-    logging.disable(logging.WARNING)  # Suppress "No calls to update()".
-
     try:
+        logging.disable(logging.WARNING)  # Suppress "No calls to update()".
+
         if gang.size == 1:
             values = {name: m.compute() for name, m in all_metrics.items()}
         else:
@@ -207,6 +207,14 @@ def sync_and_compute_metrics(bags: Sequence[MetricBag]) -> Optional[Dict[str, An
 
     if gang.rank == 0:
         assert values is not None
+
+        def strip_underscore(s: str) -> str:
+            if s.startswith("_"):
+                s = s[1:]
+
+            return s
+
+        values = {strip_underscore(n): v for n, v in values.items()}
 
         for bag in bags:
             bag.process_metric_values(values)
