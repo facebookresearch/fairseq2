@@ -180,9 +180,6 @@ class LogMetricRecorder(MetricRecorder):
         values_and_formatters = []
 
         for name, value in values.items():
-            if name and name[0] == "_":
-                name = name[1:]
-
             formatter = _metric_formatters.get(name)
             if formatter is None:
                 formatter = (name, 999, str)
@@ -249,9 +246,6 @@ class TensorBoardRecorder(MetricRecorder):
             return
 
         for name, value in values.items():
-            if name and name[0] == "_":
-                name = name[1:]
-
             pair = _metric_formatters.get(name)
             if pair is None:
                 display_name = name

@@ -166,7 +166,7 @@ class Wav2Vec2AsrValidMetricBag(Wav2Vec2AsrMetricBag):
     def process_metric_values(self, values: Dict[str, Any]) -> None:
         super().process_metric_values(values)
 
-        uer, wer = values.pop("_wer")
+        uer, wer = values.pop("wer")
 
         values["uer"] = uer
         values["wer"] = wer
