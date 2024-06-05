@@ -21,7 +21,15 @@ _register_models()
 _register_datasets()
 
 
+_setup_complete = False
+
+
 def setup_extensions() -> None:
+    global _setup_complete
+
+    if _setup_complete:
+        return
+
     for entry_point in entry_points(group="fairseq2"):
         setup_extension = entry_point.load()
 
@@ -31,3 +39,5 @@ def setup_extensions() -> None:
             raise RuntimeError(
                 f"The entry point '{entry_point.value}' is not a valid fairseq2 setup function."
             )
+
+    _setup_complete = True
