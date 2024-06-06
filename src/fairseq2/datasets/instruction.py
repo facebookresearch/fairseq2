@@ -44,7 +44,8 @@ class InstructionDataset(ABC):
         max_seq_len: int,
         max_num_tokens: int,
         *,
-        shuffle_window_size: int = 1,
+        example_shuffle_window: int = 1,
+        batch_shuffle_window: int = 1,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
@@ -63,9 +64,14 @@ class InstructionDataset(ABC):
             this value will be dropped.
         :param max_num_tokens:
             The maximum number of tokens in each batch.
-        :param shuffle_window_size:
-            The size of the shuffle window. If ``1``, no shuffling is performed;
-            if ``0``, performs true shuffling by loading the entire dataset.
+        :param example_shuffle_window:
+            The size of the sliding window for shuffling examples. If ``1``, no
+            shuffling is performed; if ``0``, true shuffling is performed by
+            loading the entire dataset.
+        :param batch_shuffle_window:
+            The size of the sliding window for shuffling batches. If ``1``, no
+            shuffling is performed; if ``0``, true shuffling is performed by
+            loading the entire dataset.
         :param num_accumulate:
             The number of batches to accumulate in each iteration. Typically
             used with gradient accumulation during training.
@@ -109,7 +115,8 @@ class GenericInstructionDataset(InstructionDataset):
         max_seq_len: int,
         max_num_tokens: int,
         *,
-        shuffle_window_size: int = 1,
+        example_shuffle_window: int = 1,
+        batch_shuffle_window: int = 1,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
@@ -117,14 +124,17 @@ class GenericInstructionDataset(InstructionDataset):
     ) -> DataPipelineReader[SequenceBatch]:
         builder = list_files(self._data_dir, pattern="*.jsonl")
 
-        # Shuffle the files. Must be consistent across all processes.
-        builder.shuffle(shuffle_window=0, seed=seed)
+        # Shuffle files. Must be consistent across all processes.
+        if example_shuffle_window != 1:
+            builder.shuffle(shuffle_window=0, seed=seed)
 
         seed += 1
 
         builder.yield_from(partial(self._read_jsonl, tokenizer=tokenizer))
 
-        builder.shuffle(shuffle_window_size, seed=seed)
+        # Shuffle examples.
+        if example_shuffle_window != 1:
+            builder.shuffle(example_shuffle_window, seed=seed)
 
         seed += 1
 
@@ -143,7 +153,8 @@ class GenericInstructionDataset(InstructionDataset):
         )
 
         # Shuffle buckets.
-        builder.shuffle(shuffle_window_size, seed=seed)
+        if batch_shuffle_window != 1:
+            builder.shuffle(batch_shuffle_window, seed=seed)
 
         seed += 1
 

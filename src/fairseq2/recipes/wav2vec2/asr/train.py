@@ -75,8 +75,11 @@ class Wav2Vec2AsrTrainConfig:
     normalize_audio: bool = False
     """If ``True``, normalizes audio to have zero mean and unit variance."""
 
-    shuffle_window_size: int = 1000
-    """The size of the sliding data shuffle window."""
+    example_shuffle_window: int = 0
+    """The size of the sliding window for shuffling examples."""
+
+    batch_shuffle_window: int = 1000
+    """The size of the sliding window for shuffling batches."""
 
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
@@ -220,7 +223,8 @@ def load_wav2vec2_asr_trainer(
         max_audio_len=config.max_audio_len,
         max_num_elements=config.max_num_elements,
         normalize_audio=config.normalize_audio,
-        shuffle_window_size=config.shuffle_window_size,
+        example_shuffle_window=config.example_shuffle_window,
+        batch_shuffle_window=config.batch_shuffle_window,
         num_accumulate=config.gradient_accumulation,
         num_prefetch=config.num_prefetch,
         seed=config.seed,
