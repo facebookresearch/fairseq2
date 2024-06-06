@@ -53,10 +53,10 @@ log = get_log_writer(__name__)
 class InstructionFinetuneConfig:
     """Holds the configuration of an instruction-finetuning recipe."""
 
-    dataset_name: str = ""
+    dataset_name: str = "openeft"  # TODO: change!
     """The dataset to train with. Should match the fairseq2 asset name."""
 
-    tokenizer_name: str = "llama3_8b_instruct"
+    tokenizer_name: str = "llama3_instruct"
     """The tokenizer to use."""
 
     max_seq_len: int = 8192
@@ -68,7 +68,7 @@ class InstructionFinetuneConfig:
     example_shuffle_window: int = 10_000
     """The size of the sliding window for shuffling examples."""
 
-    batch_shuffle_window: int = 100
+    batch_shuffle_window: int = 1000
     """The size of the sliding window for shuffling batches."""
 
     num_prefetch: int = 4
@@ -112,10 +112,10 @@ class InstructionFinetuneConfig:
     weight_decay: float = 0.1
     """The weight decay coefficient of AdamW."""
 
-    num_lr_warmup_steps: int = 1  # TODO: 2000
+    num_lr_warmup_steps: int = 0
     """The number of learning rate warm-up steps."""
 
-    gradient_accumulation: int = 2
+    gradient_accumulation: int = 1
     """The number of steps to accumulate gradients before an optimizer update."""
 
     max_gradient_norm: Optional[float] = None
@@ -164,14 +164,36 @@ def _llama3_8b_instruct() -> InstructionFinetuneConfig:
     return InstructionFinetuneConfig()
 
 
+@instruction_finetune_preset("llama3_70b_instruct")
+def _llama3_70b_instruct() -> InstructionFinetuneConfig:
+    config = _llama3_8b_instruct()
+
+    config.model_name = "llama3_70b_instruct"
+    config.tensor_parallel_size = 8
+
+    return config
+
+
 @instruction_finetune_preset("llama2_7b_chat")
 def _llama2_7b_chat() -> InstructionFinetuneConfig:
-    return InstructionFinetuneConfig(
-        model_name="llama2_7b_chat",
-        tokenizer_name="llama2_7b_chat",
-        max_seq_len=4096,
-        max_num_tokens=4096 * 2,
-    )
+    config = _llama3_8b_instruct()
+
+    config.model_name = "llama2_7b_chat"
+    config.tokenizer_name = "llama2"
+    config.max_seq_len = 4096
+    config.max_num_tokens = 4096 * 2
+
+    return config
+
+
+@instruction_finetune_preset("llama2_70b_chat")
+def _llama2_70b_chat() -> InstructionFinetuneConfig:
+    config = _llama2_7b_chat()
+
+    config.model_name = "llama2_70b_chat"
+    config.tensor_parallel_size = 8
+
+    return config
 
 
 def load_instruction_finetuner(
