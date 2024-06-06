@@ -53,7 +53,7 @@ log = get_log_writer(__name__)
 class InstructionFinetuneConfig:
     """Holds the configuration of an instruction-finetuning recipe."""
 
-    dataset_name: str
+    dataset_name: str = ""
     """The dataset to train with. Should match the fairseq2 asset name."""
 
     tokenizer_name: str = "llama3_8b_instruct"
