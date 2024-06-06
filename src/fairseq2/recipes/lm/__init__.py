@@ -22,7 +22,7 @@ def _setup_lm_cli(cli: Cli) -> None:
     handler = RecipeCommandHandler(
         loader=load_instruction_finetuner,
         preset_configs=instruction_finetune_presets,
-        default_preset="llama2_7b_chat",
+        default_preset="llama3_8b_instruct",
     )
 
     group.add_command(
