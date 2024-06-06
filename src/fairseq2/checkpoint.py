@@ -484,7 +484,7 @@ class FileCheckpointManager(CheckpointManager):
 
         self._root_gang.barrier()
 
-        log.info("Model state dictionary extracted. Saving to file on data parallel rank 0.")  # fmt: skip
+        log.info("Model state dictionary extracted. Saving to file on data parallel rank 0 (per shard).")  # fmt: skip
 
         if self._dp_gang.rank == 0:
             tmp_model_file = self._checkpoint_dir.joinpath(

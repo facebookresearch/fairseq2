@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import logging
 from abc import ABC, abstractmethod
 from typing import (
     Any,
@@ -239,10 +240,24 @@ class FSDPOptimizerStateHandler(StateHandler[Optimizer]):
 
     @override
     def get_state(self, stateful: Optimizer) -> Any:
-        return FSDP.optim_state_dict(self._module, stateful)
+        try:
+            # PyTorch 2.2 wrongfully uses warning level to dump a lot of noisy
+            # internal trace information.
+            logging.disable(logging.WARNING)
+
+            return FSDP.optim_state_dict(self._module, stateful)
+        finally:
+            logging.disable(logging.NOTSET)
 
     @override
     def set_state(self, stateful: Optimizer, state: Any) -> None:
-        state_dict = FSDP.optim_state_dict_to_load(self._module, stateful, state)
+        try:
+            # PyTorch 2.2 wrongfully uses warning level to dump a lot of noisy
+            # internal trace information.
+            logging.disable(logging.WARNING)
+
+            state_dict = FSDP.optim_state_dict_to_load(self._module, stateful, state)
+        finally:
+            logging.disable(logging.NOTSET)
 
         stateful.load_state_dict(state_dict)
