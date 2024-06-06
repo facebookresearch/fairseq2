@@ -73,6 +73,14 @@ use_v2_tokenizer: true
 
 ---
 
+name: llama3_instruct
+base: llama3
+model_config:
+  vocab_info:
+    eos_idx: 128009  # end-of-turn
+
+---
+
 name: llama3_8b
 base: llama3
 model_arch: llama3_8b
@@ -80,11 +88,8 @@ model_arch: llama3_8b
 ---
 
 name: llama3_8b_instruct
-base: llama3
+base: llama3_instruct
 model_arch: llama3_8b
-model_config:
-  vocab_info:
-    eos_idx: 128009  # end-of-turn
 
 ---
 
@@ -97,10 +102,7 @@ shard_embed_dim: false
 ---
 
 name: llama3_70b_instruct
-base: llama3
+base: llama3_instruct
 model_arch: llama3_70b
-model_config:
-  vocab_info:
-    eos_idx: 128009  # end-of-turn
 num_shards: 8
 shard_embed_dim: false

@@ -23,6 +23,7 @@ class SweepTagger:
         "checkpoint_every_n_steps",
         "keep_best_n_checkpoints",
         "keep_last_n_checkpoints",
+        "max_num_data_epochs",
         "monitored_gang",
         "num_prefetch",
         "profile",
