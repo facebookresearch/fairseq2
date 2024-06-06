@@ -53,17 +53,16 @@ log = get_log_writer(__name__)
 class InstructionFinetuneConfig:
     """Holds the configuration of an instruction-finetuning recipe."""
 
-    # Data
-    dataset_name: str = "openeft"  # TODO: fix!
-    """The dataset to train with."""
+    dataset_name: str = ""
+    """The dataset to train with. Should match the fairseq2 asset name."""
 
     tokenizer_name: str = "llama3_8b_instruct"
     """The tokenizer to use."""
 
-    max_seq_len: int = 4096
+    max_seq_len: int = 8192
     """The maximum sequence length."""
 
-    max_num_tokens: int = 8192
+    max_num_tokens: int = 8192 * 2
     """The maximum number of tokens per batch."""
 
     shuffle_window_size: int = 10_000
@@ -113,7 +112,7 @@ class InstructionFinetuneConfig:
     num_lr_warmup_steps: int = 1  # TODO: 2000
     """The number of learning rate warm-up steps."""
 
-    gradient_accumulation: int = 1
+    gradient_accumulation: int = 2
     """The number of steps to accumulate gradients before an optimizer update."""
 
     max_gradient_norm: Optional[float] = None
@@ -154,9 +153,19 @@ instruction_finetune_presets = ConfigRegistry[InstructionFinetuneConfig]()
 instruction_finetune_preset = instruction_finetune_presets.decorator
 
 
+@instruction_finetune_preset("llama3_8b_instruct")
+def _llama3_8b_instruct() -> InstructionFinetuneConfig:
+    return InstructionFinetuneConfig()
+
+
 @instruction_finetune_preset("llama2_7b_chat")
 def _llama2_7b_chat() -> InstructionFinetuneConfig:
-    return InstructionFinetuneConfig()
+    return InstructionFinetuneConfig(
+        model_name="llama2_7b_chat",
+        tokenizer_name="llama2_7b_chat",
+        max_seq_len=4096,
+        max_num_tokens=4096 * 2,
+    )
 
 
 def load_instruction_finetuner(
