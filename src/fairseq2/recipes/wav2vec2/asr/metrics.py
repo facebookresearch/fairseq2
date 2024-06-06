@@ -32,6 +32,9 @@ class Wav2Vec2AsrMetricBag(MetricBag):
     _num_examples: Sum
     _num_source_elements: Sum
     _num_target_elements: Sum
+    _total_num_examples: Sum
+    _total_num_source_elements: Sum
+    _total_num_target_elements: Sum
 
     def __init__(self, gang: Gang) -> None:
         """
@@ -48,10 +51,15 @@ class Wav2Vec2AsrMetricBag(MetricBag):
 
         self.register_metric("_elements_per_batch", Mean(device=d), persistent=False)
 
-        self._num_examples = Sum(device=d)
+        self.register_metric("_num_examples", Sum(device=d), persistent=False)
 
-        self._num_source_elements = Sum(device=d)
-        self._num_target_elements = Sum(device=d)
+        self.register_metric("_num_source_elements", Sum(device=d), persistent=False)
+        self.register_metric("_num_target_elements", Sum(device=d), persistent=False)
+
+        self._total_num_examples = Sum(device=d)
+
+        self._total_num_source_elements = Sum(device=d)
+        self._total_num_target_elements = Sum(device=d)
 
     @torch.inference_mode()
     def update(self, batch: Seq2SeqBatch, ctc_loss: Tensor) -> None:
@@ -79,6 +87,11 @@ class Wav2Vec2AsrMetricBag(MetricBag):
 
         self._num_source_elements.update(num_source_elements)
         self._num_target_elements.update(num_target_elements)
+
+        self._total_num_examples.update(batch_size)
+
+        self._total_num_source_elements.update(num_source_elements)
+        self._total_num_target_elements.update(num_target_elements)
 
 
 class Wav2Vec2AsrValidMetricBag(Wav2Vec2AsrMetricBag):

@@ -121,3 +121,9 @@ class Wav2Vec2AsrCriterion(AbstractCriterion[Seq2SeqBatch]):
     @override
     def valid_metric_bag(self) -> Wav2Vec2AsrValidMetricBag:
         return self._valid_metric_bag
+
+    @final
+    @property
+    @override
+    def throughput_metric_name(self) -> str:
+        return "num_source_elements"

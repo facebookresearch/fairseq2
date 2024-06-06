@@ -61,7 +61,7 @@ class SweepTagger:
                 f"`config` must be of the same type as `preset_config` (`{type(preset_config)}`), but is of type `{type(config)}` instead."
             )
 
-        output = [self._remove_non_word(preset)]
+        output = [f"preset_{self._remove_non_word(preset)}"]
 
         try:
             world_size = os.environ["WORLD_SIZE"]

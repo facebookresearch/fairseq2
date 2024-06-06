@@ -112,8 +112,9 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
     _profiler: Profiler
     _rng_bag: RngBag
     _wall_watch: Stopwatch
-    _train_step_time: float
-    _valid_step_time: float
+    _train_elapsed_time: float
+    _valid_elapsed_time: float
+    _run: bool
     _progress: Progress
 
     def __init__(
@@ -331,15 +332,19 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
 
         self._wall_watch = wall_watch
 
-        self._train_step_time = 0.0
-        self._valid_step_time = 0.0
+        self._train_elapsed_time = 0.0
+        self._valid_elapsed_time = 0.0
+
+        self._run = False
 
         self._progress = create_rich_progress()
 
     @override
     def __call__(self) -> None:
-        if self._step_nr != 0:
+        if self._run:
             raise RuntimeError("The trainer can only be run once.")
+
+        self._run = True
 
         try:
             self._maybe_restore_state()
@@ -373,11 +378,11 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
 
         log.info("Checkpoint loaded, restoring training from step {}.", step_nr)
 
+        self._step_nr = step_nr
+
         self.load_state_dict(checkpoint)
 
         self._root_gang.barrier()
-
-        self._step_nr = step_nr
 
         log.info("Training restored, resuming.")
 
@@ -430,7 +435,7 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
 
         stepped = False
 
-        step_watch = Stopwatch(start=True, device=self._root_gang.device)
+        watch = Stopwatch(start=True, device=self._root_gang.device)
 
         with record_function(f"step_{step_nr}_prologue"):
             self._criterion.set_step(step_nr)
@@ -442,8 +447,7 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
 
             num_targets = 0
 
-            if self._tp_gang.rank == 0:
-                self._train_metric_bag.begin_updates()
+            self._train_metric_bag.begin_updates()
 
             # Accumulate.
             for batch_nr, batch in enumerate(batches):
@@ -495,13 +499,11 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
             # Reset.
             self._optimizer.zero_grad(set_to_none=True)
 
-        if self._tp_gang.rank == 0:
-            self._train_metric_bag.commit_updates()
+        self._train_metric_bag.commit_updates()
 
-            self._train_metric_bag.gradient_norm.update(grad_norm)
+        self._train_metric_bag.gradient_norm.update(grad_norm)
 
-            if self._dp_gang.rank == 0:
-                self._train_step_time += step_watch.get_elapsed_time()
+        self._train_elapsed_time += watch.get_elapsed_time()
 
         return True
 
@@ -545,9 +547,6 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
         return torch.autocast(device_type=self._dp_gang.device.type, dtype=self._dtype)
 
     def _should_publish_train_metrics(self) -> bool:
-        if self._tp_gang.rank != 0:
-            return False
-
         if self._step_nr < self._publish_metrics_after_n_steps:
             return False
 
@@ -556,26 +555,31 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
     def _publish_train_metrics(self) -> None:
         log.debug("Syncing train metrics.")
 
-        values = self._train_metric_bag.sync_and_compute_metrics()
+        if self._tp_gang.rank == 0:
+            values = self._train_metric_bag.sync_and_compute_metrics()
+        else:
+            values = None
 
         self._train_metric_bag.reset_non_persistent_metrics()
 
-        if self._dp_gang.rank != 0:
+        elapsed_time = self._train_elapsed_time
+
+        self._train_elapsed_time = 0.0
+
+        if self._tp_gang.rank != 0 or self._dp_gang.rank != 0:
             return
 
         assert values is not None
 
         values["lr"] = get_effective_lr(self._lr_scheduler)
 
-        self._set_elements_per_second(values, self._train_step_time)
+        self._set_throughput(values, elapsed_time)
 
-        values["elapsed_time"] = self._train_step_time
+        values["elapsed_time"] = elapsed_time
 
         values["wall_time"] = self._wall_watch.get_elapsed_time()
 
         record_metrics(self._metric_recorders, "train", values, self._step_nr)
-
-        self._train_step_time = 0.0
 
     def _should_validate(self) -> bool:
         if not self._valid_data_readers:
@@ -596,7 +600,7 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
             for data_reader in self._valid_data_readers.values():
                 self._do_validate(data_reader)
         else:
-            step_time = 0.0
+            elapsed_time = 0.0
 
             cumulative_metrics = deepcopy(self._valid_metric_bag.metrics)
 
@@ -605,19 +609,17 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
 
                 self._do_validate(data_reader)
 
-                step_time += self._valid_step_time
+                elapsed_time += self._valid_elapsed_time
 
                 merge_metric_states(self._valid_metric_bag.metrics, cumulative_metrics)
 
-                if self._tp_gang.rank == 0:
-                    self._publish_validation_metrics(split)
+                self._publish_validation_metrics(split)
 
-            self._valid_step_time = step_time
+            self._valid_elapsed_time = elapsed_time
 
             merge_metric_states(cumulative_metrics, self._valid_metric_bag.metrics)
 
-        if self._tp_gang.rank == 0:
-            self._publish_validation_metrics()
+        self._publish_validation_metrics()
 
         log.info("Validation complete, resuming training.")
 
@@ -631,7 +633,7 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
 
             log.debug("Running validation step {}.", step_nr)
 
-            step_watch = Stopwatch(start=True, device=self._root_gang.device)
+            watch = Stopwatch(start=True, device=self._root_gang.device)
 
             try:
                 batches = next(data_reader)
@@ -641,8 +643,7 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
             for batch in batches:
                 self._compute_loss(batch)
 
-            if self._tp_gang.rank == 0 and self._dp_gang.rank == 0:
-                self._valid_step_time += step_watch.get_elapsed_time()
+            self._valid_elapsed_time += watch.get_elapsed_time()
 
         self._progress.remove_task(valid_task)
 
@@ -651,18 +652,25 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
     def _publish_validation_metrics(self, split: Optional[str] = None) -> None:
         log.debug("Syncing validation metrics.")
 
-        values = self._valid_metric_bag.sync_and_compute_metrics()
+        if self._tp_gang.rank == 0:
+            values = self._valid_metric_bag.sync_and_compute_metrics()
+        else:
+            values = None
 
         self._valid_metric_bag.reset_metrics()
 
-        if self._dp_gang.rank != 0:
+        elapsed_time = self._valid_elapsed_time
+
+        self._valid_elapsed_time = 0.0
+
+        if self._tp_gang.rank != 0 or self._dp_gang.rank != 0:
             return
 
         assert values is not None
 
-        self._set_elements_per_second(values, self._valid_step_time)
+        self._set_throughput(values, elapsed_time)
 
-        values["elapsed_time"] = self._valid_step_time
+        values["elapsed_time"] = elapsed_time
 
         values["wall_time"] = self._wall_watch.get_elapsed_time()
 
@@ -673,9 +681,7 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
 
         record_metrics(self._metric_recorders, run, values, self._step_nr)
 
-        self._valid_step_time = 0.0
-
-    def _set_elements_per_second(
+    def _set_throughput(
         self, metric_values: Dict[str, Any], elapsed_time: float
     ) -> None:
         try:
