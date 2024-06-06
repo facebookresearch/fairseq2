@@ -54,7 +54,8 @@ class AsrDataset(ABC):
         dtype: DataType = torch.float32,
         min_audio_len: int = 1,
         normalize_audio: bool = False,
-        shuffle_window_size: int = 1,
+        example_shuffle_window: int = 1,
+        batch_shuffle_window: int = 1,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
@@ -80,9 +81,14 @@ class AsrDataset(ABC):
             this value will be dropped.
         :param normalize_audio:
             If ``True``, normalizes audio to have zero mean and unit variance.
-        :param shuffle_window_size:
-            The size of the shuffle window. If ``1``, no shuffling is performed;
-            if ``0``, performs true shuffling by loading the entire dataset.
+        :param example_shuffle_window:
+            The size of the sliding window for shuffling examples. If ``1``, no
+            shuffling is performed; if ``0``, true shuffling is performed by
+            loading the entire dataset.
+        :param batch_shuffle_window:
+            The size of the sliding window for shuffling batches. If ``1``, no
+            shuffling is performed; if ``0``, true shuffling is performed by
+            loading the entire dataset.
         :param num_accumulate:
             The number of batches to accumulate in each iteration. Typically
             used with gradient accumulation during training.
@@ -139,7 +145,8 @@ class GenericAsrDataset(AsrDataset):
         dtype: DataType = torch.float32,
         min_audio_len: int = 1,
         normalize_audio: bool = False,
-        shuffle_window_size: int = 1,
+        example_shuffle_window: int = 1,
+        batch_shuffle_window: int = 1,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
@@ -162,11 +169,16 @@ class GenericAsrDataset(AsrDataset):
 
         builder = read_sequence(manifest)
 
-        # Shuffle the entire manifest. Must be consistent across all processes.
-        builder.shuffle(shuffle_window=0, seed=seed)
+        # Shuffle examples. Must be consistent across all processes.
+        if example_shuffle_window != 1:
+            builder.shuffle(example_shuffle_window, seed=seed)
+
+        seed += 1
 
         # Shard.
         builder.shard(gang.rank, gang.size, allow_uneven=True)
+
+        seed += gang.rank
 
         # Bucket by audio length.
         bucket_sizes = create_bucket_sizes(
@@ -185,7 +197,10 @@ class GenericAsrDataset(AsrDataset):
         )
 
         # Shuffle buckets.
-        builder.shuffle(shuffle_window_size, seed=seed + gang.rank)
+        if batch_shuffle_window != 1:
+            builder.shuffle(batch_shuffle_window, seed=seed)
+
+        seed += 1
 
         # Memory map audio files.
         file_mapper = FileMapper(root_data_dir, cached_fd_count=cached_fd_count)

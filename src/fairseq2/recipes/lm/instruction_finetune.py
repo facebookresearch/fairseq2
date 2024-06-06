@@ -65,8 +65,11 @@ class InstructionFinetuneConfig:
     max_num_tokens: int = 8192 * 2
     """The maximum number of tokens per batch."""
 
-    shuffle_window_size: int = 10_000
-    """The size of the sliding data shuffle window."""
+    example_shuffle_window: int = 10_000
+    """The size of the sliding window for shuffling examples."""
+
+    batch_shuffle_window: int = 100
+    """The size of the sliding window for shuffling batches."""
 
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
@@ -198,7 +201,8 @@ def load_instruction_finetuner(
         gang=dp_gang,
         max_seq_len=config.max_seq_len,
         max_num_tokens=config.max_num_tokens,
-        shuffle_window_size=config.shuffle_window_size,
+        example_shuffle_window=config.example_shuffle_window,
+        batch_shuffle_window=config.batch_shuffle_window,
         num_accumulate=config.gradient_accumulation,
         num_prefetch=config.num_prefetch,
         seed=config.seed,
