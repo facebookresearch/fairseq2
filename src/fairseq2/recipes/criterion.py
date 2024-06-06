@@ -63,7 +63,7 @@ class Criterion(ABC, Generic[BatchT_contra]):
     @property
     @abstractmethod
     def score_metric_name(self) -> Optional[str]:
-        """The name of the metric to use for checkpoint score calculation."""
+        """The name of the metric to use for score calculation."""
 
 
 class AbstractCriterion(Criterion[BatchT]):

@@ -53,7 +53,8 @@ class StandardEvaluator(Evaluator, Generic[BatchT]):
     _step_nr: int
     _metric_recorders: List[MetricRecorder]
     _wall_watch: Stopwatch
-    _eval_time: float
+    _elapsed_time: float
+    _run: bool
 
     def __init__(
         self,
@@ -111,12 +112,16 @@ class StandardEvaluator(Evaluator, Generic[BatchT]):
 
         self._wall_watch = wall_watch
 
-        self._eval_time = 0.0
+        self._elapsed_time = 0.0
+
+        self._run = False
 
     @override
     def __call__(self) -> None:
-        if self._step_nr != 0:
+        if self._run:
             raise RuntimeError("The evaluator can only be run once.")
+
+        self._run = True
 
         log.info("Running evaluation on {} device(s).", self._root_gang.size)
 
@@ -154,32 +159,34 @@ class StandardEvaluator(Evaluator, Generic[BatchT]):
                 for batch in batches:
                     self._criterion.compute_loss(batch)
 
-            self._eval_time = watch.get_elapsed_time()
+                self._root_gang.barrier()
 
-        if self._tp_gang.rank == 0:
-            self._publish_evaluation_metrics()
+            self._elapsed_time = watch.get_elapsed_time()
+
+        self._publish_evaluation_metrics()
 
     def _publish_evaluation_metrics(self) -> None:
-        metric_bag = self._criterion.valid_metric_bag
+        log.debug("Syncing evaluation metrics.")
 
-        values = metric_bag.sync_and_compute_metrics()
+        if self._tp_gang.rank != 0:
+            return
+
+        values = self._criterion.valid_metric_bag.sync_and_compute_metrics()
 
         if self._dp_gang.rank != 0:
             return
 
         assert values is not None
 
-        self._set_elements_per_second(values, self._eval_time)
+        self._set_throughput(values)
 
-        values["elapsed_time"] = self._eval_time
+        values["elapsed_time"] = self._elapsed_time
 
         values["wall_time"] = self._wall_watch.get_elapsed_time()
 
         record_metrics(self._metric_recorders, "eval", values, self._step_nr)
 
-    def _set_elements_per_second(
-        self, metric_values: Dict[str, Any], elapsed_time: float
-    ) -> None:
+    def _set_throughput(self, metric_values: Dict[str, Any]) -> None:
         try:
             num_elements = metric_values[self._criterion.throughput_metric_name]
         except KeyError:
@@ -188,7 +195,7 @@ class StandardEvaluator(Evaluator, Generic[BatchT]):
         if not isinstance(num_elements, (int, float, Tensor)):
             return
 
-        if elapsed_time == 0.0:
+        if self._elapsed_time == 0.0:
             metric_values["elements_per_second"] = 0.0
         else:
-            metric_values["elements_per_second"] = num_elements / elapsed_time
+            metric_values["elements_per_second"] = num_elements / self._elapsed_time
