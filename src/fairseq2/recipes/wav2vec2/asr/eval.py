@@ -26,7 +26,7 @@ from fairseq2.nn.fsdp import to_fsdp
 from fairseq2.nn.utils.module import remove_parametrizations
 from fairseq2.recipes.evaluator import StandardEvaluator
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import setup_gangs
+from fairseq2.recipes.utils.setup import setup_root_gang
 from fairseq2.recipes.wav2vec2.asr.criterion import Wav2Vec2AsrCriterion
 from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
@@ -59,9 +59,6 @@ class Wav2Vec2AsrEvalConfig:
 
     normalize_audio: bool = False
     """If ``True``, normalizes audio to have zero mean and unit variance."""
-
-    shuffle_window_size: int = 1000
-    """The size of the sliding data shuffle window."""
 
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
@@ -99,9 +96,7 @@ def load_wav2vec2_asr_evaluator(
     """Load a wav2vec 2.0 ASR evaluator."""
     wall_watch = Stopwatch(start=True)
 
-    gangs = setup_gangs(log)
-
-    dp_gang = gangs["dp"]  # data
+    gang = setup_root_gang(log)
 
     log.info("Loading {} tokenizer.", config.tokenizer_name)
 
@@ -116,7 +111,7 @@ def load_wav2vec2_asr_evaluator(
     data_reader = dataset.create_reader(
         split=config.split,
         tokenizer=tokenizer,
-        gang=dp_gang,
+        gang=gang,
         dtype=config.dtype,
         min_audio_len=config.min_audio_len,
         max_audio_len=config.max_audio_len,
@@ -132,8 +127,8 @@ def load_wav2vec2_asr_evaluator(
 
     log.info("Loading {} model on rank 0.", config.model_name)
 
-    if dp_gang.rank == 0:
-        init_device = dp_gang.device
+    if gang.rank == 0:
+        init_device = gang.device
     else:
         init_device = META
 
@@ -143,7 +138,7 @@ def load_wav2vec2_asr_evaluator(
 
     log.info("Model loaded on rank 0.")
 
-    dp_gang.barrier()
+    gang.barrier()
 
     # No need for weight normalization outside training.
     remove_parametrizations(model)
@@ -151,13 +146,13 @@ def load_wav2vec2_asr_evaluator(
     dp_model: Module
 
     # Set up data parallelism.
-    if dp_gang.size == 1:
+    if gang.size == 1:
         dp_model = model
     else:
         log.info("Wrapping the model with {} and broadcasting to all ranks from rank 0.", config.data_parallelism.upper())  # fmt: skip
 
         if config.data_parallelism == "ddp":
-            dp_model = to_ddp(model, dp_gang)
+            dp_model = to_ddp(model, gang)
         elif config.data_parallelism == "fsdp":
             wrap_policy, ignored_modules = get_fsdp_wrap_policy(
                 model, wrap_granularity=config.fsdp_wrap_granularity
@@ -165,7 +160,7 @@ def load_wav2vec2_asr_evaluator(
 
             dp_model = to_fsdp(
                 model,
-                dp_gang,
+                gang,
                 wrap_policy,
                 ignored_modules=ignored_modules,
                 skip_init=True,
@@ -181,7 +176,7 @@ def load_wav2vec2_asr_evaluator(
     log_model(dp_model, log)
 
     # Initialize the criterion.
-    wer_file = output_dir.joinpath(f"wer/rank_{dp_gang.rank}.txt")
+    wer_file = output_dir.joinpath(f"wer/rank_{gang.rank}.txt")
 
     try:
         wer_file.parent.mkdir(parents=True, exist_ok=True)
@@ -190,12 +185,12 @@ def load_wav2vec2_asr_evaluator(
             f"The WER output directory ({wer_file.parent}) cannot be created. See nested exception for details."
         ) from ex
 
-    criterion = Wav2Vec2AsrCriterion(dp_model, dp_gang, tokenizer, wer_file=wer_file)
+    criterion = Wav2Vec2AsrCriterion(dp_model, gang, tokenizer, wer_file=wer_file)
 
     # Initialize the evaluator.
     return StandardEvaluator[Seq2SeqBatch](
         criterion=criterion,
-        gang=dp_gang,
+        gang=gang,
         data_reader=data_reader,
         wall_watch=wall_watch,
     )

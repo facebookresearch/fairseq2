@@ -21,9 +21,10 @@ from zipfile import BadZipFile, ZipFile
 from tqdm import tqdm  # type: ignore[import]
 
 from fairseq2.assets.error import AssetError
-from fairseq2.assets.utils import _get_path_from_env, _starts_with_scheme
+from fairseq2.assets.utils import _starts_with_scheme
 from fairseq2.logging import get_log_writer
 from fairseq2.typing import override
+from fairseq2.utils.env import get_path_from_env
 
 log = get_log_writer(__name__)
 
@@ -117,9 +118,9 @@ class InProcAssetDownloadManager(AssetDownloadManager):
     _cache_dir: Path
 
     def __init__(self) -> None:
-        cache_dir = _get_path_from_env("FAIRSEQ2_CACHE_DIR", log, missing_ok=True)
+        cache_dir = get_path_from_env("FAIRSEQ2_CACHE_DIR", log, missing_ok=True)
         if cache_dir is None:
-            cache_dir = _get_path_from_env("XDG_CACHE_HOME", log)
+            cache_dir = get_path_from_env("XDG_CACHE_HOME", log)
             if cache_dir is None:
                 cache_dir = Path("~/.cache").expanduser()
 
