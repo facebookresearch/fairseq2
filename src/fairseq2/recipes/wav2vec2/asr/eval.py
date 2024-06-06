@@ -173,7 +173,7 @@ def load_wav2vec2_asr_evaluator(
 
         log.info("Model wrapped and broadcasted to all ranks.")
 
-    log_model(dp_model, log)
+    log_model(dp_model, log, rank=gang.rank)
 
     # Initialize the criterion.
     wer_file = output_dir.joinpath(f"wer/rank_{gang.rank}.txt")

@@ -242,7 +242,7 @@ def log_environment_variables(log: LogWriter) -> None:
     log.info("Environment Variables - {}", s)
 
 
-def log_model(model: Module, log: LogWriter) -> None:
+def log_model(model: Module, log: LogWriter, *, rank: Optional[int] = None) -> None:
     """Log information about ``model``."""
     # compat
     # TODO: move to module scope.
@@ -250,6 +250,11 @@ def log_model(model: Module, log: LogWriter) -> None:
 
     if not log.is_enabled_for(logging.INFO):
         return
+
+    if rank is None:
+        r = ""
+    else:
+        r = f" (rank {rank})"
 
     si = get_module_size(model)
 
@@ -264,4 +269,4 @@ def log_model(model: Module, log: LogWriter) -> None:
         f"Total Size (bytes): {si.total_size_bytes:,}"
     )
 
-    log.info("Model - {} | Layout:\n{}", s, model)
+    log.info("Model{} - {} | Layout:\n{}", r, s, model)

@@ -369,7 +369,7 @@ def load_wav2vec2_asr_trainer(
 
         log.info("Encoder compiled.")
 
-    log_model(dp_model, log)
+    log_model(dp_model, log, rank=gang.rank)
 
     # Initialize the criterion and the optimizer.
     criterion = Wav2Vec2AsrCriterion(
