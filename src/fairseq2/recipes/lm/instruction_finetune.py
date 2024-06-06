@@ -330,7 +330,7 @@ def load_instruction_finetuner(
     # used with padded inputs.
     enable_memory_efficient_torch_sdpa(dp_model, False)
 
-    log_model(dp_model, log)
+    log_model(dp_model, log, rank=root_gang.rank)
 
     # Initialize the criterion and the optimizer.
     criterion = InstructionFinetuneCriterion(dp_model, dp_gang)
