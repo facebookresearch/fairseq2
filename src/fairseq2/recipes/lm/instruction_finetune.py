@@ -126,7 +126,10 @@ class InstructionFinetuneConfig:
 
     # Regime
     max_num_steps: int = 5000
-    """The maximum number of training steps."""
+    """The maximum number of steps to train for."""
+
+    max_num_data_epochs: Optional[int] = None
+    """The maximum number of data epochs to train for."""
 
     checkpoint_every_n_steps: int = 1000
     """The step interval at which to checkpoint."""
@@ -369,6 +372,7 @@ def load_instruction_finetuner(
         max_gradient_norm=config.max_gradient_norm,
         data_readers=data_readers,
         max_num_steps=config.max_num_steps,
+        max_num_data_epochs=config.max_num_data_epochs,
         checkpoint_manager=checkpoint_manager,
         checkpoint_every_n_steps=config.checkpoint_every_n_steps,
         keep_last_n_checkpoints=config.keep_last_n_checkpoints,

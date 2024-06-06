@@ -132,7 +132,10 @@ class Wav2Vec2AsrTrainConfig:
 
     # Regime
     max_num_steps: int = 20_000
-    """The maximum number of training steps."""
+    """The maximum number of steps to train for."""
+
+    max_num_data_epochs: Optional[int] = None
+    """The maximum number of data epochs to train for."""
 
     freeze_encoder_for_n_steps: int = 10_000
     """The encoder will be frozen for this number of steps."""
@@ -407,6 +410,7 @@ def load_wav2vec2_asr_trainer(
         max_gradient_norm=config.max_gradient_norm,
         data_readers=data_readers,
         max_num_steps=config.max_num_steps,
+        max_num_data_epochs=config.max_num_data_epochs,
         validate_after_n_steps=config.validate_after_n_steps,
         validate_every_n_steps=config.validate_every_n_steps,
         checkpoint_manager=checkpoint_manager,
