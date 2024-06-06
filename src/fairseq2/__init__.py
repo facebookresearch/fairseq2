@@ -30,6 +30,9 @@ def setup_extensions() -> None:
     if _setup_complete:
         return
 
+    # Mark as complete early on to avoid recursive calls.
+    _setup_complete = True
+
     for entry_point in entry_points(group="fairseq2"):
         setup_extension = entry_point.load()
 
@@ -39,5 +42,3 @@ def setup_extensions() -> None:
             raise RuntimeError(
                 f"The entry point '{entry_point.value}' is not a valid fairseq2 setup function."
             )
-
-    _setup_complete = True
