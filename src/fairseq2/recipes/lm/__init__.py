@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from fairseq2.recipes.cli import Cli, RecipeCommandHandler
+from fairseq2.recipes.lm.chatbot import ChatbotCommand
 from fairseq2.recipes.lm.instruction_finetune import (
     InstructionFinetuneConfig as InstructionFinetuneConfig,
 )
@@ -19,6 +20,12 @@ from fairseq2.recipes.lm.instruction_finetune import (
 def _setup_lm_cli(cli: Cli) -> None:
     group = cli.add_group("lm", help="Language Model recipes")
 
+    group.add_command(
+        "chatbot",
+        ChatbotCommand(),
+        help="run a terminal-based chatbot demo",
+    )
+
     handler = RecipeCommandHandler(
         loader=load_instruction_finetuner,
         preset_configs=instruction_finetune_presets,
@@ -26,5 +33,7 @@ def _setup_lm_cli(cli: Cli) -> None:
     )
 
     group.add_command(
-        "instruction_finetune", handler, help="instruction-finetune a Language Model"
+        "instruction_finetune",
+        handler,
+        help="instruction-finetune a Language Model",
     )

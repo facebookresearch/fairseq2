@@ -4,7 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from typing import Dict
+from datetime import timedelta
+from typing import Dict, Optional, Tuple
 
 import torch
 
@@ -14,11 +15,18 @@ from fairseq2.logging import LogWriter
 from fairseq2.recipes.utils.log import log_environment_info
 
 
-def setup_root_gang(log: LogWriter, *, monitored: bool = False) -> Gang:
+def setup_root_gang(
+    log: LogWriter,
+    *,
+    timeout: Optional[timedelta] = None,
+    monitored: bool = False,
+) -> Gang:
     """Set up the root gang.
 
     :param log:
         The log to write to.
+    :param timeout:
+        The timeout for collective operations.
     :param monitored:
         If ``True``,  puts a monitored barrier before every collective call.
     """
@@ -31,7 +39,7 @@ def setup_root_gang(log: LogWriter, *, monitored: bool = False) -> Gang:
 
     log.info("Initializing the root gang.")
 
-    gang = setup_default_gang(monitored=monitored)
+    gang = setup_default_gang(timeout=timeout, monitored=monitored)
 
     log.info("Root gang initialized.")
 
@@ -39,18 +47,24 @@ def setup_root_gang(log: LogWriter, *, monitored: bool = False) -> Gang:
 
 
 def setup_gangs(
-    log: LogWriter, *, tp_size: int = 1, monitored: bool = False
-) -> Dict[str, Gang]:
+    log: LogWriter,
+    *,
+    tp_size: int = 1,
+    timeout: Optional[timedelta] = None,
+    monitored: bool = False,
+) -> Tuple[Gang, Dict[str, Gang]]:
     """Set up the root, data, and tensor parallel gangs.
 
     :param log:
         The log to write to.
     :param tp_size:
         The size of tensor parallel gangs.
+    :param timeout:
+        The timeout for collective operations.
     :param monitored:
         If ``True``,  puts a monitored barrier before every collective call.
     """
-    root_gang = setup_root_gang(log, monitored=monitored)
+    root_gang = setup_root_gang(log, timeout=timeout, monitored=monitored)
 
     log.info("Initializing data and tensor parallel gangs.")
 
@@ -63,4 +77,4 @@ def setup_gangs(
 
     log.info("Data and tensor parallel gangs initialized.")
 
-    return gangs
+    return root_gang, gangs

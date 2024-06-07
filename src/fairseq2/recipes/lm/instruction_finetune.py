@@ -201,11 +201,9 @@ def load_instruction_finetuner(
 ) -> StandardTrainer[SequenceBatch]:
     wall_watch = Stopwatch(start=True)
 
-    gangs = setup_gangs(
+    root_gang, gangs = setup_gangs(
         log, tp_size=config.tensor_parallel_size, monitored=config.monitored_gang
     )
-
-    root_gang = gangs["root"]
 
     dp_gang = gangs["dp"]  # data
     tp_gang = gangs["tp"]  # tensor

@@ -6,12 +6,13 @@
 
 import sys
 from argparse import ArgumentParser, Namespace
+from datetime import timedelta
 from typing import List, Optional, final
 
 import torch
 
 from fairseq2.data.text import load_text_tokenizer
-from fairseq2.gang import Gang, setup_default_gang, setup_parallel_gangs
+from fairseq2.gang import Gang
 from fairseq2.generation import (
     Chatbot,
     ChatMessage,
@@ -25,13 +26,15 @@ from fairseq2.recipes.cli import CliCommandHandler
 from fairseq2.recipes.logging import console, setup_basic_logging
 from fairseq2.recipes.utils.argparse import parse_dtype
 from fairseq2.recipes.utils.environment import default_env_setters
-from fairseq2.typing import override
+from fairseq2.recipes.utils.setup import setup_gangs
+from fairseq2.typing import CPU, override
+from fairseq2.utils.rng import RngBag
 
 log = get_log_writer(__name__)
 
 
 @final
-class RunChatbotCommand(CliCommandHandler):
+class ChatbotCommand(CliCommandHandler):
     """Run a chatbot."""
 
     @override
@@ -60,7 +63,13 @@ class RunChatbotCommand(CliCommandHandler):
         )
 
         parser.add_argument(
-            "-p",
+            "--seed",
+            type=int,
+            default=2,
+            help="random number generator seed for sequence generation (default: %(default)s)",
+        )
+
+        parser.add_argument(
             "--top-p",
             type=float,
             default=0.8,
@@ -68,7 +77,6 @@ class RunChatbotCommand(CliCommandHandler):
         )
 
         parser.add_argument(
-            "-t",
             "--temperature",
             type=float,
             default=0.6,
@@ -78,7 +86,7 @@ class RunChatbotCommand(CliCommandHandler):
         parser.add_argument(
             "--max-gen-len",
             type=int,
-            default=1024,
+            default=512,
             help="maximum sequence generation length (default: %(default)s)",
         )
 
@@ -115,25 +123,14 @@ class RunChatbotCommand(CliCommandHandler):
 
             sys.exit(1)
 
-        # In case we run on Ampere or later, use TF32.
-        torch.set_float32_matmul_precision("high")
+        # Since this is an interactive program, do not timeout while waiting for
+        # user's input.
+        root_gang, gangs = setup_gangs(
+            log, tp_size=args.tensor_parallel_size, timeout=timedelta(days=999)
+        )
 
-        log.info("Initializing the root gang.")
-
-        root_gang = setup_default_gang()
-
-        log.info("Root gang initialized.")
-
-        log.info("Initializing the data and tensor parallel gangs.")
-
-        try:
-            gangs = setup_parallel_gangs(root_gang, tp_size=args.tensor_parallel_size)
-        except ValueError:
-            log.exception("The size of the root gang ({}) is not divisible by `tensor_parallel_size` ({}).", root_gang.size, args.tensor_parallel_size)  # fmt: skip
-
-            sys.exit(1)
-
-        log.info("Data and tensor parallel gangs initialized.")
+        if gangs["dp"].size > 1:
+            log.warning("Using redundant data parallelism which may slow down response times. It is recommended to use one device per model shard (i.e. a single device for a non-sharded model).")  # fmt: skip
 
         log.info("Loading {} model.", args.model_name)
 
@@ -152,6 +149,11 @@ class RunChatbotCommand(CliCommandHandler):
 
         log.info("Tokenizer loaded.")
 
+        rng_bag = RngBag.from_device_defaults(CPU, root_gang.device)
+
+        # Set the seed for sequence generation.
+        rng_bag.manual_seed(args.seed)
+
         sampler = TopPSampler(p=args.top_p)
 
         generator = SamplingSequenceGenerator(
@@ -161,7 +163,7 @@ class RunChatbotCommand(CliCommandHandler):
         chatbot = create_chatbot(generator, tokenizer)
 
         try:
-            self._do_run(args.model_name, chatbot, gangs["tp"])
+            self._do_run(args.model_name, chatbot, root_gang)
         except KeyboardInterrupt:
             console.print()
 
