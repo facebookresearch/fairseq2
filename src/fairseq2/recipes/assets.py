@@ -52,8 +52,6 @@ class ListAssetsComand(CliCommandHandler):
 
         self._dump_assets(args, user=True)
 
-        console.print()
-
         console.print("[green bold]global:")
 
         self._dump_assets(args, user=False)
@@ -75,6 +73,7 @@ class ListAssetsComand(CliCommandHandler):
                 console.print()
         else:
             console.print("  n/a")
+            console.print()
 
     def _retrieve_assets(
         self, args: Namespace, user: bool
@@ -84,7 +83,9 @@ class ListAssetsComand(CliCommandHandler):
         names = self._asset_store.retrieve_names(scope="user" if user else "global")
 
         for name in names:
-            card = self._asset_store.retrieve_card(name)
+            card = self._asset_store.retrieve_card(
+                name, scope="all" if user else "global"
+            )
 
             if name[-1] == "@":
                 name = name[:-1]
@@ -109,8 +110,13 @@ class ListAssetsComand(CliCommandHandler):
                     if card.field(field_name).exists():
                         types.append("tokenizer")
 
-            if not types:
+                        break
+
+            if args.type == "all" and not types:
                 types.append("other")
+
+            if not types:
+                continue
 
             source_assets = assets[source]
 
