@@ -30,6 +30,7 @@ from torch import Tensor
 from torch.nn import Module, Parameter
 from torch.nn.utils import remove_weight_norm  # type: ignore[attr-defined]
 
+from fairseq2.gang import Gang
 from fairseq2.logging import LogWriter
 from fairseq2.typing import CPU, META, Device
 
@@ -387,6 +388,59 @@ def infer_device(
     raise ValueError(
         f"All parameters and buffers of `{name}` must be on the same device, but they are on {s}."
     )
+
+
+def broadcast_module(
+    module: Module, gang: Gang, *, source_rank: int = 0, broadcast_buffers: bool = True
+) -> None:
+    """Broadcast ``module`` to all processes in ``gang``.
+
+    :param module:
+        The module to broadcast.
+    :param gang
+        The gang over which to broadcast ``module``.
+    :param source_rank:
+        The rank of the source process from which to broadcast.
+    :param broadcast_buffers:
+        If ``True``, broadcasts not only the parameters, but the buffers as well.
+    """
+    to_device(module, gang.device)
+
+    if gang.size == 1:
+        return
+
+    memo: Set[Tensor] = set()
+
+    tensors = []
+
+    for param in module.parameters():
+        if param in memo:
+            continue
+
+        memo.add(param)
+
+        tensors.append(param.detach())
+
+    if broadcast_buffers:
+        for buffer in module.buffers():
+            if buffer in memo:
+                continue
+
+            memo.add(buffer)
+
+            tensors.append(buffer.detach())
+
+    if not tensors:
+        return
+
+    pg = gang.as_process_group()
+
+    bucket_size = 250 * 1024 * 1024  # Same as DDP bucket size.
+
+    from torch.distributed import _broadcast_coalesced
+
+    # TODO(balioglu): Call c10d in fairseq2n instead.
+    _broadcast_coalesced(pg, tensors, bucket_size, source_rank)
 
 
 def load_state_dict(module: Module, state_dict: Mapping[str, Any]) -> None:

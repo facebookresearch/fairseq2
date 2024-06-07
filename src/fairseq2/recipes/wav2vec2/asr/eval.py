@@ -8,25 +8,21 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Optional
 
 import torch
-from torch.nn import Module
 
 from fairseq2.assets import default_asset_store
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
 from fairseq2.datasets.asr import load_asr_dataset
 from fairseq2.logging import get_log_writer
-from fairseq2.models.fsdp import get_fsdp_wrap_policy
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.wav2vec2.asr import load_wav2vec2_asr_model
-from fairseq2.nn.ddp import to_ddp
-from fairseq2.nn.fsdp import to_fsdp
 from fairseq2.nn.utils.module import remove_parametrizations
 from fairseq2.recipes.evaluator import StandardEvaluator
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import setup_root_gang
+from fairseq2.recipes.utils.setup import broadcast_model, setup_root_gang
 from fairseq2.recipes.wav2vec2.asr.criterion import Wav2Vec2AsrCriterion
 from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
@@ -72,12 +68,6 @@ class Wav2Vec2AsrEvalConfig:
 
     dtype: DataType = torch.float16
     """The data type of the model."""
-
-    data_parallelism: Literal["ddp", "fsdp"] = "ddp"
-    """The data parallelism API to use."""
-
-    fsdp_wrap_granularity: Literal["layer", "stack", "model"] = "stack"
-    """The granularity at which to wrap the ASR model."""
 
 
 wav2vec2_asr_eval_presets = ConfigRegistry[Wav2Vec2AsrEvalConfig]()
@@ -143,37 +133,10 @@ def load_wav2vec2_asr_evaluator(
     # No need for weight normalization outside training.
     remove_parametrizations(model)
 
-    dp_model: Module
+    if gang.size != 1:
+        broadcast_model(model, gang, log)
 
-    # Set up data parallelism.
-    if gang.size == 1:
-        dp_model = model
-    else:
-        log.info("Wrapping the model with {} and broadcasting to all ranks from rank 0.", config.data_parallelism.upper())  # fmt: skip
-
-        if config.data_parallelism == "ddp":
-            dp_model = to_ddp(model, gang)
-        elif config.data_parallelism == "fsdp":
-            wrap_policy, ignored_modules = get_fsdp_wrap_policy(
-                model, wrap_granularity=config.fsdp_wrap_granularity
-            )
-
-            dp_model = to_fsdp(
-                model,
-                gang,
-                wrap_policy,
-                ignored_modules=ignored_modules,
-                skip_init=True,
-                broadcast_state=True,
-            )
-        else:
-            raise ValueError(
-                f"`config.data_parallelism` must be 'ddp' or 'fsdp', but is '{config.data_parallelism}' instead."
-            )
-
-        log.info("Model wrapped and broadcasted to all ranks.")
-
-    log_model(dp_model, log, rank=gang.rank)
+    log_model(model, log)
 
     # Initialize the criterion.
     wer_file = output_dir.joinpath(f"wer/rank_{gang.rank}.txt")
@@ -185,7 +148,7 @@ def load_wav2vec2_asr_evaluator(
             f"The WER output directory ({wer_file.parent}) cannot be created. See nested exception for details."
         ) from ex
 
-    criterion = Wav2Vec2AsrCriterion(dp_model, gang, tokenizer, wer_file=wer_file)
+    criterion = Wav2Vec2AsrCriterion(model, gang, tokenizer, wer_file=wer_file)
 
     # Initialize the evaluator.
     return StandardEvaluator[Seq2SeqBatch](
