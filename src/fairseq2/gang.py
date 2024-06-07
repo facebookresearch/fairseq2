@@ -313,7 +313,8 @@ class ProcessGroupGang(AbstractGang):
             If ``None``; if CUDA is available, the gang will use the default
             CUDA device of the process; otherwise, it will use the CPU.
         :param timeout:
-            The timeout for collective operations.
+            The timeout for collective operations. If ``None``, the default
+            timeout value (15 minutes) will be used.
         :param num_threads:
             The number of threads to use for interaop parallelism.
         :param monitored:
@@ -592,24 +593,24 @@ def get_local_rank() -> int:
 def setup_default_gang(
     *,
     device: Optional[Device] = None,
-    monitored: bool = False,
     timeout: Optional[timedelta] = None,
+    monitored: bool = False,
 ) -> Gang:
     """Set up the default gang of this process.
 
     :param device:
         If ``None``; if CUDA is available, the gang will use the default CUDA
         device of the process; otherwise, it will use the CPU.
-    :param monitored:
-        If ``True``,  puts a monitored barrier before every collective call.
     :param timeout:
         The timeout for collective operations.
+    :param monitored:
+        If ``True``,  puts a monitored barrier before every collective call.
     """
     if get_world_size() == 1:
         return FakeGang(device=device)
 
     return ProcessGroupGang.init_default_process_group(
-        device=device, monitored=monitored, timeout=timeout, ok_initialized=True
+        device=device, timeout=timeout, monitored=monitored, ok_initialized=True
     )
 
 

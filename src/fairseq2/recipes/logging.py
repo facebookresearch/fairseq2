@@ -7,7 +7,7 @@
 import logging
 import os
 import time
-from logging import DEBUG, INFO, FileHandler, Formatter, Handler, getLogger
+from logging import DEBUG, INFO, FileHandler, Formatter, Handler, NullHandler, getLogger
 from pathlib import Path
 from typing import TYPE_CHECKING, List
 
@@ -28,25 +28,12 @@ def setup_basic_logging(*, debug: bool = False, utc_time: bool = False) -> None:
     """
     from fairseq2.gang import get_rank  # Avoid circular import.
 
-    if utc_time:
-        Formatter.converter = time.gmtime
+    rank = get_rank()
 
-    handlers: List[Handler] = []
+    _do_setup_logging(rank, debug, utc_time)
 
-    if get_rank() == 0:
-        handler = RichHandler(console=console, show_path=False, keywords=[])
-
-        fmt = Formatter("%(name)s - %(message)s")
-
-        handler.setFormatter(fmt)
-
-        handlers.append(handler)
-
-    datefmt = "%Y-%m-%d %H:%M:%S"
-
-    logging.basicConfig(
-        level=DEBUG if debug else INFO, handlers=handlers, datefmt=datefmt, force=True
-    )
+    if rank != 0:
+        getLogger().addHandler(NullHandler())
 
 
 def setup_logging(
@@ -84,7 +71,7 @@ def setup_logging(
             f"The log directory ({log_file.parent}) cannot be created. See nested exception for details."
         ) from ex
 
-    setup_basic_logging(debug=debug, utc_time=utc_time)
+    _do_setup_logging(rank, debug, utc_time)
 
     handler = FileHandler(log_file)
 
@@ -96,6 +83,28 @@ def setup_logging(
 
     _setup_aten_logging(log_file, force)
     _setup_nccl_logging(log_file, force)
+
+
+def _do_setup_logging(rank: int, debug: bool = False, utc_time: bool = False) -> None:
+    if utc_time:
+        Formatter.converter = time.gmtime
+
+    handlers: List[Handler] = []
+
+    if rank == 0:
+        handler = RichHandler(console=console, show_path=False, keywords=[])
+
+        fmt = Formatter("%(name)s - %(message)s")
+
+        handler.setFormatter(fmt)
+
+        handlers.append(handler)
+
+    datefmt = "%Y-%m-%d %H:%M:%S"
+
+    logging.basicConfig(
+        level=DEBUG if debug else INFO, handlers=handlers, datefmt=datefmt, force=True
+    )
 
 
 def _setup_aten_logging(log_file: Path, force: bool) -> None:
