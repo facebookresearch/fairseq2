@@ -237,9 +237,17 @@ def log_environment_variables(log: LogWriter) -> None:
     if not log.is_enabled_for(logging.INFO):
         return
 
-    s = ", ".join(f"{k}: {v}" for k, v in os.environ.items())
+    kv = []
 
-    log.info("Environment Variables - {}", s)
+    skip_list = {"PS1", "LS_COLORS", "GREP_COLORS", "GCC_COLORS"}
+
+    for k, v in os.environ.items():
+        if k.startswith("BASH_FUNC") or k in skip_list:
+            continue
+
+        kv.append(f"{k}: {v}")
+
+    log.info("Environment Variables - {}", ", ".join(kv))
 
 
 def log_model(model: Module, log: LogWriter, *, rank: Optional[int] = None) -> None:
