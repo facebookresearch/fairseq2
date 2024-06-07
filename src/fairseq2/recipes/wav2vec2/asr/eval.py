@@ -83,7 +83,7 @@ def _base_10h() -> Wav2Vec2AsrEvalConfig:
 def load_wav2vec2_asr_evaluator(
     config: Wav2Vec2AsrEvalConfig, output_dir: Path
 ) -> StandardEvaluator[Seq2SeqBatch]:
-    """Load a wav2vec 2.0 ASR evaluator."""
+    """Load a :class:`Evaluator` for wav2vec 2.0 ASR evaluation."""
     wall_watch = Stopwatch(start=True)
 
     gang = setup_root_gang(log)

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Protocol, final
+from typing import Any, Dict, List, Literal, Optional, Protocol, Sequence, final
 
 from fairseq2.assets.card import AssetCard, AssetCardError
 from fairseq2.assets.metadata_provider import (
@@ -28,11 +28,27 @@ class AssetStore(ABC):
     """Represents a store of assets."""
 
     @abstractmethod
-    def retrieve_card(self, name: str) -> AssetCard:
+    def retrieve_card(
+        self, name: str, *, envs: Optional[Sequence[str]] = None
+    ) -> AssetCard:
         """Retrieve the card of the specified asset.
 
         :param name:
             The name of the asset.
+        :para env:
+            The environments, in order of precedence, in which to retrieve the
+            card. If ``None``, the available environments will be resolved
+            automatically.
+        """
+
+    @abstractmethod
+    def retrieve_names(
+        self, scope: Literal["all", "global", "user"] = "all"
+    ) -> List[str]:
+        """Retrieve the names of the assets contained in this store.
+
+        :param scope:
+            The scope of retrieval.
         """
 
 
@@ -54,38 +70,52 @@ class StandardAssetStore(AssetStore):
         self.user_metadata_providers = []
 
     @override
-    def retrieve_card(self, name: str) -> AssetCard:
-        if "@" in name:
-            raise ValueError("`name` must not contain the reserved '@' character.")
+    def retrieve_card(
+        self, name: str, *, envs: Optional[Sequence[str]] = None
+    ) -> AssetCard:
+        name_env_pair = name.split("@", maxsplit=1)
 
-        envs = self._resolve_envs()
+        name = name_env_pair[0]
+
+        # See if we have an environment tag.
+        if len(name_env_pair) == 2:
+            if envs is not None:
+                raise ValueError(
+                    "`name` already contains an environment tag, `envs` must be `None`."
+                )
+
+            envs = [name_env_pair[1]]
+
+        if envs is None:
+            envs = self._resolve_envs()
 
         return self._do_retrieve_card(name, envs)
 
     def _resolve_envs(self) -> List[str]:
-        envs = []
+        # This is a special, always available environment for users to override
+        # asset metadata. For instance, a user can set the checkpoint path of a
+        # gated model locally by having a same-named asset with a @user suffix.
+        envs = ["user"]
 
-        for resolver in self.env_resolvers:
+        for resolver in reversed(self.env_resolvers):
             if env := resolver():
                 envs.append(env)
 
-        # This is a special, always available environment for users to override
-        # asset metadata. For instance, a user can set the checkpoint path of a
-        # gated model locally by having a same named asset with @user suffix.
-        envs.append("user")
-
         return envs
 
-    def _do_retrieve_card(self, name: str, envs: List[str]) -> AssetCard:
-        metadata = self._get_metadata(name)
+    def _do_retrieve_card(self, name: str, envs: Sequence[str]) -> AssetCard:
+        metadata = self._get_metadata(f"{name}@")
 
         # If we have environment-specific metadata, merge it with `metadata`.
-        for env in envs:
+        for env in reversed(envs):
             try:
                 env_metadata = self._get_metadata(f"{name}@{env}")
 
                 # Do not allow overriding 'name'.
-                del env_metadata["name"]
+                try:
+                    del env_metadata["name"]
+                except KeyError:
+                    pass
 
                 metadata.update(env_metadata)
             except AssetNotFoundError:
@@ -108,6 +138,8 @@ class StandardAssetStore(AssetStore):
 
             base_card = self._do_retrieve_card(base_name, envs)
 
+        metadata["name"] = name
+
         return AssetCard(metadata, base_card)
 
     def _get_metadata(self, name: str) -> Dict[str, Any]:
@@ -123,7 +155,25 @@ class StandardAssetStore(AssetStore):
             except AssetNotFoundError:
                 continue
 
-        raise AssetNotFoundError(f"An asset with the name '{name}' cannot be found.")
+        raise AssetNotFoundError(
+            name, f"An asset with the name '{name}' cannot be found."
+        )
+
+    @override
+    def retrieve_names(
+        self, scope: Literal["all", "global", "user"] = "all"
+    ) -> List[str]:
+        names = []
+
+        if scope == "all" or scope == "user":
+            for provider in self.user_metadata_providers:
+                names.extend(provider.get_names())
+
+        if scope == "all" or scope == "global":
+            for provider in self.metadata_providers:
+                names.extend(provider.get_names())
+
+        return names
 
     def clear_cache(self) -> None:
         """Clear the cache of the underlying metadata providers."""
@@ -158,7 +208,7 @@ class EnvironmentResolver(Protocol):
     """Resolves the environment within which assets should be loaded.
 
     Assets can have varying metadata depending on the environment that they are
-    loaded in due to regulatory or technical requirements.
+    loaded in due to legal or technical requirements.
     """
 
     def __call__(self) -> Optional[str]:
