@@ -8,10 +8,12 @@ from datetime import timedelta
 from typing import Dict, Optional, Tuple
 
 import torch
+from torch.nn import Module
 
 from fairseq2.device import determine_default_device
 from fairseq2.gang import Gang, setup_default_gang, setup_parallel_gangs
 from fairseq2.logging import LogWriter
+from fairseq2.nn.utils.module import broadcast_module
 from fairseq2.recipes.utils.log import log_environment_info
 
 
@@ -78,3 +80,12 @@ def setup_gangs(
     log.info("Data and tensor parallel gangs initialized.")
 
     return root_gang, gangs
+
+
+def broadcast_model(model: Module, gang: Gang, log: LogWriter) -> None:
+    """Broadcast ``model`` to all processes in ``gang``."""
+    log.info("Broadcasting the model to all processes.")
+
+    broadcast_module(model, gang)
+
+    log.info("Model broadcasted.")
