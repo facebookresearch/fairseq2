@@ -29,7 +29,11 @@ class AssetStore(ABC):
 
     @abstractmethod
     def retrieve_card(
-        self, name: str, *, envs: Optional[Sequence[str]] = None
+        self,
+        name: str,
+        *,
+        envs: Optional[Sequence[str]] = None,
+        scope: Literal["all", "global", "user"] = "all",
     ) -> AssetCard:
         """Retrieve the card of the specified asset.
 
@@ -39,11 +43,13 @@ class AssetStore(ABC):
             The environments, in order of precedence, in which to retrieve the
             card. If ``None``, the available environments will be resolved
             automatically.
+        :param scope:
+            The scope of retrieval.
         """
 
     @abstractmethod
     def retrieve_names(
-        self, scope: Literal["all", "global", "user"] = "all"
+        self, *, scope: Literal["all", "global", "user"] = "all"
     ) -> List[str]:
         """Retrieve the names of the assets contained in this store.
 
@@ -71,7 +77,11 @@ class StandardAssetStore(AssetStore):
 
     @override
     def retrieve_card(
-        self, name: str, *, envs: Optional[Sequence[str]] = None
+        self,
+        name: str,
+        *,
+        envs: Optional[Sequence[str]] = None,
+        scope: Literal["all", "global", "user"] = "all",
     ) -> AssetCard:
         name_env_pair = name.split("@", maxsplit=1)
 
@@ -89,7 +99,7 @@ class StandardAssetStore(AssetStore):
         if envs is None:
             envs = self._resolve_envs()
 
-        return self._do_retrieve_card(name, envs)
+        return self._do_retrieve_card(name, envs, scope)
 
     def _resolve_envs(self) -> List[str]:
         # This is a special, always available environment for users to override
@@ -103,13 +113,15 @@ class StandardAssetStore(AssetStore):
 
         return envs
 
-    def _do_retrieve_card(self, name: str, envs: Sequence[str]) -> AssetCard:
-        metadata = self._get_metadata(f"{name}@")
+    def _do_retrieve_card(
+        self, name: str, envs: Sequence[str], scope: str
+    ) -> AssetCard:
+        metadata = self._get_metadata(f"{name}@", scope)
 
         # If we have environment-specific metadata, merge it with `metadata`.
         for env in reversed(envs):
             try:
-                env_metadata = self._get_metadata(f"{name}@{env}")
+                env_metadata = self._get_metadata(f"{name}@{env}", scope)
 
                 # Do not allow overriding 'name'.
                 try:
@@ -136,24 +148,29 @@ class StandardAssetStore(AssetStore):
                     f"The value of the field 'base' of the asset card '{name}' must be of type `{str}`, but is of type `{type(base_name)}` instead."
                 )
 
-            base_card = self._do_retrieve_card(base_name, envs)
+            base_card = self._do_retrieve_card(base_name, envs, scope)
 
         metadata["name"] = name
 
         return AssetCard(metadata, base_card)
 
-    def _get_metadata(self, name: str) -> Dict[str, Any]:
-        for provider in reversed(self.user_metadata_providers):
-            try:
-                return provider.get_metadata(name)
-            except AssetNotFoundError:
-                continue
+    def _get_metadata(self, name: str, scope: str) -> Dict[str, Any]:
+        if scope == "all" or scope == "user":
+            for provider in reversed(self.user_metadata_providers):
+                try:
+                    return provider.get_metadata(name)
+                except AssetNotFoundError:
+                    continue
 
-        for provider in reversed(self.metadata_providers):
-            try:
-                return provider.get_metadata(name)
-            except AssetNotFoundError:
-                continue
+        if scope == "all" or scope == "global":
+            for provider in reversed(self.metadata_providers):
+                try:
+                    return provider.get_metadata(name)
+                except AssetNotFoundError:
+                    continue
+
+        if name[-1] == "@":
+            name = name[:-1]
 
         raise AssetNotFoundError(
             name, f"An asset with the name '{name}' cannot be found."
@@ -161,7 +178,7 @@ class StandardAssetStore(AssetStore):
 
     @override
     def retrieve_names(
-        self, scope: Literal["all", "global", "user"] = "all"
+        self, *, scope: Literal["all", "global", "user"] = "all"
     ) -> List[str]:
         names = []
 
