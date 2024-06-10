@@ -37,7 +37,7 @@ def get_error_console() -> Console:
     global _error_console
 
     if _error_console is None:
-        _error_console = Console(stderr=True)
+        _error_console = Console(stderr=True, highlight=False)
 
     return _error_console
 

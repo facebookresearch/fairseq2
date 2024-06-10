@@ -14,10 +14,11 @@ from pathlib import Path
 from typing import Callable, Dict, Generic, Optional, Protocol, TypeVar, final
 
 import yaml
+from rich.console import Console
 from yaml import YAMLError
 
 from fairseq2.config_registry import ConfigRegistry
-from fairseq2.console import get_console
+from fairseq2.console import get_console, set_console
 from fairseq2.logging import get_log_writer
 from fairseq2.recipes.logging import setup_basic_logging, setup_logging
 from fairseq2.recipes.utils.argparse import BooleanOptionalAction, ConfigAction
@@ -128,6 +129,8 @@ class Cli:
 
     def __call__(self) -> None:
         """Run the program."""
+        set_console(Console(highlight=False))
+
         with exception_logger(log):
             self._run_command()
 
