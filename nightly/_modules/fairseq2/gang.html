@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.gang &mdash; fairseq2 0.3.0.dev202406032235+g0489572 documentation</title>
+  <title>fairseq2.gang &mdash; fairseq2 0.3.0.dev202406100140+g794b0eb documentation</title>
       <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202406032235+g0489572
+                0.3.0.dev202406100140+g794b0eb
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
@@ -175,8 +175,10 @@
 <span class="kn">from</span> <span class="nn">torch</span> <span class="kn">import</span> <span class="n">Tensor</span>
 <span class="kn">from</span> <span class="nn">torch.distributed</span> <span class="kn">import</span> <span class="n">Backend</span><span class="p">,</span> <span class="n">ProcessGroup</span><span class="p">,</span> <span class="n">ReduceOp</span>
 
+<span class="kn">from</span> <span class="nn">fairseq2.device</span> <span class="kn">import</span> <span class="n">determine_default_cuda_device</span><span class="p">,</span> <span class="n">determine_default_device</span>
 <span class="kn">from</span> <span class="nn">fairseq2.logging</span> <span class="kn">import</span> <span class="n">get_log_writer</span>
 <span class="kn">from</span> <span class="nn">fairseq2.typing</span> <span class="kn">import</span> <span class="n">CPU</span><span class="p">,</span> <span class="n">Device</span><span class="p">,</span> <span class="n">override</span>
+<span class="kn">from</span> <span class="nn">fairseq2.utils.env</span> <span class="kn">import</span> <span class="n">get_int_from_env</span>
 <span class="kn">from</span> <span class="nn">fairseq2.utils.version</span> <span class="kn">import</span> <span class="n">torch_greater_or_equal</span>
 
 <span class="n">log</span> <span class="o">=</span> <span class="n">get_log_writer</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
@@ -200,7 +202,7 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Close and destroy the gang.&quot;&quot;&quot;</span></div>
 
 <div class="viewcode-block" id="Gang.create_gang"><a class="viewcode-back" href="../../reference/generated/abc/fairseq2.gang.Gang.html#fairseq2.gang.Gang.create_gang">[docs]</a>    <span class="nd">@abstractmethod</span>
-    <span class="k">def</span> <span class="nf">create_gang</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ranks</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Gang</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">create_gang</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ranks</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Gang</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a new gang.</span>
 
 <span class="sd">        :param ranks:</span>
@@ -290,6 +292,14 @@
 <span class="sd">        :param device:</span>
 <span class="sd">            The associated device.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">size</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`size` must be greater than zero.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">rank</span> <span class="o">&gt;=</span> <span class="n">size</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;`rank` must be less than `size` (</span><span class="si">{</span><span class="n">size</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">rank</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+            <span class="p">)</span>
+
         <span class="bp">self</span><span class="o">.</span><span class="n">_rank</span> <span class="o">=</span> <span class="n">rank</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_size</span> <span class="o">=</span> <span class="n">size</span>
 
@@ -297,7 +307,7 @@
 
     <span class="nd">@final</span>
     <span class="nd">@override</span>
-    <span class="k">def</span> <span class="nf">create_gang</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ranks</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Gang</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">create_gang</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ranks</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Gang</span><span class="p">]:</span>
         <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">ranks</span><span class="p">))</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">ranks</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The ranks in ``ranks`` must be all unique.&quot;</span><span class="p">)</span>
 
@@ -310,7 +320,7 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_do_create_gang</span><span class="p">(</span><span class="n">ranks</span><span class="p">)</span>
 
     <span class="nd">@abstractmethod</span>
-    <span class="k">def</span> <span class="nf">_do_create_gang</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ranks</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Gang</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">_do_create_gang</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ranks</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Gang</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a new gang.</span>
 
 <span class="sd">        :param ranks:</span>
@@ -340,24 +350,35 @@
 <span class="k">class</span> <span class="nc">FakeGang</span><span class="p">(</span><span class="n">AbstractGang</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Represents a non-distributed gang for local use.&quot;&quot;&quot;</span>
 
-    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        :param rank:</span>
+<span class="sd">            The emulated rank of this process in the gang.</span>
+<span class="sd">        :param size:</span>
+<span class="sd">            The emulated number of processes that are part of the gang.</span>
 <span class="sd">        :param device:</span>
 <span class="sd">            If ``None``; if CUDA is available, the gang will use the default</span>
 <span class="sd">            CUDA device of the process; otherwise, it will use the CPU.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">device</span> <span class="o">=</span> <span class="n">_determine_default_device</span><span class="p">()</span>
+            <span class="n">device</span> <span class="o">=</span> <span class="n">determine_default_device</span><span class="p">()</span>
 
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">rank</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">rank</span><span class="o">=</span><span class="n">rank</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="n">size</span><span class="p">,</span> <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
 
     <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">close</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="k">pass</span>
 
     <span class="nd">@override</span>
-    <span class="k">def</span> <span class="nf">_do_create_gang</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ranks</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">FakeGang</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">self</span>
+    <span class="k">def</span> <span class="nf">_do_create_gang</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ranks</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">FakeGang</span><span class="p">]:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">ranks</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rank</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
+
+        <span class="k">return</span> <span class="n">FakeGang</span><span class="p">(</span><span class="n">rank</span><span class="o">=</span><span class="n">idx</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">ranks</span><span class="p">),</span> <span class="n">device</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_device</span><span class="p">)</span>
 
     <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">as_process_group</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ProcessGroup</span><span class="p">:</span>
@@ -369,22 +390,47 @@
 
     <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">all_reduce</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tensor</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">op</span><span class="p">:</span> <span class="n">ReduceOperation</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">pass</span>
+        <span class="k">if</span> <span class="n">op</span> <span class="o">==</span> <span class="n">ReduceOperation</span><span class="o">.</span><span class="n">SUM</span><span class="p">:</span>
+            <span class="n">tensor</span> <span class="o">*=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_size</span>
+        <span class="k">elif</span> <span class="n">op</span> <span class="o">==</span> <span class="n">ReduceOperation</span><span class="o">.</span><span class="n">PRODUCT</span><span class="p">:</span>
+            <span class="n">tensor</span><span class="o">.</span><span class="n">pow_</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_size</span><span class="p">)</span>
 
     <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">all_gather</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">output_tensor</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">,</span> <span class="n">input_tensor</span><span class="p">:</span> <span class="n">Tensor</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">output_tensor</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">input_tensor</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">output_tensor</span><span class="o">.</span><span class="n">is_contiguous</span><span class="p">():</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`output_tensor` must be contiguous.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">output_tensor</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">!=</span> <span class="n">input_tensor</span><span class="o">.</span><span class="n">dim</span><span class="p">()</span> <span class="o">+</span> <span class="mi">1</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;`output_tensor` must have a shape that is compatible with all-gather.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">output_tensor</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_size</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;The size of the first dimension of `output_tensor` must match the size of the gang (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_size</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">output_tensor</span><span class="o">.</span><span class="n">size</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_size</span><span class="p">):</span>
+            <span class="n">output_tensor</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">input_tensor</span><span class="p">)</span>
 
     <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">all_gather_to_list</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">output_tensors</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Tensor</span><span class="p">],</span> <span class="n">input_tensor</span><span class="p">:</span> <span class="n">Tensor</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">output_tensors</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">input_tensor</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">clone</span><span class="p">()</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">output_tensors</span><span class="p">)</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_size</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;The length of `output_tensors` must match the size of the gang (</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_size</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">output_tensors</span><span class="p">)</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+            <span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_size</span><span class="p">):</span>
+            <span class="n">output_tensors</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">copy_</span><span class="p">(</span><span class="n">input_tensor</span><span class="p">)</span>
 
     <span class="nd">@override</span>
     <span class="k">def</span> <span class="nf">broadcast_objects</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">objects</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="n">source_rank</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">source_rank</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;`source_rank` must be 0, but is </span><span class="si">{</span><span class="n">source_rank</span><span class="si">}</span><span class="s2"> instead.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">source_rank</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rank</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;`source_rank` must be </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_rank</span><span class="si">}</span><span class="s2">, but is </span><span class="si">{</span><span class="n">source_rank</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
+            <span class="p">)</span>
 
 
 <span class="nd">@final</span>
@@ -424,7 +470,8 @@
 <span class="sd">            If ``None``; if CUDA is available, the gang will use the default</span>
 <span class="sd">            CUDA device of the process; otherwise, it will use the CPU.</span>
 <span class="sd">        :param timeout:</span>
-<span class="sd">            The timeout for collective operations.</span>
+<span class="sd">            The timeout for collective operations. If ``None``, the default</span>
+<span class="sd">            timeout value (15 minutes) will be used.</span>
 <span class="sd">        :param num_threads:</span>
 <span class="sd">            The number of threads to use for interaop parallelism.</span>
 <span class="sd">        :param monitored:</span>
@@ -463,7 +510,7 @@
             <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Setting the number of threads used for intraop parallelism to </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">num_threads</span><span class="p">)</span>  <span class="c1"># fmt: skip</span>
 
         <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">device</span> <span class="o">=</span> <span class="n">_determine_default_device</span><span class="p">()</span>
+            <span class="n">device</span> <span class="o">=</span> <span class="n">determine_default_device</span><span class="p">()</span>
 
             <span class="k">assert</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cpu&quot;</span> <span class="ow">or</span> <span class="n">device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span>
 
@@ -544,7 +591,13 @@
         <span class="k">if</span> <span class="n">backend</span> <span class="o">==</span> <span class="n">Backend</span><span class="o">.</span><span class="n">GLOO</span><span class="p">:</span>
             <span class="n">device</span> <span class="o">=</span> <span class="n">CPU</span>
         <span class="k">elif</span> <span class="n">backend</span> <span class="o">==</span> <span class="n">Backend</span><span class="o">.</span><span class="n">NCCL</span><span class="p">:</span>
-            <span class="n">device</span> <span class="o">=</span> <span class="n">_determine_default_cuda_device</span><span class="p">()</span>
+            <span class="n">cuda_device</span> <span class="o">=</span> <span class="n">determine_default_cuda_device</span><span class="p">()</span>
+            <span class="k">if</span> <span class="n">cuda_device</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+                    <span class="s2">&quot;The default process group uses the `nccl` backend, but the `cuda` device cannot be determined. Please file a bug report.&quot;</span>
+                <span class="p">)</span>
+
+            <span class="n">device</span> <span class="o">=</span> <span class="n">cuda_device</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
                 <span class="sa">f</span><span class="s2">&quot;Only `nccl` and `gloo` backends are supported, but the process group uses the `</span><span class="si">{</span><span class="n">backend</span><span class="si">}</span><span class="s2">` backend.&quot;</span>
@@ -564,7 +617,7 @@
         <span class="n">dist</span><span class="o">.</span><span class="n">destroy_process_group</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_pg</span><span class="p">)</span>
 
     <span class="nd">@override</span>
-    <span class="k">def</span> <span class="nf">_do_create_gang</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ranks</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">ProcessGroupGang</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">_do_create_gang</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ranks</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">int</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ProcessGroupGang</span><span class="p">]:</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_pg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">dist</span><span class="o">.</span><span class="n">group</span><span class="o">.</span><span class="n">WORLD</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
                 <span class="s2">&quot;`create_gang()` can only be called on the gang associated with the default (i.e. main) process group.&quot;</span>
@@ -573,6 +626,9 @@
         <span class="n">backend</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">get_backend</span><span class="p">()</span>
 
         <span class="n">pg</span> <span class="o">=</span> <span class="n">dist</span><span class="o">.</span><span class="n">new_group</span><span class="p">(</span><span class="n">ranks</span><span class="p">,</span> <span class="n">backend</span><span class="o">=</span><span class="n">backend</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rank</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ranks</span><span class="p">:</span>
+            <span class="k">return</span> <span class="kc">None</span>
 
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_monitor_pg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">if</span> <span class="n">backend</span> <span class="o">==</span> <span class="n">Backend</span><span class="o">.</span><span class="n">GLOO</span><span class="p">:</span>
@@ -663,166 +719,55 @@
     <span class="k">return</span> <span class="nb">min</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">num_cpus</span> <span class="o">//</span> <span class="n">num_procs</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">affinity_mask</span><span class="p">))</span>
 
 
-<span class="n">_default_device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-
-
-<span class="k">def</span> <span class="nf">_determine_default_device</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Device</span><span class="p">:</span>
-    <span class="k">global</span> <span class="n">_default_device</span>
-
-    <span class="k">if</span> <span class="n">_default_device</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">return</span> <span class="n">_default_device</span>
-
-    <span class="n">device_str</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;FAIRSEQ2_DEVICE&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">device_str</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="n">_default_device</span> <span class="o">=</span> <span class="n">Device</span><span class="p">(</span><span class="n">device_str</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">RuntimeError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The value of the `FAIRSEQ2_DEVICE` environment variable must specify a valid PyTorch device, but is &#39;</span><span class="si">{</span><span class="n">device_str</span><span class="si">}</span><span class="s2">&#39; instead.&quot;</span>
-            <span class="p">)</span> <span class="kn">from</span> <span class="nn">ex</span>
-
-    <span class="k">if</span> <span class="n">_default_device</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="ow">and</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">device_count</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="n">_default_device</span> <span class="o">=</span> <span class="n">_determine_default_cuda_device</span><span class="p">()</span>
-
-    <span class="k">if</span> <span class="n">_default_device</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">_default_device</span> <span class="o">=</span> <span class="n">CPU</span>
-
-    <span class="k">if</span> <span class="n">_default_device</span><span class="o">.</span><span class="n">type</span> <span class="o">==</span> <span class="s2">&quot;cuda&quot;</span><span class="p">:</span>
-        <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">set_device</span><span class="p">(</span><span class="n">_default_device</span><span class="p">)</span>
-
-    <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Setting &#39;</span><span class="si">{}</span><span class="s2">&#39; as the default device of the process.&quot;</span><span class="p">,</span> <span class="n">_default_device</span><span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">_default_device</span>
-
-
-<span class="k">def</span> <span class="nf">_determine_default_cuda_device</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Device</span><span class="p">:</span>
-    <span class="n">visible_devices</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;CUDA_VISIBLE_DEVICES&quot;</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">visible_devices</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="nb">int</span><span class="p">(</span><span class="n">visible_devices</span><span class="p">)</span>
-        <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-            <span class="c1"># If we are here, it means CUDA_VISIBLE_DEVICES is a list instead of</span>
-            <span class="c1"># a single device index.</span>
-            <span class="n">device</span> <span class="o">=</span> <span class="kc">None</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">device</span> <span class="o">=</span> <span class="n">Device</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">device</span> <span class="o">=</span> <span class="kc">None</span>
-
-    <span class="k">if</span> <span class="n">device</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">num_devices</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">device_count</span><span class="p">()</span>
-
-        <span class="n">idx</span> <span class="o">=</span> <span class="n">_get_device_index</span><span class="p">(</span><span class="n">num_devices</span><span class="p">,</span> <span class="n">device_type</span><span class="o">=</span><span class="s2">&quot;cuda&quot;</span><span class="p">)</span>
-
-        <span class="n">device</span> <span class="o">=</span> <span class="n">Device</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">idx</span><span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">device</span>
-
-
-<span class="k">def</span> <span class="nf">_get_device_index</span><span class="p">(</span><span class="n">num_devices</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">device_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-    <span class="k">assert</span> <span class="n">num_devices</span> <span class="o">&gt;</span> <span class="mi">0</span>
-
-    <span class="c1"># We use the `LOCAL_RANK` environment variable to determine which device to</span>
-    <span class="c1"># pick in case the process has more than one available.</span>
-    <span class="n">device_idx</span> <span class="o">=</span> <span class="n">_get_int_from_env</span><span class="p">(</span><span class="s2">&quot;LOCAL_RANK&quot;</span><span class="p">,</span> <span class="n">allow_zero</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">device_idx</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="n">num_procs</span> <span class="o">=</span> <span class="n">get_local_world_size</span><span class="p">()</span>
-        <span class="k">if</span> <span class="n">num_procs</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="n">num_devices</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The default `</span><span class="si">{</span><span class="n">device_type</span><span class="si">}</span><span class="s2">` device cannot be determined. There are </span><span class="si">{</span><span class="n">num_devices</span><span class="si">}</span><span class="s2"> devices available, but the `LOCAL_RANK` environment variable is not set.&quot;</span>
-            <span class="p">)</span>
-
-        <span class="k">return</span> <span class="mi">0</span>
-
-    <span class="k">if</span> <span class="n">device_idx</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;The value of the `LOCAL_RANK` environment variable must be greater than or equal to 0, but is </span><span class="si">{</span><span class="n">device_idx</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
-        <span class="p">)</span>
-
-    <span class="k">if</span> <span class="n">device_idx</span> <span class="o">&gt;=</span> <span class="n">num_devices</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;The value of the `LOCAL_RANK` environment variable must be less than the number of available `</span><span class="si">{</span><span class="n">device_type</span><span class="si">}</span><span class="s2">` devices (</span><span class="si">{</span><span class="n">num_devices</span><span class="si">}</span><span class="s2">), but is </span><span class="si">{</span><span class="n">device_idx</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
-        <span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">device_idx</span>
-
-
 <span class="k">def</span> <span class="nf">get_world_size</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the world size of the running job.&quot;&quot;&quot;</span>
-    <span class="n">value</span> <span class="o">=</span> <span class="n">_get_int_from_env</span><span class="p">(</span><span class="s2">&quot;WORLD_SIZE&quot;</span><span class="p">)</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="n">get_int_from_env</span><span class="p">(</span><span class="s2">&quot;WORLD_SIZE&quot;</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">value</span>
 
 
 <span class="k">def</span> <span class="nf">get_rank</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the rank of this process in the running job.&quot;&quot;&quot;</span>
-    <span class="n">value</span> <span class="o">=</span> <span class="n">_get_int_from_env</span><span class="p">(</span><span class="s2">&quot;RANK&quot;</span><span class="p">,</span> <span class="n">allow_zero</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="n">get_int_from_env</span><span class="p">(</span><span class="s2">&quot;RANK&quot;</span><span class="p">,</span> <span class="n">allow_zero</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">value</span>
 
 
 <span class="k">def</span> <span class="nf">get_local_world_size</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the local world size of the running job.&quot;&quot;&quot;</span>
-    <span class="n">value</span> <span class="o">=</span> <span class="n">_get_int_from_env</span><span class="p">(</span><span class="s2">&quot;LOCAL_WORLD_SIZE&quot;</span><span class="p">)</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="n">get_int_from_env</span><span class="p">(</span><span class="s2">&quot;LOCAL_WORLD_SIZE&quot;</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">value</span>
 
 
 <span class="k">def</span> <span class="nf">get_local_rank</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the local rank of this process in the running job.&quot;&quot;&quot;</span>
-    <span class="n">value</span> <span class="o">=</span> <span class="n">_get_int_from_env</span><span class="p">(</span><span class="s2">&quot;LOCAL_RANK&quot;</span><span class="p">,</span> <span class="n">allow_zero</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="n">get_int_from_env</span><span class="p">(</span><span class="s2">&quot;LOCAL_RANK&quot;</span><span class="p">,</span> <span class="n">allow_zero</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">value</span>
-
-
-<span class="k">def</span> <span class="nf">_get_int_from_env</span><span class="p">(</span><span class="n">var_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">allow_zero</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]:</span>
-    <span class="n">s</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">var_name</span><span class="p">)</span>
-    <span class="k">if</span> <span class="n">s</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="k">return</span> <span class="kc">None</span>
-
-    <span class="k">try</span><span class="p">:</span>
-        <span class="n">value</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
-    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-            <span class="sa">f</span><span class="s2">&quot;The value of the `</span><span class="si">{</span><span class="n">var_name</span><span class="si">}</span><span class="s2">` environment variable must be an integer, but is &#39;</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39; instead.&quot;</span>
-        <span class="p">)</span>
-
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">allow_zero</span><span class="p">:</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span> <span class="o">&gt;=</span> <span class="mi">1</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The value of the `</span><span class="si">{</span><span class="n">var_name</span><span class="si">}</span><span class="s2">` environment variable must be greater than 0, but is </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
-            <span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">value</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">:</span>
-            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The value of the `</span><span class="si">{</span><span class="n">var_name</span><span class="si">}</span><span class="s2">` environment variable must be greater than or equal to 0, but is </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
-            <span class="p">)</span>
-
-    <span class="k">return</span> <span class="n">value</span>
 
 
 <span class="k">def</span> <span class="nf">setup_default_gang</span><span class="p">(</span>
     <span class="o">*</span><span class="p">,</span>
     <span class="n">device</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Device</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-    <span class="n">monitored</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="n">timeout</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">timedelta</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">monitored</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Gang</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Set up the default gang of this process.</span>
 
 <span class="sd">    :param device:</span>
 <span class="sd">        If ``None``; if CUDA is available, the gang will use the default CUDA</span>
 <span class="sd">        device of the process; otherwise, it will use the CPU.</span>
-<span class="sd">    :param monitored:</span>
-<span class="sd">        If ``True``,  puts a monitored barrier before every collective call.</span>
 <span class="sd">    :param timeout:</span>
 <span class="sd">        The timeout for collective operations.</span>
+<span class="sd">    :param monitored:</span>
+<span class="sd">        If ``True``,  puts a monitored barrier before every collective call.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">get_world_size</span><span class="p">()</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">FakeGang</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">ProcessGroupGang</span><span class="o">.</span><span class="n">init_default_process_group</span><span class="p">(</span>
-        <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">monitored</span><span class="o">=</span><span class="n">monitored</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span> <span class="n">ok_initialized</span><span class="o">=</span><span class="kc">True</span>
+        <span class="n">device</span><span class="o">=</span><span class="n">device</span><span class="p">,</span> <span class="n">timeout</span><span class="o">=</span><span class="n">timeout</span><span class="p">,</span> <span class="n">monitored</span><span class="o">=</span><span class="n">monitored</span><span class="p">,</span> <span class="n">ok_initialized</span><span class="o">=</span><span class="kc">True</span>
     <span class="p">)</span>
 
 
@@ -845,7 +790,7 @@
 <span class="sd">    :param root_gang:</span>
 <span class="sd">        The gang whose topology will be used to create the new gangs.</span>
 <span class="sd">    :param tp_size:</span>
-<span class="sd">        The size of gangs to be used for tensor parallelism.</span>
+<span class="sd">        The size of tensor parallel gangs.</span>
 
 <span class="sd">    :returns:</span>
 <span class="sd">        A ``dict`` of two gangs; (1) the data parallel gang that this process</span>
@@ -864,9 +809,6 @@
 
     <span class="k">if</span> <span class="n">log</span><span class="o">.</span><span class="n">is_enabled_for</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">):</span>
         <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">size</span> <span class="ow">in</span> <span class="p">[(</span><span class="s2">&quot;data&quot;</span><span class="p">,</span> <span class="n">dp_size</span><span class="p">),</span> <span class="p">(</span><span class="s2">&quot;tensor&quot;</span><span class="p">,</span> <span class="n">tp_size</span><span class="p">)]:</span>
-            <span class="k">if</span> <span class="n">size</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-                <span class="k">continue</span>
-
             <span class="n">log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Initializing </span><span class="si">{}</span><span class="s2"> parallelism with a gang of size </span><span class="si">{}</span><span class="s2">.&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">size</span><span class="p">)</span>
 
     <span class="n">mesh</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">root_gang</span><span class="o">.</span><span class="n">size</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">dp_size</span><span class="p">,</span> <span class="n">tp_size</span><span class="p">)</span>
@@ -879,7 +821,7 @@
 
     <span class="c1"># Build the gangs for data parallelism.</span>
     <span class="k">if</span> <span class="n">dp_size</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="n">dp_gang</span> <span class="o">=</span> <span class="n">FakeGang</span><span class="p">(</span><span class="n">root_gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">dp_gang</span> <span class="o">=</span> <span class="n">FakeGang</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">root_gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
     <span class="k">elif</span> <span class="n">dp_size</span> <span class="o">==</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
         <span class="n">dp_gang</span> <span class="o">=</span> <span class="n">root_gang</span>
     <span class="k">else</span><span class="p">:</span>
@@ -890,7 +832,7 @@
 
     <span class="c1"># Build the gangs for tensor parallelism.</span>
     <span class="k">if</span> <span class="n">tp_size</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="n">tp_gang</span> <span class="o">=</span> <span class="n">FakeGang</span><span class="p">(</span><span class="n">root_gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">tp_gang</span> <span class="o">=</span> <span class="n">FakeGang</span><span class="p">(</span><span class="n">device</span><span class="o">=</span><span class="n">root_gang</span><span class="o">.</span><span class="n">device</span><span class="p">)</span>
     <span class="k">elif</span> <span class="n">tp_size</span> <span class="o">==</span> <span class="n">root_gang</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
         <span class="n">tp_gang</span> <span class="o">=</span> <span class="n">root_gang</span>
     <span class="k">else</span><span class="p">:</span>
