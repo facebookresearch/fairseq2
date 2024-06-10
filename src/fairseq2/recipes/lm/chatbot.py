@@ -201,7 +201,7 @@ class ChatbotCommand(CliCommandHandler):
 
                     response, _ = chatbot(dialog, stdout=True)
 
-                    console.print()
+                    console.print("\n")
 
                     dialog.append(response)
 
@@ -210,6 +210,8 @@ class ChatbotCommand(CliCommandHandler):
                 console.print(f"\n[blue bold]{chatbot_name}>[/blue bold] Bye!")
             except KeyboardInterrupt:
                 console.print()
+
+                raise
         else:
             while True:
                 message_buffer: List[Optional[ChatMessage]] = [None]
