@@ -13,11 +13,12 @@ from pathlib import Path
 from typing import final
 from warnings import catch_warnings
 
+from fairseq2.console import get_error_console
 from fairseq2.logging import get_log_writer
 from fairseq2.models.llama import load_llama_config
 from fairseq2.models.llama.integ import convert_to_reference_checkpoint
 from fairseq2.recipes.cli import CliCommandHandler
-from fairseq2.recipes.logging import console, setup_basic_logging
+from fairseq2.recipes.logging import setup_basic_logging
 from fairseq2.typing import override
 from fairseq2.utils.file import dump_tensors, load_tensors
 
@@ -97,7 +98,7 @@ class ConvertCheckpointCommand(CliCommandHandler):
         args.output_dir.mkdir(parents=True)
 
         # Begin conversion.
-        with console.status("[bold green]Converting...") as status:
+        with get_error_console().status("[bold green]Converting...") as status:
             for input_file, output_file in zip(input_files, output_files):
                 status.update(f"[bold green]Loading {input_file.name}...")
 

@@ -11,6 +11,7 @@ from typing import List, Optional, final
 
 import torch
 
+from fairseq2.console import get_console
 from fairseq2.data.text import load_text_tokenizer
 from fairseq2.gang import Gang
 from fairseq2.generation import (
@@ -23,7 +24,7 @@ from fairseq2.logging import get_log_writer
 from fairseq2.models import create_chatbot, load_model
 from fairseq2.models.decoder import DecoderModel
 from fairseq2.recipes.cli import CliCommandHandler
-from fairseq2.recipes.logging import console, setup_basic_logging
+from fairseq2.recipes.logging import setup_basic_logging
 from fairseq2.recipes.utils.argparse import parse_dtype
 from fairseq2.recipes.utils.environment import default_env_setters
 from fairseq2.recipes.utils.setup import setup_gangs
@@ -162,51 +163,53 @@ class ChatbotCommand(CliCommandHandler):
 
         chatbot = create_chatbot(generator, tokenizer)
 
-        try:
-            self._do_run(args.model_name, chatbot, root_gang)
-        except KeyboardInterrupt:
-            console.print()
-
-            raise
+        self._do_run(args.model_name, chatbot, root_gang)
 
     def _do_run(self, chatbot_name: str, chatbot: Chatbot, gang: Gang) -> None:
         dialog = []
 
         if gang.rank == 0:
-            console.print()
+            console = get_console()
 
-            if chatbot.supports_system_prompt:
-                system_prompt = console.input("System Prompt (press enter to skip): ")
+            try:
+                console.print()
 
-                if system_prompt:
-                    message = ChatMessage(role="system", content=system_prompt)
+                if chatbot.supports_system_prompt:
+                    system_prompt = console.input(
+                        "System Prompt (press enter to skip): "
+                    )
+
+                    if system_prompt:
+                        message = ChatMessage(role="system", content=system_prompt)
+
+                        dialog.append(message)
+
+                        gang.broadcast_objects([message])
+
+                    console.print()
+
+                console.print("You can end the chat by typing 'bye'.\n")
+
+                while (prompt := console.input("[green bold]You> ")) != "bye":
+                    message = ChatMessage(role="user", content=prompt)
 
                     dialog.append(message)
 
                     gang.broadcast_objects([message])
 
+                    console.print(f"\n[blue bold]{chatbot_name}> ", end="")
+
+                    response, _ = chatbot(dialog, stdout=True)
+
+                    console.print()
+
+                    dialog.append(response)
+
+                gang.broadcast_objects([ChatMessage(role="user", content="bye")])
+
+                console.print(f"\n[blue bold]{chatbot_name}>[/blue bold] Bye!")
+            except KeyboardInterrupt:
                 console.print()
-
-            console.print("You can end the chat by typing 'bye'.\n")
-
-            while (prompt := console.input("[green bold]You> ")) != "bye":
-                message = ChatMessage(role="user", content=prompt)
-
-                dialog.append(message)
-
-                gang.broadcast_objects([message])
-
-                console.print(f"\n[blue bold]{chatbot_name}> ", end="")
-
-                response, _ = chatbot(dialog, stdout=True)
-
-                console.print("\n")
-
-                dialog.append(response)
-
-            gang.broadcast_objects([ChatMessage(role="user", content="bye")])
-
-            console.print(f"\n[blue bold]{chatbot_name}>[/blue bold] Bye!")
         else:
             while True:
                 message_buffer: List[Optional[ChatMessage]] = [None]

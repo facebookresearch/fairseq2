@@ -6,8 +6,10 @@
 
 from typing import Optional, final
 
+from rich.console import Console
 from torch import Tensor
 
+from fairseq2.console import get_console
 from fairseq2.data.text import TextTokenDecoder
 
 
@@ -18,11 +20,14 @@ class _StdOutPrintHook:
     _text_decoder: TextTokenDecoder
     _prev_text_len: int
     _first_print: bool
+    _console: Console
 
     def __init__(self, text_decoder: TextTokenDecoder) -> None:
         self._text_decoder = text_decoder
         self._prev_text_len = 0
         self._first_print = True
+
+        self._console = get_console()
 
     def __call__(
         self,
@@ -67,4 +72,4 @@ class _StdOutPrintHook:
 
             self._first_print = False
 
-        print(text, end="", flush=True)
+        self._console.print(text, highlight=False, end="")
