@@ -12,10 +12,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, List
 
 from fairseq2n import DOC_MODE
-from rich.console import Console
 from rich.logging import RichHandler
 
-console = Console(stderr=True)
+from fairseq2.console import get_error_console
 
 
 def setup_basic_logging(*, debug: bool = False, utc_time: bool = False) -> None:
@@ -92,6 +91,8 @@ def _do_setup_logging(rank: int, debug: bool = False, utc_time: bool = False) ->
     handlers: List[Handler] = []
 
     if rank == 0:
+        console = get_error_console()
+
         handler = RichHandler(console=console, show_path=False, keywords=[])
 
         fmt = Formatter("%(name)s - %(message)s")

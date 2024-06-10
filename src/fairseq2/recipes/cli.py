@@ -17,6 +17,7 @@ import yaml
 from yaml import YAMLError
 
 from fairseq2.config_registry import ConfigRegistry
+from fairseq2.console import get_console
 from fairseq2.logging import get_log_writer
 from fairseq2.recipes.logging import setup_basic_logging, setup_logging
 from fairseq2.recipes.utils.argparse import BooleanOptionalAction, ConfigAction
@@ -511,6 +512,8 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
 
     @override
     def __call__(self, args: Namespace) -> None:
+        console = get_console()
+
         setup_basic_logging(debug=args.debug)
 
         assert self._parser is not None
@@ -518,15 +521,15 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         # If requested, list the preset configurations and exit.
         if args.list_presets:
             if self._preset_configs:
-                print("available presets:")
+                console.print("available presets:")
 
                 for preset in self._preset_configs.names():
                     if preset == self._default_preset:
-                        print(f"  - {preset} (default)")
+                        console.print(f"  - {preset} (default)")
                     else:
-                        print(f"  - {preset}")
+                        console.print(f"  - {preset}")
             else:
-                print("no preset configuration found.")
+                console.print("no preset configuration found.")
 
             sys.exit()
 

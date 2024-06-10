@@ -8,9 +8,12 @@ from argparse import ArgumentParser, Namespace
 from collections import defaultdict
 from typing import Dict, List, Optional, Tuple, final
 
+from rich.console import Console
+
 from fairseq2.assets import AssetStore, default_asset_store
+from fairseq2.console import get_console
 from fairseq2.recipes.cli import Cli, CliCommandHandler
-from fairseq2.recipes.logging import console
+from fairseq2.recipes.logging import setup_basic_logging
 from fairseq2.typing import override
 
 
@@ -19,13 +22,15 @@ def _setup_asset_cli(cli: Cli) -> None:
         "assets", help="list and show assets (e.g. models, tokenizers, datasets)"
     )
 
-    handler = ListAssetsComand()
-
-    group.add_command("list", handler, help="list assets")
+    group.add_command(
+        "list",
+        ListAssetsCommand(),
+        help="list assets",
+    )
 
 
 @final
-class ListAssetsComand(CliCommandHandler):
+class ListAssetsCommand(CliCommandHandler):
     """Lists assets available in the current Python environment."""
 
     _asset_store: AssetStore
@@ -48,32 +53,20 @@ class ListAssetsComand(CliCommandHandler):
 
     @override
     def __call__(self, args: Namespace) -> None:
+        setup_basic_logging()
+
+        usr_assets = self._retrieve_assets(args, user=True)
+        glb_assets = self._retrieve_assets(args, user=False)
+
+        console = get_console()
+
         console.print("[green bold]user:")
 
-        self._dump_assets(args, user=True)
+        self._dump_assets(console, usr_assets)
 
         console.print("[green bold]global:")
 
-        self._dump_assets(args, user=False)
-
-    def _dump_assets(self, args: Namespace, user: bool) -> None:
-        assets = self._retrieve_assets(args, user=user)
-
-        if assets:
-            assets.sort(key=lambda a: a[0])  # sort by source.
-
-            for source, names in assets:
-                names.sort(key=lambda n: n[0])  # sort by name.
-
-                console.print(f"  [blue bold]{source}")
-
-                for idx, name in enumerate(names):
-                    console.print(f"   - {name}", highlight=False)
-
-                console.print()
-        else:
-            console.print("  n/a")
-            console.print()
+        self._dump_assets(console, glb_assets)
 
     def _retrieve_assets(
         self, args: Namespace, user: bool
@@ -124,3 +117,22 @@ class ListAssetsComand(CliCommandHandler):
                 source_assets.append(f"{t}:{name}")
 
         return [(source, names) for source, names in assets.items()]
+
+    def _dump_assets(
+        self, console: Console, assets: List[Tuple[str, List[str]]]
+    ) -> None:
+        if assets:
+            assets.sort(key=lambda a: a[0])  # sort by source.
+
+            for source, names in assets:
+                names.sort(key=lambda n: n[0])  # sort by name.
+
+                console.print(f"  [blue bold]{source}")
+
+                for idx, name in enumerate(names):
+                    console.print(f"   - {name}", highlight=False)
+
+                console.print()
+        else:
+            console.print("  n/a")
+            console.print()

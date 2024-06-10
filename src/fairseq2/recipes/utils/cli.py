@@ -15,13 +15,15 @@ from rich.progress import (
 )
 from rich.text import Text
 
+from fairseq2.console import get_error_console
 from fairseq2.gang import get_rank
-from fairseq2.recipes.logging import console
 from fairseq2.typing import override
 
 
 def create_rich_progress() -> Progress:
     """Create a :class:`Progress` instance to report job progress."""
+    console = get_error_console()
+
     columns = [
         TextColumn("{task.description}:"),
         BarColumn(),
