@@ -455,10 +455,10 @@ class NllbDatasetLoader(AbstractDatasetLoader[NllbDataset]):
 
         splits_field = card.field("splits")
 
-        for split in splits_field.as_dict(dict).keys():
+        for split in splits_field.as_(Dict[str, str]).keys():
             lang_pairs = {}
 
-            for key, size in splits_field.field(split).as_dict(int).items():
+            for key, size in splits_field.field(split).as_(Dict[str, int]).items():
                 try:
                     source_lang, target_lang = key.split("-")
                 except ValueError as ex:

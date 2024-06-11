@@ -5,7 +5,6 @@
 # LICENSE file in the root directory of this source tree.
 
 import logging
-from copy import deepcopy
 from pathlib import Path
 from pickle import PickleError
 from typing import Any, Dict, Generic, Optional, Protocol, TypeVar, Union, final
@@ -116,7 +115,11 @@ class ConfigLoader(Generic[ConfigT]):
         else:
             card = self._asset_store.retrieve_card(model_name_or_card)
 
-        card.field("model_type").check_equals(self._archs.model_type)
+        family = card.field("model_type").as_(str)
+        if family != self._archs.model_type:
+            raise AssetCardError(
+                f"The value of the field 'model_type' of the asset card '{card.name}' must be '{self._archs.model_type}', but is '{family}' instead."
+            )
 
         # Ensure that the card has a valid model architecture.
         arch_name = card.field("model_arch").as_one_of(self._archs.names())
@@ -124,18 +127,10 @@ class ConfigLoader(Generic[ConfigT]):
         # Load the model configuration.
         config = self._archs.get_config(arch_name)
 
-        # If the card holds a configuration object, it takes precedence.
-        try:
-            config = card.field("model_config").as_(type(config))
-
-            return deepcopy(config)
-        except AssetCardError:
-            pass
-
         # Otherwise, check if we should override anything in the default model
         # configuration.
         try:
-            config_overrides = card.field("model_config").as_(dict)
+            config_overrides = card.field("model_config").as_(Dict[str, Any])
         except AssetCardFieldNotFoundError:
             config_overrides = None
 
@@ -144,12 +139,12 @@ class ConfigLoader(Generic[ConfigT]):
                 unknown_fields = update_dataclass(config, config_overrides)
             except FieldError as ex:
                 raise AssetCardError(
-                    f"The value of the field `model_config` of the asset card '{card.name}' must be a valid model configuration, but the value of the configuration field '{ex.field_name}' is invalid. See nested exception for details."
+                    f"The value of the field 'model_config' of the asset card '{card.name}' must be a valid model configuration, but the value of the configuration field '{ex.field_name}' is invalid. See nested exception for details."
                 ) from ex
 
             if unknown_fields:
                 raise AssetCardError(
-                    f"The value of the field `model_config` of the asset card '{card.name}' must be a valid model configuration, but the following configuration fields are unknown: {', '.join(unknown_fields)}"
+                    f"The value of the field 'model_config' of the asset card '{card.name}' must be a valid model configuration, but the following configuration fields are unknown: {', '.join(unknown_fields)}"
                 )
 
         return config

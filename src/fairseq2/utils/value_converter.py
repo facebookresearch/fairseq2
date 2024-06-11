@@ -14,6 +14,7 @@ from typing import (
     Dict,
     Literal,
     Sequence,
+    Set,
     Type,
     Union,
     cast,
@@ -49,6 +50,7 @@ class ValueConverter:
             NoneType:  self._structure_identity,
             Path:      self._structure_path,
             PosixPath: self._structure_path,
+            set:       self._structure_set,
             str:       self._structure_identity,
             tuple:     self._structure_tuple,
             Union:     self._structure_union,
@@ -68,6 +70,7 @@ class ValueConverter:
             NoneType:  self._unstructure_identity,
             Path:      self._unstructure_path,
             PosixPath: self._unstructure_path,
+            set:       self._unstructure_set,
             str:       self._unstructure_identity,
             tuple:     self._unstructure_sequence,
             # fmt: on
@@ -78,12 +81,15 @@ class ValueConverter:
         :param obj:
             The object to structure based on ``type_hint``.
         :param type_hint:
-            The type hints. Typically retrieved via ``typing.get_type_hints()``.
+            The type hint. Typically retrieved via ``typing.get_type_hints()``.
         """
         kls, kls_args = get_origin(type_hint), get_args(type_hint)
 
         if kls is None:
             kls = type_hint
+
+        if kls is Any:
+            return obj
 
         if isinstance(kls, type):
             lookup_kls = Enum if issubclass(kls, Enum) else kls
@@ -93,17 +99,17 @@ class ValueConverter:
         try:
             fn = self._structure_fns[lookup_kls]
         except KeyError:
-            supported_types = ", ".join(str(t) for t in self._structure_fns.keys())
+            supported = ", ".join(str(t) for t in self._structure_fns.keys())
 
-            raise TypeError(
-                f"`obj` must be of one of the following types, but is of type `{type(obj)}` instead: {supported_types}"
+            raise ValueError(
+                f"`type_hint` of `obj` must be of one of the following, but is `{type_hint}` instead: {supported}"
             )
 
         try:
             return fn(kls, kls_args, obj)
         except (TypeError, ValueError) as ex:
             raise TypeError(
-                f"`obj` cannot be structured to type `{type_hint}`."
+                f"`obj` cannot be structured to type `{type_hint}`. See nested exception for details."
             ) from ex
 
     def _structure_identity(cls, kls: Any, kls_args: Any, obj: Any) -> Any:
@@ -158,6 +164,9 @@ class ValueConverter:
 
     def _structure_dict(self, kls: Any, kls_args: Any, obj: Any) -> Any:
         if isinstance(obj, dict):
+            if len(kls_args) != 2:
+                raise TypeError("`type_hint` has no type annotation for `dict`.")
+
             output = {}
 
             for k, v in obj.items():
@@ -193,12 +202,10 @@ class ValueConverter:
 
     def _structure_list(self, kls: Any, kls_args: Any, obj: Any) -> Any:
         if isinstance(obj, Sequence):
-            output = []
+            if len(kls_args) != 1:
+                raise TypeError("`type_hint` has no type annotation for `list`.")
 
-            for e in obj:
-                output.append(self.structure(e, kls_args[0]))
-
-            return output
+            return [self.structure(e, kls_args[0]) for e in obj]
 
         raise TypeError(
             f"`obj` must be of type `{Sequence}`, but is of type `{type(obj)}` instead."
@@ -230,17 +237,43 @@ class ValueConverter:
             f"`obj` must be of type `{Path}` or `{str}`, but is of type `{type(obj)}` instead."
         )
 
+    def _structure_set(self, kls: Any, kls_args: Any, obj: Any) -> Any:
+        if isinstance(obj, Set):
+            if len(kls_args) != 1:
+                raise TypeError("`type_hint` has no type annotation for `set`.")
+
+            return {self.structure(e, kls_args[0]) for e in obj}
+
+        if isinstance(obj, Sequence):
+            if len(kls_args) != 1:
+                raise TypeError("`type_hint` has no type annotation for `set`.")
+
+            tmp = [self.structure(e, kls_args[0]) for e in obj]
+
+            output = set(tmp)
+
+            if len(output) != len(tmp):
+                raise ValueError(
+                    f"All elements of `obj` must be unique to be treated as a `{set}`."
+                )
+
+            return output
+
+        raise TypeError(
+            f"`obj` must be of type `{set}` or `{Sequence}`, but is of type `{type(obj)}` instead."
+        )
+
     def _structure_tuple(self, kls: Any, kls_args: Any, obj: Any) -> Any:
         if isinstance(obj, Sequence):
             num_args = len(kls_args)
 
+            if num_args == 0:
+                raise TypeError("`type_hint` has no type annotation for `tuple`.")
+
             if num_args == 2 and kls_args[1] is Ellipsis:  # homogeneous
-                output = []
+                tmp = [self.structure(e, kls_args[0]) for e in obj]
 
-                for e in obj:
-                    output.append(self.structure(e, kls_args[0]))
-
-                return tuple(output)
+                return tuple(tmp)
 
             if len(obj) != num_args:  # heterogeneous
                 raise TypeError(
@@ -302,6 +335,9 @@ class ValueConverter:
 
     def _unstructure_enum(self, kls: Any, obj: Any) -> Any:
         return obj.name
+
+    def _unstructure_set(self, kls: Any, obj: Any) -> Any:
+        return [self.unstructure(e) for e in obj]
 
     def _unstructure_sequence(self, kls: Any, obj: Any) -> Any:
         return [self.unstructure(e) for e in obj]
