@@ -54,10 +54,10 @@ def update_dataclass(
             # Recursively traverse child dataclasses.
             if override is not None and is_dataclass_instance(value):
                 if not isinstance(override, Mapping):
-                    p = ".".join(field_path + [field.name])
+                    pathname = ".".join(field_path + [field.name])
 
                     raise FieldError(
-                        p, f"The field '{p}' is expected to be of type `{type(value)}`, but is of type `{type(override)}` instead."  # fmt: skip
+                        pathname, f"The field '{pathname}' is expected to be of type `{type(value)}`, but is of type `{type(override)}` instead."  # fmt: skip
                     )
 
                 field_path.append(field.name)
@@ -70,11 +70,11 @@ def update_dataclass(
 
                 try:
                     override = value_converter.structure(override, type_hint)
-                except TypeError as ex:
-                    p = ".".join(field_path + [field.name])
+                except (TypeError, ValueError) as ex:
+                    pathname = ".".join(field_path + [field.name])
 
                     raise FieldError(
-                        p, f"The value of the field '{p}' cannot be parsed. See nested exception for details"  # fmt: skip
+                        pathname, f"The value of the field '{pathname}' cannot be parsed. See nested exception for details"  # fmt: skip
                     ) from ex
 
                 setattr(obj_, field.name, override)

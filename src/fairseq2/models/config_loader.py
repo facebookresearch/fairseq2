@@ -4,8 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from copy import deepcopy
-from typing import Optional, Protocol, Type, TypeVar, Union, final
+from typing import Any, Dict, Optional, Protocol, Type, TypeVar, Union, final
 
 from fairseq2.assets import (
     AssetCard,
@@ -79,15 +78,11 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
         else:
             card = self._asset_store.retrieve_card(model_name_or_card)
 
-        card.field("model_family").check_equals(self._family)
-
-        # If the card holds a configuration object, it takes precedence.
-        try:
-            config = card.field("model_config").as_(self._config_kls)
-
-            return deepcopy(config)
-        except AssetCardError:
-            pass
+        family = card.field("model_family").as_(str)
+        if family != self._family:
+            raise AssetCardError(
+                f"The value of the field 'model_family' of the asset card '{card.name}' must be '{self._family}', but is '{family}' instead."
+            )
 
         arch = None
 
@@ -117,19 +112,19 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
                 ) from ex
 
         # Check whether to override anything in the default model configuration.
-        if config_overrides := card.field("model_config").get_as_(dict):
+        if config_overrides := card.field("model_config").get_as_(Dict[str, Any]):
             try:
                 unknown_fields = update_dataclass(
                     config, config_overrides, value_converter=self._value_converter
                 )
             except FieldError as ex:
                 raise AssetCardError(
-                    f"The value of the field `model_config` of the asset card '{card.name}' must be a valid model configuration, but the value of the configuration field '{ex.field_name}' is invalid. See nested exception for details."
+                    f"The value of the field 'model_config' of the asset card '{card.name}' must be a valid model configuration, but the value of the configuration field '{ex.field_name}' is invalid. See nested exception for details."
                 ) from ex
 
             if unknown_fields:
                 raise AssetCardError(
-                    f"The value of the field `model_config` of the asset card '{card.name}' must be a valid model configuration, but the following configuration fields are unknown: {', '.join(unknown_fields)}"
+                    f"The value of the field 'model_config' of the asset card '{card.name}' must be a valid model configuration, but the following configuration fields are unknown: {', '.join(unknown_fields)}"
                 )
 
         return config

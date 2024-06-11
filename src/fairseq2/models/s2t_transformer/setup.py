@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from pathlib import Path
-from typing import Any, Dict, Final, final
+from typing import Any, Dict, Final, List, final
 
 from fairseq2.assets import AssetCard
 from fairseq2.data.text import AbstractTextTokenizerLoader
@@ -109,7 +109,7 @@ class S2TTransformerTokenizerLoader(
     def _load(self, path: Path, card: AssetCard) -> S2TTransformerTokenizer:
         task = card.field("task").as_one_of(self._VALID_TASKS)
 
-        target_langs = card.field("target_langs").as_list(str)
+        target_langs = card.field("target_langs").as_(List[str])
 
         return S2TTransformerTokenizer(
             path, task, set(target_langs), default_target_lang=target_langs[0]

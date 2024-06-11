@@ -4,8 +4,8 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from os import PathLike
 from pathlib import Path
+from typing import Dict, List, Optional, Set
 
 import pytest
 
@@ -39,8 +39,9 @@ class TestAssetCard:
             "field4": "",
             "field5": [],
             "field6": "invalid/filename",
-            "field7": [1, 2, 3, 2],
+            "field7": [1, 3, 2],
             "field9": "http://foo.com",
+            "field10": None,
         }
 
         self.card = AssetCard(metadata, base_card)
@@ -62,43 +63,29 @@ class TestAssetCard:
 
         assert int_value == 3
 
-    def test_is_none_works(self) -> None:
-        self.card.field("field7").set(None)
+        none_value = self.card.field("field10").as_(Optional[str])
 
-        assert self.card.field("field7").is_none()
-
-        self.card.field("field2").field("sub_field1").set(None)
-
-        assert self.card.field("field2").field("sub_field1").is_none()
-
-    def test_is_none_raises_error_when_field_does_not_exist(self) -> None:
-        self.card.field("field2").set(None)
-
-        with pytest.raises(
-            AssetCardFieldNotFoundError,
-            match=r"^The asset card 'test-card' must have a field named 'field2.sub_field2'\.$",
-        ):
-            self.card.field("field2").field("sub_field2").is_none()
+        assert none_value is None
 
     def test_as_raises_error_when_field_type_is_incorrect(self) -> None:
         with pytest.raises(
             AssetCardError,
-            match=rf"^The value of the field 'field1' of the asset card 'test-card' must be of type `{int}`, but is of type `{str}` instead\.$",
+            match=rf"^The value of the field 'field1' of the asset card 'test-card' cannot be retrieved as `{int}`. See nested exception for details\.$",
         ):
             self.card.field("field1").as_(int)
 
         with pytest.raises(
             AssetCardError,
-            match=rf"^The value of the field 'field2\.sub-field1' of the asset card 'test-card' must be of type `{int}`, but is of type `{str}` instead\.$",
+            match=rf"^The value of the field 'field2\.sub-field1' of the asset card 'test-card' cannot be retrieved as `{int}`. See nested exception for details\.$",
         ):
             self.card.field("field2").field("sub-field1").as_(int)
 
     def test_as_raises_error_when_field_does_not_exist(self) -> None:
         with pytest.raises(
             AssetCardFieldNotFoundError,
-            match=r"^The asset card 'test-card' must have a field named 'field10'\.$",
+            match=r"^The asset card 'test-card' must have a field named 'field11'\.$",
         ):
-            self.card.field("field10").as_(str)
+            self.card.field("field11").as_(str)
 
         with pytest.raises(
             AssetCardError,
@@ -117,52 +104,52 @@ class TestAssetCard:
             AssetCardError,
             match=r"^The value of the field 'field5' of the asset card 'test-card' must not be empty\.$",
         ):
-            self.card.field("field5").as_list(str)
+            self.card.field("field5").as_(List[str])
 
     def test_as_works_when_allow_empty_is_true(self) -> None:
         value1 = self.card.field("field4").as_(str, allow_empty=True)
 
         assert value1 == ""
 
-        value2 = self.card.field("field5").as_list(str, allow_empty=True)
+        value2 = self.card.field("field5").as_(List[str], allow_empty=True)
 
         assert value2 == []
 
     def test_as_list_works(self) -> None:
-        value = self.card.field("field7").as_list(int)
+        value = self.card.field("field7").as_(List[int])
 
-        assert value == [1, 2, 3, 2]
+        assert value == [1, 3, 2]
 
     def test_as_list_raises_error_when_field_is_not_a_valid_list(self) -> None:
         with pytest.raises(
             AssetCardError,
-            match=rf"The elements of the field 'field7' of the asset card 'test-card' must be of type `{str}`, but the element at index 0 is of type `{int}` instead\.$",
+            match=r"The value of the field 'field7' of the asset card 'test-card' cannot be retrieved as `typing\.List\[str\]`. See nested exception for details\.$",
         ):
-            self.card.field("field7").as_list(str)
+            self.card.field("field7").as_(List[str])
 
     def test_as_dict_works(self) -> None:
-        value = self.card.field("field2").as_dict(str)
+        value = self.card.field("field2").as_(Dict[str, str])
 
         assert value == {"sub-field2": "sub-foo2"}
 
     def test_as_dict_raises_error_when_field_is_not_a_valid_dict(self) -> None:
         with pytest.raises(
             AssetCardError,
-            match=rf"The items of the field 'field2' of the asset card 'test-card' must be of type `{int}`, but the item 'sub-field2' is of type `{str}` instead\.$",
+            match=r"The value of the field 'field2' of the asset card 'test-card' cannot be retrieved as `typing\.Dict\[str, int\]`. See nested exception for details\.$",
         ):
-            self.card.field("field2").as_dict(int)
+            self.card.field("field2").as_(Dict[str, int])
 
     def test_as_set_works(self) -> None:
-        value = self.card.field("field7").as_set(int)
+        value = self.card.field("field7").as_(Set[int])
 
         assert value == {1, 2, 3}
 
     def test_as_set_raises_error_when_field_is_not_a_valid_set(self) -> None:
         with pytest.raises(
             AssetCardError,
-            match=rf"The elements of the field 'field7' of the asset card 'test-card' must be of type `{str}`, but the element at index 0 is of type `{int}` instead\.$",
+            match=r"The value of the field 'field7' of the asset card 'test-card' cannot be retrieved as `typing\.Set\[str\]`. See nested exception for details\.$",
         ):
-            self.card.field("field7").as_set(str)
+            self.card.field("field7").as_(Set[str])
 
     def test_as_one_of_works(self) -> None:
         value = self.card.field("field1").as_one_of({"foo2", "foo1"})
@@ -196,7 +183,7 @@ class TestAssetCard:
     def test_as_uri_raises_error_when_field_type_is_incorrect(self) -> None:
         with pytest.raises(
             AssetCardError,
-            match=rf"The value of the field 'field3' of the asset card 'test-card' must be of type `{str}` or `{PathLike}`, but is of type `{int}` instead\.$",
+            match=rf"The value of the field 'field3' of the asset card 'test-card' cannot be retrieved as `{str}`. See nested exception for details\.$",
         ):
             self.card.field("field3").as_uri()
 
@@ -238,13 +225,3 @@ class TestAssetCard:
             match=r"^The asset card 'test-card' cannot have a field named 'field1.field2' due to path conflict at 'field1'\.$",
         ):
             self.card.field("field1").field("field2").set("foo")
-
-    def test_check_equals_works(self) -> None:
-        self.card.field("field1").check_equals("foo1")
-
-    def test_check_equals_raises_error_when_field_is_not_equal(self) -> None:
-        with pytest.raises(
-            AssetCardError,
-            match=r"The value of the field 'field1' of the asset card 'test-card' must be 'foo2', but is 'foo1' instead\.$",
-        ):
-            self.card.field("field1").check_equals("foo2")

@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from pathlib import Path
-from typing import Any, Dict, final
+from typing import Any, Dict, List, final
 
 import torch
 
@@ -105,7 +105,7 @@ class NllbTokenizerLoader(AbstractTextTokenizerLoader[NllbTokenizer]):
 
     @override
     def _load(self, path: Path, card: AssetCard) -> NllbTokenizer:
-        langs = card.field("langs").as_list(str)
+        langs = card.field("langs").as_(List[str])
 
         default_lang = card.field("default_lang").as_(str)
 
