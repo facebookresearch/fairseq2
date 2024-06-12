@@ -8,6 +8,7 @@ import os
 import re
 from dataclasses import fields
 from enum import Enum
+from hashlib import sha1
 from typing import Any, Final, Mapping, Optional, Sequence, Set
 
 from fairseq2.typing import DataClass, DataType, is_dataclass_instance
@@ -112,12 +113,21 @@ class SweepTagger:
 
         s = ".".join(output)
 
-        return s[:256]  # Cap to maximum 256 characters.
+        return s[:128]  # Cap to maximum 128 characters.
 
     @classmethod
     def _to_tag_value(cls, value: Any) -> Optional[str]:
+        s: Optional[str]
+
         if isinstance(value, str):
-            return cls._remove_non_word(value)
+            s = cls._remove_non_word(value)
+
+            if len(s) < 16:
+                return s
+
+            s = sha1(s.encode("utf-8")).hexdigest()
+
+            return s[:8]
 
         if isinstance(value, bool):
             return "t" if value else "f"
