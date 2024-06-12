@@ -173,7 +173,7 @@ class StandardAssetStore(AssetStore):
             name = name[:-1]
 
         raise AssetNotFoundError(
-            name, f"An asset with the name '{name}' cannot be found."
+            name, f"An asset with the name '{name}' cannot be found. Run `fairseq2 assets list` command to see the list of available assets."  # fmt: skip
         )
 
     @override
