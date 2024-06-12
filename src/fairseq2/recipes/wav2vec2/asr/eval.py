@@ -13,6 +13,7 @@ from typing import Optional
 import torch
 
 from fairseq2.assets import default_asset_store
+from fairseq2.checkpoint import CheckpointModelMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
 from fairseq2.datasets.asr import load_asr_dataset
@@ -113,7 +114,9 @@ def load_wav2vec2_asr_evaluator(
     log.info("Dataset loaded.")
 
     if config.checkpoint_dir is not None:
-        default_asset_store.add_file_metadata_provider(config.checkpoint_dir)
+        default_asset_store.metadata_providers.append(
+            CheckpointModelMetadataProvider(config.checkpoint_dir)
+        )
 
     log.info("Loading {} model on rank 0.", config.model_name)
 

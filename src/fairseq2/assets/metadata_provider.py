@@ -40,22 +40,15 @@ class AssetMetadataProvider(ABC):
         """Clear any cached asset metadata."""
 
 
-@final
-class FileAssetMetadataProvider(AssetMetadataProvider):
-    """Provides asset metadata stored on a file system."""
+class AbstractAssetMetadataProvider(AssetMetadataProvider):
+    """Provides a skeletal implementation of :class:`AssetMetadataProvider`."""
 
-    _base_dir: Path
     _cache: Optional[Dict[str, Dict[str, Any]]]
 
-    def __init__(self, base_dir: Path) -> None:
-        """
-        :param base_dir:
-            The base directory under which the asset metadata is stored.
-        """
-        self._base_dir = base_dir
-
+    def __init__(self) -> None:
         self._cache = None
 
+    @final
     @override
     def get_metadata(self, name: str) -> Dict[str, Any]:
         cache = self._ensure_cache_loaded()
@@ -67,22 +60,56 @@ class FileAssetMetadataProvider(AssetMetadataProvider):
                 name, f"An asset with the name '{name}' cannot be found."
             )
 
+    @final
     @override
     def get_names(self) -> List[str]:
         cache = self._ensure_cache_loaded()
 
         return list(cache.keys())
 
+    @final
+    @override
+    def clear_cache(self) -> None:
+        self._cache = None
+
     def _ensure_cache_loaded(self) -> Dict[str, Dict[str, Any]]:
         if self._cache is not None:
             return self._cache
 
-        self._cache = {}
+        self._cache = self._load_cache()
 
+        return self._cache
+
+    @abstractmethod
+    def _load_cache(self) -> Dict[str, Dict[str, Any]]:
+        ...
+
+
+@final
+class FileAssetMetadataProvider(AbstractAssetMetadataProvider):
+    """Provides asset metadata stored on a file system."""
+
+    _base_dir: Path
+
+    def __init__(self, base_dir: Path) -> None:
+        """
+        :param base_dir:
+            The base directory under which the asset metadata is stored.
+        """
+        super().__init__()
+
+        self._base_dir = base_dir.expanduser().resolve()
+
+        self._cache = None
+
+    @override
+    def _load_cache(self) -> Dict[str, Dict[str, Any]]:
         def on_error(ex: OSError) -> NoReturn:
             raise AssetMetadataError(
                 f"The base asset metadata directory '{self._base_dir}' cannot be traversed. See nested exception for details."
             ) from ex
+
+        cache = {}
 
         for dir_pathname, _, filenames in os.walk(self._base_dir, onerror=on_error):
             metadata_dir = Path(dir_pathname)
@@ -94,79 +121,55 @@ class FileAssetMetadataProvider(AssetMetadataProvider):
                     continue
 
                 for name, metadata in _load_metadata_file(file):
-                    if name in self._cache:
+                    if name in cache:
                         raise AssetMetadataError(
                             f"Two assets under the directory '{self._base_dir}' have the same name '{name}'."
                         )
 
                     metadata["__source__"] = f"directory:{self._base_dir}"
 
-                    self._cache[name] = metadata
+                    cache[name] = metadata
 
-        return self._cache
-
-    @override
-    def clear_cache(self) -> None:
-        self._cache = None
+        return cache
 
 
 @final
-class PackageAssetMetadataProvider(AssetMetadataProvider):
+class PackageAssetMetadataProvider(AbstractAssetMetadataProvider):
     """Provides asset metadata stored in a Python namespace package."""
 
     _package_name: str
     _package_path: MultiplexedPath
-    _cache: Optional[Dict[str, Dict[str, Any]]]
 
     def __init__(self, package_name: str) -> None:
         """
         :param package_name:
             The name of the package in which the asset metadata is stored.
         """
+        super().__init__()
+
         self._package_name = package_name
 
         self._package_path = files(package_name)
 
-        self._cache = None
-
     @override
-    def get_metadata(self, name: str) -> Dict[str, Any]:
-        cache = self._ensure_cache_loaded()
-
-        try:
-            return deepcopy(cache[name])
-        except KeyError:
-            raise AssetNotFoundError(
-                name, f"An asset with the name '{name}' cannot be found."
-            )
-
-    @override
-    def get_names(self) -> List[str]:
-        cache = self._ensure_cache_loaded()
-
-        return list(cache.keys())
-
-    def _ensure_cache_loaded(self) -> Dict[str, Dict[str, Any]]:
-        if self._cache is not None:
-            return self._cache
-
-        self._cache = {}
+    def _load_cache(self) -> Dict[str, Dict[str, Any]]:
+        cache = {}
 
         for file in self._list_files():
             if file.suffix != ".yaml" and file.suffix != ".yml":
                 continue
 
             for name, metadata in _load_metadata_file(file):
-                if name in self._cache:
+                if name in cache:
                     raise AssetMetadataError(
                         f"Two assets under the namespace package '{self._package_name}' have the same name '{name}'."
                     )
 
                 metadata["__source__"] = f"package:{self._package_name}"
 
-                self._cache[name] = metadata
+                cache[name] = metadata
 
-        return self._cache
+        return cache
 
     def _list_files(self) -> List[Path]:
         files = []
@@ -186,10 +189,6 @@ class PackageAssetMetadataProvider(AssetMetadataProvider):
         collect_files(self._package_path)
 
         return files
-
-    @override
-    def clear_cache(self) -> None:
-        self._cache = None
 
 
 def _load_metadata_file(file: Path) -> List[Tuple[str, Dict[str, Any]]]:

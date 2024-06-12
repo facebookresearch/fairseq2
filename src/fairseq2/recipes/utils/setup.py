@@ -74,7 +74,7 @@ def setup_gangs(
         gangs = setup_parallel_gangs(root_gang, tp_size=tp_size)
     except ValueError as ex:
         raise RuntimeError(
-            f"The size of the root gang ({root_gang.size}) is not divisible by `tp_size` ({tp_size})."
+            f"The size of the root gang ({root_gang.size}) is not divisible by `config.tensor_parallel_size` ({tp_size})."
         ) from ex
 
     log.info("Data and tensor parallel gangs initialized.")
