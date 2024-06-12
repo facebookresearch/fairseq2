@@ -362,9 +362,6 @@ def load_instruction_finetuner(
         final_lr=config.lr * config.final_lr_ratio,
     )
 
-    # Set the seed for training.
-    rng_bag.manual_seed(config.seed + dp_gang.rank)
-
     # Set up the finetuner.
     return StandardTrainer[SequenceBatch](
         criterion=criterion,
@@ -386,7 +383,7 @@ def load_instruction_finetuner(
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
         profile=config.profile,
         anomaly_detection=config.anomaly_detection,
-        rng_bag=rng_bag,
+        seed=config.seed,
         wall_watch=wall_watch,
     )
 

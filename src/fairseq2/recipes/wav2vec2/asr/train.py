@@ -379,9 +379,6 @@ def load_wav2vec2_asr_trainer(
         final_lr_scale=config.final_lr_scale,
     )
 
-    # Set the seed for training.
-    rng_bag.manual_seed(config.seed + gang.rank)
-
     # Initialize the trainer.
     return StandardTrainer[Seq2SeqBatch](
         criterion=criterion,
@@ -403,6 +400,6 @@ def load_wav2vec2_asr_trainer(
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
         profile=config.profile,
         anomaly_detection=config.anomaly_detection,
-        rng_bag=rng_bag,
+        seed=config.seed,
         wall_watch=wall_watch,
     )
