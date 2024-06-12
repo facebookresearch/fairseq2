@@ -110,6 +110,7 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
     _publish_metrics_every_n_steps: int
     _profiler: Profiler
     _anomaly_detection: bool
+    _seed: int
     _rng_bag: RngBag
     _wall_watch: Stopwatch
     _train_elapsed_time: float
@@ -145,6 +146,7 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
         publish_metrics_every_n_steps: int = 100,
         profile: Optional[Tuple[int, int]] = None,
         anomaly_detection: bool = False,
+        seed: int = 2,
         rng_bag: Optional[RngBag] = None,
     ) -> None:
         """
@@ -202,6 +204,8 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
             record.
         :param anomaly_detection:
             If ``True``, turns on anomaly detection feature in ``torch.autograd``.
+        :param seed:
+            The random number generator seed to use.
         :param rng_bag:
             The random number generators to preserve during checkpointing.
         """
@@ -338,6 +342,8 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
         if rng_bag is None:
             rng_bag = RngBag.from_device_defaults(CPU, device)
 
+        self._seed = seed
+
         self._rng_bag = rng_bag
 
         self._wall_watch = wall_watch
@@ -355,6 +361,9 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
             raise RuntimeError("The trainer can only be run once.")
 
         self._run = True
+
+        # Set the per-rank seed for training.
+        self._rng_bag.manual_seed(self._seed + self._root_gang.rank)
 
         try:
             self._maybe_restore_state()
