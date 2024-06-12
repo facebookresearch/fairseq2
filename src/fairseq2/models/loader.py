@@ -293,10 +293,15 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
 
         # Load the model.
         try:
-            state_dict = checkpoint["model"]
+            model_key = checkpoint["model_key"]
+        except KeyError:
+            model_key = "model"
+
+        try:
+            state_dict = checkpoint[model_key]
         except KeyError:
             raise AssetError(
-                f"The checkpoint of {card.name} does not contain a 'model' entry."
+                f"The checkpoint of {card.name} does not contain a '{model_key}' entry."
             )
 
         # Remove DDP 'module' prefix.

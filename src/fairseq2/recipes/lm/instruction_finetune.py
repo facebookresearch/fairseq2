@@ -43,7 +43,7 @@ from fairseq2.recipes.trainer import StandardTrainer
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.utils.setup import setup_gangs
 from fairseq2.typing import CPU, META, DataType, override
-from fairseq2.utils.profiler import Profiler, Stopwatch
+from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import RngBag
 
 log = get_log_writer(__name__)
@@ -144,8 +144,8 @@ class InstructionFinetuneConfig:
     seed: int = 2
     """The random number generator seed to use."""
 
-    profile: bool = False
-    """If ``True``, runs the PyTorch profiler early in the training."""
+    profile: Optional[Tuple[int, int]] = None
+    """The number of steps that the PyTorch profiler should skip and then record."""
 
     monitored_gang: bool = False
     """If ``True``, puts a monitored barrier before every collective call."""
@@ -236,27 +236,17 @@ def load_instruction_finetuner(
 
     log.info("Dataset loaded.")
 
-    # Set up the checkpoint manager.
-    if dp_gang.size > 1 and config.data_parallelism == "ddp":
-        replicated_keys = ["_model", "_optimizer"]
-    else:
-        replicated_keys = []
-
-    checkpoint_manager = FileCheckpointManager(
-        output_dir.joinpath("checkpoints"),
-        root_gang,
-        dp_gang=dp_gang,
-        tp_gang=tp_gang,
-        model_key="_model",
-        replicated_keys=replicated_keys,
-    )
-
     rng_bag = RngBag.from_device_defaults(CPU, root_gang.device)
 
     # Set the seed for model initialization.
     rng_bag.manual_seed(config.seed)
 
     init_device = META
+
+    # Set up the checkpoint manager.
+    checkpoint_manager = FileCheckpointManager(
+        output_dir.joinpath("checkpoints"), root_gang, dp_gang=dp_gang, tp_gang=tp_gang
+    )
 
     has_checkpoint = checkpoint_manager.has_checkpoint()
 
@@ -288,7 +278,9 @@ def load_instruction_finetuner(
             "`vocab_info` of the model and `vocab_info` of the tokenizer do not match."
         )
 
-    checkpoint_manager.set_model_metadata(family=model.family, base=config.model_name)
+    checkpoint_manager.save_model_metadata(
+        base_asset=config.model_name, family=model.family
+    )
 
     dp_model: Module
 
@@ -370,13 +362,6 @@ def load_instruction_finetuner(
         final_lr=config.lr * config.final_lr_ratio,
     )
 
-    # Initialize the profiler.
-    tb_dir = output_dir.joinpath("tb")
-
-    profiler = Profiler(
-        skip_first=15, active=3, log_dir=tb_dir, gang=root_gang, enabled=config.profile
-    )
-
     # Set the seed for training.
     rng_bag.manual_seed(config.seed + dp_gang.rank)
 
@@ -397,9 +382,9 @@ def load_instruction_finetuner(
         checkpoint_manager=checkpoint_manager,
         checkpoint_every_n_steps=config.checkpoint_every_n_steps,
         keep_last_n_checkpoints=config.keep_last_n_checkpoints,
-        tb_dir=tb_dir,
+        tb_dir=output_dir.joinpath("tb"),
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
-        profiler=profiler,
+        profile=config.profile,
         anomaly_detection=config.anomaly_detection,
         rng_bag=rng_bag,
         wall_watch=wall_watch,

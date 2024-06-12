@@ -36,7 +36,7 @@ from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.utils.setup import setup_root_gang
 from fairseq2.recipes.wav2vec2.asr.criterion import Wav2Vec2AsrCriterion
 from fairseq2.typing import CPU, META, DataType
-from fairseq2.utils.profiler import Profiler, Stopwatch
+from fairseq2.utils.profiler import Stopwatch
 from fairseq2.utils.rng import RngBag
 
 log = get_log_writer(__name__)
@@ -159,8 +159,8 @@ class Wav2Vec2AsrTrainConfig:
     seed: int = 2
     """The random number generator seed to use."""
 
-    profile: bool = False
-    """If ``True``, runs the PyTorch profiler early in the training."""
+    profile: Optional[Tuple[int, int]] = None
+    """The number of steps that the PyTorch profiler should skip and then record."""
 
     monitored_gang: bool = False
     """If ``True``, puts a monitored barrier before every collective call."""
@@ -250,19 +250,6 @@ def load_wav2vec2_asr_trainer(
 
     log.info("Dataset loaded.")
 
-    # Set up the checkpoint manager.
-    if gang.size > 1 and config.data_parallelism == "ddp":
-        replicated_keys = ["_model", "_optimizer"]
-    else:
-        replicated_keys = []
-
-    checkpoint_manager = FileCheckpointManager(
-        output_dir.joinpath("checkpoints"),
-        gang,
-        model_key="_model",
-        replicated_keys=replicated_keys,
-    )
-
     rng_bag = RngBag.from_device_defaults(CPU, gang.device)
 
     # Set the seed for model initialization.
@@ -271,6 +258,9 @@ def load_wav2vec2_asr_trainer(
     model = create_wav2vec2_asr_model(
         config.model_config, device=META, dtype=torch.float32
     )
+
+    # Set up the checkpoint manager.
+    checkpoint_manager = FileCheckpointManager(output_dir.joinpath("checkpoints"), gang)
 
     has_checkpoint = checkpoint_manager.has_checkpoint()
 
@@ -296,7 +286,7 @@ def load_wav2vec2_asr_trainer(
 
         log.info("Pretrained model loaded on rank 0 and parameters shared with the ASR model.")  # fmt: skip
 
-        log.info("Initialize the output linear layer on rank 0.")
+        log.info("Initializing the output linear layer on rank 0.")
 
         if gang.rank == 0:
             to_device(model, gang.device)
@@ -305,7 +295,7 @@ def load_wav2vec2_asr_trainer(
 
         log.info("Output linear layer initialized.")
 
-    checkpoint_manager.set_model_metadata(
+    checkpoint_manager.save_model_metadata(
         family=model.family, config=config.model_config
     )
 
@@ -389,13 +379,6 @@ def load_wav2vec2_asr_trainer(
         final_lr_scale=config.final_lr_scale,
     )
 
-    # Initialize the profiler.
-    tb_dir = output_dir.joinpath("tb")
-
-    profiler = Profiler(
-        skip_first=15, active=3, log_dir=tb_dir, gang=gang, enabled=config.profile
-    )
-
     # Set the seed for training.
     rng_bag.manual_seed(config.seed + gang.rank)
 
@@ -416,9 +399,9 @@ def load_wav2vec2_asr_trainer(
         checkpoint_manager=checkpoint_manager,
         checkpoint_after_n_steps=config.checkpoint_after_n_steps,
         checkpoint_every_n_steps=config.checkpoint_every_n_steps,
-        tb_dir=tb_dir,
+        tb_dir=output_dir.joinpath("tb"),
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
-        profiler=profiler,
+        profile=config.profile,
         anomaly_detection=config.anomaly_detection,
         rng_bag=rng_bag,
         wall_watch=wall_watch,

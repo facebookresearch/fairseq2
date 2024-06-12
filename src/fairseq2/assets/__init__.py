@@ -20,6 +20,9 @@ from fairseq2.assets.download_manager import (
     default_download_manager as default_download_manager,
 )
 from fairseq2.assets.error import AssetError as AssetError
+from fairseq2.assets.metadata_provider import (
+    AbstractAssetMetadataProvider as AbstractAssetMetadataProvider,
+)
 from fairseq2.assets.metadata_provider import AssetMetadataError as AssetMetadataError
 from fairseq2.assets.metadata_provider import (
     AssetMetadataProvider as AssetMetadataProvider,

@@ -108,8 +108,8 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
     _metric_recorders: List[MetricRecorder]
     _publish_metrics_after_n_steps: int
     _publish_metrics_every_n_steps: int
-    _anomaly_detection: bool
     _profiler: Profiler
+    _anomaly_detection: bool
     _rng_bag: RngBag
     _wall_watch: Stopwatch
     _train_elapsed_time: float
@@ -143,7 +143,7 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
         tb_dir: Optional[Path] = None,
         publish_metrics_after_n_steps: int = 0,
         publish_metrics_every_n_steps: int = 100,
-        profiler: Optional[Profiler] = None,
+        profile: Optional[Tuple[int, int]] = None,
         anomaly_detection: bool = False,
         rng_bag: Optional[RngBag] = None,
     ) -> None:
@@ -197,8 +197,9 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
             The number of steps after which to start publishing metrics.
         :param publish_metrics_every_n_steps:
             The step interval at which to publish metrics.
-        :param profiler:
-            The runtime profiler.
+        :param profile:
+            The number of steps that the PyTorch profiler should skip and then
+            record.
         :param anomaly_detection:
             If ``True``, turns on anomaly detection feature in ``torch.autograd``.
         :param rng_bag:
@@ -316,14 +317,23 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
         self._publish_metrics_after_n_steps = publish_metrics_after_n_steps
         self._publish_metrics_every_n_steps = publish_metrics_every_n_steps
 
+        if profile is None or tb_dir is None:
+            skip_first, active_steps = 1, 0
+
+            if tb_dir is None:
+                log.warning("No TensorBoard log directory provided. Profiling will be disabled.")  # fmt: skip
+
+            profile_dir = Path()
+        else:
+            skip_first, active_steps = profile
+
+            profile_dir = tb_dir
+
+        self._profiler = Profiler(
+            skip_first, active_steps, profile_dir, gang, enabled=active_steps > 0
+        )
+
         self._anomaly_detection = anomaly_detection
-
-        if profiler is None:
-            profiler = Profiler(
-                skip_first=0, active=0, log_dir=Path(), gang=gang, enabled=False
-            )
-
-        self._profiler = profiler
 
         if rng_bag is None:
             rng_bag = RngBag.from_device_defaults(CPU, device)
@@ -707,22 +717,29 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
         return False
 
     def _checkpoint(self) -> None:
-        log.info("Saving checkpoint after step {}.", self._step_nr)
+        step_nr = self._step_nr
+
+        log.info("Saving checkpoint after step {}.", step_nr)
 
         checkpoint = self.state_dict()
 
         log.info("State dictionary of the trainer extracted.")
 
-        self._checkpoint_manager.save_checkpoint(self._step_nr, checkpoint)
+        if self._dp_gang.size > 1 and isinstance(self._model, DDP):
+            replicated_keys = {"_model", "_optimizer"}
+        else:
+            replicated_keys = None
+
+        self._checkpoint_manager.save_checkpoint(
+            step_nr, checkpoint, model_key="_model", replicated_keys=replicated_keys
+        )
 
         log.info("Checkpoint saved.")
 
         if isinstance(self._model, FSDP):
-            log.info("Saving consolidated FSDP model after step {}.", self._step_nr)
+            log.info("Saving consolidated FSDP model after step {}.", step_nr)
 
-            self._checkpoint_manager.save_consolidated_fsdp_model(
-                self._step_nr, self._model
-            )
+            self._checkpoint_manager.save_consolidated_fsdp_model(step_nr, self._model)
 
             log.info("Model saved.")
 
