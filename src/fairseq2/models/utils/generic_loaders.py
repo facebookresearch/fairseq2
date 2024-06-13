@@ -330,7 +330,7 @@ class ModelLoader(Generic[ModelT, ConfigT]):
                         "`model_factory` returned a model that is not constructed correctly. See nested exception for details."
                     ) from ex
 
-        if model_device == META:
+        if model_device.type == "meta":
             # Move the model to the actual device without initializing. Its
             # state will be overwritten by the checkpoint anyways.
             to_empty(model, device=device or CPU)
@@ -350,7 +350,7 @@ class ModelLoader(Generic[ModelT, ConfigT]):
                 f"{card.name} cannot be loaded. See nested exception for details."
             ) from ex
 
-        if model_device == META:
+        if model_device.type == "meta":
             # Non-persistent buffers are not included in the checkpoint, so we
             # have to explicitly initialize them.
             reset_non_persistent_buffers(model)

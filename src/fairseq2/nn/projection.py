@@ -162,7 +162,7 @@ class ColumnShardedLinear(Projection):
         """
         device = linear.weight.device
 
-        if device != gang.device and device != META:
+        if device != gang.device and device.type != "meta":
             raise ValueError(
                 "The device of `linear` must either match `gang.device` or must be of type `meta`."
             )
@@ -178,7 +178,7 @@ class ColumnShardedLinear(Projection):
             dtype=linear.weight.dtype,
         )
 
-        if device != META:
+        if device.type != "meta":
             to_empty(sharded, device)
 
         sharded._copy_weight(linear)
@@ -224,7 +224,7 @@ class ColumnShardedLinear(Projection):
 
         if device is None:
             device = gang.device
-        elif device != gang.device and device != META:
+        elif device != gang.device and device.type != "meta":
             raise ValueError(
                 "`device` must either match `gang.device` or must be of type `meta`."
             )
@@ -362,7 +362,7 @@ class RowShardedLinear(Projection):
         """
         device = linear.weight.device
 
-        if device != gang.device and device != META:
+        if device != gang.device and device.type != "meta":
             raise ValueError(
                 "The device of `linear` must either match `gang.device` or must be of type `meta`."
             )
@@ -378,7 +378,7 @@ class RowShardedLinear(Projection):
             dtype=linear.weight.dtype,
         )
 
-        if device != META:
+        if device.type != "meta":
             to_empty(sharded, device)
 
         sharded._copy_weight(linear)
@@ -425,7 +425,7 @@ class RowShardedLinear(Projection):
 
         if device is None:
             device = gang.device
-        elif device != gang.device and device != META:
+        elif device != gang.device and device.type != "meta":
             raise ValueError(
                 "`device` must either match `gang.device` or must be of type `meta`."
             )

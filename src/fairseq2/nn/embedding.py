@@ -163,7 +163,7 @@ class VocabShardedEmbedding(Embedding):
         """
         device = embed.weight.device
 
-        if device != gang.device and device != META:
+        if device != gang.device and device.type != "meta":
             raise ValueError(
                 "The device of `embed` must either match `gang.device` or must be of type `meta`."
             )
@@ -178,7 +178,7 @@ class VocabShardedEmbedding(Embedding):
             dtype=embed.weight.dtype,
         )
 
-        if device != META:
+        if device.type != "meta":
             to_empty(sharded, device)
 
         sharded._copy_weight(embed)
@@ -223,7 +223,7 @@ class VocabShardedEmbedding(Embedding):
 
         if device is None:
             device = gang.device
-        elif device != gang.device and device != META:
+        elif device != gang.device and device.type != "meta":
             raise ValueError(
                 "`device` must either match `gang.device` or must be of type `meta`."
             )
@@ -343,7 +343,7 @@ class ShardedEmbedding(Embedding):
         """
         device = embed.weight.device
 
-        if device != gang.device and device != META:
+        if device != gang.device and device.type != "meta":
             raise ValueError(
                 "The device of `embed` must either match `gang.device` or must be of type `meta`."
             )
@@ -358,7 +358,7 @@ class ShardedEmbedding(Embedding):
             dtype=embed.weight.dtype,
         )
 
-        if device != META:
+        if device.type != "meta":
             to_empty(sharded, device)
 
         sharded._copy_weight(embed)
@@ -403,7 +403,7 @@ class ShardedEmbedding(Embedding):
 
         if device is None:
             device = gang.device
-        elif device != gang.device and device != META:
+        elif device != gang.device and device.type != "meta":
             raise ValueError(
                 "`device` must either match `gang.device` or must be of type `meta`."
             )

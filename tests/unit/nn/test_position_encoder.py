@@ -14,7 +14,8 @@ from fairseq2.nn import (
     RotaryEncoder,
     SinusoidalPositionEncoder,
 )
-from tests.common import assert_close, device, tmp_rng_seed
+from fairseq2.utils.rng import temporary_manual_seed
+from tests.common import assert_close, device
 
 
 class TestSinusoidalPositionEncoder:
@@ -172,12 +173,12 @@ class TestSinusoidalPositionEncoder:
 
 class TestLearnedPositionEncoder:
     def test_init_works(self) -> None:
-        with tmp_rng_seed(device):
+        with temporary_manual_seed([device], seed=2):
             m = LearnedPositionEncoder(encoding_dim=32, max_seq_len=10, device=device)
 
         assert m.weight.dtype == torch.float32
 
-        with tmp_rng_seed(device):
+        with temporary_manual_seed([device], seed=2):
             expected_weight = torch.randn(10, 32, device=device)
 
         assert_close(m.weight, expected_weight)

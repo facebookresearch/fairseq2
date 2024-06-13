@@ -185,7 +185,7 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         if gang is not None:
             if device is None:
                 device = gang.device
-            elif device != gang.device and device != META:
+            elif device != gang.device and device.type != "meta":
                 raise ValueError(
                     "`device` must either match `gang['tp'].device` or must be of type `meta`."
                 )
@@ -224,7 +224,7 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
 
         config = self._config_loader(card)
 
-        if device == META:
+        if device.type == "meta":
             try:
                 model = self._factory(config, device=META, dtype=dtype)
             except NotImplementedError as ex:
@@ -314,7 +314,7 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
                 f"{card.name} cannot be loaded. See nested exception for details."
             ) from ex
 
-        if model_device == META:
+        if model_device.type == "meta":
             # Non-persistent buffers are not included in the checkpoint, so we
             # have to explicitly initialize them.
             reset_non_persistent_buffers(model)
