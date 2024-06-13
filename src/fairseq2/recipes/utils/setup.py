@@ -177,3 +177,12 @@ def to_data_parallel(
     raise ValueError(
         f"`config.data_parallelism` must be 'ddp' or 'fsdp', but is '{parallelism}' instead."
     )
+
+
+def compile_model(model: Module, log: LogWriter, *, dynamic: bool = True) -> Module:
+    """Apply :func:`torch.compile` to ``model``."""
+    log.info("Applying `torch.compile()` to the model.")
+
+    return torch.compile(  # type: ignore[return-value]
+        model, dynamic=dynamic, options={"shape_padding": dynamic}
+    )
