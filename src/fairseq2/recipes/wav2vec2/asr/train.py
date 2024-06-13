@@ -29,7 +29,11 @@ from fairseq2.optim import AdamW
 from fairseq2.optim.lr_scheduler import TriStageLR
 from fairseq2.recipes.trainer import StandardTrainer
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import setup_root_gang, to_data_parallel
+from fairseq2.recipes.utils.setup import (
+    compile_model,
+    setup_root_gang,
+    to_data_parallel,
+)
 from fairseq2.recipes.wav2vec2.asr.criterion import Wav2Vec2AsrCriterion
 from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
@@ -309,15 +313,7 @@ def load_wav2vec2_asr_trainer(
     )
 
     if config.torch_compile:
-        log.info("Compiling the encoder.")
-
-        model.encoder = torch.compile(  # type: ignore[assignment]
-            model.encoder, dynamic=True, options={"shape_padding": True}
-        )
-
-        gang.barrier()
-
-        log.info("Encoder compiled.")
+        model.encoder = compile_model(model.encoder, log)  # type: ignore[assignment]
 
     log_model(dp_model, log, rank=gang.rank)
 

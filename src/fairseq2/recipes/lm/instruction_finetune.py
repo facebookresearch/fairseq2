@@ -37,7 +37,7 @@ from fairseq2.recipes.criterion import AbstractCriterion
 from fairseq2.recipes.metrics import SequenceModelMetricBag
 from fairseq2.recipes.trainer import StandardTrainer
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import setup_gangs, to_data_parallel
+from fairseq2.recipes.utils.setup import compile_model, setup_gangs, to_data_parallel
 from fairseq2.typing import META, DataType, override
 from fairseq2.utils.profiler import Stopwatch
 
@@ -290,15 +290,7 @@ def load_instruction_finetuner(
         use_layerwise_activation_checkpointing(dp_model)
 
     if config.torch_compile:
-        log.info("Compiling the model.")
-
-        model.decoder = torch.compile(  # type: ignore[assignment]
-            model.decoder, dynamic=True, options={"shape_padding": True}
-        )
-
-        root_gang.barrier()
-
-        log.info("Model compiled.")
+        model.decoder = compile_model(model.decoder, log)
 
     # TODO(balioglu): investigate!
     # The memory efficient SDPA implementation in PyTorch is not stable when
