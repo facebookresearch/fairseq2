@@ -15,7 +15,8 @@ from torch.optim import AdamW as BaseAdamW
 
 from fairseq2.optim import AdamW
 from fairseq2.typing import DataType
-from tests.common import assert_close, device, tmp_rng_seed
+from fairseq2.utils.rng import temporary_manual_seed
+from tests.common import assert_close, device
 
 
 class AdamWTestNet(Module):
@@ -55,10 +56,10 @@ class TestAdamW:
                 assert_close(p1, p2)
 
     def run_step(self, dtype: DataType) -> Tuple[Module, Module]:
-        with tmp_rng_seed(device):
+        with temporary_manual_seed([device], seed=2):
             net1 = AdamWTestNet(dtype)
 
-        with tmp_rng_seed(device):
+        with temporary_manual_seed([device], seed=2):
             net2 = AdamWTestNet(dtype)
 
         opt1 = AdamW(

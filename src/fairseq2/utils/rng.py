@@ -6,12 +6,23 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Mapping, final
+from contextlib import contextmanager, nullcontext
+from typing import (
+    Any,
+    ContextManager,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Mapping,
+    Optional,
+    final,
+)
 
 import torch
 from torch import Generator, Tensor
 
-from fairseq2.typing import CPU, Device
+from fairseq2.typing import Device
 
 
 def use_deterministic(value: bool, warn_only: bool = False) -> None:
@@ -43,19 +54,18 @@ class RngBag:
 
     @staticmethod
     def from_device_defaults(*devices: Device) -> RngBag:
-        """Create an :class:`RngBag` instance holding the default random number
-        generators of ``devices``."""
+        """Create an :class:`RngBag` from the random number generators of ``devices``."""
         unique_devices = set()
 
         generators = []
 
         for device in devices:
-            if device in unique_devices:
-                raise ValueError(f"`devices` already contains the device '{device}'.")
+            if device in unique_devices or device.type == "meta":
+                continue
 
             unique_devices.add(device)
 
-            if device == CPU:
+            if device.type == "cpu":
                 generators.append(torch.default_generator)
             elif device.type == "cuda":
                 # Ensure that the default CUDA generators are initialized.
@@ -99,6 +109,19 @@ class RngBag:
         for g in self._generators:
             g.manual_seed(seed)
 
+    @contextmanager
+    def temporary_manual_seed(self, seed: int) -> Iterator[None]:
+        """Temporarily change the seed of the random number generators."""
+        original_states = [g.get_state() for g in self._generators]
+
+        self.manual_seed(seed)
+
+        try:
+            yield
+        finally:
+            for g, s in zip(self._generators, original_states):
+                g.set_state(s)
+
     def state_dict(self) -> Dict[str, Any]:
         return {"generators": [g.get_state() for g in self._generators]}
 
@@ -125,6 +148,24 @@ class RngBag:
                 )
 
             self._generators[idx].set_state(state.clone())
+
+
+def temporary_manual_seed(
+    devices: Iterable[Device], seed: Optional[int]
+) -> ContextManager[None]:
+    """Temporarily change the seed of the random number generators of ``devices``.
+
+    :param devices:
+        The devices whose random number generators will be updated.
+    :param seed:
+        The seed to set. If ``None``, becomes a no-op.
+    """
+    if seed is None:
+        return nullcontext()
+
+    rng_bag = RngBag.from_device_defaults(*devices)
+
+    return rng_bag.temporary_manual_seed(seed)
 
 
 # compat
