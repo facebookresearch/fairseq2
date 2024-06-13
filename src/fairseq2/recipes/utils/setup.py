@@ -5,7 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 from datetime import timedelta
-from typing import Dict, Optional, Tuple
+from typing import Any, Dict, Literal, Optional, Tuple
 
 import torch
 from torch.nn import Module
@@ -13,7 +13,10 @@ from torch.nn import Module
 from fairseq2.device import determine_default_device
 from fairseq2.gang import Gang, setup_default_gang, setup_parallel_gangs
 from fairseq2.logging import LogWriter
-from fairseq2.nn.utils.module import broadcast_module
+from fairseq2.models.fsdp import get_fsdp_wrap_policy
+from fairseq2.nn.ddp import to_ddp
+from fairseq2.nn.fsdp import to_fsdp
+from fairseq2.nn.utils.module import broadcast_module, to_device
 from fairseq2.recipes.utils.log import log_environment_info
 
 
@@ -89,3 +92,88 @@ def broadcast_model(model: Module, gang: Gang, log: LogWriter) -> None:
     broadcast_module(model, gang)
 
     log.info("Model broadcasted.")
+
+
+def to_data_parallel(
+    model: Module,
+    gang: Gang,
+    parallelism: Literal["ddp", "fsdp"],
+    log: LogWriter,
+    **kwargs: Any,
+) -> Module:
+    """Wrap ``model`` with DDP or FSDP.
+
+    :param model:
+        The model to wrap.
+    :param gang:
+        The gang over which to distribute data.
+    :param parallelism:
+        The parallelism API to use.
+    :param log:
+        The log to write to.
+    :param kwargs:
+        The keyword arguments to pass to :func:`to_ddp` or :func:`to_fsdp`. The
+        parameter names should be prefixed with 'ddp_' and 'fsdp_' respectively.
+    """
+
+    if parallelism == "ddp":
+        if gang.size == 1:
+            to_device(model, gang.device)
+
+            return model
+
+        ddp_args = {}
+
+        for key, value in kwargs.items():
+            if key.startswith("ddp_"):
+                ddp_args[key[4:]] = value
+
+        log.info("Wrapping the model with DDP and broadcasting to all processes.")
+
+        model = to_ddp(model, gang, **ddp_args)
+
+        log.info("Model wrapped with DDP and broadcasted.")
+
+        return model
+
+    if parallelism == "fsdp":
+        if gang.size == 1:
+            to_device(model, gang.device)
+
+            return model
+
+        fsdp_kwargs = {}
+
+        for key, value in kwargs.items():
+            if key.startswith("fsdp_"):
+                fsdp_kwargs[key[5:]] = value
+
+        broadcast_state = fsdp_kwargs.get("broadcast_state", False)
+
+        if not broadcast_state:
+            log.info("Wrapping the model with FSDP.")
+        else:
+            log.info("Wrapping the model with FSDP and broadcasting to all processes.")
+
+        wrap_policy, ignored_modules = get_fsdp_wrap_policy(
+            model, wrap_granularity=fsdp_kwargs.pop("wrap_granularity", "stack")
+        )
+
+        model = to_fsdp(
+            model,
+            gang,
+            wrap_policy,
+            ignored_modules=ignored_modules,
+            **fsdp_kwargs,
+        )
+
+        if not broadcast_state:
+            log.info("Model wrapped with FSDP.")
+        else:
+            log.info("Model wrapped with FSDP and broadcasted.")
+
+        return model
+
+    raise ValueError(
+        f"`config.data_parallelism` must be 'ddp' or 'fsdp', but is '{parallelism}' instead."
+    )

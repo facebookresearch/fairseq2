@@ -11,14 +11,12 @@ from pathlib import Path
 from typing import Literal, Optional, Tuple
 
 import torch
-from torch.nn import Module
 
 from fairseq2.checkpoint import FileCheckpointManager
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
 from fairseq2.datasets.asr import load_asr_dataset
 from fairseq2.logging import get_log_writer
-from fairseq2.models.fsdp import get_fsdp_wrap_policy
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.wav2vec2 import load_wav2vec2_model
 from fairseq2.models.wav2vec2.asr import (
@@ -26,18 +24,15 @@ from fairseq2.models.wav2vec2.asr import (
     create_wav2vec2_asr_model,
     wav2vec2_asr_archs,
 )
-from fairseq2.nn.ddp import to_ddp
-from fairseq2.nn.fsdp import to_fsdp
 from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_device
 from fairseq2.optim import AdamW
 from fairseq2.optim.lr_scheduler import TriStageLR
 from fairseq2.recipes.trainer import StandardTrainer
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import setup_root_gang
+from fairseq2.recipes.utils.setup import setup_root_gang, to_data_parallel
 from fairseq2.recipes.wav2vec2.asr.criterion import Wav2Vec2AsrCriterion
-from fairseq2.typing import CPU, META, DataType
+from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
-from fairseq2.utils.rng import RngBag
 
 log = get_log_writer(__name__)
 
@@ -250,11 +245,7 @@ def load_wav2vec2_asr_trainer(
 
     log.info("Dataset loaded.")
 
-    rng_bag = RngBag.from_device_defaults(CPU, gang.device)
-
-    # Set the seed for model initialization.
-    rng_bag.manual_seed(config.seed)
-
+    # Initialize the model.
     model = create_wav2vec2_asr_model(
         config.model_config, device=META, dtype=torch.float32
     )
@@ -284,16 +275,12 @@ def load_wav2vec2_asr_trainer(
 
         gang.barrier()
 
-        log.info("Pretrained model loaded on rank 0 and parameters shared with the ASR model.")  # fmt: skip
-
-        log.info("Initializing the output linear layer on rank 0.")
+        log.info("Pretrained model loaded on rank 0.")
 
         if gang.rank == 0:
-            to_device(model, gang.device)
+            to_device(model, gang.device, seed=config.seed)
 
         gang.barrier()
-
-        log.info("Output linear layer initialized.")
 
     checkpoint_manager.save_model_metadata(
         family=model.family, config=config.model_config
@@ -302,51 +289,24 @@ def load_wav2vec2_asr_trainer(
     # We never train the feature extractor.
     freeze_parameters(model.encoder_frontend.feature_extractor)
 
-    dp_model: Module
-
-    # Set up data parallelism.
-    if gang.size == 1:
-        to_device(model, gang.device)
-
-        dp_model = model
-    else:
-        log.info("Wrapping the model with {} and broadcasting to all ranks from rank 0.", config.data_parallelism.upper())  # fmt: skip
-
-        if config.data_parallelism == "ddp":
-            find_unused_params = config.freeze_encoder_for_n_steps > 0
-
-            dp_model = to_ddp(model, gang, find_unused_parameters=find_unused_params)
-        elif config.data_parallelism == "fsdp":
-            if config.freeze_encoder_for_n_steps != 0:
-                raise ValueError(
-                    "`config.freeze_encoder_for_n_steps` must be 0 when using FSDP."
-                )
-
-            wrap_policy, ignored_modules = get_fsdp_wrap_policy(
-                model, wrap_granularity=config.fsdp_wrap_granularity
-            )
-
-            if config.dtype == torch.float32:
-                mixed_precision_dtype = None
-            else:
-                mixed_precision_dtype = config.dtype
-
-            dp_model = to_fsdp(
-                model,
-                gang,
-                wrap_policy,
-                ignored_modules=ignored_modules,
-                skip_init=True,
-                broadcast_state=not has_checkpoint,
-                mixed_precision_dtype=mixed_precision_dtype,
-                fp32_reduce=True,
-            )
-        else:
+    if config.data_parallelism == "fsdp":
+        if config.freeze_encoder_for_n_steps != 0:
             raise ValueError(
-                f"`config.data_parallelism` must be 'ddp' or 'fsdp', but is '{config.data_parallelism}' instead."
+                "`config.freeze_encoder_for_n_steps` must be 0 when using FSDP."
             )
 
-        log.info("Model wrapped and broadcasted to all ranks.")
+    dp_model = to_data_parallel(
+        model,
+        gang,
+        config.data_parallelism,
+        log,
+        ddp_find_unused_parameters=config.freeze_encoder_for_n_steps > 0,
+        fsdp_skip_init=True,
+        fsdp_broadcast_state=not has_checkpoint,
+        fsdp_mixed_precision_dtype=config.dtype,
+        fsdp_fp32_reduce=True,
+        fsdp_wrap_granularity=config.fsdp_wrap_granularity,
+    )
 
     if config.torch_compile:
         log.info("Compiling the encoder.")

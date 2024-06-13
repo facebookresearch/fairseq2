@@ -24,27 +24,22 @@ from fairseq2.logging import get_log_writer
 from fairseq2.metrics import MetricBag
 from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
-from fairseq2.models.fsdp import get_fsdp_wrap_policy
 from fairseq2.models.sequence import (
     SequenceBatch,
     SequenceModelOutput,
     as_auto_regressive_input,
 )
 from fairseq2.nn.checkpointing import use_layerwise_activation_checkpointing
-from fairseq2.nn.ddp import to_ddp
-from fairseq2.nn.fsdp import to_fsdp
 from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
-from fairseq2.nn.utils.module import to_device
 from fairseq2.optim import AdamW
 from fairseq2.optim.lr_scheduler import CosineAnnealingLR
 from fairseq2.recipes.criterion import AbstractCriterion
 from fairseq2.recipes.metrics import SequenceModelMetricBag
 from fairseq2.recipes.trainer import StandardTrainer
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import setup_gangs
-from fairseq2.typing import CPU, META, DataType, override
+from fairseq2.recipes.utils.setup import setup_gangs, to_data_parallel
+from fairseq2.typing import META, DataType, override
 from fairseq2.utils.profiler import Stopwatch
-from fairseq2.utils.rng import RngBag
 
 log = get_log_writer(__name__)
 
@@ -236,11 +231,7 @@ def load_instruction_finetuner(
 
     log.info("Dataset loaded.")
 
-    rng_bag = RngBag.from_device_defaults(CPU, root_gang.device)
-
-    # Set the seed for model initialization.
-    rng_bag.manual_seed(config.seed)
-
+    # Initialize the model.
     init_device = META
 
     # Set up the checkpoint manager.
@@ -282,47 +273,18 @@ def load_instruction_finetuner(
         base_asset=config.model_name, family=model.family
     )
 
-    dp_model: Module
-
-    # Set up data parallelism.
-    if dp_gang.size == 1:
-        to_device(model, root_gang.device)
-
-        dp_model = model
-    else:
-        log.info("Wrapping model with {} and broadcasting to all data parallel ranks from rank 0.", config.data_parallelism.upper())  # fmt: skip
-
-        if config.data_parallelism == "ddp":
-            dp_model = to_ddp(model, dp_gang)
-        elif config.data_parallelism == "fsdp":
-            wrap_policy, ignored_modules = get_fsdp_wrap_policy(
-                model, wrap_granularity=config.fsdp_wrap_granularity
-            )
-
-            if config.dtype == torch.float32:
-                mixed_precision_dtype = None
-            else:
-                mixed_precision_dtype = config.dtype
-
-            dp_model = to_fsdp(
-                model,
-                dp_gang,
-                wrap_policy,
-                ignored_modules=ignored_modules,
-                skip_init=True,
-                broadcast_state=not has_checkpoint,
-                reshard_after_forward=config.fsdp_reshard_after_forward,
-                mixed_precision_dtype=mixed_precision_dtype,
-                fp32_reduce=True,
-            )
-        else:
-            raise ValueError(
-                f"`config.data_parallelism` must be 'ddp' or 'fsdp', but is '{config.data_parallelism}' instead."
-            )
-
-        root_gang.barrier()
-
-        log.info("Model wrapped and broadcasted to all ranks.")
+    dp_model = to_data_parallel(
+        model,
+        dp_gang,
+        config.data_parallelism,
+        log,
+        fsdp_skip_init=True,
+        fsdp_broadcast_state=not has_checkpoint,
+        fsdp_reshard_after_forward=config.fsdp_reshard_after_forward,
+        fsdp_mixed_precision_dtype=config.dtype,
+        fsdp_fp32_reduce=True,
+        fsdp_wrap_granularity=config.fsdp_wrap_granularity,
+    )
 
     if config.activation_checkpointing:
         use_layerwise_activation_checkpointing(dp_model)

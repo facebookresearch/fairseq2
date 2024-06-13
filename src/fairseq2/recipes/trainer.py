@@ -147,7 +147,6 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
         profile: Optional[Tuple[int, int]] = None,
         anomaly_detection: bool = False,
         seed: int = 2,
-        rng_bag: Optional[RngBag] = None,
     ) -> None:
         """
         :param criterion:
@@ -206,8 +205,6 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
             If ``True``, turns on anomaly detection feature in ``torch.autograd``.
         :param seed:
             The random number generator seed to use.
-        :param rng_bag:
-            The random number generators to preserve during checkpointing.
         """
         super().__init__()
 
@@ -339,12 +336,9 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
 
         self._anomaly_detection = anomaly_detection
 
-        if rng_bag is None:
-            rng_bag = RngBag.from_device_defaults(CPU, device)
-
         self._seed = seed
 
-        self._rng_bag = rng_bag
+        self._rng_bag = RngBag.from_device_defaults(CPU, device)
 
         self._wall_watch = wall_watch
 
