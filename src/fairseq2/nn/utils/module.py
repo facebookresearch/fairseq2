@@ -31,9 +31,11 @@ from torch.nn import Module, Parameter
 from torch.nn.utils import remove_weight_norm  # type: ignore[attr-defined]
 
 from fairseq2.gang import Gang
-from fairseq2.logging import LogWriter
+from fairseq2.logging import LogWriter, get_log_writer
 from fairseq2.typing import CPU, Device
 from fairseq2.utils.rng import temporary_manual_seed
+
+log = get_log_writer(__name__)
 
 
 # compat
@@ -433,6 +435,8 @@ def broadcast_module(
     if gang.size == 1:
         return
 
+    warned = False
+
     memo: Set[Tensor] = set()
 
     tensors = []
@@ -444,6 +448,13 @@ def broadcast_module(
         memo.add(param)
 
         tensors.append(param.detach())
+
+        if not warned and param.grad is not None:
+            log.warning(
+                "`broadcast_module()` does not support syncing gradients, but one or more parameters of `module` have their `grads` defined."
+            )
+
+            warned = True
 
     if broadcast_buffers:
         for buffer in module.buffers():
