@@ -264,7 +264,7 @@ class FileCheckpointManager(CheckpointManager):
                 raise_error(ex)
 
             try:
-                yaml.safe_dump(metadata, fp)
+                yaml.safe_dump(metadata, fp, sort_keys=False)
             except OSError as ex:
                 raise_error(ex)
             finally:
