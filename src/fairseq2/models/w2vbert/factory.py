@@ -7,60 +7,17 @@
 from dataclasses import dataclass, field
 from typing import Final, Optional
 
-from fairseq2.config_registry import ConfigRegistry
 from fairseq2.models.w2vbert.model import W2VBertModel
 from fairseq2.models.wav2vec2 import (
     Wav2Vec2Builder,
     Wav2Vec2Config,
     Wav2Vec2EncoderBuilder,
     Wav2Vec2EncoderConfig,
-    wav2vec2_encoder_arch,
 )
 from fairseq2.nn.transformer import TransformerNormOrder
 from fairseq2.typing import DataType, Device
 
 W2VBERT_FAMILY: Final = "w2vbert"
-
-
-@wav2vec2_encoder_arch("bert_600m")
-def _600m_encoder() -> Wav2Vec2EncoderConfig:
-    return Wav2Vec2EncoderConfig(
-        model_dim=1024,
-        max_seq_len=4096,
-        feature_dim=160,
-        use_fbank=True,
-        first_pass_dropout_p=0.0,
-        layer_norm_features=False,
-        feature_extractor_layer_descs=[],
-        feature_extractor_bias=False,
-        feature_extractor_layer_norm_convs=False,
-        feature_gradient_scale=0.0,
-        num_fbank_channels=80,
-        fbank_stride=2,
-        sample_fbank_every_k=1,
-        pos_encoder_type="relative",
-        pos_encoder_depth=0,
-        pos_conv_kernel_size=0,
-        num_pos_conv_groups=0,
-        use_conformer=True,
-        num_encoder_layers=24,
-        num_encoder_attn_heads=16,
-        ffn_inner_dim=4096,
-        dropout_p=0.0,
-        attn_dropout_p=0.0,
-        layer_drop_p=0.0,
-        norm_order=TransformerNormOrder.POST,
-        depthwise_conv_kernel_size=31,
-    )
-
-
-@wav2vec2_encoder_arch("bert_300m")
-def _300m_encoder() -> Wav2Vec2EncoderConfig:
-    config = _600m_encoder()
-
-    config.num_encoder_layers = 12
-
-    return config
 
 
 @dataclass
@@ -73,7 +30,34 @@ class W2VBertConfig:
 
     w2v2_config: Wav2Vec2Config = field(
         default_factory=lambda: Wav2Vec2Config(
-            encoder_config=_600m_encoder(),
+            encoder_config=Wav2Vec2EncoderConfig(
+                model_dim=1024,
+                max_seq_len=4096,
+                feature_dim=160,
+                use_fbank=True,
+                first_pass_dropout_p=0.0,
+                layer_norm_features=False,
+                feature_extractor_layer_descs=[],
+                feature_extractor_bias=False,
+                feature_extractor_layer_norm_convs=False,
+                feature_gradient_scale=0.0,
+                num_fbank_channels=80,
+                fbank_stride=2,
+                sample_fbank_every_k=1,
+                pos_encoder_type="relative",
+                pos_encoder_depth=0,
+                pos_conv_kernel_size=0,
+                num_pos_conv_groups=0,
+                use_conformer=True,
+                num_encoder_layers=24,
+                num_encoder_attn_heads=16,
+                ffn_inner_dim=4096,
+                dropout_p=0.0,
+                attn_dropout_p=0.0,
+                layer_drop_p=0.0,
+                norm_order=TransformerNormOrder.POST,
+                depthwise_conv_kernel_size=31,
+            ),
             final_dim=768,
             final_proj_bias=True,
             temporal_mask_span_len=10,
@@ -97,27 +81,6 @@ class W2VBertConfig:
 
     num_target_codebooks: int = 1
     """The number of consecutive codebooks to use as masked prediction targets."""
-
-
-w2vbert_archs = ConfigRegistry[W2VBertConfig]()
-
-w2vbert_arch = w2vbert_archs.decorator
-
-
-@w2vbert_arch("600m")
-def _600m() -> W2VBertConfig:
-    return W2VBertConfig()
-
-
-@w2vbert_arch("300m")
-def _300m() -> W2VBertConfig:
-    config = _600m()
-
-    config.w2v2_config.encoder_config = _300m_encoder()
-
-    config.num_bert_encoder_layers = 8
-
-    return config
 
 
 class W2VBertBuilder:

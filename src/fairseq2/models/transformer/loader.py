@@ -4,34 +4,31 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from pathlib import Path
-from typing import Any, Dict, List, final
+from typing import Any, Dict
 
 import torch
 
-from fairseq2.assets import AssetCard
-from fairseq2.data.text import AbstractTextTokenizerLoader
 from fairseq2.models.config_loader import StandardModelConfigLoader
 from fairseq2.models.loader import DenseModelLoader
-from fairseq2.models.nllb.factory import (
-    NLLB_FAMILY,
-    NllbConfig,
-    create_nllb_model,
-    nllb_archs,
+from fairseq2.models.transformer.archs import transformer_archs
+from fairseq2.models.transformer.factory import (
+    TRANSFORMER_FAMILY,
+    TransformerConfig,
+    create_transformer_model,
 )
-from fairseq2.models.nllb.tokenizer import NllbTokenizer
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
-from fairseq2.typing import override
 
-load_nllb_config = StandardModelConfigLoader(
-    family=NLLB_FAMILY, config_kls=NllbConfig, arch_configs=nllb_archs
+load_transformer_config = StandardModelConfigLoader(
+    family=TRANSFORMER_FAMILY,
+    config_kls=TransformerConfig,
+    arch_configs=transformer_archs,
 )
 
 
-def convert_nllb_checkpoint(
-    checkpoint: Dict[str, Any], config: NllbConfig
+def convert_transformer_checkpoint(
+    checkpoint: Dict[str, Any], config: TransformerConfig
 ) -> Dict[str, Any]:
-    """Convert a fairseq NLLB checkpoint to fairseq2 format."""
+    """Convert a fairseq Transformer checkpoint to fairseq2 format."""
     state_dict = checkpoint["model"]
 
     # Check if we have a fairseq2 checkpoint.
@@ -91,25 +88,9 @@ def convert_nllb_checkpoint(
     return checkpoint
 
 
-load_nllb_model = DenseModelLoader(
-    config_loader=load_nllb_config,
-    factory=create_nllb_model,
-    checkpoint_converter=convert_nllb_checkpoint,
+load_transformer_model = DenseModelLoader(
+    config_loader=load_transformer_config,
+    factory=create_transformer_model,
+    checkpoint_converter=convert_transformer_checkpoint,
     restrict_checkpoints=False,
 )
-
-
-@final
-class NllbTokenizerLoader(AbstractTextTokenizerLoader[NllbTokenizer]):
-    """Loads NLLB tokenizers."""
-
-    @override
-    def _load(self, path: Path, card: AssetCard) -> NllbTokenizer:
-        langs = card.field("langs").as_(List[str])
-
-        default_lang = card.field("default_lang").as_(str)
-
-        return NllbTokenizer(path, langs, default_lang)
-
-
-load_nllb_tokenizer = NllbTokenizerLoader()

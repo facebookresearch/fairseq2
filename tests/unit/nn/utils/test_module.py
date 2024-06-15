@@ -6,15 +6,15 @@
 
 from torch.nn import Parameter
 
-from fairseq2.models.nllb import create_nllb_model, nllb_archs
+from fairseq2.models.transformer import create_transformer_model, transformer_archs
 from fairseq2.nn.utils.module import select_parameters
 from fairseq2.typing import META
 
 
 def test_select_parameters() -> None:
-    model_config = nllb_archs.get("dense_1b")
+    model_config = transformer_archs.get("nllb-200_dense_1b")
 
-    model = create_nllb_model(model_config, device=META)
+    model = create_transformer_model(model_config, device=META)
 
     output = select_parameters(model, [r".*\.encoder_decoder_attn_layer_norm\.bias$"])
 
@@ -27,9 +27,9 @@ def test_select_parameters() -> None:
 
 
 def test_select_parameters_when_exclude_is_true() -> None:
-    model_config = nllb_archs.get("dense_1b")
+    model_config = transformer_archs.get("nllb-200_dense_1b")
 
-    model = create_nllb_model(model_config, device=META)
+    model = create_transformer_model(model_config, device=META)
 
     names = [r".*\.encoder_decoder_attn_layer_norm\.bias$", "decoder.layer_norm.weight"]
 

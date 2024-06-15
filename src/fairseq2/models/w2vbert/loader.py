@@ -11,11 +11,11 @@ import torch
 from fairseq2.models.config_loader import StandardModelConfigLoader
 from fairseq2.models.loader import DenseModelLoader
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
+from fairseq2.models.w2vbert.archs import w2vbert_archs
 from fairseq2.models.w2vbert.factory import (
     W2VBERT_FAMILY,
     W2VBertConfig,
     create_w2vbert_model,
-    w2vbert_archs,
 )
 
 load_w2vbert_config = StandardModelConfigLoader(

@@ -11,11 +11,11 @@ import torch
 from fairseq2.models.config_loader import StandardModelConfigLoader
 from fairseq2.models.loader import DenseModelLoader
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
+from fairseq2.models.wav2vec2.archs import wav2vec2_archs
 from fairseq2.models.wav2vec2.factory import (
     WAV2VEC2_FAMILY,
     Wav2Vec2Config,
     create_wav2vec2_model,
-    wav2vec2_archs,
 )
 from fairseq2.nn.transformer import TransformerNormOrder
 
