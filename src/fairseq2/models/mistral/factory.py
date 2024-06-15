@@ -7,7 +7,6 @@
 from dataclasses import dataclass, field
 from typing import Final, Optional
 
-from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data import VocabularyInfo
 from fairseq2.models.transformer import (
     TransformerDecoderModel,
@@ -73,16 +72,6 @@ class MistralConfig:
 
     dropout_p: float = 0.1
     """The dropout probability on outputs of Transformer layers."""
-
-
-mistral_archs = ConfigRegistry[MistralConfig]()
-
-mistral_arch = mistral_archs.decorator
-
-
-@mistral_arch("7b")
-def _7b() -> MistralConfig:
-    return MistralConfig()
 
 
 class MistralBuilder:

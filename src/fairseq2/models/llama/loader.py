@@ -15,12 +15,8 @@ from fairseq2.data.text import (
 )
 from fairseq2.gang import Gang
 from fairseq2.models.config_loader import StandardModelConfigLoader
-from fairseq2.models.llama.factory import (
-    LLAMA_FAMILY,
-    LLaMAConfig,
-    create_llama_model,
-    llama_archs,
-)
+from fairseq2.models.llama.archs import llama_archs
+from fairseq2.models.llama.factory import LLAMA_FAMILY, LLaMAConfig, create_llama_model
 from fairseq2.models.llama.tokenizer import LLaMA3Tokenizer
 from fairseq2.models.loader import DenseModelLoader
 from fairseq2.models.transformer import (

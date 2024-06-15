@@ -9,11 +9,11 @@ from typing import Any, Dict
 from fairseq2.data.text import default_basic_sentencepiece_tokenizer_loader
 from fairseq2.models.config_loader import StandardModelConfigLoader
 from fairseq2.models.loader import DenseModelLoader
+from fairseq2.models.mistral.archs import mistral_archs
 from fairseq2.models.mistral.factory import (
     MISTRAL_FAMILY,
     MistralConfig,
     create_mistral_model,
-    mistral_archs,
 )
 from fairseq2.models.utils.checkpoint import convert_model_state_dict
 

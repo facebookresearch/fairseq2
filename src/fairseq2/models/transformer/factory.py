@@ -7,13 +7,12 @@
 from dataclasses import dataclass, field
 from typing import Final, Optional
 
-from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data import VocabularyInfo
-from fairseq2.models.transformer import (
+from fairseq2.models.transformer.frontend import (
     TransformerEmbeddingFrontend,
     TransformerFrontend,
-    TransformerModel,
 )
+from fairseq2.models.transformer.model import TransformerModel
 from fairseq2.nn import (
     Embedding,
     SinusoidalPositionEncoder,
@@ -39,18 +38,18 @@ from fairseq2.nn.transformer import (
 )
 from fairseq2.typing import DataType, Device
 
-NLLB_FAMILY: Final = "nllb"
+TRANSFORMER_FAMILY: Final = "transformer"
 
 
 @dataclass
-class NllbConfig:
-    """Holds the configuration of an NLLB model.
+class TransformerConfig:
+    """Holds the configuration of a Transformer model.
 
-    The default values correspond to the dense 1B architecture as described in
-    :cite:t:`https://doi.org/10.48550/arxiv.2207.04672`.
+    The default values correspond to the base architecture as described in
+    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.
     """
 
-    model_dim: int = 1024
+    model_dim: int = 512
     """The dimensionality of the model."""
 
     max_seq_len: int = 1024
@@ -58,75 +57,48 @@ class NllbConfig:
 
     vocab_info: VocabularyInfo = field(
         default_factory=lambda: VocabularyInfo(
-            size=256206, unk_idx=1, bos_idx=2, eos_idx=3, pad_idx=0
+            size=32768, unk_idx=None, bos_idx=None, eos_idx=1, pad_idx=0
         )
     )
     """The vocabulary information."""
 
-    num_encoder_layers: int = 24
+    num_encoder_layers: int = 6
     """The number of encoder layers."""
 
-    num_decoder_layers: int = 24
+    num_decoder_layers: int = 6
     """The number of decoder layers."""
 
-    num_encoder_attn_heads: int = 16
+    num_encoder_attn_heads: int = 8
     """The number of attention heads in encoder layers."""
 
-    num_decoder_attn_heads: int = 16
+    num_decoder_attn_heads: int = 8
     """The number of attention heads in decoder layers."""
 
-    ffn_inner_dim: int = 1024 * 8
+    ffn_inner_dim: int = 2048
     """The dimensionality of inner projection layers in feed-forward networks."""
+
+    norm_order: TransformerNormOrder = TransformerNormOrder.POST
+    """The Layer Normalization order."""
 
     dropout_p: float = 0.1
     """The dropout probability on outputs of Transformer layers."""
 
 
-nllb_archs = ConfigRegistry[NllbConfig]()
-
-nllb_arch = nllb_archs.decorator
-
-
-@nllb_arch("dense_600m")
-def _dense_600m() -> NllbConfig:
-    config = _dense_1b()
-
-    config.num_encoder_layers = 12
-    config.num_decoder_layers = 12
-    config.ffn_inner_dim = 1024 * 4
-
-    return config
-
-
-@nllb_arch("dense_1b")
-def _dense_1b() -> NllbConfig:
-    return NllbConfig()
-
-
-@nllb_arch("dense_3b")
-def _dense_3b() -> NllbConfig:
-    config = _dense_1b()
-
-    config.model_dim = 2048
-
-    return config
-
-
-class NllbBuilder:
-    """Builds modules of an NLLB model as described in
-    :cite:t:`https://doi.org/10.48550/arxiv.2207.04672`.
+class TransformerBuilder:
+    """Builds modules of a Transformer model as described in
+    :cite:t:`https://doi.org/10.48550/arxiv.1706.03762`.
 
     To tweak the architecture, you can derive from this class and override the
     corresponding methods.
     """
 
-    _config: NllbConfig
+    _config: TransformerConfig
     _device: Optional[Device]
     _dtype: Optional[DataType]
 
     def __init__(
         self,
-        config: NllbConfig,
+        config: TransformerConfig,
         *,
         device: Optional[Device] = None,
         dtype: Optional[DataType] = None,
@@ -200,7 +172,7 @@ class NllbBuilder:
 
         return StandardTransformerEncoder(
             layers,
-            norm_order=TransformerNormOrder.PRE,
+            norm_order=self._config.norm_order,
             device=self._device,
             dtype=self._dtype,
         )
@@ -213,7 +185,7 @@ class NllbBuilder:
 
         return StandardTransformerDecoder(
             layers,
-            norm_order=TransformerNormOrder.PRE,
+            norm_order=self._config.norm_order,
             device=self._device,
             dtype=self._dtype,
         )
@@ -228,7 +200,7 @@ class NllbBuilder:
             self_attn,
             ffn,
             dropout_p=self._config.dropout_p,
-            norm_order=TransformerNormOrder.PRE,
+            norm_order=self._config.norm_order,
             device=self._device,
             dtype=self._dtype,
         )
@@ -246,7 +218,7 @@ class NllbBuilder:
             encoder_decoder_attn,
             ffn,
             dropout_p=self._config.dropout_p,
-            norm_order=TransformerNormOrder.PRE,
+            norm_order=self._config.norm_order,
             device=self._device,
             dtype=self._dtype,
         )
@@ -269,19 +241,19 @@ class NllbBuilder:
             self._config.model_dim,
             self._config.ffn_inner_dim,
             bias=True,
-            norm_order=TransformerNormOrder.PRE,
+            norm_order=self._config.norm_order,
             device=self._device,
             dtype=self._dtype,
         )
 
 
-def create_nllb_model(
-    config: NllbConfig,
+def create_transformer_model(
+    config: TransformerConfig,
     *,
     device: Optional[Device] = None,
     dtype: Optional[DataType] = None,
 ) -> TransformerModel:
-    """Create an NLLB model.
+    """Create a Transformer model.
 
     :param config:
         The configuration.
@@ -290,6 +262,6 @@ def create_nllb_model(
     :param dtype:
         The data type of module parameters and buffers.
     """
-    model = NllbBuilder(config, device=device, dtype=dtype).build_model()
+    model = TransformerBuilder(config, device=device, dtype=dtype).build_model()
 
-    return model.set_family(NLLB_FAMILY)
+    return model.set_family(TRANSFORMER_FAMILY)

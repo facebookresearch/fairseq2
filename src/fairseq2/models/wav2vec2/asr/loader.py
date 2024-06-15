@@ -9,11 +9,11 @@ from typing import Any, Dict
 from fairseq2.models.config_loader import StandardModelConfigLoader
 from fairseq2.models.loader import DenseModelLoader
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
+from fairseq2.models.wav2vec2.asr.archs import wav2vec2_asr_archs
 from fairseq2.models.wav2vec2.asr.factory import (
     WAV2VEC2_ASR_FAMILY,
     Wav2Vec2AsrConfig,
     create_wav2vec2_asr_model,
-    wav2vec2_asr_archs,
 )
 from fairseq2.nn.transformer import TransformerNormOrder
 

@@ -9,7 +9,6 @@ from typing import Final, List, Optional, Tuple
 
 from torch.nn import GELU, SiLU
 
-from fairseq2.config_registry import ConfigRegistry
 from fairseq2.models.conformer import ConformerBlock, ConformerConvolution
 from fairseq2.models.feature_extractor import SequenceFeatureExtractor
 from fairseq2.models.wav2vec2.feature_extractor import (
@@ -151,43 +150,6 @@ class Wav2Vec2EncoderConfig:
     """The kernel size of depthwise convolutions in Conformer blocks."""
 
 
-wav2vec2_encoder_archs = ConfigRegistry[Wav2Vec2EncoderConfig]()
-
-wav2vec2_encoder_arch = wav2vec2_encoder_archs.decorator
-
-
-@wav2vec2_encoder_arch("base")
-def _base_encoder() -> Wav2Vec2EncoderConfig:
-    return Wav2Vec2EncoderConfig()
-
-
-@wav2vec2_encoder_arch("large")
-def _large_encoder() -> Wav2Vec2EncoderConfig:
-    config = _base_encoder()
-
-    config.model_dim = 1024
-    config.num_encoder_layers = 24
-    config.num_encoder_attn_heads = 16
-    config.ffn_inner_dim = 4096
-    config.dropout_p = 0.0
-    config.layer_drop_p = 0.2
-
-    return config
-
-
-@wav2vec2_encoder_arch("large_lv60k")  # LibriVox 60K
-def _large_lv60k_encoder() -> Wav2Vec2EncoderConfig:
-    config = _large_encoder()
-
-    config.layer_norm_features = False
-    config.feature_extractor_bias = True
-    config.feature_extractor_layer_norm_convs = True
-    config.layer_drop_p = 0.0
-    config.norm_order = TransformerNormOrder.PRE
-
-    return config
-
-
 @dataclass
 class Wav2Vec2Config:
     """Holds the configuration of a wav2vec 2.0 model.
@@ -196,7 +158,7 @@ class Wav2Vec2Config:
     :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`.
     """
 
-    encoder_config: Wav2Vec2EncoderConfig = field(default_factory=_base_encoder)
+    encoder_config: Wav2Vec2EncoderConfig = field(default_factory=Wav2Vec2EncoderConfig)
     """The configuration of the wav2vec 2.0 encoder."""
 
     final_dim: int = 256
@@ -247,44 +209,6 @@ class Wav2Vec2Config:
 
     logit_temp: float = 0.1
     """The temperature to divide logits by."""
-
-
-wav2vec2_archs = ConfigRegistry[Wav2Vec2Config]()
-
-wav2vec2_arch = wav2vec2_archs.decorator
-
-
-@wav2vec2_arch("base")
-def _base() -> Wav2Vec2Config:
-    return Wav2Vec2Config()
-
-
-@wav2vec2_arch("large")
-def _large() -> Wav2Vec2Config:
-    config = _base()
-
-    config.encoder_config = _large_encoder()
-    config.quantized_dim = 768
-    config.final_dim = 768
-
-    return config
-
-
-@wav2vec2_arch("large_lv60k")  # LibriVox 60K
-def _large_lv60k() -> Wav2Vec2Config:
-    config = _base()
-
-    config.encoder_config = _large_lv60k_encoder()
-    config.quantized_dim = 768
-    config.final_dim = 768
-    config.codebook_sampling_temperature = (2.0, 0.1, 0.999995)
-
-    return config
-
-
-@wav2vec2_arch("pseudo_dinosr_base")
-def _pseudo_dinosr_base() -> Wav2Vec2Config:
-    return Wav2Vec2Config()
 
 
 class Wav2Vec2EncoderBuilder:

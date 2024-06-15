@@ -11,11 +11,11 @@ from fairseq2.assets import AssetCard
 from fairseq2.data.text import AbstractTextTokenizerLoader
 from fairseq2.models.config_loader import StandardModelConfigLoader
 from fairseq2.models.loader import DenseModelLoader
+from fairseq2.models.s2t_transformer.archs import s2t_transformer_archs
 from fairseq2.models.s2t_transformer.factory import (
     S2T_TRANSFORMER_FAMILY,
     S2TTransformerConfig,
     create_s2t_transformer_model,
-    s2t_transformer_archs,
 )
 from fairseq2.models.s2t_transformer.tokenizer import S2TTransformerTokenizer
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
