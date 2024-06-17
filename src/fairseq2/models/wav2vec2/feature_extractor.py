@@ -385,8 +385,8 @@ class Float32GroupNorm(GroupNorm):
         w, b = self.weight, self.bias
 
         fp32_x = x.float()
-        fp32_w = w.float()
-        fp32_b = b.float() if b is not None else None
+        fp32_w = w.float() if w is not None else None  # type: ignore[redundant-expr]
+        fp32_b = b.float() if b is not None else None  # type: ignore[redundant-expr]
 
         y = group_norm(fp32_x, self.num_groups, fp32_w, fp32_b, self.eps)
 

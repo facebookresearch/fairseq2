@@ -1,9 +1,9 @@
 black~=23.3
-flake8~=6.0
-flake8-pyi~=23.5
+flake8~=7.1
+flake8-pyi~=24.6
 flake8-pyproject~=1.2
 isort~=5.13
-mypy~=1.5.1
+mypy~=1.10.0
 pyarrow-stubs~=10.0
 pytest~=7.3
 shellcheck-py~=0.9

@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Optional, Union, final, overload
 from fairseq2n import DOC_MODE
 from typing_extensions import TypeAlias
 
-Buffer: TypeAlias = Union[bytes, bytearray, memoryview, array]
+Buffer: TypeAlias = Union[bytes, bytearray, memoryview, array]  # type: ignore[type-arg]
 
 if TYPE_CHECKING or DOC_MODE:
 

@@ -28,7 +28,7 @@ def get_int_from_env(var_name: str, allow_zero: bool = False) -> Optional[int]:
         value = int(s)
     except ValueError:
         raise RuntimeError(
-            f"The value of the `{var_name}` environment variable must be an integer, but is '{value}' instead."
+            f"The value of the `{var_name}` environment variable must be an integer, but is '{s}' instead."
         )
 
     if not allow_zero:
