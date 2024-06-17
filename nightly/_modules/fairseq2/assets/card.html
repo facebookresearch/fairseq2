@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.assets.card &mdash; fairseq2 0.3.0.dev202406100140+g794b0eb documentation</title>
+  <title>fairseq2.assets.card &mdash; fairseq2 0.3.0.dev202406170141+g10d398d documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202406100140+g794b0eb
+                0.3.0.dev202406170141+g10d398d
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -164,7 +164,6 @@
 <span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span> <span class="nn">os</span>
-<span class="kn">from</span> <span class="nn">os</span> <span class="kn">import</span> <span class="n">PathLike</span>
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">AbstractSet</span><span class="p">,</span>
@@ -174,19 +173,14 @@
     <span class="n">Mapping</span><span class="p">,</span>
     <span class="n">MutableMapping</span><span class="p">,</span>
     <span class="n">Optional</span><span class="p">,</span>
-    <span class="n">Set</span><span class="p">,</span>
-    <span class="n">Type</span><span class="p">,</span>
     <span class="n">TypeVar</span><span class="p">,</span>
-    <span class="n">cast</span><span class="p">,</span>
     <span class="n">final</span><span class="p">,</span>
-    <span class="n">overload</span><span class="p">,</span>
 <span class="p">)</span>
 <span class="kn">from</span> <span class="nn">urllib.parse</span> <span class="kn">import</span> <span class="n">urlparse</span><span class="p">,</span> <span class="n">urlunparse</span>
 
-<span class="kn">from</span> <span class="nn">typing_extensions</span> <span class="kn">import</span> <span class="n">Self</span>
-
 <span class="kn">from</span> <span class="nn">fairseq2.assets.error</span> <span class="kn">import</span> <span class="n">AssetError</span>
 <span class="kn">from</span> <span class="nn">fairseq2.assets.utils</span> <span class="kn">import</span> <span class="n">_starts_with_scheme</span>
+<span class="kn">from</span> <span class="nn">fairseq2.utils.value_converter</span> <span class="kn">import</span> <span class="n">ValueConverter</span><span class="p">,</span> <span class="n">default_value_converter</span>
 
 <span class="n">T</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;T&quot;</span><span class="p">)</span>
 
@@ -198,11 +192,14 @@
     <span class="n">_name</span><span class="p">:</span> <span class="nb">str</span>
     <span class="n">_metadata</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
     <span class="n">_base</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">AssetCard</span><span class="p">]</span>
+    <span class="n">_value_converter</span><span class="p">:</span> <span class="n">ValueConverter</span>
 
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">metadata</span><span class="p">:</span> <span class="n">MutableMapping</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
         <span class="n">base</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">AssetCard</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+        <span class="o">*</span><span class="p">,</span>
+        <span class="n">value_converter</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">ValueConverter</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        :param metadata:</span>
@@ -210,6 +207,9 @@
 <span class="sd">            contain a specific piece of information about the asset.</span>
 <span class="sd">        :param base:</span>
 <span class="sd">            The card that this card derives from.</span>
+<span class="sd">        :param value_converter:</span>
+<span class="sd">            The :class:`ValueConverter` instance to use. If ``None``, the</span>
+<span class="sd">            default instance will be used.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="n">name</span> <span class="o">=</span> <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
@@ -224,6 +224,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_name</span> <span class="o">=</span> <span class="n">name</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_metadata</span> <span class="o">=</span> <span class="n">metadata</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">_base</span> <span class="o">=</span> <span class="n">base</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_value_converter</span> <span class="o">=</span> <span class="n">value_converter</span> <span class="ow">or</span> <span class="n">default_value_converter</span>
 
 <div class="viewcode-block" id="AssetCard.field"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.assets.AssetCard.html#fairseq2.assets.AssetCard.field">[docs]</a>    <span class="k">def</span> <span class="nf">field</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AssetCardField</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return a field of this card.</span>
@@ -309,7 +310,7 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the type of the asset represented by this card.&quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;model_type&quot;</span><span class="p">,</span> <span class="s2">&quot;dataset_type&quot;</span><span class="p">,</span> <span class="s2">&quot;tokenizer_type&quot;</span><span class="p">]:</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">field</span><span class="p">)</span><span class="o">.</span><span class="n">as_</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">field</span><span class="p">)</span><span class="o">.</span><span class="n">as_</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>  <span class="c1"># type: ignore[no-any-return]</span>
             <span class="k">except</span> <span class="n">AssetCardFieldNotFoundError</span><span class="p">:</span>
                 <span class="k">continue</span>
 
@@ -321,7 +322,7 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the family of the asset represented by this card.&quot;&quot;&quot;</span>
         <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;model_family&quot;</span><span class="p">,</span> <span class="s2">&quot;dataset_family&quot;</span><span class="p">,</span> <span class="s2">&quot;tokenizer_family&quot;</span><span class="p">]:</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">field</span><span class="p">)</span><span class="o">.</span><span class="n">as_</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">field</span><span class="p">(</span><span class="n">field</span><span class="p">)</span><span class="o">.</span><span class="n">as_</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>  <span class="c1"># type: ignore[no-any-return]</span>
             <span class="k">except</span> <span class="n">AssetCardFieldNotFoundError</span><span class="p">:</span>
                 <span class="k">continue</span>
 
@@ -370,67 +371,40 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">AssetCardField</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_path</span> <span class="o">+</span> <span class="p">[</span><span class="n">name</span><span class="p">])</span>
 
-    <span class="k">def</span> <span class="nf">is_none</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return ``True`` if the value of the field is ``None``.&quot;&quot;&quot;</span>
-        <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">_get_field_value</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span>
-
-    <span class="k">def</span> <span class="nf">exists</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_empty</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">exists</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return ``True`` if the field exists.&quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">as_</span><span class="p">(</span><span class="nb">object</span><span class="p">,</span> <span class="n">allow_empty</span><span class="o">=</span><span class="n">allow_empty</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">_get_field_value</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">)</span>
 
             <span class="k">return</span> <span class="kc">True</span>
         <span class="k">except</span> <span class="n">AssetCardFieldNotFoundError</span><span class="p">:</span>
             <span class="k">return</span> <span class="kc">False</span>
 
-    <span class="nd">@overload</span>
-    <span class="k">def</span> <span class="nf">get_as_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kls</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">T</span><span class="p">],</span> <span class="n">default</span><span class="p">:</span> <span class="n">T</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_empty</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span><span class="p">:</span>
-        <span class="o">...</span>
-
-    <span class="nd">@overload</span>
-    <span class="k">def</span> <span class="nf">get_as_</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">kls</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">T</span><span class="p">],</span> <span class="n">default</span><span class="p">:</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_empty</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">T</span><span class="p">]:</span>
-        <span class="o">...</span>
-
-    <span class="k">def</span> <span class="nf">get_as_</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">kls</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">T</span><span class="p">],</span> <span class="n">default</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">T</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_empty</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">T</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the value of this field if it exists; otherwise, return ``default``.</span>
-
-<span class="sd">        :param default:</span>
-<span class="sd">            The default value.</span>
-<span class="sd">        :param allow_empty:</span>
-<span class="sd">            If ``True``, allows the field to be empty.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">try</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">as_</span><span class="p">(</span><span class="n">kls</span><span class="p">,</span> <span class="n">allow_empty</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-        <span class="k">except</span> <span class="n">AssetCardFieldNotFoundError</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">default</span>
-
-    <span class="k">def</span> <span class="nf">as_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kls</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">T</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_empty</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">T</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">as_</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">type_hint</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_empty</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the value of this field.</span>
 
-<span class="sd">        :param kls:</span>
-<span class="sd">            The type of the field.</span>
+<span class="sd">        :param type_hint:</span>
+<span class="sd">            The type hint of the field.</span>
 <span class="sd">        :param allow_empty:</span>
 <span class="sd">            If ``True``, allows the field to be empty.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">_get_field_value</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">)</span>
+        <span class="n">unstructured_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">_get_field_value</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">)</span>
+
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">_value_converter</span><span class="o">.</span><span class="n">structure</span><span class="p">(</span><span class="n">unstructured_value</span><span class="p">,</span> <span class="n">type_hint</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+                <span class="s2">&quot;`type_hint` must be a supported type annotation. See nested exception for details.&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span> <span class="nn">ex</span>
+        <span class="k">except</span> <span class="ne">TypeError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="n">pathname</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">)</span>
+
+            <span class="k">raise</span> <span class="n">AssetCardError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;The value of the field &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; of the asset card &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; cannot be retrieved as `</span><span class="si">{</span><span class="n">type_hint</span><span class="si">}</span><span class="s2">`. See nested exception for details.&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span> <span class="nn">ex</span>
+
         <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">pathname</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">)</span>
-
-            <span class="k">raise</span> <span class="n">AssetCardError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The value of the field &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; of the asset card &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; must not be `None`.&quot;</span>
-            <span class="p">)</span>
-
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">kls</span><span class="p">):</span>
-            <span class="n">pathname</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">)</span>
-
-            <span class="k">raise</span> <span class="n">AssetCardError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The value of the field &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; of the asset card &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; must be of type `</span><span class="si">{</span><span class="n">kls</span><span class="si">}</span><span class="s2">`, but is of type `</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
-            <span class="p">)</span>
+            <span class="k">return</span> <span class="n">value</span>
 
         <span class="k">if</span> <span class="ow">not</span> <span class="n">allow_empty</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
             <span class="n">pathname</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">)</span>
@@ -441,65 +415,16 @@
 
         <span class="k">return</span> <span class="n">value</span>
 
-    <span class="k">def</span> <span class="nf">as_list</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kls</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">T</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_empty</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">T</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the value of this field as a :class:`list` of type ``kls``.</span>
-
-<span class="sd">        :param kls:</span>
-<span class="sd">            The type of the field elements.</span>
-<span class="sd">        :param allow_empty:</span>
-<span class="sd">            If ``True``, allows the list to be empty.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">as_</span><span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="n">allow_empty</span><span class="o">=</span><span class="n">allow_empty</span><span class="p">)</span>
-
-        <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">element</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">element</span><span class="p">,</span> <span class="n">kls</span><span class="p">):</span>
-                <span class="n">pathname</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">)</span>
-
-                <span class="k">raise</span> <span class="n">AssetCardError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;The elements of the field &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; of the asset card &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; must be of type `</span><span class="si">{</span><span class="n">kls</span><span class="si">}</span><span class="s2">`, but the element at index </span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s2"> is of type `</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">element</span><span class="p">)</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
-                <span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">value</span>
-
-    <span class="k">def</span> <span class="nf">as_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kls</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">T</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_empty</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">T</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the value of this field as a :class:`dict` of type ``kls``.</span>
-
-<span class="sd">        :param kls:</span>
-<span class="sd">            The type of the field values.</span>
-<span class="sd">        :param allow_empty:</span>
-<span class="sd">            If ``True``, allows the dictionary to be empty.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">as_</span><span class="p">(</span><span class="nb">dict</span><span class="p">,</span> <span class="n">allow_empty</span><span class="o">=</span><span class="n">allow_empty</span><span class="p">)</span>
-
-        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="n">value</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">kls</span><span class="p">):</span>
-                <span class="n">pathname</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">)</span>
-
-                <span class="k">raise</span> <span class="n">AssetCardError</span><span class="p">(</span>
-                    <span class="sa">f</span><span class="s2">&quot;The items of the field &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; of the asset card &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; must be of type `</span><span class="si">{</span><span class="n">kls</span><span class="si">}</span><span class="s2">`, but the item &#39;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&#39; is of type `</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">val</span><span class="p">)</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
-                <span class="p">)</span>
-
-        <span class="k">return</span> <span class="n">value</span>
-
-    <span class="k">def</span> <span class="nf">as_set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kls</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">T</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_empty</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Set</span><span class="p">[</span><span class="n">T</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the value of this field as a :class:`set` of type ``kls``.</span>
-
-<span class="sd">        :param kls:</span>
-<span class="sd">            The type of the field elements.</span>
-<span class="sd">        :param allow_empty:</span>
-<span class="sd">            If ``True``, allows the list to be empty.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">as_list</span><span class="p">(</span><span class="n">kls</span><span class="p">,</span> <span class="n">allow_empty</span><span class="o">=</span><span class="n">allow_empty</span><span class="p">)</span>
-
-        <span class="k">return</span> <span class="nb">set</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">as_one_of</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">valid_values</span><span class="p">:</span> <span class="n">AbstractSet</span><span class="p">[</span><span class="n">T</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">T</span><span class="p">:</span>
+    <span class="k">def</span> <span class="nf">as_one_of</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">valid_values</span><span class="p">:</span> <span class="n">AbstractSet</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the value of this field as one of the values in ``valid_values``</span>
 
 <span class="sd">        :param values:</span>
 <span class="sd">            The values to check against.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">as_</span><span class="p">(</span><span class="nb">object</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">valid_values</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;`valid_values` must not be empty.&quot;</span><span class="p">)</span>
+
+        <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">as_</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
 
         <span class="k">if</span> <span class="n">value</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">valid_values</span><span class="p">:</span>
             <span class="n">pathname</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">)</span>
@@ -512,21 +437,14 @@
                 <span class="sa">f</span><span class="s2">&quot;The value of the field &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; of the asset card &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; must be one of </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">values</span><span class="p">)</span><span class="si">}</span><span class="s2">, but is </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
             <span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">cast</span><span class="p">(</span><span class="n">T</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">value</span>  <span class="c1"># type: ignore[no-any-return]</span>
 
     <span class="k">def</span> <span class="nf">as_uri</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the value of this field as a URI.&quot;&quot;&quot;</span>
-        <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">as_</span><span class="p">(</span><span class="nb">object</span><span class="p">)</span>
-
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">PathLike</span><span class="p">)):</span>
-            <span class="n">pathname</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">)</span>
-
-            <span class="k">raise</span> <span class="n">AssetCardError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The value of the field &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; of the asset card &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; must be of type `</span><span class="si">{</span><span class="nb">str</span><span class="si">}</span><span class="s2">` or `</span><span class="si">{</span><span class="n">PathLike</span><span class="si">}</span><span class="s2">`, but is of type `</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
-            <span class="p">)</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">as_</span><span class="p">(</span><span class="nb">str</span><span class="p">)</span>
 
         <span class="k">try</span><span class="p">:</span>
-            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">PathLike</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">_starts_with_scheme</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">_starts_with_scheme</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
                 <span class="n">path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
                 <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="o">.</span><span class="n">is_absolute</span><span class="p">():</span>
                     <span class="n">base_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;__base_path__&quot;</span><span class="p">)</span>
@@ -535,7 +453,7 @@
 
                 <span class="k">return</span> <span class="n">path</span><span class="o">.</span><span class="n">as_uri</span><span class="p">()</span>
 
-            <span class="k">return</span> <span class="n">urlunparse</span><span class="p">(</span><span class="n">urlparse</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
+            <span class="k">return</span> <span class="n">urlunparse</span><span class="p">(</span><span class="n">urlparse</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>  <span class="c1"># type: ignore[no-any-return]</span>
         <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
             <span class="n">pathname</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">)</span>
 
@@ -554,22 +472,33 @@
                 <span class="sa">f</span><span class="s2">&quot;The value of the field &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; of the asset card &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; must be a filename, but is &#39;</span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&#39; instead.&quot;</span>
             <span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">value</span>
+        <span class="k">return</span> <span class="n">value</span>  <span class="c1"># type: ignore[no-any-return]</span>
+
+    <span class="k">def</span> <span class="nf">get_as_</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">type_hint</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">default</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">T</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">allow_empty</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Return the value of this field if it exists; otherwise, return ``default``.</span>
+
+<span class="sd">        :param default:</span>
+<span class="sd">            The default value.</span>
+<span class="sd">        :param allow_empty:</span>
+<span class="sd">            If ``True``, allows the field to be empty.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">as_</span><span class="p">(</span><span class="n">type_hint</span><span class="p">,</span> <span class="n">allow_empty</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">AssetCardFieldNotFoundError</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">default</span>
 
     <span class="k">def</span> <span class="nf">set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Set the value of this field.&quot;&quot;&quot;</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">_set_field_value</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">unstructured_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">_value_converter</span><span class="o">.</span><span class="n">unstructure</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">TypeError</span> <span class="k">as</span> <span class="n">ex</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span>
+                <span class="s2">&quot;`value` must be of a supported type. See nested exception for details.&quot;</span>
+            <span class="p">)</span> <span class="kn">from</span> <span class="nn">ex</span>
 
-    <span class="k">def</span> <span class="nf">check_equals</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if the value of this field equals to ``value``.&quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="p">(</span><span class="n">v</span> <span class="o">:=</span> <span class="bp">self</span><span class="o">.</span><span class="n">as_</span><span class="p">(</span><span class="nb">object</span><span class="p">))</span> <span class="o">!=</span> <span class="n">value</span><span class="p">:</span>
-            <span class="n">pathname</span> <span class="o">=</span> <span class="s2">&quot;.&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">)</span>
-
-            <span class="k">raise</span> <span class="n">AssetCardError</span><span class="p">(</span>
-                <span class="sa">f</span><span class="s2">&quot;The value of the field &#39;</span><span class="si">{</span><span class="n">pathname</span><span class="si">}</span><span class="s2">&#39; of the asset card &#39;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; must be </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">value</span><span class="p">)</span><span class="si">}</span><span class="s2">, but is </span><span class="si">{</span><span class="nb">repr</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="si">}</span><span class="s2"> instead.&quot;</span>
-            <span class="p">)</span>
-
-        <span class="k">return</span> <span class="bp">self</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_card</span><span class="o">.</span><span class="n">_set_field_value</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_path</span><span class="p">,</span> <span class="n">unstructured_value</span><span class="p">)</span>
 
 
 <span class="k">class</span> <span class="nc">AssetCardError</span><span class="p">(</span><span class="n">AssetError</span><span class="p">):</span>

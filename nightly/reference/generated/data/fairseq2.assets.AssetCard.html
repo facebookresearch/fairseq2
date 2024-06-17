@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>AssetCard &mdash; fairseq2 0.3.0.dev202406100140+g794b0eb documentation</title>
+  <title>AssetCard &mdash; fairseq2 0.3.0.dev202406170141+g10d398d documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -35,7 +35,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202406100140+g794b0eb
+                0.3.0.dev202406170141+g10d398d
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -162,7 +162,7 @@
 <h1>AssetCard<a class="headerlink" href="#assetcard" title="Permalink to this heading"></a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="fairseq2.assets.AssetCard">
-<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.assets.</span></span><span class="sig-name descname"><span class="pre">AssetCard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metadata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/assets/card.html#AssetCard"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetCard" title="Permalink to this definition"></a></dt>
+<em class="property"><span class="pre">final</span><span class="w"> </span><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">fairseq2.assets.</span></span><span class="sig-name descname"><span class="pre">AssetCard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">metadata</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">value_converter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/assets/card.html#AssetCard"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.assets.AssetCard" title="Permalink to this definition"></a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.12)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
 <p>Holds information about an asset.</p>
 <dl class="field-list simple">
@@ -171,6 +171,8 @@
 <li><p><strong>metadata</strong> (<em>MutableMapping</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a><em>, </em><em>Any</em><em>]</em>) – The metadata to be held in the card. Each key-value item should
 contain a specific piece of information about the asset.</p></li>
 <li><p><strong>base</strong> (<em>Optional</em><em>[</em><a class="reference internal" href="#fairseq2.assets.AssetCard" title="fairseq2.assets.AssetCard"><em>AssetCard</em></a><em>]</em>) – The card that this card derives from.</p></li>
+<li><p><strong>value_converter</strong> (<em>Optional</em><em>[</em><em>ValueConverter</em><em>]</em>) – The <code class="xref py py-class docutils literal notranslate"><span class="pre">ValueConverter</span></code> instance to use. If <code class="docutils literal notranslate"><span class="pre">None</span></code>, the
+default instance will be used.</p></li>
 </ul>
 </dd>
 </dl>
