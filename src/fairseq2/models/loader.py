@@ -365,8 +365,9 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
                 # If the card is not found, try looking it up by interpreting model_name as a path to the yaml card.
                 if model_path.exists() and model_path.suffix == ".yaml":
                     import yaml
+
                     with open(model_path, "r", encoding="utf-8") as f:
-                        card_data = yaml.full_load(f)
+                        card_data = yaml.safe_load(f)
                         card = AssetCard(card_data)
                 else:
                     raise err
