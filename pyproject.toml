@@ -25,6 +25,7 @@ python_version = 3.8
 show_error_codes = true
 show_error_context = true
 strict = true
+enable_error_code = "possibly-undefined,redundant-expr,truthy-bool,truthy-iterable"
 warn_unused_configs = false
 warn_unused_ignores = false
 

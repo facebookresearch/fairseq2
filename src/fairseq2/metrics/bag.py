@@ -230,7 +230,7 @@ def merge_metric_states(
         try:
             source_metric = sources[name]
         except KeyError:
-            pass
+            continue
 
         if type(target_metric) is type(source_metric):
             target_metric.merge_state([source_metric])

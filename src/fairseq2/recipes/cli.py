@@ -523,7 +523,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
 
         # If requested, list the preset configurations and exit.
         if args.list_presets:
-            if self._preset_configs:
+            if self._preset_configs.names():
                 console.print("available presets:")
 
                 for preset in self._preset_configs.names():

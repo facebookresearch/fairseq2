@@ -441,7 +441,7 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
 
         return self._step_nr < self._max_num_steps
 
-    def _run_train_step(self) -> bool:
+    def _run_train_step(self) -> None:
         step_nr = self._step_nr
 
         log.debug("Running training step {}.", step_nr)
@@ -507,18 +507,16 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
             else:
                 self._lr_scheduler.step()
 
+                self._train_metric_bag.commit_updates()
+
+                self._train_metric_bag.gradient_norm.update(grad_norm)
+
                 stepped = True
 
             # Reset.
             self._optimizer.zero_grad(set_to_none=True)
 
-        self._train_metric_bag.commit_updates()
-
-        self._train_metric_bag.gradient_norm.update(grad_norm)
-
         self._train_elapsed_time += watch.get_elapsed_time()
-
-        return True
 
     def _next_train_batches(self) -> List[BatchT]:
         while True:
