@@ -4,6 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from pathlib import Path
 from pickle import PickleError
 from typing import Any, Dict, Generic, Optional, Protocol, TypeVar, Union, final
 
@@ -15,6 +16,7 @@ from fairseq2.assets import (
     AssetCardError,
     AssetDownloadManager,
     AssetError,
+    AssetNotFoundError,
     AssetStore,
     default_asset_store,
     default_download_manager,
@@ -356,7 +358,19 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
         if isinstance(model_name_or_card, AssetCard):
             card = model_name_or_card
         else:
-            card = self._asset_store.retrieve_card(model_name_or_card)
+            try:
+                card = self._asset_store.retrieve_card(model_name_or_card)
+            except AssetNotFoundError as err:
+                model_path = Path(model_name_or_card)
+                # If the card is not found, try looking it up by interpreting model_name as a path to the yaml card.
+                if model_path.exists() and model_path.suffix == ".yaml":
+                    import yaml
+
+                    with open(model_path, "r", encoding="utf-8") as f:
+                        card_data = yaml.safe_load(f)
+                        card = AssetCard(card_data)
+                else:
+                    raise err
 
         family = card.field("model_family").as_(str)
 
