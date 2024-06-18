@@ -79,31 +79,23 @@ class TestMetricBag:
         bag = MetricBag(gang=FakeGang(device=device))
         bag.hf_accuracy = HFMetric("accuracy")
 
+        # All compute arguments are registered in the beginning
+        bag.f1 = HFMetric("f1", average="macro")
+
         references = [[0, 1, 2], [0, 1], [2], [3]]
         predictions = [[0, 1, 1], [2, 1], [0], [3]]
 
         bag.begin_updates()
         for p, r in zip(predictions, references):
             bag.hf_accuracy.update(predictions=p, references=r)
-        
-        # Make sure auto_sync is set for HFMetric
-        with pytest.raises(
-            NotImplementedError, match=r"^Calling `merge_state() is forbidden in HFMetric"
-        ):
-            bag.sync_and_compute_metrics()
-        
-        bag.rollback_updates()
-        
-        # Add another metrics and properly set auto_sync flag
-        bag.em = HFMetric("exact_match")
-        bag.auto_sync = True
-
-        bag.begin_updates()
-        for p, r in zip(predictions, references):
-            bag.hf_accuracy.update(predictions=p, references=r)
-            bag.em.update(predictions=p, references=r)
+            bag.f1.update(predictions=p, references=r)
         bag.commit_updates()
-        
+
+        bag.auto_sync = True
         result = bag.sync_and_compute_metrics()
-        assert "accuracy" in result
-        assert "exact_match" in result
+        assert result
+        assert (
+            "hf_accuracy" in result
+            and pytest.approx(result["hf_accuracy"].item(), 0.0001) == 0.5714
+        )
+        assert "f1" in result and pytest.approx(result["f1"].item(), 0.001) == 0.575
