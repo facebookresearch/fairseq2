@@ -235,7 +235,7 @@ jobs:
           RUN_ON_DEVICE: ${{ inputs.run_on_device }}
         run: |
           if [[ $RUN_INTEGRATION_TESTS == true ]]; then
-            python -m pip install evaluate
+            python -m pip install evaluate scikit-learn
             integration=--integration
           fi
 
