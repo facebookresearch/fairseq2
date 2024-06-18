@@ -10,6 +10,7 @@ from torcheval.metrics import Mean, Sum
 
 from fairseq2.gang import FakeGang
 from fairseq2.metrics import MetricBag
+from fairseq2.metrics.hf import HFMetric
 from tests.common import device
 
 
@@ -73,3 +74,36 @@ class TestMetricBag:
             match=r"^`state_dict` must contain metrics \['test1', 'test2'\], but contains \['foo'\] instead\.$",
         ):
             bag.load_state_dict(state_dict)
+
+    def test_hf_metric(self) -> None:
+        bag = MetricBag(gang=FakeGang(device=device))
+        bag.hf_accuracy = HFMetric("accuracy")
+
+        references = [[0, 1, 2], [0, 1], [2], [3]]
+        predictions = [[0, 1, 1], [2, 1], [0], [3]]
+
+        bag.begin_updates()
+        for p, r in zip(predictions, references):
+            bag.hf_accuracy.update(predictions=p, references=r)
+        
+        # Make sure auto_sync is set for HFMetric
+        with pytest.raises(
+            NotImplementedError, match=r"^Calling `merge_state() is forbidden in HFMetric"
+        ):
+            bag.sync_and_compute_metrics()
+        
+        bag.rollback_updates()
+        
+        # Add another metrics and properly set auto_sync flag
+        bag.em = HFMetric("exact_match")
+        bag.auto_sync = True
+
+        bag.begin_updates()
+        for p, r in zip(predictions, references):
+            bag.hf_accuracy.update(predictions=p, references=r)
+            bag.em.update(predictions=p, references=r)
+        bag.commit_updates()
+        
+        result = bag.sync_and_compute_metrics()
+        assert "accuracy" in result
+        assert "exact_match" in result

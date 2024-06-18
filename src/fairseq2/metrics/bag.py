@@ -34,6 +34,7 @@ class MetricBag:
         super().__setattr__("_original_metrics", None)
 
         self._gang = gang
+        self.auto_sync = False
 
     def __getattr__(self, name: str) -> Any:
         if "_metrics" in self.__dict__ and name in self._metrics:
@@ -62,6 +63,13 @@ class MetricBag:
             if name in self._persistent_metrics:
                 del self._persistent_metrics[name]
         else:
+            assert name not in [
+                "auto_sync",
+                "_gang",
+                "_metrics",
+                "_persistent_metrics",
+                "_original_metrics",
+            ], f"Cannot delete protected attribute: {name}"
             super().__delattr__(name)
 
     @final
@@ -133,6 +141,23 @@ class MetricBag:
     @final
     def sync_and_compute_metrics(self) -> Optional[Dict[str, Any]]:
         """Sync the metrics across all processes and compute their values."""
+        if self.auto_sync:
+            try:
+                logging.disable(logging.WARNING)  # Suppress "No calls to update()".
+                values = {
+                    _strip_underscore(name): m.compute()
+                    for name, m in self._metrics.items()
+                }
+
+                # In auto-sync mode, the compute() automatically sync with other ranks
+                # and we get the result in rank 0
+                if self._gang.rank == 0:
+                    self.process_metric_values(values)
+
+                return values
+            finally:
+                logging.disable(logging.NOTSET)
+
         return sync_and_compute_metrics([self])
 
     def process_metric_values(self, values: Dict[str, Any]) -> None:
@@ -177,6 +202,12 @@ def reset_non_persistent_metrics(bags: Sequence[MetricBag]) -> None:
         bag.reset_non_persistent_metrics()
 
 
+def _strip_underscore(s: str) -> str:
+    if s.startswith("_"):
+        s = s[1:]
+    return s
+
+
 def sync_and_compute_metrics(bags: Sequence[MetricBag]) -> Optional[Dict[str, Any]]:
     """Sync the metrics across all processes and and compute their values."""
     if not bags:
@@ -207,14 +238,7 @@ def sync_and_compute_metrics(bags: Sequence[MetricBag]) -> Optional[Dict[str, An
 
     if gang.rank == 0:
         assert values is not None
-
-        def strip_underscore(s: str) -> str:
-            if s.startswith("_"):
-                s = s[1:]
-
-            return s
-
-        values = {strip_underscore(n): v for n, v in values.items()}
+        values = {_strip_underscore(n): v for n, v in values.items()}
 
         for bag in bags:
             bag.process_metric_values(values)
