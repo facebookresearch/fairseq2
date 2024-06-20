@@ -112,7 +112,8 @@ class ValueConverter:
                 f"`obj` cannot be structured to type `{type_hint}`. See nested exception for details."
             ) from ex
 
-    def _structure_identity(cls, kls: Any, kls_args: Any, obj: Any) -> Any:
+    @staticmethod
+    def _structure_identity(kls: Any, kls_args: Any, obj: Any) -> Any:
         if isinstance(obj, kls):
             return obj
 

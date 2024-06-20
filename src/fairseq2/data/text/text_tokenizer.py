@@ -22,6 +22,7 @@ from fairseq2.assets import (
     default_asset_store,
     default_download_manager,
 )
+from fairseq2.assets.utils import retrieve_asset_card
 from fairseq2.data.vocabulary_info import VocabularyInfo
 from fairseq2.typing import Device, override
 
@@ -163,14 +164,15 @@ class TextTokenizerLoader(Protocol[TextTokenizerT_co]):
 
     def __call__(
         self,
-        tokenizer_name_or_card: Union[str, AssetCard],
+        tokenizer_name_or_card: Union[str, AssetCard, Path],
         *,
         force: bool = False,
         progress: bool = True,
     ) -> TextTokenizerT_co:
         """
         :param tokenizer_name_or_card:
-            The name or asset card of the tokenizer to load.
+            The name, asset card, or path to the asset card file of the
+            tokenizer to load.
         :param force:
             If ``True``, downloads the tokenizer even if it is already in cache.
         :param progress:
@@ -192,30 +194,29 @@ class AbstractTextTokenizerLoader(ABC, TextTokenizerLoader[TextTokenizerT]):
     ) -> None:
         """
         :param asset_store:
-            The asset store where to check for available tokenizers.
+            The asset store where to check for available tokenizers. If ``None``,
+            the default asset store will be used.
         :param download_manager:
-            The download manager.
+            The download manager. If ``None``, the default download manager will
+            be used.
         """
         self._asset_store = asset_store or default_asset_store
         self._download_manager = download_manager or default_download_manager
 
     def __call__(
         self,
-        tokenizer_name_or_card: Union[str, AssetCard],
+        tokenizer_name_or_card: Union[str, AssetCard, Path],
         *,
         force: bool = False,
         progress: bool = True,
     ) -> TextTokenizerT:
-        if isinstance(tokenizer_name_or_card, AssetCard):
-            card = tokenizer_name_or_card
-        else:
-            card = self._asset_store.retrieve_card(tokenizer_name_or_card)
+        card = retrieve_asset_card(tokenizer_name_or_card, self._asset_store)
 
-        uri = card.field("tokenizer").as_uri()
+        tokenizer_uri = card.field("tokenizer").as_uri()
 
         try:
             path = self._download_manager.download_tokenizer(
-                uri, card.name, force=force, progress=progress
+                tokenizer_uri, card.name, force=force, progress=progress
             )
         except ValueError as ex:
             raise AssetCardError(
@@ -249,7 +250,8 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
     def __init__(self, *, asset_store: Optional[AssetStore] = None) -> None:
         """
         :param asset_store:
-            The asset store where to check for available tokenizers.
+            The asset store where to check for available tokenizers. If ``None``,
+            the default asset store will be used.
         """
         self._asset_store = asset_store or default_asset_store
 
@@ -257,34 +259,33 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
 
     def __call__(
         self,
-        tokenizer_name_or_card: Union[str, AssetCard],
+        tokenizer_name_or_card: Union[str, AssetCard, Path],
         *,
         force: bool = False,
         progress: bool = True,
     ) -> TextTokenizerT:
-        if isinstance(tokenizer_name_or_card, AssetCard):
-            card = tokenizer_name_or_card
-        else:
-            card = self._asset_store.retrieve_card(tokenizer_name_or_card)
+        card = retrieve_asset_card(tokenizer_name_or_card, self._asset_store)
 
-        family = None
+        tokenizer_family = None
 
-        for field_name in ["model_family", "dataset_family", "tokenizer_family"]:
+        for field_name in ["tokenizer_family", "model_family", "dataset_family"]:
             try:
-                family = card.field(field_name).as_(str)
+                tokenizer_family = card.field(field_name).as_(str)
+
+                break
             except AssetCardFieldNotFoundError:
                 continue
 
-        if family is None:
+        if tokenizer_family is None:
             raise AssetCardFieldNotFoundError(
                 f"The asset card '{card.name}' must have a field named 'tokenizer_family', 'model_family', or 'dataset_family'."
             )
 
         try:
-            loader = self._loaders[family]
+            loader = self._loaders[tokenizer_family]
         except KeyError:
             raise AssetError(
-                f"The value of the field '{field_name}' of the asset card '{card.name}' must be a supported tokenizer family, but '{family}' has no registered loader."
+                f"The value of the field '{field_name}' of the asset card '{card.name}' must be a supported tokenizer family, but '{tokenizer_family}' has no registered loader."
             )
 
         return loader(card, force=force, progress=progress)
