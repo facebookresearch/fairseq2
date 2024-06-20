@@ -8,10 +8,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, Optional, Tuple
+from typing import Literal, Optional, Tuple, Union
 
 import torch
 
+from fairseq2.assets.utils import retrieve_asset_card
 from fairseq2.checkpoint import FileCheckpointManager
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
@@ -50,11 +51,8 @@ class Wav2Vec2AsrTrainConfig:
     """
 
     # Data
-    dataset_name: str = "librilight_asr_10h"
-    """The dataset to train with."""
-
-    tokenizer_name: str = "librispeech_asr"
-    """The tokenizer to use."""
+    dataset: Union[str, Path] = "librilight_asr_10h"
+    """The name or path to the asset card of the dataset to train with."""
 
     train_split: str = "train"
     """The name of the dataset split to train with."""
@@ -83,9 +81,12 @@ class Wav2Vec2AsrTrainConfig:
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
 
+    tokenizer: Union[str, Path] = "librispeech_asr"
+    """The name or path to the asset card of the tokenizer to use."""
+
     # Model
-    pretrained_model_name: str = "wav2vec2_base"
-    """The name of the wav2vec 2.0 model to finetune."""
+    pretrained_model: Union[str, Path] = "wav2vec2_base"
+    """The name or path to the asset card of the wav2vec 2.0 model to finetune."""
 
     model_config: Wav2Vec2AsrConfig = field(
         default_factory=lambda: wav2vec2_asr_archs.get("base_10h")
@@ -182,7 +183,7 @@ def _base_10h() -> Wav2Vec2AsrTrainConfig:
 def _base_100h() -> Wav2Vec2AsrTrainConfig:
     config = _base_10h()
 
-    config.dataset_name = "librispeech_asr_100h"
+    config.dataset = "librispeech_asr_100h"
 
     config.model_config = wav2vec2_asr_archs.get("base_100h")
 
@@ -201,20 +202,16 @@ def load_wav2vec2_asr_trainer(
 
     gang = setup_root_gang(log, monitored=config.monitored_gang)
 
-    log.info("Loading {} tokenizer.", config.tokenizer_name)
-
-    tokenizer = load_text_tokenizer(config.tokenizer_name)
+    # Load the tokenizer.
+    tokenizer = load_text_tokenizer(config.tokenizer)
 
     if config.model_config.final_dim != tokenizer.vocab_info.size:
         raise ValueError(
             f"`config.model_config.final_dim` must match the size of the vocabulary of the tokenizer ({tokenizer.vocab_info.size}), but is {config.model_config.final_dim} instead."
         )
 
-    log.info("Tokenizer loaded.")
-
-    log.info("Loading {} dataset.", config.dataset_name)
-
-    dataset = load_asr_dataset(config.dataset_name)
+    # Load the data readers.
+    dataset = load_asr_dataset(config.dataset)
 
     train_data_reader = dataset.create_reader(
         split=config.train_split,
@@ -247,8 +244,6 @@ def load_wav2vec2_asr_trainer(
 
     data_readers = {"train": train_data_reader, "valid": valid_data_reader}
 
-    log.info("Dataset loaded.")
-
     # Initialize the model.
     model = create_wav2vec2_asr_model(
         config.model_config, device=META, dtype=torch.float32
@@ -262,11 +257,13 @@ def load_wav2vec2_asr_trainer(
     # If we don't have a checkpoint, load the pretrained model on rank 0 and
     # broadcast it to the gang.
     if not has_checkpoint:
-        log.info("Loading pretrained {} model on rank 0.", config.pretrained_model_name)
+        pretrained_model_card = retrieve_asset_card(config.pretrained_model)
+
+        log.info("Loading pretrained {} model on rank 0.", pretrained_model_card.name)
 
         if gang.rank == 0:
             pt_model = load_wav2vec2_model(
-                config.pretrained_model_name, device=gang.device, dtype=torch.float32
+                pretrained_model_card, device=gang.device, dtype=torch.float32
             )
 
             share_parameters(pt_model.encoder_frontend, model.encoder_frontend)

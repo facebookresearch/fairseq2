@@ -8,13 +8,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Optional, Tuple, cast, final
+from typing import Literal, Optional, Tuple, Union, cast, final
 
 import torch
 import torch.distributed
 from torch import Tensor
 from torch.nn import Module
 
+from fairseq2.assets.utils import retrieve_asset_card
 from fairseq2.checkpoint import FileCheckpointManager
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
@@ -48,11 +49,9 @@ log = get_log_writer(__name__)
 class InstructionFinetuneConfig:
     """Holds the configuration of an instruction-finetuning recipe."""
 
-    dataset_name: str = "openeft"  # TODO: change!
-    """The dataset to train with. Should match the fairseq2 asset name."""
-
-    tokenizer_name: str = "llama3_instruct"
-    """The tokenizer to use."""
+    # Data
+    dataset: Union[str, Path] = "openeft"  # TODO: change!
+    """The name or path to the asset card of the dataset to train with."""
 
     max_seq_len: int = 8192
     """The maximum sequence length."""
@@ -69,9 +68,12 @@ class InstructionFinetuneConfig:
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
 
+    tokenizer: Union[str, Path] = "llama3_instruct"
+    """The name or path to the asset card of the tokenizer to use."""
+
     # Model
-    model_name: str = "llama3_8b_instruct"
-    """The name of the model to finetune."""
+    model: Union[str, Path] = "llama3_8b_instruct"
+    """The name or path to the asset card of the model to finetune."""
 
     dtype: DataType = torch.bfloat16
     """The data type of the model."""
@@ -163,7 +165,7 @@ def _llama3_8b_instruct() -> InstructionFinetuneConfig:
 def _llama3_70b_instruct() -> InstructionFinetuneConfig:
     config = _llama3_8b_instruct()
 
-    config.model_name = "llama3_70b_instruct"
+    config.model = "llama3_70b_instruct"
     config.tensor_parallel_size = 8
 
     return config
@@ -173,10 +175,10 @@ def _llama3_70b_instruct() -> InstructionFinetuneConfig:
 def _llama2_7b_chat() -> InstructionFinetuneConfig:
     config = _llama3_8b_instruct()
 
-    config.model_name = "llama2_7b_chat"
-    config.tokenizer_name = "llama2"
+    config.tokenizer = "llama2"
     config.max_seq_len = 4096
     config.max_num_tokens = 4096 * 2
+    config.model = "llama2_7b_chat"
 
     return config
 
@@ -185,7 +187,7 @@ def _llama2_7b_chat() -> InstructionFinetuneConfig:
 def _llama2_70b_chat() -> InstructionFinetuneConfig:
     config = _llama2_7b_chat()
 
-    config.model_name = "llama2_70b_chat"
+    config.model = "llama2_70b_chat"
     config.tensor_parallel_size = 8
 
     return config
@@ -204,15 +206,11 @@ def load_instruction_finetuner(
     dp_gang = gangs["dp"]  # data
     tp_gang = gangs["tp"]  # tensor
 
-    log.info("Loading {} tokenizer.", config.tokenizer_name)
+    # Load the tokenizer.
+    tokenizer = load_text_tokenizer(config.tokenizer)
 
-    tokenizer = load_text_tokenizer(config.tokenizer_name)
-
-    log.info("Tokenizer loaded.")
-
-    log.info("Loading {} dataset.", config.dataset_name)
-
-    dataset = load_instruction_dataset(config.dataset_name)
+    # Load the data reader.
+    dataset = load_instruction_dataset(config.dataset)
 
     data_reader = dataset.create_reader(
         split="train",
@@ -229,9 +227,9 @@ def load_instruction_finetuner(
 
     data_readers = {"train": data_reader}
 
-    log.info("Dataset loaded.")
-
     # Initialize the model.
+    model_card = retrieve_asset_card(config.model)
+
     init_device = META
 
     # Set up the checkpoint manager.
@@ -243,18 +241,18 @@ def load_instruction_finetuner(
 
     if has_checkpoint:
         model = load_model(
-            config.model_name, gangs=gangs, device=init_device, dtype=torch.float32
+            model_card, gangs=gangs, device=init_device, dtype=torch.float32
         )
     # If we don't have a checkpoint, load the pretrained model on rank 0 and
     # broadcast it to the gang.
     else:
-        log.info("Loading {} model on data parallel rank 0 (per shard).", config.model_name)  # fmt: skip
+        log.info("Loading {} model on data parallel rank 0 (per shard).", model_card.name)  # fmt: skip
 
         if dp_gang.rank == 0:
             init_device = root_gang.device
 
         model = load_model(
-            config.model_name, gangs=gangs, device=init_device, dtype=torch.float32
+            model_card, gangs=gangs, device=init_device, dtype=torch.float32
         )
 
         root_gang.barrier()
@@ -262,7 +260,7 @@ def load_instruction_finetuner(
         log.info("Model loaded on data parallel rank 0.")
 
     if not isinstance(model, DecoderModel):
-        raise ValueError("`config.model_name` must specify a decoder model.")
+        raise ValueError("`config.model` must specify a decoder model.")
 
     if model.vocab_info != tokenizer.vocab_info:
         raise ValueError(
@@ -270,7 +268,7 @@ def load_instruction_finetuner(
         )
 
     checkpoint_manager.save_model_metadata(
-        base_asset=config.model_name, family=model.family
+        base_asset=model_card.name, family=model.family
     )
 
     dp_model = to_data_parallel(

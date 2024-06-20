@@ -7,11 +7,13 @@
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 from typing import (
     AbstractSet,
     Any,
     Dict,
+    Final,
     List,
     Mapping,
     MutableMapping,
@@ -22,7 +24,6 @@ from typing import (
 from urllib.parse import urlparse, urlunparse
 
 from fairseq2.assets.error import AssetError
-from fairseq2.assets.utils import _starts_with_scheme
 from fairseq2.utils.value_converter import ValueConverter, default_value_converter
 
 T = TypeVar("T")
@@ -350,3 +351,10 @@ class AssetCardError(AssetError):
 
 class AssetCardFieldNotFoundError(AssetCardError):
     """Raised when an asset card field cannot be found."""
+
+
+_SCHEME_REGEX: Final = re.compile("^[a-zA-Z0-9]+://")
+
+
+def _starts_with_scheme(s: str) -> bool:
+    return re.match(_SCHEME_REGEX, s) is not None
