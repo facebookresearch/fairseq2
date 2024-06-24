@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.assets.store &mdash; fairseq2 0.3.0.dev202406170141+g10d398d documentation</title>
+  <title>fairseq2.assets.store &mdash; fairseq2 0.3.0.dev202406240140+g7ece73c documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202406170141+g10d398d
+                0.3.0.dev202406240140+g7ece73c
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -239,6 +239,7 @@
         <span class="o">*</span><span class="p">,</span>
         <span class="n">envs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="n">scope</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;all&quot;</span><span class="p">,</span> <span class="s2">&quot;global&quot;</span><span class="p">,</span> <span class="s2">&quot;user&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;all&quot;</span><span class="p">,</span>
+        <span class="n">extra_provider</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">AssetMetadataProvider</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AssetCard</span><span class="p">:</span>
         <span class="n">name_env_pair</span> <span class="o">=</span> <span class="n">name</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;@&quot;</span><span class="p">,</span> <span class="n">maxsplit</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
@@ -256,7 +257,7 @@
         <span class="k">if</span> <span class="n">envs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="n">envs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_resolve_envs</span><span class="p">()</span>
 
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_do_retrieve_card</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">envs</span><span class="p">,</span> <span class="n">scope</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_do_retrieve_card</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">envs</span><span class="p">,</span> <span class="n">scope</span><span class="p">,</span> <span class="n">extra_provider</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">_resolve_envs</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
         <span class="c1"># This is a special, always available environment for users to override</span>
@@ -271,14 +272,20 @@
         <span class="k">return</span> <span class="n">envs</span>
 
     <span class="k">def</span> <span class="nf">_do_retrieve_card</span><span class="p">(</span>
-        <span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">envs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">scope</span><span class="p">:</span> <span class="nb">str</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">envs</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+        <span class="n">scope</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+        <span class="n">extra_provider</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">AssetMetadataProvider</span><span class="p">],</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AssetCard</span><span class="p">:</span>
-        <span class="n">metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_metadata</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">@&quot;</span><span class="p">,</span> <span class="n">scope</span><span class="p">)</span>
+        <span class="n">metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_metadata</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">@&quot;</span><span class="p">,</span> <span class="n">scope</span><span class="p">,</span> <span class="n">extra_provider</span><span class="p">)</span>
 
         <span class="c1"># If we have environment-specific metadata, merge it with `metadata`.</span>
         <span class="k">for</span> <span class="n">env</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">envs</span><span class="p">):</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="n">env_metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_metadata</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="n">env</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">scope</span><span class="p">)</span>
+                <span class="n">env_metadata</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_metadata</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">@</span><span class="si">{</span><span class="n">env</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">scope</span><span class="p">,</span> <span class="n">extra_provider</span>
+                <span class="p">)</span>
 
                 <span class="c1"># Do not allow overriding &#39;name&#39;.</span>
                 <span class="k">try</span><span class="p">:</span>
@@ -305,13 +312,21 @@
                     <span class="sa">f</span><span class="s2">&quot;The value of the field &#39;base&#39; of the asset card &#39;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&#39; must be of type `</span><span class="si">{</span><span class="nb">str</span><span class="si">}</span><span class="s2">`, but is of type `</span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">base_name</span><span class="p">)</span><span class="si">}</span><span class="s2">` instead.&quot;</span>
                 <span class="p">)</span>
 
-            <span class="n">base_card</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_do_retrieve_card</span><span class="p">(</span><span class="n">base_name</span><span class="p">,</span> <span class="n">envs</span><span class="p">,</span> <span class="n">scope</span><span class="p">)</span>
+            <span class="n">base_card</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_do_retrieve_card</span><span class="p">(</span><span class="n">base_name</span><span class="p">,</span> <span class="n">envs</span><span class="p">,</span> <span class="n">scope</span><span class="p">,</span> <span class="n">extra_provider</span><span class="p">)</span>
 
         <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">name</span>
 
         <span class="k">return</span> <span class="n">AssetCard</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span> <span class="n">base_card</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">_get_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">scope</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+    <span class="k">def</span> <span class="nf">_get_metadata</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">scope</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">extra_provider</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">AssetMetadataProvider</span><span class="p">]</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="n">extra_provider</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">extra_provider</span><span class="o">.</span><span class="n">get_metadata</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">AssetNotFoundError</span><span class="p">:</span>
+                <span class="k">pass</span>
+
         <span class="k">if</span> <span class="n">scope</span> <span class="o">==</span> <span class="s2">&quot;all&quot;</span> <span class="ow">or</span> <span class="n">scope</span> <span class="o">==</span> <span class="s2">&quot;user&quot;</span><span class="p">:</span>
             <span class="k">for</span> <span class="n">provider</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">user_metadata_providers</span><span class="p">):</span>
                 <span class="k">try</span><span class="p">:</span>

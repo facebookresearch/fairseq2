@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.assets.card &mdash; fairseq2 0.3.0.dev202406170141+g10d398d documentation</title>
+  <title>fairseq2.assets.card &mdash; fairseq2 0.3.0.dev202406240140+g7ece73c documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202406170141+g10d398d
+                0.3.0.dev202406240140+g7ece73c
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -164,11 +164,13 @@
 <span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">annotations</span>
 
 <span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">re</span>
 <span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="p">(</span>
     <span class="n">AbstractSet</span><span class="p">,</span>
     <span class="n">Any</span><span class="p">,</span>
     <span class="n">Dict</span><span class="p">,</span>
+    <span class="n">Final</span><span class="p">,</span>
     <span class="n">List</span><span class="p">,</span>
     <span class="n">Mapping</span><span class="p">,</span>
     <span class="n">MutableMapping</span><span class="p">,</span>
@@ -179,7 +181,6 @@
 <span class="kn">from</span> <span class="nn">urllib.parse</span> <span class="kn">import</span> <span class="n">urlparse</span><span class="p">,</span> <span class="n">urlunparse</span>
 
 <span class="kn">from</span> <span class="nn">fairseq2.assets.error</span> <span class="kn">import</span> <span class="n">AssetError</span>
-<span class="kn">from</span> <span class="nn">fairseq2.assets.utils</span> <span class="kn">import</span> <span class="n">_starts_with_scheme</span>
 <span class="kn">from</span> <span class="nn">fairseq2.utils.value_converter</span> <span class="kn">import</span> <span class="n">ValueConverter</span><span class="p">,</span> <span class="n">default_value_converter</span>
 
 <span class="n">T</span> <span class="o">=</span> <span class="n">TypeVar</span><span class="p">(</span><span class="s2">&quot;T&quot;</span><span class="p">)</span>
@@ -507,6 +508,13 @@
 
 <span class="k">class</span> <span class="nc">AssetCardFieldNotFoundError</span><span class="p">(</span><span class="n">AssetCardError</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Raised when an asset card field cannot be found.&quot;&quot;&quot;</span>
+
+
+<span class="n">_SCHEME_REGEX</span><span class="p">:</span> <span class="n">Final</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s2">&quot;^[a-zA-Z0-9]+://&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span> <span class="nf">_starts_with_scheme</span><span class="p">(</span><span class="n">s</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+    <span class="k">return</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">_SCHEME_REGEX</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
 </pre></div>
 
            </div>
