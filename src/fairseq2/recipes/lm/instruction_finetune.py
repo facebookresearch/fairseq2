@@ -134,6 +134,9 @@ class InstructionFinetuneConfig:
     keep_last_n_checkpoints: Optional[int] = 1
     """The number of checkpoints to keep. If ``None``, none will be deleted."""
 
+    keep_last_n_models: Optional[int] = None
+    """The number of checkpoint models to keep."""
+
     publish_metrics_every_n_steps: int = 10
     """The step interval at which to publish training metrics."""
 
@@ -331,6 +334,7 @@ def load_instruction_finetuner(
         checkpoint_manager=checkpoint_manager,
         checkpoint_every_n_steps=config.checkpoint_every_n_steps,
         keep_last_n_checkpoints=config.keep_last_n_checkpoints,
+        keep_last_n_models=config.keep_last_n_models,
         tb_dir=output_dir.joinpath("tb"),
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
         profile=config.profile,

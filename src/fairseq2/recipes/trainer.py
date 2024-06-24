@@ -103,6 +103,8 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
     _checkpoint_every_n_steps: Optional[int]
     _keep_last_n_checkpoints: Optional[int]
     _keep_best_n_checkpoints: Optional[int]
+    _keep_last_n_models: Optional[int]
+    _keep_best_n_models: Optional[int]
     _train_metric_bag: MetricBag
     _valid_metric_bag: MetricBag
     _metric_recorders: List[MetricRecorder]
@@ -141,6 +143,8 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
         checkpoint_every_n_steps: Optional[int] = None,
         keep_last_n_checkpoints: Optional[int] = None,
         keep_best_n_checkpoints: Optional[int] = None,
+        keep_last_n_models: Optional[int] = None,
+        keep_best_n_models: Optional[int] = None,
         tb_dir: Optional[Path] = None,
         publish_metrics_after_n_steps: int = 0,
         publish_metrics_every_n_steps: int = 100,
@@ -191,6 +195,11 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
             The number of checkpoints to keep. If ``None``, no checkpoint will
             be deleted.
         :param keep_best_n_checkpoints:
+            WIP
+        :param keep_last_n_models:
+            The number of checkpoint models to keep. Must be greater than or
+            equal to ``keep_last_n_checkpoints``.
+        :param keep_best_n_models:
             WIP
         :param tb_dir:
             The TensorBoard log directory to dump metrics.
@@ -295,6 +304,31 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
 
         self._keep_last_n_checkpoints = keep_last_n_checkpoints
         self._keep_best_n_checkpoints = keep_best_n_checkpoints
+
+        if keep_last_n_models is not None:
+            if keep_last_n_checkpoints is None:
+                raise ValueError(
+                    "`keep_last_n_models` must be `None` when `keep_last_n_checkpoints` is `None`."
+                )
+
+            if keep_last_n_checkpoints > keep_last_n_models:
+                raise ValueError(
+                    f"`keep_last_n_models` must be greater than or equal to `keep_last_n_checkpoints` ({keep_last_n_checkpoints}), but is {keep_last_n_models} instead."
+                )
+
+        if keep_best_n_models is not None:
+            if keep_best_n_checkpoints is None:
+                raise ValueError(
+                    "`keep_best_n_models` must be `None` when `keep_best_n_checkpoints` is `None`."
+                )
+
+            if keep_best_n_checkpoints > keep_best_n_models:
+                raise ValueError(
+                    f"`keep_best_n_models` must be greater than or equal to `keep_best_n_checkpoints` ({keep_best_n_checkpoints}), but is {keep_best_n_models} instead."
+                )
+
+        self._keep_last_n_models = keep_last_n_models
+        self._keep_best_n_models = keep_best_n_models
 
         self._train_metric_bag = self._criterion.train_metric_bag
 
@@ -744,8 +778,17 @@ class StandardTrainer(StatefulObjectBag, Trainer, Generic[BatchT]):
 
             log.info("Model saved.")
 
-        if n := self._keep_last_n_checkpoints:
-            self._checkpoint_manager.keep_last_n_checkpoints(n)
+        nc = self._keep_last_n_checkpoints
+        nm = self._keep_last_n_models
+
+        if nm:
+            assert nc
+
+            self._checkpoint_manager.keep_last_n_checkpoints(nm)
+
+            self._checkpoint_manager.keep_last_n_checkpoints(nc, preserve_model=True)
+        elif nc:
+            self._checkpoint_manager.keep_last_n_checkpoints(nc)
 
     def _should_do(self, n_step: int) -> bool:
         if self._eod:

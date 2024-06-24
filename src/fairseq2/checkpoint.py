@@ -113,18 +113,28 @@ class CheckpointManager(ABC):
         """
 
     @abstractmethod
-    def delete_checkpoint(self, step_nr: int, *, missing_ok: bool = False) -> None:
+    def delete_checkpoint(
+        self, step_nr: int, *, missing_ok: bool = False, preserve_model: bool = False
+    ) -> None:
         """Delete the checkpoint of the specified training step.
 
         :param step_nr:
             The number of the training step.
         :param missing_ok:
             If ``True``, does not raise error if the checkpoint does not exists.
+        :param preserve_model:
+            If ``True``, model won't be deleted.
         """
 
     @abstractmethod
-    def keep_last_n_checkpoints(self, n: int) -> None:
-        """Delete all but the last ``n`` checkpoints."""
+    def keep_last_n_checkpoints(self, n: int, *, preserve_model: bool = False) -> None:
+        """Delete all but the last ``n`` checkpoints.
+
+        :param n:
+            The number of checkpoints to preserve.
+        :param preserve_model:
+            If ``True``, models in old checkpoints won't be deleted.
+        """
 
     @abstractmethod
     def has_checkpoint(self, step_nr: Optional[int] = None) -> bool:
@@ -572,36 +582,59 @@ class FileCheckpointManager(CheckpointManager):
         return metadata
 
     @override
-    def delete_checkpoint(self, step_nr: int, *, missing_ok: bool = False) -> None:
+    def delete_checkpoint(
+        self, step_nr: int, *, missing_ok: bool = False, preserve_model: bool = False
+    ) -> None:
+        def raise_error(cause: Exception) -> NoReturn:
+            raise RuntimeError(
+                f"The checkpoint of training step {step_nr} cannot be deleted. See nested exception for details."
+            ) from cause
+
         if self._root_gang.rank == 0:
             step_dir = self._checkpoint_dir.joinpath(f"step_{step_nr}")
 
-            try:
-                rmtree(step_dir)
-            except OSError as ex:
-                if not missing_ok or not isinstance(ex, FileNotFoundError):
-                    raise RuntimeError(
-                        f"The checkpoint of training step {step_nr} cannot be deleted. See nested exception for details."
-                    ) from ex
-
+            # Delete the temporary checkpoint directory if it exists.
             try:
                 rmtree(step_dir.with_suffix(".tmp"))
             except OSError as ex:
                 if not isinstance(ex, FileNotFoundError):
-                    raise RuntimeError(
-                        f"The checkpoint of training step {step_nr} cannot be deleted. See nested exception for details."
-                    ) from ex
+                    raise_error(ex)
+
+            if not step_dir.exists():
+                if not missing_ok:
+                    raise RuntimeError(f"Training step {step_nr} has no checkpoint.")
+
+                return
+
+            if preserve_model:
+                # Delete all PyTorch tensor files except 'model.X.pt' files that
+                # represent (consolidated) models.
+                for pt_file in step_dir.glob("*.pt"):
+                    if pt_file.is_dir() or pt_file.stem.startswith("model"):
+                        continue
+
+                    try:
+                        pt_file.unlink()
+                    except OSError as ex:
+                        if not isinstance(ex, FileNotFoundError):
+                            raise_error(ex)
+            else:
+                try:
+                    rmtree(step_dir)
+                except OSError as ex:
+                    if not missing_ok or not isinstance(ex, FileNotFoundError):
+                        raise_error(ex)
 
         self._root_gang.barrier()
 
     @override
-    def keep_last_n_checkpoints(self, n: int) -> None:
+    def keep_last_n_checkpoints(self, n: int, *, preserve_model: bool = False) -> None:
         step_numbers = self.get_step_numbers()
 
         self._root_gang.barrier()
 
         for step_number in step_numbers[:-n]:
-            self.delete_checkpoint(step_number)
+            self.delete_checkpoint(step_number, preserve_model=preserve_model)
 
     # compat
     def get_model_checkpoint_path(
