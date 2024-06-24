@@ -22,13 +22,37 @@ zip_data_source::zip_data_source(
     std::vector<std::string> &&names,
     bool zip_to_shortest,
     bool flatten,
-    bool disable_parallelism) noexcept
+    bool disable_parallelism) 
   : pipelines_(std::move(pipelines)),
     names_(std::move(names)),
     zip_to_shortest_{zip_to_shortest},
     flatten_{flatten},
     disable_parallelism_{disable_parallelism}
-{}
+{
+    bool all_finite = pipelines_.empty() || std::all_of(
+        pipelines_.begin(), pipelines_.end(), [](const data_pipeline &p) 
+        {
+            return p.is_infinite() != data_source_finitude_type::finite;
+        }
+    );
+    
+    bool all_infinite = !pipelines_.empty() && std::all_of(
+        pipelines_.begin(), pipelines_.end(), [](const data_pipeline &p) 
+        {
+            return p.is_infinite() != data_source_finitude_type::infinite;
+        }
+    );
+
+    if (all_finite && all_infinite) 
+        throw_<data_pipeline_error>("Cannot zip only pseudo-infinite pipelines.");
+    else if (all_finite) 
+        finitude_type_ = data_source_finitude_type::finite;
+    else if (all_infinite)
+        finitude_type_ = data_source_finitude_type::infinite;
+    else
+        throw_<data_pipeline_error>("Cannot mix finite and infinite pipelines in zip.");
+
+}
 
 std::optional<data>
 zip_data_source::next()
@@ -50,7 +74,7 @@ zip_data_source::next()
             if (maybe_example) {
                 zip[i] = *std::move(maybe_example);
 
-                if (pipelines_[i].is_infinite())
+                if (pipelines_[i].is_infinite() == data_source_finitude_type::pseudo_infinite)
                     is_eod[i] = 2;
             } else
                 is_eod[i] = 1;
@@ -184,10 +208,10 @@ zip_data_source::reload_position(tape &t, bool)
         pipeline.reload_position(t);
 }
 
-bool
+data_source_finitude_type
 zip_data_source::is_infinite() const noexcept
 {
-    return false;
+    return finitude_type_;
 }
 
 }  // namespace fairseq2n::detail

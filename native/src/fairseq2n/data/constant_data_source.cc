@@ -31,10 +31,10 @@ void
 constant_data_source::reload_position(tape &, bool)
 {}
 
-bool
+data_source_finitude_type
 constant_data_source::is_infinite() const noexcept
 {
-    return true;
+    return data_source_finitude_type::pseudo_infinite;
 }
 
 }

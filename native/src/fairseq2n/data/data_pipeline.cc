@@ -141,7 +141,7 @@ data_pipeline::reload_position(tape &t)
         reset();
 }
 
-bool
+data_source_finitude_type
 data_pipeline::is_infinite() const
 {
     check_if_broken();
@@ -149,7 +149,7 @@ data_pipeline::is_infinite() const
     ensure_initialized();
 
     if (!source_)
-        return false;
+        return data_source_finitude_type::finite;
 
     return source_->is_infinite();
 }

@@ -53,7 +53,7 @@ public:
     void
     reload_position(tape &t);
 
-    bool
+    data_source_finitude_type
     is_infinite() const;
 
     bool

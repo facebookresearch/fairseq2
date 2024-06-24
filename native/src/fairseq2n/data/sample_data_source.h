@@ -38,7 +38,7 @@ public:
     void
     reload_position(tape &t, bool strict) override;
 
-    bool
+    data_source_finitude_type
     is_infinite() const noexcept override;
 
 private:
@@ -57,7 +57,7 @@ private:
     std::vector<data> buffer_{};
     std::vector<bool> is_epoch_done_;
     bool is_eod_ = false;
-    bool is_infinite_;
+    data_source_finitude_type finitude_type_;
     std::uint64_t seed_;
     at::Generator generator_;
 };

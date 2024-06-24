@@ -90,10 +90,10 @@ text_data_source::reload_position(tape &t, bool)
         read_next_line();
 }
 
-bool
+data_source_finitude_type
 text_data_source::is_infinite() const noexcept
 {
-    return false;
+    return data_source_finitude_type::finite;
 }
 
 std::unique_ptr<text_line_reader>

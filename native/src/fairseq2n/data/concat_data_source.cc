@@ -13,11 +13,11 @@ namespace fairseq2n::detail {
 concat_data_source::concat_data_source(std::vector<data_pipeline> &&pipelines) noexcept
   : pipelines_(std::move(pipelines))
 {
-    is_infinite_ = std::any_of(
-        pipelines_.begin(), pipelines_.end(), [](const data_pipeline &p)
+    finitude_type_ = std::max_element(
+        pipelines_.begin(), pipelines_.end(), [](const data_pipeline &a, const data_pipeline &b)
         {
-            return p.is_infinite();
-        });
+            return a.is_infinite() < b.is_infinite();
+        })->is_infinite();
 }
 
 std::optional<data>
@@ -49,10 +49,10 @@ void concat_data_source::reload_position(tape &t, bool)
         pipeline.reload_position(t);
 }
 
-bool
+data_source_finitude_type
 concat_data_source::is_infinite() const noexcept
 {
-    return is_infinite_;
+    return finitude_type_;
 }
 
 } // namespace fairseq2n::detail

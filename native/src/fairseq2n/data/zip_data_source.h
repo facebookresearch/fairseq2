@@ -23,7 +23,7 @@ public:
         std::vector<std::string> &&names,
         bool zip_to_shortest,
         bool flatten,
-        bool disable_parallelism) noexcept;
+        bool disable_parallelism);
 
     std::optional<data>
     next() override;
@@ -37,7 +37,7 @@ public:
     void
     reload_position(tape &t, bool strict) override;
 
-    bool
+    data_source_finitude_type
     is_infinite() const noexcept override;
 
 private:
@@ -53,6 +53,7 @@ private:
     bool zip_to_shortest_;
     bool flatten_;
     bool disable_parallelism_;
+    data_source_finitude_type finitude_type_;
 };
 
 }  // namespace fairseq2n::detail

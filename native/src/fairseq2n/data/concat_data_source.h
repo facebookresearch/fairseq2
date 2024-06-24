@@ -31,12 +31,12 @@ public:
     void
     reload_position(tape &t, bool strict) override;
 
-    bool
+    data_source_finitude_type
     is_infinite() const noexcept override;
 
 private:
     std::vector<data_pipeline> pipelines_;
-    bool is_infinite_;
+    data_source_finitude_type finitude_type_;
 };
 
 }  // namespace fairseq2n::detail

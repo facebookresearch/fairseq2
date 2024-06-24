@@ -72,7 +72,7 @@ yield_from_data_source::reload_position(tape &t, bool strict)
     inner_->reload_position(t, strict);
 }
 
-bool
+data_source_finitude_type
 yield_from_data_source::is_infinite() const noexcept
 {
     return inner_->is_infinite();
@@ -88,7 +88,7 @@ yield_from_data_source::load_next_data_pipeline()
     else
         data_pipeline_ = {};
 
-    if (data_pipeline_.is_infinite()) {
+    if (data_pipeline_.is_infinite() != data_source_finitude_type::finite) {
         data_pipeline_ = {};
 
         throw_data_pipeline_error(std::move(maybe_current_example_), /*recoverable=*/true,

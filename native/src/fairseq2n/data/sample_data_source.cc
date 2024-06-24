@@ -48,11 +48,11 @@ sample_data_source::sample_data_source(
 
     buffer_.reserve(pipelines_.size());
 
-    is_infinite_ = std::all_of(
-        pipelines_.begin(), pipelines_.end(), [](const data_pipeline &p)
+    finitude_type_ = pipelines_.empty() ? data_source_finitude_type::finite : std::max_element(
+        pipelines_.begin(), pipelines_.end(), [](const data_pipeline &a, const data_pipeline &b)
         {
-            return p.is_infinite();
-        });
+            return a.is_infinite() < b.is_infinite();
+        })->is_infinite();
 }
 
 std::optional<data>
@@ -128,10 +128,10 @@ sample_data_source::reload_position(tape &t, bool strict)
         pipeline.reload_position(t);
 }
 
-bool
+data_source_finitude_type
 sample_data_source::is_infinite() const noexcept
 {
-    return is_infinite_;
+    return finitude_type_;
 }
 
 std::size_t
@@ -172,7 +172,7 @@ sample_data_source::next_in_pipeline(std::size_t pipeline_idx)
         if (!maybe_example)
             throw_data_pipeline_error(/*maybe_example=*/std::nullopt, /*recoverable=*/false,
                 "The data pipeline at index {} is empty and cannot be sampled.", pipeline_idx);
-    } else if (pipeline.is_infinite())
+    } else if (pipeline.is_infinite() == data_source_finitude_type::pseudo_infinite)
         is_epoch_done_[pipeline_idx] = true;
 
     return std::move(*maybe_example);

@@ -152,7 +152,7 @@ shuffle_data_source::reload_position(tape &t, bool strict)
     inner_->reload_position(t, strict);
 }
 
-bool
+data_source_finitude_type
 shuffle_data_source::is_infinite() const noexcept
 {
     return inner_->is_infinite();

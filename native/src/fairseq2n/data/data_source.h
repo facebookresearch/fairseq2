@@ -12,6 +12,7 @@
 #include "fairseq2n/api.h"
 #include "fairseq2n/data/data.h"
 #include "fairseq2n/data/tape.h"
+#include "fairseq2n/data/finitude_type.h"
 
 namespace fairseq2n {
 
@@ -40,7 +41,7 @@ public:
     virtual void
     reload_position(tape &t, bool strict) = 0;
 
-    virtual bool
+    virtual data_source_finitude_type
     is_infinite() const noexcept = 0;
 };
 
