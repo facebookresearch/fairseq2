@@ -16,11 +16,11 @@ from fairseq2.assets import (
     AssetCardError,
     AssetDownloadManager,
     AssetError,
-    AssetNotFoundError,
     AssetStore,
     default_asset_store,
     default_download_manager,
 )
+from fairseq2.assets.utils import retrieve_asset_card
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.models.config_loader import ModelConfigLoader
@@ -52,7 +52,7 @@ class ModelLoader(Protocol[ModelT_co]):
 
     def __call__(
         self,
-        model_name_or_card: Union[str, AssetCard],
+        model_name_or_card: Union[str, AssetCard, Path],
         *,
         gangs: Optional[Dict[str, Gang]] = None,
         device: Optional[Device] = None,
@@ -62,7 +62,8 @@ class ModelLoader(Protocol[ModelT_co]):
     ) -> ModelT_co:
         """
         :param model_name_or_card:
-            The name or asset card of the model to load.
+            The name, asset card, or path to the asset card file of the model to
+            load.
         :param gangs:
             The gangs over which to shard the model (e.g. for tensor or pipeline
             parallelism).
@@ -152,9 +153,11 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
             model directly on the requested device. Should be used with models
             that do not support PyTorch's ``reset_parameters()`` convention.
         :param asset_store:
-            The asset store where to check for available models.
+            The asset store where to check for available models. If ``None``,
+            the default asset store will be used.
         :param download_manager:
-            The download manager to download checkpoints.
+            The download manager. If ``None``, the default download manager will
+            be used.
         :param tensor_loader:
             The tensor loader to load checkpoints into memory.
         :param checkpoint_converter:
@@ -173,7 +176,7 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
     @final
     def __call__(
         self,
-        model_name_or_card: Union[str, AssetCard],
+        model_name_or_card: Union[str, AssetCard, Path],
         *,
         gangs: Optional[Dict[str, Gang]] = None,
         device: Optional[Device] = None,
@@ -195,10 +198,7 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         if device is None:
             device = CPU
 
-        if isinstance(model_name_or_card, AssetCard):
-            card = model_name_or_card
-        else:
-            card = self._asset_store.retrieve_card(model_name_or_card)
+        card = retrieve_asset_card(model_name_or_card, self._asset_store)
 
         num_shards = card.field("num_shards").get_as_(int, default=1)
         if num_shards < 1:
@@ -240,13 +240,17 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
             return model
 
         # Load the checkpoint.
-        uri = card.field("checkpoint").as_uri()
+        checkpoint_uri = card.field("checkpoint").as_uri()
 
         shard_idx = gang.rank if gang is not None and gang.size != 1 else None
 
         try:
             path = self._download_manager.download_checkpoint(
-                uri, card.name, shard_idx=shard_idx, force=force, progress=progress
+                checkpoint_uri,
+                card.name,
+                shard_idx=shard_idx,
+                force=force,
+                progress=progress,
             )
         except ValueError as ex:
             raise AssetCardError(
@@ -339,7 +343,8 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
     def __init__(self, *, asset_store: Optional[AssetStore] = None) -> None:
         """
         :param asset_store:
-            The asset store where to check for available models.
+            The asset store where to check for available models. If ``None``,
+            the default asset store will be used.
         """
         self._asset_store = asset_store or default_asset_store
 
@@ -347,7 +352,7 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
 
     def __call__(
         self,
-        model_name_or_card: Union[str, AssetCard],
+        model_name_or_card: Union[str, AssetCard, Path],
         *,
         gangs: Optional[Dict[str, Gang]] = None,
         device: Optional[Device] = None,
@@ -355,30 +360,15 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
         force: bool = False,
         progress: bool = True,
     ) -> ModelT:
-        if isinstance(model_name_or_card, AssetCard):
-            card = model_name_or_card
-        else:
-            try:
-                card = self._asset_store.retrieve_card(model_name_or_card)
-            except AssetNotFoundError as err:
-                model_path = Path(model_name_or_card)
-                # If the card is not found, try looking it up by interpreting model_name as a path to the yaml card.
-                if model_path.exists() and model_path.suffix == ".yaml":
-                    import yaml
+        card = retrieve_asset_card(model_name_or_card, self._asset_store)
 
-                    with open(model_path, "r", encoding="utf-8") as f:
-                        card_data = yaml.safe_load(f)
-                        card = AssetCard(card_data)
-                else:
-                    raise err
-
-        family = card.field("model_family").as_(str)
+        model_family = card.field("model_family").as_(str)
 
         try:
-            loader = self._loaders[family]
+            loader = self._loaders[model_family]
         except KeyError:
             raise AssetError(
-                f"The value of the field 'model_family' of the asset card '{card.name}' must be a supported model family, but '{family}' has no registered loader."
+                f"The value of the field 'model_family' of the asset card '{card.name}' must be a supported model family, but '{model_family}' has no registered loader."
             )
 
         return loader(

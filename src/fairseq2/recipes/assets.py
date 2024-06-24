@@ -54,7 +54,8 @@ class ListAssetsCommand(CliCommandHandler):
     def __init__(self, asset_store: Optional[AssetStore] = None) -> None:
         """
         :param asset_store:
-            The asset store from which to retrieve the asset cards.
+            The asset store from which to retrieve the asset cards. If ``None``,
+            the default asset store will be used.
         """
         self._asset_store = asset_store or default_asset_store
 
@@ -162,7 +163,8 @@ class ShowAssetCommand(CliCommandHandler):
     def __init__(self, asset_store: Optional[AssetStore] = None) -> None:
         """
         :param asset_store:
-            The asset store from which to retrieve the asset cards.
+            The asset store from which to retrieve the asset cards. If ``None``,
+            the default asset store will be used.
         """
         self._asset_store = asset_store or default_asset_store
 

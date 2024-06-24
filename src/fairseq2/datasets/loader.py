@@ -19,6 +19,7 @@ from fairseq2.assets import (
     default_asset_store,
     default_download_manager,
 )
+from fairseq2.assets.utils import retrieve_asset_card
 
 DatasetT = TypeVar("DatasetT")
 
@@ -30,14 +31,15 @@ class DatasetLoader(Protocol[DatasetT_co]):
 
     def __call__(
         self,
-        dataset_name_or_card: Union[str, AssetCard],
+        dataset_name_or_card: Union[str, AssetCard, Path],
         *,
         force: bool = False,
         progress: bool = True,
     ) -> DatasetT_co:
         """
         :param dataset_name_or_card:
-            The name or asset card of the dataset to load.
+            The name, asset card, or path to the asset card file of the dataset
+            to load.
         :param force:
             If ``True``, downloads the dataset even if it is already in cache.
         :param progress:
@@ -59,30 +61,29 @@ class AbstractDatasetLoader(ABC, DatasetLoader[DatasetT]):
     ) -> None:
         """
         :param asset_store:
-            The asset store where to check for available datasets.
+            The asset store where to check for available datasets. If ``None``,
+            the default asset store will be used.
         :param download_manager:
-            The download manager.
+            The download manager. If ``None``, the default download manager will
+            be used.
         """
         self._asset_store = asset_store or default_asset_store
         self._download_manager = download_manager or default_download_manager
 
     def __call__(
         self,
-        dataset_name_or_card: Union[str, AssetCard],
+        dataset_name_or_card: Union[str, AssetCard, Path],
         *,
         force: bool = False,
         progress: bool = True,
     ) -> DatasetT:
-        if isinstance(dataset_name_or_card, AssetCard):
-            card = dataset_name_or_card
-        else:
-            card = self._asset_store.retrieve_card(dataset_name_or_card)
+        card = retrieve_asset_card(dataset_name_or_card, self._asset_store)
 
-        uri = card.field("data").as_uri()
+        dataset_uri = card.field("data").as_uri()
 
         try:
             path = self._download_manager.download_dataset(
-                uri, card.name, force=force, progress=progress
+                dataset_uri, card.name, force=force, progress=progress
             )
         except ValueError as ex:
             raise AssetCardError(
@@ -116,7 +117,8 @@ class DelegatingDatasetLoader(DatasetLoader[DatasetT]):
     def __init__(self, *, asset_store: Optional[AssetStore] = None) -> None:
         """
         :param asset_store:
-            The asset store where to check for available datasets.
+            The asset store where to check for available datasets. If ``None``,
+            the default asset store will be used.
         """
         self._asset_store = asset_store or default_asset_store
 
@@ -124,23 +126,20 @@ class DelegatingDatasetLoader(DatasetLoader[DatasetT]):
 
     def __call__(
         self,
-        dataset_name_or_card: Union[str, AssetCard],
+        dataset_name_or_card: Union[str, AssetCard, Path],
         *,
         force: bool = False,
         progress: bool = True,
     ) -> DatasetT:
-        if isinstance(dataset_name_or_card, AssetCard):
-            card = dataset_name_or_card
-        else:
-            card = self._asset_store.retrieve_card(dataset_name_or_card)
+        card = retrieve_asset_card(dataset_name_or_card, self._asset_store)
 
-        family = card.field("dataset_family").as_(str)
+        dataset_family = card.field("dataset_family").as_(str)
 
         try:
-            loader = self._loaders[family]
+            loader = self._loaders[dataset_family]
         except KeyError:
             raise AssetError(
-                f"The value of the field 'dataset_family' of the asset card '{card.name}' must be a supported dataset family, but '{family}' has no registered loader."
+                f"The value of the field 'dataset_family' of the asset card '{card.name}' must be a supported dataset family, but '{dataset_family}' has no registered loader."
             )
 
         return loader(card, force=force, progress=progress)

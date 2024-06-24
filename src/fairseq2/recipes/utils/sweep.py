@@ -73,9 +73,6 @@ class SweepTagger:
         output.append(f"ws_{world_size}")
 
         def abbrv(s: str) -> str:
-            if s.endswith("_name"):
-                s = s[:-5]
-
             if s.startswith("num_"):
                 s = f"n_{s[4:]}"
 

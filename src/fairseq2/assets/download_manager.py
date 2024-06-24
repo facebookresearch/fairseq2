@@ -20,8 +20,8 @@ from zipfile import BadZipFile, ZipFile
 
 from tqdm import tqdm  # type: ignore[import]
 
+from fairseq2.assets.card import _starts_with_scheme
 from fairseq2.assets.error import AssetError
-from fairseq2.assets.utils import _starts_with_scheme
 from fairseq2.logging import get_log_writer
 from fairseq2.typing import override
 from fairseq2.utils.env import get_path_from_env

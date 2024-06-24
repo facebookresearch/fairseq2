@@ -8,11 +8,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 import torch
 
 from fairseq2.assets import default_asset_store
+from fairseq2.assets.utils import retrieve_asset_card
 from fairseq2.checkpoint import CheckpointModelMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
@@ -36,11 +37,8 @@ class Wav2Vec2AsrEvalConfig:
     """Holds the configuration of a wav2vec 2.0 ASR evaluation recipe."""
 
     # Data
-    dataset_name: str = "librilight_asr_10h"
-    """The dataset to evaluate with."""
-
-    tokenizer_name: str = "librispeech_asr"
-    """The tokenizer to use."""
+    dataset: Union[str, Path] = "librilight_asr_10h"
+    """The name or path to the asset card of the dataset to evaluate with."""
 
     split: str = "test_other"
     """The name of the dataset split to evaluate with."""
@@ -60,9 +58,12 @@ class Wav2Vec2AsrEvalConfig:
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
 
+    tokenizer: Union[str, Path] = "librispeech_asr"
+    """The name or path to the asset card of the tokenizer to use."""
+
     # Model
-    model_name: str = "wav2vec2_asr_base_10h"
-    """The name of the wav2vec 2.0 ASR model to evaluate."""
+    model: Union[str, Path] = "wav2vec2_asr_base_10h"
+    """The name or path to the asset card of the wav2vec 2.0 ASR model to evaluate."""
 
     checkpoint_dir: Optional[Path] = None
     """The checkpoint directory containing models saved by a :class:`FileCheckpointManager`."""
@@ -89,15 +90,11 @@ def load_wav2vec2_asr_evaluator(
 
     gang = setup_root_gang(log)
 
-    log.info("Loading {} tokenizer.", config.tokenizer_name)
+    # Load the tokenizer.
+    tokenizer = load_text_tokenizer(config.tokenizer)
 
-    tokenizer = load_text_tokenizer(config.tokenizer_name)
-
-    log.info("Tokenizer loaded.")
-
-    log.info("Loading {} dataset.", config.dataset_name)
-
-    dataset = load_asr_dataset(config.dataset_name)
+    # Load the data reader.
+    dataset = load_asr_dataset(config.dataset)
 
     data_reader = dataset.create_reader(
         split=config.split,
@@ -111,23 +108,21 @@ def load_wav2vec2_asr_evaluator(
         num_prefetch=config.num_prefetch,
     )
 
-    log.info("Dataset loaded.")
-
     if config.checkpoint_dir is not None:
         default_asset_store.metadata_providers.append(
             CheckpointModelMetadataProvider(config.checkpoint_dir)
         )
 
-    log.info("Loading {} model on rank 0.", config.model_name)
+    model_card = retrieve_asset_card(config.model)
+
+    log.info("Loading {} model on rank 0.", model_card.name)
 
     if gang.rank == 0:
         init_device = gang.device
     else:
         init_device = META
 
-    model = load_wav2vec2_asr_model(
-        config.model_name, device=init_device, dtype=config.dtype
-    )
+    model = load_wav2vec2_asr_model(model_card, device=init_device, dtype=config.dtype)
 
     log.info("Model loaded on rank 0.")
 
