@@ -41,9 +41,9 @@ filter_data_source::reload_position(tape &t, bool strict)
 }
 
 data_source_finitude_type
-filter_data_source::is_infinite() const noexcept
+filter_data_source::get_finitude_type() const noexcept
 {
-    return inner_->is_infinite();
+    return inner_->get_finitude_type();
 }
 
 bool

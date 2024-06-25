@@ -16,8 +16,8 @@ concat_data_source::concat_data_source(std::vector<data_pipeline> &&pipelines) n
     finitude_type_ = std::max_element(
         pipelines_.begin(), pipelines_.end(), [](const data_pipeline &a, const data_pipeline &b)
         {
-            return a.is_infinite() < b.is_infinite();
-        })->is_infinite();
+            return a.get_finitude_type() < b.get_finitude_type();
+        })->get_finitude_type();
 }
 
 std::optional<data>
@@ -50,7 +50,7 @@ void concat_data_source::reload_position(tape &t, bool)
 }
 
 data_source_finitude_type
-concat_data_source::is_infinite() const noexcept
+concat_data_source::get_finitude_type() const noexcept
 {
     return finitude_type_;
 }

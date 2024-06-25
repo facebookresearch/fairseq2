@@ -32,14 +32,14 @@ zip_data_source::zip_data_source(
     bool all_finite = pipelines_.empty() || std::all_of(
         pipelines_.begin(), pipelines_.end(), [](const data_pipeline &p) 
         {
-            return p.is_infinite() != data_source_finitude_type::finite;
+            return p.get_finitude_type() != data_source_finitude_type::finite;
         }
     );
     
     bool all_infinite = !pipelines_.empty() && std::all_of(
         pipelines_.begin(), pipelines_.end(), [](const data_pipeline &p) 
         {
-            return p.is_infinite() != data_source_finitude_type::infinite;
+            return p.get_finitude_type() != data_source_finitude_type::infinite;
         }
     );
 
@@ -74,7 +74,7 @@ zip_data_source::next()
             if (maybe_example) {
                 zip[i] = *std::move(maybe_example);
 
-                if (pipelines_[i].is_infinite() == data_source_finitude_type::pseudo_infinite)
+                if (pipelines_[i].get_finitude_type() == data_source_finitude_type::pseudo_infinite)
                     is_eod[i] = 2;
             } else
                 is_eod[i] = 1;
@@ -209,7 +209,7 @@ zip_data_source::reload_position(tape &t, bool)
 }
 
 data_source_finitude_type
-zip_data_source::is_infinite() const noexcept
+zip_data_source::get_finitude_type() const noexcept
 {
     return finitude_type_;
 }

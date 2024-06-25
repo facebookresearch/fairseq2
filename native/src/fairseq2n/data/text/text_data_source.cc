@@ -91,7 +91,7 @@ text_data_source::reload_position(tape &t, bool)
 }
 
 data_source_finitude_type
-text_data_source::is_infinite() const noexcept
+text_data_source::get_finitude_type() const noexcept
 {
     return data_source_finitude_type::finite;
 }

@@ -42,7 +42,7 @@ public:
     reload_position(tape &t, bool strict) = 0;
 
     virtual data_source_finitude_type
-    is_infinite() const noexcept = 0;
+    get_finitude_type() const noexcept = 0;
 };
 
 }  // namespace fairseq2n

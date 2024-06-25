@@ -21,8 +21,8 @@ round_robin_data_source::round_robin_data_source(
     finitude_type_ = pipelines_.empty() ? data_source_finitude_type::finite : std::max_element(
         pipelines_.begin(), pipelines_.end(), [](const data_pipeline &a, const data_pipeline &b)
         {
-            return a.is_infinite() < b.is_infinite();
-        })->is_infinite();
+            return a.get_finitude_type() < b.get_finitude_type();
+        })->get_finitude_type();
 
 }
 
@@ -117,7 +117,7 @@ round_robin_data_source::reload_position(tape &t, bool strict)
 }
 
 data_source_finitude_type
-round_robin_data_source::is_infinite() const noexcept
+round_robin_data_source::get_finitude_type() const noexcept
 {
     return finitude_type_;
 }
@@ -135,7 +135,7 @@ round_robin_data_source::next_in_pipeline(std::size_t pipeline_idx)
 
         // Circle back to the first example.
         maybe_example = pipeline.next();
-    } else if (pipeline.is_infinite() == data_source_finitude_type::pseudo_infinite)
+    } else if (pipeline.get_finitude_type() == data_source_finitude_type::pseudo_infinite)
         is_epoch_done_[pipeline_idx] = true;
 
     return maybe_example;

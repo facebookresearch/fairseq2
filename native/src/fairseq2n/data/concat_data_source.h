@@ -32,7 +32,7 @@ public:
     reload_position(tape &t, bool strict) override;
 
     data_source_finitude_type
-    is_infinite() const noexcept override;
+    get_finitude_type() const noexcept override;
 
 private:
     std::vector<data_pipeline> pipelines_;
