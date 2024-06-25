@@ -58,9 +58,9 @@ bucket_data_source::reload_position(tape &t, bool strict)
 }
 
 data_source_finitude_type
-bucket_data_source::get_finitude_type() const noexcept
+bucket_data_source::finitude_type() const noexcept
 {
-    return inner_->get_finitude_type();
+    return inner_->finitude_type();
 }
 
 }  // namespace fairseq2n::detail

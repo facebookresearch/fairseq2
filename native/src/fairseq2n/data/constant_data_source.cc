@@ -32,7 +32,7 @@ constant_data_source::reload_position(tape &, bool)
 {}
 
 data_source_finitude_type
-constant_data_source::get_finitude_type() const noexcept
+constant_data_source::finitude_type() const noexcept
 {
     return data_source_finitude_type::pseudo_infinite;
 }

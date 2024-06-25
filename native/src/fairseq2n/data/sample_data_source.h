@@ -39,7 +39,7 @@ public:
     reload_position(tape &t, bool strict) override;
 
     data_source_finitude_type
-    get_finitude_type() const noexcept override;
+    finitude_type() const noexcept override;
 
 private:
     std::size_t

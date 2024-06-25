@@ -54,7 +54,7 @@ public:
     reload_position(tape &t);
 
     data_source_finitude_type
-    get_finitude_type() const;
+    finitude_type() const;
 
     bool
     is_broken() const noexcept

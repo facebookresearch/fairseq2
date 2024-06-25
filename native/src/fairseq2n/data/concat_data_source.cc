@@ -13,11 +13,16 @@ namespace fairseq2n::detail {
 concat_data_source::concat_data_source(std::vector<data_pipeline> &&pipelines) noexcept
   : pipelines_(std::move(pipelines))
 {
-    finitude_type_ = std::max_element(
-        pipelines_.begin(), pipelines_.end(), [](const data_pipeline &a, const data_pipeline &b)
-        {
-            return a.get_finitude_type() < b.get_finitude_type();
-        })->get_finitude_type();
+    if (pipelines_.empty())
+        finitude_type_ = data_source_finitude_type::finite;
+    else {
+        auto max_cardinality_pipeline_it = std::max_element(
+            pipelines_.begin(), pipelines_.end(), [](const data_pipeline &a, const data_pipeline &b)
+            {
+                return a.finitude_type() < b.finitude_type();
+            });
+        finitude_type_ = max_cardinality_pipeline_it->finitude_type();
+    }
 }
 
 std::optional<data>
@@ -50,7 +55,7 @@ void concat_data_source::reload_position(tape &t, bool)
 }
 
 data_source_finitude_type
-concat_data_source::get_finitude_type() const noexcept
+concat_data_source::finitude_type() const noexcept
 {
     return finitude_type_;
 }

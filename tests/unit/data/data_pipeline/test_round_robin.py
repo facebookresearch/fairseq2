@@ -72,23 +72,7 @@ class TestRoundRobinOp:
         for _ in range(2):
             it = iter(pipeline)
 
-            [next(it) for i in range(15)] == [
-                1,
-                0,
-                0,
-                2,
-                0,
-                2,
-                3,
-                0,
-                4,
-                4,
-                0,
-                6,
-                1,
-                0,
-                0,
-            ]
+            [next(it) for i in range(15)] == [1, 0, 0, 2, 0, 2, 3, 0, 4, 4, 0, 6, 1, 0, 0] #fmt: skip
 
             pipeline.reset()
 

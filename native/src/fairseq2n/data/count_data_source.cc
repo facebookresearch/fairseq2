@@ -42,7 +42,7 @@ count_data_source::reload_position(tape &t, bool)
 }
 
 data_source_finitude_type
-count_data_source::get_finitude_type() const noexcept
+count_data_source::finitude_type() const noexcept
 {
     return data_source_finitude_type::pseudo_infinite;
 }

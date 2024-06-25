@@ -12,9 +12,10 @@
 #include "fairseq2n/api.h"
 #include "fairseq2n/data/data.h"
 #include "fairseq2n/data/tape.h"
-#include "fairseq2n/data/finitude_type.h"
 
 namespace fairseq2n {
+
+enum class data_source_finitude_type { finite, pseudo_infinite, infinite };
 
 class FAIRSEQ2_API data_source {
 public:
@@ -42,7 +43,7 @@ public:
     reload_position(tape &t, bool strict) = 0;
 
     virtual data_source_finitude_type
-    get_finitude_type() const noexcept = 0;
+    finitude_type() const noexcept = 0;
 };
 
 }  // namespace fairseq2n

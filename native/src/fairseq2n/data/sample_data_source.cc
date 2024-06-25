@@ -48,11 +48,16 @@ sample_data_source::sample_data_source(
 
     buffer_.reserve(pipelines_.size());
 
-    finitude_type_ = pipelines_.empty() ? data_source_finitude_type::finite : std::max_element(
-        pipelines_.begin(), pipelines_.end(), [](const data_pipeline &a, const data_pipeline &b)
-        {
-            return a.get_finitude_type() < b.get_finitude_type();
-        })->get_finitude_type();
+    if (pipelines_.empty())
+        finitude_type_ = data_source_finitude_type::finite;
+    else {
+        auto max_cardinality_pipeline_it = std::max_element(
+            pipelines_.begin(), pipelines_.end(), [](const data_pipeline &a, const data_pipeline &b)
+            {
+                return a.finitude_type() < b.finitude_type();
+            });
+        finitude_type_ = max_cardinality_pipeline_it->finitude_type();
+    }
 }
 
 std::optional<data>
@@ -129,7 +134,7 @@ sample_data_source::reload_position(tape &t, bool strict)
 }
 
 data_source_finitude_type
-sample_data_source::get_finitude_type() const noexcept
+sample_data_source::finitude_type() const noexcept
 {
     return finitude_type_;
 }
@@ -172,7 +177,7 @@ sample_data_source::next_in_pipeline(std::size_t pipeline_idx)
         if (!maybe_example)
             throw_data_pipeline_error(/*maybe_example=*/std::nullopt, /*recoverable=*/false,
                 "The data pipeline at index {} is empty and cannot be sampled.", pipeline_idx);
-    } else if (pipeline.get_finitude_type() == data_source_finitude_type::pseudo_infinite)
+    } else if (pipeline.finitude_type() == data_source_finitude_type::pseudo_infinite)
         is_epoch_done_[pipeline_idx] = true;
 
     return std::move(*maybe_example);

@@ -63,9 +63,9 @@ repeat_data_source::reload_position(tape &t, bool strict)
 }
 
 data_source_finitude_type
-repeat_data_source::get_finitude_type() const noexcept
+repeat_data_source::finitude_type() const noexcept
 {
-    return (num_repeats_ ? inner_->get_finitude_type() : data_source_finitude_type::infinite);
+    return (num_repeats_ ? inner_->finitude_type() : data_source_finitude_type::infinite);
 }
 
 }

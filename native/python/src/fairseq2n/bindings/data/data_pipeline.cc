@@ -223,7 +223,7 @@ def_data_pipeline(py::module_ &data_module)
             py::arg("reset_rng") = false,
             py::call_guard<py::gil_scoped_release>{})
 
-        .def("get_finitude_type", &data_pipeline::get_finitude_type)
+        .def("finitude_type", &data_pipeline::finitude_type)
 
         .def_property_readonly("is_broken", &data_pipeline::is_broken)
 
