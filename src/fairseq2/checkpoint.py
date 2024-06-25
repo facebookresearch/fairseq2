@@ -604,6 +604,7 @@ class FileCheckpointManager(CheckpointManager):
                 if not missing_ok:
                     raise RuntimeError(f"Training step {step_nr} has no checkpoint.")
 
+                self._root_gang.barrier()
                 return
 
             if preserve_model:
