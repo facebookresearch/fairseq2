@@ -46,7 +46,7 @@ class TestRoundRobinOp:
 
             pipeline.reset()
 
-    def test_op_works_when_infinite_pipeline_is_specified(self) -> None:
+    def test_op_works_when_pseudo_infinite_pipeline_is_specified(self) -> None:
         pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
         pipeline2 = DataPipeline.constant(0).and_return()
         pipeline3 = read_sequence([0, 2, 4, 6]).and_return()
@@ -57,6 +57,22 @@ class TestRoundRobinOp:
 
         for _ in range(2):
             assert list(pipeline) == [1, 0, 0, 2, 0, 2, 3, 0, 4, 4, 0, 6]
+
+            pipeline.reset()
+
+    def test_op_works_when_infinite_pipeline_is_specified(self) -> None:
+        pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
+        pipeline2 = read_sequence([0]).repeat().and_return()
+        pipeline3 = read_sequence([0, 2, 4, 6]).and_return()
+
+        pipeline = DataPipeline.round_robin(
+            [pipeline1, pipeline2, pipeline3]
+        ).and_return()
+
+        for _ in range(2):
+            it = iter(pipeline)
+
+            [next(it) for i in range(15)] == [1, 0, 0, 2, 0, 2, 3, 0, 4, 4, 0, 6, 1, 0, 0]  # fmt: skip
 
             pipeline.reset()
 

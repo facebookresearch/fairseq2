@@ -60,7 +60,7 @@ class TestSampleOp:
 
             pipeline.reset(reset_rng=True)
 
-    def test_op_works_when_infinite_pipeline_is_specified(self) -> None:
+    def test_op_works_when_pseudo_infinite_pipeline_is_specified(self) -> None:
         pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
         pipeline2 = DataPipeline.count(5).and_return()
 
@@ -72,6 +72,18 @@ class TestSampleOp:
             assert list(pipeline) == [1, 5, 2, 3, 4]
 
             pipeline.reset(reset_rng=True)
+
+    def test_op_works_when_infinite_pipeline_is_specified(self) -> None:
+        pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
+        pipeline2 = read_sequence([5, 6, 7, 8]).repeat().and_return()
+
+        pipeline = DataPipeline.sample(
+            [pipeline1, pipeline2], weights=[0.4, 0.6], seed=1234
+        ).and_return()
+
+        it = iter(pipeline)
+
+        assert [next(it) for i in range(10)] == [1, 5, 2, 3, 4, 6, 1, 7, 8, 2]
 
     def test_op_raises_error_when_pipeline_is_empty(self) -> None:
         pipeline1 = read_sequence([1, 2]).and_return()

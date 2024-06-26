@@ -44,7 +44,7 @@ class TestZipOp:
 
             pipeline.reset()
 
-    def test_op_works_when_infinite_pipeline_is_specified(self) -> None:
+    def test_op_works_when_pseudo_infinite_pipeline_is_specified(self) -> None:
         pipeline1 = read_sequence([1, 2, 3, 4]).and_return()
         pipeline2 = DataPipeline.constant(0).and_return()
         pipeline3 = read_sequence([5, 6, 7, 8]).and_return()
@@ -53,6 +53,20 @@ class TestZipOp:
 
         for _ in range(2):
             assert list(pipeline) == [[1, 0, 5], [2, 0, 6], [3, 0, 7], [4, 0, 8]]
+
+            pipeline.reset()
+
+    def test_op_works_when_infinite_pipelines_are_specified(self) -> None:
+        pipeline1 = read_sequence([0]).repeat().and_return()
+        pipeline2 = read_sequence([1]).repeat().and_return()
+        pipeline3 = read_sequence([2]).repeat().and_return()
+
+        pipeline = DataPipeline.zip([pipeline1, pipeline2, pipeline3]).and_return()
+
+        for _ in range(2):
+            it = iter(pipeline)
+
+            assert [next(it) for i in range(2)] == [[0, 1, 2], [0, 1, 2]]
 
             pipeline.reset()
 
@@ -121,6 +135,35 @@ class TestZipOp:
             ]
 
             pipeline.reset()
+
+    def test_op_raises_error_when_infinite_and_finite_pipelines_are_specified(
+        self,
+    ) -> None:
+        pipeline1 = read_sequence([0]).and_return()
+        pipeline2 = read_sequence([1]).repeat().and_return()
+        pipeline3 = read_sequence([2]).and_return()
+
+        with pytest.raises(
+            DataPipelineError,
+            match=r"^Cannot mix finite and infinite pipelines in zip\.$",
+        ):
+            pipeline = DataPipeline.zip([pipeline1, pipeline2, pipeline3]).and_return()
+
+            next(iter(pipeline))
+
+    def test_op_raises_error_when_only_pseudo_infinite_pipelines_are_specified(
+        self,
+    ) -> None:
+        pipeline1 = DataPipeline.count(0).and_return()
+        pipeline2 = DataPipeline.count(1).and_return()
+
+        with pytest.raises(
+            DataPipelineError,
+            match=r"^Cannot zip only pseudo-infinite pipelines\.$",
+        ):
+            pipeline = DataPipeline.zip([pipeline1, pipeline2]).and_return()
+
+            next(iter(pipeline))
 
     def test_op_raises_error_when_pipelines_have_different_lengths(self) -> None:
         pipeline1 = read_sequence([1, 2, 3]).and_return()

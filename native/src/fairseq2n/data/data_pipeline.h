@@ -53,8 +53,8 @@ public:
     void
     reload_position(tape &t);
 
-    bool
-    is_infinite() const;
+    data_source_finitude_type
+    finitude_type() const;
 
     bool
     is_broken() const noexcept

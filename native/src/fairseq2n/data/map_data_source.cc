@@ -88,10 +88,10 @@ map_data_source::reload_position(tape &t, bool strict)
     inner_->reload_position(t, strict);
 }
 
-bool
-map_data_source::is_infinite() const noexcept
+data_source_finitude_type
+map_data_source::finitude_type() const noexcept
 {
-    return inner_->is_infinite();
+    return inner_->finitude_type();
 }
 
 bool

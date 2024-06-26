@@ -141,17 +141,17 @@ data_pipeline::reload_position(tape &t)
         reset();
 }
 
-bool
-data_pipeline::is_infinite() const
+data_source_finitude_type
+data_pipeline::finitude_type() const
 {
     check_if_broken();
 
     ensure_initialized();
 
     if (!source_)
-        return false;
+        return data_source_finitude_type::finite;
 
-    return source_->is_infinite();
+    return source_->finitude_type();
 }
 
 inline bool
