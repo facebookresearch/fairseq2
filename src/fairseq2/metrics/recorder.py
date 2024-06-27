@@ -106,7 +106,7 @@ class MetricRecorder(ABC):
         self,
         run: str,
         values: Mapping[str, Any],
-        step_nr: int,
+        step_nr: Optional[int] = None,
         *,
         flush: bool = False,
     ) -> None:
@@ -117,7 +117,7 @@ class MetricRecorder(ABC):
         :param values:
             The metric values.
         :param step_nr:
-            The number of the run step.
+            The step number of the run.
         :param flush:
             If ``True``, flushes any buffers after recording.
         """
@@ -131,7 +131,7 @@ def record_metrics(
     recorders: Sequence[MetricRecorder],
     run: str,
     values: Mapping[str, Any],
-    step_nr: int,
+    step_nr: Optional[int] = None,
     *,
     flush: bool = False,
 ) -> None:
@@ -144,7 +144,7 @@ def record_metrics(
     :param values:
         The metric values.
     :param step_nr:
-        The number of the run step.
+        The step number of the run.
     :param flush:
         If ``True``, flushes any buffers after recording.
     """
@@ -173,7 +173,7 @@ class LogMetricRecorder(MetricRecorder):
         self,
         run: str,
         values: Mapping[str, Any],
-        step_nr: int,
+        step_nr: Optional[int] = None,
         *,
         flush: bool = False,
     ) -> None:
@@ -199,7 +199,10 @@ class LogMetricRecorder(MetricRecorder):
 
         s = " | ".join(formatted_values)
 
-        self._log.info("{} Metrics (step {}) - {}", capwords(run), step_nr, s)
+        if step_nr is None:
+            self._log.info("{} Metrics - {}", capwords(run), s)
+        else:
+            self._log.info("{} Metrics (step {}) - {}", capwords(run), step_nr, s)
 
     @override
     def close(self) -> None:
@@ -240,7 +243,7 @@ class TensorBoardRecorder(MetricRecorder):
         self,
         run: str,
         values: Mapping[str, Any],
-        step_nr: int,
+        step_nr: Optional[int] = None,
         *,
         flush: bool = False,
     ) -> None:
