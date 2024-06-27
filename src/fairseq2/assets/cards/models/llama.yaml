@@ -9,6 +9,7 @@ model_type: llama  # compat
 model_family: llama
 checkpoint: "https://ai.meta.com/llama/;gated=true"
 tokenizer: "https://ai.meta.com/llama/;gated=true"
+tokenizer_family: llama
 
 ---
 
@@ -23,6 +24,7 @@ model_type: llama  # compat
 model_family: llama
 checkpoint: "https://ai.meta.com/llama/;gated=true"
 tokenizer: "https://ai.meta.com/llama/;gated=true"
+tokenizer_family: llama
 
 ---
 
@@ -69,6 +71,7 @@ model_type: llama  # compat
 model_family: llama
 checkpoint: "https://ai.meta.com/llama/;gated=true"
 tokenizer: "https://ai.meta.com/llama/;gated=true"
+tokenizer_family: llama
 use_v2_tokenizer: true
 
 ---

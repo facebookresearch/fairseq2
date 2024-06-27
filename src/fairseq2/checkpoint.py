@@ -231,6 +231,7 @@ class FileCheckpointManager(CheckpointManager):
         base_asset: Optional[str] = None,
         family: Optional[str] = None,
         config: Optional[DataClass] = None,
+        tokenizer_name: Optional[str] = None,
     ) -> None:
         """Set the model metadata.
 
@@ -240,6 +241,8 @@ class FileCheckpointManager(CheckpointManager):
             The family of the model.
         :param config:
             The configuration of the model.
+        :param tokenizer_name:
+            The name of the tokenizer the model is trained with.
         """
         if self._root_gang.rank == 0:
             metadata: Dict[str, Any] = {"name": "checkpoint"}
@@ -255,6 +258,9 @@ class FileCheckpointManager(CheckpointManager):
 
             if self._num_shards != 1:
                 metadata["num_shards"] = self._num_shards
+
+            if tokenizer_name is not None:
+                metadata["tokenizer_ref"] = tokenizer_name
 
             def raise_error(cause: Exception) -> NoReturn:
                 raise RuntimeError(
@@ -605,6 +611,7 @@ class FileCheckpointManager(CheckpointManager):
                     raise RuntimeError(f"Training step {step_nr} has no checkpoint.")
 
                 self._root_gang.barrier()
+
                 return
 
             if preserve_model:

@@ -12,6 +12,7 @@ task: translation
 target_langs: [de]
 checkpoint: "https://dl.fbaipublicfiles.com/fairseq/conformer/covost2/en_de/abs_asr_pt_avg_last_10_checkpoint.pt"
 tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/covost2_en_de_st_vocab_char.zip;path=spm_char.model"
+tokenizer_family: s2t_transformer
 
 ---
 
@@ -25,3 +26,4 @@ task: translation
 target_langs: [de]
 checkpoint: "https://dl.fbaipublicfiles.com/fairseq/conformer/covost2/en_de/rel_pos_asr_pt_avg_last_10_checkpoint.pt"
 tokenizer: "https://dl.fbaipublicfiles.com/fairseq/s2t/covost2_en_de_st_vocab_char.zip;path=spm_char.model"
+tokenizer_family: s2t_transformer
