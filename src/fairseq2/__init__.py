@@ -12,6 +12,7 @@ from importlib_metadata import entry_points
 
 from fairseq2.datasets import _register_datasets
 from fairseq2.models import _register_models
+from fairseq2.recipes import _register_recipes
 
 __version__ = "0.3.0.dev0"
 
@@ -19,6 +20,8 @@ __version__ = "0.3.0.dev0"
 _register_models()
 
 _register_datasets()
+
+_register_recipes()
 
 
 _setup_complete = False

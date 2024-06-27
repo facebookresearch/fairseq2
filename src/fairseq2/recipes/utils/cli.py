@@ -34,9 +34,7 @@ def create_rich_progress() -> Progress:
 
     rank = get_rank()
 
-    return Progress(
-        *columns, auto_refresh=False, transient=True, console=console, disable=rank != 0
-    )
+    return Progress(*columns, transient=True, console=console, disable=rank != 0)
 
 
 class BasicMofNCompleteColumn(ProgressColumn):
