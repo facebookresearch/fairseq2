@@ -8,9 +8,9 @@ from pathlib import Path
 from typing import Any, Dict, Final, List, final
 
 from fairseq2.assets import AssetCard
-from fairseq2.data.text import AbstractTextTokenizerLoader
+from fairseq2.data.text import AbstractTextTokenizerLoader, load_text_tokenizer
 from fairseq2.models.config_loader import StandardModelConfigLoader
-from fairseq2.models.loader import DenseModelLoader
+from fairseq2.models.loader import DenseModelLoader, load_model
 from fairseq2.models.s2t_transformer.archs import s2t_transformer_archs
 from fairseq2.models.s2t_transformer.factory import (
     S2T_TRANSFORMER_FAMILY,
@@ -32,14 +32,12 @@ def convert_s2t_transformer_checkpoint(
     checkpoint: Dict[str, Any], config: S2TTransformerConfig
 ) -> Dict[str, Any]:
     """Convert a fairseq S2T Transformer checkpoint to fairseq2 format."""
-    state_dict = checkpoint["model"]
-
-    # Check if we have a fairseq2 checkpoint.
-    if "decoder_frontend.embed.weight" in state_dict:
+    try:
+        state_dict = checkpoint["model"]
+    except KeyError:
         return checkpoint
 
-    # Check if we have a DDP wrapped fairseq2 checkpoint.
-    if "module.decoder_frontend.embed.weight" in state_dict:
+    if "decoder.output_projection.weight" not in state_dict:
         return checkpoint
 
     key_map = {
@@ -117,3 +115,9 @@ class S2TTransformerTokenizerLoader(
 
 
 load_s2t_transformer_tokenizer = S2TTransformerTokenizerLoader()
+
+
+def _register_s2t_transformer_loaders() -> None:
+    load_model.register(S2T_TRANSFORMER_FAMILY, load_s2t_transformer_model)
+
+    load_text_tokenizer.register(S2T_TRANSFORMER_FAMILY, load_s2t_transformer_tokenizer)

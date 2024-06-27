@@ -9,7 +9,7 @@ from typing import Any, Dict
 import torch
 
 from fairseq2.models.config_loader import StandardModelConfigLoader
-from fairseq2.models.loader import DenseModelLoader
+from fairseq2.models.loader import DenseModelLoader, load_model
 from fairseq2.models.transformer.archs import transformer_archs
 from fairseq2.models.transformer.factory import (
     TRANSFORMER_FAMILY,
@@ -29,14 +29,12 @@ def convert_transformer_checkpoint(
     checkpoint: Dict[str, Any], config: TransformerConfig
 ) -> Dict[str, Any]:
     """Convert a fairseq Transformer checkpoint to fairseq2 format."""
-    state_dict = checkpoint["model"]
-
-    # Check if we have a fairseq2 checkpoint.
-    if "decoder_frontend.embed.weight" in state_dict:
+    try:
+        state_dict = checkpoint["model"]
+    except KeyError:
         return checkpoint
 
-    # Check if we have a DDP wrapped fairseq2 checkpoint.
-    if "module.decoder_frontend.embed.weight" in state_dict:
+    if "decoder.output_projection.weight" not in state_dict:
         return checkpoint
 
     key_map = {
@@ -94,3 +92,7 @@ load_transformer_model = DenseModelLoader(
     checkpoint_converter=convert_transformer_checkpoint,
     restrict_checkpoints=False,
 )
+
+
+def _register_transformer_loaders() -> None:
+    load_model.register(TRANSFORMER_FAMILY, load_transformer_model)

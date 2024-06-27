@@ -47,11 +47,10 @@ from fairseq2.models.wav2vec2.position_encoder import (
 
 # isort: split
 
-from fairseq2.models.loader import load_model
 from fairseq2.models.wav2vec2.archs import _register_wav2vec2_archs
+from fairseq2.models.wav2vec2.loader import _register_wav2vec2_loaders
 
 
 def _register_wav2vec2() -> None:
     _register_wav2vec2_archs()
-
-    load_model.register(WAV2VEC2_FAMILY, load_wav2vec2_model)
+    _register_wav2vec2_loaders()

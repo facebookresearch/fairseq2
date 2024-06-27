@@ -37,11 +37,10 @@ from fairseq2.models.transformer.model import (
 
 # isort: split
 
-from fairseq2.models.loader import load_model
 from fairseq2.models.transformer.archs import _register_transformer_archs
+from fairseq2.models.transformer.loader import _register_transformer_loaders
 
 
 def _register_transformer() -> None:
     _register_transformer_archs()
-
-    load_model.register(TRANSFORMER_FAMILY, load_transformer_model)
+    _register_transformer_loaders()

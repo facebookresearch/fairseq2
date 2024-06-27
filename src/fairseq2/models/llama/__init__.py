@@ -21,17 +21,12 @@ from fairseq2.models.llama.tokenizer import LLaMA3Tokenizer as LLaMA3Tokenizer
 
 # isort: split
 
-from fairseq2.data.text import load_text_tokenizer
-from fairseq2.models.chatbot import create_chatbot
 from fairseq2.models.llama.archs import _register_llama_archs
-from fairseq2.models.loader import load_model
+from fairseq2.models.llama.chatbot import _register_llama_chatbot
+from fairseq2.models.llama.loader import _register_llama_loaders
 
 
 def _register_llama() -> None:
     _register_llama_archs()
-
-    load_model.register(LLAMA_FAMILY, load_llama_model)
-
-    load_text_tokenizer.register(LLAMA_FAMILY, load_llama_tokenizer)
-
-    create_chatbot.register(LLAMA_FAMILY, create_llama_chatbot)
+    _register_llama_chatbot()
+    _register_llama_loaders()

@@ -27,11 +27,10 @@ from fairseq2.models.wav2vec2.asr.model import Wav2Vec2AsrOutput as Wav2Vec2AsrO
 
 # isort: split
 
-from fairseq2.models.loader import load_model
 from fairseq2.models.wav2vec2.asr.archs import _register_wav2vec2_asr_archs
+from fairseq2.models.wav2vec2.asr.loader import _register_wav2vec2_asr_loaders
 
 
 def _register_wav2vec2_asr() -> None:
     _register_wav2vec2_asr_archs()
-
-    load_model.register(WAV2VEC2_ASR_FAMILY, load_wav2vec2_asr_model)
+    _register_wav2vec2_asr_loaders()

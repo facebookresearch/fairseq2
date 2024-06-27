@@ -184,6 +184,8 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         force: bool = False,
         progress: bool = True,
     ) -> ModelT:
+        card = retrieve_asset_card(model_name_or_card, self._asset_store)
+
         # Retrieve the gang for tensor parallelism.
         gang = gangs.get("tp") if gangs is not None else None
 
@@ -197,8 +199,6 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
 
         if device is None:
             device = CPU
-
-        card = retrieve_asset_card(model_name_or_card, self._asset_store)
 
         num_shards = card.field("num_shards").get_as_(int, default=1)
         if num_shards < 1:

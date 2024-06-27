@@ -19,17 +19,12 @@ from fairseq2.models.mistral.loader import (
 
 # isort: split
 
-from fairseq2.data.text import load_text_tokenizer
-from fairseq2.models.chatbot import create_chatbot
-from fairseq2.models.loader import load_model
 from fairseq2.models.mistral.archs import _register_mistral_archs
+from fairseq2.models.mistral.chatbot import _register_mistral_chatbot
+from fairseq2.models.mistral.loader import _register_mistral_loaders
 
 
 def _register_mistral() -> None:
     _register_mistral_archs()
-
-    load_model.register(MISTRAL_FAMILY, load_mistral_model)
-
-    load_text_tokenizer.register(MISTRAL_FAMILY, load_mistral_tokenizer)
-
-    create_chatbot.register(MISTRAL_FAMILY, MistralChatbot)
+    _register_mistral_chatbot()
+    _register_mistral_loaders()

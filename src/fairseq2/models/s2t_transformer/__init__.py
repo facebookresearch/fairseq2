@@ -43,14 +43,10 @@ from fairseq2.models.s2t_transformer.tokenizer import (
 
 # isort: split
 
-from fairseq2.data.text import load_text_tokenizer
-from fairseq2.models.loader import load_model
 from fairseq2.models.s2t_transformer.archs import _register_s2t_transformer_archs
+from fairseq2.models.s2t_transformer.loader import _register_s2t_transformer_loaders
 
 
 def _register_s2t_transformer() -> None:
     _register_s2t_transformer_archs()
-
-    load_model.register(S2T_TRANSFORMER_FAMILY, load_s2t_transformer_model)
-
-    load_text_tokenizer.register(S2T_TRANSFORMER_FAMILY, load_s2t_transformer_tokenizer)
+    _register_s2t_transformer_loaders()
