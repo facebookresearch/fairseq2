@@ -26,7 +26,7 @@ log = get_log_writer(__name__)
 
 
 @final
-class ConvertCheckpointCommand(CliCommandHandler):
+class ConvertCheckpointCommandHandler(CliCommandHandler):
     """Converts fairseq2 LLaMA checkpoints to reference checkpoints."""
 
     @override

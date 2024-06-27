@@ -35,7 +35,7 @@ log = get_log_writer(__name__)
 
 
 @final
-class ChatbotCommand(CliCommandHandler):
+class ChatbotCommandHandler(CliCommandHandler):
     """Runs a chatbot."""
 
     @override
@@ -133,6 +133,14 @@ class ChatbotCommand(CliCommandHandler):
         if gangs["dp"].size > 1:
             log.warning("Using redundant data parallelism which may slow down response times. It is recommended to use one device per model shard (i.e. a single device for a non-sharded model).")  # fmt: skip
 
+        # Load the tokenizer.
+        log.info("Loading {} tokenizer.", args.model_name)
+
+        tokenizer = load_text_tokenizer(args.model_name)
+
+        log.info("Tokenizer loaded.")
+
+        # Load the model.
         log.info("Loading {} model.", args.model_name)
 
         model = load_model(args.model_name, gangs=gangs, dtype=args.dtype)
@@ -144,17 +152,7 @@ class ChatbotCommand(CliCommandHandler):
 
         log.info("Model loaded.")
 
-        log.info("Loading {} tokenizer.", args.model_name)
-
-        tokenizer = load_text_tokenizer(args.model_name)
-
-        log.info("Tokenizer loaded.")
-
-        rng_bag = RngBag.from_device_defaults(CPU, root_gang.device)
-
-        # Set the seed for sequence generation.
-        rng_bag.manual_seed(args.seed)
-
+        # Initialize the chatbot.
         sampler = TopPSampler(p=args.top_p)
 
         generator = SamplingSequenceGenerator(
@@ -162,6 +160,11 @@ class ChatbotCommand(CliCommandHandler):
         )
 
         chatbot = create_chatbot(generator, tokenizer)
+
+        rng_bag = RngBag.from_device_defaults(CPU, root_gang.device)
+
+        # Set the seed for sequence generation.
+        rng_bag.manual_seed(args.seed)
 
         self._do_run(args.model_name, chatbot, root_gang)
 
