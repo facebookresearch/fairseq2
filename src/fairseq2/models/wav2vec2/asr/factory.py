@@ -120,7 +120,7 @@ class Wav2Vec2AsrBuilder:
         return Wav2Vec2AsrModel(
             encoder_frontend,
             encoder,
-            self._config.vocab_info.size,
+            self._config.vocab_info,
             masker=masker,
             final_dropout_p=self._config.final_dropout_p,
             device=self._device,
