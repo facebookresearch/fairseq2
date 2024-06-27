@@ -22,10 +22,10 @@ from fairseq2.logging import get_log_writer
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.wav2vec2.asr import load_wav2vec2_asr_model
 from fairseq2.nn.utils.module import remove_parametrizations
-from fairseq2.recipes.evaluator import StandardEvaluator
+from fairseq2.recipes.evaluator import Evaluator
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.utils.setup import broadcast_model, setup_root_gang
-from fairseq2.recipes.wav2vec2.asr.criterion import Wav2Vec2AsrCriterion
+from fairseq2.recipes.wav2vec2.asr.units import Wav2Vec2AsrEvalUnit
 from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
 
@@ -34,7 +34,7 @@ log = get_log_writer(__name__)
 
 @dataclass
 class Wav2Vec2AsrEvalConfig:
-    """Holds the configuration of a wav2vec 2.0 ASR evaluation recipe."""
+    """Holds the evaluation configuration of a wav2vec 2.0 ASR model."""
 
     # Data
     dataset: Union[str, Path] = "librilight_asr_10h"
@@ -58,18 +58,19 @@ class Wav2Vec2AsrEvalConfig:
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
 
-    tokenizer: Union[str, Path] = "librispeech_asr"
-    """The name or path to the asset card of the tokenizer to use."""
-
     # Model
     model: Union[str, Path] = "wav2vec2_asr_base_10h"
     """The name or path to the asset card of the wav2vec 2.0 ASR model to evaluate."""
 
     checkpoint_dir: Optional[Path] = None
-    """The checkpoint directory containing models saved by a :class:`FileCheckpointManager`."""
+    """The checkpoint directory containing models saved by :class:`FileCheckpointManager`."""
 
     dtype: DataType = torch.float16
     """The data type of the model."""
+
+    # Misc
+    seed: int = 2
+    """The random number generator seed to use."""
 
 
 wav2vec2_asr_eval_presets = ConfigRegistry[Wav2Vec2AsrEvalConfig]()
@@ -77,44 +78,46 @@ wav2vec2_asr_eval_presets = ConfigRegistry[Wav2Vec2AsrEvalConfig]()
 wav2vec2_asr_eval_preset = wav2vec2_asr_eval_presets.decorator
 
 
-@wav2vec2_asr_eval_preset("base_10h")
 def _base_10h() -> Wav2Vec2AsrEvalConfig:
     return Wav2Vec2AsrEvalConfig()
 
 
+def _register_eval() -> None:
+    wav2vec2_asr_eval_presets.register("base_10h", _base_10h)
+
+
 def load_wav2vec2_asr_evaluator(
     config: Wav2Vec2AsrEvalConfig, output_dir: Path
-) -> StandardEvaluator[Seq2SeqBatch]:
-    """Load a :class:`Evaluator` for wav2vec 2.0 ASR evaluation."""
+) -> Evaluator[Seq2SeqBatch]:
+    """Load an :class:`Evaluator` for wav2vec 2.0 ASR model evaluation."""
     wall_watch = Stopwatch(start=True)
-
-    gang = setup_root_gang(log)
-
-    # Load the tokenizer.
-    tokenizer = load_text_tokenizer(config.tokenizer)
-
-    # Load the data reader.
-    dataset = load_asr_dataset(config.dataset)
-
-    data_reader = dataset.create_reader(
-        split=config.split,
-        tokenizer=tokenizer,
-        gang=gang,
-        dtype=config.dtype,
-        min_audio_len=config.min_audio_len,
-        max_audio_len=config.max_audio_len,
-        max_num_elements=config.max_num_elements,
-        normalize_audio=config.normalize_audio,
-        num_prefetch=config.num_prefetch,
-    )
 
     if config.checkpoint_dir is not None:
         default_asset_store.metadata_providers.append(
             CheckpointModelMetadataProvider(config.checkpoint_dir)
         )
 
+    gang = setup_root_gang(log)
+
+    # Load the tokenizer.
     model_card = retrieve_asset_card(config.model)
 
+    log.info("Loading {} tokenizer.", model_card.name)
+
+    tokenizer = load_text_tokenizer(model_card)
+
+    log.info("Tokenizer loaded.")
+
+    # Load the dataset.
+    dataset_card = retrieve_asset_card(config.dataset)
+
+    log.info("Loading {} ASR dataset.", dataset_card.name)
+
+    dataset = load_asr_dataset(dataset_card)
+
+    log.info("Dataset loaded.")
+
+    # Load the model.
     log.info("Loading {} model on rank 0.", model_card.name)
 
     if gang.rank == 0:
@@ -124,19 +127,19 @@ def load_wav2vec2_asr_evaluator(
 
     model = load_wav2vec2_asr_model(model_card, device=init_device, dtype=config.dtype)
 
-    log.info("Model loaded on rank 0.")
-
     gang.barrier()
 
-    # No need for weight normalization outside training.
+    log.info("Model loaded on rank 0.")
+
     remove_parametrizations(model)
 
+    # Distribute the model to all processes in the gang.
     if gang.size != 1:
         broadcast_model(model, gang, log)
 
     log_model(model, log)
 
-    # Initialize the criterion.
+    # Initialize the evaluation unit.
     wer_file = output_dir.joinpath(f"wer/rank_{gang.rank}.txt")
 
     try:
@@ -146,12 +149,32 @@ def load_wav2vec2_asr_evaluator(
             f"The WER output directory ({wer_file.parent}) cannot be created. See nested exception for details."
         ) from ex
 
-    criterion = Wav2Vec2AsrCriterion(model, gang, tokenizer, wer_file=wer_file)
+    try:
+        wer_fp = wer_file.open("w")
+    except OSError as ex:
+        raise RuntimeError(
+            f"The WER output file ({wer_file}) cannot be created. See nested exception for details."
+        ) from ex
+
+    unit = Wav2Vec2AsrEvalUnit(model, gang, tokenizer, output_stream=wer_fp)
+
+    data_reader = dataset.create_reader(
+        config.split,
+        tokenizer,
+        gang,
+        dtype=config.dtype,
+        min_audio_len=config.min_audio_len,
+        max_audio_len=config.max_audio_len,
+        max_num_elements=config.max_num_elements,
+        normalize_audio=config.normalize_audio,
+        num_prefetch=config.num_prefetch,
+    )
 
     # Initialize the evaluator.
-    return StandardEvaluator[Seq2SeqBatch](
-        criterion=criterion,
-        gang=gang,
-        data_reader=data_reader,
+    return Evaluator[Seq2SeqBatch](
+        units=[unit],
+        data_readers=[data_reader],
+        root_gang=gang,
+        seed=config.seed,
         wall_watch=wall_watch,
     )

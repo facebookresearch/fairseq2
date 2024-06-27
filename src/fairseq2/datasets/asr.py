@@ -105,6 +105,9 @@ class AsrDataset(ABC):
         """Return the set of splits."""
 
 
+load_asr_dataset = DelegatingDatasetLoader[AsrDataset]()
+
+
 # TODO: FIX, INFER
 npc = 10
 
@@ -171,7 +174,7 @@ class GenericAsrDataset(AsrDataset):
 
         # Shuffle examples. Must be consistent across all processes.
         if example_shuffle_window != 1:
-            builder.shuffle(example_shuffle_window, seed=seed)
+            builder.shuffle(example_shuffle_window, seed)
 
         seed += 1
 
@@ -198,7 +201,7 @@ class GenericAsrDataset(AsrDataset):
 
         # Shuffle buckets.
         if batch_shuffle_window != 1:
-            builder.shuffle(batch_shuffle_window, seed=seed)
+            builder.shuffle(batch_shuffle_window, seed)
 
         seed += 1
 
@@ -242,7 +245,7 @@ class GenericAsrDataset(AsrDataset):
         builder.prefetch(num_prefetch)
 
         # Wrap examples with `Seq2SeqBatch`.
-        def _example_to_batch(example: Dict[str, Any]) -> Seq2SeqBatch:
+        def example_to_batch(example: Dict[str, Any]) -> Seq2SeqBatch:
             source_data = cast(SequenceData, example["audio"]["data"]["waveform"])
             target_data = cast(SequenceData, example["text"])
 
@@ -261,7 +264,7 @@ class GenericAsrDataset(AsrDataset):
                 example,
             )
 
-        pipeline = builder.map(_example_to_batch).and_return()
+        pipeline = builder.map(example_to_batch).and_return()
 
         return DataPipelineReader[Seq2SeqBatch](
             pipeline,
@@ -324,9 +327,6 @@ class GenericAsrDataset(AsrDataset):
     @override
     def splits(self) -> Set[str]:
         return self._splits
-
-
-load_asr_dataset = DelegatingDatasetLoader[AsrDataset]()
 
 
 @final

@@ -4,8 +4,7 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-from pathlib import Path
-from typing import Optional, Tuple, cast, final
+from typing import Tuple, cast, final
 
 from torch import Tensor
 from torch.nn import Module
@@ -19,8 +18,8 @@ from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel, Wav2Vec2AsrOutput
 from fairseq2.nn.utils.module import freeze_parameters
 from fairseq2.recipes.criterion import AbstractCriterion
 from fairseq2.recipes.wav2vec2.asr.metrics import (
+    Wav2Vec2AsrEvalMetricBag,
     Wav2Vec2AsrMetricBag,
-    Wav2Vec2AsrValidMetricBag,
 )
 from fairseq2.typing import override
 
@@ -32,7 +31,7 @@ class Wav2Vec2AsrCriterion(AbstractCriterion[Seq2SeqBatch]):
     """Computes CTC loss using a wav2vec 2.0 ASR model."""
 
     _train_metric_bag: Wav2Vec2AsrMetricBag
-    _valid_metric_bag: Wav2Vec2AsrValidMetricBag
+    _valid_metric_bag: Wav2Vec2AsrEvalMetricBag
     _freeze_encoder_for_n_steps: int
 
     def __init__(
@@ -42,7 +41,6 @@ class Wav2Vec2AsrCriterion(AbstractCriterion[Seq2SeqBatch]):
         tokenizer: TextTokenizer,
         *,
         freeze_encoder_for_n_steps: int = 0,
-        wer_file: Optional[Path] = None,
     ) -> None:
         """
         :param model:
@@ -60,9 +58,7 @@ class Wav2Vec2AsrCriterion(AbstractCriterion[Seq2SeqBatch]):
 
         self._train_metric_bag = Wav2Vec2AsrMetricBag(gang)
 
-        self._valid_metric_bag = Wav2Vec2AsrValidMetricBag(
-            gang, tokenizer, wer_file=wer_file
-        )
+        self._valid_metric_bag = Wav2Vec2AsrEvalMetricBag(gang, tokenizer)
 
         self._freeze_encoder_for_n_steps = freeze_encoder_for_n_steps
 
@@ -103,10 +99,10 @@ class Wav2Vec2AsrCriterion(AbstractCriterion[Seq2SeqBatch]):
         loss = output.compute_loss(batch.target_seqs, batch.target_padding_mask)
 
         if self._model.training:
-            self._train_metric_bag.update(batch, loss.detach())
+            self._train_metric_bag.update_loss_metrics(batch, loss.detach())
         else:
-            self._valid_metric_bag.update(batch, loss.detach())
-            self._valid_metric_bag.update_wer_metric(batch, output)
+            self._valid_metric_bag.update_loss_metrics(batch, loss.detach())
+            self._valid_metric_bag.update_wer(batch, output)
 
         return loss, batch.batch_size
 
@@ -119,7 +115,7 @@ class Wav2Vec2AsrCriterion(AbstractCriterion[Seq2SeqBatch]):
     @final
     @property
     @override
-    def valid_metric_bag(self) -> Wav2Vec2AsrValidMetricBag:
+    def valid_metric_bag(self) -> Wav2Vec2AsrEvalMetricBag:
         return self._valid_metric_bag
 
     @final

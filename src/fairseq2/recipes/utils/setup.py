@@ -5,10 +5,12 @@
 # LICENSE file in the root directory of this source tree.
 
 from datetime import timedelta
-from typing import Any, Dict, Literal, Optional, Tuple
+from typing import Any, Dict, Literal, Optional, Tuple, Type
 
 import torch
+from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.nn import Module
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 from fairseq2.device import determine_default_device
 from fairseq2.gang import Gang, setup_default_gang, setup_parallel_gangs
@@ -186,3 +188,14 @@ def compile_model(model: Module, log: LogWriter, *, dynamic: bool = True) -> Mod
     return torch.compile(  # type: ignore[return-value]
         model, dynamic=dynamic, options={"shape_padding": dynamic}
     )
+
+
+def check_model_type(model: Module, kls: Type[Module]) -> None:
+    """Check if a potentially DDP or FSDP wrapped `model` is of type `kls`."""
+    if isinstance(model, (DDP, FSDP)):
+        model = model.module
+
+    if not isinstance(model, kls):
+        raise ValueError(
+            f"`model` must be of type `{kls}`, but is of type `{type(model)}` instead."
+        )

@@ -47,7 +47,7 @@ class WerMetric(Metric[Tuple[Tensor, Tensor]]):
         hyp_seqs: Tensor,
         hyp_padding_mask: Optional[PaddingMask],
         *,
-        output_fp: Optional[TextIO] = None,
+        output_stream: Optional[TextIO] = None,
     ) -> Self:
         """
         :param text_decoder:
@@ -64,8 +64,8 @@ class WerMetric(Metric[Tuple[Tensor, Tensor]]):
             sequence length of the hypotheses.
         :param hyp_seqs:
             The padding mask of ``hyp_seqs``. *Shape:* Same as ``hyp_seqs``.
-        :param output_fp:
-            The file descriptor to dump the transcriptions, WER, and UER metrics.
+        :param output_stream:
+            The output stream to dump the transcriptions, WER, and UER metrics.
         """
         ref_seq_lens = get_seq_lens(ref_seqs, ref_padding_mask)
         hyp_seq_lens = get_seq_lens(hyp_seqs, hyp_padding_mask)
@@ -91,14 +91,14 @@ class WerMetric(Metric[Tuple[Tensor, Tensor]]):
             self.unit_len += len(ref_units)
             self.word_len += len(ref_words)
 
-            if output_fp is not None:
-                output_fp.write(f"REF: {ref_text}\n")
-                output_fp.write(f"HYP: {hyp_text}\n")
+            if output_stream is not None:
+                output_stream.write(f"REF: {ref_text}\n")
+                output_stream.write(f"HYP: {hyp_text}\n")
 
-                output_fp.write(f"UNIT ERROR: {unit_err}\n")
-                output_fp.write(f"WORD ERROR: {word_err}\n")
+                output_stream.write(f"UNIT ERROR: {unit_err}\n")
+                output_stream.write(f"WORD ERROR: {word_err}\n")
 
-                output_fp.write("\n")
+                output_stream.write("\n")
 
         return self
 

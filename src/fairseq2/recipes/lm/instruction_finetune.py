@@ -368,7 +368,7 @@ class InstructionFinetuneCriterion(AbstractCriterion[SequenceBatch]):
         )
 
         if self._model.training:
-            self._train_metric_bag.update(target_batch, loss)
+            self._train_metric_bag.update_loss_metrics(target_batch, loss)
 
         return loss, target_batch.num_target_elements()
 

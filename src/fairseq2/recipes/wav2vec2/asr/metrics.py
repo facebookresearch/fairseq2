@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import math
-from pathlib import Path
 from typing import Any, Dict, Optional, TextIO
 
 import torch
@@ -24,7 +23,7 @@ from fairseq2.typing import override
 
 
 class Wav2Vec2AsrMetricBag(MetricBag):
-    """Holds the metrics of a wav2vec 2.0 ASR model training."""
+    """Holds the training metrics of a wav2vec 2.0 ASR model."""
 
     _ctc_loss: Mean
     _batch_size: Mean
@@ -62,8 +61,8 @@ class Wav2Vec2AsrMetricBag(MetricBag):
         self._total_num_target_elements = Sum(device=d)
 
     @torch.inference_mode()
-    def update(self, batch: Seq2SeqBatch, ctc_loss: Tensor) -> None:
-        """Update the metrics.
+    def update_loss_metrics(self, batch: Seq2SeqBatch, ctc_loss: Tensor) -> None:
+        """Update the loss metrics.
 
         :param batch:
             The batch processed by the model.
@@ -94,14 +93,14 @@ class Wav2Vec2AsrMetricBag(MetricBag):
         self._total_num_target_elements.update(num_target_elements)
 
 
-class Wav2Vec2AsrValidMetricBag(Wav2Vec2AsrMetricBag):
-    """Holds the validation metrics of a wav2vec 2.0 ASR model training."""
+class Wav2Vec2AsrEvalMetricBag(Wav2Vec2AsrMetricBag):
+    """Holds the evaluation metrics of a wav2vec 2.0 ASR model."""
 
     _wer: WerMetric
     _text_decoder: TextTokenDecoder
     _pad_idx: int
     _blank_label: int
-    _wer_fp: Optional[TextIO]
+    _output_stream: Optional[TextIO]
 
     def __init__(
         self,
@@ -109,7 +108,7 @@ class Wav2Vec2AsrValidMetricBag(Wav2Vec2AsrMetricBag):
         tokenizer: TextTokenizer,
         *,
         blank_label: int = 0,
-        wer_file: Optional[Path] = None,
+        output_stream: Optional[TextIO] = None,
     ) -> None:
         """
         :param gang:
@@ -118,8 +117,8 @@ class Wav2Vec2AsrValidMetricBag(Wav2Vec2AsrMetricBag):
             The text tokenizer to compute the WER (Word Error Rate).
         :param blank_label:
             The blank label in logits.
-        :param wer_file:
-            The output file to dump transcriptions, WER, and UER metrics.
+        :param output_stream:
+            The output stream to dump transcriptions, WER, and UER metrics.
         """
         super().__init__(gang)
 
@@ -137,21 +136,11 @@ class Wav2Vec2AsrValidMetricBag(Wav2Vec2AsrMetricBag):
 
         self._blank_label = blank_label
 
-        if wer_file is None:
-            self._wer_fp = None
-        else:
-            self._wer_fp = wer_file.open("w")
-
-    def close(self) -> None:
-        """Close the output file."""
-        if self._wer_fp is not None:
-            self._wer_fp.close()
+        self._output_stream = output_stream
 
     @torch.inference_mode()
-    def update_wer_metric(
-        self, batch: Seq2SeqBatch, model_output: Wav2Vec2AsrOutput
-    ) -> None:
-        """Update the WER (Word Error Rate).
+    def update_wer(self, batch: Seq2SeqBatch, model_output: Wav2Vec2AsrOutput) -> None:
+        """Update the WER (Word Error Rate) metric.
 
         :param batch:
             The batch processed by the model.
@@ -169,11 +158,11 @@ class Wav2Vec2AsrValidMetricBag(Wav2Vec2AsrMetricBag):
             batch.target_padding_mask,
             hyp_seqs,
             hyp_padding_mask,
-            output_fp=self._wer_fp,
+            output_stream=self._output_stream,
         )
 
-        if self._wer_fp is not None:
-            self._wer_fp.flush()
+        if self._output_stream is not None:
+            self._output_stream.flush()
 
     @override
     def process_metric_values(self, values: Dict[str, Any]) -> None:

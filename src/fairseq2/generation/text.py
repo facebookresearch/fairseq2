@@ -161,6 +161,7 @@ class TextTranslator:
         tokenizer: TextTokenizer,
         source_lang: Optional[str] = None,
         target_lang: Optional[str] = None,
+        *,
         max_source_len: Optional[int] = None,
     ) -> None:
         """
