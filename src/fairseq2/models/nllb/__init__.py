@@ -9,14 +9,13 @@ from fairseq2.models.nllb.tokenizer import NllbTokenizer as NllbTokenizer
 
 # isort: split
 
-from fairseq2.data.text import load_text_tokenizer
 from fairseq2.models.nllb.archs import _register_nllb_archs
+from fairseq2.models.nllb.loader import _register_nllb_loaders
 
 
 def _register_nllb() -> None:
     _register_nllb_archs()
-
-    load_text_tokenizer.register("nllb", load_nllb_tokenizer)
+    _register_nllb_loaders()
 
 
 # isort: split

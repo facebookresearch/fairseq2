@@ -205,9 +205,9 @@ def load_wav2vec2_asr_trainer(
     # Load the tokenizer.
     tokenizer = load_text_tokenizer(config.tokenizer)
 
-    if config.model_config.final_dim != tokenizer.vocab_info.size:
+    if config.model_config.vocab_info != tokenizer.vocab_info:
         raise ValueError(
-            f"`config.model_config.final_dim` must match the size of the vocabulary of the tokenizer ({tokenizer.vocab_info.size}), but is {config.model_config.final_dim} instead."
+            "`config.model_config.vocab_info` must match the vocabulary of the tokenizer."
         )
 
     # Load the data readers.

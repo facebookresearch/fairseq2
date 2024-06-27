@@ -6,9 +6,12 @@
 
 from typing import Any, Dict
 
-from fairseq2.data.text import default_basic_sentencepiece_tokenizer_loader
+from fairseq2.data.text import (
+    default_basic_sentencepiece_tokenizer_loader,
+    load_text_tokenizer,
+)
 from fairseq2.models.config_loader import StandardModelConfigLoader
-from fairseq2.models.loader import DenseModelLoader
+from fairseq2.models.loader import DenseModelLoader, load_model
 from fairseq2.models.mistral.archs import mistral_archs
 from fairseq2.models.mistral.factory import (
     MISTRAL_FAMILY,
@@ -26,8 +29,7 @@ def convert_mistral_checkpoint(
     checkpoint: Dict[str, Any], config: MistralConfig
 ) -> Dict[str, Any]:
     """Convert a reference Mistral checkpoint to fairseq2 format."""
-    # Check if we have a fairseq2 checkpoint.
-    if "model" in checkpoint:
+    if "output.weight" not in checkpoint:
         return checkpoint
 
     key_map = {
@@ -59,3 +61,9 @@ load_mistral_model = DenseModelLoader(
 )
 
 load_mistral_tokenizer = default_basic_sentencepiece_tokenizer_loader
+
+
+def _register_mistral_loaders() -> None:
+    load_model.register(MISTRAL_FAMILY, load_mistral_model)
+
+    load_text_tokenizer.register(MISTRAL_FAMILY, load_mistral_tokenizer)

@@ -12,7 +12,9 @@ mistral_archs = ConfigRegistry[MistralConfig]()
 mistral_arch = mistral_archs.decorator
 
 
+def _7b() -> MistralConfig:
+    return MistralConfig()
+
+
 def _register_mistral_archs() -> None:
-    @mistral_arch("7b")
-    def _7b() -> MistralConfig:
-        return MistralConfig()
+    mistral_archs.register("7b", _7b)

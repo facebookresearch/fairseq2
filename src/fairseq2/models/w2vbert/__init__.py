@@ -19,11 +19,10 @@ from fairseq2.models.w2vbert.model import W2VBertOutput as W2VBertOutput
 
 # isort: split
 
-from fairseq2.models.loader import load_model
 from fairseq2.models.w2vbert.archs import _register_w2vbert_archs
+from fairseq2.models.w2vbert.loader import _register_w2vbert_loaders
 
 
 def _register_w2vbert() -> None:
     _register_w2vbert_archs()
-
-    load_model.register(W2VBERT_FAMILY, load_w2vbert_model)
+    _register_w2vbert_loaders()

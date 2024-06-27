@@ -9,7 +9,7 @@ from typing import Any, Dict
 import torch
 
 from fairseq2.models.config_loader import StandardModelConfigLoader
-from fairseq2.models.loader import DenseModelLoader
+from fairseq2.models.loader import DenseModelLoader, load_model
 from fairseq2.models.utils.checkpoint import convert_fairseq_checkpoint
 from fairseq2.models.wav2vec2.archs import wav2vec2_archs
 from fairseq2.models.wav2vec2.factory import (
@@ -28,14 +28,12 @@ def convert_wav2vec2_checkpoint(
     checkpoint: Dict[str, Any], config: Wav2Vec2Config
 ) -> Dict[str, Any]:
     """Convert a fairseq wav2vec 2.0 checkpoint to fairseq2 format."""
-    state_dict = checkpoint["model"]
-
-    # Check if we have a fairseq2 checkpoint.
-    if "final_target_proj.weight" in state_dict:
+    try:
+        state_dict = checkpoint["model"]
+    except KeyError:
         return checkpoint
 
-    # Check if we have a DDP wrapped fairseq2 checkpoint.
-    if "module.final_target_proj.weight" in state_dict:
+    if "project_q.weight" not in state_dict:
         return checkpoint
 
     if config.encoder_config.norm_order == TransformerNormOrder.POST:
@@ -78,3 +76,7 @@ load_wav2vec2_model = DenseModelLoader(
     checkpoint_converter=convert_wav2vec2_checkpoint,
     restrict_checkpoints=False,
 )
+
+
+def _register_wav2vec2_loaders() -> None:
+    load_model.register(WAV2VEC2_FAMILY, load_wav2vec2_model)

@@ -11,7 +11,12 @@ from fairseq2.models.utils.checkpoint import convert_model_state_dict
 
 def convert_to_reference_checkpoint(checkpoint: Dict[str, Any]) -> Dict[str, Any]:
     """Convert a fairseq2 LLaMA checkpoint to the reference format."""
-    state_dict = checkpoint["model"]
+    try:
+        model_key = checkpoint["model_key"]
+    except KeyError:
+        model_key = "model"
+
+    state_dict = checkpoint[model_key]
 
     key_map = {
         # fmt: off

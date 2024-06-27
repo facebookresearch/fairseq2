@@ -12,13 +12,14 @@ from fairseq2.data.text import (
     AbstractTextTokenizerLoader,
     BasicSentencePieceTokenizer,
     TextTokenizer,
+    load_text_tokenizer,
 )
 from fairseq2.gang import Gang
 from fairseq2.models.config_loader import StandardModelConfigLoader
 from fairseq2.models.llama.archs import llama_archs
 from fairseq2.models.llama.factory import LLAMA_FAMILY, LLaMAConfig, create_llama_model
 from fairseq2.models.llama.tokenizer import LLaMA3Tokenizer
-from fairseq2.models.loader import DenseModelLoader
+from fairseq2.models.loader import DenseModelLoader, load_model
 from fairseq2.models.transformer import (
     TransformerDecoderModel,
     shard_transformer_decoder_model,
@@ -51,7 +52,7 @@ def convert_llama_checkpoint(
 ) -> Dict[str, Any]:
     """Convert a reference LLaMA checkpoint to fairseq2 format."""
     # Check if we have a fairseq2 checkpoint.
-    if "model" in checkpoint:
+    if "output.weight" not in checkpoint:
         return checkpoint
 
     key_map = {
@@ -103,3 +104,9 @@ class LLaMATokenizerLoader(AbstractTextTokenizerLoader[TextTokenizer]):
 
 
 load_llama_tokenizer = LLaMATokenizerLoader()
+
+
+def _register_llama_loaders() -> None:
+    load_model.register(LLAMA_FAMILY, load_llama_model)
+
+    load_text_tokenizer.register(LLAMA_FAMILY, load_llama_tokenizer)
