@@ -8,50 +8,44 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Optional, Tuple, Union, cast, final
+from typing import Literal, Optional, Tuple, Union
 
 import torch
 import torch.distributed
-from torch import Tensor
-from torch.nn import Module
 
 from fairseq2.assets.utils import retrieve_asset_card
 from fairseq2.checkpoint import FileCheckpointManager
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
 from fairseq2.datasets.instruction import load_instruction_dataset
-from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
-from fairseq2.metrics import MetricBag
 from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
-from fairseq2.models.sequence import (
-    SequenceBatch,
-    SequenceModelOutput,
-    as_auto_regressive_input,
-)
+from fairseq2.models.sequence import SequenceBatch
 from fairseq2.nn.checkpointing import use_layerwise_activation_checkpointing
 from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
 from fairseq2.optim import AdamW
 from fairseq2.optim.lr_scheduler import CosineAnnealingLR
-from fairseq2.recipes.criterion import AbstractCriterion
-from fairseq2.recipes.metrics import SequenceModelMetricBag
-from fairseq2.recipes.trainer import StandardTrainer
+from fairseq2.recipes.lm.units import InstructionTrainUnit
+from fairseq2.recipes.trainer import Trainer
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.utils.setup import compile_model, setup_gangs, to_data_parallel
-from fairseq2.typing import META, DataType, override
+from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
 
 log = get_log_writer(__name__)
 
 
 @dataclass
-class InstructionFinetuneConfig:
-    """Holds the configuration of an instruction-finetuning recipe."""
+class InstructionTrainConfig:
+    """Holds the training configuration of an instruction model."""
 
     # Data
     dataset: Union[str, Path] = "openeft"  # TODO: change!
     """The name or path to the asset card of the dataset to train with."""
+
+    split: str = "train"
+    """The name of the dataset split to train with."""
 
     max_seq_len: int = 8192
     """The maximum sequence length."""
@@ -68,12 +62,9 @@ class InstructionFinetuneConfig:
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
 
-    tokenizer: Union[str, Path] = "llama3_instruct"
-    """The name or path to the asset card of the tokenizer to use."""
-
     # Model
     model: Union[str, Path] = "llama3_8b_instruct"
-    """The name or path to the asset card of the model to finetune."""
+    """The name or path to the asset card of the language model to finetune."""
 
     dtype: DataType = torch.bfloat16
     """The data type of the model."""
@@ -154,31 +145,14 @@ class InstructionFinetuneConfig:
     """If ``True``, turns on anomaly detection feature in ``torch.autograd``."""
 
 
-instruction_finetune_presets = ConfigRegistry[InstructionFinetuneConfig]()
+instruction_train_presets = ConfigRegistry[InstructionTrainConfig]()
 
-instruction_finetune_preset = instruction_finetune_presets.decorator
-
-
-@instruction_finetune_preset("llama3_8b_instruct")
-def _llama3_8b_instruct() -> InstructionFinetuneConfig:
-    return InstructionFinetuneConfig()
+instruction_train_preset = instruction_train_presets.decorator
 
 
-@instruction_finetune_preset("llama3_70b_instruct")
-def _llama3_70b_instruct() -> InstructionFinetuneConfig:
+def _llama2_7b_chat() -> InstructionTrainConfig:
     config = _llama3_8b_instruct()
 
-    config.model = "llama3_70b_instruct"
-    config.tensor_parallel_size = 8
-
-    return config
-
-
-@instruction_finetune_preset("llama2_7b_chat")
-def _llama2_7b_chat() -> InstructionFinetuneConfig:
-    config = _llama3_8b_instruct()
-
-    config.tokenizer = "llama2"
     config.max_seq_len = 4096
     config.max_num_tokens = 4096 * 2
     config.model = "llama2_7b_chat"
@@ -186,8 +160,7 @@ def _llama2_7b_chat() -> InstructionFinetuneConfig:
     return config
 
 
-@instruction_finetune_preset("llama2_70b_chat")
-def _llama2_70b_chat() -> InstructionFinetuneConfig:
+def _llama2_70b_chat() -> InstructionTrainConfig:
     config = _llama2_7b_chat()
 
     config.model = "llama2_70b_chat"
@@ -196,10 +169,32 @@ def _llama2_70b_chat() -> InstructionFinetuneConfig:
     return config
 
 
-def load_instruction_finetuner(
-    config: InstructionFinetuneConfig, output_dir: Path
-) -> StandardTrainer[SequenceBatch]:
-    """Load a :class:`Trainer` for instruction finetuning."""
+def _llama3_8b_instruct() -> InstructionTrainConfig:
+    return InstructionTrainConfig()
+
+
+def _llama3_70b_instruct() -> InstructionTrainConfig:
+    config = _llama3_8b_instruct()
+
+    config.model = "llama3_70b_instruct"
+    config.tensor_parallel_size = 8
+
+    return config
+
+
+def _register_instruction_train() -> None:
+    # fmt: off
+    instruction_train_presets.register("llama2_7b_chat",      _llama2_7b_chat)
+    instruction_train_presets.register("llama2_70b_chat",     _llama2_70b_chat)
+    instruction_train_presets.register("llama3_8b_instruct",  _llama3_8b_instruct)
+    instruction_train_presets.register("llama3_70b_instruct", _llama3_70b_instruct)
+    # fmt: on
+
+
+def load_instruction_trainer(
+    config: InstructionTrainConfig, output_dir: Path
+) -> Trainer[SequenceBatch]:
+    """Load a :class:`Trainer` for instruction model training."""
     wall_watch = Stopwatch(start=True)
 
     root_gang, gangs = setup_gangs(
@@ -209,36 +204,30 @@ def load_instruction_finetuner(
     dp_gang = gangs["dp"]  # data
     tp_gang = gangs["tp"]  # tensor
 
-    # Load the tokenizer.
-    tokenizer = load_text_tokenizer(config.tokenizer)
-
-    # Load the data reader.
-    dataset = load_instruction_dataset(config.dataset)
-
-    data_reader = dataset.create_reader(
-        split="train",
-        tokenizer=tokenizer,
-        gang=dp_gang,
-        max_seq_len=config.max_seq_len,
-        max_num_tokens=config.max_num_tokens,
-        example_shuffle_window=config.example_shuffle_window,
-        batch_shuffle_window=config.batch_shuffle_window,
-        num_accumulate=config.gradient_accumulation,
-        num_prefetch=config.num_prefetch,
-        seed=config.seed,
-    )
-
-    data_readers = {"train": data_reader}
-
-    # Initialize the model.
-    model_card = retrieve_asset_card(config.model)
-
-    init_device = META
-
-    # Set up the checkpoint manager.
     checkpoint_manager = FileCheckpointManager(
         output_dir.joinpath("checkpoints"), root_gang, dp_gang=dp_gang, tp_gang=tp_gang
     )
+
+    # Load the tokenizer.
+    model_card = retrieve_asset_card(config.model)
+
+    log.info("Loading {} tokenizer.", model_card.name)
+
+    tokenizer = load_text_tokenizer(model_card)
+
+    log.info("Tokenizer loaded.")
+
+    # Load the dataset.
+    dataset_card = retrieve_asset_card(config.dataset)
+
+    log.info("Loading {} instruction dataset.", dataset_card.name)
+
+    dataset = load_instruction_dataset(dataset_card)
+
+    log.info("Dataset loaded.")
+
+    # Load the model.
+    init_device = META
 
     has_checkpoint = checkpoint_manager.has_checkpoint()
 
@@ -264,11 +253,6 @@ def load_instruction_finetuner(
 
     if not isinstance(model, DecoderModel):
         raise ValueError("`config.model` must specify a decoder model.")
-
-    if model.vocab_info != tokenizer.vocab_info:
-        raise ValueError(
-            "`vocab_info` of the model and `vocab_info` of the tokenizer do not match."
-        )
 
     checkpoint_manager.save_model_metadata(
         base_asset=model_card.name, family=model.family
@@ -300,8 +284,21 @@ def load_instruction_finetuner(
 
     log_model(dp_model, log, rank=root_gang.rank)
 
-    # Initialize the criterion and the optimizer.
-    criterion = InstructionFinetuneCriterion(dp_model, dp_gang)
+    # Initialize the train unit and the optimizer.
+    unit = InstructionTrainUnit(dp_model, dp_gang)
+
+    data_reader = dataset.create_reader(
+        config.split,
+        tokenizer,
+        dp_gang,
+        max_seq_len=config.max_seq_len,
+        max_num_tokens=config.max_num_tokens,
+        example_shuffle_window=config.example_shuffle_window,
+        batch_shuffle_window=config.batch_shuffle_window,
+        num_accumulate=config.gradient_accumulation,
+        num_prefetch=config.num_prefetch,
+        seed=config.seed,
+    )
 
     optimizer = AdamW(
         model.parameters(),
@@ -317,10 +314,11 @@ def load_instruction_finetuner(
         final_lr=config.lr * config.final_lr_ratio,
     )
 
-    # Set up the finetuner.
-    return StandardTrainer[SequenceBatch](
-        criterion=criterion,
-        gang=root_gang,
+    # Initialize the trainer.
+    return Trainer[SequenceBatch](
+        unit=unit,
+        data_reader=data_reader,
+        root_gang=root_gang,
         dp_gang=dp_gang,
         tp_gang=tp_gang,
         dtype=config.dtype,
@@ -328,7 +326,6 @@ def load_instruction_finetuner(
         lr_scheduler=lr_scheduler,
         fp16_loss_scale=config.fp16_loss_scale,
         max_gradient_norm=config.max_gradient_norm,
-        data_readers=data_readers,
         max_num_steps=config.max_num_steps,
         max_num_data_epochs=config.max_num_data_epochs,
         checkpoint_manager=checkpoint_manager,
@@ -342,44 +339,3 @@ def load_instruction_finetuner(
         seed=config.seed,
         wall_watch=wall_watch,
     )
-
-
-@final
-class InstructionFinetuneCriterion(AbstractCriterion[SequenceBatch]):
-    """Computes cross entropy loss of a Language Model."""
-
-    _train_metric_bag: SequenceModelMetricBag
-    _valid_metric_bag: MetricBag
-
-    def __init__(self, model: Module, gang: Gang) -> None:
-        super().__init__(model)
-
-        self._train_metric_bag = SequenceModelMetricBag(gang)
-        self._valid_metric_bag = MetricBag(gang)
-
-    @override
-    def compute_loss(self, batch: SequenceBatch) -> Tuple[Tensor, int]:
-        batch, target_batch = as_auto_regressive_input(batch)
-
-        output = cast(SequenceModelOutput, self._model(batch))
-
-        loss = output.compute_loss(
-            target_batch.seqs, loss_mask=target_batch.target_mask
-        )
-
-        if self._model.training:
-            self._train_metric_bag.update_loss_metrics(target_batch, loss)
-
-        return loss, target_batch.num_target_elements()
-
-    @final
-    @property
-    @override
-    def train_metric_bag(self) -> SequenceModelMetricBag:
-        return self._train_metric_bag
-
-    @final
-    @property
-    @override
-    def valid_metric_bag(self) -> MetricBag:
-        return self._valid_metric_bag

@@ -6,9 +6,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Optional, Tuple, Union
+from typing import Any, Dict, Literal, Optional, Tuple, Union
 
 import torch
 
@@ -28,14 +28,18 @@ from fairseq2.models.wav2vec2.asr import (
 from fairseq2.nn.utils.module import freeze_parameters, share_parameters, to_device
 from fairseq2.optim import AdamW
 from fairseq2.optim.lr_scheduler import TriStageLR
-from fairseq2.recipes.trainer import StandardTrainer
-from fairseq2.recipes.utils.log import log_model
+from fairseq2.recipes.trainer import Trainer
+from fairseq2.recipes.utils.log import log_model, log_model_config
 from fairseq2.recipes.utils.setup import (
     compile_model,
     setup_root_gang,
     to_data_parallel,
+    update_model_config,
 )
-from fairseq2.recipes.wav2vec2.asr.criterion import Wav2Vec2AsrCriterion
+from fairseq2.recipes.wav2vec2.asr.units import (
+    Wav2Vec2AsrEvalUnit,
+    Wav2Vec2AsrTrainUnit,
+)
 from fairseq2.typing import META, DataType
 from fairseq2.utils.profiler import Stopwatch
 
@@ -44,9 +48,9 @@ log = get_log_writer(__name__)
 
 @dataclass
 class Wav2Vec2AsrTrainConfig:
-    """Holds the configuration of a wav2vec 2.0 ASR training recipe.
+    """Holds the training configuration of a wav2vec 2.0 ASR model.
 
-    The default values correspond to the base 10h training as described in
+    The default values correspond to the base 10h training setup as described in
     :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`.
     """
 
@@ -88,10 +92,11 @@ class Wav2Vec2AsrTrainConfig:
     pretrained_model: Union[str, Path] = "wav2vec2_base"
     """The name or path to the asset card of the wav2vec 2.0 model to finetune."""
 
-    model_config: Wav2Vec2AsrConfig = field(
-        default_factory=lambda: wav2vec2_asr_archs.get("base_10h")
-    )
-    """The configuration of the ASR model."""
+    model_arch: Optional[str] = "base_10h"
+    """The architecture of the model."""
+
+    model_config: Optional[Dict[str, Any]] = None
+    """The model configuration overrides."""
 
     dtype: DataType = torch.float16
     """The data type of the model."""
@@ -100,7 +105,7 @@ class Wav2Vec2AsrTrainConfig:
     """The data parallelism API to use."""
 
     fsdp_wrap_granularity: Literal["layer", "stack", "model"] = "stack"
-    """The granularity at which to wrap the ASR model."""
+    """The granularity at which to wrap the model."""
 
     torch_compile: bool = False
     """If ``True``, applies ``torch.compile()`` to the encoder. (experimental)"""
@@ -174,19 +179,15 @@ wav2vec2_asr_train_presets = ConfigRegistry[Wav2Vec2AsrTrainConfig]()
 wav2vec2_asr_train_preset = wav2vec2_asr_train_presets.decorator
 
 
-@wav2vec2_asr_train_preset("base_10h")
 def _base_10h() -> Wav2Vec2AsrTrainConfig:
     return Wav2Vec2AsrTrainConfig()
 
 
-@wav2vec2_asr_train_preset("base_100h")
 def _base_100h() -> Wav2Vec2AsrTrainConfig:
     config = _base_10h()
 
     config.dataset = "librispeech_asr_100h"
-
-    config.model_config = wav2vec2_asr_archs.get("base_100h")
-
+    config.model_arch = "base_100h"
     config.lr = 0.00003
     config.max_num_steps = 50_000
     config.freeze_encoder_for_n_steps = 0
@@ -194,63 +195,60 @@ def _base_100h() -> Wav2Vec2AsrTrainConfig:
     return config
 
 
+def _register_train() -> None:
+    # fmt: off
+    wav2vec2_asr_train_presets.register("base_10h",  _base_10h)
+    wav2vec2_asr_train_presets.register("base_100h", _base_100h)
+    # fmt: on
+
+
 def load_wav2vec2_asr_trainer(
     config: Wav2Vec2AsrTrainConfig, output_dir: Path
-) -> StandardTrainer[Seq2SeqBatch]:
-    """Load a :class:`Trainer` for wav2vec 2.0 ASR training."""
+) -> Trainer[Seq2SeqBatch]:
+    """Load a :class:`Trainer` for wav2vec 2.0 ASR model training."""
     wall_watch = Stopwatch(start=True)
 
     gang = setup_root_gang(log, monitored=config.monitored_gang)
 
+    checkpoint_manager = FileCheckpointManager(output_dir.joinpath("checkpoints"), gang)
+
     # Load the tokenizer.
+    tokenizer_card = retrieve_asset_card(config.tokenizer)
+
+    log.info("Loading {} tokenizer.", tokenizer_card.name)
+
     tokenizer = load_text_tokenizer(config.tokenizer)
 
-    if config.model_config.vocab_info != tokenizer.vocab_info:
-        raise ValueError(
-            "`config.model_config.vocab_info` must match the vocabulary of the tokenizer."
-        )
+    log.info("Tokenizer loaded.")
 
-    # Load the data readers.
+    # Load the dataset.
+    dataset_card = retrieve_asset_card(config.dataset)
+
+    log.info("Loading {} ASR dataset.", dataset_card.name)
+
     dataset = load_asr_dataset(config.dataset)
 
-    train_data_reader = dataset.create_reader(
-        split=config.train_split,
-        tokenizer=tokenizer,
-        gang=gang,
-        dtype=config.dtype,
-        min_audio_len=config.min_audio_len,
-        max_audio_len=config.max_audio_len,
-        max_num_elements=config.max_num_elements,
-        normalize_audio=config.normalize_audio,
-        example_shuffle_window=config.example_shuffle_window,
-        batch_shuffle_window=config.batch_shuffle_window,
-        num_accumulate=config.gradient_accumulation,
-        num_prefetch=config.num_prefetch,
-        seed=config.seed,
-    )
+    log.info("Dataset loaded.")
 
-    valid_data_reader = dataset.create_reader(
-        split=config.valid_split,
-        tokenizer=tokenizer,
-        gang=gang,
-        dtype=config.dtype,
-        min_audio_len=config.min_audio_len,
-        max_audio_len=config.max_audio_len,
-        max_num_elements=config.max_num_elements,
-        normalize_audio=config.normalize_audio,
-        num_prefetch=config.num_prefetch,
-        seed=config.seed,
-    )
+    # Initialize the model configuration.
+    if config.model_arch is None:
+        model_config = Wav2Vec2AsrConfig()
+    else:
+        model_config = wav2vec2_asr_archs.get(config.model_arch)
 
-    data_readers = {"train": train_data_reader, "valid": valid_data_reader}
+    if config.model_config is not None:
+        update_model_config(model_config, config.model_config)
+
+    model_config.vocab_info = tokenizer.vocab_info
+
+    log_model_config(model_config, log)
 
     # Initialize the model.
-    model = create_wav2vec2_asr_model(
-        config.model_config, device=META, dtype=torch.float32
-    )
+    model = create_wav2vec2_asr_model(model_config, device=META, dtype=torch.float32)
 
-    # Set up the checkpoint manager.
-    checkpoint_manager = FileCheckpointManager(output_dir.joinpath("checkpoints"), gang)
+    checkpoint_manager.save_model_metadata(
+        family=model.family, config=model_config, tokenizer_name=tokenizer_card.name
+    )
 
     has_checkpoint = checkpoint_manager.has_checkpoint()
 
@@ -283,10 +281,6 @@ def load_wav2vec2_asr_trainer(
 
         gang.barrier()
 
-    checkpoint_manager.save_model_metadata(
-        family=model.family, config=config.model_config
-    )
-
     # We never train the feature extractor.
     freeze_parameters(model.encoder_frontend.feature_extractor)
 
@@ -314,12 +308,25 @@ def load_wav2vec2_asr_trainer(
 
     log_model(dp_model, log, rank=gang.rank)
 
-    # Initialize the criterion and the optimizer.
-    criterion = Wav2Vec2AsrCriterion(
-        dp_model,
-        gang,
+    # Initialize the train unit and the optimizer.
+    unit = Wav2Vec2AsrTrainUnit(
+        dp_model, gang, freeze_encoder_for_n_steps=config.freeze_encoder_for_n_steps
+    )
+
+    data_reader = dataset.create_reader(
+        config.train_split,
         tokenizer,
-        freeze_encoder_for_n_steps=config.freeze_encoder_for_n_steps,
+        gang,
+        dtype=config.dtype,
+        min_audio_len=config.min_audio_len,
+        max_audio_len=config.max_audio_len,
+        max_num_elements=config.max_num_elements,
+        normalize_audio=config.normalize_audio,
+        example_shuffle_window=config.example_shuffle_window,
+        batch_shuffle_window=config.batch_shuffle_window,
+        num_accumulate=config.gradient_accumulation,
+        num_prefetch=config.num_prefetch,
+        seed=config.seed,
     )
 
     optimizer = AdamW(dp_model.parameters(), lr=config.lr, betas=config.betas)
@@ -332,18 +339,36 @@ def load_wav2vec2_asr_trainer(
         final_lr_scale=config.final_lr_scale,
     )
 
+    # Initialize the validation unit.
+    valid_unit = Wav2Vec2AsrEvalUnit(dp_model, gang, tokenizer)
+
+    valid_data_reader = dataset.create_reader(
+        config.valid_split,
+        tokenizer,
+        gang,
+        dtype=config.dtype,
+        min_audio_len=config.min_audio_len,
+        max_audio_len=config.max_audio_len,
+        max_num_elements=config.max_num_elements,
+        normalize_audio=config.normalize_audio,
+        num_prefetch=config.num_prefetch,
+        seed=config.seed,
+    )
+
     # Initialize the trainer.
-    return StandardTrainer[Seq2SeqBatch](
-        criterion=criterion,
-        gang=gang,
+    return Trainer[Seq2SeqBatch](
+        unit=unit,
+        data_reader=data_reader,
+        root_gang=gang,
         dtype=config.dtype,
         optimizer=optimizer,
         lr_scheduler=lr_scheduler,
         fp16_loss_scale=config.fp16_loss_scale,
         max_gradient_norm=config.max_gradient_norm,
-        data_readers=data_readers,
         max_num_steps=config.max_num_steps,
         max_num_data_epochs=config.max_num_data_epochs,
+        valid_units=[valid_unit],
+        valid_data_readers=[valid_data_reader],
         validate_after_n_steps=config.validate_after_n_steps,
         validate_every_n_steps=config.validate_every_n_steps,
         checkpoint_manager=checkpoint_manager,

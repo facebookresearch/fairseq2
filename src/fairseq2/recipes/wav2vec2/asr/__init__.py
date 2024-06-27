@@ -31,15 +31,20 @@ from fairseq2.recipes.wav2vec2.asr.train import (
 from fairseq2.recipes.wav2vec2.asr.units import (
     Wav2Vec2AsrEvalUnit as Wav2Vec2AsrEvalUnit,
 )
+from fairseq2.recipes.wav2vec2.asr.units import (
+    Wav2Vec2AsrTrainUnit as Wav2Vec2AsrTrainUnit,
+)
 
 # isort: split
 
 from fairseq2.recipes.cli import Cli, RecipeCommandHandler
 from fairseq2.recipes.wav2vec2.asr.eval import _register_eval
+from fairseq2.recipes.wav2vec2.asr.train import _register_train
 
 
 def _register_wav2vec2_asr_recipes() -> None:
     _register_eval()
+    _register_train()
 
 
 def _setup_wav2vec2_asr_cli(cli: Cli) -> None:

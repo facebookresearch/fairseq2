@@ -68,6 +68,17 @@ def log_config(config: DataClass, log: LogWriter, file: Optional[Path] = None) -
     log.info("Config:\n{}", pretty_repr(config, max_width=88))
 
 
+def log_model_config(config: DataClass, log: LogWriter) -> None:
+    """Log ``config``.
+
+    :param config:
+        The model config to log.
+    :param log:
+        The log to write to.
+    """
+    log.info("Model Config:\n{}", pretty_repr(config, max_width=88))
+
+
 # compat
 # TODO: Keep only LogWriter
 def log_environment_info(
