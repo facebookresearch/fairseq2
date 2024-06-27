@@ -33,6 +33,7 @@ model_type: wav2vec2_asr  # compat
 model_family: wav2vec2_asr
 model_arch: base_10h
 checkpoint: "https://dl.fbaipublicfiles.com/fairseq/wav2vec/wav2vec2_asr_fs2_base_10h.pt"
+tokenizer_ref: librispeech_asr
 
 ---
 
