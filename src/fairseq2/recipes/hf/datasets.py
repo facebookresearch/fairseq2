@@ -6,14 +6,13 @@
 
 from typing import Any, Dict, Optional, Union, final
 
-from datasets import Dataset  # type: ignore[import-untyped]
+from datasets import Dataset  # type: ignore
 
 from fairseq2.assets.card import AssetCard
 from fairseq2.data.data_pipeline import Collater, create_bucket_sizes, read_sequence
 from fairseq2.datasets.data_reader import DataPipelineReader
 from fairseq2.datasets.loader import DatasetLoader
 from fairseq2.gang import Gang
-from fairseq2.typing import override
 
 HFBatch = Dict[str, Any]
 
