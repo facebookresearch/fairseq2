@@ -60,7 +60,10 @@ will multiply the values 4 and 6 by 10, but leave others unmodified.
 Pseudo-infinite and Infinite Pipelines
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The :py:func:`DataPipeline.count` and :py:func:`DataPipeline.constant` static methods create pseudo-infinite pipelines. When used with operators that combine multiple pipelines (e.g. :py:func:`DataPipeline.sample`, :py:func:`DataPipeline.round_robin`, :py:func:`DataPipeline.zip`), they will only yield examples as long as the other pipelines yield examples. 
+The :py:func:`DataPipeline.count` and :py:func:`DataPipeline.constant` static methods create pseudo-infinite pipelines.
+When used with operators that combine multiple pipelines (e.g. :py:func:`DataPipeline.sample`,
+:py:func:`DataPipeline.round_robin`, :py:func:`DataPipeline.zip`),
+they will only yield examples as long as the other pipelines yield examples.
 
 For example::
 
@@ -74,7 +77,8 @@ For example::
 
 only produces 0, 1, 0, 2, 0, 3.
 
-Infinite pipelines (pipelines created through :py:func:`DataPipelineBuilder.repeat` with no arguments) do not exhibit this behavior; they will yield examples indefinitely even when combined with other pipelines.
+Infinite pipelines (pipelines created through :py:func:`DataPipelineBuilder.repeat` with no arguments)
+do not exhibit this behavior; they will yield examples indefinitely even when combined with other pipelines.
 
 For example::
 
@@ -86,7 +90,7 @@ For example::
     for example in DataPipeline.round_robin(pipeline1, pipeline2).and_return():
         print(example)
 
-produces 0, 1, 0, 2, 0, 3, 0, 1, 0, 2, 0, 3... indefinitely. 
+produces 0, 1, 0, 2, 0, 3, 0, 1, 0, 2, 0, 3... indefinitely.
 
 
 Public classes used in fairseq2 API:

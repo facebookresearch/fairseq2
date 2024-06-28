@@ -98,13 +98,20 @@ if TYPE_CHECKING or DOC_MODE:
         @staticmethod
         def constant(example: Any, key: Optional[str] = None) -> DataPipelineBuilder:
             """Repeatedly yield ``example``.
-            This pipeline is pseudo-infinite; when used with functions that combine pipelines (e.g. sample, round_robin, zip), it will yield examples only as long as other pipelines yield examples.
-            See :ref:`reference/data:pseudo-infinite and infinite pipelines` for more details.
+
+            This pipeline is pseudo-infinite; when used with functions
+            that combine pipelines (e.g. sample, round_robin, zip),
+            it will yield examples only as long as other
+            pipelines yield examples.
+
+            See :ref:`reference/data:pseudo-infinite and infinite pipelines`
+            for more details.
 
             :param example:
                 Example to yield infinitely.
             :param key:
-                If specified, yields dictionaries as examples, where the key is ``key`` and the value is ``example``.
+                If specified, yields dictionaries as examples,
+                where the key is ``key`` and the value is ``example``.
             """
             ...
 
@@ -113,15 +120,22 @@ if TYPE_CHECKING or DOC_MODE:
             start: int = 0, step: int = 1, key: Optional[str] = None
         ) -> DataPipelineBuilder:
             """Count from ``start`` in steps of size ``step``.
-            This pipeline is pseudo-infinite; when used with functions that combine pipelines (e.g. sample, round_robin, zip), it will yield examples only as long as other pipelines yield examples.
-            See :ref:`reference/data:pseudo-infinite and infinite pipelines` for more details.
+
+            This pipeline is pseudo-infinite; when used with functions
+            that combine pipelines (e.g. sample, round_robin, zip),
+            it will yield examples only as long as other
+            pipelines yield examples.
+
+            See :ref:`reference/data:pseudo-infinite and infinite pipelines`
+            for more details.
 
             :param start:
                 Number to start counting from.
             :param step:
                 Count step size.
             :param key:
-                If specified, yields dictionaries as examples, where the key is ``key`` and the value is the current number.
+                If specified, yields dictionaries as examples,
+                where the key is ``key`` and the value is the current number.
             """
             ...
 
@@ -145,8 +159,9 @@ if TYPE_CHECKING or DOC_MODE:
             weights: Optional[Sequence[float]] = None,
             seed: Optional[int] = None,
         ) -> DataPipelineBuilder:
-            """Extract examples from ``pipelines`` by sampling based on ``weights``.
-            Circles around pipelines until all have reached their end at least once.
+            """Extract examples from ``pipelines`` by sampling based on
+            ``weights``. Circles around pipelines until all have reached their
+            end at least once.
 
             :param data_pipelines:
                 The data pipelines to sample from.
@@ -169,9 +184,12 @@ if TYPE_CHECKING or DOC_MODE:
             :param names:
                 The names to assign to the data pipelines. If ``None``, yields examples as lists.
             :param zip_to_shortest:
-                If ``True``, stops yielding examples after shortest pipeline terminates. Otherwise, all pipelines (that are not pseudo-infinite) must have the same number of examples.
+                If ``True``, stops yielding examples after shortest pipeline terminates.
+                Otherwise, all pipelines (that are not pseudo-infinite)
+                must have the same number of examples.
             :param flatten:
-                If ``True``, flatten examples from each pipeline into one dictionary or list. All pipelines must return the same type (dict or non-dict).,
+                If ``True``, flatten examples from each pipeline into one dictionary or list.
+                All pipelines must return the same type (dict or non-dict).,
             :param disable_parallelism:
                 If ``True``, calls each data pipeline sequentially.
             """
