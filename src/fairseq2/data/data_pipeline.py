@@ -50,7 +50,11 @@ if TYPE_CHECKING or DOC_MODE:
             """
 
         def reset(self, reset_rng: bool = False) -> None:
-            """Move back to the first example in the data pipeline."""
+            """Move back to the first example in the data pipeline.
+
+            :param reset_rng:
+                If ``True``, resets all random number generators in the pipeline.
+            """
 
         def is_infinite(self) -> bool:
             ...
@@ -93,12 +97,46 @@ if TYPE_CHECKING or DOC_MODE:
 
         @staticmethod
         def constant(example: Any, key: Optional[str] = None) -> DataPipelineBuilder:
+            """Repeatedly yield ``example``.
+
+            This pipeline is pseudo-infinite; when used with functions
+            that combine pipelines (e.g. sample, round_robin, zip),
+            it will yield examples only as long as other
+            pipelines yield examples.
+
+            See :ref:`reference/data:pseudo-infinite and infinite pipelines`
+            for more details.
+
+            :param example:
+                Example to yield infinitely.
+            :param key:
+                If specified, yields dictionaries as examples,
+                where the key is ``key`` and the value is ``example``.
+            """
             ...
 
         @staticmethod
         def count(
             start: int = 0, step: int = 1, key: Optional[str] = None
         ) -> DataPipelineBuilder:
+            """Count from ``start`` in steps of size ``step``.
+
+            This pipeline is pseudo-infinite; when used with functions
+            that combine pipelines (e.g. sample, round_robin, zip),
+            it will yield examples only as long as other
+            pipelines yield examples.
+
+            See :ref:`reference/data:pseudo-infinite and infinite pipelines`
+            for more details.
+
+            :param start:
+                Number to start counting from.
+            :param step:
+                Count step size.
+            :param key:
+                If specified, yields dictionaries as examples,
+                where the key is ``key`` and the value is the current number.
+            """
             ...
 
         @staticmethod
@@ -121,12 +159,14 @@ if TYPE_CHECKING or DOC_MODE:
             weights: Optional[Sequence[float]] = None,
             seed: Optional[int] = None,
         ) -> DataPipelineBuilder:
-            """Extract examples from ``pipelines`` by sampling based on ``weights``.
+            """Extract examples from ``pipelines`` by sampling based on
+            ``weights``. Circles around pipelines until all have reached their
+            end at least once.
 
             :param data_pipelines:
                 The data pipelines to sample from.
             :param weights:
-                Desired distribution of pipelines. If None, use uniform distribution.
+                Desired distribution of pipelines. If ``None``, use uniform distribution.
             """
 
         @staticmethod
@@ -142,8 +182,14 @@ if TYPE_CHECKING or DOC_MODE:
             :param pipelines:
                 The data pipelines to zip.
             :param names:
-                The names to assign to the data pipelines.
+                The names to assign to the data pipelines. If ``None``, yields examples as lists.
+            :param zip_to_shortest:
+                If ``True``, stops yielding examples after shortest pipeline terminates.
+                Otherwise, all pipelines (that are not pseudo-infinite)
+                must have the same number of examples.
             :param flatten:
+                If ``True``, flatten examples from each pipeline into one dictionary or list.
+                All pipelines must return the same type (dict or non-dict).,
             :param disable_parallelism:
                 If ``True``, calls each data pipeline sequentially.
             """
@@ -220,7 +266,7 @@ if TYPE_CHECKING or DOC_MODE:
                 ``.map([f1, f2])`` is the more efficient version of ``.map(f1).map(f2)``
 
             :param selector:
-                The column to apply the function to. Several colums can be specified by separating them with a ",".
+                The column to apply the function to. Several columns can be specified by separating them with a ",".
                 See :ref:`reference/data:column syntax` for more details.
             :param num_parallel_calls:
                 The number of examples to process in parallel.
@@ -237,6 +283,13 @@ if TYPE_CHECKING or DOC_MODE:
         def repeat(
             self, num_repeats: Optional[int] = None, reset_rng: bool = False
         ) -> Self:
+            """Repeats the sequence of pipeline examples ``num_repeats`` times.
+
+            :param num_repeats:
+                The number of times to repeat examples. If ``None``, repeats infinitely.
+            :param reset_rng:
+                If ``True``, upon repeats, resets all random number generators in pipeline.
+            """
             ...
 
         def shard(
