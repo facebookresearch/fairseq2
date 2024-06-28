@@ -18,8 +18,8 @@ from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
 
 
-class SequenceModelMetricBag(MetricBag):
-    """Holds the training metrics of a sequence model."""
+class SequenceMetricBag(MetricBag):
+    """Holds the metrics of a sequence model recipe."""
 
     _nll_loss: Mean
     _batch_size: Mean
@@ -59,22 +59,31 @@ class SequenceModelMetricBag(MetricBag):
         self._total_num_target_elements = Sum(device=d)
 
     @torch.inference_mode()
-    def update_loss_metrics(self, batch: SequenceBatch, nll_loss: Tensor) -> None:
-        """Update the loss metrics.
+    def update_nll_loss(self, batch: SequenceBatch, loss: Tensor) -> None:
+        """Update the NLL loss metric.
 
         :param batch:
             The batch processed by the model.
         :param nll_loss:
             The loss of ``batch``.
         """
+        num_target_elements = torch.tensor(batch.num_target_elements())
+
+        normalized_loss = loss.cpu() / num_target_elements
+
+        self._nll_loss.update(normalized_loss, weight=num_target_elements)
+
+    @torch.inference_mode()
+    def update_batch_metrics(self, batch: SequenceBatch) -> None:
+        """Update the batch metrics.
+
+        :param batch:
+            The batch processed by the model.
+        """
         batch_size = torch.tensor(batch.batch_size)
 
         num_elements = torch.tensor(batch.num_elements())
         num_target_elements = torch.tensor(batch.num_target_elements())
-
-        normalized_nll_loss = nll_loss.cpu() / num_target_elements
-
-        self._nll_loss.update(normalized_nll_loss, weight=num_target_elements)
 
         self._batch_size.update(batch_size * self._gang.size)
 
@@ -93,8 +102,8 @@ class SequenceModelMetricBag(MetricBag):
         self._total_num_target_elements.update(num_target_elements)
 
 
-class Seq2SeqModelMetricBag(MetricBag):
-    """Holds the training metrics of a sequence-to-sequence model."""
+class Seq2SeqMetricBag(MetricBag):
+    """Holds the metrics of a sequence-to-sequence model recipe."""
 
     _nll_loss: Mean
     _batch_size: Mean
@@ -132,22 +141,31 @@ class Seq2SeqModelMetricBag(MetricBag):
         self._total_num_target_elements = Sum(device=d)
 
     @torch.inference_mode()
-    def update_loss_metrics(self, batch: Seq2SeqBatch, nll_loss: Tensor) -> None:
-        """Update the loss metrics.
+    def update_nll_loss(self, batch: Seq2SeqBatch, loss: Tensor) -> None:
+        """Update the NLL loss metric.
 
         :param batch:
             The batch processed by the model.
         :param nll_loss:
             The loss of ``batch``.
         """
+        num_target_elements = torch.tensor(batch.num_target_elements())
+
+        normalized_loss = loss.cpu() / num_target_elements
+
+        self._nll_loss.update(normalized_loss, weight=num_target_elements)
+
+    @torch.inference_mode()
+    def update_batch_metrics(self, batch: Seq2SeqBatch) -> None:
+        """Update the batch metrics.
+
+        :param batch:
+            The batch processed by the model.
+        """
         batch_size = torch.tensor(batch.batch_size)
 
         num_source_elements = torch.tensor(batch.num_source_elements())
         num_target_elements = torch.tensor(batch.num_target_elements())
-
-        normalized_nll_loss = nll_loss.cpu() / num_target_elements
-
-        self._nll_loss.update(normalized_nll_loss, weight=num_target_elements)
 
         self._batch_size.update(batch_size * self._gang.size)
 

@@ -28,6 +28,4 @@ class NllbTokenizerLoader(AbstractTextTokenizerLoader[NllbTokenizer]):
 
 load_nllb_tokenizer = NllbTokenizerLoader()
 
-
-def _register_nllb_loaders() -> None:
-    load_text_tokenizer.register("nllb", load_nllb_tokenizer)
+load_text_tokenizer.register("nllb", load_nllb_tokenizer)

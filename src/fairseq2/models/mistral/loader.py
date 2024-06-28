@@ -60,10 +60,8 @@ load_mistral_model = DenseModelLoader(
     checkpoint_converter=convert_mistral_checkpoint,
 )
 
+load_model.register(MISTRAL_FAMILY, load_mistral_model)
+
 load_mistral_tokenizer = default_basic_sentencepiece_tokenizer_loader
 
-
-def _register_mistral_loaders() -> None:
-    load_model.register(MISTRAL_FAMILY, load_mistral_model)
-
-    load_text_tokenizer.register(MISTRAL_FAMILY, load_mistral_tokenizer)
+load_text_tokenizer.register(MISTRAL_FAMILY, load_mistral_tokenizer)

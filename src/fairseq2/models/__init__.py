@@ -21,22 +21,11 @@ from fairseq2.models.model import Model as Model
 
 # isort: split
 
-from fairseq2.models.llama import _register_llama
-from fairseq2.models.mistral import _register_mistral
-from fairseq2.models.nllb import _register_nllb
-from fairseq2.models.s2t_transformer import _register_s2t_transformer
-from fairseq2.models.transformer import _register_transformer
-from fairseq2.models.w2vbert import _register_w2vbert
-from fairseq2.models.wav2vec2 import _register_wav2vec2
-from fairseq2.models.wav2vec2.asr import _register_wav2vec2_asr
-
-
-def _register_models() -> None:
-    _register_llama()
-    _register_mistral()
-    _register_nllb()
-    _register_s2t_transformer()
-    _register_transformer()
-    _register_w2vbert()
-    _register_wav2vec2()
-    _register_wav2vec2_asr()
+import fairseq2.models.llama
+import fairseq2.models.mistral
+import fairseq2.models.nllb
+import fairseq2.models.s2t_transformer
+import fairseq2.models.transformer
+import fairseq2.models.w2vbert
+import fairseq2.models.wav2vec2
+import fairseq2.models.wav2vec2.asr

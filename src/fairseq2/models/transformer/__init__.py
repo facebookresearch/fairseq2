@@ -34,13 +34,3 @@ from fairseq2.models.transformer.model import TransformerModel as TransformerMod
 from fairseq2.models.transformer.model import (
     init_final_projection as init_final_projection,
 )
-
-# isort: split
-
-from fairseq2.models.transformer.archs import _register_transformer_archs
-from fairseq2.models.transformer.loader import _register_transformer_loaders
-
-
-def _register_transformer() -> None:
-    _register_transformer_archs()
-    _register_transformer_loaders()
