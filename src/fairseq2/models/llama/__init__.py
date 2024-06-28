@@ -18,15 +18,3 @@ from fairseq2.models.llama.loader import load_llama_config as load_llama_config
 from fairseq2.models.llama.loader import load_llama_model as load_llama_model
 from fairseq2.models.llama.loader import load_llama_tokenizer as load_llama_tokenizer
 from fairseq2.models.llama.tokenizer import LLaMA3Tokenizer as LLaMA3Tokenizer
-
-# isort: split
-
-from fairseq2.models.llama.archs import _register_llama_archs
-from fairseq2.models.llama.chatbot import _register_llama_chatbot
-from fairseq2.models.llama.loader import _register_llama_loaders
-
-
-def _register_llama() -> None:
-    _register_llama_archs()
-    _register_llama_chatbot()
-    _register_llama_loaders()

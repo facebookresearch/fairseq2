@@ -94,6 +94,8 @@ load_s2t_transformer_model = DenseModelLoader(
     restrict_checkpoints=False,
 )
 
+load_model.register(S2T_TRANSFORMER_FAMILY, load_s2t_transformer_model)
+
 
 @final
 class S2TTransformerTokenizerLoader(
@@ -116,8 +118,4 @@ class S2TTransformerTokenizerLoader(
 
 load_s2t_transformer_tokenizer = S2TTransformerTokenizerLoader()
 
-
-def _register_s2t_transformer_loaders() -> None:
-    load_model.register(S2T_TRANSFORMER_FAMILY, load_s2t_transformer_model)
-
-    load_text_tokenizer.register(S2T_TRANSFORMER_FAMILY, load_s2t_transformer_tokenizer)
+load_text_tokenizer.register(S2T_TRANSFORMER_FAMILY, load_s2t_transformer_tokenizer)

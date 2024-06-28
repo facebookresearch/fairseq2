@@ -16,13 +16,3 @@ from fairseq2.models.w2vbert.loader import load_w2vbert_model as load_w2vbert_mo
 from fairseq2.models.w2vbert.model import W2VBertLoss as W2VBertLoss
 from fairseq2.models.w2vbert.model import W2VBertModel as W2VBertModel
 from fairseq2.models.w2vbert.model import W2VBertOutput as W2VBertOutput
-
-# isort: split
-
-from fairseq2.models.w2vbert.archs import _register_w2vbert_archs
-from fairseq2.models.w2vbert.loader import _register_w2vbert_loaders
-
-
-def _register_w2vbert() -> None:
-    _register_w2vbert_archs()
-    _register_w2vbert_loaders()

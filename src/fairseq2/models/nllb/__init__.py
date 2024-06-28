@@ -9,14 +9,7 @@ from fairseq2.models.nllb.tokenizer import NllbTokenizer as NllbTokenizer
 
 # isort: split
 
-from fairseq2.models.nllb.archs import _register_nllb_archs
-from fairseq2.models.nllb.loader import _register_nllb_loaders
-
-
-def _register_nllb() -> None:
-    _register_nllb_archs()
-    _register_nllb_loaders()
-
+import fairseq2.models.nllb.archs  # Register architectures.
 
 # isort: split
 

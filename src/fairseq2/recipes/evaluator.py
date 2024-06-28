@@ -11,6 +11,7 @@ from itertools import count
 from pathlib import Path
 from typing import Generic, List, Optional, Sequence, TypeVar, final
 
+import torch
 from torch.nn import Module
 
 from fairseq2.datasets import DataReader
@@ -23,7 +24,7 @@ from fairseq2.metrics import (
     TensorBoardRecorder,
     record_metrics,
 )
-from fairseq2.recipes.metrics import compute_throughput
+from fairseq2.recipes.common_metrics import compute_throughput
 from fairseq2.recipes.utils.cli import create_rich_progress
 from fairseq2.typing import CPU, override
 from fairseq2.utils.profiler import Stopwatch
@@ -190,7 +191,7 @@ class Evaluator(Generic[BatchT]):
 
         self._run = False
 
-    @override
+    @torch.inference_mode()
     def __call__(self) -> None:
         if self._run:
             raise RuntimeError("The evaluator can only be run once.")

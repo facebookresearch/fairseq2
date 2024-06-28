@@ -13,10 +13,12 @@ wav2vec2_archs = ConfigRegistry[Wav2Vec2Config]()
 wav2vec2_arch = wav2vec2_archs.decorator
 
 
+@wav2vec2_arch("base")
 def _base() -> Wav2Vec2Config:
     return Wav2Vec2Config()
 
 
+@wav2vec2_arch("large")
 def _large() -> Wav2Vec2Config:
     config = _base()
 
@@ -32,6 +34,7 @@ def _large() -> Wav2Vec2Config:
     return config
 
 
+@wav2vec2_arch("large_lv60k")  # LibriVox 60k
 def _large_lv60k() -> Wav2Vec2Config:
     config = _large()
 
@@ -45,6 +48,7 @@ def _large_lv60k() -> Wav2Vec2Config:
     return config
 
 
+@wav2vec2_arch("pseudo_dinosr_base")
 def _pseudo_dinosr_base() -> Wav2Vec2Config:
     return Wav2Vec2Config()
 
@@ -54,32 +58,22 @@ wav2vec2_encoder_archs = ConfigRegistry[Wav2Vec2EncoderConfig]()
 wav2vec2_encoder_arch = wav2vec2_encoder_archs.decorator
 
 
+@wav2vec2_encoder_arch("base")
 def _base_encoder() -> Wav2Vec2EncoderConfig:
     config = _base()
 
     return config.encoder_config
 
 
+@wav2vec2_encoder_arch("large")
 def _large_encoder() -> Wav2Vec2EncoderConfig:
     config = _large()
 
     return config.encoder_config
 
 
+@wav2vec2_encoder_arch("large_lv60k")  # LibriVox 60k
 def _large_lv60k_encoder() -> Wav2Vec2EncoderConfig:
     config = _large_lv60k()
 
     return config.encoder_config
-
-
-def _register_wav2vec2_archs() -> None:
-    # fmt: off
-    wav2vec2_archs.register("base",        _base)
-    wav2vec2_archs.register("large",       _large)
-    wav2vec2_archs.register("large_lv60k", _large_lv60k)
-    wav2vec2_archs.register("pseudo_dinosr_base", _pseudo_dinosr_base)
-
-    wav2vec2_encoder_archs.register("base",        _base_encoder)
-    wav2vec2_encoder_archs.register("large",       _large_encoder)
-    wav2vec2_encoder_archs.register("large_lv60k", _large_lv60k_encoder)
-    # fmt: on

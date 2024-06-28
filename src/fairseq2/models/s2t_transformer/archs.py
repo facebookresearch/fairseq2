@@ -13,6 +13,7 @@ s2t_transformer_archs = ConfigRegistry[S2TTransformerConfig]()
 s2t_transformer_arch = s2t_transformer_archs.decorator
 
 
+@s2t_transformer_arch("tiny")
 def _tiny() -> S2TTransformerConfig:
     config = _medium()
 
@@ -27,6 +28,7 @@ def _tiny() -> S2TTransformerConfig:
     return config
 
 
+@s2t_transformer_arch("small")
 def _small() -> S2TTransformerConfig:
     config = _medium()
 
@@ -39,10 +41,12 @@ def _small() -> S2TTransformerConfig:
     return config
 
 
+@s2t_transformer_arch("medium")
 def _medium() -> S2TTransformerConfig:
     return S2TTransformerConfig()
 
 
+@s2t_transformer_arch("large")
 def _large() -> S2TTransformerConfig:
     config = _medium()
 
@@ -55,6 +59,7 @@ def _large() -> S2TTransformerConfig:
     return config
 
 
+@s2t_transformer_arch("conformer_medium")
 def _conformer_medium() -> S2TTransformerConfig:
     return S2TTransformerConfig(
         model_dim=256,
@@ -74,13 +79,3 @@ def _conformer_medium() -> S2TTransformerConfig:
         dropout_p=0.1,
         depthwise_conv_kernel_size=31,
     )
-
-
-def _register_s2t_transformer_archs() -> None:
-    # fmt: off
-    s2t_transformer_archs.register("tiny",   _tiny)
-    s2t_transformer_archs.register("small",  _small)
-    s2t_transformer_archs.register("medium", _medium)
-    s2t_transformer_archs.register("large",  _large)
-    s2t_transformer_archs.register("conformer_medium", _conformer_medium)
-    # fmt: on

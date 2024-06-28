@@ -13,10 +13,12 @@ wav2vec2_asr_archs = ConfigRegistry[Wav2Vec2AsrConfig]()
 wav2vec2_asr_arch = wav2vec2_asr_archs.decorator
 
 
+@wav2vec2_asr_arch("base_10h")
 def _base_10h() -> Wav2Vec2AsrConfig:
     return Wav2Vec2AsrConfig()
 
 
+@wav2vec2_asr_arch("base_100h")
 def _base_100h() -> Wav2Vec2AsrConfig:
     config = _base_10h()
 
@@ -25,6 +27,7 @@ def _base_100h() -> Wav2Vec2AsrConfig:
     return config
 
 
+@wav2vec2_asr_arch("large_10h")
 def _large_10h() -> Wav2Vec2AsrConfig:
     config = _base_10h()
 
@@ -41,6 +44,7 @@ def _large_10h() -> Wav2Vec2AsrConfig:
     return config
 
 
+@wav2vec2_asr_arch("large_100h")
 def _large_100h() -> Wav2Vec2AsrConfig:
     config = _large_10h()
 
@@ -50,6 +54,7 @@ def _large_100h() -> Wav2Vec2AsrConfig:
     return config
 
 
+@wav2vec2_asr_arch("large_lv60k_10h")
 def _large_lv60k_10h() -> Wav2Vec2AsrConfig:
     config = _base_10h()
 
@@ -66,6 +71,7 @@ def _large_lv60k_10h() -> Wav2Vec2AsrConfig:
     return config
 
 
+@wav2vec2_asr_arch("large_lv60k_100h")
 def _large_lv60k_100h() -> Wav2Vec2AsrConfig:
     config = _large_lv60k_10h()
 
@@ -73,14 +79,3 @@ def _large_lv60k_100h() -> Wav2Vec2AsrConfig:
     config.max_spatial_mask_prob = 0.55
 
     return config
-
-
-def _register_wav2vec2_asr_archs() -> None:
-    # fmt: off
-    wav2vec2_asr_archs.register("base_10h",         _base_10h)
-    wav2vec2_asr_archs.register("base_100h",        _base_100h)
-    wav2vec2_asr_archs.register("large_10h",        _large_10h)
-    wav2vec2_asr_archs.register("large_100h",       _large_100h)
-    wav2vec2_asr_archs.register("large_lv60k_10h",  _large_lv60k_10h)
-    wav2vec2_asr_archs.register("large_lv60k_100h", _large_lv60k_100h)
-    # fmt: on

@@ -93,6 +93,4 @@ load_transformer_model = DenseModelLoader(
     restrict_checkpoints=False,
 )
 
-
-def _register_transformer_loaders() -> None:
-    load_model.register(TRANSFORMER_FAMILY, load_transformer_model)
+load_model.register(TRANSFORMER_FAMILY, load_transformer_model)

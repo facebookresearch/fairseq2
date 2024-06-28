@@ -86,6 +86,8 @@ load_llama_model = LLaMAModelLoader(
     checkpoint_converter=convert_llama_checkpoint,
 )
 
+load_model.register(LLAMA_FAMILY, load_llama_model)
+
 
 @final
 class LLaMATokenizerLoader(AbstractTextTokenizerLoader[TextTokenizer]):
@@ -105,8 +107,4 @@ class LLaMATokenizerLoader(AbstractTextTokenizerLoader[TextTokenizer]):
 
 load_llama_tokenizer = LLaMATokenizerLoader()
 
-
-def _register_llama_loaders() -> None:
-    load_model.register(LLAMA_FAMILY, load_llama_model)
-
-    load_text_tokenizer.register(LLAMA_FAMILY, load_llama_tokenizer)
+load_text_tokenizer.register(LLAMA_FAMILY, load_llama_tokenizer)

@@ -87,5 +87,4 @@ class MistralChatbot(AbstractChatbot):
         return False
 
 
-def _register_mistral_chatbot() -> None:
-    create_chatbot.register(MISTRAL_FAMILY, MistralChatbot)
+create_chatbot.register(MISTRAL_FAMILY, MistralChatbot)

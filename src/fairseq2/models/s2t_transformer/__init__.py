@@ -40,13 +40,3 @@ from fairseq2.models.s2t_transformer.loader import (
 from fairseq2.models.s2t_transformer.tokenizer import (
     S2TTransformerTokenizer as S2TTransformerTokenizer,
 )
-
-# isort: split
-
-from fairseq2.models.s2t_transformer.archs import _register_s2t_transformer_archs
-from fairseq2.models.s2t_transformer.loader import _register_s2t_transformer_loaders
-
-
-def _register_s2t_transformer() -> None:
-    _register_s2t_transformer_archs()
-    _register_s2t_transformer_loaders()

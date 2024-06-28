@@ -4,25 +4,18 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
-import fairseq2n  # Report any fairseq2n initialization error eagerly.
+__version__ = "0.3.0.dev0"
+
+# Report any fairseq2n initialization error eagerly.
+import fairseq2n
+
+# Register asset types.
+import fairseq2.datasets
+import fairseq2.models
 
 # isort: split
 
 from importlib_metadata import entry_points
-
-from fairseq2.datasets import _register_datasets
-from fairseq2.models import _register_models
-from fairseq2.recipes import _register_recipes
-
-__version__ = "0.3.0.dev0"
-
-
-_register_models()
-
-_register_datasets()
-
-_register_recipes()
-
 
 _setup_complete = False
 

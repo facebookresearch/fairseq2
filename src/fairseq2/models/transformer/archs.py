@@ -12,10 +12,12 @@ transformer_archs = ConfigRegistry[TransformerConfig]()
 transformer_arch = transformer_archs.decorator
 
 
+@transformer_arch("base")
 def _base() -> TransformerConfig:
     return TransformerConfig()
 
 
+@transformer_arch("big")
 def _big() -> TransformerConfig:
     config = TransformerConfig()
 
@@ -26,10 +28,3 @@ def _big() -> TransformerConfig:
     config.dropout_p = 0.3
 
     return config
-
-
-def _register_transformer_archs() -> None:
-    # fmt: off
-    transformer_archs.register("base", _base)
-    transformer_archs.register("big",  _big)
-    # fmt: on

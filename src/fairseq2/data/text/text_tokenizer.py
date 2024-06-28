@@ -202,6 +202,7 @@ class AbstractTextTokenizerLoader(ABC, TextTokenizerLoader[TextTokenizerT]):
         self._asset_store = asset_store or default_asset_store
         self._download_manager = download_manager or default_download_manager
 
+    @final
     def __call__(
         self,
         tokenizer_name_or_card: Union[str, AssetCard, Path],

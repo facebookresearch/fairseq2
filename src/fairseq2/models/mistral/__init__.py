@@ -16,15 +16,3 @@ from fairseq2.models.mistral.loader import load_mistral_model as load_mistral_mo
 from fairseq2.models.mistral.loader import (
     load_mistral_tokenizer as load_mistral_tokenizer,
 )
-
-# isort: split
-
-from fairseq2.models.mistral.archs import _register_mistral_archs
-from fairseq2.models.mistral.chatbot import _register_mistral_chatbot
-from fairseq2.models.mistral.loader import _register_mistral_loaders
-
-
-def _register_mistral() -> None:
-    _register_mistral_archs()
-    _register_mistral_chatbot()
-    _register_mistral_loaders()
