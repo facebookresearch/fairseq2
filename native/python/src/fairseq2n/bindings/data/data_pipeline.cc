@@ -473,6 +473,25 @@ def_data_pipeline(py::module_ &data_module)
             py::arg("overrides") = std::nullopt,
             py::arg("num_parallel_calls") = 1)
         .def(
+            "dynamic_bucket",
+            [](
+                data_pipeline_builder &self,
+                float64 threshold,
+                cost_fn fn,
+                std::optional<std::size_t> maybe_nb_min,
+                std::optional<std::size_t> maybe_nb_max,
+                bool drop_remainder) -> data_pipeline_builder &
+            {
+                self = std::move(self).dynamic_bucket(threshold, std::move(fn), maybe_nb_min, maybe_nb_max, drop_remainder);
+
+                return self;
+            },
+            py::arg("threshold"),
+            py::arg("fn"),
+            py::arg("nb_min") = std::nullopt,
+            py::arg("nb_max") = std::nullopt,
+            py::arg("drop_remainder") = false)
+        .def(
             "filter",
             [](data_pipeline_builder &self, predicate_fn fn) -> data_pipeline_builder &
             {

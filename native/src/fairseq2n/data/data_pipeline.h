@@ -113,6 +113,8 @@ using map_fn = std::function<data(data &&)>;
 
 using predicate_fn = std::function<bool(const data &)>;
 
+using cost_fn = std::function<float64(const data &)>;
+
 using yield_fn = std::function<data_pipeline(const data &)>;
 
 class FAIRSEQ2_API data_pipeline_builder {
@@ -140,6 +142,14 @@ public:
         std::size_t min_data_len = 1,
         bool skip_below_min_examples = false,
         bool skip_above_max_examples = false,
+        bool drop_remainder = false) &&;
+
+    data_pipeline_builder
+    dynamic_bucket(
+        float64 threshold,
+        cost_fn fn,
+        std::optional<std::size_t> maybe_nb_min = std::nullopt,
+        std::optional<std::size_t> maybe_nb_max = std::nullopt,
         bool drop_remainder = false) &&;
 
     data_pipeline_builder

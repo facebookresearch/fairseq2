@@ -19,6 +19,7 @@
 #include "fairseq2n/data/constant_data_source.h"
 #include "fairseq2n/data/count_data_source.h"
 #include "fairseq2n/data/detail/file_system.h"
+#include "fairseq2n/data/dynamic_bucket_data_source.h"
 #include "fairseq2n/data/filter_data_source.h"
 #include "fairseq2n/data/list_data_source.h"
 #include "fairseq2n/data/map_data_source.h"
@@ -386,6 +387,27 @@ data_pipeline_builder::bucket_by_length(
             skip_below_min_examples,
             skip_above_max_examples,
             drop_remainder);
+    };
+
+    return std::move(*this);
+}
+
+data_pipeline_builder
+data_pipeline_builder::dynamic_bucket(
+    float64 threshold,
+    cost_fn fn,
+    std::optional<std::size_t> maybe_nb_min,
+    std::optional<std::size_t> maybe_nb_max,
+    bool drop_remainder) &&
+{
+    if (threshold <= 0)
+        throw_<std::invalid_argument>("`threshold` must be greater than zero.");
+    if (maybe_nb_max && *maybe_nb_max == 0)
+        throw_<std::invalid_argument>("`nb_max` must be greater than zero.");
+
+    factory_ = [=, fn = std::move(fn), inner = std::move(factory_)]() mutable
+    {
+        return std::make_unique<dynamic_bucket_data_source>(inner(), threshold, std::move(fn), maybe_nb_min, maybe_nb_max, drop_remainder);
     };
 
     return std::move(*this);

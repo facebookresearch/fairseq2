@@ -185,6 +185,35 @@ if TYPE_CHECKING or DOC_MODE:
             See :py:class:`fairseq2.data.Collater` for details.
             """
 
+        def dynamic_bucket(
+            self, 
+            threshold: float,
+            cost_fn: Callable[[Any], float],
+            nb_min: Optional[int],
+            nb_max: Optional[int],
+            drop_remainder: bool
+        ) -> Self:
+            """Combine a number of consecutive examples into a single example
+            based on cumulative cost of examples, as measured by 
+            user-provided ``cost_fn``. 
+
+            Yields a bucket once the cumulative cost produced by ``cost_fn``
+            meets or exceeds ``threshold``. 
+
+            :param threshold:
+                Threshold for cumulative cost to trigger bucketing.
+            :param cost_fn:
+                Cost function that outputs cost for a particular example.
+            :param nb_min:
+                Minimum number of examples per bucket.
+            :param nb_max:
+                Maximum number of examples per bucket.
+            :param drop_remainder:
+                If ``True``, drops the last bucket in case it has fewer than
+                ``nb_min`` examples or the cumulative cost has not reached
+                ``threshold`` yet.
+            """
+
         def filter(self, predicate: Callable[[Any], Any]) -> Self:
             """Filter examples from data pipeline and keep only those who match
             ``predicate``.
