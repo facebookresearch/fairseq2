@@ -14,7 +14,7 @@ class TestDynamicBucketOp:
         seq = list(range(1, 7))
 
         threshold = 6
-        cost_fn = lambda x : x
+        cost_fn = lambda x: x
 
         pipeline = read_sequence(seq).dynamic_bucket(threshold, cost_fn).and_return()
 
@@ -34,7 +34,7 @@ class TestDynamicBucketOp:
         seq = [0.1, 0.2, 0.3]
 
         threshold = 0.3
-        cost_fn = lambda x : x
+        cost_fn = lambda x: x
 
         pipeline = read_sequence(seq).dynamic_bucket(threshold, cost_fn).and_return()
 
@@ -54,9 +54,13 @@ class TestDynamicBucketOp:
         seq = [0, 1, 2, 3, 2]
 
         threshold = 3
-        cost_fn = lambda x : x
+        cost_fn = lambda x: x
 
-        pipeline = read_sequence(seq).dynamic_bucket(threshold, cost_fn, drop_remainder=drop).and_return()
+        pipeline = (
+            read_sequence(seq)
+            .dynamic_bucket(threshold, cost_fn, drop_remainder=drop)
+            .and_return()
+        )
 
         for _ in range(2):
             it = iter(pipeline)
@@ -73,12 +77,14 @@ class TestDynamicBucketOp:
             pipeline.reset()
 
     def test_op_works_with_min_set(self) -> None:
-        seq = list(range(1,11))
+        seq = list(range(1, 11))
 
         threshold = 3
-        cost_fn = lambda x : x
+        cost_fn = lambda x: x
 
-        pipeline = read_sequence(seq).dynamic_bucket(threshold, cost_fn, nb_min=2).and_return()
+        pipeline = (
+            read_sequence(seq).dynamic_bucket(threshold, cost_fn, nb_min=2).and_return()
+        )
 
         for _ in range(2):
             it = iter(pipeline)
@@ -97,13 +103,15 @@ class TestDynamicBucketOp:
         seq = [0, 0, 0, 0, 1, 2, 3]
 
         threshold = 3
-        cost_fn = lambda x : x
+        cost_fn = lambda x: x
 
-        pipeline = read_sequence(seq).dynamic_bucket(threshold, cost_fn, nb_max=2).and_return()
+        pipeline = (
+            read_sequence(seq).dynamic_bucket(threshold, cost_fn, nb_max=2).and_return()
+        )
 
         for _ in range(2):
             it = iter(pipeline)
-            
+
             assert next(it) == [0, 0]
             assert next(it) == [0, 0]
             assert next(it) == [1, 2]
@@ -118,13 +126,17 @@ class TestDynamicBucketOp:
         seq = [0, 0, 0, 0, 1, 2, 3, 4]
 
         threshold = 3
-        cost_fn = lambda x : x
+        cost_fn = lambda x: x
 
-        pipeline = read_sequence(seq).dynamic_bucket(threshold, cost_fn, nb_min=2, nb_max=2).and_return()
+        pipeline = (
+            read_sequence(seq)
+            .dynamic_bucket(threshold, cost_fn, nb_min=2, nb_max=2)
+            .and_return()
+        )
 
         for _ in range(2):
             it = iter(pipeline)
-            
+
             assert next(it) == [0, 0]
             assert next(it) == [0, 0]
             assert next(it) == [1, 2]
@@ -140,13 +152,17 @@ class TestDynamicBucketOp:
         seq = [1, 2, 4]
 
         threshold = 3
-        cost_fn = lambda x : x
+        cost_fn = lambda x: x
 
-        pipeline = read_sequence(seq).dynamic_bucket(threshold, cost_fn, nb_min=2, drop_remainder=drop).and_return()
+        pipeline = (
+            read_sequence(seq)
+            .dynamic_bucket(threshold, cost_fn, nb_min=2, drop_remainder=drop)
+            .and_return()
+        )
 
         for _ in range(2):
             it = iter(pipeline)
-            
+
             assert next(it) == [1, 2]
 
             if not drop:
@@ -161,18 +177,18 @@ class TestDynamicBucketOp:
         with pytest.raises(
             ValueError, match=r"^`threshold` must be greater than zero\.$"
         ):
-            read_sequence(list(range(100))).dynamic_bucket(0, lambda x : 1).and_return()
+            read_sequence(list(range(100))).dynamic_bucket(0, lambda x: 1).and_return()
 
         with pytest.raises(
             ValueError, match=r"^`threshold` must be greater than zero\.$"
         ):
-            read_sequence(list(range(100))).dynamic_bucket(-1, lambda x : 1).and_return()
+            read_sequence(list(range(100))).dynamic_bucket(-1, lambda x: 1).and_return()
 
     def test_op_saves_and_restores_its_state(self) -> None:
         seq = list(range(1, 7))
 
         threshold = 2
-        cost_fn = lambda x : x
+        cost_fn = lambda x: x
 
         pipeline = read_sequence(seq).dynamic_bucket(threshold, cost_fn).and_return()
 
