@@ -15,8 +15,9 @@ import torch.distributed
 from torch import Tensor
 from torch.nn import Module
 
+from fairseq2.assets import default_asset_store
 from fairseq2.assets.utils import retrieve_asset_card
-from fairseq2.checkpoint import FileCheckpointManager
+from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
 from fairseq2.datasets.instruction import load_instruction_dataset
@@ -51,14 +52,14 @@ log = get_log_writer(__name__)
 
 @dataclass
 class InstructionFinetuneConfig:
-    """Holds the instruction-finetuning configuration of a language model."""
+    """Holds the configuration of a language model instruction-finetuning task."""
 
     # Data
     dataset: Union[str, Path] = "openeft"  # TODO: change!
-    """The name or path to the asset card of the dataset to train with."""
+    """The name or path to the asset card of the instruction dataset."""
 
     split: str = "train"
-    """The name of the dataset split to train with."""
+    """The name of the dataset split."""
 
     max_seq_len: int = 8192
     """The maximum sequence length."""
@@ -92,7 +93,7 @@ class InstructionFinetuneConfig:
     """If ``True``, reshards the parameters only after the backward pass."""
 
     tensor_parallel_size: int = 1
-    """The size of Megatron-style tensor parallelism."""
+    """The size of tensor parallelism."""
 
     activation_checkpointing: bool = True
     """If ``True``, uses layer-wise activation checkpointing."""
@@ -143,6 +144,10 @@ class InstructionFinetuneConfig:
 
     publish_metrics_every_n_steps: int = 10
     """The step interval at which to publish training metrics."""
+
+    # Checkpointing
+    resume_checkpoint_dir: Optional[Path] = None
+    """If not ``None``, adds the specified path to the default asset store."""
 
     # Misc
     seed: int = 2
@@ -215,6 +220,11 @@ def load_instruction_finetuner(
     checkpoint_manager = FileCheckpointManager(
         output_dir.joinpath("checkpoints"), root_gang, dp_gang=dp_gang, tp_gang=tp_gang
     )
+
+    if config.resume_checkpoint_dir is not None:
+        default_asset_store.metadata_providers.append(
+            CheckpointModelMetadataProvider(config.resume_checkpoint_dir)
+        )
 
     # Load the tokenizer.
     model_card = retrieve_asset_card(config.model)
@@ -351,7 +361,7 @@ def load_instruction_finetuner(
 
 @final
 class InstructionFinetuneUnit(AbstractTrainUnit[SequenceBatch]):
-    """Represents the instruction-finetuning unit of a language model."""
+    """Represents a language model instruction-finetuning unit."""
 
     _metric_bag: SequenceMetricBag
 
