@@ -12,16 +12,8 @@ from fairseq2.recipes.cli import Cli
 
 from fairseq2.recipes.assets import _setup_asset_cli
 from fairseq2.recipes.llama import _setup_llama_cli
-from fairseq2.recipes.lm import _register_lm_recipes, _setup_lm_cli
-from fairseq2.recipes.wav2vec2.asr import (
-    _register_wav2vec2_asr_recipes,
-    _setup_wav2vec2_asr_cli,
-)
-
-
-def _register_recipes() -> None:
-    _register_lm_recipes()
-    _register_wav2vec2_asr_recipes()
+from fairseq2.recipes.lm import _setup_lm_cli
+from fairseq2.recipes.wav2vec2.asr import _setup_wav2vec2_asr_cli
 
 
 def main() -> None:

@@ -238,8 +238,6 @@ class GenericInstructionDatasetLoader(AbstractDatasetLoader[GenericInstructionDa
 
 load_generic_instruction_dataset = GenericInstructionDatasetLoader()
 
-
-def _register_instruction() -> None:
-    load_instruction_dataset.register(
-        "generic_instruction", load_generic_instruction_dataset
-    )
+load_instruction_dataset.register(
+    "generic_instruction", load_generic_instruction_dataset
+)

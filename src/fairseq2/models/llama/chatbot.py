@@ -214,5 +214,4 @@ def create_llama_chatbot(
     return LLaMAChatbot(generator, tokenizer)
 
 
-def _register_llama_chatbot() -> None:
-    create_chatbot.register(LLAMA_FAMILY, create_llama_chatbot)
+create_chatbot.register(LLAMA_FAMILY, create_llama_chatbot)

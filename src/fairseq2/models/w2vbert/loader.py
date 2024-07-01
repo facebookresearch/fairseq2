@@ -79,6 +79,4 @@ load_w2vbert_model = DenseModelLoader(
     checkpoint_converter=convert_w2vbert_checkpoint,
 )
 
-
-def _register_w2vbert_loaders() -> None:
-    load_model.register(W2VBERT_FAMILY, load_w2vbert_model)
+load_model.register(W2VBERT_FAMILY, load_w2vbert_model)

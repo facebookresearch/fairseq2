@@ -13,10 +13,12 @@ llama_archs = ConfigRegistry[LLaMAConfig]()
 llama_arch = llama_archs.decorator
 
 
+@llama_arch("7b")
 def _7b() -> LLaMAConfig:
     return LLaMAConfig()
 
 
+@llama_arch("13b")
 def _13b() -> LLaMAConfig:
     config = _7b()
 
@@ -28,6 +30,7 @@ def _13b() -> LLaMAConfig:
     return config
 
 
+@llama_arch("33b")
 def _33b() -> LLaMAConfig:
     config = _7b()
 
@@ -40,6 +43,7 @@ def _33b() -> LLaMAConfig:
     return config
 
 
+@llama_arch("65b")
 def _65b() -> LLaMAConfig:
     config = _7b()
 
@@ -52,6 +56,7 @@ def _65b() -> LLaMAConfig:
     return config
 
 
+@llama_arch("llama2_7b")
 def _llama2_7b() -> LLaMAConfig:
     config = _7b()
 
@@ -60,6 +65,7 @@ def _llama2_7b() -> LLaMAConfig:
     return config
 
 
+@llama_arch("llama2_13b")
 def _llama2_13b() -> LLaMAConfig:
     config = _13b()
 
@@ -68,6 +74,7 @@ def _llama2_13b() -> LLaMAConfig:
     return config
 
 
+@llama_arch("llama2_70b")
 def _llama2_70b() -> LLaMAConfig:
     config = _65b()
 
@@ -79,6 +86,7 @@ def _llama2_70b() -> LLaMAConfig:
     return config
 
 
+@llama_arch("llama3_8b")
 def _llama3_8b() -> LLaMAConfig:
     config = _llama2_7b()
 
@@ -96,6 +104,7 @@ def _llama3_8b() -> LLaMAConfig:
     return config
 
 
+@llama_arch("llama3_70b")
 def _llama3_70b() -> LLaMAConfig:
     config = _llama2_70b()
 
@@ -108,22 +117,3 @@ def _llama3_70b() -> LLaMAConfig:
     config.rope_theta = 500_000.0
 
     return config
-
-
-def _register_llama_archs() -> None:
-    # fmt: off
-    # LLaMA
-    llama_archs.register("7b",  _7b)
-    llama_archs.register("13b", _13b)
-    llama_archs.register("33b", _33b)
-    llama_archs.register("65b", _65b)
-
-    # LLaMA 2
-    llama_archs.register("llama2_7b",  _llama2_7b)
-    llama_archs.register("llama2_13b", _llama2_13b)
-    llama_archs.register("llama2_70b", _llama2_70b)
-
-    # LLaMA 3
-    llama_archs.register("llama3_8b",  _llama3_8b)
-    llama_archs.register("llama3_70b", _llama3_70b)
-    # fmt: on

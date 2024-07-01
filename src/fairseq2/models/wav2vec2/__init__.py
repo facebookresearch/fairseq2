@@ -44,13 +44,3 @@ from fairseq2.models.wav2vec2.position_encoder import (
 from fairseq2.models.wav2vec2.position_encoder import (
     Wav2Vec2StackedPositionEncoder as Wav2Vec2StackedPositionEncoder,
 )
-
-# isort: split
-
-from fairseq2.models.wav2vec2.archs import _register_wav2vec2_archs
-from fairseq2.models.wav2vec2.loader import _register_wav2vec2_loaders
-
-
-def _register_wav2vec2() -> None:
-    _register_wav2vec2_archs()
-    _register_wav2vec2_loaders()

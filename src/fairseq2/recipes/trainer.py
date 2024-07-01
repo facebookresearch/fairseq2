@@ -50,8 +50,8 @@ from fairseq2.nn.utils.gradient import (
 )
 from fairseq2.optim import DynamicLossScaler
 from fairseq2.optim.lr_scheduler import LRScheduler, NoopLR, get_effective_lr
+from fairseq2.recipes.common_metrics import compute_throughput
 from fairseq2.recipes.evaluator import EvalUnit
-from fairseq2.recipes.metrics import compute_throughput
 from fairseq2.recipes.utils.cli import create_rich_progress
 from fairseq2.typing import CPU, DataType, override
 from fairseq2.utils.profiler import Profiler, Stopwatch

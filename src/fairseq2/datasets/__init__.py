@@ -13,12 +13,6 @@ from fairseq2.datasets.loader import DelegatingDatasetLoader as DelegatingDatase
 
 # isort: split
 
-from fairseq2.datasets.asr import _register_asr
-from fairseq2.datasets.instruction import _register_instruction
-from fairseq2.datasets.parallel_text import _register_parallel_text
-
-
-def _register_datasets() -> None:
-    _register_asr()
-    _register_instruction()
-    _register_parallel_text()
+import fairseq2.datasets.asr
+import fairseq2.datasets.instruction
+import fairseq2.datasets.parallel_text

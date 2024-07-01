@@ -6,17 +6,19 @@
 
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.models.w2vbert.factory import W2VBertConfig
-from fairseq2.models.wav2vec2 import Wav2Vec2EncoderConfig, wav2vec2_encoder_archs
+from fairseq2.models.wav2vec2 import Wav2Vec2EncoderConfig, wav2vec2_encoder_arch
 
 w2vbert_archs = ConfigRegistry[W2VBertConfig]()
 
 w2vbert_arch = w2vbert_archs.decorator
 
 
+@w2vbert_arch("600m")
 def _600m() -> W2VBertConfig:
     return W2VBertConfig()
 
 
+@w2vbert_arch("300m")
 def _300m() -> W2VBertConfig:
     config = _600m()
 
@@ -27,21 +29,15 @@ def _300m() -> W2VBertConfig:
     return config
 
 
+@wav2vec2_encoder_arch("bert_600m")
 def _600m_encoder() -> Wav2Vec2EncoderConfig:
     config = _600m()
 
     return config.w2v2_config.encoder_config
 
 
+@wav2vec2_encoder_arch("bert_300m")
 def _300m_encoder() -> Wav2Vec2EncoderConfig:
     config = _300m()
 
     return config.w2v2_config.encoder_config
-
-
-def _register_w2vbert_archs() -> None:
-    w2vbert_archs.register("300m", _300m)
-    w2vbert_archs.register("600m", _600m)
-
-    wav2vec2_encoder_archs.register("bert_300m", _300m_encoder)
-    wav2vec2_encoder_archs.register("bert_600m", _600m_encoder)

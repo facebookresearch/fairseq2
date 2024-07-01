@@ -8,37 +8,50 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Optional, Tuple, Union
+from typing import Literal, Optional, Tuple, Union, final
 
 import torch
 import torch.distributed
+from torch import Tensor
+from torch.nn import Module
 
 from fairseq2.assets.utils import retrieve_asset_card
 from fairseq2.checkpoint import FileCheckpointManager
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
 from fairseq2.datasets.instruction import load_instruction_dataset
+from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.models import load_model
 from fairseq2.models.decoder import DecoderModel
-from fairseq2.models.sequence import SequenceBatch
+from fairseq2.models.sequence import (
+    SequenceBatch,
+    SequenceModel,
+    SequenceModelOutput,
+    as_auto_regressive_input,
+)
 from fairseq2.nn.checkpointing import use_layerwise_activation_checkpointing
 from fairseq2.nn.transformer import enable_memory_efficient_torch_sdpa
 from fairseq2.optim import AdamW
 from fairseq2.optim.lr_scheduler import CosineAnnealingLR
-from fairseq2.recipes.lm.units import InstructionTrainUnit
-from fairseq2.recipes.trainer import Trainer
+from fairseq2.recipes.common_metrics import SequenceMetricBag
+from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
 from fairseq2.recipes.utils.log import log_model
-from fairseq2.recipes.utils.setup import compile_model, setup_gangs, to_data_parallel
-from fairseq2.typing import META, DataType
+from fairseq2.recipes.utils.setup import (
+    check_model_type,
+    compile_model,
+    setup_gangs,
+    to_data_parallel,
+)
+from fairseq2.typing import META, DataType, override
 from fairseq2.utils.profiler import Stopwatch
 
 log = get_log_writer(__name__)
 
 
 @dataclass
-class InstructionTrainConfig:
-    """Holds the training configuration of an instruction model."""
+class InstructionFinetuneConfig:
+    """Holds the instruction-finetuning configuration of a language model."""
 
     # Data
     dataset: Union[str, Path] = "openeft"  # TODO: change!
@@ -145,12 +158,13 @@ class InstructionTrainConfig:
     """If ``True``, turns on anomaly detection feature in ``torch.autograd``."""
 
 
-instruction_train_presets = ConfigRegistry[InstructionTrainConfig]()
+instruction_finetune_presets = ConfigRegistry[InstructionFinetuneConfig]()
 
-instruction_train_preset = instruction_train_presets.decorator
+instruction_finetune_preset = instruction_finetune_presets.decorator
 
 
-def _llama2_7b_chat() -> InstructionTrainConfig:
+@instruction_finetune_preset("llama2_7b_chat")
+def _llama2_7b_chat() -> InstructionFinetuneConfig:
     config = _llama3_8b_instruct()
 
     config.max_seq_len = 4096
@@ -160,7 +174,8 @@ def _llama2_7b_chat() -> InstructionTrainConfig:
     return config
 
 
-def _llama2_70b_chat() -> InstructionTrainConfig:
+@instruction_finetune_preset("llama2_70b_chat")
+def _llama2_70b_chat() -> InstructionFinetuneConfig:
     config = _llama2_7b_chat()
 
     config.model = "llama2_70b_chat"
@@ -169,11 +184,13 @@ def _llama2_70b_chat() -> InstructionTrainConfig:
     return config
 
 
-def _llama3_8b_instruct() -> InstructionTrainConfig:
-    return InstructionTrainConfig()
+@instruction_finetune_preset("llama3_8b_instruct")
+def _llama3_8b_instruct() -> InstructionFinetuneConfig:
+    return InstructionFinetuneConfig()
 
 
-def _llama3_70b_instruct() -> InstructionTrainConfig:
+@instruction_finetune_preset("llama3_70b_instruct")
+def _llama3_70b_instruct() -> InstructionFinetuneConfig:
     config = _llama3_8b_instruct()
 
     config.model = "llama3_70b_instruct"
@@ -182,19 +199,10 @@ def _llama3_70b_instruct() -> InstructionTrainConfig:
     return config
 
 
-def _register_instruction_train() -> None:
-    # fmt: off
-    instruction_train_presets.register("llama2_7b_chat",      _llama2_7b_chat)
-    instruction_train_presets.register("llama2_70b_chat",     _llama2_70b_chat)
-    instruction_train_presets.register("llama3_8b_instruct",  _llama3_8b_instruct)
-    instruction_train_presets.register("llama3_70b_instruct", _llama3_70b_instruct)
-    # fmt: on
-
-
-def load_instruction_trainer(
-    config: InstructionTrainConfig, output_dir: Path
+def load_instruction_finetuner(
+    config: InstructionFinetuneConfig, output_dir: Path
 ) -> Trainer[SequenceBatch]:
-    """Load a :class:`Trainer` for instruction model training."""
+    """Load a :class:`Trainer` for language model instruction-finetuning."""
     wall_watch = Stopwatch(start=True)
 
     root_gang, gangs = setup_gangs(
@@ -285,7 +293,7 @@ def load_instruction_trainer(
     log_model(dp_model, log, rank=root_gang.rank)
 
     # Initialize the train unit and the optimizer.
-    unit = InstructionTrainUnit(dp_model, dp_gang)
+    unit = InstructionFinetuneUnit(dp_model, dp_gang)
 
     data_reader = dataset.create_reader(
         config.split,
@@ -339,3 +347,47 @@ def load_instruction_trainer(
         seed=config.seed,
         wall_watch=wall_watch,
     )
+
+
+@final
+class InstructionFinetuneUnit(AbstractTrainUnit[SequenceBatch]):
+    """Represents the instruction-finetuning unit of a language model."""
+
+    _metric_bag: SequenceMetricBag
+
+    def __init__(self, model: Module, gang: Gang) -> None:
+        """
+        :param model:
+            The language model. Might be wrapped with DDP or FSDP.
+        :param gang:
+            The gang for distributed training.
+        """
+        super().__init__(model)
+
+        check_model_type(model, SequenceModel)
+
+        self._metric_bag = SequenceMetricBag(gang)
+
+    @override
+    def __call__(self, batch: SequenceBatch) -> Tuple[Tensor, int]:
+        input_batch, target_batch = as_auto_regressive_input(batch)
+
+        output = self._forward(input_batch)
+
+        loss = output.compute_loss(
+            target_batch.seqs, loss_mask=target_batch.target_mask
+        )
+
+        self._metric_bag.update_nll_loss(target_batch, loss.detach())
+
+        self._metric_bag.update_batch_metrics(target_batch)
+
+        return loss, target_batch.num_target_elements()
+
+    def _forward(self, batch: SequenceBatch) -> SequenceModelOutput:
+        return self._model(batch)  # type: ignore[no-any-return]
+
+    @property
+    @override
+    def metric_bag(self) -> SequenceMetricBag:
+        return self._metric_bag

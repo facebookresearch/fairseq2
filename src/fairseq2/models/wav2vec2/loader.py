@@ -77,6 +77,4 @@ load_wav2vec2_model = DenseModelLoader(
     restrict_checkpoints=False,
 )
 
-
-def _register_wav2vec2_loaders() -> None:
-    load_model.register(WAV2VEC2_FAMILY, load_wav2vec2_model)
+load_model.register(WAV2VEC2_FAMILY, load_wav2vec2_model)

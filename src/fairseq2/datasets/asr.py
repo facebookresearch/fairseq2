@@ -338,10 +338,8 @@ class GenericAsrDatasetLoader(AbstractDatasetLoader[GenericAsrDataset]):
 
 load_generic_asr_dataset = GenericAsrDatasetLoader()
 
+load_asr_dataset.register("generic_asr", load_generic_asr_dataset)
+
 load_librispeech_asr_tokenizer = default_raw_sentencepiece_tokenizer_loader
 
-
-def _register_asr() -> None:
-    load_asr_dataset.register("generic_asr", load_generic_asr_dataset)
-
-    load_text_tokenizer.register("librispeech_asr", load_librispeech_asr_tokenizer)
+load_text_tokenizer.register("librispeech_asr", load_librispeech_asr_tokenizer)

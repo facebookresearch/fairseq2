@@ -477,6 +477,4 @@ class NllbDatasetLoader(AbstractDatasetLoader[NllbDataset]):
 
 load_nllb_dataset = NllbDatasetLoader()
 
-
-def _register_parallel_text() -> None:
-    load_parallel_text_dataset.register("nllb", load_nllb_dataset)
+load_parallel_text_dataset.register("nllb", load_nllb_dataset)
