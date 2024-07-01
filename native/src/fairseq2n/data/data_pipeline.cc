@@ -19,6 +19,7 @@
 #include "fairseq2n/data/constant_data_source.h"
 #include "fairseq2n/data/count_data_source.h"
 #include "fairseq2n/data/detail/file_system.h"
+#include "fairseq2n/data/dynamic_bucket_data_source.h"
 #include "fairseq2n/data/filter_data_source.h"
 #include "fairseq2n/data/list_data_source.h"
 #include "fairseq2n/data/map_data_source.h"
@@ -385,6 +386,38 @@ data_pipeline_builder::bucket_by_length(
             min_data_len,
             skip_below_min_examples,
             skip_above_max_examples,
+            drop_remainder);
+    };
+
+    return std::move(*this);
+}
+
+data_pipeline_builder
+data_pipeline_builder::dynamic_bucket(
+    float64 threshold,
+    cost_fn fn,
+    std::optional<std::size_t> maybe_min_num_examples,
+    std::optional<std::size_t> maybe_max_num_examples,
+    bool drop_remainder) &&
+{
+    if (threshold <= 0)
+        throw_<std::invalid_argument>("`threshold` must be greater than zero.");
+    if (maybe_max_num_examples && *maybe_max_num_examples == 0)
+        throw_<std::invalid_argument>("`max_num_examples` must be greater than zero.");
+    if (maybe_max_num_examples && 
+        maybe_min_num_examples && 
+        *maybe_max_num_examples < *maybe_min_num_examples) {
+        throw_<std::invalid_argument>("`max_num_examples` must be greater than or equal to `min_num_examples`.");
+    }
+
+    factory_ = [=, fn = std::move(fn), inner = std::move(factory_)]() mutable
+    {
+        return std::make_unique<dynamic_bucket_data_source>(
+            inner(), 
+            threshold, 
+            std::move(fn), 
+            maybe_min_num_examples, 
+            maybe_max_num_examples, 
             drop_remainder);
     };
 
