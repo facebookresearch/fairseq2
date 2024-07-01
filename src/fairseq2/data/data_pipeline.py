@@ -235,8 +235,8 @@ if TYPE_CHECKING or DOC_MODE:
             self,
             threshold: float,
             cost_fn: Callable[[Any], float],
-            nb_min: Optional[int] = None,
-            nb_max: Optional[int] = None,
+            min_num_examples: Optional[int] = None,
+            max_num_examples: Optional[int] = None,
             drop_remainder: bool = False,
         ) -> Self:
             """Combine a number of consecutive examples into a single example
@@ -250,13 +250,13 @@ if TYPE_CHECKING or DOC_MODE:
                 Threshold for cumulative cost to trigger bucketing.
             :param cost_fn:
                 Cost function that outputs cost for a particular example.
-            :param nb_min:
+            :param min_num_examples:
                 Minimum number of examples per bucket.
-            :param nb_max:
+            :param max_num_examples:
                 Maximum number of examples per bucket.
             :param drop_remainder:
                 If ``True``, drops the last bucket in case it has fewer than
-                ``nb_min`` examples or the cumulative cost has not reached
+                ``min_num_examples`` examples or the cumulative cost has not reached
                 ``threshold`` yet.
             """
 

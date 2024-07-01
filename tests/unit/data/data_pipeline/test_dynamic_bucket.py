@@ -30,6 +30,47 @@ class TestDynamicBucketOp:
 
             pipeline.reset()
 
+    def test_op_works_with_square_cost_function(self) -> None:
+        seq = list(range(1, 7))
+
+        threshold = 14
+        cost_fn = lambda x: x**2
+
+        pipeline = read_sequence(seq).dynamic_bucket(threshold, cost_fn).and_return()
+
+        for _ in range(2):
+            it = iter(pipeline)
+
+            assert next(it) == [1, 2, 3]
+            assert next(it) == [4]
+            assert next(it) == [5]
+            assert next(it) == [6]
+
+            with pytest.raises(StopIteration):
+                next(it)
+
+            pipeline.reset()
+
+    def test_op_works_with_length_cost_function(self) -> None:
+        seq = [[1, 2], [3, 4, 5], [6], [7], [8, 9, 10], [11, 12, 13, 14, 15, 16]]
+
+        threshold = 5
+        cost_fn = lambda x: len(x)
+
+        pipeline = read_sequence(seq).dynamic_bucket(threshold, cost_fn).and_return()
+
+        for _ in range(2):
+            it = iter(pipeline)
+
+            assert next(it) == [[1, 2], [3, 4, 5]]
+            assert next(it) == [[6], [7], [8, 9, 10]]
+            assert next(it) == [[11, 12, 13, 14, 15, 16]]
+
+            with pytest.raises(StopIteration):
+                next(it)
+
+            pipeline.reset()
+
     def test_op_works_with_floats(self) -> None:
         seq = [0.1, 0.2, 0.3]
 
@@ -83,7 +124,9 @@ class TestDynamicBucketOp:
         cost_fn = lambda x: x
 
         pipeline = (
-            read_sequence(seq).dynamic_bucket(threshold, cost_fn, nb_min=2).and_return()
+            read_sequence(seq)
+            .dynamic_bucket(threshold, cost_fn, min_num_examples=2)
+            .and_return()
         )
 
         for _ in range(2):
@@ -106,7 +149,9 @@ class TestDynamicBucketOp:
         cost_fn = lambda x: x
 
         pipeline = (
-            read_sequence(seq).dynamic_bucket(threshold, cost_fn, nb_max=2).and_return()
+            read_sequence(seq)
+            .dynamic_bucket(threshold, cost_fn, max_num_examples=2)
+            .and_return()
         )
 
         for _ in range(2):
@@ -130,7 +175,7 @@ class TestDynamicBucketOp:
 
         pipeline = (
             read_sequence(seq)
-            .dynamic_bucket(threshold, cost_fn, nb_min=2, nb_max=2)
+            .dynamic_bucket(threshold, cost_fn, min_num_examples=2, max_num_examples=2)
             .and_return()
         )
 
@@ -156,7 +201,7 @@ class TestDynamicBucketOp:
 
         pipeline = (
             read_sequence(seq)
-            .dynamic_bucket(threshold, cost_fn, nb_min=2, drop_remainder=drop)
+            .dynamic_bucket(threshold, cost_fn, min_num_examples=2, drop_remainder=drop)
             .and_return()
         )
 
@@ -179,10 +224,25 @@ class TestDynamicBucketOp:
         ):
             read_sequence(list(range(100))).dynamic_bucket(0, lambda x: 1).and_return()
 
+    def test_op_raises_error_when_max_num_examples_is_nonpositive(self) -> None:
         with pytest.raises(
-            ValueError, match=r"^`threshold` must be greater than zero\.$"
+            ValueError, match=r"^`max_num_examples` must be greater than zero\.$"
         ):
-            read_sequence(list(range(100))).dynamic_bucket(-1, lambda x: 1).and_return()
+            read_sequence(list(range(100))).dynamic_bucket(
+                1, lambda x: 1, max_num_examples=0
+            ).and_return()
+
+    def test_op_raises_error_when_max_num_examples_is_less_than_min_num_examples(
+        self,
+    ) -> None:
+        with pytest.raises(
+            ValueError,
+            match=r"^`max_num_examples` must be greater than or equal to `min_num_examples`\.$",
+        ):
+            seq = read_sequence(list(range(100)))
+            seq.dynamic_bucket(
+                1, lambda x: 1, min_num_examples=2, max_num_examples=1
+            ).and_return()
 
     def test_op_saves_and_restores_its_state(self) -> None:
         seq = list(range(1, 7))

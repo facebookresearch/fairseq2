@@ -11,8 +11,18 @@
 namespace fairseq2n::detail {
 
 dynamic_bucket_data_source::dynamic_bucket_data_source(
-    std::unique_ptr<data_source> &&inner, float64 threshold, cost_fn &&fn, std::optional<std::size_t> maybe_nb_min, std::optional<std::size_t> maybe_nb_max, bool drop_remainder) noexcept
-  : inner_{std::move(inner)}, threshold_{threshold}, cost_fn_{std::move(fn)}, maybe_nb_min_{maybe_nb_min}, maybe_nb_max_{maybe_nb_max}, drop_remainder_{drop_remainder}
+    std::unique_ptr<data_source> &&inner, 
+    float64 threshold, 
+    cost_fn &&fn, 
+    std::optional<std::size_t> maybe_min_num_examples, 
+    std::optional<std::size_t> maybe_max_num_examples, 
+    bool drop_remainder) noexcept
+  : inner_{std::move(inner)}, 
+    threshold_{threshold}, 
+    cost_fn_{std::move(fn)}, 
+    maybe_min_num_examples_{maybe_min_num_examples}, 
+    maybe_max_num_examples_{maybe_max_num_examples}, 
+    drop_remainder_{drop_remainder}
 {}
 
 std::optional<data>
@@ -20,23 +30,32 @@ dynamic_bucket_data_source::next()
 {
     data_list output{};
 
-    if (maybe_nb_min_)
-        output.reserve(*maybe_nb_min_);
+    if (maybe_min_num_examples_)
+        output.reserve(*maybe_min_num_examples_);
 
     float64 cost = 0;
 
     auto bucket_ready = [&]() {
-        bool cost_threshold_met = (cost >= threshold_);
-        bool minimum_size_met = (maybe_nb_min_ ? (output.size() >= *maybe_nb_min_) : true);
-        bool maximum_size_met = (maybe_nb_max_ ? (output.size() >= *maybe_nb_max_) : false);
-        return maximum_size_met || (cost_threshold_met && minimum_size_met);
+        bool cost_threshold_met = cost >= threshold_;
+
+        bool minimum_size_met = true;
+        if (maybe_min_num_examples_)
+            minimum_size_met = output.size() >= *maybe_min_num_examples_;
+
+        if (cost_threshold_met && minimum_size_met) return true;
+
+        bool maximum_size_met = false;
+        if (maybe_max_num_examples_)
+            maximum_size_met = output.size() >= *maybe_max_num_examples_;
+
+        return maximum_size_met;
     };
 
     while (!bucket_ready()) {
         std::optional<data> maybe_example = inner_->next();
         if (!maybe_example)
             break;
-        cost += invoke_function(*maybe_example);
+        cost += cost_fn_(*maybe_example);
         output.push_back(*std::move(maybe_example));
     }
 
@@ -71,12 +90,6 @@ data_source_finitude_type
 dynamic_bucket_data_source::finitude_type() const noexcept
 {
     return inner_->finitude_type();
-}
-
-float64
-dynamic_bucket_data_source::invoke_function(data &example)
-{
-    return cost_fn_(example);
 }
 
 }  // namespace fairseq2n::detail

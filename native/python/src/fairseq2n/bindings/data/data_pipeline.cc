@@ -478,18 +478,23 @@ def_data_pipeline(py::module_ &data_module)
                 data_pipeline_builder &self,
                 float64 threshold,
                 cost_fn fn,
-                std::optional<std::size_t> maybe_nb_min,
-                std::optional<std::size_t> maybe_nb_max,
+                std::optional<std::size_t> maybe_min_num_examples,
+                std::optional<std::size_t> maybe_max_num_examples,
                 bool drop_remainder) -> data_pipeline_builder &
             {
-                self = std::move(self).dynamic_bucket(threshold, std::move(fn), maybe_nb_min, maybe_nb_max, drop_remainder);
+                self = std::move(self).dynamic_bucket(
+                    threshold,
+                    std::move(fn),
+                    maybe_min_num_examples,
+                    maybe_max_num_examples,
+                    drop_remainder);
 
                 return self;
             },
             py::arg("threshold"),
             py::arg("fn"),
-            py::arg("nb_min") = std::nullopt,
-            py::arg("nb_max") = std::nullopt,
+            py::arg("min_num_examples") = std::nullopt,
+            py::arg("max_num_examples") = std::nullopt,
             py::arg("drop_remainder") = false)
         .def(
             "filter",

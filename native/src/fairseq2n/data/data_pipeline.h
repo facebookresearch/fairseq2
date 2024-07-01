@@ -148,8 +148,8 @@ public:
     dynamic_bucket(
         float64 threshold,
         cost_fn fn,
-        std::optional<std::size_t> maybe_nb_min = std::nullopt,
-        std::optional<std::size_t> maybe_nb_max = std::nullopt,
+        std::optional<std::size_t> maybe_min_num_examples = std::nullopt,
+        std::optional<std::size_t> maybe_max_num_examples = std::nullopt,
         bool drop_remainder = false) &&;
 
     data_pipeline_builder
