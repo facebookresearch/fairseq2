@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.data_pipeline &mdash; fairseq2 0.3.0.dev202406240140+g7ece73c documentation</title>
+  <title>fairseq2.data.data_pipeline &mdash; fairseq2 0.3.0.dev202407010145+g05bd133 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202406240140+g7ece73c
+                0.3.0.dev202407010145+g05bd133
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -82,6 +82,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../../reference/data.html#column-syntax">Column syntax</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../reference/data.html#pseudo-infinite-and-infinite-pipelines">Pseudo-infinite and Infinite Pipelines</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../reference/data.html#public-classes-used-in-fairseq2-api">Public classes used in fairseq2 API:</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.ByteStreamError.html">fairseq2.data.ByteStreamError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../../../reference/generated/data/fairseq2.data.DataPipelineError.html">fairseq2.data.DataPipelineError</a></li>
@@ -207,7 +208,11 @@
 <span class="sd">            &quot;&quot;&quot;</span></div>
 
 <div class="viewcode-block" id="DataPipeline.reset"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.reset">[docs]</a>        <span class="k">def</span> <span class="nf">reset</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">reset_rng</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Move back to the first example in the data pipeline.&quot;&quot;&quot;</span></div>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Move back to the first example in the data pipeline.</span>
+
+<span class="sd">            :param reset_rng:</span>
+<span class="sd">                If ``True``, resets all random number generators in the pipeline.</span>
+<span class="sd">            &quot;&quot;&quot;</span></div>
 
         <span class="k">def</span> <span class="nf">is_infinite</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
             <span class="o">...</span>
@@ -248,15 +253,49 @@
 <span class="sd">                The data pipelines to concatenate.</span>
 <span class="sd">            &quot;&quot;&quot;</span></div>
 
-        <span class="nd">@staticmethod</span>
+<div class="viewcode-block" id="DataPipeline.constant"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.constant">[docs]</a>        <span class="nd">@staticmethod</span>
         <span class="k">def</span> <span class="nf">constant</span><span class="p">(</span><span class="n">example</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
-            <span class="o">...</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Repeatedly yield ``example``.</span>
 
-        <span class="nd">@staticmethod</span>
+<span class="sd">            This pipeline is pseudo-infinite; when used with functions</span>
+<span class="sd">            that combine pipelines (e.g. sample, round_robin, zip),</span>
+<span class="sd">            it will yield examples only as long as other</span>
+<span class="sd">            pipelines yield examples.</span>
+
+<span class="sd">            See :ref:`reference/data:pseudo-infinite and infinite pipelines`</span>
+<span class="sd">            for more details.</span>
+
+<span class="sd">            :param example:</span>
+<span class="sd">                Example to yield infinitely.</span>
+<span class="sd">            :param key:</span>
+<span class="sd">                If specified, yields dictionaries as examples,</span>
+<span class="sd">                where the key is ``key`` and the value is ``example``.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="o">...</span></div>
+
+<div class="viewcode-block" id="DataPipeline.count"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.count">[docs]</a>        <span class="nd">@staticmethod</span>
         <span class="k">def</span> <span class="nf">count</span><span class="p">(</span>
             <span class="n">start</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">step</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">key</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
-            <span class="o">...</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Count from ``start`` in steps of size ``step``.</span>
+
+<span class="sd">            This pipeline is pseudo-infinite; when used with functions</span>
+<span class="sd">            that combine pipelines (e.g. sample, round_robin, zip),</span>
+<span class="sd">            it will yield examples only as long as other</span>
+<span class="sd">            pipelines yield examples.</span>
+
+<span class="sd">            See :ref:`reference/data:pseudo-infinite and infinite pipelines`</span>
+<span class="sd">            for more details.</span>
+
+<span class="sd">            :param start:</span>
+<span class="sd">                Number to start counting from.</span>
+<span class="sd">            :param step:</span>
+<span class="sd">                Count step size.</span>
+<span class="sd">            :param key:</span>
+<span class="sd">                If specified, yields dictionaries as examples,</span>
+<span class="sd">                where the key is ``key`` and the value is the current number.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="o">...</span></div>
 
 <div class="viewcode-block" id="DataPipeline.round_robin"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.round_robin">[docs]</a>        <span class="nd">@staticmethod</span>
         <span class="k">def</span> <span class="nf">round_robin</span><span class="p">(</span>
@@ -278,12 +317,14 @@
             <span class="n">weights</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Sequence</span><span class="p">[</span><span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
             <span class="n">seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DataPipelineBuilder</span><span class="p">:</span>
-<span class="w">            </span><span class="sd">&quot;&quot;&quot;Extract examples from ``pipelines`` by sampling based on ``weights``.</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Extract examples from ``pipelines`` by sampling based on</span>
+<span class="sd">            ``weights``. Circles around pipelines until all have reached their</span>
+<span class="sd">            end at least once.</span>
 
 <span class="sd">            :param data_pipelines:</span>
 <span class="sd">                The data pipelines to sample from.</span>
 <span class="sd">            :param weights:</span>
-<span class="sd">                Desired distribution of pipelines. If None, use uniform distribution.</span>
+<span class="sd">                Desired distribution of pipelines. If ``None``, use uniform distribution.</span>
 <span class="sd">            &quot;&quot;&quot;</span></div>
 
 <div class="viewcode-block" id="DataPipeline.zip"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.zip">[docs]</a>        <span class="nd">@staticmethod</span>
@@ -299,8 +340,14 @@
 <span class="sd">            :param pipelines:</span>
 <span class="sd">                The data pipelines to zip.</span>
 <span class="sd">            :param names:</span>
-<span class="sd">                The names to assign to the data pipelines.</span>
+<span class="sd">                The names to assign to the data pipelines. If ``None``, yields examples as lists.</span>
+<span class="sd">            :param zip_to_shortest:</span>
+<span class="sd">                If ``True``, stops yielding examples after shortest pipeline terminates.</span>
+<span class="sd">                Otherwise, all pipelines (that are not pseudo-infinite)</span>
+<span class="sd">                must have the same number of examples.</span>
 <span class="sd">            :param flatten:</span>
+<span class="sd">                If ``True``, flatten examples from each pipeline into one dictionary or list.</span>
+<span class="sd">                All pipelines must return the same type (dict or non-dict).,</span>
 <span class="sd">            :param disable_parallelism:</span>
 <span class="sd">                If ``True``, calls each data pipeline sequentially.</span>
 <span class="sd">            &quot;&quot;&quot;</span></div></div>
@@ -377,7 +424,7 @@
 <span class="sd">                ``.map([f1, f2])`` is the more efficient version of ``.map(f1).map(f2)``</span>
 
 <span class="sd">            :param selector:</span>
-<span class="sd">                The column to apply the function to. Several colums can be specified by separating them with a &quot;,&quot;.</span>
+<span class="sd">                The column to apply the function to. Several columns can be specified by separating them with a &quot;,&quot;.</span>
 <span class="sd">                See :ref:`reference/data:column syntax` for more details.</span>
 <span class="sd">            :param num_parallel_calls:</span>
 <span class="sd">                The number of examples to process in parallel.</span>
@@ -391,10 +438,17 @@
 <span class="sd">                The number of examples to prefetch.</span>
 <span class="sd">            &quot;&quot;&quot;</span></div>
 
-        <span class="k">def</span> <span class="nf">repeat</span><span class="p">(</span>
+<div class="viewcode-block" id="DataPipelineBuilder.repeat"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder.repeat">[docs]</a>        <span class="k">def</span> <span class="nf">repeat</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span> <span class="n">num_repeats</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">reset_rng</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
         <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
-            <span class="o">...</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Repeats the sequence of pipeline examples ``num_repeats`` times.</span>
+
+<span class="sd">            :param num_repeats:</span>
+<span class="sd">                The number of times to repeat examples. If ``None``, repeats infinitely.</span>
+<span class="sd">            :param reset_rng:</span>
+<span class="sd">                If ``True``, upon repeats, resets all random number generators in pipeline.</span>
+<span class="sd">            &quot;&quot;&quot;</span>
+            <span class="o">...</span></div>
 
 <div class="viewcode-block" id="DataPipelineBuilder.shard"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder.shard">[docs]</a>        <span class="k">def</span> <span class="nf">shard</span><span class="p">(</span>
             <span class="bp">self</span><span class="p">,</span> <span class="n">shard_idx</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">num_shards</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">allow_uneven</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>

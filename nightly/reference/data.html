@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data &mdash; fairseq2 0.3.0.dev202406240140+g7ece73c documentation</title>
+  <title>fairseq2.data &mdash; fairseq2 0.3.0.dev202407010145+g05bd133 documentation</title>
       <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -35,7 +35,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202406240140+g7ece73c
+                0.3.0.dev202407010145+g05bd133
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
@@ -85,6 +85,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="#column-syntax">Column syntax</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#pseudo-infinite-and-infinite-pipelines">Pseudo-infinite and Infinite Pipelines</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#public-classes-used-in-fairseq2-api">Public classes used in fairseq2 API:</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.ByteStreamError.html">fairseq2.data.ByteStreamError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="generated/data/fairseq2.data.DataPipelineError.html">fairseq2.data.DataPipelineError</a></li>
@@ -220,6 +221,37 @@ the selector <code class="docutils literal notranslate"><span class="pre">&quot;
 accept them as a comma separated list of selectors.
 For example <code class="docutils literal notranslate"><span class="pre">.map(lambda</span> <span class="pre">x:</span> <span class="pre">x</span> <span class="pre">*</span> <span class="pre">10,</span> <span class="pre">selector=&quot;foo[1].y,bar&quot;)</span></code>
 will multiply the values 4 and 6 by 10, but leave others unmodified.</p>
+</section>
+<section id="pseudo-infinite-and-infinite-pipelines">
+<h2>Pseudo-infinite and Infinite Pipelines<a class="headerlink" href="#pseudo-infinite-and-infinite-pipelines" title="Permalink to this heading"></a></h2>
+<p>The <a class="reference internal" href="generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.count" title="fairseq2.data.DataPipeline.count"><code class="xref py py-func docutils literal notranslate"><span class="pre">DataPipeline.count()</span></code></a> and <a class="reference internal" href="generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.constant" title="fairseq2.data.DataPipeline.constant"><code class="xref py py-func docutils literal notranslate"><span class="pre">DataPipeline.constant()</span></code></a> static methods create pseudo-infinite pipelines.
+When used with operators that combine multiple pipelines (e.g. <a class="reference internal" href="generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.sample" title="fairseq2.data.DataPipeline.sample"><code class="xref py py-func docutils literal notranslate"><span class="pre">DataPipeline.sample()</span></code></a>,
+<a class="reference internal" href="generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.round_robin" title="fairseq2.data.DataPipeline.round_robin"><code class="xref py py-func docutils literal notranslate"><span class="pre">DataPipeline.round_robin()</span></code></a>, <a class="reference internal" href="generated/data/fairseq2.data.DataPipeline.html#fairseq2.data.DataPipeline.zip" title="fairseq2.data.DataPipeline.zip"><code class="xref py py-func docutils literal notranslate"><span class="pre">DataPipeline.zip()</span></code></a>),
+they will only yield examples as long as the other pipelines yield examples.</p>
+<p>For example:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">fairseq2.data</span> <span class="kn">import</span> <span class="n">DataPipeline</span><span class="p">,</span> <span class="n">read_sequence</span>
+
+<span class="n">pipeline1</span> <span class="o">=</span> <span class="n">DataPipeline</span><span class="o">.</span><span class="n">constant</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">and_return</span><span class="p">()</span>
+<span class="n">pipeline2</span> <span class="o">=</span> <span class="n">read_sequence</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span><span class="o">.</span><span class="n">and_return</span><span class="p">()</span>
+
+<span class="k">for</span> <span class="n">example</span> <span class="ow">in</span> <span class="n">DataPipeline</span><span class="o">.</span><span class="n">round_robin</span><span class="p">(</span><span class="n">pipeline1</span><span class="p">,</span> <span class="n">pipeline2</span><span class="p">)</span><span class="o">.</span><span class="n">and_return</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">example</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>only produces 0, 1, 0, 2, 0, 3.</p>
+<p>Infinite pipelines (pipelines created through <a class="reference internal" href="generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder.repeat" title="fairseq2.data.DataPipelineBuilder.repeat"><code class="xref py py-func docutils literal notranslate"><span class="pre">DataPipelineBuilder.repeat()</span></code></a> with no arguments)
+do not exhibit this behavior; they will yield examples indefinitely even when combined with other pipelines.</p>
+<p>For example:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">fairseq2.data</span> <span class="kn">import</span> <span class="n">DataPipeline</span><span class="p">,</span> <span class="n">read_sequence</span>
+
+<span class="n">pipeline1</span> <span class="o">=</span> <span class="n">read_sequence</span><span class="p">([</span><span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">repeat</span><span class="p">()</span><span class="o">.</span><span class="n">and_return</span><span class="p">()</span>
+<span class="n">pipeline2</span> <span class="o">=</span> <span class="n">read_sequence</span><span class="p">([</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">])</span><span class="o">.</span><span class="n">and_return</span><span class="p">()</span>
+
+<span class="k">for</span> <span class="n">example</span> <span class="ow">in</span> <span class="n">DataPipeline</span><span class="o">.</span><span class="n">round_robin</span><span class="p">(</span><span class="n">pipeline1</span><span class="p">,</span> <span class="n">pipeline2</span><span class="p">)</span><span class="o">.</span><span class="n">and_return</span><span class="p">():</span>
+    <span class="nb">print</span><span class="p">(</span><span class="n">example</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>produces 0, 1, 0, 2, 0, 3, 0, 1, 0, 2, 0, 3… indefinitely.</p>
 </section>
 <section id="public-classes-used-in-fairseq2-api">
 <h2>Public classes used in fairseq2 API:<a class="headerlink" href="#public-classes-used-in-fairseq2-api" title="Permalink to this heading"></a></h2>

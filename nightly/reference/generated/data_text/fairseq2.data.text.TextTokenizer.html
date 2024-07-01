@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TextTokenizer &mdash; fairseq2 0.3.0.dev202406240140+g7ece73c documentation</title>
+  <title>TextTokenizer &mdash; fairseq2 0.3.0.dev202407010145+g05bd133 documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -35,7 +35,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202406240140+g7ece73c
+                0.3.0.dev202407010145+g05bd133
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -85,6 +85,7 @@
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="../../data.html#column-syntax">Column syntax</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../data.html#pseudo-infinite-and-infinite-pipelines">Pseudo-infinite and Infinite Pipelines</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../data.html#public-classes-used-in-fairseq2-api">Public classes used in fairseq2 API:</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.ByteStreamError.html">fairseq2.data.ByteStreamError</a></li>
 <li class="toctree-l3"><a class="reference internal" href="../data/fairseq2.data.DataPipelineError.html">fairseq2.data.DataPipelineError</a></li>
@@ -186,9 +187,9 @@ subclasses for more information.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>task</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a><em> | </em><em>None</em>) – The task for which to generate token indices. Typically, multi-task
-jobs use <code class="docutils literal notranslate"><span class="pre">task</span></code> to distinguish between different tasks such as
-‘translation’ or ‘transcription’.</p></li>
+<li><p><strong>task</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a><em> | </em><em>None</em>) – The task for which to generate token indices. Typically, <code class="docutils literal notranslate"><span class="pre">task</span></code> is
+used to distinguish between different tasks such as ‘translation’ or
+‘transcription’.</p></li>
 <li><p><strong>lang</strong> (<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.12)"><em>str</em></a><em> | </em><em>None</em>) – The language of generated token indices. Typically, multilingual
 translation tasks use <code class="docutils literal notranslate"><span class="pre">lang</span></code> to distinguish between different
 languages such as ‘en-US’ or ‘de-DE’.</p></li>
