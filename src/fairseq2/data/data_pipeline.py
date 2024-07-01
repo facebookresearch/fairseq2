@@ -235,9 +235,9 @@ if TYPE_CHECKING or DOC_MODE:
             self,
             threshold: float,
             cost_fn: Callable[[Any], float],
-            nb_min: Optional[int],
-            nb_max: Optional[int],
-            drop_remainder: bool,
+            nb_min: Optional[int] = None,
+            nb_max: Optional[int] = None,
+            drop_remainder: bool = False,
         ) -> Self:
             """Combine a number of consecutive examples into a single example
             based on cumulative cost of examples, as measured by
