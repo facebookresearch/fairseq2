@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>fairseq2.data.data_pipeline &mdash; fairseq2 0.3.0.dev202407010145+g05bd133 documentation</title>
+  <title>fairseq2.data.data_pipeline &mdash; fairseq2 0.3.0.dev202407012012+geac548b documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -32,7 +32,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202407010145+g05bd133
+                0.3.0.dev202407012012+geac548b
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -387,6 +387,35 @@
 
 <span class="sd">            This is equivalent to calling `.map(Collater())`.</span>
 <span class="sd">            See :py:class:`fairseq2.data.Collater` for details.</span>
+<span class="sd">            &quot;&quot;&quot;</span></div>
+
+<div class="viewcode-block" id="DataPipelineBuilder.dynamic_bucket"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder.dynamic_bucket">[docs]</a>        <span class="k">def</span> <span class="nf">dynamic_bucket</span><span class="p">(</span>
+            <span class="bp">self</span><span class="p">,</span>
+            <span class="n">threshold</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+            <span class="n">cost_fn</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">],</span> <span class="nb">float</span><span class="p">],</span>
+            <span class="n">min_num_examples</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">max_num_examples</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="n">drop_remainder</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>
+<span class="w">            </span><span class="sd">&quot;&quot;&quot;Combine a number of consecutive examples into a single example</span>
+<span class="sd">            based on cumulative cost of examples, as measured by</span>
+<span class="sd">            user-provided ``cost_fn``.</span>
+
+<span class="sd">            Yields a bucket once the cumulative cost produced by ``cost_fn``</span>
+<span class="sd">            meets or exceeds ``threshold``.</span>
+
+<span class="sd">            :param threshold:</span>
+<span class="sd">                Threshold for cumulative cost to trigger bucketing.</span>
+<span class="sd">            :param cost_fn:</span>
+<span class="sd">                Cost function that outputs cost for a particular example.</span>
+<span class="sd">            :param min_num_examples:</span>
+<span class="sd">                Minimum number of examples per bucket.</span>
+<span class="sd">            :param max_num_examples:</span>
+<span class="sd">                Maximum number of examples per bucket.</span>
+<span class="sd">            :param drop_remainder:</span>
+<span class="sd">                If ``True``, drops the last bucket in case it has fewer than</span>
+<span class="sd">                ``min_num_examples`` examples or the cumulative cost has not reached</span>
+<span class="sd">                ``threshold`` yet.</span>
 <span class="sd">            &quot;&quot;&quot;</span></div>
 
 <div class="viewcode-block" id="DataPipelineBuilder.filter"><a class="viewcode-back" href="../../../reference/generated/data/fairseq2.data.DataPipelineBuilder.html#fairseq2.data.DataPipelineBuilder.filter">[docs]</a>        <span class="k">def</span> <span class="nf">filter</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">predicate</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="n">Any</span><span class="p">],</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Self</span><span class="p">:</span>

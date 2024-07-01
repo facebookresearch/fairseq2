@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="generator" content="Docutils 0.18.1: http://docutils.sourceforge.net/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DataPipelineBuilder &mdash; fairseq2 0.3.0.dev202407010145+g05bd133 documentation</title>
+  <title>DataPipelineBuilder &mdash; fairseq2 0.3.0.dev202407012012+geac548b documentation</title>
       <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
       <link rel="stylesheet" href="../../../_static/css/theme.css" type="text/css" />
   <!--[if lt IE 9]>
@@ -35,7 +35,7 @@
             fairseq2
           </a>
               <div class="version">
-                0.3.0.dev202407010145+g05bd133
+                0.3.0.dev202407012012+geac548b
               </div>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -215,6 +215,32 @@ See <a class="reference internal" href="fairseq2.data.Collater.html#fairseq2.dat
 <dl class="field-list simple">
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Self" title="(in Python v3.12)"><em>Self</em></a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="fairseq2.data.DataPipelineBuilder.dynamic_bucket">
+<span class="sig-name descname"><span class="pre">dynamic_bucket</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">threshold</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cost_fn</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_num_examples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_num_examples</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">drop_remainder</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../../_modules/fairseq2/data/data_pipeline.html#DataPipelineBuilder.dynamic_bucket"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#fairseq2.data.DataPipelineBuilder.dynamic_bucket" title="Permalink to this definition"></a></dt>
+<dd><p>Combine a number of consecutive examples into a single example
+based on cumulative cost of examples, as measured by
+user-provided <code class="docutils literal notranslate"><span class="pre">cost_fn</span></code>.</p>
+<p>Yields a bucket once the cumulative cost produced by <code class="docutils literal notranslate"><span class="pre">cost_fn</span></code>
+meets or exceeds <code class="docutils literal notranslate"><span class="pre">threshold</span></code>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>threshold</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.12)"><em>float</em></a>) – Threshold for cumulative cost to trigger bucketing.</p></li>
+<li><p><strong>cost_fn</strong> (<a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Callable" title="(in Python v3.12)"><em>Callable</em></a><em>[</em><em>[</em><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.12)"><em>Any</em></a><em>]</em><em>, </em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.12)"><em>float</em></a><em>]</em>) – Cost function that outputs cost for a particular example.</p></li>
+<li><p><strong>min_num_examples</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><em>int</em></a><em> | </em><em>None</em>) – Minimum number of examples per bucket.</p></li>
+<li><p><strong>max_num_examples</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.12)"><em>int</em></a><em> | </em><em>None</em>) – Maximum number of examples per bucket.</p></li>
+<li><p><strong>drop_remainder</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.12)"><em>bool</em></a>) – If <code class="docutils literal notranslate"><span class="pre">True</span></code>, drops the last bucket in case it has fewer than
+<code class="docutils literal notranslate"><span class="pre">min_num_examples</span></code> examples or the cumulative cost has not reached
+<code class="docutils literal notranslate"><span class="pre">threshold</span></code> yet.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Self" title="(in Python v3.12)"><em>Self</em></a></p>
 </dd>
 </dl>
 </dd></dl>
