@@ -14,8 +14,9 @@ import torch
 from torch import Tensor
 from torch.nn import Module
 
+from fairseq2.assets import default_asset_store
 from fairseq2.assets.utils import retrieve_asset_card
-from fairseq2.checkpoint import FileCheckpointManager
+from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
 from fairseq2.datasets.asr import load_asr_dataset
@@ -53,7 +54,7 @@ log = get_log_writer(__name__)
 
 @dataclass
 class Wav2Vec2AsrTrainConfig:
-    """Holds the training configuration of a wav2vec 2.0 ASR model.
+    """Holds the configuration of a wav2vec 2.0 ASR model training task.
 
     The default values correspond to the base 10h training setup as described in
     :cite:t:`https://doi.org/10.48550/arxiv.2006.11477`.
@@ -61,13 +62,13 @@ class Wav2Vec2AsrTrainConfig:
 
     # Data
     dataset: Union[str, Path] = "librilight_asr_10h"
-    """The name or path to the asset card of the dataset to train with."""
+    """The name or path to the asset card of the ASR dataset."""
 
     train_split: str = "train"
-    """The name of the dataset split to train with."""
+    """The name of the dataset split."""
 
     valid_split: str = "dev_other"
-    """The name of the dataset split to validate with."""
+    """The name of the dataset validation split."""
 
     min_audio_len: int = 1
     """The minimum audio sequence length."""
@@ -165,6 +166,10 @@ class Wav2Vec2AsrTrainConfig:
     publish_metrics_every_n_steps: int = 200
     """The step interval at which to publish metrics."""
 
+    # Checkpointing
+    resume_checkpoint_dir: Optional[Path] = None
+    """If not ``None``, adds the specified path to the default asset store."""
+
     # Misc
     seed: int = 2
     """The random number generator seed to use."""
@@ -211,6 +216,11 @@ def load_wav2vec2_asr_trainer(
     gang = setup_root_gang(log, monitored=config.monitored_gang)
 
     checkpoint_manager = FileCheckpointManager(output_dir.joinpath("checkpoints"), gang)
+
+    if config.resume_checkpoint_dir is not None:
+        default_asset_store.metadata_providers.append(
+            CheckpointModelMetadataProvider(config.resume_checkpoint_dir)
+        )
 
     # Load the tokenizer.
     tokenizer_card = retrieve_asset_card(config.tokenizer)
@@ -385,7 +395,7 @@ def load_wav2vec2_asr_trainer(
 
 @final
 class Wav2Vec2AsrTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
-    """Represents the training unit of a wav2vec 2.0 ASR model."""
+    """Represents a wav2vec 2.0 ASR model training unit."""
 
     _freeze_encoder_for_n_steps: int
     _metric_bag: Wav2Vec2AsrMetricBag
@@ -462,5 +472,5 @@ class Wav2Vec2AsrTrainUnit(AbstractTrainUnit[Seq2SeqBatch]):
 
     @property
     @override
-    def throughput_metric_name(self) -> str:
+    def throughput_metric_name(self) -> Optional[str]:
         return "num_source_elements"
