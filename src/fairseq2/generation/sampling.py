@@ -17,6 +17,7 @@ from fairseq2.data import VocabularyInfo
 from fairseq2.generation.generator import (
     AbstractSeq2SeqGenerator,
     AbstractSequenceGenerator,
+    GenerationStats,
     Hypothesis,
     Seq2SeqGeneratorOutput,
     SequenceGeneratorOutput,
@@ -30,6 +31,7 @@ from fairseq2.nn.incremental_state import IncrementalStateBag
 from fairseq2.nn.ops import repeat_interleave
 from fairseq2.nn.padding import PaddingMask
 from fairseq2.typing import override
+from fairseq2.utils.profiler import Stopwatch
 
 
 @final
@@ -185,9 +187,9 @@ class SamplingSequenceGenerator(AbstractSequenceGenerator):
             self._step_hooks,
         )
 
-        hypotheses = op()
+        hypotheses, stats = op()
 
-        return SequenceGeneratorOutput(hypotheses)
+        return SequenceGeneratorOutput(hypotheses, stats)
 
 
 @final
@@ -366,9 +368,11 @@ class SamplingSeq2SeqGenerator(AbstractSeq2SeqGenerator):
             self._step_hooks,
         )
 
-        hypotheses = op()
+        hypotheses, stats = op()
 
-        return Seq2SeqGeneratorOutput(hypotheses, encoder_output, encoder_padding_mask)
+        return Seq2SeqGeneratorOutput(
+            hypotheses, encoder_output, encoder_padding_mask, stats
+        )
 
 
 class Sampler(Protocol):
@@ -489,6 +493,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
     _seqs: Tensor
     _step_scores: Optional[Tensor]
     _output: List[List[Hypothesis]]
+    _stats: GenerationStats
 
     def __init__(
         self,
@@ -605,19 +610,26 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
         # Holds the sequences that have reached EOS.
         self._output = [[] for _ in range(num_prompts)]
 
-    def __call__(self) -> List[List[Hypothesis]]:
+        # Holds the generation statistics.
+        self._stats = GenerationStats()
+
+    def __call__(self) -> Tuple[List[List[Hypothesis]], GenerationStats]:
         self._prepare_state()
+
+        watch = Stopwatch(start=True, device=self._seqs.device)
 
         for self._step_nr in range(self._min_prompt_len, self._max_seq_len):
             if not self._step():
                 break
+
+        self._stats.generation_time = watch.get_elapsed_time()
 
         if self._compute_scores:
             # Sort the hypotheses by their scores before returning.
             for hypotheses in self._output:
                 hypotheses.sort(key=lambda h: h.score, reverse=True)  # type: ignore[arg-type, return-value]
 
-        return self._output
+        return self._output, self._stats
 
     def _prepare_state(self) -> None:
         # Fast-forward to the first step that needs to be generated.
@@ -693,11 +705,15 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
             for hook in self._step_hooks.values():
                 hook(self._prompt_indices, seqs, step_scores, prefill=True)
 
+        self._stats.prefill_size += prefill_len * self._seqs.size(0)
+
     def _step(self) -> bool:
         # Generate the next step output.
         model_output = self._decode(self._seqs[:, self._step_nr - 1 : self._step_nr])
 
         self._state_bag.increment_step_nr()
+
+        self._stats.num_generated_elements += self._seqs.size(0)
 
         logits = model_output.logits
 
