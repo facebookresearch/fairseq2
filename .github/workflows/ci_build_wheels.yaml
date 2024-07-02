@@ -29,14 +29,14 @@ jobs:
 
           # Integration Tests
           - torch: '2.3.0'
-            py: '3.11'
+            py: '3.12'
             variant: 'cpu'
             sanitizers: 'nosan'
             run_integration_tests: true
 
           # ASAN/UBSAN
           - torch: '2.3.0'
-            py: '3.11'
+            py: '3.12'
             variant: 'cpu'
             sanitizers: 'asan_ubsan'
             run_integration_tests: false
@@ -62,7 +62,7 @@ jobs:
       matrix:
         include:
           - torch: '2.3.0'
-            py: '3.11'
+            py: '3.12'
 
           # Lowest Supported Version
           - torch: '2.1.0'

@@ -9,7 +9,7 @@ on:
     inputs:
       py:
         type: string
-        default: '3.11'
+        default: '3.12'
 
 jobs:
   lint:
