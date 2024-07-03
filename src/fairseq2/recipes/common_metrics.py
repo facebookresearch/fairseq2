@@ -10,11 +10,12 @@ from typing import Any, Dict, Optional
 
 import torch
 from torch import Tensor
-from torcheval.metrics import Max, Mean, Sum, Throughput
+from torcheval.metrics import Throughput
 
 from fairseq2.gang import Gang
 from fairseq2.generation import Seq2SeqGeneratorOutput, SequenceGeneratorOutput
 from fairseq2.metrics import MetricBag
+from fairseq2.metrics.aggregation import Max, Mean, Sum
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
 
@@ -68,9 +69,9 @@ class SequenceMetricBag(MetricBag):
         :param nll_loss:
             The loss of ``batch``.
         """
-        num_target_elements = torch.tensor(batch.num_target_elements())
+        num_target_elements = batch.num_target_elements()
 
-        normalized_loss = loss.cpu() / num_target_elements
+        normalized_loss = loss / num_target_elements
 
         self._nll_loss.update(normalized_loss, weight=num_target_elements)
 
@@ -81,11 +82,11 @@ class SequenceMetricBag(MetricBag):
         :param batch:
             The batch processed by the model.
         """
-        batch_size = torch.tensor(batch.batch_size)
+        batch_size = batch.batch_size
 
-        num_elements = torch.tensor(batch.num_elements())
+        num_elements = batch.num_elements()
 
-        num_target_elements = torch.tensor(batch.num_target_elements())
+        num_target_elements = batch.num_target_elements()
 
         self._batch_size.update(batch_size * self._gang.size)
 
@@ -157,9 +158,9 @@ class Seq2SeqMetricBag(MetricBag):
         :param nll_loss:
             The loss of ``batch``.
         """
-        num_target_elements = torch.tensor(batch.num_target_elements())
+        num_target_elements = batch.num_target_elements()
 
-        normalized_loss = loss.cpu() / num_target_elements
+        normalized_loss = loss / num_target_elements
 
         self._nll_loss.update(normalized_loss, weight=num_target_elements)
 
@@ -170,10 +171,10 @@ class Seq2SeqMetricBag(MetricBag):
         :param batch:
             The batch processed by the model.
         """
-        batch_size = torch.tensor(batch.batch_size)
+        batch_size = batch.batch_size
 
-        num_source_elements = torch.tensor(batch.num_source_elements())
-        num_target_elements = torch.tensor(batch.num_target_elements())
+        num_source_elements = batch.num_source_elements()
+        num_target_elements = batch.num_target_elements()
 
         num_elements = num_source_elements + num_target_elements
 
@@ -243,17 +244,13 @@ class SequenceGenerationMetricBag(MetricBag):
         :param output:
             The output returned by a :class:`SequenceGenerator`.
         """
-        batch_size = torch.tensor(len(output.hypotheses))
+        batch_size = len(output.hypotheses)
 
-        prefill_size = torch.tensor(output.counters.prefill_size)
+        prefill_size = output.counters.prefill_size
 
-        num_generated_elements = torch.tensor(output.counters.num_generated_elements)
+        num_generated_elements = output.counters.num_generated_elements
 
         num_elements = prefill_size + num_generated_elements
-
-        cache_size = torch.tensor(output.counters.cache_size)
-
-        cache_capacity = torch.tensor(output.counters.cache_capacity)
 
         self._batch_size.update(batch_size * self._gang.size)
 
@@ -266,12 +263,12 @@ class SequenceGenerationMetricBag(MetricBag):
         self._generator_num_elements.update(num_generated_elements)
 
         self._generator_elements_per_second.update(
-            output.counters.num_generated_elements, output.counters.generation_time
+            num_generated_elements, output.counters.generation_time
         )
 
-        self._generator_cache_size.update(cache_size)
+        self._generator_cache_size.update(output.counters.cache_size)
 
-        self._generator_cache_capacity.update(cache_capacity)
+        self._generator_cache_capacity.update(output.counters.cache_capacity)
 
 
 class Seq2SeqGenerationMetricBag(MetricBag):
@@ -328,19 +325,13 @@ class Seq2SeqGenerationMetricBag(MetricBag):
         :param num_source_elements:
             The number of source elements processed by the underlying model.
         """
-        batch_size = torch.tensor(len(output.hypotheses))
+        batch_size = len(output.hypotheses)
 
-        num_source_elements_ = torch.tensor(num_source_elements)
+        prefill_size = output.counters.prefill_size
 
-        prefill_size = torch.tensor(output.counters.prefill_size)
+        num_generated_elements = output.counters.num_generated_elements
 
-        num_generated_elements = torch.tensor(output.counters.num_generated_elements)
-
-        num_elements = num_source_elements_ + prefill_size + num_generated_elements
-
-        cache_size = torch.tensor(output.counters.cache_size)
-
-        cache_capacity = torch.tensor(output.counters.cache_capacity)
+        num_elements = num_source_elements + prefill_size + num_generated_elements
 
         self._batch_size.update(batch_size * self._gang.size)
 
@@ -350,19 +341,19 @@ class Seq2SeqGenerationMetricBag(MetricBag):
 
         self._num_elements.update(num_elements)
 
-        self._num_source_elements.update(num_source_elements_)
+        self._num_source_elements.update(num_source_elements)
 
         self._generator_prefill_size.update(prefill_size)
 
         self._generator_num_elements.update(num_generated_elements)
 
         self._generator_elements_per_second.update(
-            output.counters.num_generated_elements, output.counters.generation_time
+            num_generated_elements, output.counters.generation_time
         )
 
-        self._generator_cache_size.update(cache_size)
+        self._generator_cache_size.update(output.counters.cache_size)
 
-        self._generator_cache_capacity.update(cache_capacity)
+        self._generator_cache_capacity.update(output.counters.cache_capacity)
 
 
 def compute_throughput(
