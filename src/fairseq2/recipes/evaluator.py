@@ -18,6 +18,7 @@ from fairseq2.datasets import DataReader
 from fairseq2.gang import FakeGang, Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.metrics import (
+    FileMetricRecorder,
     LogMetricRecorder,
     MetricBag,
     MetricRecorder,
@@ -136,6 +137,7 @@ class Evaluator(Generic[BatchT]):
         dp_gang: Optional[Gang] = None,
         tp_gang: Optional[Gang] = None,
         tb_dir: Optional[Path] = None,
+        metrics_dir: Optional[Path] = None,
         seed: int = 2,
     ) -> None:
         """
@@ -154,6 +156,8 @@ class Evaluator(Generic[BatchT]):
             such as LLaMA 70B.
         :param tb_dir:
             The TensorBoard log directory to dump metrics.
+        :param metrics_dir:
+            The directory to dump metrics.
         :param seed:
             The random number generator seed.
         """
@@ -182,6 +186,9 @@ class Evaluator(Generic[BatchT]):
 
             if tb_dir is not None:
                 self._metric_recorders.append(TensorBoardRecorder(tb_dir))
+
+            if metrics_dir is not None:
+                self._metric_recorders.append(FileMetricRecorder(metrics_dir))
         else:
             self._metric_recorders = []
 
