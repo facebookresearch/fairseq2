@@ -55,6 +55,8 @@ class Wav2Vec2AsrConfig:
     use_masking: bool = True
     """If ``True``, masks features as regularization."""
 
+    mask_codebase: str = "fairseq2"
+
     temporal_mask_span_len: int = 10
     """The length of each temporal mask span that is applied over time steps."""
 
@@ -142,6 +144,7 @@ class Wav2Vec2AsrBuilder:
             return None
 
         return Wav2Vec2Masker(
+            self._config.mask_codebase,
             self._config.encoder_config.model_dim,
             self._config.temporal_mask_span_len,
             self._config.max_temporal_mask_prob,

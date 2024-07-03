@@ -254,6 +254,8 @@ class StandardMultiheadAttention(MultiheadAttention):
         :param state_factory:
             The factory to construct :class:`AttentionState` instances for
             incremental decoding.
+        :param proj_init_fn:
+            The initialization function for all the projection layers.
         """
         super().__init__(model_dim, num_heads)
 

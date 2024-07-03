@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import NoReturn
 
+import numpy as np
 import torch
 
 from fairseq2.datasets.error import DatasetError
@@ -116,3 +117,75 @@ def _load_files_and_weights(path: Path) -> tuple[list[Path], list[float]]:
         weights.append(weight)
 
     return files, weights
+
+
+def batch_by_size_vec(
+    indices, num_tokens_vec, max_tokens: int, max_sentences: int, bsz_mult: int
+):
+    if indices.size == 0:
+        return []
+
+    assert (
+        max_tokens <= 0 or np.max(num_tokens_vec) <= max_tokens
+    ), f"Sentences lengths should not exceed max_tokens={max_tokens}"
+
+    indices_len = len(indices)
+    batches_ends = np.zeros(indices_len, dtype=np.int32)
+    pos = 0
+    new_batch_end = 0
+    new_batch_max_tokens = 0
+    new_batch_sentences = 0
+    new_batch_num_tokens = 0
+    overflow = False
+    size_matches_with_bsz_mult = False
+    batches_count = 0
+    batch_start = 0
+    tail_max_tokens = 0
+    batch_max_tokens = 0
+
+    for pos in range(indices_len):
+        tail_max_tokens = max(tail_max_tokens, num_tokens_vec[pos])
+        new_batch_end = pos + 1
+        new_batch_max_tokens = max(batch_max_tokens, tail_max_tokens)
+        new_batch_sentences = new_batch_end - batch_start
+        new_batch_num_tokens = new_batch_sentences * new_batch_max_tokens
+        overflow = (
+            new_batch_sentences > max_sentences > 0
+            or new_batch_num_tokens > max_tokens > 0
+        )
+        size_matches_with_bsz_mult = (
+            new_batch_sentences < bsz_mult or new_batch_sentences % bsz_mult == 0
+        )
+        if overflow:
+            tail_num_tokens = tail_max_tokens * (
+                new_batch_end - batches_ends[batches_count]
+            )
+            tail_overflow = tail_num_tokens > max_tokens > 0
+            if tail_overflow:
+                batches_count += 1
+                batches_ends[batches_count] = pos
+                tail_max_tokens = num_tokens_vec[pos]
+            batch_start = batches_ends[batches_count]
+            batches_count += 1
+            new_batch_max_tokens = tail_max_tokens
+        if overflow or size_matches_with_bsz_mult:
+            batches_ends[batches_count] = new_batch_end
+            batch_max_tokens = new_batch_max_tokens
+            tail_max_tokens = 0
+
+    if batches_ends[batches_count] != indices_len:
+        batches_count += 1
+
+    return np.split(indices, batches_ends[:batches_count])
+
+
+def batch_by_size_fn(
+    indices, num_tokens_fn, max_tokens: int, max_sentences: int, bsz_mult: int
+):
+    indices_len = len(indices)
+    num_tokens_vec = np.zeros(indices_len, dtype=np.int64)
+    for pos in range(indices_len):
+        num_tokens_vec[pos] = num_tokens_fn(indices[pos])
+    return batch_by_size_vec(
+        indices, num_tokens_vec, max_tokens, max_sentences, bsz_mult
+    )

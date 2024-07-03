@@ -42,6 +42,8 @@ class Wav2Vec2Model(Model):
     final_target_proj: Linear
     num_distractors: int
     logit_temp: float
+    diversity_loss_weight: float
+    feature_penalty_weight: float
 
     def __init__(
         self,
@@ -424,3 +426,12 @@ class Wav2Vec2Loss:
 
     penalty: Tensor
     """The feature penalty. *Shape:* :math:`()`."""
+
+    def detach(self) -> Wav2Vec2Loss:
+        """Return a copy detached from the autograd graph."""
+        return Wav2Vec2Loss(
+            self.total.detach(),
+            self.contrastive.detach(),
+            self.diversity.detach(),
+            self.penalty.detach(),
+        )

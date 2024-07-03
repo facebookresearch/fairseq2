@@ -93,12 +93,20 @@ class _MetricFormatter:
 
 _metric_formatters: dict[str, _MetricFormatter] = {
     # fmt: off
+    "loss":                          _MetricFormatter("Loss",                            100, format_as_float),
+    "contrastive_loss":              _MetricFormatter("Contrastive Loss",                110, format_as_float),
+    "diversity_loss":                _MetricFormatter("Diversity Loss",                  120, format_as_float),
+    "feature_penalty":               _MetricFormatter("Feature Penalty",                 130, format_as_float),
     "ctc_loss":                      _MetricFormatter("CTC Loss",                        100, format_as_float),
     "nll_loss":                      _MetricFormatter("NLL Loss",                        100, format_as_float),
     "bleu":                          _MetricFormatter("BLEU",                            200, format_as_float),
     "chrf":                          _MetricFormatter("chrF++",                          200, format_as_float),
     "uer":                           _MetricFormatter("Unit Error Rate (UER)",           200, format_as_float),
     "wer":                           _MetricFormatter("Word Error Rate (WER)",           200, format_as_float),
+    "accuracy":                      _MetricFormatter("Accuracy",                        200, format_as_float),
+    "code_perplexity":               _MetricFormatter("Code Perplexity",                 210, format_as_float),
+    "prob_perplexity":               _MetricFormatter("Prob Perplexity",                 210, format_as_float),
+    "temperature":                   _MetricFormatter("Temperature",                     220, format_as_float),
     "gradient_norm":                 _MetricFormatter("Gradient Norm",                   300, format_as_float),
     "elapsed_time":                  _MetricFormatter("Elapsed Time",                    500, format_as_seconds),
     "wall_time":                     _MetricFormatter("Wall Time",                       510, format_as_seconds),

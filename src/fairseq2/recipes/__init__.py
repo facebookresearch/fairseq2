@@ -22,6 +22,7 @@ from fairseq2.recipes.lm import _setup_lm_cli
 from fairseq2.recipes.logging import setup_basic_logging
 from fairseq2.recipes.mt import _setup_mt_cli
 from fairseq2.recipes.utils.log import exception_logger
+from fairseq2.recipes.wav2vec2 import _setup_wav2vec2_cli
 from fairseq2.recipes.wav2vec2.asr import _setup_wav2vec2_asr_cli
 
 log = get_log_writer(__name__)
@@ -53,6 +54,7 @@ def _setup_cli(cli: Cli) -> None:
     _setup_lm_cli(cli)
     _setup_llama_cli(cli)
     _setup_mt_cli(cli)
+    _setup_wav2vec2_cli(cli)
     _setup_wav2vec2_asr_cli(cli)
     _setup_hg_cli(cli)
 

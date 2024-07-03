@@ -171,3 +171,20 @@ def _generate_mask(indices: Tensor, max_row_len: int) -> Tensor:
     bool_mask = torch.full_like(float_mask, False, dtype=torch.bool)
 
     return bool_mask.scatter_(1, indices, True)
+
+
+def get_num_masks(mask: Tensor) -> Tensor:
+    bsz, seq_len = mask.shape
+
+    # Pad mask with False at the end of each sequence to handle trailing True values
+    padded_mask = torch.cat(
+        [mask, torch.zeros(bsz, 1, dtype=torch.bool, device=mask.device)], dim=1
+    )
+
+    # We are interested in the transitions from True to False, which are the ends of the masks
+    ends_of_masks = (mask & ~padded_mask[:, 1:]).float()
+
+    # Count the number of True to False transitions, which equals the number of True groups
+    num_masks = ends_of_masks.sum()
+
+    return num_masks
