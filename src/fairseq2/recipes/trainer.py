@@ -37,6 +37,7 @@ from fairseq2.datasets import DataReader
 from fairseq2.gang import FakeGang, Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.metrics import (
+    FileMetricRecorder,
     LogMetricRecorder,
     MetricBag,
     MetricRecorder,
@@ -191,6 +192,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
         keep_last_n_models: Optional[int] = None,
         keep_best_n_models: Optional[int] = None,
         tb_dir: Optional[Path] = None,
+        metrics_dir: Optional[Path] = None,
         publish_metrics_after_n_steps: int = 0,
         publish_metrics_every_n_steps: int = 100,
         profile: Optional[Tuple[int, int]] = None,
@@ -251,6 +253,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
             WIP
         :param tb_dir:
             The TensorBoard log directory to dump metrics.
+        :param metrics_dir:
+            The directory to dump metrics.
         :param publish_metrics_after_n_steps:
             The number of steps after which to start publishing metrics.
         :param publish_metrics_every_n_steps:
@@ -396,6 +400,9 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
             if tb_dir is not None:
                 self._metric_recorders.append(TensorBoardRecorder(tb_dir))
+
+            if metrics_dir is not None:
+                self._metric_recorders.append(FileMetricRecorder(metrics_dir))
         else:
             self._metric_recorders = []
 

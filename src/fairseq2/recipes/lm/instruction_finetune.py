@@ -59,7 +59,7 @@ class InstructionFinetuneConfig:
     """The name or path to the asset card of the instruction dataset."""
 
     split: str = "train"
-    """The name of the dataset split."""
+    """The name of the train data split."""
 
     max_seq_len: int = 8192
     """The maximum sequence length."""
@@ -351,6 +351,7 @@ def load_instruction_finetuner(
         keep_last_n_checkpoints=config.keep_last_n_checkpoints,
         keep_last_n_models=config.keep_last_n_models,
         tb_dir=output_dir.joinpath("tb"),
+        metrics_dir=output_dir.joinpath("metrics"),
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
         profile=config.profile,
         anomaly_detection=config.anomaly_detection,

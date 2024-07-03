@@ -65,10 +65,10 @@ class Wav2Vec2AsrTrainConfig:
     """The name or path to the asset card of the ASR dataset."""
 
     train_split: str = "train"
-    """The name of the dataset split."""
+    """The name of the train data split."""
 
     valid_split: str = "dev_other"
-    """The name of the dataset validation split."""
+    """The name of the valid data split."""
 
     min_audio_len: int = 1
     """The minimum audio sequence length."""
@@ -385,6 +385,7 @@ def load_wav2vec2_asr_trainer(
         checkpoint_after_n_steps=config.checkpoint_after_n_steps,
         checkpoint_every_n_steps=config.checkpoint_every_n_steps,
         tb_dir=output_dir.joinpath("tb"),
+        metrics_dir=output_dir.joinpath("metrics"),
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
         profile=config.profile,
         anomaly_detection=config.anomaly_detection,

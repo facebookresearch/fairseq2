@@ -43,14 +43,14 @@ log = get_log_writer(__name__)
 
 @dataclass
 class Wav2Vec2AsrEvalConfig:
-    """Holds the evaluation configuration of a wav2vec 2.0 ASR model."""
+    """Holds the configuration of a wav2vec 2.0 ASR model evaluation task."""
 
     # Data
     dataset: Union[str, Path] = "librilight_asr_10h"
-    """The name or path to the asset card of the dataset to evaluate with."""
+    """The name or path to the asset card of the ASR dataset."""
 
     split: str = "test_other"
-    """The name of the dataset split to evaluate with."""
+    """The name of the eval data split."""
 
     min_audio_len: int = 1
     """The minimum audio sequence length."""
@@ -146,23 +146,23 @@ def load_wav2vec2_asr_evaluator(
     log_model(model, log)
 
     # Initialize the evaluation unit.
-    wer_file = output_dir.joinpath(f"wer/rank_{gang.rank}.txt")
+    output_file = output_dir.joinpath(f"transcriptions/rank_{gang.rank}.txt")
 
     try:
-        wer_file.parent.mkdir(parents=True, exist_ok=True)
+        output_file.parent.mkdir(parents=True, exist_ok=True)
     except OSError as ex:
         raise RuntimeError(
-            f"The WER output directory ({wer_file.parent}) cannot be created. See nested exception for details."
+            f"The output directory ({output_file.parent}) cannot be created. See nested exception for details."
         ) from ex
 
     try:
-        wer_fp = wer_file.open("w")
+        output_fp = output_file.open("w")
     except OSError as ex:
         raise RuntimeError(
-            f"The WER output file ({wer_file}) cannot be created. See nested exception for details."
+            f"The output file ({output_file}) cannot be created. See nested exception for details."
         ) from ex
 
-    unit = Wav2Vec2AsrEvalUnit(model, gang, tokenizer, output_stream=wer_fp)
+    unit = Wav2Vec2AsrEvalUnit(model, gang, tokenizer, output_stream=output_fp)
 
     data_reader = dataset.create_reader(
         config.split,
@@ -181,6 +181,8 @@ def load_wav2vec2_asr_evaluator(
         units=[unit],
         data_readers=[data_reader],
         root_gang=gang,
+        tb_dir=output_dir.joinpath("tb"),
+        metrics_dir=output_dir.joinpath("metrics"),
         seed=config.seed,
         wall_watch=wall_watch,
     )
@@ -188,7 +190,7 @@ def load_wav2vec2_asr_evaluator(
 
 @final
 class Wav2Vec2AsrEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
-    """Represents the evaluation unit of a wav2vec 2.0 ASR model."""
+    """Represents a wav2vec 2.0 ASR model evaluation unit."""
 
     _metric_bag: Wav2Vec2AsrEvalMetricBag
 
@@ -242,12 +244,12 @@ class Wav2Vec2AsrEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
 
     @property
     @override
-    def throughput_metric_name(self) -> str:
+    def throughput_metric_name(self) -> Optional[str]:
         return "num_source_elements"
 
 
 class Wav2Vec2AsrEvalMetricBag(Wav2Vec2AsrMetricBag):
-    """Holds the evaluation metrics of a wav2vec 2.0 ASR model."""
+    """Holds the metrics of a wav2vec 2.0 ASR model evaluation task."""
 
     _wer: WerMetric
     _text_decoder: TextTokenDecoder
@@ -267,7 +269,7 @@ class Wav2Vec2AsrEvalMetricBag(Wav2Vec2AsrMetricBag):
         :param gang:
             The gang over which to sync metrics.
         :param tokenizer:
-            The text tokenizer to compute the WER (Word Error Rate).
+            The text tokenizer to compute the WER score.
         :param blank_label:
             The blank label in logits.
         :param output_stream:
@@ -293,7 +295,7 @@ class Wav2Vec2AsrEvalMetricBag(Wav2Vec2AsrMetricBag):
 
     @torch.inference_mode()
     def update_wer(self, batch: Seq2SeqBatch, model_output: Wav2Vec2AsrOutput) -> None:
-        """Update the WER (Word Error Rate) metric.
+        """Update the WER (Word Error Rate) score metric.
 
         :param batch:
             The batch processed by the model.
