@@ -61,6 +61,26 @@ def format_as_float(value: Any, *, postfix: Optional[str] = None) -> str:
     return s
 
 
+_UNITS: Final = ["B", "KiB", "MiB", "GiB", "TiB", "PiB"]
+
+
+def format_as_byte_size(value: Any) -> str:
+    """Format metric ``value`` in byte units."""
+    unit_idx = 0
+
+    size = float(value)
+
+    while size >= 1024:
+        size /= 1024
+
+        unit_idx += 1
+
+    try:
+        return f"{size:.2f} {_UNITS[unit_idx]}"
+    except IndexError:
+        return "TOO BIG"
+
+
 @dataclass
 class _MetricFormatter:
     display_name: str
@@ -98,6 +118,8 @@ _metric_formatters: Dict[str, _MetricFormatter] = {
     "generator_prefill_size":        _MetricFormatter("Generator/Prefill Size",          900, format_as_int),
     "generator_num_elements":        _MetricFormatter("Generator/Number of Elements",    901, format_as_int),
     "generator_elements_per_second": _MetricFormatter("Generator/Elements per Second",   902, format_as_int),
+    "generator_cache_size":          _MetricFormatter("Generator/Cache Size",            903, format_as_byte_size),
+    "generator_cache_capacity":      _MetricFormatter("Generator/Cache Capacity",        904, format_as_byte_size),
     # fmt: on
 }
 

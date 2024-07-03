@@ -18,7 +18,7 @@ from fairseq2.data import VocabularyInfo
 from fairseq2.generation.generator import (
     AbstractSeq2SeqGenerator,
     AbstractSequenceGenerator,
-    GenerationStats,
+    GenerationCounters,
     Hypothesis,
     Seq2SeqGeneratorOutput,
     SequenceGeneratorOutput,
@@ -181,9 +181,9 @@ class BeamSearchSequenceGenerator(AbstractSequenceGenerator):
             self._step_hooks,
         )
 
-        hypotheses, stats = op()
+        hypotheses, counters = op()
 
-        return SequenceGeneratorOutput(hypotheses, stats)
+        return SequenceGeneratorOutput(hypotheses, counters)
 
 
 @final
@@ -356,10 +356,10 @@ class BeamSearchSeq2SeqGenerator(AbstractSeq2SeqGenerator):
             self._step_hooks,
         )
 
-        hypotheses, stats = op()
+        hypotheses, counters = op()
 
         return Seq2SeqGeneratorOutput(
-            hypotheses, encoder_output, encoder_padding_mask, stats
+            hypotheses, encoder_output, encoder_padding_mask, counters
         )
 
 
@@ -482,7 +482,7 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
     _seqs: Tensor
     _step_scores: Tensor
     _output: List[List[Hypothesis]]
-    _stats: GenerationStats
+    _counters: GenerationCounters
 
     def __init__(
         self,
@@ -597,10 +597,9 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
         # Holds the sequences that have reached EOS.
         self._output = [[] for _ in range(num_prompts)]
 
-        # Holds the generation statistics.
-        self._stats = GenerationStats()
+        self._counters = GenerationCounters()
 
-    def __call__(self) -> Tuple[List[List[Hypothesis]], GenerationStats]:
+    def __call__(self) -> Tuple[List[List[Hypothesis]], GenerationCounters]:
         self._prepare_state()
 
         watch = Stopwatch(start=True, device=self._seqs.device)
@@ -609,13 +608,16 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
             if not self._step():
                 break
 
-        self._stats.generation_time = watch.get_elapsed_time()
+        self._counters.generation_time = watch.get_elapsed_time()
+
+        self._counters.cache_size = self._state_bag.size_bytes()
+        self._counters.cache_capacity = self._state_bag.capacity_bytes()
 
         # Sort the hypotheses by their scores before returning.
         for hypotheses in self._output:
             hypotheses.sort(key=lambda h: h.score, reverse=True)  # type: ignore[arg-type, return-value]
 
-        return self._output, self._stats
+        return self._output, self._counters
 
     def _prepare_state(self) -> None:
         # Fast-forward to the first step that needs to be generated.
@@ -680,7 +682,7 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
             for hook in self._step_hooks.values():
                 hook(self._prompt_indices, seqs, step_scores, prefill=True)
 
-        self._stats.prefill_size += prefill_len * self._seqs.size(0)
+        self._counters.prefill_size += prefill_len * self._seqs.size(0)
 
     def _step(self) -> bool:
         # Generate the next step output.
@@ -688,7 +690,7 @@ class _AbstractBeamSearchSequenceGeneratorOp(ABC):
 
         self._state_bag.increment_step_nr()
 
-        self._stats.num_generated_elements += self._seqs.size(0)
+        self._counters.num_generated_elements += self._seqs.size(0)
 
         logits = model_output.logits
 
