@@ -8,11 +8,12 @@ from __future__ import annotations
 
 import logging
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from functools import partial
 from logging import Logger
 from pathlib import Path
 from string import capwords
-from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Tuple, Union, final
+from typing import Any, Callable, Dict, Mapping, Optional, Sequence, Union, final
 
 from fairseq2.logging import LogWriter, get_log_writer
 from fairseq2.typing import override
@@ -44,35 +45,43 @@ def format_as_float(value: Any, *, postfix: Optional[str] = None) -> str:
     return s
 
 
-_metric_formatters: Dict[str, Tuple[str, int, Callable[[Any], str]]] = {
+@dataclass
+class _MetricFormatter:
+    display_name: str
+    priority: int
+    fn: Callable[[Any], str]
+    log: bool = True
+
+
+_metric_formatters: Dict[str, _MetricFormatter] = {
     # fmt: off
-    "ctc_loss":                      ("CTC Loss",                        100, format_as_float),
-    "nll_loss":                      ("NLL Loss",                        100, format_as_float),
-    "uer":                           ("Unit Error Rate (UER)",           200, format_as_float),
-    "wer":                           ("Word Error Rate (WER)",           200, format_as_float),
-    "gradient_norm":                 ("Gradient Norm",                   300, format_as_float),
-    "elapsed_time":                  ("Elapsed Time",                    500, format_as_seconds),
-    "wall_time":                     ("Wall Time",                       510, format_as_seconds),
-    "lr":                            ("Learning Rate",                   700, format_as_float),
-    "loss_scale":                    ("Loss Scale",                      710, format_as_float),
+    "ctc_loss":                      _MetricFormatter("CTC Loss",                        100, format_as_float),
+    "nll_loss":                      _MetricFormatter("NLL Loss",                        100, format_as_float),
+    "uer":                           _MetricFormatter("Unit Error Rate (UER)",           200, format_as_float),
+    "wer":                           _MetricFormatter("Word Error Rate (WER)",           200, format_as_float),
+    "gradient_norm":                 _MetricFormatter("Gradient Norm",                   300, format_as_float),
+    "elapsed_time":                  _MetricFormatter("Elapsed Time",                    500, format_as_seconds),
+    "wall_time":                     _MetricFormatter("Wall Time",                       510, format_as_seconds),
+    "lr":                            _MetricFormatter("Learning Rate",                   700, format_as_float),
+    "loss_scale":                    _MetricFormatter("Loss Scale",                      710, format_as_float),
 
     # Batch Metrics
-    "batch_size":                    ("Batch Size",                      800, format_as_int),
-    "elements_per_batch":            ("Elements per Batch",              800, format_as_int),
-    "elements_per_second":           ("Elements per Second",             810, format_as_int),
-    "num_examples":                  ("Number of Examples",              820, format_as_int),
-    "num_elements":                  ("Number of Elements",              830, format_as_int),
-    "num_source_elements":           ("Number of Source Elements",       830, format_as_int),
-    "num_target_elements":           ("Number of Target Elements",       830, format_as_int),
-    "total_num_examples":            ("Total Number of Examples",        840, format_as_int),
-    "total_num_elements":            ("Total Number of Elements",        850, format_as_int),
-    "total_num_source_elements":     ("Total Number of Source Elements", 850, format_as_int),
-    "total_num_target_elements":     ("Total Number of Target Elements", 850, format_as_int),
+    "batch_size":                    _MetricFormatter("Batch Size",                      800, format_as_int),
+    "elements_per_batch":            _MetricFormatter("Elements per Batch",              800, format_as_int),
+    "elements_per_second":           _MetricFormatter("Elements per Second",             810, format_as_int),
+    "num_examples":                  _MetricFormatter("Number of Examples",              820, format_as_int),
+    "num_elements":                  _MetricFormatter("Number of Elements",              830, format_as_int),
+    "num_source_elements":           _MetricFormatter("Number of Source Elements",       830, format_as_int),
+    "num_target_elements":           _MetricFormatter("Number of Target Elements",       830, format_as_int),
+    "total_num_examples":            _MetricFormatter("Total Number of Examples",        840, format_as_int),
+    "total_num_elements":            _MetricFormatter("Total Number of Elements",        850, format_as_int),
+    "total_num_source_elements":     _MetricFormatter("Total Number of Source Elements", 850, format_as_int),
+    "total_num_target_elements":     _MetricFormatter("Total Number of Target Elements", 850, format_as_int),
 
     # Sequence Generator Metrics
-    "generator_prefill_size":        ("Generator/Prefill Size",          900, format_as_int),
-    "generator_num_elements":        ("Generator/Number of Elements",    901, format_as_int),
-    "generator_elements_per_second": ("Generator/Elements per Second",   902, format_as_int),
+    "generator_prefill_size":        _MetricFormatter("Generator/Prefill Size",          900, format_as_int),
+    "generator_num_elements":        _MetricFormatter("Generator/Number of Elements",    901, format_as_int),
+    "generator_elements_per_second": _MetricFormatter("Generator/Elements per Second",   902, format_as_int),
     # fmt: on
 }
 
@@ -81,7 +90,9 @@ def register_metric_formatter(
     name: str,
     display_name: str,
     priority: int,
-    format_fn: Callable[[Any], str],
+    fn: Callable[[Any], str],
+    *,
+    log: bool = True,
     overwrite: bool = False,
 ) -> None:
     """Register a string formatter for the specified metric.
@@ -92,8 +103,10 @@ def register_metric_formatter(
         The display name of the metric.
     :param priority:
         The display priority of the metric.
-    :param format_fn:
+    :param fn:
         The callable to convert a metric value to its string representation.
+    :param log:
+        If ``True``, writes the metric value to log output.
     :param overwrite:
         If ``True``, overwrites any existing metric formatter with the same name.
     """
@@ -102,7 +115,7 @@ def register_metric_formatter(
             f"`name` must be a unique metric name, but '{name}' is already registered."
         )
 
-    _metric_formatters[name] = (display_name, priority, format_fn)
+    _metric_formatters[name] = _MetricFormatter(display_name, priority, fn, log)
 
 
 class MetricRecorder(ABC):
@@ -192,19 +205,24 @@ class LogMetricRecorder(MetricRecorder):
         for name, value in values.items():
             formatter = _metric_formatters.get(name)
             if formatter is None:
-                formatter = (name, 999, str)
+                formatter = _MetricFormatter(name, 999, str)
+            elif not formatter.log:
+                continue
 
             values_and_formatters.append((value, formatter))
 
         # Sort by priority and display name.
-        values_and_formatters.sort(key=lambda e: (e[1][1], e[1][0]))
+        values_and_formatters.sort(key=lambda e: (e[1].priority, e[1].display_name))
 
         formatted_values = []
 
-        for value, (display_name, _, fn) in values_and_formatters:
-            formatted_values.append(f"{display_name}: {fn(value)}")
+        for value, formatter in values_and_formatters:
+            formatted_values.append(f"{formatter.display_name}: {formatter.fn(value)}")
 
         s = " | ".join(formatted_values)
+
+        if not s:
+            s = "N/A"
 
         if step_nr is None:
             self._log.info("{} Metrics - {}", capwords(run), s)
@@ -259,11 +277,11 @@ class TensorBoardRecorder(MetricRecorder):
             return
 
         for name, value in values.items():
-            pair = _metric_formatters.get(name)
-            if pair is None:
+            formatter = _metric_formatters.get(name)
+            if formatter is None:
                 display_name = name
             else:
-                display_name = pair[0]
+                display_name = formatter.display_name
 
             writer.add_scalar(display_name, value, step_nr)
 
