@@ -10,16 +10,17 @@ from typing import Any, Dict, Optional
 
 import torch
 from torch import Tensor
-from torcheval.metrics import Mean, Sum
+from torcheval.metrics import Mean, Sum, Throughput
 
 from fairseq2.gang import Gang
+from fairseq2.generation import Seq2SeqGeneratorOutput, SequenceGeneratorOutput
 from fairseq2.metrics import MetricBag
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
 
 
 class SequenceMetricBag(MetricBag):
-    """Holds the metrics of a sequence model recipe."""
+    """Holds the metrics of a sequence model training or evaluation task."""
 
     _nll_loss: Mean
     _batch_size: Mean
@@ -83,6 +84,7 @@ class SequenceMetricBag(MetricBag):
         batch_size = torch.tensor(batch.batch_size)
 
         num_elements = torch.tensor(batch.num_elements())
+
         num_target_elements = torch.tensor(batch.num_target_elements())
 
         self._batch_size.update(batch_size * self._gang.size)
@@ -103,15 +105,17 @@ class SequenceMetricBag(MetricBag):
 
 
 class Seq2SeqMetricBag(MetricBag):
-    """Holds the metrics of a sequence-to-sequence model recipe."""
+    """Holds the metrics of a sequence-to-sequence model training or evaluation task."""
 
     _nll_loss: Mean
     _batch_size: Mean
     _elements_per_batch: Mean
     _num_examples: Sum
+    _num_elements: Sum
     _num_source_elements: Sum
     _num_target_elements: Sum
     _total_num_examples: Sum
+    _total_num_elements: Sum
     _total_num_source_elements: Sum
     _total_num_target_elements: Sum
 
@@ -132,10 +136,14 @@ class Seq2SeqMetricBag(MetricBag):
 
         self.register_metric("_num_examples", Sum(device=d), persistent=False)
 
+        self.register_metric("_num_elements", Sum(device=d), persistent=False)
+
         self.register_metric("_num_source_elements", Sum(device=d), persistent=False)
         self.register_metric("_num_target_elements", Sum(device=d), persistent=False)
 
         self._total_num_examples = Sum(device=d)
+
+        self._total_num_elements = Sum(device=d)
 
         self._total_num_source_elements = Sum(device=d)
         self._total_num_target_elements = Sum(device=d)
@@ -167,19 +175,166 @@ class Seq2SeqMetricBag(MetricBag):
         num_source_elements = torch.tensor(batch.num_source_elements())
         num_target_elements = torch.tensor(batch.num_target_elements())
 
+        num_elements = num_source_elements + num_target_elements
+
         self._batch_size.update(batch_size * self._gang.size)
 
-        self._elements_per_batch.update(num_target_elements * self._gang.size)
+        self._elements_per_batch.update(num_elements * self._gang.size)
 
         self._num_examples.update(batch_size)
+
+        self._num_elements.update(num_elements)
 
         self._num_source_elements.update(num_source_elements)
         self._num_target_elements.update(num_target_elements)
 
         self._total_num_examples.update(batch_size)
 
+        self._total_num_elements.update(num_elements)
+
         self._total_num_source_elements.update(num_source_elements)
         self._total_num_target_elements.update(num_target_elements)
+
+
+class SequenceGenerationMetricBag(MetricBag):
+    """Holds the metrics of a sequence generation task."""
+
+    _batch_size: Mean
+    _elements_per_batch: Mean
+    _num_examples: Sum
+    _num_elements: Sum
+    _generator_prefill_size: Sum
+    _generator_num_elements: Sum
+    _generator_elements_per_second: Throughput
+
+    def __init__(self, gang: Gang) -> None:
+        """
+        :param gang:
+            The gang over which to sync metrics.
+        """
+        super().__init__(gang)
+
+        d = gang.device
+
+        self._batch_size = Mean(device=d)
+
+        self._elements_per_batch = Mean(device=d)
+
+        self._num_examples = Sum(device=d)
+
+        self._num_elements = Sum(device=d)
+
+        self._generator_prefill_size = Sum(device=d)
+
+        self._generator_num_elements = Sum(device=d)
+
+        self._generator_elements_per_second = Throughput(device=d)
+
+    @torch.inference_mode()
+    def update_batch_metrics(self, output: SequenceGeneratorOutput) -> None:
+        """Update the batch metrics.
+
+        :param output:
+            The output returned by a :class:`SequenceGenerator`.
+        """
+        batch_size = torch.tensor(len(output.hypotheses))
+
+        prefill_size = torch.tensor(output.stats.prefill_size)
+
+        num_generated_elements = torch.tensor(output.stats.num_generated_elements)
+
+        num_elements = prefill_size + num_generated_elements
+
+        self._batch_size.update(batch_size * self._gang.size)
+
+        self._elements_per_batch.update(num_elements * self._gang.size)
+
+        self._num_examples.update(batch_size)
+
+        self._generator_prefill_size.update(prefill_size)
+
+        self._generator_num_elements.update(num_generated_elements)
+
+        self._generator_elements_per_second.update(
+            output.stats.num_generated_elements, output.stats.generation_time
+        )
+
+
+class Seq2SeqGenerationMetricBag(MetricBag):
+    """Holds the metrics of a sequence-to-sequence generation task."""
+
+    _batch_size: Mean
+    _elements_per_batch: Mean
+    _num_examples: Sum
+    _num_elements: Sum
+    _num_source_elements: Sum
+    _generator_prefill_size: Sum
+    _generator_num_elements: Sum
+    _generator_elements_per_second: Throughput
+
+    def __init__(self, gang: Gang) -> None:
+        """
+        :param gang:
+            The gang over which to sync metrics.
+        """
+        super().__init__(gang)
+
+        d = gang.device
+
+        self._batch_size = Mean(device=d)
+
+        self._elements_per_batch = Mean(device=d)
+
+        self._num_examples = Sum(device=d)
+
+        self._num_elements = Sum(device=d)
+
+        self._num_source_elements = Sum(device=d)
+
+        self._generator_prefill_size = Sum(device=d)
+
+        self._generator_num_elements = Sum(device=d)
+
+        self._generator_elements_per_second = Throughput(device=d)
+
+    @torch.inference_mode()
+    def update_batch_metrics(
+        self, output: Seq2SeqGeneratorOutput, num_source_elements: int
+    ) -> None:
+        """Update the batch metrics.
+
+        :param output:
+            The output returned by a :class:`Seq2SeqGenerator`.
+        :param num_source_elements:
+            The number of source elements processed by the underlying model.
+        """
+        batch_size = torch.tensor(len(output.hypotheses))
+
+        num_source_elements_ = torch.tensor(num_source_elements)
+
+        prefill_size = torch.tensor(output.stats.prefill_size)
+
+        num_generated_elements = torch.tensor(output.stats.num_generated_elements)
+
+        num_elements = num_source_elements_ + prefill_size + num_generated_elements
+
+        self._batch_size.update(batch_size * self._gang.size)
+
+        self._elements_per_batch.update(num_elements * self._gang.size)
+
+        self._num_examples.update(batch_size)
+
+        self._num_elements.update(num_elements)
+
+        self._num_source_elements.update(num_source_elements_)
+
+        self._generator_prefill_size.update(prefill_size)
+
+        self._generator_num_elements.update(num_generated_elements)
+
+        self._generator_elements_per_second.update(
+            output.stats.num_generated_elements, output.stats.generation_time
+        )
 
 
 def compute_throughput(
