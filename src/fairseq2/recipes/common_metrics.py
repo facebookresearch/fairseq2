@@ -10,7 +10,7 @@ from typing import Any, Dict, Optional
 
 import torch
 from torch import Tensor
-from torcheval.metrics import Mean, Sum, Throughput
+from torcheval.metrics import Max, Mean, Sum, Throughput
 
 from fairseq2.gang import Gang
 from fairseq2.generation import Seq2SeqGeneratorOutput, SequenceGeneratorOutput
@@ -206,6 +206,8 @@ class SequenceGenerationMetricBag(MetricBag):
     _generator_prefill_size: Sum
     _generator_num_elements: Sum
     _generator_elements_per_second: Throughput
+    _generator_cache_size: Max
+    _generator_cache_capacity: Max
 
     def __init__(self, gang: Gang) -> None:
         """
@@ -230,6 +232,10 @@ class SequenceGenerationMetricBag(MetricBag):
 
         self._generator_elements_per_second = Throughput(device=d)
 
+        self._generator_cache_size = Max(device=d)
+
+        self._generator_cache_capacity = Max(device=d)
+
     @torch.inference_mode()
     def update_batch_metrics(self, output: SequenceGeneratorOutput) -> None:
         """Update the batch metrics.
@@ -239,11 +245,15 @@ class SequenceGenerationMetricBag(MetricBag):
         """
         batch_size = torch.tensor(len(output.hypotheses))
 
-        prefill_size = torch.tensor(output.stats.prefill_size)
+        prefill_size = torch.tensor(output.counters.prefill_size)
 
-        num_generated_elements = torch.tensor(output.stats.num_generated_elements)
+        num_generated_elements = torch.tensor(output.counters.num_generated_elements)
 
         num_elements = prefill_size + num_generated_elements
+
+        cache_size = torch.tensor(output.counters.cache_size)
+
+        cache_capacity = torch.tensor(output.counters.cache_capacity)
 
         self._batch_size.update(batch_size * self._gang.size)
 
@@ -256,8 +266,12 @@ class SequenceGenerationMetricBag(MetricBag):
         self._generator_num_elements.update(num_generated_elements)
 
         self._generator_elements_per_second.update(
-            output.stats.num_generated_elements, output.stats.generation_time
+            output.counters.num_generated_elements, output.counters.generation_time
         )
+
+        self._generator_cache_size.update(cache_size)
+
+        self._generator_cache_capacity.update(cache_capacity)
 
 
 class Seq2SeqGenerationMetricBag(MetricBag):
@@ -271,6 +285,8 @@ class Seq2SeqGenerationMetricBag(MetricBag):
     _generator_prefill_size: Sum
     _generator_num_elements: Sum
     _generator_elements_per_second: Throughput
+    _generator_cache_size: Max
+    _generator_cache_capacity: Max
 
     def __init__(self, gang: Gang) -> None:
         """
@@ -297,6 +313,10 @@ class Seq2SeqGenerationMetricBag(MetricBag):
 
         self._generator_elements_per_second = Throughput(device=d)
 
+        self._generator_cache_size = Max(device=d)
+
+        self._generator_cache_capacity = Max(device=d)
+
     @torch.inference_mode()
     def update_batch_metrics(
         self, output: Seq2SeqGeneratorOutput, num_source_elements: int
@@ -312,11 +332,15 @@ class Seq2SeqGenerationMetricBag(MetricBag):
 
         num_source_elements_ = torch.tensor(num_source_elements)
 
-        prefill_size = torch.tensor(output.stats.prefill_size)
+        prefill_size = torch.tensor(output.counters.prefill_size)
 
-        num_generated_elements = torch.tensor(output.stats.num_generated_elements)
+        num_generated_elements = torch.tensor(output.counters.num_generated_elements)
 
         num_elements = num_source_elements_ + prefill_size + num_generated_elements
+
+        cache_size = torch.tensor(output.counters.cache_size)
+
+        cache_capacity = torch.tensor(output.counters.cache_capacity)
 
         self._batch_size.update(batch_size * self._gang.size)
 
@@ -333,8 +357,12 @@ class Seq2SeqGenerationMetricBag(MetricBag):
         self._generator_num_elements.update(num_generated_elements)
 
         self._generator_elements_per_second.update(
-            output.stats.num_generated_elements, output.stats.generation_time
+            output.counters.num_generated_elements, output.counters.generation_time
         )
+
+        self._generator_cache_size.update(cache_size)
+
+        self._generator_cache_capacity.update(cache_capacity)
 
 
 def compute_throughput(

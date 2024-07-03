@@ -187,7 +187,7 @@ def log_system_info(log: LogWriter, device: Optional[Device] = None) -> None:
     s = (
         f"{s} | "
         f"Number of CPUs: {cpu_info} | "
-        f"Memory: {memory.total // (1024 * 1024 * 1024):,}GiB"
+        f"Memory: {memory.total // (1024 * 1024 * 1024):,} GiB"
     )
 
     log.info("Host - {}", s)
@@ -203,7 +203,7 @@ def log_system_info(log: LogWriter, device: Optional[Device] = None) -> None:
         s = (
             f"ID: {device} | "
             f"Name: {pr.name} | "
-            f"Memory: {pr.total_memory // (1024 * 1024):,}MiB | "
+            f"Memory: {pr.total_memory // (1024 * 1024):,} MiB | "
             f"Number of SMs: {pr.multi_processor_count} | "
             f"Compute Capability: {pr.major}.{pr.minor}"
         )

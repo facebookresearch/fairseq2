@@ -34,6 +34,14 @@ class IncrementalState(ABC):
             :math:`(N)`, where :math:`N` is the batch size.
         """
 
+    @abstractmethod
+    def size_bytes(self) -> int:
+        """Return the size of the state in bytes."""
+
+    @abstractmethod
+    def capacity_bytes(self) -> int:
+        """Return the reserved capacity of the state in bytes."""
+
 
 T = TypeVar("T", bound=IncrementalState)
 
@@ -138,3 +146,11 @@ class IncrementalStateBag:
         """The sequence length capacity of state tensors will be incremented by
         multiples of this value."""
         return self._capacity_increment
+
+    def size_bytes(self) -> int:
+        """Return the size of the state bag in bytes."""
+        return sum(s.size_bytes() for s in self._module_states.values())
+
+    def capacity_bytes(self) -> int:
+        """Return the reserved capacity of the state bag in bytes."""
+        return sum(s.capacity_bytes() for s in self._module_states.values())
