@@ -84,8 +84,38 @@ class InstructionDataset(ABC):
         """
 
     @abstractmethod
+    def create_eval_reader(
+        self,
+        split: str,
+        tokenizer: TextTokenizer,
+        gang: Gang,
+        *,
+        batch_size: int = 1,
+        num_prefetch: int = 1,
+        **extras: Any,
+    ) -> DataPipelineReader[SequenceBatch]:
+        """Create a dataset reader for evaluation.
+
+        :param split:
+            The split to read.
+        :param tokenizer:
+            The tokenizer to encode text.
+        :param gang:
+            The gang over which to shard the dataset.
+        :param batch_size:
+            The size of returned batches.
+        :param num_prefetch:
+            The number of batches to prefetch in background.
+        :param extras:
+            The extra parameters specific to the dataset implementation.
+        """
+
+    @abstractmethod
     def splits(self) -> Set[str]:
         """Return the set of splits."""
+
+
+load_instruction_dataset = DelegatingDatasetLoader[InstructionDataset]()
 
 
 # TODO: FIX, INFER
@@ -171,7 +201,7 @@ class GenericInstructionDataset(InstructionDataset):
         builder.prefetch(num_prefetch)
 
         # Wrap examples with `SequenceBatch`.
-        def _example_to_batch(example: Dict[str, Any]) -> SequenceBatch:
+        def example_to_batch(example: Dict[str, Any]) -> SequenceBatch:
             text = cast(SequenceData, example["tokens"])
 
             seqs, padding_mask = get_seqs_and_padding_mask(text, gang.device)
@@ -180,7 +210,7 @@ class GenericInstructionDataset(InstructionDataset):
 
             return SequenceBatch(seqs, padding_mask, target_mask, example=example)
 
-        pipeline = builder.map(_example_to_batch).and_return()
+        pipeline = builder.map(example_to_batch).and_return()
 
         return DataPipelineReader[SequenceBatch](
             pipeline,
@@ -190,10 +220,8 @@ class GenericInstructionDataset(InstructionDataset):
             sync_batches=True,
         )
 
+    # TODO: cache
     def _read_jsonl(self, path: str, tokenizer: TextTokenizer) -> DataPipeline:
-        source_text_encoder = tokenizer.create_encoder(mode="prompt")
-        target_text_encoder = tokenizer.create_encoder(mode="prompt_response")
-
         lines = []
 
         with Path(path).open() as fp:
@@ -203,6 +231,9 @@ class GenericInstructionDataset(InstructionDataset):
         builder = read_sequence(lines)
 
         builder.map(json.loads, num_parallel_calls=npc)
+
+        source_text_encoder = tokenizer.create_encoder(mode="prompt")
+        target_text_encoder = tokenizer.create_encoder(mode="prompt_response")
 
         builder.map(source_text_encoder, selector="src", num_parallel_calls=npc)
         builder.map(target_text_encoder, selector="tgt", num_parallel_calls=npc)
@@ -217,16 +248,68 @@ class GenericInstructionDataset(InstructionDataset):
 
             return {"tokens": tokens, "target_mask": target_mask}
 
-        builder.map(cat_source_and_text, num_parallel_calls=npc)
+            builder.map(cat_source_and_text, num_parallel_calls=npc)
 
         return builder.and_return()
 
     @override
+    def create_eval_reader(
+        self,
+        split: str,
+        tokenizer: TextTokenizer,
+        gang: Gang,
+        *,
+        batch_size: int = 1,
+        num_prefetch: int = 1,
+        **extras: Any,
+    ) -> DataPipelineReader[SequenceBatch]:
+        builder = list_files(self._data_dir, pattern="*.jsonl")
+
+        text_encoder = tokenizer.create_encoder(mode="prompt")
+
+        def read_jsonl(path: str) -> DataPipeline:
+            lines = []
+
+            with Path(path).open() as fp:
+                for line in fp:
+                    lines.append(line)
+
+            builder = read_sequence(lines)
+
+            builder.map(json.loads, num_parallel_calls=npc)
+
+            builder.map(lambda e: {"prompt": e["src"], "tokens": e["src"]})
+
+            builder.map(text_encoder, selector="tokens", num_parallel_calls=npc)
+
+            return builder.and_return()
+
+        builder.yield_from(read_jsonl)
+
+        builder.shard(gang.rank, gang.size)
+
+        builder.bucket(batch_size)
+
+        collater = Collater(pad_value=0)
+
+        builder.map(collater, num_parallel_calls=npc)
+
+        builder.prefetch(num_prefetch)
+
+        def _example_to_batch(example: Dict[str, Any]) -> SequenceBatch:
+            text = cast(SequenceData, example["tokens"])
+
+            seqs, padding_mask = get_seqs_and_padding_mask(text, gang.device)
+
+            return SequenceBatch(seqs, padding_mask, example=example)
+
+        pipeline = builder.map(_example_to_batch).and_return()
+
+        return DataPipelineReader[SequenceBatch](pipeline, gang)
+
+    @override
     def splits(self) -> Set[str]:
         return {"train"}
-
-
-load_instruction_dataset = DelegatingDatasetLoader[InstructionDataset]()
 
 
 @final
