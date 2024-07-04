@@ -15,7 +15,6 @@ from pathlib import Path
 from signal import SIG_DFL, SIGINT, raise_signal, signal
 from typing import Generator, Optional, Union
 
-import fairseq2n
 import psutil
 import torch
 from rich.pretty import pretty_repr
@@ -23,6 +22,7 @@ from torch.cuda import OutOfMemoryError
 from torch.nn import Module
 
 import fairseq2
+import fairseq2n
 from fairseq2.logging import LogWriter
 from fairseq2.typing import DataClass, Device
 from fairseq2.utils.dataclass import dump_dataclass

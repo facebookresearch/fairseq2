@@ -7,7 +7,6 @@
 from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional, Sequence, final
 
-from fairseq2n import DOC_MODE
 from torch import Tensor
 
 from fairseq2.assets import AssetCard
@@ -19,6 +18,7 @@ from fairseq2.data.text.text_tokenizer import (
 )
 from fairseq2.data.vocabulary_info import VocabularyInfo
 from fairseq2.typing import Device, override
+from fairseq2n import DOC_MODE
 
 if TYPE_CHECKING or DOC_MODE:
 

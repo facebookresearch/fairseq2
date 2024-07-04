@@ -141,7 +141,7 @@ class Cli:
 
         args = parser.parse_args()
 
-        if getattr(args, 'command', None) and callable(args.command):
+        if getattr(args, "command", None) and callable(args.command):
             args.command(args)
         else:
             parser.print_help()
@@ -545,7 +545,9 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         except ValueError:
             # fmt: skip
             log.error(
-                "'{}' is not a valid preset configuration name. Use `--list-presets` to see the available preset configurations.", args.preset)
+                "'{}' is not a valid preset configuration name. Use `--list-presets` to see the available preset configurations.",
+                args.preset,
+            )
 
             sys.exit(1)
 
@@ -559,7 +561,8 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
                 except OSError:
                     # fmt: skip
                     log.exception(
-                        "Configuration file '{}' cannot be read.", config_file)
+                        "Configuration file '{}' cannot be read.", config_file
+                    )
 
                     sys.exit(1)
 
@@ -568,7 +571,8 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
                 except (OSError, YAMLError):
                     # fmt: skip
                     log.exception(
-                        "Configuration file '{}' cannot be read.", config_file)
+                        "Configuration file '{}' cannot be read.", config_file
+                    )
 
                     sys.exit(1)
                 finally:
@@ -577,7 +581,9 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
                 if not isinstance(config_overrides, dict):
                     # fmt: skip
                     log.error(
-                        "Configuration file '{}' must contain a dictionary.", config_file)
+                        "Configuration file '{}' must contain a dictionary.",
+                        config_file,
+                    )
 
                     sys.exit(1)
 
@@ -622,8 +628,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
 
         # If we are not dumping configuration, `--output-dir` is required.
         if not args.output_dir:
-            self._parser.error(
-                "the following arguments are required: output_dir")
+            self._parser.error("the following arguments are required: output_dir")
 
         self._parser = None
 
@@ -635,8 +640,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
                 env_setter = self._env_setters.get(args.cluster)
             except RuntimeError:
                 # fmt: skip
-                log.exception(
-                    "Recipe is not running on a '{}' cluster.", args.cluster)
+                log.exception("Recipe is not running on a '{}' cluster.", args.cluster)
 
                 sys.exit(1)
 
@@ -657,8 +661,7 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
             output_dir = args.output_dir.joinpath(tag)
 
         # Set up distributed logging.
-        log_file = output_dir.expanduser().joinpath(
-            "logs/rank_{rank}.log").resolve()
+        log_file = output_dir.expanduser().joinpath("logs/rank_{rank}.log").resolve()
 
         try:
             setup_logging(log_file, debug=args.debug)

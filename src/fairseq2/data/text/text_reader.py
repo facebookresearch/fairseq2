@@ -8,9 +8,8 @@ from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
-from fairseq2n import DOC_MODE
-
 from fairseq2.data.data_pipeline import DataPipelineBuilder
+from fairseq2n import DOC_MODE
 
 if TYPE_CHECKING or DOC_MODE:
 
