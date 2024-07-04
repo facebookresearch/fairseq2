@@ -6,12 +6,12 @@
 
 __version__ = "0.3.0.dev0"
 
-# Report any fairseq2n initialization error eagerly.
-import fairseq2n
-
 # Register asset types.
 import fairseq2.datasets
 import fairseq2.models
+
+# Report any fairseq2n initialization error eagerly.
+import fairseq2n
 
 # isort: split
 

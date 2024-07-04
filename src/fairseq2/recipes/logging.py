@@ -11,10 +11,10 @@ from logging import DEBUG, INFO, FileHandler, Formatter, Handler, NullHandler, g
 from pathlib import Path
 from typing import TYPE_CHECKING, List
 
-from fairseq2n import DOC_MODE
 from rich.logging import RichHandler
 
 from fairseq2.console import get_error_console
+from fairseq2n import DOC_MODE
 
 
 def setup_basic_logging(*, debug: bool = False, utc_time: bool = False) -> None:

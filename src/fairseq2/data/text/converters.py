@@ -6,10 +6,10 @@
 
 from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Union, final
 
-from fairseq2n import DOC_MODE
 from torch import Tensor
 
 from fairseq2.typing import DataType
+from fairseq2n import DOC_MODE
 
 if TYPE_CHECKING or DOC_MODE:
 

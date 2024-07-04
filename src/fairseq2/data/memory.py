@@ -7,8 +7,9 @@
 from array import array
 from typing import TYPE_CHECKING, Optional, Union, final, overload
 
-from fairseq2n import DOC_MODE
 from typing_extensions import TypeAlias
+
+from fairseq2n import DOC_MODE
 
 Buffer: TypeAlias = Union[bytes, bytearray, memoryview, array]  # type: ignore[type-arg]
 
