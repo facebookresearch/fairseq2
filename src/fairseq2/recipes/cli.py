@@ -141,7 +141,10 @@ class Cli:
 
         args = parser.parse_args()
 
-        args.command(args)
+        if getattr(args, 'command', None) and callable(args.command):
+            args.command(args)
+        else:
+            parser.print_help()
 
     @property
     def name(self) -> str:
@@ -540,7 +543,9 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
         try:
             preset_config = self._preset_configs.get(args.preset)
         except ValueError:
-            log.error("'{}' is not a valid preset configuration name. Use `--list-presets` to see the available preset configurations.", args.preset)  # fmt: skip
+            # fmt: skip
+            log.error(
+                "'{}' is not a valid preset configuration name. Use `--list-presets` to see the available preset configurations.", args.preset)
 
             sys.exit(1)
 
@@ -552,21 +557,27 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
                 try:
                     fp = config_file.open()
                 except OSError:
-                    log.exception("Configuration file '{}' cannot be read.", config_file)  # fmt: skip
+                    # fmt: skip
+                    log.exception(
+                        "Configuration file '{}' cannot be read.", config_file)
 
                     sys.exit(1)
 
                 try:
                     config_overrides = yaml.safe_load(fp)
                 except (OSError, YAMLError):
-                    log.exception("Configuration file '{}' cannot be read.", config_file)  # fmt: skip
+                    # fmt: skip
+                    log.exception(
+                        "Configuration file '{}' cannot be read.", config_file)
 
                     sys.exit(1)
                 finally:
                     fp.close()
 
                 if not isinstance(config_overrides, dict):
-                    log.error("Configuration file '{}' must contain a dictionary.", config_file)  # fmt: skip
+                    # fmt: skip
+                    log.error(
+                        "Configuration file '{}' must contain a dictionary.", config_file)
 
                     sys.exit(1)
 
@@ -575,12 +586,14 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
                         config, config_overrides, value_converter=self._value_converter
                     )
                 except FieldError as ex:
-                    log.exception("Value of the field '{}' in the configuration file '{}' is invalid.", ex.field_name, config_file)  # fmt: skip
+                    log.exception("Value of the field '{}' in the configuration file '{}' is invalid.",
+                                  ex.field_name, config_file)  # fmt: skip
 
                     sys.exit(1)
 
                 if unknown_fields:
-                    log.error("Following fields in the configuration file '{}' are unknown: {}", config_file, ", ".join(unknown_fields))  # fmt: skip
+                    log.error("Following fields in the configuration file '{}' are unknown: {}",
+                              config_file, ", ".join(unknown_fields))  # fmt: skip
 
                     sys.exit(1)
 
@@ -591,12 +604,14 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
                     config, args.config_overrides, value_converter=self._value_converter
                 )
             except FieldError as ex:
-                log.exception("Value of the field '{}' in `--config` is invalid.", ex.field_name)  # fmt: skip
+                log.exception(
+                    "Value of the field '{}' in `--config` is invalid.", ex.field_name)  # fmt: skip
 
                 sys.exit(1)
 
             if unknown_fields:
-                log.error("Following fields in `--config` are unknown: {}", ", ".join(unknown_fields))  # fmt: skip
+                log.error("Following fields in `--config` are unknown: {}",
+                          ", ".join(unknown_fields))  # fmt: skip
 
                 sys.exit(1)
 
@@ -607,7 +622,8 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
 
         # If we are not dumping configuration, `--output-dir` is required.
         if not args.output_dir:
-            self._parser.error("the following arguments are required: output_dir")
+            self._parser.error(
+                "the following arguments are required: output_dir")
 
         self._parser = None
 
@@ -618,14 +634,17 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
             try:
                 env_setter = self._env_setters.get(args.cluster)
             except RuntimeError:
-                log.exception("Recipe is not running on a '{}' cluster.", args.cluster)  # fmt: skip
+                # fmt: skip
+                log.exception(
+                    "Recipe is not running on a '{}' cluster.", args.cluster)
 
                 sys.exit(1)
 
         try:
             env_setter.set_torch_distributed_env()
         except RuntimeError:
-            log.exception("'{}' cluster environment cannot be set.", env_setter.cluster)  # fmt: skip
+            log.exception("'{}' cluster environment cannot be set.",
+                          env_setter.cluster)  # fmt: skip
 
             sys.exit(1)
 
@@ -638,7 +657,8 @@ class RecipeCommandHandler(CliCommandHandler, Generic[RecipeConfigT]):
             output_dir = args.output_dir.joinpath(tag)
 
         # Set up distributed logging.
-        log_file = output_dir.expanduser().joinpath("logs/rank_{rank}.log").resolve()
+        log_file = output_dir.expanduser().joinpath(
+            "logs/rank_{rank}.log").resolve()
 
         try:
             setup_logging(log_file, debug=args.debug)
