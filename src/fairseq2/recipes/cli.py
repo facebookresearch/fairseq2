@@ -141,10 +141,12 @@ class Cli:
 
         args = parser.parse_args()
 
-        if getattr(args, "command", None) and callable(args.command):
-            args.command(args)
-        else:
-            parser.print_help()
+        if not hasattr(args, "command"):
+            parser.print_usage(sys.stderr)
+
+            sys.exit(2)
+
+        args.command(args)
 
     @property
     def name(self) -> str:
