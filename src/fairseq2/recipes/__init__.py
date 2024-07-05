@@ -13,6 +13,7 @@ from fairseq2.recipes.cli import Cli
 from fairseq2.recipes.assets import _setup_asset_cli
 from fairseq2.recipes.llama import _setup_llama_cli
 from fairseq2.recipes.lm import _setup_lm_cli
+from fairseq2.recipes.wav2vec2 import _setup_wav2vec2_cli
 from fairseq2.recipes.wav2vec2.asr import _setup_wav2vec2_asr_cli
 
 
@@ -38,6 +39,7 @@ def _setup_cli(cli: Cli) -> None:
     _setup_asset_cli(cli)
     _setup_lm_cli(cli)
     _setup_llama_cli(cli)
+    _setup_wav2vec2_cli(cli)
     _setup_wav2vec2_asr_cli(cli)
 
     # Set up 3rd party CLI extensions.

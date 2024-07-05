@@ -16,3 +16,4 @@ from fairseq2.datasets.loader import DelegatingDatasetLoader as DelegatingDatase
 import fairseq2.datasets.asr
 import fairseq2.datasets.instruction
 import fairseq2.datasets.parallel_text
+import fairseq2.datasets.speech
