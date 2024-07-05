@@ -11,6 +11,9 @@ on:
     paths:
       - '**.sh'
 
+env:
+    ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
 jobs:
   lint_sh:
     name: Lint shell scripts
