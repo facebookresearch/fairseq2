@@ -22,11 +22,14 @@ class SweepTagger:
         "anomaly_detection",
         "checkpoint_after_n_steps",
         "checkpoint_every_n_steps",
+        "compute_scores",
+        "decode_capacity_increment",
         "keep_best_n_checkpoints",
         "keep_last_n_checkpoints",
         "max_num_data_epochs",
         "monitored_gang",
         "num_prefetch",
+        "prefill_chunk_size",
         "profile",
         "publish_metrics_after_n_steps",
         "publish_metrics_every_n_steps",
@@ -110,7 +113,13 @@ class SweepTagger:
 
         s = ".".join(output)
 
-        return s[:128]  # Cap to maximum 128 characters.
+        # Cap to maximum of 128 characters.
+        if len(s) > 128:
+            # Make sure we avoid name conflicts by prepending the hash of the
+            # whole tag to the truncated one.
+            s = s[:120] + self._hash(s)
+
+        return s
 
     @classmethod
     def _to_tag_value(cls, value: Any) -> Optional[str]:
@@ -122,9 +131,7 @@ class SweepTagger:
             if len(s) < 16:
                 return s
 
-            s = sha1(s.encode("utf-8")).hexdigest()
-
-            return s[:8]
+            return cls._hash(s)
 
         if isinstance(value, bool):
             return "t" if value else "f"
@@ -176,6 +183,12 @@ class SweepTagger:
     @staticmethod
     def _remove_non_word(s: str) -> str:
         return re.sub(r"[^-_\w]", "", s)
+
+    @staticmethod
+    def _hash(s: str) -> str:
+        s = sha1(s.encode("utf-8")).hexdigest()
+
+        return s[:8]
 
 
 default_sweep_tagger = SweepTagger()
