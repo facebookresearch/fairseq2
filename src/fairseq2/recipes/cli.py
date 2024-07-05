@@ -141,6 +141,11 @@ class Cli:
 
         args = parser.parse_args()
 
+        if not hasattr(args, "command"):
+            parser.print_usage(sys.stderr)
+
+            sys.exit(2)
+
         args.command(args)
 
     @property
