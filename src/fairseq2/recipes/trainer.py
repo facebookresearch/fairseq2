@@ -472,7 +472,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         elapsed_time = self._wall_watch.get_elapsed_time()
 
-        log.info("Training complete in {:,} seconds after {} steps!", int(elapsed_time), self._step_nr)  # fmt: skip
+        log.info("Training complete in {:,} seconds after {} step(s)!", int(elapsed_time), self._step_nr)  # fmt: skip
 
     def _maybe_restore_state(self) -> None:
         log.info("Attempting to load the last checkpoint.")
@@ -619,6 +619,9 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                 return next(self._data_reader)
             except StopIteration:
                 log.info("End of epoch {} reached at training step {}.", self._data_epoch_nr, self._step_nr)  # fmt: skip
+
+                if self._step_nr == 1:  # Means the dataset is empty.
+                    break
 
                 if self._max_num_data_epochs is not None:
                     if self._data_epoch_nr >= self._max_num_data_epochs:

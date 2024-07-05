@@ -258,6 +258,8 @@ class SequenceGenerationMetricBag(MetricBag):
 
         self._num_examples.update(batch_size)
 
+        self._num_elements.update(num_elements)
+
         self._generator_prefill_size.update(prefill_size)
 
         self._generator_num_elements.update(num_generated_elements)
