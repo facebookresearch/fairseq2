@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, Optional, TextIO, Union, final
@@ -106,7 +107,7 @@ class SamplingConfig:
     min_gen_len: int = 1
     """The minimum generation length."""
 
-    max_gen_len: int = 512
+    max_gen_len: int = 2048
     """The maximum generation length."""
 
     max_seq_len: Optional[int] = None
@@ -284,25 +285,41 @@ def load_text_generator(
 
     # Initialize the generator unit.
     if tp_gang.rank == 0:
-        output_file = output_dir.joinpath(f"output/rank_{dp_gang.rank}.txt")
+        output_txt_file = output_dir.joinpath(f"output/rank_{dp_gang.rank}.txt")
+        output_jsonl_file = output_dir.joinpath(f"output/rank_{dp_gang.rank}.jsonl")
 
         try:
-            output_file.parent.mkdir(parents=True, exist_ok=True)
+            output_txt_file.parent.mkdir(parents=True, exist_ok=True)
         except OSError as ex:
             raise RuntimeError(
-                f"The output directory ({output_file.parent}) cannot be created. See nested exception for details."
+                f"The output directory ({output_txt_file.parent}) cannot be created. See nested exception for details."
             ) from ex
 
         try:
-            output_fp = output_file.open("w")
+            output_txt_fp = output_txt_file.open("w")
         except OSError as ex:
             raise RuntimeError(
-                f"The output file ({output_file}) cannot be created. See nested exception for details."
+                f"The output file ({output_txt_file}) cannot be created. See nested exception for details."
             ) from ex
+
+        try:
+            output_jsonl_fp = output_jsonl_file.open("w")
+        except OSError as ex:
+            raise RuntimeError(
+                f"The output file ({output_jsonl_file}) cannot be created. See nested exception for details."
+            ) from ex
+
     else:
-        output_fp = None
+        output_txt_fp = None
+        output_jsonl_fp = None
 
-    unit = TextGenerateUnit(generator, tokenizer, dp_gang, output_stream=output_fp)
+    unit = TextGenerateUnit(
+        generator,
+        tokenizer,
+        dp_gang,
+        output_txt_txt_stream=output_txt_fp,
+        output_jsonl_txt_stream=output_jsonl_fp,
+    )
 
     data_reader = dataset.create_eval_reader(
         config.split,
@@ -332,7 +349,8 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
 
     _generator: SequenceGenerator
     _text_decoder: TextTokenDecoder
-    _output_stream: Optional[TextIO]
+    _output_txt_txt_stream: Optional[TextIO]
+    _output_jsonl_txt_stream: Optional[TextIO]
     _metric_bag: SequenceGenerationMetricBag
 
     def __init__(
@@ -340,7 +358,8 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
         generator: SequenceGenerator,
         tokenizer: TextTokenizer,
         gang: Gang,
-        output_stream: Optional[TextIO],
+        output_txt_txt_stream: Optional[TextIO],
+        output_jsonl_txt_stream: Optional[TextIO],
     ) -> None:
         super().__init__(generator.model)
 
@@ -348,9 +367,13 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
 
         self._text_decoder = tokenizer.create_decoder()
 
-        self._output_stream = output_stream
+        self._output_txt_txt_stream = output_txt_txt_stream
+
+        self._output_jsonl_txt_stream = output_jsonl_txt_stream
 
         self._metric_bag = SequenceGenerationMetricBag(gang)
+
+        self._gang = gang
 
     @override
     def __call__(self, batch: SequenceBatch) -> None:
@@ -366,9 +389,9 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
 
         self._metric_bag.update_batch_metrics(output)
 
-        stream = self._output_stream
+        txt_stream = self._output_txt_txt_stream
 
-        if stream is None:  # Means not in the first tensor parallel group.
+        if txt_stream is None:  # Means not in the first tensor parallel group.
             return
 
         for prompt, hypotheses in zip(prompts, output.hypotheses):
@@ -383,41 +406,53 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
 
             response = self._text_decoder(seq)
 
-            stream.write("<<<<< PROMPT >>>>>")
-            stream.write("\n")
-            stream.write(prompt)
+            txt_stream.write("<<<<< PROMPT >>>>>")
+            txt_stream.write("\n")
+            txt_stream.write(prompt)
 
-            stream.write("\n\n\n")
-            stream.write("<<<<< RESPONSE >>>>>")
-            stream.write("\n")
-            stream.write(response)
+            txt_stream.write("\n\n\n")
+            txt_stream.write("<<<<< RESPONSE >>>>>")
+            txt_stream.write("\n")
+            txt_stream.write(response)
 
-            stream.write("\n\n\n")
-            stream.write("<<<<< TOKEN INDICES >>>>>")
-            stream.write("\n")
-            stream.write(", ".join(f"{t}" for t in seq.tolist()))
+            txt_stream.write("\n\n\n")
+            txt_stream.write("<<<<< TOKEN INDICES >>>>>")
+            txt_stream.write("\n")
+            txt_stream.write(", ".join(f"{t}" for t in seq.tolist()))
 
             score = hypothesis.score
 
             if score is not None:
-                stream.write("\n\n\n")
-                stream.write("<<<<< SCORE >>>>>")
-                stream.write("\n")
+                txt_stream.write("\n\n\n")
+                txt_stream.write("<<<<< SCORE >>>>>")
+                txt_stream.write("\n")
 
-                stream.write(f"{float(score):.8f}")
+                txt_stream.write(f"{float(score):.8f}")
 
             step_scores = hypothesis.step_scores
 
             if step_scores is not None:
-                stream.write("\n\n\n")
-                stream.write("<<<<< STEP SCORES >>>>>")
-                stream.write("\n")
+                txt_stream.write("\n\n\n")
+                txt_stream.write("<<<<< STEP SCORES >>>>>")
+                txt_stream.write("\n")
 
-                stream.write(", ".join(f"{s:.8f}" for s in step_scores.tolist()))
+                txt_stream.write(", ".join(f"{s:.8f}" for s in step_scores.tolist()))
 
-            stream.write("\n\n\n============================\n\n\n")
+            txt_stream.write("\n\n\n============================\n\n\n")
 
-            stream.flush()
+            txt_stream.flush()
+
+            jsonl_output = {
+                "input": prompt,
+                "output": response,
+                "score": score,
+                "step_scores": step_scores.tolist()
+                if step_scores is not None
+                else step_scores,
+            }
+
+            self._output_jsonl_txt_stream.write(json.dumps(jsonl_output))
+            self._output_jsonl_txt_stream.flush()
 
     @property
     @override
