@@ -20,6 +20,7 @@ from fairseq2.assets.utils import retrieve_asset_card
 from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
+from fairseq2.datasets import LengthBatching
 from fairseq2.datasets.instruction import load_instruction_dataset
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
@@ -57,9 +58,6 @@ class InstructionFinetuneConfig:
     # Data
     dataset: Union[str, Path] = "openeft"  # TODO: change!
     """The name or path to the asset card of the instruction dataset."""
-
-    split: str = "train"
-    """The name of the train data split."""
 
     max_seq_len: int = 8192
     """The maximum sequence length."""
@@ -306,11 +304,10 @@ def load_instruction_finetuner(
     unit = InstructionFinetuneUnit(dp_model, dp_gang)
 
     data_reader = dataset.create_reader(
-        config.split,
         tokenizer,
         dp_gang,
-        max_seq_len=config.max_seq_len,
-        max_num_tokens=config.max_num_tokens,
+        config.max_seq_len,
+        batching=LengthBatching(config.max_num_tokens),
         example_shuffle_window=config.example_shuffle_window,
         batch_shuffle_window=config.batch_shuffle_window,
         num_accumulate=config.gradient_accumulation,
