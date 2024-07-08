@@ -212,21 +212,21 @@ def _load_metadata_file(file: Path) -> List[Tuple[str, Dict[str, Any]]]:
         for idx, metadata in enumerate(all_metadata):
             if not isinstance(metadata, dict):
                 raise AssetMetadataError(
-                    f"The asset metadata at index {idx} in the file '{file}' has an invalid format."
+                    f"The asset metadata at index {idx} in {file} has an invalid format."
                 )
 
             try:
                 name = metadata.pop("name")
             except KeyError:
                 raise AssetMetadataError(
-                    f"The asset metadata at index {idx} in the file '{file}' does not have a name entry."
+                    f"The asset metadata at index {idx} in {file} does not have a name entry."
                 )
 
             try:
                 canonical_name = _canonicalize_name(name)
             except ValueError as ex:
                 raise AssetMetadataError(
-                    f"The asset metadata at index {idx} in the file '{file}' has an invalid name. See nested exception for details."
+                    f"The asset metadata at index {idx} in {file} has an invalid name. See nested exception for details."
                 ) from ex
 
             metadata["__base_path__"] = file.parent
