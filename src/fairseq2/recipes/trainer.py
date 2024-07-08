@@ -140,8 +140,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     _data_epoch_nr: int
     _max_num_data_epochs: Optional[int]
     _eod: bool
-    _valid_units: List[EvalUnit[BatchT]]
-    _valid_data_readers: List[DataReader[BatchT]]
+    _valid_units: Sequence[EvalUnit[BatchT]]
+    _valid_data_readers: Sequence[DataReader[BatchT]]
     _validate_after_n_steps: int
     _validate_every_n_steps: int
     _checkpoint_manager: CheckpointManager
@@ -333,9 +333,9 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                     f"The number of data readers in `valid_data_readers` must match the number of units in `valid_units` ({len(valid_units)}), but is {len(valid_data_readers)} instead."
                 )
 
-            self._valid_units = list(valid_units)
+            self._valid_units = valid_units
 
-            self._valid_data_readers = list(valid_data_readers)
+            self._valid_data_readers = valid_data_readers
         else:
             raise ValueError(
                 "`valid_units` and `valid_data_readers` must be both specified."
