@@ -18,6 +18,7 @@ from fairseq2.assets.utils import retrieve_asset_card
 from fairseq2.checkpoint import CheckpointModelMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import TextTokenDecoder, TextTokenizer, load_text_tokenizer
+from fairseq2.datasets import LengthBatching
 from fairseq2.datasets.asr import load_asr_dataset
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
@@ -168,12 +169,13 @@ def load_wav2vec2_asr_evaluator(
         config.split,
         tokenizer,
         gang,
+        batching=LengthBatching(config.max_num_elements),
         dtype=config.dtype,
         min_audio_len=config.min_audio_len,
         max_audio_len=config.max_audio_len,
-        max_num_elements=config.max_num_elements,
         normalize_audio=config.normalize_audio,
         num_prefetch=config.num_prefetch,
+        seed=config.seed,
     )
 
     # Initialize the evaluator.
