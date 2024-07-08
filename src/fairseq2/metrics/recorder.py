@@ -93,6 +93,7 @@ _metric_formatters: Dict[str, _MetricFormatter] = {
     # fmt: off
     "ctc_loss":                      _MetricFormatter("CTC Loss",                        100, format_as_float),
     "nll_loss":                      _MetricFormatter("NLL Loss",                        100, format_as_float),
+    "bleu":                          _MetricFormatter("BLEU",                            200, format_as_float),
     "uer":                           _MetricFormatter("Unit Error Rate (UER)",           200, format_as_float),
     "wer":                           _MetricFormatter("Word Error Rate (WER)",           200, format_as_float),
     "gradient_norm":                 _MetricFormatter("Gradient Norm",                   300, format_as_float),
