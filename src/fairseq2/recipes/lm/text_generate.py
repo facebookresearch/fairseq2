@@ -390,8 +390,11 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
         self._metric_bag.update_batch_metrics(output)
 
         txt_stream = self._output_txt_txt_stream
+        jsonl_stream = self._output_jsonl_txt_stream
 
-        if txt_stream is None:  # Means not in the first tensor parallel group.
+        if (
+            txt_stream is None and jsonl_stream is None
+        ):  # Means not in the first tensor parallel group.
             return
 
         for prompt, hypotheses in zip(prompts, output.hypotheses):
@@ -451,8 +454,8 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
                 else step_scores,
             }
 
-            self._output_jsonl_txt_stream.write(json.dumps(jsonl_output))
-            self._output_jsonl_txt_stream.flush()
+            jsonl_stream.write(json.dumps(jsonl_output))
+            jsonl_stream.flush()
 
     @property
     @override
