@@ -56,6 +56,7 @@ setup(
         "psutil~=5.9",
         "pyyaml~=6.0",
         "rich~=13.7",
+        "sacrebleu~=2.4",
         "tiktoken~=0.7",
         "torcheval~=0.0.6",
         "tqdm~=4.62",
