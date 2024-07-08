@@ -270,17 +270,17 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
     ) -> TextTokenizerT:
         card = retrieve_asset_card(tokenizer_name_or_card, self._asset_store)
 
-        tokenizer_ref = card.field("tokenizer_ref").get_as_(str)
-        if tokenizer_ref is not None:
-            return self(tokenizer_ref, force=force, progress=progress)
+        ref = card.field("tokenizer_ref").get_as_(str)
+        if ref is not None:
+            return self(ref, force=force, progress=progress)
 
-        tokenizer_family = card.field("tokenizer_family").as_(str)
+        family = card.field("tokenizer_family").as_(str)
 
         try:
-            loader = self._loaders[tokenizer_family]
+            loader = self._loaders[family]
         except KeyError:
             raise AssetError(
-                f"The value of the field 'tokenizer_family' of the asset card '{card.name}' must be a supported tokenizer family, but '{tokenizer_family}' has no registered loader."
+                f"The value of the field 'tokenizer_family' of the asset card '{card.name}' must be a supported tokenizer family, but '{family}' has no registered loader."
             )
 
         return loader(card, force=force, progress=progress)
@@ -303,6 +303,18 @@ class DelegatingTextTokenizerLoader(TextTokenizerLoader[TextTokenizerT]):
             )
 
         self._loaders[family] = loader
+
+    def supports(self, tokenizer_name_or_card: Union[str, AssetCard, Path]) -> bool:
+        """Return ``True`` if the specified tokenizer has a registered loader."""
+        card = retrieve_asset_card(tokenizer_name_or_card, self._asset_store)
+
+        ref = card.field("tokenizer_ref").get_as_(str)
+        if ref is not None:
+            return self.supports(ref)
+
+        family = card.field("tokenizer_family").as_(str)
+
+        return family in self._loaders
 
 
 load_text_tokenizer = DelegatingTextTokenizerLoader[TextTokenizer]()
