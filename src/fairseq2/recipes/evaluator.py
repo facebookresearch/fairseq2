@@ -117,8 +117,8 @@ class AbstractEvalUnit(EvalUnit[BatchT]):
 class Evaluator(Generic[BatchT]):
     """Evaluates a machine learning model."""
 
-    _units: List[EvalUnit[BatchT]]
-    _data_readers: List[DataReader[BatchT]]
+    _units: Sequence[EvalUnit[BatchT]]
+    _data_readers: Sequence[DataReader[BatchT]]
     _root_gang: Gang
     _dp_gang: Gang
     _tp_gang: Gang
@@ -166,9 +166,9 @@ class Evaluator(Generic[BatchT]):
                 f"The number of data readers in `data_readers` must match the number of units in `units` ({len(units)}), but is {len(data_readers)} instead."
             )
 
-        self._units = list(units)
+        self._units = units
 
-        self._data_readers = list(data_readers)
+        self._data_readers = data_readers
 
         self._root_gang = root_gang
 
