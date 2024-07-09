@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, Sequence, Union, cast, final
+from typing import Any, Dict, Optional, Sequence, Union, cast, final
 
 import torch
 from typing_extensions import NoReturn
@@ -46,9 +46,10 @@ class InstructionDataset(ABC):
         max_seq_len: int,
         batching: Union[StaticBatching, LengthBatching],
         *,
+        sample: bool = False,
         example_shuffle_window: int = 1,
         batch_shuffle_window: int = 1,
-        sample: bool = False,
+        max_num_batches: Optional[int] = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
@@ -65,6 +66,9 @@ class InstructionDataset(ABC):
             this value will be dropped.
         :param batching:
             The batching strategy for returned examples.
+        :param sample:
+            If ``True``, instruction sources (e.g. files) will be sampled in
+            proportion to their weights.
         :param example_shuffle_window:
             The size of the sliding window for shuffling examples. If ``1``, no
             shuffling is performed; if ``0``, true shuffling is performed by
@@ -73,9 +77,8 @@ class InstructionDataset(ABC):
             The size of the sliding window for shuffling batches. If ``1``, no
             shuffling is performed; if ``0``, true shuffling is performed by
             loading the entire dataset.
-        :param sample:
-            If ``True``, instruction sources (e.g. files) will be sampled in
-            proportion to their weights.
+        :param max_num_batches:
+            The maximum number of batches to return.
         :param num_accumulate:
             The number of batches to accumulate in each iteration. Typically
             used with gradient accumulation during training.
@@ -242,9 +245,10 @@ class GenericInstructionDataset(InstructionDataset):
         max_seq_len: int,
         batching: Union[StaticBatching, LengthBatching],
         *,
+        sample: bool = False,
         example_shuffle_window: int = 1,
         batch_shuffle_window: int = 1,
-        sample: bool = False,
+        max_num_batches: Optional[int] = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
@@ -334,6 +338,10 @@ class GenericInstructionDataset(InstructionDataset):
         collater = Collater(pad_value=0, overrides=[target_mask_collate_opts])
 
         builder.map(collater, num_parallel_calls=npc)
+
+        # Return only the first `max_num_batches`.
+        if max_num_batches is not None:
+            builder.take(max_num_batches)
 
         # Prefetch `num_prefetch` batches in background.
         builder.prefetch(num_prefetch)

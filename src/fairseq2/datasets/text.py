@@ -44,6 +44,7 @@ class TextDataset(ABC):
         min_seq_len: int = 1,
         example_shuffle_window: int = 1,
         batch_shuffle_window: int = 1,
+        max_num_batches: Optional[int] = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
@@ -73,6 +74,8 @@ class TextDataset(ABC):
             The size of the sliding window for shuffling batches. If ``1``, no
             shuffling is performed; if ``0``, true shuffling is performed by
             loading the entire dataset.
+        :param max_num_batches:
+            The maximum number of batches to return.
         :param num_accumulate:
             The number of batches to accumulate in each iteration. Typically
             used with gradient accumulation during training.
@@ -136,6 +139,7 @@ class GenericTextDataset(TextDataset):
         min_seq_len: int = 1,
         example_shuffle_window: int = 1,
         batch_shuffle_window: int = 1,
+        max_num_batches: Optional[int] = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
@@ -208,6 +212,10 @@ class GenericTextDataset(TextDataset):
         collater = Collater(pad_value=pad_idx)
 
         builder.map(collater, num_parallel_calls=npc)
+
+        # Return only the first `max_num_batches`.
+        if max_num_batches is not None:
+            builder.take(max_num_batches)
 
         # Prefetch `num_prefetch` batches in background.
         builder.prefetch(num_prefetch)
