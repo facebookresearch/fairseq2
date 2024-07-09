@@ -396,7 +396,6 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
         if (
             txt_stream is not None and jsonl_stream is not None
         ):  # Means in the first tensor parallel group.
-
             for prompt, hypotheses in zip(prompts, output.hypotheses):
                 if len(hypotheses) == 0:
                     raise RuntimeError(
