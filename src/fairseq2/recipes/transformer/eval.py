@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Literal, Optional, TextIO, Union, final
@@ -208,22 +209,33 @@ def load_transformer_evaluator(
         data_readers.append(data_reader)
 
         # BLEU Evaluation
-        output_file = output_dir.joinpath(
+        text_output_file = output_dir.joinpath(
             f"translations/{direction}/rank_{gang.rank}.txt"
         )
 
+        json_output_file = output_dir.joinpath(
+            f"translations/{direction}/rank_{gang.rank}.jsonl"
+        )
+
         try:
-            output_file.parent.mkdir(parents=True, exist_ok=True)
+            text_output_file.parent.mkdir(parents=True, exist_ok=True)
         except OSError as ex:
             raise RuntimeError(
-                f"The output directory ({output_file.parent}) cannot be created. See nested exception for details."
+                f"The output directory '{text_output_file.parent}' cannot be created. See nested exception for details."
             ) from ex
 
         try:
-            output_fp = output_file.open("w")
+            text_output_fp = text_output_file.open("w")
         except OSError as ex:
             raise RuntimeError(
-                f"The output file ({output_file}) cannot be created. See nested exception for details."
+                f"The output file '{text_output_file}' cannot be created. See nested exception for details."
+            ) from ex
+
+        try:
+            json_output_fp = json_output_file.open("w")
+        except OSError as ex:
+            raise RuntimeError(
+                f"The output file '{json_output_file}' cannot be created. See nested exception for details."
             ) from ex
 
         bleu_unit = TransformerBleuEvalUnit(
@@ -231,7 +243,8 @@ def load_transformer_evaluator(
             generator,
             tokenizer,
             gang,
-            output_stream=output_fp,
+            text_output_stream=text_output_fp,
+            json_output_stream=json_output_fp,
         )
 
         units.append(bleu_unit)
@@ -310,7 +323,8 @@ class TransformerBleuEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
     """Represents a Transformer model BLEU evaluation unit."""
 
     _converter: SequenceToTextConverter
-    _output_stream: Optional[TextIO]
+    _text_output_stream: Optional[TextIO]
+    _json_output_stream: Optional[TextIO]
     _metric_bag: Seq2SeqGenerationMetricBag
 
     def __init__(
@@ -320,7 +334,8 @@ class TransformerBleuEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
         tokenizer: TextTokenizer,
         gang: Gang,
         *,
-        output_stream: Optional[TextIO] = None,
+        text_output_stream: Optional[TextIO] = None,
+        json_output_stream: Optional[TextIO] = None,
     ) -> None:
         super().__init__(generator.model, display_name=f"bleu/{direction}")
 
@@ -328,7 +343,8 @@ class TransformerBleuEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
             generator, tokenizer, "translation", direction.target_lang
         )
 
-        self._output_stream = output_stream
+        self._text_output_stream = text_output_stream
+        self._json_output_stream = json_output_stream
 
         self._metric_bag = Seq2SeqGenerationMetricBag(gang)
 
@@ -354,7 +370,8 @@ class TransformerBleuEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
 
         self._metric_bag.update_batch_metrics(output, batch.num_source_elements())
 
-        if stream := self._output_stream:
+        # Dump as text.
+        if stream := self._text_output_stream:
             for ref, hyp in zip(refs, hyps):
                 stream.write("REF: ")
                 stream.write(ref)
@@ -363,7 +380,16 @@ class TransformerBleuEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
                 stream.write(hyp)
                 stream.write("\n\n")
 
-                stream.flush()
+            stream.flush()
+
+        # Dump as JSON.
+        if stream := self._json_output_stream:
+            for ref, hyp in zip(refs, hyps):
+                json.dump({"ref": ref, "hyp": hyp}, stream, indent=None)
+
+                stream.write("\n")
+
+            stream.flush()
 
     @property
     @override

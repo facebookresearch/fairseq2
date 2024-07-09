@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal, Optional, TextIO, Tuple, Union, final
@@ -260,26 +261,37 @@ def load_text_translator(
     )
 
     # Initialize the generator unit.
-    output_file = output_dir.joinpath(
+    text_output_file = output_dir.joinpath(
         f"translations/{config.source_lang}-{config.target_lang}/rank_{gang.rank}.txt"
     )
 
+    json_output_file = output_dir.joinpath(
+        f"translations/{config.source_lang}-{config.target_lang}/rank_{gang.rank}.jsonl"
+    )
+
     try:
-        output_file.parent.mkdir(parents=True, exist_ok=True)
+        text_output_file.parent.mkdir(parents=True, exist_ok=True)
     except OSError as ex:
         raise RuntimeError(
-            f"The output directory ({output_file.parent}) cannot be created. See nested exception for details."
+            f"The output directory '{text_output_file.parent}' cannot be created. See nested exception for details."
         ) from ex
 
     try:
-        output_fp = output_file.open("w")
+        text_output_fp = text_output_file.open("w")
     except OSError as ex:
         raise RuntimeError(
-            f"The output file ({output_file}) cannot be created. See nested exception for details."
+            f"The output file '{text_output_file}' cannot be created. See nested exception for details."
+        ) from ex
+
+    try:
+        json_output_fp = json_output_file.open("w")
+    except OSError as ex:
+        raise RuntimeError(
+            f"The output file '{json_output_file}' cannot be created. See nested exception for details."
         ) from ex
 
     unit = TextTranslationUnit(
-        generator, tokenizer, config.target_lang, gang, output_fp
+        generator, tokenizer, config.target_lang, gang, text_output_fp, json_output_fp
     )
 
     text_encoder = tokenizer.create_encoder(
@@ -312,7 +324,8 @@ class TextTranslationUnit(AbstractGeneratorUnit[SequenceBatch]):
     """Represents a text translation unit."""
 
     _converter: SequenceToTextConverter
-    _output_stream: TextIO
+    _text_output_stream: TextIO
+    _json_output_stream: TextIO
     _metric_bag: Seq2SeqGenerationMetricBag
 
     def __init__(
@@ -321,7 +334,8 @@ class TextTranslationUnit(AbstractGeneratorUnit[SequenceBatch]):
         tokenizer: TextTokenizer,
         target_lang: str,
         gang: Gang,
-        output_stream: TextIO,
+        text_output_stream: TextIO,
+        json_output_stream: TextIO,
     ) -> None:
         super().__init__(generator.model)
 
@@ -329,7 +343,8 @@ class TextTranslationUnit(AbstractGeneratorUnit[SequenceBatch]):
             generator, tokenizer, task="translation", target_lang=target_lang
         )
 
-        self._output_stream = output_stream
+        self._text_output_stream = text_output_stream
+        self._json_output_stream = json_output_stream
 
         self._metric_bag = Seq2SeqGenerationMetricBag(gang)
 
@@ -347,7 +362,8 @@ class TextTranslationUnit(AbstractGeneratorUnit[SequenceBatch]):
 
         self._metric_bag.update_batch_metrics(output, batch.num_elements())
 
-        stream = self._output_stream
+        # Dump as text.
+        stream = self._text_output_stream
 
         for ref, hyp in zip(refs, hyps):
             stream.write("REF: ")
@@ -357,7 +373,17 @@ class TextTranslationUnit(AbstractGeneratorUnit[SequenceBatch]):
             stream.write(hyp)
             stream.write("\n\n")
 
-            stream.flush()
+        stream.flush()
+
+        # Dump as JSON.
+        stream = self._json_output_stream
+
+        for ref, hyp in zip(refs, hyps):
+            json.dump({"ref": ref, "hyp": hyp}, stream, indent=None)
+
+            stream.write("\n")
+
+        stream.flush()
 
     @property
     @override
