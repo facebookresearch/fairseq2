@@ -65,9 +65,6 @@ class TransformerEvalConfig:
     max_num_tokens: int = 4096
     """The maximum number of tokens per batch."""
 
-    batch_size: int = 1
-    """The input batch size for sequence generation."""
-
     num_prefetch: int = 4
     """The number of batches to prefetch in background."""
 
@@ -86,7 +83,7 @@ class TransformerEvalConfig:
     """The amount of label smoothing to apply while computing the loss."""
 
     # Generation
-    mode: Literal["beam_search", "sampling"] = "beam_search"
+    generator_mode: Literal["beam_search", "sampling"] = "beam_search"
     """The mode of sequence generation."""
 
     beam_search: BeamSearchConfig = field(default_factory=lambda: BeamSearchConfig())
@@ -94,6 +91,12 @@ class TransformerEvalConfig:
 
     sampling: SamplingConfig = field(default_factory=lambda: SamplingConfig())
     """The configuration for sampling-based sequence generation."""
+
+    generator_batch_size: int = 1
+    """The input batch size to the sequence generator."""
+
+    generator_max_num_batches: Optional[int] = None
+    """The maximum number of batches to feed to the sequence generator."""
 
     # Misc
     seed: int = 2
@@ -122,6 +125,8 @@ def load_transformer_evaluator(
         )
 
     gang = setup_root_gang(log)
+
+    seed = config.seed
 
     # Load the tokenizer.
     model_card = retrieve_asset_card(config.model)
@@ -176,10 +181,20 @@ def load_transformer_evaluator(
 
     # Initialize the sequence generator.
     generator = _create_sequence_generator(
-        model, config.mode, config.beam_search, config.sampling
+        model, config.generator_mode, config.beam_search, config.sampling
     )
 
     # Initialize the evaluation units.
+    generator_max_num_batches = config.generator_max_num_batches
+
+    if generator_max_num_batches is not None:
+        if generator_max_num_batches % gang.size != 0:
+            raise ValueError(
+                f"`config.generator_max_num_batches` must be divisible by the size of the gang ({gang.size}), but is {generator_max_num_batches} instead."
+            )
+
+        generator_max_num_batches //= gang.size
+
     units: List[EvalUnit[Seq2SeqBatch]] = []
 
     data_readers = []
@@ -203,8 +218,10 @@ def load_transformer_evaluator(
             batching=LengthBatching(config.max_num_tokens),
             direction=direction,
             num_prefetch=config.num_prefetch,
-            seed=config.seed,
+            seed=seed,
         )
+
+        seed += 1
 
         data_readers.append(data_reader)
 
@@ -254,11 +271,14 @@ def load_transformer_evaluator(
             tokenizer,
             gang,
             config.max_seq_len,
-            batching=StaticBatching(config.batch_size),
+            batching=StaticBatching(config.generator_batch_size),
             direction=direction,
+            max_num_batches=generator_max_num_batches,
             num_prefetch=config.num_prefetch,
-            seed=config.seed,
+            seed=seed,
         )
+
+        seed += 1
 
         data_readers.append(data_reader)
 
@@ -269,7 +289,7 @@ def load_transformer_evaluator(
         root_gang=gang,
         tb_dir=output_dir.joinpath("tb"),
         metrics_dir=output_dir.joinpath("metrics"),
-        seed=config.seed,
+        seed=seed,
         wall_watch=wall_watch,
     )
 
