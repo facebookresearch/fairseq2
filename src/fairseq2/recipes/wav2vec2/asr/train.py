@@ -223,6 +223,8 @@ def load_wav2vec2_asr_trainer(
             CheckpointModelMetadataProvider(config.resume_checkpoint_dir)
         )
 
+    seed = config.seed
+
     # Load the tokenizer.
     tokenizer_card = retrieve_asset_card(config.tokenizer)
 
@@ -288,7 +290,9 @@ def load_wav2vec2_asr_trainer(
         log.info("Pretrained model loaded on rank 0.")
 
         if gang.rank == 0:
-            to_device(model, gang.device, seed=config.seed)
+            to_device(model, gang.device, seed=seed)
+
+        seed += 1
 
         gang.barrier()
 
@@ -337,8 +341,10 @@ def load_wav2vec2_asr_trainer(
         batch_shuffle_window=config.batch_shuffle_window,
         num_accumulate=config.gradient_accumulation,
         num_prefetch=config.num_prefetch,
-        seed=config.seed,
+        seed=seed,
     )
+
+    seed += 1
 
     optimizer = AdamW(dp_model.parameters(), lr=config.lr, betas=config.betas)
 
@@ -363,8 +369,10 @@ def load_wav2vec2_asr_trainer(
         max_audio_len=config.max_audio_len,
         normalize_audio=config.normalize_audio,
         num_prefetch=config.num_prefetch,
-        seed=config.seed,
+        seed=seed,
     )
+
+    seed += 1
 
     # Initialize the trainer.
     return Trainer[Seq2SeqBatch](
@@ -390,7 +398,7 @@ def load_wav2vec2_asr_trainer(
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
         profile=config.profile,
         anomaly_detection=config.anomaly_detection,
-        seed=config.seed,
+        seed=seed,
         wall_watch=wall_watch,
     )
 

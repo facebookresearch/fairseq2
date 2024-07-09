@@ -107,6 +107,8 @@ def load_wav2vec2_asr_evaluator(
 
     gang = setup_root_gang(log)
 
+    seed = config.seed
+
     # Load the tokenizer.
     model_card = retrieve_asset_card(config.model)
 
@@ -190,8 +192,10 @@ def load_wav2vec2_asr_evaluator(
         max_audio_len=config.max_audio_len,
         normalize_audio=config.normalize_audio,
         num_prefetch=config.num_prefetch,
-        seed=config.seed,
+        seed=seed,
     )
+
+    seed += 1
 
     # Initialize the evaluator.
     return Evaluator[Seq2SeqBatch](
@@ -200,7 +204,7 @@ def load_wav2vec2_asr_evaluator(
         root_gang=gang,
         tb_dir=output_dir.joinpath("tb"),
         metrics_dir=output_dir.joinpath("metrics"),
-        seed=config.seed,
+        seed=seed,
         wall_watch=wall_watch,
     )
 
