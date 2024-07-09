@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, Set, Union, cast, final
+from typing import Any, Dict, Optional, Set, Union, cast, final
 
 import torch
 from torch import Tensor
@@ -60,6 +60,7 @@ class AsrDataset(ABC):
         normalize_audio: bool = False,
         example_shuffle_window: int = 1,
         batch_shuffle_window: int = 1,
+        max_num_batches: Optional[int] = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
@@ -93,6 +94,8 @@ class AsrDataset(ABC):
             The size of the sliding window for shuffling batches. If ``1``, no
             shuffling is performed; if ``0``, true shuffling is performed by
             loading the entire dataset.
+        :param max_num_batches:
+            The maximum number of batches to return.
         :param num_accumulate:
             The number of batches to accumulate in each iteration. Typically
             used with gradient accumulation during training.
@@ -165,6 +168,7 @@ class GenericAsrDataset(AsrDataset):
         normalize_audio: bool = False,
         example_shuffle_window: int = 1,
         batch_shuffle_window: int = 1,
+        max_num_batches: Optional[int] = None,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
@@ -267,6 +271,10 @@ class GenericAsrDataset(AsrDataset):
         collater = Collater(pad_value=0, overrides=[text_collate_opts])
 
         builder.map(collater, num_parallel_calls=npc)
+
+        # Return only the first `max_num_batches`.
+        if max_num_batches is not None:
+            builder.take(max_num_batches)
 
         # Prefetch `num_prefetch` batches in background.
         builder.prefetch(num_prefetch)
