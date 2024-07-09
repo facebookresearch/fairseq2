@@ -318,7 +318,7 @@ def load_text_generator(
         generator,
         tokenizer,
         dp_gang,
-        output_txt_txt_stream=output_txt_fp,
+        output_txt_stream=output_txt_fp,
         output_jsonl_txt_stream=output_jsonl_fp,
     )
 
@@ -350,7 +350,7 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
 
     _generator: SequenceGenerator
     _text_decoder: TextTokenDecoder
-    _output_txt_txt_stream: Optional[TextIO]
+    _output_txt_stream: Optional[TextIO]
     _output_jsonl_txt_stream: Optional[TextIO]
     _metric_bag: SequenceGenerationMetricBag
 
@@ -359,7 +359,7 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
         generator: SequenceGenerator,
         tokenizer: TextTokenizer,
         gang: Gang,
-        output_txt_txt_stream: Optional[TextIO],
+        output_txt_stream: Optional[TextIO],
         output_jsonl_txt_stream: Optional[TextIO],
     ) -> None:
         super().__init__(generator.model)
@@ -368,7 +368,7 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
 
         self._text_decoder = tokenizer.create_decoder()
 
-        self._output_txt_txt_stream = output_txt_txt_stream
+        self._output_txt_stream = output_txt_stream
 
         self._output_jsonl_txt_stream = output_jsonl_txt_stream
 
@@ -390,73 +390,74 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
 
         self._metric_bag.update_batch_metrics(output)
 
-        txt_stream = self._output_txt_txt_stream
+        txt_stream = self._output_txt_stream
         jsonl_stream = self._output_jsonl_txt_stream
 
         if (
-            txt_stream is None and jsonl_stream is None
-        ):  # Means not in the first tensor parallel group.
-            return
+            txt_stream is not None and jsonl_stream is not None
+        ):  # Means in the first tensor parallel group.
 
-        for prompt, hypotheses in zip(prompts, output.hypotheses):
-            if len(hypotheses) == 0:
-                raise RuntimeError(
-                    "The sequence generator returned no hypothesis. Please file a bug report."
-                )
+            for prompt, hypotheses in zip(prompts, output.hypotheses):
+                if len(hypotheses) == 0:
+                    raise RuntimeError(
+                        "The sequence generator returned no hypothesis. Please file a bug report."
+                    )
 
-            hypothesis = hypotheses[0]
+                hypothesis = hypotheses[0]
 
-            seq = hypothesis.seq
+                seq = hypothesis.seq
 
-            response = self._text_decoder(seq)
+                response = self._text_decoder(seq)
 
-            txt_stream.write("<<<<< PROMPT >>>>>")
-            txt_stream.write("\n")
-            txt_stream.write(prompt)
-
-            txt_stream.write("\n\n\n")
-            txt_stream.write("<<<<< RESPONSE >>>>>")
-            txt_stream.write("\n")
-            txt_stream.write(response)
-
-            txt_stream.write("\n\n\n")
-            txt_stream.write("<<<<< TOKEN INDICES >>>>>")
-            txt_stream.write("\n")
-            txt_stream.write(", ".join(f"{t}" for t in seq.tolist()))
-
-            score = hypothesis.score
-
-            if score is not None:
-                txt_stream.write("\n\n\n")
-                txt_stream.write("<<<<< SCORE >>>>>")
+                txt_stream.write("<<<<< PROMPT >>>>>")
                 txt_stream.write("\n")
+                txt_stream.write(prompt)
 
-                txt_stream.write(f"{float(score):.8f}")
-
-            step_scores = hypothesis.step_scores
-
-            if step_scores is not None:
                 txt_stream.write("\n\n\n")
-                txt_stream.write("<<<<< STEP SCORES >>>>>")
+                txt_stream.write("<<<<< RESPONSE >>>>>")
                 txt_stream.write("\n")
+                txt_stream.write(response)
 
-                txt_stream.write(", ".join(f"{s:.8f}" for s in step_scores.tolist()))
+                txt_stream.write("\n\n\n")
+                txt_stream.write("<<<<< TOKEN INDICES >>>>>")
+                txt_stream.write("\n")
+                txt_stream.write(", ".join(f"{t}" for t in seq.tolist()))
 
-            txt_stream.write("\n\n\n============================\n\n\n")
+                score = hypothesis.score
 
-            txt_stream.flush()
+                if score is not None:
+                    txt_stream.write("\n\n\n")
+                    txt_stream.write("<<<<< SCORE >>>>>")
+                    txt_stream.write("\n")
 
-            jsonl_output = {
-                "input": prompt,
-                "output": response,
-                "score": score,
-                "step_scores": step_scores.tolist()
-                if step_scores is not None
-                else step_scores,
-            }
+                    txt_stream.write(f"{float(score):.8f}")
 
-            jsonl_stream.write(json.dumps(jsonl_output))
-            jsonl_stream.flush()
+                step_scores = hypothesis.step_scores
+
+                if step_scores is not None:
+                    txt_stream.write("\n\n\n")
+                    txt_stream.write("<<<<< STEP SCORES >>>>>")
+                    txt_stream.write("\n")
+
+                    txt_stream.write(
+                        ", ".join(f"{s:.8f}" for s in step_scores.tolist())
+                    )
+
+                txt_stream.write("\n\n\n============================\n\n\n")
+
+                txt_stream.flush()
+
+                jsonl_output = {
+                    "input": prompt,
+                    "output": response,
+                    "score": score,
+                    "step_scores": (
+                        step_scores.tolist() if step_scores is not None else step_scores
+                    ),
+                }
+
+                jsonl_stream.write(json.dumps(jsonl_output))
+                jsonl_stream.flush()
 
     @property
     @override
