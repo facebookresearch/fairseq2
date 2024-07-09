@@ -79,7 +79,7 @@ class TextTranslateConfig:
     """The data type of the model."""
 
     # Generation
-    mode: Literal["beam_search", "sampling"] = "beam_search"
+    generator_mode: Literal["beam_search", "sampling"] = "beam_search"
     """The mode of sequence generation."""
 
     beam_search: BeamSearchConfig = field(default_factory=lambda: BeamSearchConfig())
@@ -204,6 +204,8 @@ def load_text_translator(
 
     gang = setup_root_gang(log)
 
+    seed = config.seed
+
     # Load the tokenizer.
     model_card = retrieve_asset_card(config.model)
 
@@ -257,7 +259,7 @@ def load_text_translator(
 
     # Initialize the sequence generator.
     generator = _create_sequence_generator(
-        model, config.mode, config.beam_search, config.sampling
+        model, config.generator_mode, config.beam_search, config.sampling
     )
 
     # Initialize the generator unit.
@@ -305,8 +307,10 @@ def load_text_translator(
         config.max_seq_len,
         batching=StaticBatching(config.batch_size),
         num_prefetch=config.num_prefetch,
-        seed=config.seed,
+        seed=seed,
     )
+
+    seed += 1
 
     # Initialize the generator.
     return Generator[SequenceBatch](
@@ -314,7 +318,7 @@ def load_text_translator(
         data_reader=data_reader,
         root_gang=gang,
         metrics_dir=output_dir.joinpath("metrics"),
-        seed=config.seed,
+        seed=seed,
         wall_watch=wall_watch,
     )
 
@@ -404,7 +408,7 @@ def _create_sequence_generator(
         return _create_sampling_generator(model, sampling_config)
 
     raise ValueError(
-        f"`config.mode` must be 'sampling' or 'beam_search', but is '{mode}' instead."
+        f"`config.generator_mode` must be 'sampling' or 'beam_search', but is '{mode}' instead."
     )
 
 
