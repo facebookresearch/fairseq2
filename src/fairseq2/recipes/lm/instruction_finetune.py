@@ -15,13 +15,16 @@ import torch.distributed
 from torch import Tensor
 from torch.nn import Module
 
-from fairseq2.assets import default_asset_store
+from fairseq2.assets import AssetNotFoundError, default_asset_store
 from fairseq2.assets.utils import retrieve_asset_card
 from fairseq2.checkpoint import CheckpointModelMetadataProvider, FileCheckpointManager
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import load_text_tokenizer
 from fairseq2.datasets import LengthBatching
-from fairseq2.datasets.instruction import load_instruction_dataset
+from fairseq2.datasets.instruction import (
+    GenericInstructionDataset,
+    load_instruction_dataset,
+)
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.models import load_model
@@ -57,7 +60,7 @@ class InstructionFinetuneConfig:
 
     # Data
     dataset: Union[str, Path] = "openeft"  # TODO: change!
-    """The name or path to the asset card of the instruction dataset."""
+    """The name, path, or path to the asset card of the instruction dataset."""
 
     max_seq_len: int = 8192
     """The maximum sequence length."""
@@ -236,13 +239,26 @@ def load_instruction_finetuner(
     log.info("Tokenizer loaded.")
 
     # Load the dataset.
-    dataset_card = retrieve_asset_card(config.dataset)
+    try:
+        dataset_card = retrieve_asset_card(config.dataset)
+    except AssetNotFoundError:
+        dataset_card = None
 
-    log.info("Loading {} instruction dataset.", dataset_card.name)
+    if dataset_card is not None:
+        log.info("Loading {} instruction dataset.", dataset_card.name)
 
-    dataset = load_instruction_dataset(dataset_card)
+        dataset = load_instruction_dataset(dataset_card)
 
-    log.info("Dataset loaded.")
+        log.info("Dataset loaded.")
+    else:
+        try:
+            path = Path(config.dataset)
+        except ValueError:
+            raise AssetNotFoundError(
+                config.dataset, f"An asset with the name '{config.dataset}' cannot be found."  # type: ignore[arg-type]
+            )
+
+        dataset = GenericInstructionDataset.from_path(path)
 
     # Load the model.
     init_device = META

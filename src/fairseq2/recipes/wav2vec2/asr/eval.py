@@ -14,13 +14,13 @@ from typing import Any, Dict, Optional, TextIO, Union, final
 import torch
 from torch.nn import Module
 
-from fairseq2.assets import default_asset_store
+from fairseq2.assets import AssetNotFoundError, default_asset_store
 from fairseq2.assets.utils import retrieve_asset_card
 from fairseq2.checkpoint import CheckpointModelMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import TextTokenDecoder, TextTokenizer, load_text_tokenizer
 from fairseq2.datasets import LengthBatching
-from fairseq2.datasets.asr import load_asr_dataset
+from fairseq2.datasets.asr import GenericAsrDataset, load_asr_dataset
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
 from fairseq2.metrics.wer import WerMetric
@@ -49,7 +49,7 @@ class Wav2Vec2AsrEvalConfig:
 
     # Data
     dataset: Union[str, Path] = "librilight_asr_10h"
-    """The name or path to the asset card of the ASR dataset."""
+    """The name, path, or path to the asset card of the ASR dataset."""
 
     split: str = "test_other"
     """The name of the eval data split."""
@@ -119,13 +119,26 @@ def load_wav2vec2_asr_evaluator(
     log.info("Tokenizer loaded.")
 
     # Load the dataset.
-    dataset_card = retrieve_asset_card(config.dataset)
+    try:
+        dataset_card = retrieve_asset_card(config.dataset)
+    except AssetNotFoundError:
+        dataset_card = None
 
-    log.info("Loading {} ASR dataset.", dataset_card.name)
+    if dataset_card is not None:
+        log.info("Loading {} ASR dataset.", dataset_card.name)
 
-    dataset = load_asr_dataset(dataset_card)
+        dataset = load_asr_dataset(dataset_card)
 
-    log.info("Dataset loaded.")
+        log.info("Dataset loaded.")
+    else:
+        try:
+            path = Path(config.dataset)
+        except ValueError:
+            raise AssetNotFoundError(
+                config.dataset, f"An asset with the name '{config.dataset}' cannot be found."  # type: ignore[arg-type]
+            )
+
+        dataset = GenericAsrDataset.from_path(path)
 
     # Load the model.
     log.info("Loading {} model on rank 0.", model_card.name)

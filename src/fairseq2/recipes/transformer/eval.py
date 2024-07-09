@@ -54,7 +54,7 @@ class TransformerEvalConfig:
 
     # Data
     dataset: Union[str, Path] = "foo"  # TODO: change!
-    """The name or path to the asset card of the parallel text dataset."""
+    """The name, path, or path to the asset card of the parallel text dataset."""
 
     split: str = "test"
     """The name of the test data split."""

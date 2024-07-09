@@ -51,7 +51,7 @@ class TextTranslateConfig:
 
     # Data
     dataset: Union[str, Path] = "foo"  # TODO: change!
-    """The name or path to the asset card of the text dataset."""
+    """The name, path, or path to the asset card of the text dataset."""
 
     source_lang: str = "eng_Latn"
     """The code of the language to translate from."""
