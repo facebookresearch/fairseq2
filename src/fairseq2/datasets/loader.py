@@ -134,13 +134,13 @@ class DelegatingDatasetLoader(DatasetLoader[DatasetT]):
     ) -> DatasetT:
         card = retrieve_asset_card(dataset_name_or_card, self._asset_store)
 
-        dataset_family = card.field("dataset_family").as_(str)
+        family = card.field("dataset_family").as_(str)
 
         try:
-            loader = self._loaders[dataset_family]
+            loader = self._loaders[family]
         except KeyError:
             raise AssetError(
-                f"The value of the field 'dataset_family' of the asset card '{card.name}' must be a supported dataset family, but '{dataset_family}' has no registered loader."
+                f"The value of the field 'dataset_family' of the asset card '{card.name}' must be a supported dataset family, but '{family}' has no registered loader."
             )
 
         return loader(card, force=force, progress=progress)
@@ -160,3 +160,11 @@ class DelegatingDatasetLoader(DatasetLoader[DatasetT]):
             )
 
         self._loaders[family] = loader
+
+    def supports(self, dataset_name_or_card: Union[str, AssetCard, Path]) -> bool:
+        """Return ``True`` if the specified dataset has a registered loader."""
+        card = retrieve_asset_card(dataset_name_or_card, self._asset_store)
+
+        family = card.field("dataset_family").as_(str)
+
+        return family in self._loaders

@@ -11,6 +11,9 @@ on:
         type: string
         required: true
 
+env:
+    ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
 jobs:
   publish_pt21_s3-linux:
     name: Publish to S3 (pt${{ matrix.torch }}, py${{ matrix.py }}, linux-x86_64, ${{ matrix.variant }})

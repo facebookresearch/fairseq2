@@ -140,8 +140,8 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
     _data_epoch_nr: int
     _max_num_data_epochs: Optional[int]
     _eod: bool
-    _valid_units: List[EvalUnit[BatchT]]
-    _valid_data_readers: List[DataReader[BatchT]]
+    _valid_units: Sequence[EvalUnit[BatchT]]
+    _valid_data_readers: Sequence[DataReader[BatchT]]
     _validate_after_n_steps: int
     _validate_every_n_steps: int
     _checkpoint_manager: CheckpointManager
@@ -333,9 +333,9 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                     f"The number of data readers in `valid_data_readers` must match the number of units in `valid_units` ({len(valid_units)}), but is {len(valid_data_readers)} instead."
                 )
 
-            self._valid_units = list(valid_units)
+            self._valid_units = valid_units
 
-            self._valid_data_readers = list(valid_data_readers)
+            self._valid_data_readers = valid_data_readers
         else:
             raise ValueError(
                 "`valid_units` and `valid_data_readers` must be both specified."
@@ -472,7 +472,7 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
 
         elapsed_time = self._wall_watch.get_elapsed_time()
 
-        log.info("Training complete in {:,} seconds after {} steps!", int(elapsed_time), self._step_nr)  # fmt: skip
+        log.info("Training complete in {:,} seconds after {} step(s)!", int(elapsed_time), self._step_nr)  # fmt: skip
 
     def _maybe_restore_state(self) -> None:
         log.info("Attempting to load the last checkpoint.")
@@ -619,6 +619,9 @@ class Trainer(StatefulObjectBag, Generic[BatchT]):
                 return next(self._data_reader)
             except StopIteration:
                 log.info("End of epoch {} reached at training step {}.", self._data_epoch_nr, self._step_nr)  # fmt: skip
+
+                if self._step_nr == 1:  # Means the dataset is empty.
+                    break
 
                 if self._max_num_data_epochs is not None:
                     if self._data_epoch_nr >= self._max_num_data_epochs:

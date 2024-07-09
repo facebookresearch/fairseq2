@@ -727,7 +727,7 @@ class CheckpointModelMetadataProvider(AbstractAssetMetadataProvider):
         metadata_file = self._checkpoint_dir.joinpath("model.yaml")
         if not metadata_file.exists():
             raise AssetMetadataError(
-                f"The checkpoint model metadata (model.yaml) cannot be found under the directory '{self._checkpoint_dir}'. Make sure that the specified directory is the *base* checkpoint directory used during training (i.e. directory passed to `FileCheckpointManager.save_model_metadata()`)."
+                f"The checkpoint model metadata (model.yaml) cannot be found under {self._checkpoint_dir}. Make sure that the specified directory is the *base* checkpoint directory used during training (i.e. directory passed to `FileCheckpointManager.save_model_metadata()`)."
             )
 
         cache = dict(_load_metadata_file(metadata_file))

@@ -362,13 +362,13 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
     ) -> ModelT:
         card = retrieve_asset_card(model_name_or_card, self._asset_store)
 
-        model_family = card.field("model_family").as_(str)
+        family = card.field("model_family").as_(str)
 
         try:
-            loader = self._loaders[model_family]
+            loader = self._loaders[family]
         except KeyError:
             raise AssetError(
-                f"The value of the field 'model_family' of the asset card '{card.name}' must be a supported model family, but '{model_family}' has no registered loader."
+                f"The value of the field 'model_family' of the asset card '{card.name}' must be a supported model family, but '{family}' has no registered loader."
             )
 
         return loader(
@@ -395,6 +395,14 @@ class DelegatingModelLoader(ModelLoader[ModelT]):
             )
 
         self._loaders[family] = loader
+
+    def supports(self, model_name_or_card: Union[str, AssetCard, Path]) -> bool:
+        """Return ``True`` if the specified model has a registered loader."""
+        card = retrieve_asset_card(model_name_or_card, self._asset_store)
+
+        family = card.field("model_family").as_(str)
+
+        return family in self._loaders
 
 
 load_model = DelegatingModelLoader[Module]()

@@ -4,19 +4,22 @@
 # This source code is licensed under the BSD-style license found in the
 # LICENSE file in the root directory of this source tree.
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, List, Set, cast, final
+from typing import Any, Dict, Set, Union, cast, final
 
 import torch
 from torch import Tensor
 from torch.nn.functional import layer_norm
 
-from fairseq2.assets import AssetCard
+from fairseq2.assets import AssetCard, AssetError
 from fairseq2.data import (
     CollateOptionsOverride,
     Collater,
     DataPipeline,
+    DataPipelineBuilder,
     FileMapper,
     SequenceData,
     create_bucket_sizes,
@@ -30,6 +33,7 @@ from fairseq2.data.text import (
     load_text_tokenizer,
     read_text,
 )
+from fairseq2.datasets.batching import LengthBatching, StaticBatching
 from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
 from fairseq2.datasets.error import DatasetError
 from fairseq2.datasets.loader import AbstractDatasetLoader, DelegatingDatasetLoader
@@ -49,7 +53,7 @@ class AsrDataset(ABC):
         tokenizer: TextTokenizer,
         gang: Gang,
         max_audio_len: int,
-        max_num_elements: int,
+        batching: Union[StaticBatching, LengthBatching],
         *,
         dtype: DataType = torch.float32,
         min_audio_len: int = 1,
@@ -71,9 +75,9 @@ class AsrDataset(ABC):
             The gang over which to shard the dataset.
         :param max_audio_len:
             The maximum audio length of each example. Examples longer than
-            this value will be cropped.
-        :param max_num_elements:
-            The maximum number of elements in each batch.
+            this value will be dropped.
+        :param batching:
+            The batching strategy for returned examples.
         :param dtype:
             The data type of the decoded audio sequences.
         :param min_audio_len:
@@ -117,24 +121,35 @@ npc = 10
 class GenericAsrDataset(AsrDataset):
     """Represents a generic manifest-based ASR dataset."""
 
-    _dataset_name: str
     _manifest_dir: Path
     _splits: Set[str]
 
-    def __init__(self, dataset_name: str, manifest_dir: Path) -> None:
+    def __init__(self, manifest_dir: Path, splits: Set[str]) -> None:
         """
-        :param dataset_name:
-            The name of the dataset.
         :param manifest_dir:
             The directory under which the manifest files resides.
+        :param splits:
+            The available splits.
         """
-        self._dataset_name = dataset_name
         self._manifest_dir = manifest_dir
+        self._splits = splits
 
-        self._splits = set()
+    @classmethod
+    def from_path(cls, path: Path) -> GenericAsrDataset:
+        """Load a :class:`GenericAsrDataset` from ``path``."""
+        path = path.expanduser().resolve()
 
-        for tsv_file in manifest_dir.glob("*.tsv"):
-            self._splits.add(tsv_file.stem)
+        if not path.is_dir():
+            return GenericAsrDataset(manifest_dir=path.parent, splits={path.stem})
+
+        try:
+            splits = {f.stem for f in path.glob("*.tsv")}
+        except OSError as ex:
+            raise RuntimeError(
+                "The splits cannot be determined. See nested exception for details."
+            ) from ex
+
+        return GenericAsrDataset(path, splits)
 
     @override
     def create_reader(
@@ -143,7 +158,7 @@ class GenericAsrDataset(AsrDataset):
         tokenizer: TextTokenizer,
         gang: Gang,
         max_audio_len: int,
-        max_num_elements: int,
+        batching: Union[StaticBatching, LengthBatching],
         *,
         dtype: DataType = torch.float32,
         min_audio_len: int = 1,
@@ -163,14 +178,12 @@ class GenericAsrDataset(AsrDataset):
         """
         if split not in self._splits:
             raise ValueError(
-                f"`split` must be a valid split name, but the {self._dataset_name} dataset has no split named '{split}'."
+                f"`split` must be one of the following splits, but is '{split}' instead: {', '.join(sorted(self._splits))}"
             )
 
-        root_data_dir = self._retrieve_data_directory(split)
+        audio_dir = self._retrieve_data_directory(split)
 
-        manifest = self._load_manifest(split)
-
-        builder = read_sequence(manifest)
+        builder = self._read_manifest(split)
 
         # Shuffle examples. Must be consistent across all processes.
         if example_shuffle_window != 1:
@@ -178,26 +191,40 @@ class GenericAsrDataset(AsrDataset):
 
         seed += 1
 
+        static_batching = isinstance(batching, StaticBatching)
+
         # Shard.
-        builder.shard(gang.rank, gang.size, allow_uneven=True)
+        builder.shard(gang.rank, gang.size, allow_uneven=not static_batching)
 
         seed += gang.rank
 
-        # Bucket by audio length.
-        bucket_sizes = create_bucket_sizes(
-            max_num_elements=max_num_elements,
-            max_seq_len=max_audio_len,
-            min_seq_len=min_audio_len,
-            num_seqs_multiple_of=8,
-        )
+        if isinstance(batching, LengthBatching):
+            # Bucket by the audio length.
+            bucket_sizes = create_bucket_sizes(
+                max_seq_len=max_audio_len,
+                min_seq_len=min_audio_len,
+                max_num_elements=batching.max_num_elements,
+                num_seqs_multiple_of=8,
+            )
 
-        builder.bucket_by_length(
-            bucket_sizes,
-            selector="audio_size",
-            min_data_len=min_audio_len,
-            skip_below_min_examples=True,
-            skip_above_max_examples=True,
-        )
+            builder.bucket_by_length(
+                bucket_sizes,
+                selector="audio_size",
+                min_data_len=min_audio_len,
+                skip_below_min_examples=True,
+                skip_above_max_examples=True,
+            )
+        else:
+            # Filter out out-of-range audios.
+            def skip(example: Dict[str, Any]) -> bool:
+                audio_len = cast(int, example["audio_size"])
+
+                return audio_len >= min_audio_len and audio_len <= max_audio_len
+
+            builder.filter(skip)
+
+            # Bucket `batch_size` examples.
+            builder.bucket(batching.batch_size)
 
         # Shuffle buckets.
         if batch_shuffle_window != 1:
@@ -206,7 +233,7 @@ class GenericAsrDataset(AsrDataset):
         seed += 1
 
         # Memory map audio files.
-        file_mapper = FileMapper(root_data_dir, cached_fd_count=cached_fd_count)
+        file_mapper = FileMapper(audio_dir, cached_fd_count=cached_fd_count)
 
         builder.map(file_mapper, selector="[*].audio")
 
@@ -241,11 +268,11 @@ class GenericAsrDataset(AsrDataset):
 
         builder.map(collater, num_parallel_calls=npc)
 
-        # Prefetch `num_prefetch` examples in background.
+        # Prefetch `num_prefetch` batches in background.
         builder.prefetch(num_prefetch)
 
         # Wrap examples with `Seq2SeqBatch`.
-        def example_to_batch(example: Dict[str, Any]) -> Seq2SeqBatch:
+        def to_batch(example: Dict[str, Any]) -> Seq2SeqBatch:
             source_data = cast(SequenceData, example["audio"]["data"]["waveform"])
             target_data = cast(SequenceData, example["text"])
 
@@ -264,65 +291,65 @@ class GenericAsrDataset(AsrDataset):
                 example,
             )
 
-        pipeline = builder.map(example_to_batch).and_return()
+        pipeline = builder.map(to_batch).and_return()
 
         return DataPipelineReader[Seq2SeqBatch](
             pipeline,
             gang,
             num_accumulate=num_accumulate,
             drop_remainder=False,
-            sync_batches=True,
+            sync_batches=not static_batching,
         )
 
     def _retrieve_data_directory(self, split: str) -> Path:
-        tsv_file = self._manifest_dir.joinpath(f"{split}.tsv")
+        manifest_file = self._manifest_dir.joinpath(f"{split}.tsv")
 
         try:
-            with tsv_file.open() as fp:
+            with manifest_file.open() as fp:
                 line = fp.readline().rstrip()
         except OSError as ex:
             raise DatasetError(
-                f"The manifest file '{tsv_file}' of the {self._dataset_name} dataset cannot be read. See nested exception for details."
+                f"{manifest_file} cannot be read. See nested exception for details."
             ) from ex
 
         try:
             return Path(line)
         except ValueError:
             raise DatasetError(
-                f"The first line of the manifest file '{tsv_file}' of the {self._dataset_name} dataset must point to a data directory."
+                f"The first line of {manifest_file} must point to a data directory."
             )
 
-    def _load_manifest(self, split: str) -> List[Any]:
-        def build_tsv_pipeline() -> DataPipeline:
+    def _read_manifest(self, split: str) -> DataPipelineBuilder:
+        def read_tsv_file() -> DataPipelineBuilder:
             tsv_file = self._manifest_dir.joinpath(f"{split}.tsv")
 
             builder = read_text(tsv_file, rtrim=True, memory_map=True)
 
-            builder.skip(1)
+            builder.skip(1)  # Path to the data directory.
 
             field_splitter = StrSplitter(names=["audio", "audio_size"])
 
             builder.map(field_splitter, num_parallel_calls=npc)
 
-            return builder.and_return()
+            return builder
 
-        def build_wrd_pipeline() -> DataPipeline:
+        def read_wrd_file() -> DataPipelineBuilder:
             wrd_file = self._manifest_dir.joinpath(f"{split}.wrd")
 
-            builder = read_text(wrd_file, key="text", rtrim=True, memory_map=True)
+            return read_text(wrd_file, key="text", rtrim=True, memory_map=True)
 
-            return builder.and_return()
-
-        tsv_pipeline = build_tsv_pipeline()
-        wrd_pipeline = build_wrd_pipeline()
+        tsv_pipeline = read_tsv_file().and_return()
+        wrd_pipeline = read_wrd_file().and_return()
 
         builder = DataPipeline.zip([tsv_pipeline, wrd_pipeline], flatten=True)
 
         # Cast audio size to integer.
         builder.map(int, selector="audio_size")
 
-        # TODO: Use `cache()` op.
-        return list(builder.and_return())
+        # TODO(balioglu): Use `cache()` op.
+        manifest = list(builder.and_return())
+
+        return read_sequence(manifest)
 
     @override
     def splits(self) -> Set[str]:
@@ -333,7 +360,12 @@ class GenericAsrDataset(AsrDataset):
 class GenericAsrDatasetLoader(AbstractDatasetLoader[GenericAsrDataset]):
     @override
     def _load(self, path: Path, card: AssetCard) -> GenericAsrDataset:
-        return GenericAsrDataset(card.name, path)
+        try:
+            return GenericAsrDataset.from_path(path)
+        except RuntimeError as ex:
+            raise AssetError(
+                f"{card.name} cannot be loaded. See nested exception for details."
+            ) from ex
 
 
 load_generic_asr_dataset = GenericAsrDatasetLoader()

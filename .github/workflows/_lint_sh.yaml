@@ -11,6 +11,9 @@ on:
         type: string
         default: '3.11'
 
+env:
+    ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
+
 jobs:
   lint:
     name: Lint

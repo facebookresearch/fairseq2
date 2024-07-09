@@ -51,7 +51,7 @@ class SamplingSequenceGenerator(AbstractSequenceGenerator):
     _len_penalty: float
     _prefill_chunk_size: Optional[int]
     _decode_capacity_increment: Optional[int]
-    _step_processors: List[StepProcessor]
+    _step_processors: Sequence[StepProcessor]
 
     def __init__(
         self,
@@ -157,7 +157,7 @@ class SamplingSequenceGenerator(AbstractSequenceGenerator):
         self._decode_capacity_increment = decode_capacity_increment
 
         if step_processors:
-            self._step_processors = list(step_processors)
+            self._step_processors = step_processors
         else:
             self._step_processors = []
 
@@ -209,7 +209,7 @@ class SamplingSeq2SeqGenerator(AbstractSeq2SeqGenerator):
     _len_penalty: float
     _prefill_chunk_size: Optional[int]
     _decode_capacity_increment: Optional[int]
-    _step_processors: List[StepProcessor]
+    _step_processors: Sequence[StepProcessor]
 
     def __init__(
         self,
@@ -306,7 +306,7 @@ class SamplingSeq2SeqGenerator(AbstractSeq2SeqGenerator):
         self._decode_capacity_increment = decode_capacity_increment
 
         if step_processors:
-            self._step_processors = list(step_processors)
+            self._step_processors = step_processors
         else:
             self._step_processors = []
 
@@ -483,7 +483,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
     _unk_penalty: float
     _len_penalty: float
     _prefill_chunk_size: Optional[int]
-    _step_processors: List[StepProcessor]
+    _step_processors: Sequence[StepProcessor]
     _step_hooks: Dict[int, StepHook]
     _step_nr: int
     _state_bag: IncrementalStateBag
@@ -513,7 +513,7 @@ class _AbstractSamplingSequenceGeneratorOp(ABC):
         len_penalty: float,
         prefill_chunk_size: Optional[int],
         decode_capacity_increment: Optional[int],
-        step_processors: List[StepProcessor],
+        step_processors: Sequence[StepProcessor],
         step_hooks: Dict[int, StepHook],
     ) -> None:
         self._sampler = sampler
@@ -917,7 +917,7 @@ class _SamplingSequenceGeneratorOp(_AbstractSamplingSequenceGeneratorOp):
         len_penalty: float,
         prefill_chunk_size: Optional[int],
         decode_capacity_increment: Optional[int],
-        step_processors: List[StepProcessor],
+        step_processors: Sequence[StepProcessor],
         step_hooks: Dict[int, StepHook],
     ) -> None:
         super().__init__(
@@ -980,7 +980,7 @@ class _SamplingSeq2SeqGeneratorOp(_AbstractSamplingSequenceGeneratorOp):
         len_penalty: float,
         prefill_chunk_size: Optional[int],
         decode_capacity_increment: Optional[int],
-        step_processors: List[StepProcessor],
+        step_processors: Sequence[StepProcessor],
         step_hooks: Dict[int, StepHook],
     ) -> None:
         super().__init__(

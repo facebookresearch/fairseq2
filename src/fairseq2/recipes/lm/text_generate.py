@@ -18,6 +18,7 @@ from fairseq2.assets.utils import retrieve_asset_card
 from fairseq2.checkpoint import CheckpointModelMetadataProvider
 from fairseq2.config_registry import ConfigRegistry
 from fairseq2.data.text import TextTokenDecoder, TextTokenizer, load_text_tokenizer
+from fairseq2.datasets import StaticBatching
 from fairseq2.datasets.instruction import load_instruction_dataset
 from fairseq2.gang import Gang
 from fairseq2.generation import (
@@ -51,8 +52,8 @@ class TextGenerateConfig:
     dataset: Union[str, Path] = "oa2_gsm8k_safety"  # TODO: change!
     """The name or path to the asset card of the instruction dataset."""
 
-    split: str = "test"
-    """The name of the test data split."""
+    max_seq_len: int = 8192
+    """The maximum sequence length."""
 
     batch_size: int = 1
     """The input batch size."""
@@ -321,11 +322,11 @@ def load_text_generator(
         output_jsonl_txt_stream=output_jsonl_fp,
     )
 
-    data_reader = dataset.create_eval_reader(
-        config.split,
+    data_reader = dataset.create_prompt_reader(
         tokenizer,
         dp_gang,
-        batch_size=config.batch_size,
+        config.max_seq_len,
+        batching=StaticBatching(config.batch_size),
         num_prefetch=config.num_prefetch,
         seed=config.seed,
     )

@@ -7,22 +7,14 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections import defaultdict
+from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
-from typing import (
-    Any,
-    Dict,
-    List,
-    NamedTuple,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-    cast,
-    final,
-)
+from typing import Any, Dict, List, Optional, Set, Tuple, Union, cast, final
 
-from fairseq2.assets import AssetCard, AssetCardError
+from typing_extensions import NoReturn
+
+from fairseq2.assets import AssetCard, AssetError
 from fairseq2.data import (
     Collater,
     DataPipeline,
@@ -31,6 +23,7 @@ from fairseq2.data import (
     create_bucket_sizes,
 )
 from fairseq2.data.text import TextTokenizer, read_text
+from fairseq2.datasets.batching import LengthBatching, StaticBatching
 from fairseq2.datasets.data_reader import DataPipelineReader, DataReader
 from fairseq2.datasets.error import DatasetError
 from fairseq2.datasets.loader import AbstractDatasetLoader, DelegatingDatasetLoader
@@ -40,8 +33,9 @@ from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.typing import Device, override
 
 
-class LangPair(NamedTuple):
-    """Represents the language pair of a parallel corpus."""
+@dataclass(frozen=True)
+class Direction:
+    """Represents the language direction of a parallel corpus."""
 
     source_lang: str
     """The source language code."""
@@ -49,8 +43,16 @@ class LangPair(NamedTuple):
     target_lang: str
     """The target language code."""
 
+    origin: Optional[str] = None
+    """The origin of data. Typically used to indicate mined or synthetic data."""
+
     def __repr__(self) -> str:
-        return f"{self.source_lang}-{self.target_lang}"
+        s = f"{self.source_lang}-{self.target_lang}"
+
+        if self.origin:
+            s = f"{self.origin}/{s}"
+
+        return s
 
 
 class ParallelTextDataset(ABC):
@@ -63,11 +65,13 @@ class ParallelTextDataset(ABC):
         tokenizer: TextTokenizer,
         gang: Gang,
         max_seq_len: int,
-        max_num_tokens: int,
+        batching: Union[StaticBatching, LengthBatching],
         *,
-        lang_pairs: Optional[Sequence[LangPair]] = None,
+        direction: Optional[Direction] = None,
+        min_seq_len: int = 1,
         sample: bool = False,
-        shuffle_window_size: int = 1,
+        example_shuffle_window: int = 1,
+        batch_shuffle_window: int = 1,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
@@ -84,16 +88,23 @@ class ParallelTextDataset(ABC):
         :param max_seq_len:
             The maximum sequence length of each example. Examples longer than
             this value will be dropped.
-        :param max_num_tokens:
-            The maximum number of tokens in each batch.
-        :param lang_pairs:
-            The language pairs to read. If ``None``, all pairs will be read.
+        :param batching:
+            The batching strategy for returned examples.
+        :param direction:
+            The direction to read. If ``None``, all directions will be read.
+        :param min_seq_len:
+            The minimum sequence length of each example. Examples shorter than
+            this value will be dropped.
         :param sample:
-            If ``True``, language pair corpora will be sampled in proportion to
-            their size.
-        :param shuffle_window_size:
-            The size of the shuffle window. If ``1``, no shuffling is performed;
-            if ``0``, performs true shuffling by loading the entire dataset.
+            If ``True``, corpora will be sampled in proportion to their weights.
+        :param example_shuffle_window:
+            The size of the sliding window for shuffling examples. If ``1``, no
+            shuffling is performed; if ``0``, true shuffling is performed by
+            loading the entire dataset.
+        :param batch_shuffle_window:
+            The size of the sliding window for shuffling batches. If ``1``, no
+            shuffling is performed; if ``0``, true shuffling is performed by
+            loading the entire dataset.
         :param num_accumulate:
             The number of batches to accumulate in each iteration. Typically
             used with gradient accumulation during training.
@@ -110,39 +121,151 @@ class ParallelTextDataset(ABC):
         """Return the set of splits."""
 
     @abstractmethod
-    def lang_pairs(self, split: str) -> Set[LangPair]:
-        """Return the set of language pairs of ``split``."""
+    def directions(self, split: str) -> List[Direction]:
+        """Return the directions included ``split``."""
+
+
+load_parallel_text_dataset = DelegatingDatasetLoader[ParallelTextDataset]()
 
 
 # TODO: FIX, INFER
-num_parallel_calls = 10
+npc = 10
 
 
 @final
-class NllbDataset(ParallelTextDataset):
-    """Represents an NLLB dataset."""
+class GenericParallelTextDataset(ParallelTextDataset):
+    """Represents a generic file-based parallel text dataset."""
 
-    _dataset_name: str
     _data_dir: Path
-    _split_lang_pairs: Dict[str, Dict[LangPair, int]]
+    _splits: Dict[str, Tuple[List[Direction], List[float]]]
 
     def __init__(
         self,
-        dataset_name: str,
+        *,
         data_dir: Path,
-        split_lang_pairs: Dict[str, Dict[LangPair, int]],
+        splits: Dict[str, Tuple[List[Direction], List[float]]],
     ) -> None:
         """
-        :param dataset_name:
-            The name of the dataset.
         :param data_dir:
-            The directory under which the language pair files reside.
-        :param split_lang_pairs:
-            The available language pairs per split.
+            The directory under which the manifest and the language direction
+            files reside.
+        :param splits:
+            The splits with their directions and their weights.
         """
-        self._dataset_name = dataset_name
+        for split, (directions, weights) in splits.items():
+            if len(directions) != len(weights):
+                raise ValueError(
+                    f"The lengths of the direction and weight lists of the split '{split}' must match, but they are {len(directions)} and {len(weights)} instead."
+                )
+
         self._data_dir = data_dir
-        self._split_lang_pairs = split_lang_pairs
+        self._splits = splits
+
+    @classmethod
+    def from_path(cls, path: Path) -> GenericParallelTextDataset:
+        """Load a :class:`GenericParallelTextDataset` from ``path``."""
+        path = path.expanduser().resolve()
+
+        if not path.is_dir():
+            raise ValueError("`path` must be a directory with a MANIFEST file.")
+
+        try:
+            split_names = [d.name for d in path.iterdir() if d.is_dir()]
+        except OSError as ex:
+            raise RuntimeError(
+                "The splits cannot be determined. See nested exception for details."
+            ) from ex
+
+        splits = {}
+
+        for split in split_names:
+            manifest_file = path.joinpath(split).joinpath("MANIFEST")
+
+            try:
+                fp = manifest_file.open()
+            except OSError as ex:
+                raise RuntimeError(
+                    f"{manifest_file} cannot be read. See nested exception for details."
+                ) from ex
+
+            try:
+                content = list(fp)
+            except OSError as ex:
+                raise RuntimeError(
+                    f"{manifest_file} cannot be read. See nested exception for details."
+                ) from ex
+            finally:
+                fp.close()
+
+            # Sort the directions in alphabetical order.
+            content.sort()
+
+            directions = []
+
+            weights = []
+
+            # Each line of the MANIFEST file corresponds to a direction and
+            # its weight (e.g. number of examples) in the split.
+            for idx, line in enumerate(content):
+
+                def raise_error() -> NoReturn:
+                    raise DatasetError(
+                        f"Each line in {manifest_file} must represent a valid direction and a weight, but line {idx} is '{line}' instead."
+                    )
+
+                fields = line.rstrip().split("\t")
+
+                if len(fields) != 2:
+                    raise_error()
+
+                try:
+                    direction = cls._parse_direction(fields[0])
+                except ValueError:
+                    raise_error()
+
+                directions.append(direction)
+
+                try:
+                    weight = float(fields[1].strip())
+                except ValueError:
+                    raise_error()
+
+                weights.append(weight)
+
+            splits[split] = (directions, weights)
+
+        return GenericParallelTextDataset(data_dir=path, splits=splits)
+
+    @staticmethod
+    def _parse_direction(s: str) -> Direction:
+        def raise_error() -> NoReturn:
+            raise ValueError(
+                f"`s` must represent a valid direction, but is '{s}' instead."
+            )
+
+        parts = s.rstrip().split("/")
+
+        if len(parts) == 1:
+            origin, lang_pair = None, parts[0]
+        elif len(parts) == 2:
+            origin, lang_pair = parts
+        else:
+            raise_error()
+
+        parts = lang_pair.split("-")
+
+        if len(parts) != 2:
+            raise_error()
+
+        source_lang, target_lang = parts
+
+        source_lang = source_lang.strip()
+        target_lang = target_lang.strip()
+
+        if not source_lang or not target_lang:
+            raise_error()
+
+        return Direction(source_lang, target_lang, origin)
 
     @override
     def create_reader(
@@ -151,282 +274,192 @@ class NllbDataset(ParallelTextDataset):
         tokenizer: TextTokenizer,
         gang: Gang,
         max_seq_len: int,
-        max_num_tokens: int,
+        batching: Union[StaticBatching, LengthBatching],
         *,
-        lang_pairs: Optional[Sequence[LangPair]] = None,
+        direction: Optional[Direction] = None,
+        min_seq_len: int = 1,
         sample: bool = False,
-        shuffle_window_size: int = 1,
+        example_shuffle_window: int = 1,
+        batch_shuffle_window: int = 1,
         num_accumulate: int = 1,
         num_prefetch: int = 1,
         seed: int = 2,
         **extras: Any,
     ) -> DataPipelineReader[Seq2SeqBatch]:
-        splits = []
+        try:
+            directions, weights = self._splits[split]
+        except KeyError:
+            self._raise_split_error(split)
 
-        for available_split in self._split_lang_pairs.keys():
-            if available_split == split or available_split.startswith(split + "_"):
-                splits.append(available_split)
+        # Determine the directions to read.
+        if direction is not None:
+            if direction not in directions:
+                raise ValueError(
+                    f"`direction` must be a direction that exists in '{split}' split, but is '{direction}' instead."
+                )
 
-        if not splits:
-            raise ValueError(
-                f"`split` must be a valid split name, but the {self._dataset_name} dataset has no split named '{split}'."
+            directions = [direction]
+
+        # Initialize the text encoders for each direction.
+        text_encoders = {}
+
+        for direction in directions:
+            source_mode = "source"
+
+            if direction.origin:
+                source_mode = f"{source_mode}_{direction.origin}"
+
+            source_encoder = tokenizer.create_encoder(
+                task="translation", lang=direction.source_lang, mode=source_mode
             )
 
-        lang_pairs_to_read: Dict[LangPair, List[Tuple[str, int]]] = defaultdict(list)
+            target_encoder = tokenizer.create_encoder(
+                task="translation", lang=direction.target_lang, mode="target"
+            )
 
-        # Extract the language pairs along with their corpus sizes from the
-        # requested split or splits.
-        for split in splits:
-            split_lang_pairs = self._split_lang_pairs[split]
+            text_encoders[direction] = (source_encoder, target_encoder)
 
-            if lang_pairs is None:
-                for lang_pair, size in split_lang_pairs.items():
-                    lang_pairs_to_read[lang_pair].append((split, size))
+        if len(directions) == 1:
+            builder = self._read_direction(split, directions[0])
+        else:
+            # Build the direction pipelines.
+            pipelines = []
+
+            for direction in directions:
+                pipeline = self._read_direction(split, direction).and_return()
+
+                pipelines.append(pipeline)
+
+            if sample:
+                builder = DataPipeline.sample(pipelines, weights=weights, seed=seed)
+
+                seed += 1
             else:
-                for lang_pair in lang_pairs:
-                    try:
-                        size = split_lang_pairs[lang_pair]
-                    except KeyError:
-                        continue
+                builder = DataPipeline.concat(pipelines)
 
-                    lang_pairs_to_read[lang_pair].append((split, size))
+        # Shuffle examples. Must be consistent across all processes.
+        if example_shuffle_window != 1:
+            builder.shuffle(example_shuffle_window, seed)
 
-        # Ensure that we have found at least one split for each language pair.
-        if lang_pairs is not None:
-            for lang_pair in lang_pairs:
-                if lang_pair not in lang_pairs_to_read:
-                    raise ValueError(
-                        f"All language pairs in `lang_pairs` must be available in the dataset, but '{lang_pair}' is not found in the '{split}' split of the {self._dataset_name} dataset."
-                    )
+        seed += 1
 
-        builder = _NllbDataPipelineBuilder(
-            self._dataset_name,
-            self._data_dir,
-            tokenizer,
-            gang,
-            lang_pairs_to_read,
-            max_seq_len,
-            max_num_tokens,
-            sample,
-            shuffle_window_size,
-            num_prefetch,
-            seed,
-        )
+        static_batching = isinstance(batching, StaticBatching)
 
-        pipeline = builder.build()
+        # Shard.
+        builder.shard(gang.rank, gang.size, allow_uneven=not static_batching)
+
+        seed += gang.rank
+
+        # Encode source and target texts.
+        def encode(example: Dict[str, Any]) -> Dict[str, Any]:
+            direction = example["direction"]
+
+            source_encoder, target_encoder = text_encoders[direction]
+
+            example["source_indices"] = source_encoder(example["source_text"])
+            example["target_indices"] = target_encoder(example["target_text"])
+
+            return example
+
+        builder.map(encode, num_parallel_calls=npc)
+
+        if isinstance(batching, LengthBatching):
+            # Bucket by the length of the source or target sequence. The longer
+            # one will be considered the length of the example.
+            bucket_sizes = create_bucket_sizes(
+                max_seq_len=max_seq_len,
+                min_seq_len=min_seq_len,
+                max_num_elements=batching.max_num_elements,
+            )
+
+            builder.bucket_by_length(
+                bucket_sizes,
+                selector="source_indices,target_indices",
+                min_data_len=min_seq_len,
+                skip_below_min_examples=True,
+                skip_above_max_examples=True,
+            )
+        else:
+            # Filter out out-of-range examples.
+            def skip(example: Dict[str, Any]) -> bool:
+                source_len = len(example["source_indices"])
+                target_len = len(example["target_indices"])
+
+                max_len = max(source_len, target_len)
+
+                return max_len >= min_seq_len and max_len <= max_seq_len
+
+            builder.filter(skip)
+
+            # Bucket `batch_size` examples.
+            builder.bucket(batching.batch_size)
+
+        # Shuffle buckets.
+        if batch_shuffle_window != 1:
+            builder.shuffle(batch_shuffle_window, seed)
+
+        seed += 1
+
+        # Collate bucketed examples into a batch.
+        collater = Collater(pad_value=tokenizer.vocab_info.pad_idx)
+
+        builder.map(collater, num_parallel_calls=npc)
+
+        # Prefetch `num_prefetch` batches in background.
+        builder.prefetch(num_prefetch)
+
+        f = partial(self._to_batch, device=gang.device)
+
+        pipeline = builder.map(f).and_return()
 
         return DataPipelineReader[Seq2SeqBatch](
             pipeline,
             gang,
             num_accumulate=num_accumulate,
             drop_remainder=False,
-            sync_batches=True,
+            sync_batches=not static_batching,
         )
 
-    @override
-    def splits(self) -> Set[str]:
-        return set(self._split_lang_pairs.keys())
+    def _read_direction(self, split: str, direction: Direction) -> DataPipelineBuilder:
+        direction_pipeline = DataPipeline.constant(direction).and_return()
 
-    @override
-    def lang_pairs(self, split: str) -> Set[LangPair]:
-        try:
-            return set(self._split_lang_pairs[split].keys())
-        except KeyError:
-            raise ValueError(
-                f"`split` must be a valid split name, but the {self._dataset_name} dataset has no split named '{split}'."
-            )
+        source_file = self._data_dir.joinpath(split)
+        target_file = self._data_dir.joinpath(split)
 
+        if direction.origin is not None:
+            source_file = source_file.joinpath(direction.origin)
+            target_file = target_file.joinpath(direction.origin)
 
-class _NllbDataPipelineBuilder:
-    _dataset_name: str
-    _data_dir: Path
-    _tokenizer: TextTokenizer
-    _gang: Gang
-    _lang_pairs: Dict[LangPair, List[Tuple[str, int]]]
-    _max_seq_len: int
-    _max_num_tokens: int
-    _sample: bool
-    _shuffle_window_size: int
-    _num_prefetch: int
-    _seed: int
+        source = direction.source_lang
+        target = direction.target_lang
 
-    def __init__(
-        self,
-        dataset_name: str,
-        data_dir: Path,
-        tokenizer: TextTokenizer,
-        gang: Gang,
-        lang_pairs: Dict[LangPair, List[Tuple[str, int]]],
-        max_seq_len: int,
-        max_num_tokens: int,
-        sample: bool,
-        shuffle_window_size: int,
-        num_prefetch: int,
-        seed: int,
-    ) -> None:
-        self._dataset_name = dataset_name
-        self._data_dir = data_dir
-        self._tokenizer = tokenizer
-        self._gang = gang
-        self._lang_pairs = lang_pairs
-        self._max_seq_len = max_seq_len
-        self._max_num_tokens = max_num_tokens
-        self._sample = sample
-        self._shuffle_window_size = shuffle_window_size
-        self._num_prefetch = num_prefetch
-        self._seed = seed
-
-    def build(self) -> DataPipeline:
-        lang_pair_pipelines: List[DataPipeline] = []
-
-        # The number of examples to be read per language pair.
-        lang_pair_sizes: List[int] = []
-
-        # The total number of examples to be read.
-        total_size = 0
-
-        for lang_pair, splits in self._lang_pairs.items():
-            for split, size in splits:
-                # Sharding always returns a multiple of `gang.size` examples
-                # from the dataset and drops any remainder if the dataset is
-                # not evenly distributed among processes. Account for it.
-                size -= size % self._gang.size
-
-                if size == 0:
-                    raise DatasetError(
-                        f"The '{split}' split of the {self._dataset_name} dataset has no examples for the language pair '{lang_pair}'."
-                    )
-
-                pipeline = self._create_lang_pair_pipeline(split, lang_pair)
-
-                lang_pair_pipelines.append(pipeline)
-
-                lang_pair_sizes.append(size)
-
-                total_size += size
-
-        if self._sample:
-            weights = [s / total_size for s in lang_pair_sizes]
-
-            # Sample the language pairs in proportion to their corpus size.
-            builder = DataPipeline.sample(
-                lang_pair_pipelines, weights=weights, seed=self._seed
-            )
-        else:
-            builder = DataPipeline.concat(lang_pair_pipelines)
-
-        return self._build_pipeline(builder)
-
-    def _create_lang_pair_pipeline(
-        self, split: str, lang_pair: LangPair
-    ) -> DataPipeline:
-        source_lang, target_lang = lang_pair
-
-        source_file, target_file = self._get_lang_pair_files(
-            split, source_lang, target_lang
-        )
-
-        source_builder = read_text(source_file, rtrim=True, memory_map=True)
-        target_builder = read_text(target_file, rtrim=True, memory_map=True)
-
-        source_builder.shard(self._gang.rank, self._gang.size, allow_uneven=True)
-        target_builder.shard(self._gang.rank, self._gang.size, allow_uneven=True)
-
-        # Initialize the token encoders for the source and target languages.
-        source_encoder_mode = "source"
-
-        # Check if we have a train split with a specific data source.
-        if split.startswith("train_"):
-            source_encoder_mode = f"{source_encoder_mode}_{split[6:]}"
-
-        source_encoder = self._tokenizer.create_encoder(
-            task="translation", lang=source_lang, mode=source_encoder_mode
-        )
-
-        target_encoder = self._tokenizer.create_encoder(
-            task="translation", lang=target_lang, mode="target"
-        )
-
-        source_builder.map(source_encoder, num_parallel_calls=num_parallel_calls)
-        target_builder.map(target_encoder, num_parallel_calls=num_parallel_calls)
-
-        source_pipeline = source_builder.and_return()
-        target_pipeline = target_builder.and_return()
-
-        # Include the language pair name and the line number with each example
-        # for troubleshooting.
-        split_ = DataPipeline.constant(split).and_return()
-
-        lang_pair_ = DataPipeline.constant(lang_pair).and_return()
-
-        line_nr = DataPipeline.count(
-            start=self._gang.rank, step=self._gang.size
-        ).and_return()
-
-        # Zip the source and target pipelines along with the pseudo pipelines
-        # into one.
-        keys = ["split", "lang_pair", "line_nr", "source_indices", "target_indices"]
-
-        builder = DataPipeline.zip(
-            [split_, lang_pair_, line_nr, source_pipeline, target_pipeline], keys
-        )
-
-        return builder.and_return()
-
-    def _get_lang_pair_files(
-        self, split: str, source_lang: str, target_lang: str
-    ) -> Tuple[Path, Path]:
-        source_filename = f"{split}.{source_lang}-{target_lang}.{source_lang}"
-        target_filename = f"{split}.{source_lang}-{target_lang}.{target_lang}"
-
-        source_file = self._data_dir.joinpath(source_filename)
-        target_file = self._data_dir.joinpath(target_filename)
+        source_file = source_file.joinpath(f"{source}-{target}.{source}.txt")
+        target_file = target_file.joinpath(f"{source}-{target}.{target}.txt")
 
         if not source_file.exists():
             raise DatasetError(
-                f"The source language file '{source_file}' is not found in the {self._dataset_name} dataset."
+                f"The source file '{source_file}' is not found under {self._data_dir}."
             )
 
         if not target_file.exists():
             raise DatasetError(
-                f"The target language file '{target_file}' is not found in the {self._dataset_name} dataset."
+                f"The target file '{target_file}' is not found under {self._data_dir}."
             )
 
-        return source_file, target_file
+        source_builder = read_text(source_file, rtrim=True, memory_map=True)
+        target_builder = read_text(target_file, rtrim=True, memory_map=True)
 
-    def _build_pipeline(self, builder: DataPipelineBuilder) -> DataPipeline:
-        # Shuffle examples.
-        builder.shuffle(self._shuffle_window_size, self._seed + 1)
+        source_pipeline = source_builder.and_return()
+        target_pipeline = target_builder.and_return()
 
-        # Bucket by the length of the source or target sequence. The longer one
-        # will be considered the length of the example.
-        bucket_sizes = create_bucket_sizes(
-            max_num_elements=self._max_num_tokens,
-            max_seq_len=self._max_seq_len,
-            min_seq_len=4,
+        pipelines = [direction_pipeline, source_pipeline, target_pipeline]
+
+        return DataPipeline.zip(
+            pipelines, names=["direction", "source_text", "target_text"]
         )
-
-        builder.bucket_by_length(
-            bucket_sizes,
-            selector="source_indices,target_indices",
-            skip_above_max_examples=True,
-        )
-
-        # Collate bucketed examples into a batch.
-        collater = Collater(pad_value=self._tokenizer.vocab_info.pad_idx)
-
-        builder.map(collater, num_parallel_calls=num_parallel_calls)
-
-        # Prefetch examples in a background thread.
-        builder.prefetch(self._num_prefetch)
-
-        # Convert to `Seq2SeqBatch`.
-        builder.map(lambda b: self._example_to_batch(b, self._gang.device))
-
-        return builder.and_return()
 
     @staticmethod
-    def _example_to_batch(example: Dict[str, Any], device: Device) -> Seq2SeqBatch:
+    def _to_batch(example: Dict[str, Any], device: Device) -> Seq2SeqBatch:
         source_data = cast(SequenceData, example["source_indices"])
         target_data = cast(SequenceData, example["target_indices"])
 
@@ -438,43 +471,48 @@ class _NllbDataPipelineBuilder:
         )
 
         return Seq2SeqBatch(
-            source_seqs, source_padding_mask, target_seqs, target_padding_mask, example
+            source_seqs,
+            source_padding_mask,
+            target_seqs,
+            target_padding_mask,
+            example,
+        )
+
+    @override
+    def splits(self) -> Set[str]:
+        return set(self._splits.keys())
+
+    @override
+    def directions(self, split: str) -> List[Direction]:
+        try:
+            directions, _ = self._splits[split]
+        except KeyError:
+            self._raise_split_error(split)
+
+        return directions
+
+    def _raise_split_error(self, split: str) -> NoReturn:
+        raise ValueError(
+            f"`split` must be one of the following splits, but is '{split}' instead: {', '.join(sorted(self._splits.keys()))}"
         )
 
 
-load_parallel_text_dataset = DelegatingDatasetLoader[ParallelTextDataset]()
-
-
 @final
-class NllbDatasetLoader(AbstractDatasetLoader[NllbDataset]):
-    """Loads NLLB datasets."""
-
+class GenericParallelTextDatasetLoader(
+    AbstractDatasetLoader[GenericParallelTextDataset]
+):
     @override
-    def _load(self, path: Path, card: AssetCard) -> NllbDataset:
-        split_lang_pairs: Dict[str, Dict[LangPair, int]] = {}
-
-        splits_field = card.field("splits")
-
-        for split in splits_field.as_(Dict[str, str]).keys():
-            lang_pairs = {}
-
-            for key, size in splits_field.field(split).as_(Dict[str, int]).items():
-                try:
-                    source_lang, target_lang = key.split("-")
-                except ValueError as ex:
-                    raise AssetCardError(
-                        f"The items of the field 'splits.{split}' of the asset card '{card.name}' must represent language pairs, but '{key}' does not represent a language pair."
-                    ) from ex
-
-                lang_pair = LangPair(source_lang, target_lang)
-
-                lang_pairs[lang_pair] = size
-
-            split_lang_pairs[split] = lang_pairs
-
-        return NllbDataset(card.name, path, split_lang_pairs)
+    def _load(self, path: Path, card: AssetCard) -> GenericParallelTextDataset:
+        try:
+            return GenericParallelTextDataset.from_path(path)
+        except RuntimeError as ex:
+            raise AssetError(
+                f"{card.name} cannot be loaded. See nested exception for details."
+            ) from ex
 
 
-load_nllb_dataset = NllbDatasetLoader()
+load_generic_parallel_text_dataset = GenericParallelTextDatasetLoader()
 
-load_parallel_text_dataset.register("nllb", load_nllb_dataset)
+load_parallel_text_dataset.register(
+    "generic_parallel_text", load_generic_parallel_text_dataset
+)
