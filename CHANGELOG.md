@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/).
 ## [0.2.1] - TBD
 - Introduced `kv_dim` option to `StandardMultiheadAttention` (for different sizes of encoder and decoder)
 - Added the `CheckpointManager.get_model_checkpoint_path` method
+- Added the `target_twoway mode` in the NLLB tokenizer for formatting target sequences in NLLB or SONAR-like models
 
 ## [0.2.0] - 2023-11-29
 - Introduced LLaMA and LLaMA 2
