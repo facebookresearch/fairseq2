@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional, TextIO, Union, final
@@ -147,23 +148,37 @@ def load_wav2vec2_asr_evaluator(
     log_model(model, log)
 
     # Initialize the evaluation unit.
-    output_file = output_dir.joinpath(f"transcriptions/rank_{gang.rank}.txt")
+    text_output_file = output_dir.joinpath(f"transcriptions/rank_{gang.rank}.txt")
+    json_output_file = output_dir.joinpath(f"transcriptions/rank_{gang.rank}.jsonl")
 
     try:
-        output_file.parent.mkdir(parents=True, exist_ok=True)
+        text_output_file.parent.mkdir(parents=True, exist_ok=True)
     except OSError as ex:
         raise RuntimeError(
-            f"The output directory ({output_file.parent}) cannot be created. See nested exception for details."
+            f"The output directory '{text_output_file.parent}' cannot be created. See nested exception for details."
         ) from ex
 
     try:
-        output_fp = output_file.open("w")
+        text_output_fp = text_output_file.open("w")
     except OSError as ex:
         raise RuntimeError(
-            f"The output file ({output_file}) cannot be created. See nested exception for details."
+            f"The output file '{text_output_file}' cannot be created. See nested exception for details."
         ) from ex
 
-    unit = Wav2Vec2AsrEvalUnit(model, gang, tokenizer, output_stream=output_fp)
+    try:
+        json_output_fp = json_output_file.open("w")
+    except OSError as ex:
+        raise RuntimeError(
+            f"The output file '{json_output_file}' cannot be created. See nested exception for details."
+        ) from ex
+
+    unit = Wav2Vec2AsrEvalUnit(
+        model,
+        gang,
+        tokenizer,
+        text_output_stream=text_output_fp,
+        json_output_stream=json_output_fp,
+    )
 
     data_reader = dataset.create_reader(
         config.split,
@@ -194,6 +209,11 @@ def load_wav2vec2_asr_evaluator(
 class Wav2Vec2AsrEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
     """Represents a wav2vec 2.0 ASR model evaluation unit."""
 
+    _text_decoder: TextTokenDecoder
+    _pad_idx: int
+    _blank_label: int
+    _text_output_stream: Optional[TextIO]
+    _json_output_stream: Optional[TextIO]
     _metric_bag: Wav2Vec2AsrEvalMetricBag
 
     def __init__(
@@ -202,7 +222,9 @@ class Wav2Vec2AsrEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
         gang: Gang,
         tokenizer: TextTokenizer,
         *,
-        output_stream: Optional[TextIO] = None,
+        blank_label: int = 0,
+        text_output_stream: Optional[TextIO] = None,
+        json_output_stream: Optional[TextIO] = None,
     ) -> None:
         """
         :param model:
@@ -211,16 +233,33 @@ class Wav2Vec2AsrEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
             The gang for distributed evaluation.
         :param tokenizer:
             The tokenizer to use.
-        :param output_stream:
-            The output stream to dump transcriptions, WER, and UER metrics.
+        :param blank_label:
+            The blank label in logits.
+        :param text_output_stream:
+            The text output stream to dump transcriptions, WER, and UER metrics.
+        :param json_output_stream:
+            The JSON output stream to dump transcriptions, WER, and UER metrics.
         """
         super().__init__(model)
 
         check_model_type(model, Wav2Vec2AsrModel)
 
-        self._metric_bag = Wav2Vec2AsrEvalMetricBag(
-            gang, tokenizer, output_stream=output_stream
-        )
+        self._text_decoder = tokenizer.create_decoder()
+
+        pad_idx = tokenizer.vocab_info.pad_idx
+        if pad_idx is None:
+            raise ValueError(
+                "``vocab_info` of `tokenizer` must have a PAD symbol defined."
+            )
+
+        self._pad_idx = pad_idx
+
+        self._blank_label = blank_label
+
+        self._text_output_stream = text_output_stream
+        self._json_output_stream = json_output_stream
+
+        self._metric_bag = Wav2Vec2AsrEvalMetricBag(gang)
 
     @override
     def __call__(self, batch: Seq2SeqBatch) -> None:
@@ -234,7 +273,42 @@ class Wav2Vec2AsrEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
 
         self._metric_bag.update_batch_metrics(batch)
 
-        self._metric_bag.update_wer(batch, output)
+        # Compute WER and UER.
+        # (N, S), (N, S)
+        ref_seqs, ref_padding_mask = batch.target_seqs, batch.target_padding_mask
+
+        # (N, S), (N, S)
+        hyp_seqs, hyp_padding_mask = output.generate_hypotheses(
+            self._pad_idx, self._blank_label
+        )
+
+        refs = [self._text_decoder(s) for s in ref_seqs]
+        hyps = [self._text_decoder(s) for s in hyp_seqs]
+
+        self._metric_bag.wer.update(
+            refs, ref_seqs, ref_padding_mask, hyps, hyp_seqs, hyp_padding_mask
+        )
+
+        # Dump as text.
+        if stream := self._text_output_stream:
+            for ref, hyp in zip(refs, hyps):
+                stream.write("REF: ")
+                stream.write(ref)
+                stream.write("\n")
+                stream.write("HYP: ")
+                stream.write(hyp)
+                stream.write("\n\n")
+
+            stream.flush()
+
+        # Dump as JSON.
+        if stream := self._json_output_stream:
+            for ref, hyp in zip(refs, hyps):
+                json.dump({"ref": ref, "hyp": hyp}, stream, indent=None)
+
+                stream.write("\n")
+
+            stream.flush()
 
     def _forward(self, batch: SequenceBatch) -> Wav2Vec2AsrOutput:
         return self._model(batch)  # type: ignore[no-any-return]
@@ -253,73 +327,16 @@ class Wav2Vec2AsrEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
 class Wav2Vec2AsrEvalMetricBag(Wav2Vec2AsrMetricBag):
     """Holds the metrics of a wav2vec 2.0 ASR model evaluation task."""
 
-    _wer: WerMetric
-    _text_decoder: TextTokenDecoder
-    _pad_idx: int
-    _blank_label: int
-    _output_stream: Optional[TextIO]
+    wer: WerMetric
 
-    def __init__(
-        self,
-        gang: Gang,
-        tokenizer: TextTokenizer,
-        *,
-        blank_label: int = 0,
-        output_stream: Optional[TextIO] = None,
-    ) -> None:
+    def __init__(self, gang: Gang) -> None:
         """
         :param gang:
             The gang over which to sync metrics.
-        :param tokenizer:
-            The text tokenizer to compute the WER score.
-        :param blank_label:
-            The blank label in logits.
-        :param output_stream:
-            The output stream to dump transcriptions, WER, and UER metrics.
         """
         super().__init__(gang)
 
-        self.register_metric("_wer", WerMetric(device=gang.device), persistent=False)
-
-        self._text_decoder = tokenizer.create_decoder()
-
-        pad_idx = tokenizer.vocab_info.pad_idx
-        if pad_idx is None:
-            raise ValueError(
-                "``vocab_info` of `tokenizer` must have a PAD symbol defined."
-            )
-
-        self._pad_idx = pad_idx
-
-        self._blank_label = blank_label
-
-        self._output_stream = output_stream
-
-    @torch.inference_mode()
-    def update_wer(self, batch: Seq2SeqBatch, model_output: Wav2Vec2AsrOutput) -> None:
-        """Update the WER (Word Error Rate) score metric.
-
-        :param batch:
-            The batch processed by the model.
-        :param model_output:
-            The output of the model for ``batch``.
-        """
-        # (N, S), (N, S)
-        hyp_seqs, hyp_padding_mask = model_output.generate_hypotheses(
-            self._pad_idx, self._blank_label
-        )
-
-        self._wer.update(
-            self._text_decoder,
-            batch.target_seqs,
-            batch.target_padding_mask,
-            hyp_seqs,
-            hyp_padding_mask,
-            output_stream=self._output_stream,
-        )
-
-        if self._output_stream is not None:
-            self._output_stream.flush()
+        self.register_metric("wer", WerMetric(device=gang.device), persistent=False)
 
     @override
     def process_metric_values(self, values: Dict[str, Any]) -> None:
