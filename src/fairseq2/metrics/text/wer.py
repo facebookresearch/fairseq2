@@ -30,11 +30,19 @@ class WerMetric(Metric[Tuple[Tensor, Tensor]]):
     def __init__(self, *, device: Optional[Device] = None) -> None:
         super().__init__(device=device)
 
-        self._add_state("unit_err", torch.zeros((), device=device, dtype=torch.int64))
-        self._add_state("unit_len", torch.zeros((), device=device, dtype=torch.int64))
+        dtype = torch.int64
 
-        self._add_state("word_err", torch.zeros((), device=device, dtype=torch.int64))
-        self._add_state("word_len", torch.zeros((), device=device, dtype=torch.int64))
+        unit_err = torch.zeros((), device=device, dtype=dtype)
+        unit_len = torch.zeros((), device=device, dtype=dtype)
+
+        self._add_state("unit_err", unit_err)
+        self._add_state("unit_len", unit_len)
+
+        word_err = torch.zeros((), device=device, dtype=dtype)
+        word_len = torch.zeros((), device=device, dtype=dtype)
+
+        self._add_state("word_err", word_err)
+        self._add_state("word_len", word_len)
 
     @override
     @torch.inference_mode()
@@ -95,8 +103,8 @@ class WerMetric(Metric[Tuple[Tensor, Tensor]]):
             uer = self.unit_err * 100.0 / self.unit_len
             wer = self.word_err * 100.0 / self.word_len
         else:
-            uer = torch.zeros((), dtype=torch.float64)
-            wer = torch.zeros((), dtype=torch.float64)
+            uer = torch.zeros((), dtype=torch.float32)
+            wer = torch.zeros((), dtype=torch.float32)
 
         return uer, wer
 

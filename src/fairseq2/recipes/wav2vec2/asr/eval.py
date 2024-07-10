@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional, TextIO, Union, final
@@ -23,7 +22,7 @@ from fairseq2.datasets import LengthBatching
 from fairseq2.datasets.asr import GenericAsrDataset, load_asr_dataset
 from fairseq2.gang import Gang
 from fairseq2.logging import get_log_writer
-from fairseq2.metrics.wer import WerMetric
+from fairseq2.metrics.text import WerMetric
 from fairseq2.models.seq2seq import Seq2SeqBatch
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.models.wav2vec2.asr import Wav2Vec2AsrModel, load_wav2vec2_asr_model
@@ -163,36 +162,36 @@ def load_wav2vec2_asr_evaluator(
     log_model(model, log)
 
     # Initialize the evaluation unit.
-    text_output_file = output_dir.joinpath(f"transcriptions/rank_{gang.rank}.txt")
-    json_output_file = output_dir.joinpath(f"transcriptions/rank_{gang.rank}.jsonl")
+    ref_output_file = output_dir.joinpath(f"transcriptions/rank_{gang.rank}.ref.txt")
+    hyp_output_file = output_dir.joinpath(f"transcriptions/rank_{gang.rank}.hyp.txt")
 
     try:
-        text_output_file.parent.mkdir(parents=True, exist_ok=True)
+        ref_output_file.parent.mkdir(parents=True, exist_ok=True)
     except OSError as ex:
         raise RuntimeError(
-            f"The output directory '{text_output_file.parent}' cannot be created. See nested exception for details."
+            f"The output directory '{ref_output_file.parent}' cannot be created. See nested exception for details."
         ) from ex
 
     try:
-        text_output_fp = text_output_file.open("w")
+        ref_output_fp = ref_output_file.open("w")
     except OSError as ex:
         raise RuntimeError(
-            f"The output file '{text_output_file}' cannot be created. See nested exception for details."
+            f"The output file '{ref_output_file}' cannot be created. See nested exception for details."
         ) from ex
 
     try:
-        json_output_fp = json_output_file.open("w")
+        hyp_output_fp = hyp_output_file.open("w")
     except OSError as ex:
         raise RuntimeError(
-            f"The output file '{json_output_file}' cannot be created. See nested exception for details."
+            f"The output file '{hyp_output_file}' cannot be created. See nested exception for details."
         ) from ex
 
     unit = Wav2Vec2AsrEvalUnit(
         model,
         gang,
         tokenizer,
-        text_output_stream=text_output_fp,
-        json_output_stream=json_output_fp,
+        ref_output_stream=ref_output_fp,
+        hyp_output_stream=hyp_output_fp,
     )
 
     data_reader = dataset.create_reader(
@@ -229,8 +228,8 @@ class Wav2Vec2AsrEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
     _text_decoder: TextTokenDecoder
     _pad_idx: int
     _blank_label: int
-    _text_output_stream: Optional[TextIO]
-    _json_output_stream: Optional[TextIO]
+    _ref_output_stream: Optional[TextIO]
+    _hyp_output_stream: Optional[TextIO]
     _metric_bag: Wav2Vec2AsrEvalMetricBag
 
     def __init__(
@@ -240,8 +239,8 @@ class Wav2Vec2AsrEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
         tokenizer: TextTokenizer,
         *,
         blank_label: int = 0,
-        text_output_stream: Optional[TextIO] = None,
-        json_output_stream: Optional[TextIO] = None,
+        ref_output_stream: Optional[TextIO] = None,
+        hyp_output_stream: Optional[TextIO] = None,
     ) -> None:
         """
         :param model:
@@ -249,13 +248,13 @@ class Wav2Vec2AsrEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
         :param gang:
             The gang for distributed evaluation.
         :param tokenizer:
-            The tokenizer to use.
+            The tokenizer to encode target text.
         :param blank_label:
             The blank label in logits.
-        :param text_output_stream:
-            The text output stream to dump transcriptions, WER, and UER metrics.
-        :param json_output_stream:
-            The JSON output stream to dump transcriptions, WER, and UER metrics.
+        :param ref_output_stream:
+            The output stream to dump references.
+        :param hyp_output_stream:
+            The output stream to dump hypotheses.
         """
         super().__init__(model)
 
@@ -273,8 +272,8 @@ class Wav2Vec2AsrEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
 
         self._blank_label = blank_label
 
-        self._text_output_stream = text_output_stream
-        self._json_output_stream = json_output_stream
+        self._ref_output_stream = ref_output_stream
+        self._hyp_output_stream = hyp_output_stream
 
         self._metric_bag = Wav2Vec2AsrEvalMetricBag(gang)
 
@@ -290,7 +289,9 @@ class Wav2Vec2AsrEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
 
         self._metric_bag.update_batch_metrics(batch)
 
-        # Compute WER and UER.
+        self._compute_wer(batch, output)
+
+    def _compute_wer(self, batch: Seq2SeqBatch, output: Wav2Vec2AsrOutput) -> None:
         # (N, S), (N, S)
         ref_seqs, ref_padding_mask = batch.target_seqs, batch.target_padding_mask
 
@@ -306,23 +307,18 @@ class Wav2Vec2AsrEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
             refs, ref_seqs, ref_padding_mask, hyps, hyp_seqs, hyp_padding_mask
         )
 
-        # Dump as text.
-        if stream := self._text_output_stream:
-            for ref, hyp in zip(refs, hyps):
-                stream.write("REF: ")
+        # Dump references.
+        if stream := self._ref_output_stream:
+            for ref in refs:
                 stream.write(ref)
                 stream.write("\n")
-                stream.write("HYP: ")
-                stream.write(hyp)
-                stream.write("\n\n")
 
             stream.flush()
 
-        # Dump as JSON.
-        if stream := self._json_output_stream:
-            for ref, hyp in zip(refs, hyps):
-                json.dump({"ref": ref, "hyp": hyp}, stream, indent=None)
-
+        # Dump hypotheses.
+        if stream := self._hyp_output_stream:
+            for hyp in hyps:
+                stream.write(hyp)
                 stream.write("\n")
 
             stream.flush()
