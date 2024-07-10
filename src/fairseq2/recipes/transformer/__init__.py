@@ -13,9 +13,12 @@ from fairseq2.recipes.transformer.translate import (
     load_text_translator,
     text_translate_presets,
 )
+from fairseq2.recipes.utils.sweep import default_sweep_tagger
 
 
 def _setup_transformer_cli(cli: Cli) -> None:
+    default_sweep_tagger.extend_allow_set("source_lang", "target_lang")
+
     group = cli.add_group(
         "transformer", help="Transformer-based machine translation recipes"
     )
