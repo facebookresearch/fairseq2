@@ -403,6 +403,8 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
         except KeyError:
             raise ValueError("`batch.example` must contain a 'prompt' item.")
 
+        sample_ids = batch.example["id"]
+
         output = self._generator(batch.seqs, batch.padding_mask)
 
         self._metric_bag.update_batch_metrics(output)
@@ -411,7 +413,9 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
         if not self._text_output_stream and not self._json_output_stream:
             return
 
-        for prompt, hypotheses in zip(prompts, output.hypotheses):
+        for sample_id, prompt, hypotheses in zip(
+            sample_ids, prompts, output.hypotheses
+        ):
             if len(hypotheses) == 0:
                 raise RuntimeError(
                     "The sequence generator returned no hypothesis. Please file a bug report."
@@ -470,6 +474,7 @@ class TextGenerateUnit(AbstractGeneratorUnit[SequenceBatch]):
             # Dump as JSON.
             if stream := self._json_output_stream:
                 json_output = {
+                    "id": sample_id,
                     "prompt": prompt,
                     "response": response,
                     "token_indices": token_indices,
