@@ -54,21 +54,21 @@ def test_load_dense_distill_600m() -> None:
 
 def test_tokenizer_special_tokens() -> None:
     model_name = "nllb-200_dense_distill_600m"
+
     tokenizer = load_nllb_tokenizer(model_name, progress=False)
+
     text = "Hello world!"
 
-    # by default, the "source" mode is active.
+    # By default, the "source" mode is active.
     tokens = tokenizer.create_encoder(mode=None).encode_as_tokens(text)
+
     assert tokens == ["__eng_Latn__", "▁Hello", "▁world", "!", "</s>"]
+
     tokens = tokenizer.create_encoder(mode="source").encode_as_tokens(text)
+
     assert tokens == ["__eng_Latn__", "▁Hello", "▁world", "!", "</s>"]
 
     # "target" mode creates the decoder input tokens
     tokens = tokenizer.create_encoder(mode="target").encode_as_tokens(text)
-    assert tokens == ["</s>", "__eng_Latn__", "▁Hello", "▁world", "!"]
 
-    # "target_twoway" mode creates a sequence of tokens which can be trimmed
-    # to serve as decoder inputs (all tokens except the last one)
-    # or to serve as decoder targets (all tokens except the first one)
-    tokens = tokenizer.create_encoder(mode="target_twoway").encode_as_tokens(text)
     assert tokens == ["</s>", "__eng_Latn__", "▁Hello", "▁world", "!", "</s>"]

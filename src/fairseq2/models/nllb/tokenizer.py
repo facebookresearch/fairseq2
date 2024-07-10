@@ -99,13 +99,6 @@ class NllbTokenizer(SentencePieceTokenizer):
             # Target sequences are expected to start with an EOS, followed by
             # the language token.
             prefix_tokens = ["</s>", f"__{lang}__"]
-            suffix_tokens = []
-        elif mode == "target_twoway":
-            # Encode a sentence with the EOS both in the beginning and in the end.
-            # Then its prefix without the last token (e.g. "</s> __eng_Latn__ Hello world !") could serve as the decoder input,
-            # and its suffix without the first token (e.g. "__eng_Latn__ Hello world ! </s>") could serve as the decoder target.
-            # This is an elegant way to make sure that decoder inputs and targets are always consistent.
-            prefix_tokens = ["</s>", f"__{lang}__"]
             suffix_tokens = ["</s>"]
         else:
             raise ValueError(

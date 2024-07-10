@@ -33,7 +33,7 @@ from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.typing import Device, override
 
 
-@dataclass(frozen=True)
+@dataclass(unsafe_hash=True)  # Due to FSDP, we cannot freeze.
 class Direction:
     """Represents the language direction of a parallel corpus."""
 
