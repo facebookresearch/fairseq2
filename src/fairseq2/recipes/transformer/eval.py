@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Literal, Optional, TextIO, Union, final
@@ -29,7 +28,7 @@ from fairseq2.gang import Gang
 from fairseq2.generation import Seq2SeqGenerator
 from fairseq2.generation.text import SequenceToTextConverter
 from fairseq2.logging import get_log_writer
-from fairseq2.metrics.bleu import BleuMetric
+from fairseq2.metrics.text import BleuMetric, ChrfMetric
 from fairseq2.models.seq2seq import Seq2SeqBatch, as_auto_regressive_input
 from fairseq2.models.sequence import SequenceModelOutput
 from fairseq2.models.transformer import load_transformer_model
@@ -226,42 +225,54 @@ def load_transformer_evaluator(
         data_readers.append(data_reader)
 
         # BLEU Evaluation
-        text_output_file = output_dir.joinpath(
-            f"translations/{direction}/rank_{gang.rank}.txt"
+        src_output_file = output_dir.joinpath(
+            f"translations/{direction}/rank_{gang.rank}.src.txt"
         )
 
-        json_output_file = output_dir.joinpath(
-            f"translations/{direction}/rank_{gang.rank}.jsonl"
+        ref_output_file = output_dir.joinpath(
+            f"translations/{direction}/rank_{gang.rank}.ref.txt"
+        )
+
+        hyp_output_file = output_dir.joinpath(
+            f"translations/{direction}/rank_{gang.rank}.hyp.txt"
         )
 
         try:
-            text_output_file.parent.mkdir(parents=True, exist_ok=True)
+            src_output_file.parent.mkdir(parents=True, exist_ok=True)
         except OSError as ex:
             raise RuntimeError(
-                f"The output directory '{text_output_file.parent}' cannot be created. See nested exception for details."
+                f"The output directory '{src_output_file.parent}' cannot be created. See nested exception for details."
             ) from ex
 
         try:
-            text_output_fp = text_output_file.open("w")
+            src_output_fp = src_output_file.open("w")
         except OSError as ex:
             raise RuntimeError(
-                f"The output file '{text_output_file}' cannot be created. See nested exception for details."
+                f"The output file '{src_output_file}' cannot be created. See nested exception for details."
             ) from ex
 
         try:
-            json_output_fp = json_output_file.open("w")
+            ref_output_fp = ref_output_file.open("w")
         except OSError as ex:
             raise RuntimeError(
-                f"The output file '{json_output_file}' cannot be created. See nested exception for details."
+                f"The output file '{ref_output_file}' cannot be created. See nested exception for details."
             ) from ex
 
-        bleu_unit = TransformerBleuEvalUnit(
+        try:
+            hyp_output_fp = hyp_output_file.open("w")
+        except OSError as ex:
+            raise RuntimeError(
+                f"The output file '{hyp_output_file}' cannot be created. See nested exception for details."
+            ) from ex
+
+        bleu_unit = TransformerBleuChrfEvalUnit(
             direction,
             generator,
             tokenizer,
             gang,
-            text_output_stream=text_output_fp,
-            json_output_stream=json_output_fp,
+            src_output_stream=src_output_fp,
+            ref_output_stream=ref_output_fp,
+            hyp_output_stream=hyp_output_fp,
         )
 
         units.append(bleu_unit)
@@ -309,6 +320,16 @@ class TransformerLossEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
         *,
         label_smoothing: float = 0.0,
     ) -> None:
+        """
+        :param model:
+            The Transformer model. Might be wrapped with DDP or FSDP.
+        :param direction:
+            The language direction to evaluate.
+        :param gang:
+            The gang for distributed evaluation.
+        :param label_smoothing:
+            The amount of label smoothing to apply while computing the loss.
+        """
         super().__init__(model, display_name=f"loss/{direction}")
 
         self._label_smoothing = label_smoothing
@@ -339,12 +360,13 @@ class TransformerLossEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
 
 
 @final
-class TransformerBleuEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
-    """Represents a Transformer model BLEU evaluation unit."""
+class TransformerBleuChrfEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
+    """Represents a Transformer model BLEU/chrF++ evaluation unit."""
 
     _converter: SequenceToTextConverter
-    _text_output_stream: Optional[TextIO]
-    _json_output_stream: Optional[TextIO]
+    _src_output_stream: Optional[TextIO]
+    _ref_output_stream: Optional[TextIO]
+    _hyp_output_stream: Optional[TextIO]
     _metric_bag: Seq2SeqGenerationMetricBag
 
     def __init__(
@@ -354,17 +376,35 @@ class TransformerBleuEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
         tokenizer: TextTokenizer,
         gang: Gang,
         *,
-        text_output_stream: Optional[TextIO] = None,
-        json_output_stream: Optional[TextIO] = None,
+        src_output_stream: Optional[TextIO] = None,
+        ref_output_stream: Optional[TextIO] = None,
+        hyp_output_stream: Optional[TextIO] = None,
     ) -> None:
+        """
+        :param direction:
+            The language direction to evaluate.
+        :param generator:
+            The sequence generator.
+        :param tokenizer:
+            The tokenizer to encode target text.
+        :param gang:
+            The gang for distributed evaluation.
+        :param src_output_stream:
+            The output stream to dump sentences in the source language.
+        :param ref_output_stream:
+            The output stream to dump references.
+        :param hyp_output_stream:
+            The output stream to dump hypotheses.
+        """
         super().__init__(generator.model, display_name=f"bleu/{direction}")
 
         self._converter = SequenceToTextConverter(
             generator, tokenizer, "translation", direction.target_lang
         )
 
-        self._text_output_stream = text_output_stream
-        self._json_output_stream = json_output_stream
+        self._src_output_stream = src_output_stream
+        self._ref_output_stream = ref_output_stream
+        self._hyp_output_stream = hyp_output_stream
 
         self._metric_bag = Seq2SeqGenerationMetricBag(gang)
 
@@ -372,10 +412,19 @@ class TransformerBleuEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
             "bleu", BleuMetric(device=gang.device), persistent=False
         )
 
+        self._metric_bag.register_metric(
+            "chrf", ChrfMetric(device=gang.device), persistent=False
+        )
+
     @override
     def __call__(self, batch: Seq2SeqBatch) -> None:
         if batch.example is None:
             raise ValueError("`batch.example` must not be `None`.")
+
+        try:
+            srcs = batch.example["source_text"]
+        except KeyError:
+            raise ValueError("`batch.example` must contain a 'source_text' item.")
 
         try:
             refs = batch.example["target_text"]
@@ -387,26 +436,30 @@ class TransformerBleuEvalUnit(AbstractEvalUnit[Seq2SeqBatch]):
         )
 
         self._metric_bag.bleu.update(refs, hyps)
+        self._metric_bag.chrf.update(refs, hyps)
 
         self._metric_bag.update_batch_metrics(output, batch.num_source_elements())
 
-        # Dump as text.
-        if stream := self._text_output_stream:
-            for ref, hyp in zip(refs, hyps):
-                stream.write("REF: ")
-                stream.write(ref)
+        # Dump source sentences.
+        if stream := self._src_output_stream:
+            for src in srcs:
+                stream.write(src)
                 stream.write("\n")
-                stream.write("HYP: ")
-                stream.write(hyp)
-                stream.write("\n\n")
 
             stream.flush()
 
-        # Dump as JSON.
-        if stream := self._json_output_stream:
-            for ref, hyp in zip(refs, hyps):
-                json.dump({"ref": ref, "hyp": hyp}, stream, indent=None)
+        # Dump references.
+        if stream := self._ref_output_stream:
+            for ref in refs:
+                stream.write(ref)
+                stream.write("\n")
 
+            stream.flush()
+
+        # Dump hypotheses.
+        if stream := self._hyp_output_stream:
+            for hyp in hyps:
+                stream.write(hyp)
                 stream.write("\n")
 
             stream.flush()

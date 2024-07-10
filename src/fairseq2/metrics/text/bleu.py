@@ -30,44 +30,51 @@ class BleuMetric(Metric[Tensor]):
     def __init__(self, *, device: Optional[Device] = None) -> None:
         super().__init__(device=device)
 
-        self._add_state("sys_len", torch.zeros((), device=device, dtype=torch.int64))
-        self._add_state("ref_len", torch.zeros((), device=device, dtype=torch.int64))
+        dtype = torch.int64
 
-        self._add_state("valid_ngrams", torch.zeros((MAX_NGRAM_ORDER,), device=device, dtype=torch.int64))  # fmt: skip
-        self._add_state("total_ngrams", torch.zeros((MAX_NGRAM_ORDER,), device=device, dtype=torch.int64))  # fmt: skip
+        sys_len = torch.zeros((), device=device, dtype=dtype)
+        ref_len = torch.zeros((), device=device, dtype=dtype)
+
+        self._add_state("sys_len", sys_len)
+        self._add_state("ref_len", ref_len)
+
+        valid_ngrams = torch.zeros((MAX_NGRAM_ORDER,), device=device, dtype=dtype)
+        total_ngrams = torch.zeros((MAX_NGRAM_ORDER,), device=device, dtype=dtype)
+
+        self._add_state("valid_ngrams", valid_ngrams)
+        self._add_state("total_ngrams", total_ngrams)
 
     @override
     @torch.inference_mode()
     def update(self, refs: Sequence[str], hyps: Sequence[str]) -> Self:
         """
         :param refs:
-            The reference strings.
+            The references.
         :param hyps:
-            The hypothesis strings.
+            The hypotheses.
         """
-        device = self.sys_len.device
-
         bleu = corpus_bleu(hyps, [refs])
 
         self.sys_len += bleu.sys_len
         self.ref_len += bleu.ref_len
 
-        self.valid_ngrams += torch.tensor(bleu.counts, device=device)
-        self.total_ngrams += torch.tensor(bleu.totals, device=device)
+        self.valid_ngrams += torch.tensor(bleu.counts, device=self.device)
+        self.total_ngrams += torch.tensor(bleu.totals, device=self.device)
 
         return self
 
     @override
     @torch.inference_mode()
     def compute(self) -> Tensor:
+        sys_len = int(self.sys_len)
+        ref_len = int(self.ref_len)
+
         valid_ngrams = self.valid_ngrams.tolist()
         total_ngrams = self.total_ngrams.tolist()
 
-        bleu = BLEU.compute_bleu(
-            valid_ngrams, total_ngrams, int(self.sys_len), int(self.ref_len)
-        )
+        score_output = BLEU.compute_bleu(valid_ngrams, total_ngrams, sys_len, ref_len)
 
-        return torch.tensor(bleu.score, device=self.sys_len.device)
+        return torch.tensor(score_output.score, device=self.device)
 
     @override
     @torch.inference_mode()
