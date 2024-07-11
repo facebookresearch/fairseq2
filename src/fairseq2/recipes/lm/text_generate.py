@@ -102,10 +102,10 @@ class SamplingConfig:
     sampler: Literal["top-p", "top-k"] = "top-p"
     """The sampling algorithm."""
 
-    top_p: float = 0.9
+    top_p: float = 1.0
     """The cumulative probability threshold for top-p sampling."""
 
-    top_k = 10
+    top_k = 1
     """The number of top candidates to select from for top-k sampling."""
 
     min_gen_len: int = 1
@@ -126,7 +126,7 @@ class SamplingConfig:
     normalize_scores: bool = True
     """If ``True``, normalizes scores by lengths of generated sequences."""
 
-    temperature: float = 0.6
+    temperature: float = 1.0
     """The logit temperature."""
 
     unk_penalty: float = 0.0
