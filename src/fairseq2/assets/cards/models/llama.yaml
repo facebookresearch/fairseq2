@@ -90,6 +90,13 @@ model_arch: llama3_8b
 
 ---
 
+name: speech_llama3_8b
+base: llama3
+model_arch: speech_llama3_8b
+checkpoint: /fsx-ram/shared/Meta-Llama-3-8B/consolidated.00.pth
+
+---
+
 name: llama3_8b_instruct
 base: llama3_instruct
 model_arch: llama3_8b

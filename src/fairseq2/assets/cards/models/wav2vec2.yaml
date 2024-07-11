@@ -37,8 +37,16 @@ tokenizer_ref: librispeech_asr
 
 ---
 
+# name: dinosr_base
+# model_type: wav2vec2  # compat
+# model_family: wav2vec2
+# model_arch: 
+# checkpoint: "https://ai.meta.com/pseudo_dinosr_base/;gated=true"
+
+# using the same version as /opt/hpcaas/.mounts/fs-0565f60d669b6a2d3/home/yilinyang/proj/fairseq2/src/fairseq2/assets/cards
+# to ensure that seamless-communication loading is correct
 name: dinosr_base
 model_type: wav2vec2  # compat
 model_family: wav2vec2
 model_arch: pseudo_dinosr_base
-checkpoint: "https://ai.meta.com/pseudo_dinosr_base/;gated=true"
+checkpoint: "file:///fsx-ust/andyyuan/pt_models/xlsr_ckpts/pseudo_dinosr_spin_ft_use7_frz5_cl4096.pt"

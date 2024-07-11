@@ -1,0 +1,6 @@
+
+# name: dinosr_base
+# model_type: dinosr_95m  # compat
+# model_family: dinosr
+# model_arch: dinosr_95m
+# checkpoint: "https://ai.meta.com/pseudo_dinosr_base/;gated=true"

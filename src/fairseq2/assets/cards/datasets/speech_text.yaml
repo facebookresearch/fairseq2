@@ -1,0 +1,10 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
+name: mls_en
+data: /fsx-ust/steventan0110/dataset/dinosr_train/mls_en
+dataset_family: align_speech_text
+data_path: /fsx-ust/steventan0110/dataset/dinosr_train/mls_en
