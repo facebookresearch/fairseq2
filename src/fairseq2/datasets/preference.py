@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Sequence, Union, cast, final
 
 import torch
+from torch import Tensor
 from typing_extensions import NoReturn
 
 from fairseq2.assets import AssetCard, AssetError
@@ -28,11 +29,12 @@ from fairseq2.gang import Gang
 from fairseq2.models.sequence import SequenceBatch
 from fairseq2.nn.padding import get_seqs_and_padding_mask
 from fairseq2.typing import override
-from torch import Tensor
+
 
 @dataclass
 class PreferenceOptimizationBatch:
     """Represents a preference optimization batch."""
+
     chosen: SequenceBatch
     rejected: SequenceBatch
 
@@ -92,10 +94,14 @@ class PreferenceOptimizationDataset(ABC):
             The extra parameters specific to the dataset implementation.
         """
 
-load_preference_optimization_dataset = DelegatingDatasetLoader[PreferenceOptimizationDataset]()
+
+load_preference_optimization_dataset = DelegatingDatasetLoader[
+    PreferenceOptimizationDataset
+]()
 
 # TODO: FIX, INFER
 npc = 10
+
 
 @final
 class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
@@ -383,9 +389,13 @@ class GenericPreferenceOptimizationDataset(PreferenceOptimizationDataset):
 
 
 @final
-class GenericPreferenceOptimizationDatasetLoader(AbstractDatasetLoader[GenericPreferenceOptimizationDataset]):
+class GenericPreferenceOptimizationDatasetLoader(
+    AbstractDatasetLoader[GenericPreferenceOptimizationDataset]
+):
     @override
-    def _load(self, path: Path, card: AssetCard) -> GenericPreferenceOptimizationDataset:
+    def _load(
+        self, path: Path, card: AssetCard
+    ) -> GenericPreferenceOptimizationDataset:
         try:
             return GenericPreferenceOptimizationDataset.from_path(path)
         except RuntimeError as ex:
@@ -394,7 +404,9 @@ class GenericPreferenceOptimizationDatasetLoader(AbstractDatasetLoader[GenericPr
             ) from ex
 
 
-load_generic_preference_optimization_dataset = GenericPreferenceOptimizationDatasetLoader()
+load_generic_preference_optimization_dataset = (
+    GenericPreferenceOptimizationDatasetLoader()
+)
 
 load_preference_optimization_dataset.register(
     "generic_preference_optimization", load_generic_preference_optimization_dataset
