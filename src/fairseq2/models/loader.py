@@ -185,10 +185,13 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         progress: bool = True,
     ) -> ModelT:
         card = retrieve_asset_card(model_name_or_card, self._asset_store)
-
+        
         # Retrieve the gang for tensor parallelism.
         gang = gangs.get("tp") if gangs is not None else None
-
+        # log.info("Card: {}", card)
+        # if gang is not None:
+        #     log.info("Gang: {}", gang)
+        # log.info("Device: {}", device)
         if gang is not None:
             if device is None:
                 device = gang.device
@@ -225,7 +228,8 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         model = None
 
         config = self._config_loader(card)
-
+        # print(config)
+    
         if device.type == "meta":
             try:
                 model = self._factory(config, device=META, dtype=dtype)
@@ -241,9 +245,8 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
 
         # Load the checkpoint.
         checkpoint_uri = card.field("checkpoint").as_uri()
-
         shard_idx = gang.rank if gang is not None and gang.size != 1 else None
-
+        # checkpoint_uri = "https://ai.meta.com/pseudo_dinosr_base/;gated=true"
         try:
             path = self._download_manager.download_checkpoint(
                 checkpoint_uri,
@@ -252,6 +255,7 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
                 force=force,
                 progress=progress,
             )
+            log.info("Loading Checkpoint from Path: {}", path)
         except ValueError as ex:
             raise AssetCardError(
                 f"The value of the field 'checkpoint' of the asset card '{card.name}' must be URI. See nested exception for details."
@@ -279,7 +283,6 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         if model is None:
             # If the model is sharded, load on CPU to avoid OOM errors.
             init_device = CPU if gang is not None and gang.size > 1 else device
-
             model = self._factory(config, device=init_device, dtype=dtype)
 
         if gang is not None and gang.size > 1:
@@ -295,6 +298,8 @@ class DenseModelLoader(ModelLoader[ModelT], Generic[ModelT, ModelConfigT]):
         if model_device != device:
             # Move the model to the actual device without initializing. Its
             # state will be overwritten by the checkpoint anyways.
+            # print(card)
+            # print(model_device, device)
             to_empty(model, device=device)
 
         # Load the model.

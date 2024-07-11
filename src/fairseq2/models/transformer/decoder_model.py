@@ -51,6 +51,9 @@ class TransformerDecoderModel(DecoderModel):
         final_proj: Projection,
         max_seq_len: int,
         vocab_info: VocabularyInfo,
+        speech_encoder = None,
+        speech_dim_adapter = None,
+        speech_decoder = None,
     ) -> None:
         """
         :param decoder_frontend:
@@ -65,10 +68,11 @@ class TransformerDecoderModel(DecoderModel):
             The vocabulary information of sequences produced by the model.
         """
         super().__init__(decoder.model_dim, max_seq_len, vocab_info)
-
         self.decoder_frontend = decoder_frontend
         self.decoder = decoder
-
+        self.speech_encoder = speech_encoder
+        self.speech_dim_adapter = speech_dim_adapter
+        self.speech_decoder = speech_decoder
         self.final_proj = final_proj
 
     @override

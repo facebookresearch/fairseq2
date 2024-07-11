@@ -487,7 +487,9 @@ def load_state_dict(module: Module, state_dict: Mapping[str, Any]) -> None:
     contain any keys corresponding to descendants that are set to ``None`` via
     :meth:`Module.register_module()`.
     """
-    module.load_state_dict(state_dict, strict=True)
+
+    # TODO: change to False due to my hacky implementation that merges speech decoder with Llama3
+    module.load_state_dict(state_dict, strict=False) 
 
     unexpected_keys = []
 

@@ -80,7 +80,7 @@ class StandardModelConfigLoader(ModelConfigLoader[ModelConfigT]):
 
     def __call__(self, model_name_or_card: Union[str, AssetCard, Path]) -> ModelConfigT:
         card = retrieve_asset_card(model_name_or_card, self._asset_store)
-
+        
         model_family = card.field("model_family").as_(str)
         if model_family != self._family:
             raise AssetCardError(

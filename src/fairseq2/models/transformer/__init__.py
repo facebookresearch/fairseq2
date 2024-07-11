@@ -34,3 +34,4 @@ from fairseq2.models.transformer.model import TransformerModel as TransformerMod
 from fairseq2.models.transformer.model import (
     init_final_projection as init_final_projection,
 )
+from fairseq2.models.transformer.speech_llama import SpeechTransformerDecoderModel as SpeechTransformerDecoderModel

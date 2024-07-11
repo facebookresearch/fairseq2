@@ -205,6 +205,10 @@ class TiktokenEncoder(TextTokenEncoder):
     @override
     def suffix_indices(self) -> Optional[Tensor]:
         return self._suffix_index_tensor
+    
+    def decode(self, tok: List[int]) -> str:
+        return self._encoding.decode(tok)
+        
 
 
 @final

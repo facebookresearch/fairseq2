@@ -82,6 +82,10 @@ class LLaMA3Tokenizer(TiktokenTokenizer):
         elif mode == "prompt_response":
             prefix_tokens = []
             suffix_tokens = [self._eos_token]
+        elif mode == "speech_text_align":
+            # we do not pre-pend bos/eos, directly learn the word embedding during training
+            prefix_tokens = []
+            suffix_tokens = []
         else:
             raise ValueError(
                 f"`mode` must be 'default' or 'prompt', but is '{mode}' instead."

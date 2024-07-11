@@ -393,6 +393,7 @@ class StandardMultiheadAttention(MultiheadAttention):
         *,
         attn_mask: Optional[AttentionMask] = None,
         state_bag: Optional[IncrementalStateBag] = None,
+        blockwise_attn_mask = None
     ) -> Tensor:
         # (N, S, M) -> (N, H, S, K_h)
         q = self._project_q(seqs, padding_mask, state_bag)
@@ -469,6 +470,7 @@ class StandardMultiheadAttention(MultiheadAttention):
             v,
             attn_mask=attn_mask,
             needs_weights=needs_weights,
+            blockwise_attn_mask=blockwise_attn_mask
         )
 
         if attn_weights is not None:

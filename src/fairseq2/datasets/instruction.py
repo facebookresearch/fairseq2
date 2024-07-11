@@ -349,7 +349,7 @@ class GenericInstructionDataset(InstructionDataset):
             return SequenceBatch(seqs, padding_mask, target_mask, example=example)
 
         pipeline = builder.map(to_batch).and_return()
-
+        # pipeline = builder.and_return()
         return DataPipelineReader[SequenceBatch](
             pipeline,
             gang,

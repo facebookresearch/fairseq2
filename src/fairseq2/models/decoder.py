@@ -44,6 +44,7 @@ class DecoderModel(SequenceModel):
 
         return self.project(decoder_output, decoder_padding_mask)
 
+
     @abstractmethod
     def decode(
         self,

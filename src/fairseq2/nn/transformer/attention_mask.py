@@ -175,6 +175,70 @@ class CausalAttentionMask(AbstractAttentionMask):
 
 
 @final
+class BlockwiseCausalAttentionMaskFactory(AttentionMaskFactory):
+    def __call__(
+        self,
+        seqs: Tensor,
+        keys: Tensor,
+        *,
+        training: bool = True,
+        state_bag: Optional[IncrementalStateBag] = None,
+        boundary_index=None
+    ) -> Optional[CausalAttentionMask]:
+        """
+        example boundary index seq, appended by -2 that should be ignored 
+        [ 17,  24,  43,  54,  57,  60,  65,  72,  75,  85,  90,  96, 103, 107,
+         110, 128, 137, 140, 143, 154, 163, 164, 197, 203, 207, 213, 226, 229,
+         240, 273, 279, 285, 293, 298, 306, 310, 313, 319, 329, 348,  -1,  -1],
+        [ 24,  29,  33,  35,  43,  52,  75,  79,  81,  89,  97,  98, 101, 122,
+         130, 138, 140, 149, 157, 159, 162, 171, 174, 177, 188, 198, 203, 207,
+         235, 243, 245, 250, 261, 265, 276, 279, 290, 295, 297, 301, 306, 322]
+        Note that, the last index might be out of bound!
+        """
+        raise RuntimeError("This factory is no longer used, the attention map is created inside dataloader")
+        attn_len: Optional[int]
+        attn_len = seqs.size(1)
+        print(boundary_index)
+        exit(0)
+        
+        if training or state_bag is None:
+            seq_len = attn_len
+        else:
+            seq_len = state_bag.step_nr + attn_len
+
+        if seqs is keys:  # Self attention
+            key_len = seq_len
+        else:
+            key_len = keys.size(1)
+
+        if seq_len > key_len:
+            raise ValueError(
+                f"The sequence length of `seqs` must be less than or equal to the sequence length of `keys` ({key_len}), but is {seq_len} instead."
+            )
+
+        if attn_len <= 1:
+            # Return `None` if the sequence has a length of 1 during training;
+            # or if we attend to past steps during incremental decoding.
+            return None
+
+        # PyTorch SDPA does not support `attn_len`; set it to `None` if it is
+        # redundant.
+        if attn_len == seq_len:
+            attn_len = None
+
+        return CausalAttentionMask(
+            seq_len,
+            key_len,
+            attn_len=attn_len,
+            device=seqs.device,
+            dtype=seqs.dtype,
+        )
+
+    def __repr__(self) -> str:
+        return "BlockwiseCausalAttentionMaskFactory()"
+
+
+@final
 class CausalAttentionMaskFactory(AttentionMaskFactory):
     """Constructs instances of :class:`CausalAttentionMask`."""
 

@@ -8,12 +8,13 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Optional, Tuple, final
+from typing import Any, Optional, Tuple, final, Dict
 
 import torch
 from torch import Tensor
 from torch.nn.functional import log_softmax
-
+import torch.nn as nn
+import torch.nn.functional as F
 from fairseq2.data import VocabularyInfo
 from fairseq2.models.model import Model
 from fairseq2.nn.functional import nll_loss
@@ -203,3 +204,46 @@ class SequenceModelOutput:
 
         # ()
         return (loss * loss_mask).sum()
+
+
+
+
+
+@final
+@dataclass
+class SpeechTextReprOutput:
+    speech_repr: Tensor
+    text_repr: Tensor
+    mask: PaddingMask
+    embed_table: Optional[Tensor]=None
+    text_tokens: Optional[Tensor]=None
+    mse_loss_fn = nn.MSELoss(reduce=None, reduction="none")
+
+    def compute_loss(self, compute_acc=False) -> Dict[Tensor]:
+        mse_loss = self.mse_loss_fn(self.speech_repr, self.text_repr)
+        if self.mask is not None:
+            target_mask = self.mask.materialize()
+        else:
+            # no padding for the text tokens
+            target_mask = torch.ones((self.speech_repr.shape[0], self.speech_repr.shape[1]), device=self.speech_repr.device).bool()
+        # sum over embed dimension and avg on token level
+        mse_loss = torch.sum(mse_loss[target_mask], dim=1).mean()
+        # hid_dim = self.speech_repr.shape[2]
+        norm_speech_repr = F.normalize(self.speech_repr, dim=2, p=2)[target_mask]
+        norm_text_repr = F.normalize(self.text_repr, dim=2, p=2)[target_mask]
+        cosine_sim = F.cosine_similarity(norm_speech_repr, norm_text_repr, dim=1)
+        cosine_sim_loss = (1 - cosine_sim).mean()
+        acc=None
+        if compute_acc:
+            # use embedding table and text token id to measure the cosine acc
+            # additionally, we can compute the cosine sim btw each speech repr against all text repr 
+            # and find the most similar one
+            pass
+        # check if best matches is the corresponding inde 
+        out = {
+            "mse_loss": mse_loss, 
+            "cosine_sim_loss": cosine_sim_loss, 
+            "acc": acc,
+            "target_size": target_mask.sum().item()
+        }
+        return out

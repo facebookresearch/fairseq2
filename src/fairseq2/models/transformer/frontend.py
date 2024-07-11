@@ -143,9 +143,12 @@ class TransformerEmbeddingFrontend(TransformerFrontend):
         padding_mask: Optional[PaddingMask],
         *,
         state_bag: Optional[IncrementalStateBag] = None,
+        return_raw_embed: bool =False,
     ) -> Tuple[Tensor, Optional[PaddingMask]]:
         embeds = self.embed(seqs)
-
+        if return_raw_embed:
+            return embeds, padding_mask
+        
         if self.scale != 1.0:
             embeds = embeds * self.scale
 

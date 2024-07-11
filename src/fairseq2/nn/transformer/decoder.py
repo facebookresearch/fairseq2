@@ -232,6 +232,7 @@ class StandardTransformerDecoder(TransformerDecoder):
         encoder_padding_mask: Optional[PaddingMask] = None,
         *,
         state_bag: Optional[IncrementalStateBag] = None,
+        blockwise_attn_mask = None
     ) -> Tuple[Tensor, Optional[PaddingMask]]:
         if self._layer_output_hooks and self.layer_drop_p > 0.0 and self.training:
             raise RuntimeError(
@@ -255,6 +256,7 @@ class StandardTransformerDecoder(TransformerDecoder):
                 encoder_output,
                 encoder_padding_mask,
                 state_bag=state_bag,
+                blockwise_attn_mask=blockwise_attn_mask
             )
 
             if drop:

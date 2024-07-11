@@ -56,13 +56,14 @@ class InstructionFinetuneConfig:
     """Holds the configuration of a language model instruction-finetuning task."""
 
     # Data
-    dataset: Union[str, Path] = "openeft"  # TODO: change!
+    # dataset: Union[str, Path] = "/fsx-ust/steventan0110/dataset/dinosr_train/mls_en"
+    dataset: Union[str, Path] = "openeft"
     """The name or path to the asset card of the instruction dataset."""
 
-    max_seq_len: int = 8192
+    max_seq_len: int = 4096
     """The maximum sequence length."""
 
-    max_num_tokens: int = 8192 * 2
+    max_num_tokens: int = 4096 * 2
     """The maximum number of tokens per batch."""
 
     example_shuffle_window: int = 10_000
@@ -75,7 +76,7 @@ class InstructionFinetuneConfig:
     """The number of batches to prefetch in background."""
 
     # Model
-    model: Union[str, Path] = "llama3_8b_instruct"
+    model: Union[str, Path] = "llama3_8b"
     """The name or path to the asset card of the language model to finetune."""
 
     dtype: DataType = torch.bfloat16
@@ -235,12 +236,28 @@ def load_instruction_finetuner(
 
     # Load the dataset.
     dataset_card = retrieve_asset_card(config.dataset)
-
+    
     log.info("Loading {} instruction dataset.", dataset_card.name)
 
-    dataset = load_instruction_dataset(dataset_card)
 
+    dataset = load_instruction_dataset(dataset_card)
     log.info("Dataset loaded.")
+
+    data_reader = dataset.create_reader(
+        tokenizer,
+        dp_gang,
+        config.max_seq_len,
+        batching=LengthBatching(config.max_num_tokens),
+        example_shuffle_window=config.example_shuffle_window,
+        batch_shuffle_window=config.batch_shuffle_window,
+        num_accumulate=config.gradient_accumulation,
+        num_prefetch=config.num_prefetch,
+        seed=config.seed,
+    )
+    for item in data_reader:
+        print(item)
+        exit(0)
+
 
     # Load the model.
     init_device = META

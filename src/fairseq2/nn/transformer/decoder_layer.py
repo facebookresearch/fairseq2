@@ -228,8 +228,9 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         encoder_padding_mask: Optional[PaddingMask] = None,
         *,
         state_bag: Optional[IncrementalStateBag] = None,
+        blockwise_attn_mask = None
     ) -> Tuple[Tensor, Optional[PaddingMask]]:
-        seqs = self._forward_self_attn(seqs, padding_mask, self_attn_mask, state_bag)
+        seqs = self._forward_self_attn(seqs, padding_mask, self_attn_mask, state_bag, blockwise_attn_mask)
 
         seqs = self._forward_encoder_decoder_attn(
             seqs, padding_mask, encoder_output, encoder_padding_mask, state_bag
@@ -245,6 +246,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
         padding_mask: Optional[PaddingMask],
         self_attn_mask: Optional[AttentionMask],
         state_bag: Optional[IncrementalStateBag],
+        blockwise_attn_mask = None
     ) -> Tensor:
         residual = seqs
 
@@ -259,6 +261,7 @@ class StandardTransformerDecoderLayer(TransformerDecoderLayer):
             values=seqs,
             attn_mask=self_attn_mask,
             state_bag=state_bag,
+            blockwise_attn_mask=blockwise_attn_mask
         )
 
         if self.self_attn_norm is not None:

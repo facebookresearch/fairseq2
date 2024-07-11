@@ -107,6 +107,7 @@ class TorchSDPA(SDPA):
         *,
         attn_mask: Optional[AttentionMask] = None,
         needs_weights: bool = False,
+        blockwise_attn_mask=None
     ) -> Tuple[Tensor, Optional[Tensor]]:
         if needs_weights:
             if not self._has_warned:
@@ -159,6 +160,15 @@ class TorchSDPA(SDPA):
         else:
             mask = None
 
+        
+        if blockwise_attn_mask is not None:
+            # blockwise attn is prepared as (bz, S, S)
+            blockwise_attn_mask = blockwise_attn_mask.to(mask.dtype)
+            blockwise_attn_mask.log_()
+            # bz x H x S, S_kv, where S=S_kv=385 for example, bz =12, H=32
+            blockwise_attn_mask = blockwise_attn_mask.unsqueeze(1).expand_as(mask)
+            mask = mask + blockwise_attn_mask
+ 
         with _with_memory_efficient_kernel(self._enable_memory_efficient):
             attn = scaled_dot_product_attention(
                 seqs,
