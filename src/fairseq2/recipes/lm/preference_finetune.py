@@ -6,6 +6,7 @@ from typing import Any, Literal, Optional, Tuple, Union
 
 import torch
 import torch.distributed
+from torch.nn import Module
 
 from fairseq2.assets import AssetNotFoundError, default_asset_store
 from fairseq2.assets.utils import retrieve_asset_card
@@ -102,7 +103,7 @@ class PreferenceOptimizationConfig:  # TODO: Should this just inherit from Instr
     """If ``True``, applies ``torch.compile()`` to the decoder. (experimental)"""
 
     # Reference Model
-    reference_model: Union[str, Path] = "llama3_8b_instruct"
+    reference_model: Optional[Union[str, Path]] = "llama3_8b_instruct"
     """The name or path to the asset card of the reference model to use."""
 
     reference_dtype: DataType = torch.bfloat16
@@ -288,36 +289,45 @@ def load_preference_finetuner(
     log_model(dp_model, log, rank=root_gang.rank)
 
     # Load the reference model.
-    # TODO: figure out if a config doesn't need a reference model
-    reference_model_card = retrieve_asset_card(config.reference_model)
+    def _get_reference_model(
+        reference_model_path: Union[str, Path, None]
+    ) -> Union[Module, None]:
+        if reference_model_path is None:
+            return None
 
-    log.info("Loading {} reference model on data parallel rank 0 (per shard).", reference_model_card.name)  # fmt: skip
+        reference_model_card = retrieve_asset_card(reference_model_path)
 
-    # TODO: figure out how to load the reference model onto its own gangs
-    reference_model = load_model(
-        reference_model_card, gangs=gangs, device=init_device, dtype=torch.float32
-    )
+        log.info("Loading {} reference model on data parallel rank 0 (per shard).", reference_model_card.name)  # fmt: skip
 
-    root_gang.barrier()
+        # TODO: figure out how to load the reference model onto its own gangs
+        reference_model = load_model(
+            reference_model_card, gangs=gangs, device=init_device, dtype=torch.float32
+        )
 
-    log.info("Reference model loaded on data parallel rank 0.")
+        root_gang.barrier()
 
-    reference_model.eval()
+        log.info("Reference model loaded on data parallel rank 0.")
 
-    freeze_parameters(reference_model)
+        reference_model.eval()
 
-    dp_reference_model = to_data_parallel(
-        reference_model,
-        dp_gang,
-        config.data_parallelism,
-        log,
-        fsdp_skip_init=True,
-        fsdp_broadcast_state=not has_checkpoint,
-        fsdp_reshard_after_forward=config.fsdp_reshard_after_forward,
-        fsdp_mixed_precision_dtype=config.dtype,
-        fsdp_fp32_reduce=True,
-        fsdp_wrap_granularity=config.fsdp_wrap_granularity,
-    )
+        freeze_parameters(reference_model)
+
+        dp_reference_model = to_data_parallel(
+            reference_model,
+            dp_gang,
+            config.data_parallelism,
+            log,
+            fsdp_skip_init=True,
+            fsdp_broadcast_state=not has_checkpoint,
+            fsdp_reshard_after_forward=config.fsdp_reshard_after_forward,
+            fsdp_mixed_precision_dtype=config.dtype,
+            fsdp_fp32_reduce=True,
+            fsdp_wrap_granularity=config.fsdp_wrap_granularity,
+        )
+
+        return dp_reference_model
+
+    dp_reference_model = _get_reference_model(config.reference_model)
 
     dp_reference_model  # to make flake8 happy, remove once used
 
