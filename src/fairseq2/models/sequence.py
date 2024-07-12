@@ -215,11 +215,9 @@ class SpeechTextReprOutput:
     speech_repr: Tensor
     text_repr: Tensor
     mask: PaddingMask
-    embed_table: Optional[Tensor]=None
-    text_tokens: Optional[Tensor]=None
     mse_loss_fn = nn.MSELoss(reduce=None, reduction="none")
 
-    def compute_loss(self, compute_acc=False) -> Dict[Tensor]:
+    def compute_loss(self, embed_table=None, text_tokens=None, compute_acc=False) -> Dict[Tensor]:
         mse_loss = self.mse_loss_fn(self.speech_repr, self.text_repr)
         if self.mask is not None:
             target_mask = self.mask.materialize()
@@ -233,17 +231,26 @@ class SpeechTextReprOutput:
         norm_text_repr = F.normalize(self.text_repr, dim=2, p=2)[target_mask]
         cosine_sim = F.cosine_similarity(norm_speech_repr, norm_text_repr, dim=1)
         cosine_sim_loss = (1 - cosine_sim).mean()
-        acc=None
+        
+        num_matches=None
         if compute_acc:
-            # use embedding table and text token id to measure the cosine acc
-            # additionally, we can compute the cosine sim btw each speech repr against all text repr 
-            # and find the most similar one
-            pass
-        # check if best matches is the corresponding inde 
+            assert embed_table is not None
+            assert text_tokens is not None
+            "embed: (vocab, dim), text_tokens: (bz, seq_len), norm_speech_repr: (valid_entry, embed_dim)"
+            norm_embed = F.normalize(embed_table, p=2, dim=1)
+            # (entries, dim) x (dim, vocab 0) --> (entries, vocab)
+            text_sim = norm_speech_repr @ (norm_embed.T)
+            closest_indices = torch.argmax(text_sim, dim=1)
+            target_toks = text_tokens[target_mask]
+            num_matches = (closest_indices == target_toks).sum()
+
+        # check if best matches is the corresponding index
+        num_elements = target_mask.sum().item()
+        acc = (num_matches / num_elements).item() if compute_acc else None
         out = {
             "mse_loss": mse_loss, 
             "cosine_sim_loss": cosine_sim_loss, 
             "acc": acc,
-            "target_size": target_mask.sum().item()
+            "target_size": num_elements
         }
         return out

@@ -8,3 +8,10 @@ name: mls_en
 data: /fsx-ust/steventan0110/dataset/dinosr_train/mls_en
 dataset_family: align_speech_text
 data_path: /fsx-ust/steventan0110/dataset/dinosr_train/mls_en
+
+---
+
+name: librispeech_align
+data: /fsx-ust/steventan0110/dataset/dinosr_eval/cont_librispeech/clean
+dataset_family: align_speech_text_librispeech
+data_path: /fsx-ust/steventan0110/dataset/dinosr_eval/cont_librispeech/clean

@@ -57,7 +57,7 @@ def _retrieve_alignment(tokenizer, unity_toks, unity_duration, text, audio_size)
         while True:
             if cur_idx + len(word_to_find) > len(unity_toks):
                 break
-            if ''.join(unity_toks[cur_idx:cur_idx+len(word_to_find)]) == word_to_find:
+            if ''.join(unity_toks[cur_idx:cur_idx+len(word_to_find)]).lower() == word_to_find:
                 # the matched character-based units are found
                 dur_value = dur_list[cur_idx+len(word_to_find)]
                 speech_index = math.ceil(dur_value // 2) if word_id != len(words_to_find) - 1 else dur_value // 2

@@ -132,7 +132,11 @@ class SpeechTransformerDecoderModel(DecoderModel):
         # compute loss against dtext_embedding
         text_seqs, text_mask = text_token.seqs, text_token.padding_mask
         text_embed, _= self.decoder_frontend(text_seqs, text_mask, return_raw_embed=True)
-        return SpeechTextReprOutput(speech_repr=selected_repr, text_repr=text_embed, mask=text_mask)
+        return SpeechTextReprOutput(
+            speech_repr=selected_repr, 
+            text_repr=text_embed, 
+            mask=text_mask,
+        )
 
     @override
     def decode(

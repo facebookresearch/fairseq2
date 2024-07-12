@@ -78,10 +78,12 @@ npc = 10
 class AlignSpeechTextDataset(SpeechTextDataset):
     """Represents a generic JSONL instruction dataset."""
     _data_dir: Path
+    load_librispeech: bool=False
 
-    def __init__(self, data_dir: Path) -> None:
+    def __init__(self, data_dir: Path, load_librispeech=False) -> None:
         self._data_dir = data_dir
-        # print("data dir: ", data_dir)
+        self.load_librispeech = load_librispeech
+
 
     @override
     def create_reader(
@@ -99,7 +101,10 @@ class AlignSpeechTextDataset(SpeechTextDataset):
         seed: int = 2,
         **extras: Any,
     ) -> DataPipelineReader[SpeechTextAlignBatch]:
-        builder = list_files(self._data_dir, pattern="*.jsonl")
+        if self.load_librispeech:
+            builder = list_files(self._data_dir, pattern="*test_small.jsonl")
+        else:
+            builder = list_files(self._data_dir, pattern="*.jsonl")
         # Shuffle files. Must be consistent across all processes.
         if example_shuffle_window != 1:
             builder.shuffle(shuffle_window=0, seed=seed)
@@ -154,8 +159,6 @@ class AlignSpeechTextDataset(SpeechTextDataset):
 
         # Wrap examples with `SequenceBatch`.
         def to_batch(example: Dict[str, Any]) -> SpeechTextAlignBatch:
-            import time
-            start_time = time.time()
             token_seqs, token_padding_mask = get_seqs_and_padding_mask(cast(SequenceData, example["text_tok"]), gang.device)
             # if example["file_id"]["seq_lens"].max().item() % 640 == 0:
             #     # if divisible by 640, the audio repr will be 1 length smaller, 
@@ -221,6 +224,9 @@ class AlignSpeechTextDataset(SpeechTextDataset):
         
 
     def _read_jsonl(self, path: str, tokenizer: TextTokenizer) -> DataPipeline:
+        def _lower_case_text(x):
+            return x.lower()
+            
         text_encoder = tokenizer.create_encoder(mode="speech_text_align")
         lines = []
         # currently we only read json file, later needs to add in the hubert file as well
@@ -228,15 +234,20 @@ class AlignSpeechTextDataset(SpeechTextDataset):
             for line in fp:
                 lines.append(line)
         builder = read_sequence(lines)
-        builder.map(json.loads, num_parallel_calls=npc).map(text_encoder, selector="text")
+        builder.map(json.loads, num_parallel_calls=npc)\
+            .map((lambda x: x.lower()), selector="text", num_parallel_calls=npc)\
+            .map(text_encoder, selector="text", num_parallel_calls=npc)
         return builder.and_return()
     
 
     def _process_alignment(self, input_data, tokenizer):
         def obtain_audio_file(file_id):
-            file_prefix = file_id.split("/")[-1]
-            subdirs = file_prefix.split("_")
-            audio_file = f"/datasets01/mls/mls_english/train/audio/{subdirs[0]}/{subdirs[1]}/{file_prefix}.flac"
+            if self.load_librispeech:
+                audio_file = file_id
+            else:
+                file_prefix = file_id.split("/")[-1]
+                subdirs = file_prefix.split("_")
+                audio_file = f"/datasets01/mls/mls_english/train/audio/{subdirs[0]}/{subdirs[1]}/{file_prefix}.flac"
             # return audio_file
             try:
                 wav, sr = torchaudio.load(audio_file)
@@ -249,7 +260,8 @@ class AlignSpeechTextDataset(SpeechTextDataset):
             retrieve tokens and alignment information from unity_duration
             prepare alignment array as well audios
             """
-            del data["time"]
+            if not self.load_librispeech:
+                del data["time"]
             unity_toks, unity_duration = data["unity_toks"], data["unity_duration"]
             # obtain the alignment btw tokenized text and the unity duration
             alignment, filterd_toks = _retrieve_alignment(
@@ -259,6 +271,9 @@ class AlignSpeechTextDataset(SpeechTextDataset):
                 text=data["text"], # already tokenized
                 audio_size=data["file_id"].shape[0] # audio is 1xseq_len
             )
+            if alignment is None:
+                return None
+
             data["alignment"] = torch.tensor(alignment)
             data["text_tok"] = torch.tensor(filterd_toks)
             data["text"] = text_encoder.decode(filterd_toks)
@@ -266,20 +281,28 @@ class AlignSpeechTextDataset(SpeechTextDataset):
             del data["unity_duration"]
             return data
         # import time
-        # start_time = time.time()
+        # prev_time = time.time()
         
         # print(input_data)
+        # audio_load_time, alignment_time = 0, 0
         text_encoder = tokenizer.create_encoder(mode="speech_text_align")
         output_data = []
         for item in input_data:
-            wav = obtain_audio_file(item["file_id"])
+            if self.load_librispeech:
+                wav = obtain_audio_file(item["audio_file"])
+            else:
+                wav = obtain_audio_file(item["file_id"])
+            # audio_load_time += time.time() - prev_time
+            # prev_time = time.time() 
             if wav is not None:
                 item["file_id"] = wav.squeeze(0)
                 item = process_alignment(text_encoder=text_encoder, data=item)
-                if item["alignment"] is not None:
+                if item is not None:
                     output_data.append(item)
-        # end_time = time.time()
-        # print('forloop use_time :', end_time - start_time)
+            # alignment_time += time.time() - prev_time
+            # prev_time = time.time()
+
+        # print(f'forloop load_time: {audio_load_time}, alignment time : {alignment_time}')
         return output_data
 
 
@@ -297,4 +320,17 @@ class AlignSpeechTextDatasetLoader(AbstractDatasetLoader[AlignSpeechTextDataset]
 load_align_speech_text_dataset = AlignSpeechTextDatasetLoader()
 load_speech_text_dataset.register(
     "align_speech_text", load_align_speech_text_dataset
+)
+
+
+
+@final
+class AlignSpeechTextLibrispeechDatasetLoader(AbstractDatasetLoader[AlignSpeechTextDataset]):
+    @override
+    def _load(self, path: Path, card: AssetCard) -> AlignSpeechTextDataset:
+        return AlignSpeechTextDataset(path, load_librispeech=True)
+    
+load_align_speech_text_librispeech_dataset = AlignSpeechTextLibrispeechDatasetLoader()
+load_speech_text_dataset.register(
+    "align_speech_text_librispeech", load_align_speech_text_librispeech_dataset
 )

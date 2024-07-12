@@ -40,6 +40,7 @@ from fairseq2.optim import AdamW
 from fairseq2.optim.lr_scheduler import CosineAnnealingLR
 from fairseq2.recipes.common_metrics import RepresentationAlignMetricBag
 from fairseq2.recipes.trainer import AbstractTrainUnit, Trainer
+from fairseq2.recipes.evaluator import AbstractEvalUnit
 from fairseq2.recipes.utils.log import log_model
 from fairseq2.recipes.utils.setup import (
     check_model_type,
@@ -61,6 +62,7 @@ class SpeechTextAlignConfig:
     # dataset: Union[str, Path] = "/fsx-ust/steventan0110/dataset/dinosr_train/mls_en"
     dataset: Union[str, Path] = "mls_en"
     """The name or path to the asset card of the instruction dataset."""
+    val_dataset: Union[str, Path] = "librispeech_align"
 
     max_seq_len: int = 1024
     """The maximum sequence length."""
@@ -223,15 +225,15 @@ def load_speech_text_trainer(
     tokenizer = load_text_tokenizer(model_card)
 
     log.info("Tokenizer loaded.")
-    
-    log.info("Loading dataset {}", config.dataset)
 
     # Load the dataset.
     dataset_card = retrieve_asset_card(config.dataset)
-    log.info("Loading {} instruction dataset.", dataset_card.name)
-
     dataset = load_speech_text_dataset(dataset_card)
-    log.info("Dataset loaded.")
+    log.info("Train Dataset {} loaded.", dataset_card.name)
+
+    val_dataset_card = retrieve_asset_card(config.val_dataset)
+    val_dataset = load_speech_text_dataset(val_dataset_card)
+    log.info("Val Dataset {} Loaded", val_dataset_card.name)
 
     # Load the model.
     init_device = META
@@ -299,8 +301,19 @@ def load_speech_text_trainer(
     log_model(dp_model, log, rank=root_gang.rank)
 
     # Initialize the train unit and the optimizer.
-    unit = SpeechTextAlignUnit(dp_model, dp_gang)
     data_reader = dataset.create_reader(
+        tokenizer,
+        dp_gang,
+        config.max_seq_len,
+        config.max_num_tokens,
+        config.min_seq_len,
+        example_shuffle_window=config.example_shuffle_window,
+        batch_shuffle_window=config.batch_shuffle_window,
+        num_accumulate=config.gradient_accumulation,
+        num_prefetch=config.num_prefetch,
+        seed=config.seed,
+    )
+    val_data_reader = val_dataset.create_reader(
         tokenizer,
         dp_gang,
         config.max_seq_len,
@@ -327,11 +340,13 @@ def load_speech_text_trainer(
         final_lr=config.lr * config.final_lr_ratio,
     )
 
+    train_unit = SpeechTextAlignUnit(dp_model, dp_gang)
+    val_unit = SpeechTextAlignEvalUnit(dp_model, dp_gang, display_name="librispeech")
     # Initialize the trainer.
     return Trainer[SpeechTextAlignBatch](
-        unit=unit,
-        # valid_units=[],
-        # valid_data_readers=[],
+        unit=train_unit,
+        valid_units=[val_unit],
+        valid_data_readers=[val_data_reader],
         data_reader=data_reader,
         root_gang=root_gang,
         dp_gang=dp_gang,
@@ -347,7 +362,7 @@ def load_speech_text_trainer(
         checkpoint_every_n_steps=config.checkpoint_every_n_steps,
         keep_last_n_checkpoints=config.keep_last_n_checkpoints,
         keep_last_n_models=config.keep_last_n_models,
-        # validate_after_n_steps=config.validate_after_n_steps,
+        validate_after_n_steps=config.validate_after_n_steps,
         tb_dir=output_dir.joinpath("tb"),
         metrics_dir=output_dir.joinpath("metrics"),
         publish_metrics_every_n_steps=config.publish_metrics_every_n_steps,
@@ -389,6 +404,47 @@ class SpeechTextAlignUnit(AbstractTrainUnit[SpeechTextAlignBatch]):
         cosine_loss_weight = 5
         loss_to_return = loss["mse_loss"] + cosine_loss_weight * loss["cosine_sim_loss"]
         return loss_to_return, loss["target_size"]
+    
+    def _forward(self, batch: SpeechTextAlignBatch) -> SpeechTextReprOutput:
+        return self._model(batch.audios, batch.text_tokens, batch.boundary_index)
+
+    @property
+    @override
+    def metric_bag(self) -> RepresentationAlignMetricBag:
+        return self._metric_bag
+
+
+@final
+class SpeechTextAlignEvalUnit(AbstractEvalUnit[SpeechTextAlignBatch]):
+    """Represents a language model instruction-finetuning unit."""
+
+    _metric_bag: RepresentationAlignMetricBag
+
+    def __init__(self, model: Module, gang: Gang, display_name: Optional[str]=None) -> None:
+        """
+        :param model:
+            The language model. Might be wrapped with DDP or FSDP.
+        :param gang:
+            The gang for distributed training.
+        """
+        super().__init__(model, display_name=display_name)
+        check_model_type(model, SequenceModel)
+        self._metric_bag = RepresentationAlignMetricBag(gang)
+
+    @override
+    def __call__(self, batch: SpeechTextAlignBatch) -> Tuple[Tensor, int]:
+        output = self._forward(batch)
+        embed_table = self._model.decoder_frontend.embed.weight
+        text_tokens = batch.text_tokens.seqs
+        loss = output.compute_loss(embed_table=embed_table, text_tokens=text_tokens, compute_acc=True)
+        num_target_elements = loss["target_size"]
+        self._metric_bag.update_loss(
+            mse_loss=loss["mse_loss"].item(), 
+            cosine_loss=loss["cosine_sim_loss"].item(), 
+            num_target_elements=num_target_elements)
+        self._metric_bag.update_matches(acc=loss["acc"], num_target_elements=num_target_elements)
+        self._metric_bag.update_batch_metrics(batch.text_tokens)
+
     
     def _forward(self, batch: SpeechTextAlignBatch) -> SpeechTextReprOutput:
         return self._model(batch.audios, batch.text_tokens, batch.boundary_index)
